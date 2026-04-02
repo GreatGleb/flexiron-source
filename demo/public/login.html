@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="login.seo.title">Login - Flexiron</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-blue: #1890FF;
+            --primary-blue-hover: #40a9ff;
+            --bg-overlay: rgba(15, 23, 42, 0.7);
+            --card-bg: rgba(255, 255, 255, 0.08); /* slight lightness to pop */
+            --card-border: rgba(255, 255, 255, 0.15);
+            --text-main: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.7);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: #0f172a;
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Top Left Back Button */
+        .top-back-btn {
+            position: absolute;
+            top: 2rem;
+            left: 2rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 1rem;
+            font-weight: 500;
+            z-index: 10;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+
+        .top-back-btn svg {
+            width: 20px;
+            height: 20px;
+            transition: transform 0.3s ease;
+        }
+
+        .top-back-btn:hover {
+            color: white;
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .top-back-btn:hover svg {
+            transform: translateX(-4px);
+        }
+
+        /* Background image with blur */
+        .background-wrapper {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -2;
+            background-image: url('../assets/images/background.avif');
+            background-size: cover;
+            background-position: center;
+        }
+
+        /* Dark overlay + blur */
+        .background-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background: radial-gradient(circle at center, rgba(0,0,0,0.5) 0%, rgba(15,23,42,0.85) 100%);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+        }
+
+        /* Main layout */
+        .container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Glassmorphism Card (Auth Modal) */
+        .hero-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 3.5rem 3rem;
+            max-width: 480px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 
+                inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+                0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            animation: fadeUp 0.8s ease-out forwards;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        @keyframes fadeUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Logo Area */
+        .logo-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 2rem;
+        }
+
+        .logo-icon {
+            height: 40px;
+            width: auto;
+        }
+
+        /* Typography */
+        h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            line-height: 1.2;
+            margin-bottom: 0.5rem;
+            color: white;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        p.subtitle {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            margin-bottom: 2rem;
+            max-width: 400px;
+            margin-left: auto;
+            margin-right: auto;
+            font-weight: 400;
+        }
+
+        /* Form Layout */
+        .auth-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            text-align: left;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .form-label {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .form-input {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 0.875rem 1rem;
+            color: white;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            font-family: inherit;
+            width: 100%;
+        }
+
+        .form-input::placeholder {
+            color: rgba(255, 255, 255, 0.3);
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 3px rgba(24, 144, 255, 0.2);
+            background: rgba(0, 0, 0, 0.5);
+        }
+
+        .form-input:disabled {
+            background: rgba(255, 255, 255, 0.05);
+            color: rgba(255, 255, 255, 0.5);
+            border-color: rgba(255, 255, 255, 0.05);
+        }
+
+        /* Input with icon relative positioning */
+        .input-icon-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .input-icon-wrapper input {
+            padding-right: 3rem;
+        }
+
+        .input-action-icon {
+            position: absolute;
+            right: 1rem;
+            color: rgba(255, 255, 255, 0.4);
+            cursor: pointer;
+            transition: color 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .input-action-icon:hover {
+            color: white;
+        }
+
+        .input-action-icon svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* Form Options & Checkbox */
+        .form-options {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            user-select: none;
+            transition: color 0.2s;
+        }
+
+        .checkbox-label:hover {
+            color: white;
+        }
+
+        .custom-checkbox {
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+            background: rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s;
+        }
+
+        .custom-checkbox:checked {
+            background: var(--primary-blue);
+            border-color: var(--primary-blue);
+        }
+
+        .custom-checkbox:checked::after {
+            content: '';
+            position: absolute;
+            left: 5px;
+            top: 2px;
+            width: 4px;
+            height: 8px;
+            border: solid white;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+        }
+
+        .forgot-link {
+            color: var(--primary-blue);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .forgot-link:hover {
+            color: var(--primary-blue-hover);
+            text-decoration: underline;
+        }
+
+        /* Button */
+        .cta-button {
+            display: inline-flex;
+            width: 100%;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, var(--primary-blue) 0%, #005bb5 100%);
+            color: white;
+            font-weight: 600;
+            font-size: 1rem;
+            padding: 1rem;
+            border-radius: 12px;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 20px rgba(24, 144, 255, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255,255,255,0.1);
+            cursor: pointer;
+            outline: none;
+            margin-top: 1rem;
+        }
+
+        .cta-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(24, 144, 255, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.3);
+        }
+
+        .cta-button:active {
+            transform: translateY(0);
+            box-shadow: 0 4px 10px rgba(24, 144, 255, 0.3), inset 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero-card {
+                padding: 2.5rem 1.5rem;
+            }
+        }
+    
+        /* Language Switcher */
+        .lang-switcher {
+            position: absolute;
+            top: 2rem;
+            right: 2rem;
+            display: inline-flex;
+            gap: 4px;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 4px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 10;
+        }
+
+        .lang-btn {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 600;
+            padding: 0.4rem 0.75rem;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+        }
+
+        .lang-btn:hover {
+            color: white;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .lang-btn.active {
+            color: white;
+            background: var(--primary-blue);
+            box-shadow: 0 2px 8px rgba(24, 144, 255, 0.4);
+        }
+
+    </style>
+<style>[data-i18n] { opacity: 0; }</style>
+    <meta name="description" content="Flexiron ERP" data-i18n="login.seo.description">
+</head>
+<body>
+
+    <!-- Language Switcher -->
+    <div class="lang-switcher">
+        <a href="#" class="lang-btn">RU</a>
+        <a href="#" class="lang-btn">EN</a>
+        <a href="#" class="lang-btn">LT</a>
+    </div>
+
+    <div class="background-wrapper"></div>
+    <div class="background-overlay"></div>
+
+    <div class="container">
+        <div class="hero-card">
+            <div class="logo-container">
+                <img src="../assets/images/Flexiron_Logo_White.svg" alt="Flexiron Logo" class="logo-icon">
+            </div>
+            
+            <h1 data-i18n="login.title">Login to Workspace</h1>
+            
+            <p class="subtitle">
+                <span data-i18n="login.subtitle">Secure link verified. Please enter your password to login.</span>
+            </p>
+
+            <form class="auth-form" action="index.html" method="get">
+                
+                <div class="form-group">
+                    <label class="form-label" data-i18n="login.emailLabel">E-mail (Linked to your invite)</label>
+                    <input type="email" class="form-input" value="director@metalltorg.com" disabled>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" data-i18n="login.pwdLabel">Password</label>
+                    <div class="input-icon-wrapper">
+                        <input type="password" class="form-input" placeholder="••••••••" data-i18n="common.pwdPlaceholder" required autofocus>
+                        <div class="input-action-icon" title="Show password" data-i18n-title="reg.showPassword">
+                            <!-- Eye icon -->
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-options">
+                    <label class="checkbox-label">
+                        <input type="checkbox" class="custom-checkbox" checked>
+                        <span data-i18n="login.remember">Remember me</span>
+                    </label>
+                    
+                    <a href="support.html" class="forgot-link" data-i18n="login.forgot">Forgot password?</a>
+                </div>
+
+                <button type="submit" class="cta-button" data-i18n="login.btnSubmit">Log In</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- i18n Engine -->
+    <script src="../assets/js/lang/public_translations.js"></script>
+    <script src="../assets/js/lang/engine.js"></script>
+</body>
+</html>
+
+
+
+
+
+
+
+

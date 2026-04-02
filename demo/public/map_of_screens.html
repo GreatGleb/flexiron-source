@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="index.seo.title">Flexiron ERP — Screen Catalog</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-blue: #1890FF;
+            --bg-dark: #0f172a;
+            --card-bg: rgba(255, 255, 255, 0.05);
+            --card-border: rgba(255, 255, 255, 0.1);
+            --text-main: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.6);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 4rem;
+        }
+
+        .header {
+            margin-bottom: 3rem;
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .logo-icon {
+            height: 48px;
+        }
+
+        h1 {
+            font-size: 2.25rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #fff 0%, #cbd5e1 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            margin-top: 0.5rem;
+            font-size: 1.125rem;
+        }
+
+        .pages-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .page-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-decoration: none;
+            color: var(--text-main);
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        .page-card:hover {
+            background: rgba(24, 144, 255, 0.1);
+            border-color: rgba(24, 144, 255, 0.4);
+            transform: translateY(-4px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+
+        .page-id {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--primary-blue);
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .page-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .page-status {
+            font-size: 0.875rem;
+            color: #10b981; /* green for ready */
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: auto;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #10b981;
+            border-radius: 50%;
+            display: inline-block;
+            box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+        }
+
+        /* Ambient background glow */
+        .ambient-glow {
+            position: fixed;
+            top: -20%;
+            right: -10%;
+            width: 50vw;
+            height: 50vw;
+            background: radial-gradient(circle, rgba(24,144,255,0.1) 0%, transparent 60%);
+            border-radius: 50%;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        .section-title {
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.35);
+            margin: 2.5rem 0 1rem;
+            padding-bottom: 0.6rem;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .tag {
+            display: inline-block;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            padding: 2px 8px;
+            border-radius: 4px;
+            background: rgba(24,144,255,0.15);
+            color: rgba(24,144,255,0.9);
+            border: 1px solid rgba(24,144,255,0.2);
+        }
+    
+        /* Language Switcher */
+        .lang-switcher {
+            position: absolute;
+            top: 2rem;
+            right: 2rem;
+            display: inline-flex;
+            gap: 4px;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 4px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 10;
+        }
+
+        .lang-btn {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 600;
+            padding: 0.4rem 0.75rem;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+        }
+
+        .lang-btn:hover {
+            color: white;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .lang-btn.active {
+            color: white;
+            background: var(--primary-blue);
+            box-shadow: 0 2px 8px rgba(24, 144, 255, 0.4);
+        }
+
+    </style>
+<style>[data-i18n] { opacity: 0; }</style>
+</head>
+<body>
+
+    <!-- Language Switcher -->
+    <div class="lang-switcher">
+        <a href="#" class="lang-btn">RU</a>
+        <a href="#" class="lang-btn">EN</a>
+        <a href="#" class="lang-btn">LT</a>
+    </div>
+
+    <div class="ambient-glow"></div>
+    <div class="header">
+        <img src="../assets/images/Flexiron_Logo_White.svg" alt="Flexiron" class="logo-icon">
+        <div>
+            <h1 data-i18n="index.title">Screen Catalog</h1>
+            <p class="subtitle" data-i18n="index.subtitle">Internal navigation through HTML mockups</p>
+        </div>
+    </div>
+
+    <h2 class="section-title" data-i18n="index.section1">1. Public Pages</h2>
+    <div class="pages-grid">
+        <a href="index.html" target="_blank" class="page-card">
+            <span class="page-id">00.0</span>
+            <span class="page-title" data-i18n="index.p00">Landing Page</span>
+            <span class="page-status"><span class="status-dot"></span><span data-i18n="index.statusReady">Ready</span></span>
+        </a>
+
+        <a href="login.html" target="_blank" class="page-card">
+            <span class="page-id">00.1</span>
+            <span class="page-title" data-i18n="index.p01">Login (via secret link)</span>
+            <span class="page-status"><span class="status-dot"></span><span data-i18n="index.statusReady">Ready</span></span>
+        </a>
+
+        <a href="register.html" target="_blank" class="page-card">
+            <span class="page-id">00.2</span>
+            <span class="page-title" data-i18n="index.p02">Registration (Create account)</span>
+            <span class="page-status"><span class="status-dot"></span><span data-i18n="index.statusReady">Ready</span></span>
+        </a>
+
+        <a href="support.html" target="_blank" class="page-card">
+            <span class="page-id">01.0</span>
+            <span class="page-title" data-i18n="index.p03">Support Service</span>
+            <span class="page-status"><span class="status-dot"></span><span data-i18n="index.statusReady">Ready</span></span>
+        </a>
+
+        <a href="about.html" target="_blank" class="page-card">
+            <span class="page-id">02.0</span>
+            <span class="page-title" data-i18n="index.p04">About Product</span>
+            <span class="page-status"><span class="status-dot"></span><span data-i18n="index.statusReady">Ready</span></span>
+        </a>
+
+        <a href="terms.html" target="_blank" class="page-card">
+            <span class="page-id">03.0</span>
+            <span class="page-title" data-i18n="index.p05">Terms of Use</span>
+            <span class="page-status"><span class="status-dot"></span><span data-i18n="index.statusReady">Ready</span></span>
+        </a>
+
+        <a href="404.html" target="_blank" class="page-card">
+            <span class="page-id">04.0</span>
+            <span class="page-title" data-i18n="index.p06">404 Error (Page not found)</span>
+            <span class="page-status"><span class="status-dot"></span><span data-i18n="index.statusReady">Ready</span></span>
+        </a>
+    </div>
+
+    <h2 class="section-title" data-i18n="index.section2">Base Templates</h2>
+    <div class="grid">
+        <a href="../admin/base-layout.html" target="_blank" class="page-card">
+            <span class="page-id">05.0</span>
+            <span class="page-title" data-i18n="index.p050">Base ERP Layout (Admin Layout)</span>
+            <p style="font-size:0.82rem;color:rgba(255,255,255,0.45);margin:0.25rem 0 0.5rem;" data-i18n="index.p050Desc">Sidebar + Header + Page container. Use as a base for all modules.</p>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                <span class="tag">Glassmorphism</span>
+                <span class="tag">Self-contained</span>
+            </div>
+            <span class="page-status"><span class="status-dot"></span><span data-i18n="index.statusReady">Ready</span></span>
+        </a>
+    </div>
+
+    <h2 class="section-title" data-i18n="index.section3">2. Workspace (Core ERP)</h2>
+    <div class="grid">
+        <a href="../admin/analytic_dashboard.html" target="_blank" class="page-card">
+            <span class="page-id">7.1</span>
+            <span class="page-title" data-i18n="index.p71">KPI Executive Dashboard</span>
+            <p style="font-size:0.82rem;color:rgba(255,255,255,0.45);margin:0.25rem 0 0.5rem;" data-i18n="index.p71Desc">Warehouse, receivables, sales, profit + alerts.</p>
+            <span class="page-status"><span class="status-dot"></span><span data-i18n="index.statusReady">Ready</span></span>
+        </a>
+        <a href="../admin/analytic_warehouse.html" target="_blank" class="page-card">
+            <span class="page-id">7.2</span>
+            <span class="page-title" data-i18n="index.p72">Warehouse Analytics</span>
+            <p style="font-size:0.82rem;color:rgba(255,255,255,0.45);margin:0.25rem 0 0.5rem;" data-i18n="index.p72Desc">Dead stock, offcuts, turnover rate.</p>
+            <span class="page-status"><span class="status-dot"></span><span data-i18n="index.statusReady">Ready</span></span>
+        </a>
+        <a href="../admin/analytic_sales.html" target="_blank" class="page-card">
+            <span class="page-id">7.3</span>
+            <span class="page-title" data-i18n="index.p73">Sales Analytics</span>
+            <p style="font-size:0.82rem;color:rgba(255,255,255,0.45);margin:0.25rem 0 0.5rem;" data-i18n="index.p73Desc">Top clients, leader products, rejection reasons.</p>
+            <span class="page-status"><span class="status-dot"></span><span data-i18n="index.statusReady">Ready</span></span>
+        </a>
+        <a href="../admin/analytic_supply.html" target="_blank" class="page-card">
+            <span class="page-id">7.4</span>
+            <span class="page-title" data-i18n="index.p74">Procurement & Suppliers</span>
+            <p style="font-size:0.82rem;color:rgba(255,255,255,0.45);margin:0.25rem 0 0.5rem;" data-i18n="index.p74Desc">Supplier reliability, price dynamics.</p>
+            <span class="page-status"><span class="status-dot"></span><span data-i18n="index.statusReady">Ready</span></span>
+        </a>
+        <a href="../admin/analytic_staff.html" target="_blank" class="page-card">
+            <span class="page-id">7.5</span>
+            <span class="page-title" data-i18n="index.p75">Staff KPI</span>
+            <p style="font-size:0.82rem;color:rgba(255,255,255,0.45);margin:0.25rem 0 0.5rem;" data-i18n="index.p75Desc">Margin performance, warehouse speed.</p>
+            <span class="page-status"><span class="status-dot"></span><span data-i18n="index.statusReady">Ready</span></span>
+        </a>
+        <a href="../admin/analytic_logistics.html" target="_blank" class="page-card">
+            <span class="page-id">7.6</span>
+            <span class="page-title" data-i18n="index.p76">Logistics Analytics</span>
+            <p style="font-size:0.82rem;color:rgba(255,255,255,0.45);margin:0.25rem 0 0.5rem;" data-i18n="index.p76Desc">Trips, vehicle load, delivery profitability.</p>
+            <span class="page-status"><span class="status-dot"></span><span data-i18n="index.statusReady">Ready</span></span>
+        </a>
+        <a href="../admin/analytic_pl-report.html" target="_blank" class="page-card">
+            <span class="page-id">7.7</span>
+            <span class="page-title" data-i18n="index.p77">Management P&amp;L Report</span>
+            <p style="font-size:0.82rem;color:rgba(255,255,255,0.45);margin:0.25rem 0 0.5rem;" data-i18n="index.p77Desc">Financial result + payment calendar.</p>
+            <span class="page-status"><span class="status-dot"></span><span data-i18n="index.statusReady">Ready</span></span>
+        </a>
+        <a href="../admin/analytic_deficit.html" target="_blank" class="page-card">
+            <span class="page-id">7.8</span>
+            <span class="page-title" data-i18n="index.p78">Deficit Analytics</span>
+            <p style="font-size:0.82rem;color:rgba(255,255,255,0.45);margin:0.25rem 0 0.5rem;" data-i18n="index.p78Desc">Buyer signal, recommended purchase list.</p>
+            <span class="page-status"><span class="status-dot"></span><span data-i18n="index.statusReady">Ready</span></span>
+        </a>
+    </div>
+
+    <!-- i18n Engine -->
+    <script src="../assets/js/lang/public_translations.js"></script>
+    <script src="../assets/js/lang/engine.js"></script>
+</body>
+</html>

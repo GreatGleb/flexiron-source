@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="index.seo.title">Flexiron - Metal Center Management Ecosystem</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-blue: #1890FF;
+            --primary-blue-hover: #40a9ff;
+            --bg-overlay: rgba(15, 23, 42, 0.7);
+            --card-bg: rgba(255, 255, 255, 0.08);
+            --card-border: rgba(255, 255, 255, 0.15);
+            --text-main: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.7);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: #0f172a;
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Background image with blur */
+        .background-wrapper {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -2;
+            background-image: url('../assets/images/background.avif');/* Industrial/sparks placeholder */
+            background-size: cover;
+            background-position: center;
+        }
+
+        /* Dark overlay + blur */
+        .background-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            /* Radial gradient to focus light on center slightly */
+            background: radial-gradient(circle at center, rgba(0,0,0,0.5) 0%, rgba(15,23,42,0.85) 100%);
+            backdrop-filter: blur(12px); /* Blur applied to background */
+            -webkit-backdrop-filter: blur(12px);
+        }
+
+        /* Main layout */
+        .container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Glassmorphism Card */
+        .hero-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 4rem;
+            max-width: 800px;
+            width: 100%;
+            text-align: center;
+            /* Inner glow effect via box-shadow */
+            box-shadow: 
+                inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+                0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            animation: fadeUp 0.8s ease-out forwards;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        @keyframes fadeUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Logo Area */
+        .logo-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 2.5rem;
+        }
+
+        .logo-icon {
+            width: 48px;
+            height: 48px;
+            object-fit: contain;
+            
+        }
+
+        .logo-text {
+            font-size: 2rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        /* Typography inside card */
+        h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            line-height: 1.2;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(135deg, #fff 0%, #cbd5e1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        p.subtitle {
+            font-size: 1.125rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 3.5rem;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* Buttons */
+        .cta-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, var(--primary-blue) 0%, #005bb5 100%);
+            color: white;
+            font-weight: 600;
+            font-size: 1.125rem;
+            padding: 1rem 3.5rem;
+            border-radius: 12px;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 20px rgba(24, 144, 255, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255,255,255,0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Button Hover glow effect */
+        .cta-button::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, transparent 60%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .cta-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(24, 144, 255, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.3);
+        }
+
+        .cta-button:hover::after {
+            opacity: 1;
+        }
+
+        .cta-button:active {
+            transform: translateY(0);
+            box-shadow: 0 4px 10px rgba(24, 144, 255, 0.3), inset 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Secondary Button Style */
+        .cta-button.secondary {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+        }
+        .cta-button.secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.4);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Button Group Layout */
+        .cta-group {
+            display: flex;
+            gap: 1.5rem;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        /* Footer */
+        .footer {
+            padding: 2rem;
+            display: flex;
+            justify-content: center;
+            gap: 2.5rem;
+            z-index: 1;
+            position: relative;
+        }
+
+        .footer-link {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.875rem;
+            transition: color 0.3s ease;
+            position: relative;
+        }
+
+        .footer-link:hover {
+            color: white;
+        }
+
+        .footer-link::after {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 1px;
+            bottom: -4px;
+            left: 0;
+            background-color: white;
+            transition: width 0.3s ease;
+        }
+
+        .footer-link:hover::after {
+            width: 100%;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero-card {
+                padding: 2.5rem 1.5rem;
+            }
+            h1 {
+                font-size: 2rem;
+            }
+            .logo-text {
+                font-size: 1.5rem;
+            }
+            .logo-icon {
+                width: 36px;
+                height: 36px;
+            }
+        }
+    
+        /* Language Switcher */
+        .lang-switcher {
+            position: absolute;
+            top: 2rem;
+            right: 2rem;
+            display: inline-flex;
+            gap: 4px;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 4px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 10;
+        }
+
+        .lang-btn {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 600;
+            padding: 0.4rem 0.75rem;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+        }
+
+        .lang-btn:hover {
+            color: white;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .lang-btn.active {
+            color: white;
+            background: var(--primary-blue);
+            box-shadow: 0 2px 8px rgba(24, 144, 255, 0.4);
+        }
+
+    </style>
+<style>[data-i18n] { opacity: 0; }</style>
+    <meta name="description" content="Flexiron ERP" data-i18n="index.seo.description">
+</head>
+<body>
+
+    <!-- Language Switcher -->
+    <div class="lang-switcher">
+        <a href="#" class="lang-btn">RU</a>
+        <a href="#" class="lang-btn">EN</a>
+        <a href="#" class="lang-btn">LT</a>
+    </div>
+
+    <div class="background-wrapper"></div>
+    <div class="background-overlay"></div>
+
+    <div class="container">
+        <div class="hero-card">
+            <div class="logo-container">
+                <img src="../assets/images/Flexiron_Logo_White.svg" alt="Flexiron Logo" class="logo-icon" style="width: auto; height: 48px; ">
+            </div>
+            
+            <h1 data-i18n="landing.title">Metal Service Center Ecosystem</h1>
+            
+            <p data-i18n="landing.subtitle" class="subtitle">Transparent accounting, smart warehouse, and automated offcuts in one click.<br>Next-generation ERP system for metal production and trading.</p>
+
+            <div class="cta-group">
+                <a href="register.html" data-i18n="landing.btnReg" class="cta-button">Registration</a>
+                <a href="../admin/analytic_dashboard.html" data-i18n="landing.btnDemo" class="cta-button secondary">Watch Demo</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <a href="support.html" data-i18n="landing.support" class="footer-link">Support</a>
+        <a href="about.html" data-i18n="landing.about" class="footer-link">About Product</a>
+        <a href="terms.html" data-i18n="landing.terms" class="footer-link">Terms of Use</a>
+        <a href="map_of_screens.html" data-i18n="landing.indexMap" class="footer-link">Screen Catalog</a>
+    </div>
+
+    <!-- Initialization of Language Switcher -->
+    
+    
+
+    <!-- i18n Engine -->
+    <script src="../assets/js/lang/public_translations.js"></script>
+    <script src="../assets/js/lang/engine.js"></script>
+</body>
+</html>
+
+
+
+
+
+
+
+

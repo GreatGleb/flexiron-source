@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="page.seo.title">Flexiron ERP — Admin Layout</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary:        #1890FF;
+            --primary-dark:   #005bb5;
+            --danger:         #ff4d4f;
+            --sidebar-w:      280px;
+            --header-h:       64px;
+            --glass-light:    rgba(255, 255, 255, 0.10);
+            --glass-border:   rgba(255, 255, 255, 0.18);
+            --glass-glow:     rgba(255, 255, 255, 0.22);
+            --text:           #ffffff;
+            --text-dim:       rgba(255, 255, 255, 0.65);
+            --text-nav:       rgba(255, 255, 255, 0.90);
+        }
+
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
+        html, body { height: 100%; overflow: hidden; }
+        body { background-color: #0f172a; }
+
+        .bg-image { position: fixed; inset: 0; z-index: 0; background: url('https://images.unsplash.com/photo-1504917595217-d4dc5ebe6122?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80') center/cover no-repeat; }
+        .bg-overlay { position: fixed; inset: 0; z-index: 1; background: radial-gradient(circle at 40% 50%, rgba(15,23,42,0.70) 0%, rgba(15,23,42,0.88) 100%); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+
+        .shell { position: relative; z-index: 10; display: grid; grid-template-columns: var(--sidebar-w) 1fr; grid-template-rows: var(--header-h) 1fr; grid-template-areas: "sidebar header" "sidebar main"; height: 100vh; width: 100vw; }
+
+        .sidebar { grid-area: sidebar; display: flex; flex-direction: column; height: 100vh; background: var(--glass-light); backdrop-filter: blur(28px); -webkit-backdrop-filter: blur(28px); border-right: 1px solid var(--glass-border); box-shadow: inset -1px 0 0 var(--glass-glow); }
+        .logo-wrap { padding: 0 1.5rem; height: var(--header-h); display: flex; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08); flex-shrink: 0; }
+        .logo-link { display: flex; align-items: center; gap: 10px; text-decoration: none; cursor: pointer; }
+        .logo-img { height: 30px; width: auto; filter: brightness(0) invert(1); transition: filter 0.25s ease; }
+        .logo-link:hover .logo-img, .logo-link:active .logo-img { filter: brightness(0) invert(1) drop-shadow(0 0 10px rgba(24,144,255,0.75)); }
+        .nav { flex: 1; overflow-y: auto; padding: 0.75rem 0.75rem 0; list-style: none; }
+        .nav::-webkit-scrollbar { width: 0; }
+        .nav-group-label { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.28); padding: 1rem 0.75rem 0.4rem; }
+        .nav-link { display: flex; align-items: center; gap: 12px; padding: 0.72rem 1.1rem; color: var(--text-nav); text-decoration: none; border-radius: 10px; font-size: 0.925rem; font-weight: 500; letter-spacing: -0.01em; position: relative; transition: background 0.18s, color 0.18s, transform 0.18s; }
+        .nav-link:hover { color: #fff; background: rgba(255,255,255,0.09); transform: translateX(3px); }
+        .nav-link:active { color: var(--primary); background: rgba(24,144,255,0.1); }
+        .nav-link.active { color: #fff; font-weight: 600; background: rgba(24,144,255,0.16); box-shadow: inset 0 0 0 1px rgba(24,144,255,0.22); }
+        .nav-link.active::before { content: ''; position: absolute; left: 0; top: 20%; height: 60%; width: 3px; background: var(--primary); border-radius: 0 3px 3px 0; box-shadow: 0 0 8px var(--primary); }
+        .nav-icon { width: 20px; height: 20px; stroke-width: 2; flex-shrink: 0; transition: transform 0.2s; }
+        .sidebar-footer { padding: 0.75rem; border-top: 1px solid rgba(255,255,255,0.08); flex-shrink: 0; }
+        .settings-link { display: flex; align-items: center; gap: 12px; padding: 0.72rem 1.1rem; color: var(--text-nav); text-decoration: none; border-radius: 10px; font-size: 0.925rem; font-weight: 500; transition: background 0.18s, color 0.18s; }
+
+        .topbar { grid-area: header; display: flex; align-items: center; justify-content: space-between; padding: 0 1.75rem; background: var(--glass-light); backdrop-filter: blur(28px); -webkit-backdrop-filter: blur(28px); border-bottom: 1px solid var(--glass-border); box-shadow: inset 0 -1px 0 var(--glass-glow); position: relative; z-index: 50; }
+        .page-title { color: #fff; font-size: 1.25rem; font-weight: 700; letter-spacing: -0.02em; white-space: nowrap; margin-right: 1.5rem; }
+        .topbar-right { display: flex; align-items: center; gap: 1.25rem; flex: 1; justify-content: flex-end; }
+        .search-wrap { position: relative; display: flex; align-items: center; flex: 1; max-width: 340px; }
+        .search-wrap input { width: 100%; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.18); border-radius: 10px; padding: 0.6rem 1rem 0.6rem 2.6rem; color: #fff; font-size: 0.9rem; font-weight: 500; transition: border-color 0.2s, background 0.2s; }
+        .lang-switcher { display: flex; background: rgba(0,0,0,0.18); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 3px; gap: 2px; flex-shrink: 0; }
+        .lang-btn { padding: 4px 11px; font-size: 0.78rem; font-weight: 700; color: rgba(255,255,255,0.8); text-decoration: none; border-radius: 6px; transition: all 0.2s; cursor: pointer; }
+        .notif-btn { background: none; border: none; cursor: pointer; color: rgba(255,255,255,0.88); padding: 8px; border-radius: 10px; position: relative; display: flex; align-items: center; justify-content: center; }
+        .user-profile { display: flex; align-items: center; gap: 11px; padding: 5px 10px 5px 18px; border-left: 1px solid rgba(255,255,255,0.14); cursor: pointer; }
+        .user-avatar { width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--primary-dark)); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 0.9rem; border: 2px solid rgba(255,255,255,0.18); }
+
+        .main { grid-area: main; overflow-y: auto; padding: 1.5rem 1.75rem; display: flex; flex-direction: column; }
+        .page-container { flex: 1; background: var(--glass-light); border: 1px solid var(--glass-border); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06), 0 24px 48px rgba(0,0,0,0.3); backdrop-filter: blur(22px); -webkit-backdrop-filter: blur(22px); border-radius: 16px; padding: 2.5rem; display: flex; align-items: center; justify-content: center; }
+        .placeholder { text-align: center; }
+        .placeholder-icon { width: 52px; height: 52px; margin: 0 auto 1.2rem; color: rgba(255,255,255,0.18); }
+    </style>
+<style>[data-i18n] { opacity: 0; }</style>
+</head>
+<body>
+    <div class="bg-image"></div>
+    <div class="bg-overlay"></div>
+    <div class="shell">
+        <aside class="sidebar">
+            <div class="logo-wrap">
+                <a class="logo-link" href="#"><img class="logo-img" src="../assets/images/Flexiron_Logo_White.svg" alt="Flexiron"></a>
+            </div>
+            <ul class="nav">
+                <li><a href="#" class="nav-link active"><svg class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/><path stroke-linecap="round" stroke-linejoin="round" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"/></svg><span data-i18n="side.analytics">Analytics</span></a></li>
+                <div class="nav-group-label" data-i18n="side.modules">Modules</div>
+                <li><a href="#" class="nav-link"><svg class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 11h.01M7 15h.01M11 7h.01M11 11h.01M11 15h.01M15 7h.01M15 11h.01M15 15h.01M19 7h.01M19 11h.01M19 15h.01M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg><span data-i18n="side.items">Products</span></a></li>
+                <li><a href="#" class="nav-link"><svg class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg><span data-i18n="side.warehouse">Warehouse</span></a></li>
+                <li><a href="#" class="nav-link"><svg class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg><span data-i18n="side.sales">Sales & CRM</span></a></li>
+                <li><a href="#" class="nav-link"><svg class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg><span data-i18n="side.supply">Procurement</span></a></li>
+                <li><a href="#" class="nav-link"><svg class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><span data-i18n="side.finance">Finance</span></a></li>
+            </ul>
+            <div class="sidebar-footer">
+                <a href="#" class="settings-link"><svg class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg><span data-i18n="side.settings">Settings</span></a>
+            </div>
+        </aside>
+
+        <header class="topbar">
+            <h1 class="page-title"><span data-i18n="head.title">Dashboard</span></h1>
+            <div class="topbar-right">
+                <div class="search-wrap">
+                    <svg class="search-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    <input type="text" placeholder="Search orders, clients..." data-i18n="head.internal_search">
+                </div>
+                <div class="lang-switcher">
+                    <a class="lang-btn" href="#">RU</a>
+                    <a class="lang-btn" href="#">EN</a>
+                    <a class="lang-btn" href="#">LT</a>
+                </div>
+                <button class="notif-btn"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg><span class="badge-dot"></span></button>
+                <div class="user-profile">
+                    <div class="user-avatar">MV</div>
+                    <div class="user-info">
+                        <span class="user-name" data-i18n="head.user">Maxim V.</span>
+                        <span class="user-role" data-i18n="head.role">Director</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="main">
+            <div class="page-container">
+                <div class="placeholder">
+                    <svg class="placeholder-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/></svg>
+                    <h2>Page Content</h2>
+                    <p>Active module content will be placed here</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Translation Engine scripts -->
+    <script src="../assets/js/lang/admin_common.js"></script>
+    <script src="../assets/js/lang/engine.js"></script>
+</body>
+</html>
