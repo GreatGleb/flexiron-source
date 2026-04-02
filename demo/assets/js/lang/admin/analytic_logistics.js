@@ -1,6 +1,6 @@
 if (typeof translations === 'undefined') { var translations = { ru: {}, en: {}, lt: {} }; }
 translations.ru.page = {
-    seo: { title: "Flexiron ERP — Логистика", description: "Анализ рейсов и транспортных затрат." },
+    seo: { title: "Flexiron — Логистика", description: "Анализ рейсов и транспортных затрат." },
     header_title: "Логистика и доставка",
     kpi1_label: "Рейсов (мес.)",
     kpi2_label: "Средняя загрузка",
@@ -32,7 +32,7 @@ translations.ru.page = {
     week4: "Неделя 4"
 };
 translations.en.page = {
-    seo: { title: "Flexiron ERP — Logistics", description: "Analysis of trips and transport costs." },
+    seo: { title: "Flexiron — Logistics", description: "Analysis of trips and transport costs." },
     header_title: "Logistics & Delivery",
     kpi1_label: "Trips (month)",
     kpi2_label: "Avg Load",
@@ -64,7 +64,7 @@ translations.en.page = {
     week4: "Week 4"
 };
 translations.lt.page = {
-    seo: { title: "Flexiron ERP — Logistika", description: "Reisų ir transporto išlaidų analizė." },
+    seo: { title: "Flexiron — Logistika", description: "Reisų ir transporto išlaidų analizė." },
     header_title: "Logistika ir pristatymas",
     kpi1_label: "Reisai (mėn.)",
     kpi2_label: "Vidutinis pakrovimas",

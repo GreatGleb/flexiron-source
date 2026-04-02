@@ -1,6 +1,6 @@
 if (typeof translations === 'undefined') { var translations = { ru: {}, en: {}, lt: {} }; }
 translations.ru.page = {
-    seo: { title: "Flexiron ERP — Складская аналитика", description: "Инструменты аналитики Flexiron для управления складом." },
+    seo: { title: "Flexiron — Складская аналитика", description: "Инструменты аналитики Flexiron для управления складом." },
     header_title: "Складская аналитика",
     kpi1_label: "Стоимость склада",
     kpi2_label: "Мёртвые остатки",
@@ -37,7 +37,7 @@ translations.ru.page = {
     val_78days: "78 дней"
 };
 translations.en.page = {
-    seo: { title: "Flexiron ERP — Warehouse Analytics", description: "Flexiron analytical tools for warehouse management." },
+    seo: { title: "Flexiron — Warehouse Analytics", description: "Flexiron analytical tools for warehouse management." },
     header_title: "Warehouse Analytics",
     kpi1_label: "Warehouse Value",
     kpi2_label: "Dead Stock",
@@ -74,7 +74,7 @@ translations.en.page = {
     val_78days: "78 days"
 };
 translations.lt.page = {
-    seo: { title: "Flexiron ERP — Sandėlio analitika", description: "Flexiron analitiniai įrankiai sandėlio valdymui." },
+    seo: { title: "Flexiron — Sandėlio analitika", description: "Flexiron analitiniai įrankiai sandėlio valdymui." },
     header_title: "Sandėlio analitika",
     kpi1_label: "Sandėlio vertė",
     kpi2_label: "Mirusios atsargos",

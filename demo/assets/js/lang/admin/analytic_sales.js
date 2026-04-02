@@ -1,6 +1,6 @@
 if (typeof translations === 'undefined') { var translations = { ru: {}, en: {}, lt: {} }; }
 translations.ru.page = {
-    seo: { title: "Flexiron ERP — Аналитика продаж", description: "Инструменты аналитики Flexiron для отдела продаж." },
+    seo: { title: "Flexiron — Аналитика продаж", description: "Инструменты аналитики Flexiron для отдела продаж." },
     header_title: "Аналитика продаж",
     kpi1_label: "Выручка (мес.)",
     kpi2_label: "Активные клиенты",
@@ -21,7 +21,7 @@ translations.ru.page = {
     reason3: "Долгая поставка"
 };
 translations.en.page = {
-    seo: { title: "Flexiron ERP — Sales Analytics", description: "Flexiron analytical tools for sales team." },
+    seo: { title: "Flexiron — Sales Analytics", description: "Flexiron analytical tools for sales team." },
     header_title: "Sales Analytics",
     kpi1_label: "Revenue (month)",
     kpi2_label: "Active Clients",
@@ -42,7 +42,7 @@ translations.en.page = {
     reason3: "Long Lead Time"
 };
 translations.lt.page = {
-    seo: { title: "Flexiron ERP — Pardavimų analitika", description: "Flexiron analitiniai įrankiai pardavimų skyriui." },
+    seo: { title: "Flexiron — Pardavimų analitika", description: "Flexiron analitiniai įrankiai pardavimų skyriui." },
     header_title: "Pardavimų analitika",
     kpi1_label: "Pajamos (mėn.)",
     kpi2_label: "Aktyvūs klientai",

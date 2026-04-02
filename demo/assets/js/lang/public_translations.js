@@ -7,7 +7,7 @@ const translations = {
             pwdPlaceholder: "••••••••"
         },
         landing: {
-            seo: { title: "Flexiron ERP — Умное управление металлоцентром", description: "Экосистема для управления металлоцентром: складской учет, CRM и автоматизация документов." },
+            seo: { title: "Flexiron — Умное управление металлоцентром", description: "Экосистема для управления металлоцентром: складской учет, CRM и автоматизация документов." },
             title: "Экосистема управления металлоцентром",
             subtitle: "Прозрачный учет, умный склад и автоматизация обрезков в один клик.<br>ERP-система нового поколения для производства и торговли металлом.",
             btnReg: "Регистрация",
@@ -18,7 +18,7 @@ const translations = {
             indexMap: "Карта экранов"
         },
         index: {
-            seo: { title: "Flexiron ERP — Карта экранов", description: "Навигационная карта интерфейсов системы Flexiron." },
+            seo: { title: "Flexiron — Карта экранов", description: "Навигационная карта интерфейсов системы Flexiron." },
             title: "Каталог экранов",
             subtitle: "Внутренняя навигация по HTML-макетам",
             statusReady: "Готово",
@@ -52,7 +52,7 @@ const translations = {
             p78Desc: "Сигнал закупщику, рекомендованный список закупок."
         },
         login: {
-            seo: { title: "Flexiron ERP — Вход в систему", description: "Авторизация в рабочем пространстве Flexiron." },
+            seo: { title: "Flexiron — Вход в систему", description: "Авторизация в рабочем пространстве Flexiron." },
             title: "Вход в рабочее пространство",
             subtitle: "Безопасный доступ подтвержден. Введите пароль для входа.",
             emailLabel: "E-mail (привязан к вашему приглашению)",
@@ -62,7 +62,7 @@ const translations = {
             btnSubmit: "Войти в систему"
         },
         reg: {
-            seo: { title: "Flexiron ERP — Регистрация", description: "Создайте аккаунт и начните бесплатный 14-дневный период." },
+            seo: { title: "Flexiron — Регистрация", description: "Создайте аккаунт и начните бесплатный 14-дневный период." },
             termsLink: "Условиями использования",
             showPassword: "Показать пароль",
             title: "Создайте аккаунт",
@@ -84,7 +84,7 @@ const translations = {
             terms: "Нажимая кнопку, вы соглашаетесь с нашими"
         },
         support: {
-            seo: { title: "Flexiron ERP — Служба поддержки", description: "Свяжитесь с нашей командой поддержки 24/7." },
+            seo: { title: "Flexiron — Служба поддержки", description: "Свяжитесь с нашей командой поддержки 24/7." },
             title: "Служба поддержки",
             subtitle: "Мы на связи 24/7. Выберите удобный способ для связи с нашей командой.",
             telegram: "Telegram",
@@ -92,7 +92,7 @@ const translations = {
             backBtn: "Вернуться на главную"
         },
         about: {
-            seo: { title: "Flexiron ERP — О платформе", description: "Узнайте больше о возможностях ERP системы Flexiron." },
+            seo: { title: "Flexiron — О платформе", description: "Узнайте больше о возможностях ERP системы Flexiron." },
             title: "О платформе Flexiron",
             subtitle: "Мы создаем ERP-систему нового поколения для производства и торговли металлом, заменяя хаос таблиц и разрозненного ПО на прозрачный и автоматизированный учет.",
             f1Title: "Умный склад и остатки",
@@ -106,7 +106,7 @@ const translations = {
             btnTrial: "Попробовать бесплатно"
         },
         terms: {
-            seo: { title: "Flexiron ERP — Условия использования", description: "Юридические условия использования платформы Flexiron." },
+            seo: { title: "Flexiron — Условия использования", description: "Юридические условия использования платформы Flexiron." },
             title: "Условия использования",
             subtitle: "Обновлено: Март 2026",
             btnAccept: "Я согласен, вернуться на главную",
@@ -124,7 +124,7 @@ const translations = {
             t6Desc: "Платформа предоставляется на условиях «Как есть». Команда Flexiron не несет ответственности за ошибки в данных, введенных Пользователем, или упущенную выгоду. Наша поддержка гарантирует ответ по критическим сбоям в течение 1 часа."
         },
         error: {
-            seo: { title: "Flexiron ERP — Ошибка 404", description: "Страница не найдена." },
+            seo: { title: "Flexiron — Ошибка 404", description: "Страница не найдена." },
             title: "Кажется, вы потерялись на складе",
             subtitle: "Возможно, страница была удалена, перемещена, или вы ошиблись адресом.",
             btnHome: "Вернуться на главную"
@@ -138,7 +138,7 @@ const translations = {
             pwdPlaceholder: "••••••••"
         },
         landing: {
-            seo: { title: "Flexiron ERP — Smart Metal Center Management", description: "Metal service center ecosystem: warehouse, CRM, and document automation." },
+            seo: { title: "Flexiron — Smart Metal Center Management", description: "Metal service center ecosystem: warehouse, CRM, and document automation." },
             title: "Metal Service Center Ecosystem",
             subtitle: "Transparent accounting, smart warehouse, and automated offcuts in one click.<br>Next-generation ERP system for metal production and trading.",
             btnReg: "Registration",
@@ -149,7 +149,7 @@ const translations = {
             indexMap: "Screen Catalog"
         },
         index: {
-            seo: { title: "Flexiron ERP — Screen Map", description: "Navigation map for Flexiron system interfaces." },
+            seo: { title: "Flexiron — Screen Map", description: "Navigation map for Flexiron system interfaces." },
             title: "Screen Catalog",
             subtitle: "Internal navigation through HTML mockups",
             statusReady: "Ready",
@@ -183,7 +183,7 @@ const translations = {
             p78Desc: "Buyer signal, recommended purchase list."
         },
         login: {
-            seo: { title: "Flexiron ERP — Login", description: "Authorize in your Flexiron workspace." },
+            seo: { title: "Flexiron — Login", description: "Authorize in your Flexiron workspace." },
             title: "Login to Workspace",
             subtitle: "Secure link verified. Please enter your password to login.",
             emailLabel: "E-mail (Linked to your invite)",
@@ -193,7 +193,7 @@ const translations = {
             btnSubmit: "Log In"
         },
         reg: {
-            seo: { title: "Flexiron ERP — Registration", description: "Create an account and start your free 14-day trial." },
+            seo: { title: "Flexiron — Registration", description: "Create an account and start your free 14-day trial." },
             termsLink: "Terms and Conditions of Use",
             showPassword: "Show password",
             title: "Create an Account",
@@ -215,7 +215,7 @@ const translations = {
             terms: "By clicking, you agree to our"
         },
         support: {
-            seo: { title: "Flexiron ERP — Support Service", description: "Contact our support team 24/7." },
+            seo: { title: "Flexiron — Support Service", description: "Contact our support team 24/7." },
             title: "Support Service",
             subtitle: "We are online 24/7. Choose a convenient way to contact our team.",
             telegram: "Telegram",
@@ -223,7 +223,7 @@ const translations = {
             backBtn: "Back to Home"
         },
         about: {
-            seo: { title: "Flexiron ERP — About Platform", description: "Learn more about the Flexiron ERP features." },
+            seo: { title: "Flexiron — About Platform", description: "Learn more about the Flexiron features." },
             title: "About Flexiron Platform",
             subtitle: "We are creating a next-generation ERP system for metal production and trade, replacing the chaos of spreadsheets and fragmented software with transparent and automated accounting.",
             f1Title: "Smart Warehouse and Stock",
@@ -237,7 +237,7 @@ const translations = {
             btnTrial: "Try for free"
         },
         terms: {
-            seo: { title: "Flexiron ERP — Terms of Use", description: "Legal terms for using the Flexiron platform." },
+            seo: { title: "Flexiron — Terms of Use", description: "Legal terms for using the Flexiron platform." },
             title: "Terms of Use",
             subtitle: "Last updated: March 2026",
             btnAccept: "I agree, return to home",
@@ -255,7 +255,7 @@ const translations = {
             t6Desc: "The platform is provided on an \"As Is\" basis. The Flexiron team is not responsible for errors in the data entered by the User, incorrectly issued invoices, or lost profits resulting from failures. Our support, however, guarantees a response to critical failures within 1 hour."
         },
         error: {
-            seo: { title: "Flexiron ERP — 404 Error", description: "Page not found." },
+            seo: { title: "Flexiron — 404 Error", description: "Page not found." },
             title: "You seem lost in the warehouse",
             subtitle: "Perhaps the page was deleted, moved, or you entered the wrong address.",
             btnHome: "Back to Home"
@@ -269,7 +269,7 @@ const translations = {
             pwdPlaceholder: "••••••••"
         },
         landing: {
-            seo: { title: "Flexiron ERP — Išmanus metalo centrų valdymas", description: "Metalo centrų ekosistema: sandėlis, CRM ir dokumentų automatizavimas." },
+            seo: { title: "Flexiron — Išmanus metalo centrų valdymas", description: "Metalo centrų ekosistema: sandėlis, CRM ir dokumentų automatizavimas." },
             title: "Metalo centrų valdymo ekosistema",
             subtitle: "Skaidri apskaita, išmanus sandėlis ir atnašų automatizavimas vienu paspaudimu.<br>Naujos kartos ERP metalo gamybai ir prekybai.",
             btnReg: "Registracija",
@@ -280,7 +280,7 @@ const translations = {
             indexMap: "Ekranų katalogas"
         },
         index: {
-            seo: { title: "Flexiron ERP — Ekranų žemėlapis", description: "Flexiron sistemos sąsajų navigacijos žemėlapis." },
+            seo: { title: "Flexiron — Ekranų žemėlapis", description: "Flexiron sistemos sąsajų navigacijos žemėlapis." },
             title: "Ekranų katalogas",
             subtitle: "Vidinė navigacija po HTML maketus",
             statusReady: "Paruošta",
@@ -314,7 +314,7 @@ const translations = {
             p78Desc: "Signalai pirkėjui, rekomenduojamas pirkimų sąrašas."
         },
         login: {
-            seo: { title: "Flexiron ERP — Prisijungimas", description: "Prisijunkite prie savo Flexiron darbo erdvės." },
+            seo: { title: "Flexiron — Prisijungimas", description: "Prisijunkite prie savo Flexiron darbo erdvės." },
             title: "Prisijungimas prie darbo erdvės",
             subtitle: "Saugus priėjimas patvirtintas. Įveskite slaptažodį.",
             emailLabel: "El. paštas (Susietas su jūsų nuoroda)",
@@ -324,7 +324,7 @@ const translations = {
             btnSubmit: "Prisijungti"
         },
         reg: {
-            seo: { title: "Flexiron ERP — Registracija", description: "Sukurkite paskyrą ir pradėkite nemokamą 14 dienų laikotarpį." },
+            seo: { title: "Flexiron — Registracija", description: "Sukurkite paskyrą ir pradėkite nemokamą 14 dienų laikotarpį." },
             termsLink: "Naudojimo sąlygomis",
             showPassword: "Rodyti slaptažodį",
             title: "Sukurkite paskyrą",
@@ -346,7 +346,7 @@ const translations = {
             terms: "Paspaudę sutinkate su mūsų"
         },
         support: {
-            seo: { title: "Flexiron ERP — Pagalbos tarnyba", description: "Susisiekite su mūsų pagalbos komanda 24/7." },
+            seo: { title: "Flexiron — Pagalbos tarnyba", description: "Susisiekite su mūsų pagalbos komanda 24/7." },
             title: "Pagalbos tarnyba",
             subtitle: "Esame pasiekiami 24/7. Pasirinkite patogų būdą susisiekti.",
             telegram: "Telegram",
@@ -354,7 +354,7 @@ const translations = {
             backBtn: "Grįžti į pradžią"
         },
         about: {
-            seo: { title: "Flexiron ERP — Apie platformą", description: "Sužinokite daugiau apie Flexiron ERP galimybes." },
+            seo: { title: "Flexiron — Apie platformą", description: "Sužinokite daugiau apie Flexiron galimybes." },
             title: "Apie Flexiron platformą",
             subtitle: "Kuriame naujos kartos ERP metalo prekybai ir gamybai, keisdami lentelių chaosą skaidria automatizacija.",
             f1Title: "Išmanus sandėlis",
@@ -368,7 +368,7 @@ const translations = {
             btnTrial: "Išbandyti nemokamai"
         },
         terms: {
-            seo: { title: "Flexiron ERP — Naudojimo sąlygos", description: "Teisinės Flexiron platformos naudojimo sąlygos." },
+            seo: { title: "Flexiron — Naudojimo sąlygos", description: "Teisinės Flexiron platformos naudojimo sąlygos." },
             title: "Naudojimo sąlygos",
             subtitle: "Atnaujinta: 2026 kovo mėn.",
             btnAccept: "Sutinku, grįžti į pradžią",
@@ -386,7 +386,7 @@ const translations = {
             t6Desc: "Platforma teikiama tokia, kokia yra. Flexiron komanda neatsako už Naudotojo įvestas klaidas ar prarastą pelną dėl sistemos gedimų."
         },
         error: {
-            seo: { title: "Flexiron ERP — 404 klaida", description: "Puslapis nerastas." },
+            seo: { title: "Flexiron — 404 klaida", description: "Puslapis nerastas." },
             title: "Atrodo, pasiklydote sandėlyje",
             subtitle: "Puslapis nerastas arba buvo perkeltas.",
             btnHome: "Grįžti į pradžią"

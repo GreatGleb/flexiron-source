@@ -1,6 +1,6 @@
 if (typeof translations === 'undefined') { var translations = { ru: {}, en: {}, lt: {} }; }
 translations.ru.page = {
-    seo: { title: "Flexiron ERP — Отчёт P&L", description: "Финансовые результаты и рентабельность." },
+    seo: { title: "Flexiron — Отчёт P&L", description: "Финансовые результаты и рентабельность." },
     header_title: "Отчёт о прибылях и убытках",
     kpi1_label: "Чистая прибыль",
     kpi2_label: "Операц. расходы",
@@ -25,7 +25,7 @@ translations.ru.page = {
     date_apr14: "14 апр."
 };
 translations.en.page = {
-    seo: { title: "Flexiron ERP — P&L Report", description: "Financial results and profitability." },
+    seo: { title: "Flexiron — P&L Report", description: "Financial results and profitability." },
     header_title: "Profit and Loss Report",
     kpi1_label: "Net Profit",
     kpi2_label: "OpEx",
@@ -50,7 +50,7 @@ translations.en.page = {
     date_apr14: "Apr 14"
 };
 translations.lt.page = {
-    seo: { title: "Flexiron ERP — P&L ataskaita", description: "Finansiniai rezultatai ir pelningumas." },
+    seo: { title: "Flexiron — P&L ataskaita", description: "Finansiniai rezultatai ir pelningumas." },
     header_title: "Pelno ir nuostolių ataskaita",
     kpi1_label: "Grynasis pelnas",
     kpi2_label: "Veiklos sąnaudos",

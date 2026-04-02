@@ -1,6 +1,6 @@
 if (typeof translations === 'undefined') { var translations = { ru: {}, en: {}, lt: {} }; }
 translations.ru.page = {
-    seo: { title: "Flexiron ERP — Аналитика системы", description: "Инструменты аналитики Flexiron для управления металлоцентром." },
+    seo: { title: "Flexiron — Аналитика системы", description: "Инструменты аналитики Flexiron для управления металлоцентром." },
     header_title: "Панель управления",
     sections_label: "Разделы аналитики",
     kpi1_label: "Стоимость склада",
@@ -76,7 +76,7 @@ translations.ru.page = {
     open_link: "Открыть"
 };
 translations.en.page = {
-    seo: { title: "Flexiron ERP — System Analytics", description: "Flexiron analytical tools for metal service center management." },
+    seo: { title: "Flexiron — System Analytics", description: "Flexiron analytical tools for metal service center management." },
     header_title: "Executive Dashboard",
     sections_label: "Analytics Sections",
     kpi1_label: "Warehouse Value",
@@ -152,7 +152,7 @@ translations.en.page = {
     open_link: "Open"
 };
 translations.lt.page = {
-    seo: { title: "Flexiron ERP — Sistemos analitika", description: "Flexiron analitiniai įrankiai metalo centrų valdymui." },
+    seo: { title: "Flexiron — Sistemos analitika", description: "Flexiron analitiniai įrankiai metalo centrų valdymui." },
     header_title: "Vadovo skydelis",
     sections_label: "Analitikos skyriai",
     kpi1_label: "Sandėlio vertė",

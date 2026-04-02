@@ -18,19 +18,19 @@ This repository contains the **interactive frontend mockups and UI prototype**. 
 ## 🚦 Live Demo
 The platform prototype is deployed and fully accessible via GitHub Pages:
 
-**👉 [Open Flexiron ERP Demo](https://greatgleb.github.io/Flexiron-Enterprise/demo/public/)**
+**👉 [Open Flexiron Enterprise Demo](https://greatgleb.github.io/Flexiron-Enterprise/demo/public/)**
 
 > **Note:** The demo supports full multi-language switching (EN, RU, LT) powered by our custom client-side translation engine.
 
 ## 📦 What's Inside
 
 - **`demo/public/`**: Public-facing entry points (Landing pages, Registration, Authorization, Support).
-- **`demo/admin/`**: The core interactive ERP modules and dashboards.
+- **`demo/admin/`**: The core interactive ERP, CRM modules and dashboards.
 - **`demo/assets/`**: Shared resources, javascript language libraries, and the central CSS design system.
 
 ## 📊 Core Modules
 
-The demo showcases the full lifecycle of the ERP system across key functional areas:
+The demo showcases the full lifecycle of the ERP, CRM system across key functional areas:
 - **1. Products (Master Data)**: Management of standard templates, categories, and custom services.
 - **2. Warehouse**: Real-time physical inventory, batch tracking, and warehouse map.
 - **3. Sales & CRM**: Order processing (Kanban/List), client database, and fleet logistics.

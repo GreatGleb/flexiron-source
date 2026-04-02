@@ -1,6 +1,6 @@
 if (typeof translations === 'undefined') { var translations = { ru: {}, en: {}, lt: {} }; }
 translations.ru.page = {
-    seo: { title: "Flexiron ERP — KPI сотрудников", description: "Анализ эффективности работы команды." },
+    seo: { title: "Flexiron — KPI сотрудников", description: "Анализ эффективности работы команды." },
     header_title: "KPI сотрудников",
     kpi1_label: "Топ менеджер",
     kpi2_label: "Ср. маржа",
@@ -34,7 +34,7 @@ translations.ru.page = {
     name_petr: "Петр Ф."
 };
 translations.en.page = {
-    seo: { title: "Flexiron ERP — Staff KPI", description: "Team performance analysis." },
+    seo: { title: "Flexiron — Staff KPI", description: "Team performance analysis." },
     header_title: "Staff KPI",
     kpi1_label: "Top Manager",
     kpi2_label: "Avg Margin",
@@ -68,7 +68,7 @@ translations.en.page = {
     name_petr: "Petr F."
 };
 translations.lt.page = {
-    seo: { title: "Flexiron ERP — Darbuotojų KPI", description: "Komandos efektyvumo analizė." },
+    seo: { title: "Flexiron — Darbuotojų KPI", description: "Komandos efektyvumo analizė." },
     header_title: "Darbuotojų KPI",
     kpi1_label: "Geriausias vadybininkas",
     kpi2_label: "Vidutinė marža",

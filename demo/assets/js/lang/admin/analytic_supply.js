@@ -1,6 +1,6 @@
 if (typeof translations === 'undefined') { var translations = { ru: {}, en: {}, lt: {} }; }
 translations.ru.page = {
-    seo: { title: "Flexiron ERP — Управление закупками", description: "Анализ поставщиков и закупочной деятельности." },
+    seo: { title: "Flexiron — Управление закупками", description: "Анализ поставщиков и закупочной деятельности." },
     header_title: "Закупки и снабжение",
     kpi1_label: "Закуплено (мес.)",
     kpi2_label: "Доставка вовремя",
@@ -29,7 +29,7 @@ translations.ru.page = {
     th_status: "Статус"
 };
 translations.en.page = {
-    seo: { title: "Flexiron ERP — Procurement Management", description: "Supplier analysis and procurement activities." },
+    seo: { title: "Flexiron — Procurement Management", description: "Supplier analysis and procurement activities." },
     header_title: "Procurement & Supply",
     kpi1_label: "Purchased (month)",
     kpi2_label: "On-time delivery",
@@ -58,7 +58,7 @@ translations.en.page = {
     th_status: "Status"
 };
 translations.lt.page = {
-    seo: { title: "Flexiron ERP — Pirkimų valdymas", description: "Tiekėjų analizė ir pirkimų veikla." },
+    seo: { title: "Flexiron — Pirkimų valdymas", description: "Tiekėjų analizė ir pirkimų veikla." },
     header_title: "Pirkimai ir tiekimas",
     kpi1_label: "Nupirkta (mėn.)",
     kpi2_label: "Pristatymas laiku",

@@ -1,6 +1,6 @@
 if (typeof translations === 'undefined') { var translations = { ru: {}, en: {}, lt: {} }; }
 translations.ru.page = {
-    seo: { title: "Flexiron ERP — Анализ дефицита", description: "Прогнозирование нехватки запасов." },
+    seo: { title: "Flexiron — Анализ дефицита", description: "Прогнозирование нехватки запасов." },
     header_title: "Анализ дефицита",
     kpi1_label: "Позиций в дефиците",
     kpi2_label: "Упущенная выгода (склад)",
@@ -31,7 +31,7 @@ translations.ru.page = {
     item_angle_63: "Уголок 63×63×6"
 };
 translations.en.page = {
-    seo: { title: "Flexiron ERP — Stock Deficit", description: "Forecasting stock shortages." },
+    seo: { title: "Flexiron — Stock Deficit", description: "Forecasting stock shortages." },
     header_title: "Deficit Analysis",
     kpi1_label: "Items in deficit",
     kpi2_label: "Lost profit (stock)",
@@ -62,7 +62,7 @@ translations.en.page = {
     item_angle_63: "Angle 63×63×6"
 };
 translations.lt.page = {
-    seo: { title: "Flexiron ERP — Deficito analizė", description: "Atsargų trūkumo prognozavimas." },
+    seo: { title: "Flexiron — Deficito analizė", description: "Atsargų trūkumo prognozavimas." },
     header_title: "Deficito analizė",
     kpi1_label: "Trūkstamos pozicijos",
     kpi2_label: "Prarastas pelnas (sandėlis)",
