@@ -18,7 +18,7 @@ const translationEngine = {
         document.querySelectorAll('.lang-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.preventDefault();
-                const selectedLang = btn.innerText.toLowerCase().trim();
+                const selectedLang = btn.textContent.toLowerCase().trim();
                 if (translations[selectedLang]) {
                     this.setLanguage(selectedLang);
                 }
@@ -45,7 +45,7 @@ const translationEngine = {
 
         document.querySelectorAll('.lang-btn').forEach(btn => {
             btn.classList.remove('active');
-            if (btn.innerText.toLowerCase().trim() === lang) {
+            if (btn.textContent.toLowerCase().trim() === lang) {
                 btn.classList.add('active');
             }
         });
