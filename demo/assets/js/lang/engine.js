@@ -71,8 +71,18 @@ const translationEngine = {
             const keyPath = el.getAttribute('data-i18n-title');
             const value = this.getValueByPath(data, keyPath);
             if (value) {
-                el.title = value;
-                el.style.opacity = '1';
+                // SVG requires a child <title> element for tooltips
+                if (el.tagName.toUpperCase() === 'SVG') {
+                    let titleEl = el.querySelector('title');
+                    if (!titleEl) {
+                        titleEl = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+                        el.insertBefore(titleEl, el.firstChild);
+                    }
+                    titleEl.textContent = value;
+                } else {
+                    el.title = value;
+                    el.style.opacity = '1';
+                }
             }
         });
 
@@ -101,6 +111,33 @@ const translationEngine = {
             }
         }
         return value;
+    },
+
+    // Translate dynamically created elements
+    translateNewElements: function(root) {
+        const data = translations[this.currentLang];
+        if (!data) return;
+
+        const scope = root || document;
+
+        scope.querySelectorAll('[data-i18n-title]').forEach(el => {
+            const keyPath = el.getAttribute('data-i18n-title');
+            const value = this.getValueByPath(data, keyPath);
+            if (value) {
+                // SVG requires a child <title> element for tooltips
+                if (el.tagName.toUpperCase() === 'SVG') {
+                    let titleEl = el.querySelector('title');
+                    if (!titleEl) {
+                        titleEl = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+                        el.insertBefore(titleEl, el.firstChild);
+                    }
+                    titleEl.textContent = value;
+                } else {
+                    el.title = value;
+                    el.style.opacity = '1';
+                }
+            }
+        });
     }
 };
 

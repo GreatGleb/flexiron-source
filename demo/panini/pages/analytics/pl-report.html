@@ -6,22 +6,12 @@ activeNav: analytic_pl-report
 langFile: admin/analytic_pl-report
 customCss: admin/analytic_pl-report.css
 ---
-<!-- Sub-page navigation -->
-<div class="sub-nav">
-    <a href="dashboard.html" data-i18n="sub.kpi">7.1 KPI</a>
-    <a href="warehouse.html" data-i18n="sub.warehouse">7.2 Warehouse</a>
-    <a href="sales.html" data-i18n="sub.sales">7.3 Sales</a>
-    <a href="supply.html" data-i18n="sub.supply">7.4 Procurement</a>
-    <a href="staff.html" data-i18n="sub.staff">7.5 Employees</a>
-    <a href="logistics.html" data-i18n="sub.logistics">7.6 Logistics</a>
-    <a href="pl-report.html" class="current" data-i18n="sub.pl">7.7 P&amp;L</a>
-    <a href="deficit.html" data-i18n="sub.deficit">7.8 Deficit</a>
-</div>
+
+{{> analytics-sub-nav}}
 
 <div class="charts-row">
     <!-- P&L Statement -->
-    <div class="glass-panel">
-        <div class="panel-header"><span class="panel-title" data-i18n="page.chart1_title">Financial Result</span><span class="panel-badge" data-i18n="page.badge_march">March 2026</span></div>
+    {{#> glass-panel titleKey="page.chart1_title" title="Financial Result" badgeKey="page.badge_march" badge="March 2026"}}
         <div class="pl-row"><span class="pl-label" data-i18n="page.label_sales">Sales Revenue</span><span class="pl-value green">+ 84 200 €</span></div>
         <hr class="pl-divider">
         <div class="pl-row"><span class="pl-label" data-i18n="page.label_cogs">Cost of Goods Sold</span><span class="pl-value red">− 58 200 €</span></div>
@@ -32,10 +22,9 @@ customCss: admin/analytic_pl-report.css
         <div class="pl-row"><span class="pl-label" data-i18n="page.label_salaries">Staff Salaries</span><span class="pl-value red">− 3 130 €</span></div>
         <hr class="pl-divider">
         <div class="pl-total"><span class="pl-label" data-i18n="page.label_operating">Operating Profit</span><span class="pl-value green">14 870 €</span></div>
-    </div>
+    {{/glass-panel}}
     <!-- Payment calendar -->
-    <div class="glass-panel">
-        <div class="panel-header"><span class="panel-title" data-i18n="page.chart2_title">Payment calendar (next 14 days)</span><span class="panel-badge" data-i18n="page.badge_april">April 2026</span></div>
+    {{#> glass-panel titleKey="page.chart2_title" title="Payment calendar (next 14 days)" badgeKey="page.badge_april" badge="April 2026"}}
         <div class="calendar-row">
             <div class="cal-item"><div class="cal-date" data-i18n="page.date_apr2">Apr 2</div><div class="cal-client">UAB Metalis</div><div class="cal-amount">+ 8 400 €</div></div>
             <div class="cal-item"><div class="cal-date" data-i18n="page.date_apr5">Apr 5</div><div class="cal-client">SIA Steel Pro</div><div class="cal-amount">+ 5 100 €</div></div>
@@ -44,5 +33,5 @@ customCss: admin/analytic_pl-report.css
             <div class="cal-item"><div class="cal-date" data-i18n="page.date_apr12">Apr 12</div><div class="cal-client">Metalis LT</div><div class="cal-amount" style="color:var(--danger)">− 18 000 €</div></div>
             <div class="cal-item"><div class="cal-date" data-i18n="page.date_apr14">Apr 14</div><div class="cal-client">UAB Plieno</div><div class="cal-amount">+ 1 600 €</div></div>
         </div>
-    </div>
+    {{/glass-panel}}
 </div>

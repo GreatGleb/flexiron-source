@@ -5,28 +5,18 @@ pageTitle: Procurement & Suppliers
 activeNav: analytic_supply
 langFile: admin/analytic_supply
 ---
-<!-- Sub-page navigation -->
-<div class="sub-nav">
-    <a href="dashboard.html" data-i18n="sub.kpi">7.1 KPI</a>
-    <a href="warehouse.html" data-i18n="sub.warehouse">7.2 Warehouse</a>
-    <a href="sales.html" data-i18n="sub.sales">7.3 Sales</a>
-    <a href="supply.html" class="current" data-i18n="sub.supply">7.4 Procurement</a>
-    <a href="staff.html" data-i18n="sub.staff">7.5 Employees</a>
-    <a href="logistics.html" data-i18n="sub.logistics">7.6 Logistics</a>
-    <a href="pl-report.html" data-i18n="sub.pl">7.7 P&amp;L</a>
-    <a href="deficit.html" data-i18n="sub.deficit">7.8 Deficit</a>
-</div>
+
+{{> analytics-sub-nav}}
 
 <div class="kpi-row">
-    <div class="kpi-card"><div class="kpi-icon icon-blue"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg></div><div class="kpi-label"><span data-i18n="page.kpi1_label">Purchased (month)</span></div><div class="kpi-value">58 200 <span data-i18n="page.unit_eur">EUR</span></div><div class="kpi-delta neutral" data-i18n="page.delta1">→ budget</div></div>
-    <div class="kpi-card"><div class="kpi-icon icon-green"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div><div class="kpi-label"><span data-i18n="page.kpi2_label">On-time delivery</span></div><div class="kpi-value">84 <span>%</span></div><div class="kpi-delta up" data-i18n="page.delta2">↑ +6%</div></div>
-    <div class="kpi-card"><div class="kpi-icon icon-red"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div><div class="kpi-label"><span data-i18n="page.kpi3_label">Delivery delays</span></div><div class="kpi-value">3 <span data-i18n="page.unit_pcs">pcs.</span></div><div class="kpi-delta down" data-i18n="page.delta3">↓ Attention</div></div>
-    <div class="kpi-card"><div class="kpi-icon icon-gold"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg></div><div class="kpi-label"><span data-i18n="page.kpi4_label">Price increase (trend)</span></div><div class="kpi-value">+4.2 <span>%</span></div><div class="kpi-delta down" data-i18n="page.delta4">↑ vs last qtr</div></div>
+    {{> kpi-card iconName="cart-shopping" iconClass="icon-blue" labelKey="page.kpi1_label" label="Purchased (month)" value="58 200" unit="EUR" deltaClass="neutral" deltaKey="page.delta1" delta="→ budget"}}
+    {{> kpi-card iconName="check-success" iconClass="icon-green" labelKey="page.kpi2_label" label="On-time delivery" value="84" unit="%" deltaClass="up" deltaKey="page.delta2" delta="↑ +6%"}}
+    {{> kpi-card iconName="clock-history" iconClass="icon-red" labelKey="page.kpi3_label" label="Delivery delays" value="3" unit="pcs." deltaClass="down" deltaKey="page.delta3" delta="↓ Attention"}}
+    {{> kpi-card iconName="trend-growth" iconClass="icon-gold" labelKey="page.kpi4_label" label="Price increase (trend)" value="+4.2" unit="%" deltaClass="down" deltaKey="page.delta4" delta="↑ vs last qtr"}}
 </div>
 
 <div class="charts-row">
-    <div class="glass-panel">
-        <div class="panel-header"><span class="panel-title" data-i18n="page.chart1_title">Supplier reliability</span><span class="panel-badge" data-i18n="page.badge_march">March 2026</span></div>
+    {{#> glass-panel titleKey="page.chart1_title" title="Supplier reliability" badgeKey="page.badge_march" badge="March 2026"}}
         <table class="data-table"><thead><tr><th data-i18n="page.th_supplier">Supplier</th><th class="hid-320" data-i18n="page.th_deliveries">Deliveries</th><th data-i18n="page.th_ontime">On Time</th><th data-i18n="page.th_status">Status</th></tr></thead>
         <tbody>
             <tr><td>Metalis LT</td><td class="hid-320">8</td><td>87%</td><td><span class="status-pill pill-success" data-i18n="page.status_reliable">Reliable</span></td></tr>
@@ -34,12 +24,11 @@ langFile: admin/analytic_supply
             <tr><td>StalProm LLC</td><td class="hid-320">6</td><td>50%</td><td><span class="status-pill pill-danger" data-i18n="page.status_risk">Risk</span></td></tr>
             <tr><td>SIA BalticMetal</td><td class="hid-320">4</td><td>75%</td><td><span class="status-pill pill-warning" data-i18n="page.status_monitor">Monitor</span></td></tr>
         </tbody></table>
-    </div>
-    <div class="glass-panel">
-        <div class="panel-header"><span class="panel-title" data-i18n="page.chart2_title">Price dynamics (EUR/t)</span><span class="panel-badge" data-i18n="page.badge_q1">Q1 2026</span></div>
-        <div class="bar-chart-row"><span class="bar-label" data-i18n="page.cat_pipe">Pipe st.20</span><div class="bar-track"><div class="bar-fill" style="width:72%;background:linear-gradient(90deg,#faad14,#ffc53d)"></div></div><span class="bar-val">+5.1%</span></div>
-        <div class="bar-chart-row"><span class="bar-label" data-i18n="page.cat_sheet">Cold-rolled Sheet</span><div class="bar-track"><div class="bar-fill" style="width:45%;background:linear-gradient(90deg,#1890FF,#40a9ff)"></div></div><span class="bar-val">+2.8%</span></div>
-        <div class="bar-chart-row"><span class="bar-label" data-i18n="page.cat_angle">Angle</span><div class="bar-track"><div class="bar-fill" style="width:30%;background:linear-gradient(90deg,#1890FF,#40a9ff)"></div></div><span class="bar-val">+1.9%</span></div>
-        <div class="bar-chart-row"><span class="bar-label" data-i18n="page.cat_stainless">Stainless</span><div class="bar-track"><div class="bar-fill" style="width:90%;background:linear-gradient(90deg,#ff4d4f,#ff7875)"></div></div><span class="bar-val">+9.3%</span></div>
-    </div>
+    {{/glass-panel}}
+    {{#> glass-panel titleKey="page.chart2_title" title="Price dynamics (EUR/t)" badgeKey="page.badge_q1" badge="Q1 2026"}}
+        {{> bar-chart-row labelKey="page.cat_pipe" label="Pipe st.20" width="72" gradient="linear-gradient(90deg,#faad14,#ffc53d)" value="+5.1%"}}
+        {{> bar-chart-row labelKey="page.cat_sheet" label="Cold-rolled Sheet" width="45" gradient="linear-gradient(90deg,#1890FF,#40a9ff)" value="+2.8%"}}
+        {{> bar-chart-row labelKey="page.cat_angle" label="Angle" width="30" gradient="linear-gradient(90deg,#1890FF,#40a9ff)" value="+1.9%"}}
+        {{> bar-chart-row labelKey="page.cat_stainless" label="Stainless" width="90" gradient="linear-gradient(90deg,#ff4d4f,#ff7875)" value="+9.3%"}}
+    {{/glass-panel}}
 </div>

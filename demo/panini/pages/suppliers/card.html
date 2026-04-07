@@ -8,16 +8,20 @@ customCss: admin/supplier_card.css
 customJs: admin/supplier_card_logic
 ---
 <!-- HEADER SECTION: Title First, then Actions -->
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; gap: 20px; flex-wrap: wrap;">
-    <h1 class="page-title" style="margin-bottom: 0;"><span data-i18n="supplier.card_title">Supplier Profile</span></h1>
-    
-    <div class="action-bar" style="margin-bottom: 0; position: static;">
-        <button class="btn btn-secondary" data-i18n="btn.bcc_tool"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> BCC Request Tool</button>
-        <a href="../../field_settings.html" class="btn btn-secondary" style="text-decoration:none;" data-i18n-title="btn.config_card">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+<div class="flex-end" style="margin-bottom: 32px;">
+    <div class="action-bar no-margin pos-static flex-group">
+        <a href="#" class="btn btn-secondary">
+            {{> icon name="email" width="18" height="18" strokeColor="#fff"}}
+            <span data-i18n="btn.bcc_tool">BCC Request Tool</span>
+        </a>
+        <a href="../../field_settings.html" class="btn btn-secondary" data-i18n-title="btn.config_card">
+            {{> icon name="settings-gear" width="18" height="18" strokeWidth="2.5"}}
             <span data-i18n="btn.config_card">Configure Card</span>
         </a>
-        <button class="btn btn-save" id="save-btn" onclick="handleSave()" data-i18n="btn.save">Save Changes</button>
+        <button class="btn btn-save" id="save-btn" onclick="handleSave()">
+            {{> icon name="save-disk" width="18" height="18"}}
+            <span data-i18n="btn.save">Save Changes</span>
+        </button>
     </div>
 </div>
 
@@ -26,99 +30,16 @@ customJs: admin/supplier_card_logic
         <!-- COL LEFT: REQUISITES & CONTACT -->
         <div class="col-left">
             <!-- NEW: DEDICATED STATUS SECTION -->
-            <div class="glass-panel loading">
-                <div class="panel-header">
-                    <span class="panel-title" data-i18n="sp.status_title">Lifecycle & Status</span>
-                </div>
-                <div class="panel-skeleton">
-                    <div class="skeleton" style="width:80%"></div>
-                    <div class="skeleton" style="height:100px"></div>
-                </div>
-                <div class="panel-body">
+            {{#> glass-panel titleKey="sp.status_title" title="Lifecycle & Status" loading=true skeletonWidth="80%" skeletonHeight="100px" hasBody=true}}
                     <div class="input-group">
                         <label class="field-label" data-i18n="sp.status_label">Current Status</label>
-                        <div class="custom-select-wrap" id="select-status">
-                            <div class="glass-input custom-select-trigger">
-                                <div class="curr-val" style="margin:0; display:flex;"><span class="status-pill pill-success" data-i18n="st.active">Active</span></div>
-                                <svg class="select-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
-                            </div>
-                            <div class="custom-select-list">
-                                <div class="custom-select-option" data-value="Active"><span class="status-pill pill-success" data-i18n="st.active">Active</span></div>
-                                <div class="custom-select-option" data-value="Preferred"><span class="status-pill pill-info" data-i18n="st.preferred">Preferred</span></div>
-                                <div class="custom-select-option" data-value="New"><span class="status-pill pill-mint" data-i18n="st.new">New</span></div>
-                                <div class="custom-select-option" data-value="Under Review"><span class="status-pill pill-warning" data-i18n="st.review">Under Review</span></div>
-                                <div class="custom-select-option" data-value="Suspended"><span class="status-pill pill-suspended" data-i18n="st.suspended">Suspended</span></div>
-                                <div class="custom-select-option" data-value="Draft"><span class="status-pill pill-secondary" data-i18n="st.draft">Draft</span></div>
-                                <div class="custom-select-option" data-value="Contract Expired"><span class="status-pill pill-purple" data-i18n="st.expired">Contract Expired</span></div>
-                                <div class="custom-select-option" data-value="Blocked"><span class="status-pill pill-danger" data-i18n="st.blocked">Blocked</span></div>
-                            </div>
-                            <input type="hidden" class="dirty-check" id="field-status" value="Active">
-                        </div>
+                        {{#> custom-select id="select-status" fieldId="field-status" defaultValue="Active" triggerContent="<span class='status-pill pill-success' data-i18n='st.active'>Active</span>" triggerStyle="margin:0; display:flex;"}}
+                            {{> supplier_statuses}}
+                        {{/custom-select}}
                     </div>
                     <div class="input-group">
                         <label class="field-label" data-i18n="sp.rating_label">Reliability Rating</label>
-                        <div class="custom-select-wrap" id="select-rating">
-                            <div class="glass-input custom-select-trigger">
-                                <div class="curr-val">
-                                    <div class="rating-stars">
-                                        <svg class="star-svg active" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                                        <svg class="star-svg active" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                                        <svg class="star-svg active" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                                        <svg class="star-svg active" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                                        <svg class="star-svg active" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                                    </div>
-                                </div>
-                                <svg class="select-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
-                            </div>
-                            <div class="custom-select-list">
-                                <div class="custom-select-option" data-value="5">
-                                    <div class="rating-stars">
-                                        <svg class="star-svg active" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                                        <svg class="star-svg active" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                                        <svg class="star-svg active" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                                        <svg class="star-svg active" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                                        <svg class="star-svg active" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                                    </div>
-                                </div>
-                                <div class="custom-select-option" data-value="4">
-                                    <div class="rating-stars">
-                                        <svg class="star-svg active" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                                        <svg class="star-svg active" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                                        <svg class="star-svg active" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                                        <svg class="star-svg active" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                                        <svg class="star-svg" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                                    </div>
-                                </div>
-                                <div class="custom-select-option" data-value="3">
-                                    <div class="rating-stars">
-                                        <svg class="star-svg active" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                                        <svg class="star-svg active" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                                        <svg class="star-svg active" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                                        <svg class="star-svg" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                                        <svg class="star-svg" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                                    </div>
-                                </div>
-                                <div class="custom-select-option" data-value="2">
-                                    <div class="rating-stars">
-                                        <svg class="star-svg active" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                                        <svg class="star-svg active" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                                        <svg class="star-svg" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                                        <svg class="star-svg" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                                        <svg class="star-svg" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                                    </div>
-                                </div>
-                                <div class="custom-select-option" data-value="1">
-                                    <div class="rating-stars">
-                                        <svg class="star-svg active" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                                        <svg class="star-svg" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                                        <svg class="star-svg" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                                        <svg class="star-svg" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                                        <svg class="star-svg" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                                    </div>
-                                </div>
-                            </div>
-                            <input type="hidden" class="dirty-check" id="field-rating" value="5">
-                        </div>
+                        {{> rating-select id="select-rating" fieldId="field-rating" rating=5}}
                     </div>
                     <div class="input-group">
                         <label class="field-label" data-i18n="sp.status_reason">Status Reason / Comment</label>
@@ -126,353 +47,168 @@ customJs: admin/supplier_card_logic
                     </div>
                     <div class="input-group" style="margin-bottom:0;">
                         <label class="field-label" data-i18n="sp.contract_date">Contract Date</label>
-                        <div class="custom-datepicker-wrap" id="datepicker-contract">
-                            <div class="glass-input datepicker-trigger">
-                                <span class="date-val">15.02.2024</span>
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:0.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                            </div>
-                            <input type="hidden" class="datepicker-input dirty-check" id="field-contract-date" value="2024-02-15">
-                            <div class="datepicker-popup"></div>
-                        </div>
+                        {{> datepicker id="datepicker-contract" fieldId="field-contract-date" displayDate="15.02.2024" value="2024-02-15"}}
                     </div>
-                </div>
-            </div>
+                {{/glass-panel}}
 
-            <div class="glass-panel loading">
-                <div class="panel-header">
-                    <span class="panel-title" data-i18n="sp.requisites">Company Requisites</span>
-                </div>
-                <div class="panel-skeleton">
-                    <div class="skeleton" style="width:60%"></div>
-                    <div class="skeleton" style="height:80px"></div>
-                </div>
-                <div class="panel-body">
-                    <div class="input-group"><label class="field-label" data-i18n="sp.name">Company Name</label><input type="text" class="glass-input dirty-check" id="field-name" placeholder='UAB "Plieno Centras"'></div>
-                    <div class="input-group"><label class="field-label" data-i18n="sp.vat">VAT Code</label><input type="text" class="glass-input dirty-check" id="field-vat" style="font-family:'JetBrains Mono'" placeholder="LT100001234567"></div>
-                    <div class="input-group" style="margin-bottom:0;"><label class="field-label" data-i18n="sp.address">Physical Address</label><textarea class="glass-input dirty-check" id="field-address" rows="2" placeholder="Savanorių pr. 124, LT-03153 Vilnius, Lietuva"></textarea></div>
-                </div>
-            </div>
-            <div class="glass-panel loading">
-                <div class="panel-header"><span class="panel-title" data-i18n="sp.contact">Main Contact Person</span></div>
-                <div class="panel-skeleton">
-                    <div class="skeleton" style="width:40%"></div>
-                    <div class="skeleton" style="height:100px"></div>
-                </div>
-                <div class="panel-body">
+            {{#> glass-panel titleKey="sp.requisites" title="Company Requisites" loading=true skeletonWidth="60%" skeletonHeight="80px" hasBody=true}}
+                    {{#> input-group labelKey="sp.name" label="Company Name"}}
+                        <input type="text" class="glass-input dirty-check" id="field-name" placeholder='UAB "Plieno Centras"'>
+                    {{/input-group}}
+                    {{#> input-group labelKey="sp.vat" label="VAT Code"}}
+                        <input type="text" class="glass-input dirty-check" id="field-vat" style="font-family:'JetBrains Mono'" placeholder="LT100001234567">
+                    {{/input-group}}
+                    {{#> input-group labelKey="sp.address" label="Physical Address" style="margin-bottom:0;"}}
+                        <textarea class="glass-input dirty-check" id="field-address" rows="2" placeholder="Savanorių pr. 124, LT-03153 Vilnius, Lietuva"></textarea>
+                    {{/input-group}}
+                {{/glass-panel}}
+            {{#> glass-panel titleKey="sp.contact" title="Main Contact Person" loading=true skeletonWidth="40%" skeletonHeight="100px" hasBody=true}}
                     <div class="contact-card">
-                        <div class="input-group"><label class="field-label" data-i18n="sp.contact_name">Full Name</label><input type="text" class="glass-input dirty-check" id="field-contact-name" placeholder="Jonas Petrauskas"></div>
+                        {{#> input-group labelKey="sp.contact_name" label="Full Name"}}
+                            <input type="text" class="glass-input dirty-check" id="field-contact-name" placeholder="Jonas Petrauskas">
+                        {{/input-group}}
                         <div style="display:grid;grid-template-columns:1fr;gap:12px;">
-                            <div class="input-group"><label class="field-label" data-i18n="sp.contact_email">Email</label><input type="email" class="glass-input dirty-check" id="field-contact-email" placeholder="j.petrauskas@plienocentras.lt"></div>
-                            <div class="input-group" style="margin-bottom:0;"><label class="field-label" data-i18n="sp.contact_phone">Phone</label><input type="text" class="glass-input dirty-check" id="field-contact-phone" placeholder="+370 600 12345"></div>
+                            {{#> input-group labelKey="sp.contact_email" label="Email"}}
+                                <input type="email" class="glass-input dirty-check" id="field-contact-email" placeholder="j.petrauskas@plienocentras.lt">
+                            {{/input-group}}
+                            {{#> input-group labelKey="sp.contact_phone" label="Phone" style="margin-bottom:0;"}}
+                                <input type="text" class="glass-input dirty-check" id="field-contact-phone" placeholder="+370 600 12345">
+                            {{/input-group}}
                         </div>
                     </div>
-                </div>
-            </div>
+            {{/glass-panel}}
         </div>
 
         <!-- COL CENTER: PROCUREMENT & LOGISTICS -->
         <div class="col-center">
-            <div class="glass-panel loading">
-                <div class="panel-header"><span class="panel-title" data-i18n="sp.procurement">Procurement & Logistics</span></div>
-                <div class="panel-skeleton">
-                    <div class="skeleton" style="width:70%"></div>
-                    <div class="skeleton" style="height:120px"></div>
-                </div>
-                <div class="panel-body">
+            {{#> glass-panel titleKey="sp.procurement" title="Procurement & Logistics" loading=true skeletonWidth="70%" skeletonHeight="120px" hasBody=true}}
                     <div class="input-group">
                         <label class="field-label" data-i18n="sp.spec">Specialization (Metal Categories)</label>
-                        <div class="tag-container custom-select-wrap" id="spec-tags-wrap">
-                            <div class="tag">Hot-rolled Sheets <svg class="tag-remove" style="cursor:pointer; opacity:0.4; transition:0.2s; margin-left:4px;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.4" onclick="this.closest('.tag').remove()" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
-                            <div class="tag">Seamless Pipes <svg class="tag-remove" style="cursor:pointer; opacity:0.4; transition:0.2s; margin-left:4px;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.4" onclick="this.closest('.tag').remove()" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
-                            <input type="text" class="tag-input" data-i18n="sp.spec_placeholder" readonly>
-                            <div class="tag-dropdown" id="spec-dropdown">
-                                <div class="tag-drop-item">I-Beams</div>
-                                <div class="tag-drop-item">Channels (U-bars)</div>
-                                <div class="tag-drop-item">Stainless Plates</div>
-                                <div class="tag-drop-item">Rebars A500C</div>
-                                <div class="tag-drop-item">Cold-rolled Sheets</div>
-                            </div>
-                        </div>
+                        {{#> tag-input id="spec-tags-wrap" hasDropdown=true placeholderKey="sp.spec_placeholder" readonly=true dropdownId="spec-dropdown" dropdownContent="<div class='tag-drop-item'>I-Beams</div><div class='tag-drop-item'>Channels (U-bars)</div><div class='tag-drop-item'>Stainless Plates</div><div class='tag-drop-item'>Rebars A500C</div><div class='tag-drop-item'>Cold-rolled Sheets</div>"}}
+                            {{> tag label="Hot-rolled Sheets"}}
+                            {{> tag label="Seamless Pipes"}}
+                        {{/tag-input}}
                     </div>
                     <div class="input-group">
                         <label class="field-label" data-i18n="sp.bcc">BCC Price Emails</label>
-                        <div class="tag-container" id="bcc-tags-wrap">
-                            <div class="tag">sales@metalis.org <svg class="tag-remove" style="cursor:pointer; opacity:0.4; transition:0.2s; margin-left:4px;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.4" onclick="this.closest('.tag').remove()" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
-                            <div class="tag">tender@metalis.org <svg class="tag-remove" style="cursor:pointer; opacity:0.4; transition:0.2s; margin-left:4px;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.4" onclick="this.closest('.tag').remove()" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
-                            <input type="text" class="tag-input" data-i18n="sp.bcc_placeholder">
-                        </div>
+                        {{#> tag-input id="bcc-tags-wrap" placeholderKey="sp.bcc_placeholder"}}
+                            {{> tag label="sales@metalis.org"}}
+                            {{> tag label="tender@metalis.org"}}
+                        {{/tag-input}}
                     </div>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
-                        <div class="input-group">
-                            <label class="field-label" data-i18n="sp.currency">Base Currency</label>
-                            <div class="custom-select-wrap" id="select-currency">
-                                <div class="glass-input custom-select-trigger">
-                                    <span class="curr-val">EUR</span>
-                                    <svg class="select-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
-                                </div>
-                                <div class="custom-select-list">
-                                    <div class="custom-select-option" data-value="EUR">EUR</div>
-                                    <div class="custom-select-option" data-value="USD">USD</div>
-                                    <div class="custom-select-option" data-value="GBP">GBP</div>
-                                </div>
-                                <input type="hidden" class="dirty-check" id="field-currency" value="EUR">
-                            </div>
-                        </div>
-                        <div class="input-group">
-                            <label class="field-label" data-i18n="sp.payment">Payment Terms</label>
-                            <div class="custom-select-wrap" id="select-payment">
-                                <div class="glass-input custom-select-trigger">
-                                    <span class="curr-val">30 Days Net</span>
-                                    <svg class="select-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
-                                </div>
-                                <div class="custom-select-list">
-                                    <div class="custom-select-option" data-value="30 Days Net">30 Days Net</div>
-                                    <div class="custom-select-option" data-value="Prepayment 100%">Prepayment 100%</div>
-                                    <div class="custom-select-option" data-value="50/50 Terms">50/50 Terms</div>
-                                </div>
-                                <input type="hidden" class="dirty-check" id="field-payment" value="30 Days Net">
-                            </div>
-                        </div>
-                        <div class="input-group">
-                            <label class="field-label">
-                                <span data-i18n="sp.lead">Lead Time (Avg. Days)</span>
-                                <span class="info-hint" data-i18n-tooltip="sp.lead_hint"
-                                      data-tooltip="Average time from order to goods receipt at the warehouse.">
-                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                                </span>
-                            </label>
+                        {{#> input-group labelKey="sp.currency" label="Base Currency"}}
+                            {{#> custom-select id="select-currency" fieldId="field-currency" defaultValue="EUR" triggerContent="EUR"}}
+                                {{> currencies}}
+                            {{/custom-select}}
+                        {{/input-group}}
+                        {{#> input-group labelKey="sp.payment" label="Payment Terms"}}
+                            {{#> custom-select id="select-payment" fieldId="field-payment" defaultValue="30 Days Net" triggerContent="30 Days Net"}}
+                                <div class="custom-select-option" data-value="30 Days Net">30 Days Net</div>
+                                <div class="custom-select-option" data-value="Prepayment 100%">Prepayment 100%</div>
+                                <div class="custom-select-option" data-value="50/50 Terms">50/50 Terms</div>
+                            {{/custom-select}}
+                        {{/input-group}}
+                        {{#> input-group labelKey="sp.lead" label="Lead Time (Avg. Days)" hintTooltip="sp.lead_hint" hint="Average time from order to goods receipt at the warehouse."}}
                             <input type="number" class="glass-input dirty-check" id="field-lead-time" placeholder="14">
-                        </div>
-                        <div class="input-group">
-                            <label class="field-label" data-i18n="sp.min">Min. Order Value</label>
-                            <div class="input-with-suffix custom-select-wrap" id="select-min-currency">
-                                <input type="number" class="glass-input dirty-check" id="field-min-order" placeholder="2500">
-                                <div class="input-suffix custom-select-trigger">
-                                    <span class="curr-val">EUR</span>
-                                </div>
-                                <div class="custom-select-list">
-                                    <div class="custom-select-option" data-value="EUR">EUR</div>
-                                    <div class="custom-select-option" data-value="USD">USD</div>
-                                    <div class="custom-select-option" data-value="GBP">GBP</div>
-                                </div>
-                                <input type="hidden" class="dirty-check" id="field-min-currency" value="EUR">
-                            </div>
-                        </div>
+                        {{/input-group}}
+                        {{#> input-group labelKey="sp.min" label="Min. Order Value"}}
+                            {{#> input-suffix-select selectId="select-min-currency" inputId="field-min-order" fieldId="field-min-currency" placeholder="2500" defaultValue="EUR"}}
+                                {{> currencies}}
+                            {{/input-suffix-select}}
+                        {{/input-group}}
                     </div>
-                </div>
-            </div>
+            {{/glass-panel}}
 
             <!-- NEW: INTERNAL NOTES BLOCK (MOVED TO MIDDLE) -->
-            <div class="glass-panel loading">
-                <div class="panel-header">
-                    <span class="panel-title" data-i18n="sp.notes_title">Internal Notes & History</span>
-                </div>
-                <div class="panel-skeleton">
-                    <div class="skeleton" style="width:50%"></div>
-                    <div class="skeleton" style="height:150px"></div>
-                </div>
-                <div class="panel-body">
+            {{#> glass-panel titleKey="sp.notes_title" title="Internal Notes & History" loading=true skeletonWidth="50%" skeletonHeight="150px" hasBody=true}}
                     <div class="notes-input-area" style="margin-bottom: 20px;">
                         <textarea id="new-note-text" class="glass-input" rows="2" data-i18n="sp.notes_placeholder" style="font-size:12px; resize:vertical;"></textarea>
                         <button class="btn-add-note" id="btn-add-note" data-i18n="btn.add_note">Add Note</button>
                     </div>
                     <div id="notes-list">
-                        <div class="note-item">
-                            <div class="note-header">
-                                <span class="note-date">04.04.2026 14:20</span>
-                                <svg class="tag-remove" style="cursor:pointer; transition:0.2s;" onmouseover="this.setAttribute('stroke','#ffffff')" onmouseout="this.setAttribute('stroke','#a0a5b1')" onclick="this.parentElement.parentElement.remove(); checkDirty();" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a0a5b1" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                            </div>
-                            <div class="note-text">Supplier increased capacity for sheet metal. Lead time might drop to 10 days in May.</div>
-                        </div>
-                        <div class="note-item">
-                            <div class="note-header">
-                                <span class="note-date">25.03.2026 09:15</span>
-                                <svg class="tag-remove" style="cursor:pointer; transition:0.2s;" onmouseover="this.setAttribute('stroke','#ffffff')" onmouseout="this.setAttribute('stroke','#a0a5b1')" onclick="this.parentElement.parentElement.remove(); checkDirty();" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a0a5b1" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                            </div>
-                            <div class="note-text">Audit passed. Reliability rating upgraded to 5 stars.</div>
-                        </div>
+                        {{> note-item date="04.04.2026 14:20" text="Supplier increased capacity for sheet metal. Lead time might drop to 10 days in May."}}
+                        {{> note-item date="25.03.2026 09:15" text="Audit passed. Reliability rating upgraded to 5 stars."}}
                     </div>
-                </div>
-            </div>
+            {{/glass-panel}}
         </div>
 
         <!-- COL RIGHT: FEED & FILES -->
         <div class="col-right">
-            <div class="glass-panel loading">
-                <div class="panel-header">
-                    <span class="panel-title" data-i18n="sp.pricing_hist">Pricing & Order History</span>
-                    <button class="nav-btn" id="btn-add-pricing" style="width:auto; padding:0 10px; font-size:10px; height:22px; gap:5px; opacity:0.8; background:rgba(24, 144, 255, 0.1); border-color:rgba(24, 144, 255, 0.2);">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#1890FF" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                        <span data-i18n="btn.add_entry">Add Entry</span>
-                    </button>
-                </div>
-                <div class="panel-skeleton">
-                    <div class="skeleton" style="width:40%"></div>
-                    <div class="skeleton" style="height:200px"></div>
-                </div>
-                <div class="panel-body">
-                    <div class="table-responsive">
-                        <table class="history-table">
-                            <thead>
-                                <tr>
-                                    <th style="padding:4px 0; width: 60px;" data-i18n="th.date">Date</th>
-                                    <th style="padding:4px 0" data-i18n="th.product">Product</th>
-                                    <th style="padding:4px 0" data-i18n="th.stock">Stock</th>
-                                    <th style="padding:4px 0" data-i18n="th.price">€/kg</th>
-                                    <th style="padding:4px 0; width: 40px; text-align:right;"></th>
-                                </tr>
-                            </thead>
-                            <tbody id="pricing-body">
-                                <tr>
-                                    <td><span class="audit-ts">04.04</span></td>
-                                    <td class="product-cell">Sheet 10mm</td>
-                                    <td class="stock-cell"><strong>22.0 t</strong></td>
-                                    <td class="price-cell">1.05</td>
-                                    <td style="text-align:right;">
-                                        <div style="display:flex; gap:8px; justify-content:flex-end; align-items:center;">
-                                            <div class="action-btn-wrap" onclick="toggleEditRow(this)" style="cursor:pointer; opacity:0.4; transition:0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.4">
-                                                <svg class="edit-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                                                <svg class="save-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                                            </div>
-                                            <svg style="cursor:pointer; opacity:0.4; transition:0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.4" onclick="this.closest('tr').remove(); checkDirty();" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td><span class="audit-ts">28.03</span></td>
-                                    <td class="product-cell">Pipe 100x100</td>
-                                    <td class="stock-cell"><strong>8.5 t</strong></td>
-                                    <td class="price-cell">1.34</td>
-                                    <td style="text-align:right;">
-                                        <div style="display:flex; gap:8px; justify-content:flex-end; align-items:center;">
-                                            <div class="action-btn-wrap" onclick="toggleEditRow(this)" style="cursor:pointer; opacity:0.4; transition:0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.4">
-                                                <svg class="edit-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                                                <svg class="save-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                                            </div>
-                                            <svg style="cursor:pointer; opacity:0.4; transition:0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.4" onclick="this.closest('tr').remove(); checkDirty();" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-            <div class="glass-panel loading">
-                <div class="panel-header">
-                    <span class="panel-title" data-i18n="sp.req_hist">BCC Request Logs</span>
-                    <button class="nav-btn" id="btn-add-log" style="width:auto; padding:0 10px; font-size:10px; height:22px; gap:5px; opacity:0.8; background:rgba(24, 144, 255, 0.1); border-color:rgba(24, 144, 255, 0.2);">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#1890FF" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                        <span data-i18n="btn.add_log">Add Log</span>
-                    </button>
-                </div>
-                <div class="panel-skeleton">
-                    <div class="skeleton" style="width:30%"></div>
-                    <div class="skeleton" style="height:180px"></div>
-                </div>
-                <div class="panel-body">
-                    <div class="table-responsive">
-                        <table class="history-table">
-                            <thead>
-                                <tr>
-                                    <th style="width: 60px;" data-i18n="th.date">Date</th>
-                                    <th data-i18n="th.request">Request</th>
-                                    <th data-i18n="th.source">Source</th>
-                                    <th data-i18n="th.status">Status</th>
-                                    <th style="width: 20px;"></th>
-                                </tr>
-                            </thead>
-                            <tbody id="bcc-logs-body">
-                                <tr>
-                                    <td><span class="audit-ts">02.04</span></td>
-                                    <td class="log-desc-cell" contenteditable="false"><strong>Sheets 20t</strong></td>
-                                    <td class="log-source-cell">BCC Tool</td>
-                                    <td class="log-status-cell"><span class="status-pill pill-success" style="font-size:9px" data-i18n="st.replied">Replied</span></td>
-                                    <td style="text-align:right;">
-                                        <div style="display:flex; gap:8px; justify-content:flex-end; align-items:center;">
-                                            <div class="action-btn-wrap" onclick="toggleEditLog(this)" style="cursor:pointer; opacity:0.4; transition:0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.4">
-                                                <svg class="edit-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                                                <svg class="save-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                                            </div>
-                                            <svg style="cursor:pointer; opacity:0.4; transition:0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.4" onclick="this.closest('tr').remove(); checkDirty();" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td><span class="audit-ts">28.03</span></td>
-                                    <td class="log-desc-cell" contenteditable="false"><strong>Structural 5t</strong></td>
-                                    <td class="log-source-cell">Email</td>
-                                    <td class="log-status-cell"><span class="status-pill pill-warning" style="font-size:9px" data-i18n="st.pending">Pending</span></td>
-                                    <td style="text-align:right;">
-                                        <div style="display:flex; gap:8px; justify-content:flex-end; align-items:center;">
-                                            <div class="action-btn-wrap" onclick="toggleEditLog(this)" style="cursor:pointer; opacity:0.4; transition:0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.4">
-                                                <svg class="edit-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                                                <svg class="save-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                                            </div>
-                                            <svg style="cursor:pointer; opacity:0.4; transition:0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.4" onclick="this.closest('tr').remove(); checkDirty();" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-            <div class="glass-panel loading">
-                <div class="panel-header">
-                    <span class="panel-title" data-i18n="sp.files_title">Attachments & Contracts</span>
-                </div>
-                <div class="panel-skeleton">
-                    <div class="skeleton" style="width:50%"></div>
-                    <div class="skeleton" style="height:100px"></div>
-                </div>
-                <div class="panel-body">
-                    <!-- Example of added files -->
+            {{#> glass-panel titleKey="sp.pricing_hist" title="Pricing & Order History" loading=true skeletonWidth="40%" skeletonHeight="200px" hasBody=true actionLabel="Add Entry" actionKey="btn.add_entry" actionId="btn-add-pricing"}}
+                {{#> history-table
+                    tbodyId="pricing-body"
+                    columns=(array
+                        (obj label="Date" i18n="th.date" style="padding:4px 0;" width="60px")
+                        (obj label="Product" i18n="th.product" style="padding:4px 0;")
+                        (obj label="Stock" i18n="th.stock" style="padding:4px 0;")
+                        (obj label="€/kg" i18n="th.price" style="padding:4px 0;")
+                        (obj label="" style="padding:4px 0; text-align:right;" width="40px")
+                    )
+                }}
+                    <tr>
+                        <td><span class="audit-ts">04.04</span></td>
+                        <td class="product-cell">Sheet 10mm</td>
+                        <td class="stock-cell"><strong>22.0 t</strong></td>
+                        <td class="price-cell">1.05</td>
+                        <td style="text-align:right;">
+                            {{> table-row-actions editAction="toggleEditRow(this)" deleteAction="this.closest('tr').remove(); checkDirty();"}}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><span class="audit-ts">28.03</span></td>
+                        <td class="product-cell">Pipe 100x100</td>
+                        <td class="stock-cell"><strong>8.5 t</strong></td>
+                        <td class="price-cell">1.34</td>
+                        <td style="text-align:right;">
+                            {{> table-row-actions editAction="toggleEditRow(this)" deleteAction="this.closest('tr').remove(); checkDirty();"}}
+                        </td>
+                    </tr>
+                {{/history-table}}
+            {{/glass-panel}}
+            {{#> glass-panel titleKey="sp.req_hist" title="BCC Request Logs" loading=true skeletonWidth="30%" skeletonHeight="180px" hasBody=true actionLabel="Add Log" actionKey="btn.add_log" actionId="btn-add-log"}}
+                {{#> history-table
+                    tbodyId="bcc-logs-body"
+                    columns=(array
+                        (obj label="Date" i18n="th.date" width="60px")
+                        (obj label="Request" i18n="th.request")
+                        (obj label="Source" i18n="th.source")
+                        (obj label="Status" i18n="th.status")
+                        (obj label="" width="20px")
+                    )
+                }}
+                    <tr>
+                        <td><span class="audit-ts">02.04</span></td>
+                        <td class="log-desc-cell" contenteditable="false"><strong>Sheets 20t</strong></td>
+                        <td class="log-source-cell">BCC Tool</td>
+                        <td class="log-status-cell"><span class="status-pill pill-success" style="font-size:9px" data-i18n="st.replied">Replied</span></td>
+                        <td style="text-align:right;">
+                            {{> table-row-actions editAction="toggleEditLog(this)" deleteAction="this.closest('tr').remove(); checkDirty();"}}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><span class="audit-ts">28.03</span></td>
+                        <td class="log-desc-cell" contenteditable="false"><strong>Structural 5t</strong></td>
+                        <td class="log-source-cell">Email</td>
+                        <td class="log-status-cell"><span class="status-pill pill-warning" style="font-size:9px" data-i18n="st.pending">Pending</span></td>
+                        <td style="text-align:right;">
+                            {{> table-row-actions editAction="toggleEditLog(this)" deleteAction="this.closest('tr').remove(); checkDirty();"}}
+                        </td>
+                    </tr>
+                {{/history-table}}
+            {{/glass-panel}}
+            {{#> glass-panel titleKey="sp.files_title" title="Attachments & Contracts" loading=true skeletonWidth="50%" skeletonHeight="100px" hasBody=true}}
                     <div class="file-list" id="supplier-files" style="margin-bottom: 15px;">
-                        <div class="file-item">
-                            <div class="file-info">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1890FF" stroke-width="2.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                                <span class="file-name">Contract_2024_Q1.pdf</span>
-                            </div>
-                            <div class="file-actions">
-                                <a href="../../assets/images/Flexiron_Icon_Blue.svg" download="Contract_2024_Q1.pdf" class="file-action-btn" data-i18n-title="btn.download">
-                                    <svg style="transition:0.2s; cursor:pointer; color: #a0a5b1;" onmouseover="this.style.color='#ffffff'" onmouseout="this.style.color='#a0a5b1'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-                                </a>
-                                <svg class="tag-remove" style="cursor:pointer; transition:0.2s; margin-left:4px;" onmouseover="this.setAttribute('stroke','#ffffff')" onmouseout="this.setAttribute('stroke','#a0a5b1')" onclick="this.closest('.file-item').remove(); checkDirty();" data-i18n-title="btn.delete" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a0a5b1" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                            </div>
-                        </div>
-                        <div class="file-item">
-                            <div class="file-info">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1890FF" stroke-width="2.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                                <span class="file-name">VAT_Certificate.png</span>
-                            </div>
-                            <div class="file-actions">
-                                <a href="../../assets/images/Flexiron_Icon_Blue.svg" download="VAT_Certificate.png" class="file-action-btn" data-i18n-title="btn.download">
-                                    <svg style="transition:0.2s; cursor:pointer; color: #a0a5b1;" onmouseover="this.style.color='#ffffff'" onmouseout="this.style.color='#a0a5b1'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-                                </a>
-                                <svg class="tag-remove" style="cursor:pointer; transition:0.2s; margin-left:4px;" onmouseover="this.setAttribute('stroke','#ffffff')" onmouseout="this.setAttribute('stroke','#a0a5b1')" onclick="this.closest('.file-item').remove(); checkDirty();" data-i18n-title="btn.delete" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a0a5b1" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                            </div>
-                        </div>
+                        {{> file-item name="Contract_2024_Q1.pdf" downloadUrl="../../assets/images/Flexiron_Icon_Blue.svg" downloadName="Contract_2024_Q1.pdf"}}
+                        {{> file-item name="VAT_Certificate.png" downloadUrl="../../assets/images/Flexiron_Icon_Blue.svg" downloadName="VAT_Certificate.png"}}
                     </div>
-
-                    <input type="file" id="file-upload-input" style="display: none;" multiple>
-                    <div class="dropzone" onclick="document.getElementById('file-upload-input').click()">
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-bottom:4px; color:#a0a5b1;"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-                        <div class="dropzone-text" data-i18n="sp.dropzone_hint">Drag & Drop Documents<br>(Contracts, Price Lists, Certificates)</div>
-                    </div>
-                </div>
-            </div>
+                    {{> dropzone inputId="file-upload-input" hintKey="sp.dropzone_hint" hint="Drag & Drop Documents<br>(Contracts, Price Lists, Certificates)"}}
+            {{/glass-panel}}
         </div>
     </div> <!-- End of card-grid -->
-    
+
     <!-- AUDIT HISTORY (FULL WIDTH) -->
-    <div class="glass-panel loading panel-wide">
-        <div class="panel-header"><span class="panel-title" data-i18n="sp.audit">Full Audit History (Entity Log)</span></div>
-        <div class="panel-skeleton">
-            <div class="skeleton" style="width:20%"></div>
-            <div class="skeleton" style="height:120px"></div>
-        </div>
-        <div class="panel-body">
+    {{#> glass-panel titleKey="sp.audit" title="Full Audit History (Entity Log)" loading=true panelClass="panel-wide" skeletonWidth="20%" skeletonHeight="120px" hasBody=true}}
             <div class="table-responsive">
                 <table class="audit-table">
                     <thead><tr><th data-i18n="th.timestamp">Timestamp</th><th data-i18n="th.user">User</th><th data-i18n="th.prop">Property Changed</th><th data-i18n="th.diff">Comparison (Old → New)</th></tr></thead>
@@ -482,6 +218,5 @@ customJs: admin/supplier_card_logic
                     </tbody>
                 </table>
             </div>
-        </div>
-    </div>
+    {{/glass-panel}}
 </div>

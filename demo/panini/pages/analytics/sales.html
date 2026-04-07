@@ -5,40 +5,29 @@ pageTitle: Sales Analytics
 activeNav: analytic_sales
 langFile: admin/analytic_sales
 ---
-<!-- Sub-page navigation -->
-<div class="sub-nav">
-    <a href="dashboard.html" data-i18n="sub.kpi">7.1 KPI</a>
-    <a href="warehouse.html" data-i18n="sub.warehouse">7.2 Warehouse</a>
-    <a href="sales.html" class="current" data-i18n="sub.sales">7.3 Sales</a>
-    <a href="supply.html" data-i18n="sub.supply">7.4 Procurement</a>
-    <a href="staff.html" data-i18n="sub.staff">7.5 Employees</a>
-    <a href="logistics.html" data-i18n="sub.logistics">7.6 Logistics</a>
-    <a href="pl-report.html" data-i18n="sub.pl">7.7 P&amp;L</a>
-    <a href="deficit.html" data-i18n="sub.deficit">7.8 Deficit</a>
-</div>
+
+{{> analytics-sub-nav}}
 
 <div class="kpi-row">
-    <div class="kpi-card"><div class="kpi-icon icon-green"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg></div><div class="kpi-label"><span data-i18n="page.kpi1_label">Revenue (month)</span></div><div class="kpi-value">84 200 <span data-i18n="page.unit_eur">EUR</span></div><div class="kpi-delta up" data-i18n="page.delta1">↑ +12.5%</div></div>
-    <div class="kpi-card"><div class="kpi-icon icon-blue"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg></div><div class="kpi-label"><span data-i18n="page.kpi2_label">Active Clients</span></div><div class="kpi-value">47 <span data-i18n="page.unit_pcs">pcs.</span></div><div class="kpi-delta up" data-i18n="page.delta2">↑ +3 new</div></div>
-    <div class="kpi-card"><div class="kpi-icon icon-gold"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/></svg></div><div class="kpi-label"><span data-i18n="page.kpi3_label">Deals Closed</span></div><div class="kpi-value">63 <span data-i18n="page.unit_pcs">pcs.</span></div><div class="kpi-delta neutral" data-i18n="page.delta3">→ Conv. 68%</div></div>
-    <div class="kpi-card"><div class="kpi-icon icon-red"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg></div><div class="kpi-label"><span data-i18n="page.kpi4_label">Lost Profit</span></div><div class="kpi-value">11 400 <span data-i18n="page.unit_eur">EUR</span></div><div class="kpi-delta down" data-i18n="page.delta4">↓ -5% vs dev</div></div>
+    {{> kpi-card iconName="sales-trend" iconClass="icon-green" labelKey="page.kpi1_label" label="Revenue (month)" value="84 200" unit="EUR" deltaClass="up" deltaKey="page.delta1" delta="↑ +12.5%"}}
+    {{> kpi-card iconName="staff-user" iconClass="icon-blue" labelKey="page.kpi2_label" label="Active Clients" value="47" unit="pcs." deltaClass="up" deltaKey="page.delta2" delta="↑ +3 new"}}
+    {{> kpi-card iconName="offer-tag" iconClass="icon-gold" labelKey="page.kpi3_label" label="Deals Closed" value="63" unit="pcs." deltaClass="neutral" deltaKey="page.delta3" delta="→ Conv. 68%"}}
+    {{> kpi-card iconName="alert-triangle" iconClass="icon-red" labelKey="page.kpi4_label" label="Lost Profit" value="11 400" unit="EUR" deltaClass="down" deltaKey="page.delta4" delta="↓ -5% vs dev"}}
 </div>
 
 <div class="charts-row">
     <!-- Top clients -->
-    <div class="glass-panel">
-        <div class="panel-header"><span class="panel-title" data-i18n="page.chart1_title">Top Clients — Revenue</span><span class="panel-badge" data-i18n="page.badge_march">March 2026</span></div>
-        <div class="bar-chart-row"><span class="bar-label">UAB Metalis</span><div class="bar-track"><div class="bar-fill" style="width:88%;background:linear-gradient(90deg,#1890FF,#40a9ff)"></div></div><span class="bar-val">18 400 €</span></div>
-        <div class="bar-chart-row"><span class="bar-label">SIA Steel Pro</span><div class="bar-track"><div class="bar-fill" style="width:62%;background:linear-gradient(90deg,#1890FF,#40a9ff)"></div></div><span class="bar-val">13 100 €</span></div>
-        <div class="bar-chart-row"><span class="bar-label">Metallurg Ltd</span><div class="bar-track"><div class="bar-fill" style="width:45%;background:linear-gradient(90deg,#1890FF,#40a9ff)"></div></div><span class="bar-val">9 500 €</span></div>
-        <div class="bar-chart-row"><span class="bar-label">AS Rauad OÜ</span><div class="bar-track"><div class="bar-fill" style="width:30%;background:linear-gradient(90deg,#52c41a,#73d13d)"></div></div><span class="bar-val">6 300 €</span></div>
-        <div class="bar-chart-row"><span class="bar-label">UAB Plieno</span><div class="bar-track"><div class="bar-fill" style="width:19%;background:linear-gradient(90deg,#52c41a,#73d13d)"></div></div><span class="bar-val">4 000 €</span></div>
-    </div>
+    {{#> glass-panel titleKey="page.chart1_title" title="Top Clients — Revenue" badgeKey="page.badge_march" badge="March 2026"}}
+        {{> bar-chart-row label="UAB Metalis" width="88" gradient="linear-gradient(90deg,#1890FF,#40a9ff)" value="18 400 €"}}
+        {{> bar-chart-row label="SIA Steel Pro" width="62" gradient="linear-gradient(90deg,#1890FF,#40a9ff)" value="13 100 €"}}
+        {{> bar-chart-row label="Metallurg Ltd" width="45" gradient="linear-gradient(90deg,#1890FF,#40a9ff)" value="9 500 €"}}
+        {{> bar-chart-row label="AS Rauad OÜ" width="30" gradient="linear-gradient(90deg,#52c41a,#73d13d)" value="6 300 €"}}
+        {{> bar-chart-row label="UAB Plieno" width="19" gradient="linear-gradient(90deg,#52c41a,#73d13d)" value="4 000 €"}}
+    {{/glass-panel}}
     <!-- Failure reasons -->
-    <div class="glass-panel">
-        <div class="panel-header"><span class="panel-title" data-i18n="page.chart2_title">Lost Deal Reasons</span><span class="panel-badge" data-i18n="page.badge_deals">29 deals</span></div>
-        <div class="bar-chart-row"><span class="bar-label" data-i18n="page.reason1">Too Expensive</span><div class="bar-track"><div class="bar-fill" style="width:62%;background:linear-gradient(90deg,#ff4d4f,#ff7875)"></div></div><span class="bar-val">62%</span></div>
-        <div class="bar-chart-row"><span class="bar-label" data-i18n="page.reason2">Out of Stock</span><div class="bar-track"><div class="bar-fill" style="width:28%;background:linear-gradient(90deg,#faad14,#ffc53d)"></div></div><span class="bar-val">28%</span></div>
-        <div class="bar-chart-row"><span class="bar-label" data-i18n="page.reason3">Long Lead Time</span><div class="bar-track"><div class="bar-fill" style="width:10%;background:linear-gradient(90deg,#1890FF,#40a9ff)"></div></div><span class="bar-val">10%</span></div>
-    </div>
+    {{#> glass-panel titleKey="page.chart2_title" title="Lost Deal Reasons" badgeKey="page.badge_deals" badge="29 deals"}}
+        {{> bar-chart-row labelKey="page.reason1" label="Too Expensive" width="62" gradient="linear-gradient(90deg,#ff4d4f,#ff7875)" value="62%"}}
+        {{> bar-chart-row labelKey="page.reason2" label="Out of Stock" width="28" gradient="linear-gradient(90deg,#faad14,#ffc53d)" value="28%"}}
+        {{> bar-chart-row labelKey="page.reason3" label="Long Lead Time" width="10" gradient="linear-gradient(90deg,#1890FF,#40a9ff)" value="10%"}}
+    {{/glass-panel}}
 </div>

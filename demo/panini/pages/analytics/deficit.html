@@ -5,29 +5,19 @@ pageTitle: Stock Deficit
 activeNav: analytic_deficit
 langFile: admin/analytic_deficit
 ---
-<!-- Sub-page navigation -->
-<div class="sub-nav">
-    <a href="dashboard.html" data-i18n="sub.kpi">7.1 KPI</a>
-    <a href="warehouse.html" data-i18n="sub.warehouse">7.2 Warehouse</a>
-    <a href="sales.html" data-i18n="sub.sales">7.3 Sales</a>
-    <a href="supply.html" data-i18n="sub.supply">7.4 Procurement</a>
-    <a href="staff.html" data-i18n="sub.staff">7.5 Employees</a>
-    <a href="logistics.html" data-i18n="sub.logistics">7.6 Logistics</a>
-    <a href="pl-report.html" data-i18n="sub.pl">7.7 P&amp;L</a>
-    <a href="deficit.html" class="current" data-i18n="sub.deficit">7.8 Deficit</a>
-</div>
+
+{{> analytics-sub-nav}}
 
 <div class="kpi-row">
-    <div class="kpi-card"><div class="kpi-icon icon-red"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg></div><div class="kpi-label"><span data-i18n="page.kpi1_label">Items in deficit</span></div><div class="kpi-value">8 <span data-i18n="page.unit_pcs">pcs.</span></div><div class="kpi-delta down" data-i18n="page.delta1">↑ +3 new</div></div>
-    <div class="kpi-card"><div class="kpi-icon icon-gold"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div><div class="kpi-label"><span data-i18n="page.kpi2_label">Lost profit (stock)</span></div><div class="kpi-value">4 800 <span>EUR</span></div><div class="kpi-delta down" data-i18n="page.delta2">Not in stock</div></div>
-    <div class="kpi-card"><div class="kpi-icon icon-blue"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg></div><div class="kpi-label"><span data-i18n="page.kpi3_label">Recom. for purchase</span></div><div class="kpi-value">5 <span data-i18n="page.unit_items">items</span></div><div class="kpi-delta neutral" data-i18n="page.delta3">→ List ready</div></div>
-    <div class="kpi-card"><div class="kpi-icon icon-green"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div><div class="kpi-label"><span data-i18n="page.kpi4_label">Purchasing in progress</span></div><div class="kpi-value">3 <span data-i18n="page.unit_items">items</span></div><div class="kpi-delta up" data-i18n="page.delta4">↑ Processing</div></div>
+    {{> kpi-card iconName="alert-triangle" iconClass="icon-red" labelKey="page.kpi1_label" label="Items in deficit" value="8" unit="pcs." deltaClass="down" deltaKey="page.delta1" delta="↑ +3 new"}}
+    {{> kpi-card iconName="profit-coin" iconClass="icon-gold" labelKey="page.kpi2_label" label="Lost profit (stock)" value="4 800" unit="EUR" deltaClass="down" deltaKey="page.delta2" delta="Not in stock"}}
+    {{> kpi-card iconName="report-clipboard" iconClass="icon-blue" labelKey="page.kpi3_label" label="Recom. for purchase" value="5" unit="items" deltaClass="neutral" deltaKey="page.delta3" delta="→ List ready"}}
+    {{> kpi-card iconName="check-circle" iconClass="icon-green" labelKey="page.kpi4_label" label="Purchasing in progress" value="3" unit="items" deltaClass="up" deltaKey="page.delta4" delta="↑ Processing"}}
 </div>
 
 <div class="charts-row">
     <!-- Deficit list -->
-    <div class="glass-panel">
-        <div class="panel-header"><span class="panel-title" data-i18n="page.chart1_title">Positions with deficit</span><span class="panel-badge" data-i18n="page.badge_signal">Buyer signal</span></div>
+    {{#> glass-panel titleKey="page.chart1_title" title="Positions with deficit" badgeKey="page.badge_signal" badge="Buyer signal"}}
         <table class="data-table">
           <thead><tr><th data-i18n="page.th_item">Item</th><th class="hid-320" data-i18n="page.th_stock">Stock</th><th class="hid-320" data-i18n="page.th_min">Min. Stock</th><th data-i18n="page.th_refusals">Refusals</th><th data-i18n="page.th_status">Status</th></tr></thead>
           <tbody>
@@ -38,14 +28,13 @@ langFile: admin/analytic_deficit
             <tr><td data-i18n="page.item_angle_63">Angle 63×63×6</td><td class="hid-320">1.8 <span data-i18n="page.unit_t">t</span></td><td class="hid-320">2 <span data-i18n="page.unit_t">t</span></td><td>1</td><td><span class="status-pill pill-warning" data-i18n="page.status_low">Low</span></td></tr>
           </tbody>
         </table>
-    </div>
+    {{/glass-panel}}
     <!-- Recommended purchase list -->
-    <div class="glass-panel">
-        <div class="panel-header"><span class="panel-title" data-i18n="page.chart2_title">Recommended purchases</span><span class="panel-badge" data-i18n="page.badge_autolist">Auto-list</span></div>
-        <div class="bar-chart-row"><span class="bar-label" data-i18n="page.item_pipe_60">Pipe 60×4</span><div class="bar-track"><div class="bar-fill" style="width:90%;background:linear-gradient(90deg,#ff4d4f,#ff7875)"></div></div><span class="bar-val">4 <span data-i18n="page.unit_t">t</span></span></div>
-        <div class="bar-chart-row"><span class="bar-label" data-i18n="page.item_sheet_3">Sheet 3mm</span><div class="bar-track"><div class="bar-fill" style="width:75%;background:linear-gradient(90deg,#ff4d4f,#ff7875)"></div></div><span class="bar-val">5 <span data-i18n="page.unit_t">t</span></span></div>
-        <div class="bar-chart-row"><span class="bar-label" data-i18n="page.item_profile_80">Profile 80×80</span><div class="bar-track"><div class="bar-fill" style="width:50%;background:linear-gradient(90deg,#faad14,#ffc53d)"></div></div><span class="bar-val">2 <span data-i18n="page.unit_t">t</span></span></div>
-        <div class="bar-chart-row"><span class="bar-label" data-i18n="page.item_rod_30">Rod Ø30</span><div class="bar-track"><div class="bar-fill" style="width:40%;background:linear-gradient(90deg,#faad14,#ffc53d)"></div></div><span class="bar-val">1.5 <span data-i18n="page.unit_t">t</span></span></div>
-        <div class="bar-chart-row"><span class="bar-label" data-i18n="page.item_angle_63">Angle 63×63</span><div class="bar-track"><div class="bar-fill" style="width:25%;background:linear-gradient(90deg,#1890FF,#40a9ff)"></div></div><span class="bar-val">1 <span data-i18n="page.unit_t">t</span></span></div>
-    </div>
+    {{#> glass-panel titleKey="page.chart2_title" title="Recommended purchases" badgeKey="page.badge_autolist" badge="Auto-list"}}
+        {{> bar-chart-row labelKey="page.item_pipe_60" label="Pipe 60×4" width="90" gradient="linear-gradient(90deg,#ff4d4f,#ff7875)" value="4 t"}}
+        {{> bar-chart-row labelKey="page.item_sheet_3" label="Sheet 3mm" width="75" gradient="linear-gradient(90deg,#ff4d4f,#ff7875)" value="5 t"}}
+        {{> bar-chart-row labelKey="page.item_profile_80" label="Profile 80×80" width="50" gradient="linear-gradient(90deg,#faad14,#ffc53d)" value="2 t"}}
+        {{> bar-chart-row labelKey="page.item_rod_30" label="Rod Ø30" width="40" gradient="linear-gradient(90deg,#faad14,#ffc53d)" value="1.5 t"}}
+        {{> bar-chart-row labelKey="page.item_angle_63" label="Angle 63×63" width="25" gradient="linear-gradient(90deg,#1890FF,#40a9ff)" value="1 t"}}
+    {{/glass-panel}}
 </div>

@@ -32,7 +32,7 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    const checkDirty = () => {
+    window.checkDirty = () => {
         let isDirty = false;
         
         document.querySelectorAll('.dirty-check').forEach(input => {
@@ -121,8 +121,9 @@ window.addEventListener('DOMContentLoaded', () => {
                     if (!existing.includes(val)) {
                         const tag = document.createElement('div');
                         tag.className = 'tag';
-                        tag.innerHTML = `${val} <svg class="tag-remove" style="cursor:pointer; opacity:0.4; transition:0.2s; margin-left:4px;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.4" onclick="this.closest('.tag').remove()" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+                        tag.innerHTML = `${val} <svg class="action-btn-wrap" onclick="this.closest('.tag').remove()" data-i18n-title="btn.delete" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
                         container.insertBefore(tag, input);
+                        if (typeof translationEngine !== 'undefined') translationEngine.translateNewElements(tag);
                         checkDirty();
                     }
                     dropdown.classList.remove('open');
@@ -131,7 +132,7 @@ window.addEventListener('DOMContentLoaded', () => {
         } else {
             input.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ',') {
                 e.preventDefault(); const val = input.value.trim();
-                if (val) { const tag = document.createElement('div'); tag.className = 'tag'; tag.innerHTML = `${val} <svg class="tag-remove" style="cursor:pointer; opacity:0.4; transition:0.2s; margin-left:4px;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.4" onclick="this.closest('.tag').remove()" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`; container.insertBefore(tag, input); input.value = ''; checkDirty(); }
+                if (val) { const tag = document.createElement('div'); tag.className = 'tag'; tag.innerHTML = `${val} <svg class="action-btn-wrap" onclick="this.closest('.tag').remove()" data-i18n-title="btn.delete" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`; container.insertBefore(tag, input); if (typeof translationEngine !== 'undefined') translationEngine.translateNewElements(tag); input.value = ''; checkDirty(); }
             }});
         }
         container.addEventListener('click', (e) => { const btn = e.target.closest('.tag-remove'); if (btn) { btn.closest('.tag').remove(); checkDirty(); }});
@@ -289,12 +290,13 @@ window.addEventListener('DOMContentLoaded', () => {
                 noteItem.innerHTML = `
                     <div class="note-header">
                         <span class="note-date">${ts}</span>
-                        <svg class="tag-remove" style="cursor:pointer; transition:0.2s;" onmouseover="this.setAttribute('stroke','#ffffff')" onmouseout="this.setAttribute('stroke','#a0a5b1')" onclick="this.parentElement.parentElement.remove(); checkDirty();" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a0a5b1" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        <svg class="action-btn-wrap" onclick="this.parentElement.parentElement.remove(); checkDirty();" data-i18n-title="btn.delete" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                     </div>
                     <div class="note-text">${text}</div>
                 `;
                 
                 notesList.prepend(noteItem);
+                if (typeof translationEngine !== 'undefined') translationEngine.translateNewElements(noteItem);
                 noteInput.value = '';
                 checkDirty();
             };
@@ -319,15 +321,16 @@ window.addEventListener('DOMContentLoaded', () => {
                     <td class="price-cell">0.00</td>
                     <td style="text-align:right;">
                         <div style="display:flex; gap:8px; justify-content:flex-end; align-items:center;">
-                            <div class="action-btn-wrap" onclick="window.toggleEditRow(this)" style="cursor:pointer; opacity:0.6;">
+                            <div class="action-btn-wrap" onclick="window.toggleEditRow(this)">
                                 <svg class="edit-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                                 <svg class="save-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                             </div>
-                            <svg style="cursor:pointer; opacity:0.4; transition:0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.4" onclick="this.closest('tr').remove(); checkDirty();" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            <svg class="action-btn-wrap" onclick="this.closest('tr').remove(); checkDirty();" data-i18n-title="btn.delete" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                         </div>
                     </td>
                 `;
                 pricingBody.prepend(row);
+                if (typeof translationEngine !== 'undefined') translationEngine.translateNewElements(row);
                 window.toggleEditRow(row.querySelector('.action-btn-wrap'));
                 checkDirty();
             }
@@ -354,15 +357,16 @@ window.addEventListener('DOMContentLoaded', () => {
                     <td class="log-status-cell">${selStatus}</td>
                     <td style="text-align:right;">
                         <div style="display:flex; gap:8px; justify-content:flex-end; align-items:center;">
-                            <div class="action-btn-wrap" onclick="window.toggleEditLog(this)" style="cursor:pointer; opacity:0.6;">
+                            <div class="action-btn-wrap" onclick="window.toggleEditLog(this)">
                                 <svg class="edit-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                                 <svg class="save-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                             </div>
-                            <svg style="cursor:pointer; opacity:0.4; transition:0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.4" onclick="this.closest('tr').remove(); checkDirty();" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            <svg class="action-btn-wrap" onclick="this.closest('tr').remove(); checkDirty();" data-i18n-title="btn.delete" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                         </div>
                     </td>
                 `;
                 bccBody.prepend(row);
+                if (typeof translationEngine !== 'undefined') translationEngine.translateNewElements(row);
                 window.toggleEditLog(row.querySelector('.action-btn-wrap'));
                 checkDirty();
             }
@@ -530,14 +534,14 @@ window.addEventListener('DOMContentLoaded', () => {
                 fileItem.className = 'file-item';
                 fileItem.innerHTML = `
                     <div class="file-info">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1890FF" stroke-width="2.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        <svg class="action-btn-wrap" style="color:#1890FF;" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                         <span class="file-name">${file.name}</span>
                     </div>
                     <div class="file-actions">
                         <a class="file-action-btn">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                            <svg class="action-btn-wrap" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
                         </a>
-                        <svg class="tag-remove" style="cursor:pointer; transition:0.2s; margin-left:4px;" onmouseover="this.setAttribute('stroke','#ffffff')" onmouseout="this.setAttribute('stroke','#a0a5b1')" onclick="this.closest('.file-item').remove(); checkDirty();" title="Delete" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a0a5b1" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        <svg class="action-btn-wrap" onclick="this.closest('.file-item').remove(); checkDirty();" data-i18n-title="btn.delete" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                     </div>
                 `;
 
@@ -556,6 +560,7 @@ window.addEventListener('DOMContentLoaded', () => {
                     reader.readAsDataURL(file);
                 };
                 fileList.appendChild(fileItem);
+                if (typeof translationEngine !== 'undefined') translationEngine.translateNewElements(fileItem);
                 checkDirty();
             });
         });
@@ -576,11 +581,12 @@ window.addEventListener('DOMContentLoaded', () => {
             noteItem.innerHTML = `
                 <div class="note-header">
                     <span class="note-date">${now}</span>
-                    <svg class="tag-remove" style="cursor:pointer; transition:0.2s;" onmouseover="this.setAttribute('stroke','#ffffff')" onmouseout="this.setAttribute('stroke','#a0a5b1')" onclick="this.parentElement.parentElement.remove(); checkDirty();" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a0a5b1" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    <svg class="action-btn-wrap" onclick="this.parentElement.parentElement.remove(); checkDirty();" data-i18n-title="btn.delete" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </div>
                 <div class="note-text">${val}</div>
             `;
             notesList.insertBefore(noteItem, notesList.firstChild);
+            if (typeof translationEngine !== 'undefined') translationEngine.translateNewElements(noteItem);
             noteText.value = '';
             checkDirty();
         };

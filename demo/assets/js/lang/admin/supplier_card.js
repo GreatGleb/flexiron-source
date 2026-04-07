@@ -11,6 +11,14 @@ window.translations.ru.supplier = {
     card_title: "Профиль поставщика"
 };
 
+window.translations.ru.page = {
+    seo: {
+        title: "Flexiron — Профиль поставщика",
+        description: "Flexiron"
+    },
+    header_title: "Профиль поставщика"
+};
+
 window.translations.ru.sp = {
     status_title: "Жизненный цикл и статус",
     status_label: "Текущий статус",
@@ -109,6 +117,14 @@ window.translations.en.supplier = {
     card_title: "Supplier Profile"
 };
 
+window.translations.en.page = {
+    seo: {
+        title: "Flexiron — Supplier Profile",
+        description: "Flexiron"
+    },
+    header_title: "Supplier Profile"
+};
+
 window.translations.en.sp = {
     status_title: "Lifecycle & Status",
     status_label: "Current Status",
@@ -205,6 +221,14 @@ window.translations.en.date = {
 // --- LT ---
 window.translations.lt.supplier = {
     card_title: "Tiekėjo profilis"
+};
+
+window.translations.lt.page = {
+    seo: {
+        title: "Flexiron — Tiekėjo profilis",
+        description: "Flexiron"
+    },
+    header_title: "Tiekėjo profilis"
 };
 
 window.translations.lt.sp = {
