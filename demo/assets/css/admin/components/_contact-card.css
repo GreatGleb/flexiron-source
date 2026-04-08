@@ -1,0 +1,4 @@
+/* --- CONTACT CARD --- */
+/* Reusable contact card wrapper for entity cards */
+
+.entity-contact-card { background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); }

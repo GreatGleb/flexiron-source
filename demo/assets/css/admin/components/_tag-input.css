@@ -1,0 +1,14 @@
+/* --- UI COMPONENTS: TAG INPUT --- */
+.tag-container { display: flex; flex-wrap: wrap; gap: 10px; padding: 12px; background: rgba(0, 0, 0, 0.2); border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.1); transition: 0.3s; min-height: 50px; align-items: center; }
+.tag-container:focus-within { border-color: #1890FF; box-shadow: 0 0 10px rgba(24, 144, 255, 0.1); }
+.tag { background: rgba(24, 144, 255, 0.15); border: 1px solid rgba(24, 144, 255, 0.3); padding: 6px 12px; border-radius: 20px; font-size: 12px; color: #fff; display: flex; align-items: center; gap: 8px; white-space: nowrap; transition: 0.2s; }
+.tag:hover { background: rgba(24, 144, 255, 0.25); border-color: #1890FF; }
+.tag-remove { cursor: pointer; display: inline-flex; align-items: center; vertical-align: middle; transition: 0.2s; margin: 0; padding: 0; }
+.tag .tag-remove { color: rgba(255,255,255,0.5); }
+.tag .tag-remove:hover { color: #fff; }
+.tag-input { background: transparent; border: none; color: white; outline: none; min-width: 150px; font-size: 13px; opacity: 0.5; transition: 0.3s; }
+.tag-input:focus { opacity: 1; }
+.tag-dropdown { position: absolute; top: calc(100% + 5px); left: 0; width: 100%; background: rgba(40, 42, 48, 0.98); backdrop-filter: blur(25px); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 10px; padding: 8px; z-index: 1001; box-shadow: 0 15px 30px rgba(0,0,0,0.5); display: none; max-height: 200px; overflow-y: auto; }
+.tag-dropdown.open { display: block; }
+.tag-drop-item { padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; color: rgba(255,255,255,0.7); transition: 0.2s; }
+.tag-drop-item:hover { background: rgba(24, 144, 255, 0.2); color: #fff; }

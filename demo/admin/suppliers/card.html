@@ -133,7 +133,7 @@
         <h1 class="page-title"><span data-i18n="page.header_title">Supplier Profile</span></h1>
         <!-- HEADER SECTION: Title First, then Actions -->
         <div class="flex-end" style="margin-bottom: 32px;">
-            <div class="action-bar no-margin pos-static flex-group">
+            <div class="entity-action-bar no-margin pos-static flex-group">
                 <a href="bcc-request.html" class="btn btn-secondary">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
@@ -159,9 +159,9 @@
         </div>
         
         <div class="main-card-content">
-            <div class="card-grid">
+            <div class="entity-card-grid">
                 <!-- COL LEFT: REQUISITES & CONTACT -->
-                <div class="col-left">
+                <div class="entity-col-left">
                     <!-- NEW: DEDICATED STATUS SECTION -->
         <div class="glass-panel loading">
             <div class="panel-header">
@@ -296,7 +296,7 @@
             </div>
             <div class="panel-skeleton"><div class="skeleton" style="width:40%"></div><div class="skeleton" style="height:100px"></div></div>
             <div class="panel-body">
-                                <div class="contact-card">
+                                <div class="entity-contact-card">
             <div class="input-group" >
                 <label class="field-label"
                             data-i18n="sp.contact_name"
@@ -332,7 +332,7 @@
                 </div>
         
                 <!-- COL CENTER: PROCUREMENT & LOGISTICS -->
-                <div class="col-center">
+                <div class="entity-col-center">
         <div class="glass-panel loading">
             <div class="panel-header">
                 <span class="panel-title" data-i18n="sp.procurement">Procurement &amp; Logistics</span>
@@ -492,7 +492,7 @@
                 </div>
         
                 <!-- COL RIGHT: FEED & FILES -->
-                <div class="col-right">
+                <div class="entity-col-right">
         <div class="glass-panel loading">
             <div class="panel-header">
                 <span class="panel-title" data-i18n="sp.pricing_hist">Pricing &amp; Order History</span>
@@ -518,7 +518,7 @@
                     </thead>
                     <tbody id="pricing-body">
                                                 <tr>
-                                                    <td><span class="audit-ts">04.04</span></td>
+                                                    <td><span class="audit-log-ts">04.04</span></td>
                                                     <td class="product-cell">Sheet 10mm</td>
                                                     <td class="stock-cell"><strong>22.0 t</strong></td>
                                                     <td class="price-cell">1.05</td>
@@ -545,7 +545,7 @@
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td><span class="audit-ts">28.03</span></td>
+                                                    <td><span class="audit-log-ts">28.03</span></td>
                                                     <td class="product-cell">Pipe 100x100</td>
                                                     <td class="stock-cell"><strong>8.5 t</strong></td>
                                                     <td class="price-cell">1.34</td>
@@ -601,7 +601,7 @@
                     </thead>
                     <tbody id="bcc-logs-body">
                                                 <tr>
-                                                    <td><span class="audit-ts">02.04</span></td>
+                                                    <td><span class="audit-log-ts">02.04</span></td>
                                                     <td class="log-desc-cell" contenteditable="false"><strong>Sheets 20t</strong></td>
                                                     <td class="log-source-cell">BCC Tool</td>
                                                     <td class="log-status-cell"><span class="status-pill pill-success" style="font-size:9px" data-i18n="st.replied">Replied</span></td>
@@ -628,7 +628,7 @@
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td><span class="audit-ts">28.03</span></td>
+                                                    <td><span class="audit-log-ts">28.03</span></td>
                                                     <td class="log-desc-cell" contenteditable="false"><strong>Structural 5t</strong></td>
                                                     <td class="log-source-cell">Email</td>
                                                     <td class="log-status-cell"><span class="status-pill pill-warning" style="font-size:9px" data-i18n="st.pending">Pending</span></td>
@@ -706,7 +706,7 @@
             </div> <!-- End of card-grid -->
         
             <!-- AUDIT HISTORY (FULL WIDTH) -->
-        <div class="glass-panel loading panel-wide">
+        <div class="glass-panel loading audit-panel-wide">
             <div class="panel-header">
                 <span class="panel-title" data-i18n="sp.audit">Full Audit History (Entity Log)</span>
                 
@@ -715,11 +715,11 @@
             <div class="panel-skeleton"><div class="skeleton" style="width:20%"></div><div class="skeleton" style="height:120px"></div></div>
             <div class="panel-body">
                         <div class="table-responsive">
-                            <table class="audit-table">
+                            <table class="audit-log-table">
                                 <thead><tr><th data-i18n="th.timestamp">Timestamp</th><th data-i18n="th.user">User</th><th data-i18n="th.prop">Property Changed</th><th data-i18n="th.diff">Comparison (Old → New)</th></tr></thead>
                                 <tbody>
-                                    <tr><td class="audit-ts">2026-04-05 01:10</td><td><div class="audit-user"><div class="audit-avatar">MV</div><span>Maxim V.</span></div></td><td>Payment Terms</td><td><span class="diff-old">Prepayment</span> → <span class="diff-new">30 Days Net</span></td></tr>
-                                    <tr><td class="audit-ts">2026-04-01 10:25</td><td><div class="audit-user"><div class="audit-avatar">AZ</div><span>Alex Z.</span></div></td><td>Min. Order</td><td><span class="diff-old">1000 EUR</span> → <span class="diff-new">2500 EUR</span></td></tr>
+                                    <tr><td class="audit-log-ts">2026-04-05 01:10</td><td><div class="audit-log-user"><div class="audit-log-avatar">MV</div><span>Maxim V.</span></div></td><td>Payment Terms</td><td><span class="audit-diff-old">Prepayment</span> → <span class="audit-diff-new">30 Days Net</span></td></tr>
+                                    <tr><td class="audit-log-ts">2026-04-01 10:25</td><td><div class="audit-log-user"><div class="audit-log-avatar">AZ</div><span>Alex Z.</span></div></td><td>Min. Order</td><td><span class="audit-diff-old">1000 EUR</span> → <span class="audit-diff-new">2500 EUR</span></td></tr>
                                 </tbody>
                             </table>
                         </div>

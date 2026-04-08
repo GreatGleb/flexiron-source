@@ -1,41 +1,6 @@
-/* --- PAGE LAYOUT: SUPPLIER CARD --- */
-.card-grid { display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 24px; align-items: start; margin-bottom: 24px; }
-@media (max-width: 1200px) { .card-grid { grid-template-columns: 1fr 1fr; } .col-right { grid-column: span 2; } }
-@media (max-width: 992px) { .card-grid { display: flex; flex-direction: column; } .col-center { order: -1; } }
+/* --- SUPPLIER CARD: PAGE-SPECIFIC OVERRIDES --- */
+/* All shared styles moved to components/_entity-*.css files */
 
-/* --- ACTION BAR --- */
-.action-bar { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; position: sticky; top: 0; z-index: 10; }
-@media (max-width: 600px) { .action-bar { justify-content: flex-start; } .btn { flex: 1 0 auto; justify-content: center; } }
-
-/* --- EDITING STATE --- */
-.editing [contenteditable="false"] { background: rgba(24, 144, 255, 0.05); outline: 1px solid rgba(24, 144, 255, 0.2); border-radius: 4px; cursor: text; }
-.glass-input-sm { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); color: #fff; border-radius: 4px; padding: 2px 4px; outline: none; }
-.glass-input-sm option { background: #1a1f2b; color: #fff; }
-
-/* --- SMALL CUSTOM SELECT (TABLES) --- */
-.custom-select-sm .custom-select-trigger { padding: 2px 8px; font-size: 11px; height: 24px; background: rgba(40, 45, 55, 0.4); justify-content: center; }
-.custom-select-sm .curr-val { width: 100%; text-align: center; }
-.custom-select-sm .custom-select-list { top: calc(100% + 4px); left: 50%; transform: translateX(-50%); font-size: 11px; min-width: 160px; text-align: center; z-index: 1005; }
-.custom-select-sm .custom-select-option { padding: 6px 12px; }
-
-/* --- TABLE: AUDIT --- */
-.audit-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-.panel-wide { min-width: 600px; width: 100%; }
-.audit-table th { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: rgba(255, 255, 255, 0.35); padding: 0.75rem; text-align: left; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
-.audit-table td { padding: 0.75rem; font-size: 0.85rem; color: rgba(255, 255, 255, 0.65); border-bottom: 1px solid rgba(255, 255, 255, 0.05); transition: 0.2s; }
-.audit-table tr:hover td { background: rgba(255, 255, 255, 0.04); color: #fff; }
-.audit-user { display: flex; align-items: center; gap: 8px; }
-.audit-avatar { width: 24px; height: 24px; background: rgba(24, 144, 255, 0.1); border: 1px solid rgba(24, 144, 255, 0.2); border-radius: 50%; font-size: 10px; display: flex; align-items: center; justify-content: center; color: #1890FF; font-weight: bold; }
-.audit-ts { font-family: 'JetBrains Mono', monospace; color: rgba(255, 255, 255, 0.45); font-size: 11px; }
-.diff-old { text-decoration: line-through; color: #ff4d4f; opacity: 0.7; margin-right: 4px; }
-.diff-new { color: #52c41a; font-weight: 500; }
-
-/* --- CONTACT CARD --- */
-.contact-card { background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); }
-
-/* --- MANDATORY ALERT --- */
-.mandatory-alert { border-color: #ff4d4f !important; box-shadow: 0 0 10px rgba(255, 77, 79, 0.2); }
-
-/* --- TABLE RESPONSIVE OVERRIDE --- */
+/* Table responsive override for supplier card tables */
 .table-responsive { overflow: visible !important; }
 

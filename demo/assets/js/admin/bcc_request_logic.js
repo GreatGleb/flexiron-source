@@ -771,7 +771,27 @@ InBox LT Team`;
         });
 
         tbody.querySelectorAll('.edit-response-btn').forEach(btn => {
-            btn.addEventListener('click', () => openResponseModal(btn.dataset.id));
+            btn.addEventListener('click', () => {
+                const row = btn.closest('tr');
+                const isEditing = btn.classList.toggle('editing');
+                
+                if (isEditing) {
+                    // Change icon to floppy disk (save)
+                    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>`;
+                    btn.classList.remove('action-edit');
+                    btn.classList.add('action-success');
+                    btn.dataset.tooltip = getTranslation('btn.save') || 'Save';
+                    row.classList.add('row-editing');
+                } else {
+                    // Save and change back to edit icon
+                    openResponseModal(btn.dataset.id);
+                    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+                    btn.classList.add('action-edit');
+                    btn.classList.remove('action-success');
+                    btn.dataset.tooltip = getTranslation('bcc.edit_response') || 'Edit Response';
+                    row.classList.remove('row-editing');
+                }
+            });
         });
 
         // Add JS tooltips for action buttons

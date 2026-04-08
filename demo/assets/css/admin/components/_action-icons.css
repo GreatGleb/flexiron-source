@@ -1,0 +1,75 @@
+/* --- UI COMPONENTS: ACTION ICONS --- */
+/* Icon buttons for table actions (edit, delete, success, danger) */
+
+/* Action Icon Button Base */
+.action-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+}
+.action-icon-btn:hover {
+    transform: translateY(-1px);
+}
+
+/* Success Variant (green hover) */
+.action-icon-btn.action-success:hover {
+    background: rgba(82, 196, 26, 0.15);
+    border-color: rgba(82, 196, 26, 0.4);
+    color: #52c41a;
+    box-shadow: 0 0 12px rgba(82, 196, 26, 0.2);
+}
+
+/* Danger Variant (red hover) */
+.action-icon-btn.action-danger:hover {
+    background: rgba(255, 77, 79, 0.15);
+    border-color: rgba(255, 77, 79, 0.4);
+    color: #ff4d4f;
+    box-shadow: 0 0 12px rgba(255, 77, 79, 0.2);
+}
+
+/* Edit Variant (blue hover) */
+.action-icon-btn.action-edit:hover {
+    background: rgba(24, 144, 255, 0.15);
+    border-color: rgba(24, 144, 255, 0.4);
+    color: var(--primary);
+    box-shadow: 0 0 12px rgba(24, 144, 255, 0.2);
+}
+
+/* Legacy btn-icon support (deprecated, use action-icon-btn) */
+.btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.btn-icon:hover {
+    background: rgba(24, 144, 255, 0.15);
+    border-color: rgba(24, 144, 255, 0.3);
+    color: var(--primary);
+}
+.btn-icon.success {
+    color: #52c41a;
+}
+.btn-icon.success:hover {
+    background: rgba(82, 196, 26, 0.15);
+    border-color: rgba(82, 196, 26, 0.3);
+    color: #52c41a;
+}

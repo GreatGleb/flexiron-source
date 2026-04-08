@@ -1,0 +1,5 @@
+/* --- UI COMPONENTS: RATING STARS --- */
+.rating-stars { display: flex; gap: 4px; align-items: center; }
+.star-svg { width: 14px; height: 14px; fill: rgba(255, 215, 0, 0.2); stroke: rgba(255, 215, 0, 0.4); stroke-width: 2px; transition: 0.3s; }
+.star-svg.active { fill: #FFD700; stroke: #FFD700; filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.4)); }
+.custom-select-option:hover .star-svg { transform: scale(1.1); }

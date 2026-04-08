@@ -315,7 +315,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td><span class="audit-ts">${ts}</span></td>
+                    <td><span class="audit-log-ts">${ts}</span></td>
                     <td class="product-cell">${selProduct}</td>
                     <td class="stock-cell"><strong>0.0 t</strong></td>
                     <td class="price-cell">0.00</td>
@@ -351,7 +351,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td><span class="audit-ts">${ts}</span></td>
+                    <td><span class="audit-log-ts">${ts}</span></td>
                     <td class="log-desc-cell" contenteditable="true" style="background:rgba(24,144,255,0.05); border-radius:4px;"><strong>${newReq}</strong></td>
                     <td class="log-source-cell">${selSource}</td>
                     <td class="log-status-cell">${selStatus}</td>
@@ -375,7 +375,8 @@ window.addEventListener('DOMContentLoaded', () => {
 
     window.toggleEditLog = function(btn) {
         const row = btn.closest('tr');
-        const isEditing = row.classList.toggle('editing');
+        const isEditing = row.classList.toggle('entity-editing');
+        btn.classList.toggle('editing', isEditing); // Toggle icon
         const descCell = row.querySelector('.log-desc-cell');
         const sourceCell = row.querySelector('.log-source-cell');
         const statusCell = row.querySelector('.log-status-cell');
@@ -395,7 +396,7 @@ window.addEventListener('DOMContentLoaded', () => {
             }).join('');
             
             sourceCell.innerHTML = `
-                <div class="custom-select-wrap custom-select-sm">
+                <div class="custom-select-wrap entity-select-sm">
                     <div class="glass-input custom-select-trigger" style="margin:0;">
                         <span class="curr-val">${curSource}</span>
                         <svg class="select-arrow" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
@@ -414,7 +415,7 @@ window.addEventListener('DOMContentLoaded', () => {
             }).join('');
             
             statusCell.innerHTML = `
-                <div class="custom-select-wrap custom-select-sm">
+                <div class="custom-select-wrap entity-select-sm">
                     <div class="glass-input custom-select-trigger" style="margin:0;">
                         <span class="curr-val">${statusCell.innerHTML}</span>
                         <svg class="select-arrow" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
@@ -442,7 +443,8 @@ window.addEventListener('DOMContentLoaded', () => {
 
     window.toggleEditRow = function(btn) {
         const row = btn.closest('tr');
-        const isEditing = row.classList.toggle('editing');
+        const isEditing = row.classList.toggle('entity-editing');
+        btn.classList.toggle('editing', isEditing); // Toggle icon
         const prodCell = row.querySelector('.product-cell');
         const stockCell = row.querySelector('.stock-cell');
         const priceCell = row.querySelector('.price-cell');
@@ -454,7 +456,7 @@ window.addEventListener('DOMContentLoaded', () => {
             const optionsHTML = catalog.map(p => `<div class="custom-select-option" data-value="${p}">${p}</div>`).join('');
             
             prodCell.innerHTML = `
-                <div class="custom-select-wrap custom-select-sm">
+                <div class="custom-select-wrap entity-select-sm">
                     <div class="glass-input custom-select-trigger" style="margin:0;">
                         <span class="curr-val">${current}</span>
                         <svg class="select-arrow" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
