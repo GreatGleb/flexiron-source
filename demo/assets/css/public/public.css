@@ -310,6 +310,13 @@ p.subtitle {
   }
 }
 
+/* Override erp-base.css lang-switcher hiding */
+@media (max-width: 860px) {
+  .lang-switcher {
+    display: flex !important;
+  }
+}
+
 /* Responsive - Mobile (Large) */
 @media (max-width: 768px) {
   .lang-switcher {
@@ -323,6 +330,7 @@ p.subtitle {
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     z-index: 50;
+    display: flex !important;
   }
   .container {
     padding: 1.5rem 1rem;
@@ -385,5 +393,17 @@ p.subtitle {
     flex-direction: column;
     align-items: center;
     gap: 1rem;
+  }
+  .lang-switcher {
+    display: flex;
+    transform: scale(0.9);
+  }
+}
+
+/* Ensure lang-switcher visible on very small screens */
+@media (max-width: 400px) {
+  .lang-switcher {
+    display: flex !important;
+    transform: scale(0.85);
   }
 }
