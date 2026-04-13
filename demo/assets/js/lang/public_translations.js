@@ -49,7 +49,14 @@ const translations = {
             p77: "Управленческий баланс P&L",
             p77Desc: "Финансовый результат + платёжный календарь.",
             p78: "Аналитика Дефицита",
-            p78Desc: "Сигнал закупщику, рекомендованный список закупок."
+            p78Desc: "Сигнал закупщику, рекомендованный список закупок.",
+            section_procurement: "3. Закупки (Снабжение)",
+            p040: "Список поставщиков",
+            p040Desc: "Таблица и Канбан виды, фильтры, пагинация, экспорт.",
+            p041: "Карточка поставщика",
+            p041Desc: "Полный профиль поставщика: контакты, условия, BCC-emails и файлы.",
+            p042: "BCC Запрос",
+            p042Desc: "Запрос ценовых предложений от поставщиков через BCC email."
         },
         login: {
             seo: { title: "Flexiron — Вход в систему", description: "Авторизация в рабочем пространстве Flexiron." },
@@ -180,7 +187,16 @@ const translations = {
             p77: "Management P&L Report",
             p77Desc: "Financial result + payment calendar.",
             p78: "Deficit Analytics",
-            p78Desc: "Buyer signal, recommended purchase list."
+            p78Desc: "Buyer signal, recommended purchase list.",
+            section_procurement: "3. Procurement (Supplying)",
+            p040: "Suppliers List",
+            p040Desc: "Table and Kanban views, filters, pagination, export.",
+            p041: "Supplier Card",
+            p041Desc: "Complete supplier profile: contacts, conditions, BCC-emails, and files.",
+            p042: "BCC Request",
+            p042Desc: "Request price quotes from suppliers via BCC email.",
+            p043: "Supplier Card Config",
+            p043Desc: "Configuration page for supplier card settings and preferences."
         },
         login: {
             seo: { title: "Flexiron — Login", description: "Authorize in your Flexiron workspace." },
@@ -311,7 +327,16 @@ const translations = {
             p77: "Valdymo P&L ataskaita",
             p77Desc: "Finansinis rezultatas + mokėjimų kalendorius.",
             p78: "Deficito Analitika",
-            p78Desc: "Signalai pirkėjui, rekomenduojamas pirkimų sąrašas."
+            p78Desc: "Pirkėjo signalas, rekomenduojamas pirkimų sąrašas.",
+            section_procurement: "3. Įsigijimas (Apyvarta)",
+            p040: "Tiekėjų sąrašas",
+            p040Desc: "Lentelės ir Kanban vaizdai, filtrai, puslapių navigacija, eksportas.",
+            p041: "Tiekėjo kortelė",
+            p041Desc: "Pilnas tiekėjo profilis: kontaktai, sąlygos, BCC el. laiškai ir failai.",
+            p042: "BCC užklausa",
+            p042Desc: "Prašyti kainos pasiūlymų iš tiekėjų per BCC el. paštą.",
+            p043: "Tiekėjo kortelės konfigūracija",
+            p043Desc: "Konfigūracijos puslapis tiekėjo kortelės nustatymams."
         },
         login: {
             seo: { title: "Flexiron — Prisijungimas", description: "Prisijunkite prie savo Flexiron darbo erdvės." },

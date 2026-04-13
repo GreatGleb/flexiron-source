@@ -2,6 +2,11 @@
    erp-base.css — Shared styles for all ERP pages
    Include: <link rel="stylesheet" href="erp-base.css">
 ============================================= */
+
+/* i18n visibility */
+[data-i18n] { opacity: 0; }
+.i18n-visible { opacity: 1 !important; transition: opacity 0.2s ease-in-out; }
+
 :root {
   --primary: #1890ff;
   --primary-dark: #005bb5;
