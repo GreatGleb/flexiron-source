@@ -7,13 +7,12 @@
 
 **Flexiron Enterprise** — high-performance Business Management Platform (SaaS) for metal processing centers and industrial commerce.
 
-This repository contains the frontend source code for the production application, along with the original interactive demo prototype.
+This repository contains the frontend source code for the production application.
 
 ## Repository Structure
 
 ```
 ├── frontend_vue/   # Production frontend (Vue 3 + TypeScript + Vite)
-├── demo/           # Original HTML/CSS/JS interactive prototype
 └── toDo/           # Planning, specifications, and migration docs
 ```
 
@@ -25,12 +24,6 @@ The production single-page application built with:
 - **Vite** — build tooling
 - **Sass** — styling
 - **Playwright** — E2E testing
-
-### `demo/`
-The original interactive UI prototype (pure HTML/CSS/Vanilla JS). Used as a visual reference during production development.
-- `demo/public/` — public pages (Landing, Registration, Authorization, Support)
-- `demo/admin/` — ERP/CRM admin modules and dashboards
-- `demo/assets/` — shared CSS design system and JS libraries
 
 ### `toDo/`
 Internal planning documents: migration plans, task lists, process algorithms, and specs.
