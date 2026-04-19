@@ -2,21 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Flexiron - Metal Center Management Ecosystem</title>
-  <meta name="description" content="Flexiron">
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <title>Flexiron</title>
   <script>
     (function () {
-      var basePath = '/Flexiron-Enterprise/demo/';
-      var loc = window.location;
-      var path = loc.pathname.indexOf(basePath) === 0
-        ? loc.pathname.slice(basePath.length - 1)
-        : loc.pathname;
-      sessionStorage.redirect = path + loc.search + loc.hash;
-      loc.replace(basePath);
+      var demoBase = '/Flexiron-Enterprise/demo/';
+      var l = window.location;
+      if (l.pathname.indexOf(demoBase) === 0) {
+        sessionStorage.redirect = l.pathname + l.search + l.hash;
+        l.replace(demoBase);
+      }
     })();
   </script>
 </head>
