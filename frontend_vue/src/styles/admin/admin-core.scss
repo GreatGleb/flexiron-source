@@ -1,0 +1,18 @@
+/* --- ADMIN CORE CSS --- */
+/* Core styles loaded by AdminLayout.vue via Vite. */
+/* Component-specific CSS is imported by each Vue component individually. */
+
+@import '_variables.css';
+@import 'utilities/_global.css';
+@import 'utilities/_flex.css';
+@import 'components/_buttons.css';
+@import 'components/_action-buttons.css';
+@import 'components/_action-icons.css';
+@import 'components/_glass-panel.css';
+@import 'components/_forms.css';
+@import 'components/_input-suffix.css';
+@import 'components/_custom-select.css';
+@import 'components/_status-pills.css';
+@import 'components/_tables.css';
+@import 'components/_datepicker.css';
+@import 'components/_toast.css';
