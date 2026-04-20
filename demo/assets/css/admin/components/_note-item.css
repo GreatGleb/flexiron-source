@@ -1,8 +1,0 @@
-/* --- UI COMPONENTS: NOTE ITEM --- */
-.note-item { padding: 12px; background: rgba(255,255,255,0.03); border-radius: 10px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 10px; position: relative; transition: 0.3s; }
-.note-item:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1); }
-.note-header { display: flex; justify-content: space-between; margin-bottom: 6px; }
-.note-date { font-family: 'JetBrains Mono'; font-size: 10px; color: #1890FF; font-weight: 700; }
-.note-text { font-size: 13px; color: rgba(255,255,255,0.8); line-height: 1.5; }
-.btn-add-note { width: 100%; padding: 8px; background: rgba(24, 144, 255, 0.1); border: 1px solid rgba(24, 144, 255, 0.2); border-radius: 8px; color: #1890FF; font-size: 12px; font-weight: 600; cursor: pointer; transition: 0.2s; margin-top: 10px; }
-.btn-add-note:hover { background: #1890FF; color: #fff; }

@@ -1,6 +1,0 @@
-/* --- UI COMPONENTS: INPUT WITH SUFFIX --- */
-.input-with-suffix { position: relative; display: flex; align-items: center; width: 100%; height: 41px; }
-.input-with-suffix .glass-input { padding-right: 60px; height: 100%; }
-.input-suffix { position: absolute; right: 4px; height: calc(100% - 8px); top: 4px; background: rgba(0, 0, 0, 0.25); border-left: 1px solid rgba(255, 255, 255, 0.1); color: #1890FF; padding: 0 10px; border-radius: 6px; display: flex; align-items: center; font-size: 10px; font-weight: 700; cursor: pointer; transition: 0.3s; backdrop-filter: blur(5px); }
-.input-suffix:hover { background: rgba(24, 144, 255, 0.3); color: #fff; }
-.input-with-suffix .custom-select-list { top: calc(100% + 5px); right: 0; left: auto; width: 90px; background: rgba(50, 54, 62, 0.98); border-color: rgba(255, 255, 255, 0.2); }

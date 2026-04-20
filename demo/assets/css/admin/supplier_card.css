@@ -1,6 +1,0 @@
-/* --- SUPPLIER CARD: PAGE-SPECIFIC OVERRIDES --- */
-/* All shared styles moved to components/_entity-*.css files */
-
-/* Table responsive override for supplier card tables */
-.table-responsive { overflow: visible !important; }
-

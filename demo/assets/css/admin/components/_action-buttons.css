@@ -1,6 +1,0 @@
-/* --- UI COMPONENTS: ACTION BUTTONS --- */
-.action-btn-wrap { cursor: pointer; transition: 0.2s; opacity: 0.5; color: rgb(255, 255, 255); }
-.action-btn-wrap:hover { opacity: 1; }
-.save-icon { display: none; }
-.editing .edit-icon { display: none; }
-.editing .save-icon { display: inline-block; }

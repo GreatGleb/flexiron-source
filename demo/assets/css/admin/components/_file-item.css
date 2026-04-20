@@ -1,8 +1,0 @@
-/* --- UI COMPONENTS: FILE ITEM --- */
-.file-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: rgba(255,255,255,0.04); border-radius: 10px; margin-bottom: 8px; border: 1px solid rgba(255,255,255,0.08); transition: 0.2s; }
-.file-item:hover { background: rgba(255,255,255,0.08); border-color: rgba(24, 144, 255, 0.3); transform: translateX(2px); }
-.file-info { display: flex; align-items: center; gap: 10px; flex: 1; }
-.file-name { font-size: 13px; color: #fff; font-weight: 500; }
-.file-actions { display: flex; align-items: center; gap: 12px; }
-.file-action-btn { color: rgba(255, 255, 255, 0.4); display: flex; align-items: center; justify-content: center; transition: 0.2s; cursor: pointer; text-decoration: none; }
-.file-action-btn:hover { color: #1890FF; transform: scale(1.1); }
