@@ -1,0 +1,21 @@
+СКЛАД
+	page Товары
+	page Склад
+	ui notifications of statuses
+	func Резервация
+CRM
+	page Клиенты
+	page Заказы
+		func Услуги
+	func generation of invoices
+
+UX для Администратора (Zero-code удобство)
+Settings
+
+Log in
+
+Физический склад
+Бухгалтерия
+	integration with e-system
+Поставки
+	заказывать больше, чтоб не было мало на складе
