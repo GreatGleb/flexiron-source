@@ -29,6 +29,8 @@ const ADMIN_ROUTES: Route[] = [
   { path: '/admin/analytics/logistics', label: 'logistics' },
   { path: '/admin/analytics/pl-report', label: 'pl-report' },
   { path: '/admin/analytics/deficit', label: 'deficit' },
+  { path: '/admin/products/categories', label: 'categories' },
+  { path: '/admin/products/categories/cat-1', label: 'category-card' },
   { path: '/admin/suppliers', label: 'suppliers-list' },
   { path: '/admin/suppliers/new', label: 'supplier-create' },
   { path: '/admin/suppliers/S-001', label: 'supplier-card' },

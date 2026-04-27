@@ -13,6 +13,8 @@ const emit = defineEmits<{
   'update:modelValue': [value: boolean]
 }>()
 
+defineOptions({ inheritAttrs: false })
+
 function close() {
   emit('update:modelValue', false)
 }
@@ -49,7 +51,7 @@ onBeforeUnmount(() => {
 
 <template>
   <Teleport to="body">
-    <div class="modal-overlay" :class="{ active: modelValue }" @click="onOverlayClick">
+    <div v-bind="$attrs" class="modal-overlay" :class="{ active: modelValue }" @click="onOverlayClick">
       <div class="modal" :class="size ? `modal-${size}` : undefined">
         <div class="modal-header">
           <h3 class="modal-title">{{ title }}</h3>

@@ -1,0 +1,83 @@
+/* --- PAGE LAYOUT: CATEGORIES LIST --- */
+
+.categories-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 992px) {
+  .categories-header {
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+}
+
+@media (max-width: 600px) {
+  .categories-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .categories-header .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+.categories-search {
+  margin-bottom: 16px;
+  max-width: 400px;
+}
+
+@media (max-width: 600px) {
+  .categories-search {
+    max-width: 100%;
+  }
+}
+
+/* Tree indent — set via inline style: padding-left: calc(level * 16px + 12px) */
+.categories-level-indent {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.categories-row-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--text-dim);
+}
+
+.empty-state svg {
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 16px;
+}
+
+.data-table tbody tr[data-test="categories-row"] {
+  cursor: pointer;
+}
+
+.data-table tbody tr[data-test="categories-row"]:hover {
+  background: rgba(255, 255, 255, 0.05);
+}

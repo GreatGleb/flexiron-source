@@ -11,6 +11,7 @@ const { close } = useSidebar()
 
 const isAnalyticsActive = computed(() => route.path.startsWith('/admin/analytics'))
 const isSuppliersActive = computed(() => route.path.startsWith('/admin/suppliers'))
+const isProductsActive = computed(() => route.path.startsWith('/admin/products'))
 
 function switchLang(code: string) {
   locale.value = code
@@ -46,10 +47,15 @@ function switchLang(code: string) {
       <div class="nav-group-label">{{ t('side.modules') }}</div>
 
       <li>
-        <a href="#" class="nav-link" data-test="sidebar-nav-items">
-          <SvgIcon name="grid-products" class="nav-icon" />
+        <router-link
+          :to="{ name: 'admin-products' }"
+          class="nav-link"
+          data-test="sidebar-nav-items"
+          :class="{ active: isProductsActive }"
+        >
+          <SvgIcon name="tag" class="nav-icon" />
           <span>{{ t('side.items') }}</span>
-        </a>
+        </router-link>
       </li>
       <li>
         <a href="#" class="nav-link" data-test="sidebar-nav-warehouse">

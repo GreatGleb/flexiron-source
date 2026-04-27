@@ -13,6 +13,8 @@ export interface FeatureFlags {
   supplierCreate: boolean
   supplierCardConfig: boolean
   bccRequest: boolean
+  adminCategories: boolean
+  adminProducts: boolean
 
   // Section-level flags
   dashboardAlerts: boolean
@@ -21,6 +23,7 @@ export interface FeatureFlags {
   supplierExport: boolean
   bccHistory: boolean
   permissionsEditor: boolean
+  categoryFieldReorder: boolean
 }
 
 export type FeatureFlagKey = keyof FeatureFlags

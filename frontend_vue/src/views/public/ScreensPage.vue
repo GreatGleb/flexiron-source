@@ -39,6 +39,23 @@
       </router-link>
     </div>
 
+    <h2 class="section-title">{{ t('categories.title') }}</h2>
+    <div class="grid">
+      <router-link
+        v-for="page in categoriesPages"
+        :key="page.id"
+        :to="page.to"
+        class="page-card"
+      >
+        <span class="page-id">{{ page.id }}</span>
+        <span class="page-title">{{ t(page.titleKey) }}</span>
+        <span class="page-status">
+          <span class="status-dot"></span>
+          {{ t('screens.statusReady') }}
+        </span>
+      </router-link>
+    </div>
+
     <h2 class="section-title">{{ t('screens.sectionProcurement') }}</h2>
     <div class="grid">
       <router-link v-for="page in suppliersPages" :key="page.id" :to="page.to" class="page-card">
@@ -86,6 +103,16 @@ const analyticsPages = [
   { id: '7.6', routeName: 'admin-logistics', titleKey: 'logistics.header_title' },
   { id: '7.7', routeName: 'admin-pl-report', titleKey: 'plReport.header_title' },
   { id: '7.8', routeName: 'admin-deficit', titleKey: 'deficit.header_title' },
+]
+
+const categoriesPages = [
+  { id: '1.1', to: { name: 'admin-products' }, titleKey: 'products.header_title' },
+  { id: '1.2', to: { name: 'admin-categories' }, titleKey: 'categories.header_title' },
+  {
+    id: '1.2c',
+    to: { name: 'admin-category-card', params: { id: 'cat-1' } },
+    titleKey: 'categories.section_info',
+  },
 ]
 
 const suppliersPages = [

@@ -16,6 +16,8 @@ const defaults: FeatureFlags = {
   supplierCreate: true,
   supplierCardConfig: true,
   bccRequest: true,
+  adminCategories: true,
+  adminProducts: true,
 
   // Section-level flags
   dashboardAlerts: true,
@@ -24,6 +26,7 @@ const defaults: FeatureFlags = {
   supplierExport: true,
   bccHistory: true,
   permissionsEditor: true,
+  categoryFieldReorder: true,
 }
 
 function loadOverrides(): Partial<FeatureFlags> {

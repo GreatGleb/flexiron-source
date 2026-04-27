@@ -17,6 +17,7 @@ const PAGE_FLAG_ROUTES: Array<{ flag: keyof typeof ALL_FLAGS_ENABLED; route: str
   { flag: 'adminLogistics', route: '/admin/analytics/logistics' },
   { flag: 'adminPlReport', route: '/admin/analytics/pl-report' },
   { flag: 'adminDeficit', route: '/admin/analytics/deficit' },
+  { flag: 'adminCategories', route: '/admin/products/categories' },
   { flag: 'suppliersList', route: '/admin/suppliers' },
   { flag: 'supplierCreate', route: '/admin/suppliers/new' },
   { flag: 'supplierCard', route: '/admin/suppliers/S-001' },

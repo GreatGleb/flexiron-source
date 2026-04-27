@@ -1,0 +1,32 @@
+/* --- PAGE LAYOUT: PRODUCTS --- */
+
+.page-products {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.products-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.products-header .page-title {
+  margin: 0;
+}
+
+@media (max-width: 992px) {
+  .products-header {
+    gap: 12px;
+  }
+}
+
+@media (max-width: 600px) {
+  .products-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

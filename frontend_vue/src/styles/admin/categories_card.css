@@ -1,0 +1,63 @@
+/* --- PAGE LAYOUT: CATEGORY CARD --- */
+
+.page-category-card {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.category-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 992px) {
+  .category-card-header {
+    gap: 12px;
+  }
+}
+
+@media (max-width: 600px) {
+  .category-card-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+}
+
+.category-card-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.category-card-title .page-title {
+  margin: 0;
+}
+
+.inherited-label {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin: 0 0 12px;
+}
+
+.data-table tbody tr[draggable="true"] {
+  cursor: grab;
+}
+
+.data-table tbody tr[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+.category-own-fields-add {
+  margin-top: 12px;
+}
+
+.tag-required {
+  background: rgba(24, 144, 255, 0.15);
+  color: #40a9ff;
+  border-color: rgba(24, 144, 255, 0.3);
+}

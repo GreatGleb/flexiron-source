@@ -22,6 +22,8 @@ export const ALL_FLAGS_ENABLED = {
   supplierCreate: true,
   supplierCardConfig: true,
   bccRequest: true,
+  adminCategories: true,
+  adminProducts: true,
 
   // Section-level
   dashboardAlerts: true,
@@ -30,6 +32,7 @@ export const ALL_FLAGS_ENABLED = {
   supplierExport: true,
   bccHistory: true,
   permissionsEditor: true,
+  categoryFieldReorder: true,
 } as const
 
 /** Writes ALL_FLAGS_ENABLED to localStorage before every page in this context loads. */

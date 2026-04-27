@@ -46,6 +46,7 @@
   top: 50%;
   transform: translateY(-50%);
   color: var(--text-dim);
+  pointer-events: none;
 }
 .checkbox-list-search .search-input {
   padding-left: 36px;
