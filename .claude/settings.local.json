@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Glob",
+      "Grep",
+      "Edit(/frontend_vue/**)",
+      "Write(/frontend_vue/**)",
+      "Bash(npm run *)",
+      "Bash(npm install *)",
+      "Bash(npx *)",
+      "Bash(node *)",
+      "Bash(ls *)",
+      "Bash(find *)",
+      "Bash(mkdir *)",
+      "Bash(mv *)",
+      "Bash(cp *)",
+      "Bash(curl *)",
+      "Bash(git status*)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git branch*)",
+      "Bash(git show *)",
+      "Bash(git stash*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(git *)",
+      "Bash(cd *InBox LT*)",
+      "Bash(cd 'C:/Users/great/Documents/bussiness/InBox LT*)",
+      "Bash(cd \"C:/Users/great/Documents/bussiness/InBox LT*)",
+      "Bash(cd C:/Users/great/Documents/bussiness/InBox LT*)",
+      "Bash(grep -v '^$')",
+      "Bash(xargs grep *)",
+      "Bash(awk 'NR>=685 && /^  [a-z]/ && NR>685 {print NR; exit}' \"C:\\\\Users\\\\great\\\\Documents\\\\bussiness\\\\InBox LT\\\\frontend_vue\\\\src\\\\i18n\\\\admin.ts\")",
+      "Bash(awk 'NR>=1414 && /^  [a-z]/ && NR>1414 {print NR; exit}' \"C:\\\\Users\\\\great\\\\Documents\\\\bussiness\\\\InBox LT\\\\frontend_vue\\\\src\\\\i18n\\\\admin.ts\")",
+      "Bash(awk 'NR>=2143 && /^  [a-z]/ && NR>2143 {print NR; exit}' \"C:\\\\Users\\\\great\\\\Documents\\\\bussiness\\\\InBox LT\\\\frontend_vue\\\\src\\\\i18n\\\\admin.ts\")"
+    ]
+  }
+}
