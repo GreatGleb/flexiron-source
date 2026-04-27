@@ -19,6 +19,11 @@ temp/
 node_modules/
 dist/
 build/
-design/
-toDo/
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
+
+#toDo/
 xlx tables/
