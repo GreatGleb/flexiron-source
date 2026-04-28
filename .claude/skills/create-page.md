@@ -24,6 +24,15 @@ Build a new admin page in `frontend_vue/` based on TZ specs. **Phase-by-phase di
 6. **Done ≠ typecheck+lint** — final verification = plan→files→typecheck→lint→contract sync→browser walk-through golden path
 7. **IF save-mode is unclear** — STOP and ask: «Это clean-slate (Save-batch) или quick-action (immediate)?»
 8. **IF anything is unclear** — STOP and ask
+9. **Verify every code claim** — before stating "X exists / is used / is named Y": state the Grep or Read query, run it, show the result, then conclude. Never from logic or memory alone.
+10. **STOP after every Phase** — after completing each Phase (0–10), output the stop block and wait for explicit confirmation before proceeding:
+
+```
+⏸ СТОП — Phase N: [название]
+Сделано: [что именно — 1-3 пункта]
+Следующая: Phase N+1 — [название]
+Продолжить?
+```
 
 ---
 
@@ -71,6 +80,13 @@ Feature flag name: admin[PageName]
 
 **IF any field is empty → re-read TZ docs. Do not proceed.**
 
+```
+⏸ СТОП — Phase 0: Context & Spec Analysis
+Сделано: все TZ-источники прочитаны, Checkpoint 0 заполнен и выведен
+Следующая: Phase 1 — TypeScript Types
+Продолжить?
+```
+
 ---
 
 ## Phase 1: TypeScript Types
@@ -110,6 +126,13 @@ Rules:
 cd frontend_vue && npm run typecheck
 ```
 **Must pass 0 errors before Phase 2.**
+
+```
+⏸ СТОП — Phase 1: TypeScript Types
+Сделано: src/types/[domain].ts создан/дополнен, typecheck ✅
+Следующая: Phase 2 — Mock Data
+Продолжить?
+```
 
 ---
 
@@ -164,6 +187,13 @@ Add new domain routes to the mock router. Follow existing pattern exactly.
 cd frontend_vue && npm run typecheck
 ```
 **Must pass 0 errors.**
+
+```
+⏸ СТОП — Phase 2: Mock Data
+Сделано: src/services/mocks/[domain].ts создан, зарегистрирован в index.ts, typecheck ✅
+Следующая: Phase 3 — Service Layer
+Продолжить?
+```
 
 ---
 
@@ -246,6 +276,13 @@ After implementing, open `toDo/admin-api-contract.md` and:
 cd frontend_vue && npm run typecheck
 ```
 **Must pass 0 errors.**
+
+```
+⏸ СТОП — Phase 3: Service Layer
+Сделано: контракт в admin-api-contract.md написан, [domain]Service.ts создан, typecheck ✅
+Следующая: Phase 4 — Composable
+Продолжить?
+```
 
 ---
 
@@ -359,6 +396,13 @@ cd frontend_vue && npm run typecheck
 ```
 **Must pass 0 errors.**
 
+```
+⏸ СТОП — Phase 4: Composable
+Сделано: use[Domain].ts создан (+ use[Domain]Card.ts если есть карточка), typecheck ✅
+Следующая: Phase 5 — i18n Translations
+Продолжить?
+```
+
 ---
 
 ## Phase 5: i18n Translations
@@ -392,6 +436,13 @@ Rules:
 
 ### Checkpoint 5
 Verify key counts: RU === EN === LT for this domain prefix. Check with grep if needed.
+
+```
+⏸ СТОП — Phase 5: i18n Translations
+Сделано: все ключи [domain].* добавлены в RU/EN/LT, количество ключей совпадает
+Следующая: Phase 6 — Page Template Skeleton
+Продолжить?
+```
 
 ---
 
@@ -490,6 +541,13 @@ cd frontend_vue && npm run typecheck && npm run lint
 ```
 **Both must pass 0 errors.**
 
+```
+⏸ СТОП — Phase 6: Page Template Skeleton
+Сделано: [PageName]Page.vue (+ CardPage.vue) созданы с data-test секциями, typecheck + lint ✅
+Следующая: Phase 7 — Template Data Bindings
+Продолжить?
+```
+
 ---
 
 ## Phase 7: Template — Data Bindings
@@ -580,6 +638,13 @@ Open browser → navigate to the page → verify:
 - No layout breaks (flex, z-index, overflow)
 - **Pitfall #14:** If using CustomSelect — use it consistently, no mix with native `<select>` on same page
 
+```
+⏸ СТОП — Phase 7: Template Data Bindings
+Сделано: все v-for/v-if/v-model/@click привязаны, страница открывается в браузере с данными, typecheck + lint ✅
+Следующая: Phase 8 — Route Registration & Integration
+Продолжить?
+```
+
 ---
 
 ## Phase 8: Route Registration & Integration
@@ -658,6 +723,13 @@ Browser:
 - URL in address bar matches registered route
 - Back-navigate to existing pages — no regression
 
+```
+⏸ СТОП — Phase 8: Route Registration & Integration
+Сделано: роут, feature flags, sidebar, ScreensPage, flags.ts обновлены, typecheck + lint ✅
+Следующая: Phase 9 — Verification
+Продолжить?
+```
+
 ---
 
 ## Phase 9: Verification
@@ -708,17 +780,18 @@ Run through vue-rules pitfalls #1–#23 for this page:
 
 ---
 
-## ⏸ PAUSE — User Testing Before Phase 10
+## ⏸ PAUSE — Full Testing Cycle Before Phase 10
 
 **After Phase 9 is complete, STOP and report to the user:**
 
-> «Страница готова. Прошу тебя протестировать UI и сообщить о всех найденных багах перед написанием тестов.»
+> «Phase 9 завершена. Дальше — полный цикл тестирования и обновления скилов перед написанием тестов:
+> 1. `/pre-manual-check [plan]` — автоматические проверки
+> 2. Ручное тестирование → `/add-bug [plan]` для каждого найденного бага
+> 3. `/fix-bugs [plan]` — исправить все баги
+> 4. `/update-skills [plan]` — обновить скилы по урокам из багов
+> После этого — подтверди, и начнём Phase 10.»
 
-Then:
-1. **Wait** for the user to test the page and report bugs
-2. **Fix all reported bugs** — each fix verified with typecheck + browser
-3. **Ask explicitly:** «Все баги исправлены. Начинаем Phase 10 (Playwright тесты)?»
-4. **Only proceed to Phase 10 after explicit user confirmation**
+**Only proceed to Phase 10 after explicit user confirmation that all steps above are done.**
 
 **Why:** Tests written against buggy UI become invalid after fixes, snapshot baselines need to be regenerated, and test assumptions about behavior change. Writing tests last saves 40+ minutes of rework.
 
@@ -735,6 +808,13 @@ List every:
 - Form input and its validation
 - API call (mock route or real)
 - Edge case (empty list, API error, dirty-unsaved, invalid input)
+
+```
+⏸ СТОП — Phase 10 Step 10a: Аудит
+Сделано: список всех секций, элементов, кейсов для тестирования
+Следующий: Step 10b — написание spec-файла
+Продолжить?
+```
 
 ### Step 10b — Create `tests/e2e/admin/[section]/[domain].spec.ts`
 
@@ -819,11 +899,25 @@ test('[domain] › translations RU/EN/LT', async ({ page }) => {
 - **Wait for DOM markers**, not `networkidle` — mock layer doesn't trigger network events
 - **SPA navigation** via `router-link` clicks (not `page.goto`) for state that must persist across pages
 
+```
+⏸ СТОП — Phase 10 Step 10b: Spec написан
+Сделано: [domain].spec.ts создан — load, snapshots, DOM, functional, i18n тесты
+Следующий: Step 10c — регистрация в smoke/navigation/feature-flags
+Продолжить?
+```
+
 ### Step 10c — Register in cross-cutting specs
 
 In `tests/e2e/smoke.spec.ts`: add the new page to the smoke list.
 In `tests/e2e/navigation.spec.ts`: add the route to the navigation matrix.
 In `tests/e2e/feature-flags.spec.ts`: add the page-level flag test (flag OFF → /404).
+
+```
+⏸ СТОП — Phase 10 Step 10c: Регистрация
+Сделано: страница добавлена в smoke, navigation, feature-flags specs
+Следующий: Step 10d — запуск тестов
+Продолжить?
+```
 
 ### Step 10d — Run tests
 ```bash
@@ -833,6 +927,12 @@ cd frontend_vue && npx playwright test admin/[section]/[domain]
 First run (no baseline): `npx playwright test --update-snapshots admin/[section]/[domain]`
 
 **Checkpoint 10:** All tests green. Snapshots created. No regressions in other spec files.
+
+```
+⏸ СТОП — Phase 10: Playwright Tests
+Сделано: [domain].spec.ts создан, зарегистрирован в smoke/navigation/feature-flags, все тесты зелёные ✅
+Страница полностью готова.
+```
 
 ---
 

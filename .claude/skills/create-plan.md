@@ -20,6 +20,15 @@ Generate `toDo/plans/[X.X-name]-plan.md` — a complete, verified, domain-specif
 2. **Every phase (0–10) must map to at least one prompt**
 3. **Domain-specific content, not generic text** — tailored to THIS page's TZ
 4. **Self-verify via checklist (Step 4) before saving** — if any box fails, fix first
+5. **Verify every code claim** — before stating "X exists / is used / is named Y": state the Grep or Read query, run it, show the result, then conclude. Never from logic or memory alone.
+6. **STOP after every Step** — after completing each Step (1–5), output the stop block and wait for explicit confirmation before proceeding:
+
+```
+⏸ СТОП — Step N: [название]
+Сделано: [что именно — 1-3 пункта]
+Следующий: Step N+1 — [название]
+Продолжить?
+```
 
 ---
 
@@ -41,6 +50,13 @@ Read in this order:
 12. `toDo/design/Flexiron_ERP_Sitemap.md` — navigation placement, section hierarchy
 13. `toDo/design/screen_specs/[XX.X_Page].md` — detailed screen spec (if file exists)
 
+```
+⏸ СТОП — Step 1: Read Everything
+Сделано: все 13 источников прочитаны
+Следующий: Step 2 — Analyze the Page
+Продолжить?
+```
+
 ---
 
 ## Step 2: Analyze the Page
@@ -61,6 +77,13 @@ Before writing any prompts, determine:
   Проверь: нет ли уже такого флага в featureFlags.ts.
 **Components to reuse:** from src/components/admin/ — list specifically  
 **Types to reuse:** from src/types/ — list specifically  
+
+```
+⏸ СТОП — Step 2: Analyze the Page
+Сделано: views, save mode, endpoints, types, composables, i18n, flags, components — всё определено и выведено
+Следующий: Step 3 — Write the Plan
+Продолжить?
+```
 
 ---
 
@@ -298,6 +321,13 @@ Include ALL of:
 - Run: npx playwright test --update-snapshots [path]
 - Checkpoint: all green, snapshots created
 
+```
+⏸ СТОП — Step 3: Write the Plan
+Сделано: все промпты (Промпт 0 – Промпт M+2) написаны в черновике
+Следующий: Step 4 — Self-Verify the Plan
+Продолжить?
+```
+
 ---
 
 ## Step 4: Self-Verify the Plan
@@ -324,6 +354,13 @@ Open `.claude/skills/create-page.md` and go through Phases 0–10 one by one.
 For each phase, find the corresponding prompt in the plan and verify it covers **every requirement listed in that phase** — not just the checklist items above.
 
 If a gap is found → fix the prompt before proceeding to Step 5.
+
+```
+⏸ СТОП — Step 4: Self-Verify the Plan
+Сделано: Pass 1 (checklist) и Pass 2 (live re-read create-page.md) пройдены, все пробелы закрыты
+Следующий: Step 5 — Save and Report
+Продолжить?
+```
 
 ---
 

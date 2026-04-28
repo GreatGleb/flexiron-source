@@ -257,6 +257,64 @@ npx playwright test [spec] -g "[test-name]" --update-snapshots --workers=1
 
 ---
 
+### 24. CustomSelect — только `string` в v-model, не `string | null`
+
+`CustomSelect` ожидает `modelValue: string` и `SelectOption.value: string`. Поля с типом `string | null` несовместимы — TypeScript ошибка + опция «Все» с `value: null` никогда не совпадёт.
+
+**Fix:** computed-адаптер `null ↔ ''` для каждого nullable поля:
+
+```ts
+const categoryStr = computed({
+  get: () => filters.categoryId ?? '',
+  set: (v: string) => { filters.categoryId = v || null },
+})
+```
+
+Опция «Все/пусто» в options: `{ value: '', label: t('...all') }` — пустая строка, не `null`.
+
+---
+
+### 25. `v-model.number` ставит NaN при очистке — нужен watcher-нормализатор
+
+`v-model.number` вызывает `parseFloat("")` → NaN при пустом поле. `JSON.stringify(NaN) === "null"` — `useDirtyCheck` не замечает изменение если исходное было null (окей). Но если исходное было `15.5` → diff отправит `{ price: NaN }` → mock сохранит NaN в STORE.
+
+**Fix:** watcher-нормализатор сразу после `useDirtyCheck(form)`:
+
+```ts
+watch(form, (val) => {
+  if (Number.isNaN(val.price as unknown)) form.value.price = null
+  if (Number.isNaN(val.minStock as unknown)) form.value.minStock = null
+}, { deep: true })
+```
+
+Применять для **каждого** nullable number поля в карточке.
+
+---
+
+### 26. `DropZone` — не v-model компонент, требует `hint` prop
+
+`DropZone` не имеет `modelValue` — `v-model` молча игнорируется. `hint: string` — required prop (без него runtime warning).
+
+**Правильный паттерн:**
+```html
+<DropZone
+  hint="PDF / image"
+  @uploaded="(files) => (fieldValues[id] = files[0]?.fileId ?? null)"
+/>
+```
+
+`@uploaded` эмитирует `UploadedFile[]`. Нет v-model, нет modelValue.
+
+---
+
+### 27. CSS классы кнопок — `btn-ghost` не существует
+
+В `_buttons.css` определены только: `btn-primary`, `btn-secondary`, `btn-danger`. Класс `btn-ghost` **не существует** — кнопка рендерится без стилей.
+
+Кнопка «Назад» в карточке → `<router-link class="btn btn-secondary">` с именованным маршрутом на список. Не `<button @click="router.back()">` — ненадёжно если открыли по прямой ссылке.
+
+---
+
 ### 23. AppModal + Teleport: fall-through атрибуты не приземляются
 
 `AppModal` использует `<Teleport to="body">` как корень. `data-test="modal-*"` на компоненте становится fall-through атрибутом, но Teleport не DOM-элемент — атрибут исчезает. Все E2E тесты модальных окон падают с 0 элементов.
@@ -276,4 +334,4 @@ defineOptions({ inheritAttrs: false })
 
 Когда я начинаю задачу из триггер-списка (см. description выше) — **прочитай этот skill полностью** прежде чем писать код. Если задача не из списка — `Read` только нужный раздел.
 
-После завершения задачи — пройтись чек-листом: pitfalls #1–#23, save-режим (если форма), HTTP-метод (если новый endpoint).
+После завершения задачи — пройтись чек-листом: pitfalls #1–#27, save-режим (если форма), HTTP-метод (если новый endpoint).
