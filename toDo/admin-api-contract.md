@@ -839,3 +839,137 @@ Page: `CategoryCardPage.vue`. Composable: `useCategoryCard` + `useDirtyCheck`.
 - Composables: `src/composables/useCategories.ts`, `src/composables/useCategoryCard.ts`
 - Views: `src/views/admin/products/CategoriesPage.vue`, `src/views/admin/products/CategoryCardPage.vue`
 - E2E: `tests/e2e/admin/products/categories.spec.ts`
+
+---
+
+## Список товаров (Products 1.1)
+
+Page: `ProductsPage.vue`. Composable: `useProducts`.
+
+### GET /api/products
+
+- **Когда:** `onMounted` → `load()`, изменение `filters.search` / `filters.categoryId` (`watch(filters, load, { deep: true })`).
+- **Query:**
+  ```ts
+  {
+    search?: string      // фильтр по name (LIKE), пустая строка = без фильтра
+    categoryId?: string  // фильтр по категории, отсутствует = все категории
+    page: string         // "1"
+    pageSize: string     // "25"
+  }
+  ```
+- **Response 200:** `PaginatedResponse<ProductListItem>`
+  ```json
+  {
+    "success": true,
+    "data": {
+      "items": [
+        { "id": "prod-1", "name": "Steel Sheet 3mm", "categoryId": "cat-2", "categoryName": "Sheets",
+          "sku": "SS-3-1000", "price": 120.50, "minStock": 50, "priceUnit": "EUR/vnt", "createdAt": "2025-01-15" }
+      ],
+      "total": 10, "page": 1, "pageSize": 25, "totalPages": 1
+    }
+  }
+  ```
+- **Notes:** Сортировка по `name ASC`. `categoryId: null` = без категории.
+
+### POST /api/products
+
+- **Когда:** submit модала «Добавить товар» в `ProductsPage`. **Quick action.**
+- **Body:**
+  ```ts
+  {
+    name: string
+    categoryId?: string | null
+    sku?: string | null
+    description?: string | null
+    price?: number | null
+    minStock?: number | null
+    priceUnit?: 'EUR/vnt' | 'EUR/kg' | 'EUR/m' | null
+  }
+  ```
+- **Response 200:** `ApiResponse<Product>` — созданный товар целиком (с `fieldValues: []`, `linkedSuppliers: []`).
+- **Notes:** 422 `VALIDATION_ERROR` если нет `name`. Клиент после успеха перезапрашивает список (`load()`).
+
+### DELETE /api/products/:id
+
+- **Когда:** `confirmDelete` в `ProductsPage` (после confirmation modal). **Quick action.**
+- **Response 200:** `ApiResponse<void>`.
+- **Notes:** 409 `PRODUCT_IN_USE` если товар используется в активных заказах.
+
+---
+
+## Карточка товара (Products 1.1)
+
+Page: `ProductCardPage.vue`. Composable: `useProductCard` + `useDirtyCheck`.
+
+### GET /api/products/:id
+
+- **Когда:** `onMounted` → `load()`.
+- **Response 200:** `ApiResponse<Product>`
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": "prod-1",
+      "name": "Steel Sheet 3mm",
+      "categoryId": "cat-2", "categoryName": "Sheets",
+      "sku": "SS-3-1000", "description": "Hot-rolled steel sheet", "price": 120.50, "minStock": 50,
+      "priceUnit": "EUR/vnt", "createdAt": "2025-01-15",
+      "fieldValues": [
+        { "fieldId": "f-2-1", "fieldName": "Thickness (mm)", "fieldType": "number", "value": 3, "inherited": false, "options": [] },
+        { "fieldId": "f-2-2", "fieldName": "Sheet type", "fieldType": "enum", "value": "Hot-rolled", "inherited": false, "options": ["Hot-rolled","Cold-rolled","Galvanized"] }
+      ],
+      "linkedSuppliers": [
+        { "id": "sup-1", "name": "Metinvest", "price": 115.00, "priceUnit": "EUR/vnt", "leadDays": 7 }
+      ]
+    }
+  }
+  ```
+- **Notes:** 404 `PRODUCT_NOT_FOUND`.
+
+### PATCH /api/products/:id
+
+- **Когда:** клик «Сохранить» (`save()`), только если `isAnythingDirty`. **Clean-slate** — delta из `useDirtyCheck.diff()` + измененные `fieldValues`.
+- **Body:** dirty-only delta:
+  ```ts
+  {
+    name?: string
+    sku?: string | null
+    description?: string | null
+    price?: number | null
+    minStock?: number | null
+    priceUnit?: 'EUR/vnt' | 'EUR/kg' | 'EUR/m' | null
+    fieldValues?: ProductFieldValue[]   // полный массив если изменились dynamic fields
+  }
+  ```
+- **Response 200:** `ApiResponse<Product>` — обновлённый товар целиком.
+- **Notes:** Last-write-wins. Клиент пересчитывает `fieldValues` из `Record<fieldId,value>` обратно в массив перед отправкой.
+
+---
+
+## Save UX — Products
+
+**ProductsPage** — **quick-action**: POST и DELETE применяются немедленно. DELETE требует confirmation modal.
+
+**ProductCardPage** — **clean-slate**:
+- `useDirtyCheck` для `name`/`sku`/`description`/`price`/`minStock`/`priceUnit`
+- `fieldValues: ref<Record<fieldId,value>>` для dynamic fields + `originalFieldValues: ref<string>` (JSON.stringify baseline)
+- Save bar видна при `isAnythingDirty = isDirty || fieldValuesChanged`
+- Save = PATCH (если `isAnythingDirty`) → затем `load()` (сброс baseline)
+- Discard = `load()` (перезагрузка с сервера)
+
+## Feature Flags — Products
+
+| Флаг | Уровень | Что скрывает |
+|---|---|---|
+| `adminProducts` | page-level | весь роут `/admin/products` и `/admin/products/:id` |
+| `productSupplierLinks` | section-level | секция «Поставщики» в `ProductCardPage` |
+| `adminServices` | page-level | кнопку «Услуги» в хедере `ProductsPage` (placeholder 1.3) |
+
+→ Implementation:
+- Service: `src/services/productsService.ts`
+- Mock: `src/services/mocks/products.ts`
+- Composables: `src/composables/useProducts.ts`, `src/composables/useProductCard.ts`
+- Views: `src/views/admin/products/ProductsPage.vue` (расширена), `src/views/admin/products/ProductCardPage.vue` (новый)
+- E2E: `tests/e2e/admin/products/products.spec.ts`
