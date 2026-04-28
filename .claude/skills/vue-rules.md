@@ -4,6 +4,8 @@ description: Vue 3 + Vite специфические правила и pitfalls 
 user_invocable: true
 ---
 
+> ⚠️ Кастомный скил — НЕ вызывать через `Skill()`. Читать через `Read` и выполнять inline.
+
 # Vue Rules — InBox LT Frontend
 
 Правила собраны из реальных багов, допущенных при миграции `demo/` → `frontend_vue/`. Каждое правило = lesson learned, не теория.

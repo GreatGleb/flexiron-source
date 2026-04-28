@@ -8,6 +8,8 @@ arguments:
     required: true
 ---
 
+> ⚠️ Кастомный скил — НЕ вызывать через `Skill()`. Читать через `Read` и выполнять inline.
+
 # Write New Page Plan
 
 Generate `toDo/plans/[X.X-name]-plan.md` — a complete, verified, domain-specific plan that covers every phase of `.claude/skills/create-page.md`. The plan must be correct on the first execution without rework.

@@ -8,6 +8,8 @@ arguments:
     required: true
 ---
 
+> ⚠️ Кастомный скил — НЕ вызывать через `Skill()`. Читать через `Read` и выполнять inline.
+
 # Create New Admin Page from Scratch
 
 Build a new admin page in `frontend_vue/` based on TZ specs. **Phase-by-phase discipline** — complete each phase fully, validate, then proceed. Never generate an entire page in one step.

@@ -4,6 +4,8 @@ description: Run verification checklist — TypeScript, ESLint, IDE diagnostics
 user_invocable: true
 ---
 
+> ⚠️ Кастомный скил — НЕ вызывать через `Skill()`. Читать через `Read` и выполнять inline.
+
 # Verify Frontend
 
 Run the full verification checklist for the Vue frontend.
