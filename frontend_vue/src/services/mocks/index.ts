@@ -9,6 +9,14 @@ import {
 } from './categories'
 import type { CategoryFilters, CategoryField } from '@/types/category'
 import {
+  mockGetProducts,
+  mockGetProduct,
+  mockCreateProduct,
+  mockPatchProduct,
+  mockDeleteProduct,
+} from './products'
+import type { ProductFilters } from '@/types/product'
+import {
   mockGetSuppliers,
   mockGetSupplier,
   mockPatchSupplier,
@@ -133,6 +141,18 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
     return delay(mockGetCategories(filters, page, pageSize) as T)
   }
 
+  const productCardMatch = path.match(/^\/api\/products\/([^/]+)$/)
+  if (productCardMatch) {
+    return delay(mockGetProduct(productCardMatch[1] as string) as T)
+  }
+  if (path === '/api/products') {
+    const filters: ProductFilters = {
+      search: params?.search ?? '',
+      categoryId: params?.categoryId ?? null,
+    }
+    return delay(mockGetProducts(filters) as T)
+  }
+
   throw new Error(`[mock] GET ${path} not found`)
 }
 
@@ -184,6 +204,10 @@ export async function postMock<T>(
 
   if (path === '/api/categories') {
     return delay(mockCreateCategory(body as Parameters<typeof mockCreateCategory>[0]) as T)
+  }
+
+  if (path === '/api/products') {
+    return delay(mockCreateProduct(body as Parameters<typeof mockCreateProduct>[0]) as T)
   }
 
   throw new Error(`[mock] POST ${path} not found`)
@@ -243,6 +267,13 @@ export async function patchMock<T>(
     )
   }
 
+  const productPatchMatch = path.match(/^\/api\/products\/([^/]+)$/)
+  if (productPatchMatch) {
+    return delay(
+      mockPatchProduct(productPatchMatch[1] as string, body as Parameters<typeof mockPatchProduct>[1]) as T,
+    )
+  }
+
   const sectionMatch = path.match(/^\/api\/config\/sections\/([^/]+)$/)
   if (sectionMatch) {
     const updated = mockUpdateSection(
@@ -288,6 +319,13 @@ export async function deleteMock<T>(path: string, _headers?: Record<string, stri
   if (categoryDeleteMatch) {
     const result = mockDeleteCategory(categoryDeleteMatch[1] as string)
     if (!result.ok) throw new Error(result.code)
+    return delay(undefined as T)
+  }
+
+  const productDeleteMatch = path.match(/^\/api\/products\/([^/]+)$/)
+  if (productDeleteMatch) {
+    const deleted = mockDeleteProduct(productDeleteMatch[1] as string)
+    if (!deleted) throw new Error('PRODUCT_NOT_FOUND')
     return delay(undefined as T)
   }
 

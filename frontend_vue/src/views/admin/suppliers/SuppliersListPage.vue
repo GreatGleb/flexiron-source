@@ -363,7 +363,7 @@ onBeforeUnmount(() => {
         <RatingSelect v-model="filters.rating" />
       </div>
 
-      <button class="btn btn-secondary" data-test="suppliers-save-view-btn" @click="saveView">
+      <button class="btn btn-primary" data-test="suppliers-save-view-btn" @click="saveView">
         <svg
           width="14"
           height="14"

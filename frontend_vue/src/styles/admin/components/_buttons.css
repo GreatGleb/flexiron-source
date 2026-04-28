@@ -70,19 +70,17 @@
 }
 
 .btn-secondary {
-  background: #1890ff;
-  border: 1px solid #1890ff;
-  color: #fff;
-  box-shadow: 0 4px 15px rgba(24, 144, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.75);
 }
 .btn-secondary:hover {
-  background: #0077ee;
-  border-color: #0077ee;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(24, 144, 255, 0.3);
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #fff;
 }
 .btn-secondary svg {
-  stroke: #fff !important;
+  stroke: rgba(255, 255, 255, 0.75) !important;
 }
 .btn-secondary:hover svg {
   stroke: #fff !important;
@@ -98,6 +96,16 @@
 }
 .btn-primary:hover {
   background: rgba(24, 144, 255, 0.85);
+}
+
+/* Success Button */
+.btn-success {
+  background: var(--success);
+  color: #fff;
+  border: none;
+}
+.btn-success:hover {
+  filter: brightness(1.1);
 }
 
 /* Danger Button */

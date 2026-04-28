@@ -144,6 +144,12 @@ const routes: RouteRecordRaw[] = [
         meta: { layout: 'admin', featureFlag: 'adminProducts' as FeatureFlagKey },
       },
       {
+        path: 'products/:id',
+        name: 'admin-product-card',
+        component: () => import('@/views/admin/products/ProductCardPage.vue'),
+        meta: { layout: 'admin', featureFlag: 'adminProducts' as FeatureFlagKey },
+      },
+      {
         path: 'products/categories',
         name: 'admin-categories',
         component: () => import('@/views/admin/products/CategoriesPage.vue'),

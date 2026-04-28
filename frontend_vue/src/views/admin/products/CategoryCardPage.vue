@@ -297,7 +297,7 @@ onMounted(() => {
       </table>
       <button
         type="button"
-        class="btn btn-secondary category-own-fields-add"
+        class="btn btn-primary category-own-fields-add"
         data-test="category-add-field-btn"
         @click="openAddField"
       >

@@ -31,11 +31,6 @@
   border: 1px solid rgba(255, 255, 255, 0.15);
   color: rgba(255, 255, 255, 0.6);
 }
-.pill-purple {
-  background: rgba(114, 46, 209, 0.2);
-  border: 1px solid rgba(114, 46, 209, 0.3);
-  color: #b37feb;
-}
 .pill-suspended {
   background: rgba(255, 122, 69, 0.2);
   border: 1px solid rgba(255, 122, 69, 0.3);
@@ -47,40 +42,3 @@
   color: #5cdbd3;
 }
 
-/* BCC Request Status Variants (no border, capitalize) */
-.status-badge {
-  display: inline-block;
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 11px;
-  font-weight: 500;
-  text-transform: capitalize;
-}
-.status-sent {
-  background: rgba(24, 144, 255, 0.15);
-  color: var(--primary);
-}
-.status-pending {
-  background: rgba(24, 144, 255, 0.15);
-  color: var(--primary);
-}
-.status-responded {
-  background: rgba(82, 196, 26, 0.15);
-  color: #52c41a;
-}
-.status-no_response {
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--text-dim);
-}
-.status-partial {
-  background: rgba(250, 173, 20, 0.15);
-  color: #faad14;
-}
-.status-completed {
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--text-dim);
-}
-.status-all_responded {
-  background: rgba(82, 196, 26, 0.15);
-  color: #52c41a;
-}

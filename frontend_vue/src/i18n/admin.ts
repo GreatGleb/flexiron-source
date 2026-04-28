@@ -40,10 +40,12 @@ export const adminRu = {
     kpi2_label: 'Дебиторская задолженность',
     kpi3_label: 'Выручка (мес.)',
     kpi4_label: 'Прибыль (мес.)',
+    kpi5_label: 'Дефицит позиций',
     kpi1_delta: '↑ +3.2% vs прош. мес.',
     kpi2_delta: '↑ +8.1% — Внимание!',
     kpi3_delta: '↑ +12.5% vs прош. мес.',
     kpi4_delta: 'Маржа 17.7%',
+    kpi5_delta: '↑ +2 vs прош. нед.',
     chart1_title: 'Продажи по категориям',
     chart2_title: 'Системные уведомления',
     badge_march: 'Март 2026',
@@ -733,6 +735,50 @@ export const adminRu = {
   products: {
     title: 'Товары',
     header_title: 'Каталог товаров',
+    // список
+    search_placeholder: 'Поиск по названию...',
+    filter_category_all: 'Все категории',
+    btn_create: 'Добавить товар',
+    btn_back: 'Назад',
+    col_name: 'Название',
+    col_category: 'Категория',
+    col_price: 'Базовая цена',
+    col_unit: 'Единица',
+    empty: 'Товары не найдены',
+    confirm_delete: 'Вы уверены, что хотите удалить этот товар?',
+    // карточка — секции
+    section_info: 'Основное',
+    section_price: 'Цена',
+    section_fields: 'Динамические поля',
+    section_suppliers: 'Поставщики',
+    // карточка — поля
+    field_name: 'Название',
+    field_category: 'Категория',
+    field_sku: 'Артикул (SKU)',
+    field_description: 'Описание',
+    field_min_stock: 'Минимальный остаток',
+    field_price: 'Базовая цена',
+    field_price_unit: 'Единица измерения',
+    field_inherited_badge: 'Унаследовано',
+    // save bar
+    btn_save: 'Сохранить',
+    btn_discard_changes: 'Отменить изменения',
+    // модал создания
+    modal_create_title: 'Добавить товар',
+    // цена
+    price_unit_vnt: 'EUR/vnt (штука)',
+    price_unit_kg: 'EUR/kg (кг)',
+    price_unit_m: 'EUR/m (метр)',
+    // поставщики
+    suppliers_empty: 'Поставщики не привязаны',
+    // toast
+    toast_saved: 'Изменения сохранены',
+    toast_deleted: 'Товар удалён',
+    toast_error: 'Произошла ошибка',
+    toast_error_delete: 'Ошибка при удалении товара',
+    // модал удаления
+    btn_delete: 'Удалить',
+    btn_discard: 'Отмена',
   },
 }
 
@@ -774,10 +820,12 @@ export const adminEn = {
     kpi2_label: 'Accounts Receivable',
     kpi3_label: 'Sales (month)',
     kpi4_label: 'Profit (month)',
+    kpi5_label: 'Deficit Items',
     kpi1_delta: '↑ +3.2% vs last month',
     kpi2_delta: '↑ +8.1% — Attention!',
     kpi3_delta: '↑ +12.5% vs last month',
     kpi4_delta: 'Margin 17.7%',
+    kpi5_delta: '↑ +2 vs last week',
     chart1_title: 'Sales by Category',
     chart2_title: 'System Alerts',
     badge_march: 'March 2026',
@@ -1466,6 +1514,50 @@ export const adminEn = {
   products: {
     title: 'Products',
     header_title: 'Products catalogue',
+    // list
+    search_placeholder: 'Search by name...',
+    filter_category_all: 'All categories',
+    btn_create: 'Add product',
+    btn_back: 'Back',
+    col_name: 'Name',
+    col_category: 'Category',
+    col_price: 'Base price',
+    col_unit: 'Unit',
+    empty: 'No products found',
+    confirm_delete: 'Are you sure you want to delete this product?',
+    // card — sections
+    section_info: 'General',
+    section_price: 'Price',
+    section_fields: 'Dynamic fields',
+    section_suppliers: 'Suppliers',
+    // card — fields
+    field_name: 'Name',
+    field_category: 'Category',
+    field_sku: 'SKU',
+    field_description: 'Description',
+    field_min_stock: 'Minimum stock',
+    field_price: 'Base price',
+    field_price_unit: 'Unit of measure',
+    field_inherited_badge: 'Inherited',
+    // save bar
+    btn_save: 'Save',
+    btn_discard_changes: 'Discard changes',
+    // create modal
+    modal_create_title: 'Add product',
+    // price units
+    price_unit_vnt: 'EUR/vnt (piece)',
+    price_unit_kg: 'EUR/kg (kg)',
+    price_unit_m: 'EUR/m (metre)',
+    // suppliers
+    suppliers_empty: 'No suppliers linked',
+    // toast
+    toast_saved: 'Changes saved',
+    toast_deleted: 'Product deleted',
+    toast_error: 'An error occurred',
+    toast_error_delete: 'Error deleting product',
+    // delete modal
+    btn_delete: 'Delete',
+    btn_discard: 'Cancel',
   },
 }
 
@@ -1507,10 +1599,12 @@ export const adminLt = {
     kpi2_label: 'Gautinos sumos',
     kpi3_label: 'Pardavimai (mėn.)',
     kpi4_label: 'Pelnas (mėn.)',
+    kpi5_label: 'Trūkstamos pozicijos',
     kpi1_delta: '↑ +3.2% vs praėjusį mėn.',
     kpi2_delta: '↑ +8.1% — Dėmesio!',
     kpi3_delta: '↑ +12.5% vs praėjusį mėn.',
     kpi4_delta: 'Marža 17.7%',
+    kpi5_delta: '↑ +2 vs praėj. sav.',
     chart1_title: 'Pardavimai pagal kategorijas',
     chart2_title: 'Sistemos įspėjimai',
     badge_march: '2026 m. kovas',
@@ -2199,5 +2293,49 @@ export const adminLt = {
   products: {
     title: 'Prekės',
     header_title: 'Prekių katalogas',
+    // sąrašas
+    search_placeholder: 'Ieškoti pagal pavadinimą...',
+    filter_category_all: 'Visos kategorijos',
+    btn_create: 'Pridėti prekę',
+    btn_back: 'Atgal',
+    col_name: 'Pavadinimas',
+    col_category: 'Kategorija',
+    col_price: 'Bazinė kaina',
+    col_unit: 'Vienetas',
+    empty: 'Prekių nerasta',
+    confirm_delete: 'Ar tikrai norite ištrinti šią prekę?',
+    // kortelė — sekcijos
+    section_info: 'Pagrindinė informacija',
+    section_price: 'Kaina',
+    section_fields: 'Dinaminiai laukai',
+    section_suppliers: 'Tiekėjai',
+    // kortelė — laukai
+    field_name: 'Pavadinimas',
+    field_category: 'Kategorija',
+    field_sku: 'Artikulas (SKU)',
+    field_description: 'Aprašymas',
+    field_min_stock: 'Minimalus likutis',
+    field_price: 'Bazinė kaina',
+    field_price_unit: 'Matavimo vienetas',
+    field_inherited_badge: 'Paveldėta',
+    // išsaugojimo juosta
+    btn_save: 'Išsaugoti',
+    btn_discard_changes: 'Atšaukti pakeitimus',
+    // kūrimo modalas
+    modal_create_title: 'Pridėti prekę',
+    // kainos vienetai
+    price_unit_vnt: 'EUR/vnt (vienetas)',
+    price_unit_kg: 'EUR/kg (kg)',
+    price_unit_m: 'EUR/m (metras)',
+    // tiekėjai
+    suppliers_empty: 'Tiekėjai nesusieti',
+    // pranešimai
+    toast_saved: 'Pakeitimai išsaugoti',
+    toast_deleted: 'Prekė ištrinta',
+    toast_error: 'Įvyko klaida',
+    toast_error_delete: 'Klaida trinant prekę',
+    // trynimo modalas
+    btn_delete: 'Ištrinti',
+    btn_discard: 'Atšaukti',
   },
 }

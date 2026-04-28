@@ -891,10 +891,6 @@
   background: rgba(250, 173, 20, 0.2);
   color: #faad14;
 }
-.pill-suspended {
-  background: rgba(114, 46, 209, 0.2);
-  color: #722ed1;
-}
 .pill-danger {
   background: rgba(255, 77, 79, 0.2);
   color: #ff4d4f;

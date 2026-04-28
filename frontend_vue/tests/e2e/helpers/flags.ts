@@ -24,6 +24,7 @@ export const ALL_FLAGS_ENABLED = {
   bccRequest: true,
   adminCategories: true,
   adminProducts: true,
+  adminServices: true,
 
   // Section-level
   dashboardAlerts: true,
@@ -33,6 +34,7 @@ export const ALL_FLAGS_ENABLED = {
   bccHistory: true,
   permissionsEditor: true,
   categoryFieldReorder: true,
+  productSupplierLinks: true,
 } as const
 
 /** Writes ALL_FLAGS_ENABLED to localStorage before every page in this context loads. */

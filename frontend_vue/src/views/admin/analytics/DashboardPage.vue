@@ -2,10 +2,16 @@
 import { useI18n } from 'vue-i18n'
 import AnalyticsSubNav from '@/components/admin/AnalyticsSubNav.vue'
 import { useFeatureFlag } from '@/composables/useFeatureFlag'
+import { mockGetAnalyticsPage } from '@/services/mocks/analytics'
 
 const { t } = useI18n()
 const showAlerts = useFeatureFlag('dashboardAlerts')
 const showCharts = useFeatureFlag('dashboardCharts')
+const data = mockGetAnalyticsPage('dashboard')
+
+function formatCurrency(val: number): string {
+  return val.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' €'
+}
 </script>
 
 <template>
@@ -29,8 +35,8 @@ const showCharts = useFeatureFlag('dashboardCharts')
         </svg>
       </div>
       <div class="kpi-label">{{ t('dashboard.kpi1_label') }}</div>
-      <div class="kpi-value">127 400 <span>EUR</span></div>
-      <div class="kpi-delta up">{{ t('dashboard.kpi1_delta') }}</div>
+      <div class="kpi-value">{{ data.kpis[0]?.value }} <span>EUR</span></div>
+      <div class="kpi-delta" :class="data.kpis[0]?.trend">{{ t('dashboard.kpi1_delta') }}</div>
     </div>
     <div class="kpi-card" data-test="dashboard-kpi-card">
       <div class="kpi-icon icon-red">
@@ -50,8 +56,8 @@ const showCharts = useFeatureFlag('dashboardCharts')
         </svg>
       </div>
       <div class="kpi-label">{{ t('dashboard.kpi2_label') }}</div>
-      <div class="kpi-value">38 750 <span>EUR</span></div>
-      <div class="kpi-delta down">{{ t('dashboard.kpi2_delta') }}</div>
+      <div class="kpi-value">{{ data.kpis[1]?.value }} <span>EUR</span></div>
+      <div class="kpi-delta" :class="data.kpis[1]?.trend">{{ t('dashboard.kpi2_delta') }}</div>
     </div>
     <div class="kpi-card" data-test="dashboard-kpi-card">
       <div class="kpi-icon icon-green">
@@ -69,8 +75,8 @@ const showCharts = useFeatureFlag('dashboardCharts')
         </svg>
       </div>
       <div class="kpi-label">{{ t('dashboard.kpi3_label') }}</div>
-      <div class="kpi-value">84 200 <span>EUR</span></div>
-      <div class="kpi-delta up">{{ t('dashboard.kpi3_delta') }}</div>
+      <div class="kpi-value">{{ data.kpis[2]?.value }} <span>EUR</span></div>
+      <div class="kpi-delta" :class="data.kpis[2]?.trend">{{ t('dashboard.kpi3_delta') }}</div>
     </div>
     <div class="kpi-card" data-test="dashboard-kpi-card">
       <div class="kpi-icon icon-gold">
@@ -90,8 +96,27 @@ const showCharts = useFeatureFlag('dashboardCharts')
         </svg>
       </div>
       <div class="kpi-label">{{ t('dashboard.kpi4_label') }}</div>
-      <div class="kpi-value">14 870 <span>EUR</span></div>
-      <div class="kpi-delta neutral">{{ t('dashboard.kpi4_delta') }}</div>
+      <div class="kpi-value">{{ data.kpis[3]?.value }} <span>EUR</span></div>
+      <div class="kpi-delta" :class="data.kpis[3]?.trend">{{ t('dashboard.kpi4_delta') }}</div>
+    </div>
+    <div class="kpi-card" data-test="dashboard-kpi-card">
+      <div class="kpi-icon icon-red">
+        <svg
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+        </svg>
+      </div>
+      <div class="kpi-label">{{ t('dashboard.kpi5_label') }}</div>
+      <div class="kpi-value">{{ data.kpis[4]?.value }} <span>pcs.</span></div>
+      <div class="kpi-delta" :class="data.kpis[4]?.trend">{{ t('dashboard.kpi5_delta') }}</div>
     </div>
   </div>
 
@@ -102,55 +127,20 @@ const showCharts = useFeatureFlag('dashboardCharts')
         <span class="panel-badge">{{ t('dashboard.badge_march') }}</span>
       </div>
       <div class="bar-chart">
-        <div class="bar-chart-row" data-test="dashboard-chart-row">
-          <span class="bar-label">{{ t('dashboard.cat_pipes') }}</span>
+        <div
+          v-for="item in data.salesByCategory"
+          :key="item.label"
+          class="bar-chart-row"
+          data-test="dashboard-chart-row"
+        >
+          <span class="bar-label">{{ item.label }}</span>
           <div class="bar-track">
             <div
               class="bar-fill"
-              style="width: 78%; background: linear-gradient(90deg, #1890ff, #40a9ff)"
+              :style="{ width: item.percentage + '%', background: 'linear-gradient(90deg, #1890ff, #40a9ff)' }"
             ></div>
           </div>
-          <span class="bar-val">32 400 €</span>
-        </div>
-        <div class="bar-chart-row" data-test="dashboard-chart-row">
-          <span class="bar-label">{{ t('dashboard.cat_sheets') }}</span>
-          <div class="bar-track">
-            <div
-              class="bar-fill"
-              style="width: 55%; background: linear-gradient(90deg, #1890ff, #40a9ff)"
-            ></div>
-          </div>
-          <span class="bar-val">22 800 €</span>
-        </div>
-        <div class="bar-chart-row" data-test="dashboard-chart-row">
-          <span class="bar-label">{{ t('dashboard.cat_profile') }}</span>
-          <div class="bar-track">
-            <div
-              class="bar-fill"
-              style="width: 38%; background: linear-gradient(90deg, #1890ff, #40a9ff)"
-            ></div>
-          </div>
-          <span class="bar-val">15 900 €</span>
-        </div>
-        <div class="bar-chart-row" data-test="dashboard-chart-row">
-          <span class="bar-label">{{ t('dashboard.cat_rods') }}</span>
-          <div class="bar-track">
-            <div
-              class="bar-fill"
-              style="width: 20%; background: linear-gradient(90deg, #1890ff, #40a9ff)"
-            ></div>
-          </div>
-          <span class="bar-val">8 200 €</span>
-        </div>
-        <div class="bar-chart-row" data-test="dashboard-chart-row">
-          <span class="bar-label">{{ t('dashboard.cat_scraps') }}</span>
-          <div class="bar-track">
-            <div
-              class="bar-fill"
-              style="width: 12%; background: linear-gradient(90deg, #52c41a, #73d13d)"
-            ></div>
-          </div>
-          <span class="bar-val">4 900 €</span>
+          <span class="bar-val">{{ formatCurrency(item.value) }}</span>
         </div>
       </div>
     </div>

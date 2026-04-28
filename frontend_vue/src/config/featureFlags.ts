@@ -18,6 +18,7 @@ const defaults: FeatureFlags = {
   bccRequest: true,
   adminCategories: true,
   adminProducts: true,
+  adminServices: false,
 
   // Section-level flags
   dashboardAlerts: true,
@@ -27,6 +28,7 @@ const defaults: FeatureFlags = {
   bccHistory: true,
   permissionsEditor: true,
   categoryFieldReorder: true,
+  productSupplierLinks: true,
 }
 
 function loadOverrides(): Partial<FeatureFlags> {

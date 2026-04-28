@@ -27,6 +27,12 @@
   --text-dim: rgba(255, 255, 255, 0.65);
   --text-nav: rgba(255, 255, 255, 0.9);
 }
+
+/* JetBrains Mono for all data-table cells (design system: technical/numeric data) */
+.data-table td {
+  font-family: 'JetBrains Mono', monospace;
+}
+
 *,
 *::before,
 *::after {
@@ -260,7 +266,7 @@ html.sidebar-no-animation .sidebar {
 .page-title {
   color: #fff;
   font-size: 2rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: -0.04em;
   margin-bottom: 1.5rem;
   line-height: 1.2;
@@ -471,6 +477,7 @@ html.sidebar-no-animation .sidebar {
   color: #fff;
   letter-spacing: -0.03em;
   line-height: 1;
+  font-family: 'JetBrains Mono', monospace;
 }
 .kpi-value span {
   font-size: 1rem;
@@ -576,7 +583,8 @@ html.sidebar-no-animation .sidebar {
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 .data-table td {
-  padding: 0.45rem 0.75rem;
+  height: 40px;
+  padding: 0 0.75rem;
   font-size: 0.85rem;
   color: var(--text-dim);
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
@@ -584,9 +592,18 @@ html.sidebar-no-animation .sidebar {
 .data-table tr:last-child td {
   border-bottom: none;
 }
+.data-table tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.02);
+}
 .data-table tr:hover td {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(24, 144, 255, 0.06);
   color: #fff;
+}
+.data-table.compact td {
+  height: 32px;
+}
+.data-table.relaxed td {
+  height: 48px;
 }
 /* STATUS PILLS */
 .status-pill {
@@ -648,6 +665,7 @@ html.sidebar-no-animation .sidebar {
   font-size: 0.75rem;
   font-weight: 600;
   text-align: right;
+  font-family: 'JetBrains Mono', monospace;
 }
 
 /* =============================================
@@ -766,6 +784,7 @@ html.sidebar-no-animation .sidebar {
 }
 .acard-metric strong {
   font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
 }
 .acard-metric strong.ok {
   color: var(--success);

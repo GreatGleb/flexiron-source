@@ -12,7 +12,7 @@
 
     <h2 class="section-title">{{ t('screens.sectionPublic') }}</h2>
     <div class="pages-grid">
-      <router-link v-for="page in publicPages" :key="page.id" :to="page.to" class="page-card">
+      <router-link v-for="page in publicPages" :key="page.id" :to="page.to" class="page-card" target="_blank">
         <span class="page-id">{{ page.id }}</span>
         <span class="page-title">{{ t(page.titleKey) }}</span>
         <span class="page-status">
@@ -29,6 +29,7 @@
         :key="page.id"
         :to="{ name: page.routeName }"
         class="page-card"
+        target="_blank"
       >
         <span class="page-id">{{ page.id }}</span>
         <span class="page-title">{{ t(page.titleKey) }}</span>
@@ -46,6 +47,7 @@
         :key="page.id"
         :to="page.to"
         class="page-card"
+        target="_blank"
       >
         <span class="page-id">{{ page.id }}</span>
         <span class="page-title">{{ t(page.titleKey) }}</span>
@@ -58,7 +60,7 @@
 
     <h2 class="section-title">{{ t('screens.sectionProcurement') }}</h2>
     <div class="grid">
-      <router-link v-for="page in suppliersPages" :key="page.id" :to="page.to" class="page-card">
+      <router-link v-for="page in suppliersPages" :key="page.id" :to="page.to" class="page-card" target="_blank">
         <span class="page-id">{{ page.id }}</span>
         <span class="page-title">{{ t(page.titleKey) }}</span>
         <span class="page-status">
@@ -107,6 +109,11 @@ const analyticsPages = [
 
 const categoriesPages = [
   { id: '1.1', to: { name: 'admin-products' }, titleKey: 'products.header_title' },
+  {
+    id: '1.1c',
+    to: { name: 'admin-product-card', params: { id: 'prod-001' } },
+    titleKey: 'products.section_info',
+  },
   { id: '1.2', to: { name: 'admin-categories' }, titleKey: 'categories.header_title' },
   {
     id: '1.2c',

@@ -7,26 +7,19 @@ import type {
 } from '@/types/analytics'
 
 const kpiDashboard: KpiItem[] = [
-  {
-    key: 'revenue',
-    value: '€1 248 000',
-    delta: '+12%',
-    trend: 'up',
-    icon: 'chart-bar',
-    iconColor: 'blue',
-  },
-  { key: 'orders', value: '342', delta: '+8%', trend: 'up', icon: 'package', iconColor: 'green' },
-  { key: 'suppliers', value: '47', delta: '-2', trend: 'down', icon: 'users', iconColor: 'gold' },
-  { key: 'deficit', value: '3', delta: '+1', trend: 'down', icon: 'alert', iconColor: 'red' },
+  { key: 'revenue', value: '127 400', delta: '+7%', trend: 'up', icon: 'chart-bar', iconColor: 'blue' },
+  { key: 'procurement', value: '38 750', delta: '-3%', trend: 'down', icon: 'receipt', iconColor: 'red' },
+  { key: 'margin', value: '84 200', delta: '+12%', trend: 'up', icon: 'trending-up', iconColor: 'green' },
+  { key: 'profit', value: '14 870', delta: '0%', trend: 'neutral', icon: 'currency', iconColor: 'gold' },
+  { key: 'deficit', value: '8', delta: '+2', trend: 'down', icon: 'alert', iconColor: 'red' },
 ]
 
 const salesByCategory: ChartBarItem[] = [
-  { label: 'Sheets', value: 420000, percentage: 34 },
-  { label: 'Pipes', value: 280000, percentage: 22 },
-  { label: 'Beams', value: 195000, percentage: 16 },
-  { label: 'Rebars', value: 155000, percentage: 12 },
-  { label: 'Lintels', value: 110000, percentage: 9 },
-  { label: 'Other', value: 88000, percentage: 7 },
+  { label: 'Pipes', value: 32400, percentage: 78 },
+  { label: 'Sheets', value: 22800, percentage: 55 },
+  { label: 'Profile', value: 15900, percentage: 38 },
+  { label: 'Rods', value: 8200, percentage: 20 },
+  { label: 'Scraps', value: 4900, percentage: 12 },
 ]
 
 const alerts: AlertItem[] = [

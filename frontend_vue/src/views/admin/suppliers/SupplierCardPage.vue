@@ -101,7 +101,7 @@ onMounted(load)
     >
       <router-link
         :to="{ name: 'admin-bcc-request', query: { supplier: id } }"
-        class="btn btn-secondary"
+        class="btn btn-primary"
         data-test="supplier-card-bcc-link"
       >
         <SvgIcon name="email" :width="18" :height="18" />

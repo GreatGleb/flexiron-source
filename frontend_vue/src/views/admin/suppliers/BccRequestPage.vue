@@ -532,7 +532,7 @@ onMounted(async () => {
       <!-- Log Request (split button) — logs history without sending an email -->
       <div class="log-split-btn" data-test="bcc-request-log-split-btn">
         <button
-          class="btn btn-secondary log-main"
+          class="btn btn-primary log-main"
           type="button"
           data-test="bcc-request-log-btn"
           @click="onLogClick"
@@ -541,7 +541,7 @@ onMounted(async () => {
           <span>{{ t('btn.log_request', 'Log') }}: {{ logSource }}</span>
         </button>
         <button
-          class="btn btn-secondary log-caret"
+          class="btn btn-primary log-caret"
           type="button"
           data-test="bcc-request-log-caret-btn"
           @click.stop="logDropdownOpen = !logDropdownOpen"
