@@ -1,0 +1,26 @@
+# Roo Code ignore file - protection from changes outside the project
+# Files and folders that Roo Code should NOT have access to
+
+# System Windows folders
+**/Windows/**
+**/Program Files/**
+**/Program Files (x86)/**
+**/AppData/**
+
+# Config files
+**/*.config
+**/*.ini
+**/*.reg
+
+# Executable files
+**/*.exe
+**/*.dll
+**/*.msi
+**/*.bat
+**/*.cmd
+**/*.ps1
+
+# System files
+boot.ini
+pagefile.sys
+hiberfil.sys
