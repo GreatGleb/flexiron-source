@@ -1,4 +1,5 @@
 import type { Category, CategoryField, CategoryListItem, CategoryFilters } from '@/types/category'
+import type { LinkedSupplier } from '@/types/product'
 import type { PaginatedResponse } from '@/types/api'
 
 // ─── STORE ───────────────────────────────────────────────────────────────────
@@ -9,12 +10,18 @@ const STORE: Category[] = [
     name: 'Metal',
     parentId: null,
     description: 'All types of metal products',
-    fieldCount: 2,
+    fieldCount: 3,
     productCount: 0,
     inheritedFields: [],
     fields: [
       { id: 'f-1-1', name: 'Steel grade', type: 'text', required: true, order: 0, options: [] },
       { id: 'f-1-2', name: 'Standard / GOST', type: 'text', required: false, order: 1, options: [] },
+      { id: 'f-1-3', name: 'Density (kg/m³)', type: 'number', required: false, order: 2, options: [] },
+    ],
+    linkedSuppliers: [
+      { id: '1', name: 'Steel Plus OÜ', price: null, priceUnit: null, leadDays: 7 },
+      { id: '2', name: 'Metal Trade LT', price: null, priceUnit: null, leadDays: 14 },
+      { id: '6', name: 'EuroSteel GmbH', price: null, priceUnit: null, leadDays: 14 },
     ],
   },
   {
@@ -22,16 +29,23 @@ const STORE: Category[] = [
     name: 'Sheets',
     parentId: 'cat-1',
     description: 'Flat-rolled metal sheets',
-    fieldCount: 3,
+    fieldCount: 4,
     productCount: 12,
     inheritedFields: [
       { id: 'f-1-1', name: 'Steel grade', type: 'text', required: true, order: 0, options: [] },
       { id: 'f-1-2', name: 'Standard / GOST', type: 'text', required: false, order: 1, options: [] },
+      { id: 'f-1-3', name: 'Density (kg/m³)', type: 'number', required: false, order: 2, options: [] },
     ],
     fields: [
       { id: 'f-2-1', name: 'Thickness (mm)', type: 'number', required: true, order: 0, options: [] },
       { id: 'f-2-2', name: 'Sheet type', type: 'enum', required: false, order: 1, options: ['Hot-rolled', 'Cold-rolled', 'Galvanized'] },
-      { id: 'f-2-3', name: 'Dimensions (mm)', type: 'text', required: false, order: 2, options: [] },
+      { id: 'f-2-3', name: 'Width (mm)', type: 'number', required: false, order: 2, options: [] },
+      { id: 'f-2-4', name: 'Length (mm)', type: 'number', required: false, order: 3, options: [] },
+    ],
+    linkedSuppliers: [
+      { id: '1', name: 'Steel Plus OÜ', price: null, priceUnit: null, leadDays: 7 },
+      { id: '2', name: 'Metal Trade LT', price: null, priceUnit: null, leadDays: 14 },
+      { id: '3', name: 'Nordic Steel AB', price: null, priceUnit: null, leadDays: 10 },
     ],
   },
   {
@@ -44,12 +58,17 @@ const STORE: Category[] = [
     inheritedFields: [
       { id: 'f-1-1', name: 'Steel grade', type: 'text', required: true, order: 0, options: [] },
       { id: 'f-1-2', name: 'Standard / GOST', type: 'text', required: false, order: 1, options: [] },
+      { id: 'f-1-3', name: 'Density (kg/m³)', type: 'number', required: false, order: 2, options: [] },
       { id: 'f-2-1', name: 'Thickness (mm)', type: 'number', required: true, order: 0, options: [] },
       { id: 'f-2-2', name: 'Sheet type', type: 'enum', required: false, order: 1, options: ['Hot-rolled', 'Cold-rolled', 'Galvanized'] },
-      { id: 'f-2-3', name: 'Dimensions (mm)', type: 'text', required: false, order: 2, options: [] },
+      { id: 'f-2-3', name: 'Width (mm)', type: 'number', required: false, order: 2, options: [] },
+      { id: 'f-2-4', name: 'Length (mm)', type: 'number', required: false, order: 3, options: [] },
     ],
     fields: [
       { id: 'f-3-1', name: 'Alloy', type: 'enum', required: true, order: 0, options: ['AMts', 'AMg2', 'AMg3', 'D16', '1561'] },
+    ],
+    linkedSuppliers: [
+      { id: '3', name: 'Nordic Steel AB', price: null, priceUnit: null, leadDays: 10 },
     ],
   },
   {
@@ -57,15 +76,23 @@ const STORE: Category[] = [
     name: 'Pipes',
     parentId: 'cat-1',
     description: 'Tubular metal products',
-    fieldCount: 2,
+    fieldCount: 5,
     productCount: 8,
     inheritedFields: [
       { id: 'f-1-1', name: 'Steel grade', type: 'text', required: true, order: 0, options: [] },
       { id: 'f-1-2', name: 'Standard / GOST', type: 'text', required: false, order: 1, options: [] },
+      { id: 'f-1-3', name: 'Density (kg/m³)', type: 'number', required: false, order: 2, options: [] },
     ],
     fields: [
       { id: 'f-4-1', name: 'Diameter (mm)', type: 'number', required: true, order: 0, options: [] },
       { id: 'f-4-2', name: 'Wall thickness (mm)', type: 'number', required: true, order: 1, options: [] },
+      { id: 'f-4-3', name: 'Length (mm)', type: 'number', required: false, order: 2, options: [] },
+      { id: 'f-4-4', name: 'Pipe type', type: 'enum', required: false, order: 3, options: ['Round', 'Square', 'Rectangular'] },
+      { id: 'f-4-5', name: 'Bend radius (mm)', type: 'number', required: false, order: 4, options: [] },
+    ],
+    linkedSuppliers: [
+      { id: '1', name: 'Steel Plus OÜ', price: null, priceUnit: null, leadDays: 7 },
+      { id: '4', name: 'Baltic Metals SIA', price: null, priceUnit: null, leadDays: 10 },
     ],
   },
   {
@@ -81,6 +108,9 @@ const STORE: Category[] = [
       { id: 'f-5-2', name: 'Hazardous material', type: 'boolean', required: false, order: 1, options: [] },
       { id: 'f-5-3', name: 'Expiry date', type: 'date', required: false, order: 2, options: [] },
     ],
+    linkedSuppliers: [
+      { id: '5', name: 'Euro Metal GmbH', price: null, priceUnit: null, leadDays: 21 },
+    ],
   },
   {
     id: 'cat-6',
@@ -95,6 +125,169 @@ const STORE: Category[] = [
       { id: 'f-6-2', name: 'Warranty (months)', type: 'number', required: false, order: 1, options: [] },
       { id: 'f-6-3', name: 'Supplier email', type: 'email', required: false, order: 2, options: [] },
       { id: 'f-6-4', name: 'Equipment passport', type: 'file', required: false, order: 3, options: [] },
+    ],
+    linkedSuppliers: [
+      { id: '5', name: 'Euro Metal GmbH', price: null, priceUnit: null, leadDays: 21 },
+      { id: '6', name: 'IronBridge Corp', price: null, priceUnit: null, leadDays: 9 },
+    ],
+  },
+  {
+    id: 'cat-7',
+    name: 'Beams',
+    parentId: 'cat-1',
+    description: 'IPE/HEA/HEB structural steel beams',
+    fieldCount: 4,
+    productCount: 0,
+    inheritedFields: [
+      { id: 'f-1-1', name: 'Steel grade', type: 'text', required: true, order: 0, options: [] },
+      { id: 'f-1-2', name: 'Standard / GOST', type: 'text', required: false, order: 1, options: [] },
+      { id: 'f-1-3', name: 'Density (kg/m³)', type: 'number', required: false, order: 2, options: [] },
+    ],
+    fields: [
+      { id: 'f-7-1', name: 'Profile type', type: 'enum', required: true, order: 0, options: ['IPE', 'HEA', 'HEB', 'IPN', 'UPN'] },
+      { id: 'f-7-2', name: 'Height (mm)', type: 'number', required: true, order: 1, options: [] },
+      { id: 'f-7-3', name: 'Flange width (mm)', type: 'number', required: false, order: 2, options: [] },
+      { id: 'f-7-4', name: 'Length (mm)', type: 'number', required: false, order: 3, options: [] },
+    ],
+    linkedSuppliers: [
+      { id: '2', name: 'Metal Trade LT', price: null, priceUnit: null, leadDays: 5 },
+      { id: '6', name: 'IronBridge Corp', price: null, priceUnit: null, leadDays: 9 },
+    ],
+  },
+  {
+    id: 'cat-8',
+    name: 'Channels',
+    parentId: 'cat-1',
+    description: 'Steel channel sections (UPN/UPE)',
+    fieldCount: 4,
+    productCount: 0,
+    inheritedFields: [
+      { id: 'f-1-1', name: 'Steel grade', type: 'text', required: true, order: 0, options: [] },
+      { id: 'f-1-2', name: 'Standard / GOST', type: 'text', required: false, order: 1, options: [] },
+      { id: 'f-1-3', name: 'Density (kg/m³)', type: 'number', required: false, order: 2, options: [] },
+    ],
+    fields: [
+      { id: 'f-8-1', name: 'Height (mm)', type: 'number', required: true, order: 0, options: [] },
+      { id: 'f-8-2', name: 'Flange width (mm)', type: 'number', required: false, order: 1, options: [] },
+      { id: 'f-8-3', name: 'Wall thickness (mm)', type: 'number', required: false, order: 2, options: [] },
+      { id: 'f-8-4', name: 'Length (mm)', type: 'number', required: false, order: 3, options: [] },
+    ],
+    linkedSuppliers: [
+      { id: '1', name: 'Steel Plus OÜ', price: null, priceUnit: null, leadDays: 7 },
+      { id: '6', name: 'IronBridge Corp', price: null, priceUnit: null, leadDays: 9 },
+    ],
+  },
+  {
+    id: 'cat-9',
+    name: 'Angles',
+    parentId: 'cat-1',
+    description: 'Equal and unequal steel angle bars',
+    fieldCount: 4,
+    productCount: 0,
+    inheritedFields: [
+      { id: 'f-1-1', name: 'Steel grade', type: 'text', required: true, order: 0, options: [] },
+      { id: 'f-1-2', name: 'Standard / GOST', type: 'text', required: false, order: 1, options: [] },
+      { id: 'f-1-3', name: 'Density (kg/m³)', type: 'number', required: false, order: 2, options: [] },
+    ],
+    fields: [
+      { id: 'f-9-1', name: 'Side width (mm)', type: 'number', required: true, order: 0, options: [] },
+      { id: 'f-9-2', name: 'Thickness (mm)', type: 'number', required: true, order: 1, options: [] },
+      { id: 'f-9-3', name: 'Length (mm)', type: 'number', required: false, order: 2, options: [] },
+      { id: 'f-9-4', name: 'Type', type: 'enum', required: false, order: 3, options: ['Equal', 'Unequal'] },
+    ],
+    linkedSuppliers: [
+      { id: '1', name: 'Steel Plus OÜ', price: null, priceUnit: null, leadDays: 7 },
+      { id: '2', name: 'Metal Trade LT', price: null, priceUnit: null, leadDays: 5 },
+    ],
+  },
+  {
+    id: 'cat-10',
+    name: 'Rebars',
+    parentId: 'cat-1',
+    description: 'Reinforcement steel bars',
+    fieldCount: 3,
+    productCount: 0,
+    inheritedFields: [
+      { id: 'f-1-1', name: 'Steel grade', type: 'text', required: true, order: 0, options: [] },
+      { id: 'f-1-2', name: 'Standard / GOST', type: 'text', required: false, order: 1, options: [] },
+      { id: 'f-1-3', name: 'Density (kg/m³)', type: 'number', required: false, order: 2, options: [] },
+    ],
+    fields: [
+      { id: 'f-10-1', name: 'Diameter (mm)', type: 'number', required: true, order: 0, options: [] },
+      { id: 'f-10-2', name: 'Length (mm)', type: 'number', required: false, order: 1, options: [] },
+      { id: 'f-10-3', name: 'Class', type: 'enum', required: false, order: 2, options: ['A240', 'A400', 'A500C', 'B500C'] },
+    ],
+    linkedSuppliers: [
+      { id: '4', name: 'Baltic Metal Group', price: null, priceUnit: null, leadDays: 14 },
+      { id: '6', name: 'IronBridge Corp', price: null, priceUnit: null, leadDays: 9 },
+    ],
+  },
+  {
+    id: 'cat-11',
+    name: 'Profiles',
+    parentId: 'cat-1',
+    description: 'Square and rectangular hollow sections, flat and round bars',
+    fieldCount: 5,
+    productCount: 0,
+    inheritedFields: [
+      { id: 'f-1-1', name: 'Steel grade', type: 'text', required: true, order: 0, options: [] },
+      { id: 'f-1-2', name: 'Standard / GOST', type: 'text', required: false, order: 1, options: [] },
+      { id: 'f-1-3', name: 'Density (kg/m³)', type: 'number', required: false, order: 2, options: [] },
+    ],
+    fields: [
+      { id: 'f-11-1', name: 'Profile type', type: 'enum', required: true, order: 0, options: ['Square tube', 'Rectangular tube', 'Flat bar', 'Round bar'] },
+      { id: 'f-11-2', name: 'Height (mm)', type: 'number', required: true, order: 1, options: [] },
+      { id: 'f-11-3', name: 'Width (mm)', type: 'number', required: false, order: 2, options: [] },
+      { id: 'f-11-4', name: 'Wall thickness (mm)', type: 'number', required: false, order: 3, options: [] },
+      { id: 'f-11-5', name: 'Length (mm)', type: 'number', required: false, order: 4, options: [] },
+    ],
+    linkedSuppliers: [
+      { id: '1', name: 'Steel Plus OÜ', price: null, priceUnit: null, leadDays: 7 },
+      { id: '4', name: 'Baltic Metal Group', price: null, priceUnit: null, leadDays: 14 },
+    ],
+  },
+  {
+    id: 'cat-12',
+    name: 'Wire',
+    parentId: 'cat-1',
+    description: 'Steel wire in coils and spools',
+    fieldCount: 3,
+    productCount: 0,
+    inheritedFields: [
+      { id: 'f-1-1', name: 'Steel grade', type: 'text', required: true, order: 0, options: [] },
+      { id: 'f-1-2', name: 'Standard / GOST', type: 'text', required: false, order: 1, options: [] },
+      { id: 'f-1-3', name: 'Density (kg/m³)', type: 'number', required: false, order: 2, options: [] },
+    ],
+    fields: [
+      { id: 'f-12-1', name: 'Diameter (mm)', type: 'number', required: true, order: 0, options: [] },
+      { id: 'f-12-2', name: 'Coating', type: 'enum', required: false, order: 1, options: ['Bare', 'Galvanized', 'Zinc-coated', 'Copper-coated'] },
+      { id: 'f-12-3', name: 'Spool weight (kg)', type: 'number', required: false, order: 2, options: [] },
+    ],
+    linkedSuppliers: [
+      { id: '1', name: 'Steel Plus OÜ', price: null, priceUnit: null, leadDays: 7 },
+      { id: '6', name: 'IronBridge Corp', price: null, priceUnit: null, leadDays: 9 },
+    ],
+  },
+  {
+    id: 'cat-13',
+    name: 'Fittings',
+    parentId: 'cat-1',
+    description: 'Pipe fittings and connectors',
+    fieldCount: 3,
+    productCount: 0,
+    inheritedFields: [
+      { id: 'f-1-1', name: 'Steel grade', type: 'text', required: true, order: 0, options: [] },
+      { id: 'f-1-2', name: 'Standard / GOST', type: 'text', required: false, order: 1, options: [] },
+      { id: 'f-1-3', name: 'Density (kg/m³)', type: 'number', required: false, order: 2, options: [] },
+    ],
+    fields: [
+      { id: 'f-13-1', name: 'Type', type: 'enum', required: true, order: 0, options: ['Elbow 90°', 'Elbow 45°', 'Tee', 'Reducer', 'Flange', 'Coupling', 'Cap'] },
+      { id: 'f-13-2', name: 'Size DN (mm)', type: 'number', required: true, order: 1, options: [] },
+      { id: 'f-13-3', name: 'Pressure rating (bar)', type: 'number', required: false, order: 2, options: [] },
+    ],
+    linkedSuppliers: [
+      { id: '4', name: 'Baltic Metal Group', price: null, priceUnit: null, leadDays: 14 },
+      { id: '5', name: 'Euro Metal GmbH', price: null, priceUnit: null, leadDays: 21 },
     ],
   },
 ]
@@ -209,6 +402,7 @@ export function mockCreateCategory(data: {
     productCount: 0,
     inheritedFields,
     fields: [],
+    linkedSuppliers: [],
   }
   STORE.push(newCat)
   return structuredClone(newCat)
@@ -216,18 +410,18 @@ export function mockCreateCategory(data: {
 
 export function mockPatchCategory(
   id: string,
-  delta: Partial<Pick<Category, 'name' | 'parentId' | 'description'>>,
+  delta: Partial<Pick<Category, 'name' | 'parentId' | 'description'>> & { linkedSuppliers?: LinkedSupplier[] },
 ): Category | undefined {
   const cat = STORE.find((c) => c.id === id)
   if (!cat) return undefined
   if (delta.name !== undefined) cat.name = delta.name
   if (delta.description !== undefined) cat.description = delta.description
+  if (delta.linkedSuppliers !== undefined)
+    cat.linkedSuppliers = JSON.parse(JSON.stringify(delta.linkedSuppliers)) as LinkedSupplier[]
   if (delta.parentId !== undefined) {
     cat.parentId = delta.parentId
-    // прямой родитель уже хранит накопленную цепочку
     const parent = STORE.find((c) => c.id === delta.parentId)
     cat.inheritedFields = parent ? [...parent.inheritedFields, ...parent.fields] : []
-    // каскадируем изменение на всех потомков
     cascadeInheritedFields(cat.id)
   }
   return structuredClone(cat)

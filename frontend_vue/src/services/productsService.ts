@@ -1,10 +1,18 @@
 import { apiGet, apiPost, apiPatch, apiDelete } from './api'
 import type { Product, ProductListItem, ProductFilters, PriceUnit } from '@/types/product'
-import type { PaginatedResponse } from '@/types/api'
+import type { PaginatedResponse, PaginationParams } from '@/types/api'
 
-export async function getProducts(filters: ProductFilters): Promise<PaginatedResponse<ProductListItem>> {
-  const params: Record<string, string> = { search: filters.search }
-  if (filters.categoryId !== null) params.categoryId = filters.categoryId
+export async function getProducts(
+  filters: ProductFilters,
+  pagination: PaginationParams,
+): Promise<PaginatedResponse<ProductListItem>> {
+  const params: Record<string, string> = {
+    search: filters.search,
+    page: String(pagination.page),
+    pageSize: String(pagination.pageSize),
+  }
+  if (filters.categoryIds.length > 0) params.categoryIds = filters.categoryIds.join(',')
+  if (filters.sortBy) { params.sortBy = filters.sortBy; params.sortDir = filters.sortDir }
   return apiGet('/api/products', params)
 }
 
@@ -26,7 +34,7 @@ export async function createProduct(data: {
 
 export async function patchProduct(
   id: string,
-  delta: Partial<Pick<Product, 'name' | 'sku' | 'description' | 'price' | 'minStock' | 'priceUnit' | 'fieldValues'>>,
+  delta: Partial<Pick<Product, 'name' | 'sku' | 'description' | 'price' | 'minStock' | 'priceUnit' | 'fieldValues' | 'linkedSuppliers'>>,
 ): Promise<Product> {
   return apiPatch(`/api/products/${id}`, delta)
 }

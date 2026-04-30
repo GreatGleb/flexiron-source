@@ -89,15 +89,18 @@ function onDragLeave() {
         height="28"
         viewBox="0 0 24 24"
         fill="none"
-        stroke="#a0a5b1"
+        stroke="currentColor"
         stroke-width="2"
         stroke-linecap="round"
         stroke-linejoin="round"
-        style="margin-bottom: 4px"
+        class="dropzone-icon"
       >
         <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
       </svg>
-      <div class="dropzone-text" v-html="hint" />
+      <div class="dropzone-text">
+        <span v-if="uploading">{{ 'Uploading...' }}</span>
+        <span v-else v-html="hint" />
+      </div>
     </div>
   </div>
 </template>

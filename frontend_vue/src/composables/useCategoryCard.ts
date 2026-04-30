@@ -1,9 +1,12 @@
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getCategory, patchCategory, putCategoryFields } from '@/services/categoriesService'
+import { getSuppliers } from '@/services/suppliersService'
 import { useDirtyCheck } from './useDirtyCheck'
 import { useToast } from './useToast'
 import type { Category, CategoryField } from '@/types/category'
+import type { LinkedSupplier } from '@/types/product'
+import type { Supplier } from '@/types/supplier'
 
 export function useCategoryCard(id: string) {
   const { t } = useI18n()
@@ -30,7 +33,38 @@ export function useCategoryCard(id: string) {
     return JSON.stringify(localFields.value) !== JSON.stringify(category.value.fields)
   })
 
-  const isAnythingDirty = computed(() => dirty.isDirty.value || fieldsChanged.value)
+  const suppliersList = ref<Supplier[]>([])
+  const linkedSuppliers = ref<LinkedSupplier[]>([])
+  const originalLinkedSuppliers = ref<string>('[]')
+
+  const linkedSuppliersChanged = computed(
+    () => JSON.stringify(linkedSuppliers.value) !== originalLinkedSuppliers.value,
+  )
+
+  const isAnythingDirty = computed(
+    () => dirty.isDirty.value || fieldsChanged.value || linkedSuppliersChanged.value,
+  )
+
+  function addLinkedSupplier(entry: LinkedSupplier) {
+    if (linkedSuppliers.value.some((s) => s.id === entry.id)) return
+    linkedSuppliers.value = [...linkedSuppliers.value, entry]
+  }
+
+  function removeLinkedSupplier(supplierId: string) {
+    linkedSuppliers.value = linkedSuppliers.value.filter((s) => s.id !== supplierId)
+  }
+
+  async function loadSuppliers() {
+    try {
+      const res = await getSuppliers(
+        { search: '', status: 'all', rating: 0, categories: [] },
+        { page: 1, pageSize: 999 },
+      )
+      suppliersList.value = res.items
+    } catch {
+      // non-critical
+    }
+  }
 
   async function load() {
     loading.value = true
@@ -44,8 +78,9 @@ export function useCategoryCard(id: string) {
         description: data.description,
       }
       dirty.capture()
-      // JSON.parse/JSON.stringify: prevents DataCloneError on reactive proxies
       localFields.value = JSON.parse(JSON.stringify(data.fields))
+      linkedSuppliers.value = JSON.parse(JSON.stringify(data.linkedSuppliers)) as LinkedSupplier[]
+      originalLinkedSuppliers.value = JSON.stringify(data.linkedSuppliers)
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to load category'
     } finally {
@@ -58,7 +93,11 @@ export function useCategoryCard(id: string) {
     saving.value = true
     try {
       const calls: Promise<unknown>[] = []
-      if (dirty.isDirty.value) calls.push(patchCategory(id, dirty.diff()))
+      const patchDelta: Parameters<typeof patchCategory>[1] = {}
+      if (dirty.isDirty.value) Object.assign(patchDelta, dirty.diff())
+      if (linkedSuppliersChanged.value)
+        patchDelta.linkedSuppliers = JSON.parse(JSON.stringify(linkedSuppliers.value)) as LinkedSupplier[]
+      if (Object.keys(patchDelta).length > 0) calls.push(patchCategory(id, patchDelta))
       if (fieldsChanged.value) calls.push(putCategoryFields(id, localFields.value))
       await Promise.all(calls)
       await load()
@@ -100,6 +139,8 @@ export function useCategoryCard(id: string) {
     localFields.value = newOrder.map((f, i) => ({ ...f, order: i }))
   }
 
+  loadSuppliers()
+
   return {
     category,
     loading,
@@ -107,6 +148,8 @@ export function useCategoryCard(id: string) {
     error,
     form,
     localFields,
+    linkedSuppliers,
+    suppliersList,
     isAnythingDirty,
     isDirty: dirty.isDirty,
     fieldsChanged,
@@ -117,5 +160,7 @@ export function useCategoryCard(id: string) {
     updateField,
     deleteField,
     reorderFields,
+    addLinkedSupplier,
+    removeLinkedSupplier,
   }
 }

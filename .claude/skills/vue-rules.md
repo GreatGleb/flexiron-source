@@ -317,6 +317,72 @@ watch(form, (val) => {
 
 ---
 
+### 28. Data table rows — стандартный дизайн строк
+
+Эталон: `ProductsPage.vue` + `products_list.css`. Все новые таблицы обязаны точно воспроизводить этот паттерн.
+
+**HTML строки:**
+```vue
+<tr
+  v-for="item in items"
+  :key="item.id"
+  class="[domain]-row"
+  data-test="[domain]-row"
+  @click="router.push({ name: 'admin-[domain]-card', params: { id: item.id } })"
+>
+  <td>{{ item.name }}</td>          <!-- первая колонка — всегда ярче -->
+  <!-- secondary columns -->
+  <td>
+    <div class="[domain]-row-actions">
+      <router-link
+        v-tooltip="t('tooltip.view_details')"
+        :to="{ name: 'admin-[domain]-card', params: { id: item.id } }"
+        class="action-icon-btn action-edit"
+        data-test="[domain]-view-btn"
+        @click.stop
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      </router-link>
+      <button
+        v-tooltip="t('[domain].btn_delete')"
+        class="action-icon-btn action-danger"
+        data-test="[domain]-delete-btn"
+        @click.stop="openDeleteModal(item.id)"
+      >
+        <SvgIcon name="trash" :width="16" :height="16" />
+      </button>
+    </div>
+  </td>
+</tr>
+```
+
+**CSS в `[domain]_list.css` — обязательные правила:**
+```css
+.[domain]-row { cursor: pointer; }
+.[domain]-row td { transition: background 0.15s, color 0.15s; }
+.[domain]-row td:first-child { font-weight: 500; color: rgba(255, 255, 255, 0.85); }
+.[domain]-row:hover td:first-child { color: #fff; }
+.[domain]-row-actions { display: flex; gap: 8px; justify-content: flex-end; }
+```
+
+**Базовые стили `.data-table`** (erp-base.css, глобальны — не дублировать):
+- `th`: `font-size: 0.75rem`, uppercase, `letter-spacing: 0.05em`, `color: rgba(255,255,255,0.35)`
+- `td`: `font-size: 0.85rem`, `color: var(--text-dim)`, `height: 40px`
+- `tr:hover td`: `background: rgba(24,144,255,0.06); color: #fff`
+- разделитель: `border-bottom: 1px solid rgba(255,255,255,0.05)`
+
+**Запрещено:**
+- `:title` на кнопках действий → только `v-tooltip`
+- `display: none` на disabled pagination-кнопках → `:disabled` + `:style="{ display: totalPages <= 1 ? 'none' : 'flex' }"`
+- смешивать стили кнопок: view = inline eye SVG, delete = `<SvgIcon name="trash">`
+
+Если строка не кликабельна (нет карточки) — убрать `cursor: pointer` и `@click` на `<tr>`.
+
+---
+
 ### 23. AppModal + Teleport: fall-through атрибуты не приземляются
 
 `AppModal` использует `<Teleport to="body">` как корень. `data-test="modal-*"` на компоненте становится fall-through атрибутом, но Teleport не DOM-элемент — атрибут исчезает. Все E2E тесты модальных окон падают с 0 элементов.

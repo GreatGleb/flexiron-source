@@ -34,6 +34,7 @@ export const ALL_FLAGS_ENABLED = {
   bccHistory: true,
   permissionsEditor: true,
   categoryFieldReorder: true,
+  categorySupplierLinks: true,
   productSupplierLinks: true,
 } as const
 

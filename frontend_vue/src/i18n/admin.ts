@@ -705,6 +705,15 @@ export const adminRu = {
     section_info: 'Основное',
     section_inherited_fields: 'Наследованные поля',
     section_own_fields: 'Собственные поля',
+    section_suppliers: 'Поставщики',
+    suppliers_empty: 'Поставщики не привязаны',
+    btn_add_supplier: 'Добавить поставщика',
+    th_supplier_name: 'Поставщик',
+    th_lead_days: 'Срок поставки (дн.)',
+    field_supplier: 'Поставщик',
+    modal_add_supplier: 'Добавить поставщика',
+    modal_remove_supplier: 'Удалить поставщика',
+    confirm_remove_supplier: 'Удалить этого поставщика из категории? Изменение применится после сохранения.',
     field_name: 'Название категории',
     field_parent: 'Родительская категория',
     field_parent_none: 'Без родителя',
@@ -713,6 +722,8 @@ export const adminRu = {
     modal_edit_title: 'Редактировать категорию',
     modal_field_title_add: 'Добавить поле',
     modal_field_title_edit: 'Редактировать поле',
+    modal_delete_field: 'Удалить поле',
+    confirm_delete_field: 'Удалить это поле? Изменение применится после сохранения.',
     field_label: 'Название поля',
     field_type: 'Тип поля',
     field_required: 'Обязательное',
@@ -746,6 +757,8 @@ export const adminRu = {
     col_unit: 'Единица',
     empty: 'Товары не найдены',
     confirm_delete: 'Вы уверены, что хотите удалить этот товар?',
+    modal_remove_supplier: 'Удалить поставщика',
+    confirm_remove_supplier: 'Удалить этого поставщика из списка? Изменение применится после сохранения.',
     // карточка — секции
     section_info: 'Основное',
     section_price: 'Цена',
@@ -754,6 +767,7 @@ export const adminRu = {
     // карточка — поля
     field_name: 'Название',
     field_category: 'Категория',
+    field_category_hint: 'Категория устанавливается при создании товара и не может быть изменена. Для смены категории — создайте новый товар.',
     field_sku: 'Артикул (SKU)',
     field_description: 'Описание',
     field_min_stock: 'Минимальный остаток',
@@ -771,6 +785,8 @@ export const adminRu = {
     price_unit_m: 'EUR/m (метр)',
     // поставщики
     suppliers_empty: 'Поставщики не привязаны',
+    btn_add_supplier: 'Добавить поставщика',
+    th_lead_days: 'Срок (дн.)',
     // toast
     toast_saved: 'Изменения сохранены',
     toast_deleted: 'Товар удалён',
@@ -779,6 +795,12 @@ export const adminRu = {
     // модал удаления
     btn_delete: 'Удалить',
     btn_discard: 'Отмена',
+    // пагинация
+    page_size: 'на странице',
+    of: 'из',
+    // фильтры
+    filters: 'Фильтры',
+    select_categories: 'Выберите категории...',
   },
 }
 
@@ -1484,6 +1506,15 @@ export const adminEn = {
     section_info: 'General',
     section_inherited_fields: 'Inherited fields',
     section_own_fields: 'Own fields',
+    section_suppliers: 'Suppliers',
+    suppliers_empty: 'No suppliers linked',
+    btn_add_supplier: 'Add supplier',
+    th_supplier_name: 'Supplier',
+    th_lead_days: 'Lead days',
+    field_supplier: 'Supplier',
+    modal_add_supplier: 'Add supplier',
+    modal_remove_supplier: 'Remove supplier',
+    confirm_remove_supplier: 'Remove this supplier from the category? The change will apply after saving.',
     field_name: 'Category name',
     field_parent: 'Parent category',
     field_parent_none: 'No parent',
@@ -1492,6 +1523,8 @@ export const adminEn = {
     modal_edit_title: 'Edit category',
     modal_field_title_add: 'Add field',
     modal_field_title_edit: 'Edit field',
+    modal_delete_field: 'Delete field',
+    confirm_delete_field: 'Delete this field? The change will apply after saving.',
     field_label: 'Field name',
     field_type: 'Field type',
     field_required: 'Required',
@@ -1525,6 +1558,8 @@ export const adminEn = {
     col_unit: 'Unit',
     empty: 'No products found',
     confirm_delete: 'Are you sure you want to delete this product?',
+    modal_remove_supplier: 'Remove supplier',
+    confirm_remove_supplier: 'Remove this supplier from the list? The change will apply after saving.',
     // card — sections
     section_info: 'General',
     section_price: 'Price',
@@ -1533,6 +1568,7 @@ export const adminEn = {
     // card — fields
     field_name: 'Name',
     field_category: 'Category',
+    field_category_hint: 'Category is set when the product is created and cannot be changed. To change the category — create a new product.',
     field_sku: 'SKU',
     field_description: 'Description',
     field_min_stock: 'Minimum stock',
@@ -1550,6 +1586,8 @@ export const adminEn = {
     price_unit_m: 'EUR/m (metre)',
     // suppliers
     suppliers_empty: 'No suppliers linked',
+    btn_add_supplier: 'Add supplier',
+    th_lead_days: 'Lead days',
     // toast
     toast_saved: 'Changes saved',
     toast_deleted: 'Product deleted',
@@ -1558,6 +1596,12 @@ export const adminEn = {
     // delete modal
     btn_delete: 'Delete',
     btn_discard: 'Cancel',
+    // pagination
+    page_size: 'per page',
+    of: 'of',
+    // filters
+    filters: 'Filters',
+    select_categories: 'Select categories...',
   },
 }
 
@@ -2263,6 +2307,15 @@ export const adminLt = {
     section_info: 'Pagrindinė informacija',
     section_inherited_fields: 'Paveldėti laukai',
     section_own_fields: 'Saviti laukai',
+    section_suppliers: 'Tiekėjai',
+    suppliers_empty: 'Tiekėjų nepriskirta',
+    btn_add_supplier: 'Pridėti tiekėją',
+    th_supplier_name: 'Tiekėjas',
+    th_lead_days: 'Pristatymo laikas (d.)',
+    field_supplier: 'Tiekėjas',
+    modal_add_supplier: 'Pridėti tiekėją',
+    modal_remove_supplier: 'Pašalinti tiekėją',
+    confirm_remove_supplier: 'Pašalinti šį tiekėją iš kategorijos? Pakeitimas bus pritaikytas išsaugojus.',
     field_name: 'Kategorijos pavadinimas',
     field_parent: 'Tėvinė kategorija',
     field_parent_none: 'Be tėvinės',
@@ -2271,6 +2324,8 @@ export const adminLt = {
     modal_edit_title: 'Redaguoti kategoriją',
     modal_field_title_add: 'Pridėti lauką',
     modal_field_title_edit: 'Redaguoti lauką',
+    modal_delete_field: 'Ištrinti lauką',
+    confirm_delete_field: 'Ištrinti šį lauką? Pakeitimas bus pritaikytas išsaugojus.',
     field_label: 'Lauko pavadinimas',
     field_type: 'Lauko tipas',
     field_required: 'Privalomas',
@@ -2304,6 +2359,8 @@ export const adminLt = {
     col_unit: 'Vienetas',
     empty: 'Prekių nerasta',
     confirm_delete: 'Ar tikrai norite ištrinti šią prekę?',
+    modal_remove_supplier: 'Pašalinti tiekėją',
+    confirm_remove_supplier: 'Pašalinti šį tiekėją iš sąrašo? Pakeitimas bus pritaikytas po išsaugojimo.',
     // kortelė — sekcijos
     section_info: 'Pagrindinė informacija',
     section_price: 'Kaina',
@@ -2312,6 +2369,7 @@ export const adminLt = {
     // kortelė — laukai
     field_name: 'Pavadinimas',
     field_category: 'Kategorija',
+    field_category_hint: 'Kategorija nustatoma kuriant produktą ir negali būti keičiama. Norėdami pakeisti kategoriją — sukurkite naują produktą.',
     field_sku: 'Artikulas (SKU)',
     field_description: 'Aprašymas',
     field_min_stock: 'Minimalus likutis',
@@ -2329,6 +2387,8 @@ export const adminLt = {
     price_unit_m: 'EUR/m (metras)',
     // tiekėjai
     suppliers_empty: 'Tiekėjai nesusieti',
+    btn_add_supplier: 'Pridėti tiekėją',
+    th_lead_days: 'Pristatymo laikas',
     // pranešimai
     toast_saved: 'Pakeitimai išsaugoti',
     toast_deleted: 'Prekė ištrinta',
@@ -2337,5 +2397,11 @@ export const adminLt = {
     // trynimo modalas
     btn_delete: 'Ištrinti',
     btn_discard: 'Atšaukti',
+    // puslapiavimas
+    page_size: 'puslapyje',
+    of: 'iš',
+    // filtrai
+    filters: 'Filtrai',
+    select_categories: 'Pasirinkite kategorijas...',
   },
 }

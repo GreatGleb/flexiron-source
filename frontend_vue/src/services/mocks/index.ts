@@ -148,9 +148,15 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
   if (path === '/api/products') {
     const filters: ProductFilters = {
       search: params?.search ?? '',
-      categoryId: params?.categoryId ?? null,
+      categoryIds: params?.categoryIds ? params.categoryIds.split(',') : [],
+      sortBy: (params?.sortBy as ProductFilters['sortBy']) ?? null,
+      sortDir: (params?.sortDir as 'asc' | 'desc') ?? 'asc',
     }
-    return delay(mockGetProducts(filters) as T)
+    const pagination = {
+      page: params?.page ? Number(params.page) : 1,
+      pageSize: params?.pageSize ? Number(params.pageSize) : 25,
+    }
+    return delay(mockGetProducts(filters, pagination) as T)
   }
 
   throw new Error(`[mock] GET ${path} not found`)

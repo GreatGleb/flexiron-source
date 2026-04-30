@@ -25,6 +25,7 @@ export interface FeatureFlags {
   bccHistory: boolean
   permissionsEditor: boolean
   categoryFieldReorder: boolean
+  categorySupplierLinks: boolean
   productSupplierLinks: boolean
 }
 

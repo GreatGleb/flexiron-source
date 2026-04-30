@@ -556,16 +556,67 @@ cd frontend_vue && npm run typecheck && npm run lint
 
 Fill in v-for / v-if / v-model / @click — one section per step, max 40 lines per edit.
 
-### List section:
+### List section (data table — см. Pitfall #28 для точных значений):
 ```vue
-<div v-if="!loading && items.length === 0" data-test="products-empty">
-  {{ t('products.empty') }}
+<div v-if="!loading && items.length === 0" class="empty-state" data-test="[domain]-empty">
+  <SvgIcon name="..." :width="48" :height="48" />
+  <p>{{ t('[domain].empty') }}</p>
 </div>
-<div v-for="item in items" :key="item.id" data-test="products-row">
-  <router-link :to="{ name: 'admin-product-card', params: { id: item.id } }">
-    {{ item.name }}
-  </router-link>
+<div v-else class="data-table-wrapper">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>{{ t('[domain].col_name') }}</th>
+        <!-- ... -->
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr
+        v-for="item in items"
+        :key="item.id"
+        class="[domain]-row"
+        data-test="[domain]-row"
+        @click="router.push({ name: 'admin-[domain]-card', params: { id: item.id } })"
+      >
+        <td>{{ item.name }}</td>
+        <!-- ... -->
+        <td>
+          <div class="[domain]-row-actions">
+            <router-link
+              v-tooltip="t('tooltip.view_details')"
+              :to="{ name: 'admin-[domain]-card', params: { id: item.id } }"
+              class="action-icon-btn action-edit"
+              data-test="[domain]-view-btn"
+              @click.stop
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            </router-link>
+            <button
+              v-tooltip="t('[domain].btn_delete')"
+              class="action-icon-btn action-danger"
+              data-test="[domain]-delete-btn"
+              @click.stop="openDeleteModal(item.id)"
+            >
+              <SvgIcon name="trash" :width="16" :height="16" />
+            </button>
+          </div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
 </div>
+```
+Required CSS in `[domain]_list.css`:
+```css
+.[domain]-row { cursor: pointer; }
+.[domain]-row td { transition: background 0.15s, color 0.15s; }
+.[domain]-row td:first-child { font-weight: 500; color: rgba(255, 255, 255, 0.85); }
+.[domain]-row:hover td:first-child { color: #fff; }
+.[domain]-row-actions { display: flex; gap: 8px; justify-content: flex-end; }
 ```
 
 ### Filter section:

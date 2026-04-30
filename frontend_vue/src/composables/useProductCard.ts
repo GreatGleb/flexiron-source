@@ -1,9 +1,13 @@
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getProduct, patchProduct } from '@/services/productsService'
+import { getCategories } from '@/services/categoriesService'
+import { getSuppliers } from '@/services/suppliersService'
 import { useDirtyCheck } from './useDirtyCheck'
 import { useToast } from './useToast'
-import type { Product, ProductFieldValue } from '@/types/product'
+import type { Product, ProductFieldValue, LinkedSupplier } from '@/types/product'
+import type { CategoryListItem } from '@/types/category'
+import type { Supplier } from '@/types/supplier'
 
 type BasicFields = Pick<Product, 'name' | 'sku' | 'description' | 'price' | 'minStock' | 'priceUnit'>
 type FieldValueMap = Record<string, ProductFieldValue['value']>
@@ -16,6 +20,8 @@ export function useProductCard(id: string) {
   const loading = ref(false)
   const saving = ref(false)
   const error = ref<string | null>(null)
+  const categories = ref<CategoryListItem[]>([])
+  const suppliersList = ref<Supplier[]>([])
 
   const form = ref<BasicFields>({
     name: '',
@@ -39,14 +45,65 @@ export function useProductCard(id: string) {
 
   // Flat Record<fieldId, value> for v-model binding per dynamic field
   const fieldValues = ref<FieldValueMap>({})
-  // JSON baseline for dirty detection of dynamic fields
-  const originalFieldValues = ref<string>('')
+  const originalFieldValues = ref<string>(JSON.stringify({}))
 
   const fieldValuesChanged = computed(() => {
     return JSON.stringify(fieldValues.value) !== originalFieldValues.value
   })
 
-  const isAnythingDirty = computed(() => dirty.isDirty.value || fieldValuesChanged.value)
+  // Editable linked suppliers
+  const linkedSuppliers = ref<LinkedSupplier[]>([])
+  const originalLinkedSuppliers = ref<string>('[]')
+
+  const linkedSuppliersChanged = computed(() => {
+    return JSON.stringify(linkedSuppliers.value) !== originalLinkedSuppliers.value
+  })
+
+  const isAnythingDirty = computed(
+    () => dirty.isDirty.value || fieldValuesChanged.value || linkedSuppliersChanged.value,
+  )
+
+  function getCategoryPath(categoryId: string): string {
+    const parts: string[] = []
+    let current = categories.value.find((c) => c.id === categoryId)
+    while (current) {
+      parts.unshift(current.name)
+      current = current.parentId
+        ? categories.value.find((c) => c.id === current!.parentId)
+        : undefined
+    }
+    return parts.join(' → ')
+  }
+
+  function addLinkedSupplier(entry: LinkedSupplier) {
+    if (linkedSuppliers.value.some((s) => s.id === entry.id)) return
+    linkedSuppliers.value = [...linkedSuppliers.value, entry]
+  }
+
+  function removeLinkedSupplier(supplierId: string) {
+    linkedSuppliers.value = linkedSuppliers.value.filter((s) => s.id !== supplierId)
+  }
+
+  async function loadCategories() {
+    try {
+      const res = await getCategories({ search: '' }, 1, 999)
+      categories.value = res.items
+    } catch {
+      // non-critical
+    }
+  }
+
+  async function loadSuppliers() {
+    try {
+      const res = await getSuppliers(
+        { search: '', status: 'all', rating: 0, categories: [] },
+        { page: 1, pageSize: 999 },
+      )
+      suppliersList.value = res.items
+    } catch {
+      // non-critical
+    }
+  }
 
   async function load() {
     loading.value = true
@@ -65,10 +122,16 @@ export function useProductCard(id: string) {
       dirty.capture()
       const map: FieldValueMap = {}
       for (const fv of data.fieldValues) {
-        map[fv.fieldId] = fv.value
+        if (fv.fieldType === 'file') {
+          map[fv.fieldId] = Array.isArray(fv.value) ? fv.value : fv.value ? [fv.value as string] : []
+        } else {
+          map[fv.fieldId] = fv.value
+        }
       }
       fieldValues.value = map
       originalFieldValues.value = JSON.stringify(map)
+      linkedSuppliers.value = JSON.parse(JSON.stringify(data.linkedSuppliers)) as LinkedSupplier[]
+      originalLinkedSuppliers.value = JSON.stringify(data.linkedSuppliers)
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to load product'
     } finally {
@@ -94,6 +157,9 @@ export function useProductCard(id: string) {
           return { ...fv, value }
         })
       }
+      if (linkedSuppliersChanged.value) {
+        delta.linkedSuppliers = JSON.parse(JSON.stringify(linkedSuppliers.value)) as LinkedSupplier[]
+      }
       await patchProduct(id, delta)
       toast.success(t('products.toast_saved'))
       await load()
@@ -108,6 +174,9 @@ export function useProductCard(id: string) {
     return load()
   }
 
+  loadCategories()
+  loadSuppliers()
+
   return {
     product,
     loading,
@@ -115,7 +184,13 @@ export function useProductCard(id: string) {
     error,
     form,
     fieldValues,
+    linkedSuppliers,
+    suppliersList,
     isAnythingDirty,
+    categories,
+    getCategoryPath,
+    addLinkedSupplier,
+    removeLinkedSupplier,
     load,
     save,
     discard,

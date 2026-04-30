@@ -1,6 +1,7 @@
 import { ref, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getProducts, deleteProduct as deleteProductApi } from '@/services/productsService'
+import { usePagination } from './usePagination'
 import { useToast } from './useToast'
 import type { ProductListItem, ProductFilters } from '@/types/product'
 
@@ -11,7 +12,8 @@ export function useProducts() {
   const items = ref<ProductListItem[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
-  const filters = reactive<ProductFilters>({ search: '', categoryId: null })
+  const filters = reactive<ProductFilters>({ search: '', categoryIds: [], sortBy: null, sortDir: 'asc' })
+  const pagination = usePagination(25)
 
   let initialized = false
 
@@ -19,8 +21,12 @@ export function useProducts() {
     if (!initialized) loading.value = true
     error.value = null
     try {
-      const res = await getProducts(filters)
+      const res = await getProducts(filters, {
+        page: pagination.page.value,
+        pageSize: pagination.pageSize.value,
+      })
       items.value = res.items
+      pagination.total.value = res.total
       initialized = true
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to load products'
@@ -39,7 +45,31 @@ export function useProducts() {
     }
   }
 
-  watch(filters, load, { deep: true })
+  // Flag: prevents page watch from double-firing when filters reset page to 1
+  let skipNextPageWatch = false
 
-  return { items, loading, error, filters, load, deleteProduct }
+  watch(filters, () => {
+    skipNextPageWatch = pagination.page.value !== 1
+    pagination.reset()
+    load()
+  }, { deep: true })
+
+  watch([pagination.page, pagination.pageSize], () => {
+    if (skipNextPageWatch) {
+      skipNextPageWatch = false
+      return
+    }
+    load()
+  })
+
+  function toggleSort(col: 'name' | 'category' | 'price') {
+    if (filters.sortBy === col) {
+      filters.sortDir = filters.sortDir === 'asc' ? 'desc' : 'asc'
+    } else {
+      filters.sortBy = col
+      filters.sortDir = 'asc'
+    }
+  }
+
+  return { items, loading, error, filters, pagination, load, deleteProduct, toggleSort }
 }

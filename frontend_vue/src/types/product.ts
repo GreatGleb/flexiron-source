@@ -48,5 +48,7 @@ export interface Product {
 
 export interface ProductFilters {
   search: string
-  categoryId: string | null
+  categoryIds: string[]
+  sortBy: 'name' | 'category' | 'price' | null
+  sortDir: 'asc' | 'desc'
 }

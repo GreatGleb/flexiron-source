@@ -28,6 +28,7 @@ const defaults: FeatureFlags = {
   bccHistory: true,
   permissionsEditor: true,
   categoryFieldReorder: true,
+  categorySupplierLinks: true,
   productSupplierLinks: true,
 }
 

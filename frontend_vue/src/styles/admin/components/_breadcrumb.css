@@ -1,0 +1,41 @@
+/* --- UI COMPONENTS: BREADCRUMB --- */
+
+.breadcrumb-list {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.breadcrumb-item {
+  display: flex;
+  align-items: center;
+}
+
+.breadcrumb-link {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.45);
+  text-decoration: none;
+  transition: color 0.15s;
+  line-height: 1.4;
+}
+
+.breadcrumb-link:hover {
+  color: var(--primary, #1890ff);
+}
+
+.breadcrumb-sep {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.2);
+  padding: 0 6px;
+  line-height: 1.4;
+}
+
+.breadcrumb-current {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.65);
+  line-height: 1.4;
+}

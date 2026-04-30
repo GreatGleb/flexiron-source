@@ -774,6 +774,9 @@ Page: `CategoryCardPage.vue`. Composable: `useCategoryCard` + `useDirtyCheck`.
       "fields": [
         { "id": "f-1", "name": "Толщина (мм)", "type": "number", "required": true, "order": 0, "options": [] },
         { "id": "f-2", "name": "Тип листа", "type": "enum", "required": false, "order": 1, "options": ["Горячекатаный", "Холоднокатаный", "Оцинкованный"] }
+      ],
+      "linkedSuppliers": [
+        { "id": "1", "name": "Steel Plus OÜ", "price": null, "priceUnit": null, "leadDays": 7 }
       ]
     }
   }
@@ -789,6 +792,7 @@ Page: `CategoryCardPage.vue`. Composable: `useCategoryCard` + `useDirtyCheck`.
     name?: string
     parentId?: string | null
     description?: string | null
+    linkedSuppliers?: LinkedSupplier[]  // полный массив если изменился список поставщиков
   }
   ```
 - **Response 200:** `ApiResponse<Category>` — обновлённый объект целиком (с пересчитанными `inheritedFields` если изменился `parentId`).
@@ -797,7 +801,7 @@ Page: `CategoryCardPage.vue`. Composable: `useCategoryCard` + `useDirtyCheck`.
   PATCH /api/categories/cat-2
   { "name": "Листы металла" }
   ```
-- **Notes:** Если изменился `parentId` — сервер пересчитывает `inheritedFields` (возвращает в ответе актуальную цепочку). Last-write-wins.
+- **Notes:** Если изменился `parentId` — сервер пересчитывает `inheritedFields` (возвращает в ответе актуальную цепочку). Last-write-wins. `linkedSuppliers` — администратор вручную привязывает поставщиков к категории (default-список для товаров этой категории); `price`/`priceUnit` всегда `null` на уровне категории (цена — на уровне товара).
 
 ### PUT /api/categories/:id/fields
 
@@ -820,9 +824,9 @@ Page: `CategoryCardPage.vue`. Composable: `useCategoryCard` + `useDirtyCheck`.
 **CategoriesPage** — **quick-action**: POST и DELETE применяются немедленно после действия пользователя (без Save bar). DELETE требует confirmation modal перед запросом.
 
 **CategoryCardPage** — **clean-slate**:
-- Локальный state: `useDirtyCheck` для `name`/`parentId`/`description`; `localFields ref` для изменений полей
-- Save bar всегда видна; кнопка «Сохранить» `disabled` пока `!isDirty && !fieldsChanged`
-- Save = `Promise.all([ isDirty ? PATCH : skip, fieldsChanged ? PUT fields : skip ])`
+- Локальный state: `useDirtyCheck` для `name`/`parentId`/`description`; `localFields ref` для изменений полей; `linkedSuppliers ref` для поставщиков
+- Save bar всегда видна; кнопка «Сохранить» `disabled` пока `!isDirty && !fieldsChanged && !linkedSuppliersChanged`
+- Save = `Promise.all([ isDirty || linkedSuppliersChanged ? PATCH : skip, fieldsChanged ? PUT fields : skip ])`
 - Discard = `load()` (перезагрузка с сервера, локальный state сбрасывается)
 - Reload страницы = rollback к последнему сохранённому state
 
@@ -832,6 +836,7 @@ Page: `CategoryCardPage.vue`. Composable: `useCategoryCard` + `useDirtyCheck`.
 |---|---|---|
 | `adminCategories` | page-level | весь роут `/admin/products/categories` и `/admin/products/categories/:id` |
 | `categoryFieldReorder` | section-level | drag-and-drop reorder полей на `CategoryCardPage` (PUT endpoint остаётся активным) |
+| `categorySupplierLinks` | section-level | секция «Поставщики» в `CategoryCardPage` |
 
 → Implementation:
 - Service: `src/services/categoriesService.ts`
@@ -940,11 +945,12 @@ Page: `ProductCardPage.vue`. Composable: `useProductCard` + `useDirtyCheck`.
     price?: number | null
     minStock?: number | null
     priceUnit?: 'EUR/vnt' | 'EUR/kg' | 'EUR/m' | null
-    fieldValues?: ProductFieldValue[]   // полный массив если изменились dynamic fields
+    fieldValues?: ProductFieldValue[]       // полный массив если изменились dynamic fields
+    linkedSuppliers?: LinkedSupplier[]      // полный массив если изменился список поставщиков
   }
   ```
 - **Response 200:** `ApiResponse<Product>` — обновлённый товар целиком.
-- **Notes:** Last-write-wins. Клиент пересчитывает `fieldValues` из `Record<fieldId,value>` обратно в массив перед отправкой.
+- **Notes:** Last-write-wins. Клиент пересчитывает `fieldValues` из `Record<fieldId,value>` обратно в массив перед отправкой. `linkedSuppliers` — администратор вручную добавляет/удаляет поставщиков из карточки товара; BCC requests к этому списку не относятся.
 
 ---
 

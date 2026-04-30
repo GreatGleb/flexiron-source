@@ -13,6 +13,7 @@ import { useFeatureFlag } from '@/composables/useFeatureFlag'
 import { useCategoryCard } from '@/composables/useCategoryCard'
 import { getCategories } from '@/services/categoriesService'
 import type { CategoryField, CategoryFieldType, CategoryListItem } from '@/types/category'
+import type { LinkedSupplier } from '@/types/product'
 
 import '@styles/admin/components/_entity-card-layout.css'
 import '@styles/admin/categories_card.css'
@@ -22,7 +23,7 @@ const route = useRoute()
 const router = useRouter()
 
 const id = route.params.id as string
-const showFieldReorder = useFeatureFlag('categoryFieldReorder')
+const showSupplierLinks = useFeatureFlag('categorySupplierLinks')
 
 const {
   category,
@@ -30,6 +31,8 @@ const {
   saving,
   form,
   localFields,
+  linkedSuppliers,
+  suppliersList,
   isAnythingDirty,
   load,
   save,
@@ -37,7 +40,8 @@ const {
   addField,
   updateField,
   deleteField,
-  reorderFields,
+  addLinkedSupplier,
+  removeLinkedSupplier,
 } = useCategoryCard(id)
 
 useHead({
@@ -134,24 +138,48 @@ function submitFieldModal() {
   showAddFieldModal.value = false
 }
 
-// ─── Drag-drop reorder ──────────────────────────────────────────────────────────
 
-const draggedField = ref<CategoryField | null>(null)
+// ─── Delete field confirmation ──────────────────────────────────────────────────
 
-function onFieldDragStart(field: CategoryField) {
-  if (showFieldReorder.value) draggedField.value = field
-}
+const fieldToDelete = ref<CategoryField | null>(null)
+const showDeleteFieldModal = computed({
+  get: () => fieldToDelete.value !== null,
+  set: (v: boolean) => { if (!v) fieldToDelete.value = null },
+})
 
-function onFieldDrop(target: CategoryField) {
-  if (!showFieldReorder.value || !draggedField.value || draggedField.value.id === target.id) return
-  const arr = [...localFields.value]
-  const fromIdx = arr.findIndex((f) => f.id === draggedField.value!.id)
-  const toIdx = arr.findIndex((f) => f.id === target.id)
-  if (fromIdx === -1 || toIdx === -1) return
-  const moved = arr.splice(fromIdx, 1)[0]!
-  arr.splice(toIdx, 0, moved)
-  reorderFields(arr)
-  draggedField.value = null
+// ─── Supplier links ─────────────────────────────────────────────────────────────
+
+const showAddSupplier = ref(false)
+const supplierToRemove = ref<LinkedSupplier | null>(null)
+const showRemoveModal = computed({
+  get: () => supplierToRemove.value !== null,
+  set: (v: boolean) => { if (!v) supplierToRemove.value = null },
+})
+
+const addSupplierForm = ref<{ supplierId: string; leadDays: number | null }>({
+  supplierId: '',
+  leadDays: null,
+})
+
+const supplierOptions = computed(() => {
+  const linked = new Set(linkedSuppliers.value.map((s) => s.id))
+  return suppliersList.value
+    .filter((s) => !linked.has(s.id))
+    .map((s) => ({ value: s.id, label: s.company }))
+})
+
+function submitAddSupplier() {
+  const supplier = suppliersList.value.find((s) => s.id === addSupplierForm.value.supplierId)
+  if (!supplier) return
+  addLinkedSupplier({
+    id: supplier.id,
+    name: supplier.company,
+    price: null,
+    priceUnit: null,
+    leadDays: addSupplierForm.value.leadDays ?? supplier.leadTime,
+  })
+  showAddSupplier.value = false
+  addSupplierForm.value = { supplierId: '', leadDays: null }
 }
 
 onMounted(() => {
@@ -198,6 +226,7 @@ onMounted(() => {
       </div>
     </div>
 
+    <div class="category-panels-grid">
     <GlassPanel
       :title="t('categories.section_info')"
       :loading="loading"
@@ -229,6 +258,7 @@ onMounted(() => {
       </InputGroup>
     </GlassPanel>
 
+    <div class="category-panels-fields-col">
     <GlassPanel
       v-if="category?.inheritedFields?.length"
       :title="t('categories.section_inherited_fields')"
@@ -254,16 +284,24 @@ onMounted(() => {
     </GlassPanel>
 
     <GlassPanel :title="t('categories.section_own_fields')" data-test="category-own-fields">
+      <template #header>
+        <button
+          type="button"
+          class="btn btn-primary"
+          data-test="category-add-field-btn"
+          @click="openAddField"
+        >
+          <SvgIcon name="plus-add" :width="16" :height="16" />
+          <span>{{ t('categories.btn_add_field') }}</span>
+        </button>
+      </template>
+
       <table v-if="localFields.length" class="data-table">
         <tbody>
           <tr
             v-for="field in localFields"
             :key="field.id"
-            :draggable="showFieldReorder"
             data-test="category-field-row"
-            @dragstart="onFieldDragStart(field)"
-            @dragover.prevent
-            @drop="onFieldDrop(field)"
           >
             <td>{{ field.name }}</td>
             <td><span class="tag tag-sm">{{ t(`categories.type_${field.type}`) }}</span></td>
@@ -272,21 +310,21 @@ onMounted(() => {
                 {{ t('categories.field_required') }}
               </span>
             </td>
-            <td>
-              <div class="categories-row-actions">
+            <td class="category-field-actions-cell">
+              <div class="category-field-actions">
                 <button
+                  v-tooltip="t('categories.btn_edit_field')"
                   type="button"
-                  class="action-icon-btn"
-                  :title="t('categories.btn_edit_field')"
+                  class="action-icon-btn action-edit category-field-action-btn"
                   @click="openEditField(field)"
                 >
                   <SvgIcon name="edit-pencil" :width="16" :height="16" />
                 </button>
                 <button
+                  v-tooltip="t('categories.btn_delete')"
                   type="button"
-                  class="action-icon-btn action-danger"
-                  :title="t('categories.btn_delete')"
-                  @click="deleteField(field.id)"
+                  class="action-icon-btn action-danger category-field-action-btn"
+                  @click="fieldToDelete = field"
                 >
                   <SvgIcon name="trash" :width="16" :height="16" />
                 </button>
@@ -295,16 +333,55 @@ onMounted(() => {
           </tr>
         </tbody>
       </table>
-      <button
-        type="button"
-        class="btn btn-primary category-own-fields-add"
-        data-test="category-add-field-btn"
-        @click="openAddField"
-      >
-        <SvgIcon name="plus-add" :width="16" :height="16" />
-        <span>{{ t('categories.btn_add_field') }}</span>
-      </button>
     </GlassPanel>
+    </div>
+
+    <GlassPanel
+      v-if="showSupplierLinks"
+      :title="t('categories.section_suppliers')"
+      data-test="category-supplier-links"
+    >
+      <template #header>
+        <button
+          type="button"
+          class="btn btn-primary"
+          data-test="category-add-supplier-btn"
+          @click="showAddSupplier = true"
+        >
+          <SvgIcon name="plus-add" :width="16" :height="16" />
+          <span>{{ t('categories.btn_add_supplier') }}</span>
+        </button>
+      </template>
+
+      <table v-if="linkedSuppliers.length" class="data-table" data-test="category-suppliers-table">
+        <thead>
+          <tr>
+            <th>{{ t('categories.th_supplier_name') }}</th>
+            <th>{{ t('categories.th_lead_days') }}</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="s in linkedSuppliers" :key="s.id" data-test="category-supplier-row">
+            <td>{{ s.name }}</td>
+            <td>{{ s.leadDays }}</td>
+            <td>
+              <button
+                v-tooltip="t('categories.btn_delete')"
+                type="button"
+                class="action-icon-btn action-danger category-supplier-remove-btn"
+                data-test="category-supplier-remove-btn"
+                @click="supplierToRemove = s"
+              >
+                <SvgIcon name="trash" :width="16" :height="16" />
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p v-else class="category-suppliers-empty">{{ t('categories.suppliers_empty') }}</p>
+    </GlassPanel>
+    </div>
 
     <AppModal
       v-model="showAddFieldModal"
@@ -353,6 +430,88 @@ onMounted(() => {
           @click="submitFieldModal"
         >
           {{ t('categories.btn_save') }}
+        </button>
+      </template>
+    </AppModal>
+
+    <AppModal
+      v-model="showDeleteFieldModal"
+      :title="t('categories.modal_delete_field')"
+      size="small"
+      data-test="modal-delete-field"
+    >
+      <p>{{ t('categories.confirm_delete_field') }}</p>
+      <template #footer>
+        <button type="button" class="btn btn-secondary" @click="fieldToDelete = null">
+          {{ t('categories.btn_discard') }}
+        </button>
+        <button
+          type="button"
+          class="btn btn-danger"
+          data-test="confirm-delete-field"
+          @click="() => { deleteField(fieldToDelete!.id); fieldToDelete = null }"
+        >
+          {{ t('categories.btn_delete') }}
+        </button>
+      </template>
+    </AppModal>
+
+    <AppModal
+      v-model="showAddSupplier"
+      :title="t('categories.modal_add_supplier')"
+      size="medium"
+      data-test="modal-add-supplier"
+    >
+      <InputGroup :label="t('categories.field_supplier')">
+        <CustomSelect
+          v-model="addSupplierForm.supplierId"
+          :options="supplierOptions"
+          data-test="add-supplier-select"
+        />
+      </InputGroup>
+      <InputGroup :label="t('categories.th_lead_days')">
+        <input
+          v-model.number="addSupplierForm.leadDays"
+          type="number"
+          class="glass-input"
+          min="0"
+          data-test="add-supplier-lead-days"
+        />
+      </InputGroup>
+      <template #footer>
+        <button type="button" class="btn btn-secondary" @click="showAddSupplier = false">
+          {{ t('categories.btn_discard') }}
+        </button>
+        <button
+          type="button"
+          class="btn btn-primary"
+          :disabled="!addSupplierForm.supplierId"
+          data-test="add-supplier-submit"
+          @click="submitAddSupplier"
+        >
+          {{ t('categories.btn_add_supplier') }}
+        </button>
+      </template>
+    </AppModal>
+
+    <AppModal
+      v-model="showRemoveModal"
+      :title="t('categories.modal_remove_supplier')"
+      size="small"
+      data-test="modal-remove-supplier"
+    >
+      <p>{{ t('categories.confirm_remove_supplier') }}</p>
+      <template #footer>
+        <button type="button" class="btn btn-secondary" @click="supplierToRemove = null">
+          {{ t('categories.btn_discard') }}
+        </button>
+        <button
+          type="button"
+          class="btn btn-danger"
+          data-test="confirm-remove-supplier"
+          @click="() => { removeLinkedSupplier(supplierToRemove!.id); supplierToRemove = null }"
+        >
+          {{ t('categories.btn_delete') }}
         </button>
       </template>
     </AppModal>

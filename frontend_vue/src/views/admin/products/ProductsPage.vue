@@ -11,6 +11,7 @@ import GlassPanel from '@/components/admin/GlassPanel.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
 import SearchInput from '@/components/admin/ui/SearchInput.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
+import MultiSelect from '@/components/admin/ui/MultiSelect.vue'
 import AppModal from '@/components/admin/ui/AppModal.vue'
 import InputGroup from '@/components/admin/ui/InputGroup.vue'
 import '@styles/admin/components/_entity-card-layout.css'
@@ -19,11 +20,26 @@ import '@styles/admin/products_list.css'
 const { t } = useI18n()
 const router = useRouter()
 
-useHead({ title: () => t('products.title'), description: () => t('products.title') })
+useHead({ title: () => `Flexiron — ${t('products.header_title')}`, description: () => t('products.title') })
 
 const showAdminServices = useFeatureFlag('adminServices')
 
-const { items, loading, filters, load, deleteProduct } = useProducts()
+const { items, loading, filters, load, deleteProduct, pagination, toggleSort } = useProducts()
+
+const PAGE_SIZE_OPTIONS = [
+  { value: '25', label: '25' },
+  { value: '50', label: '50' },
+  { value: '100', label: '100' },
+]
+
+const pageSizeStr = computed({
+  get: () => String(pagination.pageSize.value),
+  set: (v: string) => {
+    pagination.pageSize.value = Number(v)
+    pagination.reset()
+  },
+})
+
 const { items: catItems, load: loadCats } = useCategories()
 
 const categoryOptions = computed(() => [
@@ -31,15 +47,44 @@ const categoryOptions = computed(() => [
   ...catItems.value.map((c) => ({ value: c.id, label: c.name })),
 ])
 
-const categoryFilterStr = computed({
-  get: () => filters.categoryId ?? '',
-  set: (v: string) => { filters.categoryId = v || null },
-})
+const categoryFilterOptions = computed(() =>
+  catItems.value.map((c) => ({ value: c.id, label: c.name })),
+)
 
 const newProductCategoryStr = computed({
   get: () => newProduct.value.categoryId ?? '',
   set: (v: string) => { newProduct.value.categoryId = v || null },
 })
+
+const PREFS_KEY = 'products_list_prefs'
+
+function saveView() {
+  const prefs = {
+    filters: {
+      search: filters.search,
+      categoryIds: [...filters.categoryIds],
+      sortBy: filters.sortBy,
+      sortDir: filters.sortDir,
+    },
+  }
+  localStorage.setItem(PREFS_KEY, JSON.stringify(prefs))
+}
+
+function loadPrefs() {
+  try {
+    const raw = localStorage.getItem(PREFS_KEY)
+    if (!raw) return
+    const prefs = JSON.parse(raw) as { filters?: { search?: string; categoryIds?: string[]; sortBy?: string; sortDir?: string } }
+    if (prefs.filters) {
+      if (typeof prefs.filters.search === 'string') filters.search = prefs.filters.search
+      if (Array.isArray(prefs.filters.categoryIds)) filters.categoryIds = prefs.filters.categoryIds
+      if (prefs.filters.sortBy) filters.sortBy = prefs.filters.sortBy as typeof filters.sortBy
+      if (prefs.filters.sortDir) filters.sortDir = prefs.filters.sortDir as typeof filters.sortDir
+    }
+  } catch {
+    /* ignore malformed prefs */
+  }
+}
 
 const showCreateModal = ref(false)
 const showDeleteModal = ref(false)
@@ -48,8 +93,9 @@ const newProduct = ref({ name: '', categoryId: null as string | null })
 const creating = ref(false)
 
 onMounted(() => {
-  load()
+  loadPrefs()
   loadCats()
+  load()
 })
 
 function openDeleteModal(id: string) {
@@ -113,20 +159,40 @@ async function handleCreate() {
       </div>
     </div>
 
-    <GlassPanel :loading="loading" :skeleton-rows="8" data-test="products-table">
-      <div class="products-filters">
-        <SearchInput
-          v-model="filters.search"
-          :placeholder="t('products.search_placeholder')"
-          data-test="products-search"
-        />
-        <CustomSelect
-          v-model="categoryFilterStr"
-          :options="categoryOptions"
-          data-test="products-filter-category"
-        />
+    <div class="filters-bar" data-test="products-filters">
+      <div class="filters-bar-header">
+        <span>{{ t('products.filters') }}</span>
       </div>
+      <div class="filters-bar-content">
+        <div class="filter-group" data-test="products-filter-search">
+          <label class="field-label">{{ t('products.col_name') }}</label>
+          <SearchInput
+            v-model="filters.search"
+            :placeholder="t('products.search_placeholder')"
+            data-test="products-search"
+          />
+        </div>
+        <div class="filter-group" data-test="products-filter-category">
+          <label class="field-label">{{ t('products.col_category') }}</label>
+          <MultiSelect
+            v-model="filters.categoryIds"
+            :options="categoryFilterOptions"
+            :placeholder="t('products.select_categories')"
+            data-test="products-filter-categories"
+          />
+        </div>
+        <button class="btn btn-primary" data-test="products-save-view-btn" @click="saveView">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
+            <polyline points="17 21 17 13 7 13 7 21" />
+            <polyline points="7 3 7 8 15 8" />
+          </svg>
+          <span>{{ t('btn.save_view') }}</span>
+        </button>
+      </div>
+    </div>
 
+    <GlassPanel :loading="loading" :skeleton-rows="8" data-test="products-table">
       <div
         v-if="!loading && items.length === 0"
         class="empty-state"
@@ -140,9 +206,51 @@ async function handleCreate() {
         <table class="data-table">
           <thead>
             <tr>
-              <th>{{ t('products.col_name') }}</th>
-              <th>{{ t('products.col_category') }}</th>
-              <th>{{ t('products.col_price') }}</th>
+              <th>
+                <button class="th-sort-btn" @click="toggleSort('name')">
+                  {{ t('products.col_name') }}
+                  <svg class="sort-icon" :class="{ active: filters.sortBy === 'name' }" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <template v-if="filters.sortBy === 'name'">
+                      <path v-if="filters.sortDir === 'asc'" d="M7 12V2M3 6l4-4 4 4" />
+                      <path v-else d="M7 2v10M3 8l4 4 4-4" />
+                    </template>
+                    <template v-else>
+                      <path d="M7 7V2M4 5l3-3 3 3" opacity="0.4" />
+                      <path d="M7 7v5M4 9l3 3 3-3" opacity="0.4" />
+                    </template>
+                  </svg>
+                </button>
+              </th>
+              <th>
+                <button class="th-sort-btn" @click="toggleSort('category')">
+                  {{ t('products.col_category') }}
+                  <svg class="sort-icon" :class="{ active: filters.sortBy === 'category' }" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <template v-if="filters.sortBy === 'category'">
+                      <path v-if="filters.sortDir === 'asc'" d="M7 12V2M3 6l4-4 4 4" />
+                      <path v-else d="M7 2v10M3 8l4 4 4-4" />
+                    </template>
+                    <template v-else>
+                      <path d="M7 7V2M4 5l3-3 3 3" opacity="0.4" />
+                      <path d="M7 7v5M4 9l3 3 3-3" opacity="0.4" />
+                    </template>
+                  </svg>
+                </button>
+              </th>
+              <th>
+                <button class="th-sort-btn" @click="toggleSort('price')">
+                  {{ t('products.col_price') }}
+                  <svg class="sort-icon" :class="{ active: filters.sortBy === 'price' }" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <template v-if="filters.sortBy === 'price'">
+                      <path v-if="filters.sortDir === 'asc'" d="M7 12V2M3 6l4-4 4 4" />
+                      <path v-else d="M7 2v10M3 8l4 4 4-4" />
+                    </template>
+                    <template v-else>
+                      <path d="M7 7V2M4 5l3-3 3 3" opacity="0.4" />
+                      <path d="M7 7v5M4 9l3 3 3-3" opacity="0.4" />
+                    </template>
+                  </svg>
+                </button>
+              </th>
               <th>{{ t('products.col_unit') }}</th>
               <th></th>
             </tr>
@@ -161,9 +269,21 @@ async function handleCreate() {
               <td>{{ item.priceUnit ?? '—' }}</td>
               <td>
                 <div class="products-row-actions">
+                  <router-link
+                    v-tooltip="t('tooltip.view_details')"
+                    :to="{ name: 'admin-product-card', params: { id: item.id } }"
+                    class="action-icon-btn action-edit"
+                    data-test="products-view-btn"
+                    @click.stop
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  </router-link>
                   <button
+                    v-tooltip="t('products.btn_delete')"
                     class="action-icon-btn action-danger"
-                    :title="t('products.btn_delete')"
                     data-test="products-delete-btn"
                     @click.stop="openDeleteModal(item.id)"
                   >
@@ -173,6 +293,64 @@ async function handleCreate() {
               </td>
             </tr>
           </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="5">
+                <div class="pagination-bar" data-test="products-pagination">
+                  <div class="page-size" data-test="products-page-size">
+                    <span>{{ t('products.page_size') }}</span>
+                    <CustomSelect
+                      v-model="pageSizeStr"
+                      :options="PAGE_SIZE_OPTIONS"
+                      :open-up="true"
+                      class="custom-select-sm"
+                    />
+                  </div>
+                  <div class="pagination-nav">
+                    <button
+                      class="btn btn-icon btn-sm"
+                      :disabled="!pagination.hasPrev.value"
+                      :style="{ display: pagination.totalPages.value <= 1 ? 'none' : 'flex' }"
+                      @click="pagination.prev"
+                    >
+                      <SvgIcon
+                        name="chevron-right"
+                        :width="14"
+                        :height="14"
+                        style="transform: rotate(180deg)"
+                      />
+                    </button>
+                    <div class="pagination-pages">
+                      <template v-for="(p, i) in pagination.pageNumbers()" :key="i">
+                        <span v-if="p === '...'" class="pagination-ellipsis">...</span>
+                        <button
+                          v-else
+                          class="page-btn"
+                          :class="{ active: p === pagination.page.value }"
+                          @click="pagination.goTo(p as number)"
+                        >
+                          {{ p }}
+                        </button>
+                      </template>
+                    </div>
+                    <button
+                      class="btn btn-icon btn-sm"
+                      :disabled="!pagination.hasNext.value"
+                      :style="{ display: pagination.totalPages.value <= 1 ? 'none' : 'flex' }"
+                      @click="pagination.next"
+                    >
+                      <SvgIcon name="chevron-right" :width="14" :height="14" />
+                    </button>
+                  </div>
+                  <div class="pagination-info">
+                    <span>{{ pagination.showingFrom.value }}-{{ pagination.showingTo.value }}</span>
+                    <span>&nbsp;{{ t('products.of') }}&nbsp;</span>
+                    <span>{{ pagination.total.value }}</span>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          </tfoot>
         </table>
       </div>
     </GlassPanel>

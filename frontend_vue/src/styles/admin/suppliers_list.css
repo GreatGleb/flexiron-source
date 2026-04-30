@@ -1145,6 +1145,13 @@
   }
 }
 
+/* Table action buttons wrapper */
+.table-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 /* Icon links in table */
 .icon-link {
   display: inline-flex;

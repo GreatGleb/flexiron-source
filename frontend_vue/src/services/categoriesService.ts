@@ -1,5 +1,6 @@
 import { apiGet, apiPost, apiPatch, apiDelete, apiPut } from './api'
 import type { Category, CategoryField, CategoryFilters, CategoryListItem } from '@/types/category'
+import type { LinkedSupplier } from '@/types/product'
 import type { PaginatedResponse } from '@/types/api'
 
 export async function getCategories(
@@ -28,7 +29,7 @@ export async function createCategory(data: {
 
 export async function patchCategory(
   id: string,
-  delta: Partial<Pick<Category, 'name' | 'parentId' | 'description'>>,
+  delta: Partial<Pick<Category, 'name' | 'parentId' | 'description'>> & { linkedSuppliers?: LinkedSupplier[] },
 ): Promise<Category> {
   return apiPatch(`/api/categories/${id}`, delta)
 }

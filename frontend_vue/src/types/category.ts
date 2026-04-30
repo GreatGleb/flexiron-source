@@ -1,3 +1,5 @@
+import type { LinkedSupplier } from './product'
+
 export type CategoryFieldType = 'text' | 'number' | 'boolean' | 'enum' | 'email' | 'date' | 'file'
 
 export interface CategoryField {
@@ -18,6 +20,7 @@ export interface Category {
   productCount: number
   inheritedFields: CategoryField[]
   fields: CategoryField[]
+  linkedSuppliers: LinkedSupplier[]
 }
 
 export interface CategoryListItem {
