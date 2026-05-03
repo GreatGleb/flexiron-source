@@ -11,11 +11,13 @@ import InputGroup from '@/components/admin/ui/InputGroup.vue'
 import { useHead } from '@/composables/useHead'
 import { useFeatureFlag } from '@/composables/useFeatureFlag'
 import { useCategories } from '@/composables/useCategories'
+import { useLabelResolver } from '@/composables/useLabelResolver'
 import { createCategory } from '@/services/categoriesService'
 
 import '@styles/admin/categories_list.css'
 
 const { t } = useI18n()
+const { resolveLabel } = useLabelResolver()
 const router = useRouter()
 
 useHead({ title: t('categories.title'), description: t('categories.title') })
@@ -32,7 +34,7 @@ const newCatDescription = ref('')
 
 const parentOptions = computed(() => [
   { value: '', label: t('categories.field_parent_none') },
-  ...items.value.map((item) => ({ value: item.id, label: item.name })),
+  ...items.value.map((item) => ({ value: item.id, label: resolveLabel(item.name) })),
 ])
 
 onMounted(load)
@@ -111,10 +113,10 @@ async function handleCreate() {
                   class="categories-level-indent"
                   :style="{ paddingLeft: `calc(${item.level} * 16px + 12px)` }"
                 >
-                  {{ item.name }}
+                  {{ resolveLabel(item.name) }}
                 </div>
               </td>
-              <td>{{ item.parentName ?? '—' }}</td>
+              <td>{{ item.parentName ? resolveLabel(item.parentName) : '—' }}</td>
               <td>{{ item.fieldCount }}</td>
               <td>{{ item.productCount }}</td>
               <td>

@@ -24,7 +24,7 @@ const baseTest = base
  *                         [data-test="analytics-sub-nav-kpi"] (current on this route)
  *                         + 7 siblings (warehouse, sales, supply, staff, logistics, pl, deficit)
  *   [data-test="dashboard-kpi-row"]          ×1  — flex row
- *     [data-test="dashboard-kpi-card"]       ×4  — Warehouse, AR, Sales, Profit
+ *     [data-test="dashboard-kpi-card"]       ×5  — Warehouse, AR, Sales, Profit, Deficit
  *   [data-test="dashboard-charts-row"]       ×1  — flex row wrapping both panels
  *     [data-test="dashboard-charts"]         ×1  — v-if showCharts (bar chart panel)
  *       [data-test="dashboard-chart-row"]    ×5  — one per category
@@ -83,19 +83,23 @@ test.describe('dashboard › kpi cards', () => {
     await page.waitForLoadState('networkidle')
   })
 
-  test('renders exactly 4 KPI cards', async ({ page }) => {
-    await expect(page.locator('[data-test="dashboard-kpi-card"]')).toHaveCount(4)
+  test('renders exactly 5 KPI cards', async ({ page }) => {
+    await expect(page.locator('[data-test="dashboard-kpi-card"]')).toHaveCount(5)
   })
 
-  test('each card shows label, value (EUR), and delta', async ({ page }) => {
+  test('each card shows label, value, and delta', async ({ page }) => {
     const cards = page.locator('[data-test="dashboard-kpi-card"]')
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 5; i++) {
       const c = cards.nth(i)
       await expect.soft(c.locator('.kpi-label')).toBeVisible()
       await expect.soft(c.locator('.kpi-value')).toBeVisible()
       await expect.soft(c.locator('.kpi-delta')).toBeVisible()
-      await expect.soft(c.locator('.kpi-value span')).toHaveText('EUR')
     }
+    // First 4 cards display EUR (hard-coded), 5th (deficit) uses i18n dashboard.unit_pcs.
+    for (let i = 0; i < 4; i++) {
+      await expect.soft(cards.nth(i).locator('.kpi-value span')).toHaveText('EUR')
+    }
+    await expect.soft(cards.nth(4).locator('.kpi-value span')).toHaveText('pcs.')
   })
 
   test('values are the expected formatted numbers', async ({ page }) => {
@@ -110,6 +114,7 @@ test.describe('dashboard › kpi cards', () => {
     await expect.soft(values.nth(2)).toContainText('200')
     await expect.soft(values.nth(3)).toContainText('14')
     await expect.soft(values.nth(3)).toContainText('870')
+    await expect.soft(values.nth(4)).toContainText('8')
   })
 
   test('delta classes communicate direction', async ({ page }) => {
@@ -118,6 +123,7 @@ test.describe('dashboard › kpi cards', () => {
     await expect.soft(deltas.nth(1)).toHaveClass(/\bdown\b/)
     await expect.soft(deltas.nth(2)).toHaveClass(/\bup\b/)
     await expect.soft(deltas.nth(3)).toHaveClass(/\bneutral\b/)
+    await expect.soft(deltas.nth(4)).toHaveClass(/\bdown\b/)
   })
 })
 

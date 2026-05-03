@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 
 import '@styles/admin/components/_tag-input.css'
 
+export type TagOption = string | { value: string; label: string }
+
 const props = defineProps<{
   modelValue: string[]
-  options?: string[]
+  options?: TagOption[]
   placeholder?: string
   freeInput?: boolean
 }>()
@@ -17,6 +19,19 @@ const emit = defineEmits<{
 const dropdownOpen = ref(false)
 const inputText = ref('')
 const wrapRef = ref<HTMLElement | null>(null)
+
+/** Normalise options to { value, label }[] for uniform handling. */
+const normalisedOptions = computed(() =>
+  (props.options ?? []).map((o) =>
+    typeof o === 'string' ? { value: o, label: o } : o,
+  ),
+)
+
+/** Get display label for a stored value. */
+function labelFor(value: string): string {
+  const found = normalisedOptions.value.find((o) => o.value === value)
+  return found?.label ?? value
+}
 
 function removeTag(index: number) {
   const next = [...props.modelValue]
@@ -59,7 +74,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onClickOutside))
 <template>
   <div ref="wrapRef" class="tag-container custom-select-wrap" @click="toggleDropdown">
     <div v-for="(tag, i) in modelValue" :key="tag" class="tag">
-      {{ tag }}
+      {{ labelFor(tag) }}
       <svg
         width="14"
         height="14"
@@ -88,12 +103,12 @@ onBeforeUnmount(() => document.removeEventListener('click', onClickOutside))
     <input v-else type="text" class="tag-input" :placeholder="placeholder" readonly />
     <div v-if="options?.length" class="tag-dropdown" :class="{ open: dropdownOpen }">
       <div
-        v-for="opt in options.filter((o) => !modelValue.includes(o))"
-        :key="opt"
+        v-for="opt in normalisedOptions.filter((o) => !modelValue.includes(o.value))"
+        :key="opt.value"
         class="tag-drop-item"
-        @click.stop="addTag(opt)"
+        @click.stop="addTag(opt.value)"
       >
-        {{ opt }}
+        {{ opt.label }}
       </div>
     </div>
   </div>

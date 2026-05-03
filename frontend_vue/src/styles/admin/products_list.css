@@ -45,8 +45,18 @@
   color: rgba(255, 255, 255, 0.9);
 }
 
+.sort-icon-group {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+  gap: 0;
+  margin-left: 2px;
+}
+
 .sort-icon {
   flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.25);
   transition: color 0.15s;
 }
 

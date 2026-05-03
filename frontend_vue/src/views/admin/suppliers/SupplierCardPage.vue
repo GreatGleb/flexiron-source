@@ -13,12 +13,14 @@ import { useSupplierCard } from '@/composables/useSupplierCard'
 import { deleteAuditEntry } from '@/services/suppliersService'
 import { useToast } from '@/composables/useToast'
 import { useHead } from '@/composables/useHead'
+import { useLabelResolver } from '@/composables/useLabelResolver'
 
 import '@styles/admin/components/_entity-card-layout.css'
 import '@styles/admin/components/_audit-log.css'
 import '@styles/admin/supplier_card.css'
 
 const { t } = useI18n()
+const { resolveLabel } = useLabelResolver()
 const route = useRoute()
 const toast = useToast()
 
@@ -209,7 +211,7 @@ onMounted(load)
                   <td>
                     <span class="audit-log-ts">{{ p.date }}</span>
                   </td>
-                  <td class="product-cell">{{ p.product }}</td>
+                  <td class="product-cell">{{ resolveLabel(p.product) }}</td>
                   <td class="stock-cell">
                     <strong>{{ p.stock }}</strong>
                   </td>

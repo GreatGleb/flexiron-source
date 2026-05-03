@@ -90,7 +90,8 @@ test.describe('logistics › kpi cards', () => {
   })
 
   test('per-card unit suffixes (pcs. / t / pcs. / %)', async ({ page }) => {
-    // Units are hard-coded in the template — one per card in that order.
+    // Units come from i18n (logistics.unit_pcs, logistics.unit_t) — in EN locale
+    // they resolve to 'pcs.' and 't'. Card 4 has a hard-coded '%'.
     const units = page.locator('[data-test="logistics-kpi-card"] .kpi-value span')
     await expect.soft(units.nth(0)).toHaveText('pcs.')
     await expect.soft(units.nth(1)).toHaveText('t')

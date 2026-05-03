@@ -6,6 +6,14 @@
   gap: 24px;
 }
 
+.main-card-content {
+  max-width: 100%;
+}
+
+.main-card-content .entity-card-grid {
+  max-width: 1400px;
+}
+
 .product-card-header {
   display: flex;
   flex-direction: column;

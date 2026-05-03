@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { uploadFile, type UploadedFile } from '@/services/uploadsService'
+
+const { t } = useI18n()
 
 import '@styles/admin/components/_dropzone.css'
 
@@ -98,7 +101,7 @@ function onDragLeave() {
         <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
       </svg>
       <div class="dropzone-text">
-        <span v-if="uploading">{{ 'Uploading...' }}</span>
+        <span v-if="uploading">{{ t('dropzone.uploading') }}</span>
         <span v-else v-html="hint" />
       </div>
     </div>

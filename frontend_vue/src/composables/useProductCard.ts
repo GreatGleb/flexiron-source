@@ -5,6 +5,7 @@ import { getCategories } from '@/services/categoriesService'
 import { getSuppliers } from '@/services/suppliersService'
 import { useDirtyCheck } from './useDirtyCheck'
 import { useToast } from './useToast'
+import { useLabelResolver } from './useLabelResolver'
 import type { Product, ProductFieldValue, LinkedSupplier } from '@/types/product'
 import type { CategoryListItem } from '@/types/category'
 import type { Supplier } from '@/types/supplier'
@@ -14,6 +15,7 @@ type FieldValueMap = Record<string, ProductFieldValue['value']>
 
 export function useProductCard(id: string) {
   const { t } = useI18n()
+  const { resolveLabel } = useLabelResolver()
   const toast = useToast()
 
   const product = ref<Product | null>(null)
@@ -67,7 +69,7 @@ export function useProductCard(id: string) {
     const parts: string[] = []
     let current = categories.value.find((c) => c.id === categoryId)
     while (current) {
-      parts.unshift(current.name)
+      parts.unshift(resolveLabel(current.name))
       current = current.parentId
         ? categories.value.find((c) => c.id === current!.parentId)
         : undefined

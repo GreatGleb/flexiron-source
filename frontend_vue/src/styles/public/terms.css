@@ -84,6 +84,23 @@
   background: var(--primary);
 }
 /* Accept Button */
+.cta-button {
+  display: inline-block;
+  margin-top: 1.5rem;
+  padding: 0.85rem 2.5rem;
+  background: var(--primary);
+  color: white;
+  text-decoration: none;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  border: none;
+  cursor: pointer;
+}
+.cta-button:hover {
+  transform: translateY(-2px);
+}
 /* Responsive */
 @media (max-width: 768px) {
   .terms-content {

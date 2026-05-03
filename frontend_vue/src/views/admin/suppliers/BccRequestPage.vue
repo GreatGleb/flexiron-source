@@ -17,12 +17,14 @@ import { acceptBccResponse, markBccNoResponse, logBccRequest } from '@/services/
 import { useToast } from '@/composables/useToast'
 import { useHead } from '@/composables/useHead'
 import { useFeatureFlag } from '@/composables/useFeatureFlag'
+import { useLabelResolver } from '@/composables/useLabelResolver'
 import { getSupplier } from '@/services/suppliersService'
 
 import '@styles/admin/components/_checkbox-list.css'
 import '@styles/admin/bcc_request.css'
 
 const { t } = useI18n()
+const { resolveLabel } = useLabelResolver()
 const route = useRoute()
 const { show: showToast } = useToast()
 const showBccHistory = useFeatureFlag('bccHistory')
@@ -52,8 +54,8 @@ const productOptions = computed(() =>
   categories.value.flatMap((cat) =>
     (cat.children ?? []).map((prod) => ({
       value: prod.id,
-      label: prod.name,
-      group: cat.name,
+      label: resolveLabel(prod.name),
+      group: resolveLabel(cat.name),
     })),
   ),
 )
@@ -71,7 +73,7 @@ const productPageSize = ref(10)
 
 const categoryFilterOptions = computed(() => [
   { value: 'all', label: t('bcc.all_categories', 'All categories') },
-  ...categories.value.map((c) => ({ value: c.id, label: c.name })),
+  ...categories.value.map((c) => ({ value: c.id, label: resolveLabel(c.name) })),
 ])
 
 // Flat list after search + category filter (still carries group info)
@@ -640,7 +642,7 @@ onMounted(async () => {
                           padding-top: 12px;
                         "
                       >
-                        {{ group.categoryName }}
+                        {{ resolveLabel(group.categoryName) }}
                       </td>
                     </tr>
                     <tr
@@ -662,7 +664,7 @@ onMounted(async () => {
                           @change.stop="toggleProduct(p.id)"
                         />
                       </td>
-                      <td>{{ p.name }}</td>
+                      <td>{{ resolveLabel(p.name) }}</td>
                     </tr>
                   </template>
                 </tbody>
@@ -926,7 +928,7 @@ onMounted(async () => {
                   <td class="request-id-cell">
                     <span class="request-id-badge">{{ formatReqId(evt.requestId) }}</span>
                   </td>
-                  <td class="product-cell">{{ evt.productName }}</td>
+                  <td class="product-cell">{{ resolveLabel(evt.productName) }}</td>
                   <td class="recipients-cell">{{ evt.supplierName }}</td>
                   <td class="source-cell">{{ evt.source }}</td>
                   <td class="status-cell">

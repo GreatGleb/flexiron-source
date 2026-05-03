@@ -6,7 +6,9 @@ import { useHead } from '@/composables/useHead'
 import { useFeatureFlag } from '@/composables/useFeatureFlag'
 import { useProducts } from '@/composables/useProducts'
 import { useCategories } from '@/composables/useCategories'
+import { useLabelResolver } from '@/composables/useLabelResolver'
 import { createProduct } from '@/services/productsService'
+import type { CategoryListItem } from '@/types/category'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
 import SearchInput from '@/components/admin/ui/SearchInput.vue'
@@ -18,6 +20,7 @@ import '@styles/admin/components/_entity-card-layout.css'
 import '@styles/admin/products_list.css'
 
 const { t } = useI18n()
+const { resolveLabel } = useLabelResolver()
 const router = useRouter()
 
 useHead({ title: () => `Flexiron — ${t('products.header_title')}`, description: () => t('products.title') })
@@ -42,13 +45,26 @@ const pageSizeStr = computed({
 
 const { items: catItems, load: loadCats } = useCategories()
 
+function getCategoryPath(cat: CategoryListItem): string {
+  const parts: string[] = [resolveLabel(cat.name)]
+  let current = cat
+  // Build path upwards using parentId — catItems is a flat list with parentName
+  while (current.parentId) {
+    const parent = catItems.value.find((c) => c.id === current.parentId)
+    if (!parent) break
+    parts.unshift(resolveLabel(parent.name))
+    current = parent
+  }
+  return parts.join(' → ')
+}
+
 const categoryOptions = computed(() => [
   { value: '', label: t('products.filter_category_all') },
-  ...catItems.value.map((c) => ({ value: c.id, label: c.name })),
+  ...catItems.value.map((c) => ({ value: c.id, label: getCategoryPath(c) })),
 ])
 
 const categoryFilterOptions = computed(() =>
-  catItems.value.map((c) => ({ value: c.id, label: c.name })),
+  catItems.value.map((c) => ({ value: c.id, label: getCategoryPath(c) })),
 )
 
 const newProductCategoryStr = computed({
@@ -209,46 +225,64 @@ async function handleCreate() {
               <th>
                 <button class="th-sort-btn" @click="toggleSort('name')">
                   {{ t('products.col_name') }}
-                  <svg class="sort-icon" :class="{ active: filters.sortBy === 'name' }" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                    <template v-if="filters.sortBy === 'name'">
-                      <path v-if="filters.sortDir === 'asc'" d="M7 12V2M3 6l4-4 4 4" />
-                      <path v-else d="M7 2v10M3 8l4 4 4-4" />
-                    </template>
-                    <template v-else>
-                      <path d="M7 7V2M4 5l3-3 3 3" opacity="0.4" />
-                      <path d="M7 7v5M4 9l3 3 3-3" opacity="0.4" />
-                    </template>
-                  </svg>
+                  <span class="sort-icon-group">
+                    <SvgIcon
+                      name="chevron-up"
+                      :width="16"
+                      :height="16"
+                      class="sort-icon"
+                      :class="{ active: filters.sortBy === 'name' && filters.sortDir === 'asc' }"
+                    />
+                    <SvgIcon
+                      name="chevron-down"
+                      :width="16"
+                      :height="16"
+                      class="sort-icon"
+                      :class="{ active: filters.sortBy === 'name' && filters.sortDir === 'desc' }"
+                    />
+                  </span>
                 </button>
               </th>
               <th>
                 <button class="th-sort-btn" @click="toggleSort('category')">
                   {{ t('products.col_category') }}
-                  <svg class="sort-icon" :class="{ active: filters.sortBy === 'category' }" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                    <template v-if="filters.sortBy === 'category'">
-                      <path v-if="filters.sortDir === 'asc'" d="M7 12V2M3 6l4-4 4 4" />
-                      <path v-else d="M7 2v10M3 8l4 4 4-4" />
-                    </template>
-                    <template v-else>
-                      <path d="M7 7V2M4 5l3-3 3 3" opacity="0.4" />
-                      <path d="M7 7v5M4 9l3 3 3-3" opacity="0.4" />
-                    </template>
-                  </svg>
+                  <span class="sort-icon-group">
+                    <SvgIcon
+                      name="chevron-up"
+                      :width="16"
+                      :height="16"
+                      class="sort-icon"
+                      :class="{ active: filters.sortBy === 'category' && filters.sortDir === 'asc' }"
+                    />
+                    <SvgIcon
+                      name="chevron-down"
+                      :width="16"
+                      :height="16"
+                      class="sort-icon"
+                      :class="{ active: filters.sortBy === 'category' && filters.sortDir === 'desc' }"
+                    />
+                  </span>
                 </button>
               </th>
               <th>
                 <button class="th-sort-btn" @click="toggleSort('price')">
                   {{ t('products.col_price') }}
-                  <svg class="sort-icon" :class="{ active: filters.sortBy === 'price' }" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                    <template v-if="filters.sortBy === 'price'">
-                      <path v-if="filters.sortDir === 'asc'" d="M7 12V2M3 6l4-4 4 4" />
-                      <path v-else d="M7 2v10M3 8l4 4 4-4" />
-                    </template>
-                    <template v-else>
-                      <path d="M7 7V2M4 5l3-3 3 3" opacity="0.4" />
-                      <path d="M7 7v5M4 9l3 3 3-3" opacity="0.4" />
-                    </template>
-                  </svg>
+                  <span class="sort-icon-group">
+                    <SvgIcon
+                      name="chevron-up"
+                      :width="16"
+                      :height="16"
+                      class="sort-icon"
+                      :class="{ active: filters.sortBy === 'price' && filters.sortDir === 'asc' }"
+                    />
+                    <SvgIcon
+                      name="chevron-down"
+                      :width="16"
+                      :height="16"
+                      class="sort-icon"
+                      :class="{ active: filters.sortBy === 'price' && filters.sortDir === 'desc' }"
+                    />
+                  </span>
                 </button>
               </th>
               <th>{{ t('products.col_unit') }}</th>
@@ -263,8 +297,8 @@ async function handleCreate() {
               data-test="products-row"
               @click="router.push({ name: 'admin-product-card', params: { id: item.id } })"
             >
-              <td>{{ item.name }}</td>
-              <td>{{ item.categoryName ?? '—' }}</td>
+              <td>{{ resolveLabel(item.name) }}</td>
+              <td>{{ item.categoryName ? resolveLabel(item.categoryName) : '—' }}</td>
               <td>{{ item.price != null ? item.price : '—' }}</td>
               <td>{{ item.priceUnit ?? '—' }}</td>
               <td>
@@ -423,3 +457,24 @@ async function handleCreate() {
     </AppModal>
   </div>
 </template>
+
+<style>
+/* Pagination dropdown — open upward so it sits over the table, not below the panel */
+.custom-select-list.open-up {
+  top: auto;
+  bottom: calc(100% + 8px);
+  transform: translateY(10px);
+}
+.custom-select-list.open-up.open {
+  transform: translateY(0);
+}
+
+/* Make sure the table wrapper doesn't clip upward-opening dropdowns */
+.data-table-wrapper {
+  overflow-x: auto;
+  overflow-y: visible;
+}
+.data-table tfoot td {
+  position: relative;
+}
+</style>

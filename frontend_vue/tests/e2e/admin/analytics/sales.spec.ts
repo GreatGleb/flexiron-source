@@ -87,7 +87,8 @@ test.describe('sales › kpi cards', () => {
   })
 
   test('per-card unit suffixes (EUR / pcs. / pcs. / EUR)', async ({ page }) => {
-    // Units are hard-coded in the template — one per card in that order.
+    // Units come from i18n (sales.unit_eur, sales.unit_pcs) — in EN locale
+    // they resolve to 'EUR' and 'pcs.'.
     const units = page.locator('[data-test="sales-kpi-card"] .kpi-value span')
     await expect.soft(units.nth(0)).toHaveText('EUR')
     await expect.soft(units.nth(1)).toHaveText('pcs.')

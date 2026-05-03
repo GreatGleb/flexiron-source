@@ -29,7 +29,7 @@ const STORE: Category[] = [
     name: 'Sheets',
     parentId: 'cat-1',
     description: 'Flat-rolled metal sheets',
-    fieldCount: 4,
+    fieldCount: 5,
     productCount: 12,
     inheritedFields: [
       { id: 'f-1-1', name: 'Steel grade', type: 'text', required: true, order: 0, options: [] },
@@ -41,6 +41,7 @@ const STORE: Category[] = [
       { id: 'f-2-2', name: 'Sheet type', type: 'enum', required: false, order: 1, options: ['Hot-rolled', 'Cold-rolled', 'Galvanized'] },
       { id: 'f-2-3', name: 'Width (mm)', type: 'number', required: false, order: 2, options: [] },
       { id: 'f-2-4', name: 'Length (mm)', type: 'number', required: false, order: 3, options: [] },
+      { id: 'f-2-5', name: 'Weight per m² (kg)', type: 'number', required: false, order: 4, options: [] },
     ],
     linkedSuppliers: [
       { id: '1', name: 'Steel Plus OÜ', price: null, priceUnit: null, leadDays: 7 },
@@ -76,7 +77,7 @@ const STORE: Category[] = [
     name: 'Pipes',
     parentId: 'cat-1',
     description: 'Tubular metal products',
-    fieldCount: 5,
+    fieldCount: 7,
     productCount: 8,
     inheritedFields: [
       { id: 'f-1-1', name: 'Steel grade', type: 'text', required: true, order: 0, options: [] },
@@ -89,6 +90,8 @@ const STORE: Category[] = [
       { id: 'f-4-3', name: 'Length (mm)', type: 'number', required: false, order: 2, options: [] },
       { id: 'f-4-4', name: 'Pipe type', type: 'enum', required: false, order: 3, options: ['Round', 'Square', 'Rectangular'] },
       { id: 'f-4-5', name: 'Bend radius (mm)', type: 'number', required: false, order: 4, options: [] },
+      { id: 'f-4-6', name: 'Width (mm)', type: 'number', required: false, order: 5, options: [] },
+      { id: 'f-4-7', name: 'Weight per meter (kg)', type: 'number', required: false, order: 6, options: [] },
     ],
     linkedSuppliers: [
       { id: '1', name: 'Steel Plus OÜ', price: null, priceUnit: null, leadDays: 7 },
@@ -136,7 +139,7 @@ const STORE: Category[] = [
     name: 'Beams',
     parentId: 'cat-1',
     description: 'IPE/HEA/HEB structural steel beams',
-    fieldCount: 4,
+    fieldCount: 7,
     productCount: 0,
     inheritedFields: [
       { id: 'f-1-1', name: 'Steel grade', type: 'text', required: true, order: 0, options: [] },
@@ -147,7 +150,10 @@ const STORE: Category[] = [
       { id: 'f-7-1', name: 'Profile type', type: 'enum', required: true, order: 0, options: ['IPE', 'HEA', 'HEB', 'IPN', 'UPN'] },
       { id: 'f-7-2', name: 'Height (mm)', type: 'number', required: true, order: 1, options: [] },
       { id: 'f-7-3', name: 'Flange width (mm)', type: 'number', required: false, order: 2, options: [] },
-      { id: 'f-7-4', name: 'Length (mm)', type: 'number', required: false, order: 3, options: [] },
+      { id: 'f-7-4', name: 'Flange thickness (mm)', type: 'number', required: false, order: 3, options: [] },
+      { id: 'f-7-5', name: 'Web thickness (mm)', type: 'number', required: false, order: 4, options: [] },
+      { id: 'f-7-6', name: 'Length (mm)', type: 'number', required: false, order: 5, options: [] },
+      { id: 'f-7-7', name: 'Weight per meter (kg/m)', type: 'number', required: false, order: 6, options: [] },
     ],
     linkedSuppliers: [
       { id: '2', name: 'Metal Trade LT', price: null, priceUnit: null, leadDays: 5 },
@@ -159,7 +165,7 @@ const STORE: Category[] = [
     name: 'Channels',
     parentId: 'cat-1',
     description: 'Steel channel sections (UPN/UPE)',
-    fieldCount: 4,
+    fieldCount: 6,
     productCount: 0,
     inheritedFields: [
       { id: 'f-1-1', name: 'Steel grade', type: 'text', required: true, order: 0, options: [] },
@@ -170,7 +176,9 @@ const STORE: Category[] = [
       { id: 'f-8-1', name: 'Height (mm)', type: 'number', required: true, order: 0, options: [] },
       { id: 'f-8-2', name: 'Flange width (mm)', type: 'number', required: false, order: 1, options: [] },
       { id: 'f-8-3', name: 'Wall thickness (mm)', type: 'number', required: false, order: 2, options: [] },
-      { id: 'f-8-4', name: 'Length (mm)', type: 'number', required: false, order: 3, options: [] },
+      { id: 'f-8-4', name: 'Flange thickness (mm)', type: 'number', required: false, order: 3, options: [] },
+      { id: 'f-8-5', name: 'Length (mm)', type: 'number', required: false, order: 4, options: [] },
+      { id: 'f-8-6', name: 'Weight per meter (kg/m)', type: 'number', required: false, order: 5, options: [] },
     ],
     linkedSuppliers: [
       { id: '1', name: 'Steel Plus OÜ', price: null, priceUnit: null, leadDays: 7 },
@@ -182,7 +190,7 @@ const STORE: Category[] = [
     name: 'Angles',
     parentId: 'cat-1',
     description: 'Equal and unequal steel angle bars',
-    fieldCount: 4,
+    fieldCount: 6,
     productCount: 0,
     inheritedFields: [
       { id: 'f-1-1', name: 'Steel grade', type: 'text', required: true, order: 0, options: [] },
@@ -192,8 +200,10 @@ const STORE: Category[] = [
     fields: [
       { id: 'f-9-1', name: 'Side width (mm)', type: 'number', required: true, order: 0, options: [] },
       { id: 'f-9-2', name: 'Thickness (mm)', type: 'number', required: true, order: 1, options: [] },
-      { id: 'f-9-3', name: 'Length (mm)', type: 'number', required: false, order: 2, options: [] },
-      { id: 'f-9-4', name: 'Type', type: 'enum', required: false, order: 3, options: ['Equal', 'Unequal'] },
+      { id: 'f-9-3', name: 'Second side width (mm)', type: 'number', required: false, order: 2, options: [] },
+      { id: 'f-9-4', name: 'Length (mm)', type: 'number', required: false, order: 3, options: [] },
+      { id: 'f-9-5', name: 'Type', type: 'enum', required: false, order: 4, options: ['Equal', 'Unequal'] },
+      { id: 'f-9-6', name: 'Weight per meter (kg/m)', type: 'number', required: false, order: 5, options: [] },
     ],
     linkedSuppliers: [
       { id: '1', name: 'Steel Plus OÜ', price: null, priceUnit: null, leadDays: 7 },
@@ -205,7 +215,7 @@ const STORE: Category[] = [
     name: 'Rebars',
     parentId: 'cat-1',
     description: 'Reinforcement steel bars',
-    fieldCount: 3,
+    fieldCount: 6,
     productCount: 0,
     inheritedFields: [
       { id: 'f-1-1', name: 'Steel grade', type: 'text', required: true, order: 0, options: [] },
@@ -216,6 +226,9 @@ const STORE: Category[] = [
       { id: 'f-10-1', name: 'Diameter (mm)', type: 'number', required: true, order: 0, options: [] },
       { id: 'f-10-2', name: 'Length (mm)', type: 'number', required: false, order: 1, options: [] },
       { id: 'f-10-3', name: 'Class', type: 'enum', required: false, order: 2, options: ['A240', 'A400', 'A500C', 'B500C'] },
+      { id: 'f-10-4', name: 'Weight per meter (kg/m)', type: 'number', required: false, order: 3, options: [] },
+      { id: 'f-10-5', name: 'Tensile strength (MPa)', type: 'number', required: false, order: 4, options: [] },
+      { id: 'f-10-6', name: 'Yield strength (MPa)', type: 'number', required: false, order: 5, options: [] },
     ],
     linkedSuppliers: [
       { id: '4', name: 'Baltic Metal Group', price: null, priceUnit: null, leadDays: 14 },
@@ -227,7 +240,7 @@ const STORE: Category[] = [
     name: 'Profiles',
     parentId: 'cat-1',
     description: 'Square and rectangular hollow sections, flat and round bars',
-    fieldCount: 5,
+    fieldCount: 6,
     productCount: 0,
     inheritedFields: [
       { id: 'f-1-1', name: 'Steel grade', type: 'text', required: true, order: 0, options: [] },
@@ -240,6 +253,7 @@ const STORE: Category[] = [
       { id: 'f-11-3', name: 'Width (mm)', type: 'number', required: false, order: 2, options: [] },
       { id: 'f-11-4', name: 'Wall thickness (mm)', type: 'number', required: false, order: 3, options: [] },
       { id: 'f-11-5', name: 'Length (mm)', type: 'number', required: false, order: 4, options: [] },
+      { id: 'f-11-6', name: 'Weight per meter (kg/m)', type: 'number', required: false, order: 5, options: [] },
     ],
     linkedSuppliers: [
       { id: '1', name: 'Steel Plus OÜ', price: null, priceUnit: null, leadDays: 7 },
@@ -251,7 +265,7 @@ const STORE: Category[] = [
     name: 'Wire',
     parentId: 'cat-1',
     description: 'Steel wire in coils and spools',
-    fieldCount: 3,
+    fieldCount: 5,
     productCount: 0,
     inheritedFields: [
       { id: 'f-1-1', name: 'Steel grade', type: 'text', required: true, order: 0, options: [] },
@@ -262,6 +276,8 @@ const STORE: Category[] = [
       { id: 'f-12-1', name: 'Diameter (mm)', type: 'number', required: true, order: 0, options: [] },
       { id: 'f-12-2', name: 'Coating', type: 'enum', required: false, order: 1, options: ['Bare', 'Galvanized', 'Zinc-coated', 'Copper-coated'] },
       { id: 'f-12-3', name: 'Spool weight (kg)', type: 'number', required: false, order: 2, options: [] },
+      { id: 'f-12-4', name: 'Tensile strength (MPa)', type: 'number', required: false, order: 3, options: [] },
+      { id: 'f-12-5', name: 'Weight per meter (kg/m)', type: 'number', required: false, order: 4, options: [] },
     ],
     linkedSuppliers: [
       { id: '1', name: 'Steel Plus OÜ', price: null, priceUnit: null, leadDays: 7 },
@@ -273,7 +289,7 @@ const STORE: Category[] = [
     name: 'Fittings',
     parentId: 'cat-1',
     description: 'Pipe fittings and connectors',
-    fieldCount: 3,
+    fieldCount: 5,
     productCount: 0,
     inheritedFields: [
       { id: 'f-1-1', name: 'Steel grade', type: 'text', required: true, order: 0, options: [] },
@@ -284,6 +300,8 @@ const STORE: Category[] = [
       { id: 'f-13-1', name: 'Type', type: 'enum', required: true, order: 0, options: ['Elbow 90°', 'Elbow 45°', 'Tee', 'Reducer', 'Flange', 'Coupling', 'Cap'] },
       { id: 'f-13-2', name: 'Size DN (mm)', type: 'number', required: true, order: 1, options: [] },
       { id: 'f-13-3', name: 'Pressure rating (bar)', type: 'number', required: false, order: 2, options: [] },
+      { id: 'f-13-4', name: 'Connection type', type: 'enum', required: false, order: 3, options: ['Threaded', 'Welded', 'Flanged'] },
+      { id: 'f-13-5', name: 'Weight (kg)', type: 'number', required: false, order: 4, options: [] },
     ],
     linkedSuppliers: [
       { id: '4', name: 'Baltic Metal Group', price: null, priceUnit: null, leadDays: 14 },

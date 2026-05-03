@@ -64,6 +64,9 @@ defineProps<{
     <template v-else-if="name === 'chevron-right'">
       <path d="M9 5l7 7-7 7" />
     </template>
+    <template v-else-if="name === 'chevron-up'">
+      <path d="M18 15l-6-6-6 6" />
+    </template>
     <template v-else-if="name === 'chevron-down'">
       <path d="M6 9l6 6 6-6" />
     </template>

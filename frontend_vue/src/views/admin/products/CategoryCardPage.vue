@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
+import Breadcrumb from '@/components/admin/Breadcrumb.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
 import AppModal from '@/components/admin/ui/AppModal.vue'
 import TagInput from '@/components/admin/ui/TagInput.vue'
@@ -11,6 +12,8 @@ import InputGroup from '@/components/admin/ui/InputGroup.vue'
 import { useHead } from '@/composables/useHead'
 import { useFeatureFlag } from '@/composables/useFeatureFlag'
 import { useCategoryCard } from '@/composables/useCategoryCard'
+import { useDragDrop } from '@/composables/useDragDrop'
+import { useLabelResolver } from '@/composables/useLabelResolver'
 import { getCategories } from '@/services/categoriesService'
 import type { CategoryField, CategoryFieldType, CategoryListItem } from '@/types/category'
 import type { LinkedSupplier } from '@/types/product'
@@ -19,8 +22,8 @@ import '@styles/admin/components/_entity-card-layout.css'
 import '@styles/admin/categories_card.css'
 
 const { t } = useI18n()
+const { resolveLabel } = useLabelResolver()
 const route = useRoute()
-const router = useRouter()
 
 const id = route.params.id as string
 const showSupplierLinks = useFeatureFlag('categorySupplierLinks')
@@ -40,12 +43,13 @@ const {
   addField,
   updateField,
   deleteField,
+  reorderFields,
   addLinkedSupplier,
   removeLinkedSupplier,
 } = useCategoryCard(id)
 
 useHead({
-  title: () => category.value?.name ?? t('categories.title'),
+  title: () => category.value?.name ? resolveLabel(category.value.name) : t('categories.title'),
   description: () => t('categories.title'),
 })
 
@@ -74,7 +78,7 @@ const formDescription = computed({
 
 const parentOptions = computed(() => [
   { value: '', label: t('categories.field_parent_none') },
-  ...allCategories.value.filter((c) => c.id !== id).map((c) => ({ value: c.id, label: c.name })),
+  ...allCategories.value.filter((c) => c.id !== id).map((c) => ({ value: c.id, label: resolveLabel(c.name) })),
 ])
 
 // ─── Field type options ─────────────────────────────────────────────────────────
@@ -139,6 +143,27 @@ function submitFieldModal() {
 }
 
 
+// ─── Drag-drop reorder ──────────────────────────────────────────────────────────
+
+const canReorder = useFeatureFlag('categoryFieldReorder')
+
+const dd = useDragDrop<CategoryField>(localFields.value)
+
+watch(localFields, (val) => dd.setItems(val), { deep: true })
+
+function onFieldDragStart(field: CategoryField) {
+  dd.onDragStart(field.id)
+}
+
+function onFieldDragEnd() {
+  dd.onDragEnd()
+}
+
+function onFieldDrop(field: CategoryField) {
+  dd.onDrop(field.id)
+  if (dd.list.value) reorderFields(dd.list.value)
+}
+
 // ─── Delete field confirmation ──────────────────────────────────────────────────
 
 const fieldToDelete = ref<CategoryField | null>(null)
@@ -191,21 +216,15 @@ onMounted(() => {
 <template>
   <div class="page-category-card" data-test="page-category-card">
     <div class="category-card-header" data-test="category-card-header">
-      <div class="category-card-title">
-        <button
-          class="btn btn-icon btn-sm"
-          @click="router.push({ name: 'admin-categories' })"
-        >
-          <SvgIcon
-            name="chevron-right"
-            :width="16"
-            :height="16"
-            style="transform: rotate(180deg)"
-          />
-        </button>
-        <h1 class="page-title">{{ category?.name ?? t('categories.title') }}</h1>
-      </div>
-      <div class="entity-action-bar no-margin pos-static" data-test="category-save-bar">
+      <Breadcrumb
+        :items="[
+          { label: t('categories.header_title'), to: { name: 'admin-categories' } },
+          { label: category?.name ? resolveLabel(category.name) : '...' },
+        ]"
+      />
+      <div class="category-card-header-row">
+        <h1 class="page-title">{{ category?.name ? resolveLabel(category.name) : t('categories.title') }}</h1>
+        <div class="entity-action-bar no-margin pos-static" data-test="category-save-bar">
         <button
           type="button"
           class="btn btn-secondary"
@@ -223,6 +242,7 @@ onMounted(() => {
         >
           {{ t('categories.btn_save') }}
         </button>
+      </div>
       </div>
     </div>
 
@@ -266,12 +286,12 @@ onMounted(() => {
     >
       <p class="inherited-label">
         {{ t('categories.inherited_from') }}
-        {{ allCategories.find((c) => c.id === category?.parentId)?.name ?? '' }}
+        {{ allCategories.find((c) => c.id === category?.parentId)?.name ? resolveLabel(allCategories.find((c) => c.id === category?.parentId)!.name) : '' }}
       </p>
       <table class="data-table">
         <tbody>
           <tr v-for="field in category.inheritedFields" :key="field.id">
-            <td>{{ field.name }}</td>
+            <td>{{ resolveLabel(field.name) }}</td>
             <td><span class="tag tag-sm">{{ t(`categories.type_${field.type}`) }}</span></td>
             <td>
               <span v-if="field.required" class="tag tag-sm tag-required">
@@ -301,9 +321,14 @@ onMounted(() => {
           <tr
             v-for="field in localFields"
             :key="field.id"
+            :draggable="canReorder ? 'true' : 'false'"
             data-test="category-field-row"
+            @dragstart="canReorder ? onFieldDragStart(field) : undefined"
+            @dragend="canReorder ? onFieldDragEnd() : undefined"
+            @drop="canReorder ? onFieldDrop(field) : undefined"
+            @dragover.prevent
           >
-            <td>{{ field.name }}</td>
+            <td>{{ resolveLabel(field.name) }}</td>
             <td><span class="tag tag-sm">{{ t(`categories.type_${field.type}`) }}</span></td>
             <td>
               <span v-if="field.required" class="tag tag-sm tag-required">

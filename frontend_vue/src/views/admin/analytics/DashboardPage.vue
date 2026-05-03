@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import AnalyticsSubNav from '@/components/admin/AnalyticsSubNav.vue'
+import GlassPanel from '@/components/admin/GlassPanel.vue'
 import { useFeatureFlag } from '@/composables/useFeatureFlag'
-import { mockGetAnalyticsPage } from '@/services/mocks/analytics'
+import { useAnalyticsTranslated } from '@/composables/useAnalytics'
 
 const { t } = useI18n()
 const showAlerts = useFeatureFlag('dashboardAlerts')
 const showCharts = useFeatureFlag('dashboardCharts')
-const data = mockGetAnalyticsPage('dashboard')
+const { data, loading, error, load, tf } = useAnalyticsTranslated('dashboard')
+load()
 
 function formatCurrency(val: number): string {
   return val.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' €'
@@ -18,7 +20,37 @@ function formatCurrency(val: number): string {
   <h1 class="page-title" data-test="dashboard-title">{{ t('dashboard.header_title') }}</h1>
   <AnalyticsSubNav />
 
-  <div class="kpi-row" data-test="dashboard-kpi-row">
+  <!-- Loading skeleton -->
+  <template v-if="loading">
+    <div class="kpi-row">
+      <div v-for="i in 5" :key="i" class="kpi-card">
+        <div class="kpi-icon"><div class="skeleton" style="width:24px;height:24px;border-radius:50%;margin:0" /></div>
+        <div class="kpi-label"><div class="skeleton" style="width:70%;height:14px" /></div>
+        <div class="kpi-value"><div class="skeleton" style="width:60%;height:22px" /></div>
+        <div class="kpi-delta"><div class="skeleton" style="width:40%;height:12px" /></div>
+      </div>
+    </div>
+    <div class="charts-row">
+      <GlassPanel v-if="showCharts" :loading="true" :skeleton-rows="5" />
+      <GlassPanel v-if="showAlerts" :loading="true" :skeleton-rows="5" />
+    </div>
+    <div class="section-label"><div class="skeleton" style="width:120px;height:18px" /></div>
+    <div class="analytics-grid">
+      <div v-for="i in 7" :key="i" class="acard">
+        <div class="acard-num"><div class="skeleton" style="width:50%;height:14px" /></div>
+        <div class="acard-title"><div class="skeleton" style="width:80%;height:16px" /></div>
+        <div class="acard-metrics">
+          <div v-for="j in 3" :key="j" class="acard-metric">
+            <div class="skeleton" style="width:100%;height:14px" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <div v-else-if="error" class="error-state">{{ error }}</div>
+  <template v-else-if="data">
+    <div class="kpi-row" data-test="dashboard-kpi-row">
     <div class="kpi-card" data-test="dashboard-kpi-card">
       <div class="kpi-icon icon-blue">
         <svg
@@ -35,8 +67,8 @@ function formatCurrency(val: number): string {
         </svg>
       </div>
       <div class="kpi-label">{{ t('dashboard.kpi1_label') }}</div>
-      <div class="kpi-value">{{ data.kpis[0]?.value }} <span>EUR</span></div>
-      <div class="kpi-delta" :class="data.kpis[0]?.trend">{{ t('dashboard.kpi1_delta') }}</div>
+      <div class="kpi-value">{{ data?.kpis[0]?.value }} <span>EUR</span></div>
+      <div class="kpi-delta" :class="data?.kpis[0]?.trend">{{ t('dashboard.kpi1_delta') }}</div>
     </div>
     <div class="kpi-card" data-test="dashboard-kpi-card">
       <div class="kpi-icon icon-red">
@@ -56,8 +88,8 @@ function formatCurrency(val: number): string {
         </svg>
       </div>
       <div class="kpi-label">{{ t('dashboard.kpi2_label') }}</div>
-      <div class="kpi-value">{{ data.kpis[1]?.value }} <span>EUR</span></div>
-      <div class="kpi-delta" :class="data.kpis[1]?.trend">{{ t('dashboard.kpi2_delta') }}</div>
+      <div class="kpi-value">{{ data?.kpis[1]?.value }} <span>EUR</span></div>
+      <div class="kpi-delta" :class="data?.kpis[1]?.trend">{{ t('dashboard.kpi2_delta') }}</div>
     </div>
     <div class="kpi-card" data-test="dashboard-kpi-card">
       <div class="kpi-icon icon-green">
@@ -75,8 +107,8 @@ function formatCurrency(val: number): string {
         </svg>
       </div>
       <div class="kpi-label">{{ t('dashboard.kpi3_label') }}</div>
-      <div class="kpi-value">{{ data.kpis[2]?.value }} <span>EUR</span></div>
-      <div class="kpi-delta" :class="data.kpis[2]?.trend">{{ t('dashboard.kpi3_delta') }}</div>
+      <div class="kpi-value">{{ data?.kpis[2]?.value }} <span>EUR</span></div>
+      <div class="kpi-delta" :class="data?.kpis[2]?.trend">{{ t('dashboard.kpi3_delta') }}</div>
     </div>
     <div class="kpi-card" data-test="dashboard-kpi-card">
       <div class="kpi-icon icon-gold">
@@ -96,8 +128,8 @@ function formatCurrency(val: number): string {
         </svg>
       </div>
       <div class="kpi-label">{{ t('dashboard.kpi4_label') }}</div>
-      <div class="kpi-value">{{ data.kpis[3]?.value }} <span>EUR</span></div>
-      <div class="kpi-delta" :class="data.kpis[3]?.trend">{{ t('dashboard.kpi4_delta') }}</div>
+      <div class="kpi-value">{{ data?.kpis[3]?.value }} <span>EUR</span></div>
+      <div class="kpi-delta" :class="data?.kpis[3]?.trend">{{ t('dashboard.kpi4_delta') }}</div>
     </div>
     <div class="kpi-card" data-test="dashboard-kpi-card">
       <div class="kpi-icon icon-red">
@@ -115,8 +147,8 @@ function formatCurrency(val: number): string {
         </svg>
       </div>
       <div class="kpi-label">{{ t('dashboard.kpi5_label') }}</div>
-      <div class="kpi-value">{{ data.kpis[4]?.value }} <span>pcs.</span></div>
-      <div class="kpi-delta" :class="data.kpis[4]?.trend">{{ t('dashboard.kpi5_delta') }}</div>
+      <div class="kpi-value">{{ data?.kpis[4]?.value }} <span>{{ t('dashboard.unit_pcs') }}</span></div>
+      <div class="kpi-delta" :class="data?.kpis[4]?.trend">{{ t('dashboard.kpi5_delta') }}</div>
     </div>
   </div>
 
@@ -128,12 +160,12 @@ function formatCurrency(val: number): string {
       </div>
       <div class="bar-chart">
         <div
-          v-for="item in data.salesByCategory"
-          :key="item.label"
+          v-for="item in data?.salesByCategory ?? []"
+          :key="item.label.ru"
           class="bar-chart-row"
           data-test="dashboard-chart-row"
         >
-          <span class="bar-label">{{ item.label }}</span>
+          <span class="bar-label">{{ tf(item.label) }}</span>
           <div class="bar-track">
             <div
               class="bar-fill"
@@ -446,6 +478,7 @@ function formatCurrency(val: number): string {
           ></span>
         </div>
       </router-link>
+      </div>
     </div>
-  </div>
+  </template>
 </template>

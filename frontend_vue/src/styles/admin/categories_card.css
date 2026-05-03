@@ -26,6 +26,8 @@
 .category-panels-grid .glass-panel {
   margin-bottom: 0;
   min-width: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .category-panels-fields-col .glass-panel {
@@ -62,10 +64,22 @@
 
 .category-card-header {
   display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.category-card-header-row {
+  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
+}
+
+.category-card-header-row .page-title {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
 }
 
 @media (max-width: 992px) {

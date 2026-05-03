@@ -11,11 +11,13 @@ import { useCardConfig } from '@/composables/useCardConfig'
 import { useToast } from '@/composables/useToast'
 import { useHead } from '@/composables/useHead'
 import { useFeatureFlag } from '@/composables/useFeatureFlag'
+import { useLabelResolver } from '@/composables/useLabelResolver'
 import type { FieldDefinition, PermissionAction } from '@/types/config'
 
 import '@styles/admin/supplier_card_config.css'
 
 const { t } = useI18n()
+const { resolveLabel } = useLabelResolver()
 const toast = useToast()
 const showPermissionsEditor = useFeatureFlag('permissionsEditor')
 
@@ -560,7 +562,7 @@ onMounted(load)
             v-for="f in filteredFields"
             :key="f.id"
             :field-id="f.id"
-            :name="f.name"
+            :name="resolveLabel(f.name)"
             :type="f.type"
             :draggable="true"
             :usage-count="f.usageCount"
@@ -615,7 +617,7 @@ onMounted(load)
           >
             <ConfigSectionCard
               :section-id="sec.id"
-              :name="sec.name"
+              :name="resolveLabel(sec.name)"
               :collapsed="sec.collapsed"
               :hidden="!sec.visible"
               :field-count="sec.fields.length"
@@ -630,7 +632,7 @@ onMounted(load)
                 v-for="f in sec.fields"
                 :key="f.fieldId"
                 :field-id="f.fieldId"
-                :name="fieldById(f.fieldId)?.name ?? f.fieldId"
+                :name="resolveLabel(fieldById(f.fieldId)?.name ?? f.fieldId)"
                 :type="fieldById(f.fieldId)?.type ?? 'text'"
                 :usage-count="0"
                 :hidden="!f.visible"
@@ -707,7 +709,7 @@ onMounted(load)
             >
               <td class="permissions-cell-name">
                 <span v-if="item.type === 'field'" class="permissions-field-indent" />
-                <span class="permissions-item-name">{{ item.name }}</span>
+                <span class="permissions-item-name">{{ resolveLabel(item.name) }}</span>
                 <span
                   v-if="item.type === 'field' && hasOverride(item.itemId)"
                   class="permissions-override-badge"

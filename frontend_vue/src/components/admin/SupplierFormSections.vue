@@ -39,23 +39,23 @@ const PAYMENT_OPTIONS = [
   { value: '50/50 Terms', label: '50/50 Terms' },
 ]
 
-const CATEGORY_OPTIONS = [
-  'Sheets',
-  'Pipes',
-  'Beams',
-  'Rebars',
-  'Lintels',
-  'Profiles',
-  'Wire',
-  'Fittings',
-  'Hot-rolled Sheets',
-  'Cold-rolled Sheets',
-  'Seamless Pipes',
-  'I-Beams',
-  'Channels (U-bars)',
-  'Stainless Plates',
-  'Rebars A500C',
-]
+const CATEGORY_OPTIONS = computed(() => [
+  { value: 'Sheets', label: t('category.Sheets') },
+  { value: 'Pipes', label: t('category.Pipes') },
+  { value: 'Beams', label: t('category.Beams') },
+  { value: 'Rebars', label: t('category.Rebars') },
+  { value: 'Lintels', label: t('category.Lintels') },
+  { value: 'Profiles', label: t('category.Profiles') },
+  { value: 'Wire', label: t('category.Wire') },
+  { value: 'Fittings', label: t('category.Fittings') },
+  { value: 'Hot-rolled Sheets', label: t('category.Hot-rolled Sheets') },
+  { value: 'Cold-rolled Sheets', label: t('category.Cold-rolled Sheets') },
+  { value: 'Seamless Pipes', label: t('category.Seamless Pipes') },
+  { value: 'I-Beams', label: t('category.I-Beams') },
+  { value: 'Channels (U-bars)', label: t('category.Channels (U-bars)') },
+  { value: 'Stainless Plates', label: t('category.Stainless Plates') },
+  { value: 'Rebars A500C', label: t('category.Rebars A500C') },
+])
 
 function statusPillFor(status: SupplierStatus): string {
   return STATUS_OPTIONS.find((o) => o.value === status)?.pill ?? 'pill-default'

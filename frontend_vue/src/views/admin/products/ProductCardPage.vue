@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n'
 import { useHead } from '@/composables/useHead'
 import { useFeatureFlag } from '@/composables/useFeatureFlag'
 import { useProductCard } from '@/composables/useProductCard'
+import { useLabelResolver } from '@/composables/useLabelResolver'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
 import Breadcrumb from '@/components/admin/Breadcrumb.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
@@ -20,6 +21,7 @@ import '@styles/admin/components/_entity-card-layout.css'
 import '@styles/admin/products_card.css'
 
 const { t } = useI18n()
+const { resolveLabel } = useLabelResolver()
 const route = useRoute()
 const router = useRouter()
 const id = route.params.id as string
@@ -34,9 +36,12 @@ const {
   load, save, discard,
 } = useProductCard(id)
 
+
+const pageTitle = computed(() => (product.value?.name ? resolveLabel(product.value.name) : t('products.title')))
+
 useHead({
-  title: () => `Flexiron — ${product.value?.name ?? t('products.title')}`,
-  description: () => product.value?.name ?? t('products.title'),
+  title: () => `Flexiron — ${pageTitle.value}`,
+  description: () => pageTitle.value,
 })
 
 const priceUnitOptions = computed(() => [
@@ -99,11 +104,11 @@ onMounted(load)
       <Breadcrumb
         :items="[
           { label: t('products.header_title'), to: { name: 'admin-products' } },
-          { label: product?.name ?? '...' },
+          { label: product?.name ? resolveLabel(product.name) : '...' },
         ]"
       />
       <div class="product-card-header-row">
-        <h1 class="page-title">{{ product?.name ?? '...' }}</h1>
+        <h1 class="page-title">{{ product?.name ? resolveLabel(product.name) : '...' }}</h1>
         <div
           class="entity-action-bar no-margin pos-static"
           data-test="product-save-bar"
@@ -117,7 +122,7 @@ onMounted(load)
           <button
             class="btn btn-save"
             :class="{ dirty: isAnythingDirty, loading: saving }"
-            :disabled="!isAnythingDirty || saving"
+            :disabled="!product || !isAnythingDirty || saving"
             @click="save"
           >
             {{ t('products.btn_save') }}
@@ -145,7 +150,7 @@ onMounted(load)
                 readonly
                 data-test="field-category"
               />
-              <p class="field-hint">{{ t('products.field_category_hint') }}</p>
+              <span class="field-hint">{{ t('products.field_category_hint') }}</span>
             </InputGroup>
 
             <InputGroup :label="t('products.field_sku')" :required="false">
@@ -196,14 +201,14 @@ onMounted(load)
         <div class="entity-col-center">
           <GlassPanel
             v-if="product && product.fieldValues.length > 0"
-            :title="t('products.section_fields')"
+            :title="product && product.categoryId ? t('products.section_fields_title', { path: getCategoryPath(product.categoryId) }) : t('products.section_fields')"
             :loading="loading"
             :skeleton-rows="4"
             data-test="product-card-fields"
           >
 
             <template v-for="fv in product.fieldValues" :key="fv.fieldId">
-              <InputGroup :label="fv.fieldName" :required="false">
+              <InputGroup :label="resolveLabel(fv.fieldName)" :required="false">
                 <span v-if="fv.inherited" class="field-inherited-badge">
                   {{ t('products.field_inherited_badge') }}
                 </span>
@@ -240,18 +245,20 @@ onMounted(load)
                   <CustomSelect
                     v-else-if="fv.fieldType === 'enum'"
                     v-model="(fieldValues as Record<string, unknown>)[fv.fieldId] as string"
-                    :options="(fv.options ?? []).map((o) => ({ value: o, label: o }))"
+                    :options="(fv.options ?? []).map((o) => ({ value: o, label: resolveLabel(o) }))"
                   />
                   <template v-else-if="fv.fieldType === 'file'">
-                    <FileItem
-                      v-for="fname in (fieldValues[fv.fieldId] as string[])"
-                      :key="fname"
-                      :name="fname"
-                      download-url="#"
-                      @delete="removeFieldFile(fv.fieldId, fname)"
-                    />
+                    <div class="file-list" style="margin-bottom: 12px">
+                      <FileItem
+                        v-for="fname in (fieldValues[fv.fieldId] as string[])"
+                        :key="fname"
+                        :name="fname"
+                        download-url="#"
+                        @delete="removeFieldFile(fv.fieldId, fname)"
+                      />
+                    </div>
                     <DropZone
-                      hint="PDF / image"
+                      :hint="t('products.dropzone_hint')"
                       :multiple="true"
                       @uploaded="(files) => addFieldFiles(fv.fieldId, files)"
                     />
@@ -275,8 +282,8 @@ onMounted(load)
               <button
                 class="btn btn-primary"
                 type="button"
-                @click="showAddSupplier = true"
                 data-test="add-supplier-open"
+                @click="showAddSupplier = true"
               >
                 <SvgIcon name="plus-add" :width="16" :height="16" />
                 <span>{{ t('products.btn_add_supplier') }}</span>
@@ -293,12 +300,12 @@ onMounted(load)
                     <th>{{ t('suppliers.list') }}</th>
                     <th>{{ t('products.field_price') }}</th>
                     <th>{{ t('suppliers.th_lead_time') }}</th>
-                    <th style="width: 32px" />
+                    <th style="width: 32px"></th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr v-for="s in linkedSuppliers" :key="s.id">
-                    <td @click="router.push({ name: 'admin-supplier-card', params: { id: s.id } })" style="cursor:pointer">{{ s.name }}</td>
+                    <td style="cursor:pointer" @click="router.push({ name: 'admin-supplier-card', params: { id: s.id } })">{{ s.name }}</td>
                     <td>{{ s.price != null ? `${s.price} ${s.priceUnit ?? ''}` : '—' }}</td>
                     <td>{{ s.leadDays != null ? `${s.leadDays} d.` : '—' }}</td>
                     <td>

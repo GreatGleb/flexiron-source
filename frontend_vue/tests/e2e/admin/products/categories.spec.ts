@@ -30,9 +30,11 @@ import { waitForFontsReady, SNAPSHOT_OPTIONS, stabilizeForSnapshot } from '../..
  *   [data-test="category-field-row"] × N
  *   [data-test="modal-field"]
  *
- * Mock STORE: 6 categories — Metal (root, 2 fields), Sheets (child of Metal, productCount:12),
+ * Mock STORE: 13 categories — Metal (root, 3 fields), Sheets (child of Metal, productCount:12),
  *   Aluminium sheets (child of Sheets, productCount:4), Pipes (child of Metal),
- *   Consumables (root), Equipment (root).
+ *   Consumables (root), Equipment (root), Beams (child of Metal), Channels (child of Metal),
+ *   Angles (child of Metal), Rebars (child of Metal), Profiles (child of Metal),
+ *   Wire (child of Metal), Fittings (child of Metal).
  */
 
 const baseTest = base
@@ -40,7 +42,7 @@ const baseTest = base
 const CATEGORIES_URL = '/admin/products/categories'
 const CARD_URL = (id: string) => `/admin/products/categories/${id}`
 const DESKTOP = { width: 1440, height: 900 }
-const TOTAL_MOCK = 6
+const TOTAL_MOCK = 13
 
 // ────────────────────────────────────────────────────────────────────────────
 // List — structure
@@ -344,6 +346,10 @@ test.describe('category-card › own fields', () => {
   test('deleting a field removes it from the list', async ({ page }) => {
     const initialCount = await page.locator('[data-test="category-field-row"]').count()
     await page.locator('[data-test="category-field-row"]').first().locator('.action-danger').click()
+    // Confirm deletion in the modal
+    await expect(page.locator('[data-test="modal-delete-field"]')).toBeVisible()
+    await page.locator('[data-test="confirm-delete-field"]').click()
+    await expect(page.locator('[data-test="modal-delete-field"]')).toBeHidden()
     await expect(page.locator('[data-test="category-field-row"]')).toHaveCount(initialCount - 1)
   })
 })
