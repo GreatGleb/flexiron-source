@@ -83,25 +83,91 @@ Explore agent gives structural overview — it does not replace targeted verific
 - i18n keys use dot notation: `page.section.element`
 - Feature flags in `src/config/featureFlags.ts`
 
-## Skills & Orchestration
+## Skills Directory
 
-### Orchestrator (main — run this first)
+**All skills are located at:** [`roo_code/skills/`](roo_code/skills/)
+
+This directory contains 9 skill files. **Every session starts with awareness of these skills.** When a task matches a skill's purpose — read and follow that skill. Do not wait to be told.
+
+---
+
+## Skills Decision Matrix
+
+Use this matrix to determine which skill to invoke for any given task. **Read the skill file completely before executing.**
+
+| Trigger / Task Description | Skill to Invoke | File |
+|---|---|---|
+| User mentions a page, section, task continuation, or any work stage | **Orchestrator** — determines current stage and transitions between skills | [`orchestrate.md`](roo_code/skills/orchestrate.md) |
+| Creating a new implementation plan for a page (no plan exists yet) | **create-plan** — writes complete plan covering all 11 phases | [`create-plan.md`](roo_code/skills/create-plan.md) |
+| Implementing a page from an existing plan (phase-by-phase) | **create-page** — executes plan phases 0–10 with stops after each | [`create-page.md`](roo_code/skills/create-page.md) |
+| Before manual testing — deep automated verification of a newly implemented page | **pre-manual-check** — runs 8 groups of checks, writes bugs to file | [`pre-manual-check.md`](roo_code/skills/pre-manual-check.md) |
+| User sends a bug list, describes UI issues, or pastes problems | **add-bug** — auto-triggered, formats and records bugs to bugs-file | [`add-bug.md`](roo_code/skills/add-bug.md) |
+| Fixing bugs from a bugs-file (one bug per cycle, max 5 verification iterations) | **fix-bugs** — read → verify → plan → fix → verify cycle | [`fix-bugs.md`](roo_code/skills/fix-bugs.md) |
+| After all bugs fixed — root cause analysis and skill improvement | **update-skills** — finds gaps in create-page/create-plan/vue-rules and closes them | [`update-skills.md`](roo_code/skills/update-skills.md) |
+| Running full verification (typecheck + lint + integrity checks) | **verify** — runs checklist and reports results | [`verify.md`](roo_code/skills/verify.md) |
+| Writing Vue 3 code, adding `:class` bindings, editing mocks, building forms, adding pages/components, refactoring, choosing HTTP methods, debugging CSS/reactivity | **vue-rules** — 33 pitfalls + save UX + HTTP methods + contract-first rules | [`vue-rules.md`](roo_code/skills/vue-rules.md) |
+
+---
+
+## When to Use Skills — Detailed Guidance
+
+### 🔴 ALWAYS read the relevant skill when:
+
+1. **Starting any page implementation** → read [`orchestrate.md`](roo_code/skills/orchestrate.md) first, then [`create-page.md`](roo_code/skills/create-page.md) and [`vue-rules.md`](roo_code/skills/vue-rules.md)
+2. **Writing any plan** → read [`create-plan.md`](roo_code/skills/create-plan.md) and [`create-page.md`](roo_code/skills/create-page.md) completely
+3. **Fixing any bug** → read [`fix-bugs.md`](roo_code/skills/fix-bugs.md) before touching code
+4. **Before manual testing** → read [`pre-manual-check.md`](roo_code/skills/pre-manual-check.md)
+5. **After fixing bugs** → read [`update-skills.md`](roo_code/skills/update-skills.md)
+6. **Writing any Vue code** → read [`vue-rules.md`](roo_code/skills/vue-rules.md) — especially pitfalls #1–#33
+7. **Running verification** → read [`verify.md`](roo_code/skills/verify.md)
+
+### 🟡 Consider reading when:
+
+- **User reports a problem** → could be a bug → [`add-bug.md`](roo_code/skills/add-bug.md) may auto-trigger
+- **Task involves multiple pages or complex workflow** → [`orchestrate.md`](roo_code/skills/orchestrate.md) manages transitions
+- **You're unsure which skill applies** → read [`orchestrate.md`](roo_code/skills/orchestrate.md) — it determines the correct stage
+
+### 🟢 Not needed when:
+
+- Simple questions or explanations (use general knowledge)
+- Tasks unrelated to frontend development (e.g., backend, infrastructure)
+
+---
+
+## Skill Invocation Protocol
+
+1. **Identify** — when a task starts, check the decision matrix above
+2. **Read** — open the skill file and read it **completely** before taking any action
+3. **Follow** — execute the skill's instructions step by step
+4. **Complete** — after the skill finishes, check if another skill should follow (orchestrator handles this automatically)
+
+**If multiple skills apply** (e.g., create-page + vue-rules) — read both. Skills are designed to complement each other.
+
+---
+
+## Orchestrator (main entry point — run this first)
+
 When user mentions a page, bugs, work stage, section, or task continuation — **IMMEDIATELY**:
-1. Read `roo_code/skills/orchestrate.md`
+1. Read [`roo_code/skills/orchestrate.md`](roo_code/skills/orchestrate.md)
 2. Determine Plan ID and current stage from files
 3. Announce stage to user and continue
 
 **Do NOT wait for commands. Do NOT respond "waiting for list" without starting orchestrator.**
 
-### Individual Skills
-- `/create-plan` — [`roo_code/skills/create-plan.md`](roo_code/skills/create-plan.md) — writes page implementation plan
-- `/create-page` — [`roo_code/skills/create-page.md`](roo_code/skills/create-page.md) — executes plan phase by phase (11 phases, 0–10)
-- `/pre-manual-check <plan>` — [`roo_code/skills/pre-manual-check.md`](roo_code/skills/pre-manual-check.md) — 8 grouped check categories before manual test
-- `add-bug` — [`roo_code/skills/add-bug.md`](roo_code/skills/add-bug.md) — auto-trigger when user sends bug list
-- `/fix-bugs <plan> [bug]` — [`roo_code/skills/fix-bugs.md`](roo_code/skills/fix-bugs.md) — fix bugs from file, max 5 verification iterations per bug
-- `/update-skills <plan>` — [`roo_code/skills/update-skills.md`](roo_code/skills/update-skills.md) — for each ✅ bug find root cause → add to skills
-- `/verify` — [`roo_code/skills/verify.md`](roo_code/skills/verify.md) — run verification checklist (typecheck + lint + integrity checks)
-- `/vue-rules` — [`roo_code/skills/vue-rules.md`](roo_code/skills/vue-rules.md) — Vue 3 pitfalls and rules (33 pitfalls)
+---
+
+## Individual Skills Reference
+
+| Command | Skill File | Purpose |
+|---|---|---|
+| `/create-plan` | [`create-plan.md`](roo_code/skills/create-plan.md) | Writes page implementation plan |
+| `/create-page` | [`create-page.md`](roo_code/skills/create-page.md) | Executes plan phase by phase (11 phases, 0–10) |
+| `/pre-manual-check <plan>` | [`pre-manual-check.md`](roo_code/skills/pre-manual-check.md) | 8 grouped check categories before manual test |
+| `add-bug` | [`add-bug.md`](roo_code/skills/add-bug.md) | Auto-trigger when user sends bug list |
+| `/fix-bugs <plan> [bug]` | [`fix-bugs.md`](roo_code/skills/fix-bugs.md) | Fix bugs from file, max 5 verification iterations per bug |
+| `/update-skills <plan>` | [`update-skills.md`](roo_code/skills/update-skills.md) | For each ✅ bug find root cause → add to skills |
+| `/verify` | [`verify.md`](roo_code/skills/verify.md) | Run verification checklist (typecheck + lint + integrity checks) |
+| `/vue-rules` | [`vue-rules.md`](roo_code/skills/vue-rules.md) | Vue 3 pitfalls and rules (33 pitfalls) |
 
 ## MCP Servers
 
