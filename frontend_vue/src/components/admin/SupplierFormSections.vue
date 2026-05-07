@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { mergeLocaleValue } from '@/types/i18n'
+import type { TranslatedString } from '@/types/i18n'
 import { useI18n } from 'vue-i18n'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
 import NoteItem from '@/components/admin/NoteItem.vue'
@@ -7,11 +9,33 @@ import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
 import TagInput from '@/components/admin/ui/TagInput.vue'
 import RatingSelect from '@/components/admin/ui/RatingSelect.vue'
 import DatePicker from '@/components/admin/ui/DatePicker.vue'
+import { useTranslatedField } from '@/composables/useTranslatedData'
 import type { SupplierCardData, SupplierStatus } from '@/types/supplier'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
+const { tf } = useTranslatedField()
 
 const supplier = defineModel<SupplierCardData>({ required: true })
+
+function setTranslatedField(field: keyof SupplierCardData, value: string) {
+  const translated = mergeLocaleValue(supplier.value[field] as TranslatedString | null | undefined, value, locale.value)
+  supplier.value = { ...supplier.value, [field]: translated }
+}
+
+const companyModel = computed({
+  get: () => (supplier.value.company ? tf(supplier.value.company) : ''),
+  set: (v: string) => setTranslatedField('company', v),
+})
+
+const contactPersonModel = computed({
+  get: () => (supplier.value.contactPerson ? tf(supplier.value.contactPerson) : ''),
+  set: (v: string) => setTranslatedField('contactPerson', v),
+})
+
+const statusReasonModel = computed({
+  get: () => (supplier.value.statusReason ? tf(supplier.value.statusReason) : ''),
+  set: (v: string) => setTranslatedField('statusReason', v),
+})
 
 const STATUS_OPTIONS: { value: SupplierStatus; labelKey: string; pill: string }[] = [
   { value: 'active', labelKey: 'st.active', pill: 'pill-success' },
@@ -124,7 +148,7 @@ function removeNoteAt(index: number) {
       <div class="input-group">
         <label class="field-label">{{ t('sp.status_reason') }}</label>
         <textarea
-          v-model="supplier.statusReason"
+          v-model="statusReasonModel"
           class="glass-input"
           rows="2"
           :placeholder="t('sp.status_placeholder')"
@@ -142,7 +166,7 @@ function removeNoteAt(index: number) {
       <div class="input-group">
         <label class="field-label">{{ t('sp.name') }}</label>
         <input
-          v-model="supplier.company"
+          v-model="companyModel"
           type="text"
           class="glass-input"
           data-test="supplier-form-company"
@@ -176,7 +200,7 @@ function removeNoteAt(index: number) {
         <div class="input-group">
           <label class="field-label">{{ t('sp.contact_name') }}</label>
           <input
-            v-model="supplier.contactPerson"
+            v-model="contactPersonModel"
             type="text"
             class="glass-input"
             data-test="supplier-form-contact-name"

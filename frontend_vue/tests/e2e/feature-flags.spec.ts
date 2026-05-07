@@ -18,6 +18,8 @@ const PAGE_FLAG_ROUTES: Array<{ flag: keyof typeof ALL_FLAGS_ENABLED; route: str
   { flag: 'adminPlReport', route: '/admin/analytics/pl-report' },
   { flag: 'adminDeficit', route: '/admin/analytics/deficit' },
   { flag: 'adminCategories', route: '/admin/products/categories' },
+  { flag: 'adminProducts', route: '/admin/products' },
+  { flag: 'adminProducts', route: '/admin/products/prod-001' },
   { flag: 'suppliersList', route: '/admin/suppliers' },
   { flag: 'supplierCreate', route: '/admin/suppliers/new' },
   { flag: 'supplierCard', route: '/admin/suppliers/S-001' },

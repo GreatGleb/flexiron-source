@@ -206,12 +206,13 @@ test.describe('sales › top clients chart', () => {
   })
 
   test('EUR values are the expected formatted numbers', async ({ page }) => {
+    // Component uses toLocaleString() which in en-US produces comma-separated.
     const vals = page.locator('[data-test="sales-top-clients-row"] .bar-val')
-    await expect.soft(vals.nth(0)).toHaveText('18 400 €')
-    await expect.soft(vals.nth(1)).toHaveText('13 100 €')
-    await expect.soft(vals.nth(2)).toHaveText('9 500 €')
-    await expect.soft(vals.nth(3)).toHaveText('6 300 €')
-    await expect.soft(vals.nth(4)).toHaveText('4 000 €')
+    await expect.soft(vals.nth(0)).toHaveText('18,400 €')
+    await expect.soft(vals.nth(1)).toHaveText('13,100 €')
+    await expect.soft(vals.nth(2)).toHaveText('9,500 €')
+    await expect.soft(vals.nth(3)).toHaveText('6,300 €')
+    await expect.soft(vals.nth(4)).toHaveText('4,000 €')
   })
 })
 

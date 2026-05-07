@@ -1,11 +1,12 @@
+import { mergeTranslatedString } from '@/types/i18n'
 import type { Supplier, SupplierCardData, SupplierFilters } from '@/types/supplier'
 import type { PaginatedResponse, PaginationParams } from '@/types/api'
 
 export const MOCK_SUPPLIERS: Supplier[] = [
   {
     id: '1',
-    company: 'Steel Plus OÜ',
-    contactPerson: 'Andres Tamm',
+    company: { ru: 'Steel Plus OÜ', en: 'Steel Plus OÜ', lt: 'Steel Plus OÜ' },
+    contactPerson: { ru: 'Андрес Тамм', en: 'Andres Tamm', lt: 'Andres Tamm' },
     email: 'info@steelplus.ee',
     phone: '+372 51234567',
     status: 'active',
@@ -23,8 +24,8 @@ export const MOCK_SUPPLIERS: Supplier[] = [
   },
   {
     id: '2',
-    company: 'Metal Trade LT',
-    contactPerson: 'Jonas Kazlauskas',
+    company: { ru: 'Metal Trade LT', en: 'Metal Trade LT', lt: 'Metal Trade LT' },
+    contactPerson: { ru: 'Йонас Казлаускас', en: 'Jonas Kazlauskas', lt: 'Jonas Kazlauskas' },
     email: 'sales@metaltrade.lt',
     phone: '+370 61234567',
     status: 'preferred',
@@ -42,8 +43,8 @@ export const MOCK_SUPPLIERS: Supplier[] = [
   },
   {
     id: '3',
-    company: 'Nordic Steel AB',
-    contactPerson: 'Erik Johansson',
+    company: { ru: 'Nordic Steel AB', en: 'Nordic Steel AB', lt: 'Nordic Steel AB' },
+    contactPerson: { ru: 'Эрик Йоханссон', en: 'Erik Johansson', lt: 'Erik Johansson' },
     email: 'order@nordicsteel.se',
     phone: '+46 81234567',
     status: 'active',
@@ -61,8 +62,8 @@ export const MOCK_SUPPLIERS: Supplier[] = [
   },
   {
     id: '4',
-    company: 'Baltic Metal Group',
-    contactPerson: 'Jānis Bērziņš',
+    company: { ru: 'Baltic Metal Group', en: 'Baltic Metal Group', lt: 'Baltic Metal Group' },
+    contactPerson: { ru: 'Янис Берзиньш', en: 'Jānis Bērziņš', lt: 'Jānis Bērziņš' },
     email: 'contact@balticmetal.lv',
     phone: '+371 21234567',
     status: 'new',
@@ -80,8 +81,8 @@ export const MOCK_SUPPLIERS: Supplier[] = [
   },
   {
     id: '5',
-    company: 'Euro Metal GmbH',
-    contactPerson: 'Klaus Müller',
+    company: { ru: 'Euro Metal GmbH', en: 'Euro Metal GmbH', lt: 'Euro Metal GmbH' },
+    contactPerson: { ru: 'Клаус Мюллер', en: 'Klaus Müller', lt: 'Klaus Müller' },
     email: 'info@eurometal.de',
     phone: '+49 301234567',
     status: 'under_review',
@@ -99,8 +100,8 @@ export const MOCK_SUPPLIERS: Supplier[] = [
   },
   {
     id: '6',
-    company: 'IronBridge Corp',
-    contactPerson: 'Michael Wilson',
+    company: { ru: 'IronBridge Corp', en: 'IronBridge Corp', lt: 'IronBridge Corp' },
+    contactPerson: { ru: 'Майкл Уилсон', en: 'Michael Wilson', lt: 'Michael Wilson' },
     email: 'tender@ironbridge.net',
     phone: '+44 201234567',
     status: 'active',
@@ -123,7 +124,7 @@ const supplier1 = MOCK_SUPPLIERS.find((s) => s.id === '1')!
 const MOCK_CARD: Record<string, SupplierCardData> = {
   '1': {
     ...supplier1,
-    statusReason: 'Audit passed. Reliability rating upgraded to 5 stars.',
+    statusReason: { ru: 'Аудит пройден. Надёжность повышена до 5 звёзд.', en: 'Audit passed. Reliability rating upgraded to 5 stars.', lt: 'Auditas išlaikytas. Patikimumas padidintas iki 5 žvaigždučių.' },
     contractDate: '2024-02-15',
     vatCode: 'LT100001234567',
     currency: 'EUR',
@@ -135,14 +136,14 @@ const MOCK_CARD: Record<string, SupplierCardData> = {
     ],
     contacts: [
       {
-        name: 'Andres Tamm',
-        role: 'Sales Manager',
+        name: { ru: 'Андрес Тамм', en: 'Andres Tamm', lt: 'Andres Tamm' },
+        role: { ru: 'Менеджер по продажам', en: 'Sales Manager', lt: 'Pardavimų vadybininkas' },
         email: 'info@steelplus.ee',
         phone: '+372 51234567',
       },
       {
-        name: 'Mari Kask',
-        role: 'Logistics',
+        name: { ru: 'Мари Каск', en: 'Mari Kask', lt: 'Mari Kask' },
+        role: { ru: 'Логистика', en: 'Logistics', lt: 'Logistika' },
         email: 'logistics@steelplus.ee',
         phone: '+372 51234568',
       },
@@ -150,14 +151,14 @@ const MOCK_CARD: Record<string, SupplierCardData> = {
     files: [
       {
         id: 'f1',
-        name: 'Contract_2024_Q1.pdf',
+        name: { ru: 'Контракт 2024 Q1', en: 'Contract_2024_Q1.pdf', lt: 'Sutartis 2024 Q1' },
         size: 245000,
         type: 'application/pdf',
         uploadedAt: '2024-02-15',
       },
       {
         id: 'f2',
-        name: 'VAT_Certificate.png',
+        name: { ru: 'Сертификат НДС', en: 'VAT_Certificate.png', lt: 'PVM sertifikatas' },
         size: 120000,
         type: 'image/png',
         uploadedAt: '2024-02-20',
@@ -166,64 +167,64 @@ const MOCK_CARD: Record<string, SupplierCardData> = {
     history: [
       {
         date: '2026-04-01',
-        action: 'BCC Sent',
-        user: 'Admin',
-        details: 'Price request for Sheets',
+        action: { ru: 'Отправлен BCC', en: 'BCC Sent', lt: 'BCC išsiųstas' },
+        user: { ru: 'Администратор', en: 'Admin', lt: 'Administratorius' },
+        details: { ru: 'Запрос цен на листы', en: 'Price request for Sheets', lt: 'Kainų užklausa lakštams' },
       },
-      { date: '2026-03-15', action: 'Rating Updated', user: 'Admin', details: 'Rating: 4 → 5' },
+      { date: '2026-03-15', action: { ru: 'Рейтинг обновлён', en: 'Rating Updated', lt: 'Įvertinimas atnaujintas' }, user: { ru: 'Администратор', en: 'Admin', lt: 'Administratorius' }, details: { ru: 'Рейтинг: 4 → 5', en: 'Rating: 4 → 5', lt: 'Įvertinimas: 4 → 5' } },
     ],
     priceHistory: [
       {
         date: '04.04',
-        product: 'Sheet 10mm',
+        product: { ru: 'Лист 10мм', en: 'Sheet 10mm', lt: 'Lakštas 10mm' },
         stock: '22.0 t',
         price: 1.05,
-        unit: 'kg',
-        source: 'BCC Tool',
+        unit: { ru: 'кг', en: 'kg', lt: 'kg' },
+        source: { ru: 'BCC Инструмент', en: 'BCC Tool', lt: 'BCC Įrankis' },
         status: 'replied',
       },
       {
         date: '02.04',
-        product: 'Sheets 20t',
+        product: { ru: 'Листы 20т', en: 'Sheets 20t', lt: 'Lakštai 20t' },
         stock: '—',
         price: null,
         unit: null,
-        source: 'BCC Tool',
+        source: { ru: 'BCC Инструмент', en: 'BCC Tool', lt: 'BCC Įrankis' },
         status: 'pending',
       },
       {
         date: '28.03',
-        product: 'Pipe 100x100',
+        product: { ru: 'Труба 100x100', en: 'Pipe 100x100', lt: 'Vamzdis 100x100' },
         stock: '8.5 t',
         price: 1.34,
-        unit: 'kg',
-        source: 'Email',
+        unit: { ru: 'кг', en: 'kg', lt: 'kg' },
+        source: { ru: 'Эл. почта', en: 'Email', lt: 'El. paštas' },
         status: 'replied',
       },
       {
         date: '25.03',
-        product: 'Structural 5t',
+        product: { ru: 'Строительный 5т', en: 'Structural 5t', lt: 'Konstrukcinis 5t' },
         stock: '—',
         price: null,
         unit: null,
-        source: 'Email',
+        source: { ru: 'Эл. почта', en: 'Email', lt: 'El. paštas' },
         status: 'pending',
       },
     ],
     auditLog: [
       {
         timestamp: '2026-04-05 01:10',
-        user: 'Maxim V.',
+        user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
         userInitials: 'MV',
-        property: 'Payment Terms',
+        property: { ru: 'Условия оплаты', en: 'Payment Terms', lt: 'Mokėjimo sąlygos' },
         oldValue: 'Prepayment',
         newValue: '30 Days Net',
       },
       {
         timestamp: '2026-04-01 10:25',
-        user: 'Alex Z.',
+        user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
         userInitials: 'AZ',
-        property: 'Min. Order',
+        property: { ru: 'Мин. заказ', en: 'Min. Order', lt: 'Min. užsakymas' },
         oldValue: '1000 EUR',
         newValue: '2500 EUR',
       },
@@ -233,8 +234,15 @@ const MOCK_CARD: Record<string, SupplierCardData> = {
 
 function applyFilters(list: Supplier[], filters: SupplierFilters): Supplier[] {
   return list.filter((s) => {
-    if (filters.search && !s.company.toLowerCase().includes(filters.search.toLowerCase()))
-      return false
+    if (filters.search) {
+      const q = filters.search.toLowerCase()
+      const matchesSearch =
+        s.company.ru?.toLowerCase().includes(q) ||
+        s.company.en?.toLowerCase().includes(q) ||
+        s.company.lt?.toLowerCase().includes(q) ||
+        s.email.toLowerCase().includes(q)
+      if (!matchesSearch) return false
+    }
     if (filters.status !== 'all' && s.status !== filters.status) return false
     if (filters.rating > 0 && s.rating !== filters.rating) return false
     if (filters.categories.length > 0) {
@@ -276,7 +284,7 @@ export function mockGetSupplier(id: string): SupplierCardData {
   if (!base) throw new Error(`Supplier ${id} not found`)
   return {
     ...base,
-    statusReason: '',
+    statusReason: { ru: '', en: '', lt: '' },
     contractDate: base.createdAt,
     vatCode: '',
     currency: 'EUR',
@@ -292,56 +300,56 @@ export function mockGetSupplier(id: string): SupplierCardData {
         zip: '',
       },
     ],
-    contacts: [{ name: base.contactPerson, role: 'Contact', email: base.email, phone: base.phone }],
+    contacts: [{ name: base.contactPerson, role: { ru: 'Контакт', en: 'Contact', lt: 'Kontaktas' }, email: base.email, phone: base.phone }],
     files: [],
     history: [
       {
         date: base.updatedAt,
-        action: 'Profile Updated',
-        user: 'System',
-        details: 'Contact info refreshed',
+        action: { ru: 'Профиль обновлён', en: 'Profile Updated', lt: 'Profilis atnaujintas' },
+        user: { ru: 'Система', en: 'System', lt: 'Sistema' },
+        details: { ru: 'Контактная информация обновлена', en: 'Contact info refreshed', lt: 'Kontaktinė informacija atnaujinta' },
       },
       {
         date: base.createdAt,
-        action: 'Supplier Created',
-        user: 'Admin',
-        details: `Status: ${base.status}`,
+        action: { ru: 'Поставщик создан', en: 'Supplier Created', lt: 'Tiekėjas sukurtas' },
+        user: { ru: 'Администратор', en: 'Admin', lt: 'Administratorius' },
+        details: { ru: `Статус: ${base.status}`, en: `Status: ${base.status}`, lt: `Būsena: ${base.status}` },
       },
     ],
     priceHistory: [
       {
         date: base.updatedAt.slice(5, 10).replace('-', '.'),
-        product: base.categories[0] ?? 'General',
+        product: { ru: base.categories[0] ?? 'Общее', en: base.categories[0] ?? 'General', lt: base.categories[0] ?? 'Bendras' },
         stock: '10 t',
         price: 1.2,
-        unit: 'kg',
-        source: 'BCC Tool',
+        unit: { ru: 'кг', en: 'kg', lt: 'kg' },
+        source: { ru: 'BCC Инструмент', en: 'BCC Tool', lt: 'BCC Įrankis' },
         status: 'replied',
       },
       {
         date: (base.lastBccDate ?? base.updatedAt).slice(5, 10).replace('-', '.'),
-        product: base.categories.join(' + ') || 'Price request',
+        product: { ru: base.categories.join(' + ') || 'Запрос цен', en: base.categories.join(' + ') || 'Price request', lt: base.categories.join(' + ') || 'Kainų užklausa' },
         stock: '—',
         price: null,
         unit: null,
-        source: 'BCC Tool',
+        source: { ru: 'BCC Инструмент', en: 'BCC Tool', lt: 'BCC Įrankis' },
         status: 'sent',
       },
     ],
     auditLog: [
       {
         timestamp: base.updatedAt + ' 10:00',
-        user: 'System',
+        user: { ru: 'Система', en: 'System', lt: 'Sistema' },
         userInitials: 'SY',
-        property: 'Rating',
+        property: { ru: 'Рейтинг', en: 'Rating', lt: 'Įvertinimas' },
         oldValue: '—',
         newValue: String(base.rating),
       },
       {
         timestamp: base.createdAt + ' 09:00',
-        user: base.contactPerson,
-        userInitials: buildInitials(base.contactPerson),
-        property: 'Status',
+        user: { ru: base.contactPerson.ru, en: base.contactPerson.en, lt: base.contactPerson.lt },
+        userInitials: buildInitials(base.contactPerson.ru),
+        property: { ru: 'Статус', en: 'Status', lt: 'Būsena' },
         oldValue: '—',
         newValue: base.status,
       },
@@ -351,11 +359,36 @@ export function mockGetSupplier(id: string): SupplierCardData {
 
 export function mockPatchSupplier(id: string, patch: Partial<SupplierCardData>): SupplierCardData {
   const base = mockGetSupplier(id)
-  // Merge — only provided keys override. Propagate status changes back to the list mock too.
-  const merged = { ...base, ...patch }
-  if (patch.status && patch.status !== base.status) {
-    const listItem = MOCK_SUPPLIERS.find((s) => s.id === id)
-    if (listItem) listItem.status = patch.status as Supplier['status']
+  // Merge TranslatedString fields to preserve existing locales
+  const merged = {
+    ...base,
+    ...patch,
+    company: patch.company ? mergeTranslatedString(base.company, patch.company) : base.company,
+    contactPerson: patch.contactPerson ? mergeTranslatedString(base.contactPerson, patch.contactPerson) : base.contactPerson,
+    statusReason: patch.statusReason ? mergeTranslatedString(base.statusReason, patch.statusReason) : base.statusReason,
+  }
+  // Persist full merged card back to MOCK_CARD
+  MOCK_CARD[id] = merged
+
+  // Update the list entry with all shared fields so the suppliers list reflects changes
+  const listItem = MOCK_SUPPLIERS.find((s) => s.id === id)
+  if (listItem) {
+    listItem.company = merged.company
+    listItem.contactPerson = merged.contactPerson
+    listItem.email = merged.email
+    listItem.phone = merged.phone
+    listItem.status = merged.status
+    listItem.categories = merged.categories
+    listItem.rating = merged.rating
+    listItem.country = merged.country
+    listItem.city = merged.city
+    listItem.tags = merged.tags
+    listItem.notes = merged.notes
+    listItem.leadTime = merged.leadTime
+    listItem.lastBccDate = merged.lastBccDate
+    listItem.hasDeficit = merged.hasDeficit
+    listItem.createdAt = merged.createdAt
+    listItem.updatedAt = merged.updatedAt
   }
   return merged
 }
@@ -378,8 +411,8 @@ export function mockCreateSupplier(payload: Partial<SupplierCardData>): Supplier
   const today = new Date().toISOString().slice(0, 10)
   const s: Supplier = {
     id: newId,
-    company: payload.company ?? 'New Supplier',
-    contactPerson: payload.contactPerson ?? '',
+    company: payload.company ?? { ru: '', en: '', lt: '' },
+    contactPerson: payload.contactPerson ?? { ru: '', en: '', lt: '' },
     email: payload.email ?? '',
     phone: payload.phone ?? '',
     status: payload.status ?? 'new',
@@ -399,7 +432,7 @@ export function mockCreateSupplier(payload: Partial<SupplierCardData>): Supplier
 
   const card: SupplierCardData = {
     ...s,
-    statusReason: payload.statusReason ?? '',
+    statusReason: payload.statusReason ?? { ru: '', en: '', lt: '' },
     contractDate: payload.contractDate ?? '',
     vatCode: payload.vatCode ?? '',
     currency: payload.currency ?? 'EUR',
@@ -409,7 +442,7 @@ export function mockCreateSupplier(payload: Partial<SupplierCardData>): Supplier
     addresses: payload.addresses ?? [{ type: 'Legal', line1: '', city: '', country: '', zip: '' }],
     contacts: payload.contacts ?? [],
     files: payload.files ?? [],
-    history: [{ date: today, action: 'Supplier created', user: 'Admin', details: '' }],
+    history: [{ date: today, action: { ru: '', en: '', lt: '' }, user: { ru: '', en: '', lt: '' }, details: { ru: '', en: '', lt: '' } }],
     priceHistory: [],
     auditLog: [],
   }
@@ -426,7 +459,7 @@ export function mockExportSuppliersCsv(filters: SupplierFilters): string {
   const rows = filtered.map((s) =>
     [
       s.id,
-      s.company,
+      s.company.ru,
       s.email,
       s.phone,
       s.status,

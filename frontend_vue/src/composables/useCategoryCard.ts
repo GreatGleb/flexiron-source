@@ -4,13 +4,16 @@ import { getCategory, patchCategory, putCategoryFields } from '@/services/catego
 import { getSuppliers } from '@/services/suppliersService'
 import { useDirtyCheck } from './useDirtyCheck'
 import { useToast } from './useToast'
+import { useTranslatedField } from './useTranslatedData'
 import type { Category, CategoryField } from '@/types/category'
+import type { TranslatedString } from '@/types/i18n'
 import type { LinkedSupplier } from '@/types/product'
 import type { Supplier } from '@/types/supplier'
 
 export function useCategoryCard(id: string) {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const toast = useToast()
+  const { tf } = useTranslatedField()
 
   const category = ref<Category | null>(null)
   const loading = ref(false)
@@ -18,8 +21,12 @@ export function useCategoryCard(id: string) {
   const error = ref<string | null>(null)
 
   // Only track the three editable header fields — excludes fields[], inheritedFields, counts
-  const form = ref<Pick<Category, 'name' | 'parentId' | 'description'>>({
-    name: '',
+  const form = ref<{
+    name: TranslatedString | null
+    parentId: string | null
+    description: TranslatedString | null
+  }>({
+    name: null,
     parentId: null,
     description: null,
   })
@@ -97,8 +104,8 @@ export function useCategoryCard(id: string) {
       if (dirty.isDirty.value) Object.assign(patchDelta, dirty.diff())
       if (linkedSuppliersChanged.value)
         patchDelta.linkedSuppliers = JSON.parse(JSON.stringify(linkedSuppliers.value)) as LinkedSupplier[]
-      if (Object.keys(patchDelta).length > 0) calls.push(patchCategory(id, patchDelta))
-      if (fieldsChanged.value) calls.push(putCategoryFields(id, localFields.value))
+      if (Object.keys(patchDelta).length > 0) calls.push(patchCategory(id, patchDelta, locale.value))
+      if (fieldsChanged.value) calls.push(putCategoryFields(id, localFields.value, locale.value))
       await Promise.all(calls)
       await load()
       toast.success(t('categories.toast_saved'))
@@ -162,5 +169,6 @@ export function useCategoryCard(id: string) {
     reorderFields,
     addLinkedSupplier,
     removeLinkedSupplier,
+    tf,
   }
 }

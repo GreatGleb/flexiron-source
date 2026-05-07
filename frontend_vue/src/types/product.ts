@@ -1,19 +1,20 @@
 import type { CategoryFieldType } from './category'
+import type { TranslatedString } from './i18n'
 
 export type PriceUnit = 'EUR/vnt' | 'EUR/kg' | 'EUR/m'
 
 export interface ProductFieldValue {
   fieldId: string
-  fieldName: string
+  fieldName: TranslatedString
   fieldType: CategoryFieldType
   value: string | number | boolean | string[] | null
   inherited: boolean
-  options?: string[]
+  options?: TranslatedString[]
 }
 
 export interface LinkedSupplier {
   id: string
-  name: string
+  name: TranslatedString
   price: number | null
   priceUnit: string | null
   leadDays: number | null
@@ -21,9 +22,9 @@ export interface LinkedSupplier {
 
 export interface ProductListItem {
   id: string
-  name: string
+  name: TranslatedString
   categoryId: string | null
-  categoryName: string | null
+  categoryName: TranslatedString | null
   sku: string | null
   price: number | null
   minStock: number | null
@@ -33,9 +34,9 @@ export interface ProductListItem {
 
 export interface Product {
   id: string
-  name: string
+  name: TranslatedString
   categoryId: string | null
-  categoryName: string | null
+  categoryName: TranslatedString | null
   sku: string | null
   description: string | null
   price: number | null

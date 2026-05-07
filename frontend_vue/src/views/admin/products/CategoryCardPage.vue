@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, watchEffect, toRaw } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
+import { toTranslatedString, mergeLocaleValue } from '@/types/i18n'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
 import Breadcrumb from '@/components/admin/Breadcrumb.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
@@ -13,7 +14,6 @@ import { useHead } from '@/composables/useHead'
 import { useFeatureFlag } from '@/composables/useFeatureFlag'
 import { useCategoryCard } from '@/composables/useCategoryCard'
 import { useDragDrop } from '@/composables/useDragDrop'
-import { useLabelResolver } from '@/composables/useLabelResolver'
 import { getCategories } from '@/services/categoriesService'
 import type { CategoryField, CategoryFieldType, CategoryListItem } from '@/types/category'
 import type { LinkedSupplier } from '@/types/product'
@@ -21,8 +21,7 @@ import type { LinkedSupplier } from '@/types/product'
 import '@styles/admin/components/_entity-card-layout.css'
 import '@styles/admin/categories_card.css'
 
-const { t } = useI18n()
-const { resolveLabel } = useLabelResolver()
+const { t, locale } = useI18n()
 const route = useRoute()
 
 const id = route.params.id as string
@@ -32,6 +31,7 @@ const {
   category,
   loading,
   saving,
+  error,
   form,
   localFields,
   linkedSuppliers,
@@ -46,10 +46,11 @@ const {
   reorderFields,
   addLinkedSupplier,
   removeLinkedSupplier,
+  tf,
 } = useCategoryCard(id)
 
 useHead({
-  title: () => category.value?.name ? resolveLabel(category.value.name) : t('categories.title'),
+  title: () => category.value?.name ? tf(category.value.name) : t('categories.title'),
   description: () => t('categories.title'),
 })
 
@@ -62,6 +63,13 @@ async function loadCategoryList() {
   allCategories.value = res.items
 }
 
+const formName = computed({
+  get: () => (form.value.name ? tf(form.value.name) : ''),
+  set: (v: string) => {
+    form.value.name = v ? mergeLocaleValue(form.value.name, v, locale.value) : null
+  },
+})
+
 const formParentId = computed({
   get: () => form.value.parentId ?? '',
   set: (v: string) => {
@@ -70,15 +78,15 @@ const formParentId = computed({
 })
 
 const formDescription = computed({
-  get: () => form.value.description ?? '',
+  get: () => (form.value.description ? tf(form.value.description) : ''),
   set: (v: string) => {
-    form.value.description = v || null
+    form.value.description = v ? mergeLocaleValue(form.value.description, v, locale.value) : null
   },
 })
 
 const parentOptions = computed(() => [
   { value: '', label: t('categories.field_parent_none') },
-  ...allCategories.value.filter((c) => c.id !== id).map((c) => ({ value: c.id, label: resolveLabel(c.name) })),
+  ...allCategories.value.filter((c) => c.id !== id).map((c) => ({ value: c.id, label: tf(c.name) })),
 ])
 
 // ─── Field type options ─────────────────────────────────────────────────────────
@@ -120,7 +128,11 @@ function openAddField() {
 
 function openEditField(field: CategoryField) {
   editingField.value = field
-  fieldDraft.value = { name: field.name, required: field.required, options: [...field.options] }
+  fieldDraft.value = {
+    name: tf(field.name),
+    required: field.required,
+    options: field.options.map((o) => tf(o)),
+  }
   fieldDraftType.value = field.type
   showAddFieldModal.value = true
 }
@@ -129,10 +141,10 @@ function submitFieldModal() {
   const name = fieldDraft.value.name.trim()
   if (!name) return
   const payload = {
-    name,
+    name: toTranslatedString(name, locale.value),
     type: fieldDraftType.value as CategoryFieldType,
     required: fieldDraft.value.required,
-    options: fieldDraftType.value === 'enum' ? fieldDraft.value.options : [],
+    options: fieldDraftType.value === 'enum' ? fieldDraft.value.options.map((o) => toTranslatedString(o, locale.value)) : [],
   }
   if (editingField.value) {
     updateField(editingField.value.id, payload)
@@ -149,7 +161,12 @@ const canReorder = useFeatureFlag('categoryFieldReorder')
 
 const dd = useDragDrop<CategoryField>(localFields.value)
 
-watch(localFields, (val) => dd.setItems(val), { deep: true })
+// Use watchEffect instead of watch with deep: true.
+// watchEffect does NOT use structuredClone on the reactive proxy internally,
+// so it avoids the "Failed to execute 'structuredClone'" error entirely.
+watchEffect(() => {
+  dd.setItems(toRaw(localFields.value))
+})
 
 function onFieldDragStart(field: CategoryField) {
   dd.onDragStart(field.id)
@@ -190,7 +207,7 @@ const supplierOptions = computed(() => {
   const linked = new Set(linkedSuppliers.value.map((s) => s.id))
   return suppliersList.value
     .filter((s) => !linked.has(s.id))
-    .map((s) => ({ value: s.id, label: s.company }))
+    .map((s) => ({ value: s.id, label: tf(s.company) }))
 })
 
 function submitAddSupplier() {
@@ -214,16 +231,38 @@ onMounted(() => {
 </script>
 
 <template>
+  <template v-if="loading">
+    <GlassPanel :loading="true" :skeleton-rows="6" />
+  </template>
+  <template v-else-if="error">
+    <Breadcrumb
+      :items="[
+        { label: t('products.header_title'), to: { name: 'admin-products' } },
+        { label: t('categories.header_title'), to: { name: 'admin-categories' } },
+        { label: t('common.entity_not_found') },
+      ]"
+    />
+    <div class="entity-not-found">
+      <SvgIcon name="search" :width="48" :height="48" />
+      <h2>{{ t('common.entity_not_found') }}</h2>
+      <p>{{ t('common.entity_not_found_id', { id }) }}</p>
+      <router-link :to="{ name: 'admin-categories' }" class="btn btn-primary">
+        {{ t('common.back_to_list') }}
+      </router-link>
+    </div>
+  </template>
+  <template v-else>
   <div class="page-category-card" data-test="page-category-card">
     <div class="category-card-header" data-test="category-card-header">
       <Breadcrumb
         :items="[
+          { label: t('products.header_title'), to: { name: 'admin-products' } },
           { label: t('categories.header_title'), to: { name: 'admin-categories' } },
-          { label: category?.name ? resolveLabel(category.name) : '...' },
+          { label: category?.name ? tf(category.name) : '...' },
         ]"
       />
       <div class="category-card-header-row">
-        <h1 class="page-title">{{ category?.name ? resolveLabel(category.name) : t('categories.title') }}</h1>
+        <h1 class="page-title">{{ category?.name ? tf(category.name) : t('categories.title') }}</h1>
         <div class="entity-action-bar no-margin pos-static" data-test="category-save-bar">
         <button
           type="button"
@@ -255,7 +294,7 @@ onMounted(() => {
     >
       <InputGroup :label="t('categories.field_name')">
         <input
-          v-model="form.name"
+          v-model="formName"
           type="text"
           class="glass-input"
           data-test="category-name-input"
@@ -286,12 +325,12 @@ onMounted(() => {
     >
       <p class="inherited-label">
         {{ t('categories.inherited_from') }}
-        {{ allCategories.find((c) => c.id === category?.parentId)?.name ? resolveLabel(allCategories.find((c) => c.id === category?.parentId)!.name) : '' }}
+        {{ allCategories.find((c) => c.id === category?.parentId)?.name ? tf(allCategories.find((c) => c.id === category?.parentId)!.name) : '' }}
       </p>
       <table class="data-table">
         <tbody>
           <tr v-for="field in category.inheritedFields" :key="field.id">
-            <td>{{ resolveLabel(field.name) }}</td>
+            <td>{{ tf(field.name) }}</td>
             <td><span class="tag tag-sm">{{ t(`categories.type_${field.type}`) }}</span></td>
             <td>
               <span v-if="field.required" class="tag tag-sm tag-required">
@@ -328,7 +367,7 @@ onMounted(() => {
             @drop="canReorder ? onFieldDrop(field) : undefined"
             @dragover.prevent
           >
-            <td>{{ resolveLabel(field.name) }}</td>
+            <td>{{ tf(field.name) }}</td>
             <td><span class="tag tag-sm">{{ t(`categories.type_${field.type}`) }}</span></td>
             <td>
               <span v-if="field.required" class="tag tag-sm tag-required">
@@ -388,7 +427,7 @@ onMounted(() => {
         </thead>
         <tbody>
           <tr v-for="s in linkedSuppliers" :key="s.id" data-test="category-supplier-row">
-            <td>{{ s.name }}</td>
+            <td>{{ tf(s.name) }}</td>
             <td>{{ s.leadDays }}</td>
             <td>
               <button
@@ -541,4 +580,5 @@ onMounted(() => {
       </template>
     </AppModal>
   </div>
+  </template>
 </template>

@@ -14,17 +14,18 @@ import SearchInput from '@/components/admin/ui/SearchInput.vue'
 import type { BccEventStatus, BccRequest } from '@/types/bcc'
 import { useBccRequest } from '@/composables/useBccRequest'
 import { acceptBccResponse, markBccNoResponse, logBccRequest } from '@/services/bccService'
+import { MOCK_BCC_HISTORY } from '@/services/mocks/bcc'
+import { mergeLocaleValue } from '@/types/i18n'
+import type { TranslatedString } from '@/types/i18n'
 import { useToast } from '@/composables/useToast'
 import { useHead } from '@/composables/useHead'
 import { useFeatureFlag } from '@/composables/useFeatureFlag'
-import { useLabelResolver } from '@/composables/useLabelResolver'
 import { getSupplier } from '@/services/suppliersService'
 
 import '@styles/admin/components/_checkbox-list.css'
 import '@styles/admin/bcc_request.css'
 
-const { t } = useI18n()
-const { resolveLabel } = useLabelResolver()
+const { t, locale } = useI18n()
 const route = useRoute()
 const { show: showToast } = useToast()
 const showBccHistory = useFeatureFlag('bccHistory')
@@ -42,11 +43,23 @@ const {
   template,
   sending,
   loading,
+  error,
   loadCategories,
   loadHistory,
   refreshRecipients,
   send,
+  tf,
 } = useBccRequest()
+
+const subjectModel = computed({
+  get: () => tf(template.subject),
+  set: (v: string) => { template.subject = mergeLocaleValue(template.subject, v, locale.value) },
+})
+
+const bodyModel = computed({
+  get: () => tf(template.body),
+  set: (v: string) => { template.body = mergeLocaleValue(template.body, v, locale.value) },
+})
 
 const selectedRecipientIds = ref<string[]>([])
 
@@ -54,8 +67,9 @@ const productOptions = computed(() =>
   categories.value.flatMap((cat) =>
     (cat.children ?? []).map((prod) => ({
       value: prod.id,
-      label: resolveLabel(prod.name),
-      group: resolveLabel(cat.name),
+      label: tf(prod.name),
+      name: prod.name,
+      group: tf(cat.name),
     })),
   ),
 )
@@ -73,7 +87,7 @@ const productPageSize = ref(10)
 
 const categoryFilterOptions = computed(() => [
   { value: 'all', label: t('bcc.all_categories', 'All categories') },
-  ...categories.value.map((c) => ({ value: c.id, label: resolveLabel(c.name) })),
+  ...categories.value.map((c) => ({ value: c.id, label: tf(c.name) })),
 ])
 
 // Flat list after search + category filter (still carries group info)
@@ -83,9 +97,11 @@ const filteredProducts = computed(() => {
   const out: { id: string; name: string; categoryId: string; categoryName: string }[] = []
   for (const c of categories.value) {
     if (cat !== 'all' && c.id !== cat) continue
+    const catName = tf(c.name)
     for (const p of c.children ?? []) {
-      if (q && !p.name.toLowerCase().includes(q) && !c.name.toLowerCase().includes(q)) continue
-      out.push({ id: p.id, name: p.name, categoryId: c.id, categoryName: c.name })
+      const prodName = tf(p.name)
+      if (q && !prodName.toLowerCase().includes(q) && !catName.toLowerCase().includes(q)) continue
+      out.push({ id: p.id, name: prodName, categoryId: c.id, categoryName: catName })
     }
   }
   return out
@@ -170,7 +186,7 @@ const filteredRecipients = computed(() => {
   const q = recipientSearch.value.trim().toLowerCase()
   if (!q) return recipients.value
   return recipients.value.filter(
-    (r) => r.company.toLowerCase().includes(q) || r.email.toLowerCase().includes(q),
+    (r) => tf(r.company).toLowerCase().includes(q) || r.email.toLowerCase().includes(q),
   )
 })
 
@@ -181,7 +197,7 @@ const sortedRecipients = computed(() => {
     const aSel = selSet.has(a.id) ? 1 : 0
     const bSel = selSet.has(b.id) ? 1 : 0
     if (aSel !== bSel) return bSel - aSel
-    return a.company.localeCompare(b.company)
+    return tf(a.company).localeCompare(tf(b.company))
   })
 })
 
@@ -249,7 +265,9 @@ function nextRequestId(): string {
 
 async function sendRequest() {
   if (!validateSelection()) return
-  if (!template.subject.trim()) {
+  const currentLocale = locale.value as keyof TranslatedString
+  const rawSubject = template.subject?.[currentLocale]
+  if (!rawSubject?.trim()) {
     showToast(t('msg.enter_subject'), 'error')
     return
   }
@@ -261,6 +279,7 @@ async function sendRequest() {
     await send()
     const rows = createEventRows('BCC Tool')
     history.value = [...rows, ...history.value]
+    MOCK_BCC_HISTORY.unshift(...rows)
     showToast(t('msg.bcc_sent'))
 
     // Reset products; keep preselected recipient (via email) checked for the next batch
@@ -280,7 +299,7 @@ function onAttachmentsUploaded(uploaded: UploadedFile[]) {
   for (const u of uploaded) {
     template.attachments.push({
       id: u.fileId,
-      name: u.name,
+      name: { ru: u.name, en: u.name, lt: u.name },
       size: u.size,
       type: u.mime,
     })
@@ -317,8 +336,8 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseUnit)
 
 function openResponseModal(evt: BccRequest) {
   modalEventId.value = evt.id
-  responseSupplier.value = evt.supplierName
-  responseProducts.value = [evt.productName]
+  responseSupplier.value = tf(evt.supplierName)
+  responseProducts.value = [tf(evt.productName)]
   responsePrice.value = evt.price ? String(evt.price) : ''
   responseUnit.value = evt.unit ?? 'kg'
   modalOpen.value = true
@@ -360,6 +379,14 @@ async function markNoResponse(evt: BccRequest) {
 const SOURCE_OPTIONS = ['BCC Tool', 'Email', 'Phone', 'Messenger', 'Other'] as const
 type LogSource = (typeof SOURCE_OPTIONS)[number]
 const logSource = ref<LogSource>('Email')
+
+const SOURCE_TRANSLATIONS: Record<string, TranslatedString> = {
+  'BCC Tool': { ru: 'BCC Инструмент', en: 'BCC Tool', lt: 'BCC įrankis' },
+  'Email': { ru: 'Email', en: 'Email', lt: 'El. paštas' },
+  'Phone': { ru: 'Телефон', en: 'Phone', lt: 'Telefonas' },
+  'Messenger': { ru: 'Мессенджер', en: 'Messenger', lt: 'Messenger' },
+  'Other': { ru: 'Другое', en: 'Other', lt: 'Kita' },
+}
 const logDropdownOpen = ref(false)
 
 function createEventRows(source: string): BccRequest[] {
@@ -378,8 +405,8 @@ function createEventRows(source: string): BccRequest[] {
         supplierId: r.id,
         supplierName: r.company,
         productId,
-        productName: p?.label ?? productId,
-        source,
+        productName: p?.name ?? { ru: productId, en: productId, lt: productId },
+        source: SOURCE_TRANSLATIONS[source] ?? mergeLocaleValue(undefined, source, locale.value),
         status: 'sent',
       })
     }
@@ -406,9 +433,10 @@ async function logRequest(source: string) {
       productIds: selectedProductIds.value,
       recipientIds: selectedRecipientIds.value,
       source,
-    })
+    }, locale.value)
     const rows = createEventRows(source)
     history.value = [...rows, ...history.value]
+    MOCK_BCC_HISTORY.unshift(...rows)
     showToast(t('msg.bcc_logged'))
 
     // Reset products; keep preselected recipient if any
@@ -481,7 +509,11 @@ function rebuildEmailBody() {
     .map((name) => `  - ${name}`)
     .join('\n')
   const itemsSection = items || 'All categories'
-  template.body = `Hello!\n\nPlease provide current prices for the following items:\n\n${itemsSection}\n\nBest regards,\nInBox LT Team`
+  template.body = {
+    ru: `Здравствуйте!\n\nПожалуйста, предоставьте текущие цены на следующие позиции:\n\n${itemsSection}\n\nС уважением,\nКоманда InBox LT`,
+    en: `Hello!\n\nPlease provide current prices for the following items:\n\n${itemsSection}\n\nBest regards,\nInBox LT Team`,
+    lt: `Sveiki!\n\nPrašome pateikti dabartines kainas šioms prekėms:\n\n${itemsSection}\n\nPagarbiai,\nInBox LT komanda`,
+  }
 }
 
 watch(selectedProductIds, rebuildEmailBody, { deep: true })
@@ -517,7 +549,7 @@ onMounted(async () => {
         if (!selectedRecipientIds.value.includes(match.id)) {
           selectedRecipientIds.value = [...selectedRecipientIds.value, match.id]
         }
-        showToast(t('bcc.preselected', { company: supplier.company }))
+        showToast(t('bcc.preselected', { company: tf(supplier.company) }))
       }
     } catch {
       /* supplier not found — ignore */
@@ -576,7 +608,14 @@ onMounted(async () => {
     </div>
   </div>
 
-  <div class="bcc-request-content" data-test="bcc-request-content">
+  <template v-if="loading && categories.length === 0 && recipients.length === 0">
+    <GlassPanel :loading="true" :skeleton-rows="8" />
+  </template>
+  <template v-else-if="error && categories.length === 0">
+    <div class="error-state">{{ error }}</div>
+  </template>
+  <template v-else>
+    <div class="bcc-request-content" data-test="bcc-request-content">
     <div class="bcc-grid">
       <div class="col-left">
         <div data-test="bcc-request-categories-panel">
@@ -642,7 +681,7 @@ onMounted(async () => {
                           padding-top: 12px;
                         "
                       >
-                        {{ resolveLabel(group.categoryName) }}
+                       {{ group.categoryName }}
                       </td>
                     </tr>
                     <tr
@@ -664,7 +703,7 @@ onMounted(async () => {
                           @change.stop="toggleProduct(p.id)"
                         />
                       </td>
-                      <td>{{ resolveLabel(p.name) }}</td>
+                      <td>{{ p.name }}</td>
                     </tr>
                   </template>
                 </tbody>
@@ -782,7 +821,7 @@ onMounted(async () => {
                     :checked="selectedRecipientIds.includes(r.id)"
                     @change="toggleRecipient(r.id)"
                   />
-                  <span class="checkbox-label">{{ r.company }}</span>
+                  <span class="checkbox-label">{{ tf(r.company) }}</span>
                   <span class="checkbox-email">{{ r.email }}</span>
                 </label>
                 <div
@@ -858,14 +897,12 @@ onMounted(async () => {
       <div class="col-center" data-test="bcc-request-template-panel">
         <GlassPanel :title="t('bcc.email_template')" :loading="loading" :skeleton-rows="5">
           <EmailTemplate
-            :subject="template.subject"
-            :body="template.body"
+            v-model:subject="subjectModel"
+            v-model:body="bodyModel"
             :subject-label="t('bcc.subject_label')"
             :body-label="t('bcc.body_label')"
             :subject-placeholder="t('bcc.subject_placeholder')"
             :body-placeholder="t('bcc.body_placeholder')"
-            @update:subject="template.subject = $event"
-            @update:body="template.body = $event"
           >
             <div class="email-attachments" data-test="bcc-request-attachments">
               <label class="field-label">{{ t('bcc.attachments') }}</label>
@@ -881,7 +918,7 @@ onMounted(async () => {
                   data-test="bcc-request-attachment-item"
                   :data-attachment-id="a.id"
                 >
-                  <FileItem :name="a.name" download-url="#" @delete="removeAttachment(a.id)" />
+                  <FileItem :name="tf(a.name)" download-url="#" @delete="removeAttachment(a.id)" />
                 </div>
               </div>
               <div data-test="bcc-request-dropzone">
@@ -928,9 +965,9 @@ onMounted(async () => {
                   <td class="request-id-cell">
                     <span class="request-id-badge">{{ formatReqId(evt.requestId) }}</span>
                   </td>
-                  <td class="product-cell">{{ resolveLabel(evt.productName) }}</td>
-                  <td class="recipients-cell">{{ evt.supplierName }}</td>
-                  <td class="source-cell">{{ evt.source }}</td>
+                  <td class="product-cell">{{ tf(evt.productName) }}</td>
+                  <td class="recipients-cell">{{ tf(evt.supplierName) }}</td>
+                  <td class="source-cell">{{ tf(evt.source) }}</td>
                   <td class="status-cell">
                     <span :class="['status-pill', STATUS_PILL[evt.status]]">
                       {{ t(STATUS_LABEL_KEY[evt.status]) }}
@@ -1035,6 +1072,7 @@ onMounted(async () => {
       </div>
     </div>
   </div>
+  </template>
 
   <AppModal v-model="modalOpen" :title="t('bcc.accept_response')" size="small">
     <div class="modal-form" data-test="bcc-request-response-modal">

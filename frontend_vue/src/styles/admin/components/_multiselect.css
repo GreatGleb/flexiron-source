@@ -5,6 +5,7 @@
 .multiselect,
 .multi-select-wrap {
   position: relative;
+  max-width: 280px;
 }
 
 /* Trigger (shows selected items as tags) */
@@ -89,24 +90,23 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
+  padding: 9px 13px;
   cursor: pointer;
   transition:
     background 0.2s,
-    color 0.2s;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    color 0.2s,
+    border-color 0.2s;
+  border: 1px solid transparent;
   color: rgba(255, 255, 255, 0.7);
   border-radius: 6px;
-  margin: 2px 4px;
+  margin: 1px 3px;
 }
 .multiselect-option:hover,
 .multi-select-option:hover {
   background: rgba(24, 144, 255, 0.2);
   color: #fff;
-  border: 1px solid rgba(24, 144, 255, 0.4);
+  border-color: rgba(24, 144, 255, 0.4);
   box-shadow: 0 0 15px rgba(24, 144, 255, 0.2);
-  padding: 9px 13px;
-  margin: 1px 3px;
 }
 .multiselect-option input[type='checkbox'],
 .multi-select-option input[type='checkbox'] {
@@ -191,6 +191,10 @@
     min-height: 36px;
     padding: 6px 28px 6px 10px;
     gap: 4px;
+  }
+  .multiselect,
+  .multi-select-wrap {
+    max-width: none !important;
   }
   .multiselect-list,
   .multi-select-list {

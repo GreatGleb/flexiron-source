@@ -2,10 +2,10 @@
 import { useI18n } from 'vue-i18n'
 import AnalyticsSubNav from '@/components/admin/AnalyticsSubNav.vue'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
-import { useAnalyticsTranslated } from '@/composables/useAnalytics'
+import { useAnalytics } from '@/composables/useAnalytics'
 
 const { t } = useI18n()
-const { data, loading, error, load, tf } = useAnalyticsTranslated('sales')
+const { data, loading, error, load, tf } = useAnalytics('sales')
 load()
 </script>
 
@@ -60,7 +60,7 @@ load()
           class="bar-chart-row"
           data-test="sales-top-clients-row"
         >
-          <span class="bar-label">{{ client.name }}</span>
+          <span class="bar-label">{{ tf(client.name) }}</span>
           <div class="bar-track">
             <div
               class="bar-fill"

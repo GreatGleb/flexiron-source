@@ -1,5 +1,6 @@
 import { apiGet, apiPost, apiPut, apiPatch, apiDelete } from './api'
 import type { FieldDefinition, SectionConfig, PermissionMatrix } from '@/types/config'
+import { toTranslatedString } from '@/types/i18n'
 
 // ─── Field library ───
 export async function getFieldLibrary(): Promise<FieldDefinition[]> {
@@ -11,18 +12,29 @@ export async function saveFieldLibrary(fields: FieldDefinition[]): Promise<void>
   await apiPut<void>('/api/config/fields', fields)
 }
 
-export async function createField(payload: {
-  name: string
-  type: FieldDefinition['type']
-}): Promise<FieldDefinition> {
-  return apiPost<FieldDefinition>('/api/config/fields', payload)
+export async function createField(
+  payload: {
+    name: string
+    type: FieldDefinition['type']
+  },
+  locale: string,
+): Promise<FieldDefinition> {
+  return apiPost<FieldDefinition>('/api/config/fields', {
+    ...payload,
+    name: toTranslatedString(payload.name, locale),
+  })
 }
 
 export async function patchField(
   id: string,
   patch: Partial<FieldDefinition>,
+  locale: string,
 ): Promise<FieldDefinition> {
-  return apiPatch<FieldDefinition>(`/api/config/fields/${id}`, patch)
+  const translatedPatch: Partial<FieldDefinition> = { ...patch }
+  if (patch.name && typeof patch.name === 'string') {
+    translatedPatch.name = toTranslatedString(patch.name, locale)
+  }
+  return apiPatch<FieldDefinition>(`/api/config/fields/${id}`, translatedPatch)
 }
 
 export async function deleteField(id: string): Promise<void> {
@@ -46,8 +58,13 @@ export async function createSection(payload: { name: string }): Promise<SectionC
 export async function patchSection(
   id: string,
   patch: Partial<SectionConfig>,
+  locale: string,
 ): Promise<SectionConfig> {
-  return apiPatch<SectionConfig>(`/api/config/sections/${id}`, patch)
+  const translatedPatch: Partial<SectionConfig> = { ...patch }
+  if (patch.name && typeof patch.name === 'string') {
+    translatedPatch.name = toTranslatedString(patch.name, locale)
+  }
+  return apiPatch<SectionConfig>(`/api/config/sections/${id}`, translatedPatch)
 }
 
 export async function deleteSection(id: string): Promise<void> {
@@ -63,3 +80,4 @@ export async function getPermissions(): Promise<PermissionMatrix> {
 export async function savePermissions(matrix: PermissionMatrix): Promise<void> {
   await apiPut<void>('/api/config/permissions', matrix)
 }
+

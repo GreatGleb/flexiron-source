@@ -1,9 +1,14 @@
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { getSupplier, patchSupplier } from '@/services/suppliersService'
 import { useDirtyCheck } from './useDirtyCheck'
+import { useTranslatedField } from './useTranslatedData'
 import type { SupplierCardData } from '@/types/supplier'
 
 export function useSupplierCard(id: string) {
+  const { locale } = useI18n()
+  const { tf } = useTranslatedField()
+
   const supplier = ref<SupplierCardData | null>(null)
   const loading = ref(false)
   const saving = ref(false)
@@ -32,7 +37,7 @@ export function useSupplierCard(id: string) {
       // Merge-patch: send ONLY dirty fields. Server merges into stored entity.
       const patch = dirty.diff() as Partial<SupplierCardData>
       if (Object.keys(patch).length === 0) return
-      supplier.value = await patchSupplier(id, patch)
+      supplier.value = await patchSupplier(id, patch, locale.value)
       dirty.capture()
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to save supplier'
@@ -41,5 +46,5 @@ export function useSupplierCard(id: string) {
     }
   }
 
-  return { supplier, loading, saving, error, isDirty: dirty.isDirty, load, save }
+  return { supplier, loading, saving, error, isDirty: dirty.isDirty, load, save, tf }
 }

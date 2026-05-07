@@ -71,7 +71,8 @@ export interface TurnoverItem {
 
 /** A client entry in top-clients chart */
 export interface TopClientItem {
-  name: string
+  /** Translated client name */
+  name: TranslatedString
   value: number
   percentage: number
   color: 'blue' | 'green'
@@ -87,7 +88,8 @@ export interface RefusalReasonItem {
 
 /** A supplier row in supply table */
 export interface SupplierItem {
-  name: string
+  /** Translated supplier name */
+  name: TranslatedString
   deliveries: number
   ontime: number
   /** Translated status label */

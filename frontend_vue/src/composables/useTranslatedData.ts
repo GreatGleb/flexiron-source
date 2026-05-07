@@ -23,8 +23,12 @@ export function useTranslatedField() {
    * Returns the translated string for the current locale.
    * Falls back to Russian if the current locale is not found.
    */
-  function tf(field: TranslatedString): string {
-    return field[locale.value as keyof TranslatedString] ?? field.ru
+  function tf(field: TranslatedString | null | undefined): string {
+    if (!field) return ''
+    const currentLocale = locale.value as keyof TranslatedString
+    if (field[currentLocale]) return field[currentLocale]
+    // Fallback to any non-empty language
+    return field.ru || field.en || field.lt || ''
   }
 
   return { tf }

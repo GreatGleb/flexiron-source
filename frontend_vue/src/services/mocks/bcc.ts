@@ -1,55 +1,56 @@
-import type { BccCategory, BccRecipient, BccRequest, BccEmailTemplate } from '@/types/bcc'
+import type { BccCategory, BccRecipient, BccRequest } from '@/types/bcc'
+import type { TranslatedString } from '@/types/i18n'
 import { MOCK_SUPPLIERS } from './suppliers'
 
 export const MOCK_BCC_CATEGORIES: BccCategory[] = [
   {
     id: 'sheets',
-    name: 'Sheets',
+    name: { ru: 'Листы', en: 'Sheets', lt: 'Lakštai' },
     productCount: 4,
     children: [
-      { id: 'sheet-2mm', name: 'Sheet 2mm', productCount: 0 },
-      { id: 'sheet-3mm', name: 'Sheet 3mm', productCount: 0 },
-      { id: 'sheet-5mm', name: 'Sheet 5mm', productCount: 0 },
-      { id: 'sheet-10mm', name: 'Sheet 10mm', productCount: 0 },
+      { id: 'sheet-2mm', name: { ru: 'Лист 2мм', en: 'Sheet 2mm', lt: 'Lakštas 2mm' }, productCount: 0 },
+      { id: 'sheet-3mm', name: { ru: 'Лист 3мм', en: 'Sheet 3mm', lt: 'Lakštas 3mm' }, productCount: 0 },
+      { id: 'sheet-5mm', name: { ru: 'Лист 5мм', en: 'Sheet 5mm', lt: 'Lakštas 5mm' }, productCount: 0 },
+      { id: 'sheet-10mm', name: { ru: 'Лист 10мм', en: 'Sheet 10mm', lt: 'Lakštas 10mm' }, productCount: 0 },
     ],
   },
   {
     id: 'lintels',
-    name: 'Lintels',
+    name: { ru: 'Перемычки', en: 'Lintels', lt: 'Sąramos' },
     productCount: 2,
     children: [
-      { id: 'lintel-100', name: 'Lintel 100×100', productCount: 0 },
-      { id: 'lintel-150', name: 'Lintel 150×150', productCount: 0 },
+      { id: 'lintel-100', name: { ru: 'Перемычка 100×100', en: 'Lintel 100×100', lt: 'Sąrama 100×100' }, productCount: 0 },
+      { id: 'lintel-150', name: { ru: 'Перемычка 150×150', en: 'Lintel 150×150', lt: 'Sąrama 150×150' }, productCount: 0 },
     ],
   },
   {
     id: 'beams',
-    name: 'Beams',
+    name: { ru: 'Балки', en: 'Beams', lt: 'Sijos' },
     productCount: 3,
     children: [
-      { id: 'beam-i20', name: 'I-Beam 20', productCount: 0 },
-      { id: 'beam-i30', name: 'I-Beam 30', productCount: 0 },
-      { id: 'beam-heb', name: 'HEB Beam', productCount: 0 },
+      { id: 'beam-i20', name: { ru: 'Двутавр 20', en: 'I-Beam 20', lt: 'Dvitėjis 20' }, productCount: 0 },
+      { id: 'beam-i30', name: { ru: 'Двутавр 30', en: 'I-Beam 30', lt: 'Dvitėjis 30' }, productCount: 0 },
+      { id: 'beam-heb', name: { ru: 'Балка HEB', en: 'HEB Beam', lt: 'HEB sija' }, productCount: 0 },
     ],
   },
   {
     id: 'pipes',
-    name: 'Pipes',
+    name: { ru: 'Трубы', en: 'Pipes', lt: 'Vamzdžiai' },
     productCount: 3,
     children: [
-      { id: 'pipe-50', name: 'Pipe 50mm', productCount: 0 },
-      { id: 'pipe-100', name: 'Pipe 100mm', productCount: 0 },
-      { id: 'pipe-150', name: 'Pipe 150mm', productCount: 0 },
+      { id: 'pipe-50', name: { ru: 'Труба 50мм', en: 'Pipe 50mm', lt: 'Vamzdis 50mm' }, productCount: 0 },
+      { id: 'pipe-100', name: { ru: 'Труба 100мм', en: 'Pipe 100mm', lt: 'Vamzdis 100mm' }, productCount: 0 },
+      { id: 'pipe-150', name: { ru: 'Труба 150мм', en: 'Pipe 150mm', lt: 'Vamzdis 150mm' }, productCount: 0 },
     ],
   },
   {
     id: 'rebars',
-    name: 'Rebars',
+    name: { ru: 'Арматура', en: 'Rebars', lt: 'Armatūra' },
     productCount: 3,
     children: [
-      { id: 'rebar-12', name: 'Rebar 12mm', productCount: 0 },
-      { id: 'rebar-16', name: 'Rebar 16mm', productCount: 0 },
-      { id: 'rebar-20', name: 'Rebar 20mm', productCount: 0 },
+      { id: 'rebar-12', name: { ru: 'Арматура 12мм', en: 'Rebar 12mm', lt: 'Armatūra 12mm' }, productCount: 0 },
+      { id: 'rebar-16', name: { ru: 'Арматура 16мм', en: 'Rebar 16mm', lt: 'Armatūra 16mm' }, productCount: 0 },
+      { id: 'rebar-20', name: { ru: 'Арматура 20мм', en: 'Rebar 20mm', lt: 'Armatūra 20mm' }, productCount: 0 },
     ],
   },
 ]
@@ -81,10 +82,10 @@ export const MOCK_BCC_HISTORY: BccRequest[] = [
     requestId: 'req-001',
     date: '2026-04-05',
     supplierId: 'sup-001',
-    supplierName: 'MetalProm LLC',
+    supplierName: { ru: 'MetalProm LLC', en: 'MetalProm LLC', lt: 'MetalProm LLC' },
     productId: 'sheet-2mm',
-    productName: 'Sheet 2mm',
-    source: 'BCC Tool',
+    productName: { ru: 'Лист 2мм', en: 'Sheet 2mm', lt: 'Lakštas 2mm' },
+    source: { ru: 'BCC Инструмент', en: 'BCC Tool', lt: 'BCC įrankis' },
     status: 'sent',
   },
   {
@@ -92,10 +93,10 @@ export const MOCK_BCC_HISTORY: BccRequest[] = [
     requestId: 'req-001',
     date: '2026-04-05',
     supplierId: 'sup-002',
-    supplierName: 'SteelWorks Inc',
+    supplierName: { ru: 'SteelWorks Inc', en: 'SteelWorks Inc', lt: 'SteelWorks Inc' },
     productId: 'sheet-2mm',
-    productName: 'Sheet 2mm',
-    source: 'BCC Tool',
+    productName: { ru: 'Лист 2мм', en: 'Sheet 2mm', lt: 'Lakštas 2mm' },
+    source: { ru: 'BCC Инструмент', en: 'BCC Tool', lt: 'BCC įrankis' },
     status: 'sent',
   },
   {
@@ -103,10 +104,10 @@ export const MOCK_BCC_HISTORY: BccRequest[] = [
     requestId: 'req-001',
     date: '2026-04-05',
     supplierId: 'sup-004',
-    supplierName: 'NordMetal Ltd',
+    supplierName: { ru: 'NordMetal Ltd', en: 'NordMetal Ltd', lt: 'NordMetal Ltd' },
     productId: 'sheet-2mm',
-    productName: 'Sheet 2mm',
-    source: 'BCC Tool',
+    productName: { ru: 'Лист 2мм', en: 'Sheet 2mm', lt: 'Lakštas 2mm' },
+    source: { ru: 'BCC Инструмент', en: 'BCC Tool', lt: 'BCC įrankis' },
     status: 'sent',
   },
   // Request 002 — I-Beam 20 with mixed responses
@@ -115,10 +116,10 @@ export const MOCK_BCC_HISTORY: BccRequest[] = [
     requestId: 'req-002',
     date: '2026-04-02',
     supplierId: 'sup-002',
-    supplierName: 'SteelWorks Inc',
+    supplierName: { ru: 'SteelWorks Inc', en: 'SteelWorks Inc', lt: 'SteelWorks Inc' },
     productId: 'beam-i20',
-    productName: 'I-Beam 20',
-    source: 'Email',
+    productName: { ru: 'Двутавр 20', en: 'I-Beam 20', lt: 'Dvitėjis 20' },
+    source: { ru: 'Email', en: 'Email', lt: 'El. paštas' },
     status: 'responded',
     price: 85000,
     unit: 'ton',
@@ -128,10 +129,10 @@ export const MOCK_BCC_HISTORY: BccRequest[] = [
     requestId: 'req-002',
     date: '2026-04-02',
     supplierId: 'sup-004',
-    supplierName: 'NordMetal Ltd',
+    supplierName: { ru: 'NordMetal Ltd', en: 'NordMetal Ltd', lt: 'NordMetal Ltd' },
     productId: 'beam-i20',
-    productName: 'I-Beam 20',
-    source: 'BCC Tool',
+    productName: { ru: 'Двутавр 20', en: 'I-Beam 20', lt: 'Dvitėjis 20' },
+    source: { ru: 'BCC Инструмент', en: 'BCC Tool', lt: 'BCC įrankis' },
     status: 'no_response',
   },
   // Request 003 — Pipes Q1
@@ -140,10 +141,10 @@ export const MOCK_BCC_HISTORY: BccRequest[] = [
     requestId: 'req-003',
     date: '2026-03-20',
     supplierId: 'sup-001',
-    supplierName: 'MetalProm LLC',
+    supplierName: { ru: 'MetalProm LLC', en: 'MetalProm LLC', lt: 'MetalProm LLC' },
     productId: 'pipe-100',
-    productName: 'Pipe 100mm',
-    source: 'Phone',
+    productName: { ru: 'Труба 100мм', en: 'Pipe 100mm', lt: 'Vamzdis 100mm' },
+    source: { ru: 'Телефон', en: 'Phone', lt: 'Telefonas' },
     status: 'sent',
   },
   {
@@ -151,10 +152,10 @@ export const MOCK_BCC_HISTORY: BccRequest[] = [
     requestId: 'req-003',
     date: '2026-03-20',
     supplierId: 'sup-004',
-    supplierName: 'NordMetal Ltd',
+    supplierName: { ru: 'NordMetal Ltd', en: 'NordMetal Ltd', lt: 'NordMetal Ltd' },
     productId: 'pipe-100',
-    productName: 'Pipe 100mm',
-    source: 'BCC Tool',
+    productName: { ru: 'Труба 100мм', en: 'Pipe 100mm', lt: 'Vamzdis 100mm' },
+    source: { ru: 'BCC Инструмент', en: 'BCC Tool', lt: 'BCC įrankis' },
     status: 'sent',
   },
 ]
@@ -206,7 +207,9 @@ export function mockGetBccHistory(
 export function mockSendBccRequest(_payload: {
   productIds: string[]
   recipientIds: string[]
-  template: BccEmailTemplate
+  subject: TranslatedString | string
+  body: TranslatedString | string
+  fileIds?: string[]
 }): { requestId: string } {
   return { requestId: `req-${Date.now()}` }
 }
@@ -214,7 +217,7 @@ export function mockSendBccRequest(_payload: {
 export function mockLogBccRequest(_payload: {
   productIds: string[]
   recipientIds: string[]
-  source: string
+  source: TranslatedString | string
 }): { requestId: string } {
   return { requestId: `req-${Date.now()}` }
 }

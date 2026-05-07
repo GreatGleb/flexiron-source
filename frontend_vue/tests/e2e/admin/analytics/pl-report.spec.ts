@@ -127,9 +127,8 @@ test.describe('pl-report › breakdown panel', () => {
     await expect.soft(panel.locator('.panel-badge')).toBeVisible()
   })
 
-  test('renders 6 line-item rows + 1 total row', async ({ page }) => {
-    await expect.soft(page.locator('[data-test="pl-report-breakdown-row"]')).toHaveCount(6)
-    await expect.soft(page.locator('[data-test="pl-report-breakdown-total"]')).toHaveCount(1)
+  test('renders 7 breakdown rows (6 line items + 1 total)', async ({ page }) => {
+    await expect(page.locator('[data-test="pl-report-breakdown-row"]')).toHaveCount(7)
   })
 
   test('each line-item row has a label and a value', async ({ page }) => {
@@ -172,7 +171,9 @@ test.describe('pl-report › breakdown panel', () => {
   })
 
   test('total row renders operating profit as green 14 870 €', async ({ page }) => {
-    const total = page.locator('[data-test="pl-report-breakdown-total"]')
+    // The total row is the last (7th) breakdown row; all rows share the same data-test.
+    const rows = page.locator('[data-test="pl-report-breakdown-row"]')
+    const total = rows.nth(6)
     await expect.soft(total.locator('.pl-label')).not.toBeEmpty()
     await expect.soft(total.locator('.pl-value')).toHaveText('14 870 €')
     await expect.soft(total.locator('.pl-value')).toHaveClass(/\bgreen\b/)

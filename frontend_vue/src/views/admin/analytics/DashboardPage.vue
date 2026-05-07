@@ -3,12 +3,12 @@ import { useI18n } from 'vue-i18n'
 import AnalyticsSubNav from '@/components/admin/AnalyticsSubNav.vue'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
 import { useFeatureFlag } from '@/composables/useFeatureFlag'
-import { useAnalyticsTranslated } from '@/composables/useAnalytics'
+import { useAnalytics } from '@/composables/useAnalytics'
 
 const { t } = useI18n()
 const showAlerts = useFeatureFlag('dashboardAlerts')
 const showCharts = useFeatureFlag('dashboardCharts')
-const { data, loading, error, load, tf } = useAnalyticsTranslated('dashboard')
+const { data, loading, error, load, tf } = useAnalytics('dashboard')
 load()
 
 function formatCurrency(val: number): string {

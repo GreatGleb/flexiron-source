@@ -1,15 +1,21 @@
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import {
-  getFieldLibrary,
   saveFieldLibrary,
-  getSections,
   saveSections,
-  getPermissions,
   savePermissions,
+  getFieldLibrary,
+  getSections,
+  getPermissions,
 } from '@/services/configService'
 import type { FieldDefinition, SectionConfig, PermissionMatrix } from '@/types/config'
+import { mergeLocaleValue } from '@/types/i18n'
+import { useTranslatedField } from './useTranslatedData'
 
 export function useCardConfig() {
+  const { locale } = useI18n()
+  const { tf } = useTranslatedField()
+
   const fieldLibrary = ref<FieldDefinition[]>([])
   const sections = ref<SectionConfig[]>([])
   const permissions = ref<PermissionMatrix | null>(null)
@@ -77,7 +83,7 @@ export function useCardConfig() {
 
   function renameSection(sectionId: string, name: string) {
     const sec = sections.value.find((s) => s.id === sectionId)
-    if (sec) sec.name = name
+    if (sec) sec.name = mergeLocaleValue(sec.name, name, locale.value)
   }
 
   function toggleFieldVisibility(sectionId: string, fieldId: string) {
@@ -106,5 +112,6 @@ export function useCardConfig() {
     renameSection,
     toggleFieldVisibility,
     toggleFieldLibraryHidden,
+    tf,
   }
 }

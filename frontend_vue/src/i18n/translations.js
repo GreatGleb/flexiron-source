@@ -1,5 +1,5 @@
 import { publicRu, publicEn, publicLt } from './public.js'
-import { adminRu, adminEn, adminLt } from './admin.ts'
+import { adminRu, adminEn, adminLt } from './admin/index.ts'
 
 export const translations = {
   ru: { ...publicRu, ...adminRu },

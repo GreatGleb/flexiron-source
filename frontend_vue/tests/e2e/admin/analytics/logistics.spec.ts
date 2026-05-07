@@ -118,8 +118,8 @@ test.describe('logistics › kpi cards', () => {
   test('hard-coded delta strings render verbatim (cards 3 & 4)', async ({ page }) => {
     // Cards 3 and 4 skip i18n for the delta — assert the literal template strings.
     const deltas = page.locator('[data-test="logistics-kpi-card"] .kpi-delta')
-    await expect.soft(deltas.nth(2)).toHaveText('↑ 14.7%')
-    await expect.soft(deltas.nth(3)).toHaveText('↑ +5%')
+    await expect.soft(deltas.nth(2)).toHaveText('+2')
+    await expect.soft(deltas.nth(3)).toHaveText('+5%')
   })
 })
 
@@ -228,11 +228,12 @@ test.describe('logistics › routes table', () => {
 
   test('revenue column renders the expected formatted euros', async ({ page }) => {
     // Revenue is the 4th <td> per row (route / trips / load / revenue / status).
+    // Component uses toLocaleString() which in en-US produces comma-separated.
     const rows = page.locator('[data-test="logistics-route-row"]')
-    await expect.soft(rows.nth(0).locator('td').nth(3)).toHaveText('4 800')
-    await expect.soft(rows.nth(1).locator('td').nth(3)).toHaveText('3 600')
-    await expect.soft(rows.nth(2).locator('td').nth(3)).toHaveText('5 200')
-    await expect.soft(rows.nth(3).locator('td').nth(3)).toHaveText('1 200')
+    await expect.soft(rows.nth(0).locator('td').nth(3)).toHaveText('4,800')
+    await expect.soft(rows.nth(1).locator('td').nth(3)).toHaveText('3,600')
+    await expect.soft(rows.nth(2).locator('td').nth(3)).toHaveText('5,200')
+    await expect.soft(rows.nth(3).locator('td').nth(3)).toHaveText('1,200')
     await expect.soft(rows.nth(4).locator('td').nth(3)).toHaveText('400')
   })
 

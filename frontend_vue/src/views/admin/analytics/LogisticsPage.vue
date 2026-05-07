@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import AnalyticsSubNav from '@/components/admin/AnalyticsSubNav.vue'
-import { useAnalyticsTranslated } from '@/composables/useAnalytics'
+import { useAnalytics } from '@/composables/useAnalytics'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
 
 const { t } = useI18n()
-const { data, loading, error, load, tf } = useAnalyticsTranslated('logistics')
+const { data, loading, error, load, tf } = useAnalytics('logistics')
 load()
 </script>
 

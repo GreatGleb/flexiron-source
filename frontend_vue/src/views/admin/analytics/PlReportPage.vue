@@ -2,12 +2,12 @@
 import { useI18n } from 'vue-i18n'
 import AnalyticsSubNav from '@/components/admin/AnalyticsSubNav.vue'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
-import { useAnalyticsTranslated } from '@/composables/useAnalytics'
+import { useAnalytics } from '@/composables/useAnalytics'
 
 import '@styles/admin/analytic_pl-report.css'
 
 const { t } = useI18n()
-const { data, loading, error, load, tf } = useAnalyticsTranslated('pl-report')
+const { data, loading, error, load, tf } = useAnalytics('pl-report')
 load()
 </script>
 

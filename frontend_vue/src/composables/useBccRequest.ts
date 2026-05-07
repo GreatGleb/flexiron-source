@@ -1,19 +1,30 @@
 import { ref, reactive, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import {
   getBccCategories,
   getBccRecipients,
   getBccHistory,
   sendBccRequest,
+  logBccRequest,
 } from '@/services/bccService'
+import { useTranslatedField } from './useTranslatedData'
 import type { BccCategory, BccRecipient, BccRequest, BccEmailTemplate } from '@/types/bcc'
+import type { TranslatedString } from '@/types/i18n'
 
 const DEFAULT_TEMPLATE: BccEmailTemplate = {
-  subject: 'Price Request — InBox LT',
-  body: 'Hello!\n\nPlease provide current prices for the following items:\n\n\nBest regards,\nInBox LT Team',
+  subject: { ru: 'Запрос цен — InBox LT', en: 'Price Request — InBox LT', lt: 'Kainų užklausa — InBox LT' },
+  body: {
+    ru: 'Здравствуйте!\n\nПожалуйста, предоставьте текущие цены на следующие позиции:\n\n\nС уважением,\nКоманда InBox LT',
+    en: 'Hello!\n\nPlease provide current prices for the following items:\n\n\nBest regards,\nInBox LT Team',
+    lt: 'Sveiki!\n\nPrašome pateikti dabartines kainas šioms prekėms:\n\n\nPagarbiai,\nInBox LT komanda',
+  },
   attachments: [],
 }
 
 export function useBccRequest() {
+  const { locale } = useI18n()
+  const { tf } = useTranslatedField()
+
   const categories = ref<BccCategory[]>([])
   const recipients = ref<BccRecipient[]>([])
   const history = ref<BccRequest[]>([])
@@ -72,9 +83,10 @@ export function useBccRequest() {
       const { requestId } = await sendBccRequest({
         productIds: selectedProductIds.value,
         recipientIds: selectedRecipients,
-        template: { ...template },
+        subject: tf(template.subject),
+        body: tf(template.body),
         fileIds,
-      })
+      }, locale.value)
       // NOTE: history reloading is intentionally skipped — callers manage history locally
       // (event-sourcing new rows per product × recipient) and a reload would wipe those events.
       return requestId
@@ -84,6 +96,21 @@ export function useBccRequest() {
     } finally {
       sending.value = false
     }
+  }
+
+  async function log(source: string): Promise<string> {
+    // If source is a TranslatedString object (e.g. from a dropdown selection),
+    // extract the current locale's value to avoid "[object Object]" in the log
+    const sourceStr = typeof source === 'object' && source !== null
+      ? tf(source as TranslatedString)
+      : source
+    const selectedRecipients = recipients.value.filter((r) => r.selected).map((r) => r.id)
+    const { requestId } = await logBccRequest({
+      productIds: selectedProductIds.value,
+      recipientIds: selectedRecipients,
+      source: sourceStr,
+    }, locale.value)
+    return requestId
   }
 
   function resetForm() {
@@ -106,6 +133,8 @@ export function useBccRequest() {
     loadHistory,
     refreshRecipients,
     send,
+    log,
     resetForm,
+    tf,
   }
 }

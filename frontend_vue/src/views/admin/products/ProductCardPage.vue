@@ -5,7 +5,7 @@ import { useI18n } from 'vue-i18n'
 import { useHead } from '@/composables/useHead'
 import { useFeatureFlag } from '@/composables/useFeatureFlag'
 import { useProductCard } from '@/composables/useProductCard'
-import { useLabelResolver } from '@/composables/useLabelResolver'
+import { mergeLocaleValue } from '@/types/i18n'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
 import Breadcrumb from '@/components/admin/Breadcrumb.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
@@ -17,11 +17,11 @@ import DropZone from '@/components/admin/ui/DropZone.vue'
 import FileItem from '@/components/admin/FileItem.vue'
 import type { UploadedFile } from '@/services/uploadsService'
 import type { LinkedSupplier } from '@/types/product'
+import type { TranslatedString } from '@/types/i18n'
 import '@styles/admin/components/_entity-card-layout.css'
 import '@styles/admin/products_card.css'
 
-const { t } = useI18n()
-const { resolveLabel } = useLabelResolver()
+const { t, locale } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const id = route.params.id as string
@@ -29,15 +29,29 @@ const id = route.params.id as string
 const showSupplierLinks = useFeatureFlag('productSupplierLinks')
 
 const {
-  product, loading, saving, form, fieldValues,
+  product, loading, saving, error, form, fieldValues,
   linkedSuppliers, suppliersList,
   isAnythingDirty, getCategoryPath,
   addLinkedSupplier, removeLinkedSupplier,
-  load, save, discard,
+  load, save, discard, tf,
 } = useProductCard(id)
 
 
-const pageTitle = computed(() => (product.value?.name ? resolveLabel(product.value.name) : t('products.title')))
+const formName = computed({
+  get: () => (form.value.name ? tf(form.value.name as TranslatedString) : ''),
+  set: (v: string) => {
+    form.value.name = v ? mergeLocaleValue(form.value.name, v, locale.value) : null
+  },
+})
+
+const formDescription = computed({
+  get: () => (form.value.description ? tf(form.value.description) : ''),
+  set: (v: string) => {
+    form.value.description = v ? mergeLocaleValue(form.value.description, v, locale.value) : null
+  },
+})
+
+const pageTitle = computed(() => (product.value?.name ? tf(product.value.name) : t('products.title')))
 
 useHead({
   title: () => `Flexiron — ${pageTitle.value}`,
@@ -99,16 +113,49 @@ onMounted(load)
 </script>
 
 <template>
+  <template v-if="loading">
+    <div class="main-card-content">
+      <div class="entity-card-grid">
+        <div class="entity-col-left">
+          <GlassPanel :loading="true" :skeleton-rows="4" />
+          <GlassPanel :loading="true" :skeleton-rows="3" />
+        </div>
+        <div class="entity-col-center">
+          <GlassPanel :loading="true" :skeleton-rows="4" />
+        </div>
+        <div class="entity-col-right">
+          <GlassPanel :loading="true" :skeleton-rows="3" />
+        </div>
+      </div>
+    </div>
+  </template>
+  <template v-else-if="error">
+    <Breadcrumb
+      :items="[
+        { label: t('products.header_title'), to: { name: 'admin-products' } },
+        { label: t('common.entity_not_found') },
+      ]"
+    />
+    <div class="entity-not-found">
+      <SvgIcon name="search" :width="48" :height="48" />
+      <h2>{{ t('common.entity_not_found') }}</h2>
+      <p>{{ t('common.entity_not_found_id', { id }) }}</p>
+      <router-link :to="{ name: 'admin-products' }" class="btn btn-primary">
+        {{ t('common.back_to_list') }}
+      </router-link>
+    </div>
+  </template>
+  <template v-else>
   <div class="page-product-card" data-test="page-product-card">
     <div class="product-card-header" data-test="product-card-header">
       <Breadcrumb
         :items="[
           { label: t('products.header_title'), to: { name: 'admin-products' } },
-          { label: product?.name ? resolveLabel(product.name) : '...' },
+          { label: product?.name ? tf(product.name) : '...' },
         ]"
       />
       <div class="product-card-header-row">
-        <h1 class="page-title">{{ product?.name ? resolveLabel(product.name) : '...' }}</h1>
+        <h1 class="page-title">{{ product?.name ? tf(product.name) : '...' }}</h1>
         <div
           class="entity-action-bar no-margin pos-static"
           data-test="product-save-bar"
@@ -139,7 +186,7 @@ onMounted(load)
           <GlassPanel :title="t('products.section_info')" :loading="loading" :skeleton-rows="4" data-test="product-card-info">
 
             <InputGroup :label="t('products.field_name')" :required="true">
-              <input v-model="form.name" class="glass-input" type="text" data-test="field-name" />
+              <input v-model="formName" class="glass-input" type="text" data-test="field-name" />
             </InputGroup>
 
             <InputGroup :label="t('products.field_category')" :required="false">
@@ -159,7 +206,7 @@ onMounted(load)
 
             <InputGroup :label="t('products.field_description')" :required="false">
               <textarea
-                v-model="form.description"
+                v-model="formDescription"
                 class="glass-input"
                 rows="3"
                 data-test="field-description"
@@ -208,7 +255,7 @@ onMounted(load)
           >
 
             <template v-for="fv in product.fieldValues" :key="fv.fieldId">
-              <InputGroup :label="resolveLabel(fv.fieldName)" :required="false">
+              <InputGroup :label="tf(fv.fieldName)" :required="false">
                 <span v-if="fv.inherited" class="field-inherited-badge">
                   {{ t('products.field_inherited_badge') }}
                 </span>
@@ -245,7 +292,7 @@ onMounted(load)
                   <CustomSelect
                     v-else-if="fv.fieldType === 'enum'"
                     v-model="(fieldValues as Record<string, unknown>)[fv.fieldId] as string"
-                    :options="(fv.options ?? []).map((o) => ({ value: o, label: resolveLabel(o) }))"
+                    :options="(fv.options ?? []).map((o) => ({ value: o.en ?? o.ru, label: tf(o) }))"
                   />
                   <template v-else-if="fv.fieldType === 'file'">
                     <div class="file-list" style="margin-bottom: 12px">
@@ -305,7 +352,7 @@ onMounted(load)
                 </thead>
                 <tbody>
                   <tr v-for="s in linkedSuppliers" :key="s.id">
-                    <td style="cursor:pointer" @click="router.push({ name: 'admin-supplier-card', params: { id: s.id } })">{{ s.name }}</td>
+                    <td style="cursor:pointer" @click="router.push({ name: 'admin-supplier-card', params: { id: s.id } })">{{ tf(s.name) }}</td>
                     <td>{{ s.price != null ? `${s.price} ${s.priceUnit ?? ''}` : '—' }}</td>
                     <td>{{ s.leadDays != null ? `${s.leadDays} d.` : '—' }}</td>
                     <td>
@@ -334,7 +381,7 @@ onMounted(load)
       <InputGroup :label="t('suppliers.list')" :required="true">
         <CustomSelect
           v-model="addSupplierForm.supplierId"
-          :options="suppliersList.filter(s => !linkedSuppliers.some(ls => ls.id === s.id)).map(s => ({ value: s.id, label: s.company }))"
+          :options="suppliersList.filter(s => !linkedSuppliers.some(ls => ls.id === s.id)).map(s => ({ value: s.id, label: tf(s.company) }))"
           data-test="add-supplier-select"
         />
       </InputGroup>
@@ -392,4 +439,5 @@ onMounted(load)
       </template>
     </AppModal>
   </div>
+  </template>
 </template>

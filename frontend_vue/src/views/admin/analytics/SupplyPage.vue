@@ -2,10 +2,10 @@
 import { useI18n } from 'vue-i18n'
 import AnalyticsSubNav from '@/components/admin/AnalyticsSubNav.vue'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
-import { useAnalyticsTranslated } from '@/composables/useAnalytics'
+import { useAnalytics } from '@/composables/useAnalytics'
 
 const { t } = useI18n()
-const { data, loading, error, load, tf } = useAnalyticsTranslated('supply')
+const { data, loading, error, load, tf } = useAnalytics('supply')
 load()
 </script>
 
@@ -65,7 +65,7 @@ load()
           </thead>
           <tbody>
             <tr v-for="(supplier, idx) in data.suppliers" :key="idx" data-test="supply-supplier-row">
-              <td>{{ supplier.name }}</td>
+              <td>{{ tf(supplier.name) }}</td>
               <td class="hid-320">{{ supplier.deliveries }}</td>
               <td>{{ supplier.ontime }}%</td>
               <td>

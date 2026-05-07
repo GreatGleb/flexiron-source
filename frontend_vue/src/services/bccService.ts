@@ -1,5 +1,6 @@
 import { apiGet, apiPost, newIdempotencyKey } from './api'
-import type { BccCategory, BccRecipient, BccRequest, BccEmailTemplate } from '@/types/bcc'
+import { toTranslatedString } from '@/types/i18n'
+import type { BccCategory, BccRecipient, BccRequest } from '@/types/bcc'
 import type { PaginatedResponse, PaginationParams } from '@/types/api'
 
 export async function getBccCategories(): Promise<BccCategory[]> {
@@ -24,10 +25,15 @@ export async function getBccHistory(
 export async function sendBccRequest(payload: {
   productIds: string[]
   recipientIds: string[]
-  template: BccEmailTemplate
+  subject: string
+  body: string
   fileIds?: string[]
-}): Promise<{ requestId: string }> {
-  return apiPost<{ requestId: string }>('/api/bcc/send', payload, {
+}, locale: string): Promise<{ requestId: string }> {
+  return apiPost<{ requestId: string }>('/api/bcc/send', {
+    ...payload,
+    subject: toTranslatedString(payload.subject, locale),
+    body: toTranslatedString(payload.body, locale),
+  }, {
     headers: { 'Idempotency-Key': newIdempotencyKey() },
   })
 }
@@ -37,8 +43,11 @@ export async function logBccRequest(payload: {
   productIds: string[]
   recipientIds: string[]
   source: string
-}): Promise<{ requestId: string }> {
-  return apiPost<{ requestId: string }>('/api/bcc/log', payload, {
+}, locale: string): Promise<{ requestId: string }> {
+  return apiPost<{ requestId: string }>('/api/bcc/log', {
+    ...payload,
+    source: toTranslatedString(payload.source, locale),
+  }, {
     headers: { 'Idempotency-Key': newIdempotencyKey() },
   })
 }
@@ -53,3 +62,4 @@ export async function acceptBccResponse(
 export async function markBccNoResponse(eventId: string): Promise<BccRequest> {
   return apiPost<BccRequest>(`/api/bcc/events/${eventId}/no-response`, {})
 }
+

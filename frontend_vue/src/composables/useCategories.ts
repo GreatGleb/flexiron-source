@@ -5,11 +5,13 @@ import {
   deleteCategory as deleteCategoryApi,
 } from '@/services/categoriesService'
 import { useToast } from './useToast'
+import { useTranslatedField } from './useTranslatedData'
 import type { CategoryListItem, CategoryFilters } from '@/types/category'
 
 export function useCategories() {
   const { t } = useI18n()
   const toast = useToast()
+  const { tf } = useTranslatedField()
 
   const items = ref<CategoryListItem[]>([])
   const loading = ref(false)
@@ -51,5 +53,5 @@ export function useCategories() {
 
   watch(filters, load, { deep: true })
 
-  return { items, loading, error, filters, load, deleteCategory }
+  return { items, loading, error, filters, load, deleteCategory, tf }
 }

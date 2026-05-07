@@ -341,7 +341,7 @@ test.describe('suppliers-list › category filter', () => {
       .check()
     await expect(
       page.locator(
-        '[data-test="suppliers-filter-category"] .custom-select-trigger .multi-select-tags .tag',
+        '[data-test="suppliers-filter-category"] .custom-select-trigger .multi-select-tags .tag:not(.tag-more)',
       ),
     ).toHaveCount(1)
   })

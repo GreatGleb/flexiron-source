@@ -13,11 +13,14 @@ import AppModal from '@/components/admin/ui/AppModal.vue'
 import { useSuppliers } from '@/composables/useSuppliers'
 import { useHead } from '@/composables/useHead'
 import { useFeatureFlag } from '@/composables/useFeatureFlag'
+import { useToast } from '@/composables/useToast'
 import type { Supplier, SupplierStatus } from '@/types/supplier'
+import type { TranslatedString } from '@/types/i18n'
 
 import '@styles/admin/suppliers_list.css'
 
 const { t } = useI18n()
+const toast = useToast()
 
 useHead({
   title: () => `Flexiron — ${t('suppliers.list')}`,
@@ -27,7 +30,7 @@ useHead({
 const showKanbanView = useFeatureFlag('supplierKanbanView')
 const showExport = useFeatureFlag('supplierExport')
 
-const { suppliers, loading, error, filters, pagination, load, changeStatus } = useSuppliers()
+const { suppliers, loading, error, filters, pagination, load, changeStatus, tf } = useSuppliers()
 
 const view = ref<'table' | 'kanban'>('table')
 const searchInput = ref('')
@@ -160,7 +163,7 @@ function onDocDragLeave(e: DragEvent) {
 const confirmMoveOpen = ref(false)
 const pendingMove = ref<{
   id: string
-  company: string
+  company: TranslatedString
   fromStatus: SupplierStatus
   toStatus: SupplierStatus
 } | null>(null)
@@ -200,7 +203,7 @@ function cancelMove() {
 function exportCsv() {
   const rows = suppliers.value.map((s) =>
     [
-      s.company,
+      tf(s.company),
       STATUS_LABEL[s.status],
       s.rating,
       s.categories.join(';'),
@@ -232,6 +235,7 @@ function saveView() {
     },
   }
   localStorage.setItem(PREFS_KEY, JSON.stringify(prefs))
+  toast.show(t('msg.prefs_saved'))
 }
 
 function loadPrefs() {
@@ -457,7 +461,7 @@ onBeforeUnmount(() => {
                   :to="{ name: 'admin-supplier-card', params: { id: s.id } }"
                   class="link"
                 >
-                  {{ s.company }}
+                  {{ tf(s.company) }}
                 </router-link>
                 <span
                   v-if="s.hasDeficit"
@@ -467,7 +471,7 @@ onBeforeUnmount(() => {
               </td>
               <td>
                 <span :class="['status-pill', STATUS_PILL[s.status]]">
-                  {{ t(`status.${STATUS_LABEL[s.status]}`) }}
+                  {{ t(STATUS_OPTIONS.find((o) => o.value === s.status)?.labelKey ?? 'st.unknown') }}
                 </span>
               </td>
               <td><RatingStars :model-value="s.rating" :readonly="true" /></td>
@@ -598,7 +602,7 @@ onBeforeUnmount(() => {
             v-for="s in suppliersByStatus(col.status)"
             :id="s.id"
             :key="s.id"
-            :company-name="s.company"
+            :company-name="tf(s.company)"
             :has-deficit="s.hasDeficit"
             :rating="s.rating"
             :categories="s.categories.map((c) => t(`category.${c}`))"
@@ -619,7 +623,7 @@ onBeforeUnmount(() => {
     <p v-if="pendingMove">
       {{
         t('modal.confirm_move_message', {
-          company: pendingMove.company,
+          company: tf(pendingMove.company),
           from: t(`st.${pendingMove.fromStatus}`),
           to: t(`st.${pendingMove.toStatus}`),
         })

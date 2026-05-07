@@ -1,7 +1,13 @@
 <script setup lang="ts">
+import { useTranslatedField } from '@/composables/useTranslatedData'
+
+const { tf } = useTranslatedField()
+
+import type { TranslatedString } from '@/types/i18n'
+
 export interface AlertRow {
   type: string
-  description: string
+  description: TranslatedString
   status: string
   pill: 'danger' | 'warning' | 'success' | 'info' | 'mint'
 }
@@ -24,7 +30,7 @@ defineProps<{
     <tbody>
       <tr v-for="(row, i) in rows" :key="i">
         <td>{{ row.type }}</td>
-        <td>{{ row.description }}</td>
+        <td>{{ tf(row.description) }}</td>
         <td>
           <span class="status-pill" :class="`pill-${row.pill}`">{{ row.status }}</span>
         </td>

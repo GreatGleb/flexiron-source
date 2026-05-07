@@ -20,6 +20,7 @@ import type {
   DeficitItem,
   RefusalVolumeItem,
 } from '@/types/analytics'
+import type { TranslatedString } from '@/types/i18n'
 
 // ─── Dashboard ───────────────────────────────────────────────────────────────
 
@@ -214,11 +215,11 @@ const salesKpis: KpiItem[] = [
 ]
 
 const salesTopClients: TopClientItem[] = [
-  { name: 'UAB Metalis', value: 18400, percentage: 88, color: 'blue' },
-  { name: 'SIA Steel Pro', value: 13100, percentage: 62, color: 'blue' },
-  { name: 'Metallurg Ltd', value: 9500, percentage: 45, color: 'blue' },
-  { name: 'AS Rauad OÜ', value: 6300, percentage: 30, color: 'green' },
-  { name: 'UAB Plieno', value: 4000, percentage: 19, color: 'green' },
+  { name: { ru: 'UAB Metalis', en: 'UAB Metalis', lt: 'UAB Metalis' } as TranslatedString, value: 18400, percentage: 88, color: 'blue' },
+  { name: { ru: 'SIA Steel Pro', en: 'SIA Steel Pro', lt: 'SIA Steel Pro' } as TranslatedString, value: 13100, percentage: 62, color: 'blue' },
+  { name: { ru: 'Metallurg Ltd', en: 'Metallurg Ltd', lt: 'Metallurg Ltd' } as TranslatedString, value: 9500, percentage: 45, color: 'blue' },
+  { name: { ru: 'AS Rauad OÜ', en: 'AS Rauad OÜ', lt: 'AS Rauad OÜ' } as TranslatedString, value: 6300, percentage: 30, color: 'green' },
+  { name: { ru: 'UAB Plieno', en: 'UAB Plieno', lt: 'UAB Plieno' } as TranslatedString, value: 4000, percentage: 19, color: 'green' },
 ]
 
 const salesRefusalReasons: RefusalReasonItem[] = [
@@ -246,10 +247,10 @@ const supplyKpis: KpiItem[] = [
 ]
 
 const supplySuppliers: SupplierItem[] = [
-  { name: 'Metalis LT', deliveries: 8, ontime: 87, status: { ru: 'Надёжный', en: 'Reliable', lt: 'Patikimas' }, statusType: 'success' },
-  { name: 'ArcelorMittal', deliveries: 5, ontime: 100, status: { ru: 'Надёжный', en: 'Reliable', lt: 'Patikimas' }, statusType: 'success' },
-  { name: 'StalProm LLC', deliveries: 6, ontime: 50, status: { ru: 'Риск', en: 'Risk', lt: 'Rizika' }, statusType: 'danger' },
-  { name: 'SIA BalticMetal', deliveries: 4, ontime: 75, status: { ru: 'Мониторинг', en: 'Monitor', lt: 'Stebėti' }, statusType: 'warning' },
+  { name: { ru: 'Metalis LT', en: 'Metalis LT', lt: 'Metalis LT' } as TranslatedString, deliveries: 8, ontime: 87, status: { ru: 'Надёжный', en: 'Reliable', lt: 'Patikimas' }, statusType: 'success' },
+  { name: { ru: 'ArcelorMittal', en: 'ArcelorMittal', lt: 'ArcelorMittal' } as TranslatedString, deliveries: 5, ontime: 100, status: { ru: 'Надёжный', en: 'Reliable', lt: 'Patikimas' }, statusType: 'success' },
+  { name: { ru: 'StalProm LLC', en: 'StalProm LLC', lt: 'StalProm LLC' } as TranslatedString, deliveries: 6, ontime: 50, status: { ru: 'Риск', en: 'Risk', lt: 'Rizika' }, statusType: 'danger' },
+  { name: { ru: 'SIA BalticMetal', en: 'SIA BalticMetal', lt: 'SIA BalticMetal' } as TranslatedString, deliveries: 4, ontime: 75, status: { ru: 'Мониторинг', en: 'Monitor', lt: 'Stebėti' }, statusType: 'warning' },
 ]
 
 const supplyCategories: SupplyCategoryItem[] = [

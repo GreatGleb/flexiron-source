@@ -333,10 +333,11 @@ test.describe('supplier-card › pricing history', () => {
   })
 
   test('a row whose price is null renders an em-dash', async ({ page }) => {
-    // Second mock row (Sheets 20t) has price=null & unit=null → both should render as '—'.
+    // Second mock row (Sheets 20t) has price=null & unit=null.
+    // price-cell renders '—' via ternary; unit-cell renders tf(null) which returns ''.
     const row = page.locator('[data-test="supplier-card-pricing-row"]').nth(1)
     await expect.soft(row.locator('td.price-cell')).toHaveText('—')
-    await expect.soft(row.locator('td.unit-cell')).toHaveText('—')
+    await expect.soft(row.locator('td.unit-cell')).toBeEmpty()
   })
 })
 

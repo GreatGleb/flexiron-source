@@ -6,7 +6,7 @@ import { useHead } from '@/composables/useHead'
 import { useFeatureFlag } from '@/composables/useFeatureFlag'
 import { useProducts } from '@/composables/useProducts'
 import { useCategories } from '@/composables/useCategories'
-import { useLabelResolver } from '@/composables/useLabelResolver'
+import { useToast } from '@/composables/useToast'
 import { createProduct } from '@/services/productsService'
 import type { CategoryListItem } from '@/types/category'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
@@ -19,15 +19,13 @@ import InputGroup from '@/components/admin/ui/InputGroup.vue'
 import '@styles/admin/components/_entity-card-layout.css'
 import '@styles/admin/products_list.css'
 
-const { t } = useI18n()
-const { resolveLabel } = useLabelResolver()
+const { t, locale } = useI18n()
 const router = useRouter()
+const toast = useToast()
 
 useHead({ title: () => `Flexiron — ${t('products.header_title')}`, description: () => t('products.title') })
 
-const showAdminServices = useFeatureFlag('adminServices')
-
-const { items, loading, filters, load, deleteProduct, pagination, toggleSort } = useProducts()
+const { items, loading, error, filters, load, deleteProduct, pagination, toggleSort, tf } = useProducts()
 
 const PAGE_SIZE_OPTIONS = [
   { value: '25', label: '25' },
@@ -46,13 +44,13 @@ const pageSizeStr = computed({
 const { items: catItems, load: loadCats } = useCategories()
 
 function getCategoryPath(cat: CategoryListItem): string {
-  const parts: string[] = [resolveLabel(cat.name)]
+  const parts: string[] = [tf(cat.name)]
   let current = cat
   // Build path upwards using parentId — catItems is a flat list with parentName
   while (current.parentId) {
     const parent = catItems.value.find((c) => c.id === current.parentId)
     if (!parent) break
-    parts.unshift(resolveLabel(parent.name))
+    parts.unshift(tf(parent.name))
     current = parent
   }
   return parts.join(' → ')
@@ -84,6 +82,7 @@ function saveView() {
     },
   }
   localStorage.setItem(PREFS_KEY, JSON.stringify(prefs))
+  toast.show(t('msg.prefs_saved'))
 }
 
 function loadPrefs() {
@@ -133,7 +132,7 @@ async function handleCreate() {
     const created = await createProduct({
       name: newProduct.value.name.trim(),
       categoryId: newProduct.value.categoryId,
-    })
+    }, locale.value)
     showCreateModal.value = false
     newProduct.value = { name: '', categoryId: null }
     await router.push({ name: 'admin-product-card', params: { id: created.id } })
@@ -163,14 +162,6 @@ async function handleCreate() {
         >
           <SvgIcon name="folder" :width="18" :height="18" />
           <span>{{ t('categories.title') }}</span>
-        </router-link>
-        <router-link
-          v-if="showAdminServices"
-          :to="{ name: 'admin-services' }"
-          class="btn btn-secondary"
-          data-test="products-link-services"
-        >
-          <span>{{ t('products.title') }}</span>
         </router-link>
       </div>
     </div>
@@ -210,7 +201,17 @@ async function handleCreate() {
 
     <GlassPanel :loading="loading" :skeleton-rows="8" data-test="products-table">
       <div
-        v-if="!loading && items.length === 0"
+        v-if="error"
+        class="error-state"
+        data-test="products-error"
+      >
+        <SvgIcon name="alert-triangle" :width="48" :height="48" />
+        <p>{{ error }}</p>
+        <button class="btn btn-primary" @click="load">{{ t('btn.retry') }}</button>
+      </div>
+
+      <div
+        v-else-if="!loading && items.length === 0"
         class="empty-state"
         data-test="products-empty"
       >
@@ -297,8 +298,8 @@ async function handleCreate() {
               data-test="products-row"
               @click="router.push({ name: 'admin-product-card', params: { id: item.id } })"
             >
-              <td>{{ resolveLabel(item.name) }}</td>
-              <td>{{ item.categoryName ? resolveLabel(item.categoryName) : '—' }}</td>
+              <td>{{ item.name ? tf(item.name) : '—' }}</td>
+              <td>{{ item.categoryName ? tf(item.categoryName) : '—' }}</td>
               <td>{{ item.price != null ? item.price : '—' }}</td>
               <td>{{ item.priceUnit ?? '—' }}</td>
               <td>

@@ -18,8 +18,8 @@ test.describe('Navigation', () => {
   })
 
   test('deep link to supplier card works', async ({ page }) => {
-    await page.goto('/admin/suppliers/S-001')
-    await expect(page).toHaveURL('/admin/suppliers/S-001')
+    await page.goto('/admin/suppliers/1')
+    await expect(page).toHaveURL('/admin/suppliers/1')
     await expect(page.locator('h1').first()).toBeVisible()
   })
 
@@ -33,6 +33,11 @@ test.describe('Navigation', () => {
     await page.goto('/admin/products/categories/cat-1')
     await expect(page).toHaveURL('/admin/products/categories/cat-1')
     await expect(page.locator('h1').first()).toBeVisible()
+  })
+
+  test('deep link to product card works', async ({ page }) => {
+    await page.goto('/admin/products/prod-001')
+    await expect(page.locator('[data-test=page-product-card]')).toBeVisible()
   })
 
   test('categories route resolves before :id', async ({ page }) => {

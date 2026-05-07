@@ -1,3 +1,5 @@
+import type { TranslatedString } from '@/types/i18n'
+
 export type SupplierStatus =
   | 'active'
   | 'preferred'
@@ -8,8 +10,8 @@ export type SupplierStatus =
 
 export interface Supplier {
   id: string
-  company: string
-  contactPerson: string
+  company: TranslatedString
+  contactPerson: TranslatedString
   email: string
   phone: string
   status: SupplierStatus
@@ -34,7 +36,7 @@ export interface SupplierFilters {
 }
 
 export interface SupplierCardData extends Supplier {
-  statusReason: string
+  statusReason: TranslatedString
   contractDate: string
   vatCode: string
   currency: string
@@ -56,20 +58,20 @@ export interface SupplierCardData extends Supplier {
  */
 export interface SupplierPriceEntry {
   date: string
-  product: string
+  product: TranslatedString
   stock: string
   price: number | null
   /** Unit of the price — e.g. 'kg', 'ton', 'piece', 'm'. Null when price is not set yet. */
-  unit: string | null
-  source: string
+  unit: TranslatedString | null
+  source: TranslatedString
   status: 'replied' | 'pending' | 'sent'
 }
 
 export interface SupplierAuditEntry {
   timestamp: string
-  user: string
+  user: TranslatedString
   userInitials: string
-  property: string
+  property: TranslatedString
   oldValue: string
   newValue: string
 }
@@ -84,15 +86,15 @@ export interface SupplierAddress {
 }
 
 export interface SupplierContact {
-  name: string
-  role: string
+  name: TranslatedString
+  role: TranslatedString
   email: string
   phone: string
 }
 
 export interface SupplierFile {
   id: string
-  name: string
+  name: TranslatedString
   size: number
   type: string
   uploadedAt: string
@@ -100,7 +102,7 @@ export interface SupplierFile {
 
 export interface SupplierHistoryItem {
   date: string
-  action: string
-  user: string
-  details: string
+  action: TranslatedString
+  user: TranslatedString
+  details: TranslatedString
 }

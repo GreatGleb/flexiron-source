@@ -1,13 +1,15 @@
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { createSupplier } from '@/services/suppliersService'
+import { useTranslatedField } from './useTranslatedData'
 import type { SupplierCardData } from '@/types/supplier'
 
 /** Empty-supplier factory — used as the starting state for the Create form. */
 function emptyCard(): SupplierCardData {
   return {
     id: '',
-    company: '',
-    contactPerson: '',
+    company: { ru: '', en: '', lt: '' },
+    contactPerson: { ru: '', en: '', lt: '' },
     email: '',
     phone: '',
     status: 'new',
@@ -22,7 +24,7 @@ function emptyCard(): SupplierCardData {
     hasDeficit: false,
     createdAt: '',
     updatedAt: '',
-    statusReason: '',
+    statusReason: { ru: '', en: '', lt: '' },
     contractDate: '',
     vatCode: '',
     currency: 'EUR',
@@ -39,17 +41,19 @@ function emptyCard(): SupplierCardData {
 }
 
 export function useSupplierCreate() {
+  const { locale } = useI18n()
+  const { tf } = useTranslatedField()
+
   const supplier = ref<SupplierCardData>(emptyCard())
   const saving = ref(false)
   const error = ref<string | null>(null)
 
   function validate(): string | null {
-    if (!supplier.value.company.trim()) return 'company_required'
+    if (!tf(supplier.value.company).trim()) return 'company_required'
     if (!supplier.value.email.trim()) return 'email_required'
     return null
   }
 
-  /** POST /api/suppliers — returns the newly created card (with server-assigned id). */
   async function save(): Promise<SupplierCardData | null> {
     const validationError = validate()
     if (validationError) {
@@ -59,7 +63,7 @@ export function useSupplierCreate() {
     saving.value = true
     error.value = null
     try {
-      const created = await createSupplier(supplier.value)
+      const created = await createSupplier(supplier.value, locale.value)
       return created
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to create supplier'
@@ -74,5 +78,5 @@ export function useSupplierCreate() {
     error.value = null
   }
 
-  return { supplier, saving, error, save, validate, reset }
+  return { supplier, saving, error, save, validate, reset, tf }
 }

@@ -1,9 +1,12 @@
 import { ref, reactive, watch } from 'vue'
 import { getSuppliers, patchSupplierStatus } from '@/services/suppliersService'
 import { usePagination } from './usePagination'
+import { useTranslatedField } from './useTranslatedData'
 import type { Supplier, SupplierFilters } from '@/types/supplier'
 
 export function useSuppliers() {
+  const { tf } = useTranslatedField()
+
   const suppliers = ref<Supplier[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
@@ -74,5 +77,5 @@ export function useSuppliers() {
     load()
   })
 
-  return { suppliers, loading, error, filters, pagination, load, resetFilters, changeStatus }
+  return { suppliers, loading, error, filters, pagination, load, resetFilters, changeStatus, tf }
 }

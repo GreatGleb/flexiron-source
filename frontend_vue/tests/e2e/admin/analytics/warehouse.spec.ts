@@ -184,11 +184,12 @@ test.describe('warehouse › deadstock table', () => {
     }
   })
 
-  test('first row shows hard-coded "Sheet 2×1000×2000" / zone A2 / 4 200', async ({ page }) => {
+  test('first row shows hard-coded "Sheet 2×1000×2000" / zone A2 / 4,200', async ({ page }) => {
+    // Component uses toLocaleString() which in en-US produces comma-separated.
     const first = page.locator('[data-test="warehouse-deadstock-row"]').nth(0)
     await expect.soft(first.locator('td').nth(0)).toHaveText('Sheet 2×1000×2000')
     await expect.soft(first.locator('td').nth(1)).toHaveText('A2')
-    await expect.soft(first.locator('td').nth(2)).toHaveText('4 200')
+    await expect.soft(first.locator('td').nth(2)).toHaveText('4,200')
   })
 
   test('status pill variants (danger / warning / success) are all present', async ({ page }) => {

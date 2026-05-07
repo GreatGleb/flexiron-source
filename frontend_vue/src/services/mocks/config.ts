@@ -5,40 +5,56 @@ import type {
   PermissionAction,
   PermissionItem,
 } from '@/types/config'
+import type { TranslatedString } from '@/types/i18n'
+import { mergeTranslatedString } from '@/types/i18n'
 
 export const MOCK_FIELD_LIBRARY: FieldDefinition[] = [
-  { id: 'f-company', name: 'Company Name', type: 'text', required: true, usageCount: 12 },
+  { id: 'f-company', name: { ru: 'Название компании', en: 'Company Name', lt: 'Įmonės pavadinimas' }, type: 'text', required: true, usageCount: 12 },
   {
     id: 'f-status',
-    name: 'Status',
+    name: { ru: 'Статус', en: 'Status', lt: 'Būsena' },
     type: 'enum',
     required: true,
     usageCount: 12,
-    options: ['active', 'preferred', 'new', 'under_review', 'suspended', 'blocked'],
+    options: [
+      { ru: 'Активный', en: 'Active', lt: 'Aktyvus' },
+      { ru: 'Предпочтительный', en: 'Preferred', lt: 'Pageidaujamas' },
+      { ru: 'Новый', en: 'New', lt: 'Naujas' },
+      { ru: 'На проверке', en: 'Under Review', lt: 'Tikrinamas' },
+      { ru: 'Приостановлен', en: 'Suspended', lt: 'Sustabdytas' },
+      { ru: 'Заблокирован', en: 'Blocked', lt: 'Užblokuotas' },
+    ],
   },
-  { id: 'f-rating', name: 'Rating', type: 'number', required: false, usageCount: 12 },
-  { id: 'f-categories', name: 'Categories', type: 'tags', required: false, usageCount: 10 },
-  { id: 'f-email', name: 'Email', type: 'text', required: true, usageCount: 12 },
-  { id: 'f-phone', name: 'Phone', type: 'text', required: false, usageCount: 11 },
+  { id: 'f-rating', name: { ru: 'Рейтинг', en: 'Rating', lt: 'Įvertinimas' }, type: 'number', required: false, usageCount: 12 },
+  { id: 'f-categories', name: { ru: 'Категории', en: 'Categories', lt: 'Kategorijos' }, type: 'tags', required: false, usageCount: 10 },
+  { id: 'f-email', name: { ru: 'Email', en: 'Email', lt: 'El. paštas' }, type: 'text', required: true, usageCount: 12 },
+  { id: 'f-phone', name: { ru: 'Телефон', en: 'Phone', lt: 'Telefonas' }, type: 'text', required: false, usageCount: 11 },
   {
     id: 'f-country',
-    name: 'Country',
+    name: { ru: 'Страна', en: 'Country', lt: 'Šalis' },
     type: 'enum',
     required: false,
     usageCount: 9,
-    options: ['Estonia', 'Latvia', 'Lithuania', 'Germany', 'Sweden', 'UK'],
+    options: [
+      { ru: 'Эстония', en: 'Estonia', lt: 'Estija' },
+      { ru: 'Латвия', en: 'Latvia', lt: 'Latvija' },
+      { ru: 'Литва', en: 'Lithuania', lt: 'Lietuva' },
+      { ru: 'Германия', en: 'Germany', lt: 'Vokietija' },
+      { ru: 'Швеция', en: 'Sweden', lt: 'Švedija' },
+      { ru: 'Великобритания', en: 'UK', lt: 'Jungtinė Karalystė' },
+    ],
   },
-  { id: 'f-city', name: 'City', type: 'text', required: false, usageCount: 9 },
-  { id: 'f-lead-time', name: 'Lead Time (days)', type: 'number', required: false, usageCount: 8 },
-  { id: 'f-last-bcc', name: 'Last BCC Date', type: 'date', required: false, usageCount: 6 },
-  { id: 'f-notes', name: 'Notes', type: 'text', required: false, usageCount: 7 },
-  { id: 'f-certified', name: 'Certified', type: 'boolean', required: false, usageCount: 4 },
+  { id: 'f-city', name: { ru: 'Город', en: 'City', lt: 'Miestas' }, type: 'text', required: false, usageCount: 9 },
+  { id: 'f-lead-time', name: { ru: 'Срок поставки (дни)', en: 'Lead Time (days)', lt: 'Pristatymo laikas (dienos)' }, type: 'number', required: false, usageCount: 8 },
+  { id: 'f-last-bcc', name: { ru: 'Дата последнего BCC', en: 'Last BCC Date', lt: 'Paskutinė BCC data' }, type: 'date', required: false, usageCount: 6 },
+  { id: 'f-notes', name: { ru: 'Заметки', en: 'Notes', lt: 'Pastabos' }, type: 'text', required: false, usageCount: 7 },
+  { id: 'f-certified', name: { ru: 'Сертифицирован', en: 'Certified', lt: 'Sertifikuotas' }, type: 'boolean', required: false, usageCount: 4 },
 ]
 
 export const MOCK_SECTIONS: SectionConfig[] = [
   {
     id: 'sec-general',
-    name: 'General Info',
+    name: { ru: 'Основная информация', en: 'General Info', lt: 'Pagrindinė informacija' },
     order: 0,
     collapsed: false,
     visible: true,
@@ -52,7 +68,7 @@ export const MOCK_SECTIONS: SectionConfig[] = [
   },
   {
     id: 'sec-contacts',
-    name: 'Contacts',
+    name: { ru: 'Контакты', en: 'Contacts', lt: 'Kontaktai' },
     order: 1,
     collapsed: false,
     visible: true,
@@ -64,7 +80,7 @@ export const MOCK_SECTIONS: SectionConfig[] = [
   },
   {
     id: 'sec-location',
-    name: 'Location',
+    name: { ru: 'Локация', en: 'Location', lt: 'Vieta' },
     order: 2,
     collapsed: true,
     visible: true,
@@ -76,7 +92,7 @@ export const MOCK_SECTIONS: SectionConfig[] = [
   },
   {
     id: 'sec-logistics',
-    name: 'Logistics',
+    name: { ru: 'Логистика', en: 'Logistics', lt: 'Logistika' },
     order: 3,
     collapsed: false,
     visible: true,
@@ -88,7 +104,7 @@ export const MOCK_SECTIONS: SectionConfig[] = [
   },
   {
     id: 'sec-notes',
-    name: 'Notes & Docs',
+    name: { ru: 'Заметки и документы', en: 'Notes & Docs', lt: 'Pastabos ir dokumentai' },
     order: 4,
     collapsed: false,
     visible: true,
@@ -119,7 +135,7 @@ function buildMockPermissions(): PermissionMatrix {
       const fieldDef = MOCK_FIELD_LIBRARY.find((fd) => fd.id === f.fieldId)
       items.push({
         itemId: f.fieldId,
-        name: fieldDef?.name ?? f.fieldId,
+        name: fieldDef?.name ?? { ru: f.fieldId, en: f.fieldId, lt: f.fieldId },
         type: 'field',
         parentId: sec.id,
       })
@@ -191,7 +207,7 @@ export function mockSavePermissions(_matrix: PermissionMatrix): void {
 }
 
 export function mockCreateField(payload: {
-  name: string
+  name: TranslatedString
   type: FieldDefinition['type']
 }): FieldDefinition {
   const field: FieldDefinition = {
@@ -211,6 +227,10 @@ export function mockUpdateField(
 ): FieldDefinition | null {
   const field = MOCK_FIELD_LIBRARY.find((f) => f.id === id)
   if (!field) return null
+  // Merge TranslatedString fields to preserve existing locales
+  if (patch.name) {
+    patch.name = mergeTranslatedString(field.name, patch.name)
+  }
   Object.assign(field, patch)
   return field
 }
@@ -223,10 +243,14 @@ export function mockDeleteField(id: string): void {
   }
 }
 
-export function mockCreateSection(payload: { name: string }): SectionConfig {
+export function mockCreateSection(payload: { name: TranslatedString | string }): SectionConfig {
+  const name: TranslatedString =
+    typeof payload.name === 'string'
+      ? { ru: payload.name, en: payload.name, lt: payload.name }
+      : payload.name
   const section: SectionConfig = {
     id: `sec-new-${Date.now()}`,
-    name: payload.name,
+    name,
     order: MOCK_SECTIONS.length,
     collapsed: false,
     visible: true,
@@ -239,6 +263,10 @@ export function mockCreateSection(payload: { name: string }): SectionConfig {
 export function mockUpdateSection(id: string, patch: Partial<SectionConfig>): SectionConfig | null {
   const section = MOCK_SECTIONS.find((s) => s.id === id)
   if (!section) return null
+  // Merge TranslatedString fields to preserve existing locales
+  if (patch.name) {
+    patch.name = mergeTranslatedString(section.name, patch.name)
+  }
   Object.assign(section, patch)
   return section
 }

@@ -1,19 +1,21 @@
+import type { TranslatedString } from '@/types/i18n'
+
 export type FieldType = 'enum' | 'number' | 'text' | 'date' | 'boolean' | 'tags'
 
 export interface FieldDefinition {
   id: string
-  name: string
+  name: TranslatedString
   type: FieldType
   required: boolean
   usageCount: number
   /** Hidden from the supplier card rendering (library-level hide). */
   hidden?: boolean
-  options?: string[]
+  options?: TranslatedString[]
 }
 
 export interface SectionConfig {
   id: string
-  name: string
+  name: TranslatedString
   order: number
   /** UI-only: collapsed inside the config builder (not persisted to the rendered supplier card). */
   collapsed: boolean
@@ -56,7 +58,7 @@ export interface PermissionMatrix {
 
 export interface PermissionItem {
   itemId: string
-  name: string
+  name: TranslatedString
   type: 'section' | 'field'
   /** For field items — parent section id */
   parentId?: string

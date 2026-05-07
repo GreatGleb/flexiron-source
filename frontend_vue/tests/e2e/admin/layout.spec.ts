@@ -8,7 +8,7 @@ import { waitForFontsReady } from '../helpers/visual'
  *   .shell[data-test="admin-shell"] (classes: sidebar-collapsed, sidebar-active)
  *     └─ <AdminSidebar> → aside[data-test="sidebar-root"]
  *     └─ <AdminTopbar>  → header[data-test="topbar-root"]
- *     └─ main[data-test="admin-main"] > h1[data-test="page-title"]? + <RouterView>
+ *     └─ main[data-test="admin-main"] > <RouterView>  (each page renders its own h1[data-test="…-title"])
  *
  * useSidebar contract (src/composables/useSidebar.ts):
  *   - Mobile breakpoint: window.innerWidth <= 860

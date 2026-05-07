@@ -142,12 +142,12 @@ test.describe('staff › managers table', () => {
   })
 
   test('sales column renders the expected formatted values', async ({ page }) => {
-    // Sales is the 2nd <td> per row (after manager name).
+    // Component uses toLocaleString() which in en-US produces comma-separated.
     const rows = page.locator('[data-test="staff-manager-row"]')
-    await expect.soft(rows.nth(0).locator('td').nth(1)).toHaveText('28 400')
-    await expect.soft(rows.nth(1).locator('td').nth(1)).toHaveText('22 100')
-    await expect.soft(rows.nth(2).locator('td').nth(1)).toHaveText('18 700')
-    await expect.soft(rows.nth(3).locator('td').nth(1)).toHaveText('15 000')
+    await expect.soft(rows.nth(0).locator('td').nth(1)).toHaveText('28,400')
+    await expect.soft(rows.nth(1).locator('td').nth(1)).toHaveText('22,100')
+    await expect.soft(rows.nth(2).locator('td').nth(1)).toHaveText('18,700')
+    await expect.soft(rows.nth(3).locator('td').nth(1)).toHaveText('15,000')
   })
 
   test('deals column renders the expected values', async ({ page }) => {
@@ -295,11 +295,12 @@ test.describe('staff › revenue dynamics chart', () => {
   })
 
   test('revenue values are the expected formatted euros', async ({ page }) => {
+    // Component uses toLocaleString() which in en-US produces comma-separated.
     const vals = page.locator('[data-test="staff-revenue-row"] .bar-val')
-    await expect.soft(vals.nth(0)).toHaveText('28 400 €')
-    await expect.soft(vals.nth(1)).toHaveText('22 100 €')
-    await expect.soft(vals.nth(2)).toHaveText('18 700 €')
-    await expect.soft(vals.nth(3)).toHaveText('15 000 €')
+    await expect.soft(vals.nth(0)).toHaveText('28,400 €')
+    await expect.soft(vals.nth(1)).toHaveText('22,100 €')
+    await expect.soft(vals.nth(2)).toHaveText('18,700 €')
+    await expect.soft(vals.nth(3)).toHaveText('15,000 €')
   })
 
   test('manager labels are present and non-empty', async ({ page }) => {

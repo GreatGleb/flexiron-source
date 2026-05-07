@@ -3,11 +3,13 @@ import { useI18n } from 'vue-i18n'
 import { getProducts, deleteProduct as deleteProductApi } from '@/services/productsService'
 import { usePagination } from './usePagination'
 import { useToast } from './useToast'
+import { useTranslatedField } from './useTranslatedData'
 import type { ProductListItem, ProductFilters } from '@/types/product'
 
 export function useProducts() {
   const { t } = useI18n()
   const toast = useToast()
+  const { tf } = useTranslatedField()
 
   const items = ref<ProductListItem[]>([])
   const loading = ref(false)
@@ -71,5 +73,16 @@ export function useProducts() {
     }
   }
 
-  return { items, loading, error, filters, pagination, load, deleteProduct, toggleSort }
+  return {
+    items,
+    loading,
+    error,
+    filters,
+    pagination,
+    load,
+    deleteProduct,
+    toggleSort,
+    tf,
+  }
 }
+

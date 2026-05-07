@@ -135,7 +135,7 @@ test.describe('Cross-page link follow-through', () => {
     context,
   }) => {
     await setFlags(context, { bccRequest: false })
-    await page.goto('/admin/suppliers/S-001')
+    await page.goto('/admin/suppliers/1')
     const bccLink = page.locator('[data-test="supplier-card-bcc-link"]')
     await expect(bccLink).toBeVisible()
     await bccLink.click()
@@ -147,7 +147,7 @@ test.describe('Cross-page link follow-through', () => {
     context,
   }) => {
     await setFlags(context, { supplierCardConfig: false })
-    await page.goto('/admin/suppliers/S-001')
+    await page.goto('/admin/suppliers/1')
     const configLink = page.locator('[data-test="supplier-card-config-link"]')
     await expect(configLink).toBeVisible()
     await configLink.click()

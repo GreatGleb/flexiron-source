@@ -31,9 +31,11 @@ const ADMIN_ROUTES: Route[] = [
   { path: '/admin/analytics/deficit', label: 'deficit' },
   { path: '/admin/products/categories', label: 'categories' },
   { path: '/admin/products/categories/cat-1', label: 'category-card' },
+  { path: '/admin/products', label: 'products' },
+  { path: '/admin/products/prod-001', label: 'product-card' },
   { path: '/admin/suppliers', label: 'suppliers-list' },
   { path: '/admin/suppliers/new', label: 'supplier-create' },
-  { path: '/admin/suppliers/S-001', label: 'supplier-card' },
+  { path: '/admin/suppliers/1', label: 'supplier-card' },
   { path: '/admin/suppliers/config', label: 'supplier-card-config' },
   { path: '/admin/suppliers/bcc-request', label: 'bcc-request' },
 ]

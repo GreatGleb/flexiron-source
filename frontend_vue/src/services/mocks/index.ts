@@ -96,11 +96,6 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
     return delay(mockExportSuppliersCsv(filters) as T)
   }
 
-  const supplierCardMatch = path.match(/^\/api\/suppliers\/([^/]+)$/)
-  if (supplierCardMatch && !path.includes('/status')) {
-    return delay(mockGetSupplier(supplierCardMatch[1] as string) as T)
-  }
-
   if (path === '/api/suppliers') {
     const filters: SupplierFilters = {
       search: params?.search ?? '',
@@ -115,6 +110,11 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
     return delay(mockGetSuppliers(filters, pagination) as T)
   }
 
+  const supplierCardMatch = path.match(/^\/api\/suppliers\/([^/]+)$/)
+  if (supplierCardMatch && !path.includes('/status')) {
+    return delay(mockGetSupplier(supplierCardMatch[1] as string) as T)
+  }
+
   if (path === '/api/bcc/categories') return delay(mockGetBccCategories() as T)
   if (path === '/api/bcc/recipients') {
     const productIds = params?.products ? params.products.split(',') : []
@@ -125,26 +125,21 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
     const pageSize = Number(params?.pageSize ?? 25)
     return delay(mockGetBccHistory(page, pageSize) as T)
   }
-
   if (path === '/api/config/fields') return delay(mockGetFieldLibrary() as T)
   if (path === '/api/config/sections') return delay(mockGetSections() as T)
   if (path === '/api/config/permissions') return delay(mockGetPermissions() as T)
 
-  const categoryCardMatch = path.match(/^\/api\/categories\/([^/]+)$/)
-  if (categoryCardMatch) {
-    return delay(mockGetCategory(categoryCardMatch[1] as string) as T)
-  }
   if (path === '/api/categories') {
     const filters: CategoryFilters = { search: params?.search ?? '' }
     const page = Number(params?.page ?? 1)
     const pageSize = Number(params?.pageSize ?? 25)
     return delay(mockGetCategories(filters, page, pageSize) as T)
   }
-
-  const productCardMatch = path.match(/^\/api\/products\/([^/]+)$/)
-  if (productCardMatch) {
-    return delay(mockGetProduct(productCardMatch[1] as string) as T)
+  const categoryCardMatch = path.match(/^\/api\/categories\/([^/]+)$/)
+  if (categoryCardMatch) {
+    return delay(mockGetCategory(categoryCardMatch[1] as string) as T)
   }
+
   if (path === '/api/products') {
     const filters: ProductFilters = {
       search: params?.search ?? '',
@@ -156,7 +151,12 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
       page: params?.page ? Number(params.page) : 1,
       pageSize: params?.pageSize ? Number(params.pageSize) : 25,
     }
-    return delay(mockGetProducts(filters, pagination) as T)
+    return delay(mockGetProducts({ ...filters, ...pagination }) as T)
+  }
+
+  const productCardMatch = path.match(/^\/api\/products\/([^/]+)$/)
+  if (productCardMatch) {
+    return delay(mockGetProduct(productCardMatch[1] as string) as T)
   }
 
   throw new Error(`[mock] GET ${path} not found`)
@@ -207,7 +207,6 @@ export async function postMock<T>(
   if (path === '/api/config/sections') {
     return delay(mockCreateSection(body as Parameters<typeof mockCreateSection>[0]) as T)
   }
-
   if (path === '/api/categories') {
     return delay(mockCreateCategory(body as Parameters<typeof mockCreateCategory>[0]) as T)
   }
@@ -240,7 +239,8 @@ export async function putMock<T>(
 
   const categoryFieldsMatch = path.match(/^\/api\/categories\/([^/]+)\/fields$/)
   if (categoryFieldsMatch) {
-    return delay(mockPutCategoryFields(categoryFieldsMatch[1] as string, body as CategoryField[]) as T)
+    const { fields } = body as { fields: CategoryField[] }
+    return delay(mockPutCategoryFields(categoryFieldsMatch[1] as string, fields) as T)
   }
 
   throw new Error(`[mock] PUT ${path} not found`)

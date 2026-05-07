@@ -5,18 +5,20 @@ import { getCategories } from '@/services/categoriesService'
 import { getSuppliers } from '@/services/suppliersService'
 import { useDirtyCheck } from './useDirtyCheck'
 import { useToast } from './useToast'
-import { useLabelResolver } from './useLabelResolver'
+import { useTranslatedField } from './useTranslatedData'
+import { toTranslatedString } from '@/types/i18n'
 import type { Product, ProductFieldValue, LinkedSupplier } from '@/types/product'
+import type { TranslatedString } from '@/types/i18n'
 import type { CategoryListItem } from '@/types/category'
 import type { Supplier } from '@/types/supplier'
 
-type BasicFields = Pick<Product, 'name' | 'sku' | 'description' | 'price' | 'minStock' | 'priceUnit'>
+type BasicFieldsTranslated = Pick<Product, 'sku' | 'price' | 'minStock' | 'priceUnit'> & { name: TranslatedString | null; description: TranslatedString | null }
 type FieldValueMap = Record<string, ProductFieldValue['value']>
 
 export function useProductCard(id: string) {
-  const { t } = useI18n()
-  const { resolveLabel } = useLabelResolver()
+  const { t, locale } = useI18n()
   const toast = useToast()
+  const { tf } = useTranslatedField()
 
   const product = ref<Product | null>(null)
   const loading = ref(false)
@@ -25,24 +27,21 @@ export function useProductCard(id: string) {
   const categories = ref<CategoryListItem[]>([])
   const suppliersList = ref<Supplier[]>([])
 
-  const form = ref<BasicFields>({
-    name: '',
-    sku: null,
-    description: null,
-    price: null,
-    minStock: null,
-    priceUnit: null,
-  })
+  const form = ref<BasicFieldsTranslated>(
+    { name: null, sku: null, description: null, price: null, minStock: null, priceUnit: null },
+  )
   const dirty = useDirtyCheck(form)
 
-  // v-model.number sets NaN when input is cleared — normalize to null immediately
+  // v-model.number sets NaN when input is cleared — normalize to null immediately.
+  // Use a getter-based watch instead of deep:true to avoid Vue's internal
+  // structuredClone on the reactive proxy (which fails when a property's type
+  // changes, e.g. null → { ru, en, lt }).
   watch(
-    form,
-    (val) => {
-      if (Number.isNaN(val.price as unknown)) form.value.price = null
-      if (Number.isNaN(val.minStock as unknown)) form.value.minStock = null
+    () => [form.value.price, form.value.minStock],
+    ([price, minStock]) => {
+      if (Number.isNaN(price as unknown)) form.value.price = null
+      if (Number.isNaN(minStock as unknown)) form.value.minStock = null
     },
-    { deep: true },
   )
 
   // Flat Record<fieldId, value> for v-model binding per dynamic field
@@ -69,7 +68,7 @@ export function useProductCard(id: string) {
     const parts: string[] = []
     let current = categories.value.find((c) => c.id === categoryId)
     while (current) {
-      parts.unshift(resolveLabel(current.name))
+      parts.unshift(tf(current.name))
       current = current.parentId
         ? categories.value.find((c) => c.id === current!.parentId)
         : undefined
@@ -113,10 +112,19 @@ export function useProductCard(id: string) {
     try {
       const data = await getProduct(id)
       product.value = data
+      // Normalize description: old products may have it as a plain string,
+      // but the form treats it as TranslatedString. Convert to TranslatedString
+      // so that mergeLocaleValue() works correctly in the formDescription setter.
+      const normalizedDescription: TranslatedString | null =
+        data.description === null
+          ? null
+          : typeof data.description === 'string'
+            ? toTranslatedString(data.description, locale.value)
+            : data.description as TranslatedString
       form.value = {
         name: data.name,
         sku: data.sku,
-        description: data.description,
+        description: normalizedDescription,
         price: data.price,
         minStock: data.minStock,
         priceUnit: data.priceUnit,
@@ -162,7 +170,7 @@ export function useProductCard(id: string) {
       if (linkedSuppliersChanged.value) {
         delta.linkedSuppliers = JSON.parse(JSON.stringify(linkedSuppliers.value)) as LinkedSupplier[]
       }
-      await patchProduct(id, delta)
+      await patchProduct(id, delta, locale.value)
       toast.success(t('products.toast_saved'))
       await load()
     } catch {
@@ -196,5 +204,7 @@ export function useProductCard(id: string) {
     load,
     save,
     discard,
+    tf,
   }
 }
+

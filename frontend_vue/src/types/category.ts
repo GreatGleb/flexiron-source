@@ -1,21 +1,22 @@
+import type { TranslatedString } from './i18n'
 import type { LinkedSupplier } from './product'
 
 export type CategoryFieldType = 'text' | 'number' | 'boolean' | 'enum' | 'email' | 'date' | 'file'
 
 export interface CategoryField {
   id: string
-  name: string
+  name: TranslatedString
   type: CategoryFieldType
   required: boolean
   order: number
-  options: string[]
+  options: TranslatedString[]
 }
 
 export interface Category {
   id: string
-  name: string
+  name: TranslatedString
   parentId: string | null
-  description: string | null
+  description: TranslatedString | null
   fieldCount: number
   productCount: number
   inheritedFields: CategoryField[]
@@ -25,9 +26,9 @@ export interface Category {
 
 export interface CategoryListItem {
   id: string
-  name: string
+  name: TranslatedString
   parentId: string | null
-  parentName: string | null
+  parentName: TranslatedString | null
   fieldCount: number
   productCount: number
   level: number

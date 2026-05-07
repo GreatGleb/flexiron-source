@@ -95,6 +95,34 @@
   }
 }
 
+/* Entity Not Found State */
+.entity-not-found {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 64px 24px;
+  text-align: center;
+  gap: 16px;
+  color: var(--text-dim);
+}
+.entity-not-found svg {
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+.entity-not-found h2 {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+.entity-not-found p {
+  color: var(--text-secondary);
+  max-width: 400px;
+  font-size: 16px;
+  margin: 0;
+}
+
 /* Entity Action Bar - Small Mobile */
 @media (max-width: 400px) {
   .entity-action-bar {

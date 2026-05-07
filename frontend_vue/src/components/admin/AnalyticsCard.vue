@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
 import SvgIcon from './SvgIcon.vue'
+import { useTranslatedField } from '@/composables/useTranslatedData'
+
+const { tf } = useTranslatedField()
+
+import type { TranslatedString } from '@/types/i18n'
 
 export interface AcardMetric {
-  label: string
+  label: TranslatedString
   value: string
   status?: 'ok' | 'warn' | 'bad'
 }
@@ -23,7 +28,7 @@ defineProps<{
     <div class="acard-title">{{ title }}</div>
     <div class="acard-metrics">
       <div v-for="(m, i) in metrics" :key="i" class="acard-metric">
-        <span>{{ m.label }}</span>
+        <span>{{ tf(m.label) }}</span>
         <strong :class="m.status">{{ m.value }}</strong>
       </div>
     </div>

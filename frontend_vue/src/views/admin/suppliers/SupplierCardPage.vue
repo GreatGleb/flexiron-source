@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
+import Breadcrumb from '@/components/admin/Breadcrumb.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
 import FileItem from '@/components/admin/FileItem.vue'
 import DropZone from '@/components/admin/ui/DropZone.vue'
@@ -13,19 +14,18 @@ import { useSupplierCard } from '@/composables/useSupplierCard'
 import { deleteAuditEntry } from '@/services/suppliersService'
 import { useToast } from '@/composables/useToast'
 import { useHead } from '@/composables/useHead'
-import { useLabelResolver } from '@/composables/useLabelResolver'
+import { mergeLocaleValue } from '@/types/i18n'
 
 import '@styles/admin/components/_entity-card-layout.css'
 import '@styles/admin/components/_audit-log.css'
 import '@styles/admin/supplier_card.css'
 
-const { t } = useI18n()
-const { resolveLabel } = useLabelResolver()
+const { t, locale } = useI18n()
 const route = useRoute()
 const toast = useToast()
 
 const id = computed(() => String(route.params.id))
-const { supplier, loading, saving, isDirty, load, save } = useSupplierCard(id.value)
+const { supplier, loading, saving, isDirty, error, load, save, tf } = useSupplierCard(id.value)
 
 useHead({
   title: () => `Flexiron — ${t('supplier.card_title')}`,
@@ -43,7 +43,7 @@ function onFilesUploaded(uploaded: UploadedFile[]) {
   for (const u of uploaded) {
     supplier.value.files.push({
       id: u.fileId,
-      name: u.name,
+      name: mergeLocaleValue(undefined, u.name, locale.value),
       size: u.size,
       type: u.mime,
       uploadedAt: u.uploadedAt.slice(0, 10),
@@ -94,54 +94,56 @@ onMounted(load)
 </script>
 
 <template>
-  <h1 class="page-title" data-test="supplier-card-title">{{ t('supplier.header_title') }}</h1>
+  <template v-if="!error">
+    <h1 class="page-title" data-test="supplier-card-title">{{ t('supplier.header_title') }}</h1>
 
-  <div class="flex-end" style="margin-bottom: 32px">
-    <div
-      data-test="supplier-card-action-bar"
-      class="entity-action-bar no-margin pos-static flex-group"
-    >
-      <router-link
-        :to="{ name: 'admin-bcc-request', query: { supplier: id } }"
-        class="btn btn-primary"
-        data-test="supplier-card-bcc-link"
+    <div class="flex-end" style="margin-bottom: 32px">
+      <div
+        data-test="supplier-card-action-bar"
+        class="entity-action-bar no-margin pos-static flex-group"
       >
-        <SvgIcon name="email" :width="18" :height="18" />
-        <span>{{ t('btn.bcc_tool') }}</span>
-      </router-link>
-      <router-link
-        :to="{ name: 'admin-supplier-config' }"
-        class="btn btn-secondary"
-        data-test="supplier-card-config-link"
-      >
-        <SvgIcon name="settings-gear" :width="18" :height="18" />
-        <span>{{ t('btn.config_card') }}</span>
-      </router-link>
-      <button
-        class="btn btn-save"
-        :class="{ dirty: isDirty, loading: saving }"
-        :disabled="!isDirty || saving"
-        data-test="supplier-card-save-btn"
-        @click="handleSave"
-      >
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
+        <router-link
+          :to="{ name: 'admin-bcc-request', query: { supplier: id } }"
+          class="btn btn-primary"
+          data-test="supplier-card-bcc-link"
         >
-          <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
-          <polyline points="17 21 17 13 7 13 7 21" />
-          <polyline points="7 3 7 8 15 8" />
-        </svg>
-        <span>{{ t('btn.save') }}</span>
-      </button>
+          <SvgIcon name="email" :width="18" :height="18" />
+          <span>{{ t('btn.bcc_tool') }}</span>
+        </router-link>
+        <router-link
+          :to="{ name: 'admin-supplier-config' }"
+          class="btn btn-secondary"
+          data-test="supplier-card-config-link"
+        >
+          <SvgIcon name="settings-gear" :width="18" :height="18" />
+          <span>{{ t('btn.config_card') }}</span>
+        </router-link>
+        <button
+          class="btn btn-save"
+          :class="{ dirty: isDirty, loading: saving }"
+          :disabled="!isDirty || saving"
+          data-test="supplier-card-save-btn"
+          @click="handleSave"
+        >
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
+            <polyline points="17 21 17 13 7 13 7 21" />
+            <polyline points="7 3 7 8 15 8" />
+          </svg>
+          <span>{{ t('btn.save') }}</span>
+        </button>
+      </div>
     </div>
-  </div>
+  </template>
 
   <div v-if="loading && !supplier" class="main-card-content" data-test="supplier-card-loading">
     <div class="entity-card-grid">
@@ -158,6 +160,23 @@ onMounted(load)
         <GlassPanel :title="t('sp.pricing_hist')" :loading="true" :skeleton-rows="5" />
         <GlassPanel :title="t('sp.files_title')" :loading="true" :skeleton-rows="2" />
       </div>
+    </div>
+  </div>
+
+  <div v-else-if="error" class="main-card-content" data-test="supplier-card-error">
+    <Breadcrumb
+      :items="[
+        { label: t('suppliers.header_title'), to: { name: 'admin-suppliers' } },
+        { label: t('common.entity_not_found') },
+      ]"
+    />
+    <div class="entity-not-found">
+      <SvgIcon name="search" :width="48" :height="48" />
+      <h2>{{ t('common.entity_not_found') }}</h2>
+      <p>{{ t('common.entity_not_found_id', { id }) }}</p>
+      <router-link :to="{ name: 'admin-suppliers' }" class="btn btn-primary">
+        {{ t('common.back_to_list') }}
+      </router-link>
     </div>
   </div>
 
@@ -189,7 +208,7 @@ onMounted(load)
               <span>{{ t('btn.bcc_tool') }}</span>
             </router-link>
           </template>
-          <div class="table-responsive">
+          <div v-if="supplier.priceHistory.length > 0" class="table-responsive">
             <table class="history-table" data-test="supplier-card-pricing-table">
               <thead>
                 <tr>
@@ -211,13 +230,13 @@ onMounted(load)
                   <td>
                     <span class="audit-log-ts">{{ p.date }}</span>
                   </td>
-                  <td class="product-cell">{{ resolveLabel(p.product) }}</td>
+                  <td class="product-cell">{{ tf(p.product) }}</td>
                   <td class="stock-cell">
                     <strong>{{ p.stock }}</strong>
                   </td>
                   <td class="price-cell">{{ p.price !== null ? p.price.toFixed(2) : '—' }}</td>
-                  <td class="unit-cell">{{ p.unit ?? '—' }}</td>
-                  <td class="log-source-cell">{{ p.source }}</td>
+                  <td class="unit-cell">{{ tf(p.unit) ?? '—' }}</td>
+                  <td class="log-source-cell">{{ tf(p.source) }}</td>
                   <td class="log-status-cell">
                     <span
                       :class="['status-pill', BCC_LOG_STATUS_PILL[p.status]]"
@@ -230,6 +249,9 @@ onMounted(load)
               </tbody>
             </table>
           </div>
+          <div v-else class="empty-state">
+            <p>{{ t('sp.pricing_hist_empty') }}</p>
+          </div>
         </GlassPanel>
 
         <GlassPanel :title="t('sp.files_title')" data-test="supplier-card-files">
@@ -237,7 +259,7 @@ onMounted(load)
             <FileItem
               v-for="f in supplier.files"
               :key="f.id"
-              :name="f.name"
+              :name="tf(f.name)"
               download-url="#"
               data-test="supplier-card-file-item"
               @delete="removeFile(f.id)"
@@ -273,10 +295,10 @@ onMounted(load)
                 <td>
                   <div class="audit-log-user">
                     <div class="audit-log-avatar">{{ a.userInitials }}</div>
-                    <span>{{ a.user }}</span>
+                    <span>{{ tf(a.user) }}</span>
                   </div>
                 </td>
-                <td>{{ a.property }}</td>
+                <td>{{ tf(a.property) }}</td>
                 <td>
                   <span class="audit-diff-old">{{ a.oldValue }}</span>
                   &nbsp;→&nbsp;

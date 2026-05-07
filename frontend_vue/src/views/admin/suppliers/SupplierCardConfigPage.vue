@@ -11,13 +11,12 @@ import { useCardConfig } from '@/composables/useCardConfig'
 import { useToast } from '@/composables/useToast'
 import { useHead } from '@/composables/useHead'
 import { useFeatureFlag } from '@/composables/useFeatureFlag'
-import { useLabelResolver } from '@/composables/useLabelResolver'
 import type { FieldDefinition, PermissionAction } from '@/types/config'
+import { toTranslatedString } from '@/types/i18n'
 
 import '@styles/admin/supplier_card_config.css'
 
-const { t } = useI18n()
-const { resolveLabel } = useLabelResolver()
+const { t, locale } = useI18n()
 const toast = useToast()
 const showPermissionsEditor = useFeatureFlag('permissionsEditor')
 
@@ -32,6 +31,7 @@ const {
   permissions,
   saving,
   loading,
+  error,
   load,
   saveConfig,
   moveSection,
@@ -39,14 +39,16 @@ const {
   toggleSectionVisibility,
   renameSection,
   toggleFieldVisibility,
+  tf,
 } = useCardConfig()
 
 const fieldSearch = ref('')
+const libraryExpanded = ref(false)
 
 const filteredFields = computed(() => {
   if (!fieldSearch.value.trim()) return fieldLibrary.value
   const q = fieldSearch.value.toLowerCase()
-  return fieldLibrary.value.filter((f) => f.name.toLowerCase().includes(q))
+  return fieldLibrary.value.filter((f) => tf(f.name).toLowerCase().includes(q))
 })
 
 function fieldById(fieldId: string): FieldDefinition | undefined {
@@ -309,9 +311,10 @@ function createField() {
     toast.show(t('notification.enter_field_name'), 'error')
     return
   }
+  const nameStr = newField.value.name.trim()
   fieldLibrary.value.push({
     id: `f-custom-${Date.now()}`,
-    name: newField.value.name.trim(),
+    name: toTranslatedString(nameStr, locale.value),
     type: newField.value.type,
     required: false,
     usageCount: 0,
@@ -361,11 +364,17 @@ function confirmDeleteField() {
 const editSectionOpen = ref(false)
 const editSectionId = ref<string | null>(null)
 const editSectionName = ref('')
+const editSectionNameModel = computed({
+  get: () => editSectionName.value,
+  set: (v: string) => {
+    editSectionName.value = v
+  },
+})
 function openEditSection(sectionId: string) {
   const sec = sections.value.find((s) => s.id === sectionId)
   if (!sec) return
   editSectionId.value = sectionId
-  editSectionName.value = sec.name
+  editSectionName.value = tf(sec.name)
   editSectionOpen.value = true
 }
 function confirmEditSection() {
@@ -374,7 +383,7 @@ function confirmEditSection() {
     toast.show(t('notification.enter_field_name'), 'error')
     return
   }
-  renameSection(editSectionId.value, editSectionName.value.trim())
+  renameSection(editSectionId.value, editSectionName.value)
   editSectionOpen.value = false
   toast.show(t('notification.section_updated'))
 }
@@ -397,10 +406,11 @@ function confirmAddField() {
     toast.show(t('notification.enter_field_name'), 'error')
     return
   }
+  const nameStr = addField.value.name.trim()
   const newId = `f-custom-${Date.now()}`
   fieldLibrary.value.push({
     id: newId,
-    name: addField.value.name.trim(),
+    name: toTranslatedString(nameStr, locale.value),
     type: addField.value.type,
     required: false,
     usageCount: 1,
@@ -446,7 +456,7 @@ async function confirmAddSection() {
   }
   const newSection = {
     id: `sec-new-${Date.now()}`,
-    name,
+    name: toTranslatedString(name, locale.value),
     order: sections.value.length,
     collapsed: false,
     visible: true,
@@ -519,15 +529,39 @@ onMounted(load)
     </div>
   </div>
 
+  <template v-if="loading">
+    <GlassPanel :loading="true" :skeleton-rows="8" />
+  </template>
+  <template v-else-if="error">
+    <div class="error-state">{{ error }}</div>
+  </template>
+  <template v-else>
   <div class="config-grid" data-test="supplier-card-config-grid">
     <!-- COL LEFT: Global Field Library -->
-    <div class="col-library" data-test="supplier-card-config-library">
+    <div
+      class="col-library"
+      :class="{ expanded: libraryExpanded }"
+      data-test="supplier-card-config-library"
+    >
       <GlassPanel
         :title="t('cardConfig.global_fields')"
         :loading="loading && fieldLibrary.length === 0"
         :skeleton-rows="8"
       >
         <template #header>
+          <!-- Mobile toggle button for global fields panel -->
+          <button
+            class="nav-btn mobile-library-toggle"
+            data-test="supplier-card-config-library-toggle"
+            @click="libraryExpanded = !libraryExpanded"
+          >
+            <SvgIcon
+              :name="libraryExpanded ? 'chevron-up' : 'chevron-down'"
+              :width="12"
+              :height="12"
+            />
+            <span>{{ libraryExpanded ? t('btn.collapse') : t('btn.show') }}</span>
+          </button>
           <button
             class="nav-btn"
             style="
@@ -562,7 +596,7 @@ onMounted(load)
             v-for="f in filteredFields"
             :key="f.id"
             :field-id="f.id"
-            :name="resolveLabel(f.name)"
+            :name="tf(f.name)"
             :type="f.type"
             :draggable="true"
             :usage-count="f.usageCount"
@@ -617,7 +651,7 @@ onMounted(load)
           >
             <ConfigSectionCard
               :section-id="sec.id"
-              :name="resolveLabel(sec.name)"
+              :name="tf(sec.name)"
               :collapsed="sec.collapsed"
               :hidden="!sec.visible"
               :field-count="sec.fields.length"
@@ -632,7 +666,7 @@ onMounted(load)
                 v-for="f in sec.fields"
                 :key="f.fieldId"
                 :field-id="f.fieldId"
-                :name="resolveLabel(fieldById(f.fieldId)?.name ?? f.fieldId)"
+                :name="tf(fieldById(f.fieldId)?.name ?? { ru: f.fieldId, en: f.fieldId, lt: f.fieldId })"
                 :type="fieldById(f.fieldId)?.type ?? 'text'"
                 :usage-count="0"
                 :hidden="!f.visible"
@@ -709,7 +743,7 @@ onMounted(load)
             >
               <td class="permissions-cell-name">
                 <span v-if="item.type === 'field'" class="permissions-field-indent" />
-                <span class="permissions-item-name">{{ resolveLabel(item.name) }}</span>
+                <span class="permissions-item-name">{{ tf(item.name) }}</span>
                 <span
                   v-if="item.type === 'field' && hasOverride(item.itemId)"
                   class="permissions-override-badge"
@@ -951,7 +985,7 @@ onMounted(load)
       <div class="input-group">
         <label class="field-label">{{ t('field.section_name') }}</label>
         <input
-          v-model="editSectionName"
+          v-model="editSectionNameModel"
           type="text"
           class="glass-input"
           data-test="supplier-card-config-modal-edit-section-name"
@@ -1051,4 +1085,5 @@ onMounted(load)
       </button>
     </template>
   </AppModal>
+  </template>
 </template>
