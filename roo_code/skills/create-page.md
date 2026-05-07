@@ -49,7 +49,7 @@ Read all relevant docs:
 ### Step 0c — Project Context (skip if already read this session)
 - `frontend_vue/CLAUDE.md` — patterns, prohibitions, pitfalls
 - `frontend_vue/src/router/index.ts` — existing routes (verify names before using)
-- `frontend_vue/src/i18n/admin.ts` — existing translation keys and prefixes
+- `frontend_vue/src/i18n/admin/` — existing domain translation files (layout, dashboard, products, categories, suppliers, bcc, cardConfig, analytics, common)
 - `frontend_vue/src/components/admin/` — available components (use, don't recreate)
 - `frontend_vue/src/types/` — existing TypeScript types (reuse where possible)
 - `frontend_vue/src/config/featureFlags.ts` — existing flags
@@ -165,6 +165,14 @@ Rules:
 ### Register in `src/services/mocks/index.ts`
 Add new domain routes to the mock router. Follow existing pattern exactly.
 
+- **Register both endpoint variants:** For every `/api/domain` mock route, also register `/api/domain/translated` that delegates to the same handler. Composables may call either variant depending on whether the backend handles translation internally.
+  ```ts
+  httpMock.get('/api/categories', getCategories)
+  httpMock.get('/api/categories/translated', getCategories) // same handler
+  ```
+
+- **Comprehensive domain mocks:** When creating mock data for domain entities (e.g., metal categories, supplier types), research and include all industry-standard fields. Don't just copy generic fields — ensure the mock dataset exercises all field types that real data would have.
+
 ### Checkpoint 2
 ```bash
 cd frontend_vue && npm run typecheck
@@ -248,6 +256,8 @@ import { uploadFile } from './uploadsService'
 // Save PATCH collects: fileIds: string[]
 // Never embed binary data in JSON payload
 ```
+
+- **Verify /translated endpoint necessity:** After any backend refactoring, verify which endpoints still need the `/translated` suffix. If the backend now returns translated data from the base endpoint (`/api/domain`), use that directly instead of `/api/domain/translated`.
 
 ### Update api-contract write-back
 After implementing, open `toDo/admin-api-contract.md` and:
@@ -373,6 +383,20 @@ Rules:
 - Error: `ref<string | null>(null)` — string, not raw Error object
 - Filters are reactive refs — view v-models into them, watch triggers reload
 
+- **Use watchEffect for dirty checks on reactive proxies:** `watch({ deep: true })` internally calls `structuredClone` on reactive proxies, which throws `DOMException`. Use `watchEffect` instead — it doesn't call `structuredClone` on proxies, and inside the effect you can safely call `toRaw()` for serialization:
+  ```ts
+  // ❌ Bad: watch + deep: true on reactive proxy
+  watch(source, (newVal) => { ... }, { deep: true })
+  
+  // ✅ Good: watchEffect for dirty check
+  watchEffect(() => {
+    const raw = JSON.parse(JSON.stringify(toRaw(source.value)))
+    // use raw for dirty check comparison
+  })
+  ```
+
+- **Never use watch getter + toRaw():** `watch(() => toRaw(source.value), ...)` breaks dependency tracking because `toRaw()` extracts the raw object, so Vue loses visibility into nested property changes. Always use `watchEffect` when you need both raw snapshots and reactive tracking.
+
 ### Checkpoint 4
 ```bash
 cd frontend_vue && npm run typecheck
@@ -392,37 +416,83 @@ Continue?
 
 Add all keys **before** writing the template — avoids missing-key errors in browser.
 
-### Add to `src/i18n/admin.ts` — all 3 languages simultaneously
+### Add to `src/i18n/admin/[domain].ts` — create or update the domain file with all 3 languages
+
+Each domain file exports a single object with `ru`, `en`, `lt` keys nested inside:
 
 ```ts
-// adminRu.[domain]:
-[domain]: {
-  title: 'Products',
-  header_title: 'Product Catalog',
-  search_placeholder: 'Search by name...',
-  filter_category_all: 'All categories',
-  filter_status_all: 'All statuses',
-  empty: 'No products found',
-  btn_create: 'Add product',
-  btn_save: 'Save',
-  btn_discard: 'Discard',
-  // ... every label, placeholder, tooltip, button, error, empty state
-},
+// src/i18n/admin/products.ts
+export const adminProducts = {
+  ru: {
+    products: {
+      title: 'Товары',
+      header_title: 'Каталог товаров',
+      search_placeholder: 'Поиск по названию...',
+      filter_category_all: 'Все категории',
+      filter_status_all: 'Все статусы',
+      empty: 'Товары не найдены',
+      btn_create: 'Добавить товар',
+      btn_save: 'Сохранить',
+      btn_discard: 'Отмена',
+      // ... every label, placeholder, tooltip, button, error, empty state
+    },
+  },
+  en: {
+    products: {
+      title: 'Products',
+      header_title: 'Product Catalog',
+      search_placeholder: 'Search by name...',
+      filter_category_all: 'All categories',
+      filter_status_all: 'All statuses',
+      empty: 'No products found',
+      btn_create: 'Add product',
+      btn_save: 'Save',
+      btn_discard: 'Discard',
+    },
+  },
+  lt: {
+    products: {
+      title: 'Prekės',
+      header_title: 'Prekių katalogas',
+      search_placeholder: 'Ieškoti pagal pavadinimą...',
+      filter_category_all: 'Visos kategorijos',
+      filter_status_all: 'Visos būsenos',
+      empty: 'Prekių nerasta',
+      btn_create: 'Pridėti prekę',
+      btn_save: 'Išsaugoti',
+      btn_discard: 'Atšaukti',
+    },
+  },
+}
 ```
 
 Rules:
-- Key prefix = domain name (`products.title`, `products.search_placeholder`)
+- **If domain file doesn't exist** — create it in `src/i18n/admin/`
+- **Export name** = `admin[Domain]` (e.g., `adminProducts`, `adminCategories`)
+- **Key prefix** = domain name (`products.title`, `products.search_placeholder`)
 - **Every** visible text string → translation key. Zero hardcoded text in template.
+- **3 languages per file** — all RU/EN/LT together, not separate files per language
 - Escape `@` in values: `name{'@'}company.com` (Pitfall #1)
-- Count keys: RU/EN/LT counts must match exactly
+- Count keys: RU/EN/LT counts must match exactly within each domain file
 - For LT: reasonable approximations are acceptable, but key must exist in all 3
+- For data coming from API/mocks: use `TranslatedString` type + `tf()` helper, NOT `resolveLabel()`
+- For form inputs: use `mergeLocaleValue()` / `toTranslatedString()` utilities from `@/types/i18n`
+
+- **Use mergeTranslatedString() for UI updates, not toTranslatedString():** `toTranslatedString(value, locale)` creates an object with only one locale filled — correct for API calls, but incorrect for UI updates (other locales get zeroed out). Use `mergeTranslatedString(existing, value, locale)` which preserves existing translations:
+  ```ts
+  // ❌ Bad: toTranslatedString() in computed setter
+  set(val) { model.value.name = toTranslatedString(val, locale.value) }
+  
+  // ✅ Good: mergeTranslatedString() in computed setter
+  set(val) { model.value.name = mergeTranslatedString(model.value.name, val, locale.value) }
+  ```
 
 ### Checkpoint 5
-Verify key counts: RU === EN === LT for this domain prefix. Check with grep if needed.
+Verify key counts: RU === EN === LT for this domain file. Check with grep if needed.
 
 ```
 ⏸ STOP — Phase 5: i18n Translations
-Done: all [domain].* keys added to RU/EN/LT, key counts match
+Done: src/i18n/admin/[domain].ts created/updated, all [domain].* keys added to RU/EN/LT, key counts match
 Next: Phase 6 — Page Template Skeleton
 Continue?
 ```
@@ -517,6 +587,10 @@ Rules:
   - Every CSS class used in the template is defined in the page CSS
   - `.empty-state` must be defined with `display:flex; flex-direction:column; align-items:center`
   - Search/filters inside GlassPanel (Pitfall #19) — no separate wrapper outside the panel
+
+- **Always wrap TranslatedString with tf() in templates:** `{{ item.name }}` renders as `[object Object]` when the value is a `TranslatedString` object. Always use `{{ tf(item.name) }}` to get the translated text.
+  
+- **Use skeleton loading states, never text placeholders:** Replace `<div class="loading-state">{{ t('common.loading') }}</div>` with skeleton markup that mirrors the page layout. Use `<GlassPanel :loading="true" :skeleton-rows="5" />` for card/panel skeletons. This prevents layout shift and provides better UX.
 
 ### Checkpoint 6
 ```bash
@@ -656,6 +730,26 @@ Rules:
 - Filters: `watch(filters, load, { deep: true })` — or `@change="load"` on each filter
 - **Pitfall #20 (BUG-25):** If filters/search are inside GlassPanel AND use `watch(filters, load)` — add `initialized` flag to composable
 - **BUG-20:** Every flex page header must have responsive breakpoints
+
+- **Use computed get/set for TranslatedString form fields:** Never use direct `v-model` on a `TranslatedString` property. Instead, create a computed with get/set that wraps/unwraps the value:
+  ```vue
+  <!-- ❌ Bad: direct v-model on TranslatedString -->
+  <input v-model="item.name" />
+  
+  <!-- ✅ Good: computed get/set -->
+  <input v-model="localName" />
+  ```
+  ```ts
+  const localName = computed({
+    get: () => tf(model.value.name),
+    set: (val) => { model.value.name = mergeTranslatedString(model.value.name, val, locale.value) }
+  })
+  ```
+
+- **Add null-safe tf() checks in templates:** `tf()` can crash on `null`/`undefined` fields. Always add a guard:
+  ```vue
+  {{ item.name ? tf(item.name) : '—' }}
+  ```
 
 ### Checkpoint 7
 ```bash
@@ -804,6 +898,13 @@ Run through vue-rules pitfalls #1–#28 for this page:
 - [ ] #21: Sidebar has only section entry point; sub-pages link via `router-link.btn.btn-secondary`
 - [ ] #22: Snapshot baseline updated if any UI element in snapshot zone changed
 - [ ] #23: Any new `<Teleport>` root component has `inheritAttrs: false` + `v-bind="$attrs"`
+- [ ] All `/api/domain` routes have corresponding `/api/domain/translated` mock routes
+- [ ] All `{{ }}` expressions with TranslatedString values are wrapped in `tf()`
+- [ ] All TranslatedString form fields use computed get/set, not direct v-model
+- [ ] All dirty checks use `watchEffect` instead of `watch({ deep: true })`
+- [ ] All UI translation updates use `mergeTranslatedString()` not `toTranslatedString()`
+- [ ] Loading states use skeleton layouts, not text placeholders
+- [ ] `tf()` has null guard for null/undefined safety
 
 **Done = all 9a–9e passed. Not just typecheck.**
 

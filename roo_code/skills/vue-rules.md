@@ -15,6 +15,7 @@ Rules collected from real bugs during `demo/` → `frontend_vue/` migration. Eac
 - **Thoroughness over speed.** Before completing a task — Grep all callers related to the change (router-link, event names, class names, props). "Skimming" already caused bugs.
 - **Verify against original in details.** Before implementing logic from `demo/admin/*.html` or `demo/assets/js/admin/*.js` — read the original entirely, don't rely on memory.
 - **Phase verification ≠ only typecheck+lint.** Static analysis doesn't catch: missing components, wrong string literals (route names, i18n keys), visual regressions, outdated **specs in `toDo/admin-api-contract.md`** and meta-pages (ScreensPage, README). Final check = plan→files→typecheck→lint→contract sync→browser.
+- **NEVER use `git restore` or `git checkout` on tracked files.** These commands permanently destroy uncommitted changes in the working tree. If a file needs to be reverted to its committed state for any reason, use `git show HEAD:<path>` to read the committed version, then manually apply only the needed parts. If uncommitted changes were accidentally destroyed, stop immediately and use `git reflog` + `git show` to attempt recovery before any further writes.
 
 ---
 
@@ -399,10 +400,416 @@ All internal navigation: `<router-link :to="{ name: 'exact-route-name' }">` — 
 
 All values in mock STORE (names, descriptions, enum options) must be in English. Russian strings cause tests to break when mock data changes, since tests always run with English locale (`fixtures.ts` sets `flexiron_lang: 'en'`).
 
+### 34. `resolveLabel()` / `labelLookup` — deleted, use `TranslatedString` + `tf()`
+
+The old `resolveLabel()` function and `labelLookup.ts` auto-generated mapping are **deleted**. They are dead code — not imported by any component.
+
+**Fix:** For data coming from API/mocks (product names, category names, field labels, enum options) — use `TranslatedString` type (`{ ru, en, lt }`) and render via `tf()` from `useTranslatedData.ts`:
+```ts
+const { tf } = useTranslatedData()
+// In template: {{ tf(item.name) }}
+```
+
+For form inputs that need to edit a `TranslatedString` — use `mergeLocaleValue()` / `toTranslatedString()` from `@/types/i18n`.
+
+### 35. Editing the wrong admin translation file
+
+The old monolithic `src/i18n/admin.ts` is **deleted** — replaced by domain-split files in `src/i18n/admin/`.
+
+**Fix:** All new admin translations go in `src/i18n/admin/[domain].ts`:
+- `layout.ts` — sidebar, header
+- `dashboard.ts` — dashboard page
+- `products.ts` — products page + data translations
+- `categories.ts` — categories page
+- `suppliers.ts` — suppliers pages
+- `bcc.ts` — BCC request page
+- `cardConfig.ts` — supplier card config
+- `analytics.ts` — analytics sub-pages
+- `common.ts` — shared translations (loading, errors, buttons)
+
+Each file exports a single object with `ru`, `en`, `lt` keys. Never edit `admin.ts` — it doesn't exist.
+
+### 🔥 #36 — structuredClone crashes on Vue reactive proxies
+
+**Симптом:** `structuredClone` throws `DOMException: Failed to execute 'structuredClone' on 'Window'` when Vue reactive/ref objects are passed. This happens in `watch({ deep: true })` which internally calls `structuredClone` on old values.
+
+**Причина:** Vue 3's `reactive()`/`ref()` create Proxy objects. `structuredClone` cannot clone Proxies. Three trigger patterns: (a) ref changes value type (string→object), (b) deep mutation of reactive properties, (c) `watch` with `deep: true` snapshotting old values.
+
+**Решение:**
+- Store `TranslatedString | null` (never `'' as unknown as TranslatedString`)
+- Use `computed` get/set instead of inline `@input` for TranslatedString fields
+- Replace entire objects instead of mutating individual fields
+- Use `toRaw()` for dirty check snapshots
+- Prefer `watchEffect` over `watch({ deep: true })` when working with reactive proxies
+
+### 🔥 #37 — watch getter + toRaw() breaks dependency tracking
+
+**Симптом:** Dirty check watch never fires after wrapping with `toRaw()` inside a watch getter.
+
+**Причина:** `watch(() => JSON.parse(JSON.stringify(toRaw(source.value))), ...)` — `toRaw()` extracts the raw object, so Vue loses visibility into nested property changes. The watch getter returns a static snapshot, not a reactive reference.
+
+**Решение:** Replace `watch` with `watchEffect` — it doesn't call `structuredClone` on proxies, and inside the effect `source.value` is tracked first, then `toRaw()` extracts the raw object for serialization:
+```ts
+// ❌ Bad: watch getter + toRaw()
+watch(() => JSON.parse(JSON.stringify(toRaw(source.value))), (newVal) => { ... })
+
+// ✅ Good: watchEffect
+watchEffect(() => {
+  const raw = JSON.parse(JSON.stringify(toRaw(source.value)))
+  // use raw for dirty check
+})
+```
+
+### 🔥 #38 — toTranslatedString() zeroes out other locales
+
+**Симптом:** When user types in one locale and switches language, other locales lose their translations.
+
+**Причина:** `toTranslatedString(value, locale)` creates `{ ru: '', en: 'Hello', lt: '' }` — only one locale filled. Correct for API calls (server handles other locales), but incorrect for UI updates. When used in computed setters, it overwrites the entire object.
+
+**Решение:** Use `mergeTranslatedString(existing, value, locale)` instead of `toTranslatedString()` for all UI update locations (computed setters, form inputs). This function preserves existing translations for other locales:
+```ts
+// ❌ Bad: toTranslatedString() in computed setter
+set(val) { model.value.name = toTranslatedString(val, locale.value) }
+
+// ✅ Good: mergeTranslatedString() in computed setter
+set(val) { model.value.name = mergeTranslatedString(model.value.name, val, locale.value) }
+```
+
+### 🔥 #39 — TranslatedString renders as [object Object]
+
+**Симптом:** In templates, `{{ item.name }}` renders as `[object Object]` instead of the translated text.
+
+**Причина:** After single-locale refactoring, `TranslatedString` objects have only one language filled (e.g., `{ ru: 'Привет', en: '', lt: '' }`). Previously all 3 locales had the same value, so `{{ }}` sometimes worked accidentally. Now Vue calls `.toString()` on the object.
+
+**Решение:** Always wrap TranslatedString values with `tf()` in templates:
+```vue
+<!-- ❌ Bad: renders [object Object] -->
+{{ item.name }}
+
+<!-- ✅ Good: renders translated text -->
+{{ tf(item.name) }}
+```
+Also use computed get/set for form fields instead of direct v-model on TranslatedString properties.
+
+### 🔥 #40 — Missing /translated mock routes
+
+**Симптом:** Composables call `/api/*/translated` endpoints, but mock router only handles non-translated paths. Error: `[mock] GET ... not found`. Items remain `undefined` → `Cannot read properties of undefined (reading 'items')`.
+
+**Причина:** After single-locale refactoring, composables were updated to call `/translated` endpoints, but the mock router in tests was not updated with corresponding routes.
+
+**Решение:** Always register both `/api/domain` and `/api/domain/translated` routes in mock handlers. The translated route should delegate to the same mock function:
+```ts
+// Register both routes
+httpMock.get('/api/categories', getCategories)
+httpMock.get('/api/categories/translated', getCategories) // same handler
+```
+
+### 🔥 #41 — tf() has no null guard
+
+**Симптом:** `tf()` crashes on `null`/`undefined` fields with `Cannot read properties of null (reading 'ru')`.
+
+**Причина:** The `tf()` function assumes the input is always a valid `TranslatedString` object. After refactoring, some fields may be `null` or `undefined` (e.g., when API returns incomplete data).
+
+**Решение:** Add null guard to `tf()`:
+```ts
+function tf(field: TranslatedString | null | undefined): string {
+  if (!field) return ''
+  return field[locale.value] || field.en || ''
+}
+```
+Also add null-safe checks in templates:
+```vue
+{{ item.name ? tf(item.name) : '—' }}
+```
+
+### 🔥 #42 — Verify /translated endpoint necessity after refactoring
+
+**Симптом:** After backend refactoring, some `/translated` endpoints may no longer be needed because the backend now handles translation internally. Calling a non-existent `/translated` endpoint returns 404.
+
+**Причина:** During refactoring, the backend was updated to return translated data from the base endpoint. The frontend wasn't updated to match.
+
+**Решение:** After any backend refactoring, verify which endpoints still need `/translated` suffix. If backend returns translated data from `/api/domain`, use that directly instead of `/api/domain/translated`.
+
+### 🔥 #43 — Never use generic text loading states
+
+**Симптом:** Pages show `<div class="loading-state">{{ t('common.loading') }}</div>` — a plain text "Loading..." that causes layout shift and poor UX.
+
+**Причина:** Developers use generic text placeholders instead of skeleton layouts that mirror the actual page structure.
+
+**Решение:** Always use skeleton loading states that match the page layout:
+```vue
+<!-- ❌ Bad: text loading -->
+<div v-if="loading">Loading...</div>
+
+<!-- ✅ Good: skeleton loading -->
+<div v-if="loading" class="kpi-skeleton">
+  <div class="skeleton-icon" />
+  <div class="skeleton-label" />
+  <div class="skeleton-value" />
+  <div class="skeleton-delta" />
+</div>
+```
+Use `<GlassPanel :loading="true" :skeleton-rows="5" />` for card/panel skeletons.
+
+### 🔥 #44 — Hierarchical paths in selectors
+
+**Симптом:** Category filter dropdown shows only the short name (e.g., "Steel") instead of the full hierarchical path (e.g., "Materials → Metals → Steel"), making it impossible to distinguish categories with same names in different branches.
+
+**Причина:** Selector options use `item.name` directly without computing the full path from root to leaf.
+
+**Решение:** Create a `getCategoryPath(categoryId, categories)` function that traverses the tree and returns the full path string. Use this for display in selectors, breadcrumbs, and filters.
+
+### 🔥 #45 — Comprehensive mock data for domain-specific fields
+
+**Симптом:** Category card shows empty or placeholder fields for domain-specific categories (e.g., metal categories missing weight per meter, tensile strength, GOST standards).
+
+**Причина:** Mock data only includes generic fields. Domain-specific categories need industry-standard fields that match real-world usage.
+
+**Решение:** When creating mock data for domain entities, research and include all industry-standard fields. For metal categories: weight per meter, tensile strength, yield strength, GOST/EN standards, surface treatment options. For each domain, maintain a comprehensive mock dataset that exercises all field types.
+
+### 🔥 #46 — Contextual section titles
+
+**Симптом:** Dynamic Fields section shows a static title like "Dynamic Fields" instead of "Dynamic Fields for Materials → Metals → Steel".
+
+**Причина:** Section titles are hardcoded strings instead of using i18n with dynamic parameters.
+
+**Решение:** Use i18n with interpolation for contextual titles:
+```ts
+t('categories.dynamicFieldsTitle', { path: getCategoryPath(category.id) })
+```
+Always consider whether a section title should reflect its context (parent entity, current selection, etc.).
+
+### 🔥 #47 — Run typecheck after every code change
+
+**Симптом:** TypeScript errors appear only at build time, not during development. Changes that break types go unnoticed until CI fails.
+
+**Причина:** Developers forget to run `npx vue-tsc --noEmit` after making changes. The IDE may not catch all type errors, especially with complex generics or Vue template types.
+
+**Решение:** After every prompt/code change, run `npx vue-tsc --noEmit` to verify types. Add this as a mandatory step in the development workflow. If the project has a `typecheck` script in package.json, use that.
+
+### 🔥 #48 — Feature flag registration in all 3 required files
+
+**Симптом:** Feature flag works in development but not in production, or vice versa. The flag is missing from one environment.
+
+**Причина:** Feature flags must be registered in 3 places: (1) feature flag config file, (2) type definitions, (3) the feature flag composable/store. Missing any one causes inconsistent behavior.
+
+**Решение:** When adding a new feature flag, always register it in all 3 locations. Create a checklist:
+```ts
+// 1. config/featureFlags.ts — add to FEATURE_FLAGS object
+// 2. types/features.ts — add to FeatureFlag type
+// 3. composables/useFeatureFlag.ts — add default value
+```
+
+### 🔥 #49 — readonly `<input>` in Vue — use `:value` + `@input`
+
+**Симптом:** An `<input readonly>` field does not update when the underlying data changes. The user sees stale data.
+
+**Причина:** In Vue, `readonly` attribute on `<input>` prevents the input from emitting input events. With `v-model`, this means the binding becomes one-way and breaks reactivity.
+
+**Решение:** Use `:value` binding with a no-op `@input` handler instead of `readonly`:
+```vue
+<!-- ❌ Bad: readonly with v-model -->
+<input v-model="item.name" readonly />
+
+<!-- ✅ Good: :value without v-model -->
+<input :value="tf(item.name)" @input="() => {}" readonly />
+```
+
+### 🔥 #50 — Normalize empty strings to null before save
+
+**Симптом:** Empty string fields are saved as `""` instead of `null`, causing API validation errors or inconsistent data.
+
+**Причина:** Form inputs default to empty string. When the user clears a field, it becomes `""` but the API expects `null` for empty optional fields.
+
+**Решение:** Before saving, normalize all empty strings to `null`:
+```ts
+function normalizeEmptyStrings(obj: Record<string, any>): Record<string, any> {
+  const result = { ...obj }
+  for (const key in result) {
+    if (result[key] === '') result[key] = null
+  }
+  return result
+}
+```
+
+### 🔥 #51 — GlassPanel :title propagation
+
+**Симптом:** A `:title` attribute on `<GlassPanel>` does not appear as a tooltip on the rendered panel.
+
+**Причина:** `GlassPanel` is a custom component, not a native HTML element. Vue does not automatically pass `:title` (or any attribute) to the root element unless the component uses `inheritAttrs: false` or explicitly binds `$attrs`.
+
+**Решение:** Ensure custom wrapper components pass `:title` (and other attributes) to their root element:
+```vue
+<!-- In GlassPanel.vue -->
+<div class="glass-panel" :title="$attrs.title">
+  <slot />
+</div>
+```
+
+### 🔥 #52 — Empty state belongs inside the card, not at page level
+
+**Симптом:** When a list is empty, the "No data" message appears outside the card/panel, breaking the visual layout.
+
+**Причина:** The `.empty-state` component is placed at the page level instead of inside the data container (card, table, panel).
+
+**Решение:** Always place `.empty-state` inside the card/panel that would contain the data:
+```vue
+<!-- ❌ Bad: empty state at page level -->
+<PageLayout>
+  <EmptyState />  <!-- outside card -->
+  <DataCard>
+    <Table v-if="items.length" />
+  </DataCard>
+</PageLayout>
+
+<!-- ✅ Good: empty state inside card -->
+<PageLayout>
+  <DataCard>
+    <Table v-if="items.length" />
+    <EmptyState v-else />  <!-- inside card -->
+  </DataCard>
+</PageLayout>
+```
+
+### 🔥 #53 — Breadcrumbs must update reactively on route change
+
+**Симптом:** Breadcrumbs show stale path after navigating between items (e.g., from Product A to Product B).
+
+**Причина:** Breadcrumb data is computed once on mount and not watched for route param changes.
+
+**Решение:** Use `watch` on route params or make breadcrumbs a computed property that depends on reactive route data:
+```ts
+const breadcrumbs = computed(() => [
+  { label: 'Products', to: '/admin/products' },
+  { label: product.value?.name || 'New Product', to: '' }
+])
+```
+
+### 🔥 #54 — useHead title must be reactive
+
+**Симптом:** Page title does not update when the data changes (e.g., product name loads after the page mounts).
+
+**Причина:** `useHead({ title: ... })` is called with a static value or a computed that doesn't track the right dependencies.
+
+**Решение:** Always use a `computed` for dynamic titles in `useHead`:
+```ts
+// ❌ Bad: static title
+useHead({ title: 'Product: ' + route.params.id })
+
+// ✅ Good: computed title
+const pageTitle = computed(() => product.value?.name || 'Loading...')
+useHead({ title: () => pageTitle.value })
+```
+
+### 🔥 #55 — Save bar must be visible on any change, not just focus
+
+**Симптом:** User makes changes to a form field but the Save/Cancel bar does not appear until they click elsewhere.
+
+**Причина:** The dirty check is triggered only on `@blur` or `@focusout` events, not on `@input` or `@change`.
+
+**Решение:** Trigger dirty check on every input change, not just blur:
+```vue
+<!-- ❌ Bad: only on blur -->
+<input @blur="markDirty" />
+
+<!-- ✅ Good: on every input -->
+<input @input="markDirty" @blur="markDirty" />
+```
+
+### 🔥 #56 — DatePicker locale reactivity
+
+**Симптом:** DatePicker shows wrong date format or month names after switching the app language.
+
+**Причина:** DatePicker initializes with the current locale on mount but does not watch for locale changes.
+
+**Решение:** Add a watcher for locale changes that re-initializes or re-renders the DatePicker:
+```ts
+watch(locale, () => {
+  // re-initialize date picker with new locale
+  datePicker.updateLocale(locale.value)
+})
+```
+
+### 🔥 #57 — Pagination reset on filter change
+
+**Симптом:** User applies a filter and the table shows page 1, but the pagination component still shows "Page 3 of 10".
+
+**Причина:** Pagination page is not reset to 1 when filters change. The current page index persists from the previous query.
+
+**Решение:** Watch filter changes and reset pagination to page 1:
+```ts
+watch([filter1, filter2], () => {
+  currentPage.value = 1
+})
+```
+
+### 🔥 #58 — URL query params sync with filters
+
+**Симптом:** After applying filters and refreshing the page, all filters are reset to defaults.
+
+**Причина:** Filter state is stored only in component memory, not synced with URL query parameters.
+
+**Решение:** Sync filter values with URL query params using the router:
+```ts
+// On filter change
+router.replace({ query: { ...route.query, status: filter.value } })
+
+// On mount — read filters from URL
+onMounted(() => {
+  if (route.query.status) filter.value = route.query.status
+})
+```
+
+### 🔥 #59 — Sorting breaks after pagination
+
+**Симптом:** After navigating to page 2, clicking a column header to sort returns to page 1 with sorted data, losing the current page.
+
+**Причина:** Sort change handler does not reset pagination, or pagination state is not preserved during sort.
+
+**Решение:** When sort changes, reset to page 1 and re-fetch data:
+```ts
+function onSortChange(sortField: string) {
+  currentSort.value = sortField
+  currentPage.value = 1
+  fetchData()
+}
+```
+
+### 🔥 #60 — CSS consistency between list pages
+
+**Симптом:** Two list pages (e.g., Products List and Categories List) have different spacing, font sizes, or colors for the same UI elements.
+
+**Причина:** CSS values are hardcoded per component instead of using shared CSS variables or a design token system.
+
+**Решение:** Use CSS custom properties (variables) for all shared values:
+```css
+/* ❌ Bad: hardcoded values */
+.product-list { padding: 16px; }
+.category-list { padding: 20px; }
+
+/* ✅ Good: CSS variables */
+:root {
+  --list-padding: 16px;
+  --list-gap: 8px;
+}
+.product-list, .category-list { padding: var(--list-padding); }
+```
+
+### 🔥 #61 — Check for existing components before creating new ones
+
+**Симптом:** A new component is created that duplicates functionality of an existing component (e.g., two different search input components).
+
+**Причина:** Developer does not check the existing component library before creating a new component.
+
+**Решение:** Before creating any new component, search the codebase for existing components that might serve the same purpose. Check:
+- `src/components/` for shared components
+- `src/components/admin/ui/` for UI primitives
+- Existing page implementations for similar patterns
+
 ---
 
 ## Applying this skill
 
 When starting a task from trigger list (see description above) — **read this skill completely** before writing code. If task not from list — `Read` only the needed section.
 
-After completing task — run through checklist: pitfalls #1–#33, save mode (if form), HTTP method (if new endpoint).
+After completing task — run through checklist: pitfalls #1–#61, save mode (if form), HTTP method (if new endpoint).

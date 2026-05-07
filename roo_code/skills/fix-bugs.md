@@ -28,6 +28,7 @@ One bug = one complete cycle. Each step fully before next.
 7. **Mark ✅ only after verification cycle complete** — not after fix, not "probably passes"
 8. **Never self-approve** — after fix, don't proceed to verification without user confirmation
 9. **Stop on each error iteration** — found errors in cycle → show errors → ask confirmation → only then fix
+10. **NEVER use `git restore` or `git checkout` on tracked files** — these permanently destroy uncommitted changes. Use `git show HEAD:<path>` to read committed version, then manually apply only needed parts. If uncommitted changes were destroyed, use `git reflog` + `git show` before any further writes.
 
 ---
 

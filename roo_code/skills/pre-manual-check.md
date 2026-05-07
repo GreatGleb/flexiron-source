@@ -154,12 +154,12 @@ Read reference page and compare:
 5. **No `undefined` as nullable** — `T | null`, not `T | undefined`
 
 ### i18n: translation completeness
-1. Read domain section in `src/i18n/admin.ts`
-2. Count keys in `adminRu.[domain]` → N
-3. Count keys in `adminEn.[domain]` → must be N
-4. Count keys in `adminLt.[domain]` → must be N
+1. Read `src/i18n/admin/[domain].ts`
+2. Count keys in `ru.[domain]` → N
+3. Count keys in `en.[domain]` → must be N
+4. Count keys in `lt.[domain]` → must be N
 5. Mismatch → list missing keys
-6. For each `t('domain.key')` in new files — key exists in adminRu?
+6. For each `t('domain.key')` in new files — key exists in the domain file?
 7. Grep `@` in translation string values → unescaped `@` (must be `{'@'}`)
 8. Grep hardcoded text in templates (not through `t()`) — check visible strings
 

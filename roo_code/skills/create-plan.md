@@ -22,6 +22,7 @@ Generate `toDo/plans/[X.X-name]-plan.md` — a complete, verified, domain-specif
 4. **Self-verify via checklist (Step 4) before saving** — if any box fails, fix first
 5. **Verify every code claim** — before stating "X exists / is used / is named Y": state the Grep or Read query, run it, show the result, then conclude. Never from logic or memory alone.
 6. **STOP after every Step** — after completing each Step (1–5), output the stop block and wait for explicit confirmation before proceeding.
+7. **NEVER use `git restore` or `git checkout` on tracked files** — these permanently destroy uncommitted changes. Use `git show HEAD:<path>` to read committed version, then manually apply only needed parts. If uncommitted changes were destroyed, use `git reflog` + `git show` before any further writes.
 
 ---
 
@@ -33,7 +34,7 @@ Read in this order (batch reads where possible):
 2. `roo_code/skills/vue-rules.md` — pitfalls, save modes, HTTP methods
 3. `frontend_vue/CLAUDE.md` — patterns, prohibitions, CSS aliases
 4. `frontend_vue/src/router/index.ts` — existing route names (avoid conflicts)
-5. `frontend_vue/src/i18n/admin.ts` (first 80 lines) — existing prefixes
+5. `frontend_vue/src/i18n/admin/` — list domain files, check existing prefixes
 6. `frontend_vue/src/types/` (all files) — types to reuse
 7. `frontend_vue/src/config/featureFlags.ts` — existing flags and format
 8. `frontend_vue/src/components/admin/` (file list) — available components
@@ -133,6 +134,8 @@ Include ALL of:
 - Open toDo/admin-api-contract.md, add new section following existing format
 - For each endpoint: HTTP method + path, request body (required/optional fields with types), response shape (ApiResponse\<T\> or PaginatedResponse\<T\>), domain-specific error codes, save mode note
 - Show written contract to user for review
+- **Verify /translated endpoint necessity:** After any backend refactoring, check whether the base endpoint (`/api/domain`) now returns translated data. If so, the plan should NOT use `/api/domain/translated` — use the base endpoint directly.
+- **Register both mock route variants:** The plan must include both `/api/domain` and `/api/domain/translated` mock routes in the test setup section.
 - Checkpoint: contract written and shown
 
 ---
@@ -197,6 +200,8 @@ For card/detail composable include:
 - discard() calls load() (re-fetch from server)
 - Sub-item mutations: add/update/delete/reorder with order recalculation
 - JSON.parse(JSON.stringify(...)) for cloning reactive state
+- **Use watchEffect for dirty checks:** The plan must specify `watchEffect` (not `watch({ deep: true })`) for dirty check logic, because `structuredClone` crashes on Vue reactive proxies.
+- **Never use watch getter + toRaw():** The plan must avoid `watch(() => toRaw(source.value), ...)` — this breaks Vue dependency tracking.
 - typecheck
 
 ---
@@ -204,11 +209,18 @@ For card/detail composable include:
 **Prompt N — Phase 5: i18n**
 
 Include ALL of:
-- Add key `[domain]` to adminRu, adminEn, adminLt simultaneously
+- Add to `src/i18n/admin/[domain].ts` — create or update domain file with all 3 languages
+- Each file exports a single object with `ru`, `en`, `lt` keys
+- Export name: `admin[Domain]` (e.g., `adminProducts`)
+- Key prefix = domain name (`products.title`, `products.search_placeholder`)
 - Complete key list covering: title, header_title, ALL column headers, ALL field labels, ALL button texts, ALL placeholder texts, ALL modal titles, ALL toast messages, ALL empty states, ALL error messages
 - Escape @ rule: name{'@'}company.com
 - LT — approximate translations acceptable, but key required in all 3 languages
-- Checkpoint: count keys — RU === EN === LT
+- For data from API/mocks: use `TranslatedString` + `tf()`, NOT `resolveLabel()`
+- For form inputs: use `mergeLocaleValue()` / `toTranslatedString()` from `@/types/i18n`
+- **Use mergeTranslatedString() for UI updates:** The plan must use `mergeTranslatedString(existing, value, locale)` in computed setters and form inputs, NOT `toTranslatedString()` which zeroes out other locales.
+- **Always wrap TranslatedString with tf() in templates:** The plan must include a verification step that all `{{ }}` expressions with TranslatedString values are wrapped in `tf()`.
+- Checkpoint: count keys — RU === EN === LT within the domain file
 
 ---
 
@@ -219,6 +231,7 @@ Include ALL of:
 - Also read `src/styles/admin/components/` — find closest scss file for class naming conventions
 - Step A — script setup: imports (verify each exists in src/components/admin/), composable destructure, onMounted(load), modal state refs, action handler functions
 - Step B — template skeleton: ALL sections from Phase 0 Checkpoint as data-test divs; `<h1 class="page-title">` in view itself; GlassPanel wraps every panel; no template comments; CSS root class follows existing pattern
+- **Use skeleton loading states:** The plan must specify skeleton layouts (using `<GlassPanel :loading="true" :skeleton-rows="5" />`) instead of text-based loading indicators.
 - typecheck && lint
 
 ---
@@ -338,6 +351,16 @@ Continue?
 - [ ] **Phase 8 (integration)**: route + featureFlags + sidebar + ScreensPage + flags.ts; browser verify
 - [ ] **Phase 9 (verification)**: 9a–9e all; modal Escape+overlay close in golden path; regression; ✅ report format
 - [ ] **Phase 10 (playwright)**: enableAllFlags; per-section snapshots; functional tests per element; smoke+navigation+feature-flags registered
+
+#### Single-locale refactoring lessons checklist
+
+- [ ] All `/api/domain` routes have corresponding `/api/domain/translated` mock routes
+- [ ] All `{{ }}` expressions with TranslatedString values are wrapped in `tf()`
+- [ ] All TranslatedString form fields use computed get/set, not direct v-model
+- [ ] All dirty checks use `watchEffect` instead of `watch({ deep: true })`
+- [ ] All UI translation updates use `mergeTranslatedString()` not `toTranslatedString()`
+- [ ] Loading states use skeleton layouts, not text placeholders
+- [ ] `tf()` has null guard for null/undefined safety
 
 ### Pass 2 — Live re-read of create-page.md (mandatory)
 

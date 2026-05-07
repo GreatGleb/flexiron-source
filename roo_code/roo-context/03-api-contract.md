@@ -47,6 +47,32 @@ interface ApiResponse<T> {
 - `DashboardData`, `KpiItem`, `AlertItem`, `ChartBarItem`, `AnalyticsSectionPreview` — `src/types/analytics.ts`
 - `ApiResponse<T>`, `PaginatedResponse<T>`, `PaginationParams` — `src/types/api.ts`
 
+### TranslatedString
+
+Мультилокалевые поля (`company`, `contactPerson`, `statusReason`, `product`, `unit`, `source`, `user`, `property`, `name`, `role`, `action`, `details`) передаются как объект с тремя обязательными полями:
+
+```ts
+interface TranslatedString {
+  ru: string
+  en: string
+  lt: string
+}
+```
+
+Клиент всегда шлёт все 3 поля. Неактивные локали — пустая строка. Сервер должен хранить и возвращать все 3 поля без изменений.
+
+**Пример в запросе (PATCH body):**
+```json
+{ "company": { "ru": "Металлторг", "en": "Metalltorg", "lt": "Metalltorg" } }
+```
+
+**Пример в ответе (GET /api/suppliers):**
+```json
+{ "company": { "ru": "Металлторг", "en": "Metalltorg", "lt": "Metalltorg" } }
+```
+
+> **Важно:** В примерах ниже для краткости может использоваться `"company": "Metalltorg"` — это сокращение. Реальный wire format — всегда `TranslatedString`.
+
 ### Pagination
 
 ```ts
@@ -124,7 +150,7 @@ interface PaginationParams { page: number; pageSize: number }
 - **Notes:**
   - Файл попадает в **draft-хранилище** (не привязан ни к какой сущности).
   - Max 20 MB/файл, whitelist MIME (pdf, docx, xlsx, png, jpg). 413 при превышении.
-  - Virus-scan async. 422 `INFECTED` — если scan упал.
+  - Virus-scan синхронный (блокирующий). 422 `INFECTED` — если файл заражён.
 
 #### Привязка к сущности
 
@@ -337,7 +363,37 @@ Page: `SuppliersListPage.vue`. Composable `useSuppliers`.
 ### POST /api/suppliers
 
 - **Когда:** клик "New supplier" из списка → `SupplierCreatePage` (`/admin/suppliers/new`) → Create. Сохранение заполненной формы целиком (clean-slate), не черновик.
-- **Body:** `Partial<SupplierCardData>` с обязательным `company` и `email`.
+- **Body:** `Partial<SupplierCardData>` — клиент шлёт только заполненные поля, сервер заполняет defaults для остальных:
+  ```ts
+  {
+    // Required
+    company: TranslatedString    // или string → клиент конвертирует в TranslatedString
+    email: string
+
+    // Optional — сервер заполняет default при отсутствии
+    contactPerson?: TranslatedString  // default: {ru:'',en:'',lt:''}
+    phone?: string                    // default: ''
+    status?: SupplierStatus           // default: 'new'
+    categories?: string[]             // default: []
+    rating?: number                   // default: 0
+    country?: string                  // default: ''
+    city?: string                     // default: ''
+    tags?: string[]                   // default: []
+    notes?: string                    // default: ''
+    leadTime?: number                 // default: 0
+    statusReason?: TranslatedString   // default: {ru:'',en:'',lt:''}
+    contractDate?: string             // default: ''
+    vatCode?: string                  // default: ''
+    currency?: string                 // default: 'EUR'
+    paymentTerms?: string             // default: '30 Days Net'
+    minOrder?: number | null          // default: null
+    bccEmails?: string[]              // default: []
+    addresses?: SupplierAddress[]     // default: [{type:'Legal',line1:'',city:'',country:'',zip:''}]
+    contacts?: SupplierContact[]      // default: []
+    files?: SupplierFile[]            // default: []
+    fileIds?: string[]                // default: []
+  }
+  ```
 - **Response 200:** `SupplierCardData` целиком (с сгенерированным `id`). Клиент редиректит на `/admin/suppliers/:id`.
 - **Notes:** permission `create` на корневую секцию. 422 `VALIDATION_ERROR` если нет company/email. UI: `SupplierCreatePage.vue` + `useSupplierCreate` composable, форма на общем `SupplierFormSections.vue` (тот же что в CardPage).
 
@@ -383,6 +439,45 @@ Page: `SupplierCardPage.vue`. Composable `useSupplierCard` + `useDirtyCheck`.
   - Last-write-wins (optimistic locking — возможное расширение).
   - Клиент собирает дельту сам через `useDirtyCheck` — сервер merge-ит любой `Partial<SupplierCardData>`.
 
+#### Формат аудит-лога
+
+Каждая запись `SupplierAuditEntry` содержит `oldValue` и `newValue` — JSON-строки с ключами изменённых полей. Формат максимально удобен для хранения в БД и работы на сервере:
+
+```ts
+interface SupplierAuditEntry {
+  id: string              // UUID, генерируется сервером
+  timestamp: string       // ISO 8601
+  user: TranslatedString  // имя пользователя
+  userInitials: string    // инициалы для UI
+  property: TranslatedString  // название поля (локализовано)
+  oldValue: string        // JSON-строка с предыдущим значением
+  newValue: string        // JSON-строка с новым значением
+}
+```
+
+**Пример для single-field изменения (rating):**
+```json
+{
+  "id": "audit-a1b2c3d4",
+  "timestamp": "2026-04-18T11:15:00Z",
+  "user": { "ru": "Даниил", "en": "Danyil", "lt": "Danilas" },
+  "userInitials": "DD",
+  "property": { "ru": "Рейтинг", "en": "Rating", "lt": "Įvertinimas" },
+  "oldValue": "{\"rating\":3}",
+  "newValue": "{\"rating\":5}"
+}
+```
+
+**Пример для multi-field изменения (компания + статус):**
+```json
+{
+  "oldValue": "{\"company\":{\"ru\":\"СтальТрейд\",\"en\":\"StalTrade\",\"lt\":\"PlienoPrekyba\"},\"status\":\"new\"}",
+  "newValue": "{\"company\":{\"ru\":\"Металлторг\",\"en\":\"Metalltorg\",\"lt\":\"Metalltorg\"},\"status\":\"active\"}"
+}
+```
+
+> **Важно:** `oldValue`/`newValue` — это строки (JSON serialized), а не вложенные объекты. Сервер хранит их как есть, без парсинга. Клиент парсит для отображения diff в UI.
+
 #### Формат поля `notes`
 
 `notes: string` — единая строка, несколько блоков разделены пустой строкой (`\n\n`). Каждый блок начинается с timestamp `dd.mm.yyyy hh:mm`:
@@ -404,8 +499,9 @@ First contact, exchanged VAT codes.
 ### DELETE /api/suppliers/:id/audit/:entryId
 
 - **Когда:** `confirmDeleteAudit` в модалке на карточке.
+- **Params:** `entryId` — UUID аудит-записи (генерируется сервером, возвращается в `auditLog[].id`).
 - **Response 200:** `void`.
-- **Notes:** permission `delete` на аудит (обычно только Admin/Director). Сервер удаляет запись **напрямую**, без мета-записи «X удалил Y» (бэкапы — на стороне инфраструктуры).
+- **Notes:** permission `delete` на аудит (обычно только Admin/Director). Сервер удаляет запись **напрямую**, без мета-записи «X удалил Y» (бэкапы — на стороне инфраструктуры). `entryId` — это DB ID (UUID), а не индекс в массиве.
 
 ## BCC Request Tool
 
@@ -852,14 +948,16 @@ Page: `ProductsPage.vue`. Composable: `useProducts`.
 
 ### GET /api/products
 
-- **Когда:** `onMounted` → `load()`, изменение `filters.search` / `filters.categoryId` (`watch(filters, load, { deep: true })`).
+- **Когда:** `onMounted` → `load()`, изменение `filters.search` / `filters.categoryIds` (`watch(filters, load, { deep: true })`).
 - **Query:**
   ```ts
   {
-    search?: string      // фильтр по name (LIKE), пустая строка = без фильтра
-    categoryId?: string  // фильтр по категории, отсутствует = все категории
-    page: string         // "1"
-    pageSize: string     // "25"
+    search?: string       // фильтр по name (LIKE), пустая строка = без фильтра
+    categoryIds?: string  // ID категорий через запятую, отсутствует = все категории
+    page: string          // "1"
+    pageSize: string      // "25"
+    sortBy?: string       // "name" | "category" | "price" (default: "name")
+    sortDir?: string      // "asc" | "desc" (default: "asc")
   }
   ```
 - **Response 200:** `PaginatedResponse<ProductListItem>`
@@ -875,7 +973,7 @@ Page: `ProductsPage.vue`. Composable: `useProducts`.
     }
   }
   ```
-- **Notes:** Сортировка по `name ASC`. `categoryId: null` = без категории.
+- **Notes:** Сортировка по `name ASC` (дефолт). `sortBy=category` сортирует по `categoryName`. `categoryIds: null` = без категории.
 
 ### POST /api/products
 

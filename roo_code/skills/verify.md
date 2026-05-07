@@ -31,7 +31,8 @@ Run the full verification checklist for the Vue frontend.
 
 4. **Project integrity checks**:
    - Verify `src/router/index.ts` has no duplicate route names
-   - Verify `src/i18n/admin.ts` has matching key counts across all 3 languages (RU/EN/LT)
+   - Verify each domain file in `src/i18n/admin/` has matching key counts across all 3 languages (RU/EN/LT)
+   - Verify `src/i18n/admin/index.ts` imports all domain files
    - Verify `src/config/featureFlags.ts` — all flags used in views exist in FeatureFlags type
    - Verify `tests/e2e/helpers/flags.ts` — all page flags present in ALL_FLAGS_ENABLED
 
