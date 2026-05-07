@@ -1,0 +1,68 @@
+=== ВСЕ API ЭНДПОЙНТЫ ФРОНТЕНДА ===
+Всего: 28 эндпойнтов
+
+=== ПРОДУКТЫ (productsService.ts) ===
+GET    /api/products                  — список продуктов (с фильтрацией + пагинацией)
+GET    /api/products/:id              — один продукт
+POST   /api/products                  — создать продукт
+PATCH  /api/products/:id              — обновить продукт (только изменённые поля)
+DELETE /api/products/:id              — удалить продукт
+
+=== КАТЕГОРИИ (categoriesService.ts) ===
+GET    /api/categories                — список категорий (с фильтрацией + пагинацией)
+GET    /api/categories/:id            — одна категория
+POST   /api/categories                — создать категорию
+PATCH  /api/categories/:id            — обновить категорию
+DELETE /api/categories/:id            — удалить категорию
+PUT    /api/categories/:id/fields     — полная замена полей категории
+
+=== ПОСТАВЩИКИ (suppliersService.ts) ===
+GET    /api/suppliers                 — список поставщиков (с фильтрацией + пагинацией)
+GET    /api/suppliers/:id             — карточка поставщика
+PATCH  /api/suppliers/:id             — обновить карточку поставщика
+PATCH  /api/suppliers/:id/status      — быстрая смена статуса (drag-drop в канбане)
+POST   /api/suppliers                 — создать поставщика
+DELETE /api/suppliers/:id/audit/:entryIndex — удалить запись аудита
+GET    /api/suppliers/export.csv      — экспорт поставщиков в CSV
+
+=== BCC (bccService.ts) ===
+GET    /api/bcc/categories            — список категорий для BCC
+GET    /api/bcc/recipients            — получатели для выбранных продуктов
+GET    /api/bcc/history               — история BCC-запросов
+POST   /api/bcc/send                  — отправить BCC-email (с Idempotency-Key)
+POST   /api/bcc/log                   — записать запрос без отправки email
+POST   /api/bcc/events/:eventId/response   — принять ответ от поставщика
+POST   /api/bcc/events/:eventId/no-response — отметить "нет ответа"
+
+=== КОНФИГУРАЦИЯ (configService.ts) ===
+GET    /api/config/fields             — библиотека полей
+PUT    /api/config/fields             — полная замена библиотеки полей
+POST   /api/config/fields             — создать поле
+PATCH  /api/config/fields/:id         — обновить поле
+DELETE /api/config/fields/:id         — удалить поле
+GET    /api/config/sections           — секции карточки поставщика
+PUT    /api/config/sections           — полная замена секций
+POST   /api/config/sections           — создать секцию
+PATCH  /api/config/sections/:id       — обновить секцию
+DELETE /api/config/sections/:id       — удалить секцию
+GET    /api/config/permissions        — матрица прав доступа
+PUT    /api/config/permissions        — полная замена прав
+
+=== АНАЛИТИКА (analyticsService.ts) ===
+GET    /api/analytics/:page           — данные для страницы аналитики
+
+=== ФАЙЛЫ (uploadsService.ts) ===
+POST   /api/uploads                   — загрузка файла (multipart)
+
+========================================
+Данные, которые требуют resolveLabel()
+(приходят с сервера на русском, переводятся через labelLookup.ts + admin.ts):
+
+1. GET /api/products         → name, categoryName
+2. GET /api/products/:id     → name, fieldValues[].fieldName, fieldValues[].value
+3. GET /api/categories       → name, parentName
+4. GET /api/categories/:id   → name, fields[].name
+5. GET /api/suppliers/:id    → вложенные продукты (product.name)
+6. GET /api/bcc/categories   → name
+7. GET /api/config/fields    → name
+8. GET /api/config/sections  → name
