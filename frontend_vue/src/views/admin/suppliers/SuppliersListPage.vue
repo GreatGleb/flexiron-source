@@ -17,6 +17,7 @@ import { useToast } from '@/composables/useToast'
 import type { Supplier, SupplierStatus } from '@/types/supplier'
 import type { TranslatedString } from '@/types/i18n'
 
+import '@styles/admin/components/_pagination.css'
 import '@styles/admin/suppliers_list.css'
 
 const { t } = useI18n()
@@ -459,7 +460,7 @@ onBeforeUnmount(() => {
               <td>
                 <router-link
                   :to="{ name: 'admin-supplier-card', params: { id: s.id } }"
-                  class="link"
+                  class="name-link"
                 >
                   {{ tf(s.company) }}
                 </router-link>
@@ -492,19 +493,9 @@ onBeforeUnmount(() => {
                   <router-link
                     v-tooltip="t('tooltip.view_details')"
                     :to="{ name: 'admin-supplier-card', params: { id: s.id } }"
-                    class="action-icon-btn action-edit"
+                    class="action-icon-btn"
                   >
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                    >
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                      <circle cx="12" cy="12" r="3" />
-                    </svg>
+                    <SvgIcon name="external-link" :width="16" :height="16" />
                   </router-link>
                   <router-link
                     v-tooltip="t('tooltip.send_bcc')"

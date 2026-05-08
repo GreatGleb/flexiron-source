@@ -12,6 +12,7 @@ const { close } = useSidebar()
 const isAnalyticsActive = computed(() => route.path.startsWith('/admin/analytics'))
 const isSuppliersActive = computed(() => route.path.startsWith('/admin/suppliers'))
 const isProductsActive = computed(() => route.path.startsWith('/admin/products'))
+const isWarehouseActive = computed(() => route.path.startsWith('/admin/warehouse'))
 
 function switchLang(code: string) {
   locale.value = code
@@ -58,10 +59,15 @@ function switchLang(code: string) {
         </router-link>
       </li>
       <li>
-        <a href="#" class="nav-link" data-test="sidebar-nav-warehouse">
+        <router-link
+          :to="{ name: 'admin-warehouse' }"
+          class="nav-link"
+          data-test="sidebar-nav-warehouse"
+          :class="{ active: isWarehouseActive }"
+        >
           <SvgIcon name="warehouse-box" class="nav-icon" />
           <span>{{ t('side.warehouse') }}</span>
-        </a>
+        </router-link>
       </li>
       <li>
         <a href="#" class="nav-link" data-test="sidebar-nav-sales">

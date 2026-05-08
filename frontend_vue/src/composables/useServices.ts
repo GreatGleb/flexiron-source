@@ -1,23 +1,20 @@
 import { ref, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import {
-  getCategories,
-  deleteCategory as deleteCategoryApi,
-} from '@/services/categoriesService'
+import { getServices, deleteService as deleteServiceApi } from '@/services/servicesService'
 import { usePagination } from './usePagination'
 import { useToast } from './useToast'
 import { useTranslatedField } from './useTranslatedData'
-import type { CategoryListItem, CategoryFilters } from '@/types/category'
+import type { ServiceListItem, ServiceFilters } from '@/types/service'
 
-export function useCategories() {
+export function useServices() {
   const { t } = useI18n()
   const toast = useToast()
   const { tf } = useTranslatedField()
 
-  const items = ref<CategoryListItem[]>([])
+  const items = ref<ServiceListItem[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
-  const filters = reactive<CategoryFilters>({ search: '' })
+  const filters = reactive<ServiceFilters>({ search: '', sortBy: 'name', sortDir: 'asc' })
   const pagination = usePagination(25)
 
   let initialized = false
@@ -26,31 +23,27 @@ export function useCategories() {
     if (!initialized) loading.value = true
     error.value = null
     try {
-      const res = await getCategories(filters, pagination.page.value, pagination.pageSize.value)
+      const res = await getServices(filters, {
+        page: pagination.page.value,
+        pageSize: pagination.pageSize.value,
+      })
       items.value = res.items
       pagination.total.value = res.total
       initialized = true
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to load categories'
+      error.value = e instanceof Error ? e.message : 'Failed to load services'
     } finally {
       loading.value = false
     }
   }
 
-  async function deleteCategory(id: string) {
+  async function deleteService(id: string) {
     try {
-      await deleteCategoryApi(id)
-      toast.success(t('categories.toast_deleted'))
+      await deleteServiceApi(id)
+      toast.success(t('services.toast_deleted'))
       await load()
-    } catch (e) {
-      const code = e instanceof Error ? e.message : ''
-      if (code === 'CATEGORY_HAS_PRODUCTS') {
-        toast.error(t('categories.toast_error_delete_has_products'))
-      } else if (code === 'CATEGORY_HAS_CHILDREN') {
-        toast.error(t('categories.toast_error_delete_has_children'))
-      } else {
-        toast.error(t('categories.toast_error'))
-      }
+    } catch {
+      toast.error(t('services.toast_error_delete'))
     }
   }
 
@@ -71,5 +64,24 @@ export function useCategories() {
     load()
   })
 
-  return { items, loading, error, filters, pagination, load, deleteCategory, tf }
+  function toggleSort(col: ServiceFilters['sortBy']) {
+    if (filters.sortBy === col) {
+      filters.sortDir = filters.sortDir === 'asc' ? 'desc' : 'asc'
+    } else {
+      filters.sortBy = col
+      filters.sortDir = 'asc'
+    }
+  }
+
+  return {
+    items,
+    loading,
+    error,
+    filters,
+    pagination,
+    load,
+    deleteService,
+    toggleSort,
+    tf,
+  }
 }

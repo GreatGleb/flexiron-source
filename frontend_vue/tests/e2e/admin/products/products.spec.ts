@@ -325,7 +325,11 @@ test.describe('products-list › navigation', () => {
   })
 
   test('row click navigates to /admin/products/:id', async ({ page }) => {
-    await page.locator('[data-test="products-row"]').first().click()
+    await page
+      .locator('[data-test="products-row"]')
+      .first()
+      .locator('a.name-link')
+      .click()
     await expect(page).toHaveURL(/\/admin\/products\/prod-\w+$/)
   })
 })

@@ -15,6 +15,7 @@ import { useCategories } from '@/composables/useCategories'
 import { createCategory } from '@/services/categoriesService'
 import { useToast } from '@/composables/useToast'
 
+import '@styles/admin/components/_pagination.css'
 import '@styles/admin/categories_list.css'
 
 const { t, locale } = useI18n()
@@ -24,7 +25,22 @@ const toast = useToast()
 useHead({ title: t('categories.title'), description: t('categories.title') })
 const showCategories = useFeatureFlag('adminCategories')
 
-const { items, loading, error, filters, load, deleteCategory, tf } = useCategories()
+const PAGE_SIZE_OPTIONS = [
+  { value: '10', label: '10' },
+  { value: '25', label: '25' },
+  { value: '50', label: '50' },
+  { value: '100', label: '100' },
+]
+
+const pageSizeStr = computed({
+  get: () => String(pagination.pageSize.value),
+  set: (v: string) => {
+    pagination.pageSize.value = Number(v)
+    pagination.reset()
+  },
+})
+
+const { items, loading, error, filters, pagination, load, deleteCategory, tf } = useCategories()
 
 const showCreateModal = ref(false)
 const showDeleteModal = ref(false)
@@ -126,14 +142,18 @@ async function handleCreate() {
                 v-for="item in items"
                 :key="item.id"
                 data-test="categories-row"
-                @click="router.push({ name: 'admin-category-card', params: { id: item.id } })"
               >
                 <td>
                   <div
                     class="categories-level-indent"
                     :style="{ paddingLeft: `calc(${item.level} * 16px + 12px)` }"
                   >
-                    {{ tf(item.name) }}
+                    <router-link
+                      :to="{ name: 'admin-category-card', params: { id: item.id } }"
+                      class="name-link"
+                    >
+                      {{ tf(item.name) }}
+                    </router-link>
                   </div>
                 </td>
                 <td>{{ item.parentName ? tf(item.parentName) : '—' }}</td>
@@ -141,6 +161,15 @@ async function handleCreate() {
                 <td>{{ item.productCount }}</td>
                 <td>
                   <div class="categories-row-actions">
+                    <router-link
+                      v-tooltip="t('tooltip.view_details')"
+                      :to="{ name: 'admin-category-card', params: { id: item.id } }"
+                      class="action-icon-btn"
+                      data-test="categories-view-btn"
+                      @click.stop
+                    >
+                      <SvgIcon name="external-link" :width="16" :height="16" />
+                    </router-link>
                     <button
                       class="action-icon-btn action-danger"
                       :title="t('categories.btn_delete')"
@@ -153,6 +182,64 @@ async function handleCreate() {
                 </td>
               </tr>
             </tbody>
+            <tfoot v-if="pagination.total.value > 0">
+              <tr>
+                <td colspan="5">
+                  <div class="pagination-bar" data-test="categories-pagination">
+                    <div class="page-size" data-test="categories-page-size">
+                      <span>{{ t('categories.page_size') }}</span>
+                      <CustomSelect
+                        v-model="pageSizeStr"
+                        :options="PAGE_SIZE_OPTIONS"
+                        :open-up="true"
+                        class="custom-select-sm"
+                      />
+                    </div>
+                    <div class="pagination-nav">
+                      <button
+                        class="btn btn-icon btn-sm"
+                        :disabled="!pagination.hasPrev.value"
+                        :style="{ display: pagination.totalPages.value <= 1 ? 'none' : 'flex' }"
+                        @click="pagination.prev"
+                      >
+                        <SvgIcon
+                          name="chevron-right"
+                          :width="14"
+                          :height="14"
+                          style="transform: rotate(180deg)"
+                        />
+                      </button>
+                      <div class="pagination-pages">
+                        <template v-for="(p, i) in pagination.pageNumbers()" :key="i">
+                          <span v-if="p === '...'" class="pagination-ellipsis">...</span>
+                          <button
+                            v-else
+                            class="page-btn"
+                            :class="{ active: p === pagination.page.value }"
+                            @click="pagination.goTo(p as number)"
+                          >
+                            {{ p }}
+                          </button>
+                        </template>
+                      </div>
+                      <button
+                        class="btn btn-icon btn-sm"
+                        :disabled="!pagination.hasNext.value"
+                        :style="{ display: pagination.totalPages.value <= 1 ? 'none' : 'flex' }"
+                        @click="pagination.next"
+                      >
+                        <SvgIcon name="chevron-right" :width="14" :height="14" />
+                      </button>
+                    </div>
+                    <div class="pagination-info">
+                      <span>{{ pagination.showingFrom.value }}-{{ pagination.showingTo.value }}</span>
+                      <span>&nbsp;{{ t('categories.of') }}&nbsp;</span>
+                      <span>{{ pagination.total.value }}</span>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       </GlassPanel>

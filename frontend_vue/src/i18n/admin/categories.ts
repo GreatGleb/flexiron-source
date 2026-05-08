@@ -59,6 +59,8 @@ export const adminCategories = {
       toast_error: 'Произошла ошибка',
       toast_error_delete_has_products: 'Нельзя удалить — в категории есть товары',
       toast_error_delete_has_children: 'Нельзя удалить — у категории есть подкатегории',
+      page_size: 'на странице',
+      of: 'из',
     },
   },
   en: {
@@ -120,6 +122,8 @@ export const adminCategories = {
       toast_error: 'An error occurred',
       toast_error_delete_has_products: 'Cannot delete — category has products',
       toast_error_delete_has_children: 'Cannot delete — category has subcategories',
+      page_size: 'per page',
+      of: 'of',
     },
   },
   lt: {
@@ -181,6 +185,8 @@ export const adminCategories = {
       toast_error: 'Įvyko klaida',
       toast_error_delete_has_products: 'Negalima ištrinti — kategorijoje yra prekių',
       toast_error_delete_has_children: 'Negalima ištrinti — kategorija turi subkategorijų',
+      page_size: 'puslapyje',
+      of: 'iš',
     },
   },
 }

@@ -47,6 +47,7 @@ export const adminLayout = {
       productCard: 'Карточка товара',
       categories: 'Категории товаров',
       categoryCard: 'Карточка категории',
+      services: 'Услуги',
     },
   },
   en: {
@@ -96,6 +97,7 @@ export const adminLayout = {
       productCard: 'Product Card',
       categories: 'Product Categories',
       categoryCard: 'Category Card',
+      services: 'Services',
     },
   },
   lt: {
@@ -145,6 +147,7 @@ export const adminLayout = {
       productCard: 'Prekės kortelė',
       categories: 'Prekių kategorijos',
       categoryCard: 'Kategorijos kortelė',
+      services: 'Paslaugos',
     },
   },
 }

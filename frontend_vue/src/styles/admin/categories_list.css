@@ -74,10 +74,96 @@
   font-size: 16px;
 }
 
-.data-table tbody tr[data-test="categories-row"] {
-  cursor: pointer;
-}
 
 .data-table tbody tr[data-test="categories-row"]:hover {
   background: rgba(255, 255, 255, 0.05);
 }
+
+/* Table responsive */
+@media (max-width: 768px) {
+  .data-table {
+    min-width: 600px;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 10px 12px;
+  }
+}
+
+@media (max-width: 600px) {
+  .data-table {
+    min-width: 500px;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 8px 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .data-table {
+    min-width: 400px;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 6px 8px;
+  }
+}
+
+@media (max-width: 320px) {
+  .data-table th {
+    font-size: 9px;
+  }
+
+  .data-table th:first-child {
+    padding-left: 4px;
+  }
+
+  .data-table th:last-child {
+    padding-right: 4px;
+  }
+
+  .data-table td {
+    font-size: 10px;
+  }
+
+  .data-table td:first-child {
+    padding-left: 4px;
+  }
+
+  .data-table td:last-child {
+    padding-right: 4px;
+  }
+
+  .data-table {
+    min-width: 400px;
+  }
+
+  .data-table a.link {
+    font-size: 10px;
+  }
+
+  .data-table .status-pill {
+    padding: 1px 6px;
+  }
+
+  .data-table .tag-sm {
+    font-size: 8px;
+  }
+
+  .data-table .icon-link {
+    width: 22px;
+  }
+
+  .data-table .icon-link svg {
+    width: 12px;
+  }
+
+  .data-table .rating-stars .star {
+    font-size: 9px;
+  }
+}
+

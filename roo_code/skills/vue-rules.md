@@ -312,9 +312,15 @@ Reference: `ProductsPage.vue` + `products_list.css`. All new tables must exactly
   :key="item.id"
   class="[domain]-row"
   data-test="[domain]-row"
-  @click="router.push({ name: 'admin-[domain]-card', params: { id: item.id } })"
 >
-  <td>{{ item.name }}</td>          <!-- first column — always brighter -->
+  <td>
+    <router-link
+      :to="{ name: 'admin-[domain]-card', params: { id: item.id } }"
+      class="name-link"
+    >
+      {{ tf(item.name) }}
+    </router-link>
+  </td>          <!-- first column — always brighter, name-link for navigation -->
   <!-- secondary columns -->
   <td>
     <div class="[domain]-row-actions">
@@ -345,11 +351,21 @@ Reference: `ProductsPage.vue` + `products_list.css`. All new tables must exactly
 
 **CSS in `[domain]_list.css` — required rules:**
 ```css
-.[domain]-row { cursor: pointer; }
 .[domain]-row td { transition: background 0.15s, color 0.15s; }
 .[domain]-row td:first-child { font-weight: 500; color: rgba(255, 255, 255, 0.85); }
 .[domain]-row:hover td:first-child { color: #fff; }
 .[domain]-row-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.name-link {
+  color: inherit;
+  text-decoration: none;
+  transition: text-decoration-color 0.2s ease;
+  text-decoration-line: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 2px;
+}
+.name-link:hover {
+  text-decoration-color: currentColor;
+}
 ```
 
 **Base `.data-table` styles** (erp-base.css, global — don't duplicate):

@@ -663,7 +663,7 @@ test.describe('supplier-card-config › save', () => {
     // (no full reload), so the mock modules stay warm and the rename sticks.
     await page.locator('[data-test="sidebar-nav-suppliers"]').click()
     await expect(page).toHaveURL(/\/admin\/suppliers$/)
-    await page.locator('[data-test="suppliers-row"]').first().locator('a.link').first().click()
+    await page.locator('[data-test="suppliers-row"]').first().locator('a.name-link').first().click()
     await expect(page).toHaveURL(/\/admin\/suppliers\/\d+$/)
     await page.locator('[data-test="supplier-card-config-link"]').click()
     await expect(page).toHaveURL(/\/admin\/suppliers\/config$/)

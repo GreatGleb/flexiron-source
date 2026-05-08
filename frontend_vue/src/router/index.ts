@@ -65,7 +65,7 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: 'analytics/warehouse',
-        name: 'admin-warehouse',
+        name: 'admin-analytics-warehouse',
         component: () => import('@/views/admin/analytics/WarehousePage.vue'),
         meta: { layout: 'admin', featureFlag: 'adminWarehouse' as FeatureFlagKey },
       },
@@ -160,6 +160,32 @@ const routes: RouteRecordRaw[] = [
         name: 'admin-category-card',
         component: () => import('@/views/admin/products/CategoryCardPage.vue'),
         meta: { layout: 'admin', featureFlag: 'adminCategories' as FeatureFlagKey },
+      },
+      {
+        path: 'products/services',
+        name: 'admin-services',
+        component: () => import('@/views/admin/products/ServicesPage.vue'),
+        meta: { layout: 'admin', featureFlag: 'adminServices' as FeatureFlagKey },
+      },
+      {
+        path: 'products/services/:id',
+        name: 'admin-service-card',
+        component: () => import('@/views/admin/products/ServiceCardPage.vue'),
+        meta: { layout: 'admin', featureFlag: 'adminServices' as FeatureFlagKey },
+      },
+
+      /* Warehouse */
+      {
+        path: 'warehouse',
+        name: 'admin-warehouse',
+        component: () => import('@/views/admin/warehouse/WarehousePage.vue'),
+        meta: { layout: 'admin', featureFlag: 'adminWarehouse' as FeatureFlagKey },
+      },
+      {
+        path: 'warehouse/batches/:id',
+        name: 'admin-warehouse-batch',
+        component: () => import('@/views/admin/warehouse/WarehouseBatchCard.vue'),
+        meta: { layout: 'admin', featureFlag: 'adminWarehouse' as FeatureFlagKey },
       },
     ],
   },

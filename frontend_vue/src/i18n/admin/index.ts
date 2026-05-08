@@ -7,6 +7,8 @@ import { adminBcc } from './bcc'
 import { adminCardConfig } from './cardConfig'
 import { adminCategories } from './categories'
 import { adminProducts } from './products'
+import { adminServices } from './services'
+import { adminWarehouse } from './warehouse'
 import { adminCommon } from './common'
 
 // Merge all domain objects into per-locale aggregates
@@ -37,6 +39,8 @@ const merged = mergeLocales(
   adminCardConfig,
   adminCategories,
   adminProducts,
+  adminServices,
+  adminWarehouse,
   adminCommon,
 )
 

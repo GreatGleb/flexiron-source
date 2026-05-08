@@ -1,5 +1,25 @@
 import { mockGetAnalyticsPage } from './analytics'
 import {
+  mockGetStockOverview,
+  mockGetBatches,
+  mockGetBatch,
+  mockCreateBatch,
+  mockPatchBatch,
+  mockDeleteBatch,
+  mockGetOffcuts,
+  mockGetOffcut,
+  mockCreateOffcut,
+  mockDeleteOffcut,
+  mockGetMovements,
+  mockCreateMovement,
+  mockExecuteCutting,
+  mockGetDeficitList,
+  mockGetDeficitItem,
+  mockCreateDeficitItem,
+  mockPatchDeficitItem,
+  mockDeleteDeficitItem,
+} from './warehouse'
+import {
   mockGetCategories,
   mockGetCategory,
   mockCreateCategory,
@@ -16,6 +36,14 @@ import {
   mockDeleteProduct,
 } from './products'
 import type { ProductFilters } from '@/types/product'
+import {
+  mockGetServices,
+  mockGetService,
+  mockCreateService,
+  mockPatchService,
+  mockDeleteService,
+} from './services'
+import type { ServiceFilters } from '@/types/service'
 import {
   mockGetSuppliers,
   mockGetSupplier,
@@ -159,6 +187,97 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
     return delay(mockGetProduct(productCardMatch[1] as string) as T)
   }
 
+  if (path === '/api/services') {
+    const filters: ServiceFilters = {
+      search: params?.search ?? '',
+      sortBy: (params?.sortBy as ServiceFilters['sortBy']) ?? 'name',
+      sortDir: (params?.sortDir as 'asc' | 'desc') ?? 'asc',
+    }
+    const pagination = {
+      page: params?.page ? Number(params.page) : 1,
+      pageSize: params?.pageSize ? Number(params.pageSize) : 25,
+    }
+    return delay(mockGetServices(filters, pagination) as T)
+  }
+
+  const serviceCardMatch = path.match(/^\/api\/services\/([^/]+)$/)
+  if (serviceCardMatch) {
+    return delay(mockGetService(serviceCardMatch[1] as string) as T)
+  }
+
+  // ── Warehouse ──
+  if (path === '/api/warehouse/stock') {
+    return delay(mockGetStockOverview() as T)
+  }
+
+  if (path === '/api/warehouse/batches') {
+    const page = Number(params?.page ?? 1)
+    const pageSize = Number(params?.pageSize ?? 25)
+    return delay(mockGetBatches({
+      search: params?.search ?? '',
+      productId: params?.productId,
+      supplierId: params?.supplierId,
+      status: params?.status,
+      dateFrom: params?.dateFrom,
+      dateTo: params?.dateTo,
+      sortBy: params?.sortBy,
+      sortDir: params?.sortDir,
+    }, { page, pageSize }) as T)
+  }
+
+  const batchCardMatch = path.match(/^\/api\/warehouse\/batches\/([^/]+)$/)
+  if (batchCardMatch) {
+    return delay(mockGetBatch(batchCardMatch[1] as string) as T)
+  }
+
+  if (path === '/api/warehouse/offcuts') {
+    const page = Number(params?.page ?? 1)
+    const pageSize = Number(params?.pageSize ?? 25)
+    return delay(mockGetOffcuts({
+      search: params?.search ?? '',
+      productId: params?.productId,
+      status: params?.status,
+      sortBy: params?.sortBy,
+      sortDir: params?.sortDir,
+    }, { page, pageSize }) as T)
+  }
+
+  const offcutCardMatch = path.match(/^\/api\/warehouse\/offcuts\/([^/]+)$/)
+  if (offcutCardMatch) {
+    return delay(mockGetOffcut(offcutCardMatch[1] as string) as T)
+  }
+
+  if (path === '/api/warehouse/movements') {
+    const page = Number(params?.page ?? 1)
+    const pageSize = Number(params?.pageSize ?? 25)
+    return delay(mockGetMovements({
+      search: params?.search ?? '',
+      type: params?.type,
+      productId: params?.productId,
+      dateFrom: params?.dateFrom,
+      dateTo: params?.dateTo,
+      sortBy: params?.sortBy,
+      sortDir: params?.sortDir,
+    }, { page, pageSize }) as T)
+  }
+
+  if (path === '/api/warehouse/deficit') {
+    const page = Number(params?.page ?? 1)
+    const pageSize = Number(params?.pageSize ?? 25)
+    return delay(mockGetDeficitList({
+      search: params?.search ?? '',
+      priority: params?.priority,
+      status: params?.status,
+      sortBy: params?.sortBy,
+      sortDir: params?.sortDir,
+    }, { page, pageSize }) as T)
+  }
+
+  const deficitCardMatch = path.match(/^\/api\/warehouse\/deficit\/([^/]+)$/)
+  if (deficitCardMatch) {
+    return delay(mockGetDeficitItem(deficitCardMatch[1] as string) as T)
+  }
+
   throw new Error(`[mock] GET ${path} not found`)
 }
 
@@ -213,6 +332,31 @@ export async function postMock<T>(
 
   if (path === '/api/products') {
     return delay(mockCreateProduct(body as Parameters<typeof mockCreateProduct>[0]) as T)
+  }
+
+  if (path === '/api/services') {
+    return delay(mockCreateService(body as Parameters<typeof mockCreateService>[0]) as T)
+  }
+
+  // ── Warehouse POST ──
+  if (path === '/api/warehouse/batches') {
+    return delay(mockCreateBatch(body as Parameters<typeof mockCreateBatch>[0]) as T)
+  }
+
+  if (path === '/api/warehouse/offcuts') {
+    return delay(mockCreateOffcut(body as Parameters<typeof mockCreateOffcut>[0]) as T)
+  }
+
+  if (path === '/api/warehouse/movements') {
+    return delay(mockCreateMovement(body as Parameters<typeof mockCreateMovement>[0]) as T)
+  }
+
+  if (path === '/api/warehouse/cutting') {
+    return delay(mockExecuteCutting(body as Parameters<typeof mockExecuteCutting>[0]) as T)
+  }
+
+  if (path === '/api/warehouse/deficit') {
+    return delay(mockCreateDeficitItem(body as Parameters<typeof mockCreateDeficitItem>[0]) as T)
   }
 
   throw new Error(`[mock] POST ${path} not found`)
@@ -298,6 +442,28 @@ export async function patchMock<T>(
     return delay(updated as T)
   }
 
+  const servicePatchMatch = path.match(/^\/api\/services\/([^/]+)$/)
+  if (servicePatchMatch) {
+    return delay(
+      mockPatchService(servicePatchMatch[1] as string, body as Parameters<typeof mockPatchService>[1]) as T,
+    )
+  }
+
+  // ── Warehouse PATCH ──
+  const batchPatchMatch = path.match(/^\/api\/warehouse\/batches\/([^/]+)$/)
+  if (batchPatchMatch) {
+    return delay(
+      mockPatchBatch(batchPatchMatch[1] as string, body as Parameters<typeof mockPatchBatch>[1]) as T,
+    )
+  }
+
+  const deficitPatchMatch = path.match(/^\/api\/warehouse\/deficit\/([^/]+)$/)
+  if (deficitPatchMatch) {
+    return delay(
+      mockPatchDeficitItem(deficitPatchMatch[1] as string, body as Parameters<typeof mockPatchDeficitItem>[1]) as T,
+    )
+  }
+
   throw new Error(`[mock] PATCH ${path} not found`)
 }
 
@@ -333,6 +499,29 @@ export async function deleteMock<T>(path: string, _headers?: Record<string, stri
     const deleted = mockDeleteProduct(productDeleteMatch[1] as string)
     if (!deleted) throw new Error('PRODUCT_NOT_FOUND')
     return delay(undefined as T)
+  }
+
+  const serviceDeleteMatch = path.match(/^\/api\/services\/([^/]+)$/)
+  if (serviceDeleteMatch) {
+    const deleted = mockDeleteService(serviceDeleteMatch[1] as string)
+    if (!deleted) throw new Error('SERVICE_NOT_FOUND')
+    return delay(undefined as T)
+  }
+
+  // ── Warehouse DELETE ──
+  const batchDeleteMatch = path.match(/^\/api\/warehouse\/batches\/([^/]+)$/)
+  if (batchDeleteMatch) {
+    return delay(mockDeleteBatch(batchDeleteMatch[1] as string) as T)
+  }
+
+  const offcutDeleteMatch = path.match(/^\/api\/warehouse\/offcuts\/([^/]+)$/)
+  if (offcutDeleteMatch) {
+    return delay(mockDeleteOffcut(offcutDeleteMatch[1] as string) as T)
+  }
+
+  const deficitDeleteMatch = path.match(/^\/api\/warehouse\/deficit\/([^/]+)$/)
+  if (deficitDeleteMatch) {
+    return delay(mockDeleteDeficitItem(deficitDeleteMatch[1] as string) as T)
   }
 
   throw new Error(`[mock] DELETE ${path} not found`)

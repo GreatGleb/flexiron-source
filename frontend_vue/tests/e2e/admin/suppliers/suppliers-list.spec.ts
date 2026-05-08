@@ -165,7 +165,7 @@ test.describe('suppliers-list › table view', () => {
       .first()
       .locator('td')
       .first()
-      .locator('a.link')
+      .locator('a.name-link')
     await expect(firstRowLink).toHaveAttribute('href', /\/admin\/suppliers\/\w+$/)
   })
 
@@ -200,7 +200,7 @@ test.describe('suppliers-list › table view', () => {
       .first()
       .locator('td')
       .first()
-      .locator('a.link')
+      .locator('a.name-link')
       .click()
     await expect(page).toHaveURL(/\/admin\/suppliers\/\w+$/)
   })

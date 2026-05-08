@@ -113,6 +113,7 @@ Rules:
 - Arrays initialize as `[]` not `null`
 - Pagination: reuse `PaginatedResponse<T>` from `src/types/api.ts`
 - For forms with dirty-check: create separate `[Entity]FormData` type if different from API shape
+- **No redundant ListItem types:** Before creating `[Entity]ListItem`, compare its fields with the main `[Entity]` type. If they are identical, use `[Entity]` everywhere instead — don't create a duplicate. Only create a separate `ListItem` type if it genuinely has fewer fields or a different shape (e.g. no relations, no nested objects).
 
 ### Checkpoint 1
 ```bash
@@ -246,6 +247,16 @@ export async function deleteProduct(id: string): Promise<void> {
 
 **PATCH sends only changed fields** — never the full object. Composable uses `useDirtyCheck.diff()` to produce the delta.
 
+**Clearing string fields:** When a string field can be cleared by the user (e.g. description, notes), never use a falsy check like `if (data.description)` — this rejects empty string `""` and the old value persists. Use explicit `!== undefined`:
+```ts
+// ❌ Bad — empty string is falsy, field never clears
+if (data.description) { payload.description = data.description }
+
+// ✅ Good — explicit undefined check, sends null to clear
+if (data.description !== undefined) { payload.description = data.description || null }
+```
+Apply this pattern to every optional string field that the user can clear.
+
 **Idempotency-Key** header on irreversible POST (send email, log event): use `newIdempotencyKey()` from `services/api.ts`.
 
 **File uploads** — always separate from main save:
@@ -302,11 +313,15 @@ Continue?
 **For list page:**
 ```ts
 import { ref } from 'vue'
-import { getProducts } from '@/services/productService'
+import { getProducts, createProduct, deleteProduct } from '@/services/productService'
 import { usePagination } from '@/composables/usePagination'
+import { useToast } from '@/composables/useToast'
+import { useI18n } from 'vue-i18n'
 import type { ProductItem, ProductFilters } from '@/types/product'
 
 export function useProducts() {
+  const { t } = useI18n()
+  const toast = useToast()
   const items = ref<ProductItem[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
@@ -327,8 +342,48 @@ export function useProducts() {
     }
   }
 
-  return { items, loading, error, filters, page, pageSize, total, load }
+  // Quick-action operations (create, delete) — always with toast feedback
+  async function handleCreate(data: CreateProductData) {
+    try {
+      await createProduct(data)
+      toast.success(t('products.toast_created'))
+      await load()  // reload list
+    } catch (e) {
+      toast.error(t('products.toast_error_create'))
+    }
+  }
+
+  async function handleDelete(id: string) {
+    try {
+      await deleteProduct(id)
+      toast.success(t('products.toast_deleted'))
+      await load()
+    } catch (e) {
+      toast.error(t('products.toast_error_delete'))
+    }
+  }
+
+  return { items, loading, error, filters, page, pageSize, total, load, handleCreate, handleDelete }
 }
+```
+
+**IMPORTANT — `initialized` flag for filter watcher (Pitfall #20):**
+If the page has filters/search inside a GlassPanel AND uses `watch(filters, load, { deep: true })`, add an `initialized` flag to prevent the skeleton loader from showing on every filter change (which hides the search field and loses focus):
+```ts
+let initialized = false
+
+async function load() {
+  if (!initialized) loading.value = true  // skeleton only on first load
+  try {
+    const result = await getProducts(filters.value)
+    items.value = result.data
+    initialized = true
+  } finally {
+    loading.value = false
+  }
+}
+```
+See [`vue-rules.md`](roo_code/skills/vue-rules.md) Pitfall #20 for full explanation.
 ```
 
 **For detail/form page with dirty-check:**
@@ -477,6 +532,11 @@ Rules:
 - For LT: reasonable approximations are acceptable, but key must exist in all 3
 - For data coming from API/mocks: use `TranslatedString` type + `tf()` helper, NOT `resolveLabel()`
 - For form inputs: use `mergeLocaleValue()` / `toTranslatedString()` utilities from `@/types/i18n`
+- **Cross-reference i18n keys from composable/service:** After writing the composable (Phase 4) and before declaring Phase 5 done — grep all `t('...')` calls in the composable and service files. Every key used in `t()` must exist in the domain i18n file. Missing keys cause runtime display of raw key strings that typecheck+lint cannot catch.
+- **No cross-namespace i18n references:** Never use `$t('otherDomain.key')` in a template or composable of a different domain. Each domain must have its own keys. If a key is shared (e.g. pagination `of`), duplicate it in each domain file rather than referencing another domain's namespace. Cross-namespace references break silently when the source domain is refactored.
+- **Include ALL toast keys from composable:** The composable example in Phase 4 uses `toast_created`, `toast_error_create`, `toast_deleted`, `toast_error_delete`. Every toast call in the composable MUST have a corresponding i18n key. Grep the composable for `toast.success(t('` and `toast.error(t('` — each key must exist in the domain file.
+- **Include ALL button/label keys from template:** The template will use `btn_create`, `btn_save`, `btn_discard`, `btn_delete`, `col_*`, `field_*`, `header_title`, `title`, `search_placeholder`, `filter_*`, `empty`, `tooltip_*`. Add all of them now to avoid missing-key errors in browser.
+- **Include `title` key for useHead:** `useHead({ title: t('domain.title') })` is used in Phase 6. The `title` key MUST exist in the domain i18n file. Without it, the browser tab shows a raw key string.
 
 - **Use mergeTranslatedString() for UI updates, not toTranslatedString():** `toTranslatedString(value, locale)` creates an object with only one locale filled — correct for API calls, but incorrect for UI updates (other locales get zeroed out). Use `mergeTranslatedString(existing, value, locale)` which preserves existing translations:
   ```ts
@@ -488,11 +548,17 @@ Rules:
   ```
 
 ### Checkpoint 5
-Verify key counts: RU === EN === LT for this domain file. Check with grep if needed.
+
+**Mandatory checks before declaring Phase 5 done:**
+
+1. **Key count parity:** RU === EN === LT for this domain file. Check with `grep -c "ru:"` / `grep -c "en:"` / `grep -c "lt:"`.
+2. **Cross-reference composable keys:** Grep ALL `t('` calls in the composable (`src/composables/use[Domain].ts`) and service (`src/services/[domain]Service.ts`) files. Every key used in `t()` MUST exist in the domain i18n file. Missing keys cause runtime display of raw key strings that typecheck+lint cannot catch.
+3. **No cross-namespace references:** Search the composable and template for `$t('` — if any reference points to a DIFFERENT domain (e.g. `$t('products.of')` in a services page), that's a bug. Each domain must have its own keys.
+4. **No hardcoded text:** Search the template for any visible text strings not wrapped in `{{ t('...') }}` or `{{ $t('...') }}`.
 
 ```
 ⏸ STOP — Phase 5: i18n Translations
-Done: src/i18n/admin/[domain].ts created/updated, all [domain].* keys added to RU/EN/LT, key counts match
+Done: src/i18n/admin/[domain].ts created/updated, all [domain].* keys added to RU/EN/LT, key counts match, composable keys cross-referenced ✅
 Next: Phase 6 — Page Template Skeleton
 Continue?
 ```
@@ -570,10 +636,18 @@ onMounted(load)
 </style>
 ```
 
+**CSS organization — import shared, don't duplicate:**
+Before writing page-specific CSS, check `src/styles/admin/components/` for existing shared CSS files (e.g. `_pagination.css`, `_entity-card-layout.css`, `_buttons.css`). If the page needs styles that already exist in a shared file, import it instead of duplicating:
+```ts
+import '@styles/admin/components/_pagination.css'
+```
+Never copy-paste shared CSS classes into page-specific files — this creates maintenance duplication (BUG-14 pattern).
+
 Rules:
 - `data-test="page-[domain]"` on root element
 - `data-test="[domain]-[section]"` on every logical section — required for Playwright
 - All sections from Phase 0 Checkpoint must have a corresponding `data-test` div
+- **data-test alignment check:** After writing the template, grep the existing test spec file (`tests/e2e/admin/[section]/[domain].spec.ts`) for `[data-test="..."]` patterns. Every `data-test` value used in tests must exist in the template, and every `data-test` in the template must match the test expectations. Mismatches cause silent test failures that typecheck+lint cannot catch.
 - `<GlassPanel>` wraps every logical panel
 - `<h1 class="page-title">` in the view itself (AdminLayout `<h1 v-if="pageTitle">` is dead code)
 - **Pitfall #9:** No `<!-- comments -->` inside `<template>` — they go to DOM. Comments only in `<script>`.
@@ -597,6 +671,8 @@ Rules:
 cd frontend_vue && npm run typecheck && npm run lint
 ```
 **Both must pass 0 errors.**
+
+**Dead CSS check:** After writing the template and its CSS, grep every CSS class defined in the page's CSS file against the template. Any class defined but not used in the template is dead code — remove it. Dead CSS accumulates across pages and creates confusion during maintenance.
 
 ```
 ⏸ STOP — Phase 6: Page Template Skeleton
@@ -632,9 +708,15 @@ Fill in v-for / v-if / v-model / @click — one section per step, max 40 lines p
         :key="item.id"
         class="[domain]-row"
         data-test="[domain]-row"
-        @click="router.push({ name: 'admin-[domain]-card', params: { id: item.id } })"
       >
-        <td>{{ item.name }}</td>
+        <td>
+          <router-link
+            :to="{ name: 'admin-[domain]-card', params: { id: item.id } }"
+            class="name-link"
+          >
+            {{ tf(item.name) }}
+          </router-link>
+        </td>
         <!-- ... -->
         <td>
           <div class="[domain]-row-actions">
@@ -667,11 +749,21 @@ Fill in v-for / v-if / v-model / @click — one section per step, max 40 lines p
 ```
 Required CSS in `[domain]_list.css`:
 ```css
-.[domain]-row { cursor: pointer; }
 .[domain]-row td { transition: background 0.15s, color 0.15s; }
 .[domain]-row td:first-child { font-weight: 500; color: rgba(255, 255, 255, 0.85); }
 .[domain]-row:hover td:first-child { color: #fff; }
 .[domain]-row-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.name-link {
+  color: inherit;
+  text-decoration: none;
+  transition: text-decoration-color 0.2s ease;
+  text-decoration-line: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 2px;
+}
+.name-link:hover {
+  text-decoration-color: currentColor;
+}
 ```
 
 ### Filter section:
@@ -752,18 +844,28 @@ Rules:
   ```
 
 ### Checkpoint 7
+
+**Mandatory checks before declaring Phase 7 done:**
+
+1. **Typecheck + lint:**
 ```bash
 cd frontend_vue && npm run typecheck && npm run lint
 ```
-Open browser → navigate to the page → verify:
+
+2. **Browser verification:**
 - Renders without console errors
 - All `data-test` sections visible with mock data
 - No layout breaks (flex, z-index, overflow)
 - **Pitfall #14:** If using CustomSelect — use it consistently, no mix with native `<select>`
 
+3. **i18n template audit:**
+- Search template for `{{ ` — every `TranslatedString` value MUST be wrapped in `tf()` (e.g. `{{ tf(item.name) }}`, NOT `{{ item.name }}`)
+- Search template for `$t('` — if any reference points to a DIFFERENT domain (e.g. `$t('products.xxx')` in a services page), that's a cross-namespace bug. Each domain must have its own keys.
+- Search template for hardcoded visible text — every visible string must use `{{ t('key') }}` or `{{ $t('key') }}`
+
 ```
 ⏸ STOP — Phase 7: Template Data Bindings
-Done: all v-for/v-if/v-model/@click bound, page opens in browser with data, typecheck + lint ✅
+Done: all v-for/v-if/v-model/@click bound, page opens in browser with data, typecheck + lint ✅, i18n template audit passed ✅
 Next: Phase 8 — Route Registration & Integration
 Continue?
 ```
@@ -876,7 +978,15 @@ Open `toDo/admin-api-contract.md`:
 4. Open every modal — renders, closes on Escape and overlay click
 5. For form pages: edit a field → Save bar appears → Save → dirty cleared
 6. Navigation links in rows work (router-link to detail page)
-7. Language switch: RU → EN → LT — all text translates, no untranslated keys
+7. **Language switch audit (RU → EN → LT):**
+   - [ ] Switch to RU — all visible text translates to Russian
+   - [ ] Switch to EN — all visible text translates to English
+   - [ ] Switch to LT — all visible text translates to Lithuanian
+   - [ ] No raw i18n keys visible (e.g. `services.toast_error_delete` showing as text)
+   - [ ] No `[object Object]` visible (TranslatedString without `tf()`)
+   - [ ] Browser tab title updates correctly (`useHead` + i18n)
+   - [ ] Pagination text (e.g. "of", "page") uses domain's own keys, not cross-namespace references
+   - [ ] Toast messages appear in correct language after actions
 
 ### 9d — Regression check
 Open 2–3 existing pages (Dashboard, SuppliersListPage) — verify no new console errors.
@@ -1002,6 +1112,19 @@ test('[domain] › translations RU/EN/LT', async ({ page }) => {
 
 **Import:** always `import { test, expect } from '../../fixtures'` — NOT from `@playwright/test`.
 `fixtures.ts` sets `flexiron_lang: 'en'` + all feature flags before every page load.
+
+**API route interception — mandatory for every spec:**
+Every E2E test spec MUST intercept API calls via `page.route()` to prevent real HTTP requests that fail in CI/headless mode. Add a `beforeEach` block that registers mock routes for ALL endpoints used by the page:
+```ts
+test.beforeEach(async ({ page }) => {
+  await page.route('**/api/services/**', async (route) => {
+    // fulfill with mock data matching the service response shape
+    await route.fulfill({ json: { data: [...] } })
+  })
+  // repeat for every endpoint: GET list, GET single, POST, PATCH, DELETE
+})
+```
+For tests that verify specific API responses (409 error, validation error), use per-test `page.route()` overrides.
 
 **Test data independence — critical:**
 - **Never hardcode mock data values** (category names, field names, counts) in tests.

@@ -1,30 +1,67 @@
-# Правки и заметки
+# Session: Fix bugs 1.3-services (COMPLETED)
 
-> Источник: [`Правки.txt`](../toDo/Правки.txt)
+## Summary
+All 11 bugs for Services page (1.3) have been fixed.
+TypeScript typecheck (0 errors) and ESLint (0 errors) pass cleanly.
 
-## Feature Flags
-- Добавить один файл с feature flags для всех страниц, возможно с импортом всех остальных feature flags файлов для каждой страницы
+## Files Modified
 
-## suppliers/card.html
-- Удаление логов для директора
+### frontend_vue/src/views/admin/products/ServicesPage.vue
+- Added import: `import { useToast } from '@/composables/useToast'`
+- Added import: `import '@styles/admin/services_list.css'` (was missing — CSS never loaded on direct navigation)
+- Added `const toast = useToast()`
+- БАГ-05: Added `toast.error(t('services.toast_error'))` in catch block of handleCreate
+- БАГ-06: Added `toast.success(t('services.toast_created'))` after successful creation
+- БАГ-08: Changed `t('products.of')` → `t('services.of')`
 
-## suppliers/list.html
-- Добавить модалку для подтверждения статуса при смене в канбан
-- Настройка прав ролей (кто может видеть и что на странице поставщиков)
+### frontend_vue/src/services/servicesService.ts
+- БАГ-04: `if (data.description)` → `if (data.description !== undefined)` (createService)
+- БАГ-04: `if (delta.description)` → `if (delta.description !== undefined)` (patchService)
 
-## suppliers/bcc-request.html
-- Выбор товаров
-- Добавить фильтры, поиск товаров
-- Добавить возможность отправки Word/Excel файла с таблицей нужных товаров и возможностью изменения (цена, к-во на складе, сроки, длина)
-- Письма уточняющие
+### frontend_vue/src/i18n/admin/services.ts
+- БАГ-03: Added `toast_error_delete` key to all 3 locales (ru/en/lt)
+- БАГ-08: Added `of` key to all 3 locales (ru: 'из', en: 'of', lt: 'iš')
 
-## Бухгалтерия
-- Автоматическое чтение фактур, работа с данными
-- https://www.teja.lt/
+### frontend_vue/src/types/service.ts
+- БАГ-10: Removed duplicate `ServiceListItem` interface, now `type ServiceListItem = Service` with @deprecated
 
-## Отчетность
-- Для отчетности и заполнению декларации по расходам - добавить траты на коммунальные услуги
+### frontend_vue/src/styles/admin/services_list.css
+- БАГ-07: Removed `cursor: pointer` from `.services-row` (no click handler on row)
+- БАГ-09: Removed dead CSS `.custom-select-list.open-up` (pagination dropdown)
 
-## Статистика менеджера
-- Звонки, письма, автоотчёты
-- Результаты, загруженность, планы в календаре для сотрудников
+### frontend_vue/src/services/mocks/services.ts (NEW FILE)
+- БАГ-02: Created mock handler functions:
+  - `mockGetServices(filters, pagination)` — search, sort, paginate
+  - `mockCreateService(data, locale)` — create with id generation
+  - `mockDeleteService(id)` — delete from in-memory store
+
+### frontend_vue/src/services/mocks/index.ts
+- БАГ-02: Added import of mockGetServices, mockCreateService, mockDeleteService from './services'
+- БАГ-02: Added import of ServiceFilters type
+- БАГ-02: Added GET /api/services routing with search/sort/pagination params
+- БАГ-02: Added POST /api/services routing
+- БАГ-02: Added DELETE /api/services/:id routing
+
+### frontend_vue/src/mocks/services.ts
+- Fixed priceUnit: Резка металла EUR/m, Гибка металла EUR/m (logical — per linear meter)
+- Delivery EUR/vnt, Packaging EUR/vnt, Welding EUR/h
+
+### frontend_vue/tests/e2e/admin/products/services.spec.ts
+- БАГ-02: Changed `import { test, expect } from '@playwright/test'` → `import { test, expect } from '../../fixtures'`
+  - This enables all feature flags automatically via fixtures
+  - Removed manual `enableAllFlags` call in beforeEach
+  - Added `page.goto` + `waitForLoadState` in beforeEach
+
+## Bugs Status
+- БАГ-01 (data-test): ✅ Fixed (was already fixed in previous session)
+- БАГ-02 (API mocks): ✅ Fixed — created mock handlers + registered in router + fixed test imports
+- БАГ-03 (i18n toast_error_delete): ✅ Fixed
+- БАГ-04 (falsy guard): ✅ Fixed
+- БАГ-05 (empty catch): ✅ Fixed
+- БАГ-06 (success toast): ✅ Fixed
+- БАГ-07 (cursor:pointer): ✅ Fixed
+- БАГ-08 (products.of): ✅ Fixed
+- БАГ-09 (dead CSS): ✅ Fixed
+- БАГ-10 (duplicate type): ✅ Fixed
+- БАГ-11 (initialized): ✅ Already fixed (initialized = true in load())
+- CSS not loading: ✅ Fixed — added import '@styles/admin/services_list.css'

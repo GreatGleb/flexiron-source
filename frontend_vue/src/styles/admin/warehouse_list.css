@@ -1,0 +1,259 @@
+/* --- PAGE LAYOUT: WAREHOUSE --- */
+
+.page-warehouse {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.warehouse-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.warehouse-header .page-title {
+  margin: 0;
+}
+
+/* ─── Tabs ─────────────────────────────────────────────────────────────────── */
+
+.warehouse-tabs {
+  display: flex;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 4px;
+  overflow-x: auto;
+}
+
+.warehouse-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.warehouse-tab:hover {
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.warehouse-tab.active {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* ─── Filters ──────────────────────────────────────────────────────────────── */
+
+.filters-bar {
+  position: relative;
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  margin-bottom: 24px;
+}
+
+.filters-bar:has(.custom-select-list.open),
+.filters-bar:has(.multi-select-list.open) {
+  z-index: 200 !important;
+}
+
+.filters-bar-header {
+  padding: 12px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.filters-bar-content {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 16px 20px;
+  flex-wrap: wrap;
+}
+
+.filters-bar .filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 150px;
+}
+
+.filters-bar .filter-group label {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ─── Data table extras ────────────────────────────────────────────────────── */
+
+.lot-code {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.cell-link {
+  color: #6ab0f3;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.cell-link:hover {
+  text-decoration: underline;
+}
+
+.row-deficit {
+  background: rgba(239, 68, 68, 0.06) !important;
+}
+
+.row-critical {
+  background: rgba(239, 68, 68, 0.08) !important;
+}
+
+.deficit-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.text-danger {
+  color: #ef4444;
+}
+
+.text-muted {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.fw-bold {
+  font-weight: 700;
+}
+
+/* ─── Row actions ──────────────────────────────────────────────────────────── */
+
+.row-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.th-actions {
+  width: 80px;
+  text-align: center;
+}
+
+/* ─── Batch card ───────────────────────────────────────────────────────────── */
+
+.page-batch-card {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.batch-card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.batch-card-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.batch-card-header .page-title {
+  margin: 0;
+}
+
+.batch-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+.batch-card-section {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.batch-card-section h3 {
+  margin: 0 0 16px;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.batch-card-section-full {
+  grid-column: 1 / -1;
+}
+
+.batch-card-dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 16px;
+  margin: 0;
+}
+
+.batch-card-dl dt {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.batch-card-dl dd {
+  margin: 0;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.batch-notes {
+  margin: 0;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.batch-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+/* ─── Pill sizes ───────────────────────────────────────────────────────────── */
+
+.pill-lg {
+  font-size: 13px;
+  padding: 4px 14px;
+}

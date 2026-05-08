@@ -203,7 +203,11 @@ test.describe('categories-list › navigation', () => {
   })
 
   test('clicking a row navigates to the category card', async ({ page }) => {
-    await page.locator('[data-test="categories-row"]').first().click()
+    await page
+      .locator('[data-test="categories-row"]')
+      .first()
+      .locator('a.name-link')
+      .click()
     await expect(page).toHaveURL(/\/admin\/products\/categories\/cat-\w+$/)
   })
 })

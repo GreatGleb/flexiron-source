@@ -16,6 +16,7 @@ import MultiSelect from '@/components/admin/ui/MultiSelect.vue'
 import AppModal from '@/components/admin/ui/AppModal.vue'
 import InputGroup from '@/components/admin/ui/InputGroup.vue'
 import '@styles/admin/components/_entity-card-layout.css'
+import '@styles/admin/components/_pagination.css'
 import '@styles/admin/products_list.css'
 
 const { t, locale } = useI18n()
@@ -162,6 +163,14 @@ async function handleCreate() {
           <SvgIcon name="folder" :width="18" :height="18" />
           <span>{{ t('categories.title') }}</span>
         </router-link>
+        <router-link
+          :to="{ name: 'admin-services' }"
+          class="btn btn-secondary"
+          data-test="products-link-services"
+        >
+          <SvgIcon name="tool" :width="18" :height="18" />
+          <span>{{ t('services.title') }}</span>
+        </router-link>
       </div>
     </div>
 
@@ -295,9 +304,17 @@ async function handleCreate() {
               :key="item.id"
               class="products-row"
               data-test="products-row"
-              @click="router.push({ name: 'admin-product-card', params: { id: item.id } })"
             >
-              <td>{{ item.name ? tf(item.name) : '—' }}</td>
+              <td>
+                <router-link
+                  v-if="item.name"
+                  :to="{ name: 'admin-product-card', params: { id: item.id } }"
+                  class="name-link"
+                >
+                  {{ tf(item.name) }}
+                </router-link>
+                <span v-else>—</span>
+              </td>
               <td>{{ item.categoryName ? tf(item.categoryName) : '—' }}</td>
               <td>{{ item.price != null ? item.price : '—' }}</td>
               <td>{{ item.priceUnit ?? '—' }}</td>
@@ -306,14 +323,11 @@ async function handleCreate() {
                   <router-link
                     v-tooltip="t('tooltip.view_details')"
                     :to="{ name: 'admin-product-card', params: { id: item.id } }"
-                    class="action-icon-btn action-edit"
+                    class="action-icon-btn"
                     data-test="products-view-btn"
                     @click.stop
                   >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                      <circle cx="12" cy="12" r="3" />
-                    </svg>
+                    <SvgIcon name="external-link" :width="16" :height="16" />
                   </router-link>
                   <button
                     v-tooltip="t('products.btn_delete')"

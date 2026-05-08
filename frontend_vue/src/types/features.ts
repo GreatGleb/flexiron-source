@@ -27,6 +27,11 @@ export interface FeatureFlags {
   categoryFieldReorder: boolean
   categorySupplierLinks: boolean
   productSupplierLinks: boolean
+
+  // Warehouse section-level flags
+  warehouseOffcuts: boolean
+  warehouseDeficit: boolean
+  warehouseQrPrint: boolean
 }
 
 export type FeatureFlagKey = keyof FeatureFlags

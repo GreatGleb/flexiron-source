@@ -213,13 +213,17 @@ Include ALL of:
 - Each file exports a single object with `ru`, `en`, `lt` keys
 - Export name: `admin[Domain]` (e.g., `adminProducts`)
 - Key prefix = domain name (`products.title`, `products.search_placeholder`)
-- Complete key list covering: title, header_title, ALL column headers, ALL field labels, ALL button texts, ALL placeholder texts, ALL modal titles, ALL toast messages, ALL empty states, ALL error messages
+- Complete key list covering: title (for useHead), header_title, ALL column headers, ALL field labels, ALL button texts, ALL placeholder texts, ALL modal titles, ALL toast messages, ALL empty states, ALL error messages
 - Escape @ rule: name{'@'}company.com
 - LT — approximate translations acceptable, but key required in all 3 languages
 - For data from API/mocks: use `TranslatedString` + `tf()`, NOT `resolveLabel()`
 - For form inputs: use `mergeLocaleValue()` / `toTranslatedString()` from `@/types/i18n`
 - **Use mergeTranslatedString() for UI updates:** The plan must use `mergeTranslatedString(existing, value, locale)` in computed setters and form inputs, NOT `toTranslatedString()` which zeroes out other locales.
 - **Always wrap TranslatedString with tf() in templates:** The plan must include a verification step that all `{{ }}` expressions with TranslatedString values are wrapped in `tf()`.
+- **Cross-reference composable keys:** After writing the composable, grep ALL `t('` calls in composable and service files. Every key used in `t()` must exist in the domain i18n file. Missing keys cause runtime display of raw key strings.
+- **No cross-namespace references:** Never use `$t('otherDomain.key')` in a template or composable of a different domain. Each domain must have its own keys. If a key is shared (e.g. pagination `of`), duplicate it in each domain file.
+- **Include ALL toast keys:** Every `toast.success(t('...'))` and `toast.error(t('...'))` call in the composable must have a corresponding i18n key. Common toast keys: `toast_created`, `toast_error_create`, `toast_deleted`, `toast_error_delete`, `toast_updated`, `toast_error_update`.
+- **Include `title` key for useHead:** `useHead({ title: t('domain.title') })` is used in the page template. The `title` key MUST exist in the domain i18n file.
 - Checkpoint: count keys — RU === EN === LT within the domain file
 
 ---

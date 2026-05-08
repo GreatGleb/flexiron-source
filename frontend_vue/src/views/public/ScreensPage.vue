@@ -98,7 +98,7 @@ const publicPages = [
 
 const analyticsPages = [
   { id: '7.1', routeName: 'admin-dashboard', titleKey: 'dashboard.header_title' },
-  { id: '7.2', routeName: 'admin-warehouse', titleKey: 'warehouse.header_title' },
+  { id: '7.2', routeName: 'admin-analytics-warehouse', titleKey: 'warehouse.header_title' },
   { id: '7.3', routeName: 'admin-sales', titleKey: 'sales.header_title' },
   { id: '7.4', routeName: 'admin-supply', titleKey: 'supply.header_title' },
   { id: '7.5', routeName: 'admin-staff', titleKey: 'staff.header_title' },
@@ -115,6 +115,7 @@ const categoriesPages = [
     titleKey: 'products.section_info',
   },
   { id: '1.2', to: { name: 'admin-categories' }, titleKey: 'categories.header_title' },
+  { id: '1.3', to: { name: 'admin-services' }, titleKey: 'services.header_title' },
   {
     id: '1.2c',
     to: { name: 'admin-category-card', params: { id: 'cat-1' } },
