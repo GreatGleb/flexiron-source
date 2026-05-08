@@ -1,0 +1,15 @@
+чиним баги которые я тебе присылаю для страницы admin/warehouse
+
+1. Все задачи выполняются через оркестратор (mode: orchestrator). Оркестратор разбивает задачу на сабтаски и делегирует их специализированным модам (code, ask, debug, architect).
+
+2. Любой баг/фикс решается по принципу: смотрим, как это реализовано в других местах проекта, прежде всего в таблице товаров (ProductsPage). Если там работает правильно — делаем так же.
+
+3. Это НЕ относится к новым фичам — для новых фич сначала планирование через architect.
+
+4. Ждать указаний от пользователя — не предпринимать самостоятельных действий без задачи.
+
+5. Последние изменения в проекте:
+   - Warehouse Stock Tab: исправлены BUG-01–05, добавлены info-hint иконки (7 шт), tooltip offset, scrollbar fix
+   - Файлы: frontend_vue/src/views/admin/analytics/WarehousePage.vue, frontend_vue/src/styles/admin/warehouse_list.css, frontend_vue/src/i18n/admin/warehouse.ts
+   - Баг-лист: toDo/plans/bugs/1.4-warehouse-bugs.md (добавлен БАГ-05)
+   - Breadcrumb удалён из frontend_vue/src/views/admin/warehouse/WarehousePage.vue

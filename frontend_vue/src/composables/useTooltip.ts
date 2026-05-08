@@ -50,11 +50,18 @@ function showTooltip(el: HTMLElement, text: string) {
   if (left < 10) left = rect.left
   if (left + tipW > vw - 10) left = rect.right - tipW
 
-  let top = rect.top - tipH - 8
-  if (top < 10) top = rect.bottom + 8
+  let top = rect.top - tipH - 20
+  if (top < 10) top = rect.bottom + 20
 
   tooltipEl.style.left = `${left}px`
   tooltipEl.style.top = `${top}px`
+
+  // Apply inline styles to override injected <style> — inline !important beats any stylesheet
+  tooltipEl.style.setProperty('max-width', '260px', 'important')
+  tooltipEl.style.setProperty('padding', '10px 14px', 'important')
+  tooltipEl.style.setProperty('font-size', '13px', 'important')
+  tooltipEl.style.setProperty('line-height', '1.4', 'important')
+  tooltipEl.style.setProperty('border-radius', '10px', 'important')
 
   requestAnimationFrame(() => {
     if (tooltipEl) tooltipEl.style.opacity = '1'

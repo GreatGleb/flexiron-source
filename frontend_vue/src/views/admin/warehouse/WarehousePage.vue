@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useHead } from '@/composables/useHead'
 import { useWarehouse } from '@/composables/useWarehouse'
 import type { WarehouseTab } from '@/composables/useWarehouse'
 import type { BatchStatus, OffcutStatus, MovementType, DeficitPriority, DeficitStatus } from '@/types/warehouse'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
-import Breadcrumb from '@/components/admin/Breadcrumb.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
 import SearchInput from '@/components/admin/ui/SearchInput.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
@@ -29,6 +28,7 @@ const {
   deleteBatch,
   deleteOffcut,
   deleteDeficit,
+  deleteStock,
   tf,
 } = useWarehouse()
 
@@ -102,7 +102,7 @@ const DEFICIT_STATUS_PILL: Record<DeficitStatus, string> = {
 // ─── Delete confirm modals ────────────────────────────────────────────────────
 
 const showDeleteModal = ref(false)
-const deletingItem = ref<{ id: string; name: string; type: 'batch' | 'offcut' | 'deficit' } | null>(null)
+const deletingItem = ref<{ id: string; name: string; type: 'batch' | 'offcut' | 'deficit' | 'stock' } | null>(null)
 
 function confirmDeleteBatch(id: string, name: string) {
   deletingItem.value = { id, name, type: 'batch' }
@@ -119,28 +119,122 @@ function confirmDeleteDeficit(id: string, name: string) {
   showDeleteModal.value = true
 }
 
+function confirmDeleteStock(item: any) {
+  deletingItem.value = { id: item.productId, name: tf(item.productName), type: 'stock' }
+  showDeleteModal.value = true
+}
+
 async function handleDelete() {
   if (!deletingItem.value) return
   const { id, type } = deletingItem.value
   if (type === 'batch') await deleteBatch(id)
   else if (type === 'offcut') await deleteOffcut(id)
   else if (type === 'deficit') await deleteDeficit(id)
+  else if (type === 'stock') await deleteStock(id)
   showDeleteModal.value = false
   deletingItem.value = null
 }
 
+// ─── Template refs for split-table row height sync ─────────────────────────
+
+const fixedTableEl = ref<HTMLElement | null>(null)
+const scrollTableEl = ref<HTMLElement | null>(null)
+let resizeObserver: ResizeObserver | null = null
+let resizeTimer: ReturnType<typeof setTimeout> | null = null
+
+const onWindowResize = () => {
+  if (resizeTimer) clearTimeout(resizeTimer)
+  resizeTimer = setTimeout(() => {
+    syncTableRowHeights()
+  }, 200)
+}
+
+function syncTableRowHeights() {
+  const fixedTbody = fixedTableEl.value?.querySelectorAll<HTMLElement>('tbody tr')
+  const scrollTbody = scrollTableEl.value?.querySelectorAll<HTMLElement>('tbody tr')
+  const fixedThead = fixedTableEl.value?.querySelectorAll<HTMLElement>('thead tr')
+  const scrollThead = scrollTableEl.value?.querySelectorAll<HTMLElement>('thead tr')
+
+  if (!fixedTbody || !scrollTbody) return
+
+  // Pass 1: Reset all heights so the browser can compute natural sizes
+  fixedTbody.forEach(tr => { tr.style.height = '' })
+  scrollTbody.forEach(tr => { tr.style.height = '' })
+  fixedThead?.forEach(tr => { tr.style.height = '' })
+  scrollThead?.forEach(tr => { tr.style.height = '' })
+
+  // Pass 2: Double requestAnimationFrame guarantees browser reflow is complete
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const maxLen = Math.min(fixedTbody.length, scrollTbody.length)
+      for (let i = 0; i < maxLen; i++) {
+        const h = Math.max(fixedTbody[i]!.offsetHeight, scrollTbody[i]!.offsetHeight)
+        if (h > 0) {
+          fixedTbody[i]!.style.height = h + 'px'
+          scrollTbody[i]!.style.height = h + 'px'
+        }
+      }
+
+      // Also sync header rows
+      if (fixedThead && scrollThead) {
+        const hdrLen = Math.min(fixedThead.length, scrollThead.length)
+        for (let i = 0; i < hdrLen; i++) {
+          const hh = Math.max(fixedThead[i]!.offsetHeight, scrollThead[i]!.offsetHeight)
+          if (hh > 0) {
+            fixedThead[i]!.style.height = hh + 'px'
+            scrollThead[i]!.style.height = hh + 'px'
+          }
+        }
+      }
+    })
+  })
+}
+
 onMounted(() => {
   load()
+
+  // ─── Row height sync on mount ──────────────────────────────────────────
+  nextTick(() => {
+    syncTableRowHeights()
+  })
+
+  // ─── Window resize listener (debounced) ──────────────────────────────
+  window.addEventListener('resize', onWindowResize)
+
+  // ─── ResizeObserver for both split-table containers ────────────────────
+  const fixedContainer = document.querySelector<HTMLElement>('.stock-table-fixed')
+  const scrollContainer = document.querySelector<HTMLElement>('.stock-table-scroll')
+  if (fixedContainer && scrollContainer) {
+    resizeObserver = new ResizeObserver(() => {
+      syncTableRowHeights()
+    })
+    resizeObserver.observe(fixedContainer)
+    resizeObserver.observe(scrollContainer)
+  }
+})
+
+onBeforeUnmount(() => {
+  if (resizeObserver) {
+    resizeObserver.disconnect()
+    resizeObserver = null
+  }
+  if (resizeTimer) {
+    clearTimeout(resizeTimer)
+    resizeTimer = null
+  }
+  window.removeEventListener('resize', onWindowResize)
+})
+
+// ─── Re-sync when stockItems data changes ─────────────────────────────────
+watch(stockItems, () => {
+  nextTick(() => {
+    syncTableRowHeights()
+  })
 })
 </script>
 
 <template>
   <div class="page-warehouse" data-test="page-warehouse">
-    <Breadcrumb
-      :items="[
-        { label: t('warehouse.header_title') },
-      ]"
-    />
 
     <div class="warehouse-header" data-test="warehouse-header">
       <h1 class="page-title">{{ t('warehouse.header_title') }}</h1>
@@ -199,57 +293,196 @@ onMounted(() => {
           data-test="warehouse-stock-empty"
         >
           <SvgIcon name="package" :width="48" :height="48" />
-          <p>{{ t('warehouse.stock_empty') }}</p>
+          <p>{{ t('warehouse.empty_stock') }}</p>
         </div>
 
-        <div v-else class="data-table-wrapper">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>{{ t('warehouse.col_product') }}</th>
-                <th>{{ t('warehouse.col_total_qty') }}</th>
-                <th>{{ t('warehouse.col_reserved') }}</th>
-                <th>{{ t('warehouse.col_available') }}</th>
-                <th>{{ t('warehouse.col_unit') }}</th>
-                <th>{{ t('warehouse.col_batches') }}</th>
-                <th>{{ t('warehouse.col_avg_price') }}</th>
-                <th>{{ t('warehouse.col_total_value') }}</th>
-                <th>{{ t('warehouse.col_min_stock') }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="item in stockItems"
-                :key="item.productId"
-                :class="{ 'row-deficit': item.isDeficit }"
-                data-test="warehouse-stock-row"
-              >
-                <td>
-                  <span class="cell-link">{{ tf(item.productName) }}</span>
-                </td>
-                <td>{{ item.totalQuantity }}</td>
-                <td>{{ item.reservedQuantity }}</td>
-                <td>
-                  <span :class="{ 'text-danger': item.availableQuantity <= 0 }">
-                    {{ item.availableQuantity }}
-                  </span>
-                </td>
-                <td>{{ t(`warehouse.unit_${item.unit}`) }}</td>
-                <td>{{ item.batchCount }}</td>
-                <td>{{ item.avgUnitPrice.toFixed(2) }} €</td>
-                <td>{{ item.totalValue.toFixed(2) }} €</td>
-                <td>
-                  <template v-if="item.minStock !== null">
-                    {{ item.minStock }}
-                    <span v-if="item.isDeficit" class="deficit-badge" data-test="deficit-badge">
-                      {{ t('warehouse.deficit_badge') }}
+        <div v-else class="stock-table-split">
+          <!-- Left: Fixed Product column -->
+          <div class="stock-table-fixed">
+            <table class="data-table" ref="fixedTableEl">
+              <thead>
+                <tr>
+                  <th>{{ t('warehouse.col_product') }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="item in stockItems"
+                  :key="item.productId"
+                  :class="{ 'row-deficit': item.isDeficit }"
+                  data-test="warehouse-stock-row"
+                >
+                  <td>
+                    <router-link
+                      :to="{ name: 'admin-product-card', params: { id: item.productId } }"
+                      class="name-link"
+                    >
+                      {{ tf(item.productName) }}
+                    </router-link>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Right: Scrollable remaining columns -->
+          <div class="stock-table-scroll">
+            <table class="data-table" ref="scrollTableEl">
+              <thead>
+                <tr>
+                  <th>
+                    <div class="th-content">
+                      {{ t('warehouse.col_total_qty') }}
+                      <span v-tooltip="t('warehouse.col_total_qty_hint')" class="info-hint">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </span>
+                    </div>
+                  </th>
+                  <th class="hid-768">
+                    <div class="th-content">
+                      {{ t('warehouse.col_reserved') }}
+                      <span v-tooltip="t('warehouse.col_reserved_hint')" class="info-hint">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </span>
+                    </div>
+                  </th>
+                  <th>
+                    <div class="th-content">
+                      {{ t('warehouse.col_available') }}
+                      <span v-tooltip="t('warehouse.col_available_hint')" class="info-hint">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </span>
+                    </div>
+                  </th>
+                  <th class="hid-480">
+                    <div class="th-content">
+                      {{ t('warehouse.col_unit') }}
+                      <span v-tooltip="t('warehouse.col_unit_hint')" class="info-hint">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </span>
+                    </div>
+                  </th>
+                  <th class="hid-480">
+                    <div class="th-content">
+                      {{ t('warehouse.col_batches') }}
+                      <span v-tooltip="t('warehouse.col_batches_hint')" class="info-hint">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </span>
+                    </div>
+                  </th>
+                  <th class="hid-600">
+                    <div class="th-content">
+                      {{ t('warehouse.col_avg_price') }}
+                      <span v-tooltip="t('warehouse.col_avg_price_hint')" class="info-hint">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </span>
+                    </div>
+                  </th>
+                  <th class="hid-600">
+                    <div class="th-content">
+                      {{ t('warehouse.col_total_value') }}
+                      <span v-tooltip="t('warehouse.col_total_value_hint')" class="info-hint">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </span>
+                    </div>
+                  </th>
+                  <th>
+                    <div class="th-content">
+                      {{ t('warehouse.col_min_stock') }}
+                      <span v-tooltip="t('warehouse.col_min_stock_hint')" class="info-hint">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </span>
+                    </div>
+                  </th>
+                  <th class="th-actions">{{ t('warehouse.col_actions') }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="item in stockItems"
+                  :key="item.productId"
+                  :class="{ 'row-deficit': item.isDeficit }"
+                  data-test="warehouse-stock-row"
+                >
+                  <td>{{ item.totalQuantity }}</td>
+                  <td class="hid-768">{{ item.reservedQuantity }}</td>
+                  <td>
+                    <span :class="{ 'text-danger': item.availableQuantity <= 0 }">
+                      {{ item.availableQuantity }}
                     </span>
-                  </template>
-                  <span v-else class="text-muted">—</span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                  </td>
+                  <td class="hid-480">{{ t(`warehouse.unit_${item.unit}`) }}</td>
+                  <td class="hid-480">{{ item.batchCount }}</td>
+                  <td class="hid-600">{{ item.avgUnitPrice.toFixed(2) }} €</td>
+                  <td class="hid-600">{{ item.totalValue.toFixed(2) }} €</td>
+                  <td>
+                    <template v-if="item.minStock !== null">
+                      <span style="white-space: nowrap;">
+                        {{ item.minStock }}
+                        <span v-if="item.isDeficit" class="deficit-badge" data-test="deficit-badge">
+                          {{ t('warehouse.deficit_badge') }}
+                        </span>
+                      </span>
+                    </template>
+                    <span v-else class="text-muted">—</span>
+                  </td>
+                  <td>
+                    <div class="row-actions">
+                      <router-link
+                        v-tooltip="t('tooltip.view_details')"
+                        :to="{ name: 'admin-product-card', params: { id: item.productId } }"
+                        class="action-icon-btn"
+                        data-test="stock-view-btn"
+                        @click.stop
+                      >
+                        <SvgIcon name="external-link" :width="16" :height="16" />
+                      </router-link>
+                      <button
+                        v-tooltip="t('warehouse.btn_delete')"
+                        class="action-icon-btn action-danger"
+                        data-test="stock-delete-btn"
+                        @click.stop="confirmDeleteStock(item)"
+                      >
+                        <SvgIcon name="trash" :width="16" :height="16" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </GlassPanel>
     </div>
@@ -275,7 +508,7 @@ onMounted(() => {
           data-test="warehouse-batches-empty"
         >
           <SvgIcon name="package" :width="48" :height="48" />
-          <p>{{ t('warehouse.batches_empty') }}</p>
+          <p>{{ t('warehouse.empty_batches') }}</p>
         </div>
 
         <div v-else class="data-table-wrapper">
@@ -351,7 +584,7 @@ onMounted(() => {
         <div v-if="pagination.total.value > 0" class="pagination-bar">
           <div class="pagination-info">
             {{ pagination.showingFrom }}–{{ pagination.showingTo }}
-            {{ t('st.of') }} {{ pagination.total }}
+            {{ t('warehouse.of') }} {{ pagination.total }}
           </div>
           <div class="pagination-controls">
             <CustomSelect
@@ -412,7 +645,7 @@ onMounted(() => {
           data-test="warehouse-offcuts-empty"
         >
           <SvgIcon name="scissors" :width="48" :height="48" />
-          <p>{{ t('warehouse.offcuts_empty') }}</p>
+          <p>{{ t('warehouse.empty_offcuts') }}</p>
         </div>
 
         <div v-else class="data-table-wrapper">
@@ -475,7 +708,7 @@ onMounted(() => {
         <div v-if="pagination.total.value > 0" class="pagination-bar">
           <div class="pagination-info">
             {{ pagination.showingFrom }}–{{ pagination.showingTo }}
-            {{ t('st.of') }} {{ pagination.total }}
+            {{ t('warehouse.of') }} {{ pagination.total }}
           </div>
           <div class="pagination-controls">
             <CustomSelect
@@ -533,7 +766,7 @@ onMounted(() => {
           data-test="warehouse-movements-empty"
         >
           <SvgIcon name="refresh-cw" :width="48" :height="48" />
-          <p>{{ t('warehouse.movements_empty') }}</p>
+          <p>{{ t('warehouse.empty_movements') }}</p>
         </div>
 
         <div v-else class="data-table-wrapper">
@@ -581,7 +814,7 @@ onMounted(() => {
         <div v-if="pagination.total.value > 0" class="pagination-bar">
           <div class="pagination-info">
             {{ pagination.showingFrom }}–{{ pagination.showingTo }}
-            {{ t('st.of') }} {{ pagination.total }}
+            {{ t('warehouse.of') }} {{ pagination.total }}
           </div>
           <div class="pagination-controls">
             <CustomSelect
@@ -639,7 +872,7 @@ onMounted(() => {
           data-test="warehouse-deficit-empty"
         >
           <SvgIcon name="check-circle" :width="48" :height="48" />
-          <p>{{ t('warehouse.deficit_empty') }}</p>
+          <p>{{ t('warehouse.empty_deficit') }}</p>
         </div>
 
         <div v-else class="data-table-wrapper">
@@ -702,7 +935,7 @@ onMounted(() => {
         <div v-if="pagination.total.value > 0" class="pagination-bar">
           <div class="pagination-info">
             {{ pagination.showingFrom }}–{{ pagination.showingTo }}
-            {{ t('st.of') }} {{ pagination.total }}
+            {{ t('warehouse.of') }} {{ pagination.total }}
           </div>
           <div class="pagination-controls">
             <CustomSelect

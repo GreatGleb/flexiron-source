@@ -41,8 +41,8 @@ async function load() {
 }
 
 useHead({
-  title: () => `Flexiron — ${t('warehouse.batch_card_title')}`,
-  description: () => t('warehouse.batch_card_title'),
+  title: () => `Flexiron — ${t('warehouse.batch_card_title', { batchNumber: batch.value?.batchNumber ?? '...' })}`,
+  description: () => t('warehouse.batch_card_title', { batchNumber: batch.value?.batchNumber ?? '...' }),
 })
 
 onMounted(load)
@@ -74,7 +74,7 @@ onMounted(load)
 
         <div class="batch-card-grid">
           <div class="batch-card-section">
-            <h3>{{ t('warehouse.batch_section_general') }}</h3>
+            <h3>{{ t('warehouse.section_batch_info') }}</h3>
             <dl class="batch-card-dl">
               <dt>{{ t('warehouse.col_batch_number') }}</dt>
               <dd><code>{{ batch.batchNumber }}</code></dd>
@@ -98,7 +98,7 @@ onMounted(load)
               </dd>
               <dt>{{ t('warehouse.col_unit_price') }}</dt>
               <dd>{{ batch.unitPrice.toFixed(2) }} €</dd>
-              <dt>{{ t('warehouse.col_total_cost') }}</dt>
+              <dt>{{ t('warehouse.field_total_cost') }}</dt>
               <dd>{{ batch.totalCost.toFixed(2) }} €</dd>
             </dl>
           </div>
@@ -108,15 +108,15 @@ onMounted(load)
             <dl class="batch-card-dl">
               <dt>{{ t('warehouse.col_received') }}</dt>
               <dd>{{ batch.receivedAt.slice(0, 10) }}</dd>
-              <dt>{{ t('warehouse.col_expires') }}</dt>
+              <dt>{{ t('warehouse.field_expires_at') }}</dt>
               <dd>{{ batch.expiresAt ? batch.expiresAt.slice(0, 10) : '—' }}</dd>
-              <dt>{{ t('warehouse.col_certificate') }}</dt>
+              <dt>{{ t('warehouse.field_certificate') }}</dt>
               <dd>{{ batch.certificateRef ?? '—' }}</dd>
             </dl>
           </div>
 
           <div v-if="batch.notes" class="batch-card-section batch-card-section-full">
-            <h3>{{ t('warehouse.batch_section_notes') }}</h3>
+            <h3>{{ t('warehouse.field_notes') }}</h3>
             <p class="batch-notes">{{ batch.notes }}</p>
           </div>
         </div>

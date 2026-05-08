@@ -9,6 +9,7 @@ import {
   deleteBatch as deleteBatchApi,
   deleteOffcut as deleteOffcutApi,
   deleteDeficitItem as deleteDeficitItemApi,
+  deleteStockItem as deleteStockItemApi,
 } from '@/services/warehouseService'
 import { usePagination } from './usePagination'
 import { useToast } from './useToast'
@@ -65,7 +66,12 @@ export function useWarehouse() {
 
   const pagination = usePagination(25)
 
-  let initialized = false
+  // Per-tab initialized flags — each tab controls its own loading state independently
+  const stockInitialized = ref(false)
+  const batchesInitialized = ref(false)
+  const offcutsInitialized = ref(false)
+  const movementsInitialized = ref(false)
+  const deficitInitialized = ref(false)
 
   async function loadStock() {
     stockLoading.value = true
@@ -73,6 +79,7 @@ export function useWarehouse() {
     try {
       const res = await getStockOverview()
       stockItems.value = res
+      stockInitialized.value = true
     } catch (e) {
       stockError.value = e instanceof Error ? e.message : 'Failed to load stock overview'
     } finally {
@@ -81,7 +88,7 @@ export function useWarehouse() {
   }
 
   async function loadBatches() {
-    if (!initialized) batchesLoading.value = true
+    if (!batchesInitialized.value) batchesLoading.value = true
     batchesError.value = null
     try {
       const res = await getBatches(filters, {
@@ -90,7 +97,7 @@ export function useWarehouse() {
       })
       batches.value = res.items
       pagination.total.value = res.total
-      initialized = true
+      batchesInitialized.value = true
     } catch (e) {
       batchesError.value = e instanceof Error ? e.message : 'Failed to load batches'
     } finally {
@@ -99,7 +106,7 @@ export function useWarehouse() {
   }
 
   async function loadOffcuts() {
-    if (!initialized) offcutsLoading.value = true
+    if (!offcutsInitialized.value) offcutsLoading.value = true
     offcutsError.value = null
     try {
       const res = await getOffcuts(filters, {
@@ -108,7 +115,7 @@ export function useWarehouse() {
       })
       offcuts.value = res.items
       pagination.total.value = res.total
-      initialized = true
+      offcutsInitialized.value = true
     } catch (e) {
       offcutsError.value = e instanceof Error ? e.message : 'Failed to load offcuts'
     } finally {
@@ -117,7 +124,7 @@ export function useWarehouse() {
   }
 
   async function loadMovements() {
-    if (!initialized) movementsLoading.value = true
+    if (!movementsInitialized.value) movementsLoading.value = true
     movementsError.value = null
     try {
       const res = await getMovements(filters, {
@@ -126,7 +133,7 @@ export function useWarehouse() {
       })
       movements.value = res.items
       pagination.total.value = res.total
-      initialized = true
+      movementsInitialized.value = true
     } catch (e) {
       movementsError.value = e instanceof Error ? e.message : 'Failed to load movements'
     } finally {
@@ -135,7 +142,7 @@ export function useWarehouse() {
   }
 
   async function loadDeficit() {
-    if (!initialized) deficitLoading.value = true
+    if (!deficitInitialized.value) deficitLoading.value = true
     deficitError.value = null
     try {
       const res = await getDeficitList(filters, {
@@ -144,7 +151,7 @@ export function useWarehouse() {
       })
       deficitItems.value = res.items
       pagination.total.value = res.total
-      initialized = true
+      deficitInitialized.value = true
     } catch (e) {
       deficitError.value = e instanceof Error ? e.message : 'Failed to load deficit list'
     } finally {
@@ -194,6 +201,16 @@ export function useWarehouse() {
     }
   }
 
+  async function deleteStock(id: string) {
+    try {
+      await deleteStockItemApi(id)
+      toast.success(t('warehouse.toast_stock_deleted'))
+      await loadStock()
+    } catch {
+      toast.error(t('warehouse.toast_error'))
+    }
+  }
+
   // Flag: prevents page watch from double-firing when filters reset page to 1
   let skipNextPageWatch = false
 
@@ -211,9 +228,13 @@ export function useWarehouse() {
     load()
   })
 
-  // Reload when tab changes
+  // Reload when tab changes — reset all per-tab initialized flags so loading state shows again
   watch(activeTab, () => {
-    initialized = false
+    stockInitialized.value = false
+    batchesInitialized.value = false
+    offcutsInitialized.value = false
+    movementsInitialized.value = false
+    deficitInitialized.value = false
     pagination.reset()
     load()
   })
@@ -239,6 +260,7 @@ export function useWarehouse() {
     deleteBatch,
     deleteOffcut,
     deleteDeficit,
+    deleteStock,
     tf,
   }
 }

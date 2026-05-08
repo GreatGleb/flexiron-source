@@ -26,6 +26,10 @@ export async function getStockOverview(): Promise<StockOverviewResponse> {
   return apiGet<StockOverviewResponse>('/api/warehouse/stock')
 }
 
+export async function deleteStockItem(productId: string): Promise<void> {
+  return apiDelete(`/api/warehouse/stock/${productId}`)
+}
+
 // ─── Batches ────────────────────────────────────────────────────────────────
 
 export async function getBatches(
