@@ -1,5 +1,111 @@
 /* --- PAGE LAYOUT: WAREHOUSE --- */
 
+/* ─── Custom deficit checkbox (admin design system) ──────────────────────── */
+
+.deficit-checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  padding: 4px 0;
+}
+
+.deficit-checkbox-input {
+  display: none;
+}
+
+.deficit-checkbox-custom {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.25);
+  position: relative;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.deficit-checkbox-input:checked + .deficit-checkbox-custom {
+  background: var(--primary, #1890ff);
+  border-color: var(--primary, #1890ff);
+}
+
+.deficit-checkbox-input:checked + .deficit-checkbox-custom::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 5px;
+  height: 9px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.deficit-checkbox-label:hover .deficit-checkbox-custom {
+  border-color: var(--primary, #1890ff);
+}
+
+.deficit-checkbox-text {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  transition: color 0.2s;
+}
+
+.deficit-checkbox-label:hover .deficit-checkbox-text {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* ─── Filter transition ───────────────────────────────────────────────────── */
+/* GlassPanel's built-in :loading skeleton (wide lines, no light background) is
+   used for initial page load. During filter transitions, the skeleton also shows
+   but the panel body must remain in the DOM (not display:none) so that
+   syncTableRowHeights() can measure offsetHeight on the hidden table. */
+
+/* Override GlassPanel's display:none on .panel-body when filtering —
+   the table must stay in the DOM for height measurement. */
+.glass-panel.filtering-stock .panel-body {
+  display: block !important;
+}
+
+/* The real table becomes opacity:0 (keeps layout, correct offsetHeight for
+   syncTableRowHeights). When the class is removed (filtering ends), opacity
+   transitions smoothly from 0 → 1 over 500ms for a gentle appearance. */
+.stock-table-hidden {
+  opacity: 0;
+}
+
+/* Base opacity transition on the split-table container — fades in when
+   .stock-table-hidden is removed, fades out when added. */
+.stock-table-split {
+  transition: opacity 0.5s ease;
+}
+
+/* Empty state inside GlassPanel on warehouse page */
+.page-warehouse .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px 24px;
+  color: var(--text-secondary, #888);
+  text-align: center;
+}
+
+.page-warehouse .empty-state svg {
+  opacity: 0.5;
+}
+
+.page-warehouse .empty-state p {
+  margin: 0;
+  font-size: 16px;
+  color: var(--text-secondary, #888);
+}
+
+/* --- PAGE LAYOUT: WAREHOUSE --- */
+
 .page-warehouse {
   display: flex;
   flex-direction: column;
@@ -106,6 +212,68 @@
   color: rgba(255, 255, 255, 0.5);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+/* Filters Bar - Tablet */
+@media (max-width: 992px) {
+  .filters-bar-content {
+    gap: 16px;
+    padding: 14px 16px;
+  }
+
+  .filters-bar .filter-group {
+    min-width: 130px;
+    flex: 1 1 calc(50% - 8px);
+  }
+}
+
+/* Filters Bar - Mobile */
+@media (max-width: 600px) {
+  .filters-bar-header {
+    padding: 10px 14px;
+    font-size: 12px;
+  }
+
+  .filters-bar-content {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 12px 14px;
+  }
+
+  .filters-bar .filter-group {
+    min-width: 100%;
+    flex: 1 1 100%;
+  }
+}
+
+/* Filters Bar - Small Mobile */
+@media (max-width: 400px) {
+  .filters-bar {
+    margin-left: -8px;
+    margin-right: -8px;
+    border-radius: 8px;
+  }
+
+  .filters-bar-header {
+    padding: 8px 12px;
+  }
+
+  .filters-bar-content {
+    padding: 10px 12px;
+    gap: 10px;
+  }
+
+  .filters-bar .filter-group label {
+    font-size: 11px;
+  }
+}
+
+/* Filters Bar - 320px */
+@media (max-width: 320px) {
+  .filters-bar {
+    overflow: visible;
+  }
 }
 
 /* ─── Data table extras ────────────────────────────────────────────────────── */
@@ -410,6 +578,12 @@
   border-radius: 12px !important;
 }
 
+/* Center-align content in scrollable columns (qty, price, etc.) */
+.stock-table-scroll .data-table th,
+.stock-table-scroll .data-table td {
+  text-align: center;
+}
+
 /* Ensure both tables have the same column widths for alignment */
 .stock-table-split .data-table td {
   white-space: nowrap;
@@ -460,4 +634,10 @@
   .stock-table-fixed {
     flex: 0 0 120px;
   }
+}
+
+/* ─── Stock pagination bar padding (matches data-table tfoot td) ──────────── */
+.stock-table-area + .pagination-bar {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 12px 16px;
 }

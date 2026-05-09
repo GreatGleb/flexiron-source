@@ -3,16 +3,21 @@ import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useHead } from '@/composables/useHead'
 import { useWarehouse } from '@/composables/useWarehouse'
+import { useCategories } from '@/composables/useCategories'
+import { useToast } from '@/composables/useToast'
 import type { WarehouseTab } from '@/composables/useWarehouse'
 import type { BatchStatus, OffcutStatus, MovementType, DeficitPriority, DeficitStatus } from '@/types/warehouse'
+import type { CategoryListItem } from '@/types/category'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
 import SearchInput from '@/components/admin/ui/SearchInput.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
+import MultiSelect from '@/components/admin/ui/MultiSelect.vue'
 import '@styles/admin/components/_pagination.css'
 import '@styles/admin/warehouse_list.css'
 
 const { t } = useI18n()
+const toast = useToast()
 
 const {
   activeTab,
@@ -31,6 +36,8 @@ const {
   deleteStock,
   tf,
 } = useWarehouse()
+
+const { items: catItems, load: loadCats } = useCategories()
 
 useHead({
   title: () => `Flexiron — ${t('warehouse.header_title')}`,
@@ -58,6 +65,180 @@ const pageSizeStr = computed({
     pagination.pageSize.value = Number(v)
     pagination.reset()
   },
+})
+
+// ─── Client-side search & filter for Stock tab ──────────────────────────────
+
+const stockSearch = ref('')
+const showDeficitOnly = ref(false)
+const showInStockOnly = ref(false)
+const stockUnitFilter = ref<string>('')
+const stockCategoryIds = ref<string[]>([])
+
+// ─── Client-side pagination for Stock tab ────────────────────────────────────
+const stockPage = ref(1)
+const stockPageSize = ref(25)
+const STOCK_PAGE_SIZE_OPTIONS = [
+  { value: '10', label: '10' },
+  { value: '25', label: '25' },
+  { value: '50', label: '50' },
+  { value: '100', label: '100' },
+]
+
+const stockPageSizeStr = computed({
+  get: () => String(stockPageSize.value),
+  set: (v: string) => {
+    stockPageSize.value = Number(v)
+    stockPage.value = 1
+  },
+})
+
+const stockTotalPages = computed(() => Math.max(1, Math.ceil(filteredStockItems.value.length / stockPageSize.value)))
+const stockHasPrev = computed(() => stockPage.value > 1)
+const stockHasNext = computed(() => stockPage.value < stockTotalPages.value)
+const stockShowingFrom = computed(() => Math.min((stockPage.value - 1) * stockPageSize.value + 1, filteredStockItems.value.length))
+const stockShowingTo = computed(() => Math.min(stockPage.value * stockPageSize.value, filteredStockItems.value.length))
+
+function stockPageNumbers(): (number | '...')[] {
+  const n = stockTotalPages.value
+  if (n <= 7) return Array.from({ length: n }, (_, i) => i + 1)
+  if (stockPage.value <= 3) return [1, 2, 3, 4, '...', n]
+  if (stockPage.value >= n - 2) return [1, '...', n - 3, n - 2, n - 1, n]
+  return [1, '...', stockPage.value - 1, stockPage.value, stockPage.value + 1, '...', n]
+}
+
+function stockGoTo(p: number) {
+  stockPage.value = Math.max(1, Math.min(p, stockTotalPages.value))
+}
+
+function stockPrev() {
+  if (stockHasPrev.value) stockPage.value--
+}
+
+function stockNext() {
+  if (stockHasNext.value) stockPage.value++
+}
+
+// ─── Save / Load filter preferences ──────────────────────────────────────────
+const PREFS_KEY = 'warehouse_stock_prefs'
+
+function saveView() {
+  const prefs = {
+    stockSearch: stockSearch.value,
+    showDeficitOnly: showDeficitOnly.value,
+    showInStockOnly: showInStockOnly.value,
+    stockUnitFilter: stockUnitFilter.value,
+    stockCategoryIds: [...stockCategoryIds.value],
+  }
+  localStorage.setItem(PREFS_KEY, JSON.stringify(prefs))
+  toast.show(t('msg.prefs_saved'))
+}
+
+function loadPrefs() {
+  try {
+    const raw = localStorage.getItem(PREFS_KEY)
+    if (!raw) return
+    const prefs = JSON.parse(raw) as {
+      stockSearch?: string
+      showDeficitOnly?: boolean
+      showInStockOnly?: boolean
+      stockUnitFilter?: string
+      stockCategoryIds?: string[]
+    }
+    if (typeof prefs.stockSearch === 'string') stockSearch.value = prefs.stockSearch
+    if (typeof prefs.showDeficitOnly === 'boolean') showDeficitOnly.value = prefs.showDeficitOnly
+    if (typeof prefs.showInStockOnly === 'boolean') showInStockOnly.value = prefs.showInStockOnly
+    if (typeof prefs.stockUnitFilter === 'string') stockUnitFilter.value = prefs.stockUnitFilter
+    if (Array.isArray(prefs.stockCategoryIds)) stockCategoryIds.value = prefs.stockCategoryIds
+  } catch {
+    /* ignore malformed prefs */
+  }
+}
+
+// ─── Filter transition guard ────────────────────────────────────────────────
+// Prevents visible row height flicker when filters change.
+// The real table is made visibility:hidden (not display:none) during the
+// transition, so offsetHeight still returns correct values for the sync.
+// The skeleton overlay covers the invisible table area.
+const filteringStock = ref(false)
+let filterTimer: ReturnType<typeof setTimeout> | null = null
+
+async function startFilterTransition() {
+  if (filterTimer) clearTimeout(filterTimer)
+  filteringStock.value = true
+  // Phase 1: GlassPanel skeleton shows (wide lines, no light background).
+  //          Table stays in DOM (visibility:hidden via .stock-table-hidden,
+  //          panel-body display:block via .filtering-stock override)
+  //          so offsetHeight is preserved for measurement.
+  await nextTick()
+  // Phase 2: sync heights on the invisible table — no visual flicker.
+  //          GlassPanel skeleton covers the area during this async operation.
+  await Promise.all([
+    syncTableRowHeights(),
+    new Promise(resolve => { setTimeout(resolve, 500) }),
+  ])
+  // Phase 3: hide skeleton, show table with correct heights already set.
+  filteringStock.value = false
+}
+
+const UNIT_OPTIONS = [
+  { value: '', label: t('warehouse.filter_unit_all') },
+  { value: 'kg', label: t('warehouse.unit_kg') },
+  { value: 'm', label: t('warehouse.unit_m') },
+  { value: 'pcs', label: t('warehouse.unit_pcs') },
+  { value: 'm2', label: t('warehouse.unit_m2') },
+]
+
+function getCategoryPath(cat: CategoryListItem): string {
+  const parts: string[] = [tf(cat.name)]
+  let current = cat
+  while (current.parentId) {
+    const parent = catItems.value.find((c) => c.id === current.parentId)
+    if (!parent) break
+    parts.unshift(tf(parent.name))
+    current = parent
+  }
+  return parts.join(' → ')
+}
+
+const categoryFilterOptions = computed(() =>
+  catItems.value.map((c) => ({ value: c.id, label: getCategoryPath(c) })),
+)
+
+const filteredStockItems = computed(() => {
+  let items = stockItems.value
+  const q = stockSearch.value.toLowerCase().trim()
+  if (q) {
+    items = items.filter((item) => tf(item.productName).toLowerCase().includes(q))
+  }
+  if (showDeficitOnly.value) {
+    items = items.filter((item) => item.isDeficit)
+  }
+  if (showInStockOnly.value) {
+    items = items.filter((item) => item.availableQuantity > 0)
+  }
+  if (stockUnitFilter.value) {
+    items = items.filter((item) => item.unit === stockUnitFilter.value)
+  }
+  if (stockCategoryIds.value.length > 0) {
+    items = items.filter((item) => {
+      const catId = item.categoryId
+      return catId && stockCategoryIds.value.includes(catId)
+    })
+  }
+  return items
+})
+
+// ─── Paginated subset of filtered stock items ────────────────────────────────
+const paginatedStockItems = computed(() => {
+  const start = (stockPage.value - 1) * stockPageSize.value
+  const end = start + stockPageSize.value
+  return filteredStockItems.value.slice(start, end)
+})
+
+// Reset stock page when filters change
+watch(filteredStockItems, () => {
+  stockPage.value = 1
 })
 
 // ─── Status pill helpers ──────────────────────────────────────────────────────
@@ -149,13 +330,13 @@ const onWindowResize = () => {
   }, 200)
 }
 
-function syncTableRowHeights() {
+function syncTableRowHeights(): Promise<void> {
   const fixedTbody = fixedTableEl.value?.querySelectorAll<HTMLElement>('tbody tr')
   const scrollTbody = scrollTableEl.value?.querySelectorAll<HTMLElement>('tbody tr')
   const fixedThead = fixedTableEl.value?.querySelectorAll<HTMLElement>('thead tr')
   const scrollThead = scrollTableEl.value?.querySelectorAll<HTMLElement>('thead tr')
 
-  if (!fixedTbody || !scrollTbody) return
+  if (!fixedTbody || !scrollTbody) return Promise.resolve()
 
   // Pass 1: Reset all heights so the browser can compute natural sizes
   fixedTbody.forEach(tr => { tr.style.height = '' })
@@ -163,39 +344,51 @@ function syncTableRowHeights() {
   fixedThead?.forEach(tr => { tr.style.height = '' })
   scrollThead?.forEach(tr => { tr.style.height = '' })
 
-  // Pass 2: Double requestAnimationFrame guarantees browser reflow is complete
-  requestAnimationFrame(() => {
+  // Pass 2: Double requestAnimationFrame guarantees browser reflow is complete.
+  // Return a Promise so callers can await completion.
+  return new Promise(resolve => {
     requestAnimationFrame(() => {
-      const maxLen = Math.min(fixedTbody.length, scrollTbody.length)
-      for (let i = 0; i < maxLen; i++) {
-        const h = Math.max(fixedTbody[i]!.offsetHeight, scrollTbody[i]!.offsetHeight)
-        if (h > 0) {
-          fixedTbody[i]!.style.height = h + 'px'
-          scrollTbody[i]!.style.height = h + 'px'
-        }
-      }
-
-      // Also sync header rows
-      if (fixedThead && scrollThead) {
-        const hdrLen = Math.min(fixedThead.length, scrollThead.length)
-        for (let i = 0; i < hdrLen; i++) {
-          const hh = Math.max(fixedThead[i]!.offsetHeight, scrollThead[i]!.offsetHeight)
-          if (hh > 0) {
-            fixedThead[i]!.style.height = hh + 'px'
-            scrollThead[i]!.style.height = hh + 'px'
+      requestAnimationFrame(() => {
+        const maxLen = Math.min(fixedTbody.length, scrollTbody.length)
+        for (let i = 0; i < maxLen; i++) {
+          const h = Math.max(fixedTbody[i]!.offsetHeight, scrollTbody[i]!.offsetHeight)
+          if (h > 0) {
+            fixedTbody[i]!.style.height = h + 'px'
+            scrollTbody[i]!.style.height = h + 'px'
           }
         }
-      }
+
+        // Also sync header rows
+        if (fixedThead && scrollThead) {
+          const hdrLen = Math.min(fixedThead.length, scrollThead.length)
+          for (let i = 0; i < hdrLen; i++) {
+            const hh = Math.max(fixedThead[i]!.offsetHeight, scrollThead[i]!.offsetHeight)
+            if (hh > 0) {
+              fixedThead[i]!.style.height = hh + 'px'
+              scrollThead[i]!.style.height = hh + 'px'
+            }
+          }
+        }
+
+        resolve()
+      })
     })
   })
 }
 
 onMounted(() => {
+  loadPrefs()
   load()
+  loadCats()
 
   // ─── Row height sync on mount ──────────────────────────────────────────
+  // Use double nextTick to ensure the split-table layout is fully rendered
+  // before measuring heights. The watch(stockItems) below handles the case
+  // where data loads asynchronously after mount.
   nextTick(() => {
-    syncTableRowHeights()
+    nextTick(() => {
+      syncTableRowHeights()
+    })
   })
 
   // ─── Window resize listener (debounced) ──────────────────────────────
@@ -222,14 +415,25 @@ onBeforeUnmount(() => {
     clearTimeout(resizeTimer)
     resizeTimer = null
   }
+  if (filterTimer) {
+    clearTimeout(filterTimer)
+    filterTimer = null
+  }
   window.removeEventListener('resize', onWindowResize)
 })
 
 // ─── Re-sync when stockItems data changes ─────────────────────────────────
 watch(stockItems, () => {
   nextTick(() => {
-    syncTableRowHeights()
+    nextTick(() => {
+      syncTableRowHeights()
+    })
   })
+})
+
+// ─── Re-sync when filters change ─────────────────────────────────────────
+watch(filteredStockItems, () => {
+  startFilterTransition()
 })
 </script>
 
@@ -255,20 +459,83 @@ watch(stockItems, () => {
       </button>
     </div>
 
-    <!-- Filters bar (shown for all tabs except stock) -->
-    <div v-if="activeTab !== 'stock'" class="filters-bar" data-test="warehouse-filters">
+    <!-- Filters bar -->
+    <div class="filters-bar" data-test="warehouse-filters">
       <div class="filters-bar-header">
         <span>{{ t('warehouse.filters') }}</span>
       </div>
       <div class="filters-bar-content">
-        <div class="filter-group" data-test="warehouse-filter-search">
-          <label class="field-label">{{ t('warehouse.col_search') }}</label>
-          <SearchInput
-            v-model="filters.search"
-            :placeholder="t('warehouse.search_placeholder')"
-            data-test="warehouse-search"
-          />
-        </div>
+        <!-- Stock tab: client-side search + filters -->
+        <template v-if="activeTab === 'stock'">
+          <div class="filter-group" data-test="warehouse-filter-search">
+            <label class="field-label">{{ t('warehouse.col_search') }}</label>
+            <SearchInput
+              v-model="stockSearch"
+              :placeholder="t('warehouse.search_placeholder')"
+              data-test="warehouse-stock-search"
+            />
+          </div>
+          <div class="filter-group" data-test="warehouse-filter-category">
+            <label class="field-label">{{ t('warehouse.col_category') }}</label>
+            <MultiSelect
+              v-model="stockCategoryIds"
+              :options="categoryFilterOptions"
+              :placeholder="t('warehouse.filter_category_all')"
+              data-test="warehouse-stock-category-filter"
+            />
+          </div>
+          <div class="filter-group" data-test="warehouse-filter-unit">
+            <label class="field-label">{{ t('warehouse.col_unit') }}</label>
+            <CustomSelect
+              v-model="stockUnitFilter"
+              :options="UNIT_OPTIONS"
+              data-test="warehouse-stock-unit-filter"
+            />
+          </div>
+          <div class="filter-group" data-test="warehouse-filter-instock">
+            <label class="deficit-checkbox-label">
+              <input
+                v-model="showInStockOnly"
+                type="checkbox"
+                class="deficit-checkbox-input"
+                data-test="warehouse-stock-instock-toggle"
+              />
+              <span class="deficit-checkbox-custom" />
+              <span class="deficit-checkbox-text">{{ t('warehouse.filter_in_stock_only') }}</span>
+            </label>
+          </div>
+          <div class="filter-group" data-test="warehouse-filter-deficit">
+            <label class="deficit-checkbox-label">
+              <input
+                v-model="showDeficitOnly"
+                type="checkbox"
+                class="deficit-checkbox-input"
+                data-test="warehouse-stock-deficit-toggle"
+              />
+              <span class="deficit-checkbox-custom" />
+              <span class="deficit-checkbox-text">{{ t('warehouse.filter_deficit_only') }}</span>
+            </label>
+          </div>
+          <button class="btn btn-primary" data-test="warehouse-stock-save-view-btn" @click="saveView">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
+              <polyline points="17 21 17 13 7 13 7 21" />
+              <polyline points="7 3 7 8 15 8" />
+            </svg>
+            <span>{{ t('btn.save_view') }}</span>
+          </button>
+        </template>
+        <!-- Other tabs: server-side search -->
+        <template v-else>
+          <div class="filter-group" data-test="warehouse-filter-search">
+            <label class="field-label">{{ t('warehouse.col_search') }}</label>
+            <SearchInput
+              v-model="filters.search"
+              :placeholder="t('warehouse.search_placeholder')"
+              data-test="warehouse-search"
+            />
+          </div>
+        </template>
       </div>
     </div>
 
@@ -276,7 +543,16 @@ watch(stockItems, () => {
          TAB: Stock Overview
          ════════════════════════════════════════════════════════════════════════ -->
     <div v-show="activeTab === 'stock'" data-test="warehouse-tab-stock">
-      <GlassPanel :loading="stockLoading" :skeleton-rows="6" data-test="warehouse-stock-panel">
+      <!-- GlassPanel :loading shows its built-in skeleton (wide lines, no light background)
+           for initial page load. During filter transitions, .filtering-stock class
+           overrides display:none on .panel-body so the table stays in DOM for height sync. -->
+      <GlassPanel
+        :loading="stockLoading || filteringStock"
+        :class="{ 'filtering-stock': filteringStock }"
+        :skeleton-rows="6"
+        data-test="warehouse-stock-panel"
+      >
+        <!-- Error state -->
         <div
           v-if="stockError"
           class="error-state"
@@ -287,16 +563,24 @@ watch(stockItems, () => {
           <button class="btn btn-primary" @click="loadStock">{{ t('btn.retry') }}</button>
         </div>
 
+        <!-- Empty state (only when not loading or filtering) -->
         <div
-          v-else-if="!stockLoading && stockItems.length === 0"
+          v-if="!stockError && !stockLoading && !filteringStock && filteredStockItems.length === 0"
           class="empty-state"
           data-test="warehouse-stock-empty"
         >
-          <SvgIcon name="package" :width="48" :height="48" />
-          <p>{{ t('warehouse.empty_stock') }}</p>
+          <SvgIcon name="tag" :width="48" :height="48" />
+          <p>{{ stockItems.length > 0 ? t('warehouse.empty_filtered_stock') : t('warehouse.empty_stock') }}</p>
         </div>
 
-        <div v-else class="stock-table-split">
+        <!-- Table area wrapper: position relative so skeleton can overlay the real table -->
+        <div v-if="!stockError && filteredStockItems.length > 0" class="stock-table-area">
+
+          <!-- Real table: always rendered when there are items.
+               When filteringStock is true, it becomes visibility:hidden + opacity:0
+               (keeps layout, correct offsetHeight for syncTableRowHeights).
+               The GlassPanel skeleton (wide lines) shows on top via :loading. -->
+          <div :class="['stock-table-split', { 'stock-table-hidden': filteringStock }]">
           <!-- Left: Fixed Product column -->
           <div class="stock-table-fixed">
             <table class="data-table" ref="fixedTableEl">
@@ -307,7 +591,7 @@ watch(stockItems, () => {
               </thead>
               <tbody>
                 <tr
-                  v-for="item in stockItems"
+                  v-for="item in paginatedStockItems"
                   :key="item.productId"
                   :class="{ 'row-deficit': item.isDeficit }"
                   data-test="warehouse-stock-row"
@@ -431,7 +715,7 @@ watch(stockItems, () => {
               </thead>
               <tbody>
                 <tr
-                  v-for="item in stockItems"
+                  v-for="item in paginatedStockItems"
                   :key="item.productId"
                   :class="{ 'row-deficit': item.isDeficit }"
                   data-test="warehouse-stock-row"
@@ -482,6 +766,64 @@ watch(stockItems, () => {
                 </tr>
               </tbody>
             </table>
+          </div>
+        </div>
+        </div><!-- /.stock-table-area -->
+
+        <!-- Stock pagination -->
+        <div v-if="filteredStockItems.length > 0" class="pagination-bar" data-test="warehouse-stock-pagination">
+          <div class="page-size" data-test="warehouse-stock-page-size">
+            <span>{{ t('warehouse.page_size') }}</span>
+            <CustomSelect
+              v-model="stockPageSizeStr"
+              :options="STOCK_PAGE_SIZE_OPTIONS"
+              :open-up="true"
+              class="custom-select-sm"
+            />
+          </div>
+          <div class="pagination-nav">
+            <button
+              class="btn btn-icon btn-sm"
+              :disabled="!stockHasPrev"
+              :style="{ display: stockTotalPages <= 1 ? 'none' : 'flex' }"
+              @click="stockPrev()"
+              data-test="warehouse-stock-prev-page"
+            >
+              <SvgIcon
+                name="chevron-right"
+                :width="14"
+                :height="14"
+                style="transform: rotate(180deg)"
+              />
+            </button>
+            <div class="pagination-pages">
+              <template v-for="(p, i) in stockPageNumbers()" :key="i">
+                <span v-if="p === '...'" class="pagination-ellipsis">...</span>
+                <button
+                  v-else
+                  class="page-btn"
+                  :class="{ active: p === stockPage }"
+                  @click="stockGoTo(p as number)"
+                  :data-test="`warehouse-stock-page-${p}`"
+                >
+                  {{ p }}
+                </button>
+              </template>
+            </div>
+            <button
+              class="btn btn-icon btn-sm"
+              :disabled="!stockHasNext"
+              :style="{ display: stockTotalPages <= 1 ? 'none' : 'flex' }"
+              @click="stockNext()"
+              data-test="warehouse-stock-next-page"
+            >
+              <SvgIcon name="chevron-right" :width="14" :height="14" />
+            </button>
+          </div>
+          <div class="pagination-info">
+            <span>{{ stockShowingFrom }}-{{ stockShowingTo }}</span>
+            <span>&nbsp;{{ t('warehouse.of') }}&nbsp;</span>
+            <span>{{ filteredStockItems.length }}</span>
           </div>
         </div>
       </GlassPanel>

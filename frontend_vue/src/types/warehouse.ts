@@ -310,6 +310,10 @@ export interface StockOverviewItem {
   minStock: number | null
   /** Whether this product is in deficit */
   isDeficit: boolean
+  /** Product category ID (for filtering) */
+  categoryId?: string | null
+  /** Product category name (for display) */
+  categoryName?: TranslatedString | null
 }
 
 // ─── Filters ────────────────────────────────────────────────────────────────
@@ -325,6 +329,8 @@ export interface WarehouseFilters {
   dateTo?: string
   sortBy?: string
   sortDir?: 'asc' | 'desc'
+  /** Client-side: show only deficit items in stock overview */
+  showDeficitOnly?: boolean
 }
 
 // ─── API response wrappers (for convenience) ────────────────────────────────
