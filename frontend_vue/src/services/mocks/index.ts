@@ -207,7 +207,17 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
 
   // ── Warehouse ──
   if (path === '/api/warehouse/stock') {
-    return delay(mockGetStockOverview() as T)
+    const page = Number(params?.page ?? 1)
+    const pageSize = Number(params?.pageSize ?? 25)
+    return delay(mockGetStockOverview({
+      search: params?.search ?? '',
+      categoryIds: params?.categoryIds,
+      unit: params?.unit,
+      showDeficitOnly: params?.showDeficitOnly,
+      showInStockOnly: params?.showInStockOnly,
+      sortBy: params?.sortBy,
+      sortDir: params?.sortDir,
+    }, { page, pageSize }) as T)
   }
 
   if (path === '/api/warehouse/batches') {

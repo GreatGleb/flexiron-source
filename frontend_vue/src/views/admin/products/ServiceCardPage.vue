@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { mergeLocaleValue } from '@/types/i18n'
@@ -10,7 +10,6 @@ import SvgIcon from '@/components/admin/SvgIcon.vue'
 import InputGroup from '@/components/admin/ui/InputGroup.vue'
 import { useHead } from '@/composables/useHead'
 import { useServiceCard } from '@/composables/useServiceCard'
-import type { ServicePriceUnit } from '@/types/service'
 
 import '@styles/admin/components/_entity-card-layout.css'
 

@@ -329,8 +329,17 @@ export interface WarehouseFilters {
   dateTo?: string
   sortBy?: string
   sortDir?: 'asc' | 'desc'
-  /** Client-side: show only deficit items in stock overview */
-  showDeficitOnly?: boolean
+}
+
+/** Filters specific to the Stock Overview tab (server-side) */
+export interface StockFilters {
+  search: string
+  categoryIds: string[]
+  unit: string
+  showDeficitOnly: boolean
+  showInStockOnly: boolean
+  sortBy: 'name' | 'totalQuantity' | 'availableQuantity' | 'unit' | 'avgUnitPrice' | 'totalValue' | 'minStock' | null
+  sortDir: 'asc' | 'desc'
 }
 
 // ─── API response wrappers (for convenience) ────────────────────────────────
@@ -339,4 +348,4 @@ export type BatchListResponse = PaginatedResponse<BatchListItem>
 export type OffcutListResponse = PaginatedResponse<OffcutListItem>
 export type MovementListResponse = PaginatedResponse<MovementListItem>
 export type DeficitListResponse = PaginatedResponse<DeficitListItem>
-export type StockOverviewResponse = StockOverviewItem[]
+export type StockOverviewResponse = PaginatedResponse<StockOverviewItem>

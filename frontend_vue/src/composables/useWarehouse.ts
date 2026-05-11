@@ -21,6 +21,7 @@ import type {
   MovementListItem,
   DeficitListItem,
   WarehouseFilters,
+  StockFilters,
 } from '@/types/warehouse'
 
 export type WarehouseTab = 'stock' | 'batches' | 'offcuts' | 'movements' | 'deficit'
@@ -57,11 +58,22 @@ export function useWarehouse() {
   const deficitLoading = ref(false)
   const deficitError = ref<string | null>(null)
 
-  // Shared filters
+  // Shared filters (for batches, offcuts, movements, deficit)
   const filters = reactive<WarehouseFilters>({
     search: '',
     dateFrom: '',
     dateTo: '',
+  })
+
+  // Stock-specific filters (server-side)
+  const stockFilters = reactive<StockFilters>({
+    search: '',
+    categoryIds: [],
+    unit: '',
+    showDeficitOnly: false,
+    showInStockOnly: false,
+    sortBy: null,
+    sortDir: 'asc',
   })
 
   const pagination = usePagination(25)
@@ -74,11 +86,15 @@ export function useWarehouse() {
   const deficitInitialized = ref(false)
 
   async function loadStock() {
-    stockLoading.value = true
+    if (!stockInitialized.value) stockLoading.value = true
     stockError.value = null
     try {
-      const res = await getStockOverview()
-      stockItems.value = res
+      const res = await getStockOverview(stockFilters, {
+        page: pagination.page.value,
+        pageSize: pagination.pageSize.value,
+      })
+      stockItems.value = res.items
+      pagination.total.value = res.total
       stockInitialized.value = true
     } catch (e) {
       stockError.value = e instanceof Error ? e.message : 'Failed to load stock overview'
@@ -220,6 +236,22 @@ export function useWarehouse() {
     load()
   }, { deep: true })
 
+  // Watch stock filters — reload stock tab
+  watch(stockFilters, () => {
+    skipNextPageWatch = pagination.page.value !== 1
+    pagination.reset()
+    loadStock()
+  }, { deep: true })
+
+  function toggleStockSort(col: StockFilters['sortBy']) {
+    if (stockFilters.sortBy === col) {
+      stockFilters.sortDir = stockFilters.sortDir === 'asc' ? 'desc' : 'asc'
+    } else {
+      stockFilters.sortBy = col
+      stockFilters.sortDir = 'asc'
+    }
+  }
+
   watch([pagination.page, pagination.pageSize], () => {
     if (skipNextPageWatch) {
       skipNextPageWatch = false
@@ -248,6 +280,7 @@ export function useWarehouse() {
     movements, movementsLoading, movementsError,
     deficitItems, deficitLoading, deficitError,
     filters,
+    stockFilters,
     pagination,
 
     // Actions
@@ -261,6 +294,7 @@ export function useWarehouse() {
     deleteOffcut,
     deleteDeficit,
     deleteStock,
+    toggleStockSort,
     tf,
   }
 }

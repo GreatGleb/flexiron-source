@@ -13,6 +13,7 @@ import type {
   DeficitCreatePayload,
   DeficitPatchPayload,
   WarehouseFilters,
+  StockFilters,
   BatchListResponse,
   OffcutListResponse,
   MovementListResponse,
@@ -22,8 +23,24 @@ import type {
 
 // ─── Stock Overview ─────────────────────────────────────────────────────────
 
-export async function getStockOverview(): Promise<StockOverviewResponse> {
-  return apiGet<StockOverviewResponse>('/api/warehouse/stock')
+export async function getStockOverview(
+  filters: StockFilters,
+  pagination: PaginationParams,
+): Promise<StockOverviewResponse> {
+  const params: Record<string, string> = {
+    search: filters.search,
+    page: String(pagination.page),
+    pageSize: String(pagination.pageSize),
+  }
+  if (filters.categoryIds.length > 0) params.categoryIds = filters.categoryIds.join(',')
+  if (filters.unit) params.unit = filters.unit
+  if (filters.showDeficitOnly) params.showDeficitOnly = 'true'
+  if (filters.showInStockOnly) params.showInStockOnly = 'true'
+  if (filters.sortBy) {
+    params.sortBy = filters.sortBy
+    params.sortDir = filters.sortDir
+  }
+  return apiGet<StockOverviewResponse>('/api/warehouse/stock', params)
 }
 
 export async function deleteStockItem(productId: string): Promise<void> {

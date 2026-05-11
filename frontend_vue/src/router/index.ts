@@ -176,7 +176,7 @@ const routes: RouteRecordRaw[] = [
 
       /* Warehouse */
       {
-        path: 'warehouse',
+        path: 'warehouse/:tab(stock|batches|offcuts|movements|deficit)?',
         name: 'admin-warehouse',
         component: () => import('@/views/admin/warehouse/WarehousePage.vue'),
         meta: { layout: 'admin', featureFlag: 'adminWarehouse' as FeatureFlagKey },

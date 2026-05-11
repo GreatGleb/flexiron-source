@@ -9,6 +9,9 @@
   justify-content: space-between;
   align-items: center;
 }
+.custom-select-trigger .curr-val {
+  color: var(--text-dim);
+}
 .custom-select-list {
   position: absolute;
   top: calc(100% + 8px);

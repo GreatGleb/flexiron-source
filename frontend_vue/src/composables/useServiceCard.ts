@@ -63,12 +63,12 @@ export function useServiceCard(id: string) {
       const updated = await patchService(
         id,
         {
-          name: form.value.name,
+          name: form.value.name ?? undefined,
           costPrice: form.value.costPrice,
           sellingPrice: form.value.sellingPrice,
           priceUnit: form.value.priceUnit,
           description: form.value.description ?? undefined,
-        },
+        } as Parameters<typeof patchService>[1],
         locale.value,
       )
       service.value = updated

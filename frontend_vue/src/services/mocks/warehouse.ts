@@ -57,8 +57,71 @@ function matchSearch(item: { productName: { ru: string; en: string; lt: string }
 
 // ─── Stock Overview ─────────────────────────────────────────────────────────
 
-export async function mockGetStockOverview(): Promise<StockOverviewItem[]> {
-  return [...stockStore]
+export async function mockGetStockOverview(
+  filters: {
+    search: string
+    categoryIds?: string
+    unit?: string
+    showDeficitOnly?: string
+    showInStockOnly?: string
+    sortBy?: string
+    sortDir?: string
+  },
+  pagination: { page: number; pageSize: number },
+): Promise<PaginatedResponse<StockOverviewItem>> {
+  let filtered = [...stockStore]
+
+  if (filters.search) {
+    const q = filters.search.toLowerCase()
+    filtered = filtered.filter((item) => matchSearch(item, q))
+  }
+  if (filters.categoryIds) {
+    const ids = filters.categoryIds.split(',')
+    filtered = filtered.filter((item) => item.categoryId && ids.includes(item.categoryId))
+  }
+  if (filters.unit) {
+    filtered = filtered.filter((item) => item.unit === filters.unit)
+  }
+  if (filters.showDeficitOnly === 'true') {
+    filtered = filtered.filter((item) => item.isDeficit)
+  }
+  if (filters.showInStockOnly === 'true') {
+    filtered = filtered.filter((item) => item.availableQuantity > 0)
+  }
+
+  // sort
+  if (filters.sortBy) {
+    const dir = filters.sortDir === 'desc' ? -1 : 1
+    filtered.sort((a, b) => {
+      let cmp = 0
+      switch (filters.sortBy) {
+        case 'name':
+          cmp = a.productName.en.localeCompare(b.productName.en)
+          break
+        case 'totalQuantity':
+          cmp = a.totalQuantity - b.totalQuantity
+          break
+        case 'availableQuantity':
+          cmp = a.availableQuantity - b.availableQuantity
+          break
+        case 'unit':
+          cmp = a.unit.localeCompare(b.unit)
+          break
+        case 'avgUnitPrice':
+          cmp = a.avgUnitPrice - b.avgUnitPrice
+          break
+        case 'totalValue':
+          cmp = a.totalValue - b.totalValue
+          break
+        case 'minStock':
+          cmp = (a.minStock ?? 0) - (b.minStock ?? 0)
+          break
+      }
+      return cmp * dir
+    })
+  }
+
+  return paginate(filtered, pagination.page, pagination.pageSize)
 }
 
 // ─── Batches ────────────────────────────────────────────────────────────────

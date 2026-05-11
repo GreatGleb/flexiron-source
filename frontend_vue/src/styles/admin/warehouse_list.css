@@ -641,3 +641,43 @@
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   padding: 12px 16px;
 }
+
+/* ─── Sort buttons (matching products_list.css / services_list.css) ───────── */
+.th-sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  padding: 0;
+  white-space: nowrap;
+}
+
+.th-sort-btn:hover {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.sort-icon-group {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+  gap: 0;
+  margin-left: 2px;
+}
+
+.sort-icon {
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.25);
+  transition: color 0.15s;
+}
+
+.sort-icon.active {
+  color: var(--primary, #1890ff);
+}

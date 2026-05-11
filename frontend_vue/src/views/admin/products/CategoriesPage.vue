@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
 import Breadcrumb from '@/components/admin/Breadcrumb.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
@@ -19,7 +18,6 @@ import '@styles/admin/components/_pagination.css'
 import '@styles/admin/categories_list.css'
 
 const { t, locale } = useI18n()
-const router = useRouter()
 const toast = useToast()
 
 useHead({ title: t('categories.title'), description: t('categories.title') })

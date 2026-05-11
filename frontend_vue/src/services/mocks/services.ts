@@ -110,14 +110,14 @@ export async function mockPatchService(
 ): Promise<Service> {
   const idx = STORE.findIndex((s) => s.id === id)
   if (idx === -1) throw new Error('SERVICE_NOT_FOUND')
-  const svc = STORE[idx]
+  const svc = STORE[idx]!
   if (data.name !== undefined) svc.name = data.name
   if (data.costPrice !== undefined) svc.costPrice = data.costPrice
   if (data.sellingPrice !== undefined) svc.sellingPrice = data.sellingPrice
   if (data.priceUnit !== undefined) svc.priceUnit = data.priceUnit as Service['priceUnit']
   if (data.description !== undefined) svc.description = data.description
   svc.updatedAt = new Date().toISOString()
-  return { ...svc }
+  return { ...svc } as Service
 }
 
 export async function mockDeleteService(id: string): Promise<boolean> {
