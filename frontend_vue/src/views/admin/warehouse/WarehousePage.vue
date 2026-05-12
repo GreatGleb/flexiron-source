@@ -14,6 +14,7 @@ import SvgIcon from '@/components/admin/SvgIcon.vue'
 import SearchInput from '@/components/admin/ui/SearchInput.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
 import MultiSelect from '@/components/admin/ui/MultiSelect.vue'
+import DatePicker from '@/components/admin/ui/DatePicker.vue'
 import '@styles/admin/components/_pagination.css'
 import '@styles/admin/warehouse_list.css'
 
@@ -29,16 +30,32 @@ const {
   offcuts, offcutsLoading, offcutsError,
   movements, movementsLoading, movementsError,
   deficitItems, deficitLoading, deficitError,
-  filters,
+  batchesFilters,
+  offcutFilters,
+  movementFilters,
+  deficitFilters,
   stockFilters,
-  pagination,
+  stockPagination,
+  batchesPagination,
+  offcutsPagination,
+  movementsPagination,
+  deficitPagination,
   load,
   loadStock,
   deleteBatch,
   deleteOffcut,
+  deleteMovement,
   deleteDeficit,
   deleteStock,
   toggleStockSort,
+  batchesSort,
+  toggleBatchesSort,
+  offcutsSort,
+  toggleOffcutsSort,
+  movementsSort,
+  toggleMovementsSort,
+  deficitSort,
+  toggleDeficitSort,
   tf,
 } = useWarehouse()
 
@@ -89,11 +106,44 @@ const PAGE_SIZE_OPTIONS = [
   { value: '100', label: '100' },
 ]
 
-const pageSizeStr = computed({
-  get: () => String(pagination.pageSize.value),
+// Per-tab page size computed — each tab has its own pagination instance
+const stockPageSizeStr = computed({
+  get: () => String(stockPagination.pageSize.value),
   set: (v: string) => {
-    pagination.pageSize.value = Number(v)
-    pagination.reset()
+    stockPagination.pageSize.value = Number(v)
+    stockPagination.reset()
+  },
+})
+
+const batchesPageSizeStr = computed({
+  get: () => String(batchesPagination.pageSize.value),
+  set: (v: string) => {
+    batchesPagination.pageSize.value = Number(v)
+    batchesPagination.reset()
+  },
+})
+
+const offcutsPageSizeStr = computed({
+  get: () => String(offcutsPagination.pageSize.value),
+  set: (v: string) => {
+    offcutsPagination.pageSize.value = Number(v)
+    offcutsPagination.reset()
+  },
+})
+
+const movementsPageSizeStr = computed({
+  get: () => String(movementsPagination.pageSize.value),
+  set: (v: string) => {
+    movementsPagination.pageSize.value = Number(v)
+    movementsPagination.reset()
+  },
+})
+
+const deficitPageSizeStr = computed({
+  get: () => String(deficitPagination.pageSize.value),
+  set: (v: string) => {
+    deficitPagination.pageSize.value = Number(v)
+    deficitPagination.reset()
   },
 })
 
@@ -101,6 +151,10 @@ const pageSizeStr = computed({
 
 // ─── Save / Load filter preferences ──────────────────────────────────────────
 const PREFS_KEY = 'warehouse_stock_prefs'
+const BATCH_PREFS_KEY = 'warehouse_batches_prefs'
+const OFFCUT_PREFS_KEY = 'warehouse_offcuts_prefs'
+const MOVEMENT_PREFS_KEY = 'warehouse_movements_prefs'
+const DEFICIT_PREFS_KEY = 'warehouse_deficit_prefs'
 
 function saveView() {
   const prefs = {
@@ -111,6 +165,58 @@ function saveView() {
     stockCategoryIds: [...stockFilters.categoryIds],
   }
   localStorage.setItem(PREFS_KEY, JSON.stringify(prefs))
+  toast.show(t('msg.prefs_saved'))
+}
+
+function saveBatchesView() {
+  const prefs = {
+    search: batchesFilters.search,
+    status: batchesFilters.status,
+    supplierId: batchesFilters.supplierId,
+    unit: batchesFilters.unit,
+    dateFrom: batchesFilters.dateFrom,
+    dateTo: batchesFilters.dateTo,
+  }
+  localStorage.setItem(BATCH_PREFS_KEY, JSON.stringify(prefs))
+  toast.show(t('msg.prefs_saved'))
+}
+
+function saveOffcutsView() {
+  const prefs = {
+    search: offcutFilters.search,
+    status: offcutFilters.status,
+    unit: offcutFilters.unit,
+    offcutType: offcutFilters.offcutType,
+    categoryIds: offcutFilters.categoryIds ? [...offcutFilters.categoryIds] : [],
+    batchNumber: offcutFilters.batchNumber,
+  }
+  localStorage.setItem(OFFCUT_PREFS_KEY, JSON.stringify(prefs))
+  toast.show(t('msg.prefs_saved'))
+}
+
+function saveMovementsView() {
+  const prefs = {
+    search: movementFilters.search,
+    type: movementFilters.type,
+    unit: movementFilters.unit,
+    categoryIds: movementFilters.categoryIds ? [...movementFilters.categoryIds] : [],
+    batchNumber: movementFilters.batchNumber,
+    dateFrom: movementFilters.dateFrom,
+    dateTo: movementFilters.dateTo,
+  }
+  localStorage.setItem(MOVEMENT_PREFS_KEY, JSON.stringify(prefs))
+  toast.show(t('msg.prefs_saved'))
+}
+
+function saveDeficitView() {
+  const prefs = {
+    search: deficitFilters.search,
+    status: deficitFilters.status,
+    priority: deficitFilters.priority,
+    unit: deficitFilters.unit,
+    categoryIds: deficitFilters.categoryIds ? [...deficitFilters.categoryIds] : [],
+  }
+  localStorage.setItem(DEFICIT_PREFS_KEY, JSON.stringify(prefs))
   toast.show(t('msg.prefs_saved'))
 }
 
@@ -140,10 +246,21 @@ function loadPrefs() {
 // The real table is made visibility:hidden (not display:none) during the
 // transition, so offsetHeight still returns correct values for the sync.
 // The skeleton overlay covers the invisible table area.
+//
+// IMPORTANT: This transition should only run on initial load and filter
+// changes — NOT on pagination page changes (which should be instant).
 const filteringStock = ref(false)
 let filterTimer: ReturnType<typeof setTimeout> | null = null
+const skipStockTransition = ref(false)
 
 async function startFilterTransition() {
+  if (skipStockTransition.value) {
+    // Pagination page change — skip the slow transition, just sync heights
+    skipStockTransition.value = false
+    await nextTick()
+    await syncTableRowHeights()
+    return
+  }
   if (filterTimer) clearTimeout(filterTimer)
   filteringStock.value = true
   // Phase 1: GlassPanel skeleton shows (wide lines, no light background).
@@ -169,6 +286,109 @@ const UNIT_OPTIONS = [
   { value: 'm2', label: t('warehouse.unit_m2') },
 ]
 
+// ─── Batches tab filter options ──────────────────────────────────────────────
+
+const BATCH_STATUS_OPTIONS = [
+  { value: '', label: t('warehouse.filter_status_all') },
+  { value: 'available', label: t('warehouse.batch_status_available') },
+  { value: 'reserved', label: t('warehouse.batch_status_reserved') },
+  { value: 'partial', label: t('warehouse.batch_status_partial') },
+  { value: 'depleted', label: t('warehouse.batch_status_depleted') },
+  { value: 'quarantine', label: t('warehouse.batch_status_quarantine') },
+]
+
+const BATCH_UNIT_OPTIONS = [
+  { value: '', label: t('warehouse.filter_unit_all') },
+  { value: 'kg', label: t('warehouse.unit_kg') },
+  { value: 'm', label: t('warehouse.unit_m') },
+  { value: 'pcs', label: t('warehouse.unit_pcs') },
+  { value: 'm2', label: t('warehouse.unit_m2') },
+]
+
+// ─── Offcuts tab filter options ─────────────────────────────────────────────
+
+const OFFCUT_STATUS_OPTIONS = [
+  { value: '', label: t('warehouse.filter_status_all') },
+  { value: 'available', label: t('warehouse.offcut_status_available') },
+  { value: 'reserved', label: t('warehouse.offcut_status_reserved') },
+  { value: 'used', label: t('warehouse.offcut_status_used') },
+  { value: 'scrap', label: t('warehouse.offcut_status_scrap') },
+]
+
+const OFFCUT_UNIT_OPTIONS = [
+  { value: '', label: t('warehouse.filter_unit_all') },
+  { value: 'kg', label: t('warehouse.unit_kg') },
+  { value: 'm', label: t('warehouse.unit_m') },
+  { value: 'pcs', label: t('warehouse.unit_pcs') },
+  { value: 'm2', label: t('warehouse.unit_m2') },
+]
+
+const OFFCUT_TYPE_OPTIONS = [
+  { value: '', label: t('warehouse.filter_type_all') },
+  { value: 'sheet', label: t('warehouse.offcut_type_sheet') },
+  { value: 'linear', label: t('warehouse.offcut_type_linear') },
+]
+
+// ─── Movements tab filter options ────────────────────────────────────────────
+
+const MOVEMENT_TYPE_OPTIONS = [
+  { value: '', label: t('warehouse.filter_type_all') },
+  { value: 'receipt', label: t('warehouse.type_receipt') },
+  { value: 'expense', label: t('warehouse.type_expense') },
+  { value: 'transfer', label: t('warehouse.type_transfer') },
+  { value: 'write-off', label: t('warehouse.type_write_off') },
+]
+
+const MOVEMENT_UNIT_OPTIONS = [
+  { value: '', label: t('warehouse.filter_unit_all') },
+  { value: 'kg', label: t('warehouse.unit_kg') },
+  { value: 'm', label: t('warehouse.unit_m') },
+  { value: 'pcs', label: t('warehouse.unit_pcs') },
+  { value: 'm2', label: t('warehouse.unit_m2') },
+]
+
+// ─── Deficit tab filter options ──────────────────────────────────────────────
+
+const DEFICIT_STATUS_OPTIONS = [
+  { value: '', label: t('warehouse.filter_status_all') },
+  { value: 'open', label: t('warehouse.deficit_status_open') },
+  { value: 'ordered', label: t('warehouse.deficit_status_ordered') },
+  { value: 'resolved', label: t('warehouse.deficit_status_resolved') },
+]
+
+const DEFICIT_PRIORITY_OPTIONS = [
+  { value: '', label: t('warehouse.filter_priority_all') },
+  { value: 'critical', label: t('warehouse.priority_critical') },
+  { value: 'high', label: t('warehouse.priority_high') },
+  { value: 'medium', label: t('warehouse.priority_medium') },
+  { value: 'low', label: t('warehouse.priority_low') },
+]
+
+const DEFICIT_UNIT_OPTIONS = [
+  { value: '', label: t('warehouse.filter_unit_all') },
+  { value: 'kg', label: t('warehouse.unit_kg') },
+  { value: 'm', label: t('warehouse.unit_m') },
+  { value: 'pcs', label: t('warehouse.unit_pcs') },
+  { value: 'm2', label: t('warehouse.unit_m2') },
+]
+
+// ─── Supplier list for batches filter dropdown ───────────────────────────────
+import { getSupplierList } from '@/services/suppliersService'
+
+const supplierOptions = ref<Array<{ value: string; label: string }>>([])
+
+onMounted(async () => {
+  try {
+    const suppliers = await getSupplierList()
+    supplierOptions.value = [
+      { value: '', label: t('warehouse.filter_supplier_all') },
+      ...suppliers.map((s) => ({ value: s.id, label: s.company })),
+    ]
+  } catch {
+    supplierOptions.value = [{ value: '', label: t('warehouse.filter_supplier_all') }]
+  }
+})
+
 function getCategoryPath(cat: CategoryListItem): string {
   const parts: string[] = [tf(cat.name)]
   let current = cat
@@ -191,14 +411,14 @@ const BATCH_STATUS_PILL: Record<BatchStatus, string> = {
   available: 'pill-success',
   reserved: 'pill-info',
   partial: 'pill-warning',
-  depleted: 'pill-muted',
+  depleted: 'pill-consumed',
   quarantine: 'pill-danger',
 }
 
 const OFFCUT_STATUS_PILL: Record<OffcutStatus, string> = {
   available: 'pill-success',
   reserved: 'pill-info',
-  used: 'pill-muted',
+  used: 'pill-secondary',
   scrap: 'pill-danger',
 }
 
@@ -213,7 +433,7 @@ const DEFICIT_PRIORITY_PILL: Record<DeficitPriority, string> = {
   critical: 'pill-danger',
   high: 'pill-warning',
   medium: 'pill-info',
-  low: 'pill-muted',
+  low: 'pill-secondary',
 }
 
 const DEFICIT_STATUS_PILL: Record<DeficitStatus, string> = {
@@ -221,13 +441,13 @@ const DEFICIT_STATUS_PILL: Record<DeficitStatus, string> = {
   in_progress: 'pill-info',
   ordered: 'pill-mint',
   resolved: 'pill-success',
-  cancelled: 'pill-muted',
+  cancelled: 'pill-danger',
 }
 
 // ─── Delete confirm modals ────────────────────────────────────────────────────
 
 const showDeleteModal = ref(false)
-const deletingItem = ref<{ id: string; name: string; type: 'batch' | 'offcut' | 'deficit' | 'stock' } | null>(null)
+const deletingItem = ref<{ id: string; name: string; type: 'batch' | 'offcut' | 'movement' | 'deficit' | 'stock' } | null>(null)
 
 function confirmDeleteBatch(id: string, name: string) {
   deletingItem.value = { id, name, type: 'batch' }
@@ -236,6 +456,11 @@ function confirmDeleteBatch(id: string, name: string) {
 
 function confirmDeleteOffcut(id: string, name: string) {
   deletingItem.value = { id, name, type: 'offcut' }
+  showDeleteModal.value = true
+}
+
+function confirmDeleteMovement(id: string, name: string) {
+  deletingItem.value = { id, name, type: 'movement' }
   showDeleteModal.value = true
 }
 
@@ -254,6 +479,7 @@ async function handleDelete() {
   const { id, type } = deletingItem.value
   if (type === 'batch') await deleteBatch(id)
   else if (type === 'offcut') await deleteOffcut(id)
+  else if (type === 'movement') await deleteMovement(id)
   else if (type === 'deficit') await deleteDeficit(id)
   else if (type === 'stock') await deleteStock(id)
   showDeleteModal.value = false
@@ -469,16 +695,262 @@ watch(stockItems, () => {
             <span>{{ t('btn.save_view') }}</span>
           </button>
         </template>
-        <!-- Other tabs: server-side search -->
-        <template v-else>
+        <!-- Batches tab: server-side filters -->
+        <template v-else-if="activeTab === 'batches'">
           <div class="filter-group" data-test="warehouse-filter-search">
             <label class="field-label">{{ t('warehouse.col_search') }}</label>
             <SearchInput
-              v-model="filters.search"
+              v-model="batchesFilters.search"
               :placeholder="t('warehouse.search_placeholder')"
-              data-test="warehouse-search"
+              data-test="warehouse-batches-search"
             />
           </div>
+          <div class="filter-group" data-test="warehouse-filter-status">
+            <label class="field-label">{{ t('warehouse.col_status') }}</label>
+            <CustomSelect
+              :model-value="batchesFilters.status ?? ''"
+              :options="BATCH_STATUS_OPTIONS"
+              data-test="warehouse-batches-status-filter"
+              @update:model-value="(v: string) => batchesFilters.status = (v || undefined) as any"
+            />
+          </div>
+          <div class="filter-group" data-test="warehouse-filter-supplier">
+            <label class="field-label">{{ t('warehouse.col_supplier') }}</label>
+            <CustomSelect
+              :model-value="batchesFilters.supplierId ?? ''"
+              :options="supplierOptions"
+              data-test="warehouse-batches-supplier-filter"
+              @update:model-value="(v: string) => batchesFilters.supplierId = v || undefined"
+            />
+          </div>
+          <div class="filter-group" data-test="warehouse-filter-date-from">
+            <label class="field-label">{{ t('warehouse.filter_date_from') }}</label>
+            <DatePicker
+              :model-value="batchesFilters.dateFrom ?? ''"
+              :placeholder="t('warehouse.filter_date_from')"
+              data-test="warehouse-batches-date-from"
+              @update:model-value="(v: string) => batchesFilters.dateFrom = v || undefined"
+            />
+          </div>
+          <div class="filter-group" data-test="warehouse-filter-date-to">
+            <label class="field-label">{{ t('warehouse.filter_date_to') }}</label>
+            <DatePicker
+              :model-value="batchesFilters.dateTo ?? ''"
+              :placeholder="t('warehouse.filter_date_to')"
+              data-test="warehouse-batches-date-to"
+              @update:model-value="(v: string) => batchesFilters.dateTo = v || undefined"
+            />
+          </div>
+          <div class="filter-group" data-test="warehouse-filter-unit">
+            <label class="field-label">{{ t('warehouse.col_unit') }}</label>
+            <CustomSelect
+              :model-value="batchesFilters.unit ?? ''"
+              :options="BATCH_UNIT_OPTIONS"
+              data-test="warehouse-batches-unit-filter"
+              @update:model-value="(v: string) => batchesFilters.unit = v || undefined"
+            />
+          </div>
+          <button class="btn btn-primary" data-test="warehouse-batches-save-view-btn" @click="saveBatchesView">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
+              <polyline points="17 21 17 13 7 13 7 21" />
+              <polyline points="7 3 7 8 15 8" />
+            </svg>
+            <span>{{ t('btn.save_view') }}</span>
+          </button>
+        </template>
+        <!-- Offcuts tab: server-side filters -->
+        <template v-else-if="activeTab === 'offcuts'">
+          <div class="filter-group" data-test="warehouse-filter-search">
+            <label class="field-label">{{ t('warehouse.col_search') }}</label>
+            <SearchInput
+              v-model="offcutFilters.search"
+              :placeholder="t('warehouse.search_placeholder')"
+              data-test="warehouse-offcuts-search"
+            />
+          </div>
+          <div class="filter-group" data-test="warehouse-filter-status">
+            <label class="field-label">{{ t('warehouse.col_status') }}</label>
+            <CustomSelect
+              :model-value="offcutFilters.status ?? ''"
+              :options="OFFCUT_STATUS_OPTIONS"
+              data-test="warehouse-offcuts-status-filter"
+              @update:model-value="(v: string) => offcutFilters.status = (v || undefined) as any"
+            />
+          </div>
+          <div class="filter-group" data-test="warehouse-filter-unit">
+            <label class="field-label">{{ t('warehouse.col_unit') }}</label>
+            <CustomSelect
+              :model-value="offcutFilters.unit ?? ''"
+              :options="OFFCUT_UNIT_OPTIONS"
+              data-test="warehouse-offcuts-unit-filter"
+              @update:model-value="(v: string) => offcutFilters.unit = v || undefined"
+            />
+          </div>
+          <div class="filter-group" data-test="warehouse-filter-offcut-type">
+            <label class="field-label">{{ t('warehouse.col_type') }}</label>
+            <CustomSelect
+              :model-value="offcutFilters.offcutType ?? ''"
+              :options="OFFCUT_TYPE_OPTIONS"
+              data-test="warehouse-offcuts-type-filter"
+              @update:model-value="(v: string) => offcutFilters.offcutType = (v || undefined) as any"
+            />
+          </div>
+          <div class="filter-group" data-test="warehouse-filter-category">
+            <label class="field-label">{{ t('warehouse.col_category') }}</label>
+            <MultiSelect
+              :model-value="offcutFilters.categoryIds ?? []"
+              @update:model-value="(v: string[]) => offcutFilters.categoryIds = v"
+              :options="categoryFilterOptions"
+              :placeholder="t('warehouse.filter_category_all')"
+              data-test="warehouse-offcuts-category-filter"
+            />
+          </div>
+          <div class="filter-group" data-test="warehouse-filter-batch">
+            <label class="field-label">{{ t('warehouse.col_batch_number') }}</label>
+            <SearchInput
+              :model-value="offcutFilters.batchNumber ?? ''"
+              :placeholder="t('warehouse.filter_batch_placeholder')"
+              data-test="warehouse-offcuts-batch-filter"
+              @update:model-value="(v: string) => offcutFilters.batchNumber = v || undefined"
+            />
+          </div>
+          <button class="btn btn-primary" data-test="warehouse-offcuts-save-view-btn" @click="saveOffcutsView">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
+              <polyline points="17 21 17 13 7 13 7 21" />
+              <polyline points="7 3 7 8 15 8" />
+            </svg>
+            <span>{{ t('btn.save_view') }}</span>
+          </button>
+        </template>
+        <template v-else-if="activeTab === 'movements'">
+          <div class="filter-group" data-test="warehouse-filter-search">
+            <label class="field-label">{{ t('warehouse.col_search') }}</label>
+            <SearchInput
+              v-model="movementFilters.search"
+              :placeholder="t('warehouse.search_placeholder')"
+              data-test="warehouse-movements-search"
+            />
+          </div>
+          <div class="filter-group" data-test="warehouse-filter-type">
+            <label class="field-label">{{ t('warehouse.col_type') }}</label>
+            <CustomSelect
+              :model-value="movementFilters.type ?? ''"
+              :options="MOVEMENT_TYPE_OPTIONS"
+              data-test="warehouse-movements-type-filter"
+              @update:model-value="(v: string) => movementFilters.type = (v || undefined) as any"
+            />
+          </div>
+          <div class="filter-group" data-test="warehouse-filter-date-from">
+            <label class="field-label">{{ t('warehouse.filter_date_from') }}</label>
+            <DatePicker
+              :model-value="movementFilters.dateFrom ?? ''"
+              :placeholder="t('warehouse.filter_date_from')"
+              data-test="warehouse-movements-date-from"
+              @update:model-value="(v: string) => movementFilters.dateFrom = v || undefined"
+            />
+          </div>
+          <div class="filter-group" data-test="warehouse-filter-date-to">
+            <label class="field-label">{{ t('warehouse.filter_date_to') }}</label>
+            <DatePicker
+              :model-value="movementFilters.dateTo ?? ''"
+              :placeholder="t('warehouse.filter_date_to')"
+              data-test="warehouse-movements-date-to"
+              @update:model-value="(v: string) => movementFilters.dateTo = v || undefined"
+            />
+          </div>
+          <div class="filter-group" data-test="warehouse-filter-unit">
+            <label class="field-label">{{ t('warehouse.col_unit') }}</label>
+            <CustomSelect
+              :model-value="movementFilters.unit ?? ''"
+              :options="MOVEMENT_UNIT_OPTIONS"
+              data-test="warehouse-movements-unit-filter"
+              @update:model-value="(v: string) => movementFilters.unit = v || undefined"
+            />
+          </div>
+          <div class="filter-group" data-test="warehouse-filter-category">
+            <label class="field-label">{{ t('warehouse.col_category') }}</label>
+            <MultiSelect
+              :model-value="movementFilters.categoryIds ?? []"
+              @update:model-value="(v: string[]) => movementFilters.categoryIds = v"
+              :options="categoryFilterOptions"
+              :placeholder="t('warehouse.filter_category_all')"
+              data-test="warehouse-movements-category-filter"
+            />
+          </div>
+          <div class="filter-group" data-test="warehouse-filter-batch">
+            <label class="field-label">{{ t('warehouse.col_batch_number') }}</label>
+            <SearchInput
+              :model-value="movementFilters.batchNumber ?? ''"
+              :placeholder="t('warehouse.filter_batch_placeholder')"
+              data-test="warehouse-movements-batch-filter"
+              @update:model-value="(v: string) => movementFilters.batchNumber = v || undefined"
+            />
+          </div>
+          <button class="btn btn-primary" data-test="warehouse-movements-save-view-btn" @click="saveMovementsView">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
+              <polyline points="17 21 17 13 7 13 7 21" />
+              <polyline points="7 3 7 8 15 8" />
+            </svg>
+            <span>{{ t('btn.save_view') }}</span>
+          </button>
+        </template>
+        <template v-else-if="activeTab === 'deficit'">
+          <div class="filter-group" data-test="warehouse-filter-search">
+            <label class="field-label">{{ t('warehouse.col_search') }}</label>
+            <SearchInput
+              v-model="deficitFilters.search"
+              :placeholder="t('warehouse.search_placeholder')"
+              data-test="warehouse-deficit-search"
+            />
+          </div>
+          <div class="filter-group" data-test="warehouse-filter-status">
+            <label class="field-label">{{ t('warehouse.col_status') }}</label>
+            <CustomSelect
+              :model-value="deficitFilters.status ?? ''"
+              :options="DEFICIT_STATUS_OPTIONS"
+              data-test="warehouse-deficit-status-filter"
+              @update:model-value="(v: string) => deficitFilters.status = (v || undefined) as any"
+            />
+          </div>
+          <div class="filter-group" data-test="warehouse-filter-priority">
+            <label class="field-label">{{ t('warehouse.col_priority') }}</label>
+            <CustomSelect
+              :model-value="deficitFilters.priority ?? ''"
+              :options="DEFICIT_PRIORITY_OPTIONS"
+              data-test="warehouse-deficit-priority-filter"
+              @update:model-value="(v: string) => deficitFilters.priority = (v || undefined) as any"
+            />
+          </div>
+          <div class="filter-group" data-test="warehouse-filter-unit">
+            <label class="field-label">{{ t('warehouse.col_unit') }}</label>
+            <CustomSelect
+              :model-value="deficitFilters.unit ?? ''"
+              :options="DEFICIT_UNIT_OPTIONS"
+              data-test="warehouse-deficit-unit-filter"
+              @update:model-value="(v: string) => deficitFilters.unit = v || undefined"
+            />
+          </div>
+          <div class="filter-group" data-test="warehouse-filter-category">
+            <label class="field-label">{{ t('warehouse.col_category') }}</label>
+            <MultiSelect
+              :model-value="deficitFilters.categoryIds ?? []"
+              @update:model-value="(v: string[]) => deficitFilters.categoryIds = v"
+              :options="categoryFilterOptions"
+              :placeholder="t('warehouse.filter_category_all')"
+              data-test="warehouse-deficit-category-filter"
+            />
+          </div>
+          <button class="btn btn-primary" data-test="warehouse-deficit-save-view-btn" @click="saveDeficitView">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
+              <polyline points="17 21 17 13 7 13 7 21" />
+              <polyline points="7 3 7 8 15 8" />
+            </svg>
+            <span>{{ t('btn.save_view') }}</span>
+          </button>
         </template>
       </div>
     </div>
@@ -847,7 +1319,7 @@ watch(stockItems, () => {
           <div class="page-size" data-test="warehouse-stock-page-size">
             <span>{{ t('warehouse.page_size') }}</span>
             <CustomSelect
-              v-model="pageSizeStr"
+              v-model="stockPageSizeStr"
               :options="PAGE_SIZE_OPTIONS"
               :open-up="true"
               class="custom-select-sm"
@@ -856,9 +1328,9 @@ watch(stockItems, () => {
           <div class="pagination-nav">
             <button
               class="btn btn-icon btn-sm"
-              :disabled="!pagination.hasPrev.value"
-              :style="{ display: pagination.totalPages.value <= 1 ? 'none' : 'flex' }"
-              @click="pagination.prev()"
+              :disabled="!stockPagination.hasPrev.value"
+              :style="{ display: stockPagination.totalPages.value <= 1 ? 'none' : 'flex' }"
+              @click="skipStockTransition = true; stockPagination.prev()"
               data-test="warehouse-stock-prev-page"
             >
               <SvgIcon
@@ -869,13 +1341,13 @@ watch(stockItems, () => {
               />
             </button>
             <div class="pagination-pages">
-              <template v-for="(p, i) in pagination.pageNumbers()" :key="i">
+              <template v-for="(p, i) in stockPagination.pageNumbers()" :key="i">
                 <span v-if="p === '...'" class="pagination-ellipsis">...</span>
                 <button
                   v-else
                   class="page-btn"
-                  :class="{ active: p === pagination.page.value }"
-                  @click="pagination.goTo(p as number)"
+                  :class="{ active: p === stockPagination.page.value }"
+                  @click="skipStockTransition = true; stockPagination.goTo(p as number)"
                   :data-test="`warehouse-stock-page-${p}`"
                 >
                   {{ p }}
@@ -884,18 +1356,18 @@ watch(stockItems, () => {
             </div>
             <button
               class="btn btn-icon btn-sm"
-              :disabled="!pagination.hasNext.value"
-              :style="{ display: pagination.totalPages.value <= 1 ? 'none' : 'flex' }"
-              @click="pagination.next()"
+              :disabled="!stockPagination.hasNext.value"
+              :style="{ display: stockPagination.totalPages.value <= 1 ? 'none' : 'flex' }"
+              @click="skipStockTransition = true; stockPagination.next()"
               data-test="warehouse-stock-next-page"
             >
               <SvgIcon name="chevron-right" :width="14" :height="14" />
             </button>
           </div>
           <div class="pagination-info">
-            <span>{{ pagination.showingFrom }}-{{ pagination.showingTo }}</span>
+            <span>{{ stockPagination.showingFrom }}-{{ stockPagination.showingTo }}</span>
             <span>&nbsp;{{ t('warehouse.of') }}&nbsp;</span>
-            <span>{{ pagination.total.value }}</span>
+            <span>{{ stockPagination.total.value }}</span>
           </div>
         </div>
       </GlassPanel>
@@ -929,15 +1401,267 @@ watch(stockItems, () => {
           <table class="data-table">
             <thead>
               <tr>
-                <th>{{ t('warehouse.col_product') }}</th>
-                <th>{{ t('warehouse.col_batch_number') }}</th>
-                <th>{{ t('warehouse.col_lot_code') }}</th>
-                <th>{{ t('warehouse.col_quantity') }}</th>
-                <th>{{ t('warehouse.col_remaining') }}</th>
-                <th>{{ t('warehouse.col_unit') }}</th>
-                <th>{{ t('warehouse.col_unit_price') }}</th>
-                <th>{{ t('warehouse.col_received') }}</th>
-                <th>{{ t('warehouse.col_status') }}</th>
+                <th>
+                  <button class="th-sort-btn" @click="toggleBatchesSort('productName')">
+                    {{ t('warehouse.col_product') }}
+                    <span class="sort-icon-group">
+                      <SvgIcon
+                        name="chevron-up"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: batchesSort.sortBy === 'productName' && batchesSort.sortDir === 'asc' }"
+                      />
+                      <SvgIcon
+                        name="chevron-down"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: batchesSort.sortBy === 'productName' && batchesSort.sortDir === 'desc' }"
+                      />
+                    </span>
+                  </button>
+                </th>
+                <th>
+                  <button class="th-sort-btn" @click="toggleBatchesSort('batchNumber')">
+                    <div class="th-content">
+                      {{ t('warehouse.col_batch_number') }}
+                      <span v-tooltip="t('warehouse.col_batch_number_hint')" class="info-hint">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </span>
+                    </div>
+                    <span class="sort-icon-group">
+                      <SvgIcon
+                        name="chevron-up"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: batchesSort.sortBy === 'batchNumber' && batchesSort.sortDir === 'asc' }"
+                      />
+                      <SvgIcon
+                        name="chevron-down"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: batchesSort.sortBy === 'batchNumber' && batchesSort.sortDir === 'desc' }"
+                      />
+                    </span>
+                  </button>
+                </th>
+                <th>
+                  <button class="th-sort-btn" @click="toggleBatchesSort('lotCode')">
+                    <div class="th-content">
+                      {{ t('warehouse.col_lot_code') }}
+                      <span v-tooltip="t('warehouse.col_lot_code_hint')" class="info-hint">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </span>
+                    </div>
+                    <span class="sort-icon-group">
+                      <SvgIcon
+                        name="chevron-up"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: batchesSort.sortBy === 'lotCode' && batchesSort.sortDir === 'asc' }"
+                      />
+                      <SvgIcon
+                        name="chevron-down"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: batchesSort.sortBy === 'lotCode' && batchesSort.sortDir === 'desc' }"
+                      />
+                    </span>
+                  </button>
+                </th>
+                <th>
+                  <button class="th-sort-btn" @click="toggleBatchesSort('quantity')">
+                    <div class="th-content">
+                      {{ t('warehouse.col_quantity') }}
+                      <span v-tooltip="t('warehouse.col_quantity_hint')" class="info-hint">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </span>
+                    </div>
+                    <span class="sort-icon-group">
+                      <SvgIcon
+                        name="chevron-up"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: batchesSort.sortBy === 'quantity' && batchesSort.sortDir === 'asc' }"
+                      />
+                      <SvgIcon
+                        name="chevron-down"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: batchesSort.sortBy === 'quantity' && batchesSort.sortDir === 'desc' }"
+                      />
+                    </span>
+                  </button>
+                </th>
+                <th>
+                  <button class="th-sort-btn" @click="toggleBatchesSort('quantityRemaining')">
+                    <div class="th-content">
+                      {{ t('warehouse.col_remaining') }}
+                      <span v-tooltip="t('warehouse.col_remaining_hint')" class="info-hint">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </span>
+                    </div>
+                    <span class="sort-icon-group">
+                      <SvgIcon
+                        name="chevron-up"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: batchesSort.sortBy === 'quantityRemaining' && batchesSort.sortDir === 'asc' }"
+                      />
+                      <SvgIcon
+                        name="chevron-down"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: batchesSort.sortBy === 'quantityRemaining' && batchesSort.sortDir === 'desc' }"
+                      />
+                    </span>
+                  </button>
+                </th>
+                <th>
+                  <button class="th-sort-btn" @click="toggleBatchesSort('unit')">
+                    <div class="th-content">
+                      {{ t('warehouse.col_unit') }}
+                      <span v-tooltip="t('warehouse.col_unit_hint')" class="info-hint">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </span>
+                    </div>
+                    <span class="sort-icon-group">
+                      <SvgIcon
+                        name="chevron-up"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: batchesSort.sortBy === 'unit' && batchesSort.sortDir === 'asc' }"
+                      />
+                      <SvgIcon
+                        name="chevron-down"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: batchesSort.sortBy === 'unit' && batchesSort.sortDir === 'desc' }"
+                      />
+                    </span>
+                  </button>
+                </th>
+                <th>
+                  <button class="th-sort-btn" @click="toggleBatchesSort('unitPrice')">
+                    <div class="th-content">
+                      {{ t('warehouse.col_unit_price') }}
+                      <span v-tooltip="t('warehouse.col_unit_price_hint')" class="info-hint">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </span>
+                    </div>
+                    <span class="sort-icon-group">
+                      <SvgIcon
+                        name="chevron-up"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: batchesSort.sortBy === 'unitPrice' && batchesSort.sortDir === 'asc' }"
+                      />
+                      <SvgIcon
+                        name="chevron-down"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: batchesSort.sortBy === 'unitPrice' && batchesSort.sortDir === 'desc' }"
+                      />
+                    </span>
+                  </button>
+                </th>
+                <th>
+                  <button class="th-sort-btn" @click="toggleBatchesSort('receivedAt')">
+                    <div class="th-content">
+                      {{ t('warehouse.col_received') }}
+                      <span v-tooltip="t('warehouse.col_received_hint')" class="info-hint">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </span>
+                    </div>
+                    <span class="sort-icon-group">
+                      <SvgIcon
+                        name="chevron-up"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: batchesSort.sortBy === 'receivedAt' && batchesSort.sortDir === 'asc' }"
+                      />
+                      <SvgIcon
+                        name="chevron-down"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: batchesSort.sortBy === 'receivedAt' && batchesSort.sortDir === 'desc' }"
+                      />
+                    </span>
+                  </button>
+                </th>
+                <th>
+                  <button class="th-sort-btn" @click="toggleBatchesSort('status')">
+                    <div class="th-content">
+                      {{ t('warehouse.col_status') }}
+                      <span v-tooltip="t('warehouse.col_status_hint')" class="info-hint">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </span>
+                    </div>
+                    <span class="sort-icon-group">
+                      <SvgIcon
+                        name="chevron-up"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: batchesSort.sortBy === 'status' && batchesSort.sortDir === 'asc' }"
+                      />
+                      <SvgIcon
+                        name="chevron-down"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: batchesSort.sortBy === 'status' && batchesSort.sortDir === 'desc' }"
+                      />
+                    </span>
+                  </button>
+                </th>
                 <th class="th-actions">{{ t('warehouse.col_actions') }}</th>
               </tr>
             </thead>
@@ -950,7 +1674,7 @@ watch(stockItems, () => {
                 <td>
                   <router-link
                     :to="{ name: 'admin-warehouse-batch', params: { id: batch.id } }"
-                    class="cell-link"
+                    class="name-link"
                   >
                     {{ tf(batch.productName) }}
                   </router-link>
@@ -967,25 +1691,28 @@ watch(stockItems, () => {
                 <td>{{ batch.unitPrice.toFixed(2) }} €</td>
                 <td>{{ batch.receivedAt.slice(0, 10) }}</td>
                 <td>
-                  <span class="pill" :class="BATCH_STATUS_PILL[batch.status]">
-                    {{ t(`warehouse.batch_status_${batch.status}`) }}
+                  <span class="status-pill" :class="BATCH_STATUS_PILL[batch.status]">
+                    {{ t(`warehouse.status_${batch.status}`) }}
                   </span>
                 </td>
                 <td>
                   <div class="row-actions">
                     <router-link
+                      v-tooltip="t('tooltip.view_details')"
                       :to="{ name: 'admin-warehouse-batch', params: { id: batch.id } }"
-                      class="btn btn-sm btn-ghost"
-                      :title="t('warehouse.btn_edit')"
+                      class="action-icon-btn"
+                      data-test="batch-view-btn"
+                      @click.stop
                     >
-                      <SvgIcon name="edit-pencil" :width="16" :height="16" />
+                      <SvgIcon name="external-link" :width="16" :height="16" />
                     </router-link>
                     <button
-                      class="btn btn-sm btn-ghost btn-danger-ghost"
-                      :title="t('warehouse.btn_delete')"
-                      @click="confirmDeleteBatch(batch.id, tf(batch.productName))"
+                      v-tooltip="t('warehouse.btn_delete')"
+                      class="action-icon-btn action-danger"
+                      data-test="batch-delete-btn"
+                      @click.stop="confirmDeleteBatch(batch.id, tf(batch.productName))"
                     >
-                      <SvgIcon name="trash-2" :width="16" :height="16" />
+                      <SvgIcon name="trash" :width="16" :height="16" />
                     </button>
                   </div>
                 </td>
@@ -995,44 +1722,59 @@ watch(stockItems, () => {
         </div>
 
         <!-- Pagination -->
-        <div v-if="pagination.total.value > 0" class="pagination-bar">
-          <div class="pagination-info">
-            {{ pagination.showingFrom }}–{{ pagination.showingTo }}
-            {{ t('warehouse.of') }} {{ pagination.total }}
-          </div>
-          <div class="pagination-controls">
+        <div v-if="batchesPagination.total.value > 0" class="pagination-bar" data-test="warehouse-batches-pagination">
+          <div class="page-size" data-test="warehouse-batches-page-size">
+            <span>{{ t('warehouse.page_size') }}</span>
             <CustomSelect
-              v-model="pageSizeStr"
+              v-model="batchesPageSizeStr"
               :options="PAGE_SIZE_OPTIONS"
-              data-test="warehouse-page-size"
+              :open-up="true"
+              class="custom-select-sm"
             />
+          </div>
+          <div class="pagination-nav">
             <button
-              class="btn btn-sm btn-ghost"
-              :disabled="!pagination.hasPrev.value"
-              @click="pagination.prev()"
-              data-test="warehouse-prev-page"
+              class="btn btn-icon btn-sm"
+              :disabled="!batchesPagination.hasPrev.value"
+              :style="{ display: batchesPagination.totalPages.value <= 1 ? 'none' : 'flex' }"
+              @click="batchesPagination.prev()"
+              data-test="warehouse-batches-prev-page"
             >
-              <SvgIcon name="chevron-left" :width="16" :height="16" />
+              <SvgIcon
+                name="chevron-right"
+                :width="14"
+                :height="14"
+                style="transform: rotate(180deg)"
+              />
             </button>
+            <div class="pagination-pages">
+              <template v-for="(p, i) in batchesPagination.pageNumbers()" :key="i">
+                <span v-if="p === '...'" class="pagination-ellipsis">...</span>
+                <button
+                  v-else
+                  class="page-btn"
+                  :class="{ active: p === batchesPagination.page.value }"
+                  @click="batchesPagination.goTo(p as number)"
+                  :data-test="`warehouse-batches-page-${p}`"
+                >
+                  {{ p }}
+                </button>
+              </template>
+            </div>
             <button
-              v-for="p in pagination.pageNumbers()"
-              :key="p"
-              class="btn btn-sm"
-              :class="{ 'btn-primary': p === pagination.page.value, 'btn-ghost': p !== pagination.page.value }"
-              :disabled="p === '...'"
-              @click="pagination.goTo(p as number)"
-              :data-test="`warehouse-page-${p}`"
+              class="btn btn-icon btn-sm"
+              :disabled="!batchesPagination.hasNext.value"
+              :style="{ display: batchesPagination.totalPages.value <= 1 ? 'none' : 'flex' }"
+              @click="batchesPagination.next()"
+              data-test="warehouse-batches-next-page"
             >
-              {{ p }}
+              <SvgIcon name="chevron-right" :width="14" :height="14" />
             </button>
-            <button
-              class="btn btn-sm btn-ghost"
-              :disabled="!pagination.hasNext.value"
-              @click="pagination.next()"
-              data-test="warehouse-next-page"
-            >
-              <SvgIcon name="chevron-right" :width="16" :height="16" />
-            </button>
+          </div>
+          <div class="pagination-info">
+            <span>{{ batchesPagination.showingFrom }}-{{ batchesPagination.showingTo }}</span>
+            <span>&nbsp;{{ t('warehouse.of') }}&nbsp;</span>
+            <span>{{ batchesPagination.total.value }}</span>
           </div>
         </div>
       </GlassPanel>
@@ -1066,14 +1808,237 @@ watch(stockItems, () => {
           <table class="data-table">
             <thead>
               <tr>
-                <th>{{ t('warehouse.col_product') }}</th>
-                <th>{{ t('warehouse.col_batch_number') }}</th>
-                <th>{{ t('warehouse.col_dimensions') }}</th>
-                <th>{{ t('warehouse.col_weight') }}</th>
-                <th>{{ t('warehouse.col_quantity') }}</th>
-                <th>{{ t('warehouse.col_unit') }}</th>
-                <th>{{ t('warehouse.col_location') }}</th>
-                <th>{{ t('warehouse.col_status') }}</th>
+                <th>
+                  <button class="th-sort-btn" @click="toggleOffcutsSort('productName')">
+                    {{ t('warehouse.col_product') }}
+                    <span class="sort-icon-group">
+                      <SvgIcon
+                        name="chevron-up"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: offcutsSort.sortBy === 'productName' && offcutsSort.sortDir === 'asc' }"
+                      />
+                      <SvgIcon
+                        name="chevron-down"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: offcutsSort.sortBy === 'productName' && offcutsSort.sortDir === 'desc' }"
+                      />
+                    </span>
+                  </button>
+                </th>
+                <th>
+                  <button class="th-sort-btn" @click="toggleOffcutsSort('batchNumber')">
+                    <div class="th-content">
+                      {{ t('warehouse.col_batch_number') }}
+                      <span v-tooltip="t('warehouse.col_batch_number_hint')" class="info-hint">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </span>
+                    </div>
+                    <span class="sort-icon-group">
+                      <SvgIcon
+                        name="chevron-up"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: offcutsSort.sortBy === 'batchNumber' && offcutsSort.sortDir === 'asc' }"
+                      />
+                      <SvgIcon
+                        name="chevron-down"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: offcutsSort.sortBy === 'batchNumber' && offcutsSort.sortDir === 'desc' }"
+                      />
+                    </span>
+                  </button>
+                </th>
+                <th>
+                  <button class="th-sort-btn" @click="toggleOffcutsSort('lengthMm')">
+                    <div class="th-content">
+                      {{ t('warehouse.col_length') }}
+                      <span v-tooltip="t('warehouse.col_length_hint')" class="info-hint">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </span>
+                    </div>
+                    <span class="sort-icon-group">
+                      <SvgIcon
+                        name="chevron-up"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: offcutsSort.sortBy === 'lengthMm' && offcutsSort.sortDir === 'asc' }"
+                      />
+                      <SvgIcon
+                        name="chevron-down"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: offcutsSort.sortBy === 'lengthMm' && offcutsSort.sortDir === 'desc' }"
+                      />
+                    </span>
+                  </button>
+                </th>
+                <th>
+                  <button class="th-sort-btn" @click="toggleOffcutsSort('weightKg')">
+                    <div class="th-content">
+                      {{ t('warehouse.col_weight') }}
+                      <span v-tooltip="t('warehouse.col_weight_hint')" class="info-hint">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </span>
+                    </div>
+                    <span class="sort-icon-group">
+                      <SvgIcon
+                        name="chevron-up"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: offcutsSort.sortBy === 'weightKg' && offcutsSort.sortDir === 'asc' }"
+                      />
+                      <SvgIcon
+                        name="chevron-down"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: offcutsSort.sortBy === 'weightKg' && offcutsSort.sortDir === 'desc' }"
+                      />
+                    </span>
+                  </button>
+                </th>
+                <th>
+                  <button class="th-sort-btn" @click="toggleOffcutsSort('quantity')">
+                    <div class="th-content">
+                      {{ t('warehouse.col_quantity') }}
+                      <span v-tooltip="t('warehouse.col_quantity_hint')" class="info-hint">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </span>
+                    </div>
+                    <span class="sort-icon-group">
+                      <SvgIcon
+                        name="chevron-up"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: offcutsSort.sortBy === 'quantity' && offcutsSort.sortDir === 'asc' }"
+                      />
+                      <SvgIcon
+                        name="chevron-down"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: offcutsSort.sortBy === 'quantity' && offcutsSort.sortDir === 'desc' }"
+                      />
+                    </span>
+                  </button>
+                </th>
+                <th>
+                  <button class="th-sort-btn" @click="toggleOffcutsSort('unit')">
+                    <div class="th-content">
+                      {{ t('warehouse.col_unit') }}
+                      <span v-tooltip="t('warehouse.col_unit_hint')" class="info-hint">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </span>
+                    </div>
+                    <span class="sort-icon-group">
+                      <SvgIcon
+                        name="chevron-up"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: offcutsSort.sortBy === 'unit' && offcutsSort.sortDir === 'asc' }"
+                      />
+                      <SvgIcon
+                        name="chevron-down"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: offcutsSort.sortBy === 'unit' && offcutsSort.sortDir === 'desc' }"
+                      />
+                    </span>
+                  </button>
+                </th>
+                <th>
+                  <button class="th-sort-btn" @click="toggleOffcutsSort('location')">
+                    <div class="th-content">
+                      {{ t('warehouse.col_location') }}
+                      <span v-tooltip="t('warehouse.col_location_hint')" class="info-hint">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </span>
+                    </div>
+                    <span class="sort-icon-group">
+                      <SvgIcon
+                        name="chevron-up"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: offcutsSort.sortBy === 'location' && offcutsSort.sortDir === 'asc' }"
+                      />
+                      <SvgIcon
+                        name="chevron-down"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: offcutsSort.sortBy === 'location' && offcutsSort.sortDir === 'desc' }"
+                      />
+                    </span>
+                  </button>
+                </th>
+                <th>
+                  <button class="th-sort-btn" @click="toggleOffcutsSort('status')">
+                    <div class="th-content">
+                      {{ t('warehouse.col_status') }}
+                      <span v-tooltip="t('warehouse.col_status_hint')" class="info-hint">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </span>
+                    </div>
+                    <span class="sort-icon-group">
+                      <SvgIcon
+                        name="chevron-up"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: offcutsSort.sortBy === 'status' && offcutsSort.sortDir === 'asc' }"
+                      />
+                      <SvgIcon
+                        name="chevron-down"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: offcutsSort.sortBy === 'status' && offcutsSort.sortDir === 'desc' }"
+                      />
+                    </span>
+                  </button>
+                </th>
                 <th class="th-actions">{{ t('warehouse.col_actions') }}</th>
               </tr>
             </thead>
@@ -1084,12 +2049,17 @@ watch(stockItems, () => {
                 data-test="warehouse-offcut-row"
               >
                 <td>
-                  <span class="cell-link">{{ tf(offcut.productName) }}</span>
+                  <router-link
+                    :to="{ name: 'admin-product-card', params: { id: offcut.productId } }"
+                    class="name-link"
+                  >
+                    {{ tf(offcut.productName) }}
+                  </router-link>
                 </td>
                 <td><code class="lot-code">{{ offcut.batchNumber }}</code></td>
                 <td>
                   <template v-if="offcut.lengthMm">
-                    {{ offcut.lengthMm }}×{{ offcut.widthMm ?? '—' }} mm
+                    {{ offcut.lengthMm }}
                   </template>
                   <span v-else class="text-muted">—</span>
                 </td>
@@ -1098,18 +2068,28 @@ watch(stockItems, () => {
                 <td>{{ t(`warehouse.unit_${offcut.unit}`) }}</td>
                 <td>{{ offcut.location ?? '—' }}</td>
                 <td>
-                  <span class="pill" :class="OFFCUT_STATUS_PILL[offcut.status]">
-                    {{ t(`warehouse.offcut_status_${offcut.status}`) }}
+                  <span class="status-pill" :class="OFFCUT_STATUS_PILL[offcut.status]">
+                    {{ t(`warehouse.status_${offcut.status}`) }}
                   </span>
                 </td>
                 <td>
                   <div class="row-actions">
-                    <button
-                      class="btn btn-sm btn-ghost btn-danger-ghost"
-                      :title="t('warehouse.btn_delete')"
-                      @click="confirmDeleteOffcut(offcut.id, tf(offcut.productName))"
+                    <router-link
+                      v-tooltip="t('tooltip.view_details')"
+                      :to="{ name: 'admin-product-card', params: { id: offcut.productId } }"
+                      class="action-icon-btn"
+                      data-test="offcut-view-btn"
+                      @click.stop
                     >
-                      <SvgIcon name="trash-2" :width="16" :height="16" />
+                      <SvgIcon name="external-link" :width="16" :height="16" />
+                    </router-link>
+                    <button
+                      v-tooltip="t('warehouse.btn_delete')"
+                      class="action-icon-btn action-danger"
+                      data-test="offcut-delete-btn"
+                      @click.stop="confirmDeleteOffcut(offcut.id, tf(offcut.productName))"
+                    >
+                      <SvgIcon name="trash" :width="16" :height="16" />
                     </button>
                   </div>
                 </td>
@@ -1119,41 +2099,59 @@ watch(stockItems, () => {
         </div>
 
         <!-- Pagination -->
-        <div v-if="pagination.total.value > 0" class="pagination-bar">
-          <div class="pagination-info">
-            {{ pagination.showingFrom }}–{{ pagination.showingTo }}
-            {{ t('warehouse.of') }} {{ pagination.total }}
-          </div>
-          <div class="pagination-controls">
+        <div v-if="offcutsPagination.total.value > 0" class="pagination-bar" data-test="warehouse-offcuts-pagination">
+          <div class="page-size" data-test="warehouse-offcuts-page-size">
+            <span>{{ t('warehouse.page_size') }}</span>
             <CustomSelect
-              v-model="pageSizeStr"
+              v-model="offcutsPageSizeStr"
               :options="PAGE_SIZE_OPTIONS"
-              data-test="warehouse-page-size"
+              :open-up="true"
+              class="custom-select-sm"
             />
+          </div>
+          <div class="pagination-nav">
             <button
-              class="btn btn-sm btn-ghost"
-              :disabled="!pagination.hasPrev.value"
-              @click="pagination.prev()"
+              class="btn btn-icon btn-sm"
+              :disabled="!offcutsPagination.hasPrev.value"
+              :style="{ display: offcutsPagination.totalPages.value <= 1 ? 'none' : 'flex' }"
+              @click="offcutsPagination.prev()"
+              data-test="warehouse-offcuts-prev-page"
             >
-              <SvgIcon name="chevron-left" :width="16" :height="16" />
+              <SvgIcon
+                name="chevron-right"
+                :width="14"
+                :height="14"
+                style="transform: rotate(180deg)"
+              />
             </button>
+            <div class="pagination-pages">
+              <template v-for="(p, i) in offcutsPagination.pageNumbers()" :key="i">
+                <span v-if="p === '...'" class="pagination-ellipsis">...</span>
+                <button
+                  v-else
+                  class="page-btn"
+                  :class="{ active: p === offcutsPagination.page.value }"
+                  @click="offcutsPagination.goTo(p as number)"
+                  :data-test="`warehouse-offcuts-page-${p}`"
+                >
+                  {{ p }}
+                </button>
+              </template>
+            </div>
             <button
-              v-for="p in pagination.pageNumbers()"
-              :key="p"
-              class="btn btn-sm"
-              :class="{ 'btn-primary': p === pagination.page.value, 'btn-ghost': p !== pagination.page.value }"
-              :disabled="p === '...'"
-              @click="pagination.goTo(p as number)"
+              class="btn btn-icon btn-sm"
+              :disabled="!offcutsPagination.hasNext.value"
+              :style="{ display: offcutsPagination.totalPages.value <= 1 ? 'none' : 'flex' }"
+              @click="offcutsPagination.next()"
+              data-test="warehouse-offcuts-next-page"
             >
-              {{ p }}
+              <SvgIcon name="chevron-right" :width="14" :height="14" />
             </button>
-            <button
-              class="btn btn-sm btn-ghost"
-              :disabled="!pagination.hasNext.value"
-              @click="pagination.next()"
-            >
-              <SvgIcon name="chevron-right" :width="16" :height="16" />
-            </button>
+          </div>
+          <div class="pagination-info">
+            <span>{{ offcutsPagination.showingFrom }}-{{ offcutsPagination.showingTo }}</span>
+            <span>&nbsp;{{ t('warehouse.of') }}&nbsp;</span>
+            <span>{{ offcutsPagination.total.value }}</span>
           </div>
         </div>
       </GlassPanel>
@@ -1187,15 +2185,268 @@ watch(stockItems, () => {
           <table class="data-table">
             <thead>
               <tr>
-                <th>{{ t('warehouse.col_date') }}</th>
-                <th>{{ t('warehouse.col_type') }}</th>
-                <th>{{ t('warehouse.col_product') }}</th>
-                <th>{{ t('warehouse.col_batch_number') }}</th>
-                <th>{{ t('warehouse.col_quantity') }}</th>
-                <th>{{ t('warehouse.col_unit') }}</th>
-                <th>{{ t('warehouse.col_unit_price') }}</th>
-                <th>{{ t('warehouse.col_total') }}</th>
-                <th>{{ t('warehouse.col_reference') }}</th>
+                <th>
+                  <button class="th-sort-btn" @click="toggleMovementsSort('movedAt')">
+                    <div class="th-content">
+                      {{ t('warehouse.col_date') }}
+                      <span v-tooltip="t('warehouse.col_date_hint')" class="info-hint">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </span>
+                    </div>
+                    <span class="sort-icon-group">
+                      <SvgIcon
+                        name="chevron-up"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: movementsSort.sortBy === 'movedAt' && movementsSort.sortDir === 'asc' }"
+                      />
+                      <SvgIcon
+                        name="chevron-down"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: movementsSort.sortBy === 'movedAt' && movementsSort.sortDir === 'desc' }"
+                      />
+                    </span>
+                  </button>
+                </th>
+                <th>
+                  <button class="th-sort-btn" @click="toggleMovementsSort('type')">
+                    <div class="th-content">
+                      {{ t('warehouse.col_type') }}
+                      <span v-tooltip="t('warehouse.col_type_hint')" class="info-hint">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </span>
+                    </div>
+                    <span class="sort-icon-group">
+                      <SvgIcon
+                        name="chevron-up"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: movementsSort.sortBy === 'type' && movementsSort.sortDir === 'asc' }"
+                      />
+                      <SvgIcon
+                        name="chevron-down"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: movementsSort.sortBy === 'type' && movementsSort.sortDir === 'desc' }"
+                      />
+                    </span>
+                  </button>
+                </th>
+                <th>
+                  <button class="th-sort-btn" @click="toggleMovementsSort('productName')">
+                    {{ t('warehouse.col_product') }}
+                    <span class="sort-icon-group">
+                      <SvgIcon
+                        name="chevron-up"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: movementsSort.sortBy === 'productName' && movementsSort.sortDir === 'asc' }"
+                      />
+                      <SvgIcon
+                        name="chevron-down"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: movementsSort.sortBy === 'productName' && movementsSort.sortDir === 'desc' }"
+                      />
+                    </span>
+                  </button>
+                </th>
+                <th>
+                  <button class="th-sort-btn" @click="toggleMovementsSort('batchNumber')">
+                    <div class="th-content">
+                      {{ t('warehouse.col_batch_number') }}
+                      <span v-tooltip="t('warehouse.col_batch_number_hint')" class="info-hint">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </span>
+                    </div>
+                    <span class="sort-icon-group">
+                      <SvgIcon
+                        name="chevron-up"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: movementsSort.sortBy === 'batchNumber' && movementsSort.sortDir === 'asc' }"
+                      />
+                      <SvgIcon
+                        name="chevron-down"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: movementsSort.sortBy === 'batchNumber' && movementsSort.sortDir === 'desc' }"
+                      />
+                    </span>
+                  </button>
+                </th>
+                <th>
+                  <button class="th-sort-btn" @click="toggleMovementsSort('quantity')">
+                    <div class="th-content">
+                      {{ t('warehouse.col_quantity') }}
+                      <span v-tooltip="t('warehouse.col_quantity_hint')" class="info-hint">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </span>
+                    </div>
+                    <span class="sort-icon-group">
+                      <SvgIcon
+                        name="chevron-up"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: movementsSort.sortBy === 'quantity' && movementsSort.sortDir === 'asc' }"
+                      />
+                      <SvgIcon
+                        name="chevron-down"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: movementsSort.sortBy === 'quantity' && movementsSort.sortDir === 'desc' }"
+                      />
+                    </span>
+                  </button>
+                </th>
+                <th>
+                  <button class="th-sort-btn" @click="toggleMovementsSort('unit')">
+                    <div class="th-content">
+                      {{ t('warehouse.col_unit') }}
+                      <span v-tooltip="t('warehouse.col_unit_hint')" class="info-hint">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </span>
+                    </div>
+                    <span class="sort-icon-group">
+                      <SvgIcon
+                        name="chevron-up"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: movementsSort.sortBy === 'unit' && movementsSort.sortDir === 'asc' }"
+                      />
+                      <SvgIcon
+                        name="chevron-down"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: movementsSort.sortBy === 'unit' && movementsSort.sortDir === 'desc' }"
+                      />
+                    </span>
+                  </button>
+                </th>
+                <th>
+                  <button class="th-sort-btn" @click="toggleMovementsSort('unitPrice')">
+                    <div class="th-content">
+                      {{ t('warehouse.col_unit_price') }}
+                      <span v-tooltip="t('warehouse.col_unit_price_hint')" class="info-hint">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </span>
+                    </div>
+                    <span class="sort-icon-group">
+                      <SvgIcon
+                        name="chevron-up"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: movementsSort.sortBy === 'unitPrice' && movementsSort.sortDir === 'asc' }"
+                      />
+                      <SvgIcon
+                        name="chevron-down"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: movementsSort.sortBy === 'unitPrice' && movementsSort.sortDir === 'desc' }"
+                      />
+                    </span>
+                  </button>
+                </th>
+                <th>
+                  <button class="th-sort-btn" @click="toggleMovementsSort('totalCost')">
+                    <div class="th-content">
+                      {{ t('warehouse.col_total') }}
+                      <span v-tooltip="t('warehouse.col_total_hint')" class="info-hint">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </span>
+                    </div>
+                    <span class="sort-icon-group">
+                      <SvgIcon
+                        name="chevron-up"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: movementsSort.sortBy === 'totalCost' && movementsSort.sortDir === 'asc' }"
+                      />
+                      <SvgIcon
+                        name="chevron-down"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: movementsSort.sortBy === 'totalCost' && movementsSort.sortDir === 'desc' }"
+                      />
+                    </span>
+                  </button>
+                </th>
+                <th>
+                  <button class="th-sort-btn" @click="toggleMovementsSort('referenceId')">
+                    <div class="th-content">
+                      {{ t('warehouse.col_reference') }}
+                      <span v-tooltip="t('warehouse.col_reference_hint')" class="info-hint">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </span>
+                    </div>
+                    <span class="sort-icon-group">
+                      <SvgIcon
+                        name="chevron-up"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: movementsSort.sortBy === 'referenceId' && movementsSort.sortDir === 'asc' }"
+                      />
+                      <SvgIcon
+                        name="chevron-down"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: movementsSort.sortBy === 'referenceId' && movementsSort.sortDir === 'desc' }"
+                      />
+                    </span>
+                  </button>
+                </th>
+                <th class="th-actions">{{ t('warehouse.col_actions') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -1206,60 +2457,112 @@ watch(stockItems, () => {
               >
                 <td>{{ mov.movedAt.slice(0, 10) }}</td>
                 <td>
-                  <span class="pill" :class="MOVEMENT_TYPE_PILL[mov.type]">
-                    {{ t(`warehouse.movement_type_${mov.type}`) }}
+                  <span class="status-pill" :class="MOVEMENT_TYPE_PILL[mov.type]">
+                    {{ t(`warehouse.type_${mov.type.replace('-', '_')}`) }}
                   </span>
                 </td>
                 <td>
-                  <span class="cell-link">{{ tf(mov.productName) }}</span>
+                  <router-link
+                    :to="{ name: 'admin-product-card', params: { id: mov.productId } }"
+                    class="name-link"
+                  >
+                    {{ tf(mov.productName) }}
+                  </router-link>
                 </td>
                 <td><code class="lot-code">{{ mov.batchNumber }}</code></td>
                 <td>{{ mov.quantity }}</td>
                 <td>{{ t(`warehouse.unit_${mov.unit}`) }}</td>
                 <td>{{ mov.unitPrice.toFixed(2) }} €</td>
                 <td>{{ (mov.quantity * mov.unitPrice).toFixed(2) }} €</td>
-                <td>{{ mov.referenceId ?? '—' }}</td>
+                <td>
+                  <span v-if="mov.type === 'write-off' && mov.notes" class="badge badge-ref-waste_report">
+                    {{ mov.notes }}
+                  </span>
+                  <span v-else-if="mov.referenceType" class="badge" :class="`badge-ref-${mov.referenceType}`">
+                    {{ t(`warehouse.reference_${mov.referenceType}`) }}
+                  </span>
+                  <span v-else class="text-muted">—</span>
+                </td>
+                <td>
+                  <div class="row-actions">
+                    <router-link
+                      v-tooltip="t('tooltip.view_details')"
+                      :to="{ name: 'admin-product-card', params: { id: mov.productId } }"
+                      class="action-icon-btn"
+                      data-test="movement-view-btn"
+                      @click.stop
+                    >
+                      <SvgIcon name="external-link" :width="16" :height="16" />
+                    </router-link>
+                    <button
+                      v-tooltip="t('warehouse.btn_delete')"
+                      class="action-icon-btn action-danger"
+                      data-test="movement-delete-btn"
+                      @click.stop="confirmDeleteMovement(mov.id, tf(mov.productName))"
+                    >
+                      <SvgIcon name="trash" :width="16" :height="16" />
+                    </button>
+                  </div>
+                </td>
               </tr>
             </tbody>
           </table>
         </div>
 
         <!-- Pagination -->
-        <div v-if="pagination.total.value > 0" class="pagination-bar">
-          <div class="pagination-info">
-            {{ pagination.showingFrom }}–{{ pagination.showingTo }}
-            {{ t('warehouse.of') }} {{ pagination.total }}
-          </div>
-          <div class="pagination-controls">
+        <div v-if="movementsPagination.total.value > 0" class="pagination-bar" data-test="warehouse-movements-pagination">
+          <div class="page-size" data-test="warehouse-movements-page-size">
+            <span>{{ t('warehouse.page_size') }}</span>
             <CustomSelect
-              v-model="pageSizeStr"
+              v-model="movementsPageSizeStr"
               :options="PAGE_SIZE_OPTIONS"
-              data-test="warehouse-page-size"
+              :open-up="true"
+              class="custom-select-sm"
             />
+          </div>
+          <div class="pagination-nav">
             <button
-              class="btn btn-sm btn-ghost"
-              :disabled="!pagination.hasPrev.value"
-              @click="pagination.prev()"
+              class="btn btn-icon btn-sm"
+              :disabled="!movementsPagination.hasPrev.value"
+              :style="{ display: movementsPagination.totalPages.value <= 1 ? 'none' : 'flex' }"
+              @click="movementsPagination.prev()"
+              data-test="warehouse-movements-prev-page"
             >
-              <SvgIcon name="chevron-left" :width="16" :height="16" />
+              <SvgIcon
+                name="chevron-right"
+                :width="14"
+                :height="14"
+                style="transform: rotate(180deg)"
+              />
             </button>
+            <div class="pagination-pages">
+              <template v-for="(p, i) in movementsPagination.pageNumbers()" :key="i">
+                <span v-if="p === '...'" class="pagination-ellipsis">...</span>
+                <button
+                  v-else
+                  class="page-btn"
+                  :class="{ active: p === movementsPagination.page.value }"
+                  @click="movementsPagination.goTo(p as number)"
+                  :data-test="`warehouse-movements-page-${p}`"
+                >
+                  {{ p }}
+                </button>
+              </template>
+            </div>
             <button
-              v-for="p in pagination.pageNumbers()"
-              :key="p"
-              class="btn btn-sm"
-              :class="{ 'btn-primary': p === pagination.page.value, 'btn-ghost': p !== pagination.page.value }"
-              :disabled="p === '...'"
-              @click="pagination.goTo(p as number)"
+              class="btn btn-icon btn-sm"
+              :disabled="!movementsPagination.hasNext.value"
+              :style="{ display: movementsPagination.totalPages.value <= 1 ? 'none' : 'flex' }"
+              @click="movementsPagination.next()"
+              data-test="warehouse-movements-next-page"
             >
-              {{ p }}
+              <SvgIcon name="chevron-right" :width="14" :height="14" />
             </button>
-            <button
-              class="btn btn-sm btn-ghost"
-              :disabled="!pagination.hasNext.value"
-              @click="pagination.next()"
-            >
-              <SvgIcon name="chevron-right" :width="16" :height="16" />
-            </button>
+          </div>
+          <div class="pagination-info">
+            <span>{{ movementsPagination.showingFrom }}-{{ movementsPagination.showingTo }}</span>
+            <span>&nbsp;{{ t('warehouse.of') }}&nbsp;</span>
+            <span>{{ movementsPagination.total.value }}</span>
           </div>
         </div>
       </GlassPanel>
@@ -1293,13 +2596,207 @@ watch(stockItems, () => {
           <table class="data-table">
             <thead>
               <tr>
-                <th>{{ t('warehouse.col_product') }}</th>
-                <th>{{ t('warehouse.col_current_stock') }}</th>
-                <th>{{ t('warehouse.col_min_required') }}</th>
-                <th>{{ t('warehouse.col_deficit_amount') }}</th>
-                <th>{{ t('warehouse.col_unit') }}</th>
-                <th>{{ t('warehouse.col_priority') }}</th>
-                <th>{{ t('warehouse.col_status') }}</th>
+                <th>
+                  <button class="th-sort-btn" @click="toggleDeficitSort('productName')">
+                    {{ t('warehouse.col_product') }}
+                    <span class="sort-icon-group">
+                      <SvgIcon
+                        name="chevron-up"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: deficitSort.sortBy === 'productName' && deficitSort.sortDir === 'asc' }"
+                      />
+                      <SvgIcon
+                        name="chevron-down"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: deficitSort.sortBy === 'productName' && deficitSort.sortDir === 'desc' }"
+                      />
+                    </span>
+                  </button>
+                </th>
+                <th>
+                  <button class="th-sort-btn" @click="toggleDeficitSort('currentStock')">
+                    <div class="th-content">
+                      {{ t('warehouse.col_current_stock') }}
+                      <span v-tooltip="t('warehouse.col_current_stock_hint')" class="info-hint">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </span>
+                    </div>
+                    <span class="sort-icon-group">
+                      <SvgIcon
+                        name="chevron-up"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: deficitSort.sortBy === 'currentStock' && deficitSort.sortDir === 'asc' }"
+                      />
+                      <SvgIcon
+                        name="chevron-down"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: deficitSort.sortBy === 'currentStock' && deficitSort.sortDir === 'desc' }"
+                      />
+                    </span>
+                  </button>
+                </th>
+                <th>
+                  <button class="th-sort-btn" @click="toggleDeficitSort('minRequired')">
+                    <div class="th-content">
+                      {{ t('warehouse.col_min_required') }}
+                      <span v-tooltip="t('warehouse.col_min_required_hint')" class="info-hint">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </span>
+                    </div>
+                    <span class="sort-icon-group">
+                      <SvgIcon
+                        name="chevron-up"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: deficitSort.sortBy === 'minRequired' && deficitSort.sortDir === 'asc' }"
+                      />
+                      <SvgIcon
+                        name="chevron-down"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: deficitSort.sortBy === 'minRequired' && deficitSort.sortDir === 'desc' }"
+                      />
+                    </span>
+                  </button>
+                </th>
+                <th>
+                  <button class="th-sort-btn" @click="toggleDeficitSort('deficitAmount')">
+                    <div class="th-content">
+                      {{ t('warehouse.col_deficit_amount') }}
+                      <span v-tooltip="t('warehouse.col_deficit_amount_hint')" class="info-hint">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </span>
+                    </div>
+                    <span class="sort-icon-group">
+                      <SvgIcon
+                        name="chevron-up"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: deficitSort.sortBy === 'deficitAmount' && deficitSort.sortDir === 'asc' }"
+                      />
+                      <SvgIcon
+                        name="chevron-down"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: deficitSort.sortBy === 'deficitAmount' && deficitSort.sortDir === 'desc' }"
+                      />
+                    </span>
+                  </button>
+                </th>
+                <th>
+                  <button class="th-sort-btn" @click="toggleDeficitSort('unit')">
+                    <div class="th-content">
+                      {{ t('warehouse.col_unit') }}
+                      <span v-tooltip="t('warehouse.col_unit_hint')" class="info-hint">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </span>
+                    </div>
+                    <span class="sort-icon-group">
+                      <SvgIcon
+                        name="chevron-up"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: deficitSort.sortBy === 'unit' && deficitSort.sortDir === 'asc' }"
+                      />
+                      <SvgIcon
+                        name="chevron-down"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: deficitSort.sortBy === 'unit' && deficitSort.sortDir === 'desc' }"
+                      />
+                    </span>
+                  </button>
+                </th>
+                <th>
+                  <button class="th-sort-btn" @click="toggleDeficitSort('priority')">
+                    <div class="th-content">
+                      {{ t('warehouse.col_priority') }}
+                      <span v-tooltip="t('warehouse.col_priority_hint')" class="info-hint">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </span>
+                    </div>
+                    <span class="sort-icon-group">
+                      <SvgIcon
+                        name="chevron-up"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: deficitSort.sortBy === 'priority' && deficitSort.sortDir === 'asc' }"
+                      />
+                      <SvgIcon
+                        name="chevron-down"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: deficitSort.sortBy === 'priority' && deficitSort.sortDir === 'desc' }"
+                      />
+                    </span>
+                  </button>
+                </th>
+                <th>
+                  <button class="th-sort-btn" @click="toggleDeficitSort('status')">
+                    <div class="th-content">
+                      {{ t('warehouse.col_status') }}
+                      <span v-tooltip="t('warehouse.col_status_hint')" class="info-hint">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </span>
+                    </div>
+                    <span class="sort-icon-group">
+                      <SvgIcon
+                        name="chevron-up"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: deficitSort.sortBy === 'status' && deficitSort.sortDir === 'asc' }"
+                      />
+                      <SvgIcon
+                        name="chevron-down"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: deficitSort.sortBy === 'status' && deficitSort.sortDir === 'desc' }"
+                      />
+                    </span>
+                  </button>
+                </th>
                 <th class="th-actions">{{ t('warehouse.col_actions') }}</th>
               </tr>
             </thead>
@@ -1311,7 +2808,12 @@ watch(stockItems, () => {
                 data-test="warehouse-deficit-row"
               >
                 <td>
-                  <span class="cell-link">{{ tf(item.productName) }}</span>
+                  <router-link
+                    :to="{ name: 'admin-product-card', params: { id: item.productId } }"
+                    class="name-link"
+                  >
+                    {{ tf(item.productName) }}
+                  </router-link>
                 </td>
                 <td :class="{ 'text-danger': item.currentStock <= 0 }">
                   {{ item.currentStock }}
@@ -1320,23 +2822,33 @@ watch(stockItems, () => {
                 <td class="text-danger fw-bold">{{ item.deficitAmount }}</td>
                 <td>{{ t(`warehouse.unit_${item.unit}`) }}</td>
                 <td>
-                  <span class="pill" :class="DEFICIT_PRIORITY_PILL[item.priority]">
-                    {{ t(`warehouse.deficit_priority_${item.priority}`) }}
+                  <span class="status-pill" :class="DEFICIT_PRIORITY_PILL[item.priority]">
+                    {{ t(`warehouse.priority_${item.priority}`) }}
                   </span>
                 </td>
                 <td>
-                  <span class="pill" :class="DEFICIT_STATUS_PILL[item.status]">
-                    {{ t(`warehouse.deficit_status_${item.status}`) }}
+                  <span class="status-pill" :class="DEFICIT_STATUS_PILL[item.status]">
+                    {{ t(`warehouse.status_${item.status}`) }}
                   </span>
                 </td>
                 <td>
                   <div class="row-actions">
-                    <button
-                      class="btn btn-sm btn-ghost btn-danger-ghost"
-                      :title="t('warehouse.btn_delete')"
-                      @click="confirmDeleteDeficit(item.id, tf(item.productName))"
+                    <router-link
+                      v-tooltip="t('tooltip.view_details')"
+                      :to="{ name: 'admin-product-card', params: { id: item.productId } }"
+                      class="action-icon-btn"
+                      data-test="deficit-view-btn"
+                      @click.stop
                     >
-                      <SvgIcon name="trash-2" :width="16" :height="16" />
+                      <SvgIcon name="external-link" :width="16" :height="16" />
+                    </router-link>
+                    <button
+                      v-tooltip="t('warehouse.btn_delete')"
+                      class="action-icon-btn action-danger"
+                      data-test="deficit-delete-btn"
+                      @click.stop="confirmDeleteDeficit(item.id, tf(item.productName))"
+                    >
+                      <SvgIcon name="trash" :width="16" :height="16" />
                     </button>
                   </div>
                 </td>
@@ -1346,41 +2858,59 @@ watch(stockItems, () => {
         </div>
 
         <!-- Pagination -->
-        <div v-if="pagination.total.value > 0" class="pagination-bar">
-          <div class="pagination-info">
-            {{ pagination.showingFrom }}–{{ pagination.showingTo }}
-            {{ t('warehouse.of') }} {{ pagination.total }}
-          </div>
-          <div class="pagination-controls">
+        <div v-if="deficitPagination.total.value > 0" class="pagination-bar" data-test="warehouse-deficit-pagination">
+          <div class="page-size" data-test="warehouse-deficit-page-size">
+            <span>{{ t('warehouse.page_size') }}</span>
             <CustomSelect
-              v-model="pageSizeStr"
+              v-model="deficitPageSizeStr"
               :options="PAGE_SIZE_OPTIONS"
-              data-test="warehouse-page-size"
+              :open-up="true"
+              class="custom-select-sm"
             />
+          </div>
+          <div class="pagination-nav">
             <button
-              class="btn btn-sm btn-ghost"
-              :disabled="!pagination.hasPrev.value"
-              @click="pagination.prev()"
+              class="btn btn-icon btn-sm"
+              :disabled="!deficitPagination.hasPrev.value"
+              :style="{ display: deficitPagination.totalPages.value <= 1 ? 'none' : 'flex' }"
+              @click="deficitPagination.prev()"
+              data-test="warehouse-deficit-prev-page"
             >
-              <SvgIcon name="chevron-left" :width="16" :height="16" />
+              <SvgIcon
+                name="chevron-right"
+                :width="14"
+                :height="14"
+                style="transform: rotate(180deg)"
+              />
             </button>
+            <div class="pagination-pages">
+              <template v-for="(p, i) in deficitPagination.pageNumbers()" :key="i">
+                <span v-if="p === '...'" class="pagination-ellipsis">...</span>
+                <button
+                  v-else
+                  class="page-btn"
+                  :class="{ active: p === deficitPagination.page.value }"
+                  @click="deficitPagination.goTo(p as number)"
+                  :data-test="`warehouse-deficit-page-${p}`"
+                >
+                  {{ p }}
+                </button>
+              </template>
+            </div>
             <button
-              v-for="p in pagination.pageNumbers()"
-              :key="p"
-              class="btn btn-sm"
-              :class="{ 'btn-primary': p === pagination.page.value, 'btn-ghost': p !== pagination.page.value }"
-              :disabled="p === '...'"
-              @click="pagination.goTo(p as number)"
+              class="btn btn-icon btn-sm"
+              :disabled="!deficitPagination.hasNext.value"
+              :style="{ display: deficitPagination.totalPages.value <= 1 ? 'none' : 'flex' }"
+              @click="deficitPagination.next()"
+              data-test="warehouse-deficit-next-page"
             >
-              {{ p }}
+              <SvgIcon name="chevron-right" :width="14" :height="14" />
             </button>
-            <button
-              class="btn btn-sm btn-ghost"
-              :disabled="!pagination.hasNext.value"
-              @click="pagination.next()"
-            >
-              <SvgIcon name="chevron-right" :width="16" :height="16" />
-            </button>
+          </div>
+          <div class="pagination-info">
+            <span>{{ deficitPagination.showingFrom }}-{{ deficitPagination.showingTo }}</span>
+            <span>&nbsp;{{ t('warehouse.of') }}&nbsp;</span>
+            <span>{{ deficitPagination.total.value }}</span>
           </div>
         </div>
       </GlassPanel>

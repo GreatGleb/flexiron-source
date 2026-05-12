@@ -10,7 +10,7 @@ import { mockGetCategory } from './categories'
 // cat-5 Consumables: f-5-1 (enum), f-5-2 (boolean), f-5-3 (date)
 // cat-6 Equipment:   f-6-1 (text), f-6-2 (number), f-6-3 (email), f-6-4 (file)
 
-const STORE: Product[] = [
+export const STORE: Product[] = [
   {
     id: 'prod-001',
     name: { ru: 'Стальной лист 3мм', en: 'Steel Sheet 3mm', lt: 'Plieno lakštas 3mm' },

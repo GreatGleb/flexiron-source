@@ -436,6 +436,12 @@
   color: #00d2b4;
 }
 
+.pill-consumed {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.6);
+}
+
 /* ─── Table header content wrapper for info-hint alignment ─────────────────── */
 
 .data-table th .th-content {
@@ -517,6 +523,42 @@
   }
 }
 
+/* ─── Responsive: vertical padding for product name cells ─────────────────── */
+/* Match the existing .page-warehouse .data-table td padding values
+   so single-line cells stay the same height as before. */
+
+@media (max-width: 768px) {
+  .stock-table-fixed .data-table td,
+  .data-table-wrapper .data-table td:first-child {
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+}
+
+@media (max-width: 600px) {
+  .stock-table-fixed .data-table td,
+  .data-table-wrapper .data-table td:first-child {
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .stock-table-fixed .data-table td,
+  .data-table-wrapper .data-table td:first-child {
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+}
+
+@media (max-width: 320px) {
+  .stock-table-fixed .data-table td,
+  .data-table-wrapper .data-table td:first-child {
+    padding-top: 5px;
+    padding-bottom: 5px;
+  }
+}
+
 /* ==============================
    Split-table layout: fixed Product column + scrollable columns
    ============================== */
@@ -562,9 +604,10 @@
   line-height: 1.2;
 }
 
-/* Disable CSS ::after tooltip on info-hint inside stock table — v-tooltip directive is used instead */
+/* Disable CSS ::after tooltip on info-hint inside warehouse data tables — v-tooltip directive is used instead */
 .stock-table-scroll .info-hint::after,
-.stock-table-fixed .info-hint::after {
+.stock-table-fixed .info-hint::after,
+.data-table-wrapper .info-hint::after {
   display: none !important;
 }
 
@@ -590,10 +633,13 @@
 }
 
 /* ─── Product column text truncation in split-table (2-line clamp) ──────── */
-/* display:-webkit-box is ONLY on .name-link, NOT on td itself.
-   This ensures td keeps height:40px from erp-base.css, matching the scroll table. */
+/* height:auto + padding replaces the fixed height:40px from erp-base.css
+   so that wrapped text has consistent vertical spacing. */
 .stock-table-fixed .data-table td {
   white-space: normal;
+  height: auto;
+  padding-top: 11px;
+  padding-bottom: 11px;
 }
 
 /* The name-link inside the fixed column — 2-line clamp with ellipsis */
@@ -608,6 +654,15 @@
   max-width: 100%;
   line-height: 1.2;
   vertical-align: middle;
+}
+
+/* ─── Consistent vertical padding for product name cells in other warehouse tabs ── */
+/* Batches, Offcuts, Movements, Deficit — product name is always the first column.
+   height:auto + padding replaces the fixed height:40px from erp-base.css. */
+.data-table-wrapper .data-table td:first-child {
+  height: auto;
+  padding-top: 11px;
+  padding-bottom: 11px;
 }
 
 /* ─── Responsive: Product column width in split-table ────────────────────── */
@@ -636,8 +691,9 @@
   }
 }
 
-/* ─── Stock pagination bar padding (matches data-table tfoot td) ──────────── */
-.stock-table-area + .pagination-bar {
+/* ─── Pagination bar border-top (matches data-table tfoot td) ────────────── */
+.stock-table-area + .pagination-bar,
+.data-table-wrapper + .pagination-bar {
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   padding: 12px 16px;
 }
@@ -680,4 +736,51 @@
 
 .sort-icon.active {
   color: var(--primary, #1890ff);
+}
+
+/* ─── Danger ghost button ─────────────────────────────────────────────────── */
+.btn-danger-ghost {
+  color: var(--danger, #ff4d4f) !important;
+  background: transparent !important;
+  border-color: transparent !important;
+}
+.btn-danger-ghost:hover {
+  color: #fff !important;
+  background: var(--danger, #ff4d4f) !important;
+}
+
+/* ─── Reference type badges ───────────────────────────────────────────────── */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.8em;
+  font-weight: 500;
+  max-width: 220px;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  line-height: 1.3;
+}
+.badge-ref-purchase_order {
+  background: rgba(24, 144, 255, 0.15);
+  color: #5cb8ff;
+}
+.badge-ref-work_order {
+  background: rgba(82, 196, 26, 0.15);
+  color: #95de64;
+}
+.badge-ref-waste_report {
+  background: rgba(255, 77, 79, 0.15);
+  color: #ff7875;
+}
+.badge-ref-cutting {
+  background: rgba(255, 193, 7, 0.15);
+  color: #ffd666;
+}
+.badge-ref-sale {
+  background: rgba(160, 82, 255, 0.15);
+  color: #b37feb;
+}
+.text-muted {
+  color: rgba(255, 255, 255, 0.35);
 }

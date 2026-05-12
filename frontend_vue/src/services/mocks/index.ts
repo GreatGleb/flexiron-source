@@ -12,6 +12,7 @@ import {
   mockDeleteOffcut,
   mockGetMovements,
   mockCreateMovement,
+  mockDeleteMovement,
   mockExecuteCutting,
   mockGetDeficitList,
   mockGetDeficitItem,
@@ -34,6 +35,7 @@ import {
   mockCreateProduct,
   mockPatchProduct,
   mockDeleteProduct,
+  STORE as PRODUCTS_STORE,
 } from './products'
 import type { ProductFilters } from '@/types/product'
 import {
@@ -52,6 +54,7 @@ import {
   mockDeleteAuditEntry,
   mockCreateSupplier,
   mockExportSuppliersCsv,
+  MOCK_SUPPLIERS,
 } from './suppliers'
 import {
   mockGetBccCategories,
@@ -124,6 +127,15 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
     return delay(mockExportSuppliersCsv(filters) as T)
   }
 
+  if (path === '/api/suppliers/list') {
+    // Return suppliers that match the IDs used in batch mock data (sup-XXX format)
+    const suppliers = MOCK_SUPPLIERS.map((s) => ({
+      id: `sup-${String(s.id).padStart(3, '0')}`,
+      company: s.company.en,
+    }))
+    return delay(suppliers as T)
+  }
+
   if (path === '/api/suppliers') {
     const filters: SupplierFilters = {
       search: params?.search ?? '',
@@ -182,6 +194,15 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
     return delay(mockGetProducts({ ...filters, ...pagination }) as T)
   }
 
+  if (path === '/api/products/list') {
+    // Return lightweight product list for dropdowns (id + name only)
+    const products = PRODUCTS_STORE.map((p) => ({
+      id: p.id,
+      name: p.name,
+    }))
+    return delay(products as T)
+  }
+
   const productCardMatch = path.match(/^\/api\/products\/([^/]+)$/)
   if (productCardMatch) {
     return delay(mockGetProduct(productCardMatch[1] as string) as T)
@@ -228,6 +249,7 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
       productId: params?.productId,
       supplierId: params?.supplierId,
       status: params?.status,
+      unit: params?.unit,
       dateFrom: params?.dateFrom,
       dateTo: params?.dateTo,
       sortBy: params?.sortBy,
@@ -247,6 +269,10 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
       search: params?.search ?? '',
       productId: params?.productId,
       status: params?.status,
+      unit: params?.unit,
+      offcutType: params?.offcutType,
+      categoryIds: params?.categoryIds,
+      batchNumber: params?.batchNumber,
       sortBy: params?.sortBy,
       sortDir: params?.sortDir,
     }, { page, pageSize }) as T)
@@ -264,6 +290,9 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
       search: params?.search ?? '',
       type: params?.type,
       productId: params?.productId,
+      unit: params?.unit,
+      categoryIds: params?.categoryIds,
+      batchNumber: params?.batchNumber,
       dateFrom: params?.dateFrom,
       dateTo: params?.dateTo,
       sortBy: params?.sortBy,
@@ -278,6 +307,8 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
       search: params?.search ?? '',
       priority: params?.priority,
       status: params?.status,
+      unit: params?.unit,
+      categoryIds: params?.categoryIds,
       sortBy: params?.sortBy,
       sortDir: params?.sortDir,
     }, { page, pageSize }) as T)
@@ -527,6 +558,11 @@ export async function deleteMock<T>(path: string, _headers?: Record<string, stri
   const offcutDeleteMatch = path.match(/^\/api\/warehouse\/offcuts\/([^/]+)$/)
   if (offcutDeleteMatch) {
     return delay(mockDeleteOffcut(offcutDeleteMatch[1] as string) as T)
+  }
+
+  const movementDeleteMatch = path.match(/^\/api\/warehouse\/movements\/([^/]+)$/)
+  if (movementDeleteMatch) {
+    return delay(mockDeleteMovement(movementDeleteMatch[1] as string) as T)
   }
 
   const deficitDeleteMatch = path.match(/^\/api\/warehouse\/deficit\/([^/]+)$/)

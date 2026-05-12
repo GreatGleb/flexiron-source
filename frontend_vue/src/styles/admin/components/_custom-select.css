@@ -11,6 +11,7 @@
 }
 .custom-select-trigger .curr-val {
   color: var(--text-dim);
+  padding-right: 8px;
 }
 .custom-select-list {
   position: absolute;

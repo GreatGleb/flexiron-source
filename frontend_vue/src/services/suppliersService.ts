@@ -92,3 +92,8 @@ export async function exportSuppliersCsv(filters: SupplierFilters): Promise<stri
   if (filters.categories.length > 0) params.categories = filters.categories.join(',')
   return apiGet<string>('/api/suppliers/export.csv', params)
 }
+
+/** Lightweight supplier list for dropdowns — returns id + company name only. */
+export async function getSupplierList(): Promise<Array<{ id: string; company: string }>> {
+  return apiGet<Array<{ id: string; company: string }>>('/api/suppliers/list')
+}

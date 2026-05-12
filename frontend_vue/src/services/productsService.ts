@@ -79,6 +79,10 @@ export async function patchProduct(
   return apiPatch(`/api/products/${id}`, payload)
 }
 
+export async function getProductList(): Promise<Array<{ id: string; name: { ru: string; en: string; lt: string } }>> {
+  return apiGet('/api/products/list')
+}
+
 export async function deleteProduct(id: string): Promise<void> {
   return apiDelete(`/api/products/${id}`)
 }

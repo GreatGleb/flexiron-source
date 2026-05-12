@@ -109,6 +109,10 @@ export interface WarehouseOffcut {
   /** Link to product */
   productId: string
   productName: TranslatedString
+  /** Product category ID (for filtering / display) */
+  categoryId: string | null
+  /** Offcut type: 'sheet' for 2D materials, 'linear' for pipes/beams/etc. */
+  offcutType: 'sheet' | 'linear'
   /** Dimensions */
   lengthMm: number | null
   widthMm: number | null
@@ -135,6 +139,8 @@ export interface OffcutListItem {
   batchNumber: string
   productId: string
   productName: TranslatedString
+  categoryId: string | null
+  offcutType: 'sheet' | 'linear'
   lengthMm: number | null
   widthMm: number | null
   weightKg: number | null
@@ -147,6 +153,8 @@ export interface OffcutListItem {
 export interface OffcutCreatePayload {
   batchId: string
   productId: string
+  categoryId?: string | null
+  offcutType?: 'sheet' | 'linear'
   lengthMm?: number | null
   widthMm?: number | null
   thicknessMm?: number | null
@@ -195,11 +203,14 @@ export interface MovementListItem {
   type: MovementType
   batchId: string
   batchNumber: string
+  productId: string
   productName: TranslatedString
   quantity: number
   unit: StockUnit
   unitPrice: number
   referenceId: string | null
+  referenceType: string | null
+  notes: string | null
   movedAt: string
 }
 
@@ -325,6 +336,10 @@ export interface WarehouseFilters {
   status?: BatchStatus | OffcutStatus | DeficitStatus
   type?: MovementType
   priority?: DeficitPriority
+  unit?: string
+  offcutType?: 'sheet' | 'linear'
+  categoryIds?: string[]
+  batchNumber?: string
   dateFrom?: string
   dateTo?: string
   sortBy?: string

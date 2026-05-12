@@ -1,3 +1,4 @@
+import { STORE as PRODUCTS_STORE } from './products'
 import type {
   WarehouseBatch,
   BatchListItem,
@@ -143,7 +144,7 @@ function toBatchListItem(b: WarehouseBatch): BatchListItem {
 }
 
 export async function mockGetBatches(
-  filters: { search: string; productId?: string; supplierId?: string; status?: string; dateFrom?: string; dateTo?: string; sortBy?: string; sortDir?: string },
+  filters: { search: string; productId?: string; supplierId?: string; status?: string; unit?: string; dateFrom?: string; dateTo?: string; sortBy?: string; sortDir?: string },
   pagination: { page: number; pageSize: number },
 ): Promise<PaginatedResponse<BatchListItem>> {
   let filtered = [...batchStore]
@@ -160,16 +161,22 @@ export async function mockGetBatches(
   if (filters.productId) filtered = filtered.filter((b) => b.productId === filters.productId)
   if (filters.supplierId) filtered = filtered.filter((b) => b.supplierId === filters.supplierId)
   if (filters.status) filtered = filtered.filter((b) => b.status === filters.status)
+  if (filters.unit) filtered = filtered.filter((b) => b.unit === filters.unit)
   if (filters.dateFrom) filtered = filtered.filter((b) => b.receivedAt >= filters.dateFrom!)
   if (filters.dateTo) filtered = filtered.filter((b) => b.receivedAt <= filters.dateTo!)
 
   if (filters.sortBy) {
     filtered.sort((a, b) => {
       let cmp = 0
-      if (filters.sortBy === 'receivedAt') cmp = a.receivedAt.localeCompare(b.receivedAt)
+      if (filters.sortBy === 'productName') cmp = a.productName.en.localeCompare(b.productName.en)
+      else if (filters.sortBy === 'batchNumber') cmp = a.batchNumber.localeCompare(b.batchNumber)
+      else if (filters.sortBy === 'lotCode') cmp = a.lotCode.localeCompare(b.lotCode)
       else if (filters.sortBy === 'quantity') cmp = a.quantity - b.quantity
       else if (filters.sortBy === 'quantityRemaining') cmp = a.quantityRemaining - b.quantityRemaining
+      else if (filters.sortBy === 'unit') cmp = a.unit.localeCompare(b.unit)
       else if (filters.sortBy === 'unitPrice') cmp = a.unitPrice - b.unitPrice
+      else if (filters.sortBy === 'receivedAt') cmp = a.receivedAt.localeCompare(b.receivedAt)
+      else if (filters.sortBy === 'status') cmp = a.status.localeCompare(b.status)
       return filters.sortDir === 'desc' ? -cmp : cmp
     })
   }
@@ -298,6 +305,8 @@ function toOffcutListItem(o: WarehouseOffcut): OffcutListItem {
     batchNumber: o.batchNumber,
     productId: o.productId,
     productName: o.productName,
+    categoryId: o.categoryId,
+    offcutType: o.offcutType,
     lengthMm: o.lengthMm,
     widthMm: o.widthMm,
     weightKg: o.weightKg,
@@ -309,7 +318,7 @@ function toOffcutListItem(o: WarehouseOffcut): OffcutListItem {
 }
 
 export async function mockGetOffcuts(
-  filters: { search: string; productId?: string; status?: string; sortBy?: string; sortDir?: string },
+  filters: { search: string; productId?: string; status?: string; unit?: string; offcutType?: string; categoryIds?: string; batchNumber?: string; sortBy?: string; sortDir?: string },
   pagination: { page: number; pageSize: number },
 ): Promise<PaginatedResponse<OffcutListItem>> {
   let filtered = [...offcutStore]
@@ -320,6 +329,29 @@ export async function mockGetOffcuts(
   }
   if (filters.productId) filtered = filtered.filter((o) => o.productId === filters.productId)
   if (filters.status) filtered = filtered.filter((o) => o.status === filters.status)
+  if (filters.unit) filtered = filtered.filter((o) => o.unit === filters.unit)
+  if (filters.offcutType) filtered = filtered.filter((o) => o.offcutType === filters.offcutType)
+  if (filters.categoryIds) {
+    const ids = filters.categoryIds.split(',')
+    filtered = filtered.filter((o) => o.categoryId !== null && ids.includes(o.categoryId))
+  }
+  if (filters.batchNumber) filtered = filtered.filter((o) => o.batchNumber.toLowerCase().includes(filters.batchNumber!.toLowerCase()))
+
+  // Sort
+  if (filters.sortBy) {
+    filtered.sort((a, b) => {
+      let cmp = 0
+      if (filters.sortBy === 'productName') cmp = a.productName.en.localeCompare(b.productName.en)
+      else if (filters.sortBy === 'batchNumber') cmp = a.batchNumber.localeCompare(b.batchNumber)
+      else if (filters.sortBy === 'lengthMm') cmp = (a.lengthMm ?? 0) - (b.lengthMm ?? 0)
+      else if (filters.sortBy === 'weightKg') cmp = (a.weightKg ?? 0) - (b.weightKg ?? 0)
+      else if (filters.sortBy === 'quantity') cmp = a.quantity - b.quantity
+      else if (filters.sortBy === 'unit') cmp = a.unit.localeCompare(b.unit)
+      else if (filters.sortBy === 'location') cmp = (a.location ?? '').localeCompare(b.location ?? '')
+      else if (filters.sortBy === 'status') cmp = a.status.localeCompare(b.status)
+      return filters.sortDir === 'desc' ? -cmp : cmp
+    })
+  }
 
   return paginate(filtered.map(toOffcutListItem), pagination.page, pagination.pageSize)
 }
@@ -333,6 +365,8 @@ export async function mockGetOffcut(id: string): Promise<WarehouseOffcut> {
 export async function mockCreateOffcut(data: {
   batchId: string
   productId: string
+  categoryId?: string | null
+  offcutType?: 'sheet' | 'linear'
   lengthMm?: number | null
   widthMm?: number | null
   thicknessMm?: number | null
@@ -351,6 +385,8 @@ export async function mockCreateOffcut(data: {
     batchNumber: batch?.batchNumber ?? '',
     productId: data.productId,
     productName: batch?.productName ?? { ru: '', en: '', lt: '' },
+    categoryId: data.categoryId ?? null,
+    offcutType: data.offcutType ?? 'sheet',
     lengthMm: data.lengthMm ?? null,
     widthMm: data.widthMm ?? null,
     thicknessMm: data.thicknessMm ?? null,
@@ -382,17 +418,20 @@ function toMovementListItem(m: WarehouseMovement): MovementListItem {
     type: m.type,
     batchId: m.batchId,
     batchNumber: m.batchNumber,
+    productId: m.productId,
     productName: m.productName,
     quantity: m.quantity,
     unit: m.unit,
     unitPrice: m.unitPrice,
     referenceId: m.referenceId,
+    referenceType: m.referenceType,
+    notes: m.notes,
     movedAt: m.movedAt,
   }
 }
 
 export async function mockGetMovements(
-  filters: { search: string; type?: string; productId?: string; dateFrom?: string; dateTo?: string; sortBy?: string; sortDir?: string },
+  filters: { search: string; type?: string; productId?: string; unit?: string; categoryIds?: string; batchNumber?: string; dateFrom?: string; dateTo?: string; sortBy?: string; sortDir?: string },
   pagination: { page: number; pageSize: number },
 ): Promise<PaginatedResponse<MovementListItem>> {
   let filtered = [...movementStore]
@@ -403,6 +442,15 @@ export async function mockGetMovements(
   }
   if (filters.type) filtered = filtered.filter((m) => m.type === filters.type)
   if (filters.productId) filtered = filtered.filter((m) => m.productId === filters.productId)
+  if (filters.unit) filtered = filtered.filter((m) => m.unit === filters.unit)
+  if (filters.categoryIds) {
+    const ids = filters.categoryIds.split(',')
+    const productIdsInCategories = PRODUCTS_STORE
+      .filter((p) => p.categoryId !== null && ids.includes(p.categoryId))
+      .map((p) => p.id)
+    filtered = filtered.filter((m) => productIdsInCategories.includes(m.productId))
+  }
+  if (filters.batchNumber) filtered = filtered.filter((m) => m.batchNumber.toLowerCase().includes(filters.batchNumber!.toLowerCase()))
   if (filters.dateFrom) filtered = filtered.filter((m) => m.movedAt >= filters.dateFrom!)
   if (filters.dateTo) filtered = filtered.filter((m) => m.movedAt <= filters.dateTo!)
 
@@ -410,7 +458,14 @@ export async function mockGetMovements(
     filtered.sort((a, b) => {
       let cmp = 0
       if (filters.sortBy === 'movedAt') cmp = a.movedAt.localeCompare(b.movedAt)
+      else if (filters.sortBy === 'type') cmp = a.type.localeCompare(b.type)
+      else if (filters.sortBy === 'productName') cmp = a.productName.en.localeCompare(b.productName.en)
+      else if (filters.sortBy === 'batchNumber') cmp = a.batchNumber.localeCompare(b.batchNumber)
       else if (filters.sortBy === 'quantity') cmp = a.quantity - b.quantity
+      else if (filters.sortBy === 'unit') cmp = a.unit.localeCompare(b.unit)
+      else if (filters.sortBy === 'unitPrice') cmp = a.unitPrice - b.unitPrice
+      else if (filters.sortBy === 'totalCost') cmp = (a.quantity * a.unitPrice) - (b.quantity * b.unitPrice)
+      else if (filters.sortBy === 'referenceId') cmp = (a.referenceId ?? '').localeCompare(b.referenceId ?? '')
       return filters.sortDir === 'desc' ? -cmp : cmp
     })
   }
@@ -469,6 +524,12 @@ export async function mockCreateMovement(data: {
   return movement
 }
 
+export async function mockDeleteMovement(id: string): Promise<void> {
+  const idx = movementStore.findIndex((m) => m.id === id)
+  if (idx === -1) throw new Error('MOVEMENT_NOT_FOUND')
+  movementStore.splice(idx, 1)
+}
+
 // ─── Cutting Operation ──────────────────────────────────────────────────────
 
 export async function mockExecuteCutting(
@@ -490,6 +551,8 @@ export async function mockExecuteCutting(
     batchNumber: batch.batchNumber,
     productId: batch.productId,
     productName: batch.productName,
+    categoryId: o.categoryId ?? null,
+    offcutType: o.offcutType ?? 'sheet',
     lengthMm: o.lengthMm ?? null,
     widthMm: o.widthMm ?? null,
     thicknessMm: o.thicknessMm ?? null,
@@ -549,7 +612,7 @@ function toDeficitListItem(d: WarehouseDeficit): DeficitListItem {
 }
 
 export async function mockGetDeficitList(
-  filters: { search: string; priority?: string; status?: string; sortBy?: string; sortDir?: string },
+  filters: { search: string; priority?: string; status?: string; unit?: string; categoryIds?: string; sortBy?: string; sortDir?: string },
   pagination: { page: number; pageSize: number },
 ): Promise<PaginatedResponse<DeficitListItem>> {
   let filtered = [...deficitStore]
@@ -560,12 +623,33 @@ export async function mockGetDeficitList(
   }
   if (filters.priority) filtered = filtered.filter((d) => d.priority === filters.priority)
   if (filters.status) filtered = filtered.filter((d) => d.status === filters.status)
+  if (filters.unit) filtered = filtered.filter((d) => d.unit === filters.unit)
+  if (filters.categoryIds) {
+    const ids = filters.categoryIds.split(',')
+    const productIdsInCategories = PRODUCTS_STORE
+      .filter((p) => p.categoryId !== null && ids.includes(p.categoryId))
+      .map((p) => p.id)
+    filtered = filtered.filter((d) => productIdsInCategories.includes(d.productId))
+  }
 
   if (filters.sortBy) {
     filtered.sort((a, b) => {
       let cmp = 0
-      if (filters.sortBy === 'deficitAmount') cmp = a.deficitAmount - b.deficitAmount
-      else if (filters.sortBy === 'priority') cmp = ['critical', 'high', 'medium', 'low'].indexOf(a.priority) - ['critical', 'high', 'medium', 'low'].indexOf(b.priority)
+      if (filters.sortBy === 'productName') {
+        cmp = (a.productName.en ?? '').localeCompare(b.productName.en ?? '')
+      } else if (filters.sortBy === 'currentStock') {
+        cmp = a.currentStock - b.currentStock
+      } else if (filters.sortBy === 'minRequired') {
+        cmp = a.minRequired - b.minRequired
+      } else if (filters.sortBy === 'deficitAmount') {
+        cmp = a.deficitAmount - b.deficitAmount
+      } else if (filters.sortBy === 'unit') {
+        cmp = (a.unit ?? '').localeCompare(b.unit ?? '')
+      } else if (filters.sortBy === 'priority') {
+        cmp = ['critical', 'high', 'medium', 'low'].indexOf(a.priority) - ['critical', 'high', 'medium', 'low'].indexOf(b.priority)
+      } else if (filters.sortBy === 'status') {
+        cmp = (a.status ?? '').localeCompare(b.status ?? '')
+      }
       return filters.sortDir === 'desc' ? -cmp : cmp
     })
   }

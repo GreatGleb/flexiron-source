@@ -61,6 +61,7 @@ export async function getBatches(
   if (filters.productId) params.productId = filters.productId
   if (filters.supplierId) params.supplierId = filters.supplierId
   if (filters.status) params.status = filters.status
+  if (filters.unit) params.unit = filters.unit
   if (filters.dateFrom) params.dateFrom = filters.dateFrom
   if (filters.dateTo) params.dateTo = filters.dateTo
   if (filters.sortBy) params.sortBy = filters.sortBy
@@ -97,6 +98,10 @@ export async function getOffcuts(
   }
   if (filters.productId) params.productId = filters.productId
   if (filters.status) params.status = filters.status
+  if (filters.unit) params.unit = filters.unit
+  if (filters.offcutType) params.offcutType = filters.offcutType
+  if (filters.categoryIds && filters.categoryIds.length > 0) params.categoryIds = filters.categoryIds.join(',')
+  if (filters.batchNumber) params.batchNumber = filters.batchNumber
   if (filters.sortBy) params.sortBy = filters.sortBy
   if (filters.sortDir) params.sortDir = filters.sortDir
   return apiGet<OffcutListResponse>('/api/warehouse/offcuts', params)
@@ -127,6 +132,9 @@ export async function getMovements(
   }
   if (filters.type) params.type = filters.type
   if (filters.productId) params.productId = filters.productId
+  if (filters.unit) params.unit = filters.unit
+  if (filters.categoryIds && filters.categoryIds.length > 0) params.categoryIds = filters.categoryIds.join(',')
+  if (filters.batchNumber) params.batchNumber = filters.batchNumber
   if (filters.dateFrom) params.dateFrom = filters.dateFrom
   if (filters.dateTo) params.dateTo = filters.dateTo
   if (filters.sortBy) params.sortBy = filters.sortBy
@@ -136,6 +144,10 @@ export async function getMovements(
 
 export async function createMovement(data: MovementCreatePayload): Promise<WarehouseMovement> {
   return apiPost<WarehouseMovement>('/api/warehouse/movements', data)
+}
+
+export async function deleteMovement(id: string): Promise<void> {
+  return apiDelete(`/api/warehouse/movements/${id}`)
 }
 
 // ─── Cutting Operation ──────────────────────────────────────────────────────
@@ -157,6 +169,8 @@ export async function getDeficitList(
   }
   if (filters.priority) params.priority = filters.priority
   if (filters.status) params.status = filters.status
+  if (filters.unit) params.unit = filters.unit
+  if (filters.categoryIds && filters.categoryIds.length > 0) params.categoryIds = filters.categoryIds.join(',')
   if (filters.sortBy) params.sortBy = filters.sortBy
   if (filters.sortDir) params.sortDir = filters.sortDir
   return apiGet<DeficitListResponse>('/api/warehouse/deficit', params)

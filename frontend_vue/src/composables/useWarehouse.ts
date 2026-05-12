@@ -8,6 +8,7 @@ import {
   getDeficitList,
   deleteBatch as deleteBatchApi,
   deleteOffcut as deleteOffcutApi,
+  deleteMovement as deleteMovementApi,
   deleteDeficitItem as deleteDeficitItemApi,
   deleteStockItem as deleteStockItemApi,
 } from '@/services/warehouseService'
@@ -58,11 +59,60 @@ export function useWarehouse() {
   const deficitLoading = ref(false)
   const deficitError = ref<string | null>(null)
 
-  // Shared filters (for batches, offcuts, movements, deficit)
+  // Shared filters (for offcuts, movements, deficit)
   const filters = reactive<WarehouseFilters>({
     search: '',
     dateFrom: '',
     dateTo: '',
+  })
+
+  // Batches-specific filters (server-side)
+  const batchesFilters = reactive<WarehouseFilters>({
+    search: '',
+    status: undefined,
+    supplierId: undefined,
+    unit: '',
+    dateFrom: '',
+    dateTo: '',
+    sortBy: undefined,
+    sortDir: 'asc',
+  })
+
+  // Offcuts-specific filters (server-side)
+  const offcutFilters = reactive<WarehouseFilters>({
+    search: '',
+    status: undefined,
+    unit: '',
+    offcutType: undefined,
+    productId: undefined,
+    categoryIds: [],
+    batchNumber: undefined,
+    sortBy: undefined,
+    sortDir: 'asc',
+  })
+
+  // Movements-specific filters (server-side)
+  const movementFilters = reactive<WarehouseFilters>({
+    search: '',
+    type: undefined,
+    unit: '',
+    categoryIds: [],
+    batchNumber: undefined,
+    dateFrom: '',
+    dateTo: '',
+    sortBy: undefined,
+    sortDir: 'asc',
+  })
+
+  // Deficit-specific filters (server-side)
+  const deficitFilters = reactive<WarehouseFilters>({
+    search: '',
+    status: undefined,
+    priority: undefined,
+    unit: '',
+    categoryIds: [],
+    sortBy: undefined,
+    sortDir: 'asc',
   })
 
   // Stock-specific filters (server-side)
@@ -76,7 +126,36 @@ export function useWarehouse() {
     sortDir: 'asc',
   })
 
-  const pagination = usePagination(25)
+  // Batches-specific sort state
+  const batchesSort = reactive<{ sortBy: string | null; sortDir: 'asc' | 'desc' }>({
+    sortBy: null,
+    sortDir: 'asc',
+  })
+
+  // Offcuts-specific sort state
+  const offcutsSort = reactive<{ sortBy: string | null; sortDir: 'asc' | 'desc' }>({
+    sortBy: null,
+    sortDir: 'asc',
+  })
+
+  // Movements-specific sort state
+  const movementsSort = reactive<{ sortBy: string | null; sortDir: 'asc' | 'desc' }>({
+    sortBy: null,
+    sortDir: 'asc',
+  })
+
+  // Deficit-specific sort state
+  const deficitSort = reactive<{ sortBy: string | null; sortDir: 'asc' | 'desc' }>({
+    sortBy: null,
+    sortDir: 'asc',
+  })
+
+  // ─── Separate pagination per tab ──────────────────────────────────────────
+  const stockPagination = usePagination(25)
+  const batchesPagination = usePagination(25)
+  const offcutsPagination = usePagination(25)
+  const movementsPagination = usePagination(25)
+  const deficitPagination = usePagination(25)
 
   // Per-tab initialized flags — each tab controls its own loading state independently
   const stockInitialized = ref(false)
@@ -90,11 +169,11 @@ export function useWarehouse() {
     stockError.value = null
     try {
       const res = await getStockOverview(stockFilters, {
-        page: pagination.page.value,
-        pageSize: pagination.pageSize.value,
+        page: stockPagination.page.value,
+        pageSize: stockPagination.pageSize.value,
       })
       stockItems.value = res.items
-      pagination.total.value = res.total
+      stockPagination.total.value = res.total
       stockInitialized.value = true
     } catch (e) {
       stockError.value = e instanceof Error ? e.message : 'Failed to load stock overview'
@@ -107,12 +186,17 @@ export function useWarehouse() {
     if (!batchesInitialized.value) batchesLoading.value = true
     batchesError.value = null
     try {
-      const res = await getBatches(filters, {
-        page: pagination.page.value,
-        pageSize: pagination.pageSize.value,
+      const batchFilters: WarehouseFilters = {
+        ...batchesFilters,
+        sortBy: batchesSort.sortBy ?? undefined,
+        sortDir: batchesSort.sortDir,
+      }
+      const res = await getBatches(batchFilters, {
+        page: batchesPagination.page.value,
+        pageSize: batchesPagination.pageSize.value,
       })
       batches.value = res.items
-      pagination.total.value = res.total
+      batchesPagination.total.value = res.total
       batchesInitialized.value = true
     } catch (e) {
       batchesError.value = e instanceof Error ? e.message : 'Failed to load batches'
@@ -125,12 +209,17 @@ export function useWarehouse() {
     if (!offcutsInitialized.value) offcutsLoading.value = true
     offcutsError.value = null
     try {
-      const res = await getOffcuts(filters, {
-        page: pagination.page.value,
-        pageSize: pagination.pageSize.value,
+      const offcutFiltersForApi: WarehouseFilters = {
+        ...offcutFilters,
+        sortBy: offcutsSort.sortBy ?? undefined,
+        sortDir: offcutsSort.sortDir,
+      }
+      const res = await getOffcuts(offcutFiltersForApi, {
+        page: offcutsPagination.page.value,
+        pageSize: offcutsPagination.pageSize.value,
       })
       offcuts.value = res.items
-      pagination.total.value = res.total
+      offcutsPagination.total.value = res.total
       offcutsInitialized.value = true
     } catch (e) {
       offcutsError.value = e instanceof Error ? e.message : 'Failed to load offcuts'
@@ -143,12 +232,17 @@ export function useWarehouse() {
     if (!movementsInitialized.value) movementsLoading.value = true
     movementsError.value = null
     try {
-      const res = await getMovements(filters, {
-        page: pagination.page.value,
-        pageSize: pagination.pageSize.value,
+      const movementFiltersForApi: WarehouseFilters = {
+        ...movementFilters,
+        sortBy: movementsSort.sortBy ?? undefined,
+        sortDir: movementsSort.sortDir,
+      }
+      const res = await getMovements(movementFiltersForApi, {
+        page: movementsPagination.page.value,
+        pageSize: movementsPagination.pageSize.value,
       })
       movements.value = res.items
-      pagination.total.value = res.total
+      movementsPagination.total.value = res.total
       movementsInitialized.value = true
     } catch (e) {
       movementsError.value = e instanceof Error ? e.message : 'Failed to load movements'
@@ -161,12 +255,17 @@ export function useWarehouse() {
     if (!deficitInitialized.value) deficitLoading.value = true
     deficitError.value = null
     try {
-      const res = await getDeficitList(filters, {
-        page: pagination.page.value,
-        pageSize: pagination.pageSize.value,
+      const deficitFiltersForApi: WarehouseFilters = {
+        ...deficitFilters,
+        sortBy: deficitSort.sortBy ?? undefined,
+        sortDir: deficitSort.sortDir,
+      }
+      const res = await getDeficitList(deficitFiltersForApi, {
+        page: deficitPagination.page.value,
+        pageSize: deficitPagination.pageSize.value,
       })
       deficitItems.value = res.items
-      pagination.total.value = res.total
+      deficitPagination.total.value = res.total
       deficitInitialized.value = true
     } catch (e) {
       deficitError.value = e instanceof Error ? e.message : 'Failed to load deficit list'
@@ -207,6 +306,16 @@ export function useWarehouse() {
     }
   }
 
+  async function deleteMovement(id: string) {
+    try {
+      await deleteMovementApi(id)
+      toast.success(t('warehouse.toast_movement_deleted'))
+      await loadMovements()
+    } catch {
+      toast.error(t('warehouse.toast_error'))
+    }
+  }
+
   async function deleteDeficit(id: string) {
     try {
       await deleteDeficitItemApi(id)
@@ -227,20 +336,57 @@ export function useWarehouse() {
     }
   }
 
-  // Flag: prevents page watch from double-firing when filters reset page to 1
-  let skipNextPageWatch = false
+  // Loading lock — prevents page watcher from double-firing when filters reset page to 1
+  let suppressPageWatch = false
 
   watch(filters, () => {
-    skipNextPageWatch = pagination.page.value !== 1
-    pagination.reset()
+    // Only suppress if page actually changes (i.e. wasn't already 1)
+    const tabPaginationMap: Record<WarehouseTab, ReturnType<typeof usePagination>> = {
+      stock: stockPagination,
+      batches: batchesPagination,
+      offcuts: offcutsPagination,
+      movements: movementsPagination,
+      deficit: deficitPagination,
+    }
+    const current = tabPaginationMap[activeTab.value]
+    suppressPageWatch = current.page.value !== 1
+    current.reset()
     load()
   }, { deep: true })
 
   // Watch stock filters — reload stock tab
   watch(stockFilters, () => {
-    skipNextPageWatch = pagination.page.value !== 1
-    pagination.reset()
+    suppressPageWatch = stockPagination.page.value !== 1
+    stockPagination.reset()
     loadStock()
+  }, { deep: true })
+
+  // Watch batches filters — reload batches tab
+  watch(batchesFilters, () => {
+    suppressPageWatch = batchesPagination.page.value !== 1
+    batchesPagination.reset()
+    loadBatches()
+  }, { deep: true })
+
+  // Watch offcuts filters — reload offcuts tab
+  watch(offcutFilters, () => {
+    suppressPageWatch = offcutsPagination.page.value !== 1
+    offcutsPagination.reset()
+    loadOffcuts()
+  }, { deep: true })
+
+  // Watch movements filters — reload movements tab
+  watch(movementFilters, () => {
+    suppressPageWatch = movementsPagination.page.value !== 1
+    movementsPagination.reset()
+    loadMovements()
+  }, { deep: true })
+
+  // Watch deficit filters — reload deficit tab
+  watch(deficitFilters, () => {
+    suppressPageWatch = deficitPagination.page.value !== 1
+    deficitPagination.reset()
+    loadDeficit()
   }, { deep: true })
 
   function toggleStockSort(col: StockFilters['sortBy']) {
@@ -252,12 +398,94 @@ export function useWarehouse() {
     }
   }
 
-  watch([pagination.page, pagination.pageSize], () => {
-    if (skipNextPageWatch) {
-      skipNextPageWatch = false
-      return
+  function toggleBatchesSort(col: string) {
+    if (batchesSort.sortBy === col) {
+      batchesSort.sortDir = batchesSort.sortDir === 'asc' ? 'desc' : 'asc'
+    } else {
+      batchesSort.sortBy = col
+      batchesSort.sortDir = 'asc'
     }
-    load()
+  }
+
+  // Watch batches sort — reload batches tab
+  watch(batchesSort, () => {
+    suppressPageWatch = batchesPagination.page.value !== 1
+    batchesPagination.reset()
+    loadBatches()
+  }, { deep: true })
+
+  function toggleOffcutsSort(col: string) {
+    if (offcutsSort.sortBy === col) {
+      offcutsSort.sortDir = offcutsSort.sortDir === 'asc' ? 'desc' : 'asc'
+    } else {
+      offcutsSort.sortBy = col
+      offcutsSort.sortDir = 'asc'
+    }
+  }
+
+  // Watch offcuts sort — reload offcuts tab
+  watch(offcutsSort, () => {
+    suppressPageWatch = offcutsPagination.page.value !== 1
+    offcutsPagination.reset()
+    loadOffcuts()
+  }, { deep: true })
+
+  function toggleMovementsSort(col: string) {
+    if (movementsSort.sortBy === col) {
+      movementsSort.sortDir = movementsSort.sortDir === 'asc' ? 'desc' : 'asc'
+    } else {
+      movementsSort.sortBy = col
+      movementsSort.sortDir = 'asc'
+    }
+  }
+
+  // Watch movements sort — reload movements tab
+  watch(movementsSort, () => {
+    suppressPageWatch = movementsPagination.page.value !== 1
+    movementsPagination.reset()
+    loadMovements()
+  }, { deep: true })
+
+  function toggleDeficitSort(col: string) {
+    if (deficitSort.sortBy === col) {
+      deficitSort.sortDir = deficitSort.sortDir === 'asc' ? 'desc' : 'asc'
+    } else {
+      deficitSort.sortBy = col
+      deficitSort.sortDir = 'asc'
+    }
+  }
+
+  // Watch deficit sort — reload deficit tab
+  watch(deficitSort, () => {
+    suppressPageWatch = deficitPagination.page.value !== 1
+    deficitPagination.reset()
+    loadDeficit()
+  }, { deep: true })
+
+  // Watch page/pageSize changes for each tab independently
+  watch([stockPagination.page, stockPagination.pageSize], () => {
+    if (suppressPageWatch) { suppressPageWatch = false; return }
+    if (activeTab.value === 'stock') loadStock()
+  })
+
+  watch([batchesPagination.page, batchesPagination.pageSize], () => {
+    if (suppressPageWatch) { suppressPageWatch = false; return }
+    if (activeTab.value === 'batches') loadBatches()
+  })
+
+  watch([offcutsPagination.page, offcutsPagination.pageSize], () => {
+    if (suppressPageWatch) { suppressPageWatch = false; return }
+    if (activeTab.value === 'offcuts') loadOffcuts()
+  })
+
+  watch([movementsPagination.page, movementsPagination.pageSize], () => {
+    if (suppressPageWatch) { suppressPageWatch = false; return }
+    if (activeTab.value === 'movements') loadMovements()
+  })
+
+  watch([deficitPagination.page, deficitPagination.pageSize], () => {
+    if (suppressPageWatch) { suppressPageWatch = false; return }
+    if (activeTab.value === 'deficit') loadDeficit()
   })
 
   // Reload when tab changes — reset all per-tab initialized flags so loading state shows again
@@ -267,7 +495,6 @@ export function useWarehouse() {
     offcutsInitialized.value = false
     movementsInitialized.value = false
     deficitInitialized.value = false
-    pagination.reset()
     load()
   })
 
@@ -280,8 +507,22 @@ export function useWarehouse() {
     movements, movementsLoading, movementsError,
     deficitItems, deficitLoading, deficitError,
     filters,
+    batchesFilters,
+    offcutFilters,
+    movementFilters,
+    deficitFilters,
     stockFilters,
-    pagination,
+    batchesSort,
+    offcutsSort,
+    movementsSort,
+    deficitSort,
+
+    // Separate pagination per tab
+    stockPagination,
+    batchesPagination,
+    offcutsPagination,
+    movementsPagination,
+    deficitPagination,
 
     // Actions
     load,
@@ -292,9 +533,14 @@ export function useWarehouse() {
     loadDeficit,
     deleteBatch,
     deleteOffcut,
+    deleteMovement,
     deleteDeficit,
     deleteStock,
     toggleStockSort,
+    toggleBatchesSort,
+    toggleOffcutsSort,
+    toggleMovementsSort,
+    toggleDeficitSort,
     tf,
   }
 }
