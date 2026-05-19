@@ -1,4 +1,4 @@
-# InBox LT — Roo Code Instructions
+# Flexiron Enterprise — Roo Code Instructions
 
 ## 🔴 CRITICAL: Roo Code workspace rules (NON-NEGOTIABLE)
 
