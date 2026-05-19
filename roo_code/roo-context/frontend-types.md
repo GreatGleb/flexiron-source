@@ -1,4 +1,4 @@
-# Type System Reference — InBox LT / Flexiron ERP
+# Type System Reference — Flexiron Enterprise
 
 All types are in [`frontend_vue/src/types/`](../frontend_vue/src/types/). 7 files total.
 

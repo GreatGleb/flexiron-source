@@ -1,4 +1,4 @@
-# Frontend Architecture — InBox LT / Flexiron ERP
+# Frontend Architecture — Flexiron Enterprise
 
 ## Overview
 

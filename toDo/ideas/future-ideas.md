@@ -1,4 +1,4 @@
-# Future Ideas — InBox LT
+# Future Ideas — Flexiron Enterprise
 
 Идеи для будущих итераций. Не в бэклоге, не в планах — просто сохранить чтобы не потерять.
 

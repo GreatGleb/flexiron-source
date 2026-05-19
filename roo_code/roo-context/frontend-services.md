@@ -1,4 +1,4 @@
-# Services & API Layer — InBox LT / Flexiron ERP
+# Services & API Layer — Flexiron Enterprise
 
 ## API Client
 

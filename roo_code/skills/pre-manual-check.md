@@ -39,7 +39,7 @@ Read the following files:
    - Final checklist
 
 2. TZ sources (mentioned in plan or create-page.md):
-   - toDo/InBox LT CRM ToDo.md — this page's section
+   - toDo/Flexiron_ERP_CRM.md — this page's section
    - toDo/Flexiron_ERP_Process_Algorithm.md — if mentioned in plan
    - toDo/design/screen_specs/[XX.X_Page].md — if exists for this page
    - toDo/admin-api-contract.md — this domain's section

@@ -5,7 +5,7 @@
 Страница **Склад** — ядро ERP-системы. Это главная рабочая страница для кладовщика и закупщика. Здесь ведётся учёт физического наличия товаров по партиям, приход/расход, работа с обрезками (Atraižos).
 
 **Источники требований:**
-- [`InBox LT CRM ToDo.md`](../../toDo/InBox LT CRM ToDo.md) — раздел 1.2
+- [`Flexiron_ERP_CRM.md`](../../toDo/Flexiron_ERP_CRM.md) — раздел 1.2
 - [`Flexiron_ERP_Process_Algorithm.md`](../../toDo/Flexiron_ERP_Process_Algorithm.md) — Блок 1 (приём партии), Блок 2 (обрезки), Блок 4 (отгрузка)
 - [`02.3_Deficit_Management.md`](../../toDo/design/screen_specs/02.3_Deficit_Management.md) — монитор дефицита
 

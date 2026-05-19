@@ -4,7 +4,7 @@ description: Vue 3 + Vite specific rules and pitfalls for frontend_vue. Trigger 
 user_invocable: true
 ---
 
-# Vue Rules — InBox LT Frontend
+# Vue Rules — Flexiron Enterprise Frontend
 
 Rules collected from real bugs during `demo/` → `frontend_vue/` migration. Each rule = lesson learned, not theory.
 

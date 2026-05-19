@@ -145,7 +145,7 @@ ProductFilters {
 7. frontend_vue/src/config/featureFlags.ts         — adminProducts: true уже есть
 8. frontend_vue/src/components/admin/ (список файлов) — доступные компоненты
 9. frontend_vue/src/views/admin/products/ProductsPage.vue — текущее состояние (хедер + ссылка)
-10. toDo/InBox LT CRM ToDo.md (секция 1.1 page Товары)
+10. toDo/Flexiron_ERP_CRM.md (секция 1.1 page Товары)
 11. toDo/admin-api-contract.md — изучи структуру существующих секций
 
 После прочтения — выдай Checkpoint 0:

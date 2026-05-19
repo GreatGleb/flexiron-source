@@ -41,7 +41,7 @@ arguments:
    - Итоговый чеклист
 
 2. TZ-источники (упомянутые в плане или create-page.md):
-   - toDo/InBox LT CRM ToDo.md — раздел этой страницы
+   - toDo/Flexiron_ERP_CRM.md — раздел этой страницы
    - toDo/Flexiron_ERP_Process_Algorithm.md — если упоминается в плане
    - toDo/design/screen_specs/[XX.X_Page].md — если файл существует для этой страницы
    - toDo/admin-api-contract.md — секция этого домена

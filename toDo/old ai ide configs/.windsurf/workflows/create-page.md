@@ -66,7 +66,7 @@ When creating a page, read these documents for context:
 
 ### Business Logic
 - `toDo/Flexiron_ERP_Process_Algorithm.md` - ERP business processes, algorithms
-- `toDo/InBox LT CRM ToDo.md` - CRM requirements
+- `toDo/Flexiron_ERP_CRM.md` - CRM requirements
 - `toDo/ZeroCode&BackEnd parts.md` - Zero-code and backend specs
 
 ### Partials Registry

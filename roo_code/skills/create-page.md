@@ -41,7 +41,7 @@ Read `vue-rules` skill completely. Pay attention to:
 
 ### Step 0b — TZ Sources
 Read all relevant docs:
-- `toDo/InBox LT CRM ToDo.md` — functional requirements for this section
+- `toDo/Flexiron_ERP_CRM.md` — functional requirements for this section
 - `toDo/Flexiron_ERP_Process_Algorithm.md` — business process algorithms
 - `toDo/design/screen_specs/[XX.X_Page].md` — detailed screen spec (if exists)
 - `toDo/design/Flexiron_ERP_Sitemap.md` — navigation placement, section hierarchy

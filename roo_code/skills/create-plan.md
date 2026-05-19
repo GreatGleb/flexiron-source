@@ -39,7 +39,7 @@ Read in this order (batch reads where possible):
 7. `frontend_vue/src/config/featureFlags.ts` — existing flags and format
 8. `frontend_vue/src/components/admin/` (file list) — available components
 9. `toDo/admin-api-contract.md` — contract format of existing sections
-10. `toDo/InBox LT CRM ToDo.md` — TZ for this page's section
+10. `toDo/Flexiron_ERP_CRM.md` — TZ for this page's section
 11. `toDo/Flexiron_ERP_Process_Algorithm.md` — business logic algorithms
 12. `toDo/design/Flexiron_ERP_Sitemap.md` — navigation placement, section hierarchy
 13. `toDo/design/screen_specs/[XX.X_Page].md` — detailed screen spec (if file exists)

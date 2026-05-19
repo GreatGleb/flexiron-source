@@ -1,4 +1,4 @@
-# InBox LT — Project Instructions
+# Flexiron Enterprise — Project Instructions
 
 ## ⚠️ ОБЯЗАТЕЛЬНЫЙ АВТО-ТРИГГЕР (выполнять ПЕРВЫМ при старте каждой сессии)
 

@@ -1,4 +1,4 @@
-# Composables Reference — InBox LT / Flexiron ERP
+# Composables Reference — Flexiron Enterprise
 
 All composables are in [`frontend_vue/src/composables/`](../frontend_vue/src/composables/). 18 files total.
 
