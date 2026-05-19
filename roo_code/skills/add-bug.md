@@ -4,7 +4,7 @@ description: Record manually found bugs to the bugs file. Auto-trigger when user
 user_invocable: true
 arguments:
   - name: plan
-    description: "Plan file identifier, e.g. '1.1' → toDo/plans/bugs/1.1-products-bugs.md"
+    description: "Plan file identifier, e.g. '1.1' → roo_code/plans/bugs/1.1-products-bugs.md"
     required: true
 ---
 
@@ -17,8 +17,8 @@ User describes found bugs in free form. Task: format and write to bugs-file.
 ## Steps
 
 **1. Determine bugs-file:**
-- Find plan file: `toDo/plans/{plan}-*-plan.md` (e.g. `1.1-products-plan.md`)
-- Bugs-file: same name, directory `toDo/plans/bugs/`, `-plan.md` → `-bugs.md`
+- Find plan file: `roo_code/plans/*/{plan}-*-plan.md` (e.g. `1.1-products-plan.md`)
+- Bugs-file: same name, directory `roo_code/plans/bugs/`, `-plan.md` → `-bugs.md`
 - Read summary table → determine NEXT_BUG_ID
 
 **2. Read user description:**

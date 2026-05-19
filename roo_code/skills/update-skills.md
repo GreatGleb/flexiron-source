@@ -4,7 +4,7 @@ description: After fixing bugs — find root cause in skills (what was missing o
 user_invocable: true
 arguments:
   - name: plan
-    description: "Plan file identifier, e.g. '1.1' → toDo/plans/bugs/1.1-products-bugs.md"
+    description: "Plan file identifier, e.g. '1.1' → roo_code/plans/bugs/1.1-products-bugs.md"
     required: true
 ---
 
@@ -31,7 +31,7 @@ After fixing bugs — find WHY the skill allowed each bug, and close that exact 
 
 ```
 1. Determine bugs-file:
-   - toDo/plans/{plan}-*-plan.md → toDo/plans/bugs/{plan}-*-bugs.md
+   - roo_code/plans/*/{plan}-*-plan.md → roo_code/plans/bugs/{plan}-*-bugs.md
 
 2. Read bugs-file entirely
 

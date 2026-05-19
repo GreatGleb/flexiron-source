@@ -10,7 +10,9 @@ arguments:
 
 # Write New Page Plan
 
-Generate `toDo/plans/[X.X-name]-plan.md` — a complete, verified, domain-specific plan covering every phase of `roo_code/skills/create-page.md`. Must be correct on first execution without rework.
+Generate `roo_code/plans/[domain]/[X.X-name]-plan.md` — a complete, verified, domain-specific plan covering every phase of `roo_code/skills/create-page.md`. Must be correct on first execution without rework.
+
+> ⚠️ **CRITICAL:** Plans MUST be saved under `roo_code/plans/`, NOT under `toDo/plans/`. The `toDo/` directory contains original project documentation — do not write new plans there.
 
 ---
 
@@ -32,17 +34,17 @@ Read in this order (batch reads where possible):
 
 1. `roo_code/skills/create-page.md` — all phases 0–10, all critical rules, all checkpoint formats
 2. `roo_code/skills/vue-rules.md` — pitfalls, save modes, HTTP methods
-3. `frontend_vue/CLAUDE.md` — patterns, prohibitions, CSS aliases
+3. `roo_code/roo-context/frontend-vue-quickref.md` — patterns, SOLID, DRY, DDD, prohibitions, verification checklist
 4. `frontend_vue/src/router/index.ts` — existing route names (avoid conflicts)
-5. `frontend_vue/src/i18n/admin/` — list domain files, check existing prefixes
-6. `frontend_vue/src/types/` (all files) — types to reuse
-7. `frontend_vue/src/config/featureFlags.ts` — existing flags and format
-8. `frontend_vue/src/components/admin/` (file list) — available components
-9. `toDo/admin-api-contract.md` — contract format of existing sections
-10. `toDo/Flexiron_ERP_CRM.md` — TZ for this page's section
-11. `toDo/Flexiron_ERP_Process_Algorithm.md` — business logic algorithms
-12. `toDo/design/Flexiron_ERP_Sitemap.md` — navigation placement, section hierarchy
-13. `toDo/design/screen_specs/[XX.X_Page].md` — detailed screen spec (if file exists)
+6. `frontend_vue/src/i18n/admin/` — list domain files, check existing prefixes
+7. `frontend_vue/src/types/` (all files) — types to reuse
+8. `frontend_vue/src/config/featureFlags.ts` — existing flags and format
+9. `frontend_vue/src/components/admin/` (file list) — available components
+10. `toDo/admin-api-contract.md` — contract format of existing sections
+11. `toDo/Flexiron_ERP_CRM.md` — TZ for this page's section
+12. `toDo/Flexiron_ERP_Process_Algorithm.md` — business logic algorithms
+13. `toDo/design/Flexiron_ERP_Sitemap.md` — navigation placement, section hierarchy
+14. `toDo/design/screen_specs/[XX.X_Page].md` — detailed screen spec (if file exists)
 
 ```
 ⏸ STOP — Step 1: Read Everything
@@ -83,9 +85,9 @@ Continue?
 
 ## Step 3: Write the Plan
 
-File: `toDo/plans/[X.X-name]-plan.md`
+File: `roo_code/plans/[domain]/[X.X-name]-plan.md`
 
-**Format reference:** see `toDo/plans/1.2-categories-plan.md` for expected detail level — prompts must include actual TypeScript interfaces, exact function signatures, specific field names, and concrete mock data examples.
+**Format reference:** see existing plans in `roo_code/plans/` for expected detail level — prompts must include actual TypeScript interfaces, exact function signatures, specific field names, and concrete mock data examples.
 
 ### Plan header
 
@@ -121,7 +123,7 @@ This differs from create-page.md's phase numbering but is intentional: types mus
 **Prompt 0 — Phase 0: Context & Checkpoint**
 
 Include ALL of:
-- Reading list: create-page.md → vue-rules.md → CLAUDE.md → router → i18n → types → featureFlags → components → TZ sources (CRM ToDo + Algorithm + Sitemap + screen_spec if exists) → admin-api-contract.md
+- Reading list: create-page.md → vue-rules.md → frontend-vue-quickref.md → router → i18n → types → featureFlags → components → TZ sources (CRM ToDo + Algorithm + Sitemap + screen_spec if exists) → admin-api-contract.md
 - Checkpoint 0 output format exactly as in create-page.md: page goal, sections (per view separately), key entities, user actions, related pages, API endpoints, save mode decision, existing components to reuse, existing types to reuse, route paths, feature flag name
 - "If any field is empty — re-read TZ sources. Do not proceed."
 - STOP
@@ -384,11 +386,11 @@ Continue?
 
 ## Step 5: Save and Report
 
-Write to `toDo/plans/[X.X-name]-plan.md`.
+Write to `roo_code/plans/[domain]/[X.X-name]-plan.md`.
 
 Output to user:
 ```
-Plan ready: toDo/plans/[X.X-name]-plan.md
+Plan ready: roo_code/plans/[domain]/[X.X-name]-plan.md
 Prompts: [N] (Prompt 0 – Prompt [N-1])
 Execute in order, starting with Prompt 0.
 ```

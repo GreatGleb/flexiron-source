@@ -11,7 +11,7 @@ This document analyzes the readiness of the API contract for the **Suppliers dom
 - [`frontend_vue/src/services/mocks/suppliers.ts`](../frontend_vue/src/services/mocks/suppliers.ts) — mock implementation
 - [`frontend_vue/src/services/mocks/index.ts`](../frontend_vue/src/services/mocks/index.ts) — mock router
 - [`frontend_vue/src/services/api.ts`](../frontend_vue/src/services/api.ts) — API client with mock/real switching
-- [`toDo/plans/4.1-suppliers-plan.md`](../toDo/plans/4.1-suppliers-plan.md) — supplier implementation plan
+- [`roo_code/plans/suppliers/4.1-suppliers-plan.md`](../roo_code/plans/suppliers/4.1-suppliers-plan.md) — supplier implementation plan
 - [`roo_code/roo-context/01-todo-crm.md`](../roo_code/roo-context/01-todo-crm.md) — CRM roadmap
 - [`roo_code/roo-context/02-erp-algorithm.md`](../roo_code/roo-context/02-erp-algorithm.md) — ERP business processes
 

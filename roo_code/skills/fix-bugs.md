@@ -4,7 +4,7 @@ description: Fix bugs from the bugs file one at a time. Each bug: read → verif
 user_invocable: true
 arguments:
   - name: plan
-    description: "Plan file identifier, e.g. '1.1' → toDo/plans/bugs/1.1-products-bugs.md"
+    description: "Plan file identifier, e.g. '1.1' → roo_code/plans/bugs/1.1-products-bugs.md"
     required: true
   - name: bug
     description: "Optional: specific bug ID, e.g. 'БАГ-13'. If omitted — show list and let user choose."
@@ -36,9 +36,9 @@ One bug = one complete cycle. Each step fully before next.
 
 ```
 1. Determine bugs-file:
-   - Find toDo/plans/{plan}-*-plan.md (e.g. 1.1-products-plan.md)
-   - Bugs-file: same prefix, directory toDo/plans/bugs/, suffix -bugs.md
-   - Example: "1.1" → toDo/plans/bugs/1.1-products-bugs.md
+   - Find roo_code/plans/*/{plan}-*-plan.md (e.g. 1.1-products-plan.md)
+   - Bugs-file: same prefix, directory roo_code/plans/bugs/, suffix -bugs.md
+   - Example: "1.1" → roo_code/plans/bugs/1.1-products-bugs.md
 
 2. Read bugs-file entirely
 
@@ -190,7 +190,7 @@ Check against `### Fix` in bugs-file:
 
 **Level 3 — Project patterns**
 
-Verify fix doesn't violate rules from `frontend_vue/CLAUDE.md` and `roo_code/skills/vue-rules.md`:
+Verify fix doesn't violate rules from `roo_code/roo-context/frontend-vue-quickref.md` and `roo_code/skills/vue-rules.md`:
 - Correct component usage?
 - No forbidden patterns (HTML comments, span instead of input, router.back() etc.)?
 

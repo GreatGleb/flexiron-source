@@ -111,15 +111,15 @@ export interface ServiceFilters {
 
 1. roo_code/skills/create-page.md  — CRITICAL RULES, все фазы (особенно Phase 2 mock rules, Phase 6 CSS checklist)
 2. roo_code/skills/vue-rules.md    — все pitfalls #1–#23, save UX, HTTP-методы
-3. frontend_vue/CLAUDE.md         — паттерны, запреты, CSS-алиасы
+3. roo_code/roo-context/frontend-vue-quickref.md — паттерны, SOLID, DRY, DDD, запреты, стек, архитектура, CSS-алиасы, feature flags, i18n, routing
 4. roo_code/plans/services-page-plan.md — этот план (полностью)
-5. frontend_vue/src/router/index.ts — существующие маршруты (admin-products, admin-categories, admin-services — новый)
-6. frontend_vue/src/i18n/admin/layout.ts — page.services уже есть в layout
-7. frontend_vue/src/i18n/admin/products.ts — паттерн переводов (ключи services будут в отдельном файле)
-8. frontend_vue/src/i18n/admin/index.ts — как подключаются модули переводов
-9. frontend_vue/src/types/product.ts — ProductListItem как референс для ServiceListItem
-10. frontend_vue/src/config/featureFlags.ts — adminServices: false (нужно включить)
-11. frontend_vue/src/types/features.ts — adminServices уже есть
+6. frontend_vue/src/router/index.ts — существующие маршруты (admin-products, admin-categories, admin-services — новый)
+7. frontend_vue/src/i18n/admin/layout.ts — page.services уже есть в layout
+8. frontend_vue/src/i18n/admin/products.ts — паттерн переводов (ключи services будут в отдельном файле)
+9. frontend_vue/src/i18n/admin/index.ts — как подключаются модули переводов
+10. frontend_vue/src/types/product.ts — ProductListItem как референс для ServiceListItem
+11. frontend_vue/src/config/featureFlags.ts — adminServices: false (нужно включить)
+12. frontend_vue/src/types/features.ts — adminServices уже есть
 12. frontend_vue/src/views/admin/products/ProductsPage.vue — референс для структуры страницы
 13. frontend_vue/src/composables/useProducts.ts — референс для composable
 14. frontend_vue/src/services/productsService.ts — референс для service layer

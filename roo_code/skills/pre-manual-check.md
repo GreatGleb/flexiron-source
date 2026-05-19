@@ -4,7 +4,7 @@ description: Deep verification of a newly implemented page before user manual te
 user_invocable: true
 arguments:
   - name: plan
-    description: "Plan file identifier, e.g. '1.1' → reads toDo/plans/1.1-products-plan.md"
+    description: "Plan file identifier, e.g. '1.1' → reads roo_code/plans/*/1.1-products-plan.md"
     required: true
 ---
 
@@ -31,7 +31,7 @@ Run AFTER page implementation, BEFORE manual testing. Goal: find maximum bugs be
 ```
 Read the following files:
 
-1. toDo/plans/{plan}-plan.md — extract:
+1. roo_code/plans/*/{plan}-plan.md — extract:
    - Full list of created/modified files (views, composables, services, types, CSS, i18n, router)
    - TZ section of plan ("TZ" or "What is X" section)
    - Feature flags list
@@ -45,8 +45,8 @@ Read the following files:
    - toDo/admin-api-contract.md — this domain's section
 
 3. Determine bugs-file path:
-   - Plan name: toDo/plans/{plan}-[domain]-plan.md (e.g. 1.1-products-plan.md)
-   - Bugs-file: toDo/plans/bugs/{plan}-[domain]-bugs.md
+   - Plan name: roo_code/plans/*/{plan}-[domain]-plan.md (e.g. 1.1-products-plan.md)
+   - Bugs-file: roo_code/plans/bugs/{plan}-[domain]-bugs.md
    - If bugs-file doesn't exist — create with header and empty summary table
    - Read summary table → determine NEXT_BUG_ID
 

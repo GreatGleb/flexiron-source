@@ -138,15 +138,15 @@ ProductFilters {
 
 1. roo_code/skills/create-page.md  — CRITICAL RULES, все фазы (особенно Phase 2 mock rules, Phase 6 CSS checklist)
 2. roo_code/skills/vue-rules.md    — все pitfalls #1–#23, save UX, HTTP-методы
-3. frontend_vue/CLAUDE.md         — паттерны, запреты, CSS-алиасы
+3. roo_code/roo-context/frontend-vue-quickref.md — паттерны, SOLID, DRY, DDD, запреты, стек, архитектура, CSS-алиасы, feature flags, i18n, routing
 4. frontend_vue/src/router/index.ts                — существующие маршруты (admin-products, admin-categories уже есть)
-5. frontend_vue/src/i18n/admin.ts (первые 80 строк) — существующие префиксы, уже есть products: { title, header_title }
-6. frontend_vue/src/types/category.ts              — CategoryFieldType, CategoryField — будем переиспользовать
-7. frontend_vue/src/config/featureFlags.ts         — adminProducts: true уже есть
-8. frontend_vue/src/components/admin/ (список файлов) — доступные компоненты
-9. frontend_vue/src/views/admin/products/ProductsPage.vue — текущее состояние (хедер + ссылка)
-10. toDo/Flexiron_ERP_CRM.md (секция 1.1 page Товары)
-11. toDo/admin-api-contract.md — изучи структуру существующих секций
+6. frontend_vue/src/i18n/admin.ts (первые 80 строк) — существующие префиксы, уже есть products: { title, header_title }
+7. frontend_vue/src/types/category.ts              — CategoryFieldType, CategoryField — будем переиспользовать
+8. frontend_vue/src/config/featureFlags.ts         — adminProducts: true уже есть
+9. frontend_vue/src/components/admin/ (список файлов) — доступные компоненты
+10. frontend_vue/src/views/admin/products/ProductsPage.vue — текущее состояние (хедер + ссылка)
+11. toDo/Flexiron_ERP_CRM.md (секция 1.1 page Товары)
+12. toDo/admin-api-contract.md — изучи структуру существующих секций
 
 После прочтения — выдай Checkpoint 0:
 

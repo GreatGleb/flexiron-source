@@ -70,7 +70,7 @@ Lesson learned: adding `SupplierCreatePage` with `SupplierCardPage` refactoring 
 1. Grep all callers of removed/renamed exports (services, composables, components) — including **template usage**, which TypeScript doesn't always catch
 2. In old page: remove unused `import`s and utility functions after extraction
 3. Update `toDo/admin-api-contract.md` if endpoint signature changed
-4. If route structure changes — check `ScreensPage.vue`, CLAUDE.md (architecture path), README
+4. If route structure changes — check `ScreensPage.vue`, `roo_code/roo-context/frontend-vue-quickref.md` (patterns, SOLID, DDD), README
 5. Done ≠ typecheck+lint. Done = (1-4) + pitfalls #1-#28 + contract sync + browser walk-through golden path
 
 **Trigger moment**: as soon as I notice task = "new page + extract from old" / "new endpoint caller" — **immediately** read contract **before** plan, not after.

@@ -66,7 +66,7 @@ Move the entire project directory from `C:\Users\great\Documents\bussiness\InBox
 
 **Files affected (43 files total):**
 - [`ROO.md`](ROO.md) — `# InBox LT — Roo Code Instructions`
-- [`frontend_vue/CLAUDE.md`](frontend_vue/CLAUDE.md) — `# InBox LT — Frontend Vue (Admin Migration)`
+- [`roo_code/roo-context/frontend-vue-quickref.md`](../../roo_code/roo-context/frontend-vue-quickref.md) — `# InBox LT — Frontend Vue (Admin Migration)` (was `frontend_vue/CLAUDE.md`, now deleted)
 - Multiple `roo_code/` and `toDo/` markdown files reference "InBox LT" in titles
 
 **Impact:** These are **document titles and descriptions**, not functional paths. Cosmetic only. Update if you want the new directory name reflected in docs.
@@ -131,7 +131,7 @@ The Git remote is already set to `https://github.com/GreatGleb/flexiron-source.g
 
 Optionally update "InBox LT" → "Flexiron Enterprise" in:
 - [`ROO.md`](ROO.md) — line 1
-- [`frontend_vue/CLAUDE.md`](frontend_vue/CLAUDE.md) — line 1
+- [`roo_code/roo-context/frontend-vue-quickref.md`](../../roo_code/roo-context/frontend-vue-quickref.md) — line 1 (was `frontend_vue/CLAUDE.md`, now deleted)
 - Various `roo_code/` and `toDo/` markdown files
 
 ---

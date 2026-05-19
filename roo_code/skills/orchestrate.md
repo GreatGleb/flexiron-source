@@ -4,7 +4,7 @@ description: Orchestrator for full page implementation workflow. Auto-trigger wh
 user_invocable: true
 arguments:
   - name: id
-    description: "Page identifier e.g. '1.2' → matches toDo/plans/1.2-*-plan.md"
+    description: "Page identifier e.g. '1.2' → matches roo_code/plans/*/1.2-*-plan.md"
     required: false
 ---
 
@@ -29,7 +29,7 @@ Knows the full algorithm and determines where to start from file state. Manages 
 
 From user message:
 - "create page 1.2" → id = "1.2"
-- "continue products" → Glob `toDo/plans/` → find file with "products" → extract id
+- "continue products" → Glob `roo_code/plans/` → find file with "products" → extract id
 
 If unclear → ask once: "Specify page ID (e.g. 1.2)"
 
@@ -38,13 +38,13 @@ If unclear → ask once: "Specify page ID (e.g. 1.2)"
 Read in order, stop at first match:
 
 ```
-1. toDo/plans/{id}-*-plan.md DOES NOT exist
+1. roo_code/plans/*/{id}-*-plan.md DOES NOT exist
    → Stage: CREATE-PLAN
 
 2. Plan exists, but src/views/admin/**/*Page.vue for this page DOES NOT exist
    → Stage: CREATE-PAGE (Phase 0)
 
-3. Vue file exists, bugs-file toDo/plans/bugs/{id}-*-bugs.md DOES NOT exist
+3. Vue file exists, bugs-file roo_code/plans/bugs/{id}-*-bugs.md DOES NOT exist
    → Ask: "Page partially created or all Phase 0–9 complete?"
      - Not complete → Stage: CREATE-PAGE (continue from needed phase)
      - Complete → Stage: PRE-MANUAL-CHECK
@@ -92,7 +92,7 @@ Execute skill `roo_code/skills/create-plan.md` fully.
 After completion:
 ```
 ⏸ STOP — create-plan complete
-Plan: toDo/plans/{id}-*-plan.md
+Plan: roo_code/plans/*/{id}-*-plan.md
 Next: create-page Phase 0–9
 Continue?
 ```

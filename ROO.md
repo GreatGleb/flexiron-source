@@ -6,8 +6,10 @@
 Any new file created for Roo Code workflow, skills, plans, or process improvements — MUST be placed in `roo_code/` directory. NOT in root.
 
 - Skills → `roo_code/skills/`
-- Plans → `roo_code/plans/`
+- Plans → `roo_code/plans/` — **NEVER create plans in the root directory (`./`). All plans go here.**
 - Context → `roo_code/roo-context/`
+
+> ⚠️ **Plan creation rule:** When creating a new plan file (`.md`, `.txt`, or any other format), it MUST be placed under `roo_code/plans/<domain>/`. Creating plan files in the root directory (`./plan.md`, `./plan.txt`, etc.) is strictly forbidden. If you catch yourself about to write a plan to the root — STOP and redirect to `roo_code/plans/`.
 
 ### 2. After `ask_followup_question` — STOP and WAIT
 Do NOT call any other tools until the user responds. No preparatory commands, no searches, no file reads, nothing. Wait for the user's answer first.

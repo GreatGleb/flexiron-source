@@ -47,7 +47,7 @@ Read all relevant docs:
 - `toDo/design/Flexiron_ERP_Sitemap.md` — navigation placement, section hierarchy
 
 ### Step 0c — Project Context (skip if already read this session)
-- `frontend_vue/CLAUDE.md` — patterns, prohibitions, pitfalls
+- `roo_code/roo-context/frontend-vue-quickref.md` — patterns, SOLID, DRY, DDD, prohibitions, verification checklist, stack, architecture, CSS aliases, feature flags, i18n, routing
 - `frontend_vue/src/router/index.ts` — existing routes (verify names before using)
 - `frontend_vue/src/i18n/admin/` — existing domain translation files (layout, dashboard, products, categories, suppliers, bcc, cardConfig, analytics, common)
 - `frontend_vue/src/components/admin/` — available components (use, don't recreate)
