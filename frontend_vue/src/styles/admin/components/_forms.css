@@ -25,6 +25,9 @@
   outline: none;
   box-shadow: 0 0 10px rgba(24, 144, 255, 0.2);
 }
+.glass-input[readonly] {
+  opacity: 0.6;
+}
 textarea.glass-input {
   resize: vertical;
   min-height: 50px;
@@ -96,7 +99,6 @@ textarea.glass-input {
   cursor: help;
   margin-left: 8px;
   vertical-align: middle;
-  position: relative;
   transition: 0.3s;
 }
 .info-hint:hover {
@@ -104,32 +106,6 @@ textarea.glass-input {
   color: #fff;
   transform: scale(1.1);
   box-shadow: 0 0 10px rgba(24, 144, 255, 0.5);
-}
-.info-hint::after {
-  content: attr(data-tooltip);
-  position: absolute;
-  bottom: calc(100% + 10px);
-  left: 50%;
-  transform: translateX(-50%);
-  width: 220px;
-  padding: 12px;
-  background: rgba(15, 23, 42, 0.95);
-  backdrop-filter: blur(15px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  color: #fff;
-  font-size: 11px;
-  text-transform: none;
-  line-height: 1.4;
-  pointer-events: none;
-  opacity: 0;
-  transition: 0.3s;
-  z-index: 1002;
-  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.5);
-}
-.info-hint:hover::after {
-  opacity: 1;
-  transform: translateX(-50%) translateY(-5px);
 }
 
 /* Info Hint - Mobile */
@@ -139,11 +115,6 @@ textarea.glass-input {
     height: 16px;
     margin-left: 6px;
   }
-  .info-hint::after {
-    width: 180px;
-    padding: 10px;
-    font-size: 10px;
-  }
 }
 
 @media (max-width: 400px) {
@@ -151,16 +122,5 @@ textarea.glass-input {
     width: 14px;
     height: 14px;
     margin-left: 4px;
-  }
-  .info-hint::after {
-    width: 150px;
-    padding: 8px;
-    font-size: 9px;
-    left: auto;
-    right: 0;
-    transform: none;
-  }
-  .info-hint:hover::after {
-    transform: translateY(-5px);
   }
 }

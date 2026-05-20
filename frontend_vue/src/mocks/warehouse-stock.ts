@@ -16,6 +16,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-2',
     categoryName: { ru: 'Листовые материалы', en: 'Sheet materials', lt: 'Lakštinės medžiagos' },
+    auditLog: [],
   },
   {
     productId: 'prod-002',
@@ -31,6 +32,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-2',
     categoryName: { ru: 'Листовые материалы', en: 'Sheet materials', lt: 'Lakštinės medžiagos' },
+    auditLog: [],
   },
   {
     productId: 'prod-003',
@@ -46,6 +48,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-2',
     categoryName: { ru: 'Листовые материалы', en: 'Sheet materials', lt: 'Lakštinės medžiagos' },
+    auditLog: [],
   },
   {
     productId: 'prod-021',
@@ -61,6 +64,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-2',
     categoryName: { ru: 'Листовые материалы', en: 'Sheet materials', lt: 'Lakštinės medžiagos' },
+    auditLog: [],
   },
   {
     productId: 'prod-022',
@@ -76,6 +80,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-2',
     categoryName: { ru: 'Листовые материалы', en: 'Sheet materials', lt: 'Lakštinės medžiagos' },
+    auditLog: [],
   },
   {
     productId: 'prod-023',
@@ -91,6 +96,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-2',
     categoryName: { ru: 'Листовые материалы', en: 'Sheet materials', lt: 'Lakštinės medžiagos' },
+    auditLog: [],
   },
   {
     productId: 'prod-084',
@@ -106,6 +112,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-2',
     categoryName: { ru: 'Листовые материалы', en: 'Sheet materials', lt: 'Lakštinės medžiagos' },
+    auditLog: [],
   },
   {
     productId: 'prod-085',
@@ -121,6 +128,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-2',
     categoryName: { ru: 'Листовые материалы', en: 'Sheet materials', lt: 'Lakštinės medžiagos' },
+    auditLog: [],
   },
 
   // ── cat-4: Трубы / Pipes / Vamzdžiai ────────────────────────────────────────
@@ -138,6 +146,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-4',
     categoryName: { ru: 'Трубы', en: 'Pipes', lt: 'Vamzdžiai' },
+    auditLog: [],
   },
   {
     productId: 'prod-005',
@@ -153,6 +162,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-4',
     categoryName: { ru: 'Трубы', en: 'Pipes', lt: 'Vamzdžiai' },
+    auditLog: [],
   },
   {
     productId: 'prod-024',
@@ -168,6 +178,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-4',
     categoryName: { ru: 'Трубы', en: 'Pipes', lt: 'Vamzdžiai' },
+    auditLog: [],
   },
   {
     productId: 'prod-025',
@@ -183,6 +194,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-4',
     categoryName: { ru: 'Трубы', en: 'Pipes', lt: 'Vamzdžiai' },
+    auditLog: [],
   },
   {
     productId: 'prod-086',
@@ -198,6 +210,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-4',
     categoryName: { ru: 'Трубы', en: 'Pipes', lt: 'Vamzdžiai' },
+    auditLog: [],
   },
   {
     productId: 'prod-087',
@@ -213,6 +226,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-4',
     categoryName: { ru: 'Трубы', en: 'Pipes', lt: 'Vamzdžiai' },
+    auditLog: [],
   },
 
   // ── cat-5: Расходные материалы / Consumables / Eksploatacinės medžiagos ─────
@@ -230,6 +244,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-5',
     categoryName: { ru: 'Расходные материалы', en: 'Consumables', lt: 'Eksploatacinės medžiagos' },
+    auditLog: [],
   },
   {
     productId: 'prod-009',
@@ -245,6 +260,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: true,
     categoryId: 'cat-5',
     categoryName: { ru: 'Расходные материалы', en: 'Consumables', lt: 'Eksploatacinės medžiagos' },
+    auditLog: [],
   },
   {
     productId: 'prod-034',
@@ -260,6 +276,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-5',
     categoryName: { ru: 'Расходные материалы', en: 'Consumables', lt: 'Eksploatacinės medžiagos' },
+    auditLog: [],
   },
   {
     productId: 'prod-071',
@@ -275,6 +292,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-5',
     categoryName: { ru: 'Расходные материалы', en: 'Consumables', lt: 'Eksploatacinės medžiagos' },
+    auditLog: [],
   },
   {
     productId: 'prod-072',
@@ -290,6 +308,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-5',
     categoryName: { ru: 'Расходные материалы', en: 'Consumables', lt: 'Eksploatacinės medžiagos' },
+    auditLog: [],
   },
   {
     productId: 'prod-073',
@@ -305,6 +324,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-5',
     categoryName: { ru: 'Расходные материалы', en: 'Consumables', lt: 'Eksploatacinės medžiagos' },
+    auditLog: [],
   },
   {
     productId: 'prod-074',
@@ -320,6 +340,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-5',
     categoryName: { ru: 'Расходные материалы', en: 'Consumables', lt: 'Eksploatacinės medžiagos' },
+    auditLog: [],
   },
   {
     productId: 'prod-080',
@@ -335,6 +356,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-5',
     categoryName: { ru: 'Расходные материалы', en: 'Consumables', lt: 'Eksploatacinės medžiagos' },
+    auditLog: [],
   },
   {
     productId: 'prod-112',
@@ -350,6 +372,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-5',
     categoryName: { ru: 'Расходные материалы', en: 'Consumables', lt: 'Eksploatacinės medžiagos' },
+    auditLog: [],
   },
 
   // ── cat-6: Газы / Gases / Dujos ─────────────────────────────────────────────
@@ -367,6 +390,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: true,
     categoryId: 'cat-6',
     categoryName: { ru: 'Газы', en: 'Gases', lt: 'Dujos' },
+    auditLog: [],
   },
   {
     productId: 'prod-016',
@@ -382,6 +406,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-6',
     categoryName: { ru: 'Газы', en: 'Gases', lt: 'Dujos' },
+    auditLog: [],
   },
   {
     productId: 'prod-026',
@@ -397,6 +422,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-6',
     categoryName: { ru: 'Газы', en: 'Gases', lt: 'Dujos' },
+    auditLog: [],
   },
   {
     productId: 'prod-035',
@@ -412,6 +438,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-6',
     categoryName: { ru: 'Газы', en: 'Gases', lt: 'Dujos' },
+    auditLog: [],
   },
   {
     productId: 'prod-075',
@@ -427,6 +454,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: true,
     categoryId: 'cat-6',
     categoryName: { ru: 'Газы', en: 'Gases', lt: 'Dujos' },
+    auditLog: [],
   },
   {
     productId: 'prod-076',
@@ -442,6 +470,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-6',
     categoryName: { ru: 'Газы', en: 'Gases', lt: 'Dujos' },
+    auditLog: [],
   },
   {
     productId: 'prod-077',
@@ -457,6 +486,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-6',
     categoryName: { ru: 'Газы', en: 'Gases', lt: 'Dujos' },
+    auditLog: [],
   },
   {
     productId: 'prod-078',
@@ -472,6 +502,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-6',
     categoryName: { ru: 'Газы', en: 'Gases', lt: 'Dujos' },
+    auditLog: [],
   },
   {
     productId: 'prod-079',
@@ -487,6 +518,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-6',
     categoryName: { ru: 'Газы', en: 'Gases', lt: 'Dujos' },
+    auditLog: [],
   },
 
   // ── cat-7: Абразив / Abrasives / Abrazyvai ──────────────────────────────────
@@ -504,6 +536,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: true,
     categoryId: 'cat-7',
     categoryName: { ru: 'Абразив', en: 'Abrasives', lt: 'Abrazyvai' },
+    auditLog: [],
   },
   {
     productId: 'prod-027',
@@ -519,6 +552,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-7',
     categoryName: { ru: 'Абразив', en: 'Abrasives', lt: 'Abrazyvai' },
+    auditLog: [],
   },
   {
     productId: 'prod-028',
@@ -534,6 +568,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-7',
     categoryName: { ru: 'Абразив', en: 'Abrasives', lt: 'Abrazyvai' },
+    auditLog: [],
   },
   {
     productId: 'prod-036',
@@ -549,6 +584,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-7',
     categoryName: { ru: 'Абразив', en: 'Abrasives', lt: 'Abrazyvai' },
+    auditLog: [],
   },
   {
     productId: 'prod-037',
@@ -564,6 +600,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-7',
     categoryName: { ru: 'Абразив', en: 'Abrasives', lt: 'Abrazyvai' },
+    auditLog: [],
   },
 
   // ── cat-8: Инструмент / Tools / Įrankiai ────────────────────────────────────
@@ -581,6 +618,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-8',
     categoryName: { ru: 'Инструмент', en: 'Tools', lt: 'Įrankiai' },
+    auditLog: [],
   },
   {
     productId: 'prod-018',
@@ -596,6 +634,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-8',
     categoryName: { ru: 'Инструмент', en: 'Tools', lt: 'Įrankiai' },
+    auditLog: [],
   },
   {
     productId: 'prod-029',
@@ -611,6 +650,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-8',
     categoryName: { ru: 'Инструмент', en: 'Tools', lt: 'Įrankiai' },
+    auditLog: [],
   },
   {
     productId: 'prod-038',
@@ -626,6 +666,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-8',
     categoryName: { ru: 'Инструмент', en: 'Tools', lt: 'Įrankiai' },
+    auditLog: [],
   },
   {
     productId: 'prod-039',
@@ -641,6 +682,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-8',
     categoryName: { ru: 'Инструмент', en: 'Tools', lt: 'Įrankiai' },
+    auditLog: [],
   },
   {
     productId: 'prod-040',
@@ -656,6 +698,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-8',
     categoryName: { ru: 'Инструмент', en: 'Tools', lt: 'Įrankiai' },
+    auditLog: [],
   },
 
   // ── cat-9: Оборудование / Equipment / Įranga ────────────────────────────────
@@ -673,6 +716,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-9',
     categoryName: { ru: 'Оборудование', en: 'Equipment', lt: 'Įranga' },
+    auditLog: [],
   },
   {
     productId: 'prod-020',
@@ -688,6 +732,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-9',
     categoryName: { ru: 'Оборудование', en: 'Equipment', lt: 'Įranga' },
+    auditLog: [],
   },
   {
     productId: 'prod-030',
@@ -703,6 +748,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-9',
     categoryName: { ru: 'Оборудование', en: 'Equipment', lt: 'Įranga' },
+    auditLog: [],
   },
   {
     productId: 'prod-041',
@@ -718,6 +764,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-9',
     categoryName: { ru: 'Оборудование', en: 'Equipment', lt: 'Įranga' },
+    auditLog: [],
   },
   {
     productId: 'prod-042',
@@ -733,6 +780,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-9',
     categoryName: { ru: 'Оборудование', en: 'Equipment', lt: 'Įranga' },
+    auditLog: [],
   },
   {
     productId: 'prod-081',
@@ -748,6 +796,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-9',
     categoryName: { ru: 'Оборудование', en: 'Equipment', lt: 'Įranga' },
+    auditLog: [],
   },
   {
     productId: 'prod-082',
@@ -763,6 +812,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-9',
     categoryName: { ru: 'Оборудование', en: 'Equipment', lt: 'Įranga' },
+    auditLog: [],
   },
 
   // ── cat-10: Балки и швеллеры / Beams & channels / Sijos ir kanalai ──────────
@@ -780,6 +830,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-10',
     categoryName: { ru: 'Балки и швеллеры', en: 'Beams & channels', lt: 'Sijos ir kanalai' },
+    auditLog: [],
   },
   {
     productId: 'prod-011',
@@ -795,6 +846,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-10',
     categoryName: { ru: 'Балки и швеллеры', en: 'Beams & channels', lt: 'Sijos ir kanalai' },
+    auditLog: [],
   },
   {
     productId: 'prod-031',
@@ -810,6 +862,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-10',
     categoryName: { ru: 'Балки и швеллеры', en: 'Beams & channels', lt: 'Sijos ir kanalai' },
+    auditLog: [],
   },
   {
     productId: 'prod-032',
@@ -825,6 +878,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-10',
     categoryName: { ru: 'Балки и швеллеры', en: 'Beams & channels', lt: 'Sijos ir kanalai' },
+    auditLog: [],
   },
   {
     productId: 'prod-101',
@@ -840,6 +894,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-10',
     categoryName: { ru: 'Балки и швеллеры', en: 'Beams & channels', lt: 'Sijos ir kanalai' },
+    auditLog: [],
   },
   {
     productId: 'prod-102',
@@ -855,6 +910,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-10',
     categoryName: { ru: 'Балки и швеллеры', en: 'Beams & channels', lt: 'Sijos ir kanalai' },
+    auditLog: [],
   },
   {
     productId: 'prod-103',
@@ -870,6 +926,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-10',
     categoryName: { ru: 'Балки и швеллеры', en: 'Beams & channels', lt: 'Sijos ir kanalai' },
+    auditLog: [],
   },
   {
     productId: 'prod-104',
@@ -885,6 +942,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-10',
     categoryName: { ru: 'Балки и швеллеры', en: 'Beams & channels', lt: 'Sijos ir kanalai' },
+    auditLog: [],
   },
 
   // ── cat-11: Арматура / Rebar / Armatūra ─────────────────────────────────────
@@ -902,6 +960,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-11',
     categoryName: { ru: 'Арматура', en: 'Rebar', lt: 'Armatūra' },
+    auditLog: [],
   },
   {
     productId: 'prod-033',
@@ -917,6 +976,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-11',
     categoryName: { ru: 'Арматура', en: 'Rebar', lt: 'Armatūra' },
+    auditLog: [],
   },
   {
     productId: 'prod-107',
@@ -932,6 +992,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-11',
     categoryName: { ru: 'Арматура', en: 'Rebar', lt: 'Armatūra' },
+    auditLog: [],
   },
   {
     productId: 'prod-108',
@@ -947,6 +1008,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-11',
     categoryName: { ru: 'Арматура', en: 'Rebar', lt: 'Armatūra' },
+    auditLog: [],
   },
   {
     productId: 'prod-111',
@@ -962,6 +1024,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-11',
     categoryName: { ru: 'Арматура', en: 'Rebar', lt: 'Armatūra' },
+    auditLog: [],
   },
 
   // ── cat-12: Профили / Profiles / Profiliai ──────────────────────────────────
@@ -979,6 +1042,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-12',
     categoryName: { ru: 'Профили', en: 'Profiles', lt: 'Profiliai' },
+    auditLog: [],
   },
   {
     productId: 'prod-015',
@@ -994,6 +1058,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-12',
     categoryName: { ru: 'Профили', en: 'Profiles', lt: 'Profiliai' },
+    auditLog: [],
   },
   {
     productId: 'prod-105',
@@ -1009,6 +1074,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-12',
     categoryName: { ru: 'Профили', en: 'Profiles', lt: 'Profiliai' },
+    auditLog: [],
   },
   {
     productId: 'prod-106',
@@ -1024,6 +1090,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-12',
     categoryName: { ru: 'Профили', en: 'Profiles', lt: 'Profiliai' },
+    auditLog: [],
   },
   {
     productId: 'prod-109',
@@ -1039,6 +1106,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-12',
     categoryName: { ru: 'Профили', en: 'Profiles', lt: 'Profiliai' },
+    auditLog: [],
   },
   {
     productId: 'prod-110',
@@ -1054,6 +1122,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-12',
     categoryName: { ru: 'Профили', en: 'Profiles', lt: 'Profiliai' },
+    auditLog: [],
   },
 
   // ── cat-13: Фитинги / Fittings / Jungtys ────────────────────────────────────
@@ -1071,6 +1140,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-13',
     categoryName: { ru: 'Фитинги', en: 'Fittings', lt: 'Jungtys' },
+    auditLog: [],
   },
   {
     productId: 'prod-113',
@@ -1086,6 +1156,7 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-13',
     categoryName: { ru: 'Фитинги', en: 'Fittings', lt: 'Jungtys' },
+    auditLog: [],
   },
   {
     productId: 'prod-114',
@@ -1101,5 +1172,6 @@ export const mockStockOverview: StockOverviewItem[] = [
     isDeficit: false,
     categoryId: 'cat-13',
     categoryName: { ru: 'Фитинги', en: 'Fittings', lt: 'Jungtys' },
+    auditLog: [],
   },
 ]

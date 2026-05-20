@@ -34,7 +34,19 @@ When the user asks about a configuration setting or timeout behavior:
 
 **Rule:** If I don't know the exact setting name and behavior — I search the extension source FIRST, ask the user SECOND, modify settings THIRD. Never the other way around.
 
-### 3. These rules are ALWAYS in effect
+### 4. Session start protocol — read skills BEFORE any code
+At the START of every session, BEFORE writing any code, creating any plan, or making any edit:
+
+1. **Read [`roo_code/skills/vue-rules.md`](roo_code/skills/vue-rules.md) completely** — especially pitfalls #1–#61 and the "Applying this skill" section
+2. **If task involves a page** → also read [`roo_code/skills/create-page.md`](roo_code/skills/create-page.md)
+3. **If task involves a plan** → also read [`roo_code/skills/create-plan.md`](roo_code/skills/create-plan.md)
+4. **If task involves bugs** → also read [`roo_code/skills/fix-bugs.md`](roo_code/skills/fix-bugs.md)
+
+**Why:** Skills contain accumulated lessons from real bugs. Skipping them = repeating past mistakes. The 30 seconds to read a skill saves 30 minutes of fixing.
+
+**Enforcement:** If I start writing code without having read the relevant skill(s) — I must STOP, read the skill(s), and only then continue.
+
+### 5. These rules are ALWAYS in effect
 ROO.md is read at session start. The rules above are permanent and apply to every session. If a rule seems ignored — re-read this file.
 
 ## Verification Rule (non-negotiable)

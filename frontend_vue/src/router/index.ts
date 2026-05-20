@@ -176,15 +176,21 @@ const routes: RouteRecordRaw[] = [
 
       /* Warehouse */
       {
-        path: 'warehouse/:tab(stock|batches|offcuts|movements|deficit)?',
-        name: 'admin-warehouse',
-        component: () => import('@/views/admin/warehouse/WarehousePage.vue'),
+        path: 'warehouse/stock/:id',
+        name: 'admin-warehouse-stock-card',
+        component: () => import('@/views/admin/warehouse/WarehouseStockCard.vue'),
         meta: { layout: 'admin', featureFlag: 'adminWarehouse' as FeatureFlagKey },
       },
       {
         path: 'warehouse/batches/:id',
         name: 'admin-warehouse-batch',
         component: () => import('@/views/admin/warehouse/WarehouseBatchCard.vue'),
+        meta: { layout: 'admin', featureFlag: 'adminWarehouse' as FeatureFlagKey },
+      },
+      {
+        path: 'warehouse/:tab(stock|batches|offcuts|movements|deficit)?',
+        name: 'admin-warehouse',
+        component: () => import('@/views/admin/warehouse/WarehousePage.vue'),
         meta: { layout: 'admin', featureFlag: 'adminWarehouse' as FeatureFlagKey },
       },
     ],

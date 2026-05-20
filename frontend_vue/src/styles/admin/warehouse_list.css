@@ -166,6 +166,75 @@
   background: rgba(255, 255, 255, 0.1);
 }
 
+/* ─── Toolbar (matching suppliers page .suppliers-header pattern) ─────────── */
+/* NOTE: .suppliers-header is defined in suppliers_list.css but we duplicate
+   the relevant styles here since that CSS is not loaded on the warehouse page. */
+.page-warehouse .suppliers-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 0; /* .page-warehouse already provides gap: 24px */
+}
+
+.page-warehouse .suppliers-header-left,
+.page-warehouse .suppliers-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Header - Tablet */
+@media (max-width: 992px) {
+  .page-warehouse .suppliers-header {
+    gap: 12px;
+  }
+
+  .page-warehouse .suppliers-header-left,
+  .page-warehouse .suppliers-header-right {
+    gap: 10px;
+  }
+}
+
+/* Header - Mobile */
+@media (max-width: 600px) {
+  .page-warehouse .suppliers-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .page-warehouse .suppliers-header-left {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .page-warehouse .suppliers-header-right {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .page-warehouse .suppliers-header-right .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* Header - Small Mobile */
+@media (max-width: 400px) {
+  .page-warehouse .suppliers-header {
+    gap: 10px;
+  }
+
+  .page-warehouse .suppliers-header-left,
+  .page-warehouse .suppliers-header-right {
+    gap: 8px;
+  }
+}
+
 /* ─── Filters ──────────────────────────────────────────────────────────────── */
 
 .filters-bar {

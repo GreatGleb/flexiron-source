@@ -47,8 +47,10 @@ function showTooltip(el: HTMLElement, text: string) {
   const vw = window.innerWidth
 
   let left = rect.left + rect.width / 2 - tipW / 2
-  if (left < 10) left = rect.left
-  if (left + tipW > vw - 10) left = rect.right - tipW
+  // Keep tooltip centered on icon as much as possible;
+  // only clamp to minimum margin (10px) if it would overflow the viewport edge.
+  if (left < 10) left = 10
+  if (left + tipW > vw - 10) left = vw - tipW - 10
 
   let top = rect.top - tipH - 20
   if (top < 10) top = rect.bottom + 20

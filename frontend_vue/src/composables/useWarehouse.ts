@@ -11,6 +11,7 @@ import {
   deleteMovement as deleteMovementApi,
   deleteDeficitItem as deleteDeficitItemApi,
   deleteStockItem as deleteStockItemApi,
+  patchDeficitItem as patchDeficitItemApi,
 } from '@/services/warehouseService'
 import { usePagination } from './usePagination'
 import { useToast } from './useToast'
@@ -33,6 +34,26 @@ export function useWarehouse() {
   const { tf } = useTranslatedField()
 
   const activeTab = ref<WarehouseTab>('stock')
+
+  // ─── Modal state ──────────────────────────────────────────────────────────────
+  const showCreateBatchModal = ref(false)
+  const showCreateMovementModal = ref(false)
+  const showCreateOffcutModal = ref(false)
+
+  function onBatchCreated() {
+    showCreateBatchModal.value = false
+    loadBatches()
+  }
+
+  function onMovementCreated() {
+    showCreateMovementModal.value = false
+    loadMovements()
+  }
+
+  function onOffcutCreated() {
+    showCreateOffcutModal.value = false
+    loadOffcuts()
+  }
 
   // Stock overview
   const stockItems = ref<StockOverviewItem[]>([])
@@ -336,6 +357,38 @@ export function useWarehouse() {
     }
   }
 
+  // ─── Inline status/priority updates ──────────────────────────────────────────
+
+  async function updateOffcutStatus(id: string, status: string) {
+    try {
+      await patchDeficitItemApi(id, { status } as any)
+      toast.success(t('warehouse.toast_offcut_saved'))
+      await loadOffcuts()
+    } catch {
+      toast.error(t('warehouse.toast_error'))
+    }
+  }
+
+  async function updateDeficitPriority(id: string, priority: string) {
+    try {
+      await patchDeficitItemApi(id, { priority } as any)
+      toast.success(t('warehouse.toast_deficit_saved'))
+      await loadDeficit()
+    } catch {
+      toast.error(t('warehouse.toast_error'))
+    }
+  }
+
+  async function updateDeficitStatus(id: string, status: string) {
+    try {
+      await patchDeficitItemApi(id, { status } as any)
+      toast.success(t('warehouse.toast_deficit_saved'))
+      await loadDeficit()
+    } catch {
+      toast.error(t('warehouse.toast_error'))
+    }
+  }
+
   // Loading lock — prevents page watcher from double-firing when filters reset page to 1
   let suppressPageWatch = false
 
@@ -524,6 +577,11 @@ export function useWarehouse() {
     movementsPagination,
     deficitPagination,
 
+    // Modal state
+    showCreateBatchModal,
+    showCreateMovementModal,
+    showCreateOffcutModal,
+
     // Actions
     load,
     loadStock,
@@ -541,6 +599,12 @@ export function useWarehouse() {
     toggleOffcutsSort,
     toggleMovementsSort,
     toggleDeficitSort,
+    onBatchCreated,
+    onMovementCreated,
+    onOffcutCreated,
+    updateOffcutStatus,
+    updateDeficitPriority,
+    updateDeficitStatus,
     tf,
   }
 }

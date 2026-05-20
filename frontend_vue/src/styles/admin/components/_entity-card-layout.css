@@ -8,8 +8,7 @@
   gap: 24px;
   align-items: start;
   margin-bottom: 24px;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  overflow: visible;
 }
 .entity-col-left {
   align-self: start;

@@ -271,7 +271,7 @@ function removeNoteAt(index: number) {
         <div class="input-group">
           <label class="field-label">
             <span>{{ t('sp.lead') }}</span>
-            <span class="info-hint" :data-tooltip="t('sp.lead_hint')">
+            <span v-tooltip="t('sp.lead_hint')" class="info-hint">
               <svg
                 width="10"
                 height="10"

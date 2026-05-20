@@ -299,6 +299,17 @@ export interface DeficitPatchPayload {
   notes?: string | null
 }
 
+// ─── Stock Audit Entry ──────────────────────────────────────────────────────
+
+export interface StockAuditEntry {
+  timestamp: string
+  user: TranslatedString
+  userInitials: string
+  property: TranslatedString
+  oldValue: string
+  newValue: string
+}
+
 // ─── Stock Overview (Общий остаток) ─────────────────────────────────────────
 
 export interface StockOverviewItem {
@@ -323,6 +334,21 @@ export interface StockOverviewItem {
   isDeficit: boolean
   /** Product category ID (for filtering) */
   categoryId?: string | null
+  /** Product category name (for display) */
+  categoryName?: TranslatedString | null
+  /** Stock change audit log */
+  auditLog: StockAuditEntry[]
+}
+
+export interface StockPatchPayload {
+  /** Product name (TranslatedString) */
+  productName?: TranslatedString
+  /** Unit of measure */
+  unit?: StockUnit
+  /** Weighted average unit price */
+  avgUnitPrice?: number
+  /** Minimum stock threshold */
+  minStock?: number | null
   /** Product category name (for display) */
   categoryName?: TranslatedString | null
 }

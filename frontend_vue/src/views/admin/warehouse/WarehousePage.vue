@@ -7,7 +7,7 @@ import { useWarehouse } from '@/composables/useWarehouse'
 import { useCategories } from '@/composables/useCategories'
 import { useToast } from '@/composables/useToast'
 import type { WarehouseTab } from '@/composables/useWarehouse'
-import type { BatchStatus, OffcutStatus, MovementType, DeficitPriority, DeficitStatus } from '@/types/warehouse'
+import type { BatchStatus, OffcutStatus, MovementType, DeficitStatus } from '@/types/warehouse'
 import type { CategoryListItem } from '@/types/category'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
@@ -15,6 +15,9 @@ import SearchInput from '@/components/admin/ui/SearchInput.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
 import MultiSelect from '@/components/admin/ui/MultiSelect.vue'
 import DatePicker from '@/components/admin/ui/DatePicker.vue'
+import CreateBatchModal from './CreateBatchModal.vue'
+import CreateMovementModal from './CreateMovementModal.vue'
+import CreateOffcutModal from './CreateOffcutModal.vue'
 import '@styles/admin/components/_pagination.css'
 import '@styles/admin/warehouse_list.css'
 
@@ -56,6 +59,14 @@ const {
   toggleMovementsSort,
   deficitSort,
   toggleDeficitSort,
+  showCreateBatchModal,
+  showCreateMovementModal,
+  showCreateOffcutModal,
+  onBatchCreated,
+  onMovementCreated,
+  onOffcutCreated,
+  updateOffcutStatus,
+  updateDeficitStatus,
   tf,
 } = useWarehouse()
 
@@ -218,6 +229,158 @@ function saveDeficitView() {
   }
   localStorage.setItem(DEFICIT_PREFS_KEY, JSON.stringify(prefs))
   toast.show(t('msg.prefs_saved'))
+}
+
+// ─── Export current tab data as CSV ──────────────────────────────────────────
+function exportCurrentTab() {
+  let rows: string[][]
+  let headers: string[]
+  let filename: string
+
+  switch (activeTab.value) {
+    case 'stock': {
+      headers = [
+        t('warehouse.col_product'),
+        t('warehouse.col_total_qty'),
+        t('warehouse.col_reserved'),
+        t('warehouse.col_available'),
+        t('warehouse.col_unit'),
+        t('warehouse.col_batches'),
+        t('warehouse.col_avg_price'),
+        t('warehouse.col_total_value'),
+        t('warehouse.col_min_stock'),
+      ]
+      rows = stockItems.value.map((item) => [
+        tf(item.productName),
+        String(item.totalQuantity),
+        String(item.reservedQuantity),
+        String(item.availableQuantity),
+        t(`warehouse.unit_${item.unit}`),
+        String(item.batchCount),
+        item.avgUnitPrice.toFixed(2),
+        item.totalValue.toFixed(2),
+        item.minStock !== null ? String(item.minStock) : '',
+      ])
+      filename = 'warehouse-stock.csv'
+      break
+    }
+    case 'batches': {
+      headers = [
+        t('warehouse.col_product'),
+        t('warehouse.col_batch_number'),
+        t('warehouse.col_lot_code'),
+        t('warehouse.col_quantity'),
+        t('warehouse.col_remaining'),
+        t('warehouse.col_unit'),
+        t('warehouse.col_unit_price'),
+        t('warehouse.col_received'),
+        t('warehouse.col_status'),
+      ]
+      rows = batches.value.map((batch) => [
+        tf(batch.productName),
+        batch.batchNumber,
+        batch.lotCode,
+        String(batch.quantity),
+        String(batch.quantityRemaining),
+        t(`warehouse.unit_${batch.unit}`),
+        batch.unitPrice.toFixed(2),
+        batch.receivedAt.slice(0, 10),
+        t(`warehouse.status_${batch.status}`),
+      ])
+      filename = 'warehouse-batches.csv'
+      break
+    }
+    case 'offcuts': {
+      headers = [
+        t('warehouse.col_product'),
+        t('warehouse.col_batch_number'),
+        t('warehouse.col_length'),
+        t('warehouse.col_weight'),
+        t('warehouse.col_quantity'),
+        t('warehouse.col_unit'),
+        t('warehouse.col_location'),
+        t('warehouse.col_status'),
+      ]
+      rows = offcuts.value.map((offcut) => [
+        tf(offcut.productName),
+        offcut.batchNumber,
+        offcut.lengthMm ? String(offcut.lengthMm) : '',
+        offcut.weightKg ? String(offcut.weightKg) : '',
+        String(offcut.quantity),
+        t(`warehouse.unit_${offcut.unit}`),
+        offcut.location ?? '',
+        t(`warehouse.status_${offcut.status}`),
+      ])
+      filename = 'warehouse-offcuts.csv'
+      break
+    }
+    case 'movements': {
+      headers = [
+        t('warehouse.col_date'),
+        t('warehouse.col_type'),
+        t('warehouse.col_product'),
+        t('warehouse.col_batch_number'),
+        t('warehouse.col_quantity'),
+        t('warehouse.col_unit'),
+        t('warehouse.col_unit_price'),
+        t('warehouse.col_total'),
+        t('warehouse.col_reference'),
+      ]
+      rows = movements.value.map((mov) => [
+        mov.movedAt.slice(0, 10),
+        t(`warehouse.type_${mov.type.replace('-', '_')}`),
+        tf(mov.productName),
+        mov.batchNumber,
+        String(mov.quantity),
+        t(`warehouse.unit_${mov.unit}`),
+        mov.unitPrice.toFixed(2),
+        (mov.quantity * mov.unitPrice).toFixed(2),
+        mov.referenceType ? t(`warehouse.reference_${mov.referenceType}`) : '',
+      ])
+      filename = 'warehouse-movements.csv'
+      break
+    }
+    case 'deficit': {
+      headers = [
+        t('warehouse.col_product'),
+        t('warehouse.col_current_stock'),
+        t('warehouse.col_min_required'),
+        t('warehouse.col_deficit_amount'),
+        t('warehouse.col_unit'),
+        t('warehouse.col_priority'),
+        t('warehouse.col_status'),
+      ]
+      rows = deficitItems.value.map((item) => [
+        tf(item.productName),
+        String(item.currentStock),
+        String(item.minRequired),
+        String(item.deficitAmount),
+        t(`warehouse.unit_${item.unit}`),
+        t(`warehouse.deficit_priority_badge_${item.priority}`),
+        t(`warehouse.status_${item.status}`),
+      ])
+      filename = 'warehouse-deficit.csv'
+      break
+    }
+    default:
+      return
+  }
+
+  const csvContent = [headers.join(','), ...rows.map((r) => r.map(escapeCsvField).join(','))].join('\n')
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+function escapeCsvField(value: string): string {
+  if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+    return `"${value.replace(/"/g, '""')}"`
+  }
+  return value
 }
 
 function loadPrefs() {
@@ -429,13 +592,6 @@ const MOVEMENT_TYPE_PILL: Record<MovementType, string> = {
   'write-off': 'pill-warning',
 }
 
-const DEFICIT_PRIORITY_PILL: Record<DeficitPriority, string> = {
-  critical: 'pill-danger',
-  high: 'pill-warning',
-  medium: 'pill-info',
-  low: 'pill-secondary',
-}
-
 const DEFICIT_STATUS_PILL: Record<DeficitStatus, string> = {
   open: 'pill-warning',
   in_progress: 'pill-info',
@@ -627,6 +783,100 @@ watch(stockItems, () => {
         <SvgIcon :name="tab.icon" :width="18" :height="18" />
         <span>{{ t(tab.labelKey) }}</span>
       </button>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════════════════════
+         Toolbar — action buttons per tab (matching suppliers page pattern)
+         ════════════════════════════════════════════════════════════════════════ -->
+    <div class="suppliers-header" data-test="warehouse-toolbar">
+      <div class="suppliers-header-left" />
+      <div class="suppliers-header-right">
+        <!-- Export (all tabs) -->
+        <button
+          class="btn btn-secondary"
+          data-test="warehouse-export-btn"
+          @click="exportCurrentTab"
+        >
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
+          </svg>
+          <span>{{ t('warehouse.btn_export') }}</span>
+        </button>
+
+        <!-- Stock tab: new stock item (placeholder — opens batch modal) -->
+        <button
+          v-if="activeTab === 'stock'"
+          class="btn btn-primary"
+          data-test="warehouse-new-stock-btn"
+          @click="showCreateBatchModal = true"
+        >
+          <SvgIcon name="plus-add" :width="18" :height="18" stroke-width="2" />
+          <span>{{ t('warehouse.btn_new_stock') }}</span>
+        </button>
+
+        <!-- Batches tab: new batch -->
+        <button
+          v-if="activeTab === 'batches'"
+          class="btn btn-primary"
+          data-test="warehouse-new-batch-btn"
+          @click="showCreateBatchModal = true"
+        >
+          <SvgIcon name="plus-add" :width="18" :height="18" stroke-width="2" />
+          <span>{{ t('warehouse.btn_new_batch') }}</span>
+        </button>
+
+        <!-- Offcuts tab: new offcut (cutting) -->
+        <button
+          v-if="activeTab === 'offcuts'"
+          class="btn btn-primary"
+          data-test="warehouse-new-offcut-btn"
+          @click="showCreateOffcutModal = true"
+        >
+          <SvgIcon name="scissors" :width="18" :height="18" />
+          <span>{{ t('warehouse.btn_new_offcut') }}</span>
+        </button>
+
+        <!-- Movements tab: new movement -->
+        <button
+          v-if="activeTab === 'movements'"
+          class="btn btn-primary"
+          data-test="warehouse-new-movement-btn"
+          @click="showCreateMovementModal = true"
+        >
+          <SvgIcon name="plus-add" :width="18" :height="18" stroke-width="2" />
+          <span>{{ t('warehouse.btn_new_movement') }}</span>
+        </button>
+
+        <!-- Deficit tab: new deficit item (placeholder — opens batch modal) -->
+        <button
+          v-if="activeTab === 'deficit'"
+          class="btn btn-primary"
+          data-test="warehouse-new-deficit-btn"
+          @click="showCreateBatchModal = true"
+        >
+          <SvgIcon name="plus-add" :width="18" :height="18" stroke-width="2" />
+          <span>{{ t('warehouse.btn_new_stock') }}</span>
+        </button>
+
+        <!-- Page config stub (all tabs) — tooltip: in development -->
+        <button
+          class="btn btn-secondary"
+          data-test="warehouse-page-config-btn"
+          v-tooltip="t('warehouse.tooltip_page_config_coming_soon')"
+        >
+          <SvgIcon name="settings-gear" :width="18" :height="18" />
+          <span>{{ t('warehouse.btn_page_config') }}</span>
+        </button>
+      </div>
     </div>
 
     <!-- Filters bar -->
@@ -1034,7 +1284,7 @@ watch(stockItems, () => {
                 >
                   <td>
                     <router-link
-                      :to="{ name: 'admin-product-card', params: { id: item.productId } }"
+                      :to="{ name: 'admin-warehouse-stock-card', params: { id: item.productId } }"
                       class="name-link"
                     >
                       {{ tf(item.productName) }}
@@ -1290,7 +1540,7 @@ watch(stockItems, () => {
                     <div class="row-actions">
                       <router-link
                         v-tooltip="t('tooltip.view_details')"
-                        :to="{ name: 'admin-product-card', params: { id: item.productId } }"
+                        :to="{ name: 'admin-warehouse-stock-card', params: { id: item.productId } }"
                         class="action-icon-btn"
                         data-test="stock-view-btn"
                         @click.stop
@@ -1797,11 +2047,23 @@ watch(stockItems, () => {
 
         <div
           v-else-if="!offcutsLoading && offcuts.length === 0"
-          class="empty-state"
+          class="tab-empty-state"
           data-test="warehouse-offcuts-empty"
         >
-          <SvgIcon name="scissors" :width="48" :height="48" />
-          <p>{{ t('warehouse.empty_offcuts') }}</p>
+          <div class="tab-empty-state__icon">
+            <SvgIcon name="scissors" :width="48" :height="48" />
+          </div>
+          <p class="tab-empty-state__text">{{ t('warehouse.empty_offcuts') }}</p>
+          <div class="tab-empty-state__action">
+            <button
+              class="btn btn-primary"
+              data-test="warehouse-offcuts-cut-btn-empty"
+              @click="showCreateOffcutModal = true"
+            >
+              <SvgIcon name="scissors" :width="16" :height="16" />
+              <span>{{ t('warehouse.btn_cut') }}</span>
+            </button>
+          </div>
         </div>
 
         <div v-else class="data-table-wrapper">
@@ -2049,17 +2311,31 @@ watch(stockItems, () => {
                 data-test="warehouse-offcut-row"
               >
                 <td>
-                  <router-link
-                    :to="{ name: 'admin-product-card', params: { id: offcut.productId } }"
-                    class="name-link"
-                  >
-                    {{ tf(offcut.productName) }}
-                  </router-link>
+                  <div class="th-content" style="gap: 6px;">
+                    <router-link
+                      :to="{ name: 'admin-product-card', params: { id: offcut.productId } }"
+                      class="name-link"
+                    >
+                      {{ tf(offcut.productName) }}
+                    </router-link>
+                    <span
+                      v-if="offcut.offcutType"
+                      class="offcut-type-badge"
+                      :class="`offcut-type-badge--${offcut.offcutType}`"
+                    >
+                      {{ t(`warehouse.offcut_type_${offcut.offcutType}`) }}
+                    </span>
+                  </div>
                 </td>
                 <td><code class="lot-code">{{ offcut.batchNumber }}</code></td>
                 <td>
                   <template v-if="offcut.lengthMm">
-                    {{ offcut.lengthMm }}
+                    <span class="offcut-dimensions">
+                      {{ t('warehouse.offcut_dimensions', {
+                        length: offcut.lengthMm,
+                        width: offcut.widthMm ?? '—',
+                      }) }}
+                    </span>
                   </template>
                   <span v-else class="text-muted">—</span>
                 </td>
@@ -2083,6 +2359,26 @@ watch(stockItems, () => {
                     >
                       <SvgIcon name="external-link" :width="16" :height="16" />
                     </router-link>
+                    <template v-if="offcut.status === 'available'">
+                      <button
+                        v-tooltip="t('warehouse.btn_mark_used')"
+                        class="inline-action-btn inline-action-btn--used"
+                        data-test="offcut-mark-used-btn"
+                        @click.stop="updateOffcutStatus(offcut.id, 'used')"
+                      >
+                        <SvgIcon name="check" :width="14" :height="14" />
+                        {{ t('warehouse.btn_mark_used') }}
+                      </button>
+                      <button
+                        v-tooltip="t('warehouse.btn_mark_scrap')"
+                        class="inline-action-btn inline-action-btn--scrap"
+                        data-test="offcut-mark-scrap-btn"
+                        @click.stop="updateOffcutStatus(offcut.id, 'scrap')"
+                      >
+                        <SvgIcon name="trash" :width="14" :height="14" />
+                        {{ t('warehouse.btn_mark_scrap') }}
+                      </button>
+                    </template>
                     <button
                       v-tooltip="t('warehouse.btn_delete')"
                       class="action-icon-btn action-danger"
@@ -2585,11 +2881,13 @@ watch(stockItems, () => {
 
         <div
           v-else-if="!deficitLoading && deficitItems.length === 0"
-          class="empty-state"
+          class="tab-empty-state"
           data-test="warehouse-deficit-empty"
         >
-          <SvgIcon name="check-circle" :width="48" :height="48" />
-          <p>{{ t('warehouse.empty_deficit') }}</p>
+          <div class="tab-empty-state__icon">
+            <SvgIcon name="check-circle" :width="48" :height="48" />
+          </div>
+          <p class="tab-empty-state__text">{{ t('warehouse.empty_deficit') }}</p>
         </div>
 
         <div v-else class="data-table-wrapper">
@@ -2819,11 +3117,25 @@ watch(stockItems, () => {
                   {{ item.currentStock }}
                 </td>
                 <td>{{ item.minRequired }}</td>
-                <td class="text-danger fw-bold">{{ item.deficitAmount }}</td>
+                <td>
+                  <span
+                    class="fw-bold"
+                    :class="{
+                      'deficit-amount-critical': item.deficitAmount > 100,
+                      'deficit-amount-high': item.deficitAmount > 50 && item.deficitAmount <= 100,
+                      'text-danger': item.deficitAmount <= 50,
+                    }"
+                  >
+                    {{ item.deficitAmount }}
+                  </span>
+                </td>
                 <td>{{ t(`warehouse.unit_${item.unit}`) }}</td>
                 <td>
-                  <span class="status-pill" :class="DEFICIT_PRIORITY_PILL[item.priority]">
-                    {{ t(`warehouse.priority_${item.priority}`) }}
+                  <span
+                    class="deficit-priority-badge"
+                    :class="`deficit-priority-badge--${item.priority}`"
+                  >
+                    {{ t(`warehouse.deficit_priority_badge_${item.priority}`) }}
                   </span>
                 </td>
                 <td>
@@ -2842,6 +3154,28 @@ watch(stockItems, () => {
                     >
                       <SvgIcon name="external-link" :width="16" :height="16" />
                     </router-link>
+                    <template v-if="item.status === 'open'">
+                      <button
+                        v-tooltip="t('warehouse.deficit_status_in_progress')"
+                        class="inline-action-btn inline-action-btn--used"
+                        data-test="deficit-mark-in-progress-btn"
+                        @click.stop="updateDeficitStatus(item.id, 'in_progress')"
+                      >
+                        <SvgIcon name="play" :width="14" :height="14" />
+                        {{ t('warehouse.deficit_status_in_progress') }}
+                      </button>
+                    </template>
+                    <template v-if="item.status === 'in_progress'">
+                      <button
+                        v-tooltip="t('warehouse.deficit_status_resolved')"
+                        class="inline-action-btn inline-action-btn--used"
+                        data-test="deficit-mark-resolved-btn"
+                        @click.stop="updateDeficitStatus(item.id, 'resolved')"
+                      >
+                        <SvgIcon name="check" :width="14" :height="14" />
+                        {{ t('warehouse.deficit_status_resolved') }}
+                      </button>
+                    </template>
                     <button
                       v-tooltip="t('warehouse.btn_delete')"
                       class="action-icon-btn action-danger"
@@ -2940,5 +3274,24 @@ watch(stockItems, () => {
         </div>
       </div>
     </Teleport>
+
+    <!-- ════════════════════════════════════════════════════════════════════════
+         Create modals
+         ════════════════════════════════════════════════════════════════════════ -->
+    <CreateBatchModal
+      :show="showCreateBatchModal"
+      @close="showCreateBatchModal = false"
+      @created="onBatchCreated"
+    />
+    <CreateMovementModal
+      :show="showCreateMovementModal"
+      @close="showCreateMovementModal = false"
+      @created="onMovementCreated"
+    />
+    <CreateOffcutModal
+      :show="showCreateOffcutModal"
+      @close="showCreateOffcutModal = false"
+      @created="onOffcutCreated"
+    />
   </div>
 </template>

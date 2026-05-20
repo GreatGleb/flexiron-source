@@ -12,8 +12,11 @@ import type {
   WarehouseDeficit,
   DeficitCreatePayload,
   DeficitPatchPayload,
+  StockPatchPayload,
+  StockAuditEntry,
   WarehouseFilters,
   StockFilters,
+  StockOverviewItem,
   BatchListResponse,
   OffcutListResponse,
   MovementListResponse,
@@ -41,6 +44,14 @@ export async function getStockOverview(
     params.sortDir = filters.sortDir
   }
   return apiGet<StockOverviewResponse>('/api/warehouse/stock', params)
+}
+
+export async function getStockItem(productId: string): Promise<StockOverviewItem> {
+  return apiGet<StockOverviewItem>(`/api/warehouse/stock/${productId}`)
+}
+
+export async function patchStockItem(productId: string, delta: StockPatchPayload): Promise<StockOverviewItem> {
+  return apiPatch<StockOverviewItem>(`/api/warehouse/stock/${productId}`, delta)
 }
 
 export async function deleteStockItem(productId: string): Promise<void> {
@@ -190,4 +201,14 @@ export async function patchDeficitItem(id: string, delta: DeficitPatchPayload): 
 
 export async function deleteDeficitItem(id: string): Promise<void> {
   return apiDelete(`/api/warehouse/deficit/${id}`)
+}
+
+// ─── Stock Audit ────────────────────────────────────────────────────────────
+
+export async function getStockAudit(productId: string): Promise<StockAuditEntry[]> {
+  return apiGet<StockAuditEntry[]>(`/api/warehouse/stock/${productId}/audit`)
+}
+
+export async function deleteStockAuditEntry(productId: string, entryIndex: number): Promise<void> {
+  return apiDelete<void>(`/api/warehouse/stock/${productId}/audit/${entryIndex}`)
 }

@@ -9,8 +9,11 @@ import type {
   WarehouseDeficit,
   DeficitListItem,
   StockOverviewItem,
+  StockAuditEntry,
+  StockUnit,
   CuttingOperation,
 } from '@/types/warehouse'
+import type { TranslatedString } from '@/types/i18n'
 import type { PaginatedResponse } from '@/types/api'
 import {
   mockBatches as mockBatchesData,
@@ -123,6 +126,35 @@ export async function mockGetStockOverview(
   }
 
   return paginate(filtered, pagination.page, pagination.pageSize)
+}
+
+export async function mockGetStockItem(productId: string): Promise<StockOverviewItem> {
+  const item = stockStore.find((s) => s.productId === productId)
+  if (!item) throw new Error('STOCK_ITEM_NOT_FOUND')
+  return {
+    ...item,
+    auditLog: getOrCreateStockAudit(productId),
+  }
+}
+
+export async function mockPatchStockItem(
+  productId: string,
+  delta: {
+    productName?: TranslatedString
+    unit?: StockUnit
+    avgUnitPrice?: number
+    minStock?: number | null
+    categoryName?: TranslatedString | null
+  },
+): Promise<StockOverviewItem> {
+  const item = stockStore.find((s) => s.productId === productId)
+  if (!item) throw new Error('STOCK_ITEM_NOT_FOUND')
+  if (delta.productName !== undefined) item.productName = delta.productName
+  if (delta.unit !== undefined) item.unit = delta.unit
+  if (delta.avgUnitPrice !== undefined) item.avgUnitPrice = delta.avgUnitPrice
+  if (delta.minStock !== undefined) item.minStock = delta.minStock
+  if (delta.categoryName !== undefined) item.categoryName = delta.categoryName
+  return { ...item }
 }
 
 // ─── Batches ────────────────────────────────────────────────────────────────
@@ -721,4 +753,106 @@ export async function mockDeleteDeficitItem(id: string): Promise<void> {
   const idx = deficitStore.findIndex((d) => d.id === id)
   if (idx === -1) throw new Error('DEFICIT_NOT_FOUND')
   deficitStore.splice(idx, 1)
+}
+
+// ─── Stock Audit ────────────────────────────────────────────────────────────
+
+const mockStockAuditStore: Map<string, StockAuditEntry[]> = new Map()
+
+/**
+ * Generates deterministic pseudo-random numbers based on productId.
+ * Ensures each product gets unique but stable audit values.
+ */
+function auditSeed(productId: string): number {
+  let hash = 0
+  for (let i = 0; i < productId.length; i++) {
+    hash = ((hash << 5) - hash) + productId.charCodeAt(i)
+    hash |= 0
+  }
+  return Math.abs(hash)
+}
+
+function getOrCreateStockAudit(productId: string): StockAuditEntry[] {
+  if (!mockStockAuditStore.has(productId)) {
+    const seed = auditSeed(productId)
+    const baseQty = 100 + (seed % 200)           // 100–299
+    const inc1 = 30 + (seed % 50)                 // 30–79
+    const dec1 = 25 + ((seed >> 6) % 45)          // 25–69
+    const dec2 = 15 + ((seed >> 8) % 30)          // 15–44
+    const reserved = 10 + ((seed >> 2) % 30)      // 10–39
+    const price = 20 + (seed % 60)                // 20–79
+    const minStock = 10 + ((seed >> 3) % 40)      // 10–49
+
+    mockStockAuditStore.set(productId, [
+      // ── Stock movements ──────────────────────────────────────────────
+      {
+        timestamp: '2026-05-20 09:15:00',
+        user: { ru: 'Иван Петров', en: 'Ivan Petrov', lt: 'Ivan Petrov' },
+        userInitials: 'ИП',
+        property: { ru: 'Остаток', en: 'Stock', lt: 'Likutis' },
+        oldValue: String(baseQty),
+        newValue: String(baseQty + inc1),
+      },
+      {
+        timestamp: '2026-05-18 14:30:00',
+        user: { ru: 'Мария Сидорова', en: 'Maria Sidorova', lt: 'Maria Sidorova' },
+        userInitials: 'МС',
+        property: { ru: 'Резерв', en: 'Reserved', lt: 'Rezervuota' },
+        oldValue: String(reserved - 5),
+        newValue: String(reserved),
+      },
+      {
+        timestamp: '2026-05-16 11:00:00',
+        user: { ru: 'Алексей Иванов', en: 'Alexey Ivanov', lt: 'Alexey Ivanov' },
+        userInitials: 'АИ',
+        property: { ru: 'Доступно', en: 'Available', lt: 'Prieinama' },
+        oldValue: String(baseQty + inc1 - reserved + 5),
+        newValue: String(baseQty + inc1 - reserved),
+      },
+      {
+        timestamp: '2026-05-14 08:45:00',
+        user: { ru: 'Ольга Смирнова', en: 'Olga Smirnova', lt: 'Olga Smirnova' },
+        userInitials: 'ОС',
+        property: { ru: 'Остаток', en: 'Stock', lt: 'Likutis' },
+        oldValue: String(baseQty + inc1),
+        newValue: String(baseQty + inc1 - dec1),
+      },
+      {
+        timestamp: '2026-05-12 16:20:00',
+        user: { ru: 'Дмитрий Козлов', en: 'Dmitry Kozlov', lt: 'Dmitry Kozlov' },
+        userInitials: 'ДК',
+        property: { ru: 'Доступно', en: 'Available', lt: 'Prieinama' },
+        oldValue: String(baseQty + inc1 - reserved - dec1),
+        newValue: String(baseQty + inc1 - reserved - dec1 - dec2),
+      },
+      // ── Warehouse card field changes ─────────────────────────────────
+      {
+        timestamp: '2026-05-08 10:00:00',
+        user: { ru: 'Иван Петров', en: 'Ivan Petrov', lt: 'Ivan Petrov' },
+        userInitials: 'ИП',
+        property: { ru: 'Мин. запас', en: 'Min. stock', lt: 'Min. atsargos' },
+        oldValue: String(minStock),
+        newValue: String(minStock + 10),
+      },
+      {
+        timestamp: '2026-05-05 13:30:00',
+        user: { ru: 'Мария Сидорова', en: 'Maria Sidorova', lt: 'Maria Sidorova' },
+        userInitials: 'МС',
+        property: { ru: 'Ср. цена', en: 'Avg. price', lt: 'Vid. kaina' },
+        oldValue: String(price),
+        newValue: String(price + 5),
+      },
+    ])
+  }
+  return mockStockAuditStore.get(productId)!
+}
+
+export async function mockGetStockAudit(productId: string): Promise<StockAuditEntry[]> {
+  return [...getOrCreateStockAudit(productId)]
+}
+
+export async function mockDeleteStockAuditEntry(productId: string, entryIndex: number): Promise<void> {
+  const entries = getOrCreateStockAudit(productId)
+  if (entryIndex < 0 || entryIndex >= entries.length) throw new Error('AUDIT_ENTRY_NOT_FOUND')
+  entries.splice(entryIndex, 1)
 }

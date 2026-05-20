@@ -1,6 +1,7 @@
 import { mockGetAnalyticsPage } from './analytics'
 import {
   mockGetStockOverview,
+  mockGetStockItem,
   mockGetBatches,
   mockGetBatch,
   mockCreateBatch,
@@ -18,7 +19,10 @@ import {
   mockGetDeficitItem,
   mockCreateDeficitItem,
   mockPatchDeficitItem,
+  mockPatchStockItem,
   mockDeleteDeficitItem,
+  mockGetStockAudit,
+  mockDeleteStockAuditEntry,
 } from './warehouse'
 import {
   mockGetCategories,
@@ -239,6 +243,20 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
       sortBy: params?.sortBy,
       sortDir: params?.sortDir,
     }, { page, pageSize }) as T)
+  }
+
+  const stockCardMatch = path.match(/^\/api\/warehouse\/stock\/([^/]+)$/)
+  if (stockCardMatch) {
+    // Check if this is an audit request
+    if (path.endsWith('/audit')) {
+      return delay(mockGetStockAudit(stockCardMatch[1] as string) as T)
+    }
+    return delay(mockGetStockItem(stockCardMatch[1] as string) as T)
+  }
+
+  const stockAuditMatch = path.match(/^\/api\/warehouse\/stock\/([^/]+)\/audit$/)
+  if (stockAuditMatch) {
+    return delay(mockGetStockAudit(stockAuditMatch[1] as string) as T)
   }
 
   if (path === '/api/warehouse/batches') {
@@ -505,6 +523,13 @@ export async function patchMock<T>(
     )
   }
 
+  const stockPatchMatch = path.match(/^\/api\/warehouse\/stock\/([^/]+)$/)
+  if (stockPatchMatch) {
+    return delay(
+      mockPatchStockItem(stockPatchMatch[1] as string, body as { minStock?: number | null }) as T,
+    )
+  }
+
   throw new Error(`[mock] PATCH ${path} not found`)
 }
 
@@ -513,6 +538,12 @@ export async function deleteMock<T>(path: string, _headers?: Record<string, stri
   const auditMatch = path.match(/^\/api\/suppliers\/([^/]+)\/audit\/(\d+)$/)
   if (auditMatch) {
     mockDeleteAuditEntry(auditMatch[1] as string, Number(auditMatch[2]))
+    return delay(undefined as T)
+  }
+
+  const stockAuditMatch = path.match(/^\/api\/warehouse\/stock\/([^/]+)\/audit\/(\d+)$/)
+  if (stockAuditMatch) {
+    mockDeleteStockAuditEntry(stockAuditMatch[1] as string, Number(stockAuditMatch[2]))
     return delay(undefined as T)
   }
 

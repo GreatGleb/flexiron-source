@@ -1,17 +1,12 @@
 /* --- UI COMPONENTS: GLASS PANEL --- */
 .glass-panel {
   margin-bottom: 24px;
-  position: relative;
-  transition: z-index 0s;
 }
 .glass-panel.loading .panel-body {
   display: none;
 }
 .glass-panel.loading .panel-skeleton {
   display: block;
-}
-.glass-panel:has(.custom-select-list.open) {
-  z-index: 100 !important;
 }
 .panel-body {
   display: block;
