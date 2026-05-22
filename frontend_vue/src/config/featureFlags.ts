@@ -35,6 +35,13 @@ const defaults: FeatureFlags = {
   warehouseOffcuts: true,
   warehouseDeficit: true,
   warehouseQrPrint: true,
+
+  // Warehouse per-tab page config flags (disabled by default — in development)
+  warehouseStockPageConfig: false,
+  warehouseBatchesPageConfig: false,
+  warehouseOffcutsPageConfig: false,
+  warehouseMovementsPageConfig: false,
+  warehouseDeficitPageConfig: false,
 }
 
 function loadOverrides(): Partial<FeatureFlags> {

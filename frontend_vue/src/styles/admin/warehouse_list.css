@@ -235,6 +235,20 @@
   }
 }
 
+/* ─── Button wrapper with caption ──────────────────────────────────────────── */
+.page-warehouse .btn-wrapper {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.page-warehouse .btn-wrapper .btn-caption {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.35);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
 /* ─── Filters ──────────────────────────────────────────────────────────────── */
 
 .filters-bar {

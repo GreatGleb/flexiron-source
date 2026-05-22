@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useHead } from '@/composables/useHead'
+import { useFeatureFlag } from '@/composables/useFeatureFlag'
 import { useWarehouse } from '@/composables/useWarehouse'
 import { useCategories } from '@/composables/useCategories'
 import { useToast } from '@/composables/useToast'
@@ -22,6 +23,21 @@ import '@styles/admin/components/_pagination.css'
 import '@styles/admin/warehouse_list.css'
 
 const { t } = useI18n()
+const pageConfigEnabled = useFeatureFlag('warehouseStockPageConfig')
+const batchesPageConfigEnabled = useFeatureFlag('warehouseBatchesPageConfig')
+const offcutsPageConfigEnabled = useFeatureFlag('warehouseOffcutsPageConfig')
+const movementsPageConfigEnabled = useFeatureFlag('warehouseMovementsPageConfig')
+const deficitPageConfigEnabled = useFeatureFlag('warehouseDeficitPageConfig')
+const pageConfigForActiveTab = computed(() => {
+  switch (activeTab.value) {
+    case 'stock':     return pageConfigEnabled.value
+    case 'batches':   return batchesPageConfigEnabled.value
+    case 'offcuts':   return offcutsPageConfigEnabled.value
+    case 'movements': return movementsPageConfigEnabled.value
+    case 'deficit':   return deficitPageConfigEnabled.value
+    default:          return false
+  }
+})
 const toast = useToast()
 const route = useRoute()
 const router = useRouter()
@@ -69,6 +85,21 @@ const {
   updateDeficitStatus,
   tf,
 } = useWarehouse()
+
+// ─── Batches search display (separate from batchesFilters.search) ────────────
+// When productId comes from query param, show it in the search field
+// but don't use it for search filtering — only productId filter applies
+const batchesSearchDisplay = ref('')
+
+// When user types in batches search, sync to both display and actual search filter
+// Also clear productId filter so search works across all products, not just the one from query param
+function onBatchesSearchInput(value: string) {
+  batchesSearchDisplay.value = value
+  batchesFilters.search = value
+  if (batchesFilters.productId) {
+    batchesFilters.productId = undefined
+  }
+}
 
 // ─── Sync activeTab with route param (:tab?) ─────────────────────────────────
 const VALID_TABS: WarehouseTab[] = ['stock', 'batches', 'offcuts', 'movements', 'deficit']
@@ -704,6 +735,15 @@ function syncTableRowHeights(): Promise<void> {
 
 onMounted(() => {
   loadPrefs()
+
+  // ─── Read productId from query param for batches tab ──────────────────
+  const productId = route.query.productId as string | undefined
+  if (productId) {
+    batchesFilters.productId = productId
+    // Show productId in search field but don't use it for search filtering
+    batchesSearchDisplay.value = productId
+  }
+
   load()
   loadCats()
 
@@ -867,15 +907,19 @@ watch(stockItems, () => {
           <span>{{ t('warehouse.btn_new_stock') }}</span>
         </button>
 
-        <!-- Page config stub (all tabs) — tooltip: in development -->
-        <button
-          class="btn btn-secondary"
-          data-test="warehouse-page-config-btn"
-          v-tooltip="t('warehouse.tooltip_page_config_coming_soon')"
-        >
-          <SvgIcon name="settings-gear" :width="18" :height="18" />
-          <span>{{ t('warehouse.btn_page_config') }}</span>
-        </button>
+        <!-- Page config stub (all tabs) — feature-flagged per tab -->
+        <div class="btn-wrapper">
+          <button
+            class="btn btn-secondary"
+            :disabled="!pageConfigForActiveTab"
+            data-test="warehouse-page-config-btn"
+            v-tooltip="pageConfigForActiveTab ? '' : t('warehouse.tooltip_page_config_coming_soon')"
+          >
+            <SvgIcon name="settings-gear" :width="18" :height="18" />
+            <span>{{ t('warehouse.btn_page_config') }}</span>
+          </button>
+          <span v-if="!pageConfigForActiveTab" class="btn-caption">{{ t('warehouse.tooltip_page_config_coming_soon') }}</span>
+        </div>
       </div>
     </div>
 
@@ -950,9 +994,10 @@ watch(stockItems, () => {
           <div class="filter-group" data-test="warehouse-filter-search">
             <label class="field-label">{{ t('warehouse.col_search') }}</label>
             <SearchInput
-              v-model="batchesFilters.search"
+              :model-value="batchesSearchDisplay"
               :placeholder="t('warehouse.search_placeholder')"
               data-test="warehouse-batches-search"
+              @update:model-value="onBatchesSearchInput"
             />
           </div>
           <div class="filter-group" data-test="warehouse-filter-status">

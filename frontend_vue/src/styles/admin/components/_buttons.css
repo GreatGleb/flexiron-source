@@ -86,6 +86,23 @@
   stroke: #fff !important;
 }
 
+/* Disabled secondary button — grayed out like inactive .btn-save */
+.btn-secondary:disabled,
+.btn-secondary.disabled,
+.btn-secondary[disabled] {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.3);
+  pointer-events: none;
+  box-shadow: none;
+  transform: none;
+}
+.btn-secondary:disabled svg,
+.btn-secondary.disabled svg,
+.btn-secondary[disabled] svg {
+  stroke: rgba(255, 255, 255, 0.3) !important;
+}
+
 /* Primary Button */
 .btn-primary {
   background: var(--primary);
@@ -96,6 +113,23 @@
 }
 .btn-primary:hover {
   background: rgba(24, 144, 255, 0.85);
+}
+
+/* Disabled primary button — grayed out like inactive .btn-save */
+.btn-primary:disabled,
+.btn-primary.disabled,
+.btn-primary[disabled] {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.3);
+  pointer-events: none;
+  box-shadow: none;
+  transform: none;
+  cursor: default;
+}
+.btn-primary:disabled svg,
+.btn-primary.disabled svg,
+.btn-primary[disabled] svg {
+  stroke: rgba(255, 255, 255, 0.3) !important;
 }
 
 /* Success Button */

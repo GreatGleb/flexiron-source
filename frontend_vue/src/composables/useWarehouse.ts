@@ -90,6 +90,7 @@ export function useWarehouse() {
   // Batches-specific filters (server-side)
   const batchesFilters = reactive<WarehouseFilters>({
     search: '',
+    productId: undefined,
     status: undefined,
     supplierId: undefined,
     unit: '',

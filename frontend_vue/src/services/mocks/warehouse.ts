@@ -187,7 +187,8 @@ export async function mockGetBatches(
       (b) =>
         matchSearch(b, q) ||
         b.batchNumber.toLowerCase().includes(q) ||
-        b.lotCode.toLowerCase().includes(q),
+        b.lotCode.toLowerCase().includes(q) ||
+        b.productId.toLowerCase().includes(q),
     )
   }
   if (filters.productId) filtered = filtered.filter((b) => b.productId === filters.productId)

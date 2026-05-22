@@ -32,6 +32,13 @@ export interface FeatureFlags {
   warehouseOffcuts: boolean
   warehouseDeficit: boolean
   warehouseQrPrint: boolean
+
+  // Warehouse per-tab page config flags
+  warehouseStockPageConfig: boolean
+  warehouseBatchesPageConfig: boolean
+  warehouseOffcutsPageConfig: boolean
+  warehouseMovementsPageConfig: boolean
+  warehouseDeficitPageConfig: boolean
 }
 
 export type FeatureFlagKey = keyof FeatureFlags

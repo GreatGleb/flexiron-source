@@ -77,11 +77,11 @@
   border-radius: 4px;
 }
 .terms-content::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(24, 144, 255, 0.5);
   border-radius: 4px;
 }
 .terms-content::-webkit-scrollbar-thumb:hover {
-  background: var(--primary);
+  background: rgba(24, 144, 255, 0.7);
 }
 /* Accept Button */
 .cta-button {
