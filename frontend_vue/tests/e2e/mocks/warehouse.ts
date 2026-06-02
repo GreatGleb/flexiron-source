@@ -190,19 +190,6 @@ export async function mockCreateMovement(page: Page, response?: unknown, status?
 }
 
 /**
- * Mock DELETE /api/warehouse/movements/:id (delete movement)
- */
-export async function mockDeleteMovement(page: Page, movementId: string, status?: number) {
-  await page.route(`**/api/warehouse/movements/${movementId}`, async (route) => {
-    if (route.request().method() !== 'DELETE') return route.fallback()
-    if (status && status >= 400) {
-      return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ error: 'Mock error' }) })
-    }
-    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) })
-  })
-}
-
-/**
  * Mock POST /api/warehouse/cutting (execute cutting)
  */
 export async function mockCutting(page: Page, response?: unknown, status?: number) {
@@ -292,7 +279,6 @@ export async function mockWarehouseEndpoints(page: Page) {
   await mockUpdateDeficit(page, 'whd-001')
   await mockDeleteBatch(page, 'whb-001')
   await mockDeleteOffcut(page, 'who-001')
-  await mockDeleteMovement(page, 'whm-001')
   await mockDeleteDeficit(page, 'whd-001')
   await mockUpdateBatch(page, 'whb-001')
   await mockBatchDetail(page, 'whb-001')

@@ -8,21 +8,22 @@ import { useWarehouse } from '@/composables/useWarehouse'
 import { useCategories } from '@/composables/useCategories'
 import { useToast } from '@/composables/useToast'
 import type { WarehouseTab } from '@/composables/useWarehouse'
-import type { BatchStatus, OffcutStatus, MovementType, DeficitStatus } from '@/types/warehouse'
+import type { BatchStatus, OffcutStatus, MovementType, DeficitStatus, StockFilters, WarehouseFilters } from '@/types/warehouse'
 import type { CategoryListItem } from '@/types/category'
+import { exportWarehouseData } from '@/services/warehouseService'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
 import SearchInput from '@/components/admin/ui/SearchInput.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
 import MultiSelect from '@/components/admin/ui/MultiSelect.vue'
 import DatePicker from '@/components/admin/ui/DatePicker.vue'
+import AppModal from '@/components/admin/ui/AppModal.vue'
 import CreateBatchModal from './CreateBatchModal.vue'
 import CreateMovementModal from './CreateMovementModal.vue'
-import CreateOffcutModal from './CreateOffcutModal.vue'
 import '@styles/admin/components/_pagination.css'
 import '@styles/admin/warehouse_list.css'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const pageConfigEnabled = useFeatureFlag('warehouseStockPageConfig')
 const batchesPageConfigEnabled = useFeatureFlag('warehouseBatchesPageConfig')
 const offcutsPageConfigEnabled = useFeatureFlag('warehouseOffcutsPageConfig')
@@ -63,9 +64,7 @@ const {
   loadStock,
   deleteBatch,
   deleteOffcut,
-  deleteMovement,
   deleteDeficit,
-  deleteStock,
   toggleStockSort,
   batchesSort,
   toggleBatchesSort,
@@ -77,10 +76,8 @@ const {
   toggleDeficitSort,
   showCreateBatchModal,
   showCreateMovementModal,
-  showCreateOffcutModal,
   onBatchCreated,
   onMovementCreated,
-  onOffcutCreated,
   updateOffcutStatus,
   updateDeficitStatus,
   tf,
@@ -263,155 +260,47 @@ function saveDeficitView() {
 }
 
 // ─── Export current tab data as CSV ──────────────────────────────────────────
-function exportCurrentTab() {
-  let rows: string[][]
-  let headers: string[]
-  let filename: string
+async function exportCurrentTab() {
+  try {
+    let filters: StockFilters | WarehouseFilters
+    let filename: string
 
-  switch (activeTab.value) {
-    case 'stock': {
-      headers = [
-        t('warehouse.col_product'),
-        t('warehouse.col_total_qty'),
-        t('warehouse.col_reserved'),
-        t('warehouse.col_available'),
-        t('warehouse.col_unit'),
-        t('warehouse.col_batches'),
-        t('warehouse.col_avg_price'),
-        t('warehouse.col_total_value'),
-        t('warehouse.col_min_stock'),
-      ]
-      rows = stockItems.value.map((item) => [
-        tf(item.productName),
-        String(item.totalQuantity),
-        String(item.reservedQuantity),
-        String(item.availableQuantity),
-        t(`warehouse.unit_${item.unit}`),
-        String(item.batchCount),
-        item.avgUnitPrice.toFixed(2),
-        item.totalValue.toFixed(2),
-        item.minStock !== null ? String(item.minStock) : '',
-      ])
-      filename = 'warehouse-stock.csv'
-      break
+    switch (activeTab.value) {
+      case 'stock':
+        filters = stockFilters
+        filename = 'warehouse-stock.csv'
+        break
+      case 'batches':
+        filters = batchesFilters
+        filename = 'warehouse-batches.csv'
+        break
+      case 'offcuts':
+        filters = offcutFilters
+        filename = 'warehouse-offcuts.csv'
+        break
+      case 'movements':
+        filters = movementFilters
+        filename = 'warehouse-movements.csv'
+        break
+      case 'deficit':
+        filters = deficitFilters
+        filename = 'warehouse-deficit.csv'
+        break
+      default:
+        return
     }
-    case 'batches': {
-      headers = [
-        t('warehouse.col_product'),
-        t('warehouse.col_batch_number'),
-        t('warehouse.col_lot_code'),
-        t('warehouse.col_quantity'),
-        t('warehouse.col_remaining'),
-        t('warehouse.col_unit'),
-        t('warehouse.col_unit_price'),
-        t('warehouse.col_received'),
-        t('warehouse.col_status'),
-      ]
-      rows = batches.value.map((batch) => [
-        tf(batch.productName),
-        batch.batchNumber,
-        batch.lotCode,
-        String(batch.quantity),
-        String(batch.quantityRemaining),
-        t(`warehouse.unit_${batch.unit}`),
-        batch.unitPrice.toFixed(2),
-        batch.receivedAt.slice(0, 10),
-        t(`warehouse.status_${batch.status}`),
-      ])
-      filename = 'warehouse-batches.csv'
-      break
-    }
-    case 'offcuts': {
-      headers = [
-        t('warehouse.col_product'),
-        t('warehouse.col_batch_number'),
-        t('warehouse.col_length'),
-        t('warehouse.col_weight'),
-        t('warehouse.col_quantity'),
-        t('warehouse.col_unit'),
-        t('warehouse.col_location'),
-        t('warehouse.col_status'),
-      ]
-      rows = offcuts.value.map((offcut) => [
-        tf(offcut.productName),
-        offcut.batchNumber,
-        offcut.lengthMm ? String(offcut.lengthMm) : '',
-        offcut.weightKg ? String(offcut.weightKg) : '',
-        String(offcut.quantity),
-        t(`warehouse.unit_${offcut.unit}`),
-        offcut.location ?? '',
-        t(`warehouse.status_${offcut.status}`),
-      ])
-      filename = 'warehouse-offcuts.csv'
-      break
-    }
-    case 'movements': {
-      headers = [
-        t('warehouse.col_date'),
-        t('warehouse.col_type'),
-        t('warehouse.col_product'),
-        t('warehouse.col_batch_number'),
-        t('warehouse.col_quantity'),
-        t('warehouse.col_unit'),
-        t('warehouse.col_unit_price'),
-        t('warehouse.col_total'),
-        t('warehouse.col_reference'),
-      ]
-      rows = movements.value.map((mov) => [
-        mov.movedAt.slice(0, 10),
-        t(`warehouse.type_${mov.type.replace('-', '_')}`),
-        tf(mov.productName),
-        mov.batchNumber,
-        String(mov.quantity),
-        t(`warehouse.unit_${mov.unit}`),
-        mov.unitPrice.toFixed(2),
-        (mov.quantity * mov.unitPrice).toFixed(2),
-        mov.referenceType ? t(`warehouse.reference_${mov.referenceType}`) : '',
-      ])
-      filename = 'warehouse-movements.csv'
-      break
-    }
-    case 'deficit': {
-      headers = [
-        t('warehouse.col_product'),
-        t('warehouse.col_current_stock'),
-        t('warehouse.col_min_required'),
-        t('warehouse.col_deficit_amount'),
-        t('warehouse.col_unit'),
-        t('warehouse.col_priority'),
-        t('warehouse.col_status'),
-      ]
-      rows = deficitItems.value.map((item) => [
-        tf(item.productName),
-        String(item.currentStock),
-        String(item.minRequired),
-        String(item.deficitAmount),
-        t(`warehouse.unit_${item.unit}`),
-        t(`warehouse.deficit_priority_badge_${item.priority}`),
-        t(`warehouse.status_${item.status}`),
-      ])
-      filename = 'warehouse-deficit.csv'
-      break
-    }
-    default:
-      return
+
+    const csv = await exportWarehouseData(activeTab.value, filters, locale.value)
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    toast.error(t('warehouse.export_error'))
   }
-
-  const csvContent = [headers.join(','), ...rows.map((r) => r.map(escapeCsvField).join(','))].join('\n')
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
-function escapeCsvField(value: string): string {
-  if (value.includes(',') || value.includes('"') || value.includes('\n')) {
-    return `"${value.replace(/"/g, '""')}"`
-  }
-  return value
 }
 
 function loadPrefs() {
@@ -485,10 +374,16 @@ const UNIT_OPTIONS = [
 const BATCH_STATUS_OPTIONS = [
   { value: '', label: t('warehouse.filter_status_all') },
   { value: 'available', label: t('warehouse.batch_status_available') },
-  { value: 'reserved', label: t('warehouse.batch_status_reserved') },
+  { value: 'in_storage', label: t('warehouse.batch_status_in_storage') },
+  { value: 'in_production', label: t('warehouse.batch_status_in_production') },
+  { value: 'sold', label: t('warehouse.batch_status_sold') },
+  { value: 'scrapped', label: t('warehouse.batch_status_scrapped') },
+  { value: 'expensed', label: t('warehouse.batch_status_expensed') },
+  { value: 'returned_to_supplier', label: t('warehouse.batch_status_returned_to_supplier') },
   { value: 'partial', label: t('warehouse.batch_status_partial') },
   { value: 'depleted', label: t('warehouse.batch_status_depleted') },
-  { value: 'quarantine', label: t('warehouse.batch_status_quarantine') },
+  { value: 'reserved', label: t('warehouse.batch_status_reserved') },
+  { value: 'converted_to_offcuts', label: t('warehouse.batch_status_converted_to_offcuts') },
 ]
 
 const BATCH_UNIT_OPTIONS = [
@@ -505,8 +400,12 @@ const OFFCUT_STATUS_OPTIONS = [
   { value: '', label: t('warehouse.filter_status_all') },
   { value: 'available', label: t('warehouse.offcut_status_available') },
   { value: 'reserved', label: t('warehouse.offcut_status_reserved') },
-  { value: 'used', label: t('warehouse.offcut_status_used') },
-  { value: 'scrap', label: t('warehouse.offcut_status_scrap') },
+  { value: 'in_production', label: t('warehouse.offcut_status_in_production') },
+  { value: 'sold', label: t('warehouse.offcut_status_sold') },
+  { value: 'scrapped', label: t('warehouse.offcut_status_scrapped') },
+  { value: 'expensed', label: t('warehouse.offcut_status_expensed') },
+  { value: 'returned_to_supplier', label: t('warehouse.offcut_status_returned_to_supplier') },
+  { value: 'in_storage', label: t('warehouse.offcut_status_in_storage') },
 ]
 
 const OFFCUT_UNIT_OPTIONS = [
@@ -528,9 +427,15 @@ const OFFCUT_TYPE_OPTIONS = [
 const MOVEMENT_TYPE_OPTIONS = [
   { value: '', label: t('warehouse.filter_type_all') },
   { value: 'receipt', label: t('warehouse.type_receipt') },
+  { value: 'sale', label: t('warehouse.type_sale') },
+  { value: 'production', label: t('warehouse.type_production') },
   { value: 'expense', label: t('warehouse.type_expense') },
-  { value: 'transfer', label: t('warehouse.type_transfer') },
   { value: 'write-off', label: t('warehouse.type_write_off') },
+  { value: 'storage', label: t('warehouse.type_storage') },
+  { value: 'transfer', label: t('warehouse.type_transfer') },
+  { value: 'return', label: t('warehouse.type_return') },
+  { value: 'return-to-supplier', label: t('warehouse.type_return_to_supplier') },
+  { value: 'correction', label: t('warehouse.type_correction') },
 ]
 
 const MOVEMENT_UNIT_OPTIONS = [
@@ -606,14 +511,24 @@ const BATCH_STATUS_PILL: Record<BatchStatus, string> = {
   reserved: 'pill-info',
   partial: 'pill-warning',
   depleted: 'pill-consumed',
-  quarantine: 'pill-danger',
+  in_storage: 'pill-info',
+  in_production: 'pill-warning',
+  sold: 'pill-sold',
+  scrapped: 'pill-danger',
+  expensed: 'pill-expensed',
+  returned_to_supplier: 'pill-returned',
+  converted_to_offcuts: 'pill-offcut',
 }
 
 const OFFCUT_STATUS_PILL: Record<OffcutStatus, string> = {
   available: 'pill-success',
   reserved: 'pill-info',
-  used: 'pill-secondary',
-  scrap: 'pill-danger',
+  in_production: 'pill-warning',
+  sold: 'pill-mint',
+  scrapped: 'pill-danger',
+  expensed: 'pill-expensed',
+  returned_to_supplier: 'pill-returned',
+  in_storage: 'pill-info',
 }
 
 const MOVEMENT_TYPE_PILL: Record<MovementType, string> = {
@@ -621,6 +536,12 @@ const MOVEMENT_TYPE_PILL: Record<MovementType, string> = {
   expense: 'pill-danger',
   transfer: 'pill-info',
   'write-off': 'pill-warning',
+  return: 'pill-mint',
+  'return-to-supplier': 'pill-warning',
+  correction: 'pill-info',
+  production: 'pill-secondary',
+  sale: 'pill-mint',
+  storage: 'pill-info',
 }
 
 const DEFICIT_STATUS_PILL: Record<DeficitStatus, string> = {
@@ -634,7 +555,7 @@ const DEFICIT_STATUS_PILL: Record<DeficitStatus, string> = {
 // ─── Delete confirm modals ────────────────────────────────────────────────────
 
 const showDeleteModal = ref(false)
-const deletingItem = ref<{ id: string; name: string; type: 'batch' | 'offcut' | 'movement' | 'deficit' | 'stock' } | null>(null)
+const deletingItem = ref<{ id: string; name: string; type: 'batch' | 'offcut' | 'deficit' | 'stock' } | null>(null)
 
 function confirmDeleteBatch(id: string, name: string) {
   deletingItem.value = { id, name, type: 'batch' }
@@ -646,18 +567,8 @@ function confirmDeleteOffcut(id: string, name: string) {
   showDeleteModal.value = true
 }
 
-function confirmDeleteMovement(id: string, name: string) {
-  deletingItem.value = { id, name, type: 'movement' }
-  showDeleteModal.value = true
-}
-
 function confirmDeleteDeficit(id: string, name: string) {
   deletingItem.value = { id, name, type: 'deficit' }
-  showDeleteModal.value = true
-}
-
-function confirmDeleteStock(item: any) {
-  deletingItem.value = { id: item.productId, name: tf(item.productName), type: 'stock' }
   showDeleteModal.value = true
 }
 
@@ -666,9 +577,7 @@ async function handleDelete() {
   const { id, type } = deletingItem.value
   if (type === 'batch') await deleteBatch(id)
   else if (type === 'offcut') await deleteOffcut(id)
-  else if (type === 'movement') await deleteMovement(id)
   else if (type === 'deficit') await deleteDeficit(id)
-  else if (type === 'stock') await deleteStock(id)
   showDeleteModal.value = false
   deletingItem.value = null
 }
@@ -801,6 +710,29 @@ watch(stockItems, () => {
 watch(stockItems, () => {
   startFilterTransition()
 })
+
+// ─── Detect if any offcut filters are active ──────────────────────────────
+const offcutFiltersActive = computed(() => {
+  return !!(
+    offcutFilters.search ||
+    offcutFilters.status ||
+    offcutFilters.unit ||
+    offcutFilters.offcutType ||
+    (offcutFilters.categoryIds && offcutFilters.categoryIds.length > 0) ||
+    offcutFilters.batchNumber
+  )
+})
+
+// ─── Detect if any deficit filters are active ─────────────────────────────
+const deficitFiltersActive = computed(() => {
+  return !!(
+    deficitFilters.search ||
+    deficitFilters.status ||
+    deficitFilters.priority ||
+    deficitFilters.unit ||
+    (deficitFilters.categoryIds && deficitFilters.categoryIds.length > 0)
+  )
+})
 </script>
 
 <template>
@@ -852,17 +784,6 @@ watch(stockItems, () => {
           <span>{{ t('warehouse.btn_export') }}</span>
         </button>
 
-        <!-- Stock tab: new stock item (placeholder — opens batch modal) -->
-        <button
-          v-if="activeTab === 'stock'"
-          class="btn btn-primary"
-          data-test="warehouse-new-stock-btn"
-          @click="showCreateBatchModal = true"
-        >
-          <SvgIcon name="plus-add" :width="18" :height="18" stroke-width="2" />
-          <span>{{ t('warehouse.btn_new_stock') }}</span>
-        </button>
-
         <!-- Batches tab: new batch -->
         <button
           v-if="activeTab === 'batches'"
@@ -874,12 +795,12 @@ watch(stockItems, () => {
           <span>{{ t('warehouse.btn_new_batch') }}</span>
         </button>
 
-        <!-- Offcuts tab: new offcut (cutting) -->
+        <!-- Offcuts tab: new offcut -->
         <button
           v-if="activeTab === 'offcuts'"
           class="btn btn-primary"
           data-test="warehouse-new-offcut-btn"
-          @click="showCreateOffcutModal = true"
+          @click="router.push({ name: 'admin-warehouse-offcut-create' })"
         >
           <SvgIcon name="scissors" :width="18" :height="18" />
           <span>{{ t('warehouse.btn_new_offcut') }}</span>
@@ -894,17 +815,6 @@ watch(stockItems, () => {
         >
           <SvgIcon name="plus-add" :width="18" :height="18" stroke-width="2" />
           <span>{{ t('warehouse.btn_new_movement') }}</span>
-        </button>
-
-        <!-- Deficit tab: new deficit item (placeholder — opens batch modal) -->
-        <button
-          v-if="activeTab === 'deficit'"
-          class="btn btn-primary"
-          data-test="warehouse-new-deficit-btn"
-          @click="showCreateBatchModal = true"
-        >
-          <SvgIcon name="plus-add" :width="18" :height="18" stroke-width="2" />
-          <span>{{ t('warehouse.btn_new_stock') }}</span>
         </button>
 
         <!-- Page config stub (all tabs) — feature-flagged per tab -->
@@ -1584,7 +1494,7 @@ watch(stockItems, () => {
                   <td>
                     <div class="row-actions">
                       <router-link
-                        v-tooltip="t('tooltip.view_details')"
+                        v-tooltip="t('warehouse.open_stock_card')"
                         :to="{ name: 'admin-warehouse-stock-card', params: { id: item.productId } }"
                         class="action-icon-btn"
                         data-test="stock-view-btn"
@@ -1592,14 +1502,6 @@ watch(stockItems, () => {
                       >
                         <SvgIcon name="external-link" :width="16" :height="16" />
                       </router-link>
-                      <button
-                        v-tooltip="t('warehouse.btn_delete')"
-                        class="action-icon-btn action-danger"
-                        data-test="stock-delete-btn"
-                        @click.stop="confirmDeleteStock(item)"
-                      >
-                        <SvgIcon name="trash" :width="16" :height="16" />
-                      </button>
                     </div>
                   </td>
                 </tr>
@@ -1993,7 +1895,7 @@ watch(stockItems, () => {
                 <td>
                   <div class="row-actions">
                     <router-link
-                      v-tooltip="t('tooltip.view_details')"
+                      v-tooltip="t('warehouse.open_batch_card')"
                       :to="{ name: 'admin-warehouse-batch', params: { id: batch.id } }"
                       class="action-icon-btn"
                       data-test="batch-view-btn"
@@ -2090,8 +1992,9 @@ watch(stockItems, () => {
           <button class="btn btn-primary" @click="load">{{ t('btn.retry') }}</button>
         </div>
 
+        <!-- Empty state: no offcuts at all (no filters active) -->
         <div
-          v-else-if="!offcutsLoading && offcuts.length === 0"
+          v-else-if="!offcutsLoading && offcuts.length === 0 && !offcutFiltersActive"
           class="tab-empty-state"
           data-test="warehouse-offcuts-empty"
         >
@@ -2103,12 +2006,22 @@ watch(stockItems, () => {
             <button
               class="btn btn-primary"
               data-test="warehouse-offcuts-cut-btn-empty"
-              @click="showCreateOffcutModal = true"
+              @click="router.push({ name: 'admin-warehouse-offcut-create' })"
             >
               <SvgIcon name="scissors" :width="16" :height="16" />
               <span>{{ t('warehouse.btn_cut') }}</span>
             </button>
           </div>
+        </div>
+
+        <!-- Empty state: filters/search returned no results -->
+        <div
+          v-else-if="!offcutsLoading && offcuts.length === 0 && offcutFiltersActive"
+          class="empty-state"
+          data-test="warehouse-offcuts-filtered-empty"
+        >
+          <SvgIcon name="search" :width="48" :height="48" />
+          <p>{{ t('warehouse.empty_filtered_offcuts') }}</p>
         </div>
 
         <div v-else class="data-table-wrapper">
@@ -2132,6 +2045,36 @@ watch(stockItems, () => {
                         :height="16"
                         class="sort-icon"
                         :class="{ active: offcutsSort.sortBy === 'productName' && offcutsSort.sortDir === 'desc' }"
+                      />
+                    </span>
+                  </button>
+                </th>
+                <th>
+                  <button class="th-sort-btn" @click="toggleOffcutsSort('offcutType')">
+                    <div class="th-content">
+                      {{ t('warehouse.col_type') }}
+                      <span v-tooltip="t('warehouse.col_offcut_type_hint')" class="info-hint">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                      </span>
+                    </div>
+                    <span class="sort-icon-group">
+                      <SvgIcon
+                        name="chevron-up"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: offcutsSort.sortBy === 'offcutType' && offcutsSort.sortDir === 'asc' }"
+                      />
+                      <SvgIcon
+                        name="chevron-down"
+                        :width="16"
+                        :height="16"
+                        class="sort-icon"
+                        :class="{ active: offcutsSort.sortBy === 'offcutType' && offcutsSort.sortDir === 'desc' }"
                       />
                     </span>
                   </button>
@@ -2356,21 +2299,22 @@ watch(stockItems, () => {
                 data-test="warehouse-offcut-row"
               >
                 <td>
-                  <div class="th-content" style="gap: 6px;">
-                    <router-link
-                      :to="{ name: 'admin-product-card', params: { id: offcut.productId } }"
-                      class="name-link"
-                    >
-                      {{ tf(offcut.productName) }}
-                    </router-link>
-                    <span
-                      v-if="offcut.offcutType"
-                      class="offcut-type-badge"
-                      :class="`offcut-type-badge--${offcut.offcutType}`"
-                    >
-                      {{ t(`warehouse.offcut_type_${offcut.offcutType}`) }}
-                    </span>
-                  </div>
+                  <router-link
+                    :to="{ name: 'admin-warehouse-offcut', params: { id: offcut.id } }"
+                    class="name-link"
+                  >
+                    {{ tf(offcut.productName) }}
+                  </router-link>
+                </td>
+                <td>
+                  <span
+                    v-if="offcut.offcutType"
+                    class="offcut-type-badge"
+                    :class="`offcut-type-badge--${offcut.offcutType}`"
+                  >
+                    {{ t(`warehouse.offcut_type_${offcut.offcutType}`) }}
+                  </span>
+                  <span v-else class="text-muted">&mdash;</span>
                 </td>
                 <td><code class="lot-code">{{ offcut.batchNumber }}</code></td>
                 <td>
@@ -2396,8 +2340,8 @@ watch(stockItems, () => {
                 <td>
                   <div class="row-actions">
                     <router-link
-                      v-tooltip="t('tooltip.view_details')"
-                      :to="{ name: 'admin-product-card', params: { id: offcut.productId } }"
+                      v-tooltip="t('warehouse.open_offcut_card')"
+                      :to="{ name: 'admin-warehouse-offcut', params: { id: offcut.id } }"
                       class="action-icon-btn"
                       data-test="offcut-view-btn"
                       @click.stop
@@ -2409,7 +2353,7 @@ watch(stockItems, () => {
                         v-tooltip="t('warehouse.btn_mark_used')"
                         class="inline-action-btn inline-action-btn--used"
                         data-test="offcut-mark-used-btn"
-                        @click.stop="updateOffcutStatus(offcut.id, 'used')"
+                        @click.stop="updateOffcutStatus(offcut.id, 'in_production', offcut)"
                       >
                         <SvgIcon name="check" :width="14" :height="14" />
                         {{ t('warehouse.btn_mark_used') }}
@@ -2418,7 +2362,7 @@ watch(stockItems, () => {
                         v-tooltip="t('warehouse.btn_mark_scrap')"
                         class="inline-action-btn inline-action-btn--scrap"
                         data-test="offcut-mark-scrap-btn"
-                        @click.stop="updateOffcutStatus(offcut.id, 'scrap')"
+                        @click.stop="updateOffcutStatus(offcut.id, 'scrapped', offcut)"
                       >
                         <SvgIcon name="trash" :width="14" :height="14" />
                         {{ t('warehouse.btn_mark_scrap') }}
@@ -2804,7 +2748,7 @@ watch(stockItems, () => {
                 </td>
                 <td>
                   <router-link
-                    :to="{ name: 'admin-product-card', params: { id: mov.productId } }"
+                    :to="{ name: 'admin-warehouse-movement', params: { id: mov.id } }"
                     class="name-link"
                   >
                     {{ tf(mov.productName) }}
@@ -2827,22 +2771,14 @@ watch(stockItems, () => {
                 <td>
                   <div class="row-actions">
                     <router-link
-                      v-tooltip="t('tooltip.view_details')"
-                      :to="{ name: 'admin-product-card', params: { id: mov.productId } }"
+                      v-tooltip="t('warehouse.open_movement_card')"
+                      :to="{ name: 'admin-warehouse-movement', params: { id: mov.id } }"
                       class="action-icon-btn"
                       data-test="movement-view-btn"
                       @click.stop
                     >
                       <SvgIcon name="external-link" :width="16" :height="16" />
                     </router-link>
-                    <button
-                      v-tooltip="t('warehouse.btn_delete')"
-                      class="action-icon-btn action-danger"
-                      data-test="movement-delete-btn"
-                      @click.stop="confirmDeleteMovement(mov.id, tf(mov.productName))"
-                    >
-                      <SvgIcon name="trash" :width="16" :height="16" />
-                    </button>
                   </div>
                 </td>
               </tr>
@@ -2924,15 +2860,26 @@ watch(stockItems, () => {
           <button class="btn btn-primary" @click="load">{{ t('btn.retry') }}</button>
         </div>
 
+        <!-- Empty state: no deficit items at all (no filters active) -->
         <div
-          v-else-if="!deficitLoading && deficitItems.length === 0"
+          v-else-if="!deficitLoading && deficitItems.length === 0 && !deficitFiltersActive"
           class="tab-empty-state"
           data-test="warehouse-deficit-empty"
         >
           <div class="tab-empty-state__icon">
-            <SvgIcon name="check-circle" :width="48" :height="48" />
+            <SvgIcon name="package" :width="48" :height="48" />
           </div>
           <p class="tab-empty-state__text">{{ t('warehouse.empty_deficit') }}</p>
+        </div>
+
+        <!-- Empty state: filters/search returned no results -->
+        <div
+          v-else-if="!deficitLoading && deficitItems.length === 0 && deficitFiltersActive"
+          class="empty-state"
+          data-test="warehouse-deficit-filtered-empty"
+        >
+          <SvgIcon name="search" :width="48" :height="48" />
+          <p>{{ t('warehouse.empty_filtered_deficit') }}</p>
         </div>
 
         <div v-else class="data-table-wrapper">
@@ -3152,7 +3099,7 @@ watch(stockItems, () => {
               >
                 <td>
                   <router-link
-                    :to="{ name: 'admin-product-card', params: { id: item.productId } }"
+                    :to="{ name: 'admin-warehouse-deficit', params: { id: item.id } }"
                     class="name-link"
                   >
                     {{ tf(item.productName) }}
@@ -3191,8 +3138,8 @@ watch(stockItems, () => {
                 <td>
                   <div class="row-actions">
                     <router-link
-                      v-tooltip="t('tooltip.view_details')"
-                      :to="{ name: 'admin-product-card', params: { id: item.productId } }"
+                      v-tooltip="t('warehouse.open_deficit_card')"
+                      :to="{ name: 'admin-warehouse-deficit', params: { id: item.id } }"
                       class="action-icon-btn"
                       data-test="deficit-view-btn"
                       @click.stop
@@ -3298,27 +3245,30 @@ watch(stockItems, () => {
     <!-- ════════════════════════════════════════════════════════════════════════
          Delete confirmation modal
          ════════════════════════════════════════════════════════════════════════ -->
-    <Teleport to="body">
-      <div
-        v-if="showDeleteModal"
-        class="modal-overlay"
-        data-test="warehouse-delete-modal"
-        @click.self="showDeleteModal = false"
-      >
-        <div class="modal-content">
-          <h3>{{ t('warehouse.delete_title') }}</h3>
-          <p>{{ t('warehouse.delete_confirm', { name: deletingItem?.name ?? '' }) }}</p>
-          <div class="modal-actions">
-            <button class="btn btn-ghost" @click="showDeleteModal = false">
-              {{ t('btn.cancel') }}
-            </button>
-            <button class="btn btn-danger" @click="handleDelete">
-              {{ t('btn.delete') }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+    <AppModal
+      v-model="showDeleteModal"
+      :title="t('warehouse.delete_title')"
+      size="small"
+      data-test="warehouse-delete-modal"
+    >
+      <p>{{ t('warehouse.delete_confirm', { name: deletingItem?.name ?? '' }) }}</p>
+      <template #footer>
+        <button
+          type="button"
+          class="btn btn-secondary"
+          @click="showDeleteModal = false"
+        >
+          {{ t('btn.cancel') }}
+        </button>
+        <button
+          type="button"
+          class="btn btn-danger"
+          @click="handleDelete"
+        >
+          {{ t('btn.delete') }}
+        </button>
+      </template>
+    </AppModal>
 
     <!-- ════════════════════════════════════════════════════════════════════════
          Create modals
@@ -3332,11 +3282,6 @@ watch(stockItems, () => {
       :show="showCreateMovementModal"
       @close="showCreateMovementModal = false"
       @created="onMovementCreated"
-    />
-    <CreateOffcutModal
-      :show="showCreateOffcutModal"
-      @close="showCreateOffcutModal = false"
-      @created="onOffcutCreated"
     />
   </div>
 </template>

@@ -33,6 +33,43 @@ textarea.glass-input {
   min-height: 50px;
 }
 
+/* Read-only field hint (used in CreateMovementModal) */
+.modal-body .field-readonly-hint {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.25);
+  margin-top: 4px;
+  margin-left: 4px;
+  font-style: italic;
+}
+
+/* Form group (used in modals: CreateBatchModal, CreateMovementModal) */
+.form-group {
+  margin-bottom: 20px;
+}
+
+/* Form row — side-by-side fields (used in CreateBatchModal, CreateMovementModal) */
+.form-row {
+  display: flex;
+  gap: 16px;
+}
+.form-row .form-group {
+  margin-bottom: 0;
+}
+.form-group-flex {
+  flex: 1;
+}
+.form-group-shrink {
+  flex: 0 0 auto;
+}
+
+/* Field validation error (dark red) — p tag selector needed to override .modal-body p (higher specificity) */
+.modal-body p.field-error {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: #cf3e3e;
+  line-height: 1.5;
+}
+
 .field-hint {
   margin: 6px 0 0;
   font-size: 12px;
@@ -40,16 +77,44 @@ textarea.glass-input {
   line-height: 1.5;
 }
 
+/* Movement type effect summary (shown below the select when a type is chosen) */
+.movement-type-effect {
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.65);
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 6px;
+  border-left: 3px solid rgba(255, 255, 255, 0.15);
+}
+
 /* Forms - Tablet */
 @media (max-width: 992px) {
   .input-group {
     margin-bottom: 16px;
+  }
+  .form-group {
+    margin-bottom: 16px;
+  }
+  .form-row {
+    gap: 12px;
   }
 }
 
 /* Forms - Mobile */
 @media (max-width: 600px) {
   .input-group {
+    margin-bottom: 14px;
+  }
+  .form-group {
+    margin-bottom: 14px;
+  }
+  .form-row {
+    flex-direction: column;
+    gap: 0;
+  }
+  .form-row .form-group {
     margin-bottom: 14px;
   }
   .field-label {
@@ -69,6 +134,9 @@ textarea.glass-input {
 /* Forms - Small Mobile */
 @media (max-width: 400px) {
   .input-group {
+    margin-bottom: 12px;
+  }
+  .form-group {
     margin-bottom: 12px;
   }
   .field-label {
@@ -115,6 +183,490 @@ textarea.glass-input {
     height: 16px;
     margin-left: 6px;
   }
+}
+
+/* ─── Batch Summary (CreateMovementModal) ──────────────────────────────── */
+
+.batch-summary-section {
+  margin-bottom: 20px;
+}
+
+/* Selection hint text above movement cards */
+.batch-summary-select-hint {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+  line-height: 1.5;
+  padding: 10px 12px;
+  background: rgba(24, 144, 255, 0.08);
+  border-radius: 8px;
+  border: 1px solid rgba(24, 144, 255, 0.15);
+}
+
+/* Total batch quantity stat */
+.batch-total-stat {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
+  margin-bottom: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.batch-total-stat .total-icon {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(24, 144, 255, 0.15);
+  border-radius: 8px;
+  color: #1890ff;
+}
+.batch-total-stat .total-info {
+  flex: 1;
+  min-width: 0;
+}
+.batch-total-stat .total-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.4);
+  margin-bottom: 2px;
+}
+.batch-total-stat .total-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.2;
+}
+.batch-total-stat .total-value .total-unit {
+  font-size: 14px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.5);
+  margin-left: 6px;
+}
+
+/* Instruction text between total stat and aggregate cards */
+.batch-summary-instruction {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  line-height: 1.5;
+  margin-bottom: 12px;
+  padding: 0 2px;
+}
+
+/* Aggregate status cards row */
+.aggregate-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.aggregate-card {
+  flex: 1 1 calc(50% - 4px);
+  min-width: 140px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-left-width: 3px;
+  cursor: pointer;
+  transition: all 0.2s;
+  user-select: none;
+}
+.aggregate-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* Read-only aggregate cards on the batch card page (not clickable) */
+.batch-aggregate-cards {
+  padding: 20px 0 4px;
+  max-width: 800px;
+}
+.batch-aggregate-cards .aggregate-card {
+  cursor: default;
+}
+.batch-aggregate-cards .aggregate-card:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* Selected state for aggregate cards (clickable, single-select radio behavior) */
+.aggregate-card.is-selected {
+  background: rgba(24, 144, 255, 0.08);
+  border-color: rgba(24, 144, 255, 0.25);
+  box-shadow: 0 0 8px rgba(24, 144, 255, 0.15);
+}
+
+/* Checkbox indicator for aggregate cards */
+.aggregate-card .agg-checkbox {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  color: transparent;
+}
+.aggregate-card.is-selected .agg-checkbox {
+  background: #1890ff;
+  border-color: #1890ff;
+  color: #fff;
+}
+
+.aggregate-card .agg-icon {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  font-size: 14px;
+}
+.aggregate-card .agg-info {
+  flex: 1;
+  min-width: 0;
+}
+.aggregate-card .agg-label {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  line-height: 1.3;
+}
+.aggregate-card .agg-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  line-height: 1.3;
+}
+.aggregate-card .agg-value .agg-unit {
+  font-size: 11px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.4);
+  margin-left: 4px;
+}
+
+/* Hint text inside the sale aggregate card */
+.agg-sale-hint {
+  margin-top: 4px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  line-height: 1.3;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+/* Color variants for aggregate cards */
+.agg-card-in-stock { border-left-color: #52c41a; }
+.agg-card-in-stock .agg-icon { background: rgba(82, 196, 26, 0.15); color: #52c41a; }
+.agg-card-sold { border-left-color: #ff4d4f; }
+.agg-card-sold .agg-icon { background: rgba(255, 77, 79, 0.15); color: #ff4d4f; }
+.agg-card-scrapped { border-left-color: #8c8c8c; }
+.agg-card-scrapped .agg-icon { background: rgba(140, 140, 140, 0.15); color: #8c8c8c; }
+.agg-card-production { border-left-color: #722ed1; }
+.agg-card-production .agg-icon { background: rgba(114, 46, 209, 0.15); color: #722ed1; }
+.agg-card-expensed { border-left-color: #fa8c16; }
+.agg-card-expensed .agg-icon { background: rgba(250, 140, 22, 0.15); color: #fa8c16; }
+.agg-card-returned-to-supplier { border-left-color: #eb2f96; }
+.agg-card-returned-to-supplier .agg-icon { background: rgba(235, 47, 150, 0.15); color: #eb2f96; }
+.agg-card-transferred { border-left-color: #13c2c2; }
+.agg-card-transferred .agg-icon { background: rgba(19, 194, 194, 0.15); color: #13c2c2; }
+.agg-card-returned { border-left-color: #1890ff; }
+.agg-card-returned .agg-icon { background: rgba(24, 144, 255, 0.15); color: #1890ff; }
+.agg-card-corrected { border-left-color: #faad14; }
+.agg-card-corrected .agg-icon { background: rgba(250, 173, 20, 0.15); color: #faad14; }
+.agg-card-storage { border-left-color: #1890ff; }
+.agg-card-storage .agg-icon { background: rgba(24, 144, 255, 0.15); color: #1890ff; }
+.agg-card-offcut { border-left-color: #8c8c8c; }
+.agg-card-offcut .agg-icon { background: rgba(140, 140, 140, 0.15); color: #8c8c8c; }
+
+/* Active sales section (individual sales shown for return linking) */
+.active-sales-section {
+  margin-bottom: 16px;
+}
+
+.active-sales-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: rgba(255, 255, 255, 0.45);
+  margin-bottom: 8px;
+}
+
+/* Hint text for active sales section */
+.active-sales-hint {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.4);
+  line-height: 1.4;
+  padding: 0 2px;
+}
+
+.active-sales-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.active-sale-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: rgba(255, 77, 79, 0.04);
+  border: 1px solid rgba(255, 77, 79, 0.1);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  user-select: none;
+}
+.active-sale-card:hover {
+  background: rgba(255, 77, 79, 0.08);
+  border-color: rgba(255, 77, 79, 0.2);
+}
+
+/* Selected state for active sale cards */
+.active-sale-card.is-selected {
+  background: rgba(24, 144, 255, 0.08);
+  border-color: rgba(24, 144, 255, 0.25);
+  box-shadow: 0 0 8px rgba(24, 144, 255, 0.15);
+}
+
+/* Checkbox indicator for active sale cards */
+.active-sale-card .active-sale-checkbox {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  color: transparent;
+}
+.active-sale-card.is-selected .active-sale-checkbox {
+  background: #1890ff;
+  border-color: #1890ff;
+  color: #fff;
+}
+
+.active-sale-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.active-sale-qty {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ff4d4f;
+}
+.active-sale-qty .qty-unit {
+  font-size: 11px;
+  font-weight: 400;
+  color: rgba(255, 77, 79, 0.5);
+  margin-left: 3px;
+}
+
+.active-sale-ref {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.active-sale-date {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+/* Movement card list (individual movements with checkboxes) */
+.movement-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.movement-select-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  user-select: none;
+}
+.movement-select-card:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+.movement-select-card.is-selected {
+  background: rgba(24, 144, 255, 0.08);
+  border-color: rgba(24, 144, 255, 0.25);
+}
+
+.movement-select-card .movement-card-checkbox {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  color: transparent;
+}
+.movement-select-card.is-selected .movement-card-checkbox {
+  background: #1890ff;
+  border-color: #1890ff;
+  color: #fff;
+}
+
+.movement-select-card .movement-card-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.movement-select-card .movement-card-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.movement-select-card .movement-card-type {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.7);
+}
+/* Color variants for movement card type labels */
+.movement-select-card .movement-card-type.agg-card-in-stock { color: #52c41a; background: rgba(82, 196, 26, 0.12); }
+.movement-select-card .movement-card-type.agg-card-sold { color: #ff4d4f; background: rgba(255, 77, 79, 0.12); }
+.movement-select-card .movement-card-type.agg-card-scrapped { color: #8c8c8c; background: rgba(140, 140, 140, 0.12); }
+.movement-select-card .movement-card-type.agg-card-production { color: #722ed1; background: rgba(114, 46, 209, 0.12); }
+.movement-select-card .movement-card-type.agg-card-expensed { color: #fa8c16; background: rgba(250, 140, 22, 0.12); }
+.movement-select-card .movement-card-type.agg-card-returned-to-supplier { color: #eb2f96; background: rgba(235, 47, 150, 0.12); }
+.movement-select-card .movement-card-type.agg-card-transferred { color: #13c2c2; background: rgba(19, 194, 194, 0.12); }
+.movement-select-card .movement-card-type.agg-card-returned { color: #1890ff; background: rgba(24, 144, 255, 0.12); }
+.movement-select-card .movement-card-type.agg-card-corrected { color: #faad14; background: rgba(250, 173, 20, 0.12); }
+.movement-select-card .movement-card-type.agg-card-offcut { color: #8c8c8c; background: rgba(140, 140, 140, 0.12); }
+.movement-select-card .movement-card-qty {
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+}
+.movement-select-card .movement-card-qty .qty-unit {
+  font-size: 11px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.4);
+  margin-left: 3px;
+}
+.movement-select-card .movement-card-date {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+}
+.movement-select-card .movement-card-link {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.3);
+  transition: all 0.2s;
+  cursor: pointer;
+}
+.movement-select-card .movement-card-link:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #1890ff;
+}
+
+/* Selected quantity display (read-only, with unit label) */
+.selected-qty-display {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  min-height: 38px;
+  box-sizing: border-box;
+}
+.selected-qty-display .selected-qty-value {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+}
+.selected-qty-display .qty-unit {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+/* Empty state */
+.batch-summary-empty {
+  text-align: center;
+  padding: 24px 16px;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 13px;
+}
+
+/* Batch form fields (fixed bottom section) */
+.batch-form-fields {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 20px;
+}
+
+/* Select all / deselect all toggle */
+.batch-summary-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+.batch-summary-actions button {
+  background: none;
+  border: none;
+  color: rgba(24, 144, 255, 0.7);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+.batch-summary-actions button:hover {
+  background: rgba(24, 144, 255, 0.1);
+  color: #1890ff;
 }
 
 @media (max-width: 400px) {

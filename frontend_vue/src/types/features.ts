@@ -39,6 +39,9 @@ export interface FeatureFlags {
   warehouseOffcutsPageConfig: boolean
   warehouseMovementsPageConfig: boolean
   warehouseDeficitPageConfig: boolean
+
+  // Warehouse offcut create page
+  warehouseOffcutCreate: boolean
 }
 
 export type FeatureFlagKey = keyof FeatureFlags

@@ -1,4 +1,4 @@
-// Admin common translations — multi_select, common (shared across all admin pages)
+// Admin common translations — multi_select, validation (shared across all admin pages)
 export const adminCommon = {
   ru: {
     multi_select: {
@@ -10,6 +10,11 @@ export const adminCommon = {
       entity_not_found: 'Сущность не найдена',
       entity_not_found_id: 'Сущность с ID «{id}» не найдена',
       back_to_list: 'Вернуться к списку',
+    },
+    validation: {
+      required: 'Обязательное поле',
+      min: 'Минимальное значение {min}',
+      max: 'Максимальное значение {max}',
     },
   },
   en: {
@@ -23,6 +28,11 @@ export const adminCommon = {
       entity_not_found_id: 'Entity with ID «{id}» not found',
       back_to_list: 'Back to list',
     },
+    validation: {
+      required: 'Required field',
+      min: 'Minimum value {min}',
+      max: 'Maximum value {max}',
+    },
   },
   lt: {
     multi_select: {
@@ -34,6 +44,11 @@ export const adminCommon = {
       entity_not_found: 'Objektas nerastas',
       entity_not_found_id: 'Objektas su ID «{id}» nerastas',
       back_to_list: 'Grįžti į sąrašą',
+    },
+    validation: {
+      required: 'Privalomas laukas',
+      min: 'Minimali reikšmė {min}',
+      max: 'Maksimali reikšmė {max}',
     },
   },
 };

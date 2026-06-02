@@ -1,10 +1,10 @@
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { getStockItem, patchStockItem, deleteStockAuditEntry } from '@/services/warehouseService'
+import { getStockItem, patchStockItem, getBatches, getBatchAggregates, deleteStockAuditEntry } from '@/services/warehouseService'
 import { useToast } from './useToast'
 import { useTranslatedField } from './useTranslatedData'
 import { mergeLocaleValue } from '@/types/i18n'
-import type { StockOverviewItem, StockPatchPayload, StockUnit, StockAuditEntry } from '@/types/warehouse'
+import type { StockOverviewItem, StockPatchPayload, StockUnit, StockAuditEntry, BatchStatusAggregate } from '@/types/warehouse'
 import type { TranslatedString } from '@/types/i18n'
 
 export function useWarehouseStockCard(productId: string) {
@@ -16,6 +16,51 @@ export function useWarehouseStockCard(productId: string) {
   const loading = ref(false)
   const saving = ref(false)
   const error = ref<string | null>(null)
+
+  // ─── Stock aggregates (summed across all batches for this product) ────
+  const stockAggregates = ref<BatchStatusAggregate[]>([])
+  const stockAggregatesLoading = ref(false)
+
+  /**
+   * Total usable quantity = receipt + storage + offcut (goods we can still use).
+   * Computed from aggregates, NOT from item.totalQuantity (which may be stale).
+   */
+  const totalUsableQuantity = computed(() => {
+    const aggs = stockAggregates.value
+    if (!aggs || aggs.length === 0) return item.value?.totalQuantity ?? 0
+    const usableTypes = new Set(['receipt', 'storage', 'offcut'])
+    return aggs.filter((a) => usableTypes.has(a.type)).reduce((sum, a) => sum + a.quantity, 0)
+  })
+
+  async function loadStockAggregates() {
+    stockAggregatesLoading.value = true
+    try {
+      // Load all batches for this product
+      const batchesRes = await getBatches(
+        { search: '', productId, sortBy: 'receivedAt', sortDir: 'desc' },
+        { page: 1, pageSize: 100 },
+      )
+      // Load aggregates for each batch and sum them
+      const byType: Record<string, number> = {}
+      let unit: StockUnit = 'kg'
+      for (const batch of batchesRes.items) {
+        unit = batch.unit as StockUnit
+        const aggs = await getBatchAggregates(batch.id)
+        for (const a of aggs) {
+          byType[a.type] = (byType[a.type] || 0) + a.quantity
+        }
+      }
+      const result: BatchStatusAggregate[] = Object.entries(byType)
+        .filter(([, q]) => q > 0)
+        .sort(([, a], [, b]) => b - a)
+        .map(([type, quantity]) => ({ type: type as BatchStatusAggregate['type'], quantity, unit }))
+      stockAggregates.value = result
+    } catch {
+      stockAggregates.value = []
+    } finally {
+      stockAggregatesLoading.value = false
+    }
+  }
 
   // Audit log
   const auditLog = ref<StockAuditEntry[]>([])
@@ -95,6 +140,8 @@ export function useWarehouseStockCard(productId: string) {
       }
       auditLog.value = data.auditLog ?? []
       captureSnapshot()
+      // Also load aggregates across all batches for this product
+      await loadStockAggregates()
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to load stock item'
     } finally {
@@ -178,6 +225,9 @@ export function useWarehouseStockCard(productId: string) {
     formName,
     formCategoryName,
     isAnythingDirty,
+    stockAggregates,
+    stockAggregatesLoading,
+    totalUsableQuantity,
     auditLog,
     auditLoading,
     load,

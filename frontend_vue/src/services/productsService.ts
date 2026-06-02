@@ -86,3 +86,7 @@ export async function getProductList(): Promise<Array<{ id: string; name: { ru: 
 export async function deleteProduct(id: string): Promise<void> {
   return apiDelete(`/api/products/${id}`)
 }
+
+export async function deleteProductAuditEntry(productId: string, entryIndex: number): Promise<void> {
+  await apiDelete<void>(`/api/products/${productId}/audit/${entryIndex}`)
+}

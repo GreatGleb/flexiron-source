@@ -1,0 +1,2 @@
+в http://localhost:5173/admin/warehouse/stock/prod-003 написано что количество партий 2
+когда я перехожу там по ссылке http://localhost:5173/admin/warehouse/batches?productId=prod-003 пишет что партий не найдено

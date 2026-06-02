@@ -31,6 +31,10 @@
   display: block;
   animation: select-open 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
+.datepicker-popup.open-up {
+  top: auto;
+  bottom: calc(100% + 8px);
+}
 .calendar-header {
   display: flex;
   align-items: center;

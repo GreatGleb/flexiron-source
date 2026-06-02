@@ -1,5 +1,6 @@
 import type { CategoryFieldType } from './category'
 import type { TranslatedString } from './i18n'
+import type { SupplierAuditEntry } from './supplier'
 
 export type PriceUnit = 'EUR/vnt' | 'EUR/kg' | 'EUR/m'
 
@@ -45,6 +46,7 @@ export interface Product {
   createdAt: string
   fieldValues: ProductFieldValue[]
   linkedSuppliers: LinkedSupplier[]
+  auditLog: SupplierAuditEntry[]
 }
 
 export interface ProductFilters {

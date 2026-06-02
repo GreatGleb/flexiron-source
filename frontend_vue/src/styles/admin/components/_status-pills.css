@@ -41,4 +41,24 @@
   border: 1px solid rgba(181, 245, 236, 0.3);
   color: #5cdbd3;
 }
-
+/* Extended batch status pills */
+.pill-sold {
+  background: rgba(24, 144, 255, 0.2);
+  border: 1px solid rgba(24, 144, 255, 0.3);
+  color: #1890ff;
+}
+.pill-expensed {
+  background: rgba(255, 122, 69, 0.2);
+  border: 1px solid rgba(255, 122, 69, 0.3);
+  color: #ff7a45;
+}
+.pill-returned {
+  background: rgba(235, 47, 150, 0.2);
+  border: 1px solid rgba(235, 47, 150, 0.3);
+  color: #eb2f96;
+}
+.pill-offcut {
+  background: rgba(140, 140, 140, 0.2);
+  border: 1px solid rgba(140, 140, 140, 0.3);
+  color: #8c8c8c;
+}

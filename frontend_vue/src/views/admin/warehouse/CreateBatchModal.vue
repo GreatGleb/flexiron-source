@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { createBatch } from '@/services/warehouseService'
 import { getProductList } from '@/services/productsService'
@@ -40,6 +40,9 @@ const expiresAt = ref('')
 const location = ref('')
 const certificateRef = ref('')
 const notes = ref('')
+
+/** Step for quantity inputs: 1 for pcs, 0.01 for others */
+const quantityStep = computed(() => unit.value === 'pcs' ? 1 : 0.01)
 
 // ─── Validation errors ───────────────────────────────────────────────────────
 
@@ -173,6 +176,27 @@ async function onSave() {
 function onCancel() {
   emit('close')
 }
+
+// ─── Auto-resize notes textarea ──────────────────────────────────────
+const notesTextarea = ref<HTMLTextAreaElement | null>(null)
+const MAX_NOTES_HEIGHT = 300
+
+function autoResizeNotes() {
+  const el = notesTextarea.value
+  if (!el) return
+  el.style.height = 'auto'
+  if (el.scrollHeight > MAX_NOTES_HEIGHT) {
+    el.style.height = MAX_NOTES_HEIGHT + 'px'
+    el.style.overflowY = 'auto'
+  } else {
+    el.style.height = el.scrollHeight + 'px'
+    el.style.overflowY = 'hidden'
+  }
+}
+
+watch(notes, () => {
+  nextTick(autoResizeNotes)
+})
 </script>
 
 <template>
@@ -237,7 +261,7 @@ function onCancel() {
             v-model.number="quantity"
             type="number"
             min="0"
-            step="0.01"
+            :step="quantityStep"
             class="glass-input"
             data-test="create-batch-quantity-input"
           />
@@ -321,22 +345,24 @@ function onCancel() {
       <div class="form-group">
         <label class="field-label">{{ t('warehouse.field_notes') }}</label>
         <textarea
+          ref="notesTextarea"
           v-model="notes"
-          class="glass-input glass-textarea"
-          rows="3"
+          class="glass-input glass-textarea batch-notes-input"
           data-test="create-batch-notes-input"
+          @input="autoResizeNotes"
         />
       </div>
     </div>
 
     <template #footer>
       <button
-        class="btn btn-ghost"
+        type="button"
+        class="btn btn-secondary"
         :disabled="saving"
         data-test="create-batch-cancel-btn"
         @click="onCancel"
       >
-        {{ t('warehouse.btn_cancel') }}
+        {{ t('btn.cancel') }}
       </button>
       <button
         class="btn btn-primary"

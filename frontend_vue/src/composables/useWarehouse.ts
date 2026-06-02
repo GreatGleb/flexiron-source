@@ -8,10 +8,10 @@ import {
   getDeficitList,
   deleteBatch as deleteBatchApi,
   deleteOffcut as deleteOffcutApi,
-  deleteMovement as deleteMovementApi,
   deleteDeficitItem as deleteDeficitItemApi,
-  deleteStockItem as deleteStockItemApi,
   patchDeficitItem as patchDeficitItemApi,
+  patchOffcut as patchOffcutApi,
+  createMovement as createMovementApi,
 } from '@/services/warehouseService'
 import { usePagination } from './usePagination'
 import { useToast } from './useToast'
@@ -24,6 +24,8 @@ import type {
   DeficitListItem,
   WarehouseFilters,
   StockFilters,
+  OffcutStatus,
+  MovementType,
 } from '@/types/warehouse'
 
 export type WarehouseTab = 'stock' | 'batches' | 'offcuts' | 'movements' | 'deficit'
@@ -160,10 +162,10 @@ export function useWarehouse() {
     sortDir: 'asc',
   })
 
-  // Movements-specific sort state
+  // Movements-specific sort state — default: newest first by date
   const movementsSort = reactive<{ sortBy: string | null; sortDir: 'asc' | 'desc' }>({
-    sortBy: null,
-    sortDir: 'asc',
+    sortBy: 'movedAt',
+    sortDir: 'desc',
   })
 
   // Deficit-specific sort state
@@ -328,16 +330,6 @@ export function useWarehouse() {
     }
   }
 
-  async function deleteMovement(id: string) {
-    try {
-      await deleteMovementApi(id)
-      toast.success(t('warehouse.toast_movement_deleted'))
-      await loadMovements()
-    } catch {
-      toast.error(t('warehouse.toast_error'))
-    }
-  }
-
   async function deleteDeficit(id: string) {
     try {
       await deleteDeficitItemApi(id)
@@ -348,21 +340,36 @@ export function useWarehouse() {
     }
   }
 
-  async function deleteStock(id: string) {
-    try {
-      await deleteStockItemApi(id)
-      toast.success(t('warehouse.toast_stock_deleted'))
-      await loadStock()
-    } catch {
-      toast.error(t('warehouse.toast_error'))
-    }
+  // ─── Offcut status → Movement type mapping ──────────────────────────
+  const OFFCUT_STATUS_TO_MOVEMENT_TYPE: Record<OffcutStatus, MovementType> = {
+    available: 'return',
+    reserved: 'transfer',
+    in_production: 'production',
+    sold: 'sale',
+    scrapped: 'write-off',
+    expensed: 'expense',
+    returned_to_supplier: 'return-to-supplier',
+    in_storage: 'storage',
   }
 
   // ─── Inline status/priority updates ──────────────────────────────────────────
 
-  async function updateOffcutStatus(id: string, status: string) {
+  async function updateOffcutStatus(id: string, status: string, offcut: OffcutListItem) {
     try {
-      await patchDeficitItemApi(id, { status } as any)
+      await patchOffcutApi(id, { status: status as OffcutStatus })
+      // Auto-create movement on status change
+      try {
+        await createMovementApi({
+          type: OFFCUT_STATUS_TO_MOVEMENT_TYPE[status as OffcutStatus],
+          offcutId: id,
+          batchId: offcut.batchId,
+          quantity: offcut.quantity,
+          movedAt: new Date().toISOString(),
+          notes: t(`warehouse.movement_offcut_${status}`, { id }),
+        })
+      } catch {
+        // Movement creation is secondary — don't block the status update
+      }
       toast.success(t('warehouse.toast_offcut_saved'))
       await loadOffcuts()
     } catch {
@@ -592,9 +599,7 @@ export function useWarehouse() {
     loadDeficit,
     deleteBatch,
     deleteOffcut,
-    deleteMovement,
     deleteDeficit,
-    deleteStock,
     toggleStockSort,
     toggleBatchesSort,
     toggleOffcutsSort,

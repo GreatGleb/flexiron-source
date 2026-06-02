@@ -290,9 +290,6 @@ input[type='number'] {
 .glass-panel.loading .panel-skeleton {
   display: block;
 }
-.glass-panel:has(.custom-select-list.open) {
-  z-index: 100 !important;
-}
 .panel-body {
   display: block;
 }
@@ -414,6 +411,22 @@ input[type='number'] {
 .input-group {
   margin-bottom: 20px;
 }
+.form-group {
+  margin-bottom: 20px;
+}
+.form-row {
+  display: flex;
+  gap: 16px;
+}
+.form-row .form-group {
+  margin-bottom: 0;
+}
+.form-group-flex {
+  flex: 1;
+}
+.form-group-shrink {
+  flex: 0 0 auto;
+}
 .field-label {
   display: block;
   font-size: 11px;
@@ -446,10 +459,26 @@ textarea.glass-input {
   .input-group {
     margin-bottom: 16px;
   }
+  .form-group {
+    margin-bottom: 16px;
+  }
+  .form-row {
+    gap: 12px;
+  }
 }
 /* Forms - Mobile */
 @media (max-width: 600px) {
   .input-group {
+    margin-bottom: 14px;
+  }
+  .form-group {
+    margin-bottom: 14px;
+  }
+  .form-row {
+    flex-direction: column;
+    gap: 0;
+  }
+  .form-row .form-group {
     margin-bottom: 14px;
   }
   .field-label {
@@ -468,6 +497,9 @@ textarea.glass-input {
 /* Forms - Small Mobile */
 @media (max-width: 400px) {
   .input-group {
+    margin-bottom: 12px;
+  }
+  .form-group {
     margin-bottom: 12px;
   }
   .field-label {

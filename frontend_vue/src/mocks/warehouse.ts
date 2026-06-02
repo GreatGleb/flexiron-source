@@ -1,5 +1,5 @@
 export { mockBatches } from './warehouse-batches'
 export { mockOffcuts } from './warehouse-offcuts'
-export { mockMovements } from './warehouse-movements'
+export { mockMovements, mockBatchAggregates, mockBatchActiveSales } from './warehouse-movements'
 export { mockDeficit } from './warehouse-deficit'
 export { mockStockOverview } from './warehouse-stock'

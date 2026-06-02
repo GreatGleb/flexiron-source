@@ -188,6 +188,30 @@ const routes: RouteRecordRaw[] = [
         meta: { layout: 'admin', featureFlag: 'adminWarehouse' as FeatureFlagKey },
       },
       {
+        path: 'warehouse/offcuts/new',
+        name: 'admin-warehouse-offcut-create',
+        component: () => import('@/views/admin/warehouse/WarehouseOffcutCreatePage.vue'),
+        meta: { layout: 'admin', featureFlag: 'warehouseOffcutCreate' as FeatureFlagKey },
+      },
+      {
+        path: 'warehouse/offcuts/:id',
+        name: 'admin-warehouse-offcut',
+        component: () => import('@/views/admin/warehouse/WarehouseOffcutCard.vue'),
+        meta: { layout: 'admin', featureFlag: 'adminWarehouse' as FeatureFlagKey },
+      },
+      {
+        path: 'warehouse/movements/:id',
+        name: 'admin-warehouse-movement',
+        component: () => import('@/views/admin/warehouse/WarehouseMovementCard.vue'),
+        meta: { layout: 'admin', featureFlag: 'adminWarehouse' as FeatureFlagKey },
+      },
+      {
+        path: 'warehouse/deficit/:id',
+        name: 'admin-warehouse-deficit',
+        component: () => import('@/views/admin/warehouse/WarehouseDeficitCard.vue'),
+        meta: { layout: 'admin', featureFlag: 'adminWarehouse' as FeatureFlagKey },
+      },
+      {
         path: 'warehouse/:tab(stock|batches|offcuts|movements|deficit)?',
         name: 'admin-warehouse',
         component: () => import('@/views/admin/warehouse/WarehousePage.vue'),

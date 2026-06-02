@@ -18,12 +18,16 @@ import FileItem from '@/components/admin/FileItem.vue'
 import type { UploadedFile } from '@/services/uploadsService'
 import type { LinkedSupplier } from '@/types/product'
 import type { TranslatedString } from '@/types/i18n'
+import { deleteProductAuditEntry } from '@/services/productsService'
+import { useToast } from '@/composables/useToast'
 import '@styles/admin/components/_entity-card-layout.css'
+import '@styles/admin/components/_audit-log.css'
 import '@styles/admin/products_card.css'
 
 const { t, locale } = useI18n()
 const route = useRoute()
 const router = useRouter()
+const toast = useToast()
 const id = route.params.id as string
 
 const showSupplierLinks = useFeatureFlag('productSupplierLinks')
@@ -35,6 +39,30 @@ const {
   addLinkedSupplier, removeLinkedSupplier,
   load, save, discard, tf,
 } = useProductCard(id)
+
+// ─── Audit log entry deletion (with confirm modal) ───
+const deleteAuditOpen = ref(false)
+const auditToDeleteIdx = ref<number | null>(null)
+
+function askDeleteAudit(index: number) {
+  auditToDeleteIdx.value = index
+  deleteAuditOpen.value = true
+}
+
+async function confirmDeleteAudit() {
+  if (auditToDeleteIdx.value === null || !product.value) return
+  const idx = auditToDeleteIdx.value
+  try {
+    await deleteProductAuditEntry(id, idx)
+    product.value.auditLog.splice(idx, 1)
+    toast.show(t('msg.audit_deleted'))
+  } catch {
+    toast.show(t('msg.status_error'), 'error')
+  } finally {
+    auditToDeleteIdx.value = null
+    deleteAuditOpen.value = false
+  }
+}
 
 
 const formName = computed({
@@ -372,6 +400,65 @@ onMounted(load)
       </div>
     </div>
 
+    <!-- FULL WIDTH: Audit History -->
+    <div class="audit-panel-wide" data-test="product-card-audit">
+      <GlassPanel :title="t('products.section_audit')">
+        <div class="table-responsive">
+          <table class="audit-log-table" data-test="product-card-audit-table">
+            <thead>
+              <tr>
+                <th>{{ t('th.timestamp') }}</th>
+                <th>{{ t('th.user') }}</th>
+                <th>{{ t('th.prop') }}</th>
+                <th>{{ t('th.diff') }}</th>
+                <th style="width: 40px" />
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(a, i) in product?.auditLog ?? []" :key="i" data-test="product-card-audit-row">
+                <td class="audit-log-ts">{{ a.timestamp }}</td>
+                <td>
+                  <div class="audit-log-user">
+                    <div class="audit-log-avatar">{{ a.userInitials }}</div>
+                    <span>{{ tf(a.user) }}</span>
+                  </div>
+                </td>
+                <td>{{ tf(a.property) }}</td>
+                <td>
+                  <span class="audit-diff-old">{{ a.oldValue }}</span>
+                  &nbsp;→&nbsp;
+                  <span class="audit-diff-new">{{ a.newValue }}</span>
+                </td>
+                <td style="text-align: right">
+                  <button
+                    v-tooltip="t('btn.delete')"
+                    type="button"
+                    class="action-icon-btn action-danger"
+                    data-test="product-card-audit-delete-btn"
+                    @click="askDeleteAudit(i)"
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </GlassPanel>
+    </div>
+
     <AppModal
       v-model="showAddSupplier"
       :title="t('products.btn_add_supplier')"
@@ -435,6 +522,33 @@ onMounted(load)
           @click="() => { removeLinkedSupplier(supplierToRemove!.id); supplierToRemove = null }"
         >
           {{ t('products.btn_delete') }}
+        </button>
+      </template>
+    </AppModal>
+
+    <AppModal
+      v-model="deleteAuditOpen"
+      :title="t('modal.confirm_delete')"
+      size="small"
+      data-test="product-card-audit-modal"
+    >
+      <p>{{ t('modal.delete_audit_warning') }}</p>
+      <template #footer>
+        <button
+          type="button"
+          class="btn btn-secondary"
+          data-test="product-card-audit-modal-cancel"
+          @click="deleteAuditOpen = false"
+        >
+          {{ t('btn.cancel') }}
+        </button>
+        <button
+          type="button"
+          class="btn btn-danger"
+          data-test="product-card-audit-modal-confirm"
+          @click="confirmDeleteAudit"
+        >
+          {{ t('btn.delete') }}
         </button>
       </template>
     </AppModal>

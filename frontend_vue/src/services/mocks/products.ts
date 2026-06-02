@@ -40,6 +40,16 @@ export const STORE: Product[] = [
       { id: '1', name: { ru: 'Steel Plus OÜ', en: 'Steel Plus OÜ', lt: 'Steel Plus OÜ' }, price: 115.00, priceUnit: 'EUR/vnt', leadDays: 7 },
       { id: '2', name: { ru: 'Metal Trade LT', en: 'Metal Trade LT', lt: 'Metal Trade LT' }, price: 118.00, priceUnit: 'EUR/vnt', leadDays: 14 },
     ],
+    auditLog: [
+    {
+      timestamp: '2026-04-23 13:17',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Мин. запас', en: 'Min Stock', lt: 'Min. atsargos' },
+      oldValue: '118',
+      newValue: '56',
+    }
+    ],
   },
   {
     id: 'prod-002',
@@ -67,6 +77,16 @@ export const STORE: Product[] = [
       { fieldId: 'f-2-5', fieldName: { ru: 'Вес на м² (кг)', en: 'Weight per m² (kg)', lt: 'Svoris m² (kg)' }, fieldType: 'number', value: 5.4, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '1', name: { ru: 'Steel Plus OÜ', en: 'Steel Plus OÜ', lt: 'Steel Plus OÜ' }, price: 79.9, priceUnit: 'EUR/vnt', leadDays: 7 }],
+    auditLog: [
+    {
+      timestamp: '2026-01-06 06:54',
+      user: { ru: 'Елена К.', en: 'Elena K.', lt: 'Elena K.' },
+      userInitials: 'EK',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Cut to size',
+      newValue: 'Hot-rolled steel sheet',
+    }
+    ],
   },
   {
     id: 'prod-003',
@@ -97,6 +117,16 @@ export const STORE: Product[] = [
     ],
     linkedSuppliers: [
       { id: '3', name: { ru: 'Nordic Steel AB', en: 'Nordic Steel AB', lt: 'Nordic Steel AB' }, price: 42.00, priceUnit: 'EUR/m', leadDays: 10 },
+    ],
+    auditLog: [
+    {
+      timestamp: '2025-11-14 16:42',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'FO-9937',
+      newValue: 'DA-6212',
+    }
     ],
   },
   {
@@ -130,6 +160,32 @@ export const STORE: Product[] = [
       { id: '2', name: { ru: 'Metal Trade LT', en: 'Metal Trade LT', lt: 'Metal Trade LT' }, price: 74.88, priceUnit: 'EUR/m', leadDays: 5 },
       { id: '4', name: { ru: 'Baltic Metals SIA', en: 'Baltic Metals SIA', lt: 'Baltic Metals SIA' }, price: 74.1, priceUnit: 'EUR/m', leadDays: 10 },
     ],
+    auditLog: [
+    {
+      timestamp: '2025-10-14 02:15',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Цена', en: 'Price', lt: 'Kaina' },
+      oldValue: '162.62 EUR',
+      newValue: '114.69 EUR',
+    },
+    {
+      timestamp: '2026-04-07 23:01',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Цена', en: 'Price', lt: 'Kaina' },
+      oldValue: '37.14 EUR',
+      newValue: '207.68 EUR',
+    },
+    {
+      timestamp: '2026-01-30 04:14',
+      user: { ru: 'Елена К.', en: 'Elena K.', lt: 'Elena K.' },
+      userInitials: 'EK',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Seamless pipe',
+      newValue: 'Galvanized sheet',
+    }
+    ],
   },
   {
     id: 'prod-005',
@@ -156,6 +212,24 @@ export const STORE: Product[] = [
       { id: '3', name: { ru: 'Nordic Steel AB', en: 'Nordic Steel AB', lt: 'Nordic Steel AB' }, price: 11.5, priceUnit: 'EUR/kg', leadDays: 14 },
       { id: '5', name: { ru: 'ProMetal UAB', en: 'ProMetal UAB', lt: 'ProMetal UAB' }, price: 12.13, priceUnit: 'EUR/kg', leadDays: 3 },
     ],
+    auditLog: [
+    {
+      timestamp: '2025-10-26 03:33',
+      user: { ru: 'Дмитрий С.', en: 'Dmitry S.', lt: 'Dmitry S.' },
+      userInitials: 'DS',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'WL-4259',
+      newValue: 'SD-4673',
+    },
+    {
+      timestamp: '2025-10-22 13:28',
+      user: { ru: 'Елена К.', en: 'Elena K.', lt: 'Elena K.' },
+      userInitials: 'EK',
+      property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
+      oldValue: 'Nordic Steel AB',
+      newValue: 'Metal Trade LT',
+    }
+    ],
   },
   {
     id: 'prod-006',
@@ -179,6 +253,32 @@ export const STORE: Product[] = [
       { fieldId: 'f-5-3', fieldName: { ru: 'Срок годности', en: 'Expiry date', lt: 'Galiojimo data' }, fieldType: 'date', value: null, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '4', name: { ru: 'Baltic Metals SIA', en: 'Baltic Metals SIA', lt: 'Baltic Metals SIA' }, price: 11.88, priceUnit: 'EUR/kg', leadDays: 10 }],
+    auditLog: [
+    {
+      timestamp: '2026-03-24 21:10',
+      user: { ru: 'Дмитрий С.', en: 'Dmitry S.', lt: 'Dmitry S.' },
+      userInitials: 'DS',
+      property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
+      oldValue: 'Steel Plus OÜ',
+      newValue: 'Nordic Steel AB',
+    },
+    {
+      timestamp: '2026-03-03 18:22',
+      user: { ru: 'Ольга П.', en: 'Olga P.', lt: 'Olga P.' },
+      userInitials: 'OP',
+      property: { ru: 'Категория', en: 'Category', lt: 'Kategorija' },
+      oldValue: 'Sheets',
+      newValue: 'Equipment',
+    },
+    {
+      timestamp: '2025-10-06 22:52',
+      user: { ru: 'Ольга П.', en: 'Olga P.', lt: 'Olga P.' },
+      userInitials: 'OP',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Cold-rolled steel sheet',
+      newValue: 'Seamless pipe',
+    }
+    ],
   },
   {
     id: 'prod-007',
@@ -200,6 +300,16 @@ export const STORE: Product[] = [
     linkedSuppliers: [
       { id: '5', name: { ru: 'ProMetal UAB', en: 'ProMetal UAB', lt: 'ProMetal UAB' }, price: 86.33, priceUnit: 'EUR/vnt', leadDays: 3 },
       { id: '1', name: { ru: 'Steel Plus OÜ', en: 'Steel Plus OÜ', lt: 'Steel Plus OÜ' }, price: 83.66, priceUnit: 'EUR/vnt', leadDays: 7 },
+    ],
+    auditLog: [
+    {
+      timestamp: '2026-01-28 05:44',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Категория', en: 'Category', lt: 'Kategorija' },
+      oldValue: 'Equipment',
+      newValue: 'Consumables',
+    }
     ],
   },
   {
@@ -231,6 +341,32 @@ export const STORE: Product[] = [
       { id: '6', name: { ru: 'EuroSteel GmbH', en: 'EuroSteel GmbH', lt: 'EuroSteel GmbH' }, price: 86.45, priceUnit: 'EUR/vnt', leadDays: 21 },
       { id: '2', name: { ru: 'Metal Trade LT', en: 'Metal Trade LT', lt: 'Metal Trade LT' }, price: 91.2, priceUnit: 'EUR/vnt', leadDays: 5 },
     ],
+    auditLog: [
+    {
+      timestamp: '2026-04-17 18:34',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Мин. запас', en: 'Min Stock', lt: 'Min. atsargos' },
+      oldValue: '183',
+      newValue: '177',
+    },
+    {
+      timestamp: '2025-12-01 03:58',
+      user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
+      userInitials: 'MV',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'JQ-3465',
+      newValue: 'QL-9721',
+    },
+    {
+      timestamp: '2026-02-26 03:42',
+      user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
+      userInitials: 'MV',
+      property: { ru: 'Мин. запас', en: 'Min Stock', lt: 'Min. atsargos' },
+      oldValue: '67',
+      newValue: '33',
+    }
+    ],
   },
   {
     id: 'prod-009',
@@ -245,6 +381,16 @@ export const STORE: Product[] = [
     createdAt: '2025-06-01',
     fieldValues: [],
     linkedSuppliers: [{ id: '1', name: { ru: 'Steel Plus OÜ', en: 'Steel Plus OÜ', lt: 'Steel Plus OÜ' }, price: 51.7, priceUnit: 'EUR/kg', leadDays: 7 }],
+    auditLog: [
+    {
+      timestamp: '2025-12-23 09:27',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Цена', en: 'Price', lt: 'Kaina' },
+      oldValue: '203.14 EUR',
+      newValue: '146.46 EUR',
+    }
+    ],
   },
   // ── cat-2 Sheets ──────────────────────────────────────────────────────────────
   {
@@ -267,6 +413,32 @@ export const STORE: Product[] = [
       { fieldId: 'f-2-5', fieldName: { ru: 'Вес на м² (кг)', en: 'Weight per m² (kg)', lt: 'Svoris m² (kg)' }, fieldType: 'number', value: 39.25, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '1', name: { ru: 'Steel Plus OÜ', en: 'Steel Plus OÜ', lt: 'Steel Plus OÜ' }, price: 185.00, priceUnit: 'EUR/vnt', leadDays: 7 }],
+    auditLog: [
+    {
+      timestamp: '2026-02-21 04:36',
+      user: { ru: 'Ольга П.', en: 'Olga P.', lt: 'Olga P.' },
+      userInitials: 'OP',
+      property: { ru: 'Мин. запас', en: 'Min Stock', lt: 'Min. atsargos' },
+      oldValue: '83',
+      newValue: '137',
+    },
+    {
+      timestamp: '2026-04-24 13:17',
+      user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
+      userInitials: 'MV',
+      property: { ru: 'Цена', en: 'Price', lt: 'Kaina' },
+      oldValue: '87.50 EUR',
+      newValue: '31.11 EUR',
+    },
+    {
+      timestamp: '2025-10-02 21:03',
+      user: { ru: 'Дмитрий С.', en: 'Dmitry S.', lt: 'Dmitry S.' },
+      userInitials: 'DS',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Cold-rolled steel sheet',
+      newValue: 'Cut to size',
+    }
+    ],
   },
   {
     id: 'prod-011',
@@ -291,6 +463,24 @@ export const STORE: Product[] = [
       { id: '3', name: { ru: 'Nordic Steel AB', en: 'Nordic Steel AB', lt: 'Nordic Steel AB' }, price: 295.00, priceUnit: 'EUR/vnt', leadDays: 10 },
       { id: '6', name: { ru: 'EuroSteel GmbH', en: 'EuroSteel GmbH', lt: 'EuroSteel GmbH' }, price: 300.70, priceUnit: 'EUR/vnt', leadDays: 14 },
     ],
+    auditLog: [
+    {
+      timestamp: '2025-12-29 12:47',
+      user: { ru: 'Дмитрий С.', en: 'Dmitry S.', lt: 'Dmitry S.' },
+      userInitials: 'DS',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Seamless pipe',
+      newValue: 'Galvanized sheet',
+    },
+    {
+      timestamp: '2025-10-03 15:58',
+      user: { ru: 'Ольга П.', en: 'Olga P.', lt: 'Olga P.' },
+      userInitials: 'OP',
+      property: { ru: 'Цена', en: 'Price', lt: 'Kaina' },
+      oldValue: '198.50 EUR',
+      newValue: '162.92 EUR',
+    }
+    ],
   },
   {
     id: 'prod-012',
@@ -312,6 +502,24 @@ export const STORE: Product[] = [
       { fieldId: 'f-2-5', fieldName: { ru: 'Вес на м² (кг)', en: 'Weight per m² (kg)', lt: 'Svoris m² (kg)' }, fieldType: 'number', value: 15.7, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '2', name: { ru: 'Metal Trade LT', en: 'Metal Trade LT', lt: 'Metal Trade LT' }, price: 74.10, priceUnit: 'EUR/vnt', leadDays: 5 }],
+    auditLog: [
+    {
+      timestamp: '2026-04-02 01:42',
+      user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
+      userInitials: 'MV',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'VZ-9387',
+      newValue: 'XK-3285',
+    },
+    {
+      timestamp: '2026-03-06 23:59',
+      user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
+      userInitials: 'MV',
+      property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
+      oldValue: 'Euro Metal GmbH',
+      newValue: 'Steel Plus OÜ',
+    }
+    ],
   },
   {
     id: 'prod-013',
@@ -333,6 +541,32 @@ export const STORE: Product[] = [
       { fieldId: 'f-2-5', fieldName: { ru: 'Вес на м² (кг)', en: 'Weight per m² (kg)', lt: 'Svoris m² (kg)' }, fieldType: 'number', value: 78.5, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '1', name: { ru: 'Steel Plus OÜ', en: 'Steel Plus OÜ', lt: 'Steel Plus OÜ' }, price: 266.00, priceUnit: 'EUR/vnt', leadDays: 7 }],
+    auditLog: [
+    {
+      timestamp: '2026-04-11 06:45',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Цена', en: 'Price', lt: 'Kaina' },
+      oldValue: '110.80 EUR',
+      newValue: '117.15 EUR',
+    },
+    {
+      timestamp: '2026-05-08 01:08',
+      user: { ru: 'Ольга П.', en: 'Olga P.', lt: 'Olga P.' },
+      userInitials: 'OP',
+      property: { ru: 'Категория', en: 'Category', lt: 'Kategorija' },
+      oldValue: 'Pipes',
+      newValue: 'Equipment',
+    },
+    {
+      timestamp: '2026-04-30 22:07',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
+      oldValue: 'Metal Trade LT',
+      newValue: 'Steel Plus OÜ',
+    }
+    ],
   },
   {
     id: 'prod-014',
@@ -354,6 +588,16 @@ export const STORE: Product[] = [
       { fieldId: 'f-2-5', fieldName: { ru: 'Вес на м² (кг)', en: 'Weight per m² (kg)', lt: 'Svoris m² (kg)' }, fieldType: 'number', value: 7.85, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '2', name: { ru: 'Metal Trade LT', en: 'Metal Trade LT', lt: 'Metal Trade LT' }, price: 61.75, priceUnit: 'EUR/vnt', leadDays: 5 }],
+    auditLog: [
+    {
+      timestamp: '2025-10-28 12:04',
+      user: { ru: 'Дмитрий С.', en: 'Dmitry S.', lt: 'Dmitry S.' },
+      userInitials: 'DS',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'BG-4119',
+      newValue: 'AR-9480',
+    }
+    ],
   },
   {
     id: 'prod-015',
@@ -377,6 +621,32 @@ export const STORE: Product[] = [
     linkedSuppliers: [
       { id: '6', name: { ru: 'EuroSteel GmbH', en: 'EuroSteel GmbH', lt: 'EuroSteel GmbH' }, price: 52.78, priceUnit: 'EUR/vnt', leadDays: 21 },
       { id: '2', name: { ru: 'Metal Trade LT', en: 'Metal Trade LT', lt: 'Metal Trade LT' }, price: 55.68, priceUnit: 'EUR/vnt', leadDays: 5 },
+    ],
+    auditLog: [
+    {
+      timestamp: '2026-05-13 07:52',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
+      oldValue: 'Euro Metal GmbH',
+      newValue: 'Metal Trade LT',
+    },
+    {
+      timestamp: '2026-05-12 19:16',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Категория', en: 'Category', lt: 'Kategorija' },
+      oldValue: 'Consumables',
+      newValue: 'Pipes',
+    },
+    {
+      timestamp: '2026-05-19 05:59',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Cut to size',
+      newValue: 'Welded pipe',
+    }
     ],
   },
   {
@@ -402,6 +672,16 @@ export const STORE: Product[] = [
       { id: '1', name: { ru: 'Steel Plus OÜ', en: 'Steel Plus OÜ', lt: 'Steel Plus OÜ' }, price: 232.75, priceUnit: 'EUR/vnt', leadDays: 7 },
       { id: '3', name: { ru: 'Nordic Steel AB', en: 'Nordic Steel AB', lt: 'Nordic Steel AB' }, price: 238.00, priceUnit: 'EUR/vnt', leadDays: 10 },
     ],
+    auditLog: [
+    {
+      timestamp: '2026-05-18 01:12',
+      user: { ru: 'Дмитрий С.', en: 'Dmitry S.', lt: 'Dmitry S.' },
+      userInitials: 'DS',
+      property: { ru: 'Категория', en: 'Category', lt: 'Kategorija' },
+      oldValue: 'Sheets',
+      newValue: 'Equipment',
+    }
+    ],
   },
   {
     id: 'prod-017',
@@ -423,6 +703,32 @@ export const STORE: Product[] = [
       { fieldId: 'f-2-5', fieldName: { ru: 'Вес на м² (кг)', en: 'Weight per m² (kg)', lt: 'Svoris m² (kg)' }, fieldType: 'number', value: 8.1, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '1', name: { ru: 'Steel Plus OÜ', en: 'Steel Plus OÜ', lt: 'Steel Plus OÜ' }, price: 137.75, priceUnit: 'EUR/vnt', leadDays: 7 }],
+    auditLog: [
+    {
+      timestamp: '2026-01-30 19:36',
+      user: { ru: 'Ольга П.', en: 'Olga P.', lt: 'Olga P.' },
+      userInitials: 'OP',
+      property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
+      oldValue: 'Metal Trade LT',
+      newValue: 'Steel Plus OÜ',
+    },
+    {
+      timestamp: '2025-10-05 17:05',
+      user: { ru: 'Ольга П.', en: 'Olga P.', lt: 'Olga P.' },
+      userInitials: 'OP',
+      property: { ru: 'Категория', en: 'Category', lt: 'Kategorija' },
+      oldValue: 'Consumables',
+      newValue: 'Pipes',
+    },
+    {
+      timestamp: '2025-12-03 21:27',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'OH-3770',
+      newValue: 'LV-8035',
+    }
+    ],
   },
   {
     id: 'prod-018',
@@ -447,6 +753,24 @@ export const STORE: Product[] = [
       { id: '6', name: { ru: 'EuroSteel GmbH', en: 'EuroSteel GmbH', lt: 'EuroSteel GmbH' }, price: 199.50, priceUnit: 'EUR/vnt', leadDays: 21 },
       { id: '4', name: { ru: 'Baltic Metals SIA', en: 'Baltic Metals SIA', lt: 'Baltic Metals SIA' }, price: 205.80, priceUnit: 'EUR/vnt', leadDays: 10 },
     ],
+    auditLog: [
+    {
+      timestamp: '2026-05-10 22:28',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Мин. запас', en: 'Min Stock', lt: 'Min. atsargos' },
+      oldValue: '192',
+      newValue: '163',
+    },
+    {
+      timestamp: '2026-01-10 16:35',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Мин. запас', en: 'Min Stock', lt: 'Min. atsargos' },
+      oldValue: '102',
+      newValue: '64',
+    }
+    ],
   },
   {
     id: 'prod-019',
@@ -468,6 +792,32 @@ export const STORE: Product[] = [
       { fieldId: 'f-2-5', fieldName: { ru: 'Вес на м² (кг)', en: 'Weight per m² (kg)', lt: 'Svoris m² (kg)' }, fieldType: 'number', value: 8.96, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '4', name: { ru: 'Baltic Metals SIA', en: 'Baltic Metals SIA', lt: 'Baltic Metals SIA' }, price: 304.00, priceUnit: 'EUR/vnt', leadDays: 10 }],
+    auditLog: [
+    {
+      timestamp: '2026-03-01 16:09',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Мин. запас', en: 'Min Stock', lt: 'Min. atsargos' },
+      oldValue: '190',
+      newValue: '11',
+    },
+    {
+      timestamp: '2026-04-02 20:42',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
+      oldValue: 'Metal Trade LT',
+      newValue: 'Steel Plus OÜ',
+    },
+    {
+      timestamp: '2026-01-09 02:06',
+      user: { ru: 'Елена К.', en: 'Elena K.', lt: 'Elena K.' },
+      userInitials: 'EK',
+      property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
+      oldValue: 'Euro Metal GmbH',
+      newValue: 'Nordic Steel AB',
+    }
+    ],
   },
   {
     id: 'prod-020',
@@ -489,6 +839,32 @@ export const STORE: Product[] = [
       { fieldId: 'f-2-5', fieldName: { ru: 'Вес на м² (кг)', en: 'Weight per m² (kg)', lt: 'Svoris m² (kg)' }, fieldType: 'number', value: 8.86, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '6', name: { ru: 'EuroSteel GmbH', en: 'EuroSteel GmbH', lt: 'EuroSteel GmbH' }, price: 845.50, priceUnit: 'EUR/vnt', leadDays: 30 }],
+    auditLog: [
+    {
+      timestamp: '2025-12-23 16:44',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Категория', en: 'Category', lt: 'Kategorija' },
+      oldValue: 'Sheets',
+      newValue: 'Consumables',
+    },
+    {
+      timestamp: '2026-01-13 19:13',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Seamless pipe',
+      newValue: 'Welded pipe',
+    },
+    {
+      timestamp: '2025-12-16 11:46',
+      user: { ru: 'Елена К.', en: 'Elena K.', lt: 'Elena K.' },
+      userInitials: 'EK',
+      property: { ru: 'Цена', en: 'Price', lt: 'Kaina' },
+      oldValue: '203.46 EUR',
+      newValue: '208.77 EUR',
+    }
+    ],
   },
   // ── cat-4 Pipes ───────────────────────────────────────────────────────────────
   {
@@ -513,6 +889,24 @@ export const STORE: Product[] = [
       { fieldId: 'f-4-7', fieldName: { ru: 'Вес на метр (кг)', en: 'Weight per meter (kg)', lt: 'Svoris metrui (kg)' }, fieldType: 'number', value: 1.08, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '3', name: { ru: 'Nordic Steel AB', en: 'Nordic Steel AB', lt: 'Nordic Steel AB' }, price: 7.82, priceUnit: 'EUR/m', leadDays: 10 }],
+    auditLog: [
+    {
+      timestamp: '2025-12-28 17:22',
+      user: { ru: 'Ольга П.', en: 'Olga P.', lt: 'Olga P.' },
+      userInitials: 'OP',
+      property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
+      oldValue: 'Euro Metal GmbH',
+      newValue: 'Steel Plus OÜ',
+    },
+    {
+      timestamp: '2026-03-08 06:59',
+      user: { ru: 'Елена К.', en: 'Elena K.', lt: 'Elena K.' },
+      userInitials: 'EK',
+      property: { ru: 'Мин. запас', en: 'Min Stock', lt: 'Min. atsargos' },
+      oldValue: '166',
+      newValue: '68',
+    }
+    ],
   },
   {
     id: 'prod-022',
@@ -538,6 +932,32 @@ export const STORE: Product[] = [
     linkedSuppliers: [
       { id: '2', name: { ru: 'Metal Trade LT', en: 'Metal Trade LT', lt: 'Metal Trade LT' }, price: 16.92, priceUnit: 'EUR/m', leadDays: 5 },
       { id: '4', name: { ru: 'Baltic Metals SIA', en: 'Baltic Metals SIA', lt: 'Baltic Metals SIA' }, price: 17.28, priceUnit: 'EUR/m', leadDays: 10 },
+    ],
+    auditLog: [
+    {
+      timestamp: '2026-03-01 22:31',
+      user: { ru: 'Ольга П.', en: 'Olga P.', lt: 'Olga P.' },
+      userInitials: 'OP',
+      property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
+      oldValue: 'Steel Plus OÜ',
+      newValue: 'Metal Trade LT',
+    },
+    {
+      timestamp: '2026-05-10 19:38',
+      user: { ru: 'Елена К.', en: 'Elena K.', lt: 'Elena K.' },
+      userInitials: 'EK',
+      property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
+      oldValue: 'Metal Trade LT',
+      newValue: 'Steel Plus OÜ',
+    },
+    {
+      timestamp: '2025-11-08 14:57',
+      user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
+      userInitials: 'MV',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Hot-rolled steel sheet',
+      newValue: 'Cut to size',
+    }
     ],
   },
   {
@@ -565,6 +985,32 @@ export const STORE: Product[] = [
       { id: '1', name: { ru: 'Steel Plus OÜ', en: 'Steel Plus OÜ', lt: 'Steel Plus OÜ' }, price: 52.25, priceUnit: 'EUR/m', leadDays: 7 },
       { id: '3', name: { ru: 'Nordic Steel AB', en: 'Nordic Steel AB', lt: 'Nordic Steel AB' }, price: 53.35, priceUnit: 'EUR/m', leadDays: 10 },
     ],
+    auditLog: [
+    {
+      timestamp: '2026-01-26 05:32',
+      user: { ru: 'Дмитрий С.', en: 'Dmitry S.', lt: 'Dmitry S.' },
+      userInitials: 'DS',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Seamless pipe',
+      newValue: 'Cold-rolled steel sheet',
+    },
+    {
+      timestamp: '2025-10-27 11:56',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'HI-1697',
+      newValue: 'LY-9981',
+    },
+    {
+      timestamp: '2026-02-27 13:31',
+      user: { ru: 'Дмитрий С.', en: 'Dmitry S.', lt: 'Dmitry S.' },
+      userInitials: 'DS',
+      property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
+      oldValue: 'Nordic Steel AB',
+      newValue: 'Steel Plus OÜ',
+    }
+    ],
   },
   {
     id: 'prod-024',
@@ -588,6 +1034,16 @@ export const STORE: Product[] = [
       { fieldId: 'f-4-7', fieldName: { ru: 'Вес на метр (кг)', en: 'Weight per meter (kg)', lt: 'Svoris metrui (kg)' }, fieldType: 'number', value: 21.3, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '3', name: { ru: 'Nordic Steel AB', en: 'Nordic Steel AB', lt: 'Nordic Steel AB' }, price: 139.20, priceUnit: 'EUR/m', leadDays: 10 }],
+    auditLog: [
+    {
+      timestamp: '2026-03-27 16:13',
+      user: { ru: 'Дмитрий С.', en: 'Dmitry S.', lt: 'Dmitry S.' },
+      userInitials: 'DS',
+      property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
+      oldValue: 'Steel Plus OÜ',
+      newValue: 'Nordic Steel AB',
+    }
+    ],
   },
   {
     id: 'prod-025',
@@ -614,6 +1070,16 @@ export const STORE: Product[] = [
       { id: '2', name: { ru: 'Metal Trade LT', en: 'Metal Trade LT', lt: 'Metal Trade LT' }, price: 20.68, priceUnit: 'EUR/m', leadDays: 5 },
       { id: '4', name: { ru: 'Baltic Metals SIA', en: 'Baltic Metals SIA', lt: 'Baltic Metals SIA' }, price: 21.34, priceUnit: 'EUR/m', leadDays: 10 },
     ],
+    auditLog: [
+    {
+      timestamp: '2025-11-25 23:57',
+      user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
+      userInitials: 'MV',
+      property: { ru: 'Мин. запас', en: 'Min Stock', lt: 'Min. atsargos' },
+      oldValue: '66',
+      newValue: '64',
+    }
+    ],
   },
   {
     id: 'prod-026',
@@ -637,6 +1103,16 @@ export const STORE: Product[] = [
       { fieldId: 'f-4-7', fieldName: { ru: 'Вес на метр (кг)', en: 'Weight per meter (kg)', lt: 'Svoris metrui (kg)' }, fieldType: 'number', value: 5.2, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '1', name: { ru: 'Steel Plus OÜ', en: 'Steel Plus OÜ', lt: 'Steel Plus OÜ' }, price: 26.32, priceUnit: 'EUR/m', leadDays: 7 }],
+    auditLog: [
+    {
+      timestamp: '2026-04-10 00:51',
+      user: { ru: 'Дмитрий С.', en: 'Dmitry S.', lt: 'Dmitry S.' },
+      userInitials: 'DS',
+      property: { ru: 'Мин. запас', en: 'Min Stock', lt: 'Min. atsargos' },
+      oldValue: '151',
+      newValue: '26',
+    }
+    ],
   },
   {
     id: 'prod-027',
@@ -663,6 +1139,32 @@ export const STORE: Product[] = [
       { id: '6', name: { ru: 'EuroSteel GmbH', en: 'EuroSteel GmbH', lt: 'EuroSteel GmbH' }, price: 33.25, priceUnit: 'EUR/m', leadDays: 21 },
       { id: '4', name: { ru: 'Baltic Metals SIA', en: 'Baltic Metals SIA', lt: 'Baltic Metals SIA' }, price: 33.95, priceUnit: 'EUR/m', leadDays: 10 },
     ],
+    auditLog: [
+    {
+      timestamp: '2026-05-13 21:26',
+      user: { ru: 'Дмитрий С.', en: 'Dmitry S.', lt: 'Dmitry S.' },
+      userInitials: 'DS',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'KR-8589',
+      newValue: 'YM-2889',
+    },
+    {
+      timestamp: '2025-10-12 09:24',
+      user: { ru: 'Елена К.', en: 'Elena K.', lt: 'Elena K.' },
+      userInitials: 'EK',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'MF-6446',
+      newValue: 'QU-5457',
+    },
+    {
+      timestamp: '2025-10-22 00:07',
+      user: { ru: 'Елена К.', en: 'Elena K.', lt: 'Elena K.' },
+      userInitials: 'EK',
+      property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
+      oldValue: 'Steel Plus OÜ',
+      newValue: 'Euro Metal GmbH',
+    }
+    ],
   },
   {
     id: 'prod-028',
@@ -686,6 +1188,24 @@ export const STORE: Product[] = [
       { fieldId: 'f-4-7', fieldName: { ru: 'Вес на метр (кг)', en: 'Weight per meter (kg)', lt: 'Svoris metrui (kg)' }, fieldType: 'number', value: 0.4, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '1', name: { ru: 'Steel Plus OÜ', en: 'Steel Plus OÜ', lt: 'Steel Plus OÜ' }, price: 11.28, priceUnit: 'EUR/m', leadDays: 7 }],
+    auditLog: [
+    {
+      timestamp: '2026-02-08 14:33',
+      user: { ru: 'Елена К.', en: 'Elena K.', lt: 'Elena K.' },
+      userInitials: 'EK',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Galvanized sheet',
+      newValue: 'Hot-rolled steel sheet',
+    },
+    {
+      timestamp: '2026-04-19 00:04',
+      user: { ru: 'Елена К.', en: 'Elena K.', lt: 'Elena K.' },
+      userInitials: 'EK',
+      property: { ru: 'Цена', en: 'Price', lt: 'Kaina' },
+      oldValue: '70.29 EUR',
+      newValue: '61.15 EUR',
+    }
+    ],
   },
   {
     id: 'prod-029',
@@ -712,6 +1232,24 @@ export const STORE: Product[] = [
       { id: '4', name: { ru: 'Baltic Metals SIA', en: 'Baltic Metals SIA', lt: 'Baltic Metals SIA' }, price: 17.39, priceUnit: 'EUR/m', leadDays: 10 },
       { id: '5', name: { ru: 'ProMetal UAB', en: 'ProMetal UAB', lt: 'ProMetal UAB' }, price: 17.95, priceUnit: 'EUR/m', leadDays: 3 },
     ],
+    auditLog: [
+    {
+      timestamp: '2026-04-20 08:27',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
+      oldValue: 'Nordic Steel AB',
+      newValue: 'Steel Plus OÜ',
+    },
+    {
+      timestamp: '2026-01-02 11:34',
+      user: { ru: 'Дмитрий С.', en: 'Dmitry S.', lt: 'Dmitry S.' },
+      userInitials: 'DS',
+      property: { ru: 'Мин. запас', en: 'Min Stock', lt: 'Min. atsargos' },
+      oldValue: '160',
+      newValue: '173',
+    }
+    ],
   },
   {
     id: 'prod-030',
@@ -735,6 +1273,16 @@ export const STORE: Product[] = [
       { fieldId: 'f-4-7', fieldName: { ru: 'Вес на метр (кг)', en: 'Weight per meter (kg)', lt: 'Svoris metrui (kg)' }, fieldType: 'number', value: 1.95, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '6', name: { ru: 'EuroSteel GmbH', en: 'EuroSteel GmbH', lt: 'EuroSteel GmbH' }, price: 304.00, priceUnit: 'EUR/m', leadDays: 30 }],
+    auditLog: [
+    {
+      timestamp: '2026-04-26 09:17',
+      user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
+      userInitials: 'MV',
+      property: { ru: 'Мин. запас', en: 'Min Stock', lt: 'Min. atsargos' },
+      oldValue: '108',
+      newValue: '61',
+    }
+    ],
   },
   // ── cat-5 Consumables ─────────────────────────────────────────────────────────
   {
@@ -750,6 +1298,24 @@ export const STORE: Product[] = [
       { fieldId: 'f-5-3', fieldName: { ru: 'Срок годности', en: 'Expiry date', lt: 'Galiojimo data' }, fieldType: 'date', value: '2028-06-01', inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '5', name: { ru: 'ProMetal UAB', en: 'ProMetal UAB', lt: 'ProMetal UAB' }, price: 7.44, priceUnit: 'EUR/kg', leadDays: 3 }],
+    auditLog: [
+    {
+      timestamp: '2025-11-14 21:33',
+      user: { ru: 'Ольга П.', en: 'Olga P.', lt: 'Olga P.' },
+      userInitials: 'OP',
+      property: { ru: 'Категория', en: 'Category', lt: 'Kategorija' },
+      oldValue: 'Consumables',
+      newValue: 'Sheets',
+    },
+    {
+      timestamp: '2025-11-15 20:31',
+      user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
+      userInitials: 'MV',
+      property: { ru: 'Цена', en: 'Price', lt: 'Kaina' },
+      oldValue: '190.27 EUR',
+      newValue: '16.64 EUR',
+    }
+    ],
   },
   {
     id: 'prod-032',
@@ -767,6 +1333,16 @@ export const STORE: Product[] = [
       { id: '5', name: { ru: 'ProMetal UAB', en: 'ProMetal UAB', lt: 'ProMetal UAB' }, price: 6.98, priceUnit: 'EUR/kg', leadDays: 3 },
       { id: '3', name: { ru: 'Nordic Steel AB', en: 'Nordic Steel AB', lt: 'Nordic Steel AB' }, price: 7.28, priceUnit: 'EUR/kg', leadDays: 10 },
     ],
+    auditLog: [
+    {
+      timestamp: '2026-04-29 04:07',
+      user: { ru: 'Ольга П.', en: 'Olga P.', lt: 'Olga P.' },
+      userInitials: 'OP',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Welded pipe',
+      newValue: 'Hot-rolled steel sheet',
+    }
+    ],
   },
   {
     id: 'prod-033',
@@ -781,6 +1357,32 @@ export const STORE: Product[] = [
       { fieldId: 'f-5-3', fieldName: { ru: 'Срок годности', en: 'Expiry date', lt: 'Galiojimo data' }, fieldType: 'date', value: '2028-12-31', inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '5', name: { ru: 'ProMetal UAB', en: 'ProMetal UAB', lt: 'ProMetal UAB' }, price: 13.02, priceUnit: 'EUR/kg', leadDays: 3 }],
+    auditLog: [
+    {
+      timestamp: '2026-02-05 17:49',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'HV-7815',
+      newValue: 'ZD-6369',
+    },
+    {
+      timestamp: '2025-10-17 13:18',
+      user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
+      userInitials: 'MV',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Cut to size',
+      newValue: 'Cold-rolled steel sheet',
+    },
+    {
+      timestamp: '2025-10-18 15:32',
+      user: { ru: 'Ольга П.', en: 'Olga P.', lt: 'Olga P.' },
+      userInitials: 'OP',
+      property: { ru: 'Цена', en: 'Price', lt: 'Kaina' },
+      oldValue: '11.51 EUR',
+      newValue: '93.80 EUR',
+    }
+    ],
   },
   {
     id: 'prod-034',
@@ -795,6 +1397,24 @@ export const STORE: Product[] = [
       { fieldId: 'f-5-3', fieldName: { ru: 'Срок годности', en: 'Expiry date', lt: 'Galiojimo data' }, fieldType: 'date', value: null, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '5', name: { ru: 'ProMetal UAB', en: 'ProMetal UAB', lt: 'ProMetal UAB' }, price: 5.12, priceUnit: 'EUR/kg', leadDays: 3 }],
+    auditLog: [
+    {
+      timestamp: '2026-01-27 04:25',
+      user: { ru: 'Дмитрий С.', en: 'Dmitry S.', lt: 'Dmitry S.' },
+      userInitials: 'DS',
+      property: { ru: 'Цена', en: 'Price', lt: 'Kaina' },
+      oldValue: '53.38 EUR',
+      newValue: '126.18 EUR',
+    },
+    {
+      timestamp: '2025-12-01 09:54',
+      user: { ru: 'Елена К.', en: 'Elena K.', lt: 'Elena K.' },
+      userInitials: 'EK',
+      property: { ru: 'Мин. запас', en: 'Min Stock', lt: 'Min. atsargos' },
+      oldValue: '193',
+      newValue: '28',
+    }
+    ],
   },
   {
     id: 'prod-035',
@@ -811,6 +1431,16 @@ export const STORE: Product[] = [
     linkedSuppliers: [
       { id: '4', name: { ru: 'Baltic Metals SIA', en: 'Baltic Metals SIA', lt: 'Baltic Metals SIA' }, price: 61.75, priceUnit: 'EUR/vnt', leadDays: 10 },
       { id: '5', name: { ru: 'ProMetal UAB', en: 'ProMetal UAB', lt: 'ProMetal UAB' }, price: 63.05, priceUnit: 'EUR/vnt', leadDays: 3 },
+    ],
+    auditLog: [
+    {
+      timestamp: '2026-01-21 20:54',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'NM-3288',
+      newValue: 'NQ-1560',
+    }
     ],
   },
   {
@@ -829,6 +1459,32 @@ export const STORE: Product[] = [
       { id: '5', name: { ru: 'ProMetal UAB', en: 'ProMetal UAB', lt: 'ProMetal UAB' }, price: 2.33, priceUnit: 'EUR/vnt', leadDays: 3 },
       { id: '1', name: { ru: 'Steel Plus OÜ', en: 'Steel Plus OÜ', lt: 'Steel Plus OÜ' }, price: 2.38, priceUnit: 'EUR/vnt', leadDays: 7 },
     ],
+    auditLog: [
+    {
+      timestamp: '2026-02-21 10:37',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Welded pipe',
+      newValue: 'Cut to size',
+    },
+    {
+      timestamp: '2025-10-15 22:42',
+      user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
+      userInitials: 'MV',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Welded pipe',
+      newValue: 'Cold-rolled steel sheet',
+    },
+    {
+      timestamp: '2026-03-14 11:11',
+      user: { ru: 'Ольга П.', en: 'Olga P.', lt: 'Olga P.' },
+      userInitials: 'OP',
+      property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
+      oldValue: 'Metal Trade LT',
+      newValue: 'Nordic Steel AB',
+    }
+    ],
   },
   {
     id: 'prod-037',
@@ -843,6 +1499,24 @@ export const STORE: Product[] = [
       { fieldId: 'f-5-3', fieldName: { ru: 'Срок годности', en: 'Expiry date', lt: 'Galiojimo data' }, fieldType: 'date', value: null, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '5', name: { ru: 'ProMetal UAB', en: 'ProMetal UAB', lt: 'ProMetal UAB' }, price: 3.53, priceUnit: 'EUR/vnt', leadDays: 3 }],
+    auditLog: [
+    {
+      timestamp: '2025-12-16 12:13',
+      user: { ru: 'Елена К.', en: 'Elena K.', lt: 'Elena K.' },
+      userInitials: 'EK',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'IW-4709',
+      newValue: 'WA-7111',
+    },
+    {
+      timestamp: '2025-12-02 11:37',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Категория', en: 'Category', lt: 'Kategorija' },
+      oldValue: 'Equipment',
+      newValue: 'Sheets',
+    }
+    ],
   },
   {
     id: 'prod-038',
@@ -860,6 +1534,16 @@ export const STORE: Product[] = [
       { id: '5', name: { ru: 'ProMetal UAB', en: 'ProMetal UAB', lt: 'ProMetal UAB' }, price: 5.58, priceUnit: 'EUR/vnt', leadDays: 3 },
       { id: '1', name: { ru: 'Steel Plus OÜ', en: 'Steel Plus OÜ', lt: 'Steel Plus OÜ' }, price: 5.70, priceUnit: 'EUR/vnt', leadDays: 7 },
     ],
+    auditLog: [
+    {
+      timestamp: '2025-11-04 20:52',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Мин. запас', en: 'Min Stock', lt: 'Min. atsargos' },
+      oldValue: '194',
+      newValue: '150',
+    }
+    ],
   },
   {
     id: 'prod-039',
@@ -874,6 +1558,24 @@ export const STORE: Product[] = [
       { fieldId: 'f-5-3', fieldName: { ru: 'Срок годности', en: 'Expiry date', lt: 'Galiojimo data' }, fieldType: 'date', value: null, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '5', name: { ru: 'ProMetal UAB', en: 'ProMetal UAB', lt: 'ProMetal UAB' }, price: 11.16, priceUnit: 'EUR/vnt', leadDays: 3 }],
+    auditLog: [
+    {
+      timestamp: '2026-01-23 15:14',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
+      oldValue: 'Metal Trade LT',
+      newValue: 'Nordic Steel AB',
+    },
+    {
+      timestamp: '2026-01-06 23:16',
+      user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
+      userInitials: 'MV',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Cut to size',
+      newValue: 'Cold-rolled steel sheet',
+    }
+    ],
   },
   {
     id: 'prod-040',
@@ -888,6 +1590,16 @@ export const STORE: Product[] = [
       { fieldId: 'f-5-3', fieldName: { ru: 'Срок годности', en: 'Expiry date', lt: 'Galiojimo data' }, fieldType: 'date', value: null, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '5', name: { ru: 'ProMetal UAB', en: 'ProMetal UAB', lt: 'ProMetal UAB' }, price: 13.95, priceUnit: 'EUR/vnt', leadDays: 3 }],
+    auditLog: [
+    {
+      timestamp: '2026-02-05 06:52',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Категория', en: 'Category', lt: 'Kategorija' },
+      oldValue: 'Sheets',
+      newValue: 'Pipes',
+    }
+    ],
   },
   // ── cat-6 Equipment ───────────────────────────────────────────────────────────
   {
@@ -905,6 +1617,32 @@ export const STORE: Product[] = [
       { id: '5', name: { ru: 'ProMetal UAB', en: 'ProMetal UAB', lt: 'ProMetal UAB' }, price: 807.50, priceUnit: 'EUR/vnt', leadDays: 3 },
       { id: '1', name: { ru: 'Steel Plus OÜ', en: 'Steel Plus OÜ', lt: 'Steel Plus OÜ' }, price: 824.50, priceUnit: 'EUR/vnt', leadDays: 7 },
     ],
+    auditLog: [
+    {
+      timestamp: '2025-11-05 00:46',
+      user: { ru: 'Ольга П.', en: 'Olga P.', lt: 'Olga P.' },
+      userInitials: 'OP',
+      property: { ru: 'Цена', en: 'Price', lt: 'Kaina' },
+      oldValue: '86.86 EUR',
+      newValue: '131.52 EUR',
+    },
+    {
+      timestamp: '2025-10-05 17:46',
+      user: { ru: 'Елена К.', en: 'Elena K.', lt: 'Elena K.' },
+      userInitials: 'EK',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'YR-2706',
+      newValue: 'XE-6092',
+    },
+    {
+      timestamp: '2026-03-23 22:18',
+      user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
+      userInitials: 'MV',
+      property: { ru: 'Мин. запас', en: 'Min Stock', lt: 'Min. atsargos' },
+      oldValue: '185',
+      newValue: '82',
+    }
+    ],
   },
   {
     id: 'prod-042',
@@ -918,6 +1656,24 @@ export const STORE: Product[] = [
       { fieldId: 'f-6-4', fieldName: { ru: 'Паспорт оборудования', en: 'Equipment passport', lt: 'Įrangos pasas' }, fieldType: 'file', value: ['plasma40_manual.pdf'], inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '5', name: { ru: 'ProMetal UAB', en: 'ProMetal UAB', lt: 'ProMetal UAB' }, price: 1140.00, priceUnit: 'EUR/vnt', leadDays: 3 }],
+    auditLog: [
+    {
+      timestamp: '2025-10-19 20:04',
+      user: { ru: 'Дмитрий С.', en: 'Dmitry S.', lt: 'Dmitry S.' },
+      userInitials: 'DS',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Galvanized sheet',
+      newValue: 'Welded pipe',
+    },
+    {
+      timestamp: '2025-10-26 20:37',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Мин. запас', en: 'Min Stock', lt: 'Min. atsargos' },
+      oldValue: '46',
+      newValue: '180',
+    }
+    ],
   },
   {
     id: 'prod-043',
@@ -931,6 +1687,16 @@ export const STORE: Product[] = [
       { fieldId: 'f-6-4', fieldName: { ru: 'Паспорт оборудования', en: 'Equipment passport', lt: 'Įrangos pasas' }, fieldType: 'file', value: ['cnc_lathe_manual.pdf', 'cnc_lathe_cert.pdf', 'cnc_lathe_datasheet.pdf'], inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '6', name: { ru: 'EuroSteel GmbH', en: 'EuroSteel GmbH', lt: 'EuroSteel GmbH' }, price: 23750.00, priceUnit: 'EUR/vnt', leadDays: 60 }],
+    auditLog: [
+    {
+      timestamp: '2026-04-27 21:01',
+      user: { ru: 'Ольга П.', en: 'Olga P.', lt: 'Olga P.' },
+      userInitials: 'OP',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'DT-7826',
+      newValue: 'NJ-4848',
+    }
+    ],
   },
   {
     id: 'prod-044',
@@ -944,6 +1710,24 @@ export const STORE: Product[] = [
       { fieldId: 'f-6-4', fieldName: { ru: 'Паспорт оборудования', en: 'Equipment passport', lt: 'Įrangos pasas' }, fieldType: 'file', value: ['cnc_mill_manual.pdf', 'cnc_mill_cert.pdf'], inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '6', name: { ru: 'EuroSteel GmbH', en: 'EuroSteel GmbH', lt: 'EuroSteel GmbH' }, price: 30400.00, priceUnit: 'EUR/vnt', leadDays: 90 }],
+    auditLog: [
+    {
+      timestamp: '2026-04-25 03:45',
+      user: { ru: 'Дмитрий С.', en: 'Dmitry S.', lt: 'Dmitry S.' },
+      userInitials: 'DS',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'YK-7031',
+      newValue: 'FM-2078',
+    },
+    {
+      timestamp: '2026-02-22 08:54',
+      user: { ru: 'Дмитрий С.', en: 'Dmitry S.', lt: 'Dmitry S.' },
+      userInitials: 'DS',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'YO-1671',
+      newValue: 'GP-5289',
+    }
+    ],
   },
   {
     id: 'prod-045',
@@ -957,6 +1741,24 @@ export const STORE: Product[] = [
       { fieldId: 'f-6-4', fieldName: { ru: 'Паспорт оборудования', en: 'Equipment passport', lt: 'Įrangos pasas' }, fieldType: 'file', value: ['guillotine_manual.pdf'], inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '6', name: { ru: 'EuroSteel GmbH', en: 'EuroSteel GmbH', lt: 'EuroSteel GmbH' }, price: 17575.00, priceUnit: 'EUR/vnt', leadDays: 45 }],
+    auditLog: [
+    {
+      timestamp: '2026-02-13 04:27',
+      user: { ru: 'Дмитрий С.', en: 'Dmitry S.', lt: 'Dmitry S.' },
+      userInitials: 'DS',
+      property: { ru: 'Цена', en: 'Price', lt: 'Kaina' },
+      oldValue: '137.68 EUR',
+      newValue: '50.01 EUR',
+    },
+    {
+      timestamp: '2026-01-10 08:14',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Seamless pipe',
+      newValue: 'Cut to size',
+    }
+    ],
   },
   {
     id: 'prod-046',
@@ -970,6 +1772,32 @@ export const STORE: Product[] = [
       { fieldId: 'f-6-4', fieldName: { ru: 'Паспорт оборудования', en: 'Equipment passport', lt: 'Įrangos pasas' }, fieldType: 'file', value: ['press_brake_manual.pdf', 'press_brake_ce.pdf'], inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '6', name: { ru: 'EuroSteel GmbH', en: 'EuroSteel GmbH', lt: 'EuroSteel GmbH' }, price: 20900.00, priceUnit: 'EUR/vnt', leadDays: 60 }],
+    auditLog: [
+    {
+      timestamp: '2026-03-05 17:56',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Категория', en: 'Category', lt: 'Kategorija' },
+      oldValue: 'Sheets',
+      newValue: 'Equipment',
+    },
+    {
+      timestamp: '2026-02-10 18:05',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Категория', en: 'Category', lt: 'Kategorija' },
+      oldValue: 'Equipment',
+      newValue: 'Consumables',
+    },
+    {
+      timestamp: '2026-01-06 02:08',
+      user: { ru: 'Елена К.', en: 'Elena K.', lt: 'Elena K.' },
+      userInitials: 'EK',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Cold-rolled steel sheet',
+      newValue: 'Hot-rolled steel sheet',
+    }
+    ],
   },
   {
     id: 'prod-047',
@@ -986,6 +1814,16 @@ export const STORE: Product[] = [
       { id: '5', name: { ru: 'ProMetal UAB', en: 'ProMetal UAB', lt: 'ProMetal UAB' }, price: 4275.00, priceUnit: 'EUR/vnt', leadDays: 3 },
       { id: '1', name: { ru: 'Steel Plus OÜ', en: 'Steel Plus OÜ', lt: 'Steel Plus OÜ' }, price: 4365.00, priceUnit: 'EUR/vnt', leadDays: 7 },
     ],
+    auditLog: [
+    {
+      timestamp: '2026-05-12 05:11',
+      user: { ru: 'Елена К.', en: 'Elena K.', lt: 'Elena K.' },
+      userInitials: 'EK',
+      property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
+      oldValue: 'Metal Trade LT',
+      newValue: 'Nordic Steel AB',
+    }
+    ],
   },
   {
     id: 'prod-048',
@@ -999,6 +1837,32 @@ export const STORE: Product[] = [
       { fieldId: 'f-6-4', fieldName: { ru: 'Паспорт оборудования', en: 'Equipment passport', lt: 'Įrangos pasas' }, fieldType: 'file', value: ['crane_manual.pdf', 'crane_cert.pdf', 'crane_load_test.pdf'], inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '6', name: { ru: 'EuroSteel GmbH', en: 'EuroSteel GmbH', lt: 'EuroSteel GmbH' }, price: 42750.00, priceUnit: 'EUR/vnt', leadDays: 120 }],
+    auditLog: [
+    {
+      timestamp: '2025-10-26 13:26',
+      user: { ru: 'Ольга П.', en: 'Olga P.', lt: 'Olga P.' },
+      userInitials: 'OP',
+      property: { ru: 'Категория', en: 'Category', lt: 'Kategorija' },
+      oldValue: 'Equipment',
+      newValue: 'Pipes',
+    },
+    {
+      timestamp: '2026-05-14 12:23',
+      user: { ru: 'Ольга П.', en: 'Olga P.', lt: 'Olga P.' },
+      userInitials: 'OP',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Hot-rolled steel sheet',
+      newValue: 'Cut to size',
+    },
+    {
+      timestamp: '2026-01-23 21:01',
+      user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
+      userInitials: 'MV',
+      property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
+      oldValue: 'Steel Plus OÜ',
+      newValue: 'Metal Trade LT',
+    }
+    ],
   },
   {
     id: 'prod-049',
@@ -1012,6 +1876,32 @@ export const STORE: Product[] = [
       { fieldId: 'f-6-4', fieldName: { ru: 'Паспорт оборудования', en: 'Equipment passport', lt: 'Įrangos pasas' }, fieldType: 'file', value: ['bandsaw_manual.pdf'], inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '5', name: { ru: 'ProMetal UAB', en: 'ProMetal UAB', lt: 'ProMetal UAB' }, price: 3040.00, priceUnit: 'EUR/vnt', leadDays: 3 }],
+    auditLog: [
+    {
+      timestamp: '2026-04-13 09:20',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Welded pipe',
+      newValue: 'Cut to size',
+    },
+    {
+      timestamp: '2026-04-24 00:00',
+      user: { ru: 'Елена К.', en: 'Elena K.', lt: 'Elena K.' },
+      userInitials: 'EK',
+      property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
+      oldValue: 'Steel Plus OÜ',
+      newValue: 'Euro Metal GmbH',
+    },
+    {
+      timestamp: '2026-02-02 06:32',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Категория', en: 'Category', lt: 'Kategorija' },
+      oldValue: 'Sheets',
+      newValue: 'Consumables',
+    }
+    ],
   },
   {
     id: 'prod-050',
@@ -1025,6 +1915,16 @@ export const STORE: Product[] = [
       { fieldId: 'f-6-4', fieldName: { ru: 'Паспорт оборудования', en: 'Equipment passport', lt: 'Įrangos pasas' }, fieldType: 'file', value: ['robot_manual.pdf', 'robot_safety.pdf', 'robot_programming.pdf'], inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '6', name: { ru: 'EuroSteel GmbH', en: 'EuroSteel GmbH', lt: 'EuroSteel GmbH' }, price: 52250.00, priceUnit: 'EUR/vnt', leadDays: 90 }],
+    auditLog: [
+    {
+      timestamp: '2025-11-29 20:55',
+      user: { ru: 'Елена К.', en: 'Elena K.', lt: 'Elena K.' },
+      userInitials: 'EK',
+      property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
+      oldValue: 'Euro Metal GmbH',
+      newValue: 'Metal Trade LT',
+    }
+    ],
   },
   // ── cat-2 Sheets (continued) ──────────────────────────────────────────────────
   {
@@ -1045,6 +1945,16 @@ export const STORE: Product[] = [
       { fieldId: 'f-2-5', fieldName: { ru: 'Вес на м² (кг)', en: 'Weight per m² (kg)', lt: 'Svoris m² (kg)' }, fieldType: 'number', value: 23.55, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '2', name: { ru: 'Metal Trade LT', en: 'Metal Trade LT', lt: 'Metal Trade LT' }, price: 109.25, priceUnit: 'EUR/vnt', leadDays: 5 }],
+    auditLog: [
+    {
+      timestamp: '2026-03-10 03:51',
+      user: { ru: 'Дмитрий С.', en: 'Dmitry S.', lt: 'Dmitry S.' },
+      userInitials: 'DS',
+      property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
+      oldValue: 'Steel Plus OÜ',
+      newValue: 'Nordic Steel AB',
+    }
+    ],
   },
   {
     id: 'prod-052',
@@ -1064,6 +1974,32 @@ export const STORE: Product[] = [
       { fieldId: 'f-2-5', fieldName: { ru: 'Вес на м² (кг)', en: 'Weight per m² (kg)', lt: 'Svoris m² (kg)' }, fieldType: 'number', value: 94.2, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '1', name: { ru: 'Steel Plus OÜ', en: 'Steel Plus OÜ', lt: 'Steel Plus OÜ' }, price: 494.00, priceUnit: 'EUR/vnt', leadDays: 7 }],
+    auditLog: [
+    {
+      timestamp: '2025-11-12 22:42',
+      user: { ru: 'Дмитрий С.', en: 'Dmitry S.', lt: 'Dmitry S.' },
+      userInitials: 'DS',
+      property: { ru: 'Мин. запас', en: 'Min Stock', lt: 'Min. atsargos' },
+      oldValue: '142',
+      newValue: '41',
+    },
+    {
+      timestamp: '2026-02-12 21:52',
+      user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
+      userInitials: 'MV',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'IU-7598',
+      newValue: 'FP-9269',
+    },
+    {
+      timestamp: '2026-02-15 19:18',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Мин. запас', en: 'Min Stock', lt: 'Min. atsargos' },
+      oldValue: '200',
+      newValue: '39',
+    }
+    ],
   },
   {
     id: 'prod-053',
@@ -1086,6 +2022,16 @@ export const STORE: Product[] = [
       { id: '6', name: { ru: 'EuroSteel GmbH', en: 'EuroSteel GmbH', lt: 'EuroSteel GmbH' }, price: 266.00, priceUnit: 'EUR/vnt', leadDays: 21 },
       { id: '4', name: { ru: 'Baltic Metals SIA', en: 'Baltic Metals SIA', lt: 'Baltic Metals SIA' }, price: 271.60, priceUnit: 'EUR/vnt', leadDays: 10 },
     ],
+    auditLog: [
+    {
+      timestamp: '2026-02-26 12:21',
+      user: { ru: 'Ольга П.', en: 'Olga P.', lt: 'Olga P.' },
+      userInitials: 'OP',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Hot-rolled steel sheet',
+      newValue: 'Seamless pipe',
+    }
+    ],
   },
   {
     id: 'prod-054',
@@ -1105,6 +2051,24 @@ export const STORE: Product[] = [
       { fieldId: 'f-2-5', fieldName: { ru: 'Вес на м² (кг)', en: 'Weight per m² (kg)', lt: 'Svoris m² (kg)' }, fieldType: 'number', value: 13.5, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '1', name: { ru: 'Steel Plus OÜ', en: 'Steel Plus OÜ', lt: 'Steel Plus OÜ' }, price: 304.00, priceUnit: 'EUR/vnt', leadDays: 7 }],
+    auditLog: [
+    {
+      timestamp: '2025-10-31 16:11',
+      user: { ru: 'Елена К.', en: 'Elena K.', lt: 'Elena K.' },
+      userInitials: 'EK',
+      property: { ru: 'Мин. запас', en: 'Min Stock', lt: 'Min. atsargos' },
+      oldValue: '176',
+      newValue: '78',
+    },
+    {
+      timestamp: '2026-03-25 13:24',
+      user: { ru: 'Дмитрий С.', en: 'Dmitry S.', lt: 'Dmitry S.' },
+      userInitials: 'DS',
+      property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
+      oldValue: 'Steel Plus OÜ',
+      newValue: 'Metal Trade LT',
+    }
+    ],
   },
   {
     id: 'prod-055',
@@ -1124,6 +2088,32 @@ export const STORE: Product[] = [
       { fieldId: 'f-2-5', fieldName: { ru: 'Вес на м² (кг)', en: 'Weight per m² (kg)', lt: 'Svoris m² (kg)' }, fieldType: 'number', value: 16.8, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '4', name: { ru: 'Baltic Metals SIA', en: 'Baltic Metals SIA', lt: 'Baltic Metals SIA' }, price: 171.00, priceUnit: 'EUR/vnt', leadDays: 10 }],
+    auditLog: [
+    {
+      timestamp: '2025-10-26 03:04',
+      user: { ru: 'Дмитрий С.', en: 'Dmitry S.', lt: 'Dmitry S.' },
+      userInitials: 'DS',
+      property: { ru: 'Цена', en: 'Price', lt: 'Kaina' },
+      oldValue: '30.18 EUR',
+      newValue: '161.91 EUR',
+    },
+    {
+      timestamp: '2025-11-14 00:10',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Мин. запас', en: 'Min Stock', lt: 'Min. atsargos' },
+      oldValue: '42',
+      newValue: '146',
+    },
+    {
+      timestamp: '2026-04-19 14:10',
+      user: { ru: 'Ольга П.', en: 'Olga P.', lt: 'Olga P.' },
+      userInitials: 'OP',
+      property: { ru: 'Мин. запас', en: 'Min Stock', lt: 'Min. atsargos' },
+      oldValue: '43',
+      newValue: '60',
+    }
+    ],
   },
   {
     id: 'prod-056',
@@ -1143,6 +2133,16 @@ export const STORE: Product[] = [
       { fieldId: 'f-2-5', fieldName: { ru: 'Вес на м² (кг)', en: 'Weight per m² (kg)', lt: 'Svoris m² (kg)' }, fieldType: 'number', value: 26.4, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '4', name: { ru: 'Baltic Metals SIA', en: 'Baltic Metals SIA', lt: 'Baltic Metals SIA' }, price: 237.50, priceUnit: 'EUR/vnt', leadDays: 10 }],
+    auditLog: [
+    {
+      timestamp: '2026-04-06 03:02',
+      user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
+      userInitials: 'MV',
+      property: { ru: 'Цена', en: 'Price', lt: 'Kaina' },
+      oldValue: '65.79 EUR',
+      newValue: '30.87 EUR',
+    }
+    ],
   },
   {
     id: 'prod-057',
@@ -1162,6 +2162,32 @@ export const STORE: Product[] = [
       { fieldId: 'f-2-5', fieldName: { ru: 'Вес на м² (кг)', en: 'Weight per m² (kg)', lt: 'Svoris m² (kg)' }, fieldType: 'number', value: 47.1, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '6', name: { ru: 'EuroSteel GmbH', en: 'EuroSteel GmbH', lt: 'EuroSteel GmbH' }, price: 361.00, priceUnit: 'EUR/vnt', leadDays: 21 }],
+    auditLog: [
+    {
+      timestamp: '2026-03-08 09:19',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Категория', en: 'Category', lt: 'Kategorija' },
+      oldValue: 'Pipes',
+      newValue: 'Sheets',
+    },
+    {
+      timestamp: '2026-05-06 23:14',
+      user: { ru: 'Елена К.', en: 'Elena K.', lt: 'Elena K.' },
+      userInitials: 'EK',
+      property: { ru: 'Категория', en: 'Category', lt: 'Kategorija' },
+      oldValue: 'Pipes',
+      newValue: 'Sheets',
+    },
+    {
+      timestamp: '2026-01-05 16:13',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Мин. запас', en: 'Min Stock', lt: 'Min. atsargos' },
+      oldValue: '52',
+      newValue: '173',
+    }
+    ],
   },
   {
     id: 'prod-058',
@@ -1181,6 +2207,24 @@ export const STORE: Product[] = [
       { fieldId: 'f-2-5', fieldName: { ru: 'Вес на м² (кг)', en: 'Weight per m² (kg)', lt: 'Svoris m² (kg)' }, fieldType: 'number', value: 78.5, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '6', name: { ru: 'EuroSteel GmbH', en: 'EuroSteel GmbH', lt: 'EuroSteel GmbH' }, price: 617.50, priceUnit: 'EUR/vnt', leadDays: 30 }],
+    auditLog: [
+    {
+      timestamp: '2026-05-10 10:00',
+      user: { ru: 'Елена К.', en: 'Elena K.', lt: 'Elena K.' },
+      userInitials: 'EK',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'WT-1466',
+      newValue: 'LC-3570',
+    },
+    {
+      timestamp: '2026-01-24 09:13',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Категория', en: 'Category', lt: 'Kategorija' },
+      oldValue: 'Sheets',
+      newValue: 'Pipes',
+    }
+    ],
   },
   {
     id: 'prod-059',
@@ -1200,6 +2244,32 @@ export const STORE: Product[] = [
       { fieldId: 'f-2-5', fieldName: { ru: 'Вес на м² (кг)', en: 'Weight per m² (kg)', lt: 'Svoris m² (kg)' }, fieldType: 'number', value: 9.42, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '2', name: { ru: 'Metal Trade LT', en: 'Metal Trade LT', lt: 'Metal Trade LT' }, price: 90.25, priceUnit: 'EUR/vnt', leadDays: 5 }],
+    auditLog: [
+    {
+      timestamp: '2026-02-03 10:32',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Cold-rolled steel sheet',
+      newValue: 'Hot-rolled steel sheet',
+    },
+    {
+      timestamp: '2026-02-26 07:04',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Цена', en: 'Price', lt: 'Kaina' },
+      oldValue: '92.27 EUR',
+      newValue: '169.30 EUR',
+    },
+    {
+      timestamp: '2025-10-18 13:51',
+      user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
+      userInitials: 'MV',
+      property: { ru: 'Цена', en: 'Price', lt: 'Kaina' },
+      oldValue: '96.68 EUR',
+      newValue: '35.49 EUR',
+    }
+    ],
   },
   {
     id: 'prod-061',
@@ -1221,6 +2291,24 @@ export const STORE: Product[] = [
       { fieldId: 'f-4-7', fieldName: { ru: 'Вес на метр (кг)', en: 'Weight per meter (kg)', lt: 'Svoris metrui (kg)' }, fieldType: 'number', value: 2.31, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '1', name: { ru: 'Steel Plus OÜ', en: 'Steel Plus OÜ', lt: 'Steel Plus OÜ' }, price: 17.80, priceUnit: 'EUR/vnt', leadDays: 7 }],
+    auditLog: [
+    {
+      timestamp: '2025-11-10 02:51',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
+      oldValue: 'Euro Metal GmbH',
+      newValue: 'Nordic Steel AB',
+    },
+    {
+      timestamp: '2025-12-18 16:02',
+      user: { ru: 'Ольга П.', en: 'Olga P.', lt: 'Olga P.' },
+      userInitials: 'OP',
+      property: { ru: 'Цена', en: 'Price', lt: 'Kaina' },
+      oldValue: '47.58 EUR',
+      newValue: '188.92 EUR',
+    }
+    ],
   },
   {
     id: 'prod-062',
@@ -1242,6 +2330,16 @@ export const STORE: Product[] = [
       { fieldId: 'f-4-7', fieldName: { ru: 'Вес на метр (кг)', en: 'Weight per meter (kg)', lt: 'Svoris metrui (kg)' }, fieldType: 'number', value: 4.08, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '2', name: { ru: 'Metal Trade LT', en: 'Metal Trade LT', lt: 'Metal Trade LT' }, price: 23.50, priceUnit: 'EUR/vnt', leadDays: 5 }],
+    auditLog: [
+    {
+      timestamp: '2026-01-21 00:52',
+      user: { ru: 'Елена К.', en: 'Elena K.', lt: 'Elena K.' },
+      userInitials: 'EK',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Hot-rolled steel sheet',
+      newValue: 'Cold-rolled steel sheet',
+    }
+    ],
   },
   {
     id: 'prod-063',
@@ -1263,6 +2361,24 @@ export const STORE: Product[] = [
       { fieldId: 'f-4-7', fieldName: { ru: 'Вес на метр (кг)', en: 'Weight per meter (kg)', lt: 'Svoris metrui (kg)' }, fieldType: 'number', value: 3.48, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '3', name: { ru: 'Baltic Steel Group', en: 'Baltic Steel Group', lt: 'Baltic Steel Group' }, price: 13.50, priceUnit: 'EUR/vnt', leadDays: 10 }],
+    auditLog: [
+    {
+      timestamp: '2026-01-06 06:49',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Welded pipe',
+      newValue: 'Hot-rolled steel sheet',
+    },
+    {
+      timestamp: '2025-12-21 00:16',
+      user: { ru: 'Елена К.', en: 'Elena K.', lt: 'Elena K.' },
+      userInitials: 'EK',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'LU-7170',
+      newValue: 'LS-8179',
+    }
+    ],
   },
   {
     id: 'prod-064',
@@ -1284,6 +2400,32 @@ export const STORE: Product[] = [
       { fieldId: 'f-4-7', fieldName: { ru: 'Вес на метр (кг)', en: 'Weight per meter (kg)', lt: 'Svoris metrui (kg)' }, fieldType: 'number', value: 7.10, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '1', name: { ru: 'Steel Plus OÜ', en: 'Steel Plus OÜ', lt: 'Steel Plus OÜ' }, price: 21.00, priceUnit: 'EUR/vnt', leadDays: 7 }],
+    auditLog: [
+    {
+      timestamp: '2026-02-10 09:15',
+      user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
+      userInitials: 'MV',
+      property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
+      oldValue: 'Euro Metal GmbH',
+      newValue: 'Steel Plus OÜ',
+    },
+    {
+      timestamp: '2026-04-23 01:28',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Мин. запас', en: 'Min Stock', lt: 'Min. atsargos' },
+      oldValue: '62',
+      newValue: '190',
+    },
+    {
+      timestamp: '2026-01-24 20:51',
+      user: { ru: 'Елена К.', en: 'Elena K.', lt: 'Elena K.' },
+      userInitials: 'EK',
+      property: { ru: 'Мин. запас', en: 'Min Stock', lt: 'Min. atsargos' },
+      oldValue: '17',
+      newValue: '54',
+    }
+    ],
   },
   {
     id: 'prod-065',
@@ -1305,6 +2447,24 @@ export const STORE: Product[] = [
       { fieldId: 'f-4-7', fieldName: { ru: 'Вес на метр (кг)', en: 'Weight per meter (kg)', lt: 'Svoris metrui (kg)' }, fieldType: 'number', value: 2.44, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '2', name: { ru: 'Metal Trade LT', en: 'Metal Trade LT', lt: 'Metal Trade LT' }, price: 8.50, priceUnit: 'EUR/vnt', leadDays: 5 }],
+    auditLog: [
+    {
+      timestamp: '2026-05-03 01:58',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Категория', en: 'Category', lt: 'Kategorija' },
+      oldValue: 'Equipment',
+      newValue: 'Pipes',
+    },
+    {
+      timestamp: '2025-11-13 06:45',
+      user: { ru: 'Ольга П.', en: 'Olga P.', lt: 'Olga P.' },
+      userInitials: 'OP',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'HN-1177',
+      newValue: 'HS-5101',
+    }
+    ],
   },
   {
     id: 'prod-060',
@@ -1324,6 +2484,24 @@ export const STORE: Product[] = [
       { fieldId: 'f-2-5', fieldName: { ru: 'Вес на м² (кг)', en: 'Weight per m² (kg)', lt: 'Svoris m² (kg)' }, fieldType: 'number', value: 31.4, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '2', name: { ru: 'Metal Trade LT', en: 'Metal Trade LT', lt: 'Metal Trade LT' }, price: 152.00, priceUnit: 'EUR/vnt', leadDays: 5 }],
+    auditLog: [
+    {
+      timestamp: '2025-10-26 02:51',
+      user: { ru: 'Ольга П.', en: 'Olga P.', lt: 'Olga P.' },
+      userInitials: 'OP',
+      property: { ru: 'Категория', en: 'Category', lt: 'Kategorija' },
+      oldValue: 'Consumables',
+      newValue: 'Sheets',
+    },
+    {
+      timestamp: '2026-04-27 12:50',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Категория', en: 'Category', lt: 'Kategorija' },
+      oldValue: 'Equipment',
+      newValue: 'Sheets',
+    }
+    ],
   },
   {
     id: 'prod-066',
@@ -1345,6 +2523,24 @@ export const STORE: Product[] = [
       { fieldId: 'f-4-7', fieldName: { ru: 'Вес на метр (кг)', en: 'Weight per meter (kg)', lt: 'Svoris metrui (kg)' }, fieldType: 'number', value: 1.13, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '3', name: { ru: 'Baltic Steel Group', en: 'Baltic Steel Group', lt: 'Baltic Steel Group' }, price: 31.00, priceUnit: 'EUR/vnt', leadDays: 10 }],
+    auditLog: [
+    {
+      timestamp: '2025-10-04 03:23',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Цена', en: 'Price', lt: 'Kaina' },
+      oldValue: '75.23 EUR',
+      newValue: '147.70 EUR',
+    },
+    {
+      timestamp: '2026-04-02 23:45',
+      user: { ru: 'Ольга П.', en: 'Olga P.', lt: 'Olga P.' },
+      userInitials: 'OP',
+      property: { ru: 'Мин. запас', en: 'Min Stock', lt: 'Min. atsargos' },
+      oldValue: '27',
+      newValue: '177',
+    }
+    ],
   },
   {
     id: 'prod-067',
@@ -1366,6 +2562,32 @@ export const STORE: Product[] = [
       { fieldId: 'f-4-7', fieldName: { ru: 'Вес на метр (кг)', en: 'Weight per meter (kg)', lt: 'Svoris metrui (kg)' }, fieldType: 'number', value: 1.22, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '2', name: { ru: 'Metal Trade LT', en: 'Metal Trade LT', lt: 'Metal Trade LT' }, price: 5.30, priceUnit: 'EUR/vnt', leadDays: 5 }],
+    auditLog: [
+    {
+      timestamp: '2025-11-03 04:29',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Категория', en: 'Category', lt: 'Kategorija' },
+      oldValue: 'Sheets',
+      newValue: 'Pipes',
+    },
+    {
+      timestamp: '2026-04-24 18:22',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'LV-8016',
+      newValue: 'FY-9659',
+    },
+    {
+      timestamp: '2025-10-31 22:35',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Cut to size',
+      newValue: 'Hot-rolled steel sheet',
+    }
+    ],
   },
   {
     id: 'prod-068',
@@ -1387,6 +2609,32 @@ export const STORE: Product[] = [
       { fieldId: 'f-4-7', fieldName: { ru: 'Вес на метр (кг)', en: 'Weight per meter (kg)', lt: 'Svoris metrui (kg)' }, fieldType: 'number', value: 9.22, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '1', name: { ru: 'Steel Plus OÜ', en: 'Steel Plus OÜ', lt: 'Steel Plus OÜ' }, price: 33.50, priceUnit: 'EUR/vnt', leadDays: 7 }],
+    auditLog: [
+    {
+      timestamp: '2026-04-11 12:22',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
+      oldValue: 'Metal Trade LT',
+      newValue: 'Euro Metal GmbH',
+    },
+    {
+      timestamp: '2026-01-10 20:27',
+      user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
+      userInitials: 'MV',
+      property: { ru: 'Мин. запас', en: 'Min Stock', lt: 'Min. atsargos' },
+      oldValue: '45',
+      newValue: '49',
+    },
+    {
+      timestamp: '2026-03-31 13:46',
+      user: { ru: 'Дмитрий С.', en: 'Dmitry S.', lt: 'Dmitry S.' },
+      userInitials: 'DS',
+      property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
+      oldValue: 'Steel Plus OÜ',
+      newValue: 'Metal Trade LT',
+    }
+    ],
   },
   {
     id: 'prod-069',
@@ -1408,6 +2656,16 @@ export const STORE: Product[] = [
       { fieldId: 'f-4-7', fieldName: { ru: 'Вес на метр (кг)', en: 'Weight per meter (kg)', lt: 'Svoris metrui (kg)' }, fieldType: 'number', value: 6.28, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '2', name: { ru: 'Metal Trade LT', en: 'Metal Trade LT', lt: 'Metal Trade LT' }, price: 26.50, priceUnit: 'EUR/vnt', leadDays: 5 }],
+    auditLog: [
+    {
+      timestamp: '2025-11-30 07:42',
+      user: { ru: 'Елена К.', en: 'Elena K.', lt: 'Elena K.' },
+      userInitials: 'EK',
+      property: { ru: 'Цена', en: 'Price', lt: 'Kaina' },
+      oldValue: '67.00 EUR',
+      newValue: '73.25 EUR',
+    }
+    ],
   },
   {
     id: 'prod-070',
@@ -1429,6 +2687,32 @@ export const STORE: Product[] = [
       { fieldId: 'f-4-7', fieldName: { ru: 'Вес на метр (кг)', en: 'Weight per meter (kg)', lt: 'Svoris metrui (kg)' }, fieldType: 'number', value: 3.48, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '3', name: { ru: 'Baltic Steel Group', en: 'Baltic Steel Group', lt: 'Baltic Steel Group' }, price: 52.00, priceUnit: 'EUR/vnt', leadDays: 10 }],
+    auditLog: [
+    {
+      timestamp: '2026-04-24 19:49',
+      user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
+      userInitials: 'MV',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Galvanized sheet',
+      newValue: 'Cut to size',
+    },
+    {
+      timestamp: '2025-10-12 08:11',
+      user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
+      userInitials: 'MV',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Seamless pipe',
+      newValue: 'Hot-rolled steel sheet',
+    },
+    {
+      timestamp: '2026-05-19 12:16',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'UL-8861',
+      newValue: 'JG-5758',
+    }
+    ],
   },
   {
     id: 'prod-071',
@@ -1443,6 +2727,16 @@ export const STORE: Product[] = [
       { fieldId: 'f-5-3', fieldName: { ru: 'Срок годности', en: 'Expiry date', lt: 'Galiojimo data' }, fieldType: 'date', value: '2027-06-01', inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '1', name: { ru: 'Steel Plus OÜ', en: 'Steel Plus OÜ', lt: 'Steel Plus OÜ' }, price: 4.20, priceUnit: 'EUR/kg', leadDays: 7 }],
+    auditLog: [
+    {
+      timestamp: '2025-10-01 17:08',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Galvanized sheet',
+      newValue: 'Cut to size',
+    }
+    ],
   },
   {
     id: 'prod-072',
@@ -1457,6 +2751,32 @@ export const STORE: Product[] = [
       { fieldId: 'f-5-3', fieldName: { ru: 'Срок годности', en: 'Expiry date', lt: 'Galiojimo data' }, fieldType: 'date', value: '2027-08-01', inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '2', name: { ru: 'Metal Trade LT', en: 'Metal Trade LT', lt: 'Metal Trade LT' }, price: 4.90, priceUnit: 'EUR/kg', leadDays: 5 }],
+    auditLog: [
+    {
+      timestamp: '2025-12-16 07:44',
+      user: { ru: 'Ольга П.', en: 'Olga P.', lt: 'Olga P.' },
+      userInitials: 'OP',
+      property: { ru: 'Мин. запас', en: 'Min Stock', lt: 'Min. atsargos' },
+      oldValue: '198',
+      newValue: '190',
+    },
+    {
+      timestamp: '2026-05-10 20:48',
+      user: { ru: 'Ольга П.', en: 'Olga P.', lt: 'Olga P.' },
+      userInitials: 'OP',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Galvanized sheet',
+      newValue: 'Welded pipe',
+    },
+    {
+      timestamp: '2025-10-25 10:15',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'FI-1766',
+      newValue: 'NC-8188',
+    }
+    ],
   },
   {
     id: 'prod-073',
@@ -1471,6 +2791,32 @@ export const STORE: Product[] = [
       { fieldId: 'f-5-3', fieldName: { ru: 'Срок годности', en: 'Expiry date', lt: 'Galiojimo data' }, fieldType: 'date', value: '2028-01-01', inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '3', name: { ru: 'Baltic Steel Group', en: 'Baltic Steel Group', lt: 'Baltic Steel Group' }, price: 3.50, priceUnit: 'EUR/kg', leadDays: 10 }],
+    auditLog: [
+    {
+      timestamp: '2026-01-02 03:25',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Категория', en: 'Category', lt: 'Kategorija' },
+      oldValue: 'Sheets',
+      newValue: 'Consumables',
+    },
+    {
+      timestamp: '2026-02-02 06:34',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'SS-6074',
+      newValue: 'NP-1218',
+    },
+    {
+      timestamp: '2026-01-17 12:00',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Цена', en: 'Price', lt: 'Kaina' },
+      oldValue: '11.72 EUR',
+      newValue: '175.46 EUR',
+    }
+    ],
   },
   {
     id: 'prod-074',
@@ -1485,6 +2831,16 @@ export const STORE: Product[] = [
       { fieldId: 'f-5-3', fieldName: { ru: 'Срок годности', en: 'Expiry date', lt: 'Galiojimo data' }, fieldType: 'date', value: '2028-03-01', inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '1', name: { ru: 'Steel Plus OÜ', en: 'Steel Plus OÜ', lt: 'Steel Plus OÜ' }, price: 3.90, priceUnit: 'EUR/kg', leadDays: 7 }],
+    auditLog: [
+    {
+      timestamp: '2026-04-25 13:42',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Категория', en: 'Category', lt: 'Kategorija' },
+      oldValue: 'Pipes',
+      newValue: 'Sheets',
+    }
+    ],
   },
   {
     id: 'prod-075',
@@ -1499,6 +2855,32 @@ export const STORE: Product[] = [
       { fieldId: 'f-5-3', fieldName: { ru: 'Срок годности', en: 'Expiry date', lt: 'Galiojimo data' }, fieldType: 'date', value: '2026-09-01', inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '2', name: { ru: 'Metal Trade LT', en: 'Metal Trade LT', lt: 'Metal Trade LT' }, price: 62.00, priceUnit: 'EUR/vnt', leadDays: 5 }],
+    auditLog: [
+    {
+      timestamp: '2026-03-01 23:00',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Мин. запас', en: 'Min Stock', lt: 'Min. atsargos' },
+      oldValue: '86',
+      newValue: '181',
+    },
+    {
+      timestamp: '2026-05-08 04:02',
+      user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
+      userInitials: 'MV',
+      property: { ru: 'Категория', en: 'Category', lt: 'Kategorija' },
+      oldValue: 'Consumables',
+      newValue: 'Equipment',
+    },
+    {
+      timestamp: '2026-01-02 06:00',
+      user: { ru: 'Дмитрий С.', en: 'Dmitry S.', lt: 'Dmitry S.' },
+      userInitials: 'DS',
+      property: { ru: 'Мин. запас', en: 'Min Stock', lt: 'Min. atsargos' },
+      oldValue: '59',
+      newValue: '174',
+    }
+    ],
   },
   {
     id: 'prod-076',
@@ -1513,6 +2895,24 @@ export const STORE: Product[] = [
       { fieldId: 'f-5-3', fieldName: { ru: 'Срок годности', en: 'Expiry date', lt: 'Galiojimo data' }, fieldType: 'date', value: '2026-10-01', inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '3', name: { ru: 'Baltic Steel Group', en: 'Baltic Steel Group', lt: 'Baltic Steel Group' }, price: 55.00, priceUnit: 'EUR/vnt', leadDays: 10 }],
+    auditLog: [
+    {
+      timestamp: '2025-10-25 07:51',
+      user: { ru: 'Елена К.', en: 'Elena K.', lt: 'Elena K.' },
+      userInitials: 'EK',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Galvanized sheet',
+      newValue: 'Hot-rolled steel sheet',
+    },
+    {
+      timestamp: '2026-02-28 09:02',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Цена', en: 'Price', lt: 'Kaina' },
+      oldValue: '85.41 EUR',
+      newValue: '195.83 EUR',
+    }
+    ],
   },
   {
     id: 'prod-077',
@@ -1527,6 +2927,24 @@ export const STORE: Product[] = [
       { fieldId: 'f-5-3', fieldName: { ru: 'Срок годности', en: 'Expiry date', lt: 'Galiojimo data' }, fieldType: 'date', value: '2026-08-01', inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '1', name: { ru: 'Steel Plus OÜ', en: 'Steel Plus OÜ', lt: 'Steel Plus OÜ' }, price: 42.00, priceUnit: 'EUR/vnt', leadDays: 7 }],
+    auditLog: [
+    {
+      timestamp: '2026-04-29 14:08',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'VC-1215',
+      newValue: 'PD-7849',
+    },
+    {
+      timestamp: '2026-04-14 04:30',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Категория', en: 'Category', lt: 'Kategorija' },
+      oldValue: 'Consumables',
+      newValue: 'Sheets',
+    }
+    ],
   },
   {
     id: 'prod-078',
@@ -1541,6 +2959,24 @@ export const STORE: Product[] = [
       { fieldId: 'f-5-3', fieldName: { ru: 'Срок годности', en: 'Expiry date', lt: 'Galiojimo data' }, fieldType: 'date', value: '2026-12-01', inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '2', name: { ru: 'Metal Trade LT', en: 'Metal Trade LT', lt: 'Metal Trade LT' }, price: 49.00, priceUnit: 'EUR/vnt', leadDays: 5 }],
+    auditLog: [
+    {
+      timestamp: '2025-12-12 02:00',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Seamless pipe',
+      newValue: 'Hot-rolled steel sheet',
+    },
+    {
+      timestamp: '2026-02-04 06:29',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Cut to size',
+      newValue: 'Welded pipe',
+    }
+    ],
   },
   {
     id: 'prod-079',
@@ -1555,6 +2991,16 @@ export const STORE: Product[] = [
       { fieldId: 'f-5-3', fieldName: { ru: 'Срок годности', en: 'Expiry date', lt: 'Galiojimo data' }, fieldType: 'date', value: '2026-11-01', inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '3', name: { ru: 'Baltic Steel Group', en: 'Baltic Steel Group', lt: 'Baltic Steel Group' }, price: 72.00, priceUnit: 'EUR/vnt', leadDays: 10 }],
+    auditLog: [
+    {
+      timestamp: '2025-12-23 08:28',
+      user: { ru: 'Ольга П.', en: 'Olga P.', lt: 'Olga P.' },
+      userInitials: 'OP',
+      property: { ru: 'Мин. запас', en: 'Min Stock', lt: 'Min. atsargos' },
+      oldValue: '193',
+      newValue: '95',
+    }
+    ],
   },
   {
     id: 'prod-080',
@@ -1569,6 +3015,16 @@ export const STORE: Product[] = [
       { fieldId: 'f-5-3', fieldName: { ru: 'Срок годности', en: 'Expiry date', lt: 'Galiojimo data' }, fieldType: 'date', value: '2028-06-01', inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '1', name: { ru: 'Steel Plus OÜ', en: 'Steel Plus OÜ', lt: 'Steel Plus OÜ' }, price: 36.00, priceUnit: 'EUR/vnt', leadDays: 7 }],
+    auditLog: [
+    {
+      timestamp: '2025-11-13 01:40',
+      user: { ru: 'Дмитрий С.', en: 'Dmitry S.', lt: 'Dmitry S.' },
+      userInitials: 'DS',
+      property: { ru: 'Цена', en: 'Price', lt: 'Kaina' },
+      oldValue: '132.08 EUR',
+      newValue: '160.62 EUR',
+    }
+    ],
   },
   {
     id: 'prod-081',
@@ -1582,6 +3038,32 @@ export const STORE: Product[] = [
       { fieldId: 'f-6-4', fieldName: { ru: 'Документация', en: 'Documentation', lt: 'Dokumentacija' }, fieldType: 'file', value: '/docs/lincoln-invertec-250.pdf', inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '1', name: { ru: 'Steel Plus OÜ', en: 'Steel Plus OÜ', lt: 'Steel Plus OÜ' }, price: 2400.00, priceUnit: 'EUR/vnt', leadDays: 14 }],
+    auditLog: [
+    {
+      timestamp: '2026-01-16 06:21',
+      user: { ru: 'Ольга П.', en: 'Olga P.', lt: 'Olga P.' },
+      userInitials: 'OP',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'CC-4272',
+      newValue: 'KQ-6013',
+    },
+    {
+      timestamp: '2026-05-08 14:01',
+      user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
+      userInitials: 'MV',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'HC-7653',
+      newValue: 'SJ-5084',
+    },
+    {
+      timestamp: '2026-04-07 06:31',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Welded pipe',
+      newValue: 'Seamless pipe',
+    }
+    ],
   },
   {
     id: 'prod-082',
@@ -1595,6 +3077,16 @@ export const STORE: Product[] = [
       { fieldId: 'f-6-4', fieldName: { ru: 'Документация', en: 'Documentation', lt: 'Dokumentacija' }, fieldType: 'file', value: '/docs/esab-rebel-emp-235.pdf', inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '2', name: { ru: 'Metal Trade LT', en: 'Metal Trade LT', lt: 'Metal Trade LT' }, price: 3100.00, priceUnit: 'EUR/vnt', leadDays: 10 }],
+    auditLog: [
+    {
+      timestamp: '2025-10-01 16:00',
+      user: { ru: 'Ольга П.', en: 'Olga P.', lt: 'Olga P.' },
+      userInitials: 'OP',
+      property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
+      oldValue: 'Steel Plus OÜ',
+      newValue: 'Nordic Steel AB',
+    }
+    ],
   },
   {
     id: 'prod-083',
@@ -1608,6 +3100,16 @@ export const STORE: Product[] = [
       { fieldId: 'f-6-4', fieldName: { ru: 'Документация', en: 'Documentation', lt: 'Dokumentacija' }, fieldType: 'file', value: '/docs/hypertherm-powermax45xp.pdf', inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '3', name: { ru: 'Baltic Steel Group', en: 'Baltic Steel Group', lt: 'Baltic Steel Group' }, price: 4300.00, priceUnit: 'EUR/vnt', leadDays: 14 }],
+    auditLog: [
+    {
+      timestamp: '2026-03-24 14:12',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Категория', en: 'Category', lt: 'Kategorija' },
+      oldValue: 'Sheets',
+      newValue: 'Pipes',
+    }
+    ],
   },
   {
     id: 'prod-084',
@@ -1621,6 +3123,24 @@ export const STORE: Product[] = [
       { fieldId: 'f-6-4', fieldName: { ru: 'Документация', en: 'Documentation', lt: 'Dokumentacija' }, fieldType: 'file', value: '/docs/bomar-ergonomic-280.pdf', inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '1', name: { ru: 'Steel Plus OÜ', en: 'Steel Plus OÜ', lt: 'Steel Plus OÜ' }, price: 8200.00, priceUnit: 'EUR/vnt', leadDays: 21 }],
+    auditLog: [
+    {
+      timestamp: '2026-03-30 08:50',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
+      oldValue: 'Euro Metal GmbH',
+      newValue: 'Metal Trade LT',
+    },
+    {
+      timestamp: '2025-10-31 22:46',
+      user: { ru: 'Дмитрий С.', en: 'Dmitry S.', lt: 'Dmitry S.' },
+      userInitials: 'DS',
+      property: { ru: 'Цена', en: 'Price', lt: 'Kaina' },
+      oldValue: '69.63 EUR',
+      newValue: '164.69 EUR',
+    }
+    ],
   },
   {
     id: 'prod-085',
@@ -1634,6 +3154,32 @@ export const STORE: Product[] = [
       { fieldId: 'f-6-4', fieldName: { ru: 'Документация', en: 'Documentation', lt: 'Dokumentacija' }, fieldType: 'file', value: '/docs/durma-ad-r-30120.pdf', inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '2', name: { ru: 'Metal Trade LT', en: 'Metal Trade LT', lt: 'Metal Trade LT' }, price: 27500.00, priceUnit: 'EUR/vnt', leadDays: 30 }],
+    auditLog: [
+    {
+      timestamp: '2025-12-01 02:50',
+      user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
+      userInitials: 'MV',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Cold-rolled steel sheet',
+      newValue: 'Galvanized sheet',
+    },
+    {
+      timestamp: '2025-10-11 22:04',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Galvanized sheet',
+      newValue: 'Hot-rolled steel sheet',
+    },
+    {
+      timestamp: '2025-11-21 16:12',
+      user: { ru: 'Дмитрий С.', en: 'Dmitry S.', lt: 'Dmitry S.' },
+      userInitials: 'DS',
+      property: { ru: 'Категория', en: 'Category', lt: 'Kategorija' },
+      oldValue: 'Pipes',
+      newValue: 'Sheets',
+    }
+    ],
   },
   {
     id: 'prod-086',
@@ -1647,6 +3193,16 @@ export const STORE: Product[] = [
       { fieldId: 'f-6-4', fieldName: { ru: 'Документация', en: 'Documentation', lt: 'Dokumentacija' }, fieldType: 'file', value: '/docs/bystronic-bystar-4020.pdf', inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '3', name: { ru: 'Baltic Steel Group', en: 'Baltic Steel Group', lt: 'Baltic Steel Group' }, price: 180000.00, priceUnit: 'EUR/vnt', leadDays: 60 }],
+    auditLog: [
+    {
+      timestamp: '2025-12-01 21:29',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Цена', en: 'Price', lt: 'Kaina' },
+      oldValue: '66.59 EUR',
+      newValue: '198.08 EUR',
+    }
+    ],
   },
   {
     id: 'prod-087',
@@ -1660,6 +3216,24 @@ export const STORE: Product[] = [
       { fieldId: 'f-6-4', fieldName: { ru: 'Документация', en: 'Documentation', lt: 'Dokumentacija' }, fieldType: 'file', value: '/docs/kaeser-as-30.pdf', inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '1', name: { ru: 'Steel Plus OÜ', en: 'Steel Plus OÜ', lt: 'Steel Plus OÜ' }, price: 12000.00, priceUnit: 'EUR/vnt', leadDays: 21 }],
+    auditLog: [
+    {
+      timestamp: '2025-10-29 19:56',
+      user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
+      userInitials: 'MV',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'PZ-5092',
+      newValue: 'AN-8803',
+    },
+    {
+      timestamp: '2025-10-08 02:39',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Цена', en: 'Price', lt: 'Kaina' },
+      oldValue: '84.10 EUR',
+      newValue: '205.18 EUR',
+    }
+    ],
   },
   {
     id: 'prod-088',
@@ -1673,6 +3247,32 @@ export const STORE: Product[] = [
       { fieldId: 'f-6-4', fieldName: { ru: 'Документация', en: 'Documentation', lt: 'Dokumentacija' }, fieldType: 'file', value: '/docs/crane-10t.pdf', inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '2', name: { ru: 'Metal Trade LT', en: 'Metal Trade LT', lt: 'Metal Trade LT' }, price: 43500.00, priceUnit: 'EUR/vnt', leadDays: 45 }],
+    auditLog: [
+    {
+      timestamp: '2026-02-26 15:11',
+      user: { ru: 'Елена К.', en: 'Elena K.', lt: 'Elena K.' },
+      userInitials: 'EK',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Cut to size',
+      newValue: 'Galvanized sheet',
+    },
+    {
+      timestamp: '2026-04-18 10:22',
+      user: { ru: 'Ольга П.', en: 'Olga P.', lt: 'Olga P.' },
+      userInitials: 'OP',
+      property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
+      oldValue: 'Euro Metal GmbH',
+      newValue: 'Metal Trade LT',
+    },
+    {
+      timestamp: '2025-11-10 19:44',
+      user: { ru: 'Ольга П.', en: 'Olga P.', lt: 'Olga P.' },
+      userInitials: 'OP',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'LE-8991',
+      newValue: 'YJ-1631',
+    }
+    ],
   },
   {
     id: 'prod-089',
@@ -1686,6 +3286,32 @@ export const STORE: Product[] = [
       { fieldId: 'f-6-4', fieldName: { ru: 'Документация', en: 'Documentation', lt: 'Dokumentacija' }, fieldType: 'file', value: '/docs/blastrac-2-30de.pdf', inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '3', name: { ru: 'Baltic Steel Group', en: 'Baltic Steel Group', lt: 'Baltic Steel Group' }, price: 17800.00, priceUnit: 'EUR/vnt', leadDays: 30 }],
+    auditLog: [
+    {
+      timestamp: '2025-12-21 09:09',
+      user: { ru: 'Дмитрий С.', en: 'Dmitry S.', lt: 'Dmitry S.' },
+      userInitials: 'DS',
+      property: { ru: 'Мин. запас', en: 'Min Stock', lt: 'Min. atsargos' },
+      oldValue: '37',
+      newValue: '73',
+    },
+    {
+      timestamp: '2026-01-12 21:38',
+      user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
+      userInitials: 'MV',
+      property: { ru: 'Категория', en: 'Category', lt: 'Kategorija' },
+      oldValue: 'Consumables',
+      newValue: 'Sheets',
+    },
+    {
+      timestamp: '2026-05-14 13:21',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'QK-7763',
+      newValue: 'FT-5553',
+    }
+    ],
   },
   {
     id: 'prod-090',
@@ -1699,6 +3325,32 @@ export const STORE: Product[] = [
       { fieldId: 'f-6-4', fieldName: { ru: 'Документация', en: 'Documentation', lt: 'Dokumentacija' }, fieldType: 'file', value: '/docs/siegmund-micro-2000.pdf', inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '1', name: { ru: 'Steel Plus OÜ', en: 'Steel Plus OÜ', lt: 'Steel Plus OÜ' }, price: 3600.00, priceUnit: 'EUR/vnt', leadDays: 14 }],
+    auditLog: [
+    {
+      timestamp: '2025-10-22 06:17',
+      user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
+      userInitials: 'MV',
+      property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
+      oldValue: 'Metal Trade LT',
+      newValue: 'Euro Metal GmbH',
+    },
+    {
+      timestamp: '2025-12-03 04:27',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'OX-2245',
+      newValue: 'SN-6740',
+    },
+    {
+      timestamp: '2026-01-18 18:07',
+      user: { ru: 'Елена К.', en: 'Elena K.', lt: 'Elena K.' },
+      userInitials: 'EK',
+      property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
+      oldValue: 'Steel Plus OÜ',
+      newValue: 'Euro Metal GmbH',
+    }
+    ],
   },
   {
     id: 'prod-091',
@@ -1718,6 +3370,16 @@ export const STORE: Product[] = [
       { fieldId: 'f-2-5', fieldName: { ru: 'Вес на м² (кг)', en: 'Weight per m² (kg)', lt: 'Svoris m² (kg)' }, fieldType: 'number', value: 11.78, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '2', name: { ru: 'Metal Trade LT', en: 'Metal Trade LT', lt: 'Metal Trade LT' }, price: 82.00, priceUnit: 'EUR/vnt', leadDays: 5 }],
+    auditLog: [
+    {
+      timestamp: '2026-03-30 03:14',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'WI-6432',
+      newValue: 'AJ-4710',
+    }
+    ],
   },
   {
     id: 'prod-092',
@@ -1737,6 +3399,24 @@ export const STORE: Product[] = [
       { fieldId: 'f-2-5', fieldName: { ru: 'Вес на м² (кг)', en: 'Weight per m² (kg)', lt: 'Svoris m² (kg)' }, fieldType: 'number', value: 7.85, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '3', name: { ru: 'Baltic Steel Group', en: 'Baltic Steel Group', lt: 'Baltic Steel Group' }, price: 62.00, priceUnit: 'EUR/vnt', leadDays: 10 }],
+    auditLog: [
+    {
+      timestamp: '2025-10-31 01:42',
+      user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
+      userInitials: 'MV',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'GY-7389',
+      newValue: 'FQ-2044',
+    },
+    {
+      timestamp: '2026-03-24 20:08',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'GY-6956',
+      newValue: 'YG-1032',
+    }
+    ],
   },
   {
     id: 'prod-093',
@@ -1756,6 +3436,24 @@ export const STORE: Product[] = [
       { fieldId: 'f-2-5', fieldName: { ru: 'Вес на м² (кг)', en: 'Weight per m² (kg)', lt: 'Svoris m² (kg)' }, fieldType: 'number', value: 15.8, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '1', name: { ru: 'Steel Plus OÜ', en: 'Steel Plus OÜ', lt: 'Steel Plus OÜ' }, price: 210.00, priceUnit: 'EUR/vnt', leadDays: 7 }],
+    auditLog: [
+    {
+      timestamp: '2026-02-23 16:45',
+      user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
+      userInitials: 'MV',
+      property: { ru: 'Цена', en: 'Price', lt: 'Kaina' },
+      oldValue: '150.66 EUR',
+      newValue: '86.63 EUR',
+    },
+    {
+      timestamp: '2025-10-15 08:04',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'KG-5576',
+      newValue: 'GJ-2105',
+    }
+    ],
   },
   {
     id: 'prod-094',
@@ -1775,6 +3473,16 @@ export const STORE: Product[] = [
       { fieldId: 'f-2-5', fieldName: { ru: 'Вес на м² (кг)', en: 'Weight per m² (kg)', lt: 'Svoris m² (kg)' }, fieldType: 'number', value: 7.98, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '2', name: { ru: 'Metal Trade LT', en: 'Metal Trade LT', lt: 'Metal Trade LT' }, price: 140.00, priceUnit: 'EUR/vnt', leadDays: 5 }],
+    auditLog: [
+    {
+      timestamp: '2026-01-26 03:21',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Galvanized sheet',
+      newValue: 'Cold-rolled steel sheet',
+    }
+    ],
   },
   {
     id: 'prod-095',
@@ -1794,6 +3502,24 @@ export const STORE: Product[] = [
       { fieldId: 'f-2-5', fieldName: { ru: 'Вес на м² (кг)', en: 'Weight per m² (kg)', lt: 'Svoris m² (kg)' }, fieldType: 'number', value: 5.5, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '3', name: { ru: 'Baltic Steel Group', en: 'Baltic Steel Group', lt: 'Baltic Steel Group' }, price: 49.00, priceUnit: 'EUR/vnt', leadDays: 10 }],
+    auditLog: [
+    {
+      timestamp: '2026-04-13 21:24',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Цена', en: 'Price', lt: 'Kaina' },
+      oldValue: '156.84 EUR',
+      newValue: '16.62 EUR',
+    },
+    {
+      timestamp: '2025-12-14 17:54',
+      user: { ru: 'Елена К.', en: 'Elena K.', lt: 'Elena K.' },
+      userInitials: 'EK',
+      property: { ru: 'Мин. запас', en: 'Min Stock', lt: 'Min. atsargos' },
+      oldValue: '127',
+      newValue: '51',
+    }
+    ],
   },
   {
     id: 'prod-096',
@@ -1815,6 +3541,24 @@ export const STORE: Product[] = [
       { fieldId: 'f-4-7', fieldName: { ru: 'Вес на метр (кг)', en: 'Weight per meter (kg)', lt: 'Svoris metrui (kg)' }, fieldType: 'number', value: 1.68, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '1', name: { ru: 'Steel Plus OÜ', en: 'Steel Plus OÜ', lt: 'Steel Plus OÜ' }, price: 11.50, priceUnit: 'EUR/vnt', leadDays: 7 }],
+    auditLog: [
+    {
+      timestamp: '2026-04-26 03:43',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Seamless pipe',
+      newValue: 'Hot-rolled steel sheet',
+    },
+    {
+      timestamp: '2026-01-22 23:14',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Мин. запас', en: 'Min Stock', lt: 'Min. atsargos' },
+      oldValue: '162',
+      newValue: '57',
+    }
+    ],
   },
   {
     id: 'prod-097',
@@ -1836,6 +3580,16 @@ export const STORE: Product[] = [
       { fieldId: 'f-4-7', fieldName: { ru: 'Вес на метр (кг)', en: 'Weight per meter (kg)', lt: 'Svoris metrui (kg)' }, fieldType: 'number', value: 2.15, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '2', name: { ru: 'Metal Trade LT', en: 'Metal Trade LT', lt: 'Metal Trade LT' }, price: 9.00, priceUnit: 'EUR/vnt', leadDays: 5 }],
+    auditLog: [
+    {
+      timestamp: '2025-12-27 13:05',
+      user: { ru: 'Елена К.', en: 'Elena K.', lt: 'Elena K.' },
+      userInitials: 'EK',
+      property: { ru: 'Мин. запас', en: 'Min Stock', lt: 'Min. atsargos' },
+      oldValue: '182',
+      newValue: '109',
+    }
+    ],
   },
   {
     id: 'prod-098',
@@ -1857,6 +3611,24 @@ export const STORE: Product[] = [
       { fieldId: 'f-4-7', fieldName: { ru: 'Вес на метр (кг)', en: 'Weight per meter (kg)', lt: 'Svoris metrui (kg)' }, fieldType: 'number', value: 10.56, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '3', name: { ru: 'Baltic Steel Group', en: 'Baltic Steel Group', lt: 'Baltic Steel Group' }, price: 40.00, priceUnit: 'EUR/vnt', leadDays: 10 }],
+    auditLog: [
+    {
+      timestamp: '2025-11-21 17:42',
+      user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
+      userInitials: 'MV',
+      property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
+      oldValue: 'Metal Trade LT',
+      newValue: 'Nordic Steel AB',
+    },
+    {
+      timestamp: '2026-02-22 05:19',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'BH-3038',
+      newValue: 'RD-8507',
+    }
+    ],
   },
   {
     id: 'prod-099',
@@ -1878,6 +3650,32 @@ export const STORE: Product[] = [
       { fieldId: 'f-4-7', fieldName: { ru: 'Вес на метр (кг)', en: 'Weight per meter (kg)', lt: 'Svoris metrui (kg)' }, fieldType: 'number', value: 9.47, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '1', name: { ru: 'Steel Plus OÜ', en: 'Steel Plus OÜ', lt: 'Steel Plus OÜ' }, price: 115.00, priceUnit: 'EUR/vnt', leadDays: 7 }],
+    auditLog: [
+    {
+      timestamp: '2026-03-02 04:59',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Категория', en: 'Category', lt: 'Kategorija' },
+      oldValue: 'Sheets',
+      newValue: 'Equipment',
+    },
+    {
+      timestamp: '2026-04-25 18:19',
+      user: { ru: 'Ольга П.', en: 'Olga P.', lt: 'Olga P.' },
+      userInitials: 'OP',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Hot-rolled steel sheet',
+      newValue: 'Welded pipe',
+    },
+    {
+      timestamp: '2026-04-02 22:39',
+      user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
+      userInitials: 'MV',
+      property: { ru: 'Мин. запас', en: 'Min Stock', lt: 'Min. atsargos' },
+      oldValue: '41',
+      newValue: '34',
+    }
+    ],
   },
   {
     id: 'prod-100',
@@ -1897,6 +3695,16 @@ export const STORE: Product[] = [
       { fieldId: 'f-2-5', fieldName: { ru: 'Вес на м² (кг)', en: 'Weight per m² (kg)', lt: 'Svoris m² (kg)' }, fieldType: 'number', value: 47.1, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '2', name: { ru: 'Metal Trade LT', en: 'Metal Trade LT', lt: 'Metal Trade LT' }, price: 430.00, priceUnit: 'EUR/vnt', leadDays: 14 }],
+    auditLog: [
+    {
+      timestamp: '2026-04-25 13:31',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'BL-5867',
+      newValue: 'JM-8781',
+    }
+    ],
   },
   // ─── cat-7: Beams ──────────────────────────────────────────────────────────────
   {
@@ -1919,6 +3727,32 @@ export const STORE: Product[] = [
       { fieldId: 'f-7-7', fieldName: { ru: 'Вес на метр (кг/м)', en: 'Weight per meter (kg/m)', lt: 'Svoris metrui (kg/m)' }, fieldType: 'number', value: 22.4, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '2', name: { ru: 'Metal Trade LT', en: 'Metal Trade LT', lt: 'Metal Trade LT' }, price: 180.00, priceUnit: 'EUR/vnt', leadDays: 5 }],
+    auditLog: [
+    {
+      timestamp: '2025-10-31 09:54',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
+      oldValue: 'Euro Metal GmbH',
+      newValue: 'Nordic Steel AB',
+    },
+    {
+      timestamp: '2026-03-26 20:16',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Мин. запас', en: 'Min Stock', lt: 'Min. atsargos' },
+      oldValue: '103',
+      newValue: '137',
+    },
+    {
+      timestamp: '2025-12-22 10:04',
+      user: { ru: 'Елена К.', en: 'Elena K.', lt: 'Elena K.' },
+      userInitials: 'EK',
+      property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
+      oldValue: 'Metal Trade LT',
+      newValue: 'Euro Metal GmbH',
+    }
+    ],
   },
   {
     id: 'prod-102',
@@ -1940,6 +3774,24 @@ export const STORE: Product[] = [
       { fieldId: 'f-7-7', fieldName: { ru: 'Вес на метр (кг/м)', en: 'Weight per meter (kg/m)', lt: 'Svoris metrui (kg/m)' }, fieldType: 'number', value: 88.3, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '6', name: { ru: 'IronBridge Corp', en: 'IronBridge Corp', lt: 'IronBridge Corp' }, price: 310.00, priceUnit: 'EUR/vnt', leadDays: 9 }],
+    auditLog: [
+    {
+      timestamp: '2025-12-05 15:05',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'FI-5631',
+      newValue: 'BM-1488',
+    },
+    {
+      timestamp: '2025-12-08 04:02',
+      user: { ru: 'Дмитрий С.', en: 'Dmitry S.', lt: 'Dmitry S.' },
+      userInitials: 'DS',
+      property: { ru: 'Цена', en: 'Price', lt: 'Kaina' },
+      oldValue: '10.77 EUR',
+      newValue: '106.89 EUR',
+    }
+    ],
   },
   // ─── cat-8: Channels ───────────────────────────────────────────────────────────
   {
@@ -1959,6 +3811,24 @@ export const STORE: Product[] = [
       { fieldId: 'f-8-6', fieldName: { ru: 'Вес на метр (кг/м)', en: 'Weight per meter (kg/m)', lt: 'Svoris metrui (kg/m)' }, fieldType: 'number', value: 10.6, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '1', name: { ru: 'Steel Plus OÜ', en: 'Steel Plus OÜ', lt: 'Steel Plus OÜ' }, price: 90.00, priceUnit: 'EUR/vnt', leadDays: 7 }],
+    auditLog: [
+    {
+      timestamp: '2026-05-09 18:01',
+      user: { ru: 'Ольга П.', en: 'Olga P.', lt: 'Olga P.' },
+      userInitials: 'OP',
+      property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
+      oldValue: 'Euro Metal GmbH',
+      newValue: 'Nordic Steel AB',
+    },
+    {
+      timestamp: '2026-04-21 22:35',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'PK-4323',
+      newValue: 'ND-8545',
+    }
+    ],
   },
   {
     id: 'prod-104',
@@ -1977,6 +3847,16 @@ export const STORE: Product[] = [
       { fieldId: 'f-8-6', fieldName: { ru: 'Вес на метр (кг/м)', en: 'Weight per meter (kg/m)', lt: 'Svoris metrui (kg/m)' }, fieldType: 'number', value: 25.3, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '6', name: { ru: 'IronBridge Corp', en: 'IronBridge Corp', lt: 'IronBridge Corp' }, price: 200.00, priceUnit: 'EUR/vnt', leadDays: 9 }],
+    auditLog: [
+    {
+      timestamp: '2026-02-01 14:41',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'JM-9655',
+      newValue: 'QL-6434',
+    }
+    ],
   },
   // ─── cat-9: Angles ─────────────────────────────────────────────────────────────
   {
@@ -1998,6 +3878,32 @@ export const STORE: Product[] = [
       { fieldId: 'f-9-6', fieldName: { ru: 'Вес на метр (кг/м)', en: 'Weight per meter (kg/m)', lt: 'Svoris metrui (kg/m)' }, fieldType: 'number', value: 3.77, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '2', name: { ru: 'Metal Trade LT', en: 'Metal Trade LT', lt: 'Metal Trade LT' }, price: 42.00, priceUnit: 'EUR/vnt', leadDays: 5 }],
+    auditLog: [
+    {
+      timestamp: '2026-03-09 10:37',
+      user: { ru: 'Ольга П.', en: 'Olga P.', lt: 'Olga P.' },
+      userInitials: 'OP',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'UZ-2113',
+      newValue: 'ZC-2384',
+    },
+    {
+      timestamp: '2026-02-23 05:53',
+      user: { ru: 'Елена К.', en: 'Elena K.', lt: 'Elena K.' },
+      userInitials: 'EK',
+      property: { ru: 'Мин. запас', en: 'Min Stock', lt: 'Min. atsargos' },
+      oldValue: '148',
+      newValue: '194',
+    },
+    {
+      timestamp: '2026-05-16 16:15',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Galvanized sheet',
+      newValue: 'Welded pipe',
+    }
+    ],
   },
   {
     id: 'prod-106',
@@ -2018,6 +3924,16 @@ export const STORE: Product[] = [
       { fieldId: 'f-9-6', fieldName: { ru: 'Вес на метр (кг/м)', en: 'Weight per meter (kg/m)', lt: 'Svoris metrui (kg/m)' }, fieldType: 'number', value: 6.35, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '1', name: { ru: 'Steel Plus OÜ', en: 'Steel Plus OÜ', lt: 'Steel Plus OÜ' }, price: 68.00, priceUnit: 'EUR/vnt', leadDays: 7 }],
+    auditLog: [
+    {
+      timestamp: '2025-12-17 21:46',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Категория', en: 'Category', lt: 'Kategorija' },
+      oldValue: 'Sheets',
+      newValue: 'Consumables',
+    }
+    ],
   },
   // ─── cat-10: Rebars ────────────────────────────────────────────────────────────
   {
@@ -2039,6 +3955,24 @@ export const STORE: Product[] = [
       { fieldId: 'f-10-6', fieldName: { ru: 'Предел текучести (МПа)', en: 'Yield strength (MPa)', lt: 'Takumo riba (MPa)' }, fieldType: 'number', value: 500, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '4', name: { ru: 'Baltic Metal Group', en: 'Baltic Metal Group', lt: 'Baltic Metal Group' }, price: 1.15, priceUnit: 'EUR/m', leadDays: 14 }],
+    auditLog: [
+    {
+      timestamp: '2025-11-22 18:00',
+      user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
+      userInitials: 'MV',
+      property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
+      oldValue: 'Metal Trade LT',
+      newValue: 'Nordic Steel AB',
+    },
+    {
+      timestamp: '2025-10-09 20:48',
+      user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
+      userInitials: 'MV',
+      property: { ru: 'Мин. запас', en: 'Min Stock', lt: 'Min. atsargos' },
+      oldValue: '157',
+      newValue: '67',
+    }
+    ],
   },
   {
     id: 'prod-108',
@@ -2059,6 +3993,24 @@ export const STORE: Product[] = [
       { fieldId: 'f-10-6', fieldName: { ru: 'Предел текучести (МПа)', en: 'Yield strength (MPa)', lt: 'Takumo riba (MPa)' }, fieldType: 'number', value: 500, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '6', name: { ru: 'IronBridge Corp', en: 'IronBridge Corp', lt: 'IronBridge Corp' }, price: 1.70, priceUnit: 'EUR/m', leadDays: 9 }],
+    auditLog: [
+    {
+      timestamp: '2025-10-13 14:14',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Seamless pipe',
+      newValue: 'Hot-rolled steel sheet',
+    },
+    {
+      timestamp: '2026-01-24 03:49',
+      user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
+      userInitials: 'MV',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Hot-rolled steel sheet',
+      newValue: 'Cold-rolled steel sheet',
+    }
+    ],
   },
   // ─── cat-11: Profiles ──────────────────────────────────────────────────────────
   {
@@ -2080,6 +4032,32 @@ export const STORE: Product[] = [
       { fieldId: 'f-11-6', fieldName: { ru: 'Вес на метр (кг/м)', en: 'Weight per meter (kg/m)', lt: 'Svoris metrui (kg/m)' }, fieldType: 'number', value: 3.35, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '1', name: { ru: 'Steel Plus OÜ', en: 'Steel Plus OÜ', lt: 'Steel Plus OÜ' }, price: 25.00, priceUnit: 'EUR/vnt', leadDays: 7 }],
+    auditLog: [
+    {
+      timestamp: '2026-02-25 17:00',
+      user: { ru: 'Дмитрий С.', en: 'Dmitry S.', lt: 'Dmitry S.' },
+      userInitials: 'DS',
+      property: { ru: 'Мин. запас', en: 'Min Stock', lt: 'Min. atsargos' },
+      oldValue: '17',
+      newValue: '143',
+    },
+    {
+      timestamp: '2026-05-09 15:55',
+      user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
+      userInitials: 'AZ',
+      property: { ru: 'Цена', en: 'Price', lt: 'Kaina' },
+      oldValue: '102.84 EUR',
+      newValue: '136.58 EUR',
+    },
+    {
+      timestamp: '2025-10-30 23:56',
+      user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
+      userInitials: 'MV',
+      property: { ru: 'Описание', en: 'Description', lt: 'Aprašymas' },
+      oldValue: 'Welded pipe',
+      newValue: 'Seamless pipe',
+    }
+    ],
   },
   {
     id: 'prod-110',
@@ -2100,6 +4078,16 @@ export const STORE: Product[] = [
       { fieldId: 'f-11-6', fieldName: { ru: 'Вес на метр (кг/м)', en: 'Weight per meter (kg/m)', lt: 'Svoris metrui (kg/m)' }, fieldType: 'number', value: 6.97, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '4', name: { ru: 'Baltic Metal Group', en: 'Baltic Metal Group', lt: 'Baltic Metal Group' }, price: 48.00, priceUnit: 'EUR/vnt', leadDays: 14 }],
+    auditLog: [
+    {
+      timestamp: '2025-10-05 21:43',
+      user: { ru: 'Елена К.', en: 'Elena K.', lt: 'Elena K.' },
+      userInitials: 'EK',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'RC-1251',
+      newValue: 'GY-2857',
+    }
+    ],
   },
   // ─── cat-12: Wire ──────────────────────────────────────────────────────────────
   {
@@ -2120,6 +4108,24 @@ export const STORE: Product[] = [
       { fieldId: 'f-12-5', fieldName: { ru: 'Вес на метр (кг/м)', en: 'Weight per meter (kg/m)', lt: 'Svoris metrui (kg/m)' }, fieldType: 'number', value: 0.055, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '1', name: { ru: 'Steel Plus OÜ', en: 'Steel Plus OÜ', lt: 'Steel Plus OÜ' }, price: 0.80, priceUnit: 'EUR/kg', leadDays: 7 }],
+    auditLog: [
+    {
+      timestamp: '2026-03-07 12:39',
+      user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
+      userInitials: 'MV',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'BF-3201',
+      newValue: 'GC-4401',
+    },
+    {
+      timestamp: '2025-11-12 21:32',
+      user: { ru: 'Дмитрий С.', en: 'Dmitry S.', lt: 'Dmitry S.' },
+      userInitials: 'DS',
+      property: { ru: 'Артикул (SKU)', en: 'SKU', lt: 'Prekės kodas' },
+      oldValue: 'CE-5096',
+      newValue: 'QN-5479',
+    }
+    ],
   },
   {
     id: 'prod-112',
@@ -2139,6 +4145,16 @@ export const STORE: Product[] = [
       { fieldId: 'f-12-5', fieldName: { ru: 'Вес на метр (кг/м)', en: 'Weight per meter (kg/m)', lt: 'Svoris metrui (kg/m)' }, fieldType: 'number', value: 0.0089, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '6', name: { ru: 'IronBridge Corp', en: 'IronBridge Corp', lt: 'IronBridge Corp' }, price: 2.35, priceUnit: 'EUR/kg', leadDays: 9 }],
+    auditLog: [
+    {
+      timestamp: '2026-04-24 22:03',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Цена', en: 'Price', lt: 'Kaina' },
+      oldValue: '77.51 EUR',
+      newValue: '80.96 EUR',
+    }
+    ],
   },
   // ─── cat-13: Fittings ──────────────────────────────────────────────────────────
   {
@@ -2161,6 +4177,32 @@ export const STORE: Product[] = [
       { fieldId: 'f-13-5', fieldName: { ru: 'Вес (кг)', en: 'Weight (kg)', lt: 'Svoris (kg)' }, fieldType: 'number', value: 0.85, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '4', name: { ru: 'Baltic Metal Group', en: 'Baltic Metal Group', lt: 'Baltic Metal Group' }, price: 7.80, priceUnit: 'EUR/vnt', leadDays: 14 }],
+    auditLog: [
+    {
+      timestamp: '2026-04-02 23:09',
+      user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+      userInitials: 'IN',
+      property: { ru: 'Цена', en: 'Price', lt: 'Kaina' },
+      oldValue: '108.10 EUR',
+      newValue: '109.78 EUR',
+    },
+    {
+      timestamp: '2025-11-24 03:53',
+      user: { ru: 'Елена К.', en: 'Elena K.', lt: 'Elena K.' },
+      userInitials: 'EK',
+      property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
+      oldValue: 'Nordic Steel AB',
+      newValue: 'Steel Plus OÜ',
+    },
+    {
+      timestamp: '2025-11-06 00:37',
+      user: { ru: 'Елена К.', en: 'Elena K.', lt: 'Elena K.' },
+      userInitials: 'EK',
+      property: { ru: 'Категория', en: 'Category', lt: 'Kategorija' },
+      oldValue: 'Equipment',
+      newValue: 'Pipes',
+    }
+    ],
   },
   {
     id: 'prod-114',
@@ -2182,6 +4224,24 @@ export const STORE: Product[] = [
       { fieldId: 'f-13-5', fieldName: { ru: 'Вес (кг)', en: 'Weight (kg)', lt: 'Svoris (kg)' }, fieldType: 'number', value: 4.5, inherited: false, options: [] },
     ],
     linkedSuppliers: [{ id: '5', name: { ru: 'Euro Metal GmbH', en: 'Euro Metal GmbH', lt: 'Euro Metal GmbH' }, price: 20.00, priceUnit: 'EUR/vnt', leadDays: 21 }],
+    auditLog: [
+    {
+      timestamp: '2025-10-08 11:15',
+      user: { ru: 'Дмитрий С.', en: 'Dmitry S.', lt: 'Dmitry S.' },
+      userInitials: 'DS',
+      property: { ru: 'Категория', en: 'Category', lt: 'Kategorija' },
+      oldValue: 'Equipment',
+      newValue: 'Sheets',
+    },
+    {
+      timestamp: '2025-12-15 04:28',
+      user: { ru: 'Елена К.', en: 'Elena K.', lt: 'Elena K.' },
+      userInitials: 'EK',
+      property: { ru: 'Цена', en: 'Price', lt: 'Kaina' },
+      oldValue: '163.85 EUR',
+      newValue: '187.20 EUR',
+    }
+    ],
   },
 ];
 
@@ -2326,6 +4386,16 @@ export async function mockCreateProduct(data: {
       ...s,
       name: typeof s.name === 'string' ? toTranslatedString(s.name, locale) : s.name,
     })),
+    auditLog: [
+    {
+      timestamp: '2026-02-27 08:24',
+      user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
+      userInitials: 'MV',
+      property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
+      oldValue: 'Steel Plus OÜ',
+      newValue: 'Euro Metal GmbH',
+    }
+    ],
   }
   STORE.push(product)
   return product
@@ -2366,6 +4436,7 @@ export async function mockPatchProduct(id: string, data: Partial<{
     createdAt: existing.createdAt,
     fieldValues: data.fieldValues ?? existing.fieldValues,
     linkedSuppliers: data.linkedSuppliers ?? existing.linkedSuppliers,
+    auditLog: existing.auditLog,
   }
   STORE[idx] = patched
   return patched

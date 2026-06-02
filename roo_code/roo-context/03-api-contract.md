@@ -720,6 +720,27 @@ P&L. KPI: gross/net profit, margin; chart: по месяцам.
 
 # Changelog
 
+## 2026-06-01 — Added Warehouse (Batches / Movements / Offcuts) section
+
+- **Добавлен крупный раздел «Warehouse — Batches (2.0)»** — документированы все эндпоинты для карточки партии:
+  - `GET /api/warehouse/batches/:id` — данные партии
+  - `PATCH /api/warehouse/batches/:id` — обновление полей
+  - `DELETE /api/warehouse/batches/:id` — удаление партии
+  - `GET /api/warehouse/batches/:id/aggregates` — агрегированные статусы
+  - `GET /api/warehouse/batches/:id/active-sales` — активные продажи для возврата
+  - `GET /api/warehouse/batches/:id/audit` — аудит партии
+  - `DELETE /api/warehouse/batches/:id/audit/:entryIndex` — удаление записи аудита
+  - `GET /api/warehouse/movements` — список движений (с фильтром batchNumber)
+  - `POST /api/warehouse/movements` — создание движения
+  - `GET /api/warehouse/offcuts` — список обрезков (с фильтром batchNumber)
+- **Документирована бизнес-логика** для бэкенда:
+  - Вычисление агрегатов из движений (см. `GET /batches/:id/aggregates`)
+  - Пересчёт остатков партии при создании движения (см. `POST /movements`)
+  - Определение статуса партии по распределению агрегатов
+
+**Новых endpoints:** 9 (с учётом общих batch/audit/movements/offcuts)
+**Итого endpoints:** 29 + 9 = 38
+
 Изменения в этой версии контракта (относительно предыдущей редакции с Open questions):
 
 - **Закрыты все 15 Open questions** — блок удалён.
@@ -1076,3 +1097,362 @@ Page: `ProductCardPage.vue`. Composable: `useProductCard` + `useDirtyCheck`.
 - Composables: `src/composables/useProducts.ts`, `src/composables/useProductCard.ts`
 - Views: `src/views/admin/products/ProductsPage.vue` (расширена), `src/views/admin/products/ProductCardPage.vue` (новый)
 - E2E: `tests/e2e/admin/products/products.spec.ts`
+
+---
+
+# Warehouse — Batches (2.0)
+
+Управление складскими партиями, движениями, обрезками, дефицитом и общим остатком.
+
+Типы из `src/types/warehouse.ts`:
+- `WarehouseBatch`, `BatchListItem`, `BatchCreatePayload`, `BatchPatchPayload`
+- `WarehouseMovement`, `MovementListItem`, `MovementCreatePayload`
+- `MovementType` = `'receipt' | 'expense' | 'transfer' | 'write-off' | 'return' | 'return-to-supplier' | 'correction' | 'production' | 'sale' | 'storage'`
+- `BatchStatus` = `'available' | 'in_storage' | 'in_production' | 'sold' | 'scrapped' | 'expensed' | 'returned_to_supplier' | 'partial' | 'depleted' | 'reserved'`
+- `WarehouseOffcut`, `OffcutListItem`, `OffcutCreatePayload`, `OffcutPatchPayload`
+- `WarehouseDeficit`, `DeficitListItem`, `DeficitCreatePayload`, `DeficitPatchPayload`
+- `StockOverviewItem`, `StockPatchPayload`
+- `BatchStatusAggregate`, `BatchActiveSale`
+- `StockAuditEntry`, `StockUnit` = `'kg' | 'm' | 'pcs' | 'm2'`
+
+### Коды ошибок (специфичные для домена)
+
+- `BATCH_NOT_FOUND` — 404, партия не найдена
+- `BATCH_LINKED_TO_ORDER` — 409, попытка удалить партию привязанную к заказу
+- `OFFCUT_NOT_FOUND` — 404, обрезок не найден
+- `MOVEMENT_NOT_FOUND` — 404, движение не найдено
+- `STOCK_ITEM_NOT_FOUND` — 404, товарная позиция склада не найдена
+- `DEFICIT_NOT_FOUND` — 404, запись дефицита не найдена
+- `VALIDATION_ERROR` — 422, отсутствует обязательное поле
+- `NOT_FOUND` — 404, аудит не найден
+
+### Envelope
+
+Все ответы обёрнуты в `ApiResponse<T>` (см. Общие соглашения). Список эндпоинтов с пагинацией возвращают `PaginatedResponse<T>`.
+
+### Save UX — Warehouse
+
+**Список партий/обрезков/движений/дефицита** — **quick-action**: POST (create), DELETE (delete) применяются немедленно. DELETE требует confirmation modal.
+
+**Карточка партии** — **clean-slate**:
+- `useDirtyCheck` для полей формы (`batchNumber`, `lotCode`, `unitPrice`, `currency`, `lotCode`, `locationRack/Row/Cell/Notes`, `certificateRef`, `notes`, `status`)
+- Save bar при `isAnythingDirty || имеет незагруженные файлы || файлы были удалены`
+- Save = `PATCH /api/warehouse/batches/:id` с dirty-only delta
+- После Save: если изменился `location` → автоматически создаётся `POST /api/warehouse/movements` с `type=transfer`
+- Discard = сброс формы до последнего сохранённого состояния с сервера
+- Файлы: drag-drop через `POST /api/uploads` → `fileIds` → PATCH batch с `fileIds[]`
+
+**Карточка движения** — data-only (read-only для созданных движений, редактирование не предусмотрено).
+
+**Создание движения (модалка)** — **quick-action**: submit → `POST /api/warehouse/movements` → refresh данных карточки партии.
+
+---
+
+## Карточка партии (Batch Card)
+
+Page: `WarehouseBatchCard.vue`. Composable: `useWarehouseBatch` + `useDirtyCheck`.
+
+### GET /api/warehouse/batches/:id
+
+- **Когда:** `onMounted` → `load()`.
+- **Response 200:** `ApiResponse<WarehouseBatch>`
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": "whb-001",
+      "productId": "prod-1",
+      "productName": { "ru": "Стальной лист 3мм", "en": "Steel Sheet 3mm", "lt": "Plieno lakštas 3mm" },
+      "supplierId": "sup-1",
+      "supplierName": { "ru": "Металлторг", "en": "Metalltorg", "lt": "Metalltorg" },
+      "batchNumber": "INV-2026-001",
+      "lotCode": "LOT-2026-001",
+      "quantity": 5000,
+      "quantityRemaining": 4200,
+      "unit": "kg",
+      "unitPrice": 1.25,
+      "totalCost": 6250.00,
+      "currency": "EUR",
+      "receivedAt": "2026-04-17T08:00:00Z",
+      "expiresAt": null,
+      "location": "Rack: A | Row: 3 | Cell: B12\nNotes: near entrance",
+      "certificateRef": "CERT-2026-001",
+      "status": "partial",
+      "files": [
+        { "id": "file-1", "name": { "ru": "Сертификат", "en": "Certificate", "lt": "Sertifikatas" }, "size": 102400, "type": "application/pdf", "uploadedAt": "2026-04-17" }
+      ],
+      "notes": "Quality check passed",
+      "orderId": null,
+      "createdAt": "2026-04-17T08:00:00Z",
+      "updatedAt": "2026-04-17T08:00:00Z"
+    }
+  }
+  ```
+- **Notes:** 404 `BATCH_NOT_FOUND`. Поле `location` — составная строка формата `"Rack: X | Row: Y | Cell: Z\nNotes: ..."`, парсится клиентом через `parseLocation()`. Поле `files` — полный массив прикреплённых файлов.
+
+### PATCH /api/warehouse/batches/:id
+
+- **Когда:** клик «Сохранить» (`save()`), только если `isAnythingDirty`. **Clean-slate** — delta из `useDirtyCheck.diff()`.
+- **Body:** dirty-only delta (`BatchPatchPayload`):
+  ```ts
+  {
+    batchNumber?: string
+    lotCode?: string
+    quantity?: number
+    unitPrice?: number
+    currency?: string
+    location?: string | null      // составная строка, как в GET
+    certificateRef?: string | null
+    status?: BatchStatus
+    notes?: string | null
+    fileIds?: string[]            // полный массив (replace-семантика для array-поля)
+  }
+  ```
+- **Response 200:** `ApiResponse<WarehouseBatch>` — обновлённая партия целиком.
+- **Example:**
+  ```http
+  PATCH /api/warehouse/batches/whb-001
+  { "location": "Rack: B | Row: 1 | Cell: A05", "notes": "Moved to new rack" }
+  ```
+- **Notes:** Last-write-wins. После PATCH, если `location` изменился, клиент автоматически создаёт transfer movement (quick-action). Поля `quantity`, `unitPrice`, `status` могут меняться моками автоматически при создании движений — клиент синхронизируется через перезагрузку.
+
+### DELETE /api/warehouse/batches/:id
+
+- **Когда:** `onDeleteConfirm` в `WarehouseBatchCard` (после confirmation modal с предупреждением о каскадном удалении offcuts/movements). **Quick action.**
+- **Response 200:** `ApiResponse<void>`.
+- **Notes:** 409 `BATCH_LINKED_TO_ORDER` если `orderId !== null`. Каскадное удаление: сервер удаляет все движения и обрезки, привязанные к партии. Клиент показывает предупреждение о количестве удаляемых связанных записей до подтверждения.
+
+### DELETE /api/warehouse/batches/:id/audit/:entryIndex
+
+- **Когда:** клик на иконку удаления в строке аудита → confirmation modal → confirm. **Quick action.**
+- **Response 200:** `ApiResponse<void>`.
+- **Notes:** 404 `NOT_FOUND` если запись не существует. `entryIndex` — порядковый номер записи в массиве аудита.
+
+---
+
+## Агрегаты партии (Batch Aggregates & Active Sales)
+
+Используется в `WarehouseBatchCard.vue` и `CreateMovementModal.vue` для отображения распределения товара по статусам и выбора источника для нового движения.
+
+### GET /api/warehouse/batches/:id/aggregates
+
+- **Когда:** загрузка карточки партии (`load()`), обновление после создания движения.
+- **Response 200:** `ApiResponse<BatchStatusAggregate[]>`
+  ```json
+  {
+    "success": true,
+    "data": [
+      { "type": "receipt", "quantity": 4200, "unit": "kg" },
+      { "type": "sale", "quantity": 500, "unit": "kg" },
+      { "type": "production", "quantity": 200, "unit": "kg" },
+      { "type": "write-off", "quantity": 100, "unit": "kg" }
+    ]
+  }
+  ```
+- **Notes:** Агрегаты вычисляются сервером на основе движений партии. `receipt` = `batch.quantityRemaining`. Остальные типы суммируются по движениям с учётом возвратов и коррекций.
+
+**Логика вычисления (бэкенд):**
+```
+1. receipt = batch.quantityRemaining (остаток на складе)
+2. Для каждого движения (кроме receipt, transfer, correction):
+   - outgoing типа (sale, expense, write-off, production, return-to-supplier, storage): += quantity
+   - return: -= quantity для referenceType (уменьшает соответствующий агрегат)
+3. Второй проход: correction → перезаписывает quantity для referenceType
+4. Возвращаются только агрегаты с quantity > 0
+```
+
+### GET /api/warehouse/batches/:id/active-sales
+
+- **Когда:** загрузка карточки партии (`load()`), обновление после создания движения. Используется в `CreateMovementModal` для выбора продажи для возврата.
+- **Response 200:** `ApiResponse<BatchActiveSale[]>`
+  ```json
+  {
+    "success": true,
+    "data": [
+      { "id": "sale-whb-001-001", "movementId": "whm-005", "quantity": 300, "unit": "kg", "referenceId": "ORD-2026-042", "soldAt": "2026-04-20T10:30:00Z" },
+      { "id": "sale-whb-001-002", "movementId": "whm-008", "quantity": 200, "unit": "kg", "referenceId": "ORD-2026-048", "soldAt": "2026-04-25T14:00:00Z" }
+    ]
+  }
+  ```
+- **Notes:** Активные продажи = продажи, по которым ещё не было полного возврата. Вычисляются как `sale.quantity - SUM(return.quantity WHERE referenceId = sale.referenceId)` для каждого sale-движения.
+
+---
+
+## Движения партии (Batch Movements)
+
+Используется в `WarehouseBatchCard.vue` для таблицы движений и в `CreateMovementModal.vue` для создания нового движения.
+
+### GET /api/warehouse/movements
+
+- **Когда:** загрузка карточки партии (`loadMovements()`).
+- **Query:**
+  ```ts
+  {
+    search?: string         // поиск по productName / batchNumber
+    type?: string           // фильтр по MovementType
+    productId?: string
+    unit?: string
+    categoryIds?: string    // ID категорий через запятую
+    batchNumber?: string    // фильтр по номеру партии (основной для карточки партии)
+    referenceId?: string
+    dateFrom?: string       // ISO
+    dateTo?: string         // ISO
+    sortBy?: string         // "movedAt" | "type" | "productName" | "batchNumber" | "quantity" | "unitPrice" | "totalCost" | "referenceId" (default: "movedAt")
+    sortDir?: string        // "asc" | "desc" (default: "desc")
+    page: string            // "1"
+    pageSize: string        // "50" (в карточке партии используется 50)
+  }
+  ```
+- **Response 200:** `PaginatedResponse<MovementListItem>`
+  ```json
+  {
+    "success": true,
+    "data": {
+      "items": [
+        {
+          "id": "whm-001",
+          "type": "sale",
+          "batchId": "whb-001",
+          "batchNumber": "INV-2026-001",
+          "productId": "prod-1",
+          "productName": { "ru": "Стальной лист 3мм", "en": "Steel Sheet 3mm", "lt": "Plieno lakštas 3mm" },
+          "quantity": 300,
+          "unit": "kg",
+          "unitPrice": 1.25,
+          "referenceId": "ORD-2026-042",
+          "referenceType": "sale",
+          "notes": null,
+          "movedAt": "2026-04-20T10:30:00Z"
+        }
+      ],
+      "total": 5, "page": 1, "pageSize": 50, "totalPages": 1
+    }
+  }
+  ```
+- **Notes:** Сортировка по умолчанию `movedAt DESC`. `batchNumber` — фильтр по частичному совпадению (ILIKE/lowercase contains).
+
+### POST /api/warehouse/movements
+
+- **Когда:** submit модала «Создать движение» в `CreateMovementModal.vue` или автоматическое создание transfer при смене локации в `useWarehouseBatch.save()`. **Quick action.**
+- **Body:**
+  ```ts
+  {
+    type: MovementType
+    batchId: string
+    quantity: number
+    unitPrice?: number
+    referenceId?: string | null    // ID заказа/наряда/продажи
+    referenceType?: string | null  // "sale" | "purchase_order" | "work_order" | "waste_report" | "cutting"
+    fromLocation?: string | null
+    toLocation?: string | null
+    performedBy?: string | null
+    notes?: string | null
+    movedAt?: string               // ISO, default: now
+  }
+  ```
+- **Response 200:** `ApiResponse<WarehouseMovement>` — созданное движение целиком.
+- **Notes:** Сервер должен пересчитать остатки партии (`quantityRemaining`, `quantity`, `totalCost`) в соответствии с типом движения (см. таблицу ниже) и обновить `status` партии.
+
+**Логика пересчёта остатков (бэкенд):**
+
+| Movement Type | `batch.quantityRemaining` | `batch.quantity` | `batch.totalCost` |
+|---|---|---|---|
+| `receipt` | `+= quantity` | `+= quantity` | `+= quantity × unitPrice` |
+| `sale`, `expense`, `write-off`, `production`, `storage`, `return-to-supplier` | `-= quantity` (min 0) | без изменений | без изменений |
+| `return` | `+= quantity` | без изменений | без изменений |
+| `correction` (receipt) | `= quantity` | `+= (new - old) remainder` | без изменений |
+| `correction` (non-receipt) | без изменений | `+= delta` | `+= delta × unitPrice` |
+
+**Логика определения статуса партии (бэкенд):**
+
+```
+1. receipt > 0 AND нет других агрегатов → 'available'
+2. receipt > 0 AND есть другие агрегаты → 'partial'
+3. receipt = 0 AND ровно один другой агрегат → маппинг:
+   storage → 'in_storage', production → 'in_production',
+   sale → 'sold', write-off → 'scrapped',
+   expense → 'expensed', return-to-supplier → 'returned_to_supplier'
+4. receipt = 0 AND несколько/ноль агрегатов → 'depleted'
+```
+
+---
+
+## Обрезки партии (Batch Offcuts)
+
+Используется в `WarehouseBatchCard.vue` для таблицы обрезков, привязанных к партии.
+
+### GET /api/warehouse/offcuts
+
+- **Когда:** загрузка карточки партии (`loadOffcuts()`).
+- **Query:**
+  ```ts
+  {
+    search?: string
+    productId?: string
+    status?: string
+    unit?: string
+    offcutType?: string      // "sheet" | "linear"
+    categoryIds?: string
+    batchNumber?: string     // фильтр по номеру партии (основной для карточки партии)
+    sortBy?: string          // "createdAt" | "productName" | "quantity" | "unitPrice" (default: "createdAt")
+    sortDir?: string         // "asc" | "desc" (default: "desc")
+    page: string
+    pageSize: string
+  }
+  ```
+- **Response 200:** `PaginatedResponse<OffcutListItem>`
+
+---
+
+## Аудит партии (Batch Audit)
+
+### GET /api/warehouse/batches/:id/audit
+
+- **Когда:** загрузка карточки партии (`loadAudit()`).
+- **Response 200:** `ApiResponse<StockAuditEntry[]>`
+  ```json
+  {
+    "success": true,
+    "data": [
+      {
+        "timestamp": "17.04.2026 14:32",
+        "user": { "ru": "Иван Петров", "en": "Ivan Petrov", "lt": "Ivan Petrov" },
+        "userInitials": "ИП",
+        "property": { "ru": "Статус", "en": "Status", "lt": "Būsena" },
+        "oldValue": "available",
+        "newValue": "partial"
+      }
+    ]
+  }
+  ```
+- **Notes:** `timestamp` — локальный формат `dd.mm.yyyy hh:mm`. Значения `oldValue`/`newValue` могут содержать enum-коды (с префиксами `batch_status_`, `movement_type_`, `offcut_status_`), которые клиент переводит через `translateAuditValue()`.
+
+### DELETE /api/warehouse/batches/:id/audit/:entryIndex
+
+(Документирован выше, в разделе "Карточка партии")
+
+---
+
+## Save UX — Warehouse Batch Card
+
+**Clean-slate** (как SupplierCardPage, ProductCardPage):
+
+- `useDirtyCheck` для полей: `batchNumber`, `lotCode`, `unitPrice`, `currency`, `locationRack`, `locationRow`, `locationCell`, `locationNotes`, `certificateRef`, `notes`, `status`
+- Save bar при `isAnythingDirty || fileIdsToAttach.length > 0 || files удалены`
+- Save = `PATCH /api/warehouse/batches/:id` с dirty-only delta + `fileIds[]` (если есть незагруженные файлы)
+- После Save: если `location` изменился → `POST /api/warehouse/movements` с `type=transfer`
+- Discard = сброс формы до состояния `batch.value` (последний ответ с сервера)
+- Reload страницы = rollback к последнему сохранённому состоянию
+
+## Feature Flags — Warehouse
+
+| Флаг | Уровень | Что скрывает |
+|---|---|---|
+| `adminWarehouse` | page-level | весь роут `/admin/warehouse` и все подстраницы |
+
+→ Implementation:
+- Service: `src/services/warehouseService.ts`
+- Mock: `src/services/mocks/warehouse.ts`
+- Composables: `src/composables/useWarehouseBatch.ts`, `src/composables/useWarehouseOffcutsAndDeficit.ts`, `src/composables/useWarehouseStock.ts`
+- Views: `src/views/admin/warehouse/WarehousePage.vue`, `src/views/admin/warehouse/WarehouseBatchCard.vue`, `src/views/admin/warehouse/WarehouseMovementCard.vue`, `src/views/admin/warehouse/WarehouseOffcutCard.vue`, `src/views/admin/warehouse/CreateMovementModal.vue`, `src/views/admin/warehouse/StockCardPage.vue`, `src/views/admin/warehouse/DeficitCardPage.vue`
+- E2E: `tests/e2e/admin/warehouse/warehouse.spec.ts`

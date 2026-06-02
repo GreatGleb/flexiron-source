@@ -1,0 +1,228 @@
+Промпт №1 — Импорт CSS файлов
+
+
+В файле frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue отсутствуют импорты CSS, которые есть в WarehouseStockCard.vue. Добавь в секцию <script setup> следующие импорты:
+
+import '@styles/admin/components/_entity-card-layout.css'
+import '@styles/admin/components/_audit-log.css'
+
+Убедись что эти файлы существуют по указанным путям. Если нет — создай их с содержимым как в проекте.
+
+Промпт №2 — Страница "не найдено" (not found)
+В файле frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue отсутствует состояние "не найдено", которое есть в WarehouseStockCard.vue. Нужно добавить блок для случая когда batch === null и loading === false.
+
+Добавь в шаблон после секции с ошибкой (перед v-else-if="batch"):
+
+<GlassPanel v-else-if="!loading && !batch" data-test="batch-card-empty-panel">
+  <div class="entity-not-found" data-test="batch-card-empty">
+    <SvgIcon name="tag" :width="48" :height="48" />
+    <h2>{{ t('warehouse.batch_card_not_found') }}</h2>
+    <p>{{ t('common.entity_not_found_id', { id }) }}</p>
+    <router-link :to="{ name: 'admin-warehouse', params: { tab: 'batches' } }" class="btn btn-primary">
+      {{ t('common.back_to_list') }}
+    </router-link>
+  </div>
+</GlassPanel>
+
+Также добавь перевод batch_card_not_found в файл frontend_vue/src/i18n/admin/warehouse.ts для всех трёх языков (ru, en, lt) в соответствующие секции warehouse:
+
+ru: 'Карточка партии не найдена'
+en: 'Batch card not found'
+lt: 'Partijos kortelė nerasta'
+
+Промпт №3 — Ссылка на карточку товара
+В файле frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue отсутствует ссылка на карточку товара, которая есть в WarehouseStockCard.vue.
+
+Добавь в заголовок страницы (внутрь h1.page-title) ссылку на карточку товара:
+
+<router-link
+  v-tooltip="t('warehouse.open_product_card')"
+  :to="{ name: 'admin-product-card', params: { id: batch.productId } }"
+  class="action-icon-btn"
+  data-test="batch-card-product-link"
+>
+  <SvgIcon name="external-link" :width="16" :height="16" />
+</router-link>
+
+Убедись что batch.productId существует в типе WarehouseBatch (он есть — строка 29 в types/warehouse.ts).
+сначала выясни как у нас сделано сейчас, что должно быть, сделай подробный план, потом перепроверь план, начни реализацию, 
+проверь или реализованно идеально, согласну плану, не упущено ли ничего, сделано ли всё подробно и тщатель
+
+Промпт №4 — Полноценный audit log с таблицей
+В файле frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue секция аудита сейчас показывает только createdAt/updatedAt. Нужно переделать её по аналогии с WarehouseStockCard.vue — сделать полноценную таблицу аудита с возможностью удаления записей.
+
+1. В composable frontend_vue/src/composables/useWarehouseBatch.ts нужно:
+   - Добавить auditLog ref<StockAuditEntry[]>([])
+   - Добавить функцию deleteAuditEntry(entryIndex: number) которая вызывает deleteStockAuditEntry
+   - Добавить auditLoading ref
+   - Импортировать StockAuditEntry и deleteStockAuditEntry из '@/services/warehouseService'
+   - В load() загружать auditLog из batch.auditLog или отдельным запросом
+   - Вернуть auditLog, auditLoading, deleteAuditEntry из composable
+
+2. В шаблоне WarehouseBatchCard.vue заменить секцию audit на:
+
+<div class="audit-panel-wide" data-test="batch-card-audit">
+  <GlassPanel :title="t('warehouse.section_batch_audit')">
+    <div class="table-responsive">
+      <table class="audit-log-table" data-test="batch-card-audit-table">
+        <thead>
+          <tr>
+            <th>{{ t('th.timestamp') }}</th>
+            <th>{{ t('th.user') }}</th>
+            <th>{{ t('th.prop') }}</th>
+            <th>{{ t('th.diff') }}</th>
+            <th style="width: 40px" />
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="(a, i) in auditLog" :key="i" data-test="batch-card-audit-row">
+            <td class="audit-log-ts">{{ a.timestamp }}</td>
+            <td>
+              <div class="audit-log-user">
+                <div class="audit-log-avatar">{{ a.userInitials }}</div>
+                <span>{{ tf(a.user) }}</span>
+              </div>
+            </td>
+            <td>{{ tf(a.property) }}</td>
+            <td>
+              <span class="audit-diff-old">{{ a.oldValue }}</span>
+              &nbsp;→&nbsp;
+              <span class="audit-diff-new">{{ a.newValue }}</span>
+            </td>
+            <td style="text-align: right">
+              <button
+                v-tooltip="t('btn.delete')"
+                type="button"
+                class="action-icon-btn action-danger"
+                data-test="batch-card-audit-delete-btn"
+                @click="askDeleteAudit(i)"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </GlassPanel>
+</div>
+
+3. Добавь в <script setup> логику для модалки удаления аудита (askDeleteAudit, confirmDeleteAudit, deleteAuditOpen, auditToDeleteIdx) как в WarehouseStockCard.vue строки 36-50.
+
+4. Добавь AppModal для подтверждения удаления аудита как в WarehouseStockCard.vue строки 387-412.
+Промпт №5 — Унифицировать стили кнопок в модалке удаления
+В файле frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue в модалке удаления (AppModal с v-model="showDeleteModal") кнопка Cancel использует класс btn-ghost. Нужно заменить на btn-secondary как в WarehouseStockCard.vue.
+
+Найди блок:
+<button class="btn btn-ghost" :disabled="saving" @click="showDeleteModal = false">
+  {{ t('warehouse.btn_cancel') }}
+</button>
+
+Замени на:
+<button type="button" class="btn btn-secondary" :disabled="saving" @click="showDeleteModal = false">
+  {{ t('btn.cancel') }}
+</button>
+Промпт №6 — Унифицировать ключи i18n в модалке удаления
+В файле frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue в модалке удаления используются ключи t('warehouse.btn_cancel') и t('warehouse.btn_delete'). В WarehouseStockCard.vue используются t('btn.cancel') и t('btn.delete').
+
+Нужно заменить:
+- {{ t('warehouse.btn_cancel') }} → {{ t('btn.cancel') }}
+- {{ t('warehouse.btn_delete') }} → {{ t('btn.delete') }}
+
+Проверь что ключи btn.cancel и btn.delete существуют в i18n/common.ts или аналогичном файле.
+Промпт №7 — Перенести Breadcrumb внутрь условия загрузки
+В файле frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue Breadcrumb находится снаружи GlassPanel и всегда виден. В WarehouseStockCard.vue Breadcrumb находится внутри v-if="item" и отображается только когда данные загружены.
+
+Перенеси блок <Breadcrumb> внутрь шаблона, чтобы он отображался только когда batch загружен. Оберни его в v-if="batch" или помести внутрь блока с v-if="batch".
+
+Текущее место (строка 62-67):
+<Breadcrumb
+  :items="[
+    { label: t('warehouse.header_title'), to: { name: 'admin-warehouse' } },
+    { label: batch ? tf(batch.productName) : '...' },
+  ]"
+/>
+
+Новое место — внутри <div v-else-if="batch" class="batch-card-content">, перед batch-card-header.
+Промпт №8 — Добавить pageTitle computed
+В файле frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue useHead использует inline выражение. По аналогии с WarehouseStockCard.vue, вынеси заголовок в computed.
+
+Добавь после строки с useHead (или замени её):
+
+const pageTitle = computed(() =>
+  batch.value ? t('warehouse.batch_card_title', { batchNumber: batch.value.batchNumber }) : t('warehouse.header_title'),
+)
+
+useHead({
+  title: () => `Flexiron — ${pageTitle.value}`,
+  description: () => pageTitle.value,
+})
+Промпт №9 — Добавить type="button" к кнопкам
+В файле frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue у многих кнопок отсутствует атрибут type="button". В WarehouseStockCard.vue все кнопки имеют type="button".
+
+Проверь все <button> элементы в WarehouseBatchCard.vue и добавь type="button" к тем, у которых его нет. Особенно:
+- Кнопки в batch-card-mode-toggle
+- Кнопки в модалке удаления
+- Кнопка "Назад"
+Промпт №10 — Добавить обработку saving в кнопки режима просмотра
+В файле frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue кнопки Edit и Delete в режиме просмотра не имеют :disabled="saving". Добавь атрибут disabled когда saving === true.
+
+Найди:
+<button class="btn btn-ghost" data-test="batch-card-edit-btn" @click="isEditing = true">
+
+Замени на:
+<button type="button" class="btn btn-ghost" :disabled="saving" data-test="batch-card-edit-btn" @click="isEditing = true">
+
+И для кнопки Delete:
+<button type="button" class="btn btn-ghost btn-danger" :disabled="saving" data-test="batch-card-delete-btn" @click="showDeleteModal = true">
+Промпт №11 — Убрать кнопку "Назад" (опционально)
+В файле frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue есть кнопка "Назад" внизу страницы. В WarehouseStockCard.vue такой кнопки нет — навигация осуществляется через Breadcrumb.
+
+Если хочешь унифицировать поведение, удали блок:
+
+<div class="batch-card-actions">
+  <button class="btn btn-ghost" @click="$router.back()">
+    <SvgIcon name="arrow-left" :width="18" :height="18" />
+    {{ t('btn.back') }}
+  </button>
+</div>
+Промпт №12 — Перевести структуру на entity-card-grid (опционально, крупное изменение)
+В файле frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue используется кастомная структура batch-card-grid с dl/dt/dd списками. В WarehouseStockCard.vue используется стандартная сетка entity-card-grid с колонками entity-col-left/center/right и GlassPanel внутри каждой.
+
+Если хочешь полностью унифицировать структуру, переделай разметку batch-card-content:
+
+1. Замени batch-card-grid на entity-card-grid
+2. Раздели поля на 3 колонки как в StockCard:
+   - Левая: batchNumber, lotCode, supplier, location
+   - Центральная: quantity, quantityRemaining, unitPrice, totalCost
+   - Правая: receivedAt, expiresAt, certificateRef, notes
+3. Каждую колонку оберни в <div class="entity-col-*"> и внутри GlassPanel
+4. Используй input-group / field-label / glass-input вместо dl/dt/dd
+5. Секции Movements, Offcuts, Files, Audit оставь как отдельные блоки полной ширины после entity-card-grid
+Промпт №13 — Добавить перевод batch_card_not_found в i18n
+В файл frontend_vue/src/i18n/admin/warehouse.ts нужно добавить новый ключ перевода batch_card_not_found для всех трёх языков.
+
+В секции ru (после stock_card_not_found):
+batch_card_not_found: 'Карточка партии не найдена',
+
+В секции en (после stock_card_not_found):
+batch_card_not_found: 'Batch card not found',
+
+В секции lt (после stock_card_not_found):
+batch_card_not_found: 'Partijos kortelė nerasta',
+Промпт №14 — Исправить data-test атрибуты для консистентности
+В файле frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue проверь все data-test атрибуты на соответствие конвенции. В WarehouseStockCard.vue используется формат stock-card-{element}. В BatchCard используется batch-card-{element}.
+
+Убедись что:
+- Все ключевые элементы имеют data-test атрибуты
+- Формат единообразный: batch-card-{element}
+- Добавь data-test для элементов где их нет (например для полей в форме редактирования)
+Промпт №15 — Добавить skeleton-rows в отдельные GlassPanel (если переводишь на entity-card-grid)
+Если переводишь WarehouseBatchCard.vue на структуру entity-card-grid как в WarehouseStockCard.vue, то нужно:
+
+1. Убрать :skeleton-rows="12" из общего GlassPanel
+2. Добавить :loading="loading" :skeleton-rows="4" в каждый GlassPanel внутри колонок
+3. Убрать общий GlassPanel который оборачивает весь контент

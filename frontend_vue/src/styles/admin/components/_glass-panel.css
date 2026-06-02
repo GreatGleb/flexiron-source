@@ -1,6 +1,14 @@
 /* --- UI COMPONENTS: GLASS PANEL --- */
 .glass-panel {
   margin-bottom: 24px;
+  position: relative;
+}
+/* When a dropdown/popup is open inside a glass panel, elevate it above
+   subsequent sibling sections that would otherwise overlap the
+   absolutely-positioned dropdown list (e.g. Movements section overlapping
+   CustomSelect dropdown in the entity card grid). */
+.glass-panel:has(.custom-select-list.open) {
+  z-index: 100 !important;
 }
 .glass-panel.loading .panel-body {
   display: none;

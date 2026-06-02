@@ -16,6 +16,7 @@ export const mockDeficit: WarehouseDeficit[] = [
     notes: 'Критическая нехватка, остановка производства',
     createdAt: '2025-04-01T08:00:00Z',
     updatedAt: '2025-04-01T08:00:00Z',
+    auditLog: [],
   },
   {
     id: 'whd-002',
@@ -32,6 +33,7 @@ export const mockDeficit: WarehouseDeficit[] = [
     notes: 'Заказ размещен, ожидается поставка',
     createdAt: '2025-04-05T09:00:00Z',
     updatedAt: '2025-04-05T09:00:00Z',
+    auditLog: [],
   },
   {
     id: 'whd-003',
@@ -48,6 +50,7 @@ export const mockDeficit: WarehouseDeficit[] = [
     notes: null,
     createdAt: '2025-04-10T10:00:00Z',
     updatedAt: '2025-04-10T10:00:00Z',
+    auditLog: [],
   },
   {
     id: 'whd-004',
@@ -64,6 +67,7 @@ export const mockDeficit: WarehouseDeficit[] = [
     notes: 'Клиентский заказ на 20 листов, срочно',
     createdAt: '2025-04-12T08:00:00Z',
     updatedAt: '2025-04-12T08:00:00Z',
+    auditLog: [],
   },
   {
     id: 'whd-005',
@@ -80,6 +84,7 @@ export const mockDeficit: WarehouseDeficit[] = [
     notes: 'Ожидается поставка через 2 недели',
     createdAt: '2025-04-15T09:00:00Z',
     updatedAt: '2025-04-15T09:00:00Z',
+    auditLog: [],
   },
   {
     id: 'whd-006',
@@ -96,6 +101,7 @@ export const mockDeficit: WarehouseDeficit[] = [
     notes: 'Полное отсутствие на складе',
     createdAt: '2025-04-18T10:00:00Z',
     updatedAt: '2025-04-18T10:00:00Z',
+    auditLog: [],
   },
   {
     id: 'whd-007',
@@ -112,6 +118,7 @@ export const mockDeficit: WarehouseDeficit[] = [
     notes: 'Заказ размещен у поставщика',
     createdAt: '2025-04-20T08:00:00Z',
     updatedAt: '2025-04-20T08:00:00Z',
+    auditLog: [],
   },
   {
     id: 'whd-008',
@@ -128,6 +135,7 @@ export const mockDeficit: WarehouseDeficit[] = [
     notes: 'Частичный заказ в пути',
     createdAt: '2025-04-22T09:00:00Z',
     updatedAt: '2025-04-22T09:00:00Z',
+    auditLog: [],
   },
   {
     id: 'whd-009',
@@ -144,6 +152,7 @@ export const mockDeficit: WarehouseDeficit[] = [
     notes: 'Расходники на исходе',
     createdAt: '2025-04-25T10:00:00Z',
     updatedAt: '2025-04-25T10:00:00Z',
+    auditLog: [],
   },
   {
     id: 'whd-010',
@@ -160,6 +169,7 @@ export const mockDeficit: WarehouseDeficit[] = [
     notes: null,
     createdAt: '2025-04-28T08:00:00Z',
     updatedAt: '2025-04-28T08:00:00Z',
+    auditLog: [],
   },
   {
     id: 'whd-011',
@@ -176,6 +186,7 @@ export const mockDeficit: WarehouseDeficit[] = [
     notes: 'Заказ выполнен, ожидается поступление',
     createdAt: '2025-04-30T09:00:00Z',
     updatedAt: '2025-05-05T09:00:00Z',
+    auditLog: [],
   },
   {
     id: 'whd-012',
@@ -192,6 +203,7 @@ export const mockDeficit: WarehouseDeficit[] = [
     notes: 'Все аппараты в ремонте, производство стоит',
     createdAt: '2025-05-02T08:00:00Z',
     updatedAt: '2025-05-02T08:00:00Z',
+    auditLog: [],
   },
   {
     id: 'whd-013',
@@ -208,6 +220,7 @@ export const mockDeficit: WarehouseDeficit[] = [
     notes: 'Срочно для нового сварщика',
     createdAt: '2025-05-05T10:00:00Z',
     updatedAt: '2025-05-05T10:00:00Z',
+    auditLog: [],
   },
   {
     id: 'whd-014',
@@ -224,6 +237,7 @@ export const mockDeficit: WarehouseDeficit[] = [
     notes: 'Отложено до следующего бюджета',
     createdAt: '2025-05-07T08:00:00Z',
     updatedAt: '2025-05-10T08:00:00Z',
+    auditLog: [],
   },
   {
     id: 'whd-015',
@@ -240,6 +254,7 @@ export const mockDeficit: WarehouseDeficit[] = [
     notes: 'Дефицит по причине роста цен на медь',
     createdAt: '2025-05-08T09:00:00Z',
     updatedAt: '2025-05-08T09:00:00Z',
+    auditLog: [],
   },
   {
     id: 'whd-016',
@@ -256,6 +271,7 @@ export const mockDeficit: WarehouseDeficit[] = [
     notes: null,
     createdAt: '2025-05-09T10:00:00Z',
     updatedAt: '2025-05-09T10:00:00Z',
+    auditLog: [],
   },
   {
     id: 'whd-017',
@@ -272,6 +288,7 @@ export const mockDeficit: WarehouseDeficit[] = [
     notes: 'Популярный бренд, поставщик задерживает',
     createdAt: '2025-05-10T08:00:00Z',
     updatedAt: '2025-05-10T08:00:00Z',
+    auditLog: [],
   },
   {
     id: 'whd-018',
@@ -288,6 +305,7 @@ export const mockDeficit: WarehouseDeficit[] = [
     notes: 'Ожидается поставка через неделю',
     createdAt: '2025-05-11T09:00:00Z',
     updatedAt: '2025-05-11T09:00:00Z',
+    auditLog: [],
   },
   {
     id: 'whd-019',
@@ -304,6 +322,7 @@ export const mockDeficit: WarehouseDeficit[] = [
     notes: 'Самый ходовой размер, постоянный дефицит',
     createdAt: '2025-05-12T08:00:00Z',
     updatedAt: '2025-05-12T08:00:00Z',
+    auditLog: [],
   },
   {
     id: 'whd-020',
@@ -320,5 +339,6 @@ export const mockDeficit: WarehouseDeficit[] = [
     notes: 'Заказ выполнен',
     createdAt: '2025-05-01T08:00:00Z',
     updatedAt: '2025-05-13T08:00:00Z',
+    auditLog: [],
   },
 ]

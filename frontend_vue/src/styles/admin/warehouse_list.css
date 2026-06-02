@@ -104,6 +104,46 @@
   color: var(--text-secondary, #888);
 }
 
+/* ─── Tab empty state (inside GlassPanel, with icon) ────────────────────────── */
+
+.page-warehouse .tab-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 64px 24px;
+  text-align: center;
+}
+
+.page-warehouse .tab-empty-state__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.page-warehouse .tab-empty-state__icon svg {
+  opacity: 0.35;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.page-warehouse .tab-empty-state__text {
+  margin: 0;
+  font-size: 16px;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.45));
+  line-height: 1.5;
+  max-width: 360px;
+}
+
+.page-warehouse .tab-empty-state__action {
+  margin-top: 4px;
+}
+
 /* --- PAGE LAYOUT: WAREHOUSE --- */
 
 .page-warehouse {
@@ -424,6 +464,63 @@
   text-align: center;
 }
 
+/* ─── Inline action buttons (text + icon in table rows) ────────────────────── */
+
+.inline-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  line-height: 1;
+  font-family: inherit;
+}
+
+.inline-action-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+.inline-action-btn svg {
+  flex-shrink: 0;
+  display: block;
+}
+
+/* Used / Success variant (использован, в работе, решён) */
+.inline-action-btn--used {
+  border-color: rgba(82, 196, 26, 0.3);
+  color: #52c41a;
+  background: rgba(82, 196, 26, 0.08);
+}
+
+.inline-action-btn--used:hover {
+  background: rgba(82, 196, 26, 0.15);
+  border-color: rgba(82, 196, 26, 0.5);
+  color: #73d13d;
+}
+
+/* Scrap / Warning variant (в утиль) */
+.inline-action-btn--scrap {
+  border-color: rgba(250, 173, 20, 0.3);
+  color: #fadb14;
+  background: rgba(250, 173, 20, 0.08);
+}
+
+.inline-action-btn--scrap:hover {
+  background: rgba(250, 173, 20, 0.15);
+  border-color: rgba(250, 173, 20, 0.5);
+  color: #ffe58f;
+}
+
 /* ─── Batch card ───────────────────────────────────────────────────────────── */
 
 .page-batch-card {
@@ -432,73 +529,57 @@
   gap: 24px;
 }
 
-.batch-card-content {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
 .batch-card-header {
   display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.batch-card-header-row {
+  display: flex;
   align-items: center;
-  gap: 16px;
   flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 16px;
 }
 
-.batch-card-header .page-title {
+.batch-card-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.batch-card-header-left .batch-status-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+}
+
+.batch-card-header-row .page-title {
   margin: 0;
 }
 
-.batch-card-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 20px;
+.deficit-card-pills {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
-.batch-card-section {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  padding: 20px;
+@media (max-width: 992px) {
+  .batch-card-header-row {
+    gap: 12px;
+  }
 }
 
-.batch-card-section h3 {
-  margin: 0 0 16px;
-  font-size: 13px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: rgba(255, 255, 255, 0.5);
-}
-
-.batch-card-section-full {
-  grid-column: 1 / -1;
-}
-
-.batch-card-dl {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 8px 16px;
-  margin: 0;
-}
-
-.batch-card-dl dt {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.5);
-}
-
-.batch-card-dl dd {
-  margin: 0;
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.batch-notes {
-  margin: 0;
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.8);
-  line-height: 1.6;
-  white-space: pre-wrap;
+@media (max-width: 600px) {
+  .batch-card-header-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 
 .batch-card-actions {
@@ -507,22 +588,125 @@
   margin-top: 8px;
 }
 
-/* ─── Pill sizes ───────────────────────────────────────────────────────────── */
+/* ─── Card pill overrides (modern style) ──────────────────────────────────── */
 
+/* Base pill in cards — slightly larger, softer */
+.page-batch-card .pill,
+.page-deficit-card .pill,
+.page-offcut-card .pill,
+.page-movement-card .pill,
+.page-stock-card .pill {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  padding: 3px 12px;
+  border-radius: 6px;
+  backdrop-filter: blur(4px);
+}
+
+/* Larger variant for standalone badges */
 .pill-lg {
-  font-size: 13px;
+  font-size: 12px;
   padding: 4px 14px;
+  border-radius: 6px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  backdrop-filter: blur(4px);
+}
+
+/* ─── Card color overrides (modern palette) ───────────────────────────────── */
+
+.pill-muted {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.03) inset;
 }
 
 .pill-mint {
-  background: rgba(0, 210, 180, 0.2);
-  color: #00d2b4;
+  background: linear-gradient(135deg, rgba(0, 210, 180, 0.15), rgba(0, 210, 180, 0.08));
+  border: 1px solid rgba(0, 210, 180, 0.25);
+  color: #5cdbd3;
+  box-shadow: 0 0 12px rgba(0, 210, 180, 0.06);
 }
 
 .pill-consumed {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+}
+
+/* ─── Card-specific color overrides ───────────────────────────────────────── */
+
+/* Success — softer green */
+.page-batch-card .pill-success,
+.page-deficit-card .pill-success,
+.page-offcut-card .pill-success,
+.page-movement-card .pill-success,
+.page-stock-card .pill-success {
+  background: linear-gradient(135deg, rgba(82, 196, 26, 0.15), rgba(82, 196, 26, 0.06));
+  border-color: rgba(82, 196, 26, 0.25);
+  color: #95de64;
+  box-shadow: 0 0 12px rgba(82, 196, 26, 0.06);
+}
+
+/* Warning — softer amber */
+.page-batch-card .pill-warning,
+.page-deficit-card .pill-warning,
+.page-offcut-card .pill-warning,
+.page-movement-card .pill-warning,
+.page-stock-card .pill-warning {
+  background: linear-gradient(135deg, rgba(250, 173, 20, 0.15), rgba(250, 173, 20, 0.06));
+  border-color: rgba(250, 173, 20, 0.25);
+  color: #ffd666;
+  box-shadow: 0 0 12px rgba(250, 173, 20, 0.06);
+}
+
+/* Danger — softer red */
+.page-batch-card .pill-danger,
+.page-deficit-card .pill-danger,
+.page-offcut-card .pill-danger,
+.page-movement-card .pill-danger,
+.page-stock-card .pill-danger {
+  background: linear-gradient(135deg, rgba(255, 77, 79, 0.15), rgba(255, 77, 79, 0.06));
+  border-color: rgba(255, 77, 79, 0.25);
+  color: #ff7875;
+  box-shadow: 0 0 12px rgba(255, 77, 79, 0.06);
+}
+
+/* Info — softer blue */
+.page-batch-card .pill-info,
+.page-deficit-card .pill-info,
+.page-offcut-card .pill-info,
+.page-movement-card .pill-info,
+.page-stock-card .pill-info {
+  background: linear-gradient(135deg, rgba(24, 144, 255, 0.15), rgba(24, 144, 255, 0.06));
+  border-color: rgba(24, 144, 255, 0.25);
+  color: #69c0ff;
+  box-shadow: 0 0 12px rgba(24, 144, 255, 0.06);
+}
+
+/* Secondary — subtle white */
+.page-batch-card .pill-secondary,
+.page-deficit-card .pill-secondary,
+.page-offcut-card .pill-secondary,
+.page-movement-card .pill-secondary,
+.page-stock-card .pill-secondary {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+}
+
+/* ─── Batch card notes textarea — auto-expanding with constrained max-height ─ */
+textarea.batch-notes-input {
+  resize: vertical;
+  min-height: 80px;
+  max-height: 300px;
+  line-height: 1.5;
 }
 
 /* ─── Table header content wrapper for info-hint alignment ─────────────────── */
@@ -864,6 +1048,69 @@
   background: rgba(160, 82, 255, 0.15);
   color: #b37feb;
 }
+.badge-ref-location_change {
+  background: rgba(0, 188, 212, 0.15);
+  color: #4dd0e1;
+}
+.badge-ref-offcut_available {
+  background: rgba(76, 175, 80, 0.15);
+  color: #81c784;
+}
+.badge-ref-offcut_reserved {
+  background: rgba(33, 150, 243, 0.15);
+  color: #64b5f6;
+}
+.badge-ref-offcut_used {
+  background: rgba(255, 152, 0, 0.15);
+  color: #ffb74d;
+}
+.badge-ref-offcut_scrapped {
+  background: rgba(244, 67, 54, 0.15);
+  color: #ef9a9a;
+}
 .text-muted {
   color: rgba(255, 255, 255, 0.35);
+}
+
+/* ─── Offcut type badges ──────────────────────────────────────────────────── */
+.offcut-type-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.8em;
+  font-weight: 500;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+.offcut-type-badge--sheet {
+  background: rgba(24, 144, 255, 0.15);
+  color: #5cb8ff;
+}
+.offcut-type-badge--linear {
+  background: rgba(82, 196, 26, 0.15);
+  color: #95de64;
+}
+
+/* ─── Cascade deletion warnings ─────────────────────────────────── */
+.cascade-warnings {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: rgba(255, 193, 7, 0.1);
+  border-left: 3px solid #ffc107;
+  border-radius: 4px;
+}
+
+.cascade-warning {
+  font-size: 0.85em;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.7));
+  line-height: 1.4;
+}
+
+.cascade-warning::before {
+  content: '•';
+  margin-right: 6px;
+  color: #ffc107;
 }

@@ -10,6 +10,13 @@
   margin-bottom: 24px;
   overflow: visible;
 }
+/* When a dropdown is open inside the entity card grid, elevate the entire
+   grid above subsequent sibling sections (e.g. Movements section overlapping
+   CustomSelect dropdown in the right column). */
+.entity-card-grid:has(.custom-select-list.open) {
+  position: relative;
+  z-index: 1;
+}
 .entity-col-left {
   align-self: start;
 }
@@ -64,17 +71,22 @@
   display: flex;
   justify-content: flex-end;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 16px;
   margin-bottom: 24px;
   position: sticky;
   top: 0;
   z-index: 10;
 }
 
+/* Override no-margin on entity cards — keep bottom spacing between buttons and content */
+.entity-action-bar.no-margin {
+  margin-bottom: 24px !important;
+}
+
 /* Entity Action Bar - Tablet */
 @media (max-width: 992px) {
   .entity-action-bar {
-    gap: 10px;
+    gap: 14px;
     margin-bottom: 20px;
   }
 }
@@ -83,7 +95,7 @@
 @media (max-width: 600px) {
   .entity-action-bar {
     justify-content: flex-start;
-    gap: 8px;
+    gap: 12px;
     margin-bottom: 16px;
   }
   .entity-action-bar .btn {
@@ -126,11 +138,44 @@
 @media (max-width: 400px) {
   .entity-action-bar {
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
   }
   .entity-action-bar .btn {
     width: 100%;
     padding: 8px 12px;
     font-size: 12px;
+  }
+}
+
+/* Batch link row — text + icon link between label and input (used in StockCard, BatchCard, etc.) */
+.batch-link-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  text-decoration: none;
+  cursor: pointer;
+}
+.batch-link-row:hover {
+  text-decoration: underline;
+}
+.batch-link-row svg {
+  flex-shrink: 0;
+  opacity: 0.5;
+}
+
+/* Location grid — 3-column layout for rack / row / cell inputs */
+.location-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 600px) {
+  .location-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
   }
 }

@@ -1,0 +1,5 @@
+в карточку партии типа http://localhost:5173/admin/warehouse/batches/whb-001 надо добавить ссылку на карточку остатка типа http://localhost:5173/admin/warehouse/stock/prod-002
+
+глянь как это сделано в карточке остатка - Batches
+View batches of this product
+что то аналогичное надо добавить в карточку партии

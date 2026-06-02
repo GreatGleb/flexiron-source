@@ -6,6 +6,7 @@ import type {
   BatchPatchPayload,
   WarehouseOffcut,
   OffcutCreatePayload,
+  OffcutPatchPayload,
   WarehouseMovement,
   MovementCreatePayload,
   CuttingOperation,
@@ -22,6 +23,8 @@ import type {
   MovementListResponse,
   DeficitListResponse,
   StockOverviewResponse,
+  BatchStatusAggregate,
+  BatchActiveSale,
 } from '@/types/warehouse'
 
 // ─── Stock Overview ─────────────────────────────────────────────────────────
@@ -52,10 +55,6 @@ export async function getStockItem(productId: string): Promise<StockOverviewItem
 
 export async function patchStockItem(productId: string, delta: StockPatchPayload): Promise<StockOverviewItem> {
   return apiPatch<StockOverviewItem>(`/api/warehouse/stock/${productId}`, delta)
-}
-
-export async function deleteStockItem(productId: string): Promise<void> {
-  return apiDelete(`/api/warehouse/stock/${productId}`)
 }
 
 // ─── Batches ────────────────────────────────────────────────────────────────
@@ -126,6 +125,13 @@ export async function createOffcut(data: OffcutCreatePayload): Promise<Warehouse
   return apiPost<WarehouseOffcut>('/api/warehouse/offcuts', data)
 }
 
+export async function patchOffcut(
+  id: string,
+  data: OffcutPatchPayload,
+): Promise<WarehouseOffcut> {
+  return apiPatch<WarehouseOffcut>(`/api/warehouse/offcuts/${id}`, data)
+}
+
 export async function deleteOffcut(id: string): Promise<void> {
   return apiDelete(`/api/warehouse/offcuts/${id}`)
 }
@@ -146,6 +152,8 @@ export async function getMovements(
   if (filters.unit) params.unit = filters.unit
   if (filters.categoryIds && filters.categoryIds.length > 0) params.categoryIds = filters.categoryIds.join(',')
   if (filters.batchNumber) params.batchNumber = filters.batchNumber
+  if (filters.referenceId) params.referenceId = filters.referenceId
+  if (filters.offcutId) params.offcutId = filters.offcutId
   if (filters.dateFrom) params.dateFrom = filters.dateFrom
   if (filters.dateTo) params.dateTo = filters.dateTo
   if (filters.sortBy) params.sortBy = filters.sortBy
@@ -157,8 +165,18 @@ export async function createMovement(data: MovementCreatePayload): Promise<Wareh
   return apiPost<WarehouseMovement>('/api/warehouse/movements', data)
 }
 
-export async function deleteMovement(id: string): Promise<void> {
-  return apiDelete(`/api/warehouse/movements/${id}`)
+export async function getMovement(id: string): Promise<WarehouseMovement> {
+  return apiGet<WarehouseMovement>(`/api/warehouse/movements/${id}`)
+}
+
+// ─── Batch Aggregates & Active Sales ────────────────────────────────────────
+
+export async function getBatchAggregates(batchId: string): Promise<BatchStatusAggregate[]> {
+  return apiGet<BatchStatusAggregate[]>(`/api/warehouse/batches/${batchId}/aggregates`)
+}
+
+export async function getBatchActiveSales(batchId: string): Promise<BatchActiveSale[]> {
+  return apiGet<BatchActiveSale[]>(`/api/warehouse/batches/${batchId}/active-sales`)
 }
 
 // ─── Cutting Operation ──────────────────────────────────────────────────────
@@ -203,6 +221,72 @@ export async function deleteDeficitItem(id: string): Promise<void> {
   return apiDelete(`/api/warehouse/deficit/${id}`)
 }
 
+// ─── Export ────────────────────────────────────────────────────────────────
+
+export async function exportWarehouseData(
+  tab: string,
+  filters: StockFilters | WarehouseFilters,
+  locale?: string,
+): Promise<string> {
+  const params: Record<string, string> = {}
+  if (locale) params._locale = locale
+
+  // Common params
+  if ('search' in filters && filters.search) params.search = filters.search
+
+  // Stock-specific params
+  if (tab === 'stock') {
+    const sf = filters as StockFilters
+    if (sf.categoryIds.length > 0) params.categoryIds = sf.categoryIds.join(',')
+    if (sf.unit) params.unit = sf.unit
+    if (sf.showDeficitOnly) params.showDeficitOnly = 'true'
+    if (sf.showInStockOnly) params.showInStockOnly = 'true'
+  }
+
+  // Batches-specific params
+  if (tab === 'batches') {
+    const bf = filters as WarehouseFilters
+    if (bf.productId) params.productId = bf.productId
+    if (bf.supplierId) params.supplierId = bf.supplierId
+    if (bf.status) params.status = bf.status
+    if (bf.unit) params.unit = bf.unit
+    if (bf.dateFrom) params.dateFrom = bf.dateFrom
+    if (bf.dateTo) params.dateTo = bf.dateTo
+  }
+
+  // Offcuts-specific params
+  if (tab === 'offcuts') {
+    const of = filters as WarehouseFilters
+    if (of.status) params.status = of.status
+    if (of.unit) params.unit = of.unit
+    if (of.offcutType) params.offcutType = of.offcutType
+    if (of.categoryIds?.length) params.categoryIds = of.categoryIds.join(',')
+    if (of.batchNumber) params.batchNumber = of.batchNumber
+  }
+
+  // Movements-specific params
+  if (tab === 'movements') {
+    const mf = filters as WarehouseFilters
+    if (mf.type) params.type = mf.type
+    if (mf.unit) params.unit = mf.unit
+    if (mf.categoryIds?.length) params.categoryIds = mf.categoryIds.join(',')
+    if (mf.batchNumber) params.batchNumber = mf.batchNumber
+    if (mf.dateFrom) params.dateFrom = mf.dateFrom
+    if (mf.dateTo) params.dateTo = mf.dateTo
+  }
+
+  // Deficit-specific params
+  if (tab === 'deficit') {
+    const df = filters as WarehouseFilters
+    if (df.status) params.status = df.status
+    if (df.priority) params.priority = df.priority
+    if (df.unit) params.unit = df.unit
+    if (df.categoryIds?.length) params.categoryIds = df.categoryIds.join(',')
+  }
+
+  return apiGet<string>(`/api/warehouse/export/${tab}`, params)
+}
+
 // ─── Stock Audit ────────────────────────────────────────────────────────────
 
 export async function getStockAudit(productId: string): Promise<StockAuditEntry[]> {
@@ -211,4 +295,44 @@ export async function getStockAudit(productId: string): Promise<StockAuditEntry[
 
 export async function deleteStockAuditEntry(productId: string, entryIndex: number): Promise<void> {
   return apiDelete<void>(`/api/warehouse/stock/${productId}/audit/${entryIndex}`)
+}
+
+// ─── Batch Audit ────────────────────────────────────────────────────────────
+
+export async function getBatchAudit(batchId: string): Promise<StockAuditEntry[]> {
+  return apiGet<StockAuditEntry[]>(`/api/warehouse/batches/${batchId}/audit`)
+}
+
+export async function deleteBatchAuditEntry(batchId: string, entryIndex: number): Promise<void> {
+  return apiDelete<void>(`/api/warehouse/batches/${batchId}/audit/${entryIndex}`)
+}
+
+// ─── Offcut Audit ───────────────────────────────────────────────────────────
+
+export async function getOffcutAudit(offcutId: string): Promise<StockAuditEntry[]> {
+  return apiGet<StockAuditEntry[]>(`/api/warehouse/offcuts/${offcutId}/audit`)
+}
+
+export async function deleteOffcutAuditEntry(offcutId: string, entryIndex: number): Promise<void> {
+  return apiDelete<void>(`/api/warehouse/offcuts/${offcutId}/audit/${entryIndex}`)
+}
+
+// ─── Movement Audit ─────────────────────────────────────────────────────────
+
+export async function getMovementAudit(movementId: string): Promise<StockAuditEntry[]> {
+  return apiGet<StockAuditEntry[]>(`/api/warehouse/movements/${movementId}/audit`)
+}
+
+export async function deleteMovementAuditEntry(movementId: string, entryIndex: number): Promise<void> {
+  return apiDelete<void>(`/api/warehouse/movements/${movementId}/audit/${entryIndex}`)
+}
+
+// ─── Deficit Audit ──────────────────────────────────────────────────────────
+
+export async function getDeficitAudit(deficitId: string): Promise<StockAuditEntry[]> {
+  return apiGet<StockAuditEntry[]>(`/api/warehouse/deficit/${deficitId}/audit`)
+}
+
+export async function deleteDeficitAuditEntry(deficitId: string, entryIndex: number): Promise<void> {
+  return apiDelete<void>(`/api/warehouse/deficit/${deficitId}/audit/${entryIndex}`)
 }

@@ -10,8 +10,10 @@ import {
   mockGetOffcuts,
   mockGetOffcut,
   mockCreateOffcut,
+  mockPatchOffcut,
   mockDeleteOffcut,
   mockGetMovements,
+  mockGetMovement,
   mockCreateMovement,
   mockDeleteMovement,
   mockExecuteCutting,
@@ -23,6 +25,17 @@ import {
   mockDeleteDeficitItem,
   mockGetStockAudit,
   mockDeleteStockAuditEntry,
+  mockGetBatchAudit,
+  mockDeleteBatchAuditEntry,
+  mockGetOffcutAudit,
+  mockDeleteOffcutAuditEntry,
+  mockGetMovementAudit,
+  mockDeleteMovementAuditEntry,
+  mockGetDeficitAudit,
+  mockDeleteDeficitAuditEntry,
+  mockExportWarehouseCsv,
+  mockGetBatchAggregates,
+  mockGetBatchActiveSales,
 } from './warehouse'
 import {
   mockGetCategories,
@@ -277,7 +290,26 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
 
   const batchCardMatch = path.match(/^\/api\/warehouse\/batches\/([^/]+)$/)
   if (batchCardMatch) {
+    // Check if this is an audit request
+    if (path.endsWith('/audit')) {
+      return delay(mockGetBatchAudit(batchCardMatch[1] as string) as T)
+    }
     return delay(mockGetBatch(batchCardMatch[1] as string) as T)
+  }
+
+  const batchAuditMatch = path.match(/^\/api\/warehouse\/batches\/([^/]+)\/audit$/)
+  if (batchAuditMatch) {
+    return delay(mockGetBatchAudit(batchAuditMatch[1] as string) as T)
+  }
+
+  const batchAggregatesMatch = path.match(/^\/api\/warehouse\/batches\/([^/]+)\/aggregates$/)
+  if (batchAggregatesMatch) {
+    return delay(mockGetBatchAggregates(batchAggregatesMatch[1] as string) as T)
+  }
+
+  const batchActiveSalesMatch = path.match(/^\/api\/warehouse\/batches\/([^/]+)\/active-sales$/)
+  if (batchActiveSalesMatch) {
+    return delay(mockGetBatchActiveSales(batchActiveSalesMatch[1] as string) as T)
   }
 
   if (path === '/api/warehouse/offcuts') {
@@ -298,7 +330,33 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
 
   const offcutCardMatch = path.match(/^\/api\/warehouse\/offcuts\/([^/]+)$/)
   if (offcutCardMatch) {
+    // Check if this is an audit request
+    if (path.endsWith('/audit')) {
+      return delay(mockGetOffcutAudit(offcutCardMatch[1] as string) as T)
+    }
     return delay(mockGetOffcut(offcutCardMatch[1] as string) as T)
+  }
+
+  const offcutAuditMatch = path.match(/^\/api\/warehouse\/offcuts\/([^/]+)\/audit$/)
+  if (offcutAuditMatch) {
+    return delay(mockGetOffcutAudit(offcutAuditMatch[1] as string) as T)
+  }
+
+  const movementCardMatch = path.match(/^\/api\/warehouse\/movements\/([^/]+)$/)
+  if (movementCardMatch) {
+    // Check if this is an audit request
+    if (path.endsWith('/audit')) {
+      return delay(mockGetMovementAudit(movementCardMatch[1] as string) as T)
+    }
+    return delay(mockGetMovement(movementCardMatch[1] as string) as T)
+  }
+
+  const movementAuditMatch = path.match(/^\/api\/warehouse\/movements\/([^/]+)\/audit$/)
+  if (movementAuditMatch) {
+    return delay(mockGetMovementAudit(movementAuditMatch[1] as string) as T)
+  }
+  if (movementCardMatch) {
+    return delay(mockGetMovement(movementCardMatch[1] as string) as T)
   }
 
   if (path === '/api/warehouse/movements') {
@@ -311,6 +369,8 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
       unit: params?.unit,
       categoryIds: params?.categoryIds,
       batchNumber: params?.batchNumber,
+      referenceId: params?.referenceId,
+      offcutId: params?.offcutId,
       dateFrom: params?.dateFrom,
       dateTo: params?.dateTo,
       sortBy: params?.sortBy,
@@ -334,7 +394,22 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
 
   const deficitCardMatch = path.match(/^\/api\/warehouse\/deficit\/([^/]+)$/)
   if (deficitCardMatch) {
+    // Check if this is an audit request
+    if (path.endsWith('/audit')) {
+      return delay(mockGetDeficitAudit(deficitCardMatch[1] as string) as T)
+    }
     return delay(mockGetDeficitItem(deficitCardMatch[1] as string) as T)
+  }
+
+  const deficitAuditMatch = path.match(/^\/api\/warehouse\/deficit\/([^/]+)\/audit$/)
+  if (deficitAuditMatch) {
+    return delay(mockGetDeficitAudit(deficitAuditMatch[1] as string) as T)
+  }
+
+  // ── Warehouse Export ──
+  const exportMatch = path.match(/^\/api\/warehouse\/export\/(stock|batches|offcuts|movements|deficit)$/)
+  if (exportMatch) {
+    return delay(mockExportWarehouseCsv(exportMatch[1] as string, params ?? {}) as T)
   }
 
   throw new Error(`[mock] GET ${path} not found`)
@@ -530,6 +605,13 @@ export async function patchMock<T>(
     )
   }
 
+  const offcutPatchMatch = path.match(/^\/api\/warehouse\/offcuts\/([^/]+)$/)
+  if (offcutPatchMatch) {
+    return delay(
+      mockPatchOffcut(offcutPatchMatch[1] as string, body as Parameters<typeof mockPatchOffcut>[1]) as T,
+    )
+  }
+
   throw new Error(`[mock] PATCH ${path} not found`)
 }
 
@@ -544,6 +626,30 @@ export async function deleteMock<T>(path: string, _headers?: Record<string, stri
   const stockAuditMatch = path.match(/^\/api\/warehouse\/stock\/([^/]+)\/audit\/(\d+)$/)
   if (stockAuditMatch) {
     mockDeleteStockAuditEntry(stockAuditMatch[1] as string, Number(stockAuditMatch[2]))
+    return delay(undefined as T)
+  }
+
+  const batchAuditMatch = path.match(/^\/api\/warehouse\/batches\/([^/]+)\/audit\/(\d+)$/)
+  if (batchAuditMatch) {
+    mockDeleteBatchAuditEntry(batchAuditMatch[1] as string, Number(batchAuditMatch[2]))
+    return delay(undefined as T)
+  }
+
+  const offcutAuditDeleteMatch = path.match(/^\/api\/warehouse\/offcuts\/([^/]+)\/audit\/(\d+)$/)
+  if (offcutAuditDeleteMatch) {
+    mockDeleteOffcutAuditEntry(offcutAuditDeleteMatch[1] as string, Number(offcutAuditDeleteMatch[2]))
+    return delay(undefined as T)
+  }
+
+  const movementAuditDeleteMatch = path.match(/^\/api\/warehouse\/movements\/([^/]+)\/audit\/(\d+)$/)
+  if (movementAuditDeleteMatch) {
+    mockDeleteMovementAuditEntry(movementAuditDeleteMatch[1] as string, Number(movementAuditDeleteMatch[2]))
+    return delay(undefined as T)
+  }
+
+  const deficitAuditDeleteMatch = path.match(/^\/api\/warehouse\/deficit\/([^/]+)\/audit\/(\d+)$/)
+  if (deficitAuditDeleteMatch) {
+    mockDeleteDeficitAuditEntry(deficitAuditDeleteMatch[1] as string, Number(deficitAuditDeleteMatch[2]))
     return delay(undefined as T)
   }
 
@@ -583,22 +689,26 @@ export async function deleteMock<T>(path: string, _headers?: Record<string, stri
   // ── Warehouse DELETE ──
   const batchDeleteMatch = path.match(/^\/api\/warehouse\/batches\/([^/]+)$/)
   if (batchDeleteMatch) {
-    return delay(mockDeleteBatch(batchDeleteMatch[1] as string) as T)
+    await mockDeleteBatch(batchDeleteMatch[1] as string)
+    return delay(undefined as T)
   }
 
   const offcutDeleteMatch = path.match(/^\/api\/warehouse\/offcuts\/([^/]+)$/)
   if (offcutDeleteMatch) {
-    return delay(mockDeleteOffcut(offcutDeleteMatch[1] as string) as T)
+    await mockDeleteOffcut(offcutDeleteMatch[1] as string)
+    return delay(undefined as T)
   }
 
   const movementDeleteMatch = path.match(/^\/api\/warehouse\/movements\/([^/]+)$/)
   if (movementDeleteMatch) {
-    return delay(mockDeleteMovement(movementDeleteMatch[1] as string) as T)
+    mockDeleteMovement(movementDeleteMatch[1] as string)
+    return delay(undefined as T)
   }
 
   const deficitDeleteMatch = path.match(/^\/api\/warehouse\/deficit\/([^/]+)$/)
   if (deficitDeleteMatch) {
-    return delay(mockDeleteDeficitItem(deficitDeleteMatch[1] as string) as T)
+    mockDeleteDeficitItem(deficitDeleteMatch[1] as string)
+    return delay(undefined as T)
   }
 
   throw new Error(`[mock] DELETE ${path} not found`)

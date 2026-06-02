@@ -42,6 +42,9 @@ const defaults: FeatureFlags = {
   warehouseOffcutsPageConfig: false,
   warehouseMovementsPageConfig: false,
   warehouseDeficitPageConfig: false,
+
+  // Warehouse offcut create page
+  warehouseOffcutCreate: true,
 }
 
 function loadOverrides(): Partial<FeatureFlags> {

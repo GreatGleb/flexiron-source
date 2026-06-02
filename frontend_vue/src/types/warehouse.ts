@@ -4,13 +4,32 @@ import type { PaginatedResponse } from './api'
 // ─── Enums ──────────────────────────────────────────────────────────────────
 
 /** Movement direction */
-export type MovementType = 'receipt' | 'expense' | 'transfer' | 'write-off'
+export type MovementType = 'receipt' | 'expense' | 'transfer' | 'write-off' | 'return' | 'return-to-supplier' | 'correction' | 'production' | 'sale' | 'storage' | 'offcut'
 
-/** Batch status */
-export type BatchStatus = 'available' | 'reserved' | 'partial' | 'depleted' | 'quarantine'
+/** Batch status — based on aggregate distribution */
+export type BatchStatus =
+  | 'available'
+  | 'in_storage'
+  | 'in_production'
+  | 'sold'
+  | 'scrapped'
+  | 'expensed'
+  | 'returned_to_supplier'
+  | 'partial'
+  | 'depleted'
+  | 'reserved'
+  | 'converted_to_offcuts'
 
-/** Offcut (обрезок) status */
-export type OffcutStatus = 'available' | 'reserved' | 'used' | 'scrap'
+/** Offcut (обрезок) status — analogous to BatchStatus */
+export type OffcutStatus =
+  | 'available'
+  | 'reserved'
+  | 'in_production'
+  | 'sold'
+  | 'scrapped'
+  | 'expensed'
+  | 'returned_to_supplier'
+  | 'in_storage'
 
 /** Deficit urgency level */
 export type DeficitPriority = 'critical' | 'high' | 'medium' | 'low'
@@ -21,10 +40,21 @@ export type DeficitStatus = 'open' | 'in_progress' | 'ordered' | 'resolved' | 'c
 /** Stock unit of measure */
 export type StockUnit = 'kg' | 'm' | 'pcs' | 'm2'
 
+// ─── Batch File ─────────────────────────────────────────────────────────────
+
+export interface WarehouseBatchFile {
+  id: string
+  name: TranslatedString
+  size: number
+  type: string
+  uploadedAt: string
+}
+
 // ─── Batch (Партия) ─────────────────────────────────────────────────────────
 
 export interface WarehouseBatch {
   id: string
+  files: WarehouseBatchFile[]
   /** Link to product */
   productId: string
   productName: TranslatedString
@@ -44,6 +74,8 @@ export interface WarehouseBatch {
   unitPrice: number
   /** Total cost = quantity × unitPrice */
   totalCost: number
+  /** Currency (e.g. EUR, USD) */
+  currency: string
   /** Date of receipt */
   receivedAt: string
   /** Expiration / shelf-life date (nullable) */
@@ -55,6 +87,8 @@ export interface WarehouseBatch {
   status: BatchStatus
   /** Notes */
   notes: string | null
+  /** Link to order if batch is reserved/allocated to an order */
+  orderId: string | null
   createdAt: string
   updatedAt: string
 }
@@ -69,8 +103,11 @@ export interface BatchListItem {
   quantityRemaining: number
   unit: StockUnit
   unitPrice: number
+  currency: string
   receivedAt: string
   status: BatchStatus
+  /** Link to order if batch is reserved/allocated to an order */
+  orderId: string | null
 }
 
 export interface BatchCreatePayload {
@@ -81,6 +118,7 @@ export interface BatchCreatePayload {
   quantity: number
   unit: StockUnit
   unitPrice: number
+  currency?: string
   receivedAt: string
   expiresAt?: string | null
   location?: string | null
@@ -93,10 +131,13 @@ export interface BatchPatchPayload {
   lotCode?: string
   quantity?: number
   unitPrice?: number
+  currency?: string
   location?: string | null
   certificateRef?: string | null
   status?: BatchStatus
   notes?: string | null
+  /** File IDs to attach (replaces existing) */
+  fileIds?: string[]
 }
 
 // ─── Offcut (Обрезок / Atraiža) ─────────────────────────────────────────────
@@ -129,8 +170,14 @@ export interface WarehouseOffcut {
   notes: string | null
   /** QR code data (for scanning) */
   qrData: string | null
+  /** Attached files (certificates, photos) */
+  files: WarehouseBatchFile[]
+  /** Link to order if offcut is reserved for an order */
+  orderId: string | null
   createdAt: string
   updatedAt: string
+  /** Offcut change audit log */
+  auditLog: StockAuditEntry[]
 }
 
 export interface OffcutListItem {
@@ -148,6 +195,8 @@ export interface OffcutListItem {
   unit: StockUnit
   location: string | null
   status: OffcutStatus
+  /** Link to order if offcut is reserved for an order */
+  orderId: string | null
 }
 
 export interface OffcutCreatePayload {
@@ -165,6 +214,12 @@ export interface OffcutCreatePayload {
   notes?: string | null
 }
 
+export interface OffcutPatchPayload {
+  status?: OffcutStatus
+  notes?: string | null
+  location?: string | null
+}
+
 // ─── Movement (Движение) ────────────────────────────────────────────────────
 
 export interface WarehouseMovement {
@@ -173,6 +228,8 @@ export interface WarehouseMovement {
   /** Reference to batch */
   batchId: string
   batchNumber: string
+  /** Reference to offcut (if movement belongs to an offcut) */
+  offcutId: string | null
   /** Link to product */
   productId: string
   productName: TranslatedString
@@ -196,6 +253,8 @@ export interface WarehouseMovement {
   /** Timestamp */
   movedAt: string
   createdAt: string
+  /** Movement change audit log */
+  auditLog: StockAuditEntry[]
 }
 
 export interface MovementListItem {
@@ -203,6 +262,7 @@ export interface MovementListItem {
   type: MovementType
   batchId: string
   batchNumber: string
+  offcutId: string | null
   productId: string
   productName: TranslatedString
   quantity: number
@@ -217,6 +277,8 @@ export interface MovementListItem {
 export interface MovementCreatePayload {
   type: MovementType
   batchId: string
+  /** Reference to offcut (if movement belongs to an offcut) */
+  offcutId?: string | null
   quantity: number
   unitPrice?: number
   referenceId?: string | null
@@ -269,6 +331,8 @@ export interface WarehouseDeficit {
   notes: string | null
   createdAt: string
   updatedAt: string
+  /** Deficit change audit log */
+  auditLog: StockAuditEntry[]
 }
 
 export interface DeficitListItem {
@@ -308,6 +372,27 @@ export interface StockAuditEntry {
   property: TranslatedString
   oldValue: string
   newValue: string
+}
+
+// ─── Batch Status Aggregate (Агрегированные данные по статусам партии) ──────
+
+export interface BatchStatusAggregate {
+  type: MovementType
+  quantity: number
+  unit: StockUnit
+}
+
+// ─── Batch Active Sale (Активная продажа для возврата) ───────────────────────
+
+export interface BatchActiveSale {
+  id: string
+  movementId: string
+  quantity: number
+  unit: StockUnit
+  /** Customer / order reference */
+  referenceId: string | null
+  /** Sale date */
+  soldAt: string
 }
 
 // ─── Stock Overview (Общий остаток) ─────────────────────────────────────────
@@ -366,6 +451,8 @@ export interface WarehouseFilters {
   offcutType?: 'sheet' | 'linear'
   categoryIds?: string[]
   batchNumber?: string
+  referenceId?: string
+  offcutId?: string
   dateFrom?: string
   dateTo?: string
   sortBy?: string

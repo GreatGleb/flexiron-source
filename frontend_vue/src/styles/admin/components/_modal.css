@@ -46,6 +46,11 @@
   max-width: 720px;
 }
 
+/* Large modal: constrain body height so modal doesn't exceed viewport */
+.modal-large .modal-body {
+  max-height: 65vh;
+}
+
 /* Modal Header */
 .modal-header {
   display: flex;
@@ -78,6 +83,8 @@
 /* Modal Body */
 .modal-body {
   padding: 24px;
+  max-height: 70vh;
+  overflow-y: auto;
 }
 
 /* Modal Form (inside body) */

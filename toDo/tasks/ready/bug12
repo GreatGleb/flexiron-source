@@ -1,0 +1,1 @@
+в карточки товаров типа http://localhost:5173/admin/products/prod-001 добавить log entity историю изменений товара аналогично как в карточке поставщика http://localhost:5173/admin/suppliers/4

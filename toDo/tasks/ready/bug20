@@ -1,0 +1,2 @@
+в http://localhost:5173/admin/warehouse/batches/whb-001 Files не используются стандартное драг н дроп поле для файлов. это уже было реализовано в http://localhost:5173/admin/suppliers/5 в Attachments & Contracts
+нужно DRY

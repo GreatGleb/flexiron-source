@@ -6,12 +6,14 @@ import '@styles/admin/components/_custom-select.css'
 export interface SelectOption {
   value: string
   label?: string
+  hint?: string
 }
 
 const props = defineProps<{
   modelValue: string
   options: SelectOption[]
   openUp?: boolean
+  placeholder?: string
 }>()
 
 const emit = defineEmits<{
@@ -22,6 +24,7 @@ const open = ref(false)
 const wrapRef = ref<HTMLElement | null>(null)
 
 const selectedLabel = computed(() => {
+  if (!props.modelValue && props.placeholder) return props.placeholder
   const opt = props.options.find((o) => o.value === props.modelValue)
   return opt?.label ?? opt?.value ?? ''
 })
@@ -50,7 +53,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onClickOutside))
     <div class="glass-input custom-select-trigger" @click="toggle">
       <div class="curr-val">
         <slot name="selected" :label="selectedLabel" :value="modelValue">
-          <span>{{ selectedLabel }}</span>
+          <span :class="{ placeholder: !modelValue && placeholder }">{{ selectedLabel }}</span>
         </slot>
       </div>
       <svg
@@ -75,7 +78,10 @@ onBeforeUnmount(() => document.removeEventListener('click', onClickOutside))
         @click="select(opt.value)"
       >
         <slot name="option" :option="opt">
-          <span>{{ opt.label ?? opt.value }}</span>
+          <div class="option-content">
+            <span class="option-label">{{ opt.label ?? opt.value }}</span>
+            <span v-if="opt.hint" class="option-hint">{{ opt.hint }}</span>
+          </div>
         </slot>
       </div>
     </div>

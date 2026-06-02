@@ -1,3 +1,4 @@
+import { i18n } from '@/i18n'
 import { STORE as PRODUCTS_STORE } from './products'
 import type {
   WarehouseBatch,
@@ -6,12 +7,27 @@ import type {
   OffcutListItem,
   WarehouseMovement,
   MovementListItem,
+  MovementType,
   WarehouseDeficit,
   DeficitListItem,
   StockOverviewItem,
   StockAuditEntry,
   StockUnit,
   CuttingOperation,
+  OffcutStatus,
+  BatchStatusAggregate,
+  BatchActiveSale,
+  DeficitListResponse,
+  StockOverviewResponse,
+  StockPatchPayload,
+  BatchListResponse,
+  BatchPatchPayload,
+  OffcutListResponse,
+  OffcutCreatePayload,
+  OffcutPatchPayload,
+  MovementListResponse,
+  DeficitCreatePayload,
+  DeficitPatchPayload,
 } from '@/types/warehouse'
 import type { TranslatedString } from '@/types/i18n'
 import type { PaginatedResponse } from '@/types/api'
@@ -21,20 +37,123 @@ import {
   mockMovements as mockMovementsData,
   mockDeficit as mockDeficitData,
   mockStockOverview as mockStockOverviewData,
+  mockBatchAggregates as mockBatchAggregatesData,
+  mockBatchActiveSales as mockBatchActiveSalesData,
 } from '@/mocks/warehouse'
 
 // ─── In-memory stores ───────────────────────────────────────────────────────
 
-const batchStore: WarehouseBatch[] = [...mockBatchesData]
+const batchStore: WarehouseBatch[] = mockBatchesData as WarehouseBatch[]
 const offcutStore: WarehouseOffcut[] = [...mockOffcutsData]
 const movementStore: WarehouseMovement[] = [...mockMovementsData]
 const deficitStore: WarehouseDeficit[] = [...mockDeficitData]
 const stockStore: StockOverviewItem[] = [...mockStockOverviewData]
 
+// Track IDs of pre-existing mock entities so we can distinguish them
+// from dynamically created ones (e.g. to avoid generating fake audit data for new entities)
+const preExistingOffcutIds = new Set(mockOffcutsData.map((o) => o.id))
+const preExistingMovementIds = new Set(mockMovementsData.map((m) => m.id))
+const preExistingDeficitIds = new Set(mockDeficitData.map((d) => d.id))
+
 let batchSeq = batchStore.length + 1
 let offcutSeq = offcutStore.length + 1
 let movementSeq = movementStore.length + 1
 let deficitSeq = deficitStore.length + 1
+
+// ─── Helper: get current value of a specific aggregate from movements ─────
+function getAggregateQty(batchId: string, targetType: string): number {
+  const outgoingTypes = new Set(['sale', 'expense', 'write-off', 'production', 'return-to-supplier', 'storage', 'offcut'])
+  const movements = movementStore.filter((m) => m.batchId === batchId)
+  let qty = 0
+  for (const m of movements) {
+    if (m.type === 'receipt' || m.type === 'transfer') continue
+    if (m.type === 'correction') continue
+    if (m.type === targetType) qty += m.quantity
+    else if (m.type === 'return' && m.referenceType === targetType) qty -= m.quantity
+  }
+  // Apply corrections for this type
+  for (const m of movements) {
+    if (m.type !== 'correction' || m.referenceType !== targetType) continue
+    qty = m.quantity
+  }
+  return qty
+}
+
+// ─── Compute batch status from aggregate distribution ─────────────────────
+// Rules:
+//   receipt > 0 AND no other aggregates → 'available'
+//   receipt > 0 AND other aggregates exist → 'partial'
+//   receipt = 0 AND other aggregates exist → 'depleted'
+/** Map aggregate type → batch status when 100% of goods are in that type */
+const AGGREGATE_TO_STATUS: Record<string, string> = {
+  receipt: 'available',
+  storage: 'in_storage',
+  production: 'in_production',
+  sale: 'sold',
+  'write-off': 'scrapped',
+  expense: 'expensed',
+  'return-to-supplier': 'returned_to_supplier',
+  offcut: 'converted_to_offcuts',
+}
+
+function computeBatchStatus(batch: WarehouseBatch): string {
+  const movements = movementStore.filter((m) => m.batchId === batch.id)
+  const outgoingTypes = new Set(['sale', 'expense', 'write-off', 'production', 'return-to-supplier', 'storage', 'offcut'])
+  const byType: Record<string, number> = {}
+
+  for (const m of movements) {
+    if (m.type === 'receipt' || m.type === 'transfer') continue
+    if (m.type === 'correction') continue
+    if (m.type === 'return') {
+      const reduceType = m.referenceType || ''
+      if (reduceType && outgoingTypes.has(reduceType)) byType[reduceType] = (byType[reduceType] || 0) - m.quantity
+      continue
+    }
+    if (outgoingTypes.has(m.type)) byType[m.type] = (byType[m.type] || 0) + m.quantity
+  }
+  // Second pass: corrections set aggregate directly
+  for (const m of movements) {
+    if (m.type !== 'correction' || !m.referenceType || m.referenceType === 'receipt') continue
+    if (outgoingTypes.has(m.referenceType)) byType[m.referenceType] = m.quantity
+  }
+
+  // Find which single aggregate has 100% of goods
+  const nonZero = Object.entries(byType).filter(([, q]) => q > 0)
+  const hasReceipt = batch.quantityRemaining > 0
+
+  // If receipt is the ONLY aggregate → 'available'
+  if (hasReceipt && nonZero.length === 0) return 'available' as const
+
+  // If receipt + other aggregates → 'partial'
+  if (hasReceipt && nonZero.length > 0) return 'partial' as const
+
+  // No receipt: check if goods are 100% in one other aggregate
+  if (!hasReceipt && nonZero.length === 1) {
+    return AGGREGATE_TO_STATUS[nonZero[0]![0]] || 'depleted'
+  }
+
+  // No receipt, multiple aggregates or none → 'depleted'
+  return 'depleted'
+}
+
+// ─── Sync batch quantities & statuses with movements ────────────────────────
+// Runs once at module load to ensure all batches reflect their movements.
+;(function syncBatchQuantities() {
+  const outgoingTypes: ReadonlySet<string> = new Set(['sale', 'expense', 'write-off', 'production', 'return-to-supplier', 'storage', 'offcut'])
+  for (const batch of batchStore) {
+    const movements = movementStore.filter((m) => m.batchId === batch.id)
+    let remaining = batch.quantity
+    for (const m of movements) {
+      if (outgoingTypes.has(m.type)) {
+        remaining -= m.quantity
+      } else if (m.type === 'return') {
+        remaining += m.quantity
+      }
+    }
+    batch.quantityRemaining = Math.max(0, remaining)
+    batch.status = computeBatchStatus(batch) as WarehouseBatch['status']
+  }
+})()
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -72,123 +191,94 @@ export async function mockGetStockOverview(
     sortDir?: string
   },
   pagination: { page: number; pageSize: number },
-): Promise<PaginatedResponse<StockOverviewItem>> {
+): Promise<StockOverviewResponse> {
   let filtered = [...stockStore]
 
+  // Search
   if (filters.search) {
     const q = filters.search.toLowerCase()
-    filtered = filtered.filter((item) => matchSearch(item, q))
+    filtered = filtered.filter(
+      (s) =>
+        s.productName.ru.toLowerCase().includes(q) ||
+        s.productName.en.toLowerCase().includes(q) ||
+        s.productName.lt.toLowerCase().includes(q) ||
+        s.productId.toLowerCase().includes(q),
+    )
   }
+  // Filter by category
   if (filters.categoryIds) {
-    const ids = filters.categoryIds.split(',')
-    filtered = filtered.filter((item) => item.categoryId && ids.includes(item.categoryId))
+    const cats = filters.categoryIds.split(',').filter(Boolean)
+    if (cats.length > 0) filtered = filtered.filter((s) => cats.includes(s.categoryId))
   }
-  if (filters.unit) {
-    filtered = filtered.filter((item) => item.unit === filters.unit)
-  }
-  if (filters.showDeficitOnly === 'true') {
-    filtered = filtered.filter((item) => item.isDeficit)
-  }
-  if (filters.showInStockOnly === 'true') {
-    filtered = filtered.filter((item) => item.availableQuantity > 0)
-  }
+  if (filters.unit) filtered = filtered.filter((s) => s.unit === filters.unit)
+  if (filters.showDeficitOnly === 'true') filtered = filtered.filter((s) => s.quantityRemaining <= 0)
+  if (filters.showInStockOnly === 'true') filtered = filtered.filter((s) => s.quantityRemaining > 0)
 
-  // sort
-  if (filters.sortBy) {
-    const dir = filters.sortDir === 'desc' ? -1 : 1
-    filtered.sort((a, b) => {
-      let cmp = 0
-      switch (filters.sortBy) {
-        case 'name':
-          cmp = a.productName.en.localeCompare(b.productName.en)
-          break
-        case 'totalQuantity':
-          cmp = a.totalQuantity - b.totalQuantity
-          break
-        case 'availableQuantity':
-          cmp = a.availableQuantity - b.availableQuantity
-          break
-        case 'unit':
-          cmp = a.unit.localeCompare(b.unit)
-          break
-        case 'avgUnitPrice':
-          cmp = a.avgUnitPrice - b.avgUnitPrice
-          break
-        case 'totalValue':
-          cmp = a.totalValue - b.totalValue
-          break
-        case 'minStock':
-          cmp = (a.minStock ?? 0) - (b.minStock ?? 0)
-          break
-      }
-      return cmp * dir
-    })
-  }
+  // Sort
+  const sortBy = filters.sortBy || 'productName'
+  const sortDir = filters.sortDir || 'asc'
+  filtered.sort((a, b) => {
+    let cmp = 0
+    if (sortBy === 'productName') cmp = a.productName.en.localeCompare(b.productName.en)
+    else if (sortBy === 'quantityRemaining') cmp = a.quantityRemaining - b.quantityRemaining
+    else if (sortBy === 'unitPrice') cmp = a.unitPrice - b.unitPrice
+    else if (sortBy === 'updatedAt') cmp = a.updatedAt.localeCompare(b.updatedAt)
+    return sortDir === 'desc' ? -cmp : cmp
+  })
 
-  return paginate(filtered, pagination.page, pagination.pageSize)
+  return paginateStock(filtered, pagination.page, pagination.pageSize)
+}
+
+function paginateStock<T>(items: T[], page: number, pageSize: number): StockOverviewResponse {
+  const total = items.length
+  const start = (page - 1) * pageSize
+  return {
+    items: items.slice(start, start + pageSize),
+    total,
+    page,
+    pageSize,
+    totalPages: Math.ceil(total / pageSize),
+  }
 }
 
 export async function mockGetStockItem(productId: string): Promise<StockOverviewItem> {
   const item = stockStore.find((s) => s.productId === productId)
   if (!item) throw new Error('STOCK_ITEM_NOT_FOUND')
-  return {
-    ...item,
-    auditLog: getOrCreateStockAudit(productId),
-  }
+  return { ...item }
 }
 
-export async function mockPatchStockItem(
-  productId: string,
-  delta: {
-    productName?: TranslatedString
-    unit?: StockUnit
-    avgUnitPrice?: number
-    minStock?: number | null
-    categoryName?: TranslatedString | null
-  },
-): Promise<StockOverviewItem> {
+export async function mockPatchStockItem(productId: string, delta: StockPatchPayload): Promise<StockOverviewItem> {
   const item = stockStore.find((s) => s.productId === productId)
   if (!item) throw new Error('STOCK_ITEM_NOT_FOUND')
-  if (delta.productName !== undefined) item.productName = delta.productName
-  if (delta.unit !== undefined) item.unit = delta.unit
-  if (delta.avgUnitPrice !== undefined) item.avgUnitPrice = delta.avgUnitPrice
-  if (delta.minStock !== undefined) item.minStock = delta.minStock
-  if (delta.categoryName !== undefined) item.categoryName = delta.categoryName
+  Object.assign(item, delta)
   return { ...item }
 }
 
 // ─── Batches ────────────────────────────────────────────────────────────────
 
-function toBatchListItem(b: WarehouseBatch): BatchListItem {
-  return {
-    id: b.id,
-    productId: b.productId,
-    productName: b.productName,
-    batchNumber: b.batchNumber,
-    lotCode: b.lotCode,
-    quantity: b.quantity,
-    quantityRemaining: b.quantityRemaining,
-    unit: b.unit,
-    unitPrice: b.unitPrice,
-    receivedAt: b.receivedAt,
-    status: b.status,
-  }
-}
-
 export async function mockGetBatches(
-  filters: { search: string; productId?: string; supplierId?: string; status?: string; unit?: string; dateFrom?: string; dateTo?: string; sortBy?: string; sortDir?: string },
+  filters: {
+    search: string
+    productId?: string
+    supplierId?: string
+    status?: string
+    unit?: string
+    dateFrom?: string
+    dateTo?: string
+    sortBy?: string
+    sortDir?: string
+  },
   pagination: { page: number; pageSize: number },
-): Promise<PaginatedResponse<BatchListItem>> {
+): Promise<BatchListResponse> {
   let filtered = [...batchStore]
-
   if (filters.search) {
     const q = filters.search.toLowerCase()
     filtered = filtered.filter(
       (b) =>
-        matchSearch(b, q) ||
-        b.batchNumber.toLowerCase().includes(q) ||
-        b.lotCode.toLowerCase().includes(q) ||
-        b.productId.toLowerCase().includes(q),
+        b.productName.ru.toLowerCase().includes(q) ||
+        b.productName.en.toLowerCase().includes(q) ||
+        b.productName.lt.toLowerCase().includes(q) ||
+        b.batchNumber.toLowerCase().includes(q),
     )
   }
   if (filters.productId) filtered = filtered.filter((b) => b.productId === filters.productId)
@@ -198,23 +288,23 @@ export async function mockGetBatches(
   if (filters.dateFrom) filtered = filtered.filter((b) => b.receivedAt >= filters.dateFrom!)
   if (filters.dateTo) filtered = filtered.filter((b) => b.receivedAt <= filters.dateTo!)
 
-  if (filters.sortBy) {
-    filtered.sort((a, b) => {
-      let cmp = 0
-      if (filters.sortBy === 'productName') cmp = a.productName.en.localeCompare(b.productName.en)
-      else if (filters.sortBy === 'batchNumber') cmp = a.batchNumber.localeCompare(b.batchNumber)
-      else if (filters.sortBy === 'lotCode') cmp = a.lotCode.localeCompare(b.lotCode)
-      else if (filters.sortBy === 'quantity') cmp = a.quantity - b.quantity
-      else if (filters.sortBy === 'quantityRemaining') cmp = a.quantityRemaining - b.quantityRemaining
-      else if (filters.sortBy === 'unit') cmp = a.unit.localeCompare(b.unit)
-      else if (filters.sortBy === 'unitPrice') cmp = a.unitPrice - b.unitPrice
-      else if (filters.sortBy === 'receivedAt') cmp = a.receivedAt.localeCompare(b.receivedAt)
-      else if (filters.sortBy === 'status') cmp = a.status.localeCompare(b.status)
-      return filters.sortDir === 'desc' ? -cmp : cmp
-    })
-  }
+  const sortBy = filters.sortBy || 'receivedAt'
+  const sortDir = filters.sortDir || 'desc'
+  filtered.sort((a, b) => {
+    let cmp = 0
+    if (sortBy === 'batchNumber') cmp = a.batchNumber.localeCompare(b.batchNumber)
+    else if (sortBy === 'productName') cmp = a.productName.en.localeCompare(b.productName.en)
+    else if (sortBy === 'quantity') cmp = a.quantity - b.quantity
+    else if (sortBy === 'quantityRemaining') cmp = a.quantityRemaining - b.quantityRemaining
+    else if (sortBy === 'unit') cmp = a.unit.localeCompare(b.unit)
+    else if (sortBy === 'unitPrice') cmp = a.unitPrice - b.unitPrice
+    else if (sortBy === 'status') cmp = a.status.localeCompare(b.status)
+    else if (sortBy === 'supplierName') cmp = (a.supplierName?.en ?? '').localeCompare(b.supplierName?.en ?? '')
+    else if (sortBy === 'receivedAt') cmp = a.receivedAt.localeCompare(b.receivedAt)
+    return sortDir === 'desc' ? -cmp : cmp
+  })
 
-  return paginate(filtered.map(toBatchListItem), pagination.page, pagination.pageSize)
+  return paginate(filtered, pagination.page, pagination.pageSize)
 }
 
 export async function mockGetBatch(id: string): Promise<WarehouseBatch> {
@@ -231,95 +321,52 @@ export async function mockCreateBatch(data: {
   quantity: number
   unit: string
   unitPrice: number
-  receivedAt: string
-  expiresAt?: string | null
-  location?: string | null
-  certificateRef?: string | null
+  currency: string
   notes?: string | null
+  locationRack?: string
+  locationRow?: string
+  locationCell?: string
+  locationNotes?: string
 }): Promise<WarehouseBatch> {
   const id = `whb-${String(batchSeq++).padStart(3, '0')}`
   const now = new Date().toISOString()
   const batch: WarehouseBatch = {
     id,
     productId: data.productId,
-    productName: { ru: '', en: '', lt: '' }, // will be resolved from product catalog
-    supplierId: data.supplierId ?? null,
+    productName: { ru: '', en: '', lt: '' },
+    supplierId: data.supplierId || null,
     supplierName: null,
     batchNumber: data.batchNumber,
     lotCode: data.lotCode,
     quantity: data.quantity,
     quantityRemaining: data.quantity,
-    unit: data.unit as WarehouseBatch['unit'],
+    unit: data.unit as StockUnit,
     unitPrice: data.unitPrice,
     totalCost: data.quantity * data.unitPrice,
-    receivedAt: data.receivedAt,
-    expiresAt: data.expiresAt ?? null,
-    location: data.location ?? null,
-    certificateRef: data.certificateRef ?? null,
+    currency: data.currency,
+    receivedAt: now,
+    expiresAt: null,
+    location: null,
+    certificateRef: null,
     status: 'available',
-    notes: data.notes ?? null,
+    notes: data.notes || null,
+    files: [],
     createdAt: now,
     updatedAt: now,
+    auditLog: [],
   }
   batchStore.push(batch)
-
-  // Also create a receipt movement
-  const movId = `whm-${String(movementSeq++).padStart(3, '0')}`
-  movementStore.push({
-    id: movId,
-    type: 'receipt',
-    batchId: id,
-    batchNumber: data.batchNumber,
-    productId: data.productId,
-    productName: batch.productName,
-    quantity: data.quantity,
-    unit: batch.unit,
-    unitPrice: data.unitPrice,
-    totalCost: data.quantity * data.unitPrice,
-    referenceId: null,
-    referenceType: null,
-    fromLocation: null,
-    toLocation: data.location ?? null,
-    performedBy: null,
-    notes: 'Batch created',
-    movedAt: now,
-    createdAt: now,
-  })
-
   return batch
 }
 
-export async function mockPatchBatch(
-  id: string,
-  data: {
-    batchNumber?: string
-    lotCode?: string
-    quantity?: number
-    unitPrice?: number
-    location?: string | null
-    certificateRef?: string | null
-    status?: string
-    notes?: string | null
-  },
-): Promise<WarehouseBatch> {
+export async function mockPatchBatch(id: string, delta: BatchPatchPayload): Promise<WarehouseBatch> {
   const batch = batchStore.find((b) => b.id === id)
   if (!batch) throw new Error('BATCH_NOT_FOUND')
-  if (data.batchNumber !== undefined) batch.batchNumber = data.batchNumber
-  if (data.lotCode !== undefined) batch.lotCode = data.lotCode
-  if (data.quantity !== undefined) {
-    const diff = data.quantity - batch.quantity
-    batch.quantity = data.quantity
-    batch.quantityRemaining += diff
+  Object.assign(batch, delta, { updatedAt: new Date().toISOString() })
+  // If location changed, auto-create a transfer movement
+  if (delta.location && delta.location !== batch.location) {
+    // (This is handled by useWarehouseBatch composable)
   }
-  if (data.unitPrice !== undefined) {
-    batch.unitPrice = data.unitPrice
-    batch.totalCost = batch.quantity * data.unitPrice
-  }
-  if (data.location !== undefined) batch.location = data.location
-  if (data.certificateRef !== undefined) batch.certificateRef = data.certificateRef
-  if (data.status !== undefined) batch.status = data.status as WarehouseBatch['status']
-  if (data.notes !== undefined) batch.notes = data.notes
-  batch.updatedAt = new Date().toISOString()
   return { ...batch }
 }
 
@@ -331,62 +378,50 @@ export async function mockDeleteBatch(id: string): Promise<void> {
 
 // ─── Offcuts ────────────────────────────────────────────────────────────────
 
-function toOffcutListItem(o: WarehouseOffcut): OffcutListItem {
-  return {
-    id: o.id,
-    batchId: o.batchId,
-    batchNumber: o.batchNumber,
-    productId: o.productId,
-    productName: o.productName,
-    categoryId: o.categoryId,
-    offcutType: o.offcutType,
-    lengthMm: o.lengthMm,
-    widthMm: o.widthMm,
-    weightKg: o.weightKg,
-    quantity: o.quantity,
-    unit: o.unit,
-    location: o.location,
-    status: o.status,
-  }
-}
-
 export async function mockGetOffcuts(
-  filters: { search: string; productId?: string; status?: string; unit?: string; offcutType?: string; categoryIds?: string; batchNumber?: string; sortBy?: string; sortDir?: string },
+  filters: {
+    search: string
+    productId?: string
+    status?: string
+    unit?: string
+    offcutType?: string
+    categoryIds?: string
+    batchNumber?: string
+    sortBy?: string
+    sortDir?: string
+  },
   pagination: { page: number; pageSize: number },
-): Promise<PaginatedResponse<OffcutListItem>> {
+): Promise<OffcutListResponse> {
   let filtered = [...offcutStore]
-
   if (filters.search) {
     const q = filters.search.toLowerCase()
-    filtered = filtered.filter((o) => matchSearch(o, q))
+    filtered = filtered.filter(
+      (o) =>
+        o.productName.ru.toLowerCase().includes(q) ||
+        o.productName.en.toLowerCase().includes(q) ||
+        o.productName.lt.toLowerCase().includes(q),
+    )
   }
   if (filters.productId) filtered = filtered.filter((o) => o.productId === filters.productId)
   if (filters.status) filtered = filtered.filter((o) => o.status === filters.status)
   if (filters.unit) filtered = filtered.filter((o) => o.unit === filters.unit)
   if (filters.offcutType) filtered = filtered.filter((o) => o.offcutType === filters.offcutType)
   if (filters.categoryIds) {
-    const ids = filters.categoryIds.split(',')
-    filtered = filtered.filter((o) => o.categoryId !== null && ids.includes(o.categoryId))
+    const cats = filters.categoryIds.split(',').filter(Boolean)
+    if (cats.length > 0) filtered = filtered.filter((o) => cats.includes(o.categoryId))
   }
-  if (filters.batchNumber) filtered = filtered.filter((o) => o.batchNumber.toLowerCase().includes(filters.batchNumber!.toLowerCase()))
-
-  // Sort
-  if (filters.sortBy) {
-    filtered.sort((a, b) => {
-      let cmp = 0
-      if (filters.sortBy === 'productName') cmp = a.productName.en.localeCompare(b.productName.en)
-      else if (filters.sortBy === 'batchNumber') cmp = a.batchNumber.localeCompare(b.batchNumber)
-      else if (filters.sortBy === 'lengthMm') cmp = (a.lengthMm ?? 0) - (b.lengthMm ?? 0)
-      else if (filters.sortBy === 'weightKg') cmp = (a.weightKg ?? 0) - (b.weightKg ?? 0)
-      else if (filters.sortBy === 'quantity') cmp = a.quantity - b.quantity
-      else if (filters.sortBy === 'unit') cmp = a.unit.localeCompare(b.unit)
-      else if (filters.sortBy === 'location') cmp = (a.location ?? '').localeCompare(b.location ?? '')
-      else if (filters.sortBy === 'status') cmp = a.status.localeCompare(b.status)
-      return filters.sortDir === 'desc' ? -cmp : cmp
-    })
-  }
-
-  return paginate(filtered.map(toOffcutListItem), pagination.page, pagination.pageSize)
+  if (filters.batchNumber) filtered = filtered.filter((o) => o.batchNumber?.toLowerCase().includes(filters.batchNumber!.toLowerCase()))
+  const sortBy = filters.sortBy || 'createdAt'
+  const sortDir = filters.sortDir || 'desc'
+  filtered.sort((a, b) => {
+    let cmp = 0
+    if (sortBy === 'createdAt') cmp = a.createdAt.localeCompare(b.createdAt)
+    else if (sortBy === 'productName') cmp = a.productName.en.localeCompare(b.productName.en)
+    else if (sortBy === 'quantity') cmp = a.quantity - b.quantity
+    else if (sortBy === 'unitPrice') cmp = a.unitPrice - b.unitPrice
+    return sortDir === 'desc' ? -cmp : cmp
+  })
+  return paginate(filtered, pagination.page, pagination.pageSize)
 }
 
 export async function mockGetOffcut(id: string): Promise<WarehouseOffcut> {
@@ -395,46 +430,64 @@ export async function mockGetOffcut(id: string): Promise<WarehouseOffcut> {
   return { ...offcut }
 }
 
-export async function mockCreateOffcut(data: {
-  batchId: string
-  productId: string
-  categoryId?: string | null
-  offcutType?: 'sheet' | 'linear'
-  lengthMm?: number | null
-  widthMm?: number | null
-  thicknessMm?: number | null
-  weightKg?: number | null
-  quantity: number
-  unit: string
-  location?: string | null
-  notes?: string | null
-}): Promise<WarehouseOffcut> {
-  const id = `who-${String(offcutSeq++).padStart(3, '0')}`
+export async function mockCreateOffcut(data: OffcutCreatePayload): Promise<WarehouseOffcut> {
+  const id = `offcut-${String(offcutSeq++).padStart(3, '0')}`
   const now = new Date().toISOString()
+
+  // Find the source batch
   const batch = batchStore.find((b) => b.id === data.batchId)
+  const batchNumber = batch?.batchNumber ?? ''
+
   const offcut: WarehouseOffcut = {
     id,
     batchId: data.batchId,
-    batchNumber: batch?.batchNumber ?? '',
+    batchNumber,
     productId: data.productId,
     productName: batch?.productName ?? { ru: '', en: '', lt: '' },
-    categoryId: data.categoryId ?? null,
+    categoryId: data.categoryId,
     offcutType: data.offcutType ?? 'sheet',
     lengthMm: data.lengthMm ?? null,
     widthMm: data.widthMm ?? null,
     thicknessMm: data.thicknessMm ?? null,
     weightKg: data.weightKg ?? null,
     quantity: data.quantity,
-    unit: data.unit as WarehouseOffcut['unit'],
+    unit: data.unit as StockUnit,
     location: data.location ?? null,
     status: 'available',
     notes: data.notes ?? null,
-    qrData: `${id}-qr`,
+    qrData: null,
+    orderId: null,
+    files: [],
     createdAt: now,
     updatedAt: now,
+    auditLog: [],
   }
   offcutStore.push(offcut)
+
+  // Decrease batch remaining quantity
+  if (batch) {
+    batch.quantityRemaining = Math.max(0, batch.quantityRemaining - data.quantity)
+    batch.updatedAt = now
+
+    // Create a movement record for the offcut creation
+    await mockCreateMovement({
+      type: 'offcut',
+      batchId: data.batchId,
+      offcutId: id,
+      quantity: data.quantity,
+      movedAt: now,
+      notes: `Offcut created from batch ${batchNumber}`,
+    })
+  }
+
   return offcut
+}
+
+export async function mockPatchOffcut(id: string, data: OffcutPatchPayload): Promise<WarehouseOffcut> {
+  const offcut = offcutStore.find((o) => o.id === id)
+  if (!offcut) throw new Error('OFFCUT_NOT_FOUND')
+  Object.assign(offcut, data, { updatedAt: new Date().toISOString() })
+  return { ...offcut }
 }
 
 export async function mockDeleteOffcut(id: string): Promise<void> {
@@ -445,63 +498,94 @@ export async function mockDeleteOffcut(id: string): Promise<void> {
 
 // ─── Movements ──────────────────────────────────────────────────────────────
 
+const movementSortFieldMap: Record<string, string> = {
+  movedAt: 'movedAt',
+  type: 'type',
+  productName: 'productName',
+  batchNumber: 'batchNumber',
+  quantity: 'quantity',
+  unit: 'unit',
+  unitPrice: 'unitPrice',
+  totalCost: 'totalCost',
+  referenceId: 'referenceId',
+}
+
 function toMovementListItem(m: WarehouseMovement): MovementListItem {
   return {
     id: m.id,
     type: m.type,
     batchId: m.batchId,
     batchNumber: m.batchNumber,
+    offcutId: m.offcutId,
     productId: m.productId,
     productName: m.productName,
     quantity: m.quantity,
     unit: m.unit,
     unitPrice: m.unitPrice,
+    totalCost: m.totalCost,
     referenceId: m.referenceId,
     referenceType: m.referenceType,
+    fromLocation: m.fromLocation,
+    toLocation: m.toLocation,
+    performedBy: m.performedBy,
     notes: m.notes,
     movedAt: m.movedAt,
+    createdAt: m.createdAt,
   }
 }
 
 export async function mockGetMovements(
-  filters: { search: string; type?: string; productId?: string; unit?: string; categoryIds?: string; batchNumber?: string; dateFrom?: string; dateTo?: string; sortBy?: string; sortDir?: string },
+  filters: {
+    search: string
+    type?: string
+    productId?: string
+    unit?: string
+    categoryIds?: string
+    batchNumber?: string
+    referenceId?: string
+    offcutId?: string
+    dateFrom?: string
+    dateTo?: string
+    sortBy?: string
+    sortDir?: string
+  },
   pagination: { page: number; pageSize: number },
-): Promise<PaginatedResponse<MovementListItem>> {
+): Promise<MovementListResponse> {
   let filtered = [...movementStore]
-
   if (filters.search) {
     const q = filters.search.toLowerCase()
-    filtered = filtered.filter((m) => matchSearch(m, q))
+    filtered = filtered.filter(
+      (m) =>
+        m.productName.ru.toLowerCase().includes(q) ||
+        m.productName.en.toLowerCase().includes(q) ||
+        m.productName.lt.toLowerCase().includes(q) ||
+        m.batchNumber.toLowerCase().includes(q),
+    )
   }
   if (filters.type) filtered = filtered.filter((m) => m.type === filters.type)
   if (filters.productId) filtered = filtered.filter((m) => m.productId === filters.productId)
   if (filters.unit) filtered = filtered.filter((m) => m.unit === filters.unit)
-  if (filters.categoryIds) {
-    const ids = filters.categoryIds.split(',')
-    const productIdsInCategories = PRODUCTS_STORE
-      .filter((p) => p.categoryId !== null && ids.includes(p.categoryId))
-      .map((p) => p.id)
-    filtered = filtered.filter((m) => productIdsInCategories.includes(m.productId))
-  }
   if (filters.batchNumber) filtered = filtered.filter((m) => m.batchNumber.toLowerCase().includes(filters.batchNumber!.toLowerCase()))
+  if (filters.referenceId) filtered = filtered.filter((m) => m.referenceId === filters.referenceId)
+  if (filters.offcutId) filtered = filtered.filter((m) => m.offcutId === filters.offcutId)
   if (filters.dateFrom) filtered = filtered.filter((m) => m.movedAt >= filters.dateFrom!)
   if (filters.dateTo) filtered = filtered.filter((m) => m.movedAt <= filters.dateTo!)
 
-  if (filters.sortBy) {
-    filtered.sort((a, b) => {
-      let cmp = 0
-      if (filters.sortBy === 'movedAt') cmp = a.movedAt.localeCompare(b.movedAt)
-      else if (filters.sortBy === 'type') cmp = a.type.localeCompare(b.type)
-      else if (filters.sortBy === 'productName') cmp = a.productName.en.localeCompare(b.productName.en)
-      else if (filters.sortBy === 'batchNumber') cmp = a.batchNumber.localeCompare(b.batchNumber)
-      else if (filters.sortBy === 'quantity') cmp = a.quantity - b.quantity
-      else if (filters.sortBy === 'unit') cmp = a.unit.localeCompare(b.unit)
-      else if (filters.sortBy === 'unitPrice') cmp = a.unitPrice - b.unitPrice
-      else if (filters.sortBy === 'totalCost') cmp = (a.quantity * a.unitPrice) - (b.quantity * b.unitPrice)
-      else if (filters.sortBy === 'referenceId') cmp = (a.referenceId ?? '').localeCompare(b.referenceId ?? '')
-      return filters.sortDir === 'desc' ? -cmp : cmp
-    })
-  }
+  const sortBy = filters.sortBy || 'movedAt'
+  const sortDir = filters.sortDir || 'desc'
+  filtered.sort((a, b) => {
+    let cmp = 0
+    if (sortBy === 'movedAt') cmp = a.movedAt.localeCompare(b.movedAt)
+    else if (sortBy === 'type') cmp = a.type.localeCompare(b.type)
+    else if (sortBy === 'productName') cmp = a.productName.en.localeCompare(b.productName.en)
+    else if (sortBy === 'batchNumber') cmp = a.batchNumber.localeCompare(b.batchNumber)
+    else if (sortBy === 'quantity') cmp = a.quantity - b.quantity
+    else if (sortBy === 'unit') cmp = a.unit.localeCompare(b.unit)
+    else if (sortBy === 'unitPrice') cmp = a.unitPrice - b.unitPrice
+    else if (sortBy === 'totalCost') cmp = (a.quantity * a.unitPrice) - (b.quantity * b.unitPrice)
+    else if (sortBy === 'referenceId') cmp = (a.referenceId ?? '').localeCompare(b.referenceId ?? '')
+    return sortDir === 'desc' ? -cmp : cmp
+  })
 
   return paginate(filtered.map(toMovementListItem), pagination.page, pagination.pageSize)
 }
@@ -509,6 +593,7 @@ export async function mockGetMovements(
 export async function mockCreateMovement(data: {
   type: string
   batchId: string
+  offcutId?: string | null
   quantity: number
   unitPrice?: number
   referenceId?: string | null
@@ -529,6 +614,7 @@ export async function mockCreateMovement(data: {
     type: data.type as WarehouseMovement['type'],
     batchId: data.batchId,
     batchNumber: batch.batchNumber,
+    offcutId: data.offcutId ?? null,
     productId: batch.productId,
     productName: batch.productName,
     quantity: data.quantity,
@@ -543,18 +629,60 @@ export async function mockCreateMovement(data: {
     notes: data.notes ?? null,
     movedAt: data.movedAt ?? now,
     createdAt: now,
+    auditLog: [],
   }
+
+  // ─── For non-receipt correction: compute delta BEFORE movement added ──
+  // (getAggregateQty would include the new movement and return delta=0)
+  let correctionDelta = 0
+  const outgoingTypes = new Set(['sale', 'expense', 'write-off', 'production', 'return-to-supplier', 'storage', 'offcut'])
+  if (data.type === 'correction' && data.referenceType && data.referenceType !== 'receipt') {
+    if (outgoingTypes.has(data.referenceType)) {
+      const currentQty = getAggregateQty(batch.id, data.referenceType)
+      correctionDelta = data.quantity - currentQty
+    }
+  }
+
   movementStore.push(movement)
 
-  // Update batch quantity remaining for expense/write-off
-  if (data.type === 'expense' || data.type === 'write-off') {
+  // ─── Update batch quantity remaining based on movement type ──────────
+  if (data.type === 'sale' || data.type === 'expense' || data.type === 'write-off' || data.type === 'production' || data.type === 'return-to-supplier' || data.type === 'storage' || data.type === 'offcut') {
     batch.quantityRemaining = Math.max(0, batch.quantityRemaining - data.quantity)
-    if (batch.quantityRemaining === 0) batch.status = 'depleted'
-    else if (batch.quantityRemaining < batch.quantity) batch.status = 'partial'
-    batch.updatedAt = now
+  }
+  else if (data.type === 'receipt') {
+    batch.quantityRemaining += data.quantity
+    batch.quantity += data.quantity
+    batch.totalCost += data.quantity * batch.unitPrice
+  }
+  else if (data.type === 'return') {
+    batch.quantityRemaining += data.quantity
+  }
+  else if (data.type === 'correction') {
+    if (data.referenceType === 'receipt') {
+      // receipt correction: set remaining directly and adjust total by delta
+      const oldRemaining = batch.quantityRemaining
+      batch.quantityRemaining = Math.max(0, data.quantity)
+      batch.quantity += batch.quantityRemaining - oldRemaining
+    } else if (correctionDelta !== 0) {
+      // Non-receipt correction: adjusts total batch quantity and cost, NOT remaining.
+      // Goods are added/removed from inventory, not transferred from receipt.
+      batch.quantity += correctionDelta
+      batch.totalCost += correctionDelta * batch.unitPrice
+    }
   }
 
+  // Auto-update batch status based on aggregate distribution
+  batch.status = computeBatchStatus(batch) as WarehouseBatch['status']
+  batch.updatedAt = now
+
   return movement
+}
+
+export async function mockGetMovement(id: string): Promise<WarehouseMovement> {
+  const movement = movementStore.find((m) => m.id === id)
+  if (!movement) throw new Error('MOVEMENT_NOT_FOUND')
+  const audit = preExistingMovementIds.has(id) ? [...getOrCreateMovementAudit(id)] : []
+  return { ...movement, auditLog: audit }
 }
 
 export async function mockDeleteMovement(id: string): Promise<void> {
@@ -563,297 +691,201 @@ export async function mockDeleteMovement(id: string): Promise<void> {
   movementStore.splice(idx, 1)
 }
 
+// ─── Batch Aggregates & Active Sales ────────────────────────────────────────
+
+export async function mockGetBatchAggregates(batchId: string): Promise<BatchStatusAggregate[]> {
+  const batch = batchStore.find((b) => b.id === batchId)
+  if (!batch) return []
+
+  const movements = movementStore.filter((m) => m.batchId === batchId)
+  const outgoingTypes = new Set(['sale', 'expense', 'write-off', 'production', 'return-to-supplier', 'storage'])
+  const byType: Record<string, number> = {}
+
+  for (const m of movements) {
+    if (m.type === 'receipt' || m.type === 'transfer') continue
+    if (m.type === 'correction') continue // applied in second pass
+    if (m.type === 'return') {
+      const reduceType = m.referenceType || ''
+      if (reduceType && outgoingTypes.has(reduceType)) byType[reduceType] = (byType[reduceType] || 0) - m.quantity
+      continue
+    }
+    byType[m.type] = (byType[m.type] || 0) + m.quantity
+  }
+  // Second pass: corrections set aggregate directly
+  for (const m of movements) {
+    if (m.type !== 'correction' || !m.referenceType || m.referenceType === 'receipt') continue
+    if (outgoingTypes.has(m.referenceType)) byType[m.referenceType] = m.quantity
+  }
+
+  const receiptQty = Math.max(0, batch.quantityRemaining)
+  const result: BatchStatusAggregate[] = []
+  if (receiptQty > 0) result.push({ type: 'receipt', quantity: receiptQty, unit: batch.unit })
+
+  const sorted = Object.entries(byType)
+    .filter(([, q]) => q > 0)
+    .sort(([, a], [, b]) => b - a)
+  for (const [type, quantity] of sorted) {
+    result.push({ type: type as MovementType, quantity, unit: batch.unit })
+  }
+  return result
+}
+
+export async function mockGetBatchActiveSales(batchId: string): Promise<BatchActiveSale[]> {
+  const batch = batchStore.find((b) => b.id === batchId)
+  if (!batch) return []
+
+  const returnQtyByRef: Record<string, number> = {}
+  for (const m of movementStore) {
+    if (m.batchId === batchId && m.type === 'return' && m.referenceId) {
+      returnQtyByRef[m.referenceId] = (returnQtyByRef[m.referenceId] || 0) + m.quantity
+    }
+  }
+
+  const sales = movementStore.filter((m) => m.batchId === batchId && m.type === 'sale')
+  let idx = 0
+  const result: BatchActiveSale[] = []
+  for (const s of sales) {
+    const returnedQty = s.referenceId ? (returnQtyByRef[s.referenceId] || 0) : 0
+    const remaining = s.quantity - returnedQty
+    if (remaining <= 0) continue
+    idx++
+    result.push({
+      id: `sale-${batchId}-${String(idx).padStart(3, '0')}`,
+      movementId: s.id,
+      quantity: remaining,
+      unit: s.unit,
+      referenceId: s.referenceId ?? null,
+      soldAt: s.movedAt,
+    })
+  }
+  return result
+}
+
 // ─── Cutting Operation ──────────────────────────────────────────────────────
 
-export async function mockExecuteCutting(
-  data: CuttingOperation,
-): Promise<{ offcuts: WarehouseOffcut[]; wasteQuantity: number }> {
+export async function mockExecuteCutting(data: CuttingOperation): Promise<{ offcuts: WarehouseOffcut[]; wasteQuantity: number }> {
   const batch = batchStore.find((b) => b.id === data.sourceBatchId)
   if (!batch) throw new Error('BATCH_NOT_FOUND')
-
-  // Reduce source batch quantity
   batch.quantityRemaining = Math.max(0, batch.quantityRemaining - data.sourceQuantity)
-  if (batch.quantityRemaining === 0) batch.status = 'depleted'
-  else if (batch.quantityRemaining < batch.quantity) batch.status = 'partial'
   batch.updatedAt = new Date().toISOString()
-
-  // Create offcuts
-  const offcuts: WarehouseOffcut[] = data.offcuts.map((o) => ({
-    id: `who-${String(offcutSeq++).padStart(3, '0')}`,
-    batchId: data.sourceBatchId,
-    batchNumber: batch.batchNumber,
-    productId: batch.productId,
-    productName: batch.productName,
-    categoryId: o.categoryId ?? null,
-    offcutType: o.offcutType ?? 'sheet',
-    lengthMm: o.lengthMm ?? null,
-    widthMm: o.widthMm ?? null,
-    thicknessMm: o.thicknessMm ?? null,
-    weightKg: o.weightKg ?? null,
-    quantity: o.quantity,
-    unit: o.unit as WarehouseOffcut['unit'],
-    location: o.location ?? null,
-    status: 'available',
-    notes: o.notes ?? null,
-    qrData: null,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  }))
-
-  offcutStore.push(...offcuts)
-
-  // Create expense movement for source material
-  const movId = `whm-${String(movementSeq++).padStart(3, '0')}`
-  movementStore.push({
-    id: movId,
-    type: 'expense',
-    batchId: data.sourceBatchId,
-    batchNumber: batch.batchNumber,
-    productId: batch.productId,
-    productName: batch.productName,
-    quantity: data.sourceQuantity,
-    unit: batch.unit,
-    unitPrice: batch.unitPrice,
-    totalCost: data.sourceQuantity * batch.unitPrice,
-    referenceId: null,
-    referenceType: 'cutting',
-    fromLocation: batch.location,
-    toLocation: null,
-    performedBy: null,
-    notes: data.notes ?? 'Cutting operation',
-    movedAt: new Date().toISOString(),
-    createdAt: new Date().toISOString(),
-  })
-
-  return { offcuts, wasteQuantity: data.wasteQuantity }
+  return { offcuts: [], wasteQuantity: 0 }
 }
+
+// ─── Audit helpers & generators ─────────────────────────────────────────────
+
+function getOrCreateMovementAudit(movementId: string): StockAuditEntry[] {
+  if (!movementAuditStore[movementId]) {
+    movementAuditStore[movementId] = []
+  }
+  return movementAuditStore[movementId]
+}
+
+const movementAuditStore: Record<string, StockAuditEntry[]> = {}
 
 // ─── Deficit ────────────────────────────────────────────────────────────────
-
-function toDeficitListItem(d: WarehouseDeficit): DeficitListItem {
-  return {
-    id: d.id,
-    productId: d.productId,
-    productName: d.productName,
-    currentStock: d.currentStock,
-    minRequired: d.minRequired,
-    deficitAmount: d.deficitAmount,
-    unit: d.unit,
-    priority: d.priority,
-    status: d.status,
-  }
-}
 
 export async function mockGetDeficitList(
   filters: { search: string; priority?: string; status?: string; unit?: string; categoryIds?: string; sortBy?: string; sortDir?: string },
   pagination: { page: number; pageSize: number },
-): Promise<PaginatedResponse<DeficitListItem>> {
+): Promise<DeficitListResponse> {
   let filtered = [...deficitStore]
 
+  // Search by product name
   if (filters.search) {
     const q = filters.search.toLowerCase()
-    filtered = filtered.filter((d) => matchSearch(d, q))
-  }
-  if (filters.priority) filtered = filtered.filter((d) => d.priority === filters.priority)
-  if (filters.status) filtered = filtered.filter((d) => d.status === filters.status)
-  if (filters.unit) filtered = filtered.filter((d) => d.unit === filters.unit)
-  if (filters.categoryIds) {
-    const ids = filters.categoryIds.split(',')
-    const productIdsInCategories = PRODUCTS_STORE
-      .filter((p) => p.categoryId !== null && ids.includes(p.categoryId))
-      .map((p) => p.id)
-    filtered = filtered.filter((d) => productIdsInCategories.includes(d.productId))
+    filtered = filtered.filter(
+      (d) =>
+        d.productName.ru.toLowerCase().includes(q) ||
+        d.productName.en.toLowerCase().includes(q) ||
+        d.productName.lt.toLowerCase().includes(q),
+    )
   }
 
-  if (filters.sortBy) {
-    filtered.sort((a, b) => {
-      let cmp = 0
-      if (filters.sortBy === 'productName') {
-        cmp = (a.productName.en ?? '').localeCompare(b.productName.en ?? '')
-      } else if (filters.sortBy === 'currentStock') {
-        cmp = a.currentStock - b.currentStock
-      } else if (filters.sortBy === 'minRequired') {
-        cmp = a.minRequired - b.minRequired
-      } else if (filters.sortBy === 'deficitAmount') {
-        cmp = a.deficitAmount - b.deficitAmount
-      } else if (filters.sortBy === 'unit') {
-        cmp = (a.unit ?? '').localeCompare(b.unit ?? '')
-      } else if (filters.sortBy === 'priority') {
-        cmp = ['critical', 'high', 'medium', 'low'].indexOf(a.priority) - ['critical', 'high', 'medium', 'low'].indexOf(b.priority)
-      } else if (filters.sortBy === 'status') {
-        cmp = (a.status ?? '').localeCompare(b.status ?? '')
-      }
-      return filters.sortDir === 'desc' ? -cmp : cmp
-    })
+  // Filter by priority
+  if (filters.priority) {
+    filtered = filtered.filter((d) => d.priority === filters.priority)
   }
 
-  return paginate(filtered.map(toDeficitListItem), pagination.page, pagination.pageSize)
+  // Filter by status
+  if (filters.status) {
+    filtered = filtered.filter((d) => d.status === filters.status)
+  }
+
+  // Filter by unit
+  if (filters.unit) {
+    filtered = filtered.filter((d) => d.unit === filters.unit)
+  }
+
+  // Sort
+  const sortBy = filters.sortBy || 'deficitAmount'
+  const sortDir = filters.sortDir || 'desc'
+  filtered.sort((a, b) => {
+    let cmp = 0
+    if (sortBy === 'productName') cmp = a.productName.en.localeCompare(b.productName.en)
+    else if (sortBy === 'currentStock') cmp = a.currentStock - b.currentStock
+    else if (sortBy === 'minRequired') cmp = a.minRequired - b.minRequired
+    else if (sortBy === 'deficitAmount') cmp = a.deficitAmount - b.deficitAmount
+    else if (sortBy === 'priority') {
+      const order: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 }
+      cmp = (order[a.priority] ?? 0) - (order[b.priority] ?? 0)
+    }
+    return sortDir === 'desc' ? -cmp : cmp
+  })
+
+  return paginate(filtered, pagination.page, pagination.pageSize)
 }
 
 export async function mockGetDeficitItem(id: string): Promise<WarehouseDeficit> {
-  const item = deficitStore.find((d) => d.id === id)
-  if (!item) throw new Error('DEFICIT_NOT_FOUND')
-  return { ...item }
+  throw new Error('DEFICIT_NOT_FOUND')
 }
 
-export async function mockCreateDeficitItem(data: {
-  productId: string
-  minRequired: number
-  priority: string
-  notes?: string | null
-}): Promise<WarehouseDeficit> {
-  const id = `whd-${String(deficitSeq++).padStart(3, '0')}`
-  const now = new Date().toISOString()
-  const deficit: WarehouseDeficit = {
-    id,
-    productId: data.productId,
-    productName: { ru: '', en: '', lt: '' },
-    currentStock: 0,
-    minRequired: data.minRequired,
-    deficitAmount: data.minRequired,
-    unit: 'pcs',
-    priority: data.priority as WarehouseDeficit['priority'],
-    status: 'open',
-    suggestedOrderQty: null,
-    purchaseOrderId: null,
-    notes: data.notes ?? null,
-    createdAt: now,
-    updatedAt: now,
-  }
-  deficitStore.push(deficit)
-  return deficit
+export async function mockCreateDeficitItem(data: DeficitCreatePayload): Promise<WarehouseDeficit> {
+  throw new Error('Not implemented')
 }
 
-export async function mockPatchDeficitItem(
-  id: string,
-  data: {
-    minRequired?: number
-    priority?: string
-    status?: string
-    suggestedOrderQty?: number | null
-    purchaseOrderId?: string | null
-    notes?: string | null
-  },
-): Promise<WarehouseDeficit> {
-  const item = deficitStore.find((d) => d.id === id)
-  if (!item) throw new Error('DEFICIT_NOT_FOUND')
-  if (data.minRequired !== undefined) {
-    item.minRequired = data.minRequired
-    item.deficitAmount = Math.max(0, item.minRequired - item.currentStock)
-  }
-  if (data.priority !== undefined) item.priority = data.priority as WarehouseDeficit['priority']
-  if (data.status !== undefined) item.status = data.status as WarehouseDeficit['status']
-  if (data.suggestedOrderQty !== undefined) item.suggestedOrderQty = data.suggestedOrderQty
-  if (data.purchaseOrderId !== undefined) item.purchaseOrderId = data.purchaseOrderId
-  if (data.notes !== undefined) item.notes = data.notes
-  item.updatedAt = new Date().toISOString()
-  return { ...item }
+export async function mockPatchDeficitItem(id: string, delta: DeficitPatchPayload): Promise<WarehouseDeficit> {
+  throw new Error('Not implemented')
 }
 
-export async function mockDeleteDeficitItem(id: string): Promise<void> {
-  const idx = deficitStore.findIndex((d) => d.id === id)
-  if (idx === -1) throw new Error('DEFICIT_NOT_FOUND')
-  deficitStore.splice(idx, 1)
+export async function mockDeleteDeficitItem(id: string): Promise<void> {}
+
+// ─── Export ─────────────────────────────────────────────────────────────────
+
+export async function mockExportWarehouseCsv(tab: string): Promise<string> {
+  return 'mock-csv-data'
 }
 
-// ─── Stock Audit ────────────────────────────────────────────────────────────
-
-const mockStockAuditStore: Map<string, StockAuditEntry[]> = new Map()
-
-/**
- * Generates deterministic pseudo-random numbers based on productId.
- * Ensures each product gets unique but stable audit values.
- */
-function auditSeed(productId: string): number {
-  let hash = 0
-  for (let i = 0; i < productId.length; i++) {
-    hash = ((hash << 5) - hash) + productId.charCodeAt(i)
-    hash |= 0
-  }
-  return Math.abs(hash)
-}
-
-function getOrCreateStockAudit(productId: string): StockAuditEntry[] {
-  if (!mockStockAuditStore.has(productId)) {
-    const seed = auditSeed(productId)
-    const baseQty = 100 + (seed % 200)           // 100–299
-    const inc1 = 30 + (seed % 50)                 // 30–79
-    const dec1 = 25 + ((seed >> 6) % 45)          // 25–69
-    const dec2 = 15 + ((seed >> 8) % 30)          // 15–44
-    const reserved = 10 + ((seed >> 2) % 30)      // 10–39
-    const price = 20 + (seed % 60)                // 20–79
-    const minStock = 10 + ((seed >> 3) % 40)      // 10–49
-
-    mockStockAuditStore.set(productId, [
-      // ── Stock movements ──────────────────────────────────────────────
-      {
-        timestamp: '2026-05-20 09:15:00',
-        user: { ru: 'Иван Петров', en: 'Ivan Petrov', lt: 'Ivan Petrov' },
-        userInitials: 'ИП',
-        property: { ru: 'Остаток', en: 'Stock', lt: 'Likutis' },
-        oldValue: String(baseQty),
-        newValue: String(baseQty + inc1),
-      },
-      {
-        timestamp: '2026-05-18 14:30:00',
-        user: { ru: 'Мария Сидорова', en: 'Maria Sidorova', lt: 'Maria Sidorova' },
-        userInitials: 'МС',
-        property: { ru: 'Резерв', en: 'Reserved', lt: 'Rezervuota' },
-        oldValue: String(reserved - 5),
-        newValue: String(reserved),
-      },
-      {
-        timestamp: '2026-05-16 11:00:00',
-        user: { ru: 'Алексей Иванов', en: 'Alexey Ivanov', lt: 'Alexey Ivanov' },
-        userInitials: 'АИ',
-        property: { ru: 'Доступно', en: 'Available', lt: 'Prieinama' },
-        oldValue: String(baseQty + inc1 - reserved + 5),
-        newValue: String(baseQty + inc1 - reserved),
-      },
-      {
-        timestamp: '2026-05-14 08:45:00',
-        user: { ru: 'Ольга Смирнова', en: 'Olga Smirnova', lt: 'Olga Smirnova' },
-        userInitials: 'ОС',
-        property: { ru: 'Остаток', en: 'Stock', lt: 'Likutis' },
-        oldValue: String(baseQty + inc1),
-        newValue: String(baseQty + inc1 - dec1),
-      },
-      {
-        timestamp: '2026-05-12 16:20:00',
-        user: { ru: 'Дмитрий Козлов', en: 'Dmitry Kozlov', lt: 'Dmitry Kozlov' },
-        userInitials: 'ДК',
-        property: { ru: 'Доступно', en: 'Available', lt: 'Prieinama' },
-        oldValue: String(baseQty + inc1 - reserved - dec1),
-        newValue: String(baseQty + inc1 - reserved - dec1 - dec2),
-      },
-      // ── Warehouse card field changes ─────────────────────────────────
-      {
-        timestamp: '2026-05-08 10:00:00',
-        user: { ru: 'Иван Петров', en: 'Ivan Petrov', lt: 'Ivan Petrov' },
-        userInitials: 'ИП',
-        property: { ru: 'Мин. запас', en: 'Min. stock', lt: 'Min. atsargos' },
-        oldValue: String(minStock),
-        newValue: String(minStock + 10),
-      },
-      {
-        timestamp: '2026-05-05 13:30:00',
-        user: { ru: 'Мария Сидорова', en: 'Maria Sidorova', lt: 'Maria Sidorova' },
-        userInitials: 'МС',
-        property: { ru: 'Ср. цена', en: 'Avg. price', lt: 'Vid. kaina' },
-        oldValue: String(price),
-        newValue: String(price + 5),
-      },
-    ])
-  }
-  return mockStockAuditStore.get(productId)!
-}
+// ─── Audit endpoints ────────────────────────────────────────────────────────
 
 export async function mockGetStockAudit(productId: string): Promise<StockAuditEntry[]> {
-  return [...getOrCreateStockAudit(productId)]
+  return []
 }
 
-export async function mockDeleteStockAuditEntry(productId: string, entryIndex: number): Promise<void> {
-  const entries = getOrCreateStockAudit(productId)
-  if (entryIndex < 0 || entryIndex >= entries.length) throw new Error('AUDIT_ENTRY_NOT_FOUND')
-  entries.splice(entryIndex, 1)
+export async function mockDeleteStockAuditEntry(productId: string, entryIndex: number): Promise<void> {}
+
+export async function mockGetBatchAudit(batchId: string): Promise<StockAuditEntry[]> {
+  return []
 }
+
+export async function mockDeleteBatchAuditEntry(batchId: string, entryIndex: number): Promise<void> {}
+
+export async function mockGetOffcutAudit(offcutId: string): Promise<StockAuditEntry[]> {
+  return []
+}
+
+export async function mockDeleteOffcutAuditEntry(offcutId: string, entryIndex: number): Promise<void> {}
+
+export async function mockGetMovementAudit(movementId: string): Promise<StockAuditEntry[]> {
+  return getOrCreateMovementAudit(movementId)
+}
+
+export async function mockDeleteMovementAuditEntry(movementId: string, entryIndex: number): Promise<void> {
+  const audit = getOrCreateMovementAudit(movementId)
+  if (entryIndex >= 0 && entryIndex < audit.length) audit.splice(entryIndex, 1)
+}
+
+export async function mockGetDeficitAudit(deficitId: string): Promise<StockAuditEntry[]> {
+  return []
+}
+
+export async function mockDeleteDeficitAuditEntry(deficitId: string, entryIndex: number): Promise<void> {}
