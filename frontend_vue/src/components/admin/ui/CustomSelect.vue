@@ -14,6 +14,7 @@ const props = defineProps<{
   options: SelectOption[]
   openUp?: boolean
   placeholder?: string
+  disabled?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -30,6 +31,7 @@ const selectedLabel = computed(() => {
 })
 
 function toggle() {
+  if (props.disabled) return
   open.value = !open.value
 }
 
@@ -50,7 +52,11 @@ onBeforeUnmount(() => document.removeEventListener('click', onClickOutside))
 
 <template>
   <div ref="wrapRef" class="custom-select-wrap">
-    <div class="glass-input custom-select-trigger" @click="toggle">
+    <div
+      class="glass-input custom-select-trigger"
+      :class="{ disabled: disabled }"
+      @click="toggle"
+    >
       <div class="curr-val">
         <slot name="selected" :label="selectedLabel" :value="modelValue">
           <span :class="{ placeholder: !modelValue && placeholder }">{{ selectedLabel }}</span>
@@ -87,3 +93,11 @@ onBeforeUnmount(() => document.removeEventListener('click', onClickOutside))
     </div>
   </div>
 </template>
+
+<style scoped>
+.custom-select-trigger.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+</style>

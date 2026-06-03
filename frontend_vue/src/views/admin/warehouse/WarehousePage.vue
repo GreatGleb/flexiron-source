@@ -18,8 +18,8 @@ import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
 import MultiSelect from '@/components/admin/ui/MultiSelect.vue'
 import DatePicker from '@/components/admin/ui/DatePicker.vue'
 import AppModal from '@/components/admin/ui/AppModal.vue'
-import CreateBatchModal from './CreateBatchModal.vue'
-import CreateMovementModal from './CreateMovementModal.vue'
+// DEPRECATED: import CreateBatchModal from './CreateBatchModal.vue' (batch creation moved to WarehouseBatchCreatePage)
+// DEPRECATED: import CreateMovementModal from './CreateMovementModal.vue' (movement creation removed from UI)
 import '@styles/admin/components/_pagination.css'
 import '@styles/admin/warehouse_list.css'
 
@@ -74,10 +74,10 @@ const {
   toggleMovementsSort,
   deficitSort,
   toggleDeficitSort,
-  showCreateBatchModal,
-  showCreateMovementModal,
-  onBatchCreated,
-  onMovementCreated,
+  // DEPRECATED: showCreateBatchModal (batch creation moved to WarehouseBatchCreatePage)
+  // DEPRECATED: showCreateMovementModal (removed from UI)
+  // DEPRECATED: onBatchCreated (batch creation moved to WarehouseBatchCreatePage)
+  // DEPRECATED: onMovementCreated (removed from UI)
   updateOffcutStatus,
   updateDeficitStatus,
   tf,
@@ -542,6 +542,7 @@ const MOVEMENT_TYPE_PILL: Record<MovementType, string> = {
   production: 'pill-secondary',
   sale: 'pill-mint',
   storage: 'pill-info',
+  offcut: 'pill-offcut',
 }
 
 const DEFICIT_STATUS_PILL: Record<DeficitStatus, string> = {
@@ -789,7 +790,7 @@ const deficitFiltersActive = computed(() => {
           v-if="activeTab === 'batches'"
           class="btn btn-primary"
           data-test="warehouse-new-batch-btn"
-          @click="showCreateBatchModal = true"
+          @click="router.push({ name: 'admin-warehouse-batch-create' })"
         >
           <SvgIcon name="plus-add" :width="18" :height="18" stroke-width="2" />
           <span>{{ t('warehouse.btn_new_batch') }}</span>
@@ -804,17 +805,6 @@ const deficitFiltersActive = computed(() => {
         >
           <SvgIcon name="scissors" :width="18" :height="18" />
           <span>{{ t('warehouse.btn_new_offcut') }}</span>
-        </button>
-
-        <!-- Movements tab: new movement -->
-        <button
-          v-if="activeTab === 'movements'"
-          class="btn btn-primary"
-          data-test="warehouse-new-movement-btn"
-          @click="showCreateMovementModal = true"
-        >
-          <SvgIcon name="plus-add" :width="18" :height="18" stroke-width="2" />
-          <span>{{ t('warehouse.btn_new_movement') }}</span>
         </button>
 
         <!-- Page config stub (all tabs) — feature-flagged per tab -->
@@ -3271,17 +3261,9 @@ const deficitFiltersActive = computed(() => {
     </AppModal>
 
     <!-- ════════════════════════════════════════════════════════════════════════
-         Create modals
+         Create modals (DEPRECATED)
          ════════════════════════════════════════════════════════════════════════ -->
-    <CreateBatchModal
-      :show="showCreateBatchModal"
-      @close="showCreateBatchModal = false"
-      @created="onBatchCreated"
-    />
-    <CreateMovementModal
-      :show="showCreateMovementModal"
-      @close="showCreateMovementModal = false"
-      @created="onMovementCreated"
-    />
+    <!-- DEPRECATED: <CreateBatchModal> removed — batch creation moved to WarehouseBatchCreatePage -->
+    <!-- DEPRECATED: <CreateMovementModal> removed from UI -->
   </div>
 </template>

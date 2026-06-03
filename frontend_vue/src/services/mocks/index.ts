@@ -409,7 +409,7 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
   // ── Warehouse Export ──
   const exportMatch = path.match(/^\/api\/warehouse\/export\/(stock|batches|offcuts|movements|deficit)$/)
   if (exportMatch) {
-    return delay(mockExportWarehouseCsv(exportMatch[1] as string, params ?? {}) as T)
+    return delay(mockExportWarehouseCsv(exportMatch[1] as string) as T)
   }
 
   throw new Error(`[mock] GET ${path} not found`)

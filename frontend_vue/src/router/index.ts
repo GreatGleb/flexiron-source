@@ -200,6 +200,12 @@ const routes: RouteRecordRaw[] = [
         meta: { layout: 'admin', featureFlag: 'adminWarehouse' as FeatureFlagKey },
       },
       {
+        path: 'warehouse/batches/new',
+        name: 'admin-warehouse-batch-create',
+        component: () => import('@/views/admin/warehouse/WarehouseBatchCreatePage.vue'),
+        meta: { layout: 'admin', featureFlag: 'adminWarehouse' as FeatureFlagKey },
+      },
+      {
         path: 'warehouse/movements/:id',
         name: 'admin-warehouse-movement',
         component: () => import('@/views/admin/warehouse/WarehouseMovementCard.vue'),

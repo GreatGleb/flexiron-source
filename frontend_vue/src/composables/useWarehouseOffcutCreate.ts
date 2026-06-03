@@ -246,7 +246,7 @@ export function useWarehouseOffcutCreate() {
   })
 
   // ─── Save ─────────────────────────────────────────────────────────────────
-  async function save(): Promise<WarehouseOffcut | null> {
+  async function save(fileIds?: string[]): Promise<WarehouseOffcut | null> {
     // Validate required fields
     if (!form.batchId || !form.productId) {
       error.value = t('warehouse.toast_offcut_create_error')
@@ -264,6 +264,10 @@ export function useWarehouseOffcutCreate() {
         form.locationCell,
         form.locationNotes,
       )
+      // Attach file IDs if provided
+      if (fileIds && fileIds.length > 0) {
+        form.fileIds = fileIds
+      }
       const offcut = await createOffcut(form)
       toast.success(t('warehouse.toast_offcut_created'))
       return offcut

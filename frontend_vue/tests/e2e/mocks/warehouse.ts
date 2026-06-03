@@ -5,6 +5,107 @@ import { mockMovements } from '../../../src/mocks/warehouse-movements'
 import { mockDeficit } from '../../../src/mocks/warehouse-deficit'
 import { mockStockOverview } from '../../../src/mocks/warehouse-stock'
 
+// ─── Product mock data for batch/offcut create pages ─────────────────────────
+const MOCK_PRODUCTS_FOR_CREATE: Array<{
+  id: string
+  name: { en: string; ru: string; lt: string }
+  categoryId: string
+  categoryName: { en: string; ru: string; lt: string }
+}> = [
+  {
+    id: 'prod-001',
+    name: { en: 'Steel Sheet 3mm', ru: 'Стальной лист 3мм', lt: 'Plieno lakštas 3mm' },
+    categoryId: 'cat-2',
+    categoryName: { en: 'Sheets', ru: 'Листы', lt: 'Lakštai' },
+  },
+  {
+    id: 'prod-002',
+    name: { en: 'Aluminium Sheet 2mm', ru: 'Алюминиевый лист 2мм', lt: 'Aliuminio lakštas 2mm' },
+    categoryId: 'cat-2',
+    categoryName: { en: 'Sheets', ru: 'Листы', lt: 'Lakštai' },
+  },
+  {
+    id: 'prod-003',
+    name: { en: 'Steel Beam IPE 200', ru: 'Стальная балка IPE 200', lt: 'Plieninė sija IPE 200' },
+    categoryId: 'cat-1',
+    categoryName: { en: 'Metal Products', ru: 'Металлопрокат', lt: 'Metalo gaminiai' },
+  },
+]
+
+const MOCK_PRODUCT_DETAIL: Record<string, Record<string, unknown>> = {
+  'prod-001': {
+    id: 'prod-001',
+    name: { en: 'Steel Sheet 3mm', ru: 'Стальной лист 3мм', lt: 'Plieno lakštas 3mm' },
+    categoryId: 'cat-2',
+    categoryName: { en: 'Sheets', ru: 'Листы', lt: 'Lakštai' },
+    sku: 'SS-3-1000',
+    description: 'Hot-rolled steel sheet, 1000x2000mm',
+    price: 120.50,
+    minStock: 50,
+    priceUnit: 'EUR/kg',
+    createdAt: '2025-01-15',
+    fieldValues: [],
+    linkedSuppliers: [
+      { id: '1', name: { en: 'Steel Plus OÜ', ru: 'Steel Plus OÜ', lt: 'Steel Plus OÜ' }, price: 115.00, priceUnit: 'EUR/kg', leadDays: 7 },
+    ],
+    auditLog: [],
+  },
+}
+
+const MOCK_SUPPLIERS_LIST = [
+  { id: 'sup-001', company: 'Steel Plus OÜ' },
+  { id: 'sup-002', company: 'Metal Trade LT' },
+]
+
+// ─── Product/Supplier mock helpers ────────────────────────────────────────────
+
+function isSingleProductRequest(url: URL): boolean {
+  const match = url.pathname.match(/^\/api\/products\/([^/]+)$/)
+  return match !== null && match[1] !== undefined
+}
+
+/**
+ * Mock GET /api/products (paginated product list)
+ */
+export async function mockProductList(page: Page, data = MOCK_PRODUCTS_FOR_CREATE, status?: number) {
+  await page.route('**/api/products**', async (route) => {
+    const url = new URL(route.request().url())
+    if (route.request().method() !== 'GET') return route.fallback()
+    if (isSingleProductRequest(url)) return route.fallback()
+    if (status && status >= 400) {
+      return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ error: 'Mock error' }) })
+    }
+    return route.fulfill(jsonResponse(paginate(data, url))(route))
+  })
+}
+
+/**
+ * Mock GET /api/products/:id (single product detail)
+ */
+export async function mockProductDetail(page: Page, productId: string, status?: number) {
+  await page.route(`**/api/products/${productId}**`, async (route) => {
+    if (route.request().method() !== 'GET') return route.fallback()
+    if (status && status >= 400) {
+      return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ error: 'Mock error' }) })
+    }
+    const product = MOCK_PRODUCT_DETAIL[productId] ?? null
+    return route.fulfill({ status: product ? 200 : 404, contentType: 'application/json', body: JSON.stringify(product) })
+  })
+}
+
+/**
+ * Mock GET /api/suppliers/list (supplier dropdown list)
+ */
+export async function mockSupplierList(page: Page, data = MOCK_SUPPLIERS_LIST, status?: number) {
+  await page.route('**/api/suppliers/list', async (route) => {
+    if (route.request().method() !== 'GET') return route.fallback()
+    if (status && status >= 400) {
+      return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ error: 'Mock error' }) })
+    }
+    return route.fulfill(jsonResponse(data)(route))
+  })
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function paginate<T>(items: T[], url: URL): { items: T[]; total: number; page: number; pageSize: number; totalPages: number } {
@@ -34,6 +135,27 @@ function isSingleDeficitRequest(url: URL): boolean {
   return match !== null && match[1] !== undefined
 }
 
+function isSingleOffcutRequest(url: URL): boolean {
+  // /api/warehouse/offcuts/{id} — but NOT /api/warehouse/offcuts?...
+  const path = url.pathname
+  const match = path.match(/\/api\/warehouse\/offcuts\/([^/]+)$/)
+  return match !== null && match[1] !== undefined
+}
+
+function isSingleMovementRequest(url: URL): boolean {
+  // /api/warehouse/movements/{id} — but NOT /api/warehouse/movements?...
+  const path = url.pathname
+  const match = path.match(/\/api\/warehouse\/movements\/([^/]+)$/)
+  return match !== null && match[1] !== undefined
+}
+
+function isSingleStockRequest(url: URL): boolean {
+  // /api/warehouse/stock/{id} — but NOT /api/warehouse/stock?...
+  const path = url.pathname
+  const match = path.match(/\/api\/warehouse\/stock\/([^/]+)$/)
+  return match !== null && match[1] !== undefined
+}
+
 function extractId(url: URL): string | null {
   const segments = url.pathname.split('/')
   return segments[segments.length - 1] || null
@@ -42,13 +164,18 @@ function extractId(url: URL): string | null {
 // ─── Granular mock functions ──────────────────────────────────────────────────
 
 /**
- * Mock GET /api/warehouse/stock
+ * Mock GET /api/warehouse/stock (list) or GET /api/warehouse/stock/:productId (single)
  */
 export async function mockStockList(page: Page, data = mockStockOverview, status?: number) {
   await page.route('**/api/warehouse/stock**', async (route) => {
     const url = new URL(route.request().url())
     if (status && status >= 400) {
       return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ error: 'Mock error' }) })
+    }
+    if (isSingleStockRequest(url)) {
+      const id = extractId(url)
+      const item = data.find((s) => s.productId === id) ?? null
+      return route.fulfill({ status: item ? 200 : 404, contentType: 'application/json', body: JSON.stringify(item) })
     }
     return route.fulfill(jsonResponse(paginate(data, url))(route))
   })
@@ -125,13 +252,18 @@ export async function mockDeleteBatch(page: Page, batchId: string, status?: numb
 }
 
 /**
- * Mock GET /api/warehouse/offcuts
+ * Mock GET /api/warehouse/offcuts (list) or GET /api/warehouse/offcuts/:id (single)
  */
 export async function mockOffcutsList(page: Page, data = mockOffcuts, status?: number) {
   await page.route('**/api/warehouse/offcuts**', async (route) => {
     const url = new URL(route.request().url())
     if (status && status >= 400) {
       return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ error: 'Mock error' }) })
+    }
+    if (isSingleOffcutRequest(url)) {
+      const id = extractId(url)
+      const offcut = data.find((o) => o.id === id) ?? null
+      return route.fulfill({ status: offcut ? 200 : 404, contentType: 'application/json', body: JSON.stringify(offcut) })
     }
     return route.fulfill(jsonResponse(paginate(data, url))(route))
   })
@@ -164,13 +296,18 @@ export async function mockDeleteOffcut(page: Page, offcutId: string, status?: nu
 }
 
 /**
- * Mock GET /api/warehouse/movements
+ * Mock GET /api/warehouse/movements (list) or GET /api/warehouse/movements/:id (single)
  */
 export async function mockMovementsList(page: Page, data = mockMovements, status?: number) {
   await page.route('**/api/warehouse/movements**', async (route) => {
     const url = new URL(route.request().url())
     if (status && status >= 400) {
       return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ error: 'Mock error' }) })
+    }
+    if (isSingleMovementRequest(url)) {
+      const id = extractId(url)
+      const movement = data.find((m) => m.id === id) ?? null
+      return route.fulfill({ status: movement ? 200 : 404, contentType: 'application/json', body: JSON.stringify(movement) })
     }
     return route.fulfill(jsonResponse(paginate(data, url))(route))
   })
@@ -256,6 +393,19 @@ export async function mockDeleteDeficit(page: Page, deficitId: string, status?: 
       return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ error: 'Mock error' }) })
     }
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) })
+  })
+}
+
+/**
+ * Mock GET /api/warehouse/stock/:productId (single stock item)
+ */
+export async function mockStockDetail(page: Page, productId: string, data?: unknown, status?: number) {
+  await page.route(`**/api/warehouse/stock/${productId}**`, async (route) => {
+    if (status && status >= 400) {
+      return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ error: 'Mock error' }) })
+    }
+    const stock = data ?? null
+    return route.fulfill({ status: stock ? 200 : 404, contentType: 'application/json', body: JSON.stringify(stock) })
   })
 }
 

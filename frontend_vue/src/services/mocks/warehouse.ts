@@ -1,23 +1,18 @@
-import { i18n } from '@/i18n'
-import { STORE as PRODUCTS_STORE } from './products'
 import type {
   WarehouseBatch,
-  BatchListItem,
   WarehouseOffcut,
-  OffcutListItem,
   WarehouseMovement,
   MovementListItem,
   MovementType,
   WarehouseDeficit,
+  DeficitListResponse,
   DeficitListItem,
   StockOverviewItem,
   StockAuditEntry,
   StockUnit,
   CuttingOperation,
-  OffcutStatus,
   BatchStatusAggregate,
   BatchActiveSale,
-  DeficitListResponse,
   StockOverviewResponse,
   StockPatchPayload,
   BatchListResponse,
@@ -29,16 +24,14 @@ import type {
   DeficitCreatePayload,
   DeficitPatchPayload,
 } from '@/types/warehouse'
-import type { TranslatedString } from '@/types/i18n'
 import type { PaginatedResponse } from '@/types/api'
+import { STORE as PRODUCTS_STORE } from './products'
 import {
   mockBatches as mockBatchesData,
   mockOffcuts as mockOffcutsData,
   mockMovements as mockMovementsData,
   mockDeficit as mockDeficitData,
   mockStockOverview as mockStockOverviewData,
-  mockBatchAggregates as mockBatchAggregatesData,
-  mockBatchActiveSales as mockBatchActiveSalesData,
 } from '@/mocks/warehouse'
 
 // ─── In-memory stores ───────────────────────────────────────────────────────
@@ -208,11 +201,11 @@ export async function mockGetStockOverview(
   // Filter by category
   if (filters.categoryIds) {
     const cats = filters.categoryIds.split(',').filter(Boolean)
-    if (cats.length > 0) filtered = filtered.filter((s) => cats.includes(s.categoryId))
+    if (cats.length > 0) filtered = filtered.filter((s) => cats.includes(s.categoryId!))
   }
   if (filters.unit) filtered = filtered.filter((s) => s.unit === filters.unit)
-  if (filters.showDeficitOnly === 'true') filtered = filtered.filter((s) => s.quantityRemaining <= 0)
-  if (filters.showInStockOnly === 'true') filtered = filtered.filter((s) => s.quantityRemaining > 0)
+  if (filters.showDeficitOnly === 'true') filtered = filtered.filter((s) => s.isDeficit)
+  if (filters.showInStockOnly === 'true') filtered = filtered.filter((s) => s.availableQuantity > 0)
 
   // Sort
   const sortBy = filters.sortBy || 'productName'
@@ -220,16 +213,18 @@ export async function mockGetStockOverview(
   filtered.sort((a, b) => {
     let cmp = 0
     if (sortBy === 'productName') cmp = a.productName.en.localeCompare(b.productName.en)
-    else if (sortBy === 'quantityRemaining') cmp = a.quantityRemaining - b.quantityRemaining
-    else if (sortBy === 'unitPrice') cmp = a.unitPrice - b.unitPrice
-    else if (sortBy === 'updatedAt') cmp = a.updatedAt.localeCompare(b.updatedAt)
+    else if (sortBy === 'totalQuantity') cmp = a.totalQuantity - b.totalQuantity
+    else if (sortBy === 'availableQuantity') cmp = a.availableQuantity - b.availableQuantity
+    else if (sortBy === 'avgUnitPrice') cmp = a.avgUnitPrice - b.avgUnitPrice
+    else if (sortBy === 'totalValue') cmp = a.totalValue - b.totalValue
+    else if (sortBy === 'minStock') cmp = (a.minStock ?? 0) - (b.minStock ?? 0)
     return sortDir === 'desc' ? -cmp : cmp
   })
 
   return paginateStock(filtered, pagination.page, pagination.pageSize)
 }
 
-function paginateStock<T>(items: T[], page: number, pageSize: number): StockOverviewResponse {
+function paginateStock(items: StockOverviewItem[], page: number, pageSize: number): StockOverviewResponse {
   const total = items.length
   const start = (page - 1) * pageSize
   return {
@@ -333,7 +328,10 @@ export async function mockCreateBatch(data: {
   const batch: WarehouseBatch = {
     id,
     productId: data.productId,
-    productName: { ru: '', en: '', lt: '' },
+    productName: (() => {
+      const product = PRODUCTS_STORE.find(p => p.id === data.productId)
+      return product ? { ...product.name } : { ru: '', en: '', lt: '' }
+    })(),
     supplierId: data.supplierId || null,
     supplierName: null,
     batchNumber: data.batchNumber,
@@ -350,10 +348,10 @@ export async function mockCreateBatch(data: {
     certificateRef: null,
     status: 'available',
     notes: data.notes || null,
+    orderId: null,
     files: [],
     createdAt: now,
     updatedAt: now,
-    auditLog: [],
   }
   batchStore.push(batch)
   return batch
@@ -408,9 +406,9 @@ export async function mockGetOffcuts(
   if (filters.offcutType) filtered = filtered.filter((o) => o.offcutType === filters.offcutType)
   if (filters.categoryIds) {
     const cats = filters.categoryIds.split(',').filter(Boolean)
-    if (cats.length > 0) filtered = filtered.filter((o) => cats.includes(o.categoryId))
+    if (cats.length > 0) filtered = filtered.filter((o) => o.categoryId != null && cats.includes(o.categoryId))
   }
-  if (filters.batchNumber) filtered = filtered.filter((o) => o.batchNumber?.toLowerCase().includes(filters.batchNumber!.toLowerCase()))
+  if (filters.batchNumber) filtered = filtered.filter((o) => o.batchNumber?.toLowerCase() === filters.batchNumber!.toLowerCase())
   const sortBy = filters.sortBy || 'createdAt'
   const sortDir = filters.sortDir || 'desc'
   filtered.sort((a, b) => {
@@ -418,7 +416,6 @@ export async function mockGetOffcuts(
     if (sortBy === 'createdAt') cmp = a.createdAt.localeCompare(b.createdAt)
     else if (sortBy === 'productName') cmp = a.productName.en.localeCompare(b.productName.en)
     else if (sortBy === 'quantity') cmp = a.quantity - b.quantity
-    else if (sortBy === 'unitPrice') cmp = a.unitPrice - b.unitPrice
     return sortDir === 'desc' ? -cmp : cmp
   })
   return paginate(filtered, pagination.page, pagination.pageSize)
@@ -444,7 +441,7 @@ export async function mockCreateOffcut(data: OffcutCreatePayload): Promise<Wareh
     batchNumber,
     productId: data.productId,
     productName: batch?.productName ?? { ru: '', en: '', lt: '' },
-    categoryId: data.categoryId,
+    categoryId: data.categoryId ?? null,
     offcutType: data.offcutType ?? 'sheet',
     lengthMm: data.lengthMm ?? null,
     widthMm: data.widthMm ?? null,
@@ -522,15 +519,10 @@ function toMovementListItem(m: WarehouseMovement): MovementListItem {
     quantity: m.quantity,
     unit: m.unit,
     unitPrice: m.unitPrice,
-    totalCost: m.totalCost,
     referenceId: m.referenceId,
     referenceType: m.referenceType,
-    fromLocation: m.fromLocation,
-    toLocation: m.toLocation,
-    performedBy: m.performedBy,
     notes: m.notes,
     movedAt: m.movedAt,
-    createdAt: m.createdAt,
   }
 }
 
@@ -565,7 +557,7 @@ export async function mockGetMovements(
   if (filters.type) filtered = filtered.filter((m) => m.type === filters.type)
   if (filters.productId) filtered = filtered.filter((m) => m.productId === filters.productId)
   if (filters.unit) filtered = filtered.filter((m) => m.unit === filters.unit)
-  if (filters.batchNumber) filtered = filtered.filter((m) => m.batchNumber.toLowerCase().includes(filters.batchNumber!.toLowerCase()))
+  if (filters.batchNumber) filtered = filtered.filter((m) => m.batchNumber.toLowerCase() === filters.batchNumber!.toLowerCase())
   if (filters.referenceId) filtered = filtered.filter((m) => m.referenceId === filters.referenceId)
   if (filters.offcutId) filtered = filtered.filter((m) => m.offcutId === filters.offcutId)
   if (filters.dateFrom) filtered = filtered.filter((m) => m.movedAt >= filters.dateFrom!)
@@ -836,15 +828,40 @@ export async function mockGetDeficitList(
 }
 
 export async function mockGetDeficitItem(id: string): Promise<WarehouseDeficit> {
-  throw new Error('DEFICIT_NOT_FOUND')
+  const deficit = deficitStore.find((d) => d.id === id)
+  if (!deficit) throw new Error('DEFICIT_NOT_FOUND')
+  return { ...deficit }
 }
 
 export async function mockCreateDeficitItem(data: DeficitCreatePayload): Promise<WarehouseDeficit> {
-  throw new Error('Not implemented')
+  const id = `whd-${String(deficitSeq++).padStart(3, '0')}`
+  const now = new Date().toISOString()
+  const deficit: WarehouseDeficit = {
+    id,
+    productId: data.productId,
+    productName: { ru: '', en: '', lt: '' },
+    currentStock: 0,
+    minRequired: data.minRequired,
+    deficitAmount: data.minRequired,
+    unit: 'pcs',
+    priority: data.priority,
+    status: 'open',
+    suggestedOrderQty: null,
+    purchaseOrderId: null,
+    notes: data.notes ?? null,
+    createdAt: now,
+    updatedAt: now,
+    auditLog: [],
+  }
+  deficitStore.push(deficit)
+  return deficit
 }
 
 export async function mockPatchDeficitItem(id: string, delta: DeficitPatchPayload): Promise<WarehouseDeficit> {
-  throw new Error('Not implemented')
+  const deficit = deficitStore.find((d) => d.id === id)
+  if (!deficit) throw new Error('DEFICIT_NOT_FOUND')
+  Object.assign(deficit, delta, { updatedAt: new Date().toISOString() })
+  return { ...deficit }
 }
 
 export async function mockDeleteDeficitItem(id: string): Promise<void> {}

@@ -212,6 +212,8 @@ export interface OffcutCreatePayload {
   unit: StockUnit
   location?: string | null
   notes?: string | null
+  /** File IDs to attach to the offcut */
+  fileIds?: string[]
 }
 
 export interface OffcutPatchPayload {

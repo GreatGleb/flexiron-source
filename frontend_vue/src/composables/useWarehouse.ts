@@ -38,19 +38,17 @@ export function useWarehouse() {
   const activeTab = ref<WarehouseTab>('stock')
 
   // ─── Modal state ──────────────────────────────────────────────────────────────
-  const showCreateBatchModal = ref(false)
-  const showCreateMovementModal = ref(false)
+  // DEPRECATED: const showCreateBatchModal = ref(false) — batch creation moved to WarehouseBatchCreatePage
+  // DEPRECATED: const showCreateMovementModal = ref(false) — movement creation removed from UI
   const showCreateOffcutModal = ref(false)
 
-  function onBatchCreated() {
-    showCreateBatchModal.value = false
-    loadBatches()
-  }
+  // DEPRECATED: onBatchCreated() — batch creation moved to WarehouseBatchCreatePage
+  // function onBatchCreated() {
+  //   showCreateBatchModal.value = false
+  //   loadBatches()
+  // }
 
-  function onMovementCreated() {
-    showCreateMovementModal.value = false
-    loadMovements()
-  }
+  // DEPRECATED: onMovementCreated() — movement creation removed from UI
 
   function onOffcutCreated() {
     showCreateOffcutModal.value = false
@@ -586,8 +584,8 @@ export function useWarehouse() {
     deficitPagination,
 
     // Modal state
-    showCreateBatchModal,
-    showCreateMovementModal,
+    // DEPRECATED: showCreateBatchModal — batch creation moved to WarehouseBatchCreatePage
+    // DEPRECATED: showCreateMovementModal — movement creation removed from UI
     showCreateOffcutModal,
 
     // Actions
@@ -605,8 +603,8 @@ export function useWarehouse() {
     toggleOffcutsSort,
     toggleMovementsSort,
     toggleDeficitSort,
-    onBatchCreated,
-    onMovementCreated,
+    // DEPRECATED: onBatchCreated — batch creation moved to WarehouseBatchCreatePage
+    // DEPRECATED: onMovementCreated — movement creation removed from UI
     onOffcutCreated,
     updateOffcutStatus,
     updateDeficitPriority,

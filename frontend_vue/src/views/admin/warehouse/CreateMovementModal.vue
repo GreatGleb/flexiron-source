@@ -1,3 +1,4 @@
+<!-- DEPRECATED: Movement creation removed from UI. Keep file for backward compatibility / potential future use. -->
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -208,12 +209,6 @@ const totalInStockAfter = computed(() => {
   return base
 })
 
-/** Whether movement selection list should be shown (false for receipt — no existing movements to select) */
-const showMovementSelection = computed(() => {
-  if (!type.value) return true
-  return type.value !== 'receipt'
-})
-
 /** Step for quantity inputs: 1 for pcs, 0.01 for others */
 const quantityStep = computed(() => props.batch?.unit === 'pcs' ? 1 : 0.01)
 
@@ -222,11 +217,6 @@ const batchUnitLabel = computed(() => {
   if (!props.batch?.unit) return ''
   return t(`warehouse.unit_${props.batch.unit}`)
 })
-
-/** Navigate to movement card page */
-function openMovementCard(movementId: string) {
-  window.open(router.resolve({ name: 'admin-warehouse-movement', params: { id: movementId } }).href, '_blank')
-}
 
 // ─── Validation errors ───────────────────────────────────────────────────────
 

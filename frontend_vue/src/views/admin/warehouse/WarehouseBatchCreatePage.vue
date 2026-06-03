@@ -1,57 +1,44 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useHead } from '@/composables/useHead'
-import { useWarehouseOffcutCreate } from '@/composables/useWarehouseOffcutCreate'
+import { useWarehouseBatchCreate } from '@/composables/useWarehouseBatchCreate'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
 import Breadcrumb from '@/components/admin/Breadcrumb.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
 import SearchInput from '@/components/admin/ui/SearchInput.vue'
+import DatePicker from '@/components/admin/ui/DatePicker.vue'
 import FileItem from '@/components/admin/FileItem.vue'
 import DropZone from '@/components/admin/ui/DropZone.vue'
-import type { BatchStatus } from '@/types/warehouse'
-import type { UploadedFile } from '@/services/uploadsService'
-import { uploadFile } from '@/services/uploadsService'
 import '@styles/admin/warehouse_list.css'
 import '@styles/admin/components/_entity-card-layout.css'
 import '@styles/admin/components/_pagination.css'
 import '@styles/admin/components/_status-pills.css'
-
-// ─── Batch status pill mapping ──────────────────────────────────────────
-const BATCH_STATUS_PILL: Record<BatchStatus, string> = {
-  available: 'pill-success',
-  in_storage: 'pill-info',
-  in_production: 'pill-warning',
-  sold: 'pill-mint',
-  scrapped: 'pill-danger',
-  expensed: 'pill-expensed',
-  returned_to_supplier: 'pill-returned',
-  partial: 'pill-warning',
-  depleted: 'pill-consumed',
-  reserved: 'pill-info',
-  converted_to_offcuts: 'pill-offcut',
-}
+import type { UploadedFile } from '@/services/uploadsService'
 
 const { t } = useI18n()
 const router = useRouter()
 
 const {
-  form, saving, save,
+  form, saving, errors, isFormValid,
   productsLoading, productSearch, productCategoryFilter, categoryFilterOptions,
-  filteredProducts, selectedProductId, selectedProduct, loadProducts,
-  batchesLoading, batchSearch, filteredBatches, selectedBatchId, selectedBatch, noBatchesMessage,
-  tf,
-} = useWarehouseOffcutCreate()
+  filteredProducts, selectedProductId, selectedProduct,
+  productSupplierOptions,
+  CURRENCY_OPTIONS,
+  quantityStep, totalCost,
+  loadOptions, loadProducts, save, tf, clearError,
+} = useWarehouseBatchCreate()
 
 useHead({
-  title: () => `Flexiron — ${t('warehouse.offcut_create_title')}`,
-  description: () => t('warehouse.offcut_create_title'),
+  title: () => `Flexiron — ${t('warehouse.batch_create_title')}`,
+  description: () => t('warehouse.batch_create_title'),
 })
 
 onMounted(() => {
   loadProducts()
+  loadOptions()
 })
 
 // ─── Products table: pagination ───────────────────────────────────────
@@ -81,9 +68,8 @@ watch([filteredProducts, productPageSize], () => {
   if (productPage.value > productTotalPages.value) productPage.value = productTotalPages.value
 })
 
-// First group ALL filtered products by category, then slice for current page
+// Group products by category and slice for current page
 const pagedProductGroups = computed(() => {
-  // Build category → products map from all filtered products
   const catMap = new Map<string, typeof filteredProducts.value>()
   for (const p of filteredProducts.value) {
     const catName = p.categoryName ? tf(p.categoryName) : t('warehouse.offcut_create_uncategorized')
@@ -94,12 +80,10 @@ const pagedProductGroups = computed(() => {
       catMap.set(catName, [p])
     }
   }
-  // Flatten grouped products into ordered array
   const allGrouped: { categoryName: string; products: typeof filteredProducts.value }[] = []
   for (const [catName, products] of catMap) {
     allGrouped.push({ categoryName: catName, products })
   }
-  // Slice groups for current page
   const start = (productPage.value - 1) * productPageSize.value
   let count = 0
   const result: typeof allGrouped = []
@@ -147,77 +131,98 @@ function removeFile(fileId: string) {
 }
 
 async function handleSave() {
-  const created = await save(fileIdsToAttach.value)
-  if (created) {
-    router.push({ name: 'admin-warehouse-offcut', params: { id: created.id } })
+  const batchId = await save(fileIdsToAttach.value.length > 0 ? fileIdsToAttach.value : undefined)
+  if (batchId) {
+    router.push({ name: 'admin-warehouse-batch', params: { id: batchId } })
   }
 }
 
 function handleCancel() {
-  router.push({ name: 'admin-warehouse', params: { tab: 'offcuts' } })
+  router.push({ name: 'admin-warehouse', params: { tab: 'batches' } })
 }
 
 function selectProduct(id: string) {
   selectedProductId.value = selectedProductId.value === id ? null : id
 }
 
-function selectBatch(id: string) {
-  selectedBatchId.value = selectedBatchId.value === id ? null : id
+// ─── Currency selector for unit price ───────────────────────────────────
+const currencyOpen = ref(false)
+
+function selectCurrency(c: string) {
+  form.currency = c
+  currencyOpen.value = false
 }
+
+function onDocClickCloseCurrency(e: MouseEvent) {
+  const el = (e.target as HTMLElement | null)?.closest?.('.input-with-suffix')
+  if (!el) currencyOpen.value = false
+}
+onMounted(() => document.addEventListener('click', onDocClickCloseCurrency))
+onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseCurrency))
 </script>
 
 <template>
-  <div class="page-offcut-create" data-test="offcut-create-page">
+  <div class="page-batch-create" data-test="batch-create-page">
     <Breadcrumb
       :items="[
         { label: t('warehouse.header_title'), to: { name: 'admin-warehouse' } },
-        { label: t('warehouse.tab_offcuts'), to: { name: 'admin-warehouse', params: { tab: 'offcuts' } } },
-        { label: t('warehouse.offcut_create_title') },
+        { label: t('warehouse.tab_batches'), to: { name: 'admin-warehouse', params: { tab: 'batches' } } },
+        { label: t('warehouse.batch_create_title') },
       ]"
     />
 
     <div class="offcut-card-header">
-      <h1 class="page-title">{{ t('warehouse.offcut_create_title') }}</h1>
-      <div class="entity-action-bar no-margin pos-static" data-test="offcut-create-action-bar">
+      <h1 class="page-title">{{ t('warehouse.batch_create_title') }}</h1>
+      <div class="entity-action-bar no-margin pos-static" data-test="batch-create-action-bar">
         <button
           type="button"
           class="btn btn-secondary"
           :disabled="saving"
-          data-test="offcut-create-cancel-btn"
+          data-test="batch-create-cancel-btn"
           @click="handleCancel"
         >
-          {{ t('warehouse.offcut_create_cancel') }}
+          {{ t('warehouse.batch_create_cancel') }}
         </button>
         <button
           type="button"
           class="btn btn-save dirty"
           :class="{ loading: saving }"
           :disabled="saving"
-          data-test="offcut-create-save-btn"
+          data-test="batch-create-save-btn"
           @click="handleSave"
         >
           <SvgIcon name="plus-add" :width="18" :height="18" stroke-width="2" />
-          <span>{{ saving ? t('warehouse.btn_save') + '...' : t('warehouse.offcut_create_save') }}</span>
+          <span>{{ saving ? t('warehouse.btn_save') + '...' : t('warehouse.batch_create_save') }}</span>
         </button>
       </div>
     </div>
 
-    <div class="main-card-content" data-test="offcut-create-content">
+    <div class="main-card-content" data-test="batch-create-content">
       <!-- ════════════════════════════════════════════════════════════════════════
-           Product & Batch Selection Section
+           Product Selection Section (full width)
            ════════════════════════════════════════════════════════════════════════ -->
       <GlassPanel
-        :title="t('warehouse.offcut_create_select_product')"
         :loading="productsLoading"
         :skeleton-rows="4"
-        data-test="offcut-create-product-panel"
+        data-test="batch-create-product-panel"
       >
+        <template #header>
+          <span class="panel-title">{{ t('warehouse.batch_create_select_product_title') }} <span class="required-star">*</span></span>
+          <span
+            v-if="selectedProduct"
+            class="selected-product-badge"
+            data-test="batch-create-selected-product-badge"
+          >
+            {{ tf(selectedProduct.name) }}
+          </span>
+        </template>
+
         <!-- Product filters -->
         <div class="products-filters" style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap">
           <div style="flex: 1 1 180px">
             <SearchInput
               v-model="productSearch"
-              :placeholder="t('warehouse.offcut_create_search_product')"
+              :placeholder="t('warehouse.batch_create_search_product')"
             />
           </div>
           <div style="min-width: 160px">
@@ -230,26 +235,27 @@ function selectBatch(id: string) {
 
         <!-- Product list with radio buttons -->
         <div class="data-table-wrapper">
-          <table class="data-table products-table" data-test="offcut-create-products-table">
+          <table class="data-table products-table" data-test="batch-create-products-table">
             <thead>
               <tr>
                 <th style="width: 32px"></th>
                 <th>{{ t('warehouse.col_product') }}</th>
-                <th v-if="false"></th>
+                <th>{{ t('warehouse.col_category') }}</th>
+                <th>{{ t('warehouse.col_unit') }}</th>
               </tr>
             </thead>
             <tbody>
               <template v-if="filteredProducts.length === 0 && !productsLoading">
                 <tr>
-                  <td colspan="2" style="text-align: center; opacity: 0.5; padding: 24px 0">
-                    {{ t('warehouse.offcut_create_no_products_found') }}
+                  <td :colspan="4" style="text-align: center; opacity: 0.5; padding: 24px 0">
+                    {{ t('warehouse.batch_create_no_products') }}
                   </td>
                 </tr>
               </template>
               <template v-for="group in pagedProductGroups" :key="group.categoryName">
                 <tr class="product-group-header">
                   <td
-                    colspan="2"
+                    :colspan="4"
                     style="
                       font-weight: 700;
                       font-size: 11px;
@@ -268,7 +274,7 @@ function selectBatch(id: string) {
                   :data-product-id="p.id"
                   class="product-row"
                   :class="{ 'row-selected': selectedProductId === p.id }"
-                  data-test="offcut-create-product-row"
+                  data-test="batch-create-product-row"
                   @click="selectProduct(p.id)"
                 >
                   <td>
@@ -276,20 +282,22 @@ function selectBatch(id: string) {
                       type="radio"
                       :checked="selectedProductId === p.id"
                       :value="p.id"
-                      name="offcut-product"
-                      data-test="offcut-create-product-radio"
+                      name="batch-product"
+                      data-test="batch-create-product-radio"
                       tabindex="-1"
                       @click.stop
                       @change.stop="selectProduct(p.id)"
                     />
                   </td>
                   <td>{{ tf(p.name) }}</td>
+                  <td>{{ p.categoryName ? tf(p.categoryName) : '—' }}</td>
+                  <td>{{ (p as { unit?: string }).unit ? t(`warehouse.unit_${(p as { unit?: string }).unit}`) : '—' }}</td>
                 </tr>
               </template>
             </tbody>
             <tfoot v-if="filteredProducts.length > 0">
               <tr>
-                <td colspan="2">
+                <td :colspan="4">
                   <div class="pagination-bar">
                     <div class="page-size">
                       <span>{{ t('warehouse.page_size') }}</span>
@@ -342,98 +350,17 @@ function selectBatch(id: string) {
         </div>
       </GlassPanel>
 
-      <!-- Batch selection (visible only when a product is selected) -->
-      <GlassPanel
-        v-if="selectedProductId"
-        :title="t('warehouse.offcut_create_select_batch')"
-        :loading="batchesLoading"
-        :skeleton-rows="3"
-        style="margin-top: 16px"
-        data-test="offcut-create-batch-panel"
-      >
-        <!-- No batches message -->
-        <template v-if="noBatchesMessage">
-          <div class="no-batches-message" style="text-align: center; padding: 24px 0; opacity: 0.6">
-            <SvgIcon name="search" :width="32" :height="32" style="margin-bottom: 8px" />
-            <p>{{ noBatchesMessage }}</p>
-            <p style="font-size: 12px; margin-top: 4px">{{ t('warehouse.offcut_create_no_batches_hint') }}</p>
-          </div>
-        </template>
-
-        <!-- Batch list -->
-        <template v-else>
-          <div style="margin-bottom: 12px">
-            <SearchInput
-              v-model="batchSearch"
-              :placeholder="t('warehouse.offcut_create_search_batch')"
-            />
-          </div>
-          <div class="data-table-wrapper">
-            <table class="data-table" data-test="offcut-create-batches-table">
-              <thead>
-                <tr>
-                  <th style="width: 32px"></th>
-                  <th>{{ t('warehouse.col_batch_number') }}</th>
-                  <th>{{ t('warehouse.col_quantity') }}</th>
-                  <th>{{ t('warehouse.col_remaining') }}</th>
-                  <th>{{ t('warehouse.col_status') }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <template v-if="filteredBatches.length === 0 && !batchesLoading">
-                  <tr>
-                    <td colspan="5" style="text-align: center; opacity: 0.5; padding: 24px 0">
-                      {{ t('warehouse.empty_filtered_offcuts') }}
-                    </td>
-                  </tr>
-                </template>
-                <tr
-                  v-for="b in filteredBatches"
-                  :key="b.id"
-                  :data-batch-id="b.id"
-                  class="product-row"
-                  :class="{ 'row-selected': selectedBatchId === b.id }"
-                  data-test="offcut-create-batch-row"
-                  @click="selectBatch(b.id)"
-                >
-                  <td>
-                    <input
-                      type="radio"
-                      :checked="selectedBatchId === b.id"
-                      :value="b.id"
-                      name="offcut-batch"
-                      data-test="offcut-create-batch-radio"
-                      tabindex="-1"
-                      @click.stop
-                      @change.stop="selectBatch(b.id)"
-                    />
-                  </td>
-                  <td>{{ b.batchNumber }}</td>
-                  <td>{{ b.quantity }} {{ t(`warehouse.unit_${b.unit}`) }}</td>
-                  <td>{{ b.quantityRemaining }} {{ t(`warehouse.unit_${b.unit}`) }}</td>
-                  <td>
-                    <span class="status-pill" :class="BATCH_STATUS_PILL[b.status]">
-                      {{ t(`warehouse.batch_status_${b.status}`) }}
-                    </span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </template>
-      </GlassPanel>
-
       <!-- ════════════════════════════════════════════════════════════════════════
-           Dimensions & Details Section (3-column grid)
+           Form Fields (3-column grid)
            ════════════════════════════════════════════════════════════════════════ -->
       <div class="entity-card-grid" style="margin-top: 16px">
-        <!-- Left column: offcut type -->
+        <!-- Left column: Supplier -->
         <div class="entity-col-left">
-          <GlassPanel :skeleton-rows="2" data-test="offcut-create-left-panel">
+          <GlassPanel :skeleton-rows="1" data-test="batch-create-left-panel">
             <div class="input-group">
               <label class="field-label">
-                <span>{{ t('warehouse.col_offcut_type') }}</span>
-                <span v-tooltip="t('warehouse.col_offcut_type_hint')" class="info-hint">
+                <span>{{ t('warehouse.col_supplier') }}</span>
+                <span v-tooltip="t('warehouse.col_supplier_hint')" class="info-hint">
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="12" r="10" />
                     <line x1="12" y1="16" x2="12" y2="12" />
@@ -441,160 +368,95 @@ function selectBatch(id: string) {
                   </svg>
                 </span>
               </label>
-              <div class="glass-input" style="display: flex; align-items: center; opacity: 0.7; cursor: default;">
-                <span v-if="form.offcutType">
-                  {{ t(`warehouse.offcut_type_${form.offcutType}`) }}
-                </span>
-                <span v-else style="color: var(--text-dim);">
-                  {{ t('warehouse.offcut_create_select_type') }}
-                </span>
-              </div>
-              <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
-            </div>
-            <div class="input-group">
-              <label class="field-label">
-                <span>{{ t('warehouse.col_category') }}</span>
-                <span v-tooltip="t('warehouse.offcut_create_category_hint')" class="info-hint">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="16" x2="12" y2="12" />
-                    <line x1="12" y1="8" x2="12.01" y2="8" />
-                  </svg>
-                </span>
-              </label>
-              <div class="glass-input" style="display: flex; align-items: center; opacity: 0.7; cursor: default;">
-                <span v-if="selectedProduct && selectedProduct.categoryName">
-                  {{ tf(selectedProduct.categoryName) }}
-                </span>
-                <span v-else-if="selectedProduct" style="color: var(--text-dim);">
-                  {{ t('warehouse.offcut_create_uncategorized') }}
-                </span>
-                <span v-else style="color: var(--text-dim);">
-                  {{ t('warehouse.offcut_create_category_placeholder') }}
-                </span>
-              </div>
-              <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
+              <CustomSelect
+                v-model="form.supplierId"
+                :options="productSupplierOptions"
+                :placeholder="t('warehouse.col_supplier')"
+                :disabled="!selectedProductId"
+                data-test="field-supplier"
+              />
+              <span
+                v-if="!selectedProductId"
+                class="field-hint"
+                data-test="supplier-hint"
+              >
+                {{ t('warehouse.batch_create_select_supplier_hint') }}
+              </span>
             </div>
           </GlassPanel>
         </div>
 
-        <!-- Center column: dimensions -->
+        <!-- Center column: Batch details -->
         <div class="entity-col-center">
-          <GlassPanel :skeleton-rows="4" data-test="offcut-create-center-panel">
+          <GlassPanel :skeleton-rows="4" data-test="batch-create-center-panel">
             <div class="input-group">
               <label class="field-label">
-                <span>{{ t('warehouse.col_length') }}</span>
-                <span v-tooltip="t('warehouse.col_length_hint')" class="info-hint">
+                <span>{{ t('warehouse.col_batch_number') }} <span class="required-star">*</span></span>
+                <span v-tooltip="t('warehouse.col_batch_number_hint')" class="info-hint">
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="12" r="10" />
                     <line x1="12" y1="16" x2="12" y2="12" />
                     <line x1="12" y1="8" x2="12.01" y2="8" />
                   </svg>
                 </span>
+                <span v-if="errors.batchNumber" class="field-error">{{ errors.batchNumber }}</span>
               </label>
               <input
-                v-model.number="form.lengthMm"
+                v-model="form.batchNumber"
                 class="glass-input"
-                type="number"
-                min="0"
-                step="1"
-                :placeholder="t('warehouse.field_length_placeholder')"
-                data-test="field-length"
+                :class="{ 'has-error': errors.batchNumber }"
+                type="text"
+                @input="clearError('batchNumber')"
+                data-test="field-batch-number"
               />
             </div>
             <div class="input-group">
               <label class="field-label">
-                <span>{{ t('warehouse.col_width') }}</span>
-                <span v-tooltip="t('warehouse.col_width_hint')" class="info-hint">
+                <span>{{ t('warehouse.col_lot_code') }} <span class="required-star">*</span></span>
+                <span v-tooltip="t('warehouse.col_lot_code_hint')" class="info-hint">
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="12" r="10" />
                     <line x1="12" y1="16" x2="12" y2="12" />
                     <line x1="12" y1="8" x2="12.01" y2="8" />
                   </svg>
                 </span>
+                <span v-if="errors.lotCode" class="field-error">{{ errors.lotCode }}</span>
               </label>
               <input
-                v-model.number="form.widthMm"
+                v-model="form.lotCode"
                 class="glass-input"
-                type="number"
-                min="0"
-                step="1"
-                :placeholder="t('warehouse.field_width_placeholder')"
-                data-test="field-width"
+                :class="{ 'has-error': errors.lotCode }"
+                type="text"
+                @input="clearError('lotCode')"
+                data-test="field-lot-code"
               />
             </div>
             <div class="input-group">
               <label class="field-label">
-                <span>{{ t('warehouse.col_thickness') }}</span>
-                <span v-tooltip="t('warehouse.col_thickness_hint')" class="info-hint">
+                <span>{{ t('warehouse.col_quantity') }} <span class="required-star">*</span></span>
+                <span v-tooltip="t('warehouse.col_quantity_hint')" class="info-hint">
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="12" r="10" />
                     <line x1="12" y1="16" x2="12" y2="12" />
                     <line x1="12" y1="8" x2="12.01" y2="8" />
                   </svg>
                 </span>
-              </label>
-              <input
-                v-model.number="form.thicknessMm"
-                class="glass-input"
-                type="number"
-                min="0"
-                step="1"
-                :placeholder="t('warehouse.field_thickness_placeholder')"
-                data-test="field-thickness"
-              />
-            </div>
-            <div class="input-group">
-              <label class="field-label">
-                <span>{{ t('warehouse.col_weight') }}</span>
-                <span v-tooltip="t('warehouse.col_weight_hint')" class="info-hint">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="16" x2="12" y2="12" />
-                    <line x1="12" y1="8" x2="12.01" y2="8" />
-                  </svg>
-                </span>
-              </label>
-              <input
-                v-model.number="form.weightKg"
-                class="glass-input"
-                type="number"
-                min="0"
-                step="0.1"
-                :placeholder="t('warehouse.field_weight_placeholder')"
-                data-test="field-weight"
-              />
-            </div>
-          </GlassPanel>
-        </div>
-
-        <!-- Right column: quantity, unit, location, notes -->
-        <div class="entity-col-right">
-          <GlassPanel :skeleton-rows="4" data-test="offcut-create-right-panel">
-            <div class="input-group">
-              <label class="field-label">
-                <span>{{ t('warehouse.col_quantity') }}</span>
-                <span v-tooltip="t('warehouse.offcut_col_quantity_hint')" class="info-hint">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="16" x2="12" y2="12" />
-                    <line x1="12" y1="8" x2="12.01" y2="8" />
-                  </svg>
-                </span>
+                <span v-if="errors.quantity" class="field-error">{{ errors.quantity }}</span>
               </label>
               <input
                 v-model.number="form.quantity"
                 class="glass-input"
+                :class="{ 'has-error': errors.quantity }"
                 type="number"
-                min="1"
-                step="1"
-                :placeholder="t('warehouse.field_quantity_placeholder')"
+                min="0"
+                :step="quantityStep"
+                @input="clearError('quantity')"
                 data-test="field-quantity"
               />
             </div>
             <div class="input-group">
               <label class="field-label">
-                <span>{{ t('warehouse.field_unit') }}</span>
+                <span>{{ t('warehouse.col_unit') }} <span class="required-star">*</span></span>
                 <span v-tooltip="t('warehouse.col_unit_hint')" class="info-hint">
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="12" r="10" />
@@ -604,7 +466,7 @@ function selectBatch(id: string) {
                 </span>
               </label>
               <div class="glass-input" style="display: flex; align-items: center; opacity: 0.7; cursor: default;">
-                <span v-if="selectedBatch">
+                <span v-if="form.unit">
                   {{ t(`warehouse.unit_${form.unit}`) }}
                 </span>
                 <span v-else style="color: var(--text-dim);">
@@ -613,10 +475,113 @@ function selectBatch(id: string) {
               </div>
               <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
             </div>
+          </GlassPanel>
+        </div>
+
+        <!-- Right column: Pricing + Dates + Notes -->
+        <div class="entity-col-right">
+          <GlassPanel :skeleton-rows="4" data-test="batch-create-right-panel">
+            <div class="input-group">
+              <label class="field-label">
+                <span>{{ t('warehouse.col_unit_price') }} <span class="required-star">*</span></span>
+                <span v-tooltip="t('warehouse.col_unit_price_hint')" class="info-hint">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="16" x2="12" y2="12" />
+                    <line x1="12" y1="8" x2="12.01" y2="8" />
+                  </svg>
+                </span>
+                <span v-if="errors.unitPrice" class="field-error">{{ errors.unitPrice }}</span>
+              </label>
+              <div class="input-with-suffix custom-select-wrap">
+                <input
+                  v-model.number="form.unitPrice"
+                  class="glass-input"
+                  :class="{ 'has-error': errors.unitPrice }"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  @input="clearError('unitPrice')"
+                  data-test="field-unit-price"
+                />
+                <div
+                  class="input-suffix custom-select-trigger"
+                  data-test="field-currency-trigger"
+                  @click.stop="currencyOpen = !currencyOpen"
+                >
+                  <span class="curr-val">{{ form.currency }}</span>
+                </div>
+                <div class="custom-select-list" :class="{ open: currencyOpen }">
+                  <div
+                    v-for="c in CURRENCY_OPTIONS"
+                    :key="c"
+                    class="custom-select-option"
+                    data-test="field-currency-option"
+                    :data-currency="c"
+                    @click="selectCurrency(c)"
+                  >
+                    {{ c }}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="input-group">
+              <label class="field-label">
+                <span>{{ t('warehouse.col_received') }} <span class="required-star">*</span></span>
+                <span v-tooltip="t('warehouse.col_received_hint')" class="info-hint">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="16" x2="12" y2="12" />
+                    <line x1="12" y1="8" x2="12.01" y2="8" />
+                  </svg>
+                </span>
+                <span v-if="errors.receivedAt" class="field-error">{{ errors.receivedAt }}</span>
+              </label>
+              <DatePicker
+                v-model="form.receivedAt"
+                :class="{ 'has-error': errors.receivedAt }"
+                @update:model-value="clearError('receivedAt')"
+                data-test="field-received-at"
+              />
+            </div>
+            <div class="input-group">
+              <label class="field-label">
+                <span>{{ t('warehouse.field_expires_at') }}</span>
+                <span v-tooltip="t('warehouse.field_expires_at_hint')" class="info-hint">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="16" x2="12" y2="12" />
+                    <line x1="12" y1="8" x2="12.01" y2="8" />
+                  </svg>
+                </span>
+              </label>
+              <DatePicker
+                v-model="form.expiresAt"
+                data-test="field-expires-at"
+              />
+            </div>
+            <div class="input-group">
+              <label class="field-label">
+                <span>{{ t('warehouse.field_certificate') }}</span>
+                <span v-tooltip="t('warehouse.field_certificate_hint')" class="info-hint">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="16" x2="12" y2="12" />
+                    <line x1="12" y1="8" x2="12.01" y2="8" />
+                  </svg>
+                </span>
+              </label>
+              <input
+                v-model="form.certificateRef"
+                class="glass-input"
+                type="text"
+                data-test="field-certificate-ref"
+              />
+            </div>
             <div class="input-group">
               <label class="field-label">
                 <span>{{ t('warehouse.field_notes') }}</span>
-                <span v-tooltip="t('warehouse.offcut_field_notes_hint')" class="info-hint">
+                <span v-tooltip="t('warehouse.field_notes_hint')" class="info-hint">
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="12" r="10" />
                     <line x1="12" y1="16" x2="12" y2="12" />
@@ -636,7 +601,7 @@ function selectBatch(id: string) {
       </div>
 
       <!-- FULL WIDTH: Location section -->
-      <GlassPanel :title="t('warehouse.section_batch_location')" data-test="offcut-create-location-section">
+      <GlassPanel :title="t('warehouse.section_batch_location')" data-test="batch-create-location-section" style="margin-top: 16px">
         <div class="location-grid">
           <div class="input-group">
             <label class="field-label">
@@ -713,14 +678,14 @@ function selectBatch(id: string) {
       </GlassPanel>
 
       <!-- FULL WIDTH: Files section -->
-      <GlassPanel :title="t('warehouse.section_batch_files')" data-test="offcut-create-files-section" style="margin-top: 16px">
-        <div class="file-list" data-test="offcut-create-file-list" style="margin-bottom: 15px">
+      <GlassPanel :title="t('warehouse.section_batch_files')" data-test="batch-create-files-section" style="margin-top: 16px">
+        <div class="file-list" data-test="batch-create-file-list" style="margin-bottom: 15px">
           <FileItem
             v-for="f in uploadedFiles"
             :key="f.id"
             :name="f.name"
             download-url="#"
-            data-test="offcut-create-file-item"
+            data-test="batch-create-file-item"
             @delete="removeFile(f.id)"
           />
         </div>
@@ -728,7 +693,7 @@ function selectBatch(id: string) {
           {{ t('warehouse.no_files') }}
         </p>
         <DropZone
-          data-test="offcut-create-file-dropzone"
+          data-test="batch-create-file-dropzone"
           :hint="t('warehouse.dropzone_hint')"
           :multiple="true"
           @uploaded="onFilesUploaded"
@@ -739,6 +704,32 @@ function selectBatch(id: string) {
 </template>
 
 <style scoped>
+.side-by-side-inputs {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.side-by-side-inputs > .glass-input {
+  flex: 1;
+}
+.side-by-side-inputs > .custom-select {
+  flex: 0 0 100px;
+}
+.currency-dropdown-wrapper {
+  flex: 0 0 90px;
+}
+.currency-select {
+  appearance: auto;
+  height: 36px;
+}
+.field-error {
+  color: var(--danger, #e74c3c);
+  font-size: 11px;
+  margin-left: 4px;
+}
+.input-group {
+  margin-bottom: 12px;
+}
 .products-table .product-row {
   cursor: pointer;
   transition: background 0.15s;
@@ -755,10 +746,24 @@ function selectBatch(id: string) {
 .products-table tfoot td {
   overflow: visible;
 }
-.no-batches-message {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  color: var(--text-dim);
+.selected-product-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.8em;
+  font-weight: 500;
+  background: rgba(24, 144, 255, 0.15);
+  color: var(--accent, #1890ff);
+  max-width: 220px;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+.has-error {
+  border-color: var(--danger, #e74c3c) !important;
+  box-shadow: 0 0 0 1px var(--danger, #e74c3c) !important;
+}
+.required-star {
+  color: var(--danger, #e74c3c);
+  margin-left: 2px;
 }
 </style>
