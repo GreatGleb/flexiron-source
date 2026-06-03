@@ -822,10 +822,30 @@ function onSortChange(sortField: string) {
 - `src/components/admin/ui/` for UI primitives
 - Existing page implementations for similar patterns
 
+### 🔥 #62 — Clickable-looking navigation must use router-link, not styled span
+
+**Симптом:** A cell value (product name, supplier name) appears blue, underlined, and has `cursor: pointer` — but clicking it does nothing. User expects navigation but gets dead click.
+
+**Причина:** Developer wrapped the text in `<span class="cell-link">` or similar CSS-only link styling instead of using a real `<router-link>`. The element looks like a link but isn't one. TypeScript doesn't catch this.
+
+**Решение:** If a cell value navigates to another page on click — use `<router-link :to="{ name: 'route-name', params: { id: item.id } }" class="name-link">`. Never use `<span>` with link-like CSS (blue color, underline, pointer cursor) without actual navigation.
+
+```vue
+<!-- ❌ Bad: span styled as link, no navigation -->
+<span class="cell-link">{{ item.name }}</span>
+
+<!-- ✅ Good: real router-link with name-link class -->
+<router-link :to="{ name: 'admin-product-card', params: { id: item.productId } }" class="name-link">
+  {{ tf(item.name) }}
+</router-link>
+```
+
+The `name-link` class is defined in each page's CSS and inherits text color (`color: inherit`) with underline only on hover — matching the standard pattern from Pitfall #28.
+
 ---
 
 ## Applying this skill
 
 When starting a task from trigger list (see description above) — **read this skill completely** before writing code. If task not from list — `Read` only the needed section.
 
-After completing task — run through checklist: pitfalls #1–#61, save mode (if form), HTTP method (if new endpoint).
+After completing task — run through checklist: pitfalls #1–#62, save mode (if form), HTTP method (if new endpoint).

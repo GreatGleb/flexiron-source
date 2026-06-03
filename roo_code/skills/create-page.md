@@ -552,7 +552,7 @@ Rules:
 **Mandatory checks before declaring Phase 5 done:**
 
 1. **Key count parity:** RU === EN === LT for this domain file. Check with `grep -c "ru:"` / `grep -c "en:"` / `grep -c "lt:"`.
-2. **Cross-reference composable keys:** Grep ALL `t('` calls in the composable (`src/composables/use[Domain].ts`) and service (`src/services/[domain]Service.ts`) files. Every key used in `t()` MUST exist in the domain i18n file. Missing keys cause runtime display of raw key strings that typecheck+lint cannot catch.
+2. **Cross-reference ALL keys — composable + service + template:** Grep ALL `t('` calls in the composable (`src/composables/use[Domain].ts`), service (`src/services/[domain]Service.ts`), AND template view files (`src/views/admin/[section]/[PageName]Page.vue`, `src/views/admin/[section]/[CardName]Card.vue`). Every key used in `t()` MUST exist in the domain i18n file. Template-only keys (column headers `col_*`, field labels `field_*`, tooltips, section titles, empty state messages) are the most commonly missed — they're not in the composable or service, so they escape the old check.
 3. **No cross-namespace references:** Search the composable and template for `$t('` — if any reference points to a DIFFERENT domain (e.g. `$t('products.of')` in a services page), that's a bug. Each domain must have its own keys.
 4. **No hardcoded text:** Search the template for any visible text strings not wrapped in `{{ t('...') }}` or `{{ $t('...') }}`.
 
@@ -862,6 +862,7 @@ cd frontend_vue && npm run typecheck && npm run lint
 - Search template for `{{ ` — every `TranslatedString` value MUST be wrapped in `tf()` (e.g. `{{ tf(item.name) }}`, NOT `{{ item.name }}`)
 - Search template for `$t('` — if any reference points to a DIFFERENT domain (e.g. `$t('products.xxx')` in a services page), that's a cross-namespace bug. Each domain must have its own keys.
 - Search template for hardcoded visible text — every visible string must use `{{ t('key') }}` or `{{ $t('key') }}`
+- **Cross-reference template keys against i18n file:** Grep ALL `t('domain.`)` in the template .vue file(s) — every key used in the template MUST exist in `src/i18n/admin/[domain].ts`. Template-only keys (column headers `col_*`, field labels `field_*`) are the most common source of missing-key bugs because they don't appear in composable/service files.
 
 ```
 ⏸ STOP — Phase 7: Template Data Bindings
