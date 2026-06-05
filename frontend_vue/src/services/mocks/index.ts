@@ -74,6 +74,15 @@ import {
   MOCK_SUPPLIERS,
 } from './suppliers'
 import {
+  mockGetClients,
+  mockGetClient,
+  mockCreateClient,
+  mockPatchClient,
+  mockDeleteClient,
+  mockGetClientAudit,
+  mockDeleteClientAuditEntry,
+} from './clients'
+import {
   mockGetBccCategories,
   mockGetBccRecipients,
   mockGetBccHistory,
@@ -97,6 +106,7 @@ import {
   mockDeleteSection,
 } from './config'
 import type { SupplierFilters, SupplierCardData } from '@/types/supplier'
+import type { ClientFormData } from '@/types/client'
 import type { PaginationParams } from '@/types/api'
 
 function delay<T>(data: T, ms = 300): Promise<T> {
@@ -241,6 +251,42 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
   const serviceCardMatch = path.match(/^\/api\/services\/([^/]+)$/)
   if (serviceCardMatch) {
     return delay(mockGetService(serviceCardMatch[1] as string) as T)
+  }
+
+  // ── Clients ──
+  if (path === '/api/clients' || path === '/api/clients/translated') {
+    const search = params?.search ?? ''
+    const status = params?.status ?? ''
+    let filtered = mockGetClients()
+    if (search) {
+      const q = search.toLowerCase()
+      filtered = filtered.filter(
+        (c) =>
+          c.name.toLowerCase().includes(q) ||
+          c.companyCode.toLowerCase().includes(q) ||
+          c.email.toLowerCase().includes(q),
+      )
+    }
+    if (status) {
+      filtered = filtered.filter((c) => c.status === status)
+    }
+    const page = Number(params?.page ?? 1)
+    const pageSize = Number(params?.pageSize ?? 25)
+    const start = (page - 1) * pageSize
+    const items = filtered.slice(start, start + pageSize)
+    return delay({ items, total: filtered.length, page, pageSize, totalPages: Math.ceil(filtered.length / pageSize) } as T)
+  }
+
+  const clientCardMatch = path.match(/^\/api\/clients\/([^/]+)$/)
+  if (clientCardMatch) {
+    const client = mockGetClient(clientCardMatch[1] as string)
+    if (!client) throw new Error('CLIENT_NOT_FOUND')
+    return delay(client as T)
+  }
+
+  const clientAuditMatch = path.match(/^\/api\/clients\/([^/]+)\/audit$/)
+  if (clientAuditMatch) {
+    return delay(mockGetClientAudit(clientAuditMatch[1] as string) as T)
   }
 
   // ── Warehouse ──
@@ -472,6 +518,10 @@ export async function postMock<T>(
     return delay(mockCreateService(body as Parameters<typeof mockCreateService>[0]) as T)
   }
 
+  if (path === '/api/clients') {
+    return delay(mockCreateClient(body as ClientFormData) as T)
+  }
+
   // ── Warehouse POST ──
   if (path === '/api/warehouse/batches') {
     return delay(mockCreateBatch(body as Parameters<typeof mockCreateBatch>[0]) as T)
@@ -583,6 +633,13 @@ export async function patchMock<T>(
     )
   }
 
+  const clientPatchMatch = path.match(/^\/api\/clients\/([^/]+)$/)
+  if (clientPatchMatch) {
+    return delay(
+      mockPatchClient(clientPatchMatch[1] as string, body as Partial<import('@/types/client').Client>) as T,
+    )
+  }
+
   // ── Warehouse PATCH ──
   const batchPatchMatch = path.match(/^\/api\/warehouse\/batches\/([^/]+)$/)
   if (batchPatchMatch) {
@@ -683,6 +740,18 @@ export async function deleteMock<T>(path: string, _headers?: Record<string, stri
   if (serviceDeleteMatch) {
     const deleted = mockDeleteService(serviceDeleteMatch[1] as string)
     if (!deleted) throw new Error('SERVICE_NOT_FOUND')
+    return delay(undefined as T)
+  }
+
+  const clientDeleteMatch = path.match(/^\/api\/clients\/([^/]+)$/)
+  if (clientDeleteMatch) {
+    mockDeleteClient(clientDeleteMatch[1] as string)
+    return delay(undefined as T)
+  }
+
+  const clientAuditDeleteMatch = path.match(/^\/api\/clients\/([^/]+)\/audit\/(\d+)$/)
+  if (clientAuditDeleteMatch) {
+    mockDeleteClientAuditEntry(clientAuditDeleteMatch[1] as string, Number(clientAuditDeleteMatch[2]))
     return delay(undefined as T)
   }
 
