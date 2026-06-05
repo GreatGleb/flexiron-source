@@ -16,6 +16,8 @@ export interface FeatureFlags {
   adminCategories: boolean
   adminProducts: boolean
   adminServices: boolean
+  adminClients: boolean
+  adminSalesCrm: boolean
 
   // Section-level flags
   dashboardAlerts: boolean

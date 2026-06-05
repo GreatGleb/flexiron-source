@@ -58,6 +58,18 @@
       </router-link>
     </div>
 
+    <h2 class="section-title">{{ t('salesCrm.title') }}</h2>
+    <div class="grid">
+      <router-link v-for="page in salesCrmPages" :key="page.id" :to="{ name: page.routeName, params: page.params || {} }" class="page-card" target="_blank">
+        <span class="page-id">{{ page.id }}</span>
+        <span class="page-title">{{ t(page.titleKey) }}</span>
+        <span class="page-status">
+          <span class="status-dot"></span>
+          {{ t('screens.statusReady') }}
+        </span>
+      </router-link>
+    </div>
+
     <h2 class="section-title">{{ t('screens.sectionProcurement') }}</h2>
     <div class="grid">
       <router-link v-for="page in suppliersPages" :key="page.id" :to="page.to" class="page-card" target="_blank">
@@ -121,6 +133,12 @@ const categoriesPages = [
     to: { name: 'admin-category-card', params: { id: 'cat-1' } },
     titleKey: 'categories.section_info',
   },
+]
+
+const salesCrmPages = [
+  { id: '3.0', routeName: 'admin-sales-crm', titleKey: 'salesCrm.header_title' },
+  { id: '3.1', routeName: 'admin-clients', titleKey: 'clients.header_title' },
+  { id: '3.1c', routeName: 'admin-client-card', params: { id: 'CL-001' }, titleKey: 'clients.card_title' },
 ]
 
 const suppliersPages = [

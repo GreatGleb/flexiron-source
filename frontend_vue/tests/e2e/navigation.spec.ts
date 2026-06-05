@@ -45,4 +45,21 @@ test.describe('Navigation', () => {
     await expect(page).toHaveURL('/admin/products/categories')
     await expect(page.locator('h1').first()).toBeVisible()
   })
-})
+  test('deep link to client card works', async ({ page }) => {
+    await page.goto('/admin/clients/CL-001')
+    await expect(page).toHaveURL('/admin/clients/CL-001')
+    await expect(page.locator('h1').first()).toBeVisible()
+  })
+
+  test('client create route resolves before :id', async ({ page }) => {
+    await page.goto('/admin/clients/new')
+    await expect(page).toHaveURL('/admin/clients/new')
+    await expect(page.locator('h1').first()).toBeVisible()
+  })
+
+  test('clients list route works', async ({ page }) => {
+    await page.goto('/admin/clients')
+    await expect(page).toHaveURL('/admin/clients')
+    await expect(page.locator('h1').first()).toBeVisible()
+  })
+

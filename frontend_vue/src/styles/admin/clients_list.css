@@ -1,0 +1,419 @@
+/* Clients list page */
+.page-clients {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ─── Header row ─────────────────────────────────────── */
+.page-clients .page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.page-clients .page-header .page-title {
+  margin: 0;
+}
+
+/* ─── Filters bar ────────────────────────────────────── */
+.page-clients .filters-bar {
+  position: relative;
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  margin-bottom: 24px;
+}
+
+.page-clients .filters-bar:has(.custom-select-list.open) {
+  z-index: 200 !important;
+}
+
+.page-clients .filters-bar-header {
+  padding: 12px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.page-clients .filters-bar-content {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 16px 20px;
+  flex-wrap: wrap;
+}
+
+.page-clients .filters-bar .filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 150px;
+}
+
+.page-clients .filters-bar .filter-group label {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Limit search input width */
+.page-clients .filters-bar .filter-group:first-child {
+  flex: 1 1 320px;
+  max-width: 420px;
+}
+
+/* Filters Bar - Tablet */
+@media (max-width: 992px) {
+  .page-clients .filters-bar-content {
+    gap: 16px;
+    padding: 14px 16px;
+  }
+
+  .page-clients .filters-bar .filter-group {
+    min-width: 130px;
+    flex: 1 1 calc(50% - 8px);
+  }
+
+  .page-clients .filters-bar .filter-group:first-child {
+    max-width: 100%;
+  }
+}
+
+/* Filters Bar - Mobile */
+@media (max-width: 600px) {
+  .page-clients .filters-bar-header {
+    padding: 10px 14px;
+    font-size: 12px;
+  }
+
+  .page-clients .filters-bar-content {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 12px 14px;
+  }
+
+  .page-clients .filters-bar .filter-group {
+    min-width: 100%;
+    flex: 1 1 100%;
+  }
+}
+
+/* Filters Bar - Small Mobile */
+@media (max-width: 400px) {
+  .page-clients .filters-bar {
+    margin-left: -8px;
+    margin-right: -8px;
+    border-radius: 8px;
+  }
+
+  .page-clients .filters-bar-header {
+    padding: 8px 12px;
+  }
+
+  .page-clients .filters-bar-content {
+    padding: 10px 12px;
+    gap: 10px;
+  }
+
+  .page-clients .filters-bar .filter-group label {
+    font-size: 11px;
+  }
+}
+
+/* Filters Bar - 320px */
+@media (max-width: 320px) {
+  .page-clients .filters-bar {
+    overflow: visible;
+  }
+}
+
+/* ─── Empty state ────────────────────────────────────── */
+.page-clients .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48px 24px;
+  text-align: center;
+  gap: 16px;
+}
+
+.page-clients .empty-state svg {
+  opacity: 0.4;
+}
+
+.page-clients .empty-state p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary, #8c8c8c);
+}
+
+/* ─── Data table layout ──────────────────────────────── */
+.page-clients .data-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+/* Fixed column widths via colgroup */
+.page-clients .data-table .col-name { width: 18%; }
+.page-clients .data-table .col-code { width: 10%; }
+.page-clients .data-table .col-vat  { width: 10%; }
+.page-clients .data-table .col-addr { width: 18%; }
+.page-clients .data-table .col-phone { width: 12%; }
+.page-clients .data-table .col-email { width: 14%; }
+.page-clients .data-table .col-status { width: 8%; }
+.page-clients .data-table .col-actions { width: 10%; }
+
+/* Truncate long text in data cells (address, email, etc.)
+   but NOT in status or actions columns */
+.page-clients .data-table td:not(:nth-last-child(-n+2)) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Ensure actions column is right-aligned and doesn't shrink */
+.page-clients .data-table th:last-child,
+.page-clients .data-table td:last-child {
+  text-align: right;
+  white-space: nowrap;
+  overflow: visible;
+}
+
+/* ─── Status badge (clean inline, no uppercase) ──────── */
+.client-status-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.client-status-badge.badge-active {
+  background: rgba(82, 196, 26, 0.15);
+  border: 1px solid rgba(82, 196, 26, 0.25);
+  color: #52c41a;
+}
+
+.client-status-badge.badge-inactive {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* ─── Sort button styles (matching products_list.css) ── */
+.th-sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  padding: 0;
+  white-space: nowrap;
+}
+
+.th-sort-btn:hover {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.sort-icon-group {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+  gap: 0;
+  margin-left: 2px;
+}
+
+.sort-icon {
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.25);
+  transition: color 0.15s;
+}
+
+.sort-icon.active {
+  color: var(--primary, #1890ff);
+}
+
+/* ─── Row styles ─────────────────────────────────────── */
+.clients-row td {
+  transition: background 0.15s, color 0.15s;
+}
+
+.clients-row td:first-child {
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.clients-row:hover td:first-child {
+  color: #fff;
+}
+
+.clients-row-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.name-link {
+  color: inherit;
+  text-decoration: none;
+  transition: text-decoration-color 0.2s ease;
+  text-decoration-line: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+
+.name-link:hover {
+  text-decoration-color: currentColor;
+}
+
+/* ─── Data table wrapper ─────────────────────────────── */
+.page-clients .data-table-wrapper {
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+/* ─── Table footer pagination ────────────────────────── */
+.page-clients .data-table tfoot td {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 12px 16px;
+}
+
+.page-clients .pagination-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.page-clients .page-size {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.page-clients .pagination-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.page-clients .pagination-pages {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.page-clients .pagination-pages .page-btn {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.page-clients .pagination-pages .page-btn:hover {
+  background: rgba(24, 144, 255, 0.2);
+  border-color: var(--primary);
+}
+
+.page-clients .pagination-pages .page-btn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.page-clients .pagination-info {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.page-clients .pagination-ellipsis {
+  padding: 0 8px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Pagination - Tablet */
+@media (max-width: 768px) {
+  .page-clients .pagination-bar {
+    gap: 10px;
+  }
+
+  .page-clients .pagination-pages .page-btn {
+    min-width: 28px;
+    height: 28px;
+    font-size: 12px;
+  }
+}
+
+/* Pagination - Mobile */
+@media (max-width: 600px) {
+  .page-clients .data-table tfoot td {
+    padding: 10px 12px;
+  }
+
+  .page-clients .pagination-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .page-clients .page-size {
+    justify-content: center;
+    font-size: 12px;
+  }
+
+  .page-clients .pagination-nav {
+    justify-content: center;
+  }
+
+  .page-clients .pagination-info {
+    text-align: center;
+    font-size: 12px;
+  }
+
+  .page-clients .pagination-pages .page-btn {
+    min-width: 32px;
+    height: 32px;
+  }
+}
+
+/* Pagination - Small Mobile */
+@media (max-width: 400px) {
+  .page-clients .pagination-pages {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .page-clients .pagination-ellipsis {
+    display: none;
+  }
+}

@@ -352,6 +352,7 @@ export async function mockCreateBatch(data: {
     files: [],
     createdAt: now,
     updatedAt: now,
+    auditLog: [],
   }
   batchStore.push(batch)
   return batch
@@ -881,7 +882,8 @@ export async function mockGetStockAudit(productId: string): Promise<StockAuditEn
 export async function mockDeleteStockAuditEntry(productId: string, entryIndex: number): Promise<void> {}
 
 export async function mockGetBatchAudit(batchId: string): Promise<StockAuditEntry[]> {
-  return []
+  const batch = batchStore.find((b) => b.id === batchId)
+  return batch?.auditLog ?? []
 }
 
 export async function mockDeleteBatchAuditEntry(batchId: string, entryIndex: number): Promise<void> {}

@@ -24,6 +24,9 @@ const PAGE_FLAG_ROUTES: Array<{ flag: keyof typeof ALL_FLAGS_ENABLED; route: str
   { flag: 'supplierCreate', route: '/admin/suppliers/new' },
   { flag: 'supplierCard', route: '/admin/suppliers/S-001' },
   { flag: 'supplierCardConfig', route: '/admin/suppliers/config' },
+  { flag: 'adminClients', route: '/admin/clients' },
+  { flag: 'adminClients', route: '/admin/clients/new' },
+  { flag: 'adminClients', route: '/admin/clients/CL-001' },
   { flag: 'bccRequest', route: '/admin/suppliers/bcc-request' },
 ]
 

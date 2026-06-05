@@ -91,6 +91,8 @@ export interface WarehouseBatch {
   orderId: string | null
   createdAt: string
   updatedAt: string
+  /** Batch change audit log (empty for most batches) */
+  auditLog?: StockAuditEntry[]
 }
 
 export interface BatchListItem {

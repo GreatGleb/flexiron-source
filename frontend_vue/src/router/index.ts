@@ -106,6 +106,34 @@ const routes: RouteRecordRaw[] = [
         meta: { layout: 'admin', featureFlag: 'adminDeficit' as FeatureFlagKey },
       },
 
+      /* Sales & CRM */
+      {
+        path: 'sales-crm',
+        name: 'admin-sales-crm',
+        component: () => import('@/views/admin/sales-crm/SalesCrmPage.vue'),
+        meta: { layout: 'admin', featureFlag: 'adminSalesCrm' as FeatureFlagKey },
+      },
+
+      /* Clients */
+      {
+        path: 'clients',
+        name: 'admin-clients',
+        component: () => import('@/views/admin/clients/ClientsListPage.vue'),
+        meta: { layout: 'admin', featureFlag: 'adminClients' as FeatureFlagKey },
+      },
+      {
+        path: 'clients/new',
+        name: 'admin-client-create',
+        component: () => import('@/views/admin/clients/ClientCreatePage.vue'),
+        meta: { layout: 'admin', featureFlag: 'adminClients' as FeatureFlagKey },
+      },
+      {
+        path: 'clients/:id',
+        name: 'admin-client-card',
+        component: () => import('@/views/admin/clients/ClientCardPage.vue'),
+        meta: { layout: 'admin', featureFlag: 'adminClients' as FeatureFlagKey },
+      },
+
       /* Suppliers */
       {
         path: 'suppliers',

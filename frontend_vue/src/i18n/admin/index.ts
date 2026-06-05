@@ -9,6 +9,8 @@ import { adminCategories } from './categories'
 import { adminProducts } from './products'
 import { adminServices } from './services'
 import { adminWarehouse } from './warehouse'
+import { adminClients } from './clients'
+import { adminSalesCrm } from './salesCrm'
 import { adminCommon } from './common'
 
 // Merge all domain objects into per-locale aggregates
@@ -41,6 +43,8 @@ const merged = mergeLocales(
   adminProducts,
   adminServices,
   adminWarehouse,
+  adminClients,
+  adminSalesCrm,
   adminCommon,
 )
 

@@ -19,6 +19,8 @@ const defaults: FeatureFlags = {
   adminCategories: true,
   adminProducts: true,
   adminServices: true,
+  adminClients: true,
+  adminSalesCrm: true,
 
   // Section-level flags
   dashboardAlerts: true,

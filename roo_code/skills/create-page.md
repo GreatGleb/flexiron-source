@@ -26,6 +26,7 @@ Build a new admin page in `frontend_vue/` based on TZ specs. **Phase-by-phase di
 8. **IF anything is unclear** — STOP and ask
 9. **Verify every code claim** — before stating "X exists / is used / is named Y": state the Grep or Read query, run it, show the result, then conclude. Never from logic or memory alone.
 10. **STOP after every Phase** — after completing each Phase (0–10), output the stop block and wait for explicit confirmation before proceeding.
+11. **Create new entity = separate route page, NOT a modal** — creating a resource requires its own URL (`[Entity]CreatePage.vue`), full form validation with save-bar, and SPA-navigable route. Modals (`AppModal`) are only for quick actions: delete confirm, discard changes, simple field selection. Modal = ephemeral, page = permanent. Exception: very simple inline create (e.g. adding a tag) where the form is a single field and no URL is meaningful.
 
 ---
 
@@ -535,7 +536,7 @@ Rules:
 - **Cross-reference i18n keys from composable/service:** After writing the composable (Phase 4) and before declaring Phase 5 done — grep all `t('...')` calls in the composable and service files. Every key used in `t()` must exist in the domain i18n file. Missing keys cause runtime display of raw key strings that typecheck+lint cannot catch.
 - **No cross-namespace i18n references:** Never use `$t('otherDomain.key')` in a template or composable of a different domain. Each domain must have its own keys. If a key is shared (e.g. pagination `of`), duplicate it in each domain file rather than referencing another domain's namespace. Cross-namespace references break silently when the source domain is refactored.
 - **Include ALL toast keys from composable:** The composable example in Phase 4 uses `toast_created`, `toast_error_create`, `toast_deleted`, `toast_error_delete`. Every toast call in the composable MUST have a corresponding i18n key. Grep the composable for `toast.success(t('` and `toast.error(t('` — each key must exist in the domain file.
-- **Include ALL button/label keys from template:** The template will use `btn_create`, `btn_save`, `btn_discard`, `btn_delete`, `col_*`, `field_*`, `header_title`, `title`, `search_placeholder`, `filter_*`, `empty`, `tooltip_*`. Add all of them now to avoid missing-key errors in browser.
+- **Include ALL button/label keys from template:** The template will use `btn_create`, `btn_save`, `btn_discard`, `btn_delete`, `btn_retry`, `col_*`, `field_*`, `header_title`, `title`, `search_placeholder`, `filter_*`, `empty`, `tooltip_*`. Add all of them now to avoid missing-key errors in browser.
 - **Include `title` key for useHead:** `useHead({ title: t('domain.title') })` is used in Phase 6. The `title` key MUST exist in the domain i18n file. Without it, the browser tab shows a raw key string.
 
 - **Use mergeTranslatedString() for UI updates, not toTranslatedString():** `toTranslatedString(value, locale)` creates an object with only one locale filled — correct for API calls, but incorrect for UI updates (other locales get zeroed out). Use `mergeTranslatedString(existing, value, locale)` which preserves existing translations:
@@ -688,11 +689,23 @@ Continue?
 Fill in v-for / v-if / v-model / @click — one section per step, max 40 lines per edit.
 
 ### List section (data table):
+
+**Error state (retry button)** — every list page must have an error state with a dedicated `btn_retry` key, NOT the page title:
+```vue
+<div v-if="error" class="error-state" data-test="[domain]-error">
+  <p>{{ error }}</p>
+  <button class="btn btn-primary" @click="load">{{ t('[domain].btn_retry') }}</button>
+</div>
+
+**Empty state** — note `!loading` check to prevent flash during initial load:
 ```vue
 <div v-if="!loading && items.length === 0" class="empty-state" data-test="[domain]-empty">
   <SvgIcon name="..." :width="48" :height="48" />
   <p>{{ t('[domain].empty') }}</p>
 </div>
+
+**Data table** — actual rows when data is present:
+```vue
 <div v-else class="data-table-wrapper">
   <table class="data-table">
     <thead>

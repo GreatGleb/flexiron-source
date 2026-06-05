@@ -1,0 +1,102 @@
+/* ── Sales & CRM Landing Page ── */
+
+.page-sales-crm {
+  padding: 0;
+}
+
+/* Module Cards Grid */
+.sales-crm-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+}
+
+/* Individual Module Card */
+.sales-crm-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  text-decoration: none;
+  color: inherit;
+}
+
+.sales-crm-card:hover {
+  transform: translateY(-2px);
+}
+
+.sales-crm-card:active {
+  transform: translateY(0);
+}
+
+.sales-crm-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: rgba(24, 144, 255, 0.15);
+  color: #1890ff;
+  flex-shrink: 0;
+}
+
+.sales-crm-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sales-crm-card-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+}
+
+.sales-crm-card-desc {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.55);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.sales-crm-card-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #1890ff;
+  margin-top: auto;
+  padding-top: 12px;
+}
+
+/* Disabled / Coming Soon Card */
+.sales-crm-card.disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.sales-crm-card.disabled:hover {
+  transform: none;
+}
+
+.sales-crm-card.disabled .sales-crm-card-action {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.sales-crm-card-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}

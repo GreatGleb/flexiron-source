@@ -1,0 +1,86 @@
+/* Client card page */
+.page-client-card {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ─── Header (matching batch-card-header) ──────────── */
+.client-card-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.client-card-header-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.client-card-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.client-card-header-left .page-title {
+  margin: 0;
+}
+
+.client-card-header-left .client-status-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+}
+
+/* ─── Pill overrides for card (matching warehouse card pills) ─── */
+.page-client-card .pill,
+.page-client-card .pill-lg {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  padding: 3px 12px;
+  border-radius: 6px;
+  backdrop-filter: blur(4px);
+}
+
+.page-client-card .pill-lg {
+  font-size: 12px;
+  padding: 4px 14px;
+}
+
+/* ─── Main card content — max-width constraint ──────── */
+.page-client-card .main-card-content {
+  max-width: 100%;
+}
+
+.page-client-card .main-card-content .entity-card-grid {
+  max-width: 1400px;
+}
+
+/* ─── Text muted ────────────────────────────────────── */
+.page-client-card .text-muted {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+/* ─── Responsive ────────────────────────────────────── */
+@media (max-width: 992px) {
+  .client-card-header-row {
+    gap: 12px;
+  }
+}
+
+@media (max-width: 600px) {
+  .client-card-header-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

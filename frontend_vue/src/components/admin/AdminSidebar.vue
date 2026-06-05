@@ -13,6 +13,7 @@ const isAnalyticsActive = computed(() => route.path.startsWith('/admin/analytics
 const isSuppliersActive = computed(() => route.path.startsWith('/admin/suppliers'))
 const isProductsActive = computed(() => route.path.startsWith('/admin/products'))
 const isWarehouseActive = computed(() => route.path.startsWith('/admin/warehouse'))
+const isSalesCrmActive = computed(() => route.path.startsWith('/admin/sales-crm') || route.path.startsWith('/admin/clients'))
 
 function switchLang(code: string) {
   locale.value = code
@@ -70,10 +71,15 @@ function switchLang(code: string) {
         </router-link>
       </li>
       <li>
-        <a href="#" class="nav-link" data-test="sidebar-nav-sales">
+        <router-link
+          :to="{ name: 'admin-sales-crm' }"
+          class="nav-link"
+          data-test="sidebar-nav-sales"
+          :class="{ active: isSalesCrmActive }"
+        >
           <SvgIcon name="staff-user" class="nav-icon" />
           <span>{{ t('side.sales') }}</span>
-        </a>
+        </router-link>
       </li>
       <li>
         <router-link
