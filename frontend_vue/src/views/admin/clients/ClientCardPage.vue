@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useHead } from '@/composables/useHead'
 import { useClientCard } from '@/composables/useClientCard'
@@ -9,6 +9,7 @@ import Breadcrumb from '@/components/admin/Breadcrumb.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
 import InputGroup from '@/components/admin/ui/InputGroup.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
+import DatePicker from '@/components/admin/ui/DatePicker.vue'
 
 import '@styles/admin/components/_entity-card-layout.css'
 import '@styles/admin/components/_audit-log.css'
@@ -16,18 +17,25 @@ import '@styles/admin/client_card.css'
 
 const { t } = useI18n()
 const route = useRoute()
+const router = useRouter()
 
 const id = route.params.id as string
-const { client, loading, saving, isDirty, error, load, save, discard, tf, auditLog, auditLoading, loadAudit, deleteAuditEntry } = useClientCard(id)
+const {
+  client, loading, saving, isDirty, error,
+  load, save, discard, tf,
+  auditLog, auditLoading, loadAudit, deleteAuditEntry,
+  handleDeleteInteraction,
+  newInteraction, inlineAddInteraction, resetNewInteraction,
+} = useClientCard(id)
 
 const pageTitle = computed(() =>
   client.value
-    ? `${t('clients.card_title')} ${client.value.id} — ${client.value.name}`
+    ? `${t('clients.card_title')} ${client.value.id} - ${client.value.name}`
     : t('clients.title'),
 )
 
 useHead({
-  title: () => `Flexiron — ${pageTitle.value}`,
+  title: () => `Flexiron - ${pageTitle.value}`,
   description: () => t('clients.card_title'),
 })
 
@@ -42,6 +50,58 @@ const statusStr = computed({
     if (client.value) client.value.status = v as 'active' | 'inactive'
   },
 })
+
+const ORDER_STATUS_PILL: Record<string, string> = {
+  completed: 'pill-success',
+  shipped: 'pill-info',
+  processing: 'pill-warning',
+  pending: 'pill-warning',
+  cancelled: 'pill-danger',
+  new: 'pill-secondary',
+  confirmed: 'pill-info',
+  picking: 'pill-warning',
+  packing: 'pill-warning',
+  delivered: 'pill-success',
+  paid: 'pill-success',
+}
+
+function orderStatusLabel(status: string): string {
+  const key = `orders.status_${status}`
+  const translated = t(key)
+  return translated !== key ? translated : status.charAt(0).toUpperCase() + status.slice(1)
+}
+
+const INTERACTION_TYPE_LABEL: Record<string, string> = {
+  call: t('clients.history_type_call'),
+  email: t('clients.history_type_email'),
+  note: t('clients.history_type_note'),
+  meeting: t('clients.history_type_meeting'),
+}
+
+const INTERACTION_TYPE_OPTIONS = [
+  { value: 'call', label: t('clients.interaction_type_call') },
+  { value: 'email', label: t('clients.interaction_type_email') },
+  { value: 'note', label: t('clients.interaction_type_note') },
+  { value: 'meeting', label: t('clients.interaction_type_meeting') },
+]
+
+const canAddInteraction = computed(() => {
+  return (newInteraction.summary ?? '').trim().length > 0
+})
+
+/** Interaction history sorted newest-first by date */
+const sortedInteractions = computed(() => {
+  if (!client.value?.interactionHistory) return []
+  return [...client.value.interactionHistory].sort((a, b) => b.date.localeCompare(a.date))
+})
+
+function goToOrder(orderId: string) {
+  router.push({ name: 'admin-order-card', params: { id: orderId } })
+}
+
+function formatPrice(value: number): string {
+  return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
 
 onMounted(() => {
   load()
@@ -96,12 +156,12 @@ onMounted(() => {
           :items="[
             { label: t('side.sales'), to: { name: 'admin-sales-crm' } },
             { label: t('clients.title'), to: { name: 'admin-clients' } },
-            { label: client ? `${t('clients.card_title')} ${client.id} — ${client.name}` : '...' },
+            { label: client ? `${t('clients.card_title')} ${client.id} - ${client.name}` : '...' },
           ]"
         />
         <div class="client-card-header-row">
           <div class="client-card-header-left">
-            <h1 class="page-title">{{ client ? `${t('clients.card_title')} ${client.id} — ${client.name}` : '...' }}</h1>
+            <h1 class="page-title">{{ client ? `${t('clients.card_title')} ${client.id} - ${client.name}` : '...' }}</h1>
             <span v-if="client" class="client-status-wrapper">
               <span
                 class="pill pill-lg"
@@ -208,6 +268,152 @@ onMounted(() => {
 
         </div>
 
+        <!-- Order History -->
+        <div class="audit-panel-wide" data-test="client-card-order-history">
+          <GlassPanel :title="t('clients.section_order_history')">
+            <template v-if="client && client.orderHistory && client.orderHistory.length > 0">
+              <div class="table-responsive">
+                <table class="audit-log-table" data-test="client-card-order-table">
+                  <thead>
+                    <tr>
+                      <th>{{ t('clients.order_col_id') }}</th>
+                      <th>{{ t('clients.order_col_date') }}</th>
+                      <th>{{ t('clients.order_col_total') }}</th>
+                      <th>{{ t('clients.order_col_status') }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr
+                      v-for="order in client.orderHistory"
+                      :key="order.id"
+                      class="clickable-row"
+                      data-test="client-card-order-row"
+                      @click="goToOrder(order.id)"
+                    >
+                      <td>
+                        <router-link
+                          :to="{ name: 'admin-order-card', params: { id: order.id } }"
+                          class="order-link"
+                          @click.stop
+                        >
+                          {{ order.id }}
+                        </router-link>
+                      </td>
+                      <td class="audit-log-ts">{{ order.date }}</td>
+                      <td>
+                        <span class="order-total">{{ order.currency }} {{ formatPrice(order.total) }}</span>
+                      </td>
+                      <td>
+                        <span
+                          class="status-pill"
+                          :class="ORDER_STATUS_PILL[order.status] || 'pill-secondary'"
+                        >
+                          {{ orderStatusLabel(order.status) }}
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </template>
+            <div v-else class="audit-empty">
+              <SvgIcon name="warehouse-box" :width="32" :height="32" />
+              <p>{{ t('clients.no_orders') }}</p>
+            </div>
+          </GlassPanel>
+        </div>
+
+        <!-- Internal Notes & Interaction History -->
+        <div class="audit-panel-wide" data-test="client-card-notes-history">
+          <GlassPanel :title="t('clients.section_notes_history')">
+            <template v-if="client">
+              <!-- Inline Interaction Form -->
+              <div class="interaction-form-inline">
+                <div class="interaction-form-row">
+                  <InputGroup :label="t('clients.interaction_field_type')" class="interaction-form-type">
+                    <CustomSelect v-model="newInteraction.type" :options="INTERACTION_TYPE_OPTIONS" data-test="field-interaction-type-inline" />
+                  </InputGroup>
+
+                  <InputGroup :label="t('clients.interaction_field_date')" class="interaction-form-date">
+                    <DatePicker v-model="newInteraction.date" align-right data-test="field-interaction-date-inline" />
+                  </InputGroup>
+                </div>
+
+                <InputGroup :label="t('clients.interaction_field_summary')">
+                  <textarea
+                    v-model="newInteraction.summary"
+                    class="glass-input glass-textarea"
+                    rows="3"
+                    :placeholder="t('clients.notes_placeholder')"
+                    data-test="field-interaction-summary-inline"
+                  />
+                </InputGroup>
+
+                <div style="margin-top: 12px; display: flex; justify-content: flex-end; gap: 8px;">
+                  <button class="btn btn-secondary btn-sm" data-test="client-card-reset-interaction-btn" @click="resetNewInteraction">
+                    {{ t('clients.btn_discard') }}
+                  </button>
+                  <button
+                    class="btn btn-primary btn-sm"
+                    data-test="client-card-add-interaction-btn"
+                    :disabled="!canAddInteraction"
+                    @click="inlineAddInteraction"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
+                      <line x1="12" y1="5" x2="12" y2="19" />
+                      <line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                    {{ t('clients.btn_add_interaction') }}
+                  </button>
+                </div>
+              </div>
+
+              <!-- Interaction History (newest first) -->
+              <div v-if="sortedInteractions.length > 0" class="table-responsive" style="margin-top: 16px;">
+                <table class="audit-log-table" data-test="client-card-interaction-table">
+                  <thead>
+                    <tr>
+                      <th>{{ t('clients.history_col_date') }}</th>
+                      <th>{{ t('clients.history_col_type') }}</th>
+                      <th>{{ t('clients.history_col_summary') }}</th>
+                      <th>{{ t('clients.history_col_user') }}</th>
+                      <th style="width: 40px" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(entry, i) in sortedInteractions" :key="i" data-test="client-card-interaction-row">
+                      <td class="audit-log-ts">{{ entry.date }}</td>
+                      <td>
+                        <span class="interaction-type-pill">{{ INTERACTION_TYPE_LABEL[entry.type] || entry.type }}</span>
+                      </td>
+                      <td>{{ entry.summary }}</td>
+                      <td>{{ entry.user }}</td>
+                      <td style="text-align: right">
+                        <button
+                          v-tooltip="t('clients.btn_delete_interaction')"
+                          type="button"
+                          data-test="client-card-interaction-delete-btn"
+                          class="action-icon-btn action-danger"
+                          @click="handleDeleteInteraction(i)"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                          </svg>
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div v-else class="audit-empty" style="margin-top: 16px;">
+                <SvgIcon name="warehouse-box" :width="32" :height="32" />
+                <p>{{ t('clients.no_interactions') }}</p>
+              </div>
+            </template>
+          </GlassPanel>
+        </div>
+
         <!-- Audit section -->
         <div class="audit-panel-wide" data-test="client-card-audit">
           <GlassPanel :title="t('clients.section_audit')">
@@ -270,13 +476,13 @@ onMounted(() => {
         </div>
       </div>
     </div>
+
   </template>
 </template>
 
 <style>
 @import '@styles/admin/client_card.css';
 
-/* Audit log empty state — matches design system empty-state pattern */
 .audit-empty {
   display: flex;
   flex-direction: column;

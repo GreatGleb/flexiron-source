@@ -7,6 +7,7 @@ const props = defineProps<{
   modelValue: string
   placeholder?: string
   openUp?: boolean
+  alignRight?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -154,7 +155,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onClickOutside))
         <line x1="3" y1="10" x2="21" y2="10" />
       </svg>
     </div>
-    <div class="datepicker-popup" :class="{ open, 'open-up': openUp }">
+    <div class="datepicker-popup" :class="{ open, 'open-up': openUp, 'align-right': alignRight }">
       <div class="calendar-header">
         <span class="calendar-title">{{ monthTitle }}</span>
         <div class="calendar-nav">

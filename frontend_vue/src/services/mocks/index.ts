@@ -81,6 +81,8 @@ import {
   mockDeleteClient,
   mockGetClientAudit,
   mockDeleteClientAuditEntry,
+  mockAddClientInteraction,
+  mockDeleteClientInteraction,
 } from './clients'
 import {
   mockGetBccCategories,
@@ -105,9 +107,26 @@ import {
   mockUpdateSection,
   mockDeleteSection,
 } from './config'
+import {
+  mockGetOrders,
+  mockGetOrder,
+  mockCreateOrder,
+  mockPatchOrder,
+  mockPatchOrderStatus,
+  mockDeleteOrder,
+  mockAddOrderItem,
+  mockUpdateOrderItem,
+  mockDeleteOrderItem,
+  mockAddOrderService,
+  mockDeleteOrderService,
+  mockDeleteOrderAuditEntry,
+  mockAddOrderFile,
+  mockRemoveOrderFile,
+} from './orders'
 import type { SupplierFilters, SupplierCardData } from '@/types/supplier'
 import type { ClientFormData } from '@/types/client'
 import type { PaginationParams } from '@/types/api'
+import type { OrderFilters } from '@/types/order'
 
 function delay<T>(data: T, ms = 300): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(data), ms))
@@ -257,6 +276,8 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
   if (path === '/api/clients' || path === '/api/clients/translated') {
     const search = params?.search ?? ''
     const status = params?.status ?? ''
+    const sortBy = params?.sortBy ?? ''
+    const sortDir = params?.sortDir ?? 'asc'
     let filtered = mockGetClients()
     if (search) {
       const q = search.toLowerCase()
@@ -269,6 +290,16 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
     }
     if (status) {
       filtered = filtered.filter((c) => c.status === status)
+    }
+    // Sort
+    if (sortBy) {
+      filtered.sort((a, b) => {
+        let cmp = 0
+        if (sortBy === 'name') cmp = a.name.localeCompare(b.name)
+        else if (sortBy === 'email') cmp = a.email.localeCompare(b.email)
+        else if (sortBy === 'status') cmp = a.status.localeCompare(b.status)
+        return sortDir === 'desc' ? -cmp : cmp
+      })
     }
     const page = Number(params?.page ?? 1)
     const pageSize = Number(params?.pageSize ?? 25)
@@ -287,6 +318,29 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
   const clientAuditMatch = path.match(/^\/api\/clients\/([^/]+)\/audit$/)
   if (clientAuditMatch) {
     return delay(mockGetClientAudit(clientAuditMatch[1] as string) as T)
+  }
+
+  // ── Orders ──
+  if (path === '/api/orders' || path === '/api/orders/translated') {
+    const filters: OrderFilters = {
+      search: params?.search ?? '',
+      status: params?.status ?? 'all',
+      clientId: params?.clientId ?? null,
+      dateFrom: params?.dateFrom ?? '',
+      dateTo: params?.dateTo ?? '',
+      sortBy: params?.sortBy ?? null,
+      sortDir: params?.sortDir ?? 'asc',
+    }
+    const pagination = {
+      page: params?.page ? Number(params.page) : 1,
+      pageSize: params?.pageSize ? Number(params.pageSize) : 25,
+    }
+    return delay(mockGetOrders(filters, pagination) as T)
+  }
+
+  const orderCardMatch = path.match(/^\/api\/orders\/([^/]+)$/)
+  if (orderCardMatch) {
+    return delay(mockGetOrder(orderCardMatch[1] as string) as T)
   }
 
   // ── Warehouse ──
@@ -522,6 +576,35 @@ export async function postMock<T>(
     return delay(mockCreateClient(body as ClientFormData) as T)
   }
 
+  const clientInteractionPostMatch = path.match(/^\/api\/clients\/([^/]+)\/interactions$/)
+  if (clientInteractionPostMatch) {
+    return delay(
+      mockAddClientInteraction(clientInteractionPostMatch[1] as string, body as import('@/types/client').InteractionHistoryEntry) as T,
+    )
+  }
+
+  // ── Orders POST ──
+  if (path === '/api/orders') {
+    return delay(mockCreateOrder(body as { clientId: string; documentType: 'local' | 'export' }) as T)
+  }
+
+  const orderItemMatch = path.match(/^\/api\/orders\/([^/]+)\/items$/)
+  if (orderItemMatch) {
+    return delay(mockAddOrderItem(orderItemMatch[1] as string, body as Parameters<typeof mockAddOrderItem>[1]) as T)
+  }
+
+  const orderServiceMatch = path.match(/^\/api\/orders\/([^/]+)\/services$/)
+  if (orderServiceMatch) {
+    return delay(mockAddOrderService(orderServiceMatch[1] as string, body as Parameters<typeof mockAddOrderService>[1]) as T)
+  }
+
+  const orderFilesPostMatch = path.match(/^\/api\/orders\/([^/]+)\/files$/)
+  if (orderFilesPostMatch) {
+    const fileId = (body as { fileId: string }).fileId
+    const originalName = uploadedFiles.get(fileId)?.name
+    return delay(mockAddOrderFile(orderFilesPostMatch[1] as string, fileId, originalName) as T)
+  }
+
   // ── Warehouse POST ──
   if (path === '/api/warehouse/batches') {
     return delay(mockCreateBatch(body as Parameters<typeof mockCreateBatch>[0]) as T)
@@ -640,6 +723,27 @@ export async function patchMock<T>(
     )
   }
 
+  // ── Orders PATCH ──
+  const orderStatusMatch = path.match(/^\/api\/orders\/([^/]+)\/status$/)
+  if (orderStatusMatch) {
+    const { status } = body as { status: import('@/types/order').OrderStatus }
+    return delay(mockPatchOrderStatus(orderStatusMatch[1] as string, status) as T)
+  }
+
+  const orderItemUpdateMatch = path.match(/^\/api\/orders\/([^/]+)\/items\/([^/]+)$/)
+  if (orderItemUpdateMatch) {
+    return delay(
+      mockUpdateOrderItem(orderItemUpdateMatch[1] as string, orderItemUpdateMatch[2] as string, body as Parameters<typeof mockUpdateOrderItem>[2]) as T,
+    )
+  }
+
+  const orderPatchMatch = path.match(/^\/api\/orders\/([^/]+)$/)
+  if (orderPatchMatch) {
+    return delay(
+      mockPatchOrder(orderPatchMatch[1] as string, body as Partial<import('@/types/order').Order>) as T,
+    )
+  }
+
   // ── Warehouse PATCH ──
   const batchPatchMatch = path.match(/^\/api\/warehouse\/batches\/([^/]+)$/)
   if (batchPatchMatch) {
@@ -752,6 +856,43 @@ export async function deleteMock<T>(path: string, _headers?: Record<string, stri
   const clientAuditDeleteMatch = path.match(/^\/api\/clients\/([^/]+)\/audit\/(\d+)$/)
   if (clientAuditDeleteMatch) {
     mockDeleteClientAuditEntry(clientAuditDeleteMatch[1] as string, Number(clientAuditDeleteMatch[2]))
+    return delay(undefined as T)
+  }
+
+  const clientInteractionDeleteMatch = path.match(/^\/api\/clients\/([^/]+)\/interactions\/(\d+)$/)
+  if (clientInteractionDeleteMatch) {
+    mockDeleteClientInteraction(clientInteractionDeleteMatch[1] as string, Number(clientInteractionDeleteMatch[2]))
+    return delay(undefined as T)
+  }
+
+  // ── Orders DELETE ──
+  const orderItemDeleteMatch = path.match(/^\/api\/orders\/([^/]+)\/items\/([^/]+)$/)
+  if (orderItemDeleteMatch) {
+    mockDeleteOrderItem(orderItemDeleteMatch[1] as string, orderItemDeleteMatch[2] as string)
+    return delay(undefined as T)
+  }
+
+  const orderServiceDeleteMatch = path.match(/^\/api\/orders\/([^/]+)\/services\/([^/]+)$/)
+  if (orderServiceDeleteMatch) {
+    mockDeleteOrderService(orderServiceDeleteMatch[1] as string, orderServiceDeleteMatch[2] as string)
+    return delay(undefined as T)
+  }
+
+  const orderDeleteMatch = path.match(/^\/api\/orders\/([^/]+)$/)
+  if (orderDeleteMatch) {
+    mockDeleteOrder(orderDeleteMatch[1] as string)
+    return delay(undefined as T)
+  }
+
+  const orderAuditDeleteMatch = path.match(/^\/api\/orders\/([^/]+)\/audit\/(\d+)$/)
+  if (orderAuditDeleteMatch) {
+    mockDeleteOrderAuditEntry(orderAuditDeleteMatch[1] as string, Number(orderAuditDeleteMatch[2]))
+    return delay(undefined as T)
+  }
+
+  const orderFileDeleteMatch = path.match(/^\/api\/orders\/([^/]+)\/files\/([^/]+)$/)
+  if (orderFileDeleteMatch) {
+    mockRemoveOrderFile(orderFileDeleteMatch[1] as string, orderFileDeleteMatch[2] as string)
     return delay(undefined as T)
   }
 

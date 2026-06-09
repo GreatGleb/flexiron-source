@@ -2,6 +2,7 @@ import { test as base } from '@playwright/test'
 import { test, expect } from '../../fixtures'
 import { ALL_FLAGS_ENABLED } from '../../helpers/flags'
 import { freezeTime } from '../../helpers/mocks'
+import { mockExternalRequests } from '../../helpers/mockExternalRequests'
 import { waitForFontsReady, SNAPSHOT_OPTIONS } from '../../helpers/visual'
 
 /**
@@ -524,6 +525,119 @@ test.describe('client-card › audit log', () => {
 })
 
 // ────────────────────────────────────────────────────────────────────────────
+// ClientCardPage — Order History section
+// ────────────────────────────────────────────────────────────────────────────
+test.describe('client-card › order history', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.setViewportSize(DESKTOP)
+    await page.goto(CLIENTS_CARD)
+    await page.waitForLoadState('networkidle')
+  })
+
+  test('order history section is visible', async ({ page }) => {
+    await expect(page.locator('[data-test="client-card-order-history"]')).toBeVisible()
+  })
+
+  test('order history renders 3 rows for CL-001', async ({ page }) => {
+    await expect(page.locator('[data-test="client-card-order-table"]')).toBeVisible()
+    await expect(page.locator('[data-test="client-card-order-row"]')).toHaveCount(3)
+  })
+
+  test('order row renders order ID, date, total and status', async ({ page }) => {
+    const firstRow = page.locator('[data-test="client-card-order-row"]').first()
+    await expect(firstRow.locator('.order-link')).toBeVisible()
+    await expect(firstRow.locator('.audit-log-ts')).toBeVisible()
+    await expect(firstRow.locator('.order-total')).toBeVisible()
+    await expect(firstRow.locator('.status-pill')).toBeVisible()
+  })
+
+  test('order row navigates to order card on click', async ({ page }) => {
+    await page.locator('[data-test="client-card-order-row"]').first().click()
+    await expect(page).toHaveURL(/\/admin\/orders\/ORD-\d{3}$/)
+  })
+
+  test('order link navigates to order card', async ({ page }) => {
+    await page.locator('[data-test="client-card-order-row"] .order-link').first().click()
+    await expect(page).toHaveURL(/\/admin\/orders\/ORD-\d{3}$/)
+  })
+})
+
+test.describe('client-card › order history empty', () => {
+  const INACTIVE_CLIENT = '/admin/clients/CL-004'
+
+  test('shows empty state for client with no orders', async ({ page }) => {
+    await page.setViewportSize(DESKTOP)
+    await page.goto(INACTIVE_CLIENT)
+    await page.waitForLoadState('networkidle')
+    await expect(page.locator('[data-test="client-card-order-history"]')).toBeVisible()
+    // CL-004 has no orderHistory so it should show the empty state text
+    await expect(page.locator('[data-test="client-card-order-history"] .audit-empty')).toBeVisible()
+  })
+})
+
+// ────────────────────────────────────────────────────────────────────────────
+// ClientCardPage — Notes & Interaction History section
+// ────────────────────────────────────────────────────────────────────────────
+test.describe('client-card › interaction history', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.setViewportSize(DESKTOP)
+    await page.goto(CLIENTS_CARD)
+    await page.waitForLoadState('networkidle')
+  })
+
+  test('interaction section is visible', async ({ page }) => {
+    await expect(page.locator('[data-test="client-card-notes-history"]')).toBeVisible()
+  })
+
+  test('interaction form renders with type, date and summary fields', async ({ page }) => {
+    await expect(page.locator('[data-test="field-interaction-type-inline"]')).toBeVisible()
+    await expect(page.locator('[data-test="field-interaction-date-inline"]')).toBeVisible()
+    await expect(page.locator('[data-test="field-interaction-summary-inline"]')).toBeVisible()
+  })
+
+  test('interaction add button is disabled when summary is empty', async ({ page }) => {
+    await expect(page.locator('[data-test="client-card-add-interaction-btn"]')).toBeDisabled()
+  })
+
+  test('filling summary enables the add button', async ({ page }) => {
+    await page.locator('[data-test="field-interaction-summary-inline"]').fill('Test interaction note')
+    await expect(page.locator('[data-test="client-card-add-interaction-btn"]')).toBeEnabled()
+  })
+
+  test('adding an interaction appends a row to the table', async ({ page }) => {
+    await page.locator('[data-test="field-interaction-summary-inline"]').fill('E2E test interaction')
+    const rowsBefore = await page.locator('[data-test="client-card-interaction-row"]').count()
+    await page.locator('[data-test="client-card-add-interaction-btn"]').click()
+    await page.waitForTimeout(300)
+    const rowsAfter = await page.locator('[data-test="client-card-interaction-row"]').count()
+    expect(rowsAfter).toBe(rowsBefore + 1)
+  })
+
+  test('discard button resets the interaction form', async ({ page }) => {
+    await page.locator('[data-test="field-interaction-summary-inline"]').fill('Some text')
+    await page.locator('[data-test="client-card-reset-interaction-btn"]').click()
+    await expect(page.locator('[data-test="field-interaction-summary-inline"]')).toHaveValue('')
+  })
+
+  test('interaction table renders with rows for CL-001', async ({ page }) => {
+    await expect(page.locator('[data-test="client-card-interaction-table"]')).toBeVisible()
+    await expect(page.locator('[data-test="client-card-interaction-row"]')).toHaveCount(3)
+  })
+
+  test('interaction delete button exists per row', async ({ page }) => {
+    const deleteBtns = page.locator('[data-test="client-card-interaction-delete-btn"]')
+    await expect(deleteBtns.first()).toBeVisible()
+  })
+
+  test('clicking delete removes the interaction row from UI', async ({ page }) => {
+    const rows = page.locator('[data-test="client-card-interaction-row"]')
+    const before = await rows.count()
+    await page.locator('[data-test="client-card-interaction-delete-btn"]').first().click()
+    await expect(rows).toHaveCount(before - 1)
+  })
+})
+
+// ────────────────────────────────────────────────────────────────────────────
 // ClientCardPage — Non-existent client (error state)
 // ────────────────────────────────────────────────────────────────────────────
 test.describe('client-card › error state', () => {
@@ -657,6 +771,7 @@ test.describe('client-create › visual @1440', () => {
 
 test.describe('client-card › visual @1440', () => {
   test.beforeEach(async ({ page }) => {
+    await mockExternalRequests(page)
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
     await page.goto(CLIENTS_CARD)

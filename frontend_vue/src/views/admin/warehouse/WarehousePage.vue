@@ -298,7 +298,7 @@ async function exportCurrentTab() {
     a.download = filename
     a.click()
     URL.revokeObjectURL(url)
-  } catch (e) {
+  } catch {
     toast.error(t('warehouse.export_error'))
   }
 }
@@ -810,10 +810,10 @@ const deficitFiltersActive = computed(() => {
         <!-- Page config stub (all tabs) — feature-flagged per tab -->
         <div class="btn-wrapper">
           <button
+            v-tooltip="pageConfigForActiveTab ? '' : t('warehouse.tooltip_page_config_coming_soon')"
             class="btn btn-secondary"
             :disabled="!pageConfigForActiveTab"
             data-test="warehouse-page-config-btn"
-            v-tooltip="pageConfigForActiveTab ? '' : t('warehouse.tooltip_page_config_coming_soon')"
           >
             <SvgIcon name="settings-gear" :width="18" :height="18" />
             <span>{{ t('warehouse.btn_page_config') }}</span>
@@ -995,10 +995,10 @@ const deficitFiltersActive = computed(() => {
             <label class="field-label">{{ t('warehouse.col_category') }}</label>
             <MultiSelect
               :model-value="offcutFilters.categoryIds ?? []"
-              @update:model-value="(v: string[]) => offcutFilters.categoryIds = v"
               :options="categoryFilterOptions"
               :placeholder="t('warehouse.filter_category_all')"
               data-test="warehouse-offcuts-category-filter"
+              @update:model-value="(v: string[]) => offcutFilters.categoryIds = v"
             />
           </div>
           <div class="filter-group" data-test="warehouse-filter-batch">
@@ -1068,10 +1068,10 @@ const deficitFiltersActive = computed(() => {
             <label class="field-label">{{ t('warehouse.col_category') }}</label>
             <MultiSelect
               :model-value="movementFilters.categoryIds ?? []"
-              @update:model-value="(v: string[]) => movementFilters.categoryIds = v"
               :options="categoryFilterOptions"
               :placeholder="t('warehouse.filter_category_all')"
               data-test="warehouse-movements-category-filter"
+              @update:model-value="(v: string[]) => movementFilters.categoryIds = v"
             />
           </div>
           <div class="filter-group" data-test="warehouse-filter-batch">
@@ -1132,10 +1132,10 @@ const deficitFiltersActive = computed(() => {
             <label class="field-label">{{ t('warehouse.col_category') }}</label>
             <MultiSelect
               :model-value="deficitFilters.categoryIds ?? []"
-              @update:model-value="(v: string[]) => deficitFilters.categoryIds = v"
               :options="categoryFilterOptions"
               :placeholder="t('warehouse.filter_category_all')"
               data-test="warehouse-deficit-category-filter"
+              @update:model-value="(v: string[]) => deficitFilters.categoryIds = v"
             />
           </div>
           <button class="btn btn-primary" data-test="warehouse-deficit-save-view-btn" @click="saveDeficitView">
@@ -1194,7 +1194,7 @@ const deficitFiltersActive = computed(() => {
           <div :class="['stock-table-split', { 'stock-table-hidden': filteringStock }]">
           <!-- Left: Fixed Product column -->
           <div class="stock-table-fixed">
-            <table class="data-table" ref="fixedTableEl">
+            <table ref="fixedTableEl" class="data-table">
               <thead>
                 <tr>
                   <th>
@@ -1242,7 +1242,7 @@ const deficitFiltersActive = computed(() => {
 
           <!-- Right: Scrollable remaining columns -->
           <div class="stock-table-scroll">
-            <table class="data-table" ref="scrollTableEl">
+            <table ref="scrollTableEl" class="data-table">
               <thead>
                 <tr>
                   <th>
@@ -1517,8 +1517,8 @@ const deficitFiltersActive = computed(() => {
               class="btn btn-icon btn-sm"
               :disabled="!stockPagination.hasPrev.value"
               :style="{ display: stockPagination.totalPages.value <= 1 ? 'none' : 'flex' }"
-              @click="skipStockTransition = true; stockPagination.prev()"
               data-test="warehouse-stock-prev-page"
+              @click="skipStockTransition = true; stockPagination.prev()"
             >
               <SvgIcon
                 name="chevron-right"
@@ -1534,8 +1534,8 @@ const deficitFiltersActive = computed(() => {
                   v-else
                   class="page-btn"
                   :class="{ active: p === stockPagination.page.value }"
-                  @click="skipStockTransition = true; stockPagination.goTo(p as number)"
                   :data-test="`warehouse-stock-page-${p}`"
+                  @click="skipStockTransition = true; stockPagination.goTo(p as number)"
                 >
                   {{ p }}
                 </button>
@@ -1545,8 +1545,8 @@ const deficitFiltersActive = computed(() => {
               class="btn btn-icon btn-sm"
               :disabled="!stockPagination.hasNext.value"
               :style="{ display: stockPagination.totalPages.value <= 1 ? 'none' : 'flex' }"
-              @click="skipStockTransition = true; stockPagination.next()"
               data-test="warehouse-stock-next-page"
+              @click="skipStockTransition = true; stockPagination.next()"
             >
               <SvgIcon name="chevron-right" :width="14" :height="14" />
             </button>
@@ -1924,8 +1924,8 @@ const deficitFiltersActive = computed(() => {
               class="btn btn-icon btn-sm"
               :disabled="!batchesPagination.hasPrev.value"
               :style="{ display: batchesPagination.totalPages.value <= 1 ? 'none' : 'flex' }"
-              @click="batchesPagination.prev()"
               data-test="warehouse-batches-prev-page"
+              @click="batchesPagination.prev()"
             >
               <SvgIcon
                 name="chevron-right"
@@ -1941,8 +1941,8 @@ const deficitFiltersActive = computed(() => {
                   v-else
                   class="page-btn"
                   :class="{ active: p === batchesPagination.page.value }"
-                  @click="batchesPagination.goTo(p as number)"
                   :data-test="`warehouse-batches-page-${p}`"
+                  @click="batchesPagination.goTo(p as number)"
                 >
                   {{ p }}
                 </button>
@@ -1952,8 +1952,8 @@ const deficitFiltersActive = computed(() => {
               class="btn btn-icon btn-sm"
               :disabled="!batchesPagination.hasNext.value"
               :style="{ display: batchesPagination.totalPages.value <= 1 ? 'none' : 'flex' }"
-              @click="batchesPagination.next()"
               data-test="warehouse-batches-next-page"
+              @click="batchesPagination.next()"
             >
               <SvgIcon name="chevron-right" :width="14" :height="14" />
             </button>
@@ -2389,8 +2389,8 @@ const deficitFiltersActive = computed(() => {
               class="btn btn-icon btn-sm"
               :disabled="!offcutsPagination.hasPrev.value"
               :style="{ display: offcutsPagination.totalPages.value <= 1 ? 'none' : 'flex' }"
-              @click="offcutsPagination.prev()"
               data-test="warehouse-offcuts-prev-page"
+              @click="offcutsPagination.prev()"
             >
               <SvgIcon
                 name="chevron-right"
@@ -2406,8 +2406,8 @@ const deficitFiltersActive = computed(() => {
                   v-else
                   class="page-btn"
                   :class="{ active: p === offcutsPagination.page.value }"
-                  @click="offcutsPagination.goTo(p as number)"
                   :data-test="`warehouse-offcuts-page-${p}`"
+                  @click="offcutsPagination.goTo(p as number)"
                 >
                   {{ p }}
                 </button>
@@ -2417,8 +2417,8 @@ const deficitFiltersActive = computed(() => {
               class="btn btn-icon btn-sm"
               :disabled="!offcutsPagination.hasNext.value"
               :style="{ display: offcutsPagination.totalPages.value <= 1 ? 'none' : 'flex' }"
-              @click="offcutsPagination.next()"
               data-test="warehouse-offcuts-next-page"
+              @click="offcutsPagination.next()"
             >
               <SvgIcon name="chevron-right" :width="14" :height="14" />
             </button>
@@ -2792,8 +2792,8 @@ const deficitFiltersActive = computed(() => {
               class="btn btn-icon btn-sm"
               :disabled="!movementsPagination.hasPrev.value"
               :style="{ display: movementsPagination.totalPages.value <= 1 ? 'none' : 'flex' }"
-              @click="movementsPagination.prev()"
               data-test="warehouse-movements-prev-page"
+              @click="movementsPagination.prev()"
             >
               <SvgIcon
                 name="chevron-right"
@@ -2809,8 +2809,8 @@ const deficitFiltersActive = computed(() => {
                   v-else
                   class="page-btn"
                   :class="{ active: p === movementsPagination.page.value }"
-                  @click="movementsPagination.goTo(p as number)"
                   :data-test="`warehouse-movements-page-${p}`"
+                  @click="movementsPagination.goTo(p as number)"
                 >
                   {{ p }}
                 </button>
@@ -2820,8 +2820,8 @@ const deficitFiltersActive = computed(() => {
               class="btn btn-icon btn-sm"
               :disabled="!movementsPagination.hasNext.value"
               :style="{ display: movementsPagination.totalPages.value <= 1 ? 'none' : 'flex' }"
-              @click="movementsPagination.next()"
               data-test="warehouse-movements-next-page"
+              @click="movementsPagination.next()"
             >
               <SvgIcon name="chevron-right" :width="14" :height="14" />
             </button>
@@ -3189,8 +3189,8 @@ const deficitFiltersActive = computed(() => {
               class="btn btn-icon btn-sm"
               :disabled="!deficitPagination.hasPrev.value"
               :style="{ display: deficitPagination.totalPages.value <= 1 ? 'none' : 'flex' }"
-              @click="deficitPagination.prev()"
               data-test="warehouse-deficit-prev-page"
+              @click="deficitPagination.prev()"
             >
               <SvgIcon
                 name="chevron-right"
@@ -3206,8 +3206,8 @@ const deficitFiltersActive = computed(() => {
                   v-else
                   class="page-btn"
                   :class="{ active: p === deficitPagination.page.value }"
-                  @click="deficitPagination.goTo(p as number)"
                   :data-test="`warehouse-deficit-page-${p}`"
+                  @click="deficitPagination.goTo(p as number)"
                 >
                   {{ p }}
                 </button>
@@ -3217,8 +3217,8 @@ const deficitFiltersActive = computed(() => {
               class="btn btn-icon btn-sm"
               :disabled="!deficitPagination.hasNext.value"
               :style="{ display: deficitPagination.totalPages.value <= 1 ? 'none' : 'flex' }"
-              @click="deficitPagination.next()"
               data-test="warehouse-deficit-next-page"
+              @click="deficitPagination.next()"
             >
               <SvgIcon name="chevron-right" :width="14" :height="14" />
             </button>

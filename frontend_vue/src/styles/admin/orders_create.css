@@ -1,0 +1,74 @@
+.page-order-create {
+  padding: 24px;
+}
+
+/* ─── Custom radio button ─────────────────────────── */
+.client-radio-input {
+  display: none;
+}
+
+.client-radio-custom {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  background: transparent;
+  flex-shrink: 0;
+  position: relative;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.client-radio-input:checked + .client-radio-custom {
+  border-color: var(--primary, #1890ff);
+  background: rgba(24, 144, 255, 0.15);
+}
+
+.client-radio-input:checked + .client-radio-custom::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary, #1890ff);
+  transform: translate(-50%, -50%);
+}
+
+.order-create-header {
+  margin-bottom: 24px;
+}
+
+.order-create-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.order-create-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* ─── Required field indicator ─────────────────────────── */
+.required-star {
+  color: var(--danger, #e74c3c);
+  margin-left: 2px;
+}
+
+.field-error {
+  color: var(--danger, #e74c3c);
+  font-size: 11px;
+  margin-left: 4px;
+}
+
+/* ─── Validation error state on client checkbox-list ────── */
+.checkbox-list.has-error {
+  border-color: var(--danger, #e74c3c) !important;
+  box-shadow: 0 0 0 1px var(--danger, #e74c3c) !important;
+  border-radius: 6px;
+  padding: 8px;
+}

@@ -63,3 +63,24 @@ test.describe('Navigation', () => {
     await expect(page.locator('h1').first()).toBeVisible()
   })
 
+  // ─── Orders navigation ──────────────────────────────────────────────
+
+  test('orders list route works', async ({ page }) => {
+    await page.goto('/admin/orders')
+    await expect(page).toHaveURL('/admin/orders')
+    await expect(page.locator('[data-test="page-orders"]')).toBeVisible()
+  })
+
+  test('order create route resolves before :id', async ({ page }) => {
+    await page.goto('/admin/orders/new')
+    await expect(page).toHaveURL('/admin/orders/new')
+    await expect(page.locator('h1').first()).toBeVisible()
+  })
+
+  test('deep link to order card works', async ({ page }) => {
+    await page.goto('/admin/orders/ORD-001')
+    await expect(page).toHaveURL('/admin/orders/ORD-001')
+    await expect(page.locator('[data-test="page-order-card"]')).toBeVisible()
+  })
+
+})

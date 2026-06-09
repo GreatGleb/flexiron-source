@@ -13,7 +13,7 @@ const isAnalyticsActive = computed(() => route.path.startsWith('/admin/analytics
 const isSuppliersActive = computed(() => route.path.startsWith('/admin/suppliers'))
 const isProductsActive = computed(() => route.path.startsWith('/admin/products'))
 const isWarehouseActive = computed(() => route.path.startsWith('/admin/warehouse'))
-const isSalesCrmActive = computed(() => route.path.startsWith('/admin/sales-crm') || route.path.startsWith('/admin/clients'))
+const isSalesCrmActive = computed(() => route.path.startsWith('/admin/sales-crm') || route.path.startsWith('/admin/clients') || route.path.startsWith('/admin/orders'))
 
 function switchLang(code: string) {
   locale.value = code

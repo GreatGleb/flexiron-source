@@ -145,7 +145,7 @@ watch(() => movement.value?.notes, () => {
               <SvgIcon name="external-link" :width="16" :height="16" />
             </router-link>
           </h1>
-          <span class="batch-status-wrapper" v-if="movement">
+          <span v-if="movement" class="batch-status-wrapper">
             <span
               :class="['pill', movement.type === 'expense' ? 'pill-danger' : movement.type === 'receipt' ? 'pill-success' : 'pill-info']"
               data-test="movement-card-type-pill"

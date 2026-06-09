@@ -2,6 +2,7 @@ import { test as base } from '@playwright/test'
 import { test, expect } from '../../fixtures'
 import { ALL_FLAGS_ENABLED } from '../../helpers/flags'
 import { freezeTime } from '../../helpers/mocks'
+import { mockExternalRequests } from '../../helpers/mockExternalRequests'
 import { waitForFontsReady, SNAPSHOT_OPTIONS } from '../../helpers/visual'
 
 /**
@@ -146,6 +147,7 @@ test.describe('suppliers-list › toolbar', () => {
 // ────────────────────────────────────────────────────────────────────────────
 test.describe('suppliers-list › table view', () => {
   test.beforeEach(async ({ page }) => {
+    await mockExternalRequests(page)
     await page.setViewportSize(DESKTOP)
     await page.goto(SUPPLIERS)
     await page.waitForLoadState('networkidle')

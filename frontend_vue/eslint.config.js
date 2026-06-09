@@ -35,6 +35,7 @@ export default tseslint.config(
         clearInterval: 'readonly',
         HTMLElement: 'readonly',
         HTMLInputElement: 'readonly',
+        HTMLTextAreaElement: 'readonly',
         MouseEvent: 'readonly',
         KeyboardEvent: 'readonly',
         DragEvent: 'readonly',
@@ -42,6 +43,8 @@ export default tseslint.config(
         Node: 'readonly',
         File: 'readonly',
         Blob: 'readonly',
+        ResizeObserver: 'readonly',
+        requestAnimationFrame: 'readonly',
       },
     },
     rules: {

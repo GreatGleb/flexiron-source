@@ -6,7 +6,6 @@ import type {
   MovementType,
   WarehouseDeficit,
   DeficitListResponse,
-  DeficitListItem,
   StockOverviewItem,
   StockAuditEntry,
   StockUnit,
@@ -44,9 +43,7 @@ const stockStore: StockOverviewItem[] = [...mockStockOverviewData]
 
 // Track IDs of pre-existing mock entities so we can distinguish them
 // from dynamically created ones (e.g. to avoid generating fake audit data for new entities)
-const preExistingOffcutIds = new Set(mockOffcutsData.map((o) => o.id))
 const preExistingMovementIds = new Set(mockMovementsData.map((m) => m.id))
-const preExistingDeficitIds = new Set(mockDeficitData.map((d) => d.id))
 
 let batchSeq = batchStore.length + 1
 let offcutSeq = offcutStore.length + 1
@@ -55,7 +52,6 @@ let deficitSeq = deficitStore.length + 1
 
 // ─── Helper: get current value of a specific aggregate from movements ─────
 function getAggregateQty(batchId: string, targetType: string): number {
-  const outgoingTypes = new Set(['sale', 'expense', 'write-off', 'production', 'return-to-supplier', 'storage', 'offcut'])
   const movements = movementStore.filter((m) => m.batchId === batchId)
   let qty = 0
   for (const m of movements) {
@@ -160,15 +156,6 @@ function paginate<T>(items: T[], page: number, pageSize: number): PaginatedRespo
     pageSize,
     totalPages: Math.ceil(total / pageSize),
   }
-}
-
-function matchSearch(item: { productName: { ru: string; en: string; lt: string } }, q: string): boolean {
-  const query = q.toLowerCase()
-  return (
-    item.productName.ru.toLowerCase().includes(query) ||
-    item.productName.en.toLowerCase().includes(query) ||
-    item.productName.lt.toLowerCase().includes(query)
-  )
 }
 
 // ─── Stock Overview ─────────────────────────────────────────────────────────
@@ -495,18 +482,6 @@ export async function mockDeleteOffcut(id: string): Promise<void> {
 }
 
 // ─── Movements ──────────────────────────────────────────────────────────────
-
-const movementSortFieldMap: Record<string, string> = {
-  movedAt: 'movedAt',
-  type: 'type',
-  productName: 'productName',
-  batchNumber: 'batchNumber',
-  quantity: 'quantity',
-  unit: 'unit',
-  unitPrice: 'unitPrice',
-  totalCost: 'totalCost',
-  referenceId: 'referenceId',
-}
 
 function toMovementListItem(m: WarehouseMovement): MovementListItem {
   return {
@@ -865,34 +840,34 @@ export async function mockPatchDeficitItem(id: string, delta: DeficitPatchPayloa
   return { ...deficit }
 }
 
-export async function mockDeleteDeficitItem(id: string): Promise<void> {}
+export async function mockDeleteDeficitItem(_id: string): Promise<void> {}
 
 // ─── Export ─────────────────────────────────────────────────────────────────
 
-export async function mockExportWarehouseCsv(tab: string): Promise<string> {
+export async function mockExportWarehouseCsv(_tab: string): Promise<string> {
   return 'mock-csv-data'
 }
 
 // ─── Audit endpoints ────────────────────────────────────────────────────────
 
-export async function mockGetStockAudit(productId: string): Promise<StockAuditEntry[]> {
+export async function mockGetStockAudit(_productId: string): Promise<StockAuditEntry[]> {
   return []
 }
 
-export async function mockDeleteStockAuditEntry(productId: string, entryIndex: number): Promise<void> {}
+export async function mockDeleteStockAuditEntry(_productId: string, _entryIndex: number): Promise<void> {}
 
 export async function mockGetBatchAudit(batchId: string): Promise<StockAuditEntry[]> {
   const batch = batchStore.find((b) => b.id === batchId)
   return batch?.auditLog ?? []
 }
 
-export async function mockDeleteBatchAuditEntry(batchId: string, entryIndex: number): Promise<void> {}
+export async function mockDeleteBatchAuditEntry(_batchId: string, _entryIndex: number): Promise<void> {}
 
-export async function mockGetOffcutAudit(offcutId: string): Promise<StockAuditEntry[]> {
+export async function mockGetOffcutAudit(_offcutId: string): Promise<StockAuditEntry[]> {
   return []
 }
 
-export async function mockDeleteOffcutAuditEntry(offcutId: string, entryIndex: number): Promise<void> {}
+export async function mockDeleteOffcutAuditEntry(_offcutId: string, _entryIndex: number): Promise<void> {}
 
 export async function mockGetMovementAudit(movementId: string): Promise<StockAuditEntry[]> {
   return getOrCreateMovementAudit(movementId)
@@ -903,8 +878,8 @@ export async function mockDeleteMovementAuditEntry(movementId: string, entryInde
   if (entryIndex >= 0 && entryIndex < audit.length) audit.splice(entryIndex, 1)
 }
 
-export async function mockGetDeficitAudit(deficitId: string): Promise<StockAuditEntry[]> {
+export async function mockGetDeficitAudit(_deficitId: string): Promise<StockAuditEntry[]> {
   return []
 }
 
-export async function mockDeleteDeficitAuditEntry(deficitId: string, entryIndex: number): Promise<void> {}
+export async function mockDeleteDeficitAuditEntry(_deficitId: string, _entryIndex: number): Promise<void> {}

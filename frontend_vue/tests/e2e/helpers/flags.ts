@@ -26,6 +26,7 @@ export const ALL_FLAGS_ENABLED = {
   adminProducts: true,
   adminServices: true,
   adminClients: true,
+  adminOrders: true,
   adminSalesCrm: true,
 
   // Section-level

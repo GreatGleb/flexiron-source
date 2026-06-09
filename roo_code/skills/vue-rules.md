@@ -842,6 +842,25 @@ function onSortChange(sortField: string) {
 
 The `name-link` class is defined in each page's CSS and inherits text color (`color: inherit`) with underline only on hover — matching the standard pattern from Pitfall #28.
 
+### 🔥 #63 — Never rely on CSS classes from another page's CSS file
+
+**Симптом:** A CSS class (e.g. `.text-muted`, `.empty-state`) works on one page but not on another, despite being used in the template.
+
+**Причина:** CSS classes defined in a page-specific file (e.g. `warehouse_list.css`, `products_card.css`) are NOT globally available. They are only imported by that page's component. If another page uses the same class name without defining or importing it, the class has no effect.
+
+**Решение:**
+- Before using any CSS class in a template, verify it's available in ONE of:
+  1. The page's own CSS file (define it there)
+  2. A shared component CSS file explicitly imported via `@styles/admin/components/_file.css`
+  3. `admin-core.scss` (globally imported — check `@import` list)
+- Never assume a class from another page's CSS file is accessible.
+- Common classes that are NOT global and must be defined per-page:
+  - `.empty-state`
+  - `.text-muted`
+  - `.main-card-content`
+  - `.entity-card-grid`
+  - Any `.page-[domain]-*` scoped class
+
 ---
 
 ## Applying this skill

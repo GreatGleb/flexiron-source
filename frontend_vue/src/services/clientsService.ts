@@ -30,3 +30,11 @@ export async function getClientAudit(clientId: string): Promise<StockAuditEntry[
 export async function deleteClientAuditEntry(clientId: string, entryIndex: number): Promise<void> {
   return apiDelete<void>(`/api/clients/${clientId}/audit/${entryIndex}`)
 }
+
+export async function addClientInteraction(clientId: string, entry: import('@/types/client').InteractionHistoryEntry): Promise<import('@/types/client').InteractionHistoryEntry> {
+  return apiPost(`/api/clients/${clientId}/interactions`, entry)
+}
+
+export async function deleteClientInteraction(clientId: string, entryIndex: number): Promise<void> {
+  return apiDelete<void>(`/api/clients/${clientId}/interactions/${entryIndex}`)
+}

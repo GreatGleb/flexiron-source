@@ -198,7 +198,7 @@ export function useWarehouseOffcutCard(id: string) {
       const delta = dirty.diff() as OffcutPatchPayload
       // Include pending file uploads
       if (fileIdsToAttach.value.length > 0) {
-        ;(delta as any).fileIds = [...fileIdsToAttach.value]
+        ;(delta as OffcutPatchPayload & { fileIds: string[] }).fileIds = [...fileIdsToAttach.value]
       }
       // Compose location sub-fields into a single string for the API
       const newLocation = composeLocation(

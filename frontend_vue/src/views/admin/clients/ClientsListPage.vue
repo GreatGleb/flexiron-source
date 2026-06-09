@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useHead } from '@/composables/useHead'
 import { useClients } from '@/composables/useClients'
+import { useToast } from '@/composables/useToast'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
 import Breadcrumb from '@/components/admin/Breadcrumb.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
@@ -15,13 +16,14 @@ import '@styles/admin/components/_pagination.css'
 import '@styles/admin/clients_list.css'
 
 const { t } = useI18n()
+const toast = useToast()
 
 useHead({
   title: () => `Flexiron — ${t('clients.title')}`,
   description: () => t('clients.title'),
 })
 
-const { items, loading, error, filters, page, pageSize, total, totalPages, load, handleDelete } = useClients()
+const { items, loading, error, filters, page, pageSize, total, totalPages, load, handleDelete, toggleSort } = useClients()
 
 // ─── Status filter ─────────────────────────────────────
 const STATUS_OPTIONS = [
@@ -99,7 +101,53 @@ const pageSizeStr = computed({
   },
 })
 
-onMounted(load)
+// ─── Save / restore filter view ────────────────────────────
+const PREFS_KEY = 'clients_list_prefs'
+
+function saveView() {
+  const prefs = {
+    filters: {
+      search: filters.value.search,
+      status: filters.value.status,
+      sortBy: filters.value.sortBy,
+      sortDir: filters.value.sortDir,
+    },
+  }
+  localStorage.setItem(PREFS_KEY, JSON.stringify(prefs))
+  toast.show(t('msg.prefs_saved'))
+}
+
+function loadPrefs() {
+  try {
+    const raw = localStorage.getItem(PREFS_KEY)
+    if (!raw) return
+    const prefs = JSON.parse(raw) as {
+      filters?: { search?: string; status?: 'active' | 'inactive' | null; sortBy?: 'name' | 'email' | 'status' | null; sortDir?: 'asc' | 'desc' }
+    }
+    if (prefs.filters) {
+      if (typeof prefs.filters.search === 'string') {
+        filters.value.search = prefs.filters.search
+        searchInput.value = prefs.filters.search
+      }
+      if (prefs.filters.status) {
+        filters.value.status = prefs.filters.status
+      }
+      if (prefs.filters.sortBy) {
+        filters.value.sortBy = prefs.filters.sortBy
+      }
+      if (prefs.filters.sortDir) {
+        filters.value.sortDir = prefs.filters.sortDir
+      }
+    }
+  } catch {
+    /* ignore malformed prefs */
+  }
+}
+
+onMounted(() => {
+  loadPrefs()
+  load()
+})
 </script>
 
 <template>
@@ -142,6 +190,14 @@ onMounted(load)
           <label class="field-label">{{ t('clients.col_status') }}</label>
           <CustomSelect v-model="statusFilterStr" :options="STATUS_OPTIONS" />
         </div>
+        <button class="btn btn-primary" data-test="clients-save-view-btn" @click="saveView">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
+            <polyline points="17 21 17 13 7 13 7 21" />
+            <polyline points="7 3 7 8 15 8" />
+          </svg>
+          <span>{{ t('btn.save_view') }}</span>
+        </button>
       </div>
     </div>
 
@@ -176,7 +232,7 @@ onMounted(load)
           <thead>
             <tr>
               <th>
-                <button class="th-sort-btn">
+                <button class="th-sort-btn" @click="toggleSort('name')">
                   {{ t('clients.col_name') }}
                   <span class="sort-icon-group">
                     <SvgIcon
@@ -184,12 +240,14 @@ onMounted(load)
                       :width="16"
                       :height="16"
                       class="sort-icon"
+                      :class="{ active: filters.sortBy === 'name' && filters.sortDir === 'asc' }"
                     />
                     <SvgIcon
                       name="chevron-down"
                       :width="16"
                       :height="16"
                       class="sort-icon"
+                      :class="{ active: filters.sortBy === 'name' && filters.sortDir === 'desc' }"
                     />
                   </span>
                 </button>
@@ -198,8 +256,48 @@ onMounted(load)
               <th>{{ t('clients.col_vat') }}</th>
               <th>{{ t('clients.col_address') }}</th>
               <th>{{ t('clients.col_phone') }}</th>
-              <th>{{ t('clients.col_email') }}</th>
-              <th>{{ t('clients.col_status') }}</th>
+              <th>
+                <button class="th-sort-btn" @click="toggleSort('email')">
+                  {{ t('clients.col_email') }}
+                  <span class="sort-icon-group">
+                    <SvgIcon
+                      name="chevron-up"
+                      :width="16"
+                      :height="16"
+                      class="sort-icon"
+                      :class="{ active: filters.sortBy === 'email' && filters.sortDir === 'asc' }"
+                    />
+                    <SvgIcon
+                      name="chevron-down"
+                      :width="16"
+                      :height="16"
+                      class="sort-icon"
+                      :class="{ active: filters.sortBy === 'email' && filters.sortDir === 'desc' }"
+                    />
+                  </span>
+                </button>
+              </th>
+              <th>
+                <button class="th-sort-btn" @click="toggleSort('status')">
+                  {{ t('clients.col_status') }}
+                  <span class="sort-icon-group">
+                    <SvgIcon
+                      name="chevron-up"
+                      :width="16"
+                      :height="16"
+                      class="sort-icon"
+                      :class="{ active: filters.sortBy === 'status' && filters.sortDir === 'asc' }"
+                    />
+                    <SvgIcon
+                      name="chevron-down"
+                      :width="16"
+                      :height="16"
+                      class="sort-icon"
+                      :class="{ active: filters.sortBy === 'status' && filters.sortDir === 'desc' }"
+                    />
+                  </span>
+                </button>
+              </th>
               <th></th>
             </tr>
           </thead>

@@ -2,6 +2,7 @@ import { test as base } from '@playwright/test'
 import { test, expect } from '../../fixtures'
 import { ALL_FLAGS_ENABLED } from '../../helpers/flags'
 import { freezeTime } from '../../helpers/mocks'
+import { mockExternalRequests } from '../../helpers/mockExternalRequests'
 import { waitForFontsReady, SNAPSHOT_OPTIONS } from '../../helpers/visual'
 
 /**
@@ -46,6 +47,7 @@ const DESKTOP = { width: 1440, height: 900 }
 // ────────────────────────────────────────────────────────────────────────────
 test.describe('supply › structure', () => {
   test.beforeEach(async ({ page }) => {
+    await mockExternalRequests(page)
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
     await page.goto(SUPPLY)
@@ -70,6 +72,7 @@ test.describe('supply › structure', () => {
 // ────────────────────────────────────────────────────────────────────────────
 test.describe('supply › kpi cards', () => {
   test.beforeEach(async ({ page }) => {
+    await mockExternalRequests(page)
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
     await page.goto(SUPPLY)

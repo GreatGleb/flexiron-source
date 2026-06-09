@@ -11,7 +11,6 @@ import AppModal from '@/components/admin/ui/AppModal.vue'
 import FileItem from '@/components/admin/FileItem.vue'
 import DropZone from '@/components/admin/ui/DropZone.vue'
 import type { OffcutStatus } from '@/types/warehouse'
-import type { UploadedFile } from '@/services/uploadsService'
 import { getBatch } from '@/services/warehouseService'
 import CreateMovementModal from './CreateMovementModal.vue'
 import '@styles/admin/warehouse_list.css'
@@ -1018,7 +1017,7 @@ async function onMovementCreated() {
       :batch="batch"
       :movements="movements"
       :aggregates="batchAggregates"
-      :activeSales="batchActiveSales"
+      :active-sales="batchActiveSales"
       @close="showMovementModal = false"
       @created="onMovementCreated"
     />
@@ -1032,10 +1031,10 @@ async function onMovementCreated() {
     >
       <p>{{ t('warehouse.confirm_delete_batch') }}</p>
       <div v-if="offcuts.length > 0 || movements.length > 0" class="cascade-warnings">
-        <span class="cascade-warning" v-if="offcuts.length > 0">
+        <span v-if="offcuts.length > 0" class="cascade-warning">
           {{ t('warehouse.delete_batch_cascade_offcuts', { count: offcuts.length }) }}
         </span>
-        <span class="cascade-warning" v-if="movements.length > 0">
+        <span v-if="movements.length > 0" class="cascade-warning">
           {{ t('warehouse.delete_batch_cascade_movements', { count: movements.length }) }}
         </span>
       </div>

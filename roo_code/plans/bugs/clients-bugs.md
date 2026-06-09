@@ -4,18 +4,18 @@
 
 | ID | Type | File | Summary |
 |---|---|---|---|
-| БАГ-1 | CSS | `ClientsListPage.vue` | Missing `_entity-card-layout.css` import — `entity-action-bar` class not loaded |
-| БАГ-2 | CSS | `clients_list.css` | Missing `.empty-state` class definition |
-| БАГ-3 | CSS | `client_card.css` | Missing `.main-card-content` class — used by both ClientCreatePage and ClientCardPage |
-| БАГ-4 | CSS | `ClientCardPage.vue` | Uses `.text-muted` class which is only defined in warehouse_list.css, not globally |
-| БАГ-5 | Template | `ClientsListPage.vue` | Error state retry button uses `t('clients.title')` instead of a retry label |
-| БАГ-6 | Imports | `ClientCardPage.vue` | Unused `useRouter` import — imported but never used |
-| БАГ-7 | i18n | `ClientCardPage.vue` | Audit delete tooltip uses `t('btn.delete')` — key doesn't exist, should be `t('clients.btn_delete')` |
-| БАГ-8 | Mock | `services/mocks/clients.ts` | `mockGetClientAudit` missing `structuredClone` — returns raw STORE reference |
+| ✅ БАГ-1 | CSS | `ClientsListPage.vue` | Missing `_entity-card-layout.css` import — `entity-action-bar` class not loaded |
+| ✅ БАГ-2 | CSS | `clients_list.css` | Missing `.empty-state` class definition |
+| ✅ БАГ-3 | CSS | `client_card.css` | Missing `.main-card-content` class — used by both ClientCreatePage and ClientCardPage |
+| ✅ БАГ-4 | CSS | `ClientCardPage.vue` | Uses `.text-muted` class which is only defined in warehouse_list.css, not globally |
+| ✅ БАГ-5 | Template | `ClientsListPage.vue` | Error state retry button uses `t('clients.title')` instead of a retry label |
+| ✅ БАГ-6 | Imports | `ClientCardPage.vue` | Unused `useRouter` import — imported but never used |
+| ✅ БАГ-7 | i18n | `ClientCardPage.vue` | Audit delete tooltip uses `t('btn.delete')` — key doesn't exist, should be `t('clients.btn_delete')` |
+| ✅ БАГ-8 | Mock | `services/mocks/clients.ts` | `mockGetClientAudit` missing `structuredClone` — returns raw STORE reference |
 
 ---
 
-## БАГ-1 — ClientsListPage: missing `_entity-card-layout.css` import
+## ✅ БАГ-1 — ClientsListPage: missing `_entity-card-layout.css` import
 
 **File:** `frontend_vue/src/views/admin/clients/ClientsListPage.vue:13-14`
 **Severity:** Medium — classes may not apply, causing layout shift
@@ -37,7 +37,7 @@ Any page using `entity-action-bar` or `no-margin` must explicitly import `_entit
 
 ---
 
-## БАГ-2 — clients_list.css: missing `.empty-state` class
+## ✅ БАГ-2 — clients_list.css: missing `.empty-state` class
 
 **File:** `frontend_vue/src/styles/admin/clients_list.css`
 **Severity:** Medium — empty state may render without proper layout (no flex centering)
@@ -66,7 +66,7 @@ Every page with an empty state must define `.empty-state` in its own page CSS fi
 
 ---
 
-## БАГ-3 — client_card.css: missing `.main-card-content` class
+## ✅ БАГ-3 — client_card.css: missing `.main-card-content` class
 
 **File:** `frontend_vue/src/styles/admin/client_card.css`
 **Severity:** Low — grid still renders, but missing max-width constraint
@@ -93,7 +93,7 @@ Card page CSS files must define `.main-card-content` if the template uses it.
 
 ---
 
-## БАГ-4 — ClientCardPage: `.text-muted` not globally accessible
+## ✅ БАГ-4 — ClientCardPage: `.text-muted` not globally accessible
 
 **File:** `frontend_vue/src/views/admin/clients/ClientCardPage.vue:215`
 **Severity:** Low — inline style fallback, but `.text-muted` class may not apply
@@ -117,7 +117,7 @@ Only use CSS classes that are globally available (`admin-core.scss` imports) or 
 
 ---
 
-## БАГ-5 — ClientsListPage: error retry button shows wrong label
+## ✅ БАГ-5 — ClientsListPage: error retry button shows wrong label
 
 **File:** `frontend_vue/src/views/admin/clients/ClientsListPage.vue:140`
 **Severity:** Low — functional but confusing (button shows "Clients" instead of "Retry")
@@ -140,7 +140,7 @@ Error state retry buttons must use a dedicated i18n key (`btn_retry`), not the p
 
 ---
 
-## БАГ-6 — ClientCardPage: unused `useRouter` import
+## ✅ БАГ-6 — ClientCardPage: unused `useRouter` import
 
 **File:** `frontend_vue/src/views/admin/clients/ClientCardPage.vue:3`
 **Severity:** Low — no runtime impact, but violates import hygiene rule
@@ -162,7 +162,7 @@ Every import must be used in the template or script. Unused imports are dead cod
 
 ---
 
-## БАГ-7 — ClientCardPage: audit delete tooltip uses non-existent i18n key
+## ✅ БАГ-7 — ClientCardPage: audit delete tooltip uses non-existent i18n key
 
 **File:** `frontend_vue/src/views/admin/clients/ClientCardPage.vue:249`
 **Severity:** Medium — tooltip shows raw key "btn.delete" in runtime
@@ -184,7 +184,7 @@ All i18n keys must use the domain prefix (`clients.*`). Cross-namespace or unpre
 
 ---
 
-## БАГ-8 — mockGetClientAudit missing structuredClone
+## ✅ БАГ-8 — mockGetClientAudit missing structuredClone
 
 **File:** `frontend_vue/src/services/mocks/clients.ts:167-170`
 **Severity:** Medium — mutations to returned entries leak back to STORE

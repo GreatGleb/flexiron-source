@@ -41,6 +41,9 @@ const ADMIN_ROUTES: Route[] = [
   { path: '/admin/suppliers/1', label: 'supplier-card' },
   { path: '/admin/suppliers/config', label: 'supplier-card-config' },
   { path: '/admin/suppliers/bcc-request', label: 'bcc-request' },
+  { path: '/admin/orders', label: 'orders-list' },
+  { path: '/admin/orders/new', label: 'order-create' },
+  { path: '/admin/orders/ORD-001', label: 'order-card' },
 ]
 
 const ALL_ROUTES = [...PUBLIC_ROUTES, ...ADMIN_ROUTES]

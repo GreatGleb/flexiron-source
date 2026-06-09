@@ -2,7 +2,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
 import { createMovement } from '@/services/warehouseService'
 import { useToast } from '@/composables/useToast'
 import type { MovementCreatePayload, MovementType, MovementListItem, WarehouseBatch, BatchStatusAggregate, BatchActiveSale } from '@/types/warehouse'
@@ -13,7 +12,6 @@ import DatePicker from '@/components/admin/ui/DatePicker.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
 
 const { t } = useI18n()
-const router = useRouter()
 const toast = useToast()
 
 const props = defineProps<{
@@ -501,10 +499,6 @@ function formatDate(iso: string): string {
   return d.toLocaleDateString()
 }
 
-function movementTypeLabel(typeKey: string): string {
-  const key = `warehouse.movement_type_${typeKey}`
-  return t(key)
-}
 </script>
 
 <template>
@@ -754,8 +748,8 @@ function movementTypeLabel(typeKey: string): string {
         <div class="form-group">
           <label class="field-label">{{ t('warehouse.field_notes') }}</label>
           <textarea
-            v-model="notes"
             ref="notesTextarea"
+            v-model="notes"
             class="glass-input glass-textarea batch-notes-input"
             rows="3"
             data-test="create-movement-notes-input"

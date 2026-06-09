@@ -1,0 +1,160 @@
+/* Order card page */
+.page-order-card {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ─── Header (matching batch-card-header / client-card-header) ──────────── */
+.order-card-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.order-card-header-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.order-card-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.order-card-header-left .page-title {
+  margin: 0;
+}
+
+.order-card-header-left .order-status-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+}
+
+/* ─── Pill overrides for card (matching warehouse card pills) ─── */
+.page-order-card .pill,
+.page-order-card .pill-lg {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  padding: 3px 12px;
+  border-radius: 6px;
+  backdrop-filter: blur(4px);
+}
+
+.page-order-card .pill-lg {
+  font-size: 12px;
+  padding: 4px 14px;
+}
+
+/* ─── Main card content ──────────────────────────────────── */
+.main-card-content {
+  max-width: 100%;
+}
+
+.main-card-content .entity-card-grid {
+  max-width: 1400px;
+}
+
+/* ─── Section title for glass panels ─────────────────────── */
+.section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* ─── Order info grid (used inside left column) ──────────── */
+.order-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 768px) {
+  .order-info-grid { grid-template-columns: 1fr; }
+}
+
+/* ─── Static readonly field display ──────────────────────── */
+.glass-input-static {
+  display: block;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.85rem;
+  min-height: 36px;
+  line-height: 20px;
+}
+
+/* ─── Table row transitions ────────────────────────────────── */
+.order-item-row td,
+.order-service-row td,
+.order-doc-row td {
+  transition: background 0.15s, color 0.15s;
+}
+
+/* ─── Empty state inline ────────────────────────────────────── */
+.empty-state-inline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px;
+  gap: 12px;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+/* ─── Document generation buttons ───────────────────────────── */
+.doc-gen-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.btn-sm {
+  padding: 4px 12px;
+  font-size: 0.8rem;
+}
+
+/* ─── Error state ────────────────────────────────────────────── */
+.error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48px 24px;
+  gap: 16px;
+  color: #ff4d4f;
+}
+
+/* ─── Text muted ──────────────────────────────────────────── */
+.text-muted {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+/* ─── Responsive ──────────────────────────────────────────── */
+@media (max-width: 992px) {
+  .order-card-header-row {
+    gap: 12px;
+  }
+}
+
+@media (max-width: 600px) {
+  .order-card-header-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

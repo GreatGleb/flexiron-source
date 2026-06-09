@@ -114,6 +114,26 @@ const routes: RouteRecordRaw[] = [
         meta: { layout: 'admin', featureFlag: 'adminSalesCrm' as FeatureFlagKey },
       },
 
+      /* Orders */
+      {
+        path: 'orders',
+        name: 'admin-orders',
+        component: () => import('@/views/admin/orders/OrdersListPage.vue'),
+        meta: { layout: 'admin', featureFlag: 'adminOrders' as FeatureFlagKey },
+      },
+      {
+        path: 'orders/new',
+        name: 'admin-order-create',
+        component: () => import('@/views/admin/orders/OrderCreatePage.vue'),
+        meta: { layout: 'admin', featureFlag: 'adminOrders' as FeatureFlagKey },
+      },
+      {
+        path: 'orders/:id',
+        name: 'admin-order-card',
+        component: () => import('@/views/admin/orders/OrderCardPage.vue'),
+        meta: { layout: 'admin', featureFlag: 'adminOrders' as FeatureFlagKey },
+      },
+
       /* Clients */
       {
         path: 'clients',

@@ -1,5 +1,4 @@
 import { ref, reactive, computed, watch } from 'vue'
-import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { createBatch } from '@/services/warehouseService'
 import { getProducts, getProduct } from '@/services/productsService'
@@ -12,7 +11,6 @@ import type { SelectOption } from '@/components/admin/ui/CustomSelect.vue'
 
 export function useWarehouseBatchCreate() {
   const { t } = useI18n()
-  const router = useRouter()
   const toast = useToast()
   const { tf } = useTranslatedField()
 

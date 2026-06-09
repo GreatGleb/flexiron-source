@@ -40,7 +40,7 @@ export async function patchCategory(
   delta: Partial<Pick<Category, 'name' | 'parentId' | 'description'>> & { linkedSuppliers?: LinkedSupplier[] },
   locale: string,
 ): Promise<Category> {
-  const payload: Record<string, any> = {}
+  const payload: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(delta)) {
     if (key === 'name' || key === 'description') {
       payload[key] = typeof value === 'string'

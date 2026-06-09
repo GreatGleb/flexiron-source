@@ -27,6 +27,10 @@
   z-index: 9999;
   padding: 15px;
 }
+.datepicker-popup.align-right {
+  left: auto;
+  right: 0;
+}
 .datepicker-popup.open {
   display: block;
   animation: select-open 0.25s cubic-bezier(0.16, 1, 0.3, 1);

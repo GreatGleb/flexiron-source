@@ -10,13 +10,20 @@ import { adminProducts } from './products'
 import { adminServices } from './services'
 import { adminWarehouse } from './warehouse'
 import { adminClients } from './clients'
+import { adminOrders } from './orders'
 import { adminSalesCrm } from './salesCrm'
 import { adminCommon } from './common'
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type LocaleModule = Record<string, any>
+
 // Merge all domain objects into per-locale aggregates
-function mergeLocales(...modules: { ru: Record<string, any>; en: Record<string, any>; lt: Record<string, any> }[]) {
+function mergeLocales(...modules: { ru: LocaleModule; en: LocaleModule; lt: LocaleModule }[]) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const ru: Record<string, any> = {}
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const en: Record<string, any> = {}
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const lt: Record<string, any> = {}
   for (const mod of modules) {
     for (const key of Object.keys(mod.ru)) {
@@ -44,6 +51,7 @@ const merged = mergeLocales(
   adminServices,
   adminWarehouse,
   adminClients,
+  adminOrders,
   adminSalesCrm,
   adminCommon,
 )

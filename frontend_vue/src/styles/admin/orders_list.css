@@ -1,0 +1,481 @@
+/* --- PAGE LAYOUT: ORDERS --- */
+
+.page-orders {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 24px;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+@media (max-width: 992px) {
+  .page-header { gap: 12px; }
+}
+
+@media (max-width: 600px) {
+  .page-header { flex-direction: column; align-items: stretch; }
+  .page-header .btn { width: 100%; justify-content: center; }
+}
+
+/* ─── Filters Bar (matching products_list.css / warehouse_list.css) ────────── */
+
+.filters-bar {
+  position: relative;
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  margin-bottom: 0;
+}
+
+.filters-bar:has(.custom-select-list.open),
+.filters-bar:has(.multi-select-list.open) {
+  z-index: 200 !important;
+}
+
+.filters-bar-header {
+  padding: 12px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.filters-bar-content {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 16px 20px;
+  flex-wrap: wrap;
+}
+
+.filters-bar .filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 150px;
+}
+
+.filters-bar .filter-group label {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Filters Bar - Tablet */
+@media (max-width: 992px) {
+  .filters-bar-content {
+    gap: 16px;
+    padding: 14px 16px;
+  }
+
+  .filters-bar .filter-group {
+    min-width: 130px;
+    flex: 1 1 calc(50% - 8px);
+  }
+}
+
+/* Filters Bar - Mobile */
+@media (max-width: 600px) {
+  .filters-bar-header {
+    padding: 10px 14px;
+    font-size: 12px;
+  }
+
+  .filters-bar-content {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 12px 14px;
+  }
+
+  .filters-bar .filter-group {
+    min-width: 100%;
+    flex: 1 1 100%;
+  }
+}
+
+/* Filters Bar - Small Mobile */
+@media (max-width: 400px) {
+  .filters-bar {
+    margin-left: -8px;
+    margin-right: -8px;
+    border-radius: 8px;
+  }
+
+  .filters-bar-header {
+    padding: 8px 12px;
+  }
+
+  .filters-bar-content {
+    padding: 10px 12px;
+    gap: 10px;
+  }
+
+  .filters-bar .filter-group label {
+    font-size: 11px;
+  }
+}
+
+/* Filters Bar - 320px */
+@media (max-width: 320px) {
+  .filters-bar {
+    overflow: visible;
+  }
+}
+
+/* ─── Table rows ──────────────────────────────────────────────────────────── */
+
+.orders-row td {
+  transition: background 0.15s, color 0.15s;
+}
+
+.orders-row td:first-child {
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.orders-row:hover td:first-child {
+  color: #fff;
+}
+
+.orders-row-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* Consistent vertical padding for table cells — matching warehouse batches */
+.page-orders .data-table th,
+.page-orders .data-table td {
+  padding: 11px 16px;
+  height: auto;
+}
+
+.page-orders .data-table td:first-child {
+  padding-top: 11px;
+  padding-bottom: 11px;
+  height: auto;
+}
+
+@media (max-width: 768px) {
+  .page-orders .data-table th,
+  .page-orders .data-table td {
+    padding: 10px 12px;
+  }
+}
+
+@media (max-width: 600px) {
+  .page-orders .data-table th,
+  .page-orders .data-table td {
+    padding: 8px 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .page-orders .data-table th,
+  .page-orders .data-table td {
+    padding: 6px 8px;
+  }
+}
+
+@media (max-width: 320px) {
+  .page-orders .data-table th,
+  .page-orders .data-table td {
+    padding: 5px 6px;
+  }
+}
+
+/* ─── Sort buttons (matching products_list.css / warehouse_list.css) ───────── */
+
+.th-sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  padding: 0;
+  white-space: nowrap;
+}
+
+.th-sort-btn:hover {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.sort-icon-group {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+  gap: 0;
+  margin-left: 2px;
+}
+
+.sort-icon {
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.25);
+  transition: color 0.15s;
+}
+
+.sort-icon.active {
+  color: var(--primary, #1890ff);
+}
+
+/* ─── Status pills (matching _status-pills.css — batch table style) ────────── */
+
+.status-pill {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.pill-success {
+  background: rgba(82, 196, 26, 0.2);
+  border: 1px solid rgba(82, 196, 26, 0.3);
+  color: #52c41a;
+}
+
+.pill-warning {
+  background: rgba(250, 173, 20, 0.2);
+  border: 1px solid rgba(250, 173, 20, 0.3);
+  color: #faad14;
+}
+
+.pill-danger {
+  background: rgba(255, 77, 79, 0.2);
+  border: 1px solid rgba(255, 77, 79, 0.3);
+  color: #ff4d4f;
+}
+
+.pill-info {
+  background: rgba(24, 144, 255, 0.2);
+  border: 1px solid rgba(24, 144, 255, 0.3);
+  color: #1890ff;
+}
+
+.pill-secondary {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* ─── Name link ───────────────────────────────────────────────────────────── */
+
+.name-link {
+  color: inherit;
+  text-decoration: none;
+  transition: text-decoration-color 0.2s ease;
+  text-decoration-line: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 2px;
+}
+
+.name-link:hover {
+  text-decoration-color: currentColor;
+}
+
+/* ─── Pagination inside tfoot ─────────────────────────────────────────────── */
+
+.data-table tfoot td {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 12px 16px;
+}
+
+/* ─── Empty / Error states ────────────────────────────────────────────────── */
+
+.page-orders .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px 24px;
+  color: var(--text-secondary, #888);
+  text-align: center;
+}
+
+.page-orders .empty-state svg {
+  opacity: 0.5;
+}
+
+.page-orders .empty-state p {
+  margin: 0;
+  font-size: 16px;
+  color: var(--text-secondary, #888);
+}
+
+.page-orders .error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px 24px;
+  text-align: center;
+  color: #ff4d4f;
+}
+
+.page-orders .error-state svg {
+  opacity: 0.5;
+}
+
+/* ─── Order status to pill class mapping ──────────────────────────────────── */
+
+.order-status-pill--new { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.15); color: rgba(255, 255, 255, 0.6); }
+.order-status-pill--confirmed { background: rgba(24, 144, 255, 0.2); border: 1px solid rgba(24, 144, 255, 0.3); color: #1890ff; }
+.order-status-pill--picking { background: rgba(250, 173, 20, 0.2); border: 1px solid rgba(250, 173, 20, 0.3); color: #faad14; }
+.order-status-pill--packing { background: rgba(250, 173, 20, 0.2); border: 1px solid rgba(250, 173, 20, 0.3); color: #faad14; }
+.order-status-pill--shipped { background: rgba(82, 196, 26, 0.2); border: 1px solid rgba(82, 196, 26, 0.3); color: #52c41a; }
+.order-status-pill--delivered { background: rgba(82, 196, 26, 0.2); border: 1px solid rgba(82, 196, 26, 0.3); color: #52c41a; }
+.order-status-pill--paid { background: rgba(82, 196, 26, 0.2); border: 1px solid rgba(82, 196, 26, 0.3); color: #52c41a; }
+.order-status-pill--cancelled { background: rgba(255, 77, 79, 0.2); border: 1px solid rgba(255, 77, 79, 0.3); color: #ff4d4f; }
+
+/* ─── Pagination bar ──────────────────────────────────────────────────────── */
+
+.pagination-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.page-size {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.pagination-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pagination-pages {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pagination-pages .page-btn {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pagination-pages .page-btn:hover {
+  background: rgba(24, 144, 255, 0.2);
+  border-color: var(--primary);
+}
+
+.pagination-pages .page-btn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.pagination-info {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.pagination-ellipsis {
+  padding: 0 8px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Pagination - Tablet */
+@media (max-width: 768px) {
+  .pagination-bar {
+    gap: 10px;
+  }
+
+  .pagination-pages .page-btn {
+    min-width: 28px;
+    height: 28px;
+    font-size: 12px;
+  }
+}
+
+/* Pagination - Mobile */
+@media (max-width: 600px) {
+  .data-table tfoot td {
+    padding: 10px 12px;
+  }
+
+  .pagination-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .page-size {
+    justify-content: center;
+    font-size: 12px;
+  }
+
+  .pagination-nav {
+    justify-content: center;
+  }
+
+  .pagination-info {
+    text-align: center;
+    font-size: 12px;
+  }
+
+  .pagination-pages .page-btn {
+    min-width: 32px;
+    height: 32px;
+  }
+}
+
+/* Pagination - Small Mobile */
+@media (max-width: 400px) {
+  .pagination-pages {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .pagination-ellipsis {
+    display: none;
+  }
+}
+
+/* ─── Data table wrapper ──────────────────────────────────────────────────── */
+
+.data-table-wrapper {
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.data-table tfoot td {
+  position: relative;
+}

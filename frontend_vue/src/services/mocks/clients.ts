@@ -10,6 +10,11 @@ const STORE: Client[] = [
       { id: 'ORD-002', date: '2025-05-20', total: 8900.00, currency: 'EUR', status: 'completed' },
       { id: 'ORD-005', date: '2026-01-10', total: 15300.00, currency: 'EUR', status: 'processing' },
     ],
+    interactionHistory: [
+      { date: '2025-06-01', type: 'call', summary: 'Discussed new order for sheet steel', user: 'Ivan N.', rejectionReason: null },
+      { date: '2025-06-15', type: 'email', summary: 'Sent updated price list', user: 'Elena K.', rejectionReason: null },
+      { date: '2025-07-10', type: 'meeting', summary: 'Quarterly review — agreed on volume discount', user: 'Ivan N.', rejectionReason: null },
+    ],
     auditLog: [
       { timestamp: '2025-01-10 09:00', user: { ru: 'Система', en: 'System', lt: 'Sistema' }, userInitials: 'SY', property: { ru: 'Клиент создан', en: 'Client created', lt: 'Klientas sukurtas' }, oldValue: '', newValue: 'UAB Metalica' },
       { timestamp: '2025-01-12 14:30', user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' }, userInitials: 'IN', property: { ru: 'Статус', en: 'Status', lt: 'Būsena' }, oldValue: 'inactive', newValue: 'active' },
@@ -29,7 +34,13 @@ const STORE: Client[] = [
       { timestamp: '2025-03-20 08:00', user: { ru: 'Система', en: 'System', lt: 'Sistema' }, userInitials: 'SY', property: { ru: 'Клиент создан', en: 'Client created', lt: 'Klientas sukurtas' }, oldValue: '', newValue: 'MB Statyba' },
     ],
   },
-  { id: 'CL-004', name: 'OOO Ferrum Invest', companyCode: '40305060708', vatCode: 'LV40305060708', address: 'Daugavgrīvas iela 68, Riga', phone: '+37127890123', email: 'ferrum@inbox.lv', status: 'inactive', notes: 'Temporarily suspended due to sanctions check', createdAt: '2025-04-05' },
+  { id: 'CL-004', name: 'OOO Ferrum Invest', companyCode: '40305060708', vatCode: 'LV40305060708', address: 'Daugavgrīvas iela 68, Riga', phone: '+37127890123', email: 'ferrum@inbox.lv', status: 'inactive', notes: 'Temporarily suspended due to sanctions check', rejectionReason: 'Sanctions compliance - awaiting legal review', createdAt: '2025-04-05',
+    interactionHistory: [
+      { date: '2025-04-10', type: 'email', summary: 'Sent compliance questionnaire', user: 'Elena K.', rejectionReason: null },
+      { date: '2025-04-20', type: 'call', summary: 'Follow-up on missing documents', user: 'Ivan N.', rejectionReason: null },
+      { date: '2025-05-05', type: 'note', summary: 'Sanctions check triggered - account suspended', user: 'Alex Z.', rejectionReason: 'Beneficiary not verified' },
+    ],
+  },
   {
     id: 'CL-005', name: 'UAB Plieno Centras', companyCode: '306789012', vatCode: 'LT306789012', address: 'Pramonės g. 25, Šiauliai', phone: '+37061237890', email: 'info@plienocentras.lt', status: 'active', notes: 'Regular buyer of stainless steel coils', createdAt: '2025-04-18',
     orderHistory: [
@@ -222,6 +233,25 @@ export function mockDeleteClientAuditEntry(clientId: string, entryIndex: number)
     throw new Error('AUDIT_ENTRY_NOT_FOUND')
   }
   client.auditLog.splice(entryIndex, 1)
+}
+
+export function mockAddClientInteraction(clientId: string, entry: import('@/types/client').InteractionHistoryEntry): import('@/types/client').InteractionHistoryEntry {
+  const client = STORE.find((c) => c.id === clientId)
+  if (!client) throw new Error('CLIENT_NOT_FOUND')
+  if (!client.interactionHistory) {
+    client.interactionHistory = []
+  }
+  client.interactionHistory.push(entry)
+  return structuredClone(entry)
+}
+
+export function mockDeleteClientInteraction(clientId: string, entryIndex: number): void {
+  const client = STORE.find((c) => c.id === clientId)
+  if (!client) throw new Error('CLIENT_NOT_FOUND')
+  if (!client.interactionHistory || entryIndex < 0 || entryIndex >= client.interactionHistory.length) {
+    throw new Error('INTERACTION_ENTRY_NOT_FOUND')
+  }
+  client.interactionHistory.splice(entryIndex, 1)
 }
 
 export function mockGetClientAudit(clientId: string): StockAuditEntry[] {

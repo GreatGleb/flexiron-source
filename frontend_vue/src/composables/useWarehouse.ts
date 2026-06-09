@@ -22,6 +22,8 @@ import type {
   OffcutListItem,
   MovementListItem,
   DeficitListItem,
+  DeficitPriority,
+  DeficitStatus,
   WarehouseFilters,
   StockFilters,
   OffcutStatus,
@@ -375,9 +377,9 @@ export function useWarehouse() {
     }
   }
 
-  async function updateDeficitPriority(id: string, priority: string) {
+  async function updateDeficitPriority(id: string, priority: DeficitPriority) {
     try {
-      await patchDeficitItemApi(id, { priority } as any)
+      await patchDeficitItemApi(id, { priority })
       toast.success(t('warehouse.toast_deficit_saved'))
       await loadDeficit()
     } catch {
@@ -385,9 +387,9 @@ export function useWarehouse() {
     }
   }
 
-  async function updateDeficitStatus(id: string, status: string) {
+  async function updateDeficitStatus(id: string, status: DeficitStatus) {
     try {
-      await patchDeficitItemApi(id, { status } as any)
+      await patchDeficitItemApi(id, { status })
       toast.success(t('warehouse.toast_deficit_saved'))
       await loadDeficit()
     } catch {

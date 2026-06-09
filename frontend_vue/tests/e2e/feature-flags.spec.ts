@@ -28,6 +28,9 @@ const PAGE_FLAG_ROUTES: Array<{ flag: keyof typeof ALL_FLAGS_ENABLED; route: str
   { flag: 'adminClients', route: '/admin/clients/new' },
   { flag: 'adminClients', route: '/admin/clients/CL-001' },
   { flag: 'bccRequest', route: '/admin/suppliers/bcc-request' },
+  { flag: 'adminOrders', route: '/admin/orders' },
+  { flag: 'adminOrders', route: '/admin/orders/new' },
+  { flag: 'adminOrders', route: '/admin/orders/ORD-001' },
 ]
 
 for (const { flag, route } of PAGE_FLAG_ROUTES) {

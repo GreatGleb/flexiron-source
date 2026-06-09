@@ -20,6 +20,7 @@ const defaults: FeatureFlags = {
   adminProducts: true,
   adminServices: true,
   adminClients: true,
+  adminOrders: true,
   adminSalesCrm: true,
 
   // Section-level flags
@@ -46,6 +47,11 @@ const defaults: FeatureFlags = {
   warehouseDeficitPageConfig: false,
 
   // Warehouse offcut create page
+  // Orders section-level flags
+  orderKanbanView: false,
+  orderDocumentGen: true,
+  orderCuttingTool: false,
+
   warehouseOffcutCreate: true,
 }
 

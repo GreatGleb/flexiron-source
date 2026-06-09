@@ -14,7 +14,7 @@ export function useClients() {
   const items = ref<Client[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
-  const filters = ref<ClientFilters>({ search: '', status: null })
+  const filters = ref<ClientFilters>({ search: '', status: null, sortBy: null, sortDir: 'asc' })
   const pagination = usePagination()
   const { page, pageSize, total, totalPages } = pagination
 
@@ -71,5 +71,14 @@ export function useClients() {
     }
   }
 
-  return { items, loading, error, filters, page, pageSize, total, totalPages, pagination, load, handleDelete, tf }
+  function toggleSort(col: 'name' | 'email' | 'status') {
+    if (filters.value.sortBy === col) {
+      filters.value.sortDir = filters.value.sortDir === 'asc' ? 'desc' : 'asc'
+    } else {
+      filters.value.sortBy = col
+      filters.value.sortDir = 'asc'
+    }
+  }
+
+  return { items, loading, error, filters, page, pageSize, total, totalPages, pagination, load, handleDelete, toggleSort, tf }
 }

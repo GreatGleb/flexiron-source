@@ -535,8 +535,10 @@ Rules:
 - For form inputs: use `mergeLocaleValue()` / `toTranslatedString()` utilities from `@/types/i18n`
 - **Cross-reference i18n keys from composable/service:** After writing the composable (Phase 4) and before declaring Phase 5 done — grep all `t('...')` calls in the composable and service files. Every key used in `t()` must exist in the domain i18n file. Missing keys cause runtime display of raw key strings that typecheck+lint cannot catch.
 - **No cross-namespace i18n references:** Never use `$t('otherDomain.key')` in a template or composable of a different domain. Each domain must have its own keys. If a key is shared (e.g. pagination `of`), duplicate it in each domain file rather than referencing another domain's namespace. Cross-namespace references break silently when the source domain is refactored.
+- **All i18n keys must use domain prefix:** Every `t('...')` call must start with the domain name (e.g. `t('clients.btn_delete')`, `t('orders.col_status')`). Never use unprefixed dot-notation keys like `t('btn.delete')` — these create a `{ btn: { delete: '...' } }` structure that doesn't exist in any domain file and renders as raw key string at runtime. If a key is shared across domains, duplicate it in each domain file with the domain prefix.
 - **Include ALL toast keys from composable:** The composable example in Phase 4 uses `toast_created`, `toast_error_create`, `toast_deleted`, `toast_error_delete`. Every toast call in the composable MUST have a corresponding i18n key. Grep the composable for `toast.success(t('` and `toast.error(t('` — each key must exist in the domain file.
 - **Include ALL button/label keys from template:** The template will use `btn_create`, `btn_save`, `btn_discard`, `btn_delete`, `btn_retry`, `col_*`, `field_*`, `header_title`, `title`, `search_placeholder`, `filter_*`, `empty`, `tooltip_*`. Add all of them now to avoid missing-key errors in browser.
+- **`btn_retry` is required for error state** — Every list page's error state (Phase 7) uses `t('[domain].btn_retry')` for the retry button. If this key is missing, the button shows the wrong text or a raw key string. Verify this key exists in all 3 locales before proceeding from Phase 5.
 - **Include `title` key for useHead:** `useHead({ title: t('domain.title') })` is used in Phase 6. The `title` key MUST exist in the domain i18n file. Without it, the browser tab shows a raw key string.
 
 - **Use mergeTranslatedString() for UI updates, not toTranslatedString():** `toTranslatedString(value, locale)` creates an object with only one locale filled — correct for API calls, but incorrect for UI updates (other locales get zeroed out). Use `mergeTranslatedString(existing, value, locale)` which preserves existing translations:
@@ -651,6 +653,7 @@ Rules:
 - **data-test alignment check:** After writing the template, grep the existing test spec file (`tests/e2e/admin/[section]/[domain].spec.ts`) for `[data-test="..."]` patterns. Every `data-test` value used in tests must exist in the template, and every `data-test` in the template must match the test expectations. Mismatches cause silent test failures that typecheck+lint cannot catch.
 - `<GlassPanel>` wraps every logical panel
 - `<h1 class="page-title">` in the view itself (AdminLayout `<h1 v-if="pageTitle">` is dead code)
+- **Import hygiene — every import must be used:** Before declaring Phase 6 done, verify that every `import` in `<script setup>` is actually used in the template or script. Unused imports are dead code — they confuse maintainers and may trigger lint warnings. Common unused imports: `useRouter` (when page has no programmatic navigation), `watch` (when watchers are in composable instead).
 - **Pitfall #9:** No `<!-- comments -->` inside `<template>` — they go to DOM. Comments only in `<script>`.
 - CSS aliases: `@styles` for CSS, `@images` for images — **not** `@assets`
 - **Pitfall #17:** Before `<SvgIcon name="X">` — grep SvgIcon.vue to confirm the name exists
@@ -661,6 +664,11 @@ Rules:
 - **BUG-18/19 prevention:** After writing page CSS, compare it with the closest existing page CSS. Verify:
   - Every CSS class used in the template is defined in the page CSS
   - `.empty-state` must be defined with `display:flex; flex-direction:column; align-items:center`
+  - **For card pages:** `.main-card-content` and `.entity-card-grid` must be defined in the page CSS. These classes are NOT global — they must be added to each card's CSS file:
+    ```css
+    .page-[domain]-card .main-card-content { max-width: 100%; }
+    .page-[domain]-card .main-card-content .entity-card-grid { max-width: 1400px; }
+    ```
   - Search/filters inside GlassPanel (Pitfall #19) — no separate wrapper outside the panel
 
 - **Always wrap TranslatedString with tf() in templates:** `{{ item.name }}` renders as `[object Object]` when the value is a `TranslatedString` object. Always use `{{ tf(item.name) }}` to get the translated text.
@@ -703,6 +711,19 @@ Fill in v-for / v-if / v-model / @click — one section per step, max 40 lines p
   <SvgIcon name="..." :width="48" :height="48" />
   <p>{{ t('[domain].empty') }}</p>
 </div>
+```
+**❗ CSS required:** The `.empty-state` class is NOT global — it is not in `admin-core.scss`. Every page that uses `.empty-state` must define it in its own page CSS file:
+```css
+.page-[domain] .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48px 24px;
+  text-align: center;
+  gap: 16px;
+}
+```
+Without this CSS, the empty state renders without proper layout — no flex centering, no padding, no gap.
 
 **Data table** — actual rows when data is present:
 ```vue
@@ -806,6 +827,11 @@ Required CSS in `[domain]_list.css`:
 ```
 - `router-link` + `btn btn-secondary` — never a custom class, never `<a href>`
 - `entity-action-bar no-margin pos-static` — ready container from `_entity-card-layout.css`
+- **IMPORTANT:** Check that `_entity-card-layout.css` is imported in the `<script setup>` section. If the template uses `entity-action-bar` or `save-bar` classes, the component MUST import:
+  ```ts
+  import '@styles/admin/components/_entity-card-layout.css'
+  ```
+  Without this import, the classes have no effect — the action bar collapses, buttons overlap. This import is NOT global — it must be added per-component.
 
 ### Save bar (for dirty-check pages):
 ```vue
@@ -1255,3 +1281,4 @@ Page fully complete.
 | Create form | `useXCard()` | GlassPanel, InputGroup | quick-action (POST on submit) |
 | Config/admin | `useXConfig()`, `useDragDrop()` | GlassPanel, PermissionsMatrix | clean-slate (PUT bulk on Save) |
 | Dashboard | `useAnalytics('key')` | KpiCard, BarChartRow, AnalyticsCard | n/a |
+

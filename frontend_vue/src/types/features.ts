@@ -17,6 +17,7 @@ export interface FeatureFlags {
   adminProducts: boolean
   adminServices: boolean
   adminClients: boolean
+  adminOrders: boolean
   adminSalesCrm: boolean
 
   // Section-level flags
@@ -44,6 +45,11 @@ export interface FeatureFlags {
 
   // Warehouse offcut create page
   warehouseOffcutCreate: boolean
+
+  // Orders section-level flags
+  orderKanbanView: boolean
+  orderDocumentGen: boolean
+  orderCuttingTool: boolean
 }
 
 export type FeatureFlagKey = keyof FeatureFlags

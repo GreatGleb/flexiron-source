@@ -33,9 +33,10 @@ const form = ref<ClientFormData>({
   email: '',
   status: 'active',
   notes: '',
+  rejectionReason: '',
 })
 
-const errors = ref<{ name?: string }>({})
+const errors = ref<{ name?: string; email?: string; companyCode?: string }>({})
 const saving = ref(false)
 
 const STATUS_OPTIONS = [
@@ -43,16 +44,34 @@ const STATUS_OPTIONS = [
   { value: 'inactive', label: t('clients.status_inactive') },
 ]
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 function validate(): boolean {
   errors.value = {}
+  let valid = true
+
   if (!form.value.name.trim()) {
     errors.value.name = t('clients.validation_name_required')
-    return false
+    valid = false
   }
-  return true
+
+  if (!form.value.email.trim()) {
+    errors.value.email = t('clients.validation_email_required')
+    valid = false
+  } else if (!EMAIL_REGEX.test(form.value.email.trim())) {
+    errors.value.email = t('clients.validation_email_format')
+    valid = false
+  }
+
+  if (!form.value.companyCode.trim()) {
+    errors.value.companyCode = t('clients.validation_company_code_required')
+    valid = false
+  }
+
+  return valid
 }
 
-function clearError(field: 'name') {
+function clearError(field: 'name' | 'email' | 'companyCode') {
   if (errors.value[field]) {
     const next = { ...errors.value }
     delete next[field]
@@ -62,7 +81,8 @@ function clearError(field: 'name') {
 
 async function handleSave() {
   if (!validate()) {
-    toast.error(t('clients.validation_name_required'))
+    const firstError = Object.values(errors.value)[0]
+    if (firstError) toast.error(firstError)
     return
   }
   if (saving.value) return
@@ -142,19 +162,25 @@ function handleCancel() {
                 class="glass-input"
                 :class="{ 'has-error': errors.name }"
                 type="text"
-                @input="clearError('name')"
                 data-test="field-name"
+                @input="clearError('name')"
               />
             </div>
 
-            <InputGroup :label="t('clients.field_company_code')">
+            <div class="input-group">
+              <label class="field-label">
+                <span>{{ t('clients.field_company_code') }} <span class="required-star">*</span></span>
+                <span v-if="errors.companyCode" class="field-error">{{ errors.companyCode }}</span>
+              </label>
               <input
                 v-model="form.companyCode"
                 class="glass-input"
+                :class="{ 'has-error': errors.companyCode }"
                 type="text"
                 data-test="field-company-code"
+                @input="clearError('companyCode')"
               />
-            </InputGroup>
+            </div>
 
             <InputGroup :label="t('clients.field_vat')">
               <input
@@ -197,14 +223,20 @@ function handleCancel() {
               />
             </InputGroup>
 
-            <InputGroup :label="t('clients.field_email')">
+            <div class="input-group">
+              <label class="field-label">
+                <span>{{ t('clients.field_email') }} <span class="required-star">*</span></span>
+                <span v-if="errors.email" class="field-error">{{ errors.email }}</span>
+              </label>
               <input
                 v-model="form.email"
                 class="glass-input"
+                :class="{ 'has-error': errors.email }"
                 type="email"
                 data-test="field-email"
+                @input="clearError('email')"
               />
-            </InputGroup>
+            </div>
           </GlassPanel>
         </div>
 

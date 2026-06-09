@@ -1,4 +1,7 @@
 export const publicRu = {
+  dropzone: {
+    uploading: 'Загрузка...',
+  },
   common: {
     back: 'Назад',
     emailPlaceholder: "ivan{'@'}kompaniya.ru",
@@ -149,6 +152,9 @@ export const publicRu = {
 }
 
 export const publicEn = {
+  dropzone: {
+    uploading: 'Uploading...',
+  },
   common: {
     back: 'Back',
     emailPlaceholder: "name{'@'}company.com",
@@ -292,6 +298,9 @@ export const publicEn = {
 }
 
 export const publicLt = {
+  dropzone: {
+    uploading: 'Įkeliama...',
+  },
   common: {
     back: 'Atgal',
     emailPlaceholder: "vardas{'@'}imone.lt",

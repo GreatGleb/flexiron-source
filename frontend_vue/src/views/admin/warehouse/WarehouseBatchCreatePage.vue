@@ -22,12 +22,12 @@ const { t } = useI18n()
 const router = useRouter()
 
 const {
-  form, saving, errors, isFormValid,
+  form, saving, errors,
   productsLoading, productSearch, productCategoryFilter, categoryFilterOptions,
   filteredProducts, selectedProductId, selectedProduct,
   productSupplierOptions,
   CURRENCY_OPTIONS,
-  quantityStep, totalCost,
+  quantityStep,
   loadOptions, loadProducts, save, tf, clearError,
 } = useWarehouseBatchCreate()
 
@@ -406,8 +406,8 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseCurre
                 class="glass-input"
                 :class="{ 'has-error': errors.batchNumber }"
                 type="text"
-                @input="clearError('batchNumber')"
                 data-test="field-batch-number"
+                @input="clearError('batchNumber')"
               />
             </div>
             <div class="input-group">
@@ -427,8 +427,8 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseCurre
                 class="glass-input"
                 :class="{ 'has-error': errors.lotCode }"
                 type="text"
-                @input="clearError('lotCode')"
                 data-test="field-lot-code"
+                @input="clearError('lotCode')"
               />
             </div>
             <div class="input-group">
@@ -450,8 +450,8 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseCurre
                 type="number"
                 min="0"
                 :step="quantityStep"
-                @input="clearError('quantity')"
                 data-test="field-quantity"
+                @input="clearError('quantity')"
               />
             </div>
             <div class="input-group">
@@ -501,8 +501,8 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseCurre
                   type="number"
                   min="0"
                   step="0.01"
-                  @input="clearError('unitPrice')"
                   data-test="field-unit-price"
+                  @input="clearError('unitPrice')"
                 />
                 <div
                   class="input-suffix custom-select-trigger"
@@ -540,8 +540,8 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseCurre
               <DatePicker
                 v-model="form.receivedAt"
                 :class="{ 'has-error': errors.receivedAt }"
-                @update:model-value="clearError('receivedAt')"
                 data-test="field-received-at"
+                @update:model-value="clearError('receivedAt')"
               />
             </div>
             <div class="input-group">

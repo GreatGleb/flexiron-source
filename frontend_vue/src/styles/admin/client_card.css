@@ -71,6 +71,108 @@
   color: rgba(255, 255, 255, 0.35);
 }
 
+/* ─── Order History ──────────────────────────────────── */
+.page-client-card .clickable-row {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.page-client-card .clickable-row:hover td {
+  background: rgba(255, 255, 255, 0.06);
+}
+.page-client-card .order-link {
+  color: #1890ff;
+  text-decoration: none;
+  font-weight: 500;
+}
+.page-client-card .order-link:hover {
+  text-decoration: underline;
+}
+.page-client-card .order-total {
+  font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* ─── Order status pill overrides for client card ──── */
+.page-client-card .status-pill {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.page-client-card .pill-success {
+  background: rgba(82, 196, 26, 0.2);
+  border: 1px solid rgba(82, 196, 26, 0.3);
+  color: #52c41a;
+}
+.page-client-card .pill-warning {
+  background: rgba(250, 173, 20, 0.2);
+  border: 1px solid rgba(250, 173, 20, 0.3);
+  color: #faad14;
+}
+.page-client-card .pill-info {
+  background: rgba(24, 144, 255, 0.2);
+  border: 1px solid rgba(24, 144, 255, 0.3);
+  color: #1890ff;
+}
+.page-client-card .pill-danger {
+  background: rgba(255, 77, 79, 0.2);
+  border: 1px solid rgba(255, 77, 79, 0.3);
+  color: #ff4d4f;
+}
+.page-client-card .pill-secondary {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* ─── Interaction History ───────────────────────────── */
+.page-client-card .interaction-type-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: rgba(24, 144, 255, 0.1);
+  border: 1px solid rgba(24, 144, 255, 0.15);
+  color: #1890ff;
+}
+.page-client-card .rejection-text {
+  color: #ff4d4f;
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* ─── Inline Interaction Form ────────────────────────── */
+.interaction-form-inline {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.interaction-form-row {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.interaction-form-type {
+  flex: 1;
+  min-width: 0;
+}
+
+.interaction-form-date {
+  width: 180px;
+  flex-shrink: 0;
+}
+
 /* ─── Responsive ────────────────────────────────────── */
 @media (max-width: 992px) {
   .client-card-header-row {
@@ -82,5 +184,14 @@
   .client-card-header-row {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .interaction-form-row {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .interaction-form-date {
+    width: 100%;
   }
 }
