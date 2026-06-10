@@ -266,10 +266,60 @@ const routes: RouteRecordRaw[] = [
         meta: { layout: 'admin', featureFlag: 'adminWarehouse' as FeatureFlagKey },
       },
       {
+        path: 'notifications',
+        name: 'admin-notifications',
+        component: () => import('@/views/admin/notifications/NotificationsPage.vue'),
+        meta: { layout: 'admin', featureFlag: 'notificationsPage' as FeatureFlagKey },
+      },
+      {
         path: 'warehouse/:tab(stock|batches|offcuts|movements|deficit)?',
         name: 'admin-warehouse',
         component: () => import('@/views/admin/warehouse/WarehousePage.vue'),
         meta: { layout: 'admin', featureFlag: 'adminWarehouse' as FeatureFlagKey },
+      },
+
+      /* Settings */
+      {
+        path: 'settings',
+        children: [
+          {
+            path: '',
+            name: 'admin-settings',
+            component: () => import('@/views/admin/settings/SettingsLayout.vue'),
+            meta: { layout: 'admin', featureFlag: 'adminSettings' as FeatureFlagKey },
+            children: [
+              {
+                path: '',
+                redirect: { name: 'admin-settings-profile' },
+              },
+              {
+                path: 'profile',
+                name: 'admin-settings-profile',
+                component: () => import('@/views/admin/settings/ProfileSettings.vue'),
+              },
+              {
+                path: 'company',
+                name: 'admin-settings-company',
+                component: () => import('@/views/admin/settings/CompanySettings.vue'),
+              },
+              {
+                path: 'finance',
+                name: 'admin-settings-finance',
+                component: () => import('@/views/admin/settings/FinanceSettings.vue'),
+              },
+              {
+                path: 'units',
+                name: 'admin-settings-units',
+                component: () => import('@/views/admin/settings/UnitsSettings.vue'),
+              },
+              {
+                path: 'order-statuses',
+                name: 'admin-settings-order-statuses',
+                component: () => import('@/views/admin/settings/OrderStatusesSettings.vue'),
+              },
+            ],
+          },
+        ],
       },
     ],
   },

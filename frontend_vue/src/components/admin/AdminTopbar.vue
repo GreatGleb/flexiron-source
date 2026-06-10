@@ -1,10 +1,30 @@
 <script setup lang="ts">
+import { computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import SvgIcon from './SvgIcon.vue'
+import NotificationDropdown from './NotificationDropdown.vue'
 import { useSidebar } from '@/composables/useSidebar'
+import { useSettings } from '@/composables/useSettings'
 
 const { t, locale, availableLocales } = useI18n()
 const { toggle } = useSidebar()
+const { settings, load: loadSettings } = useSettings()
+
+const userName = computed(() => {
+  const p = settings.profile
+  if (p.firstName && p.lastName) return `${p.firstName} ${p.lastName}`
+  if (p.firstName) return p.firstName
+  return t('head.user')
+})
+
+const userRole = computed(() => {
+  const role = settings.profile.role
+  return role ? t(`settingsUsers.role_${role}`) : t('head.role')
+})
+
+onMounted(() => {
+  loadSettings()
+})
 
 function switchLang(code: string) {
   locale.value = code
@@ -37,17 +57,16 @@ function switchLang(code: string) {
           {{ code.toUpperCase() }}
         </a>
       </div>
-      <button class="notif-btn" data-test="topbar-notifications">
-        <SvgIcon name="bell-notification" />
-        <span class="badge-dot"></span>
-      </button>
-      <div class="user-profile" data-test="topbar-user">
-        <div class="user-avatar">MV</div>
-        <div class="user-info">
-          <span class="user-name">{{ t('head.user') }}</span>
-          <span class="user-role">{{ t('head.role') }}</span>
+      <NotificationDropdown />
+      <router-link :to="{ name: 'admin-settings-profile' }" class="user-profile" data-test="topbar-user">
+        <div class="user-avatar">
+          <SvgIcon name="user-avatar" width="22" height="22" />
         </div>
-      </div>
+        <div class="user-info">
+          <span class="user-name">{{ userName }}</span>
+          <span class="user-role">{{ userRole }}</span>
+        </div>
+      </router-link>
     </div>
   </header>
 </template>

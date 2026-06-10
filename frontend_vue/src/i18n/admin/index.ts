@@ -12,7 +12,9 @@ import { adminWarehouse } from './warehouse'
 import { adminClients } from './clients'
 import { adminOrders } from './orders'
 import { adminSalesCrm } from './salesCrm'
+import { adminSettings } from './settings'
 import { adminCommon } from './common'
+import { adminNotifications } from './notifications'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type LocaleModule = Record<string, any>
@@ -53,7 +55,9 @@ const merged = mergeLocales(
   adminClients,
   adminOrders,
   adminSalesCrm,
+  adminSettings,
   adminCommon,
+  adminNotifications,
 )
 
 export const adminRu = merged.ru

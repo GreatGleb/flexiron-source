@@ -28,6 +28,7 @@ export const ALL_FLAGS_ENABLED = {
   adminClients: true,
   adminOrders: true,
   adminSalesCrm: true,
+  adminSettings: true,
 
   // Section-level
   dashboardAlerts: true,
@@ -39,6 +40,9 @@ export const ALL_FLAGS_ENABLED = {
   categoryFieldReorder: true,
   categorySupplierLinks: true,
   productSupplierLinks: true,
+
+  // Notifications
+  notificationsPage: true,
 } as const
 
 /** Writes ALL_FLAGS_ENABLED to localStorage before every page in this context loads. */

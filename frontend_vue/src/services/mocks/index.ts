@@ -1,5 +1,12 @@
 import { mockGetAnalyticsPage } from './analytics'
 import {
+  mockGetNotifications,
+  mockGetUnreadCount,
+  mockMarkAsRead,
+  mockMarkAllAsRead,
+} from './notifications'
+import type { NotificationFilters } from '@/types/notifications'
+import {
   mockGetStockOverview,
   mockGetStockItem,
   mockGetBatches,
@@ -108,6 +115,32 @@ import {
   mockDeleteSection,
 } from './config'
 import {
+  mockGetSettings,
+  mockSaveSettings,
+  mockGetCompany,
+  mockSaveCompany,
+  mockGetConstants,
+  mockSaveConstants,
+  mockGetCurrencies,
+  mockCreateCurrency,
+  mockUpdateCurrency,
+  mockDeleteCurrency,
+  mockGetUoms,
+  mockCreateUom,
+  mockDeleteUom,
+  mockGetConversions,
+  mockCreateConversion,
+  mockUpdateConversion,
+  mockDeleteConversion,
+  mockGetOrderStatuses,
+  mockCreateOrderStatus,
+  mockUpdateOrderStatus,
+  mockMoveOrderStatus,
+  mockDeleteOrderStatus,
+  mockGetProfile,
+  mockSaveProfile,
+} from './settings'
+import {
   mockGetOrders,
   mockGetOrder,
   mockCreateOrder,
@@ -211,6 +244,32 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
     const pageSize = Number(params?.pageSize ?? 25)
     return delay(mockGetBccHistory(page, pageSize) as T)
   }
+  // ── Notifications ──
+  if (path === '/api/notifications') {
+    const filters: NotificationFilters = {
+      search: params?.search ?? '',
+      type: params?.type ?? 'all',
+      isRead: params?.isRead ? params.isRead === 'true' : null,
+      sortBy: params?.sortBy ?? 'createdAt',
+      sortDir: (params?.sortDir as 'asc' | 'desc') ?? 'desc',
+    }
+    const pagination = {
+      page: Number(params?.page ?? 1),
+      pageSize: Number(params?.pageSize ?? 25),
+    }
+    return delay(mockGetNotifications(filters, pagination) as T)
+  }
+  if (path === '/api/notifications/unread-count') return delay(mockGetUnreadCount() as T)
+
+  // ── Settings granular routes ──
+  if (path === '/api/settings/company') return delay(mockGetCompany() as T)
+  if (path === '/api/settings/constants') return delay(mockGetConstants() as T)
+  if (path === '/api/settings/currencies') return delay(mockGetCurrencies() as T)
+  if (path === '/api/settings/uoms') return delay(mockGetUoms() as T)
+  if (path === '/api/settings/conversions') return delay(mockGetConversions() as T)
+  if (path === '/api/settings/order-statuses') return delay(mockGetOrderStatuses() as T)
+  if (path === '/api/settings/profile') return delay(mockGetProfile() as T)
+  if (path === '/api/settings') return delay(mockGetSettings() as T)
   if (path === '/api/config/fields') return delay(mockGetFieldLibrary() as T)
   if (path === '/api/config/sections') return delay(mockGetSections() as T)
   if (path === '/api/config/permissions') return delay(mockGetPermissions() as T)
@@ -626,6 +685,13 @@ export async function postMock<T>(
     return delay(mockCreateDeficitItem(body as Parameters<typeof mockCreateDeficitItem>[0]) as T)
   }
 
+  // ── Settings POST ──
+  if (path === '/api/settings/currencies') return delay(mockCreateCurrency(body as Parameters<typeof mockCreateCurrency>[0]) as T)
+  if (path === '/api/settings/uoms') return delay(mockCreateUom(body as Parameters<typeof mockCreateUom>[0]) as T)
+  if (path === '/api/settings/conversions') return delay(mockCreateConversion(body as Parameters<typeof mockCreateConversion>[0]) as T)
+  if (path === '/api/settings/order-statuses') return delay(mockCreateOrderStatus(body as Parameters<typeof mockCreateOrderStatus>[0]) as T)
+  if (path === '/api/settings/change-password') return delay(undefined as T) // no-op mock
+
   throw new Error(`[mock] POST ${path} not found`)
 }
 
@@ -635,6 +701,27 @@ export async function putMock<T>(
   body: unknown,
   _headers?: Record<string, string>,
 ): Promise<T> {
+  // ── Settings PUT ──
+  if (path === '/api/settings/company') {
+    mockSaveCompany(body as Parameters<typeof mockSaveCompany>[0])
+    return delay(undefined as T)
+  }
+  if (path === '/api/settings/constants') {
+    mockSaveConstants(body as Parameters<typeof mockSaveConstants>[0])
+    return delay(undefined as T)
+  }
+  if (path === '/api/settings/profile') {
+    mockSaveProfile(body as Parameters<typeof mockSaveProfile>[0])
+    return delay(undefined as T)
+  }
+  if (path === '/api/settings/order-statuses/reorder') {
+    mockMoveOrderStatus((body as { orderedIds: string[] }).orderedIds)
+    return delay(undefined as T)
+  }
+  if (path === '/api/settings') {
+    mockSaveSettings(body as Parameters<typeof mockSaveSettings>[0])
+    return delay(undefined as T)
+  }
   if (path === '/api/config/sections') {
     mockSaveSections(body as Parameters<typeof mockSaveSections>[0])
     return delay(undefined as T)
@@ -771,6 +858,34 @@ export async function patchMock<T>(
     return delay(
       mockPatchOffcut(offcutPatchMatch[1] as string, body as Parameters<typeof mockPatchOffcut>[1]) as T,
     )
+  }
+
+  // ── Settings PATCH ──
+  const currencyPatchMatch = path.match(/^\/api\/settings\/currencies\/([^/]+)$/)
+  if (currencyPatchMatch) {
+    mockUpdateCurrency(currencyPatchMatch[1] as string, body as Parameters<typeof mockUpdateCurrency>[1])
+    return delay(undefined as T)
+  }
+  const conversionPatchMatch = path.match(/^\/api\/settings\/conversions\/([^/]+)$/)
+  if (conversionPatchMatch) {
+    mockUpdateConversion(conversionPatchMatch[1] as string, body as Parameters<typeof mockUpdateConversion>[1])
+    return delay(undefined as T)
+  }
+  const statusPatchMatch = path.match(/^\/api\/settings\/order-statuses\/([^/]+)$/)
+  if (statusPatchMatch) {
+    mockUpdateOrderStatus(statusPatchMatch[1] as string, body as Parameters<typeof mockUpdateOrderStatus>[1])
+    return delay(undefined as T)
+  }
+
+  // ── Notifications PATCH ──
+  if (path === '/api/notifications/read-all') {
+    mockMarkAllAsRead()
+    return delay(undefined as T)
+  }
+  const notifReadMatch = path.match(/^\/api\/notifications\/([^/]+)\/read$/)
+  if (notifReadMatch) {
+    mockMarkAsRead(notifReadMatch[1] as string)
+    return delay(undefined as T)
   }
 
   throw new Error(`[mock] PATCH ${path} not found`)
@@ -918,6 +1033,28 @@ export async function deleteMock<T>(path: string, _headers?: Record<string, stri
   const deficitDeleteMatch = path.match(/^\/api\/warehouse\/deficit\/([^/]+)$/)
   if (deficitDeleteMatch) {
     mockDeleteDeficitItem(deficitDeleteMatch[1] as string)
+    return delay(undefined as T)
+  }
+
+  // ── Settings DELETE ──
+  const currencyDeleteMatch = path.match(/^\/api\/settings\/currencies\/([^/]+)$/)
+  if (currencyDeleteMatch) {
+    mockDeleteCurrency(currencyDeleteMatch[1] as string)
+    return delay(undefined as T)
+  }
+  const uomDeleteMatch = path.match(/^\/api\/settings\/uoms\/([^/]+)$/)
+  if (uomDeleteMatch) {
+    mockDeleteUom(uomDeleteMatch[1] as string)
+    return delay(undefined as T)
+  }
+  const conversionDeleteMatch = path.match(/^\/api\/settings\/conversions\/([^/]+)$/)
+  if (conversionDeleteMatch) {
+    mockDeleteConversion(conversionDeleteMatch[1] as string)
+    return delay(undefined as T)
+  }
+  const statusDeleteMatch = path.match(/^\/api\/settings\/order-statuses\/([^/]+)$/)
+  if (statusDeleteMatch) {
+    mockDeleteOrderStatus(statusDeleteMatch[1] as string)
     return delay(undefined as T)
   }
 

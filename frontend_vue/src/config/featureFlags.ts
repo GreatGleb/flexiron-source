@@ -22,6 +22,7 @@ const defaults: FeatureFlags = {
   adminClients: true,
   adminOrders: true,
   adminSalesCrm: true,
+  adminSettings: true,
 
   // Section-level flags
   dashboardAlerts: true,
@@ -53,6 +54,9 @@ const defaults: FeatureFlags = {
   orderCuttingTool: false,
 
   warehouseOffcutCreate: true,
+
+  // Notifications
+  notificationsPage: true,
 }
 
 function loadOverrides(): Partial<FeatureFlags> {

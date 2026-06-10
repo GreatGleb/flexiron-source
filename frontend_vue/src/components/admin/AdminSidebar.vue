@@ -1,19 +1,39 @@
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { computed } from 'vue'
 import SvgIcon from './SvgIcon.vue'
 import { useSidebar } from '@/composables/useSidebar'
+import { useSettings } from '@/composables/useSettings'
 
 const { t, locale, availableLocales } = useI18n()
 const route = useRoute()
 const { close } = useSidebar()
+const { settings, load: loadSettings } = useSettings()
+
+const userName = computed(() => {
+  const p = settings.profile
+  if (p.firstName && p.lastName) return `${p.firstName} ${p.lastName}`
+  if (p.firstName) return p.firstName
+  return t('head.user')
+})
+
+const userRole = computed(() => {
+  const role = settings.profile.role
+  return role ? t(`settingsUsers.role_${role}`) : t('head.role')
+})
 
 const isAnalyticsActive = computed(() => route.path.startsWith('/admin/analytics'))
 const isSuppliersActive = computed(() => route.path.startsWith('/admin/suppliers'))
 const isProductsActive = computed(() => route.path.startsWith('/admin/products'))
 const isWarehouseActive = computed(() => route.path.startsWith('/admin/warehouse'))
 const isSalesCrmActive = computed(() => route.path.startsWith('/admin/sales-crm') || route.path.startsWith('/admin/clients') || route.path.startsWith('/admin/orders'))
+const isSettingsActive = computed(() => route.path.startsWith('/admin/settings'))
+
+onMounted(() => {
+  loadSettings()
+})
 
 function switchLang(code: string) {
   locale.value = code
@@ -101,13 +121,15 @@ function switchLang(code: string) {
     </ul>
 
     <div class="sidebar-footer" data-test="sidebar-footer">
-      <div class="user-profile" data-test="sidebar-user">
-        <div class="user-avatar">MV</div>
-        <div class="user-info">
-          <span class="user-name">{{ t('head.user') }}</span>
-          <span class="user-role">{{ t('head.role') }}</span>
+      <router-link :to="{ name: 'admin-settings-profile' }" class="user-profile" data-test="sidebar-user">
+        <div class="user-avatar">
+          <SvgIcon name="user-avatar" width="22" height="22" />
         </div>
-      </div>
+        <div class="user-info">
+          <span class="user-name">{{ userName }}</span>
+          <span class="user-role">{{ userRole }}</span>
+        </div>
+      </router-link>
       <div class="lang-switcher" data-test="sidebar-lang-switcher">
         <a
           v-for="code in availableLocales"
@@ -121,10 +143,15 @@ function switchLang(code: string) {
           {{ code.toUpperCase() }}
         </a>
       </div>
-      <a href="#" class="settings-link" data-test="sidebar-settings">
+      <router-link
+        :to="{ name: 'admin-settings-profile' }"
+        class="settings-link"
+        data-test="sidebar-settings"
+        :class="{ active: isSettingsActive }"
+      >
         <SvgIcon name="settings-gear" class="nav-icon" />
         <span>{{ t('side.settings') }}</span>
-      </a>
+      </router-link>
     </div>
   </aside>
 </template>

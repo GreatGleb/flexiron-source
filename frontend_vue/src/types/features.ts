@@ -19,6 +19,7 @@ export interface FeatureFlags {
   adminClients: boolean
   adminOrders: boolean
   adminSalesCrm: boolean
+  adminSettings: boolean
 
   // Section-level flags
   dashboardAlerts: boolean
@@ -50,6 +51,9 @@ export interface FeatureFlags {
   orderKanbanView: boolean
   orderDocumentGen: boolean
   orderCuttingTool: boolean
+
+  // Notifications
+  notificationsPage: boolean
 }
 
 export type FeatureFlagKey = keyof FeatureFlags
