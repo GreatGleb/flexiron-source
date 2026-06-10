@@ -279,7 +279,7 @@ function buildInitials(name: string): string {
 }
 
 export function mockGetSupplier(id: string): SupplierCardData {
-  if (MOCK_CARD[id]) return MOCK_CARD[id]
+  if (MOCK_CARD[id]) return JSON.parse(JSON.stringify(MOCK_CARD[id])) as SupplierCardData
   const base = MOCK_SUPPLIERS.find((s) => s.id === id)
   if (!base) throw new Error(`Supplier ${id} not found`)
   return {

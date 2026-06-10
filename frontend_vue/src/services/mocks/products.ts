@@ -4448,3 +4448,12 @@ export async function mockDeleteProduct(id: string): Promise<boolean> {
   STORE.splice(idx, 1)
   return true
 }
+
+export function mockDeleteProductAuditEntry(productId: string, entryIndex: number): void {
+  const product = STORE.find((p) => p.id === productId)
+  if (!product) throw new Error('PRODUCT_NOT_FOUND')
+  if (!product.auditLog || entryIndex < 0 || entryIndex >= product.auditLog.length) {
+    throw new Error('AUDIT_ENTRY_NOT_FOUND')
+  }
+  product.auditLog.splice(entryIndex, 1)
+}

@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useHead } from '@/composables/useHead'
 import { useClientCard } from '@/composables/useClientCard'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
+import AppModal from '@/components/admin/ui/AppModal.vue'
 import Breadcrumb from '@/components/admin/Breadcrumb.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
 import InputGroup from '@/components/admin/ui/InputGroup.vue'
@@ -101,6 +102,29 @@ function goToOrder(orderId: string) {
 
 function formatPrice(value: number): string {
   return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+// ─── Audit log entry deletion (with confirm modal) ───
+const deleteAuditOpen = ref(false)
+const auditToDeleteIdx = ref<number | null>(null)
+const deletingAudit = ref(false)
+
+function askDeleteAudit(index: number) {
+  auditToDeleteIdx.value = index
+  deleteAuditOpen.value = true
+}
+
+async function confirmDeleteAudit() {
+  const idx = auditToDeleteIdx.value
+  if (idx === null || deletingAudit.value) return
+  deletingAudit.value = true
+  try {
+    await deleteAuditEntry(idx)
+    auditToDeleteIdx.value = null
+    deleteAuditOpen.value = false
+  } finally {
+    deletingAudit.value = false
+  }
 }
 
 onMounted(() => {
@@ -455,7 +479,7 @@ onMounted(() => {
                           type="button"
                           class="action-icon-btn action-danger"
                           data-test="client-card-audit-delete-btn"
-                          @click="deleteAuditEntry(i)"
+                          @click="askDeleteAudit(i)"
                         >
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <line x1="18" y1="6" x2="6" y2="18" />
@@ -476,6 +500,34 @@ onMounted(() => {
         </div>
       </div>
     </div>
+
+    <!-- Audit delete confirmation modal -->
+    <AppModal
+      v-model="deleteAuditOpen"
+      :title="t('modal.confirm_delete')"
+      size="small"
+      data-test="client-card-audit-delete-modal"
+    >
+      <p>{{ t('modal.delete_audit_warning') }}</p>
+      <template #footer>
+        <button
+          type="button"
+          class="btn btn-secondary"
+          data-test="client-card-audit-modal-cancel"
+          @click="deleteAuditOpen = false"
+        >
+          {{ t('btn.cancel') }}
+        </button>
+        <button
+          type="button"
+          class="btn btn-danger"
+          data-test="client-card-audit-modal-confirm"
+          @click="confirmDeleteAudit"
+        >
+          {{ t('btn.delete') }}
+        </button>
+      </template>
+    </AppModal>
 
   </template>
 </template>

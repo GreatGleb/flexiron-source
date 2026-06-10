@@ -1715,7 +1715,32 @@ export const mockMovements: WarehouseMovement[] = [
     notes: 'Поступление от поставщика МеталлТрейд',
     movedAt: '2025-01-15T10:00:00Z',
     createdAt: '2025-01-15T10:00:00Z',
-    auditLog: [],
+    auditLog: [
+      {
+        timestamp: '2025-01-15T10:00:00Z',
+        user: { ru: 'Система', en: 'System', lt: 'Sistema' },
+        userInitials: 'SY',
+        property: { ru: 'Перемещение создано', en: 'Movement created', lt: 'Perkėlimas sukurtas' },
+        oldValue: '',
+        newValue: 'whm-001',
+      },
+      {
+        timestamp: '2025-01-15T10:00:00Z',
+        user: { ru: 'Иванов И.', en: 'Ivanov I.', lt: 'Ivanov I.' },
+        userInitials: 'II',
+        property: { ru: 'Тип', en: 'Type', lt: 'Tipas' },
+        oldValue: '',
+        newValue: 'receipt',
+      },
+      {
+        timestamp: '2025-01-15T10:05:00Z',
+        user: { ru: 'Иванов И.', en: 'Ivanov I.', lt: 'Ivanov I.' },
+        userInitials: 'II',
+        property: { ru: 'Расположение', en: 'Location', lt: 'Vieta' },
+        oldValue: '',
+        newValue: 'A-01',
+      },
+    ],
   },
   // ── whb-001 (Steel sheet 2mm, 1000 kg) — all movement types ────────────
   {

@@ -743,7 +743,8 @@ export async function mockExecuteCutting(data: CuttingOperation): Promise<{ offc
 
 function getOrCreateMovementAudit(movementId: string): StockAuditEntry[] {
   if (!movementAuditStore[movementId]) {
-    movementAuditStore[movementId] = []
+    const movement = movementStore.find((m) => m.id === movementId)
+    movementAuditStore[movementId] = movement?.auditLog ? structuredClone(movement.auditLog) : []
   }
   return movementAuditStore[movementId]
 }
@@ -850,8 +851,9 @@ export async function mockExportWarehouseCsv(_tab: string): Promise<string> {
 
 // ─── Audit endpoints ────────────────────────────────────────────────────────
 
-export async function mockGetStockAudit(_productId: string): Promise<StockAuditEntry[]> {
-  return []
+export async function mockGetStockAudit(productId: string): Promise<StockAuditEntry[]> {
+  const item = stockStore.find((s) => s.productId === productId)
+  return item?.auditLog ? structuredClone(item.auditLog) : []
 }
 
 export async function mockDeleteStockAuditEntry(_productId: string, _entryIndex: number): Promise<void> {}
@@ -863,8 +865,9 @@ export async function mockGetBatchAudit(batchId: string): Promise<StockAuditEntr
 
 export async function mockDeleteBatchAuditEntry(_batchId: string, _entryIndex: number): Promise<void> {}
 
-export async function mockGetOffcutAudit(_offcutId: string): Promise<StockAuditEntry[]> {
-  return []
+export async function mockGetOffcutAudit(offcutId: string): Promise<StockAuditEntry[]> {
+  const offcut = offcutStore.find((o) => o.id === offcutId)
+  return offcut?.auditLog ? structuredClone(offcut.auditLog) : []
 }
 
 export async function mockDeleteOffcutAuditEntry(_offcutId: string, _entryIndex: number): Promise<void> {}
@@ -878,8 +881,9 @@ export async function mockDeleteMovementAuditEntry(movementId: string, entryInde
   if (entryIndex >= 0 && entryIndex < audit.length) audit.splice(entryIndex, 1)
 }
 
-export async function mockGetDeficitAudit(_deficitId: string): Promise<StockAuditEntry[]> {
-  return []
+export async function mockGetDeficitAudit(deficitId: string): Promise<StockAuditEntry[]> {
+  const deficit = deficitStore.find((d) => d.id === deficitId)
+  return deficit?.auditLog ? structuredClone(deficit.auditLog) : []
 }
 
 export async function mockDeleteDeficitAuditEntry(_deficitId: string, _entryIndex: number): Promise<void> {}

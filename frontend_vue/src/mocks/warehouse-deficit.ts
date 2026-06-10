@@ -16,7 +16,32 @@ export const mockDeficit: WarehouseDeficit[] = [
     notes: 'Критическая нехватка, остановка производства',
     createdAt: '2025-04-01T08:00:00Z',
     updatedAt: '2025-04-01T08:00:00Z',
-    auditLog: [],
+    auditLog: [
+      {
+        timestamp: '2025-04-01T08:00:00Z',
+        user: { ru: 'Система', en: 'System', lt: 'Sistema' },
+        userInitials: 'SY',
+        property: { ru: 'Дефицит создан', en: 'Deficit created', lt: 'Trūkumas sukurtas' },
+        oldValue: '',
+        newValue: 'whd-001',
+      },
+      {
+        timestamp: '2025-04-01T08:05:00Z',
+        user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
+        userInitials: 'IN',
+        property: { ru: 'Приоритет', en: 'Priority', lt: 'Prioritetas' },
+        oldValue: 'high',
+        newValue: 'critical',
+      },
+      {
+        timestamp: '2025-04-01T09:30:00Z',
+        user: { ru: 'Мария С.', en: 'Maria S.', lt: 'Maria S.' },
+        userInitials: 'MS',
+        property: { ru: 'Примечания', en: 'Notes', lt: 'Pastabos' },
+        oldValue: '',
+        newValue: 'Критическая нехватка, остановка производства',
+      },
+    ],
   },
   {
     id: 'whd-002',

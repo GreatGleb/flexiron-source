@@ -592,11 +592,11 @@ watch(() => form.value.notes, () => {
       <!-- Audit delete confirmation modal -->
       <AppModal
         v-model="showAuditDeleteModal"
-        :title="t('warehouse.delete_audit_entry_title')"
+        :title="t('modal.confirm_delete')"
         size="small"
         data-test="deficit-card-audit-delete-modal"
       >
-        <p>{{ t('warehouse.confirm_delete_audit_entry') }}</p>
+        <p>{{ t('modal.delete_audit_warning') }}</p>
         <template #footer>
           <button
             type="button"

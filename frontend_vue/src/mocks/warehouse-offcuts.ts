@@ -24,7 +24,40 @@ export const mockOffcuts: WarehouseOffcut[] = [
     files: [],
     createdAt: '2025-01-20T10:00:00Z',
     updatedAt: '2025-01-20T10:00:00Z',
-    auditLog: [],
+    auditLog: [
+      {
+        timestamp: '2025-01-20T10:00:00Z',
+        user: { ru: 'Система', en: 'System', lt: 'Sistema' },
+        userInitials: 'SY',
+        property: { ru: 'Обрезок создан', en: 'Offcut created', lt: 'Atraiža sukurta' },
+        oldValue: '',
+        newValue: 'who-001',
+      },
+      {
+        timestamp: '2025-01-20T10:00:00Z',
+        user: { ru: 'Система', en: 'System', lt: 'Sistema' },
+        userInitials: 'SY',
+        property: { ru: 'Источник', en: 'Source', lt: 'Šaltinis' },
+        oldValue: '',
+        newValue: 'Партия INV-2025-001',
+      },
+      {
+        timestamp: '2025-01-20T11:30:00Z',
+        user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
+        userInitials: 'MV',
+        property: { ru: 'Расположение', en: 'Location', lt: 'Vieta' },
+        oldValue: '',
+        newValue: 'Rack: A | Row: 01 | Cell: 03',
+      },
+      {
+        timestamp: '2025-01-20T11:35:00Z',
+        user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
+        userInitials: 'MV',
+        property: { ru: 'Примечания', en: 'Notes', lt: 'Pastabos' },
+        oldValue: '',
+        newValue: 'Остаток после раскроя заказа PROD-2025-001',
+      },
+    ],
   },
   // ── 2. Pipe (cat-4) ──────────────────────────────────────────────────────
   {

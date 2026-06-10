@@ -59,6 +59,7 @@ import {
   mockCreateProduct,
   mockPatchProduct,
   mockDeleteProduct,
+  mockDeleteProductAuditEntry,
   STORE as PRODUCTS_STORE,
 } from './products'
 import type { ProductFilters } from '@/types/product'
@@ -945,6 +946,12 @@ export async function deleteMock<T>(path: string, _headers?: Record<string, stri
   if (categoryDeleteMatch) {
     const result = mockDeleteCategory(categoryDeleteMatch[1] as string)
     if (!result.ok) throw new Error(result.code)
+    return delay(undefined as T)
+  }
+
+  const productAuditDeleteMatch = path.match(/^\/api\/products\/([^/]+)\/audit\/(\d+)$/)
+  if (productAuditDeleteMatch) {
+    mockDeleteProductAuditEntry(productAuditDeleteMatch[1] as string, Number(productAuditDeleteMatch[2]))
     return delay(undefined as T)
   }
 
