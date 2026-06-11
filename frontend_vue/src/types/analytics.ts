@@ -12,6 +12,7 @@ export type AnalyticsPageKey =
 
 export interface KpiItem {
   key: string
+  label: TranslatedString
   value: string
   delta: string
   trend: 'up' | 'down' | 'neutral'

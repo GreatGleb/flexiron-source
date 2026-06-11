@@ -111,6 +111,7 @@ export function useWarehouseOffcutCard(id: string) {
 
   function onFilesUploaded(uploaded: UploadedFile[]) {
     if (!offcut.value) return
+    if (!offcut.value.files) offcut.value.files = []
     for (const u of uploaded) {
       offcut.value.files.push({
         id: u.fileId,
@@ -125,6 +126,7 @@ export function useWarehouseOffcutCard(id: string) {
 
   function removeFile(fileId: string) {
     if (!offcut.value) return
+    if (!offcut.value.files) return
     offcut.value.files = offcut.value.files.filter((f) => f.id !== fileId)
     fileIdsToAttach.value = fileIdsToAttach.value.filter((id) => id !== fileId)
   }

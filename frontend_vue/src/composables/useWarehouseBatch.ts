@@ -134,6 +134,7 @@ export function useWarehouseBatch(id: string) {
 
   function onFilesUploaded(uploaded: UploadedFile[]) {
     if (!batch.value) return
+    if (!batch.value.files) batch.value.files = []
     for (const u of uploaded) {
       batch.value.files.push({
         id: u.fileId,
@@ -148,6 +149,7 @@ export function useWarehouseBatch(id: string) {
 
   function removeFile(fileId: string) {
     if (!batch.value) return
+    if (!batch.value.files) return
     batch.value.files = batch.value.files.filter((f) => f.id !== fileId)
     fileIdsToAttach.value = fileIdsToAttach.value.filter((id) => id !== fileId)
   }

@@ -611,6 +611,7 @@ export const mockBatches = [
     certificateRef: null,
     status: 'available',
     notes: 'Oldest batch in stock (Jan 2025). 100kg consumed.',
+    files: [],
     createdAt: '2025-01-05T08:00:00Z',
     updatedAt: '2025-01-05T08:00:00Z',
   },

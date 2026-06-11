@@ -21,6 +21,9 @@ export const adminLayout = {
       logistics: '7.6 Логистика',
       pl: '7.7 P&L',
       deficit: '7.8 Дефицит',
+      finance_incoming: 'Входящие оплаты',
+      finance_outgoing: 'Исходящие оплаты',
+      finance_archive: 'Архив документов',
     },
     head: {
       title: 'Дашборд руководителя',
@@ -48,6 +51,9 @@ export const adminLayout = {
       categories: 'Категории товаров',
       categoryCard: 'Карточка категории',
       services: 'Услуги',
+      financeIncoming: 'Входящие оплаты',
+      financeOutgoing: 'Исходящие оплаты',
+      financeArchive: 'Архив документов',
     },
   },
   en: {
@@ -71,6 +77,9 @@ export const adminLayout = {
       logistics: '7.6 Logistics',
       pl: '7.7 P&L',
       deficit: '7.8 Deficit',
+      finance_incoming: 'Incoming Payments',
+      finance_outgoing: 'Outgoing Payments',
+      finance_archive: 'Document Archive',
     },
     head: {
       title: 'Executive Dashboard',
@@ -98,6 +107,9 @@ export const adminLayout = {
       categories: 'Product Categories',
       categoryCard: 'Category Card',
       services: 'Services',
+      financeIncoming: 'Incoming Payments',
+      financeOutgoing: 'Outgoing Payments',
+      financeArchive: 'Document Archive',
     },
   },
   lt: {
@@ -121,6 +133,9 @@ export const adminLayout = {
       logistics: '7.6 Logistika',
       pl: '7.7 P&L',
       deficit: '7.8 Deficitas',
+      finance_incoming: 'Gaunami mokėjimai',
+      finance_outgoing: 'Išeinantys mokėjimai',
+      finance_archive: 'Dokumentų archyvas',
     },
     head: {
       title: 'Vadovo skydelis',
@@ -148,6 +163,9 @@ export const adminLayout = {
       categories: 'Prekių kategorijos',
       categoryCard: 'Kategorijos kortelė',
       services: 'Paslaugos',
+      financeIncoming: 'Gaunami mokėjimai',
+      financeOutgoing: 'Išeinantys mokėjimai',
+      financeArchive: 'Dokumentų archyvas',
     },
   },
 }

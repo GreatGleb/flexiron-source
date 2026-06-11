@@ -161,6 +161,15 @@ import type { SupplierFilters, SupplierCardData } from '@/types/supplier'
 import type { ClientFormData } from '@/types/client'
 import type { PaginationParams } from '@/types/api'
 import type { OrderFilters } from '@/types/order'
+import type { FinancePaymentFilters } from '@/types/finance'
+import {
+  mockGetPayments,
+  mockGetPayment,
+  mockPatchPayment,
+  mockAddPaymentDocument,
+  mockRemovePaymentDocument,
+  mockGetArchive,
+} from './finance'
 
 function delay<T>(data: T, ms = 300): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(data), ms))
@@ -189,6 +198,24 @@ interface UploadedFileMeta {
   uploadedAt: string
 }
 const uploadedFiles = new Map<string, UploadedFileMeta>()
+
+// ─── Finance ───
+function parseFinancePaymentsParams(params?: Record<string, string>) {
+  const direction = (params?.direction ?? 'all') as 'incoming' | 'outgoing' | 'all'
+  const filters: FinancePaymentFilters = {
+    search: params?.search ?? '',
+    status: params?.status ?? 'all',
+    counterpartyId: params?.counterpartyId ?? null,
+    dateFrom: params?.dateFrom ?? '',
+    dateTo: params?.dateTo ?? '',
+    direction,
+  }
+  const pagination = {
+    page: Number(params?.page ?? 1),
+    pageSize: Number(params?.pageSize ?? 25),
+  }
+  return { direction, filters, pagination }
+}
 
 // ─── GET ───
 export async function getMock<T>(path: string, params?: Record<string, string>): Promise<T> {
@@ -572,6 +599,26 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
     return delay(mockExportWarehouseCsv(exportMatch[1] as string) as T)
   }
 
+  // ── Finance ──
+  if (path === '/api/finance/payments') {
+    const { direction, filters, pagination } = parseFinancePaymentsParams(params)
+    return delay(mockGetPayments(direction, { ...filters, ...pagination }) as T)
+  }
+
+  const financePaymentCardMatch = path.match(/^\/api\/finance\/payments\/([^/]+)$/)
+  if (financePaymentCardMatch) {
+    return delay(mockGetPayment(financePaymentCardMatch[1] as string) as T)
+  }
+
+  if (path === '/api/finance/archive') {
+    const search = params?.search ?? ''
+    const type = params?.type ?? 'all'
+    const relatedEntityType = params?.relatedEntityType ?? 'all'
+    const page = Number(params?.page ?? 1)
+    const pageSize = Number(params?.pageSize ?? 25)
+    return delay(mockGetArchive({ search, type, relatedEntityType, page, pageSize }) as T)
+  }
+
   throw new Error(`[mock] GET ${path} not found`)
 }
 
@@ -692,6 +739,12 @@ export async function postMock<T>(
   if (path === '/api/settings/conversions') return delay(mockCreateConversion(body as Parameters<typeof mockCreateConversion>[0]) as T)
   if (path === '/api/settings/order-statuses') return delay(mockCreateOrderStatus(body as Parameters<typeof mockCreateOrderStatus>[0]) as T)
   if (path === '/api/settings/change-password') return delay(undefined as T) // no-op mock
+
+  // ── Finance POST ──
+  const financeDocPostMatch = path.match(/^\/api\/finance\/payments\/([^/]+)\/documents$/)
+  if (financeDocPostMatch) {
+    return delay(mockAddPaymentDocument(financeDocPostMatch[1] as string, body as import('@/types/finance').PaymentDocument) as T)
+  }
 
   throw new Error(`[mock] POST ${path} not found`)
 }
@@ -889,6 +942,12 @@ export async function patchMock<T>(
     return delay(undefined as T)
   }
 
+  // ── Finance PATCH ──
+  const financePaymentPatchMatch = path.match(/^\/api\/finance\/payments\/([^/]+)$/)
+  if (financePaymentPatchMatch) {
+    return delay(mockPatchPayment(financePaymentPatchMatch[1] as string, body as Partial<import('@/types/finance').FinancePayment>) as T)
+  }
+
   throw new Error(`[mock] PATCH ${path} not found`)
 }
 
@@ -1063,6 +1122,12 @@ export async function deleteMock<T>(path: string, _headers?: Record<string, stri
   if (statusDeleteMatch) {
     mockDeleteOrderStatus(statusDeleteMatch[1] as string)
     return delay(undefined as T)
+  }
+
+  // ── Finance DELETE ──
+  const financeDocDeleteMatch = path.match(/^\/api\/finance\/payments\/([^/]+)\/documents\/([^/]+)$/)
+  if (financeDocDeleteMatch) {
+    return delay(mockRemovePaymentDocument(financeDocDeleteMatch[1] as string, financeDocDeleteMatch[2] as string) as T)
   }
 
   throw new Error(`[mock] DELETE ${path} not found`)

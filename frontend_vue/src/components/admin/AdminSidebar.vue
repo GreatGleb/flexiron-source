@@ -29,6 +29,7 @@ const isSuppliersActive = computed(() => route.path.startsWith('/admin/suppliers
 const isProductsActive = computed(() => route.path.startsWith('/admin/products'))
 const isWarehouseActive = computed(() => route.path.startsWith('/admin/warehouse'))
 const isSalesCrmActive = computed(() => route.path.startsWith('/admin/sales-crm') || route.path.startsWith('/admin/clients') || route.path.startsWith('/admin/orders'))
+const isFinanceActive = computed(() => route.path.startsWith('/admin/finance'))
 const isSettingsActive = computed(() => route.path.startsWith('/admin/settings'))
 
 onMounted(() => {
@@ -113,10 +114,15 @@ function switchLang(code: string) {
         </router-link>
       </li>
       <li>
-        <a href="#" class="nav-link" data-test="sidebar-nav-finance">
+        <router-link
+          to="/admin/finance/incoming"
+          class="nav-link"
+          data-test="sidebar-nav-finance"
+          :class="{ active: isFinanceActive }"
+        >
           <SvgIcon name="profit-coin" class="nav-icon" />
           <span>{{ t('side.finance') }}</span>
-        </a>
+        </router-link>
       </li>
     </ul>
 

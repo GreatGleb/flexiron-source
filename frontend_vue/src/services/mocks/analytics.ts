@@ -25,11 +25,11 @@ import type { TranslatedString } from '@/types/i18n'
 // ─── Dashboard ───────────────────────────────────────────────────────────────
 
 const kpiDashboard: KpiItem[] = [
-  { key: 'revenue', value: '127 400', delta: '+7%', trend: 'up', icon: 'chart-bar', iconColor: 'blue' },
-  { key: 'procurement', value: '38 750', delta: '-3%', trend: 'down', icon: 'receipt', iconColor: 'red' },
-  { key: 'margin', value: '84 200', delta: '+12%', trend: 'up', icon: 'trending-up', iconColor: 'green' },
-  { key: 'profit', value: '14 870', delta: '0%', trend: 'neutral', icon: 'currency', iconColor: 'gold' },
-  { key: 'deficit', value: '8', delta: '+2', trend: 'down', icon: 'alert', iconColor: 'red' },
+  { key: 'revenue', label: { ru: 'Стоимость склада', en: 'Warehouse Value', lt: 'Sandėlio vertė' }, value: '127 400', delta: '+7%', trend: 'up', icon: 'chart-bar', iconColor: 'blue' },
+  { key: 'procurement', label: { ru: 'Дебиторская задолженность', en: 'Accounts Receivable', lt: 'Gautinos sumos' }, value: '38 750', delta: '-3%', trend: 'down', icon: 'receipt', iconColor: 'red' },
+  { key: 'margin', label: { ru: 'Выручка (мес.)', en: 'Sales (month)', lt: 'Pardavimai (mėn.)' }, value: '84 200', delta: '+12%', trend: 'up', icon: 'trending-up', iconColor: 'green' },
+  { key: 'profit', label: { ru: 'Прибыль (мес.)', en: 'Profit (month)', lt: 'Pelnas (mėn.)' }, value: '14 870', delta: '0%', trend: 'neutral', icon: 'currency', iconColor: 'gold' },
+  { key: 'deficit', label: { ru: 'Дефицит позиций', en: 'Deficit Items', lt: 'Trūkstamos pozicijos' }, value: '8', delta: '+2', trend: 'down', icon: 'alert', iconColor: 'red' },
 ]
 
 const salesByCategory: ChartBarItem[] = [
@@ -190,10 +190,10 @@ const warehouseTurnover: TurnoverItem[] = [
 ]
 
 const warehouseKpis: KpiItem[] = [
-  { key: 'kpi1', value: '127 400', delta: '+7%', trend: 'up', icon: 'chart-bar', iconColor: 'blue' },
-  { key: 'kpi2', value: '12', delta: '-2', trend: 'down', icon: 'alert', iconColor: 'red' },
-  { key: 'kpi3', value: '38', delta: '0%', trend: 'neutral', icon: 'trending-up', iconColor: 'gold' },
-  { key: 'kpi4', value: '8.4', delta: '+1%', trend: 'up', icon: 'check', iconColor: 'green' },
+  { key: 'kpi1', label: { ru: 'Стоимость склада', en: 'Warehouse Value', lt: 'Sandėlio vertė' }, value: '127 400', delta: '+7%', trend: 'up', icon: 'chart-bar', iconColor: 'blue' },
+  { key: 'kpi2', label: { ru: 'Мёртвые остатки', en: 'Dead Stock', lt: 'Mirusios atsargos' }, value: '12', delta: '-2', trend: 'down', icon: 'alert', iconColor: 'red' },
+  { key: 'kpi3', label: { ru: 'Оборачиваемость', en: 'Turnover', lt: 'Apyvartumas' }, value: '38', delta: '0%', trend: 'neutral', icon: 'trending-up', iconColor: 'gold' },
+  { key: 'kpi4', label: { ru: 'Рейтинг склада', en: 'Warehouse Rating', lt: 'Sandėlio reitingas' }, value: '8.4', delta: '+1%', trend: 'up', icon: 'check', iconColor: 'green' },
 ]
 
 const warehouseData: DashboardData = {
@@ -208,10 +208,10 @@ const warehouseData: DashboardData = {
 // ─── Sales ───────────────────────────────────────────────────────────────────
 
 const salesKpis: KpiItem[] = [
-  { key: 'kpi1', value: '84 200', delta: '+12%', trend: 'up', icon: 'trending-up', iconColor: 'green' },
-  { key: 'kpi2', value: '47', delta: '+5', trend: 'up', icon: 'users', iconColor: 'blue' },
-  { key: 'kpi3', value: '63', delta: '0%', trend: 'neutral', icon: 'receipt', iconColor: 'gold' },
-  { key: 'kpi4', value: '11 400', delta: '-3%', trend: 'down', icon: 'alert', iconColor: 'red' },
+  { key: 'kpi1', label: { ru: 'Выручка (мес.)', en: 'Revenue (month)', lt: 'Pajamos (mėn.)' }, value: '84 200', delta: '+12%', trend: 'up', icon: 'trending-up', iconColor: 'green' },
+  { key: 'kpi2', label: { ru: 'Активные клиенты', en: 'Active Clients', lt: 'Aktyvūs klientai' }, value: '47', delta: '+5', trend: 'up', icon: 'users', iconColor: 'blue' },
+  { key: 'kpi3', label: { ru: 'Средний чек', en: 'Avg Check', lt: 'Vidutinis čekis' }, value: '63', delta: '0%', trend: 'neutral', icon: 'receipt', iconColor: 'gold' },
+  { key: 'kpi4', label: { ru: 'Упущенная выгода', en: 'Lost Profit', lt: 'Prarastas pelnas' }, value: '11 400', delta: '-3%', trend: 'down', icon: 'alert', iconColor: 'red' },
 ]
 
 const salesTopClients: TopClientItem[] = [
@@ -240,10 +240,10 @@ const salesData: DashboardData = {
 // ─── Supply ──────────────────────────────────────────────────────────────────
 
 const supplyKpis: KpiItem[] = [
-  { key: 'kpi1', value: '58 200', delta: '0%', trend: 'neutral', icon: 'receipt', iconColor: 'blue' },
-  { key: 'kpi2', value: '84', delta: '+5%', trend: 'up', icon: 'check', iconColor: 'green' },
-  { key: 'kpi3', value: '3', delta: '+1', trend: 'down', icon: 'clock', iconColor: 'red' },
-  { key: 'kpi4', value: '+4.2', delta: '-0.5', trend: 'down', icon: 'trending-up', iconColor: 'gold' },
+  { key: 'kpi1', label: { ru: 'Закуплено (мес.)', en: 'Purchased (month)', lt: 'Nupirkta (mėn.)' }, value: '58 200', delta: '0%', trend: 'neutral', icon: 'receipt', iconColor: 'blue' },
+  { key: 'kpi2', label: { ru: 'Доставка вовремя', en: 'On-time delivery', lt: 'Pristatymas laiku' }, value: '84', delta: '+5%', trend: 'up', icon: 'check', iconColor: 'green' },
+  { key: 'kpi3', label: { ru: 'Просрочки', en: 'Overdue', lt: 'Vėlavimai' }, value: '3', delta: '+1', trend: 'down', icon: 'clock', iconColor: 'red' },
+  { key: 'kpi4', label: { ru: 'Изменение цен', en: 'Price Change', lt: 'Kainos pokytis' }, value: '+4.2', delta: '-0.5', trend: 'down', icon: 'trending-up', iconColor: 'gold' },
 ]
 
 const supplySuppliers: SupplierItem[] = [
@@ -304,10 +304,10 @@ const staffData: DashboardData = {
 // ─── Logistics ───────────────────────────────────────────────────────────────
 
 const logisticsKpis: KpiItem[] = [
-  { key: 'kpi1', value: '34', delta: '+3', trend: 'up', icon: 'truck', iconColor: 'blue' },
-  { key: 'kpi2', value: '7.4', delta: '0%', trend: 'neutral', icon: 'package', iconColor: 'green' },
-  { key: 'kpi3', value: '5', delta: '+2', trend: 'down', icon: 'clock', iconColor: 'red' },
-  { key: 'kpi4', value: '62', delta: '+5%', trend: 'up', icon: 'trending-up', iconColor: 'gold' },
+  { key: 'kpi1', label: { ru: 'Рейсов (мес.)', en: 'Trips (month)', lt: 'Reisai (mėn.)' }, value: '34', delta: '+3', trend: 'up', icon: 'truck', iconColor: 'blue' },
+  { key: 'kpi2', label: { ru: 'Средняя загрузка', en: 'Avg Load', lt: 'Vidutinis pakrovimas' }, value: '7.4', delta: '0%', trend: 'neutral', icon: 'package', iconColor: 'green' },
+  { key: 'kpi3', label: { ru: 'Пустые рейсы', en: 'Empty Runs', lt: 'Tušti reisai' }, value: '5', delta: '+2', trend: 'down', icon: 'clock', iconColor: 'red' },
+  { key: 'kpi4', label: { ru: 'Рентабельность', en: 'Profitability', lt: 'Pelningumas' }, value: '62', delta: '+5%', trend: 'up', icon: 'trending-up', iconColor: 'gold' },
 ]
 
 const logisticsRoutes: RouteItem[] = [
@@ -370,10 +370,10 @@ const plReportData: DashboardData = {
 // ─── Deficit ─────────────────────────────────────────────────────────────────
 
 const deficitKpis: KpiItem[] = [
-  { key: 'kpi1', value: '8', delta: '+2', trend: 'down', icon: 'alert', iconColor: 'red' },
-  { key: 'kpi2', value: '4 800', delta: '+600', trend: 'down', icon: 'currency', iconColor: 'gold' },
-  { key: 'kpi3', value: '5', delta: '0', trend: 'neutral', icon: 'package', iconColor: 'blue' },
-  { key: 'kpi4', value: '3', delta: '-1', trend: 'up', icon: 'check', iconColor: 'green' },
+  { key: 'kpi1', label: { ru: 'Позиций в дефиците', en: 'Items in deficit', lt: 'Trūkstamos pozicijos' }, value: '8', delta: '+2', trend: 'down', icon: 'alert', iconColor: 'red' },
+  { key: 'kpi2', label: { ru: 'Упущенная выгода', en: 'Lost profit', lt: 'Prarastas pelnas' }, value: '4 800', delta: '+600', trend: 'down', icon: 'currency', iconColor: 'gold' },
+  { key: 'kpi3', label: { ru: 'Ожидание поставки', en: 'Awaiting delivery', lt: 'Laukiama pristatymo' }, value: '5', delta: '0', trend: 'neutral', icon: 'package', iconColor: 'blue' },
+  { key: 'kpi4', label: { ru: 'Решено', en: 'Resolved', lt: 'Išspręsta' }, value: '3', delta: '-1', trend: 'up', icon: 'check', iconColor: 'green' },
 ]
 
 const deficitItems: DeficitItem[] = [

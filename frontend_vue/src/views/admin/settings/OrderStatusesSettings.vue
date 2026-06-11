@@ -57,7 +57,7 @@ function handleWriteOffToggle(stId: string, checked: boolean) {
 
 function handleClickOutside(e: MouseEvent) {
   const target = e.target as HTMLElement
-  if (!target.closest('.color-popup') && !target.closest('.color-swatch-btn')) {
+  if (!target.closest('.color-popup') && !target.closest('.color-badge-pill')) {
     activeColorPicker.value = null
   }
 }
@@ -81,7 +81,7 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
     </div>
 
     <div v-if="settings.orderStatuses.length" class="data-table-wrapper">
-      <table class="data-table" data-test="settings-statuses-table">
+      <table class="data-table relaxed" data-test="settings-statuses-table">
         <thead>
           <tr>
             <th class="col-order">{{ t('settingsStatuses.order') }}</th>
@@ -129,8 +129,13 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
             </td>
 
             <td class="col-color">
-              <button class="color-swatch-btn" @click="toggleColorPicker(st.id)">
-                <span class="color-swatch" :style="{ backgroundColor: st.color }"></span>
+              <button
+                class="color-badge-pill"
+                :style="{ backgroundColor: st.color }"
+                @click="toggleColorPicker(st.id)"
+                :title="st.color"
+              >
+                <span class="color-badge-hex">{{ st.color }}</span>
               </button>
 
               <div v-if="activeColorPicker === st.id" class="color-popup" @click.stop>
@@ -242,6 +247,13 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
   font-size: 0.875rem;
 }
 
+/* ─── Spacious rows ─── */
+.data-table.relaxed td {
+  padding: 12px 16px;
+  height: auto;
+  vertical-align: middle;
+}
+
 /* ─── Column widths ─── */
 .data-table .col-order {
   width: 100px;
@@ -252,7 +264,7 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
 }
 
 .data-table .col-color {
-  width: 140px;
+  width: 160px;
 }
 
 .data-table .col-reserve {
@@ -331,31 +343,42 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
   flex-shrink: 0;
 }
 
-/* ─── Color swatch button ─── */
-.color-swatch-btn {
+/* ─── Color badge pill ─── */
+.color-badge-pill {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  background: transparent;
-  border: 2px solid rgba(255, 255, 255, 0.15);
-  border-radius: 50%;
+  gap: 6px;
+  padding: 4px 12px 4px 8px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
   cursor: pointer;
   transition: all 0.2s;
+  min-width: 72px;
+  background: transparent;
+  font-family: inherit;
+  line-height: 1;
 }
-
-.color-swatch-btn:hover {
-  border-color: rgba(255, 255, 255, 0.35);
-}
-
-.color-swatch {
-  display: block;
-  width: 20px;
-  height: 20px;
+.color-badge-pill::before {
+  content: '';
+  display: inline-block;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
+  background: inherit;
+  border: 2px solid rgba(255, 255, 255, 0.25);
   flex-shrink: 0;
+}
+.color-badge-pill:hover {
+  border-color: rgba(255, 255, 255, 0.35);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+.color-badge-hex {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 500;
+  line-height: 1.2;
 }
 
 /* ─── Color popup ─── */

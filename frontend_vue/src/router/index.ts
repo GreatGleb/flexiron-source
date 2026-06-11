@@ -278,6 +278,38 @@ const routes: RouteRecordRaw[] = [
         meta: { layout: 'admin', featureFlag: 'adminWarehouse' as FeatureFlagKey },
       },
 
+      /* Finance */
+      {
+        path: 'finance/incoming',
+        name: 'admin-finance-incoming',
+        component: () => import('@/views/admin/finance/IncomingPaymentsPage.vue'),
+        meta: { layout: 'admin', featureFlag: 'financeIncoming' as FeatureFlagKey },
+      },
+      {
+        path: 'finance/incoming/:id',
+        name: 'admin-finance-incoming-payment',
+        component: () => import('@/views/admin/finance/IncomingPaymentCardPage.vue'),
+        meta: { layout: 'admin', featureFlag: 'financeIncoming' as FeatureFlagKey },
+      },
+      {
+        path: 'finance/outgoing',
+        name: 'admin-finance-outgoing',
+        component: () => import('@/views/admin/finance/OutgoingPaymentsPage.vue'),
+        meta: { layout: 'admin', featureFlag: 'financeOutgoing' as FeatureFlagKey },
+      },
+      {
+        path: 'finance/outgoing/:id',
+        name: 'admin-finance-outgoing-payment',
+        component: () => import('@/views/admin/finance/OutgoingPaymentCardPage.vue'),
+        meta: { layout: 'admin', featureFlag: 'financeOutgoing' as FeatureFlagKey },
+      },
+      {
+        path: 'finance/archive',
+        name: 'admin-finance-archive',
+        component: () => import('@/views/admin/finance/DocumentArchivePage.vue'),
+        meta: { layout: 'admin', featureFlag: 'financeDocumentArchive' as FeatureFlagKey },
+      },
+
       /* Settings */
       {
         path: 'settings',

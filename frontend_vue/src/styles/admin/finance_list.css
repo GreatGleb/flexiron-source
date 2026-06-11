@@ -1,0 +1,232 @@
+/* --- PAGE LAYOUT: FINANCE LIST & CARD --- */
+
+/* Filters Bar */
+.filters-bar {
+  position: relative;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.filters-bar-header {
+  padding: 12px 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.35);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.filters-bar-content {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding: 16px 20px;
+}
+
+.filters-bar .filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 160px;
+}
+
+.filters-bar .filter-group label {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.45);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Data Table Wrapper */
+.data-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+/* Error & Empty States */
+.error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 48px 24px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.error-state p {
+  font-size: 0.9375rem;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 48px 24px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.empty-state p {
+  font-size: 0.9375rem;
+}
+
+/* Pagination bar (used in table footer) */
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.pagination-info {
+  font-size: 0.8125rem;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pagination-pages {
+  font-size: 0.8125rem;
+  color: rgba(255, 255, 255, 0.55);
+  white-space: nowrap;
+}
+
+.pagination-size-select {
+  width: auto !important;
+  min-width: 70px !important;
+}
+
+/* Finance-specific status pills */
+.pill-pending {
+  background: rgba(250, 173, 20, 0.15);
+  color: #fadb14;
+  border: 1px solid rgba(250, 173, 20, 0.3);
+}
+
+.pill-overdue {
+  background: rgba(255, 77, 79, 0.15);
+  color: #ff4d4f;
+  border: 1px solid rgba(255, 77, 79, 0.3);
+}
+
+/* Responsive */
+@media (max-width: 992px) {
+  .filters-bar-content {
+    gap: 16px;
+  }
+  .filters-bar .filter-group {
+    min-width: 130px;
+  }
+}
+
+@media (max-width: 600px) {
+  .filters-bar-header {
+    padding: 10px 14px;
+  }
+  .filters-bar-content {
+    flex-direction: column;
+  }
+  .filters-bar .filter-group {
+    min-width: 100%;
+  }
+}
+
+@media (max-width: 400px) {
+  .filters-bar {
+    margin-left: -8px;
+    margin-right: -8px;
+    border-radius: 0;
+  }
+  .filters-bar-header {
+    padding: 8px 12px;
+  }
+  .filters-bar-content {
+    padding: 10px 12px;
+  }
+  .filters-bar .filter-group label {
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 320px) {
+  .filters-bar {
+    overflow: visible;
+  }
+}
+
+@media (max-width: 768px) {
+  .data-table {
+    min-width: 600px;
+  }
+  .data-table th,
+  .data-table td {
+    padding: 10px 12px;
+  }
+}
+
+@media (max-width: 600px) {
+  .data-table {
+    min-width: 500px;
+  }
+  .data-table th,
+  .data-table td {
+    padding: 8px 10px;
+  }
+  .pagination-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .pagination-controls {
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .data-table {
+    min-width: 400px;
+  }
+  .data-table th,
+  .data-table td {
+    padding: 6px 8px;
+  }
+}
+
+@media (max-width: 320px) {
+  .data-table th {
+    font-size: 9px;
+  }
+  .data-table th:first-child {
+    padding-left: 4px;
+  }
+  .data-table th:last-child {
+    padding-right: 4px;
+  }
+  .data-table td {
+    font-size: 10px;
+  }
+  .data-table td:first-child {
+    padding-left: 4px;
+  }
+  .data-table td:last-child {
+    padding-right: 4px;
+  }
+  .data-table {
+    min-width: 400px;
+  }
+  .data-table .status-pill {
+    padding: 1px 6px;
+  }
+}

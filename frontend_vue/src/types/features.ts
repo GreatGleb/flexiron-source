@@ -54,6 +54,12 @@ export interface FeatureFlags {
 
   // Notifications
   notificationsPage: boolean
+
+  // Finance page-level flags
+  adminFinance: boolean
+  financeIncoming: boolean
+  financeOutgoing: boolean
+  financeDocumentArchive: boolean
 }
 
 export type FeatureFlagKey = keyof FeatureFlags

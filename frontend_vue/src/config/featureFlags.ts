@@ -57,6 +57,12 @@ const defaults: FeatureFlags = {
 
   // Notifications
   notificationsPage: true,
+
+  // Finance page-level flags
+  adminFinance: true,
+  financeIncoming: true,
+  financeOutgoing: true,
+  financeDocumentArchive: true,
 }
 
 function loadOverrides(): Partial<FeatureFlags> {

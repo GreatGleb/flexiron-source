@@ -228,5 +228,10 @@ defineProps<{
       <line x1="4.93" y1="19.07" x2="7.76" y2="16.24" />
       <line x1="16.24" y1="7.76" x2="19.07" y2="4.93" />
     </template>
+    <template v-else-if="name === 'save-floppy'">
+      <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
+      <polyline points="17 21 17 13 7 13 7 21" />
+      <polyline points="7 3 7 8 15 8" />
+    </template>
   </svg>
 </template>
