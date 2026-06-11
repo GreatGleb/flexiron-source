@@ -1,7 +1,8 @@
 export interface ApiResponse<T> {
-  data: T
   success: boolean
-  message?: string
+  data?: T         // filled when success === true
+  message?: string // human-readable error / info message
+  code?: string    // machine error code (see contract)
 }
 
 export interface PaginatedResponse<T> {

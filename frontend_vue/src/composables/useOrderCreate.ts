@@ -78,7 +78,7 @@ export function useOrderCreate() {
   async function loadClients() {
     loadingClients.value = true
     try {
-      const result = await getClients({ search: '', status: null, sortBy: 'name', sortDir: 'asc' })
+      const result = await getClients({ search: '', status: null, sortBy: 'name', sortDir: 'asc', pageSize: 1000 })
       clients.value = result.items
     } catch (e) {
       error.value = String(e)

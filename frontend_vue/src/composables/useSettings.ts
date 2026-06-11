@@ -1,5 +1,4 @@
 import { ref, reactive } from 'vue'
-import { getSettings } from '@/services/settingsService'
 import * as settingsService from '@/services/settingsService'
 import type {
   AppSettings,
@@ -148,12 +147,36 @@ export function useSettings() {
       return
     }
 
-    // 2) Cache miss or expired — fetch from API
+    // 2) Cache miss or expired — fetch from API in parallel
     loading.value = true
     error.value = null
     try {
-      const data = await getSettings()
-      Object.assign(settings, data)
+      const [
+        company,
+        constants,
+        currencies,
+        uoms,
+        conversions,
+        orderStatuses,
+        profile,
+      ] = await Promise.all([
+        settingsService.getCompany(),
+        settingsService.getConstants(),
+        settingsService.getCurrencies(),
+        settingsService.getUoms(),
+        settingsService.getConversions(),
+        settingsService.getOrderStatuses(),
+        settingsService.getProfile(),
+      ])
+      settings.company = company
+      settings.constants = constants
+      settings.currencies = currencies
+      settings.uoms = uoms
+      settings.conversions = conversions
+      settings.orderStatuses = orderStatuses
+      settings.profile = profile
+
+      const data = { ...settings } as import('@/types/settings').AppSettings
       saveToCache(data)
       loaded = true
       takeSnapshot()
@@ -170,8 +193,32 @@ export function useSettings() {
     loading.value = true
     error.value = null
     try {
-      const data = await getSettings()
-      Object.assign(settings, data)
+      const [
+        company,
+        constants,
+        currencies,
+        uoms,
+        conversions,
+        orderStatuses,
+        profile,
+      ] = await Promise.all([
+        settingsService.getCompany(),
+        settingsService.getConstants(),
+        settingsService.getCurrencies(),
+        settingsService.getUoms(),
+        settingsService.getConversions(),
+        settingsService.getOrderStatuses(),
+        settingsService.getProfile(),
+      ])
+      settings.company = company
+      settings.constants = constants
+      settings.currencies = currencies
+      settings.uoms = uoms
+      settings.conversions = conversions
+      settings.orderStatuses = orderStatuses
+      settings.profile = profile
+
+      const data = { ...settings } as import('@/types/settings').AppSettings
       saveToCache(data)
       loaded = true
       takeSnapshot()
@@ -363,7 +410,8 @@ export function useSettings() {
   }
 
   // ─── Currencies ───
-  function addCurrency(currency: Currency) {
+  function addCurrency(data: Omit<Currency, 'id'>) {
+    const currency: Currency = { ...data, id: `cur-temp-${Date.now()}` }
     settings.currencies.push(currency)
     markDirty('currencies')
   }
@@ -379,7 +427,8 @@ export function useSettings() {
   }
 
   // ─── UOM ───
-  function addUom(uom: Uom) {
+  function addUom(data: Omit<Uom, 'id'>) {
+    const uom: Uom = { ...data, id: `uom-temp-${Date.now()}` }
     settings.uoms.push(uom)
     markDirty('uoms')
   }
@@ -390,7 +439,8 @@ export function useSettings() {
   }
 
   // ─── UOM Conversions ───
-  function addConversion(conv: UomConversion) {
+  function addConversion(data: Omit<UomConversion, 'id'>) {
+    const conv: UomConversion = { ...data, id: `conv-temp-${Date.now()}` }
     settings.conversions.push(conv)
     markDirty('conversions')
   }
@@ -406,7 +456,8 @@ export function useSettings() {
   }
 
   // ─── Order Statuses ───
-  function addOrderStatus(status: OrderStatusSetting) {
+  function addOrderStatus(data: Omit<OrderStatusSetting, 'id'>) {
+    const status: OrderStatusSetting = { ...data, id: `st-temp-${Date.now()}` }
     settings.orderStatuses.push(status)
     markDirty('orderStatuses')
   }
@@ -451,7 +502,8 @@ export function useSettings() {
     markDirty('constants')
     isDirty.value = true
   }
-  const _addCurrency = (currency: Currency) => {
+  const _addCurrency = (data: Omit<Currency, 'id'>) => {
+    const currency: Currency = { ...data, id: `cur-temp-${Date.now()}` }
     settings.currencies.push(currency)
     markDirty('currencies')
     isDirty.value = true
@@ -468,7 +520,8 @@ export function useSettings() {
     markDirty('currencies')
     isDirty.value = true
   }
-  const _addUom = (uom: Uom) => {
+  const _addUom = (data: Omit<Uom, 'id'>) => {
+    const uom: Uom = { ...data, id: `uom-temp-${Date.now()}` }
     settings.uoms.push(uom)
     markDirty('uoms')
     isDirty.value = true
@@ -479,7 +532,8 @@ export function useSettings() {
     markDirty('uoms')
     isDirty.value = true
   }
-  const _addConversion = (conv: UomConversion) => {
+  const _addConversion = (data: Omit<UomConversion, 'id'>) => {
+    const conv: UomConversion = { ...data, id: `conv-temp-${Date.now()}` }
     settings.conversions.push(conv)
     markDirty('conversions')
     isDirty.value = true
@@ -496,7 +550,8 @@ export function useSettings() {
     markDirty('conversions')
     isDirty.value = true
   }
-  const _addOrderStatus = (status: OrderStatusSetting) => {
+  const _addOrderStatus = (data: Omit<OrderStatusSetting, 'id'>) => {
+    const status: OrderStatusSetting = { ...data, id: `st-temp-${Date.now()}` }
     settings.orderStatuses.push(status)
     markDirty('orderStatuses')
     isDirty.value = true

@@ -282,7 +282,7 @@ export function mockGetSupplier(id: string): SupplierCardData {
   if (MOCK_CARD[id]) return JSON.parse(JSON.stringify(MOCK_CARD[id])) as SupplierCardData
   const base = MOCK_SUPPLIERS.find((s) => s.id === id)
   if (!base) throw new Error(`Supplier ${id} not found`)
-  return {
+  const card: SupplierCardData = {
     ...base,
     statusReason: { ru: '', en: '', lt: '' },
     contractDate: base.createdAt,
@@ -355,6 +355,9 @@ export function mockGetSupplier(id: string): SupplierCardData {
       },
     ],
   }
+  // Cache the card so subsequent mutations (e.g. audit delete) find it
+  MOCK_CARD[id] = card
+  return JSON.parse(JSON.stringify(card)) as SupplierCardData
 }
 
 export function mockPatchSupplier(id: string, patch: Partial<SupplierCardData>): SupplierCardData {

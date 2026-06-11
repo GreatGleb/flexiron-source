@@ -247,7 +247,40 @@ export function mockRemovePaymentDocument(paymentId: string, documentId: string)
 export function mockPatchPayment(id: string, data: Partial<FinancePayment>): FinancePayment {
   const idx = MOCK_PAYMENTS.findIndex((p) => p.id === id)
   if (idx === -1) throw new Error('PAYMENT_NOT_FOUND')
-  const updated: FinancePayment = { ...MOCK_PAYMENTS[idx]!, ...data, updatedAt: new Date().toISOString() }
+  const current = MOCK_PAYMENTS[idx]!
+  const payload = data as Record<string, unknown>
+
+  // Handle fileIds replace-semantics (common upload pattern: POST /api/uploads + PATCH with fileIds[])
+  if (payload.fileIds && Array.isArray(payload.fileIds)) {
+    const incomingFileIds = payload.fileIds as string[]
+    const existingDocs = current.documents
+    // Keep docs whose fileId is still in the incoming array
+    const kept = existingDocs.filter((d) => incomingFileIds.includes(d.fileId))
+    // Create stub docs for new fileIds
+    const existingFileIds = new Set(existingDocs.map((d) => d.fileId))
+    const newDocs = incomingFileIds
+      .filter((fid) => !existingFileIds.has(fid))
+      .map((fid) => ({
+        id: `pdoc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        name: `Document #${fid.slice(-6)}`,
+        fileId: fid,
+        url: `#uploaded/${fid}`,
+        size: Math.floor(Math.random() * 500000) + 50000,
+        mime: 'application/pdf',
+        uploadedAt: new Date().toISOString(),
+      }))
+    const { fileIds: _, ...rest } = payload
+    const updated: FinancePayment = {
+      ...current,
+      ...(rest as Partial<FinancePayment>),
+      documents: [...kept, ...newDocs],
+      updatedAt: new Date().toISOString(),
+    }
+    MOCK_PAYMENTS[idx] = updated
+    return updated
+  }
+
+  const updated: FinancePayment = { ...current, ...data, updatedAt: new Date().toISOString() }
   MOCK_PAYMENTS[idx] = updated
   return updated
 }

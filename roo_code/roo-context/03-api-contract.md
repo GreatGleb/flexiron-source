@@ -1089,7 +1089,7 @@ Page: `ProductCardPage.vue`. Composable: `useProductCard` + `useDirtyCheck`.
 |---|---|---|
 | `adminProducts` | page-level | весь роут `/admin/products` и `/admin/products/:id` |
 | `productSupplierLinks` | section-level | секция «Поставщики» в `ProductCardPage` |
-| `adminServices` | page-level | кнопку «Услуги» в хедере `ProductsPage` (placeholder 1.3) |
+| `adminServices` | page-level | весь роут `/admin/services` и `/admin/services/:id` |
 
 → Implementation:
 - Service: `src/services/productsService.ts`
@@ -1099,6 +1099,144 @@ Page: `ProductCardPage.vue`. Composable: `useProductCard` + `useDirtyCheck`.
 - E2E: `tests/e2e/admin/products/products.spec.ts`
 
 ---
+# Admin — Services (1.3)
+
+Управление прайс-листом услуг (работ, сервисов), которые можно добавлять в заказы.
+
+Типы из `src/types/service.ts`:
+- `Service`, `ServiceListItem`, `ServiceFilters`
+- `ServiceCreatePayload`, `ServicePatchPayload`
+- `ServicePriceUnit` = `'EUR/vnt' | 'EUR/kg' | 'EUR/m' | 'EUR/h'`
+
+### Коды ошибок (специфичные для домена)
+
+- `SERVICE_NOT_FOUND` — 404
+- `VALIDATION_ERROR` — 422, отсутствует обязательное поле (напр. `name`)
+
+---
+
+## Список услуг
+
+Page: `ServicesPage.vue`. Composable: `useServices`.
+
+### GET /api/services
+
+- **Когда:** `onMounted` → `load()`, изменение `filters.search`, смена page/pageSize.
+- **Query:**
+  ```ts
+  {
+    search?: string       // фильтр по name (LIKE), пустая строка = без фильтра
+    sortBy?: string       // "name" | "costPrice" | "sellingPrice" (default: "name")
+    sortDir?: string      // "asc" | "desc" (default: "asc")
+    page: string          // "1"
+    pageSize: string      // "25"
+  }
+  ```
+- **Response 200:** `PaginatedResponse<ServiceListItem>`
+  ```json
+  {
+    "success": true,
+    "data": {
+      "items": [
+        { "id": "svc-1", "name": { "ru": "Лазерная резка", "en": "Laser Cutting", "lt": "Lazerinis pjovimas" }, "costPrice": 15.00, "sellingPrice": 25.00, "priceUnit": "EUR/h" }
+      ],
+      "total": 10, "page": 1, "pageSize": 25, "totalPages": 1
+    }
+  }
+  ```
+- **Notes:** Сортировка по `name ASC` (дефолт).
+
+### POST /api/services
+
+- **Когда:** submit модала «Создать услугу» в `ServicesPage`. **Quick action.**
+- **Body:**
+  ```ts
+  {
+    name: string               // обязательное
+    costPrice?: number         // default: 0
+    sellingPrice?: number      // default: 0
+    priceUnit?: ServicePriceUnit   // default: 'EUR/vnt'
+    description?: string
+  }
+  ```
+- **Response 200:** `ApiResponse<Service>` — созданная услуга целиком.
+- **Notes:** 422 `VALIDATION_ERROR` если нет `name`. Клиент после успеха перезапрашивает список (`load()`).
+
+### DELETE /api/services/:id
+
+- **Когда:** `confirmDelete` в `ServicesPage` (после confirmation modal). **Quick action.**
+- **Response 200:** `ApiResponse<void>`.
+- **Notes:** 404 `SERVICE_NOT_FOUND` если услуга не существует. Каскадного удаления из заказов нет — сервер отклоняет удаление если услуга используется в активных заказах (409 `SERVICE_IN_USE`).
+
+---
+
+## Карточка услуги
+
+Page: `ServiceCardPage.vue`. Composable: `useServiceCard` + `useDirtyCheck`.
+
+### GET /api/services/:id
+
+- **Когда:** `onMounted` → `load()`.
+- **Response 200:** `ApiResponse<Service>`
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": "svc-1",
+      "name": { "ru": "Лазерная резка", "en": "Laser Cutting", "lt": "Lazerinis pjovimas" },
+      "costPrice": 15.00,
+      "sellingPrice": 25.00,
+      "priceUnit": "EUR/h",
+      "description": null,
+      "createdAt": "2025-01-15"
+    }
+  }
+  ```
+- **Notes:** 404 `SERVICE_NOT_FOUND`.
+
+### PATCH /api/services/:id
+
+- **Когда:** клик «Сохранить» (`save()`), только если `isAnythingDirty`. **Clean-slate** — delta из `useDirtyCheck.diff()`.
+- **Body:** dirty-only delta (`ServicePatchPayload`):
+  ```ts
+  {
+    name?: TranslatedString
+    costPrice?: number
+    sellingPrice?: number
+    priceUnit?: ServicePriceUnit
+    description?: TranslatedString | null
+  }
+  ```
+- **Response 200:** `ApiResponse<Service>` — обновлённая услуга целиком.
+- **Notes:** Last-write-wins.
+
+---
+
+## Save UX — Services
+
+**ServicesPage** — **quick-action**: POST и DELETE применяются немедленно. DELETE требует confirmation modal.
+
+**ServiceCardPage** — **clean-slate**:
+- `useDirtyCheck` для `name`/`costPrice`/`sellingPrice`/`priceUnit`/`description`
+- Save bar видна при `isAnythingDirty`
+- Save = PATCH с dirty-only delta
+- Discard = сброс формы до последнего сохранённого состояния
+
+## Feature Flags — Services
+
+| Флаг | Уровень | Что скрывает |
+|---|---|---|
+| `adminServices` | page-level | весь роут `/admin/services` и `/admin/services/:id` |
+
+→ Implementation:
+- Service: `src/services/servicesService.ts`
+- Mock: `src/services/mocks/services.ts`
+- Composables: `src/composables/useServices.ts`, `src/composables/useServiceCard.ts`
+- Views: `src/views/admin/products/ServicesPage.vue`, `src/views/admin/products/ServiceCardPage.vue`
+- E2E: `tests/e2e/admin/products/services.spec.ts`, `tests/e2e/admin/products/service-card.spec.ts`
+
+---
+
 
 # Warehouse — Batches (2.0)
 
@@ -1107,7 +1245,7 @@ Page: `ProductCardPage.vue`. Composable: `useProductCard` + `useDirtyCheck`.
 Типы из `src/types/warehouse.ts`:
 - `WarehouseBatch`, `BatchListItem`, `BatchCreatePayload`, `BatchPatchPayload`
 - `WarehouseMovement`, `MovementListItem`, `MovementCreatePayload`
-- `MovementType` = `'receipt' | 'expense' | 'transfer' | 'write-off' | 'return' | 'return-to-supplier' | 'correction' | 'production' | 'sale' | 'storage'`
+- `MovementType` = `'receipt' | 'expense' | 'transfer' | 'write-off' | 'return' | 'return-to-supplier' | 'correction' | 'production' | 'sale' | 'storage' | 'offcut'`
 - `BatchStatus` = `'available' | 'in_storage' | 'in_production' | 'sold' | 'scrapped' | 'expensed' | 'returned_to_supplier' | 'partial' | 'depleted' | 'reserved'`
 - `WarehouseOffcut`, `OffcutListItem`, `OffcutCreatePayload`, `OffcutPatchPayload`
 - `WarehouseDeficit`, `DeficitListItem`, `DeficitCreatePayload`, `DeficitPatchPayload`
@@ -1290,14 +1428,12 @@ Page: `WarehouseBatchCard.vue`. Composable: `useWarehouseBatch` + `useDirtyCheck
   {
     search?: string         // поиск по productName / batchNumber
     type?: string           // фильтр по MovementType
-    productId?: string
     unit?: string
     categoryIds?: string    // ID категорий через запятую
-    batchNumber?: string    // фильтр по номеру партии (основной для карточки партии)
-    referenceId?: string
+    batchNumber?: string    // фильтр по номеру партии (частичное совпадение, ILIKE) (основной для карточки партии)
     dateFrom?: string       // ISO
     dateTo?: string         // ISO
-    sortBy?: string         // "movedAt" | "type" | "productName" | "batchNumber" | "quantity" | "unitPrice" | "totalCost" | "referenceId" (default: "movedAt")
+    sortBy?: string         // "movedAt" | "type" | "productName" | "batchNumber" | "quantity" | "unitPrice" | "totalCost" (default: "movedAt")
     sortDir?: string        // "asc" | "desc" (default: "desc")
     page: string            // "1"
     pageSize: string        // "50" (в карточке партии используется 50)
@@ -1394,7 +1530,7 @@ Page: `WarehouseBatchCard.vue`. Composable: `useWarehouseBatch` + `useDirtyCheck
     offcutType?: string      // "sheet" | "linear"
     categoryIds?: string
     batchNumber?: string     // фильтр по номеру партии (основной для карточки партии)
-    sortBy?: string          // "createdAt" | "productName" | "quantity" | "unitPrice" (default: "createdAt")
+    sortBy?: string          // "createdAt" | "productName" | "quantity" (default: "createdAt")
     sortDir?: string         // "asc" | "desc" (default: "desc")
     page: string
     pageSize: string
@@ -1456,3 +1592,869 @@ Page: `WarehouseBatchCard.vue`. Composable: `useWarehouseBatch` + `useDirtyCheck
 - Composables: `src/composables/useWarehouseBatch.ts`, `src/composables/useWarehouseOffcutsAndDeficit.ts`, `src/composables/useWarehouseStock.ts`
 - Views: `src/views/admin/warehouse/WarehousePage.vue`, `src/views/admin/warehouse/WarehouseBatchCard.vue`, `src/views/admin/warehouse/WarehouseMovementCard.vue`, `src/views/admin/warehouse/WarehouseOffcutCard.vue`, `src/views/admin/warehouse/CreateMovementModal.vue`, `src/views/admin/warehouse/StockCardPage.vue`, `src/views/admin/warehouse/DeficitCardPage.vue`
 - E2E: `tests/e2e/admin/warehouse/warehouse.spec.ts`
+
+---
+
+# Admin — Finance
+
+Управление платежами (входящими/исходящими) и архивом документов.
+
+Pages: `IncomingPaymentsPage.vue`, `OutgoingPaymentsPage.vue`, `DocumentArchivePage.vue`, `IncomingPaymentCardPage.vue`, `OutgoingPaymentCardPage.vue`.
+Service: [`financeService.ts`](frontend_vue/src/services/financeService.ts).
+Mock: [`mocks/finance.ts`](frontend_vue/src/services/mocks/finance.ts).
+
+Типы из [`types/finance.ts`](frontend_vue/src/types/finance.ts):
+- `PaymentDirection` = `'incoming' | 'outgoing'`
+- `PaymentStatus` = `'pending' | 'completed' | 'overdue' | 'cancelled'`
+- `PaymentDocument` — файл, прикреплённый к платежу (`id`, `name`, `fileId`, `url`, `size`, `mime`, `uploadedAt`)
+- `FinancePayment` — полная карточка платежа
+- `FinancePaymentListItem` — строка списка платежей (без documents, notes)
+- `FinancePaymentFilters` — параметры фильтрации
+- `ArchiveDocumentType` = `'invoice' | 'facture' | 'waybill' | 'cmr' | 'other'`
+- `FinanceDocumentArchiveItem` — строка архива документов
+
+### Коды ошибок (специфичные для домена)
+
+- `PAYMENT_NOT_FOUND` — 404
+- `DOCUMENT_NOT_FOUND` — 404
+- `VALIDATION_ERROR` — 422
+
+---
+
+## Список платежей
+
+### GET /api/finance/payments
+
+- **Когда:** загрузка `IncomingPaymentsPage` / `OutgoingPaymentsPage` (`onMounted`), изменение search/status фильтра (debounce 300 мс), смена page/pageSize.
+- **Query:**
+  ```ts
+  {
+    direction: 'incoming' | 'outgoing' | 'all'
+    search?: string         // по paymentNumber, counterpartyName, orderNumber (LIKE)
+    status?: PaymentStatus | 'all'
+    counterpartyId?: string
+    dateFrom?: string       // ISO
+    dateTo?: string         // ISO
+    page: string            // "1"
+    pageSize: string        // "25" | "50" | "100"
+  }
+  ```
+- **Response 200:** `PaginatedResponse<FinancePaymentListItem>`
+  ```json
+  {
+    "success": true,
+    "data": {
+      "items": [
+        {
+          "id": "pay-in-1",
+          "paymentNumber": "PAY-2026-001",
+          "direction": "incoming",
+          "status": "pending",
+          "amount": 5000.00,
+          "currency": "EUR",
+          "counterpartyName": "UAB Metalica",
+          "orderNumber": "ORD-2026-001",
+          "supplierInvoiceRef": null,
+          "dueDate": "2026-06-01T00:00:00Z",
+          "paidAt": null,
+          "documentCount": 2
+        }
+      ],
+      "total": 87, "page": 1, "pageSize": 25, "totalPages": 4
+    }
+  }
+  ```
+- **Notes:** Сортировка фиксированная — `dueDate ASC` (ближайшие сверху) или `createdAt DESC` (на усмотрение бэкенда). Пагинация обязательна.
+
+---
+
+## Карточка платежа
+
+### GET /api/finance/payments/:id
+
+- **Когда:** `onMounted` карточки платежа (`IncomingPaymentCardPage`, `OutgoingPaymentCardPage`).
+- **Response 200:** `FinancePayment` (включая `documents[]`, `notes`).
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": "pay-in-1",
+      "paymentNumber": "PAY-2026-001",
+      "direction": "incoming",
+      "status": "pending",
+      "amount": 5000.00,
+      "currency": "EUR",
+      "counterpartyId": "CL-001",
+      "counterpartyName": "UAB Metalica",
+      "counterpartyVatCode": "LT304567890",
+      "orderId": "ORD-001",
+      "orderNumber": "ORD-2026-001",
+      "supplierInvoiceRef": null,
+      "description": "Payment for order ORD-2026-001",
+      "dueDate": "2026-06-01T00:00:00Z",
+      "paidAt": null,
+      "documents": [
+        {
+          "id": "pdoc-1",
+          "name": "Invoice #INV-2026-001",
+          "fileId": "file-abc123",
+          "url": "/uploads/file-abc123/preview",
+          "size": 102400,
+          "mime": "application/pdf",
+          "uploadedAt": "2026-05-15T10:00:00Z"
+        }
+      ],
+      "notes": "Client confirmed payment via bank transfer.",
+      "createdAt": "2026-04-17T08:00:00Z",
+      "updatedAt": "2026-04-17T08:00:00Z"
+    }
+  }
+  ```
+- **Notes:** 404 `PAYMENT_NOT_FOUND`. Поля read-only на карточке: все, кроме `notes`. Документы управляются через `fileIds` (см. Общие соглашения — «Файлы и аплоады»).
+
+### PATCH /api/finance/payments/:id
+
+- **Когда:** клик Save на карточке платежа (`saveChanges()`), только если `isDirty`.
+- **Body:** dirty-only delta:
+  ```ts
+  {
+    notes?: string | null      // заметки (единственное редактируемое поле)
+    fileIds?: string[]         // полный актуальный массив fileId документов (replace-семантика)
+  }
+  ```
+- **Response 200:** `FinancePayment` — обновлённый объект целиком (с пересчитанными `documents`).
+- **Example:**
+  ```http
+  PATCH /api/finance/payments/pay-in-1
+  Content-Type: application/json
+
+  {
+    "notes": "Updated: payment received 01.06.2026",
+    "fileIds": ["file-abc123", "file-def456"]
+  }
+  ```
+- **Notes:**
+  - `notes` — единственное текстовое редактируемое поле (clean-slate, см. Save UX).
+  - `fileIds` — replace-семантика для массива: сервер находит draft-файлы по новым ID (через `POST /api/uploads`), привязывает их; удаляет документы, чьи fileId отсутствуют в массиве.
+  - Last-write-wins.
+
+---
+
+## Архив документов
+
+### GET /api/finance/archive
+
+- **Когда:** загрузка `DocumentArchivePage` (`onMounted`), изменение search/type/entity фильтров (debounce 300 мс для search), смена page/pageSize.
+- **Query:**
+  ```ts
+  {
+    search?: string                 // по name, relatedEntityNumber (LIKE)
+    type?: ArchiveDocumentType | 'all'
+    relatedEntityType?: 'order' | 'payment' | 'supplier' | 'client' | 'all'
+    page: string                    // "1"
+    pageSize: string                // "25" | "50" | "100"
+  }
+  ```
+- **Response 200:** `PaginatedResponse<FinanceDocumentArchiveItem>`
+  ```json
+  {
+    "success": true,
+    "data": {
+      "items": [
+        {
+          "id": "arch-1",
+          "name": "Invoice #INV-2026-001",
+          "type": "invoice",
+          "fileId": "file-arch-0",
+          "url": "/uploads/file-arch-0/preview",
+          "size": 102400,
+          "mime": "application/pdf",
+          "relatedEntityType": "order",
+          "relatedEntityId": "order-0",
+          "relatedEntityNumber": "ORD-2026-001",
+          "uploadedAt": "2026-05-15T10:00:00Z",
+          "uploadedBy": "Maxim V."
+        }
+      ],
+      "total": 15, "page": 1, "pageSize": 25, "totalPages": 1
+    }
+  }
+  ```
+- **Notes:** Архив — read-only просмотр документов, привязанных ко всем сущностям системы. Сортировка по `uploadedAt DESC`. Ссылка на скачивание — `doc.url` (временный/preview URL).
+
+---
+
+## Save UX — Finance
+
+**Payment list pages** (`IncomingPaymentsPage`, `OutgoingPaymentsPage`) — read-only с серверной фильтрацией (search debounce 300 мс, статус). Никаких мутаций.
+
+**Document Archive** (`DocumentArchivePage`) — read-only с серверной фильтрацией.
+
+**Payment card pages** (`IncomingPaymentCardPage`, `OutgoingPaymentCardPage`) — **clean-slate** (как SupplierCardPage, см. «Save UX / Clean-slate»):
+
+- Локальный state: `notesDraft`, `payment.value.documents` (модифицируется in-place при add/delete)
+- Save bar при `isDirty` (notesChanged || filesChanged)
+- Save = один `PATCH /api/finance/payments/:id` с `{ notes, fileIds }`
+  - `fileIds` вычисляется как `payment.value.documents.map(d => d.fileId)` — полный актуальный массив
+- Discard = `load()` (перезагрузка с сервера, локальные изменения сбрасываются)
+- Файлы: drag-drop через `DropZone` → `POST /api/uploads` (через `uploadsService`) → получает `UploadedFile` с `fileId` → добавляет в `payment.value.documents` → при Save `fileIds[]` уходит в PATCH
+- Удаление файла: удаляется из `payment.value.documents` локально → при Save отсутствие fileId в массиве = сервер удаляет документ
+
+---
+
+## Feature Flags — Finance
+
+| Флаг | Уровень | Что скрывает |
+|------|---------|--------------|
+| `adminFinance` | page-level | мастер-флаг всего раздела |
+| `financeIncoming` | page-level | роут `/admin/finance/incoming` и `/admin/finance/incoming/:id` |
+| `financeOutgoing` | page-level | роут `/admin/finance/outgoing` и `/admin/finance/outgoing/:id` |
+| `financeDocumentArchive` | page-level | роут `/admin/finance/archive` |
+
+→ Implementation:
+- Service: `src/services/financeService.ts`
+- Mock: `src/services/mocks/finance.ts`
+- Views: `src/views/admin/finance/IncomingPaymentsPage.vue`, `src/views/admin/finance/OutgoingPaymentsPage.vue`, `src/views/admin/finance/DocumentArchivePage.vue`, `src/views/admin/finance/IncomingPaymentCardPage.vue`, `src/views/admin/finance/OutgoingPaymentCardPage.vue`
+- i18n: `src/i18n/admin/finance.ts`
+
+---
+
+# Admin — Settings
+
+Управление настройками системы: реквизиты компании, финансовые константы, валюты, единицы измерения, правила пересчёта, статусы заказов и профиль пользователя.
+
+Pages: `SettingsLayout.vue` (роутер-лейаут) + `ProfileSettings.vue`, `CompanySettings.vue`, `FinanceSettings.vue`, `UnitsSettings.vue`, `OrderStatusesSettings.vue`.
+
+Service: [`settingsService.ts`](frontend_vue/src/services/settingsService.ts).
+Mock: [`mocks/settings.ts`](frontend_vue/src/services/mocks/settings.ts).
+Composable: [`useSettings.ts`](frontend_vue/src/composables/useSettings.ts).
+
+Типы из [`types/settings.ts`](frontend_vue/src/types/settings.ts):
+- `CompanyInfo` — реквизиты компании (name, legalAddress, vatCode, bankName, bankAccount, logoUrl?)
+- `GlobalConstants` — финансовые константы (vatRate, defaultMargin, defaultCurrency, defaultDiscountPercent)
+- `Currency` — валюта (id, code, name: TranslatedString, exchangeRate, isDefault)
+- `Uom` — единица измерения (id, code: TranslatedString, name: TranslatedString, category: UomCategory)
+- `UomConversion` — правило пересчёта (id, fromUomId, toUomId, type: ConversionType, factor?, formulaType?)
+- `OrderStatusSetting` — статус заказа (id, name: TranslatedString, color, order, system?, reserveOnTransition?, writeOffOnTransition?)
+- `UserProfile` — профиль пользователя (firstName, lastName, email, phone, role)
+- `AppSettings` — полный срез настроек (агрегирует все выше)
+
+### Коды ошибок (специфичные для домена)
+
+- `COMPANY_NOT_FOUND` — 404
+- `CURRENCY_NOT_FOUND` — 404
+- `UOM_NOT_FOUND` — 404
+- `CONVERSION_NOT_FOUND` — 404
+- `ORDER_STATUS_NOT_FOUND` — 404
+- `VALIDATION_ERROR` — 422
+- `INVALID_PASSWORD` — 422, текущий пароль неверен
+
+### Update pattern
+
+В Settings используются два подхода к мутации:
+
+| Тип секции | Метод | Семантика |
+|-----------|-------|-----------|
+| Простые секции (company, constants, profile) | `PATCH` | Merge-обновление. Клиент шлёт только изменённые поля (`Partial<T>`). Сервер merge'ит поверх текущего состояния |
+| Коллекции (currencies, uoms, conversions, order-statuses) | `POST` / `PATCH` / `DELETE` | CRUD отдельных элементов коллекции |
+| Reorder статусов | `PUT` | Полный массив `orderedIds` для атомарной перестановки |
+
+### Сохранение (Save UX)
+
+Settings использует **гибридный подход**:
+
+1. **Простые секции** (company, constants, profile) — **clean-slate**: пользователь редактирует локально, Save собирает dirty-секции и шлёт PATCH для каждой.
+2. **Коллекции** (currencies, uoms, conversions, order-statuses) — **diff-based**: на Save клиент вычисляет добавленные/удалённые/изменённые элементы и шлёт соответствующие `POST`/`DELETE`/`PATCH` запросы.
+
+Локальное состояние управляется [`useSettings.ts`](frontend_vue/src/composables/useSettings.ts) через снепшот-диффинг: после каждого load/save фиксируется снепшот, на Save сравнивается текущее состояние со снепшотом.
+
+---
+
+## Компания (Company)
+
+Page: `CompanySettings.vue` (таб `/admin/settings/company`).
+
+### GET /api/settings/company
+
+- **Когда:** загрузка таба Settings, `useSettings.load()`.
+- **Response 200:** `CompanyInfo`
+  ```json
+  {
+    "success": true,
+    "data": {
+      "name": "Flexiron UAB",
+      "legalAddress": "Verkių g. 25, Vilnius, Lietuva",
+      "vatCode": "LT123456789",
+      "bankName": "Swedbank",
+      "bankAccount": "LT12 7300 0100 1234 5678",
+      "logoUrl": "https://cdn.example.com/logo.png"
+    }
+  }
+  ```
+- **Notes:** `logoUrl` — опциональное поле. Хранит URL загруженного через `POST /api/uploads` логотипа.
+
+### PATCH /api/settings/company
+
+- **Когда:** клик Save при наличии изменений в company-секции.
+- **Body:** dirty-only поля:
+  ```ts
+  {
+    name?: string
+    legalAddress?: string
+    vatCode?: string
+    bankName?: string
+    bankAccount?: string
+    logoUrl?: string   // URL от POST /api/uploads
+  }
+  ```
+- **Response 200:** `CompanyInfo` — полный объект после merge.
+- **Notes:** `logoUrl` обновляется через `POST /api/uploads` → получает URL → сохраняет в company. Клиент **не** шлёт base64.
+
+---
+
+## Финансовые константы (Constants)
+
+Page: `FinanceSettings.vue` (таб `/admin/settings/finance`).
+
+### GET /api/settings/constants
+
+- **Когда:** загрузка таба Settings.
+- **Response 200:** `GlobalConstants`
+  ```json
+  {
+    "success": true,
+    "data": {
+      "vatRate": 21,
+      "defaultMargin": 15,
+      "defaultCurrency": "EUR",
+      "defaultDiscountPercent": 0
+    }
+  }
+  ```
+
+### PATCH /api/settings/constants
+
+- **Когда:** клик Save при наличии изменений в constants-секции.
+- **Body:** dirty-only поля:
+  ```ts
+  {
+    vatRate?: number
+    defaultMargin?: number
+    defaultCurrency?: string
+    defaultDiscountPercent?: number
+  }
+  ```
+- **Response 200:** `GlobalConstants` — полный объект после merge.
+- **Notes:** `defaultCurrency` — код валюты (например, `EUR`, `USD`). Должен соответствовать одной из валют в `/api/settings/currencies`.
+
+---
+
+## Валюты (Currencies)
+
+Section внутри `FinanceSettings.vue`.
+
+### GET /api/settings/currencies
+
+- **Когда:** загрузка таба Settings.
+- **Response 200:** `Currency[]`
+  ```json
+  {
+    "success": true,
+    "data": [
+      { "id": "cur-eur", "code": "EUR", "name": { "ru": "Евро", "en": "Euro", "lt": "Euras" }, "exchangeRate": 1, "isDefault": true },
+      { "id": "cur-usd", "code": "USD", "name": { "ru": "Доллар США", "en": "US Dollar", "lt": "JAV doleris" }, "exchangeRate": 1.08, "isDefault": false }
+    ]
+  }
+  ```
+
+### POST /api/settings/currencies
+
+- **Когда:** submit модала "Add currency".
+- **Body:** `Omit<Currency, 'id'>` — данные без id (сервер генерирует):
+  ```ts
+  {
+    code: string
+    name: TranslatedString
+    exchangeRate: number
+    isDefault: boolean
+  }
+  ```
+- **Response 200:** `Currency` — созданная валюта с серверным `id`.
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": "cur-11",
+      "code": "GBP",
+      "name": { "ru": "Фунт стерлингов", "en": "British Pound", "lt": "Svaras sterlingų" },
+      "exchangeRate": 0.86,
+      "isDefault": false
+    }
+  }
+  ```
+- **Notes:** Клиент шлёт данные **без** поля `id`. Сервер генерирует `id` (формат `cur-{N}` — инкрементальный). 422 если `code` пустой или дублируется.
+
+### PATCH /api/settings/currencies/:id
+
+- **Когда:** изменение курса валюты (inline edit в таблице), переключение default.
+- **Body:** `Partial<Currency>` (merge patch):
+  ```ts
+  {
+    exchangeRate?: number
+    isDefault?: boolean
+  }
+  ```
+- **Response 200:** `void`.
+- **Notes:** `code` и `name` обычно не редактируются через PATCH. Для смены `isDefault` клиент устанавливает `isDefault: true` у одной валюты (другие автоматически сбрасываются на клиенте).
+
+### DELETE /api/settings/currencies/:id
+
+- **Когда:** клик Delete для не-default валюты.
+- **Response 200:** `void`.
+- **Notes:** 422 если попытка удалить валюту, установленную как `defaultCurrency` в константах. Нельзя удалить валюту с `isDefault: true`.
+
+---
+
+## Единицы измерения (UOMs)
+
+Page: `UnitsSettings.vue` (таб `/admin/settings/units`).
+
+### GET /api/settings/uoms
+
+- **Когда:** загрузка таба Settings.
+- **Response 200:** `Uom[]`
+  ```json
+  {
+    "success": true,
+    "data": [
+      { "id": "uom-t", "code": { "ru": "т", "en": "t", "lt": "t" }, "name": { "ru": "Тонна", "en": "Tonne", "lt": "Tona" }, "category": "weight" },
+      { "id": "uom-m", "code": { "ru": "м", "en": "m", "lt": "m" }, "name": { "ru": "Метр", "en": "Meter", "lt": "Metras" }, "category": "length" }
+    ]
+  }
+  ```
+
+### POST /api/settings/uoms
+
+- **Когда:** submit модала "Add unit of measure".
+- **Body:** `Omit<Uom, 'id'>`:
+  ```ts
+  {
+    code: TranslatedString
+    name: TranslatedString
+    category: UomCategory   // 'weight' | 'length' | 'area' | 'volume' | 'quantity' | 'density' | 'thickness'
+  }
+  ```
+- **Response 200:** `Uom` — созданная единица с серверным `id`.
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": "uom-11",
+      "code": { "ru": "см", "en": "cm", "lt": "cm" },
+      "name": { "ru": "Сантиметр", "en": "Centimeter", "lt": "Centimetras" },
+      "category": "length"
+    }
+  }
+  ```
+- **Notes:** Клиент шлёт без `id`. Сервер генерирует `id` (формат `uom-{N}`).
+
+### PATCH /api/settings/uoms/:id
+
+- **Когда:** редактирование существующей единицы измерения (будущий UI — inline rename).
+- **Body:** `Partial<Uom>`:
+  ```ts
+  {
+    code?: TranslatedString
+    name?: TranslatedString
+    category?: UomCategory
+  }
+  ```
+- **Response 200:** `void`.
+- **Notes:** `category` менять можно (с осторожностью — может затронуть существующие товары).
+
+### DELETE /api/settings/uoms/:id
+
+- **Когда:** клик Delete для единицы измерения.
+- **Response 200:** `void`.
+- **Notes:** 409 если UOM используется в товарах, правилах пересчёта или заказах.
+
+---
+
+## Правила пересчёта (Conversions)
+
+Section внутри `UnitsSettings.vue`.
+
+### GET /api/settings/conversions
+
+- **Когда:** загрузка таба Settings.
+- **Response 200:** `UomConversion[]`
+  ```json
+  {
+    "success": true,
+    "data": [
+      { "id": "conv-ton-kg", "fromUomId": "uom-t", "toUomId": "uom-kg", "type": "static", "factor": 1000 },
+      { "id": "conv-m-kg", "fromUomId": "uom-m", "toUomId": "uom-kg", "type": "dynamic", "formulaType": "weight_per_meter" }
+    ]
+  }
+  ```
+
+### POST /api/settings/conversions
+
+- **Когда:** submit модала "Add conversion rule".
+- **Body:** `Omit<UomConversion, 'id'>`:
+  ```ts
+  {
+    fromUomId: string
+    toUomId: string
+    type: ConversionType               // 'static' | 'dynamic'
+    factor?: number                     // required if type === 'static'
+    formulaType?: ConversionFormulaType // required if type === 'dynamic'
+  }
+  ```
+- **Response 200:** `UomConversion` — созданное правило с серверным `id`.
+- **Notes:** 422 если `fromUomId === toUomId`. 409 если правило между теми же UOM уже существует.
+
+### PATCH /api/settings/conversions/:id
+
+- **Когда:** изменение factor у static-правила (inline edit).
+- **Body:** `Partial<UomConversion>`:
+  ```ts
+  {
+    factor?: number
+    type?: ConversionType
+    formulaType?: ConversionFormulaType
+  }
+  ```
+- **Response 200:** `void`.
+
+### DELETE /api/settings/conversions/:id
+
+- **Когда:** клик Delete для правила пересчёта.
+- **Response 200:** `void`.
+
+---
+
+## Статусы заказов (Order Statuses)
+
+Page: `OrderStatusesSettings.vue` (таб `/admin/settings/order-statuses`).
+
+### GET /api/settings/order-statuses
+
+- **Когда:** загрузка таба Settings.
+- **Response 200:** `OrderStatusSetting[]`
+  ```json
+  {
+    "success": true,
+    "data": [
+      { "id": "st-new", "name": { "ru": "Новый", "en": "New", "lt": "Naujas" }, "color": "#6B7280", "order": 0, "system": true, "reserveOnTransition": false, "writeOffOnTransition": false },
+      { "id": "st-paid", "name": { "ru": "Оплачен", "en": "Paid", "lt": "Apmokėtas" }, "color": "#047857", "order": 6, "system": true, "reserveOnTransition": false, "writeOffOnTransition": false }
+    ]
+  }
+  ```
+- **Notes:** `system: true` — системный статус, нельзя удалить. `order` — порядок сортировки (0-based).
+
+### POST /api/settings/order-statuses
+
+- **Когда:** submit модала "Add status".
+- **Body:** `Omit<OrderStatusSetting, 'id'>`:
+  ```ts
+  {
+    name: TranslatedString
+    color: string                     // HEX (#RRGGBB)
+    order: number
+    system?: boolean                  // default: false
+    reserveOnTransition?: boolean     // default: false
+    writeOffOnTransition?: boolean    // default: false
+  }
+  ```
+- **Response 200:** `OrderStatusSetting` — созданный статус с серверным `id`.
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": "st-11",
+      "name": { "ru": "В обработке", "en": "Processing", "lt": "Apdorojamas" },
+      "color": "#F59E0B",
+      "order": 8,
+      "system": false,
+      "reserveOnTransition": false,
+      "writeOffOnTransition": false
+    }
+  }
+  ```
+- **Notes:** `system` всегда `false` для пользовательских статусов.
+
+### PATCH /api/settings/order-statuses/:id
+
+- **Когда:** изменение названия, цвета или warehouse-флагов статуса.
+- **Body:** `Partial<OrderStatusSetting>`:
+  ```ts
+  {
+    name?: TranslatedString
+    color?: string
+    reserveOnTransition?: boolean
+    writeOffOnTransition?: boolean
+  }
+  ```
+- **Response 200:** `void`.
+- **Notes:** `order` изменяется через reorder (см. ниже). `system` иммутабельно. Цвет — HEX `#RRGGBB` (с решёткой).
+
+### PUT /api/settings/order-statuses/reorder
+
+- **Когда:** drag-and-drop перестановка статусов (изменение `order` у нескольких статусов).
+- **Body:**
+  ```ts
+  {
+    orderedIds: string[]  // полный упорядоченный массив id статусов
+  }
+  ```
+- **Response 200:** `void`.
+- **Notes:** Атомарная перезапись порядка. Клиент шлёт полный массив `orderedIds` в новом порядке. Сервер пересчитывает `order` по индексу в массиве.
+
+### DELETE /api/settings/order-statuses/:id
+
+- **Когда:** клик Delete для не-system статуса.
+- **Response 200:** `void`.
+- **Notes:** 403 если `system: true`. 409 если статус используется в заказах.
+
+---
+
+## Профиль пользователя (Profile)
+
+Page: `ProfileSettings.vue` (таб `/admin/settings/profile`).
+
+### GET /api/settings/profile
+
+- **Когда:** загрузка таба Settings.
+- **Response 200:** `UserProfile`
+  ```json
+  {
+    "success": true,
+    "data": {
+      "firstName": "Mindaugas",
+      "lastName": "Volkovas",
+      "email": "admin@flexiron.com",
+      "phone": "+37060000000",
+      "role": "admin"
+    }
+  }
+  ```
+
+### PATCH /api/settings/profile
+
+- **Когда:** клик Save при наличии изменений в profile-секции.
+- **Body:** dirty-only поля:
+  ```ts
+  {
+    firstName?: string
+    lastName?: string
+    email?: string
+    phone?: string
+  }
+  ```
+- **Response 200:** `UserProfile` — полный объект после merge.
+
+### POST /api/settings/change-password
+
+- **Когда:** submit формы смены пароля в `ProfileSettings`.
+- **Body:**
+  ```ts
+  {
+    currentPassword: string
+    newPassword: string
+    confirmPassword: string
+  }
+  ```
+- **Response 200:** `{ success: true }`.
+- **Notes:**
+  - 422 `INVALID_PASSWORD` если `currentPassword` неверен.
+  - 422 `VALIDATION_ERROR` если `newPassword.length < 6` или `newPassword !== confirmPassword`.
+  - Rate-limit: 3 попытки/min/IP.
+  - Сервер НЕ возвращает данные пользователя — только статус.
+
+---
+
+## Save UX — Settings
+
+Settings работает по **local-first** принципу (см. «Save UX / Clean-slate»):
+
+- **Local state:** весь `AppSettings` живёт в реактивном state [`useSettings.ts`](frontend_vue/src/composables/useSettings.ts).
+- **Snapshot:** после каждого load/save фиксируется снепшот для diff-детекции.
+- **Dirty tracking:** каждая секция отслеживается отдельно через `dirtySections Set`.
+- **Save = granular:** на Save клиент итерирует dirty-секции и для каждой вызывает соответствующий endpoint:
+  - Простые секции (`company`, `constants`, `profile`) → PATCH с dirty-полями
+  - Коллекции (`currencies`, `uoms`, `conversions`, `order-statuses`) → diff против снепшота → POST созданий + PATCH изменений + DELETE удалений
+- **Reorder статусов:** при изменении порядка (drag-and-drop) шлётся `PUT /api/settings/order-statuses/reorder` с полным `orderedIds`.
+- **Discard:** сброс локального state до последнего снепшота.
+- **Локализация:** мультилокалевые поля (`TranslatedString`) передаются во всех трёх локалях (ru, en, lt) всегда.
+
+---
+
+## Feature Flags — Settings
+
+| Флаг | Уровень | Что скрывает |
+|------|---------|--------------|
+| `adminSettings` | page-level | весь роут `/admin/settings` |
+
+→ Implementation:
+- Service: `src/services/settingsService.ts`
+- Mock: `src/services/mocks/settings.ts`
+- Composable: `src/composables/useSettings.ts`
+- Views: `src/views/admin/settings/SettingsLayout.vue`, `ProfileSettings.vue`, `CompanySettings.vue`, `FinanceSettings.vue`, `UnitsSettings.vue`, `OrderStatusesSettings.vue`
+- i18n: `src/i18n/admin/settings.ts`
+
+---
+
+# Admin — Notifications
+
+Управление системными уведомлениями: просмотр, фильтрация, отметка о прочтении. Уведомления генерируются сервером при событиях (изменение статуса заказа, дефицит склада, ответ поставщика, приёмка партии, истечение резерва, просрочка/поступление оплаты, подготовка склада).
+
+Pages: `NotificationsPage.vue` (полный список), `NotificationDropdown.vue` (дропдаун в хедере — топ-5 уведомлений).
+
+Types from [`types/notifications.ts`](frontend_vue/src/types/notifications.ts):
+- `NotificationType` = `'order_status' | 'stock_deficit' | 'supplier_response' | 'batch_received' | 'reserve_expiring' | 'payment_overdue' | 'payment_received' | 'warehouse_ready'`
+- `NotificationEntityType` = `'order' | 'product' | 'batch' | 'client' | 'supplier'`
+- `Notification` — полная модель уведомления (см. ниже)
+- `NotificationFilters` — параметры фильтрации
+
+### Модель уведомления
+
+```ts
+interface Notification {
+  id: string
+  type: NotificationType
+  title: TranslatedString       // заголовок уведомления
+  message: TranslatedString     // текст уведомления
+  entityType: NotificationEntityType  // тип связанной сущности
+  entityId: string              // ID связанной сущности
+  entityRouteName: string       // Vue Router name для перехода (генерируется фронтом)
+  isRead: boolean               // прочитано / не прочитано
+  createdAt: string             // ISO 8601
+}
+```
+
+### Pagination
+
+Используется общий `PaginatedResponse<T>` (см. Общие соглашения). Параметры в query: `?page=1&pageSize=25`.
+
+### Коды ошибок (специфичные для домена)
+
+- `NOTIFICATION_NOT_FOUND` — 404, уведомление не найдено
+
+---
+
+## Список уведомлений
+
+### GET /api/notifications
+
+- **Когда:** загрузка `NotificationsPage.vue` (`onMounted` → `load()` из `useNotifications`), изменение любого фильтра, смена page/pageSize.
+- **Query:**
+  ```ts
+  {
+    page: string          // "1"
+    pageSize: string      // "25" | "50" | "100"
+    search?: string       // поиск по message/text (ILIKE по всем локалям)
+    type?: string         // NotificationType | 'all' (default: 'all')
+    isRead?: string       // "true" | "false" | "" (пустая строка = все)
+    sortBy?: string       // "createdAt" | "type" (default: "createdAt")
+    sortDir?: string      // "asc" | "desc" (default: "desc")
+  }
+  ```
+- **Response 200:** `PaginatedResponse<Notification>`
+  ```json
+  {
+    "success": true,
+    "data": {
+      "items": [
+        {
+          "id": "notif-001",
+          "type": "order_status",
+          "title": { "ru": "Статус заказа изменён", "en": "Order status changed", "lt": "Užsakymo būsena pakeista" },
+          "message": {
+            "ru": "Заказ ORD-001 перешёл в статус «В пути»",
+            "en": "Order ORD-001 has moved to \"In Transit\"",
+            "lt": "Užsakymas ORD-001 perėjo į \"Kelyje\" būseną"
+          },
+          "entityType": "order",
+          "entityId": "ORD-001",
+          "entityRouteName": "admin-order-card",
+          "isRead": false,
+          "createdAt": "2026-06-11T16:34:44Z"
+        }
+      ],
+      "total": 18,
+      "page": 1,
+      "pageSize": 25,
+      "totalPages": 1
+    }
+  }
+  ```
+- **Notes:**
+  - Сортировка по умолчанию `createdAt DESC` (сначала новые).
+  - `search` — фильтр по `message.ru`, `message.en`, `message.lt`, `title.ru`, `title.en`, `title.lt` (ILIKE).
+  - `isRead`: пустая строка = все, `"true"` = только прочитанные, `"false"` = только непрочитанные.
+  - `entityRouteName` генерируется клиентом на основе `entityType` — сервер его не хранит (или хранит как опциональное поле). Клиент использует готовый маппинг.
+
+### GET /api/notifications/unread-count
+
+- **Когда:** `onMounted` / polling (каждые 30 с) в `NotificationDropdown.vue` и `useNotifications`.
+- **Query:** нет.
+- **Response 200:** `number` (без `ApiResponse`-обёртки? Формат уточнить)
+  ```json
+  {
+    "success": true,
+    "data": 5
+  }
+  ```
+- **Notes:**
+  - Возвращает количество непрочитанных уведомлений для текущего пользователя.
+  - Клиент опрашивает этот endpoint раз в 30 секунд для обновления бейджа в хедере.
+  - Лёгкий endpoint — минимум нагрузки, без пагинации и фильтров.
+
+---
+
+## Мутации (отметка о прочтении)
+
+### PATCH /api/notifications/:id/read
+
+- **Когда:** клик по уведомлению (в списке или дропдауне) → отметить как прочитанное + переход к сущности.
+- **Body:** пусто `{}`.
+- **Response 200:** `void` (`{ success: true }`).
+- **Notes:**
+  - 404 `NOTIFICATION_NOT_FOUND` если `id` не существует.
+  - Идемпотентно: повторный PATCH с тем же ID — no-op.
+  - Клиент после успеха декрементирует локальный `unreadCount`.
+
+### PATCH /api/notifications/read-all
+
+- **Когда:** клик "Прочитать всё" в `NotificationsPage.vue` или `NotificationDropdown.vue`.
+- **Body:** пусто `{}`.
+- **Response 200:** `void` (`{ success: true }`).
+- **Notes:**
+  - Отмечает все уведомления текущего пользователя как прочитанные.
+  - Идемпотентно.
+  - Клиент сбрасывает `unreadCount` в 0 и обновляет `items` (`isRead: true`).
+
+---
+
+## Save UX — Notifications
+
+**Notifications** — **read-only + quick actions**:
+
+- **NotificationsPage** — read-only список с серверной фильтрацией (search debounce 300 мс, тип, статус, сортировка). Единственное действие — `markAllAsRead` (quick action, применяется сразу).
+- **NotificationDropdown** — read-only превью топ-5. Действия: mark single as read (при клике), markAllAsRead (через кнопку в футере).
+- **Polling:** `unreadCount` опрашивается каждые 30 секунд (module-level interval в `useNotifications`).
+- **Никаких форм редактирования, clean-slate не применим.**
+
+## Feature Flags — Notifications
+
+| Флаг | Уровень | Что скрывает |
+|------|---------|--------------|
+| `notificationsPage` | page-level | весь роут `/admin/notifications` |
+
+→ Implementation:
+- Service: [`notificationsService.ts`](frontend_vue/src/services/notificationsService.ts)
+- Mock: [`mocks/notifications.ts`](frontend_vue/src/services/mocks/notifications.ts)
+- Composable: [`composables/useNotifications.ts`](frontend_vue/src/composables/useNotifications.ts)
+- Views: [`views/admin/notifications/NotificationsPage.vue`](frontend_vue/src/views/admin/notifications/NotificationsPage.vue), [`components/admin/NotificationDropdown.vue`](frontend_vue/src/components/admin/NotificationDropdown.vue)
+- i18n: [`i18n/admin/notifications.ts`](frontend_vue/src/i18n/admin/notifications.ts)

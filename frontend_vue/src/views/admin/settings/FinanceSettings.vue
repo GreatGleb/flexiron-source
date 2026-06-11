@@ -4,9 +4,11 @@ import { useI18n } from 'vue-i18n'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
 import InputGroup from '@/components/admin/ui/InputGroup.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
+import { useTranslatedField } from '@/composables/useTranslatedData'
 import type { AppSettings, Currency } from '@/types/settings'
 
 const { t } = useI18n()
+const { tf } = useTranslatedField()
 
 const settings = inject<AppSettings>('settings')!
 const updateConstants = inject<(patch: Partial<AppSettings['constants']>) => void>('updateConstants')!
@@ -88,7 +90,7 @@ const handleRateInput = (id: string, event: Event) => {
           <tbody>
             <tr v-for="cur in settings.currencies" :key="cur.id">
               <td><strong>{{ cur.code }}</strong></td>
-              <td>{{ cur.name.en }}</td>
+              <td>{{ tf(cur.name) }}</td>
               <td>
                 <input
                   type="number"

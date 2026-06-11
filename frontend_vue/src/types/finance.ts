@@ -75,19 +75,3 @@ export interface FinanceDocumentArchiveItem {
   uploadedBy: string
 }
 
-export interface FinanceArchiveFilters {
-  search: string
-  type: string
-  relatedEntityType: string
-}
-
-export interface PaymentCreatePayload {
-  direction: PaymentDirection
-  counterpartyId: string
-  orderId?: string | null
-  amount: number
-  currency: string
-  dueDate: string
-  description?: string | null
-  notes?: string | null
-}

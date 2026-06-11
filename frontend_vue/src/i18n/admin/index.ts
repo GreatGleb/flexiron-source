@@ -1,6 +1,5 @@
 // Admin translations — aggregated from domain files
 import { adminLayout } from './layout'
-import { adminDashboard } from './dashboard'
 import { adminAnalytics } from './analytics'
 import { adminSuppliers } from './suppliers'
 import { adminBcc } from './bcc'
@@ -44,7 +43,6 @@ function mergeLocales(...modules: { ru: LocaleModule; en: LocaleModule; lt: Loca
 
 const merged = mergeLocales(
   adminLayout,
-  adminDashboard,
   adminAnalytics,
   adminSuppliers,
   adminBcc,

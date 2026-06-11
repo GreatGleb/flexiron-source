@@ -157,7 +157,6 @@ export function useProductCard(id: string) {
       if (dirty.isDirty.value) {
         Object.assign(delta, dirty.diff())
         if (delta.sku === '') delta.sku = null
-        if (delta.description === '') delta.description = null
       }
       if (fieldValuesChanged.value && product.value) {
         delta.fieldValues = product.value.fieldValues.map((fv) => {

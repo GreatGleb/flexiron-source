@@ -17,7 +17,7 @@ export const STORE: Product[] = [
     categoryId: 'cat-2',
     categoryName: { ru: 'Листы', en: 'Sheets', lt: 'Lakštai' },
     sku: 'SS-3-1000',
-    description: 'Горячекатаный стальной лист, 1000x2000мм',
+    description: { ru: 'Горячекатаный стальной лист, 1000x2000мм', en: 'Hot-rolled steel sheet, 1000x2000mm', lt: 'Karštai valcuotas plieno lakštas, 1000x2000mm' },
     price: 120.50,
     minStock: 50,
     priceUnit: 'EUR/vnt',
@@ -94,7 +94,7 @@ export const STORE: Product[] = [
     categoryId: 'cat-4',
     categoryName: { ru: 'Трубы', en: 'Pipes', lt: 'Vamzdžiai' },
     sku: 'SP-60-4',
-    description: 'Бесшовная круглая стальная труба',
+    description: { ru: 'Бесшовная круглая стальная труба', en: 'Seamless round steel pipe', lt: 'Besiūlis apvalus plieninis vamzdis' },
     price: 45.00,
     minStock: 100,
     priceUnit: 'EUR/m',
@@ -193,7 +193,7 @@ export const STORE: Product[] = [
     categoryId: 'cat-5',
     categoryName: { ru: 'Расходники', en: 'Consumables', lt: 'Eksploatacinės' },
     sku: 'WW-1.2',
-    description: 'MIG/MAG сварочная проволока с медным покрытием',
+    description: { ru: 'MIG/MAG сварочная проволока с медным покрытием', en: 'MIG/MAG welding wire with copper coating', lt: 'MIG/MAG suvirinimo viela su varine danga' },
     price: 12.50,
     minStock: 200,
     priceUnit: 'EUR/kg',
@@ -237,7 +237,7 @@ export const STORE: Product[] = [
     categoryId: 'cat-5',
     categoryName: { ru: 'Расходники', en: 'Consumables', lt: 'Eksploatacinės' },
     sku: null,
-    description: 'Концентрат СОЖ для металлообработки',
+    description: { ru: 'Концентрат СОЖ для металлообработки', en: 'Cutting fluid concentrate for metalworking', lt: 'Pjovimo skysčio koncentratas metalo apdirbimui' },
     price: null,
     minStock: 10,
     priceUnit: 'EUR/kg',
@@ -318,7 +318,7 @@ export const STORE: Product[] = [
     categoryId: 'cat-2',
     categoryName: { ru: 'Листы', en: 'Sheets', lt: 'Lakštai' },
     sku: 'GS-1.5',
-    description: 'Оцинкованный стальной лист Z275',
+    description: { ru: 'Оцинкованный стальной лист Z275', en: 'Galvanized steel sheet Z275', lt: 'Cinkuotas plieno lakštas Z275' },
     price: 95.00,
     minStock: 30,
     priceUnit: 'EUR/vnt',
@@ -397,7 +397,7 @@ export const STORE: Product[] = [
     id: 'prod-010',
     name: { ru: 'Стальной лист S355 5мм 1500×3000', en: 'Steel Sheet S355 5mm 1500×3000', lt: 'Plieno lakštas S355 5mm 1500×3000' },
     categoryId: 'cat-2', categoryName: { ru: 'Листы', en: 'Sheets', lt: 'Lakštai' }, sku: 'SS-5-1500', price: 195.00, minStock: 30, priceUnit: 'EUR/vnt', createdAt: '2025-01-20',
-    description: 'Горячекатаный конструкционный лист для несущих конструкций.',
+    description: { ru: 'Горячекатаный конструкционный лист для несущих конструкций.', en: 'Hot-rolled structural sheet for load-bearing structures.', lt: 'Karštai valcuotas konstrukcinis lakštas laikančiosioms konstrukcijoms.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'S355JR', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10025', inherited: true, options: [] },
@@ -444,7 +444,7 @@ export const STORE: Product[] = [
     id: 'prod-011',
     name: { ru: 'Стальной лист S355 8мм 2000×6000', en: 'Steel Sheet S355 8mm 2000×6000', lt: 'Plieno lakštas S355 8mm 2000×6000' },
     categoryId: 'cat-2', categoryName: { ru: 'Листы', en: 'Sheets', lt: 'Lakštai' }, sku: 'SS-8-2000', price: 310.00, minStock: 20, priceUnit: 'EUR/vnt', createdAt: '2025-01-25',
-    description: 'Тяжелый горячекатаный лист для машиностроения и строительных рам.',
+    description: { ru: 'Тяжелый горячекатаный лист для машиностроения и строительных рам.', en: 'Heavy hot-rolled plate for engineering and building frames.', lt: 'Sunkus karštai valcuotas lakštas mechanikos inžinerijai ir pastatų rėmams.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'S355JR', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10025', inherited: true, options: [] },
@@ -486,7 +486,7 @@ export const STORE: Product[] = [
     id: 'prod-012',
     name: { ru: 'Стальной лист S235 2мм 1250×2500', en: 'Steel Sheet S235 2mm 1250×2500', lt: 'Plieno lakštas S235 2mm 1250×2500' },
     categoryId: 'cat-2', categoryName: { ru: 'Листы', en: 'Sheets', lt: 'Lakštai' }, sku: 'SS-2-1250', price: 78.00, minStock: 50, priceUnit: 'EUR/vnt', createdAt: '2025-02-01',
-    description: 'Hot-rolled structural sheet S235JR, 1250x2500mm.',
+    description: { ru: 'Горячекатаный конструкционный лист S235JR, 1250x2500мм.', en: 'Hot-rolled structural sheet S235JR, 1250x2500mm.', lt: 'Karštai valcuotas konstrukcinis lakštas S235JR, 1250x2500mm.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'S235JR', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10025', inherited: true, options: [] },
@@ -525,7 +525,7 @@ export const STORE: Product[] = [
     id: 'prod-013',
     name: { ru: 'Стальной лист S235 10мм 1500×3000', en: 'Steel Sheet S235 10mm 1500×3000', lt: 'Plieno lakštas S235 10mm 1500×3000' },
     categoryId: 'cat-2', categoryName: { ru: 'Листы', en: 'Sheets', lt: 'Lakštai' }, sku: 'SS-10-1500', price: 280.00, minStock: 15, priceUnit: 'EUR/vnt', createdAt: '2025-02-10',
-    description: 'Heavy hot-rolled plate for structural applications.',
+    description: { ru: 'Тяжелая горячекатаная плита для конструкционных применений.', en: 'Heavy hot-rolled plate for structural applications.', lt: 'Sunkus karštai valcuotas lakštas konstrukciniam naudojimui.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'S235JR', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10025', inherited: true, options: [] },
@@ -572,7 +572,7 @@ export const STORE: Product[] = [
     id: 'prod-014',
     name: { ru: 'Холоднокатаный лист 1мм DC01', en: 'Cold-rolled Sheet 1mm DC01', lt: 'Šaltai valcuotas lakštas 1mm DC01' },
     categoryId: 'cat-2', categoryName: { ru: 'Листы', en: 'Sheets', lt: 'Lakštai' }, sku: 'CR-1-DC01', price: 65.00, minStock: 40, priceUnit: 'EUR/vnt', createdAt: '2025-03-05',
-    description: 'Cold-rolled sheet DC01 for deep drawing applications.',
+    description: { ru: 'Холоднокатаный лист DC01 для глубокой вытяжки.', en: 'Cold-rolled sheet DC01 for deep drawing applications.', lt: 'Šaltai valcuotas lakštas DC01 giluminiam tempimui.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'DC01', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10130', inherited: true, options: [] },
@@ -603,7 +603,7 @@ export const STORE: Product[] = [
     id: 'prod-015',
     name: { ru: 'Оцинкованный лист 0.8мм DX51D', en: 'Galvanized Sheet 0.8mm DX51D', lt: 'Cinkuotas lakštas 0.8mm DX51D' },
     categoryId: 'cat-2', categoryName: { ru: 'Листы', en: 'Sheets', lt: 'Lakštai' }, sku: 'GS-0.8-DX51D', price: 58.00, minStock: 60, priceUnit: 'EUR/vnt', createdAt: '2025-03-20',
-    description: 'Galvanized sheet DX51D+Z275 for roofing and cladding.',
+    description: { ru: 'Оцинкованный лист DX51D+Z275 для кровли и облицовки.', en: 'Galvanized sheet DX51D+Z275 for roofing and cladding.', lt: 'Cinkuotas lakštas DX51D+Z275 stogams ir apdailai.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'DX51D', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10346', inherited: true, options: [] },
@@ -653,7 +653,7 @@ export const STORE: Product[] = [
     id: 'prod-016',
     name: { ru: 'Стальной лист S355 6мм 2000×4000', en: 'Steel Sheet S355 6mm 2000×4000', lt: 'Plieno lakštas S355 6mm 2000×4000' },
     categoryId: 'cat-2', categoryName: { ru: 'Листы', en: 'Sheets', lt: 'Lakštai' }, sku: 'SS-6-2000', price: 245.00, minStock: 25, priceUnit: 'EUR/vnt', createdAt: '2025-04-05',
-    description: 'Structural steel plate S355J2 for heavy machinery frames.',
+    description: { ru: 'Конструкционная стальная плита S355J2 для рам тяжелого оборудования.', en: 'Structural steel plate S355J2 for heavy machinery frames.', lt: 'Konstrukcinė plieno plokštė S355J2 sunkiosios technikos rėmams.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'S355J2', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10025', inherited: true, options: [] },
@@ -687,7 +687,7 @@ export const STORE: Product[] = [
     id: 'prod-017',
     name: { ru: 'Алюминиевый лист 3мм 1200×2400', en: 'Aluminium Sheet 3mm 1200×2400', lt: 'Aliuminio lakštas 3mm 1200×2400' },
     categoryId: 'cat-2', categoryName: { ru: 'Листы', en: 'Sheets', lt: 'Lakštai' }, sku: 'AL-3-1200', price: 145.00, minStock: 20, priceUnit: 'EUR/vnt', createdAt: '2025-04-15',
-    description: 'Aluminium sheet 5083-H111 for marine and chemical applications.',
+    description: { ru: 'Алюминиевый лист 5083-H111 для морских и химических применений.', en: 'Aluminium sheet 5083-H111 for marine and chemical applications.', lt: 'Aliuminio lakštas 5083-H111 jūriniam ir cheminiam naudojimui.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: '5083', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 485', inherited: true, options: [] },
@@ -734,7 +734,7 @@ export const STORE: Product[] = [
     id: 'prod-018',
     name: { ru: 'Нержавеющий лист 2мм 304', en: 'Stainless Sheet 2mm 304', lt: 'Nerūdijantis lakštas 2mm 304' },
     categoryId: 'cat-2', categoryName: { ru: 'Листы', en: 'Sheets', lt: 'Lakštai' }, sku: 'SS-304-2', price: 210.00, minStock: 15, priceUnit: 'EUR/vnt', createdAt: '2025-05-10',
-    description: 'Stainless steel sheet AISI 304, 2B finish, 1000x2000mm.',
+    description: { ru: 'Лист нержавеющей стали AISI 304, 2B отделка, 1000x2000мм.', en: 'Stainless steel sheet AISI 304, 2B finish, 1000x2000mm.', lt: 'Nerūdijančio plieno lakštas AISI 304, 2B apdaila, 1000x2000mm.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: '304', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10088', inherited: true, options: [] },
@@ -776,7 +776,7 @@ export const STORE: Product[] = [
     id: 'prod-019',
     name: { ru: 'Медный лист 1мм', en: 'Copper Sheet 1mm', lt: 'Vario lakštas 1mm' },
     categoryId: 'cat-2', categoryName: { ru: 'Листы', en: 'Sheets', lt: 'Lakštai' }, sku: 'CU-1', price: 320.00, minStock: 10, priceUnit: 'EUR/vnt', createdAt: '2025-05-25',
-    description: 'Copper sheet C11000, 600x1500mm, for electrical applications.',
+    description: { ru: 'Медный лист C11000, 600x1500мм, для электротехники.', en: 'Copper sheet C11000, 600x1500mm, for electrical applications.', lt: 'Vario lakštas C11000, 600x1500mm, elektros reikmėms.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'C11000', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 1652', inherited: true, options: [] },
@@ -823,7 +823,7 @@ export const STORE: Product[] = [
     id: 'prod-020',
     name: { ru: 'Титановый лист 2мм Grade 5', en: 'Titanium Sheet 2mm Grade 5', lt: 'Titano lakštas 2mm Grade 5' },
     categoryId: 'cat-2', categoryName: { ru: 'Листы', en: 'Sheets', lt: 'Lakštai' }, sku: 'TI-2-G5', price: 890.00, minStock: 5, priceUnit: 'EUR/vnt', createdAt: '2025-06-10',
-    description: 'Titanium sheet Ti-6Al-4V (Grade 5), 500x1000mm, for aerospace.',
+    description: { ru: 'Титановый лист Ti-6Al-4V (Grade 5), 500x1000мм, для авиакосмической промышленности.', en: 'Titanium sheet Ti-6Al-4V (Grade 5), 500x1000mm, for aerospace.', lt: 'Titano lakštas Ti-6Al-4V (Grade 5), 500x1000mm, aviacijai.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'Ti-6Al-4V', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'ASTM B265', inherited: true, options: [] },
@@ -871,7 +871,7 @@ export const STORE: Product[] = [
     id: 'prod-021',
     name: { ru: 'Стальная труба 20x2.5', en: 'Steel Pipe 20x2.5', lt: 'Plieninis vamzdis 20x2.5' },
     categoryId: 'cat-4', categoryName: { ru: 'Трубы', en: 'Pipes', lt: 'Vamzdžiai' }, sku: 'SP-20-2.5', price: 8.50, minStock: 200, priceUnit: 'EUR/m', createdAt: '2025-02-05',
-    description: 'Seamless precision steel pipe for hydraulic systems.',
+    description: { ru: 'Бесшовная прецизионная стальная труба для гидравлических систем.', en: 'Seamless precision steel pipe for hydraulic systems.', lt: 'Besiūlis precizinis plieninis vamzdis hidraulinėms sistemoms.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'E235', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10305', inherited: true, options: [] },
@@ -912,7 +912,7 @@ export const STORE: Product[] = [
     id: 'prod-022',
     name: { ru: 'Стальная труба 40x3', en: 'Steel Pipe 40x3', lt: 'Plieninis vamzdis 40x3' },
     categoryId: 'cat-4', categoryName: { ru: 'Трубы', en: 'Pipes', lt: 'Vamzdžiai' }, sku: 'SP-40-3', price: 18.00, minStock: 150, priceUnit: 'EUR/m', createdAt: '2025-02-15',
-    description: 'Seamless steel pipe for general engineering.',
+    description: { ru: 'Бесшовная стальная труба для общего машиностроения.', en: 'Seamless steel pipe for general engineering.', lt: 'Besiūlis plieninis vamzdis bendrajai inžinerijai.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'S235JR', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10210', inherited: true, options: [] },
@@ -964,7 +964,7 @@ export const STORE: Product[] = [
     id: 'prod-023',
     name: { ru: 'Стальная труба 80x4', en: 'Steel Pipe 80x4', lt: 'Plieninis vamzdis 80x4' },
     categoryId: 'cat-4', categoryName: { ru: 'Трубы', en: 'Pipes', lt: 'Vamzdžiai' }, sku: 'SP-80-4', price: 55.00, minStock: 80, priceUnit: 'EUR/m', createdAt: '2025-03-10',
-    description: 'Structural steel pipe for construction frameworks.',
+    description: { ru: 'Конструкционная стальная труба для строительных каркасов.', en: 'Structural steel pipe for construction frameworks.', lt: 'Konstrukcinis plieninis vamzdis statybiniams karkasams.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'S355J2H', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10210', inherited: true, options: [] },
@@ -1016,7 +1016,7 @@ export const STORE: Product[] = [
     id: 'prod-024',
     name: { ru: 'Стальная труба 150x6', en: 'Steel Pipe 150x6', lt: 'Plieninis vamzdis 150x6' },
     categoryId: 'cat-4', categoryName: { ru: 'Трубы', en: 'Pipes', lt: 'Vamzdžiai' }, sku: 'SP-150-6', price: 145.00, minStock: 30, priceUnit: 'EUR/m', createdAt: '2025-04-01',
-    description: 'Large-diameter seamless pipe for industrial piping.',
+    description: { ru: 'Бесшовная труба большого диаметра для промышленных трубопроводов.', en: 'Large-diameter seamless pipe for industrial piping.', lt: 'Didelio skersmens besiūlis vamzdis pramoniniams vamzdynams.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'S355JR', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10210', inherited: true, options: [] },
@@ -1049,7 +1049,7 @@ export const STORE: Product[] = [
     id: 'prod-025',
     name: { ru: 'Квадратная труба 40x40x3', en: 'Square Pipe 40x40x3', lt: 'Kvadratinis vamzdis 40x40x3' },
     categoryId: 'cat-4', categoryName: { ru: 'Трубы', en: 'Pipes', lt: 'Vamzdžiai' }, sku: 'SQ-40-3', price: 22.00, minStock: 100, priceUnit: 'EUR/m', createdAt: '2025-04-20',
-    description: 'Cold-formed square hollow section for structural frames.',
+    description: { ru: 'Холодногнутый квадратный профиль для конструкционных каркасов.', en: 'Cold-formed square hollow section for structural frames.', lt: 'Šaltai formuotas kvadratinis tuščiaviduris profilis konstrukciniams rėmams.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'S235JR', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10219', inherited: true, options: [] },
@@ -1085,7 +1085,7 @@ export const STORE: Product[] = [
     id: 'prod-026',
     name: { ru: 'Прямоугольная труба 80x40x3', en: 'Rectangular Pipe 80x40x3', lt: 'Stačiakampis vamzdis 80x40x3' },
     categoryId: 'cat-4', categoryName: { ru: 'Трубы', en: 'Pipes', lt: 'Vamzdžiai' }, sku: 'REC-80-40-3', price: 28.00, minStock: 80, priceUnit: 'EUR/m', createdAt: '2025-05-05',
-    description: 'Rectangular hollow section for structural applications.',
+    description: { ru: 'Прямоугольный полый профиль для конструкций.', en: 'Rectangular hollow section for structural applications.', lt: 'Stačiakampis tuščiaviduris profilis konstrukciniam naudojimui.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'S355JR', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10219', inherited: true, options: [] },
@@ -1118,7 +1118,7 @@ export const STORE: Product[] = [
     id: 'prod-027',
     name: { ru: 'Нержавеющая труба 30x2 304', en: 'Stainless Pipe 30x2 304', lt: 'Nerūdijantis vamzdis 30x2 304' },
     categoryId: 'cat-4', categoryName: { ru: 'Трубы', en: 'Pipes', lt: 'Vamzdžiai' }, sku: 'SSP-30-2', price: 35.00, minStock: 60, priceUnit: 'EUR/m', createdAt: '2025-05-20',
-    description: 'Stainless steel seamless pipe AISI 304 for food industry.',
+    description: { ru: 'Бесшовная труба из нержавеющей стали AISI 304 для пищевой промышленности.', en: 'Stainless steel seamless pipe AISI 304 for food industry.', lt: 'Besiūlis nerūdijančio plieno vamzdis AISI 304 maisto pramonei.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: '304', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10216-5', inherited: true, options: [] },
@@ -1170,7 +1170,7 @@ export const STORE: Product[] = [
     id: 'prod-028',
     name: { ru: 'Алюминиевая труба 25x2', en: 'Aluminium Pipe 25x2', lt: 'Aliumininis vamzdis 25x2' },
     categoryId: 'cat-4', categoryName: { ru: 'Трубы', en: 'Pipes', lt: 'Vamzdžiai' }, sku: 'ALP-25-2', price: 12.00, minStock: 100, priceUnit: 'EUR/m', createdAt: '2025-06-05',
-    description: 'Aluminium pipe 6060-T6 for lightweight structures.',
+    description: { ru: 'Алюминиевая труба 6060-T6 для легких конструкций.', en: 'Aluminium pipe 6060-T6 for lightweight structures.', lt: 'Aliumininis vamzdis 6060-T6 lengvoms konstrukcijoms.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: '6060', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 755', inherited: true, options: [] },
@@ -1211,7 +1211,7 @@ export const STORE: Product[] = [
     id: 'prod-029',
     name: { ru: 'Медная труба 15x1', en: 'Copper Pipe 15x1', lt: 'Varinis vamzdis 15x1' },
     categoryId: 'cat-4', categoryName: { ru: 'Трубы', en: 'Pipes', lt: 'Vamzdžiai' }, sku: 'CUP-15-1', price: 18.50, minStock: 150, priceUnit: 'EUR/m', createdAt: '2025-06-20',
-    description: 'Copper pipe for plumbing and HVAC applications.',
+    description: { ru: 'Медная труба для сантехники и систем ОВиК.', en: 'Copper pipe for plumbing and HVAC applications.', lt: 'Varinis vamzdis santechnikai ir ŠVOK sistemoms.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'C12200', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 1057', inherited: true, options: [] },
@@ -1255,7 +1255,7 @@ export const STORE: Product[] = [
     id: 'prod-030',
     name: { ru: 'Титановая труба 50x3 Grade 2', en: 'Titanium Pipe 50x3 Grade 2', lt: 'Titano vamzdis 50x3 Grade 2' },
     categoryId: 'cat-4', categoryName: { ru: 'Трубы', en: 'Pipes', lt: 'Vamzdžiai' }, sku: 'TIP-50-3', price: 320.00, minStock: 10, priceUnit: 'EUR/m', createdAt: '2025-07-01',
-    description: 'Titanium seamless pipe Grade 2 for chemical processing.',
+    description: { ru: 'Бесшовная титановая труба Grade 2 для химической обработки.', en: 'Titanium seamless pipe Grade 2 for chemical processing.', lt: 'Besiūlis titano vamzdis Grade 2 cheminiam apdorojimui.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'Grade 2', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'ASTM B861', inherited: true, options: [] },
@@ -1289,7 +1289,7 @@ export const STORE: Product[] = [
     id: 'prod-031',
     name: { ru: 'Электроды сварные 3мм', en: 'Welding Electrodes 3mm', lt: 'Suvirinimo elektrodai 3mm' },
     categoryId: 'cat-5', categoryName: { ru: 'Расходники', en: 'Consumables', lt: 'Eksploatacinės' }, sku: 'WE-3', price: 8.00, minStock: 500, priceUnit: 'EUR/kg', createdAt: '2025-01-10',
-    description: 'Rutile welding electrodes for general purpose welding.',
+    description: { ru: 'Рутиловые сварочные электроды для общей сварки.', en: 'Rutile welding electrodes for general purpose welding.', lt: 'Rutiliniai suvirinimo elektrodai bendram suvirinimui.' },
     fieldValues: [
       { fieldId: 'f-5-1', fieldName: { ru: 'Единица измерения', en: 'Unit of measure', lt: 'Matavimo vienetas' }, fieldType: 'enum', value: 'kg', inherited: false, options: [
         { ru: 'шт', en: 'pcs', lt: 'vnt' }, { ru: 'кг', en: 'kg', lt: 'kg' }, { ru: 'м', en: 'm', lt: 'm' }, { ru: 'л', en: 'l', lt: 'l' },
@@ -1321,7 +1321,7 @@ export const STORE: Product[] = [
     id: 'prod-032',
     name: { ru: 'Электроды сварные 4мм', en: 'Welding Electrodes 4mm', lt: 'Suvirinimo elektrodai 4mm' },
     categoryId: 'cat-5', categoryName: { ru: 'Расходники', en: 'Consumables', lt: 'Eksploatacinės' }, sku: 'WE-4', price: 7.50, minStock: 500, priceUnit: 'EUR/kg', createdAt: '2025-01-15',
-    description: 'Rutile electrodes for heavy section welding.',
+    description: { ru: 'Рутиловые электроды для сварки толстых сечений.', en: 'Rutile electrodes for heavy section welding.', lt: 'Rutiliniai elektrodai storų sekcijų suvirinimui.' },
     fieldValues: [
       { fieldId: 'f-5-1', fieldName: { ru: 'Единица измерения', en: 'Unit of measure', lt: 'Matavimo vienetas' }, fieldType: 'enum', value: 'kg', inherited: false, options: [
         { ru: 'шт', en: 'pcs', lt: 'vnt' }, { ru: 'кг', en: 'kg', lt: 'kg' }, { ru: 'м', en: 'm', lt: 'm' }, { ru: 'л', en: 'l', lt: 'l' },
@@ -1348,7 +1348,7 @@ export const STORE: Product[] = [
     id: 'prod-033',
     name: { ru: 'Сварочная проволока 0.8мм', en: 'Welding Wire 0.8mm', lt: 'Suvirinimo viela 0.8mm' },
     categoryId: 'cat-5', categoryName: { ru: 'Расходники', en: 'Consumables', lt: 'Eksploatacinės' }, sku: 'WW-0.8', price: 14.00, minStock: 300, priceUnit: 'EUR/kg', createdAt: '2025-02-01',
-    description: 'MIG solid welding wire ER70S-6 for carbon steel.',
+    description: { ru: 'Сварочная проволока MIG ER70S-6 для углеродистой стали.', en: 'MIG solid welding wire ER70S-6 for carbon steel.', lt: 'MIG kieta suvirinimo viela ER70S-6 angliniam plienui.' },
     fieldValues: [
       { fieldId: 'f-5-1', fieldName: { ru: 'Единица измерения', en: 'Unit of measure', lt: 'Matavimo vienetas' }, fieldType: 'enum', value: 'kg', inherited: false, options: [
         { ru: 'шт', en: 'pcs', lt: 'vnt' }, { ru: 'кг', en: 'kg', lt: 'kg' }, { ru: 'м', en: 'm', lt: 'm' }, { ru: 'л', en: 'l', lt: 'l' },
@@ -1388,7 +1388,7 @@ export const STORE: Product[] = [
     id: 'prod-034',
     name: { ru: 'Флюс сварочный', en: 'Welding Flux', lt: 'Suvirinimo fliusas' },
     categoryId: 'cat-5', categoryName: { ru: 'Расходники', en: 'Consumables', lt: 'Eksploatacinės' }, sku: 'WF-01', price: 5.50, minStock: 200, priceUnit: 'EUR/kg', createdAt: '2025-02-15',
-    description: 'Agglomerated welding flux for submerged arc welding.',
+    description: { ru: 'Агломерированный сварочный флюс для дуговой сварки под флюсом.', en: 'Agglomerated welding flux for submerged arc welding.', lt: 'Aglomeruotas suvirinimo fliusas lankiniam suvirinimui po fliusu.' },
     fieldValues: [
       { fieldId: 'f-5-1', fieldName: { ru: 'Единица измерения', en: 'Unit of measure', lt: 'Matavimo vienetas' }, fieldType: 'enum', value: 'kg', inherited: false, options: [
         { ru: 'шт', en: 'pcs', lt: 'vnt' }, { ru: 'кг', en: 'kg', lt: 'kg' }, { ru: 'м', en: 'm', lt: 'm' }, { ru: 'л', en: 'l', lt: 'l' },
@@ -1420,7 +1420,7 @@ export const STORE: Product[] = [
     id: 'prod-035',
     name: { ru: 'Газ защитный Ar/CO2 80/20', en: 'Shielding Gas Ar/CO2 80/20', lt: 'Apsauginės dujos Ar/CO2 80/20' },
     categoryId: 'cat-5', categoryName: { ru: 'Расходники', en: 'Consumables', lt: 'Eksploatacinės' }, sku: 'SG-8020', price: 65.00, minStock: 20, priceUnit: 'EUR/vnt', createdAt: '2025-03-01',
-    description: 'Mixed shielding gas for MIG/MAG welding of carbon steel.',
+    description: { ru: 'Смешанный защитный газ для MIG/MAG сварки углеродистой стали.', en: 'Mixed shielding gas for MIG/MAG welding of carbon steel.', lt: 'Mišrios apsauginės dujos MIG/MAG anglinio plieno suvirinimui.' },
     fieldValues: [
       { fieldId: 'f-5-1', fieldName: { ru: 'Единица измерения', en: 'Unit of measure', lt: 'Matavimo vienetas' }, fieldType: 'enum', value: 'pcs', inherited: false, options: [
         { ru: 'шт', en: 'pcs', lt: 'vnt' }, { ru: 'кг', en: 'kg', lt: 'kg' }, { ru: 'м', en: 'm', lt: 'm' }, { ru: 'л', en: 'l', lt: 'l' },
@@ -1447,7 +1447,7 @@ export const STORE: Product[] = [
     id: 'prod-036',
     name: { ru: 'Отрезной круг 125x1мм', en: 'Cut-off Wheel 125x1mm', lt: 'Pjovimo diskas 125x1mm' },
     categoryId: 'cat-5', categoryName: { ru: 'Расходники', en: 'Consumables', lt: 'Eksploatacinės' }, sku: 'CW-125', price: 2.50, minStock: 1000, priceUnit: 'EUR/vnt', createdAt: '2025-03-15',
-    description: 'Reinforced cut-off wheel for steel and stainless steel.',
+    description: { ru: 'Армированный отрезной круг для стали и нержавейки.', en: 'Reinforced cut-off wheel for steel and stainless steel.', lt: 'Armuotas pjovimo diskas plienui ir nerūdijančiam plienui.' },
     fieldValues: [
       { fieldId: 'f-5-1', fieldName: { ru: 'Единица измерения', en: 'Unit of measure', lt: 'Matavimo vienetas' }, fieldType: 'enum', value: 'pcs', inherited: false, options: [
         { ru: 'шт', en: 'pcs', lt: 'vnt' }, { ru: 'кг', en: 'kg', lt: 'kg' }, { ru: 'м', en: 'm', lt: 'm' }, { ru: 'л', en: 'l', lt: 'l' },
@@ -1490,7 +1490,7 @@ export const STORE: Product[] = [
     id: 'prod-037',
     name: { ru: 'Шлифовальный круг 125мм', en: 'Grinding Wheel 125mm', lt: 'Šlifavimo diskas 125mm' },
     categoryId: 'cat-5', categoryName: { ru: 'Расходники', en: 'Consumables', lt: 'Eksploatacinės' }, sku: 'GW-125', price: 3.80, minStock: 800, priceUnit: 'EUR/vnt', createdAt: '2025-04-01',
-    description: 'Depressed center grinding wheel for metal removal.',
+    description: { ru: 'Шлифовальный круг с вогнутым центром для удаления металла.', en: 'Depressed center grinding wheel for metal removal.', lt: 'Šlifavimo diskas su įdubusiu centru metalo šalinimui.' },
     fieldValues: [
       { fieldId: 'f-5-1', fieldName: { ru: 'Единица измерения', en: 'Unit of measure', lt: 'Matavimo vienetas' }, fieldType: 'enum', value: 'pcs', inherited: false, options: [
         { ru: 'шт', en: 'pcs', lt: 'vnt' }, { ru: 'кг', en: 'kg', lt: 'kg' }, { ru: 'м', en: 'm', lt: 'm' }, { ru: 'л', en: 'l', lt: 'l' },
@@ -1522,7 +1522,7 @@ export const STORE: Product[] = [
     id: 'prod-038',
     name: { ru: 'Сверло по металлу 10мм HSS', en: 'HSS Drill Bit 10mm', lt: 'Grąžtas metalui 10mm HSS' },
     categoryId: 'cat-5', categoryName: { ru: 'Расходники', en: 'Consumables', lt: 'Eksploatacinės' }, sku: 'DB-10-HSS', price: 6.00, minStock: 200, priceUnit: 'EUR/vnt', createdAt: '2025-04-15',
-    description: 'High-speed steel twist drill bit for general metal drilling.',
+    description: { ru: 'Спиральное сверло из быстрорежущей стали для общего сверления металла.', en: 'High-speed steel twist drill bit for general metal drilling.', lt: 'Greitapjovio plieno grąžtas bendram metalo gręžimui.' },
     fieldValues: [
       { fieldId: 'f-5-1', fieldName: { ru: 'Единица измерения', en: 'Unit of measure', lt: 'Matavimo vienetas' }, fieldType: 'enum', value: 'pcs', inherited: false, options: [
         { ru: 'шт', en: 'pcs', lt: 'vnt' }, { ru: 'кг', en: 'kg', lt: 'kg' }, { ru: 'м', en: 'm', lt: 'm' }, { ru: 'л', en: 'l', lt: 'l' },
@@ -1549,7 +1549,7 @@ export const STORE: Product[] = [
     id: 'prod-039',
     name: { ru: 'Метчик M10 HSS', en: 'Tap M10 HSS', lt: 'Sriegtuvas M10 HSS' },
     categoryId: 'cat-5', categoryName: { ru: 'Расходники', en: 'Consumables', lt: 'Eksploatacinės' }, sku: 'TAP-M10', price: 12.00, minStock: 100, priceUnit: 'EUR/vnt', createdAt: '2025-05-01',
-    description: 'Hand tap M10x1.5 for threading carbon steel.',
+    description: { ru: 'Ручной метчик M10x1.5 для нарезания резьбы в углеродистой стали.', en: 'Hand tap M10x1.5 for threading carbon steel.', lt: 'Rankinis sriegtuvas M10x1.5 sriegimui anglies pliene.' },
     fieldValues: [
       { fieldId: 'f-5-1', fieldName: { ru: 'Единица измерения', en: 'Unit of measure', lt: 'Matavimo vienetas' }, fieldType: 'enum', value: 'pcs', inherited: false, options: [
         { ru: 'шт', en: 'pcs', lt: 'vnt' }, { ru: 'кг', en: 'kg', lt: 'kg' }, { ru: 'м', en: 'm', lt: 'm' }, { ru: 'л', en: 'l', lt: 'l' },
@@ -1581,7 +1581,7 @@ export const STORE: Product[] = [
     id: 'prod-040',
     name: { ru: 'Плашка M10 HSS', en: 'Die M10 HSS', lt: 'Srieginė plokštelė M10 HSS' },
     categoryId: 'cat-5', categoryName: { ru: 'Расходники', en: 'Consumables', lt: 'Eksploatacinės' }, sku: 'DIE-M10', price: 15.00, minStock: 80, priceUnit: 'EUR/vnt', createdAt: '2025-05-15',
-    description: 'Round die M10x1.5 for external threading.',
+    description: { ru: 'Круглая плашка M10x1.5 для наружной резьбы.', en: 'Round die M10x1.5 for external threading.', lt: 'Apvali srieginė plokštelė M10x1.5 išoriniam sriegimui.' },
     fieldValues: [
       { fieldId: 'f-5-1', fieldName: { ru: 'Единица измерения', en: 'Unit of measure', lt: 'Matavimo vienetas' }, fieldType: 'enum', value: 'pcs', inherited: false, options: [
         { ru: 'шт', en: 'pcs', lt: 'vnt' }, { ru: 'кг', en: 'kg', lt: 'kg' }, { ru: 'м', en: 'm', lt: 'm' }, { ru: 'л', en: 'l', lt: 'l' },
@@ -1606,7 +1606,7 @@ export const STORE: Product[] = [
     id: 'prod-041',
     name: { ru: 'Сварочный аппарат MIG 250', en: 'MIG Welder 250A', lt: 'MIG suvirinimo aparatas 250A' },
     categoryId: 'cat-6', categoryName: { ru: 'Оборудование', en: 'Equipment', lt: 'Įranga' }, sku: 'MIG-250', price: 850.00, minStock: 5, priceUnit: 'EUR/vnt', createdAt: '2025-01-20',
-    description: 'Professional MIG/MAG welding machine with synergic control.',
+    description: { ru: 'Профессиональный сварочный аппарат MIG/MAG с синергетическим управлением.', en: 'Professional MIG/MAG welding machine with synergic control.', lt: 'Profesionalus MIG/MAG suvirinimo aparatas su sinerginiu valdymu.' },
     fieldValues: [
       { fieldId: 'f-6-1', fieldName: { ru: 'Производитель', en: 'Manufacturer', lt: 'Gamintojas' }, fieldType: 'text', value: 'Kemppi', inherited: false, options: [] },
       { fieldId: 'f-6-2', fieldName: { ru: 'Гарантия (мес)', en: 'Warranty (months)', lt: 'Garantija (mėn)' }, fieldType: 'number', value: 36, inherited: false, options: [] },
@@ -1648,7 +1648,7 @@ export const STORE: Product[] = [
     id: 'prod-042',
     name: { ru: 'Плазменный резак 40A', en: 'Plasma Cutter 40A', lt: 'Plazminis pjaustytuvas 40A' },
     categoryId: 'cat-6', categoryName: { ru: 'Оборудование', en: 'Equipment', lt: 'Įranga' }, sku: 'PC-40', price: 1200.00, minStock: 3, priceUnit: 'EUR/vnt', createdAt: '2025-02-01',
-    description: 'Portable plasma cutting system with CNC interface.',
+    description: { ru: 'Портативная плазменная система резки с интерфейсом ЧПУ.', en: 'Portable plasma cutting system with CNC interface.', lt: 'Nešiojama plazminio pjovimo sistema su CNC sąsaja.' },
     fieldValues: [
       { fieldId: 'f-6-1', fieldName: { ru: 'Производитель', en: 'Manufacturer', lt: 'Gamintojas' }, fieldType: 'text', value: 'Hypertherm', inherited: false, options: [] },
       { fieldId: 'f-6-2', fieldName: { ru: 'Гарантия (мес)', en: 'Warranty (months)', lt: 'Garantija (mėn)' }, fieldType: 'number', value: 24, inherited: false, options: [] },
@@ -1679,7 +1679,7 @@ export const STORE: Product[] = [
     id: 'prod-043',
     name: { ru: 'Токарный станок CNC', en: 'CNC Lathe', lt: 'CNC tekinimo staklės' },
     categoryId: 'cat-6', categoryName: { ru: 'Оборудование', en: 'Equipment', lt: 'Įranga' }, sku: 'CNC-L-01', price: 25000.00, minStock: 1, priceUnit: 'EUR/vnt', createdAt: '2025-02-15',
-    description: 'CNC lathe with 2-meter bed length and live tooling.',
+    description: { ru: 'Токарный станок с ЧПУ с длиной станины 2 метра и приводным инструментом.', en: 'CNC lathe with 2-meter bed length and live tooling.', lt: 'CNC tekinimo staklės su 2 metrų lovio ilgiu ir gyvuoju įrankiu.' },
     fieldValues: [
       { fieldId: 'f-6-1', fieldName: { ru: 'Производитель', en: 'Manufacturer', lt: 'Gamintojas' }, fieldType: 'text', value: 'DMG MORI', inherited: false, options: [] },
       { fieldId: 'f-6-2', fieldName: { ru: 'Гарантия (мес)', en: 'Warranty (months)', lt: 'Garantija (mėn)' }, fieldType: 'number', value: 48, inherited: false, options: [] },
@@ -1702,7 +1702,7 @@ export const STORE: Product[] = [
     id: 'prod-044',
     name: { ru: 'Фрезерный станок CNC', en: 'CNC Milling Machine', lt: 'CNC frezavimo staklės' },
     categoryId: 'cat-6', categoryName: { ru: 'Оборудование', en: 'Equipment', lt: 'Įranga' }, sku: 'CNC-M-01', price: 32000.00, minStock: 1, priceUnit: 'EUR/vnt', createdAt: '2025-03-01',
-    description: '5-axis CNC milling center with pallet changer.',
+    description: { ru: '5-осевой обрабатывающий центр с ЧПУ со сменщиком паллет.', en: '5-axis CNC milling center with pallet changer.', lt: '5-ašių CNC frezavimo centras su padėklų keitikliu.' },
     fieldValues: [
       { fieldId: 'f-6-1', fieldName: { ru: 'Производитель', en: 'Manufacturer', lt: 'Gamintojas' }, fieldType: 'text', value: 'Haas', inherited: false, options: [] },
       { fieldId: 'f-6-2', fieldName: { ru: 'Гарантия (мес)', en: 'Warranty (months)', lt: 'Garantija (mėn)' }, fieldType: 'number', value: 36, inherited: false, options: [] },
@@ -1733,7 +1733,7 @@ export const STORE: Product[] = [
     id: 'prod-045',
     name: { ru: 'Гильотина гидравлическая 3м', en: 'Hydraulic Guillotine 3m', lt: 'Hidraulinė giljotina 3m' },
     categoryId: 'cat-6', categoryName: { ru: 'Оборудование', en: 'Equipment', lt: 'Įranga' }, sku: 'HG-3000', price: 18500.00, minStock: 1, priceUnit: 'EUR/vnt', createdAt: '2025-03-15',
-    description: 'Hydraulic guillotine shear for sheet metal up to 6mm.',
+    description: { ru: 'Гидравлическая гильотина для листового металла до 6мм.', en: 'Hydraulic guillotine shear for sheet metal up to 6mm.', lt: 'Hidraulinė giljotina lakštiniam metalui iki 6mm.' },
     fieldValues: [
       { fieldId: 'f-6-1', fieldName: { ru: 'Производитель', en: 'Manufacturer', lt: 'Gamintojas' }, fieldType: 'text', value: 'Baykal', inherited: false, options: [] },
       { fieldId: 'f-6-2', fieldName: { ru: 'Гарантия (мес)', en: 'Warranty (months)', lt: 'Garantija (mėn)' }, fieldType: 'number', value: 24, inherited: false, options: [] },
@@ -1764,7 +1764,7 @@ export const STORE: Product[] = [
     id: 'prod-046',
     name: { ru: 'Листогибочный пресс 100т', en: 'Press Brake 100T', lt: 'Presinis stabdis 100T' },
     categoryId: 'cat-6', categoryName: { ru: 'Оборудование', en: 'Equipment', lt: 'Įranga' }, sku: 'PB-100', price: 22000.00, minStock: 1, priceUnit: 'EUR/vnt', createdAt: '2025-04-01',
-    description: 'CNC press brake with 3-meter bending length.',
+    description: { ru: 'Листогибочный пресс с ЧПУ с длиной гиба 3 метра.', en: 'CNC press brake with 3-meter bending length.', lt: 'CNC presinis stabdis su 3 metrų lenkimo ilgiu.' },
     fieldValues: [
       { fieldId: 'f-6-1', fieldName: { ru: 'Производитель', en: 'Manufacturer', lt: 'Gamintojas' }, fieldType: 'text', value: 'Trumpf', inherited: false, options: [] },
       { fieldId: 'f-6-2', fieldName: { ru: 'Гарантия (мес)', en: 'Warranty (months)', lt: 'Garantija (mėn)' }, fieldType: 'number', value: 36, inherited: false, options: [] },
@@ -1803,7 +1803,7 @@ export const STORE: Product[] = [
     id: 'prod-047',
     name: { ru: 'Компрессор винтовой 7.5кВт', en: 'Screw Compressor 7.5kW', lt: 'Sraigtinis kompresorius 7.5kW' },
     categoryId: 'cat-6', categoryName: { ru: 'Оборудование', en: 'Equipment', lt: 'Įranga' }, sku: 'SC-7.5', price: 4500.00, minStock: 2, priceUnit: 'EUR/vnt', createdAt: '2025-04-15',
-    description: 'Industrial screw compressor with integrated dryer.',
+    description: { ru: 'Промышленный винтовой компрессор со встроенным осушителем.', en: 'Industrial screw compressor with integrated dryer.', lt: 'Pramoninis sraigtinis kompresorius su integruotu džiovintuvu.' },
     fieldValues: [
       { fieldId: 'f-6-1', fieldName: { ru: 'Производитель', en: 'Manufacturer', lt: 'Gamintojas' }, fieldType: 'text', value: 'Atlas Copco', inherited: false, options: [] },
       { fieldId: 'f-6-2', fieldName: { ru: 'Гарантия (мес)', en: 'Warranty (months)', lt: 'Garantija (mėn)' }, fieldType: 'number', value: 24, inherited: false, options: [] },
@@ -1829,7 +1829,7 @@ export const STORE: Product[] = [
     id: 'prod-048',
     name: { ru: 'Кран мостовой 10т', en: 'Overhead Crane 10T', lt: 'Kabininis kranas 10T' },
     categoryId: 'cat-6', categoryName: { ru: 'Оборудование', en: 'Equipment', lt: 'Įranga' }, sku: 'OC-10', price: 45000.00, minStock: 1, priceUnit: 'EUR/vnt', createdAt: '2025-05-01',
-    description: 'Double-girder overhead crane with 20m span.',
+    description: { ru: 'Мостовой двухбалочный кран пролетом 20м.', en: 'Double-girder overhead crane with 20m span.', lt: 'Dviejų sijų kabinis kranas su 20m tarpatramiu.' },
     fieldValues: [
       { fieldId: 'f-6-1', fieldName: { ru: 'Производитель', en: 'Manufacturer', lt: 'Gamintojas' }, fieldType: 'text', value: 'Konecranes', inherited: false, options: [] },
       { fieldId: 'f-6-2', fieldName: { ru: 'Гарантия (мес)', en: 'Warranty (months)', lt: 'Garantija (mėn)' }, fieldType: 'number', value: 60, inherited: false, options: [] },
@@ -1868,7 +1868,7 @@ export const STORE: Product[] = [
     id: 'prod-049',
     name: { ru: 'Ленточнопильный станок', en: 'Band Saw', lt: 'Juostinis pjūklas' },
     categoryId: 'cat-6', categoryName: { ru: 'Оборудование', en: 'Equipment', lt: 'Įranga' }, sku: 'BS-400', price: 3200.00, minStock: 2, priceUnit: 'EUR/vnt', createdAt: '2025-05-15',
-    description: 'Automatic horizontal band saw for steel profiles.',
+    description: { ru: 'Автоматическая горизонтальная ленточная пила для стальных профилей.', en: 'Automatic horizontal band saw for steel profiles.', lt: 'Automatinis horizontalus juostinis pjūklas plieno profiliams.' },
     fieldValues: [
       { fieldId: 'f-6-1', fieldName: { ru: 'Производитель', en: 'Manufacturer', lt: 'Gamintojas' }, fieldType: 'text', value: 'Behringer', inherited: false, options: [] },
       { fieldId: 'f-6-2', fieldName: { ru: 'Гарантия (мес)', en: 'Warranty (months)', lt: 'Garantija (mėn)' }, fieldType: 'number', value: 24, inherited: false, options: [] },
@@ -1907,7 +1907,7 @@ export const STORE: Product[] = [
     id: 'prod-050',
     name: { ru: 'Сварочный робот 6-осевой', en: 'Welding Robot 6-Axis', lt: 'Suvirinimo robotas 6 ašių' },
     categoryId: 'cat-6', categoryName: { ru: 'Оборудование', en: 'Equipment', lt: 'Įranga' }, sku: 'WR-6', price: 55000.00, minStock: 1, priceUnit: 'EUR/vnt', createdAt: '2025-06-01',
-    description: '6-axis welding robot with integrated seam tracking.',
+    description: { ru: '6-осевой сварочный робот со встроенным отслеживанием шва.', en: '6-axis welding robot with integrated seam tracking.', lt: '6-ašių suvirinimo robotas su integruotu siūlės sekimu.' },
     fieldValues: [
       { fieldId: 'f-6-1', fieldName: { ru: 'Производитель', en: 'Manufacturer', lt: 'Gamintojas' }, fieldType: 'text', value: 'FANUC', inherited: false, options: [] },
       { fieldId: 'f-6-2', fieldName: { ru: 'Гарантия (мес)', en: 'Warranty (months)', lt: 'Garantija (mėn)' }, fieldType: 'number', value: 36, inherited: false, options: [] },
@@ -1931,7 +1931,7 @@ export const STORE: Product[] = [
     id: 'prod-051',
     name: { ru: 'Стальной лист S235 3мм 1500×3000', en: 'Steel Sheet S235 3mm 1500×3000', lt: 'Plieno lakštas S235 3mm 1500×3000' },
     categoryId: 'cat-2', categoryName: { ru: 'Листы', en: 'Sheets', lt: 'Lakštai' }, sku: 'SS-3-1500', price: 115.00, minStock: 40, priceUnit: 'EUR/vnt', createdAt: '2025-06-15',
-    description: 'General purpose hot-rolled sheet for fabrication.',
+    description: { ru: 'Горячекатаный лист общего назначения для производства.', en: 'General purpose hot-rolled sheet for fabrication.', lt: 'Bendros paskirties karštai valcuotas lakštas gamybai.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'S235JR', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10025', inherited: true, options: [] },
@@ -1960,7 +1960,7 @@ export const STORE: Product[] = [
     id: 'prod-052',
     name: { ru: 'Стальной лист S355 12мм 2000×6000', en: 'Steel Sheet S355 12mm 2000×6000', lt: 'Plieno lakštas S355 12mm 2000×6000' },
     categoryId: 'cat-2', categoryName: { ru: 'Листы', en: 'Sheets', lt: 'Lakštai' }, sku: 'SS-12-2000', price: 520.00, minStock: 10, priceUnit: 'EUR/vnt', createdAt: '2025-07-01',
-    description: 'Heavy plate for structural and mining applications.',
+    description: { ru: 'Тяжелая плита для строительных и горнодобывающих применений.', en: 'Heavy plate for structural and mining applications.', lt: 'Sunki plokštė konstrukciniams ir kasybos darbams.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'S355J2+N', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10025', inherited: true, options: [] },
@@ -2005,7 +2005,7 @@ export const STORE: Product[] = [
     id: 'prod-053',
     name: { ru: 'Нержавеющий лист 1.5мм 316L', en: 'Stainless Sheet 1.5mm 316L', lt: 'Nerūdijantis lakštas 1.5mm 316L' },
     categoryId: 'cat-2', categoryName: { ru: 'Листы', en: 'Sheets', lt: 'Lakštai' }, sku: 'SS-316L-1.5', price: 280.00, minStock: 10, priceUnit: 'EUR/vnt', createdAt: '2025-07-15',
-    description: 'Stainless steel sheet AISI 316L for chemical environments.',
+    description: { ru: 'Лист нержавеющей стали AISI 316L для химических сред.', en: 'Stainless steel sheet AISI 316L for chemical environments.', lt: 'Nerūdijančio plieno lakštas AISI 316L cheminėms aplinkoms.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: '316L', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10088', inherited: true, options: [] },
@@ -2037,7 +2037,7 @@ export const STORE: Product[] = [
     id: 'prod-054',
     name: { ru: 'Алюминиевый лист 5мм 1500×3000', en: 'Aluminium Sheet 5mm 1500×3000', lt: 'Aliuminio lakštas 5mm 1500×3000' },
     categoryId: 'cat-2', categoryName: { ru: 'Листы', en: 'Sheets', lt: 'Lakštai' }, sku: 'AL-5-1500', price: 320.00, minStock: 10, priceUnit: 'EUR/vnt', createdAt: '2025-08-01',
-    description: 'Aluminium sheet 5083 for marine and transport applications.',
+    description: { ru: 'Алюминиевый лист 5083 для морского и транспортного применения.', en: 'Aluminium sheet 5083 for marine and transport applications.', lt: 'Aliuminio lakštas 5083 jūriniam ir transporto naudojimui.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: '5083', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 485', inherited: true, options: [] },
@@ -2074,7 +2074,7 @@ export const STORE: Product[] = [
     id: 'prod-055',
     name: { ru: 'Латунный лист 2мм', en: 'Brass Sheet 2mm', lt: 'Žalvario lakštas 2mm' },
     categoryId: 'cat-2', categoryName: { ru: 'Листы', en: 'Sheets', lt: 'Lakštai' }, sku: 'BR-2', price: 180.00, minStock: 15, priceUnit: 'EUR/vnt', createdAt: '2025-08-15',
-    description: 'Brass sheet CuZn37 for decorative and electrical components.',
+    description: { ru: 'Латунный лист CuZn37 для декоративных и электрических компонентов.', en: 'Brass sheet CuZn37 for decorative and electrical components.', lt: 'Žalvario lakštas CuZn37 dekoratyviniams ir elektriniams komponentams.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'CuZn37', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 1652', inherited: true, options: [] },
@@ -2119,7 +2119,7 @@ export const STORE: Product[] = [
     id: 'prod-056',
     name: { ru: 'Бронзовый лист 3мм', en: 'Bronze Sheet 3mm', lt: 'Bronzos lakštas 3mm' },
     categoryId: 'cat-2', categoryName: { ru: 'Листы', en: 'Sheets', lt: 'Lakštai' }, sku: 'BRZ-3', price: 250.00, minStock: 10, priceUnit: 'EUR/vnt', createdAt: '2025-09-01',
-    description: 'Phosphor bronze sheet for bearings and wear plates.',
+    description: { ru: 'Фосфористая бронза для подшипников и износных пластин.', en: 'Phosphor bronze sheet for bearings and wear plates.', lt: 'Fosforinės bronzos lakštas guoliams ir dilimo plokštėms.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'CuSn8', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 1652', inherited: true, options: [] },
@@ -2148,7 +2148,7 @@ export const STORE: Product[] = [
     id: 'prod-057',
     name: { ru: 'Стальной лист S690 6мм', en: 'Steel Sheet S690 6mm', lt: 'Plieno lakštas S690 6mm' },
     categoryId: 'cat-2', categoryName: { ru: 'Листы', en: 'Sheets', lt: 'Lakštai' }, sku: 'SS-690-6', price: 380.00, minStock: 8, priceUnit: 'EUR/vnt', createdAt: '2025-09-15',
-    description: 'High-strength steel plate for heavy machinery.',
+    description: { ru: 'Высокопрочная стальная плита для тяжелого машиностроения.', en: 'High-strength steel plate for heavy machinery.', lt: 'Didelio stiprumo plieno plokštė sunkiajai technikai.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'S690QL', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10025-6', inherited: true, options: [] },
@@ -2193,7 +2193,7 @@ export const STORE: Product[] = [
     id: 'prod-058',
     name: { ru: 'Стальной лист Hardox 450 10мм', en: 'Hardox 450 Sheet 10mm', lt: 'Hardox 450 lakštas 10mm' },
     categoryId: 'cat-2', categoryName: { ru: 'Листы', en: 'Sheets', lt: 'Lakštai' }, sku: 'HX-450-10', price: 650.00, minStock: 5, priceUnit: 'EUR/vnt', createdAt: '2025-10-01',
-    description: 'Abrasion-resistant steel plate for wear applications.',
+    description: { ru: 'Износостойкая стальная плита для применений с износом.', en: 'Abrasion-resistant steel plate for wear applications.', lt: 'Atspari dilimui plieno plokštė dilimo reikmėms.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'Hardox 450', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10025', inherited: true, options: [] },
@@ -2230,7 +2230,7 @@ export const STORE: Product[] = [
     id: 'prod-059',
     name: { ru: 'Перфорированный лист 2мм', en: 'Perforated Sheet 2mm', lt: 'Perforuotas lakštas 2mm' },
     categoryId: 'cat-2', categoryName: { ru: 'Листы', en: 'Sheets', lt: 'Lakštai' }, sku: 'PERF-2', price: 95.00, minStock: 25, priceUnit: 'EUR/vnt', createdAt: '2025-10-15',
-    description: 'Perforated steel sheet with 10mm round holes, 40% open area.',
+    description: { ru: 'Перфорированный стальной лист с круглыми отверстиями 10мм, 40% открытой площади.', en: 'Perforated steel sheet with 10mm round holes, 40% open area.', lt: 'Perforuotas plieno lakštas su 10mm apvaliomis skylutėmis, 40% atviro ploto.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'S235JR', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10025', inherited: true, options: [] },
@@ -2275,7 +2275,7 @@ export const STORE: Product[] = [
     id: 'prod-061',
     name: { ru: 'Труба профильная 40x40x2', en: 'Profile Pipe 40x40x2', lt: 'Profilinis vamzdis 40x40x2' },
     categoryId: 'cat-4', categoryName: { ru: 'Трубы', en: 'Pipes', lt: 'Vamzdžiai' }, sku: 'PP-40-40-2', price: 18.50, minStock: 200, priceUnit: 'EUR/vnt', createdAt: '2025-01-20',
-    description: 'Square profile pipe 40x40mm, wall 2mm, for metal structures.',
+    description: { ru: 'Квадратная профильная труба 40x40мм, стенка 2мм, для металлоконструкций.', en: 'Square profile pipe 40x40mm, wall 2mm, for metal structures.', lt: 'Kvadratinis profilio vamzdis 40x40mm, sienelė 2mm, metalo konstrukcijoms.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'S235JR', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10219', inherited: true, options: [] },
@@ -2314,7 +2314,7 @@ export const STORE: Product[] = [
     id: 'prod-062',
     name: { ru: 'Труба профильная 60x40x3', en: 'Profile Pipe 60x40x3', lt: 'Profilinis vamzdis 60x40x3' },
     categoryId: 'cat-4', categoryName: { ru: 'Трубы', en: 'Pipes', lt: 'Vamzdžiai' }, sku: 'PP-60-40-3', price: 24.80, minStock: 150, priceUnit: 'EUR/vnt', createdAt: '2025-02-10',
-    description: 'Rectangular profile pipe 60x40mm, wall 3mm, for structural frames.',
+    description: { ru: 'Прямоугольная профильная труба 60x40мм, стенка 3мм, для конструкционных каркасов.', en: 'Rectangular profile pipe 60x40mm, wall 3mm, for structural frames.', lt: 'Stačiakampis profilio vamzdis 60x40mm, sienelė 3mm, konstrukciniams rėmams.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'S355J2', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10219', inherited: true, options: [] },
@@ -2345,7 +2345,7 @@ export const STORE: Product[] = [
     id: 'prod-063',
     name: { ru: 'Труба круглая 50x3', en: 'Round Pipe 50x3', lt: 'Apvalus vamzdis 50x3' },
     categoryId: 'cat-4', categoryName: { ru: 'Трубы', en: 'Pipes', lt: 'Vamzdžiai' }, sku: 'RP-50-3', price: 14.20, minStock: 300, priceUnit: 'EUR/vnt', createdAt: '2025-02-15',
-    description: 'Seamless round pipe 50mm diameter, wall 3mm, for hydraulic systems.',
+    description: { ru: 'Бесшовная круглая труба диаметром 50мм, стенка 3мм, для гидравлических систем.', en: 'Seamless round pipe 50mm diameter, wall 3mm, for hydraulic systems.', lt: 'Besiūlis apvalus vamzdis 50mm skersmens, sienelė 3mm, hidraulinėms sistemoms.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'E235', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10216', inherited: true, options: [] },
@@ -2384,7 +2384,7 @@ export const STORE: Product[] = [
     id: 'prod-064',
     name: { ru: 'Труба круглая 76x4', en: 'Round Pipe 76x4', lt: 'Apvalus vamzdis 76x4' },
     categoryId: 'cat-4', categoryName: { ru: 'Трубы', en: 'Pipes', lt: 'Vamzdžiai' }, sku: 'RP-76-4', price: 22.00, minStock: 200, priceUnit: 'EUR/vnt', createdAt: '2025-03-01',
-    description: 'Seamless round pipe 76mm diameter, wall 4mm, for high-pressure applications.',
+    description: { ru: 'Бесшовная круглая труба диаметром 76мм, стенка 4мм, для высокого давления.', en: 'Seamless round pipe 76mm diameter, wall 4mm, for high-pressure applications.', lt: 'Besiūlis apvalus vamzdis 76mm skersmens, sienelė 4mm, aukštam slėgiui.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'E355', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10216', inherited: true, options: [] },
@@ -2431,7 +2431,7 @@ export const STORE: Product[] = [
     id: 'prod-065',
     name: { ru: 'Труба водогазопроводная 1"', en: 'Gas Pipe 1"', lt: 'Dujų vamzdis 1"' },
     categoryId: 'cat-4', categoryName: { ru: 'Трубы', en: 'Pipes', lt: 'Vamzdžiai' }, sku: 'GP-1', price: 8.90, minStock: 500, priceUnit: 'EUR/vnt', createdAt: '2025-03-10',
-    description: 'Galvanized gas pipe 1 inch, threaded ends, for gas distribution.',
+    description: { ru: 'Оцинкованная газовая труба 1 дюйм, с резьбой, для газораспределения.', en: 'Galvanized gas pipe 1 inch, threaded ends, for gas distribution.', lt: 'Cinkuotas dujų vamzdis 1 colis, sriegiuoti galai, dujų paskirstymui.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'S235JR', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10255', inherited: true, options: [] },
@@ -2470,7 +2470,7 @@ export const STORE: Product[] = [
     id: 'prod-060',
     name: { ru: 'Рифленый лист 4мм', en: 'Chequer Plate 4mm', lt: 'Rifliuotas lakštas 4mm' },
     categoryId: 'cat-2', categoryName: { ru: 'Листы', en: 'Sheets', lt: 'Lakštai' }, sku: 'CP-4', price: 160.00, minStock: 20, priceUnit: 'EUR/vnt', createdAt: '2025-11-01',
-    description: 'Chequer plate with diamond pattern for flooring and stairs.',
+    description: { ru: 'Рифленый лист с ромбовидным рисунком для полов и лестниц.', en: 'Chequer plate with diamond pattern for flooring and stairs.', lt: 'Rievinė plokštė su deimantiniu raštu grindims ir laiptams.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'S235JR', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10025', inherited: true, options: [] },
@@ -2507,7 +2507,7 @@ export const STORE: Product[] = [
     id: 'prod-066',
     name: { ru: 'Труба нержавеющая 25x2', en: 'Stainless Pipe 25x2', lt: 'Nerūdijantis vamzdis 25x2' },
     categoryId: 'cat-4', categoryName: { ru: 'Трубы', en: 'Pipes', lt: 'Vamzdžiai' }, sku: 'SSP-25-2', price: 32.50, minStock: 100, priceUnit: 'EUR/vnt', createdAt: '2025-03-15',
-    description: 'Stainless steel pipe 25mm diameter, wall 2mm, for food industry.',
+    description: { ru: 'Труба из нержавеющей стали 25мм, стенка 2мм, для пищевой промышленности.', en: 'Stainless steel pipe 25mm diameter, wall 2mm, for food industry.', lt: 'Nerūdijančio plieno vamzdis 25mm, sienelė 2mm, maisto pramonei.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'AISI 304', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10217-7', inherited: true, options: [] },
@@ -2546,7 +2546,7 @@ export const STORE: Product[] = [
     id: 'prod-067',
     name: { ru: 'Труба оцинкованная 1/2"', en: 'Galvanized Pipe 1/2"', lt: 'Cinkuotas vamzdis 1/2"' },
     categoryId: 'cat-4', categoryName: { ru: 'Трубы', en: 'Pipes', lt: 'Vamzdžiai' }, sku: 'GALV-05', price: 5.60, minStock: 600, priceUnit: 'EUR/vnt', createdAt: '2025-04-01',
-    description: 'Galvanized steel pipe 1/2 inch, for water supply systems.',
+    description: { ru: 'Оцинкованная стальная труба 1/2 дюйма для систем водоснабжения.', en: 'Galvanized steel pipe 1/2 inch, for water supply systems.', lt: 'Cinkuotas plieninis vamzdis 1/2 colio vandens tiekimo sistemoms.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'S235JR', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10255', inherited: true, options: [] },
@@ -2593,7 +2593,7 @@ export const STORE: Product[] = [
     id: 'prod-068',
     name: { ru: 'Труба профильная 80x80x4', en: 'Profile Pipe 80x80x4', lt: 'Profilinis vamzdis 80x80x4' },
     categoryId: 'cat-4', categoryName: { ru: 'Трубы', en: 'Pipes', lt: 'Vamzdžiai' }, sku: 'PP-80-80-4', price: 35.00, minStock: 100, priceUnit: 'EUR/vnt', createdAt: '2025-04-10',
-    description: 'Heavy square profile pipe 80x80mm, wall 4mm, for load-bearing structures.',
+    description: { ru: 'Тяжелая квадратная профильная труба 80x80мм, стенка 4мм, для несущих конструкций.', en: 'Heavy square profile pipe 80x80mm, wall 4mm, for load-bearing structures.', lt: 'Sunkus kvadratinis profilio vamzdis 80x80mm, sienelė 4mm, laikančiosioms konstrukcijoms.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'S355J2', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10219', inherited: true, options: [] },
@@ -2640,7 +2640,7 @@ export const STORE: Product[] = [
     id: 'prod-069',
     name: { ru: 'Труба профильная 100x50x3', en: 'Profile Pipe 100x50x3', lt: 'Profilinis vamzdis 100x50x3' },
     categoryId: 'cat-4', categoryName: { ru: 'Трубы', en: 'Pipes', lt: 'Vamzdžiai' }, sku: 'PP-100-50-3', price: 28.00, minStock: 120, priceUnit: 'EUR/vnt', createdAt: '2025-04-15',
-    description: 'Rectangular profile pipe 100x50mm, wall 3mm, for frames and supports.',
+    description: { ru: 'Прямоугольная профильная труба 100x50мм, стенка 3мм, для каркасов и опор.', en: 'Rectangular profile pipe 100x50mm, wall 3mm, for frames and supports.', lt: 'Stačiakampis profilio vamzdis 100x50mm, sienelė 3mm, rėmams ir atramoms.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'S235JR', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10219', inherited: true, options: [] },
@@ -2671,7 +2671,7 @@ export const STORE: Product[] = [
     id: 'prod-070',
     name: { ru: 'Труба нержавеющая 50x3', en: 'Stainless Pipe 50x3', lt: 'Nerūdijantis vamzdis 50x3' },
     categoryId: 'cat-4', categoryName: { ru: 'Трубы', en: 'Pipes', lt: 'Vamzdžiai' }, sku: 'SSP-50-3', price: 55.00, minStock: 80, priceUnit: 'EUR/vnt', createdAt: '2025-04-20',
-    description: 'Stainless steel pipe 50mm diameter, wall 3mm, for chemical industry.',
+    description: { ru: 'Труба из нержавеющей стали 50мм, стенка 3мм, для химической промышленности.', en: 'Stainless steel pipe 50mm diameter, wall 3mm, for chemical industry.', lt: 'Nerūdijančio plieno vamzdis 50mm, sienelė 3mm, chemijos pramonei.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'AISI 316L', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10217-7', inherited: true, options: [] },
@@ -2718,7 +2718,7 @@ export const STORE: Product[] = [
     id: 'prod-071',
     name: { ru: 'Электроды ESAB OK 46.00 3мм', en: 'ESAB OK 46.00 Electrodes 3mm', lt: 'ESAB OK 46.00 Elektrodai 3mm' },
     categoryId: 'cat-5', categoryName: { ru: 'Расходники', en: 'Consumables', lt: 'Eksploatacinės' }, sku: 'EL-ESAB-3', price: 4.50, minStock: 500, priceUnit: 'EUR/kg', createdAt: '2025-01-10',
-    description: 'Rutile welding electrodes 3mm, for general purpose welding.',
+    description: { ru: 'Рутиловые сварочные электроды 3мм для общей сварки.', en: 'Rutile welding electrodes 3mm, for general purpose welding.', lt: 'Rutiliniai suvirinimo elektrodai 3mm bendram suvirinimui.' },
     fieldValues: [
       { fieldId: 'f-5-1', fieldName: { ru: 'Тип расходника', en: 'Consumable type', lt: 'Eksploatacinės tipas' }, fieldType: 'enum', value: 'Electrode', inherited: false, options: [
         { ru: 'Электрод', en: 'Electrode', lt: 'Elektrodas' }, { ru: 'Проволока', en: 'Wire', lt: 'Viela' }, { ru: 'Газ', en: 'Gas', lt: 'Dujos' },
@@ -2742,7 +2742,7 @@ export const STORE: Product[] = [
     id: 'prod-072',
     name: { ru: 'Электроды ESAB OK 48.00 4мм', en: 'ESAB OK 48.00 Electrodes 4mm', lt: 'ESAB OK 48.00 Elektrodai 4mm' },
     categoryId: 'cat-5', categoryName: { ru: 'Расходники', en: 'Consumables', lt: 'Eksploatacinės' }, sku: 'EL-ESAB-4', price: 5.20, minStock: 400, priceUnit: 'EUR/kg', createdAt: '2025-01-15',
-    description: 'Basic welding electrodes 4mm, for structural welding.',
+    description: { ru: 'Основные сварочные электроды 4мм для конструкционной сварки.', en: 'Basic welding electrodes 4mm, for structural welding.', lt: 'Pagrindiniai suvirinimo elektrodai 4mm konstrukciniam suvirinimui.' },
     fieldValues: [
       { fieldId: 'f-5-1', fieldName: { ru: 'Тип расходника', en: 'Consumable type', lt: 'Eksploatacinės tipas' }, fieldType: 'enum', value: 'Electrode', inherited: false, options: [
         { ru: 'Электрод', en: 'Electrode', lt: 'Elektrodas' }, { ru: 'Проволока', en: 'Wire', lt: 'Viela' }, { ru: 'Газ', en: 'Gas', lt: 'Dujos' },
@@ -2782,7 +2782,7 @@ export const STORE: Product[] = [
     id: 'prod-073',
     name: { ru: 'Проволока сварочная Lincoln L-56 1мм', en: 'Lincoln L-56 Welding Wire 1mm', lt: 'Lincoln L-56 Suvirinimo viela 1mm' },
     categoryId: 'cat-5', categoryName: { ru: 'Расходники', en: 'Consumables', lt: 'Eksploatacinės' }, sku: 'WW-LINCOLN-1', price: 3.80, minStock: 300, priceUnit: 'EUR/kg', createdAt: '2025-02-01',
-    description: 'Copper-coated MIG welding wire 1mm, 15kg spool.',
+    description: { ru: 'Медненная сварочная проволока MIG 1мм, катушка 15кг.', en: 'Copper-coated MIG welding wire 1mm, 15kg spool.', lt: 'Varine danga MIG suvirinimo viela 1mm, 15kg ritė.' },
     fieldValues: [
       { fieldId: 'f-5-1', fieldName: { ru: 'Тип расходника', en: 'Consumable type', lt: 'Eksploatacinės tipas' }, fieldType: 'enum', value: 'Wire', inherited: false, options: [
         { ru: 'Электрод', en: 'Electrode', lt: 'Elektrodas' }, { ru: 'Проволока', en: 'Wire', lt: 'Viela' }, { ru: 'Газ', en: 'Gas', lt: 'Dujos' },
@@ -2822,7 +2822,7 @@ export const STORE: Product[] = [
     id: 'prod-074',
     name: { ru: 'Проволока сварочная ESAB OK Autrod 12.64 1.2мм', en: 'ESAB OK Autrod 12.64 Wire 1.2mm', lt: 'ESAB OK Autrod 12.64 Viela 1.2mm' },
     categoryId: 'cat-5', categoryName: { ru: 'Расходники', en: 'Consumables', lt: 'Eksploatacinės' }, sku: 'WW-ESAB-12', price: 4.10, minStock: 250, priceUnit: 'EUR/kg', createdAt: '2025-02-10',
-    description: 'Metal-cored welding wire 1.2mm, for high-deposition welding.',
+    description: { ru: 'Порошковая сварочная проволока 1.2мм для высокопроизводительной сварки.', en: 'Metal-cored welding wire 1.2mm, for high-deposition welding.', lt: 'Metalo šerdies suvirinimo viela 1.2mm didelės deposicijos suvirinimui.' },
     fieldValues: [
       { fieldId: 'f-5-1', fieldName: { ru: 'Тип расходника', en: 'Consumable type', lt: 'Eksploatacinės tipas' }, fieldType: 'enum', value: 'Wire', inherited: false, options: [
         { ru: 'Электрод', en: 'Electrode', lt: 'Elektrodas' }, { ru: 'Проволока', en: 'Wire', lt: 'Viela' }, { ru: 'Газ', en: 'Gas', lt: 'Dujos' },
@@ -2846,7 +2846,7 @@ export const STORE: Product[] = [
     id: 'prod-075',
     name: { ru: 'Аргон сжатый 40л', en: 'Compressed Argon 40L', lt: 'Spaustas argonas 40L' },
     categoryId: 'cat-5', categoryName: { ru: 'Расходники', en: 'Consumables', lt: 'Eksploatacinės' }, sku: 'ARGON-40', price: 65.00, minStock: 20, priceUnit: 'EUR/vnt', createdAt: '2025-03-01',
-    description: 'Compressed argon gas cylinder 40L, 200 bar, for TIG welding.',
+    description: { ru: 'Баллон сжатого аргона 40л, 200 бар, для TIG сварки.', en: 'Compressed argon gas cylinder 40L, 200 bar, for TIG welding.', lt: 'Spausto argono balionas 40L, 200 bar, TIG suvirinimui.' },
     fieldValues: [
       { fieldId: 'f-5-1', fieldName: { ru: 'Тип расходника', en: 'Consumable type', lt: 'Eksploatacinės tipas' }, fieldType: 'enum', value: 'Gas', inherited: false, options: [
         { ru: 'Электрод', en: 'Electrode', lt: 'Elektrodas' }, { ru: 'Проволока', en: 'Wire', lt: 'Viela' }, { ru: 'Газ', en: 'Gas', lt: 'Dujos' },
@@ -2886,7 +2886,7 @@ export const STORE: Product[] = [
     id: 'prod-076',
     name: { ru: 'Смесь газов Corgon 18 (Ar+CO2) 40л', en: 'Corgon 18 Gas Mix (Ar+CO2) 40L', lt: 'Corgon 18 Dujų mišinys (Ar+CO2) 40L' },
     categoryId: 'cat-5', categoryName: { ru: 'Расходники', en: 'Consumables', lt: 'Eksploatacinės' }, sku: 'CORGON-40', price: 58.00, minStock: 15, priceUnit: 'EUR/vnt', createdAt: '2025-03-10',
-    description: 'Argon + CO2 shielding gas mix for MIG/MAG welding, 40L cylinder.',
+    description: { ru: 'Смесь защитных газов аргон + CO2 для MIG/MAG сварки, баллон 40л.', en: 'Argon + CO2 shielding gas mix for MIG/MAG welding, 40L cylinder.', lt: 'Argono + CO2 apsauginių dujų mišinys MIG/MAG suvirinimui, 40L balionas.' },
     fieldValues: [
       { fieldId: 'f-5-1', fieldName: { ru: 'Тип расходника', en: 'Consumable type', lt: 'Eksploatacinės tipas' }, fieldType: 'enum', value: 'Gas', inherited: false, options: [
         { ru: 'Электрод', en: 'Electrode', lt: 'Elektrodas' }, { ru: 'Проволока', en: 'Wire', lt: 'Viela' }, { ru: 'Газ', en: 'Gas', lt: 'Dujos' },
@@ -2918,7 +2918,7 @@ export const STORE: Product[] = [
     id: 'prod-077',
     name: { ru: 'Кислород сжатый 40л', en: 'Compressed Oxygen 40L', lt: 'Spaustas deguonis 40L' },
     categoryId: 'cat-5', categoryName: { ru: 'Расходники', en: 'Consumables', lt: 'Eksploatacinės' }, sku: 'OXYGEN-40', price: 45.00, minStock: 25, priceUnit: 'EUR/vnt', createdAt: '2025-03-15',
-    description: 'Compressed oxygen cylinder 40L, for cutting and welding.',
+    description: { ru: 'Баллон сжатого кислорода 40л для резки и сварки.', en: 'Compressed oxygen cylinder 40L, for cutting and welding.', lt: 'Spausto deguonies balionas 40L pjovimui ir suvirinimui.' },
     fieldValues: [
       { fieldId: 'f-5-1', fieldName: { ru: 'Тип расходника', en: 'Consumable type', lt: 'Eksploatacinės tipas' }, fieldType: 'enum', value: 'Gas', inherited: false, options: [
         { ru: 'Электрод', en: 'Electrode', lt: 'Elektrodas' }, { ru: 'Проволока', en: 'Wire', lt: 'Viela' }, { ru: 'Газ', en: 'Gas', lt: 'Dujos' },
@@ -2950,7 +2950,7 @@ export const STORE: Product[] = [
     id: 'prod-078',
     name: { ru: 'Пропан сжатый 50л', en: 'Compressed Propane 50L', lt: 'Spaustas propanas 50L' },
     categoryId: 'cat-5', categoryName: { ru: 'Расходники', en: 'Consumables', lt: 'Eksploatacinės' }, sku: 'PROPANE-50', price: 52.00, minStock: 20, priceUnit: 'EUR/vnt', createdAt: '2025-04-01',
-    description: 'Propane gas cylinder 50L, for heating and cutting.',
+    description: { ru: 'Баллон пропана 50л для нагрева и резки.', en: 'Propane gas cylinder 50L, for heating and cutting.', lt: 'Propano dujų balionas 50L šildymui ir pjovimui.' },
     fieldValues: [
       { fieldId: 'f-5-1', fieldName: { ru: 'Тип расходника', en: 'Consumable type', lt: 'Eksploatacinės tipas' }, fieldType: 'enum', value: 'Gas', inherited: false, options: [
         { ru: 'Электрод', en: 'Electrode', lt: 'Elektrodas' }, { ru: 'Проволока', en: 'Wire', lt: 'Viela' }, { ru: 'Газ', en: 'Gas', lt: 'Dujos' },
@@ -2982,7 +2982,7 @@ export const STORE: Product[] = [
     id: 'prod-079',
     name: { ru: 'Ацетилен растворенный 40л', en: 'Dissolved Acetylene 40L', lt: 'Ištirpintas acetilenas 40L' },
     categoryId: 'cat-5', categoryName: { ru: 'Расходники', en: 'Consumables', lt: 'Eksploatacinės' }, sku: 'ACETYLENE-40', price: 75.00, minStock: 10, priceUnit: 'EUR/vnt', createdAt: '2025-04-10',
-    description: 'Dissolved acetylene cylinder 40L, for oxy-fuel cutting.',
+    description: { ru: 'Баллон растворенного ацетилена 40л для газокислородной резки.', en: 'Dissolved acetylene cylinder 40L, for oxy-fuel cutting.', lt: 'Ištirpinto acetileno balionas 40L deguonies-pjovimui.' },
     fieldValues: [
       { fieldId: 'f-5-1', fieldName: { ru: 'Тип расходника', en: 'Consumable type', lt: 'Eksploatacinės tipas' }, fieldType: 'enum', value: 'Gas', inherited: false, options: [
         { ru: 'Электрод', en: 'Electrode', lt: 'Elektrodas' }, { ru: 'Проволока', en: 'Wire', lt: 'Viela' }, { ru: 'Газ', en: 'Gas', lt: 'Dujos' },
@@ -3006,7 +3006,7 @@ export const STORE: Product[] = [
     id: 'prod-080',
     name: { ru: 'Флюс сварочный Lincoln 860 25кг', en: 'Lincoln 860 Welding Flux 25kg', lt: 'Lincoln 860 Suvirinimo fliusas 25kg' },
     categoryId: 'cat-5', categoryName: { ru: 'Расходники', en: 'Consumables', lt: 'Eksploatacinės' }, sku: 'FLUX-LINCOLN-25', price: 38.00, minStock: 50, priceUnit: 'EUR/vnt', createdAt: '2025-04-15',
-    description: 'Agglomerated welding flux for submerged arc welding, 25kg bag.',
+    description: { ru: 'Агломерированный сварочный флюс для сварки под флюсом, мешок 25кг.', en: 'Agglomerated welding flux for submerged arc welding, 25kg bag.', lt: 'Aglomeruotas suvirinimo fliusas lankiniam suvirinimui po fliusu, 25kg maišas.' },
     fieldValues: [
       { fieldId: 'f-5-1', fieldName: { ru: 'Тип расходника', en: 'Consumable type', lt: 'Eksploatacinės tipas' }, fieldType: 'enum', value: 'Electrode', inherited: false, options: [
         { ru: 'Электрод', en: 'Electrode', lt: 'Elektrodas' }, { ru: 'Проволока', en: 'Wire', lt: 'Viela' }, { ru: 'Газ', en: 'Gas', lt: 'Dujos' },
@@ -3030,7 +3030,7 @@ export const STORE: Product[] = [
     id: 'prod-081',
     name: { ru: 'Сварочный аппарат Lincoln Invertec 250', en: 'Lincoln Invertec 250 Welder', lt: 'Lincoln Invertec 250 Suvirinimo aparatas' },
     categoryId: 'cat-6', categoryName: { ru: 'Оборудование', en: 'Equipment', lt: 'Įranga' }, sku: 'WELD-LINCOLN-250', price: 2500.00, minStock: 5, priceUnit: 'EUR/vnt', createdAt: '2025-01-05',
-    description: 'Professional TIG/MMA inverter welder 250A, with pulse function.',
+    description: { ru: 'Профессиональный инверторный сварочный аппарат TIG/MMA 250А с функцией импульса.', en: 'Professional TIG/MMA inverter welder 250A, with pulse function.', lt: 'Profesionalus TIG/MMA inverterinis suvirinimo aparatas 250A su impulsine funkcija.' },
     fieldValues: [
       { fieldId: 'f-6-1', fieldName: { ru: 'Серийный номер', en: 'Serial number', lt: 'Serijos numeris' }, fieldType: 'text', value: 'L250-2025-001', inherited: false, options: [] },
       { fieldId: 'f-6-2', fieldName: { ru: 'Мощность (кВт)', en: 'Power (kW)', lt: 'Galia (kW)' }, fieldType: 'number', value: 8.5, inherited: false, options: [] },
@@ -3069,7 +3069,7 @@ export const STORE: Product[] = [
     id: 'prod-082',
     name: { ru: 'Сварочный аппарат ESAB Rebel EMP 235', en: 'ESAB Rebel EMP 235 Welder', lt: 'ESAB Rebel EMP 235 Suvirinimo aparatas' },
     categoryId: 'cat-6', categoryName: { ru: 'Оборудование', en: 'Equipment', lt: 'Įranga' }, sku: 'WELD-ESAB-235', price: 3200.00, minStock: 3, priceUnit: 'EUR/vnt', createdAt: '2025-01-10',
-    description: 'Multi-process welder MIG/TIG/MMA 235A, with synergic control.',
+    description: { ru: 'Многофункциональный сварочный аппарат MIG/TIG/MMA 235А с синергетическим управлением.', en: 'Multi-process welder MIG/TIG/MMA 235A, with synergic control.', lt: 'Daugiafunkcis suvirinimo aparatas MIG/TIG/MMA 235A su sinerginiu valdymu.' },
     fieldValues: [
       { fieldId: 'f-6-1', fieldName: { ru: 'Серийный номер', en: 'Serial number', lt: 'Serijos numeris' }, fieldType: 'text', value: 'REBEL235-2025-001', inherited: false, options: [] },
       { fieldId: 'f-6-2', fieldName: { ru: 'Мощность (кВт)', en: 'Power (kW)', lt: 'Galia (kW)' }, fieldType: 'number', value: 10.2, inherited: false, options: [] },
@@ -3092,7 +3092,7 @@ export const STORE: Product[] = [
     id: 'prod-083',
     name: { ru: 'Плазморез Hypertherm Powermax 45 XP', en: 'Hypertherm Powermax 45 XP Plasma', lt: 'Hypertherm Powermax 45 XP Plazma' },
     categoryId: 'cat-6', categoryName: { ru: 'Оборудование', en: 'Equipment', lt: 'Įranga' }, sku: 'PLASMA-HT-45', price: 4500.00, minStock: 2, priceUnit: 'EUR/vnt', createdAt: '2025-01-20',
-    description: 'Portable plasma cutter 45A, cuts up to 16mm steel.',
+    description: { ru: 'Портативный плазморез 45А, режет сталь до 16мм.', en: 'Portable plasma cutter 45A, cuts up to 16mm steel.', lt: 'Nešiojamas plazminis pjaustytuvas 45A, pjauna plieną iki 16mm.' },
     fieldValues: [
       { fieldId: 'f-6-1', fieldName: { ru: 'Серийный номер', en: 'Serial number', lt: 'Serijos numeris' }, fieldType: 'text', value: 'PM45XP-2025-001', inherited: false, options: [] },
       { fieldId: 'f-6-2', fieldName: { ru: 'Мощность (кВт)', en: 'Power (kW)', lt: 'Galia (kW)' }, fieldType: 'number', value: 12.0, inherited: false, options: [] },
@@ -3115,7 +3115,7 @@ export const STORE: Product[] = [
     id: 'prod-084',
     name: { ru: 'Станок ленточнопильный Bomar Ergonomic 280', en: 'Bomar Ergonomic 280 Bandsaw', lt: 'Bomar Ergonomic 280 Juostinis pjūklas' },
     categoryId: 'cat-6', categoryName: { ru: 'Оборудование', en: 'Equipment', lt: 'Įranga' }, sku: 'BANDSAW-BOMAR-280', price: 8500.00, minStock: 2, priceUnit: 'EUR/vnt', createdAt: '2025-02-01',
-    description: 'Automatic horizontal bandsaw for metal cutting, 280mm capacity.',
+    description: { ru: 'Автоматическая горизонтальная ленточная пила для резки металла, 280мм.', en: 'Automatic horizontal bandsaw for metal cutting, 280mm capacity.', lt: 'Automatinis horizontalus juostinis pjūklas metalo pjovimui, 280mm talpa.' },
     fieldValues: [
       { fieldId: 'f-6-1', fieldName: { ru: 'Серийный номер', en: 'Serial number', lt: 'Serijos numeris' }, fieldType: 'text', value: 'BOMAR280-2025-001', inherited: false, options: [] },
       { fieldId: 'f-6-2', fieldName: { ru: 'Мощность (кВт)', en: 'Power (kW)', lt: 'Galia (kW)' }, fieldType: 'number', value: 3.0, inherited: false, options: [] },
@@ -3146,7 +3146,7 @@ export const STORE: Product[] = [
     id: 'prod-085',
     name: { ru: 'Листогибочный станок Durma AD-R 30120', en: 'Durma AD-R 30120 Press Brake', lt: 'Durma AD-R 30120 Presas' },
     categoryId: 'cat-6', categoryName: { ru: 'Оборудование', en: 'Equipment', lt: 'Įranga' }, sku: 'PRESS-DURMA-30120', price: 28500.00, minStock: 1, priceUnit: 'EUR/vnt', createdAt: '2025-02-10',
-    description: 'Hydraulic press brake 3000mm, 120 ton, CNC controlled.',
+    description: { ru: 'Гидравлический листогибочный пресс 3000мм, 120 тонн, с ЧПУ.', en: 'Hydraulic press brake 3000mm, 120 ton, CNC controlled.', lt: 'Hidraulinis presinis stabdis 3000mm, 120 tonų, CNC valdomas.' },
     fieldValues: [
       { fieldId: 'f-6-1', fieldName: { ru: 'Серийный номер', en: 'Serial number', lt: 'Serijos numeris' }, fieldType: 'text', value: 'ADR30120-2025-001', inherited: false, options: [] },
       { fieldId: 'f-6-2', fieldName: { ru: 'Мощность (кВт)', en: 'Power (kW)', lt: 'Galia (kW)' }, fieldType: 'number', value: 18.5, inherited: false, options: [] },
@@ -3185,7 +3185,7 @@ export const STORE: Product[] = [
     id: 'prod-086',
     name: { ru: 'Лазерный станок Bystronic ByStar 4020', en: 'Bystronic ByStar 4020 Laser', lt: 'Bystronic ByStar 4020 Lazeris' },
     categoryId: 'cat-6', categoryName: { ru: 'Оборудование', en: 'Equipment', lt: 'Įranga' }, sku: 'LASER-BYST-4020', price: 185000.00, minStock: 1, priceUnit: 'EUR/vnt', createdAt: '2025-02-20',
-    description: 'Fiber laser cutting machine 6kW, 4000x2000mm table.',
+    description: { ru: 'Волоконный лазерный станок 6кВт, стол 4000x2000мм.', en: 'Fiber laser cutting machine 6kW, 4000x2000mm table.', lt: 'Skaidulinis lazerinis pjovimo įrenginys 6kW, 4000x2000mm stalas.' },
     fieldValues: [
       { fieldId: 'f-6-1', fieldName: { ru: 'Серийный номер', en: 'Serial number', lt: 'Serijos numeris' }, fieldType: 'text', value: 'BYST4020-2025-001', inherited: false, options: [] },
       { fieldId: 'f-6-2', fieldName: { ru: 'Мощность (кВт)', en: 'Power (kW)', lt: 'Galia (kW)' }, fieldType: 'number', value: 6.0, inherited: false, options: [] },
@@ -3208,7 +3208,7 @@ export const STORE: Product[] = [
     id: 'prod-087',
     name: { ru: 'Компрессор винтовой Kaeser AS 30', en: 'Kaeser AS 30 Screw Compressor', lt: 'Kaeser AS 30 Sraigtinis kompresorius' },
     categoryId: 'cat-6', categoryName: { ru: 'Оборудование', en: 'Equipment', lt: 'Įranga' }, sku: 'COMP-KAESER-30', price: 12500.00, minStock: 2, priceUnit: 'EUR/vnt', createdAt: '2025-03-01',
-    description: 'Industrial screw compressor 30kW, with integrated dryer.',
+    description: { ru: 'Промышленный винтовой компрессор 30кВт со встроенным осушителем.', en: 'Industrial screw compressor 30kW, with integrated dryer.', lt: 'Pramoninis sraigtinis kompresorius 30kW su integruotu džiovintuvu.' },
     fieldValues: [
       { fieldId: 'f-6-1', fieldName: { ru: 'Серийный номер', en: 'Serial number', lt: 'Serijos numeris' }, fieldType: 'text', value: 'KAESER30-2025-001', inherited: false, options: [] },
       { fieldId: 'f-6-2', fieldName: { ru: 'Мощность (кВт)', en: 'Power (kW)', lt: 'Galia (kW)' }, fieldType: 'number', value: 30.0, inherited: false, options: [] },
@@ -3239,7 +3239,7 @@ export const STORE: Product[] = [
     id: 'prod-088',
     name: { ru: 'Кран мостовой 10т', en: 'Overhead Crane 10t', lt: 'Kabininis kranas 10t' },
     categoryId: 'cat-6', categoryName: { ru: 'Оборудование', en: 'Equipment', lt: 'Įranga' }, sku: 'CRANE-10T', price: 45000.00, minStock: 1, priceUnit: 'EUR/vnt', createdAt: '2025-03-10',
-    description: 'Overhead traveling crane 10 ton capacity, 20m span.',
+    description: { ru: 'Мостовой кран грузоподъемностью 10 тонн, пролет 20м.', en: 'Overhead traveling crane 10 ton capacity, 20m span.', lt: 'Kabininis kranas 10 tonų keliamoji galia, 20m tarpatramis.' },
     fieldValues: [
       { fieldId: 'f-6-1', fieldName: { ru: 'Серийный номер', en: 'Serial number', lt: 'Serijos numeris' }, fieldType: 'text', value: 'CRANE10T-2025-001', inherited: false, options: [] },
       { fieldId: 'f-6-2', fieldName: { ru: 'Мощность (кВт)', en: 'Power (kW)', lt: 'Galia (kW)' }, fieldType: 'number', value: 15.0, inherited: false, options: [] },
@@ -3278,7 +3278,7 @@ export const STORE: Product[] = [
     id: 'prod-089',
     name: { ru: 'Дробеструйная камера Blastrac 2-30DE', en: 'Blastrac 2-30DE Shot Blast', lt: 'Blastrac 2-30DE Srauto pūtimo kamera' },
     categoryId: 'cat-6', categoryName: { ru: 'Оборудование', en: 'Equipment', lt: 'Įranga' }, sku: 'SHOTBLAST-BLASTRAC', price: 18500.00, minStock: 1, priceUnit: 'EUR/vnt', createdAt: '2025-03-20',
-    description: 'Self-propelled shot blasting machine for surface preparation.',
+    description: { ru: 'Самоходная дробеструйная машина для подготовки поверхности.', en: 'Self-propelled shot blasting machine for surface preparation.', lt: 'Savaeigė frakcionuoto pūtimo mašina paviršiaus paruošimui.' },
     fieldValues: [
       { fieldId: 'f-6-1', fieldName: { ru: 'Серийный номер', en: 'Serial number', lt: 'Serijos numeris' }, fieldType: 'text', value: 'BLASTRAC-2025-001', inherited: false, options: [] },
       { fieldId: 'f-6-2', fieldName: { ru: 'Мощность (кВт)', en: 'Power (kW)', lt: 'Galia (kW)' }, fieldType: 'number', value: 22.0, inherited: false, options: [] },
@@ -3317,7 +3317,7 @@ export const STORE: Product[] = [
     id: 'prod-090',
     name: { ru: 'Сварочный стол Siegmund Micro 2000', en: 'Siegmund Micro 2000 Welding Table', lt: 'Siegmund Micro 2000 Suvirinimo stalas' },
     categoryId: 'cat-6', categoryName: { ru: 'Оборудование', en: 'Equipment', lt: 'Įranga' }, sku: 'WELDTABLE-SIEGMUND', price: 3800.00, minStock: 3, priceUnit: 'EUR/vnt', createdAt: '2025-04-01',
-    description: 'Modular welding table 2000x1000mm with clamping system.',
+    description: { ru: 'Модульный сварочный стол 2000x1000мм с системой зажимов.', en: 'Modular welding table 2000x1000mm with clamping system.', lt: 'Modulinis suvirinimo stalas 2000x1000mm su užveržimo sistema.' },
     fieldValues: [
       { fieldId: 'f-6-1', fieldName: { ru: 'Серийный номер', en: 'Serial number', lt: 'Serijos numeris' }, fieldType: 'text', value: 'SIEGMUND-2025-001', inherited: false, options: [] },
       { fieldId: 'f-6-2', fieldName: { ru: 'Мощность (кВт)', en: 'Power (kW)', lt: 'Galia (kW)' }, fieldType: 'number', value: 0, inherited: false, options: [] },
@@ -3356,7 +3356,7 @@ export const STORE: Product[] = [
     id: 'prod-091',
     name: { ru: 'Лист оцинкованный 1.5мм', en: 'Galvanized Sheet 1.5mm', lt: 'Cinkuotas lakštas 1.5mm' },
     categoryId: 'cat-2', categoryName: { ru: 'Листы', en: 'Sheets', lt: 'Lakštai' }, sku: 'GALV-15-1250', price: 85.00, minStock: 100, priceUnit: 'EUR/vnt', createdAt: '2025-04-05',
-    description: 'Galvanized steel sheet 1.5mm, 1250x2500mm, Z275 coating.',
+    description: { ru: 'Оцинкованный стальной лист 1.5мм, 1250x2500мм, покрытие Z275.', en: 'Galvanized steel sheet 1.5mm, 1250x2500mm, Z275 coating.', lt: 'Cinkuotas plieno lakštas 1.5mm, 1250x2500mm, Z275 danga.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'DX51D', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10143', inherited: true, options: [] },
@@ -3385,7 +3385,7 @@ export const STORE: Product[] = [
     id: 'prod-092',
     name: { ru: 'Лист холоднокатаный 1мм', en: 'Cold-rolled Sheet 1mm', lt: 'Šaltai valcuotas lakštas 1mm' },
     categoryId: 'cat-2', categoryName: { ru: 'Листы', en: 'Sheets', lt: 'Lakštai' }, sku: 'CRS-1-1000', price: 65.00, minStock: 150, priceUnit: 'EUR/vnt', createdAt: '2025-04-10',
-    description: 'Cold-rolled steel sheet 1mm, 1000x2000mm, for automotive panels.',
+    description: { ru: 'Холоднокатаный стальной лист 1мм, 1000x2000мм, для автомобильных панелей.', en: 'Cold-rolled steel sheet 1mm, 1000x2000mm, for automotive panels.', lt: 'Šaltai valcuotas plieno lakštas 1mm, 1000x2000mm, automobilių panelėms.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'DC01', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10130', inherited: true, options: [] },
@@ -3422,7 +3422,7 @@ export const STORE: Product[] = [
     id: 'prod-093',
     name: { ru: 'Лист нержавеющий 2мм', en: 'Stainless Sheet 2mm', lt: 'Nerūdijantis lakštas 2mm' },
     categoryId: 'cat-2', categoryName: { ru: 'Листы', en: 'Sheets', lt: 'Lakštai' }, sku: 'STST-2-1250', price: 220.00, minStock: 50, priceUnit: 'EUR/vnt', createdAt: '2025-04-15',
-    description: 'Stainless steel sheet 2mm, 1250x2500mm, AISI 304, 2B finish.',
+    description: { ru: 'Лист нержавеющей стали 2мм, 1250x2500мм, AISI 304, 2B отделка.', en: 'Stainless steel sheet 2mm, 1250x2500mm, AISI 304, 2B finish.', lt: 'Nerūdijančio plieno lakštas 2mm, 1250x2500mm, AISI 304, 2B apdaila.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'AISI 304', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10088-2', inherited: true, options: [] },
@@ -3459,7 +3459,7 @@ export const STORE: Product[] = [
     id: 'prod-094',
     name: { ru: 'Лист алюминиевый 3мм', en: 'Aluminum Sheet 3mm', lt: 'Aliuminio lakštas 3mm' },
     categoryId: 'cat-2', categoryName: { ru: 'Листы', en: 'Sheets', lt: 'Lakštai' }, sku: 'AL-3-1200', price: 145.00, minStock: 60, priceUnit: 'EUR/vnt', createdAt: '2025-04-20',
-    description: 'Aluminum sheet 3mm, 1200x2400mm, alloy 5083, marine grade.',
+    description: { ru: 'Алюминиевый лист 3мм, 1200x2400мм, сплав 5083, морского исполнения.', en: 'Aluminum sheet 3mm, 1200x2400mm, alloy 5083, marine grade.', lt: 'Aliuminio lakštas 3mm, 1200x2400mm, lydinys 5083, jūrinės klasės.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'EN AW-5083', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 485', inherited: true, options: [] },
@@ -3488,7 +3488,7 @@ export const STORE: Product[] = [
     id: 'prod-095',
     name: { ru: 'Лист оцинкованный 0.7мм', en: 'Galvanized Sheet 0.7mm', lt: 'Cinkuotas lakštas 0.7mm' },
     categoryId: 'cat-2', categoryName: { ru: 'Листы', en: 'Sheets', lt: 'Lakštai' }, sku: 'GALV-07-1250', price: 52.00, minStock: 200, priceUnit: 'EUR/vnt', createdAt: '2025-04-25',
-    description: 'Thin galvanized sheet 0.7mm, for roofing and cladding.',
+    description: { ru: 'Тонкий оцинкованный лист 0.7мм для кровли и облицовки.', en: 'Thin galvanized sheet 0.7mm, for roofing and cladding.', lt: 'Plonas cinkuotas lakštas 0.7mm stogams ir apdailai.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'DX51D', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10143', inherited: true, options: [] },
@@ -3525,7 +3525,7 @@ export const STORE: Product[] = [
     id: 'prod-096',
     name: { ru: 'Труба профильная 30x30x2', en: 'Profile Pipe 30x30x2', lt: 'Profilinis vamzdis 30x30x2' },
     categoryId: 'cat-4', categoryName: { ru: 'Трубы', en: 'Pipes', lt: 'Vamzdžiai' }, sku: 'PP-30-30-2', price: 12.00, minStock: 300, priceUnit: 'EUR/vnt', createdAt: '2025-05-01',
-    description: 'Small square profile pipe 30x30mm, wall 2mm, for light frames.',
+    description: { ru: 'Малая квадратная профильная труба 30x30мм, стенка 2мм, для легких каркасов.', en: 'Small square profile pipe 30x30mm, wall 2mm, for light frames.', lt: 'Mažas kvadratinis profilio vamzdis 30x30mm, sienelė 2mm, lengviems rėmams.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'S235JR', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10219', inherited: true, options: [] },
@@ -3564,7 +3564,7 @@ export const STORE: Product[] = [
     id: 'prod-097',
     name: { ru: 'Труба круглая 32x3', en: 'Round Pipe 32x3', lt: 'Apvalus vamzdis 32x3' },
     categoryId: 'cat-4', categoryName: { ru: 'Трубы', en: 'Pipes', lt: 'Vamzdžiai' }, sku: 'RP-32-3', price: 9.50, minStock: 400, priceUnit: 'EUR/vnt', createdAt: '2025-05-05',
-    description: 'Seamless round pipe 32mm diameter, wall 3mm, for hydraulic lines.',
+    description: { ru: 'Бесшовная круглая труба 32мм, стенка 3мм, для гидравлических линий.', en: 'Seamless round pipe 32mm diameter, wall 3mm, for hydraulic lines.', lt: 'Besiūlis apvalus vamzdis 32mm, sienelė 3mm, hidraulinėms linijoms.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'E235', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10216', inherited: true, options: [] },
@@ -3595,7 +3595,7 @@ export const STORE: Product[] = [
     id: 'prod-098',
     name: { ru: 'Труба профильная 120x60x4', en: 'Profile Pipe 120x60x4', lt: 'Profilinis vamzdis 120x60x4' },
     categoryId: 'cat-4', categoryName: { ru: 'Трубы', en: 'Pipes', lt: 'Vamzdžiai' }, sku: 'PP-120-60-4', price: 42.00, minStock: 80, priceUnit: 'EUR/vnt', createdAt: '2025-05-10',
-    description: 'Large rectangular profile pipe 120x60mm, wall 4mm, for heavy structures.',
+    description: { ru: 'Большая прямоугольная профильная труба 120x60мм, стенка 4мм, для тяжелых конструкций.', en: 'Large rectangular profile pipe 120x60mm, wall 4mm, for heavy structures.', lt: 'Didelis stačiakampis profilio vamzdis 120x60mm, sienelė 4mm, sunkioms konstrukcijoms.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'S355J2', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10219', inherited: true, options: [] },
@@ -3634,7 +3634,7 @@ export const STORE: Product[] = [
     id: 'prod-099',
     name: { ru: 'Труба нержавеющая 100x4', en: 'Stainless Pipe 100x4', lt: 'Nerūdijantis vamzdis 100x4' },
     categoryId: 'cat-4', categoryName: { ru: 'Трубы', en: 'Pipes', lt: 'Vamzdžiai' }, sku: 'SSP-100-4', price: 120.00, minStock: 40, priceUnit: 'EUR/vnt', createdAt: '2025-05-15',
-    description: 'Large stainless steel pipe 100mm diameter, wall 4mm, for process industry.',
+    description: { ru: 'Большая труба из нержавеющей стали 100мм, стенка 4мм, для технологической промышленности.', en: 'Large stainless steel pipe 100mm diameter, wall 4mm, for process industry.', lt: 'Didelis nerūdijančio plieno vamzdis 100mm, sienelė 4mm, procesų pramonei.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'AISI 316L', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10217-7', inherited: true, options: [] },
@@ -3681,7 +3681,7 @@ export const STORE: Product[] = [
     id: 'prod-100',
     name: { ru: 'Лист высокопрочный Hardox 450 6мм', en: 'Hardox 450 Wear Plate 6mm', lt: 'Hardox 450 Atsparus dilimui lakštas 6mm' },
     categoryId: 'cat-2', categoryName: { ru: 'Листы', en: 'Sheets', lt: 'Lakštai' }, sku: 'HARDOX-6-1500', price: 450.00, minStock: 30, priceUnit: 'EUR/vnt', createdAt: '2025-05-20',
-    description: 'Hardox 450 wear-resistant steel plate 6mm, 1500x3000mm, for heavy machinery.',
+    description: { ru: 'Износостойкая стальная плита Hardox 450 6мм, 1500x3000мм, для тяжелой техники.', en: 'Hardox 450 wear-resistant steel plate 6mm, 1500x3000mm, for heavy machinery.', lt: 'Hardox 450 atspari dilimui plieno plokštė 6mm, 1500x3000mm, sunkiajai technikai.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'Hardox 450', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10025', inherited: true, options: [] },
@@ -3711,7 +3711,7 @@ export const STORE: Product[] = [
     id: 'prod-101',
     name: { ru: 'Балка IPE 200 S235JR', en: 'IPE 200 Beam S235JR', lt: 'IPE 200 Sija S235JR' },
     categoryId: 'cat-7', categoryName: { ru: 'Балки', en: 'Beams', lt: 'Sijos' }, sku: 'IPE-200-S235', price: 185.00, minStock: 20, priceUnit: 'EUR/vnt', createdAt: '2025-06-01',
-    description: 'IPE 200 steel beam, S235JR, height 200mm, for structural applications.',
+    description: { ru: 'Стальная балка IPE 200, S235JR, высота 200мм, для конструкций.', en: 'IPE 200 steel beam, S235JR, height 200mm, for structural applications.', lt: 'Plieninė sija IPE 200, S235JR, aukštis 200mm, konstrukciniam naudojimui.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'S235JR', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10025-2', inherited: true, options: [] },
@@ -3758,7 +3758,7 @@ export const STORE: Product[] = [
     id: 'prod-102',
     name: { ru: 'Балка HEA 300 S355J2', en: 'HEA 300 Beam S355J2', lt: 'HEA 300 Sija S355J2' },
     categoryId: 'cat-7', categoryName: { ru: 'Балки', en: 'Beams', lt: 'Sijos' }, sku: 'HEA-300-S355', price: 320.00, minStock: 15, priceUnit: 'EUR/vnt', createdAt: '2025-06-01',
-    description: 'HEA 300 wide flange beam, S355J2, height 300mm, for heavy structural loads.',
+    description: { ru: 'Широкополочная балка HEA 300, S355J2, высота 300мм, для тяжелых нагрузок.', en: 'HEA 300 wide flange beam, S355J2, height 300mm, for heavy structural loads.', lt: 'Plačiaflanšė sija HEA 300, S355J2, aukštis 300mm, didelėms konstrukcinėms apkrovoms.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'S355J2', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10025-2', inherited: true, options: [] },
@@ -3798,7 +3798,7 @@ export const STORE: Product[] = [
     id: 'prod-103',
     name: { ru: 'Швеллер UPN 100 S235JR', en: 'UPN 100 Channel S235JR', lt: 'UPN 100 Šveleris S235JR' },
     categoryId: 'cat-8', categoryName: { ru: 'Швеллеры', en: 'Channels', lt: 'Šveleriai' }, sku: 'UPN-100-S235', price: 95.00, minStock: 25, priceUnit: 'EUR/vnt', createdAt: '2025-06-05',
-    description: 'UPN 100 steel channel, S235JR, height 100mm, for structural framing.',
+    description: { ru: 'Стальной швеллер UPN 100, S235JR, высота 100мм, для строительных каркасов.', en: 'UPN 100 steel channel, S235JR, height 100mm, for structural framing.', lt: 'Plieninis šveleris UPN 100, S235JR, aukštis 100mm, konstrukciniams karkasams.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'S235JR', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10279', inherited: true, options: [] },
@@ -3834,7 +3834,7 @@ export const STORE: Product[] = [
     id: 'prod-104',
     name: { ru: 'Швеллер UPN 200 S355J2', en: 'UPN 200 Channel S355J2', lt: 'UPN 200 Šveleris S355J2' },
     categoryId: 'cat-8', categoryName: { ru: 'Швеллеры', en: 'Channels', lt: 'Šveleriai' }, sku: 'UPN-200-S355', price: 210.00, minStock: 20, priceUnit: 'EUR/vnt', createdAt: '2025-06-05',
-    description: 'UPN 200 steel channel, S355J2, height 200mm, for heavy-duty structural support.',
+    description: { ru: 'Стальной швеллер UPN 200, S355J2, высота 200мм, для тяжелых конструкций.', en: 'UPN 200 steel channel, S355J2, height 200mm, for heavy-duty structural support.', lt: 'Plieninis šveleris UPN 200, S355J2, aukštis 200mm, sunkioms konstrukcijoms.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'S355J2', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10279', inherited: true, options: [] },
@@ -3863,7 +3863,7 @@ export const STORE: Product[] = [
     id: 'prod-105',
     name: { ru: 'Уголок равнополочный 50x50x5 S235JR', en: 'Equal Angle 50x50x5 S235JR', lt: 'Lygiakraštis kampainis 50x50x5 S235JR' },
     categoryId: 'cat-9', categoryName: { ru: 'Уголки', en: 'Angles', lt: 'Kampainiai' }, sku: 'ANG-50-50-5-S235', price: 45.00, minStock: 50, priceUnit: 'EUR/vnt', createdAt: '2025-06-10',
-    description: 'Equal angle steel bar 50x50x5mm, S235JR, for light structural bracing.',
+    description: { ru: 'Равнополочный уголок 50x50x5мм, S235JR, для легких строительных связей.', en: 'Equal angle steel bar 50x50x5mm, S235JR, for light structural bracing.', lt: 'Lygiakraštis kampainis 50x50x5mm, S235JR, lengviems konstrukciniams ryšiams.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'S235JR', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10056-1', inherited: true, options: [] },
@@ -3909,7 +3909,7 @@ export const STORE: Product[] = [
     id: 'prod-106',
     name: { ru: 'Уголок неравнополочный 80x60x6 S355J2', en: 'Unequal Angle 80x60x6 S355J2', lt: 'Nelygiakraštis kampainis 80x60x6 S355J2' },
     categoryId: 'cat-9', categoryName: { ru: 'Уголки', en: 'Angles', lt: 'Kampainiai' }, sku: 'ANG-80-60-6-S355', price: 72.00, minStock: 35, priceUnit: 'EUR/vnt', createdAt: '2025-06-10',
-    description: 'Unequal angle steel bar 80x60x6mm, S355J2, for structural connections.',
+    description: { ru: 'Неравнополочный уголок 80x60x6мм, S355J2, для конструкционных соединений.', en: 'Unequal angle steel bar 80x60x6mm, S355J2, for structural connections.', lt: 'Nelygiakraštis kampainis 80x60x6mm, S355J2, konstrukciniams sujungimams.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'S355J2', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10056-1', inherited: true, options: [] },
@@ -3940,7 +3940,7 @@ export const STORE: Product[] = [
     id: 'prod-107',
     name: { ru: 'Арматура A500C 12мм', en: 'Rebar A500C 12mm', lt: 'Armatūra A500C 12mm' },
     categoryId: 'cat-10', categoryName: { ru: 'Арматура', en: 'Rebars', lt: 'Armatūra' }, sku: 'REB-A500C-12', price: 1.20, minStock: 500, priceUnit: 'EUR/m', createdAt: '2025-06-15',
-    description: 'Reinforcement steel bar A500C, 12mm diameter, for concrete reinforcement.',
+    description: { ru: 'Арматурный стержень A500C, диаметр 12мм, для армирования бетона.', en: 'Reinforcement steel bar A500C, 12mm diameter, for concrete reinforcement.', lt: 'Armatūrinis strypas A500C, 12mm skersmuo, betono armavimui.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'A500C', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10080', inherited: true, options: [] },
@@ -3978,7 +3978,7 @@ export const STORE: Product[] = [
     id: 'prod-108',
     name: { ru: 'Арматура B500C 16мм', en: 'Rebar B500C 16mm', lt: 'Armatūra B500C 16mm' },
     categoryId: 'cat-10', categoryName: { ru: 'Арматура', en: 'Rebars', lt: 'Armatūra' }, sku: 'REB-B500C-16', price: 1.80, minStock: 400, priceUnit: 'EUR/m', createdAt: '2025-06-15',
-    description: 'Reinforcement steel bar B500C, 16mm diameter, high ductility for seismic applications.',
+    description: { ru: 'Арматурный стержень B500C, диаметр 16мм, высокая пластичность для сейсмических применений.', en: 'Reinforcement steel bar B500C, 16mm diameter, high ductility for seismic applications.', lt: 'Armatūrinis strypas B500C, 16mm skersmuo, didelis plastiškumas seisminėms reikmėms.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'B500C', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10080', inherited: true, options: [] },
@@ -4017,7 +4017,7 @@ export const STORE: Product[] = [
     id: 'prod-109',
     name: { ru: 'Профиль квадратный 40x40x3 S235JR', en: 'Square Tube 40x40x3 S235JR', lt: 'Kvadratinis vamzdis 40x40x3 S235JR' },
     categoryId: 'cat-11', categoryName: { ru: 'Профили', en: 'Profiles', lt: 'Profiliai' }, sku: 'SQR-40-40-3-S235', price: 28.00, minStock: 60, priceUnit: 'EUR/vnt', createdAt: '2025-06-20',
-    description: 'Square hollow section 40x40x3mm, S235JR, for light structural frames.',
+    description: { ru: 'Квадратный полый профиль 40x40x3мм, S235JR, для легких строительных каркасов.', en: 'Square hollow section 40x40x3mm, S235JR, for light structural frames.', lt: 'Kvadratinis tuščiaviduris profilis 40x40x3mm, S235JR, lengviems konstrukciniams rėmams.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'S235JR', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10219-1', inherited: true, options: [] },
@@ -4063,7 +4063,7 @@ export const STORE: Product[] = [
     id: 'prod-110',
     name: { ru: 'Профиль прямоугольный 80x40x4 S355J2', en: 'Rectangular Tube 80x40x4 S355J2', lt: 'Stačiakampis vamzdis 80x40x4 S355J2' },
     categoryId: 'cat-11', categoryName: { ru: 'Профили', en: 'Profiles', lt: 'Profiliai' }, sku: 'RECT-80-40-4-S355', price: 52.00, minStock: 40, priceUnit: 'EUR/vnt', createdAt: '2025-06-20',
-    description: 'Rectangular hollow section 80x40x4mm, S355J2, for structural frameworks.',
+    description: { ru: 'Прямоугольный полый профиль 80x40x4мм, S355J2, для конструкционных каркасов.', en: 'Rectangular hollow section 80x40x4mm, S355J2, for structural frameworks.', lt: 'Stačiakampis tuščiaviduris profilis 80x40x4mm, S355J2, konstrukciniams karkasams.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'S355J2', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10219-1', inherited: true, options: [] },
@@ -4094,7 +4094,7 @@ export const STORE: Product[] = [
     id: 'prod-111',
     name: { ru: 'Проволока оцинкованная 3мм', en: 'Galvanized Wire 3mm', lt: 'Cinkuota viela 3mm' },
     categoryId: 'cat-12', categoryName: { ru: 'Проволока', en: 'Wire', lt: 'Viela' }, sku: 'WIRE-GALV-3', price: 0.85, minStock: 200, priceUnit: 'EUR/kg', createdAt: '2025-06-25',
-    description: 'Galvanized steel wire 3mm diameter, in coils, for fencing and binding.',
+    description: { ru: 'Оцинкованная стальная проволока 3мм, в бухтах, для ограждений и вязки.', en: 'Galvanized steel wire 3mm diameter, in coils, for fencing and binding.', lt: 'Cinkuota plieno viela 3mm, ritėse, tvoroms ir rišimui.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'S235JR', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10244-2', inherited: true, options: [] },
@@ -4131,7 +4131,7 @@ export const STORE: Product[] = [
     id: 'prod-112',
     name: { ru: 'Проволока сварочная 1.2мм ER70S-6', en: 'Welding Wire 1.2mm ER70S-6', lt: 'Suvirinimo viela 1.2mm ER70S-6' },
     categoryId: 'cat-12', categoryName: { ru: 'Проволока', en: 'Wire', lt: 'Viela' }, sku: 'WIRE-WELD-1.2', price: 2.50, minStock: 100, priceUnit: 'EUR/kg', createdAt: '2025-06-25',
-    description: 'Copper-coated welding wire ER70S-6, 1.2mm, for MIG/MAG welding applications.',
+    description: { ru: 'Медненная сварочная проволока ER70S-6, 1.2мм, для MIG/MAG сварки.', en: 'Copper-coated welding wire ER70S-6, 1.2mm, for MIG/MAG welding applications.', lt: 'Varine danga suvirinimo viela ER70S-6, 1.2mm, MIG/MAG suvirinimui.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'ER70S-6', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'AWS A5.18', inherited: true, options: [] },
@@ -4161,7 +4161,7 @@ export const STORE: Product[] = [
     id: 'prod-113',
     name: { ru: 'Отвод 90° DN50 S235JR', en: 'Elbow 90° DN50 S235JR', lt: 'Alkūnė 90° DN50 S235JR' },
     categoryId: 'cat-13', categoryName: { ru: 'Фитинги', en: 'Fittings', lt: 'Jungiamosios detalės' }, sku: 'ELB-90-DN50-S235', price: 8.50, minStock: 80, priceUnit: 'EUR/vnt', createdAt: '2025-07-01',
-    description: 'Steel pipe elbow 90°, DN50, S235JR, welded type, for pipeline systems.',
+    description: { ru: 'Стальной трубный отвод 90°, DN50, S235JR, сварной тип, для трубопроводов.', en: 'Steel pipe elbow 90°, DN50, S235JR, welded type, for pipeline systems.', lt: 'Plieninis vamzdžio alkūnė 90°, DN50, S235JR, suvirintas tipas, vamzdynams.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'S235JR', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 10253-2', inherited: true, options: [] },
@@ -4208,7 +4208,7 @@ export const STORE: Product[] = [
     id: 'prod-114',
     name: { ru: 'Фланец DN100 PN16 S355J2', en: 'Flange DN100 PN16 S355J2', lt: 'Flanšas DN100 PN16 S355J2' },
     categoryId: 'cat-13', categoryName: { ru: 'Фитинги', en: 'Fittings', lt: 'Jungiamosios detalės' }, sku: 'FLG-DN100-PN16', price: 22.00, minStock: 50, priceUnit: 'EUR/vnt', createdAt: '2025-07-01',
-    description: 'Steel flange DN100, PN16 rating, S355J2, flanged connection type, for pipeline systems.',
+    description: { ru: 'Стальной фланец DN100, PN16, S355J2, фланцевый тип соединения, для трубопроводов.', en: 'Steel flange DN100, PN16 rating, S355J2, flanged connection type, for pipeline systems.', lt: 'Plieninis flanšas DN100, PN16, S355J2, flanšinis jungties tipas, vamzdynams.' },
     fieldValues: [
       { fieldId: 'f-1-1', fieldName: { ru: 'Марка стали', en: 'Steel grade', lt: 'Plieno markė' }, fieldType: 'text', value: 'S355J2', inherited: true, options: [] },
       { fieldId: 'f-1-2', fieldName: { ru: 'Стандарт / ГОСТ', en: 'Standard / GOST', lt: 'Standartas / GOST' }, fieldType: 'text', value: 'EN 1092-1', inherited: true, options: [] },
@@ -4309,7 +4309,7 @@ export async function mockCreateProduct(data: {
   categoryId: string
   categoryName?: TranslatedString | string | null
   sku?: string | null
-  description?: string | null
+  description?: TranslatedString | string | null
   price?: number | null
   minStock?: number | null
   priceUnit?: PriceUnit | null
@@ -4370,13 +4370,20 @@ export async function mockCreateProduct(data: {
     fieldValues = []
   }
 
+  // Normalise description: if it's a plain string, wrap it as single-locale TranslatedString
+  const description: TranslatedString | null = data.description == null
+    ? null
+    : typeof data.description === 'string'
+      ? toTranslatedString(data.description, locale)
+      : data.description
+
   const product: Product = {
     id: `prod-${String(STORE.length + 1).padStart(3, '0')}`,
     name,
     categoryId: data.categoryId,
     categoryName,
     sku: data.sku ?? null,
-    description: data.description ?? null,
+    description,
     price: data.price ?? null,
     minStock: data.minStock ?? null,
     priceUnit: data.priceUnit ?? null,
@@ -4406,7 +4413,7 @@ export async function mockPatchProduct(id: string, data: Partial<{
   categoryId: string
   categoryName: TranslatedString | string | null
   sku: string | null
-  description: string | null
+  description: TranslatedString | string | null
   price: number | null
   minStock: number | null
   priceUnit: PriceUnit | null
@@ -4423,13 +4430,22 @@ export async function mockPatchProduct(id: string, data: Partial<{
   const patchCategoryName: TranslatedString | undefined = data.categoryName
     ? typeof data.categoryName === 'string' ? toTranslatedString(data.categoryName, locale) : data.categoryName
     : undefined
+  // Normalise description: wrap plain string to TranslatedString
+  const descRaw = data.description
+  const patchDescription: TranslatedString | undefined | null = descRaw === undefined
+    ? undefined
+    : descRaw === null
+      ? null
+      : typeof descRaw === 'string'
+        ? toTranslatedString(descRaw, locale)
+        : (descRaw as TranslatedString)
   const patched: Product = {
     id: existing.id,
     name: patchName ? mergeTranslatedString(existing.name, patchName) : existing.name,
     categoryId: data.categoryId ?? existing.categoryId,
     categoryName: patchCategoryName ? mergeTranslatedString(existing.categoryName, patchCategoryName) : existing.categoryName,
     sku: data.sku !== undefined ? data.sku : existing.sku,
-    description: data.description !== undefined ? data.description : existing.description,
+    description: patchDescription !== undefined ? patchDescription : existing.description,
     price: data.price !== undefined ? data.price : existing.price,
     minStock: data.minStock !== undefined ? data.minStock : existing.minStock,
     priceUnit: data.priceUnit !== undefined ? data.priceUnit : existing.priceUnit,
@@ -4442,11 +4458,14 @@ export async function mockPatchProduct(id: string, data: Partial<{
   return patched
 }
 
-export async function mockDeleteProduct(id: string): Promise<boolean> {
+export async function mockDeleteProduct(id: string): Promise<{ ok: boolean; code?: string }> {
   const idx = STORE.findIndex(p => p.id === id)
-  if (idx === -1) return false
+  if (idx === -1) return { ok: false, code: 'PRODUCT_NOT_FOUND' }
+  // Simulate PRODUCT_IN_USE for certain products (those linked to active orders)
+  const productsInUse = new Set(['prod-001', 'prod-005', 'prod-010'])
+  if (productsInUse.has(id)) return { ok: false, code: 'PRODUCT_IN_USE' }
   STORE.splice(idx, 1)
-  return true
+  return { ok: true }
 }
 
 export function mockDeleteProductAuditEntry(productId: string, entryIndex: number): void {

@@ -166,10 +166,54 @@
 
 ## Analytics
 
+Pages: `DashboardPage`, `WarehousePage`, `SalesPage`, `SupplyPage`, `StaffPage`, `LogisticsPage`, `PlReportPage`, `DeficitPage`. Service `analyticsService.ts`.
+
 ### GET /api/analytics/:page
-- **Query:** `period?: 'day' | 'week' | 'month' | 'year'`, `dateFrom?: string`, `dateTo?: string`
-- **Response:** `ApiResponse<DashboardData>`
-- **Page variants:** dashboard, suppliers, warehouse, production, sales, clients, finance, reports
+
+Common endpoint for all 8 analytics pages. `:page` accepts a literal from `AnalyticsPageKey`. **All 8 pages return the shared `DashboardData` shape** — discriminated union is not used.
+
+- **When:** `onMounted` of each analytics view → `getAnalyticsPage(key)`.
+- **Params:** `page` ∈ `'dashboard' | 'warehouse' | 'sales' | 'supply' | 'staff' | 'logistics' | 'pl-report' | 'deficit'`
+- **Query (optional, future):** `{ from?: string; to?: string; granularity?: 'day' | 'week' | 'month' }` — currently views have no filters, but reserved.
+- **Response 200:** `DashboardData`.
+  ```ts
+  interface DashboardData {
+    kpis: KpiItem[]
+    salesByCategory: ChartBarItem[]
+    alerts: AlertItem[]
+    sectionPreviews: AnalyticsSectionPreview[]
+  }
+  ```
+  ```json
+  { "success": true, "data": { "kpis": [{ "key": "revenue", "value": "€ 1.2M", "delta": "+12%", "trend": "up", "icon": "chart-line", "iconColor": "green" }], "salesByCategory": [{ "label": "Sheets", "value": 240000, "percentage": 34 }], "alerts": [{ "type": "deficit", "description": "Rebar A500C below safety stock", "status": "critical" }], "sectionPreviews": [{ "key": "warehouse", "title": "Warehouse", "metrics": [{ "label": "Turnover", "value": "4.2x", "status": "ok" }] }] } }
+  ```
+- **Notes:** Heavy cache (5 min per-user). Requires `read` permission on corresponding module.
+
+Endpoints by page (all same `ApiResponse<DashboardData>` form):
+
+### GET /api/analytics/dashboard
+General overview. KPIs + sales chart + alerts + section previews (8 widget cards).
+
+### GET /api/analytics/warehouse
+Warehouse. KPI: stock levels, turnover; alerts: overflow/shortage.
+
+### GET /api/analytics/sales
+Sales. KPI: revenue, orders, avg ticket; chart: sales by category; alerts: overdue.
+
+### GET /api/analytics/supply
+Supply/Procurement. KPI: in-transit, overdue; chart: lead time by supplier.
+
+### GET /api/analytics/staff
+Staff. KPI: active employees, hours, completed tasks.
+
+### GET /api/analytics/logistics
+Logistics. KPI: shipments, damages; chart: lanes.
+
+### GET /api/analytics/pl-report
+P&L. KPI: gross/net profit, margin; chart: by month.
+
+### GET /api/analytics/deficit
+Deficit. KPI: total SKU in deficit, critical; alerts: per-SKU.
 
 ---
 
@@ -230,7 +274,7 @@
 ## Clients
 
 ### GET /api/clients
-- **Query:** `search?: string`, `status?: 'active' | 'inactive'`, `page?: number`, `pageSize?: number`
+- **Query:** `search?: string`, `status?: 'active' | 'inactive'`, `sortBy?: 'name' | 'email' | 'status'`, `sortDir?: 'asc' | 'desc'`, `page?: number`, `pageSize?: number`
 - **Response:** `PaginatedResponse<Client>`
 - **Save mode:** quick-action (list filters)
 
@@ -255,6 +299,33 @@
 - **Response:** `ApiResponse<null>`
 - **Errors:** NOT_FOUND, CONFLICT (client has active orders)
 - **Save mode:** quick-action (delete with confirm modal)
+
+---
+## Client audit
+
+### GET /api/clients/:id/audit
+- **When:** `onMounted` of client card → audit tab.
+- **Response 200:** `ApiResponse<StockAuditEntry[]>` — full audit log for the client.
+- **Notes:** Returns array of audit entries with `timestamp`, `user` (TranslatedString), `userInitials`, `property` (TranslatedString), `oldValue`, `newValue`.
+
+### DELETE /api/clients/:id/audit/:entryIndex
+- **When:** Delete button on audit row.
+- **Response 200:** `ApiResponse<null>`.
+- **Notes:** Uses numeric index (0-based) to identify entry. Server removes entry from array.
+
+---
+## Client interactions
+
+### POST /api/clients/:id/interactions
+- **When:** Save interaction form on client card.
+- **Body:** `{ type: 'call' | 'email' | 'note' | 'meeting', date: string (ISO date), summary: string, user: string, rejectionReason?: string | null }`.
+- **Response 200:** `ApiResponse<InteractionHistoryEntry>` — created interaction entry.
+- **Notes:** Pushes to `interactionHistory[]` array.
+
+### DELETE /api/clients/:id/interactions/:entryIndex
+- **When:** Delete interaction button.
+- **Response 200:** `ApiResponse<null>`.
+- **Notes:** Uses numeric index to identify entry.
 
 ---
 
@@ -300,6 +371,8 @@ Page: `OrdersListPage.vue`. Composable: `useOrders`.
     clientId?: string
     dateFrom?: string     // ISO
     dateTo?: string       // ISO
+    sortBy?: 'orderNumber' | 'clientName' | 'status' | 'totalAmount' | 'createdAt'
+    sortDir?: 'asc' | 'desc'
     page: string          // "1"
     pageSize: string      // "25"
   }
@@ -355,6 +428,7 @@ Page: `OrderCardPage.vue`. Composable: `useOrderCard` + `useDirtyCheck`.
     notes?: string | null
     documentType?: 'local' | 'export'
     currency?: string
+    orderDiscount?: number    // percentage discount (0-100), applied client-side to totals
   }
   ```
   Note: `status` changes are handled via dedicated `PATCH /api/orders/:id/status` (quick-action, immediate).
@@ -412,6 +486,31 @@ Page: `OrderCardPage.vue`. Composable: `useOrderCard` + `useDirtyCheck`.
 
 - **When:** remove service from order.
 - **Response 200:** `ApiResponse<void>`.
+
+---
+
+## Order audit
+
+### DELETE /api/orders/:id/audit/:entryIndex
+
+- **When:** Delete audit entry on order card.
+- **Response 200:** `ApiResponse<null>`.
+- **Notes:** Uses numeric index to identify entry in auditLog array.
+
+---
+
+## Order files
+
+### POST /api/orders/:id/files
+
+- **When:** File uploaded via DropZone → Save.
+- **Body:** `{ fileId: string }` — fileId from `/api/uploads`.
+- **Response 200:** `ApiResponse<OrderFile>` — created file entry with server-assigned id.
+
+### DELETE /api/orders/:id/files/:fileId
+
+- **When:** Remove file button.
+- **Response 200:** `ApiResponse<null>`.
 
 ---
 

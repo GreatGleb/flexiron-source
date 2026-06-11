@@ -42,8 +42,13 @@ export function useProducts() {
       await deleteProductApi(id)
       toast.success(t('products.toast_deleted'))
       await load()
-    } catch {
-      toast.error(t('products.toast_error_delete'))
+    } catch (e) {
+      const code = e instanceof Error ? e.message : ''
+      if (code === 'PRODUCT_IN_USE') {
+        toast.error(t('products.toast_error_delete_in_use'))
+      } else {
+        toast.error(t('products.toast_error_delete'))
+      }
     }
   }
 

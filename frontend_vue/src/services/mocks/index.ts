@@ -120,14 +120,17 @@ import {
   mockSaveSettings,
   mockGetCompany,
   mockSaveCompany,
+  mockPatchCompany,
   mockGetConstants,
   mockSaveConstants,
+  mockPatchConstants,
   mockGetCurrencies,
   mockCreateCurrency,
   mockUpdateCurrency,
   mockDeleteCurrency,
   mockGetUoms,
   mockCreateUom,
+  mockUpdateUom,
   mockDeleteUom,
   mockGetConversions,
   mockCreateConversion,
@@ -140,6 +143,7 @@ import {
   mockDeleteOrderStatus,
   mockGetProfile,
   mockSaveProfile,
+  mockPatchProfile,
 } from './settings'
 import {
   mockGetOrders,
@@ -166,8 +170,6 @@ import {
   mockGetPayments,
   mockGetPayment,
   mockPatchPayment,
-  mockAddPaymentDocument,
-  mockRemovePaymentDocument,
   mockGetArchive,
 } from './finance'
 
@@ -740,12 +742,6 @@ export async function postMock<T>(
   if (path === '/api/settings/order-statuses') return delay(mockCreateOrderStatus(body as Parameters<typeof mockCreateOrderStatus>[0]) as T)
   if (path === '/api/settings/change-password') return delay(undefined as T) // no-op mock
 
-  // ── Finance POST ──
-  const financeDocPostMatch = path.match(/^\/api\/finance\/payments\/([^/]+)\/documents$/)
-  if (financeDocPostMatch) {
-    return delay(mockAddPaymentDocument(financeDocPostMatch[1] as string, body as import('@/types/finance').PaymentDocument) as T)
-  }
-
   throw new Error(`[mock] POST ${path} not found`)
 }
 
@@ -756,18 +752,6 @@ export async function putMock<T>(
   _headers?: Record<string, string>,
 ): Promise<T> {
   // ── Settings PUT ──
-  if (path === '/api/settings/company') {
-    mockSaveCompany(body as Parameters<typeof mockSaveCompany>[0])
-    return delay(undefined as T)
-  }
-  if (path === '/api/settings/constants') {
-    mockSaveConstants(body as Parameters<typeof mockSaveConstants>[0])
-    return delay(undefined as T)
-  }
-  if (path === '/api/settings/profile') {
-    mockSaveProfile(body as Parameters<typeof mockSaveProfile>[0])
-    return delay(undefined as T)
-  }
   if (path === '/api/settings/order-statuses/reorder') {
     mockMoveOrderStatus((body as { orderedIds: string[] }).orderedIds)
     return delay(undefined as T)
@@ -915,6 +899,19 @@ export async function patchMock<T>(
   }
 
   // ── Settings PATCH ──
+  if (path === '/api/settings/company') {
+    const result = mockPatchCompany(body as Parameters<typeof mockPatchCompany>[0])
+    return delay(result as T)
+  }
+  if (path === '/api/settings/constants') {
+    const result = mockPatchConstants(body as Parameters<typeof mockPatchConstants>[0])
+    return delay(result as T)
+  }
+  if (path === '/api/settings/profile') {
+    const result = mockPatchProfile(body as Parameters<typeof mockPatchProfile>[0])
+    return delay(result as T)
+  }
+
   const currencyPatchMatch = path.match(/^\/api\/settings\/currencies\/([^/]+)$/)
   if (currencyPatchMatch) {
     mockUpdateCurrency(currencyPatchMatch[1] as string, body as Parameters<typeof mockUpdateCurrency>[1])
@@ -925,6 +922,12 @@ export async function patchMock<T>(
     mockUpdateConversion(conversionPatchMatch[1] as string, body as Parameters<typeof mockUpdateConversion>[1])
     return delay(undefined as T)
   }
+  const uomPatchMatch = path.match(/^\/api\/settings\/uoms\/([^/]+)$/)
+  if (uomPatchMatch) {
+    mockUpdateUom(uomPatchMatch[1] as string, body as Parameters<typeof mockUpdateUom>[1])
+    return delay(undefined as T)
+  }
+
   const statusPatchMatch = path.match(/^\/api\/settings\/order-statuses\/([^/]+)$/)
   if (statusPatchMatch) {
     mockUpdateOrderStatus(statusPatchMatch[1] as string, body as Parameters<typeof mockUpdateOrderStatus>[1])
@@ -1016,8 +1019,8 @@ export async function deleteMock<T>(path: string, _headers?: Record<string, stri
 
   const productDeleteMatch = path.match(/^\/api\/products\/([^/]+)$/)
   if (productDeleteMatch) {
-    const deleted = mockDeleteProduct(productDeleteMatch[1] as string)
-    if (!deleted) throw new Error('PRODUCT_NOT_FOUND')
+    const result = await mockDeleteProduct(productDeleteMatch[1] as string)
+    if (!result.ok) throw new Error(result.code ?? 'PRODUCT_NOT_FOUND')
     return delay(undefined as T)
   }
 
@@ -1124,12 +1127,6 @@ export async function deleteMock<T>(path: string, _headers?: Record<string, stri
     return delay(undefined as T)
   }
 
-  // ── Finance DELETE ──
-  const financeDocDeleteMatch = path.match(/^\/api\/finance\/payments\/([^/]+)\/documents\/([^/]+)$/)
-  if (financeDocDeleteMatch) {
-    return delay(mockRemovePaymentDocument(financeDocDeleteMatch[1] as string, financeDocDeleteMatch[2] as string) as T)
-  }
-
   throw new Error(`[mock] DELETE ${path} not found`)
 }
 
@@ -1137,16 +1134,29 @@ export async function deleteMock<T>(path: string, _headers?: Record<string, stri
 export async function uploadMock<T>(path: string, file: File): Promise<T> {
   if (path === '/api/uploads') {
     const fileId = `file-${uploadSeq++}-${Date.now()}`
+    // Convert file to data URL so the URL survives localStorage cache across page reloads.
+    // In production the backend returns a permanent URL — this is mock-only.
+    const dataUrl = await fileToDataUrl(file)
     const meta: UploadedFileMeta = {
       fileId,
       name: file.name,
       size: file.size,
       mime: file.type || 'application/octet-stream',
-      url: `#uploaded/${fileId}`,
+      url: dataUrl,
       uploadedAt: new Date().toISOString(),
     }
     uploadedFiles.set(fileId, meta)
     return delay(meta as T)
   }
   throw new Error(`[mock] UPLOAD ${path} not found`)
+}
+
+/** Helper: read a File as a base64 data URL */
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(new Error('Failed to read file'))
+    reader.readAsDataURL(file)
+  })
 }

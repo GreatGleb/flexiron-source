@@ -65,9 +65,12 @@ const pageTitle = computed(() =>
 const OFFCUT_STATUS_PILL: Record<string, string> = {
   available: 'pill-success',
   reserved: 'pill-info',
-  used: 'pill-secondary',
-  scrap: 'pill-danger',
-  sold: 'pill-warning',
+  in_production: 'pill-warning',
+  sold: 'pill-mint',
+  scrapped: 'pill-danger',
+  expensed: 'pill-expensed',
+  returned_to_supplier: 'pill-returned',
+  in_storage: 'pill-info',
 }
 
 function onAuditDeleteClick(index: number) {

@@ -1,8 +1,7 @@
-import { apiGet, apiPost, apiPatch, apiDelete } from './api'
+import { apiGet, apiPatch } from './api'
 import type {
   FinancePayment,
   FinancePaymentListItem,
-  PaymentDocument,
   FinanceDocumentArchiveItem,
   PaymentDirection,
   FinancePaymentFilters,
@@ -31,16 +30,8 @@ export async function getPayment(id: string): Promise<FinancePayment> {
   return apiGet<FinancePayment>(`/api/finance/payments/${id}`)
 }
 
-export async function patchPayment(id: string, data: Partial<FinancePayment>): Promise<FinancePayment> {
+export async function patchPayment(id: string, data: Partial<FinancePayment> & { fileIds?: string[] }): Promise<FinancePayment> {
   return apiPatch<FinancePayment>(`/api/finance/payments/${id}`, data)
-}
-
-export async function addPaymentDocument(paymentId: string, document: PaymentDocument): Promise<FinancePayment> {
-  return apiPost<FinancePayment>(`/api/finance/payments/${paymentId}/documents`, document)
-}
-
-export async function removePaymentDocument(paymentId: string, documentId: string): Promise<void> {
-  return apiDelete<void>(`/api/finance/payments/${paymentId}/documents/${documentId}`)
 }
 
 export async function getArchive(

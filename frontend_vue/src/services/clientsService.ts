@@ -3,7 +3,9 @@ import type { Client, ClientFilters, ClientFormData } from '@/types/client'
 import type { PaginatedResponse } from '@/types/api'
 import type { StockAuditEntry } from '@/types/warehouse'
 
-export async function getClients(filters?: ClientFilters): Promise<PaginatedResponse<Client>> {
+export async function getClients(
+  filters?: ClientFilters & { page?: number; pageSize?: number },
+): Promise<PaginatedResponse<Client>> {
   return apiGet('/api/clients', (filters ?? {}) as unknown as Record<string, string>)
 }
 

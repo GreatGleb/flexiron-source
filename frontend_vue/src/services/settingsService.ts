@@ -10,24 +10,14 @@ import type {
   UserProfile,
 } from '@/types/settings'
 
-// ─── Full settings (initial load) ────────────────────────────────────────
-
-export async function getSettings(): Promise<AppSettings> {
-  return apiGet<AppSettings>('/api/settings')
-}
-
-export async function saveSettings(settings: AppSettings): Promise<void> {
-  await apiPut<void>('/api/settings', settings)
-}
-
 // ─── Company ─────────────────────────────────────────────────────────────
 
 export async function getCompany(): Promise<CompanyInfo> {
   return apiGet<CompanyInfo>('/api/settings/company')
 }
 
-export async function saveCompany(data: CompanyInfo): Promise<void> {
-  await apiPut<void>('/api/settings/company', data)
+export async function saveCompany(data: Partial<CompanyInfo>): Promise<CompanyInfo> {
+  return apiPatch<CompanyInfo>('/api/settings/company', data)
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────
@@ -36,8 +26,8 @@ export async function getConstants(): Promise<GlobalConstants> {
   return apiGet<GlobalConstants>('/api/settings/constants')
 }
 
-export async function saveConstants(data: GlobalConstants): Promise<void> {
-  await apiPut<void>('/api/settings/constants', data)
+export async function saveConstants(data: Partial<GlobalConstants>): Promise<GlobalConstants> {
+  return apiPatch<GlobalConstants>('/api/settings/constants', data)
 }
 
 // ─── Currencies ──────────────────────────────────────────────────────────
@@ -66,6 +56,10 @@ export async function getUoms(): Promise<Uom[]> {
 
 export async function createUom(data: Omit<Uom, 'id'>): Promise<Uom> {
   return apiPost<Uom>('/api/settings/uoms', data)
+}
+
+export async function updateUom(id: string, data: Partial<Uom>): Promise<void> {
+  await apiPatch<void>(`/api/settings/uoms/${id}`, data)
 }
 
 export async function deleteUom(id: string): Promise<void> {
@@ -118,8 +112,8 @@ export async function getProfile(): Promise<UserProfile> {
   return apiGet<UserProfile>('/api/settings/profile')
 }
 
-export async function saveProfile(data: UserProfile): Promise<void> {
-  await apiPut<void>('/api/settings/profile', data)
+export async function saveProfile(data: Partial<UserProfile>): Promise<UserProfile> {
+  return apiPatch<UserProfile>('/api/settings/profile', data)
 }
 
 export async function changePassword(data: {

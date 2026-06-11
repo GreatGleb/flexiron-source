@@ -42,8 +42,8 @@ load()
             <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
           </svg>
         </div>
-        <div class="kpi-label">{{ t('warehouse.kpi' + kpi.key.slice(-1) + '_label') }}</div>
-        <div class="kpi-value">{{ kpi.value }} <span>{{ kpi.key === 'kpi2' ? t('warehouse.unit_items') : kpi.key === 'kpi3' ? t('warehouse.unit_days') : kpi.key === 'kpi4' ? '%' : 'EUR' }}</span></div>
+        <div class="kpi-label">{{ tf(kpi.label) }}</div>
+        <div class="kpi-value">{{ kpi.value }}</div>
         <div :class="['kpi-delta', kpi.trend]">{{ kpi.delta }}</div>
       </div>
     </div>

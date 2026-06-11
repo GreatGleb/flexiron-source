@@ -10,7 +10,12 @@ export interface RequestOptions {
 async function unwrap<T>(res: Response, method: string, path: string): Promise<T> {
   if (!res.ok) throw new Error(`${method} ${path} failed: ${res.status}`)
   const json: ApiResponse<T> = await res.json()
-  if (!json.success) throw new Error(json.message ?? 'API error')
+  if (!json.success) {
+    const err = new Error(json.code ?? json.message ?? 'API error') as Error & { code?: string; message: string }
+    err.code = json.code
+    if (json.message) err.message = json.message
+    throw err
+  }
   return json.data as T
 }
 

@@ -42,8 +42,8 @@ load()
             <path d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
           </svg>
         </div>
-        <div class="kpi-label">{{ t('deficit.kpi' + kpi.key.slice(-1) + '_label') }}</div>
-        <div class="kpi-value">{{ kpi.value }} <span>{{ kpi.key === 'kpi1' ? t('deficit.unit_pcs') : kpi.key === 'kpi3' || kpi.key === 'kpi4' ? t('deficit.unit_items') : 'EUR' }}</span></div>
+        <div class="kpi-label">{{ tf(kpi.label) }}</div>
+        <div class="kpi-value">{{ kpi.value }}</div>
         <div :class="['kpi-delta', kpi.trend]">{{ kpi.delta }}</div>
       </div>
     </div>

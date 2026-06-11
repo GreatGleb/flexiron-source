@@ -39,7 +39,7 @@ export interface Product {
   categoryId: string | null
   categoryName: TranslatedString | null
   sku: string | null
-  description: string | null
+  description: TranslatedString | null
   price: number | null
   minStock: number | null
   priceUnit: PriceUnit | null

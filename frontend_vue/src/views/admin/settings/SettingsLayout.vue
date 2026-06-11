@@ -245,29 +245,36 @@ async function handleSave() {
   }
 }
 
-import { apiUpload } from '@/services/api'
-
 function handleLogoDrop(files: File[]) {
   const file = files[0]
-  if (file) {
-    apiUpload('/api/uploads', file).then((meta: any) => {
-      updateCompany({ logoUrl: meta.url })
-    }).catch(() => {
-      // Fallback: use base64 if upload fails (e.g. in mock mode)
-      const reader = new FileReader()
-      reader.onload = (e: ProgressEvent<FileReader>) => {
-        updateCompany({ logoUrl: e.target?.result as string })
-      }
-      reader.readAsDataURL(file)
-    })
+  if (!file) return
+
+  // 1) Immediate local preview — read file as data URL right away
+  const reader = new FileReader()
+  reader.onload = (e: ProgressEvent<FileReader>) => {
+    updateCompany({ logoUrl: e.target?.result as string })
   }
+  reader.readAsDataURL(file)
+
+  // 2) Background upload — persists fileId via apiUpload (mock or real)
+  import('@/services/api').then(({ apiUpload }) => {
+    apiUpload('/api/uploads', file).then((meta: any) => {
+      // Only overwrite if the uploaded URL is a real server URL (not a mock data URL).
+      // In mock mode the data URL from step 1 is already good.
+      if (meta.url && !meta.url.startsWith('data:')) {
+        updateCompany({ logoUrl: meta.url })
+      }
+    }).catch((err: Error) => {
+      console.error('[logo] apiUpload failed:', err)
+      // Local preview from step 1 is already showing — no need for fallback
+    })
+  })
 }
 provide('handleLogoDrop', handleLogoDrop)
 
 function confirmAddCurrency() {
   if (!isCurrencyFormValid.value) return
   addCurrency({
-    id: `cur-${Date.now()}`,
     code: newCurrency.value.code.toUpperCase(),
     name: { ru: newCurrency.value.name, en: newCurrency.value.name, lt: newCurrency.value.name },
     exchangeRate: newCurrency.value.rate,
@@ -281,7 +288,6 @@ function confirmAddUom() {
   if (!isUomFormValid.value || isUomCodeDuplicate.value) return
   const codeVal = newUom.value.code
   addUom({
-    id: `uom-${Date.now()}`,
     code: { ru: codeVal, en: codeVal, lt: codeVal },
     name: { ru: newUom.value.name, en: newUom.value.name, lt: newUom.value.name },
     category: newUom.value.category,
@@ -295,7 +301,6 @@ function confirmAddConversion() {
   if (newConversion.value.type === 'dynamic' && !newConversion.value.formulaType) return
 
   const base: any = {
-    id: `conv-${Date.now()}`,
     fromUomId: newConversion.value.fromUomId,
     toUomId: newConversion.value.toUomId,
     type: newConversion.value.type,
@@ -320,7 +325,6 @@ function resetAndCloseStatusModal() {
 function confirmAddStatus() {
   if (!newStatus.value.name.trim()) return
   addOrderStatus({
-    id: `st-${Date.now()}`,
     name: { ru: newStatus.value.name, en: newStatus.value.name, lt: newStatus.value.name },
     color: newStatus.value.color,
     order: settings.orderStatuses.length,

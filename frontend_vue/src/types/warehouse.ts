@@ -222,6 +222,8 @@ export interface OffcutPatchPayload {
   status?: OffcutStatus
   notes?: string | null
   location?: string | null
+  /** File IDs to attach (replaces existing) */
+  fileIds?: string[]
 }
 
 // ─── Movement (Движение) ────────────────────────────────────────────────────

@@ -291,7 +291,8 @@ export function useWarehouseBatch(id: string) {
       toast.success(t('warehouse.toast_batch_deleted'))
       router.push({ name: 'admin-warehouse', params: { tab: 'batches' } })
     } catch (e) {
-      if (e instanceof Error && e.message === 'BATCH_LINKED_TO_ORDER') {
+      const err = e as Error & { code?: string }
+      if (err?.code === 'BATCH_LINKED_TO_ORDER' || err?.message === 'BATCH_LINKED_TO_ORDER') {
         deleteBlockedByOrder.value = true
       } else {
         toast.error(t('warehouse.toast_error_save'))

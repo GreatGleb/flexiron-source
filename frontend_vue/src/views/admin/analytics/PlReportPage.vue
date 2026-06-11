@@ -24,6 +24,14 @@ load()
   </template>
   <div v-else-if="error" class="error-state">{{ error }}</div>
   <template v-else-if="data">
+    <div v-if="data?.kpis?.length" class="kpi-row" data-test="pl-report-kpi-row">
+      <div v-for="kpi in data.kpis" :key="kpi.key" class="kpi-card" data-test="pl-report-kpi-card">
+        <div class="kpi-label">{{ tf(kpi.label) }}</div>
+        <div class="kpi-value">{{ kpi.value }}</div>
+        <div class="kpi-delta" :class="kpi.trend">{{ kpi.delta }}</div>
+      </div>
+    </div>
+
     <div class="charts-row" data-test="pl-report-charts-row">
       <div class="glass-panel" data-test="pl-report-breakdown">
         <div class="panel-header">

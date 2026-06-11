@@ -42,8 +42,8 @@ load()
             <path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
           </svg>
         </div>
-        <div class="kpi-label">{{ t('sales.kpi' + kpi.key.slice(-1) + '_label') }}</div>
-        <div class="kpi-value">{{ kpi.value }} <span>{{ kpi.key === 'kpi2' || kpi.key === 'kpi3' ? t('sales.unit_pcs') : 'EUR' }}</span></div>
+        <div class="kpi-label">{{ tf(kpi.label) }}</div>
+        <div class="kpi-value">{{ kpi.value }}</div>
         <div :class="['kpi-delta', kpi.trend]">{{ kpi.delta }}</div>
       </div>
     </div>

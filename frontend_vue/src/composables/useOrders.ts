@@ -47,7 +47,7 @@ export function useOrders() {
       await load()
     } catch (e) {
       const msg = String(e)
-      if (msg.includes('ORDER_HAS_SHPMENTS')) {
+      if (msg.includes('ORDER_HAS_SHIPMENTS')) {
         toast.error(t('orders.toast_error_delete_conflict'))
       } else {
         toast.error(t('orders.toast_error_delete'))

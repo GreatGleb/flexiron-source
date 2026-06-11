@@ -60,17 +60,9 @@ export function useServiceCard(id: string) {
     if (!service.value) return
     saving.value = true
     try {
-      const updated = await patchService(
-        id,
-        {
-          name: form.value.name ?? undefined,
-          costPrice: form.value.costPrice,
-          sellingPrice: form.value.sellingPrice,
-          priceUnit: form.value.priceUnit,
-          description: form.value.description ?? undefined,
-        } as Parameters<typeof patchService>[1],
-        locale.value,
-      )
+      const delta = dirty.diff()
+      if (Object.keys(delta).length === 0) return
+      const updated = await patchService(id, delta, locale.value)
       service.value = updated
       form.value = {
         name: updated.name,

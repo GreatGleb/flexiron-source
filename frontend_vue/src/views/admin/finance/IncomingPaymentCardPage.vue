@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
 import FinanceSubNav from './FinanceSubNav.vue'
 import FileItem from '@/components/admin/FileItem.vue'
 import DropZone from '@/components/admin/ui/DropZone.vue'
-import { getPayment, patchPayment, addPaymentDocument, removePaymentDocument } from '@/services/financeService'
-import { uploadFile, type UploadedFile } from '@/services/uploadsService'
+import { getPayment, patchPayment } from '@/services/financeService'
+import type { UploadedFile } from '@/services/uploadsService'
 import { useHead } from '@/composables/useHead'
 import type { FinancePayment, PaymentDocument } from '@/types/finance'
 
@@ -17,17 +17,12 @@ import '@styles/admin/components/_status-pills.css'
 
 const { t } = useI18n()
 const route = useRoute()
-const router = useRouter()
 
 const payment = ref<FinancePayment | null>(null)
 const loading = ref(true)
 const saving = ref(false)
 const error = ref(false)
 const notesDraft = ref('')
-
-// Tracks document changes that haven't been saved yet
-const pendingUploads = ref<PaymentDocument[]>([])
-const pendingDeletes = ref<string[]>([])
 
 useHead({
   title: () => `Flexiron — ${t('financePayment.header')}`,
@@ -43,10 +38,17 @@ const STATUS_PILL: Record<string, string> = {
 
 const isDirty = computed(() => {
   const notesChanged = notesDraft.value !== (payment.value?.notes ?? '')
-  const hasPendingUploads = pendingUploads.value.length > 0
-  const hasPendingDeletes = pendingDeletes.value.length > 0
-  return notesChanged || hasPendingUploads || hasPendingDeletes
+  // File changes are tracked by comparing current fileIds vs original
+  const originalFileIds = payment.value?.documents.map((d) => d.fileId).sort().join(',') ?? ''
+  const currentFileIds = [...documentFileIds.value].sort().join(',')
+  const filesChanged = originalFileIds !== currentFileIds
+  return notesChanged || filesChanged
 })
+
+/** Reactive snapshot of current document fileIds for dirty tracking */
+const documentFileIds = computed(() =>
+  payment.value?.documents.map((d) => d.fileId) ?? [],
+)
 
 function load() {
   loading.value = true
@@ -55,8 +57,6 @@ function load() {
     .then((res) => {
       payment.value = res
       notesDraft.value = res.notes ?? ''
-      pendingUploads.value = []
-      pendingDeletes.value = []
     })
     .catch(() => { error.value = true })
     .finally(() => { loading.value = false })
@@ -66,38 +66,15 @@ async function saveChanges() {
   if (!payment.value || !isDirty.value) return
   saving.value = true
   try {
-    // 1. Save notes — only update notes field, don't replace entire payment
-    const updated = await patchPayment(payment.value.id, { notes: notesDraft.value || null })
-    payment.value.notes = updated.notes
+    // Single PATCH with notes + fileIds (replace-semantics for docs)
+    const updated = await patchPayment(payment.value.id, {
+      notes: notesDraft.value || null,
+      fileIds: payment.value.documents.map((d) => d.fileId),
+    })
+    payment.value = updated
     notesDraft.value = updated.notes ?? ''
-
-    // 2. Process pending uploads
-    for (const doc of pendingUploads.value) {
-      try {
-        await addPaymentDocument(payment.value.id, doc)
-      } catch {
-        // Revert — remove from local array
-        const idx = payment.value.documents.findIndex((d) => d.id === doc.id)
-        if (idx !== -1) payment.value.documents.splice(idx, 1)
-      }
-    }
-
-    // 3. Process pending deletes
-    for (const docId of pendingDeletes.value) {
-      try {
-        await removePaymentDocument(payment.value.id, docId)
-      } catch {
-        // Revert — reload to get consistent server state
-        load()
-        return
-      }
-    }
-
-    // 4. Clear pending state
-    pendingUploads.value = []
-    pendingDeletes.value = []
   } catch {
-    // Error handled by service
+    load() // Reload to get consistent server state
   } finally {
     saving.value = false
   }
@@ -107,18 +84,7 @@ function confirmDeleteDocument(docId: string) {
   if (!payment.value) return
   const docIndex = payment.value.documents.findIndex((d) => d.id === docId)
   if (docIndex === -1) return
-  const removed = payment.value.documents.splice(docIndex, 1)[0]
-  if (!removed) return
-
-  // If this doc was just uploaded (not yet saved), remove from pendingUploads instead
-  const uploadIdx = pendingUploads.value.findIndex((d) => d.id === docId)
-  if (uploadIdx !== -1) {
-    pendingUploads.value.splice(uploadIdx, 1)
-    return
-  }
-
-  // Otherwise track for deletion on save
-  pendingDeletes.value.push(docId)
+  payment.value.documents.splice(docIndex, 1)
 }
 
 function onFilesUploaded(uploaded: UploadedFile[]) {
@@ -133,10 +99,7 @@ function onFilesUploaded(uploaded: UploadedFile[]) {
       mime: u.mime,
       uploadedAt: u.uploadedAt,
     }
-    // Add to local state immediately
     payment.value.documents.push(newDoc)
-    // Track for persistence on save
-    pendingUploads.value.push(newDoc)
   }
 }
 

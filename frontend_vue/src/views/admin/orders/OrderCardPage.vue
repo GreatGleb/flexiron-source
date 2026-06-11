@@ -14,6 +14,8 @@ import FileItem from '@/components/admin/FileItem.vue'
 import DropZone from '@/components/admin/ui/DropZone.vue'
 import AddOrderItemsModal from './AddOrderItemsModal.vue'
 import AddOrderServicesModal from './AddOrderServicesModal.vue'
+import { getCurrencies } from '@/services/settingsService'
+import type { Currency } from '@/types/settings'
 import type { OrderStatus } from '@/types/order'
 
 import '@styles/admin/components/_entity-card-layout.css'
@@ -174,7 +176,19 @@ watch(() => form.value.notes, () => {
 })
 
 // ─── Currency selector for total amount ─────────────────────
-const CURRENCY_OPTIONS = ['EUR', 'USD', 'GBP', 'PLN']
+const currencyList = ref<Currency[]>([])
+const currenciesLoading = ref(false)
+
+async function loadCurrencies() {
+  currenciesLoading.value = true
+  try {
+    currencyList.value = await getCurrencies()
+  } finally {
+    currenciesLoading.value = false
+  }
+}
+
+const CURRENCY_OPTIONS = computed(() => currencyList.value.map(c => c.code))
 const currencyOpen = ref(false)
 
 function selectCurrency(c: string) {
@@ -191,6 +205,7 @@ onMounted(() => document.addEventListener('click', onDocClickCloseCurrency))
 onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseCurrency))
 
 onMounted(load)
+onMounted(loadCurrencies)
 </script>
 
 <template>

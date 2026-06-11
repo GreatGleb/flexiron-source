@@ -15,6 +15,7 @@ import type {
   StockOverviewResponse,
   StockPatchPayload,
   BatchListResponse,
+  BatchCreatePayload,
   BatchPatchPayload,
   OffcutListResponse,
   OffcutCreatePayload,
@@ -295,23 +296,47 @@ export async function mockGetBatch(id: string): Promise<WarehouseBatch> {
   return { ...batch }
 }
 
-export async function mockCreateBatch(data: {
-  productId: string
-  supplierId?: string | null
-  batchNumber: string
-  lotCode: string
-  quantity: number
-  unit: string
-  unitPrice: number
-  currency: string
-  notes?: string | null
-  locationRack?: string
-  locationRow?: string
-  locationCell?: string
-  locationNotes?: string
-}): Promise<WarehouseBatch> {
+// ─── Location parse helper (mirrors useWarehouseBatch) ─────────────────────
+// Format: "Rack: X | Row: Y | Cell: Z\nNotes: ..."
+const LOCATION_RACK_RE = /Rack:\s*(.*?)\s*\|/
+const LOCATION_ROW_RE = /\|\s*Row:\s*(.*?)\s*\|/
+const LOCATION_CELL_RE = /\|\s*Cell:\s*(.*?)(?:\n|$)/
+const LOCATION_NOTES_RE = /\nNotes:\s*(.*)$/
+
+function parseLocation(raw: string | null): { locationRack: string; locationRow: string; locationCell: string; locationNotes: string } {
+  const fallback = { locationRack: '', locationRow: '', locationCell: '', locationNotes: '' }
+  if (!raw) return fallback
+
+  const rackMatch = raw.match(LOCATION_RACK_RE)
+  const rowMatch = raw.match(LOCATION_ROW_RE)
+  const cellMatch = raw.match(LOCATION_CELL_RE)
+  const notesMatch = raw.match(LOCATION_NOTES_RE)
+
+  if (rackMatch || rowMatch || cellMatch) {
+    return {
+      locationRack: rackMatch?.[1]?.trim() ?? '',
+      locationRow: rowMatch?.[1]?.trim() ?? '',
+      locationCell: cellMatch?.[1]?.trim() ?? '',
+      locationNotes: notesMatch?.[1]?.trim() ?? '',
+    }
+  }
+
+  return { ...fallback, locationRack: raw }
+}
+
+export async function mockCreateBatch(data: BatchCreatePayload & { fileIds?: string[] }): Promise<WarehouseBatch> {
   const id = `whb-${String(batchSeq++).padStart(3, '0')}`
   const now = new Date().toISOString()
+
+  const parsed = parseLocation(data.location ?? null)
+  const locParts: string[] = []
+  if (parsed.locationRack || parsed.locationRow || parsed.locationCell) {
+    locParts.push(`Rack: ${parsed.locationRack} | Row: ${parsed.locationRow} | Cell: ${parsed.locationCell}`)
+  }
+  if (parsed.locationNotes) {
+    locParts.push(`Notes: ${parsed.locationNotes}`)
+  }
+
   const batch: WarehouseBatch = {
     id,
     productId: data.productId,
@@ -328,13 +353,13 @@ export async function mockCreateBatch(data: {
     unit: data.unit as StockUnit,
     unitPrice: data.unitPrice,
     totalCost: data.quantity * data.unitPrice,
-    currency: data.currency,
-    receivedAt: now,
-    expiresAt: null,
-    location: null,
-    certificateRef: null,
+    currency: data.currency ?? 'EUR',
+    receivedAt: data.receivedAt,
+    expiresAt: data.expiresAt ?? null,
+    location: locParts.length > 0 ? locParts.join('\n') : null,
+    certificateRef: data.certificateRef ?? null,
     status: 'available',
-    notes: data.notes || null,
+    notes: data.notes ?? null,
     orderId: null,
     files: [],
     createdAt: now,
@@ -357,9 +382,10 @@ export async function mockPatchBatch(id: string, delta: BatchPatchPayload): Prom
 }
 
 export async function mockDeleteBatch(id: string): Promise<void> {
-  const idx = batchStore.findIndex((b) => b.id === id)
-  if (idx === -1) throw new Error('BATCH_NOT_FOUND')
-  batchStore.splice(idx, 1)
+  const batch = batchStore.find((b) => b.id === id)
+  if (!batch) throw new Error('BATCH_NOT_FOUND')
+  if (batch.orderId) throw new Error('BATCH_LINKED_TO_ORDER')
+  batchStore.splice(batchStore.indexOf(batch), 1)
 }
 
 // ─── Offcuts ────────────────────────────────────────────────────────────────
@@ -396,7 +422,7 @@ export async function mockGetOffcuts(
     const cats = filters.categoryIds.split(',').filter(Boolean)
     if (cats.length > 0) filtered = filtered.filter((o) => o.categoryId != null && cats.includes(o.categoryId))
   }
-  if (filters.batchNumber) filtered = filtered.filter((o) => o.batchNumber?.toLowerCase() === filters.batchNumber!.toLowerCase())
+  if (filters.batchNumber) filtered = filtered.filter((o) => o.batchNumber?.toLowerCase().includes(filters.batchNumber!.toLowerCase()))
   const sortBy = filters.sortBy || 'createdAt'
   const sortDir = filters.sortDir || 'desc'
   filtered.sort((a, b) => {
@@ -476,9 +502,10 @@ export async function mockPatchOffcut(id: string, data: OffcutPatchPayload): Pro
 }
 
 export async function mockDeleteOffcut(id: string): Promise<void> {
-  const idx = offcutStore.findIndex((o) => o.id === id)
-  if (idx === -1) throw new Error('OFFCUT_NOT_FOUND')
-  offcutStore.splice(idx, 1)
+  const offcut = offcutStore.find((o) => o.id === id)
+  if (!offcut) throw new Error('OFFCUT_NOT_FOUND')
+  if (offcut.orderId) throw new Error('OFFCUT_LINKED_TO_ORDER')
+  offcutStore.splice(offcutStore.indexOf(offcut), 1)
 }
 
 // ─── Movements ──────────────────────────────────────────────────────────────
@@ -533,7 +560,7 @@ export async function mockGetMovements(
   if (filters.type) filtered = filtered.filter((m) => m.type === filters.type)
   if (filters.productId) filtered = filtered.filter((m) => m.productId === filters.productId)
   if (filters.unit) filtered = filtered.filter((m) => m.unit === filters.unit)
-  if (filters.batchNumber) filtered = filtered.filter((m) => m.batchNumber.toLowerCase() === filters.batchNumber!.toLowerCase())
+  if (filters.batchNumber) filtered = filtered.filter((m) => m.batchNumber.toLowerCase().includes(filters.batchNumber!.toLowerCase()))
   if (filters.referenceId) filtered = filtered.filter((m) => m.referenceId === filters.referenceId)
   if (filters.offcutId) filtered = filtered.filter((m) => m.offcutId === filters.offcutId)
   if (filters.dateFrom) filtered = filtered.filter((m) => m.movedAt >= filters.dateFrom!)
@@ -841,7 +868,11 @@ export async function mockPatchDeficitItem(id: string, delta: DeficitPatchPayloa
   return { ...deficit }
 }
 
-export async function mockDeleteDeficitItem(_id: string): Promise<void> {}
+export async function mockDeleteDeficitItem(id: string): Promise<void> {
+  const idx = deficitStore.findIndex((d) => d.id === id)
+  if (idx === -1) throw new Error('DEFICIT_NOT_FOUND')
+  deficitStore.splice(idx, 1)
+}
 
 // ─── Export ─────────────────────────────────────────────────────────────────
 
@@ -856,21 +887,39 @@ export async function mockGetStockAudit(productId: string): Promise<StockAuditEn
   return item?.auditLog ? structuredClone(item.auditLog) : []
 }
 
-export async function mockDeleteStockAuditEntry(_productId: string, _entryIndex: number): Promise<void> {}
+export async function mockDeleteStockAuditEntry(productId: string, entryIndex: number): Promise<void> {
+  const item = stockStore.find((s) => s.productId === productId)
+  if (!item || !item.auditLog) return
+  if (entryIndex >= 0 && entryIndex < item.auditLog.length) {
+    item.auditLog.splice(entryIndex, 1)
+  }
+}
 
 export async function mockGetBatchAudit(batchId: string): Promise<StockAuditEntry[]> {
   const batch = batchStore.find((b) => b.id === batchId)
   return batch?.auditLog ?? []
 }
 
-export async function mockDeleteBatchAuditEntry(_batchId: string, _entryIndex: number): Promise<void> {}
+export async function mockDeleteBatchAuditEntry(batchId: string, entryIndex: number): Promise<void> {
+  const batch = batchStore.find((b) => b.id === batchId)
+  if (!batch || !batch.auditLog) return
+  if (entryIndex >= 0 && entryIndex < batch.auditLog.length) {
+    batch.auditLog.splice(entryIndex, 1)
+  }
+}
 
 export async function mockGetOffcutAudit(offcutId: string): Promise<StockAuditEntry[]> {
   const offcut = offcutStore.find((o) => o.id === offcutId)
   return offcut?.auditLog ? structuredClone(offcut.auditLog) : []
 }
 
-export async function mockDeleteOffcutAuditEntry(_offcutId: string, _entryIndex: number): Promise<void> {}
+export async function mockDeleteOffcutAuditEntry(offcutId: string, entryIndex: number): Promise<void> {
+  const offcut = offcutStore.find((o) => o.id === offcutId)
+  if (!offcut || !offcut.auditLog) return
+  if (entryIndex >= 0 && entryIndex < offcut.auditLog.length) {
+    offcut.auditLog.splice(entryIndex, 1)
+  }
+}
 
 export async function mockGetMovementAudit(movementId: string): Promise<StockAuditEntry[]> {
   return getOrCreateMovementAudit(movementId)
@@ -886,4 +935,10 @@ export async function mockGetDeficitAudit(deficitId: string): Promise<StockAudit
   return deficit?.auditLog ? structuredClone(deficit.auditLog) : []
 }
 
-export async function mockDeleteDeficitAuditEntry(_deficitId: string, _entryIndex: number): Promise<void> {}
+export async function mockDeleteDeficitAuditEntry(deficitId: string, entryIndex: number): Promise<void> {
+  const deficit = deficitStore.find((d) => d.id === deficitId)
+  if (!deficit || !deficit.auditLog) return
+  if (entryIndex >= 0 && entryIndex < deficit.auditLog.length) {
+    deficit.auditLog.splice(entryIndex, 1)
+  }
+}

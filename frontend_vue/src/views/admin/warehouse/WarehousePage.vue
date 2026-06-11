@@ -451,8 +451,10 @@ const MOVEMENT_UNIT_OPTIONS = [
 const DEFICIT_STATUS_OPTIONS = [
   { value: '', label: t('warehouse.filter_status_all') },
   { value: 'open', label: t('warehouse.deficit_status_open') },
+  { value: 'in_progress', label: t('warehouse.deficit_status_in_progress') },
   { value: 'ordered', label: t('warehouse.deficit_status_ordered') },
   { value: 'resolved', label: t('warehouse.deficit_status_resolved') },
+  { value: 'cancelled', label: t('warehouse.deficit_status_cancelled') },
 ]
 
 const DEFICIT_PRIORITY_OPTIONS = [

@@ -141,6 +141,12 @@ export function mockSaveCompany(data: CompanyInfo): void {
   settingsStore.company = structuredClone(data)
 }
 
+/** Merge-patch company — only provided fields are updated */
+export function mockPatchCompany(patch: Partial<CompanyInfo>): CompanyInfo {
+  Object.assign(settingsStore.company, patch)
+  return structuredClone(settingsStore.company)
+}
+
 // ─── Constants ───────────────────────────────────────────────────────────
 
 export function mockGetConstants(): GlobalConstants {
@@ -149,6 +155,12 @@ export function mockGetConstants(): GlobalConstants {
 
 export function mockSaveConstants(data: GlobalConstants): void {
   settingsStore.constants = structuredClone(data)
+}
+
+/** Merge-patch constants — only provided fields are updated */
+export function mockPatchConstants(patch: Partial<GlobalConstants>): GlobalConstants {
+  Object.assign(settingsStore.constants, patch)
+  return structuredClone(settingsStore.constants)
 }
 
 // ─── Currencies ──────────────────────────────────────────────────────────
@@ -191,6 +203,12 @@ export function mockCreateUom(data: Omit<Uom, 'id'>): Uom {
   }
   settingsStore.uoms.push(created)
   return structuredClone(created)
+}
+
+export function mockUpdateUom(id: string, data: Partial<Uom>): void {
+  const uom = findUom(id)
+  if (!uom) throw new Error('UOM_NOT_FOUND')
+  Object.assign(uom, data)
 }
 
 export function mockDeleteUom(id: string): void {
@@ -281,4 +299,10 @@ export function mockGetProfile(): UserProfile {
 
 export function mockSaveProfile(data: UserProfile): void {
   settingsStore.profile = structuredClone(data)
+}
+
+/** Merge-patch profile — only provided fields are updated */
+export function mockPatchProfile(patch: Partial<UserProfile>): UserProfile {
+  Object.assign(settingsStore.profile, patch)
+  return structuredClone(settingsStore.profile)
 }

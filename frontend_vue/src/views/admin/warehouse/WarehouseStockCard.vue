@@ -457,7 +457,7 @@ onMounted(load)
                 </span>
               </label>
               <input
-                :value="`${item.totalValue.toFixed(2)} €`"
+                :value="`${item.totalValue.toFixed(2)} ${t('warehouse.currency_eur')}`"
                 class="glass-input"
                 type="text"
                 readonly
