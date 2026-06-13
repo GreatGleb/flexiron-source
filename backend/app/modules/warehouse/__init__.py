@@ -1,0 +1,1 @@
+"""Warehouse module — inventory management."""

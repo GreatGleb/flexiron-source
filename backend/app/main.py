@@ -1,9 +1,23 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import settings
+from app.core.config import settings
+from app.core.middleware.cors import setup_cors
+
+# ── Route imports from module features ──
+from app.modules.products.features.get_product_detail.action import (
+    router as products_get_detail_router,
+)
+from app.modules.products.features.create_product.action import (
+    router as products_create_router,
+)
+from app.modules.auth.features.me.action import (
+    router as auth_me_router,
+)
+from app.modules.auth.features.login.action import (
+    router as auth_login_router,
+)
 
 
 @asynccontextmanager
@@ -12,7 +26,7 @@ async def lifespan(app: FastAPI):
     # Startup: database engine is lazy, no explicit connect needed
     yield
     # Shutdown: dispose engine
-    from app.database import engine
+    from app.core.database import engine
 
     await engine.dispose()
 
@@ -24,13 +38,13 @@ app = FastAPI(
 )
 
 # CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.cors_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+setup_cors(app)
+
+# ── Include feature routers ──
+app.include_router(products_get_detail_router)
+app.include_router(products_create_router)
+app.include_router(auth_me_router)
+app.include_router(auth_login_router)
 
 
 @app.get("/health")

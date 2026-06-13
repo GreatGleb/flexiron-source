@@ -1,0 +1,946 @@
+# Backend DB Schema — Alembic Migration Plan
+
+## Stack
+
+- **Framework:** FastAPI (Python 3.12)
+- **ORM:** SQLAlchemy 2.0 (async)
+- **Migrations:** Alembic
+- **Database:** PostgreSQL
+
+## Multi-Tenancy (SaaS) Architecture
+
+All data is isolated per **tenant** (organization/company) within a single PostgreSQL database using the **row-level tenant isolation** pattern:
+
+- A `tenants` table stores each organization
+- Every domain table includes a `tenant_id` column (FK → tenants.id, NOT NULL)
+- All queries filter by `tenant_id` at the application layer (middleware/dependency)
+- **Global tables** (no tenant_id): `tenants`, `alembic_version` only
+- **Superadmin users** (`tenant_id IS NULL`) can manage tenants; regular users always belong to exactly one tenant
+- **Composite indexes** on `(tenant_id, ...)` for efficient per-tenant queries
+- Future option: PostgreSQL Row-Level Security (RLS) for defense-in-depth
+
+### Tenant isolation scope
+
+| Scope | Tables |
+|-------|--------|
+| **Per-tenant** (`tenant_id` required) | All domain tables: settings, categories, products, services, suppliers, config, bcc, warehouse, finance, notifications, uploaded_files |
+| **Per-tenant but user-bound** | `users` (belongs to tenant), `sessions` (derived from user) |
+| **Global / system-wide** | `tenants` only |
+
+### Migration order
+
+Phase 0 now includes:
+1. Create `tenants` table (system-wide)
+2. Add `tenant_id` to `users` table
+3. All subsequent phases add `tenant_id` to every domain table
+
+## Project Structure
+
+```
+backend/
+├── app/
+│   ├── __init__.py
+│   ├── main.py                    # FastAPI app entry point
+│   ├── config.py                  # DB URL, secrets, settings
+│   ├── database.py                # SQLAlchemy async engine + session
+│   ├── models/                    # SQLAlchemy ORM models
+│   │   ├── __init__.py
+│   │   ├── base.py                # Declarative Base, common mixins
+│   │   ├── auth.py                # User, Session
+│   │   ├── upload.py              # UploadedFile
+│   │   ├── settings.py            # CompanyInfo, GlobalConstants, Currency, Uom, UomConversion, OrderStatusSetting
+│   │   ├── category.py            # Category, CategoryField, CategoryLinkedSupplier
+│   │   ├── product.py             # Product, ProductFieldValue, ProductLinkedSupplier
+│   │   ├── service.py             # Service
+│   │   ├── config.py              # FieldDefinition, SectionConfig, SectionField, PermissionItem, RolePermission, UserPermission
+│   │   ├── supplier.py            # Supplier, SupplierAddress, SupplierContact, SupplierFile, SupplierAuditEntry, SupplierPriceEntry
+│   │   ├── bcc.py                 # BccCategory, BccEvent
+│   │   ├── warehouse.py           # WarehouseBatch, WarehouseMovement, WarehouseOffcut, WarehouseDeficit, StockItem, StockAuditEntry
+│   │   ├── finance.py             # FinancePayment, PaymentDocument
+│   │   └── notification.py        # Notification
+│   └── alembic/                   # Alembic directory (auto-generated)
+│       ├── env.py
+│       ├── script.py.mako
+│       └── versions/              # Migration scripts
+├── alembic.ini
+├── requirements.txt
+└── pyproject.toml
+```
+
+## Entity-Relationship Overview
+
+```mermaid
+erDiagram
+    %% === TENANTS (multi-tenant root) ===
+    tenants ||--o{ users : contains
+    tenants ||--o{ company_info : owns
+    tenants ||--o{ global_constants : owns
+    tenants ||--o{ currencies : owns
+    tenants ||--o{ uoms : owns
+    tenants ||--o{ uom_conversions : owns
+    tenants ||--o{ order_statuses : owns
+    tenants ||--o{ categories : owns
+    tenants ||--o{ products : owns
+    tenants ||--o{ services : owns
+    tenants ||--o{ suppliers : owns
+    tenants ||--o{ field_definitions : owns
+    tenants ||--o{ section_configs : owns
+    tenants ||--o{ bcc_categories : owns
+    tenants ||--o{ bcc_events : owns
+    tenants ||--o{ warehouse_batches : owns
+    tenants ||--o{ warehouse_movements : owns
+    tenants ||--o{ warehouse_offcuts : owns
+    tenants ||--o{ warehouse_deficits : owns
+    tenants ||--o{ finance_payments : owns
+    tenants ||--o{ notifications : owns
+    tenants ||--o{ uploaded_files : owns
+
+    %% === AUTH ===
+    users ||--o{ sessions : has
+    users ||--o{ notifications : receives
+
+    %% === SETTINGS ===
+    currencies ||--o{ uom_conversions : from
+    currencies ||--o{ uom_conversions : to
+    uoms ||--o{ uom_conversions : from
+    uoms ||--o{ uom_conversions : to
+
+    %% === CATEGORIES ===
+    categories ||--o{ categories : parent
+    categories ||--o{ category_fields : has
+    categories ||--o{ category_linked_suppliers : links
+    categories ||--o{ products : contains
+
+    %% === PRODUCTS ===
+    products ||--o{ product_field_values : has
+    products ||--o{ product_linked_suppliers : links
+    products ||--o{ warehouse_batches : batches
+
+    %% === SUPPLIERS ===
+    suppliers ||--o{ supplier_addresses : has
+    suppliers ||--o{ supplier_contacts : has
+    suppliers ||--o{ supplier_files : has
+    suppliers ||--o{ supplier_audit_entries : logs
+    suppliers ||--o{ supplier_price_entries : prices
+    suppliers ||--o{ bcc_events : events
+
+    %% === CONFIG ===
+    field_definitions ||--o{ section_fields : placed_in
+    section_configs ||--o{ section_fields : contains
+    permission_items ||--o{ role_permissions : assigned
+    permission_items ||--o{ user_permissions : assigned
+
+    %% === BCC ===
+    bcc_categories ||--o{ bcc_events : event_source
+
+    %% === WAREHOUSE ===
+    warehouse_batches ||--o{ warehouse_movements : has
+    warehouse_batches ||--o{ warehouse_offcuts : has
+    warehouse_batches ||--o{ stock_audit_entries : logs
+    products ||--o{ warehouse_deficits : deficit_for
+    warehouse_batches ||--o{ warehouse_deficits : deficit_for
+
+    %% === FINANCE ===
+    finance_payments ||--o{ payment_documents : has
+
+    %% === UPLOADS ===
+    uploaded_files ||--o{ supplier_files : attached
+    uploaded_files ||--o{ payment_documents : attached
+```
+
+## Migration Phases
+
+### Phase 0 — Project Setup
+
+**Goal:** Initialize the FastAPI project structure, install dependencies, configure Alembic.
+
+**Files to create:**
+- `backend/pyproject.toml` — project metadata, dependencies (fastapi, sqlalchemy[asyncio], alembic, asyncpg, pydantic-settings, python-dotenv)
+- `backend/requirements.txt` — pinned deps
+- `backend/alembic.ini` — Alembic config (points to `app/alembic/`)
+- `backend/app/__init__.py`
+- `backend/app/main.py` — empty FastAPI app
+- `backend/app/config.py` — `Settings` class with `DATABASE_URL`
+- `backend/app/database.py` — async engine, `AsyncSession` factory, `get_db` dependency
+- `backend/app/models/__init__.py`
+- `backend/app/models/base.py` — `Base = declarative_base()`, `TimestampMixin` (created_at, updated_at), `UUIDMixin` (id as UUID pk)
+- `backend/app/alembic/env.py` — target_metadata = Base.metadata
+- `backend/app/alembic/script.py.mako`
+- `backend/app/alembic/versions/.gitkeep`
+
+**Alembic init command:**
+```bash
+cd backend && alembic init -t async app/alembic
+```
+
+**Dependencies:**
+```
+fastapi>=0.115.0
+sqlalchemy[asyncio]>=2.0.35
+alembic>=1.13.0
+asyncpg>=0.30.0
+pydantic>=2.9.0
+pydantic-settings>=2.5.0
+python-dotenv>=1.0.0
+```
+
+---
+
+### Phase 1 — Tenants, Auth & Users (Foundation)
+
+**Goal:** Multi-tenant root table + core identity tables.
+
+**Tables:**
+
+#### `tenants`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK, default uuid4 |
+| name | VARCHAR(255) | NOT NULL |
+| slug | VARCHAR(100) | NOT NULL, UNIQUE, INDEX |
+| is_active | BOOLEAN | NOT NULL, default true |
+| created_at | TIMESTAMPTZ | NOT NULL, default now() |
+| updated_at | TIMESTAMPTZ | NOT NULL, auto-update |
+
+#### `users`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK, default uuid4 |
+| tenant_id | UUID | FK -> tenants.id, NULLABLE, INDEX | -- NULL = superadmin user
+| email | VARCHAR(255) | NOT NULL |
+| password_hash | VARCHAR(255) | NOT NULL |
+| first_name | VARCHAR(100) | NOT NULL |
+| last_name | VARCHAR(100) | NOT NULL |
+| phone | VARCHAR(50) | NULLABLE |
+| role | VARCHAR(50) | NOT NULL, default 'user' |
+| locale | VARCHAR(10) | NOT NULL, default 'ru' |
+| is_active | BOOLEAN | NOT NULL, default true |
+| created_at | TIMESTAMPTZ | NOT NULL, default now() |
+| updated_at | TIMESTAMPTZ | NOT NULL, auto-update |
+
+**Indexes:** UNIQUE `(tenant_id, email)` — email unique per tenant; `ix_users_tenant_id` on tenant_id
+
+#### `sessions`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| user_id | UUID | FK -> users.id, NOT NULL, INDEX |
+| token_hash | VARCHAR(255) | NOT NULL, UNIQUE |
+| csrf_token | VARCHAR(255) | NOT NULL |
+| expires_at | TIMESTAMPTZ | NOT NULL |
+| remember | BOOLEAN | NOT NULL, default false |
+| created_at | TIMESTAMPTZ | NOT NULL, default now() |
+
+---
+
+### Phase 2 — Settings
+
+**Goal:** System-wide configuration tables.
+
+**Tables:**
+
+#### `company_info`
+Single-row table (singleton pattern).
+
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| name | VARCHAR(255) | NOT NULL |
+| legal_address | TEXT | NULLABLE |
+| vat_code | VARCHAR(50) | NULLABLE |
+| bank_name | VARCHAR(255) | NULLABLE |
+| bank_account | VARCHAR(100) | NULLABLE |
+| logo_url | VARCHAR(500) | NULLABLE |
+| created_at | TIMESTAMPTZ | |
+| updated_at | TIMESTAMPTZ | |
+
+#### `global_constants`
+Single-row table (singleton pattern).
+
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| vat_rate | NUMERIC(5,2) | NOT NULL, default 21 |
+| default_margin | NUMERIC(5,2) | NOT NULL, default 15 |
+| default_currency | VARCHAR(10) | NOT NULL, default 'EUR' |
+| default_discount_percent | NUMERIC(5,2) | NOT NULL, default 0 |
+| updated_at | TIMESTAMPTZ | |
+
+#### `currencies`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| code | VARCHAR(10) | NOT NULL, UNIQUE |
+| name_ru | VARCHAR(100) | NOT NULL |
+| name_en | VARCHAR(100) | NOT NULL |
+| name_lt | VARCHAR(100) | NOT NULL |
+| exchange_rate | NUMERIC(12,6) | NOT NULL, default 1 |
+| is_default | BOOLEAN | NOT NULL, default false |
+| created_at | TIMESTAMPTZ | |
+| updated_at | TIMESTAMPTZ | |
+
+#### `uoms`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| code_ru | VARCHAR(20) | NOT NULL |
+| code_en | VARCHAR(20) | NOT NULL |
+| code_lt | VARCHAR(20) | NOT NULL |
+| name_ru | VARCHAR(100) | NOT NULL |
+| name_en | VARCHAR(100) | NOT NULL |
+| name_lt | VARCHAR(100) | NOT NULL |
+| category | VARCHAR(20) | NOT NULL |  -- 'weight','length','area','volume','quantity','density','thickness'
+| created_at | TIMESTAMPTZ | |
+| updated_at | TIMESTAMPTZ | |
+
+#### `uom_conversions`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| from_uom_id | UUID | FK -> uoms.id, NOT NULL |
+| to_uom_id | UUID | FK -> uoms.id, NOT NULL |
+| type | VARCHAR(20) | NOT NULL |  -- 'static' | 'dynamic'
+| factor | NUMERIC(20,10) | NULLABLE |
+| formula_type | VARCHAR(50) | NULLABLE |
+| created_at | TIMESTAMPTZ | |
+| updated_at | TIMESTAMPTZ | |
+| UNIQUE(from_uom_id, to_uom_id) | | |
+
+#### `order_statuses`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| name_ru | VARCHAR(100) | NOT NULL |
+| name_en | VARCHAR(100) | NOT NULL |
+| name_lt | VARCHAR(100) | NOT NULL |
+| color | VARCHAR(7) | NOT NULL |
+| sort_order | INTEGER | NOT NULL |
+| is_system | BOOLEAN | NOT NULL, default false |
+| reserve_on_transition | BOOLEAN | NOT NULL, default false |
+| write_off_on_transition | BOOLEAN | NOT NULL, default false |
+| created_at | TIMESTAMPTZ | |
+| updated_at | TIMESTAMPTZ | |
+
+---
+
+### Phase 3 — Categories & Products
+
+**Goal:** Product catalog hierarchy.
+
+**Tables:**
+
+#### `categories`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| name | VARCHAR(255) | NOT NULL |
+| parent_id | UUID | FK -> categories.id, NULLABLE, INDEX |
+| description | TEXT | NULLABLE |
+| field_count | INTEGER | NOT NULL, default 0 |
+| product_count | INTEGER | NOT NULL, default 0 |
+| level | INTEGER | NOT NULL, default 0 |
+| created_at | TIMESTAMPTZ | |
+| updated_at | TIMESTAMPTZ | |
+
+#### `category_fields`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| category_id | UUID | FK -> categories.id, NOT NULL, INDEX |
+| name | VARCHAR(255) | NOT NULL |
+| field_type | VARCHAR(50) | NOT NULL |  -- 'text','number','enum','date','boolean'
+| required | BOOLEAN | NOT NULL, default false |
+| sort_order | INTEGER | NOT NULL, default 0 |
+| options | JSONB | NULLABLE |  -- for enum type: string[]
+| created_at | TIMESTAMPTZ | |
+| updated_at | TIMESTAMPTZ | |
+
+#### `category_linked_suppliers`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| category_id | UUID | FK -> categories.id, NOT NULL, INDEX |
+| supplier_id | UUID | FK -> suppliers.id, NOT NULL |
+| lead_days | INTEGER | NULLABLE |
+| created_at | TIMESTAMPTZ | |
+
+#### `products`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| name | VARCHAR(255) | NOT NULL |
+| category_id | UUID | FK -> categories.id, NULLABLE, INDEX |
+| sku | VARCHAR(100) | NULLABLE, UNIQUE |
+| description | TEXT | NULLABLE |
+| price | NUMERIC(12,2) | NULLABLE |
+| min_stock | NUMERIC(12,2) | NULLABLE |
+| price_unit | VARCHAR(20) | NULLABLE |  -- 'EUR/vnt','EUR/kg','EUR/m'
+| created_at | TIMESTAMPTZ | |
+| updated_at | TIMESTAMPTZ | |
+
+#### `product_field_values`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| product_id | UUID | FK -> products.id, NOT NULL, INDEX |
+| field_id | UUID | FK -> category_fields.id, NOT NULL |
+| value | TEXT | NULLABLE |  -- JSON-stringified for any type
+| created_at | TIMESTAMPTZ | |
+| updated_at | TIMESTAMPTZ | |
+| UNIQUE(product_id, field_id) | | |
+
+#### `product_linked_suppliers`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| product_id | UUID | FK -> products.id, NOT NULL, INDEX |
+| supplier_id | UUID | FK -> suppliers.id, NOT NULL |
+| price | NUMERIC(12,2) | NULLABLE |
+| price_unit | VARCHAR(20) | NULLABLE |
+| lead_days | INTEGER | NULLABLE |
+| created_at | TIMESTAMPTZ | |
+
+---
+
+### Phase 4 — Services
+
+**Goal:** Service price list.
+
+**Table:**
+
+#### `services`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| name_ru | VARCHAR(255) | NOT NULL |
+| name_en | VARCHAR(255) | NOT NULL |
+| name_lt | VARCHAR(255) | NOT NULL |
+| cost_price | NUMERIC(12,2) | NOT NULL, default 0 |
+| selling_price | NUMERIC(12,2) | NOT NULL, default 0 |
+| price_unit | VARCHAR(20) | NOT NULL, default 'EUR/vnt' |
+| description_ru | TEXT | NULLABLE |
+| description_en | TEXT | NULLABLE |
+| description_lt | TEXT | NULLABLE |
+| created_at | TIMESTAMPTZ | |
+| updated_at | TIMESTAMPTZ | |
+
+---
+
+### Phase 5 — Suppliers
+
+**Goal:** Supplier management core tables.
+
+**Tables:**
+
+#### `suppliers`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| company_ru | VARCHAR(255) | NOT NULL |
+| company_en | VARCHAR(255) | NOT NULL |
+| company_lt | VARCHAR(255) | NOT NULL |
+| email | VARCHAR(255) | NOT NULL |
+| contact_person_ru | VARCHAR(255) | NULLABLE |
+| contact_person_en | VARCHAR(255) | NULLABLE |
+| contact_person_lt | VARCHAR(255) | NULLABLE |
+| phone | VARCHAR(100) | NULLABLE |
+| status | VARCHAR(50) | NOT NULL, default 'new' |
+| categories | JSONB | NOT NULL, default '[]' |
+| rating | INTEGER | NOT NULL, default 0 |
+| country | VARCHAR(100) | NULLABLE |
+| city | VARCHAR(100) | NULLABLE |
+| tags | JSONB | NOT NULL, default '[]' |
+| notes | TEXT | NULLABLE |
+| lead_time | INTEGER | NOT NULL, default 0 |
+| status_reason_ru | VARCHAR(500) | NULLABLE |
+| status_reason_en | VARCHAR(500) | NULLABLE |
+| status_reason_lt | VARCHAR(500) | NULLABLE |
+| contract_date | DATE | NULLABLE |
+| vat_code | VARCHAR(50) | NULLABLE |
+| currency | VARCHAR(10) | NOT NULL, default 'EUR' |
+| payment_terms | VARCHAR(100) | NULLABLE |
+| min_order | NUMERIC(12,2) | NULLABLE |
+| bcc_emails | JSONB | NOT NULL, default '[]' |
+| has_deficit | BOOLEAN | NOT NULL, default false |
+| last_bcc_date | DATE | NULLABLE |
+| created_at | TIMESTAMPTZ | |
+| updated_at | TIMESTAMPTZ | INDEX |
+
+#### `supplier_addresses`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| supplier_id | UUID | FK -> suppliers.id, NOT NULL, INDEX |
+| address_type | VARCHAR(50) | NOT NULL |  -- 'Legal','Postal','Shipping'
+| line1 | VARCHAR(255) | NOT NULL |
+| city | VARCHAR(100) | NOT NULL |
+| country | VARCHAR(100) | NOT NULL |
+| zip | VARCHAR(20) | NOT NULL |
+| created_at | TIMESTAMPTZ | |
+
+#### `supplier_contacts`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| supplier_id | UUID | FK -> suppliers.id, NOT NULL, INDEX |
+| name_ru | VARCHAR(255) | NOT NULL |
+| name_en | VARCHAR(255) | NOT NULL |
+| name_lt | VARCHAR(255) | NOT NULL |
+| position | VARCHAR(255) | NULLABLE |
+| email | VARCHAR(255) | NULLABLE |
+| phone | VARCHAR(100) | NULLABLE |
+| created_at | TIMESTAMPTZ | |
+
+#### `supplier_files`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| supplier_id | UUID | FK -> suppliers.id, NOT NULL, INDEX |
+| file_id | UUID | FK -> uploaded_files.id, NOT NULL |
+| name_ru | VARCHAR(255) | NOT NULL |
+| name_en | VARCHAR(255) | NOT NULL |
+| name_lt | VARCHAR(255) | NOT NULL |
+| created_at | TIMESTAMPTZ | |
+
+#### `supplier_audit_entries`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| supplier_id | UUID | FK -> suppliers.id, NOT NULL, INDEX |
+| user_id | UUID | FK -> users.id, NULLABLE |
+| user_name_ru | VARCHAR(255) | NOT NULL |
+| user_name_en | VARCHAR(255) | NOT NULL |
+| user_name_lt | VARCHAR(255) | NOT NULL |
+| user_initials | VARCHAR(10) | NOT NULL |
+| property_ru | VARCHAR(255) | NOT NULL |
+| property_en | VARCHAR(255) | NOT NULL |
+| property_lt | VARCHAR(255) | NOT NULL |
+| old_value | TEXT | NOT NULL |  -- JSON string
+| new_value | TEXT | NOT NULL |  -- JSON string
+| timestamp | TIMESTAMPTZ | NOT NULL |
+
+#### `supplier_price_entries`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| supplier_id | UUID | FK -> suppliers.id, NOT NULL, INDEX |
+| product_id | UUID | FK -> products.id, NULLABLE |
+| price | NUMERIC(12,2) | NOT NULL |
+| unit | VARCHAR(20) | NULLABLE |
+| date | DATE | NOT NULL |
+| notes | TEXT | NULLABLE |
+| created_at | TIMESTAMPTZ | |
+
+---
+
+### Phase 6 — Config (Supplier Card Builder)
+
+**Goal:** Zero-code field/section/permission configuration.
+
+**Tables:**
+
+#### `field_definitions`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| name | VARCHAR(255) | NOT NULL |
+| field_type | VARCHAR(50) | NOT NULL |
+| required | BOOLEAN | NOT NULL, default false |
+| is_builtin | BOOLEAN | NOT NULL, default false |
+| usage_count | INTEGER | NOT NULL, default 0 |
+| options | JSONB | NULLABLE |  -- for enum type
+| created_at | TIMESTAMPTZ | |
+| updated_at | TIMESTAMPTZ | |
+| UNIQUE(name) | | |
+
+#### `section_configs`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| name_ru | VARCHAR(255) | NOT NULL |
+| name_en | VARCHAR(255) | NOT NULL |
+| name_lt | VARCHAR(255) | NOT NULL |
+| sort_order | INTEGER | NOT NULL |
+| collapsed | BOOLEAN | NOT NULL, default false |
+| visible | BOOLEAN | NOT NULL, default true |
+| created_at | TIMESTAMPTZ | |
+| updated_at | TIMESTAMPTZ | |
+
+#### `section_fields`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| section_id | UUID | FK -> section_configs.id, NOT NULL, INDEX |
+| field_id | UUID | FK -> field_definitions.id, NOT NULL |
+| sort_order | INTEGER | NOT NULL |
+| visible | BOOLEAN | NOT NULL, default true |
+| created_at | TIMESTAMPTZ | |
+
+#### `permission_items`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| item_id | VARCHAR(100) | NOT NULL |  -- matches section or field id
+| name_ru | VARCHAR(255) | NOT NULL |
+| name_en | VARCHAR(255) | NOT NULL |
+| name_lt | VARCHAR(255) | NOT NULL |
+| item_type | VARCHAR(20) | NOT NULL |  -- 'section' | 'field'
+| parent_id | VARCHAR(100) | NULLABLE |  -- section id for fields
+| created_at | TIMESTAMPTZ | |
+
+#### `role_permissions`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| item_id | VARCHAR(100) | NOT NULL |  -- FK-like to permission_items.item_id
+| role | VARCHAR(50) | NOT NULL |
+| can_read | BOOLEAN | NOT NULL, default true |
+| can_edit | BOOLEAN | NOT NULL, default false |
+| can_create | BOOLEAN | NOT NULL, default false |
+| can_delete | BOOLEAN | NOT NULL, default false |
+| created_at | TIMESTAMPTZ | |
+| updated_at | TIMESTAMPTZ | |
+| UNIQUE(item_id, role) | | |
+
+#### `user_permissions`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| item_id | VARCHAR(100) | NOT NULL |
+| user_id | UUID | FK -> users.id, NOT NULL |
+| can_read | BOOLEAN | NOT NULL, default true |
+| can_edit | BOOLEAN | NOT NULL, default false |
+| can_create | BOOLEAN | NOT NULL, default false |
+| can_delete | BOOLEAN | NOT NULL, default false |
+| created_at | TIMESTAMPTZ | |
+| updated_at | TIMESTAMPTZ | |
+| UNIQUE(item_id, user_id) | | |
+
+---
+
+### Phase 7 — BCC (Bid/Commercial Communication)
+
+**Goal:** BCC request tool tables.
+
+**Tables:**
+
+#### `bcc_categories`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| name_ru | VARCHAR(255) | NOT NULL |
+| name_en | VARCHAR(255) | NOT NULL |
+| name_lt | VARCHAR(255) | NOT NULL |
+| parent_id | UUID | FK -> bcc_categories.id, NULLABLE |
+| product_count | INTEGER | NOT NULL, default 0 |
+| created_at | TIMESTAMPTZ | |
+| updated_at | TIMESTAMPTZ | |
+
+#### `bcc_events`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| request_id | VARCHAR(50) | NOT NULL, INDEX |  -- grouping key 'req-###'
+| supplier_id | UUID | FK -> suppliers.id, NOT NULL, INDEX |
+| product_id | UUID | FK -> products.id, NULLABLE |
+| status | VARCHAR(50) | NOT NULL |  -- 'sent','responded','no_response'
+| source | VARCHAR(50) | NOT NULL |  -- 'BCC Tool','Email','Phone','Messenger','Other'
+| price | NUMERIC(12,2) | NULLABLE |
+| unit | VARCHAR(20) | NULLABLE |
+| subject | TEXT | NULLABLE |
+| body | TEXT | NULLABLE |
+| attachment_file_ids | JSONB | NULLABLE |
+| sender_user_id | UUID | FK -> users.id, NULLABLE |
+| created_at | TIMESTAMPTZ | NOT NULL, INDEX |
+
+---
+
+### Phase 8 — Warehouse
+
+**Goal:** Warehouse batch management, movements, offcuts, deficits.
+
+**Tables:**
+
+#### `warehouse_batches`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| product_id | UUID | FK -> products.id, NOT NULL, INDEX |
+| supplier_id | UUID | FK -> suppliers.id, NULLABLE |
+| batch_number | VARCHAR(100) | NOT NULL |
+| lot_code | VARCHAR(100) | NULLABLE |
+| quantity | NUMERIC(12,2) | NOT NULL |
+| quantity_remaining | NUMERIC(12,2) | NOT NULL |
+| unit | VARCHAR(20) | NOT NULL |
+| unit_price | NUMERIC(12,4) | NULLABLE |
+| total_cost | NUMERIC(14,2) | NULLABLE |
+| currency | VARCHAR(10) | NOT NULL, default 'EUR' |
+| received_at | TIMESTAMPTZ | NULLABLE |
+| expires_at | TIMESTAMPTZ | NULLABLE |
+| location | TEXT | NULLABLE |
+| certificate_ref | VARCHAR(255) | NULLABLE |
+| status | VARCHAR(50) | NOT NULL, default 'available' |
+| notes | TEXT | NULLABLE |
+| order_id | VARCHAR(100) | NULLABLE |
+| file_ids | JSONB | NULLABLE |
+| created_at | TIMESTAMPTZ | |
+| updated_at | TIMESTAMPTZ | INDEX |
+
+#### `warehouse_movements`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| batch_id | UUID | FK -> warehouse_batches.id, NOT NULL, INDEX |
+| type | VARCHAR(50) | NOT NULL |  -- 'receipt','expense','transfer','write-off','return','return-to-supplier','correction','production','sale','storage','offcut'
+| quantity | NUMERIC(12,2) | NOT NULL |
+| unit | VARCHAR(20) | NOT NULL |
+| unit_price | NUMERIC(12,4) | NULLABLE |
+| total_cost | NUMERIC(14,2) | NULLABLE |
+| reference_id | VARCHAR(100) | NULLABLE |  -- order/job/sale ID
+| reference_type | VARCHAR(50) | NULLABLE |  -- 'sale','purchase_order','work_order','waste_report','cutting'
+| from_location | TEXT | NULLABLE |
+| to_location | TEXT | NULLABLE |
+| performed_by | VARCHAR(255) | NULLABLE |
+| notes | TEXT | NULLABLE |
+| moved_at | TIMESTAMPTZ | NOT NULL, INDEX |
+| created_at | TIMESTAMPTZ | |
+
+#### `warehouse_offcuts`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| batch_id | UUID | FK -> warehouse_batches.id, NOT NULL, INDEX |
+| product_id | UUID | FK -> products.id, NULLABLE |
+| parent_batch_id | UUID | FK -> warehouse_batches.id, NULLABLE |
+| offcut_type | VARCHAR(20) | NULLABLE |  -- 'sheet','linear'
+| quantity | NUMERIC(12,2) | NOT NULL |
+| unit | VARCHAR(20) | NOT NULL |
+| status | VARCHAR(50) | NOT NULL, default 'available' |
+| location | TEXT | NULLABLE |
+| notes | TEXT | NULLABLE |
+| created_at | TIMESTAMPTZ | |
+| updated_at | TIMESTAMPTZ | |
+
+#### `warehouse_deficits`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| product_id | UUID | FK -> products.id, NOT NULL, INDEX |
+| batch_id | UUID | FK -> warehouse_batches.id, NULLABLE |
+| current_stock | NUMERIC(12,2) | NOT NULL |
+| min_required | NUMERIC(12,2) | NOT NULL |
+| status | VARCHAR(20) | NOT NULL, default 'critical' |  -- 'warning','critical'
+| notes | TEXT | NULLABLE |
+| created_at | TIMESTAMPTZ | |
+| updated_at | TIMESTAMPTZ | |
+
+#### `stock_audit_entries`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| batch_id | UUID | FK -> warehouse_batches.id, NOT NULL, INDEX |
+| user_id | UUID | FK -> users.id, NULLABLE |
+| user_name_ru | VARCHAR(255) | NOT NULL |
+| user_name_en | VARCHAR(255) | NOT NULL |
+| user_name_lt | VARCHAR(255) | NOT NULL |
+| user_initials | VARCHAR(10) | NOT NULL |
+| property_ru | VARCHAR(255) | NOT NULL |
+| property_en | VARCHAR(255) | NOT NULL |
+| property_lt | VARCHAR(255) | NOT NULL |
+| old_value | TEXT | NOT NULL |
+| new_value | TEXT | NOT NULL |
+| timestamp | TIMESTAMPTZ | NOT NULL |
+
+#### `stock_items`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| product_id | UUID | FK -> products.id, NOT NULL, UNIQUE, INDEX |
+| total_quantity | NUMERIC(12,2) | NOT NULL, default 0 |
+| unit | VARCHAR(20) | NOT NULL |
+| updated_at | TIMESTAMPTZ | |
+
+---
+
+### Phase 9 — Finance
+
+**Goal:** Payment tracking and document archive.
+
+**Tables:**
+
+#### `finance_payments`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| payment_number | VARCHAR(100) | NOT NULL, UNIQUE |
+| direction | VARCHAR(20) | NOT NULL |  -- 'incoming' | 'outgoing'
+| status | VARCHAR(20) | NOT NULL, default 'pending' |
+| amount | NUMERIC(12,2) | NOT NULL |
+| currency | VARCHAR(10) | NOT NULL, default 'EUR' |
+| counterparty_id | VARCHAR(100) | NULLABLE |
+| counterparty_name | VARCHAR(255) | NOT NULL |
+| counterparty_vat_code | VARCHAR(50) | NULLABLE |
+| order_id | VARCHAR(100) | NULLABLE |
+| order_number | VARCHAR(100) | NULLABLE |
+| supplier_invoice_ref | VARCHAR(100) | NULLABLE |
+| description | TEXT | NULLABLE |
+| due_date | TIMESTAMPTZ | NULLABLE |
+| paid_at | TIMESTAMPTZ | NULLABLE |
+| notes | TEXT | NULLABLE |
+| document_count | INTEGER | NOT NULL, default 0 |
+| created_at | TIMESTAMPTZ | |
+| updated_at | TIMESTAMPTZ | |
+
+#### `payment_documents`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| payment_id | UUID | FK -> finance_payments.id, NOT NULL, INDEX |
+| file_id | UUID | FK -> uploaded_files.id, NOT NULL |
+| name | VARCHAR(255) | NOT NULL |
+| size | BIGINT | NOT NULL |
+| mime | VARCHAR(100) | NOT NULL |
+| url | VARCHAR(500) | NOT NULL |
+| uploaded_at | TIMESTAMPTZ | NOT NULL |
+
+#### `document_archive_items`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| name | VARCHAR(255) | NOT NULL |
+| document_type | VARCHAR(50) | NOT NULL |  -- 'invoice','facture','waybill','cmr','other'
+| file_id | UUID | FK -> uploaded_files.id, NOT NULL |
+| size | BIGINT | NOT NULL |
+| mime | VARCHAR(100) | NOT NULL |
+| url | VARCHAR(500) | NOT NULL |
+| related_entity_type | VARCHAR(50) | NULLABLE |  -- 'order','payment','supplier','client'
+| related_entity_id | VARCHAR(100) | NULLABLE |
+| related_entity_number | VARCHAR(100) | NULLABLE |
+| uploaded_by | VARCHAR(255) | NOT NULL |
+| uploaded_at | TIMESTAMPTZ | NOT NULL |
+
+---
+
+### Phase 10 — Notifications
+
+**Goal:** System notifications with read tracking.
+
+**Table:**
+
+#### `notifications`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| user_id | UUID | FK -> users.id, NOT NULL, INDEX |
+| type | VARCHAR(50) | NOT NULL |  -- 'order_status','stock_deficit','supplier_response','batch_received','reserve_expiring','payment_overdue','payment_received','warehouse_ready'
+| title_ru | TEXT | NOT NULL |
+| title_en | TEXT | NOT NULL |
+| title_lt | TEXT | NOT NULL |
+| message_ru | TEXT | NOT NULL |
+| message_en | TEXT | NOT NULL |
+| message_lt | TEXT | NOT NULL |
+| entity_type | VARCHAR(50) | NOT NULL |
+| entity_id | VARCHAR(100) | NOT NULL |
+| is_read | BOOLEAN | NOT NULL, default false, INDEX |
+| created_at | TIMESTAMPTZ | NOT NULL, INDEX |
+
+---
+
+### Phase 11 — Uploads
+
+**Goal:** File upload management.
+
+**Table:**
+
+#### `uploaded_files`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| original_name | VARCHAR(255) | NOT NULL |
+| storage_path | VARCHAR(500) | NOT NULL |
+| size | BIGINT | NOT NULL |
+| mime | VARCHAR(100) | NOT NULL |
+| is_draft | BOOLEAN | NOT NULL, default true |
+| uploaded_by | UUID | FK -> users.id, NULLABLE |
+| uploaded_at | TIMESTAMPTZ | NOT NULL |
+| expires_at | TIMESTAMPTZ | NULLABLE |  -- TTL 24h for drafts
+
+---
+
+## Normalization & DB Patterns
+
+### Normalization Principles
+- All tables are in **3NF** (Third Normal Form) unless explicitly justified by performance
+- **No transitive dependencies** — every non-key column depends solely on the PK
+- **No partial dependencies** — composite keys avoided in favor of UUID surrogate PKs
+- **JSONB arrays** (suppliers.categories, suppliers.tags, suppliers.bcc_emails) are controlled denormalization for simple scalar lists where a junction table would add complexity without benefit
+- **`TranslatedString` → 3 columns** (`_ru`, `_en`, `_lt`) is intentional denormalization per API contract: the three locales are always sent/received together as one logical unit, and separating them enables DB-level NOT NULL + direct per-locale queries
+
+### Standard Column Patterns
+Every table follows:
+- **`id`** — UUID PK (gen_random_uuid()), never auto-increment
+- **`created_at`** — TIMESTAMPTZ, NOT NULL, default now()
+- **`updated_at`** — TIMESTAMPTZ, NOT NULL, auto-updated on row modification
+
+### Foreign Key Patterns
+- All FKs are **UUID** type matching the referenced PK
+- **`ON DELETE RESTRICT`** — prevent accidental cascade deletes
+- FK columns are always **INDEXED**
+
+### Indexing Strategy
+- **PKs** — auto-indexed (UUID)
+- **FKs** — explicit B-tree index on every foreign key column
+- **Frequently filtered columns** — B-tree index on: `email`, `status`, `type`, `is_read`, `is_active`, `sort_order`
+- **Composite indexes** — for common query patterns e.g., `(user_id, is_read)` on notifications
+
+### Audit Trail Pattern
+The contract specifies audit logging with `oldValue`/`newValue` as JSON strings. Two tables:
+1. **`supplier_audit_entries`** — stores individual field changes per `SupplierAuditEntry` interface
+2. **`stock_audit_entries`** — same pattern for warehouse batch changes
+
+Both use `timestamp`, `user` (TranslatedString), `property` (TranslatedString), `oldValue`, `newValue`.
+
+### Soft Delete Pattern
+- Business-critical entities (products, categories, suppliers) use **hard delete** with business-rule guards (409 if in use)
+- Aligns with the contracts "no draft infrastructure" approach
+
+### Singleton Pattern
+- `company_info` and `global_constants` are **singleton tables** — single row, updated via PATCH, never deleted
+- Application enforces single-row constraint at the service layer
+
+## Translation Note — TranslatedString Pattern
+
+The API contract uses `TranslatedString` = `{ ru, en, lt }` for multi-locale fields. In the DB schema, these are stored as separate columns:
+
+- `field_name_ru`
+- `field_name_en`
+- `field_name_lt`
+
+The only exception is JSONB for simple arrays (e.g., `suppliers.categories`, `suppliers.tags`, `suppliers.bcc_emails`), where storing as PostgreSQL array or JSONB is more practical than creating separate junction tables.
+
+**Why not JSONB for TranslatedString?** — Separating into columns enables:
+- DB-level NOT NULL constraints
+- Direct querying per locale
+- Better indexing options
+- Simpler migrations and data integrity
+
+---
+
+## Migration Execution Order
+
+| Step | Phase | Description | Tables Created |
+|------|-------|-------------|----------------|
+| 0 | Phase 0 | Project setup (no DB changes) | - |
+| 1 | Phase 1 | Auth & Users | `users`, `sessions` |
+| 2 | Phase 2 | Settings | `company_info`, `global_constants`, `currencies`, `uoms`, `uom_conversions`, `order_statuses` |
+| 3 | Phase 3 | Categories & Products | `categories`, `category_fields`, `category_linked_suppliers`, `products`, `product_field_values`, `product_linked_suppliers` |
+| 4 | Phase 4 | Services | `services` |
+| 5 | Phase 11 | Uploads (needed before suppliers/files) | `uploaded_files` |
+| 6 | Phase 5 | Suppliers | `suppliers`, `supplier_addresses`, `supplier_contacts`, `supplier_files`, `supplier_audit_entries`, `supplier_price_entries` |
+| 7 | Phase 6 | Config | `field_definitions`, `section_configs`, `section_fields`, `permission_items`, `role_permissions`, `user_permissions` |
+| 8 | Phase 7 | BCC | `bcc_categories`, `bcc_events` |
+| 9 | Phase 8 | Warehouse | `warehouse_batches`, `warehouse_movements`, `warehouse_offcuts`, `warehouse_deficits`, `stock_items`, `stock_audit_entries` |
+| 10 | Phase 9 | Finance | `finance_payments`, `payment_documents`, `document_archive_items` |
+| 11 | Phase 10 | Notifications | `notifications` |
+
+**Total: 11 migration steps → ~35 tables**
