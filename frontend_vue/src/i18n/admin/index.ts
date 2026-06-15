@@ -19,6 +19,29 @@ import { adminFinance } from './finance'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type LocaleModule = Record<string, any>
 
+/**
+ * Deep merge two or more objects.
+ * Nested objects are merged recursively (not replaced).
+ * Arrays and primitives from later sources override earlier ones.
+ */
+function deepMerge(...sources: Record<string, any>[]): Record<string, any> {
+  const result: Record<string, any> = {}
+  for (const source of sources) {
+    for (const key of Object.keys(source)) {
+      if (
+        source[key] &&
+        typeof source[key] === 'object' &&
+        !Array.isArray(source[key])
+      ) {
+        result[key] = deepMerge(result[key] || {}, source[key])
+      } else {
+        result[key] = source[key]
+      }
+    }
+  }
+  return result
+}
+
 // Merge all domain objects into per-locale aggregates
 function mergeLocales(...modules: { ru: LocaleModule; en: LocaleModule; lt: LocaleModule }[]) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -29,13 +52,13 @@ function mergeLocales(...modules: { ru: LocaleModule; en: LocaleModule; lt: Loca
   const lt: Record<string, any> = {}
   for (const mod of modules) {
     for (const key of Object.keys(mod.ru)) {
-      ru[key] = { ...(ru[key] || {}), ...mod.ru[key] }
+      ru[key] = deepMerge(ru[key] || {}, mod.ru[key])
     }
     for (const key of Object.keys(mod.en)) {
-      en[key] = { ...(en[key] || {}), ...mod.en[key] }
+      en[key] = deepMerge(en[key] || {}, mod.en[key])
     }
     for (const key of Object.keys(mod.lt)) {
-      lt[key] = { ...(lt[key] || {}), ...mod.lt[key] }
+      lt[key] = deepMerge(lt[key] || {}, mod.lt[key])
     }
   }
   return { ru, en, lt }

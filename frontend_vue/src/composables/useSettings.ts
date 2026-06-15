@@ -20,11 +20,13 @@ const defaultSettings: AppSettings = {
   orderStatuses: [],
   sectors: [],
   users: [],
-  profile: { firstName: '', lastName: '', email: '', phone: '', role: 'admin' },
+  profile: { firstName: '', lastName: '', email: '', phone: '', role: 'owner' },
 }
 
 // ─── localStorage cache helpers ──────────────────────────────────────────
-const CACHE_KEY = 'flexiron_settings_cache'
+const CACHE_VERSION = 3  // bump when data shape changes (e.g., new fields)
+const CACHE_KEY = `flexiron_settings_cache_v${CACHE_VERSION}`
+const LEGACY_CACHE_KEYS = ['flexiron_settings_cache', 'flexiron_settings_cache_v2'] // old keys to purge
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
 
 interface SettingsCache {
@@ -136,55 +138,73 @@ function findUpdated<T extends { id: string }>(
 
 export function useSettings() {
   async function load() {
-    if (loaded) return // already fetched in this session
+    console.log('[useSettings] load() called, loaded =', loaded)
+
+    // Purge ALL settings caches to force fresh API calls
+    const allCacheKeys = [CACHE_KEY, ...LEGACY_CACHE_KEYS]
+    for (const key of allCacheKeys) {
+      try { localStorage.removeItem(key) } catch { /* ignore */ }
+    }
+
+    if (loaded) {
+      console.log('[useSettings] load() - already loaded, skipping')
+      return // already fetched in this session
+    }
 
     // 1) Try localStorage cache first
     const cached = loadFromCache()
     if (cached) {
+      console.log('[useSettings] load() - using localStorage cache')
+      console.log('[useSettings] cache has secretLink:', !!cached.profile.secretLink)
       Object.assign(settings, cached)
       loaded = true
       takeSnapshot()
       return
     }
+    console.log('[useSettings] load() - no cache found, will fetch from API')
+    console.log('[useSettings] USE_MOCKS =', import.meta.env.VITE_USE_MOCKS)
 
     // 2) Cache miss or expired — fetch from API in parallel
+    //    Use allSettled so one failing endpoint doesn't block the rest.
     loading.value = true
     error.value = null
-    try {
-      const [
-        company,
-        constants,
-        currencies,
-        uoms,
-        conversions,
-        orderStatuses,
-        profile,
-      ] = await Promise.all([
-        settingsService.getCompany(),
-        settingsService.getConstants(),
-        settingsService.getCurrencies(),
-        settingsService.getUoms(),
-        settingsService.getConversions(),
-        settingsService.getOrderStatuses(),
-        settingsService.getProfile(),
-      ])
-      settings.company = company
-      settings.constants = constants
-      settings.currencies = currencies
-      settings.uoms = uoms
-      settings.conversions = conversions
-      settings.orderStatuses = orderStatuses
-      settings.profile = profile
 
-      const data = { ...settings } as import('@/types/settings').AppSettings
-      saveToCache(data)
-      loaded = true
-      takeSnapshot()
-    } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to load settings'
-    } finally {
+    const allResults = await Promise.allSettled([
+      settingsService.getCompany(),
+      settingsService.getConstants(),
+      settingsService.getCurrencies(),
+      settingsService.getUoms(),
+      settingsService.getConversions(),
+      settingsService.getOrderStatuses(),
+      settingsService.getProfile(),
+    ])
+
+    const labels: (keyof AppSettings)[] = ['company', 'constants', 'currencies', 'uoms', 'conversions', 'orderStatuses', 'profile']
+    let anySuccess = false
+
+    allResults.forEach((result, i) => {
+      const key = labels[i]!
+      if (result.status === 'fulfilled') {
+        (settings as any)[key] = (result as PromiseFulfilledResult<unknown>).value
+        anySuccess = true
+        console.log(`[useSettings] "${key}" loaded successfully`)
+      } else {
+        console.warn(`[useSettings] Failed to load "${key as string}"`)
+      }
+    })
+
+    if (!anySuccess) {
+      // All requests failed — don't cache, don't mark as loaded
+      error.value = 'Failed to load settings. Backend may be unavailable.'
       loading.value = false
+      return
     }
+
+    const data = { ...settings } as AppSettings
+    saveToCache(data)
+    loaded = true
+    takeSnapshot()
+    loading.value = false
   }
 
   /** Force re-fetch from API (skip cache) */
@@ -192,41 +212,39 @@ export function useSettings() {
     loaded = false
     loading.value = true
     error.value = null
-    try {
-      const [
-        company,
-        constants,
-        currencies,
-        uoms,
-        conversions,
-        orderStatuses,
-        profile,
-      ] = await Promise.all([
-        settingsService.getCompany(),
-        settingsService.getConstants(),
-        settingsService.getCurrencies(),
-        settingsService.getUoms(),
-        settingsService.getConversions(),
-        settingsService.getOrderStatuses(),
-        settingsService.getProfile(),
-      ])
-      settings.company = company
-      settings.constants = constants
-      settings.currencies = currencies
-      settings.uoms = uoms
-      settings.conversions = conversions
-      settings.orderStatuses = orderStatuses
-      settings.profile = profile
 
-      const data = { ...settings } as import('@/types/settings').AppSettings
-      saveToCache(data)
-      loaded = true
-      takeSnapshot()
-    } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to load settings'
-    } finally {
-      loading.value = false
+    const allResults = await Promise.allSettled([
+      settingsService.getCompany(),
+      settingsService.getConstants(),
+      settingsService.getCurrencies(),
+      settingsService.getUoms(),
+      settingsService.getConversions(),
+      settingsService.getOrderStatuses(),
+      settingsService.getProfile(),
+    ])
+
+    const labels: (keyof AppSettings)[] = ['company', 'constants', 'currencies', 'uoms', 'conversions', 'orderStatuses', 'profile']
+    const failed: string[] = []
+
+    allResults.forEach((result, i) => {
+      const key = labels[i]!
+      if (result.status === 'fulfilled') {
+        (settings as any)[key] = (result as PromiseFulfilledResult<unknown>).value
+      } else {
+        failed.push(key as string)
+        console.warn(`[useSettings] Failed to reload "${key as string}"`)
+      }
+    })
+
+    if (failed.length > 0) {
+      error.value = `Failed to load: ${failed.join(', ')}. Some settings may be unavailable.`
     }
+
+    const data = { ...settings } as AppSettings
+    saveToCache(data)
+    loaded = true
+    takeSnapshot()
+    loading.value = false
   }
 
   /**

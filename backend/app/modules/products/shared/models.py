@@ -44,10 +44,10 @@ class Category(UUIDMixin, TimestampMixin, Base):
     children: Mapped[list["Category"]] = relationship(
         "Category", back_populates="parent",
         cascade="all, delete-orphan",
-        remote_side="Category.id",
     )
     parent: Mapped["Category | None"] = relationship(
-        "Category", back_populates="children", remote_side="Category.id"
+        "Category", back_populates="children",
+        remote_side="Category.id",
     )
     # Dynamic fields on this category
     fields: Mapped[list["CategoryField"]] = relationship(

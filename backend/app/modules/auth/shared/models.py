@@ -20,6 +20,9 @@ class Tenant(UUIDMixin, TimestampMixin, Base):
     slug: Mapped[str] = mapped_column(
         String(100), unique=True, index=True, nullable=False
     )
+    vat_code: Mapped[str | None] = mapped_column(
+        String(50), nullable=True
+    )
     is_active: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default="true"
     )
@@ -51,9 +54,12 @@ class User(UUIDMixin, TimestampMixin, Base):
     first_name: Mapped[str] = mapped_column(String(100), nullable=False)
     last_name: Mapped[str] = mapped_column(String(100), nullable=False)
     phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    secret_link_token: Mapped[str | None] = mapped_column(
+        String(255), unique=True, nullable=True, index=True,
+    )
     # ⚠️ DEPRECATED — kept as fallback until frontend migrates to multi-role
     role: Mapped[str] = mapped_column(
-        String(50), nullable=False, default="user", server_default="user"
+        String(50), nullable=False, default="owner", server_default="owner"
     )
     locale: Mapped[str] = mapped_column(
         String(10), nullable=False, default="ru", server_default="ru"

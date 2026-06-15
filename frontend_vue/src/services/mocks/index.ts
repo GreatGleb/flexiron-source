@@ -221,6 +221,21 @@ function parseFinancePaymentsParams(params?: Record<string, string>) {
 
 // ─── GET ───
 export async function getMock<T>(path: string, params?: Record<string, string>): Promise<T> {
+  // ── Auth: get current user (validate session) ──
+  if (path === '/api/auth/me') {
+    const user = getStoredMockUser()
+    if (!user) throw new Error('Not authenticated')
+    return delay(user as T)
+  }
+
+  // ── Auth: magic link verification (returns email) ──
+  if (path === '/api/auth/link') {
+    const token = params?.token
+    if (!token) throw new Error('MISSING_TOKEN')
+    // Accept any non-empty token in mock mode — return MagicLinkVerifyResponse format
+    return delay({ email: 'director@metalltorg.com' } as T)
+  }
+
   const analyticsMatch = path.match(/^\/api\/analytics\/(.+)$/)
   if (analyticsMatch) {
     return delay(mockGetAnalyticsPage(analyticsMatch[1] as string) as T)
@@ -624,12 +639,68 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
   throw new Error(`[mock] GET ${path} not found`)
 }
 
+// ─── Auth mock user storage ───
+const MOCK_AUTH_USER_KEY = 'mock_auth_user'
+
+function getStoredMockUser(): import('@/types/auth').UserInfo | null {
+  try {
+    const raw = localStorage.getItem(MOCK_AUTH_USER_KEY)
+    return raw ? (JSON.parse(raw) as import('@/types/auth').UserInfo) : null
+  } catch {
+    return null
+  }
+}
+
+function setStoredMockUser(user: import('@/types/auth').UserInfo): void {
+  localStorage.setItem(MOCK_AUTH_USER_KEY, JSON.stringify(user))
+}
+
+function clearStoredMockUser(): void {
+  localStorage.removeItem(MOCK_AUTH_USER_KEY)
+}
+
 // ─── POST ───
 export async function postMock<T>(
   path: string,
   body: unknown,
   headers?: Record<string, string>,
 ): Promise<T> {
+  // ── Auth: login ──
+  if (path === '/api/auth/login') {
+    const { email, password } = body as { email: string; password: string }
+    if (!email || !password) {
+      throw new Error('Email and password are required')
+    }
+    // Accept any non-empty email+password in mock mode
+    const mockUser: import('@/types/auth').UserInfo = {
+      id: 'usr-mock-001',
+      email,
+      first_name: 'Иван',
+      last_name: 'Петров',
+      phone: '+7 (495) 123-45-67',
+      locale: 'ru',
+      role: 'admin',
+      tenant_id: 'tenant-mock-001',
+      is_active: true,
+    }
+    setStoredMockUser(mockUser)
+    const response: import('@/types/auth').LoginResponse = {
+      user: mockUser,
+      session: {
+        token: 'mock-token-' + Date.now(),
+        csrf_token: 'mock-csrf-' + Date.now(),
+        expires_at: new Date(Date.now() + 86400000).toISOString(), // +1 day
+      },
+    }
+    return delay(response as T)
+  }
+
+  // ── Auth: logout ──
+  if (path === '/api/auth/logout') {
+    clearStoredMockUser()
+    return delay(undefined as T)
+  }
+
   if (path === '/api/bcc/send') {
     return delay(
       withIdempotency(headers, () =>

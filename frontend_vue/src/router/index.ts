@@ -7,9 +7,32 @@ import NotFoundPage from '@/views/public/NotFoundPage.vue'
 import AboutPage from '@/views/public/AboutPage.vue'
 import LoginPage from '@/views/public/LoginPage.vue'
 import RegisterPage from '@/views/public/RegisterPage.vue'
+import AuthLinkHandler from '@/views/public/AuthLinkHandler.vue'
 import SupportPage from '@/views/public/SupportPage.vue'
 import TermsPage from '@/views/public/TermsPage.vue'
 import ScreensPage from '@/views/public/ScreensPage.vue'
+
+/** List of route names that are publicly accessible without auth. */
+const PUBLIC_ROUTES = new Set<string>([
+  'landing',
+  'login',
+  'register',
+  'about',
+  'support',
+  'terms',
+  'auth-link',
+  'screens',
+  'not-found',
+])
+
+/**
+ * Check if an auth token exists in either localStorage or sessionStorage.
+ * This is a synchronous check used by the router guard (avoids importing
+ * useAuth which depends on useRouter context).
+ */
+function hasAuthToken(): boolean {
+  return !!(localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token'))
+}
 
 const routes: RouteRecordRaw[] = [
   /* ── Public pages ── */
@@ -42,6 +65,11 @@ const routes: RouteRecordRaw[] = [
     path: '/terms',
     name: 'terms',
     component: TermsPage,
+  },
+  {
+    path: '/auth/link',
+    name: 'auth-link',
+    component: AuthLinkHandler,
   },
   {
     path: '/screens',
@@ -371,6 +399,27 @@ const routes: RouteRecordRaw[] = [
 export const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes,
+})
+
+// Auth guard — protect admin routes, redirect logged-in users away from auth pages
+router.beforeEach((to) => {
+  // Mock mode: skip all auth checks so admin is freely accessible
+  const USE_MOCKS = import.meta.env.VITE_USE_MOCKS !== 'false'
+  if (USE_MOCKS) return
+
+  const isPublic = PUBLIC_ROUTES.has(to.name as string)
+  const isAuthPage = to.name === 'login' || to.name === 'register'
+  const tokenExists = hasAuthToken()
+
+  // Not authenticated → redirect to login (unless already on a public page)
+  if (!isPublic && !tokenExists) {
+    return { name: 'login' }
+  }
+
+  // Already authenticated on login/register → redirect to admin dashboard
+  if (isAuthPage && tokenExists) {
+    return { name: 'admin-dashboard' }
+  }
 })
 
 // Feature flag guard — redirect to /404 if route is disabled

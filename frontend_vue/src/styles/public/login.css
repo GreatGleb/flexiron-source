@@ -101,6 +101,60 @@
   color: var(--primary-dark);
   text-decoration: underline;
 }
+.form-error {
+  color: #ff6b6b;
+  background: rgba(255, 107, 107, 0.1);
+  border: 1px solid rgba(255, 107, 107, 0.3);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.secret-link-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 0;
+}
+
+.secret-link-icon {
+  color: #1890ff;
+}
+
+.secret-link-msg {
+  font-size: 1rem;
+  color: white;
+  font-weight: 600;
+  text-align: center;
+  margin: 0;
+}
+
+.secret-link-hint {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.7);
+  text-align: center;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.secret-link-support {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.6);
+  text-align: center;
+  margin: 0;
+}
+
+.support-email {
+  color: #1890ff;
+  text-decoration: none;
+}
+
+.support-email:hover {
+  text-decoration: underline;
+}
+
 /* Button */
 /* Responsive */
 @media (max-width: 768px) {

@@ -13,6 +13,21 @@ const toast = useToast()
 const settings = inject<AppSettings>('settings')!
 const updateProfile = inject<(patch: Partial<UserProfile>) => void>('updateProfile')!
 
+const copied = ref(false)
+
+async function copySecretLink() {
+  const link = settings.profile.secretLink
+  if (!link) return
+  try {
+    await navigator.clipboard.writeText(link)
+    copied.value = true
+    setTimeout(() => { copied.value = false }, 2000)
+    toast.success(t('settingsProfile.copied'))
+  } catch {
+    toast.error(t('settingsProfile.copyFailed'))
+  }
+}
+
 // ─── Password change ──────────────────────────────────────────────────────
 const currentPassword = ref('')
 const newPassword = ref('')
@@ -109,6 +124,27 @@ async function handleChangePassword() {
 
     </div>
 
+    <!-- Secret Link Section -->
+    <h3 class="settings-section-title section-spacer">{{ t('settingsProfile.secretLink') }}</h3>
+    <div class="settings-form">
+      <div class="secret-link-info">
+        <p class="secret-link-desc">{{ t('settingsProfile.secretLinkDesc') }}</p>
+        <div class="secret-link-field" v-if="settings.profile.secretLink">
+          <input
+            :value="settings.profile.secretLink"
+            class="glass-input secret-link-input"
+            type="text"
+            readonly
+          />
+          <button class="btn btn-secondary secret-link-btn" @click="copySecretLink">
+            {{ copied ? t('settingsProfile.copied') : t('settingsProfile.copy') }}
+          </button>
+        </div>
+        <p v-else class="secret-link-missing">{{ t('settingsProfile.secretLinkMissing') }}</p>
+        <p class="secret-link-warning">{{ t('settingsProfile.secretLinkWarning') }}</p>
+      </div>
+    </div>
+
     <h3 class="settings-section-title section-spacer">{{ t('settingsProfile.security') }}</h3>
     <div class="settings-form">
       <InputGroup :label="t('settingsProfile.currentPassword')">
@@ -158,6 +194,47 @@ async function handleChangePassword() {
   flex-direction: column;
   gap: 16px;
   max-width: 480px;
+}
+
+.secret-link-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.secret-link-desc {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
+}
+
+.secret-link-field {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.secret-link-input {
+  flex: 1;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem !important;
+  color: #1890ff !important;
+}
+
+.secret-link-btn {
+  white-space: nowrap;
+}
+
+.secret-link-missing {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.5);
+  font-style: italic;
+}
+
+.secret-link-warning {
+  font-size: 0.75rem;
+  color: rgba(255, 107, 107, 0.7);
+  margin: 0;
 }
 
 .settings-section-title {

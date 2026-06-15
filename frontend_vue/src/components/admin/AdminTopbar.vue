@@ -1,14 +1,20 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import SvgIcon from './SvgIcon.vue'
 import NotificationDropdown from './NotificationDropdown.vue'
 import { useSidebar } from '@/composables/useSidebar'
 import { useSettings } from '@/composables/useSettings'
+import { useAuth } from '@/composables/useAuth'
 
 const { t, locale, availableLocales } = useI18n()
 const { toggle } = useSidebar()
 const { settings, load: loadSettings } = useSettings()
+const { logout: authLogout } = useAuth()
+const router = useRouter()
+
+const isMenuOpen = ref(false)
 
 const userName = computed(() => {
   const p = settings.profile
@@ -24,7 +30,37 @@ const userRole = computed(() => {
 
 onMounted(() => {
   loadSettings()
+  document.addEventListener('click', handleOutsideClick)
 })
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleOutsideClick)
+})
+
+function handleOutsideClick(e: MouseEvent) {
+  const target = e.target as HTMLElement
+  if (!target.closest('.user-profile')) {
+    isMenuOpen.value = false
+  }
+}
+
+function toggleMenu() {
+  isMenuOpen.value = !isMenuOpen.value
+}
+
+function closeMenu() {
+  isMenuOpen.value = false
+}
+
+function goToSettings() {
+  closeMenu()
+  router.push({ name: 'admin-settings-profile' })
+}
+
+async function handleLogout() {
+  closeMenu()
+  await authLogout('/')
+}
 
 function switchLang(code: string) {
   locale.value = code
@@ -58,7 +94,7 @@ function switchLang(code: string) {
         </a>
       </div>
       <NotificationDropdown />
-      <router-link :to="{ name: 'admin-settings-profile' }" class="user-profile" data-test="topbar-user">
+      <div class="user-profile" data-test="topbar-user" @click.stop="toggleMenu">
         <div class="user-avatar">
           <SvgIcon name="user-avatar" width="22" height="22" />
         </div>
@@ -66,7 +102,34 @@ function switchLang(code: string) {
           <span class="user-name">{{ userName }}</span>
           <span class="user-role">{{ userRole }}</span>
         </div>
-      </router-link>
+
+        <Transition name="dropdown-fade">
+          <div v-if="isMenuOpen" class="user-dropdown" @click.stop>
+            <button class="user-dropdown-item" @click="goToSettings">
+              <SvgIcon name="settings" width="16" height="16" />
+              {{ t('head.settings') }}
+            </button>
+            <div class="user-dropdown-divider" />
+            <button class="user-dropdown-item logout" @click="handleLogout">
+              <SvgIcon name="corner-up-left" width="16" height="16" />
+              {{ t('head.logout') }}
+            </button>
+          </div>
+        </Transition>
+      </div>
     </div>
   </header>
 </template>
+
+<style scoped>
+.dropdown-fade-enter-active,
+.dropdown-fade-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.dropdown-fade-enter-from,
+.dropdown-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+</style>

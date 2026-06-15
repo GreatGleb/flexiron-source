@@ -2,7 +2,6 @@
 
 from pydantic import BaseModel
 from uuid import UUID
-from datetime import datetime
 
 
 class MeResponse(BaseModel):
@@ -17,6 +16,7 @@ class MeResponse(BaseModel):
     role: str
     tenant_id: UUID | None
     is_active: bool
+    secret_link: str | None = None
 
 
 class MeInput(BaseModel):

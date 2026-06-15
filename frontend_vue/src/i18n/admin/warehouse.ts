@@ -554,6 +554,7 @@ export const adminWarehouse = {
     btn: {
       cancel: 'Отмена',
       delete: 'Удалить',
+      retry: 'Повторить',
     },
   },
   en: {
@@ -1110,6 +1111,7 @@ export const adminWarehouse = {
     btn: {
       cancel: 'Cancel',
       delete: 'Delete',
+      retry: 'Retry',
     },
   },
   lt: {
@@ -1666,6 +1668,7 @@ export const adminWarehouse = {
     btn: {
       cancel: 'Atšaukti',
       delete: 'Ištrinti',
+      retry: 'Bandyti dar kartą',
     },
   },
 }

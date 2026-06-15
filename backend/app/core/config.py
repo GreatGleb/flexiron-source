@@ -18,7 +18,13 @@ class Settings(BaseSettings):
     remember_ttl_days: int = 30
 
     # CORS
-    cors_origins: list[str] = ["http://localhost:5173"]
+    cors_origins: list[str] = [
+        "http://localhost:5173",
+        "http://localhost:5174",
+    ]
+
+    # Frontend
+    frontend_url: str = "http://localhost:5173"
 
     # Rate limits
     login_rate_limit_per_min: int = 5

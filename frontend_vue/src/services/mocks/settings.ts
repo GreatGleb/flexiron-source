@@ -68,6 +68,7 @@ export const MOCK_SETTINGS: AppSettings = {
   ] satisfies WarehouseSector[],
 
   users: [
+    { id: 'usr-0', email: 'owner@flexiron.com', name: 'Миндаугас В.', role: 'owner', active: true },
     { id: 'usr-1', email: 'admin@flexiron.com', name: 'Максим В.', role: 'admin', active: true },
     { id: 'usr-2', email: 'manager@flexiron.com', name: 'Анна М.', role: 'manager', active: true },
     { id: 'usr-3', email: 'warehouse@flexiron.com', name: 'Петр К.', role: 'warehouse', active: true },
@@ -89,9 +90,10 @@ export const MOCK_SETTINGS: AppSettings = {
   profile: {
     firstName: 'Mindaugas',
     lastName: 'Volkovas',
-    email: 'admin@flexiron.com',
+    email: 'owner@flexiron.com',
     phone: '+37060000000',
-    role: 'admin',
+    role: 'owner',
+    secretLink: 'http://localhost:5173/auth/link?token=mock-secret-token-abc123',
   },
 }
 

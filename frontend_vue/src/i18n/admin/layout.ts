@@ -31,6 +31,8 @@ export const adminLayout = {
       internal_search: 'Поиск заказов, клиентов...',
       role: 'Директор',
       user: 'Максим В.',
+      settings: 'Настройки',
+      logout: 'Выйти',
     },
     page: {
       dashboard: 'Панель управления',
@@ -87,6 +89,8 @@ export const adminLayout = {
       internal_search: 'Search orders, clients...',
       role: 'Director',
       user: 'Maxim V.',
+      settings: 'Settings',
+      logout: 'Logout',
     },
     page: {
       dashboard: 'Dashboard',
@@ -143,6 +147,8 @@ export const adminLayout = {
       internal_search: 'Užsakymų, klientų paieška...',
       role: 'Direktorius',
       user: 'Maksimas V.',
+      settings: 'Nustatymai',
+      logout: 'Atsijungti',
     },
     page: {
       dashboard: 'Valdymo skydelis',

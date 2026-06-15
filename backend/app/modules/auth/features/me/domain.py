@@ -4,6 +4,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.exceptions import NotFoundError
 from app.modules.auth.features.me.repository import get_user_by_id
 from app.modules.auth.features.me.schemas import MeResponse
@@ -17,6 +18,11 @@ async def get_current_user(
     if user is None:
         raise NotFoundError(entity="User", entity_id=str(user_id))
 
+    # Build secret link if user has a token
+    secret_link = None
+    if user.secret_link_token:
+        secret_link = f"{settings.frontend_url}/auth/link?token={user.secret_link_token}"
+
     return MeResponse(
         id=user.id,
         email=user.email,
@@ -27,4 +33,5 @@ async def get_current_user(
         role=user.role,
         tenant_id=user.tenant_id,
         is_active=user.is_active,
+        secret_link=secret_link,
     )

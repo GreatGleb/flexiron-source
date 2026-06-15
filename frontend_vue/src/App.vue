@@ -8,12 +8,18 @@
 </template>
 
 <script setup>
-import { computed, watchEffect } from 'vue'
+import { computed, watchEffect, onMounted } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import LangSwitcher from '@/components/LangSwitcher.vue'
+import { useAuth } from '@/composables/useAuth'
 
 const route = useRoute()
 const isAdmin = computed(() => route.meta.layout === 'admin')
+const { fetchMe } = useAuth()
+
+onMounted(() => {
+  fetchMe()
+})
 
 watchEffect(() => {
   if (isAdmin.value) {

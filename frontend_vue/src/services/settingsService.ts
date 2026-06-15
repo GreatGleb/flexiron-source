@@ -1,4 +1,4 @@
-import { apiGet, apiPut, apiPost, apiPatch, apiDelete } from './api'
+import { apiGet, apiPut, apiPost, apiPatch, apiDelete, type RequestOptions } from './api'
 import type {
   AppSettings,
   CompanyInfo,
@@ -108,12 +108,18 @@ export async function deleteOrderStatus(id: string): Promise<void> {
 
 // ─── Profile ─────────────────────────────────────────────────────────────
 
+function authHeaders(): Record<string, string> | undefined {
+  const token = localStorage.getItem('auth_token')
+  if (!token) return undefined
+  return { Authorization: `Bearer ${token}` }
+}
+
 export async function getProfile(): Promise<UserProfile> {
-  return apiGet<UserProfile>('/api/settings/profile')
+  return apiGet<UserProfile>('/api/settings/profile', undefined, { headers: authHeaders() })
 }
 
 export async function saveProfile(data: Partial<UserProfile>): Promise<UserProfile> {
-  return apiPatch<UserProfile>('/api/settings/profile', data)
+  return apiPatch<UserProfile>('/api/settings/profile', data, { headers: authHeaders() })
 }
 
 export async function changePassword(data: {
@@ -121,5 +127,5 @@ export async function changePassword(data: {
   newPassword: string
   confirmPassword: string
 }): Promise<void> {
-  await apiPost<void>('/api/settings/change-password', data)
+  await apiPost<void>('/api/settings/change-password', data, { headers: authHeaders() })
 }

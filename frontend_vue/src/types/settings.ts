@@ -77,7 +77,7 @@ export interface WarehouseSector {
 }
 
 /** Роль пользователя */
-export type UserRole = 'admin' | 'manager' | 'warehouse' | 'accounting' | 'viewer'
+export type UserRole = 'owner' | 'admin' | 'manager' | 'warehouse' | 'accounting' | 'viewer' | 'user'
 
 /** Пользователь системы */
 export interface SettingUser {
@@ -96,6 +96,7 @@ export interface UserProfile {
   email: string
   phone: string
   role: UserRole
+  secretLink?: string
 }
 
 /** Полный срез настроек системы */
