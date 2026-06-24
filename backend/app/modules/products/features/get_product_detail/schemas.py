@@ -29,9 +29,25 @@ class ProductDetailResponse(BaseModel):
     name: str
     sku: str | None
     description: str | None
+
+    # Pricing
     price: float | None
-    price_unit: str | None
+    price_unit: str | None  # deprecated, kept for backward compat
+    price_quantity: int = 1
+    currency_id: UUID | None
     min_stock: float | None
+
+    # UoM references
+    purchase_uom_id: UUID | None
+    warehouse_uom_id: UUID | None
+    sale_uom_id: UUID | None
+
+    # Conversion
+    purchase_to_warehouse_formula_type: str | None = None
+    purchase_to_warehouse_factor: float | None = None
+    warehouse_to_sale_formula_type: str | None = None
+    warehouse_to_sale_factor: float | None = None
+
     category: CategoryBriefResponse | None
     field_values: list[ProductFieldValueResponse]
     created_at: datetime

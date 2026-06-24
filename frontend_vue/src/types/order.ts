@@ -37,6 +37,8 @@ export interface OrderItem {
   totalPrice: number
   batchId: string | null
   offcutId: string | null
+  receivedCurrency: string     // UUID of batch's original currency
+  exchangeRate: number | null  // rate from receivedCurrency → order.currency
 }
 
 export interface OrderService {
@@ -73,6 +75,8 @@ export interface Order {
   totalWithVat: number
   totalWeight: number
   currency: string
+  vatPercent: number
+  marginPercent: number
   notes: string | null
   documents: OrderDocument[]
   files: OrderFile[]

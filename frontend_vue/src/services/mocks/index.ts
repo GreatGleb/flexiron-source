@@ -43,6 +43,7 @@ import {
   mockExportWarehouseCsv,
   mockGetBatchAggregates,
   mockGetBatchActiveSales,
+  mockCalculateFifoCost,
 } from './warehouse'
 import {
   mockGetCategories,
@@ -119,10 +120,8 @@ import {
   mockGetSettings,
   mockSaveSettings,
   mockGetCompany,
-  mockSaveCompany,
   mockPatchCompany,
   mockGetConstants,
-  mockSaveConstants,
   mockPatchConstants,
   mockGetCurrencies,
   mockCreateCurrency,
@@ -142,7 +141,6 @@ import {
   mockMoveOrderStatus,
   mockDeleteOrderStatus,
   mockGetProfile,
-  mockSaveProfile,
   mockPatchProfile,
 } from './settings'
 import {
@@ -166,12 +164,7 @@ import type { ClientFormData } from '@/types/client'
 import type { PaginationParams } from '@/types/api'
 import type { OrderFilters } from '@/types/order'
 import type { FinancePaymentFilters } from '@/types/finance'
-import {
-  mockGetPayments,
-  mockGetPayment,
-  mockPatchPayment,
-  mockGetArchive,
-} from './finance'
+import { mockGetPayments, mockGetPayment, mockPatchPayment, mockGetArchive } from './finance'
 
 function delay<T>(data: T, ms = 300): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(data), ms))
@@ -409,7 +402,13 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
     const pageSize = Number(params?.pageSize ?? 25)
     const start = (page - 1) * pageSize
     const items = filtered.slice(start, start + pageSize)
-    return delay({ items, total: filtered.length, page, pageSize, totalPages: Math.ceil(filtered.length / pageSize) } as T)
+    return delay({
+      items,
+      total: filtered.length,
+      page,
+      pageSize,
+      totalPages: Math.ceil(filtered.length / pageSize),
+    } as T)
   }
 
   const clientCardMatch = path.match(/^\/api\/clients\/([^/]+)$/)
@@ -451,15 +450,28 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
   if (path === '/api/warehouse/stock') {
     const page = Number(params?.page ?? 1)
     const pageSize = Number(params?.pageSize ?? 25)
-    return delay(mockGetStockOverview({
-      search: params?.search ?? '',
-      categoryIds: params?.categoryIds,
-      unit: params?.unit,
-      showDeficitOnly: params?.showDeficitOnly,
-      showInStockOnly: params?.showInStockOnly,
-      sortBy: params?.sortBy,
-      sortDir: params?.sortDir,
-    }, { page, pageSize }) as T)
+    return delay(
+      mockGetStockOverview(
+        {
+          search: params?.search ?? '',
+          categoryIds: params?.categoryIds,
+          unit: params?.unit,
+          showDeficitOnly: params?.showDeficitOnly,
+          showInStockOnly: params?.showInStockOnly,
+          sortBy: params?.sortBy,
+          sortDir: params?.sortDir,
+        },
+        { page, pageSize },
+      ) as T,
+    )
+  }
+
+  // Cost breakdown route must be checked BEFORE the generic stock card match
+  const stockCostMatch = path.match(/^\/api\/warehouse\/stock\/([^/]+)\/cost$/)
+  if (stockCostMatch) {
+    const productId = stockCostMatch[1] as string
+    const quantity = params?.quantity ? Number(params.quantity) : 1
+    return delay(mockCalculateFifoCost(productId, quantity) as T)
   }
 
   const stockCardMatch = path.match(/^\/api\/warehouse\/stock\/([^/]+)$/)
@@ -479,17 +491,22 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
   if (path === '/api/warehouse/batches') {
     const page = Number(params?.page ?? 1)
     const pageSize = Number(params?.pageSize ?? 25)
-    return delay(mockGetBatches({
-      search: params?.search ?? '',
-      productId: params?.productId,
-      supplierId: params?.supplierId,
-      status: params?.status,
-      unit: params?.unit,
-      dateFrom: params?.dateFrom,
-      dateTo: params?.dateTo,
-      sortBy: params?.sortBy,
-      sortDir: params?.sortDir,
-    }, { page, pageSize }) as T)
+    return delay(
+      mockGetBatches(
+        {
+          search: params?.search ?? '',
+          productId: params?.productId,
+          supplierId: params?.supplierId,
+          status: params?.status,
+          unit: params?.unit,
+          dateFrom: params?.dateFrom,
+          dateTo: params?.dateTo,
+          sortBy: params?.sortBy,
+          sortDir: params?.sortDir,
+        },
+        { page, pageSize },
+      ) as T,
+    )
   }
 
   const batchCardMatch = path.match(/^\/api\/warehouse\/batches\/([^/]+)$/)
@@ -519,17 +536,22 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
   if (path === '/api/warehouse/offcuts') {
     const page = Number(params?.page ?? 1)
     const pageSize = Number(params?.pageSize ?? 25)
-    return delay(mockGetOffcuts({
-      search: params?.search ?? '',
-      productId: params?.productId,
-      status: params?.status,
-      unit: params?.unit,
-      offcutType: params?.offcutType,
-      categoryIds: params?.categoryIds,
-      batchNumber: params?.batchNumber,
-      sortBy: params?.sortBy,
-      sortDir: params?.sortDir,
-    }, { page, pageSize }) as T)
+    return delay(
+      mockGetOffcuts(
+        {
+          search: params?.search ?? '',
+          productId: params?.productId,
+          status: params?.status,
+          unit: params?.unit,
+          offcutType: params?.offcutType,
+          categoryIds: params?.categoryIds,
+          batchNumber: params?.batchNumber,
+          sortBy: params?.sortBy,
+          sortDir: params?.sortDir,
+        },
+        { page, pageSize },
+      ) as T,
+    )
   }
 
   const offcutCardMatch = path.match(/^\/api\/warehouse\/offcuts\/([^/]+)$/)
@@ -566,34 +588,44 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
   if (path === '/api/warehouse/movements') {
     const page = Number(params?.page ?? 1)
     const pageSize = Number(params?.pageSize ?? 25)
-    return delay(mockGetMovements({
-      search: params?.search ?? '',
-      type: params?.type,
-      productId: params?.productId,
-      unit: params?.unit,
-      categoryIds: params?.categoryIds,
-      batchNumber: params?.batchNumber,
-      referenceId: params?.referenceId,
-      offcutId: params?.offcutId,
-      dateFrom: params?.dateFrom,
-      dateTo: params?.dateTo,
-      sortBy: params?.sortBy,
-      sortDir: params?.sortDir,
-    }, { page, pageSize }) as T)
+    return delay(
+      mockGetMovements(
+        {
+          search: params?.search ?? '',
+          type: params?.type,
+          productId: params?.productId,
+          unit: params?.unit,
+          categoryIds: params?.categoryIds,
+          batchNumber: params?.batchNumber,
+          referenceId: params?.referenceId,
+          offcutId: params?.offcutId,
+          dateFrom: params?.dateFrom,
+          dateTo: params?.dateTo,
+          sortBy: params?.sortBy,
+          sortDir: params?.sortDir,
+        },
+        { page, pageSize },
+      ) as T,
+    )
   }
 
   if (path === '/api/warehouse/deficit') {
     const page = Number(params?.page ?? 1)
     const pageSize = Number(params?.pageSize ?? 25)
-    return delay(mockGetDeficitList({
-      search: params?.search ?? '',
-      priority: params?.priority,
-      status: params?.status,
-      unit: params?.unit,
-      categoryIds: params?.categoryIds,
-      sortBy: params?.sortBy,
-      sortDir: params?.sortDir,
-    }, { page, pageSize }) as T)
+    return delay(
+      mockGetDeficitList(
+        {
+          search: params?.search ?? '',
+          priority: params?.priority,
+          status: params?.status,
+          unit: params?.unit,
+          categoryIds: params?.categoryIds,
+          sortBy: params?.sortBy,
+          sortDir: params?.sortDir,
+        },
+        { page, pageSize },
+      ) as T,
+    )
   }
 
   const deficitCardMatch = path.match(/^\/api\/warehouse\/deficit\/([^/]+)$/)
@@ -611,7 +643,9 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
   }
 
   // ── Warehouse Export ──
-  const exportMatch = path.match(/^\/api\/warehouse\/export\/(stock|batches|offcuts|movements|deficit)$/)
+  const exportMatch = path.match(
+    /^\/api\/warehouse\/export\/(stock|batches|offcuts|movements|deficit)$/,
+  )
   if (exportMatch) {
     return delay(mockExportWarehouseCsv(exportMatch[1] as string) as T)
   }
@@ -759,23 +793,38 @@ export async function postMock<T>(
   const clientInteractionPostMatch = path.match(/^\/api\/clients\/([^/]+)\/interactions$/)
   if (clientInteractionPostMatch) {
     return delay(
-      mockAddClientInteraction(clientInteractionPostMatch[1] as string, body as import('@/types/client').InteractionHistoryEntry) as T,
+      mockAddClientInteraction(
+        clientInteractionPostMatch[1] as string,
+        body as import('@/types/client').InteractionHistoryEntry,
+      ) as T,
     )
   }
 
   // ── Orders POST ──
   if (path === '/api/orders') {
-    return delay(mockCreateOrder(body as { clientId: string; documentType: 'local' | 'export' }) as T)
+    return delay(
+      mockCreateOrder(body as { clientId: string; documentType: 'local' | 'export' }) as T,
+    )
   }
 
   const orderItemMatch = path.match(/^\/api\/orders\/([^/]+)\/items$/)
   if (orderItemMatch) {
-    return delay(mockAddOrderItem(orderItemMatch[1] as string, body as Parameters<typeof mockAddOrderItem>[1]) as T)
+    return delay(
+      mockAddOrderItem(
+        orderItemMatch[1] as string,
+        body as Parameters<typeof mockAddOrderItem>[1],
+      ) as T,
+    )
   }
 
   const orderServiceMatch = path.match(/^\/api\/orders\/([^/]+)\/services$/)
   if (orderServiceMatch) {
-    return delay(mockAddOrderService(orderServiceMatch[1] as string, body as Parameters<typeof mockAddOrderService>[1]) as T)
+    return delay(
+      mockAddOrderService(
+        orderServiceMatch[1] as string,
+        body as Parameters<typeof mockAddOrderService>[1],
+      ) as T,
+    )
   }
 
   const orderFilesPostMatch = path.match(/^\/api\/orders\/([^/]+)\/files$/)
@@ -807,10 +856,14 @@ export async function postMock<T>(
   }
 
   // ── Settings POST ──
-  if (path === '/api/settings/currencies') return delay(mockCreateCurrency(body as Parameters<typeof mockCreateCurrency>[0]) as T)
-  if (path === '/api/settings/uoms') return delay(mockCreateUom(body as Parameters<typeof mockCreateUom>[0]) as T)
-  if (path === '/api/settings/conversions') return delay(mockCreateConversion(body as Parameters<typeof mockCreateConversion>[0]) as T)
-  if (path === '/api/settings/order-statuses') return delay(mockCreateOrderStatus(body as Parameters<typeof mockCreateOrderStatus>[0]) as T)
+  if (path === '/api/settings/currencies')
+    return delay(mockCreateCurrency(body as Parameters<typeof mockCreateCurrency>[0]) as T)
+  if (path === '/api/settings/uoms')
+    return delay(mockCreateUom(body as Parameters<typeof mockCreateUom>[0]) as T)
+  if (path === '/api/settings/conversions')
+    return delay(mockCreateConversion(body as Parameters<typeof mockCreateConversion>[0]) as T)
+  if (path === '/api/settings/order-statuses')
+    return delay(mockCreateOrderStatus(body as Parameters<typeof mockCreateOrderStatus>[0]) as T)
   if (path === '/api/settings/change-password') return delay(undefined as T) // no-op mock
 
   throw new Error(`[mock] POST ${path} not found`)
@@ -876,14 +929,20 @@ export async function patchMock<T>(
   const categoryMatch = path.match(/^\/api\/categories\/([^/]+)$/)
   if (categoryMatch) {
     return delay(
-      mockPatchCategory(categoryMatch[1] as string, body as Parameters<typeof mockPatchCategory>[1]) as T,
+      mockPatchCategory(
+        categoryMatch[1] as string,
+        body as Parameters<typeof mockPatchCategory>[1],
+      ) as T,
     )
   }
 
   const productPatchMatch = path.match(/^\/api\/products\/([^/]+)$/)
   if (productPatchMatch) {
     return delay(
-      mockPatchProduct(productPatchMatch[1] as string, body as Parameters<typeof mockPatchProduct>[1]) as T,
+      mockPatchProduct(
+        productPatchMatch[1] as string,
+        body as Parameters<typeof mockPatchProduct>[1],
+      ) as T,
     )
   }
 
@@ -908,14 +967,20 @@ export async function patchMock<T>(
   const servicePatchMatch = path.match(/^\/api\/services\/([^/]+)$/)
   if (servicePatchMatch) {
     return delay(
-      mockPatchService(servicePatchMatch[1] as string, body as Parameters<typeof mockPatchService>[1]) as T,
+      mockPatchService(
+        servicePatchMatch[1] as string,
+        body as Parameters<typeof mockPatchService>[1],
+      ) as T,
     )
   }
 
   const clientPatchMatch = path.match(/^\/api\/clients\/([^/]+)$/)
   if (clientPatchMatch) {
     return delay(
-      mockPatchClient(clientPatchMatch[1] as string, body as Partial<import('@/types/client').Client>) as T,
+      mockPatchClient(
+        clientPatchMatch[1] as string,
+        body as Partial<import('@/types/client').Client>,
+      ) as T,
     )
   }
 
@@ -929,14 +994,21 @@ export async function patchMock<T>(
   const orderItemUpdateMatch = path.match(/^\/api\/orders\/([^/]+)\/items\/([^/]+)$/)
   if (orderItemUpdateMatch) {
     return delay(
-      mockUpdateOrderItem(orderItemUpdateMatch[1] as string, orderItemUpdateMatch[2] as string, body as Parameters<typeof mockUpdateOrderItem>[2]) as T,
+      mockUpdateOrderItem(
+        orderItemUpdateMatch[1] as string,
+        orderItemUpdateMatch[2] as string,
+        body as Parameters<typeof mockUpdateOrderItem>[2],
+      ) as T,
     )
   }
 
   const orderPatchMatch = path.match(/^\/api\/orders\/([^/]+)$/)
   if (orderPatchMatch) {
     return delay(
-      mockPatchOrder(orderPatchMatch[1] as string, body as Partial<import('@/types/order').Order>) as T,
+      mockPatchOrder(
+        orderPatchMatch[1] as string,
+        body as Partial<import('@/types/order').Order>,
+      ) as T,
     )
   }
 
@@ -944,14 +1016,20 @@ export async function patchMock<T>(
   const batchPatchMatch = path.match(/^\/api\/warehouse\/batches\/([^/]+)$/)
   if (batchPatchMatch) {
     return delay(
-      mockPatchBatch(batchPatchMatch[1] as string, body as Parameters<typeof mockPatchBatch>[1]) as T,
+      mockPatchBatch(
+        batchPatchMatch[1] as string,
+        body as Parameters<typeof mockPatchBatch>[1],
+      ) as T,
     )
   }
 
   const deficitPatchMatch = path.match(/^\/api\/warehouse\/deficit\/([^/]+)$/)
   if (deficitPatchMatch) {
     return delay(
-      mockPatchDeficitItem(deficitPatchMatch[1] as string, body as Parameters<typeof mockPatchDeficitItem>[1]) as T,
+      mockPatchDeficitItem(
+        deficitPatchMatch[1] as string,
+        body as Parameters<typeof mockPatchDeficitItem>[1],
+      ) as T,
     )
   }
 
@@ -965,7 +1043,10 @@ export async function patchMock<T>(
   const offcutPatchMatch = path.match(/^\/api\/warehouse\/offcuts\/([^/]+)$/)
   if (offcutPatchMatch) {
     return delay(
-      mockPatchOffcut(offcutPatchMatch[1] as string, body as Parameters<typeof mockPatchOffcut>[1]) as T,
+      mockPatchOffcut(
+        offcutPatchMatch[1] as string,
+        body as Parameters<typeof mockPatchOffcut>[1],
+      ) as T,
     )
   }
 
@@ -985,12 +1066,18 @@ export async function patchMock<T>(
 
   const currencyPatchMatch = path.match(/^\/api\/settings\/currencies\/([^/]+)$/)
   if (currencyPatchMatch) {
-    mockUpdateCurrency(currencyPatchMatch[1] as string, body as Parameters<typeof mockUpdateCurrency>[1])
+    mockUpdateCurrency(
+      currencyPatchMatch[1] as string,
+      body as Parameters<typeof mockUpdateCurrency>[1],
+    )
     return delay(undefined as T)
   }
   const conversionPatchMatch = path.match(/^\/api\/settings\/conversions\/([^/]+)$/)
   if (conversionPatchMatch) {
-    mockUpdateConversion(conversionPatchMatch[1] as string, body as Parameters<typeof mockUpdateConversion>[1])
+    mockUpdateConversion(
+      conversionPatchMatch[1] as string,
+      body as Parameters<typeof mockUpdateConversion>[1],
+    )
     return delay(undefined as T)
   }
   const uomPatchMatch = path.match(/^\/api\/settings\/uoms\/([^/]+)$/)
@@ -1001,7 +1088,10 @@ export async function patchMock<T>(
 
   const statusPatchMatch = path.match(/^\/api\/settings\/order-statuses\/([^/]+)$/)
   if (statusPatchMatch) {
-    mockUpdateOrderStatus(statusPatchMatch[1] as string, body as Parameters<typeof mockUpdateOrderStatus>[1])
+    mockUpdateOrderStatus(
+      statusPatchMatch[1] as string,
+      body as Parameters<typeof mockUpdateOrderStatus>[1],
+    )
     return delay(undefined as T)
   }
 
@@ -1019,7 +1109,12 @@ export async function patchMock<T>(
   // ── Finance PATCH ──
   const financePaymentPatchMatch = path.match(/^\/api\/finance\/payments\/([^/]+)$/)
   if (financePaymentPatchMatch) {
-    return delay(mockPatchPayment(financePaymentPatchMatch[1] as string, body as Partial<import('@/types/finance').FinancePayment>) as T)
+    return delay(
+      mockPatchPayment(
+        financePaymentPatchMatch[1] as string,
+        body as Partial<import('@/types/finance').FinancePayment>,
+      ) as T,
+    )
   }
 
   throw new Error(`[mock] PATCH ${path} not found`)
@@ -1047,19 +1142,30 @@ export async function deleteMock<T>(path: string, _headers?: Record<string, stri
 
   const offcutAuditDeleteMatch = path.match(/^\/api\/warehouse\/offcuts\/([^/]+)\/audit\/(\d+)$/)
   if (offcutAuditDeleteMatch) {
-    mockDeleteOffcutAuditEntry(offcutAuditDeleteMatch[1] as string, Number(offcutAuditDeleteMatch[2]))
+    mockDeleteOffcutAuditEntry(
+      offcutAuditDeleteMatch[1] as string,
+      Number(offcutAuditDeleteMatch[2]),
+    )
     return delay(undefined as T)
   }
 
-  const movementAuditDeleteMatch = path.match(/^\/api\/warehouse\/movements\/([^/]+)\/audit\/(\d+)$/)
+  const movementAuditDeleteMatch = path.match(
+    /^\/api\/warehouse\/movements\/([^/]+)\/audit\/(\d+)$/,
+  )
   if (movementAuditDeleteMatch) {
-    mockDeleteMovementAuditEntry(movementAuditDeleteMatch[1] as string, Number(movementAuditDeleteMatch[2]))
+    mockDeleteMovementAuditEntry(
+      movementAuditDeleteMatch[1] as string,
+      Number(movementAuditDeleteMatch[2]),
+    )
     return delay(undefined as T)
   }
 
   const deficitAuditDeleteMatch = path.match(/^\/api\/warehouse\/deficit\/([^/]+)\/audit\/(\d+)$/)
   if (deficitAuditDeleteMatch) {
-    mockDeleteDeficitAuditEntry(deficitAuditDeleteMatch[1] as string, Number(deficitAuditDeleteMatch[2]))
+    mockDeleteDeficitAuditEntry(
+      deficitAuditDeleteMatch[1] as string,
+      Number(deficitAuditDeleteMatch[2]),
+    )
     return delay(undefined as T)
   }
 
@@ -1084,7 +1190,10 @@ export async function deleteMock<T>(path: string, _headers?: Record<string, stri
 
   const productAuditDeleteMatch = path.match(/^\/api\/products\/([^/]+)\/audit\/(\d+)$/)
   if (productAuditDeleteMatch) {
-    mockDeleteProductAuditEntry(productAuditDeleteMatch[1] as string, Number(productAuditDeleteMatch[2]))
+    mockDeleteProductAuditEntry(
+      productAuditDeleteMatch[1] as string,
+      Number(productAuditDeleteMatch[2]),
+    )
     return delay(undefined as T)
   }
 
@@ -1110,13 +1219,19 @@ export async function deleteMock<T>(path: string, _headers?: Record<string, stri
 
   const clientAuditDeleteMatch = path.match(/^\/api\/clients\/([^/]+)\/audit\/(\d+)$/)
   if (clientAuditDeleteMatch) {
-    mockDeleteClientAuditEntry(clientAuditDeleteMatch[1] as string, Number(clientAuditDeleteMatch[2]))
+    mockDeleteClientAuditEntry(
+      clientAuditDeleteMatch[1] as string,
+      Number(clientAuditDeleteMatch[2]),
+    )
     return delay(undefined as T)
   }
 
   const clientInteractionDeleteMatch = path.match(/^\/api\/clients\/([^/]+)\/interactions\/(\d+)$/)
   if (clientInteractionDeleteMatch) {
-    mockDeleteClientInteraction(clientInteractionDeleteMatch[1] as string, Number(clientInteractionDeleteMatch[2]))
+    mockDeleteClientInteraction(
+      clientInteractionDeleteMatch[1] as string,
+      Number(clientInteractionDeleteMatch[2]),
+    )
     return delay(undefined as T)
   }
 
@@ -1129,7 +1244,10 @@ export async function deleteMock<T>(path: string, _headers?: Record<string, stri
 
   const orderServiceDeleteMatch = path.match(/^\/api\/orders\/([^/]+)\/services\/([^/]+)$/)
   if (orderServiceDeleteMatch) {
-    mockDeleteOrderService(orderServiceDeleteMatch[1] as string, orderServiceDeleteMatch[2] as string)
+    mockDeleteOrderService(
+      orderServiceDeleteMatch[1] as string,
+      orderServiceDeleteMatch[2] as string,
+    )
     return delay(undefined as T)
   }
 

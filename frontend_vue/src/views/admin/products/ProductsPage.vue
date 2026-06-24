@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useHead } from '@/composables/useHead'
+import { useSettings } from '@/composables/useSettings'
 import { useProducts } from '@/composables/useProducts'
 import { useCategories } from '@/composables/useCategories'
 import { useToast } from '@/composables/useToast'
@@ -22,10 +23,15 @@ import '@styles/admin/products_list.css'
 const { t, locale } = useI18n()
 const router = useRouter()
 const toast = useToast()
+const { settings, load: loadSettings } = useSettings()
 
-useHead({ title: () => `Flexiron — ${t('products.header_title')}`, description: () => t('products.title') })
+useHead({
+  title: () => `Flexiron — ${t('products.header_title')}`,
+  description: () => t('products.title'),
+})
 
-const { items, loading, error, filters, load, deleteProduct, pagination, toggleSort, tf } = useProducts()
+const { items, loading, error, filters, load, deleteProduct, pagination, toggleSort, tf } =
+  useProducts()
 
 const PAGE_SIZE_OPTIONS = [
   { value: '25', label: '25' },
@@ -67,7 +73,9 @@ const categoryFilterOptions = computed(() =>
 
 const newProductCategoryStr = computed({
   get: () => newProduct.value.categoryId ?? '',
-  set: (v: string) => { newProduct.value.categoryId = v || null },
+  set: (v: string) => {
+    newProduct.value.categoryId = v || null
+  },
 })
 
 const PREFS_KEY = 'products_list_prefs'
@@ -89,7 +97,9 @@ function loadPrefs() {
   try {
     const raw = localStorage.getItem(PREFS_KEY)
     if (!raw) return
-    const prefs = JSON.parse(raw) as { filters?: { search?: string; categoryIds?: string[]; sortBy?: string; sortDir?: string } }
+    const prefs = JSON.parse(raw) as {
+      filters?: { search?: string; categoryIds?: string[]; sortBy?: string; sortDir?: string }
+    }
     if (prefs.filters) {
       if (typeof prefs.filters.search === 'string') filters.search = prefs.filters.search
       if (Array.isArray(prefs.filters.categoryIds)) filters.categoryIds = prefs.filters.categoryIds
@@ -104,14 +114,72 @@ function loadPrefs() {
 const showCreateModal = ref(false)
 const showDeleteModal = ref(false)
 const deletingId = ref<string | null>(null)
-const newProduct = ref({ name: '', categoryId: null as string | null })
+const newProduct = ref({
+  name: '',
+  categoryId: null as string | null,
+  price: null as number | null,
+  priceQuantity: 1,
+  currencyId: null as string | null,
+  purchaseUomId: null as string | null,
+  warehouseUomId: null as string | null,
+  saleUomId: null as string | null,
+})
 const creating = ref(false)
+
+// Dynamic options from settings
+const uomOptions = computed(() => {
+  const uoms = settings.uoms ?? []
+  const currentLocale = locale.value as string
+  return [
+    { value: '', label: '—' },
+    ...uoms.map((u: { id: string; code: Record<string, string | undefined> }) => ({
+      value: u.id,
+      label: u.code[currentLocale] || u.code.en || u.code.ru || u.code.lt || '?',
+    })),
+  ]
+})
+
+const currencyOptions = computed(() => {
+  const currencies = settings.currencies ?? []
+  return [
+    { value: '', label: '—' },
+    ...currencies.map((c: { id: string; code: string }) => ({ value: c.id, label: c.code })),
+  ]
+})
 
 onMounted(() => {
   loadPrefs()
   loadCats()
   load()
+  loadSettings()
 })
+
+/** Resolve product unit label from saleUomId + settings (locale-aware) */
+function productUnitLabel(item: { saleUomId?: string | null }): string {
+  if (!item.saleUomId) return '—'
+  const uom = settings.uoms.find((u: { id: string }) => u.id === item.saleUomId)
+  if (!uom) return '—'
+  const cl = locale.value as keyof typeof uom.code
+  return uom.code[cl] || uom.code.en || uom.code.ru || uom.code.lt || '—'
+}
+
+function resetNewProduct() {
+  newProduct.value = {
+    name: '',
+    categoryId: null,
+    price: null,
+    priceQuantity: 1,
+    currencyId: null,
+    purchaseUomId: null,
+    warehouseUomId: null,
+    saleUomId: null,
+  }
+}
+
+function openCreateModal() {
+  resetNewProduct()
+  showCreateModal.value = true
+}
 
 function openDeleteModal(id: string) {
   deletingId.value = id
@@ -129,12 +197,21 @@ async function handleCreate() {
   if (!newProduct.value.name.trim()) return
   creating.value = true
   try {
-    const created = await createProduct({
-      name: newProduct.value.name.trim(),
-      categoryId: newProduct.value.categoryId,
-    }, locale.value)
+    const created = await createProduct(
+      {
+        name: newProduct.value.name.trim(),
+        categoryId: newProduct.value.categoryId,
+        price: newProduct.value.price,
+        priceQuantity: newProduct.value.priceQuantity,
+        currencyId: newProduct.value.currencyId,
+        purchaseUomId: newProduct.value.purchaseUomId,
+        warehouseUomId: newProduct.value.warehouseUomId,
+        saleUomId: newProduct.value.saleUomId,
+      },
+      locale.value,
+    )
     showCreateModal.value = false
-    newProduct.value = { name: '', categoryId: null }
+    resetNewProduct()
     await router.push({ name: 'admin-product-card', params: { id: created.id } })
   } finally {
     creating.value = false
@@ -147,11 +224,7 @@ async function handleCreate() {
     <div class="products-header" data-test="products-header">
       <h1 class="page-title">{{ t('products.header_title') }}</h1>
       <div class="entity-action-bar no-margin pos-static">
-        <button
-          class="btn btn-primary"
-          data-test="products-btn-create"
-          @click="showCreateModal = true"
-        >
+        <button class="btn btn-primary" data-test="products-btn-create" @click="openCreateModal">
           <SvgIcon name="plus-add" :width="18" :height="18" />
           <span>{{ t('products.btn_create') }}</span>
         </button>
@@ -197,7 +270,16 @@ async function handleCreate() {
           />
         </div>
         <button class="btn btn-primary" data-test="products-save-view-btn" @click="saveView">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
             <polyline points="17 21 17 13 7 13 7 21" />
             <polyline points="7 3 7 8 15 8" />
@@ -208,11 +290,7 @@ async function handleCreate() {
     </div>
 
     <GlassPanel :loading="loading" :skeleton-rows="8" data-test="products-table">
-      <div
-        v-if="error"
-        class="error-state"
-        data-test="products-error"
-      >
+      <div v-if="error" class="error-state" data-test="products-error">
         <SvgIcon name="alert-triangle" :width="48" :height="48" />
         <p>{{ error }}</p>
         <button class="btn btn-primary" @click="load">{{ t('btn.retry') }}</button>
@@ -261,14 +339,18 @@ async function handleCreate() {
                       :width="16"
                       :height="16"
                       class="sort-icon"
-                      :class="{ active: filters.sortBy === 'category' && filters.sortDir === 'asc' }"
+                      :class="{
+                        active: filters.sortBy === 'category' && filters.sortDir === 'asc',
+                      }"
                     />
                     <SvgIcon
                       name="chevron-down"
                       :width="16"
                       :height="16"
                       class="sort-icon"
-                      :class="{ active: filters.sortBy === 'category' && filters.sortDir === 'desc' }"
+                      :class="{
+                        active: filters.sortBy === 'category' && filters.sortDir === 'desc',
+                      }"
                     />
                   </span>
                 </button>
@@ -299,12 +381,7 @@ async function handleCreate() {
             </tr>
           </thead>
           <tbody>
-            <tr
-              v-for="item in items"
-              :key="item.id"
-              class="products-row"
-              data-test="products-row"
-            >
+            <tr v-for="item in items" :key="item.id" class="products-row" data-test="products-row">
               <td>
                 <router-link
                   v-if="item.name"
@@ -317,7 +394,7 @@ async function handleCreate() {
               </td>
               <td>{{ item.categoryName ? tf(item.categoryName) : '—' }}</td>
               <td>{{ item.price != null ? item.price : '—' }}</td>
-              <td>{{ item.priceUnit ?? '—' }}</td>
+              <td>{{ productUnitLabel(item) }}</td>
               <td>
                 <div class="products-row-actions">
                   <router-link
@@ -406,7 +483,7 @@ async function handleCreate() {
     <AppModal
       v-model="showCreateModal"
       :title="t('products.modal_create_title')"
-      size="small"
+      size="medium"
       data-test="modal-create-product"
     >
       <InputGroup :label="t('products.field_name')" :required="true">
@@ -424,12 +501,74 @@ async function handleCreate() {
           data-test="create-product-category"
         />
       </InputGroup>
-      <template #footer>
-        <button
-          type="button"
-          class="btn btn-secondary"
-          @click="showCreateModal = false"
+
+      <div class="section-divider" />
+      <h4 class="subsection-title">{{ t('products.section_price') }}</h4>
+
+      <InputGroup :label="t('products.field_price')" :required="false">
+        <input
+          v-model.number="newProduct.price"
+          class="glass-input"
+          type="number"
+          data-test="create-product-price"
+        />
+      </InputGroup>
+
+      <div class="inline-group">
+        <InputGroup
+          :label="t('products.field_price_quantity')"
+          :required="false"
+          class="inline-short"
         >
+          <input
+            v-model.number="newProduct.priceQuantity"
+            class="glass-input"
+            type="number"
+            min="1"
+            data-test="create-product-price-qty"
+          />
+        </InputGroup>
+        <InputGroup :label="t('products.field_sale_uom')" :required="false" class="inline-wide">
+          <CustomSelect
+            :model-value="newProduct.saleUomId ?? ''"
+            :options="uomOptions"
+            data-test="create-product-sale-uom"
+            @update:model-value="(v: string) => (newProduct.saleUomId = v || null)"
+          />
+        </InputGroup>
+      </div>
+
+      <InputGroup :label="t('products.field_currency')" :required="false">
+        <CustomSelect
+          :model-value="newProduct.currencyId ?? ''"
+          :options="currencyOptions"
+          data-test="create-product-currency"
+          @update:model-value="(v: string) => (newProduct.currencyId = v || null)"
+        />
+      </InputGroup>
+
+      <div class="section-divider" />
+      <h4 class="subsection-title">{{ t('products.section_uom') }}</h4>
+
+      <InputGroup :label="t('products.field_purchase_uom')" :required="false">
+        <CustomSelect
+          :model-value="newProduct.purchaseUomId ?? ''"
+          :options="uomOptions"
+          data-test="create-product-purchase-uom"
+          @update:model-value="(v: string) => (newProduct.purchaseUomId = v || null)"
+        />
+      </InputGroup>
+      <InputGroup :label="t('products.field_warehouse_uom')" :required="false">
+        <CustomSelect
+          :model-value="newProduct.warehouseUomId ?? ''"
+          :options="uomOptions"
+          data-test="create-product-warehouse-uom"
+          @update:model-value="(v: string) => (newProduct.warehouseUomId = v || null)"
+        />
+      </InputGroup>
+
+      <template #footer>
+        <button type="button" class="btn btn-secondary" @click="showCreateModal = false">
           {{ t('products.btn_discard') }}
         </button>
         <button
@@ -452,11 +591,7 @@ async function handleCreate() {
     >
       <p>{{ t('products.confirm_delete') }}</p>
       <template #footer>
-        <button
-          type="button"
-          class="btn btn-secondary"
-          @click="showDeleteModal = false"
-        >
+        <button type="button" class="btn btn-secondary" @click="showDeleteModal = false">
           {{ t('products.btn_discard') }}
         </button>
         <button

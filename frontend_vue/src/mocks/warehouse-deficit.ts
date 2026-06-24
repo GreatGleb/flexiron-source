@@ -46,7 +46,11 @@ export const mockDeficit: WarehouseDeficit[] = [
   {
     id: 'whd-002',
     productId: 'prod-008',
-    productName: { ru: 'Круги отрезные 230мм', en: 'Cut-off wheels 230mm', lt: 'Pjovimo diskai 230mm' },
+    productName: {
+      ru: 'Круги отрезные 230мм',
+      en: 'Cut-off wheels 230mm',
+      lt: 'Pjovimo diskai 230mm',
+    },
     currentStock: 5,
     minRequired: 20,
     deficitAmount: 15,
@@ -63,7 +67,11 @@ export const mockDeficit: WarehouseDeficit[] = [
   {
     id: 'whd-003',
     productId: 'prod-009',
-    productName: { ru: 'Сварочная проволока 1.2мм', en: 'Welding wire 1.2mm', lt: 'Suvirinimo viela 1.2mm' },
+    productName: {
+      ru: 'Сварочная проволока 1.2мм',
+      en: 'Welding wire 1.2mm',
+      lt: 'Suvirinimo viela 1.2mm',
+    },
     currentStock: 30,
     minRequired: 50,
     deficitAmount: 20,
@@ -80,7 +88,11 @@ export const mockDeficit: WarehouseDeficit[] = [
   {
     id: 'whd-004',
     productId: 'prod-001',
-    productName: { ru: 'Лист нержавеющий 2мм', en: 'Stainless steel sheet 2mm', lt: 'Nerūdijančio plieno lakštas 2mm' },
+    productName: {
+      ru: 'Лист нержавеющий 2мм',
+      en: 'Stainless steel sheet 2mm',
+      lt: 'Nerūdijančio plieno lakštas 2mm',
+    },
     currentStock: 15,
     minRequired: 40,
     deficitAmount: 25,
@@ -97,7 +109,11 @@ export const mockDeficit: WarehouseDeficit[] = [
   {
     id: 'whd-005',
     productId: 'prod-004',
-    productName: { ru: 'Лист нержавеющий 1мм', en: 'Stainless steel sheet 1mm', lt: 'Nerūdijančio plieno lakštas 1mm' },
+    productName: {
+      ru: 'Лист нержавеющий 1мм',
+      en: 'Stainless steel sheet 1mm',
+      lt: 'Nerūdijančio plieno lakštas 1mm',
+    },
     currentStock: 8,
     minRequired: 25,
     deficitAmount: 17,
@@ -131,7 +147,11 @@ export const mockDeficit: WarehouseDeficit[] = [
   {
     id: 'whd-007',
     productId: 'prod-016',
-    productName: { ru: 'Электроды сварочные 3мм', en: 'Welding electrodes 3mm', lt: 'Suvirinimo elektrodai 3mm' },
+    productName: {
+      ru: 'Электроды сварочные 3мм',
+      en: 'Welding electrodes 3mm',
+      lt: 'Suvirinimo elektrodai 3mm',
+    },
     currentStock: 3,
     minRequired: 30,
     deficitAmount: 27,
@@ -148,7 +168,11 @@ export const mockDeficit: WarehouseDeficit[] = [
   {
     id: 'whd-008',
     productId: 'prod-019',
-    productName: { ru: 'Проволока сварочная Lincoln L-56 1мм', en: 'Welding wire Lincoln L-56 1mm', lt: 'Suvirinimo viela Lincoln L-56 1mm' },
+    productName: {
+      ru: 'Проволока сварочная Lincoln L-56 1мм',
+      en: 'Welding wire Lincoln L-56 1mm',
+      lt: 'Suvirinimo viela Lincoln L-56 1mm',
+    },
     currentStock: 10,
     minRequired: 40,
     deficitAmount: 30,
@@ -165,7 +189,11 @@ export const mockDeficit: WarehouseDeficit[] = [
   {
     id: 'whd-009',
     productId: 'prod-024',
-    productName: { ru: 'Круги отрезные 230мм', en: 'Cut-off wheels 230mm', lt: 'Pjovimo diskai 230mm' },
+    productName: {
+      ru: 'Круги отрезные 230мм',
+      en: 'Cut-off wheels 230mm',
+      lt: 'Pjovimo diskai 230mm',
+    },
     currentStock: 6,
     minRequired: 50,
     deficitAmount: 44,
@@ -250,7 +278,11 @@ export const mockDeficit: WarehouseDeficit[] = [
   {
     id: 'whd-014',
     productId: 'prod-042',
-    productName: { ru: 'Сварочный аппарат ESAB Rebel EMP 235', en: 'Welding machine ESAB Rebel EMP 235', lt: 'Suvirinimo aparatas ESAB Rebel EMP 235' },
+    productName: {
+      ru: 'Сварочный аппарат ESAB Rebel EMP 235',
+      en: 'Welding machine ESAB Rebel EMP 235',
+      lt: 'Suvirinimo aparatas ESAB Rebel EMP 235',
+    },
     currentStock: 0,
     minRequired: 2,
     deficitAmount: 2,
@@ -301,7 +333,11 @@ export const mockDeficit: WarehouseDeficit[] = [
   {
     id: 'whd-017',
     productId: 'prod-017',
-    productName: { ru: 'Электроды ESAB OK 46.00 3мм', en: 'Electrodes ESAB OK 46.00 3mm', lt: 'Elektrodai ESAB OK 46.00 3mm' },
+    productName: {
+      ru: 'Электроды ESAB OK 46.00 3мм',
+      en: 'Electrodes ESAB OK 46.00 3mm',
+      lt: 'Elektrodai ESAB OK 46.00 3mm',
+    },
     currentStock: 1,
     minRequired: 15,
     deficitAmount: 14,
@@ -318,7 +354,11 @@ export const mockDeficit: WarehouseDeficit[] = [
   {
     id: 'whd-018',
     productId: 'prod-022',
-    productName: { ru: 'Проволока сварочная ESAB OK Autrod 12.64 1.2мм', en: 'Welding wire ESAB OK Autrod 12.64 1.2mm', lt: 'Suvirinimo viela ESAB OK Autrod 12.64 1.2mm' },
+    productName: {
+      ru: 'Проволока сварочная ESAB OK Autrod 12.64 1.2мм',
+      en: 'Welding wire ESAB OK Autrod 12.64 1.2mm',
+      lt: 'Suvirinimo viela ESAB OK Autrod 12.64 1.2mm',
+    },
     currentStock: 5,
     minRequired: 25,
     deficitAmount: 20,
@@ -335,7 +375,11 @@ export const mockDeficit: WarehouseDeficit[] = [
   {
     id: 'whd-019',
     productId: 'prod-027',
-    productName: { ru: 'Отрезной круг 125x1мм', en: 'Cut-off wheel 125x1mm', lt: 'Pjovimo diskas 125x1mm' },
+    productName: {
+      ru: 'Отрезной круг 125x1мм',
+      en: 'Cut-off wheel 125x1mm',
+      lt: 'Pjovimo diskas 125x1mm',
+    },
     currentStock: 10,
     minRequired: 60,
     deficitAmount: 50,
@@ -352,7 +396,11 @@ export const mockDeficit: WarehouseDeficit[] = [
   {
     id: 'whd-020',
     productId: 'prod-033',
-    productName: { ru: 'Сверло по металлу 10мм HSS', en: 'HSS drill bit 10mm', lt: 'Grąžtas metalui 10mm HSS' },
+    productName: {
+      ru: 'Сверло по металлу 10мм HSS',
+      en: 'HSS drill bit 10mm',
+      lt: 'Grąžtas metalui 10mm HSS',
+    },
     currentStock: 3,
     minRequired: 12,
     deficitAmount: 9,

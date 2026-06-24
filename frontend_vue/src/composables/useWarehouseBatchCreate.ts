@@ -5,14 +5,16 @@ import { getProducts, getProduct } from '@/services/productsService'
 import { getSupplierList } from '@/services/suppliersService'
 import { useToast } from './useToast'
 import { useTranslatedField } from './useTranslatedData'
+import { useSettings } from './useSettings'
 import type { BatchCreatePayload, StockUnit } from '@/types/warehouse'
 import type { ProductListItem, Product } from '@/types/product'
 import type { SelectOption } from '@/components/admin/ui/CustomSelect.vue'
 
 export function useWarehouseBatchCreate() {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const toast = useToast()
   const { tf } = useTranslatedField()
+  const { settings } = useSettings()
 
   const form = reactive({
     productId: '',
@@ -22,7 +24,7 @@ export function useWarehouseBatchCreate() {
     quantity: 0,
     unit: 'kg' as StockUnit,
     unitPrice: 0,
-    currency: 'EUR',
+    currency: settings.constants.defaultCurrency,
     receivedAt: new Date().toISOString().slice(0, 10),
     expiresAt: '',
     locationRack: '',
@@ -31,6 +33,12 @@ export function useWarehouseBatchCreate() {
     locationNotes: '',
     certificateRef: '',
     notes: '',
+    // ── Purchase audit fields ──
+    receivedQuantity: null as number | null,
+    receivedUnitId: null as string | null,
+    receivedUnitPrice: null as number | null,
+    receivedCurrencyId: null as string | null,
+    purchaseToWarehouseRate: null as number | null,
   })
 
   const saving = ref(false)
@@ -45,20 +53,16 @@ export function useWarehouseBatchCreate() {
     if (!selectedProduct.value) return []
     const linkedSuppliers = selectedProductFull.value?.linkedSuppliers
     if (linkedSuppliers && linkedSuppliers.length > 0) {
-      // linkedSupplier.id is a simple number string ('1'), but supplierOptions.value
-      // from the API uses formatted IDs ('sup-001'). Match both formats.
       const linkedIds = new Set<string>()
       for (const s of linkedSuppliers) {
-        linkedIds.add(s.id) // raw: '1'
-        linkedIds.add(`sup-${String(s.id).padStart(3, '0')}`) // formatted: 'sup-001'
+        linkedIds.add(s.id)
+        linkedIds.add(`sup-${String(s.id).padStart(3, '0')}`)
       }
       return supplierOptions.value.filter((opt) => opt.value && linkedIds.has(opt.value))
     }
     if (linkedSuppliers && linkedSuppliers.length === 0) {
-      // Product has no linked suppliers — show a disabled-like placeholder
       return [{ value: '__no_suppliers__', label: t('warehouse.batch_create_no_suppliers') }]
     }
-    // linkedSuppliers is undefined (product not fully loaded yet) — keep supplier select disabled
     return []
   })
 
@@ -104,13 +108,13 @@ export function useWarehouseBatchCreate() {
     return products.value.find((p) => p.id === selectedProductId.value) ?? null
   })
 
-  /** Map a Product's PriceUnit ('EUR/vnt' | 'EUR/kg' | 'EUR/m') to StockUnit ('kg' | 'm' | 'pcs' | 'm2') */
-  function mapPriceUnitToStockUnit(priceUnit: string | null): StockUnit | null {
-    switch (priceUnit) {
-      case 'EUR/kg': return 'kg'
-      case 'EUR/m':  return 'm'
-      case 'EUR/vnt': return 'pcs'
-      default:       return null
+  /** Auto-fill unit from product's warehouseUomId */
+  function autoFillUnit(product: Product | null) {
+    if (product?.warehouseUomId) {
+      const uom = settings.uoms.find((u: { id: string }) => u.id === product.warehouseUomId)
+      if (uom) {
+        form.unit = uom.code.en || uom.code.ru || uom.code.lt || form.unit
+      }
     }
   }
 
@@ -118,12 +122,16 @@ export function useWarehouseBatchCreate() {
   watch(selectedProductId, async (newVal) => {
     if (newVal) {
       form.productId = newVal
-      // Fetch full product data first (contains priceUnit)
       try {
         selectedProductFull.value = await getProduct(newVal)
-        // Then auto-fill unit from product's priceUnit
-        const unit = mapPriceUnitToStockUnit(selectedProductFull.value?.priceUnit ?? null)
-        if (unit) form.unit = unit
+        autoFillUnit(selectedProductFull.value)
+        // Pre-fill currency from product
+        if (selectedProductFull.value?.currencyId) {
+          const cur = settings.currencies.find(
+            (c: { id: string }) => c.id === selectedProductFull.value!.currencyId,
+          )
+          if (cur) form.currency = cur.code
+        }
       } catch {
         selectedProductFull.value = null
       }
@@ -133,20 +141,85 @@ export function useWarehouseBatchCreate() {
     }
   })
 
-  const quantityStep = computed(() => form.unit === 'pcs' ? 1 : 0.01)
+  const quantityStep = computed(() => (form.unit === 'pcs' ? 1 : 0.01))
 
   const totalCost = computed(() => {
     return (form.quantity || 0) * (form.unitPrice || 0)
   })
 
-  const UNIT_OPTIONS: SelectOption[] = [
-    { value: 'kg', label: 'kg' },
-    { value: 'm', label: 'm' },
-    { value: 'pcs', label: 'pcs' },
-    { value: 'm2', label: 'm²' },
-  ]
+  /** Dynamic UoM options from settings */
+  const UNIT_OPTIONS = computed<SelectOption[]>(() => {
+    const uoms = settings.uoms ?? []
+    return uoms.map((u: { id: string; code: { en?: string; ru?: string; lt?: string } }) => {
+      const label = u.code.en || u.code.ru || u.code.lt || u.id
+      return { value: u.id, label }
+    })
+  })
 
-  const CURRENCY_OPTIONS = ['EUR', 'USD', 'GBP', 'PLN']
+  /** Dynamic currency options from settings */
+  const CURRENCY_OPTIONS = computed<string[]>(() => {
+    return (settings.currencies ?? []).map((c: { code: string }) => c.code)
+  })
+
+  /** Pre-fill conversion factor from product when product changes */
+  watch(selectedProductFull, (product) => {
+    if (product?.purchaseToWarehouseFactor) {
+      form.purchaseToWarehouseRate = product.purchaseToWarehouseFactor
+    }
+  })
+
+  /** Pre-fill receivedCurrencyId from linked supplier's currency when supplier changes */
+  watch(
+    () => form.supplierId,
+    (supplierId) => {
+      if (!supplierId || !selectedProductFull.value?.linkedSuppliers) {
+        form.receivedCurrencyId = null
+        return
+      }
+      const linkedSupplier = selectedProductFull.value.linkedSuppliers.find(
+        (s) => s.id === supplierId,
+      )
+      if (linkedSupplier?.currency) {
+        const cur = settings.currencies.find(
+          (c: { code: string }) => c.code === linkedSupplier.currency,
+        )
+        form.receivedCurrencyId = cur ? cur.id : null
+      } else {
+        form.receivedCurrencyId = null
+      }
+    },
+  )
+
+  /** Conversion preview: if selected product has different purchaseUom than warehouseUom */
+  const conversionPreview = computed(() => {
+    if (!selectedProductFull.value) return null
+    const product = selectedProductFull.value
+    if (!product.purchaseUomId || !product.warehouseUomId) return null
+    // If units match, no conversion needed
+    if (product.purchaseUomId === product.warehouseUomId) return null
+    // Use editable conversion rate (defaults to product's factor)
+    const factor = form.purchaseToWarehouseRate || product.purchaseToWarehouseFactor
+    if (!factor || factor <= 0) return null
+    const qty = form.quantity || 0
+    const convertedQty = qty * factor
+    // Resolve unit codes from settings for display (locale-aware)
+    const cl = ['ru', 'en', 'lt'].includes(locale.value) ? locale.value : 'en'
+    const purchaseUom = settings.uoms.find((u: { id: string }) => u.id === product.purchaseUomId)
+    const warehouseUom = settings.uoms.find((u: { id: string }) => u.id === product.warehouseUomId)
+    const purchaseCode = purchaseUom?.code as Record<string, string | undefined> | undefined
+    const warehouseCode = warehouseUom?.code as Record<string, string | undefined> | undefined
+    const purchaseUnit =
+      purchaseCode?.[cl] || purchaseCode?.en || purchaseCode?.ru || purchaseCode?.lt || '?'
+    const warehouseUnit =
+      warehouseCode?.[cl] || warehouseCode?.en || warehouseCode?.ru || warehouseCode?.lt || '?'
+    return {
+      receivedQty: qty,
+      receivedUnit: purchaseUnit,
+      warehouseQty: convertedQty,
+      warehouseUnit,
+      factor,
+    }
+  })
 
   // ─── Location compose helper ──────────────────────────────────────────
   function composeLocation(rack: string, row: string, cell: string, notes: string): string | null {
@@ -245,9 +318,20 @@ export function useWarehouseBatchCreate() {
         currency: form.currency,
         receivedAt: form.receivedAt,
         expiresAt: form.expiresAt || null,
-        location: composeLocation(form.locationRack, form.locationRow, form.locationCell, form.locationNotes),
+        location: composeLocation(
+          form.locationRack,
+          form.locationRow,
+          form.locationCell,
+          form.locationNotes,
+        ),
         certificateRef: form.certificateRef || null,
         notes: form.notes || null,
+        // ── Audit trail fields ──
+        receivedQuantity: form.receivedQuantity,
+        receivedUnitId: form.receivedUnitId,
+        receivedUnitPrice: form.receivedUnitPrice,
+        receivedCurrencyId: form.receivedCurrencyId,
+        purchaseToWarehouseRate: form.purchaseToWarehouseRate,
       }
       if (fileIds && fileIds.length > 0) {
         payload.fileIds = fileIds
@@ -263,12 +347,30 @@ export function useWarehouseBatchCreate() {
     }
   }
 
+  function resolveUnitLabel(code: string | null): string {
+    if (!code) return '—'
+    const uom = settings.uoms.find((u: { code: { en?: string } }) => u.code.en === code)
+    if (!uom) return code
+    const currentLocale = locale.value as keyof typeof uom.code
+    return uom.code[currentLocale] || uom.code.en || uom.code.ru || uom.code.lt || code
+  }
+
   return {
-    form, saving, errors, isFormValid,
-    productsLoading, supplierOptions, productSupplierOptions,
-    UNIT_OPTIONS, CURRENCY_OPTIONS,
-    quantityStep, totalCost,
-    loadOptions, save,
+    form,
+    saving,
+    errors,
+    isFormValid,
+    productsLoading,
+    supplierOptions,
+    productSupplierOptions,
+    UNIT_OPTIONS,
+    CURRENCY_OPTIONS,
+    quantityStep,
+    totalCost,
+    conversionPreview,
+    loadOptions,
+    save,
+    resolveUnitLabel,
     // Product selection
     products,
     productSearch,

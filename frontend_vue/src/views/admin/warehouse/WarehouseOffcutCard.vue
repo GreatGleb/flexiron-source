@@ -40,16 +40,26 @@ const route = useRoute()
 
 const id = route.params.id as string
 const {
-  offcut, loading, saving, error,
+  offcut,
+  loading,
+  saving,
+  error,
   deleteBlockedByOrder,
-  form, isAnythingDirty,
-  movements, movementsLoading,
-  load, save, discard, remove,
+  form,
+  isAnythingDirty,
+  movements,
+  movementsLoading,
+  load,
+  save,
+  discard,
+  remove,
   resetDeleteBlocked,
   tf,
   onFilesUploaded,
   removeFile,
-  auditLog, auditLoading, deleteAuditEntry,
+  auditLog,
+  auditLoading,
+  deleteAuditEntry,
 } = useWarehouseOffcutCard(id)
 
 const showAuditDeleteModal = ref(false)
@@ -58,7 +68,10 @@ const deletingAudit = ref(false)
 
 const pageTitle = computed(() =>
   offcut.value
-    ? t('warehouse.offcut_card_title', { id: offcut.value.id, productName: tf(offcut.value.productName) })
+    ? t('warehouse.offcut_card_title', {
+        id: offcut.value.id,
+        productName: tf(offcut.value.productName),
+      })
     : t('warehouse.header_title'),
 )
 
@@ -116,10 +129,42 @@ function onDeleteBlockedOk() {
 const AUDIT_ENUM_MAP: Record<string, string[]> = {
   deficit_status_: ['open', 'in_progress', 'ordered', 'resolved', 'cancelled'],
   deficit_priority_: ['low', 'medium', 'high', 'critical'],
-  offcut_status_: ['available', 'reserved', 'in_production', 'sold', 'scrapped', 'expensed', 'returned_to_supplier', 'in_storage'],
+  offcut_status_: [
+    'available',
+    'reserved',
+    'in_production',
+    'sold',
+    'scrapped',
+    'expensed',
+    'returned_to_supplier',
+    'in_storage',
+  ],
   movement_type_: ['receipt', 'expense', 'transfer', 'write_off', 'return', 'inbound', 'outbound'],
-  batch_status_: ['active', 'completed', 'expired', 'archived', 'partial', 'available', 'reserved', 'depleted', 'quarantine'],
-  status_: ['available', 'reserved', 'partial', 'depleted', 'quarantine', 'used', 'scrap', 'open', 'in_progress', 'ordered', 'resolved', 'cancelled'],
+  batch_status_: [
+    'active',
+    'completed',
+    'expired',
+    'archived',
+    'partial',
+    'available',
+    'reserved',
+    'depleted',
+    'quarantine',
+  ],
+  status_: [
+    'available',
+    'reserved',
+    'partial',
+    'depleted',
+    'quarantine',
+    'used',
+    'scrap',
+    'open',
+    'in_progress',
+    'ordered',
+    'resolved',
+    'cancelled',
+  ],
 }
 
 function translateAuditValue(value: string): string {
@@ -158,9 +203,12 @@ function autoResizeNotes() {
   }
 }
 
-watch(() => form.value.notes, () => {
-  nextTick(autoResizeNotes)
-})
+watch(
+  () => form.value.notes,
+  () => {
+    nextTick(autoResizeNotes)
+  },
+)
 </script>
 
 <template>
@@ -176,7 +224,10 @@ watch(() => form.value.notes, () => {
       <SvgIcon name="search" :width="48" :height="48" />
       <h2>{{ t('common.entity_not_found') }}</h2>
       <p>{{ t('common.entity_not_found_id', { id }) }}</p>
-      <router-link :to="{ name: 'admin-warehouse', params: { tab: 'offcuts' } }" class="btn btn-primary">
+      <router-link
+        :to="{ name: 'admin-warehouse', params: { tab: 'offcuts' } }"
+        class="btn btn-primary"
+      >
         {{ t('common.back_to_list') }}
       </router-link>
     </div>
@@ -187,14 +238,30 @@ watch(() => form.value.notes, () => {
       <div v-if="offcut" class="offcut-card-header" data-test="offcut-card-header">
         <Breadcrumb
           :items="[
-            { label: t('warehouse.header_title'), to: { name: 'admin-warehouse', params: { tab: 'offcuts' } } },
-            { label: t('warehouse.tab_offcuts'), to: { name: 'admin-warehouse', params: { tab: 'offcuts' } } },
-            { label: t('warehouse.offcut_card_title', { id: offcut?.id ?? id, productName: offcut ? tf(offcut.productName) : '' }) },
+            {
+              label: t('warehouse.header_title'),
+              to: { name: 'admin-warehouse', params: { tab: 'offcuts' } },
+            },
+            {
+              label: t('warehouse.tab_offcuts'),
+              to: { name: 'admin-warehouse', params: { tab: 'offcuts' } },
+            },
+            {
+              label: t('warehouse.offcut_card_title', {
+                id: offcut?.id ?? id,
+                productName: offcut ? tf(offcut.productName) : '',
+              }),
+            },
           ]"
         />
         <div class="offcut-card-header-row">
           <h1 class="page-title">
-            {{ t('warehouse.offcut_card_title', { id: offcut?.id ?? id, productName: offcut ? tf(offcut.productName) : '' }) }}
+            {{
+              t('warehouse.offcut_card_title', {
+                id: offcut?.id ?? id,
+                productName: offcut ? tf(offcut.productName) : '',
+              })
+            }}
             <router-link
               v-tooltip="t('warehouse.open_product_card')"
               :to="{ name: 'admin-product-card', params: { id: offcut.productId } }"
@@ -216,7 +283,16 @@ watch(() => form.value.notes, () => {
               class="info-hint"
               data-test="offcut-card-status-hint"
             >
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="3"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
                 <circle cx="12" cy="12" r="10" />
                 <line x1="12" y1="16" x2="12" y2="12" />
                 <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -264,74 +340,101 @@ watch(() => form.value.notes, () => {
           <div class="entity-col-left">
             <GlassPanel :loading="loading" :skeleton-rows="3" data-test="offcut-card-left-panel">
               <template v-if="offcut">
-              <div class="input-group">
-                <label class="field-label">
-                  <span>{{ t('warehouse.col_batch') }}</span>
-                  <span v-tooltip="t('warehouse.col_offcut_batch_hint')" class="info-hint">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                      <circle cx="12" cy="12" r="10" />
-                      <line x1="12" y1="16" x2="12" y2="12" />
-                      <line x1="12" y1="8" x2="12.01" y2="8" />
-                    </svg>
-                  </span>
-                </label>
-                <router-link
-                  :to="{ name: 'admin-warehouse-batch', params: { id: offcut.batchId } }"
-                  class="batch-link-row"
-                  data-test="field-batch-link"
-                >
-                  <span>{{ t('warehouse.open_batch_card') }}</span>
-                  <SvgIcon name="external-link" :width="14" :height="14" />
-                </router-link>
-                <input
-                  :value="offcut.batchNumber"
-                  class="glass-input"
-                  type="text"
-                  readonly
-                  data-test="field-batch-number"
-                />
-                <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
-              </div>
-              <div class="input-group">
-                <label class="field-label">
-                  <span>{{ t('warehouse.col_product') }}</span>
-                  <span v-tooltip="t('warehouse.col_product_hint')" class="info-hint">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                      <circle cx="12" cy="12" r="10" />
-                      <line x1="12" y1="16" x2="12" y2="12" />
-                      <line x1="12" y1="8" x2="12.01" y2="8" />
-                    </svg>
-                  </span>
-                </label>
-                <input
-                  :value="tf(offcut.productName)"
-                  class="glass-input"
-                  type="text"
-                  readonly
-                  data-test="field-product-name"
-                />
-                <span class="field-hint">{{ t('warehouse.field_product_hint') }}</span>
-              </div>
-              <div class="input-group">
-                <label class="field-label">
-                  <span>{{ t('warehouse.col_offcut_type') }}</span>
-                  <span v-tooltip="t('warehouse.col_offcut_type_hint')" class="info-hint">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                      <circle cx="12" cy="12" r="10" />
-                      <line x1="12" y1="16" x2="12" y2="12" />
-                      <line x1="12" y1="8" x2="12.01" y2="8" />
-                    </svg>
-                  </span>
-                </label>
-                <input
-                  :value="t(`warehouse.offcut_type_${offcut.offcutType}`)"
-                  class="glass-input"
-                  type="text"
-                  readonly
-                  data-test="field-offcut-type"
-                />
-                <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
-              </div>
+                <div class="input-group">
+                  <label class="field-label">
+                    <span>{{ t('warehouse.col_batch') }}</span>
+                    <span v-tooltip="t('warehouse.col_offcut_batch_hint')" class="info-hint">
+                      <svg
+                        width="10"
+                        height="10"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="3"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="16" x2="12" y2="12" />
+                        <line x1="12" y1="8" x2="12.01" y2="8" />
+                      </svg>
+                    </span>
+                  </label>
+                  <router-link
+                    :to="{ name: 'admin-warehouse-batch', params: { id: offcut.batchId } }"
+                    class="batch-link-row"
+                    data-test="field-batch-link"
+                  >
+                    <span>{{ t('warehouse.open_batch_card') }}</span>
+                    <SvgIcon name="external-link" :width="14" :height="14" />
+                  </router-link>
+                  <input
+                    :value="offcut.batchNumber"
+                    class="glass-input"
+                    type="text"
+                    readonly
+                    data-test="field-batch-number"
+                  />
+                  <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
+                </div>
+                <div class="input-group">
+                  <label class="field-label">
+                    <span>{{ t('warehouse.col_product') }}</span>
+                    <span v-tooltip="t('warehouse.col_product_hint')" class="info-hint">
+                      <svg
+                        width="10"
+                        height="10"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="3"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="16" x2="12" y2="12" />
+                        <line x1="12" y1="8" x2="12.01" y2="8" />
+                      </svg>
+                    </span>
+                  </label>
+                  <input
+                    :value="tf(offcut.productName)"
+                    class="glass-input"
+                    type="text"
+                    readonly
+                    data-test="field-product-name"
+                  />
+                  <span class="field-hint">{{ t('warehouse.field_product_hint') }}</span>
+                </div>
+                <div class="input-group">
+                  <label class="field-label">
+                    <span>{{ t('warehouse.col_offcut_type') }}</span>
+                    <span v-tooltip="t('warehouse.col_offcut_type_hint')" class="info-hint">
+                      <svg
+                        width="10"
+                        height="10"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="3"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="16" x2="12" y2="12" />
+                        <line x1="12" y1="8" x2="12.01" y2="8" />
+                      </svg>
+                    </span>
+                  </label>
+                  <input
+                    :value="t(`warehouse.offcut_type_${offcut.offcutType}`)"
+                    class="glass-input"
+                    type="text"
+                    readonly
+                    data-test="field-offcut-type"
+                  />
+                  <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
+                </div>
               </template>
             </GlassPanel>
           </div>
@@ -340,86 +443,122 @@ watch(() => form.value.notes, () => {
           <div class="entity-col-center">
             <GlassPanel :loading="loading" :skeleton-rows="4" data-test="offcut-card-center-panel">
               <template v-if="offcut">
-              <div class="input-group">
-                <label class="field-label">
-                  <span>{{ t('warehouse.col_length') }}</span>
-                  <span v-tooltip="t('warehouse.col_length_hint')" class="info-hint">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                      <circle cx="12" cy="12" r="10" />
-                      <line x1="12" y1="16" x2="12" y2="12" />
-                      <line x1="12" y1="8" x2="12.01" y2="8" />
-                    </svg>
-                  </span>
-                </label>
-                <input
-                  :value="offcut.lengthMm != null ? `${offcut.lengthMm} mm` : '—'"
-                  class="glass-input"
-                  type="text"
-                  readonly
-                  data-test="field-length"
-                />
-                <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
-              </div>
-              <div class="input-group">
-                <label class="field-label">
-                  <span>{{ t('warehouse.col_width') }}</span>
-                  <span v-tooltip="t('warehouse.col_width_hint')" class="info-hint">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                      <circle cx="12" cy="12" r="10" />
-                      <line x1="12" y1="16" x2="12" y2="12" />
-                      <line x1="12" y1="8" x2="12.01" y2="8" />
-                    </svg>
-                  </span>
-                </label>
-                <input
-                  :value="offcut.widthMm != null ? `${offcut.widthMm} mm` : '—'"
-                  class="glass-input"
-                  type="text"
-                  readonly
-                  data-test="field-width"
-                />
-                <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
-              </div>
-              <div class="input-group">
-                <label class="field-label">
-                  <span>{{ t('warehouse.col_thickness') }}</span>
-                  <span v-tooltip="t('warehouse.col_thickness_hint')" class="info-hint">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                      <circle cx="12" cy="12" r="10" />
-                      <line x1="12" y1="16" x2="12" y2="12" />
-                      <line x1="12" y1="8" x2="12.01" y2="8" />
-                    </svg>
-                  </span>
-                </label>
-                <input
-                  :value="offcut.thicknessMm != null ? `${offcut.thicknessMm} mm` : '—'"
-                  class="glass-input"
-                  type="text"
-                  readonly
-                  data-test="field-thickness"
-                />
-                <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
-              </div>
-              <div class="input-group">
-                <label class="field-label">
-                  <span>{{ t('warehouse.col_weight') }}</span>
-                  <span v-tooltip="t('warehouse.col_weight_hint')" class="info-hint">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                      <circle cx="12" cy="12" r="10" />
-                      <line x1="12" y1="16" x2="12" y2="12" />
-                      <line x1="12" y1="8" x2="12.01" y2="8" />
-                    </svg>
-                  </span>
-                </label>
-                <input
-                  :value="offcut.weightKg != null ? `${offcut.weightKg} kg` : '—'"
-                  class="glass-input"
-                  type="text"
-                  readonly
-                  data-test="field-weight"
-                />
-                <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
-              </div>
+                <div class="input-group">
+                  <label class="field-label">
+                    <span>{{ t('warehouse.col_length') }}</span>
+                    <span v-tooltip="t('warehouse.col_length_hint')" class="info-hint">
+                      <svg
+                        width="10"
+                        height="10"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="3"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="16" x2="12" y2="12" />
+                        <line x1="12" y1="8" x2="12.01" y2="8" />
+                      </svg>
+                    </span>
+                  </label>
+                  <input
+                    :value="offcut.lengthMm != null ? `${offcut.lengthMm} mm` : '—'"
+                    class="glass-input"
+                    type="text"
+                    readonly
+                    data-test="field-length"
+                  />
+                  <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
+                </div>
+                <div class="input-group">
+                  <label class="field-label">
+                    <span>{{ t('warehouse.col_width') }}</span>
+                    <span v-tooltip="t('warehouse.col_width_hint')" class="info-hint">
+                      <svg
+                        width="10"
+                        height="10"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="3"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="16" x2="12" y2="12" />
+                        <line x1="12" y1="8" x2="12.01" y2="8" />
+                      </svg>
+                    </span>
+                  </label>
+                  <input
+                    :value="offcut.widthMm != null ? `${offcut.widthMm} mm` : '—'"
+                    class="glass-input"
+                    type="text"
+                    readonly
+                    data-test="field-width"
+                  />
+                  <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
+                </div>
+                <div class="input-group">
+                  <label class="field-label">
+                    <span>{{ t('warehouse.col_thickness') }}</span>
+                    <span v-tooltip="t('warehouse.col_thickness_hint')" class="info-hint">
+                      <svg
+                        width="10"
+                        height="10"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="3"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="16" x2="12" y2="12" />
+                        <line x1="12" y1="8" x2="12.01" y2="8" />
+                      </svg>
+                    </span>
+                  </label>
+                  <input
+                    :value="offcut.thicknessMm != null ? `${offcut.thicknessMm} mm` : '—'"
+                    class="glass-input"
+                    type="text"
+                    readonly
+                    data-test="field-thickness"
+                  />
+                  <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
+                </div>
+                <div class="input-group">
+                  <label class="field-label">
+                    <span>{{ t('warehouse.col_weight') }}</span>
+                    <span v-tooltip="t('warehouse.col_weight_hint')" class="info-hint">
+                      <svg
+                        width="10"
+                        height="10"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="3"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="16" x2="12" y2="12" />
+                        <line x1="12" y1="8" x2="12.01" y2="8" />
+                      </svg>
+                    </span>
+                  </label>
+                  <input
+                    :value="offcut.weightKg != null ? `${offcut.weightKg} kg` : '—'"
+                    class="glass-input"
+                    type="text"
+                    readonly
+                    data-test="field-weight"
+                  />
+                  <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
+                </div>
               </template>
             </GlassPanel>
           </div>
@@ -428,76 +567,115 @@ watch(() => form.value.notes, () => {
           <div class="entity-col-right">
             <GlassPanel :loading="loading" :skeleton-rows="4" data-test="offcut-card-right-panel">
               <template v-if="offcut">
-              <div class="input-group">
-                <label class="field-label">
-                  <span>{{ t('warehouse.col_quantity') }}</span>
-                  <span v-tooltip="t('warehouse.offcut_col_quantity_hint')" class="info-hint">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                      <circle cx="12" cy="12" r="10" />
-                      <line x1="12" y1="16" x2="12" y2="12" />
-                      <line x1="12" y1="8" x2="12.01" y2="8" />
-                    </svg>
-                  </span>
-                </label>
-                <input
-                  :value="`${offcut.quantity} ${t(`warehouse.unit_${offcut.unit}`)}`"
-                  class="glass-input"
-                  type="text"
-                  readonly
-                  data-test="field-quantity"
-                />
-                <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
-              </div>
-              <div class="input-group">
-                <label class="field-label">
-                  <span>{{ t('warehouse.col_status') }}</span>
-                  <span v-tooltip="t('warehouse.col_status_hint')" class="info-hint">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                      <circle cx="12" cy="12" r="10" />
-                      <line x1="12" y1="16" x2="12" y2="12" />
-                      <line x1="12" y1="8" x2="12.01" y2="8" />
-                    </svg>
-                  </span>
-                </label>
-                <CustomSelect
-                  v-model="form.status"
-                  :options="statusOptions"
-                  data-test="field-status"
-                />
-              </div>
-              <div class="input-group">
-                <label class="field-label">
-                  <span>{{ t('warehouse.field_notes') }}</span>
-                  <span v-tooltip="t('warehouse.offcut_field_notes_hint')" class="info-hint">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                      <circle cx="12" cy="12" r="10" />
-                      <line x1="12" y1="16" x2="12" y2="12" />
-                      <line x1="12" y1="8" x2="12.01" y2="8" />
-                    </svg>
-                  </span>
-                </label>
-                <textarea
-                  ref="notesTextarea"
-                  v-model="form.notes"
-                  class="glass-input batch-notes-input"
-                  data-test="field-notes"
-                  @input="autoResizeNotes"
-                />
-              </div>
+                <div class="input-group">
+                  <label class="field-label">
+                    <span>{{ t('warehouse.col_quantity') }}</span>
+                    <span v-tooltip="t('warehouse.offcut_col_quantity_hint')" class="info-hint">
+                      <svg
+                        width="10"
+                        height="10"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="3"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="16" x2="12" y2="12" />
+                        <line x1="12" y1="8" x2="12.01" y2="8" />
+                      </svg>
+                    </span>
+                  </label>
+                  <input
+                    :value="`${offcut.quantity} ${t(`warehouse.unit_${offcut.unit}`)}`"
+                    class="glass-input"
+                    type="text"
+                    readonly
+                    data-test="field-quantity"
+                  />
+                  <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
+                </div>
+                <div class="input-group">
+                  <label class="field-label">
+                    <span>{{ t('warehouse.col_status') }}</span>
+                    <span v-tooltip="t('warehouse.col_status_hint')" class="info-hint">
+                      <svg
+                        width="10"
+                        height="10"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="3"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="16" x2="12" y2="12" />
+                        <line x1="12" y1="8" x2="12.01" y2="8" />
+                      </svg>
+                    </span>
+                  </label>
+                  <CustomSelect
+                    v-model="form.status"
+                    :options="statusOptions"
+                    data-test="field-status"
+                  />
+                </div>
+                <div class="input-group">
+                  <label class="field-label">
+                    <span>{{ t('warehouse.field_notes') }}</span>
+                    <span v-tooltip="t('warehouse.offcut_field_notes_hint')" class="info-hint">
+                      <svg
+                        width="10"
+                        height="10"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="3"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="16" x2="12" y2="12" />
+                        <line x1="12" y1="8" x2="12.01" y2="8" />
+                      </svg>
+                    </span>
+                  </label>
+                  <textarea
+                    ref="notesTextarea"
+                    v-model="form.notes"
+                    class="glass-input batch-notes-input"
+                    data-test="field-notes"
+                    @input="autoResizeNotes"
+                  />
+                </div>
               </template>
             </GlassPanel>
           </div>
         </div>
 
         <!-- FULL WIDTH: Location section -->
-        <GlassPanel :title="t('warehouse.section_batch_location')" data-test="offcut-card-location-section">
+        <GlassPanel
+          :title="t('warehouse.section_batch_location')"
+          data-test="offcut-card-location-section"
+        >
           <template v-if="offcut">
             <div class="location-grid">
               <div class="input-group">
                 <label class="field-label">
                   <span>{{ t('warehouse.field_location_rack') }}</span>
                   <span v-tooltip="t('warehouse.field_location_rack_hint')" class="info-hint">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                    <svg
+                      width="10"
+                      height="10"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="3"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
                       <circle cx="12" cy="12" r="10" />
                       <line x1="12" y1="16" x2="12" y2="12" />
                       <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -515,7 +693,16 @@ watch(() => form.value.notes, () => {
                 <label class="field-label">
                   <span>{{ t('warehouse.field_location_row') }}</span>
                   <span v-tooltip="t('warehouse.field_location_row_hint')" class="info-hint">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                    <svg
+                      width="10"
+                      height="10"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="3"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
                       <circle cx="12" cy="12" r="10" />
                       <line x1="12" y1="16" x2="12" y2="12" />
                       <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -533,7 +720,16 @@ watch(() => form.value.notes, () => {
                 <label class="field-label">
                   <span>{{ t('warehouse.field_location_cell') }}</span>
                   <span v-tooltip="t('warehouse.field_location_cell_hint')" class="info-hint">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                    <svg
+                      width="10"
+                      height="10"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="3"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
                       <circle cx="12" cy="12" r="10" />
                       <line x1="12" y1="16" x2="12" y2="12" />
                       <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -548,11 +744,20 @@ watch(() => form.value.notes, () => {
                 />
               </div>
             </div>
-            <div class="input-group" style="margin-top: 12px;">
+            <div class="input-group" style="margin-top: 12px">
               <label class="field-label">
                 <span>{{ t('warehouse.field_location_notes') }}</span>
                 <span v-tooltip="t('warehouse.field_location_notes_hint')" class="info-hint">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="3"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
                     <circle cx="12" cy="12" r="10" />
                     <line x1="12" y1="16" x2="12" y2="12" />
                     <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -569,8 +774,11 @@ watch(() => form.value.notes, () => {
         </GlassPanel>
 
         <!-- FULL WIDTH: Movements section -->
-        <GlassPanel :title="t('warehouse.section_offcut_movements')" data-test="offcut-card-movements-section">
-          <div v-if="movementsLoading" class="text-muted" style="padding: 12px 0;">
+        <GlassPanel
+          :title="t('warehouse.section_offcut_movements')"
+          data-test="offcut-card-movements-section"
+        >
+          <div v-if="movementsLoading" class="text-muted" style="padding: 12px 0">
             {{ t('warehouse.loading') }}...
           </div>
           <div v-else-if="movements.length" class="table-responsive">
@@ -585,7 +793,11 @@ watch(() => form.value.notes, () => {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="movement in movements" :key="movement.id" data-test="offcut-card-movements-row">
+                <tr
+                  v-for="movement in movements"
+                  :key="movement.id"
+                  data-test="offcut-card-movements-row"
+                >
                   <td>{{ movement.movedAt.slice(0, 10) }}</td>
                   <td>{{ t(`warehouse.movement_type_${movement.type}`) }}</td>
                   <td>{{ movement.quantity }} {{ t(`warehouse.unit_${movement.unit}`) }}</td>
@@ -604,11 +816,16 @@ watch(() => form.value.notes, () => {
               </tbody>
             </table>
           </div>
-          <p v-else class="text-muted" style="padding: 12px 0;">{{ t('warehouse.empty_movements') }}</p>
+          <p v-else class="text-muted" style="padding: 12px 0">
+            {{ t('warehouse.empty_movements') }}
+          </p>
         </GlassPanel>
 
         <!-- FULL WIDTH: Files section -->
-        <GlassPanel :title="t('warehouse.section_batch_files')" data-test="offcut-card-files-section">
+        <GlassPanel
+          :title="t('warehouse.section_batch_files')"
+          data-test="offcut-card-files-section"
+        >
           <template v-if="offcut">
             <div class="file-list" data-test="offcut-card-file-list" style="margin-bottom: 15px">
               <FileItem
@@ -651,7 +868,11 @@ watch(() => form.value.notes, () => {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="(entry, index) in auditLog" :key="index" data-test="offcut-card-audit-row">
+                  <tr
+                    v-for="(entry, index) in auditLog"
+                    :key="index"
+                    data-test="offcut-card-audit-row"
+                  >
                     <td class="audit-log-ts">{{ entry.timestamp }}</td>
                     <td>
                       <div class="audit-log-user">
@@ -674,7 +895,16 @@ watch(() => form.value.notes, () => {
                         data-test="offcut-card-audit-delete-btn"
                         @click="onAuditDeleteClick(index)"
                       >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
                           <line x1="18" y1="6" x2="6" y2="18" />
                           <line x1="6" y1="6" x2="18" y2="18" />
                         </svg>
@@ -686,7 +916,6 @@ watch(() => form.value.notes, () => {
             </template>
           </GlassPanel>
         </div>
-
       </div>
 
       <!-- Delete confirmation modal -->

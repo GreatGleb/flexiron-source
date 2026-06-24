@@ -30,13 +30,20 @@ useHead({
 })
 
 const {
-  form, errors, saving,
+  form,
+  errors,
+  saving,
   clearError,
-  clients, loadingClients, loadClients,
+  clients,
+  loadingClients,
+  loadClients,
   localOrder,
-  addItem, removeItem,
-  addService, removeService,
-  onFilesUploaded, removeFile,
+  addItem,
+  removeItem,
+  addService,
+  removeService,
+  onFilesUploaded,
+  removeFile,
   handleSave,
 } = useOrderCreate()
 
@@ -139,10 +146,7 @@ onMounted(loadClients)
         <div class="order-create-header-left">
           <h1 class="page-title">{{ t('orders.create_title') }}</h1>
         </div>
-        <div
-          class="entity-action-bar no-margin pos-static"
-          data-test="order-create-action-bar"
-        >
+        <div class="entity-action-bar no-margin pos-static" data-test="order-create-action-bar">
           <button
             type="button"
             class="btn btn-secondary"
@@ -161,7 +165,9 @@ onMounted(loadClients)
             @click="onCreate"
           >
             <SvgIcon name="plus-add" :width="18" :height="18" stroke-width="2" />
-            <span>{{ saving ? t('orders.create_btn_saving') : t('orders.create_btn_create') }}</span>
+            <span>{{
+              saving ? t('orders.create_btn_saving') : t('orders.create_btn_create')
+            }}</span>
           </button>
         </div>
       </div>
@@ -169,7 +175,6 @@ onMounted(loadClients)
 
     <div class="main-card-content">
       <div class="entity-card-grid">
-
         <div class="entity-col-left">
           <GlassPanel
             :title="t('orders.create_section_client')"
@@ -183,11 +188,27 @@ onMounted(loadClients)
               data-test="order-create-client-section"
             >
               <div class="checkbox-list-controls">
-                <span style="font-size: 13px; font-weight: 600; color: rgba(255, 255, 255, 0.7); margin-left: 0;">
-                  <span>{{ t('orders.create_field_client') }} <span class="required-star">*</span></span>
-                  <span v-if="errors.clientId" class="field-error" style="margin-left: 6px;">{{ errors.clientId }}</span>
+                <span
+                  style="
+                    font-size: 13px;
+                    font-weight: 600;
+                    color: rgba(255, 255, 255, 0.7);
+                    margin-left: 0;
+                  "
+                >
+                  <span
+                    >{{ t('orders.create_field_client') }}
+                    <span class="required-star">*</span></span
+                  >
+                  <span v-if="errors.clientId" class="field-error" style="margin-left: 6px">{{
+                    errors.clientId
+                  }}</span>
                 </span>
-                <span v-if="form.clientId" class="selected-count" data-test="order-create-client-selected">
+                <span
+                  v-if="form.clientId"
+                  class="selected-count"
+                  data-test="order-create-client-selected"
+                >
                   <span class="count">1</span>
                   {{ t('orders.selected_text') }}
                 </span>
@@ -221,7 +242,7 @@ onMounted(loadClients)
                 </label>
                 <div
                   v-if="filteredClients.length === 0"
-                  style="text-align: center; color: rgba(255, 255, 255, 0.8); padding: 16px 0;"
+                  style="text-align: center; color: rgba(255, 255, 255, 0.8); padding: 16px 0"
                   data-test="order-create-client-empty"
                 >
                   {{ t('orders.create_no_clients') }}
@@ -284,10 +305,7 @@ onMounted(loadClients)
         </div>
 
         <div class="entity-col-center">
-          <GlassPanel
-            :title="t('orders.field_notes')"
-            data-test="order-create-notes-panel"
-          >
+          <GlassPanel :title="t('orders.field_notes')" data-test="order-create-notes-panel">
             <InputGroup :label="t('orders.field_notes')">
               <textarea
                 v-model="form.notes"
@@ -313,7 +331,6 @@ onMounted(loadClients)
             </InputGroup>
           </GlassPanel>
         </div>
-
       </div>
 
       <GlassPanel data-test="order-create-items">
@@ -436,7 +453,6 @@ onMounted(loadClients)
           @uploaded="onFilesUploaded"
         />
       </GlassPanel>
-
     </div>
 
     <AddOrderItemsModal

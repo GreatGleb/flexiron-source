@@ -52,17 +52,24 @@ const pagination = usePagination(25)
 function load() {
   loading.value = true
   error.value = false
-  getArchive({
-    search: searchInput.value,
-    type: typeFilter.value,
-    relatedEntityType: entityFilter.value,
-  }, { page: pagination.page.value, pageSize: pagination.pageSize.value })
+  getArchive(
+    {
+      search: searchInput.value,
+      type: typeFilter.value,
+      relatedEntityType: entityFilter.value,
+    },
+    { page: pagination.page.value, pageSize: pagination.pageSize.value },
+  )
     .then((res) => {
       documents.value = res.items
       pagination.total.value = res.total
     })
-    .catch(() => { error.value = true })
-    .finally(() => { loading.value = false })
+    .catch(() => {
+      error.value = true
+    })
+    .finally(() => {
+      loading.value = false
+    })
 }
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null
@@ -83,7 +90,6 @@ watch([typeFilter, entityFilter], () => {
 watch([pagination.page, pagination.pageSize], () => {
   load()
 })
-
 
 function formatSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
@@ -113,7 +119,9 @@ onMounted(() => load())
 </script>
 
 <template>
-  <h1 class="page-title" data-test="finance-archive-title">{{ t('financeArchive.header_title') }}</h1>
+  <h1 class="page-title" data-test="finance-archive-title">
+    {{ t('financeArchive.header_title') }}
+  </h1>
 
   <FinanceSubNav />
 
@@ -155,7 +163,11 @@ onMounted(() => load())
       <button class="btn btn-primary" @click="load">{{ t('common.error_btn') }}</button>
     </div>
 
-    <div v-else-if="!loading && documents.length === 0" class="empty-state" data-test="finance-archive-empty">
+    <div
+      v-else-if="!loading && documents.length === 0"
+      class="empty-state"
+      data-test="finance-archive-empty"
+    >
       <SvgIcon name="file" :width="48" :height="48" />
       <p>{{ t('financeArchive.empty_title') }}</p>
     </div>
@@ -227,7 +239,12 @@ onMounted(() => load())
                     :style="{ display: pagination.totalPages.value <= 1 ? 'none' : 'flex' }"
                     @click="pagination.prev()"
                   >
-                    <SvgIcon name="chevron-right" :width="14" :height="14" style="transform: rotate(180deg)" />
+                    <SvgIcon
+                      name="chevron-right"
+                      :width="14"
+                      :height="14"
+                      style="transform: rotate(180deg)"
+                    />
                   </button>
                   <div class="pagination-pages">
                     <template v-for="(p, i) in pagination.pageNumbers()" :key="i">

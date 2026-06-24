@@ -30,7 +30,10 @@ export async function getPayment(id: string): Promise<FinancePayment> {
   return apiGet<FinancePayment>(`/api/finance/payments/${id}`)
 }
 
-export async function patchPayment(id: string, data: Partial<FinancePayment> & { fileIds?: string[] }): Promise<FinancePayment> {
+export async function patchPayment(
+  id: string,
+  data: Partial<FinancePayment> & { fileIds?: string[] },
+): Promise<FinancePayment> {
   return apiPatch<FinancePayment>(`/api/finance/payments/${id}`, data)
 }
 

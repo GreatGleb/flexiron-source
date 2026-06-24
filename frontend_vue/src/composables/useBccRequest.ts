@@ -12,7 +12,11 @@ import type { BccCategory, BccRecipient, BccRequest, BccEmailTemplate } from '@/
 import type { TranslatedString } from '@/types/i18n'
 
 const DEFAULT_TEMPLATE: BccEmailTemplate = {
-  subject: { ru: 'Запрос цен — InBox LT', en: 'Price Request — InBox LT', lt: 'Kainų užklausa — InBox LT' },
+  subject: {
+    ru: 'Запрос цен — InBox LT',
+    en: 'Price Request — InBox LT',
+    lt: 'Kainų užklausa — InBox LT',
+  },
   body: {
     ru: 'Здравствуйте!\n\nПожалуйста, предоставьте текущие цены на следующие позиции:\n\n\nС уважением,\nКоманда InBox LT',
     en: 'Hello!\n\nPlease provide current prices for the following items:\n\n\nBest regards,\nInBox LT Team',
@@ -80,13 +84,16 @@ export function useBccRequest() {
     try {
       const selectedRecipients = recipients.value.filter((r) => r.selected).map((r) => r.id)
       const fileIds = template.attachments.map((a) => a.id)
-      const { requestId } = await sendBccRequest({
-        productIds: selectedProductIds.value,
-        recipientIds: selectedRecipients,
-        subject: tf(template.subject),
-        body: tf(template.body),
-        fileIds,
-      }, locale.value)
+      const { requestId } = await sendBccRequest(
+        {
+          productIds: selectedProductIds.value,
+          recipientIds: selectedRecipients,
+          subject: tf(template.subject),
+          body: tf(template.body),
+          fileIds,
+        },
+        locale.value,
+      )
       // NOTE: history reloading is intentionally skipped — callers manage history locally
       // (event-sourcing new rows per product × recipient) and a reload would wipe those events.
       return requestId
@@ -101,15 +108,17 @@ export function useBccRequest() {
   async function log(source: string): Promise<string> {
     // If source is a TranslatedString object (e.g. from a dropdown selection),
     // extract the current locale's value to avoid "[object Object]" in the log
-    const sourceStr = typeof source === 'object' && source !== null
-      ? tf(source as TranslatedString)
-      : source
+    const sourceStr =
+      typeof source === 'object' && source !== null ? tf(source as TranslatedString) : source
     const selectedRecipients = recipients.value.filter((r) => r.selected).map((r) => r.id)
-    const { requestId } = await logBccRequest({
-      productIds: selectedProductIds.value,
-      recipientIds: selectedRecipients,
-      source: sourceStr,
-    }, locale.value)
+    const { requestId } = await logBccRequest(
+      {
+        productIds: selectedProductIds.value,
+        recipientIds: selectedRecipients,
+        source: sourceStr,
+      },
+      locale.value,
+    )
     return requestId
   }
 

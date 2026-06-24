@@ -32,7 +32,7 @@
       </div>
 
       <!-- Registration form (hidden when secret link is shown) -->
-      <form v-if="!secretLink" class="form-grid" @submit.prevent="onSubmit" novalidate>
+      <form v-if="!secretLink" class="form-grid" novalidate @submit.prevent="onSubmit">
         <h2 class="form-section-title">{{ t('reg.contactsTitle') }}</h2>
 
         <div class="form-group" :class="{ 'field-error': fieldErrors.first_name }">
@@ -138,7 +138,9 @@
             :placeholder="t('reg.companyPlaceholder')"
             @input="clearFieldError('company_name')"
           />
-          <span v-if="fieldErrors.company_name" class="field-hint">{{ fieldErrors.company_name }}</span>
+          <span v-if="fieldErrors.company_name" class="field-hint">{{
+            fieldErrors.company_name
+          }}</span>
         </div>
 
         <div class="form-group" :class="{ 'field-error': fieldErrors.vat_code }">
@@ -173,7 +175,8 @@
           </button>
           <p class="terms-note">
             {{ t('reg.terms') }}
-            <router-link to="/terms" target="_blank">{{ t('reg.termsLink') }}</router-link>.
+            <router-link to="/terms" target="_blank">{{ t('reg.termsLink') }}</router-link
+            >.
           </p>
         </div>
       </form>
@@ -181,8 +184,20 @@
       <!-- Secret link popup after successful registration -->
       <div v-else class="secret-link-section">
         <div class="secret-link-icon">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="48" height="48">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.5"
+            stroke="currentColor"
+            width="48"
+            height="48"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
+            />
           </svg>
         </div>
         <h2 class="secret-link-title">{{ t('reg.secretLinkTitle') }}</h2>
@@ -342,7 +357,7 @@ async function onSubmit() {
         }
       }
       // Only show top-level error if no field-specific errors were set
-      if (!hasFieldErrors) {
+      if (!hasFieldErrors.value) {
         submitError.value = err.message
       }
     } else {
@@ -356,7 +371,9 @@ async function copySecretLink() {
   try {
     await navigator.clipboard.writeText(secretLink.value)
     copied.value = true
-    setTimeout(() => { copied.value = false }, 2000)
+    setTimeout(() => {
+      copied.value = false
+    }, 2000)
   } catch {
     if (secretLinkInput.value) {
       secretLinkInput.value.select()

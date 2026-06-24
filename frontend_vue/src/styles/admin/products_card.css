@@ -46,7 +46,6 @@
   margin-bottom: 6px;
 }
 
-
 .product-suppliers-table td {
   cursor: default;
 }
@@ -61,14 +60,14 @@
   color: rgba(255, 255, 255, 0.3);
   padding: 4px;
   border-radius: 4px;
-  transition: color 0.15s, background 0.15s;
+  transition:
+    color 0.15s,
+    background 0.15s;
 }
 .supplier-remove-btn:hover {
   color: var(--danger, #ff4d4f);
   background: rgba(255, 77, 79, 0.1);
 }
-
-
 
 .empty-state {
   display: flex;
@@ -92,4 +91,21 @@
     flex-direction: column;
     align-items: stretch;
   }
+}
+
+/* Subsection titles inside GlassPanel (e.g. conversion headers) */
+.subsection-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 8px;
+  color: var(--text-secondary, #888);
+}
+
+/* Section divider inside GlassPanel */
+.section-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 12px 0;
 }

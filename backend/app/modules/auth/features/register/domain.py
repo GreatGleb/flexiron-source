@@ -102,6 +102,15 @@ async def register(
         vat_code=input_data.vat_code.strip().upper(),
     )
 
+    # 4a. Initialize company info singleton with name and VAT code
+    from app.modules.settings.internal_api.interface import init_company_info
+    await init_company_info(
+        db=db,
+        tenant_id=tenant.id,
+        name=input_data.company_name.strip(),
+        vat_code=input_data.vat_code.strip().upper(),
+    )
+
     # 5. Generate unique secret link token
     secret_link_token = secrets.token_urlsafe(_SECRET_LINK_BYTES)
 

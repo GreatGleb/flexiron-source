@@ -29,21 +29,31 @@ const id = route.params.id as string
 
 const {
   form,
-  order, loading, saving, error, isDirty,
-  load, save, discard, remove,
-  auditLog, auditLoading, deleteAuditEntry,
+  order,
+  loading,
+  saving,
+  error,
+  isDirty,
+  load,
+  save,
+  discard,
+  remove,
+  auditLog,
+  auditLoading,
+  deleteAuditEntry,
   handleChangeStatus,
-  handleAddItemDirect, handleDeleteItem,
-  handleAddServiceDirect, handleDeleteService,
-  onFilesUploaded, removeFile,
+  handleAddItemDirect,
+  handleDeleteItem,
+  handleAddServiceDirect,
+  handleDeleteService,
+  onFilesUploaded,
+  removeFile,
   tf,
   hasPendingChanges,
 } = useOrderCard(id)
 
 const pageTitle = computed(() =>
-  order.value
-    ? `${t('orders.card_title')} ${order.value.orderNumber}`
-    : t('orders.title'),
+  order.value ? `${t('orders.card_title')} ${order.value.orderNumber}` : t('orders.title'),
 )
 
 useHead({
@@ -78,30 +88,33 @@ const statusStr = computed({
   },
 })
 
-// ─── Order financial computed ────────────────────────────────
-const orderTotalVatDisplay = computed(() => {
-  return Math.round(discountedTotal.value * 0.21 * 100) / 100
+// ─── Order financial computed (new pricing model) ────────────
+const vatAmount = computed(() => {
+  return form.value.costPrice * (form.value.vatPercent / 100)
 })
 
-const orderTotalWithVatDisplay = computed(() => {
-  return discountedTotal.value + orderTotalVatDisplay.value
+const priceAfterVat = computed(() => {
+  return form.value.costPrice + vatAmount.value
 })
 
-const orderTotalCost = computed(() => {
-  if (!order.value) return 0
-  const itemsCost = order.value.items.reduce((sum, i) => sum + (i.unitCost ?? 0) * i.quantity, 0)
-  const servicesCost = order.value.services.reduce((sum, s) => sum + s.cost * s.quantity, 0)
-  return itemsCost + servicesCost
+const marginAmount = computed(() => {
+  return priceAfterVat.value * (form.value.marginPercent / 100)
 })
 
-const discountedTotal = computed(() => {
-  if (!order.value) return 0
-  const discount = form.value.orderDiscount ?? 0
-  return form.value.totalAmount * (1 - discount / 100)
+const priceAfterMargin = computed(() => {
+  return priceAfterVat.value + marginAmount.value
 })
 
-const orderTotalMargin = computed(() => {
-  return discountedTotal.value - orderTotalCost.value
+const discountAmount = computed(() => {
+  return priceAfterMargin.value * ((form.value.orderDiscount ?? 0) / 100)
+})
+
+const clientPrice = computed(() => {
+  return priceAfterMargin.value - discountAmount.value
+})
+
+const totalMargin = computed(() => {
+  return marginAmount.value - discountAmount.value
 })
 
 // ─── Status pill mapping ───────────────────────────────────────
@@ -171,9 +184,12 @@ function autoResizeNotes() {
   }
 }
 
-watch(() => form.value.notes, () => {
-  nextTick(autoResizeNotes)
-})
+watch(
+  () => form.value.notes,
+  () => {
+    nextTick(autoResizeNotes)
+  },
+)
 
 // ─── Currency selector for total amount ─────────────────────
 const currencyList = ref<Currency[]>([])
@@ -188,7 +204,7 @@ async function loadCurrencies() {
   }
 }
 
-const CURRENCY_OPTIONS = computed(() => currencyList.value.map(c => c.code))
+const CURRENCY_OPTIONS = computed(() => currencyList.value.map((c) => c.code))
 const currencyOpen = ref(false)
 
 function selectCurrency(c: string) {
@@ -257,7 +273,9 @@ onMounted(loadCurrencies)
         />
         <div class="order-card-header-row">
           <div class="order-card-header-left">
-            <h1 class="page-title">{{ order ? `${t('orders.card_title')} ${order.orderNumber}` : '...' }}</h1>
+            <h1 class="page-title">
+              {{ order ? `${t('orders.card_title')} ${order.orderNumber}` : '...' }}
+            </h1>
             <span v-if="order" class="order-status-wrapper">
               <span
                 class="pill pill-lg"
@@ -271,7 +289,16 @@ onMounted(loadCurrencies)
                 class="info-hint"
                 data-test="order-card-status-hint"
               >
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="3"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
                   <circle cx="12" cy="12" r="10" />
                   <line x1="12" y1="16" x2="12" y2="12" />
                   <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -279,10 +306,7 @@ onMounted(loadCurrencies)
               </span>
             </span>
           </div>
-          <div
-            class="entity-action-bar no-margin pos-static"
-            data-test="order-card-save-bar"
-          >
+          <div class="entity-action-bar no-margin pos-static" data-test="order-card-save-bar">
             <button
               class="btn btn-secondary"
               :disabled="(!isDirty && !hasPendingChanges) || saving"
@@ -320,11 +344,14 @@ onMounted(loadCurrencies)
       </div>
 
       <div class="main-card-content">
-
         <div class="entity-card-grid">
-
           <div class="entity-col-left">
-            <GlassPanel :title="t('orders.section_header')" :loading="loading" :skeleton-rows="4" data-test="order-info-left">
+            <GlassPanel
+              :title="t('orders.section_header')"
+              :loading="loading"
+              :skeleton-rows="4"
+              data-test="order-info-left"
+            >
               <template v-if="order">
                 <InputGroup :label="t('orders.field_order_number')">
                   <span class="glass-input-static">{{ order.orderNumber }}</span>
@@ -346,17 +373,23 @@ onMounted(loadCurrencies)
           </div>
 
           <div class="entity-col-center">
-            <GlassPanel :title="t('orders.section_header')" :loading="loading" :skeleton-rows="3" data-test="order-info-center">
+            <!-- Финансовый расчёт -->
+            <GlassPanel
+              :title="t('orders.section_financial')"
+              :loading="loading"
+              :skeleton-rows="6"
+              data-test="order-financial"
+            >
               <template v-if="order">
-                <InputGroup :label="t('orders.field_total')">
+                <InputGroup :label="t('orders.field_cost_price')">
                   <div class="input-with-suffix custom-select-wrap">
                     <input
-                      v-model.number="form.totalAmount"
+                      v-model.number="form.costPrice"
                       class="glass-input"
                       type="number"
                       min="0"
                       step="0.01"
-                      data-test="field-total-amount"
+                      data-test="field-cost-price"
                     />
                     <div
                       class="input-suffix custom-select-trigger"
@@ -378,38 +411,163 @@ onMounted(loadCurrencies)
                       </div>
                     </div>
                   </div>
+                  <span class="field-hint">{{ t('orders.field_cost_price_hint') }}</span>
                 </InputGroup>
-                <InputGroup :label="t('orders.field_order_discount')">
-                  <div class="input-with-suffix">
-                    <input
-                      v-model.number="form.orderDiscount"
-                      class="glass-input"
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.1"
-                      data-test="field-order-discount"
-                    />
-                    <span class="input-suffix" style="cursor: default; opacity: 0.7;">
-                      %
-                    </span>
-                  </div>
-                </InputGroup>
-                <InputGroup :label="t('orders.field_discounted_total')">
+
+                <div class="inline-group">
+                  <InputGroup :label="t('orders.field_vat_percent')" class="inline-short">
+                    <div class="input-with-suffix">
+                      <input
+                        v-model.number="form.vatPercent"
+                        class="glass-input"
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.1"
+                        data-test="field-vat-percent"
+                      />
+                      <span class="input-suffix static-suffix">%</span>
+                    </div>
+                    <span class="field-hint">{{ t('orders.field_vat_percent_hint') }}</span>
+                  </InputGroup>
+
+                  <InputGroup :label="t('orders.field_margin_percent')" class="inline-short">
+                    <div class="input-with-suffix">
+                      <input
+                        v-model.number="form.marginPercent"
+                        class="glass-input"
+                        type="number"
+                        min="0"
+                        max="1000"
+                        step="0.1"
+                        data-test="field-margin-percent"
+                      />
+                      <span class="input-suffix static-suffix">%</span>
+                    </div>
+                    <span class="field-hint">{{ t('orders.field_margin_percent_hint') }}</span>
+                  </InputGroup>
+
+                  <InputGroup :label="t('orders.field_order_discount')" class="inline-short">
+                    <div class="input-with-suffix">
+                      <input
+                        v-model.number="form.orderDiscount"
+                        class="glass-input"
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.1"
+                        data-test="field-order-discount"
+                      />
+                      <span class="input-suffix static-suffix">%</span>
+                    </div>
+                  </InputGroup>
+                </div>
+
+                <div class="section-divider" />
+
+                <h4 class="subsection-title">{{ t('orders.field_calculation_breakdown') }}</h4>
+
+                <InputGroup :label="t('orders.field_vat_amount')">
                   <div class="input-with-suffix">
                     <input
                       class="glass-input"
                       type="text"
-                      :value="discountedTotal.toFixed(2)"
+                      :value="vatAmount.toFixed(2)"
                       readonly
-                      data-test="field-discounted-total"
+                      data-test="field-vat-amount"
                     />
-                    <span class="input-suffix" style="cursor: default; opacity: 0.7;">
-                      {{ form.currency }}
-                    </span>
+                    <span class="input-suffix static-suffix">{{ form.currency }}</span>
                   </div>
                   <span class="field-hint">{{ t('orders.hint_auto_calculated') }}</span>
                 </InputGroup>
+
+                <InputGroup :label="t('orders.field_margin_amount')">
+                  <div class="input-with-suffix">
+                    <input
+                      class="glass-input"
+                      type="text"
+                      :value="marginAmount.toFixed(2)"
+                      readonly
+                      data-test="field-margin-amount"
+                    />
+                    <span class="input-suffix static-suffix">{{ form.currency }}</span>
+                  </div>
+                  <span class="field-hint">{{ t('orders.hint_auto_calculated') }}</span>
+                </InputGroup>
+
+                <InputGroup :label="t('orders.field_discount_amount')">
+                  <div class="input-with-suffix">
+                    <input
+                      class="glass-input"
+                      type="text"
+                      :value="discountAmount.toFixed(2)"
+                      readonly
+                      data-test="field-discount-amount"
+                    />
+                    <span class="input-suffix static-suffix">{{ form.currency }}</span>
+                  </div>
+                  <span class="field-hint">{{ t('orders.hint_auto_calculated') }}</span>
+                </InputGroup>
+
+                <div class="section-divider" />
+
+                <InputGroup :label="t('orders.field_client_price')">
+                  <div class="input-with-suffix">
+                    <input
+                      class="glass-input client-price-input"
+                      type="text"
+                      :value="clientPrice.toFixed(2)"
+                      readonly
+                      data-test="field-client-price"
+                    />
+                    <span class="input-suffix static-suffix">{{ form.currency }}</span>
+                  </div>
+                  <span class="field-hint">{{ t('orders.field_client_price_hint') }}</span>
+                </InputGroup>
+
+                <InputGroup :label="t('orders.field_total_margin')">
+                  <div class="input-with-suffix">
+                    <input
+                      class="glass-input"
+                      type="text"
+                      :value="totalMargin.toFixed(2)"
+                      readonly
+                      data-test="field-total-margin"
+                      :style="totalMargin < 0 ? 'color: var(--danger, #dc3545)' : ''"
+                    />
+                    <span class="input-suffix static-suffix">{{ form.currency }}</span>
+                  </div>
+                  <span class="field-hint">{{ t('orders.field_total_margin_hint') }}</span>
+                </InputGroup>
+              </template>
+            </GlassPanel>
+          </div>
+
+          <div class="entity-col-right">
+            <GlassPanel
+              :title="t('orders.field_status')"
+              :loading="loading"
+              :skeleton-rows="1"
+              data-test="order-info-right"
+            >
+              <template v-if="order">
+                <InputGroup :label="t('orders.col_status')">
+                  <CustomSelect
+                    v-model="statusStr"
+                    :options="STATUS_OPTIONS"
+                    data-test="order-card-status"
+                  />
+                </InputGroup>
+              </template>
+            </GlassPanel>
+
+            <!-- Вес -->
+            <GlassPanel
+              :title="t('orders.field_total_weight')"
+              :loading="loading"
+              :skeleton-rows="1"
+            >
+              <template v-if="order">
                 <InputGroup :label="t('orders.field_total_weight')">
                   <div class="input-with-suffix">
                     <input
@@ -420,72 +578,15 @@ onMounted(loadCurrencies)
                       step="0.01"
                       data-test="field-total-weight"
                     />
-                    <span class="input-suffix" style="cursor: default; opacity: 0.7;">
-                      kg
-                    </span>
+                    <span class="input-suffix static-suffix">kg</span>
                   </div>
                 </InputGroup>
-                <InputGroup :label="t('orders.field_total_vat')">
-                  <div class="input-with-suffix">
-                    <input
-                      class="glass-input"
-                      type="text"
-                      :value="orderTotalVatDisplay.toFixed(2)"
-                      readonly
-                      data-test="field-total-vat"
-                    />
-                    <span class="input-suffix" style="cursor: default; opacity: 0.7;">
-                      {{ form.currency }}
-                    </span>
-                  </div>
-                  <span class="field-hint">{{ t('orders.hint_auto_calculated') }}</span>
-                </InputGroup>
-                <InputGroup :label="t('orders.field_total_with_vat')">
-                  <div class="input-with-suffix">
-                    <input
-                      class="glass-input"
-                      type="text"
-                      :value="orderTotalWithVatDisplay.toFixed(2)"
-                      readonly
-                      data-test="field-total-with-vat"
-                    />
-                    <span class="input-suffix" style="cursor: default; opacity: 0.7;">
-                      {{ form.currency }}
-                    </span>
-                  </div>
-                  <span class="field-hint">{{ t('orders.hint_auto_calculated') }}</span>
-                </InputGroup>
-                <InputGroup :label="t('orders.field_total_cost')">
-                  <div class="input-with-suffix">
-                    <input
-                      class="glass-input"
-                      type="text"
-                      :value="orderTotalCost.toFixed(2)"
-                      readonly
-                      data-test="field-total-cost"
-                    />
-                    <span class="input-suffix" style="cursor: default; opacity: 0.7;">
-                      {{ form.currency }}
-                    </span>
-                  </div>
-                  <span class="field-hint">{{ t('orders.hint_auto_calculated') }}</span>
-                </InputGroup>
-                <InputGroup :label="t('orders.field_total_margin')">
-                  <div class="input-with-suffix">
-                    <input
-                      class="glass-input"
-                      type="text"
-                      :value="orderTotalMargin.toFixed(2)"
-                      readonly
-                      data-test="field-total-margin"
-                      :style="orderTotalMargin < 0 ? 'color: var(--danger, #dc3545)' : ''"
-                    />
-                    <span class="input-suffix" style="cursor: default; opacity: 0.7;">
-                      {{ form.currency }}
-                    </span>
-                  </div>
-                  <span class="field-hint">{{ t('orders.hint_auto_calculated') }}</span>
-                </InputGroup>
+              </template>
+            </GlassPanel>
+
+            <!-- Примечания -->
+            <GlassPanel :title="t('orders.field_notes')" :loading="loading" :skeleton-rows="1">
+              <template v-if="order">
                 <InputGroup :label="t('orders.field_notes')">
                   <textarea
                     ref="notesTextarea"
@@ -498,21 +599,6 @@ onMounted(loadCurrencies)
               </template>
             </GlassPanel>
           </div>
-
-          <div class="entity-col-right">
-            <GlassPanel :title="t('orders.field_status')" :loading="loading" :skeleton-rows="1" data-test="order-info-right">
-              <template v-if="order">
-                <InputGroup :label="t('orders.col_status')">
-                  <CustomSelect
-                    v-model="statusStr"
-                    :options="STATUS_OPTIONS"
-                    data-test="order-card-status"
-                  />
-                </InputGroup>
-              </template>
-            </GlassPanel>
-          </div>
-
         </div>
 
         <GlassPanel data-test="order-items">
@@ -640,7 +726,7 @@ onMounted(loadCurrencies)
 
         <div class="audit-panel-wide" data-test="order-audit">
           <GlassPanel :title="t('orders.section_audit')">
-            <div v-if="auditLoading" class="text-muted" style="padding: 12px 0;">
+            <div v-if="auditLoading" class="text-muted" style="padding: 12px 0">
               {{ t('orders.loading') }}...
             </div>
             <template v-else-if="auditLog.length > 0">
@@ -680,7 +766,16 @@ onMounted(loadCurrencies)
                           data-test="order-audit-delete-btn"
                           @click="askDeleteAudit(i)"
                         >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          >
                             <line x1="18" y1="6" x2="6" y2="18" />
                             <line x1="6" y1="6" x2="18" y2="18" />
                           </svg>
@@ -697,7 +792,6 @@ onMounted(loadCurrencies)
             </div>
           </GlassPanel>
         </div>
-
       </div>
     </div>
 
@@ -795,5 +889,46 @@ onMounted(loadCurrencies)
 .audit-empty p {
   margin: 0;
   font-size: 13px;
+}
+
+/* Client price — bold and slightly larger */
+.client-price-input {
+  font-weight: 700 !important;
+  font-size: 15px !important;
+}
+
+/* Static suffix (not a dropdown trigger) */
+.static-suffix {
+  cursor: default !important;
+  opacity: 0.7;
+}
+
+/* Inline group for percent fields */
+:deep(.inline-group) {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+:deep(.inline-short) {
+  flex: 1 1 140px;
+  min-width: 120px;
+}
+
+/* Subsection title */
+.subsection-title {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.75;
+  margin: 0 0 10px 0;
+  color: var(--text-color, rgba(255, 255, 255, 0.85));
+}
+
+/* Section divider */
+.section-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 16px 0;
 }
 </style>

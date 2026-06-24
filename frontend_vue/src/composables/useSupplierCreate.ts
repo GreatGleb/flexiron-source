@@ -2,10 +2,11 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { createSupplier } from '@/services/suppliersService'
 import { useTranslatedField } from './useTranslatedData'
+import { useSettings } from './useSettings'
 import type { SupplierCardData } from '@/types/supplier'
 
 /** Empty-supplier factory — used as the starting state for the Create form. */
-function emptyCard(): SupplierCardData {
+function emptyCard(defaultCurrency: string): SupplierCardData {
   return {
     id: '',
     company: { ru: '', en: '', lt: '' },
@@ -27,7 +28,7 @@ function emptyCard(): SupplierCardData {
     statusReason: { ru: '', en: '', lt: '' },
     contractDate: '',
     vatCode: '',
-    currency: 'EUR',
+    currency: defaultCurrency,
     paymentTerms: '30 Days Net',
     minOrder: null,
     bccEmails: [],
@@ -43,8 +44,9 @@ function emptyCard(): SupplierCardData {
 export function useSupplierCreate() {
   const { locale } = useI18n()
   const { tf } = useTranslatedField()
+  const { settings } = useSettings()
 
-  const supplier = ref<SupplierCardData>(emptyCard())
+  const supplier = ref<SupplierCardData>(emptyCard(settings.constants.defaultCurrency))
   const saving = ref(false)
   const error = ref<string | null>(null)
 
@@ -74,7 +76,7 @@ export function useSupplierCreate() {
   }
 
   function reset() {
-    supplier.value = emptyCard()
+    supplier.value = emptyCard(settings.constants.defaultCurrency)
     error.value = null
   }
 

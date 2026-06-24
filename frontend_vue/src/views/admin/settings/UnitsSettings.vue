@@ -14,11 +14,12 @@ const removeUom = inject<(id: string) => void>('removeUom')!
 const removeConversion = inject<(id: string) => void>('removeConversion')!
 const uomModal = inject<Ref<boolean>>('uomModal')!
 const conversionModal = inject<Ref<boolean>>('conversionModal')!
-const updateConversion = inject<(id: string, patch: Partial<UomConversion>) => void>('updateConversion')!
+const updateConversion =
+  inject<(id: string, patch: Partial<UomConversion>) => void>('updateConversion')!
 
 /** Resolve UoM code from id — returns translated code or a fallback label */
 const getUomCode = (id: string): string => {
-  const u = settings.uoms.find((u: any) => u.id === id)
+  const u = settings.uoms.find((u) => u.id === id)
   if (u) return tf(u.code)
   // Fallback: extract a readable hint from the internal id
   const hint = id.replace(/^uom-/, '')
@@ -49,11 +50,7 @@ const handleFactorInput = (id: string, event: Event) => {
   <GlassPanel class="settings-panel">
     <div class="uom-table-header">
       <h3>{{ t('settingsUom.uoms') }}</h3>
-      <button
-        class="btn btn-secondary"
-        data-test="settings-uom-add"
-        @click="uomModal = true"
-      >
+      <button class="btn btn-secondary" data-test="settings-uom-add" @click="uomModal = true">
         <SvgIcon name="plus-add" width="14" height="14" />
         {{ t('settingsUom.add_uom') }}
       </button>
@@ -71,7 +68,9 @@ const handleFactorInput = (id: string, event: Event) => {
         </thead>
         <tbody>
           <tr v-for="u in settings.uoms" :key="u.id">
-            <td><strong>{{ tf(u.code) }}</strong></td>
+            <td>
+              <strong>{{ tf(u.code) }}</strong>
+            </td>
             <td>{{ tf(u.name) }}</td>
             <td>{{ t(`settingsUom.category_${u.category}`) }}</td>
             <td class="text-right">
@@ -118,13 +117,17 @@ const handleFactorInput = (id: string, event: Event) => {
           </thead>
           <tbody>
             <tr v-for="conv in settings.conversions" :key="conv.id">
-              <td><strong>{{ getUomCode(conv.fromUomId) }}</strong></td>
-              <td><strong>{{ getUomCode(conv.toUomId) }}</strong></td>
+              <td>
+                <strong>{{ getUomCode(conv.fromUomId) }}</strong>
+              </td>
+              <td>
+                <strong>{{ getUomCode(conv.toUomId) }}</strong>
+              </td>
               <td>
                 <span
                   v-if="isDynamic(conv)"
-                  class="formula-badge"
                   v-tooltip="formulaTypeLabel(conv.formulaType)"
+                  class="formula-badge"
                 >
                   {{ t('settingsUom.conversion_type_dynamic_badge') }}
                 </span>
@@ -142,7 +145,11 @@ const handleFactorInput = (id: string, event: Event) => {
                   data-test="settings-conversion-factor"
                   @input="handleFactorInput(conv.id, $event)"
                 />
-                <span v-else class="dynamic-factor" v-tooltip="t('settingsUom.factor_disabled_hint')">
+                <span
+                  v-else
+                  v-tooltip="t('settingsUom.factor_disabled_hint')"
+                  class="dynamic-factor"
+                >
                   &mdash;
                 </span>
               </td>
@@ -269,7 +276,7 @@ const handleFactorInput = (id: string, event: Event) => {
 .uom-empty {
   padding: 24px;
   text-align: center;
-  color: var(--text-muted, #6B7280);
+  color: var(--text-muted, #6b7280);
   font-size: 0.875rem;
 }
 </style>

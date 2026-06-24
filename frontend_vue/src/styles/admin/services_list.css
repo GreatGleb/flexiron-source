@@ -215,7 +215,9 @@
 }
 
 .services-row td {
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 
 .services-row td:first-child {
@@ -264,4 +266,3 @@
 .error-state svg {
   opacity: 0.5;
 }
-

@@ -4,12 +4,13 @@ import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useHead } from '@/composables/useHead'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
+import GlassPanel from '@/components/admin/GlassPanel.vue'
 import AppModal from '@/components/admin/ui/AppModal.vue'
 import InputGroup from '@/components/admin/ui/InputGroup.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
 import { useSettings } from '@/composables/useSettings'
 import { useToast } from '@/composables/useToast'
-import type { UomCategory } from '@/types/settings'
+import type { UomCategory, UomConversion } from '@/types/settings'
 import type { TranslatedString } from '@/types/i18n'
 
 import '@styles/admin/components/_entity-card-layout.css'
@@ -32,6 +33,7 @@ const {
   settings,
   loading,
   saving,
+  error,
   isDirty,
   load,
   save,
@@ -54,11 +56,31 @@ const {
 } = useSettings()
 
 const SETTINGS_TABS: { key: string; path: string; labelKey: string; icon: string }[] = [
-  { key: 'profile',        path: '/admin/settings/profile',        labelKey: 'settingsTabs.profile',   icon: 'staff-user' },
-  { key: 'company',        path: '/admin/settings/company',        labelKey: 'settingsTabs.company',   icon: 'building' },
-  { key: 'finance',        path: '/admin/settings/finance',        labelKey: 'settingsTabs.finance',   icon: 'profit-coin' },
-  { key: 'units',          path: '/admin/settings/units',          labelKey: 'settingsTabs.uom',       icon: 'ruler' },
-  { key: 'order-statuses', path: '/admin/settings/order-statuses', labelKey: 'settingsTabs.statuses',  icon: 'list-status' },
+  {
+    key: 'profile',
+    path: '/admin/settings/profile',
+    labelKey: 'settingsTabs.profile',
+    icon: 'staff-user',
+  },
+  {
+    key: 'company',
+    path: '/admin/settings/company',
+    labelKey: 'settingsTabs.company',
+    icon: 'building',
+  },
+  {
+    key: 'finance',
+    path: '/admin/settings/finance',
+    labelKey: 'settingsTabs.finance',
+    icon: 'profit-coin',
+  },
+  { key: 'units', path: '/admin/settings/units', labelKey: 'settingsTabs.uom', icon: 'ruler' },
+  {
+    key: 'order-statuses',
+    path: '/admin/settings/order-statuses',
+    labelKey: 'settingsTabs.statuses',
+    icon: 'list-status',
+  },
 ]
 
 const activeTab = computed(() => {
@@ -96,8 +118,14 @@ const currencyModal = ref(false)
 const uomModal = ref(false)
 const conversionModal = ref(false)
 const statusModal = ref(false)
+const currencyChangeConfirmModal = ref(false)
+const pendingCurrencyId = ref<string | null>(null)
 
-const newCurrency = ref<{ code: string; name: string; rate: number }>({ code: '', name: '', rate: 0 })
+const newCurrency = ref<{ code: string; name: string; rate: number }>({
+  code: '',
+  name: '',
+  rate: 0,
+})
 
 /** Normalize comma → dot for rate input in the currency modal */
 function handleCurrencyRateInput(event: Event) {
@@ -117,7 +145,11 @@ const isCurrencyFormValid = computed(() => {
     newCurrency.value.rate > 0
   )
 })
-const newUom = ref<{ code: string; name: string; category: UomCategory }>({ code: '', name: '', category: 'weight' })
+const newUom = ref<{ code: string; name: string; category: UomCategory }>({
+  code: '',
+  name: '',
+  category: 'weight',
+})
 
 const isUomFormValid = computed(() => {
   return newUom.value.code.trim().length > 0 && newUom.value.name.trim().length > 0
@@ -178,7 +210,12 @@ const newConversion = ref<{
   factor: number
   formulaType: string
 }>({ fromUomId: '', toUomId: '', type: 'static', factor: 1, formulaType: '' })
-const newStatus = ref<{ name: string; color: string; reserveOnTransition: boolean; writeOffOnTransition: boolean }>({
+const newStatus = ref<{
+  name: string
+  color: string
+  reserveOnTransition: boolean
+  writeOffOnTransition: boolean
+}>({
   name: '',
   color: '#6B7280',
   reserveOnTransition: false,
@@ -218,8 +255,8 @@ const uomOptions = computed(() =>
 
 const FORMULA_TYPE_OPTIONS = computed(() => [
   { value: 'weight_per_meter', label: t('settingsUom.formula_weight_per_meter') },
-  { value: 'area_to_weight',   label: t('settingsUom.formula_area_to_weight') },
-  { value: 'pcs_to_weight',    label: t('settingsUom.formula_pcs_to_weight') },
+  { value: 'area_to_weight', label: t('settingsUom.formula_area_to_weight') },
+  { value: 'pcs_to_weight', label: t('settingsUom.formula_pcs_to_weight') },
 ])
 
 // ─── Lifecycle ───
@@ -245,32 +282,35 @@ async function handleSave() {
   }
 }
 
+/**
+ * Handle file drop for logo — local preview only.
+ * The actual upload is handled by DropZone's internal @uploaded event
+ * (via uploadsService.uploadFile which now passes auth headers).
+ */
 function handleLogoDrop(files: File[]) {
   const file = files[0]
   if (!file) return
 
-  // 1) Immediate local preview — read file as data URL right away
+  // Immediate local preview — read file as data URL
   const reader = new FileReader()
   reader.onload = (e: ProgressEvent<FileReader>) => {
     updateCompany({ logoUrl: e.target?.result as string })
   }
   reader.readAsDataURL(file)
+}
 
-  // 2) Background upload — persists fileId via apiUpload (mock or real)
-  import('@/services/api').then(({ apiUpload }) => {
-    apiUpload('/api/uploads', file).then((meta: any) => {
-      // Only overwrite if the uploaded URL is a real server URL (not a mock data URL).
-      // In mock mode the data URL from step 1 is already good.
-      if (meta.url && !meta.url.startsWith('data:')) {
-        updateCompany({ logoUrl: meta.url })
-      }
-    }).catch((err: Error) => {
-      console.error('[logo] apiUpload failed:', err)
-      // Local preview from step 1 is already showing — no need for fallback
-    })
-  })
+/**
+ * Handle completed server upload for logo.
+ * Replaces the local data URL preview with the real server URL.
+ */
+function handleLogoUploaded(files: { url: string }[]) {
+  const meta = files[0]
+  if (meta?.url && !meta.url.startsWith('data:')) {
+    updateCompany({ logoUrl: meta.url })
+  }
 }
 provide('handleLogoDrop', handleLogoDrop)
+provide('handleLogoUploaded', handleLogoUploaded)
 
 function confirmAddCurrency() {
   if (!isCurrencyFormValid.value) return
@@ -300,16 +340,20 @@ function confirmAddConversion() {
   if (!newConversion.value.fromUomId || !newConversion.value.toUomId) return
   if (newConversion.value.type === 'dynamic' && !newConversion.value.formulaType) return
 
-  const base: any = {
-    fromUomId: newConversion.value.fromUomId,
-    toUomId: newConversion.value.toUomId,
-    type: newConversion.value.type,
-  }
-
   if (newConversion.value.type === 'static') {
-    addConversion({ ...base, factor: newConversion.value.factor })
+    addConversion({
+      fromUomId: newConversion.value.fromUomId,
+      toUomId: newConversion.value.toUomId,
+      type: newConversion.value.type,
+      factor: newConversion.value.factor,
+    })
   } else {
-    addConversion({ ...base, formulaType: newConversion.value.formulaType })
+    addConversion({
+      fromUomId: newConversion.value.fromUomId,
+      toUomId: newConversion.value.toUomId,
+      type: newConversion.value.type,
+      formulaType: newConversion.value.formulaType as UomConversion['formulaType'],
+    })
   }
 
   newConversion.value = { fromUomId: '', toUomId: '', type: 'static', factor: 1, formulaType: '' }
@@ -317,7 +361,12 @@ function confirmAddConversion() {
 }
 
 function resetAndCloseStatusModal() {
-  newStatus.value = { name: '', color: '#6B7280', reserveOnTransition: false, writeOffOnTransition: false }
+  newStatus.value = {
+    name: '',
+    color: '#6B7280',
+    reserveOnTransition: false,
+    writeOffOnTransition: false,
+  }
   showStatusColorPicker.value = false
   statusModal.value = false
 }
@@ -342,11 +391,26 @@ function handleStatusColorClickOutside(e: MouseEvent) {
 }
 
 function handleSetDefaultCurrency(id: string) {
+  // Show confirmation warning — existing products/batches keep their original currency
+  pendingCurrencyId.value = id
+  currencyChangeConfirmModal.value = true
+}
+
+function confirmSetDefaultCurrency() {
+  const id = pendingCurrencyId.value
+  if (!id) return
   for (const c of settings.currencies) {
     c.isDefault = c.id === id
   }
   const cur = settings.currencies.find((c) => c.id === id)
   if (cur) updateConstants({ defaultCurrency: cur.code })
+  currencyChangeConfirmModal.value = false
+  pendingCurrencyId.value = null
+}
+
+function cancelSetDefaultCurrency() {
+  currencyChangeConfirmModal.value = false
+  pendingCurrencyId.value = null
 }
 provide('handleSetDefaultCurrency', handleSetDefaultCurrency)
 
@@ -396,10 +460,7 @@ provide('resetAndCloseStatusModal', resetAndCloseStatusModal)
     <div class="settings-header">
       <h1 class="settings-title">{{ t('settings.title') }}</h1>
       <div class="entity-action-bar no-margin pos-static">
-        <button
-          class="btn btn-secondary"
-          @click="discard"
-        >
+        <button class="btn btn-secondary" @click="discard">
           {{ t('settings.cancel_changes') }}
         </button>
         <button
@@ -414,8 +475,21 @@ provide('resetAndCloseStatusModal', resetAndCloseStatusModal)
       </div>
     </div>
 
-    <div v-if="loading" class="settings-loading">
-      {{ t('settings.loading') }}
+    <!-- Loading skeleton -->
+    <div v-if="loading" class="settings-loading" data-test="settings-loading">
+      <GlassPanel :loading="true" :skeleton-rows="6" />
+    </div>
+
+    <!-- Error state -->
+    <div v-else-if="error && !loading" class="settings-error" data-test="settings-error">
+      <div class="error-state">
+        <SvgIcon name="alert-triangle" width="48" height="48" />
+        <h3>{{ t('settings.loadError') }}</h3>
+        <p>{{ error }}</p>
+        <button class="btn btn-primary" @click="load">
+          {{ t('settings.retry') }}
+        </button>
+      </div>
     </div>
 
     <template v-else>
@@ -443,9 +517,9 @@ provide('resetAndCloseStatusModal', resetAndCloseStatusModal)
             type="text"
             maxlength="3"
             :value="newCurrency.code"
-            @input="newCurrency.code = ($event.target as HTMLInputElement).value.toUpperCase()"
             :placeholder="t('settingsFinance.currency_code')"
             data-test="settings-modal-currency-code"
+            @input="newCurrency.code = ($event.target as HTMLInputElement).value.toUpperCase()"
           />
         </InputGroup>
         <InputGroup :label="t('settingsFinance.currency_name')">
@@ -453,9 +527,9 @@ provide('resetAndCloseStatusModal', resetAndCloseStatusModal)
             class="glass-input"
             type="text"
             :value="newCurrency.name"
-            @input="newCurrency.name = ($event.target as HTMLInputElement).value"
             :placeholder="t('settingsFinance.currency_name')"
             data-test="settings-modal-currency-name"
+            @input="newCurrency.name = ($event.target as HTMLInputElement).value"
           />
         </InputGroup>
         <InputGroup :label="t('settingsFinance.exchange_rate')">
@@ -464,18 +538,22 @@ provide('resetAndCloseStatusModal', resetAndCloseStatusModal)
             type="text"
             inputmode="decimal"
             :value="String(newCurrency.rate)"
-            @input="handleCurrencyRateInput($event)"
             :placeholder="t('settingsFinance.exchange_rate')"
             data-test="settings-modal-currency-rate"
+            @input="handleCurrencyRateInput($event)"
           />
         </InputGroup>
         <div class="modal-actions">
-          <button class="btn btn-secondary" @click="currencyModal = false">{{ t('settingsModal.cancel') }}</button>
+          <button class="btn btn-secondary" @click="currencyModal = false">
+            {{ t('settingsModal.cancel') }}
+          </button>
           <button
             class="btn btn-primary"
             :disabled="!isCurrencyFormValid"
             @click="confirmAddCurrency"
-          >{{ t('settingsModal.save') }}</button>
+          >
+            {{ t('settingsModal.save') }}
+          </button>
         </div>
       </div>
     </AppModal>
@@ -489,9 +567,9 @@ provide('resetAndCloseStatusModal', resetAndCloseStatusModal)
             type="text"
             maxlength="10"
             :value="newUom.code"
-            @input="handleUomCodeInput($event)"
             :placeholder="codePlaceholder"
             data-test="settings-modal-uom-code"
+            @input="handleUomCodeInput($event)"
           />
           <p v-if="isUomCodeDuplicate && newUom.code.trim()" class="field-error">
             {{ t('settingsModal.uom_code_exists') }}
@@ -502,9 +580,9 @@ provide('resetAndCloseStatusModal', resetAndCloseStatusModal)
             class="glass-input"
             type="text"
             :value="newUom.name"
-            @input="newUom.name = ($event.target as HTMLInputElement).value"
             :placeholder="namePlaceholder"
             data-test="settings-modal-uom-name"
+            @input="newUom.name = ($event.target as HTMLInputElement).value"
           />
         </InputGroup>
         <InputGroup :label="t('settingsUom.category')">
@@ -515,12 +593,16 @@ provide('resetAndCloseStatusModal', resetAndCloseStatusModal)
           />
         </InputGroup>
         <div class="modal-actions">
-          <button class="btn btn-secondary" @click="uomModal = false">{{ t('settingsModal.cancel') }}</button>
+          <button class="btn btn-secondary" @click="uomModal = false">
+            {{ t('settingsModal.cancel') }}
+          </button>
           <button
             class="btn btn-primary"
             :disabled="!isUomFormValid || isUomCodeDuplicate"
             @click="confirmAddUom"
-          >{{ t('settingsModal.save') }}</button>
+          >
+            {{ t('settingsModal.save') }}
+          </button>
         </div>
       </div>
     </AppModal>
@@ -583,8 +665,12 @@ provide('resetAndCloseStatusModal', resetAndCloseStatusModal)
         </InputGroup>
 
         <div class="modal-actions">
-          <button class="btn btn-secondary" @click="conversionModal = false">{{ t('settingsModal.cancel') }}</button>
-          <button class="btn btn-primary" @click="confirmAddConversion">{{ t('settingsModal.save') }}</button>
+          <button class="btn btn-secondary" @click="conversionModal = false">
+            {{ t('settingsModal.cancel') }}
+          </button>
+          <button class="btn btn-primary" @click="confirmAddConversion">
+            {{ t('settingsModal.save') }}
+          </button>
         </div>
       </div>
     </AppModal>
@@ -596,9 +682,9 @@ provide('resetAndCloseStatusModal', resetAndCloseStatusModal)
             class="glass-input"
             type="text"
             :value="newStatus.name"
-            @input="newStatus.name = ($event.target as HTMLInputElement).value"
             :placeholder="t('settingsStatuses.edit_name')"
             data-test="settings-status-modal-name"
+            @input="newStatus.name = ($event.target as HTMLInputElement).value"
           />
         </InputGroup>
 
@@ -633,8 +719,8 @@ provide('resetAndCloseStatusModal', resetAndCloseStatusModal)
                     type="text"
                     maxlength="7"
                     :value="newStatus.color"
-                    @input="handleModalHexInput($event)"
                     :placeholder="t('settingsStatuses.color_hex_placeholder')"
+                    @input="handleModalHexInput($event)"
                   />
                 </div>
               </div>
@@ -643,12 +729,53 @@ provide('resetAndCloseStatusModal', resetAndCloseStatusModal)
         </div>
 
         <div class="modal-actions">
-          <button class="btn btn-secondary" @click="resetAndCloseStatusModal">{{ t('settingsModal.cancel') }}</button>
-          <button
-            class="btn btn-primary"
-            :disabled="!isStatusFormValid"
-            @click="confirmAddStatus"
-          >{{ t('settingsModal.save') }}</button>
+          <button class="btn btn-secondary" @click="resetAndCloseStatusModal">
+            {{ t('settingsModal.cancel') }}
+          </button>
+          <button class="btn btn-primary" :disabled="!isStatusFormValid" @click="confirmAddStatus">
+            {{ t('settingsModal.save') }}
+          </button>
+        </div>
+      </div>
+    </AppModal>
+
+    <!-- ─── Confirm default currency change ─── -->
+    <AppModal
+      v-model="currencyChangeConfirmModal"
+      :title="t('settingsFinance.confirm_currency_change_title')"
+      size="small"
+    >
+      <div class="modal-form">
+        <p style="line-height: 1.6; color: rgba(255, 255, 255, 0.8)">
+          {{ t('settingsFinance.confirm_currency_change_message') }}
+        </p>
+        <div
+          v-if="pendingCurrencyId"
+          class="currency-change-detail"
+          style="
+            margin-top: 8px;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+          "
+        >
+          <span style="font-weight: 600; color: #fff">
+            {{ settings.currencies.find((c) => c.id === pendingCurrencyId)?.code }}
+          </span>
+          <span style="color: rgba(255, 255, 255, 0.5); margin-left: 8px">
+            → {{ t('settingsFinance.confirm_currency_change_default') }}
+          </span>
+        </div>
+        <p style="margin-top: 12px; font-size: 0.85rem; color: #ff6b6b; line-height: 1.5">
+          {{ t('settingsFinance.confirm_currency_change_warning') }}
+        </p>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" @click="cancelSetDefaultCurrency">
+            {{ t('btn.cancel') }}
+          </button>
+          <button class="btn btn-primary" @click="confirmSetDefaultCurrency">
+            {{ t('settingsFinance.confirm_currency_change_confirm') }}
+          </button>
         </div>
       </div>
     </AppModal>
@@ -673,9 +800,36 @@ provide('resetAndCloseStatusModal', resetAndCloseStatusModal)
 }
 
 .settings-loading {
+  padding: 24px;
+}
+
+.settings-error {
+  padding: 48px 24px;
+}
+
+.settings-error .error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
   padding: 48px;
   text-align: center;
-  color: var(--text-muted, #6B7280);
+  color: var(--text-muted, #9ca3af);
+}
+
+.settings-error .error-state h3 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.settings-error .error-state p {
+  margin: 0;
+  font-size: 0.875rem;
+  max-width: 400px;
+  line-height: 1.5;
 }
 
 .settings-page .warehouse-tabs {
@@ -708,7 +862,7 @@ provide('resetAndCloseStatusModal', resetAndCloseStatusModal)
 .settings-label {
   font-size: 0.8125rem;
   font-weight: 500;
-  color: var(--text-label, #9CA3AF);
+  color: var(--text-label, #9ca3af);
 }
 
 .settings-logo-preview {
@@ -746,13 +900,13 @@ provide('resetAndCloseStatusModal', resetAndCloseStatusModal)
 .settings-table td {
   padding: 8px 12px;
   text-align: left;
-  border-bottom: 1px solid var(--border-color, rgba(255,255,255,0.08));
+  border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
   font-size: 0.875rem;
 }
 
 .settings-table th {
   font-weight: 500;
-  color: var(--text-muted, #9CA3AF);
+  color: var(--text-muted, #9ca3af);
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -761,7 +915,7 @@ provide('resetAndCloseStatusModal', resetAndCloseStatusModal)
 .table-input {
   width: 80px;
   padding: 4px 8px;
-  border: 1px solid var(--border-color, rgba(255,255,255,0.1));
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
   border-radius: 4px;
   background: transparent;
   color: inherit;
@@ -771,17 +925,16 @@ provide('resetAndCloseStatusModal', resetAndCloseStatusModal)
 .settings-empty {
   padding: 24px;
   text-align: center;
-  color: var(--text-muted, #6B7280);
+  color: var(--text-muted, #6b7280);
   font-size: 0.875rem;
 }
 
-
 .text-danger {
-  color: #EF4444;
+  color: #ef4444;
 }
 
 .text-danger:hover {
-  color: #DC2626;
+  color: #dc2626;
 }
 
 .draggable-row {
@@ -794,7 +947,7 @@ provide('resetAndCloseStatusModal', resetAndCloseStatusModal)
 
 .drag-handle {
   width: 30px;
-  color: var(--text-muted, #6B7280);
+  color: var(--text-muted, #6b7280);
   cursor: grab;
 }
 
@@ -814,7 +967,7 @@ provide('resetAndCloseStatusModal', resetAndCloseStatusModal)
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: var(--bg-muted, rgba(255,255,255,0.08));
+  background: var(--bg-muted, rgba(255, 255, 255, 0.08));
   font-size: 0.625rem;
   font-weight: 700;
   margin-left: 6px;

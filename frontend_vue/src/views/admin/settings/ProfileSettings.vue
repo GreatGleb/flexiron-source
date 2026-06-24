@@ -21,7 +21,9 @@ async function copySecretLink() {
   try {
     await navigator.clipboard.writeText(link)
     copied.value = true
-    setTimeout(() => { copied.value = false }, 2000)
+    setTimeout(() => {
+      copied.value = false
+    }, 2000)
     toast.success(t('settingsProfile.copied'))
   } catch {
     toast.error(t('settingsProfile.copyFailed'))
@@ -85,43 +87,42 @@ async function handleChangePassword() {
       <InputGroup :label="t('settingsProfile.firstName')">
         <input
           :value="settings.profile.firstName"
-          @input="updateProfile({ firstName: ($event.target as HTMLInputElement).value })"
           class="glass-input"
           type="text"
           data-test="settings-profile-first-name"
+          @input="updateProfile({ firstName: ($event.target as HTMLInputElement).value })"
         />
       </InputGroup>
 
       <InputGroup :label="t('settingsProfile.lastName')">
         <input
           :value="settings.profile.lastName"
-          @input="updateProfile({ lastName: ($event.target as HTMLInputElement).value })"
           class="glass-input"
           type="text"
           data-test="settings-profile-last-name"
+          @input="updateProfile({ lastName: ($event.target as HTMLInputElement).value })"
         />
       </InputGroup>
 
       <InputGroup :label="t('settingsProfile.email')">
         <input
           :value="settings.profile.email"
-          @input="updateProfile({ email: ($event.target as HTMLInputElement).value })"
           class="glass-input"
           type="email"
           data-test="settings-profile-email"
+          @input="updateProfile({ email: ($event.target as HTMLInputElement).value })"
         />
       </InputGroup>
 
       <InputGroup :label="t('settingsProfile.phone')">
         <input
           :value="settings.profile.phone"
-          @input="updateProfile({ phone: ($event.target as HTMLInputElement).value })"
           class="glass-input"
           type="tel"
           data-test="settings-profile-phone"
+          @input="updateProfile({ phone: ($event.target as HTMLInputElement).value })"
         />
       </InputGroup>
-
     </div>
 
     <!-- Secret Link Section -->
@@ -129,7 +130,7 @@ async function handleChangePassword() {
     <div class="settings-form">
       <div class="secret-link-info">
         <p class="secret-link-desc">{{ t('settingsProfile.secretLinkDesc') }}</p>
-        <div class="secret-link-field" v-if="settings.profile.secretLink">
+        <div v-if="settings.profile.secretLink" class="secret-link-field">
           <input
             :value="settings.profile.secretLink"
             class="glass-input secret-link-input"
@@ -178,10 +179,12 @@ async function handleChangePassword() {
         <button
           class="btn btn-primary"
           :disabled="changingPassword"
-          @click="handleChangePassword"
           data-test="settings-profile-change-password"
+          @click="handleChangePassword"
         >
-          {{ changingPassword ? t('settingsProfile.changing') : t('settingsProfile.change_password') }}
+          {{
+            changingPassword ? t('settingsProfile.changing') : t('settingsProfile.change_password')
+          }}
         </button>
       </div>
     </div>

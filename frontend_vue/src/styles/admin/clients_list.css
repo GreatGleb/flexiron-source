@@ -163,18 +163,34 @@
 }
 
 /* Fixed column widths via colgroup */
-.page-clients .data-table .col-name { width: 18%; }
-.page-clients .data-table .col-code { width: 10%; }
-.page-clients .data-table .col-vat  { width: 10%; }
-.page-clients .data-table .col-addr { width: 18%; }
-.page-clients .data-table .col-phone { width: 12%; }
-.page-clients .data-table .col-email { width: 14%; }
-.page-clients .data-table .col-status { width: 8%; }
-.page-clients .data-table .col-actions { width: 10%; }
+.page-clients .data-table .col-name {
+  width: 18%;
+}
+.page-clients .data-table .col-code {
+  width: 10%;
+}
+.page-clients .data-table .col-vat {
+  width: 10%;
+}
+.page-clients .data-table .col-addr {
+  width: 18%;
+}
+.page-clients .data-table .col-phone {
+  width: 12%;
+}
+.page-clients .data-table .col-email {
+  width: 14%;
+}
+.page-clients .data-table .col-status {
+  width: 8%;
+}
+.page-clients .data-table .col-actions {
+  width: 10%;
+}
 
 /* Truncate long text in data cells (address, email, etc.)
    but NOT in status or actions columns */
-.page-clients .data-table td:not(:nth-last-child(-n+2)) {
+.page-clients .data-table td:not(:nth-last-child(-n + 2)) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -252,7 +268,9 @@
 
 /* ─── Row styles ─────────────────────────────────────── */
 .clients-row td {
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 
 .clients-row td:first-child {

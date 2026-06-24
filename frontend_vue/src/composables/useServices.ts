@@ -50,11 +50,15 @@ export function useServices() {
   // Flag: prevents page watch from double-firing when filters reset page to 1
   let skipNextPageWatch = false
 
-  watch(filters, () => {
-    skipNextPageWatch = pagination.page.value !== 1
-    pagination.reset()
-    load()
-  }, { deep: true })
+  watch(
+    filters,
+    () => {
+      skipNextPageWatch = pagination.page.value !== 1
+      pagination.reset()
+      load()
+    },
+    { deep: true },
+  )
 
   watch([pagination.page, pagination.pageSize], () => {
     if (skipNextPageWatch) {

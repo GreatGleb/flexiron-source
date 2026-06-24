@@ -96,7 +96,8 @@ export const adminWarehouse = {
       col_deficit_amount: 'Сумма дефицита',
       col_deficit_amount_hint: 'Разница между минимально необходимым и текущим запасом',
       col_suggested_order_qty: 'Рекомендуемый заказ',
-      col_suggested_order_qty_hint: 'Рекомендуемое количество товара для заказа у поставщика для покрытия дефицита',
+      col_suggested_order_qty_hint:
+        'Рекомендуемое количество товара для заказа у поставщика для покрытия дефицита',
       col_purchase_order: 'Заказ поставщику',
       col_purchase_order_hint: 'Номер заказа поставщику, если дефицит уже был заказан',
       col_unit_price: 'Цена за ед.',
@@ -110,7 +111,8 @@ export const adminWarehouse = {
       col_reserved: 'Зарезервировано',
       col_reserved_hint: 'Количество товара, зарезервированное под активные заказы',
       col_available: 'В наличии',
-      col_available_hint: 'Фактическое количество товара на складе с учётом всех расходных операций (Общее количество минус зарезервированное, проданное, в утиле, израсходованное и т.д.)',
+      col_available_hint:
+        'Фактическое количество товара на складе с учётом всех расходных операций (Общее количество минус зарезервированное, проданное, в утиле, израсходованное и т.д.)',
       col_batches: 'Партий',
       col_batches_hint: 'Количество партий, на которые разбит товар',
       col_stock: 'Остаток',
@@ -197,7 +199,8 @@ export const adminWarehouse = {
       batch_status_hint_reserved: 'Партия зарезервирована под активные заказы или производство',
       batch_status_hint_partial: 'Часть партии уже израсходована, часть ещё доступна',
       batch_status_hint_depleted: 'Партия полностью израсходована. Доступного остатка нет',
-      batch_status_hint_converted_to_offcuts: 'Вся партия передана в обрезки. Доступного остатка нет',
+      batch_status_hint_converted_to_offcuts:
+        'Вся партия передана в обрезки. Доступного остатка нет',
       // Offcut statuses
       offcut_status_available: 'В наличии',
       offcut_status_reserved: 'Зарезервировано',
@@ -245,29 +248,46 @@ export const adminWarehouse = {
       movement_type_offcut: 'Передача в обрезки',
       // Movement type hints
       movement_type_hint_receipt: 'Поступление товара на склад от поставщика или из производства',
-      movement_type_hint_expense: 'Прочий расход товара со склада, не подходящий под категории продажи, производства или списания',
+      movement_type_hint_expense:
+        'Прочий расход товара со склада, не подходящий под категории продажи, производства или списания',
       movement_type_hint_transfer: 'Внутреннее перемещение товара между ячейками или складами',
-      movement_type_hint_write_off: 'Списание товара по причине брака, повреждения, утери или истечения срока',
-      'movement_type_hint_write-off': 'Списание товара по причине брака, повреждения, утери или истечения срока',
-      movement_type_hint_return: 'Возврат товара на склад (например, из производства или от клиента)',
+      movement_type_hint_write_off:
+        'Списание товара по причине брака, повреждения, утери или истечения срока',
+      'movement_type_hint_write-off':
+        'Списание товара по причине брака, повреждения, утери или истечения срока',
+      movement_type_hint_return:
+        'Возврат товара на склад (например, из производства или от клиента)',
       movement_type_hint_return_to_supplier: 'Возврат товара поставщику',
       'movement_type_hint_return-to-supplier': 'Возврат товара поставщику',
       movement_type_hint_correction: 'Корректировка остатка товара на складе',
-      movement_type_hint_production: 'Передача товара в производственный цех для изготовления продукции',
+      movement_type_hint_production:
+        'Передача товара в производственный цех для изготовления продукции',
       movement_type_hint_sale: 'Отгрузка товара покупателю по договору продажи',
-      movement_type_hint_storage: 'Перевод товара на ответственное хранение — товар не используется до востребования',
+      movement_type_hint_storage:
+        'Перевод товара на ответственное хранение — товар не используется до востребования',
       // Movement type effect summaries (shown below the select when a type is chosen)
-      movement_type_effect_receipt: '↑ Количество товара на складе увеличится. Используется для оприходования товара от поставщика или из производства.',
-      movement_type_effect_sale: '↓ Количество товара в наличии уменьшится — товар резервируется под продажу и становится недоступен для других операций. Используется для отгрузки товара покупателю.',
-      movement_type_effect_production: '↓ Количество товара на складе уменьшится. Используется для передачи материала в производственный цех.',
-      movement_type_effect_expense: '↓ Количество товара на складе уменьшится. Используется для прочего расхода, не подходящего под продажу, производство или списание.',
-      'movement_type_effect_write-off': '↓ Количество товара на складе уменьшится. Используется для списания товара в утиль (брак, повреждение, утеря, истечение срока).',
-      movement_type_effect_storage: '↓ Количество товара в наличии уменьшится — товар переводится на ответственное хранение и не используется до востребования.',
-      movement_type_effect_transfer: '↔ Количество товара не изменится. Товар перемещается между складами или ячейками внутри склада.',
-      movement_type_effect_return: '↑ Количество товара на складе увеличится. Используется для возврата товара от покупателя или из производства.',
-      movement_type_effect_return_to_supplier: '↓ Количество товара на складе уменьшится. Используется для возврата товара поставщику.',
-      'movement_type_effect_return-to-supplier': '↓ Количество товара на складе уменьшится. Используется для возврата товара поставщику.',
-      movement_type_effect_correction: '↔ Количество товара может измениться в зависимости от направления корректировки. Используется для исправления остатков после инвентаризации.',
+      movement_type_effect_receipt:
+        '↑ Количество товара на складе увеличится. Используется для оприходования товара от поставщика или из производства.',
+      movement_type_effect_sale:
+        '↓ Количество товара в наличии уменьшится — товар резервируется под продажу и становится недоступен для других операций. Используется для отгрузки товара покупателю.',
+      movement_type_effect_production:
+        '↓ Количество товара на складе уменьшится. Используется для передачи материала в производственный цех.',
+      movement_type_effect_expense:
+        '↓ Количество товара на складе уменьшится. Используется для прочего расхода, не подходящего под продажу, производство или списание.',
+      'movement_type_effect_write-off':
+        '↓ Количество товара на складе уменьшится. Используется для списания товара в утиль (брак, повреждение, утеря, истечение срока).',
+      movement_type_effect_storage:
+        '↓ Количество товара в наличии уменьшится — товар переводится на ответственное хранение и не используется до востребования.',
+      movement_type_effect_transfer:
+        '↔ Количество товара не изменится. Товар перемещается между складами или ячейками внутри склада.',
+      movement_type_effect_return:
+        '↑ Количество товара на складе увеличится. Используется для возврата товара от покупателя или из производства.',
+      movement_type_effect_return_to_supplier:
+        '↓ Количество товара на складе уменьшится. Используется для возврата товара поставщику.',
+      'movement_type_effect_return-to-supplier':
+        '↓ Количество товара на складе уменьшится. Используется для возврата товара поставщику.',
+      movement_type_effect_correction:
+        '↔ Количество товара может измениться в зависимости от направления корректировки. Используется для исправления остатков после инвентаризации.',
       // Auto-created movement notes
       movement_auto_location_change: 'Автоматически создано при изменении местоположения',
       movement_offcut_available: 'Обрезок {id} возвращён в наличие',
@@ -292,7 +312,8 @@ export const adminWarehouse = {
       movement_modal_quantity_positive: 'Количество должно быть больше 0',
       movement_modal_type_required: 'Выберите тип операции',
       // Movement card field hints
-      col_movement_type_hint: 'Тип складской операции: поступление, расход, перемещение или списание',
+      col_movement_type_hint:
+        'Тип складской операции: поступление, расход, перемещение или списание',
       col_performed_by_hint: 'ФИО сотрудника, выполнившего операцию',
       movement_field_unit_hint: 'Единица измерения товара (кг, м, шт, м²)',
       movement_field_from_location_hint: 'Ячейка или склад, откуда был перемещён товар',
@@ -325,16 +346,24 @@ export const adminWarehouse = {
       deficit_status_cancelled: 'Отменён',
       deficit_status_ordered: 'Заказан',
       // Deficit status hints
-      deficit_status_hint_open: 'Дефицит зарегистрирован, но ещё не начата работа по его устранению',
-      deficit_status_hint_in_progress: 'Ведётся работа по устранению дефицита: поиск поставщика, согласование закупки',
+      deficit_status_hint_open:
+        'Дефицит зарегистрирован, но ещё не начата работа по его устранению',
+      deficit_status_hint_in_progress:
+        'Ведётся работа по устранению дефицита: поиск поставщика, согласование закупки',
       deficit_status_hint_ordered: 'Товар уже заказан у поставщика. Ожидается поступление на склад',
-      deficit_status_hint_resolved: 'Дефицит устранён — товар поступил на склад в достаточном количестве',
-      deficit_status_hint_cancelled: 'Запись дефицита отменена (например, товар больше не требуется)',
+      deficit_status_hint_resolved:
+        'Дефицит устранён — товар поступил на склад в достаточном количестве',
+      deficit_status_hint_cancelled:
+        'Запись дефицита отменена (например, товар больше не требуется)',
       // Deficit priority hints
-      deficit_priority_hint_critical: 'Критический дефицит — товар необходим срочно. Остановка производства или срыв заказа',
-      deficit_priority_hint_high: 'Высокий приоритет — товар нужен в ближайшее время. Может повлиять на выполнение заказов',
-      deficit_priority_hint_medium: 'Средний приоритет — желательно пополнить запасы в плановом порядке',
-      deficit_priority_hint_low: 'Низкий приоритет — дефицит не критичен, можно пополнить при следующем заказе',
+      deficit_priority_hint_critical:
+        'Критический дефицит — товар необходим срочно. Остановка производства или срыв заказа',
+      deficit_priority_hint_high:
+        'Высокий приоритет — товар нужен в ближайшее время. Может повлиять на выполнение заказов',
+      deficit_priority_hint_medium:
+        'Средний приоритет — желательно пополнить запасы в плановом порядке',
+      deficit_priority_hint_low:
+        'Низкий приоритет — дефицит не критичен, можно пополнить при следующем заказе',
       // Batch card
       batch_card_title: 'Партия {batchNumber}',
       batch_card_not_found: 'Карточка партии не найдена',
@@ -351,6 +380,12 @@ export const adminWarehouse = {
       field_unit_price: 'Цена за единицу',
       field_total_cost: 'Общая стоимость',
       field_total_cost_hint: 'Общая стоимость партии = Цена за ед. × Количество',
+      field_margin_percent: 'Маржа',
+      field_margin_percent_hint: 'Процент наценки от цены закупки (по умолчанию из настроек)',
+      field_selling_price: 'Цена продажи',
+      field_selling_price_hint: 'Расчётная цена продажи = Цена закупки × (1 + Маржа/100)',
+      field_total_selling_value: 'Общая стоимость продажи',
+      field_total_selling_value_hint: 'Общая стоимость продажи = Цена продажи × Количество',
       field_received_at: 'Дата поступления',
       field_expires_at: 'Срок годности',
       field_expires_at_hint: 'Дата истечения срока годности партии',
@@ -368,14 +403,24 @@ export const adminWarehouse = {
       field_location_cell: 'Ячейка',
       field_location_cell_hint: 'Номер ячейки в ряду',
       field_location_notes: 'Заметки о месте',
-      field_location_notes_hint: 'Если партия хранится в нескольких местах, укажите подробности здесь',
+      field_location_notes_hint:
+        'Если партия хранится в нескольких местах, укажите подробности здесь',
+      section_receipt_data: 'Данные поступления',
+      field_received_quantity: 'Кол-во',
+      field_received_unit: 'Единица',
+      field_received_unit_price: 'Цена за ед.',
+      field_received_currency: 'Валюта',
+      field_received_total: 'Общая стоимость',
+      field_conversion_rate: 'Коэфф. конвертации',
+      field_exchange_rate: 'Курс валюты',
       section_batch_offcuts: 'Обрезки из этой партии',
       section_batch_audit: 'История изменений',
       section_batch_files: 'Файлы',
       btn_edit_batch: 'Редактировать партию',
       btn_view_mode: 'Просмотр',
       btn_delete_batch: 'Удалить партию',
-      confirm_delete_batch: 'Вы уверены, что хотите удалить эту партию? Это действие нельзя отменить.',
+      confirm_delete_batch:
+        'Вы уверены, что хотите удалить эту партию? Это действие нельзя отменить.',
       delete_blocked_by_order_title: 'Удаление невозможно',
       delete_blocked_by_order_message: 'Этот элемент привязан к заказу и не может быть удалён.',
       delete_batch_cascade_warning: 'При удалении партии будут также удалены:',
@@ -515,7 +560,8 @@ export const adminWarehouse = {
       offcut_create_search_batch: 'Поиск партии...',
       offcut_create_select_type: 'Выберите тип',
       offcut_create_all_categories: 'Все категории',
-      offcut_create_category_hint: 'Категория, к которой относится товар. Определяется в карточке товара.',
+      offcut_create_category_hint:
+        'Категория, к которой относится товар. Определяется в карточке товара.',
       offcut_create_category_placeholder: 'Категория товара',
       offcut_create_uncategorized: 'Без категории',
       offcut_create_no_products_found: 'По фильтрам товары не найдены',
@@ -543,8 +589,10 @@ export const adminWarehouse = {
       batch_summary_corrected: 'Скорректировано',
       batch_summary_offcut: 'В обрезках',
       batch_summary_no_movements: 'По партии ещё нет движений',
-      batch_summary_instruction: 'Выберите, с каким типом товара нужно выполнить действие. Для нового поступления выбирать существующие товары не нужно.',
-      batch_summary_select_hint: 'Отметьте существующие движения, которые нужно изменить (для нового поступления отмечать не нужно)',
+      batch_summary_instruction:
+        'Выберите, с каким типом товара нужно выполнить действие. Для нового поступления выбирать существующие товары не нужно.',
+      batch_summary_select_hint:
+        'Отметьте существующие движения, которые нужно изменить (для нового поступления отмечать не нужно)',
       batch_summary_select_all: 'Выбрать все',
       batch_summary_deselect_all: 'Снять все',
       batch_summary_active_sales: 'Активные продажи',
@@ -653,7 +701,8 @@ export const adminWarehouse = {
       col_deficit_amount: 'Deficit Amount',
       col_deficit_amount_hint: 'Difference between minimum required and current stock',
       col_suggested_order_qty: 'Suggested Order Qty',
-      col_suggested_order_qty_hint: 'Recommended quantity of goods to order from supplier to cover the deficit',
+      col_suggested_order_qty_hint:
+        'Recommended quantity of goods to order from supplier to cover the deficit',
       col_purchase_order: 'Purchase Order',
       col_purchase_order_hint: 'Purchase order number if the deficit has already been ordered',
       col_unit_price: 'Unit Price',
@@ -667,7 +716,8 @@ export const adminWarehouse = {
       col_reserved: 'Reserved',
       col_reserved_hint: 'Quantity reserved for active orders',
       col_available: 'In Stock',
-      col_available_hint: 'Actual quantity in stock considering all outgoing operations (Total minus reserved, sold, scrapped, expensed, etc.)',
+      col_available_hint:
+        'Actual quantity in stock considering all outgoing operations (Total minus reserved, sold, scrapped, expensed, etc.)',
       col_batches: 'Batches',
       col_batches_hint: 'Number of batches the product is split into',
       col_stock: 'Stock',
@@ -754,7 +804,8 @@ export const adminWarehouse = {
       batch_status_hint_reserved: 'Batch is reserved for active orders or production',
       batch_status_hint_partial: 'Part of the batch has been consumed, some remains available',
       batch_status_hint_depleted: 'Batch is fully consumed. No remaining stock available',
-      batch_status_hint_converted_to_offcuts: 'Entire batch has been transferred to offcuts. No remaining stock available',
+      batch_status_hint_converted_to_offcuts:
+        'Entire batch has been transferred to offcuts. No remaining stock available',
       // Offcut statuses
       offcut_status_available: 'Available',
       offcut_status_reserved: 'Reserved',
@@ -802,11 +853,14 @@ export const adminWarehouse = {
       movement_type_offcut: 'Transfer to Offcut',
       // Movement type hints
       movement_type_hint_receipt: 'Receipt of goods to warehouse from supplier or production',
-      movement_type_hint_expense: 'Other expense of goods from warehouse not covered by sale, production or write-off',
+      movement_type_hint_expense:
+        'Other expense of goods from warehouse not covered by sale, production or write-off',
       movement_type_hint_transfer: 'Internal transfer of goods between locations or warehouses',
       movement_type_hint_write_off: 'Write-off of goods due to defect, damage, loss or expiration',
-      'movement_type_hint_write-off': 'Write-off of goods due to defect, damage, loss or expiration',
-      movement_type_hint_return: 'Return of goods to warehouse (e.g., from production or from customer)',
+      'movement_type_hint_write-off':
+        'Write-off of goods due to defect, damage, loss or expiration',
+      movement_type_hint_return:
+        'Return of goods to warehouse (e.g., from production or from customer)',
       movement_type_hint_return_to_supplier: 'Return of goods to supplier',
       'movement_type_hint_return-to-supplier': 'Return of goods to supplier',
       movement_type_hint_correction: 'Correction of stock balance',
@@ -814,17 +868,28 @@ export const adminWarehouse = {
       movement_type_hint_sale: 'Shipment of goods to customer under a sales agreement',
       movement_type_hint_storage: 'Transfer goods to custodial storage — not used until requested',
       // Movement type effect summaries (shown below the select when a type is chosen)
-      movement_type_effect_receipt: '↑ Stock quantity will increase. Used for receiving goods from supplier or production.',
-      movement_type_effect_sale: '↓ Available quantity will decrease — goods are reserved for sale and become unavailable for other operations. Used for shipping goods to a customer.',
-      movement_type_effect_production: '↓ Stock quantity will decrease. Used for transferring material to the production floor.',
-      movement_type_effect_expense: '↓ Stock quantity will decrease. Used for other expenses not covered by sale, production or write-off.',
-      'movement_type_effect_write-off': '↓ Stock quantity will decrease. Used for writing off goods to scrap (defect, damage, loss, expiration).',
-      movement_type_effect_storage: '↓ Available quantity will decrease — goods are moved to custodial storage and not used until requested.',
-      movement_type_effect_transfer: '↔ Stock quantity will not change. Goods are moved between warehouses or locations within a warehouse.',
-      movement_type_effect_return: '↑ Stock quantity will increase. Used for returning goods from a customer or from production.',
-      movement_type_effect_return_to_supplier: '↓ Stock quantity will decrease. Used for returning goods to a supplier.',
-      'movement_type_effect_return-to-supplier': '↓ Stock quantity will decrease. Used for returning goods to a supplier.',
-      movement_type_effect_correction: '↔ Stock quantity may change depending on correction direction. Used for adjusting balances after inventory.',
+      movement_type_effect_receipt:
+        '↑ Stock quantity will increase. Used for receiving goods from supplier or production.',
+      movement_type_effect_sale:
+        '↓ Available quantity will decrease — goods are reserved for sale and become unavailable for other operations. Used for shipping goods to a customer.',
+      movement_type_effect_production:
+        '↓ Stock quantity will decrease. Used for transferring material to the production floor.',
+      movement_type_effect_expense:
+        '↓ Stock quantity will decrease. Used for other expenses not covered by sale, production or write-off.',
+      'movement_type_effect_write-off':
+        '↓ Stock quantity will decrease. Used for writing off goods to scrap (defect, damage, loss, expiration).',
+      movement_type_effect_storage:
+        '↓ Available quantity will decrease — goods are moved to custodial storage and not used until requested.',
+      movement_type_effect_transfer:
+        '↔ Stock quantity will not change. Goods are moved between warehouses or locations within a warehouse.',
+      movement_type_effect_return:
+        '↑ Stock quantity will increase. Used for returning goods from a customer or from production.',
+      movement_type_effect_return_to_supplier:
+        '↓ Stock quantity will decrease. Used for returning goods to a supplier.',
+      'movement_type_effect_return-to-supplier':
+        '↓ Stock quantity will decrease. Used for returning goods to a supplier.',
+      movement_type_effect_correction:
+        '↔ Stock quantity may change depending on correction direction. Used for adjusting balances after inventory.',
       // Auto-created movement notes
       movement_auto_location_change: 'Auto-created on location change',
       movement_offcut_available: 'Offcut {id} returned to available',
@@ -849,7 +914,8 @@ export const adminWarehouse = {
       movement_modal_quantity_positive: 'Quantity must be greater than 0',
       movement_modal_type_required: 'Select operation type',
       // Movement card field hints
-      col_movement_type_hint: 'Type of warehouse operation: receipt, expense, transfer or write-off',
+      col_movement_type_hint:
+        'Type of warehouse operation: receipt, expense, transfer or write-off',
       col_performed_by_hint: 'Full name of the employee who performed the operation',
       movement_field_unit_hint: 'Unit of measure for the product (kg, m, pcs, m²)',
       movement_field_from_location_hint: 'Location or warehouse from which the goods were moved',
@@ -883,15 +949,22 @@ export const adminWarehouse = {
       deficit_status_ordered: 'Ordered',
       // Deficit status hints
       deficit_status_hint_open: 'Deficit is registered but work to resolve it has not yet started',
-      deficit_status_hint_in_progress: 'Work is underway to resolve the deficit: supplier search, purchase negotiation',
-      deficit_status_hint_ordered: 'Goods have been ordered from the supplier. Awaiting warehouse receipt',
-      deficit_status_hint_resolved: 'Deficit resolved — goods have arrived at the warehouse in sufficient quantity',
+      deficit_status_hint_in_progress:
+        'Work is underway to resolve the deficit: supplier search, purchase negotiation',
+      deficit_status_hint_ordered:
+        'Goods have been ordered from the supplier. Awaiting warehouse receipt',
+      deficit_status_hint_resolved:
+        'Deficit resolved — goods have arrived at the warehouse in sufficient quantity',
       deficit_status_hint_cancelled: 'Deficit record cancelled (e.g. product is no longer needed)',
       // Deficit priority hints
-      deficit_priority_hint_critical: 'Critical deficit — product urgently needed. Production stoppage or order failure risk',
-      deficit_priority_hint_high: 'High priority — product needed soon. May affect order fulfillment',
-      deficit_priority_hint_medium: 'Medium priority — advisable to replenish stock in planned order',
-      deficit_priority_hint_low: 'Low priority — deficit is not critical, can be replenished with next order',
+      deficit_priority_hint_critical:
+        'Critical deficit — product urgently needed. Production stoppage or order failure risk',
+      deficit_priority_hint_high:
+        'High priority — product needed soon. May affect order fulfillment',
+      deficit_priority_hint_medium:
+        'Medium priority — advisable to replenish stock in planned order',
+      deficit_priority_hint_low:
+        'Low priority — deficit is not critical, can be replenished with next order',
       // Batch card
       batch_card_title: 'Batch {batchNumber}',
       batch_card_not_found: 'Batch card not found',
@@ -908,6 +981,12 @@ export const adminWarehouse = {
       field_unit_price: 'Unit price',
       field_total_cost: 'Total cost',
       field_total_cost_hint: 'Total cost of the batch = Unit price × Quantity',
+      field_margin_percent: 'Margin',
+      field_margin_percent_hint: 'Markup percentage on purchase price (default from settings)',
+      field_selling_price: 'Selling price',
+      field_selling_price_hint: 'Calculated selling price = Unit price × (1 + Margin/100)',
+      field_total_selling_value: 'Total selling value',
+      field_total_selling_value_hint: 'Total selling value = Selling price × Quantity',
       field_received_at: 'Received at',
       field_expires_at: 'Expires at',
       field_expires_at_hint: 'Batch expiration date',
@@ -925,14 +1004,24 @@ export const adminWarehouse = {
       field_location_cell: 'Cell',
       field_location_cell_hint: 'Cell number in the row',
       field_location_notes: 'Location Notes',
-      field_location_notes_hint: 'If the batch is stored across multiple locations, add details here',
+      field_location_notes_hint:
+        'If the batch is stored across multiple locations, add details here',
+      section_receipt_data: 'Receipt data',
+      field_received_quantity: 'Quantity',
+      field_received_unit: 'Unit',
+      field_received_unit_price: 'Unit price',
+      field_received_currency: 'Currency',
+      field_received_total: 'Total cost',
+      field_conversion_rate: 'Conversion rate',
+      field_exchange_rate: 'Exchange rate',
       section_batch_offcuts: 'Offcuts from this batch',
       section_batch_audit: 'Change history',
       section_batch_files: 'Files',
       btn_edit_batch: 'Edit batch',
       btn_view_mode: 'View',
       btn_delete_batch: 'Delete batch',
-      confirm_delete_batch: 'Are you sure you want to delete this batch? This action cannot be undone.',
+      confirm_delete_batch:
+        'Are you sure you want to delete this batch? This action cannot be undone.',
       delete_blocked_by_order_title: 'Cannot delete',
       delete_blocked_by_order_message: 'This item is linked to an order and cannot be deleted.',
       delete_batch_cascade_warning: 'Deleting this batch will also remove:',
@@ -979,7 +1068,8 @@ export const adminWarehouse = {
       btn_cancel_edit_offcut: 'Cancel',
       btn_delete_offcut: 'Delete Offcut',
       confirm_delete_offcut: 'Are you sure you want to delete this offcut?',
-      delete_offcut_cascade_warning: 'Deleting this offcut will recalculate the batch remaining quantity.',
+      delete_offcut_cascade_warning:
+        'Deleting this offcut will recalculate the batch remaining quantity.',
       // Movement card
       movement_card_title: 'Movement {id} — {productName}',
       movement_not_found: 'Movement not found',
@@ -1072,7 +1162,8 @@ export const adminWarehouse = {
       offcut_create_search_batch: 'Search batch...',
       offcut_create_select_type: 'Select type',
       offcut_create_all_categories: 'All categories',
-      offcut_create_category_hint: 'The category the product belongs to. Defined in the product card.',
+      offcut_create_category_hint:
+        'The category the product belongs to. Defined in the product card.',
       offcut_create_category_placeholder: 'Product category',
       offcut_create_uncategorized: 'Uncategorized',
       offcut_create_no_products_found: 'No products match the filters',
@@ -1100,8 +1191,10 @@ export const adminWarehouse = {
       batch_summary_corrected: 'Corrected',
       batch_summary_offcut: 'In offcuts',
       batch_summary_no_movements: 'No movements recorded for this batch yet',
-      batch_summary_instruction: 'Select which stock type to modify. For new receipts, no existing stock needs to be selected.',
-      batch_summary_select_hint: 'Select existing movements to modify (not needed for new receipts)',
+      batch_summary_instruction:
+        'Select which stock type to modify. For new receipts, no existing stock needs to be selected.',
+      batch_summary_select_hint:
+        'Select existing movements to modify (not needed for new receipts)',
       batch_summary_select_all: 'Select all',
       batch_summary_deselect_all: 'Deselect all',
       batch_summary_active_sales: 'Active sales',
@@ -1223,7 +1316,8 @@ export const adminWarehouse = {
       col_deficit_amount: 'Deficito suma',
       col_deficit_amount_hint: 'Skirtumas tarp minimalaus reikalingo ir dabartinių atsargų',
       col_suggested_order_qty: 'Siūlomas užsakymo kiekis',
-      col_suggested_order_qty_hint: 'Rekomenduojamas prekių kiekis užsakymui iš tiekėjo trūkumui padengti',
+      col_suggested_order_qty_hint:
+        'Rekomenduojamas prekių kiekis užsakymui iš tiekėjo trūkumui padengti',
       col_purchase_order: 'Užsakymas tiekėjui',
       col_purchase_order_hint: 'Užsakymo tiekėjui numeris, jei trūkumas jau buvo užsakytas',
       col_unit_price: 'Vnt. kaina',
@@ -1237,7 +1331,8 @@ export const adminWarehouse = {
       col_reserved: 'Rezervuota',
       col_reserved_hint: 'Kiekis, rezervuotas aktyviems užsakymams',
       col_available: 'Yra',
-      col_available_hint: 'Faktinis prekių kiekis sandėlyje, atsižvelgiant į visas išlaidas (Visas kiekis minus rezervuota, parduota, išbrokuota, sunaudota ir t.t.)',
+      col_available_hint:
+        'Faktinis prekių kiekis sandėlyje, atsižvelgiant į visas išlaidas (Visas kiekis minus rezervuota, parduota, išbrokuota, sunaudota ir t.t.)',
       col_batches: 'Partijos',
       col_batches_hint: 'Partijų, į kurias padalinta prekė, skaičius',
       col_stock: 'Likutis',
@@ -1359,29 +1454,44 @@ export const adminWarehouse = {
       movement_type_offcut: 'Perkėlimas į atraižas',
       // Movement type hints
       movement_type_hint_receipt: 'Prekių gavimas į sandėlį iš tiekėjo ar gamybos',
-      movement_type_hint_expense: 'Kitos prekių išlaidos iš sandėlio, netinkančios pardavimo, gamybos ar nurašymo kategorijoms',
+      movement_type_hint_expense:
+        'Kitos prekių išlaidos iš sandėlio, netinkančios pardavimo, gamybos ar nurašymo kategorijoms',
       movement_type_hint_transfer: 'Vidinis prekių perkėlimas tarp sandėlio vietų ar sandėlių',
-      movement_type_hint_write_off: 'Prekių nurašymas dėl broko, pažeidimo, praradimo ar galiojimo pabaigos',
-      'movement_type_hint_write-off': 'Prekių nurašymas dėl broko, pažeidimo, praradimo ar galiojimo pabaigos',
+      movement_type_hint_write_off:
+        'Prekių nurašymas dėl broko, pažeidimo, praradimo ar galiojimo pabaigos',
+      'movement_type_hint_write-off':
+        'Prekių nurašymas dėl broko, pažeidimo, praradimo ar galiojimo pabaigos',
       movement_type_hint_return: 'Prekių grąžinimas į sandėlį (pvz., iš gamybos ar iš kliento)',
       movement_type_hint_return_to_supplier: 'Prekių grąžinimas tiekėjui',
       'movement_type_hint_return-to-supplier': 'Prekių grąžinimas tiekėjui',
       movement_type_hint_correction: 'Prekių likučio koregavimas sandėlyje',
       movement_type_hint_production: 'Prekių perdavimas į gamybos cechą gaminiams gaminti',
       movement_type_hint_sale: 'Prekių išsiuntimas pirkėjui pagal pardavimo sutartį',
-      movement_type_hint_storage: 'Prekių perkėlimas į saugojimą — prekė nenaudojama iki pareikalavimo',
+      movement_type_hint_storage:
+        'Prekių perkėlimas į saugojimą — prekė nenaudojama iki pareikalavimo',
       // Movement type effect summaries (shown below the select when a type is chosen)
-      movement_type_effect_receipt: '↑ Prekių kiekis sandėlyje padidės. Naudojama prekėms gauti iš tiekėjo ar gamybos.',
-      movement_type_effect_sale: '↓ Turimų prekių kiekis sumažės — prekės rezervuojamos pardavimui ir tampa nepasiekiamos kitoms operacijoms. Naudojama prekėms išsiųsti pirkėjui.',
-      movement_type_effect_production: '↓ Prekių kiekis sandėlyje sumažės. Naudojama medžiagoms perduoti į gamybos cechą.',
-      movement_type_effect_expense: '↓ Prekių kiekis sandėlyje sumažės. Naudojama kitoms išlaidoms, netinkančioms pardavimo, gamybos ar nurašymo kategorijoms.',
-      'movement_type_effect_write-off': '↓ Prekių kiekis sandėlyje sumažės. Naudojama prekėms nurašyti (brokas, pažeidimas, praradimas, galiojimo pabaiga).',
-      movement_type_effect_storage: '↓ Turimų prekių kiekis sumažės — prekės perkeliamos į saugojimą ir nenaudojamos iki pareikalavimo.',
-      movement_type_effect_transfer: '↔ Prekių kiekis nepasikeis. Prekės perkeliamos tarp sandėlių ar vietų sandėlyje.',
-      movement_type_effect_return: '↑ Prekių kiekis sandėlyje padidės. Naudojama prekėms grąžinti iš kliento ar gamybos.',
-      movement_type_effect_return_to_supplier: '↓ Prekių kiekis sandėlyje sumažės. Naudojama prekėms grąžinti tiekėjui.',
-      'movement_type_effect_return-to-supplier': '↓ Prekių kiekis sandėlyje sumažės. Naudojama prekėms grąžinti tiekėjui.',
-      movement_type_effect_correction: '↔ Prekių kiekis gali pasikeisti priklausomai nuo koregavimo krypties. Naudojama likučiams koreguoti po inventorizacijos.',
+      movement_type_effect_receipt:
+        '↑ Prekių kiekis sandėlyje padidės. Naudojama prekėms gauti iš tiekėjo ar gamybos.',
+      movement_type_effect_sale:
+        '↓ Turimų prekių kiekis sumažės — prekės rezervuojamos pardavimui ir tampa nepasiekiamos kitoms operacijoms. Naudojama prekėms išsiųsti pirkėjui.',
+      movement_type_effect_production:
+        '↓ Prekių kiekis sandėlyje sumažės. Naudojama medžiagoms perduoti į gamybos cechą.',
+      movement_type_effect_expense:
+        '↓ Prekių kiekis sandėlyje sumažės. Naudojama kitoms išlaidoms, netinkančioms pardavimo, gamybos ar nurašymo kategorijoms.',
+      'movement_type_effect_write-off':
+        '↓ Prekių kiekis sandėlyje sumažės. Naudojama prekėms nurašyti (brokas, pažeidimas, praradimas, galiojimo pabaiga).',
+      movement_type_effect_storage:
+        '↓ Turimų prekių kiekis sumažės — prekės perkeliamos į saugojimą ir nenaudojamos iki pareikalavimo.',
+      movement_type_effect_transfer:
+        '↔ Prekių kiekis nepasikeis. Prekės perkeliamos tarp sandėlių ar vietų sandėlyje.',
+      movement_type_effect_return:
+        '↑ Prekių kiekis sandėlyje padidės. Naudojama prekėms grąžinti iš kliento ar gamybos.',
+      movement_type_effect_return_to_supplier:
+        '↓ Prekių kiekis sandėlyje sumažės. Naudojama prekėms grąžinti tiekėjui.',
+      'movement_type_effect_return-to-supplier':
+        '↓ Prekių kiekis sandėlyje sumažės. Naudojama prekėms grąžinti tiekėjui.',
+      movement_type_effect_correction:
+        '↔ Prekių kiekis gali pasikeisti priklausomai nuo koregavimo krypties. Naudojama likučiams koreguoti po inventorizacijos.',
       // Auto-created movement notes
       movement_auto_location_change: 'Automatiškai sukurta keičiant vietą',
       movement_offcut_available: 'Atraiža {id} grąžinta į sandėlį',
@@ -1406,7 +1516,8 @@ export const adminWarehouse = {
       movement_modal_quantity_positive: 'Kiekis turi būti didesnis nei 0',
       movement_modal_type_required: 'Pasirinkite operacijos tipą',
       // Movement card field hints
-      col_movement_type_hint: 'Sandėlio operacijos tipas: gavimas, išlaidos, perkėlimas arba nurašymas',
+      col_movement_type_hint:
+        'Sandėlio operacijos tipas: gavimas, išlaidos, perkėlimas arba nurašymas',
       col_performed_by_hint: 'Darbuotojo, atlikusio operaciją, vardas ir pavardė',
       movement_field_unit_hint: 'Prekės matavimo vienetas (kg, m, vnt, m²)',
       movement_field_from_location_hint: 'Vieta arba sandėlis, iš kurio buvo perkelta prekė',
@@ -1440,15 +1551,20 @@ export const adminWarehouse = {
       deficit_status_ordered: 'Užsakyta',
       // Deficit status hints
       deficit_status_hint_open: 'Trūkumas užregistruotas, bet darbas jam pašalinti dar nepradėtas',
-      deficit_status_hint_in_progress: 'Vykdomas darbas trūkumui pašalinti: tiekėjo paieška, pirkimo derinimas',
+      deficit_status_hint_in_progress:
+        'Vykdomas darbas trūkumui pašalinti: tiekėjo paieška, pirkimo derinimas',
       deficit_status_hint_ordered: 'Prekė jau užsakyta iš tiekėjo. Laukiama gavimo į sandėlį',
       deficit_status_hint_resolved: 'Trūkumas pašalintas — prekė gauta į sandėlį pakankamu kiekiu',
       deficit_status_hint_cancelled: 'Trūkumo įrašas atšauktas (pvz., prekės nebereikia)',
       // Deficit priority hints
-      deficit_priority_hint_critical: 'Kritinis trūkumas — prekė reikalinga skubiai. Gamybos sustojimas arba užsakymo sutrikimas',
-      deficit_priority_hint_high: 'Aukštas prioritetas — prekės reikia netrukus. Gali paveikti užsakymų vykdymą',
-      deficit_priority_hint_medium: 'Vidutinis prioritetas — pageidautina papildyti atsargas planine tvarka',
-      deficit_priority_hint_low: 'Žemas prioritetas — trūkumas nėra kritinis, galima papildyti su kitu užsakymu',
+      deficit_priority_hint_critical:
+        'Kritinis trūkumas — prekė reikalinga skubiai. Gamybos sustojimas arba užsakymo sutrikimas',
+      deficit_priority_hint_high:
+        'Aukštas prioritetas — prekės reikia netrukus. Gali paveikti užsakymų vykdymą',
+      deficit_priority_hint_medium:
+        'Vidutinis prioritetas — pageidautina papildyti atsargas planine tvarka',
+      deficit_priority_hint_low:
+        'Žemas prioritetas — trūkumas nėra kritinis, galima papildyti su kitu užsakymu',
       // Batch card
       batch_card_title: 'Partija {batchNumber}',
       batch_card_not_found: 'Partijos kortelė nerasta',
@@ -1465,6 +1581,12 @@ export const adminWarehouse = {
       field_unit_price: 'Vieneto kaina',
       field_total_cost: 'Bendra vertė',
       field_total_cost_hint: 'Bendra partijos vertė = Vieneto kaina × Kiekis',
+      field_margin_percent: 'Marža',
+      field_margin_percent_hint: 'Antkainio procentas nuo pirkimo kainos (numatyta iš nustatymų)',
+      field_selling_price: 'Pardavimo kaina',
+      field_selling_price_hint: 'Apskaičiuota pardavimo kaina = Vieneto kaina × (1 + Marža/100)',
+      field_total_selling_value: 'Bendra pardavimo vertė',
+      field_total_selling_value_hint: 'Bendra pardavimo vertė = Pardavimo kaina × Kiekis',
       field_received_at: 'Gavimo data',
       field_expires_at: 'Galiojimo laikas',
       field_expires_at_hint: 'Partijos galiojimo pabaigos data',
@@ -1483,6 +1605,14 @@ export const adminWarehouse = {
       field_location_cell_hint: 'Ląstelės numeris eilėje',
       field_location_notes: 'Pastabos apie vietą',
       field_location_notes_hint: 'Jei partija laikoma keliose vietose, nurodykite detales čia',
+      section_receipt_data: 'Gavimo duomenys',
+      field_received_quantity: 'Kiekis',
+      field_received_unit: 'Vnt.',
+      field_received_unit_price: 'Vnt. kaina',
+      field_received_currency: 'Valiuta',
+      field_received_total: 'Bendra suma',
+      field_conversion_rate: 'Konversijos koef.',
+      field_exchange_rate: 'Valiutos kursas',
       section_batch_offcuts: 'Šios partijos atraižos',
       section_batch_audit: 'Keitimų istorija',
       section_batch_files: 'Failai',
@@ -1491,7 +1621,8 @@ export const adminWarehouse = {
       btn_delete_batch: 'Ištrinti partiją',
       confirm_delete_batch: 'Ar tikrai norite ištrinti šią partiją? Šio veiksmo negalima atšaukti.',
       delete_blocked_by_order_title: 'Ištrinti negalima',
-      delete_blocked_by_order_message: 'Šis elementas yra susietas su užsakymu ir negali būti ištrintas.',
+      delete_blocked_by_order_message:
+        'Šis elementas yra susietas su užsakymu ir negali būti ištrintas.',
       delete_batch_cascade_warning: 'Ištrynus partiją taip pat bus pašalinta:',
       delete_batch_cascade_offcuts: '{count} atraižų, susietų su šia partija',
       delete_batch_cascade_movements: '{count} judėjimų, susietų su šia partija',
@@ -1629,7 +1760,8 @@ export const adminWarehouse = {
       offcut_create_search_batch: 'Ieškoti partijos...',
       offcut_create_select_type: 'Pasirinkite tipą',
       offcut_create_all_categories: 'Visos kategorijos',
-      offcut_create_category_hint: 'Kategorija, kuriai priklauso prekė. Nustatoma prekės kortelėje.',
+      offcut_create_category_hint:
+        'Kategorija, kuriai priklauso prekė. Nustatoma prekės kortelėje.',
       offcut_create_category_placeholder: 'Prekės kategorija',
       offcut_create_uncategorized: 'Be kategorijos',
       offcut_create_no_products_found: 'Pagal filtrus prekių nerasta',
@@ -1657,12 +1789,15 @@ export const adminWarehouse = {
       batch_summary_corrected: 'Koreguota',
       batch_summary_offcut: 'Atraižose',
       batch_summary_no_movements: 'Šiai partijai judėjimų dar nėra',
-      batch_summary_instruction: 'Pasirinkite, su kokiu prekių tipu atlikti veiksmą. Naujam gavimui esamų prekių žymėti nereikia.',
-      batch_summary_select_hint: 'Pažymėkite esamus judėjimus, kuriuos reikia pakeisti (naujam gavimui žymėti nereikia)',
+      batch_summary_instruction:
+        'Pasirinkite, su kokiu prekių tipu atlikti veiksmą. Naujam gavimui esamų prekių žymėti nereikia.',
+      batch_summary_select_hint:
+        'Pažymėkite esamus judėjimus, kuriuos reikia pakeisti (naujam gavimui žymėti nereikia)',
       batch_summary_select_all: 'Pasirinkti visus',
       batch_summary_deselect_all: 'Atžymėti visus',
       batch_summary_active_sales: 'Aktyvūs pardavimai',
-      batch_summary_active_sales_hint: 'Norėdami pasirinkti pardavimus, spustelėkite konkretų pardavimą žemiau',
+      batch_summary_active_sales_hint:
+        'Norėdami pasirinkti pardavimus, spustelėkite konkretų pardavimą žemiau',
       movement_card_open: 'Atidaryti judėjimo kortelę',
     },
     btn: {

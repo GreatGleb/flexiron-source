@@ -1,11 +1,22 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { getDeficitItem, patchDeficitItem, deleteDeficitItem, deleteDeficitAuditEntry } from '@/services/warehouseService'
+import {
+  getDeficitItem,
+  patchDeficitItem,
+  deleteDeficitItem,
+  deleteDeficitAuditEntry,
+} from '@/services/warehouseService'
 import { useDirtyCheck } from './useDirtyCheck'
 import { useToast } from './useToast'
 import { useTranslatedField } from './useTranslatedData'
-import type { WarehouseDeficit, DeficitPatchPayload, DeficitPriority, DeficitStatus, StockAuditEntry } from '@/types/warehouse'
+import type {
+  WarehouseDeficit,
+  DeficitPatchPayload,
+  DeficitPriority,
+  DeficitStatus,
+  StockAuditEntry,
+} from '@/types/warehouse'
 
 export function useWarehouseDeficitCard(id: string) {
   const { t } = useI18n()

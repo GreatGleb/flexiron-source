@@ -67,11 +67,15 @@ export function useOrders() {
   // ─── Flag: prevents page watch from double-firing when filters reset page to 1 ──
   let skipNextPageWatch = false
 
-  watch(filters, () => {
-    skipNextPageWatch = pagination.page.value !== 1
-    pagination.reset()
-    load()
-  }, { deep: true })
+  watch(
+    filters,
+    () => {
+      skipNextPageWatch = pagination.page.value !== 1
+      pagination.reset()
+      load()
+    },
+    { deep: true },
+  )
 
   watch([page, pageSize], () => {
     if (skipNextPageWatch) {
@@ -82,6 +86,16 @@ export function useOrders() {
   })
 
   return {
-    items, loading, error, filters, pagination, page, pageSize, total, load, handleDelete, toggleSort,
+    items,
+    loading,
+    error,
+    filters,
+    pagination,
+    page,
+    pageSize,
+    total,
+    load,
+    handleDelete,
+    toggleSort,
   }
 }

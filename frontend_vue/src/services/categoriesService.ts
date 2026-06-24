@@ -37,15 +37,15 @@ export async function createCategory(
 
 export async function patchCategory(
   id: string,
-  delta: Partial<Pick<Category, 'name' | 'parentId' | 'description'>> & { linkedSuppliers?: LinkedSupplier[] },
+  delta: Partial<Pick<Category, 'name' | 'parentId' | 'description'>> & {
+    linkedSuppliers?: LinkedSupplier[]
+  },
   locale: string,
 ): Promise<Category> {
   const payload: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(delta)) {
     if (key === 'name' || key === 'description') {
-      payload[key] = typeof value === 'string'
-        ? toTranslatedString(value, locale)
-        : value
+      payload[key] = typeof value === 'string' ? toTranslatedString(value, locale) : value
     } else {
       payload[key] = value
     }
@@ -65,14 +65,8 @@ export async function putCategoryFields(
   return apiPut(`/api/categories/${id}/fields`, {
     fields: fields.map((f) => ({
       ...f,
-      fieldName: typeof f.name === 'string'
-        ? toTranslatedString(f.name, locale)
-        : f.name,
-      options: f.options?.map((o) =>
-        typeof o === 'string'
-          ? toTranslatedString(o, locale)
-          : o,
-      ),
+      fieldName: typeof f.name === 'string' ? toTranslatedString(f.name, locale) : f.name,
+      options: f.options?.map((o) => (typeof o === 'string' ? toTranslatedString(o, locale) : o)),
     })),
   })
 }

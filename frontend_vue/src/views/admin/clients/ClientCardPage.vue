@@ -22,11 +22,23 @@ const router = useRouter()
 
 const id = route.params.id as string
 const {
-  client, loading, saving, isDirty, error,
-  load, save, discard, tf,
-  auditLog, auditLoading, loadAudit, deleteAuditEntry,
+  client,
+  loading,
+  saving,
+  isDirty,
+  error,
+  load,
+  save,
+  discard,
+  tf,
+  auditLog,
+  auditLoading,
+  loadAudit,
+  deleteAuditEntry,
   handleDeleteInteraction,
-  newInteraction, inlineAddInteraction, resetNewInteraction,
+  newInteraction,
+  inlineAddInteraction,
+  resetNewInteraction,
 } = useClientCard(id)
 
 const pageTitle = computed(() =>
@@ -185,21 +197,40 @@ onMounted(() => {
         />
         <div class="client-card-header-row">
           <div class="client-card-header-left">
-            <h1 class="page-title">{{ client ? `${t('clients.card_title')} ${client.id} - ${client.name}` : '...' }}</h1>
+            <h1 class="page-title">
+              {{ client ? `${t('clients.card_title')} ${client.id} - ${client.name}` : '...' }}
+            </h1>
             <span v-if="client" class="client-status-wrapper">
               <span
                 class="pill pill-lg"
                 :class="client.status === 'active' ? 'pill-success' : 'pill-secondary'"
                 data-test="client-card-status-pill"
               >
-                {{ client.status === 'active' ? t('clients.status_active') : t('clients.status_inactive') }}
+                {{
+                  client.status === 'active'
+                    ? t('clients.status_active')
+                    : t('clients.status_inactive')
+                }}
               </span>
               <span
-                v-tooltip="client.status === 'active' ? t('clients.status_active_hint') : t('clients.status_inactive_hint')"
+                v-tooltip="
+                  client.status === 'active'
+                    ? t('clients.status_active_hint')
+                    : t('clients.status_inactive_hint')
+                "
                 class="info-hint"
                 data-test="client-card-status-hint"
               >
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="3"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
                   <circle cx="12" cy="12" r="10" />
                   <line x1="12" y1="16" x2="12" y2="12" />
                   <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -207,14 +238,8 @@ onMounted(() => {
               </span>
             </span>
           </div>
-          <div
-            class="entity-action-bar no-margin pos-static"
-            data-test="client-card-save-bar"
-          >
-            <button
-              class="btn btn-secondary"
-              @click="discard"
-            >
+          <div class="entity-action-bar no-margin pos-static" data-test="client-card-save-bar">
+            <button class="btn btn-secondary" @click="discard">
               {{ t('clients.btn_discard_changes') }}
             </button>
             <button
@@ -231,21 +256,40 @@ onMounted(() => {
 
       <div class="main-card-content">
         <div class="entity-card-grid">
-
           <!-- LEFT: General Information -->
           <div class="entity-col-left">
-            <GlassPanel :title="t('clients.section_general')" :loading="loading" :skeleton-rows="4" data-test="client-card-general">
+            <GlassPanel
+              :title="t('clients.section_general')"
+              :loading="loading"
+              :skeleton-rows="4"
+              data-test="client-card-general"
+            >
               <template v-if="client">
                 <InputGroup :label="t('clients.field_name')">
-                  <input v-model="client.name" class="glass-input" type="text" data-test="field-name" />
+                  <input
+                    v-model="client.name"
+                    class="glass-input"
+                    type="text"
+                    data-test="field-name"
+                  />
                 </InputGroup>
 
                 <InputGroup :label="t('clients.field_company_code')">
-                  <input v-model="client.companyCode" class="glass-input" type="text" data-test="field-company-code" />
+                  <input
+                    v-model="client.companyCode"
+                    class="glass-input"
+                    type="text"
+                    data-test="field-company-code"
+                  />
                 </InputGroup>
 
                 <InputGroup :label="t('clients.field_vat')">
-                  <input v-model="client.vatCode" class="glass-input" type="text" data-test="field-vat" />
+                  <input
+                    v-model="client.vatCode"
+                    class="glass-input"
+                    type="text"
+                    data-test="field-vat"
+                  />
                 </InputGroup>
 
                 <InputGroup :label="t('clients.field_notes')">
@@ -262,18 +306,38 @@ onMounted(() => {
 
           <!-- CENTER: Contact Information -->
           <div class="entity-col-center">
-            <GlassPanel :title="t('clients.section_contact')" :loading="loading" :skeleton-rows="3" data-test="client-card-contact">
+            <GlassPanel
+              :title="t('clients.section_contact')"
+              :loading="loading"
+              :skeleton-rows="3"
+              data-test="client-card-contact"
+            >
               <template v-if="client">
                 <InputGroup :label="t('clients.field_address')">
-                  <input v-model="client.address" class="glass-input" type="text" data-test="field-address" />
+                  <input
+                    v-model="client.address"
+                    class="glass-input"
+                    type="text"
+                    data-test="field-address"
+                  />
                 </InputGroup>
 
                 <InputGroup :label="t('clients.field_phone')">
-                  <input v-model="client.phone" class="glass-input" type="text" data-test="field-phone" />
+                  <input
+                    v-model="client.phone"
+                    class="glass-input"
+                    type="text"
+                    data-test="field-phone"
+                  />
                 </InputGroup>
 
                 <InputGroup :label="t('clients.field_email')">
-                  <input v-model="client.email" class="glass-input" type="email" data-test="field-email" />
+                  <input
+                    v-model="client.email"
+                    class="glass-input"
+                    type="email"
+                    data-test="field-email"
+                  />
                 </InputGroup>
               </template>
             </GlassPanel>
@@ -281,15 +345,23 @@ onMounted(() => {
 
           <!-- RIGHT: Status -->
           <div class="entity-col-right">
-            <GlassPanel :title="t('clients.field_status')" :loading="loading" :skeleton-rows="1" data-test="client-card-status">
+            <GlassPanel
+              :title="t('clients.field_status')"
+              :loading="loading"
+              :skeleton-rows="1"
+              data-test="client-card-status"
+            >
               <template v-if="client">
                 <InputGroup :label="t('clients.col_status')">
-                  <CustomSelect v-model="statusStr" :options="STATUS_OPTIONS" data-test="field-status" />
+                  <CustomSelect
+                    v-model="statusStr"
+                    :options="STATUS_OPTIONS"
+                    data-test="field-status"
+                  />
                 </InputGroup>
               </template>
             </GlassPanel>
           </div>
-
         </div>
 
         <!-- Order History -->
@@ -325,7 +397,9 @@ onMounted(() => {
                       </td>
                       <td class="audit-log-ts">{{ order.date }}</td>
                       <td>
-                        <span class="order-total">{{ order.currency }} {{ formatPrice(order.total) }}</span>
+                        <span class="order-total"
+                          >{{ order.currency }} {{ formatPrice(order.total) }}</span
+                        >
                       </td>
                       <td>
                         <span
@@ -354,12 +428,26 @@ onMounted(() => {
               <!-- Inline Interaction Form -->
               <div class="interaction-form-inline">
                 <div class="interaction-form-row">
-                  <InputGroup :label="t('clients.interaction_field_type')" class="interaction-form-type">
-                    <CustomSelect v-model="newInteraction.type" :options="INTERACTION_TYPE_OPTIONS" data-test="field-interaction-type-inline" />
+                  <InputGroup
+                    :label="t('clients.interaction_field_type')"
+                    class="interaction-form-type"
+                  >
+                    <CustomSelect
+                      v-model="newInteraction.type"
+                      :options="INTERACTION_TYPE_OPTIONS"
+                      data-test="field-interaction-type-inline"
+                    />
                   </InputGroup>
 
-                  <InputGroup :label="t('clients.interaction_field_date')" class="interaction-form-date">
-                    <DatePicker v-model="newInteraction.date" align-right data-test="field-interaction-date-inline" />
+                  <InputGroup
+                    :label="t('clients.interaction_field_date')"
+                    class="interaction-form-date"
+                  >
+                    <DatePicker
+                      v-model="newInteraction.date"
+                      align-right
+                      data-test="field-interaction-date-inline"
+                    />
                   </InputGroup>
                 </div>
 
@@ -373,8 +461,12 @@ onMounted(() => {
                   />
                 </InputGroup>
 
-                <div style="margin-top: 12px; display: flex; justify-content: flex-end; gap: 8px;">
-                  <button class="btn btn-secondary btn-sm" data-test="client-card-reset-interaction-btn" @click="resetNewInteraction">
+                <div style="margin-top: 12px; display: flex; justify-content: flex-end; gap: 8px">
+                  <button
+                    class="btn btn-secondary btn-sm"
+                    data-test="client-card-reset-interaction-btn"
+                    @click="resetNewInteraction"
+                  >
                     {{ t('clients.btn_discard') }}
                   </button>
                   <button
@@ -383,7 +475,17 @@ onMounted(() => {
                     :disabled="!canAddInteraction"
                     @click="inlineAddInteraction"
                   >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      style="margin-right: 6px"
+                    >
                       <line x1="12" y1="5" x2="12" y2="19" />
                       <line x1="5" y1="12" x2="19" y2="12" />
                     </svg>
@@ -393,7 +495,11 @@ onMounted(() => {
               </div>
 
               <!-- Interaction History (newest first) -->
-              <div v-if="sortedInteractions.length > 0" class="table-responsive" style="margin-top: 16px;">
+              <div
+                v-if="sortedInteractions.length > 0"
+                class="table-responsive"
+                style="margin-top: 16px"
+              >
                 <table class="audit-log-table" data-test="client-card-interaction-table">
                   <thead>
                     <tr>
@@ -405,10 +511,16 @@ onMounted(() => {
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-for="(entry, i) in sortedInteractions" :key="i" data-test="client-card-interaction-row">
+                    <tr
+                      v-for="(entry, i) in sortedInteractions"
+                      :key="i"
+                      data-test="client-card-interaction-row"
+                    >
                       <td class="audit-log-ts">{{ entry.date }}</td>
                       <td>
-                        <span class="interaction-type-pill">{{ INTERACTION_TYPE_LABEL[entry.type] || entry.type }}</span>
+                        <span class="interaction-type-pill">{{
+                          INTERACTION_TYPE_LABEL[entry.type] || entry.type
+                        }}</span>
                       </td>
                       <td>{{ entry.summary }}</td>
                       <td>{{ entry.user }}</td>
@@ -420,7 +532,16 @@ onMounted(() => {
                           class="action-icon-btn action-danger"
                           @click="handleDeleteInteraction(i)"
                         >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          >
                             <line x1="18" y1="6" x2="6" y2="18" />
                             <line x1="6" y1="6" x2="18" y2="18" />
                           </svg>
@@ -430,7 +551,7 @@ onMounted(() => {
                   </tbody>
                 </table>
               </div>
-              <div v-else class="audit-empty" style="margin-top: 16px;">
+              <div v-else class="audit-empty" style="margin-top: 16px">
                 <SvgIcon name="warehouse-box" :width="32" :height="32" />
                 <p>{{ t('clients.no_interactions') }}</p>
               </div>
@@ -441,7 +562,7 @@ onMounted(() => {
         <!-- Audit section -->
         <div class="audit-panel-wide" data-test="client-card-audit">
           <GlassPanel :title="t('clients.section_audit')">
-            <div v-if="auditLoading" class="text-muted" style="padding: 12px 0;">
+            <div v-if="auditLoading" class="text-muted" style="padding: 12px 0">
               {{ t('clients.loading') }}...
             </div>
             <template v-else-if="auditLog.length > 0">
@@ -481,7 +602,16 @@ onMounted(() => {
                           data-test="client-card-audit-delete-btn"
                           @click="askDeleteAudit(i)"
                         >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          >
                             <line x1="18" y1="6" x2="6" y2="18" />
                             <line x1="6" y1="6" x2="18" y2="18" />
                           </svg>
@@ -528,7 +658,6 @@ onMounted(() => {
         </button>
       </template>
     </AppModal>
-
   </template>
 </template>
 

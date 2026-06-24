@@ -116,12 +116,11 @@ function handleCancel() {
     <div class="client-card-header" data-test="client-create-header">
       <div class="client-card-header-row">
         <div class="client-card-header-left">
-          <h1 class="page-title" data-test="client-create-title">{{ t('clients.create_title') }}</h1>
+          <h1 class="page-title" data-test="client-create-title">
+            {{ t('clients.create_title') }}
+          </h1>
         </div>
-        <div
-          class="entity-action-bar no-margin pos-static"
-          data-test="client-create-action-bar"
-        >
+        <div class="entity-action-bar no-margin pos-static" data-test="client-create-action-bar">
           <button
             type="button"
             class="btn btn-secondary"
@@ -148,7 +147,6 @@ function handleCancel() {
 
     <div class="main-card-content" data-test="client-create-content">
       <div class="entity-card-grid">
-
         <!-- LEFT: General Information -->
         <div class="entity-col-left">
           <GlassPanel :title="t('clients.section_general')" data-test="client-create-general">
@@ -169,7 +167,9 @@ function handleCancel() {
 
             <div class="input-group">
               <label class="field-label">
-                <span>{{ t('clients.field_company_code') }} <span class="required-star">*</span></span>
+                <span
+                  >{{ t('clients.field_company_code') }} <span class="required-star">*</span></span
+                >
                 <span v-if="errors.companyCode" class="field-error">{{ errors.companyCode }}</span>
               </label>
               <input
@@ -183,12 +183,7 @@ function handleCancel() {
             </div>
 
             <InputGroup :label="t('clients.field_vat')">
-              <input
-                v-model="form.vatCode"
-                class="glass-input"
-                type="text"
-                data-test="field-vat"
-              />
+              <input v-model="form.vatCode" class="glass-input" type="text" data-test="field-vat" />
             </InputGroup>
 
             <InputGroup :label="t('clients.field_notes')">
@@ -215,12 +210,7 @@ function handleCancel() {
             </InputGroup>
 
             <InputGroup :label="t('clients.field_phone')">
-              <input
-                v-model="form.phone"
-                class="glass-input"
-                type="text"
-                data-test="field-phone"
-              />
+              <input v-model="form.phone" class="glass-input" type="text" data-test="field-phone" />
             </InputGroup>
 
             <div class="input-group">
@@ -244,11 +234,14 @@ function handleCancel() {
         <div class="entity-col-right">
           <GlassPanel :title="t('clients.field_status')" data-test="client-create-status">
             <InputGroup :label="t('clients.col_status')">
-              <CustomSelect v-model="form.status" :options="STATUS_OPTIONS" data-test="field-status" />
+              <CustomSelect
+                v-model="form.status"
+                :options="STATUS_OPTIONS"
+                data-test="field-status"
+              />
             </InputGroup>
           </GlassPanel>
         </div>
-
       </div>
     </div>
   </div>

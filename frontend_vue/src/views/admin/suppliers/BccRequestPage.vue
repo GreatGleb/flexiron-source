@@ -53,12 +53,16 @@ const {
 
 const subjectModel = computed({
   get: () => tf(template.subject),
-  set: (v: string) => { template.subject = mergeLocaleValue(template.subject, v, locale.value) },
+  set: (v: string) => {
+    template.subject = mergeLocaleValue(template.subject, v, locale.value)
+  },
 })
 
 const bodyModel = computed({
   get: () => tf(template.body),
-  set: (v: string) => { template.body = mergeLocaleValue(template.body, v, locale.value) },
+  set: (v: string) => {
+    template.body = mergeLocaleValue(template.body, v, locale.value)
+  },
 })
 
 const selectedRecipientIds = ref<string[]>([])
@@ -382,10 +386,10 @@ const logSource = ref<LogSource>('Email')
 
 const SOURCE_TRANSLATIONS: Record<string, TranslatedString> = {
   'BCC Tool': { ru: 'BCC Инструмент', en: 'BCC Tool', lt: 'BCC įrankis' },
-  'Email': { ru: 'Email', en: 'Email', lt: 'El. paštas' },
-  'Phone': { ru: 'Телефон', en: 'Phone', lt: 'Telefonas' },
-  'Messenger': { ru: 'Мессенджер', en: 'Messenger', lt: 'Messenger' },
-  'Other': { ru: 'Другое', en: 'Other', lt: 'Kita' },
+  Email: { ru: 'Email', en: 'Email', lt: 'El. paštas' },
+  Phone: { ru: 'Телефон', en: 'Phone', lt: 'Telefonas' },
+  Messenger: { ru: 'Мессенджер', en: 'Messenger', lt: 'Messenger' },
+  Other: { ru: 'Другое', en: 'Other', lt: 'Kita' },
 }
 const logDropdownOpen = ref(false)
 
@@ -429,11 +433,14 @@ function validateSelection(): boolean {
 async function logRequest(source: string) {
   if (!validateSelection()) return
   try {
-    await logBccRequest({
-      productIds: selectedProductIds.value,
-      recipientIds: selectedRecipientIds.value,
-      source,
-    }, locale.value)
+    await logBccRequest(
+      {
+        productIds: selectedProductIds.value,
+        recipientIds: selectedRecipientIds.value,
+        source,
+      },
+      locale.value,
+    )
     const rows = createEventRows(source)
     history.value = [...rows, ...history.value]
     MOCK_BCC_HISTORY.unshift(...rows)
@@ -616,462 +623,466 @@ onMounted(async () => {
   </template>
   <template v-else>
     <div class="bcc-request-content" data-test="bcc-request-content">
-    <div class="bcc-grid">
-      <div class="col-left">
-        <div data-test="bcc-request-categories-panel">
-          <GlassPanel
-            :title="t('bcc.categories')"
-            :badge="`${selectedProductIds.length} ${t('bcc.badge_selected')}`"
-            :loading="loading && categories.length === 0"
-            :skeleton-rows="6"
-          >
-            <div
-              class="products-filters"
-              style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap"
-              data-test="bcc-request-products-filters"
+      <div class="bcc-grid">
+        <div class="col-left">
+          <div data-test="bcc-request-categories-panel">
+            <GlassPanel
+              :title="t('bcc.categories')"
+              :badge="`${selectedProductIds.length} ${t('bcc.badge_selected')}`"
+              :loading="loading && categories.length === 0"
+              :skeleton-rows="6"
             >
-              <div style="flex: 1 1 180px" data-test="bcc-request-products-search">
-                <SearchInput
-                  v-model="productSearch"
-                  :placeholder="t('bcc.search_products', 'Search products...')"
-                />
+              <div
+                class="products-filters"
+                style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap"
+                data-test="bcc-request-products-filters"
+              >
+                <div style="flex: 1 1 180px" data-test="bcc-request-products-search">
+                  <SearchInput
+                    v-model="productSearch"
+                    :placeholder="t('bcc.search_products', 'Search products...')"
+                  />
+                </div>
+                <div style="min-width: 160px" data-test="bcc-request-products-filter">
+                  <CustomSelect v-model="productCategoryFilter" :options="categoryFilterOptions" />
+                </div>
               </div>
-              <div style="min-width: 160px" data-test="bcc-request-products-filter">
-                <CustomSelect v-model="productCategoryFilter" :options="categoryFilterOptions" />
-              </div>
-            </div>
 
-            <div class="data-table-wrapper">
-              <table class="data-table products-table" data-test="bcc-request-products-table">
+              <div class="data-table-wrapper">
+                <table class="data-table products-table" data-test="bcc-request-products-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 32px">
+                        <input
+                          type="checkbox"
+                          data-test="bcc-request-products-select-all"
+                          :checked="allVisibleSelected()"
+                          @change="toggleSelectAllVisible"
+                        />
+                      </th>
+                      <th>{{ t('bcc.categories_label') }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template v-if="filteredProducts.length === 0">
+                      <tr>
+                        <td colspan="2" style="text-align: center; opacity: 0.5; padding: 24px 0">
+                          {{ t('suppliers.empty_title') }}
+                        </td>
+                      </tr>
+                    </template>
+                    <template v-for="group in pagedProductGroups" :key="group.categoryName">
+                      <tr
+                        class="product-group-header"
+                        data-test="bcc-request-product-group"
+                        :data-category-name="group.categoryName"
+                      >
+                        <td
+                          colspan="2"
+                          style="
+                            font-weight: 700;
+                            font-size: 11px;
+                            text-transform: uppercase;
+                            letter-spacing: 0.05em;
+                            opacity: 0.5;
+                            padding-top: 12px;
+                          "
+                        >
+                          {{ group.categoryName }}
+                        </td>
+                      </tr>
+                      <tr
+                        v-for="p in group.products"
+                        :key="p.id"
+                        :data-product="p.id"
+                        :data-product-id="p.id"
+                        data-test="bcc-request-product-row"
+                        class="product-row"
+                        @click="toggleProduct(p.id)"
+                      >
+                        <td>
+                          <input
+                            type="checkbox"
+                            data-test="bcc-request-product-checkbox"
+                            :checked="isProductSelected(p.id)"
+                            tabindex="-1"
+                            @click.stop
+                            @change.stop="toggleProduct(p.id)"
+                          />
+                        </td>
+                        <td>{{ p.name }}</td>
+                      </tr>
+                    </template>
+                  </tbody>
+                  <tfoot v-if="filteredProducts.length > 0">
+                    <tr>
+                      <td colspan="2">
+                        <div class="pagination-bar">
+                          <div class="page-size">
+                            <span>{{ t('suppliers.page_size') }}</span>
+                            <CustomSelect
+                              v-model="productPageSizeStr"
+                              :options="PAGE_SIZE_OPTIONS_PRODUCTS"
+                              :open-up="true"
+                              class="custom-select-sm"
+                            />
+                          </div>
+                          <div class="pagination-nav">
+                            <button
+                              class="btn btn-icon btn-sm"
+                              :disabled="productPage <= 1"
+                              @click="productPage = Math.max(1, productPage - 1)"
+                            >
+                              <SvgIcon
+                                name="chevron-right"
+                                :width="14"
+                                :height="14"
+                                style="transform: rotate(180deg)"
+                              />
+                            </button>
+                            <div class="pagination-pages">
+                              <template v-for="(p, i) in productPageNumbers()" :key="i">
+                                <span v-if="p === '...'" class="pagination-ellipsis">...</span>
+                                <button
+                                  v-else
+                                  class="page-btn"
+                                  :class="{ active: p === productPage }"
+                                  @click="productPage = p as number"
+                                >
+                                  {{ p }}
+                                </button>
+                              </template>
+                            </div>
+                            <button
+                              class="btn btn-icon btn-sm"
+                              :disabled="productPage >= productTotalPages"
+                              @click="productPage = Math.min(productTotalPages, productPage + 1)"
+                            >
+                              <SvgIcon name="chevron-right" :width="14" :height="14" />
+                            </button>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+
+              <div
+                class="supplier-count-display"
+                style="margin-top: 12px"
+                data-test="bcc-request-products-count"
+              >
+                <SvgIcon name="grid-products" :width="14" :height="14" />
+                <span class="count-text">
+                  {{ selectedProductIds.length }} {{ t('bcc.selected_products') }}
+                </span>
+              </div>
+            </GlassPanel>
+          </div>
+
+          <div data-test="bcc-request-recipients-panel">
+            <GlassPanel
+              :title="t('bcc.recipients')"
+              :badge="`${selectedCount} ${t('bcc.badge_selected')}`"
+              :loading="loading && recipients.length === 0"
+              :skeleton-rows="4"
+            >
+              <div class="checkbox-list searchable">
+                <div class="checkbox-list-controls">
+                  <button
+                    type="button"
+                    class="text-btn select-all-btn"
+                    data-test="bcc-request-recipients-select-all"
+                    @click="selectAllRecipients"
+                  >
+                    {{ t('btn.select_all') }}
+                  </button>
+                  <button
+                    type="button"
+                    class="text-btn deselect-all-btn"
+                    data-test="bcc-request-recipients-deselect-all"
+                    @click="deselectAllRecipients"
+                  >
+                    {{ t('btn.deselect_all') }}
+                  </button>
+                  <span class="selected-count" data-test="bcc-request-recipients-count">
+                    <span class="count">{{ selectedCount }}</span>
+                    {{ t('bcc.selected_text') }}
+                  </span>
+                </div>
+                <div data-test="bcc-request-recipients-search">
+                  <SearchInput v-model="recipientSearch" :placeholder="t('bcc.search_suppliers')" />
+                </div>
+                <div class="checkbox-list-items" data-test="bcc-request-recipients-list">
+                  <label
+                    v-for="r in pagedRecipients"
+                    :key="r.id"
+                    class="checkbox-item"
+                    data-test="bcc-request-recipient-item"
+                    :data-recipient-id="r.id"
+                  >
+                    <input
+                      type="checkbox"
+                      data-test="bcc-request-recipient-checkbox"
+                      :checked="selectedRecipientIds.includes(r.id)"
+                      @change="toggleRecipient(r.id)"
+                    />
+                    <span class="checkbox-label">{{ tf(r.company) }}</span>
+                    <span class="checkbox-email">{{ r.email }}</span>
+                  </label>
+                  <div
+                    v-if="filteredRecipients.length === 0"
+                    style="text-align: center; opacity: 0.5; padding: 16px 0"
+                  >
+                    {{ t('suppliers.empty_title') }}
+                  </div>
+                </div>
+                <div v-if="filteredRecipients.length > 0" class="recipients-pagination">
+                  <div class="pagination-bar">
+                    <div class="page-size">
+                      <span>{{ t('suppliers.page_size') }}</span>
+                      <CustomSelect
+                        v-model="recipientPageSizeStr"
+                        :options="PAGE_SIZE_OPTIONS_RECIPIENTS"
+                        :open-up="true"
+                        class="custom-select-sm"
+                      />
+                    </div>
+                    <div class="pagination-nav">
+                      <button
+                        class="btn btn-icon btn-sm"
+                        :disabled="recipientPage <= 1"
+                        @click="recipientPage = Math.max(1, recipientPage - 1)"
+                      >
+                        <SvgIcon
+                          name="chevron-right"
+                          :width="14"
+                          :height="14"
+                          style="transform: rotate(180deg)"
+                        />
+                      </button>
+                      <div class="pagination-pages">
+                        <template v-for="(p, i) in recipientPageNumbers()" :key="i">
+                          <span v-if="p === '...'" class="pagination-ellipsis">...</span>
+                          <button
+                            v-else
+                            class="page-btn"
+                            :class="{ active: p === recipientPage }"
+                            @click="recipientPage = p as number"
+                          >
+                            {{ p }}
+                          </button>
+                        </template>
+                      </div>
+                      <button
+                        class="btn btn-icon btn-sm"
+                        :disabled="recipientPage >= recipientTotalPages"
+                        @click="recipientPage = Math.min(recipientTotalPages, recipientPage + 1)"
+                      >
+                        <SvgIcon name="chevron-right" :width="14" :height="14" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                class="supplier-count-display"
+                style="margin-top: 12px"
+                data-test="bcc-request-recipients-active-count"
+              >
+                <SvgIcon name="warehouse-box" :width="14" :height="14" />
+                <span class="count-text">
+                  {{ activeSupplierCount }} {{ t('bcc.active_suppliers') }}
+                </span>
+              </div>
+            </GlassPanel>
+          </div>
+        </div>
+
+        <div class="col-center" data-test="bcc-request-template-panel">
+          <GlassPanel :title="t('bcc.email_template')" :loading="loading" :skeleton-rows="5">
+            <EmailTemplate
+              v-model:subject="subjectModel"
+              v-model:body="bodyModel"
+              :subject-label="t('bcc.subject_label')"
+              :body-label="t('bcc.body_label')"
+              :subject-placeholder="t('bcc.subject_placeholder')"
+              :body-placeholder="t('bcc.body_placeholder')"
+            >
+              <div class="email-attachments" data-test="bcc-request-attachments">
+                <label class="field-label">{{ t('bcc.attachments') }}</label>
+                <div
+                  v-if="template.attachments.length"
+                  class="file-list"
+                  style="margin-bottom: 12px"
+                  data-test="bcc-request-attachments-list"
+                >
+                  <div
+                    v-for="a in template.attachments"
+                    :key="a.id"
+                    data-test="bcc-request-attachment-item"
+                    :data-attachment-id="a.id"
+                  >
+                    <FileItem
+                      :name="tf(a.name)"
+                      download-url="#"
+                      @delete="removeAttachment(a.id)"
+                    />
+                  </div>
+                </div>
+                <div data-test="bcc-request-dropzone">
+                  <DropZone
+                    :hint="t('bcc.dropzone_hint')"
+                    :multiple="true"
+                    @uploaded="onAttachmentsUploaded"
+                  />
+                </div>
+              </div>
+            </EmailTemplate>
+          </GlassPanel>
+        </div>
+
+        <div v-if="showBccHistory" class="col-right" data-test="bcc-request-history-panel">
+          <GlassPanel
+            :title="t('bcc.history')"
+            :loading="loading && history.length === 0"
+            :skeleton-rows="5"
+          >
+            <div class="request-history-table">
+              <table class="data-table" data-test="bcc-request-history-table">
                 <thead>
                   <tr>
-                    <th style="width: 32px">
-                      <input
-                        type="checkbox"
-                        data-test="bcc-request-products-select-all"
-                        :checked="allVisibleSelected()"
-                        @change="toggleSelectAllVisible"
-                      />
-                    </th>
-                    <th>{{ t('bcc.categories_label') }}</th>
+                    <th>{{ t('th.date') }}</th>
+                    <th>{{ t('th.request_id') }}</th>
+                    <th>{{ t('th.product') }}</th>
+                    <th>{{ t('th.supplier') }}</th>
+                    <th>{{ t('th.source') }}</th>
+                    <th>{{ t('th.status') }}</th>
+                    <th>{{ t('th.actions') }}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <template v-if="filteredProducts.length === 0">
-                    <tr>
-                      <td colspan="2" style="text-align: center; opacity: 0.5; padding: 24px 0">
-                        {{ t('suppliers.empty_title') }}
-                      </td>
-                    </tr>
-                  </template>
-                  <template v-for="group in pagedProductGroups" :key="group.categoryName">
-                    <tr
-                      class="product-group-header"
-                      data-test="bcc-request-product-group"
-                      :data-category-name="group.categoryName"
-                    >
-                      <td
-                        colspan="2"
+                  <tr
+                    v-for="evt in history"
+                    :key="evt.id"
+                    data-test="bcc-request-history-row"
+                    :data-event-id="evt.id"
+                    :data-request-id="evt.requestId"
+                    :data-status="evt.status"
+                  >
+                    <td class="date-cell">{{ formatDate(evt.date) }}</td>
+                    <td class="request-id-cell">
+                      <span class="request-id-badge">{{ formatReqId(evt.requestId) }}</span>
+                    </td>
+                    <td class="product-cell">{{ tf(evt.productName) }}</td>
+                    <td class="recipients-cell">{{ tf(evt.supplierName) }}</td>
+                    <td class="source-cell">{{ tf(evt.source) }}</td>
+                    <td class="status-cell">
+                      <span :class="['status-pill', STATUS_PILL[evt.status]]">
+                        {{ t(STATUS_LABEL_KEY[evt.status]) }}
+                      </span>
+                      <span
+                        v-if="evt.status === 'responded' && evt.price"
+                        class="response-price"
+                        style="margin-left: 6px; font-size: 11px; opacity: 0.7"
+                      >
+                        {{ evt.price }} {{ evt.unit }}
+                      </span>
+                    </td>
+                    <td class="actions-cell">
+                      <div
                         style="
-                          font-weight: 700;
-                          font-size: 11px;
-                          text-transform: uppercase;
-                          letter-spacing: 0.05em;
-                          opacity: 0.5;
-                          padding-top: 12px;
+                          display: flex;
+                          gap: 10px;
+                          justify-content: flex-end;
+                          align-items: center;
                         "
                       >
-                       {{ group.categoryName }}
-                      </td>
-                    </tr>
-                    <tr
-                      v-for="p in group.products"
-                      :key="p.id"
-                      :data-product="p.id"
-                      :data-product-id="p.id"
-                      data-test="bcc-request-product-row"
-                      class="product-row"
-                      @click="toggleProduct(p.id)"
-                    >
-                      <td>
-                        <input
-                          type="checkbox"
-                          data-test="bcc-request-product-checkbox"
-                          :checked="isProductSelected(p.id)"
-                          tabindex="-1"
-                          @click.stop
-                          @change.stop="toggleProduct(p.id)"
-                        />
-                      </td>
-                      <td>{{ p.name }}</td>
-                    </tr>
-                  </template>
-                </tbody>
-                <tfoot v-if="filteredProducts.length > 0">
-                  <tr>
-                    <td colspan="2">
-                      <div class="pagination-bar">
-                        <div class="page-size">
-                          <span>{{ t('suppliers.page_size') }}</span>
-                          <CustomSelect
-                            v-model="productPageSizeStr"
-                            :options="PAGE_SIZE_OPTIONS_PRODUCTS"
-                            :open-up="true"
-                            class="custom-select-sm"
-                          />
-                        </div>
-                        <div class="pagination-nav">
-                          <button
-                            class="btn btn-icon btn-sm"
-                            :disabled="productPage <= 1"
-                            @click="productPage = Math.max(1, productPage - 1)"
-                          >
-                            <SvgIcon
-                              name="chevron-right"
-                              :width="14"
-                              :height="14"
-                              style="transform: rotate(180deg)"
-                            />
-                          </button>
-                          <div class="pagination-pages">
-                            <template v-for="(p, i) in productPageNumbers()" :key="i">
-                              <span v-if="p === '...'" class="pagination-ellipsis">...</span>
-                              <button
-                                v-else
-                                class="page-btn"
-                                :class="{ active: p === productPage }"
-                                @click="productPage = p as number"
+                        <template v-if="isLatestEvent(evt)">
+                          <template v-if="evt.status === 'sent'">
+                            <button
+                              v-tooltip="t('bcc.record_response')"
+                              type="button"
+                              class="action-icon-btn action-success"
+                              data-test="bcc-request-history-accept-btn"
+                              @click="openResponseModal(evt)"
+                            >
+                              <svg
+                                width="14"
+                                height="14"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
                               >
-                                {{ p }}
-                              </button>
-                            </template>
-                          </div>
-                          <button
-                            class="btn btn-icon btn-sm"
-                            :disabled="productPage >= productTotalPages"
-                            @click="productPage = Math.min(productTotalPages, productPage + 1)"
-                          >
-                            <SvgIcon name="chevron-right" :width="14" :height="14" />
-                          </button>
-                        </div>
+                                <polyline points="20 6 9 17 4 12" />
+                              </svg>
+                            </button>
+                            <button
+                              v-tooltip="t('bcc.cancel_request')"
+                              type="button"
+                              class="action-icon-btn action-danger"
+                              data-test="bcc-request-history-cancel-btn"
+                              @click="markNoResponse(evt)"
+                            >
+                              <svg
+                                width="14"
+                                height="14"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                              >
+                                <circle cx="12" cy="12" r="10" />
+                                <line x1="15" y1="9" x2="9" y2="15" />
+                                <line x1="9" y1="9" x2="15" y2="15" />
+                              </svg>
+                            </button>
+                          </template>
+                          <template v-if="evt.status === 'no_response'">
+                            <button
+                              v-tooltip="t('bcc.record_response')"
+                              type="button"
+                              class="action-icon-btn action-success"
+                              data-test="bcc-request-history-accept-btn"
+                              @click="openResponseModal(evt)"
+                            >
+                              <svg
+                                width="14"
+                                height="14"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                              >
+                                <polyline points="20 6 9 17 4 12" />
+                              </svg>
+                            </button>
+                          </template>
+                          <template v-if="evt.status === 'responded'">
+                            <button
+                              v-tooltip="t('bcc.edit_response')"
+                              type="button"
+                              class="action-icon-btn action-edit"
+                              data-test="bcc-request-history-edit-btn"
+                              @click="openResponseModal(evt)"
+                            >
+                              <SvgIcon name="edit-pencil" :width="14" :height="14" />
+                            </button>
+                          </template>
+                        </template>
                       </div>
                     </td>
                   </tr>
-                </tfoot>
+                </tbody>
               </table>
             </div>
-
-            <div
-              class="supplier-count-display"
-              style="margin-top: 12px"
-              data-test="bcc-request-products-count"
-            >
-              <SvgIcon name="grid-products" :width="14" :height="14" />
-              <span class="count-text">
-                {{ selectedProductIds.length }} {{ t('bcc.selected_products') }}
-              </span>
-            </div>
           </GlassPanel>
         </div>
-
-        <div data-test="bcc-request-recipients-panel">
-          <GlassPanel
-            :title="t('bcc.recipients')"
-            :badge="`${selectedCount} ${t('bcc.badge_selected')}`"
-            :loading="loading && recipients.length === 0"
-            :skeleton-rows="4"
-          >
-            <div class="checkbox-list searchable">
-              <div class="checkbox-list-controls">
-                <button
-                  type="button"
-                  class="text-btn select-all-btn"
-                  data-test="bcc-request-recipients-select-all"
-                  @click="selectAllRecipients"
-                >
-                  {{ t('btn.select_all') }}
-                </button>
-                <button
-                  type="button"
-                  class="text-btn deselect-all-btn"
-                  data-test="bcc-request-recipients-deselect-all"
-                  @click="deselectAllRecipients"
-                >
-                  {{ t('btn.deselect_all') }}
-                </button>
-                <span class="selected-count" data-test="bcc-request-recipients-count">
-                  <span class="count">{{ selectedCount }}</span>
-                  {{ t('bcc.selected_text') }}
-                </span>
-              </div>
-              <div data-test="bcc-request-recipients-search">
-                <SearchInput v-model="recipientSearch" :placeholder="t('bcc.search_suppliers')" />
-              </div>
-              <div class="checkbox-list-items" data-test="bcc-request-recipients-list">
-                <label
-                  v-for="r in pagedRecipients"
-                  :key="r.id"
-                  class="checkbox-item"
-                  data-test="bcc-request-recipient-item"
-                  :data-recipient-id="r.id"
-                >
-                  <input
-                    type="checkbox"
-                    data-test="bcc-request-recipient-checkbox"
-                    :checked="selectedRecipientIds.includes(r.id)"
-                    @change="toggleRecipient(r.id)"
-                  />
-                  <span class="checkbox-label">{{ tf(r.company) }}</span>
-                  <span class="checkbox-email">{{ r.email }}</span>
-                </label>
-                <div
-                  v-if="filteredRecipients.length === 0"
-                  style="text-align: center; opacity: 0.5; padding: 16px 0"
-                >
-                  {{ t('suppliers.empty_title') }}
-                </div>
-              </div>
-              <div v-if="filteredRecipients.length > 0" class="recipients-pagination">
-                <div class="pagination-bar">
-                  <div class="page-size">
-                    <span>{{ t('suppliers.page_size') }}</span>
-                    <CustomSelect
-                      v-model="recipientPageSizeStr"
-                      :options="PAGE_SIZE_OPTIONS_RECIPIENTS"
-                      :open-up="true"
-                      class="custom-select-sm"
-                    />
-                  </div>
-                  <div class="pagination-nav">
-                    <button
-                      class="btn btn-icon btn-sm"
-                      :disabled="recipientPage <= 1"
-                      @click="recipientPage = Math.max(1, recipientPage - 1)"
-                    >
-                      <SvgIcon
-                        name="chevron-right"
-                        :width="14"
-                        :height="14"
-                        style="transform: rotate(180deg)"
-                      />
-                    </button>
-                    <div class="pagination-pages">
-                      <template v-for="(p, i) in recipientPageNumbers()" :key="i">
-                        <span v-if="p === '...'" class="pagination-ellipsis">...</span>
-                        <button
-                          v-else
-                          class="page-btn"
-                          :class="{ active: p === recipientPage }"
-                          @click="recipientPage = p as number"
-                        >
-                          {{ p }}
-                        </button>
-                      </template>
-                    </div>
-                    <button
-                      class="btn btn-icon btn-sm"
-                      :disabled="recipientPage >= recipientTotalPages"
-                      @click="recipientPage = Math.min(recipientTotalPages, recipientPage + 1)"
-                    >
-                      <SvgIcon name="chevron-right" :width="14" :height="14" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div
-              class="supplier-count-display"
-              style="margin-top: 12px"
-              data-test="bcc-request-recipients-active-count"
-            >
-              <SvgIcon name="warehouse-box" :width="14" :height="14" />
-              <span class="count-text">
-                {{ activeSupplierCount }} {{ t('bcc.active_suppliers') }}
-              </span>
-            </div>
-          </GlassPanel>
-        </div>
-      </div>
-
-      <div class="col-center" data-test="bcc-request-template-panel">
-        <GlassPanel :title="t('bcc.email_template')" :loading="loading" :skeleton-rows="5">
-          <EmailTemplate
-            v-model:subject="subjectModel"
-            v-model:body="bodyModel"
-            :subject-label="t('bcc.subject_label')"
-            :body-label="t('bcc.body_label')"
-            :subject-placeholder="t('bcc.subject_placeholder')"
-            :body-placeholder="t('bcc.body_placeholder')"
-          >
-            <div class="email-attachments" data-test="bcc-request-attachments">
-              <label class="field-label">{{ t('bcc.attachments') }}</label>
-              <div
-                v-if="template.attachments.length"
-                class="file-list"
-                style="margin-bottom: 12px"
-                data-test="bcc-request-attachments-list"
-              >
-                <div
-                  v-for="a in template.attachments"
-                  :key="a.id"
-                  data-test="bcc-request-attachment-item"
-                  :data-attachment-id="a.id"
-                >
-                  <FileItem :name="tf(a.name)" download-url="#" @delete="removeAttachment(a.id)" />
-                </div>
-              </div>
-              <div data-test="bcc-request-dropzone">
-                <DropZone
-                  :hint="t('bcc.dropzone_hint')"
-                  :multiple="true"
-                  @uploaded="onAttachmentsUploaded"
-                />
-              </div>
-            </div>
-          </EmailTemplate>
-        </GlassPanel>
-      </div>
-
-      <div v-if="showBccHistory" class="col-right" data-test="bcc-request-history-panel">
-        <GlassPanel
-          :title="t('bcc.history')"
-          :loading="loading && history.length === 0"
-          :skeleton-rows="5"
-        >
-          <div class="request-history-table">
-            <table class="data-table" data-test="bcc-request-history-table">
-              <thead>
-                <tr>
-                  <th>{{ t('th.date') }}</th>
-                  <th>{{ t('th.request_id') }}</th>
-                  <th>{{ t('th.product') }}</th>
-                  <th>{{ t('th.supplier') }}</th>
-                  <th>{{ t('th.source') }}</th>
-                  <th>{{ t('th.status') }}</th>
-                  <th>{{ t('th.actions') }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="evt in history"
-                  :key="evt.id"
-                  data-test="bcc-request-history-row"
-                  :data-event-id="evt.id"
-                  :data-request-id="evt.requestId"
-                  :data-status="evt.status"
-                >
-                  <td class="date-cell">{{ formatDate(evt.date) }}</td>
-                  <td class="request-id-cell">
-                    <span class="request-id-badge">{{ formatReqId(evt.requestId) }}</span>
-                  </td>
-                  <td class="product-cell">{{ tf(evt.productName) }}</td>
-                  <td class="recipients-cell">{{ tf(evt.supplierName) }}</td>
-                  <td class="source-cell">{{ tf(evt.source) }}</td>
-                  <td class="status-cell">
-                    <span :class="['status-pill', STATUS_PILL[evt.status]]">
-                      {{ t(STATUS_LABEL_KEY[evt.status]) }}
-                    </span>
-                    <span
-                      v-if="evt.status === 'responded' && evt.price"
-                      class="response-price"
-                      style="margin-left: 6px; font-size: 11px; opacity: 0.7"
-                    >
-                      {{ evt.price }} {{ evt.unit }}
-                    </span>
-                  </td>
-                  <td class="actions-cell">
-                    <div
-                      style="
-                        display: flex;
-                        gap: 10px;
-                        justify-content: flex-end;
-                        align-items: center;
-                      "
-                    >
-                      <template v-if="isLatestEvent(evt)">
-                        <template v-if="evt.status === 'sent'">
-                          <button
-                            v-tooltip="t('bcc.record_response')"
-                            type="button"
-                            class="action-icon-btn action-success"
-                            data-test="bcc-request-history-accept-btn"
-                            @click="openResponseModal(evt)"
-                          >
-                            <svg
-                              width="14"
-                              height="14"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              stroke-width="2"
-                            >
-                              <polyline points="20 6 9 17 4 12" />
-                            </svg>
-                          </button>
-                          <button
-                            v-tooltip="t('bcc.cancel_request')"
-                            type="button"
-                            class="action-icon-btn action-danger"
-                            data-test="bcc-request-history-cancel-btn"
-                            @click="markNoResponse(evt)"
-                          >
-                            <svg
-                              width="14"
-                              height="14"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              stroke-width="2"
-                            >
-                              <circle cx="12" cy="12" r="10" />
-                              <line x1="15" y1="9" x2="9" y2="15" />
-                              <line x1="9" y1="9" x2="15" y2="15" />
-                            </svg>
-                          </button>
-                        </template>
-                        <template v-if="evt.status === 'no_response'">
-                          <button
-                            v-tooltip="t('bcc.record_response')"
-                            type="button"
-                            class="action-icon-btn action-success"
-                            data-test="bcc-request-history-accept-btn"
-                            @click="openResponseModal(evt)"
-                          >
-                            <svg
-                              width="14"
-                              height="14"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              stroke-width="2"
-                            >
-                              <polyline points="20 6 9 17 4 12" />
-                            </svg>
-                          </button>
-                        </template>
-                        <template v-if="evt.status === 'responded'">
-                          <button
-                            v-tooltip="t('bcc.edit_response')"
-                            type="button"
-                            class="action-icon-btn action-edit"
-                            data-test="bcc-request-history-edit-btn"
-                            @click="openResponseModal(evt)"
-                          >
-                            <SvgIcon name="edit-pencil" :width="14" :height="14" />
-                          </button>
-                        </template>
-                      </template>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </GlassPanel>
       </div>
     </div>
-  </div>
   </template>
 
   <AppModal v-model="modalOpen" :title="t('bcc.accept_response')" size="small">

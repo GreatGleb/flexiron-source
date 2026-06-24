@@ -11,6 +11,7 @@ const { t } = useI18n()
 const settings = inject<AppSettings>('settings')!
 const updateCompany = inject<(patch: Partial<AppSettings['company']>) => void>('updateCompany')!
 const handleLogoDrop = inject<(files: File[]) => void>('handleLogoDrop')!
+const handleLogoUploaded = inject<(files: { url: string }[]) => void>('handleLogoUploaded')!
 </script>
 
 <template>
@@ -19,50 +20,50 @@ const handleLogoDrop = inject<(files: File[]) => void>('handleLogoDrop')!
       <InputGroup :label="t('settingsCompany.name')">
         <input
           :value="settings.company.name"
-          @input="updateCompany({ name: ($event.target as HTMLInputElement).value })"
           class="glass-input"
           type="text"
           data-test="settings-company-name"
+          @input="updateCompany({ name: ($event.target as HTMLInputElement).value })"
         />
       </InputGroup>
 
       <InputGroup :label="t('settingsCompany.legalAddress')">
         <input
           :value="settings.company.legalAddress"
-          @input="updateCompany({ legalAddress: ($event.target as HTMLInputElement).value })"
           class="glass-input"
           type="text"
           data-test="settings-company-legal-address"
+          @input="updateCompany({ legalAddress: ($event.target as HTMLInputElement).value })"
         />
       </InputGroup>
 
       <InputGroup :label="t('settingsCompany.vatCode')">
         <input
           :value="settings.company.vatCode"
-          @input="updateCompany({ vatCode: ($event.target as HTMLInputElement).value })"
           class="glass-input"
           type="text"
           data-test="settings-company-vat-code"
+          @input="updateCompany({ vatCode: ($event.target as HTMLInputElement).value })"
         />
       </InputGroup>
 
       <InputGroup :label="t('settingsCompany.bankName')">
         <input
           :value="settings.company.bankName"
-          @input="updateCompany({ bankName: ($event.target as HTMLInputElement).value })"
           class="glass-input"
           type="text"
           data-test="settings-company-bank-name"
+          @input="updateCompany({ bankName: ($event.target as HTMLInputElement).value })"
         />
       </InputGroup>
 
       <InputGroup :label="t('settingsCompany.bankAccount')">
         <input
           :value="settings.company.bankAccount"
-          @input="updateCompany({ bankAccount: ($event.target as HTMLInputElement).value })"
           class="glass-input"
           type="text"
           data-test="settings-company-bank-account"
+          @input="updateCompany({ bankAccount: ($event.target as HTMLInputElement).value })"
         />
       </InputGroup>
 
@@ -72,6 +73,7 @@ const handleLogoDrop = inject<(files: File[]) => void>('handleLogoDrop')!
           hint="PNG, JPG or SVG"
           :accept="'image/png,image/jpeg,image/svg+xml'"
           @files="handleLogoDrop"
+          @uploaded="handleLogoUploaded"
         />
         <div v-if="settings.company.logoUrl" class="settings-logo-preview">
           <img :src="settings.company.logoUrl" alt="Logo" class="settings-logo-img" />

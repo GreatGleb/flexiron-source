@@ -98,6 +98,19 @@ async def get_currency(db: AsyncSession, currency_id: UUID) -> CurrencyModel | N
     return result.scalar_one_or_none()
 
 
+async def get_currency_by_code(
+    db: AsyncSession, tenant_id: UUID, code: str
+) -> CurrencyModel | None:
+    """Get a currency by code for a tenant (used for duplicate check)."""
+    result = await db.execute(
+        select(CurrencyModel).where(
+            CurrencyModel.tenant_id == tenant_id,
+            CurrencyModel.code == code,
+        )
+    )
+    return result.scalar_one_or_none()
+
+
 async def create_currency(db: AsyncSession, tenant_id: UUID, data: dict) -> CurrencyModel:
     obj = CurrencyModel(tenant_id=tenant_id, **data)
     db.add(obj)
@@ -134,6 +147,24 @@ async def get_uoms(db: AsyncSession, tenant_id: UUID) -> list[UomModel]:
 
 async def get_uom(db: AsyncSession, uom_id: UUID) -> UomModel | None:
     result = await db.execute(select(UomModel).where(UomModel.id == uom_id))
+    return result.scalar_one_or_none()
+
+
+async def get_uom_by_code(
+    db: AsyncSession, tenant_id: UUID, code: str
+) -> UomModel | None:
+    """Find a UOM whose code_translations contain the given short code in any language."""
+    from sqlalchemy import or_
+    result = await db.execute(
+        select(UomModel).where(
+            UomModel.tenant_id == tenant_id,
+            or_(
+                UomModel.code_translations["en"].as_string() == code,
+                UomModel.code_translations["ru"].as_string() == code,
+                UomModel.code_translations["lt"].as_string() == code,
+            ),
+        )
+    )
     return result.scalar_one_or_none()
 
 
@@ -174,6 +205,20 @@ async def get_conversions(db: AsyncSession, tenant_id: UUID) -> list[UomConversi
 async def get_conversion(db: AsyncSession, conv_id: UUID) -> UomConversionModel | None:
     result = await db.execute(
         select(UomConversionModel).where(UomConversionModel.id == conv_id)
+    )
+    return result.scalar_one_or_none()
+
+
+async def get_conversion_by_uom_pair(
+    db: AsyncSession, tenant_id: UUID, from_uom_id: UUID, to_uom_id: UUID
+) -> UomConversionModel | None:
+    """Get a conversion by its UOM pair (used for duplicate check)."""
+    result = await db.execute(
+        select(UomConversionModel).where(
+            UomConversionModel.tenant_id == tenant_id,
+            UomConversionModel.from_uom_id == from_uom_id,
+            UomConversionModel.to_uom_id == to_uom_id,
+        )
     )
     return result.scalar_one_or_none()
 

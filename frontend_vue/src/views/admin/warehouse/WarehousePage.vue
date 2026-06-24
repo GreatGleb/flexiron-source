@@ -7,8 +7,16 @@ import { useFeatureFlag } from '@/composables/useFeatureFlag'
 import { useWarehouse } from '@/composables/useWarehouse'
 import { useCategories } from '@/composables/useCategories'
 import { useToast } from '@/composables/useToast'
+import { useSettings } from '@/composables/useSettings'
 import type { WarehouseTab } from '@/composables/useWarehouse'
-import type { BatchStatus, OffcutStatus, MovementType, DeficitStatus, StockFilters, WarehouseFilters } from '@/types/warehouse'
+import type {
+  BatchStatus,
+  OffcutStatus,
+  MovementType,
+  DeficitStatus,
+  StockFilters,
+  WarehouseFilters,
+} from '@/types/warehouse'
 import type { CategoryListItem } from '@/types/category'
 import { exportWarehouseData } from '@/services/warehouseService'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
@@ -24,6 +32,7 @@ import '@styles/admin/components/_pagination.css'
 import '@styles/admin/warehouse_list.css'
 
 const { t, locale } = useI18n()
+const { settings } = useSettings()
 const pageConfigEnabled = useFeatureFlag('warehouseStockPageConfig')
 const batchesPageConfigEnabled = useFeatureFlag('warehouseBatchesPageConfig')
 const offcutsPageConfigEnabled = useFeatureFlag('warehouseOffcutsPageConfig')
@@ -31,12 +40,18 @@ const movementsPageConfigEnabled = useFeatureFlag('warehouseMovementsPageConfig'
 const deficitPageConfigEnabled = useFeatureFlag('warehouseDeficitPageConfig')
 const pageConfigForActiveTab = computed(() => {
   switch (activeTab.value) {
-    case 'stock':     return pageConfigEnabled.value
-    case 'batches':   return batchesPageConfigEnabled.value
-    case 'offcuts':   return offcutsPageConfigEnabled.value
-    case 'movements': return movementsPageConfigEnabled.value
-    case 'deficit':   return deficitPageConfigEnabled.value
-    default:          return false
+    case 'stock':
+      return pageConfigEnabled.value
+    case 'batches':
+      return batchesPageConfigEnabled.value
+    case 'offcuts':
+      return offcutsPageConfigEnabled.value
+    case 'movements':
+      return movementsPageConfigEnabled.value
+    case 'deficit':
+      return deficitPageConfigEnabled.value
+    default:
+      return false
   }
 })
 const toast = useToast()
@@ -45,11 +60,21 @@ const router = useRouter()
 
 const {
   activeTab,
-  stockItems, stockLoading, stockError,
-  batches, batchesLoading, batchesError,
-  offcuts, offcutsLoading, offcutsError,
-  movements, movementsLoading, movementsError,
-  deficitItems, deficitLoading, deficitError,
+  stockItems,
+  stockLoading,
+  stockError,
+  batches,
+  batchesLoading,
+  batchesError,
+  offcuts,
+  offcutsLoading,
+  offcutsError,
+  movements,
+  movementsLoading,
+  movementsError,
+  deficitItems,
+  deficitLoading,
+  deficitError,
   batchesFilters,
   offcutFilters,
   movementFilters,
@@ -103,9 +128,10 @@ const VALID_TABS: WarehouseTab[] = ['stock', 'batches', 'offcuts', 'movements', 
 
 function syncTabFromRoute() {
   const raw = route.params.tab
-  const tab = typeof raw === 'string' && VALID_TABS.includes(raw as WarehouseTab)
-    ? (raw as WarehouseTab)
-    : 'stock'
+  const tab =
+    typeof raw === 'string' && VALID_TABS.includes(raw as WarehouseTab)
+      ? (raw as WarehouseTab)
+      : 'stock'
   if (activeTab.value !== tab) {
     activeTab.value = tab
   }
@@ -115,9 +141,12 @@ function syncTabFromRoute() {
 syncTabFromRoute()
 
 // Watch route param changes to sync tab (browser back/forward)
-watch(() => route.params.tab, () => {
-  syncTabFromRoute()
-})
+watch(
+  () => route.params.tab,
+  () => {
+    syncTabFromRoute()
+  },
+)
 
 function onTabClick(tab: WarehouseTab) {
   router.push({ name: 'admin-warehouse', params: { tab } })
@@ -315,8 +344,10 @@ function loadPrefs() {
       stockCategoryIds?: string[]
     }
     if (typeof prefs.stockSearch === 'string') stockFilters.search = prefs.stockSearch
-    if (typeof prefs.showDeficitOnly === 'boolean') stockFilters.showDeficitOnly = prefs.showDeficitOnly
-    if (typeof prefs.showInStockOnly === 'boolean') stockFilters.showInStockOnly = prefs.showInStockOnly
+    if (typeof prefs.showDeficitOnly === 'boolean')
+      stockFilters.showDeficitOnly = prefs.showDeficitOnly
+    if (typeof prefs.showInStockOnly === 'boolean')
+      stockFilters.showInStockOnly = prefs.showInStockOnly
     if (typeof prefs.stockUnitFilter === 'string') stockFilters.unit = prefs.stockUnitFilter
     if (Array.isArray(prefs.stockCategoryIds)) stockFilters.categoryIds = prefs.stockCategoryIds
   } catch {
@@ -355,19 +386,36 @@ async function startFilterTransition() {
   //          GlassPanel skeleton covers the area during this async operation.
   await Promise.all([
     syncTableRowHeights(),
-    new Promise(resolve => { setTimeout(resolve, 500) }),
+    new Promise((resolve) => {
+      setTimeout(resolve, 500)
+    }),
   ])
   // Phase 3: hide skeleton, show table with correct heights already set.
   filteringStock.value = false
 }
 
-const UNIT_OPTIONS = [
-  { value: '', label: t('warehouse.filter_unit_all') },
-  { value: 'kg', label: t('warehouse.unit_kg') },
-  { value: 'm', label: t('warehouse.unit_m') },
-  { value: 'pcs', label: t('warehouse.unit_pcs') },
-  { value: 'm2', label: t('warehouse.unit_m2') },
-]
+/** Dynamic unit options for all warehouse tabs — populated from settings, locale-aware */
+const allUnitOptions = computed(() => {
+  const uoms = settings.uoms ?? []
+  const cl = locale.value as string
+  return [
+    { value: '', label: t('warehouse.filter_unit_all') },
+    ...uoms.map((u: { code: Record<string, string | undefined> }) => {
+      // value = English code (used for filtering against DB/stored data)
+      const value = u.code.en || u.code.ru || u.code.lt || '?'
+      // label = locale-aware code (for display in the dropdown)
+      const label = u.code[cl] || u.code.en || u.code.ru || u.code.lt || '?'
+      return { value, label }
+    }),
+  ]
+})
+
+// Derive tab-specific options (all use same dynamic list)
+const UNIT_OPTIONS = allUnitOptions
+const BATCH_UNIT_OPTIONS = allUnitOptions
+const OFFCUT_UNIT_OPTIONS = allUnitOptions
+const MOVEMENT_UNIT_OPTIONS = allUnitOptions
+const DEFICIT_UNIT_OPTIONS = allUnitOptions
 
 // ─── Batches tab filter options ──────────────────────────────────────────────
 
@@ -386,14 +434,6 @@ const BATCH_STATUS_OPTIONS = [
   { value: 'converted_to_offcuts', label: t('warehouse.batch_status_converted_to_offcuts') },
 ]
 
-const BATCH_UNIT_OPTIONS = [
-  { value: '', label: t('warehouse.filter_unit_all') },
-  { value: 'kg', label: t('warehouse.unit_kg') },
-  { value: 'm', label: t('warehouse.unit_m') },
-  { value: 'pcs', label: t('warehouse.unit_pcs') },
-  { value: 'm2', label: t('warehouse.unit_m2') },
-]
-
 // ─── Offcuts tab filter options ─────────────────────────────────────────────
 
 const OFFCUT_STATUS_OPTIONS = [
@@ -406,14 +446,6 @@ const OFFCUT_STATUS_OPTIONS = [
   { value: 'expensed', label: t('warehouse.offcut_status_expensed') },
   { value: 'returned_to_supplier', label: t('warehouse.offcut_status_returned_to_supplier') },
   { value: 'in_storage', label: t('warehouse.offcut_status_in_storage') },
-]
-
-const OFFCUT_UNIT_OPTIONS = [
-  { value: '', label: t('warehouse.filter_unit_all') },
-  { value: 'kg', label: t('warehouse.unit_kg') },
-  { value: 'm', label: t('warehouse.unit_m') },
-  { value: 'pcs', label: t('warehouse.unit_pcs') },
-  { value: 'm2', label: t('warehouse.unit_m2') },
 ]
 
 const OFFCUT_TYPE_OPTIONS = [
@@ -438,14 +470,6 @@ const MOVEMENT_TYPE_OPTIONS = [
   { value: 'correction', label: t('warehouse.type_correction') },
 ]
 
-const MOVEMENT_UNIT_OPTIONS = [
-  { value: '', label: t('warehouse.filter_unit_all') },
-  { value: 'kg', label: t('warehouse.unit_kg') },
-  { value: 'm', label: t('warehouse.unit_m') },
-  { value: 'pcs', label: t('warehouse.unit_pcs') },
-  { value: 'm2', label: t('warehouse.unit_m2') },
-]
-
 // ─── Deficit tab filter options ──────────────────────────────────────────────
 
 const DEFICIT_STATUS_OPTIONS = [
@@ -463,14 +487,6 @@ const DEFICIT_PRIORITY_OPTIONS = [
   { value: 'high', label: t('warehouse.priority_high') },
   { value: 'medium', label: t('warehouse.priority_medium') },
   { value: 'low', label: t('warehouse.priority_low') },
-]
-
-const DEFICIT_UNIT_OPTIONS = [
-  { value: '', label: t('warehouse.filter_unit_all') },
-  { value: 'kg', label: t('warehouse.unit_kg') },
-  { value: 'm', label: t('warehouse.unit_m') },
-  { value: 'pcs', label: t('warehouse.unit_pcs') },
-  { value: 'm2', label: t('warehouse.unit_m2') },
 ]
 
 // ─── Supplier list for batches filter dropdown ───────────────────────────────
@@ -558,7 +574,11 @@ const DEFICIT_STATUS_PILL: Record<DeficitStatus, string> = {
 // ─── Delete confirm modals ────────────────────────────────────────────────────
 
 const showDeleteModal = ref(false)
-const deletingItem = ref<{ id: string; name: string; type: 'batch' | 'offcut' | 'deficit' | 'stock' } | null>(null)
+const deletingItem = ref<{
+  id: string
+  name: string
+  type: 'batch' | 'offcut' | 'deficit' | 'stock'
+} | null>(null)
 
 function confirmDeleteBatch(id: string, name: string) {
   deletingItem.value = { id, name, type: 'batch' }
@@ -608,14 +628,22 @@ function syncTableRowHeights(): Promise<void> {
   if (!fixedTbody || !scrollTbody) return Promise.resolve()
 
   // Pass 1: Reset all heights so the browser can compute natural sizes
-  fixedTbody.forEach(tr => { tr.style.height = '' })
-  scrollTbody.forEach(tr => { tr.style.height = '' })
-  fixedThead?.forEach(tr => { tr.style.height = '' })
-  scrollThead?.forEach(tr => { tr.style.height = '' })
+  fixedTbody.forEach((tr) => {
+    tr.style.height = ''
+  })
+  scrollTbody.forEach((tr) => {
+    tr.style.height = ''
+  })
+  fixedThead?.forEach((tr) => {
+    tr.style.height = ''
+  })
+  scrollThead?.forEach((tr) => {
+    tr.style.height = ''
+  })
 
   // Pass 2: Double requestAnimationFrame guarantees browser reflow is complete.
   // Return a Promise so callers can await completion.
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         const maxLen = Math.min(fixedTbody.length, scrollTbody.length)
@@ -740,7 +768,6 @@ const deficitFiltersActive = computed(() => {
 
 <template>
   <div class="page-warehouse" data-test="page-warehouse">
-
     <div class="warehouse-header" data-test="warehouse-header">
       <h1 class="page-title">{{ t('warehouse.header_title') }}</h1>
     </div>
@@ -820,7 +847,9 @@ const deficitFiltersActive = computed(() => {
             <SvgIcon name="settings-gear" :width="18" :height="18" />
             <span>{{ t('warehouse.btn_page_config') }}</span>
           </button>
-          <span v-if="!pageConfigForActiveTab" class="btn-caption">{{ t('warehouse.tooltip_page_config_coming_soon') }}</span>
+          <span v-if="!pageConfigForActiveTab" class="btn-caption">{{
+            t('warehouse.tooltip_page_config_coming_soon')
+          }}</span>
         </div>
       </div>
     </div>
@@ -882,8 +911,21 @@ const deficitFiltersActive = computed(() => {
               <span class="deficit-checkbox-text">{{ t('warehouse.filter_deficit_only') }}</span>
             </label>
           </div>
-          <button class="btn btn-primary" data-test="warehouse-stock-save-view-btn" @click="saveView">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <button
+            class="btn btn-primary"
+            data-test="warehouse-stock-save-view-btn"
+            @click="saveView"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
               <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
               <polyline points="17 21 17 13 7 13 7 21" />
               <polyline points="7 3 7 8 15 8" />
@@ -908,7 +950,7 @@ const deficitFiltersActive = computed(() => {
               :model-value="batchesFilters.status ?? ''"
               :options="BATCH_STATUS_OPTIONS"
               data-test="warehouse-batches-status-filter"
-              @update:model-value="(v: string) => batchesFilters.status = (v || undefined) as any"
+              @update:model-value="(v: string) => (batchesFilters.status = (v || undefined) as any)"
             />
           </div>
           <div class="filter-group" data-test="warehouse-filter-supplier">
@@ -917,7 +959,7 @@ const deficitFiltersActive = computed(() => {
               :model-value="batchesFilters.supplierId ?? ''"
               :options="supplierOptions"
               data-test="warehouse-batches-supplier-filter"
-              @update:model-value="(v: string) => batchesFilters.supplierId = v || undefined"
+              @update:model-value="(v: string) => (batchesFilters.supplierId = v || undefined)"
             />
           </div>
           <div class="filter-group" data-test="warehouse-filter-date-from">
@@ -926,7 +968,7 @@ const deficitFiltersActive = computed(() => {
               :model-value="batchesFilters.dateFrom ?? ''"
               :placeholder="t('warehouse.filter_date_from')"
               data-test="warehouse-batches-date-from"
-              @update:model-value="(v: string) => batchesFilters.dateFrom = v || undefined"
+              @update:model-value="(v: string) => (batchesFilters.dateFrom = v || undefined)"
             />
           </div>
           <div class="filter-group" data-test="warehouse-filter-date-to">
@@ -935,7 +977,7 @@ const deficitFiltersActive = computed(() => {
               :model-value="batchesFilters.dateTo ?? ''"
               :placeholder="t('warehouse.filter_date_to')"
               data-test="warehouse-batches-date-to"
-              @update:model-value="(v: string) => batchesFilters.dateTo = v || undefined"
+              @update:model-value="(v: string) => (batchesFilters.dateTo = v || undefined)"
             />
           </div>
           <div class="filter-group" data-test="warehouse-filter-unit">
@@ -944,11 +986,24 @@ const deficitFiltersActive = computed(() => {
               :model-value="batchesFilters.unit ?? ''"
               :options="BATCH_UNIT_OPTIONS"
               data-test="warehouse-batches-unit-filter"
-              @update:model-value="(v: string) => batchesFilters.unit = v || undefined"
+              @update:model-value="(v: string) => (batchesFilters.unit = v || undefined)"
             />
           </div>
-          <button class="btn btn-primary" data-test="warehouse-batches-save-view-btn" @click="saveBatchesView">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <button
+            class="btn btn-primary"
+            data-test="warehouse-batches-save-view-btn"
+            @click="saveBatchesView"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
               <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
               <polyline points="17 21 17 13 7 13 7 21" />
               <polyline points="7 3 7 8 15 8" />
@@ -972,7 +1027,7 @@ const deficitFiltersActive = computed(() => {
               :model-value="offcutFilters.status ?? ''"
               :options="OFFCUT_STATUS_OPTIONS"
               data-test="warehouse-offcuts-status-filter"
-              @update:model-value="(v: string) => offcutFilters.status = (v || undefined) as any"
+              @update:model-value="(v: string) => (offcutFilters.status = (v || undefined) as any)"
             />
           </div>
           <div class="filter-group" data-test="warehouse-filter-unit">
@@ -981,7 +1036,7 @@ const deficitFiltersActive = computed(() => {
               :model-value="offcutFilters.unit ?? ''"
               :options="OFFCUT_UNIT_OPTIONS"
               data-test="warehouse-offcuts-unit-filter"
-              @update:model-value="(v: string) => offcutFilters.unit = v || undefined"
+              @update:model-value="(v: string) => (offcutFilters.unit = v || undefined)"
             />
           </div>
           <div class="filter-group" data-test="warehouse-filter-offcut-type">
@@ -990,7 +1045,9 @@ const deficitFiltersActive = computed(() => {
               :model-value="offcutFilters.offcutType ?? ''"
               :options="OFFCUT_TYPE_OPTIONS"
               data-test="warehouse-offcuts-type-filter"
-              @update:model-value="(v: string) => offcutFilters.offcutType = (v || undefined) as any"
+              @update:model-value="
+                (v: string) => (offcutFilters.offcutType = (v || undefined) as any)
+              "
             />
           </div>
           <div class="filter-group" data-test="warehouse-filter-category">
@@ -1000,7 +1057,7 @@ const deficitFiltersActive = computed(() => {
               :options="categoryFilterOptions"
               :placeholder="t('warehouse.filter_category_all')"
               data-test="warehouse-offcuts-category-filter"
-              @update:model-value="(v: string[]) => offcutFilters.categoryIds = v"
+              @update:model-value="(v: string[]) => (offcutFilters.categoryIds = v)"
             />
           </div>
           <div class="filter-group" data-test="warehouse-filter-batch">
@@ -1009,11 +1066,24 @@ const deficitFiltersActive = computed(() => {
               :model-value="offcutFilters.batchNumber ?? ''"
               :placeholder="t('warehouse.filter_batch_placeholder')"
               data-test="warehouse-offcuts-batch-filter"
-              @update:model-value="(v: string) => offcutFilters.batchNumber = v || undefined"
+              @update:model-value="(v: string) => (offcutFilters.batchNumber = v || undefined)"
             />
           </div>
-          <button class="btn btn-primary" data-test="warehouse-offcuts-save-view-btn" @click="saveOffcutsView">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <button
+            class="btn btn-primary"
+            data-test="warehouse-offcuts-save-view-btn"
+            @click="saveOffcutsView"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
               <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
               <polyline points="17 21 17 13 7 13 7 21" />
               <polyline points="7 3 7 8 15 8" />
@@ -1036,7 +1106,7 @@ const deficitFiltersActive = computed(() => {
               :model-value="movementFilters.type ?? ''"
               :options="MOVEMENT_TYPE_OPTIONS"
               data-test="warehouse-movements-type-filter"
-              @update:model-value="(v: string) => movementFilters.type = (v || undefined) as any"
+              @update:model-value="(v: string) => (movementFilters.type = (v || undefined) as any)"
             />
           </div>
           <div class="filter-group" data-test="warehouse-filter-date-from">
@@ -1045,7 +1115,7 @@ const deficitFiltersActive = computed(() => {
               :model-value="movementFilters.dateFrom ?? ''"
               :placeholder="t('warehouse.filter_date_from')"
               data-test="warehouse-movements-date-from"
-              @update:model-value="(v: string) => movementFilters.dateFrom = v || undefined"
+              @update:model-value="(v: string) => (movementFilters.dateFrom = v || undefined)"
             />
           </div>
           <div class="filter-group" data-test="warehouse-filter-date-to">
@@ -1054,7 +1124,7 @@ const deficitFiltersActive = computed(() => {
               :model-value="movementFilters.dateTo ?? ''"
               :placeholder="t('warehouse.filter_date_to')"
               data-test="warehouse-movements-date-to"
-              @update:model-value="(v: string) => movementFilters.dateTo = v || undefined"
+              @update:model-value="(v: string) => (movementFilters.dateTo = v || undefined)"
             />
           </div>
           <div class="filter-group" data-test="warehouse-filter-unit">
@@ -1063,7 +1133,7 @@ const deficitFiltersActive = computed(() => {
               :model-value="movementFilters.unit ?? ''"
               :options="MOVEMENT_UNIT_OPTIONS"
               data-test="warehouse-movements-unit-filter"
-              @update:model-value="(v: string) => movementFilters.unit = v || undefined"
+              @update:model-value="(v: string) => (movementFilters.unit = v || undefined)"
             />
           </div>
           <div class="filter-group" data-test="warehouse-filter-category">
@@ -1073,7 +1143,7 @@ const deficitFiltersActive = computed(() => {
               :options="categoryFilterOptions"
               :placeholder="t('warehouse.filter_category_all')"
               data-test="warehouse-movements-category-filter"
-              @update:model-value="(v: string[]) => movementFilters.categoryIds = v"
+              @update:model-value="(v: string[]) => (movementFilters.categoryIds = v)"
             />
           </div>
           <div class="filter-group" data-test="warehouse-filter-batch">
@@ -1082,11 +1152,24 @@ const deficitFiltersActive = computed(() => {
               :model-value="movementFilters.batchNumber ?? ''"
               :placeholder="t('warehouse.filter_batch_placeholder')"
               data-test="warehouse-movements-batch-filter"
-              @update:model-value="(v: string) => movementFilters.batchNumber = v || undefined"
+              @update:model-value="(v: string) => (movementFilters.batchNumber = v || undefined)"
             />
           </div>
-          <button class="btn btn-primary" data-test="warehouse-movements-save-view-btn" @click="saveMovementsView">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <button
+            class="btn btn-primary"
+            data-test="warehouse-movements-save-view-btn"
+            @click="saveMovementsView"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
               <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
               <polyline points="17 21 17 13 7 13 7 21" />
               <polyline points="7 3 7 8 15 8" />
@@ -1109,7 +1192,7 @@ const deficitFiltersActive = computed(() => {
               :model-value="deficitFilters.status ?? ''"
               :options="DEFICIT_STATUS_OPTIONS"
               data-test="warehouse-deficit-status-filter"
-              @update:model-value="(v: string) => deficitFilters.status = (v || undefined) as any"
+              @update:model-value="(v: string) => (deficitFilters.status = (v || undefined) as any)"
             />
           </div>
           <div class="filter-group" data-test="warehouse-filter-priority">
@@ -1118,7 +1201,9 @@ const deficitFiltersActive = computed(() => {
               :model-value="deficitFilters.priority ?? ''"
               :options="DEFICIT_PRIORITY_OPTIONS"
               data-test="warehouse-deficit-priority-filter"
-              @update:model-value="(v: string) => deficitFilters.priority = (v || undefined) as any"
+              @update:model-value="
+                (v: string) => (deficitFilters.priority = (v || undefined) as any)
+              "
             />
           </div>
           <div class="filter-group" data-test="warehouse-filter-unit">
@@ -1127,7 +1212,7 @@ const deficitFiltersActive = computed(() => {
               :model-value="deficitFilters.unit ?? ''"
               :options="DEFICIT_UNIT_OPTIONS"
               data-test="warehouse-deficit-unit-filter"
-              @update:model-value="(v: string) => deficitFilters.unit = v || undefined"
+              @update:model-value="(v: string) => (deficitFilters.unit = v || undefined)"
             />
           </div>
           <div class="filter-group" data-test="warehouse-filter-category">
@@ -1137,11 +1222,24 @@ const deficitFiltersActive = computed(() => {
               :options="categoryFilterOptions"
               :placeholder="t('warehouse.filter_category_all')"
               data-test="warehouse-deficit-category-filter"
-              @update:model-value="(v: string[]) => deficitFilters.categoryIds = v"
+              @update:model-value="(v: string[]) => (deficitFilters.categoryIds = v)"
             />
           </div>
-          <button class="btn btn-primary" data-test="warehouse-deficit-save-view-btn" @click="saveDeficitView">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <button
+            class="btn btn-primary"
+            data-test="warehouse-deficit-save-view-btn"
+            @click="saveDeficitView"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
               <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
               <polyline points="17 21 17 13 7 13 7 21" />
               <polyline points="7 3 7 8 15 8" />
@@ -1166,11 +1264,7 @@ const deficitFiltersActive = computed(() => {
         data-test="warehouse-stock-panel"
       >
         <!-- Error state -->
-        <div
-          v-if="stockError"
-          class="error-state"
-          data-test="warehouse-stock-error"
-        >
+        <div v-if="stockError" class="error-state" data-test="warehouse-stock-error">
           <SvgIcon name="alert-triangle" :width="48" :height="48" />
           <p>{{ stockError }}</p>
           <button class="btn btn-primary" @click="loadStock">{{ t('btn.retry') }}</button>
@@ -1183,328 +1277,469 @@ const deficitFiltersActive = computed(() => {
           data-test="warehouse-stock-empty"
         >
           <SvgIcon name="tag" :width="48" :height="48" />
-          <p>{{ stockItems.length > 0 ? t('warehouse.empty_filtered_stock') : t('warehouse.empty_stock') }}</p>
+          <p>
+            {{
+              stockItems.length > 0
+                ? t('warehouse.empty_filtered_stock')
+                : t('warehouse.empty_stock')
+            }}
+          </p>
         </div>
 
         <!-- Table area wrapper: position relative so skeleton can overlay the real table -->
         <div v-if="!stockError && stockItems.length > 0" class="stock-table-area">
-
           <!-- Real table: always rendered when there are items.
                When filteringStock is true, it becomes visibility:hidden + opacity:0
                (keeps layout, correct offsetHeight for syncTableRowHeights).
                The GlassPanel skeleton (wide lines) shows on top via :loading. -->
           <div :class="['stock-table-split', { 'stock-table-hidden': filteringStock }]">
-          <!-- Left: Fixed Product column -->
-          <div class="stock-table-fixed">
-            <table ref="fixedTableEl" class="data-table">
-              <thead>
-                <tr>
-                  <th>
-                    <button class="th-sort-btn" @click="toggleStockSort('name')">
-                      {{ t('warehouse.col_product') }}
-                      <span class="sort-icon-group">
-                        <SvgIcon
-                          name="chevron-up"
-                          :width="16"
-                          :height="16"
-                          class="sort-icon"
-                          :class="{ active: stockFilters.sortBy === 'name' && stockFilters.sortDir === 'asc' }"
-                        />
-                        <SvgIcon
-                          name="chevron-down"
-                          :width="16"
-                          :height="16"
-                          class="sort-icon"
-                          :class="{ active: stockFilters.sortBy === 'name' && stockFilters.sortDir === 'desc' }"
-                        />
-                      </span>
-                    </button>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="item in stockItems"
-                  :key="item.productId"
-                  :class="{ 'row-deficit': item.isDeficit }"
-                  data-test="warehouse-stock-row"
-                >
-                  <td>
-                    <router-link
-                      :to="{ name: 'admin-warehouse-stock-card', params: { id: item.productId } }"
-                      class="name-link"
-                    >
-                      {{ tf(item.productName) }}
-                    </router-link>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <!-- Right: Scrollable remaining columns -->
-          <div class="stock-table-scroll">
-            <table ref="scrollTableEl" class="data-table">
-              <thead>
-                <tr>
-                  <th>
-                    <button class="th-sort-btn" @click="toggleStockSort('totalQuantity')">
-                      <div class="th-content">
-                        {{ t('warehouse.col_total_qty') }}
-                        <span v-tooltip="t('warehouse.col_total_qty_hint')" class="info-hint">
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="10" />
-                            <line x1="12" y1="16" x2="12" y2="12" />
-                            <line x1="12" y1="8" x2="12.01" y2="8" />
-                          </svg>
+            <!-- Left: Fixed Product column -->
+            <div class="stock-table-fixed">
+              <table ref="fixedTableEl" class="data-table">
+                <thead>
+                  <tr>
+                    <th>
+                      <button class="th-sort-btn" @click="toggleStockSort('name')">
+                        {{ t('warehouse.col_product') }}
+                        <span class="sort-icon-group">
+                          <SvgIcon
+                            name="chevron-up"
+                            :width="16"
+                            :height="16"
+                            class="sort-icon"
+                            :class="{
+                              active:
+                                stockFilters.sortBy === 'name' && stockFilters.sortDir === 'asc',
+                            }"
+                          />
+                          <SvgIcon
+                            name="chevron-down"
+                            :width="16"
+                            :height="16"
+                            class="sort-icon"
+                            :class="{
+                              active:
+                                stockFilters.sortBy === 'name' && stockFilters.sortDir === 'desc',
+                            }"
+                          />
                         </span>
-                      </div>
-                      <span class="sort-icon-group">
-                        <SvgIcon
-                          name="chevron-up"
-                          :width="16"
-                          :height="16"
-                          class="sort-icon"
-                          :class="{ active: stockFilters.sortBy === 'totalQuantity' && stockFilters.sortDir === 'asc' }"
-                        />
-                        <SvgIcon
-                          name="chevron-down"
-                          :width="16"
-                          :height="16"
-                          class="sort-icon"
-                          :class="{ active: stockFilters.sortBy === 'totalQuantity' && stockFilters.sortDir === 'desc' }"
-                        />
-                      </span>
-                    </button>
-                  </th>
-                  <th class="hid-768">
-                    <div class="th-content">
-                      {{ t('warehouse.col_reserved') }}
-                      <span v-tooltip="t('warehouse.col_reserved_hint')" class="info-hint">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                          <circle cx="12" cy="12" r="10" />
-                          <line x1="12" y1="16" x2="12" y2="12" />
-                          <line x1="12" y1="8" x2="12.01" y2="8" />
-                        </svg>
-                      </span>
-                    </div>
-                  </th>
-                  <th>
-                    <button class="th-sort-btn" @click="toggleStockSort('availableQuantity')">
-                      <div class="th-content">
-                        {{ t('warehouse.col_available') }}
-                        <span v-tooltip="t('warehouse.col_available_hint')" class="info-hint">
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="10" />
-                            <line x1="12" y1="16" x2="12" y2="12" />
-                            <line x1="12" y1="8" x2="12.01" y2="8" />
-                          </svg>
-                        </span>
-                      </div>
-                      <span class="sort-icon-group">
-                        <SvgIcon
-                          name="chevron-up"
-                          :width="16"
-                          :height="16"
-                          class="sort-icon"
-                          :class="{ active: stockFilters.sortBy === 'availableQuantity' && stockFilters.sortDir === 'asc' }"
-                        />
-                        <SvgIcon
-                          name="chevron-down"
-                          :width="16"
-                          :height="16"
-                          class="sort-icon"
-                          :class="{ active: stockFilters.sortBy === 'availableQuantity' && stockFilters.sortDir === 'desc' }"
-                        />
-                      </span>
-                    </button>
-                  </th>
-                  <th class="hid-480">
-                    <button class="th-sort-btn" @click="toggleStockSort('unit')">
-                      <div class="th-content">
-                        {{ t('warehouse.col_unit') }}
-                        <span v-tooltip="t('warehouse.col_unit_hint')" class="info-hint">
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="10" />
-                            <line x1="12" y1="16" x2="12" y2="12" />
-                            <line x1="12" y1="8" x2="12.01" y2="8" />
-                          </svg>
-                        </span>
-                      </div>
-                      <span class="sort-icon-group">
-                        <SvgIcon
-                          name="chevron-up"
-                          :width="16"
-                          :height="16"
-                          class="sort-icon"
-                          :class="{ active: stockFilters.sortBy === 'unit' && stockFilters.sortDir === 'asc' }"
-                        />
-                        <SvgIcon
-                          name="chevron-down"
-                          :width="16"
-                          :height="16"
-                          class="sort-icon"
-                          :class="{ active: stockFilters.sortBy === 'unit' && stockFilters.sortDir === 'desc' }"
-                        />
-                      </span>
-                    </button>
-                  </th>
-                  <th class="hid-480">
-                    <div class="th-content">
-                      {{ t('warehouse.col_batches') }}
-                      <span v-tooltip="t('warehouse.col_batches_hint')" class="info-hint">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                          <circle cx="12" cy="12" r="10" />
-                          <line x1="12" y1="16" x2="12" y2="12" />
-                          <line x1="12" y1="8" x2="12.01" y2="8" />
-                        </svg>
-                      </span>
-                    </div>
-                  </th>
-                  <th class="hid-600">
-                    <button class="th-sort-btn" @click="toggleStockSort('avgUnitPrice')">
-                      <div class="th-content">
-                        {{ t('warehouse.col_avg_price') }}
-                        <span v-tooltip="t('warehouse.col_avg_price_hint')" class="info-hint">
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="10" />
-                            <line x1="12" y1="16" x2="12" y2="12" />
-                            <line x1="12" y1="8" x2="12.01" y2="8" />
-                          </svg>
-                        </span>
-                      </div>
-                      <span class="sort-icon-group">
-                        <SvgIcon
-                          name="chevron-up"
-                          :width="16"
-                          :height="16"
-                          class="sort-icon"
-                          :class="{ active: stockFilters.sortBy === 'avgUnitPrice' && stockFilters.sortDir === 'asc' }"
-                        />
-                        <SvgIcon
-                          name="chevron-down"
-                          :width="16"
-                          :height="16"
-                          class="sort-icon"
-                          :class="{ active: stockFilters.sortBy === 'avgUnitPrice' && stockFilters.sortDir === 'desc' }"
-                        />
-                      </span>
-                    </button>
-                  </th>
-                  <th class="hid-600">
-                    <button class="th-sort-btn" @click="toggleStockSort('totalValue')">
-                      <div class="th-content">
-                        {{ t('warehouse.col_total_value') }}
-                        <span v-tooltip="t('warehouse.col_total_value_hint')" class="info-hint">
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="10" />
-                            <line x1="12" y1="16" x2="12" y2="12" />
-                            <line x1="12" y1="8" x2="12.01" y2="8" />
-                          </svg>
-                        </span>
-                      </div>
-                      <span class="sort-icon-group">
-                        <SvgIcon
-                          name="chevron-up"
-                          :width="16"
-                          :height="16"
-                          class="sort-icon"
-                          :class="{ active: stockFilters.sortBy === 'totalValue' && stockFilters.sortDir === 'asc' }"
-                        />
-                        <SvgIcon
-                          name="chevron-down"
-                          :width="16"
-                          :height="16"
-                          class="sort-icon"
-                          :class="{ active: stockFilters.sortBy === 'totalValue' && stockFilters.sortDir === 'desc' }"
-                        />
-                      </span>
-                    </button>
-                  </th>
-                  <th>
-                    <button class="th-sort-btn" @click="toggleStockSort('minStock')">
-                      <div class="th-content">
-                        {{ t('warehouse.col_min_stock') }}
-                        <span v-tooltip="t('warehouse.col_min_stock_hint')" class="info-hint">
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="10" />
-                            <line x1="12" y1="16" x2="12" y2="12" />
-                            <line x1="12" y1="8" x2="12.01" y2="8" />
-                          </svg>
-                        </span>
-                      </div>
-                      <span class="sort-icon-group">
-                        <SvgIcon
-                          name="chevron-up"
-                          :width="16"
-                          :height="16"
-                          class="sort-icon"
-                          :class="{ active: stockFilters.sortBy === 'minStock' && stockFilters.sortDir === 'asc' }"
-                        />
-                        <SvgIcon
-                          name="chevron-down"
-                          :width="16"
-                          :height="16"
-                          class="sort-icon"
-                          :class="{ active: stockFilters.sortBy === 'minStock' && stockFilters.sortDir === 'desc' }"
-                        />
-                      </span>
-                    </button>
-                  </th>
-                  <th class="th-actions">{{ t('warehouse.col_actions') }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="item in stockItems"
-                  :key="item.productId"
-                  :class="{ 'row-deficit': item.isDeficit }"
-                  data-test="warehouse-stock-row"
-                >
-                  <td>{{ item.totalQuantity }}</td>
-                  <td class="hid-768">{{ item.reservedQuantity }}</td>
-                  <td>
-                    <span :class="{ 'text-danger': item.availableQuantity <= 0 }">
-                      {{ item.availableQuantity }}
-                    </span>
-                  </td>
-                  <td class="hid-480">{{ t(`warehouse.unit_${item.unit}`) }}</td>
-                  <td class="hid-480">{{ item.batchCount }}</td>
-                  <td class="hid-600">{{ item.avgUnitPrice.toFixed(2) }} €</td>
-                  <td class="hid-600">{{ item.totalValue.toFixed(2) }} €</td>
-                  <td>
-                    <template v-if="item.minStock !== null">
-                      <span style="white-space: nowrap;">
-                        {{ item.minStock }}
-                        <span v-if="item.isDeficit" class="deficit-badge" data-test="deficit-badge">
-                          {{ t('warehouse.deficit_badge') }}
-                        </span>
-                      </span>
-                    </template>
-                    <span v-else class="text-muted">—</span>
-                  </td>
-                  <td>
-                    <div class="row-actions">
+                      </button>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="item in stockItems"
+                    :key="item.productId"
+                    :class="{ 'row-deficit': item.isDeficit }"
+                    data-test="warehouse-stock-row"
+                  >
+                    <td>
                       <router-link
-                        v-tooltip="t('warehouse.open_stock_card')"
                         :to="{ name: 'admin-warehouse-stock-card', params: { id: item.productId } }"
-                        class="action-icon-btn"
-                        data-test="stock-view-btn"
-                        @click.stop
+                        class="name-link"
                       >
-                        <SvgIcon name="external-link" :width="16" :height="16" />
+                        {{ tf(item.productName) }}
                       </router-link>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Right: Scrollable remaining columns -->
+            <div class="stock-table-scroll">
+              <table ref="scrollTableEl" class="data-table">
+                <thead>
+                  <tr>
+                    <th>
+                      <button class="th-sort-btn" @click="toggleStockSort('totalQuantity')">
+                        <div class="th-content">
+                          {{ t('warehouse.col_total_qty') }}
+                          <span v-tooltip="t('warehouse.col_total_qty_hint')" class="info-hint">
+                            <svg
+                              width="10"
+                              height="10"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="3"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                            >
+                              <circle cx="12" cy="12" r="10" />
+                              <line x1="12" y1="16" x2="12" y2="12" />
+                              <line x1="12" y1="8" x2="12.01" y2="8" />
+                            </svg>
+                          </span>
+                        </div>
+                        <span class="sort-icon-group">
+                          <SvgIcon
+                            name="chevron-up"
+                            :width="16"
+                            :height="16"
+                            class="sort-icon"
+                            :class="{
+                              active:
+                                stockFilters.sortBy === 'totalQuantity' &&
+                                stockFilters.sortDir === 'asc',
+                            }"
+                          />
+                          <SvgIcon
+                            name="chevron-down"
+                            :width="16"
+                            :height="16"
+                            class="sort-icon"
+                            :class="{
+                              active:
+                                stockFilters.sortBy === 'totalQuantity' &&
+                                stockFilters.sortDir === 'desc',
+                            }"
+                          />
+                        </span>
+                      </button>
+                    </th>
+                    <th class="hid-768">
+                      <div class="th-content">
+                        {{ t('warehouse.col_reserved') }}
+                        <span v-tooltip="t('warehouse.col_reserved_hint')" class="info-hint">
+                          <svg
+                            width="10"
+                            height="10"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="3"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          >
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="12" y1="16" x2="12" y2="12" />
+                            <line x1="12" y1="8" x2="12.01" y2="8" />
+                          </svg>
+                        </span>
+                      </div>
+                    </th>
+                    <th>
+                      <button class="th-sort-btn" @click="toggleStockSort('availableQuantity')">
+                        <div class="th-content">
+                          {{ t('warehouse.col_available') }}
+                          <span v-tooltip="t('warehouse.col_available_hint')" class="info-hint">
+                            <svg
+                              width="10"
+                              height="10"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="3"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                            >
+                              <circle cx="12" cy="12" r="10" />
+                              <line x1="12" y1="16" x2="12" y2="12" />
+                              <line x1="12" y1="8" x2="12.01" y2="8" />
+                            </svg>
+                          </span>
+                        </div>
+                        <span class="sort-icon-group">
+                          <SvgIcon
+                            name="chevron-up"
+                            :width="16"
+                            :height="16"
+                            class="sort-icon"
+                            :class="{
+                              active:
+                                stockFilters.sortBy === 'availableQuantity' &&
+                                stockFilters.sortDir === 'asc',
+                            }"
+                          />
+                          <SvgIcon
+                            name="chevron-down"
+                            :width="16"
+                            :height="16"
+                            class="sort-icon"
+                            :class="{
+                              active:
+                                stockFilters.sortBy === 'availableQuantity' &&
+                                stockFilters.sortDir === 'desc',
+                            }"
+                          />
+                        </span>
+                      </button>
+                    </th>
+                    <th class="hid-480">
+                      <button class="th-sort-btn" @click="toggleStockSort('unit')">
+                        <div class="th-content">
+                          {{ t('warehouse.col_unit') }}
+                          <span v-tooltip="t('warehouse.col_unit_hint')" class="info-hint">
+                            <svg
+                              width="10"
+                              height="10"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="3"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                            >
+                              <circle cx="12" cy="12" r="10" />
+                              <line x1="12" y1="16" x2="12" y2="12" />
+                              <line x1="12" y1="8" x2="12.01" y2="8" />
+                            </svg>
+                          </span>
+                        </div>
+                        <span class="sort-icon-group">
+                          <SvgIcon
+                            name="chevron-up"
+                            :width="16"
+                            :height="16"
+                            class="sort-icon"
+                            :class="{
+                              active:
+                                stockFilters.sortBy === 'unit' && stockFilters.sortDir === 'asc',
+                            }"
+                          />
+                          <SvgIcon
+                            name="chevron-down"
+                            :width="16"
+                            :height="16"
+                            class="sort-icon"
+                            :class="{
+                              active:
+                                stockFilters.sortBy === 'unit' && stockFilters.sortDir === 'desc',
+                            }"
+                          />
+                        </span>
+                      </button>
+                    </th>
+                    <th class="hid-480">
+                      <div class="th-content">
+                        {{ t('warehouse.col_batches') }}
+                        <span v-tooltip="t('warehouse.col_batches_hint')" class="info-hint">
+                          <svg
+                            width="10"
+                            height="10"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="3"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          >
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="12" y1="16" x2="12" y2="12" />
+                            <line x1="12" y1="8" x2="12.01" y2="8" />
+                          </svg>
+                        </span>
+                      </div>
+                    </th>
+                    <th class="hid-600">
+                      <button class="th-sort-btn" @click="toggleStockSort('avgUnitPrice')">
+                        <div class="th-content">
+                          {{ t('warehouse.col_avg_price') }}
+                          <span v-tooltip="t('warehouse.col_avg_price_hint')" class="info-hint">
+                            <svg
+                              width="10"
+                              height="10"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="3"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                            >
+                              <circle cx="12" cy="12" r="10" />
+                              <line x1="12" y1="16" x2="12" y2="12" />
+                              <line x1="12" y1="8" x2="12.01" y2="8" />
+                            </svg>
+                          </span>
+                        </div>
+                        <span class="sort-icon-group">
+                          <SvgIcon
+                            name="chevron-up"
+                            :width="16"
+                            :height="16"
+                            class="sort-icon"
+                            :class="{
+                              active:
+                                stockFilters.sortBy === 'avgUnitPrice' &&
+                                stockFilters.sortDir === 'asc',
+                            }"
+                          />
+                          <SvgIcon
+                            name="chevron-down"
+                            :width="16"
+                            :height="16"
+                            class="sort-icon"
+                            :class="{
+                              active:
+                                stockFilters.sortBy === 'avgUnitPrice' &&
+                                stockFilters.sortDir === 'desc',
+                            }"
+                          />
+                        </span>
+                      </button>
+                    </th>
+                    <th class="hid-600">
+                      <button class="th-sort-btn" @click="toggleStockSort('totalValue')">
+                        <div class="th-content">
+                          {{ t('warehouse.col_total_value') }}
+                          <span v-tooltip="t('warehouse.col_total_value_hint')" class="info-hint">
+                            <svg
+                              width="10"
+                              height="10"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="3"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                            >
+                              <circle cx="12" cy="12" r="10" />
+                              <line x1="12" y1="16" x2="12" y2="12" />
+                              <line x1="12" y1="8" x2="12.01" y2="8" />
+                            </svg>
+                          </span>
+                        </div>
+                        <span class="sort-icon-group">
+                          <SvgIcon
+                            name="chevron-up"
+                            :width="16"
+                            :height="16"
+                            class="sort-icon"
+                            :class="{
+                              active:
+                                stockFilters.sortBy === 'totalValue' &&
+                                stockFilters.sortDir === 'asc',
+                            }"
+                          />
+                          <SvgIcon
+                            name="chevron-down"
+                            :width="16"
+                            :height="16"
+                            class="sort-icon"
+                            :class="{
+                              active:
+                                stockFilters.sortBy === 'totalValue' &&
+                                stockFilters.sortDir === 'desc',
+                            }"
+                          />
+                        </span>
+                      </button>
+                    </th>
+                    <th>
+                      <button class="th-sort-btn" @click="toggleStockSort('minStock')">
+                        <div class="th-content">
+                          {{ t('warehouse.col_min_stock') }}
+                          <span v-tooltip="t('warehouse.col_min_stock_hint')" class="info-hint">
+                            <svg
+                              width="10"
+                              height="10"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="3"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                            >
+                              <circle cx="12" cy="12" r="10" />
+                              <line x1="12" y1="16" x2="12" y2="12" />
+                              <line x1="12" y1="8" x2="12.01" y2="8" />
+                            </svg>
+                          </span>
+                        </div>
+                        <span class="sort-icon-group">
+                          <SvgIcon
+                            name="chevron-up"
+                            :width="16"
+                            :height="16"
+                            class="sort-icon"
+                            :class="{
+                              active:
+                                stockFilters.sortBy === 'minStock' &&
+                                stockFilters.sortDir === 'asc',
+                            }"
+                          />
+                          <SvgIcon
+                            name="chevron-down"
+                            :width="16"
+                            :height="16"
+                            class="sort-icon"
+                            :class="{
+                              active:
+                                stockFilters.sortBy === 'minStock' &&
+                                stockFilters.sortDir === 'desc',
+                            }"
+                          />
+                        </span>
+                      </button>
+                    </th>
+                    <th class="th-actions">{{ t('warehouse.col_actions') }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="item in stockItems"
+                    :key="item.productId"
+                    :class="{ 'row-deficit': item.isDeficit }"
+                    data-test="warehouse-stock-row"
+                  >
+                    <td>{{ item.totalQuantity }}</td>
+                    <td class="hid-768">{{ item.reservedQuantity }}</td>
+                    <td>
+                      <span :class="{ 'text-danger': item.availableQuantity <= 0 }">
+                        {{ item.availableQuantity }}
+                      </span>
+                    </td>
+                    <td class="hid-480">{{ t(`warehouse.unit_${item.unit}`) }}</td>
+                    <td class="hid-480">{{ item.batchCount }}</td>
+                    <td class="hid-600">{{ item.avgUnitPrice.toFixed(2) }} €</td>
+                    <td class="hid-600">{{ item.totalValue.toFixed(2) }} €</td>
+                    <td>
+                      <template v-if="item.minStock !== null">
+                        <span style="white-space: nowrap">
+                          {{ item.minStock }}
+                          <span
+                            v-if="item.isDeficit"
+                            class="deficit-badge"
+                            data-test="deficit-badge"
+                          >
+                            {{ t('warehouse.deficit_badge') }}
+                          </span>
+                        </span>
+                      </template>
+                      <span v-else class="text-muted">—</span>
+                    </td>
+                    <td>
+                      <div class="row-actions">
+                        <router-link
+                          v-tooltip="t('warehouse.open_stock_card')"
+                          :to="{
+                            name: 'admin-warehouse-stock-card',
+                            params: { id: item.productId },
+                          }"
+                          class="action-icon-btn"
+                          data-test="stock-view-btn"
+                          @click.stop
+                        >
+                          <SvgIcon name="external-link" :width="16" :height="16" />
+                        </router-link>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
-        </div><!-- /.stock-table-area -->
+        <!-- /.stock-table-area -->
 
         <!-- Stock pagination -->
-        <div v-if="stockItems.length > 0" class="pagination-bar" data-test="warehouse-stock-pagination">
+        <div
+          v-if="stockItems.length > 0"
+          class="pagination-bar"
+          data-test="warehouse-stock-pagination"
+        >
           <div class="page-size" data-test="warehouse-stock-page-size">
             <span>{{ t('warehouse.page_size') }}</span>
             <CustomSelect
@@ -1567,11 +1802,7 @@ const deficitFiltersActive = computed(() => {
          ════════════════════════════════════════════════════════════════════════ -->
     <div v-show="activeTab === 'batches'" data-test="warehouse-tab-batches">
       <GlassPanel :loading="batchesLoading" :skeleton-rows="8" data-test="warehouse-batches-panel">
-        <div
-          v-if="batchesError"
-          class="error-state"
-          data-test="warehouse-batches-error"
-        >
+        <div v-if="batchesError" class="error-state" data-test="warehouse-batches-error">
           <SvgIcon name="alert-triangle" :width="48" :height="48" />
           <p>{{ batchesError }}</p>
           <button class="btn btn-primary" @click="load">{{ t('btn.retry') }}</button>
@@ -1599,14 +1830,20 @@ const deficitFiltersActive = computed(() => {
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: batchesSort.sortBy === 'productName' && batchesSort.sortDir === 'asc' }"
+                        :class="{
+                          active:
+                            batchesSort.sortBy === 'productName' && batchesSort.sortDir === 'asc',
+                        }"
                       />
                       <SvgIcon
                         name="chevron-down"
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: batchesSort.sortBy === 'productName' && batchesSort.sortDir === 'desc' }"
+                        :class="{
+                          active:
+                            batchesSort.sortBy === 'productName' && batchesSort.sortDir === 'desc',
+                        }"
                       />
                     </span>
                   </button>
@@ -1616,7 +1853,16 @@ const deficitFiltersActive = computed(() => {
                     <div class="th-content">
                       {{ t('warehouse.col_batch_number') }}
                       <span v-tooltip="t('warehouse.col_batch_number_hint')" class="info-hint">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="3"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
                           <circle cx="12" cy="12" r="10" />
                           <line x1="12" y1="16" x2="12" y2="12" />
                           <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -1629,14 +1875,20 @@ const deficitFiltersActive = computed(() => {
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: batchesSort.sortBy === 'batchNumber' && batchesSort.sortDir === 'asc' }"
+                        :class="{
+                          active:
+                            batchesSort.sortBy === 'batchNumber' && batchesSort.sortDir === 'asc',
+                        }"
                       />
                       <SvgIcon
                         name="chevron-down"
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: batchesSort.sortBy === 'batchNumber' && batchesSort.sortDir === 'desc' }"
+                        :class="{
+                          active:
+                            batchesSort.sortBy === 'batchNumber' && batchesSort.sortDir === 'desc',
+                        }"
                       />
                     </span>
                   </button>
@@ -1646,7 +1898,16 @@ const deficitFiltersActive = computed(() => {
                     <div class="th-content">
                       {{ t('warehouse.col_lot_code') }}
                       <span v-tooltip="t('warehouse.col_lot_code_hint')" class="info-hint">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="3"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
                           <circle cx="12" cy="12" r="10" />
                           <line x1="12" y1="16" x2="12" y2="12" />
                           <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -1659,14 +1920,19 @@ const deficitFiltersActive = computed(() => {
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: batchesSort.sortBy === 'lotCode' && batchesSort.sortDir === 'asc' }"
+                        :class="{
+                          active: batchesSort.sortBy === 'lotCode' && batchesSort.sortDir === 'asc',
+                        }"
                       />
                       <SvgIcon
                         name="chevron-down"
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: batchesSort.sortBy === 'lotCode' && batchesSort.sortDir === 'desc' }"
+                        :class="{
+                          active:
+                            batchesSort.sortBy === 'lotCode' && batchesSort.sortDir === 'desc',
+                        }"
                       />
                     </span>
                   </button>
@@ -1676,7 +1942,16 @@ const deficitFiltersActive = computed(() => {
                     <div class="th-content">
                       {{ t('warehouse.col_quantity') }}
                       <span v-tooltip="t('warehouse.col_quantity_hint')" class="info-hint">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="3"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
                           <circle cx="12" cy="12" r="10" />
                           <line x1="12" y1="16" x2="12" y2="12" />
                           <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -1689,14 +1964,20 @@ const deficitFiltersActive = computed(() => {
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: batchesSort.sortBy === 'quantity' && batchesSort.sortDir === 'asc' }"
+                        :class="{
+                          active:
+                            batchesSort.sortBy === 'quantity' && batchesSort.sortDir === 'asc',
+                        }"
                       />
                       <SvgIcon
                         name="chevron-down"
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: batchesSort.sortBy === 'quantity' && batchesSort.sortDir === 'desc' }"
+                        :class="{
+                          active:
+                            batchesSort.sortBy === 'quantity' && batchesSort.sortDir === 'desc',
+                        }"
                       />
                     </span>
                   </button>
@@ -1706,7 +1987,16 @@ const deficitFiltersActive = computed(() => {
                     <div class="th-content">
                       {{ t('warehouse.col_remaining') }}
                       <span v-tooltip="t('warehouse.col_remaining_hint')" class="info-hint">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="3"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
                           <circle cx="12" cy="12" r="10" />
                           <line x1="12" y1="16" x2="12" y2="12" />
                           <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -1719,14 +2009,22 @@ const deficitFiltersActive = computed(() => {
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: batchesSort.sortBy === 'quantityRemaining' && batchesSort.sortDir === 'asc' }"
+                        :class="{
+                          active:
+                            batchesSort.sortBy === 'quantityRemaining' &&
+                            batchesSort.sortDir === 'asc',
+                        }"
                       />
                       <SvgIcon
                         name="chevron-down"
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: batchesSort.sortBy === 'quantityRemaining' && batchesSort.sortDir === 'desc' }"
+                        :class="{
+                          active:
+                            batchesSort.sortBy === 'quantityRemaining' &&
+                            batchesSort.sortDir === 'desc',
+                        }"
                       />
                     </span>
                   </button>
@@ -1736,7 +2034,16 @@ const deficitFiltersActive = computed(() => {
                     <div class="th-content">
                       {{ t('warehouse.col_unit') }}
                       <span v-tooltip="t('warehouse.col_unit_hint')" class="info-hint">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="3"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
                           <circle cx="12" cy="12" r="10" />
                           <line x1="12" y1="16" x2="12" y2="12" />
                           <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -1749,14 +2056,18 @@ const deficitFiltersActive = computed(() => {
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: batchesSort.sortBy === 'unit' && batchesSort.sortDir === 'asc' }"
+                        :class="{
+                          active: batchesSort.sortBy === 'unit' && batchesSort.sortDir === 'asc',
+                        }"
                       />
                       <SvgIcon
                         name="chevron-down"
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: batchesSort.sortBy === 'unit' && batchesSort.sortDir === 'desc' }"
+                        :class="{
+                          active: batchesSort.sortBy === 'unit' && batchesSort.sortDir === 'desc',
+                        }"
                       />
                     </span>
                   </button>
@@ -1766,7 +2077,16 @@ const deficitFiltersActive = computed(() => {
                     <div class="th-content">
                       {{ t('warehouse.col_unit_price') }}
                       <span v-tooltip="t('warehouse.col_unit_price_hint')" class="info-hint">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="3"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
                           <circle cx="12" cy="12" r="10" />
                           <line x1="12" y1="16" x2="12" y2="12" />
                           <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -1779,14 +2099,20 @@ const deficitFiltersActive = computed(() => {
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: batchesSort.sortBy === 'unitPrice' && batchesSort.sortDir === 'asc' }"
+                        :class="{
+                          active:
+                            batchesSort.sortBy === 'unitPrice' && batchesSort.sortDir === 'asc',
+                        }"
                       />
                       <SvgIcon
                         name="chevron-down"
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: batchesSort.sortBy === 'unitPrice' && batchesSort.sortDir === 'desc' }"
+                        :class="{
+                          active:
+                            batchesSort.sortBy === 'unitPrice' && batchesSort.sortDir === 'desc',
+                        }"
                       />
                     </span>
                   </button>
@@ -1796,7 +2122,16 @@ const deficitFiltersActive = computed(() => {
                     <div class="th-content">
                       {{ t('warehouse.col_received') }}
                       <span v-tooltip="t('warehouse.col_received_hint')" class="info-hint">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="3"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
                           <circle cx="12" cy="12" r="10" />
                           <line x1="12" y1="16" x2="12" y2="12" />
                           <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -1809,14 +2144,20 @@ const deficitFiltersActive = computed(() => {
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: batchesSort.sortBy === 'receivedAt' && batchesSort.sortDir === 'asc' }"
+                        :class="{
+                          active:
+                            batchesSort.sortBy === 'receivedAt' && batchesSort.sortDir === 'asc',
+                        }"
                       />
                       <SvgIcon
                         name="chevron-down"
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: batchesSort.sortBy === 'receivedAt' && batchesSort.sortDir === 'desc' }"
+                        :class="{
+                          active:
+                            batchesSort.sortBy === 'receivedAt' && batchesSort.sortDir === 'desc',
+                        }"
                       />
                     </span>
                   </button>
@@ -1826,7 +2167,16 @@ const deficitFiltersActive = computed(() => {
                     <div class="th-content">
                       {{ t('warehouse.col_status') }}
                       <span v-tooltip="t('warehouse.col_status_hint')" class="info-hint">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="3"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
                           <circle cx="12" cy="12" r="10" />
                           <line x1="12" y1="16" x2="12" y2="12" />
                           <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -1839,14 +2189,18 @@ const deficitFiltersActive = computed(() => {
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: batchesSort.sortBy === 'status' && batchesSort.sortDir === 'asc' }"
+                        :class="{
+                          active: batchesSort.sortBy === 'status' && batchesSort.sortDir === 'asc',
+                        }"
                       />
                       <SvgIcon
                         name="chevron-down"
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: batchesSort.sortBy === 'status' && batchesSort.sortDir === 'desc' }"
+                        :class="{
+                          active: batchesSort.sortBy === 'status' && batchesSort.sortDir === 'desc',
+                        }"
                       />
                     </span>
                   </button>
@@ -1855,11 +2209,7 @@ const deficitFiltersActive = computed(() => {
               </tr>
             </thead>
             <tbody>
-              <tr
-                v-for="batch in batches"
-                :key="batch.id"
-                data-test="warehouse-batch-row"
-              >
+              <tr v-for="batch in batches" :key="batch.id" data-test="warehouse-batch-row">
                 <td>
                   <router-link
                     :to="{ name: 'admin-warehouse-batch', params: { id: batch.id } }"
@@ -1869,7 +2219,9 @@ const deficitFiltersActive = computed(() => {
                   </router-link>
                 </td>
                 <td>{{ batch.batchNumber }}</td>
-                <td><code class="lot-code">{{ batch.lotCode }}</code></td>
+                <td>
+                  <code class="lot-code">{{ batch.lotCode }}</code>
+                </td>
                 <td>{{ batch.quantity }}</td>
                 <td>
                   <span :class="{ 'text-danger': batch.quantityRemaining <= 0 }">
@@ -1911,7 +2263,11 @@ const deficitFiltersActive = computed(() => {
         </div>
 
         <!-- Pagination -->
-        <div v-if="batchesPagination.total.value > 0" class="pagination-bar" data-test="warehouse-batches-pagination">
+        <div
+          v-if="batchesPagination.total.value > 0"
+          class="pagination-bar"
+          data-test="warehouse-batches-pagination"
+        >
           <div class="page-size" data-test="warehouse-batches-page-size">
             <span>{{ t('warehouse.page_size') }}</span>
             <CustomSelect
@@ -1974,11 +2330,7 @@ const deficitFiltersActive = computed(() => {
          ════════════════════════════════════════════════════════════════════════ -->
     <div v-show="activeTab === 'offcuts'" data-test="warehouse-tab-offcuts">
       <GlassPanel :loading="offcutsLoading" :skeleton-rows="8" data-test="warehouse-offcuts-panel">
-        <div
-          v-if="offcutsError"
-          class="error-state"
-          data-test="warehouse-offcuts-error"
-        >
+        <div v-if="offcutsError" class="error-state" data-test="warehouse-offcuts-error">
           <SvgIcon name="alert-triangle" :width="48" :height="48" />
           <p>{{ offcutsError }}</p>
           <button class="btn btn-primary" @click="load">{{ t('btn.retry') }}</button>
@@ -2029,14 +2381,20 @@ const deficitFiltersActive = computed(() => {
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: offcutsSort.sortBy === 'productName' && offcutsSort.sortDir === 'asc' }"
+                        :class="{
+                          active:
+                            offcutsSort.sortBy === 'productName' && offcutsSort.sortDir === 'asc',
+                        }"
                       />
                       <SvgIcon
                         name="chevron-down"
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: offcutsSort.sortBy === 'productName' && offcutsSort.sortDir === 'desc' }"
+                        :class="{
+                          active:
+                            offcutsSort.sortBy === 'productName' && offcutsSort.sortDir === 'desc',
+                        }"
                       />
                     </span>
                   </button>
@@ -2046,7 +2404,16 @@ const deficitFiltersActive = computed(() => {
                     <div class="th-content">
                       {{ t('warehouse.col_type') }}
                       <span v-tooltip="t('warehouse.col_offcut_type_hint')" class="info-hint">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="3"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
                           <circle cx="12" cy="12" r="10" />
                           <line x1="12" y1="16" x2="12" y2="12" />
                           <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -2059,14 +2426,20 @@ const deficitFiltersActive = computed(() => {
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: offcutsSort.sortBy === 'offcutType' && offcutsSort.sortDir === 'asc' }"
+                        :class="{
+                          active:
+                            offcutsSort.sortBy === 'offcutType' && offcutsSort.sortDir === 'asc',
+                        }"
                       />
                       <SvgIcon
                         name="chevron-down"
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: offcutsSort.sortBy === 'offcutType' && offcutsSort.sortDir === 'desc' }"
+                        :class="{
+                          active:
+                            offcutsSort.sortBy === 'offcutType' && offcutsSort.sortDir === 'desc',
+                        }"
                       />
                     </span>
                   </button>
@@ -2076,7 +2449,16 @@ const deficitFiltersActive = computed(() => {
                     <div class="th-content">
                       {{ t('warehouse.col_batch_number') }}
                       <span v-tooltip="t('warehouse.col_batch_number_hint')" class="info-hint">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="3"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
                           <circle cx="12" cy="12" r="10" />
                           <line x1="12" y1="16" x2="12" y2="12" />
                           <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -2089,14 +2471,20 @@ const deficitFiltersActive = computed(() => {
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: offcutsSort.sortBy === 'batchNumber' && offcutsSort.sortDir === 'asc' }"
+                        :class="{
+                          active:
+                            offcutsSort.sortBy === 'batchNumber' && offcutsSort.sortDir === 'asc',
+                        }"
                       />
                       <SvgIcon
                         name="chevron-down"
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: offcutsSort.sortBy === 'batchNumber' && offcutsSort.sortDir === 'desc' }"
+                        :class="{
+                          active:
+                            offcutsSort.sortBy === 'batchNumber' && offcutsSort.sortDir === 'desc',
+                        }"
                       />
                     </span>
                   </button>
@@ -2106,7 +2494,16 @@ const deficitFiltersActive = computed(() => {
                     <div class="th-content">
                       {{ t('warehouse.col_length') }}
                       <span v-tooltip="t('warehouse.col_length_hint')" class="info-hint">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="3"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
                           <circle cx="12" cy="12" r="10" />
                           <line x1="12" y1="16" x2="12" y2="12" />
                           <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -2119,14 +2516,20 @@ const deficitFiltersActive = computed(() => {
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: offcutsSort.sortBy === 'lengthMm' && offcutsSort.sortDir === 'asc' }"
+                        :class="{
+                          active:
+                            offcutsSort.sortBy === 'lengthMm' && offcutsSort.sortDir === 'asc',
+                        }"
                       />
                       <SvgIcon
                         name="chevron-down"
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: offcutsSort.sortBy === 'lengthMm' && offcutsSort.sortDir === 'desc' }"
+                        :class="{
+                          active:
+                            offcutsSort.sortBy === 'lengthMm' && offcutsSort.sortDir === 'desc',
+                        }"
                       />
                     </span>
                   </button>
@@ -2136,7 +2539,16 @@ const deficitFiltersActive = computed(() => {
                     <div class="th-content">
                       {{ t('warehouse.col_weight') }}
                       <span v-tooltip="t('warehouse.col_weight_hint')" class="info-hint">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="3"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
                           <circle cx="12" cy="12" r="10" />
                           <line x1="12" y1="16" x2="12" y2="12" />
                           <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -2149,14 +2561,20 @@ const deficitFiltersActive = computed(() => {
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: offcutsSort.sortBy === 'weightKg' && offcutsSort.sortDir === 'asc' }"
+                        :class="{
+                          active:
+                            offcutsSort.sortBy === 'weightKg' && offcutsSort.sortDir === 'asc',
+                        }"
                       />
                       <SvgIcon
                         name="chevron-down"
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: offcutsSort.sortBy === 'weightKg' && offcutsSort.sortDir === 'desc' }"
+                        :class="{
+                          active:
+                            offcutsSort.sortBy === 'weightKg' && offcutsSort.sortDir === 'desc',
+                        }"
                       />
                     </span>
                   </button>
@@ -2166,7 +2584,16 @@ const deficitFiltersActive = computed(() => {
                     <div class="th-content">
                       {{ t('warehouse.col_quantity') }}
                       <span v-tooltip="t('warehouse.col_quantity_hint')" class="info-hint">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="3"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
                           <circle cx="12" cy="12" r="10" />
                           <line x1="12" y1="16" x2="12" y2="12" />
                           <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -2179,14 +2606,20 @@ const deficitFiltersActive = computed(() => {
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: offcutsSort.sortBy === 'quantity' && offcutsSort.sortDir === 'asc' }"
+                        :class="{
+                          active:
+                            offcutsSort.sortBy === 'quantity' && offcutsSort.sortDir === 'asc',
+                        }"
                       />
                       <SvgIcon
                         name="chevron-down"
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: offcutsSort.sortBy === 'quantity' && offcutsSort.sortDir === 'desc' }"
+                        :class="{
+                          active:
+                            offcutsSort.sortBy === 'quantity' && offcutsSort.sortDir === 'desc',
+                        }"
                       />
                     </span>
                   </button>
@@ -2196,7 +2629,16 @@ const deficitFiltersActive = computed(() => {
                     <div class="th-content">
                       {{ t('warehouse.col_unit') }}
                       <span v-tooltip="t('warehouse.col_unit_hint')" class="info-hint">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="3"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
                           <circle cx="12" cy="12" r="10" />
                           <line x1="12" y1="16" x2="12" y2="12" />
                           <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -2209,14 +2651,18 @@ const deficitFiltersActive = computed(() => {
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: offcutsSort.sortBy === 'unit' && offcutsSort.sortDir === 'asc' }"
+                        :class="{
+                          active: offcutsSort.sortBy === 'unit' && offcutsSort.sortDir === 'asc',
+                        }"
                       />
                       <SvgIcon
                         name="chevron-down"
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: offcutsSort.sortBy === 'unit' && offcutsSort.sortDir === 'desc' }"
+                        :class="{
+                          active: offcutsSort.sortBy === 'unit' && offcutsSort.sortDir === 'desc',
+                        }"
                       />
                     </span>
                   </button>
@@ -2226,7 +2672,16 @@ const deficitFiltersActive = computed(() => {
                     <div class="th-content">
                       {{ t('warehouse.col_location') }}
                       <span v-tooltip="t('warehouse.col_location_hint')" class="info-hint">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="3"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
                           <circle cx="12" cy="12" r="10" />
                           <line x1="12" y1="16" x2="12" y2="12" />
                           <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -2239,14 +2694,20 @@ const deficitFiltersActive = computed(() => {
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: offcutsSort.sortBy === 'location' && offcutsSort.sortDir === 'asc' }"
+                        :class="{
+                          active:
+                            offcutsSort.sortBy === 'location' && offcutsSort.sortDir === 'asc',
+                        }"
                       />
                       <SvgIcon
                         name="chevron-down"
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: offcutsSort.sortBy === 'location' && offcutsSort.sortDir === 'desc' }"
+                        :class="{
+                          active:
+                            offcutsSort.sortBy === 'location' && offcutsSort.sortDir === 'desc',
+                        }"
                       />
                     </span>
                   </button>
@@ -2256,7 +2717,16 @@ const deficitFiltersActive = computed(() => {
                     <div class="th-content">
                       {{ t('warehouse.col_status') }}
                       <span v-tooltip="t('warehouse.col_status_hint')" class="info-hint">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="3"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
                           <circle cx="12" cy="12" r="10" />
                           <line x1="12" y1="16" x2="12" y2="12" />
                           <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -2269,14 +2739,18 @@ const deficitFiltersActive = computed(() => {
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: offcutsSort.sortBy === 'status' && offcutsSort.sortDir === 'asc' }"
+                        :class="{
+                          active: offcutsSort.sortBy === 'status' && offcutsSort.sortDir === 'asc',
+                        }"
                       />
                       <SvgIcon
                         name="chevron-down"
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: offcutsSort.sortBy === 'status' && offcutsSort.sortDir === 'desc' }"
+                        :class="{
+                          active: offcutsSort.sortBy === 'status' && offcutsSort.sortDir === 'desc',
+                        }"
                       />
                     </span>
                   </button>
@@ -2285,11 +2759,7 @@ const deficitFiltersActive = computed(() => {
               </tr>
             </thead>
             <tbody>
-              <tr
-                v-for="offcut in offcuts"
-                :key="offcut.id"
-                data-test="warehouse-offcut-row"
-              >
+              <tr v-for="offcut in offcuts" :key="offcut.id" data-test="warehouse-offcut-row">
                 <td>
                   <router-link
                     :to="{ name: 'admin-warehouse-offcut', params: { id: offcut.id } }"
@@ -2308,14 +2778,18 @@ const deficitFiltersActive = computed(() => {
                   </span>
                   <span v-else class="text-muted">&mdash;</span>
                 </td>
-                <td><code class="lot-code">{{ offcut.batchNumber }}</code></td>
+                <td>
+                  <code class="lot-code">{{ offcut.batchNumber }}</code>
+                </td>
                 <td>
                   <template v-if="offcut.lengthMm">
                     <span class="offcut-dimensions">
-                      {{ t('warehouse.offcut_dimensions', {
-                        length: offcut.lengthMm,
-                        width: offcut.widthMm ?? '—',
-                      }) }}
+                      {{
+                        t('warehouse.offcut_dimensions', {
+                          length: offcut.lengthMm,
+                          width: offcut.widthMm ?? '—',
+                        })
+                      }}
                     </span>
                   </template>
                   <span v-else class="text-muted">—</span>
@@ -2376,7 +2850,11 @@ const deficitFiltersActive = computed(() => {
         </div>
 
         <!-- Pagination -->
-        <div v-if="offcutsPagination.total.value > 0" class="pagination-bar" data-test="warehouse-offcuts-pagination">
+        <div
+          v-if="offcutsPagination.total.value > 0"
+          class="pagination-bar"
+          data-test="warehouse-offcuts-pagination"
+        >
           <div class="page-size" data-test="warehouse-offcuts-page-size">
             <span>{{ t('warehouse.page_size') }}</span>
             <CustomSelect
@@ -2438,12 +2916,12 @@ const deficitFiltersActive = computed(() => {
          TAB: Movements
          ════════════════════════════════════════════════════════════════════════ -->
     <div v-show="activeTab === 'movements'" data-test="warehouse-tab-movements">
-      <GlassPanel :loading="movementsLoading" :skeleton-rows="8" data-test="warehouse-movements-panel">
-        <div
-          v-if="movementsError"
-          class="error-state"
-          data-test="warehouse-movements-error"
-        >
+      <GlassPanel
+        :loading="movementsLoading"
+        :skeleton-rows="8"
+        data-test="warehouse-movements-panel"
+      >
+        <div v-if="movementsError" class="error-state" data-test="warehouse-movements-error">
           <SvgIcon name="alert-triangle" :width="48" :height="48" />
           <p>{{ movementsError }}</p>
           <button class="btn btn-primary" @click="load">{{ t('btn.retry') }}</button>
@@ -2467,7 +2945,16 @@ const deficitFiltersActive = computed(() => {
                     <div class="th-content">
                       {{ t('warehouse.col_date') }}
                       <span v-tooltip="t('warehouse.col_date_hint')" class="info-hint">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="3"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
                           <circle cx="12" cy="12" r="10" />
                           <line x1="12" y1="16" x2="12" y2="12" />
                           <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -2480,14 +2967,20 @@ const deficitFiltersActive = computed(() => {
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: movementsSort.sortBy === 'movedAt' && movementsSort.sortDir === 'asc' }"
+                        :class="{
+                          active:
+                            movementsSort.sortBy === 'movedAt' && movementsSort.sortDir === 'asc',
+                        }"
                       />
                       <SvgIcon
                         name="chevron-down"
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: movementsSort.sortBy === 'movedAt' && movementsSort.sortDir === 'desc' }"
+                        :class="{
+                          active:
+                            movementsSort.sortBy === 'movedAt' && movementsSort.sortDir === 'desc',
+                        }"
                       />
                     </span>
                   </button>
@@ -2497,7 +2990,16 @@ const deficitFiltersActive = computed(() => {
                     <div class="th-content">
                       {{ t('warehouse.col_type') }}
                       <span v-tooltip="t('warehouse.col_type_hint')" class="info-hint">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="3"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
                           <circle cx="12" cy="12" r="10" />
                           <line x1="12" y1="16" x2="12" y2="12" />
                           <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -2510,14 +3012,20 @@ const deficitFiltersActive = computed(() => {
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: movementsSort.sortBy === 'type' && movementsSort.sortDir === 'asc' }"
+                        :class="{
+                          active:
+                            movementsSort.sortBy === 'type' && movementsSort.sortDir === 'asc',
+                        }"
                       />
                       <SvgIcon
                         name="chevron-down"
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: movementsSort.sortBy === 'type' && movementsSort.sortDir === 'desc' }"
+                        :class="{
+                          active:
+                            movementsSort.sortBy === 'type' && movementsSort.sortDir === 'desc',
+                        }"
                       />
                     </span>
                   </button>
@@ -2531,14 +3039,22 @@ const deficitFiltersActive = computed(() => {
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: movementsSort.sortBy === 'productName' && movementsSort.sortDir === 'asc' }"
+                        :class="{
+                          active:
+                            movementsSort.sortBy === 'productName' &&
+                            movementsSort.sortDir === 'asc',
+                        }"
                       />
                       <SvgIcon
                         name="chevron-down"
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: movementsSort.sortBy === 'productName' && movementsSort.sortDir === 'desc' }"
+                        :class="{
+                          active:
+                            movementsSort.sortBy === 'productName' &&
+                            movementsSort.sortDir === 'desc',
+                        }"
                       />
                     </span>
                   </button>
@@ -2548,7 +3064,16 @@ const deficitFiltersActive = computed(() => {
                     <div class="th-content">
                       {{ t('warehouse.col_batch_number') }}
                       <span v-tooltip="t('warehouse.col_batch_number_hint')" class="info-hint">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="3"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
                           <circle cx="12" cy="12" r="10" />
                           <line x1="12" y1="16" x2="12" y2="12" />
                           <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -2561,14 +3086,22 @@ const deficitFiltersActive = computed(() => {
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: movementsSort.sortBy === 'batchNumber' && movementsSort.sortDir === 'asc' }"
+                        :class="{
+                          active:
+                            movementsSort.sortBy === 'batchNumber' &&
+                            movementsSort.sortDir === 'asc',
+                        }"
                       />
                       <SvgIcon
                         name="chevron-down"
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: movementsSort.sortBy === 'batchNumber' && movementsSort.sortDir === 'desc' }"
+                        :class="{
+                          active:
+                            movementsSort.sortBy === 'batchNumber' &&
+                            movementsSort.sortDir === 'desc',
+                        }"
                       />
                     </span>
                   </button>
@@ -2578,7 +3111,16 @@ const deficitFiltersActive = computed(() => {
                     <div class="th-content">
                       {{ t('warehouse.col_quantity') }}
                       <span v-tooltip="t('warehouse.col_quantity_hint')" class="info-hint">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="3"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
                           <circle cx="12" cy="12" r="10" />
                           <line x1="12" y1="16" x2="12" y2="12" />
                           <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -2591,14 +3133,20 @@ const deficitFiltersActive = computed(() => {
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: movementsSort.sortBy === 'quantity' && movementsSort.sortDir === 'asc' }"
+                        :class="{
+                          active:
+                            movementsSort.sortBy === 'quantity' && movementsSort.sortDir === 'asc',
+                        }"
                       />
                       <SvgIcon
                         name="chevron-down"
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: movementsSort.sortBy === 'quantity' && movementsSort.sortDir === 'desc' }"
+                        :class="{
+                          active:
+                            movementsSort.sortBy === 'quantity' && movementsSort.sortDir === 'desc',
+                        }"
                       />
                     </span>
                   </button>
@@ -2608,7 +3156,16 @@ const deficitFiltersActive = computed(() => {
                     <div class="th-content">
                       {{ t('warehouse.col_unit') }}
                       <span v-tooltip="t('warehouse.col_unit_hint')" class="info-hint">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="3"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
                           <circle cx="12" cy="12" r="10" />
                           <line x1="12" y1="16" x2="12" y2="12" />
                           <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -2621,14 +3178,20 @@ const deficitFiltersActive = computed(() => {
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: movementsSort.sortBy === 'unit' && movementsSort.sortDir === 'asc' }"
+                        :class="{
+                          active:
+                            movementsSort.sortBy === 'unit' && movementsSort.sortDir === 'asc',
+                        }"
                       />
                       <SvgIcon
                         name="chevron-down"
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: movementsSort.sortBy === 'unit' && movementsSort.sortDir === 'desc' }"
+                        :class="{
+                          active:
+                            movementsSort.sortBy === 'unit' && movementsSort.sortDir === 'desc',
+                        }"
                       />
                     </span>
                   </button>
@@ -2638,7 +3201,16 @@ const deficitFiltersActive = computed(() => {
                     <div class="th-content">
                       {{ t('warehouse.col_unit_price') }}
                       <span v-tooltip="t('warehouse.col_unit_price_hint')" class="info-hint">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="3"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
                           <circle cx="12" cy="12" r="10" />
                           <line x1="12" y1="16" x2="12" y2="12" />
                           <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -2651,14 +3223,21 @@ const deficitFiltersActive = computed(() => {
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: movementsSort.sortBy === 'unitPrice' && movementsSort.sortDir === 'asc' }"
+                        :class="{
+                          active:
+                            movementsSort.sortBy === 'unitPrice' && movementsSort.sortDir === 'asc',
+                        }"
                       />
                       <SvgIcon
                         name="chevron-down"
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: movementsSort.sortBy === 'unitPrice' && movementsSort.sortDir === 'desc' }"
+                        :class="{
+                          active:
+                            movementsSort.sortBy === 'unitPrice' &&
+                            movementsSort.sortDir === 'desc',
+                        }"
                       />
                     </span>
                   </button>
@@ -2668,7 +3247,16 @@ const deficitFiltersActive = computed(() => {
                     <div class="th-content">
                       {{ t('warehouse.col_total') }}
                       <span v-tooltip="t('warehouse.col_total_hint')" class="info-hint">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="3"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
                           <circle cx="12" cy="12" r="10" />
                           <line x1="12" y1="16" x2="12" y2="12" />
                           <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -2681,14 +3269,21 @@ const deficitFiltersActive = computed(() => {
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: movementsSort.sortBy === 'totalCost' && movementsSort.sortDir === 'asc' }"
+                        :class="{
+                          active:
+                            movementsSort.sortBy === 'totalCost' && movementsSort.sortDir === 'asc',
+                        }"
                       />
                       <SvgIcon
                         name="chevron-down"
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: movementsSort.sortBy === 'totalCost' && movementsSort.sortDir === 'desc' }"
+                        :class="{
+                          active:
+                            movementsSort.sortBy === 'totalCost' &&
+                            movementsSort.sortDir === 'desc',
+                        }"
                       />
                     </span>
                   </button>
@@ -2698,7 +3293,16 @@ const deficitFiltersActive = computed(() => {
                     <div class="th-content">
                       {{ t('warehouse.col_reference') }}
                       <span v-tooltip="t('warehouse.col_reference_hint')" class="info-hint">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="3"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
                           <circle cx="12" cy="12" r="10" />
                           <line x1="12" y1="16" x2="12" y2="12" />
                           <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -2711,14 +3315,22 @@ const deficitFiltersActive = computed(() => {
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: movementsSort.sortBy === 'referenceId' && movementsSort.sortDir === 'asc' }"
+                        :class="{
+                          active:
+                            movementsSort.sortBy === 'referenceId' &&
+                            movementsSort.sortDir === 'asc',
+                        }"
                       />
                       <SvgIcon
                         name="chevron-down"
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: movementsSort.sortBy === 'referenceId' && movementsSort.sortDir === 'desc' }"
+                        :class="{
+                          active:
+                            movementsSort.sortBy === 'referenceId' &&
+                            movementsSort.sortDir === 'desc',
+                        }"
                       />
                     </span>
                   </button>
@@ -2727,11 +3339,7 @@ const deficitFiltersActive = computed(() => {
               </tr>
             </thead>
             <tbody>
-              <tr
-                v-for="mov in movements"
-                :key="mov.id"
-                data-test="warehouse-movement-row"
-              >
+              <tr v-for="mov in movements" :key="mov.id" data-test="warehouse-movement-row">
                 <td>{{ mov.movedAt.slice(0, 10) }}</td>
                 <td>
                   <span class="status-pill" :class="MOVEMENT_TYPE_PILL[mov.type]">
@@ -2746,16 +3354,25 @@ const deficitFiltersActive = computed(() => {
                     {{ tf(mov.productName) }}
                   </router-link>
                 </td>
-                <td><code class="lot-code">{{ mov.batchNumber }}</code></td>
+                <td>
+                  <code class="lot-code">{{ mov.batchNumber }}</code>
+                </td>
                 <td>{{ mov.quantity }}</td>
                 <td>{{ t(`warehouse.unit_${mov.unit}`) }}</td>
                 <td>{{ mov.unitPrice.toFixed(2) }} €</td>
                 <td>{{ (mov.quantity * mov.unitPrice).toFixed(2) }} €</td>
                 <td>
-                  <span v-if="mov.type === 'write-off' && mov.notes" class="badge badge-ref-waste_report">
+                  <span
+                    v-if="mov.type === 'write-off' && mov.notes"
+                    class="badge badge-ref-waste_report"
+                  >
                     {{ mov.notes }}
                   </span>
-                  <span v-else-if="mov.referenceType" class="badge" :class="`badge-ref-${mov.referenceType}`">
+                  <span
+                    v-else-if="mov.referenceType"
+                    class="badge"
+                    :class="`badge-ref-${mov.referenceType}`"
+                  >
                     {{ t(`warehouse.reference_${mov.referenceType}`) }}
                   </span>
                   <span v-else class="text-muted">—</span>
@@ -2779,7 +3396,11 @@ const deficitFiltersActive = computed(() => {
         </div>
 
         <!-- Pagination -->
-        <div v-if="movementsPagination.total.value > 0" class="pagination-bar" data-test="warehouse-movements-pagination">
+        <div
+          v-if="movementsPagination.total.value > 0"
+          class="pagination-bar"
+          data-test="warehouse-movements-pagination"
+        >
           <div class="page-size" data-test="warehouse-movements-page-size">
             <span>{{ t('warehouse.page_size') }}</span>
             <CustomSelect
@@ -2842,11 +3463,7 @@ const deficitFiltersActive = computed(() => {
          ════════════════════════════════════════════════════════════════════════ -->
     <div v-show="activeTab === 'deficit'" data-test="warehouse-tab-deficit">
       <GlassPanel :loading="deficitLoading" :skeleton-rows="8" data-test="warehouse-deficit-panel">
-        <div
-          v-if="deficitError"
-          class="error-state"
-          data-test="warehouse-deficit-error"
-        >
+        <div v-if="deficitError" class="error-state" data-test="warehouse-deficit-error">
           <SvgIcon name="alert-triangle" :width="48" :height="48" />
           <p>{{ deficitError }}</p>
           <button class="btn btn-primary" @click="load">{{ t('btn.retry') }}</button>
@@ -2887,14 +3504,20 @@ const deficitFiltersActive = computed(() => {
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: deficitSort.sortBy === 'productName' && deficitSort.sortDir === 'asc' }"
+                        :class="{
+                          active:
+                            deficitSort.sortBy === 'productName' && deficitSort.sortDir === 'asc',
+                        }"
                       />
                       <SvgIcon
                         name="chevron-down"
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: deficitSort.sortBy === 'productName' && deficitSort.sortDir === 'desc' }"
+                        :class="{
+                          active:
+                            deficitSort.sortBy === 'productName' && deficitSort.sortDir === 'desc',
+                        }"
                       />
                     </span>
                   </button>
@@ -2904,7 +3527,16 @@ const deficitFiltersActive = computed(() => {
                     <div class="th-content">
                       {{ t('warehouse.col_current_stock') }}
                       <span v-tooltip="t('warehouse.col_current_stock_hint')" class="info-hint">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="3"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
                           <circle cx="12" cy="12" r="10" />
                           <line x1="12" y1="16" x2="12" y2="12" />
                           <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -2917,14 +3549,20 @@ const deficitFiltersActive = computed(() => {
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: deficitSort.sortBy === 'currentStock' && deficitSort.sortDir === 'asc' }"
+                        :class="{
+                          active:
+                            deficitSort.sortBy === 'currentStock' && deficitSort.sortDir === 'asc',
+                        }"
                       />
                       <SvgIcon
                         name="chevron-down"
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: deficitSort.sortBy === 'currentStock' && deficitSort.sortDir === 'desc' }"
+                        :class="{
+                          active:
+                            deficitSort.sortBy === 'currentStock' && deficitSort.sortDir === 'desc',
+                        }"
                       />
                     </span>
                   </button>
@@ -2934,7 +3572,16 @@ const deficitFiltersActive = computed(() => {
                     <div class="th-content">
                       {{ t('warehouse.col_min_required') }}
                       <span v-tooltip="t('warehouse.col_min_required_hint')" class="info-hint">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="3"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
                           <circle cx="12" cy="12" r="10" />
                           <line x1="12" y1="16" x2="12" y2="12" />
                           <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -2947,14 +3594,20 @@ const deficitFiltersActive = computed(() => {
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: deficitSort.sortBy === 'minRequired' && deficitSort.sortDir === 'asc' }"
+                        :class="{
+                          active:
+                            deficitSort.sortBy === 'minRequired' && deficitSort.sortDir === 'asc',
+                        }"
                       />
                       <SvgIcon
                         name="chevron-down"
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: deficitSort.sortBy === 'minRequired' && deficitSort.sortDir === 'desc' }"
+                        :class="{
+                          active:
+                            deficitSort.sortBy === 'minRequired' && deficitSort.sortDir === 'desc',
+                        }"
                       />
                     </span>
                   </button>
@@ -2964,7 +3617,16 @@ const deficitFiltersActive = computed(() => {
                     <div class="th-content">
                       {{ t('warehouse.col_deficit_amount') }}
                       <span v-tooltip="t('warehouse.col_deficit_amount_hint')" class="info-hint">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="3"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
                           <circle cx="12" cy="12" r="10" />
                           <line x1="12" y1="16" x2="12" y2="12" />
                           <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -2977,14 +3639,21 @@ const deficitFiltersActive = computed(() => {
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: deficitSort.sortBy === 'deficitAmount' && deficitSort.sortDir === 'asc' }"
+                        :class="{
+                          active:
+                            deficitSort.sortBy === 'deficitAmount' && deficitSort.sortDir === 'asc',
+                        }"
                       />
                       <SvgIcon
                         name="chevron-down"
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: deficitSort.sortBy === 'deficitAmount' && deficitSort.sortDir === 'desc' }"
+                        :class="{
+                          active:
+                            deficitSort.sortBy === 'deficitAmount' &&
+                            deficitSort.sortDir === 'desc',
+                        }"
                       />
                     </span>
                   </button>
@@ -2994,7 +3663,16 @@ const deficitFiltersActive = computed(() => {
                     <div class="th-content">
                       {{ t('warehouse.col_unit') }}
                       <span v-tooltip="t('warehouse.col_unit_hint')" class="info-hint">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="3"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
                           <circle cx="12" cy="12" r="10" />
                           <line x1="12" y1="16" x2="12" y2="12" />
                           <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -3007,14 +3685,18 @@ const deficitFiltersActive = computed(() => {
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: deficitSort.sortBy === 'unit' && deficitSort.sortDir === 'asc' }"
+                        :class="{
+                          active: deficitSort.sortBy === 'unit' && deficitSort.sortDir === 'asc',
+                        }"
                       />
                       <SvgIcon
                         name="chevron-down"
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: deficitSort.sortBy === 'unit' && deficitSort.sortDir === 'desc' }"
+                        :class="{
+                          active: deficitSort.sortBy === 'unit' && deficitSort.sortDir === 'desc',
+                        }"
                       />
                     </span>
                   </button>
@@ -3024,7 +3706,16 @@ const deficitFiltersActive = computed(() => {
                     <div class="th-content">
                       {{ t('warehouse.col_priority') }}
                       <span v-tooltip="t('warehouse.col_priority_hint')" class="info-hint">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="3"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
                           <circle cx="12" cy="12" r="10" />
                           <line x1="12" y1="16" x2="12" y2="12" />
                           <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -3037,14 +3728,20 @@ const deficitFiltersActive = computed(() => {
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: deficitSort.sortBy === 'priority' && deficitSort.sortDir === 'asc' }"
+                        :class="{
+                          active:
+                            deficitSort.sortBy === 'priority' && deficitSort.sortDir === 'asc',
+                        }"
                       />
                       <SvgIcon
                         name="chevron-down"
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: deficitSort.sortBy === 'priority' && deficitSort.sortDir === 'desc' }"
+                        :class="{
+                          active:
+                            deficitSort.sortBy === 'priority' && deficitSort.sortDir === 'desc',
+                        }"
                       />
                     </span>
                   </button>
@@ -3054,7 +3751,16 @@ const deficitFiltersActive = computed(() => {
                     <div class="th-content">
                       {{ t('warehouse.col_status') }}
                       <span v-tooltip="t('warehouse.col_status_hint')" class="info-hint">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="3"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
                           <circle cx="12" cy="12" r="10" />
                           <line x1="12" y1="16" x2="12" y2="12" />
                           <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -3067,14 +3773,18 @@ const deficitFiltersActive = computed(() => {
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: deficitSort.sortBy === 'status' && deficitSort.sortDir === 'asc' }"
+                        :class="{
+                          active: deficitSort.sortBy === 'status' && deficitSort.sortDir === 'asc',
+                        }"
                       />
                       <SvgIcon
                         name="chevron-down"
                         :width="16"
                         :height="16"
                         class="sort-icon"
-                        :class="{ active: deficitSort.sortBy === 'status' && deficitSort.sortDir === 'desc' }"
+                        :class="{
+                          active: deficitSort.sortBy === 'status' && deficitSort.sortDir === 'desc',
+                        }"
                       />
                     </span>
                   </button>
@@ -3176,7 +3886,11 @@ const deficitFiltersActive = computed(() => {
         </div>
 
         <!-- Pagination -->
-        <div v-if="deficitPagination.total.value > 0" class="pagination-bar" data-test="warehouse-deficit-pagination">
+        <div
+          v-if="deficitPagination.total.value > 0"
+          class="pagination-bar"
+          data-test="warehouse-deficit-pagination"
+        >
           <div class="page-size" data-test="warehouse-deficit-page-size">
             <span>{{ t('warehouse.page_size') }}</span>
             <CustomSelect
@@ -3245,18 +3959,10 @@ const deficitFiltersActive = computed(() => {
     >
       <p>{{ t('warehouse.delete_confirm', { name: deletingItem?.name ?? '' }) }}</p>
       <template #footer>
-        <button
-          type="button"
-          class="btn btn-secondary"
-          @click="showDeleteModal = false"
-        >
+        <button type="button" class="btn btn-secondary" @click="showDeleteModal = false">
           {{ t('btn.cancel') }}
         </button>
-        <button
-          type="button"
-          class="btn btn-danger"
-          @click="handleDelete"
-        >
+        <button type="button" class="btn btn-danger" @click="handleDelete">
           {{ t('btn.delete') }}
         </button>
       </template>

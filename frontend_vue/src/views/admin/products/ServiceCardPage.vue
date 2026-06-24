@@ -18,18 +18,8 @@ const route = useRoute()
 
 const id = route.params.id as string
 
-const {
-  service,
-  loading,
-  saving,
-  error,
-  form,
-  isAnythingDirty,
-  load,
-  save,
-  discard,
-  tf,
-} = useServiceCard(id)
+const { service, loading, saving, error, form, isAnythingDirty, load, save, discard, tf } =
+  useServiceCard(id)
 
 const formName = computed({
   get: () => (form.value.name ? tf(form.value.name) : ''),
@@ -46,7 +36,7 @@ const formDescription = computed({
 })
 
 useHead({
-  title: () => service.value?.name ? tf(service.value.name) : t('services.title'),
+  title: () => (service.value?.name ? tf(service.value.name) : t('services.title')),
   description: () => t('services.title'),
 })
 

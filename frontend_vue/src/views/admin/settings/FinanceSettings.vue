@@ -11,7 +11,8 @@ const { t } = useI18n()
 const { tf } = useTranslatedField()
 
 const settings = inject<AppSettings>('settings')!
-const updateConstants = inject<(patch: Partial<AppSettings['constants']>) => void>('updateConstants')!
+const updateConstants =
+  inject<(patch: Partial<AppSettings['constants']>) => void>('updateConstants')!
 const removeCurrency = inject<(id: string) => void>('removeCurrency')!
 const updateCurrency = inject<(id: string, patch: Partial<Currency>) => void>('updateCurrency')!
 const handleSetDefaultCurrency = inject<(id: string) => void>('handleSetDefaultCurrency')!
@@ -47,7 +48,9 @@ const handleRateInput = (id: string, event: Event) => {
           type="number"
           step="0.1"
           data-test="settings-finance-default-margin"
-          @input="updateConstants({ defaultMargin: Number(($event.target as HTMLInputElement).value) })"
+          @input="
+            updateConstants({ defaultMargin: Number(($event.target as HTMLInputElement).value) })
+          "
         />
       </InputGroup>
 
@@ -58,7 +61,11 @@ const handleRateInput = (id: string, event: Event) => {
           type="number"
           step="0.1"
           data-test="settings-finance-default-discount"
-          @input="updateConstants({ defaultDiscountPercent: Number(($event.target as HTMLInputElement).value) })"
+          @input="
+            updateConstants({
+              defaultDiscountPercent: Number(($event.target as HTMLInputElement).value),
+            })
+          "
         />
       </InputGroup>
     </div>
@@ -89,7 +96,9 @@ const handleRateInput = (id: string, event: Event) => {
           </thead>
           <tbody>
             <tr v-for="cur in settings.currencies" :key="cur.id">
-              <td><strong>{{ cur.code }}</strong></td>
+              <td>
+                <strong>{{ cur.code }}</strong>
+              </td>
               <td>{{ tf(cur.name) }}</td>
               <td>
                 <input
@@ -166,7 +175,7 @@ const handleRateInput = (id: string, event: Event) => {
 .currency-empty {
   padding: 24px;
   text-align: center;
-  color: var(--text-muted, #6B7280);
+  color: var(--text-muted, #6b7280);
   font-size: 0.875rem;
 }
 

@@ -80,7 +80,11 @@ load()
               <td>{{ tf(worker.name) }}</td>
               <td class="hid-320">{{ worker.orders }}</td>
               <td>{{ tf(worker.avgTime) }}</td>
-              <td><span :class="['status-pill', 'pill-' + worker.errorType]">{{ worker.errors }}</span></td>
+              <td>
+                <span :class="['status-pill', 'pill-' + worker.errorType]">{{
+                  worker.errors
+                }}</span>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -102,7 +106,17 @@ load()
         <div class="bar-track">
           <div
             class="bar-fill"
-            :style="{ width: rev.percentage + '%', background: rev.color === 'green' ? 'linear-gradient(90deg, #52c41a, #73d13d)' : rev.color === 'blue' ? 'linear-gradient(90deg, #1890ff, #40a9ff)' : rev.color === 'yellow' ? 'linear-gradient(90deg, #faad14, #ffc53d)' : 'linear-gradient(90deg, #ff4d4f, #ff7875)' }"
+            :style="{
+              width: rev.percentage + '%',
+              background:
+                rev.color === 'green'
+                  ? 'linear-gradient(90deg, #52c41a, #73d13d)'
+                  : rev.color === 'blue'
+                    ? 'linear-gradient(90deg, #1890ff, #40a9ff)'
+                    : rev.color === 'yellow'
+                      ? 'linear-gradient(90deg, #faad14, #ffc53d)'
+                      : 'linear-gradient(90deg, #ff4d4f, #ff7875)',
+            }"
           ></div>
         </div>
         <span class="bar-val">{{ rev.value.toLocaleString() }} €</span>

@@ -69,11 +69,14 @@ async function confirmDelete() {
 async function handleCreate() {
   if (!newCatName.value.trim()) return
   try {
-    await createCategory({
-      name: newCatName.value.trim(),
-      parentId: newCatParentId.value || null,
-      description: newCatDescription.value.trim() || null,
-    }, locale.value)
+    await createCategory(
+      {
+        name: newCatName.value.trim(),
+        parentId: newCatParentId.value || null,
+        description: newCatDescription.value.trim() || null,
+      },
+      locale.value,
+    )
     showCreateModal.value = false
     newCatName.value = ''
     newCatParentId.value = ''
@@ -95,7 +98,11 @@ async function handleCreate() {
     />
     <div class="categories-header" data-test="categories-header">
       <h1 class="page-title">{{ t('categories.header_title') }}</h1>
-      <button class="btn btn-primary" data-test="categories-create-btn" @click="showCreateModal = true">
+      <button
+        class="btn btn-primary"
+        data-test="categories-create-btn"
+        @click="showCreateModal = true"
+      >
         <SvgIcon name="plus-add" :width="18" :height="18" stroke-width="2" />
         <span>{{ t('categories.btn_create') }}</span>
       </button>
@@ -136,11 +143,7 @@ async function handleCreate() {
               </tr>
             </thead>
             <tbody>
-              <tr
-                v-for="item in items"
-                :key="item.id"
-                data-test="categories-row"
-              >
+              <tr v-for="item in items" :key="item.id" data-test="categories-row">
                 <td>
                   <div
                     class="categories-level-indent"
@@ -230,7 +233,9 @@ async function handleCreate() {
                       </button>
                     </div>
                     <div class="pagination-info">
-                      <span>{{ pagination.showingFrom.value }}-{{ pagination.showingTo.value }}</span>
+                      <span
+                        >{{ pagination.showingFrom.value }}-{{ pagination.showingTo.value }}</span
+                      >
                       <span>&nbsp;{{ t('categories.of') }}&nbsp;</span>
                       <span>{{ pagination.total.value }}</span>
                     </div>
@@ -250,12 +255,7 @@ async function handleCreate() {
       data-test="modal-create-category"
     >
       <InputGroup :label="t('categories.field_name')">
-        <input
-          v-model="newCatName"
-          type="text"
-          class="glass-input"
-          data-test="create-cat-name"
-        />
+        <input v-model="newCatName" type="text" class="glass-input" data-test="create-cat-name" />
       </InputGroup>
       <InputGroup :label="t('categories.field_parent')">
         <CustomSelect

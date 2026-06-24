@@ -23,7 +23,8 @@ useHead({
   description: () => t('notifications.page_title'),
 })
 
-const { items, loading, error, filters, pagination, load, markAsRead, markAllAsRead } = useNotifications()
+const { items, loading, error, filters, pagination, load, markAsRead, markAllAsRead } =
+  useNotifications()
 
 // ─── Type filter options ───
 const TYPE_OPTIONS = computed(() => [
@@ -63,7 +64,9 @@ const searchInput = ref('')
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 watch(searchInput, (v) => {
   if (searchTimer) clearTimeout(searchTimer)
-  searchTimer = setTimeout(() => { filters.search = v }, 300)
+  searchTimer = setTimeout(() => {
+    filters.search = v
+  }, 300)
 })
 
 // ─── Pagination ───
@@ -141,7 +144,11 @@ onMounted(() => {
       <div class="filters-bar-content">
         <div class="filter-group" data-test="notifications-filter-search">
           <label class="field-label">{{ t('notifications.col_message') }}</label>
-          <SearchInput v-model="searchInput" :placeholder="t('notifications.col_message')" data-test="notifications-search" />
+          <SearchInput
+            v-model="searchInput"
+            :placeholder="t('notifications.col_message')"
+            data-test="notifications-search"
+          />
         </div>
         <div class="filter-group" data-test="notifications-filter-type">
           <label class="field-label">{{ t('notifications.filter_type') }}</label>
@@ -161,7 +168,11 @@ onMounted(() => {
         <button class="btn btn-primary" @click="load">{{ t('orders.btn_retry') }}</button>
       </div>
 
-      <div v-else-if="!loading && items.length === 0" class="empty-state" data-test="notifications-empty">
+      <div
+        v-else-if="!loading && items.length === 0"
+        class="empty-state"
+        data-test="notifications-empty"
+      >
         <SvgIcon name="bell-notification" :width="48" :height="48" />
         <p>{{ t('notifications.empty') }}</p>
       </div>
@@ -187,14 +198,18 @@ onMounted(() => {
                       :width="16"
                       :height="16"
                       class="sort-icon"
-                      :class="{ active: filters.sortBy === 'createdAt' && filters.sortDir === 'asc' }"
+                      :class="{
+                        active: filters.sortBy === 'createdAt' && filters.sortDir === 'asc',
+                      }"
                     />
                     <SvgIcon
                       name="chevron-down"
                       :width="16"
                       :height="16"
                       class="sort-icon"
-                      :class="{ active: filters.sortBy === 'createdAt' && filters.sortDir === 'desc' }"
+                      :class="{
+                        active: filters.sortBy === 'createdAt' && filters.sortDir === 'desc',
+                      }"
                     />
                   </span>
                 </button>
@@ -218,7 +233,10 @@ onMounted(() => {
                 </div>
               </td>
               <td>
-                <span class="notif-message">{{ notification.message[locale as keyof typeof notification.message] || notification.message.en }}</span>
+                <span class="notif-message">{{
+                  notification.message[locale as keyof typeof notification.message] ||
+                  notification.message.en
+                }}</span>
               </td>
               <td class="notif-date">{{ formatDate(notification.createdAt) }}</td>
               <td>

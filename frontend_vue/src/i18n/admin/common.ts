@@ -51,4 +51,4 @@ export const adminCommon = {
       max: 'Maksimali reikšmė {max}',
     },
   },
-};
+}

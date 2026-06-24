@@ -30,7 +30,8 @@ export const adminCategories = {
       field_supplier: 'Поставщик',
       modal_add_supplier: 'Добавить поставщика',
       modal_remove_supplier: 'Удалить поставщика',
-      confirm_remove_supplier: 'Удалить этого поставщика из категории? Изменение применится после сохранения.',
+      confirm_remove_supplier:
+        'Удалить этого поставщика из категории? Изменение применится после сохранения.',
       field_name: 'Название категории',
       field_parent: 'Родительская категория',
       field_parent_none: 'Без родителя',
@@ -93,7 +94,8 @@ export const adminCategories = {
       field_supplier: 'Supplier',
       modal_add_supplier: 'Add supplier',
       modal_remove_supplier: 'Remove supplier',
-      confirm_remove_supplier: 'Remove this supplier from the category? The change will apply after saving.',
+      confirm_remove_supplier:
+        'Remove this supplier from the category? The change will apply after saving.',
       field_name: 'Category name',
       field_parent: 'Parent category',
       field_parent_none: 'No parent',
@@ -156,7 +158,8 @@ export const adminCategories = {
       field_supplier: 'Tiekėjas',
       modal_add_supplier: 'Pridėti tiekėją',
       modal_remove_supplier: 'Pašalinti tiekėją',
-      confirm_remove_supplier: 'Pašalinti šį tiekėją iš kategorijos? Pakeitimas bus pritaikytas išsaugojus.',
+      confirm_remove_supplier:
+        'Pašalinti šį tiekėją iš kategorijos? Pakeitimas bus pritaikytas išsaugojus.',
       field_name: 'Kategorijos pavadinimas',
       field_parent: 'Tėvinė kategorija',
       field_parent_none: 'Be tėvinės',

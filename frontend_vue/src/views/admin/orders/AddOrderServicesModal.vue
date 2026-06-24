@@ -187,7 +187,11 @@ function onCancel() {
     :title="t('orders.add_service_modal_title')"
     size="large"
     data-test="add-order-services-modal"
-    @update:model-value="(v: boolean) => { if (!v) emit('close') }"
+    @update:model-value="
+      (v: boolean) => {
+        if (!v) emit('close')
+      }
+    "
   >
     <div class="modal-form" data-test="add-order-services-form">
       <div class="add-items-section">
@@ -239,7 +243,9 @@ function onCancel() {
                 </td>
                 <td class="col-service-name">{{ tf(s.name) }}</td>
                 <td class="col-unit-cell">{{ displayUnit(s.priceUnit) }}</td>
-                <td class="col-price-cell">{{ s.sellingPrice != null ? s.sellingPrice.toFixed(2) + ' EUR' : '—' }}</td>
+                <td class="col-price-cell">
+                  {{ s.sellingPrice != null ? s.sellingPrice.toFixed(2) + ' EUR' : '—' }}
+                </td>
               </tr>
             </tbody>
             <tfoot v-if="filteredServices.length > 0">
@@ -315,7 +321,12 @@ function onCancel() {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="item in selectedItems" :key="item.serviceId" class="selected-row" data-test="add-services-selected-row">
+              <tr
+                v-for="item in selectedItems"
+                :key="item.serviceId"
+                class="selected-row"
+                data-test="add-services-selected-row"
+              >
                 <td class="col-service-name">{{ item.serviceName }}</td>
                 <td class="col-qty-cell">
                   <input

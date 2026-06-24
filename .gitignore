@@ -32,3 +32,18 @@ playwright/.cache/
 
 demo/
 xlx tables/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+
+# Uploads (runtime data)
+backend/uploads/
+
+# Generated typecheck
+frontend_vue/typecheck_result.txt
+typecheck_errors.txt

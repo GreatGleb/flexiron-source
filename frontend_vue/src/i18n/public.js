@@ -100,14 +100,16 @@ export const publicRu = {
     errorRequired: 'Пожалуйста, заполните все обязательные поля.',
     errorFailed: 'Ошибка регистрации. Попробуйте позже.',
     validation: {
-      vat_code: 'Неверный формат VAT. Ожидается: XX0000000000 (код страны из 2 букв, затем цифры/буквы)',
+      vat_code:
+        'Неверный формат VAT. Ожидается: XX0000000000 (код страны из 2 букв, затем цифры/буквы)',
       email: 'Пользователь с таким email уже существует',
       email_format: 'Введите корректный email-адрес',
       password: 'Пароль должен содержать минимум 8 символов',
       required: 'Поле обязательно для заполнения',
     },
     secretLinkTitle: 'Ваша секретная ссылка для входа',
-    secretLinkDesc: 'Сохраните эту ссылку в надёжном месте. Только по этой ссылке вы сможете перейти на страницу входа — ваш email будет заполнен автоматически.',
+    secretLinkDesc:
+      'Сохраните эту ссылку в надёжном месте. Только по этой ссылке вы сможете перейти на страницу входа — ваш email будет заполнен автоматически.',
     secretLinkWarning: '⚠ Никому не передавайте эту ссылку.',
     copy: 'Скопировать',
     copied: 'Скопировано!',
@@ -124,7 +126,8 @@ export const publicRu = {
     verifying: 'Проверка ссылки...',
     missingToken: 'Отсутствует токен для входа.',
     errorTitle: 'Срок действия ссылки истёк',
-    invalidLink: 'Эта ссылка устарела или недействительна. Пожалуйста, запросите новую ссылку в службе поддержки, если вы не знаете, как войти в свой аккаунт.',
+    invalidLink:
+      'Эта ссылка устарела или недействительна. Пожалуйста, запросите новую ссылку в службе поддержки, если вы не знаете, как войти в свой аккаунт.',
     contactSupport: 'Связаться с поддержкой',
     backHome: 'На главную',
   },
@@ -254,7 +257,10 @@ export const publicEn = {
     backBtn: 'Back to Home',
   },
   reg: {
-    seo: { title: 'Flexiron — Registration', description: 'Create an account and start your free 14-day trial.' },
+    seo: {
+      title: 'Flexiron — Registration',
+      description: 'Create an account and start your free 14-day trial.',
+    },
     title: 'Create an Account',
     trial: '14-day basic trial will be available to you',
     contactsTitle: 'Contact Information',
@@ -277,14 +283,16 @@ export const publicEn = {
     errorRequired: 'Please fill in all required fields.',
     errorFailed: 'Registration failed. Please try again later.',
     validation: {
-      vat_code: 'Invalid VAT format. Expected: XX0000000000 (2-letter country code, then digits/letters)',
+      vat_code:
+        'Invalid VAT format. Expected: XX0000000000 (2-letter country code, then digits/letters)',
       email: 'A user with this email already exists',
       email_format: 'Please enter a valid email address',
       password: 'Password must be at least 8 characters',
       required: 'This field is required',
     },
     secretLinkTitle: 'Your Secret Login Link',
-    secretLinkDesc: 'Save this link in a safe place. Only via this link can you access the login page — your email will be filled in automatically.',
+    secretLinkDesc:
+      'Save this link in a safe place. Only via this link can you access the login page — your email will be filled in automatically.',
     secretLinkWarning: '⚠ Do not share this link with anyone.',
     copy: 'Copy',
     copied: 'Copied!',
@@ -301,7 +309,8 @@ export const publicEn = {
     verifying: 'Verifying link...',
     missingToken: 'Missing login token.',
     errorTitle: 'Link has expired',
-    invalidLink: 'This link has expired or is no longer valid. Please request a new one from our support team if you don\'t know how to log into your account.',
+    invalidLink:
+      "This link has expired or is no longer valid. Please request a new one from our support team if you don't know how to log into your account.",
     contactSupport: 'Contact Support',
     backHome: 'Back to Home',
   },
@@ -328,7 +337,10 @@ export const publicEn = {
     btnHome: 'Back to Home',
   },
   about: {
-    seo: { title: 'Flexiron — About Platform', description: 'Learn more about the Flexiron features.' },
+    seo: {
+      title: 'Flexiron — About Platform',
+      description: 'Learn more about the Flexiron features.',
+    },
     title: 'About Flexiron Platform',
     subtitle:
       'We are creating a next-generation ERP system for metal production and trade, replacing the chaos of spreadsheets and fragmented software with transparent and automated accounting.',
@@ -459,14 +471,16 @@ export const publicLt = {
     errorRequired: 'Užpildykite visus privalomus laukus.',
     errorFailed: 'Registracija nepavyko. Bandykite dar kartą.',
     validation: {
-      vat_code: 'Neteisingas PVM kodas. Tikimasi: XX0000000000 (2 raidžių šalies kodas, po to skaičiai/raidės)',
+      vat_code:
+        'Neteisingas PVM kodas. Tikimasi: XX0000000000 (2 raidžių šalies kodas, po to skaičiai/raidės)',
       email: 'Naudotojas su tokiu el. paštu jau egzistuoja',
       email_format: 'Įveskite teisingą el. pašto adresą',
       password: 'Slaptažodį turi sudaryti bent 8 simboliai',
       required: 'Šis laukas privalomas',
     },
     secretLinkTitle: 'Jūsų slaptas prisijungimo raktas',
-    secretLinkDesc: 'Išsaugokite šią nuorodą saugioje vietoje. Tik per šią nuorodą galėsite patekti į prisijungimo puslapį — jūsų el. paštas bus užpildytas automatiškai.',
+    secretLinkDesc:
+      'Išsaugokite šią nuorodą saugioje vietoje. Tik per šią nuorodą galėsite patekti į prisijungimo puslapį — jūsų el. paštas bus užpildytas automatiškai.',
     secretLinkWarning: '⚠ Nieko neperduokite šios nuorodos.',
     copy: 'Kopijuoti',
     copied: 'Nukopijuota!',
@@ -483,12 +497,16 @@ export const publicLt = {
     verifying: 'Tikrinama nuoroda...',
     missingToken: 'Trūksta prisijungimo rakto.',
     errorTitle: 'Nuoroda nebegalioja',
-    invalidLink: 'Ši nuoroda nebegalioja arba yra neteisinga. Prašome užsakyti naują nuorodą mūsų pagalbos tarnyboje, jei nežinote, kaip prisijungti prie savo paskyros.',
+    invalidLink:
+      'Ši nuoroda nebegalioja arba yra neteisinga. Prašome užsakyti naują nuorodą mūsų pagalbos tarnyboje, jei nežinote, kaip prisijungti prie savo paskyros.',
     contactSupport: 'Susisiekti su pagalba',
     backHome: 'Į pradžią',
   },
   login: {
-    seo: { title: 'Flexiron — Prisijungimas', description: 'Prisijunkite prie savo Flexiron darbo erdvės.' },
+    seo: {
+      title: 'Flexiron — Prisijungimas',
+      description: 'Prisijunkite prie savo Flexiron darbo erdvės.',
+    },
     title: 'Prisijungimas prie darbo erdvės',
     subtitle: 'Saugus priėjimas patvirtintas. Įveskite slaptažodį.',
     emailLabel: 'El. paštas (Susietas su jūsų nuoroda)',
@@ -510,7 +528,10 @@ export const publicLt = {
     btnHome: 'Grįžti į pradžią',
   },
   about: {
-    seo: { title: 'Flexiron — Apie platformą', description: 'Sužinokite daugiau apie Flexiron galimybes.' },
+    seo: {
+      title: 'Flexiron — Apie platformą',
+      description: 'Sužinokite daugiau apie Flexiron galimybes.',
+    },
     title: 'Apie Flexiron platformą',
     subtitle:
       'Kuriame naujos kartos ERP metalo prekybai ir gamybai, keisdami lentelių chaosą skaidria automatizacija.',

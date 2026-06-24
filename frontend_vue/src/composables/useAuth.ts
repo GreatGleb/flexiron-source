@@ -10,6 +10,7 @@ import { ref, computed, readonly } from 'vue'
 import { useRouter } from 'vue-router'
 import { apiPost, apiGet } from '@/services/api'
 import { ApiRequestError } from '@/types/api'
+import { useSettings } from '@/composables/useSettings'
 import type {
   LoginInput,
   RegisterInput,
@@ -36,15 +37,11 @@ function storage(): Storage {
 }
 
 function getStoredToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY)
-    ?? sessionStorage.getItem(TOKEN_KEY)
-    ?? null
+  return localStorage.getItem(TOKEN_KEY) ?? sessionStorage.getItem(TOKEN_KEY) ?? null
 }
 
 function getStoredCsrf(): string | null {
-  return localStorage.getItem(CSRF_KEY)
-    ?? sessionStorage.getItem(CSRF_KEY)
-    ?? null
+  return localStorage.getItem(CSRF_KEY) ?? sessionStorage.getItem(CSRF_KEY) ?? null
 }
 
 function removeFromBothStorages(key: string): void {
@@ -123,6 +120,9 @@ export function useAuth() {
       setSession(result.session.token, result.session.csrf_token, input.rememberMe ?? true)
       saveCachedUser(result.user)
       currentUser.value = result.user
+      // Reset settings cache so admin pages fetch fresh data for this user
+      const { resetState } = useSettings()
+      resetState()
       await router.push('/admin/analytics/dashboard')
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Login failed'
@@ -159,6 +159,9 @@ export function useAuth() {
       }
       saveCachedUser(regUser)
       currentUser.value = regUser
+      // Reset settings cache so admin pages fetch fresh data for this new user
+      const { resetState } = useSettings()
+      resetState()
       return result.secret_link
     } catch (err: unknown) {
       // Pass through ApiRequestError as-is so the UI gets fieldErrors

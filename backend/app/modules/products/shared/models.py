@@ -117,9 +117,64 @@ class Product(UUIDMixin, TimestampMixin, Base):
     min_stock: Mapped[float | None] = mapped_column(
         Numeric(12, 2), nullable=True
     )
-    price_unit: Mapped[str | None] = mapped_column(
-        String(20), nullable=True
-    )  # 'EUR/vnt','EUR/kg','EUR/m'
+
+    # ═══════════════════════════════════════════════════════════════
+    # Currency & Pricing
+    # ═══════════════════════════════════════════════════════════════
+    # FK to currencies table
+    currency_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("currencies.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
+    # Price per N sale units (default 1)
+    price_quantity: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=1, server_default="1"
+    )
+
+    # ═══════════════════════════════════════════════════════════════
+    # 3 separate Units of Measure
+    # ═══════════════════════════════════════════════════════════════
+    # Unit used when purchasing from supplier
+    purchase_uom_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("uoms.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
+    # Unit used for warehouse inventory tracking
+    warehouse_uom_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("uoms.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
+    # Unit used for pricing and sales display
+    sale_uom_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("uoms.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
+
+    # ═══════════════════════════════════════════════════════════════
+    # Conversion rules (optional — override settings defaults)
+    # ═══════════════════════════════════════════════════════════════
+    # Purchase → Warehouse (if purchase_uom ≠ warehouse_uom)
+    purchase_to_warehouse_formula_type: Mapped[str | None] = mapped_column(
+        String(30), nullable=True
+    )
+    purchase_to_warehouse_factor: Mapped[float | None] = mapped_column(
+        Numeric(20, 6), nullable=True
+    )
+    # Warehouse → Sale (if warehouse_uom ≠ sale_uom)
+    warehouse_to_sale_formula_type: Mapped[str | None] = mapped_column(
+        String(30), nullable=True
+    )
+    warehouse_to_sale_factor: Mapped[float | None] = mapped_column(
+        Numeric(20, 6), nullable=True
+    )
 
     # Relationships
     field_values: Mapped[list["ProductFieldValue"]] = relationship(

@@ -26,6 +26,7 @@ export interface Supplier {
   hasDeficit: boolean
   createdAt: string
   updatedAt: string
+  currency: string
 }
 
 export interface SupplierFilters {

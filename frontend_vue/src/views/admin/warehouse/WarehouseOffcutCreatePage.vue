@@ -37,10 +37,23 @@ const { t } = useI18n()
 const router = useRouter()
 
 const {
-  form, saving, save,
-  productsLoading, productSearch, productCategoryFilter, categoryFilterOptions,
-  filteredProducts, selectedProductId, selectedProduct, loadProducts,
-  batchesLoading, batchSearch, filteredBatches, selectedBatchId, selectedBatch, noBatchesMessage,
+  form,
+  saving,
+  save,
+  productsLoading,
+  productSearch,
+  productCategoryFilter,
+  categoryFilterOptions,
+  filteredProducts,
+  selectedProductId,
+  selectedProduct,
+  loadProducts,
+  batchesLoading,
+  batchSearch,
+  filteredBatches,
+  selectedBatchId,
+  selectedBatch,
+  noBatchesMessage,
   tf,
 } = useWarehouseOffcutCreate()
 
@@ -141,8 +154,8 @@ function onFilesUploaded(files: UploadedFile[]) {
 }
 
 function removeFile(fileId: string) {
-  uploadedFiles.value = uploadedFiles.value.filter(f => f.id !== fileId)
-  fileIdsToAttach.value = fileIdsToAttach.value.filter(id => id !== fileId)
+  uploadedFiles.value = uploadedFiles.value.filter((f) => f.id !== fileId)
+  fileIdsToAttach.value = fileIdsToAttach.value.filter((id) => id !== fileId)
 }
 
 async function handleSave() {
@@ -170,7 +183,10 @@ function selectBatch(id: string) {
     <Breadcrumb
       :items="[
         { label: t('warehouse.header_title'), to: { name: 'admin-warehouse' } },
-        { label: t('warehouse.tab_offcuts'), to: { name: 'admin-warehouse', params: { tab: 'offcuts' } } },
+        {
+          label: t('warehouse.tab_offcuts'),
+          to: { name: 'admin-warehouse', params: { tab: 'offcuts' } },
+        },
         { label: t('warehouse.offcut_create_title') },
       ]"
     />
@@ -196,7 +212,9 @@ function selectBatch(id: string) {
           @click="handleSave"
         >
           <SvgIcon name="plus-add" :width="18" :height="18" stroke-width="2" />
-          <span>{{ saving ? t('warehouse.btn_save') + '...' : t('warehouse.offcut_create_save') }}</span>
+          <span>{{
+            saving ? t('warehouse.btn_save') + '...' : t('warehouse.offcut_create_save')
+          }}</span>
         </button>
       </div>
     </div>
@@ -212,7 +230,10 @@ function selectBatch(id: string) {
         data-test="offcut-create-product-panel"
       >
         <!-- Product filters -->
-        <div class="products-filters" style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap">
+        <div
+          class="products-filters"
+          style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap"
+        >
           <div style="flex: 1 1 180px">
             <SearchInput
               v-model="productSearch"
@@ -220,10 +241,7 @@ function selectBatch(id: string) {
             />
           </div>
           <div style="min-width: 160px">
-            <CustomSelect
-              v-model="productCategoryFilter"
-              :options="categoryFilterOptions"
-            />
+            <CustomSelect v-model="productCategoryFilter" :options="categoryFilterOptions" />
           </div>
         </div>
 
@@ -355,7 +373,9 @@ function selectBatch(id: string) {
           <div class="no-batches-message" style="text-align: center; padding: 24px 0; opacity: 0.6">
             <SvgIcon name="search" :width="32" :height="32" style="margin-bottom: 8px" />
             <p>{{ noBatchesMessage }}</p>
-            <p style="font-size: 12px; margin-top: 4px">{{ t('warehouse.offcut_create_no_batches_hint') }}</p>
+            <p style="font-size: 12px; margin-top: 4px">
+              {{ t('warehouse.offcut_create_no_batches_hint') }}
+            </p>
           </div>
         </template>
 
@@ -433,18 +453,30 @@ function selectBatch(id: string) {
               <label class="field-label">
                 <span>{{ t('warehouse.col_offcut_type') }}</span>
                 <span v-tooltip="t('warehouse.col_offcut_type_hint')" class="info-hint">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="3"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
                     <circle cx="12" cy="12" r="10" />
                     <line x1="12" y1="16" x2="12" y2="12" />
                     <line x1="12" y1="8" x2="12.01" y2="8" />
                   </svg>
                 </span>
               </label>
-              <div class="glass-input" style="display: flex; align-items: center; opacity: 0.7; cursor: default;">
+              <div
+                class="glass-input"
+                style="display: flex; align-items: center; opacity: 0.7; cursor: default"
+              >
                 <span v-if="form.offcutType">
                   {{ t(`warehouse.offcut_type_${form.offcutType}`) }}
                 </span>
-                <span v-else style="color: var(--text-dim);">
+                <span v-else style="color: var(--text-dim)">
                   {{ t('warehouse.offcut_create_select_type') }}
                 </span>
               </div>
@@ -454,21 +486,33 @@ function selectBatch(id: string) {
               <label class="field-label">
                 <span>{{ t('warehouse.col_category') }}</span>
                 <span v-tooltip="t('warehouse.offcut_create_category_hint')" class="info-hint">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="3"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
                     <circle cx="12" cy="12" r="10" />
                     <line x1="12" y1="16" x2="12" y2="12" />
                     <line x1="12" y1="8" x2="12.01" y2="8" />
                   </svg>
                 </span>
               </label>
-              <div class="glass-input" style="display: flex; align-items: center; opacity: 0.7; cursor: default;">
+              <div
+                class="glass-input"
+                style="display: flex; align-items: center; opacity: 0.7; cursor: default"
+              >
                 <span v-if="selectedProduct && selectedProduct.categoryName">
                   {{ tf(selectedProduct.categoryName) }}
                 </span>
-                <span v-else-if="selectedProduct" style="color: var(--text-dim);">
+                <span v-else-if="selectedProduct" style="color: var(--text-dim)">
                   {{ t('warehouse.offcut_create_uncategorized') }}
                 </span>
-                <span v-else style="color: var(--text-dim);">
+                <span v-else style="color: var(--text-dim)">
                   {{ t('warehouse.offcut_create_category_placeholder') }}
                 </span>
               </div>
@@ -484,7 +528,16 @@ function selectBatch(id: string) {
               <label class="field-label">
                 <span>{{ t('warehouse.col_length') }}</span>
                 <span v-tooltip="t('warehouse.col_length_hint')" class="info-hint">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="3"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
                     <circle cx="12" cy="12" r="10" />
                     <line x1="12" y1="16" x2="12" y2="12" />
                     <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -505,7 +558,16 @@ function selectBatch(id: string) {
               <label class="field-label">
                 <span>{{ t('warehouse.col_width') }}</span>
                 <span v-tooltip="t('warehouse.col_width_hint')" class="info-hint">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="3"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
                     <circle cx="12" cy="12" r="10" />
                     <line x1="12" y1="16" x2="12" y2="12" />
                     <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -526,7 +588,16 @@ function selectBatch(id: string) {
               <label class="field-label">
                 <span>{{ t('warehouse.col_thickness') }}</span>
                 <span v-tooltip="t('warehouse.col_thickness_hint')" class="info-hint">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="3"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
                     <circle cx="12" cy="12" r="10" />
                     <line x1="12" y1="16" x2="12" y2="12" />
                     <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -547,7 +618,16 @@ function selectBatch(id: string) {
               <label class="field-label">
                 <span>{{ t('warehouse.col_weight') }}</span>
                 <span v-tooltip="t('warehouse.col_weight_hint')" class="info-hint">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="3"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
                     <circle cx="12" cy="12" r="10" />
                     <line x1="12" y1="16" x2="12" y2="12" />
                     <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -574,7 +654,16 @@ function selectBatch(id: string) {
               <label class="field-label">
                 <span>{{ t('warehouse.col_quantity') }}</span>
                 <span v-tooltip="t('warehouse.offcut_col_quantity_hint')" class="info-hint">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="3"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
                     <circle cx="12" cy="12" r="10" />
                     <line x1="12" y1="16" x2="12" y2="12" />
                     <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -595,18 +684,30 @@ function selectBatch(id: string) {
               <label class="field-label">
                 <span>{{ t('warehouse.field_unit') }}</span>
                 <span v-tooltip="t('warehouse.col_unit_hint')" class="info-hint">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="3"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
                     <circle cx="12" cy="12" r="10" />
                     <line x1="12" y1="16" x2="12" y2="12" />
                     <line x1="12" y1="8" x2="12.01" y2="8" />
                   </svg>
                 </span>
               </label>
-              <div class="glass-input" style="display: flex; align-items: center; opacity: 0.7; cursor: default;">
+              <div
+                class="glass-input"
+                style="display: flex; align-items: center; opacity: 0.7; cursor: default"
+              >
                 <span v-if="selectedBatch">
                   {{ t(`warehouse.unit_${form.unit}`) }}
                 </span>
-                <span v-else style="color: var(--text-dim);">
+                <span v-else style="color: var(--text-dim)">
                   {{ t('warehouse.offcut_create_unit_placeholder') }}
                 </span>
               </div>
@@ -616,7 +717,16 @@ function selectBatch(id: string) {
               <label class="field-label">
                 <span>{{ t('warehouse.field_notes') }}</span>
                 <span v-tooltip="t('warehouse.offcut_field_notes_hint')" class="info-hint">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="3"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
                     <circle cx="12" cy="12" r="10" />
                     <line x1="12" y1="16" x2="12" y2="12" />
                     <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -635,13 +745,25 @@ function selectBatch(id: string) {
       </div>
 
       <!-- FULL WIDTH: Location section -->
-      <GlassPanel :title="t('warehouse.section_batch_location')" data-test="offcut-create-location-section">
+      <GlassPanel
+        :title="t('warehouse.section_batch_location')"
+        data-test="offcut-create-location-section"
+      >
         <div class="location-grid">
           <div class="input-group">
             <label class="field-label">
               <span>{{ t('warehouse.field_location_rack') }}</span>
               <span v-tooltip="t('warehouse.field_location_rack_hint')" class="info-hint">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="3"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
                   <circle cx="12" cy="12" r="10" />
                   <line x1="12" y1="16" x2="12" y2="12" />
                   <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -659,7 +781,16 @@ function selectBatch(id: string) {
             <label class="field-label">
               <span>{{ t('warehouse.field_location_row') }}</span>
               <span v-tooltip="t('warehouse.field_location_row_hint')" class="info-hint">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="3"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
                   <circle cx="12" cy="12" r="10" />
                   <line x1="12" y1="16" x2="12" y2="12" />
                   <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -677,7 +808,16 @@ function selectBatch(id: string) {
             <label class="field-label">
               <span>{{ t('warehouse.field_location_cell') }}</span>
               <span v-tooltip="t('warehouse.field_location_cell_hint')" class="info-hint">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="3"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
                   <circle cx="12" cy="12" r="10" />
                   <line x1="12" y1="16" x2="12" y2="12" />
                   <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -692,11 +832,20 @@ function selectBatch(id: string) {
             />
           </div>
         </div>
-        <div class="input-group" style="margin-top: 12px;">
+        <div class="input-group" style="margin-top: 12px">
           <label class="field-label">
             <span>{{ t('warehouse.field_location_notes') }}</span>
             <span v-tooltip="t('warehouse.field_location_notes_hint')" class="info-hint">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="3"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
                 <circle cx="12" cy="12" r="10" />
                 <line x1="12" y1="16" x2="12" y2="12" />
                 <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -712,7 +861,11 @@ function selectBatch(id: string) {
       </GlassPanel>
 
       <!-- FULL WIDTH: Files section -->
-      <GlassPanel :title="t('warehouse.section_batch_files')" data-test="offcut-create-files-section" style="margin-top: 16px">
+      <GlassPanel
+        :title="t('warehouse.section_batch_files')"
+        data-test="offcut-create-files-section"
+        style="margin-top: 16px"
+      >
         <div class="file-list" data-test="offcut-create-file-list" style="margin-bottom: 15px">
           <FileItem
             v-for="f in uploadedFiles"
@@ -723,7 +876,7 @@ function selectBatch(id: string) {
             @delete="removeFile(f.id)"
           />
         </div>
-        <p v-if="uploadedFiles.length === 0" class="text-muted" style="padding: 12px 0;">
+        <p v-if="uploadedFiles.length === 0" class="text-muted" style="padding: 12px 0">
           {{ t('warehouse.no_files') }}
         </p>
         <DropZone

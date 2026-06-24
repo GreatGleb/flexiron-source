@@ -1,5 +1,13 @@
 import { apiGet, apiPost, apiPatch, apiDelete } from './api'
-import type { Order, OrderListItem, OrderItem, OrderService, OrderFilters, OrderStatus, OrderDocumentType } from '@/types/order'
+import type {
+  Order,
+  OrderListItem,
+  OrderItem,
+  OrderService,
+  OrderFilters,
+  OrderStatus,
+  OrderDocumentType,
+} from '@/types/order'
 import type { PaginatedResponse, PaginationParams } from '@/types/api'
 
 export async function getOrders(
@@ -20,6 +28,7 @@ export async function getOrder(id: string): Promise<Order> {
 export async function createOrder(data: {
   clientId: string
   documentType: OrderDocumentType
+  currency?: string
 }): Promise<Order> {
   return apiPost('/api/orders', data)
 }

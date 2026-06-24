@@ -17,11 +17,22 @@ const route = useRoute()
 const productId = route.params.id as string
 
 const {
-  item, loading, saving, error,
-  form, formName, formCategoryName, isAnythingDirty,
-  stockAggregates, stockAggregatesLoading, totalUsableQuantity,
-  auditLog, deleteAuditEntry,
-  load, save, discard,
+  item,
+  loading,
+  saving,
+  error,
+  form,
+  formName,
+  formCategoryName,
+  isAnythingDirty,
+  stockAggregates,
+  stockAggregatesLoading,
+  totalUsableQuantity,
+  auditLog,
+  deleteAuditEntry,
+  load,
+  save,
+  discard,
   tf,
 } = useWarehouseStockCard(productId)
 
@@ -71,8 +82,14 @@ const AGGREGATE_COLOR_CLASSES: Record<string, string> = {
 
 /** In stock card, only show usable aggregates: in stock, storage, offcuts */
 const HIDDEN_AGGREGATE_TYPES = new Set([
-  'return', 'transfer',
-  'sale', 'write-off', 'production', 'expense', 'return-to-supplier', 'correction',
+  'return',
+  'transfer',
+  'sale',
+  'write-off',
+  'production',
+  'expense',
+  'return-to-supplier',
+  'correction',
 ])
 
 /** Sorted aggregate entries for display. Sale is always placed last. */
@@ -89,7 +106,7 @@ const aggregateEntries = computed(() => {
 })
 
 /** Step for quantity inputs: 1 for pcs, 0.01 for others */
-const quantityStep = computed(() => form.value.unit === 'pcs' ? 1 : 0.01)
+const quantityStep = computed(() => (form.value.unit === 'pcs' ? 1 : 0.01))
 
 const pageTitle = computed(() =>
   item.value
@@ -112,10 +129,42 @@ useHead({
 const AUDIT_ENUM_MAP: Record<string, string[]> = {
   deficit_status_: ['open', 'in_progress', 'ordered', 'resolved', 'cancelled'],
   deficit_priority_: ['low', 'medium', 'high', 'critical'],
-  offcut_status_: ['available', 'reserved', 'in_production', 'sold', 'scrapped', 'expensed', 'returned_to_supplier', 'in_storage'],
+  offcut_status_: [
+    'available',
+    'reserved',
+    'in_production',
+    'sold',
+    'scrapped',
+    'expensed',
+    'returned_to_supplier',
+    'in_storage',
+  ],
   movement_type_: ['receipt', 'expense', 'transfer', 'write_off', 'return', 'inbound', 'outbound'],
-  batch_status_: ['active', 'completed', 'expired', 'archived', 'partial', 'available', 'reserved', 'depleted', 'quarantine'],
-  status_: ['available', 'reserved', 'partial', 'depleted', 'quarantine', 'used', 'scrap', 'open', 'in_progress', 'ordered', 'resolved', 'cancelled'],
+  batch_status_: [
+    'active',
+    'completed',
+    'expired',
+    'archived',
+    'partial',
+    'available',
+    'reserved',
+    'depleted',
+    'quarantine',
+  ],
+  status_: [
+    'available',
+    'reserved',
+    'partial',
+    'depleted',
+    'quarantine',
+    'used',
+    'scrap',
+    'open',
+    'in_progress',
+    'ordered',
+    'resolved',
+    'cancelled',
+  ],
 }
 
 function translateAuditValue(value: string): string {
@@ -158,7 +207,10 @@ onMounted(load)
   <template v-if="error">
     <Breadcrumb
       :items="[
-        { label: t('warehouse.header_title'), to: { name: 'admin-warehouse', params: { tab: 'stock' } } },
+        {
+          label: t('warehouse.header_title'),
+          to: { name: 'admin-warehouse', params: { tab: 'stock' } },
+        },
         { label: t('common.entity_not_found') },
       ]"
     />
@@ -166,7 +218,10 @@ onMounted(load)
       <SvgIcon name="search" :width="48" :height="48" />
       <h2>{{ t('common.entity_not_found') }}</h2>
       <p>{{ t('common.entity_not_found_id', { id: productId }) }}</p>
-      <router-link :to="{ name: 'admin-warehouse', params: { tab: 'stock' } }" class="btn btn-primary">
+      <router-link
+        :to="{ name: 'admin-warehouse', params: { tab: 'stock' } }"
+        class="btn btn-primary"
+      >
         {{ t('common.back_to_list') }}
       </router-link>
     </div>
@@ -177,14 +232,27 @@ onMounted(load)
       <div v-if="item" class="stock-card-header" data-test="stock-card-header">
         <Breadcrumb
           :items="[
-            { label: t('warehouse.header_title'), to: { name: 'admin-warehouse', params: { tab: 'stock' } } },
-            { label: t('warehouse.tab_stock'), to: { name: 'admin-warehouse', params: { tab: 'stock' } } },
-            { label: t('warehouse.stock_card_title', { id: productId, productName: tf(item.productName) }) },
+            {
+              label: t('warehouse.header_title'),
+              to: { name: 'admin-warehouse', params: { tab: 'stock' } },
+            },
+            {
+              label: t('warehouse.tab_stock'),
+              to: { name: 'admin-warehouse', params: { tab: 'stock' } },
+            },
+            {
+              label: t('warehouse.stock_card_title', {
+                id: productId,
+                productName: tf(item.productName),
+              }),
+            },
           ]"
         />
         <div class="stock-card-header-row">
           <h1 class="page-title">
-            {{ t('warehouse.stock_card_title', { id: productId, productName: tf(item.productName) }) }}
+            {{
+              t('warehouse.stock_card_title', { id: productId, productName: tf(item.productName) })
+            }}
             <router-link
               v-tooltip="t('warehouse.open_product_card')"
               :to="{ name: 'admin-product-card', params: { id: item.productId } }"
@@ -245,10 +313,18 @@ onMounted(load)
             :data-test="'stock-agg-card-' + movementType"
           >
             <div class="agg-icon">
-              <SvgIcon :name="AGGREGATE_ICONS[movementType] || 'package'" :width="14" :height="14" />
+              <SvgIcon
+                :name="AGGREGATE_ICONS[movementType] || 'package'"
+                :width="14"
+                :height="14"
+              />
             </div>
             <div class="agg-info">
-              <div class="agg-label">{{ t(`warehouse.${AGGREGATE_LABEL_KEYS[movementType] || 'batch_summary_in_stock'}`) }}</div>
+              <div class="agg-label">
+                {{
+                  t(`warehouse.${AGGREGATE_LABEL_KEYS[movementType] || 'batch_summary_in_stock'}`)
+                }}
+              </div>
               <div class="agg-value">
                 {{ qty }}
                 <span class="agg-unit">{{ t(`warehouse.unit_${item.unit}`) }}</span>
@@ -256,310 +332,393 @@ onMounted(load)
             </div>
           </div>
         </div>
-        <div v-if="stockAggregatesLoading" class="text-muted" style="padding: 12px 0;">
+        <div v-if="stockAggregatesLoading" class="text-muted" style="padding: 12px 0">
           {{ t('warehouse.loading') }}...
         </div>
       </div>
 
       <!-- Stock card content: GlassPanels inside grid columns (matching ProductCardPage pattern) -->
       <div v-if="item || loading" class="main-card-content">
-      <div class="entity-card-grid">
-        <div class="entity-col-left">
-          <GlassPanel :loading="loading" :skeleton-rows="4" data-test="stock-card-left-panel">
-            <template v-if="item">
-            <div class="input-group">
-              <label class="field-label">{{ t('warehouse.col_product') }}</label>
-              <input
-                :value="formName"
-                class="glass-input"
-                type="text"
-                readonly
-                data-test="field-product-name"
-              />
-              <span class="field-hint">{{ t('warehouse.field_product_hint') }}</span>
-            </div>
-            <div class="input-group">
-              <label class="field-label">{{ t('warehouse.col_category') }}</label>
-              <input
-                :value="formCategoryName"
-                class="glass-input"
-                type="text"
-                readonly
-                data-test="field-category-name"
-              />
-              <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
-            </div>
-            <div class="input-group">
-              <label class="field-label">
-                <span>{{ t('warehouse.col_unit') }}</span>
-                <span v-tooltip="t('warehouse.col_unit_hint')" class="info-hint">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="16" x2="12" y2="12" />
-                    <line x1="12" y1="8" x2="12.01" y2="8" />
-                  </svg>
-                </span>
-              </label>
-              <input
-                :value="t(`warehouse.unit_${form.unit}`)"
-                class="glass-input"
-                type="text"
-                readonly
-                data-test="field-unit"
-              />
-              <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
-            </div>
-            <div class="input-group">
-              <label class="field-label">
-                <span>{{ t('warehouse.col_avg_price') }}</span>
-                <span v-tooltip="t('warehouse.col_avg_price_hint')" class="info-hint">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="16" x2="12" y2="12" />
-                    <line x1="12" y1="8" x2="12.01" y2="8" />
-                  </svg>
-                </span>
-              </label>
-              <input
-                :value="form.avgUnitPrice"
-                class="glass-input"
-                type="number"
-                min="0"
-                step="0.01"
-                readonly
-                data-test="field-avg-price"
-              />
-              <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
-            </div>
-            </template>
-          </GlassPanel>
-        </div>
-        <div class="entity-col-center">
-          <GlassPanel :loading="loading" :skeleton-rows="4" data-test="stock-card-center-panel">
-            <template v-if="item">
-            <div class="input-group">
-              <label class="field-label">
-                <span>{{ t('warehouse.col_min_stock') }}</span>
-                <span v-tooltip="t('warehouse.col_min_stock_hint')" class="info-hint">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="16" x2="12" y2="12" />
-                    <line x1="12" y1="8" x2="12.01" y2="8" />
-                  </svg>
-                </span>
-              </label>
-              <input v-model.number="form.minStock" class="glass-input" type="number" min="0" :step="quantityStep" data-test="field-min-stock" />
-            </div>
-            <div class="input-group">
-              <label class="field-label">
-                <span>{{ t('warehouse.col_total_qty') }}</span>
-                <span v-tooltip="t('warehouse.col_total_qty_hint')" class="info-hint">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="16" x2="12" y2="12" />
-                    <line x1="12" y1="8" x2="12.01" y2="8" />
-                  </svg>
-                </span>
-              </label>
-              <input
-                :value="`${item.totalQuantity} ${t(`warehouse.unit_${form.unit}`)}`"
-                class="glass-input"
-                type="text"
-                readonly
-                data-test="field-total-qty"
-              />
-              <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
-            </div>
-            <div class="input-group">
-              <label class="field-label">
-                <span>{{ t('warehouse.col_reserved') }}</span>
-                <span v-tooltip="t('warehouse.col_reserved_hint')" class="info-hint">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="16" x2="12" y2="12" />
-                    <line x1="12" y1="8" x2="12.01" y2="8" />
-                  </svg>
-                </span>
-              </label>
-              <input
-                :value="`${item.reservedQuantity} ${t(`warehouse.unit_${form.unit}`)}`"
-                class="glass-input"
-                type="text"
-                readonly
-                data-test="field-reserved-qty"
-              />
-              <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
-            </div>
-            <div class="input-group">
-              <label class="field-label">
-                <span>{{ t('warehouse.col_available') }}</span>
-                <span v-tooltip="t('warehouse.col_available_hint')" class="info-hint">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="16" x2="12" y2="12" />
-                    <line x1="12" y1="8" x2="12.01" y2="8" />
-                  </svg>
-                </span>
-              </label>
-              <input
-                :value="`${item.availableQuantity} ${t(`warehouse.unit_${form.unit}`)}`"
-                class="glass-input"
-                type="text"
-                :class="{ 'text-danger': item.availableQuantity <= 0 }"
-                readonly
-                data-test="field-available-qty"
-              />
-              <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
-            </div>
-            </template>
-          </GlassPanel>
-        </div>
-        <div class="entity-col-right">
-          <GlassPanel :loading="loading" :skeleton-rows="4" data-test="stock-card-right-panel">
-            <template v-if="item">
-            <div class="input-group">
-              <label class="field-label">
-                <span>{{ t('warehouse.col_batches') }}</span>
-                <span v-tooltip="t('warehouse.col_batches_hint')" class="info-hint">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="16" x2="12" y2="12" />
-                    <line x1="12" y1="8" x2="12.01" y2="8" />
-                  </svg>
-                </span>
-              </label>
-              <router-link
-                :to="{ name: 'admin-warehouse', params: { tab: 'batches' }, query: { productId: item.productId } }"
-                class="batch-link-row"
-                data-test="batch-link"
-              >
-                <span>{{ t('warehouse.open_batches_for_product') }}</span>
-                <SvgIcon name="external-link" :width="14" :height="14" />
-              </router-link>
-              <input
-                :value="item.batchCount"
-                class="glass-input"
-                type="text"
-                readonly
-                data-test="field-batch-count"
-              />
-              <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
-            </div>
-            <div class="input-group">
-              <label class="field-label">
-                <span>{{ t('warehouse.col_total_value') }}</span>
-                <span v-tooltip="t('warehouse.col_total_value_hint')" class="info-hint">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="16" x2="12" y2="12" />
-                    <line x1="12" y1="8" x2="12.01" y2="8" />
-                  </svg>
-                </span>
-              </label>
-              <input
-                :value="`${item.totalValue.toFixed(2)} ${t('warehouse.currency_eur')}`"
-                class="glass-input"
-                type="text"
-                readonly
-                data-test="field-total-value"
-              />
-              <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
-            </div>
-            </template>
-          </GlassPanel>
-        </div>
-      </div>
-
-      <!-- FULL WIDTH: Audit History -->
-      <div class="audit-panel-wide" data-test="stock-card-audit">
-        <GlassPanel :title="t('warehouse.section_stock_audit')">
-          <div class="table-responsive">
-            <table class="audit-log-table" data-test="stock-card-audit-table">
-              <thead>
-                <tr>
-                  <th>{{ t('warehouse.audit_col_date') }}</th>
-                  <th>{{ t('warehouse.audit_col_user') }}</th>
-                  <th>{{ t('warehouse.audit_col_property') }}</th>
-                  <th>{{ t('warehouse.audit_col_old_value') }}</th>
-                  <th>{{ t('warehouse.audit_col_new_value') }}</th>
-                  <th class="audit-col-actions"></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(a, i) in auditLog" :key="i" data-test="stock-card-audit-row">
-                  <td class="audit-log-ts">{{ a.timestamp }}</td>
-                  <td>
-                    <div class="audit-log-user">
-                      <div class="audit-log-avatar">{{ a.userInitials }}</div>
-                      <span>{{ tf(a.user) }}</span>
-                    </div>
-                  </td>
-                  <td>{{ tf(a.property) }}</td>
-                  <td>
-                    <span class="audit-diff-old">{{ translateAuditValue(a.oldValue) }}</span>
-                  </td>
-                  <td>
-                    <span class="audit-diff-new">{{ translateAuditValue(a.newValue) }}</span>
-                  </td>
-                  <td style="text-align: right">
-                    <button
-                      v-tooltip="t('btn.delete')"
-                      type="button"
-                      class="action-icon-btn action-danger"
-                      data-test="stock-card-audit-delete-btn"
-                      @click="askDeleteAudit(i)"
-                    >
+        <div class="entity-card-grid">
+          <div class="entity-col-left">
+            <GlassPanel :loading="loading" :skeleton-rows="4" data-test="stock-card-left-panel">
+              <template v-if="item">
+                <div class="input-group">
+                  <label class="field-label">{{ t('warehouse.col_product') }}</label>
+                  <input
+                    :value="formName"
+                    class="glass-input"
+                    type="text"
+                    readonly
+                    data-test="field-product-name"
+                  />
+                  <span class="field-hint">{{ t('warehouse.field_product_hint') }}</span>
+                </div>
+                <div class="input-group">
+                  <label class="field-label">{{ t('warehouse.col_category') }}</label>
+                  <input
+                    :value="formCategoryName"
+                    class="glass-input"
+                    type="text"
+                    readonly
+                    data-test="field-category-name"
+                  />
+                  <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
+                </div>
+                <div class="input-group">
+                  <label class="field-label">
+                    <span>{{ t('warehouse.col_unit') }}</span>
+                    <span v-tooltip="t('warehouse.col_unit_hint')" class="info-hint">
                       <svg
-                        width="14"
-                        height="14"
+                        width="10"
+                        height="10"
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
-                        stroke-width="2"
+                        stroke-width="3"
                         stroke-linecap="round"
                         stroke-linejoin="round"
                       >
-                        <line x1="18" y1="6" x2="6" y2="18" />
-                        <line x1="6" y1="6" x2="18" y2="18" />
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="16" x2="12" y2="12" />
+                        <line x1="12" y1="8" x2="12.01" y2="8" />
                       </svg>
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                    </span>
+                  </label>
+                  <input
+                    :value="t(`warehouse.unit_${form.unit}`)"
+                    class="glass-input"
+                    type="text"
+                    readonly
+                    data-test="field-unit"
+                  />
+                  <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
+                </div>
+                <div class="input-group">
+                  <label class="field-label">
+                    <span>{{ t('warehouse.col_avg_price') }}</span>
+                    <span v-tooltip="t('warehouse.col_avg_price_hint')" class="info-hint">
+                      <svg
+                        width="10"
+                        height="10"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="3"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="16" x2="12" y2="12" />
+                        <line x1="12" y1="8" x2="12.01" y2="8" />
+                      </svg>
+                    </span>
+                  </label>
+                  <input
+                    :value="form.avgUnitPrice"
+                    class="glass-input"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    readonly
+                    data-test="field-avg-price"
+                  />
+                  <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
+                </div>
+              </template>
+            </GlassPanel>
           </div>
-        </GlassPanel>
+          <div class="entity-col-center">
+            <GlassPanel :loading="loading" :skeleton-rows="4" data-test="stock-card-center-panel">
+              <template v-if="item">
+                <div class="input-group">
+                  <label class="field-label">
+                    <span>{{ t('warehouse.col_min_stock') }}</span>
+                    <span v-tooltip="t('warehouse.col_min_stock_hint')" class="info-hint">
+                      <svg
+                        width="10"
+                        height="10"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="3"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="16" x2="12" y2="12" />
+                        <line x1="12" y1="8" x2="12.01" y2="8" />
+                      </svg>
+                    </span>
+                  </label>
+                  <input
+                    v-model.number="form.minStock"
+                    class="glass-input"
+                    type="number"
+                    min="0"
+                    :step="quantityStep"
+                    data-test="field-min-stock"
+                  />
+                </div>
+                <div class="input-group">
+                  <label class="field-label">
+                    <span>{{ t('warehouse.col_total_qty') }}</span>
+                    <span v-tooltip="t('warehouse.col_total_qty_hint')" class="info-hint">
+                      <svg
+                        width="10"
+                        height="10"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="3"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="16" x2="12" y2="12" />
+                        <line x1="12" y1="8" x2="12.01" y2="8" />
+                      </svg>
+                    </span>
+                  </label>
+                  <input
+                    :value="`${item.totalQuantity} ${t(`warehouse.unit_${form.unit}`)}`"
+                    class="glass-input"
+                    type="text"
+                    readonly
+                    data-test="field-total-qty"
+                  />
+                  <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
+                </div>
+                <div class="input-group">
+                  <label class="field-label">
+                    <span>{{ t('warehouse.col_reserved') }}</span>
+                    <span v-tooltip="t('warehouse.col_reserved_hint')" class="info-hint">
+                      <svg
+                        width="10"
+                        height="10"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="3"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="16" x2="12" y2="12" />
+                        <line x1="12" y1="8" x2="12.01" y2="8" />
+                      </svg>
+                    </span>
+                  </label>
+                  <input
+                    :value="`${item.reservedQuantity} ${t(`warehouse.unit_${form.unit}`)}`"
+                    class="glass-input"
+                    type="text"
+                    readonly
+                    data-test="field-reserved-qty"
+                  />
+                  <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
+                </div>
+                <div class="input-group">
+                  <label class="field-label">
+                    <span>{{ t('warehouse.col_available') }}</span>
+                    <span v-tooltip="t('warehouse.col_available_hint')" class="info-hint">
+                      <svg
+                        width="10"
+                        height="10"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="3"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="16" x2="12" y2="12" />
+                        <line x1="12" y1="8" x2="12.01" y2="8" />
+                      </svg>
+                    </span>
+                  </label>
+                  <input
+                    :value="`${item.availableQuantity} ${t(`warehouse.unit_${form.unit}`)}`"
+                    class="glass-input"
+                    type="text"
+                    :class="{ 'text-danger': item.availableQuantity <= 0 }"
+                    readonly
+                    data-test="field-available-qty"
+                  />
+                  <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
+                </div>
+              </template>
+            </GlassPanel>
+          </div>
+          <div class="entity-col-right">
+            <GlassPanel :loading="loading" :skeleton-rows="4" data-test="stock-card-right-panel">
+              <template v-if="item">
+                <div class="input-group">
+                  <label class="field-label">
+                    <span>{{ t('warehouse.col_batches') }}</span>
+                    <span v-tooltip="t('warehouse.col_batches_hint')" class="info-hint">
+                      <svg
+                        width="10"
+                        height="10"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="3"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="16" x2="12" y2="12" />
+                        <line x1="12" y1="8" x2="12.01" y2="8" />
+                      </svg>
+                    </span>
+                  </label>
+                  <router-link
+                    :to="{
+                      name: 'admin-warehouse',
+                      params: { tab: 'batches' },
+                      query: { productId: item.productId },
+                    }"
+                    class="batch-link-row"
+                    data-test="batch-link"
+                  >
+                    <span>{{ t('warehouse.open_batches_for_product') }}</span>
+                    <SvgIcon name="external-link" :width="14" :height="14" />
+                  </router-link>
+                  <input
+                    :value="item.batchCount"
+                    class="glass-input"
+                    type="text"
+                    readonly
+                    data-test="field-batch-count"
+                  />
+                  <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
+                </div>
+                <div class="input-group">
+                  <label class="field-label">
+                    <span>{{ t('warehouse.col_total_value') }}</span>
+                    <span v-tooltip="t('warehouse.col_total_value_hint')" class="info-hint">
+                      <svg
+                        width="10"
+                        height="10"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="3"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="16" x2="12" y2="12" />
+                        <line x1="12" y1="8" x2="12.01" y2="8" />
+                      </svg>
+                    </span>
+                  </label>
+                  <input
+                    :value="`${item.totalValue.toFixed(2)} ${t('warehouse.currency_eur')}`"
+                    class="glass-input"
+                    type="text"
+                    readonly
+                    data-test="field-total-value"
+                  />
+                  <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
+                </div>
+              </template>
+            </GlassPanel>
+          </div>
+        </div>
+
+        <!-- FULL WIDTH: Audit History -->
+        <div class="audit-panel-wide" data-test="stock-card-audit">
+          <GlassPanel :title="t('warehouse.section_stock_audit')">
+            <div class="table-responsive">
+              <table class="audit-log-table" data-test="stock-card-audit-table">
+                <thead>
+                  <tr>
+                    <th>{{ t('warehouse.audit_col_date') }}</th>
+                    <th>{{ t('warehouse.audit_col_user') }}</th>
+                    <th>{{ t('warehouse.audit_col_property') }}</th>
+                    <th>{{ t('warehouse.audit_col_old_value') }}</th>
+                    <th>{{ t('warehouse.audit_col_new_value') }}</th>
+                    <th class="audit-col-actions"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(a, i) in auditLog" :key="i" data-test="stock-card-audit-row">
+                    <td class="audit-log-ts">{{ a.timestamp }}</td>
+                    <td>
+                      <div class="audit-log-user">
+                        <div class="audit-log-avatar">{{ a.userInitials }}</div>
+                        <span>{{ tf(a.user) }}</span>
+                      </div>
+                    </td>
+                    <td>{{ tf(a.property) }}</td>
+                    <td>
+                      <span class="audit-diff-old">{{ translateAuditValue(a.oldValue) }}</span>
+                    </td>
+                    <td>
+                      <span class="audit-diff-new">{{ translateAuditValue(a.newValue) }}</span>
+                    </td>
+                    <td style="text-align: right">
+                      <button
+                        v-tooltip="t('btn.delete')"
+                        type="button"
+                        class="action-icon-btn action-danger"
+                        data-test="stock-card-audit-delete-btn"
+                        @click="askDeleteAudit(i)"
+                      >
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
+                          <line x1="18" y1="6" x2="6" y2="18" />
+                          <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </GlassPanel>
+        </div>
       </div>
     </div>
-  </div>
 
-  <AppModal
-    v-model="deleteAuditOpen"
-    :title="t('modal.confirm_delete')"
-    size="small"
-    data-test="stock-card-audit-modal"
-  >
-    <p>{{ t('modal.delete_audit_warning') }}</p>
-    <template #footer>
-      <button
-        type="button"
-        class="btn btn-secondary"
-        data-test="stock-card-audit-modal-cancel"
-        @click="deleteAuditOpen = false"
-      >
-        {{ t('btn.cancel') }}
-      </button>
-      <button
-        type="button"
-        class="btn btn-danger"
-        data-test="stock-card-audit-modal-confirm"
-        @click="confirmDeleteAudit"
-      >
-        {{ t('btn.delete') }}
-      </button>
-    </template>
-  </AppModal>
-</template>
+    <AppModal
+      v-model="deleteAuditOpen"
+      :title="t('modal.confirm_delete')"
+      size="small"
+      data-test="stock-card-audit-modal"
+    >
+      <p>{{ t('modal.delete_audit_warning') }}</p>
+      <template #footer>
+        <button
+          type="button"
+          class="btn btn-secondary"
+          data-test="stock-card-audit-modal-cancel"
+          @click="deleteAuditOpen = false"
+        >
+          {{ t('btn.cancel') }}
+        </button>
+        <button
+          type="button"
+          class="btn btn-danger"
+          data-test="stock-card-audit-modal-confirm"
+          @click="confirmDeleteAudit"
+        >
+          {{ t('btn.delete') }}
+        </button>
+      </template>
+    </AppModal>
+  </template>
 </template>
 
 <style scoped>
@@ -603,5 +762,4 @@ onMounted(load)
     align-items: stretch;
   }
 }
-
 </style>

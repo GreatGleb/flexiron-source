@@ -16,7 +16,10 @@ export interface RequestOptions {
  *  - Our ApiResponse envelope → { message, code }
  *  - Plain HTTP status text
  */
-function parseErrorBody(body: unknown, status: number): {
+function parseErrorBody(
+  body: unknown,
+  status: number,
+): {
   message: string
   code: string | null
   fieldErrors: Record<string, string>
@@ -40,9 +43,10 @@ function parseErrorBody(body: unknown, status: number): {
           }
         }
       }
-      const firstMsg = Array.isArray(detail) && detail.length > 0
-        ? String((detail[0] as { msg?: string })?.msg ?? 'Validation error')
-        : 'Validation error'
+      const firstMsg =
+        Array.isArray(detail) && detail.length > 0
+          ? String((detail[0] as { msg?: string })?.msg ?? 'Validation error')
+          : 'Validation error'
       return { message: firstMsg, code: 'VALIDATION_ERROR', fieldErrors }
     }
 
@@ -86,7 +90,12 @@ function inferFieldFromMessage(message: string, code: string | null): string | n
     if (lower.includes('email')) return 'email'
     if (lower.includes('password') || lower.includes('pwd')) return 'password'
     if (lower.includes('phone')) return 'phone'
-    if (lower.includes('first_name') || lower.includes('first name') || lower.includes('name') && !lower.includes('company') && !lower.includes('last')) return 'first_name'
+    if (
+      lower.includes('first_name') ||
+      lower.includes('first name') ||
+      (lower.includes('name') && !lower.includes('company') && !lower.includes('last'))
+    )
+      return 'first_name'
     if (lower.includes('last_name') || lower.includes('last name')) return 'last_name'
     if (lower.includes('company') || lower.includes('company_name')) return 'company_name'
   }
@@ -132,7 +141,11 @@ async function unwrap<T>(res: Response, method: string, path: string): Promise<T
   return body as T
 }
 
-export async function apiGet<T>(path: string, params?: Record<string, string>, options?: RequestOptions): Promise<T> {
+export async function apiGet<T>(
+  path: string,
+  params?: Record<string, string>,
+  options?: RequestOptions,
+): Promise<T> {
   if (USE_MOCKS) {
     const { getMock } = await import('./mocks/index')
     return getMock<T>(path, params)
@@ -208,14 +221,18 @@ export async function apiDelete<T = void>(path: string, options?: RequestOptions
 }
 
 /** Multipart upload. Returns file metadata (incl. fileId). */
-export async function apiUpload<T>(path: string, file: File): Promise<T> {
+export async function apiUpload<T>(path: string, file: File, options?: RequestOptions): Promise<T> {
   if (USE_MOCKS) {
     const { uploadMock } = await import('./mocks/index')
     return uploadMock<T>(path, file)
   }
   const form = new FormData()
   form.append('file', file)
-  const res = await fetch(path, { method: 'POST', body: form })
+  const res = await fetch(path, {
+    method: 'POST',
+    body: form,
+    headers: options?.headers,
+  })
   return unwrap<T>(res, 'UPLOAD', path)
 }
 

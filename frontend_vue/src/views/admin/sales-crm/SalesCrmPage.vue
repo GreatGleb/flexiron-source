@@ -65,7 +65,11 @@ function formatCurrency(value: number): string {
     </div>
 
     <!-- Loading state -->
-    <div v-if="loading && !recentOrders.length" class="sales-crm-loading" data-test="sales-crm-loading">
+    <div
+      v-if="loading && !recentOrders.length"
+      class="sales-crm-loading"
+      data-test="sales-crm-loading"
+    >
       <div v-for="n in 4" :key="n" class="skeleton-kpi" />
     </div>
 
@@ -134,7 +138,11 @@ function formatCurrency(value: number): string {
               </router-link>
             </div>
 
-            <div v-if="recentOrders.length === 0" class="sales-crm-empty" data-test="sales-crm-recent-empty">
+            <div
+              v-if="recentOrders.length === 0"
+              class="sales-crm-empty"
+              data-test="sales-crm-recent-empty"
+            >
               <SvgIcon name="shopping-cart" :width="36" :height="36" />
               <p>{{ t('orders.empty') }}</p>
             </div>
@@ -191,7 +199,11 @@ function formatCurrency(value: number): string {
               </router-link>
             </div>
 
-            <div v-if="recentClients.length === 0" class="sales-crm-empty" data-test="sales-crm-recent-clients-empty">
+            <div
+              v-if="recentClients.length === 0"
+              class="sales-crm-empty"
+              data-test="sales-crm-recent-clients-empty"
+            >
               <SvgIcon name="folder" :width="36" :height="36" />
               <p>{{ t('clients.empty') }}</p>
             </div>
@@ -240,53 +252,104 @@ function formatCurrency(value: number): string {
           </div>
 
           <div class="sales-crm-quick-actions-list">
-            <button class="sales-crm-quick-action-btn" data-test="sales-crm-action-new-order" @click="goToNewOrder">
-              <div class="sales-crm-quick-action-icon" style="background: rgba(24, 144, 255, 0.15); color: #1890ff;">
+            <button
+              class="sales-crm-quick-action-btn"
+              data-test="sales-crm-action-new-order"
+              @click="goToNewOrder"
+            >
+              <div
+                class="sales-crm-quick-action-icon"
+                style="background: rgba(24, 144, 255, 0.15); color: #1890ff"
+              >
                 <SvgIcon name="shopping-cart" :width="20" :height="20" />
               </div>
               <div class="sales-crm-quick-action-body">
                 <span class="sales-crm-quick-action-title">{{ t('salesCrm.new_order') }}</span>
                 <span class="sales-crm-quick-action-desc">{{ t('salesCrm.new_order_desc') }}</span>
               </div>
-              <SvgIcon name="chevron-right" :width="14" :height="14" class="sales-crm-quick-action-arrow" />
+              <SvgIcon
+                name="chevron-right"
+                :width="14"
+                :height="14"
+                class="sales-crm-quick-action-arrow"
+              />
             </button>
 
-            <button class="sales-crm-quick-action-btn" data-test="sales-crm-action-new-client" @click="goToNewClient">
-              <div class="sales-crm-quick-action-icon" style="background: rgba(82, 196, 26, 0.15); color: #52c41a;">
+            <button
+              class="sales-crm-quick-action-btn"
+              data-test="sales-crm-action-new-client"
+              @click="goToNewClient"
+            >
+              <div
+                class="sales-crm-quick-action-icon"
+                style="background: rgba(82, 196, 26, 0.15); color: #52c41a"
+              >
                 <SvgIcon name="users" :width="20" :height="20" />
               </div>
               <div class="sales-crm-quick-action-body">
                 <span class="sales-crm-quick-action-title">{{ t('salesCrm.new_client') }}</span>
                 <span class="sales-crm-quick-action-desc">{{ t('salesCrm.new_client_desc') }}</span>
               </div>
-              <SvgIcon name="chevron-right" :width="14" :height="14" class="sales-crm-quick-action-arrow" />
+              <SvgIcon
+                name="chevron-right"
+                :width="14"
+                :height="14"
+                class="sales-crm-quick-action-arrow"
+              />
             </button>
 
-            <button class="sales-crm-quick-action-btn" data-test="sales-crm-action-clients-list" @click="goToClients">
-              <div class="sales-crm-quick-action-icon" style="background: rgba(114, 46, 209, 0.15); color: #722ed1;">
+            <button
+              class="sales-crm-quick-action-btn"
+              data-test="sales-crm-action-clients-list"
+              @click="goToClients"
+            >
+              <div
+                class="sales-crm-quick-action-icon"
+                style="background: rgba(114, 46, 209, 0.15); color: #722ed1"
+              >
                 <SvgIcon name="folder" :width="20" :height="20" />
               </div>
               <div class="sales-crm-quick-action-body">
                 <span class="sales-crm-quick-action-title">{{ t('salesCrm.clients_list') }}</span>
-                <span class="sales-crm-quick-action-desc">{{ t('salesCrm.clients_list_desc') }}</span>
+                <span class="sales-crm-quick-action-desc">{{
+                  t('salesCrm.clients_list_desc')
+                }}</span>
               </div>
-              <SvgIcon name="chevron-right" :width="14" :height="14" class="sales-crm-quick-action-arrow" />
+              <SvgIcon
+                name="chevron-right"
+                :width="14"
+                :height="14"
+                class="sales-crm-quick-action-arrow"
+              />
             </button>
 
-            <button class="sales-crm-quick-action-btn" data-test="sales-crm-action-orders-list" @click="goToOrders">
-              <div class="sales-crm-quick-action-icon" style="background: rgba(245, 106, 0, 0.15); color: #f56a00;">
+            <button
+              class="sales-crm-quick-action-btn"
+              data-test="sales-crm-action-orders-list"
+              @click="goToOrders"
+            >
+              <div
+                class="sales-crm-quick-action-icon"
+                style="background: rgba(245, 106, 0, 0.15); color: #f56a00"
+              >
                 <SvgIcon name="shopping-cart" :width="20" :height="20" />
               </div>
               <div class="sales-crm-quick-action-body">
                 <span class="sales-crm-quick-action-title">{{ t('salesCrm.orders_list') }}</span>
-                <span class="sales-crm-quick-action-desc">{{ t('salesCrm.orders_list_desc') }}</span>
+                <span class="sales-crm-quick-action-desc">{{
+                  t('salesCrm.orders_list_desc')
+                }}</span>
               </div>
-              <SvgIcon name="chevron-right" :width="14" :height="14" class="sales-crm-quick-action-arrow" />
+              <SvgIcon
+                name="chevron-right"
+                :width="14"
+                :height="14"
+                class="sales-crm-quick-action-arrow"
+              />
             </button>
           </div>
         </GlassPanel>
       </div>
-
     </template>
   </div>
 </template>

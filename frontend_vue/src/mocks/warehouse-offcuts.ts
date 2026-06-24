@@ -1,4 +1,4 @@
-﻿﻿import type { WarehouseOffcut } from '@/types/warehouse'
+﻿import type { WarehouseOffcut } from '@/types/warehouse'
 
 export const mockOffcuts: WarehouseOffcut[] = [
   // ── 1. Sheet (cat-2) ──────────────────────────────────────────────────────
@@ -7,7 +7,11 @@ export const mockOffcuts: WarehouseOffcut[] = [
     batchId: 'whb-001',
     batchNumber: 'INV-2025-001',
     productId: 'prod-001',
-    productName: { ru: 'Лист нержавеющий 2мм', en: 'Stainless steel sheet 2mm', lt: 'Nerūdijančio plieno lakštas 2mm' },
+    productName: {
+      ru: 'Лист нержавеющий 2мм',
+      en: 'Stainless steel sheet 2mm',
+      lt: 'Nerūdijančio plieno lakštas 2mm',
+    },
     categoryId: 'cat-2',
     offcutType: 'sheet',
     lengthMm: 500,
@@ -65,7 +69,11 @@ export const mockOffcuts: WarehouseOffcut[] = [
     batchId: 'whb-004',
     batchNumber: 'INV-2025-004',
     productId: 'prod-001',
-    productName: { ru: 'Лист нержавеющий 2мм', en: 'Stainless steel sheet 2mm', lt: 'Nerūdijančio plieno lakštas 2mm' },
+    productName: {
+      ru: 'Лист нержавеющий 2мм',
+      en: 'Stainless steel sheet 2mm',
+      lt: 'Nerūdijančio plieno lakštas 2mm',
+    },
     categoryId: 'cat-2',
     offcutType: 'sheet',
     lengthMm: 200,
@@ -90,7 +98,11 @@ export const mockOffcuts: WarehouseOffcut[] = [
     batchId: 'whb-003',
     batchNumber: 'INV-2025-003',
     productId: 'prod-003',
-    productName: { ru: 'Лист алюминиевый 3мм', en: 'Aluminum sheet 3mm', lt: 'Aliuminio lakštas 3mm' },
+    productName: {
+      ru: 'Лист алюминиевый 3мм',
+      en: 'Aluminum sheet 3mm',
+      lt: 'Aliuminio lakštas 3mm',
+    },
     categoryId: 'cat-2',
     offcutType: 'sheet',
     lengthMm: 1200,
@@ -115,7 +127,11 @@ export const mockOffcuts: WarehouseOffcut[] = [
     batchId: 'whb-005',
     batchNumber: 'INV-2025-005',
     productId: 'prod-004',
-    productName: { ru: 'Лист нержавеющий 1мм', en: 'Stainless steel sheet 1mm', lt: 'Nerūdijančio plieno lakštas 1mm' },
+    productName: {
+      ru: 'Лист нержавеющий 1мм',
+      en: 'Stainless steel sheet 1mm',
+      lt: 'Nerūdijančio plieno lakštas 1mm',
+    },
     categoryId: 'cat-2',
     offcutType: 'sheet',
     lengthMm: 400,
@@ -140,7 +156,11 @@ export const mockOffcuts: WarehouseOffcut[] = [
     batchId: 'whb-006',
     batchNumber: 'INV-2025-006',
     productId: 'prod-003',
-    productName: { ru: 'Лист алюминиевый 3мм', en: 'Aluminum sheet 3mm', lt: 'Aliuminio lakštas 3mm' },
+    productName: {
+      ru: 'Лист алюминиевый 3мм',
+      en: 'Aluminum sheet 3mm',
+      lt: 'Aliuminio lakštas 3mm',
+    },
     categoryId: 'cat-2',
     offcutType: 'sheet',
     lengthMm: 1800,
@@ -240,7 +260,11 @@ export const mockOffcuts: WarehouseOffcut[] = [
     batchId: 'whb-008',
     batchNumber: 'INV-2025-008',
     productId: 'prod-009',
-    productName: { ru: 'Сварочная проволока 1.2мм', en: 'Welding wire 1.2mm', lt: 'Suvirinimo viela 1.2mm' },
+    productName: {
+      ru: 'Сварочная проволока 1.2мм',
+      en: 'Welding wire 1.2mm',
+      lt: 'Suvirinimo viela 1.2mm',
+    },
     categoryId: 'cat-5',
     offcutType: 'linear',
     lengthMm: null,
@@ -265,7 +289,11 @@ export const mockOffcuts: WarehouseOffcut[] = [
     batchId: 'whb-010',
     batchNumber: 'INV-2025-010',
     productId: 'prod-016',
-    productName: { ru: 'Электроды сварочные 3мм', en: 'Welding electrodes 3mm', lt: 'Suvirinimo elektrodai 3mm' },
+    productName: {
+      ru: 'Электроды сварочные 3мм',
+      en: 'Welding electrodes 3mm',
+      lt: 'Suvirinimo elektrodai 3mm',
+    },
     categoryId: 'cat-5',
     offcutType: 'linear',
     lengthMm: null,
@@ -290,7 +318,11 @@ export const mockOffcuts: WarehouseOffcut[] = [
     batchId: 'whb-006',
     batchNumber: 'INV-2025-006',
     productId: 'prod-003',
-    productName: { ru: 'Лист алюминиевый 3мм', en: 'Aluminum sheet 3mm', lt: 'Aliuminio lakštas 3mm' },
+    productName: {
+      ru: 'Лист алюминиевый 3мм',
+      en: 'Aluminum sheet 3mm',
+      lt: 'Aliuminio lakštas 3mm',
+    },
     categoryId: 'cat-2',
     offcutType: 'sheet',
     lengthMm: 900,
@@ -340,7 +372,11 @@ export const mockOffcuts: WarehouseOffcut[] = [
     batchId: 'whb-008',
     batchNumber: 'INV-2025-008',
     productId: 'prod-022',
-    productName: { ru: 'Проволока сварочная ESAB OK Autrod 12.64 1.2мм', en: 'Welding wire ESAB OK Autrod 12.64 1.2mm', lt: 'Suvirinimo viela ESAB OK Autrod 12.64 1.2mm' },
+    productName: {
+      ru: 'Проволока сварочная ESAB OK Autrod 12.64 1.2мм',
+      en: 'Welding wire ESAB OK Autrod 12.64 1.2mm',
+      lt: 'Suvirinimo viela ESAB OK Autrod 12.64 1.2mm',
+    },
     categoryId: 'cat-5',
     offcutType: 'linear',
     lengthMm: null,

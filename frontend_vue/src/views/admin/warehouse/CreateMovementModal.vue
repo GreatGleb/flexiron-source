@@ -4,7 +4,14 @@ import { ref, computed, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { createMovement } from '@/services/warehouseService'
 import { useToast } from '@/composables/useToast'
-import type { MovementCreatePayload, MovementType, MovementListItem, WarehouseBatch, BatchStatusAggregate, BatchActiveSale } from '@/types/warehouse'
+import type {
+  MovementCreatePayload,
+  MovementType,
+  MovementListItem,
+  WarehouseBatch,
+  BatchStatusAggregate,
+  BatchActiveSale,
+} from '@/types/warehouse'
 import type { SelectOption } from '@/components/admin/ui/CustomSelect.vue'
 import AppModal from '@/components/admin/ui/AppModal.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
@@ -92,7 +99,9 @@ const HIDDEN_AGGREGATE_TYPES = new Set(['return', 'transfer'])
  *  Sale is always placed last, right before the active sales section. */
 const aggregateEntries = computed(() => {
   if (!props.aggregates) return []
-  const visible = props.aggregates.filter((a) => a.quantity > 0 && !HIDDEN_AGGREGATE_TYPES.has(a.type))
+  const visible = props.aggregates.filter(
+    (a) => a.quantity > 0 && !HIDDEN_AGGREGATE_TYPES.has(a.type),
+  )
   const sale = visible.find((a) => a.type === 'sale')
   const others = visible.filter((a) => a.type !== 'sale').sort((a, b) => b.quantity - a.quantity)
   const result = others.map((a) => [a.type, a.quantity] as [string, number])
@@ -166,9 +175,11 @@ const selectedAggregateAfter = computed(() => {
   const dir = movementDirection.value
   if (dir === 'correction') return quantity.value || 0
   // Return is 'incoming' for total stock but reduces the selected aggregate
-  if (type.value === 'return') return Math.max(0, selectedAggregateQuantity.value - (quantity.value || 0))
+  if (type.value === 'return')
+    return Math.max(0, selectedAggregateQuantity.value - (quantity.value || 0))
   if (dir === 'incoming') return selectedAggregateQuantity.value + (quantity.value || 0)
-  if (dir === 'outgoing') return Math.max(0, selectedAggregateQuantity.value - (quantity.value || 0))
+  if (dir === 'outgoing')
+    return Math.max(0, selectedAggregateQuantity.value - (quantity.value || 0))
   return selectedAggregateQuantity.value
 })
 
@@ -208,7 +219,7 @@ const totalInStockAfter = computed(() => {
 })
 
 /** Step for quantity inputs: 1 for pcs, 0.01 for others */
-const quantityStep = computed(() => props.batch?.unit === 'pcs' ? 1 : 0.01)
+const quantityStep = computed(() => (props.batch?.unit === 'pcs' ? 1 : 0.01))
 
 /** Translated unit label for the batch (e.g. "шт", "кг", "м", "м²") */
 const batchUnitLabel = computed(() => {
@@ -233,7 +244,10 @@ function validate(): boolean {
   } else {
     if (!quantity.value || quantity.value <= 0) e.quantity = t('validation.required')
     // Cannot exceed the selected aggregate/sale quantity
-    if ((selectedAggregateType.value || selectedSaleId.value) && quantity.value > selectedAggregateQuantity.value) {
+    if (
+      (selectedAggregateType.value || selectedSaleId.value) &&
+      quantity.value > selectedAggregateQuantity.value
+    ) {
       e.quantity = t('validation.max', { max: selectedAggregateQuantity.value })
     }
     // For expense/write-off, check against remaining
@@ -257,12 +271,17 @@ const isFormValid = computed(() => {
   } else {
     if (quantity.value <= 0) return false
     // Cannot exceed the selected aggregate/sale quantity
-    if ((selectedAggregateType.value || selectedSaleId.value) && quantity.value > selectedAggregateQuantity.value) return false
+    if (
+      (selectedAggregateType.value || selectedSaleId.value) &&
+      quantity.value > selectedAggregateQuantity.value
+    )
+      return false
     if (
       (type.value === 'expense' || type.value === 'write-off') &&
       props.batch &&
       quantity.value > props.batch.quantityRemaining
-    ) return false
+    )
+      return false
   }
   return true
 })
@@ -284,7 +303,10 @@ const quantityError = computed<string | null>(() => {
   if (!quantity.value || quantity.value <= 0) return t('warehouse.movement_modal_quantity_positive')
 
   // Cannot exceed the selected aggregate/sale quantity
-  if ((selectedAggregateType.value || selectedSaleId.value) && quantity.value > selectedAggregateQuantity.value) {
+  if (
+    (selectedAggregateType.value || selectedSaleId.value) &&
+    quantity.value > selectedAggregateQuantity.value
+  ) {
     return t('warehouse.movement_modal_quantity_exceeds', { max: selectedAggregateQuantity.value })
   }
 
@@ -318,15 +340,47 @@ const selectedMovementEffect = computed(() => {
 
 /** All possible movement types (except 'transfer' — not available in this modal) */
 const ALL_MOVEMENT_TYPE_OPTIONS: SelectOption[] = [
-  { value: 'receipt', label: t('warehouse.type_receipt'), hint: t('warehouse.movement_type_hint_receipt') },
+  {
+    value: 'receipt',
+    label: t('warehouse.type_receipt'),
+    hint: t('warehouse.movement_type_hint_receipt'),
+  },
   { value: 'sale', label: t('warehouse.type_sale'), hint: t('warehouse.movement_type_hint_sale') },
-  { value: 'production', label: t('warehouse.type_production'), hint: t('warehouse.movement_type_hint_production') },
-  { value: 'expense', label: t('warehouse.type_expense'), hint: t('warehouse.movement_type_hint_expense') },
-  { value: 'write-off', label: t('warehouse.type_write_off'), hint: t('warehouse.movement_type_hint_write_off') },
-  { value: 'storage', label: t('warehouse.type_storage'), hint: t('warehouse.movement_type_hint_storage') },
-  { value: 'return', label: t('warehouse.type_return'), hint: t('warehouse.movement_type_hint_return') },
-  { value: 'return-to-supplier', label: t('warehouse.type_return_to_supplier'), hint: t('warehouse.movement_type_hint_return_to_supplier') },
-  { value: 'correction', label: t('warehouse.type_correction'), hint: t('warehouse.movement_type_hint_correction') },
+  {
+    value: 'production',
+    label: t('warehouse.type_production'),
+    hint: t('warehouse.movement_type_hint_production'),
+  },
+  {
+    value: 'expense',
+    label: t('warehouse.type_expense'),
+    hint: t('warehouse.movement_type_hint_expense'),
+  },
+  {
+    value: 'write-off',
+    label: t('warehouse.type_write_off'),
+    hint: t('warehouse.movement_type_hint_write_off'),
+  },
+  {
+    value: 'storage',
+    label: t('warehouse.type_storage'),
+    hint: t('warehouse.movement_type_hint_storage'),
+  },
+  {
+    value: 'return',
+    label: t('warehouse.type_return'),
+    hint: t('warehouse.movement_type_hint_return'),
+  },
+  {
+    value: 'return-to-supplier',
+    label: t('warehouse.type_return_to_supplier'),
+    hint: t('warehouse.movement_type_hint_return_to_supplier'),
+  },
+  {
+    value: 'correction',
+    label: t('warehouse.type_correction'),
+    hint: t('warehouse.movement_type_hint_correction'),
+  },
 ]
 
 /**
@@ -341,9 +395,7 @@ const ALL_MOVEMENT_TYPE_OPTIONS: SelectOption[] = [
  */
 const availableMovementTypes = computed(() => {
   // If a sale is selected (either aggregate card or active sale), treat it as 'sale'
-  const effectiveType = selectedSaleId.value
-    ? 'sale'
-    : selectedAggregateType.value
+  const effectiveType = selectedSaleId.value ? 'sale' : selectedAggregateType.value
 
   if (!effectiveType) {
     // Nothing selected — only receipt is available
@@ -435,20 +487,22 @@ async function onSave() {
   try {
     // For return from an active sale: use that sale's referenceId so the
     // backend can match the return to the original sale for active-sales tracking.
-    const returnRefId = type.value === 'return' && selectedSaleId.value && props.activeSales
-      ? (props.activeSales.find((s) => s.id === selectedSaleId.value)?.referenceId ?? null)
-      : null
+    const returnRefId =
+      type.value === 'return' && selectedSaleId.value && props.activeSales
+        ? (props.activeSales.find((s) => s.id === selectedSaleId.value)?.referenceId ?? null)
+        : null
 
     const payload: MovementCreatePayload = {
       type: type.value as MovementType,
       batchId: props.batch.id,
       quantity: quantity.value,
       referenceId: returnRefId || referenceId.value || null,
-      referenceType: type.value === 'return'
-        ? (selectedAggregateType.value || (selectedSaleId.value ? 'sale' : null))
-        : type.value === 'correction'
-          ? (selectedAggregateType.value || null)
-          : (referenceType.value || null),
+      referenceType:
+        type.value === 'return'
+          ? selectedAggregateType.value || (selectedSaleId.value ? 'sale' : null)
+          : type.value === 'correction'
+            ? selectedAggregateType.value || null
+            : referenceType.value || null,
       fromLocation: fromLocation.value || null,
       toLocation: toLocation.value || null,
       performedBy: performedBy.value || null,
@@ -498,7 +552,6 @@ function formatDate(iso: string): string {
   const d = new Date(iso)
   return d.toLocaleDateString()
 }
-
 </script>
 
 <template>
@@ -507,7 +560,11 @@ function formatDate(iso: string): string {
     :title="t('warehouse.movement_modal_title')"
     size="large"
     data-test="create-movement-modal"
-    @update:model-value="(v: boolean) => { if (!v) emit('close') }"
+    @update:model-value="
+      (v: boolean) => {
+        if (!v) emit('close')
+      }
+    "
   >
     <div class="modal-form">
       <!-- ── Batch Summary Section (scrollable) ── -->
@@ -539,26 +596,43 @@ function formatDate(iso: string): string {
             class="aggregate-card"
             :class="[
               MOVEMENT_TYPE_AGGREGATE_COLORS[movementType] || '',
-              { 'is-selected': movementType !== 'sale' && selectedAggregateType === movementType }
+              { 'is-selected': movementType !== 'sale' && selectedAggregateType === movementType },
             ]"
             :data-test="'aggregate-card-' + movementType"
             @click="movementType !== 'sale' && selectAggregateType(movementType)"
           >
             <!-- Checkbox only for selectable types (not sale) -->
             <div v-if="movementType !== 'sale'" class="agg-checkbox">
-              <SvgIcon v-if="selectedAggregateType === movementType" name="check" :width="12" :height="12" />
+              <SvgIcon
+                v-if="selectedAggregateType === movementType"
+                name="check"
+                :width="12"
+                :height="12"
+              />
             </div>
             <div class="agg-icon">
-              <SvgIcon :name="MOVEMENT_TYPE_ICONS[movementType] || 'package'" :width="14" :height="14" />
+              <SvgIcon
+                :name="MOVEMENT_TYPE_ICONS[movementType] || 'package'"
+                :width="14"
+                :height="14"
+              />
             </div>
             <div class="agg-info">
-              <div class="agg-label">{{ t(`warehouse.${MOVEMENT_TYPE_AGGREGATE_LABELS[movementType] || 'batch_summary_in_stock'}`) }}</div>
+              <div class="agg-label">
+                {{
+                  t(
+                    `warehouse.${MOVEMENT_TYPE_AGGREGATE_LABELS[movementType] || 'batch_summary_in_stock'}`,
+                  )
+                }}
+              </div>
               <div class="agg-value">
                 {{ qty }}
                 <span class="agg-unit">{{ t(`warehouse.unit_${batch.unit}`) }}</span>
               </div>
               <!-- Hint inside sale card: select a specific sale below -->
-              <div v-if="movementType === 'sale'" class="agg-sale-hint">{{ t('warehouse.batch_summary_active_sales_hint') }}</div>
+              <div v-if="movementType === 'sale'" class="agg-sale-hint">
+                {{ t('warehouse.batch_summary_active_sales_hint') }}
+              </div>
             </div>
           </div>
         </div>
@@ -598,7 +672,9 @@ function formatDate(iso: string): string {
       <div class="batch-form-fields">
         <!-- Movement type -->
         <div class="form-group">
-          <label class="field-label">{{ t('warehouse.field_movement_type') }} <span class="required">*</span></label>
+          <label class="field-label"
+            >{{ t('warehouse.field_movement_type') }} <span class="required">*</span></label
+          >
           <CustomSelect
             v-model="type"
             :options="availableMovementTypes"
@@ -624,7 +700,10 @@ function formatDate(iso: string): string {
         <!-- New movement quantity (hidden for correction — user sets new qty directly via the "after" field) -->
         <template v-if="!isCorrection">
           <div class="form-group">
-            <label class="field-label">{{ t('warehouse.field_new_movement_quantity') }} <span class="required">*</span></label>
+            <label class="field-label"
+              >{{ t('warehouse.field_new_movement_quantity') }}
+              <span class="required">*</span></label
+            >
             <input
               v-model.number="quantity"
               type="number"
@@ -662,7 +741,9 @@ function formatDate(iso: string): string {
             data-test="create-movement-selected-after"
           />
           <p v-if="errors.quantity" class="field-error">{{ errors.quantity }}</p>
-          <p v-if="!isCorrection" class="field-readonly-hint">{{ t('warehouse.field_readonly_hint') }}</p>
+          <p v-if="!isCorrection" class="field-readonly-hint">
+            {{ t('warehouse.field_readonly_hint') }}
+          </p>
         </div>
 
         <!-- Total in stock after (always read-only) — shown when type selected -->
@@ -736,11 +817,10 @@ function formatDate(iso: string): string {
 
         <!-- Movement date -->
         <div class="form-group">
-          <label class="field-label">{{ t('warehouse.field_moved_at') }} <span class="required">*</span></label>
-          <DatePicker
-            v-model="movedAt"
-            data-test="create-movement-date-picker"
-          />
+          <label class="field-label"
+            >{{ t('warehouse.field_moved_at') }} <span class="required">*</span></label
+          >
+          <DatePicker v-model="movedAt" data-test="create-movement-date-picker" />
           <p v-if="errors.movedAt" class="field-error">{{ errors.movedAt }}</p>
         </div>
 

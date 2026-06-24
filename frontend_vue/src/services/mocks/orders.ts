@@ -1,4 +1,12 @@
-import type { Order, OrderListItem, OrderItem, OrderService, OrderFile, OrderStatus, OrderDocumentType } from '@/types/order'
+import type {
+  Order,
+  OrderListItem,
+  OrderItem,
+  OrderService,
+  OrderFile,
+  OrderStatus,
+  OrderDocumentType,
+} from '@/types/order'
 import type { StockAuditEntry } from '@/types/warehouse'
 import type { PaginatedResponse, PaginationParams } from '@/types/api'
 import { mockGetClients } from './clients'
@@ -23,53 +31,54 @@ interface ProductSpec {
  * for the same seed value.
  */
 function mulberry32(seed: number): () => number {
-  return function() {
-    seed |= 0; seed = seed + 0x6D2B79F5 | 0
-    let t = Math.imul(seed ^ seed >>> 15, 1 | seed)
-    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t
-    return ((t ^ t >>> 14) >>> 0) / 4294967296
+  return function () {
+    seed |= 0
+    seed = (seed + 0x6d2b79f5) | 0
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
   }
 }
 
 const PRODUCTS: ProductSpec[] = [
-  { id: 'prod-001',  name: 'Steel Sheet 3mm',            unit: 'pcs', price: 120.50 },
-  { id: 'prod-002',  name: 'Steel Pipe 50mm',            unit: 'm',   price: 45.00 },
-  { id: 'prod-003',  name: 'Aluminum Profile 2m',        unit: 'pcs', price: 85.00 },
-  { id: 'prod-004',  name: 'Stainless Coil 304',          unit: 'coil', price: 4500.00 },
-  { id: 'prod-005',  name: 'Beam HEA 200',                unit: 'pcs', price: 320.00 },
-  { id: 'prod-006',  name: 'Galvanized Sheet 2mm',       unit: 'pcs', price: 75.00 },
-  { id: 'prod-007',  name: 'Rebar 12mm A500C',           unit: 'kg',  price: 0.85 },
-  { id: 'prod-008',  name: 'Angle Bar 50x50mm',          unit: 'm',   price: 8.50 },
-  { id: 'prod-009',  name: 'Flat Bar 30x5mm',            unit: 'm',   price: 4.20 },
-  { id: 'prod-010', name: 'Square Tube 40x40x2mm',       unit: 'm',   price: 6.75 },
-  { id: 'prod-011', name: 'Steel Sheet 5mm S355',       unit: 'pcs', price: 210.00 },
-  { id: 'prod-012', name: 'Steel Sheet 8mm S355',       unit: 'pcs', price: 340.00 },
-  { id: 'prod-013', name: 'Steel Sheet 10mm S235',      unit: 'pcs', price: 410.00 },
-  { id: 'prod-014', name: 'Steel Sheet 12mm S355',      unit: 'pcs', price: 540.00 },
-  { id: 'prod-015', name: 'Steel Sheet 16mm S355',      unit: 'pcs', price: 720.00 },
-  { id: 'prod-016', name: 'Stainless Sheet AISI 304 2mm', unit: 'pcs', price: 380.00 },
-  { id: 'prod-017', name: 'Aluminium Sheet AMg2 2mm',   unit: 'pcs', price: 195.00 },
-  { id: 'prod-018', name: 'Aluminium Sheet D16 4mm',    unit: 'pcs', price: 280.00 },
-  { id: 'prod-019', name: 'Steel Pipe 100x5',            unit: 'm',   price: 78.00 },
-  { id: 'prod-020', name: 'Steel Pipe 25x3',             unit: 'm',   price: 18.50 },
-  { id: 'prod-021', name: 'Steel Pipe 60x4',             unit: 'm',   price: 42.00 },
-  { id: 'prod-022', name: 'Welding Wire 1.2mm',          unit: 'kg',  price: 3.50 },
-  { id: 'prod-023', name: 'Beam IPE 300',                unit: 'pcs', price: 580.00 },
-  { id: 'prod-024', name: 'Beam HEB 200',                unit: 'pcs', price: 460.00 },
-  { id: 'prod-025', name: 'Channel UPN 200',             unit: 'pcs', price: 310.00 },
-  { id: 'prod-026', name: 'Galvanized Sheet 1.5mm',      unit: 'pcs', price: 58.00 },
-  { id: 'prod-027', name: 'Wire Rod 8mm',                unit: 'kg',  price: 0.72 },
-  { id: 'prod-028', name: 'Mesh Reinforcement 100x100x6', unit: 'pcs', price: 95.00 },
-  { id: 'prod-029', name: 'Round Bar 20mm',              unit: 'm',   price: 12.00 },
-  { id: 'prod-030', name: 'Square Bar 15mm',             unit: 'm',   price: 9.80 },
+  { id: 'prod-001', name: 'Steel Sheet 3mm', unit: 'pcs', price: 120.5 },
+  { id: 'prod-002', name: 'Steel Pipe 50mm', unit: 'm', price: 45.0 },
+  { id: 'prod-003', name: 'Aluminum Profile 2m', unit: 'pcs', price: 85.0 },
+  { id: 'prod-004', name: 'Stainless Coil 304', unit: 'coil', price: 4500.0 },
+  { id: 'prod-005', name: 'Beam HEA 200', unit: 'pcs', price: 320.0 },
+  { id: 'prod-006', name: 'Galvanized Sheet 2mm', unit: 'pcs', price: 75.0 },
+  { id: 'prod-007', name: 'Rebar 12mm A500C', unit: 'kg', price: 0.85 },
+  { id: 'prod-008', name: 'Angle Bar 50x50mm', unit: 'm', price: 8.5 },
+  { id: 'prod-009', name: 'Flat Bar 30x5mm', unit: 'm', price: 4.2 },
+  { id: 'prod-010', name: 'Square Tube 40x40x2mm', unit: 'm', price: 6.75 },
+  { id: 'prod-011', name: 'Steel Sheet 5mm S355', unit: 'pcs', price: 210.0 },
+  { id: 'prod-012', name: 'Steel Sheet 8mm S355', unit: 'pcs', price: 340.0 },
+  { id: 'prod-013', name: 'Steel Sheet 10mm S235', unit: 'pcs', price: 410.0 },
+  { id: 'prod-014', name: 'Steel Sheet 12mm S355', unit: 'pcs', price: 540.0 },
+  { id: 'prod-015', name: 'Steel Sheet 16mm S355', unit: 'pcs', price: 720.0 },
+  { id: 'prod-016', name: 'Stainless Sheet AISI 304 2mm', unit: 'pcs', price: 380.0 },
+  { id: 'prod-017', name: 'Aluminium Sheet AMg2 2mm', unit: 'pcs', price: 195.0 },
+  { id: 'prod-018', name: 'Aluminium Sheet D16 4mm', unit: 'pcs', price: 280.0 },
+  { id: 'prod-019', name: 'Steel Pipe 100x5', unit: 'm', price: 78.0 },
+  { id: 'prod-020', name: 'Steel Pipe 25x3', unit: 'm', price: 18.5 },
+  { id: 'prod-021', name: 'Steel Pipe 60x4', unit: 'm', price: 42.0 },
+  { id: 'prod-022', name: 'Welding Wire 1.2mm', unit: 'kg', price: 3.5 },
+  { id: 'prod-023', name: 'Beam IPE 300', unit: 'pcs', price: 580.0 },
+  { id: 'prod-024', name: 'Beam HEB 200', unit: 'pcs', price: 460.0 },
+  { id: 'prod-025', name: 'Channel UPN 200', unit: 'pcs', price: 310.0 },
+  { id: 'prod-026', name: 'Galvanized Sheet 1.5mm', unit: 'pcs', price: 58.0 },
+  { id: 'prod-027', name: 'Wire Rod 8mm', unit: 'kg', price: 0.72 },
+  { id: 'prod-028', name: 'Mesh Reinforcement 100x100x6', unit: 'pcs', price: 95.0 },
+  { id: 'prod-029', name: 'Round Bar 20mm', unit: 'm', price: 12.0 },
+  { id: 'prod-030', name: 'Square Bar 15mm', unit: 'm', price: 9.8 },
 ]
 
 const SERVICES_LIST = [
-  { id: 'svc-001', name: 'Metal cutting',     cost: 5,   price: 12 },
-  { id: 'svc-002', name: 'Delivery',          cost: 10,  price: 25 },
-  { id: 'svc-003', name: 'Packaging',          cost: 2,   price: 5 },
-  { id: 'svc-004', name: 'Metal bending',     cost: 8,   price: 18 },
-  { id: 'svc-005', name: 'Welding',           cost: 15,  price: 35 },
+  { id: 'svc-001', name: 'Metal cutting', cost: 5, price: 12 },
+  { id: 'svc-002', name: 'Delivery', cost: 10, price: 25 },
+  { id: 'svc-003', name: 'Packaging', cost: 2, price: 5 },
+  { id: 'svc-004', name: 'Metal bending', cost: 8, price: 18 },
+  { id: 'svc-005', name: 'Welding', cost: 15, price: 35 },
 ]
 
 // ── Generate 100 realistic orders (deterministic — same seed = same data) ────
@@ -78,8 +87,17 @@ const TOTAL_ORDERS = 100
 function generateOrders(): StoreOrder[] {
   const clients = mockGetClients()
   const orders: StoreOrder[] = []
-  const allStatuses: OrderStatus[] = ['new', 'confirmed', 'picking', 'packing', 'shipped', 'delivered', 'paid', 'cancelled']
-  const statusWeights = [0.08, 0.10, 0.10, 0.08, 0.20, 0.28, 0.08, 0.08]
+  const allStatuses: OrderStatus[] = [
+    'new',
+    'confirmed',
+    'picking',
+    'packing',
+    'shipped',
+    'delivered',
+    'paid',
+    'cancelled',
+  ]
+  const statusWeights = [0.08, 0.1, 0.1, 0.08, 0.2, 0.28, 0.08, 0.08]
 
   for (let i = 0; i < TOTAL_ORDERS; i++) {
     const seq = String(i + 1).padStart(3, '0')
@@ -95,7 +113,10 @@ function generateOrders(): StoreOrder[] {
     let statusIdx = 0
     for (let si = 0; si < statusWeights.length; si++) {
       r -= statusWeights[si]!
-      if (r <= 0) { statusIdx = si; break }
+      if (r <= 0) {
+        statusIdx = si
+        break
+      }
     }
     const status = allStatuses[statusIdx]!
 
@@ -113,12 +134,14 @@ function generateOrders(): StoreOrder[] {
       usedIds.add(prod.id)
 
       const fullProd = PRODUCTS_STORE.find((p) => p.id === prod.id)
-      const initLang = typeof localStorage !== 'undefined' ? localStorage.getItem('flexiron_lang') || 'en' : 'en'
-      const qty = prod.unit === 'kg' || prod.unit === 'm'
-        ? Math.round((10 + rng() * 490) * 10) / 10
-        : 1 + Math.floor(rng() * 50)
+      const initLang =
+        typeof localStorage !== 'undefined' ? localStorage.getItem('flexiron_lang') || 'en' : 'en'
+      const qty =
+        prod.unit === 'kg' || prod.unit === 'm'
+          ? Math.round((10 + rng() * 490) * 10) / 10
+          : 1 + Math.floor(rng() * 50)
       const discount = rng() < 0.15 ? Math.round(rng() * 15) : 0
-      const costRatio = 0.6 + rng() * 0.25  // 60–85% of selling price
+      const costRatio = 0.6 + rng() * 0.25 // 60–85% of selling price
       const unitCost = Math.round(prod.price * costRatio * 100) / 100
       const totalPrice = Math.round(qty * prod.price * (1 - discount / 100) * 100) / 100
 
@@ -126,7 +149,10 @@ function generateOrders(): StoreOrder[] {
         id: `oi-${i * 20 + j}`,
         lineNumber: j + 1,
         productId: prod.id,
-        productName: fullProd?.name?.[initLang as keyof typeof fullProd.name] ?? fullProd?.name?.en ?? prod.name,
+        productName:
+          fullProd?.name?.[initLang as keyof typeof fullProd.name] ??
+          fullProd?.name?.en ??
+          prod.name,
         quantity: qty,
         unit: prod.unit,
         unitPrice: prod.price,
@@ -135,6 +161,8 @@ function generateOrders(): StoreOrder[] {
         totalPrice,
         batchId: null,
         offcutId: null,
+        receivedCurrency: fullProd?.currencyId ?? 'cur-eur',
+        exchangeRate: 1,
       })
     }
 
@@ -143,8 +171,10 @@ function generateOrders(): StoreOrder[] {
     if (rng() < 0.3) {
       const svc = SERVICES_LIST[Math.floor(rng() * SERVICES_LIST.length)]!
       const fullSvc = MOCK_SERVICES_DATA.find((s) => s.id === svc.id)
-      const initLang = typeof localStorage !== 'undefined' ? localStorage.getItem('flexiron_lang') || 'en' : 'en'
-      const serviceName = fullSvc?.name?.[initLang as keyof typeof fullSvc.name] ?? fullSvc?.name?.en ?? svc.name
+      const initLang =
+        typeof localStorage !== 'undefined' ? localStorage.getItem('flexiron_lang') || 'en' : 'en'
+      const serviceName =
+        fullSvc?.name?.[initLang as keyof typeof fullSvc.name] ?? fullSvc?.name?.en ?? svc.name
       services.push({
         id: `os-${i * 10}`,
         serviceId: svc.id,
@@ -156,25 +186,53 @@ function generateOrders(): StoreOrder[] {
       })
     }
 
-    const subTotal = items.reduce((s, it) => s + it.totalPrice, 0) +
+    const subTotal =
+      items.reduce((s, it) => s + it.totalPrice, 0) +
       services.reduce((s, sv) => s + sv.price * sv.quantity, 0)
     const totalAmount = Math.round(subTotal * 100) / 100
     const totalVat = Math.round(totalAmount * 0.21 * 100) / 100
-    const totalWeight = Math.round(items.reduce((s, it) => s + (typeof it.quantity === 'number' ? it.quantity : parseFloat(it.quantity)) * 0.4, 0) * 100) / 100
+    const totalWeight =
+      Math.round(
+        items.reduce(
+          (s, it) =>
+            s + (typeof it.quantity === 'number' ? it.quantity : parseFloat(it.quantity)) * 0.4,
+          0,
+        ) * 100,
+      ) / 100
 
     // Spread dates from Jan 2026 to June 2026
     const dayOffset = Math.floor((i / TOTAL_ORDERS) * 180)
-    const orderDate = new Date(2026, 0, 1 + dayOffset, 8 + Math.floor(rng() * 10), Math.floor(rng() * 60))
+    const orderDate = new Date(
+      2026,
+      0,
+      1 + dayOffset,
+      8 + Math.floor(rng() * 10),
+      Math.floor(rng() * 60),
+    )
     const createdAt = orderDate.toISOString()
 
-    const updatedOffset = status === 'delivered' || status === 'shipped'
-      ? dayOffset + 1 + Math.floor(rng() * 5)
-      : dayOffset
-    const updatedDate = new Date(2026, 0, 1 + Math.min(updatedOffset, 180), 8 + Math.floor(rng() * 10), Math.floor(rng() * 60))
+    const updatedOffset =
+      status === 'delivered' || status === 'shipped'
+        ? dayOffset + 1 + Math.floor(rng() * 5)
+        : dayOffset
+    const updatedDate = new Date(
+      2026,
+      0,
+      1 + Math.min(updatedOffset, 180),
+      8 + Math.floor(rng() * 10),
+      Math.floor(rng() * 60),
+    )
     const updatedAt = updatedDate.toISOString()
 
     const auditLog: StockAuditEntry[] = [
-      { timestamp: createdAt.slice(0, 16).replace('T', ' '), user: { ru: 'Система', en: 'System', lt: 'Sistema' }, userInitials: 'SY', property: { ru: 'Заказ создан', en: 'Order created', lt: 'Užsakymas sukurtas' }, oldValue: '', newValue: `ORD-2026-${seq}` },
+      {
+        timestamp: createdAt.slice(0, 16).replace('T', ' '),
+        user: { ru: 'Система', en: 'System', lt: 'Sistema' },
+        userInitials: 'SY',
+        property: { ru: 'Заказ создан', en: 'Order created', lt: 'Užsakymas sukurtas' },
+        oldValue: '',
+        newValue: `ORD-2026-${seq}`,
+      },
     ]
     if (status !== 'new') {
       auditLog.push({
@@ -188,7 +246,10 @@ function generateOrders(): StoreOrder[] {
     }
 
     const notesPool: Array<string | null> = [
-      null, null, null, null,
+      null,
+      null,
+      null,
+      null,
       'Urgent — priority processing',
       'Export documentation required',
       'Delivery to construction site required',
@@ -196,7 +257,9 @@ function generateOrders(): StoreOrder[] {
       'Weekend delivery requested',
       'Partial delivery allowed',
       'Consolidate with next week order',
-      null, null, null,
+      null,
+      null,
+      null,
     ]
     const note = notesPool[Math.floor(rng() * notesPool.length)]!
 
@@ -216,6 +279,8 @@ function generateOrders(): StoreOrder[] {
       totalWithVat: totalAmount + totalVat,
       totalWeight,
       currency: 'EUR',
+      vatPercent: 21,
+      marginPercent: 15,
       notes: note,
       documents: [],
       files: [],
@@ -239,11 +304,12 @@ function nextId(): string {
 }
 
 function recalcTotals(order: StoreOrder): void {
-  order.totalAmount = order.items.reduce((sum, i) => sum + i.totalPrice, 0) +
+  order.totalAmount =
+    order.items.reduce((sum, i) => sum + i.totalPrice, 0) +
     order.services.reduce((sum, s) => sum + s.price * s.quantity, 0)
   order.totalVat = Math.round(order.totalAmount * 0.21 * 100) / 100
   order.totalWithVat = order.totalAmount + order.totalVat
-  order.totalWeight = order.items.reduce((sum, i) => sum + (parseFloat(String(i.quantity)) * 0.5), 0)
+  order.totalWeight = order.items.reduce((sum, i) => sum + parseFloat(String(i.quantity)) * 0.5, 0)
 }
 
 function clone<T>(data: T): T {
@@ -253,7 +319,15 @@ function clone<T>(data: T): T {
 // ─── List ───
 
 export function mockGetOrders(
-  filters: { search: string; status: string; clientId: string | null; dateFrom: string; dateTo: string; sortBy: string | null; sortDir: string },
+  filters: {
+    search: string
+    status: string
+    clientId: string | null
+    dateFrom: string
+    dateTo: string
+    sortBy: string | null
+    sortDir: string
+  },
   pagination: PaginationParams,
 ): PaginatedResponse<OrderListItem> {
   let filtered = STORE.map((o) => ({
@@ -272,8 +346,7 @@ export function mockGetOrders(
   if (search) {
     filtered = filtered.filter(
       (o) =>
-        o.orderNumber.toLowerCase().includes(search) ||
-        o.clientName.toLowerCase().includes(search),
+        o.orderNumber.toLowerCase().includes(search) || o.clientName.toLowerCase().includes(search),
     )
   }
 
@@ -294,12 +367,28 @@ export function mockGetOrders(
       let va: string | number
       let vb: string | number
       switch (sortBy) {
-        case 'orderNumber': va = a.orderNumber; vb = b.orderNumber; break
-        case 'clientName': va = a.clientName; vb = b.clientName; break
-        case 'status': va = a.status; vb = b.status; break
-        case 'totalAmount': va = a.totalAmount; vb = b.totalAmount; break
-        case 'createdAt': va = a.createdAt; vb = b.createdAt; break
-        default: return 0
+        case 'orderNumber':
+          va = a.orderNumber
+          vb = b.orderNumber
+          break
+        case 'clientName':
+          va = a.clientName
+          vb = b.clientName
+          break
+        case 'status':
+          va = a.status
+          vb = b.status
+          break
+        case 'totalAmount':
+          va = a.totalAmount
+          vb = b.totalAmount
+          break
+        case 'createdAt':
+          va = a.createdAt
+          vb = b.createdAt
+          break
+        default:
+          return 0
       }
       if (va < vb) return -1 * sortDir
       if (va > vb) return 1 * sortDir
@@ -333,7 +422,11 @@ export function mockGetOrder(id: string): Order | undefined {
 
 // ─── Create ───
 
-export function mockCreateOrder(data: { clientId: string; documentType: 'local' | 'export' }): Order {
+export function mockCreateOrder(data: {
+  clientId: string
+  documentType: 'local' | 'export'
+  currency?: string
+}): Order {
   const clients = mockGetClients()
   const client = clients.find((c) => c.id === data.clientId)
   if (!client) throw new Error('CLIENT_NOT_FOUND')
@@ -356,12 +449,21 @@ export function mockCreateOrder(data: { clientId: string; documentType: 'local' 
     totalVat: 0,
     totalWithVat: 0,
     totalWeight: 0,
-    currency: 'EUR',
+    currency: data.currency ?? 'EUR',
+    vatPercent: 21,
+    marginPercent: 15,
     notes: null,
     documents: [],
     files: [],
     auditLog: [
-      { timestamp: new Date().toISOString(), user: { ru: 'Система', en: 'System', lt: 'Sistema' }, userInitials: 'SY', property: { ru: 'Заказ создан', en: 'Order created', lt: 'Užsakymas sukurtas' }, oldValue: '', newValue: orderNumber } as StockAuditEntry,
+      {
+        timestamp: new Date().toISOString(),
+        user: { ru: 'Система', en: 'System', lt: 'Sistema' },
+        userInitials: 'SY',
+        property: { ru: 'Заказ создан', en: 'Order created', lt: 'Užsakymas sukurtas' },
+        oldValue: '',
+        newValue: orderNumber,
+      } as StockAuditEntry,
     ],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -407,13 +509,24 @@ export function mockDeleteOrder(id: string): void {
 
 // ─── Items ───
 
-export function mockAddOrderItem(orderId: string, data: { productId: string; quantity: number; unit: string; unitPrice: number; batchId?: string | null }): OrderItem {
+export function mockAddOrderItem(
+  orderId: string,
+  data: {
+    productId: string
+    quantity: number
+    unit: string
+    unitPrice: number
+    batchId?: string | null
+  },
+): OrderItem {
   const order = STORE.find((o) => o.id === orderId)
   if (!order) throw new Error('ORDER_NOT_FOUND')
   // Look up product name from the full products STORE with current locale, fall back to local PRODUCTS catalog
-  const currentLang = typeof localStorage !== 'undefined' ? localStorage.getItem('flexiron_lang') || 'en' : 'en'
+  const currentLang =
+    typeof localStorage !== 'undefined' ? localStorage.getItem('flexiron_lang') || 'en' : 'en'
   const fullProduct = PRODUCTS_STORE.find((p) => p.id === data.productId)
-  let productName = fullProduct?.name?.[currentLang as keyof typeof fullProduct.name] ?? fullProduct?.name?.en
+  let productName =
+    fullProduct?.name?.[currentLang as keyof typeof fullProduct.name] ?? fullProduct?.name?.en
   if (!productName) {
     productName = PRODUCTS.find((p) => p.id === data.productId)?.name ?? data.productId
   }
@@ -429,6 +542,8 @@ export function mockAddOrderItem(orderId: string, data: { productId: string; qua
     totalPrice: data.quantity * data.unitPrice,
     batchId: data.batchId ?? null,
     offcutId: null,
+    receivedCurrency: fullProduct?.currencyId ?? 'cur-eur',
+    exchangeRate: 1,
   }
   order._nextLineSeq++
   order.items.push(item)
@@ -436,14 +551,23 @@ export function mockAddOrderItem(orderId: string, data: { productId: string; qua
   return clone(item)
 }
 
-export function mockUpdateOrderItem(orderId: string, lineId: string, delta: Partial<OrderItem>): OrderItem {
+export function mockUpdateOrderItem(
+  orderId: string,
+  lineId: string,
+  delta: Partial<OrderItem>,
+): OrderItem {
   const order = STORE.find((o) => o.id === orderId)
   if (!order) throw new Error('ORDER_NOT_FOUND')
   const item = order.items.find((i) => i.id === lineId)
   if (!item) throw new Error('ORDER_ITEM_NOT_FOUND')
   Object.assign(item, delta)
-  if (delta.quantity !== undefined || delta.unitPrice !== undefined || delta.discount !== undefined) {
-    item.totalPrice = Math.round(item.quantity * item.unitPrice * (1 - item.discount / 100) * 100) / 100
+  if (
+    delta.quantity !== undefined ||
+    delta.unitPrice !== undefined ||
+    delta.discount !== undefined
+  ) {
+    item.totalPrice =
+      Math.round(item.quantity * item.unitPrice * (1 - item.discount / 100) * 100) / 100
     recalcTotals(order)
   }
   return clone(item)
@@ -461,13 +585,18 @@ export function mockDeleteOrderItem(orderId: string, lineId: string): void {
 
 // ─── Services ───
 
-export function mockAddOrderService(orderId: string, data: { serviceId: string; quantity: number; price?: number }): OrderService {
+export function mockAddOrderService(
+  orderId: string,
+  data: { serviceId: string; quantity: number; price?: number },
+): OrderService {
   const order = STORE.find((o) => o.id === orderId)
   if (!order) throw new Error('ORDER_NOT_FOUND')
   const svcEntry = SERVICES_LIST.find((s) => s.id === data.serviceId) ?? SERVICES_LIST[0]!
-  const currentLang = typeof localStorage !== 'undefined' ? localStorage.getItem('flexiron_lang') || 'en' : 'en'
+  const currentLang =
+    typeof localStorage !== 'undefined' ? localStorage.getItem('flexiron_lang') || 'en' : 'en'
   const fullSvc = MOCK_SERVICES_DATA.find((s) => s.id === svcEntry.id)
-  const serviceName = fullSvc?.name?.[currentLang as keyof typeof fullSvc.name] ?? fullSvc?.name?.en ?? svcEntry.name
+  const serviceName =
+    fullSvc?.name?.[currentLang as keyof typeof fullSvc.name] ?? fullSvc?.name?.en ?? svcEntry.name
   const service: OrderService = {
     id: `os-${order._nextServiceSeq}`,
     serviceId: data.serviceId,
@@ -507,7 +636,11 @@ export function mockDeleteOrderAuditEntry(orderId: string, entryIndex: number): 
 
 let fileSeq = 1
 
-export function mockAddOrderFile(orderId: string, fileId: string, originalName?: string): OrderFile {
+export function mockAddOrderFile(
+  orderId: string,
+  fileId: string,
+  originalName?: string,
+): OrderFile {
   const order = STORE.find((o) => o.id === orderId)
   if (!order) throw new Error('ORDER_NOT_FOUND')
   const file: OrderFile = {

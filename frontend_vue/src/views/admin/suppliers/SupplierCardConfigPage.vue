@@ -536,318 +536,268 @@ onMounted(load)
     <div class="error-state">{{ error }}</div>
   </template>
   <template v-else>
-  <div class="config-grid" data-test="supplier-card-config-grid">
-    <!-- COL LEFT: Global Field Library -->
-    <div
-      class="col-library"
-      :class="{ expanded: libraryExpanded }"
-      data-test="supplier-card-config-library"
-    >
-      <GlassPanel
-        :title="t('cardConfig.global_fields')"
-        :loading="loading && fieldLibrary.length === 0"
-        :skeleton-rows="8"
+    <div class="config-grid" data-test="supplier-card-config-grid">
+      <!-- COL LEFT: Global Field Library -->
+      <div
+        class="col-library"
+        :class="{ expanded: libraryExpanded }"
+        data-test="supplier-card-config-library"
       >
-        <template #header>
-          <!-- Mobile toggle button for global fields panel -->
-          <button
-            class="nav-btn mobile-library-toggle"
-            data-test="supplier-card-config-library-toggle"
-            @click="libraryExpanded = !libraryExpanded"
-          >
-            <SvgIcon
-              :name="libraryExpanded ? 'chevron-up' : 'chevron-down'"
-              :width="12"
-              :height="12"
-            />
-            <span>{{ libraryExpanded ? t('btn.collapse') : t('btn.show') }}</span>
-          </button>
-          <button
-            class="nav-btn"
-            style="
-              width: auto;
-              padding: 0 10px;
-              font-size: 10px;
-              height: 22px;
-              gap: 5px;
-              opacity: 0.8;
-              background: rgba(24, 144, 255, 0.1);
-              border-color: rgba(24, 144, 255, 0.2);
-              margin-left: auto;
-            "
-            data-test="supplier-card-config-library-new-btn"
-            @click="newFieldOpen = true"
-          >
-            <SvgIcon name="plus-add" :width="10" :height="10" stroke-width="3" />
-            <span>{{ t('btn.new_field') }}</span>
-          </button>
-        </template>
-        <div class="input-group" style="margin-bottom: 16px">
-          <input
-            v-model="fieldSearch"
-            type="text"
-            class="glass-input"
-            data-test="supplier-card-config-library-search"
-            :placeholder="t('field.search')"
-          />
-        </div>
-        <div class="field-library-list" data-test="supplier-card-config-library-list">
-          <FieldLibraryItem
-            v-for="f in filteredFields"
-            :key="f.id"
-            :field-id="f.id"
-            :name="tf(f.name)"
-            :type="f.type"
-            :draggable="true"
-            :usage-count="f.usageCount"
-            :hidden-required="f.required"
-            :deletable="isCustomField(f.id)"
-            :show-hide="false"
-            :show-delete="isCustomField(f.id)"
-            @delete="askDeleteField"
-          />
-        </div>
-      </GlassPanel>
-    </div>
-
-    <!-- COL RIGHT: Section Builder -->
-    <div class="col-builder" data-test="supplier-card-config-builder">
-      <GlassPanel
-        :title="t('cardConfig.card_structure')"
-        :loading="loading && sections.length === 0"
-        :skeleton-rows="10"
-      >
-        <template #header>
-          <button
-            class="nav-btn"
-            style="
-              width: auto;
-              padding: 0 10px;
-              font-size: 10px;
-              height: 22px;
-              gap: 5px;
-              opacity: 0.8;
-              background: rgba(24, 144, 255, 0.1);
-              border-color: rgba(24, 144, 255, 0.2);
-              margin-left: auto;
-            "
-            data-test="supplier-card-config-builder-add-btn"
-            @click="openAddSection"
-          >
-            <SvgIcon name="plus-add" :width="10" :height="10" stroke-width="3" />
-            <span>{{ t('btn.add_section') }}</span>
-          </button>
-        </template>
-        <div class="section-builder-list" data-test="supplier-card-config-builder-list">
-          <div
-            v-for="sec in sections"
-            :key="sec.id"
-            class="section-builder-row"
-            :data-test="`supplier-card-config-section-wrapper`"
-            :data-section-id="sec.id"
-            @dragstart="onSectionDragStart($event, sec.id)"
-            @dragover="onDragOver"
-            @drop="onSectionDrop($event, sec.id)"
-          >
-            <ConfigSectionCard
-              :section-id="sec.id"
-              :name="tf(sec.name)"
-              :collapsed="sec.collapsed"
-              :hidden="!sec.visible"
-              :field-count="sec.fields.length"
-              :deletable="!sec.system"
-              @collapse="toggleSection"
-              @add-field="openAddFieldToSection"
-              @edit="openEditSection"
-              @toggle-visibility="toggleSectionVisibility"
-              @delete="askDeleteSection"
+        <GlassPanel
+          :title="t('cardConfig.global_fields')"
+          :loading="loading && fieldLibrary.length === 0"
+          :skeleton-rows="8"
+        >
+          <template #header>
+            <!-- Mobile toggle button for global fields panel -->
+            <button
+              class="nav-btn mobile-library-toggle"
+              data-test="supplier-card-config-library-toggle"
+              @click="libraryExpanded = !libraryExpanded"
             >
-              <FieldLibraryItem
-                v-for="f in sec.fields"
-                :key="f.fieldId"
-                :field-id="f.fieldId"
-                :name="tf(fieldById(f.fieldId)?.name ?? { ru: f.fieldId, en: f.fieldId, lt: f.fieldId })"
-                :type="fieldById(f.fieldId)?.type ?? 'text'"
-                :usage-count="0"
-                :hidden="!f.visible"
-                :hidden-required="fieldById(f.fieldId)?.required ?? false"
-                :deletable="isCustomField(f.fieldId)"
-                :show-hide="true"
-                :show-delete="isCustomField(f.fieldId)"
-                @toggle-visibility="toggleFieldVisibility(sec.id, f.fieldId)"
-                @delete="(fid) => askRemoveFieldFromSection(sec.id, fid)"
+              <SvgIcon
+                :name="libraryExpanded ? 'chevron-up' : 'chevron-down'"
+                :width="12"
+                :height="12"
               />
-            </ConfigSectionCard>
-          </div>
-        </div>
-      </GlassPanel>
-    </div>
-  </div>
-
-  <!-- FULL WIDTH: Permissions Editor -->
-  <div
-    v-if="showPermissionsEditor"
-    class="config-editor"
-    data-test="supplier-card-config-permissions"
-  >
-    <GlassPanel
-      :title="t('cardConfig.permissions_editor')"
-      :loading="loading && !permissions"
-      :skeleton-rows="5"
-    >
-      <div v-if="permissions" class="permissions-table-container">
-        <table class="permissions-matrix-table" data-test="supplier-card-config-permissions-table">
-          <thead>
-            <tr>
-              <th class="permissions-header-item">{{ t('permissions.item') }}</th>
-              <th class="permissions-header-type">{{ t('permissions.type') }}</th>
-              <th v-for="role in permissions.roles" :key="role" class="permissions-header-role">
-                {{ t(`role.${role.toLowerCase()}`, role) }}
-              </th>
-            </tr>
-            <tr class="permissions-subheader">
-              <th colspan="2" />
-              <th v-for="role in permissions.roles" :key="role">
-                <span v-for="a in PERMISSION_ACTIONS" :key="a" class="permissions-action-label">
-                  {{ ACTION_LABEL[a] }}
-                </span>
-              </th>
-            </tr>
-            <tr class="permissions-legend">
-              <td :colspan="2 + permissions.roles.length" class="permissions-legend-cell">
-                <span class="permissions-legend-item">
-                  <strong>R</strong> = <span>{{ t('permissions.action_read') }}</span>
-                </span>
-                <span class="permissions-legend-item">
-                  <strong>E</strong> = <span>{{ t('permissions.action_edit') }}</span>
-                </span>
-                <span class="permissions-legend-item">
-                  <strong>C</strong> = <span>{{ t('permissions.action_create') }}</span>
-                </span>
-                <span class="permissions-legend-item">
-                  <strong>D</strong> = <span>{{ t('permissions.action_delete') }}</span>
-                </span>
-              </td>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="item in permissions.items"
-              :key="item.itemId"
-              class="permissions-table-row"
-              :class="item.type === 'section' ? 'permissions-section-row' : 'permissions-field-row'"
-              :data-test="`supplier-card-config-permissions-row`"
-              :data-item-id="item.itemId"
-              :data-item-type="item.type"
-              :data-parent-id="item.parentId"
+              <span>{{ libraryExpanded ? t('btn.collapse') : t('btn.show') }}</span>
+            </button>
+            <button
+              class="nav-btn"
+              style="
+                width: auto;
+                padding: 0 10px;
+                font-size: 10px;
+                height: 22px;
+                gap: 5px;
+                opacity: 0.8;
+                background: rgba(24, 144, 255, 0.1);
+                border-color: rgba(24, 144, 255, 0.2);
+                margin-left: auto;
+              "
+              data-test="supplier-card-config-library-new-btn"
+              @click="newFieldOpen = true"
             >
-              <td class="permissions-cell-name">
-                <span v-if="item.type === 'field'" class="permissions-field-indent" />
-                <span class="permissions-item-name">{{ tf(item.name) }}</span>
-                <span
-                  v-if="item.type === 'field' && hasOverride(item.itemId)"
-                  class="permissions-override-badge"
-                >
-                  {{ t('permission.override') }}
-                </span>
-              </td>
-              <td class="permissions-cell-type">
-                <span class="permissions-type-badge">
-                  {{
-                    t(
-                      item.type === 'section'
-                        ? 'permissions.type_section'
-                        : 'permissions.type_field',
-                    )
-                  }}
-                </span>
-              </td>
-              <td
-                v-for="role in permissions.roles"
-                :key="role"
-                class="permissions-cell-role"
-                :data-test="`supplier-card-config-permissions-cell`"
-                :data-role="role"
+              <SvgIcon name="plus-add" :width="10" :height="10" stroke-width="3" />
+              <span>{{ t('btn.new_field') }}</span>
+            </button>
+          </template>
+          <div class="input-group" style="margin-bottom: 16px">
+            <input
+              v-model="fieldSearch"
+              type="text"
+              class="glass-input"
+              data-test="supplier-card-config-library-search"
+              :placeholder="t('field.search')"
+            />
+          </div>
+          <div class="field-library-list" data-test="supplier-card-config-library-list">
+            <FieldLibraryItem
+              v-for="f in filteredFields"
+              :key="f.id"
+              :field-id="f.id"
+              :name="tf(f.name)"
+              :type="f.type"
+              :draggable="true"
+              :usage-count="f.usageCount"
+              :hidden-required="f.required"
+              :deletable="isCustomField(f.id)"
+              :show-hide="false"
+              :show-delete="isCustomField(f.id)"
+              @delete="askDeleteField"
+            />
+          </div>
+        </GlassPanel>
+      </div>
+
+      <!-- COL RIGHT: Section Builder -->
+      <div class="col-builder" data-test="supplier-card-config-builder">
+        <GlassPanel
+          :title="t('cardConfig.card_structure')"
+          :loading="loading && sections.length === 0"
+          :skeleton-rows="10"
+        >
+          <template #header>
+            <button
+              class="nav-btn"
+              style="
+                width: auto;
+                padding: 0 10px;
+                font-size: 10px;
+                height: 22px;
+                gap: 5px;
+                opacity: 0.8;
+                background: rgba(24, 144, 255, 0.1);
+                border-color: rgba(24, 144, 255, 0.2);
+                margin-left: auto;
+              "
+              data-test="supplier-card-config-builder-add-btn"
+              @click="openAddSection"
+            >
+              <SvgIcon name="plus-add" :width="10" :height="10" stroke-width="3" />
+              <span>{{ t('btn.add_section') }}</span>
+            </button>
+          </template>
+          <div class="section-builder-list" data-test="supplier-card-config-builder-list">
+            <div
+              v-for="sec in sections"
+              :key="sec.id"
+              class="section-builder-row"
+              :data-test="`supplier-card-config-section-wrapper`"
+              :data-section-id="sec.id"
+              @dragstart="onSectionDragStart($event, sec.id)"
+              @dragover="onDragOver"
+              @drop="onSectionDrop($event, sec.id)"
+            >
+              <ConfigSectionCard
+                :section-id="sec.id"
+                :name="tf(sec.name)"
+                :collapsed="sec.collapsed"
+                :hidden="!sec.visible"
+                :field-count="sec.fields.length"
+                :deletable="!sec.system"
+                @collapse="toggleSection"
+                @add-field="openAddFieldToSection"
+                @edit="openEditSection"
+                @toggle-visibility="toggleSectionVisibility"
+                @delete="askDeleteSection"
               >
-                <div class="permissions-role-cell">
-                  <div class="permissions-actions-row">
-                    <label
-                      v-for="a in PERMISSION_ACTIONS"
-                      :key="a"
-                      class="permissions-checkbox"
-                      :data-test="`supplier-card-config-perm-role-checkbox`"
-                      :data-action="a"
-                      :title="t(`permissions.action_${a}`)"
-                    >
-                      <input
-                        type="checkbox"
-                        :checked="rolePermState(item.itemId, role, a) === 'checked'"
-                        :indeterminate.prop="
-                          rolePermState(item.itemId, role, a) === 'indeterminate'
-                        "
-                        @change="
-                          onRoleToggle(
-                            item.itemId,
-                            role,
-                            a,
-                            ($event.target as HTMLInputElement).checked,
-                          )
-                        "
-                      />
-                      <span class="checkbox-custom" />
-                    </label>
-                  </div>
-                  <button
-                    type="button"
-                    class="permissions-expand-btn"
-                    :class="{ expanded: isExpanded(item.itemId, role) }"
-                    data-test="supplier-card-config-perm-expand-btn"
-                    :title="t('permissions.expand_users')"
-                    @click="toggleExpand(item.itemId, role)"
+                <FieldLibraryItem
+                  v-for="f in sec.fields"
+                  :key="f.fieldId"
+                  :field-id="f.fieldId"
+                  :name="
+                    tf(
+                      fieldById(f.fieldId)?.name ?? { ru: f.fieldId, en: f.fieldId, lt: f.fieldId },
+                    )
+                  "
+                  :type="fieldById(f.fieldId)?.type ?? 'text'"
+                  :usage-count="0"
+                  :hidden="!f.visible"
+                  :hidden-required="fieldById(f.fieldId)?.required ?? false"
+                  :deletable="isCustomField(f.fieldId)"
+                  :show-hide="true"
+                  :show-delete="isCustomField(f.fieldId)"
+                  @toggle-visibility="toggleFieldVisibility(sec.id, f.fieldId)"
+                  @delete="(fid) => askRemoveFieldFromSection(sec.id, fid)"
+                />
+              </ConfigSectionCard>
+            </div>
+          </div>
+        </GlassPanel>
+      </div>
+    </div>
+
+    <!-- FULL WIDTH: Permissions Editor -->
+    <div
+      v-if="showPermissionsEditor"
+      class="config-editor"
+      data-test="supplier-card-config-permissions"
+    >
+      <GlassPanel
+        :title="t('cardConfig.permissions_editor')"
+        :loading="loading && !permissions"
+        :skeleton-rows="5"
+      >
+        <div v-if="permissions" class="permissions-table-container">
+          <table
+            class="permissions-matrix-table"
+            data-test="supplier-card-config-permissions-table"
+          >
+            <thead>
+              <tr>
+                <th class="permissions-header-item">{{ t('permissions.item') }}</th>
+                <th class="permissions-header-type">{{ t('permissions.type') }}</th>
+                <th v-for="role in permissions.roles" :key="role" class="permissions-header-role">
+                  {{ t(`role.${role.toLowerCase()}`, role) }}
+                </th>
+              </tr>
+              <tr class="permissions-subheader">
+                <th colspan="2" />
+                <th v-for="role in permissions.roles" :key="role">
+                  <span v-for="a in PERMISSION_ACTIONS" :key="a" class="permissions-action-label">
+                    {{ ACTION_LABEL[a] }}
+                  </span>
+                </th>
+              </tr>
+              <tr class="permissions-legend">
+                <td :colspan="2 + permissions.roles.length" class="permissions-legend-cell">
+                  <span class="permissions-legend-item">
+                    <strong>R</strong> = <span>{{ t('permissions.action_read') }}</span>
+                  </span>
+                  <span class="permissions-legend-item">
+                    <strong>E</strong> = <span>{{ t('permissions.action_edit') }}</span>
+                  </span>
+                  <span class="permissions-legend-item">
+                    <strong>C</strong> = <span>{{ t('permissions.action_create') }}</span>
+                  </span>
+                  <span class="permissions-legend-item">
+                    <strong>D</strong> = <span>{{ t('permissions.action_delete') }}</span>
+                  </span>
+                </td>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="item in permissions.items"
+                :key="item.itemId"
+                class="permissions-table-row"
+                :class="
+                  item.type === 'section' ? 'permissions-section-row' : 'permissions-field-row'
+                "
+                :data-test="`supplier-card-config-permissions-row`"
+                :data-item-id="item.itemId"
+                :data-item-type="item.type"
+                :data-parent-id="item.parentId"
+              >
+                <td class="permissions-cell-name">
+                  <span v-if="item.type === 'field'" class="permissions-field-indent" />
+                  <span class="permissions-item-name">{{ tf(item.name) }}</span>
+                  <span
+                    v-if="item.type === 'field' && hasOverride(item.itemId)"
+                    class="permissions-override-badge"
                   >
-                    <svg
-                      width="10"
-                      height="10"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      style="pointer-events: none"
-                    >
-                      <path d="M6 9l6 6 6-6" />
-                    </svg>
-                  </button>
-                </div>
-                <div
-                  v-if="isExpanded(item.itemId, role)"
-                  class="permissions-users-list visible"
-                  data-test="supplier-card-config-perm-users-list"
+                    {{ t('permission.override') }}
+                  </span>
+                </td>
+                <td class="permissions-cell-type">
+                  <span class="permissions-type-badge">
+                    {{
+                      t(
+                        item.type === 'section'
+                          ? 'permissions.type_section'
+                          : 'permissions.type_field',
+                      )
+                    }}
+                  </span>
+                </td>
+                <td
+                  v-for="role in permissions.roles"
+                  :key="role"
+                  class="permissions-cell-role"
+                  :data-test="`supplier-card-config-permissions-cell`"
+                  :data-role="role"
                 >
-                  <div
-                    v-for="user in permissions.users[role] ?? []"
-                    :key="user"
-                    class="permissions-user-row"
-                    data-test="supplier-card-config-perm-user-row"
-                    :data-user="user"
-                  >
-                    <span class="permissions-user-email">{{ user }}</span>
-                    <div class="permissions-user-actions">
+                  <div class="permissions-role-cell">
+                    <div class="permissions-actions-row">
                       <label
                         v-for="a in PERMISSION_ACTIONS"
                         :key="a"
                         class="permissions-checkbox"
-                        :data-test="`supplier-card-config-perm-user-checkbox`"
+                        :data-test="`supplier-card-config-perm-role-checkbox`"
                         :data-action="a"
                         :title="t(`permissions.action_${a}`)"
                       >
                         <input
                           type="checkbox"
-                          :checked="getUserPerm(item.itemId, role, user, a)"
+                          :checked="rolePermState(item.itemId, role, a) === 'checked'"
+                          :indeterminate.prop="
+                            rolePermState(item.itemId, role, a) === 'indeterminate'
+                          "
                           @change="
-                            onUserToggle(
+                            onRoleToggle(
                               item.itemId,
                               role,
-                              user,
                               a,
                               ($event.target as HTMLInputElement).checked,
                             )
@@ -856,234 +806,293 @@ onMounted(load)
                         <span class="checkbox-custom" />
                       </label>
                     </div>
+                    <button
+                      type="button"
+                      class="permissions-expand-btn"
+                      :class="{ expanded: isExpanded(item.itemId, role) }"
+                      data-test="supplier-card-config-perm-expand-btn"
+                      :title="t('permissions.expand_users')"
+                      @click="toggleExpand(item.itemId, role)"
+                    >
+                      <svg
+                        width="10"
+                        height="10"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        style="pointer-events: none"
+                      >
+                        <path d="M6 9l6 6 6-6" />
+                      </svg>
+                    </button>
                   </div>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </GlassPanel>
-  </div>
-
-  <AppModal v-model="newFieldOpen" :title="t('modal.new_field')" size="medium">
-    <div class="modal-form" data-test="supplier-card-config-modal-new-field">
-      <div class="input-group">
-        <label class="field-label">{{ t('field.field_name') }}</label>
-        <input
-          v-model="newField.name"
-          type="text"
-          class="glass-input"
-          data-test="supplier-card-config-modal-new-field-name"
-        />
-      </div>
-      <div class="input-group">
-        <label class="field-label">{{ t('field.field_type') }}</label>
-        <CustomSelect
-          :model-value="newField.type"
-          :options="fieldTypeOptions"
-          @update:model-value="(v: string) => (newField.type = v as typeof newField.type)"
-        />
-      </div>
-      <div class="input-group">
-        <label class="field-label">{{ t('field.default_value') }}</label>
-        <input type="text" class="glass-input" />
-      </div>
+                  <div
+                    v-if="isExpanded(item.itemId, role)"
+                    class="permissions-users-list visible"
+                    data-test="supplier-card-config-perm-users-list"
+                  >
+                    <div
+                      v-for="user in permissions.users[role] ?? []"
+                      :key="user"
+                      class="permissions-user-row"
+                      data-test="supplier-card-config-perm-user-row"
+                      :data-user="user"
+                    >
+                      <span class="permissions-user-email">{{ user }}</span>
+                      <div class="permissions-user-actions">
+                        <label
+                          v-for="a in PERMISSION_ACTIONS"
+                          :key="a"
+                          class="permissions-checkbox"
+                          :data-test="`supplier-card-config-perm-user-checkbox`"
+                          :data-action="a"
+                          :title="t(`permissions.action_${a}`)"
+                        >
+                          <input
+                            type="checkbox"
+                            :checked="getUserPerm(item.itemId, role, user, a)"
+                            @change="
+                              onUserToggle(
+                                item.itemId,
+                                role,
+                                user,
+                                a,
+                                ($event.target as HTMLInputElement).checked,
+                              )
+                            "
+                          />
+                          <span class="checkbox-custom" />
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </GlassPanel>
     </div>
-    <template #footer>
-      <button
-        type="button"
-        class="btn btn-secondary"
-        data-test="supplier-card-config-modal-new-field-cancel"
-        @click="newFieldOpen = false"
-      >
-        {{ t('btn.cancel') }}
-      </button>
-      <button
-        type="button"
-        class="btn btn-primary"
-        data-test="supplier-card-config-modal-new-field-confirm"
-        @click="createField"
-      >
-        {{ t('btn.create') }}
-      </button>
-    </template>
-  </AppModal>
 
-  <!-- Confirm Delete Section -->
-  <AppModal v-model="deleteSectionOpen" :title="t('modal.confirm_delete')" size="small">
-    <p data-test="supplier-card-config-modal-delete-section">{{ t('modal.delete_message') }}</p>
-    <template #footer>
-      <button
-        type="button"
-        class="btn btn-secondary"
-        data-test="supplier-card-config-modal-delete-section-cancel"
-        @click="deleteSectionOpen = false"
-      >
-        {{ t('btn.cancel') }}
-      </button>
-      <button
-        type="button"
-        class="btn btn-danger"
-        data-test="supplier-card-config-modal-delete-section-confirm"
-        @click="confirmDeleteSection"
-      >
-        {{ t('btn.delete') }}
-      </button>
-    </template>
-  </AppModal>
-
-  <!-- Confirm Remove Custom Field from Section -->
-  <AppModal v-model="removeFromSectionOpen" :title="t('modal.confirm_delete')" size="small">
-    <p data-test="supplier-card-config-modal-remove-field">{{ t('modal.delete_message') }}</p>
-    <template #footer>
-      <button
-        type="button"
-        class="btn btn-secondary"
-        data-test="supplier-card-config-modal-remove-field-cancel"
-        @click="removeFromSectionOpen = false"
-      >
-        {{ t('btn.cancel') }}
-      </button>
-      <button
-        type="button"
-        class="btn btn-danger"
-        data-test="supplier-card-config-modal-remove-field-confirm"
-        @click="confirmRemoveFieldFromSection"
-      >
-        {{ t('btn.delete') }}
-      </button>
-    </template>
-  </AppModal>
-
-  <!-- Confirm Delete Custom Field -->
-  <AppModal v-model="deleteFieldOpen" :title="t('modal.confirm_delete')" size="small">
-    <p data-test="supplier-card-config-modal-delete-field">{{ t('modal.delete_message') }}</p>
-    <template #footer>
-      <button
-        type="button"
-        class="btn btn-secondary"
-        data-test="supplier-card-config-modal-delete-field-cancel"
-        @click="deleteFieldOpen = false"
-      >
-        {{ t('btn.cancel') }}
-      </button>
-      <button
-        type="button"
-        class="btn btn-danger"
-        data-test="supplier-card-config-modal-delete-field-confirm"
-        @click="confirmDeleteField"
-      >
-        {{ t('btn.delete') }}
-      </button>
-    </template>
-  </AppModal>
-
-  <!-- Rename Section -->
-  <AppModal v-model="editSectionOpen" :title="t('modal.edit_section')" size="small">
-    <div class="modal-form" data-test="supplier-card-config-modal-edit-section">
-      <div class="input-group">
-        <label class="field-label">{{ t('field.section_name') }}</label>
-        <input
-          v-model="editSectionNameModel"
-          type="text"
-          class="glass-input"
-          data-test="supplier-card-config-modal-edit-section-name"
-        />
+    <AppModal v-model="newFieldOpen" :title="t('modal.new_field')" size="medium">
+      <div class="modal-form" data-test="supplier-card-config-modal-new-field">
+        <div class="input-group">
+          <label class="field-label">{{ t('field.field_name') }}</label>
+          <input
+            v-model="newField.name"
+            type="text"
+            class="glass-input"
+            data-test="supplier-card-config-modal-new-field-name"
+          />
+        </div>
+        <div class="input-group">
+          <label class="field-label">{{ t('field.field_type') }}</label>
+          <CustomSelect
+            :model-value="newField.type"
+            :options="fieldTypeOptions"
+            @update:model-value="(v: string) => (newField.type = v as typeof newField.type)"
+          />
+        </div>
+        <div class="input-group">
+          <label class="field-label">{{ t('field.default_value') }}</label>
+          <input type="text" class="glass-input" />
+        </div>
       </div>
-    </div>
-    <template #footer>
-      <button
-        type="button"
-        class="btn btn-secondary"
-        data-test="supplier-card-config-modal-edit-section-cancel"
-        @click="editSectionOpen = false"
-      >
-        {{ t('btn.cancel') }}
-      </button>
-      <button
-        type="button"
-        class="btn btn-primary"
-        data-test="supplier-card-config-modal-edit-section-confirm"
-        @click="confirmEditSection"
-      >
-        {{ t('btn.save') }}
-      </button>
-    </template>
-  </AppModal>
+      <template #footer>
+        <button
+          type="button"
+          class="btn btn-secondary"
+          data-test="supplier-card-config-modal-new-field-cancel"
+          @click="newFieldOpen = false"
+        >
+          {{ t('btn.cancel') }}
+        </button>
+        <button
+          type="button"
+          class="btn btn-primary"
+          data-test="supplier-card-config-modal-new-field-confirm"
+          @click="createField"
+        >
+          {{ t('btn.create') }}
+        </button>
+      </template>
+    </AppModal>
 
-  <!-- Add Section -->
-  <AppModal v-model="addSectionOpen" :title="t('modal.new_section', 'New Section')" size="small">
-    <div class="modal-form" data-test="supplier-card-config-modal-add-section">
-      <div class="input-group">
-        <label class="field-label">{{ t('field.section_name') }}</label>
-        <input
-          v-model="addSectionName"
-          type="text"
-          class="glass-input"
-          data-test="supplier-card-config-modal-add-section-name"
-        />
-      </div>
-    </div>
-    <template #footer>
-      <button
-        type="button"
-        class="btn btn-secondary"
-        data-test="supplier-card-config-modal-add-section-cancel"
-        @click="addSectionOpen = false"
-      >
-        {{ t('btn.cancel') }}
-      </button>
-      <button
-        type="button"
-        class="btn btn-primary"
-        data-test="supplier-card-config-modal-add-section-confirm"
-        @click="confirmAddSection"
-      >
-        {{ t('btn.create') }}
-      </button>
-    </template>
-  </AppModal>
+    <!-- Confirm Delete Section -->
+    <AppModal v-model="deleteSectionOpen" :title="t('modal.confirm_delete')" size="small">
+      <p data-test="supplier-card-config-modal-delete-section">{{ t('modal.delete_message') }}</p>
+      <template #footer>
+        <button
+          type="button"
+          class="btn btn-secondary"
+          data-test="supplier-card-config-modal-delete-section-cancel"
+          @click="deleteSectionOpen = false"
+        >
+          {{ t('btn.cancel') }}
+        </button>
+        <button
+          type="button"
+          class="btn btn-danger"
+          data-test="supplier-card-config-modal-delete-section-confirm"
+          @click="confirmDeleteSection"
+        >
+          {{ t('btn.delete') }}
+        </button>
+      </template>
+    </AppModal>
 
-  <!-- Add Field to Section -->
-  <AppModal v-model="addFieldOpen" :title="t('modal.add_field_to_section')" size="medium">
-    <div class="modal-form" data-test="supplier-card-config-modal-add-field">
-      <div class="input-group">
-        <label class="field-label">{{ t('field.field_name') }}</label>
-        <input
-          v-model="addField.name"
-          type="text"
-          class="glass-input"
-          data-test="supplier-card-config-modal-add-field-name"
-        />
+    <!-- Confirm Remove Custom Field from Section -->
+    <AppModal v-model="removeFromSectionOpen" :title="t('modal.confirm_delete')" size="small">
+      <p data-test="supplier-card-config-modal-remove-field">{{ t('modal.delete_message') }}</p>
+      <template #footer>
+        <button
+          type="button"
+          class="btn btn-secondary"
+          data-test="supplier-card-config-modal-remove-field-cancel"
+          @click="removeFromSectionOpen = false"
+        >
+          {{ t('btn.cancel') }}
+        </button>
+        <button
+          type="button"
+          class="btn btn-danger"
+          data-test="supplier-card-config-modal-remove-field-confirm"
+          @click="confirmRemoveFieldFromSection"
+        >
+          {{ t('btn.delete') }}
+        </button>
+      </template>
+    </AppModal>
+
+    <!-- Confirm Delete Custom Field -->
+    <AppModal v-model="deleteFieldOpen" :title="t('modal.confirm_delete')" size="small">
+      <p data-test="supplier-card-config-modal-delete-field">{{ t('modal.delete_message') }}</p>
+      <template #footer>
+        <button
+          type="button"
+          class="btn btn-secondary"
+          data-test="supplier-card-config-modal-delete-field-cancel"
+          @click="deleteFieldOpen = false"
+        >
+          {{ t('btn.cancel') }}
+        </button>
+        <button
+          type="button"
+          class="btn btn-danger"
+          data-test="supplier-card-config-modal-delete-field-confirm"
+          @click="confirmDeleteField"
+        >
+          {{ t('btn.delete') }}
+        </button>
+      </template>
+    </AppModal>
+
+    <!-- Rename Section -->
+    <AppModal v-model="editSectionOpen" :title="t('modal.edit_section')" size="small">
+      <div class="modal-form" data-test="supplier-card-config-modal-edit-section">
+        <div class="input-group">
+          <label class="field-label">{{ t('field.section_name') }}</label>
+          <input
+            v-model="editSectionNameModel"
+            type="text"
+            class="glass-input"
+            data-test="supplier-card-config-modal-edit-section-name"
+          />
+        </div>
       </div>
-      <div class="input-group">
-        <label class="field-label">{{ t('field.field_type') }}</label>
-        <CustomSelect
-          :model-value="addField.type"
-          :options="fieldTypeOptions"
-          @update:model-value="(v: string) => (addField.type = v as typeof addField.type)"
-        />
+      <template #footer>
+        <button
+          type="button"
+          class="btn btn-secondary"
+          data-test="supplier-card-config-modal-edit-section-cancel"
+          @click="editSectionOpen = false"
+        >
+          {{ t('btn.cancel') }}
+        </button>
+        <button
+          type="button"
+          class="btn btn-primary"
+          data-test="supplier-card-config-modal-edit-section-confirm"
+          @click="confirmEditSection"
+        >
+          {{ t('btn.save') }}
+        </button>
+      </template>
+    </AppModal>
+
+    <!-- Add Section -->
+    <AppModal v-model="addSectionOpen" :title="t('modal.new_section', 'New Section')" size="small">
+      <div class="modal-form" data-test="supplier-card-config-modal-add-section">
+        <div class="input-group">
+          <label class="field-label">{{ t('field.section_name') }}</label>
+          <input
+            v-model="addSectionName"
+            type="text"
+            class="glass-input"
+            data-test="supplier-card-config-modal-add-section-name"
+          />
+        </div>
       </div>
-    </div>
-    <template #footer>
-      <button
-        type="button"
-        class="btn btn-secondary"
-        data-test="supplier-card-config-modal-add-field-cancel"
-        @click="addFieldOpen = false"
-      >
-        {{ t('btn.cancel') }}
-      </button>
-      <button
-        type="button"
-        class="btn btn-primary"
-        data-test="supplier-card-config-modal-add-field-confirm"
-        @click="confirmAddField"
-      >
-        {{ t('btn.add') }}
-      </button>
-    </template>
-  </AppModal>
+      <template #footer>
+        <button
+          type="button"
+          class="btn btn-secondary"
+          data-test="supplier-card-config-modal-add-section-cancel"
+          @click="addSectionOpen = false"
+        >
+          {{ t('btn.cancel') }}
+        </button>
+        <button
+          type="button"
+          class="btn btn-primary"
+          data-test="supplier-card-config-modal-add-section-confirm"
+          @click="confirmAddSection"
+        >
+          {{ t('btn.create') }}
+        </button>
+      </template>
+    </AppModal>
+
+    <!-- Add Field to Section -->
+    <AppModal v-model="addFieldOpen" :title="t('modal.add_field_to_section')" size="medium">
+      <div class="modal-form" data-test="supplier-card-config-modal-add-field">
+        <div class="input-group">
+          <label class="field-label">{{ t('field.field_name') }}</label>
+          <input
+            v-model="addField.name"
+            type="text"
+            class="glass-input"
+            data-test="supplier-card-config-modal-add-field-name"
+          />
+        </div>
+        <div class="input-group">
+          <label class="field-label">{{ t('field.field_type') }}</label>
+          <CustomSelect
+            :model-value="addField.type"
+            :options="fieldTypeOptions"
+            @update:model-value="(v: string) => (addField.type = v as typeof addField.type)"
+          />
+        </div>
+      </div>
+      <template #footer>
+        <button
+          type="button"
+          class="btn btn-secondary"
+          data-test="supplier-card-config-modal-add-field-cancel"
+          @click="addFieldOpen = false"
+        >
+          {{ t('btn.cancel') }}
+        </button>
+        <button
+          type="button"
+          class="btn btn-primary"
+          data-test="supplier-card-config-modal-add-field-confirm"
+          @click="confirmAddField"
+        >
+          {{ t('btn.add') }}
+        </button>
+      </template>
+    </AppModal>
   </template>
 </template>

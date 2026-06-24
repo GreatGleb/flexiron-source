@@ -42,7 +42,9 @@ const searchInput = ref('')
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 watch(searchInput, (v) => {
   if (searchTimer) clearTimeout(searchTimer)
-  searchTimer = setTimeout(() => { filters.search = v }, 300)
+  searchTimer = setTimeout(() => {
+    filters.search = v
+  }, 300)
 })
 
 // ─── Pagination ───
@@ -109,7 +111,9 @@ function loadPrefs() {
   try {
     const raw = localStorage.getItem(PREFS_KEY)
     if (!raw) return
-    const prefs = JSON.parse(raw) as { filters?: { search?: string; status?: string; sortBy?: string; sortDir?: string } }
+    const prefs = JSON.parse(raw) as {
+      filters?: { search?: string; status?: string; sortBy?: string; sortDir?: string }
+    }
     if (prefs.filters) {
       if (typeof prefs.filters.search === 'string') filters.search = prefs.filters.search
       if (typeof prefs.filters.status === 'string') filters.status = prefs.filters.status
@@ -152,14 +156,27 @@ onMounted(() => {
       <div class="filters-bar-content">
         <div class="filter-group" data-test="orders-filter-search">
           <label class="field-label">{{ t('orders.col_order_number') }}</label>
-          <SearchInput v-model="searchInput" :placeholder="t('orders.search_placeholder')" data-test="orders-search" />
+          <SearchInput
+            v-model="searchInput"
+            :placeholder="t('orders.search_placeholder')"
+            data-test="orders-search"
+          />
         </div>
         <div class="filter-group" data-test="orders-filter-status">
           <label class="field-label">{{ t('orders.col_status') }}</label>
           <CustomSelect v-model="filters.status" :options="STATUS_OPTIONS" />
         </div>
         <button class="btn btn-primary" data-test="orders-save-view-btn" @click="saveView">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
             <polyline points="17 21 17 13 7 13 7 21" />
             <polyline points="7 3 7 8 15 8" />
@@ -202,14 +219,18 @@ onMounted(() => {
                       :width="16"
                       :height="16"
                       class="sort-icon"
-                      :class="{ active: filters.sortBy === 'orderNumber' && filters.sortDir === 'asc' }"
+                      :class="{
+                        active: filters.sortBy === 'orderNumber' && filters.sortDir === 'asc',
+                      }"
                     />
                     <SvgIcon
                       name="chevron-down"
                       :width="16"
                       :height="16"
                       class="sort-icon"
-                      :class="{ active: filters.sortBy === 'orderNumber' && filters.sortDir === 'desc' }"
+                      :class="{
+                        active: filters.sortBy === 'orderNumber' && filters.sortDir === 'desc',
+                      }"
                     />
                   </span>
                 </button>
@@ -223,14 +244,18 @@ onMounted(() => {
                       :width="16"
                       :height="16"
                       class="sort-icon"
-                      :class="{ active: filters.sortBy === 'clientName' && filters.sortDir === 'asc' }"
+                      :class="{
+                        active: filters.sortBy === 'clientName' && filters.sortDir === 'asc',
+                      }"
                     />
                     <SvgIcon
                       name="chevron-down"
                       :width="16"
                       :height="16"
                       class="sort-icon"
-                      :class="{ active: filters.sortBy === 'clientName' && filters.sortDir === 'desc' }"
+                      :class="{
+                        active: filters.sortBy === 'clientName' && filters.sortDir === 'desc',
+                      }"
                     />
                   </span>
                 </button>
@@ -265,14 +290,18 @@ onMounted(() => {
                       :width="16"
                       :height="16"
                       class="sort-icon"
-                      :class="{ active: filters.sortBy === 'totalAmount' && filters.sortDir === 'asc' }"
+                      :class="{
+                        active: filters.sortBy === 'totalAmount' && filters.sortDir === 'asc',
+                      }"
                     />
                     <SvgIcon
                       name="chevron-down"
                       :width="16"
                       :height="16"
                       class="sort-icon"
-                      :class="{ active: filters.sortBy === 'totalAmount' && filters.sortDir === 'desc' }"
+                      :class="{
+                        active: filters.sortBy === 'totalAmount' && filters.sortDir === 'desc',
+                      }"
                     />
                   </span>
                 </button>
@@ -286,14 +315,18 @@ onMounted(() => {
                       :width="16"
                       :height="16"
                       class="sort-icon"
-                      :class="{ active: filters.sortBy === 'createdAt' && filters.sortDir === 'asc' }"
+                      :class="{
+                        active: filters.sortBy === 'createdAt' && filters.sortDir === 'asc',
+                      }"
                     />
                     <SvgIcon
                       name="chevron-down"
                       :width="16"
                       :height="16"
                       class="sort-icon"
-                      :class="{ active: filters.sortBy === 'createdAt' && filters.sortDir === 'desc' }"
+                      :class="{
+                        active: filters.sortBy === 'createdAt' && filters.sortDir === 'desc',
+                      }"
                     />
                   </span>
                 </button>
@@ -302,12 +335,7 @@ onMounted(() => {
             </tr>
           </thead>
           <tbody>
-            <tr
-              v-for="item in items"
-              :key="item.id"
-              class="orders-row"
-              data-test="orders-row"
-            >
+            <tr v-for="item in items" :key="item.id" class="orders-row" data-test="orders-row">
               <td>
                 <router-link
                   :to="{ name: 'admin-order-card', params: { id: item.id } }"
@@ -318,7 +346,10 @@ onMounted(() => {
               </td>
               <td>{{ item.clientName }}</td>
               <td>
-                <span class="status-pill" :class="ORDER_STATUS_PILL[item.status] || 'order-status-pill--new'">
+                <span
+                  class="status-pill"
+                  :class="ORDER_STATUS_PILL[item.status] || 'order-status-pill--new'"
+                >
                   {{ t(`orders.status_${item.status}`) }}
                 </span>
               </td>
@@ -333,7 +364,14 @@ onMounted(() => {
                     data-test="orders-view-btn"
                     @click.stop
                   >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
                       <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                       <circle cx="12" cy="12" r="3" />
                     </svg>
@@ -412,11 +450,19 @@ onMounted(() => {
       </div>
     </GlassPanel>
 
-    <AppModal v-model="showDeleteModal" :title="t('orders.btn_delete')" data-test="modal-delete-order">
+    <AppModal
+      v-model="showDeleteModal"
+      :title="t('orders.btn_delete')"
+      data-test="modal-delete-order"
+    >
       <p>{{ t('orders.confirm_delete') }}</p>
       <template #footer>
-        <button class="btn btn-secondary" @click="showDeleteModal = false">{{ t('orders.btn_discard') }}</button>
-        <button class="btn btn-danger" @click="onDeleteConfirm">{{ t('orders.btn_delete') }}</button>
+        <button class="btn btn-secondary" @click="showDeleteModal = false">
+          {{ t('orders.btn_discard') }}
+        </button>
+        <button class="btn btn-danger" @click="onDeleteConfirm">
+          {{ t('orders.btn_delete') }}
+        </button>
       </template>
     </AppModal>
   </div>

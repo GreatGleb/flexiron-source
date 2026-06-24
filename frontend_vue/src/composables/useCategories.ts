@@ -1,9 +1,6 @@
 import { ref, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import {
-  getCategories,
-  deleteCategory as deleteCategoryApi,
-} from '@/services/categoriesService'
+import { getCategories, deleteCategory as deleteCategoryApi } from '@/services/categoriesService'
 import { usePagination } from './usePagination'
 import { useToast } from './useToast'
 import { useTranslatedField } from './useTranslatedData'
@@ -57,11 +54,15 @@ export function useCategories() {
   // Flag: prevents page watch from double-firing when filters reset page to 1
   let skipNextPageWatch = false
 
-  watch(filters, () => {
-    skipNextPageWatch = pagination.page.value !== 1
-    pagination.reset()
-    load()
-  }, { deep: true })
+  watch(
+    filters,
+    () => {
+      skipNextPageWatch = pagination.page.value !== 1
+      pagination.reset()
+      load()
+    },
+    { deep: true },
+  )
 
   watch([pagination.page, pagination.pageSize], () => {
     if (skipNextPageWatch) {

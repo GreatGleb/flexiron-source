@@ -43,7 +43,7 @@ const certificateRef = ref('')
 const notes = ref('')
 
 /** Step for quantity inputs: 1 for pcs, 0.01 for others */
-const quantityStep = computed(() => unit.value === 'pcs' ? 1 : 0.01)
+const quantityStep = computed(() => (unit.value === 'pcs' ? 1 : 0.01))
 
 // ─── Validation errors ───────────────────────────────────────────────────────
 
@@ -206,12 +206,18 @@ watch(notes, () => {
     :title="t('warehouse.modal_receipt_title')"
     size="medium"
     data-test="create-batch-modal"
-    @update:model-value="(v: boolean) => { if (!v) emit('close') }"
+    @update:model-value="
+      (v: boolean) => {
+        if (!v) emit('close')
+      }
+    "
   >
     <div class="modal-form" data-test="create-batch-form">
       <!-- Product -->
       <div class="form-group">
-        <label class="field-label">{{ t('warehouse.col_product') }} <span class="required">*</span></label>
+        <label class="field-label"
+          >{{ t('warehouse.col_product') }} <span class="required">*</span></label
+        >
         <CustomSelect
           v-model="productId"
           :options="productOptions"
@@ -232,7 +238,9 @@ watch(notes, () => {
 
       <!-- Batch number -->
       <div class="form-group">
-        <label class="field-label">{{ t('warehouse.field_batch_number') }} <span class="required">*</span></label>
+        <label class="field-label"
+          >{{ t('warehouse.field_batch_number') }} <span class="required">*</span></label
+        >
         <input
           v-model="batchNumber"
           type="text"
@@ -244,7 +252,9 @@ watch(notes, () => {
 
       <!-- Lot code -->
       <div class="form-group">
-        <label class="field-label">{{ t('warehouse.field_lot_code') }} <span class="required">*</span></label>
+        <label class="field-label"
+          >{{ t('warehouse.field_lot_code') }} <span class="required">*</span></label
+        >
         <input
           v-model="lotCode"
           type="text"
@@ -257,7 +267,9 @@ watch(notes, () => {
       <!-- Quantity + Unit (side by side) -->
       <div class="form-row">
         <div class="form-group form-group-flex">
-          <label class="field-label">{{ t('warehouse.col_quantity') }} <span class="required">*</span></label>
+          <label class="field-label"
+            >{{ t('warehouse.col_quantity') }} <span class="required">*</span></label
+          >
           <input
             v-model.number="quantity"
             type="number"
@@ -269,7 +281,9 @@ watch(notes, () => {
           <p v-if="errors.quantity" class="field-error">{{ errors.quantity }}</p>
         </div>
         <div class="form-group form-group-shrink">
-          <label class="field-label">{{ t('warehouse.col_unit') }} <span class="required">*</span></label>
+          <label class="field-label"
+            >{{ t('warehouse.col_unit') }} <span class="required">*</span></label
+          >
           <CustomSelect
             v-model="unit"
             :options="UNIT_OPTIONS"
@@ -281,7 +295,9 @@ watch(notes, () => {
 
       <!-- Unit price -->
       <div class="form-group">
-        <label class="field-label">{{ t('warehouse.col_unit_price') }} <span class="required">*</span></label>
+        <label class="field-label"
+          >{{ t('warehouse.col_unit_price') }} <span class="required">*</span></label
+        >
         <input
           v-model.number="unitPrice"
           type="number"
@@ -303,21 +319,17 @@ watch(notes, () => {
 
       <!-- Received at -->
       <div class="form-group">
-        <label class="field-label">{{ t('warehouse.field_received_at') }} <span class="required">*</span></label>
-        <DatePicker
-          v-model="receivedAt"
-          data-test="create-batch-received-date"
-        />
+        <label class="field-label"
+          >{{ t('warehouse.field_received_at') }} <span class="required">*</span></label
+        >
+        <DatePicker v-model="receivedAt" data-test="create-batch-received-date" />
         <p v-if="errors.receivedAt" class="field-error">{{ errors.receivedAt }}</p>
       </div>
 
       <!-- Expires at -->
       <div class="form-group">
         <label class="field-label">{{ t('warehouse.field_expires_at') }}</label>
-        <DatePicker
-          v-model="expiresAt"
-          data-test="create-batch-expires-date"
-        />
+        <DatePicker v-model="expiresAt" data-test="create-batch-expires-date" />
       </div>
 
       <!-- Location -->

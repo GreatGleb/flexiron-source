@@ -14,12 +14,7 @@
         <form class="auth-form" @submit.prevent="onSubmit">
           <div class="form-group">
             <label class="form-label">{{ t('login.emailLabel') }}</label>
-            <input
-              v-model="email"
-              type="email"
-              class="form-input"
-              readonly
-            />
+            <input v-model="email" type="email" class="form-input" readonly />
           </div>
 
           <div class="form-group">
@@ -68,11 +63,7 @@
 
           <div class="form-options">
             <label class="checkbox-label">
-              <input
-                v-model="rememberMe"
-                type="checkbox"
-                class="custom-checkbox"
-              />
+              <input v-model="rememberMe" type="checkbox" class="custom-checkbox" />
               <span>{{ t('login.remember') }}</span>
             </label>
             <router-link to="/support" class="forgot-link">{{ t('login.forgot') }}</router-link>
@@ -88,8 +79,20 @@
       <template v-else>
         <div class="secret-link-info">
           <div class="secret-link-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="48" height="48">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke-width="1.5"
+              stroke="currentColor"
+              width="48"
+              height="48"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
+              />
             </svg>
           </div>
           <p class="secret-link-msg">{{ t('login.secretLinkMsg') }}</p>
@@ -130,7 +133,12 @@ onMounted(() => {
   // Check if email was pre-filled from a secret link (via sessionStorage)
   const storedEmail = sessionStorage.getItem(PREFILLED_EMAIL_KEY)
   // Validate email — reject "undefined", "null", empty, or obviously invalid values
-  if (storedEmail && storedEmail !== 'undefined' && storedEmail !== 'null' && storedEmail.includes('@')) {
+  if (
+    storedEmail &&
+    storedEmail !== 'undefined' &&
+    storedEmail !== 'null' &&
+    storedEmail.includes('@')
+  ) {
     email.value = storedEmail
     prefilledEmail.value = true
     // Clean up so the pre-fill only works once

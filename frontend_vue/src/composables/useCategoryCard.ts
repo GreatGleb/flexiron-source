@@ -103,8 +103,11 @@ export function useCategoryCard(id: string) {
       const patchDelta: Parameters<typeof patchCategory>[1] = {}
       if (dirty.isDirty.value) Object.assign(patchDelta, dirty.diff())
       if (linkedSuppliersChanged.value)
-        patchDelta.linkedSuppliers = JSON.parse(JSON.stringify(linkedSuppliers.value)) as LinkedSupplier[]
-      if (Object.keys(patchDelta).length > 0) calls.push(patchCategory(id, patchDelta, locale.value))
+        patchDelta.linkedSuppliers = JSON.parse(
+          JSON.stringify(linkedSuppliers.value),
+        ) as LinkedSupplier[]
+      if (Object.keys(patchDelta).length > 0)
+        calls.push(patchCategory(id, patchDelta, locale.value))
       if (fieldsChanged.value) calls.push(putCategoryFields(id, localFields.value, locale.value))
       await Promise.all(calls)
       await load()

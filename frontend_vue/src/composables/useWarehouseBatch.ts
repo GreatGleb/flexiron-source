@@ -1,12 +1,35 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { getBatch, patchBatch, deleteBatch, createMovement, getMovements, getOffcuts, getBatchAudit, deleteBatchAuditEntry, getBatchAggregates, getBatchActiveSales } from '@/services/warehouseService'
+import {
+  getBatch,
+  patchBatch,
+  deleteBatch,
+  createMovement,
+  getMovements,
+  getOffcuts,
+  getBatchAudit,
+  deleteBatchAuditEntry,
+  getBatchAggregates,
+  getBatchActiveSales,
+} from '@/services/warehouseService'
 import type { UploadedFile } from '@/services/uploadsService'
 import { useDirtyCheck } from './useDirtyCheck'
 import { useToast } from './useToast'
 import { useTranslatedField } from './useTranslatedData'
-import type { WarehouseBatch, BatchPatchPayload, BatchStatus, StockUnit, MovementListItem, OffcutListItem, StockAuditEntry, MovementCreatePayload, BatchStatusAggregate, BatchActiveSale } from '@/types/warehouse'
+import { useSettings } from './useSettings'
+import type {
+  WarehouseBatch,
+  BatchPatchPayload,
+  BatchStatus,
+  StockUnit,
+  MovementListItem,
+  OffcutListItem,
+  StockAuditEntry,
+  MovementCreatePayload,
+  BatchStatusAggregate,
+  BatchActiveSale,
+} from '@/types/warehouse'
 
 // ─── Location parse / compose helpers ────────────────────────────────────
 // Format: "Rack: X | Row: Y | Cell: Z\nNotes: ..."
@@ -15,7 +38,12 @@ const LOCATION_ROW_RE = /\|\s*Row:\s*(.*?)\s*\|/
 const LOCATION_CELL_RE = /\|\s*Cell:\s*(.*?)(?:\n|$)/
 const LOCATION_NOTES_RE = /\nNotes:\s*(.*)$/
 
-function parseLocation(raw: string | null): { locationRack: string; locationRow: string; locationCell: string; locationNotes: string } {
+function parseLocation(raw: string | null): {
+  locationRack: string
+  locationRow: string
+  locationCell: string
+  locationNotes: string
+} {
   const fallback = { locationRack: '', locationRow: '', locationCell: '', locationNotes: '' }
   if (!raw) return fallback
 
@@ -53,6 +81,7 @@ export function useWarehouseBatch(id: string) {
   const router = useRouter()
   const toast = useToast()
   const { tf } = useTranslatedField()
+  const { settings } = useSettings()
 
   const batch = ref<WarehouseBatch | null>(null)
   const loading = ref(false)
@@ -66,6 +95,7 @@ export function useWarehouseBatch(id: string) {
     quantity: number
     unit: StockUnit
     unitPrice: number
+    marginPercent: number | null
     currency: string
     locationRack: string
     locationRow: string
@@ -80,6 +110,7 @@ export function useWarehouseBatch(id: string) {
     quantity: 0,
     unit: 'kg',
     unitPrice: 0,
+    marginPercent: settings.constants.defaultMargin,
     currency: 'EUR',
     locationRack: '',
     locationRow: '',
@@ -167,6 +198,7 @@ export function useWarehouseBatch(id: string) {
         quantity: data.quantity,
         unit: data.unit,
         unitPrice: data.unitPrice,
+        marginPercent: data.marginPercent ?? settings.constants.defaultMargin,
         currency: data.currency,
         locationRack: parsed.locationRack,
         locationRow: parsed.locationRow,
@@ -181,7 +213,13 @@ export function useWarehouseBatch(id: string) {
       originalFiles.value = data.files ? JSON.parse(JSON.stringify(data.files)) : []
       fileIdsToAttach.value = []
 
-      await Promise.all([loadMovements(), loadOffcuts(), loadAudit(), loadBatchAggregates(), loadBatchActiveSales()])
+      await Promise.all([
+        loadMovements(),
+        loadOffcuts(),
+        loadAudit(),
+        loadBatchAggregates(),
+        loadBatchActiveSales(),
+      ])
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to load batch'
     } finally {
@@ -238,6 +276,7 @@ export function useWarehouseBatch(id: string) {
         quantity: updated.quantity,
         unit: updated.unit,
         unitPrice: updated.unitPrice,
+        marginPercent: updated.marginPercent ?? settings.constants.defaultMargin,
         currency: updated.currency,
         locationRack: parsed.locationRack,
         locationRow: parsed.locationRow,
@@ -267,6 +306,7 @@ export function useWarehouseBatch(id: string) {
       quantity: batch.value.quantity,
       unit: batch.value.unit,
       unitPrice: batch.value.unitPrice,
+      marginPercent: batch.value.marginPercent ?? settings.constants.defaultMargin,
       currency: batch.value.currency,
       locationRack: parsed.locationRack,
       locationRow: parsed.locationRow,

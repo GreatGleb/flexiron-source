@@ -18,7 +18,11 @@ const { tf } = useTranslatedField()
 const supplier = defineModel<SupplierCardData>({ required: true })
 
 function setTranslatedField(field: keyof SupplierCardData, value: string) {
-  const translated = mergeLocaleValue(supplier.value[field] as TranslatedString | null | undefined, value, locale.value)
+  const translated = mergeLocaleValue(
+    supplier.value[field] as TranslatedString | null | undefined,
+    value,
+    locale.value,
+  )
   supplier.value = { ...supplier.value, [field]: translated }
 }
 

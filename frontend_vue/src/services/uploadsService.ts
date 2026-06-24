@@ -11,5 +11,7 @@ export interface UploadedFile {
 
 /** Generic file upload. Returns { fileId, ... } — attach to entity via save PATCH with fileIds[]. */
 export async function uploadFile(file: File): Promise<UploadedFile> {
-  return apiUpload<UploadedFile>('/api/uploads', file)
+  const authToken = localStorage.getItem('auth_token')
+  const headers = authToken ? { Authorization: `Bearer ${authToken}` } : undefined
+  return apiUpload<UploadedFile>('/api/uploads', file, { headers })
 }

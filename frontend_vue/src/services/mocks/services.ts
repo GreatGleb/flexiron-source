@@ -70,12 +70,11 @@ export async function mockCreateService(
   const name: TranslatedString =
     typeof data.name === 'string' ? toTranslatedString(data.name, locale) : data.name
 
-  const description: TranslatedString | undefined =
-    data.description
-      ? typeof data.description === 'string'
-        ? toTranslatedString(data.description, locale)
-        : data.description
-      : undefined
+  const description: TranslatedString | undefined = data.description
+    ? typeof data.description === 'string'
+      ? toTranslatedString(data.description, locale)
+      : data.description
+    : undefined
 
   const service: Service = {
     id: `svc-${String(STORE.length + 1).padStart(3, '0')}`,

@@ -5,31 +5,29 @@ import { useI18n } from 'vue-i18n'
 import SvgIcon from './SvgIcon.vue'
 import NotificationDropdown from './NotificationDropdown.vue'
 import { useSidebar } from '@/composables/useSidebar'
-import { useSettings } from '@/composables/useSettings'
 import { useAuth } from '@/composables/useAuth'
 
 const { t, locale, availableLocales } = useI18n()
 const { toggle } = useSidebar()
-const { settings, load: loadSettings } = useSettings()
-const { logout: authLogout } = useAuth()
+const { user: authUser, logout: authLogout } = useAuth()
 const router = useRouter()
 
 const isMenuOpen = ref(false)
 
 const userName = computed(() => {
-  const p = settings.profile
-  if (p.firstName && p.lastName) return `${p.firstName} ${p.lastName}`
-  if (p.firstName) return p.firstName
+  if (!authUser.value) return t('head.user')
+  if (authUser.value.first_name && authUser.value.last_name)
+    return `${authUser.value.first_name} ${authUser.value.last_name}`
+  if (authUser.value.first_name) return authUser.value.first_name
   return t('head.user')
 })
 
 const userRole = computed(() => {
-  const role = settings.profile.role
-  return role ? t(`settingsUsers.role_${role}`) : t('head.role')
+  if (!authUser.value?.role) return t('head.role')
+  return t(`settingsUsers.role_${authUser.value.role}`)
 })
 
 onMounted(() => {
-  loadSettings()
   document.addEventListener('click', handleOutsideClick)
 })
 
@@ -124,7 +122,9 @@ function switchLang(code: string) {
 <style scoped>
 .dropdown-fade-enter-active,
 .dropdown-fade-leave-active {
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
 }
 
 .dropdown-fade-enter-from,

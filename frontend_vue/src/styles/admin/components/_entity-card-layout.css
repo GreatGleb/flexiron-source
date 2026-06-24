@@ -179,3 +179,17 @@
     gap: 10px;
   }
 }
+
+/* Audit grid — for purchase audit fields (read-only display) */
+.audit-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 600px) {
+  .audit-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+}

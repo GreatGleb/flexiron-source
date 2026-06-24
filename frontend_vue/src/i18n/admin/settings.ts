@@ -7,6 +7,9 @@ export const adminSettings = {
       loading: 'Загрузка...',
       saved: 'Настройки сохранены',
       error_save: 'Ошибка при сохранении',
+      error_load: 'Не удалось загрузить настройки',
+      loadError: 'Ошибка загрузки',
+      retry: 'Повторить',
       cancel_changes: 'Отменить изменения',
     },
     settingsTabs: {
@@ -40,7 +43,8 @@ export const adminSettings = {
       save: 'Сохранить',
       saved: 'Изменения профиля сохранены',
       secretLink: 'Секретная ссылка для входа',
-      secretLinkDesc: 'Только по этой ссылке вы сможете попасть на страницу входа. Email будет заполнен автоматически — останется только ввести пароль.',
+      secretLinkDesc:
+        'Только по этой ссылке вы сможете попасть на страницу входа. Email будет заполнен автоматически — останется только ввести пароль.',
       secretLinkMissing: 'Секретная ссылка недоступна. Обратитесь в службу поддержки.',
       secretLinkWarning: '⚠ Никому не сообщайте эту ссылку!',
       copy: 'Скопировать',
@@ -67,6 +71,12 @@ export const adminSettings = {
       currency_name: 'Название',
       exchange_rate: 'Курс',
       is_default: 'По умолчанию',
+      confirm_currency_change_title: 'Смена валюты по умолчанию',
+      confirm_currency_change_message: 'Вы собираетесь изменить валюту по умолчанию.',
+      confirm_currency_change_default: 'станет валютой по умолчанию',
+      confirm_currency_change_warning:
+        '⚠ Существующие товары и партии сохранят свою исходную валюту. Новая валюта будет применяться только для новых товаров.',
+      confirm_currency_change_confirm: 'Изменить валюту',
     },
     settingsUom: {
       uoms: 'Единицы измерения',
@@ -182,6 +192,9 @@ export const adminSettings = {
       loading: 'Loading...',
       saved: 'Settings saved',
       error_save: 'Error saving settings',
+      error_load: 'Failed to load settings',
+      loadError: 'Loading Error',
+      retry: 'Retry',
       cancel_changes: 'Discard changes',
     },
     settingsTabs: {
@@ -215,7 +228,8 @@ export const adminSettings = {
       save: 'Save',
       saved: 'Profile changes saved',
       secretLink: 'Secret Login Link',
-      secretLinkDesc: 'Only via this link can you access the login page. Your email will be filled in automatically — just enter your password.',
+      secretLinkDesc:
+        'Only via this link can you access the login page. Your email will be filled in automatically — just enter your password.',
       secretLinkMissing: 'Secret link unavailable. Contact support.',
       secretLinkWarning: '⚠ Do not share this link with anyone!',
       copy: 'Copy',
@@ -242,6 +256,12 @@ export const adminSettings = {
       currency_name: 'Name',
       exchange_rate: 'Rate',
       is_default: 'Default',
+      confirm_currency_change_title: 'Change Default Currency',
+      confirm_currency_change_message: 'You are about to change the default currency.',
+      confirm_currency_change_default: 'will become the default currency',
+      confirm_currency_change_warning:
+        '⚠ Existing products and batches will keep their original currency. The new currency will only apply to new products.',
+      confirm_currency_change_confirm: 'Change Currency',
     },
     settingsUom: {
       uoms: 'Units of Measure',
@@ -357,6 +377,9 @@ export const adminSettings = {
       loading: 'Įkeliama...',
       saved: 'Nustatymai išsaugoti',
       error_save: 'Klaida išsaugant nustatymus',
+      error_load: 'Nepavyko įkelti nustatymų',
+      loadError: 'Įkėlimo klaida',
+      retry: 'Bandyti dar kartą',
       cancel_changes: 'Atšaukti pakeitimus',
     },
     settingsTabs: {
@@ -390,7 +413,8 @@ export const adminSettings = {
       save: 'Išsaugoti',
       saved: 'Profilio pakeitimai išsaugoti',
       secretLink: 'Slaptas prisijungimo raktas',
-      secretLinkDesc: 'Tik per šią nuorodą galėsite patekti į prisijungimo puslapį. El. paštas bus užpildytas automatiškai — liks tik įvesti slaptažodį.',
+      secretLinkDesc:
+        'Tik per šią nuorodą galėsite patekti į prisijungimo puslapį. El. paštas bus užpildytas automatiškai — liks tik įvesti slaptažodį.',
       secretLinkMissing: 'Slaptas raktas nepasiekiamas. Susisiekite su pagalba.',
       secretLinkWarning: '⚠ Nieko neperduokite šios nuorodos!',
       copy: 'Kopijuoti',
@@ -417,6 +441,12 @@ export const adminSettings = {
       currency_name: 'Pavadinimas',
       exchange_rate: 'Kursas',
       is_default: 'Numatytoji',
+      confirm_currency_change_title: 'Keisti numatytąją valiutą',
+      confirm_currency_change_message: 'Jūs ketinate pakeisti numatytąją valiutą.',
+      confirm_currency_change_default: 'taps numatytąja valiuta',
+      confirm_currency_change_warning:
+        '⚠ Esamos prekės ir partijos išlaikys savo pradinę valiutą. Nauja valiuta bus taikoma tik naujoms prekėms.',
+      confirm_currency_change_confirm: 'Keisti valiutą',
     },
     settingsUom: {
       uoms: 'Matavimo vienetai',

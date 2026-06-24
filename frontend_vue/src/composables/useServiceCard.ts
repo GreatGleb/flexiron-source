@@ -62,7 +62,11 @@ export function useServiceCard(id: string) {
     try {
       const delta = dirty.diff()
       if (Object.keys(delta).length === 0) return
-      const updated = await patchService(id, delta, locale.value)
+      const updated = await patchService(
+        id,
+        delta as Parameters<typeof patchService>[1],
+        locale.value,
+      )
       service.value = updated
       form.value = {
         name: updated.name,

@@ -137,7 +137,9 @@ onBeforeUnmount(() => document.removeEventListener('click', onClickOutside))
 <template>
   <div ref="wrapRef" class="custom-datepicker-wrap">
     <div class="glass-input datepicker-trigger" @click="toggleOpen">
-      <span class="date-val" :class="{ 'date-val--placeholder': !displayValue }">{{ displayValue || props.placeholder }}</span>
+      <span class="date-val" :class="{ 'date-val--placeholder': !displayValue }">{{
+        displayValue || props.placeholder
+      }}</span>
       <svg
         width="14"
         height="14"

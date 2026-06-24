@@ -40,9 +40,19 @@ load()
         </div>
         <template v-for="(row, idx) in data.plRows" :key="idx">
           <hr v-if="row.isDivider" class="pl-divider" />
-          <div v-else :class="['pl-row', row.type === 'total' ? 'pl-total' : '']" data-test="pl-report-breakdown-row">
+          <div
+            v-else
+            :class="['pl-row', row.type === 'total' ? 'pl-total' : '']"
+            data-test="pl-report-breakdown-row"
+          >
             <span class="pl-label">{{ tf(row.label) }}</span>
-            <span :class="['pl-value', row.type === 'positive' ? 'green' : row.type === 'negative' ? 'red' : '']">{{ row.value }}</span>
+            <span
+              :class="[
+                'pl-value',
+                row.type === 'positive' ? 'green' : row.type === 'negative' ? 'red' : '',
+              ]"
+              >{{ row.value }}</span
+            >
           </div>
         </template>
       </div>
@@ -61,7 +71,9 @@ load()
           >
             <div class="cal-date">{{ tf(evt.date) }}</div>
             <div class="cal-client">{{ evt.client }}</div>
-            <div class="cal-amount" :style="evt.isNegative ? { color: 'var(--danger)' } : {}">{{ evt.amount }}</div>
+            <div class="cal-amount" :style="evt.isNegative ? { color: 'var(--danger)' } : {}">
+              {{ evt.amount }}
+            </div>
           </div>
         </div>
       </div>

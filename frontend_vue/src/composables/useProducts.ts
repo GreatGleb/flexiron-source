@@ -14,7 +14,12 @@ export function useProducts() {
   const items = ref<ProductListItem[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
-  const filters = reactive<ProductFilters>({ search: '', categoryIds: [], sortBy: null, sortDir: 'asc' })
+  const filters = reactive<ProductFilters>({
+    search: '',
+    categoryIds: [],
+    sortBy: null,
+    sortDir: 'asc',
+  })
   const pagination = usePagination(25)
 
   let initialized = false
@@ -55,11 +60,15 @@ export function useProducts() {
   // Flag: prevents page watch from double-firing when filters reset page to 1
   let skipNextPageWatch = false
 
-  watch(filters, () => {
-    skipNextPageWatch = pagination.page.value !== 1
-    pagination.reset()
-    load()
-  }, { deep: true })
+  watch(
+    filters,
+    () => {
+      skipNextPageWatch = pagination.page.value !== 1
+      pagination.reset()
+      load()
+    },
+    { deep: true },
+  )
 
   watch([pagination.page, pagination.pageSize], () => {
     if (skipNextPageWatch) {
@@ -90,4 +99,3 @@ export function useProducts() {
     tf,
   }
 }
-

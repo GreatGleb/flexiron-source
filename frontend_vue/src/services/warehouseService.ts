@@ -53,8 +53,20 @@ export async function getStockItem(productId: string): Promise<StockOverviewItem
   return apiGet<StockOverviewItem>(`/api/warehouse/stock/${productId}`)
 }
 
-export async function patchStockItem(productId: string, delta: StockPatchPayload): Promise<StockOverviewItem> {
+export async function patchStockItem(
+  productId: string,
+  delta: StockPatchPayload,
+): Promise<StockOverviewItem> {
   return apiPatch<StockOverviewItem>(`/api/warehouse/stock/${productId}`, delta)
+}
+
+export async function getBatchCostBreakdown(
+  productId: string,
+  quantity: number,
+): Promise<{ unitPrice: number; totalCost: number }> {
+  return apiGet(`/api/warehouse/stock/${productId}/cost`, {
+    quantity: String(quantity),
+  })
 }
 
 // ─── Batches ────────────────────────────────────────────────────────────────
@@ -110,7 +122,8 @@ export async function getOffcuts(
   if (filters.status) params.status = filters.status
   if (filters.unit) params.unit = filters.unit
   if (filters.offcutType) params.offcutType = filters.offcutType
-  if (filters.categoryIds && filters.categoryIds.length > 0) params.categoryIds = filters.categoryIds.join(',')
+  if (filters.categoryIds && filters.categoryIds.length > 0)
+    params.categoryIds = filters.categoryIds.join(',')
   if (filters.batchNumber) params.batchNumber = filters.batchNumber
   if (filters.sortBy) params.sortBy = filters.sortBy
   if (filters.sortDir) params.sortDir = filters.sortDir
@@ -125,10 +138,7 @@ export async function createOffcut(data: OffcutCreatePayload): Promise<Warehouse
   return apiPost<WarehouseOffcut>('/api/warehouse/offcuts', data)
 }
 
-export async function patchOffcut(
-  id: string,
-  data: OffcutPatchPayload,
-): Promise<WarehouseOffcut> {
+export async function patchOffcut(id: string, data: OffcutPatchPayload): Promise<WarehouseOffcut> {
   return apiPatch<WarehouseOffcut>(`/api/warehouse/offcuts/${id}`, data)
 }
 
@@ -150,7 +160,8 @@ export async function getMovements(
   if (filters.type) params.type = filters.type
   if (filters.productId) params.productId = filters.productId
   if (filters.unit) params.unit = filters.unit
-  if (filters.categoryIds && filters.categoryIds.length > 0) params.categoryIds = filters.categoryIds.join(',')
+  if (filters.categoryIds && filters.categoryIds.length > 0)
+    params.categoryIds = filters.categoryIds.join(',')
   if (filters.batchNumber) params.batchNumber = filters.batchNumber
   if (filters.referenceId) params.referenceId = filters.referenceId
   if (filters.offcutId) params.offcutId = filters.offcutId
@@ -181,7 +192,9 @@ export async function getBatchActiveSales(batchId: string): Promise<BatchActiveS
 
 // ─── Cutting Operation ──────────────────────────────────────────────────────
 
-export async function executeCutting(data: CuttingOperation): Promise<{ offcuts: WarehouseOffcut[]; wasteQuantity: number }> {
+export async function executeCutting(
+  data: CuttingOperation,
+): Promise<{ offcuts: WarehouseOffcut[]; wasteQuantity: number }> {
   return apiPost('/api/warehouse/cutting', data)
 }
 
@@ -199,7 +212,8 @@ export async function getDeficitList(
   if (filters.priority) params.priority = filters.priority
   if (filters.status) params.status = filters.status
   if (filters.unit) params.unit = filters.unit
-  if (filters.categoryIds && filters.categoryIds.length > 0) params.categoryIds = filters.categoryIds.join(',')
+  if (filters.categoryIds && filters.categoryIds.length > 0)
+    params.categoryIds = filters.categoryIds.join(',')
   if (filters.sortBy) params.sortBy = filters.sortBy
   if (filters.sortDir) params.sortDir = filters.sortDir
   return apiGet<DeficitListResponse>('/api/warehouse/deficit', params)
@@ -213,7 +227,10 @@ export async function createDeficitItem(data: DeficitCreatePayload): Promise<War
   return apiPost<WarehouseDeficit>('/api/warehouse/deficit', data)
 }
 
-export async function patchDeficitItem(id: string, delta: DeficitPatchPayload): Promise<WarehouseDeficit> {
+export async function patchDeficitItem(
+  id: string,
+  delta: DeficitPatchPayload,
+): Promise<WarehouseDeficit> {
   return apiPatch<WarehouseDeficit>(`/api/warehouse/deficit/${id}`, delta)
 }
 
@@ -323,7 +340,10 @@ export async function getMovementAudit(movementId: string): Promise<StockAuditEn
   return apiGet<StockAuditEntry[]>(`/api/warehouse/movements/${movementId}/audit`)
 }
 
-export async function deleteMovementAuditEntry(movementId: string, entryIndex: number): Promise<void> {
+export async function deleteMovementAuditEntry(
+  movementId: string,
+  entryIndex: number,
+): Promise<void> {
   return apiDelete<void>(`/api/warehouse/movements/${movementId}/audit/${entryIndex}`)
 }
 
@@ -333,6 +353,9 @@ export async function getDeficitAudit(deficitId: string): Promise<StockAuditEntr
   return apiGet<StockAuditEntry[]>(`/api/warehouse/deficit/${deficitId}/audit`)
 }
 
-export async function deleteDeficitAuditEntry(deficitId: string, entryIndex: number): Promise<void> {
+export async function deleteDeficitAuditEntry(
+  deficitId: string,
+  entryIndex: number,
+): Promise<void> {
   return apiDelete<void>(`/api/warehouse/deficit/${deficitId}/audit/${entryIndex}`)
 }

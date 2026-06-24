@@ -14,10 +14,13 @@ load()
 /** Map icon name → SVG path for KPI cards */
 const kpiIconPaths: Record<string, string> = {
   'chart-bar': 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4',
-  'receipt': 'M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z',
+  receipt:
+    'M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z',
   'trending-up': 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6',
-  'currency': 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
-  'alert': 'M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z',
+  currency:
+    'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+  alert:
+    'M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z',
 }
 
 /** Map alert status → pill CSS class */
@@ -47,24 +50,26 @@ const alertStatusLabel: Record<string, string> = {
   <template v-if="loading">
     <div class="kpi-row">
       <div v-for="i in 5" :key="i" class="kpi-card">
-        <div class="kpi-icon"><div class="skeleton" style="width:24px;height:24px;border-radius:50%;margin:0" /></div>
-        <div class="kpi-label"><div class="skeleton" style="width:70%;height:14px" /></div>
-        <div class="kpi-value"><div class="skeleton" style="width:60%;height:22px" /></div>
-        <div class="kpi-delta"><div class="skeleton" style="width:40%;height:12px" /></div>
+        <div class="kpi-icon">
+          <div class="skeleton" style="width: 24px; height: 24px; border-radius: 50%; margin: 0" />
+        </div>
+        <div class="kpi-label"><div class="skeleton" style="width: 70%; height: 14px" /></div>
+        <div class="kpi-value"><div class="skeleton" style="width: 60%; height: 22px" /></div>
+        <div class="kpi-delta"><div class="skeleton" style="width: 40%; height: 12px" /></div>
       </div>
     </div>
     <div class="charts-row">
       <GlassPanel v-if="showCharts" :loading="true" :skeleton-rows="5" />
       <GlassPanel v-if="showAlerts" :loading="true" :skeleton-rows="5" />
     </div>
-    <div class="section-label"><div class="skeleton" style="width:120px;height:18px" /></div>
+    <div class="section-label"><div class="skeleton" style="width: 120px; height: 18px" /></div>
     <div class="analytics-grid">
       <div v-for="i in 4" :key="i" class="acard">
-        <div class="acard-num"><div class="skeleton" style="width:50%;height:14px" /></div>
-        <div class="acard-title"><div class="skeleton" style="width:80%;height:16px" /></div>
+        <div class="acard-num"><div class="skeleton" style="width: 50%; height: 14px" /></div>
+        <div class="acard-title"><div class="skeleton" style="width: 80%; height: 16px" /></div>
         <div class="acard-metrics">
           <div v-for="j in 2" :key="j" class="acard-metric">
-            <div class="skeleton" style="width:100%;height:14px" />
+            <div class="skeleton" style="width: 100%; height: 14px" />
           </div>
         </div>
       </div>
@@ -75,12 +80,7 @@ const alertStatusLabel: Record<string, string> = {
   <template v-else-if="data">
     <!-- ─── KPI Row: dynamic from data.kpis ─── -->
     <div class="kpi-row" data-test="dashboard-kpi-row">
-      <div
-        v-for="kpi in data.kpis"
-        :key="kpi.key"
-        class="kpi-card"
-        data-test="dashboard-kpi-card"
-      >
+      <div v-for="kpi in data.kpis" :key="kpi.key" class="kpi-card" data-test="dashboard-kpi-card">
         <div class="kpi-icon" :class="'icon-' + kpi.iconColor">
           <svg
             width="24"
@@ -119,10 +119,15 @@ const alertStatusLabel: Record<string, string> = {
             <div class="bar-track">
               <div
                 class="bar-fill"
-                :style="{ width: item.percentage + '%', background: 'linear-gradient(90deg, #1890ff, #40a9ff)' }"
+                :style="{
+                  width: item.percentage + '%',
+                  background: 'linear-gradient(90deg, #1890ff, #40a9ff)',
+                }"
               />
             </div>
-            <span class="bar-val">{{ item.value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' €' }}</span>
+            <span class="bar-val">{{
+              item.value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' €'
+            }}</span>
           </div>
         </div>
       </div>

@@ -19,6 +19,7 @@ export const MOCK_SUPPLIERS: Supplier[] = [
     leadTime: 7,
     lastBccDate: '2026-01-15',
     hasDeficit: false,
+    currency: 'EUR',
     createdAt: '2020-03-15',
     updatedAt: '2026-04-01',
   },
@@ -38,6 +39,7 @@ export const MOCK_SUPPLIERS: Supplier[] = [
     leadTime: 5,
     lastBccDate: '2026-01-10',
     hasDeficit: true,
+    currency: 'EUR',
     createdAt: '2019-07-20',
     updatedAt: '2026-03-28',
   },
@@ -57,6 +59,7 @@ export const MOCK_SUPPLIERS: Supplier[] = [
     leadTime: 10,
     lastBccDate: '2026-01-05',
     hasDeficit: false,
+    currency: 'EUR',
     createdAt: '2021-01-10',
     updatedAt: '2026-02-14',
   },
@@ -76,6 +79,7 @@ export const MOCK_SUPPLIERS: Supplier[] = [
     leadTime: 14,
     lastBccDate: null,
     hasDeficit: false,
+    currency: 'EUR',
     createdAt: '2026-01-05',
     updatedAt: '2026-04-05',
   },
@@ -95,6 +99,7 @@ export const MOCK_SUPPLIERS: Supplier[] = [
     leadTime: 21,
     lastBccDate: '2025-12-20',
     hasDeficit: false,
+    currency: 'EUR',
     createdAt: '2018-11-22',
     updatedAt: '2026-04-10',
   },
@@ -114,6 +119,7 @@ export const MOCK_SUPPLIERS: Supplier[] = [
     leadTime: 9,
     lastBccDate: '2026-02-18',
     hasDeficit: false,
+    currency: 'EUR',
     createdAt: '2020-08-14',
     updatedAt: '2026-03-15',
   },
@@ -124,7 +130,11 @@ const supplier1 = MOCK_SUPPLIERS.find((s) => s.id === '1')!
 const MOCK_CARD: Record<string, SupplierCardData> = {
   '1': {
     ...supplier1,
-    statusReason: { ru: 'Аудит пройден. Надёжность повышена до 5 звёзд.', en: 'Audit passed. Reliability rating upgraded to 5 stars.', lt: 'Auditas išlaikytas. Patikimumas padidintas iki 5 žvaigždučių.' },
+    statusReason: {
+      ru: 'Аудит пройден. Надёжность повышена до 5 звёзд.',
+      en: 'Audit passed. Reliability rating upgraded to 5 stars.',
+      lt: 'Auditas išlaikytas. Patikimumas padidintas iki 5 žvaigždučių.',
+    },
     contractDate: '2024-02-15',
     vatCode: 'LT100001234567',
     currency: 'EUR',
@@ -169,9 +179,18 @@ const MOCK_CARD: Record<string, SupplierCardData> = {
         date: '2026-04-01',
         action: { ru: 'Отправлен BCC', en: 'BCC Sent', lt: 'BCC išsiųstas' },
         user: { ru: 'Администратор', en: 'Admin', lt: 'Administratorius' },
-        details: { ru: 'Запрос цен на листы', en: 'Price request for Sheets', lt: 'Kainų užklausa lakštams' },
+        details: {
+          ru: 'Запрос цен на листы',
+          en: 'Price request for Sheets',
+          lt: 'Kainų užklausa lakštams',
+        },
       },
-      { date: '2026-03-15', action: { ru: 'Рейтинг обновлён', en: 'Rating Updated', lt: 'Įvertinimas atnaujintas' }, user: { ru: 'Администратор', en: 'Admin', lt: 'Administratorius' }, details: { ru: 'Рейтинг: 4 → 5', en: 'Rating: 4 → 5', lt: 'Įvertinimas: 4 → 5' } },
+      {
+        date: '2026-03-15',
+        action: { ru: 'Рейтинг обновлён', en: 'Rating Updated', lt: 'Įvertinimas atnaujintas' },
+        user: { ru: 'Администратор', en: 'Admin', lt: 'Administratorius' },
+        details: { ru: 'Рейтинг: 4 → 5', en: 'Rating: 4 → 5', lt: 'Įvertinimas: 4 → 5' },
+      },
     ],
     priceHistory: [
       {
@@ -300,26 +319,45 @@ export function mockGetSupplier(id: string): SupplierCardData {
         zip: '',
       },
     ],
-    contacts: [{ name: base.contactPerson, role: { ru: 'Контакт', en: 'Contact', lt: 'Kontaktas' }, email: base.email, phone: base.phone }],
+    contacts: [
+      {
+        name: base.contactPerson,
+        role: { ru: 'Контакт', en: 'Contact', lt: 'Kontaktas' },
+        email: base.email,
+        phone: base.phone,
+      },
+    ],
     files: [],
     history: [
       {
         date: base.updatedAt,
         action: { ru: 'Профиль обновлён', en: 'Profile Updated', lt: 'Profilis atnaujintas' },
         user: { ru: 'Система', en: 'System', lt: 'Sistema' },
-        details: { ru: 'Контактная информация обновлена', en: 'Contact info refreshed', lt: 'Kontaktinė informacija atnaujinta' },
+        details: {
+          ru: 'Контактная информация обновлена',
+          en: 'Contact info refreshed',
+          lt: 'Kontaktinė informacija atnaujinta',
+        },
       },
       {
         date: base.createdAt,
         action: { ru: 'Поставщик создан', en: 'Supplier Created', lt: 'Tiekėjas sukurtas' },
         user: { ru: 'Администратор', en: 'Admin', lt: 'Administratorius' },
-        details: { ru: `Статус: ${base.status}`, en: `Status: ${base.status}`, lt: `Būsena: ${base.status}` },
+        details: {
+          ru: `Статус: ${base.status}`,
+          en: `Status: ${base.status}`,
+          lt: `Būsena: ${base.status}`,
+        },
       },
     ],
     priceHistory: [
       {
         date: base.updatedAt.slice(5, 10).replace('-', '.'),
-        product: { ru: base.categories[0] ?? 'Общее', en: base.categories[0] ?? 'General', lt: base.categories[0] ?? 'Bendras' },
+        product: {
+          ru: base.categories[0] ?? 'Общее',
+          en: base.categories[0] ?? 'General',
+          lt: base.categories[0] ?? 'Bendras',
+        },
         stock: '10 t',
         price: 1.2,
         unit: { ru: 'кг', en: 'kg', lt: 'kg' },
@@ -328,7 +366,11 @@ export function mockGetSupplier(id: string): SupplierCardData {
       },
       {
         date: (base.lastBccDate ?? base.updatedAt).slice(5, 10).replace('-', '.'),
-        product: { ru: base.categories.join(' + ') || 'Запрос цен', en: base.categories.join(' + ') || 'Price request', lt: base.categories.join(' + ') || 'Kainų užklausa' },
+        product: {
+          ru: base.categories.join(' + ') || 'Запрос цен',
+          en: base.categories.join(' + ') || 'Price request',
+          lt: base.categories.join(' + ') || 'Kainų užklausa',
+        },
         stock: '—',
         price: null,
         unit: null,
@@ -367,8 +409,12 @@ export function mockPatchSupplier(id: string, patch: Partial<SupplierCardData>):
     ...base,
     ...patch,
     company: patch.company ? mergeTranslatedString(base.company, patch.company) : base.company,
-    contactPerson: patch.contactPerson ? mergeTranslatedString(base.contactPerson, patch.contactPerson) : base.contactPerson,
-    statusReason: patch.statusReason ? mergeTranslatedString(base.statusReason, patch.statusReason) : base.statusReason,
+    contactPerson: patch.contactPerson
+      ? mergeTranslatedString(base.contactPerson, patch.contactPerson)
+      : base.contactPerson,
+    statusReason: patch.statusReason
+      ? mergeTranslatedString(base.statusReason, patch.statusReason)
+      : base.statusReason,
   }
   // Persist full merged card back to MOCK_CARD
   MOCK_CARD[id] = merged
@@ -428,6 +474,7 @@ export function mockCreateSupplier(payload: Partial<SupplierCardData>): Supplier
     leadTime: payload.leadTime ?? 0,
     lastBccDate: null,
     hasDeficit: false,
+    currency: payload.currency ?? 'EUR',
     createdAt: today,
     updatedAt: today,
   }
@@ -445,7 +492,14 @@ export function mockCreateSupplier(payload: Partial<SupplierCardData>): Supplier
     addresses: payload.addresses ?? [{ type: 'Legal', line1: '', city: '', country: '', zip: '' }],
     contacts: payload.contacts ?? [],
     files: payload.files ?? [],
-    history: [{ date: today, action: { ru: '', en: '', lt: '' }, user: { ru: '', en: '', lt: '' }, details: { ru: '', en: '', lt: '' } }],
+    history: [
+      {
+        date: today,
+        action: { ru: '', en: '', lt: '' },
+        user: { ru: '', en: '', lt: '' },
+        details: { ru: '', en: '', lt: '' },
+      },
+    ],
     priceHistory: [],
     auditLog: [],
   }

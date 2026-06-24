@@ -21,7 +21,6 @@ const { page, pageSize, total } = pagination
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let initialized = false
-let pollingStarted = false
 
 async function load() {
   if (!initialized) loading.value = true
@@ -75,11 +74,15 @@ async function markAllAsRead() {
 // ─── Reactive: auto-reload on filter/page change ──
 let skipNextPageWatch = false
 
-watch(filters, () => {
-  skipNextPageWatch = page.value !== 1
-  pagination.reset()
-  load()
-}, { deep: true })
+watch(
+  filters,
+  () => {
+    skipNextPageWatch = page.value !== 1
+    pagination.reset()
+    load()
+  },
+  { deep: true },
+)
 
 watch([page, pageSize], () => {
   if (skipNextPageWatch) {
@@ -105,14 +108,10 @@ function stopPolling() {
 // ─── Auto-start polling at module level ───────────────────────────────────
 // (onMounted/onUnmounted skipped because singleton state outlives any single
 //  component; polling runs as long as the module is loaded.)
-if (!pollingStarted) {
-  pollingStarted = true
-  loadUnreadCount()
-  pollTimer = setInterval(loadUnreadCount, 30_000)
-}
+loadUnreadCount()
+pollTimer = setInterval(loadUnreadCount, 30_000)
 
 export function useNotifications() {
-
   return {
     items,
     loading,

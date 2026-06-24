@@ -29,7 +29,14 @@ export interface Currency {
 }
 
 /** Категория единицы измерения */
-export type UomCategory = 'weight' | 'length' | 'area' | 'volume' | 'quantity' | 'density' | 'thickness'
+export type UomCategory =
+  | 'weight'
+  | 'length'
+  | 'area'
+  | 'volume'
+  | 'quantity'
+  | 'density'
+  | 'thickness'
 
 /** Тип правила пересчёта */
 export type ConversionType = 'static' | 'dynamic'
@@ -77,7 +84,14 @@ export interface WarehouseSector {
 }
 
 /** Роль пользователя */
-export type UserRole = 'owner' | 'admin' | 'manager' | 'warehouse' | 'accounting' | 'viewer' | 'user'
+export type UserRole =
+  | 'owner'
+  | 'admin'
+  | 'manager'
+  | 'warehouse'
+  | 'accounting'
+  | 'viewer'
+  | 'user'
 
 /** Пользователь системы */
 export interface SettingUser {

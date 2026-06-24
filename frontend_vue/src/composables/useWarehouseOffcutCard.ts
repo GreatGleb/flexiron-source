@@ -1,11 +1,25 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { getOffcut, patchOffcut, deleteOffcut, deleteOffcutAuditEntry, createMovement, getMovements } from '@/services/warehouseService'
+import {
+  getOffcut,
+  patchOffcut,
+  deleteOffcut,
+  deleteOffcutAuditEntry,
+  createMovement,
+  getMovements,
+} from '@/services/warehouseService'
 import { useDirtyCheck } from './useDirtyCheck'
 import { useToast } from './useToast'
 import { useTranslatedField } from './useTranslatedData'
-import type { WarehouseOffcut, OffcutPatchPayload, OffcutStatus, MovementType, StockAuditEntry, MovementListItem } from '@/types/warehouse'
+import type {
+  WarehouseOffcut,
+  OffcutPatchPayload,
+  OffcutStatus,
+  MovementType,
+  StockAuditEntry,
+  MovementListItem,
+} from '@/types/warehouse'
 import type { UploadedFile } from '@/services/uploadsService'
 
 // ─── Offcut status → Movement type mapping ──────────────────────────
@@ -27,7 +41,12 @@ const LOCATION_ROW_RE = /\|\s*Row:\s*(.*?)\s*\|/
 const LOCATION_CELL_RE = /\|\s*Cell:\s*(.*?)(?:\n|$)/
 const LOCATION_NOTES_RE = /\nNotes:\s*(.*)$/
 
-function parseLocation(raw: string | null): { locationRack: string; locationRow: string; locationCell: string; locationNotes: string } {
+function parseLocation(raw: string | null): {
+  locationRack: string
+  locationRow: string
+  locationCell: string
+  locationNotes: string
+} {
   const fallback = { locationRack: '', locationRow: '', locationCell: '', locationNotes: '' }
   if (!raw) return fallback
 

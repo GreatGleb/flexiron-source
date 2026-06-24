@@ -43,20 +43,28 @@ const pagination = usePagination(25)
 function load() {
   loading.value = true
   error.value = false
-  getPayments('outgoing', {
-    search: searchInput.value,
-    status: statusFilter.value,
-    counterpartyId: null,
-    dateFrom: '',
-    dateTo: '',
-    direction: 'outgoing',
-  }, { page: pagination.page.value, pageSize: pagination.pageSize.value })
+  getPayments(
+    'outgoing',
+    {
+      search: searchInput.value,
+      status: statusFilter.value,
+      counterpartyId: null,
+      dateFrom: '',
+      dateTo: '',
+      direction: 'outgoing',
+    },
+    { page: pagination.page.value, pageSize: pagination.pageSize.value },
+  )
     .then((res) => {
       payments.value = res.items
       pagination.total.value = res.total
     })
-    .catch(() => { error.value = true })
-    .finally(() => { loading.value = false })
+    .catch(() => {
+      error.value = true
+    })
+    .finally(() => {
+      loading.value = false
+    })
 }
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null
@@ -108,7 +116,9 @@ onMounted(() => load())
 </script>
 
 <template>
-  <h1 class="page-title" data-test="finance-outgoing-title">{{ t('financeList.header_title_outgoing') }}</h1>
+  <h1 class="page-title" data-test="finance-outgoing-title">
+    {{ t('financeList.header_title_outgoing') }}
+  </h1>
 
   <FinanceSubNav />
 
@@ -146,7 +156,11 @@ onMounted(() => load())
       <button class="btn btn-primary" @click="load">{{ t('common.error_btn') }}</button>
     </div>
 
-    <div v-else-if="!loading && payments.length === 0" class="empty-state" data-test="finance-outgoing-empty">
+    <div
+      v-else-if="!loading && payments.length === 0"
+      class="empty-state"
+      data-test="finance-outgoing-empty"
+    >
       <SvgIcon name="profit-coin" :width="48" :height="48" />
       <p>{{ t('financeList.empty_title') }}</p>
       <p class="empty-text">{{ t('financeList.empty_text') }}</p>
@@ -171,8 +185,8 @@ onMounted(() => load())
             v-for="p in payments"
             :key="p.id"
             class="clickable-row"
-            @click="goToPayment(p.id)"
             data-test="finance-payment-row"
+            @click="goToPayment(p.id)"
           >
             <td>{{ p.paymentNumber }}</td>
             <td>{{ p.counterpartyName }}</td>
@@ -192,7 +206,11 @@ onMounted(() => load())
               <span v-else class="doc-badge doc-badge-empty">0</span>
             </td>
             <td class="text-right">
-              <button class="action-icon-btn" @click.stop="goToPayment(p.id)" data-test="payment-view-btn">
+              <button
+                class="action-icon-btn"
+                data-test="payment-view-btn"
+                @click.stop="goToPayment(p.id)"
+              >
                 <SvgIcon name="external-link" width="16" height="16" />
               </button>
             </td>
@@ -218,7 +236,12 @@ onMounted(() => load())
                     :style="{ display: pagination.totalPages.value <= 1 ? 'none' : 'flex' }"
                     @click="pagination.prev()"
                   >
-                    <SvgIcon name="chevron-right" :width="14" :height="14" style="transform: rotate(180deg)" />
+                    <SvgIcon
+                      name="chevron-right"
+                      :width="14"
+                      :height="14"
+                      style="transform: rotate(180deg)"
+                    />
                   </button>
                   <div class="pagination-pages">
                     <template v-for="(p, i) in pagination.pageNumbers()" :key="i">

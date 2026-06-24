@@ -472,7 +472,9 @@ onBeforeUnmount(() => {
               </td>
               <td>
                 <span :class="['status-pill', STATUS_PILL[s.status]]">
-                  {{ t(STATUS_OPTIONS.find((o) => o.value === s.status)?.labelKey ?? 'st.unknown') }}
+                  {{
+                    t(STATUS_OPTIONS.find((o) => o.value === s.status)?.labelKey ?? 'st.unknown')
+                  }}
                 </span>
               </td>
               <td><RatingStars :model-value="s.rating" :readonly="true" /></td>

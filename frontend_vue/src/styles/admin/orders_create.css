@@ -15,7 +15,9 @@
   background: transparent;
   flex-shrink: 0;
   position: relative;
-  transition: border-color 0.2s, background 0.2s;
+  transition:
+    border-color 0.2s,
+    background 0.2s;
 }
 
 .client-radio-input:checked + .client-radio-custom {

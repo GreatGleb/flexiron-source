@@ -15,8 +15,16 @@ async def create_product(
     sku: str | None = None,
     description: str | None = None,
     price: float | None = None,
-    price_unit: str | None = None,
     min_stock: float | None = None,
+    currency_id: UUID | None = None,
+    price_quantity: int = 1,
+    purchase_uom_id: UUID | None = None,
+    warehouse_uom_id: UUID | None = None,
+    sale_uom_id: UUID | None = None,
+    purchase_to_warehouse_formula_type: str | None = None,
+    purchase_to_warehouse_factor: float | None = None,
+    warehouse_to_sale_formula_type: str | None = None,
+    warehouse_to_sale_factor: float | None = None,
 ) -> Product:
     """Insert a new product into the database."""
     product = Product(
@@ -26,8 +34,16 @@ async def create_product(
         sku=sku,
         description=description,
         price=price,
-        price_unit=price_unit,
         min_stock=min_stock,
+        currency_id=currency_id,
+        price_quantity=price_quantity,
+        purchase_uom_id=purchase_uom_id,
+        warehouse_uom_id=warehouse_uom_id,
+        sale_uom_id=sale_uom_id,
+        purchase_to_warehouse_formula_type=purchase_to_warehouse_formula_type,
+        purchase_to_warehouse_factor=purchase_to_warehouse_factor,
+        warehouse_to_sale_formula_type=warehouse_to_sale_formula_type,
+        warehouse_to_sale_factor=warehouse_to_sale_factor,
     )
     db.add(product)
     await db.flush()

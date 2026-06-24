@@ -112,8 +112,6 @@
   margin: 0 0 12px;
 }
 
-
-
 .tag-required {
   background: rgba(24, 144, 255, 0.15);
   color: #40a9ff;
@@ -137,5 +135,3 @@
   gap: 6px;
   justify-content: flex-end;
 }
-
-

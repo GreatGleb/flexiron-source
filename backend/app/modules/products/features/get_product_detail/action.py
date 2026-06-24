@@ -31,8 +31,10 @@ async def get_product_detail(
     db: AsyncSession = Depends(get_db),
 ):
     """Get detailed info about a product by its ID."""
+    import uuid
+    tenant_id = uuid.UUID("00000000-0000-0000-0000-000000000001")  # placeholder
     try:
-        product = await get_product_detail_usecase(db, product_id)
+        product = await get_product_detail_usecase(db, tenant_id, product_id)
         return ApiResponse(
             success=True,
             data=product.model_dump(mode="json"),

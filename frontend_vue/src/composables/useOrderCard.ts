@@ -3,6 +3,7 @@ import { useI18n } from 'vue-i18n'
 import { useToast } from '@/composables/useToast'
 import { useDirtyCheck } from '@/composables/useDirtyCheck'
 import { useTranslatedField } from '@/composables/useTranslatedData'
+import { useSettings } from '@/composables/useSettings'
 import {
   getOrder,
   patchOrder,
@@ -16,6 +17,7 @@ import {
   addOrderFile,
   removeOrderFile,
 } from '@/services/ordersService'
+import { getBatchCostBreakdown } from '@/services/warehouseService'
 import type { Order, OrderStatus } from '@/types/order'
 import type { StockAuditEntry } from '@/types/warehouse'
 import type { UploadedFile } from '@/services/uploadsService'
@@ -27,12 +29,16 @@ interface OrderFormFields {
   documentType: Order['documentType']
   currency: string
   orderDiscount: number
+  costPrice: number
+  vatPercent: number
+  marginPercent: number
 }
 
 export function useOrderCard(id: string) {
   const { t } = useI18n()
   const toast = useToast()
   const { tf } = useTranslatedField()
+  const { settings } = useSettings()
   const order = ref<Order | null>(null)
   const loading = ref(false)
   const saving = ref(false)
@@ -44,25 +50,39 @@ export function useOrderCard(id: string) {
     totalWeight: 0,
     notes: null,
     documentType: 'local',
-    currency: 'EUR',
+    currency: settings.constants.defaultCurrency,
     orderDiscount: 0,
+    costPrice: 0,
+    vatPercent: settings.constants.vatRate,
+    marginPercent: settings.constants.defaultMargin,
   })
 
   // ─── Pending changes (items, services, files) ────────────────────────
-  const pendingItems = ref<Array<{ productId: string; productName: string; quantity: number; unit: string; unitPrice: number }>>([])
+  const pendingItems = ref<
+    Array<{
+      productId: string
+      productName: string
+      quantity: number
+      unit: string
+      unitPrice: number
+    }>
+  >([])
   const pendingItemDeletions = ref<string[]>([])
-  const pendingServices = ref<Array<{ serviceId: string; serviceName: string; quantity: number; price: number }>>([])
+  const pendingServices = ref<
+    Array<{ serviceId: string; serviceName: string; quantity: number; price: number }>
+  >([])
   const pendingServiceDeletions = ref<string[]>([])
   const pendingFileAdds = ref<string[]>([])
   const pendingFileRemoves = ref<string[]>([])
 
-  const hasPendingChanges = computed(() =>
-    pendingItems.value.length > 0 ||
-    pendingItemDeletions.value.length > 0 ||
-    pendingServices.value.length > 0 ||
-    pendingServiceDeletions.value.length > 0 ||
-    pendingFileAdds.value.length > 0 ||
-    pendingFileRemoves.value.length > 0,
+  const hasPendingChanges = computed(
+    () =>
+      pendingItems.value.length > 0 ||
+      pendingItemDeletions.value.length > 0 ||
+      pendingServices.value.length > 0 ||
+      pendingServiceDeletions.value.length > 0 ||
+      pendingFileAdds.value.length > 0 ||
+      pendingFileRemoves.value.length > 0,
   )
 
   const { isDirty, capture, diff } = useDirtyCheck(form)
@@ -97,8 +117,14 @@ export function useOrderCard(id: string) {
   function recalcLocalTotals() {
     if (!order.value) return
     const itemsTotal = order.value.items.reduce((sum, i) => sum + i.totalPrice, 0)
-    const servicesTotal = order.value.services.reduce((sum, s) => sum + (s.price ?? 0) * (s.quantity ?? 1), 0)
-    const itemsWeight = order.value.items.reduce((sum, i) => sum + (parseFloat(String(i.quantity)) * 0.5), 0)
+    const servicesTotal = order.value.services.reduce(
+      (sum, s) => sum + (s.price ?? 0) * (s.quantity ?? 1),
+      0,
+    )
+    const itemsWeight = order.value.items.reduce(
+      (sum, i) => sum + parseFloat(String(i.quantity)) * 0.5,
+      0,
+    )
     const newAmount = itemsTotal + servicesTotal
     const discount = form.value.orderDiscount ?? 0
     const discountedAmount = newAmount * (1 - discount / 100)
@@ -127,7 +153,10 @@ export function useOrderCard(id: string) {
         notes: order.value.notes,
         documentType: order.value.documentType,
         currency: order.value.currency,
-        orderDiscount: (order.value as Record<string, unknown>).orderDiscount as number ?? 0,
+        orderDiscount: ((order.value as Record<string, unknown>).orderDiscount as number) ?? 0,
+        costPrice: order.value.totalAmount,
+        vatPercent: order.value.vatPercent ?? 21,
+        marginPercent: order.value.marginPercent ?? settings.constants.defaultMargin,
       }
       capture()
       await loadAudit()
@@ -154,7 +183,11 @@ export function useOrderCard(id: string) {
 
       // 3. Add new services
       for (const svc of pendingServices.value) {
-        await addOrderService(id, { serviceId: svc.serviceId, quantity: svc.quantity, price: svc.price })
+        await addOrderService(id, {
+          serviceId: svc.serviceId,
+          quantity: svc.quantity,
+          price: svc.price,
+        })
       }
 
       // 4. Delete removed services
@@ -235,13 +268,40 @@ export function useOrderCard(id: string) {
   }
 
   // ─── Deferred items (accepts single item or array) ───────────────────
-  function handleAddItemDirect(data: Array<{ productId: string; productName: string; quantity: number; unit: string; unitPrice: number; unitCost?: number }> | { productId: string; productName: string; quantity: number; unit: string; unitPrice: number; unitCost?: number }) {
+  async function handleAddItemDirect(
+    data:
+      | Array<{
+          productId: string
+          productName: string
+          quantity: number
+          unit: string
+          unitPrice: number
+          unitCost?: number
+        }>
+      | {
+          productId: string
+          productName: string
+          quantity: number
+          unit: string
+          unitPrice: number
+          unitCost?: number
+        },
+  ) {
     const items = Array.isArray(data) ? data : [data]
     pendingItems.value = [...pendingItems.value, ...items]
     // Update local order state for immediate UI feedback
     if (order.value) {
+      // FIFO cost lookup — fetch actual cost from warehouse batches
+      const fifoCosts = await Promise.all(
+        items.map((item) =>
+          getBatchCostBreakdown(item.productId, item.quantity ?? 1)
+            .then((r) => r.unitPrice)
+            .catch(() => null),
+        ),
+      )
       const newItems = items.map((item, idx) => {
         const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${idx}`
+        const fifoCost = fifoCosts[idx]
         return {
           id: tempId,
           lineNumber: order.value!.items.length + idx + 1,
@@ -250,11 +310,13 @@ export function useOrderCard(id: string) {
           quantity: item.quantity,
           unit: item.unit,
           unitPrice: item.unitPrice,
-          unitCost: item.unitCost ?? Math.round(item.unitPrice * 0.7 * 100) / 100,
+          unitCost: fifoCost ?? item.unitCost ?? Math.round(item.unitPrice * 0.7 * 100) / 100,
           discount: 0,
           totalPrice: item.quantity * item.unitPrice,
           batchId: null,
           offcutId: null,
+          receivedCurrency: 'cur-eur',
+          exchangeRate: 1,
         }
       })
       order.value = {
@@ -278,7 +340,17 @@ export function useOrderCard(id: string) {
   }
 
   // ─── Deferred services ────────────────────────────────────────────────
-  function handleAddServiceDirect(data: Array<{ serviceId: string; serviceName: string; quantity: number; price: number; cost?: number }> | { serviceId: string; serviceName: string; quantity: number; price: number; cost?: number }) {
+  function handleAddServiceDirect(
+    data:
+      | Array<{
+          serviceId: string
+          serviceName: string
+          quantity: number
+          price: number
+          cost?: number
+        }>
+      | { serviceId: string; serviceName: string; quantity: number; price: number; cost?: number },
+  ) {
     const items = Array.isArray(data) ? data : [data]
     pendingServices.value = [...pendingServices.value, ...items]
     // Update local order state for immediate UI feedback
@@ -290,7 +362,7 @@ export function useOrderCard(id: string) {
         serviceName: item.serviceName,
         cost: item.cost ?? 0,
         price: item.price,
-        margin: (item.price) - (item.cost ?? 0),
+        margin: item.price - (item.cost ?? 0),
         quantity: item.quantity,
       }))
       order.value = {
@@ -355,16 +427,34 @@ export function useOrderCard(id: string) {
 
   return {
     form,
-    order, loading, saving, error, isDirty,
-    load, save, discard, remove,
-    auditLog, auditLoading, loadAudit, deleteAuditEntry,
+    order,
+    loading,
+    saving,
+    error,
+    isDirty,
+    load,
+    save,
+    discard,
+    remove,
+    auditLog,
+    auditLoading,
+    loadAudit,
+    deleteAuditEntry,
     handleChangeStatus,
-    handleAddItemDirect, handleDeleteItem,
-    handleAddServiceDirect, handleDeleteService,
+    handleAddItemDirect,
+    handleDeleteItem,
+    handleAddServiceDirect,
+    handleDeleteService,
     handleGenerateDocument,
-    onFilesUploaded, removeFile,
+    onFilesUploaded,
+    removeFile,
     tf,
-    pendingItems, pendingItemDeletions, pendingServices, pendingServiceDeletions, pendingFileAdds, pendingFileRemoves,
+    pendingItems,
+    pendingItemDeletions,
+    pendingServices,
+    pendingServiceDeletions,
+    pendingFileAdds,
+    pendingFileRemoves,
     hasPendingChanges,
   }
 }

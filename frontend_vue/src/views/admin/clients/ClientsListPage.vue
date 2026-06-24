@@ -23,7 +23,19 @@ useHead({
   description: () => t('clients.title'),
 })
 
-const { items, loading, error, filters, page, pageSize, total, totalPages, load, handleDelete, toggleSort } = useClients()
+const {
+  items,
+  loading,
+  error,
+  filters,
+  page,
+  pageSize,
+  total,
+  totalPages,
+  load,
+  handleDelete,
+  toggleSort,
+} = useClients()
 
 // ─── Status filter ─────────────────────────────────────
 const STATUS_OPTIONS = [
@@ -34,7 +46,9 @@ const STATUS_OPTIONS = [
 
 const statusFilterStr = computed({
   get: () => filters.value.status ?? '',
-  set: (v: string) => { filters.value.status = (v || null) as 'active' | 'inactive' | null },
+  set: (v: string) => {
+    filters.value.status = (v || null) as 'active' | 'inactive' | null
+  },
 })
 
 // ─── Search ────────────────────────────────────────────
@@ -42,7 +56,9 @@ const searchInput = ref('')
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 watch(searchInput, (v) => {
   if (searchTimer) clearTimeout(searchTimer)
-  searchTimer = setTimeout(() => { filters.value.search = v }, 300)
+  searchTimer = setTimeout(() => {
+    filters.value.search = v
+  }, 300)
 })
 
 // ─── Pagination helpers ────────────────────────────────
@@ -122,7 +138,12 @@ function loadPrefs() {
     const raw = localStorage.getItem(PREFS_KEY)
     if (!raw) return
     const prefs = JSON.parse(raw) as {
-      filters?: { search?: string; status?: 'active' | 'inactive' | null; sortBy?: 'name' | 'email' | 'status' | null; sortDir?: 'asc' | 'desc' }
+      filters?: {
+        search?: string
+        status?: 'active' | 'inactive' | null
+        sortBy?: 'name' | 'email' | 'status' | null
+        sortDir?: 'asc' | 'desc'
+      }
     }
     if (prefs.filters) {
       if (typeof prefs.filters.search === 'string') {
@@ -191,7 +212,16 @@ onMounted(() => {
           <CustomSelect v-model="statusFilterStr" :options="STATUS_OPTIONS" />
         </div>
         <button class="btn btn-primary" data-test="clients-save-view-btn" @click="saveView">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
             <polyline points="17 21 17 13 7 13 7 21" />
             <polyline points="7 3 7 8 15 8" />
@@ -209,7 +239,11 @@ onMounted(() => {
         <button class="btn btn-primary" @click="load">{{ t('clients.btn_retry') }}</button>
       </div>
 
-      <div v-else-if="!loading && items.length === 0" class="empty-state" data-test="clients-empty-state">
+      <div
+        v-else-if="!loading && items.length === 0"
+        class="empty-state"
+        data-test="clients-empty-state"
+      >
         <SvgIcon name="warehouse-box" :width="48" :height="48" />
         <p>{{ t('clients.empty') }}</p>
         <router-link :to="{ name: 'admin-client-create' }" class="btn btn-primary">
@@ -317,8 +351,17 @@ onMounted(() => {
               <td>{{ item.phone }}</td>
               <td>{{ item.email }}</td>
               <td>
-                <span :class="['client-status-badge', item.status === 'active' ? 'badge-active' : 'badge-inactive']">
-                  {{ item.status === 'active' ? t('clients.status_active') : t('clients.status_inactive') }}
+                <span
+                  :class="[
+                    'client-status-badge',
+                    item.status === 'active' ? 'badge-active' : 'badge-inactive',
+                  ]"
+                >
+                  {{
+                    item.status === 'active'
+                      ? t('clients.status_active')
+                      : t('clients.status_inactive')
+                  }}
                 </span>
               </td>
               <td>
@@ -407,20 +450,39 @@ onMounted(() => {
     </GlassPanel>
 
     <!-- Delete Confirm Modal -->
-    <AppModal v-model="showDeleteModal" :title="t('clients.btn_delete')" size="small" data-test="clients-delete-modal">
+    <AppModal
+      v-model="showDeleteModal"
+      :title="t('clients.btn_delete')"
+      size="small"
+      data-test="clients-delete-modal"
+    >
       <p>{{ t('clients.confirm_delete', { name: deletingClientName }) }}</p>
-      <p v-if="deletingClientHasOrders" class="text-warning">{{ t('clients.delete_warning_orders') }}</p>
+      <p v-if="deletingClientHasOrders" class="text-warning">
+        {{ t('clients.delete_warning_orders') }}
+      </p>
       <template #footer>
         <template v-if="deletingClientHasOrders">
-          <button class="btn btn-primary" data-test="clients-delete-confirm" @click="showDeleteModal = false">
+          <button
+            class="btn btn-primary"
+            data-test="clients-delete-confirm"
+            @click="showDeleteModal = false"
+          >
             {{ t('clients.btn_ok') }}
           </button>
         </template>
         <template v-else>
-          <button class="btn btn-secondary" data-test="clients-delete-cancel" @click="showDeleteModal = false">
+          <button
+            class="btn btn-secondary"
+            data-test="clients-delete-cancel"
+            @click="showDeleteModal = false"
+          >
             {{ t('clients.btn_discard') }}
           </button>
-          <button class="btn btn-danger" data-test="clients-delete-confirm" @click="onDeleteConfirm">
+          <button
+            class="btn btn-danger"
+            data-test="clients-delete-confirm"
+            @click="onDeleteConfirm"
+          >
             {{ t('clients.btn_delete') }}
           </button>
         </template>

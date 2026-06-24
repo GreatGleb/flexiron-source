@@ -1,5 +1,12 @@
 import { ref, reactive, toRaw } from 'vue'
-import { getClient, patchClient, getClientAudit, deleteClientAuditEntry, addClientInteraction, deleteClientInteraction } from '@/services/clientsService'
+import {
+  getClient,
+  patchClient,
+  getClientAudit,
+  deleteClientAuditEntry,
+  addClientInteraction,
+  deleteClientInteraction,
+} from '@/services/clientsService'
 import { useDirtyCheck } from './useDirtyCheck'
 import { useToast } from './useToast'
 import { useTranslatedField } from './useTranslatedData'
@@ -99,7 +106,9 @@ export function useClientCard(id: string) {
   function handleDeleteInteraction(entryIndex: number) {
     if (!client.value) return
     if (client.value.interactionHistory) {
-      client.value.interactionHistory = client.value.interactionHistory.filter((_, i) => i !== entryIndex)
+      client.value.interactionHistory = client.value.interactionHistory.filter(
+        (_, i) => i !== entryIndex,
+      )
     }
   }
 
@@ -121,7 +130,7 @@ export function useClientCard(id: string) {
       // Find deleted entries: entries in prev that are NOT in current (by content)
       const indicesToDelete: number[] = []
       for (let i = 0; i < prev.length; i++) {
-        const foundInCurrent = current.some(c => JSON.stringify(c) === JSON.stringify(prev[i]))
+        const foundInCurrent = current.some((c) => JSON.stringify(c) === JSON.stringify(prev[i]))
         if (!foundInCurrent) {
           indicesToDelete.push(i)
         }
@@ -130,8 +139,8 @@ export function useClientCard(id: string) {
       // Find added entries: entries in current that are NOT in prev (by content)
       // Use toRaw() to strip Vue reactivity before passing to API (structuredClone in mock fails on proxies)
       const entriesToAdd = current
-        .filter(c => !prev.some(p => JSON.stringify(p) === JSON.stringify(c)))
-        .map(c => toRaw(c) as InteractionHistoryEntry)
+        .filter((c) => !prev.some((p) => JSON.stringify(p) === JSON.stringify(c)))
+        .map((c) => toRaw(c) as InteractionHistoryEntry)
 
       // Delete from highest index to lowest to avoid index shift on the server
       for (const idx of indicesToDelete.sort((a, b) => b - a)) {
@@ -145,9 +154,10 @@ export function useClientCard(id: string) {
 
       // 3. Update snapshot and dirty state
       // Deep-unwrap reactivity: toRaw() on each element because filter() creates new array with proxy elements
-      capturedInteractions = current.length > 0
-        ? structuredClone(current.map(e => toRaw(e)) as InteractionHistoryEntry[])
-        : null
+      capturedInteractions =
+        current.length > 0
+          ? structuredClone(current.map((e) => toRaw(e)) as InteractionHistoryEntry[])
+          : null
       dirty.capture()
       toast.success(t('clients.toast_saved'))
     } catch (e) {
@@ -164,10 +174,22 @@ export function useClientCard(id: string) {
   }
 
   return {
-    client, loading, saving, error, isDirty: dirty.isDirty,
-    load, save, discard, tf,
-    auditLog, auditLoading, loadAudit, deleteAuditEntry,
+    client,
+    loading,
+    saving,
+    error,
+    isDirty: dirty.isDirty,
+    load,
+    save,
+    discard,
+    tf,
+    auditLog,
+    auditLoading,
+    loadAudit,
+    deleteAuditEntry,
     handleDeleteInteraction,
-    newInteraction, inlineAddInteraction, resetNewInteraction,
+    newInteraction,
+    inlineAddInteraction,
+    resetNewInteraction,
   }
 }

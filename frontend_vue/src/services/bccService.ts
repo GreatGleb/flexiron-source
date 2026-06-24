@@ -22,34 +22,48 @@ export async function getBccHistory(
 }
 
 /** Send BCC email. Idempotency-Key guards against double-send on retry. */
-export async function sendBccRequest(payload: {
-  productIds: string[]
-  recipientIds: string[]
-  subject: string
-  body: string
-  fileIds?: string[]
-}, locale: string): Promise<{ requestId: string }> {
-  return apiPost<{ requestId: string }>('/api/bcc/send', {
-    ...payload,
-    subject: toTranslatedString(payload.subject, locale),
-    body: toTranslatedString(payload.body, locale),
-  }, {
-    headers: { 'Idempotency-Key': newIdempotencyKey() },
-  })
+export async function sendBccRequest(
+  payload: {
+    productIds: string[]
+    recipientIds: string[]
+    subject: string
+    body: string
+    fileIds?: string[]
+  },
+  locale: string,
+): Promise<{ requestId: string }> {
+  return apiPost<{ requestId: string }>(
+    '/api/bcc/send',
+    {
+      ...payload,
+      subject: toTranslatedString(payload.subject, locale),
+      body: toTranslatedString(payload.body, locale),
+    },
+    {
+      headers: { 'Idempotency-Key': newIdempotencyKey() },
+    },
+  )
 }
 
 /** Log a request without sending an email (came via phone/email/messenger/etc.). */
-export async function logBccRequest(payload: {
-  productIds: string[]
-  recipientIds: string[]
-  source: string
-}, locale: string): Promise<{ requestId: string }> {
-  return apiPost<{ requestId: string }>('/api/bcc/log', {
-    ...payload,
-    source: toTranslatedString(payload.source, locale),
-  }, {
-    headers: { 'Idempotency-Key': newIdempotencyKey() },
-  })
+export async function logBccRequest(
+  payload: {
+    productIds: string[]
+    recipientIds: string[]
+    source: string
+  },
+  locale: string,
+): Promise<{ requestId: string }> {
+  return apiPost<{ requestId: string }>(
+    '/api/bcc/log',
+    {
+      ...payload,
+      source: toTranslatedString(payload.source, locale),
+    },
+    {
+      headers: { 'Idempotency-Key': newIdempotencyKey() },
+    },
+  )
 }
 
 export async function acceptBccResponse(
@@ -62,4 +76,3 @@ export async function acceptBccResponse(
 export async function markBccNoResponse(eventId: string): Promise<BccRequest> {
   return apiPost<BccRequest>(`/api/bcc/events/${eventId}/no-response`, {})
 }
-

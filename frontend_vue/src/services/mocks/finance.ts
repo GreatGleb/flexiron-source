@@ -119,46 +119,64 @@ const MOCK_PAYMENTS: FinancePayment[] = [
 const ARCHIVE_TYPES: ArchiveDocumentType[] = ['invoice', 'facture', 'waybill', 'cmr']
 const RELATED_TYPES = ['order', 'payment', 'supplier', 'client'] as const
 
-const MOCK_ARCHIVE: FinanceDocumentArchiveItem[] = Array.from({ length: 15 }, (_, i): FinanceDocumentArchiveItem => {
-  const type = pick(ARCHIVE_TYPES)
-  const relatedType = pick(RELATED_TYPES)
-  const seq = String(Math.floor(Math.random() * 100)).padStart(3, '0')
-  const entityNumber =
-    relatedType === 'order'
-      ? `ORD-2026-${seq}`
-      : relatedType === 'payment'
-        ? `PAY-2026-${seq}`
-        : relatedType === 'supplier'
-          ? `SUP-${seq}`
-          : `CL-${seq}`
-  return {
-    id: `arch-${i + 1}`,
-    name: type === 'invoice'
-      ? `Invoice #INV-2026-${seq}`
-      : type === 'facture'
-        ? `Facture #FAC-2026-${seq}`
-        : type === 'waybill'
-          ? `Waybill #WB-2026-${seq}`
-          : `CMR #CMR-2026-${seq}`,
-    type,
-    fileId: `file-arch-${i}`,
-    url: `#uploaded/file-arch-${i}`,
-    size: Math.floor(Math.random() * 800000) + 50000,
-    mime: 'application/pdf',
-    relatedEntityType: relatedType,
-    relatedEntityId: `${relatedType}-${i}`,
-    relatedEntityNumber: entityNumber,
-    uploadedAt: dateStr(-Math.floor(Math.random() * 60)),
-    uploadedBy: pick(['Maxim V.', 'Anna K.', 'John D.', 'Laura S.']),
-  }
-})
+const MOCK_ARCHIVE: FinanceDocumentArchiveItem[] = Array.from(
+  { length: 15 },
+  (_, i): FinanceDocumentArchiveItem => {
+    const type = pick(ARCHIVE_TYPES)
+    const relatedType = pick(RELATED_TYPES)
+    const seq = String(Math.floor(Math.random() * 100)).padStart(3, '0')
+    const entityNumber =
+      relatedType === 'order'
+        ? `ORD-2026-${seq}`
+        : relatedType === 'payment'
+          ? `PAY-2026-${seq}`
+          : relatedType === 'supplier'
+            ? `SUP-${seq}`
+            : `CL-${seq}`
+    return {
+      id: `arch-${i + 1}`,
+      name:
+        type === 'invoice'
+          ? `Invoice #INV-2026-${seq}`
+          : type === 'facture'
+            ? `Facture #FAC-2026-${seq}`
+            : type === 'waybill'
+              ? `Waybill #WB-2026-${seq}`
+              : `CMR #CMR-2026-${seq}`,
+      type,
+      fileId: `file-arch-${i}`,
+      url: `#uploaded/file-arch-${i}`,
+      size: Math.floor(Math.random() * 800000) + 50000,
+      mime: 'application/pdf',
+      relatedEntityType: relatedType,
+      relatedEntityId: `${relatedType}-${i}`,
+      relatedEntityNumber: entityNumber,
+      uploadedAt: dateStr(-Math.floor(Math.random() * 60)),
+      uploadedBy: pick(['Maxim V.', 'Anna K.', 'John D.', 'Laura S.']),
+    }
+  },
+)
 
 // ─── Mock Functions ───
 
 export function mockGetPayments(
   direction: PaymentDirection | 'all',
-  params: { search?: string; status?: string; counterpartyId?: string | null; dateFrom?: string; dateTo?: string; page?: number; pageSize?: number },
-): { items: FinancePaymentListItem[]; total: number; page: number; pageSize: number; totalPages: number } {
+  params: {
+    search?: string
+    status?: string
+    counterpartyId?: string | null
+    dateFrom?: string
+    dateTo?: string
+    page?: number
+    pageSize?: number
+  },
+): {
+  items: FinancePaymentListItem[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+} {
   let filtered = MOCK_PAYMENTS.filter((p) => direction === 'all' || p.direction === direction)
 
   if (params.search) {
@@ -205,14 +223,26 @@ export function mockGetPayment(id: string): FinancePayment {
   return payment
 }
 
-export function mockGetArchive(
-  params: { search?: string; type?: string; relatedEntityType?: string; page?: number; pageSize?: number },
-): { items: FinanceDocumentArchiveItem[]; total: number; page: number; pageSize: number; totalPages: number } {
+export function mockGetArchive(params: {
+  search?: string
+  type?: string
+  relatedEntityType?: string
+  page?: number
+  pageSize?: number
+}): {
+  items: FinanceDocumentArchiveItem[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+} {
   let filtered = [...MOCK_ARCHIVE]
 
   if (params.search) {
     const q = params.search.toLowerCase()
-    filtered = filtered.filter((d) => d.name.toLowerCase().includes(q) || d.relatedEntityNumber.toLowerCase().includes(q))
+    filtered = filtered.filter(
+      (d) => d.name.toLowerCase().includes(q) || d.relatedEntityNumber.toLowerCase().includes(q),
+    )
   }
   if (params.type && params.type !== 'all') {
     filtered = filtered.filter((d) => d.type === params.type)
@@ -230,7 +260,10 @@ export function mockGetArchive(
   return { items, total, page, pageSize, totalPages: Math.ceil(total / pageSize) }
 }
 
-export function mockAddPaymentDocument(paymentId: string, document: PaymentDocument): FinancePayment {
+export function mockAddPaymentDocument(
+  paymentId: string,
+  document: PaymentDocument,
+): FinancePayment {
   const payment = MOCK_PAYMENTS.find((p) => p.id === paymentId)
   if (!payment) throw new Error('PAYMENT_NOT_FOUND')
   payment.documents.push(document)

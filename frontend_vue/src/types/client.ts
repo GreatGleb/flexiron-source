@@ -46,4 +46,15 @@ export interface ClientFilters {
   sortDir: 'asc' | 'desc'
 }
 
-export type ClientFormData = Pick<Client, 'name' | 'companyCode' | 'vatCode' | 'address' | 'phone' | 'email' | 'status' | 'notes' | 'rejectionReason'>
+export type ClientFormData = Pick<
+  Client,
+  | 'name'
+  | 'companyCode'
+  | 'vatCode'
+  | 'address'
+  | 'phone'
+  | 'email'
+  | 'status'
+  | 'notes'
+  | 'rejectionReason'
+>

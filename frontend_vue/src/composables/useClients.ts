@@ -41,11 +41,15 @@ export function useClients() {
 
   // Reload when filters change — reset to page 1
   let skipNextPageWatch = false
-  watch(filters, () => {
-    skipNextPageWatch = page.value !== 1
-    page.value = 1
-    load()
-  }, { deep: true })
+  watch(
+    filters,
+    () => {
+      skipNextPageWatch = page.value !== 1
+      page.value = 1
+      load()
+    },
+    { deep: true },
+  )
 
   // Reload when pagination page/pageSize changes
   watch([page, pageSize], () => {
@@ -80,5 +84,19 @@ export function useClients() {
     }
   }
 
-  return { items, loading, error, filters, page, pageSize, total, totalPages, pagination, load, handleDelete, toggleSort, tf }
+  return {
+    items,
+    loading,
+    error,
+    filters,
+    page,
+    pageSize,
+    total,
+    totalPages,
+    pagination,
+    load,
+    handleDelete,
+    toggleSort,
+    tf,
+  }
 }

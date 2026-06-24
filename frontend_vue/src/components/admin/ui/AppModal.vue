@@ -51,7 +51,12 @@ onBeforeUnmount(() => {
 
 <template>
   <Teleport to="body">
-    <div v-bind="$attrs" class="modal-overlay" :class="{ active: modelValue }" @click="onOverlayClick">
+    <div
+      v-bind="$attrs"
+      class="modal-overlay"
+      :class="{ active: modelValue }"
+      @click="onOverlayClick"
+    >
       <div class="modal" :class="size ? `modal-${size}` : undefined">
         <div class="modal-header">
           <h3 class="modal-title">{{ title }}</h3>

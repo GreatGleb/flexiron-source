@@ -17,10 +17,12 @@ load()
   <template v-if="loading">
     <div class="kpi-row">
       <div v-for="i in 4" :key="i" class="kpi-card">
-        <div class="kpi-icon"><div class="skeleton" style="width:24px;height:24px;border-radius:50%;margin:0" /></div>
-        <div class="kpi-label"><div class="skeleton" style="width:70%;height:14px" /></div>
-        <div class="kpi-value"><div class="skeleton" style="width:60%;height:22px" /></div>
-        <div class="kpi-delta"><div class="skeleton" style="width:40%;height:12px" /></div>
+        <div class="kpi-icon">
+          <div class="skeleton" style="width: 24px; height: 24px; border-radius: 50%; margin: 0" />
+        </div>
+        <div class="kpi-label"><div class="skeleton" style="width: 70%; height: 14px" /></div>
+        <div class="kpi-value"><div class="skeleton" style="width: 60%; height: 22px" /></div>
+        <div class="kpi-delta"><div class="skeleton" style="width: 40%; height: 12px" /></div>
       </div>
     </div>
     <div class="charts-row">
@@ -31,15 +33,21 @@ load()
   <div v-else-if="error" class="error-state">{{ error }}</div>
   <template v-else-if="data">
     <div class="kpi-row" data-test="deficit-kpi-row">
-      <div
-        v-for="kpi in data.kpis"
-        :key="kpi.key"
-        class="kpi-card"
-        data-test="deficit-kpi-card"
-      >
+      <div v-for="kpi in data.kpis" :key="kpi.key" class="kpi-card" data-test="deficit-kpi-card">
         <div :class="['kpi-icon', 'icon-' + kpi.iconColor]">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+            />
           </svg>
         </div>
         <div class="kpi-label">{{ tf(kpi.label) }}</div>
@@ -71,7 +79,9 @@ load()
               <td class="hid-320">{{ item.min }} {{ t('deficit.unit_t') }}</td>
               <td>{{ item.refusals }}</td>
               <td>
-                <span :class="['status-pill', 'pill-' + item.statusType]">{{ tf(item.status) }}</span>
+                <span :class="['status-pill', 'pill-' + item.statusType]">{{
+                  tf(item.status)
+                }}</span>
               </td>
             </tr>
           </tbody>
@@ -93,7 +103,15 @@ load()
           <div class="bar-track">
             <div
               class="bar-fill"
-              :style="{ width: vol.percentage + '%', background: vol.color === 'red' ? 'linear-gradient(90deg, #ff4d4f, #ff7875)' : vol.color === 'yellow' ? 'linear-gradient(90deg, #faad14, #ffc53d)' : 'linear-gradient(90deg, #1890ff, #40a9ff)' }"
+              :style="{
+                width: vol.percentage + '%',
+                background:
+                  vol.color === 'red'
+                    ? 'linear-gradient(90deg, #ff4d4f, #ff7875)'
+                    : vol.color === 'yellow'
+                      ? 'linear-gradient(90deg, #faad14, #ffc53d)'
+                      : 'linear-gradient(90deg, #1890ff, #40a9ff)',
+              }"
             ></div>
           </div>
           <span class="bar-val">{{ vol.value }}</span>

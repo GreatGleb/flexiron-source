@@ -74,4 +74,3 @@ export interface FinanceDocumentArchiveItem {
   uploadedAt: string
   uploadedBy: string
 }
-

@@ -11,7 +11,8 @@ const { tf } = useTranslatedField()
 
 const settings = inject<AppSettings>('settings')!
 const removeOrderStatus = inject<(id: string) => void>('removeOrderStatus')!
-const updateOrderStatus = inject<(id: string, patch: Partial<OrderStatusSetting>) => void>('updateOrderStatus')!
+const updateOrderStatus =
+  inject<(id: string, patch: Partial<OrderStatusSetting>) => void>('updateOrderStatus')!
 const onStatusDragStart = inject<(id: string) => void>('onStatusDragStart')!
 const onStatusDrop = inject<(id: string) => void>('onStatusDrop')!
 const statusModal = inject<Ref<boolean>>('statusModal')!
@@ -70,11 +71,7 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
   <GlassPanel class="settings-panel">
     <div class="statuses-table-header">
       <h3>{{ t('settingsStatuses.title') }}</h3>
-      <button
-        class="btn btn-secondary"
-        data-test="settings-status-add"
-        @click="statusModal = true"
-      >
+      <button class="btn btn-secondary" data-test="settings-status-add" @click="statusModal = true">
         <SvgIcon name="plus-add" width="14" height="14" />
         {{ t('settingsStatuses.add_status') }}
       </button>
@@ -97,10 +94,10 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
             v-for="st in settings.orderStatuses"
             :key="st.id"
             :draggable="true"
+            class="draggable-row"
             @dragstart="onStatusDragStart(st.id)"
             @dragover.prevent
             @drop="onStatusDrop(st.id)"
-            class="draggable-row"
           >
             <td class="col-order">
               <span class="drag-handle">
@@ -113,27 +110,28 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
               <input
                 class="glass-input status-name-input"
                 :value="tf(st.name)"
+                :placeholder="t('settingsStatuses.edit_name')"
+                data-test="settings-status-name"
                 @input="
                   updateOrderStatus(st.id, {
                     name: { ...st.name, [locale]: ($event.target as HTMLInputElement).value },
                   })
                 "
-                :placeholder="t('settingsStatuses.edit_name')"
-                data-test="settings-status-name"
               />
               <span
                 v-if="st.system"
-                class="system-badge"
                 v-tooltip="t('settingsStatuses.system_hint')"
-              >S</span>
+                class="system-badge"
+                >S</span
+              >
             </td>
 
             <td class="col-color">
               <button
                 class="color-badge-pill"
                 :style="{ backgroundColor: st.color }"
-                @click="toggleColorPicker(st.id)"
                 :title="st.color"
+                @click="toggleColorPicker(st.id)"
               >
                 <span class="color-badge-hex">{{ st.color }}</span>
               </button>
@@ -151,7 +149,9 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
                     type="color"
                     class="color-input-native"
                     :value="st.color"
-                    @input="updateOrderStatus(st.id, { color: ($event.target as HTMLInputElement).value })"
+                    @input="
+                      updateOrderStatus(st.id, { color: ($event.target as HTMLInputElement).value })
+                    "
                   />
                   <div class="hex-input-wrap">
                     <input
@@ -159,8 +159,8 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
                       type="text"
                       maxlength="7"
                       :value="st.color"
-                      @input="handleHexInput(st.id, $event)"
                       :placeholder="t('settingsStatuses.color_hex_placeholder')"
+                      @input="handleHexInput(st.id, $event)"
                     />
                   </div>
                 </div>
@@ -169,9 +169,9 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
 
             <td class="col-reserve">
               <label
+                v-tooltip="t('settingsStatuses.col_reserve_hint')"
                 class="toggle-row"
                 :class="{ 'toggle-disabled': st.writeOffOnTransition }"
-                v-tooltip="t('settingsStatuses.col_reserve_hint')"
               >
                 <input
                   type="checkbox"
@@ -186,9 +186,9 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
 
             <td class="col-writeoff">
               <label
+                v-tooltip="t('settingsStatuses.col_write_off_hint')"
                 class="toggle-row"
                 :class="{ 'toggle-disabled': st.reserveOnTransition }"
-                v-tooltip="t('settingsStatuses.col_write_off_hint')"
               >
                 <input
                   type="checkbox"
@@ -243,7 +243,7 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
 .statuses-empty {
   padding: 24px;
   text-align: center;
-  color: var(--text-muted, #6B7280);
+  color: var(--text-muted, #6b7280);
   font-size: 0.875rem;
 }
 

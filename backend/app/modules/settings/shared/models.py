@@ -26,7 +26,7 @@ class CompanyInfo(UUIDMixin, TimestampMixin, Base):
     vat_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
     bank_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     bank_account: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    logo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    logo_url: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class GlobalConstants(UUIDMixin, Base):

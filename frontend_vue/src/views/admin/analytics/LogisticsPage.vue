@@ -17,10 +17,12 @@ load()
   <template v-if="loading">
     <div class="kpi-row">
       <div v-for="i in 4" :key="i" class="kpi-card">
-        <div class="kpi-icon"><div class="skeleton" style="width:24px;height:24px;border-radius:50%;margin:0" /></div>
-        <div class="kpi-label"><div class="skeleton" style="width:70%;height:14px" /></div>
-        <div class="kpi-value"><div class="skeleton" style="width:60%;height:22px" /></div>
-        <div class="kpi-delta"><div class="skeleton" style="width:40%;height:12px" /></div>
+        <div class="kpi-icon">
+          <div class="skeleton" style="width: 24px; height: 24px; border-radius: 50%; margin: 0" />
+        </div>
+        <div class="kpi-label"><div class="skeleton" style="width: 70%; height: 14px" /></div>
+        <div class="kpi-value"><div class="skeleton" style="width: 60%; height: 22px" /></div>
+        <div class="kpi-delta"><div class="skeleton" style="width: 40%; height: 12px" /></div>
       </div>
     </div>
     <div class="charts-row">
@@ -31,14 +33,18 @@ load()
   <div v-else-if="error" class="error-state">{{ error }}</div>
   <template v-else-if="data">
     <div class="kpi-row" data-test="logistics-kpi-row">
-      <div
-        v-for="kpi in data.kpis"
-        :key="kpi.key"
-        class="kpi-card"
-        data-test="logistics-kpi-card"
-      >
+      <div v-for="kpi in data.kpis" :key="kpi.key" class="kpi-card" data-test="logistics-kpi-card">
         <div :class="['kpi-icon', 'icon-' + kpi.iconColor]">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <path d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
           </svg>
         </div>
@@ -71,7 +77,9 @@ load()
               <td class="hid-320">{{ route.load }}</td>
               <td>{{ route.revenue.toLocaleString() }}</td>
               <td>
-                <span :class="['status-pill', 'pill-' + route.statusType]">{{ tf(route.status) }}</span>
+                <span :class="['status-pill', 'pill-' + route.statusType]">{{
+                  tf(route.status)
+                }}</span>
               </td>
             </tr>
           </tbody>
@@ -93,7 +101,15 @@ load()
           <div class="bar-track">
             <div
               class="bar-fill"
-              :style="{ width: loadItem.percentage + '%', background: loadItem.color === 'green' ? 'linear-gradient(90deg, #52c41a, #73d13d)' : loadItem.color === 'blue' ? 'linear-gradient(90deg, #1890ff, #40a9ff)' : 'linear-gradient(90deg, #faad14, #ffc53d)' }"
+              :style="{
+                width: loadItem.percentage + '%',
+                background:
+                  loadItem.color === 'green'
+                    ? 'linear-gradient(90deg, #52c41a, #73d13d)'
+                    : loadItem.color === 'blue'
+                      ? 'linear-gradient(90deg, #1890ff, #40a9ff)'
+                      : 'linear-gradient(90deg, #faad14, #ffc53d)',
+              }"
             ></div>
           </div>
           <span class="bar-val">{{ loadItem.value }}</span>

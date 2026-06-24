@@ -400,55 +400,79 @@ export function useWarehouse() {
   // Loading lock — prevents page watcher from double-firing when filters reset page to 1
   let suppressPageWatch = false
 
-  watch(filters, () => {
-    // Only suppress if page actually changes (i.e. wasn't already 1)
-    const tabPaginationMap: Record<WarehouseTab, ReturnType<typeof usePagination>> = {
-      stock: stockPagination,
-      batches: batchesPagination,
-      offcuts: offcutsPagination,
-      movements: movementsPagination,
-      deficit: deficitPagination,
-    }
-    const current = tabPaginationMap[activeTab.value]
-    suppressPageWatch = current.page.value !== 1
-    current.reset()
-    load()
-  }, { deep: true })
+  watch(
+    filters,
+    () => {
+      // Only suppress if page actually changes (i.e. wasn't already 1)
+      const tabPaginationMap: Record<WarehouseTab, ReturnType<typeof usePagination>> = {
+        stock: stockPagination,
+        batches: batchesPagination,
+        offcuts: offcutsPagination,
+        movements: movementsPagination,
+        deficit: deficitPagination,
+      }
+      const current = tabPaginationMap[activeTab.value]
+      suppressPageWatch = current.page.value !== 1
+      current.reset()
+      load()
+    },
+    { deep: true },
+  )
 
   // Watch stock filters — reload stock tab
-  watch(stockFilters, () => {
-    suppressPageWatch = stockPagination.page.value !== 1
-    stockPagination.reset()
-    loadStock()
-  }, { deep: true })
+  watch(
+    stockFilters,
+    () => {
+      suppressPageWatch = stockPagination.page.value !== 1
+      stockPagination.reset()
+      loadStock()
+    },
+    { deep: true },
+  )
 
   // Watch batches filters — reload batches tab
-  watch(batchesFilters, () => {
-    suppressPageWatch = batchesPagination.page.value !== 1
-    batchesPagination.reset()
-    loadBatches()
-  }, { deep: true })
+  watch(
+    batchesFilters,
+    () => {
+      suppressPageWatch = batchesPagination.page.value !== 1
+      batchesPagination.reset()
+      loadBatches()
+    },
+    { deep: true },
+  )
 
   // Watch offcuts filters — reload offcuts tab
-  watch(offcutFilters, () => {
-    suppressPageWatch = offcutsPagination.page.value !== 1
-    offcutsPagination.reset()
-    loadOffcuts()
-  }, { deep: true })
+  watch(
+    offcutFilters,
+    () => {
+      suppressPageWatch = offcutsPagination.page.value !== 1
+      offcutsPagination.reset()
+      loadOffcuts()
+    },
+    { deep: true },
+  )
 
   // Watch movements filters — reload movements tab
-  watch(movementFilters, () => {
-    suppressPageWatch = movementsPagination.page.value !== 1
-    movementsPagination.reset()
-    loadMovements()
-  }, { deep: true })
+  watch(
+    movementFilters,
+    () => {
+      suppressPageWatch = movementsPagination.page.value !== 1
+      movementsPagination.reset()
+      loadMovements()
+    },
+    { deep: true },
+  )
 
   // Watch deficit filters — reload deficit tab
-  watch(deficitFilters, () => {
-    suppressPageWatch = deficitPagination.page.value !== 1
-    deficitPagination.reset()
-    loadDeficit()
-  }, { deep: true })
+  watch(
+    deficitFilters,
+    () => {
+      suppressPageWatch = deficitPagination.page.value !== 1
+      deficitPagination.reset()
+      loadDeficit()
+    },
+    { deep: true },
+  )
 
   function toggleStockSort(col: StockFilters['sortBy']) {
     if (stockFilters.sortBy === col) {
@@ -469,11 +493,15 @@ export function useWarehouse() {
   }
 
   // Watch batches sort — reload batches tab
-  watch(batchesSort, () => {
-    suppressPageWatch = batchesPagination.page.value !== 1
-    batchesPagination.reset()
-    loadBatches()
-  }, { deep: true })
+  watch(
+    batchesSort,
+    () => {
+      suppressPageWatch = batchesPagination.page.value !== 1
+      batchesPagination.reset()
+      loadBatches()
+    },
+    { deep: true },
+  )
 
   function toggleOffcutsSort(col: string) {
     if (offcutsSort.sortBy === col) {
@@ -485,11 +513,15 @@ export function useWarehouse() {
   }
 
   // Watch offcuts sort — reload offcuts tab
-  watch(offcutsSort, () => {
-    suppressPageWatch = offcutsPagination.page.value !== 1
-    offcutsPagination.reset()
-    loadOffcuts()
-  }, { deep: true })
+  watch(
+    offcutsSort,
+    () => {
+      suppressPageWatch = offcutsPagination.page.value !== 1
+      offcutsPagination.reset()
+      loadOffcuts()
+    },
+    { deep: true },
+  )
 
   function toggleMovementsSort(col: string) {
     if (movementsSort.sortBy === col) {
@@ -501,11 +533,15 @@ export function useWarehouse() {
   }
 
   // Watch movements sort — reload movements tab
-  watch(movementsSort, () => {
-    suppressPageWatch = movementsPagination.page.value !== 1
-    movementsPagination.reset()
-    loadMovements()
-  }, { deep: true })
+  watch(
+    movementsSort,
+    () => {
+      suppressPageWatch = movementsPagination.page.value !== 1
+      movementsPagination.reset()
+      loadMovements()
+    },
+    { deep: true },
+  )
 
   function toggleDeficitSort(col: string) {
     if (deficitSort.sortBy === col) {
@@ -517,35 +553,54 @@ export function useWarehouse() {
   }
 
   // Watch deficit sort — reload deficit tab
-  watch(deficitSort, () => {
-    suppressPageWatch = deficitPagination.page.value !== 1
-    deficitPagination.reset()
-    loadDeficit()
-  }, { deep: true })
+  watch(
+    deficitSort,
+    () => {
+      suppressPageWatch = deficitPagination.page.value !== 1
+      deficitPagination.reset()
+      loadDeficit()
+    },
+    { deep: true },
+  )
 
   // Watch page/pageSize changes for each tab independently
   watch([stockPagination.page, stockPagination.pageSize], () => {
-    if (suppressPageWatch) { suppressPageWatch = false; return }
+    if (suppressPageWatch) {
+      suppressPageWatch = false
+      return
+    }
     if (activeTab.value === 'stock') loadStock()
   })
 
   watch([batchesPagination.page, batchesPagination.pageSize], () => {
-    if (suppressPageWatch) { suppressPageWatch = false; return }
+    if (suppressPageWatch) {
+      suppressPageWatch = false
+      return
+    }
     if (activeTab.value === 'batches') loadBatches()
   })
 
   watch([offcutsPagination.page, offcutsPagination.pageSize], () => {
-    if (suppressPageWatch) { suppressPageWatch = false; return }
+    if (suppressPageWatch) {
+      suppressPageWatch = false
+      return
+    }
     if (activeTab.value === 'offcuts') loadOffcuts()
   })
 
   watch([movementsPagination.page, movementsPagination.pageSize], () => {
-    if (suppressPageWatch) { suppressPageWatch = false; return }
+    if (suppressPageWatch) {
+      suppressPageWatch = false
+      return
+    }
     if (activeTab.value === 'movements') loadMovements()
   })
 
   watch([deficitPagination.page, deficitPagination.pageSize], () => {
-    if (suppressPageWatch) { suppressPageWatch = false; return }
+    if (suppressPageWatch) {
+      suppressPageWatch = false
+      return
+    }
     if (activeTab.value === 'deficit') loadDeficit()
   })
 
@@ -562,11 +617,21 @@ export function useWarehouse() {
   return {
     // State
     activeTab,
-    stockItems, stockLoading, stockError,
-    batches, batchesLoading, batchesError,
-    offcuts, offcutsLoading, offcutsError,
-    movements, movementsLoading, movementsError,
-    deficitItems, deficitLoading, deficitError,
+    stockItems,
+    stockLoading,
+    stockError,
+    batches,
+    batchesLoading,
+    batchesError,
+    offcuts,
+    offcutsLoading,
+    offcutsError,
+    movements,
+    movementsLoading,
+    movementsError,
+    deficitItems,
+    deficitLoading,
+    deficitError,
     filters,
     batchesFilters,
     offcutFilters,

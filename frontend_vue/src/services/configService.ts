@@ -80,4 +80,3 @@ export async function getPermissions(): Promise<PermissionMatrix> {
 export async function savePermissions(matrix: PermissionMatrix): Promise<void> {
   await apiPut<void>('/api/config/permissions', matrix)
 }
-

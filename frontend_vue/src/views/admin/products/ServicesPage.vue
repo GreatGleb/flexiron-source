@@ -35,9 +35,13 @@ const pageSizeStr = computed({
   },
 })
 
-const { items, loading, error, filters, pagination, load, deleteService, toggleSort, tf } = useServices()
+const { items, loading, error, filters, pagination, load, deleteService, toggleSort, tf } =
+  useServices()
 
-useHead({ title: () => `Flexiron — ${t('services.header_title')}`, description: () => t('services.title') })
+useHead({
+  title: () => `Flexiron — ${t('services.header_title')}`,
+  description: () => t('services.title'),
+})
 
 const showCreateModal = ref(false)
 const showDeleteModal = ref(false)
@@ -140,11 +144,7 @@ onMounted(() => {
     </div>
 
     <GlassPanel :loading="loading" :skeleton-rows="8" data-test="services-table">
-      <div
-        v-if="error"
-        class="error-state"
-        data-test="services-error"
-      >
+      <div v-if="error" class="error-state" data-test="services-error">
         <SvgIcon name="alert-triangle" :width="48" :height="48" />
         <p>{{ error }}</p>
         <button class="btn btn-primary" @click="load">{{ t('btn.retry') }}</button>
@@ -193,14 +193,18 @@ onMounted(() => {
                       :width="16"
                       :height="16"
                       class="sort-icon"
-                      :class="{ active: filters.sortBy === 'costPrice' && filters.sortDir === 'asc' }"
+                      :class="{
+                        active: filters.sortBy === 'costPrice' && filters.sortDir === 'asc',
+                      }"
                     />
                     <SvgIcon
                       name="chevron-down"
                       :width="16"
                       :height="16"
                       class="sort-icon"
-                      :class="{ active: filters.sortBy === 'costPrice' && filters.sortDir === 'desc' }"
+                      :class="{
+                        active: filters.sortBy === 'costPrice' && filters.sortDir === 'desc',
+                      }"
                     />
                   </span>
                 </button>
@@ -214,14 +218,18 @@ onMounted(() => {
                       :width="16"
                       :height="16"
                       class="sort-icon"
-                      :class="{ active: filters.sortBy === 'sellingPrice' && filters.sortDir === 'asc' }"
+                      :class="{
+                        active: filters.sortBy === 'sellingPrice' && filters.sortDir === 'asc',
+                      }"
                     />
                     <SvgIcon
                       name="chevron-down"
                       :width="16"
                       :height="16"
                       class="sort-icon"
-                      :class="{ active: filters.sortBy === 'sellingPrice' && filters.sortDir === 'desc' }"
+                      :class="{
+                        active: filters.sortBy === 'sellingPrice' && filters.sortDir === 'desc',
+                      }"
                     />
                   </span>
                 </button>
@@ -231,12 +239,7 @@ onMounted(() => {
             </tr>
           </thead>
           <tbody>
-            <tr
-              v-for="item in items"
-              :key="item.id"
-              class="services-row"
-              data-test="services-row"
-            >
+            <tr v-for="item in items" :key="item.id" class="services-row" data-test="services-row">
               <td>
                 <router-link
                   v-if="item.name"
@@ -249,7 +252,11 @@ onMounted(() => {
               </td>
               <td>{{ item.costPrice != null ? `${item.costPrice.toFixed(2)} €` : '—' }}</td>
               <td>{{ item.sellingPrice != null ? `${item.sellingPrice.toFixed(2)} €` : '—' }}</td>
-              <td>{{ t('services.price_unit_' + item.priceUnit.replace('EUR/', 'eur_').toLowerCase()) }}</td>
+              <td>
+                {{
+                  t('services.price_unit_' + item.priceUnit.replace('EUR/', 'eur_').toLowerCase())
+                }}
+              </td>
               <td>
                 <div class="services-row-actions">
                   <router-link
@@ -381,11 +388,7 @@ onMounted(() => {
         />
       </InputGroup>
       <template #footer>
-        <button
-          type="button"
-          class="btn btn-secondary"
-          @click="showCreateModal = false"
-        >
+        <button type="button" class="btn btn-secondary" @click="showCreateModal = false">
           {{ t('services.btn_cancel') }}
         </button>
         <button
@@ -406,13 +409,11 @@ onMounted(() => {
       size="small"
       data-test="services-delete-modal"
     >
-      <p>{{ t('services.modal_delete_text', { name: deletingItem ? tf(deletingItem.name) : '' }) }}</p>
+      <p>
+        {{ t('services.modal_delete_text', { name: deletingItem ? tf(deletingItem.name) : '' }) }}
+      </p>
       <template #footer>
-        <button
-          type="button"
-          class="btn btn-secondary"
-          @click="showDeleteModal = false"
-        >
+        <button type="button" class="btn btn-secondary" @click="showDeleteModal = false">
           {{ t('services.btn_cancel') }}
         </button>
         <button

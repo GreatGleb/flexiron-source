@@ -10,7 +10,7 @@ export interface SelectOption {
 }
 
 const props = defineProps<{
-  modelValue: string
+  modelValue: string | null
   options: SelectOption[]
   openUp?: boolean
   placeholder?: string
@@ -52,11 +52,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onClickOutside))
 
 <template>
   <div ref="wrapRef" class="custom-select-wrap">
-    <div
-      class="glass-input custom-select-trigger"
-      :class="{ disabled: disabled }"
-      @click="toggle"
-    >
+    <div class="glass-input custom-select-trigger" :class="{ disabled: disabled }" @click="toggle">
       <div class="curr-val">
         <slot name="selected" :label="selectedLabel" :value="modelValue">
           <span :class="{ placeholder: !modelValue && placeholder }">{{ selectedLabel }}</span>

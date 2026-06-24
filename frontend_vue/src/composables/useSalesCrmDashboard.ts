@@ -26,7 +26,15 @@ export function useSalesCrmDashboard() {
       // Fetch orders (up to 100 for accurate KPI counts) + clients
       const [ordersResult, clientsResult] = await Promise.all([
         getOrders(
-          { search: '', status: 'all', clientId: null, dateFrom: '', dateTo: '', sortBy: null, sortDir: 'asc' },
+          {
+            search: '',
+            status: 'all',
+            clientId: null,
+            dateFrom: '',
+            dateTo: '',
+            sortBy: null,
+            sortDir: 'asc',
+          },
           { page: 1, pageSize: 100 },
         ),
         getClients({ search: '', status: null, sortBy: null, sortDir: 'asc' }),
@@ -56,9 +64,7 @@ export function useSalesCrmDashboard() {
       totalSalesMtd.value = allOrders
         .filter(
           (o: OrderListItem) =>
-            (o.status === 'confirmed' ||
-              o.status === 'shipped' ||
-              o.status === 'delivered') &&
+            (o.status === 'confirmed' || o.status === 'shipped' || o.status === 'delivered') &&
             new Date(o.createdAt) >= thisMonthStart,
         )
         .reduce((sum: number, o: OrderListItem) => sum + o.totalAmount, 0)

@@ -28,7 +28,12 @@ const isAnalyticsActive = computed(() => route.path.startsWith('/admin/analytics
 const isSuppliersActive = computed(() => route.path.startsWith('/admin/suppliers'))
 const isProductsActive = computed(() => route.path.startsWith('/admin/products'))
 const isWarehouseActive = computed(() => route.path.startsWith('/admin/warehouse'))
-const isSalesCrmActive = computed(() => route.path.startsWith('/admin/sales-crm') || route.path.startsWith('/admin/clients') || route.path.startsWith('/admin/orders'))
+const isSalesCrmActive = computed(
+  () =>
+    route.path.startsWith('/admin/sales-crm') ||
+    route.path.startsWith('/admin/clients') ||
+    route.path.startsWith('/admin/orders'),
+)
 const isFinanceActive = computed(() => route.path.startsWith('/admin/finance'))
 const isSettingsActive = computed(() => route.path.startsWith('/admin/settings'))
 
@@ -127,7 +132,11 @@ function switchLang(code: string) {
     </ul>
 
     <div class="sidebar-footer" data-test="sidebar-footer">
-      <router-link :to="{ name: 'admin-settings-profile' }" class="user-profile" data-test="sidebar-user">
+      <router-link
+        :to="{ name: 'admin-settings-profile' }"
+        class="user-profile"
+        data-test="sidebar-user"
+      >
         <div class="user-avatar">
           <SvgIcon name="user-avatar" width="22" height="22" />
         </div>

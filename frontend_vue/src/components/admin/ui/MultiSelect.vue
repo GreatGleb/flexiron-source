@@ -109,7 +109,7 @@ function measureOverflow() {
   for (let i = 0; i < tags.length; i++) {
     const tag = tags[i]
     if (!tag) break
-    const wraps = tag.offsetTop > firstTop || (tag.offsetLeft + tag.offsetWidth > containerWidth)
+    const wraps = tag.offsetTop > firstTop || tag.offsetLeft + tag.offsetWidth > containerWidth
 
     if (wraps) {
       break
@@ -228,11 +228,7 @@ onBeforeUnmount(() => {
         <span v-if="selectedLabels.length === 0" class="multi-select-placeholder">
           {{ placeholder }}
         </span>
-        <span
-          v-for="value in modelValue"
-          :key="value"
-          class="tag"
-        >
+        <span v-for="value in modelValue" :key="value" class="tag">
           <span class="tag-label">{{ getLabel(value) }}</span>
           <svg
             width="10"
@@ -248,31 +244,34 @@ onBeforeUnmount(() => {
             <line x1="6" y1="6" x2="18" y2="18" />
           </svg>
         </span>
-        <button
-          v-if="overflowCount > 0"
-          class="tag tag-more"
-          @click.stop="togglePopover"
-        >
+        <button v-if="overflowCount > 0" class="tag tag-more" @click.stop="togglePopover">
           +{{ overflowCount }} {{ t('multi_select.more') }}
         </button>
       </div>
       <SvgIcon name="chevron-down" width="12" height="12" class="select-arrow" />
     </div>
-    <div
-      v-if="popoverVisible"
-      class="multi-select-popover"
-      @click.stop
-    >
+    <div v-if="popoverVisible" class="multi-select-popover" @click.stop>
       <div class="multi-select-popover-header">{{ t('multi_select.selected_items') }}</div>
       <ul class="multi-select-popover-list">
-        <li v-for="val in modelValue.slice(modelValue.length - overflowCount)" :key="val" class="multi-select-popover-item">
+        <li
+          v-for="val in modelValue.slice(modelValue.length - overflowCount)"
+          :key="val"
+          class="multi-select-popover-item"
+        >
           <span>{{ getLabel(val) }}</span>
           <button
             class="multi-select-popover-item-remove"
             title="Remove"
             @click.stop="removeTag(val)"
           >
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <svg
+              width="10"
+              height="10"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+            >
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
             </svg>

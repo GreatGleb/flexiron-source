@@ -1,7 +1,9 @@
 """Domain use cases for Settings CRUD operations."""
+from app.core.exceptions import ValidationError, ConflictError, ForbiddenError
 
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
@@ -32,6 +34,7 @@ from app.modules.settings.features.crud.repository import (
     create_constants,
     get_currencies,
     get_currency,
+    get_currency_by_code,
     create_currency as create_currency_repo,
     patch_currency as patch_currency_repo,
     delete_currency,
@@ -42,6 +45,7 @@ from app.modules.settings.features.crud.repository import (
     delete_uom,
     get_conversions,
     get_conversion,
+    get_conversion_by_uom_pair,
     create_conversion as create_conversion_repo,
     patch_conversion as patch_conversion_repo,
     delete_conversion,
@@ -52,6 +56,7 @@ from app.modules.settings.features.crud.repository import (
     delete_order_status,
     reorder_order_statuses,
 )
+from app.modules.auth.shared.models import Tenant
 
 
 # ─── Company ──────────────────────────────────────────────────────────────
@@ -61,8 +66,14 @@ async def get_company_info(
 ) -> CompanyInfoResponse:
     company = await get_company(db, tenant_id)
     if company is None:
-        # Auto-create singleton if missing
-        company = await create_company(db, tenant_id, {})
+        # Auto-create singleton if missing — pull tenant name + vat_code
+        result = await db.execute(select(Tenant).where(Tenant.id == tenant_id))
+        tenant = result.scalar_one_or_none()
+        init_data = {}
+        if tenant:
+            init_data["name"] = tenant.name or ""
+            init_data["vat_code"] = tenant.vat_code or ""
+        company = await create_company(db, tenant_id, init_data)
     return CompanyInfoResponse(
         name=company.name,
         legal_address=company.legal_address or "",
@@ -181,8 +192,17 @@ async def list_currencies(
 async def create_currency_item(
     db: AsyncSession, tenant_id: UUID, input_data: CurrencyCreateInput
 ) -> CurrencyResponse:
+    # Gap 6: validate code is not empty
+    if not input_data.code or not input_data.code.strip():
+        raise ValidationError("Currency code is required")
+
+    # Gap 6: check for duplicate code within tenant
+    existing = await get_currency_by_code(db, tenant_id, input_data.code.strip())
+    if existing is not None:
+        raise ConflictError(f"Currency with code '{input_data.code}' already exists")
+
     data = {
-        "code": input_data.code,
+        "code": input_data.code.strip().upper(),
         "name_translations": input_data.name.model_dump() if hasattr(input_data.name, "model_dump") else input_data.name,
         "exchange_rate": input_data.exchange_rate,
         "is_default": input_data.is_default,
@@ -238,6 +258,13 @@ async def remove_currency_item(db: AsyncSession, currency_id: UUID) -> None:
     existing = await get_currency(db, currency_id)
     if existing is None:
         raise NotFoundError(entity="Currency", entity_id=str(currency_id))
+
+    # Gap 3: 409 if currency is used in products
+    from app.modules.products.internal_api.interface import count_products_by_currency
+    product_count = await count_products_by_currency(db, existing.tenant_id, currency_id)
+    if product_count > 0:
+        raise ConflictError(f"Cannot delete currency: used by {product_count} product(s)")
+
     await delete_currency(db, currency_id)
 
 
@@ -307,6 +334,13 @@ async def remove_uom_item(db: AsyncSession, uom_id: UUID) -> None:
     existing = await get_uom(db, uom_id)
     if existing is None:
         raise NotFoundError(entity="UOM", entity_id=str(uom_id))
+
+    # Gap 3: 409 if UOM is used in products
+    from app.modules.products.internal_api.interface import count_products_by_uom
+    product_count = await count_products_by_uom(db, existing.tenant_id, uom_id)
+    if product_count > 0:
+        raise ConflictError(f"Cannot delete UOM: used by {product_count} product(s)")
+
     await delete_uom(db, uom_id)
 
 
@@ -332,9 +366,21 @@ async def list_conversions(
 async def create_conversion_item(
     db: AsyncSession, tenant_id: UUID, input_data: ConversionCreateInput
 ) -> ConversionResponse:
+    from_uom_id = UUID(input_data.from_uom_id) if isinstance(input_data.from_uom_id, str) else input_data.from_uom_id
+    to_uom_id = UUID(input_data.to_uom_id) if isinstance(input_data.to_uom_id, str) else input_data.to_uom_id
+
+    # Gap 1: 422 if fromUomId === toUomId
+    if from_uom_id == to_uom_id:
+        raise ValidationError("Cannot create a conversion rule between the same unit of measure")
+
+    # Gap 2: 409 if duplicate conversion exists
+    existing = await get_conversion_by_uom_pair(db, tenant_id, from_uom_id, to_uom_id)
+    if existing is not None:
+        raise ConflictError("A conversion rule between these units already exists")
+
     data = {
-        "from_uom_id": UUID(input_data.from_uom_id) if isinstance(input_data.from_uom_id, str) else input_data.from_uom_id,
-        "to_uom_id": UUID(input_data.to_uom_id) if isinstance(input_data.to_uom_id, str) else input_data.to_uom_id,
+        "from_uom_id": from_uom_id,
+        "to_uom_id": to_uom_id,
         "type": input_data.type,
         "factor": input_data.factor,
         "formula_type": input_data.formula_type,
@@ -477,6 +523,14 @@ async def remove_order_status_item(db: AsyncSession, status_id: UUID) -> None:
     existing = await get_order_status(db, status_id)
     if existing is None:
         raise NotFoundError(entity="OrderStatus", entity_id=str(status_id))
+
+    # Gap 4: 403 if system status — cannot delete
+    if existing.is_system:
+        raise ForbiddenError("Cannot delete a system-defined order status")
+
+    # Gap 5: 409 if status is used in orders — skip check, Order model not yet implemented
+    # TODO: Add check when Order module exists
+
     await delete_order_status(db, status_id)
 
 

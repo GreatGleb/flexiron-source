@@ -16,19 +16,34 @@ import '@styles/admin/warehouse_list.css'
 import '@styles/admin/components/_entity-card-layout.css'
 import '@styles/admin/components/_pagination.css'
 import '@styles/admin/components/_status-pills.css'
+import '@styles/admin/products_card.css'
 import type { UploadedFile } from '@/services/uploadsService'
 
 const { t } = useI18n()
 const router = useRouter()
 
 const {
-  form, saving, errors,
-  productsLoading, productSearch, productCategoryFilter, categoryFilterOptions,
-  filteredProducts, selectedProductId, selectedProduct,
+  form,
+  saving,
+  errors,
+  productsLoading,
+  productSearch,
+  productCategoryFilter,
+  categoryFilterOptions,
+  filteredProducts,
+  selectedProductId,
+  selectedProduct,
   productSupplierOptions,
   CURRENCY_OPTIONS,
   quantityStep,
-  loadOptions, loadProducts, save, tf, clearError,
+  totalCost,
+  conversionPreview,
+  resolveUnitLabel,
+  loadOptions,
+  loadProducts,
+  save,
+  tf,
+  clearError,
 } = useWarehouseBatchCreate()
 
 useHead({
@@ -126,8 +141,8 @@ function onFilesUploaded(files: UploadedFile[]) {
 }
 
 function removeFile(fileId: string) {
-  uploadedFiles.value = uploadedFiles.value.filter(f => f.id !== fileId)
-  fileIdsToAttach.value = fileIdsToAttach.value.filter(id => id !== fileId)
+  uploadedFiles.value = uploadedFiles.value.filter((f) => f.id !== fileId)
+  fileIdsToAttach.value = fileIdsToAttach.value.filter((id) => id !== fileId)
 }
 
 async function handleSave() {
@@ -166,7 +181,10 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseCurre
     <Breadcrumb
       :items="[
         { label: t('warehouse.header_title'), to: { name: 'admin-warehouse' } },
-        { label: t('warehouse.tab_batches'), to: { name: 'admin-warehouse', params: { tab: 'batches' } } },
+        {
+          label: t('warehouse.tab_batches'),
+          to: { name: 'admin-warehouse', params: { tab: 'batches' } },
+        },
         { label: t('warehouse.batch_create_title') },
       ]"
     />
@@ -192,7 +210,9 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseCurre
           @click="handleSave"
         >
           <SvgIcon name="plus-add" :width="18" :height="18" stroke-width="2" />
-          <span>{{ saving ? t('warehouse.btn_save') + '...' : t('warehouse.batch_create_save') }}</span>
+          <span>{{
+            saving ? t('warehouse.btn_save') + '...' : t('warehouse.batch_create_save')
+          }}</span>
         </button>
       </div>
     </div>
@@ -207,7 +227,10 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseCurre
         data-test="batch-create-product-panel"
       >
         <template #header>
-          <span class="panel-title">{{ t('warehouse.batch_create_select_product_title') }} <span class="required-star">*</span></span>
+          <span class="panel-title"
+            >{{ t('warehouse.batch_create_select_product_title') }}
+            <span class="required-star">*</span></span
+          >
           <span
             v-if="selectedProduct"
             class="selected-product-badge"
@@ -218,7 +241,10 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseCurre
         </template>
 
         <!-- Product filters -->
-        <div class="products-filters" style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap">
+        <div
+          class="products-filters"
+          style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap"
+        >
           <div style="flex: 1 1 180px">
             <SearchInput
               v-model="productSearch"
@@ -226,10 +252,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseCurre
             />
           </div>
           <div style="min-width: 160px">
-            <CustomSelect
-              v-model="productCategoryFilter"
-              :options="categoryFilterOptions"
-            />
+            <CustomSelect v-model="productCategoryFilter" :options="categoryFilterOptions" />
           </div>
         </div>
 
@@ -291,7 +314,13 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseCurre
                   </td>
                   <td>{{ tf(p.name) }}</td>
                   <td>{{ p.categoryName ? tf(p.categoryName) : '—' }}</td>
-                  <td>{{ (p as { unit?: string }).unit ? t(`warehouse.unit_${(p as { unit?: string }).unit}`) : '—' }}</td>
+                  <td>
+                    {{
+                      (p as { unit?: string }).unit
+                        ? t(`warehouse.unit_${(p as { unit?: string }).unit}`)
+                        : '—'
+                    }}
+                  </td>
                 </tr>
               </template>
             </tbody>
@@ -361,7 +390,16 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseCurre
               <label class="field-label">
                 <span>{{ t('warehouse.col_supplier') }}</span>
                 <span v-tooltip="t('warehouse.col_supplier_hint')" class="info-hint">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="3"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
                     <circle cx="12" cy="12" r="10" />
                     <line x1="12" y1="16" x2="12" y2="12" />
                     <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -375,11 +413,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseCurre
                 :disabled="!selectedProductId"
                 data-test="field-supplier"
               />
-              <span
-                v-if="!selectedProductId"
-                class="field-hint"
-                data-test="supplier-hint"
-              >
+              <span v-if="!selectedProductId" class="field-hint" data-test="supplier-hint">
                 {{ t('warehouse.batch_create_select_supplier_hint') }}
               </span>
             </div>
@@ -391,9 +425,20 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseCurre
           <GlassPanel :skeleton-rows="4" data-test="batch-create-center-panel">
             <div class="input-group">
               <label class="field-label">
-                <span>{{ t('warehouse.col_batch_number') }} <span class="required-star">*</span></span>
+                <span
+                  >{{ t('warehouse.col_batch_number') }} <span class="required-star">*</span></span
+                >
                 <span v-tooltip="t('warehouse.col_batch_number_hint')" class="info-hint">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="3"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
                     <circle cx="12" cy="12" r="10" />
                     <line x1="12" y1="16" x2="12" y2="12" />
                     <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -414,7 +459,16 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseCurre
               <label class="field-label">
                 <span>{{ t('warehouse.col_lot_code') }} <span class="required-star">*</span></span>
                 <span v-tooltip="t('warehouse.col_lot_code_hint')" class="info-hint">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="3"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
                     <circle cx="12" cy="12" r="10" />
                     <line x1="12" y1="16" x2="12" y2="12" />
                     <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -435,7 +489,16 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseCurre
               <label class="field-label">
                 <span>{{ t('warehouse.col_quantity') }} <span class="required-star">*</span></span>
                 <span v-tooltip="t('warehouse.col_quantity_hint')" class="info-hint">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="3"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
                     <circle cx="12" cy="12" r="10" />
                     <line x1="12" y1="16" x2="12" y2="12" />
                     <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -458,23 +521,60 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseCurre
               <label class="field-label">
                 <span>{{ t('warehouse.col_unit') }} <span class="required-star">*</span></span>
                 <span v-tooltip="t('warehouse.col_unit_hint')" class="info-hint">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="3"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
                     <circle cx="12" cy="12" r="10" />
                     <line x1="12" y1="16" x2="12" y2="12" />
                     <line x1="12" y1="8" x2="12.01" y2="8" />
                   </svg>
                 </span>
               </label>
-              <div class="glass-input" style="display: flex; align-items: center; opacity: 0.7; cursor: default;">
+              <div
+                class="glass-input"
+                style="display: flex; align-items: center; opacity: 0.7; cursor: default"
+              >
                 <span v-if="form.unit">
-                  {{ t(`warehouse.unit_${form.unit}`) }}
+                  {{ resolveUnitLabel(form.unit) }}
                 </span>
-                <span v-else style="color: var(--text-dim);">
+                <span v-else style="color: var(--text-dim)">
                   {{ t('warehouse.offcut_create_unit_placeholder') }}
                 </span>
               </div>
               <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
             </div>
+
+            <!-- Conversion preview (shown when purchase UoM differs from warehouse UoM) -->
+            <template v-if="conversionPreview">
+              <div class="section-divider" />
+              <h4 class="subsection-title">{{ t('products.conversion_purchase_to_warehouse') }}</h4>
+              <div class="input-group">
+                <label class="field-label">{{ t('products.conversion_factor') }}</label>
+                <input
+                  v-model.number="form.purchaseToWarehouseRate"
+                  class="glass-input"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  data-test="field-create-conversion-factor"
+                />
+                <span class="field-hint">
+                  {{ conversionPreview.receivedQty }} {{ conversionPreview.receivedUnit }} &times;
+                  {{ form.purchaseToWarehouseRate ?? '?' }} {{ conversionPreview.warehouseUnit }}/{{
+                    conversionPreview.receivedUnit
+                  }}
+                  = {{ conversionPreview.warehouseQty.toFixed(2) }}
+                  {{ conversionPreview.warehouseUnit }}
+                </span>
+              </div>
+            </template>
           </GlassPanel>
         </div>
 
@@ -483,9 +583,20 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseCurre
           <GlassPanel :skeleton-rows="4" data-test="batch-create-right-panel">
             <div class="input-group">
               <label class="field-label">
-                <span>{{ t('warehouse.col_unit_price') }} <span class="required-star">*</span></span>
+                <span
+                  >{{ t('warehouse.col_unit_price') }} <span class="required-star">*</span></span
+                >
                 <span v-tooltip="t('warehouse.col_unit_price_hint')" class="info-hint">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="3"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
                     <circle cx="12" cy="12" r="10" />
                     <line x1="12" y1="16" x2="12" y2="12" />
                     <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -527,9 +638,42 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseCurre
             </div>
             <div class="input-group">
               <label class="field-label">
+                <span>{{ t('warehouse.field_total_cost') }}</span>
+                <span v-tooltip="t('warehouse.field_total_cost_hint')" class="info-hint">
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="3"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="16" x2="12" y2="12" />
+                    <line x1="12" y1="8" x2="12.01" y2="8" />
+                  </svg>
+                </span>
+              </label>
+              <div class="glass-input" style="display: flex; align-items: center; opacity: 0.7">
+                <span>{{ totalCost.toFixed(2) }} {{ form.currency }}</span>
+              </div>
+            </div>
+            <div class="input-group">
+              <label class="field-label">
                 <span>{{ t('warehouse.col_received') }} <span class="required-star">*</span></span>
                 <span v-tooltip="t('warehouse.col_received_hint')" class="info-hint">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="3"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
                     <circle cx="12" cy="12" r="10" />
                     <line x1="12" y1="16" x2="12" y2="12" />
                     <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -548,23 +692,38 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseCurre
               <label class="field-label">
                 <span>{{ t('warehouse.field_expires_at') }}</span>
                 <span v-tooltip="t('warehouse.field_expires_at_hint')" class="info-hint">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="3"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
                     <circle cx="12" cy="12" r="10" />
                     <line x1="12" y1="16" x2="12" y2="12" />
                     <line x1="12" y1="8" x2="12.01" y2="8" />
                   </svg>
                 </span>
               </label>
-              <DatePicker
-                v-model="form.expiresAt"
-                data-test="field-expires-at"
-              />
+              <DatePicker v-model="form.expiresAt" data-test="field-expires-at" />
             </div>
             <div class="input-group">
               <label class="field-label">
                 <span>{{ t('warehouse.field_certificate') }}</span>
                 <span v-tooltip="t('warehouse.field_certificate_hint')" class="info-hint">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="3"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
                     <circle cx="12" cy="12" r="10" />
                     <line x1="12" y1="16" x2="12" y2="12" />
                     <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -582,7 +741,16 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseCurre
               <label class="field-label">
                 <span>{{ t('warehouse.field_notes') }}</span>
                 <span v-tooltip="t('warehouse.field_notes_hint')" class="info-hint">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="3"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
                     <circle cx="12" cy="12" r="10" />
                     <line x1="12" y1="16" x2="12" y2="12" />
                     <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -601,13 +769,26 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseCurre
       </div>
 
       <!-- FULL WIDTH: Location section -->
-      <GlassPanel :title="t('warehouse.section_batch_location')" data-test="batch-create-location-section" style="margin-top: 16px">
+      <GlassPanel
+        :title="t('warehouse.section_batch_location')"
+        data-test="batch-create-location-section"
+        style="margin-top: 16px"
+      >
         <div class="location-grid">
           <div class="input-group">
             <label class="field-label">
               <span>{{ t('warehouse.field_location_rack') }}</span>
               <span v-tooltip="t('warehouse.field_location_rack_hint')" class="info-hint">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="3"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
                   <circle cx="12" cy="12" r="10" />
                   <line x1="12" y1="16" x2="12" y2="12" />
                   <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -625,7 +806,16 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseCurre
             <label class="field-label">
               <span>{{ t('warehouse.field_location_row') }}</span>
               <span v-tooltip="t('warehouse.field_location_row_hint')" class="info-hint">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="3"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
                   <circle cx="12" cy="12" r="10" />
                   <line x1="12" y1="16" x2="12" y2="12" />
                   <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -643,7 +833,16 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseCurre
             <label class="field-label">
               <span>{{ t('warehouse.field_location_cell') }}</span>
               <span v-tooltip="t('warehouse.field_location_cell_hint')" class="info-hint">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="3"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
                   <circle cx="12" cy="12" r="10" />
                   <line x1="12" y1="16" x2="12" y2="12" />
                   <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -658,11 +857,20 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseCurre
             />
           </div>
         </div>
-        <div class="input-group" style="margin-top: 12px;">
+        <div class="input-group" style="margin-top: 12px">
           <label class="field-label">
             <span>{{ t('warehouse.field_location_notes') }}</span>
             <span v-tooltip="t('warehouse.field_location_notes_hint')" class="info-hint">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="3"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
                 <circle cx="12" cy="12" r="10" />
                 <line x1="12" y1="16" x2="12" y2="12" />
                 <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -678,7 +886,11 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseCurre
       </GlassPanel>
 
       <!-- FULL WIDTH: Files section -->
-      <GlassPanel :title="t('warehouse.section_batch_files')" data-test="batch-create-files-section" style="margin-top: 16px">
+      <GlassPanel
+        :title="t('warehouse.section_batch_files')"
+        data-test="batch-create-files-section"
+        style="margin-top: 16px"
+      >
         <div class="file-list" data-test="batch-create-file-list" style="margin-bottom: 15px">
           <FileItem
             v-for="f in uploadedFiles"
@@ -689,7 +901,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseCurre
             @delete="removeFile(f.id)"
           />
         </div>
-        <p v-if="uploadedFiles.length === 0" class="text-muted" style="padding: 12px 0;">
+        <p v-if="uploadedFiles.length === 0" class="text-muted" style="padding: 12px 0">
           {{ t('warehouse.no_files') }}
         </p>
         <DropZone
@@ -765,5 +977,21 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseCurre
 .required-star {
   color: var(--danger, #e74c3c);
   margin-left: 2px;
+}
+.conversion-preview {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 6px;
+  background: rgba(24, 144, 255, 0.06);
+}
+.conversion-text {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary, #888);
+}
+.section-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin-bottom: 12px;
 }
 </style>

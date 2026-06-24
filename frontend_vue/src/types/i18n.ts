@@ -35,14 +35,14 @@ export function toTranslatedString(value: string, locale: string): TranslatedStr
  */
 export function mergeTranslatedString(
   existing: TranslatedString | null | undefined,
-  incoming: Partial<TranslatedString>
+  incoming: Partial<TranslatedString>,
 ): TranslatedString {
   return {
     ru: existing?.ru || '',
     en: existing?.en || '',
     lt: existing?.lt || '',
     ...Object.fromEntries(
-      Object.entries(incoming).filter(([, v]) => v !== undefined && v !== null)
+      Object.entries(incoming).filter(([, v]) => v !== undefined && v !== null),
     ),
   }
 }
@@ -55,11 +55,9 @@ export function mergeTranslatedString(
 export function mergeLocaleValue(
   existing: TranslatedString | null | undefined,
   value: string,
-  locale: string
+  locale: string,
 ): TranslatedString {
-  const result: TranslatedString = existing
-    ? { ...existing }
-    : { ru: '', en: '', lt: '' }
+  const result: TranslatedString = existing ? { ...existing } : { ru: '', en: '', lt: '' }
   if (locale in result) {
     result[locale as keyof TranslatedString] = value
   }

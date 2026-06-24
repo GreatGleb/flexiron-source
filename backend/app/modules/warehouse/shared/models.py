@@ -61,6 +61,32 @@ class WarehouseBatch(UUIDMixin, TimestampMixin, Base):
     order_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     file_ids: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
+    # ═══════════════════════════════════════════════════════════════
+    # Purchase audit trail (set at creation, read-only thereafter)
+    # ═══════════════════════════════════════════════════════════════
+    received_quantity: Mapped[float | None] = mapped_column(
+        Numeric(14, 4), nullable=True
+    )
+    received_uom_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("uoms.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    received_unit_price: Mapped[float | None] = mapped_column(
+        Numeric(14, 6), nullable=True
+    )
+    received_currency_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("currencies.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    purchase_to_warehouse_rate: Mapped[float | None] = mapped_column(
+        Numeric(20, 6), nullable=True
+    )
+    exchange_rate: Mapped[float | None] = mapped_column(
+        Numeric(14, 6), nullable=True
+    )
+
 
 class WarehouseMovement(UUIDMixin, Base):
     """Inventory movement — tracks stock changes, per-tenant."""

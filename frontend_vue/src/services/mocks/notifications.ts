@@ -16,7 +16,11 @@ const MOCK_NOTIFICATIONS: Notification[] = [
   {
     id: 'notif-001',
     type: 'order_status',
-    title: { ru: 'Статус заказа изменён', en: 'Order status changed', lt: 'Užsakymo būsena pakeista' },
+    title: {
+      ru: 'Статус заказа изменён',
+      en: 'Order status changed',
+      lt: 'Užsakymo būsena pakeista',
+    },
     message: {
       ru: 'Заказ ORD-001 перешёл в статус «В пути»',
       en: 'Order ORD-001 has moved to "In Transit"',
@@ -31,7 +35,11 @@ const MOCK_NOTIFICATIONS: Notification[] = [
   {
     id: 'notif-002',
     type: 'order_status',
-    title: { ru: 'Статус заказа изменён', en: 'Order status changed', lt: 'Užsakymo būsena pakeista' },
+    title: {
+      ru: 'Статус заказа изменён',
+      en: 'Order status changed',
+      lt: 'Užsakymo būsena pakeista',
+    },
     message: {
       ru: 'Заказ ORD-003 перешёл в статус «Готов к отгрузке»',
       en: 'Order ORD-003 has moved to "Ready to Ship"',
@@ -46,7 +54,11 @@ const MOCK_NOTIFICATIONS: Notification[] = [
   {
     id: 'notif-010',
     type: 'order_status',
-    title: { ru: 'Статус заказа изменён', en: 'Order status changed', lt: 'Užsakymo būsena pakeista' },
+    title: {
+      ru: 'Статус заказа изменён',
+      en: 'Order status changed',
+      lt: 'Užsakymo būsena pakeista',
+    },
     message: {
       ru: 'Заказ ORD-010 перешёл в статус «Доставлено»',
       en: 'Order ORD-010 has moved to "Delivered"',
@@ -61,7 +73,11 @@ const MOCK_NOTIFICATIONS: Notification[] = [
   {
     id: 'notif-018',
     type: 'order_status',
-    title: { ru: 'Статус заказа изменён', en: 'Order status changed', lt: 'Užsakymo būsena pakeista' },
+    title: {
+      ru: 'Статус заказа изменён',
+      en: 'Order status changed',
+      lt: 'Užsakymo būsena pakeista',
+    },
     message: {
       ru: 'Заказ ORD-006 перешёл в статус «Подтвержден»',
       en: 'Order ORD-006 has moved to "Confirmed"',
@@ -386,7 +402,10 @@ export function mockGetNotifications(
   pagination: PaginationParams,
 ): PaginatedResponse<Notification> {
   // Allow E2E tests to force an error by setting a localStorage flag
-  if (typeof localStorage !== 'undefined' && localStorage.getItem('test_mock_force_error') === 'true') {
+  if (
+    typeof localStorage !== 'undefined' &&
+    localStorage.getItem('test_mock_force_error') === 'true'
+  ) {
     localStorage.removeItem('test_mock_force_error')
     throw new Error('SIMULATED_MOCK_ERROR')
   }

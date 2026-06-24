@@ -16,12 +16,20 @@
 }
 
 @media (max-width: 992px) {
-  .page-header { gap: 12px; }
+  .page-header {
+    gap: 12px;
+  }
 }
 
 @media (max-width: 600px) {
-  .page-header { flex-direction: column; align-items: stretch; }
-  .page-header .btn { width: 100%; justify-content: center; }
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .page-header .btn {
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 /* ─── Filters Bar (matching products_list.css / warehouse_list.css) ────────── */
@@ -137,7 +145,9 @@
 /* ─── Table rows ──────────────────────────────────────────────────────────── */
 
 .orders-row td {
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 
 .orders-row td:first-child {
@@ -339,14 +349,46 @@
 
 /* ─── Order status to pill class mapping ──────────────────────────────────── */
 
-.order-status-pill--new { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.15); color: rgba(255, 255, 255, 0.6); }
-.order-status-pill--confirmed { background: rgba(24, 144, 255, 0.2); border: 1px solid rgba(24, 144, 255, 0.3); color: #1890ff; }
-.order-status-pill--picking { background: rgba(250, 173, 20, 0.2); border: 1px solid rgba(250, 173, 20, 0.3); color: #faad14; }
-.order-status-pill--packing { background: rgba(250, 173, 20, 0.2); border: 1px solid rgba(250, 173, 20, 0.3); color: #faad14; }
-.order-status-pill--shipped { background: rgba(82, 196, 26, 0.2); border: 1px solid rgba(82, 196, 26, 0.3); color: #52c41a; }
-.order-status-pill--delivered { background: rgba(82, 196, 26, 0.2); border: 1px solid rgba(82, 196, 26, 0.3); color: #52c41a; }
-.order-status-pill--paid { background: rgba(82, 196, 26, 0.2); border: 1px solid rgba(82, 196, 26, 0.3); color: #52c41a; }
-.order-status-pill--cancelled { background: rgba(255, 77, 79, 0.2); border: 1px solid rgba(255, 77, 79, 0.3); color: #ff4d4f; }
+.order-status-pill--new {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.6);
+}
+.order-status-pill--confirmed {
+  background: rgba(24, 144, 255, 0.2);
+  border: 1px solid rgba(24, 144, 255, 0.3);
+  color: #1890ff;
+}
+.order-status-pill--picking {
+  background: rgba(250, 173, 20, 0.2);
+  border: 1px solid rgba(250, 173, 20, 0.3);
+  color: #faad14;
+}
+.order-status-pill--packing {
+  background: rgba(250, 173, 20, 0.2);
+  border: 1px solid rgba(250, 173, 20, 0.3);
+  color: #faad14;
+}
+.order-status-pill--shipped {
+  background: rgba(82, 196, 26, 0.2);
+  border: 1px solid rgba(82, 196, 26, 0.3);
+  color: #52c41a;
+}
+.order-status-pill--delivered {
+  background: rgba(82, 196, 26, 0.2);
+  border: 1px solid rgba(82, 196, 26, 0.3);
+  color: #52c41a;
+}
+.order-status-pill--paid {
+  background: rgba(82, 196, 26, 0.2);
+  border: 1px solid rgba(82, 196, 26, 0.3);
+  color: #52c41a;
+}
+.order-status-pill--cancelled {
+  background: rgba(255, 77, 79, 0.2);
+  border: 1px solid rgba(255, 77, 79, 0.3);
+  color: #ff4d4f;
+}
 
 /* ─── Pagination bar ──────────────────────────────────────────────────────── */
 

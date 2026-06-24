@@ -8,10 +8,26 @@ export const MOCK_BCC_CATEGORIES: BccCategory[] = [
     name: { ru: 'Листы', en: 'Sheets', lt: 'Lakštai' },
     productCount: 4,
     children: [
-      { id: 'sheet-2mm', name: { ru: 'Лист 2мм', en: 'Sheet 2mm', lt: 'Lakštas 2mm' }, productCount: 0 },
-      { id: 'sheet-3mm', name: { ru: 'Лист 3мм', en: 'Sheet 3mm', lt: 'Lakštas 3mm' }, productCount: 0 },
-      { id: 'sheet-5mm', name: { ru: 'Лист 5мм', en: 'Sheet 5mm', lt: 'Lakštas 5mm' }, productCount: 0 },
-      { id: 'sheet-10mm', name: { ru: 'Лист 10мм', en: 'Sheet 10mm', lt: 'Lakštas 10mm' }, productCount: 0 },
+      {
+        id: 'sheet-2mm',
+        name: { ru: 'Лист 2мм', en: 'Sheet 2mm', lt: 'Lakštas 2mm' },
+        productCount: 0,
+      },
+      {
+        id: 'sheet-3mm',
+        name: { ru: 'Лист 3мм', en: 'Sheet 3mm', lt: 'Lakštas 3mm' },
+        productCount: 0,
+      },
+      {
+        id: 'sheet-5mm',
+        name: { ru: 'Лист 5мм', en: 'Sheet 5mm', lt: 'Lakštas 5mm' },
+        productCount: 0,
+      },
+      {
+        id: 'sheet-10mm',
+        name: { ru: 'Лист 10мм', en: 'Sheet 10mm', lt: 'Lakštas 10mm' },
+        productCount: 0,
+      },
     ],
   },
   {
@@ -19,8 +35,16 @@ export const MOCK_BCC_CATEGORIES: BccCategory[] = [
     name: { ru: 'Перемычки', en: 'Lintels', lt: 'Sąramos' },
     productCount: 2,
     children: [
-      { id: 'lintel-100', name: { ru: 'Перемычка 100×100', en: 'Lintel 100×100', lt: 'Sąrama 100×100' }, productCount: 0 },
-      { id: 'lintel-150', name: { ru: 'Перемычка 150×150', en: 'Lintel 150×150', lt: 'Sąrama 150×150' }, productCount: 0 },
+      {
+        id: 'lintel-100',
+        name: { ru: 'Перемычка 100×100', en: 'Lintel 100×100', lt: 'Sąrama 100×100' },
+        productCount: 0,
+      },
+      {
+        id: 'lintel-150',
+        name: { ru: 'Перемычка 150×150', en: 'Lintel 150×150', lt: 'Sąrama 150×150' },
+        productCount: 0,
+      },
     ],
   },
   {
@@ -28,9 +52,21 @@ export const MOCK_BCC_CATEGORIES: BccCategory[] = [
     name: { ru: 'Балки', en: 'Beams', lt: 'Sijos' },
     productCount: 3,
     children: [
-      { id: 'beam-i20', name: { ru: 'Двутавр 20', en: 'I-Beam 20', lt: 'Dvitėjis 20' }, productCount: 0 },
-      { id: 'beam-i30', name: { ru: 'Двутавр 30', en: 'I-Beam 30', lt: 'Dvitėjis 30' }, productCount: 0 },
-      { id: 'beam-heb', name: { ru: 'Балка HEB', en: 'HEB Beam', lt: 'HEB sija' }, productCount: 0 },
+      {
+        id: 'beam-i20',
+        name: { ru: 'Двутавр 20', en: 'I-Beam 20', lt: 'Dvitėjis 20' },
+        productCount: 0,
+      },
+      {
+        id: 'beam-i30',
+        name: { ru: 'Двутавр 30', en: 'I-Beam 30', lt: 'Dvitėjis 30' },
+        productCount: 0,
+      },
+      {
+        id: 'beam-heb',
+        name: { ru: 'Балка HEB', en: 'HEB Beam', lt: 'HEB sija' },
+        productCount: 0,
+      },
     ],
   },
   {
@@ -38,9 +74,21 @@ export const MOCK_BCC_CATEGORIES: BccCategory[] = [
     name: { ru: 'Трубы', en: 'Pipes', lt: 'Vamzdžiai' },
     productCount: 3,
     children: [
-      { id: 'pipe-50', name: { ru: 'Труба 50мм', en: 'Pipe 50mm', lt: 'Vamzdis 50mm' }, productCount: 0 },
-      { id: 'pipe-100', name: { ru: 'Труба 100мм', en: 'Pipe 100mm', lt: 'Vamzdis 100mm' }, productCount: 0 },
-      { id: 'pipe-150', name: { ru: 'Труба 150мм', en: 'Pipe 150mm', lt: 'Vamzdis 150mm' }, productCount: 0 },
+      {
+        id: 'pipe-50',
+        name: { ru: 'Труба 50мм', en: 'Pipe 50mm', lt: 'Vamzdis 50mm' },
+        productCount: 0,
+      },
+      {
+        id: 'pipe-100',
+        name: { ru: 'Труба 100мм', en: 'Pipe 100mm', lt: 'Vamzdis 100mm' },
+        productCount: 0,
+      },
+      {
+        id: 'pipe-150',
+        name: { ru: 'Труба 150мм', en: 'Pipe 150mm', lt: 'Vamzdis 150mm' },
+        productCount: 0,
+      },
     ],
   },
   {
@@ -48,9 +96,21 @@ export const MOCK_BCC_CATEGORIES: BccCategory[] = [
     name: { ru: 'Арматура', en: 'Rebars', lt: 'Armatūra' },
     productCount: 3,
     children: [
-      { id: 'rebar-12', name: { ru: 'Арматура 12мм', en: 'Rebar 12mm', lt: 'Armatūra 12mm' }, productCount: 0 },
-      { id: 'rebar-16', name: { ru: 'Арматура 16мм', en: 'Rebar 16mm', lt: 'Armatūra 16mm' }, productCount: 0 },
-      { id: 'rebar-20', name: { ru: 'Арматура 20мм', en: 'Rebar 20mm', lt: 'Armatūra 20mm' }, productCount: 0 },
+      {
+        id: 'rebar-12',
+        name: { ru: 'Арматура 12мм', en: 'Rebar 12mm', lt: 'Armatūra 12mm' },
+        productCount: 0,
+      },
+      {
+        id: 'rebar-16',
+        name: { ru: 'Арматура 16мм', en: 'Rebar 16mm', lt: 'Armatūra 16mm' },
+        productCount: 0,
+      },
+      {
+        id: 'rebar-20',
+        name: { ru: 'Арматура 20мм', en: 'Rebar 20mm', lt: 'Armatūra 20mm' },
+        productCount: 0,
+      },
     ],
   },
 ]

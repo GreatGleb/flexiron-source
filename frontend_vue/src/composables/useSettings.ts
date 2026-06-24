@@ -2,8 +2,6 @@ import { ref, reactive } from 'vue'
 import * as settingsService from '@/services/settingsService'
 import type {
   AppSettings,
-  CompanyInfo,
-  GlobalConstants,
   Currency,
   Uom,
   UomConversion,
@@ -24,31 +22,31 @@ const defaultSettings: AppSettings = {
 }
 
 // ─── localStorage cache helpers ──────────────────────────────────────────
-const CACHE_VERSION = 3  // bump when data shape changes (e.g., new fields)
+const CACHE_VERSION = 3 // bump when data shape changes (e.g., new fields)
 const CACHE_KEY = `flexiron_settings_cache_v${CACHE_VERSION}`
 const LEGACY_CACHE_KEYS = ['flexiron_settings_cache', 'flexiron_settings_cache_v2'] // old keys to purge
-const CACHE_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
+// const CACHE_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
 
 interface SettingsCache {
   data: AppSettings
   timestamp: number
 }
 
-function loadFromCache(): AppSettings | null {
-  try {
-    const raw = localStorage.getItem(CACHE_KEY)
-    if (!raw) return null
-    const cache: SettingsCache = JSON.parse(raw)
-    const age = Date.now() - cache.timestamp
-    if (age >= CACHE_TTL_MS) {
-      localStorage.removeItem(CACHE_KEY)
-      return null
-    }
-    return cache.data
-  } catch {
-    return null
-  }
-}
+// function loadFromCache(): AppSettings | null {
+//   try {
+//     const raw = localStorage.getItem(CACHE_KEY)
+//     if (!raw) return null
+//     const cache: SettingsCache = JSON.parse(raw)
+//     const age = Date.now() - cache.timestamp
+//     if (age >= CACHE_TTL_MS) {
+//       localStorage.removeItem(CACHE_KEY)
+//       return null
+//     }
+//     return cache.data
+//   } catch {
+//     return null
+//   }
+// }
 
 function saveToCache(data: AppSettings) {
   try {
@@ -64,7 +62,6 @@ const loading = ref(false)
 const saving = ref(false)
 const error = ref<string | null>(null)
 const settings = reactive<AppSettings>({ ...defaultSettings })
-let loaded = false
 /** Snapshot captured after last load/save, used for dirty diffing */
 let snapshot: AppSettings | null = null
 
@@ -75,9 +72,9 @@ function markDirty(section: string) {
   dirtySections.add(section)
 }
 
-function clearDirty() {
-  dirtySections.clear()
-}
+// function clearDirty() {
+//   dirtySections.clear()
+// }
 
 function takeSnapshot() {
   snapshot = JSON.parse(JSON.stringify(settings)) as AppSettings
@@ -86,29 +83,24 @@ function takeSnapshot() {
 /** Deep-diff a simple (non-array) section */
 function sectionChanged(key: keyof AppSettings): boolean {
   if (!snapshot) return false
-  return JSON.stringify((settings as any)[key]) !== JSON.stringify((snapshot as any)[key])
+  return JSON.stringify(settings[key]) !== JSON.stringify(snapshot[key])
 }
 
 /** Detect added items in a collection (in current but not in original) */
-function findAdded<T extends { id: string }>(
-  original: T[] | undefined,
-  current: T[],
-): Omit<T, 'id'>[] {
-  if (!original) return current.map(({ id, ...rest }) => rest as unknown as Omit<T, 'id'>)
-  return current
-    .filter((c) => !original.find((o) => o.id === c.id))
-    .map(({ id, ...rest }) => rest as unknown as Omit<T, 'id'>)
-}
+// function findAdded<T extends { id: string }>(
+//   original: T[] | undefined,
+//   current: T[],
+// ): Omit<T, 'id'>[] {
+//   if (!original) return current.map(({ id, ...rest }) => rest as unknown as Omit<T, 'id'>)
+//   return current
+//     .filter((c) => !original.find((o) => o.id === c.id))
+//     .map(({ id, ...rest }) => rest as unknown as Omit<T, 'id'>)
+// }
 
 /** Detect removed items (in original but not in current) */
-function findRemoved<T extends { id: string }>(
-  original: T[] | undefined,
-  current: T[],
-): string[] {
+function findRemoved<T extends { id: string }>(original: T[] | undefined, current: T[]): string[] {
   if (!original) return []
-  return original
-    .filter((o) => !current.find((c) => c.id === o.id))
-    .map((o) => o.id)
+  return original.filter((o) => !current.find((c) => c.id === o.id)).map((o) => o.id)
 }
 
 /** Detect updated items (in both sets, but data differs) */
@@ -126,7 +118,7 @@ function findUpdated<T extends { id: string }>(
     for (const key of Object.keys(cur) as (keyof T)[]) {
       if (key === 'id') continue
       if (JSON.stringify(cur[key]) !== JSON.stringify(orig[key])) {
-        (diff as any)[key] = cur[key]
+        diff[key as string] = cur[key] as unknown
       }
     }
     if (Object.keys(diff).length > 0) {
@@ -138,34 +130,21 @@ function findUpdated<T extends { id: string }>(
 
 export function useSettings() {
   async function load() {
-    console.log('[useSettings] load() called, loaded =', loaded)
-
-    // Purge ALL settings caches to force fresh API calls
-    const allCacheKeys = [CACHE_KEY, ...LEGACY_CACHE_KEYS]
-    for (const key of allCacheKeys) {
-      try { localStorage.removeItem(key) } catch { /* ignore */ }
-    }
-
-    if (loaded) {
-      console.log('[useSettings] load() - already loaded, skipping')
-      return // already fetched in this session
-    }
-
-    // 1) Try localStorage cache first
-    const cached = loadFromCache()
-    if (cached) {
-      console.log('[useSettings] load() - using localStorage cache')
-      console.log('[useSettings] cache has secretLink:', !!cached.profile.secretLink)
-      Object.assign(settings, cached)
-      loaded = true
-      takeSnapshot()
-      return
-    }
-    console.log('[useSettings] load() - no cache found, will fetch from API')
+    console.log('[useSettings] load() called — always fetching from API')
     console.log('[useSettings] USE_MOCKS =', import.meta.env.VITE_USE_MOCKS)
 
-    // 2) Cache miss or expired — fetch from API in parallel
-    //    Use allSettled so one failing endpoint doesn't block the rest.
+    // Always purge localStorage cache to avoid stale data
+    const allCacheKeys = [CACHE_KEY, ...LEGACY_CACHE_KEYS]
+    for (const key of allCacheKeys) {
+      try {
+        localStorage.removeItem(key)
+      } catch {
+        /* ignore */
+      }
+    }
+
+    // Fetch from API in parallel
+    // Use allSettled so one failing endpoint doesn't block the rest.
     loading.value = true
     error.value = null
 
@@ -179,13 +158,23 @@ export function useSettings() {
       settingsService.getProfile(),
     ])
 
-    const labels: (keyof AppSettings)[] = ['company', 'constants', 'currencies', 'uoms', 'conversions', 'orderStatuses', 'profile']
+    const labels: (keyof AppSettings)[] = [
+      'company',
+      'constants',
+      'currencies',
+      'uoms',
+      'conversions',
+      'orderStatuses',
+      'profile',
+    ]
     let anySuccess = false
 
     allResults.forEach((result, i) => {
       const key = labels[i]!
       if (result.status === 'fulfilled') {
-        (settings as any)[key] = (result as PromiseFulfilledResult<unknown>).value
+        ;(settings as Record<string, unknown>)[key] = (
+          result as PromiseFulfilledResult<unknown>
+        ).value
         anySuccess = true
         console.log(`[useSettings] "${key}" loaded successfully`)
       } else {
@@ -194,7 +183,7 @@ export function useSettings() {
     })
 
     if (!anySuccess) {
-      // All requests failed — don't cache, don't mark as loaded
+      // All requests failed — don't cache
       error.value = 'Failed to load settings. Backend may be unavailable.'
       loading.value = false
       return
@@ -202,14 +191,23 @@ export function useSettings() {
 
     const data = { ...settings } as AppSettings
     saveToCache(data)
-    loaded = true
     takeSnapshot()
     loading.value = false
   }
 
-  /** Force re-fetch from API (skip cache) */
+  /** Force re-fetch from API (same as load() but with different error reporting) */
   async function reload() {
-    loaded = false
+    console.log('[useSettings] reload() called — forcing API fetch')
+    // Purge localStorage cache
+    const allCacheKeys = [CACHE_KEY, ...LEGACY_CACHE_KEYS]
+    for (const key of allCacheKeys) {
+      try {
+        localStorage.removeItem(key)
+      } catch {
+        /* ignore */
+      }
+    }
+
     loading.value = true
     error.value = null
 
@@ -223,13 +221,23 @@ export function useSettings() {
       settingsService.getProfile(),
     ])
 
-    const labels: (keyof AppSettings)[] = ['company', 'constants', 'currencies', 'uoms', 'conversions', 'orderStatuses', 'profile']
+    const labels: (keyof AppSettings)[] = [
+      'company',
+      'constants',
+      'currencies',
+      'uoms',
+      'conversions',
+      'orderStatuses',
+      'profile',
+    ]
     const failed: string[] = []
 
     allResults.forEach((result, i) => {
       const key = labels[i]!
       if (result.status === 'fulfilled') {
-        (settings as any)[key] = (result as PromiseFulfilledResult<unknown>).value
+        ;(settings as Record<string, unknown>)[key] = (
+          result as PromiseFulfilledResult<unknown>
+        ).value
       } else {
         failed.push(key as string)
         console.warn(`[useSettings] Failed to reload "${key as string}"`)
@@ -242,7 +250,6 @@ export function useSettings() {
 
     const data = { ...settings } as AppSettings
     saveToCache(data)
-    loaded = true
     takeSnapshot()
     loading.value = false
   }
@@ -276,9 +283,9 @@ export function useSettings() {
         const updated = findUpdated(snapshot?.currencies, settings.currencies)
         // For added items, keep a reference to local items so we can replace IDs
         const localAdded = snapshot
-          ? settings.currencies.filter((c) => !snapshot.currencies.find((o) => o.id === c.id))
+          ? settings.currencies.filter((c) => !snapshot!.currencies.find((o) => o.id === c.id))
           : [...settings.currencies]
-        const addedData = localAdded.map(({ id, ...rest }) => rest)
+        const addedData = localAdded.map(({ id: _id, ...rest }) => rest)
 
         for (const item of addedData) {
           const p = settingsService.createCurrency(item).then((created) => {
@@ -307,13 +314,15 @@ export function useSettings() {
       if (dirtySections.has('uoms') || sectionChanged('uoms')) {
         const removed = findRemoved(snapshot?.uoms, settings.uoms)
         const localAdded = snapshot
-          ? settings.uoms.filter((u) => !snapshot.uoms.find((o) => o.id === u.id))
+          ? settings.uoms.filter((u) => !snapshot!.uoms.find((o) => o.id === u.id))
           : [...settings.uoms]
-        const addedData = localAdded.map(({ id, ...rest }) => rest)
+        const addedData = localAdded.map(({ id: _id, ...rest }) => rest)
 
         for (const item of addedData) {
           const p = settingsService.createUom(item).then((created) => {
-            const local = settings.uoms.find((u) => u.category === item.category && u.code === item.code)
+            const local = settings.uoms.find(
+              (u) => u.category === item.category && u.code === item.code,
+            )
             if (local && created?.id) {
               const idx = settings.uoms.indexOf(local)
               if (idx !== -1) settings.uoms.splice(idx, 1, created as Uom)
@@ -332,9 +341,9 @@ export function useSettings() {
         const removed = findRemoved(snapshot?.conversions, settings.conversions)
         const updated = findUpdated(snapshot?.conversions, settings.conversions)
         const localAdded = snapshot
-          ? settings.conversions.filter((c) => !snapshot.conversions.find((o) => o.id === c.id))
+          ? settings.conversions.filter((c) => !snapshot!.conversions.find((o) => o.id === c.id))
           : [...settings.conversions]
-        const addedData = localAdded.map(({ id, ...rest }) => rest)
+        const addedData = localAdded.map(({ id: _id, ...rest }) => rest)
 
         for (const item of addedData) {
           const p = settingsService.createConversion(item).then((created) => {
@@ -363,12 +372,15 @@ export function useSettings() {
         const removed = findRemoved(snapshot?.orderStatuses, settings.orderStatuses)
         const updated = findUpdated(snapshot?.orderStatuses, settings.orderStatuses)
         const localAdded = snapshot
-          ? settings.orderStatuses.filter((s) => !snapshot.orderStatuses.find((o) => o.id === s.id))
+          ? settings.orderStatuses.filter(
+              (s) => !snapshot!.orderStatuses.find((o) => o.id === s.id),
+            )
           : [...settings.orderStatuses]
-        const addedData = localAdded.map(({ id, ...rest }) => rest)
+        const addedData = localAdded.map(({ id: _id, ...rest }) => rest)
         // Also check if order changed
         const orderChanged = snapshot?.orderStatuses?.some(
-          (o, i) => o.id !== settings.orderStatuses[i]?.id || o.order !== settings.orderStatuses[i]?.order,
+          (o, i) =>
+            o.id !== settings.orderStatuses[i]?.id || o.order !== settings.orderStatuses[i]?.order,
         )
 
         if (removed.length > 0 || orderChanged) {
@@ -381,7 +393,9 @@ export function useSettings() {
           const p = settingsService.createOrderStatus(item).then((created) => {
             // Match by order (most recently added has highest order)
             const local = snapshot
-              ? settings.orderStatuses.find((s) => !snapshot!.orderStatuses.find((o) => o.id === s.id))
+              ? settings.orderStatuses.find(
+                  (s) => !snapshot!.orderStatuses.find((o) => o.id === s.id),
+                )
               : null
             if (local && created?.id) {
               const idx = settings.orderStatuses.indexOf(local)
@@ -415,100 +429,8 @@ export function useSettings() {
     }
   }
 
-  // ─── Company ───
-  function updateCompany(patch: Partial<AppSettings['company']>) {
-    Object.assign(settings.company, patch)
-    markDirty('company')
-  }
-
-  // ─── Constants ───
-  function updateConstants(patch: Partial<AppSettings['constants']>) {
-    Object.assign(settings.constants, patch)
-    markDirty('constants')
-  }
-
-  // ─── Currencies ───
-  function addCurrency(data: Omit<Currency, 'id'>) {
-    const currency: Currency = { ...data, id: `cur-temp-${Date.now()}` }
-    settings.currencies.push(currency)
-    markDirty('currencies')
-  }
-  function removeCurrency(id: string) {
-    const idx = settings.currencies.findIndex((c) => c.id === id)
-    if (idx !== -1) settings.currencies.splice(idx, 1)
-    markDirty('currencies')
-  }
-  function updateCurrency(id: string, patch: Partial<Currency>) {
-    const cur = settings.currencies.find((c) => c.id === id)
-    if (cur) Object.assign(cur, patch)
-    markDirty('currencies')
-  }
-
-  // ─── UOM ───
-  function addUom(data: Omit<Uom, 'id'>) {
-    const uom: Uom = { ...data, id: `uom-temp-${Date.now()}` }
-    settings.uoms.push(uom)
-    markDirty('uoms')
-  }
-  function removeUom(id: string) {
-    const idx = settings.uoms.findIndex((u) => u.id === id)
-    if (idx !== -1) settings.uoms.splice(idx, 1)
-    markDirty('uoms')
-  }
-
-  // ─── UOM Conversions ───
-  function addConversion(data: Omit<UomConversion, 'id'>) {
-    const conv: UomConversion = { ...data, id: `conv-temp-${Date.now()}` }
-    settings.conversions.push(conv)
-    markDirty('conversions')
-  }
-  function removeConversion(id: string) {
-    const idx = settings.conversions.findIndex((c) => c.id === id)
-    if (idx !== -1) settings.conversions.splice(idx, 1)
-    markDirty('conversions')
-  }
-  function updateConversion(id: string, patch: Partial<UomConversion>) {
-    const conv = settings.conversions.find((c) => c.id === id)
-    if (conv) Object.assign(conv, patch)
-    markDirty('conversions')
-  }
-
-  // ─── Order Statuses ───
-  function addOrderStatus(data: Omit<OrderStatusSetting, 'id'>) {
-    const status: OrderStatusSetting = { ...data, id: `st-temp-${Date.now()}` }
-    settings.orderStatuses.push(status)
-    markDirty('orderStatuses')
-  }
-  function removeOrderStatus(id: string) {
-    const idx = settings.orderStatuses.findIndex((s) => s.id === id)
-    if (idx !== -1) settings.orderStatuses.splice(idx, 1)
-    markDirty('orderStatuses')
-  }
-  function updateOrderStatus(id: string, patch: Partial<OrderStatusSetting>) {
-    const st = settings.orderStatuses.find((s) => s.id === id)
-    if (st) Object.assign(st, patch)
-    markDirty('orderStatuses')
-  }
-  function moveOrderStatus(fromIdx: number, toIdx: number) {
-    const arr = settings.orderStatuses
-    const moved = arr.splice(fromIdx, 1)[0]
-    if (!moved) return
-    arr.splice(toIdx, 0, moved)
-    arr.forEach((s, i) => (s.order = i))
-    markDirty('orderStatuses')
-  }
-
-  // ─── Profile ───
-  function updateProfile(patch: Partial<UserProfile>) {
-    Object.assign(settings.profile, patch)
-    markDirty('profile')
-  }
-
   /** Check if any settings have been modified since last load/save */
   const isDirty = ref(false)
-  function updateIsDirty() {
-    isDirty.value = dirtySections.size > 0
-  }
   // Patch each mutation to also update isDirty
   const _updateCompany = (patch: Partial<AppSettings['company']>) => {
     Object.assign(settings.company, patch)
@@ -617,6 +539,33 @@ export function useSettings() {
     isDirty.value = false
   }
 
+  /**
+   * Reset all settings state to defaults and clear all caches.
+   * Use this after auth state changes (register/login/logout) to force
+   * fresh API calls on the next load().
+   */
+  function resetState() {
+    console.log('[useSettings] resetState() — clearing all cached data')
+    // Reset reactive settings to defaults
+    Object.assign(settings, JSON.parse(JSON.stringify(defaultSettings)))
+    // Clear all localStorage caches
+    const allCacheKeys = [CACHE_KEY, ...LEGACY_CACHE_KEYS]
+    for (const key of allCacheKeys) {
+      try {
+        localStorage.removeItem(key)
+      } catch {
+        /* ignore */
+      }
+    }
+    // Reset state flags
+    loading.value = false
+    saving.value = false
+    error.value = null
+    snapshot = null
+    dirtySections.clear()
+    isDirty.value = false
+  }
+
   return {
     settings,
     loading,
@@ -627,6 +576,7 @@ export function useSettings() {
     reload,
     save: _save,
     discard,
+    resetState,
     updateCompany: _updateCompany,
     updateConstants: _updateConstants,
     addCurrency: _addCurrency,

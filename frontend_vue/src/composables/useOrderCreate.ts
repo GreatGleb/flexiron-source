@@ -1,7 +1,14 @@
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useToast } from '@/composables/useToast'
-import { createOrder, patchOrder, addOrderItem, addOrderService, addOrderFile } from '@/services/ordersService'
+import { useSettings } from '@/composables/useSettings'
+import {
+  createOrder,
+  patchOrder,
+  addOrderItem,
+  addOrderService,
+  addOrderFile,
+} from '@/services/ordersService'
 import { getClients } from '@/services/clientsService'
 import type { Order, OrderDocumentType, OrderItem, OrderService, OrderFile } from '@/types/order'
 import type { Client } from '@/types/client'
@@ -10,15 +17,18 @@ import type { UploadedFile } from '@/services/uploadsService'
 export function useOrderCreate() {
   const { t } = useI18n()
   const toast = useToast()
+  const { settings } = useSettings()
 
   const form = ref<{
     clientId: string | null
     documentType: OrderDocumentType
     notes: string | null
+    currency: string
   }>({
     clientId: null,
     documentType: 'local',
     notes: null,
+    currency: settings.constants.defaultCurrency,
   })
 
   const errors = ref<{ clientId?: string }>({})
@@ -47,27 +57,32 @@ export function useOrderCreate() {
   })
 
   // ─── Pending changes to flush after order creation ────────────────────
-  const pendingItems = ref<Array<{
-    productId: string
-    productName: string
-    quantity: number
-    unit: string
-    unitPrice: number
-  }>>([])
+  const pendingItems = ref<
+    Array<{
+      productId: string
+      productName: string
+      quantity: number
+      unit: string
+      unitPrice: number
+    }>
+  >([])
 
-  const pendingServices = ref<Array<{
-    serviceId: string
-    serviceName: string
-    quantity: number
-    price: number
-  }>>([])
+  const pendingServices = ref<
+    Array<{
+      serviceId: string
+      serviceName: string
+      quantity: number
+      price: number
+    }>
+  >([])
 
   const pendingFileAdds = ref<string[]>([])
 
-  const hasPendingChanges = computed(() =>
-    pendingItems.value.length > 0 ||
-    pendingServices.value.length > 0 ||
-    pendingFileAdds.value.length > 0,
+  const hasPendingChanges = computed(
+    () =>
+      pendingItems.value.length > 0 ||
+      pendingServices.value.length > 0 ||
+      pendingFileAdds.value.length > 0,
   )
 
   // ─── Computed for template convenience ─────────────────────────────────
@@ -78,7 +93,13 @@ export function useOrderCreate() {
   async function loadClients() {
     loadingClients.value = true
     try {
-      const result = await getClients({ search: '', status: null, sortBy: 'name', sortDir: 'asc', pageSize: 1000 })
+      const result = await getClients({
+        search: '',
+        status: null,
+        sortBy: 'name',
+        sortDir: 'asc',
+        pageSize: 1000,
+      })
       clients.value = result.items
     } catch (e) {
       error.value = String(e)
@@ -106,21 +127,25 @@ export function useOrderCreate() {
   }
 
   // ─── Item handlers (local only) ────────────────────────────────────────
-  function addItem(data: Array<{
-    productId: string
-    productName: string
-    quantity: number
-    unit: string
-    unitPrice: number
-    unitCost?: number
-  }> | {
-    productId: string
-    productName: string
-    quantity: number
-    unit: string
-    unitPrice: number
-    unitCost?: number
-  }) {
+  function addItem(
+    data:
+      | Array<{
+          productId: string
+          productName: string
+          quantity: number
+          unit: string
+          unitPrice: number
+          unitCost?: number
+        }>
+      | {
+          productId: string
+          productName: string
+          quantity: number
+          unit: string
+          unitPrice: number
+          unitCost?: number
+        },
+  ) {
     const items = Array.isArray(data) ? data : [data]
     pendingItems.value = [...pendingItems.value, ...items]
 
@@ -138,6 +163,8 @@ export function useOrderCreate() {
       totalPrice: item.quantity * item.unitPrice,
       batchId: null,
       offcutId: null,
+      receivedCurrency: 'cur-eur',
+      exchangeRate: 1,
     }))
 
     localOrder.value = {
@@ -150,9 +177,7 @@ export function useOrderCreate() {
   function removeItem(lineId: string) {
     const removedItem = localOrder.value.items.find((i) => i.id === lineId)
     if (removedItem) {
-      pendingItems.value = pendingItems.value.filter(
-        (pi) => pi.productId !== removedItem.productId,
-      )
+      pendingItems.value = pendingItems.value.filter((pi) => pi.productId !== removedItem.productId)
     }
     localOrder.value = {
       ...localOrder.value,
@@ -162,19 +187,23 @@ export function useOrderCreate() {
   }
 
   // ─── Service handlers (local only) ─────────────────────────────────────
-  function addService(data: Array<{
-    serviceId: string
-    serviceName: string
-    quantity: number
-    price: number
-    cost?: number
-  }> | {
-    serviceId: string
-    serviceName: string
-    quantity: number
-    price: number
-    cost?: number
-  }) {
+  function addService(
+    data:
+      | Array<{
+          serviceId: string
+          serviceName: string
+          quantity: number
+          price: number
+          cost?: number
+        }>
+      | {
+          serviceId: string
+          serviceName: string
+          quantity: number
+          price: number
+          cost?: number
+        },
+  ) {
     const items = Array.isArray(data) ? data : [data]
     pendingServices.value = [...pendingServices.value, ...items]
 
@@ -185,7 +214,7 @@ export function useOrderCreate() {
       serviceName: item.serviceName,
       cost: item.cost ?? 0,
       price: item.price,
-      margin: (item.price) - (item.cost ?? 0),
+      margin: item.price - (item.cost ?? 0),
       quantity: item.quantity,
     }))
 
@@ -277,6 +306,7 @@ export function useOrderCreate() {
       const order = await createOrder({
         clientId: form.value.clientId!,
         documentType: form.value.documentType,
+        currency: form.value.currency,
       })
 
       // 2. Patch notes if provided
@@ -316,19 +346,33 @@ export function useOrderCreate() {
 
   return {
     // Form
-    form, errors, saving, error,
+    form,
+    errors,
+    saving,
+    error,
     // Validation
-    validate, clearError,
+    validate,
+    clearError,
     // Clients
-    clients, loadingClients, loadClients,
+    clients,
+    loadingClients,
+    loadClients,
     // Local order state
-    localOrder, totalAmount, totalWeight,
+    localOrder,
+    totalAmount,
+    totalWeight,
     // Pending changes
-    pendingItems, pendingServices, pendingFileAdds, hasPendingChanges,
+    pendingItems,
+    pendingServices,
+    pendingFileAdds,
+    hasPendingChanges,
     // Actions
-    addItem, removeItem,
-    addService, removeService,
-    onFilesUploaded, removeFile,
+    addItem,
+    removeItem,
+    addService,
+    removeService,
+    onFilesUploaded,
+    removeFile,
     handleSave,
   }
 }

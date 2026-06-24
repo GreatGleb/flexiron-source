@@ -1,6 +1,8 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
 from app.core.middleware.cors import setup_cors
@@ -27,6 +29,12 @@ from app.modules.auth.features.magic_link.action import (
 from app.modules.settings.features.profile.action import (
     router as settings_profile_router,
 )
+from app.modules.settings.features.crud.action import (
+    router as settings_crud_router,
+)
+from app.core.uploads.action import (
+    router as uploads_router,
+)
 
 
 @asynccontextmanager
@@ -49,14 +57,21 @@ app = FastAPI(
 # CORS
 setup_cors(app)
 
+# ── Static files: serve uploaded files ──
+UPLOAD_DIR = Path(__file__).resolve().parent.parent / "uploads"
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/static/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+
 # ── Include feature routers ──
 app.include_router(products_get_detail_router)
 app.include_router(products_create_router)
 app.include_router(auth_me_router)
 app.include_router(settings_profile_router)
+app.include_router(settings_crud_router)
 app.include_router(auth_login_router)
 app.include_router(auth_register_router)
 app.include_router(auth_magic_link_router)
+app.include_router(uploads_router)
 
 
 @app.get("/health")

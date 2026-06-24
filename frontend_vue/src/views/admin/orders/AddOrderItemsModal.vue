@@ -2,17 +2,21 @@
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getProducts } from '@/services/productsService'
+import { getStockOverview, getBatchCostBreakdown } from '@/services/warehouseService'
 import { useToast } from '@/composables/useToast'
+import { useSettings } from '@/composables/useSettings'
 import { useTranslatedField } from '@/composables/useTranslatedData'
 import type { ProductListItem } from '@/types/product'
+import type { StockOverviewItem } from '@/types/warehouse'
 import type { SelectOption } from '@/components/admin/ui/CustomSelect.vue'
 import AppModal from '@/components/admin/ui/AppModal.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
 import SearchInput from '@/components/admin/ui/SearchInput.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const toast = useToast()
+const { settings } = useSettings()
 const { tf } = useTranslatedField()
 
 const props = defineProps<{
@@ -22,7 +26,18 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   close: []
-  add: [items: Array<{ productId: string; productName: string; quantity: number; unit: string; unitPrice: number }>]
+  add: [
+    items: Array<{
+      productId: string
+      productName: string
+      quantity: number
+      unit: string
+      unitPrice: number
+      unitCost?: number
+      /** Quantity in warehouse UoM (converted from sale qty if UoMs differ) */
+      warehouseQty?: number
+    }>,
+  ]
 }>()
 
 // ─── Product data ─────────────────────────────────────────────────────────
@@ -30,17 +45,77 @@ const products = ref<ProductListItem[]>([])
 const productsLoading = ref(false)
 const saving = ref(false)
 
+// ─── Stock overview data (for showing availability in saleUoM) ────────────
+const stockMap = ref<Map<string, StockOverviewItem>>(new Map())
+const stockLoading = ref(false)
+
+/** Resolve locale-aware UoM code from settings by UoM id */
+function resolveUomCode(uomId: string | null): string {
+  if (!uomId) return '—'
+  const uom = settings.uoms.find((u: { id: string }) => u.id === uomId)
+  if (!uom) return uomId.slice(0, 8) + '…'
+  const currentLocale = locale.value as keyof typeof uom.code
+  return (
+    uom.code[currentLocale] || uom.code.en || uom.code.ru || uom.code.lt || uomId.slice(0, 8) + '…'
+  )
+}
+
+/**
+ * Calculate available stock for a product in sale UoM.
+ * If warehouseUoM !== saleUoM, applies warehouseToSaleFactor conversion.
+ */
+function getAvailableInSaleUoM(product: ProductListItem): { qty: number; label: string } | null {
+  const stock = stockMap.value.get(product.id)
+  if (!stock) return null
+  const warehouseQty = stock.availableQuantity ?? stock.totalQuantity
+  if (
+    product.warehouseUomId &&
+    product.saleUomId &&
+    product.warehouseUomId !== product.saleUomId &&
+    product.warehouseToSaleFactor
+  ) {
+    const saleQty = warehouseQty * product.warehouseToSaleFactor
+    const warehouseUomCode = resolveUomCode(product.warehouseUomId)
+    const saleUomCode = resolveUomCode(product.saleUomId)
+    return {
+      qty: saleQty,
+      label: `${saleQty.toFixed(2)} ${saleUomCode} (${warehouseQty.toFixed(2)} ${warehouseUomCode} × ${product.warehouseToSaleFactor})`,
+    }
+  }
+  // Same UoM — no conversion needed
+  const saleUomCode = resolveUomCode(product.saleUomId)
+  return {
+    qty: warehouseQty,
+    label: `${warehouseQty.toFixed(2)} ${saleUomCode}`,
+  }
+}
+
+/** Convert a sale qty back to warehouse qty for the given product */
+function saleQtyToWarehouseQty(product: ProductListItem, saleQty: number): number {
+  if (
+    product.warehouseUomId &&
+    product.saleUomId &&
+    product.warehouseUomId !== product.saleUomId &&
+    product.warehouseToSaleFactor
+  ) {
+    return saleQty / product.warehouseToSaleFactor
+  }
+  return saleQty
+}
+
 const productSearch = ref('')
 const productCategoryFilter = ref('all')
 
-/** Map PriceUnit ('EUR/vnt' | 'EUR/kg' | 'EUR/m') to StockUnit ('kg' | 'm' | 'pcs') */
-function mapPriceUnitToStockUnit(priceUnit: string | null): string | null {
-  switch (priceUnit) {
-    case 'EUR/kg': return 'kg'
-    case 'EUR/m':  return 'm'
-    case 'EUR/vnt': return 'pcs'
-    default:       return null
+/** Derive display unit from product's saleUomId (looked up from settings) */
+function getProductUnit(product: ProductListItem): string {
+  if (product.saleUomId) {
+    const uom = settings.uoms.find((u: { id: string }) => u.id === product.saleUomId)
+    if (uom) {
+      const currentLocale = locale.value as keyof typeof uom.code
+      return uom.code[currentLocale] || uom.code.en || uom.code.ru || uom.code.lt || 'pcs'
+    }
   }
+  return 'pcs'
 }
 
 // ─── Categories ───────────────────────────────────────────────────────────
@@ -83,9 +158,14 @@ interface SelectedOrderItem {
   quantity: number
   unit: string
   unitPrice: number
+  /** Quantity in warehouse UoM (computed from sale qty via factor) */
+  warehouseQty: number
 }
 
 const selectedItems = ref<SelectedOrderItem[]>([])
+
+/** FIFO batch cost breakdown per selected product (unitPrice + totalCost) */
+const selectedItemsCosts = ref<Map<string, { unitPrice: number; totalCost: number }>>(new Map())
 
 function toggleProduct(id: string) {
   const idx = selectedItems.value.findIndex((item) => item.productId === id)
@@ -93,17 +173,24 @@ function toggleProduct(id: string) {
     // Add new item with default quantity=1
     const product = products.value.find((p) => p.id === id)
     if (!product) return
-    const unit = mapPriceUnitToStockUnit(product.priceUnit) ?? 'kg'
+    const unit = getProductUnit(product)
+    const saleQty = 1
+    // Use FIFO cost as unitPrice if available, fallback to product price
+    const fifoCost = selectedItemsCosts.value.get(product.id)?.unitPrice
+    const unitPrice = fifoCost ?? (product.price ?? 0)
     selectedItems.value = [
       ...selectedItems.value,
       {
         productId: product.id,
         productName: tf(product.name),
-        quantity: 1,
+        quantity: saleQty,
         unit,
-        unitPrice: product.price ?? 0,
+        unitPrice,
+        warehouseQty: saleQtyToWarehouseQty(product, saleQty),
       },
     ]
+    // Trigger FIFO cost calculation and update unitPrice when ready
+    recalcFifoCost(product.id, saleQty)
   } else {
     selectedItems.value = selectedItems.value.filter((v) => v.productId !== id)
   }
@@ -113,16 +200,17 @@ function removeProduct(id: string) {
   selectedItems.value = selectedItems.value.filter((v) => v.productId !== id)
 }
 
-/** Map PriceUnit ('EUR/vnt' | 'EUR/kg' | 'EUR/m') to display unit and translate */
-function displayUnit(priceUnit: string | null): string {
-  if (!priceUnit) return '—'
-  const unitMap: Record<string, string> = {
-    'EUR/kg': 'kg',
-    'EUR/m': 'm',
-    'EUR/vnt': 'pcs',
+/** Resolve display unit for a product: use saleUomId + settings */
+function getProductDisplayUnit(product: ProductListItem): string {
+  if (product.saleUomId) {
+    const uom = settings.uoms.find((u: { id: string }) => u.id === product.saleUomId)
+    if (uom) {
+      const currentLocale = locale.value as keyof typeof uom.code
+      const code = uom.code[currentLocale] || uom.code.en || uom.code.ru || uom.code.lt
+      if (code) return code
+    }
   }
-  const stockUnit = unitMap[priceUnit] ?? priceUnit.replace('EUR/', '')
-  return t('orders.unit_' + stockUnit, stockUnit)
+  return '—'
 }
 
 // Helper to check if a product is selected (used in template)
@@ -199,19 +287,41 @@ function productPageNumbers(): (number | '...')[] {
   return [1, '...', p - 1, p, p + 1, '...', n]
 }
 
-// ─── Load products ────────────────────────────────────────────────────────
+// ─── Load products + stock overview ──────────────────────────────────────
 async function loadProducts() {
   productsLoading.value = true
+  stockLoading.value = true
   try {
-    const res = await getProducts(
-      { search: '', categoryIds: [], sortBy: 'name', sortDir: 'asc' },
-      { page: 1, pageSize: 1000 },
-    )
-    products.value = res.items
+    const [prodRes, stockRes] = await Promise.all([
+      getProducts(
+        { search: '', categoryIds: [], sortBy: 'name', sortDir: 'asc' },
+        { page: 1, pageSize: 1000 },
+      ),
+      getStockOverview(
+        {
+          search: '',
+          categoryIds: [],
+          unit: '',
+          showDeficitOnly: false,
+          showInStockOnly: false,
+          sortBy: 'name',
+          sortDir: 'asc',
+        },
+        { page: 1, pageSize: 1000 },
+      ),
+    ])
+    products.value = prodRes.items
+    // Build stock map keyed by productId
+    const map = new Map<string, import('@/types/warehouse').StockOverviewItem>()
+    for (const item of stockRes.items) {
+      map.set(item.productId, item)
+    }
+    stockMap.value = map
   } catch {
     toast.error(t('orders.toast_error_save'))
   } finally {
     productsLoading.value = false
+    stockLoading.value = false
   }
 }
 
@@ -228,18 +338,55 @@ watch(
   },
 )
 
+// ─── Recalc FIFO cost for a product when quantity changes ──────────────
+async function recalcFifoCost(productId: string, quantity: number) {
+  try {
+    const cost = await getBatchCostBreakdown(productId, quantity)
+    selectedItemsCosts.value.set(productId, cost)
+    // Update unitPrice on the selected item to use FIFO cost
+    const item = selectedItems.value.find((i) => i.productId === productId)
+    if (item && cost.unitPrice > 0) {
+      item.unitPrice = cost.unitPrice
+    }
+  } catch {
+    selectedItemsCosts.value.delete(productId)
+  }
+}
+
+// ─── Watch quantity changes → recalculate warehouseQty + FIFO cost ─────
+watch(
+  () => selectedItems.value.map((item) => ({ id: item.productId, qty: item.quantity })),
+  (newVals) => {
+    for (const { id, qty } of newVals) {
+      const item = selectedItems.value.find((i) => i.productId === id)
+      const product = products.value.find((p) => p.id === id)
+      if (item && product) {
+        item.warehouseQty = saleQtyToWarehouseQty(product, qty)
+        recalcFifoCost(id, qty)
+      }
+    }
+  },
+  { deep: true },
+)
+
 // ─── Save ─────────────────────────────────────────────────────────────────
 function onSave() {
   if (selectedItems.value.length === 0) return
   const items = selectedItems.value
     .filter((item) => item.quantity > 0)
-    .map((item) => ({
-      productId: item.productId,
-      productName: item.productName,
-      quantity: item.quantity,
-      unit: item.unit,
-      unitPrice: item.unitPrice,
-    }))
+    .map((item) => {
+      const fifoCost = selectedItemsCosts.value.get(item.productId)?.unitPrice
+      return {
+        productId: item.productId,
+        productName: item.productName,
+        quantity: item.quantity,
+        unit: item.unit,
+        // Use FIFO cost as unitPrice (matches the displayed value)
+        unitPrice: fifoCost ?? item.unitPrice,
+        unitCost: fifoCost ?? item.unitPrice,
+        warehouseQty: item.warehouseQty,
+      }
+    })
   if (items.length > 0) {
     emit('add', items)
     emit('close')
@@ -257,22 +404,20 @@ function onCancel() {
     :title="t('orders.add_item_modal_title')"
     size="large"
     data-test="add-order-items-modal"
-    @update:model-value="(v: boolean) => { if (!v) emit('close') }"
+    @update:model-value="
+      (v: boolean) => {
+        if (!v) emit('close')
+      }
+    "
   >
     <div class="modal-form" data-test="add-order-items-form">
       <div class="add-items-section">
         <div class="products-filters" data-test="add-items-filters">
           <div class="filter-search">
-            <SearchInput
-              v-model="productSearch"
-              :placeholder="t('orders.add_item_modal_search')"
-            />
+            <SearchInput v-model="productSearch" :placeholder="t('orders.add_item_modal_search')" />
           </div>
           <div class="filter-category">
-            <CustomSelect
-              v-model="productCategoryFilter"
-              :options="categoryFilterOptions"
-            />
+            <CustomSelect v-model="productCategoryFilter" :options="categoryFilterOptions" />
           </div>
         </div>
 
@@ -284,20 +429,21 @@ function onCancel() {
                 <th>{{ t('orders.col_product') }}</th>
                 <th>{{ t('orders.add_item_modal_col_category') }}</th>
                 <th>{{ t('orders.col_unit') }}</th>
+                <th class="col-avail-header">{{ t('orders.col_available') }}</th>
                 <th class="col-price-header">{{ t('orders.col_unit_price') }}</th>
               </tr>
             </thead>
             <tbody>
               <template v-if="filteredProducts.length === 0 && !productsLoading">
                 <tr>
-                  <td :colspan="5" class="empty-cell">
+                  <td :colspan="6" class="empty-cell">
                     {{ t('orders.add_item_modal_no_products') }}
                   </td>
                 </tr>
               </template>
               <template v-for="group in pagedProductGroups" :key="group.categoryName">
                 <tr class="product-group-header">
-                  <td :colspan="5" class="group-header-cell">
+                  <td :colspan="6" class="group-header-cell">
                     {{ group.categoryName }}
                   </td>
                 </tr>
@@ -322,14 +468,46 @@ function onCancel() {
                   </td>
                   <td class="col-product-name">{{ tf(p.name) }}</td>
                   <td class="col-category">{{ p.categoryName ? tf(p.categoryName) : '—' }}</td>
-                  <td class="col-unit-cell">{{ displayUnit(p.priceUnit) }}</td>
-                  <td class="col-price-cell">{{ p.price != null ? p.price.toFixed(2) + ' EUR' : '—' }}</td>
+                  <td class="col-unit-cell">{{ getProductDisplayUnit(p) }}</td>
+                  <td class="col-avail-cell">
+                    <template v-if="stockLoading">
+                      <span class="stock-loading">…</span>
+                    </template>
+                    <template v-else>
+                      <span
+                        v-if="getAvailableInSaleUoM(p)"
+                        v-tooltip="getAvailableInSaleUoM(p)!.label"
+                        class="stock-value"
+                        :class="{ 'stock-low': getAvailableInSaleUoM(p)!.qty < (p.minStock ?? 0) }"
+                      >
+                        {{ Number(getAvailableInSaleUoM(p)!.qty.toFixed(2)).toLocaleString() }}
+                      </span>
+                      <span v-else class="stock-na">—</span>
+                    </template>
+                  </td>
+                  <td class="col-price-cell">
+                    <template v-if="stockLoading">
+                      <span class="stock-loading">…</span>
+                    </template>
+                    <template v-else>
+                      <span
+                        v-if="stockMap.get(p.id)"
+                        v-tooltip="'Avg cost: ' + stockMap.get(p.id)!.avgUnitPrice.toFixed(2) + ' ' + settings.constants.defaultCurrency"
+                        class="stock-value"
+                      >
+                        {{ Number(stockMap.get(p.id)!.avgUnitPrice.toFixed(2)).toLocaleString() }}
+                      </span>
+                      <span v-else>
+                        {{ p.price != null ? p.price.toFixed(2) + ' ' + settings.constants.defaultCurrency : '—' }}
+                      </span>
+                    </template>
+                  </td>
                 </tr>
               </template>
             </tbody>
             <tfoot v-if="filteredProducts.length > 0">
               <tr>
-                <td :colspan="5" class="pagination-cell">
+                <td :colspan="6" class="pagination-cell">
                   <div class="pagination-bar">
                     <div class="page-size">
                       <span>{{ t('orders.page_size') }}</span>
@@ -396,12 +574,18 @@ function onCancel() {
                 <th class="col-qty-header">{{ t('orders.col_quantity') }}</th>
                 <th class="col-unit-header">{{ t('orders.col_unit') }}</th>
                 <th class="col-price-ro-header">{{ t('orders.col_unit_price') }}</th>
+                <th class="col-cost-header">{{ t('orders.col_avg_cost') }}</th>
                 <th class="col-total-header">{{ t('orders.col_total_price') }}</th>
                 <th class="col-action-header"></th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="item in selectedItems" :key="item.productId" class="selected-row" data-test="add-items-selected-row">
+              <tr
+                v-for="item in selectedItems"
+                :key="item.productId"
+                class="selected-row"
+                data-test="add-items-selected-row"
+              >
                 <td class="col-product-name">{{ item.productName }}</td>
                 <td class="col-qty-cell">
                   <input
@@ -417,10 +601,19 @@ function onCancel() {
                   <span class="unit-label">{{ t('orders.unit_' + item.unit, item.unit) }}</span>
                 </td>
                 <td class="col-price-ro-cell">
-                  <span class="price-display">{{ item.unitPrice.toFixed(2) }} EUR</span>
+                  <span class="price-display">{{ item.unitPrice.toFixed(2) }} {{ settings.constants.defaultCurrency }}</span>
+                </td>
+                <td class="col-cost-cell">
+                  <span class="cost-display"
+                    >{{ selectedItemsCosts.get(item.productId)?.unitPrice
+                      ? selectedItemsCosts.get(item.productId)!.unitPrice.toFixed(2) + ' ' + settings.constants.defaultCurrency
+                      : '—' }}</span
+                  >
                 </td>
                 <td class="col-total-cell">
-                  <span class="item-total">{{ (item.quantity * item.unitPrice).toFixed(2) }} EUR</span>
+                  <span class="item-total"
+                    >{{ (item.quantity * item.unitPrice).toFixed(2) }} {{ settings.constants.defaultCurrency }}</span
+                  >
                 </td>
                 <td class="col-action-cell">
                   <button
@@ -560,6 +753,28 @@ function onCancel() {
   text-align: center;
 }
 
+/* Available stock column */
+.col-avail-header,
+.col-avail-cell {
+  width: 100px;
+  text-align: right;
+  white-space: nowrap;
+}
+.stock-loading {
+  opacity: 0.4;
+}
+.stock-na {
+  opacity: 0.4;
+}
+.stock-value {
+  cursor: help;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.2);
+  padding-bottom: 1px;
+}
+.stock-low {
+  color: #ff6b6b;
+}
+
 /* Product row hover / selected */
 .products-table .product-row {
   cursor: pointer;
@@ -688,6 +903,11 @@ function onCancel() {
   width: 130px;
   text-align: right;
 }
+.col-cost-header,
+.col-cost-cell {
+  width: 110px;
+  text-align: right;
+}
 .col-total-header,
 .col-total-cell {
   width: 130px;
@@ -717,6 +937,17 @@ function onCancel() {
 
 /* Price display (read-only) */
 .price-display {
+  display: inline-block;
+  padding: 4px 8px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  white-space: nowrap;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 4px;
+}
+
+/* Cost display (FIFO avg unit cost) */
+.cost-display {
   display: inline-block;
   padding: 4px 8px;
   font-size: 13px;

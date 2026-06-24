@@ -17,10 +17,12 @@ load()
   <template v-if="loading">
     <div class="kpi-row">
       <div v-for="i in 4" :key="i" class="kpi-card">
-        <div class="kpi-icon"><div class="skeleton" style="width:24px;height:24px;border-radius:50%;margin:0" /></div>
-        <div class="kpi-label"><div class="skeleton" style="width:70%;height:14px" /></div>
-        <div class="kpi-value"><div class="skeleton" style="width:60%;height:22px" /></div>
-        <div class="kpi-delta"><div class="skeleton" style="width:40%;height:12px" /></div>
+        <div class="kpi-icon">
+          <div class="skeleton" style="width: 24px; height: 24px; border-radius: 50%; margin: 0" />
+        </div>
+        <div class="kpi-label"><div class="skeleton" style="width: 70%; height: 14px" /></div>
+        <div class="kpi-value"><div class="skeleton" style="width: 60%; height: 22px" /></div>
+        <div class="kpi-delta"><div class="skeleton" style="width: 40%; height: 12px" /></div>
       </div>
     </div>
     <div class="charts-row">
@@ -31,14 +33,18 @@ load()
   <div v-else-if="error" class="error-state">{{ error }}</div>
   <template v-else-if="data">
     <div class="kpi-row" data-test="warehouse-kpi-row">
-      <div
-        v-for="kpi in data.kpis"
-        :key="kpi.key"
-        class="kpi-card"
-        data-test="warehouse-kpi-card"
-      >
+      <div v-for="kpi in data.kpis" :key="kpi.key" class="kpi-card" data-test="warehouse-kpi-card">
         <div :class="['kpi-icon', 'icon-' + kpi.iconColor]">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
           </svg>
         </div>
@@ -64,7 +70,11 @@ load()
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(item, idx) in data.deadstock" :key="idx" data-test="warehouse-deadstock-row">
+            <tr
+              v-for="(item, idx) in data.deadstock"
+              :key="idx"
+              data-test="warehouse-deadstock-row"
+            >
               <td>{{ tf(item.name) }}</td>
               <td class="hid-320">{{ item.zone }}</td>
               <td>{{ item.sum.toLocaleString() }}</td>
@@ -91,7 +101,17 @@ load()
           <div class="bar-track">
             <div
               class="bar-fill"
-              :style="{ width: item.percentage + '%', background: item.color === 'green' ? 'linear-gradient(90deg, #52c41a, #73d13d)' : item.color === 'blue' ? 'linear-gradient(90deg, #1890ff, #40a9ff)' : item.color === 'yellow' ? 'linear-gradient(90deg, #faad14, #ffc53d)' : 'linear-gradient(90deg, #ff4d4f, #ff7875)' }"
+              :style="{
+                width: item.percentage + '%',
+                background:
+                  item.color === 'green'
+                    ? 'linear-gradient(90deg, #52c41a, #73d13d)'
+                    : item.color === 'blue'
+                      ? 'linear-gradient(90deg, #1890ff, #40a9ff)'
+                      : item.color === 'yellow'
+                        ? 'linear-gradient(90deg, #faad14, #ffc53d)'
+                        : 'linear-gradient(90deg, #ff4d4f, #ff7875)',
+              }"
             ></div>
           </div>
           <span class="bar-val">{{ tf(item.value) }}</span>

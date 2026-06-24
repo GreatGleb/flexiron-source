@@ -9,7 +9,13 @@ import type { TranslatedString } from '@/types/i18n'
 import { mergeTranslatedString } from '@/types/i18n'
 
 export const MOCK_FIELD_LIBRARY: FieldDefinition[] = [
-  { id: 'f-company', name: { ru: 'Название компании', en: 'Company Name', lt: 'Įmonės pavadinimas' }, type: 'text', required: true, usageCount: 12 },
+  {
+    id: 'f-company',
+    name: { ru: 'Название компании', en: 'Company Name', lt: 'Įmonės pavadinimas' },
+    type: 'text',
+    required: true,
+    usageCount: 12,
+  },
   {
     id: 'f-status',
     name: { ru: 'Статус', en: 'Status', lt: 'Būsena' },
@@ -25,10 +31,34 @@ export const MOCK_FIELD_LIBRARY: FieldDefinition[] = [
       { ru: 'Заблокирован', en: 'Blocked', lt: 'Užblokuotas' },
     ],
   },
-  { id: 'f-rating', name: { ru: 'Рейтинг', en: 'Rating', lt: 'Įvertinimas' }, type: 'number', required: false, usageCount: 12 },
-  { id: 'f-categories', name: { ru: 'Категории', en: 'Categories', lt: 'Kategorijos' }, type: 'tags', required: false, usageCount: 10 },
-  { id: 'f-email', name: { ru: 'Email', en: 'Email', lt: 'El. paštas' }, type: 'text', required: true, usageCount: 12 },
-  { id: 'f-phone', name: { ru: 'Телефон', en: 'Phone', lt: 'Telefonas' }, type: 'text', required: false, usageCount: 11 },
+  {
+    id: 'f-rating',
+    name: { ru: 'Рейтинг', en: 'Rating', lt: 'Įvertinimas' },
+    type: 'number',
+    required: false,
+    usageCount: 12,
+  },
+  {
+    id: 'f-categories',
+    name: { ru: 'Категории', en: 'Categories', lt: 'Kategorijos' },
+    type: 'tags',
+    required: false,
+    usageCount: 10,
+  },
+  {
+    id: 'f-email',
+    name: { ru: 'Email', en: 'Email', lt: 'El. paštas' },
+    type: 'text',
+    required: true,
+    usageCount: 12,
+  },
+  {
+    id: 'f-phone',
+    name: { ru: 'Телефон', en: 'Phone', lt: 'Telefonas' },
+    type: 'text',
+    required: false,
+    usageCount: 11,
+  },
   {
     id: 'f-country',
     name: { ru: 'Страна', en: 'Country', lt: 'Šalis' },
@@ -44,11 +74,41 @@ export const MOCK_FIELD_LIBRARY: FieldDefinition[] = [
       { ru: 'Великобритания', en: 'UK', lt: 'Jungtinė Karalystė' },
     ],
   },
-  { id: 'f-city', name: { ru: 'Город', en: 'City', lt: 'Miestas' }, type: 'text', required: false, usageCount: 9 },
-  { id: 'f-lead-time', name: { ru: 'Срок поставки (дни)', en: 'Lead Time (days)', lt: 'Pristatymo laikas (dienos)' }, type: 'number', required: false, usageCount: 8 },
-  { id: 'f-last-bcc', name: { ru: 'Дата последнего BCC', en: 'Last BCC Date', lt: 'Paskutinė BCC data' }, type: 'date', required: false, usageCount: 6 },
-  { id: 'f-notes', name: { ru: 'Заметки', en: 'Notes', lt: 'Pastabos' }, type: 'text', required: false, usageCount: 7 },
-  { id: 'f-certified', name: { ru: 'Сертифицирован', en: 'Certified', lt: 'Sertifikuotas' }, type: 'boolean', required: false, usageCount: 4 },
+  {
+    id: 'f-city',
+    name: { ru: 'Город', en: 'City', lt: 'Miestas' },
+    type: 'text',
+    required: false,
+    usageCount: 9,
+  },
+  {
+    id: 'f-lead-time',
+    name: { ru: 'Срок поставки (дни)', en: 'Lead Time (days)', lt: 'Pristatymo laikas (dienos)' },
+    type: 'number',
+    required: false,
+    usageCount: 8,
+  },
+  {
+    id: 'f-last-bcc',
+    name: { ru: 'Дата последнего BCC', en: 'Last BCC Date', lt: 'Paskutinė BCC data' },
+    type: 'date',
+    required: false,
+    usageCount: 6,
+  },
+  {
+    id: 'f-notes',
+    name: { ru: 'Заметки', en: 'Notes', lt: 'Pastabos' },
+    type: 'text',
+    required: false,
+    usageCount: 7,
+  },
+  {
+    id: 'f-certified',
+    name: { ru: 'Сертифицирован', en: 'Certified', lt: 'Sertifikuotas' },
+    type: 'boolean',
+    required: false,
+    usageCount: 4,
+  },
 ]
 
 export const MOCK_SECTIONS: SectionConfig[] = [

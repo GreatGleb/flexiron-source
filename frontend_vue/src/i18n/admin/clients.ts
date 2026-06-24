@@ -17,7 +17,8 @@ export const adminClients = {
       btn_ok: 'OK',
       btn_delete: 'Удалить',
       confirm_delete: 'Вы уверены, что хотите удалить клиента «{name}»?',
-      delete_warning_orders: 'У этого клиента есть активные заказы. Сначала завершите или отмените их.',
+      delete_warning_orders:
+        'У этого клиента есть активные заказы. Сначала завершите или отмените их.',
       btn_edit: 'Редактировать',
       col_name: 'Компания',
       col_company_code: 'Код компании',
@@ -221,7 +222,8 @@ export const adminClients = {
       btn_ok: 'Gerai',
       btn_delete: 'Ištrinti',
       confirm_delete: 'Ar tikrai norite ištrinti klientą «{name}»?',
-      delete_warning_orders: 'Šis klientas turi aktyvių užsakymų. Pirmiausia juos užbaikite arba atšaukite.',
+      delete_warning_orders:
+        'Šis klientas turi aktyvių užsakymų. Pirmiausia juos užbaikite arba atšaukite.',
       btn_edit: 'Redaguoti',
       col_name: 'Įmonė',
       col_company_code: 'Įmonės kodas',

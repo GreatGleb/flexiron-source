@@ -5,7 +5,12 @@ import { getProducts } from '@/services/productsService'
 import { getBatches, createOffcut } from '@/services/warehouseService'
 import { useToast } from './useToast'
 import { useTranslatedField } from './useTranslatedData'
-import type { OffcutCreatePayload, WarehouseOffcut, StockUnit, BatchListItem } from '@/types/warehouse'
+import type {
+  OffcutCreatePayload,
+  WarehouseOffcut,
+  StockUnit,
+  BatchListItem,
+} from '@/types/warehouse'
 import type { ProductListItem } from '@/types/product'
 
 // ─── Location compose helper (same pattern as useWarehouseBatch / useWarehouseOffcutCard) ──
@@ -28,12 +33,14 @@ export function useWarehouseOffcutCreate() {
   const router = useRouter()
 
   // ─── Form state ───────────────────────────────────────────────────────────
-  const form = reactive<OffcutCreatePayload & {
-    locationRack: string
-    locationRow: string
-    locationCell: string
-    locationNotes: string
-  }>({
+  const form = reactive<
+    OffcutCreatePayload & {
+      locationRack: string
+      locationRow: string
+      locationCell: string
+      locationNotes: string
+    }
+  >({
     batchId: '',
     productId: '',
     categoryId: null,
@@ -129,16 +136,20 @@ export function useWarehouseOffcutCreate() {
   })
 
   // ─── After products load, apply product pre-selection ─────────────────────
-  watch(products, (prods) => {
-    if (preselectedProductId.value && preselectedBatchId.value && prods.length > 0) {
-      selectedProductId.value = preselectedProductId.value
-    }
-  }, { once: true })
+  watch(
+    products,
+    (prods) => {
+      if (preselectedProductId.value && preselectedBatchId.value && prods.length > 0) {
+        selectedProductId.value = preselectedProductId.value
+      }
+    },
+    { once: true },
+  )
 
   // ─── After batches load, apply batch pre-selection ────────────────────────
   watch(batches, (batchList) => {
     if (preselectedBatchId.value && batchList.length > 0) {
-      const exists = batchList.find(b => b.id === preselectedBatchId.value)
+      const exists = batchList.find((b) => b.id === preselectedBatchId.value)
       if (exists) {
         selectedBatchId.value = preselectedBatchId.value
       }
@@ -176,10 +187,7 @@ export function useWarehouseOffcutCreate() {
     batches.value = []
     batchSearch.value = ''
     try {
-      const res = await getBatches(
-        { search: '', productId },
-        { page: 1, pageSize: 100 },
-      )
+      const res = await getBatches({ search: '', productId }, { page: 1, pageSize: 100 })
       batches.value = res.items
       // Auto-set unit from the first batch (all batches for a product share the same unit)
       const firstBatch = res.items[0]
@@ -194,7 +202,9 @@ export function useWarehouseOffcutCreate() {
   }
 
   // ─── Determine offcut type from category name ────────────────────────────
-  function getOffcutTypeForProduct(product: ProductListItem | null): 'sheet' | 'linear' | undefined {
+  function getOffcutTypeForProduct(
+    product: ProductListItem | null,
+  ): 'sheet' | 'linear' | undefined {
     if (!product?.categoryName) return undefined
     const name = tf(product.categoryName).toLowerCase()
     // Sheet-related keywords in supported languages

@@ -1,11 +1,22 @@
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { getStockItem, patchStockItem, getBatches, getBatchAggregates, deleteStockAuditEntry } from '@/services/warehouseService'
+import {
+  getStockItem,
+  patchStockItem,
+  getBatches,
+  getBatchAggregates,
+  deleteStockAuditEntry,
+} from '@/services/warehouseService'
 import { useDirtyCheck } from './useDirtyCheck'
 import { useToast } from './useToast'
 import { useTranslatedField } from './useTranslatedData'
 import { mergeLocaleValue } from '@/types/i18n'
-import type { StockOverviewItem, StockUnit, StockAuditEntry, BatchStatusAggregate } from '@/types/warehouse'
+import type {
+  StockOverviewItem,
+  StockUnit,
+  StockAuditEntry,
+  BatchStatusAggregate,
+} from '@/types/warehouse'
 import type { TranslatedString } from '@/types/i18n'
 
 export function useWarehouseStockCard(productId: string) {

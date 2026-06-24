@@ -39,16 +39,18 @@ const STATUS_PILL: Record<string, string> = {
 const isDirty = computed(() => {
   const notesChanged = notesDraft.value !== (payment.value?.notes ?? '')
   // File changes are tracked by comparing current fileIds vs original
-  const originalFileIds = payment.value?.documents.map((d) => d.fileId).sort().join(',') ?? ''
+  const originalFileIds =
+    payment.value?.documents
+      .map((d) => d.fileId)
+      .sort()
+      .join(',') ?? ''
   const currentFileIds = [...documentFileIds.value].sort().join(',')
   const filesChanged = originalFileIds !== currentFileIds
   return notesChanged || filesChanged
 })
 
 /** Reactive snapshot of current document fileIds for dirty tracking */
-const documentFileIds = computed(() =>
-  payment.value?.documents.map((d) => d.fileId) ?? [],
-)
+const documentFileIds = computed(() => payment.value?.documents.map((d) => d.fileId) ?? [])
 
 function load() {
   loading.value = true
@@ -58,8 +60,12 @@ function load() {
       payment.value = res
       notesDraft.value = res.notes ?? ''
     })
-    .catch(() => { error.value = true })
-    .finally(() => { loading.value = false })
+    .catch(() => {
+      error.value = true
+    })
+    .finally(() => {
+      loading.value = false
+    })
 }
 
 async function saveChanges() {
@@ -142,8 +148,8 @@ onMounted(() => load())
         class="btn btn-save"
         :class="{ dirty: isDirty, loading: saving }"
         :disabled="!isDirty || saving"
-        @click="saveChanges"
         data-test="payment-card-save-btn"
+        @click="saveChanges"
       >
         <SvgIcon v-if="!saving" name="save-floppy" :width="16" :height="16" />
         {{ saving ? t('financePayment.saving') || 'Сохранение...' : t('financePayment.btn_save') }}
@@ -168,8 +174,15 @@ onMounted(() => load())
             </div>
             <div class="input-group">
               <label class="field-label">{{ t('financePayment.status') }}</label>
-              <div class="glass-input" style="display: flex; align-items: center; gap: 8px; padding: 6px 12px;">
-                <span class="status-pill" :class="STATUS_PILL[payment.status]" data-test="payment-field-status">
+              <div
+                class="glass-input"
+                style="display: flex; align-items: center; gap: 8px; padding: 6px 12px"
+              >
+                <span
+                  class="status-pill"
+                  :class="STATUS_PILL[payment.status]"
+                  data-test="payment-field-status"
+                >
                   {{ t(`financeList.status_${payment.status}`) }}
                 </span>
               </div>
@@ -265,9 +278,12 @@ onMounted(() => load())
     </div>
 
     <!-- ─── Documents Section (full width) ─── -->
-    <GlassPanel :title="t('financePayment.section_documents')" data-test="payment-documents-section">
+    <GlassPanel
+      :title="t('financePayment.section_documents')"
+      data-test="payment-documents-section"
+    >
       <template v-if="payment">
-        <div v-if="payment.documents.length === 0" class="text-muted" style="padding: 12px 0;">
+        <div v-if="payment.documents.length === 0" class="text-muted" style="padding: 12px 0">
           <p>{{ t('financePayment.no_documents') }}</p>
         </div>
         <div v-else class="file-list" data-test="payment-document-list">
@@ -282,7 +298,10 @@ onMounted(() => load())
         </div>
         <DropZone
           data-test="payment-document-dropzone"
-          :hint="t('financePayment.document_upload_hint') || 'Перетащите файлы сюда или нажмите для выбора'"
+          :hint="
+            t('financePayment.document_upload_hint') ||
+            'Перетащите файлы сюда или нажмите для выбора'
+          "
           :multiple="true"
           @uploaded="onFilesUploaded"
         />

@@ -3,16 +3,21 @@
 Provides GET/PATCH/POST/DELETE for all settings sub-resources:
   - Company, Constants (singleton per tenant)
   - Currencies, UOMs, Conversions, Order Statuses (collections per tenant)
+
+Requires Bearer session token (same as /api/settings/profile).
 """
 
 import uuid
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Header, status
+from itsdangerous import URLSafeTimedSerializer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings as app_settings
 from app.core.database import get_db
 from app.core.schemas import ApiResponse
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import NotFoundError, ValidationError, ConflictError, ForbiddenError
 from app.modules.settings.features.crud.schemas import (
     CompanyPatchInput,
     ConstantsPatchInput,
@@ -82,13 +87,50 @@ from app.modules.settings.features.crud.domain import (
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
-# ─── Demo user ID placeholder ─────────────────────────────────────────────
-DEMO_USER_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
+# ─── Session token serializer ────────────────────────────────────────────
+_serializer = URLSafeTimedSerializer(
+    secret_key=app_settings.secret_key,
+    salt="session",
+)
 
 
-async def _get_tenant(db: AsyncSession) -> uuid.UUID:
-    """Resolve tenant ID for the demo user (or raise 404)."""
-    tenant_id = await get_tenant_id_for_user(db, DEMO_USER_ID)
+async def _resolve_user_id(
+    authorization: Optional[str] = Header(None),
+) -> uuid.UUID:
+    """Extract user_id from the Bearer session token.
+
+    Reads the Authorization header, validates the token, and returns
+    the embedded user_id.  Raises 401 if the token is missing or invalid.
+    """
+    if not authorization:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"message": "Missing Authorization header", "code": "UNAUTHORIZED"},
+        )
+
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"message": "Invalid Authorization header", "code": "UNAUTHORIZED"},
+        )
+
+    try:
+        data = _serializer.loads(token)
+        user_id_str = data.get("user_id")
+        if not user_id_str:
+            raise ValueError("Missing user_id in token")
+        return uuid.UUID(user_id_str)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"message": "Invalid or expired session token", "code": "UNAUTHORIZED"},
+        )
+
+
+async def _get_tenant(db: AsyncSession, user_id: uuid.UUID) -> uuid.UUID:
+    """Resolve tenant ID for the authenticated user (or raise 404)."""
+    tenant_id = await get_tenant_id_for_user(db, user_id)
     if tenant_id is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -102,9 +144,12 @@ async def _get_tenant(db: AsyncSession) -> uuid.UUID:
 # ═══════════════════════════════════════════════════════════════════════════
 
 @router.get("/company", response_model=ApiResponse)
-async def get_company_route(db: AsyncSession = Depends(get_db)):
+async def get_company_route(
+    db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(_resolve_user_id),
+):
     """Get company info for the current tenant."""
-    tenant_id = await _get_tenant(db)
+    tenant_id = await _get_tenant(db, user_id)
     result = await get_company_info(db, tenant_id)
     return ApiResponse(
         success=True,
@@ -116,9 +161,10 @@ async def get_company_route(db: AsyncSession = Depends(get_db)):
 async def patch_company_route(
     input_data: CompanyPatchInput,
     db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(_resolve_user_id),
 ):
     """Update company info (merge-patch)."""
-    tenant_id = await _get_tenant(db)
+    tenant_id = await _get_tenant(db, user_id)
     result = await patch_company_info(db, tenant_id, input_data)
     return ApiResponse(
         success=True,
@@ -131,9 +177,12 @@ async def patch_company_route(
 # ═══════════════════════════════════════════════════════════════════════════
 
 @router.get("/constants", response_model=ApiResponse)
-async def get_constants_route(db: AsyncSession = Depends(get_db)):
+async def get_constants_route(
+    db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(_resolve_user_id),
+):
     """Get global financial constants."""
-    tenant_id = await _get_tenant(db)
+    tenant_id = await _get_tenant(db, user_id)
     result = await get_global_constants(db, tenant_id)
     return ApiResponse(
         success=True,
@@ -145,9 +194,10 @@ async def get_constants_route(db: AsyncSession = Depends(get_db)):
 async def patch_constants_route(
     input_data: ConstantsPatchInput,
     db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(_resolve_user_id),
 ):
     """Update global constants (merge-patch)."""
-    tenant_id = await _get_tenant(db)
+    tenant_id = await _get_tenant(db, user_id)
     result = await patch_global_constants(db, tenant_id, input_data)
     return ApiResponse(
         success=True,
@@ -160,9 +210,12 @@ async def patch_constants_route(
 # ═══════════════════════════════════════════════════════════════════════════
 
 @router.get("/currencies", response_model=ApiResponse)
-async def get_currencies_route(db: AsyncSession = Depends(get_db)):
+async def get_currencies_route(
+    db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(_resolve_user_id),
+):
     """List all currencies for the tenant."""
-    tenant_id = await _get_tenant(db)
+    tenant_id = await _get_tenant(db, user_id)
     result = await list_currencies(db, tenant_id)
     return ApiResponse(
         success=True,
@@ -174,14 +227,26 @@ async def get_currencies_route(db: AsyncSession = Depends(get_db)):
 async def create_currency_route(
     input_data: CurrencyCreateInput,
     db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(_resolve_user_id),
 ):
     """Create a new currency."""
-    tenant_id = await _get_tenant(db)
-    result = await create_currency_item(db, tenant_id, input_data)
-    return ApiResponse(
-        success=True,
-        data=result.model_dump(mode="json", by_alias=True),
-    )
+    tenant_id = await _get_tenant(db, user_id)
+    try:
+        result = await create_currency_item(db, tenant_id, input_data)
+        return ApiResponse(
+            success=True,
+            data=result.model_dump(mode="json", by_alias=True),
+        )
+    except ValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"message": e.message, "code": e.code},
+        )
+    except ConflictError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"message": e.message, "code": e.code},
+        )
 
 
 @router.patch("/currencies/{currency_id}", response_model=ApiResponse)
@@ -204,8 +269,19 @@ async def delete_currency_route(
     db: AsyncSession = Depends(get_db),
 ):
     """Delete a currency."""
-    await remove_currency_item(db, currency_id)
-    return ApiResponse(success=True, message="Currency deleted")
+    try:
+        await remove_currency_item(db, currency_id)
+        return ApiResponse(success=True, message="Currency deleted")
+    except NotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"message": e.message, "code": e.code},
+        )
+    except ConflictError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"message": e.message, "code": e.code},
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -213,9 +289,12 @@ async def delete_currency_route(
 # ═══════════════════════════════════════════════════════════════════════════
 
 @router.get("/uoms", response_model=ApiResponse)
-async def get_uoms_route(db: AsyncSession = Depends(get_db)):
+async def get_uoms_route(
+    db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(_resolve_user_id),
+):
     """List all units of measure."""
-    tenant_id = await _get_tenant(db)
+    tenant_id = await _get_tenant(db, user_id)
     result = await list_uoms(db, tenant_id)
     return ApiResponse(
         success=True,
@@ -227,9 +306,10 @@ async def get_uoms_route(db: AsyncSession = Depends(get_db)):
 async def create_uom_route(
     input_data: UomCreateInput,
     db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(_resolve_user_id),
 ):
     """Create a new unit of measure."""
-    tenant_id = await _get_tenant(db)
+    tenant_id = await _get_tenant(db, user_id)
     result = await create_uom_item(db, tenant_id, input_data)
     return ApiResponse(
         success=True,
@@ -257,8 +337,19 @@ async def delete_uom_route(
     db: AsyncSession = Depends(get_db),
 ):
     """Delete a unit of measure."""
-    await remove_uom_item(db, uom_id)
-    return ApiResponse(success=True, message="UOM deleted")
+    try:
+        await remove_uom_item(db, uom_id)
+        return ApiResponse(success=True, message="UOM deleted")
+    except NotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"message": e.message, "code": e.code},
+        )
+    except ConflictError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"message": e.message, "code": e.code},
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -266,9 +357,12 @@ async def delete_uom_route(
 # ═══════════════════════════════════════════════════════════════════════════
 
 @router.get("/conversions", response_model=ApiResponse)
-async def get_conversions_route(db: AsyncSession = Depends(get_db)):
+async def get_conversions_route(
+    db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(_resolve_user_id),
+):
     """List all conversion rules."""
-    tenant_id = await _get_tenant(db)
+    tenant_id = await _get_tenant(db, user_id)
     result = await list_conversions(db, tenant_id)
     return ApiResponse(
         success=True,
@@ -280,14 +374,26 @@ async def get_conversions_route(db: AsyncSession = Depends(get_db)):
 async def create_conversion_route(
     input_data: ConversionCreateInput,
     db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(_resolve_user_id),
 ):
     """Create a new conversion rule."""
-    tenant_id = await _get_tenant(db)
-    result = await create_conversion_item(db, tenant_id, input_data)
-    return ApiResponse(
-        success=True,
-        data=result.model_dump(mode="json", by_alias=True),
-    )
+    tenant_id = await _get_tenant(db, user_id)
+    try:
+        result = await create_conversion_item(db, tenant_id, input_data)
+        return ApiResponse(
+            success=True,
+            data=result.model_dump(mode="json", by_alias=True),
+        )
+    except ValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"message": e.message, "code": e.code},
+        )
+    except ConflictError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"message": e.message, "code": e.code},
+        )
 
 
 @router.patch("/conversions/{conv_id}", response_model=ApiResponse)
@@ -319,9 +425,12 @@ async def delete_conversion_route(
 # ═══════════════════════════════════════════════════════════════════════════
 
 @router.get("/order-statuses", response_model=ApiResponse)
-async def get_order_statuses_route(db: AsyncSession = Depends(get_db)):
+async def get_order_statuses_route(
+    db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(_resolve_user_id),
+):
     """List all order statuses (sorted by sort_order)."""
-    tenant_id = await _get_tenant(db)
+    tenant_id = await _get_tenant(db, user_id)
     result = await list_order_statuses(db, tenant_id)
     return ApiResponse(
         success=True,
@@ -333,9 +442,10 @@ async def get_order_statuses_route(db: AsyncSession = Depends(get_db)):
 async def create_order_status_route(
     input_data: OrderStatusCreateInput,
     db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(_resolve_user_id),
 ):
     """Create a new order status."""
-    tenant_id = await _get_tenant(db)
+    tenant_id = await _get_tenant(db, user_id)
     result = await create_order_status_item(db, tenant_id, input_data)
     return ApiResponse(
         success=True,
@@ -347,9 +457,10 @@ async def create_order_status_route(
 async def reorder_order_statuses_route(
     input_data: OrderStatusReorderInput,
     db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(_resolve_user_id),
 ):
     """Reorder order statuses."""
-    tenant_id = await _get_tenant(db)
+    tenant_id = await _get_tenant(db, user_id)
     await reorder_statuses(db, tenant_id, input_data.ordered_ids)
     return ApiResponse(success=True, message="Statuses reordered")
 
@@ -374,5 +485,16 @@ async def delete_order_status_route(
     db: AsyncSession = Depends(get_db),
 ):
     """Delete an order status."""
-    await remove_order_status_item(db, status_id)
-    return ApiResponse(success=True, message="Order status deleted")
+    try:
+        await remove_order_status_item(db, status_id)
+        return ApiResponse(success=True, message="Order status deleted")
+    except NotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"message": e.message, "code": e.code},
+        )
+    except ForbiddenError as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"message": e.message, "code": e.code},
+        )

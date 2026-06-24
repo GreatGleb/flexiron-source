@@ -33,19 +33,19 @@ export async function patchSupplier(
   return apiPatch<SupplierCardData>(`/api/suppliers/${id}`, {
     ...patch,
     company: patch.company
-      ? (typeof patch.company === 'string'
-          ? toTranslatedString(patch.company, locale)
-          : patch.company)
+      ? typeof patch.company === 'string'
+        ? toTranslatedString(patch.company, locale)
+        : patch.company
       : undefined,
     contactPerson: patch.contactPerson
-      ? (typeof patch.contactPerson === 'string'
-          ? toTranslatedString(patch.contactPerson, locale)
-          : patch.contactPerson)
+      ? typeof patch.contactPerson === 'string'
+        ? toTranslatedString(patch.contactPerson, locale)
+        : patch.contactPerson
       : undefined,
     statusReason: patch.statusReason
-      ? (typeof patch.statusReason === 'string'
-          ? toTranslatedString(patch.statusReason, locale)
-          : patch.statusReason)
+      ? typeof patch.statusReason === 'string'
+        ? toTranslatedString(patch.statusReason, locale)
+        : patch.statusReason
       : undefined,
   })
 }
@@ -62,19 +62,19 @@ export async function createSupplier(
   return apiPost<SupplierCardData>('/api/suppliers', {
     ...payload,
     company: payload.company
-      ? (typeof payload.company === 'string'
-          ? toTranslatedString(payload.company, locale)
-          : payload.company)
+      ? typeof payload.company === 'string'
+        ? toTranslatedString(payload.company, locale)
+        : payload.company
       : toTranslatedString('', locale),
     contactPerson: payload.contactPerson
-      ? (typeof payload.contactPerson === 'string'
-          ? toTranslatedString(payload.contactPerson, locale)
-          : payload.contactPerson)
+      ? typeof payload.contactPerson === 'string'
+        ? toTranslatedString(payload.contactPerson, locale)
+        : payload.contactPerson
       : toTranslatedString('', locale),
     statusReason: payload.statusReason
-      ? (typeof payload.statusReason === 'string'
-          ? toTranslatedString(payload.statusReason, locale)
-          : payload.statusReason)
+      ? typeof payload.statusReason === 'string'
+        ? toTranslatedString(payload.statusReason, locale)
+        : payload.statusReason
       : undefined,
   })
 }

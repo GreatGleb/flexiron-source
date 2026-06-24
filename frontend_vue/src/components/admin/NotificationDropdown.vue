@@ -10,12 +10,7 @@ import type { Notification, NotificationType } from '@/types/notifications'
 const { t, locale } = useI18n()
 const router = useRouter()
 
-const {
-  unreadCount,
-  markAsRead,
-  markAllAsRead,
-  loadUnreadCount,
-} = useNotifications()
+const { unreadCount, markAsRead, markAllAsRead, loadUnreadCount } = useNotifications()
 
 const isOpen = ref(false)
 const dropdownItems = ref<Notification[]>([])
@@ -88,11 +83,7 @@ onUnmounted(() => {
 
 <template>
   <div class="notif-dropdown-wrapper">
-    <button
-      class="notif-btn"
-      data-test="topbar-notifications"
-      @click.stop="toggle"
-    >
+    <button class="notif-btn" data-test="topbar-notifications" @click.stop="toggle">
       <SvgIcon name="bell-notification" />
       <span v-if="unreadCount > 0" class="badge-dot">{{ unreadCount }}</span>
     </button>
@@ -119,7 +110,10 @@ onUnmounted(() => {
               <SvgIcon :name="notificationIcon(notification.type)" :width="18" :height="18" />
             </div>
             <div class="notif-item-content">
-              <span class="notif-item-message">{{ notification.message[locale as keyof typeof notification.message] || notification.message.en }}</span>
+              <span class="notif-item-message">{{
+                notification.message[locale as keyof typeof notification.message] ||
+                notification.message.en
+              }}</span>
               <span class="notif-item-time">{{ formatTime(notification.createdAt) }}</span>
             </div>
           </button>
@@ -134,10 +128,7 @@ onUnmounted(() => {
             <SvgIcon name="list-status" :width="14" :height="14" />
             {{ t('notifications.view_all') }}
           </router-link>
-          <button
-            class="notif-footer-btn"
-            @click="onMarkAllRead"
-          >
+          <button class="notif-footer-btn" @click="onMarkAllRead">
             <SvgIcon name="check" :width="14" :height="14" />
             {{ t('notifications.mark_all_read') }}
           </button>
@@ -185,7 +176,7 @@ onUnmounted(() => {
   font-size: 0.625rem;
   font-weight: 700;
   color: #fff;
-  background: #EF4444;
+  background: #ef4444;
   border-radius: 9px;
   line-height: 1;
 }
@@ -341,7 +332,9 @@ onUnmounted(() => {
 
 .dropdown-fade-enter-active,
 .dropdown-fade-leave-active {
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
 }
 
 .dropdown-fade-enter-from,

@@ -4,7 +4,18 @@ import type { PaginatedResponse } from './api'
 // ─── Enums ──────────────────────────────────────────────────────────────────
 
 /** Movement direction */
-export type MovementType = 'receipt' | 'expense' | 'transfer' | 'write-off' | 'return' | 'return-to-supplier' | 'correction' | 'production' | 'sale' | 'storage' | 'offcut'
+export type MovementType =
+  | 'receipt'
+  | 'expense'
+  | 'transfer'
+  | 'write-off'
+  | 'return'
+  | 'return-to-supplier'
+  | 'correction'
+  | 'production'
+  | 'sale'
+  | 'storage'
+  | 'offcut'
 
 /** Batch status — based on aggregate distribution */
 export type BatchStatus =
@@ -37,8 +48,8 @@ export type DeficitPriority = 'critical' | 'high' | 'medium' | 'low'
 /** Deficit status */
 export type DeficitStatus = 'open' | 'in_progress' | 'ordered' | 'resolved' | 'cancelled'
 
-/** Stock unit of measure */
-export type StockUnit = 'kg' | 'm' | 'pcs' | 'm2'
+/** Stock unit of measure — now dynamic from settings */
+export type StockUnit = string
 
 // ─── Batch File ─────────────────────────────────────────────────────────────
 
@@ -65,16 +76,16 @@ export interface WarehouseBatch {
   batchNumber: string
   /** Internal lot code (auto-generated or manual) */
   lotCode: string
-  /** Quantity received */
+  /** Quantity (in warehouse_uom of the product) */
   quantity: number
-  /** Remaining quantity */
+  /** Remaining quantity (in warehouse_uom) */
   quantityRemaining: number
   unit: StockUnit
-  /** Unit price (cost price for this batch) */
+  /** Unit price (cost price, in product's currency, per warehouse_uom) */
   unitPrice: number
   /** Total cost = quantity × unitPrice */
   totalCost: number
-  /** Currency (e.g. EUR, USD) */
+  /** Currency (inherited from product) */
   currency: string
   /** Date of receipt */
   receivedAt: string
@@ -91,8 +102,27 @@ export interface WarehouseBatch {
   orderId: string | null
   createdAt: string
   updatedAt: string
+  /** Profit margin percent (editable, default from settings.constants.defaultMargin) */
+  marginPercent: number | null
+
   /** Batch change audit log (empty for most batches) */
   auditLog?: StockAuditEntry[]
+
+  // ═══════════════════════════════════════════════════════════════
+  // Purchase audit trail (read-only, set at creation)
+  // ═══════════════════════════════════════════════════════════════
+  /** Original quantity at purchase (in supplier's unit) */
+  receivedQuantity: number | null
+  /** Supplier's unit of measure at purchase */
+  receivedUnitId: string | null
+  /** Original unit price in supplier's currency */
+  receivedUnitPrice: number | null
+  /** Original purchase currency */
+  receivedCurrencyId: string | null
+  /** Conversion rate used (received_qty → warehouse_qty) */
+  purchaseToWarehouseRate: number | null
+  /** Exchange rate used (received_currency → product_currency) */
+  exchangeRate: number | null
 }
 
 export interface BatchListItem {
@@ -126,6 +156,14 @@ export interface BatchCreatePayload {
   location?: string | null
   certificateRef?: string | null
   notes?: string | null
+
+  // Purchase audit trail (optional for backward compat)
+  receivedQuantity?: number | null
+  receivedUnitId?: string | null
+  receivedUnitPrice?: number | null
+  receivedCurrencyId?: string | null
+  purchaseToWarehouseRate?: number | null
+  exchangeRate?: number | null
 }
 
 export interface BatchPatchPayload {
@@ -261,6 +299,8 @@ export interface WarehouseMovement {
   createdAt: string
   /** Movement change audit log */
   auditLog: StockAuditEntry[]
+  /** Currency copied from batch.currency at creation */
+  currency: string
 }
 
 export interface MovementListItem {
@@ -278,6 +318,7 @@ export interface MovementListItem {
   referenceType: string | null
   notes: string | null
   movedAt: string
+  currency: string
 }
 
 export interface MovementCreatePayload {
@@ -294,6 +335,7 @@ export interface MovementCreatePayload {
   performedBy?: string | null
   notes?: string | null
   movedAt?: string
+  currency?: string
 }
 
 // ─── Cutting (Резка) — special operation ────────────────────────────────────
@@ -472,7 +514,15 @@ export interface StockFilters {
   unit: string
   showDeficitOnly: boolean
   showInStockOnly: boolean
-  sortBy: 'name' | 'totalQuantity' | 'availableQuantity' | 'unit' | 'avgUnitPrice' | 'totalValue' | 'minStock' | null
+  sortBy:
+    | 'name'
+    | 'totalQuantity'
+    | 'availableQuantity'
+    | 'unit'
+    | 'avgUnitPrice'
+    | 'totalValue'
+    | 'minStock'
+    | null
   sortDir: 'asc' | 'desc'
 }
 

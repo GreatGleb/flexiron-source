@@ -22,9 +22,7 @@ const wrapRef = ref<HTMLElement | null>(null)
 
 /** Normalise options to { value, label }[] for uniform handling. */
 const normalisedOptions = computed(() =>
-  (props.options ?? []).map((o) =>
-    typeof o === 'string' ? { value: o, label: o } : o,
-  ),
+  (props.options ?? []).map((o) => (typeof o === 'string' ? { value: o, label: o } : o)),
 )
 
 /** Get display label for a stored value. */

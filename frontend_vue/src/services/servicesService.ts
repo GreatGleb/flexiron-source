@@ -1,6 +1,12 @@
 import { apiGet, apiPost, apiPatch, apiDelete } from './api'
 import type { PaginatedResponse, PaginationParams } from '@/types/api'
-import type { Service, ServiceListItem, ServiceFilters, ServiceCreatePayload, ServicePatchPayload } from '@/types/service'
+import type {
+  Service,
+  ServiceListItem,
+  ServiceFilters,
+  ServiceCreatePayload,
+  ServicePatchPayload,
+} from '@/types/service'
 import type { TranslatedString } from '@/types/i18n'
 import { toTranslatedString } from '@/types/i18n'
 
@@ -22,21 +28,22 @@ export async function getService(id: string): Promise<Service> {
   return apiGet<Service>(`/api/services/${id}`)
 }
 
-export async function createService(
-  data: ServiceCreatePayload,
-  locale: string,
-): Promise<Service> {
+export async function createService(data: ServiceCreatePayload, locale: string): Promise<Service> {
   const payload = {
     name: toTranslatedString(data.name, locale),
     costPrice: data.costPrice,
     sellingPrice: data.sellingPrice,
     priceUnit: data.priceUnit,
-    description: data.description !== undefined ? toTranslatedString(data.description, locale) : undefined,
+    description:
+      data.description !== undefined ? toTranslatedString(data.description, locale) : undefined,
   }
   return apiPost<Service>('/api/services', payload)
 }
 
-function toPayloadValue(value: string | TranslatedString | null | undefined, locale: string): TranslatedString | undefined {
+function toPayloadValue(
+  value: string | TranslatedString | null | undefined,
+  locale: string,
+): TranslatedString | undefined {
   if (value === null || value === undefined) return undefined
   if (typeof value === 'string') return toTranslatedString(value, locale)
   return value
@@ -44,7 +51,10 @@ function toPayloadValue(value: string | TranslatedString | null | undefined, loc
 
 export async function patchService(
   id: string,
-  delta: ServicePatchPayload & { name?: TranslatedString | null; description?: TranslatedString | null },
+  delta: Omit<ServicePatchPayload, 'name' | 'description'> & {
+    name?: string | TranslatedString | null
+    description?: string | TranslatedString | null
+  },
   locale: string,
 ): Promise<Service> {
   const payload: Record<string, unknown> = {}
@@ -53,7 +63,10 @@ export async function patchService(
   if (delta.costPrice !== undefined) payload.costPrice = delta.costPrice
   if (delta.sellingPrice !== undefined) payload.sellingPrice = delta.sellingPrice
   if (delta.priceUnit) payload.priceUnit = delta.priceUnit
-  const desc = toPayloadValue(delta.description as string | TranslatedString | null | undefined, locale)
+  const desc = toPayloadValue(
+    delta.description as string | TranslatedString | null | undefined,
+    locale,
+  )
   if (desc !== undefined) payload.description = desc
   return apiPatch<Service>(`/api/services/${id}`, payload)
 }

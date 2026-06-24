@@ -84,7 +84,9 @@
 }
 
 @media (max-width: 768px) {
-  .order-info-grid { grid-template-columns: 1fr; }
+  .order-info-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ─── Static readonly field display ──────────────────────── */
@@ -104,7 +106,9 @@
 .order-item-row td,
 .order-service-row td,
 .order-doc-row td {
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 
 /* ─── Empty state inline ────────────────────────────────────── */

@@ -1,2 +1,9 @@
 cd C:\Users\great\Documents\bussiness\flexiron_enterprise\frontend_vue\
 npm run dev
+
+cd C:\Users\great\Documents\bussiness\flexiron_enterprise\backend
+uvicorn app.main:app --reload --port 8000
+
+cd C:\Users\great\Documents\bussiness\flexiron_enterprise\backend
+alembic upgrade head
+

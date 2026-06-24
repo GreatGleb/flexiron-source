@@ -38,3 +38,35 @@ async def get_category_by_id(
     Cross-module access point for category lookups.
     """
     return await _get_category_by_id(db, category_id)
+
+
+async def count_products_by_currency(
+    db: AsyncSession, tenant_id: UUID, currency_id: UUID
+) -> int:
+    """Count products that reference a given currency."""
+    from sqlalchemy import select, func
+    result = await db.execute(
+        select(func.count()).where(
+            Product.tenant_id == tenant_id,
+            Product.currency_id == currency_id,
+        )
+    )
+    return result.scalar() or 0
+
+
+async def count_products_by_uom(
+    db: AsyncSession, tenant_id: UUID, uom_id: UUID
+) -> int:
+    """Count products that reference a given UOM in any of the 3 UoM fields."""
+    from sqlalchemy import select, func, or_
+    result = await db.execute(
+        select(func.count()).where(
+            Product.tenant_id == tenant_id,
+            or_(
+                Product.purchase_uom_id == uom_id,
+                Product.warehouse_uom_id == uom_id,
+                Product.sale_uom_id == uom_id,
+            ),
+        )
+    )
+    return result.scalar() or 0
