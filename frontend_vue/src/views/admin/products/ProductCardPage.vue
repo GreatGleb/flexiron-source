@@ -392,15 +392,23 @@ onMounted(() => {
               </InputGroup>
 
               <InputGroup :label="t('products.field_avg_cost_price')">
-                <span class="glass-input readonly">
-                  {{ product?.avgCostPrice != null ? currencySymbol + product.avgCostPrice.toFixed(2) : '—' }}
-                </span>
+                <input
+                  class="glass-input"
+                  type="text"
+                  :value="product?.avgCostPrice != null ? product.avgCostPrice.toFixed(2) + ' ' + currencySymbol : '—'"
+                  readonly
+                  data-test="field-avg-cost-price"
+                />
               </InputGroup>
 
               <InputGroup :label="t('products.field_avg_sale_price')">
-                <span class="glass-input readonly">
-                  {{ product?.avgSalePrice != null ? currencySymbol + product.avgSalePrice.toFixed(2) : '—' }}
-                </span>
+                <input
+                  class="glass-input"
+                  type="text"
+                  :value="product?.avgSalePrice != null ? product.avgSalePrice.toFixed(2) + ' ' + currencySymbol : '—'"
+                  readonly
+                  data-test="field-avg-sale-price"
+                />
               </InputGroup>
             </GlassPanel>
 

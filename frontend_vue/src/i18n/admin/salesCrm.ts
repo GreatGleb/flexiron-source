@@ -19,15 +19,10 @@ export const adminSalesCrm = {
       recent_clients: 'Новые клиенты',
       view_all_clients: 'Все клиенты',
       // Quick actions
-      quick_actions: 'Быстрые действия',
       new_order: 'Новый заказ',
-      new_order_desc: 'Создать новый заказ для клиента',
       new_client: 'Новый клиент',
-      new_client_desc: 'Добавить нового контрагента',
       clients_list: 'Список клиентов',
-      clients_list_desc: 'Перейти к справочнику клиентов',
       orders_list: 'Список заказов',
-      orders_list_desc: 'Перейти к списку заказов',
       // Misc
       btn_retry: 'Повторить',
     },
@@ -51,15 +46,10 @@ export const adminSalesCrm = {
       recent_clients: 'New Clients',
       view_all_clients: 'View All Clients',
       // Quick actions
-      quick_actions: 'Quick Actions',
       new_order: 'New Order',
-      new_order_desc: 'Create a new order for a client',
       new_client: 'New Client',
-      new_client_desc: 'Add a new counterparty',
       clients_list: 'Clients List',
-      clients_list_desc: 'Go to the client directory',
       orders_list: 'Orders List',
-      orders_list_desc: 'Go to the orders list',
       // Misc
       btn_retry: 'Retry',
     },
@@ -83,15 +73,10 @@ export const adminSalesCrm = {
       recent_clients: 'Nauji klientai',
       view_all_clients: 'Visi klientai',
       // Quick actions
-      quick_actions: 'Greiti veiksmai',
       new_order: 'Naujas užsakymas',
-      new_order_desc: 'Sukurti naują užsakymą klientui',
       new_client: 'Naujas klientas',
-      new_client_desc: 'Pridėti naują kontrahentą',
       clients_list: 'Klientų sąrašas',
-      clients_list_desc: 'Eiti į klientų žinyną',
       orders_list: 'Užsakymų sąrašas',
-      orders_list_desc: 'Eiti į užsakymų sąrašą',
       // Misc
       btn_retry: 'Bandyti dar kartą',
     },

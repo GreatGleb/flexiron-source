@@ -478,12 +478,12 @@ async function onMovementCreated() {
             </button>
             <button
               type="button"
-              class="btn btn-sm btn-primary"
+              class="btn btn-primary"
               :disabled="saving"
               data-test="batch-card-add-movement-btn"
               @click="openMovementModal"
             >
-              <SvgIcon name="plus-add" :width="14" :height="14" />
+              <SvgIcon name="plus-add" :width="16" :height="16" />
               {{ t('warehouse.btn_add_movement') }}
             </button>
             <button
