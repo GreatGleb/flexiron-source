@@ -551,9 +551,19 @@ test.describe('client-card › order history', () => {
     await expect(page.locator('[data-test="client-card-order-history"]')).toBeVisible()
   })
 
-  test('order history renders 3 rows for CL-001', async ({ page }) => {
+  test("the order history is the client's real orders", async ({ page }) => {
+    // It used to be a seeded list on the client: invented ids that opened nothing,
+    // invented totals, and statuses the order model does not have. Now it is the
+    // orders module answering about its own orders, so the rows have to lead
+    // somewhere and name this same client.
     await expect(page.locator('[data-test="client-card-order-table"]')).toBeVisible()
-    await expect(page.locator('[data-test="client-card-order-row"]')).toHaveCount(3)
+    const rows = page.locator('[data-test="client-card-order-row"]')
+    expect(await rows.count()).toBeGreaterThan(0)
+    const clientName = await page.locator('[data-test="field-name"]').inputValue()
+
+    await rows.first().locator('.order-link').click()
+    await expect(page).toHaveURL(/\/admin\/orders\/ORD-\d{3}$/)
+    await expect(page.locator('[data-test="field-client"]')).toHaveText(clientName)
   })
 
   test('order row renders order ID, date, total and status', async ({ page }) => {
@@ -576,14 +586,19 @@ test.describe('client-card › order history', () => {
 })
 
 test.describe('client-card › order history empty', () => {
-  const INACTIVE_CLIENT = '/admin/clients/CL-004'
-
-  test('shows empty state for client with no orders', async ({ page }) => {
+  test('shows the empty state for a client nobody has ordered from', async ({ page }) => {
+    // Created here rather than picked by id: every seeded client has real orders
+    // now, and a hardcoded "client with no orders" would only be true until the
+    // next order lands on them.
     await page.setViewportSize(DESKTOP)
-    await page.goto(INACTIVE_CLIENT)
-    await page.waitForLoadState('networkidle')
+    await page.goto('/admin/clients/new')
+    await page.locator('[data-test="field-name"]').fill('E2E No Orders')
+    await page.locator('[data-test="field-company-code"]').fill('E2E000001')
+    await page.locator('[data-test="field-email"]').fill('no-orders@test.lt')
+    await page.locator('[data-test="client-create-save-btn"]').click()
+    await expect(page).toHaveURL(/\/admin\/clients\/CL-\d{3}$/, { timeout: 10000 })
+
     await expect(page.locator('[data-test="client-card-order-history"]')).toBeVisible()
-    // CL-004 has no orderHistory so it should show the empty state text
     await expect(page.locator('[data-test="client-card-order-history"] .audit-empty')).toBeVisible()
   })
 })

@@ -55,7 +55,7 @@ import {
   reservedForLineOnBatch,
   reservedOn,
 } from './reservations'
-import { mockGetClients } from './clients'
+import { mockGetClients, registerClientOrderLookup } from './clients'
 import { mockGetSettings } from './settings'
 import { STORE as PRODUCTS_STORE } from './products'
 import {
@@ -841,6 +841,14 @@ function createScenarioShipments(): void {
 }
 
 createScenarioShipments()
+
+// "Can this client be deleted?" is a question about orders, so the orders module
+// answers it. Registered rather than imported the other way round: clients know
+// nothing about orders, and a cycle here would decide at import time whether the
+// demo store exists.
+registerClientOrderLookup((clientId) =>
+  STORE.filter((o) => o.clientId === clientId).map((o) => ({ id: o.id })),
+)
 
 let nextSeq = TOTAL_ORDERS + 1
 

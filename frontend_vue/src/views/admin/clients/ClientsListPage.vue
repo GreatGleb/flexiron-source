@@ -10,6 +10,7 @@ import SvgIcon from '@/components/admin/SvgIcon.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
 import SearchInput from '@/components/admin/ui/SearchInput.vue'
 import AppModal from '@/components/admin/ui/AppModal.vue'
+import { getOrders } from '@/services/ordersService'
 
 import '@styles/admin/components/_entity-card-layout.css'
 import '@styles/admin/components/_pagination.css'
@@ -83,15 +84,39 @@ const deletingClientName = computed(() => {
   return client?.name ?? ''
 })
 
-const deletingClientHasOrders = computed(() => {
-  if (!deletingId.value) return false
-  const client = items.value.find((c) => c.id === deletingId.value)
-  return (client?.orderHistory?.length ?? 0) > 0
-})
+/**
+ * Whether this client has orders — asked of the orders module, not of the client.
+ *
+ * The client used to carry a seeded `orderHistory`, and this warning was decided by
+ * invented data: clients with real orders were offered for deletion, clients with
+ * none were refused. Orders belong to the orders module, so it is the one asked.
+ */
+const deletingClientHasOrders = ref(false)
 
-function confirmDelete(id: string) {
+async function confirmDelete(id: string) {
   deletingId.value = id
+  deletingClientHasOrders.value = false
   showDeleteModal.value = true
+  try {
+    const page = await getOrders(
+      {
+        search: '',
+        status: 'all',
+        clientId: id,
+        dateFrom: '',
+        dateTo: '',
+        sortBy: null,
+        sortDir: 'asc',
+      },
+      { page: 1, pageSize: 1 },
+    )
+    // Still the same client? The modal may have been closed and reopened.
+    if (deletingId.value === id) deletingClientHasOrders.value = page.total > 0
+  } catch {
+    // Cannot tell — the confirmation stays as it is rather than claiming there are
+    // no orders, which is the answer that loses data.
+    if (deletingId.value === id) deletingClientHasOrders.value = true
+  }
 }
 
 async function onDeleteConfirm() {

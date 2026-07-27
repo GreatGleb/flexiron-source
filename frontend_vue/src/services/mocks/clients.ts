@@ -14,11 +14,6 @@ const STORE: Client[] = [
     status: 'active',
     notes: 'Main client, sheet steel orders',
     createdAt: '2025-01-10',
-    orderHistory: [
-      { id: 'ORD-001', date: '2025-03-15', total: 12450.0, currency: 'EUR', status: 'completed' },
-      { id: 'ORD-002', date: '2025-05-20', total: 8900.0, currency: 'EUR', status: 'completed' },
-      { id: 'ORD-005', date: '2026-01-10', total: 15300.0, currency: 'EUR', status: 'processing' },
-    ],
     interactionHistory: [
       {
         date: '2025-06-01',
@@ -168,10 +163,6 @@ const STORE: Client[] = [
     status: 'active',
     notes: 'Regular buyer of stainless steel coils',
     createdAt: '2025-04-18',
-    orderHistory: [
-      { id: 'ORD-003', date: '2025-06-01', total: 5600.0, currency: 'EUR', status: 'completed' },
-      { id: 'ORD-007', date: '2026-02-15', total: 22100.0, currency: 'EUR', status: 'shipped' },
-    ],
     auditLog: [
       {
         timestamp: '2025-04-18 08:00',
@@ -282,10 +273,6 @@ const STORE: Client[] = [
     status: 'active',
     notes: 'Large industrial client, monthly rolled steel allocations',
     createdAt: '2025-07-22',
-    orderHistory: [
-      { id: 'ORD-004', date: '2025-09-10', total: 45000.0, currency: 'EUR', status: 'completed' },
-      { id: 'ORD-008', date: '2026-03-01', total: 32000.0, currency: 'EUR', status: 'processing' },
-    ],
     auditLog: [
       {
         timestamp: '2025-07-22 08:00',
@@ -462,10 +449,6 @@ const STORE: Client[] = [
     status: 'active',
     notes: 'Wind tower component manufacturer',
     createdAt: '2025-10-22',
-    orderHistory: [
-      { id: 'ORD-006', date: '2025-12-05', total: 18700.0, currency: 'EUR', status: 'completed' },
-      { id: 'ORD-009', date: '2026-04-20', total: 28500.0, currency: 'EUR', status: 'shipped' },
-    ],
     auditLog: [
       {
         timestamp: '2025-10-22 08:00',
@@ -594,9 +577,6 @@ const STORE: Client[] = [
     status: 'active',
     notes: 'National metal distributor, LT and EE market',
     createdAt: '2026-01-12',
-    orderHistory: [
-      { id: 'ORD-010', date: '2026-02-20', total: 9800.0, currency: 'EUR', status: 'completed' },
-    ],
     auditLog: [
       {
         timestamp: '2026-01-12 08:00',
@@ -845,9 +825,6 @@ const STORE: Client[] = [
     status: 'active',
     notes: 'Polish partner, large volume orders',
     createdAt: '2026-06-01',
-    orderHistory: [
-      { id: 'ORD-011', date: '2026-06-01', total: 67500.0, currency: 'EUR', status: 'processing' },
-    ],
     auditLog: [
       {
         timestamp: '2026-06-01 08:00',
@@ -971,18 +948,32 @@ export function mockPatchClient(id: string, delta: Partial<Client>): Client {
   return structuredClone(STORE[idx]!)
 }
 
+/**
+ * "Does this client have orders?" — answered by the orders module, which is the
+ * one that knows.
+ *
+ * Registered from there rather than imported from here: orders already import
+ * clients (an order needs a client's name), and importing back would make a cycle
+ * whose initialisation order decides whether the demo store exists. This is the
+ * same direction the real system runs in — the orders service answers about
+ * orders — expressed with the one tool a mock has.
+ */
+let clientOrderLookup: ((clientId: string) => Array<{ id: string }>) | null = null
+
+export function registerClientOrderLookup(lookup: (clientId: string) => Array<{ id: string }>) {
+  clientOrderLookup = lookup
+}
+
 export function mockDeleteClient(id: string): void {
   const idx = STORE.findIndex((c) => c.id === id)
   if (idx === -1) throw new Error('CLIENT_NOT_FOUND')
-  // Проверка на активные заказы (БАГ-11)
-  const client = STORE[idx]
-  if (client?.orderHistory && client.orderHistory.length > 0) {
-    const hasActiveOrders = client.orderHistory.some((o) =>
-      ['processing', 'shipped', 'pending'].includes(o.status),
-    )
-    if (hasActiveOrders) {
-      throw new Error('CONFLICT: client has active orders')
-    }
+  // An order carries its client's id and name. Deleting the client leaves those
+  // orders pointing at nobody, and no screen can explain them afterwards. The
+  // check used to run on a seeded `orderHistory` of invented orders with statuses
+  // the model does not have ('processing', 'pending'), so it refused the wrong
+  // clients in both directions.
+  if ((clientOrderLookup?.(id).length ?? 0) > 0) {
+    throw new Error('CONFLICT: client has orders')
   }
   STORE.splice(idx, 1)
 }

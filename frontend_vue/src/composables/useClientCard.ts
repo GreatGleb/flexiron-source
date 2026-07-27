@@ -11,7 +11,9 @@ import { useDirtyCheck } from './useDirtyCheck'
 import { useToast } from './useToast'
 import { useTranslatedField } from './useTranslatedData'
 import { useI18n } from 'vue-i18n'
+import { getOrders } from '@/services/ordersService'
 import type { Client, InteractionHistoryEntry } from '@/types/client'
+import type { OrderListItem } from '@/types/order'
 import type { StockAuditEntry } from '@/types/warehouse'
 
 export function useClientCard(id: string) {
@@ -25,6 +27,18 @@ export function useClientCard(id: string) {
   const error = ref<string | null>(null)
   const auditLog = ref<StockAuditEntry[]>([])
   const auditLoading = ref(false)
+
+  /**
+   * The client's real orders, asked for by client id.
+   *
+   * The seeded client used to carry its own `orderHistory` — invented ids, invented
+   * totals and statuses like "completed" that the order model does not have. None
+   * of those orders existed, so the links went nowhere and the money agreed with
+   * nothing. An order belongs to the orders module; this is the same list endpoint
+   * the orders page uses, filtered.
+   */
+  const orders = ref<OrderListItem[]>([])
+  const ordersLoading = ref(false)
 
   const newInteraction = reactive<{
     type: 'call' | 'email' | 'note' | 'meeting'
@@ -60,6 +74,29 @@ export function useClientCard(id: string) {
       error.value = String(e)
     } finally {
       loading.value = false
+    }
+  }
+
+  async function loadOrders() {
+    ordersLoading.value = true
+    try {
+      const page = await getOrders(
+        {
+          search: '',
+          status: 'all',
+          clientId: id,
+          dateFrom: '',
+          dateTo: '',
+          sortBy: 'createdAt',
+          sortDir: 'desc',
+        },
+        { page: 1, pageSize: 50 },
+      )
+      orders.value = page.items
+    } catch {
+      orders.value = []
+    } finally {
+      ordersLoading.value = false
     }
   }
 
@@ -186,6 +223,9 @@ export function useClientCard(id: string) {
     auditLog,
     auditLoading,
     loadAudit,
+    orders,
+    ordersLoading,
+    loadOrders,
     deleteAuditEntry,
     handleDeleteInteraction,
     newInteraction,

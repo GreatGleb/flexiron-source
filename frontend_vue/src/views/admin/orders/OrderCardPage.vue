@@ -805,7 +805,9 @@ onMounted(loadShipments)
                   <span class="field-hint">{{ t('orders.field_order_number_hint') }}</span>
                 </InputGroup>
                 <InputGroup :label="t('orders.field_client')">
-                  <span class="glass-input-static">{{ order.clientName }}</span>
+                  <span class="glass-input-static" data-test="field-client">{{
+                    order.clientName
+                  }}</span>
                   <span class="field-hint">{{ t('orders.field_client_hint') }}</span>
                 </InputGroup>
                 <InputGroup :label="t('orders.field_document_type')">
