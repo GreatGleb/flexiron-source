@@ -443,7 +443,7 @@ watch(
                     </span>
                   </label>
                   <input
-                    :value="`${deficit.currentStock} ${t(`warehouse.unit_${deficit.unit}`)}`"
+                    :value="`${deficit.currentStock} ${t(`warehouse.unit_${deficit.unit}`, deficit.unit)}`"
                     class="glass-input"
                     type="text"
                     readonly
@@ -472,7 +472,7 @@ watch(
                     </span>
                   </label>
                   <input
-                    :value="`${deficit.deficitAmount} ${t(`warehouse.unit_${deficit.unit}`)}`"
+                    :value="`${deficit.deficitAmount} ${t(`warehouse.unit_${deficit.unit}`, deficit.unit)}`"
                     class="glass-input text-danger"
                     type="text"
                     readonly
@@ -540,7 +540,7 @@ watch(
                   <input
                     :value="
                       deficit.suggestedOrderQty != null
-                        ? `${deficit.suggestedOrderQty} ${t(`warehouse.unit_${deficit.unit}`)}`
+                        ? `${deficit.suggestedOrderQty} ${t(`warehouse.unit_${deficit.unit}`, deficit.unit)}`
                         : '—'
                     "
                     class="glass-input"

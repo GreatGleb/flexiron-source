@@ -428,8 +428,8 @@ function selectBatch(id: string) {
                     />
                   </td>
                   <td>{{ b.batchNumber }}</td>
-                  <td>{{ b.quantity }} {{ t(`warehouse.unit_${b.unit}`) }}</td>
-                  <td>{{ b.quantityRemaining }} {{ t(`warehouse.unit_${b.unit}`) }}</td>
+                  <td>{{ b.quantity }} {{ t(`warehouse.unit_${b.unit}`, b.unit) }}</td>
+                  <td>{{ b.quantityRemaining }} {{ t(`warehouse.unit_${b.unit}`, b.unit) }}</td>
                   <td>
                     <span class="status-pill" :class="BATCH_STATUS_PILL[b.status]">
                       {{ t(`warehouse.batch_status_${b.status}`) }}
@@ -705,7 +705,7 @@ function selectBatch(id: string) {
                 style="display: flex; align-items: center; opacity: 0.7; cursor: default"
               >
                 <span v-if="selectedBatch">
-                  {{ t(`warehouse.unit_${form.unit}`) }}
+                  {{ t(`warehouse.unit_${form.unit}`, form.unit) }}
                 </span>
                 <span v-else style="color: var(--text-dim)">
                   {{ t('warehouse.offcut_create_unit_placeholder') }}

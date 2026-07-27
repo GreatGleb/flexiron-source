@@ -224,7 +224,7 @@ const quantityStep = computed(() => (props.batch?.unit === 'pcs' ? 1 : 0.01))
 /** Translated unit label for the batch (e.g. "шт", "кг", "м", "м²") */
 const batchUnitLabel = computed(() => {
   if (!props.batch?.unit) return ''
-  return t(`warehouse.unit_${props.batch.unit}`)
+  return t(`warehouse.unit_${props.batch.unit}`, props.batch.unit)
 })
 
 // ─── Validation errors ───────────────────────────────────────────────────────
@@ -578,7 +578,7 @@ function formatDate(iso: string): string {
             <div class="total-label">{{ t('warehouse.batch_summary_total') }}</div>
             <div class="total-value">
               {{ batch.quantity }}
-              <span class="total-unit">{{ t(`warehouse.unit_${batch.unit}`) }}</span>
+              <span class="total-unit">{{ t(`warehouse.unit_${batch.unit}`, batch.unit) }}</span>
             </div>
           </div>
         </div>
@@ -627,7 +627,7 @@ function formatDate(iso: string): string {
               </div>
               <div class="agg-value">
                 {{ qty }}
-                <span class="agg-unit">{{ t(`warehouse.unit_${batch.unit}`) }}</span>
+                <span class="agg-unit">{{ t(`warehouse.unit_${batch.unit}`, batch.unit) }}</span>
               </div>
               <!-- Hint inside sale card: select a specific sale below -->
               <div v-if="movementType === 'sale'" class="agg-sale-hint">

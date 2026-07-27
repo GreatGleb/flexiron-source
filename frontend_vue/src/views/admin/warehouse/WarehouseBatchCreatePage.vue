@@ -317,7 +317,10 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseCurre
                   <td>
                     {{
                       (p as { unit?: string }).unit
-                        ? t(`warehouse.unit_${(p as { unit?: string }).unit}`)
+                        ? t(
+                            `warehouse.unit_${(p as { unit?: string }).unit}`,
+                            (p as { unit?: string }).unit!,
+                          )
                         : '—'
                     }}
                   </td>

@@ -1341,7 +1341,10 @@ async function onMovementCreated() {
                 >
                   <td>{{ movement.movedAt.slice(0, 10) }}</td>
                   <td>{{ t(`warehouse.movement_type_${movement.type}`) }}</td>
-                  <td>{{ movement.quantity }} {{ t(`warehouse.unit_${movement.unit}`) }}</td>
+                  <td>
+                    {{ movement.quantity }}
+                    {{ t(`warehouse.unit_${movement.unit}`, movement.unit) }}
+                  </td>
                   <td>{{ movement.referenceId ?? '—' }}</td>
                   <td style="text-align: center">
                     <router-link
@@ -1405,7 +1408,9 @@ async function onMovementCreated() {
                     <span v-else>—</span>
                   </td>
                   <td>{{ offcut.weightKg ?? '—' }} кг</td>
-                  <td>{{ offcut.quantity }} {{ t(`warehouse.unit_${offcut.unit}`) }}</td>
+                  <td>
+                    {{ offcut.quantity }} {{ t(`warehouse.unit_${offcut.unit}`, offcut.unit) }}
+                  </td>
                   <td>
                     <span
                       class="pill pill-sm"

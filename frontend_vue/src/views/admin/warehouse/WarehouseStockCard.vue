@@ -298,7 +298,7 @@ onMounted(load)
             <div class="total-label">{{ t('warehouse.stock_total') }}</div>
             <div class="total-value">
               {{ totalUsableQuantity }}
-              <span class="total-unit">{{ t(`warehouse.unit_${item.unit}`) }}</span>
+              <span class="total-unit">{{ t(`warehouse.unit_${item.unit}`, item.unit) }}</span>
             </div>
           </div>
         </div>
@@ -327,7 +327,7 @@ onMounted(load)
               </div>
               <div class="agg-value">
                 {{ qty }}
-                <span class="agg-unit">{{ t(`warehouse.unit_${item.unit}`) }}</span>
+                <span class="agg-unit">{{ t(`warehouse.unit_${item.unit}`, item.unit) }}</span>
               </div>
             </div>
           </div>
@@ -386,7 +386,7 @@ onMounted(load)
                     </span>
                   </label>
                   <input
-                    :value="t(`warehouse.unit_${form.unit}`)"
+                    :value="t(`warehouse.unit_${form.unit}`, form.unit)"
                     class="glass-input"
                     type="text"
                     readonly
@@ -481,7 +481,7 @@ onMounted(load)
                     </span>
                   </label>
                   <input
-                    :value="`${item.totalQuantity} ${t(`warehouse.unit_${form.unit}`)}`"
+                    :value="`${item.totalQuantity} ${t(`warehouse.unit_${form.unit}`, form.unit)}`"
                     class="glass-input"
                     type="text"
                     readonly
@@ -510,7 +510,7 @@ onMounted(load)
                     </span>
                   </label>
                   <input
-                    :value="`${item.reservedQuantity} ${t(`warehouse.unit_${form.unit}`)}`"
+                    :value="`${item.reservedQuantity} ${t(`warehouse.unit_${form.unit}`, form.unit)}`"
                     class="glass-input"
                     type="text"
                     readonly
@@ -539,7 +539,7 @@ onMounted(load)
                     </span>
                   </label>
                   <input
-                    :value="`${item.availableQuantity} ${t(`warehouse.unit_${form.unit}`)}`"
+                    :value="`${item.availableQuantity} ${t(`warehouse.unit_${form.unit}`, form.unit)}`"
                     class="glass-input"
                     type="text"
                     :class="{ 'text-danger': item.availableQuantity <= 0 }"

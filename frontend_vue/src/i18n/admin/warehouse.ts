@@ -178,6 +178,7 @@ export const adminWarehouse = {
       unit_m: 'м',
       unit_pcs: 'шт',
       unit_m2: 'м²',
+      unit_t: 'т',
       // Batch statuses
       batch_status_active: 'Активен',
       batch_status_completed: 'Завершён',
@@ -783,6 +784,7 @@ export const adminWarehouse = {
       unit_m: 'm',
       unit_pcs: 'pcs',
       unit_m2: 'm²',
+      unit_t: 't',
       // Batch statuses
       batch_status_active: 'Active',
       batch_status_completed: 'Completed',
@@ -1385,6 +1387,7 @@ export const adminWarehouse = {
       unit_m: 'm',
       unit_pcs: 'vnt',
       unit_m2: 'm²',
+      unit_t: 't',
       // Batch statuses
       batch_status_active: 'Aktyvus',
       batch_status_completed: 'Užbaigtas',

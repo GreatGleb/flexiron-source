@@ -25,6 +25,7 @@ import type {
   DeficitPatchPayload,
 } from '@/types/warehouse'
 import type { PaginatedResponse } from '@/types/api'
+import type { TranslatedString } from '@/types/i18n'
 import type { Uom, Currency } from '@/types/settings'
 import { STORE as PRODUCTS_STORE } from './products'
 import { MOCK_SETTINGS } from './settings'
@@ -83,11 +84,29 @@ function _normalizeBatchAudit(b: WarehouseBatch): WarehouseBatch {
   return b
 }
 
+/**
+ * A batch does not own the product's name — the catalogue does.
+ *
+ * Each seeded batch carried its own, and they had drifted: prod-001 was "Steel
+ * Sheet 3mm" in the catalogue, "Лист стальной 2мм" on the batch and "Stainless
+ * steel sheet 2mm" on the stock row. The warehouse journal then signed a steel
+ * sheet write-off as "Oxygen gas". Resolved once, here, so every screen that shows
+ * a batch shows the same name as the product page.
+ */
+function _resolveProductName(entity: { productId: string; productName: TranslatedString }): void {
+  const product = PRODUCTS_STORE.find((p) => p.id === entity.productId)
+  if (product?.name) entity.productName = product.name
+}
+
 const rawBatches = mockBatchesData as unknown as WarehouseBatch[]
-for (const b of rawBatches) _normalizeBatchAudit(b)
+for (const b of rawBatches) {
+  _normalizeBatchAudit(b)
+  _resolveProductName(b)
+}
 const batchStore: WarehouseBatch[] = rawBatches
 const offcutStore: WarehouseOffcut[] = [...mockOffcutsData]
 const movementStore: WarehouseMovement[] = [...mockMovementsData]
+for (const m of movementStore) _resolveProductName(m)
 const deficitStore: WarehouseDeficit[] = [...mockDeficitData]
 const stockStore: StockOverviewItem[] = [...mockStockOverviewData]
 
@@ -227,6 +246,42 @@ function paginate<T>(items: T[], page: number, pageSize: number): PaginatedRespo
 
 // ─── Stock Overview ─────────────────────────────────────────────────────────
 
+/**
+ * A stock row is a PROJECTION of the batches behind it, not a record of its own.
+ *
+ * Everything a batch can answer is read off the batches: how much is there, in how
+ * many of them, at what average price, worth what, in which unit. The seeded row
+ * had its own numbers, and they had drifted into fiction — prod-001 claimed 150
+ * pieces at 45 EUR where the batches hold 2 608 kg at 1,20. It had its own product
+ * name too, a third one, different from both the catalogue and the batch.
+ *
+ * What stays on the row is what no batch knows: the minimum threshold, the
+ * category and its own audit trail.
+ */
+function projectStockRow(row: StockOverviewItem): StockOverviewItem {
+  const batches = batchesForProduct(row.productId)
+  const product = PRODUCTS_STORE.find((p) => p.id === row.productId)
+  const totalQuantity = round2(batches.reduce((sum, b) => sum + b.quantityRemaining, 0))
+  const totalValue = round2(batches.reduce((sum, b) => sum + b.quantityRemaining * b.unitPrice, 0))
+  const reserved = round2(batches.reduce((sum, b) => sum + reservedOn(b.id), 0))
+  return {
+    ...row,
+    productName: product?.name ?? row.productName,
+    totalQuantity,
+    batchCount: batches.length,
+    // Weighted by what is left, not by what arrived: the cheap batch that sold out
+    // stops being part of the average the moment it does.
+    avgUnitPrice: totalQuantity > 0 ? round2(totalValue / totalQuantity) : 0,
+    totalValue,
+    unit: (batches[0]?.unit as StockUnit) ?? row.unit,
+    // Reserved and available are derived for the same reason: a hold belongs to an
+    // order, and a number copied here would lie the moment that order shipped.
+    reservedQuantity: reserved,
+    availableQuantity: computeAvailable(totalQuantity, reserved),
+    isDeficit: row.minStock !== null && totalQuantity < row.minStock,
+  }
+}
+
 export async function mockGetStockOverview(
   filters: {
     search: string
@@ -239,20 +294,7 @@ export async function mockGetStockOverview(
   },
   pagination: { page: number; pageSize: number },
 ): Promise<StockOverviewResponse> {
-  // Reserved and available are DERIVED, never stored: a reservation belongs to an
-  // order, and a number copied onto the stock row would start lying the moment
-  // that order shipped, shrank or was cancelled.
-  const withReservations = stockStore.map((row) => {
-    const reserved = round2(
-      batchesForProduct(row.productId).reduce((sum, b) => sum + reservedOn(b.id), 0),
-    )
-    return {
-      ...row,
-      reservedQuantity: reserved,
-      availableQuantity: computeAvailable(row.totalQuantity, reserved),
-    }
-  })
-  let filtered = [...withReservations]
+  let filtered = stockStore.map(projectStockRow)
 
   // Search
   if (filters.search) {
@@ -310,7 +352,9 @@ function paginateStock(
 export async function mockGetStockItem(productId: string): Promise<StockOverviewItem> {
   const item = stockStore.find((s) => s.productId === productId)
   if (!item) throw new Error('STOCK_ITEM_NOT_FOUND')
-  return { ...item }
+  // Through the same projection as the list: the card and the list disagreeing
+  // about the same shelf is how neither gets believed.
+  return projectStockRow(item)
 }
 
 export async function mockPatchStockItem(

@@ -1714,7 +1714,7 @@ const deficitFiltersActive = computed(() => {
                         {{ item.availableQuantity }}
                       </span>
                     </td>
-                    <td class="hid-480">{{ t(`warehouse.unit_${item.unit}`) }}</td>
+                    <td class="hid-480">{{ t(`warehouse.unit_${item.unit}`, item.unit) }}</td>
                     <td class="hid-480">{{ item.batchCount }}</td>
                     <td class="hid-600">{{ item.avgUnitPrice.toFixed(2) }} €</td>
                     <td class="hid-600">{{ item.totalValue.toFixed(2) }} €</td>
@@ -2251,7 +2251,7 @@ const deficitFiltersActive = computed(() => {
                     {{ batch.quantityRemaining }}
                   </span>
                 </td>
-                <td>{{ t(`warehouse.unit_${batch.unit}`) }}</td>
+                <td>{{ t(`warehouse.unit_${batch.unit}`, batch.unit) }}</td>
                 <td>{{ batch.unitPrice.toFixed(2) }} €</td>
                 <td>{{ batch.receivedAt.slice(0, 10) }}</td>
                 <td>
@@ -2819,7 +2819,7 @@ const deficitFiltersActive = computed(() => {
                 </td>
                 <td>{{ offcut.weightKg ?? '—' }}</td>
                 <td>{{ offcut.quantity }}</td>
-                <td>{{ t(`warehouse.unit_${offcut.unit}`) }}</td>
+                <td>{{ t(`warehouse.unit_${offcut.unit}`, offcut.unit) }}</td>
                 <td>{{ offcut.location ?? '—' }}</td>
                 <td>
                   <span class="status-pill" :class="OFFCUT_STATUS_PILL[offcut.status]">
@@ -3381,7 +3381,7 @@ const deficitFiltersActive = computed(() => {
                   <code class="lot-code">{{ mov.batchNumber }}</code>
                 </td>
                 <td>{{ mov.quantity }}</td>
-                <td>{{ t(`warehouse.unit_${mov.unit}`) }}</td>
+                <td>{{ t(`warehouse.unit_${mov.unit}`, mov.unit) }}</td>
                 <td>{{ mov.unitPrice.toFixed(2) }} €</td>
                 <td>{{ (mov.quantity * mov.unitPrice).toFixed(2) }} €</td>
                 <td>
@@ -3846,7 +3846,7 @@ const deficitFiltersActive = computed(() => {
                     {{ item.deficitAmount }}
                   </span>
                 </td>
-                <td>{{ t(`warehouse.unit_${item.unit}`) }}</td>
+                <td>{{ t(`warehouse.unit_${item.unit}`, item.unit) }}</td>
                 <td>
                   <span
                     class="deficit-priority-badge"

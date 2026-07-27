@@ -552,7 +552,7 @@ watch(
                     </span>
                   </label>
                   <input
-                    :value="`${movement.quantity} ${t(`warehouse.unit_${movement.unit}`)}`"
+                    :value="`${movement.quantity} ${t(`warehouse.unit_${movement.unit}`, movement.unit)}`"
                     class="glass-input"
                     type="text"
                     readonly
@@ -581,7 +581,7 @@ watch(
                     </span>
                   </label>
                   <input
-                    :value="t(`warehouse.unit_${movement.unit}`)"
+                    :value="t(`warehouse.unit_${movement.unit}`, movement.unit)"
                     class="glass-input"
                     type="text"
                     readonly

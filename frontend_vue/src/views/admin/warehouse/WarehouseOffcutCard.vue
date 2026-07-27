@@ -588,7 +588,7 @@ watch(
                     </span>
                   </label>
                   <input
-                    :value="`${offcut.quantity} ${t(`warehouse.unit_${offcut.unit}`)}`"
+                    :value="`${offcut.quantity} ${t(`warehouse.unit_${offcut.unit}`, offcut.unit)}`"
                     class="glass-input"
                     type="text"
                     readonly
@@ -800,7 +800,10 @@ watch(
                 >
                   <td>{{ movement.movedAt.slice(0, 10) }}</td>
                   <td>{{ t(`warehouse.movement_type_${movement.type}`) }}</td>
-                  <td>{{ movement.quantity }} {{ t(`warehouse.unit_${movement.unit}`) }}</td>
+                  <td>
+                    {{ movement.quantity }}
+                    {{ t(`warehouse.unit_${movement.unit}`, movement.unit) }}
+                  </td>
                   <td>{{ movement.referenceId ?? '—' }}</td>
                   <td style="text-align: center">
                     <router-link
