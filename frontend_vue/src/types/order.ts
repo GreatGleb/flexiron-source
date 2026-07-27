@@ -153,9 +153,32 @@ export interface OrderService {
 
 // ─── Shipments ──────────────────────────────────────────────────────────────
 
+/**
+ * A hold a shipment took over — a claim on a batch, and nothing else.
+ *
+ * Deliberately not an `OrderLineAllocation`: that carries a cost, a currency and a
+ * rate, because it says what the goods cost. A reservation says only that somebody
+ * asked for them first.
+ */
+export interface ShipmentHold {
+  batchId: string | null
+  offcutId: string | null
+  quantity: number
+}
+
 export interface ShipmentLine {
   lineId: string
   quantity: number
+  /**
+   * The hold this shipment took over, per batch.
+   *
+   * Shipping replaces a reservation with a real write-off, so the hold is
+   * released — and a cancellation has to put it back, or the goods return to the
+   * shelf unclaimed and the next order can take them. How much was held, and off
+   * which batch, is knowable only at the moment it is released, so the shipment
+   * records it. Absent or empty means the line held nothing when it shipped.
+   */
+  heldReleased?: ShipmentHold[]
 }
 
 /**

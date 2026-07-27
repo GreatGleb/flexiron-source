@@ -200,7 +200,7 @@ export const adminOrders = {
         'Товар будет списан со склада по конкретным партиям, а строки — зафиксированы. Услуги в отгрузку не входят.',
       ship_vehicle_placeholder: 'Например: ABC-123',
       cancel_shipment_explain:
-        'Товар вернётся на склад обратным движением. Сама отгрузка и её списание останутся в истории — записи склада не удаляются никогда.',
+        'Товар вернётся на склад обратным движением, и резерв под эту строку восстановится. Сама отгрузка и её списание останутся в истории — записи склада не удаляются никогда.',
       status_plan_title: 'Что произойдёт со складом',
       status_plan_writeoff:
         'Будет создана отгрузка на весь неотгруженный остаток, товар списан со склада по партиям.',
@@ -574,7 +574,7 @@ export const adminOrders = {
         'The goods will be written off the specific batches behind these lines, and the lines will be frozen. Services do not ship.',
       ship_vehicle_placeholder: 'e.g. ABC-123',
       cancel_shipment_explain:
-        'The goods come back by an opposite movement. The shipment and its write-off stay on record — warehouse entries are never deleted.',
+        'The goods come back by an opposite movement, and the hold on this line is restored. The shipment and its write-off stay on record — warehouse entries are never deleted.',
       status_plan_title: 'What this does to the warehouse',
       status_plan_writeoff:
         'A shipment will be created for the whole unshipped remainder, and the goods written off the batches behind it.',
@@ -947,7 +947,7 @@ export const adminOrders = {
         'Prekės bus nurašytos iš konkrečių partijų, o eilutės užfiksuotos. Paslaugos nesiunčiamos.',
       ship_vehicle_placeholder: 'pvz. ABC-123',
       cancel_shipment_explain:
-        'Prekės grįš atgaliniu judėjimu. Pats išsiuntimas ir nurašymas lieka istorijoje — sandėlio įrašai niekada nešalinami.',
+        'Prekės grįš atgaliniu judėjimu, o šios eilutės rezervas bus atkurtas. Pats išsiuntimas ir nurašymas lieka istorijoje — sandėlio įrašai niekada nešalinami.',
       status_plan_title: 'Kas nutiks sandėlyje',
       status_plan_writeoff:
         'Bus sukurtas išsiuntimas visam neišsiųstam likučiui, prekės nurašytos iš partijų.',

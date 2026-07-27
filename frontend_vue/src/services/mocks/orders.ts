@@ -1782,8 +1782,11 @@ export function mockCreateShipment(
     item.shippedQuantity = round2(item.shippedQuantity + shipLine.quantity)
     // State follows the quantities — never set by hand.
     applyPricing(item, syncLineState(toPricingLine(item)))
-    // What shipped is no longer reserved: the hold is replaced by a real write-off.
-    releaseFromLine(order.id, item.id, shipLine.quantity)
+    // What shipped is no longer reserved: the hold is replaced by a real
+    // write-off. Recorded on the line, because cancelling has to put back exactly
+    // this much off exactly these batches.
+    const released = releaseFromLine(order.id, item.id, shipLine.quantity)
+    if (released.length > 0) shipLine.heldReleased = released
   }
 
   // ── The only thing in the system that takes goods off the shelf ──
@@ -1878,6 +1881,39 @@ export function mockCancelShipment(
       referenceId: shipment.id,
       notes: `Cancelled ${shipment.waybillNumber ?? shipment.number}`,
     })
+  }
+
+  // The hold goes back on, now that the goods are back on the shelf.
+  //
+  // Without this the order still owes the client the quantity that came back, but
+  // holds nothing against it, and the next order to look at that batch takes the
+  // goods — the cancellation would quietly cost the client their place in the
+  // queue. Capped by what is really free: while these goods were away somebody
+  // else may have claimed the shelf, and a hold that cannot be honoured is worse
+  // than none. Whatever cannot go back is left to the "reserve the remainder"
+  // button, which is the same operation done deliberately.
+  for (const shipLine of shipment.lines) {
+    const item = order.items.find((i) => i.id === shipLine.lineId)
+    if (!item || !shipLine.heldReleased) continue
+    const owed = round2(item.quantity - item.shippedQuantity)
+    let left = round2(Math.max(0, owed - reservedForLine(order.id, item.id)))
+    for (const hold of shipLine.heldReleased) {
+      if (left <= 0) break
+      if (!hold.batchId) continue
+      const batch = batchById(hold.batchId)
+      if (!batch) continue
+      const free = computeAvailable(batch.quantityRemaining, reservedOn(hold.batchId))
+      const quantity = round2(Math.min(hold.quantity, left, free))
+      if (quantity <= 0) continue
+      holdOnBatch({
+        orderId: order.id,
+        lineId: item.id,
+        batchId: hold.batchId,
+        offcutId: hold.offcutId,
+        quantity,
+      })
+      left = round2(left - quantity)
+    }
   }
 
   recalcOrder(order)

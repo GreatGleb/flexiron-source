@@ -120,17 +120,34 @@ export function holdOnBatch(hold: {
  *
  * Called when goods actually ship — the hold is replaced by a real write-off —
  * and when a line shrinks or an order is cancelled.
+ *
+ * RETURNS what was actually released, per batch. A line may hold less than it is
+ * asked to give back, or nothing at all, and the caller cannot tell from the
+ * outside: a cancelled shipment has to put back the hold it took, and "how much,
+ * off which batch" is only knowable here.
  */
-export function releaseFromLine(orderId: string, lineId: string, quantity: number): void {
+export function releaseFromLine(
+  orderId: string,
+  lineId: string,
+  quantity: number,
+): Array<{ batchId: string | null; offcutId: string | null; quantity: number }> {
+  const released: Array<{ batchId: string | null; offcutId: string | null; quantity: number }> = []
   let left = quantity
   for (let i = RESERVATIONS.length - 1; i >= 0 && left > 0; i--) {
     const reservation = RESERVATIONS[i]!
     if (reservation.orderId !== orderId || reservation.lineId !== lineId) continue
-    const take = Math.min(reservation.quantity, left)
+    const take = round2(Math.min(reservation.quantity, left))
+    if (take <= 0) continue
+    released.push({
+      batchId: reservation.batchId,
+      offcutId: reservation.offcutId,
+      quantity: take,
+    })
     reservation.quantity = round2(reservation.quantity - take)
     left = round2(left - take)
     if (reservation.quantity <= 0) RESERVATIONS.splice(i, 1)
   }
+  return released
 }
 
 /** Gives back everything one line holds — it is going away. */

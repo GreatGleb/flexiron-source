@@ -960,6 +960,65 @@ describe('details that only show up on real data', () => {
     expect(second.id).not.toBe(first.id)
   })
 
+  it('puts the hold back when a shipment is cancelled', () => {
+    // Cancelling returns the goods to the shelf, and the order owes them to the
+    // client again — so it has to hold them again. Otherwise the cancellation
+    // quietly costs the client their place in the queue: the next order to look at
+    // that batch takes the goods.
+    const { order, lineId } = orderWithLine(10, 120)
+    mockReserveOrder(order.id)
+    const held = mockGetReservations({ orderId: order.id }).reduce((s, r) => s + r.quantity, 0)
+    expect(held).toBeGreaterThan(0)
+
+    const shipment = mockCreateShipment(order.id, { lines: [{ lineId, quantity: 4 }] })
+    // Shipping replaces the hold with a real write-off, and the shipment records
+    // exactly what it took, off which batch.
+    const shipped = mockGetShipments(order.id)[0]!
+    expect(shipped.lines[0]!.heldReleased!.reduce((s, h) => s + h.quantity, 0)).toBe(4)
+    expect(mockGetReservations({ orderId: order.id }).reduce((s, r) => s + r.quantity, 0)).toBe(
+      round2(held - 4),
+    )
+
+    mockCancelShipment(order.id, shipment.id)
+    expect(mockGetReservations({ orderId: order.id }).reduce((s, r) => s + r.quantity, 0)).toBe(
+      held,
+    )
+    mockReleaseOrderReservations(order.id)
+  })
+
+  it('does not restore a hold the shelf can no longer back', () => {
+    // While the goods were away another order claimed the batch. The cancellation
+    // still returns them, but a hold that cannot be honoured is worse than none —
+    // and what could not go back is left to "reserve the remainder".
+    const { order, lineId } = orderWithLine(10, 120)
+    mockReserveOrder(order.id)
+    const batchId = mockGetReservations({ orderId: order.id })[0]!.batchId!
+    const shipment = mockCreateShipment(order.id, { lines: [{ lineId, quantity: 4 }] })
+
+    // Somebody else takes everything that is free on that batch.
+    const other = freshOrder()
+    const otherLine = mockAddOrderItem(other.id, {
+      productId: mockGetOrder(order.id)!.items[0]!.productId,
+      quantity: 1000,
+      unit: 'pcs',
+      unitPrice: 200,
+    })
+    mockReserveOrder(other.id)
+    const freeBefore = mockReservedQuantity(batchId)
+
+    mockCancelShipment(order.id, shipment.id)
+    // The goods came back, and the hold could not: the shelf is spoken for.
+    expect(mockGetOrder(order.id)!.items[0]!.shippedQuantity).toBe(0)
+    expect(mockReservedQuantity(batchId)).toBeGreaterThanOrEqual(freeBefore)
+    void otherLine
+
+    // Both orders let go of the shelf: the store is shared with every test after
+    // this one, and a thousand units held for a test that has finished is the very
+    // leak this module spent a stage closing.
+    mockReleaseOrderReservations(other.id)
+    mockReleaseOrderReservations(order.id)
+  })
+
   it('refuses to delete an order that left something behind, and says which', () => {
     // Each of these is a fact outside this system: a document the client holds,
     // goods off the shelf, money received. Each also has a proper way back, and
