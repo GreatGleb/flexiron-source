@@ -122,6 +122,7 @@ import {
   mockGetCompany,
   mockPatchCompany,
   mockGetConstants,
+  mockGetOrderPermissions,
   mockPatchConstants,
   mockGetCurrencies,
   mockCreateCurrency,
@@ -317,6 +318,7 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
   // ── Settings granular routes ──
   if (path === '/api/settings/company') return delay(mockGetCompany() as T)
   if (path === '/api/settings/constants') return delay(mockGetConstants() as T)
+  if (path === '/api/settings/order-permissions') return delay(mockGetOrderPermissions() as T)
   if (path === '/api/settings/currencies') return delay(mockGetCurrencies() as T)
   if (path === '/api/settings/uoms') return delay(mockGetUoms() as T)
   if (path === '/api/settings/conversions') return delay(mockGetConversions() as T)

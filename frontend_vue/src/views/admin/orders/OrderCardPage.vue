@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useHead } from '@/composables/useHead'
 import { useOrderCard } from '@/composables/useOrderCard'
+import { useToast } from '@/composables/useToast'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
 import Breadcrumb from '@/components/admin/Breadcrumb.vue'
 import InputGroup from '@/components/admin/ui/InputGroup.vue'
@@ -17,6 +18,7 @@ import AddOrderServicesModal from './AddOrderServicesModal.vue'
 import { getCurrencies } from '@/services/settingsService'
 import type { Currency } from '@/types/settings'
 import { useFeatureFlag } from '@/composables/useFeatureFlag'
+import { useOrderPermissions } from '@/composables/useOrderPermissions'
 import { canEditLineField, type LineEditOp, type LineKind } from '@/services/orderLineEdits'
 import { toPricingLine } from '@/services/orderLines'
 import { calcLine, formatCents as money, roundTo } from '@/domain/orderPricing'
@@ -36,6 +38,7 @@ import '@styles/admin/orders_card.css'
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
+const toast = useToast()
 const id = route.params.id as string
 
 const {
@@ -150,6 +153,20 @@ const statusStr = computed({
 const isShipmentsOn = useFeatureFlag('orderShipments')
 const isMoneyOn = useFeatureFlag('orderInvoicesPayments')
 
+// Model section 12: three rights. Not flags — a flag says the system has the
+// capability, a right says this user may use it. The server refuses the two write
+// ones as well; a hidden button is a suggestion, not a rule.
+const { ready: rightsReady, canSeeCost, canSetManualCost, canCorrect } = useOrderPermissions()
+
+/**
+ * The card waits for the rights as it waits for the order.
+ *
+ * They arrive from the server a moment later, and the cost columns depend on them:
+ * rendering first and then adding two columns is a visible jump, and the first
+ * frame is a card that quietly says this user may not see cost.
+ */
+const cardLoading = computed(() => loading.value || !rightsReady.value)
+
 /** Product name for a shipment row, which stores only the line id. */
 function lineNameFor(lineId: string): string {
   return order.value?.items.find((i) => i.id === lineId)?.productName ?? lineId
@@ -205,7 +222,7 @@ type CellField =
   | 'unitPrice'
   | 'lineTotal'
 
-const LINE_CELLS = [
+const ALL_LINE_CELLS = [
   { field: 'quantity', label: 'orders.col_quantity', step: '0.001', suffix: '' },
   { field: 'unitCost', label: 'orders.col_unit_cost', step: '0.01', suffix: '' },
   { field: 'marginPercent', label: 'orders.col_margin_percent', step: '0.1', suffix: '%' },
@@ -218,6 +235,17 @@ const LINE_CELLS = [
   step: string
   suffix: string
 }>
+
+/**
+ * Without the right to see cost, the cost and the markup are not columns at all.
+ * What is left is the client's side of the line — how much, at what price, for how
+ * much — which is exactly what the model says those users work with.
+ */
+const LINE_CELLS = computed(() =>
+  canSeeCost.value
+    ? ALL_LINE_CELLS
+    : ALL_LINE_CELLS.filter((c) => c.field !== 'unitCost' && c.field !== 'marginPercent'),
+)
 
 type OrderLine = OrderItem | OrderService
 
@@ -258,6 +286,7 @@ function opFor(field: CellField, value: number, reason?: string): LineEditOp {
 }
 
 function canEdit(line: OrderLine, field: CellField | 'resetPrice' | 'resetCost'): boolean {
+  if ((field === 'unitCost' || field === 'resetCost') && !canSetManualCost.value) return false
   return canEditLineField(toPricingLine(line), field)
 }
 
@@ -395,6 +424,12 @@ async function confirmCancelShipment() {
  */
 function askCancelShipment(shipmentId: string) {
   if (isMoneyOn.value && liveInvoiceFor(shipmentId)) {
+    // Withdrawing a document the client holds is the "correction" right. Said out
+    // loud rather than by a missing button: the admin needs to know whom to ask.
+    if (!canCorrect.value) {
+      toast.error(t('orders.error_forbidden_correction'))
+      return
+    }
     correctionReason.value = ''
     correctionTarget.value = shipmentId
     return
@@ -672,7 +707,7 @@ onMounted(loadShipments)
 </script>
 
 <template>
-  <template v-if="loading">
+  <template v-if="cardLoading">
     <div class="page-order-card" data-test="page-order-card">
       <div class="main-card-content">
         <div class="entity-card-grid">
@@ -830,8 +865,9 @@ onMounted(loadShipments)
               data-test="order-financial"
             >
               <template v-if="order">
-                <!-- Себестоимость — сумма по строкам, только на чтение -->
-                <InputGroup :label="t('orders.field_total_cost')">
+                <!-- Себестоимость — сумма по строкам, только на чтение. Под правом:
+                     без него в карточке остаётся только цена клиента. -->
+                <InputGroup v-if="canSeeCost" :label="t('orders.field_total_cost')">
                   <div class="input-with-suffix">
                     <input
                       class="glass-input"
@@ -996,7 +1032,11 @@ onMounted(loadShipments)
 
                 <!-- Фактические маржа и скидка — следствия, не настройки -->
                 <div class="inline-group">
-                  <InputGroup :label="t('orders.field_actual_margin')" class="inline-short">
+                  <InputGroup
+                    v-if="canSeeCost"
+                    :label="t('orders.field_actual_margin')"
+                    class="inline-short"
+                  >
                     <div class="input-with-suffix">
                       <input
                         class="glass-input"
@@ -1167,7 +1207,7 @@ onMounted(loadShipments)
                   <th v-for="cell in LINE_CELLS" :key="cell.field" class="num">
                     {{ t(cell.label) }}
                   </th>
-                  <th class="num">{{ t('orders.col_margin_amount') }}</th>
+                  <th v-if="canSeeCost" class="num">{{ t('orders.col_margin_amount') }}</th>
                   <th>{{ t('orders.col_state') }}</th>
                   <th></th>
                 </tr>
@@ -1252,6 +1292,7 @@ onMounted(loadShipments)
                     </span>
                   </td>
                   <td
+                    v-if="canSeeCost"
                     class="num"
                     :class="{ 'margin-negative': lineMargin(item) < 0 }"
                     data-test="line-margin"
@@ -1306,7 +1347,7 @@ onMounted(loadShipments)
                   <th v-for="cell in LINE_CELLS" :key="cell.field" class="num">
                     {{ t(cell.label) }}
                   </th>
-                  <th class="num">{{ t('orders.col_margin_amount') }}</th>
+                  <th v-if="canSeeCost" class="num">{{ t('orders.col_margin_amount') }}</th>
                   <th>{{ t('orders.col_state') }}</th>
                   <th></th>
                 </tr>
@@ -1360,6 +1401,7 @@ onMounted(loadShipments)
                     </span>
                   </td>
                   <td
+                    v-if="canSeeCost"
                     class="num"
                     :class="{ 'margin-negative': lineMargin(svc) < 0 }"
                     data-test="line-margin"

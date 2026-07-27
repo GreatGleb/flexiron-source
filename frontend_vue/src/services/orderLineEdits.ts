@@ -298,6 +298,8 @@ const ERROR_KEYS: Array<[string, string]> = [
   ['INVOICE_AMOUNT_AMBIGUOUS', 'orders.error_invoice_amount_ambiguous'],
   ['INVOICE_AMOUNT_REQUIRED', 'orders.error_invoice_amount_required'],
   ['SHIPMENT_CANCELLED', 'orders.error_shipment_cancelled_no_invoice'],
+  ['FORBIDDEN_MANUALCOST', 'orders.error_forbidden_manual_cost'],
+  ['FORBIDDEN_CORRECTION', 'orders.error_forbidden_correction'],
   ['ORDER_HAS_INVOICE', 'orders.error_order_has_invoice'],
   ['ORDER_HAS_SHIPMENT', 'orders.error_order_has_shipment'],
   ['ORDER_HAS_PAYMENT', 'orders.error_order_has_payment'],

@@ -2,6 +2,7 @@ import type {
   AppSettings,
   CompanyInfo,
   GlobalConstants,
+  OrderPermissions,
   Currency,
   Uom,
   UomConversion,
@@ -28,6 +29,15 @@ export const MOCK_SETTINGS: AppSettings = {
     defaultMargin: 15,
     defaultCurrency: 'EUR',
     defaultDiscountPercent: 0,
+  },
+
+  // Model section 12. Accounting sees cost because it reconciles it; only the
+  // owner and the admin may type one by hand or correct a shipped line, because
+  // both of those rewrite something a client or the warehouse already believes.
+  orderPermissions: {
+    seeCost: ['owner', 'admin', 'accounting'],
+    manualCost: ['owner', 'admin'],
+    correction: ['owner', 'admin'],
   },
 
   currencies: [
@@ -339,6 +349,17 @@ export function mockPatchCompany(patch: Partial<CompanyInfo>): CompanyInfo {
 
 export function mockGetConstants(): GlobalConstants {
   return structuredClone(settingsStore.constants)
+}
+
+/**
+ * Who may see cost, type one by hand, or correct an issued document.
+ *
+ * Its own endpoint because it is its own decision: the constants are numbers the
+ * business picks, this is who is allowed to do what — and the server has to have
+ * an answer even when nothing else about the settings is on screen.
+ */
+export function mockGetOrderPermissions(): OrderPermissions {
+  return structuredClone(settingsStore.orderPermissions)
 }
 
 export function mockSaveConstants(data: GlobalConstants): void {

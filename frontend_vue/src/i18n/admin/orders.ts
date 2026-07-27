@@ -297,6 +297,9 @@ export const adminOrders = {
       error_shipment_cancelled_no_invoice: 'Отгрузка отменена — счёт по ней не выставить',
       error_correction_reason_required: 'Причина корректировки обязательна',
       error_payment_not_found: 'Платёж не найден',
+      error_forbidden_manual_cost: 'Задавать себестоимость вручную может только директор или админ',
+      error_forbidden_correction:
+        'Корректировать выданные документы может только директор или админ',
       error_order_has_invoice:
         'Нельзя удалить: по заказу выставлен счёт. Сначала выпустите корректировку.',
       error_order_has_shipment:
@@ -671,6 +674,8 @@ export const adminOrders = {
       error_shipment_cancelled_no_invoice: 'The shipment is cancelled — it cannot be invoiced',
       error_correction_reason_required: 'A reason for the correction is required',
       error_payment_not_found: 'Payment not found',
+      error_forbidden_manual_cost: 'Only the owner or an admin may type a cost by hand',
+      error_forbidden_correction: 'Only the owner or an admin may correct an issued document',
       error_order_has_invoice: 'Cannot delete: the order has an invoice. Correct it first.',
       error_order_has_shipment:
         'Cannot delete: the order has a shipment. Cancel it first — the goods go back on the shelf.',
@@ -1044,6 +1049,10 @@ export const adminOrders = {
         'Išsiuntimas atšauktas — sąskaitos jam išrašyti negalima',
       error_correction_reason_required: 'Korekcijos priežastis būtina',
       error_payment_not_found: 'Apmokėjimas nerastas',
+      error_forbidden_manual_cost:
+        'Savikainą ranka gali įvesti tik savininkas arba administratorius',
+      error_forbidden_correction:
+        'Koreguoti išrašytus dokumentus gali tik savininkas arba administratorius',
       error_order_has_invoice:
         'Negalima ištrinti: užsakymui išrašyta sąskaita. Pirma išrašykite korekciją.',
       error_order_has_shipment:

@@ -813,6 +813,26 @@ test.describe('Order Card › line table', () => {
     expect(Number(await lineCell(row, 'lineTotal'))).toBeCloseTo(1000, 2)
   })
 
+  test('the owner sees cost and margin, and may type a cost by hand', async ({ page }) => {
+    // The demo user is the owner, who has all three rights of model section 12.
+    // What this guards is the opposite mistake: gating the columns behind a right
+    // and then hiding them from the people who have it. The refusals themselves
+    // are unit-tested — the app has no way to sign in as another role.
+    await page.goto('/admin/orders/ORD-001')
+    await page.waitForSelector('[data-test="order-item-row"]')
+    await expect(page.locator('[data-test="cell-unitCost"]').first()).toBeVisible()
+    await expect(page.locator('[data-test="cell-marginPercent"]').first()).toBeVisible()
+    await expect(page.locator('[data-test="line-margin"]').first()).toBeVisible()
+    await expect(page.locator('[data-test="field-total-cost"]')).toBeVisible()
+    await expect(page.locator('[data-test="field-total-margin"]')).toBeVisible()
+    await expect(
+      page
+        .locator('[data-test="order-item-row"]')
+        .first()
+        .locator('[data-test="cell-unitCost"] input'),
+    ).toHaveCount(1)
+  })
+
   test('cost, margin and the line state are there for everyone, unflagged', async ({ page }) => {
     // These used to sit behind `orderPricingV2` together with the editing. The
     // corrected calculation is not a feature anybody opts into, so the flag is

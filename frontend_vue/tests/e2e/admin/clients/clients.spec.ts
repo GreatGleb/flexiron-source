@@ -282,19 +282,22 @@ test.describe('clients-list › delete modal', () => {
   })
 
   test('cancelling the modal closes it', async ({ page }) => {
+    // Cancel is always there and always means the same thing — the branching this
+    // test used to do existed because the footer changed shape depending on whether
+    // the client had orders, which is an answer that arrives a moment later.
     await page.locator('[data-test="clients-delete-btn"]').first().click()
     await expect(page.locator('[data-test="clients-delete-modal"]')).toBeVisible()
-    // Find the cancel button — it might be in the footer or it might be a secondary button
-    // For clients without orders, the cancel button is `clients-delete-cancel`
-    const cancelBtn = page.locator('[data-test="clients-delete-cancel"]')
-    if ((await cancelBtn.count()) > 0) {
-      await cancelBtn.click()
-      await expect(page.locator('[data-test="clients-delete-modal"]')).toBeHidden()
-    } else {
-      // If the client has orders, only OK button is shown — click it to close
-      await page.locator('[data-test="clients-delete-confirm"]').click()
-      await expect(page.locator('[data-test="clients-delete-modal"]')).toBeHidden()
-    }
+    await page.locator('[data-test="clients-delete-cancel"]').click()
+    await expect(page.locator('[data-test="clients-delete-modal"]')).toBeHidden()
+  })
+
+  test('a client with orders is not offered for deletion', async ({ page }) => {
+    // Every seeded client has real orders, so the destructive button must be gone —
+    // and it must not flash into view before the answer arrives either.
+    await page.locator('[data-test="clients-delete-btn"]').first().click()
+    await expect(page.locator('[data-test="clients-delete-modal"]')).toBeVisible()
+    await expect(page.locator('[data-test="clients-delete-confirm"]')).toHaveCount(0)
+    await expect(page.locator('[data-test="clients-delete-modal"] .text-warning')).toBeVisible()
   })
 })
 

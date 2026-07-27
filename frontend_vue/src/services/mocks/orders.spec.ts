@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
 import {
   mockGetOrders,
   mockGetOrder,
@@ -36,6 +36,7 @@ import { batchById, mockCalculateFifoCost, mockGetMovementsFor } from './warehou
 import { calcLine, round2, validateLine, netToGross } from '@/domain/orderPricing'
 import { toPricingLine } from '@/services/orderLines'
 import type { Order } from '@/types/order'
+import type { UserProfile } from '@/types/settings'
 
 function allOrders(): Order[] {
   const page = mockGetOrders(
@@ -2062,6 +2063,70 @@ describe('invoices cannot lie about a delivery', () => {
     })
     const reissued = mockCreateInvoice(orderId, { shipmentId })
     expect(reissued.amountNet).toBe(original.amountNet)
+  })
+})
+
+describe('the three rights of model section 12', () => {
+  function asRole(role: UserProfile['role']) {
+    const settings = mockGetSettings()
+    mockSaveSettings({ ...settings, profile: { ...settings.profile, role } })
+  }
+
+  afterEach(() => asRole('owner'))
+
+  it('refuses a hand-typed cost to a role without the right, and records one with it', () => {
+    const { order, lineId } = orderWithLine(10, 120)
+
+    asRole('manager')
+    expect(() =>
+      mockUpdateOrderItem(order.id, lineId, {
+        manualUnitCost: 90,
+        manualCostReason: 'Supplier invoice',
+      }),
+    ).toThrow('FORBIDDEN_MANUALCOST')
+    // Refused before anything was written.
+    expect(mockGetOrder(order.id)!.items[0]!.manualUnitCost).toBeNull()
+
+    asRole('admin')
+    mockUpdateOrderItem(order.id, lineId, {
+      manualUnitCost: 90,
+      manualCostReason: 'Supplier invoice',
+    })
+    const after = mockGetOrder(order.id)!
+    expect(after.items[0]!.unitCost).toBe(90)
+    // A right that leaves no trace is a right nobody can audit.
+    const entry = after.auditLog[after.auditLog.length - 1]!
+    expect(entry.property.en).toContain('Manual cost')
+    expect(entry.newValue).toContain('Supplier invoice')
+    expect(entry.user.en).not.toBe('System')
+  })
+
+  it('refuses to correct an issued document without the right', () => {
+    const { order, lineId } = orderWithLine(10, 120)
+    const shipment = mockCreateShipment(order.id, { lines: [{ lineId, quantity: 10 }] })
+    mockCreateInvoice(order.id, { shipmentId: shipment.id })
+
+    asRole('accounting')
+    expect(() =>
+      mockCancelShipment(order.id, shipment.id, { correctionReason: 'Client refused' }),
+    ).toThrow('FORBIDDEN_CORRECTION')
+    expect(mockGetOrder(order.id)!.shipments[0]!.cancelled).toBe(false)
+
+    // An ordinary cancellation is not a correction: nobody outside the warehouse
+    // has been told about an uninvoiced truck.
+    const plain = orderWithLine(5, 100)
+    const plainShipment = mockCreateShipment(plain.order.id, {
+      lines: [{ lineId: plain.lineId, quantity: 5 }],
+    })
+    mockCancelShipment(plain.order.id, plainShipment.id)
+    expect(mockGetOrder(plain.order.id)!.shipments[0]!.cancelled).toBe(true)
+
+    asRole('owner')
+    mockCancelShipment(order.id, shipment.id, { correctionReason: 'Client refused' })
+    const after = mockGetOrder(order.id)!
+    expect(after.shipments[0]!.cancelled).toBe(true)
+    const entry = after.auditLog[after.auditLog.length - 1]!
+    expect([entry.property.en, entry.newValue]).toEqual(['Shipment correction', 'Client refused'])
   })
 })
 

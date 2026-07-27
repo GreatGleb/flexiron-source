@@ -5,6 +5,7 @@ import { getProducts } from '@/services/productsService'
 import { getStockOverview, getBatchCostBreakdown } from '@/services/warehouseService'
 import { useToast } from '@/composables/useToast'
 import { useSettings } from '@/composables/useSettings'
+import { useOrderPermissions } from '@/composables/useOrderPermissions'
 import { useTranslatedField } from '@/composables/useTranslatedData'
 import type { ProductListItem } from '@/types/product'
 import type { StockOverviewItem } from '@/types/warehouse'
@@ -19,6 +20,8 @@ import { formatCents as money, round2, type AddLineMode } from '@/domain/orderPr
 const { t, locale } = useI18n()
 const toast = useToast()
 const { settings } = useSettings()
+// The cost column is the same right as on the card: without it, only the price.
+const { canSeeCost } = useOrderPermissions()
 const { tf } = useTranslatedField()
 
 const props = withDefaults(
@@ -637,7 +640,7 @@ function onCancel() {
                 <th class="col-qty-header">{{ t('orders.col_quantity') }}</th>
                 <th class="col-unit-header">{{ t('orders.col_unit') }}</th>
                 <th class="col-price-ro-header">{{ t('orders.col_unit_price') }}</th>
-                <th class="col-cost-header">{{ t('orders.col_avg_cost') }}</th>
+                <th v-if="canSeeCost" class="col-cost-header">{{ t('orders.col_avg_cost') }}</th>
                 <th class="col-total-header">{{ t('orders.col_total_price') }}</th>
                 <th class="col-action-header"></th>
               </tr>
@@ -669,7 +672,7 @@ function onCancel() {
                     {{ settings.constants.defaultCurrency }}</span
                   >
                 </td>
-                <td class="col-cost-cell">
+                <td v-if="canSeeCost" class="col-cost-cell">
                   <span class="cost-display">{{
                     selectedItemsCosts.get(item.productId)?.unitPrice
                       ? selectedItemsCosts.get(item.productId)!.unitPrice.toFixed(2) +

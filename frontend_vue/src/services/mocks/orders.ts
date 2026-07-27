@@ -1175,6 +1175,50 @@ export function mockPatchOrderStatus(id: string, status: OrderStatus): Order {
   return publicOrder(order)
 }
 
+// ─── Rights ─────────────────────────────────────────────────────────────────
+// Model section 12. The server is the one that has to refuse, not the button: a
+// hidden button is a suggestion, and anything that talks to this API directly —
+// the next client, a script, a curl — is not looking at buttons.
+
+/** Who is acting. One user in the mock; a real server takes this from the session. */
+function actingUser(): { role: string; name: string; initials: string } {
+  const profile = mockGetSettings().profile
+  const name = `${profile.firstName} ${profile.lastName}`.trim() || profile.email
+  const initials =
+    (profile.firstName?.[0] ?? '') + (profile.lastName?.[0] ?? '') || profile.email.slice(0, 2)
+  return { role: profile.role, name, initials: initials.toUpperCase() }
+}
+
+function requireRight(right: 'manualCost' | 'correction'): { name: string; initials: string } {
+  const user = actingUser()
+  const allowed = mockGetSettings().orderPermissions[right] ?? []
+  if (!allowed.includes(user.role)) throw new Error('FORBIDDEN_' + right.toUpperCase())
+  return user
+}
+
+/**
+ * Writes the order's own history entry.
+ *
+ * The model asks for all three gated actions to be recorded with author and
+ * reason — a right that leaves no trace is a right nobody can audit.
+ */
+function recordInHistory(
+  order: StoreOrder,
+  property: { ru: string; en: string; lt: string },
+  oldValue: string,
+  newValue: string,
+  user: { name: string; initials: string },
+): void {
+  order.auditLog.push({
+    timestamp: new Date().toISOString().slice(0, 16).replace('T', ' '),
+    user: { ru: user.name, en: user.name, lt: user.name },
+    userInitials: user.initials,
+    property,
+    oldValue,
+    newValue,
+  })
+}
+
 // ─── Delete ───
 
 /**
@@ -1328,9 +1372,17 @@ export function mockUpdateOrderItem(
   const idx = order.items.findIndex((i) => i.id === lineId)
   if (idx === -1) throw new Error('ORDER_ITEM_NOT_FOUND')
 
+  // Typing a cost by hand is behind a right, and it is refused here rather than in
+  // the card: the button is a suggestion, the server is the answer.
+  const before = order.items[idx]!
+  // `manualUnitCost: null` is the wire form of "back to the warehouse figure" —
+  // still a cost decision, so it goes through the same right.
+  const settingCost = delta.manualUnitCost !== undefined
+  const actor = settingCost ? requireRight('manualCost') : null
+
   // Applied to a copy and swapped in only once every edit went through: a delta
   // carrying two edits must not leave the first one applied and the second refused.
-  const draft = clone(order.items[idx]!)
+  const draft = clone(before)
   for (const op of deltaToOps(delta, 'item')) {
     applyLineEdit(draft, op, { defaultDiscountPercent: order.defaultDiscountPercent })
   }
@@ -1342,6 +1394,21 @@ export function mockUpdateOrderItem(
   if (delta.allocations !== undefined) draft.allocations = delta.allocations.map((a) => ({ ...a }))
 
   order.items[idx] = draft
+  if (actor && draft.unitCost !== before.unitCost) {
+    // The line goes in the property, not smuggled into "old value": the history
+    // table reads as date · who · what · from · to, and "what" is this line's cost.
+    recordInHistory(
+      order,
+      {
+        ru: `Себестоимость вручную — ${draft.productName}`,
+        en: `Manual cost — ${draft.productName}`,
+        lt: `Rankinė savikaina — ${draft.productName}`,
+      },
+      String(before.unitCost),
+      `${draft.unitCost} — ${draft.manualCostReason ?? '—'}`,
+      actor,
+    )
+  }
   // A grown line gets batches for the units it gained; a shrunk one gives its
   // surplus hold back. Holding MORE stays the reservation's job, not an edit's.
   topUpAllocation(orderId, draft)
@@ -1846,6 +1913,10 @@ export function mockCancelShipment(
   const live = liveInvoicesFor(order, shipment.id)
   const reason = opts?.correctionReason?.trim() ?? ''
   if (live.length > 0 && !reason) throw new Error('SHIPMENT_ALREADY_INVOICED')
+  // Withdrawing a document the client holds is the "correction" of model section
+  // 12, and it is behind a right. An ordinary cancellation of an uninvoiced truck
+  // is not — nobody outside the warehouse has been told about it yet.
+  const actor = live.length > 0 ? requireRight('correction') : null
 
   // The goods come back by an opposite movement, never by deleting the sale: the
   // sale happened, and a ledger that forgets it cannot be reconciled with the
@@ -1889,6 +1960,16 @@ export function mockCancelShipment(
       referenceId: shipment.id,
       notes: `Cancelled ${shipment.waybillNumber ?? shipment.number}`,
     })
+  }
+
+  if (actor) {
+    recordInHistory(
+      order,
+      { ru: 'Корректировка отгрузки', en: 'Shipment correction', lt: 'Išsiuntimo korekcija' },
+      live.map((i) => i.number).join(', '),
+      reason,
+      actor,
+    )
   }
 
   // The hold goes back on, now that the goods are back on the shelf.

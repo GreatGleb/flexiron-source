@@ -92,10 +92,13 @@ const deletingClientName = computed(() => {
  * none were refused. Orders belong to the orders module, so it is the one asked.
  */
 const deletingClientHasOrders = ref(false)
+/** True until the orders module has answered — the delete button waits for it. */
+const deletingClientOrdersUnknown = ref(false)
 
 async function confirmDelete(id: string) {
   deletingId.value = id
   deletingClientHasOrders.value = false
+  deletingClientOrdersUnknown.value = true
   showDeleteModal.value = true
   try {
     const page = await getOrders(
@@ -111,11 +114,17 @@ async function confirmDelete(id: string) {
       { page: 1, pageSize: 1 },
     )
     // Still the same client? The modal may have been closed and reopened.
-    if (deletingId.value === id) deletingClientHasOrders.value = page.total > 0
+    if (deletingId.value === id) {
+      deletingClientHasOrders.value = page.total > 0
+      deletingClientOrdersUnknown.value = false
+    }
   } catch {
     // Cannot tell — the confirmation stays as it is rather than claiming there are
     // no orders, which is the answer that loses data.
-    if (deletingId.value === id) deletingClientHasOrders.value = true
+    if (deletingId.value === id) {
+      deletingClientHasOrders.value = true
+      deletingClientOrdersUnknown.value = false
+    }
   }
 }
 
@@ -485,32 +494,28 @@ onMounted(() => {
       <p v-if="deletingClientHasOrders" class="text-warning">
         {{ t('clients.delete_warning_orders') }}
       </p>
+      <!-- One shape, always. The footer used to swap between "cancel + delete" and
+           a lone "OK" depending on the answer about orders — and that answer now
+           arrives a moment after the dialog opens, so a click in between landed on
+           a button that was about to be replaced. Cancel is always there and always
+           safe; only the destructive button waits for the answer. -->
       <template #footer>
-        <template v-if="deletingClientHasOrders">
-          <button
-            class="btn btn-primary"
-            data-test="clients-delete-confirm"
-            @click="showDeleteModal = false"
-          >
-            {{ t('clients.btn_ok') }}
-          </button>
-        </template>
-        <template v-else>
-          <button
-            class="btn btn-secondary"
-            data-test="clients-delete-cancel"
-            @click="showDeleteModal = false"
-          >
-            {{ t('clients.btn_discard') }}
-          </button>
-          <button
-            class="btn btn-danger"
-            data-test="clients-delete-confirm"
-            @click="onDeleteConfirm"
-          >
-            {{ t('clients.btn_delete') }}
-          </button>
-        </template>
+        <button
+          class="btn btn-secondary"
+          data-test="clients-delete-cancel"
+          @click="showDeleteModal = false"
+        >
+          {{ t('clients.btn_discard') }}
+        </button>
+        <button
+          v-if="!deletingClientHasOrders"
+          class="btn btn-danger"
+          :disabled="deletingClientOrdersUnknown"
+          data-test="clients-delete-confirm"
+          @click="onDeleteConfirm"
+        >
+          {{ t('clients.btn_delete') }}
+        </button>
       </template>
     </AppModal>
   </div>

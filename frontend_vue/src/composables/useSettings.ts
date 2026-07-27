@@ -12,6 +12,9 @@ import type {
 const defaultSettings: AppSettings = {
   company: { name: '', legalAddress: '', vatCode: '', bankName: '', bankAccount: '' },
   constants: { vatRate: 21, defaultMargin: 15, defaultCurrency: 'EUR', defaultDiscountPercent: 0 },
+  // Empty until the server answers: nobody is granted anything by a default that
+  // exists only because the settings have not loaded yet.
+  orderPermissions: { seeCost: [], manualCost: [], correction: [] },
   currencies: [],
   uoms: [],
   conversions: [],
@@ -22,9 +25,13 @@ const defaultSettings: AppSettings = {
 }
 
 // ─── localStorage cache helpers ──────────────────────────────────────────
-const CACHE_VERSION = 3 // bump when data shape changes (e.g., new fields)
+const CACHE_VERSION = 4 // bump when data shape changes (e.g., new fields)
 const CACHE_KEY = `flexiron_settings_cache_v${CACHE_VERSION}`
-const LEGACY_CACHE_KEYS = ['flexiron_settings_cache', 'flexiron_settings_cache_v2'] // old keys to purge
+const LEGACY_CACHE_KEYS = [
+  'flexiron_settings_cache',
+  'flexiron_settings_cache_v2',
+  'flexiron_settings_cache_v3',
+] // old keys to purge
 // const CACHE_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
 
 interface SettingsCache {
@@ -59,6 +66,15 @@ function saveToCache(data: AppSettings) {
 
 // ─── Module-level singleton state ────────────────────────────────────────
 const loading = ref(false)
+/**
+ * Set once the server has answered about the settings, whatever the answer was.
+ *
+ * Anything that DENIES by default has to know the difference between "the server
+ * said no" and "the server has not said anything yet": without it, whatever the
+ * settings gate flickers into view a moment after the page renders — which is
+ * exactly how the order card's cost columns started appearing late.
+ */
+const settled = ref(false)
 const saving = ref(false)
 const error = ref<string | null>(null)
 const settings = reactive<AppSettings>({ ...defaultSettings })
@@ -151,6 +167,7 @@ export function useSettings() {
     const allResults = await Promise.allSettled([
       settingsService.getCompany(),
       settingsService.getConstants(),
+      settingsService.getOrderPermissions(),
       settingsService.getCurrencies(),
       settingsService.getUoms(),
       settingsService.getConversions(),
@@ -161,6 +178,7 @@ export function useSettings() {
     const labels: (keyof AppSettings)[] = [
       'company',
       'constants',
+      'orderPermissions',
       'currencies',
       'uoms',
       'conversions',
@@ -185,6 +203,9 @@ export function useSettings() {
     if (!anySuccess) {
       // All requests failed — don't cache
       error.value = 'Failed to load settings. Backend may be unavailable.'
+      // Settled all the same: the answer is "we could not ask", and a card that
+      // waits forever for it shows a skeleton forever.
+      settled.value = true
       loading.value = false
       return
     }
@@ -192,6 +213,7 @@ export function useSettings() {
     const data = { ...settings } as AppSettings
     saveToCache(data)
     takeSnapshot()
+    settled.value = true
     loading.value = false
   }
 
@@ -214,6 +236,7 @@ export function useSettings() {
     const allResults = await Promise.allSettled([
       settingsService.getCompany(),
       settingsService.getConstants(),
+      settingsService.getOrderPermissions(),
       settingsService.getCurrencies(),
       settingsService.getUoms(),
       settingsService.getConversions(),
@@ -224,6 +247,7 @@ export function useSettings() {
     const labels: (keyof AppSettings)[] = [
       'company',
       'constants',
+      'orderPermissions',
       'currencies',
       'uoms',
       'conversions',
@@ -251,6 +275,7 @@ export function useSettings() {
     const data = { ...settings } as AppSettings
     saveToCache(data)
     takeSnapshot()
+    settled.value = true
     loading.value = false
   }
 
@@ -569,6 +594,7 @@ export function useSettings() {
   return {
     settings,
     loading,
+    settled,
     saving,
     error,
     isDirty,
