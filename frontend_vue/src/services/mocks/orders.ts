@@ -60,6 +60,7 @@ import { mockGetSettings } from './settings'
 import { STORE as PRODUCTS_STORE } from './products'
 import {
   batchById,
+  batchesForProduct,
   mockFifoAllocation,
   mockGetMovementsFor,
   recordShortage,
@@ -202,6 +203,39 @@ function mulberry32(seed: number): () => number {
   }
 }
 
+/**
+ * Quantity for a generated line.
+ *
+ * Ordering more than the shelf holds is NOT a lie — that is ordinary trade, and the
+ * deficit report exists for it. The lie was the seeded shipment claiming to have
+ * moved goods nobody had, and that is fixed where shipments are created: every one
+ * of them now goes through the write-off and takes only what is there.
+ *
+ * What is left is a question of proportion. Forty-odd generated orders drawing on
+ * the same batches at 10–500 units each empty the warehouse the demo exists to
+ * show, and then nothing can be shipped, reserved or costed off a batch anywhere.
+ * So the FILLER orders take a slice of what is really on the shelf.
+ *
+ * The nine hand-built scenarios are exempt: their quantities are the illustration
+ * itself — ORD-001 comes to 22 990,00, and that figure is quoted in the plans, in
+ * the tests and in every explanation of what this rework fixed.
+ */
+function generatedQuantity(prod: ProductSpec, rng: () => number, isScenario: boolean): number {
+  const fractional = prod.unit === 'kg' || prod.unit === 'm'
+  const invented = fractional
+    ? Math.round((10 + rng() * 490) * 10) / 10
+    : 1 + Math.floor(rng() * 50)
+  if (isScenario) return invented
+  const onShelf = batchesForProduct(prod.id).reduce((sum, b) => sum + b.quantityRemaining, 0)
+  if (onShelf <= 0) return invented
+  const share = onShelf * (0.02 + rng() * 0.08)
+  const capped = Math.min(invented, share)
+  return fractional ? Math.max(0.1, Math.round(capped * 10) / 10) : Math.max(1, Math.floor(capped))
+}
+
+/** How many orders at the head of the store are hand-built illustrations. */
+const SCENARIO_ORDER_COUNT = 9
+
 const PRODUCTS: ProductSpec[] = [
   { id: 'prod-001', name: 'Steel Sheet 3mm', unit: 'pcs', price: 120.5 },
   { id: 'prod-002', name: 'Steel Pipe 50mm', unit: 'm', price: 45.0 },
@@ -298,10 +332,8 @@ function generateOrders(): StoreOrder[] {
       const fullProd = PRODUCTS_STORE.find((p) => p.id === prod.id)
       const initLang =
         typeof localStorage !== 'undefined' ? localStorage.getItem('flexiron_lang') || 'en' : 'en'
-      const qty =
-        prod.unit === 'kg' || prod.unit === 'm'
-          ? Math.round((10 + rng() * 490) * 10) / 10
-          : 1 + Math.floor(rng() * 50)
+      // The first nine are the hand-built scenarios — see `applyScenario`.
+      const qty = generatedQuantity(prod, rng, i < SCENARIO_ORDER_COUNT)
       const discount = rng() < 0.15 ? Math.round(rng() * 15) : 0
       const costRatio = 0.6 + rng() * 0.25 // 60–85% of selling price
       // Costed off the warehouse, oldest batches first — and carrying the
@@ -531,22 +563,19 @@ function makeStatusConsistent(order: StoreOrder): void {
   if (!order.items.length) return
 
   if (order.status === 'shipped' || order.status === 'delivered') {
-    for (const item of order.items) {
-      item.shippedQuantity = item.quantity
-      applyPricing(item, syncLineState(toPricingLine(item)))
-    }
-    order.shipments.push({
-      id: `${order.id}-SHP-1`,
-      orderId: order.id,
-      number: `${order.orderNumber}/1`,
-      shippedAt: order.updatedAt,
-      carrier: 'Own transport',
-      vehicle: null,
-      waybillNumber: `WB-${order.orderNumber}-1`,
-      lines: order.items.map((i) => ({ lineId: i.id, quantity: i.quantity })),
-      cancelled: false,
-    })
-    order._nextShipmentSeq = 2
+    // RECORDED, not performed — the same mechanism the hand-built scenarios use.
+    // A shipment object pushed straight onto the order says the goods left while
+    // the shelf still holds them, and the demo then contradicts the one rule the
+    // warehouse runs on. What the shelf cannot back simply does not go, and the
+    // status follows the facts afterwards: a demo warehouse holding 5 units cannot
+    // send 1500, and pretending otherwise is the falsehood, not the empty truck.
+    order._pendingShipments = [
+      {
+        lines: order.items.map((i) => ({ lineId: i.id, quantity: i.quantity })),
+        carrier: 'Own transport',
+        shippedAt: order.updatedAt,
+      },
+    ]
   }
 
   if (order.status === 'paid') {

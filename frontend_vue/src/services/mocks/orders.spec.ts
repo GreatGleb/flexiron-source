@@ -208,7 +208,10 @@ describe('scenario orders', () => {
   it('ORD-002 — one discount for the whole order, and the money shows it', () => {
     const order = mockGetOrder('ORD-002')!
     expect(order.defaultDiscountPercent).toBe(5)
-    expect(order.effectiveDiscountPercent).toBe(5)
+    // Not exactly 5: the effective discount is one number over the whole order,
+    // and every line's money is rounded to cents on the way. It used to land on 5
+    // exactly, which was the demo quantities being lucky rather than a rule.
+    expect(order.effectiveDiscountPercent).toBeCloseTo(5, 2)
     expect(order.items.every((i) => i.discountPercent === 5)).toBe(true)
 
     // The total really is 95% of the undiscounted price — not just a flag saying so.
