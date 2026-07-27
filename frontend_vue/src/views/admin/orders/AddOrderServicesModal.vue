@@ -10,20 +10,58 @@ import AppModal from '@/components/admin/ui/AppModal.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
 import SearchInput from '@/components/admin/ui/SearchInput.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
+import AddLineModeChooser from './AddLineModeChooser.vue'
+import { formatCents as money, type AddLineMode } from '@/domain/orderPricing'
 
 const { t } = useI18n()
 const toast = useToast()
 const { tf } = useTranslatedField()
 
-const props = defineProps<{
-  show: boolean
-  orderId: string
-}>()
+const props = withDefaults(
+  defineProps<{
+    show: boolean
+    orderId: string
+    /** What to ask about pricing, if anything — model, section 10. */
+    modes?: AddLineMode[]
+    effectiveDiscount?: number
+    defaultDiscountPercent?: number
+  }>(),
+  { modes: () => [], effectiveDiscount: 0, defaultDiscountPercent: 0 },
+)
 
 const emit = defineEmits<{
   close: []
-  add: [items: Array<{ serviceId: string; serviceName: string; quantity: number; price: number }>]
+  add: [
+    items: Array<{
+      serviceId: string
+      serviceName: string
+      quantity: number
+      price: number
+      /** So the card can show the real margin before the line is saved. */
+      cost: number
+    }>,
+    mode: AddLineMode | null,
+  ]
 }>()
+
+// ─── How the new lines should be priced ───────────────────────────────────
+const chosenMode = ref<AddLineMode>(props.modes[0] ?? 'computed_price')
+
+watch(
+  () => [props.show, props.modes] as const,
+  () => {
+    chosenMode.value = props.modes[0] ?? 'computed_price'
+  },
+)
+
+/** Price per unit after the chosen mode's discount, unrounded. */
+function netPrice(price: number): number {
+  const discount =
+    chosenMode.value === 'order_terms' ? props.effectiveDiscount : props.defaultDiscountPercent
+  return price * (1 - discount / 100)
+}
+
+// Money is formatted by the domain's rule — see `formatCents`.
 
 // ─── Services data ──────────────────────────────────────────────────────
 const services = ref<ServiceListItem[]>([])
@@ -61,6 +99,7 @@ interface SelectedServiceItem {
   serviceName: string
   quantity: number
   price: number
+  cost: number
 }
 
 const selectedItems = ref<SelectedServiceItem[]>([])
@@ -78,6 +117,7 @@ function toggleService(id: string) {
         serviceName: tf(svc.name),
         quantity: 1,
         price: svc.sellingPrice ?? 0,
+        cost: svc.costPrice ?? 0,
       },
     ]
   } else {
@@ -169,9 +209,10 @@ function onSave() {
       serviceName: item.serviceName,
       quantity: item.quantity,
       price: item.price,
+      cost: item.cost,
     }))
   if (items.length > 0) {
-    emit('add', items)
+    emit('add', items, props.modes.length > 0 ? chosenMode.value : null)
     emit('close')
   }
 }
@@ -339,10 +380,14 @@ function onCancel() {
                   />
                 </td>
                 <td class="col-price-ro-cell">
-                  <span class="price-display">{{ item.price.toFixed(2) }} EUR</span>
+                  <span class="price-display" data-test="add-services-price"
+                    >{{ money(netPrice(item.price)) }} EUR</span
+                  >
                 </td>
                 <td class="col-total-cell">
-                  <span class="item-total">{{ (item.quantity * item.price).toFixed(2) }} EUR</span>
+                  <span class="item-total" data-test="add-services-total"
+                    >{{ money(netPrice(item.price) * item.quantity) }} EUR</span
+                  >
                 </td>
                 <td class="col-action-cell">
                   <button
@@ -359,6 +404,13 @@ function onCancel() {
           </table>
         </div>
       </div>
+
+      <AddLineModeChooser
+        v-if="selectedItems.length > 0"
+        v-model="chosenMode"
+        :modes="modes"
+        :effective-discount="effectiveDiscount"
+      />
     </div>
 
     <template #footer>

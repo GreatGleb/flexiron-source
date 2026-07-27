@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useHead } from '@/composables/useHead'
 import { useOrderCreate } from '@/composables/useOrderCreate'
+import { formatCents as money } from '@/domain/orderPricing'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
 import Breadcrumb from '@/components/admin/Breadcrumb.vue'
 import InputGroup from '@/components/admin/ui/InputGroup.vue'
@@ -115,6 +116,22 @@ watch(clientSearch, () => {
 // ─── Items modals ──────────────────────────────────────────────
 const showAddItemsModal = ref(false)
 const showAddServicesModal = ref(false)
+
+// Named handlers rather than two statements inline: Prettier reformats an inline
+// "a = false; b($event)" onto separate lines, which Vue's expression parser
+// rejects — and this page is loaded lazily, so the build stays green while the
+// route fails in the browser.
+// The draft has no saved lines to reprice, so the dialog asks nothing here and
+// the mode it emits is ignored.
+function onItemsAdded(payload: Parameters<typeof addItem>[0]) {
+  showAddItemsModal.value = false
+  addItem(payload)
+}
+
+function onServicesAdded(payload: Parameters<typeof addService>[0]) {
+  showAddServicesModal.value = false
+  addService(payload)
+}
 
 // ─── Create action ─────────────────────────────────────────────
 async function onCreate() {
@@ -367,8 +384,8 @@ onMounted(loadClients)
                 <td>{{ item.productName }}</td>
                 <td>{{ item.quantity }}</td>
                 <td>{{ t('orders.unit_' + item.unit, item.unit) }}</td>
-                <td>{{ item.unitPrice.toFixed(2) }}</td>
-                <td>{{ item.totalPrice.toFixed(2) }}</td>
+                <td>{{ money(item.unitPrice) }}</td>
+                <td>{{ money(item.totalPrice) }}</td>
                 <td>
                   <button
                     v-tooltip="t('orders.btn_remove_item')"
@@ -416,10 +433,10 @@ onMounted(loadClients)
               <tr v-for="svc in localOrder.services" :key="svc.id" class="order-service-row">
                 <td>{{ svc.serviceName }}</td>
                 <td>{{ svc.quantity }}</td>
-                <td>{{ (svc.cost * svc.quantity).toFixed(2) }}</td>
-                <td>{{ svc.price.toFixed(2) }}</td>
-                <td>{{ (svc.margin * svc.quantity).toFixed(2) }}</td>
-                <td>{{ (svc.price * svc.quantity).toFixed(2) }}</td>
+                <td>{{ money(svc.cost * svc.quantity) }}</td>
+                <td>{{ money(svc.price) }}</td>
+                <td>{{ money(svc.marginAmount) }}</td>
+                <td>{{ money(svc.totalPrice) }}</td>
                 <td>
                   <button
                     v-tooltip="t('orders.btn_remove_service')"
@@ -459,14 +476,14 @@ onMounted(loadClients)
       :show="showAddItemsModal"
       :order-id="''"
       @close="showAddItemsModal = false"
-      @add="showAddItemsModal = false; addItem($event)"
+      @add="onItemsAdded($event)"
     />
 
     <AddOrderServicesModal
       :show="showAddServicesModal"
       :order-id="''"
       @close="showAddServicesModal = false"
-      @add="showAddServicesModal = false; addService($event)"
+      @add="onServicesAdded($event)"
     />
   </div>
 </template>

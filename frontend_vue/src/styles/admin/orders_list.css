@@ -521,3 +521,13 @@
 .data-table tfoot td {
   position: relative;
 }
+
+/* ─── Paid share ────────────────────────────────────────────── */
+/* Coloured only where it says something: settled in full, or on its way. */
+.page-orders .paid-full {
+  color: var(--success, #52c41a);
+}
+
+.page-orders .paid-part {
+  color: var(--warning, #faad14);
+}

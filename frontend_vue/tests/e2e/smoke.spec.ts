@@ -41,6 +41,9 @@ const ADMIN_ROUTES: Route[] = [
   { path: '/admin/suppliers/1', label: 'supplier-card' },
   { path: '/admin/suppliers/config', label: 'supplier-card-config' },
   { path: '/admin/suppliers/bcc-request', label: 'bcc-request' },
+  // Its "recent orders" table shows figures that come from the orders module, and
+  // nothing else covered this page at all.
+  { path: '/admin/sales-crm', label: 'sales-crm' },
   { path: '/admin/orders', label: 'orders-list' },
   { path: '/admin/orders/new', label: 'order-create' },
   { path: '/admin/orders/ORD-001', label: 'order-card' },
@@ -62,7 +65,13 @@ for (const route of ALL_ROUTES) {
     await page.goto(route.path)
     await page.waitForLoadState('networkidle')
 
-    expect.soft(page.locator('h1').first()).toBeVisible()
+    // AWAITED, and that matters: `expect.soft(locator).toBeVisible()` returns a
+    // promise, and without awaiting it the assertion never gets its retry window —
+    // it is settled against whatever the page happened to show in that same tick.
+    // Every page here passed only by rendering fast enough; the order card, the
+    // slowest of them, failed at random and was written off as a flake for three
+    // stages. The generous timeout is for a cold dev server compiling the route.
+    await expect.soft(page.locator('h1').first()).toBeVisible({ timeout: 15_000 })
     expect.soft(consoleErrors, 'console errors on page').toEqual([])
     expect.soft(pageErrors, 'uncaught JS errors').toEqual([])
   })

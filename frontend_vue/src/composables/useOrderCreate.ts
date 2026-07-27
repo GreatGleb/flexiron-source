@@ -13,6 +13,13 @@ import { getClients } from '@/services/clientsService'
 import type { Order, OrderDocumentType, OrderItem, OrderService, OrderFile } from '@/types/order'
 import type { Client } from '@/types/client'
 import type { UploadedFile } from '@/services/uploadsService'
+import {
+  buildOrderItem,
+  buildOrderService,
+  pricingSeedFor,
+  toPricingLine,
+} from '@/services/orderLines'
+import { round2, rollupOrder } from '@/domain/orderPricing'
 
 export function useOrderCreate() {
   const { t } = useI18n()
@@ -42,6 +49,7 @@ export function useOrderCreate() {
     items: OrderItem[]
     services: OrderService[]
     files: OrderFile[]
+    totalCost: number
     totalAmount: number
     totalVat: number
     totalWithVat: number
@@ -50,6 +58,7 @@ export function useOrderCreate() {
     items: [],
     services: [],
     files: [],
+    totalCost: 0,
     totalAmount: 0,
     totalVat: 0,
     totalWithVat: 0,
@@ -150,22 +159,23 @@ export function useOrderCreate() {
     pendingItems.value = [...pendingItems.value, ...items]
 
     const now = Date.now()
-    const newItems: OrderItem[] = items.map((item, idx) => ({
-      id: `temp-${now}-${Math.random().toString(36).slice(2, 8)}-${idx}`,
-      lineNumber: localOrder.value.items.length + idx + 1,
-      productId: item.productId,
-      productName: item.productName,
-      quantity: item.quantity,
-      unit: item.unit,
-      unitPrice: item.unitPrice,
-      unitCost: item.unitCost ?? Math.round(item.unitPrice * 0.7 * 100) / 100,
-      discount: 0,
-      totalPrice: item.quantity * item.unitPrice,
-      batchId: null,
-      offcutId: null,
-      receivedCurrency: 'cur-eur',
-      exchangeRate: 1,
-    }))
+    const newItems: OrderItem[] = items.map((item, idx) => {
+      const unitCost = item.unitCost ?? round2(item.unitPrice * 0.7)
+      return buildOrderItem({
+        // A guessed cost is marked as a guess, so reports can tell them apart.
+        costSource: item.unitCost === undefined ? 'estimate' : 'stock',
+        id: `temp-${now}-${Math.random().toString(36).slice(2, 8)}-${idx}`,
+        lineNumber: localOrder.value.items.length + idx + 1,
+        productId: item.productId,
+        productName: item.productName,
+        quantity: item.quantity,
+        unit: item.unit,
+        unitCost,
+        ...pricingSeedFor(unitCost, item.unitPrice),
+        receivedCurrency: 'cur-eur',
+        exchangeRate: 1,
+      })
+    })
 
     localOrder.value = {
       ...localOrder.value,
@@ -208,15 +218,16 @@ export function useOrderCreate() {
     pendingServices.value = [...pendingServices.value, ...items]
 
     const now = Date.now()
-    const newServices: OrderService[] = items.map((item, idx) => ({
-      id: `temp-svc-${now}-${Math.random().toString(36).slice(2, 8)}-${idx}`,
-      serviceId: item.serviceId,
-      serviceName: item.serviceName,
-      cost: item.cost ?? 0,
-      price: item.price,
-      margin: item.price - (item.cost ?? 0),
-      quantity: item.quantity,
-    }))
+    const newServices: OrderService[] = items.map((item, idx) =>
+      buildOrderService({
+        id: `temp-svc-${now}-${Math.random().toString(36).slice(2, 8)}-${idx}`,
+        serviceId: item.serviceId,
+        serviceName: item.serviceName,
+        quantity: item.quantity,
+        unitCost: item.cost ?? 0,
+        ...pricingSeedFor(item.cost ?? 0, item.price),
+      }),
+    )
 
     localOrder.value = {
       ...localOrder.value,
@@ -269,25 +280,21 @@ export function useOrderCreate() {
     }
   }
 
-  // ─── Local totals recalculation ────────────────────────────────────────
+  // ─── Local totals ──────────────────────────────────────────────────────
+  // Same pricing module as everywhere else: no second VAT rate, no invented
+  // weight. A brand-new order is always standard-rated until the client and the
+  // document type say otherwise, which happens after it is created.
   function recalcLocalTotals() {
-    const itemsTotal = localOrder.value.items.reduce((sum, i) => sum + i.totalPrice, 0)
-    const servicesTotal = localOrder.value.services.reduce(
-      (sum, s) => sum + (s.price ?? 0) * (s.quantity ?? 1),
-      0,
-    )
-    const itemsWeight = localOrder.value.items.reduce(
-      (sum, i) => sum + parseFloat(String(i.quantity)) * 0.5,
-      0,
-    )
-    const newAmount = itemsTotal + servicesTotal
-    const newVat = Math.round(newAmount * 0.21 * 100) / 100
+    const lines = [...localOrder.value.items, ...localOrder.value.services].map(toPricingLine)
+    const rolled = rollupOrder(lines, 'standard', settings.constants.vatRate)
     localOrder.value = {
       ...localOrder.value,
-      totalAmount: newAmount,
-      totalVat: newVat,
-      totalWithVat: newAmount + newVat,
-      totalWeight: Math.round(itemsWeight * 100) / 100,
+      totalCost: rolled.totalCost,
+      totalAmount: rolled.totalNet,
+      totalVat: rolled.totalVat,
+      totalWithVat: rolled.totalGross,
+      // Nothing to compute it from while products carry no weight.
+      totalWeight: localOrder.value.totalWeight,
     }
   }
 

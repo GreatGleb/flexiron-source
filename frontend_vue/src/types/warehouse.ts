@@ -488,6 +488,27 @@ export interface StockPatchPayload {
 
 // ─── Filters ────────────────────────────────────────────────────────────────
 
+// ─── Stock Reservation ──────────────────────────────────────────────────────
+
+/**
+ * Goods promised to an order but still physically in the warehouse.
+ *
+ * Deliberately NOT a movement: a reservation does not change how much is on the
+ * shelf, it changes how much is available. And deliberately not a field on the
+ * batch — one batch serves many orders at once, which a single `orderId` cannot
+ * express. Available = quantityRemaining − sum of reservations.
+ */
+export interface StockReservation {
+  id: string
+  batchId: string | null
+  offcutId: string | null
+  orderId: string
+  /** Which order line the reservation belongs to. */
+  lineId: string
+  quantity: number
+  createdAt: string
+}
+
 export interface WarehouseFilters {
   search: string
   productId?: string

@@ -149,15 +149,30 @@ import {
   mockCreateOrder,
   mockPatchOrder,
   mockPatchOrderStatus,
+  mockPlanOrderShipment,
+  mockPlanStatusTransition,
   mockDeleteOrder,
   mockAddOrderItem,
   mockUpdateOrderItem,
   mockDeleteOrderItem,
   mockAddOrderService,
+  mockUpdateOrderService,
   mockDeleteOrderService,
   mockDeleteOrderAuditEntry,
   mockAddOrderFile,
   mockRemoveOrderFile,
+  mockAllocateOrderTotal,
+  mockSplitOrderItem,
+  mockGetShipments,
+  mockCreateShipment,
+  mockCancelShipment,
+  mockReserveOrder,
+  mockGetReservations,
+  mockGetOrderPayments,
+  mockAddOrderPayment,
+  mockDeleteOrderPayment,
+  mockGetInvoices,
+  mockCreateInvoice,
 } from './orders'
 import type { SupplierFilters, SupplierCardData } from '@/types/supplier'
 import type { ClientFormData } from '@/types/client'
@@ -439,6 +454,43 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
       pageSize: params?.pageSize ? Number(params.pageSize) : 25,
     }
     return delay(mockGetOrders(filters, pagination) as T)
+  }
+
+  // Read-only: what a status change would do to the warehouse, before it does it.
+  const statusPlanMatch = path.match(/^\/api\/orders\/([^/]+)\/status-plan$/)
+  if (statusPlanMatch) {
+    return delay(
+      mockPlanStatusTransition(
+        statusPlanMatch[1] as string,
+        (params?.status ?? 'new') as import('@/types/order').OrderStatus,
+      ) as T,
+    )
+  }
+
+  // What could go on a truck right now, and how much of it.
+  const shipPlanMatch = path.match(/^\/api\/orders\/([^/]+)\/ship-plan$/)
+  if (shipPlanMatch) {
+    return delay(mockPlanOrderShipment(shipPlanMatch[1] as string) as T)
+  }
+
+  const orderShipmentsMatch = path.match(/^\/api\/orders\/([^/]+)\/shipments$/)
+  if (orderShipmentsMatch) {
+    return delay(mockGetShipments(orderShipmentsMatch[1] as string) as T)
+  }
+
+  const orderPaymentsMatch = path.match(/^\/api\/orders\/([^/]+)\/payments$/)
+  if (orderPaymentsMatch) {
+    return delay(mockGetOrderPayments(orderPaymentsMatch[1] as string) as T)
+  }
+
+  const orderInvoicesMatch = path.match(/^\/api\/orders\/([^/]+)\/invoices$/)
+  if (orderInvoicesMatch) {
+    return delay(mockGetInvoices(orderInvoicesMatch[1] as string) as T)
+  }
+
+  const orderReservationsMatch = path.match(/^\/api\/orders\/([^/]+)\/reservations$/)
+  if (orderReservationsMatch) {
+    return delay(mockGetReservations({ orderId: orderReservationsMatch[1] as string }) as T)
   }
 
   const orderCardMatch = path.match(/^\/api\/orders\/([^/]+)$/)
@@ -807,6 +859,70 @@ export async function postMock<T>(
     )
   }
 
+  const orderAllocateMatch = path.match(/^\/api\/orders\/([^/]+)\/allocate-total$/)
+  if (orderAllocateMatch) {
+    const { targetGross } = body as { targetGross: number }
+    return delay(mockAllocateOrderTotal(orderAllocateMatch[1] as string, targetGross) as T)
+  }
+
+  const orderSplitMatch = path.match(/^\/api\/orders\/([^/]+)\/items\/([^/]+)\/split$/)
+  if (orderSplitMatch) {
+    const { shippedQuantity } = body as { shippedQuantity: number }
+    return delay(
+      mockSplitOrderItem(
+        orderSplitMatch[1] as string,
+        orderSplitMatch[2] as string,
+        shippedQuantity,
+      ) as T,
+    )
+  }
+
+  const shipmentCancelMatch = path.match(/^\/api\/orders\/([^/]+)\/shipments\/([^/]+)\/cancel$/)
+  if (shipmentCancelMatch) {
+    return delay(
+      mockCancelShipment(
+        shipmentCancelMatch[1] as string,
+        shipmentCancelMatch[2] as string,
+        body as Parameters<typeof mockCancelShipment>[2],
+      ) as T,
+    )
+  }
+
+  const shipmentCreateMatch = path.match(/^\/api\/orders\/([^/]+)\/shipments$/)
+  if (shipmentCreateMatch) {
+    return delay(
+      mockCreateShipment(
+        shipmentCreateMatch[1] as string,
+        body as Parameters<typeof mockCreateShipment>[1],
+      ) as T,
+    )
+  }
+
+  const orderReserveMatch = path.match(/^\/api\/orders\/([^/]+)\/reserve$/)
+  if (orderReserveMatch) {
+    return delay(mockReserveOrder(orderReserveMatch[1] as string) as T)
+  }
+
+  const paymentCreateMatch = path.match(/^\/api\/orders\/([^/]+)\/payments$/)
+  if (paymentCreateMatch) {
+    return delay(
+      mockAddOrderPayment(
+        paymentCreateMatch[1] as string,
+        body as Parameters<typeof mockAddOrderPayment>[1],
+      ) as T,
+    )
+  }
+
+  const invoiceCreateMatch = path.match(/^\/api\/orders\/([^/]+)\/invoices$/)
+  if (invoiceCreateMatch) {
+    return delay(
+      mockCreateInvoice(
+        invoiceCreateMatch[1] as string,
+        body as Parameters<typeof mockCreateInvoice>[1],
+      ) as T,
+    )
+  }
+
   const orderItemMatch = path.match(/^\/api\/orders\/([^/]+)\/items$/)
   if (orderItemMatch) {
     return delay(
@@ -989,6 +1105,17 @@ export async function patchMock<T>(
   if (orderStatusMatch) {
     const { status } = body as { status: import('@/types/order').OrderStatus }
     return delay(mockPatchOrderStatus(orderStatusMatch[1] as string, status) as T)
+  }
+
+  const orderServiceUpdateMatch = path.match(/^\/api\/orders\/([^/]+)\/services\/([^/]+)$/)
+  if (orderServiceUpdateMatch) {
+    return delay(
+      mockUpdateOrderService(
+        orderServiceUpdateMatch[1] as string,
+        orderServiceUpdateMatch[2] as string,
+        body as Parameters<typeof mockUpdateOrderService>[2],
+      ) as T,
+    )
   }
 
   const orderItemUpdateMatch = path.match(/^\/api\/orders\/([^/]+)\/items\/([^/]+)$/)
@@ -1239,6 +1366,12 @@ export async function deleteMock<T>(path: string, _headers?: Record<string, stri
   const orderItemDeleteMatch = path.match(/^\/api\/orders\/([^/]+)\/items\/([^/]+)$/)
   if (orderItemDeleteMatch) {
     mockDeleteOrderItem(orderItemDeleteMatch[1] as string, orderItemDeleteMatch[2] as string)
+    return delay(undefined as T)
+  }
+
+  const paymentDeleteMatch = path.match(/^\/api\/orders\/([^/]+)\/payments\/([^/]+)$/)
+  if (paymentDeleteMatch) {
+    mockDeleteOrderPayment(paymentDeleteMatch[1] as string, paymentDeleteMatch[2] as string)
     return delay(undefined as T)
   }
 

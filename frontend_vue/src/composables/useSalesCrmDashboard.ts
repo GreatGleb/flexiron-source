@@ -67,6 +67,9 @@ export function useSalesCrmDashboard() {
             (o.status === 'confirmed' || o.status === 'shipped' || o.status === 'delivered') &&
             new Date(o.createdAt) >= thisMonthStart,
         )
+        // Net on purpose: VAT is not revenue. `totalWithVat` on the same row is
+        // what the client pays, and that is the orders list's business, not a
+        // sales KPI's.
         .reduce((sum: number, o: OrderListItem) => sum + o.totalAmount, 0)
 
       // ── Compute KPIs from clients ──

@@ -2,20 +2,182 @@ import type {
   Order,
   OrderListItem,
   OrderItem,
+  OrderLineAllocation,
   OrderService,
   OrderFile,
   OrderStatus,
   OrderDocumentType,
+  Shipment,
+  Invoice,
+  Payment,
+  InvoiceKind,
+  PaymentPurpose,
+  ShippableLine,
+  ShipmentShortage,
+  StatusTransitionPlan,
 } from '@/types/order'
-import type { StockAuditEntry } from '@/types/warehouse'
+import type { StockAuditEntry, StockReservation } from '@/types/warehouse'
 import type { PaginatedResponse, PaginationParams } from '@/types/api'
+import {
+  type PricingLine,
+  round2,
+  rollupOrder,
+  validateLine,
+  paidPercent,
+  outstandingAmount,
+  allocateGrossTotal,
+  netToGross,
+  grossToNet,
+  splitLine as splitPricingLine,
+  applyPriceEdit,
+  applyDiscountEdit,
+  computeAvailable,
+  syncLineState,
+} from '@/domain/orderPricing'
+import {
+  buildOrderItem as buildItem,
+  buildOrderService as buildService,
+  toPricingLine,
+  applyPricing,
+  projectItem,
+  projectService,
+  pricingSeedFor,
+  splitAllocations,
+} from '@/services/orderLines'
+import { applyLineEdit, deltaToOps, type LineEditDelta } from '@/services/orderLineEdits'
+import {
+  findReservations,
+  holdOnBatch,
+  releaseFromLine,
+  releaseLine,
+  releaseOrder,
+  reservedForLine,
+  reservedForLineOnBatch,
+  reservedOn,
+} from './reservations'
 import { mockGetClients } from './clients'
+import { mockGetSettings } from './settings'
 import { STORE as PRODUCTS_STORE } from './products'
+import {
+  batchById,
+  mockFifoAllocation,
+  mockGetMovementsFor,
+  recordShortage,
+  writeMovement,
+} from './warehouse'
 import { mockServices as MOCK_SERVICES_DATA } from '@/mocks/services'
 
 interface StoreOrder extends Order {
   _nextLineSeq: number
   _nextServiceSeq: number
+  _nextShipmentSeq: number
+  _nextInvoiceSeq: number
+  _nextPaymentSeq: number
+  /** Scenario setup: a payment sized as a share of the total, known only after the rollup. */
+  _pendingAdvanceShare?: number
+  /** Scenario setup: issue an invoice for this shipment once the prices are projected. */
+  _pendingInvoiceForShipment?: string
+  /**
+   * Scenario setup: shipments to create for real once the store exists.
+   *
+   * A shipment object pushed straight onto the order would say the goods left
+   * while the shelf still held them — the demo would contradict the one rule the
+   * warehouse runs on.
+   */
+  _pendingShipments?: Array<{
+    lines: Array<{ lineId: string; quantity: number }>
+    carrier?: string | null
+    vehicle?: string | null
+    shippedAt?: string
+  }>
+}
+
+function orderPricingLines(order: StoreOrder): PricingLine[] {
+  return [...order.items, ...order.services].map(toPricingLine)
+}
+
+/**
+ * Single place where an order's derived numbers are produced. Everything here is
+ * computed — nothing is trusted from the caller.
+ */
+function recalcOrder(order: StoreOrder): void {
+  order.items.forEach(projectItem)
+  order.services.forEach(projectService)
+
+  const lines = orderPricingLines(order)
+  // Bad data fails at the door instead of quietly becoming wrong money.
+  lines.forEach(validateLine)
+
+  // Lines are addressed by id (allocation, shipments, invoices), so a duplicate
+  // would quietly send money or goods to the wrong place.
+  const ids = new Set<string>()
+  for (const line of lines) {
+    if (ids.has(line.id)) throw new Error(`DUPLICATE_LINE_ID: ${line.id}`)
+    ids.add(line.id)
+  }
+
+  // A breakdown can cover less than the line (a shortage priced as an estimate)
+  // but never more — that would write off stock the order never asked for.
+  for (const item of order.items) {
+    const allocated = round2(item.allocations.reduce((sum, a) => sum + a.quantity, 0))
+    if (allocated > item.quantity) {
+      throw new Error(`ALLOCATION_EXCEEDS_QUANTITY: ${item.id}`)
+    }
+  }
+
+  const totals = rollupOrder(lines, order.vatMode, order.vatPercent)
+  order.totalCost = totals.totalCost
+  order.totalAmount = totals.totalNet
+  order.totalVat = totals.totalVat
+  order.totalWithVat = totals.totalGross
+  order.actualMarginPercent = totals.actualMarginPercent
+  order.effectiveDiscountPercent = totals.effectiveDiscountPercent
+
+  const amounts = order.payments.map((p) => p.amount)
+  order.paidAmount = round2(amounts.reduce((sum, a) => sum + a, 0))
+  order.paidPercent = paidPercent(order.totalWithVat, amounts)
+  order.outstandingAmount = outstandingAmount(order.totalWithVat, amounts)
+
+  // Weight only from lines that actually carry one. No product has a weight yet,
+  // so in practice this leaves the hand-entered value alone — which beats the
+  // invented "quantity × 0.5" it replaces.
+  const weighed = order.items.filter((i) => i.weightPerUnitKg !== null)
+  if (weighed.length > 0) {
+    order.totalWeight = round2(
+      weighed.reduce((sum, i) => sum + i.quantity * (i.weightPerUnitKg ?? 0), 0),
+    )
+  }
+}
+
+/**
+ * Share of the order that has left the warehouse, measured in money.
+ *
+ * Quantities cannot be summed across lines — pieces, tonnes and metres are not
+ * the same thing, and adding them gives a number that means nothing. Money is
+ * the one unit every line shares.
+ */
+function shippedPercentOf(order: StoreOrder): number {
+  const ordered = order.items.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0)
+  if (ordered <= 0) return 0
+  const shipped = order.items.reduce((sum, i) => sum + i.shippedQuantity * i.unitPrice, 0)
+  return round2((shipped / ordered) * 100)
+}
+
+// ─── Reservations ───────────────────────────────────────────────────────────
+// The store itself lives in `./reservations` — the warehouse has to subtract
+// reservations to show what is available, and neither module can import the other.
+
+export function mockGetReservations(filter?: {
+  orderId?: string
+  batchId?: string
+  lineId?: string
+}): StockReservation[] {
+  return findReservations(filter).map((r) => ({ ...r }))
+}
+
+/** What every order has promised itself out of this batch. */
+export function mockReservedQuantity(batchId: string): number {
+  return reservedOn(batchId)
 }
 
 // ── Product catalog for generating realistic line items ────────────────────
@@ -142,28 +304,52 @@ function generateOrders(): StoreOrder[] {
           : 1 + Math.floor(rng() * 50)
       const discount = rng() < 0.15 ? Math.round(rng() * 15) : 0
       const costRatio = 0.6 + rng() * 0.25 // 60–85% of selling price
-      const unitCost = Math.round(prod.price * costRatio * 100) / 100
-      const totalPrice = Math.round(qty * prod.price * (1 - discount / 100) * 100) / 100
+      // Costed off the warehouse, oldest batches first — and carrying the
+      // breakdown, because a line with no batches behind it cannot ship, and a
+      // cost of "catalogue price × a ratio" is exactly the invented number the
+      // model refuses. A product the warehouse does not stock keeps the seeded
+      // figure and says it is an estimate.
+      const fifo = mockFifoAllocation(prod.id, qty)
+      const fromStock = fifo.weightedUnitCost > 0
+      // Partial coverage is kept, not discarded: the warehouse rarely holds a
+      // whole order, and the part it does hold has real batches behind it and can
+      // really be shipped. Only the gap is an estimate.
+      const unitCost = fromStock
+        ? round2(fifo.weightedUnitCost)
+        : Math.round(prod.price * costRatio * 100) / 100
 
-      items.push({
-        id: `oi-${i * 20 + j}`,
-        lineNumber: j + 1,
-        productId: prod.id,
-        productName:
-          fullProd?.name?.[initLang as keyof typeof fullProd.name] ??
-          fullProd?.name?.en ??
-          prod.name,
-        quantity: qty,
-        unit: prod.unit,
-        unitPrice: prod.price,
-        unitCost,
-        discount,
-        totalPrice,
-        batchId: null,
-        offcutId: null,
-        receivedCurrency: fullProd?.currencyId ?? 'cur-eur',
-        exchangeRate: 1,
-      })
+      // The price stays the catalogue price; the margin is whatever gets there
+      // from the real cost.
+      items.push(
+        buildItem({
+          id: `oi-${i * 20 + j}`,
+          lineNumber: j + 1,
+          productId: prod.id,
+          productName:
+            fullProd?.name?.[initLang as keyof typeof fullProd.name] ??
+            fullProd?.name?.en ??
+            prod.name,
+          quantity: qty,
+          unit: prod.unit,
+          unitCost,
+          costSource: fifo.shortageQuantity > 0 || !fromStock ? 'estimate' : 'stock',
+          allocations: fromStock
+            ? fifo.allocations.map((a) => ({
+                batchId: a.batchId,
+                offcutId: a.offcutId,
+                quantity: a.quantity,
+                unitCost: a.unitCost,
+                currency: a.currency,
+                exchangeRate: a.exchangeRate,
+                source: a.source,
+              }))
+            : undefined,
+          ...pricingSeedFor(unitCost, prod.price),
+          discountPercent: discount,
+          receivedCurrency: fullProd?.currencyId ?? 'cur-eur',
+          exchangeRate: 1,
+        }),
+      )
     }
 
     // 0–1 services (30% chance)
@@ -175,30 +361,20 @@ function generateOrders(): StoreOrder[] {
         typeof localStorage !== 'undefined' ? localStorage.getItem('flexiron_lang') || 'en' : 'en'
       const serviceName =
         fullSvc?.name?.[initLang as keyof typeof fullSvc.name] ?? fullSvc?.name?.en ?? svc.name
-      services.push({
-        id: `os-${i * 10}`,
-        serviceId: svc.id,
-        serviceName,
-        cost: svc.cost,
-        price: svc.price,
-        margin: svc.price - svc.cost,
-        quantity: 1,
-      })
+      services.push(
+        buildService({
+          id: `os-${i * 10}`,
+          serviceId: svc.id,
+          serviceName,
+          quantity: 1,
+          unitCost: svc.cost,
+          ...pricingSeedFor(svc.cost, svc.price),
+        }),
+      )
     }
 
-    const subTotal =
-      items.reduce((s, it) => s + it.totalPrice, 0) +
-      services.reduce((s, sv) => s + sv.price * sv.quantity, 0)
-    const totalAmount = Math.round(subTotal * 100) / 100
-    const totalVat = Math.round(totalAmount * 0.21 * 100) / 100
-    const totalWeight =
-      Math.round(
-        items.reduce(
-          (s, it) =>
-            s + (typeof it.quantity === 'number' ? it.quantity : parseFloat(it.quantity)) * 0.4,
-          0,
-        ) * 100,
-      ) / 100
+    // Weight is entered by hand until products carry one — see recalcOrder.
+    const totalWeight = 0
 
     // Spread dates from Jan 2026 to June 2026
     const dayOffset = Math.floor((i / TOTAL_ORDERS) * 180)
@@ -263,7 +439,7 @@ function generateOrders(): StoreOrder[] {
     ]
     const note = notesPool[Math.floor(rng() * notesPool.length)]!
 
-    orders.push({
+    const order: StoreOrder = {
       id: `ORD-${seq}`,
       orderNumber: `ORD-2026-${seq}`,
       clientId: client.id,
@@ -274,13 +450,24 @@ function generateOrders(): StoreOrder[] {
       status,
       items,
       services,
-      totalAmount,
-      totalVat,
-      totalWithVat: totalAmount + totalVat,
-      totalWeight,
-      currency: 'EUR',
+      defaultMarginPercent: 15,
+      defaultDiscountPercent: 0,
+      vatMode: 'standard',
       vatPercent: 21,
-      marginPercent: 15,
+      currency: 'EUR',
+      totalCost: 0,
+      totalAmount: 0,
+      totalVat: 0,
+      totalWithVat: 0,
+      actualMarginPercent: 0,
+      effectiveDiscountPercent: 0,
+      paidAmount: 0,
+      paidPercent: 0,
+      outstandingAmount: 0,
+      totalWeight,
+      shipments: [],
+      invoices: [],
+      payments: [],
       notes: note,
       documents: [],
       files: [],
@@ -289,13 +476,342 @@ function generateOrders(): StoreOrder[] {
       updatedAt,
       _nextLineSeq: items.length + 1,
       _nextServiceSeq: services.length + 1,
-    })
+      _nextShipmentSeq: 1,
+      _nextInvoiceSeq: 1,
+      _nextPaymentSeq: 1,
+    }
+
+    applyScenario(order, i)
+    if (i >= 9) makeStatusConsistent(order)
+    recalcOrder(order)
+    // Payments and invoices are sized from the total, so they need a second pass.
+    resolvePendingScenario(order)
+    recalcOrder(order)
+    // Only now are the real amounts known, so the status can follow the facts.
+    if (i < 9) order.status = statusFromFacts(order)
+    orders.push(order)
   }
 
   return orders
 }
 
+/**
+ * The first orders get fixed, hand-built situations so every case in the model
+ * can be opened by number. The store lives in memory and resets on reload, so
+ * building these by hand each time is not an option.
+ */
+const SCENARIOS: Record<number, string> = {
+  0: 'plain — nothing edited',
+  1: 'order-wide discount of 5%',
+  2: 'manual price on the first line only',
+  3: 'partially shipped: 6 of 10 gone',
+  4: '25% advance paid',
+  5: 'paid in full',
+  6: 'manual cost with a reason',
+  7: 'export — VAT 0%',
+  8: 'two shipments, an invoice and a part payment',
+}
+
+export function mockOrderScenarios(): Array<{ id: string; scenario: string }> {
+  return Object.entries(SCENARIOS).map(([index, scenario]) => ({
+    id: `ORD-${String(Number(index) + 1).padStart(3, '0')}`,
+    scenario,
+  }))
+}
+
+/**
+ * Backs a randomly chosen status with facts.
+ *
+ * 'shipped' and 'delivered' are statements about goods, so they need a shipment
+ * — otherwise the list shows "Delivered" next to "0% shipped" and nobody trusts
+ * the data again. 'paid' is a statement about money only: paying in full before
+ * anything leaves the warehouse is an ordinary prepayment, not a contradiction.
+ */
+function makeStatusConsistent(order: StoreOrder): void {
+  if (!order.items.length) return
+
+  if (order.status === 'shipped' || order.status === 'delivered') {
+    for (const item of order.items) {
+      item.shippedQuantity = item.quantity
+      applyPricing(item, syncLineState(toPricingLine(item)))
+    }
+    order.shipments.push({
+      id: `${order.id}-SHP-1`,
+      orderId: order.id,
+      number: `${order.orderNumber}/1`,
+      shippedAt: order.updatedAt,
+      carrier: 'Own transport',
+      vehicle: null,
+      waybillNumber: `WB-${order.orderNumber}-1`,
+      lines: order.items.map((i) => ({ lineId: i.id, quantity: i.quantity })),
+      cancelled: false,
+    })
+    order._nextShipmentSeq = 2
+  }
+
+  if (order.status === 'paid') {
+    order.payments.push({
+      id: `${order.id}-PAY-1`,
+      orderId: order.id,
+      amount: 0,
+      paidAt: order.updatedAt,
+      purpose: 'balance',
+      invoiceId: null,
+      note: null,
+    })
+    order._nextPaymentSeq = 2
+    order._pendingAdvanceShare = 1
+  }
+}
+
+/**
+ * The other direction, for the hand-built scenarios: their facts are the point,
+ * so the status follows them instead of the other way round.
+ */
+function statusFromFacts(order: StoreOrder): OrderStatus {
+  if (order.status === 'cancelled') return 'cancelled'
+  // Paid in full outranks the rest: a fully prepaid order that has not shipped
+  // yet is still a paid order.
+  if (order.paidPercent >= 100) return 'paid'
+
+  const shipped = order.items.reduce((sum, i) => sum + i.shippedQuantity, 0)
+  const ordered = order.items.reduce((sum, i) => sum + i.quantity, 0)
+
+  if (shipped <= 0) return order.payments.length > 0 ? 'confirmed' : 'new'
+  if (shipped < ordered) return 'shipped'
+  return 'delivered'
+}
+
+function resolvePendingScenario(order: StoreOrder): void {
+  const share = order._pendingAdvanceShare
+  if (share !== undefined) {
+    const amount = round2(order.totalWithVat * share)
+    order.payments.forEach((p) => {
+      if (p.amount === 0) p.amount = amount
+    })
+    delete order._pendingAdvanceShare
+  }
+
+  issuePendingInvoice(order)
+}
+
+/**
+ * Issues the scenario's invoice for its first real shipment.
+ *
+ * Split out because an invoice is issued FOR a shipment, and the seeded shipments
+ * only become real once the store exists — until then there is nothing to invoice.
+ */
+function issuePendingInvoice(order: StoreOrder): void {
+  if (!order._pendingInvoiceForShipment) return
+  const shipment = order.shipments[0]
+  if (!shipment) return
+  // Through the same path an admin's invoice takes. Pushing the record directly
+  // would skip the freeze it puts on the lines it covers, and the demo would show
+  // a freely editable line against a document the client is holding — the same
+  // trap the seeded shipments fell into before they were made real.
+  mockCreateInvoice(order.id, { kind: 'regular', shipmentId: shipment.id })
+  const issued = order.invoices[order.invoices.length - 1]
+  // Dated with the delivery, not with page load: the panel sorts by this.
+  if (issued) issued.issuedAt = shipment.shippedAt
+  delete order._pendingInvoiceForShipment
+}
+
+function applyScenario(order: StoreOrder, index: number): void {
+  const first = order.items[0]
+  if (!first) return
+
+  switch (index) {
+    // ORD-001 — plain order, nothing edited. Left as generated.
+    case 0:
+      order.items.forEach((i) => {
+        i.discountPercent = 0
+      })
+      return
+
+    // ORD-002 — one discount agreed for the whole order.
+    case 1:
+      order.defaultDiscountPercent = 5
+      order.items.forEach((i) => applyPricing(i, applyDiscountEdit(toPricingLine(i), 5)))
+      order.services.forEach((s) => applyPricing(s, applyDiscountEdit(toPricingLine(s), 5)))
+      return
+
+    // ORD-003 — the admin typed a price on the first line only.
+    case 2:
+      applyPricing(first, applyPriceEdit(toPricingLine(first), round2(first.unitCost * 1.1)))
+      return
+
+    // ORD-004 — the first truck took part of the first line.
+    case 3: {
+      const shippedQty = round2(first.quantity * 0.6)
+      if (shippedQty <= 0 || shippedQty >= first.quantity) return
+      // Recorded, not performed: a seeded shipment object would say goods left
+      // while the shelf still held them, and a shipment is the only thing that
+      // moves the warehouse. The real one is created once the store exists.
+      order._pendingShipments = [
+        {
+          lines: [{ lineId: first.id, quantity: shippedQty }],
+          carrier: 'Own transport',
+          vehicle: 'ABC-123',
+          shippedAt: order.updatedAt,
+        },
+      ]
+      order.status = 'shipped'
+      return
+    }
+
+    // ORD-005 — a quarter paid up front. The percentage is never stored.
+    case 4:
+      order.payments.push({
+        id: `${order.id}-PAY-1`,
+        orderId: order.id,
+        amount: 0, // filled in below, once the total is known
+        paidAt: order.createdAt,
+        purpose: 'advance',
+        invoiceId: null,
+        note: 'Advance 25%',
+      })
+      order._nextPaymentSeq = 2
+      // The total is not computed yet, so the amount is set after the rollup.
+      order._pendingAdvanceShare = 0.25
+      return
+
+    // ORD-006 — paid in full.
+    case 5:
+      order.status = 'paid'
+      order.payments.push({
+        id: `${order.id}-PAY-1`,
+        orderId: order.id,
+        amount: 0,
+        paidAt: order.updatedAt,
+        purpose: 'balance',
+        invoiceId: null,
+        note: 'Paid in full',
+      })
+      order._nextPaymentSeq = 2
+      order._pendingAdvanceShare = 1
+      return
+
+    // ORD-007 — the batch was not booked in yet, so the cost was typed by hand.
+    case 6:
+      first.manualUnitCost = round2(first.unitCost * 1.08)
+      first.manualCostReason = 'Batch not booked in — supplier invoice price used'
+      first.unitCost = first.manualUnitCost
+      first.costSource = 'manual'
+      first.allocations = []
+      return
+
+    // ORD-008 — export, zero-rated.
+    case 7:
+      order.documentType = 'export'
+      order.vatMode = 'export_zero'
+      return
+
+    // ORD-009 — the full story: two trucks, an invoice, a part payment.
+    case 8: {
+      if (order.items.length < 2) {
+        const template = order.items[0]!
+        order.items.push(
+          buildItem({
+            id: `${order.id}-oi-extra`,
+            lineNumber: order.items.length + 1,
+            productId: template.productId,
+            productName: template.productName,
+            quantity: 4,
+            unit: template.unit,
+            unitCost: template.unitCost,
+            marginPercent: template.marginPercent,
+            receivedCurrency: template.receivedCurrency,
+            exchangeRate: template.exchangeRate,
+          }),
+        )
+        order._nextLineSeq = order.items.length + 1
+      }
+      const [lineA, lineB] = [order.items[0]!, order.items[1]!]
+      // Nothing is marked as invoiced here: the invoice below does that, and only
+      // if its truck really goes. A flag set by hand would claim a document the
+      // scenario failed to issue.
+      order.status = 'shipped'
+      // Two trucks, created for real once the store exists — see `_pendingShipments`.
+      order._pendingShipments = [
+        {
+          lines: [{ lineId: lineA.id, quantity: lineA.quantity }],
+          carrier: 'Own transport',
+          vehicle: 'ABC-123',
+          shippedAt: order.createdAt,
+        },
+        {
+          lines: [{ lineId: lineB.id, quantity: round2(lineB.quantity / 2) }],
+          carrier: 'Hired carrier',
+          vehicle: 'XYZ-987',
+          shippedAt: order.updatedAt,
+        },
+      ]
+      order.payments.push({
+        id: `${order.id}-PAY-1`,
+        orderId: order.id,
+        amount: 0,
+        paidAt: order.updatedAt,
+        purpose: 'advance',
+        invoiceId: null,
+        note: 'Part payment',
+      })
+      order._nextPaymentSeq = 2
+      order._pendingAdvanceShare = 0.4
+      order._pendingInvoiceForShipment = `${order.id}-SHP-1`
+      return
+    }
+
+    default:
+      return
+  }
+}
+
 const STORE: StoreOrder[] = generateOrders()
+
+/**
+ * Turns the scenarios' intended shipments into real ones.
+ *
+ * Runs after the store exists, because a shipment goes through the same code an
+ * admin's does — that is the point. Seeding a shipment object directly would put
+ * "shipped" on the order while the warehouse still held the goods, and the demo
+ * would contradict the rule the whole warehouse runs on.
+ *
+ * A shipment the shelf cannot back is skipped rather than thrown: this runs while
+ * the module is loading, and a demo order that is one truck short beats an
+ * application that will not start.
+ */
+function createScenarioShipments(): void {
+  for (const order of STORE) {
+    const pending = order._pendingShipments
+    if (!pending) continue
+    delete order._pendingShipments
+    for (const shipment of pending) {
+      // Cut to what the shelf can actually back. Demo data is written against
+      // quantities somebody made up; the warehouse is the one that decides.
+      const shippable = new Map(
+        mockPlanOrderShipment(order.id).map((line) => [line.lineId, line.shippable]),
+      )
+      const lines = shipment.lines
+        .map((line) => ({
+          lineId: line.lineId,
+          quantity: round2(Math.min(line.quantity, shippable.get(line.lineId) ?? 0)),
+        }))
+        .filter((line) => line.quantity > 0)
+      if (lines.length === 0) continue
+      try {
+        mockCreateShipment(order.id, { ...shipment, lines })
+      } catch {
+        // The shelf moved under us; this seeded truck simply does not go.
+      }
+    }
+    // Only now is there a shipment to invoice.
+    issuePendingInvoice(order)
+    // The scenario said what the order should look like; the facts now say it.
+    order.status = statusFromFacts(order)
+  }
+}
+
+createScenarioShipments()
 
 let nextSeq = TOTAL_ORDERS + 1
 
@@ -303,17 +819,17 @@ function nextId(): string {
   return `ORD-${String(nextSeq++).padStart(3, '0')}`
 }
 
-function recalcTotals(order: StoreOrder): void {
-  order.totalAmount =
-    order.items.reduce((sum, i) => sum + i.totalPrice, 0) +
-    order.services.reduce((sum, s) => sum + s.price * s.quantity, 0)
-  order.totalVat = Math.round(order.totalAmount * 0.21 * 100) / 100
-  order.totalWithVat = order.totalAmount + order.totalVat
-  order.totalWeight = order.items.reduce((sum, i) => sum + parseFloat(String(i.quantity)) * 0.5, 0)
-}
-
 function clone<T>(data: T): T {
   return JSON.parse(JSON.stringify(data))
+}
+
+/** Strips the store's own bookkeeping — a real server would not send it. */
+function publicOrder(order: StoreOrder): Order {
+  const copy = clone(order) as StoreOrder & Record<string, unknown>
+  for (const key of Object.keys(copy)) {
+    if (key.startsWith('_')) delete copy[key]
+  }
+  return copy as Order
 }
 
 // ─── List ───
@@ -337,9 +853,12 @@ export function mockGetOrders(
     clientName: o.clientName,
     status: o.status,
     totalAmount: o.totalAmount,
-    currency: 'EUR',
+    totalWithVat: o.totalWithVat,
+    currency: o.currency,
     itemCount: o.items.length + o.services.length,
     createdAt: o.createdAt,
+    paidPercent: o.paidPercent,
+    shippedPercent: shippedPercentOf(o),
   }))
 
   const search = filters.search?.toLowerCase() ?? ''
@@ -383,6 +902,20 @@ export function mockGetOrders(
           va = a.totalAmount
           vb = b.totalAmount
           break
+        // Sorted by what the column actually shows: with VAT modes differing per
+        // order, the net order and the gross order are not the same order.
+        case 'totalWithVat':
+          va = a.totalWithVat
+          vb = b.totalWithVat
+          break
+        case 'paidPercent':
+          va = a.paidPercent
+          vb = b.paidPercent
+          break
+        case 'shippedPercent':
+          va = a.shippedPercent
+          vb = b.shippedPercent
+          break
         case 'createdAt':
           va = a.createdAt
           vb = b.createdAt
@@ -417,7 +950,7 @@ export function mockGetOrders(
 
 export function mockGetOrder(id: string): Order | undefined {
   const order = STORE.find((o) => o.id === id)
-  return order ? clone(order) : undefined
+  return order ? publicOrder(order) : undefined
 }
 
 // ─── Create ───
@@ -431,9 +964,11 @@ export function mockCreateOrder(data: {
   const client = clients.find((c) => c.id === data.clientId)
   if (!client) throw new Error('CLIENT_NOT_FOUND')
 
+  // Derived from the same counter as the id: taking it from STORE.length would
+  // repeat a number after a deletion, and waybill and invoice numbers are built
+  // from it.
   const id = nextId()
-  const seq = STORE.length + 1
-  const orderNumber = `ORD-2026-${String(seq).padStart(3, '0')}`
+  const orderNumber = `ORD-2026-${id.slice('ORD-'.length)}`
   const order: StoreOrder = {
     id,
     orderNumber,
@@ -445,13 +980,25 @@ export function mockCreateOrder(data: {
     status: 'new',
     items: [],
     services: [],
+    defaultMarginPercent: 15,
+    defaultDiscountPercent: 0,
+    // Export documents are zero-rated by default; the admin can override.
+    vatMode: data.documentType === 'export' ? 'export_zero' : 'standard',
+    vatPercent: 21,
+    currency: data.currency ?? 'EUR',
+    totalCost: 0,
     totalAmount: 0,
     totalVat: 0,
     totalWithVat: 0,
+    actualMarginPercent: 0,
+    effectiveDiscountPercent: 0,
+    paidAmount: 0,
+    paidPercent: 0,
+    outstandingAmount: 0,
     totalWeight: 0,
-    currency: data.currency ?? 'EUR',
-    vatPercent: 21,
-    marginPercent: 15,
+    shipments: [],
+    invoices: [],
+    payments: [],
     notes: null,
     documents: [],
     files: [],
@@ -469,24 +1016,115 @@ export function mockCreateOrder(data: {
     updatedAt: new Date().toISOString(),
     _nextLineSeq: 1,
     _nextServiceSeq: 1,
+    _nextShipmentSeq: 1,
+    _nextInvoiceSeq: 1,
+    _nextPaymentSeq: 1,
   }
   STORE.push(order)
-  return clone(order)
+  return publicOrder(order)
 }
 
 // ─── Patch ───
 
-export function mockPatchOrder(id: string, delta: Partial<Order>): Order {
-  const idx = STORE.findIndex((o) => o.id === id)
-  if (idx === -1) throw new Error('ORDER_NOT_FOUND')
-  Object.assign(STORE[idx]!, delta)
-  return clone(STORE[idx]!)
+/**
+ * Fields the client is allowed to set. Everything else on an order is derived —
+ * totals, VAT, margin, the paid share — and is produced here, never accepted
+ * from the caller. A client that could dictate the total would make the invoice
+ * and the lines disagree.
+ */
+export function mockPatchOrder(
+  id: string,
+  // The two legacy aliases are what the current card still sends; they go away
+  // with the form rework.
+  delta: Partial<Order> & { marginPercent?: number; orderDiscount?: number },
+): Order {
+  const order = STORE.find((o) => o.id === id)
+  if (!order) throw new Error('ORDER_NOT_FOUND')
+
+  if (delta.notes !== undefined) order.notes = delta.notes
+  if (delta.documentType !== undefined) order.documentType = delta.documentType
+  if (delta.currency !== undefined) order.currency = delta.currency
+  if (delta.vatMode !== undefined) order.vatMode = delta.vatMode
+  if (delta.vatPercent !== undefined) order.vatPercent = delta.vatPercent
+  if (delta.defaultMarginPercent !== undefined)
+    order.defaultMarginPercent = delta.defaultMarginPercent
+  if (delta.defaultDiscountPercent !== undefined)
+    order.defaultDiscountPercent = delta.defaultDiscountPercent
+  // Hand-entered until products carry a weight.
+  if (delta.totalWeight !== undefined) order.totalWeight = delta.totalWeight
+
+  if (delta.marginPercent !== undefined) order.defaultMarginPercent = delta.marginPercent
+  if (delta.orderDiscount !== undefined) order.defaultDiscountPercent = delta.orderDiscount
+
+  // Everything else on an order is derived and is produced below, never taken
+  // from the caller: a client that could dictate the total would make the
+  // invoice and the lines disagree.
+  recalcOrder(order)
+  return publicOrder(order)
+}
+
+function statusRules(status: OrderStatus): { reserves: boolean; writesOff: boolean } {
+  const settings = mockGetSettings()
+  const entry = settings.orderStatuses?.find((s) => s.id === `st-${status}`)
+  return {
+    reserves: entry?.reserveOnTransition === true,
+    writesOff: entry?.writeOffOnTransition === true,
+  }
+}
+
+/** Lines with something still to ship. Services are not goods and never appear. */
+function unshippedLines(order: StoreOrder): Array<{ lineId: string; quantity: number }> {
+  return order.items
+    .map((item) => ({ lineId: item.id, quantity: round2(item.quantity - item.shippedQuantity) }))
+    .filter((line) => line.quantity > 0)
+}
+
+export function mockPlanStatusTransition(
+  orderId: string,
+  status: OrderStatus,
+): StatusTransitionPlan {
+  const order = STORE.find((o) => o.id === orderId)
+  if (!order) throw new Error('ORDER_NOT_FOUND')
+  const rules = statusRules(status)
+
+  const requested = rules.writesOff ? unshippedLines(order) : []
+  const plan = requested.length > 0 ? planShipment(order, requested) : { lines: [], shortages: [] }
+
+  return {
+    status,
+    reserves: rules.reserves,
+    // An order of nothing but services creates no shipment at all.
+    writesOff: rules.writesOff && requested.length > 0,
+    lines: plan.lines.map(({ lineId, productName, unit, quantity }) => ({
+      lineId,
+      productName,
+      unit,
+      quantity,
+    })),
+    shortages: plan.shortages,
+  }
 }
 
 export function mockPatchOrderStatus(id: string, status: OrderStatus): Order {
   const order = STORE.find((o) => o.id === id)
   if (!order) throw new Error('ORDER_NOT_FOUND')
   const oldStatus = order.status
+  const rules = statusRules(status)
+
+  // The warehouse moves BEFORE the status is recorded: if the goods are not there,
+  // the order must not end up saying they left.
+  if (rules.writesOff) {
+    const requested = unshippedLines(order)
+    if (requested.length > 0) {
+      const plan = planShipment(order, requested)
+      // Written down to the last unit or not at all — nobody may ship what is not
+      // on the shelf, in any scenario.
+      if (plan.shortages.length > 0) throw new Error('STATUS_BLOCKED_BY_STOCK')
+      mockCreateShipment(id, { lines: requested })
+    }
+  }
+  if (rules.reserves) mockReserveOrder(id)
+
   order.status = status
   order.updatedAt = new Date().toISOString()
   order.auditLog.push({
@@ -497,14 +1135,35 @@ export function mockPatchOrderStatus(id: string, status: OrderStatus): Order {
     oldValue: oldStatus,
     newValue: status,
   })
-  return clone(order)
+  return publicOrder(order)
 }
 
 // ─── Delete ───
 
+/**
+ * Deleting an order is only allowed while nothing irreversible has happened to it.
+ *
+ * A document in the client's hands, goods off the shelf and money received are
+ * facts outside this system: dropping the order would leave an invoice nobody can
+ * explain, 'sale' movements pointing at an order that does not exist, and a
+ * payment with nothing to attach it to. Each of them has a proper way back —
+ * correct the invoice, cancel the shipment, delete the payment — and after that
+ * the order deletes. The refusal says which one is in the way.
+ */
 export function mockDeleteOrder(id: string): void {
   const idx = STORE.findIndex((o) => o.id === id)
-  if (idx !== -1) STORE.splice(idx, 1)
+  if (idx === -1) return
+  const order = STORE[idx]!
+  if (order.invoices.some((i) => i.kind !== 'correction' && !isCorrected(order, i.id))) {
+    throw new Error('ORDER_HAS_INVOICE')
+  }
+  if (order.shipments.some((s) => !s.cancelled)) throw new Error('ORDER_HAS_SHIPMENT')
+  if (order.payments.length > 0) throw new Error('ORDER_HAS_PAYMENT')
+  STORE.splice(idx, 1)
+  // Everything this order was holding goes back on the shelf. Left behind, the
+  // holds would belong to an order nobody can open, and nothing could ever
+  // release them — the goods would be promised away for the rest of the session.
+  releaseOrder(id)
 }
 
 // ─── Items ───
@@ -515,7 +1174,12 @@ export function mockAddOrderItem(
     productId: string
     quantity: number
     unit: string
+    /** Price from the catalogue. Ignored when `marginPercent` says how to price. */
     unitPrice: number
+    unitCost?: number
+    /** Markup to apply when the product carries no price to quote. */
+    marginPercent?: number
+    discountPercent?: number
     batchId?: string | null
   },
 ): OrderItem {
@@ -530,47 +1194,144 @@ export function mockAddOrderItem(
   if (!productName) {
     productName = PRODUCTS.find((p) => p.id === data.productId)?.name ?? data.productId
   }
-  const item: OrderItem = {
+  // The caller hands over a selling price; cost and margin are what the model
+  // actually stores, so the margin is derived to land on that price.
+  //
+  // The cost itself is read off the warehouse, oldest batches first — the same
+  // FIFO figure the card showed before Save, so the row does not change under the
+  // admin the moment it is stored. A product with no batches has no cost to read:
+  // it is guessed and SAID to be a guess, because an invented number dressed up
+  // as a warehouse figure is worse than no number at all.
+  const fifo = mockFifoAllocation(data.productId, data.quantity)
+  const fromStock = fifo.weightedUnitCost > 0 ? round2(fifo.weightedUnitCost) : null
+  const unitCost = data.unitCost ?? fromStock ?? round2(data.unitPrice * 0.75)
+
+  // What the warehouse cannot cover is written down as a shortage: the order can
+  // be taken, but nobody may ship goods that are not there, and a shortage with
+  // no record is one nobody will ever buy.
+  if (fifo.shortageQuantity > 0) {
+    recordShortage({
+      productId: data.productId,
+      productName: productName ?? data.productId,
+      quantity: fifo.shortageQuantity,
+      unit: data.unit,
+      orderId: order.id,
+    })
+  }
+
+  // What the admin decided, not what was derived from it: a catalogue price, or
+  // a markup when the product carries no price. Never both — two ways to say the
+  // same thing can disagree, and then the line follows whichever is read first.
+  const seed =
+    data.marginPercent !== undefined
+      ? { marginPercent: data.marginPercent, manualUnitPrice: null }
+      : pricingSeedFor(unitCost, data.unitPrice)
+
+  const item = buildItem({
+    // A line the warehouse cannot fully cover is costed partly on a guess, and
+    // says so — the covered part still carries its real batches.
+    costSource:
+      fifo.shortageQuantity > 0
+        ? 'estimate'
+        : data.unitCost !== undefined || fromStock !== null
+          ? 'stock'
+          : 'estimate',
     id: `oi-${order._nextLineSeq}`,
     lineNumber: order._nextLineSeq,
     productId: data.productId,
     productName: productName ?? data.productId,
     quantity: data.quantity,
     unit: data.unit,
-    unitPrice: data.unitPrice,
-    discount: 0,
-    totalPrice: data.quantity * data.unitPrice,
-    batchId: data.batchId ?? null,
-    offcutId: null,
+    unitCost,
+    ...seed,
+    discountPercent: data.discountPercent ?? order.defaultDiscountPercent,
     receivedCurrency: fullProduct?.currencyId ?? 'cur-eur',
     exchangeRate: 1,
-  }
+    batchId: data.batchId ?? null,
+    // Which batches this line consumes. FIFO routinely spans several, and without
+    // the breakdown a partial shipment cannot write off the very batches it took.
+    allocations: data.batchId
+      ? undefined
+      : fifo.allocations.map((a) => ({
+          batchId: a.batchId,
+          offcutId: a.offcutId,
+          quantity: a.quantity,
+          unitCost: a.unitCost,
+          currency: a.currency,
+          exchangeRate: a.exchangeRate,
+          source: a.source,
+        })),
+  })
+  // Checked BEFORE it goes into the store: `recalcOrder` validates every line and
+  // throws, and a line pushed first would stay behind and take every later
+  // recalculation of this order down with it.
+  validateLine(toPricingLine(item))
   order._nextLineSeq++
   order.items.push(item)
-  recalcTotals(order)
+  recalcOrder(order)
   return clone(item)
 }
 
+/**
+ * Line edit. Every price-moving field goes through the pricing module, so the
+ * documented rules apply here too: a price edit becomes a discount, a margin
+ * edit reprices, a cost change cannot move a locked price, and a frozen line
+ * refuses the edit instead of accepting it quietly.
+ *
+ * `unitPrice` / `totalPrice` / `discount` are projections and are ignored as
+ * input — the caller sends `manualUnitPrice`, `discountPercent`, `marginPercent`.
+ */
 export function mockUpdateOrderItem(
   orderId: string,
   lineId: string,
-  delta: Partial<OrderItem>,
+  delta: LineEditDelta,
 ): OrderItem {
   const order = STORE.find((o) => o.id === orderId)
   if (!order) throw new Error('ORDER_NOT_FOUND')
-  const item = order.items.find((i) => i.id === lineId)
-  if (!item) throw new Error('ORDER_ITEM_NOT_FOUND')
-  Object.assign(item, delta)
-  if (
-    delta.quantity !== undefined ||
-    delta.unitPrice !== undefined ||
-    delta.discount !== undefined
-  ) {
-    item.totalPrice =
-      Math.round(item.quantity * item.unitPrice * (1 - item.discount / 100) * 100) / 100
-    recalcTotals(order)
+  const idx = order.items.findIndex((i) => i.id === lineId)
+  if (idx === -1) throw new Error('ORDER_ITEM_NOT_FOUND')
+
+  // Applied to a copy and swapped in only once every edit went through: a delta
+  // carrying two edits must not leave the first one applied and the second refused.
+  const draft = clone(order.items[idx]!)
+  for (const op of deltaToOps(delta, 'item')) {
+    applyLineEdit(draft, op, { defaultDiscountPercent: order.defaultDiscountPercent })
   }
-  return clone(item)
+
+  // Non-pricing fields pass through untouched.
+  if (delta.productName !== undefined) draft.productName = delta.productName
+  if (delta.unit !== undefined) draft.unit = delta.unit
+  if (delta.weightPerUnitKg !== undefined) draft.weightPerUnitKg = delta.weightPerUnitKg
+  if (delta.allocations !== undefined) draft.allocations = delta.allocations.map((a) => ({ ...a }))
+
+  order.items[idx] = draft
+  // A grown line gets batches for the units it gained; a shrunk one gives its
+  // surplus hold back. Holding MORE stays the reservation's job, not an edit's.
+  topUpAllocation(orderId, draft)
+  trimHoldToLine(orderId, draft)
+  recalcOrder(order)
+  return clone(draft)
+}
+
+/** Same rules for services — they are lines like any other. */
+export function mockUpdateOrderService(
+  orderId: string,
+  serviceLineId: string,
+  delta: LineEditDelta,
+): OrderService {
+  const order = STORE.find((o) => o.id === orderId)
+  if (!order) throw new Error('ORDER_NOT_FOUND')
+  const idx = order.services.findIndex((s) => s.id === serviceLineId)
+  if (idx === -1) throw new Error('ORDER_SERVICE_NOT_FOUND')
+
+  const draft = clone(order.services[idx]!)
+  for (const op of deltaToOps(delta, 'service')) {
+    applyLineEdit(draft, op, { defaultDiscountPercent: order.defaultDiscountPercent })
+  }
+
+  order.services[idx] = draft
+  recalcOrder(order)
+  return clone(draft)
 }
 
 export function mockDeleteOrderItem(orderId: string, lineId: string): void {
@@ -579,7 +1340,9 @@ export function mockDeleteOrderItem(orderId: string, lineId: string): void {
   const idx = order.items.findIndex((i) => i.id === lineId)
   if (idx !== -1) {
     order.items.splice(idx, 1)
-    recalcTotals(order)
+    // The line is gone; anything it was holding is nobody's and goes back.
+    releaseLine(orderId, lineId)
+    recalcOrder(order)
   }
 }
 
@@ -587,7 +1350,7 @@ export function mockDeleteOrderItem(orderId: string, lineId: string): void {
 
 export function mockAddOrderService(
   orderId: string,
-  data: { serviceId: string; quantity: number; price?: number },
+  data: { serviceId: string; quantity: number; price?: number; discountPercent?: number },
 ): OrderService {
   const order = STORE.find((o) => o.id === orderId)
   if (!order) throw new Error('ORDER_NOT_FOUND')
@@ -597,18 +1360,20 @@ export function mockAddOrderService(
   const fullSvc = MOCK_SERVICES_DATA.find((s) => s.id === svcEntry.id)
   const serviceName =
     fullSvc?.name?.[currentLang as keyof typeof fullSvc.name] ?? fullSvc?.name?.en ?? svcEntry.name
-  const service: OrderService = {
+  const price = data.price ?? svcEntry.price
+  const service = buildService({
     id: `os-${order._nextServiceSeq}`,
     serviceId: data.serviceId,
     serviceName,
-    cost: svcEntry.cost,
-    price: data.price ?? svcEntry.price,
-    margin: (data.price ?? svcEntry.price) - svcEntry.cost,
     quantity: data.quantity,
-  }
+    unitCost: svcEntry.cost,
+    ...pricingSeedFor(svcEntry.cost, price),
+    discountPercent: data.discountPercent ?? order.defaultDiscountPercent,
+  })
+  validateLine(toPricingLine(service))
   order._nextServiceSeq++
   order.services.push(service)
-  recalcTotals(order)
+  recalcOrder(order)
   return clone(service)
 }
 
@@ -618,7 +1383,7 @@ export function mockDeleteOrderService(orderId: string, serviceId: string): void
   const idx = order.services.findIndex((s) => s.id === serviceId)
   if (idx !== -1) {
     order.services.splice(idx, 1)
-    recalcTotals(order)
+    recalcOrder(order)
   }
 }
 
@@ -662,5 +1427,729 @@ export function mockRemoveOrderFile(orderId: string, fileId: string): void {
   const idx = order.files.findIndex((f) => f.fileId === fileId)
   if (idx !== -1) {
     order.files.splice(idx, 1)
+  }
+}
+
+// ─── Total allocation ───────────────────────────────────────────────────────
+
+/**
+ * Spreads a manually entered gross total across the editable lines.
+ *
+ * Returns the preview rows and the total the order will REALLY come to: with
+ * VAT rounded to cents some gross amounts are unreachable (at 21% there is no
+ * cent-exact net that grosses up to 100.00), and the admin has to be told rather
+ * than handed a total a cent away from what they typed.
+ */
+export function mockAllocateOrderTotal(
+  orderId: string,
+  targetGross: number,
+): {
+  order: Order
+  requestedGross: number
+  achievedGross: number
+  rows: Array<{ lineId: string; before: number; after: number }>
+} {
+  const order = STORE.find((o) => o.id === orderId)
+  if (!order) throw new Error('ORDER_NOT_FOUND')
+
+  const result = allocateGrossTotal(
+    orderPricingLines(order),
+    targetGross,
+    order.vatMode,
+    order.vatPercent,
+  )
+
+  // Matched by id, not by position: a positional match would silently put money
+  // on the wrong line if the two lists were ever built in a different order.
+  const byId = new Map<string, OrderItem | OrderService>(
+    [...order.items, ...order.services].map((line) => [line.id, line]),
+  )
+  result.lines.forEach((pricing) => {
+    const target = byId.get(pricing.id)
+    if (!target) throw new Error('ALLOCATION_LINE_NOT_FOUND')
+    applyPricing(target, pricing)
+  })
+
+  recalcOrder(order)
+  return {
+    order: publicOrder(order),
+    requestedGross: result.requestedGross,
+    achievedGross: result.achievedGross,
+    rows: result.rows,
+  }
+}
+
+// ─── Split a partially shipped line ─────────────────────────────────────────
+
+/**
+ * Cuts a partially shipped line into the part that left with the waybill and a
+ * free remainder, so the remainder can be repriced without touching a printed
+ * document.
+ */
+export function mockSplitOrderItem(
+  orderId: string,
+  lineId: string,
+  shippedQuantity: number,
+): { shipped: OrderItem; remainder: OrderItem } {
+  const order = STORE.find((o) => o.id === orderId)
+  if (!order) throw new Error('ORDER_NOT_FOUND')
+  const idx = order.items.findIndex((i) => i.id === lineId)
+  if (idx === -1) throw new Error('ORDER_ITEM_NOT_FOUND')
+  const item = order.items[idx]!
+
+  const split = splitPricingLine(toPricingLine(item), shippedQuantity)
+  // The batches follow the goods: the shipped part consumed the earliest ones.
+  const allocations = splitAllocations(item.allocations, shippedQuantity)
+
+  const shipped: OrderItem = { ...item, allocations: allocations.shipped }
+  applyPricing(shipped, split.shipped)
+
+  const remainder: OrderItem = {
+    ...item,
+    id: `oi-${order._nextLineSeq}`,
+    lineNumber: order._nextLineSeq,
+    allocations: allocations.remainder,
+    documentIssued: false,
+  }
+  applyPricing(remainder, { ...split.remainder, id: remainder.id })
+  order._nextLineSeq++
+
+  order.items.splice(idx, 1, shipped, remainder)
+  order.items.forEach((line, position) => {
+    line.lineNumber = position + 1
+  })
+  // The shipped half owes nothing more, so it holds nothing; the remainder is a
+  // fresh line and is reserved like any other.
+  trimHoldToLine(orderId, shipped)
+  recalcOrder(order)
+  return { shipped: clone(shipped), remainder: clone(remainder) }
+}
+
+// ─── Shipments ──────────────────────────────────────────────────────────────
+
+export function mockGetShipments(orderId: string): Shipment[] {
+  const order = STORE.find((o) => o.id === orderId)
+  if (!order) throw new Error('ORDER_NOT_FOUND')
+  return clone(order.shipments)
+}
+
+/**
+ * One truck leaves. This is the only thing that moves goods out of the order —
+ * status-driven write-off calls it too, so there is a single path to the
+ * warehouse instead of two.
+ */
+/**
+ * Tops the batch breakdown up to cover the whole line.
+ *
+ * A line that grows needs batches for the units it just gained, or they can be
+ * neither reserved nor shipped and nobody is told why. Only the shortfall is
+ * planned: the part already worked out — and especially the part already shipped
+ * — is left exactly as it is, so an edit cannot re-plan goods that have gone.
+ *
+ * This runs on a partially shipped line too, and must: "the truck has left and
+ * the client wants two more" is the case the whole model is built around. Adding
+ * to the end of the breakdown cannot disturb the prefix the first truck took.
+ * Freezing applies to the COST, which is not touched here.
+ *
+ * The cost is deliberately NOT re-read. The card applies the same edit locally to
+ * show the result at once, and it has no shelf to read; a cost that moved only on
+ * the server would make the preview disagree with what was stored.
+ */
+function topUpAllocation(orderId: string, item: OrderItem): void {
+  const covered = round2(item.allocations.reduce((sum, a) => sum + a.quantity, 0))
+  const missing = round2(item.quantity - covered)
+  if (missing <= 0) return
+
+  const fifo = mockFifoAllocation(item.productId, missing, {
+    exceptLine: { orderId, lineId: item.id },
+  })
+  if (fifo.allocations.length === 0) return
+
+  // One entry per batch, kept in the order the batches are consumed. Two entries
+  // for the same batch would still add up, but every rule expressed per entry —
+  // how much of it is already shipped, how much of it is held — would then be
+  // reading half the story.
+  const merged = [...item.allocations]
+  for (const a of fifo.allocations) {
+    const existing = merged.find((m) => m.batchId === a.batchId && m.offcutId === a.offcutId)
+    if (existing) {
+      existing.quantity = round2(existing.quantity + a.quantity)
+      continue
+    }
+    merged.push({
+      batchId: a.batchId,
+      offcutId: a.offcutId,
+      quantity: a.quantity,
+      unitCost: a.unitCost,
+      currency: a.currency,
+      exchangeRate: a.exchangeRate,
+      source: a.source,
+    })
+  }
+  item.allocations = merged
+}
+
+/**
+ * A hold may never outlast what it is for.
+ *
+ * Shrink a line and the goods it no longer needs go back on the shelf. Without
+ * this they stay promised to an order that will never take them — invisible to
+ * everyone, because a reservation is only ever seen through what it subtracts.
+ */
+function trimHoldToLine(orderId: string, item: OrderItem): void {
+  const owed = round2(item.quantity - item.shippedQuantity)
+  const held = reservedForLine(orderId, item.id)
+  if (held > owed) releaseFromLine(orderId, item.id, round2(held - owed))
+}
+
+/** One line of a shipment as it would happen, with the batches it would take. */
+export interface ShipmentPlanLine {
+  lineId: string
+  productName: string
+  unit: string
+  quantity: number
+  consume: OrderLineAllocation[]
+}
+
+export interface ShipmentPlan {
+  lines: ShipmentPlanLine[]
+  shortages: ShipmentShortage[]
+}
+
+/**
+ * Works out what a shipment would consume, without moving anything.
+ *
+ * A shipment writes stock off the warehouse, and half a shipment — goods gone
+ * from one batch, the next batch refusing — is not something a ledger recovers
+ * from. So the whole thing is planned first and written afterwards.
+ *
+ * A shortage comes back as DATA, not as an exception: the admin has to be shown
+ * what is missing and how much, and only then refused. A caller mistake — an
+ * unknown line, a negative quantity, more than the line has left — still throws.
+ */
+export function planShipment(
+  order: StoreOrder,
+  requested: Array<{ lineId: string; quantity: number }>,
+): ShipmentPlan {
+  const lines: ShipmentPlanLine[] = []
+  const shortages: ShipmentShortage[] = []
+  const seen = new Set<string>()
+
+  for (const shipLine of requested) {
+    const item = order.items.find((i) => i.id === shipLine.lineId)
+    if (!item) throw new Error('ORDER_ITEM_NOT_FOUND')
+    // The same line twice in one shipment reads its remaining quantity twice from
+    // the same starting point, so two 3s pass a check for 5 — and each takes the
+    // same slice of the breakdown, writing the same units off the shelf twice.
+    // Caught here, before the movements; the line validation at the end of the
+    // operation would catch it only after the goods were gone.
+    if (seen.has(shipLine.lineId)) throw new Error('DUPLICATE_SHIPMENT_LINE')
+    seen.add(shipLine.lineId)
+    if (shipLine.quantity <= 0) throw new Error('SHIPMENT_QUANTITY_MUST_BE_POSITIVE')
+    const remaining = round2(item.quantity - item.shippedQuantity)
+    if (shipLine.quantity > remaining) throw new Error('SHIPMENT_EXCEEDS_REMAINING')
+
+    // The part of the breakdown this shipment takes: whatever earlier shipments
+    // already consumed is skipped, so the second truck writes off the next
+    // batches rather than the same ones again.
+    const unshipped = splitAllocations(item.allocations, item.shippedQuantity).remainder
+    const consume: OrderLineAllocation[] = []
+    let missing = shipLine.quantity
+
+    for (const allocation of splitAllocations(unshipped, shipLine.quantity).shipped) {
+      // A line costed on a guess has no batch behind it, and goods that are on no
+      // shelf cannot leave one.
+      const batch = allocation.batchId ? batchById(allocation.batchId) : undefined
+      if (!batch) continue
+      // Not just what is on the shelf — what is on the shelf and not promised to
+      // somebody else. Shipping straight off the remainder would walk past every
+      // reservation another order is holding, which is the same tonne sold twice
+      // by a different route.
+      const free = computeAvailable(
+        batch.quantityRemaining,
+        reservedOn(batch.id, { exceptLine: { orderId: order.id, lineId: item.id } }),
+      )
+      const take = round2(Math.min(allocation.quantity, free))
+      if (take <= 0) continue
+      consume.push({ ...allocation, quantity: take })
+      missing = round2(missing - take)
+    }
+
+    if (missing > 0) {
+      shortages.push({ lineId: item.id, productName: item.productName, unit: item.unit, missing })
+    }
+    lines.push({
+      lineId: item.id,
+      productName: item.productName,
+      unit: item.unit,
+      quantity: shipLine.quantity,
+      consume,
+    })
+  }
+
+  return { lines, shortages }
+}
+
+/**
+ * The lines a shipment could take right now, and how much of each.
+ *
+ * Same planner as the shipment itself, so the dialog cannot offer a quantity the
+ * write-off would then refuse.
+ */
+export function mockPlanOrderShipment(orderId: string): ShippableLine[] {
+  const order = STORE.find((o) => o.id === orderId)
+  if (!order) throw new Error('ORDER_NOT_FOUND')
+  const requested = unshippedLines(order)
+  if (requested.length === 0) return []
+
+  const plan = planShipment(order, requested)
+  return plan.lines.map((line) => {
+    const missing = plan.shortages.find((s) => s.lineId === line.lineId)?.missing ?? 0
+    return {
+      lineId: line.lineId,
+      productName: line.productName,
+      unit: line.unit,
+      remaining: line.quantity,
+      shippable: round2(line.quantity - missing),
+    }
+  })
+}
+
+export function mockCreateShipment(
+  orderId: string,
+  data: {
+    lines: Array<{ lineId: string; quantity: number }>
+    carrier?: string | null
+    vehicle?: string | null
+    waybillNumber?: string | null
+    shippedAt?: string
+  },
+): Shipment {
+  const order = STORE.find((o) => o.id === orderId)
+  if (!order) throw new Error('ORDER_NOT_FOUND')
+  if (!data.lines.length) throw new Error('SHIPMENT_HAS_NO_LINES')
+
+  // Everything is checked before anything moves — see `planShipment`.
+  const plan = planShipment(order, data.lines)
+  if (plan.shortages.length > 0) throw new Error('SHIPMENT_EXCEEDS_STOCK')
+  const planned = plan.lines
+
+  const shipment: Shipment = {
+    id: `${order.id}-SHP-${order._nextShipmentSeq}`,
+    orderId: order.id,
+    number: `${order.orderNumber}/${order._nextShipmentSeq}`,
+    shippedAt: data.shippedAt ?? new Date().toISOString(),
+    carrier: data.carrier ?? null,
+    vehicle: data.vehicle ?? null,
+    waybillNumber: data.waybillNumber ?? `WB-${order.orderNumber}-${order._nextShipmentSeq}`,
+    lines: data.lines.map((l) => ({ ...l })),
+    cancelled: false,
+  }
+  order._nextShipmentSeq++
+  order.shipments.push(shipment)
+
+  for (const shipLine of shipment.lines) {
+    const item = order.items.find((i) => i.id === shipLine.lineId)!
+    item.shippedQuantity = round2(item.shippedQuantity + shipLine.quantity)
+    // State follows the quantities — never set by hand.
+    applyPricing(item, syncLineState(toPricingLine(item)))
+    // What shipped is no longer reserved: the hold is replaced by a real write-off.
+    releaseFromLine(order.id, item.id, shipLine.quantity)
+  }
+
+  // ── The only thing in the system that takes goods off the shelf ──
+  // One 'sale' movement per batch actually consumed, pointing back at this
+  // shipment. Movements are never edited or deleted afterwards; a cancellation
+  // adds the opposite ones, so the warehouse history always adds up.
+  for (const line of planned) {
+    for (const allocation of line.consume) {
+      writeMovement({
+        type: 'sale',
+        batchId: allocation.batchId!,
+        offcutId: allocation.offcutId,
+        quantity: allocation.quantity,
+        unitPrice: allocation.unitCost,
+        referenceType: 'order-shipment',
+        referenceId: shipment.id,
+        notes: `${order.orderNumber} · ${shipment.waybillNumber ?? shipment.number}`,
+      })
+    }
+  }
+
+  recalcOrder(order)
+  return clone(shipment)
+}
+
+/**
+ * Reverse movements, never a deletion — the warehouse history has to add up.
+ *
+ * `correctionReason` is what makes an invoiced delivery cancellable: the document
+ * in the client's hands is withdrawn by a correcting invoice, not silently. Both
+ * happen here, in one call, for the reason every warehouse write does: a
+ * correction issued and then a cancellation that fails leaves the client holding
+ * a credit note for goods the system still says they have.
+ */
+export function mockCancelShipment(
+  orderId: string,
+  shipmentId: string,
+  opts?: { correctionReason?: string | null },
+): Shipment {
+  const order = STORE.find((o) => o.id === orderId)
+  if (!order) throw new Error('ORDER_NOT_FOUND')
+  const shipment = order.shipments.find((s) => s.id === shipmentId)
+  if (!shipment) throw new Error('SHIPMENT_NOT_FOUND')
+  if (shipment.cancelled) throw new Error('SHIPMENT_ALREADY_CANCELLED')
+  // An invoice for this delivery is already in the client's hands. Undoing the
+  // delivery behind it would leave them holding a document for goods the system
+  // says never left — and the model is explicit that an issued document is
+  // corrected by a correcting one, never silently withdrawn.
+  const live = liveInvoicesFor(order, shipment.id)
+  const reason = opts?.correctionReason?.trim() ?? ''
+  if (live.length > 0 && !reason) throw new Error('SHIPMENT_ALREADY_INVOICED')
+
+  // The goods come back by an opposite movement, never by deleting the sale: the
+  // sale happened, and a ledger that forgets it cannot be reconciled with the
+  // waybill the client is holding.
+  //
+  // Checked before anything changes, for the same reason the shipment itself is:
+  // a cancellation that marks the shipment cancelled and then fails to return the
+  // goods leaves the order saying nothing shipped while the shelf still misses it.
+  const returns = mockGetMovementsFor('order-shipment', shipment.id).filter(
+    (m) => m.type === 'sale',
+  )
+  for (const movement of returns) {
+    if (!batchById(movement.batchId)) throw new Error('SHIPMENT_BATCH_NOT_FOUND')
+  }
+
+  // Everything is checked; from here on it only writes.
+  for (const invoice of live) {
+    mockCreateInvoice(order.id, {
+      kind: 'correction',
+      correctsInvoiceId: invoice.id,
+      reason,
+    })
+  }
+
+  shipment.cancelled = true
+  for (const shipLine of shipment.lines) {
+    const item = order.items.find((i) => i.id === shipLine.lineId)
+    if (!item) continue
+    item.shippedQuantity = Math.max(0, round2(item.shippedQuantity - shipLine.quantity))
+    applyPricing(item, syncLineState(toPricingLine(item)))
+  }
+
+  for (const movement of returns) {
+    writeMovement({
+      type: 'return',
+      batchId: movement.batchId,
+      offcutId: movement.offcutId,
+      quantity: movement.quantity,
+      unitPrice: movement.unitPrice,
+      referenceType: 'order-shipment-cancelled',
+      referenceId: shipment.id,
+      notes: `Cancelled ${shipment.waybillNumber ?? shipment.number}`,
+    })
+  }
+
+  recalcOrder(order)
+  return clone(shipment)
+}
+
+// ─── Reservations ───────────────────────────────────────────────────────────
+
+export function mockReserveOrder(orderId: string): StockReservation[] {
+  const order = STORE.find((o) => o.id === orderId)
+  if (!order) throw new Error('ORDER_NOT_FOUND')
+
+  const created: StockReservation[] = []
+  for (const item of order.items) {
+    const unshipped = round2(item.quantity - item.shippedQuantity)
+    if (unshipped <= 0) continue
+    const already = reservedForLine(order.id, item.id)
+    const toReserve = round2(unshipped - already)
+    if (toReserve <= 0) continue
+
+    // Reserve against the batches the line is allocated to — but only as much as
+    // is REALLY free right now. The breakdown was worked out when the line was
+    // added, before anybody had reserved anything, so two orders drafted off the
+    // same shelf both planned the same goods. Holding on the strength of that plan
+    // is how twenty units get promised out of a batch of ten.
+    let left = toReserve
+    for (const allocation of item.allocations) {
+      if (left <= 0) break
+      if (!allocation.batchId) continue
+      const batch = batchById(allocation.batchId)
+      if (!batch) continue
+
+      // What nobody holds yet — including the holds of other lines of this same
+      // order, which are separate claims on the same shelf.
+      const free = computeAvailable(batch.quantityRemaining, reservedOn(allocation.batchId))
+      const mine = reservedForLineOnBatch(order.id, item.id, allocation.batchId)
+      // Never more than the breakdown says, never more than is left to hold, and
+      // never more than the shelf can actually back.
+      const quantity = round2(Math.min(round2(allocation.quantity - mine), left, free))
+      if (quantity <= 0) continue
+
+      created.push(
+        holdOnBatch({
+          orderId: order.id,
+          lineId: item.id,
+          batchId: allocation.batchId,
+          offcutId: allocation.offcutId,
+          quantity,
+        }),
+      )
+      left = round2(left - quantity)
+    }
+
+    // The line state is deliberately not touched: reservation lives in its own
+    // records, because a line can be partially shipped and hold a reserved
+    // remainder at the same time — one enum cannot say both.
+  }
+  recalcOrder(order)
+  return created.map((r) => ({ ...r }))
+}
+
+export function mockReleaseOrderReservations(orderId: string): void {
+  releaseOrder(orderId)
+}
+
+// ─── Payments ───────────────────────────────────────────────────────────────
+
+export function mockGetOrderPayments(orderId: string): Payment[] {
+  const order = STORE.find((o) => o.id === orderId)
+  if (!order) throw new Error('ORDER_NOT_FOUND')
+  return clone(order.payments)
+}
+
+/** The paid percentage is never stored — it is recomputed from these records. */
+export function mockAddOrderPayment(
+  orderId: string,
+  data: {
+    amount: number
+    purpose?: PaymentPurpose
+    paidAt?: string
+    invoiceId?: string | null
+    note?: string | null
+  },
+): Payment {
+  const order = STORE.find((o) => o.id === orderId)
+  if (!order) throw new Error('ORDER_NOT_FOUND')
+  if (data.amount === 0) throw new Error('PAYMENT_AMOUNT_REQUIRED')
+  const purpose: PaymentPurpose = data.purpose ?? (data.amount < 0 ? 'refund' : 'balance')
+  if (purpose === 'refund' && data.amount > 0) throw new Error('REFUND_MUST_BE_NEGATIVE')
+  // A payment against a document nobody issued points at nothing: the panel would
+  // show a dash where the invoice number belongs and never say why.
+  if (data.invoiceId && !order.invoices.some((i) => i.id === data.invoiceId)) {
+    throw new Error('PAYMENT_INVOICE_NOT_FOUND')
+  }
+
+  const payment: Payment = {
+    id: `${order.id}-PAY-${order._nextPaymentSeq}`,
+    orderId: order.id,
+    amount: round2(data.amount),
+    paidAt: data.paidAt ?? new Date().toISOString(),
+    purpose,
+    invoiceId: data.invoiceId ?? null,
+    note: data.note ?? null,
+  }
+  order._nextPaymentSeq++
+  order.payments.push(payment)
+  recalcOrder(order)
+  return clone(payment)
+}
+
+export function mockDeleteOrderPayment(orderId: string, paymentId: string): void {
+  const order = STORE.find((o) => o.id === orderId)
+  if (!order) throw new Error('ORDER_NOT_FOUND')
+  const idx = order.payments.findIndex((p) => p.id === paymentId)
+  if (idx === -1) throw new Error('PAYMENT_NOT_FOUND')
+  order.payments.splice(idx, 1)
+  recalcOrder(order)
+}
+
+// ─── Invoices ───────────────────────────────────────────────────────────────
+
+export function mockGetInvoices(orderId: string): Invoice[] {
+  const order = STORE.find((o) => o.id === orderId)
+  if (!order) throw new Error('ORDER_NOT_FOUND')
+  return clone(order.invoices)
+}
+
+/**
+ * Has this document already been withdrawn by a correcting one?
+ *
+ * A corrected invoice is not deleted — the client received it — so "does the
+ * client still hold a valid document for this" is a question about corrections,
+ * not about the invoice itself.
+ */
+function isCorrected(order: StoreOrder, invoiceId: string): boolean {
+  return order.invoices.some((i) => i.kind === 'correction' && i.correctsInvoiceId === invoiceId)
+}
+
+/** Invoices the client still holds for this delivery. */
+function liveInvoicesFor(order: StoreOrder, shipmentId: string): Invoice[] {
+  return order.invoices.filter(
+    (i) => i.shipmentId === shipmentId && i.kind !== 'correction' && !isCorrected(order, i.id),
+  )
+}
+
+/**
+ * An invoice is tied to a shipment, which is why adding lines after one is
+ * issued is not a problem: the new lines leave on their own truck and land on
+ * their own invoice. A correcting invoice is only for fixing an issued one.
+ */
+export function mockCreateInvoice(
+  orderId: string,
+  data: {
+    kind?: InvoiceKind
+    shipmentId?: string | null
+    correctsInvoiceId?: string | null
+    amountNet?: number
+    /** What the client pays. Converted here, so the caller never does VAT arithmetic. */
+    amountGross?: number
+    reason?: string | null
+  },
+): Invoice {
+  const order = STORE.find((o) => o.id === orderId)
+  if (!order) throw new Error('ORDER_NOT_FOUND')
+  const kind: InvoiceKind = data.kind ?? 'regular'
+  const reason = data.reason?.trim() ?? ''
+
+  if (kind === 'regular' && !data.shipmentId) throw new Error('INVOICE_NEEDS_SHIPMENT')
+  // An advance is paid before anything ships — a shipment of its own would make
+  // it an ordinary invoice, and the delivery would then be billed twice.
+  if (kind === 'advance' && data.shipmentId) throw new Error('ADVANCE_HAS_NO_SHIPMENT')
+
+  let original: Invoice | undefined
+  if (kind === 'correction') {
+    if (!data.correctsInvoiceId) throw new Error('CORRECTION_NEEDS_ORIGINAL')
+    // The reason travels to the client's accountant with the document. "The
+    // amount changed" is not something they can file, so it is mandatory.
+    if (!reason) throw new Error('CORRECTION_REASON_REQUIRED')
+    original = order.invoices.find((i) => i.id === data.correctsInvoiceId)
+    if (!original) throw new Error('ORIGINAL_INVOICE_NOT_FOUND')
+    // A correction corrects an issued document, not another correction — and only
+    // once, or two withdrawals of one invoice would reverse it twice over.
+    if (original.kind === 'correction') throw new Error('CANNOT_CORRECT_A_CORRECTION')
+    if (isCorrected(order, original.id)) throw new Error('INVOICE_ALREADY_CORRECTED')
+  } else if (data.correctsInvoiceId) {
+    throw new Error('CORRECTION_NEEDS_KIND')
+  }
+
+  let net: number
+  if (original) {
+    // Withdrawing the document means the mirror image of it. An explicit amount
+    // is still allowed — a price corrected downwards is a partial correction —
+    // but the default is the whole thing, because that is what a cancellation is.
+    net = statedNet(order, data) ?? round2(-original.amountNet)
+  } else if (data.shipmentId) {
+    const shipment = order.shipments.find((s) => s.id === data.shipmentId)
+    if (!shipment) throw new Error('SHIPMENT_NOT_FOUND')
+    // Goods that came back cannot be billed.
+    if (shipment.cancelled) throw new Error('SHIPMENT_CANCELLED')
+    // One delivery, one invoice — a second one would bill the client twice. A
+    // corrected one no longer counts: the client is not holding it any more.
+    if (liveInvoicesFor(order, shipment.id).length > 0) {
+      throw new Error('SHIPMENT_ALREADY_INVOICED')
+    }
+    // The amount comes from the delivery, not from the caller: an invoice that
+    // disagrees with its own waybill is the thing this whole model avoids.
+    net = round2(
+      shipment.lines.reduce((sum, sl) => {
+        const line = order.items.find((i) => i.id === sl.lineId)
+        return line ? sum + round2(line.unitPrice * sl.quantity) : sum
+      }, 0),
+    )
+  } else {
+    const stated = statedNet(order, data)
+    if (stated === undefined) throw new Error('INVOICE_AMOUNT_REQUIRED')
+    net = stated
+  }
+
+  const gross = netToGross(net, order.vatMode, order.vatPercent)
+  const invoice: Invoice = {
+    id: `${order.id}-INV-${order._nextInvoiceSeq}`,
+    orderId: order.id,
+    number: `${order.orderNumber}/INV-${order._nextInvoiceSeq}`,
+    issuedAt: new Date().toISOString(),
+    kind,
+    // A correction belongs to the same delivery as the document it withdraws,
+    // even when the caller only names the invoice.
+    shipmentId: data.shipmentId ?? original?.shipmentId ?? null,
+    correctsInvoiceId: data.correctsInvoiceId ?? null,
+    amountNet: net,
+    amountVat: round2(gross - net),
+    amountGross: gross,
+    reason: reason || null,
+  }
+  order._nextInvoiceSeq++
+  order.invoices.push(invoice)
+
+  if (kind === 'correction') {
+    // The document has been withdrawn, so what it froze is frozen no longer —
+    // unless another live invoice still covers it. Without this the "correction"
+    // operation would be pointless: the line it exists to fix stays uneditable.
+    refreshDocumentFreeze(order)
+  } else {
+    // Everything on an issued invoice is frozen from now on — including services,
+    // which never ship and would otherwise stay editable forever.
+    if (invoice.shipmentId) {
+      const shipment = order.shipments.find((s) => s.id === invoice.shipmentId)
+      shipment?.lines.forEach((sl) => {
+        const item = order.items.find((i) => i.id === sl.lineId)
+        if (item) item.documentIssued = true
+      })
+    }
+    if (kind === 'regular') {
+      order.services.forEach((s) => {
+        s.documentIssued = true
+      })
+    }
+  }
+
+  recalcOrder(order)
+  return clone(invoice)
+}
+
+/** The amount the caller stated, net — from either field, never from both. */
+function statedNet(
+  order: StoreOrder,
+  data: { amountNet?: number; amountGross?: number },
+): number | undefined {
+  if (data.amountNet !== undefined && data.amountGross !== undefined) {
+    throw new Error('INVOICE_AMOUNT_AMBIGUOUS')
+  }
+  if (data.amountNet !== undefined) return round2(data.amountNet)
+  if (data.amountGross !== undefined) {
+    return round2(grossToNet(data.amountGross, order.vatMode, order.vatPercent))
+  }
+  return undefined
+}
+
+/**
+ * Recomputes `documentIssued` on every line and service from the invoices that
+ * are still live.
+ *
+ * Derived rather than toggled: a line can be covered by two invoices, and
+ * clearing the flag when one of them is corrected would unfreeze a line the
+ * client still holds a document for.
+ */
+function refreshDocumentFreeze(order: StoreOrder): void {
+  const live = order.invoices.filter((i) => i.kind !== 'correction' && !isCorrected(order, i.id))
+  const covered = new Set<string>()
+  for (const invoice of live) {
+    if (!invoice.shipmentId) continue
+    const shipment = order.shipments.find((s) => s.id === invoice.shipmentId)
+    shipment?.lines.forEach((sl) => covered.add(sl.lineId))
+  }
+  for (const item of order.items) {
+    item.documentIssued = covered.has(item.id)
+    applyPricing(item, syncLineState(toPricingLine(item)))
+  }
+  // Services are on every regular invoice — they have no shipment of their own.
+  const servicesBilled = live.some((i) => i.kind === 'regular')
+  for (const service of order.services) {
+    service.documentIssued = servicesBilled
   }
 }

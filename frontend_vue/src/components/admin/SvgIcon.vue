@@ -122,6 +122,10 @@ defineProps<{
       <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
       <line x1="12" y1="22.08" x2="12" y2="12" />
     </template>
+    <template v-else-if="name === 'lock'">
+      <rect x="5" y="11" width="14" height="10" rx="2" />
+      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </template>
     <template v-else-if="name === 'scissors'">
       <circle cx="6" cy="6" r="3" />
       <circle cx="6" cy="18" r="3" />
@@ -189,6 +193,13 @@ defineProps<{
       <polyline points="21 8 21 21 3 21 3 8" />
       <rect x="1" y="3" width="22" height="5" />
       <line x1="10" y1="12" x2="14" y2="12" />
+    </template>
+    <template v-else-if="name === 'file-text'">
+      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+      <line x1="16" y1="13" x2="8" y2="13" />
+      <line x1="16" y1="17" x2="8" y2="17" />
+      <polyline points="10 9 9 9 8 9" />
     </template>
     <template v-else-if="name === 'clock'">
       <circle cx="12" cy="12" r="10" />

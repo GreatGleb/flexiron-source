@@ -10,6 +10,8 @@ import SvgIcon from '@/components/admin/SvgIcon.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
 import SearchInput from '@/components/admin/ui/SearchInput.vue'
 import AppModal from '@/components/admin/ui/AppModal.vue'
+import { formatCents as money } from '@/domain/orderPricing'
+import type { OrderListItem } from '@/types/order'
 
 import '@styles/admin/components/_pagination.css'
 import '@styles/admin/orders_list.css'
@@ -23,6 +25,16 @@ useHead({
 
 const toast = useToast()
 const { items, loading, error, filters, pagination, load, handleDelete, toggleSort } = useOrders()
+
+/**
+ * Both shares are derived server-side from the payments and the shipped
+ * quantities, never stored — see the order card. Coloured only when it says
+ * something: fully paid is good news, and nothing else on this row shows it.
+ */
+function paidClass(item: OrderListItem): string {
+  if (item.paidPercent >= 100) return 'paid-full'
+  return item.paidPercent > 0 ? 'paid-part' : ''
+}
 
 // ─── Status filter ───
 const STATUS_OPTIONS = [
@@ -282,7 +294,7 @@ onMounted(() => {
                 </button>
               </th>
               <th>
-                <button class="th-sort-btn" @click="toggleSort('totalAmount')">
+                <button class="th-sort-btn" @click="toggleSort('totalWithVat')">
                   {{ t('orders.col_total') }}
                   <span class="sort-icon-group">
                     <SvgIcon
@@ -291,7 +303,7 @@ onMounted(() => {
                       :height="16"
                       class="sort-icon"
                       :class="{
-                        active: filters.sortBy === 'totalAmount' && filters.sortDir === 'asc',
+                        active: filters.sortBy === 'totalWithVat' && filters.sortDir === 'asc',
                       }"
                     />
                     <SvgIcon
@@ -300,7 +312,57 @@ onMounted(() => {
                       :height="16"
                       class="sort-icon"
                       :class="{
-                        active: filters.sortBy === 'totalAmount' && filters.sortDir === 'desc',
+                        active: filters.sortBy === 'totalWithVat' && filters.sortDir === 'desc',
+                      }"
+                    />
+                  </span>
+                </button>
+              </th>
+              <th>
+                <button class="th-sort-btn" @click="toggleSort('paidPercent')">
+                  {{ t('orders.col_paid_percent') }}
+                  <span class="sort-icon-group">
+                    <SvgIcon
+                      name="chevron-up"
+                      :width="16"
+                      :height="16"
+                      class="sort-icon"
+                      :class="{
+                        active: filters.sortBy === 'paidPercent' && filters.sortDir === 'asc',
+                      }"
+                    />
+                    <SvgIcon
+                      name="chevron-down"
+                      :width="16"
+                      :height="16"
+                      class="sort-icon"
+                      :class="{
+                        active: filters.sortBy === 'paidPercent' && filters.sortDir === 'desc',
+                      }"
+                    />
+                  </span>
+                </button>
+              </th>
+              <th>
+                <button class="th-sort-btn" @click="toggleSort('shippedPercent')">
+                  {{ t('orders.col_shipped_percent') }}
+                  <span class="sort-icon-group">
+                    <SvgIcon
+                      name="chevron-up"
+                      :width="16"
+                      :height="16"
+                      class="sort-icon"
+                      :class="{
+                        active: filters.sortBy === 'shippedPercent' && filters.sortDir === 'asc',
+                      }"
+                    />
+                    <SvgIcon
+                      name="chevron-down"
+                      :width="16"
+                      :height="16"
+                      class="sort-icon"
+                      :class="{
+                        active: filters.sortBy === 'shippedPercent' && filters.sortDir === 'desc',
                       }"
                     />
                   </span>
@@ -353,7 +415,11 @@ onMounted(() => {
                   {{ t(`orders.status_${item.status}`) }}
                 </span>
               </td>
-              <td>{{ item.totalAmount.toFixed(2) }} €</td>
+              <td data-test="orders-row-total">{{ money(item.totalWithVat) }} €</td>
+              <td data-test="orders-row-paid">
+                <span :class="paidClass(item)">{{ money(item.paidPercent) }}%</span>
+              </td>
+              <td data-test="orders-row-shipped">{{ money(item.shippedPercent) }}%</td>
               <td>{{ new Date(item.createdAt).toLocaleDateString() }}</td>
               <td>
                 <div class="orders-row-actions">
@@ -390,7 +456,7 @@ onMounted(() => {
           </tbody>
           <tfoot v-if="pagination.total.value > 0">
             <tr>
-              <td colspan="6">
+              <td colspan="8">
                 <div class="pagination-bar" data-test="orders-pagination">
                   <div class="page-size" data-test="orders-page-size">
                     <span>{{ t('orders.page_size') }}</span>
@@ -460,7 +526,7 @@ onMounted(() => {
         <button class="btn btn-secondary" @click="showDeleteModal = false">
           {{ t('orders.btn_discard') }}
         </button>
-        <button class="btn btn-danger" @click="onDeleteConfirm">
+        <button class="btn btn-danger" data-test="orders-delete-confirm" @click="onDeleteConfirm">
           {{ t('orders.btn_delete') }}
         </button>
       </template>

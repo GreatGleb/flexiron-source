@@ -5,6 +5,7 @@ import { useRouter } from 'vue-router'
 import { useSalesCrmDashboard } from '@/composables/useSalesCrmDashboard'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
+import { formatCents as money } from '@/domain/orderPricing'
 
 import '@styles/admin/components/_entity-card-layout.css'
 import '@styles/admin/sales_crm.css'
@@ -198,7 +199,10 @@ function formatCurrency(value: number): string {
                       {{ t(`orders.status_${order.status}`) }}
                     </span>
                   </td>
-                  <td>{{ order.currency }} {{ order.totalAmount.toFixed(2) }}</td>
+                  <!-- Under the same header as the orders list: what the client
+                       pays. `totalAmount` next to it is net, and one order named
+                       two different numbers on two screens discredits both. -->
+                  <td>{{ order.currency }} {{ money(order.totalWithVat) }}</td>
                   <td>{{ new Date(order.createdAt).toLocaleDateString() }}</td>
                 </tr>
               </tbody>

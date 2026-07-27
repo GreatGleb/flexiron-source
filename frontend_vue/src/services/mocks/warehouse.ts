@@ -35,6 +35,14 @@ import {
   mockDeficit as mockDeficitData,
   mockStockOverview as mockStockOverviewData,
 } from '@/mocks/warehouse'
+import {
+  allocateFifo,
+  computeAvailable,
+  round2,
+  type FifoBatch,
+  type FifoResult,
+} from '@/domain/orderPricing'
+import { reservedOn } from './reservations'
 
 // ─── Helpers to resolve code strings to UUIDs from settings ──────────────
 function _resolveUomId(code: string): string {
@@ -231,7 +239,20 @@ export async function mockGetStockOverview(
   },
   pagination: { page: number; pageSize: number },
 ): Promise<StockOverviewResponse> {
-  let filtered = [...stockStore]
+  // Reserved and available are DERIVED, never stored: a reservation belongs to an
+  // order, and a number copied onto the stock row would start lying the moment
+  // that order shipped, shrank or was cancelled.
+  const withReservations = stockStore.map((row) => {
+    const reserved = round2(
+      batchesForProduct(row.productId).reduce((sum, b) => sum + reservedOn(b.id), 0),
+    )
+    return {
+      ...row,
+      reservedQuantity: reserved,
+      availableQuantity: computeAvailable(row.totalQuantity, reserved),
+    }
+  })
+  let filtered = [...withReservations]
 
   // Search
   if (filters.search) {
@@ -698,7 +719,14 @@ export async function mockGetMovements(
   return paginate(filtered.map(toMovementListItem), pagination.page, pagination.pageSize)
 }
 
-export async function mockCreateMovement(data: {
+/**
+ * Writes a movement and moves the batch, synchronously.
+ *
+ * A shipment has to record itself and write off the stock in one go: with an
+ * `await` in the middle, a failure between the two leaves goods sold and still
+ * on the shelf. The async export below is the API-facing wrapper.
+ */
+export function writeMovement(data: {
   type: string
   batchId: string
   offcutId?: string | null
@@ -711,7 +739,7 @@ export async function mockCreateMovement(data: {
   performedBy?: string | null
   notes?: string | null
   movedAt?: string
-}): Promise<WarehouseMovement> {
+}): WarehouseMovement {
   const batch = batchStore.find((b) => b.id === data.batchId)
   if (!batch) throw new Error('BATCH_NOT_FOUND')
 
@@ -798,6 +826,34 @@ export async function mockCreateMovement(data: {
   batch.updatedAt = now
 
   return movement
+}
+
+export async function mockCreateMovement(
+  data: Parameters<typeof writeMovement>[0],
+): Promise<WarehouseMovement> {
+  return writeMovement(data)
+}
+
+/** Batches of one product, oldest first — the order FIFO consumes them in. */
+export function batchesForProduct(productId: string): WarehouseBatch[] {
+  return batchStore
+    .filter((b) => b.productId === productId)
+    .sort((a, b) => a.receivedAt.localeCompare(b.receivedAt))
+}
+
+/** Movements written against one reference — a shipment, for instance. */
+export function mockGetMovementsFor(
+  referenceType: string,
+  referenceId: string,
+): WarehouseMovement[] {
+  return movementStore.filter(
+    (m) => m.referenceType === referenceType && m.referenceId === referenceId,
+  )
+}
+
+/** One batch, or undefined. For callers that hold an allocation and need its cost. */
+export function batchById(batchId: string): WarehouseBatch | undefined {
+  return batchStore.find((b) => b.id === batchId)
 }
 
 export async function mockGetMovement(id: string): Promise<WarehouseMovement> {
@@ -982,6 +1038,56 @@ export async function mockGetDeficitItem(id: string): Promise<WarehouseDeficit> 
   return { ...deficit }
 }
 
+/**
+ * Records that an order asked for more than the warehouse can cover.
+ *
+ * Synchronous so it can happen inside the same operation that accepted the line:
+ * a shortage nobody wrote down is a shortage nobody buys, and the order would sit
+ * there un-shippable with no trace of why.
+ */
+export function recordShortage(data: {
+  productId: string
+  productName: string
+  quantity: number
+  unit: string
+  orderId: string
+}): WarehouseDeficit {
+  const now = new Date().toISOString()
+  // Matched on the whole note, not a substring: "Order ORD-1" is contained in
+  // "Order ORD-10", and one order's shortage would quietly overwrite another's.
+  const note = `Order ${data.orderId}`
+  const existing = deficitStore.find(
+    (d) => d.productId === data.productId && d.status === 'open' && d.notes === note,
+  )
+  if (existing) {
+    // The same order asking again is the same shortage, not a second one.
+    existing.deficitAmount = round2(Math.max(existing.deficitAmount, data.quantity))
+    existing.minRequired = existing.deficitAmount
+    existing.updatedAt = now
+    return existing
+  }
+
+  const deficit: WarehouseDeficit = {
+    id: `whd-${String(deficitSeq++).padStart(3, '0')}`,
+    productId: data.productId,
+    productName: { ru: data.productName, en: data.productName, lt: data.productName },
+    currentStock: 0,
+    minRequired: round2(data.quantity),
+    deficitAmount: round2(data.quantity),
+    unit: data.unit,
+    priority: 'high',
+    status: 'open',
+    suggestedOrderQty: round2(data.quantity),
+    purchaseOrderId: null,
+    notes: note,
+    createdAt: now,
+    updatedAt: now,
+    auditLog: [],
+  }
+  deficitStore.push(deficit)
+  return deficit
+}
+
 export async function mockCreateDeficitItem(data: DeficitCreatePayload): Promise<WarehouseDeficit> {
   const id = `whd-${String(deficitSeq++).padStart(3, '0')}`
   const now = new Date().toISOString()
@@ -1024,34 +1130,59 @@ export async function mockDeleteDeficitItem(id: string): Promise<void> {
 
 // ─── FIFO Cost Calculation ──────────────────────────────────────────────────
 
+/**
+ * Which batches a quantity would consume, oldest first — and what it would cost.
+ *
+ * Runs on what is AVAILABLE, not on what is on the shelf: a batch already
+ * promised to another order cannot also be promised here, or two orders would
+ * both price the same tonne and only one could ever write it off.
+ *
+ * `exceptLine` excludes one line's own hold, so a line asking about itself is not
+ * blocked by the goods it is already holding. Everyone else's holds count —
+ * including other lines of the same order, which are separate claims.
+ *
+ * A shortage is REPORTED, never quietly averaged over: the caller decides whether
+ * to accept the order and mark the cost as an estimate, and the goods still
+ * cannot be shipped.
+ */
+export function mockFifoAllocation(
+  productId: string,
+  quantity: number,
+  options?: { exceptLine?: { orderId: string; lineId: string } },
+): FifoResult {
+  const batches: FifoBatch[] = batchesForProduct(productId).map((b) => ({
+    batchId: b.id,
+    offcutId: null,
+    receivedAt: b.receivedAt,
+    availableQuantity: computeAvailable(
+      b.quantityRemaining,
+      reservedOn(b.id, { exceptLine: options?.exceptLine }),
+    ),
+    unitCost: b.unitPrice,
+    currency: b.currency,
+    // Batches are already costed in the product currency in this store.
+    exchangeRate: null,
+  }))
+  return allocateFifo(batches, quantity)
+}
+
+/**
+ * The cost of a quantity, for the card to show before the line exists. Same
+ * function the order module uses, so the preview and the stored line agree.
+ */
 export function mockCalculateFifoCost(
   productId: string,
   quantity: number,
-): { unitPrice: number; totalCost: number } {
-  const batches = mockBatchesData
-    .filter(b => b.productId === productId && b.quantityRemaining > 0)
-    .sort((a, b) => new Date(a.receivedAt).getTime() - new Date(b.receivedAt).getTime())
-
-  let remaining = quantity
-  let totalCost = 0
-
-  for (const batch of batches) {
-    if (remaining <= 0) break
-    const take = Math.min(remaining, batch.quantityRemaining)
-    totalCost += take * batch.unitPrice
-    remaining -= take
-  }
-
-  // If not enough stock, estimate remaining at avg price
-  if (remaining > 0) {
-    const avgBatch = (mockStockOverviewData as StockOverviewItem[]).find(i => i.productId === productId)
-    const avgPrice = avgBatch?.avgUnitPrice ?? (totalCost / Math.max(1, quantity - remaining))
-    totalCost += remaining * avgPrice
-  }
-
+  options?: { exceptLine?: { orderId: string; lineId: string } },
+): { unitPrice: number; totalCost: number; shortageQuantity: number } {
+  const fifo = mockFifoAllocation(productId, quantity, options)
+  const covered = round2(quantity - fifo.shortageQuantity)
   return {
-    unitPrice: quantity > 0 ? totalCost / quantity : 0,
-    totalCost,
+    // The shortage is priced at what the covered part costs — there is nothing
+    // better to price it at — but it is reported so it can be called an estimate.
+    unitPrice: fifo.weightedUnitCost,
+    totalCost: round2(fifo.weightedUnitCost * covered),
+    shortageQuantity: fifo.shortageQuantity,
   }
 }
 

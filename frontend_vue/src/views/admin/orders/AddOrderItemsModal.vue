@@ -13,16 +13,27 @@ import AppModal from '@/components/admin/ui/AppModal.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
 import SearchInput from '@/components/admin/ui/SearchInput.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
+import AddLineModeChooser from './AddLineModeChooser.vue'
+import { formatCents as money, round2, type AddLineMode } from '@/domain/orderPricing'
 
 const { t, locale } = useI18n()
 const toast = useToast()
 const { settings } = useSettings()
 const { tf } = useTranslatedField()
 
-const props = defineProps<{
-  show: boolean
-  orderId: string
-}>()
+const props = withDefaults(
+  defineProps<{
+    show: boolean
+    orderId: string
+    /** What to ask about pricing, if anything — model, section 10. */
+    modes?: AddLineMode[]
+    /** The discount the order really gave; the number "order terms" applies. */
+    effectiveDiscount?: number
+    defaultMarginPercent?: number
+    defaultDiscountPercent?: number
+  }>(),
+  { modes: () => [], effectiveDiscount: 0, defaultMarginPercent: 0, defaultDiscountPercent: 0 },
+)
 
 const emit = defineEmits<{
   close: []
@@ -37,8 +48,26 @@ const emit = defineEmits<{
       /** Quantity in warehouse UoM (converted from sale qty if UoMs differ) */
       warehouseQty?: number
     }>,
+    mode: AddLineMode | null,
   ]
 }>()
+
+// ─── How the new lines should be priced ───────────────────────────────────
+const chosenMode = ref<AddLineMode>(props.modes[0] ?? 'computed_price')
+
+watch(
+  () => [props.show, props.modes] as const,
+  () => {
+    // Reopening starts from the recommended option rather than from whatever was
+    // picked last time — the order may look completely different by now.
+    chosenMode.value = props.modes[0] ?? 'computed_price'
+  },
+)
+
+/** The discount the chosen mode implies, in percent. */
+const modeDiscount = computed(() =>
+  chosenMode.value === 'order_terms' ? props.effectiveDiscount : props.defaultDiscountPercent,
+)
 
 // ─── Product data ─────────────────────────────────────────────────────────
 const products = ref<ProductListItem[]>([])
@@ -175,9 +204,7 @@ function toggleProduct(id: string) {
     if (!product) return
     const unit = getProductUnit(product)
     const saleQty = 1
-    // Use FIFO cost as unitPrice if available, fallback to product price
-    const fifoCost = selectedItemsCosts.value.get(product.id)?.unitPrice
-    const unitPrice = fifoCost ?? (product.price ?? 0)
+    const unitPrice = priceFor(product, selectedItemsCosts.value.get(product.id)?.unitPrice)
     selectedItems.value = [
       ...selectedItems.value,
       {
@@ -343,10 +370,12 @@ async function recalcFifoCost(productId: string, quantity: number) {
   try {
     const cost = await getBatchCostBreakdown(productId, quantity)
     selectedItemsCosts.value.set(productId, cost)
-    // Update unitPrice on the selected item to use FIFO cost
+    // The cost never becomes the price. It only fills in for a product the
+    // catalogue prices at nothing, and then as a markup, not at cost.
     const item = selectedItems.value.find((i) => i.productId === productId)
-    if (item && cost.unitPrice > 0) {
-      item.unitPrice = cost.unitPrice
+    const product = products.value.find((p) => p.id === productId)
+    if (item && product && product.price == null) {
+      item.unitPrice = priceFor(product, cost.unitPrice)
     }
   } catch {
     selectedItemsCosts.value.delete(productId)
@@ -369,6 +398,30 @@ watch(
   { deep: true },
 )
 
+/**
+ * What the line will be sold at, before the discount.
+ *
+ * The catalogue price is a real business figure and wins. Only when the product
+ * carries none is the price computed from the cost and the order's markup.
+ * Selling at cost — which this dialog did by overwriting the price with the FIFO
+ * figure — is not a default anybody chose.
+ */
+function priceFor(product: ProductListItem | undefined, cost: number | undefined): number {
+  // A catalogue price of zero is missing data, not a decision to give it away.
+  if (product?.price != null && product.price > 0) return product.price
+  if (cost === undefined || cost <= 0) return 0
+  return round2(cost * (1 + props.defaultMarginPercent / 100))
+}
+
+/** Price per unit after the chosen mode's discount, unrounded. */
+function netPrice(unitPrice: number): number {
+  return unitPrice * (1 - modeDiscount.value / 100)
+}
+
+// Money is formatted by the domain's rule — see `formatCents`. Rounding the unit
+// price and THEN multiplying by the quantity would promise a total a cent away
+// from the row the admin actually gets.
+
 // ─── Save ─────────────────────────────────────────────────────────────────
 function onSave() {
   if (selectedItems.value.length === 0) return
@@ -381,14 +434,15 @@ function onSave() {
         productName: item.productName,
         quantity: item.quantity,
         unit: item.unit,
-        // Use FIFO cost as unitPrice (matches the displayed value)
-        unitPrice: fifoCost ?? item.unitPrice,
-        unitCost: fifoCost ?? item.unitPrice,
+        // The price before the discount: the mode decides the discount, and the
+        // line stores the two separately.
+        unitPrice: item.unitPrice,
+        unitCost: fifoCost,
         warehouseQty: item.warehouseQty,
       }
     })
   if (items.length > 0) {
-    emit('add', items)
+    emit('add', items, props.modes.length > 0 ? chosenMode.value : null)
     emit('close')
   }
 }
@@ -492,13 +546,22 @@ function onCancel() {
                     <template v-else>
                       <span
                         v-if="stockMap.get(p.id)"
-                        v-tooltip="'Avg cost: ' + stockMap.get(p.id)!.avgUnitPrice.toFixed(2) + ' ' + settings.constants.defaultCurrency"
+                        v-tooltip="
+                          'Avg cost: ' +
+                          stockMap.get(p.id)!.avgUnitPrice.toFixed(2) +
+                          ' ' +
+                          settings.constants.defaultCurrency
+                        "
                         class="stock-value"
                       >
                         {{ Number(stockMap.get(p.id)!.avgUnitPrice.toFixed(2)).toLocaleString() }}
                       </span>
                       <span v-else>
-                        {{ p.price != null ? p.price.toFixed(2) + ' ' + settings.constants.defaultCurrency : '—' }}
+                        {{
+                          p.price != null
+                            ? p.price.toFixed(2) + ' ' + settings.constants.defaultCurrency
+                            : '—'
+                        }}
                       </span>
                     </template>
                   </td>
@@ -601,18 +664,24 @@ function onCancel() {
                   <span class="unit-label">{{ t('orders.unit_' + item.unit, item.unit) }}</span>
                 </td>
                 <td class="col-price-ro-cell">
-                  <span class="price-display">{{ item.unitPrice.toFixed(2) }} {{ settings.constants.defaultCurrency }}</span>
-                </td>
-                <td class="col-cost-cell">
-                  <span class="cost-display"
-                    >{{ selectedItemsCosts.get(item.productId)?.unitPrice
-                      ? selectedItemsCosts.get(item.productId)!.unitPrice.toFixed(2) + ' ' + settings.constants.defaultCurrency
-                      : '—' }}</span
+                  <span class="price-display" data-test="add-items-price"
+                    >{{ money(netPrice(item.unitPrice)) }}
+                    {{ settings.constants.defaultCurrency }}</span
                   >
                 </td>
+                <td class="col-cost-cell">
+                  <span class="cost-display">{{
+                    selectedItemsCosts.get(item.productId)?.unitPrice
+                      ? selectedItemsCosts.get(item.productId)!.unitPrice.toFixed(2) +
+                        ' ' +
+                        settings.constants.defaultCurrency
+                      : '—'
+                  }}</span>
+                </td>
                 <td class="col-total-cell">
-                  <span class="item-total"
-                    >{{ (item.quantity * item.unitPrice).toFixed(2) }} {{ settings.constants.defaultCurrency }}</span
+                  <span class="item-total" data-test="add-items-total"
+                    >{{ money(netPrice(item.unitPrice) * item.quantity) }}
+                    {{ settings.constants.defaultCurrency }}</span
                   >
                 </td>
                 <td class="col-action-cell">
@@ -630,6 +699,13 @@ function onCancel() {
           </table>
         </div>
       </div>
+
+      <AddLineModeChooser
+        v-if="selectedItems.length > 0"
+        v-model="chosenMode"
+        :modes="modes"
+        :effective-discount="effectiveDiscount"
+      />
     </div>
 
     <template #footer>

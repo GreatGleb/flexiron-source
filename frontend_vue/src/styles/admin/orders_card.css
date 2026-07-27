@@ -111,6 +111,100 @@
     color 0.15s;
 }
 
+/* ─── Editable line table ──────────────────────────────────── */
+.order-lines-table {
+  min-width: 900px;
+}
+
+.order-lines-table th.num,
+.order-lines-table td.num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Frozen by a shipment or an issued invoice — readable, but plainly not in play. */
+.order-lines-table tr.line-frozen td {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.order-lines-table .line-state {
+  white-space: nowrap;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.order-lines-table .line-actions {
+  white-space: nowrap;
+  text-align: right;
+}
+
+.order-lines-table .margin-negative {
+  color: #ff4d4f;
+}
+
+.cell-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 3px;
+}
+
+.cell-input {
+  width: 74px;
+  padding: 2px 4px;
+  text-align: right;
+  font-size: 0.82rem;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+}
+
+.cell-input:focus {
+  outline: none;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.32);
+}
+
+/* The spinner arrows steal the width the number needs. */
+.cell-input::-webkit-outer-spin-button,
+.cell-input::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.cell-input[type='number'] {
+  appearance: textfield;
+}
+
+.cell-suffix {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.cell-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.68rem;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.65);
+  cursor: help;
+}
+
+.cell-badge-warn {
+  color: #e9a23b;
+  font-weight: 600;
+}
+
+.cell-action {
+  padding: 1px;
+  opacity: 0.55;
+}
+
+.cell-action:hover {
+  opacity: 1;
+}
+
 /* ─── Empty state inline ────────────────────────────────────── */
 .empty-state-inline {
   display: flex;
@@ -161,4 +255,23 @@
     flex-direction: column;
     align-items: stretch;
   }
+}
+
+/* ─── Payments and invoices ────────────────────────────────── */
+.page-order-card .data-table th.num,
+.page-order-card .data-table td.num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Paid in full and then changed — said out loud, but nothing is blocked. */
+.page-order-card .payment-warning {
+  margin: 12px 0 0;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 193, 7, 0.35);
+  border-radius: 8px;
+  background: rgba(255, 193, 7, 0.1);
+  color: #ffc107;
+  font-size: 0.85rem;
+  line-height: 1.4;
 }

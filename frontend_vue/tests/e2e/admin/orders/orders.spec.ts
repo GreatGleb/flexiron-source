@@ -1,6 +1,18 @@
+import type { Locator } from '@playwright/test'
 import { test, expect } from '../../fixtures'
-import { enableAllFlags } from '../../helpers/flags'
+import { enableAllFlags, setFlag } from '../../helpers/flags'
 import { mockExternalRequests } from '../../helpers/mockExternalRequests'
+
+/**
+ * Reads a line cell whether it is editable (an input) or frozen (plain text).
+ * Frozen cells carry their suffix in the text; an input does not.
+ */
+async function lineCell(row: Locator, field: string): Promise<string> {
+  const cell = row.locator(`[data-test="cell-${field}"]`)
+  const input = cell.locator('input')
+  if ((await input.count()) > 0) return input.inputValue()
+  return ((await cell.textContent()) ?? '').replace('%', '').trim()
+}
 
 test.beforeEach(async ({ context, page }) => {
   await enableAllFlags(context)
@@ -14,7 +26,9 @@ test.beforeEach(async ({ context, page }) => {
 test.describe('Orders List', () => {
   test('loads without errors', async ({ page }) => {
     const errors: string[] = []
-    page.on('console', (msg) => { if (msg.type() === 'error') errors.push(msg.text()) })
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') errors.push(msg.text())
+    })
 
     await page.goto('/admin/orders')
     await expect(page.locator('[data-test="page-orders"]')).toBeVisible()
@@ -68,6 +82,43 @@ test.describe('Orders List', () => {
     await viewBtn.click()
     await expect(page).toHaveURL(/\/admin\/orders\/(.+)/)
   })
+
+  test('the row says what the client pays, and how much of it arrived', async ({ page }) => {
+    // ORD-005 carries a 25% advance. The list must agree with the card on both
+    // numbers — the same order named two different totals is how nobody trusts
+    // either screen.
+    await page.goto('/admin/orders')
+    await page.fill('[data-test="orders-filter-search"] input', 'ORD-2026-005')
+    const row = page.locator('[data-test="orders-row"]').first()
+    await expect(row).toBeVisible()
+    const listTotal = (await row.locator('[data-test="orders-row-total"]').textContent())!
+    await expect(row.locator('[data-test="orders-row-paid"]')).toHaveText('25.00%')
+    await expect(row.locator('[data-test="orders-row-shipped"]')).toHaveText('0.00%')
+
+    await page.goto('/admin/orders/ORD-005')
+    await page.waitForSelector('[data-test="order-item-row"]')
+    const cardGross = await page.locator('[data-test="field-gross-total"]').inputValue()
+    expect(listTotal.replace(/[^\d.]/g, '')).toBe(cardGross)
+    await expect(page.locator('[data-test="field-paid-percent"]')).toHaveText('25.00%')
+  })
+
+  test('an order that left something behind refuses to be deleted, and says why', async ({
+    page,
+  }) => {
+    // ORD-005 has a payment on it. Money received is a fact outside this system,
+    // so the order does not simply vanish — and the message names the blocker
+    // instead of a generic failure.
+    await page.goto('/admin/orders')
+    await page.fill('[data-test="orders-filter-search"] input', 'ORD-2026-005')
+    const row = page.locator('[data-test="orders-row"]').first()
+    await expect(row).toBeVisible()
+    await row.locator('[data-test="orders-delete-btn"]').click()
+    await page.locator('[data-test="orders-delete-confirm"]').click()
+
+    await expect(page.locator('.toast').first()).toContainText(/payment/i)
+    // Still there.
+    await expect(page.locator('[data-test="orders-row"]').first()).toBeVisible()
+  })
 })
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -77,7 +128,9 @@ test.describe('Orders List', () => {
 test.describe('Order Create', () => {
   test('loads without errors', async ({ page }) => {
     const errors: string[] = []
-    page.on('console', (msg) => { if (msg.type() === 'error') errors.push(msg.text()) })
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') errors.push(msg.text())
+    })
 
     await page.goto('/admin/orders/new')
     await expect(page.locator('[data-test="page-order-create"]')).toBeVisible()
@@ -103,7 +156,9 @@ test.describe('Order Create', () => {
     await expect(page.locator('[data-test="order-create-client-search"]')).toBeVisible()
     await expect(page.locator('[data-test="order-create-client-list"]')).toBeVisible()
     // Client radio items should be visible
-    await expect(page.locator('[data-test="order-create-client-item"]').first()).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('[data-test="order-create-client-item"]').first()).toBeVisible({
+      timeout: 5000,
+    })
     // Pagination should be visible for multiple clients
     await expect(page.locator('[data-test="order-create-client-pagination"]')).toBeVisible()
   })
@@ -111,7 +166,9 @@ test.describe('Order Create', () => {
   test('client selection highlights selected client', async ({ page }) => {
     await page.goto('/admin/orders/new')
     // Wait for clients to load
-    await expect(page.locator('[data-test="order-create-client-item"]').first()).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('[data-test="order-create-client-item"]').first()).toBeVisible({
+      timeout: 5000,
+    })
     // Click the client label (native radio is hidden via display:none for custom radio styling)
     await page.locator('[data-test="order-create-client-item"]').first().click()
     // Selected count indicator should appear
@@ -156,7 +213,9 @@ test.describe('Order Create', () => {
 test.describe('Order Card', () => {
   test('loads without errors', async ({ page }) => {
     const errors: string[] = []
-    page.on('console', (msg) => { if (msg.type() === 'error') errors.push(msg.text()) })
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') errors.push(msg.text())
+    })
 
     await page.goto('/admin/orders/ORD-001')
     await expect(page.locator('[data-test="page-order-card"]')).toBeVisible()
@@ -178,7 +237,8 @@ test.describe('Order Card', () => {
   test('entity card grid with 3 columns is visible', async ({ page }) => {
     await page.goto('/admin/orders/ORD-001')
     await expect(page.locator('[data-test="order-info-left"]')).toBeVisible()
-    await expect(page.locator('[data-test="order-info-center"]')).toBeVisible()
+    // The centre column IS the financial panel — there is no separate wrapper.
+    await expect(page.locator('[data-test="order-financial"]')).toBeVisible()
     await expect(page.locator('[data-test="order-info-right"]')).toBeVisible()
   })
 
@@ -228,20 +288,242 @@ test.describe('Order Card › fields & structure', () => {
     await page.goto('/admin/orders/ORD-001')
     await expect(page.locator('[data-test="order-info-left"]')).toBeVisible()
     // Order number and client name are readonly static fields
-    await expect(page.locator('[data-test="order-info-left"] .glass-input-static').first()).toBeVisible()
+    await expect(
+      page.locator('[data-test="order-info-left"] .glass-input-static').first(),
+    ).toBeVisible()
   })
 
   test('center column financial fields render', async ({ page }) => {
     await page.goto('/admin/orders/ORD-001')
-    await expect(page.locator('[data-test="field-total-amount"]')).toBeVisible()
-    await expect(page.locator('[data-test="field-order-discount"]')).toBeVisible()
-    await expect(page.locator('[data-test="field-discounted-total"]')).toBeVisible()
-    await expect(page.locator('[data-test="field-total-weight"]')).toBeVisible()
-    await expect(page.locator('[data-test="field-total-vat"]')).toBeVisible()
-    await expect(page.locator('[data-test="field-total-with-vat"]')).toBeVisible()
-    await expect(page.locator('[data-test="field-total-cost"]')).toBeVisible()
-    await expect(page.locator('[data-test="field-total-margin"]')).toBeVisible()
-    await expect(page.locator('[data-test="field-notes"]')).toBeVisible()
+    for (const field of [
+      'field-total-cost',
+      'field-default-margin',
+      'field-default-discount',
+      'field-vat-percent',
+      'field-net-total',
+      'field-vat-amount',
+      'field-gross-total',
+      'field-total-margin',
+      'field-effective-discount',
+      'field-total-weight',
+      'field-notes',
+    ]) {
+      await expect(page.locator(`[data-test="${field}"]`)).toBeVisible()
+    }
+  })
+
+  test('the panel shows the money the order actually comes to', async ({ page }) => {
+    await page.goto('/admin/orders/ORD-001')
+    await expect(page.locator('[data-test="field-net-total"]')).toHaveValue('19000.00')
+    // VAT on the net total. The old panel charged it on the cost and then stacked
+    // margin on top of the tax, showing 26438.50 for this very order.
+    await expect(page.locator('[data-test="field-vat-amount"]')).toHaveValue('3990.00')
+    await expect(page.locator('[data-test="field-gross-total"]')).toHaveValue('22990.00')
+
+    // Cost is the cost of the GOODS — read off the warehouse batches the lines
+    // consume, not "the selling price times a ratio". The absolute figure belongs
+    // to the batches, so what is asserted here is the relationship that must hold
+    // whatever they cost: margin is what is left of the net after the cost.
+    const cost = Number(await page.locator('[data-test="field-total-cost"]').inputValue())
+    const margin = Number(await page.locator('[data-test="field-total-margin"]').inputValue())
+    expect(cost).toBeGreaterThan(0)
+    expect(cost).toBeLessThan(19000)
+    expect(margin).toBeCloseTo(19000 - cost, 2)
+
+    // And it agrees with the lines it is the sum of.
+    const rows = page.locator('[data-test="order-item-row"]')
+    let lineCosts = 0
+    for (let i = 0; i < (await rows.count()); i++) {
+      const row = rows.nth(i)
+      lineCosts += Number(await lineCell(row, 'unitCost')) * Number(await lineCell(row, 'quantity'))
+    }
+    expect(cost).toBeCloseTo(lineCosts, 1)
+  })
+
+  test('a zero-rated order charges no VAT', async ({ page }) => {
+    await page.goto('/admin/orders/ORD-008')
+    const net = await page.locator('[data-test="field-net-total"]').inputValue()
+    await expect(page.locator('[data-test="field-vat-amount"]')).toHaveValue('0.00')
+    await expect(page.locator('[data-test="field-gross-total"]')).toHaveValue(net)
+  })
+
+  test('an order-wide discount is visible, not hidden at zero', async ({ page }) => {
+    await page.goto('/admin/orders/ORD-002')
+    await expect(page.locator('[data-test="field-effective-discount"]')).toHaveValue('5.00')
+    await expect(page.locator('[data-test="field-default-discount"]')).toHaveValue('5')
+  })
+
+  test('editing the total spreads it across the lines', async ({ page }) => {
+    await page.goto('/admin/orders/ORD-001')
+    await page.waitForSelector('[data-test="field-gross-total"]')
+
+    await page.fill('[data-test="field-gross-total"]', '20328.99')
+    await page.locator('[data-test="field-gross-total"]').press('Enter')
+    await expect(page.locator('[data-test="allocate-modal"]')).toBeVisible()
+    // Reachable amount — no "this total does not exist" warning.
+    await expect(page.locator('[data-test="allocate-unreachable"]')).toHaveCount(0)
+
+    await page.click('[data-test="allocate-confirm"]')
+    await expect(page.locator('[data-test="allocate-modal"]')).toBeHidden()
+    await expect(page.locator('[data-test="field-gross-total"]')).toHaveValue('20328.99')
+    await expect(page.locator('[data-test="field-net-total"]')).toHaveValue('16800.82')
+  })
+
+  test('a total that cannot exist is announced, never quietly substituted', async ({ page }) => {
+    await page.goto('/admin/orders/ORD-001')
+    await page.waitForSelector('[data-test="field-gross-total"]')
+    // With 21% VAT rounded to cents there is no net that grosses up to 20000.00.
+    await page.fill('[data-test="field-gross-total"]', '20000')
+    await page.locator('[data-test="field-gross-total"]').press('Enter')
+    await expect(page.locator('[data-test="allocate-unreachable"]')).toContainText('20000.01')
+  })
+
+  test('unsaved lines block the total edit rather than failing on the server', async ({ page }) => {
+    await page.goto('/admin/orders/ORD-001')
+    await page.click('[data-test="order-add-item-btn"]')
+    await page.waitForSelector('[data-test="add-order-items-modal"]')
+    await page.locator('[data-test="add-items-product-checkbox"]').first().click()
+    await page.click('[data-test="add-items-save-btn"]')
+    await expect(page.locator('[data-test="add-order-items-modal"]')).toBeHidden()
+
+    await page.fill('[data-test="field-gross-total"]', '21000')
+    await page.locator('[data-test="field-gross-total"]').press('Enter')
+    await expect(page.locator('[data-test="gross-total-error"]')).toBeVisible()
+    await expect(page.locator('[data-test="allocate-modal"]')).toBeHidden()
+  })
+
+  test('changing the VAT mode asks what to keep, and keeps the net by default', async ({
+    page,
+  }) => {
+    await page.goto('/admin/orders/ORD-001')
+    await page.waitForSelector('[data-test="field-vat-mode"]')
+
+    await page.locator('[data-test="field-vat-mode"]').click()
+    await page.locator('.custom-select-option', { hasText: '0% — export' }).first().click()
+    await expect(page.locator('[data-test="vat-mode-modal"]')).toBeVisible()
+    await page.click('[data-test="vat-mode-keep-net"]')
+
+    await expect(page.locator('[data-test="field-net-total"]')).toHaveValue('19000.00')
+    await expect(page.locator('[data-test="field-vat-amount"]')).toHaveValue('0.00')
+    await expect(page.locator('[data-test="field-gross-total"]')).toHaveValue('19000.00')
+    // The rate has nothing to act on at a zero rate.
+    await expect(page.locator('[data-test="field-vat-percent"]')).toBeDisabled()
+  })
+
+  test('keeping the total across a VAT mode change re-targets the net', async ({ page }) => {
+    await page.goto('/admin/orders/ORD-003')
+    await page.waitForSelector('[data-test="field-vat-mode"]')
+    const grossBefore = await page.locator('[data-test="field-gross-total"]').inputValue()
+
+    await page.locator('[data-test="field-vat-mode"]').click()
+    await page.locator('.custom-select-option', { hasText: '0% — export' }).first().click()
+    await expect(page.locator('[data-test="vat-mode-modal"]')).toBeVisible()
+    await page.click('[data-test="vat-mode-keep-gross"]')
+
+    // The spreading runs server-side, so the new mode has to be saved before it —
+    // otherwise the amount would be split at the old rate.
+    await expect(page.locator('[data-test="allocate-modal"]')).toBeVisible()
+    await page.click('[data-test="allocate-confirm"]')
+    await expect(page.locator('[data-test="allocate-modal"]')).toBeHidden()
+
+    await expect(page.locator('[data-test="field-gross-total"]')).toHaveValue(grossBefore)
+    await expect(page.locator('[data-test="field-net-total"]')).toHaveValue(grossBefore)
+    await expect(page.locator('[data-test="field-vat-amount"]')).toHaveValue('0.00')
+  })
+
+  test('the services table shows per-line money, not per-unit times quantity', async ({ page }) => {
+    let checked = 0
+    for (const id of ['ORD-001', 'ORD-002', 'ORD-003', 'ORD-005', 'ORD-006', 'ORD-009']) {
+      await page.goto(`/admin/orders/${id}`)
+      await page.waitForSelector('[data-test="order-services"]')
+      const rows = page.locator('[data-test="order-service-row"]')
+      const count = await rows.count()
+      for (let i = 0; i < count; i++) {
+        const row = rows.nth(i)
+        const qty = Number(await lineCell(row, 'quantity'))
+        const unitCost = Number(await lineCell(row, 'unitCost'))
+        const lineTotal = Number(await lineCell(row, 'lineTotal'))
+        const margin = Number(await row.locator('[data-test="line-margin"]').textContent())
+        expect(qty).toBeGreaterThan(0)
+        expect(unitCost * qty + margin).toBeCloseTo(lineTotal, 1)
+        checked++
+      }
+    }
+    // A loop over orders that happen to carry no services proves nothing — this
+    // test exists to catch a margin counted per unit and shown per line.
+    expect(checked).toBeGreaterThan(0)
+  })
+
+  test('an unsaved note survives an allocation', async ({ page }) => {
+    // Applying an allocation reloads the card, and the reload replaces the whole
+    // form — anything still unsaved has to be flushed first, not dropped.
+    await page.goto('/admin/orders/ORD-001')
+    await page.waitForSelector('[data-test="field-gross-total"]')
+
+    await page.fill('[data-test="field-notes"]', 'typed but not saved')
+    await page.fill('[data-test="field-gross-total"]', '20328.99')
+    await page.locator('[data-test="field-gross-total"]').press('Enter')
+    await page.click('[data-test="allocate-confirm"]')
+    await expect(page.locator('[data-test="allocate-modal"]')).toBeHidden()
+
+    await expect(page.locator('[data-test="field-notes"]')).toHaveValue('typed but not saved')
+  })
+
+  test('applying the percentages to every line says what it will do first', async ({ page }) => {
+    await page.goto('/admin/orders/ORD-001')
+    await page.waitForSelector('[data-test="apply-defaults-btn"]')
+    const grossBefore = await page.locator('[data-test="field-gross-total"]').inputValue()
+
+    await page.fill('[data-test="field-default-discount"]', '10')
+    await page.click('[data-test="apply-defaults-btn"]')
+    await expect(page.locator('[data-test="apply-defaults-modal"]')).toBeVisible()
+    // This rewrites hand-agreed prices, so the resulting total is shown up front.
+    const promised = (
+      (await page.locator('[data-test="apply-defaults-totals"]').textContent()) ?? ''
+    )
+      .split('→')[1]!
+      .trim()
+
+    await page.click('[data-test="apply-defaults-cancel"]')
+    await expect(page.locator('[data-test="field-gross-total"]')).toHaveValue(grossBefore)
+
+    await page.click('[data-test="apply-defaults-btn"]')
+    await page.click('[data-test="apply-defaults-confirm"]')
+    await expect(page.locator('[data-test="apply-defaults-modal"]')).toBeHidden()
+    await expect(page.locator('[data-test="field-gross-total"]')).toHaveValue(promised)
+  })
+
+  test('saving stores the fields the admin owns', async ({ page }) => {
+    await page.goto('/admin/orders/ORD-005')
+    await page.waitForSelector('[data-test="field-default-margin"]')
+
+    await page.fill('[data-test="field-default-margin"]', '33')
+    await page.fill('[data-test="field-total-weight"]', '1250')
+    await page.fill('[data-test="field-notes"]', 'saved fields check')
+    await expect(page.locator('[data-test="order-card-save-btn"]')).toBeEnabled()
+    await page.click('[data-test="order-card-save-btn"]')
+
+    // save() finishes by re-reading the order, so these values come from the
+    // server. Note: a page reload would prove nothing — the mock store lives in
+    // module memory and a reload regenerates it.
+    await expect(page.locator('[data-test="field-default-margin"]')).toHaveValue('33')
+    await expect(page.locator('[data-test="field-total-weight"]')).toHaveValue('1250')
+    await expect(page.locator('[data-test="field-notes"]')).toHaveValue('saved fields check')
+    // Nothing left to save means the form matches what came back.
+    await expect(page.locator('[data-test="order-card-save-btn"]')).toBeDisabled()
+  })
+
+  test('cancelling the VAT dialog leaves the order untouched', async ({ page }) => {
+    await page.goto('/admin/orders/ORD-001')
+    await page.waitForSelector('[data-test="field-vat-mode"]')
+
+    await page.locator('[data-test="field-vat-mode"]').click()
+    await page.locator('.custom-select-option', { hasText: '0% — export' }).first().click()
+    await expect(page.locator('[data-test="vat-mode-modal"]')).toBeVisible()
+    await page.click('[data-test="vat-mode-cancel"]')
+
+    await expect(page.locator('[data-test="field-vat-amount"]')).toHaveValue('3990.00')
+    await expect(page.locator('[data-test="order-card-save-btn"]')).toBeDisabled()
   })
 
   test('status dropdown renders', async ({ page }) => {
@@ -259,6 +541,882 @@ test.describe('Order Card › fields & structure', () => {
     await page.goto('/admin/orders/ORD-001')
     await expect(page.locator('[data-test="order-files"]')).toBeVisible()
     await expect(page.locator('[data-test="order-file-dropzone"]')).toBeVisible()
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Order Card — the editable line table
+// ═══════════════════════════════════════════════════════════════════════════
+
+test.describe('Order Card › line table', () => {
+  test('opens exactly the cells the line state allows', async ({ page }) => {
+    // ORD-009: line 1 fully shipped, line 2 partially, line 3 untouched.
+    await page.goto('/admin/orders/ORD-009')
+    await page.waitForSelector('[data-test="order-item-row"]')
+    const rows = page.locator('[data-test="order-item-row"]')
+
+    // Fully shipped — nothing to edit, and nothing to split either.
+    await expect(rows.nth(0).locator('[data-test="cell-input"]')).toHaveCount(0)
+    await expect(rows.nth(0).locator('[data-test="line-split-btn"]')).toHaveCount(0)
+
+    // Partially shipped — the quantity can still grow for the next truck, but the
+    // money is frozen by the waybill the client already holds.
+    await expect(rows.nth(1).locator('[data-test="cell-input"]')).toHaveCount(1)
+    await expect(rows.nth(1).locator('[data-test="cell-quantity"] input')).toBeVisible()
+    await expect(rows.nth(1).locator('[data-test="line-split-btn"]')).toBeVisible()
+
+    // Draft — all six.
+    await expect(rows.nth(2).locator('[data-test="cell-input"]')).toHaveCount(6)
+  })
+
+  test('the state of every line is spelled out, shipped quantity and all', async ({ page }) => {
+    await page.goto('/admin/orders/ORD-009')
+    await page.waitForSelector('[data-test="line-state"]')
+    const states = await page
+      .locator('[data-test="order-item-row"] [data-test="line-state"]')
+      .allTextContents()
+    expect(states[0]).toBe('Shipped')
+    expect(states[1]).toMatch(/^Shipped [\d.]+ of [\d.]+$/)
+    expect(states[2]).toBe('Draft')
+  })
+
+  test('a margin edit reprices the line and the order, and Save keeps it', async ({ page }) => {
+    await page.goto('/admin/orders/ORD-001')
+    await page.waitForSelector('[data-test="order-item-row"]')
+    const row = page.locator('[data-test="order-item-row"]').first()
+    const grossBefore = Number(await page.locator('[data-test="field-gross-total"]').inputValue())
+
+    const margin = row.locator('[data-test="cell-marginPercent"] input')
+    await margin.fill('50')
+    await margin.press('Enter')
+
+    // Cost is a warehouse fact and does not move; the price does.
+    const cost = Number(await lineCell(row, 'unitCost'))
+    await expect
+      .poll(async () => Number(await lineCell(row, 'unitPrice')))
+      .toBeCloseTo(cost * 1.5, 1)
+    const grossEdited = Number(await page.locator('[data-test="field-gross-total"]').inputValue())
+    expect(grossEdited).not.toBeCloseTo(grossBefore, 2)
+
+    await page.click('[data-test="order-card-save-btn"]')
+    await expect(page.locator('[data-test="order-card-save-btn"]')).toBeDisabled()
+    // These numbers now come back from the server, not from the local copy.
+    expect(Number(await page.locator('[data-test="field-gross-total"]').inputValue())).toBeCloseTo(
+      grossEdited,
+      2,
+    )
+    expect(Number(await lineCell(row, 'marginPercent'))).toBeCloseTo(50, 2)
+  })
+
+  test('a price cut becomes a discount and locks the line; reset undoes both', async ({ page }) => {
+    await page.goto('/admin/orders/ORD-002')
+    await page.waitForSelector('[data-test="order-item-row"]')
+    const row = page.locator('[data-test="order-item-row"]').first()
+    const priceBefore = Number(await lineCell(row, 'unitPrice'))
+    const discountBefore = Number(await lineCell(row, 'discountPercent'))
+
+    const price = row.locator('[data-test="cell-unitPrice"] input')
+    await price.fill((priceBefore * 0.9).toFixed(2))
+    await price.press('Enter')
+
+    // The client sees a discount in the document, never a negative markup.
+    await expect(row.locator('[data-test="line-lock"]')).toBeVisible()
+    await expect
+      .poll(async () => Number(await lineCell(row, 'discountPercent')))
+      .toBeGreaterThan(discountBefore)
+
+    await row.locator('[data-test="line-reset-price"]').click()
+    await expect(row.locator('[data-test="line-lock"]')).toHaveCount(0)
+    await expect
+      .poll(async () => Number(await lineCell(row, 'unitPrice')))
+      .toBeCloseTo(priceBefore, 1)
+  })
+
+  test('a refused edit puts the cell back and says why', async ({ page }) => {
+    // ORD-004 has a partially shipped first line.
+    await page.goto('/admin/orders/ORD-004')
+    await page.waitForSelector('[data-test="order-item-row"]')
+    const row = page.locator('[data-test="order-item-row"]').first()
+    const quantity = row.locator('[data-test="cell-quantity"] input')
+    const before = await quantity.inputValue()
+
+    await quantity.fill('1')
+    await quantity.press('Enter')
+
+    await expect(quantity).toHaveValue(before)
+    await expect(page.locator('.toast, [data-test="toast"]').first()).toContainText(
+      /below what has shipped/i,
+    )
+    // Nothing was recorded, so there is nothing to save.
+    await expect(page.locator('[data-test="order-card-save-btn"]')).toBeDisabled()
+  })
+
+  test('a cost typed by hand demands a reason before it lands', async ({ page }) => {
+    await page.goto('/admin/orders/ORD-001')
+    await page.waitForSelector('[data-test="order-item-row"]')
+    const row = page.locator('[data-test="order-item-row"]').first()
+    const cost = row.locator('[data-test="cell-unitCost"] input')
+    const before = await cost.inputValue()
+
+    await cost.fill((Number(before) + 20).toFixed(2))
+    await cost.press('Enter')
+
+    // Until the reason is there the cell still shows the old cost — the edit has
+    // not happened yet.
+    await expect(page.locator('[data-test="cost-reason-modal"]')).toBeVisible()
+    await expect(page.locator('[data-test="cost-reason-confirm"]')).toBeDisabled()
+    await expect(cost).toHaveValue(before)
+
+    await page.fill('[data-test="cost-reason-input"]', 'Supplier invoice, batch not booked in')
+    await page.click('[data-test="cost-reason-confirm"]')
+
+    await expect(cost).toHaveValue((Number(before) + 20).toFixed(2))
+    await expect(row.locator('[data-test="line-manual-cost"]')).toBeVisible()
+
+    await page.click('[data-test="order-card-save-btn"]')
+    await expect(page.locator('[data-test="order-card-save-btn"]')).toBeDisabled()
+    // Straight from the server, marker and all.
+    await expect(row.locator('[data-test="line-manual-cost"]')).toBeVisible()
+  })
+
+  test('cancelling the reason dialog leaves the cost alone', async ({ page }) => {
+    await page.goto('/admin/orders/ORD-001')
+    await page.waitForSelector('[data-test="order-item-row"]')
+    const row = page.locator('[data-test="order-item-row"]').first()
+    const cost = row.locator('[data-test="cell-unitCost"] input')
+    const before = await cost.inputValue()
+
+    await cost.fill('999')
+    await cost.press('Enter')
+    await page.click('[data-test="cost-reason-cancel"]')
+
+    await expect(cost).toHaveValue(before)
+    await expect(page.locator('[data-test="order-card-save-btn"]')).toBeDisabled()
+  })
+
+  test('splitting a partially shipped line keeps every euro', async ({ page }) => {
+    await page.goto('/admin/orders/ORD-004')
+    await page.waitForSelector('[data-test="order-item-row"]')
+    const grossBefore = await page.locator('[data-test="field-gross-total"]').inputValue()
+    const rowsBefore = await page.locator('[data-test="order-item-row"]').count()
+
+    await page.locator('[data-test="line-split-btn"]').first().click()
+    await expect(page.locator('[data-test="split-modal"]')).toBeVisible()
+    await page.click('[data-test="split-confirm"]')
+    await expect(page.locator('[data-test="split-modal"]')).toBeHidden()
+
+    await expect(page.locator('[data-test="order-item-row"]')).toHaveCount(rowsBefore + 1)
+    // Same goods, same money — only the line boundary moved.
+    await expect(page.locator('[data-test="field-gross-total"]')).toHaveValue(grossBefore)
+
+    const states = await page
+      .locator('[data-test="order-item-row"] [data-test="line-state"]')
+      .allTextContents()
+    expect(states[0]).toBe('Shipped')
+    expect(states[1]).toBe('Draft')
+    // The freed remainder can be repriced — that is the point of splitting.
+    await expect(
+      page.locator('[data-test="order-item-row"]').nth(1).locator('[data-test="cell-input"]'),
+    ).toHaveCount(6)
+  })
+
+  test('edits to several lines go out with one Save', async ({ page }) => {
+    await page.goto('/admin/orders/ORD-007')
+    await page.waitForSelector('[data-test="order-item-row"]')
+    const rows = page.locator('[data-test="order-item-row"]')
+
+    const discount = rows.nth(1).locator('[data-test="cell-discountPercent"] input')
+    await discount.fill('12')
+    await discount.press('Enter')
+    const quantity = rows.nth(2).locator('[data-test="cell-quantity"] input')
+    await quantity.fill('7')
+    await quantity.press('Enter')
+
+    await page.click('[data-test="order-card-save-btn"]')
+    await expect(page.locator('[data-test="order-card-save-btn"]')).toBeDisabled()
+
+    expect(Number(await lineCell(rows.nth(1), 'discountPercent'))).toBeCloseTo(12, 2)
+    expect(Number(await lineCell(rows.nth(2), 'quantity'))).toBe(7)
+  })
+
+  test('a line added and edited before Save arrives with the edit on it', async ({ page }) => {
+    // The row carries a temporary id until it exists on the server, so the edit
+    // has to be re-pointed at the id the server hands back — otherwise it lands
+    // on nothing and the admin loses it without being told.
+    await page.goto('/admin/orders/ORD-001')
+    await page.waitForSelector('[data-test="order-item-row"]')
+    const rows = page.locator('[data-test="order-item-row"]')
+    const before = await rows.count()
+
+    await page.click('[data-test="order-add-item-btn"]')
+    await page.locator('[data-test="add-items-product-checkbox"]').first().click()
+    await page.click('[data-test="add-items-save-btn"]')
+    await expect(rows).toHaveCount(before + 1)
+
+    const added = rows.last()
+    const quantity = added.locator('[data-test="cell-quantity"] input')
+    await quantity.fill('9')
+    await quantity.press('Enter')
+    const discount = added.locator('[data-test="cell-discountPercent"] input')
+    await discount.fill('4')
+    await discount.press('Enter')
+
+    await page.click('[data-test="order-card-save-btn"]')
+    await expect(page.locator('[data-test="order-card-save-btn"]')).toBeDisabled()
+
+    // One new line, not two, and it carries both edits — straight from the server.
+    await expect(rows).toHaveCount(before + 1)
+    expect(Number(await lineCell(rows.last(), 'quantity'))).toBe(9)
+    expect(Number(await lineCell(rows.last(), 'discountPercent'))).toBeCloseTo(4, 2)
+  })
+
+  test('a line added and then removed before Save never reaches the server', async ({ page }) => {
+    // It was never created, so there is nothing to delete: recording a deletion
+    // instead would create it on Save and then delete an id nobody issued,
+    // leaving the line behind.
+    await page.goto('/admin/orders/ORD-001')
+    await page.waitForSelector('[data-test="order-item-row"]')
+    const rows = page.locator('[data-test="order-item-row"]')
+    const before = await rows.count()
+
+    await page.click('[data-test="order-add-item-btn"]')
+    await page.locator('[data-test="add-items-product-checkbox"]').first().click()
+    await page.click('[data-test="add-items-save-btn"]')
+    await expect(rows).toHaveCount(before + 1)
+
+    await rows.last().locator('.action-danger').click()
+    await expect(rows).toHaveCount(before)
+    // Nothing pending and nothing dirty — the two cancel out exactly.
+    await expect(page.locator('[data-test="order-card-save-btn"]')).toBeDisabled()
+    await expect(rows).toHaveCount(before)
+  })
+
+  test('editing the line total is the same edit seen from the other side', async ({ page }) => {
+    await page.goto('/admin/orders/ORD-002')
+    await page.waitForSelector('[data-test="order-item-row"]')
+    const row = page.locator('[data-test="order-item-row"]').first()
+    const quantity = Number(await lineCell(row, 'quantity'))
+
+    const total = row.locator('[data-test="cell-lineTotal"] input')
+    await total.fill('1000')
+    await total.press('Enter')
+
+    // The price per unit follows, and the line total is cent-exact — a total the
+    // admin typed may not come back a cent short.
+    await expect
+      .poll(async () => Number(await lineCell(row, 'unitPrice')))
+      .toBeCloseTo(1000 / quantity, 2)
+    expect(Number(await lineCell(row, 'lineTotal'))).toBeCloseTo(1000, 2)
+
+    await page.click('[data-test="order-card-save-btn"]')
+    await expect(page.locator('[data-test="order-card-save-btn"]')).toBeDisabled()
+    expect(Number(await lineCell(row, 'lineTotal'))).toBeCloseTo(1000, 2)
+  })
+
+  test('cost, margin and the line state are there for everyone, unflagged', async ({ page }) => {
+    // These used to sit behind `orderPricingV2` together with the editing. The
+    // corrected calculation is not a feature anybody opts into, so the flag is
+    // gone — what is left to assert is that the columns are simply present.
+    await page.goto('/admin/orders/ORD-009')
+    await page.waitForSelector('[data-test="order-item-row"]')
+    await expect(page.locator('[data-test="cell-unitCost"]').first()).toBeVisible()
+    await expect(page.locator('[data-test="line-margin"]').first()).toBeVisible()
+    await expect(page.locator('[data-test="line-state"]').first()).toBeVisible()
+    await expect(page.locator('[data-test="field-vat-mode"]')).toBeVisible()
+    await expect(page.locator('[data-test="apply-defaults-btn"]')).toBeVisible()
+    // The gross total is the one editable money field on the card.
+    await expect(page.locator('[data-test="field-gross-total"]')).toBeEditable()
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Order Card — how a new line gets priced
+// ═══════════════════════════════════════════════════════════════════════════
+
+test.describe('Order Card › adding lines', () => {
+  /** Opens the picker and selects the first product. */
+  async function pickFirstProduct(page: Parameters<Parameters<typeof test>[1]>[0]['page']) {
+    await page.click('[data-test="order-add-item-btn"]')
+    await page.waitForSelector('[data-test="add-items-product-checkbox"]')
+    await page.locator('[data-test="add-items-product-checkbox"]').first().click()
+    // The FIFO cost arrives asynchronously and the price waits for it.
+    await expect(page.locator('[data-test="add-items-price"]').first()).toBeVisible()
+  }
+
+  test('asks nothing when nobody has repriced the order by hand', async ({ page }) => {
+    await page.goto('/admin/orders/ORD-001')
+    await page.waitForSelector('[data-test="order-item-row"]')
+    await pickFirstProduct(page)
+    await expect(page.locator('[data-test="add-mode-chooser"]')).toHaveCount(0)
+  })
+
+  test('sells at the catalogue price, never at cost', async ({ page }) => {
+    // The picker used to overwrite the price with the FIFO cost, so every line
+    // added to an order was sold at cost with no margin at all.
+    await page.goto('/admin/orders/ORD-001')
+    await page.waitForSelector('[data-test="order-item-row"]')
+    const rows = page.locator('[data-test="order-item-row"]')
+    const before = await rows.count()
+
+    await pickFirstProduct(page)
+    await page.click('[data-test="add-items-save-btn"]')
+    await expect(rows).toHaveCount(before + 1)
+
+    const added = rows.last()
+    expect(Number(await lineCell(added, 'marginPercent'))).toBeGreaterThan(0)
+    expect(Number(await lineCell(added, 'unitPrice'))).toBeGreaterThan(
+      Number(await lineCell(added, 'unitCost')),
+    )
+  })
+
+  test('a line added to a discounted order gets that discount', async ({ page }) => {
+    // ORD-003 carries a hand-cut price, so the order gives a real discount that
+    // its default percentage says nothing about.
+    await page.goto('/admin/orders/ORD-003')
+    await page.waitForSelector('[data-test="order-item-row"]')
+    const effective = await page.locator('[data-test="field-effective-discount"]').inputValue()
+    expect(Number(effective)).toBeGreaterThan(0)
+    expect(await page.locator('[data-test="field-default-discount"]').inputValue()).toBe('0')
+
+    const rows = page.locator('[data-test="order-item-row"]')
+    const before = await rows.count()
+    await pickFirstProduct(page)
+
+    // Three options, and the order's own terms are the one offered first.
+    await expect(page.locator('[data-test="add-mode-chooser"]')).toBeVisible()
+    await expect(page.locator('[data-test="add-mode-order_terms"]')).toHaveClass(/active/)
+    const withTerms = await page.locator('[data-test="add-items-price"]').first().textContent()
+    await page.locator('[data-test="add-mode-computed_price"]').click()
+    const plain = await page.locator('[data-test="add-items-price"]').first().textContent()
+    expect(parseFloat(withTerms!)).toBeLessThan(parseFloat(plain!))
+
+    await page.locator('[data-test="add-mode-order_terms"]').click()
+    await page.click('[data-test="add-items-save-btn"]')
+    await expect(rows).toHaveCount(before + 1)
+    expect(Number(await lineCell(rows.last(), 'discountPercent'))).toBeCloseTo(Number(effective), 2)
+
+    // And it survives the round trip — the server must not fall back to the
+    // order default, which is zero here.
+    await page.click('[data-test="order-card-save-btn"]')
+    await expect(page.locator('[data-test="order-card-save-btn"]')).toBeDisabled()
+    expect(Number(await lineCell(rows.last(), 'discountPercent'))).toBeCloseTo(Number(effective), 2)
+  })
+
+  test('"keep the total" shows what it will do, and can be called off', async ({ page }) => {
+    await page.goto('/admin/orders/ORD-003')
+    await page.waitForSelector('[data-test="order-item-row"]')
+    const rows = page.locator('[data-test="order-item-row"]')
+    const before = await rows.count()
+    const total = await page.locator('[data-test="field-gross-total"]').inputValue()
+
+    await pickFirstProduct(page)
+    await page.locator('[data-test="add-mode-keep_total"]').click()
+    await page.click('[data-test="add-items-save-btn"]')
+
+    // Nothing has happened yet — this reprices lines that were agreed one by one.
+    await expect(page.locator('[data-test="keep-total-modal"]')).toBeVisible()
+    await expect(page.locator('[data-test="keep-total-row"]')).toHaveCount(before + 1)
+    await page.click('[data-test="keep-total-cancel"]')
+    await expect(rows).toHaveCount(before)
+    await expect(page.locator('[data-test="field-gross-total"]')).toHaveValue(total)
+    await expect(page.locator('[data-test="order-card-save-btn"]')).toBeDisabled()
+
+    await pickFirstProduct(page)
+    await page.locator('[data-test="add-mode-keep_total"]').click()
+    await page.click('[data-test="add-items-save-btn"]')
+    await page.click('[data-test="keep-total-confirm"]')
+
+    // A line more, and the client still pays exactly what they did before.
+    await expect(rows).toHaveCount(before + 1)
+    await expect(page.locator('[data-test="field-gross-total"]')).toHaveValue(total)
+
+    await page.click('[data-test="order-card-save-btn"]')
+    await expect(page.locator('[data-test="order-card-save-btn"]')).toBeDisabled()
+    await expect(page.locator('[data-test="field-gross-total"]')).toHaveValue(total)
+  })
+
+  test('the price and the sum in a row agree to the cent', async ({ page }) => {
+    // 25.00 less a 9.70% discount is 22.575 — and 22.575 is 22.57499… in binary,
+    // so `toFixed` alone put 22.57 in the price cell next to a total of 22.58
+    // for a single unit. Two cells of the same row disagreeing about the money.
+    await page.goto('/admin/orders/ORD-003')
+    await page.waitForSelector('[data-test="order-item-row"]')
+    await page.click('[data-test="order-add-service-btn"]')
+    await page.waitForSelector('[data-test="add-services-checkbox"]')
+    await page.locator('[data-test="add-services-checkbox"]').first().click()
+    await page.click('[data-test="add-services-save-btn"]')
+
+    const rows = page.locator('[data-test="order-service-row"]')
+    await expect(rows.last()).toBeVisible()
+    for (const row of [rows.last(), page.locator('[data-test="order-item-row"]').first()]) {
+      const quantity = Number(await lineCell(row, 'quantity'))
+      const price = Number(await lineCell(row, 'unitPrice'))
+      const total = Number(await lineCell(row, 'lineTotal'))
+      expect(Math.abs(price * quantity - total)).toBeLessThan(0.005 * quantity + 0.005)
+    }
+  })
+
+  test('the picker promises the number the row then shows', async ({ page }) => {
+    // Rounding the unit price and multiplying by the quantity is not the same as
+    // rounding once: at 22.575 × 2 the dialog said 45.16 and the row said 45.15.
+    // A picker that promises a different total is worse than one showing nothing.
+    await page.goto('/admin/orders/ORD-003')
+    await page.waitForSelector('[data-test="order-item-row"]')
+    await page.click('[data-test="order-add-service-btn"]')
+    await page.waitForSelector('[data-test="add-services-checkbox"]')
+    await page.locator('[data-test="add-services-checkbox"]').first().click()
+    await page.fill('[data-test="add-services-selected-qty"]', '2')
+
+    const promisedPrice = (await page.locator('[data-test="add-services-price"]').textContent())!
+    const promisedTotal = (await page.locator('[data-test="add-services-total"]').textContent())!
+    await page.click('[data-test="add-services-save-btn"]')
+
+    const row = page.locator('[data-test="order-service-row"]').last()
+    await expect(row).toBeVisible()
+    expect(await lineCell(row, 'unitPrice')).toBe(parseFloat(promisedPrice).toFixed(2))
+    expect(await lineCell(row, 'lineTotal')).toBe(parseFloat(promisedTotal).toFixed(2))
+  })
+
+  test('a shipped order takes new lines without moving the old ones', async ({ page }) => {
+    // "The truck has left and the client wants two more things" — one deal, one
+    // order. The shipped line is frozen; the new one is a plain draft.
+    await page.goto('/admin/orders/ORD-004')
+    await page.waitForSelector('[data-test="order-item-row"]')
+    const rows = page.locator('[data-test="order-item-row"]')
+    const before = await rows.count()
+    const frozenRow = rows.first()
+    const frozenBefore = [
+      await lineCell(frozenRow, 'unitPrice'),
+      await lineCell(frozenRow, 'lineTotal'),
+      await lineCell(frozenRow, 'discountPercent'),
+    ]
+
+    await pickFirstProduct(page)
+    await page.click('[data-test="add-items-save-btn"]')
+    await expect(rows).toHaveCount(before + 1)
+    await page.click('[data-test="order-card-save-btn"]')
+    await expect(page.locator('[data-test="order-card-save-btn"]')).toBeDisabled()
+
+    expect([
+      await lineCell(frozenRow, 'unitPrice'),
+      await lineCell(frozenRow, 'lineTotal'),
+      await lineCell(frozenRow, 'discountPercent'),
+    ]).toEqual(frozenBefore)
+    await expect(rows.first().locator('[data-test="line-state"]')).toContainText(/Shipped/)
+    // The new line is free to be priced — that is the point of not touching it.
+    await expect(rows.last().locator('[data-test="cell-input"]')).toHaveCount(6)
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Order Card — shipments: the only thing that moves the warehouse
+// ═══════════════════════════════════════════════════════════════════════════
+
+test.describe('Order Card › shipments', () => {
+  /**
+   * Puts a line on the order that the warehouse can actually back.
+   *
+   * Deliberately not relying on a seeded order having stock: the demo warehouse
+   * holds small quantities, and the seeded shipments consume them at start-up —
+   * a test that assumed a particular shelf was full would pass or fail on who
+   * else took the goods first.
+   */
+  async function addShippableLine(page: Parameters<Parameters<typeof test>[1]>[0]['page']) {
+    await page.click('[data-test="order-add-item-btn"]')
+    await page.waitForSelector('[data-test="add-items-product-row"]')
+    // The picker shows what is on the shelf, so the product is chosen by that
+    // rather than by position: which products still have stock depends on what
+    // the seeded shipments took at start-up.
+    // Searched for by name rather than taken by position: which products have
+    // batches behind them is a fact about the warehouse, and the "available"
+    // figure in the picker comes from a separately seeded stock row that can show
+    // stock for a product with no batches at all.
+    await page.fill('[data-test="add-items-filters"] input', 'Steel Sheet 3mm')
+    const rows = page.locator('[data-test="add-items-product-row"]')
+    await expect(rows.first()).toBeVisible()
+    await rows.first().locator('[data-test="add-items-product-checkbox"]').click()
+    await expect(page.locator('[data-test="add-items-price"]').first()).toBeVisible()
+    await page.click('[data-test="add-items-save-btn"]')
+    await page.click('[data-test="order-card-save-btn"]')
+    await expect(page.locator('[data-test="order-card-save-btn"]')).toBeDisabled()
+  }
+
+  test('the panel is there, with nothing in it until something ships', async ({ page }) => {
+    await page.goto('/admin/orders/ORD-001')
+    await expect(page.locator('[data-test="order-shipments"]')).toBeVisible()
+    await expect(page.locator('[data-test="order-shipment-row"]')).toHaveCount(0)
+  })
+
+  test('offers what the shelf can back, not what the client is owed', async ({ page }) => {
+    // ORD-001 asks for far more of its product than the warehouse holds, so the
+    // two numbers differ — and the dialog must offer the honest one.
+    await page.goto('/admin/orders/ORD-001')
+    await page.waitForSelector('[data-test="order-item-row"]')
+    await page.click('[data-test="order-ship-btn"]')
+    await expect(page.locator('[data-test="ship-modal"]')).toBeVisible()
+
+    const row = page.locator('[data-test="ship-line-row"]').first()
+    const remaining = Number((await row.locator('td').nth(1).textContent())!.split(' ')[0])
+    const available = Number(
+      (await row.locator('[data-test="ship-line-available"]').textContent())!.split(' ')[0],
+    )
+    const prefilled = Number(await row.locator('[data-test="ship-line-qty"]').inputValue())
+    expect(available).toBeLessThanOrEqual(remaining)
+    expect(prefilled).toBe(available)
+  })
+
+  test('a shipment freezes the line, carries a waybill, and can be undone', async ({ page }) => {
+    await page.goto('/admin/orders/ORD-001')
+    await page.waitForSelector('[data-test="order-item-row"]')
+    await addShippableLine(page)
+
+    const rows = page.locator('[data-test="order-item-row"]')
+    const added = rows.last()
+    await expect(added.locator('[data-test="line-state"]')).toHaveText('Draft')
+
+    await page.click('[data-test="order-ship-btn"]')
+    await expect(page.locator('[data-test="ship-modal"]')).toBeVisible()
+    // The dialog offers every line that still owes goods; only the one just added
+    // has any on the shelf, and it is pre-filled with exactly that.
+    const shipRows = page.locator('[data-test="ship-line-row"]')
+    await expect(shipRows.last().locator('[data-test="ship-line-qty"]')).not.toHaveValue('0')
+    await page.fill('[data-test="ship-vehicle"]', 'ABC-123')
+    await page.click('[data-test="ship-confirm"]')
+    await expect(page.locator('[data-test="ship-modal"]')).toBeHidden()
+
+    // Part of the order has left with a document, so the line says so — and its
+    // money is frozen from here on.
+    await expect(added.locator('[data-test="line-state"]')).toContainText(/Shipped/)
+    const shipment = page.locator('[data-test="order-shipment-row"]').first()
+    await expect(shipment).toContainText('ABC-123')
+    await expect(shipment).toContainText(/WB-/)
+    await expect(added.locator('[data-test="cell-unitPrice"] input')).toHaveCount(0)
+
+    // Cancelling gives the goods back and keeps the shipment on record: the
+    // warehouse ledger is only ever added to.
+    await page.click('[data-test="shipment-cancel-btn"]')
+    await expect(page.locator('[data-test="cancel-shipment-modal"]')).toBeVisible()
+    await page.click('[data-test="cancel-shipment-yes"]')
+    await expect(page.locator('[data-test="cancel-shipment-modal"]')).toBeHidden()
+
+    await expect(page.locator('[data-test="order-shipment-row"]')).toHaveCount(1)
+    await expect(page.locator('[data-test="order-shipment-row"]').first()).toContainText(
+      /Cancelled/,
+    )
+    await expect(added.locator('[data-test="line-state"]')).toHaveText('Draft')
+  })
+
+  test('a partially shipped order still takes new lines', async ({ page }) => {
+    // "The truck has left and the client wants two more things" — with the goods
+    // actually written off the shelf this time.
+    await page.goto('/admin/orders/ORD-004')
+    await page.waitForSelector('[data-test="order-item-row"]')
+    const rows = page.locator('[data-test="order-item-row"]')
+    await expect(rows.first().locator('[data-test="line-state"]')).toContainText(/Shipped/)
+    const before = await rows.count()
+
+    await addShippableLine(page)
+    await expect(rows).toHaveCount(before + 1)
+
+    // The frozen line is untouched; the new one is a plain draft.
+    await expect(rows.first().locator('[data-test="line-state"]')).toContainText(/Shipped/)
+    await expect(rows.last().locator('[data-test="line-state"]')).toHaveText('Draft')
+    await expect(rows.last().locator('[data-test="cell-input"]')).toHaveCount(6)
+  })
+
+  test('a seeded shipment really moved goods, and says which document', async ({ page }) => {
+    // ORD-004 ships part of its first line at start-up. That shipment goes
+    // through the same code an admin's does, so it carries a waybill and the
+    // line is frozen by it.
+    await page.goto('/admin/orders/ORD-004')
+    await page.waitForSelector('[data-test="order-shipment-row"]')
+    await expect(page.locator('[data-test="order-shipment-row"]')).toHaveCount(1)
+    await expect(page.locator('[data-test="order-shipment-row"]').first()).toContainText(/WB-/)
+    await expect(
+      page
+        .locator('[data-test="order-item-row"]')
+        .first()
+        .locator('[data-test="cell-unitPrice"] input'),
+    ).toHaveCount(0)
+  })
+
+  test('with the flag off the panel is gone and nothing can ship', async ({ page }) => {
+    await page.goto('/admin/orders/ORD-001')
+    await page.waitForSelector('[data-test="order-shipments"]')
+    await setFlag(page, 'orderShipments', false)
+    await page.waitForSelector('[data-test="order-items"]')
+    await expect(page.locator('[data-test="order-shipments"]')).toHaveCount(0)
+    await expect(page.locator('[data-test="order-ship-btn"]')).toHaveCount(0)
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Order Card — payments and invoices
+// ═══════════════════════════════════════════════════════════════════════════
+
+test.describe('Order Card › payments and invoices', () => {
+  type Page = Parameters<Parameters<typeof test>[1]>[0]['page']
+
+  /** The paid share as the card shows it. */
+  async function paidPercent(page: Page): Promise<number> {
+    return parseFloat((await page.locator('[data-test="field-paid-percent"]').textContent())!)
+  }
+
+  async function outstanding(page: Page): Promise<number> {
+    return Number(await page.locator('[data-test="field-outstanding"]').inputValue())
+  }
+
+  /**
+   * Adds a line WITHOUT saving. The point of most of these tests is that the paid
+   * share follows the total on its own, and an unsaved line is the sharpest way to
+   * show it: nothing has been near the server.
+   */
+  async function addAnyLine(page: Page) {
+    await page.click('[data-test="order-add-item-btn"]')
+    await page.waitForSelector('[data-test="add-items-product-row"]')
+    const rows = page.locator('[data-test="add-items-product-row"]')
+    await rows.first().locator('[data-test="add-items-product-checkbox"]').click()
+    await expect(page.locator('[data-test="add-items-price"]').first()).toBeVisible()
+    await page.click('[data-test="add-items-save-btn"]')
+  }
+
+  /** A line with stock behind it, shipped — the only way to get an invoice. */
+  async function shipSomething(page: Page) {
+    await page.click('[data-test="order-add-item-btn"]')
+    await page.waitForSelector('[data-test="add-items-product-row"]')
+    await page.fill('[data-test="add-items-filters"] input', 'Steel Sheet 3mm')
+    const rows = page.locator('[data-test="add-items-product-row"]')
+    await expect(rows.first()).toBeVisible()
+    await rows.first().locator('[data-test="add-items-product-checkbox"]').click()
+    await expect(page.locator('[data-test="add-items-price"]').first()).toBeVisible()
+    await page.click('[data-test="add-items-save-btn"]')
+    await page.click('[data-test="order-card-save-btn"]')
+    await expect(page.locator('[data-test="order-card-save-btn"]')).toBeDisabled()
+
+    await page.click('[data-test="order-ship-btn"]')
+    await expect(page.locator('[data-test="ship-modal"]')).toBeVisible()
+    await page.click('[data-test="ship-confirm"]')
+    await expect(page.locator('[data-test="ship-modal"]')).toBeHidden()
+    await expect(page.locator('[data-test="order-shipment-row"]').first()).toBeVisible()
+  }
+
+  test('an order nobody has paid says so, and holds no records', async ({ page }) => {
+    await page.goto('/admin/orders/ORD-001')
+    await expect(page.locator('[data-test="order-payments"]')).toBeVisible()
+    await expect(page.locator('[data-test="order-invoices"]')).toBeVisible()
+    await expect(page.locator('[data-test="order-payment-state"]')).toHaveText('Unpaid')
+    await expect(page.locator('[data-test="order-payment-row"]')).toHaveCount(0)
+    await expect(page.locator('[data-test="order-invoice-row"]')).toHaveCount(0)
+    // Nothing paid, so the whole total is outstanding.
+    expect(await outstanding(page)).toBeGreaterThan(0)
+    expect(await paidPercent(page)).toBe(0)
+  })
+
+  test('the advance is a record, and the percentage is worked out from it', async ({ page }) => {
+    // ORD-005 has a 25% advance seeded against its total.
+    await page.goto('/admin/orders/ORD-005')
+    await page.waitForSelector('[data-test="order-payment-row"]')
+    await expect(page.locator('[data-test="order-payment-row"]')).toHaveCount(1)
+    await expect(page.locator('[data-test="order-payment-state"]')).toContainText('Partially paid')
+    expect(await paidPercent(page)).toBeCloseTo(25, 1)
+  })
+
+  test('the paid share falls by itself when the order grows', async ({ page }) => {
+    // The whole reason the percentage is never stored. Nothing is saved here —
+    // the figure follows the line table, not the server.
+    await page.goto('/admin/orders/ORD-005')
+    await page.waitForSelector('[data-test="order-item-row"]')
+    const before = await paidPercent(page)
+    const owedBefore = await outstanding(page)
+
+    await addAnyLine(page)
+    await expect(page.locator('[data-test="order-card-save-btn"]')).toBeEnabled()
+
+    const after = await paidPercent(page)
+    expect(after).toBeLessThan(before)
+    expect(await outstanding(page)).toBeGreaterThan(owedBefore)
+  })
+
+  test('a settled order that is changed warns, and still lets it happen', async ({ page }) => {
+    // ORD-006 is paid in full. Adding a line makes it underpaid — which is a
+    // warning, never a block (model section 6).
+    await page.goto('/admin/orders/ORD-006')
+    await page.waitForSelector('[data-test="order-item-row"]')
+    await expect(page.locator('[data-test="order-payment-state"]')).toHaveText('Paid')
+    await expect(page.locator('[data-test="payment-drift-warning"]')).toHaveCount(0)
+
+    await addAnyLine(page)
+    await expect(page.locator('[data-test="payment-drift-warning"]')).toBeVisible()
+    await expect(page.locator('[data-test="payment-drift-warning"]')).toContainText('short')
+    // Nothing is forbidden: the change can be saved.
+    await expect(page.locator('[data-test="order-card-save-btn"]')).toBeEnabled()
+  })
+
+  test('paying what is left settles the order, and deleting it undoes that', async ({ page }) => {
+    await page.goto('/admin/orders/ORD-001')
+    await page.waitForSelector('[data-test="order-item-row"]')
+    const owed = await outstanding(page)
+
+    await page.click('[data-test="order-add-payment-btn"]')
+    await expect(page.locator('[data-test="payment-modal"]')).toBeVisible()
+    // The dialog offers what is left to pay — the amount asked for nine times in ten.
+    expect(Number(await page.locator('[data-test="payment-amount-input"]').inputValue())).toBe(owed)
+    await page.click('[data-test="payment-confirm"]')
+    await expect(page.locator('[data-test="payment-modal"]')).toBeHidden()
+
+    await expect(page.locator('[data-test="order-payment-row"]')).toHaveCount(1)
+    await expect(page.locator('[data-test="order-payment-state"]')).toHaveText('Paid')
+    expect(await paidPercent(page)).toBe(100)
+
+    await page.click('[data-test="payment-delete-btn"]')
+    await expect(page.locator('[data-test="order-payment-row"]')).toHaveCount(0)
+    await expect(page.locator('[data-test="order-payment-state"]')).toHaveText('Unpaid')
+    expect(await paidPercent(page)).toBe(0)
+  })
+
+  test('a refund is entered as a positive number and stored as a negative one', async ({
+    page,
+  }) => {
+    await page.goto('/admin/orders/ORD-005')
+    await page.waitForSelector('[data-test="order-payment-row"]')
+    const owedBefore = await outstanding(page)
+
+    await page.click('[data-test="order-add-payment-btn"]')
+    await page.fill('[data-test="payment-amount-input"]', '100')
+    await page.click('[data-test="payment-purpose"]')
+    await page.click('[data-test="payment-purpose"] >> text=Refund')
+    await page.click('[data-test="payment-confirm"]')
+    await expect(page.locator('[data-test="payment-modal"]')).toBeHidden()
+
+    // Money going the other way: the outstanding balance grows by exactly that.
+    const rows = page.locator('[data-test="order-payment-row"]')
+    await expect(rows).toHaveCount(2)
+    await expect(rows.last().locator('[data-test="payment-amount"]')).toHaveText('-100.00')
+    expect(await outstanding(page)).toBeCloseTo(owedBefore + 100, 1)
+  })
+
+  test('one payment stays one payment however hard the key is pressed', async ({ page }) => {
+    // Enter twice is what people do, and a `disabled` attribute lands a tick too
+    // late to stop the second one. Two records for the same money read as an order
+    // paid twice over.
+    await page.goto('/admin/orders/ORD-001')
+    await page.waitForSelector('[data-test="order-item-row"]')
+    await page.click('[data-test="order-add-payment-btn"]')
+    const amount = page.locator('[data-test="payment-amount-input"]')
+    await amount.fill('100')
+    await amount.press('Enter')
+    await amount.press('Enter')
+    await expect(page.locator('[data-test="order-payment-row"]')).toHaveCount(1)
+    await expect(page.locator('[data-test="field-paid-amount"]')).toHaveValue('100.00')
+
+    // Same for a document: two clicks in one tick must not issue two invoices.
+    await page.click('[data-test="order-advance-invoice-btn"]')
+    await page.fill('[data-test="advance-amount-input"]', '500')
+    await page.evaluate(() => {
+      const btn = document.querySelector('[data-test="advance-confirm"]') as HTMLButtonElement
+      btn.click()
+      btn.click()
+    })
+    await expect(page.locator('[data-test="order-invoice-row"]')).toHaveCount(1)
+  })
+
+  test('an advance invoice covers no delivery and states its own amount', async ({ page }) => {
+    await page.goto('/admin/orders/ORD-001')
+    await page.waitForSelector('[data-test="order-invoices"]')
+    await page.click('[data-test="order-advance-invoice-btn"]')
+    await expect(page.locator('[data-test="advance-invoice-modal"]')).toBeVisible()
+    await page.fill('[data-test="advance-amount-input"]', '1210')
+    await page.click('[data-test="advance-confirm"]')
+    await expect(page.locator('[data-test="advance-invoice-modal"]')).toBeHidden()
+
+    const row = page.locator('[data-test="order-invoice-row"]').first()
+    await expect(row).toContainText('Advance')
+    await expect(row.locator('[data-test="invoice-amount"]')).toHaveText('1210.00')
+  })
+
+  test('a payment can name the invoice it settles', async ({ page }) => {
+    await page.goto('/admin/orders/ORD-001')
+    await page.waitForSelector('[data-test="order-invoices"]')
+    await page.click('[data-test="order-advance-invoice-btn"]')
+    await page.fill('[data-test="advance-amount-input"]', '500')
+    await page.click('[data-test="advance-confirm"]')
+    const invoiceNumber = (await page
+      .locator('[data-test="order-invoice-row"]')
+      .first()
+      .locator('td')
+      .first()
+      .textContent())!.trim()
+
+    await page.click('[data-test="order-add-payment-btn"]')
+    await page.fill('[data-test="payment-amount-input"]', '500')
+    // The invoice picker only exists once there is an invoice to point at.
+    await page.click('[data-test="payment-invoice"]')
+    await page.click(`[data-test="payment-invoice"] >> text=${invoiceNumber}`)
+    await page.click('[data-test="payment-confirm"]')
+    await expect(page.locator('[data-test="payment-modal"]')).toBeHidden()
+
+    // The link survived the round trip — the row names the document, not a dash.
+    await expect(page.locator('[data-test="order-payment-row"]').first()).toContainText(
+      invoiceNumber,
+    )
+  })
+
+  test('a delivery is invoiced once, and the document freezes what it covers', async ({ page }) => {
+    await page.goto('/admin/orders/ORD-001')
+    await page.waitForSelector('[data-test="order-item-row"]')
+    await shipSomething(page)
+
+    const shipment = page.locator('[data-test="order-shipment-row"]').first()
+    await shipment.locator('[data-test="shipment-invoice-btn"]').click()
+    await expect(page.locator('[data-test="order-invoice-row"]')).toHaveCount(1)
+    const invoice = page.locator('[data-test="order-invoice-row"]').first()
+    await expect(invoice).toContainText('Shipment')
+    // One delivery, one invoice: a second would bill the client twice.
+    await expect(shipment.locator('[data-test="shipment-invoice-btn"]')).toHaveCount(0)
+  })
+
+  test('cancelling an invoiced delivery asks for a reason and corrects it', async ({ page }) => {
+    await page.goto('/admin/orders/ORD-001')
+    await page.waitForSelector('[data-test="order-item-row"]')
+    await shipSomething(page)
+
+    const shipment = page.locator('[data-test="order-shipment-row"]').first()
+    await shipment.locator('[data-test="shipment-invoice-btn"]').click()
+    await expect(page.locator('[data-test="order-invoice-row"]')).toHaveCount(1)
+
+    // The plain cancellation dialog would be the wrong offer here — the client is
+    // holding a document, and a document is withdrawn, not deleted.
+    await shipment.locator('[data-test="shipment-cancel-btn"]').click()
+    await expect(page.locator('[data-test="correction-modal"]')).toBeVisible()
+    await expect(page.locator('[data-test="cancel-shipment-modal"]')).toBeHidden()
+    await expect(page.locator('[data-test="correction-confirm"]')).toBeDisabled()
+
+    await page.fill('[data-test="correction-reason-input"]', 'Client refused the load')
+    await expect(page.locator('[data-test="correction-confirm"]')).toBeEnabled()
+    await page.click('[data-test="correction-confirm"]')
+    await expect(page.locator('[data-test="correction-modal"]')).toBeHidden()
+
+    // The correcting invoice is on record, the original is marked as withdrawn,
+    // and the goods have come back.
+    const invoices = page.locator('[data-test="order-invoice-row"]')
+    await expect(invoices).toHaveCount(2)
+    await expect(invoices.first().locator('[data-test="invoice-corrected"]')).toBeVisible()
+    await expect(invoices.last()).toContainText('Corrects')
+    await expect(page.locator('[data-test="order-shipment-row"]').first()).toContainText(
+      /Cancelled/,
+    )
+    // The line the document froze is a draft again — that is what correcting is for.
+    await expect(page.locator('[data-test="order-item-row"]').last()).toContainText('Draft')
+  })
+
+  test('with the flag off both panels are gone', async ({ page }) => {
+    await page.goto('/admin/orders/ORD-005')
+    await page.waitForSelector('[data-test="order-payments"]')
+    await setFlag(page, 'orderInvoicesPayments', false)
+    await page.waitForSelector('[data-test="order-items"]')
+    await expect(page.locator('[data-test="order-payments"]')).toHaveCount(0)
+    await expect(page.locator('[data-test="order-invoices"]')).toHaveCount(0)
+    await expect(page.locator('[data-test="field-paid-amount"]')).toHaveCount(0)
   })
 })
 
@@ -348,13 +1506,17 @@ test.describe('Order Create › client selector', () => {
     await expect(page.locator('[data-test="order-create-client-panel"]')).toBeVisible()
     await expect(page.locator('[data-test="order-create-client-search"]')).toBeVisible()
     await expect(page.locator('[data-test="order-create-client-list"]')).toBeVisible()
-    await expect(page.locator('[data-test="order-create-client-item"]').first()).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('[data-test="order-create-client-item"]').first()).toBeVisible({
+      timeout: 5000,
+    })
     await expect(page.locator('[data-test="order-create-client-pagination"]')).toBeVisible()
   })
 
   test('client search filters the list', async ({ page }) => {
     await page.goto('/admin/orders/new')
-    await expect(page.locator('[data-test="order-create-client-item"]').first()).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('[data-test="order-create-client-item"]').first()).toBeVisible({
+      timeout: 5000,
+    })
     const itemsBefore = await page.locator('[data-test="order-create-client-item"]').count()
     // Search for a specific client
     await page.locator('[data-test="order-create-client-search"] input').fill('Metalica')
@@ -366,7 +1528,9 @@ test.describe('Order Create › client selector', () => {
 
   test('selecting a client shows selected indicator', async ({ page }) => {
     await page.goto('/admin/orders/new')
-    await expect(page.locator('[data-test="order-create-client-item"]').first()).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('[data-test="order-create-client-item"]').first()).toBeVisible({
+      timeout: 5000,
+    })
     await page.locator('[data-test="order-create-client-item"]').first().click()
     await expect(page.locator('[data-test="order-create-client-selected"]')).toBeVisible()
   })
