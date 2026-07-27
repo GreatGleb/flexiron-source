@@ -367,6 +367,29 @@ const filteringStock = ref(false)
 let filterTimer: ReturnType<typeof setTimeout> | null = null
 const skipStockTransition = ref(false)
 
+/**
+ * Paging must not run the slow filter transition, so the flag is set first.
+ *
+ * These are named functions rather than two statements inline: Prettier rewrites
+ * `@click="a = true; b()"` onto separate lines without the semicolon, and Vue's
+ * expression parser then rejects the template — `npm run format` alone used to
+ * break this page.
+ */
+function goToStockPage(page: number) {
+  skipStockTransition.value = true
+  stockPagination.goTo(page)
+}
+
+function prevStockPage() {
+  skipStockTransition.value = true
+  stockPagination.prev()
+}
+
+function nextStockPage() {
+  skipStockTransition.value = true
+  stockPagination.next()
+}
+
 async function startFilterTransition() {
   if (skipStockTransition.value) {
     // Pagination page change — skip the slow transition, just sync heights
@@ -1755,7 +1778,7 @@ const deficitFiltersActive = computed(() => {
               :disabled="!stockPagination.hasPrev.value"
               :style="{ display: stockPagination.totalPages.value <= 1 ? 'none' : 'flex' }"
               data-test="warehouse-stock-prev-page"
-              @click="skipStockTransition = true; stockPagination.prev()"
+              @click="prevStockPage()"
             >
               <SvgIcon
                 name="chevron-right"
@@ -1772,7 +1795,7 @@ const deficitFiltersActive = computed(() => {
                   class="page-btn"
                   :class="{ active: p === stockPagination.page.value }"
                   :data-test="`warehouse-stock-page-${p}`"
-                  @click="skipStockTransition = true; stockPagination.goTo(p as number)"
+                  @click="goToStockPage(p as number)"
                 >
                   {{ p }}
                 </button>
@@ -1783,7 +1806,7 @@ const deficitFiltersActive = computed(() => {
               :disabled="!stockPagination.hasNext.value"
               :style="{ display: stockPagination.totalPages.value <= 1 ? 'none' : 'flex' }"
               data-test="warehouse-stock-next-page"
-              @click="skipStockTransition = true; stockPagination.next()"
+              @click="nextStockPage()"
             >
               <SvgIcon name="chevron-right" :width="14" :height="14" />
             </button>

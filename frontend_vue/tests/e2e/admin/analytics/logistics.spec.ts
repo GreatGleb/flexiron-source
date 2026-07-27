@@ -90,13 +90,18 @@ test.describe('logistics › kpi cards', () => {
   })
 
   test('per-card unit suffixes (pcs. / t / pcs. / %)', async ({ page }) => {
-    // Units come from i18n (logistics.unit_pcs, logistics.unit_t) — in EN locale
-    // they resolve to 'pcs.' and 't'. Card 4 has a hard-coded '%'.
-    const units = page.locator('[data-test="logistics-kpi-card"] .kpi-value span')
-    await expect.soft(units.nth(0)).toHaveText('pcs.')
-    await expect.soft(units.nth(1)).toHaveText('t')
-    await expect.soft(units.nth(2)).toHaveText('pcs.')
-    await expect.soft(units.nth(3)).toHaveText('%')
+    // The unit belongs to the KPI, not to the card position: the set of KPIs
+    // changes and a position-based unit goes wrong silently — "Avg check" was
+    // labelled in pieces that way.
+    const cards = page.locator('[data-test="logistics-kpi-card"]')
+    // Trips (month)
+    await expect.soft(cards.nth(0).locator('.kpi-value span')).toHaveText('pcs.')
+    // Avg Load
+    await expect.soft(cards.nth(1).locator('.kpi-value span')).toHaveText('t')
+    // Empty Runs
+    await expect.soft(cards.nth(2).locator('.kpi-value span')).toHaveText('pcs.')
+    // Profitability
+    await expect.soft(cards.nth(3).locator('.kpi-value span')).toHaveText('%')
   })
 
   test('values are the expected numbers', async ({ page }) => {

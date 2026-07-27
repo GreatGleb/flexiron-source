@@ -26,7 +26,9 @@ load()
     <div v-if="data?.kpis?.length" class="kpi-row" data-test="staff-kpi-row">
       <div v-for="kpi in data.kpis" :key="kpi.key" class="kpi-card" data-test="staff-kpi-card">
         <div class="kpi-label">{{ tf(kpi.label) }}</div>
-        <div class="kpi-value">{{ kpi.value }}</div>
+        <div class="kpi-value">
+          {{ kpi.value }}<span v-if="kpi.unit"> {{ t(kpi.unit) }}</span>
+        </div>
         <div class="kpi-delta" :class="kpi.trend">{{ kpi.delta }}</div>
       </div>
     </div>

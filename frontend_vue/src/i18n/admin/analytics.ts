@@ -2,6 +2,9 @@
 export const adminAnalytics = {
   ru: {
     warehouse: {
+      unit_eur: 'EUR',
+      unit_items: 'поз.',
+      unit_days: 'дн.',
       header_title: 'Складская аналитика',
       table1_title: 'Неликвиды (>6 мес.)',
       chart1_title: 'Оборачиваемость по категориям',
@@ -35,6 +38,8 @@ export const adminAnalytics = {
       item_pipe_40x4: 'Труба 40×4',
     },
     sales: {
+      unit_eur: 'EUR',
+      unit_pcs: 'шт.',
       header_title: 'Аналитика продаж',
       chart1_title: 'Топ клиентов — Выручка',
       chart2_title: 'Причины отказа',
@@ -49,6 +54,9 @@ export const adminAnalytics = {
       reason3: 'Долгая поставка',
     },
     supply: {
+      unit_eur: 'EUR',
+      unit_pct: '%',
+      unit_pcs: 'шт.',
       header_title: 'Закупки и снабжение',
       chart1_title: 'Надёжность поставщиков',
       chart2_title: 'Динамика цен (EUR/t)',
@@ -99,6 +107,9 @@ export const adminAnalytics = {
       name_petr: 'Петр Ф.',
     },
     logistics: {
+      unit_pcs: 'шт.',
+      unit_t: 'т',
+      unit_pct: '%',
       header_title: 'Логистика и доставка',
       chart1_title: 'Рейсы за месяц',
       chart2_title: 'Загрузка машин по неделям',
@@ -144,6 +155,8 @@ export const adminAnalytics = {
       date_apr14: '14 апр.',
     },
     deficit: {
+      unit_pcs: 'шт.',
+      unit_eur: 'EUR',
       header_title: 'Анализ дефицита',
       chart1_title: 'Позиции в дефиците',
       chart2_title: 'Рекомендованные закупки',
@@ -168,6 +181,8 @@ export const adminAnalytics = {
       item_angle_63: 'Уголок 63×63×6',
     },
     dashboard: {
+      unit_eur: 'EUR',
+      unit_pcs: 'шт.',
       header_title: 'Панель управления',
       sections_label: 'Разделы аналитики',
       chart1_title: 'Продажи по категориям',
@@ -188,16 +203,11 @@ export const adminAnalytics = {
   en: {
     warehouse: {
       header_title: 'Warehouse Analytics',
-      kpi1_label: 'Warehouse Value',
-      kpi2_label: 'Dead Stock',
-      kpi3_label: 'Turnover',
-      kpi4_label: '% Scrap',
       table1_title: 'Dead Stock (>6 mos.)',
       chart1_title: 'Turnover by Category',
       unit_eur: 'EUR',
       unit_items: 'items',
       unit_days: 'days',
-      unit_pct: '%',
       delta1: '↑ +3.2%',
       delta2: '↑ +2 this month',
       delta3: '→ Normal <45 days',
@@ -229,10 +239,6 @@ export const adminAnalytics = {
     },
     sales: {
       header_title: 'Sales Analytics',
-      kpi1_label: 'Revenue (month)',
-      kpi2_label: 'Active Clients',
-      kpi3_label: 'Deals Closed',
-      kpi4_label: 'Lost Profit',
       chart1_title: 'Top Clients — Revenue',
       chart2_title: 'Lost Deal Reasons',
       unit_eur: 'EUR',
@@ -248,11 +254,8 @@ export const adminAnalytics = {
       reason3: 'Long Lead Time',
     },
     supply: {
+      unit_pct: '%',
       header_title: 'Procurement & Supply',
-      kpi1_label: 'Purchased (month)',
-      kpi2_label: 'On-time delivery',
-      kpi3_label: 'Delivery delays',
-      kpi4_label: 'Price increase (trend)',
       chart1_title: 'Supplier reliability',
       chart2_title: 'Price dynamics (EUR/t)',
       unit_eur: 'EUR',
@@ -277,16 +280,11 @@ export const adminAnalytics = {
     },
     staff: {
       header_title: 'Staff KPI',
-      kpi1_label: 'Top Manager',
-      kpi2_label: 'Avg Margin',
-      kpi3_label: 'Quotas Met',
-      kpi4_label: 'Problem Areas',
       chart1_title: 'Managers — sales and margin',
       chart2_title: 'Warehouse — order picking speed',
       chart3_title: 'Manager revenue — 3-month dynamics',
       badge_march: 'March 2026',
       badge_q1: 'Q1 2026',
-      unit_min: 'min',
       status_top: '★ Top',
       status_good: 'Good',
       status_monitor: 'Monitor',
@@ -309,11 +307,8 @@ export const adminAnalytics = {
       name_petr: 'Petr F.',
     },
     logistics: {
+      unit_pct: '%',
       header_title: 'Logistics & Delivery',
-      kpi1_label: 'Trips (month)',
-      kpi2_label: 'Avg Load',
-      kpi3_label: 'Empty runs',
-      kpi4_label: 'Delivery Profit',
       chart1_title: 'Trips for the month',
       chart2_title: 'Machine load by week',
       unit_pcs: 'pcs.',
@@ -360,6 +355,8 @@ export const adminAnalytics = {
       date_apr14: 'Apr 14',
     },
     deficit: {
+      unit_pcs: 'pcs.',
+      unit_eur: 'EUR',
       header_title: 'Deficit Analysis',
       chart1_title: 'Positions with deficit',
       chart2_title: 'Recommended purchases',
@@ -384,6 +381,8 @@ export const adminAnalytics = {
       item_angle_63: 'Angle 63×63×6',
     },
     dashboard: {
+      unit_eur: 'EUR',
+      unit_pcs: 'pcs.',
       header_title: 'Executive Dashboard',
       sections_label: 'Analytics Sections',
       chart1_title: 'Sales by Category',
@@ -403,6 +402,9 @@ export const adminAnalytics = {
   },
   lt: {
     warehouse: {
+      unit_eur: 'EUR',
+      unit_items: 'poz.',
+      unit_days: 'd.',
       header_title: 'Sandėlio analitika',
       table1_title: 'Mirusios atsargos (>6 mėn.)',
       chart1_title: 'Apyvartumas pagal kategoriją',
@@ -436,6 +438,8 @@ export const adminAnalytics = {
       item_pipe_40x4: 'Vamzdis 40×4',
     },
     sales: {
+      unit_eur: 'EUR',
+      unit_pcs: 'vnt.',
       header_title: 'Pardavimų analitika',
       chart1_title: 'Pagrindiniai klientai — Pajamos',
       chart2_title: 'Sandorių praradimo priežastys',
@@ -450,6 +454,9 @@ export const adminAnalytics = {
       reason3: 'Ilgas pristatymo laikas',
     },
     supply: {
+      unit_eur: 'EUR',
+      unit_pct: '%',
+      unit_pcs: 'vnt.',
       header_title: 'Pirkimai ir tiekimas',
       chart1_title: 'Tiekėjų patikimumas',
       chart2_title: 'Kainų dinamika (EUR/t)',
@@ -500,6 +507,9 @@ export const adminAnalytics = {
       name_petr: 'Petr F.',
     },
     logistics: {
+      unit_pcs: 'vnt.',
+      unit_t: 't',
+      unit_pct: '%',
       header_title: 'Logistika ir pristatymas',
       chart1_title: 'Mėnesio reisai',
       chart2_title: 'Mašinų pakrovimas pagal savaites',
@@ -545,6 +555,8 @@ export const adminAnalytics = {
       date_apr14: 'Bal. 14',
     },
     deficit: {
+      unit_pcs: 'vnt.',
+      unit_eur: 'EUR',
       header_title: 'Deficito analizė',
       chart1_title: 'Pozicijos su trūkumu',
       chart2_title: 'Rekomenduojami pirkimai',
@@ -569,6 +581,8 @@ export const adminAnalytics = {
       item_angle_63: 'Kampuotis 63×63×6',
     },
     dashboard: {
+      unit_eur: 'EUR',
+      unit_pcs: 'vnt.',
       header_title: 'Vadovo skydelis',
       sections_label: 'Analitikos skyriai',
       chart1_title: 'Pardavimai pagal kategorijas',

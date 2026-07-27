@@ -87,13 +87,19 @@ test.describe('warehouse › kpi cards', () => {
     }
   })
 
-  test('per-card unit suffixes (EUR / items / days / %)', async ({ page }) => {
-    // Units are hard-coded in the template — one per card in that order.
-    const units = page.locator('[data-test="warehouse-kpi-card"] .kpi-value span')
-    await expect.soft(units.nth(0)).toHaveText('EUR')
-    await expect.soft(units.nth(1)).toHaveText('items')
-    await expect.soft(units.nth(2)).toHaveText('days')
-    await expect.soft(units.nth(3)).toHaveText('%')
+  test('per-card unit suffixes (EUR / items / days / none)', async ({ page }) => {
+    // The unit belongs to the KPI, not to the card position: the set of KPIs
+    // changes and a position-based unit goes wrong silently — "Avg check" was
+    // labelled in pieces that way.
+    const cards = page.locator('[data-test="warehouse-kpi-card"]')
+    // Warehouse Value
+    await expect.soft(cards.nth(0).locator('.kpi-value span')).toHaveText('EUR')
+    // Dead Stock
+    await expect.soft(cards.nth(1).locator('.kpi-value span')).toHaveText('items')
+    // Turnover
+    await expect.soft(cards.nth(2).locator('.kpi-value span')).toHaveText('days')
+    // Warehouse Rating is a score out of ten, so it carries no unit at all.
+    await expect.soft(cards.nth(3).locator('.kpi-value span')).toHaveCount(0)
   })
 
   test('values are the expected formatted numbers', async ({ page }) => {

@@ -89,13 +89,19 @@ test.describe('deficit › kpi cards', () => {
     }
   })
 
-  test('per-card unit suffixes (pcs. / EUR / items / items)', async ({ page }) => {
-    // Units are hard-coded in the template — one per card in that order.
-    const units = page.locator('[data-test="deficit-kpi-card"] .kpi-value span')
-    await expect.soft(units.nth(0)).toHaveText('pcs.')
-    await expect.soft(units.nth(1)).toHaveText('EUR')
-    await expect.soft(units.nth(2)).toHaveText('items')
-    await expect.soft(units.nth(3)).toHaveText('items')
+  test('per-card unit suffixes (pcs. / EUR / pcs. / pcs.)', async ({ page }) => {
+    // The unit belongs to the KPI, not to the card position: the set of KPIs
+    // changes and a position-based unit goes wrong silently — "Avg check" was
+    // labelled in pieces that way.
+    const cards = page.locator('[data-test="deficit-kpi-card"]')
+    // Items in deficit
+    await expect.soft(cards.nth(0).locator('.kpi-value span')).toHaveText('pcs.')
+    // Lost profit
+    await expect.soft(cards.nth(1).locator('.kpi-value span')).toHaveText('EUR')
+    // Awaiting delivery
+    await expect.soft(cards.nth(2).locator('.kpi-value span')).toHaveText('pcs.')
+    // Resolved
+    await expect.soft(cards.nth(3).locator('.kpi-value span')).toHaveText('pcs.')
   })
 
   test('values are the expected numbers', async ({ page }) => {

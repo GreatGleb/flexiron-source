@@ -142,7 +142,9 @@ test.describe('clients-list › search', () => {
     await expect(page.locator('[data-test="clients-row"]')).toHaveCount(1, { timeout: 5000 })
   })
 
-  test('typing "steelworks" (case-insensitive) narrows to 1 row (SIA SteelWorks)', async ({ page }) => {
+  test('typing "steelworks" (case-insensitive) narrows to 1 row (SIA SteelWorks)', async ({
+    page,
+  }) => {
     // Mock search checks name, companyCode, email — SIA SteelWorks name includes "SteelWorks"
     const searchInput = page.locator('[data-test="clients-search-input"] input')
     await searchInput.fill('SteelWorks')
@@ -161,7 +163,9 @@ test.describe('clients-list › search', () => {
     await searchInput.fill('Metalica')
     await expect(page.locator('[data-test="clients-row"]')).toHaveCount(1, { timeout: 5000 })
     await searchInput.fill('')
-    await expect(page.locator('[data-test="clients-row"]')).toHaveCount(DEFAULT_PAGE_SIZE, { timeout: 5000 })
+    await expect(page.locator('[data-test="clients-row"]')).toHaveCount(DEFAULT_PAGE_SIZE, {
+      timeout: 5000,
+    })
   })
 })
 
@@ -238,8 +242,9 @@ test.describe('clients-list › pagination', () => {
   })
 
   test('next page button is visible and clickable', async ({ page }) => {
-    const nextBtn = page
-      .locator('[data-test="clients-pagination"] .pagination-nav > button:last-child')
+    const nextBtn = page.locator(
+      '[data-test="clients-pagination"] .pagination-nav > button:last-child',
+    )
     // Should be visible since totalPages > 1
     await expect(nextBtn).toBeVisible()
     const beforeText = await page
@@ -348,8 +353,9 @@ test.describe('client-create › structure & validation', () => {
     // Name is already empty by default, click save
     await page.locator('[data-test="client-create-save-btn"]').click()
     // The field-error span should appear for name
-    await expect(page.locator('[data-test="field-name"]').locator('..').locator('.field-error'))
-      .toBeVisible()
+    await expect(
+      page.locator('[data-test="field-name"]').locator('..').locator('.field-error'),
+    ).toBeVisible()
   })
 
   test('all form fields are present', async ({ page }) => {
@@ -447,9 +453,7 @@ test.describe('client-card › fields & save flow', () => {
 
   test('editing a field activates the save bar (dirty state)', async ({ page }) => {
     // Find the Save button in the save bar
-    const saveBtn = page
-      .locator('[data-test="client-card-save-bar"]')
-      .locator('button.btn-save')
+    const saveBtn = page.locator('[data-test="client-card-save-bar"]').locator('button.btn-save')
     // Initially the save button should be disabled (not dirty and not loading)
     // Actually, the button exists and shows "Save" text but is disabled when not dirty
     await expect(saveBtn).toBeDisabled()
@@ -473,9 +477,7 @@ test.describe('client-card › fields & save flow', () => {
   })
 
   test('save commits the change and disables save button', async ({ page }) => {
-    const saveBtn = page
-      .locator('[data-test="client-card-save-bar"]')
-      .locator('button.btn-save')
+    const saveBtn = page.locator('[data-test="client-card-save-bar"]').locator('button.btn-save')
     const newName = 'UAB Metalica — saved'
     await page.locator('[data-test="field-name"]').fill(newName)
     await expect(saveBtn).toBeEnabled()
@@ -515,11 +517,22 @@ test.describe('client-card › audit log', () => {
     const rows = page.locator('[data-test="client-card-audit-row"]')
     const before = await rows.count()
     await page.locator('[data-test="client-card-audit-delete-btn"]').first().click()
+    // Deleting asks first — the row goes only after the confirmation.
+    await page.click('[data-test="client-card-audit-modal-confirm"]')
     await expect(rows).toHaveCount(before - 1)
+  })
+
+  test('cancelling the delete keeps the entry', async ({ page }) => {
+    const rows = page.locator('[data-test="client-card-audit-row"]')
+    const before = await rows.count()
+    await page.locator('[data-test="client-card-audit-delete-btn"]').first().click()
+    await page.click('[data-test="client-card-audit-modal-cancel"]')
+    await expect(rows).toHaveCount(before)
   })
 
   test('delete entry shows toast notification', async ({ page }) => {
     await page.locator('[data-test="client-card-audit-delete-btn"]').first().click()
+    await page.click('[data-test="client-card-audit-modal-confirm"]')
     await expect(page.locator('.toast-container .toast.show')).toBeVisible({ timeout: 5000 })
   })
 })
@@ -600,12 +613,16 @@ test.describe('client-card › interaction history', () => {
   })
 
   test('filling summary enables the add button', async ({ page }) => {
-    await page.locator('[data-test="field-interaction-summary-inline"]').fill('Test interaction note')
+    await page
+      .locator('[data-test="field-interaction-summary-inline"]')
+      .fill('Test interaction note')
     await expect(page.locator('[data-test="client-card-add-interaction-btn"]')).toBeEnabled()
   })
 
   test('adding an interaction appends a row to the table', async ({ page }) => {
-    await page.locator('[data-test="field-interaction-summary-inline"]').fill('E2E test interaction')
+    await page
+      .locator('[data-test="field-interaction-summary-inline"]')
+      .fill('E2E test interaction')
     const rowsBefore = await page.locator('[data-test="client-card-interaction-row"]').count()
     await page.locator('[data-test="client-card-add-interaction-btn"]').click()
     await page.waitForTimeout(300)
@@ -653,19 +670,16 @@ test.describe('client-card › error state', () => {
 // ────────────────────────────────────────────────────────────────────────────
 // Page-level feature flag (adminClients) — OFF → /404
 // ────────────────────────────────────────────────────────────────────────────
-baseTest(
-  'clients › redirects to /404 when adminClients flag is OFF',
-  async ({ page, context }) => {
-    await context.addInitScript(
-      (flags) => localStorage.setItem('ff_overrides', JSON.stringify(flags)),
-      { ...ALL_FLAGS_ENABLED, adminClients: false },
-    )
-    await page.goto(CLIENTS_LIST)
-    await page.waitForLoadState('networkidle')
-    await expect(page).toHaveURL(/\/404$/)
-    await expect(page.locator('[data-test="page-clients"]')).toHaveCount(0)
-  },
-)
+baseTest('clients › redirects to /404 when adminClients flag is OFF', async ({ page, context }) => {
+  await context.addInitScript(
+    (flags) => localStorage.setItem('ff_overrides', JSON.stringify(flags)),
+    { ...ALL_FLAGS_ENABLED, adminClients: false },
+  )
+  await page.goto(CLIENTS_LIST)
+  await page.waitForLoadState('networkidle')
+  await expect(page).toHaveURL(/\/404$/)
+  await expect(page.locator('[data-test="page-clients"]')).toHaveCount(0)
+})
 
 // ────────────────────────────────────────────────────────────────────────────
 // i18n — language switch

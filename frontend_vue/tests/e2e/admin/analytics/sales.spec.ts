@@ -86,14 +86,19 @@ test.describe('sales › kpi cards', () => {
     }
   })
 
-  test('per-card unit suffixes (EUR / pcs. / pcs. / EUR)', async ({ page }) => {
-    // Units come from i18n (sales.unit_eur, sales.unit_pcs) — in EN locale
-    // they resolve to 'EUR' and 'pcs.'.
-    const units = page.locator('[data-test="sales-kpi-card"] .kpi-value span')
-    await expect.soft(units.nth(0)).toHaveText('EUR')
-    await expect.soft(units.nth(1)).toHaveText('pcs.')
-    await expect.soft(units.nth(2)).toHaveText('pcs.')
-    await expect.soft(units.nth(3)).toHaveText('EUR')
+  test('per-card unit suffixes (EUR / pcs. / EUR / EUR)', async ({ page }) => {
+    // The unit belongs to the KPI, not to the card position: the set of KPIs
+    // changes and a position-based unit goes wrong silently — "Avg check" was
+    // labelled in pieces that way.
+    const cards = page.locator('[data-test="sales-kpi-card"]')
+    // Revenue (month)
+    await expect.soft(cards.nth(0).locator('.kpi-value span')).toHaveText('EUR')
+    // Active Clients
+    await expect.soft(cards.nth(1).locator('.kpi-value span')).toHaveText('pcs.')
+    // Avg Check
+    await expect.soft(cards.nth(2).locator('.kpi-value span')).toHaveText('EUR')
+    // Lost Profit
+    await expect.soft(cards.nth(3).locator('.kpi-value span')).toHaveText('EUR')
   })
 
   test('values are the expected formatted numbers', async ({ page }) => {

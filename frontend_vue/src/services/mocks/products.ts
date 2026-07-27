@@ -13947,7 +13947,6 @@ export const STORE: Product[] = [
   },
 ]
 
-
 // ─── Compute avgCostPrice from warehouse batches ────────────────────────
 // For each product, compute weighted average cost price from batch data
 ;(function computeAvgCostPrices() {
@@ -13964,7 +13963,6 @@ export const STORE: Product[] = [
     product.avgSalePrice = product.price ?? 0
   }
 })()
-
 
 function toListItem(p: Product): ProductListItem {
   return {

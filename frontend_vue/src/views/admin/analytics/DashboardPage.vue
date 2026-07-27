@@ -96,7 +96,9 @@ const alertStatusLabel: Record<string, string> = {
           </svg>
         </div>
         <div class="kpi-label">{{ tf(kpi.label) }}</div>
-        <div class="kpi-value">{{ kpi.value }}</div>
+        <div class="kpi-value">
+          {{ kpi.value }}<span v-if="kpi.unit"> {{ t(kpi.unit) }}</span>
+        </div>
         <div class="kpi-delta" :class="kpi.trend">{{ kpi.delta }}</div>
       </div>
     </div>

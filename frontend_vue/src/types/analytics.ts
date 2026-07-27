@@ -14,6 +14,14 @@ export interface KpiItem {
   key: string
   label: TranslatedString
   value: string
+  /**
+   * i18n key of the unit shown after the value, e.g. 'warehouse.unit_eur'.
+   *
+   * Carried by the KPI rather than hard-coded by card position in the template:
+   * the set of KPIs changes over time, and a position-based unit goes wrong
+   * silently — "Avg check" ended up labelled in pieces that way.
+   */
+  unit?: string
   delta: string
   trend: 'up' | 'down' | 'neutral'
   icon: string
