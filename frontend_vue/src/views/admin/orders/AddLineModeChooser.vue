@@ -7,7 +7,7 @@
  * hand gets no question at all: the line simply takes the order's defaults.
  */
 import { useI18n } from 'vue-i18n'
-import type { AddLineMode } from '@/domain/orderPricing'
+import { formatCents, type AddLineMode } from '@/domain/orderPricing'
 
 const props = defineProps<{
   modes: AddLineMode[]
@@ -21,7 +21,9 @@ const { t } = useI18n()
 
 function hintFor(mode: AddLineMode): string {
   if (mode === 'order_terms') {
-    return t('orders.add_mode_order_terms_hint', { discount: props.effectiveDiscount.toFixed(2) })
+    // Same rounding as the panel this number is read off — `toFixed` rounds by
+    // the binary value, so 9.705 showed 9.70 here next to 9.71 in the panel.
+    return t('orders.add_mode_order_terms_hint', { discount: formatCents(props.effectiveDiscount) })
   }
   return t(`orders.add_mode_${mode}_hint`)
 }
