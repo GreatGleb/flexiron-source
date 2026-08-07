@@ -1909,6 +1909,10 @@ export function mockCreateShipment(
         unitPrice: allocation.unitCost,
         referenceType: 'order-shipment',
         referenceId: shipment.id,
+        // The day the goods left, not the moment the record was written. A
+        // shipment entered late is still a January shipment, and a movement
+        // stamped "now" puts January's sale in this month's report.
+        movedAt: shipment.shippedAt,
         notes: `${order.orderNumber} · ${shipment.waybillNumber ?? shipment.number}`,
       })
     }

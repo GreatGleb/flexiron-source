@@ -2493,3 +2493,58 @@ describe('sales CRM statistics', () => {
     )
   })
 })
+
+// ─── When a movement happened ───────────────────────────────────────────────
+
+describe('a movement is dated by the shipment, not by the moment it was recorded', () => {
+  function shippableLine(quantity = 10) {
+    const created = freshOrder()
+    mockAddOrderItem(created.id, {
+      productId: 'prod-001',
+      quantity,
+      unit: 'pcs',
+      unitPrice: 200,
+    })
+    return { orderId: created.id, item: mockGetOrder(created.id)!.items[0]! }
+  }
+
+  it('stamps the write-off with the day the goods left', () => {
+    const { orderId, item } = shippableLine(10)
+    const shippedAt = '2026-01-07T09:00:00.000Z'
+
+    const shipment = mockCreateShipment(orderId, {
+      lines: [{ lineId: item.id, quantity: 4 }],
+      shippedAt,
+    })
+
+    const movements = mockGetMovementsFor('order-shipment', shipment.id)
+    expect(movements.length).toBeGreaterThan(0)
+    expect(movements.every((m) => m.movedAt === shippedAt)).toBe(true)
+  })
+
+  it('dates every seeded write-off by its own shipment', () => {
+    for (const order of allOrders()) {
+      for (const shipment of order.shipments) {
+        if (shipment.cancelled) continue
+        for (const movement of mockGetMovementsFor('order-shipment', shipment.id)) {
+          expect(movement.movedAt).toBe(shipment.shippedAt)
+        }
+      }
+    }
+  })
+
+  it('dates the reversal now, because that is when the goods came back', () => {
+    const { orderId, item } = shippableLine(10)
+    const shipment = mockCreateShipment(orderId, {
+      lines: [{ lineId: item.id, quantity: 4 }],
+      shippedAt: '2026-01-07T09:00:00.000Z',
+    })
+    const startedAt = new Date().toISOString()
+
+    mockCancelShipment(orderId, shipment.id)
+
+    const reversals = mockGetMovementsFor('order-shipment-cancelled', shipment.id)
+    expect(reversals.length).toBeGreaterThan(0)
+    expect(reversals.every((m) => m.movedAt >= startedAt)).toBe(true)
+  })
+})
