@@ -2548,3 +2548,41 @@ describe('a movement is dated by the shipment, not by the moment it was recorded
     expect(reversals.every((m) => m.movedAt >= startedAt)).toBe(true)
   })
 })
+
+// ─── The demo's clock ───────────────────────────────────────────────────────
+
+describe('the seeded history is relative to today, not to a date it was written on', () => {
+  // Read at collection time, before any test in this file creates an order of
+  // its own: those are stamped `now` and would hide a history stuck in the past.
+  const seeded = allOrders().map((o) => new Date(o.createdAt))
+
+  function daysBefore(date: Date): number {
+    return Math.round((Date.now() - date.getTime()) / 86_400_000)
+  }
+
+  it('ends today rather than on some month in the past', () => {
+    const newest = [...seeded].sort((a, b) => b.getTime() - a.getTime())[0]!
+    expect(daysBefore(newest)).toBeLessThanOrEqual(3)
+    expect(newest.getTime()).toBeLessThanOrEqual(Date.now())
+  })
+
+  it('still starts about half a year back, so the history is a history', () => {
+    const oldest = [...seeded].sort((a, b) => a.getTime() - b.getTime())[0]!
+    expect(daysBefore(oldest)).toBeGreaterThan(150)
+  })
+
+  it('keeps the last month alive, which is what the dashboard reads', () => {
+    // Deliberately a rolling 30 days rather than the calendar month the KPI
+    // uses: on the 1st of a month the calendar month is legitimately near
+    // empty, and a test must not depend on the day it runs.
+    const monthAgo = Date.now() - 30 * 86_400_000
+    const recent = allOrders().filter((o) => new Date(o.createdAt).getTime() >= monthAgo)
+    expect(recent.length).toBeGreaterThan(0)
+    expect(
+      recent.filter((o) => ['confirmed', 'shipped', 'delivered'].includes(o.status)).length,
+    ).toBeGreaterThan(0)
+    expect(
+      mockGetClients().filter((c) => new Date(c.createdAt).getTime() >= monthAgo).length,
+    ).toBeGreaterThan(0)
+  })
+})

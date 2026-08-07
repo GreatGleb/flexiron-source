@@ -57,6 +57,7 @@ import {
   reservedOn,
 } from './reservations'
 import { mockGetClients, registerClientOrderLookup } from './clients'
+import { shiftDemoDate } from './demoClock'
 import { mockGetSettings } from './settings'
 import { STORE as PRODUCTS_STORE } from './products'
 import {
@@ -409,14 +410,13 @@ function generateOrders(): StoreOrder[] {
     // Weight is entered by hand until products carry one — see recalcOrder.
     const totalWeight = 0
 
-    // Spread dates from Jan 2026 to June 2026
+    // Half a year of trading, ending on the day the demo is opened — see
+    // `demoClock`. Written as a fixed calendar it went stale on its own, and a
+    // dashboard whose month-to-date numbers are permanently zero teaches the
+    // reader that the numbers are broken.
     const dayOffset = Math.floor((i / TOTAL_ORDERS) * 180)
-    const orderDate = new Date(
-      2026,
-      0,
-      1 + dayOffset,
-      8 + Math.floor(rng() * 10),
-      Math.floor(rng() * 60),
+    const orderDate = shiftDemoDate(
+      new Date(2026, 0, 1 + dayOffset, 8 + Math.floor(rng() * 10), Math.floor(rng() * 60)),
     )
     const createdAt = orderDate.toISOString()
 
@@ -424,12 +424,14 @@ function generateOrders(): StoreOrder[] {
       status === 'delivered' || status === 'shipped'
         ? dayOffset + 1 + Math.floor(rng() * 5)
         : dayOffset
-    const updatedDate = new Date(
-      2026,
-      0,
-      1 + Math.min(updatedOffset, 180),
-      8 + Math.floor(rng() * 10),
-      Math.floor(rng() * 60),
+    const updatedDate = shiftDemoDate(
+      new Date(
+        2026,
+        0,
+        1 + Math.min(updatedOffset, 180),
+        8 + Math.floor(rng() * 10),
+        Math.floor(rng() * 60),
+      ),
     )
     const updatedAt = updatedDate.toISOString()
 

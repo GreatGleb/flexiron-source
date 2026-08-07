@@ -1,7 +1,8 @@
 import type { Client, ClientFormData } from '@/types/client'
 import type { StockAuditEntry } from '@/types/warehouse'
+import { shiftDemoDay } from './demoClock'
 
-const STORE: Client[] = [
+const SEEDED_CLIENTS: Client[] = [
   // ── Existing clients (1-9) ──
   {
     id: 'CL-001',
@@ -897,6 +898,24 @@ const STORE: Client[] = [
     createdAt: '2026-06-10',
   },
 ]
+
+/**
+ * The client list moves with the rest of the demo's history — see `demoClock`.
+ * Kept fixed, the newest client aged past the current month and "new clients
+ * this month" was a permanent zero.
+ *
+ * Its own end date, not the orders': this list stops earlier than they do, and
+ * borrowing their shift would land the newest client weeks before today.
+ */
+const SEEDED_END = new Date(
+  SEEDED_CLIENTS.reduce((latest, c) => (c.createdAt > latest ? c.createdAt : latest), '') +
+    'T00:00:00',
+)
+
+const STORE: Client[] = SEEDED_CLIENTS.map((client) => ({
+  ...client,
+  createdAt: shiftDemoDay(client.createdAt, SEEDED_END),
+}))
 
 let nextSeq = STORE.length + 1
 
