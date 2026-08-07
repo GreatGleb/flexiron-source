@@ -379,7 +379,12 @@ onMounted(loadClients)
               </tr>
             </thead>
             <tbody>
-              <tr v-for="item in localOrder.items" :key="item.id" class="order-item-row">
+              <tr
+                v-for="item in localOrder.items"
+                :key="item.id"
+                class="order-item-row"
+                data-test="order-create-item-row"
+              >
                 <td>{{ item.lineNumber }}</td>
                 <td>{{ item.productName }}</td>
                 <td>{{ item.quantity }}</td>

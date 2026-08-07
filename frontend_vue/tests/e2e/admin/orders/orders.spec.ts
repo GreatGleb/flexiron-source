@@ -1,4 +1,4 @@
-import type { Locator } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 import { test, expect } from '../../fixtures'
 import { enableAllFlags, setFlag } from '../../helpers/flags'
 import { mockExternalRequests } from '../../helpers/mockExternalRequests'
@@ -12,6 +12,20 @@ async function lineCell(row: Locator, field: string): Promise<string> {
   const input = cell.locator('input')
   if ((await input.count()) > 0) return input.inputValue()
   return ((await cell.textContent()) ?? '').replace('%', '').trim()
+}
+
+/** Adds one product to the order being created, through the picker modal. */
+async function addProductOnCreatePage(page: Page, productName: string) {
+  await page.locator('[data-test="order-create-add-item-btn"]').click()
+  const modal = page.locator('[data-test="add-order-items-modal"]')
+  await expect(modal).toBeVisible()
+  await modal.locator('[data-test="add-items-filters"] input').fill(productName)
+  const row = modal.locator('[data-test="add-items-product-row"]').first()
+  await expect(row).toContainText(productName)
+  await row.click()
+  await expect(modal.locator('[data-test="add-items-selected-row"]')).toHaveCount(1)
+  await modal.locator('[data-test="add-items-save-btn"]').click()
+  await expect(modal).toBeHidden()
 }
 
 test.beforeEach(async ({ context, page }) => {
@@ -203,6 +217,34 @@ test.describe('Order Create', () => {
     await page.goto('/admin/orders/new')
     await expect(page.locator('[data-test="order-create-files"]')).toBeVisible()
     await expect(page.locator('[data-test="order-create-file-dropzone"]')).toBeVisible()
+  })
+
+  test('saves the lines that are on screen, duplicates and removals included', async ({ page }) => {
+    await page.goto('/admin/orders/new')
+    await page.locator('[data-test="order-create-client-item"]').first().click()
+
+    // Twice the same product, then a different one: the duplicate is the case
+    // that used to disappear, because the queue was keyed by product.
+    await addProductOnCreatePage(page, 'Aluminium Pipe 25x2')
+    await addProductOnCreatePage(page, 'Aluminium Pipe 25x2')
+    await addProductOnCreatePage(page, 'Copper Pipe 15x1')
+
+    const rows = page.locator('[data-test="order-create-item-row"]')
+    await expect(rows).toHaveCount(3)
+
+    await rows.nth(1).locator('button').click()
+    await expect(rows).toHaveCount(2)
+    await expect(rows.nth(0)).toContainText('Aluminium Pipe 25x2')
+    await expect(rows.nth(1)).toContainText('Copper Pipe 15x1')
+
+    await page.locator('[data-test="order-create-save-btn"]').click()
+    await page.waitForURL(/\/admin\/orders\/ORD-/)
+
+    // The created order is the table that was on screen — no line left behind.
+    const savedRows = page.locator('[data-test="order-item-row"]')
+    await expect(savedRows).toHaveCount(2)
+    await expect(savedRows.nth(0)).toContainText('Aluminium Pipe 25x2')
+    await expect(savedRows.nth(1)).toContainText('Copper Pipe 15x1')
   })
 })
 

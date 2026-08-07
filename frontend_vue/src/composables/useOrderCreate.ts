@@ -65,33 +65,18 @@ export function useOrderCreate() {
     totalWeight: 0,
   })
 
-  // ─── Pending changes to flush after order creation ────────────────────
-  const pendingItems = ref<
-    Array<{
-      productId: string
-      productName: string
-      quantity: number
-      unit: string
-      unitPrice: number
-    }>
-  >([])
-
-  const pendingServices = ref<
-    Array<{
-      serviceId: string
-      serviceName: string
-      quantity: number
-      price: number
-    }>
-  >([])
-
-  const pendingFileAdds = ref<string[]>([])
-
+  // ─── What will be sent after the order is created ─────────────────────
+  //
+  // There is no second list. `localOrder` is both the table on screen and the
+  // thing that gets saved: a queue kept beside it drifted from it — it was
+  // emptied by product, so removing one of two lines of the same product
+  // removed both from the queue and the admin got an order that was missing a
+  // line they were looking at when they pressed Save.
   const hasPendingChanges = computed(
     () =>
-      pendingItems.value.length > 0 ||
-      pendingServices.value.length > 0 ||
-      pendingFileAdds.value.length > 0,
+      localOrder.value.items.length > 0 ||
+      localOrder.value.services.length > 0 ||
+      localOrder.value.files.length > 0,
   )
 
   // ─── Computed for template convenience ─────────────────────────────────
@@ -156,7 +141,6 @@ export function useOrderCreate() {
         },
   ) {
     const items = Array.isArray(data) ? data : [data]
-    pendingItems.value = [...pendingItems.value, ...items]
 
     const now = Date.now()
     const newItems: OrderItem[] = items.map((item, idx) => {
@@ -185,10 +169,6 @@ export function useOrderCreate() {
   }
 
   function removeItem(lineId: string) {
-    const removedItem = localOrder.value.items.find((i) => i.id === lineId)
-    if (removedItem) {
-      pendingItems.value = pendingItems.value.filter((pi) => pi.productId !== removedItem.productId)
-    }
     localOrder.value = {
       ...localOrder.value,
       items: localOrder.value.items.filter((i) => i.id !== lineId),
@@ -215,7 +195,6 @@ export function useOrderCreate() {
         },
   ) {
     const items = Array.isArray(data) ? data : [data]
-    pendingServices.value = [...pendingServices.value, ...items]
 
     const now = Date.now()
     const newServices: OrderService[] = items.map((item, idx) =>
@@ -237,12 +216,6 @@ export function useOrderCreate() {
   }
 
   function removeService(svcId: string) {
-    const removed = localOrder.value.services.find((s) => s.id === svcId)
-    if (removed) {
-      pendingServices.value = pendingServices.value.filter(
-        (ps) => ps.serviceId !== removed.serviceId,
-      )
-    }
     localOrder.value = {
       ...localOrder.value,
       services: localOrder.value.services.filter((s) => s.id !== svcId),
@@ -253,7 +226,6 @@ export function useOrderCreate() {
   // ─── File handlers (local only) ────────────────────────────────────────
   function onFilesUploaded(files: UploadedFile[]) {
     for (const f of files) {
-      pendingFileAdds.value = [...pendingFileAdds.value, f.fileId]
       localOrder.value = {
         ...localOrder.value,
         files: [
@@ -273,7 +245,6 @@ export function useOrderCreate() {
   }
 
   function removeFile(fileId: string) {
-    pendingFileAdds.value = pendingFileAdds.value.filter((id) => id !== fileId)
     localOrder.value = {
       ...localOrder.value,
       files: localOrder.value.files.filter((f) => f.fileId !== fileId),
@@ -321,23 +292,34 @@ export function useOrderCreate() {
         await patchOrder(order.id, { notes: form.value.notes })
       }
 
-      // 3. Add pending items
-      for (const item of pendingItems.value) {
-        await addOrderItem(order.id, item)
+      // 3. The lines, in the order they are on screen. Each line is sent once,
+      //    including two lines of the same product: they are two lines.
+      for (const item of localOrder.value.items) {
+        await addOrderItem(order.id, {
+          productId: item.productId,
+          quantity: item.quantity,
+          unit: item.unit,
+          unitPrice: item.unitPrice,
+          // Sent explicitly, as on the card: the server would otherwise apply
+          // the new order's default discount and the price would change under
+          // the admin between the table they saw and the order they got.
+          discountPercent: item.discountPercent,
+        })
       }
 
-      // 4. Add pending services
-      for (const svc of pendingServices.value) {
+      // 4. Services, same rule.
+      for (const svc of localOrder.value.services) {
         await addOrderService(order.id, {
           serviceId: svc.serviceId,
           quantity: svc.quantity,
           price: svc.price,
+          discountPercent: svc.discountPercent,
         })
       }
 
-      // 5. Add pending files
-      for (const fileId of pendingFileAdds.value) {
-        await addOrderFile(order.id, fileId)
+      // 5. Files
+      for (const file of localOrder.value.files) {
+        await addOrderFile(order.id, file.fileId)
       }
 
       toast.success(t('orders.toast_created'))
@@ -368,10 +350,6 @@ export function useOrderCreate() {
     localOrder,
     totalAmount,
     totalWeight,
-    // Pending changes
-    pendingItems,
-    pendingServices,
-    pendingFileAdds,
     hasPendingChanges,
     // Actions
     addItem,
