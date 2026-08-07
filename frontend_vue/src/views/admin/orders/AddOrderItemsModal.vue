@@ -5,7 +5,6 @@ import { getProducts } from '@/services/productsService'
 import { getStockOverview, getBatchCostBreakdown } from '@/services/warehouseService'
 import { useToast } from '@/composables/useToast'
 import { useSettings } from '@/composables/useSettings'
-import { useOrderPermissions } from '@/composables/useOrderPermissions'
 import { useTranslatedField } from '@/composables/useTranslatedData'
 import type { ProductListItem } from '@/types/product'
 import type { StockOverviewItem } from '@/types/warehouse'
@@ -20,8 +19,6 @@ import { formatCents as money, round2, type AddLineMode } from '@/domain/orderPr
 const { t, locale } = useI18n()
 const toast = useToast()
 const { settings } = useSettings()
-// The cost column is the same right as on the card: without it, only the price.
-const { canSeeCost } = useOrderPermissions()
 const { tf } = useTranslatedField()
 
 const props = withDefaults(
@@ -416,6 +413,21 @@ function priceFor(product: ProductListItem | undefined, cost: number | undefined
   return round2(cost * (1 + props.defaultMarginPercent / 100))
 }
 
+/**
+ * What the product will be quoted at, for the picker's price column.
+ *
+ * The column used to show the warehouse's average cost for anything in stock
+ * and the catalogue price for everything else — two different quantities under
+ * one heading, in neighbouring rows. It shows the selling price now, arrived at
+ * exactly the way selecting the product arrives at it, so the number does not
+ * change when the row moves into the table below.
+ */
+function catalogueQuote(product: ProductListItem): string {
+  const price = priceFor(product, stockMap.value.get(product.id)?.avgUnitPrice)
+  if (price <= 0) return '—'
+  return `${money(price)} ${settings.constants.defaultCurrency}`
+}
+
 /** Price per unit after the chosen mode's discount, unrounded. */
 function netPrice(unitPrice: number): number {
   return unitPrice * (1 - modeDiscount.value / 100)
@@ -542,29 +554,13 @@ function onCancel() {
                       <span v-else class="stock-na">—</span>
                     </template>
                   </td>
-                  <td class="col-price-cell">
+                  <td class="col-price-cell" data-test="add-items-product-price">
                     <template v-if="stockLoading">
                       <span class="stock-loading">…</span>
                     </template>
                     <template v-else>
-                      <span
-                        v-if="stockMap.get(p.id)"
-                        v-tooltip="
-                          'Avg cost: ' +
-                          stockMap.get(p.id)!.avgUnitPrice.toFixed(2) +
-                          ' ' +
-                          settings.constants.defaultCurrency
-                        "
-                        class="stock-value"
-                      >
-                        {{ Number(stockMap.get(p.id)!.avgUnitPrice.toFixed(2)).toLocaleString() }}
-                      </span>
-                      <span v-else>
-                        {{
-                          p.price != null
-                            ? p.price.toFixed(2) + ' ' + settings.constants.defaultCurrency
-                            : '—'
-                        }}
+                      <span>
+                        {{ catalogueQuote(p) }}
                       </span>
                     </template>
                   </td>
@@ -640,7 +636,6 @@ function onCancel() {
                 <th class="col-qty-header">{{ t('orders.col_quantity') }}</th>
                 <th class="col-unit-header">{{ t('orders.col_unit') }}</th>
                 <th class="col-price-ro-header">{{ t('orders.col_unit_price') }}</th>
-                <th v-if="canSeeCost" class="col-cost-header">{{ t('orders.col_avg_cost') }}</th>
                 <th class="col-total-header">{{ t('orders.col_total_price') }}</th>
                 <th class="col-action-header"></th>
               </tr>
@@ -671,15 +666,6 @@ function onCancel() {
                     >{{ money(netPrice(item.unitPrice)) }}
                     {{ settings.constants.defaultCurrency }}</span
                   >
-                </td>
-                <td v-if="canSeeCost" class="col-cost-cell">
-                  <span class="cost-display">{{
-                    selectedItemsCosts.get(item.productId)?.unitPrice
-                      ? selectedItemsCosts.get(item.productId)!.unitPrice.toFixed(2) +
-                        ' ' +
-                        settings.constants.defaultCurrency
-                      : '—'
-                  }}</span>
                 </td>
                 <td class="col-total-cell">
                   <span class="item-total" data-test="add-items-total"

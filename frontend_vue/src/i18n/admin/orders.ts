@@ -148,7 +148,6 @@ export const adminOrders = {
 
       // Строки заказа: колонки, состояния, пометки
       col_unit_cost: 'Себест./ед.',
-      col_avg_cost: 'Себест./ед.',
       col_margin_percent: 'Маржа %',
       col_margin_amount: 'Маржа',
       col_state: 'Состояние',
@@ -525,7 +524,6 @@ export const adminOrders = {
 
       // Order lines: columns, states, markers
       col_unit_cost: 'Cost/unit',
-      col_avg_cost: 'Cost/unit',
       col_margin_percent: 'Margin %',
       col_margin_amount: 'Margin',
       col_state: 'State',
@@ -900,7 +898,6 @@ export const adminOrders = {
 
       // Užsakymo eilutės: stulpeliai, būsenos, žymos
       col_unit_cost: 'Savikaina/vnt.',
-      col_avg_cost: 'Savikaina/vnt.',
       col_margin_percent: 'Marža %',
       col_margin_amount: 'Marža',
       col_state: 'Būsena',

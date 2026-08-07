@@ -1620,3 +1620,42 @@ test.describe('Orders i18n', () => {
     await expect(page.locator('h1.page-title')).toBeVisible()
   })
 })
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Add Item Modal
+// ═══════════════════════════════════════════════════════════════════════════
+
+test.describe('Add item modal', () => {
+  /** The number in a cell, whatever currency suffix it carries. */
+  function amount(text: string): number {
+    return Number(text.replace(/[^\d.,-]/g, '').replace(',', '.'))
+  }
+
+  test('the price column quotes the price the line will be sold at', async ({ page }) => {
+    await page.goto('/admin/orders/ORD-001')
+    await page.locator('[data-test="order-add-item-btn"]').click()
+    const modal = page.locator('[data-test="add-order-items-modal"]')
+    await expect(modal).toBeVisible()
+
+    // A product that is in stock: the one whose price used to be replaced by the
+    // warehouse's cost per unit.
+    await modal.locator('[data-test="add-items-filters"] input').fill('Aluminium Pipe 25x2')
+    const row = modal.locator('[data-test="add-items-product-row"]').first()
+    await expect(row).toContainText('Aluminium Pipe 25x2')
+    const catalogue = amount(await row.locator('[data-test="add-items-product-price"]').innerText())
+
+    await row.click()
+    const selected = modal.locator('[data-test="add-items-selected-row"]').first()
+    await expect(selected).toBeVisible()
+    const quoted = amount(await selected.locator('[data-test="add-items-price"]').innerText())
+
+    // One product, one modal, one heading — one number.
+    expect(catalogue).toBe(quoted)
+
+    // And cost is not under a heading that says price: it is not in this modal.
+    const headers = await modal
+      .locator('[data-test="add-items-selected-table"] thead th')
+      .allInnerTexts()
+    expect(headers.join(' | ')).not.toMatch(/cost|себест|savikain/i)
+  })
+})
