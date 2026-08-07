@@ -146,6 +146,7 @@ import {
 } from './settings'
 import {
   mockGetOrders,
+  mockGetSalesCrmStats,
   mockGetOrder,
   mockCreateOrder,
   mockPatchOrder,
@@ -412,6 +413,10 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
         if (sortBy === 'name') cmp = a.name.localeCompare(b.name)
         else if (sortBy === 'email') cmp = a.email.localeCompare(b.email)
         else if (sortBy === 'status') cmp = a.status.localeCompare(b.status)
+        // Asked for by the dashboard: "the five newest clients" is a sort the
+        // server owns. Picking the newest out of the first page instead means
+        // picking them out of whichever clients happened to be on it.
+        else if (sortBy === 'createdAt') cmp = a.createdAt.localeCompare(b.createdAt)
         return sortDir === 'desc' ? -cmp : cmp
       })
     }
@@ -438,6 +443,12 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
   const clientAuditMatch = path.match(/^\/api\/clients\/([^/]+)\/audit$/)
   if (clientAuditMatch) {
     return delay(mockGetClientAudit(clientAuditMatch[1] as string) as T)
+  }
+
+  // ── Sales CRM ──
+  // Counted over everything, by the side that holds everything.
+  if (path === '/api/sales-crm/stats') {
+    return delay(mockGetSalesCrmStats() as T)
   }
 
   // ── Orders ──

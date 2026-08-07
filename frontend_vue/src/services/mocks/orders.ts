@@ -15,6 +15,7 @@ import type {
   ShippableLine,
   ShipmentShortage,
   StatusTransitionPlan,
+  SalesCrmStats,
 } from '@/types/order'
 import type { StockAuditEntry, StockReservation } from '@/types/warehouse'
 import type { PaginatedResponse, PaginationParams } from '@/types/api'
@@ -980,6 +981,36 @@ export function mockGetOrders(
     page,
     pageSize,
     totalPages: Math.ceil(filtered.length / pageSize),
+  }
+}
+
+// ─── Dashboard statistics ───
+
+/**
+ * The sales dashboard's numbers, counted over the whole store.
+ *
+ * They are the server's to compute for the same reason the order totals are:
+ * the client only ever holds a page. The dashboard used to count "active" and
+ * "pending" over the first hundred orders it fetched, which is every order
+ * there was — so the hundred-and-first pushed the oldest out of the window and
+ * the counts stood still while the business grew.
+ */
+export function mockGetSalesCrmStats(): SalesCrmStats {
+  const monthStart = new Date()
+  monthStart.setDate(1)
+  monthStart.setHours(0, 0, 0, 0)
+
+  const salesMtd = STORE.filter(
+    (o) =>
+      (o.status === 'confirmed' || o.status === 'shipped' || o.status === 'delivered') &&
+      new Date(o.createdAt) >= monthStart,
+  ).reduce((sum, o) => round2(sum + o.totalAmount), 0)
+
+  return {
+    activeOrders: STORE.filter((o) => o.status !== 'delivered' && o.status !== 'cancelled').length,
+    pendingOrders: STORE.filter((o) => o.status === 'new' || o.status === 'confirmed').length,
+    salesMtd,
+    newClientsThisMonth: mockGetClients().filter((c) => new Date(c.createdAt) >= monthStart).length,
   }
 }
 

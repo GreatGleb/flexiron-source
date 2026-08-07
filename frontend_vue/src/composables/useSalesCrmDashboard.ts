@@ -1,5 +1,5 @@
 import { ref, onMounted } from 'vue'
-import { getOrders } from '@/services/ordersService'
+import { getOrders, getSalesCrmStats } from '@/services/ordersService'
 import { getClients } from '@/services/clientsService'
 import type { OrderListItem } from '@/types/order'
 import type { Client } from '@/types/client'
@@ -20,11 +20,15 @@ export function useSalesCrmDashboard() {
     error.value = null
 
     try {
-      const now = new Date()
-      const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-
-      // Fetch orders (up to 100 for accurate KPI counts) + clients
-      const [ordersResult, clientsResult] = await Promise.all([
+      // The KPIs are asked for, not derived here: they count every order and
+      // every client there is, and this page only ever holds the five it shows.
+      // Deriving them from a page of the list made them stop moving as soon as
+      // the store outgrew the page — silently, which is the worst way for a
+      // number to be wrong.
+      //
+      // The two widgets ask for exactly what they display, newest first.
+      const [stats, ordersResult, clientsResult] = await Promise.all([
+        getSalesCrmStats(),
         getOrders(
           {
             search: '',
@@ -32,50 +36,30 @@ export function useSalesCrmDashboard() {
             clientId: null,
             dateFrom: '',
             dateTo: '',
-            sortBy: null,
-            sortDir: 'asc',
+            sortBy: 'createdAt',
+            sortDir: 'desc',
           },
-          { page: 1, pageSize: 100 },
+          { page: 1, pageSize: 5 },
         ),
-        getClients({ search: '', status: null, sortBy: null, sortDir: 'asc' }),
+        getClients({
+          search: '',
+          status: null,
+          sortBy: 'createdAt',
+          sortDir: 'desc',
+          page: 1,
+          pageSize: 5,
+        }),
       ])
 
-      const allOrders = ordersResult.items
-      const allClients = clientsResult.items
+      recentOrders.value = ordersResult.items
+      recentClients.value = clientsResult.items
 
-      // Recent 5 orders for the widget
-      recentOrders.value = allOrders.slice(0, 5)
-
-      // Recent 5 clients sorted by createdAt DESC
-      const sorted = [...allClients].sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-      )
-      recentClients.value = sorted.slice(0, 5)
-
-      // ── Compute KPIs from orders ──
-      activeOrdersCount.value = allOrders.filter(
-        (o: OrderListItem) => o.status !== 'delivered' && o.status !== 'cancelled',
-      ).length
-
-      pendingOrdersCount.value = allOrders.filter(
-        (o: OrderListItem) => o.status === 'new' || o.status === 'confirmed',
-      ).length
-
-      totalSalesMtd.value = allOrders
-        .filter(
-          (o: OrderListItem) =>
-            (o.status === 'confirmed' || o.status === 'shipped' || o.status === 'delivered') &&
-            new Date(o.createdAt) >= thisMonthStart,
-        )
-        // Net on purpose: VAT is not revenue. `totalWithVat` on the same row is
-        // what the client pays, and that is the orders list's business, not a
-        // sales KPI's.
-        .reduce((sum: number, o: OrderListItem) => sum + o.totalAmount, 0)
-
-      // ── Compute KPIs from clients ──
-      newClientsThisMonth.value = allClients.filter(
-        (c: Client) => new Date(c.createdAt) >= thisMonthStart,
-      ).length
+      activeOrdersCount.value = stats.activeOrders
+      pendingOrdersCount.value = stats.pendingOrders
+      // Net on purpose: VAT is not revenue. `totalWithVat` on the orders list is
+      // what the client pays, and that is the list's business, not a sales KPI's.
+      totalSalesMtd.value = stats.salesMtd
+      newClientsThisMonth.value = stats.newClientsThisMonth
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e)
     } finally {

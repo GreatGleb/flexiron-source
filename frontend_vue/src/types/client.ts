@@ -32,7 +32,9 @@ export interface Client {
 export interface ClientFilters {
   search: string
   status: 'active' | 'inactive' | null
-  sortBy: 'name' | 'email' | 'status' | null
+  // `createdAt` is what "the newest clients" is sorted by, and that sort belongs
+  // to the server: picking the newest out of one page picks them out of a page.
+  sortBy: 'name' | 'email' | 'status' | 'createdAt' | null
   sortDir: 'asc' | 'desc'
 }
 

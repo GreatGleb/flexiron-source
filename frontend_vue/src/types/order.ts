@@ -39,6 +39,25 @@ export interface OrderListItem {
 }
 
 /**
+ * The sales dashboard's four numbers.
+ *
+ * Counted by the server over every order and every client there is. The client
+ * cannot compute them from a page of the list — the page is a window, and a
+ * count taken through a window stops moving the moment the window is full,
+ * without ever saying so.
+ */
+export interface SalesCrmStats {
+  /** Everything not delivered and not cancelled. */
+  activeOrders: number
+  /** Waiting on somebody: new or confirmed. */
+  pendingOrders: number
+  /** Net turnover since the 1st of the current month. VAT is not revenue. */
+  salesMtd: number
+  /** Clients registered since the 1st of the current month. */
+  newClientsThisMonth: number
+}
+
+/**
  * Which batch or offcut a line's quantity was taken from. FIFO routinely spans
  * several, so a single `batchId` cannot express it — without this breakdown the
  * cost is not reproducible and a partial shipment cannot write off the very

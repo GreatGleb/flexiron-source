@@ -80,19 +80,31 @@ export function useClientCard(id: string) {
   async function loadOrders() {
     ordersLoading.value = true
     try {
-      const page = await getOrders(
-        {
-          search: '',
-          status: 'all',
-          clientId: id,
-          dateFrom: '',
-          dateTo: '',
-          sortBy: 'createdAt',
-          sortDir: 'desc',
-        },
-        { page: 1, pageSize: 50 },
-      )
-      orders.value = page.items
+      // The whole history, page by page. A fixed first page cut the list at 50
+      // without saying so, and everything the card says about the client — how
+      // much they have bought, when they last ordered — would have been read
+      // off a list that quietly stopped.
+      const PAGE_SIZE = 50
+      const collected: OrderListItem[] = []
+      let pageNumber = 1
+      for (;;) {
+        const page = await getOrders(
+          {
+            search: '',
+            status: 'all',
+            clientId: id,
+            dateFrom: '',
+            dateTo: '',
+            sortBy: 'createdAt',
+            sortDir: 'desc',
+          },
+          { page: pageNumber, pageSize: PAGE_SIZE },
+        )
+        collected.push(...page.items)
+        if (collected.length >= page.total || page.items.length === 0) break
+        pageNumber += 1
+      }
+      orders.value = collected
     } catch {
       orders.value = []
     } finally {

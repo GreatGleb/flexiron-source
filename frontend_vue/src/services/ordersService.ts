@@ -14,10 +14,21 @@ import type {
   PaymentPurpose,
   ShippableLine,
   StatusTransitionPlan,
+  SalesCrmStats,
 } from '@/types/order'
 import type { LineEditDelta } from './orderLineEdits'
 import type { StockReservation } from '@/types/warehouse'
 import type { PaginatedResponse, PaginationParams } from '@/types/api'
+
+/**
+ * The sales dashboard's four numbers.
+ *
+ * A separate call on purpose: they are counts and sums over every order and
+ * every client, and a page of the orders list cannot produce them.
+ */
+export async function getSalesCrmStats(): Promise<SalesCrmStats> {
+  return apiGet('/api/sales-crm/stats')
+}
 
 export async function getOrders(
   filters: OrderFilters,

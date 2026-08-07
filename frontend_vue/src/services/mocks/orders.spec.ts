@@ -29,6 +29,7 @@ import {
   mockGetShipments,
   mockGetInvoices,
   mockDeleteOrder,
+  mockGetSalesCrmStats,
 } from './orders'
 import { mockGetClients } from './clients'
 import { mockGetSettings, mockSaveSettings } from './settings'
@@ -2440,5 +2441,55 @@ describe('every kind of service edit', () => {
     const { orderId, svcId } = service()
     mockUpdateOrderService(orderId, svcId, { quantity: 0 })
     expect(() => mockUpdateOrderService(orderId, svcId, { lineTotal: 50 })).toThrow('ZERO_QUANTITY')
+  })
+})
+
+// ─── Dashboard counts ───────────────────────────────────────────────────────
+
+describe('sales CRM statistics', () => {
+  it('counts every order, not the ones that fit on a page', () => {
+    const before = mockGetSalesCrmStats()
+    // The store holds 100 orders and the dashboard used to read exactly 100:
+    // the 101st entered its window from the top and the oldest fell out, so
+    // the counts never moved.
+    const created = mockCreateOrder({
+      clientId: mockGetClients()[0]!.id,
+      documentType: 'local',
+    })
+    expect(created.status).toBe('new')
+
+    const after = mockGetSalesCrmStats()
+    expect(after.activeOrders).toBe(before.activeOrders + 1)
+    expect(after.pendingOrders).toBe(before.pendingOrders + 1)
+  })
+
+  it('agrees with counting the orders by hand', () => {
+    const stats = mockGetSalesCrmStats()
+    const orders = allOrders()
+    expect(stats.activeOrders).toBe(
+      orders.filter((o) => o.status !== 'delivered' && o.status !== 'cancelled').length,
+    )
+    expect(stats.pendingOrders).toBe(
+      orders.filter((o) => o.status === 'new' || o.status === 'confirmed').length,
+    )
+  })
+
+  it('sums this month sales net of VAT, and counts this month clients', () => {
+    const monthStart = new Date()
+    monthStart.setDate(1)
+    monthStart.setHours(0, 0, 0, 0)
+
+    const stats = mockGetSalesCrmStats()
+    const expectedSales = allOrders()
+      .filter(
+        (o) =>
+          ['confirmed', 'shipped', 'delivered'].includes(o.status) &&
+          new Date(o.createdAt) >= monthStart,
+      )
+      .reduce((sum, o) => round2(sum + o.totalAmount), 0)
+    expect(stats.salesMtd).toBe(expectedSales)
+    expect(stats.newClientsThisMonth).toBe(
+      mockGetClients().filter((c) => new Date(c.createdAt) >= monthStart).length,
+    )
   })
 })
