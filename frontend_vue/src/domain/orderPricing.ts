@@ -452,12 +452,21 @@ export function rollupOrder(
  * The discount actually given, as a single percentage: how far the order landed
  * below the sum of its computed pre-discount prices. This is the number a new
  * line inherits when it is added "with the order's terms".
+ *
+ * A line with no cost takes no part in it, on either side of the ratio. It has
+ * no computed price to have landed below — the price was named outright — so it
+ * would add nothing to the base and its full price to the total, and one such
+ * line would drag the discount of the whole order deep into the negative: 10%
+ * given on the goods reads as −97% once a service priced outright sits beside
+ * them. Same rule as everywhere else percentages meet a costless line — they
+ * leave it alone.
  */
 export function effectiveDiscountPercent(lines: PricingLine[]): number {
   let base = 0
   let actual = 0
 
   for (const line of lines) {
+    if (line.unitCost <= 0) continue
     base += rawBasePrice(line) * line.quantity
     actual += calcLine(line).lineNet
   }

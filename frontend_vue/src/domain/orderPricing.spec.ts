@@ -625,6 +625,40 @@ describe('effective discount', () => {
   it('is zero on an untouched order', () => {
     expect(effectiveDiscountPercent([line()])).toBe(0)
   })
+
+  /**
+   * A line priced outright has no computed price to have landed below. Counting
+   * its price against a base of zero made one such line say the order gave
+   * −97% — and that number is both what the panel shows and what decides
+   * whether a new line may inherit the order's terms.
+   */
+  it('leaves out a line that was priced outright, on both sides of the ratio', () => {
+    const goods = line({ unitCost: 8, quantity: 10, marginPercent: 15, discountPercent: 10 })
+    const namedPrice = line({ id: 'svc', unitCost: 0, quantity: 1, manualUnitPrice: 99 })
+
+    expect(effectiveDiscountPercent([goods])).toBe(10)
+    expect(effectiveDiscountPercent([goods, namedPrice])).toBe(10)
+    // And it still counts towards the money — it is only the percentage it
+    // takes no part in.
+    expect(rollupOrder([goods, namedPrice], 'standard', 21).totalNet).toBe(181.8)
+  })
+
+  it('is zero when every line was priced outright', () => {
+    const namedPrice = line({ unitCost: 0, manualUnitPrice: 99 })
+    expect(effectiveDiscountPercent([namedPrice])).toBe(0)
+  })
+
+  it('lets a costless line sit beside goods without hiding the order terms', () => {
+    const discounted = line({ unitCost: 8, quantity: 10, discountPercent: 10 })
+    const namedPrice = line({ id: 'svc', unitCost: 0, quantity: 1, manualUnitPrice: 99 })
+    // The 🔒 that raises the question comes from the costless line; the discount
+    // that answers it comes from the goods.
+    expect(addLineModes([discounted, namedPrice])).toEqual([
+      'order_terms',
+      'computed_price',
+      'keep_total',
+    ])
+  })
 })
 
 describe('adding a line', () => {
