@@ -120,6 +120,21 @@ describe('order routes', () => {
     expect(reloaded.shipments.length).toBe(2)
   })
 
+  it('carry the date range through the router', { timeout: 15_000 }, async () => {
+    const all = await getMock<{ items: Array<{ createdAt: string }>; total: number }>(
+      '/api/orders',
+      { status: 'all', page: '1', pageSize: '1000' },
+    )
+    const day = all.items[0]!.createdAt.slice(0, 10)
+    const oneDay = await getMock<{ items: Array<{ createdAt: string }>; total: number }>(
+      '/api/orders',
+      { status: 'all', dateFrom: day, dateTo: day, page: '1', pageSize: '1000' },
+    )
+    expect(oneDay.items.length).toBeGreaterThan(0)
+    expect(oneDay.total).toBeLessThan(all.total)
+    expect(oneDay.items.every((o) => o.createdAt.slice(0, 10) === day)).toBe(true)
+  })
+
   it(
     'patch a service line through its own route, not the items one',
     { timeout: 15_000 },

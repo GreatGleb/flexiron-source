@@ -2586,3 +2586,47 @@ describe('the seeded history is relative to today, not to a date it was written 
     ).toBeGreaterThan(0)
   })
 })
+
+// ─── Filtering the list by date ─────────────────────────────────────────────
+
+describe('the orders list filters by date', () => {
+  function listBetween(dateFrom: string, dateTo: string) {
+    return mockGetOrders(
+      { search: '', status: 'all', clientId: null, dateFrom, dateTo, sortBy: null, sortDir: 'asc' },
+      { page: 1, pageSize: 1000 },
+    )
+  }
+
+  // Read inside each test, not once at collection time: other tests in this
+  // file create orders of their own, and a baseline taken before them is a
+  // baseline of a store that no longer exists.
+  it('keeps only what was created on or after dateFrom', () => {
+    const all = listBetween('', '')
+    const cutoff = all.items[Math.floor(all.items.length / 2)]!.createdAt.slice(0, 10)
+    const page = listBetween(cutoff, '')
+    expect(page.items.length).toBeGreaterThan(0)
+    expect(page.items.length).toBeLessThan(all.total)
+    expect(page.items.every((o) => o.createdAt.slice(0, 10) >= cutoff)).toBe(true)
+    // `total` is the size of the filtered set, or the pager lies about it.
+    expect(page.total).toBe(page.items.length)
+  })
+
+  it('keeps only what was created on or before dateTo, that day included', () => {
+    const all = listBetween('', '')
+    const cutoff = all.items[Math.floor(all.items.length / 2)]!.createdAt.slice(0, 10)
+    const page = listBetween('', cutoff)
+    expect(page.items.length).toBeGreaterThan(0)
+    expect(page.items.every((o) => o.createdAt.slice(0, 10) <= cutoff)).toBe(true)
+    // The day named in `dateTo` belongs to the range: an order at 17:00 that day
+    // is on that day, not after it.
+    expect(page.items.some((o) => o.createdAt.slice(0, 10) === cutoff)).toBe(true)
+  })
+
+  it('a range of one day returns that day', () => {
+    const all = listBetween('', '')
+    const day = all.items[0]!.createdAt.slice(0, 10)
+    const page = listBetween(day, day)
+    expect(page.items.length).toBeGreaterThan(0)
+    expect(page.items.every((o) => o.createdAt.slice(0, 10) === day)).toBe(true)
+  })
+})

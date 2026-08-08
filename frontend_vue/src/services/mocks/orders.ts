@@ -918,6 +918,18 @@ export function mockGetOrders(
     filtered = filtered.filter((o) => o.clientId === filters.clientId)
   }
 
+  // Both ends are inclusive, and both are days rather than instants: an order
+  // placed at 17:00 on the day named in `dateTo` was placed on that day. The
+  // parameters were accepted and thrown away before, which is the worst of the
+  // three possible behaviours — a filter that answers with the unfiltered list
+  // is indistinguishable from a range that happens to hold everything.
+  if (filters.dateFrom) {
+    filtered = filtered.filter((o) => o.createdAt.slice(0, 10) >= filters.dateFrom)
+  }
+  if (filters.dateTo) {
+    filtered = filtered.filter((o) => o.createdAt.slice(0, 10) <= filters.dateTo)
+  }
+
   // Apply sorting
   const sortBy = filters.sortBy
   const sortDir = filters.sortDir === 'desc' ? -1 : 1
