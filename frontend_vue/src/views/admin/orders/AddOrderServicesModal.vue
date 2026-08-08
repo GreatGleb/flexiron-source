@@ -11,7 +11,13 @@ import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
 import SearchInput from '@/components/admin/ui/SearchInput.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
 import AddLineModeChooser from './AddLineModeChooser.vue'
-import { formatCents as money, type AddLineMode } from '@/domain/orderPricing'
+import {
+  calcLine,
+  formatCents as money,
+  type AddLineMode,
+  type LineTotals,
+} from '@/domain/orderPricing'
+import { pricingSeedFor } from '@/services/orderLines'
 
 const { t } = useI18n()
 const toast = useToast()
@@ -54,14 +60,10 @@ watch(
   },
 )
 
-/** Price per unit after the chosen mode's discount, unrounded. */
-function netPrice(price: number): number {
-  const discount =
-    chosenMode.value === 'order_terms' ? props.effectiveDiscount : props.defaultDiscountPercent
-  return price * (1 - discount / 100)
-}
-
-// Money is formatted by the domain's rule — see `formatCents`.
+/** The discount the chosen mode implies, in percent. */
+const modeDiscount = computed(() =>
+  chosenMode.value === 'order_terms' ? props.effectiveDiscount : props.defaultDiscountPercent,
+)
 
 // ─── Services data ──────────────────────────────────────────────────────
 const services = ref<ServiceListItem[]>([])
@@ -128,6 +130,36 @@ function toggleService(id: string) {
 function removeService(id: string) {
   selectedItems.value = selectedItems.value.filter((v) => v.serviceId !== id)
 }
+
+/**
+ * The row as the order will really hold it — built the way the card builds it and
+ * priced by the same `calcLine`.
+ *
+ * Spelling "price × (1 − discount)" out again here is what let this dialog quote a
+ * discount on a service with no cost, which the model gives none (section 10) —
+ * the total promised here and the total in the order were different numbers.
+ */
+const previews = computed(() => {
+  const rows = new Map<string, LineTotals>()
+  for (const item of selectedItems.value) {
+    const unitCost = item.cost > 0 ? item.cost : 0
+    rows.set(
+      item.serviceId,
+      calcLine({
+        id: item.serviceId,
+        quantity: item.quantity,
+        unitCost,
+        costSource: 'manual',
+        ...pricingSeedFor(unitCost, item.price),
+        discountPercent: unitCost > 0 ? modeDiscount.value : 0,
+        state: 'draft',
+        shippedQuantity: 0,
+        documentIssued: false,
+      }),
+    )
+  }
+  return rows
+})
 
 // Helper to check if a service is selected (used in template)
 function isSelected(id: string): boolean {
@@ -381,12 +413,12 @@ function onCancel() {
                 </td>
                 <td class="col-price-ro-cell">
                   <span class="price-display" data-test="add-services-price"
-                    >{{ money(netPrice(item.price)) }} EUR</span
+                    >{{ money(previews.get(item.serviceId)?.unitPrice ?? 0) }} EUR</span
                   >
                 </td>
                 <td class="col-total-cell">
                   <span class="item-total" data-test="add-services-total"
-                    >{{ money(netPrice(item.price) * item.quantity) }} EUR</span
+                    >{{ money(previews.get(item.serviceId)?.lineNet ?? 0) }} EUR</span
                   >
                 </td>
                 <td class="col-action-cell">

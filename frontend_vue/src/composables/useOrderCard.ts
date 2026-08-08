@@ -22,6 +22,7 @@ import {
   buildOrderItem,
   buildOrderService,
   pricingSeedFor,
+  stockCostFor,
   toPricingLine,
 } from '@/services/orderLines'
 import {
@@ -609,12 +610,18 @@ export function useOrderCard(id: string) {
    * does not count, which is what makes the delivery cancellable again.
    */
   function liveInvoiceFor(shipmentId: string): Invoice | null {
-    const corrected = new Set(
-      invoices.value.filter((i) => i.kind === 'correction').map((i) => i.correctsInvoiceId),
+    // Withdrawn, not merely corrected: an adjusting correction fixes a figure on a
+    // document the client is still holding, and that document still has to be
+    // taken back before its delivery can be cancelled. Same rule as the server's
+    // `isWithdrawn`.
+    const withdrawn = new Set(
+      invoices.value
+        .filter((i) => i.kind === 'correction' && i.withdrawsOriginal)
+        .map((i) => i.correctsInvoiceId),
     )
     return (
       invoices.value.find(
-        (i) => i.shipmentId === shipmentId && i.kind !== 'correction' && !corrected.has(i.id),
+        (i) => i.shipmentId === shipmentId && i.kind !== 'correction' && !withdrawn.has(i.id),
       ) ?? null
     )
   }
@@ -747,17 +754,17 @@ export function useOrderCard(id: string) {
     const fifoCosts = await Promise.all(
       items.map((item) =>
         getBatchCostBreakdown(item.productId, item.quantity ?? 1)
-          .then((r) => r.unitPrice)
+          .then((r) => ({ unitCost: r.unitPrice, hasShortage: r.shortageQuantity > 0 }))
           .catch(() => null),
       ),
     )
+    // One rule for both sides — see `stockCostFor`. Rounded there exactly as the
+    // server rounds it: left raw, the margin derived from it would differ in the
+    // second decimal from the one that comes back on Save, and the preview would
+    // be right about the price and wrong about the markup.
     const costs = items.map((item, idx) => {
-      // Rounded to cents exactly as the server rounds it. Left raw, the margin
-      // derived from it would differ in the second decimal from the one that
-      // comes back on Save — the preview would be right about the price and
-      // wrong about the markup.
-      const fromStock = fifoCosts[idx] !== null ? round2(fifoCosts[idx]!) : (item.unitCost ?? null)
-      return { fromStock, unitCost: fromStock ?? round2(item.unitPrice * 0.7) }
+      const answer = fifoCosts[idx]
+      return stockCostFor(answer ? answer.unitCost : (item.unitCost ?? null), answer?.hasShortage)
     })
     const withIds = items.map((item, idx) => ({
       ...item,
@@ -769,10 +776,10 @@ export function useOrderCard(id: string) {
     }))
 
     const newItems = withIds.map((item, idx) => {
-      const { fromStock, unitCost } = costs[idx]!
+      const { unitCost, costSource } = costs[idx]!
       return buildOrderItem({
         // A guessed cost is marked as a guess, so reports can tell them apart.
-        costSource: fromStock === null ? 'estimate' : 'stock',
+        costSource,
         id: item.localId,
         lineNumber: order.value!.items.length + idx + 1,
         productId: item.productId,

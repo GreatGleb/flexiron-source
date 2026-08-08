@@ -33,6 +33,7 @@ import {
 } from './orders'
 import { mockGetClients } from './clients'
 import { mockGetSettings, mockSaveSettings } from './settings'
+import { mockCreateService, mockPatchService } from './services'
 import { batchById, mockCalculateFifoCost, mockGetMovementsFor } from './warehouse'
 import { calcLine, round2, validateLine, netToGross } from '@/domain/orderPricing'
 import { toPricingLine } from '@/services/orderLines'
@@ -713,8 +714,14 @@ describe('invoices', () => {
     const shipment = mockCreateShipment(order.id, { lines: [{ lineId, quantity: 10 }] })
 
     const invoice = mockCreateInvoice(order.id, { shipmentId: shipment.id })
-    expect(invoice.amountNet).toBe(1200)
-    expect(invoice.amountGross).toBe(netToGross(1200, 'standard', 21))
+    // 1200 of goods off the waybill plus the 12 of service that rides with them:
+    // the service never ships, so this is the only document that can carry it —
+    // and it is the same document that freezes it below.
+    expect(invoice.coversServices).toBe(true)
+    expect(invoice.amountNet).toBe(1212)
+    expect(invoice.amountGross).toBe(netToGross(1212, 'standard', 21))
+    // Nothing is left unbilled: what the client owes is what the documents say.
+    expect(invoice.amountGross).toBe(mockGetOrder(order.id)!.totalWithVat)
 
     const after = mockGetOrder(order.id)!
     expect(after.items[0]!.documentIssued).toBe(true)
@@ -723,6 +730,133 @@ describe('invoices', () => {
     expect(() => mockUpdateOrderService(order.id, svc.id, { discountPercent: 5 })).toThrow(
       'PRICE_FROZEN_BY_SHIPMENT',
     )
+  })
+
+  it('adds up to the waybill to the cent on a quantity that hides decimals', () => {
+    // A price with more than two decimals is the ordinary result of spreading a
+    // manual total, and 396,1 units turn the hidden ones into cents. Billed off
+    // the four-decimal display value, this invoice came to 39 999,97 against an
+    // order of exactly 40 000,00 — the one thing an invoice may never do.
+    const created = freshOrder()
+    const item = mockAddOrderItem(created.id, {
+      productId: 'prod-001',
+      quantity: 396.1,
+      unit: 'pcs',
+      unitPrice: 120.5,
+      unitCost: 80,
+    })
+    mockAllocateOrderTotal(created.id, 40000)
+    const stored = mockGetOrder(created.id)!.items[0]!
+    // The premise: the price really does carry more than four decimals.
+    expect(round2(stored.manualUnitPrice! * 396.1)).toBe(stored.totalPrice)
+    expect(round2(stored.unitPrice * 396.1)).not.toBe(stored.totalPrice)
+
+    const shipment = mockCreateShipment(created.id, {
+      lines: [{ lineId: item.id, quantity: 396.1 }],
+    })
+    const invoice = mockCreateInvoice(created.id, { shipmentId: shipment.id })
+    const order = mockGetOrder(created.id)!
+
+    expect(invoice.amountNet).toBe(order.items[0]!.totalPrice)
+    expect(invoice.amountNet).toBe(order.totalAmount)
+    expect(invoice.amountGross).toBe(40000)
+
+    // The shelf goes back to where the test found it — every other test in this
+    // file reads the same batches, and a line this size would move their costs.
+    mockCancelShipment(created.id, shipment.id, { correctionReason: 'Test teardown' })
+  })
+
+  it('carries the services on the first regular invoice and on no other', () => {
+    const created = freshOrder()
+    const a = mockAddOrderItem(created.id, {
+      productId: 'prod-001',
+      quantity: 4,
+      unit: 'pcs',
+      unitPrice: 100,
+      unitCost: 60,
+    })
+    const b = mockAddOrderItem(created.id, {
+      productId: 'prod-001',
+      quantity: 6,
+      unit: 'pcs',
+      unitPrice: 100,
+      unitCost: 60,
+    })
+    mockAddOrderService(created.id, { serviceId: 'svc-001', quantity: 1, price: 12 })
+
+    const first = mockCreateShipment(created.id, { lines: [{ lineId: a.id, quantity: 4 }] })
+    const invoiceA = mockCreateInvoice(created.id, { shipmentId: first.id })
+    expect(invoiceA.coversServices).toBe(true)
+    expect(invoiceA.amountNet).toBe(412)
+
+    const second = mockCreateShipment(created.id, { lines: [{ lineId: b.id, quantity: 6 }] })
+    const invoiceB = mockCreateInvoice(created.id, { shipmentId: second.id })
+    // Billed once, not once per truck.
+    expect(invoiceB.coversServices).toBe(false)
+    expect(invoiceB.amountNet).toBe(600)
+
+    // Every cent of the order is on a document the client holds. The service used
+    // to be on none of them and frozen by both.
+    const order = mockGetOrder(created.id)!
+    expect(round2(invoiceA.amountNet + invoiceB.amountNet)).toBe(order.totalAmount)
+
+    mockCancelShipment(created.id, second.id, { correctionReason: 'Test teardown' })
+    mockCancelShipment(created.id, first.id, { correctionReason: 'Test teardown' })
+  })
+
+  it('unfreezes the services when the document that billed them is withdrawn', () => {
+    const created = freshOrder()
+    const line = mockAddOrderItem(created.id, {
+      productId: 'prod-001',
+      quantity: 4,
+      unit: 'pcs',
+      unitPrice: 100,
+      unitCost: 60,
+    })
+    const svc = mockAddOrderService(created.id, { serviceId: 'svc-001', quantity: 1, price: 12 })
+    const shipment = mockCreateShipment(created.id, { lines: [{ lineId: line.id, quantity: 4 }] })
+    const invoice = mockCreateInvoice(created.id, { shipmentId: shipment.id })
+    expect(mockGetOrder(created.id)!.services[0]!.documentIssued).toBe(true)
+
+    mockCreateInvoice(created.id, {
+      kind: 'correction',
+      correctsInvoiceId: invoice.id,
+      reason: 'Wrong client address on the document',
+    })
+    // The client is not holding it any more, so the service is editable again —
+    // and the next regular invoice will bill it.
+    expect(mockGetOrder(created.id)!.services[0]!.documentIssued).toBe(false)
+    expect(() => mockUpdateOrderService(created.id, svc.id, { discountPercent: 5 })).not.toThrow()
+
+    mockCancelShipment(created.id, shipment.id)
+  })
+
+  it('an adjusting correction leaves the document standing, a mirror one takes it back', () => {
+    const created = freshOrder()
+    const line = mockAddOrderItem(created.id, {
+      productId: 'prod-001',
+      quantity: 4,
+      unit: 'pcs',
+      unitPrice: 100,
+      unitCost: 60,
+    })
+    const shipment = mockCreateShipment(created.id, { lines: [{ lineId: line.id, quantity: 4 }] })
+    const invoice = mockCreateInvoice(created.id, { shipmentId: shipment.id })
+    expect(invoice.withdrawsOriginal).toBe(false)
+
+    // A stated amount fixes a figure on a document the client is STILL holding.
+    const adjustment = mockCreateInvoice(created.id, {
+      kind: 'correction',
+      correctsInvoiceId: invoice.id,
+      amountNet: -40,
+      reason: 'Price agreed at 90,00',
+    })
+    expect(adjustment.withdrawsOriginal).toBe(false)
+    // Read as a withdrawal, this unfroze the line it had just corrected and freed
+    // the order's services to be billed a second time.
+    expect(mockGetOrder(created.id)!.items[0]!.documentIssued).toBe(true)
+    // And the order still cannot be deleted: the client holds a document.
+    expect(() => mockDeleteOrder(created.id)).toThrow('ORDER_HAS_INVOICE')
   })
 
   it('a regular invoice needs a shipment, a correction needs an original', () => {
@@ -1157,6 +1291,61 @@ describe('a new line takes the decision it was given, not a derived number', () 
   })
 })
 
+describe('a service line comes from the service catalogue', () => {
+  it('takes the name and the cost of the service that was picked', async () => {
+    // A service created after this module was written. Against a copy of the
+    // catalogue that knew five of them and fell back to the first, this line was
+    // stored as "Metal cutting" at a cost of 5,00 — a different service at a
+    // different cost, under a name the admin never chose.
+    const picked = await mockCreateService({
+      name: { ru: 'Гибка труб', en: 'Pipe bending', lt: 'Vamzdžių lankstymas' },
+      costPrice: 40,
+      sellingPrice: 90,
+      priceUnit: 'EUR/vnt',
+    })
+    const created = freshOrder()
+    const line = mockAddOrderService(created.id, {
+      serviceId: picked.id,
+      quantity: 2,
+      price: 90,
+    })
+
+    expect(line.serviceName).toBe('Pipe bending')
+    expect(line.unitCost).toBe(40)
+    expect(line.price).toBe(90)
+    expect(mockGetOrder(created.id)!.totalCost).toBe(80)
+  })
+
+  it('follows a cost corrected in the services page', async () => {
+    const created = freshOrder()
+    const before = mockAddOrderService(created.id, {
+      serviceId: 'svc-002',
+      quantity: 3,
+      price: 25,
+    })
+    expect(before.unitCost).toBe(10)
+
+    await mockPatchService('svc-002', { costPrice: 22 })
+    const after = mockAddOrderService(created.id, {
+      serviceId: 'svc-002',
+      quantity: 3,
+      price: 25,
+    })
+    // The card reads the same catalogue and showed 22,00 either way; the order
+    // used to keep quoting the number frozen into this module.
+    expect(after.unitCost).toBe(22)
+
+    await mockPatchService('svc-002', { costPrice: 10 })
+  })
+
+  it('refuses a service nobody has heard of', () => {
+    const created = freshOrder()
+    expect(() =>
+      mockAddOrderService(created.id, { serviceId: 'svc-does-not-exist', quantity: 1, price: 10 }),
+    ).toThrow('SERVICE_NOT_FOUND')
+  })
+})
+
 describe('cost provenance', () => {
   it('marks a cost read off a batch as coming from stock', () => {
     const created = freshOrder()
@@ -1186,7 +1375,7 @@ describe('cost provenance', () => {
     expect(item.costSource).toBe('stock')
   })
 
-  it('marks a guessed cost as an estimate rather than dressing it up', () => {
+  it('gives a product it cannot cost no cost at all, rather than inventing one', () => {
     const created = freshOrder()
     // Nothing in the warehouse under this product, so there is no cost to read.
     const item = mockAddOrderItem(created.id, {
@@ -1195,9 +1384,19 @@ describe('cost provenance', () => {
       unit: 'pcs',
       unitPrice: 120,
     })
+    // A share of the selling price is not a cost, it is a number somebody made
+    // up — and the card, making its own up, arrived at a different one. Without
+    // a cost the model already knows what to do: the price was named outright.
+    expect(item.unitCost).toBe(0)
     expect(item.costSource).toBe('estimate')
-    expect(item.unitCost).toBe(90)
+    expect(item.manualUnitPrice).toBe(120)
+    expect(item.marginPercent).toBe(0)
+    expect(item.unitPrice).toBe(120)
     expect(item.allocations).toEqual([])
+    // And it stays out of every percentage, like any other line without a cost.
+    expect(() => mockUpdateOrderItem(created.id, item.id, { marginPercent: 20 })).toThrow(
+      'NO_COST_TO_MARK_UP',
+    )
   })
 })
 

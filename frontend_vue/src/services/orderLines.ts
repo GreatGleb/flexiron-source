@@ -91,6 +91,32 @@ export function pricingSeedFor(
   return { marginPercent: 0, manualUnitPrice: sellingPrice }
 }
 
+/**
+ * The cost a new line starts with, read off what the warehouse could answer.
+ *
+ * A product with no batch behind it has NO cost — not "some share of the price".
+ * Inventing one puts a made-up margin into every report, and inventing it in two
+ * places puts a DIFFERENT made-up number on the card than on the server: the card
+ * showed a cost of 0 "from stock" and the same line came back at 0.75 × price
+ * "estimated", moving the order's cost and its margin the moment it was saved.
+ *
+ * The model already answers this case (section 11.9): a line without a cost is
+ * sold at the price it was named at, its margin column reads "—", and percentages
+ * leave it alone. Nothing has to be guessed.
+ *
+ * `fifoUnitCost` is null when the warehouse could not be asked at all, and zero
+ * when it was asked and has nothing. Both mean the same thing here.
+ */
+export function stockCostFor(
+  fifoUnitCost: number | null,
+  hasShortage = false,
+): { unitCost: number; costSource: CostSource } {
+  if (fifoUnitCost === null || fifoUnitCost <= 0) return { unitCost: 0, costSource: 'estimate' }
+  // Partly covered: the covered part has real batches, the gap is a guess, and
+  // one line carries one source — so the whole line says "estimate".
+  return { unitCost: round2(fifoUnitCost), costSource: hasShortage ? 'estimate' : 'stock' }
+}
+
 // ─── Allocations ────────────────────────────────────────────────────────────
 
 /**

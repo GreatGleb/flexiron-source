@@ -271,6 +271,27 @@ export interface Invoice {
   /** A regular invoice covers one shipment; an advance invoice covers none. */
   shipmentId: string | null
   correctsInvoiceId: string | null
+  /**
+   * This correction takes the original document back, rather than adjusting it.
+   *
+   * A correction for the mirror amount withdraws the invoice — the two together
+   * come to zero and the client holds nothing. A correction for a stated smaller
+   * amount only fixes a figure on a document the client is still holding: a price
+   * corrected after the goods left. Only the first kind makes the original stop
+   * counting, and conflating them unfroze corrected lines and billed the order's
+   * services twice. Always false on anything that is not a correction.
+   */
+  withdrawsOriginal: boolean
+  /**
+   * The order's services are billed on this document.
+   *
+   * Services never ship, so they cannot belong to a shipment — they ride on the
+   * first regular invoice of the order, which is the same document that freezes
+   * them. Recorded on the invoice rather than worked out again later: the amount
+   * and the freeze have to be one decision, or the services end up frozen by a
+   * document that never charged for them.
+   */
+  coversServices: boolean
   amountNet: number
   amountVat: number
   amountGross: number

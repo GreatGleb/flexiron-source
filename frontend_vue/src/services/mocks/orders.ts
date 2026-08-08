@@ -21,6 +21,7 @@ import type { StockAuditEntry, StockReservation } from '@/types/warehouse'
 import type { PaginatedResponse, PaginationParams } from '@/types/api'
 import {
   type PricingLine,
+  calcLine,
   round2,
   rollupOrder,
   validateLine,
@@ -44,6 +45,7 @@ import {
   projectService,
   pricingSeedFor,
   splitAllocations,
+  stockCostFor,
 } from '@/services/orderLines'
 import { applyLineEdit, deltaToOps, type LineEditDelta } from '@/services/orderLineEdits'
 import {
@@ -68,7 +70,7 @@ import {
   recordShortage,
   writeMovement,
 } from './warehouse'
-import { mockServices as MOCK_SERVICES_DATA } from '@/mocks/services'
+import { allServices, serviceById } from './services'
 
 interface StoreOrder extends Order {
   _nextLineSeq: number
@@ -271,13 +273,25 @@ const PRODUCTS: ProductSpec[] = [
   { id: 'prod-030', name: 'Square Bar 15mm', unit: 'm', price: 9.8 },
 ]
 
-const SERVICES_LIST = [
-  { id: 'svc-001', name: 'Metal cutting', cost: 5, price: 12 },
-  { id: 'svc-002', name: 'Delivery', cost: 10, price: 25 },
-  { id: 'svc-003', name: 'Packaging', cost: 2, price: 5 },
-  { id: 'svc-004', name: 'Metal bending', cost: 8, price: 18 },
-  { id: 'svc-005', name: 'Welding', cost: 15, price: 35 },
-]
+/**
+ * The service catalogue, read live — see `serviceById`.
+ *
+ * There is no copy of it here on purpose. The copy that used to live in this file
+ * knew five services and fell back to the first of them for anything else, so a
+ * service created later came into an order under someone else's name and someone
+ * else's cost, and a cost corrected in the services page never arrived at all.
+ */
+function serviceEntry(id: string): { name: string; cost: number; price: number } {
+  const svc = serviceById(id)
+  if (!svc) throw new Error('SERVICE_NOT_FOUND')
+  const lang =
+    typeof localStorage !== 'undefined' ? localStorage.getItem('flexiron_lang') || 'en' : 'en'
+  return {
+    name: svc.name[lang as keyof typeof svc.name] ?? svc.name.en,
+    cost: svc.costPrice,
+    price: svc.sellingPrice,
+  }
+}
 
 // ── Generate 100 realistic orders (deterministic — same seed = same data) ────
 const TOTAL_ORDERS = 100
@@ -388,18 +402,15 @@ function generateOrders(): StoreOrder[] {
 
     // 0–1 services (30% chance)
     const services: OrderService[] = []
-    if (rng() < 0.3) {
-      const svc = SERVICES_LIST[Math.floor(rng() * SERVICES_LIST.length)]!
-      const fullSvc = MOCK_SERVICES_DATA.find((s) => s.id === svc.id)
-      const initLang =
-        typeof localStorage !== 'undefined' ? localStorage.getItem('flexiron_lang') || 'en' : 'en'
-      const serviceName =
-        fullSvc?.name?.[initLang as keyof typeof fullSvc.name] ?? fullSvc?.name?.en ?? svc.name
+    const catalogue = allServices()
+    if (rng() < 0.3 && catalogue.length > 0) {
+      const picked = catalogue[Math.floor(rng() * catalogue.length)]!
+      const svc = serviceEntry(picked.id)
       services.push(
         buildService({
           id: `os-${i * 10}`,
-          serviceId: svc.id,
-          serviceName,
+          serviceId: picked.id,
+          serviceName: svc.name,
           quantity: 1,
           unitCost: svc.cost,
           ...pricingSeedFor(svc.cost, svc.price),
@@ -1280,7 +1291,7 @@ export function mockDeleteOrder(id: string): void {
   const idx = STORE.findIndex((o) => o.id === id)
   if (idx === -1) return
   const order = STORE[idx]!
-  if (order.invoices.some((i) => i.kind !== 'correction' && !isCorrected(order, i.id))) {
+  if (order.invoices.some((i) => i.kind !== 'correction' && !isWithdrawn(order, i.id))) {
     throw new Error('ORDER_HAS_INVOICE')
   }
   if (order.shipments.some((s) => !s.cancelled)) throw new Error('ORDER_HAS_SHIPMENT')
@@ -1323,14 +1334,16 @@ export function mockAddOrderItem(
   // The caller hands over a selling price; cost and margin are what the model
   // actually stores, so the margin is derived to land on that price.
   //
-  // The cost itself is read off the warehouse, oldest batches first — the same
-  // FIFO figure the card showed before Save, so the row does not change under the
-  // admin the moment it is stored. A product with no batches has no cost to read:
-  // it is guessed and SAID to be a guess, because an invented number dressed up
-  // as a warehouse figure is worse than no number at all.
+  // The cost itself is read off the warehouse, oldest batches first — through the
+  // same `stockCostFor` the card runs before Save, so the row does not change
+  // under the admin the moment it is stored. A product with no batches has no
+  // cost, and gets none: an invented number dressed up as a warehouse figure is
+  // worse than no number at all, and two sides inventing separately is worse still.
   const fifo = mockFifoAllocation(data.productId, data.quantity)
-  const fromStock = fifo.weightedUnitCost > 0 ? round2(fifo.weightedUnitCost) : null
-  const unitCost = data.unitCost ?? fromStock ?? round2(data.unitPrice * 0.75)
+  const { unitCost, costSource } = stockCostFor(
+    data.unitCost ?? fifo.weightedUnitCost,
+    fifo.shortageQuantity > 0,
+  )
 
   // What the warehouse cannot cover is written down as a shortage: the order can
   // be taken, but nobody may ship goods that are not there, and a shortage with
@@ -1356,12 +1369,7 @@ export function mockAddOrderItem(
   const item = buildItem({
     // A line the warehouse cannot fully cover is costed partly on a guess, and
     // says so — the covered part still carries its real batches.
-    costSource:
-      fifo.shortageQuantity > 0
-        ? 'estimate'
-        : data.unitCost !== undefined || fromStock !== null
-          ? 'stock'
-          : 'estimate',
+    costSource,
     id: `oi-${order._nextLineSeq}`,
     lineNumber: order._nextLineSeq,
     productId: data.productId,
@@ -1503,17 +1511,14 @@ export function mockAddOrderService(
 ): OrderService {
   const order = STORE.find((o) => o.id === orderId)
   if (!order) throw new Error('ORDER_NOT_FOUND')
-  const svcEntry = SERVICES_LIST.find((s) => s.id === data.serviceId) ?? SERVICES_LIST[0]!
-  const currentLang =
-    typeof localStorage !== 'undefined' ? localStorage.getItem('flexiron_lang') || 'en' : 'en'
-  const fullSvc = MOCK_SERVICES_DATA.find((s) => s.id === svcEntry.id)
-  const serviceName =
-    fullSvc?.name?.[currentLang as keyof typeof fullSvc.name] ?? fullSvc?.name?.en ?? svcEntry.name
+  // From the catalogue, and refused if it is not in it: falling back to some
+  // other service stored the line under a name nobody picked.
+  const svcEntry = serviceEntry(data.serviceId)
   const price = data.price ?? svcEntry.price
   const service = buildService({
     id: `os-${order._nextServiceSeq}`,
     serviceId: data.serviceId,
-    serviceName,
+    serviceName: svcEntry.name,
     quantity: data.quantity,
     unitCost: svcEntry.cost,
     ...pricingSeedFor(svcEntry.cost, price),
@@ -2180,20 +2185,54 @@ export function mockGetInvoices(orderId: string): Invoice[] {
 }
 
 /**
- * Has this document already been withdrawn by a correcting one?
+ * What a quantity off one line comes to — through the pricing module, from the
+ * price the line actually stores.
+ *
+ * `line.unitPrice` is a projection rounded to four places for display; the price
+ * itself is kept at full precision precisely so a spread total lands on the cent
+ * (see `allocateTotal`). Billing off the projection put the invoice three cents
+ * under its own waybill on a line of 396,1 and five over on one of 999,9.
+ */
+function shippedLineNet(line: OrderItem, quantity: number): number {
+  return calcLine({ ...toPricingLine(line), quantity }).lineNet
+}
+
+/**
+ * Has this document been WITHDRAWN by a correcting one?
  *
  * A corrected invoice is not deleted — the client received it — so "does the
  * client still hold a valid document for this" is a question about corrections,
  * not about the invoice itself.
+ *
+ * Withdrawn is not the same as corrected, and the difference decides real things.
+ * A correction with the mirror amount takes the document back: the two together
+ * come to zero and the client holds nothing. A correction with a stated smaller
+ * amount only ADJUSTS it — a price fixed after the goods left — and the client is
+ * still holding the original. Treated as withdrawn, that second kind would
+ * unfreeze the line it just corrected, hand the order's services to the next
+ * invoice to bill a second time, and let the order be deleted out from under a
+ * document nobody had taken back.
  */
-function isCorrected(order: StoreOrder, invoiceId: string): boolean {
+function isWithdrawn(order: StoreOrder, invoiceId: string): boolean {
+  return order.invoices.some(
+    (i) => i.kind === 'correction' && i.correctsInvoiceId === invoiceId && i.withdrawsOriginal,
+  )
+}
+
+/**
+ * Has it been corrected at all, whichever way?
+ *
+ * One document is corrected once (model, section 8) — otherwise one invoice would
+ * be reversed twice over. That limit counts every correction, not just withdrawals.
+ */
+function hasCorrection(order: StoreOrder, invoiceId: string): boolean {
   return order.invoices.some((i) => i.kind === 'correction' && i.correctsInvoiceId === invoiceId)
 }
 
 /** Invoices the client still holds for this delivery. */
 function liveInvoicesFor(order: StoreOrder, shipmentId: string): Invoice[] {
   return order.invoices.filter(
-    (i) => i.shipmentId === shipmentId && i.kind !== 'correction' && !isCorrected(order, i.id),
+    (i) => i.shipmentId === shipmentId && i.kind !== 'correction' && !isWithdrawn(order, i.id),
   )
 }
 
@@ -2235,17 +2274,31 @@ export function mockCreateInvoice(
     // A correction corrects an issued document, not another correction — and only
     // once, or two withdrawals of one invoice would reverse it twice over.
     if (original.kind === 'correction') throw new Error('CANNOT_CORRECT_A_CORRECTION')
-    if (isCorrected(order, original.id)) throw new Error('INVOICE_ALREADY_CORRECTED')
+    if (hasCorrection(order, original.id)) throw new Error('INVOICE_ALREADY_CORRECTED')
   } else if (data.correctsInvoiceId) {
     throw new Error('CORRECTION_NEEDS_KIND')
   }
+
+  // Services never ship, so no delivery can carry them: they go on the FIRST
+  // regular invoice of the order — the same document that freezes them. Decided
+  // once, here, and recorded on the invoice: worked out separately, the amount and
+  // the freeze disagreed, and every service in the order was frozen by a document
+  // that had charged for none of them.
+  const coversServices =
+    kind === 'regular' &&
+    !order.invoices.some((i) => i.coversServices && !isWithdrawn(order, i.id))
+
+  // Mirror amount → the document is taken back. Stated amount → it is adjusted and
+  // the client goes on holding it. See `withdrawsOriginal`.
+  const stated = original ? statedNet(order, data) : undefined
+  const withdrawsOriginal = original !== undefined && stated === undefined
 
   let net: number
   if (original) {
     // Withdrawing the document means the mirror image of it. An explicit amount
     // is still allowed — a price corrected downwards is a partial correction —
     // but the default is the whole thing, because that is what a cancellation is.
-    net = statedNet(order, data) ?? round2(-original.amountNet)
+    net = stated ?? round2(-original.amountNet)
   } else if (data.shipmentId) {
     const shipment = order.shipments.find((s) => s.id === data.shipmentId)
     if (!shipment) throw new Error('SHIPMENT_NOT_FOUND')
@@ -2258,16 +2311,18 @@ export function mockCreateInvoice(
     }
     // The amount comes from the delivery, not from the caller: an invoice that
     // disagrees with its own waybill is the thing this whole model avoids.
-    net = round2(
-      shipment.lines.reduce((sum, sl) => {
-        const line = order.items.find((i) => i.id === sl.lineId)
-        return line ? sum + round2(line.unitPrice * sl.quantity) : sum
-      }, 0),
-    )
+    const goods = shipment.lines.reduce((sum, sl) => {
+      const line = order.items.find((i) => i.id === sl.lineId)
+      return line ? round2(sum + shippedLineNet(line, sl.quantity)) : sum
+    }, 0)
+    const services = coversServices
+      ? order.services.reduce((sum, s) => round2(sum + calcLine(toPricingLine(s)).lineNet), 0)
+      : 0
+    net = round2(goods + services)
   } else {
-    const stated = statedNet(order, data)
-    if (stated === undefined) throw new Error('INVOICE_AMOUNT_REQUIRED')
-    net = stated
+    const amount = statedNet(order, data)
+    if (amount === undefined) throw new Error('INVOICE_AMOUNT_REQUIRED')
+    net = amount
   }
 
   const gross = netToGross(net, order.vatMode, order.vatPercent)
@@ -2281,6 +2336,8 @@ export function mockCreateInvoice(
     // even when the caller only names the invoice.
     shipmentId: data.shipmentId ?? original?.shipmentId ?? null,
     correctsInvoiceId: data.correctsInvoiceId ?? null,
+    withdrawsOriginal,
+    coversServices,
     amountNet: net,
     amountVat: round2(gross - net),
     amountGross: gross,
@@ -2304,7 +2361,8 @@ export function mockCreateInvoice(
         if (item) item.documentIssued = true
       })
     }
-    if (kind === 'regular') {
+    // Only the document that actually billed them freezes them — see `coversServices`.
+    if (coversServices) {
       order.services.forEach((s) => {
         s.documentIssued = true
       })
@@ -2339,7 +2397,7 @@ function statedNet(
  * client still holds a document for.
  */
 function refreshDocumentFreeze(order: StoreOrder): void {
-  const live = order.invoices.filter((i) => i.kind !== 'correction' && !isCorrected(order, i.id))
+  const live = order.invoices.filter((i) => i.kind !== 'correction' && !isWithdrawn(order, i.id))
   const covered = new Set<string>()
   for (const invoice of live) {
     if (!invoice.shipmentId) continue
@@ -2350,8 +2408,8 @@ function refreshDocumentFreeze(order: StoreOrder): void {
     item.documentIssued = covered.has(item.id)
     applyPricing(item, syncLineState(toPricingLine(item)))
   }
-  // Services are on every regular invoice — they have no shipment of their own.
-  const servicesBilled = live.some((i) => i.kind === 'regular')
+  // A service is frozen by the one document that billed it, and by no other.
+  const servicesBilled = live.some((i) => i.coversServices)
   for (const service of order.services) {
     service.documentIssued = servicesBilled
   }

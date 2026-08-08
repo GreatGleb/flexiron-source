@@ -6,6 +6,7 @@ import {
   marginFor,
   pricingSeedFor,
   splitAllocations,
+  stockCostFor,
   toPricingLine,
 } from './orderLines'
 import type { OrderLineAllocation } from '@/types/order'
@@ -186,6 +187,63 @@ describe('a price of zero', () => {
     })
     expect(() => validateLine(toPricingLine(line))).not.toThrow()
     expect(line.unitPrice).toBe(0)
+  })
+})
+
+describe('stockCostFor', () => {
+  it('rounds a real warehouse figure to cents and calls it stock', () => {
+    expect(stockCostFor(12.3456)).toEqual({ unitCost: 12.35, costSource: 'stock' })
+  })
+
+  it('says estimate when the batches cover only part of the line', () => {
+    expect(stockCostFor(12.35, true)).toEqual({ unitCost: 12.35, costSource: 'estimate' })
+  })
+
+  it('invents nothing for a product it cannot cost', () => {
+    // A share of the selling price is not a cost. The card guessed 70% of it and
+    // called the result "from stock"; the server guessed 75% and called the same
+    // line an estimate — so the cost of the order, its margin and the 🔒 on the
+    // row all moved the moment it was saved. Neither number existed.
+    expect(stockCostFor(null)).toEqual({ unitCost: 0, costSource: 'estimate' })
+    // Asked and answered with nothing means the same as never asked.
+    expect(stockCostFor(0)).toEqual({ unitCost: 0, costSource: 'estimate' })
+  })
+})
+
+describe('the picker preview and the line it becomes', () => {
+  /** How every caller builds a new line: a cost, a stated price, a discount. */
+  function newLine(fifoUnitCost: number | null, statedPrice: number, orderDiscount: number) {
+    const { unitCost } = stockCostFor(fifoUnitCost)
+    return buildOrderItem({
+      id: 'l1',
+      lineNumber: 1,
+      productId: 'p1',
+      productName: 'Line',
+      quantity: 2,
+      unit: 'pcs',
+      unitCost,
+      ...pricingSeedFor(unitCost, statedPrice),
+      // The rule the picker used not to know: a discount is a share of a computed
+      // price, and a line without a cost has none.
+      discountPercent: unitCost > 0 ? orderDiscount : 0,
+      receivedCurrency: 'cur-eur',
+      exchangeRate: 1,
+    })
+  }
+
+  it('gives a costed line the order discount', () => {
+    const line = newLine(300, 500, 12)
+    expect(line.unitPrice).toBe(440)
+    expect(line.totalPrice).toBe(880)
+  })
+
+  it('gives a line the warehouse cannot cost the price it was named at', () => {
+    // The dialog quoted 880,00 for this row — price × (1 − 12%), spelled out in
+    // the dialog instead of read off the line — and the order then showed 1000,00.
+    const line = newLine(null, 500, 12)
+    expect(line.discountPercent).toBe(0)
+    expect(line.unitPrice).toBe(500)
+    expect(line.totalPrice).toBe(1000)
   })
 })
 

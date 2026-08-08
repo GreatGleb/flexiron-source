@@ -562,9 +562,25 @@ function invoiceBasis(shipmentId: string | null, kind: string): string {
   return t('orders.invoice_basis_shipment', { number: shipmentNumberOf(shipmentId) })
 }
 
-/** Whether the client is still holding this document — a corrected one they are not. */
-function isCorrectedInvoice(invoiceId: string): boolean {
-  return invoices.value.some((i) => i.kind === 'correction' && i.correctsInvoiceId === invoiceId)
+/**
+ * Withdrawn — the client is not holding this document any more.
+ *
+ * Not the same as corrected. A mirror correction takes the invoice back; a
+ * correction for a stated amount only fixes a figure on one the client still has,
+ * which is what a price correction issues. Struck through alike, the panel said a
+ * document had been withdrawn when it had only been put right.
+ */
+function isWithdrawnInvoice(invoiceId: string): boolean {
+  return invoices.value.some(
+    (i) => i.kind === 'correction' && i.correctsInvoiceId === invoiceId && i.withdrawsOriginal,
+  )
+}
+
+/** Adjusted by a later document, and still in the client's hands. */
+function isAdjustedInvoice(invoiceId: string): boolean {
+  return invoices.value.some(
+    (i) => i.kind === 'correction' && i.correctsInvoiceId === invoiceId && !i.withdrawsOriginal,
+  )
 }
 
 function canInvoiceShipment(shipmentId: string): boolean {
@@ -1609,7 +1625,7 @@ onMounted(loadShipments)
                 <tr
                   v-for="inv in invoices"
                   :key="inv.id"
-                  :class="{ 'line-frozen': isCorrectedInvoice(inv.id) }"
+                  :class="{ 'line-frozen': isWithdrawnInvoice(inv.id) }"
                   data-test="order-invoice-row"
                 >
                   <td>{{ inv.number }}</td>
@@ -1626,10 +1642,16 @@ onMounted(loadShipments)
                   <td class="num" data-test="invoice-amount">{{ money(inv.amountGross) }}</td>
                   <td class="line-actions">
                     <span
-                      v-if="isCorrectedInvoice(inv.id)"
+                      v-if="isWithdrawnInvoice(inv.id)"
                       class="pill pill-danger"
                       data-test="invoice-corrected"
                       >{{ t('orders.invoice_corrected') }}</span
+                    >
+                    <span
+                      v-else-if="isAdjustedInvoice(inv.id)"
+                      class="pill pill-warning"
+                      data-test="invoice-adjusted"
+                      >{{ t('orders.invoice_adjusted') }}</span
                     >
                     <span v-else-if="inv.reason" v-tooltip="inv.reason" class="pill pill-warning">{{
                       t('orders.invoice_kind_correction')

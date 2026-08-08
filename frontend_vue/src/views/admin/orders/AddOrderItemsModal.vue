@@ -14,7 +14,14 @@ import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
 import SearchInput from '@/components/admin/ui/SearchInput.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
 import AddLineModeChooser from './AddLineModeChooser.vue'
-import { formatCents as money, round2, type AddLineMode } from '@/domain/orderPricing'
+import {
+  calcLine,
+  formatCents as money,
+  round2,
+  type AddLineMode,
+  type LineTotals,
+} from '@/domain/orderPricing'
+import { pricingSeedFor, stockCostFor } from '@/services/orderLines'
 
 const { t, locale } = useI18n()
 const toast = useToast()
@@ -45,6 +52,8 @@ const emit = defineEmits<{
       unit: string
       unitPrice: number
       unitCost?: number
+      /** The warehouse could not cover the whole line — the cost is an estimate. */
+      hasShortage?: boolean
       /** Quantity in warehouse UoM (converted from sale qty if UoMs differ) */
       warehouseQty?: number
     }>,
@@ -194,33 +203,47 @@ interface SelectedOrderItem {
 const selectedItems = ref<SelectedOrderItem[]>([])
 
 /** FIFO batch cost breakdown per selected product (unitPrice + totalCost) */
-const selectedItemsCosts = ref<Map<string, { unitPrice: number; totalCost: number }>>(new Map())
+const selectedItemsCosts = ref<
+  Map<string, { unitPrice: number; totalCost: number; shortageQuantity: number }>
+>(new Map())
 
-function toggleProduct(id: string) {
+/** Products whose cost is still on its way — one click, one row. */
+const pendingProducts = ref(new Set<string>())
+
+async function toggleProduct(id: string) {
   const idx = selectedItems.value.findIndex((item) => item.productId === id)
-  if (idx === -1) {
-    // Add new item with default quantity=1
-    const product = products.value.find((p) => p.id === id)
-    if (!product) return
-    const unit = getProductUnit(product)
-    const saleQty = 1
-    const unitPrice = priceFor(product, selectedItemsCosts.value.get(product.id)?.unitPrice)
-    selectedItems.value = [
-      ...selectedItems.value,
-      {
-        productId: product.id,
-        productName: tf(product.name),
-        quantity: saleQty,
-        unit,
-        unitPrice,
-        warehouseQty: saleQtyToWarehouseQty(product, saleQty),
-      },
-    ]
-    // Trigger FIFO cost calculation and update unitPrice when ready
-    recalcFifoCost(product.id, saleQty)
-  } else {
+  if (idx !== -1) {
     selectedItems.value = selectedItems.value.filter((v) => v.productId !== id)
+    return
   }
+  const product = products.value.find((p) => p.id === id)
+  if (!product || pendingProducts.value.has(id)) return
+
+  const saleQty = 1
+  // The row waits for the cost instead of appearing without it. The cost decides
+  // the price for a product the catalogue prices at nothing, and it decides
+  // whether the line takes the order's discount at all — a row shown first and
+  // corrected a moment later quotes a number that was never going to be true.
+  pendingProducts.value = new Set(pendingProducts.value).add(id)
+  try {
+    await recalcFifoCost(id, saleQty)
+  } finally {
+    const rest = new Set(pendingProducts.value)
+    rest.delete(id)
+    pendingProducts.value = rest
+  }
+
+  selectedItems.value = [
+    ...selectedItems.value,
+    {
+      productId: product.id,
+      productName: tf(product.name),
+      quantity: saleQty,
+      unit: getProductUnit(product),
+      unitPrice: priceFor(product, selectedItemsCosts.value.get(product.id)?.unitPrice),
+      warehouseQty: saleQtyToWarehouseQty(product, saleQty),
+    },
+  ]
 }
 
 function removeProduct(id: string) {
@@ -428,14 +451,46 @@ function catalogueQuote(product: ProductListItem): string {
   return `${money(price)} ${settings.constants.defaultCurrency}`
 }
 
-/** Price per unit after the chosen mode's discount, unrounded. */
-function netPrice(unitPrice: number): number {
-  return unitPrice * (1 - modeDiscount.value / 100)
+/** The cost this product would come into the order with — one rule for both sides. */
+function costFor(productId: string): ReturnType<typeof stockCostFor> {
+  const answer = selectedItemsCosts.value.get(productId)
+  return stockCostFor(answer?.unitPrice ?? null, (answer?.shortageQuantity ?? 0) > 0)
 }
 
-// Money is formatted by the domain's rule — see `formatCents`. Rounding the unit
-// price and THEN multiplying by the quantity would promise a total a cent away
-// from the row the admin actually gets.
+/**
+ * The row as the order will really hold it — built the way the card builds it and
+ * priced by the same `calcLine`.
+ *
+ * Not "price × (1 − discount)" spelled out again here: that copy did not know the
+ * rule that a line with no cost takes no discount (model section 10), so a product
+ * the warehouse cannot cost was quoted at 880,00 and landed in the order at
+ * 1 000,00. A preview that runs the real function cannot promise a total the order
+ * then does not show — including the rounding, which is why the total comes from
+ * `lineNet` rather than from a rounded unit price multiplied out.
+ */
+const previews = computed(() => {
+  const rows = new Map<string, LineTotals>()
+  for (const item of selectedItems.value) {
+    const { unitCost } = costFor(item.productId)
+    rows.set(
+      item.productId,
+      calcLine({
+        id: item.productId,
+        quantity: item.quantity,
+        unitCost,
+        costSource: 'stock',
+        ...pricingSeedFor(unitCost, item.unitPrice),
+        // A line with no cost keeps its stated price: a discount is a share of a
+        // computed price, and it has none.
+        discountPercent: unitCost > 0 ? modeDiscount.value : 0,
+        state: 'draft',
+        shippedQuantity: 0,
+        documentIssued: false,
+      }),
+    )
+  }
+  return rows
+})
 
 // ─── Save ─────────────────────────────────────────────────────────────────
 function onSave() {
@@ -443,7 +498,7 @@ function onSave() {
   const items = selectedItems.value
     .filter((item) => item.quantity > 0)
     .map((item) => {
-      const fifoCost = selectedItemsCosts.value.get(item.productId)?.unitPrice
+      const answer = selectedItemsCosts.value.get(item.productId)
       return {
         productId: item.productId,
         productName: item.productName,
@@ -452,7 +507,8 @@ function onSave() {
         // The price before the discount: the mode decides the discount, and the
         // line stores the two separately.
         unitPrice: item.unitPrice,
-        unitCost: fifoCost,
+        unitCost: answer?.unitPrice,
+        hasShortage: (answer?.shortageQuantity ?? 0) > 0,
         warehouseQty: item.warehouseQty,
       }
     })
@@ -663,13 +719,13 @@ function onCancel() {
                 </td>
                 <td class="col-price-ro-cell">
                   <span class="price-display" data-test="add-items-price"
-                    >{{ money(netPrice(item.unitPrice)) }}
+                    >{{ money(previews.get(item.productId)?.unitPrice ?? 0) }}
                     {{ settings.constants.defaultCurrency }}</span
                   >
                 </td>
                 <td class="col-total-cell">
                   <span class="item-total" data-test="add-items-total"
-                    >{{ money(netPrice(item.unitPrice) * item.quantity) }}
+                    >{{ money(previews.get(item.productId)?.lineNet ?? 0) }}
                     {{ settings.constants.defaultCurrency }}</span
                   >
                 </td>

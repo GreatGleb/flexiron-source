@@ -310,3 +310,32 @@ describe('applying the order percentages to every line', () => {
     expect(card.totals.value.totalNet).toBeCloseTo(10 * 8 * 1.25, 2)
   })
 })
+describe('adding a product the warehouse cannot cost', () => {
+  it('prices it outright instead of inventing a cost the server would not agree with', async () => {
+    const card = await loadedCard()
+    // No batches and no cost from the picker — the FIFO lookup has nothing to say.
+    await card.handleAddItemDirect({
+      productId: 'prod-none',
+      productName: 'Never been in stock',
+      quantity: 4,
+      unit: 'pcs',
+      unitPrice: 245,
+    })
+
+    const line = card.order.value!.items[1]!
+    // Not 0.7 × 245 called "from stock" here and 0.75 × 245 called an estimate on
+    // the server: the cost of the order, its margin and the 🔒 on the row all
+    // moved the moment this line was saved.
+    expect(line.unitCost).toBe(0)
+    expect(line.costSource).toBe('estimate')
+    expect(line.manualUnitPrice).toBe(245)
+    expect(line.totalPrice).toBe(980)
+    // The order's default discount is 10%, and a line with no cost takes none.
+    expect(line.discountPercent).toBe(0)
+    expect(card.pendingItems.value[0]!.discountPercent).toBe(0)
+    // It stays out of the percentages, and the button says so.
+    card.requestApplyDefaults()
+    expect(card.defaultsPreview.value).toMatchObject({ lineCount: 1, skipped: 1 })
+  })
+})
+

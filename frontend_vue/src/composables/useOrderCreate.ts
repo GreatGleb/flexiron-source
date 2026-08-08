@@ -17,9 +17,10 @@ import {
   buildOrderItem,
   buildOrderService,
   pricingSeedFor,
+  stockCostFor,
   toPricingLine,
 } from '@/services/orderLines'
-import { round2, rollupOrder } from '@/domain/orderPricing'
+import { rollupOrder } from '@/domain/orderPricing'
 
 export function useOrderCreate() {
   const { t } = useI18n()
@@ -130,6 +131,8 @@ export function useOrderCreate() {
           unit: string
           unitPrice: number
           unitCost?: number
+          /** The warehouse could not cover the whole line — the cost is an estimate. */
+          hasShortage?: boolean
         }>
       | {
           productId: string
@@ -138,16 +141,21 @@ export function useOrderCreate() {
           unit: string
           unitPrice: number
           unitCost?: number
+          /** The warehouse could not cover the whole line — the cost is an estimate. */
+          hasShortage?: boolean
         },
   ) {
     const items = Array.isArray(data) ? data : [data]
 
     const now = Date.now()
     const newItems: OrderItem[] = items.map((item, idx) => {
-      const unitCost = item.unitCost ?? round2(item.unitPrice * 0.7)
+      // One rule for both sides — see `stockCostFor`. A product the warehouse
+      // cannot cost gets no cost at all rather than an invented one, which is
+      // also what the server will store when this line is created.
+      const { unitCost, costSource } = stockCostFor(item.unitCost ?? null, item.hasShortage)
       return buildOrderItem({
         // A guessed cost is marked as a guess, so reports can tell them apart.
-        costSource: item.unitCost === undefined ? 'estimate' : 'stock',
+        costSource,
         id: `temp-${now}-${Math.random().toString(36).slice(2, 8)}-${idx}`,
         lineNumber: localOrder.value.items.length + idx + 1,
         productId: item.productId,
