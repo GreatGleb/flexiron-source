@@ -535,6 +535,42 @@ test.describe('Order Card › fields & structure', () => {
     await expect(page.locator('[data-test="field-gross-total"]')).toHaveValue(promised)
   })
 
+  test('the percentages reach a line that has not been saved yet', async ({ page }) => {
+    // Reported from the card: add a product, apply the percentages, and the
+    // answer was "save the lines first" — from a place with no Save in sight.
+    // Applying them is a line edit like any other, so it reaches the new line
+    // too, writes nothing on its own, and goes out with the same Save.
+    await page.goto('/admin/orders/ORD-001')
+    await page.waitForSelector('[data-test="order-item-row"]')
+    const rows = page.locator('[data-test="order-item-row"]')
+    const before = await rows.count()
+
+    await page.click('[data-test="order-add-item-btn"]')
+    await page.locator('[data-test="add-items-product-checkbox"]').first().click()
+    await page.click('[data-test="add-items-save-btn"]')
+    await expect(rows).toHaveCount(before + 1)
+
+    await page.fill('[data-test="field-default-margin"]', '20')
+    await page.fill('[data-test="field-default-discount"]', '5')
+    await page.click('[data-test="apply-defaults-btn"]')
+    await expect(page.locator('[data-test="apply-defaults-modal"]')).toBeVisible()
+    await page.click('[data-test="apply-defaults-confirm"]')
+    await expect(page.locator('[data-test="apply-defaults-modal"]')).toBeHidden()
+
+    // The line only exists on screen, and it took the percentages all the same.
+    const added = rows.last()
+    expect(Number(await lineCell(added, 'marginPercent'))).toBeCloseTo(20, 2)
+    expect(Number(await lineCell(added, 'discountPercent'))).toBeCloseTo(5, 2)
+
+    await page.click('[data-test="order-card-save-btn"]')
+    await expect(page.locator('[data-test="order-card-save-btn"]')).toBeDisabled()
+
+    // One new line, not two, and both percentages came back off the server.
+    await expect(rows).toHaveCount(before + 1)
+    expect(Number(await lineCell(rows.last(), 'marginPercent'))).toBeCloseTo(20, 2)
+    expect(Number(await lineCell(rows.last(), 'discountPercent'))).toBeCloseTo(5, 2)
+  })
+
   test('saving stores the fields the admin owns', async ({ page }) => {
     await page.goto('/admin/orders/ORD-005')
     await page.waitForSelector('[data-test="field-default-margin"]')

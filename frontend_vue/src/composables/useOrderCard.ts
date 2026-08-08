@@ -28,6 +28,7 @@ import {
   applyLineEdit,
   lineEditDelta,
   lineEditErrorKey,
+  lineKindOf,
   type LineEditOp,
   type LineKind,
 } from '@/services/orderLineEdits'
@@ -1256,13 +1257,31 @@ export function useOrderCard(id: string) {
     return isAllocatable(line) && line.unitCost > 0
   }
 
+  /**
+   * The defaults expressed as ordinary line edits — the same ones the admin makes
+   * by hand in the table. Two of them, and the ORDER is what makes them stick: a
+   * discount edit computes a price and locks it, a margin edit is a rule and
+   * releases that lock again. Margin-then-discount would leave every line
+   * hand-priced, which is precisely what "apply the defaults" undoes.
+   */
+  function defaultsOps(): LineEditOp[] {
+    return [
+      { field: 'discountPercent', value: form.value.defaultDiscountPercent },
+      { field: 'marginPercent', value: form.value.defaultMarginPercent },
+    ]
+  }
+
+  /** Which lines the defaults would touch, as the real line objects. */
+  function linesTakingDefaults(): Array<OrderItem | OrderService> {
+    if (!order.value) return []
+    return [...order.value.items, ...order.value.services].filter((line) =>
+      takesDefaults(toPricingLine(line)),
+    )
+  }
+
   function requestApplyDefaults() {
     if (!order.value) return
-    if (hasPendingChanges.value) {
-      toast.error(t('orders.error_save_lines_first'))
-      return
-    }
-    const editable = lines.value.filter(takesDefaults)
+    const editable = linesTakingDefaults()
     const skipped = lines.value.filter((line) => isAllocatable(line) && line.unitCost <= 0).length
     if (editable.length === 0) {
       // "Everything has shipped" would be the wrong reason when the lines are
@@ -1272,15 +1291,27 @@ export function useOrderCard(id: string) {
       )
       return
     }
-    const after = lines.value.map((line) =>
-      takesDefaults(line)
-        ? {
-            ...line,
-            marginPercent: form.value.defaultMarginPercent,
-            discountPercent: form.value.defaultDiscountPercent,
-            manualUnitPrice: null,
-          }
-        : line,
+
+    // The preview runs the REAL edits over throwaway copies, so it cannot promise
+    // a total the apply below would not produce. A shallow copy is enough: these
+    // two edits write scalars only and read `allocations` without touching it.
+    // It also does the validating — a percentage out of range is refused here,
+    // before a single line has been moved.
+    const ops = defaultsOps()
+    const probe = new Map(editable.map((line) => [line.id, { ...line }]))
+    try {
+      for (const copy of probe.values()) {
+        for (const op of ops) {
+          applyLineEdit(copy, op, { defaultDiscountPercent: form.value.defaultDiscountPercent })
+        }
+      }
+    } catch (e) {
+      toast.error(t(lineEditErrorKey(e)))
+      return
+    }
+
+    const after = [...order.value.items, ...order.value.services].map((line) =>
+      toPricingLine(probe.get(line.id) ?? line),
     )
     defaultsPreview.value = {
       lineCount: editable.length,
@@ -1294,39 +1325,26 @@ export function useOrderCard(id: string) {
     defaultsPreview.value = null
   }
 
-  async function applyDefaultsToAllLines() {
+  /**
+   * Purely local, like every other line edit: the rows and the totals move at
+   * once and the edits go out with Save. Nothing is written here, so the
+   * defaults reach lines that have never been to the server, and "Discard"
+   * takes them back off — the admin can weigh the result before committing to it.
+   */
+  function applyDefaultsToAllLines() {
     if (!order.value) return
-    // Writes each line and then reloads, so unsaved lines would be lost.
-    if (hasPendingChanges.value) {
-      toast.error(t('orders.error_save_lines_first'))
-      return
-    }
     defaultsPreview.value = null
-    saving.value = true
-    try {
-      // The percentages the admin just typed are what is being applied, so they
-      // go out first — both to persist them as the order defaults and so the
-      // reload below cannot discard them.
-      await saveFormFields()
-      const editable = [...order.value.items, ...order.value.services].filter((line) =>
-        takesDefaults(toPricingLine(line)),
-      )
-      for (const line of editable) {
-        const isService = order.value.services.some((s) => s.id === line.id)
-        const payload = {
-          marginPercent: form.value.defaultMarginPercent,
-          discountPercent: form.value.defaultDiscountPercent,
-        }
-        if (isService) await updateOrderService(id, line.id, payload)
-        else await updateOrderItem(id, line.id, payload)
+    const ops = defaultsOps()
+    for (const line of linesTakingDefaults()) {
+      const kind = lineKindOf(line)
+      // Refusals were caught by the preview, so this only trips if something
+      // changed under us. Stop rather than press on: a half-applied set of
+      // defaults is worse than none, and `editLine` has already said why.
+      for (const op of ops) {
+        if (!editLine(line.id, kind, op)) return
       }
-      await load()
-      toast.success(t('orders.toast_defaults_applied'))
-    } catch {
-      toast.error(t('orders.toast_error_save'))
-    } finally {
-      saving.value = false
     }
+    toast.success(t('orders.toast_defaults_applied'))
   }
 
   // Document generation placeholder

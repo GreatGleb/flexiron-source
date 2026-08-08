@@ -1,0 +1,312 @@
+/**
+ * Applying the order's percentages to every line.
+ *
+ * The rule this file exists to hold: it is a LINE EDIT, not a server action. It
+ * reaches lines that have never been saved, it writes nothing until Save, and
+ * Discard takes it back off — the same contract as typing a margin into the
+ * table by hand. It used to be a write-then-reload, which could not be done at
+ * all while an unsaved line was on screen.
+ */
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+
+vi.mock('vue-i18n', () => ({
+  useI18n: () => ({ t: (key: string) => key }),
+}))
+
+const toasts = { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() }
+vi.mock('@/composables/useToast', () => ({ useToast: () => toasts }))
+
+vi.mock('@/composables/useTranslatedData', () => ({
+  useTranslatedField: () => ({ tf: (v: unknown) => String(v) }),
+}))
+
+vi.mock('@/composables/useSettings', () => ({
+  useSettings: () => ({
+    settings: {
+      constants: {
+        vatRate: 21,
+        defaultMargin: 15,
+        defaultCurrency: 'EUR',
+        defaultDiscountPercent: 0,
+      },
+    },
+  }),
+}))
+
+/** Every write the card could make, in the order it made them. */
+const calls: Array<{ fn: string; lineId?: string; payload?: Record<string, unknown> }> = []
+
+let stored: import('@/types/order').Order
+
+vi.mock('@/services/ordersService', () => ({
+  getOrder: vi.fn(async () => structuredClone(stored)),
+  patchOrder: vi.fn(async (_id: string, payload: Record<string, unknown>) => {
+    calls.push({ fn: 'patchOrder', payload })
+    Object.assign(stored, payload)
+    return {}
+  }),
+  addOrderItem: vi.fn(async (_id: string, payload: Record<string, unknown>) => {
+    calls.push({ fn: 'addOrderItem', payload })
+    return { id: 'item-server' }
+  }),
+  updateOrderItem: vi.fn(async (_id: string, lineId: string, payload: Record<string, unknown>) => {
+    calls.push({ fn: 'updateOrderItem', lineId, payload })
+    return {}
+  }),
+  updateOrderService: vi.fn(
+    async (_id: string, lineId: string, payload: Record<string, unknown>) => {
+      calls.push({ fn: 'updateOrderService', lineId, payload })
+      return {}
+    },
+  ),
+  addOrderService: vi.fn(async () => ({ id: 'svc-server' })),
+  deleteOrderItem: vi.fn(async () => ({})),
+  deleteOrderService: vi.fn(async () => ({})),
+  deleteOrder: vi.fn(async () => ({})),
+  deleteOrderAuditEntry: vi.fn(async () => ({})),
+  addOrderFile: vi.fn(async () => ({})),
+  removeOrderFile: vi.fn(async () => ({})),
+  patchOrderStatus: vi.fn(async () => ({})),
+  planOrderStatus: vi.fn(async () => ({})),
+  planOrderShipment: vi.fn(async () => []),
+  getOrderShipments: vi.fn(async () => []),
+  createOrderShipment: vi.fn(async () => ({})),
+  cancelOrderShipment: vi.fn(async () => ({})),
+  createOrderInvoice: vi.fn(async () => ({})),
+  addOrderPayment: vi.fn(async () => ({})),
+  deleteOrderPayment: vi.fn(async () => ({})),
+  reserveOrderStock: vi.fn(async () => ({})),
+  splitOrderItem: vi.fn(async () => ({})),
+  allocateOrderTotal: vi.fn(async () => ({})),
+}))
+
+vi.mock('@/services/warehouseService', () => ({
+  // No batch for the new line: it falls back to the cost the picker passed.
+  getBatchCostBreakdown: vi.fn(async () => {
+    throw new Error('NO_STOCK')
+  }),
+}))
+
+import { useOrderCard } from './useOrderCard'
+import { buildOrderItem } from '@/services/orderLines'
+import type { Order } from '@/types/order'
+
+/** A line agreed by hand: 40% margin, no discount. The defaults are 15% / 10%. */
+function savedOrder(): Order {
+  const item = buildOrderItem({
+    id: 'item-1',
+    lineNumber: 1,
+    productId: 'prod-alu',
+    productName: 'Aluminium Pipe 25x2',
+    quantity: 10,
+    unit: 'm',
+    unitCost: 8,
+    marginPercent: 40,
+    discountPercent: 0,
+    receivedCurrency: 'cur-eur',
+    exchangeRate: 1,
+  })
+  return {
+    id: 'ORD-1',
+    orderNumber: 'ORD-1',
+    clientId: 'cli-1',
+    clientName: 'Client',
+    clientVatCode: '',
+    clientAddress: '',
+    documentType: 'local',
+    status: 'new',
+    items: [item],
+    services: [],
+    defaultMarginPercent: 15,
+    defaultDiscountPercent: 10,
+    vatMode: 'standard',
+    vatPercent: 21,
+    currency: 'EUR',
+    totalCost: 0,
+    totalAmount: 0,
+    totalVat: 0,
+    totalWithVat: 0,
+    actualMarginPercent: 0,
+    effectiveDiscountPercent: 0,
+    paidAmount: 0,
+    paidPercent: 0,
+    outstandingAmount: 0,
+    totalWeight: 0,
+    shipments: [],
+    invoices: [],
+    payments: [],
+    notes: null,
+    documents: [],
+    files: [],
+    auditLog: [],
+    createdAt: '2026-01-01',
+    updatedAt: '2026-01-01',
+  }
+}
+
+const COPPER = {
+  productId: 'prod-cu',
+  productName: 'Copper Pipe 15x1',
+  quantity: 2,
+  unit: 'm',
+  unitPrice: 30,
+  unitCost: 20,
+}
+
+async function loadedCard() {
+  const card = useOrderCard('ORD-1')
+  await card.load()
+  return card
+}
+
+beforeEach(() => {
+  calls.length = 0
+  toasts.error.mockClear()
+  toasts.success.mockClear()
+  stored = savedOrder()
+})
+
+describe('applying the order percentages to every line', () => {
+  it('reaches a line that has not been saved yet, and writes nothing', async () => {
+    const card = await loadedCard()
+    await card.handleAddItemDirect(COPPER)
+    expect(card.order.value!.items).toHaveLength(2)
+    calls.length = 0
+
+    card.requestApplyDefaults()
+
+    expect(toasts.error).not.toHaveBeenCalled()
+    // Both lines — the saved one and the one still only on screen.
+    expect(card.defaultsPreview.value?.lineCount).toBe(2)
+
+    card.applyDefaultsToAllLines()
+
+    for (const line of card.order.value!.items) {
+      expect(line.marginPercent).toBe(15)
+      expect(line.discountPercent).toBe(10)
+      // A margin is a rule, so the price goes back to being computed.
+      expect(line.manualUnitPrice).toBeNull()
+      expect(line.unitPrice).toBeCloseTo(line.unitCost * 1.15 * 0.9, 6)
+    }
+    // Nothing reached the server: this is an edit, not an action.
+    expect(calls).toEqual([])
+  })
+
+  it('promises the total it then produces', async () => {
+    const card = await loadedCard()
+    await card.handleAddItemDirect(COPPER)
+
+    card.requestApplyDefaults()
+    const { before, after: promised } = card.defaultsPreview.value!
+    // A 40% line dropping to 15% less 10% is a real move, so the check below is
+    // about the promise and not about two numbers that were equal anyway.
+    expect(promised).toBeLessThan(before)
+
+    card.applyDefaultsToAllLines()
+
+    expect(card.totals.value.totalGross).toBeCloseTo(promised, 6)
+    expect(before).toBeCloseTo(
+      // What it was: the hand-agreed line at 10 × 8 +40%, and the new one at
+      // 2 × 20 marked up to the picker's 30 and then given the order's default
+      // 10% discount on the way in. Plus VAT.
+      (10 * 8 * 1.4 + 2 * 20 * 1.5 * 0.9) * 1.21,
+      2,
+    )
+  })
+
+  it('refuses out-of-range percentages before it moves a single line', async () => {
+    const card = await loadedCard()
+    const priceBefore = card.order.value!.items[0]!.unitPrice
+
+    card.form.value.defaultDiscountPercent = 150
+    card.requestApplyDefaults()
+
+    expect(card.defaultsPreview.value).toBeNull()
+    expect(toasts.error).toHaveBeenCalledWith('orders.error_discount_range')
+    expect(card.order.value!.items[0]!.unitPrice).toBe(priceBefore)
+  })
+
+  it('goes out with Save: the new line is created, then both lines are repriced', async () => {
+    const card = await loadedCard()
+    await card.handleAddItemDirect(COPPER)
+    card.requestApplyDefaults()
+    card.applyDefaultsToAllLines()
+    calls.length = 0
+
+    await card.save()
+
+    expect(calls.map((c) => c.fn)).toEqual([
+      'addOrderItem',
+      'updateOrderItem',
+      'updateOrderItem',
+      'updateOrderItem',
+      'updateOrderItem',
+    ])
+    // The edits on the new line go to the id the server issued, not the temp one.
+    const targets = calls.filter((c) => c.fn === 'updateOrderItem').map((c) => c.lineId)
+    expect(new Set(targets)).toEqual(new Set(['item-1', 'item-server']))
+    // Discount first, margin second — the order is what leaves the price computed.
+    for (const id of ['item-1', 'item-server']) {
+      const forLine = calls.filter((c) => c.lineId === id).map((c) => c.payload)
+      expect(forLine).toEqual([{ discountPercent: 10 }, { marginPercent: 15 }])
+    }
+  })
+
+  it('is taken back off by Discard', async () => {
+    const card = await loadedCard()
+    card.requestApplyDefaults()
+    card.applyDefaultsToAllLines()
+    expect(card.order.value!.items[0]!.marginPercent).toBe(15)
+
+    await card.discard()
+
+    expect(card.order.value!.items[0]!.marginPercent).toBe(40)
+    expect(card.hasPendingChanges.value).toBe(false)
+  })
+
+  it('leaves alone a line that has no cost to mark up, and says how many', async () => {
+    stored.items.push(
+      buildOrderItem({
+        id: 'item-2',
+        lineNumber: 2,
+        productId: 'prod-x',
+        productName: 'Priced outright',
+        quantity: 1,
+        unit: 'pcs',
+        unitCost: 0,
+        marginPercent: 0,
+        manualUnitPrice: 99,
+        receivedCurrency: 'cur-eur',
+        exchangeRate: 1,
+      }),
+    )
+    const card = await loadedCard()
+
+    card.requestApplyDefaults()
+    expect(card.defaultsPreview.value).toMatchObject({ lineCount: 1, skipped: 1 })
+
+    card.applyDefaultsToAllLines()
+
+    const untouched = card.order.value!.items.find((i) => i.id === 'item-2')!
+    expect(untouched.manualUnitPrice).toBe(99)
+    expect(untouched.discountPercent).toBe(0)
+  })
+
+  it('can be applied again after the percentages change', async () => {
+    const card = await loadedCard()
+    card.requestApplyDefaults()
+    card.applyDefaultsToAllLines()
+
+    card.form.value.defaultMarginPercent = 25
+    card.form.value.defaultDiscountPercent = 0
+    card.requestApplyDefaults()
+    card.applyDefaultsToAllLines()
+
+    const line = card.order.value!.items[0]!
+    expect(line.marginPercent).toBe(25)
+    expect(line.discountPercent).toBe(0)
+    // The second pass replaces the first rather than compounding on top of it.
+    expect(line.unitPrice).toBeCloseTo(8 * 1.25, 6)
+    expect(card.totals.value.totalNet).toBeCloseTo(10 * 8 * 1.25, 2)
+  })
+})
