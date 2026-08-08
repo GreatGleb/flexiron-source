@@ -19,7 +19,12 @@ import { getCurrencies } from '@/services/settingsService'
 import type { Currency } from '@/types/settings'
 import { useFeatureFlag } from '@/composables/useFeatureFlag'
 import { useOrderPermissions } from '@/composables/useOrderPermissions'
-import { canEditLineField, type LineEditOp, type LineKind } from '@/services/orderLineEdits'
+import {
+  canDeleteLine,
+  canEditLineField,
+  type LineEditOp,
+  type LineKind,
+} from '@/services/orderLineEdits'
 import { toPricingLine } from '@/services/orderLines'
 import { calcLine, formatCents as money, roundTo } from '@/domain/orderPricing'
 import type {
@@ -322,6 +327,17 @@ function lineMargin(line: OrderLine): number {
 
 function isFrozenLine(line: OrderLine): boolean {
   return line.state !== 'draft' || line.documentIssued
+}
+
+/**
+ * The bin is gone once the line is named by a document.
+ *
+ * Not merely disabled: removal is the strongest edit there is, and every other
+ * frozen control on this row is simply absent. The server refuses it too — this
+ * only keeps the admin from reaching for something that cannot happen.
+ */
+function canDelete(line: OrderLine): boolean {
+  return canDeleteLine(toPricingLine(line))
 }
 
 function lineStateLabel(line: OrderLine): string {
@@ -1327,8 +1343,10 @@ onMounted(loadShipments)
                       <SvgIcon name="scissors" :width="14" :height="14" />
                     </button>
                     <button
+                      v-if="canDelete(item)"
                       v-tooltip="t('orders.btn_remove_item')"
                       class="action-icon-btn action-danger"
+                      data-test="line-remove-btn"
                       @click="handleDeleteItem(item.id)"
                     >
                       <SvgIcon name="trash" :width="14" :height="14" />
@@ -1427,8 +1445,10 @@ onMounted(loadShipments)
                   <td class="line-state" data-test="line-state">{{ lineStateLabel(svc) }}</td>
                   <td class="line-actions">
                     <button
+                      v-if="canDelete(svc)"
                       v-tooltip="t('orders.btn_remove_service')"
                       class="action-icon-btn action-danger"
+                      data-test="line-remove-btn"
                       @click="handleDeleteService(svc.id)"
                     >
                       <SvgIcon name="trash" :width="14" :height="14" />

@@ -927,6 +927,64 @@ describe('removing a line', () => {
     mockDeleteOrderService(created.id, svc.id)
     expect(mockGetOrder(created.id)!.totalAmount).toBe(100)
   })
+
+  it('refuses a line that has left the warehouse, and takes it once it comes back', () => {
+    const created = freshOrder()
+    const item = mockAddOrderItem(created.id, {
+      productId: 'prod-001',
+      quantity: 3,
+      unit: 'pcs',
+      unitPrice: 100,
+      unitCost: 60,
+    })
+    const svc = mockAddOrderService(created.id, { serviceId: 'svc-001', quantity: 1, price: 12 })
+    const shipment = mockCreateShipment(created.id, {
+      lines: [{ lineId: item.id, quantity: 3 }],
+    })
+    mockCreateInvoice(created.id, { shipmentId: shipment.id })
+
+    // Deleting this used to succeed: the order fell to 0,00 while the invoice went
+    // on asking for 312,00, the waybill went on naming a line that no longer
+    // existed, and the 'sale' movements went on holding 3 units off the shelf.
+    expect(() => mockDeleteOrderItem(created.id, item.id)).toThrow('LINE_HAS_SHIPMENT')
+    // The service never ships; its document is what covers it.
+    expect(() => mockDeleteOrderService(created.id, svc.id)).toThrow('LINE_ON_INVOICE')
+    expect(mockGetOrder(created.id)!.totalAmount).toBe(312)
+
+    // The way back is the one the model gives: undo the delivery, which returns
+    // the goods and withdraws the document. Then the line goes.
+    mockCancelShipment(created.id, shipment.id, { correctionReason: 'Wrong order' })
+    expect(() => mockDeleteOrderItem(created.id, item.id)).not.toThrow()
+    expect(() => mockDeleteOrderService(created.id, svc.id)).not.toThrow()
+    expect(mockGetOrder(created.id)!.totalAmount).toBe(0)
+  })
+
+  it('refuses an id it does not know instead of reporting success', () => {
+    const created = freshOrder()
+    const item = mockAddOrderItem(created.id, {
+      productId: 'prod-001',
+      quantity: 1,
+      unit: 'pcs',
+      unitPrice: 100,
+      unitCost: 100,
+    })
+    const svc = mockAddOrderService(created.id, { serviceId: 'svc-001', quantity: 1, price: 12 })
+
+    // Accepted as a no-op, this is indistinguishable from a deletion that worked:
+    // the card said "saved", reloaded, and the line the admin had just removed
+    // was back on screen with the order's total still counting it. The id it sent
+    // was the temporary one the row carried before the server had issued its own.
+    expect(() => mockDeleteOrderItem(created.id, 'temp-1786188470839-6ppdr2-0')).toThrow(
+      'ORDER_ITEM_NOT_FOUND',
+    )
+    expect(() => mockDeleteOrderService(created.id, 'temp-svc-1')).toThrow(
+      'ORDER_SERVICE_NOT_FOUND',
+    )
+    // Nothing was touched on the way to the refusal.
+    const after = mockGetOrder(created.id)!
+    expect(after.items.map((i) => i.id)).toEqual([item.id])
+    expect(after.services.map((s) => s.id)).toEqual([svc.id])
+  })
 })
 
 // ─── Status is not a freeze ─────────────────────────────────────────────────

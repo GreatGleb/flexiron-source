@@ -27,6 +27,7 @@ import {
 } from '@/services/orderLines'
 import {
   applyLineEdit,
+  canDeleteLine,
   lineEditDelta,
   lineEditErrorKey,
   lineKindOf,
@@ -348,13 +349,19 @@ export function useOrderCard(id: string) {
       }
 
       // 4. Removals last: a line removed on screen is gone, whatever was done
-      //    to it before that.
+      //    to it before that. Through `serverLineId` for the same reason the
+      //    edits above are: a save that failed halfway has already created the
+      //    line, so the id on screen is no longer the id the server knows it by.
+      //    Sent raw, the deletion named an id nobody had issued, was accepted as
+      //    a no-op, and the line the admin removed came back with the reload.
       while (pendingItemDeletions.value.length > 0) {
-        await deleteOrderItem(id, pendingItemDeletions.value[0]!)
+        const lineId = pendingItemDeletions.value[0]!
+        await deleteOrderItem(id, serverLineId.get(lineId) ?? lineId)
         pendingItemDeletions.value = pendingItemDeletions.value.slice(1)
       }
       while (pendingServiceDeletions.value.length > 0) {
-        await deleteOrderService(id, pendingServiceDeletions.value[0]!)
+        const lineId = pendingServiceDeletions.value[0]!
+        await deleteOrderService(id, serverLineId.get(lineId) ?? lineId)
         pendingServiceDeletions.value = pendingServiceDeletions.value.slice(1)
       }
 
@@ -850,8 +857,33 @@ export function useOrderCard(id: string) {
     }
   }
 
+  /**
+   * Refuses a line the freeze covers, and says which document is in the way.
+   *
+   * Checked here and not only by hiding the button: the button was there and the
+   * server took the deletion, so a shipped line could be removed while its waybill,
+   * its stock movements and the client's invoice went on naming it.
+   */
+  function removeLine(lineId: string, kind: LineKind): boolean {
+    const line = findLine(lineId, kind)
+    if (!line) return false
+    const pricing = toPricingLine(line)
+    if (!canDeleteLine(pricing)) {
+      toast.error(
+        t(
+          pricing.shippedQuantity > 0
+            ? 'orders.error_line_has_shipment'
+            : 'orders.error_line_on_invoice',
+        ),
+      )
+      return false
+    }
+    forgetLine(lineId, kind)
+    return true
+  }
+
   function handleDeleteItem(lineId: string) {
-    forgetLine(lineId, 'item')
+    if (!removeLine(lineId, 'item')) return
     // Update local order state for immediate UI feedback
     if (order.value) {
       order.value = {
@@ -907,7 +939,7 @@ export function useOrderCard(id: string) {
   }
 
   function handleDeleteService(svcId: string) {
-    forgetLine(svcId, 'service')
+    if (!removeLine(svcId, 'service')) return
     // Update local order state for immediate UI feedback
     if (order.value) {
       order.value = {

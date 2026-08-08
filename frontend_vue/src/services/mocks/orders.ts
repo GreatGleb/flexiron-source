@@ -47,7 +47,12 @@ import {
   splitAllocations,
   stockCostFor,
 } from '@/services/orderLines'
-import { applyLineEdit, deltaToOps, type LineEditDelta } from '@/services/orderLineEdits'
+import {
+  applyLineEdit,
+  canDeleteLine,
+  deltaToOps,
+  type LineEditDelta,
+} from '@/services/orderLineEdits'
 import {
   findReservations,
   holdOnBatch,
@@ -1491,16 +1496,43 @@ export function mockUpdateOrderService(
   return clone(draft)
 }
 
+/**
+ * Refuses an id it does not know rather than reporting success.
+ *
+ * A deletion accepted as a no-op is indistinguishable from one that worked: the
+ * card said "saved", reloaded, and the line the admin had just removed was back
+ * on screen with the order's total still counting it.
+ *
+ * And refuses a line that has gone out on paper — see `assertDeletable`.
+ */
 export function mockDeleteOrderItem(orderId: string, lineId: string): void {
   const order = STORE.find((o) => o.id === orderId)
   if (!order) throw new Error('ORDER_NOT_FOUND')
   const idx = order.items.findIndex((i) => i.id === lineId)
-  if (idx !== -1) {
-    order.items.splice(idx, 1)
-    // The line is gone; anything it was holding is nobody's and goes back.
-    releaseLine(orderId, lineId)
-    recalcOrder(order)
-  }
+  if (idx === -1) throw new Error('ORDER_ITEM_NOT_FOUND')
+  assertDeletable(order.items[idx]!)
+  order.items.splice(idx, 1)
+  // The line is gone; anything it was holding is nobody's and goes back.
+  releaseLine(orderId, lineId)
+  recalcOrder(order)
+}
+
+/**
+ * The freeze covers removal too, and the server is where it is enforced: a hidden
+ * button is a suggestion, and this one was not even hidden.
+ *
+ * Deleting a shipped line left the waybill naming a line that no longer existed,
+ * the 'sale' movements holding goods off the shelf for it, and the client's
+ * invoice asking for money the order no longer contained. The refusal names the
+ * obstacle, because each one has its own way back — cancel the shipment, which
+ * returns the goods and withdraws the document, and the line deletes freely.
+ */
+function assertDeletable(line: OrderItem | OrderService): void {
+  const pricing = toPricingLine(line)
+  if (canDeleteLine(pricing)) return
+  // One predicate decides it — the card reads the same one. This only picks
+  // which of the two obstacles to name.
+  throw new Error(pricing.shippedQuantity > 0 ? 'LINE_HAS_SHIPMENT' : 'LINE_ON_INVOICE')
 }
 
 // ─── Services ───
@@ -1531,14 +1563,16 @@ export function mockAddOrderService(
   return clone(service)
 }
 
+/** Same rules as `mockDeleteOrderItem`: an unknown id is a refusal, and a service
+ *  the client has an invoice for is not removed behind the document's back. */
 export function mockDeleteOrderService(orderId: string, serviceId: string): void {
   const order = STORE.find((o) => o.id === orderId)
   if (!order) throw new Error('ORDER_NOT_FOUND')
   const idx = order.services.findIndex((s) => s.id === serviceId)
-  if (idx !== -1) {
-    order.services.splice(idx, 1)
-    recalcOrder(order)
-  }
+  if (idx === -1) throw new Error('ORDER_SERVICE_NOT_FOUND')
+  assertDeletable(order.services[idx]!)
+  order.services.splice(idx, 1)
+  recalcOrder(order)
 }
 
 // ─── Audit ───

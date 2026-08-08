@@ -38,6 +38,9 @@ const calls: Array<{ fn: string; lineId?: string; payload?: Record<string, unkno
 
 let stored: import('@/types/order').Order
 
+/** Makes the next line-edit request fail, the way a dropped connection would. */
+const failUpdateOnce = { on: false }
+
 vi.mock('@/services/ordersService', () => ({
   getOrder: vi.fn(async () => structuredClone(stored)),
   patchOrder: vi.fn(async (_id: string, payload: Record<string, unknown>) => {
@@ -50,6 +53,10 @@ vi.mock('@/services/ordersService', () => ({
     return { id: 'item-server' }
   }),
   updateOrderItem: vi.fn(async (_id: string, lineId: string, payload: Record<string, unknown>) => {
+    if (failUpdateOnce.on) {
+      failUpdateOnce.on = false
+      throw new Error('NETWORK_DOWN')
+    }
     calls.push({ fn: 'updateOrderItem', lineId, payload })
     return {}
   }),
@@ -60,8 +67,14 @@ vi.mock('@/services/ordersService', () => ({
     },
   ),
   addOrderService: vi.fn(async () => ({ id: 'svc-server' })),
-  deleteOrderItem: vi.fn(async () => ({})),
-  deleteOrderService: vi.fn(async () => ({})),
+  deleteOrderItem: vi.fn(async (_id: string, lineId: string) => {
+    calls.push({ fn: 'deleteOrderItem', lineId })
+    return {}
+  }),
+  deleteOrderService: vi.fn(async (_id: string, lineId: string) => {
+    calls.push({ fn: 'deleteOrderService', lineId })
+    return {}
+  }),
   deleteOrder: vi.fn(async () => ({})),
   deleteOrderAuditEntry: vi.fn(async () => ({})),
   addOrderFile: vi.fn(async () => ({})),
@@ -160,6 +173,7 @@ async function loadedCard() {
 }
 
 beforeEach(() => {
+  failUpdateOnce.on = false
   calls.length = 0
   toasts.error.mockClear()
   toasts.success.mockClear()
@@ -310,6 +324,38 @@ describe('applying the order percentages to every line', () => {
     expect(card.totals.value.totalNet).toBeCloseTo(10 * 8 * 1.25, 2)
   })
 })
+
+describe('a line the server created during a save that then failed', () => {
+  it('is deleted by the id the server issued, not by the one on screen', async () => {
+    const card = await loadedCard()
+    await card.handleAddItemDirect(COPPER)
+    const onScreenId = card.order.value!.items[1]!.id
+    expect(onScreenId).toMatch(/^temp-/)
+    // An edit to the line that was already there, so the save has somewhere to fail.
+    card.editLine('item-1', 'item', { field: 'quantity', value: 12 })
+
+    failUpdateOnce.on = true
+    await card.save()
+
+    // The new line exists on the server now; its pending entry is gone, so
+    // nothing here can still tell that the row on screen was never saved.
+    expect(calls.filter((c) => c.fn === 'addOrderItem')).toHaveLength(1)
+    expect(card.pendingItems.value).toHaveLength(0)
+    expect(toasts.error).toHaveBeenCalled()
+
+    // The admin gives up on the line and removes it.
+    calls.length = 0
+    card.handleDeleteItem(onScreenId)
+    await card.save()
+
+    const deletion = calls.find((c) => c.fn === 'deleteOrderItem')
+    // Sent raw, this named an id nobody had issued: the server accepted it as a
+    // no-op, the card said "saved", and the reload brought the line back with the
+    // order's total still counting it.
+    expect(deletion?.lineId).toBe('item-server')
+  })
+})
+
 describe('adding a product the warehouse cannot cost', () => {
   it('prices it outright instead of inventing a cost the server would not agree with', async () => {
     const card = await loadedCard()
@@ -339,3 +385,32 @@ describe('adding a product the warehouse cannot cost', () => {
   })
 })
 
+describe('a line the freeze covers', () => {
+  /** The saved line, shipped and on a document the client is holding. */
+  function frozen() {
+    stored.items[0]!.shippedQuantity = 10
+    stored.items[0]!.state = 'shipped'
+    stored.items[0]!.documentIssued = true
+  }
+
+  it('cannot be removed, and the refusal names what is in the way', async () => {
+    frozen()
+    const card = await loadedCard()
+
+    card.handleDeleteItem('item-1')
+
+    // It used to go: the order fell by the line while the waybill, the stock
+    // movements and the client's invoice went on naming it.
+    expect(card.order.value!.items).toHaveLength(1)
+    expect(card.pendingItemDeletions.value).toEqual([])
+    expect(toasts.error).toHaveBeenCalledWith('orders.error_line_has_shipment')
+  })
+
+  it('is removed freely again once nothing is holding it', async () => {
+    const card = await loadedCard()
+    card.handleDeleteItem('item-1')
+    expect(card.order.value!.items).toHaveLength(0)
+    expect(card.pendingItemDeletions.value).toEqual(['item-1'])
+  })
+
+})

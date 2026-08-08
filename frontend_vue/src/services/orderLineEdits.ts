@@ -257,6 +257,23 @@ export function canEditLineField(line: PricingLine, field: LineEditField): boole
 }
 
 /**
+ * Whether the line can be removed from the order at all.
+ *
+ * Removal is not an edit, it is the strongest edit there is, and the freeze has to
+ * cover it too. A line that has left the warehouse is named by a waybill, by the
+ * 'sale' movements that emptied the shelf, and possibly by an invoice the client
+ * is holding; deleting it left all three pointing at nothing — the order total
+ * dropped to zero while the invoice still asked for the full amount.
+ *
+ * There is a way back and it is the same one as everywhere else: cancel the
+ * shipment, which returns the goods by opposite movements and withdraws the
+ * document, and the line deletes freely afterwards.
+ */
+export function canDeleteLine(line: PricingLine): boolean {
+  return line.shippedQuantity <= 0 && !line.documentIssued
+}
+
+/**
  * Every refusal the model can produce, as a message the admin can act on.
  * Matched by substring so a thrown Error, a rejected promise and a string all work.
  */
@@ -264,6 +281,8 @@ const ERROR_KEYS: Array<[string, string]> = [
   ['PRICE_FROZEN_BY_SHIPMENT', 'orders.error_line_price_frozen'],
   ['COST_FROZEN_BY_SHIPMENT', 'orders.error_line_cost_frozen'],
   ['LINE_FULLY_SHIPPED', 'orders.error_line_fully_shipped'],
+  ['LINE_HAS_SHIPMENT', 'orders.error_line_has_shipment'],
+  ['LINE_ON_INVOICE', 'orders.error_line_on_invoice'],
   ['BELOW_SHIPPED_QUANTITY', 'orders.error_below_shipped'],
   ['DISCOUNT_OUT_OF_RANGE', 'orders.error_discount_range'],
   ['MARGIN_OUT_OF_RANGE', 'orders.error_margin_range'],

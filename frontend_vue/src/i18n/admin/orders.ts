@@ -116,6 +116,10 @@ export const adminOrders = {
         'Цена зафиксирована документом — разделите строку или сделайте корректировку',
       error_line_cost_frozen: 'Себестоимость зафиксирована отгрузкой',
       error_line_fully_shipped: 'Строка полностью отгружена',
+      error_line_has_shipment:
+        'Строка уже отгружена — удалить её можно только после отмены отгрузки',
+      error_line_on_invoice:
+        'Строка в выданном счёте — удалить её можно только после отзыва документа',
       error_below_shipped: 'Количество не может быть меньше отгруженного',
       error_discount_range: 'Скидка должна быть от 0 до 100%',
       error_margin_range: 'Маржа не может быть −100% и ниже',
@@ -493,6 +497,10 @@ export const adminOrders = {
         'The price is frozen by a document — split the line or issue a correction',
       error_line_cost_frozen: 'The cost is frozen by a shipment',
       error_line_fully_shipped: 'The line has fully shipped',
+      error_line_has_shipment:
+        'The line has shipped — cancel the shipment before removing it',
+      error_line_on_invoice:
+        'The line is on an issued invoice — withdraw the document before removing it',
       error_below_shipped: 'Quantity cannot go below what has shipped',
       error_discount_range: 'Discount must be between 0 and 100%',
       error_margin_range: 'Margin cannot be −100% or lower',
@@ -868,6 +876,10 @@ export const adminOrders = {
         'Kainą fiksuoja dokumentas — padalykite eilutę arba atlikite korekciją',
       error_line_cost_frozen: 'Savikainą fiksuoja išsiuntimas',
       error_line_fully_shipped: 'Eilutė jau visiškai išsiųsta',
+      error_line_has_shipment:
+        'Eilutė jau išsiųsta — pirmiausia atšaukite išsiuntimą',
+      error_line_on_invoice:
+        'Eilutė yra išrašytoje sąskaitoje — pirmiausia atšaukite dokumentą',
       error_below_shipped: 'Kiekis negali būti mažesnis už išsiųstą',
       error_discount_range: 'Nuolaida turi būti nuo 0 iki 100%',
       error_margin_range: 'Marža negali būti −100% ar mažesnė',
