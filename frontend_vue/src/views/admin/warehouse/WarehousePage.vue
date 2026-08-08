@@ -3366,7 +3366,7 @@ const deficitFiltersActive = computed(() => {
                 <td>{{ mov.movedAt.slice(0, 10) }}</td>
                 <td>
                   <span class="status-pill" :class="MOVEMENT_TYPE_PILL[mov.type]">
-                    {{ t(`warehouse.type_${mov.type.replace('-', '_')}`) }}
+                    {{ t(`warehouse.type_${mov.type.replace(/-/g, '_')}`) }}
                   </span>
                 </td>
                 <td>

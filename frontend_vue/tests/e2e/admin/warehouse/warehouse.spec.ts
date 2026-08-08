@@ -32,7 +32,6 @@ test.describe('Warehouse module', () => {
     test('should display filters bar', async ({ page }) => {
       await expect(page.getByTestId('warehouse-filters')).toBeVisible()
     })
-
   })
 
   test.describe('Stock tab', () => {
@@ -163,6 +162,33 @@ test.describe('Warehouse module', () => {
       await clickTab(page, 'movements')
       await expect(page.getByTestId('warehouse-movements-panel')).toBeVisible()
       await expect(page.getByTestId('warehouse-movement-row').first()).toBeVisible()
+    })
+
+    test('every movement type is a label, not the key behind it', async ({ page }) => {
+      await clickTab(page, 'movements')
+      await expect(page.getByTestId('warehouse-movement-row').first()).toBeVisible()
+
+      // Oldest first: the seeded history holds types the newest page does not,
+      // and those were the untranslated ones.
+      await page.locator('[data-test="warehouse-tab-movements"] thead th button').first().click()
+
+      const seen = new Set<string>()
+      for (let visited = 0; visited < 10; visited++) {
+        const rows = page.getByTestId('warehouse-movement-row')
+        for (let i = 0; i < (await rows.count()); i++) {
+          seen.add(((await rows.nth(i).locator('td').nth(1).innerText()) ?? '').trim())
+        }
+        const next = page
+          .locator('[data-test="warehouse-tab-movements"] .pagination-bar button')
+          .last()
+        if (!(await next.isEnabled())) break
+        await next.click()
+        await page.waitForTimeout(300)
+      }
+
+      expect(seen.size).toBeGreaterThan(5)
+      // A missing translation shows up as the key itself — `warehouse.type_…`.
+      expect([...seen].filter((label) => /warehouse\./i.test(label))).toEqual([])
     })
 
     test('should have movement filters', async ({ page }) => {
