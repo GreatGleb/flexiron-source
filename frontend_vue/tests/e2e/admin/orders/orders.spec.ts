@@ -356,11 +356,17 @@ test.describe('Order Card › fields & structure', () => {
 
   test('the panel shows the money the order actually comes to', async ({ page }) => {
     await page.goto('/admin/orders/ORD-001')
-    await expect(page.locator('[data-test="field-net-total"]')).toHaveValue('19000.00')
-    // VAT on the net total. The old panel charged it on the cost and then stacked
-    // margin on top of the tax, showing 26438.50 for this very order.
-    await expect(page.locator('[data-test="field-vat-amount"]')).toHaveValue('3990.00')
-    await expect(page.locator('[data-test="field-gross-total"]')).toHaveValue('22990.00')
+    // VAT on the net total, and the gross is the two added up. The old panel
+    // charged the tax on the cost and stacked margin on top of it, coming to 15%
+    // over on every order it touched. Asserted as the relationship rather than as
+    // three fixed figures: the demo's prices are seeded data and they have moved
+    // once already, but this arithmetic may not.
+    const net = Number(await page.locator('[data-test="field-net-total"]').inputValue())
+    const vat = Number(await page.locator('[data-test="field-vat-amount"]').inputValue())
+    const gross = Number(await page.locator('[data-test="field-gross-total"]').inputValue())
+    expect(net).toBeGreaterThan(0)
+    expect(vat).toBeCloseTo(net * 0.21, 2)
+    expect(gross).toBeCloseTo(net + vat, 2)
 
     // Cost is the cost of the GOODS — read off the warehouse batches the lines
     // consume, not "the selling price times a ratio". The absolute figure belongs
@@ -369,8 +375,8 @@ test.describe('Order Card › fields & structure', () => {
     const cost = Number(await page.locator('[data-test="field-total-cost"]').inputValue())
     const margin = Number(await page.locator('[data-test="field-total-margin"]').inputValue())
     expect(cost).toBeGreaterThan(0)
-    expect(cost).toBeLessThan(19000)
-    expect(margin).toBeCloseTo(19000 - cost, 2)
+    expect(cost).toBeLessThan(net)
+    expect(margin).toBeCloseTo(net - cost, 2)
 
     // And it agrees with the lines it is the sum of.
     const rows = page.locator('[data-test="order-item-row"]')
@@ -439,15 +445,17 @@ test.describe('Order Card › fields & structure', () => {
   }) => {
     await page.goto('/admin/orders/ORD-001')
     await page.waitForSelector('[data-test="field-vat-mode"]')
+    const netBefore = await page.locator('[data-test="field-net-total"]').inputValue()
 
     await page.locator('[data-test="field-vat-mode"]').click()
     await page.locator('.custom-select-option', { hasText: '0% — export' }).first().click()
     await expect(page.locator('[data-test="vat-mode-modal"]')).toBeVisible()
     await page.click('[data-test="vat-mode-keep-net"]')
 
-    await expect(page.locator('[data-test="field-net-total"]')).toHaveValue('19000.00')
+    // Keeping the net means the line prices do not move; the tax comes off the top.
+    await expect(page.locator('[data-test="field-net-total"]')).toHaveValue(netBefore)
     await expect(page.locator('[data-test="field-vat-amount"]')).toHaveValue('0.00')
-    await expect(page.locator('[data-test="field-gross-total"]')).toHaveValue('19000.00')
+    await expect(page.locator('[data-test="field-gross-total"]')).toHaveValue(netBefore)
     // The rate has nothing to act on at a zero rate.
     await expect(page.locator('[data-test="field-vat-percent"]')).toBeDisabled()
   })
@@ -598,9 +606,11 @@ test.describe('Order Card › fields & structure', () => {
     await page.locator('[data-test="field-vat-mode"]').click()
     await page.locator('.custom-select-option', { hasText: '0% — export' }).first().click()
     await expect(page.locator('[data-test="vat-mode-modal"]')).toBeVisible()
+    const vatBefore = await page.locator('[data-test="field-vat-amount"]').inputValue()
     await page.click('[data-test="vat-mode-cancel"]')
 
-    await expect(page.locator('[data-test="field-vat-amount"]')).toHaveValue('3990.00')
+    expect(Number(vatBefore)).toBeGreaterThan(0)
+    await expect(page.locator('[data-test="field-vat-amount"]')).toHaveValue(vatBefore)
     await expect(page.locator('[data-test="order-card-save-btn"]')).toBeDisabled()
   })
 
@@ -627,35 +637,62 @@ test.describe('Order Card › fields & structure', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 test.describe('Order Card › line table', () => {
+  /**
+   * ORD-009 holds one line of each state. WHICH row is which depends on what the
+   * warehouse could back when the demo was seeded, so they are found by the state
+   * they report rather than by position — the rule under test is that a state
+   * opens exactly its own cells, not that it sits in a particular row.
+   */
+  async function rowsByState(page: Page) {
+    const states = await page
+      .locator('[data-test="order-item-row"] [data-test="line-state"]')
+      .allTextContents()
+    const rows = page.locator('[data-test="order-item-row"]')
+    const find = (test: (state: string) => boolean) => {
+      const index = states.findIndex(test)
+      expect(index, `no line in states ${JSON.stringify(states)}`).toBeGreaterThanOrEqual(0)
+      return rows.nth(index)
+    }
+    return {
+      states,
+      shipped: find((s) => s === 'Shipped'),
+      partial: find((s) => /^Shipped [\d.]+ of [\d.]+$/.test(s)),
+      draft: find((s) => s === 'Draft'),
+    }
+  }
+
   test('opens exactly the cells the line state allows', async ({ page }) => {
-    // ORD-009: line 1 fully shipped, line 2 partially, line 3 untouched.
     await page.goto('/admin/orders/ORD-009')
     await page.waitForSelector('[data-test="order-item-row"]')
-    const rows = page.locator('[data-test="order-item-row"]')
+    const { shipped, partial, draft } = await rowsByState(page)
 
     // Fully shipped — nothing to edit, and nothing to split either.
-    await expect(rows.nth(0).locator('[data-test="cell-input"]')).toHaveCount(0)
-    await expect(rows.nth(0).locator('[data-test="line-split-btn"]')).toHaveCount(0)
+    await expect(shipped.locator('[data-test="cell-input"]')).toHaveCount(0)
+    await expect(shipped.locator('[data-test="line-split-btn"]')).toHaveCount(0)
+    // Nor to delete: the waybill and the stock movements still name it.
+    await expect(shipped.locator('[data-test="line-remove-btn"]')).toHaveCount(0)
+    // The one door through the freeze.
+    await expect(shipped.locator('[data-test="line-correct-btn"]')).toBeVisible()
 
     // Partially shipped — the quantity can still grow for the next truck, but the
     // money is frozen by the waybill the client already holds.
-    await expect(rows.nth(1).locator('[data-test="cell-input"]')).toHaveCount(1)
-    await expect(rows.nth(1).locator('[data-test="cell-quantity"] input')).toBeVisible()
-    await expect(rows.nth(1).locator('[data-test="line-split-btn"]')).toBeVisible()
+    await expect(partial.locator('[data-test="cell-input"]')).toHaveCount(1)
+    await expect(partial.locator('[data-test="cell-quantity"] input')).toBeVisible()
+    await expect(partial.locator('[data-test="line-split-btn"]')).toBeVisible()
 
-    // Draft — all six.
-    await expect(rows.nth(2).locator('[data-test="cell-input"]')).toHaveCount(6)
+    // Draft — all six, removable, and nothing to correct.
+    await expect(draft.locator('[data-test="cell-input"]')).toHaveCount(6)
+    await expect(draft.locator('[data-test="line-remove-btn"]')).toBeVisible()
+    await expect(draft.locator('[data-test="line-correct-btn"]')).toHaveCount(0)
   })
 
   test('the state of every line is spelled out, shipped quantity and all', async ({ page }) => {
     await page.goto('/admin/orders/ORD-009')
     await page.waitForSelector('[data-test="line-state"]')
-    const states = await page
-      .locator('[data-test="order-item-row"] [data-test="line-state"]')
-      .allTextContents()
-    expect(states[0]).toBe('Shipped')
-    expect(states[1]).toMatch(/^Shipped [\d.]+ of [\d.]+$/)
-    expect(states[2]).toBe('Draft')
+    const { states } = await rowsByState(page)
+    expect(states).toContain('Shipped')
+    expect(states).toContain('Draft')
+    expect(states.some((s) => /^Shipped [\d.]+ of [\d.]+$/.test(s))).toBe(true)
   })
 
   test('a margin edit reprices the line and the order, and Save keeps it', async ({ page }) => {
@@ -1005,6 +1042,9 @@ test.describe('Order Card › adding lines', () => {
     await page.waitForSelector('[data-test="order-item-row"]')
     const rows = page.locator('[data-test="order-item-row"]')
     const before = await rows.count()
+    // Services are lines too, and "keep the total" spreads across every line that
+    // can still be repriced — so the preview lists them as well.
+    const repriceable = before + (await page.locator('[data-test="order-service-row"]').count())
     const total = await page.locator('[data-test="field-gross-total"]').inputValue()
 
     await pickFirstProduct(page)
@@ -1013,7 +1053,7 @@ test.describe('Order Card › adding lines', () => {
 
     // Nothing has happened yet — this reprices lines that were agreed one by one.
     await expect(page.locator('[data-test="keep-total-modal"]')).toBeVisible()
-    await expect(page.locator('[data-test="keep-total-row"]')).toHaveCount(before + 1)
+    await expect(page.locator('[data-test="keep-total-row"]')).toHaveCount(repriceable + 1)
     await page.click('[data-test="keep-total-cancel"]')
     await expect(rows).toHaveCount(before)
     await expect(page.locator('[data-test="field-gross-total"]')).toHaveValue(total)
@@ -1269,12 +1309,20 @@ test.describe('Order Card › payments and invoices', () => {
    * share follows the total on its own, and an unsaved line is the sharpest way to
    * show it: nothing has been near the server.
    */
-  async function addAnyLine(page: Page) {
+  /**
+   * `quantity` matters when the assertion is about a SHARE moving: the demo's
+   * orders run to five and six figures, and one unit of the first product in the
+   * list moves the paid percentage by less than the two decimals it is shown to.
+   */
+  async function addAnyLine(page: Page, quantity = 1) {
     await page.click('[data-test="order-add-item-btn"]')
     await page.waitForSelector('[data-test="add-items-product-row"]')
     const rows = page.locator('[data-test="add-items-product-row"]')
     await rows.first().locator('[data-test="add-items-product-checkbox"]').click()
     await expect(page.locator('[data-test="add-items-price"]').first()).toBeVisible()
+    if (quantity !== 1) {
+      await page.locator('[data-test="add-items-selected-qty"]').first().fill(String(quantity))
+    }
     await page.click('[data-test="add-items-save-btn"]')
   }
 
@@ -1327,7 +1375,7 @@ test.describe('Order Card › payments and invoices', () => {
     const before = await paidPercent(page)
     const owedBefore = await outstanding(page)
 
-    await addAnyLine(page)
+    await addAnyLine(page, 500)
     await expect(page.locator('[data-test="order-card-save-btn"]')).toBeEnabled()
 
     const after = await paidPercent(page)

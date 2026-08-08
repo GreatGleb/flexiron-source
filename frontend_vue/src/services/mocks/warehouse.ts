@@ -98,15 +98,69 @@ function _resolveProductName(entity: { productId: string; productName: Translate
   if (product?.name) entity.productName = product.name
 }
 
+/** Stable 0…1 from a string — so the same batch always costs the same. */
+function _seedFrom(text: string): number {
+  let hash = 2166136261
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i)
+    hash = Math.imul(hash, 16777619)
+  }
+  return ((hash >>> 0) % 10000) / 10000
+}
+
+/**
+ * A batch is bought to be sold, and the two numbers have to live in one world.
+ *
+ * The seeded batches were priced with no reference to the catalogue, so the
+ * warehouse held a pipe at 1 000,00 that the catalogue sells at 45,00, and a coil
+ * at 9,50 against a price of 185 000,00. Every order line drawing on them showed a
+ * margin of −91% or +2 106%, and one demo line in six was sold below cost. The
+ * arithmetic was right every time; the data it ran on was nonsense, in the one
+ * place the demo exists to explain.
+ *
+ * Reconciled here for the same reason the drifted product names are, a few lines
+ * up: one catalogue, one truth, settled at load. The spread between batches is
+ * kept — that is what makes FIFO worth showing — and a product the catalogue does
+ * not price keeps whatever it was seeded with, because there is nothing to anchor
+ * it to.
+ */
+function _resolveBatchCost(batch: WarehouseBatch): void {
+  const price = PRODUCTS_STORE.find((p) => p.id === batch.productId)?.price
+  if (price == null || price <= 0) return
+  // 58–84% of the selling price: a trade that pays for itself, with room for the
+  // odd bad buy the deficit and margin reports exist to show.
+  const unitPrice = round2(price * (0.58 + _seedFrom(batch.id) * 0.26))
+  if (unitPrice <= 0) return
+  // The purchase trail is a record of the same money in the supplier's currency
+  // and unit, so it moves by the same factor rather than being invented afresh.
+  const factor = batch.unitPrice > 0 ? unitPrice / batch.unitPrice : 1
+  if (batch.receivedUnitPrice != null) {
+    batch.receivedUnitPrice = round2(batch.receivedUnitPrice * factor)
+  }
+  batch.unitPrice = unitPrice
+  batch.totalCost = round2(batch.quantity * unitPrice)
+}
+
 const rawBatches = mockBatchesData as unknown as WarehouseBatch[]
 for (const b of rawBatches) {
   _normalizeBatchAudit(b)
   _resolveProductName(b)
+  _resolveBatchCost(b)
 }
 const batchStore: WarehouseBatch[] = rawBatches
 const offcutStore: WarehouseOffcut[] = [...mockOffcutsData]
 const movementStore: WarehouseMovement[] = [...mockMovementsData]
-for (const m of movementStore) _resolveProductName(m)
+for (const m of movementStore) {
+  _resolveProductName(m)
+  // A movement is the batch changing hands, so it is priced at what the batch
+  // costs. Left alone, the journal would go on quoting the figure the batch no
+  // longer carries, and the two screens showing it would disagree.
+  const batch = batchStore.find((b) => b.id === m.batchId)
+  if (batch) {
+    m.unitPrice = batch.unitPrice
+    m.totalCost = round2(m.quantity * batch.unitPrice)
+  }
+}
 const deficitStore: WarehouseDeficit[] = [...mockDeficitData]
 const stockStore: StockOverviewItem[] = [...mockStockOverviewData]
 

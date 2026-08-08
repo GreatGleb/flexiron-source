@@ -91,6 +91,35 @@ describe('the generated store', () => {
     expect(orders.length).toBe(100)
   })
 
+  it('sells above cost, because a business that does not is not a demo of one', () => {
+    // Every line was internally consistent and collectively absurd: the cost came
+    // off warehouse batches priced with no reference to anything, and the price
+    // came from a THIRD copy of the product catalogue in which the same ids meant
+    // different goods — prod-007 was rebar at 0,85 in one and an angle grinder at
+    // 89,00 in the other. One line in six was sold below cost, the worst at 115×
+    // below, and every margin figure in the app was reporting it faithfully.
+    const priced = orders
+      .flatMap((order) => order.items)
+      .filter((line) => line.unitCost > 0)
+      .map((line) => ({ line, margin: calcLine(toPricingLine(line)).actualMarginPercent }))
+
+    expect(priced.length).toBeGreaterThan(200)
+    const belowCost = priced.filter((row) => row.margin < 0)
+    expect(belowCost).toEqual([])
+    // And not absurd in the other direction either: a 2 000% markup is the same
+    // disconnect seen from the profitable side.
+    expect(priced.every((row) => row.margin < 90)).toBe(true)
+  })
+
+  it('trades in quantities somebody could plausibly order', () => {
+    // Quantity was drawn from 1–50 without looking at the price, so an order for
+    // forty overhead cranes at 185 000 apiece came to two million euro and every
+    // sales chart was shaped by it.
+    for (const order of orders) {
+      expect(order.totalWithVat).toBeLessThan(1_000_000)
+    }
+  })
+
   it('has no impossible line anywhere', () => {
     for (const order of orders) {
       for (const line of [...order.items, ...order.services]) {
@@ -286,9 +315,13 @@ describe('scenario orders', () => {
     expect(order.invoices.length).toBe(1)
     expect(order.invoices[0]!.shipmentId).toBe(order.shipments[0]!.id)
     expect(order.paidPercent).toBeCloseTo(40, 0)
+    // Found through the shipments rather than by position: which lines the two
+    // trucks took depends on what the shelf could back.
+    const invoiced = order.items.find((i) => i.id === order.shipments[0]!.lines[0]!.lineId)!
     // The invoiced line is frozen by the document the client holds.
-    expect(order.items[0]!.documentIssued).toBe(true)
-    expect(order.items[1]!.state).toBe('partially_shipped')
+    expect(invoiced.documentIssued).toBe(true)
+    const secondTruck = order.items.find((i) => i.id === order.shipments[1]!.lines[0]!.lineId)!
+    expect(secondTruck.state).toBe('partially_shipped')
   })
 })
 
@@ -1287,16 +1320,18 @@ describe('generated statuses are backed by facts', () => {
 describe('a new line takes the decision it was given, not a derived number', () => {
   it('prices from the catalogue price when one is sent', () => {
     const created = freshOrder()
+    // Above what the warehouse holds it at, which is what selling means.
+    const asking = round2(mockCalculateFifoCost('prod-001', 1).unitPrice * 1.4)
     const item = mockAddOrderItem(created.id, {
       productId: 'prod-001',
       quantity: 1,
       unit: 'pcs',
-      unitPrice: 12,
+      unitPrice: asking,
     })
     // The price is honoured exactly; the margin is whatever gets there from the
     // warehouse cost. Selling at cost is not a default anybody chose.
-    expect(item.unitPrice).toBe(12)
-    expect(item.unitCost).toBeLessThan(12)
+    expect(item.unitPrice).toBe(asking)
+    expect(item.unitCost).toBeLessThan(asking)
     expect(item.marginPercent).toBeGreaterThan(0)
   })
 
@@ -1311,7 +1346,9 @@ describe('a new line takes the decision it was given, not a derived number', () 
     })
     expect(item.marginPercent).toBe(25)
     expect(item.manualUnitPrice).toBeNull()
-    expect(item.unitPrice).toBe(round2(item.unitCost * 1.25))
+    // The shown price is the computed one at display precision — comparing it to a
+    // figure rounded to cents made this test a hostage to the seeded cost.
+    expect(item.unitPrice).toBeCloseTo(item.unitCost * 1.25, 4)
   })
 
   it('takes the discount the add-mode chose over the order default', () => {

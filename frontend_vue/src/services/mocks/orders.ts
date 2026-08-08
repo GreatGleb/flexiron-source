@@ -230,58 +230,56 @@ function mulberry32(seed: number): () => number {
  * show, and then nothing can be shipped, reserved or costed off a batch anywhere.
  * So the FILLER orders take a slice of what is really on the shelf.
  *
- * The nine hand-built scenarios are exempt: their quantities are the illustration
- * itself — ORD-001 comes to 22 990,00, and that figure is quoted in the plans, in
- * the tests and in every explanation of what this rework fixed.
+ * The nine hand-built scenarios take the same slice, and they especially need to:
+ * each one is a story about goods moving — a truck that took part of a line, two
+ * trucks against one order — and a scenario whose quantities the shelf cannot back
+ * simply does not happen. They used to be exempt so that one order came to a
+ * figure quoted in the plans; the figure is not worth a demo that cannot ship.
  */
-function generatedQuantity(prod: ProductSpec, rng: () => number, isScenario: boolean): number {
+function generatedQuantity(prod: ProductSpec, rng: () => number): number {
   const fractional = prod.unit === 'kg' || prod.unit === 'm'
   const invented = fractional
     ? Math.round((10 + rng() * 490) * 10) / 10
     : 1 + Math.floor(rng() * 50)
-  if (isScenario) return invented
+  const round = (value: number) =>
+    fractional ? Math.max(0.1, Math.round(value * 10) / 10) : Math.max(1, Math.floor(value))
+
+  // Sized by money as well as by the shelf. A quantity drawn from 1–50 without
+  // looking at the price put forty overhead cranes at 185 000 apiece on one order
+  // and reported it as a two-million-euro sale; nobody places that order, and a
+  // demo that says otherwise teaches the reader to distrust the figures.
+  const affordable = prod.price > 0 ? Math.max(1, Math.floor(LINE_BUDGET / prod.price)) : invented
+  const wanted = Math.min(invented, affordable)
+
   const onShelf = batchesForProduct(prod.id).reduce((sum, b) => sum + b.quantityRemaining, 0)
-  if (onShelf <= 0) return invented
-  const share = onShelf * (0.02 + rng() * 0.08)
-  const capped = Math.min(invented, share)
-  return fractional ? Math.max(0.1, Math.round(capped * 10) / 10) : Math.max(1, Math.floor(capped))
+  if (onShelf <= 0) return round(wanted)
+  return round(Math.min(wanted, onShelf * (0.02 + rng() * 0.08)))
 }
 
-/** How many orders at the head of the store are hand-built illustrations. */
-const SCENARIO_ORDER_COUNT = 9
+/** Roughly what one generated line is worth. Demo proportion, nothing more. */
+const LINE_BUDGET = 25000
 
-const PRODUCTS: ProductSpec[] = [
-  { id: 'prod-001', name: 'Steel Sheet 3mm', unit: 'pcs', price: 120.5 },
-  { id: 'prod-002', name: 'Steel Pipe 50mm', unit: 'm', price: 45.0 },
-  { id: 'prod-003', name: 'Aluminum Profile 2m', unit: 'pcs', price: 85.0 },
-  { id: 'prod-004', name: 'Stainless Coil 304', unit: 'coil', price: 4500.0 },
-  { id: 'prod-005', name: 'Beam HEA 200', unit: 'pcs', price: 320.0 },
-  { id: 'prod-006', name: 'Galvanized Sheet 2mm', unit: 'pcs', price: 75.0 },
-  { id: 'prod-007', name: 'Rebar 12mm A500C', unit: 'kg', price: 0.85 },
-  { id: 'prod-008', name: 'Angle Bar 50x50mm', unit: 'm', price: 8.5 },
-  { id: 'prod-009', name: 'Flat Bar 30x5mm', unit: 'm', price: 4.2 },
-  { id: 'prod-010', name: 'Square Tube 40x40x2mm', unit: 'm', price: 6.75 },
-  { id: 'prod-011', name: 'Steel Sheet 5mm S355', unit: 'pcs', price: 210.0 },
-  { id: 'prod-012', name: 'Steel Sheet 8mm S355', unit: 'pcs', price: 340.0 },
-  { id: 'prod-013', name: 'Steel Sheet 10mm S235', unit: 'pcs', price: 410.0 },
-  { id: 'prod-014', name: 'Steel Sheet 12mm S355', unit: 'pcs', price: 540.0 },
-  { id: 'prod-015', name: 'Steel Sheet 16mm S355', unit: 'pcs', price: 720.0 },
-  { id: 'prod-016', name: 'Stainless Sheet AISI 304 2mm', unit: 'pcs', price: 380.0 },
-  { id: 'prod-017', name: 'Aluminium Sheet AMg2 2mm', unit: 'pcs', price: 195.0 },
-  { id: 'prod-018', name: 'Aluminium Sheet D16 4mm', unit: 'pcs', price: 280.0 },
-  { id: 'prod-019', name: 'Steel Pipe 100x5', unit: 'm', price: 78.0 },
-  { id: 'prod-020', name: 'Steel Pipe 25x3', unit: 'm', price: 18.5 },
-  { id: 'prod-021', name: 'Steel Pipe 60x4', unit: 'm', price: 42.0 },
-  { id: 'prod-022', name: 'Welding Wire 1.2mm', unit: 'kg', price: 3.5 },
-  { id: 'prod-023', name: 'Beam IPE 300', unit: 'pcs', price: 580.0 },
-  { id: 'prod-024', name: 'Beam HEB 200', unit: 'pcs', price: 460.0 },
-  { id: 'prod-025', name: 'Channel UPN 200', unit: 'pcs', price: 310.0 },
-  { id: 'prod-026', name: 'Galvanized Sheet 1.5mm', unit: 'pcs', price: 58.0 },
-  { id: 'prod-027', name: 'Wire Rod 8mm', unit: 'kg', price: 0.72 },
-  { id: 'prod-028', name: 'Mesh Reinforcement 100x100x6', unit: 'pcs', price: 95.0 },
-  { id: 'prod-029', name: 'Round Bar 20mm', unit: 'm', price: 12.0 },
-  { id: 'prod-030', name: 'Square Bar 15mm', unit: 'm', price: 9.8 },
-]
+/**
+ * The products the demo trades in — read from the catalogue, not copied.
+ *
+ * The copy that used to sit here listed thirty products with their own names and
+ * their own prices, and the ids meant different things in the two lists: prod-007
+ * was "Rebar 12mm" at 0,85 here and "Angle Grinder 125mm" at 89,00 in the
+ * catalogue. Lines were priced from this list and costed from the warehouse, and
+ * the two had never heard of each other — which is where margins of −91% and
+ * +2 106% came from, and why one demo line in six was sold below cost.
+ */
+function catalogueProducts(): ProductSpec[] {
+  return PRODUCTS_STORE.filter((p) => p.price != null && p.price > 0).map((p) => ({
+    id: p.id,
+    name: p.name?.en ?? p.id,
+    // 'uom-pcs' → 'pcs'; the table and the pickers label units by this code.
+    unit: (p.saleUomId ?? p.warehouseUomId ?? 'uom-pcs').replace(/^uom-/, ''),
+    price: p.price as number,
+  }))
+}
+
+const PRODUCTS: ProductSpec[] = catalogueProducts()
 
 /**
  * The service catalogue, read live — see `serviceById`.
@@ -359,7 +357,7 @@ function generateOrders(): StoreOrder[] {
       const initLang =
         typeof localStorage !== 'undefined' ? localStorage.getItem('flexiron_lang') || 'en' : 'en'
       // The first nine are the hand-built scenarios — see `applyScenario`.
-      const qty = generatedQuantity(prod, rng, i < SCENARIO_ORDER_COUNT)
+      const qty = generatedQuantity(prod, rng)
       const discount = rng() < 0.15 ? Math.round(rng() * 15) : 0
       const costRatio = 0.6 + rng() * 0.25 // 60–85% of selling price
       // Costed off the warehouse, oldest batches first — and carrying the
@@ -761,25 +759,43 @@ function applyScenario(order: StoreOrder, index: number): void {
 
     // ORD-009 — the full story: two trucks, an invoice, a part payment.
     case 8: {
-      if (order.items.length < 2) {
-        const template = order.items[0]!
-        order.items.push(
-          buildItem({
-            id: `${order.id}-oi-extra`,
-            lineNumber: order.items.length + 1,
-            productId: template.productId,
-            productName: template.productName,
-            quantity: 4,
-            unit: template.unit,
-            unitCost: template.unitCost,
-            marginPercent: template.marginPercent,
-            receivedCurrency: template.receivedCurrency,
-            exchangeRate: template.exchangeRate,
-          }),
-        )
+      // Chosen by what the shelf can back, not by position: this scenario is a
+      // story about two trucks, and a line the warehouse has never stocked cannot
+      // be on either of them. Picked blindly, it put an overhead crane nobody
+      // holds on the second truck and the scenario quietly became a one-truck one.
+      const canShip = order.items.filter((i) => i.allocations.length > 0)
+      if (canShip.length === 0) return
+      if (canShip.length < 2) {
+        const template = canShip[0]!
+        const quantity = 4
+        const fifo = mockFifoAllocation(template.productId, quantity)
+        if (fifo.allocations.length === 0) return
+        const extra = buildItem({
+          id: `${order.id}-oi-extra`,
+          lineNumber: order.items.length + 1,
+          productId: template.productId,
+          productName: template.productName,
+          quantity,
+          unit: template.unit,
+          unitCost: round2(fifo.weightedUnitCost),
+          marginPercent: template.marginPercent,
+          receivedCurrency: template.receivedCurrency,
+          exchangeRate: template.exchangeRate,
+          allocations: fifo.allocations.map((a) => ({
+            batchId: a.batchId,
+            offcutId: a.offcutId,
+            quantity: a.quantity,
+            unitCost: a.unitCost,
+            currency: a.currency,
+            exchangeRate: a.exchangeRate,
+            source: a.source,
+          })),
+        })
+        order.items.push(extra)
+        canShip.push(extra)
         order._nextLineSeq = order.items.length + 1
       }
-      const [lineA, lineB] = [order.items[0]!, order.items[1]!]
+      const [lineA, lineB] = [canShip[0]!, canShip[1]!]
       // Nothing is marked as invoiced here: the invoice below does that, and only
       // if its truck really goes. A flag set by hand would claim a document the
       // scenario failed to issue.
@@ -1332,15 +1348,13 @@ export function mockAddOrderItem(
 ): OrderItem {
   const order = STORE.find((o) => o.id === orderId)
   if (!order) throw new Error('ORDER_NOT_FOUND')
-  // Look up product name from the full products STORE with current locale, fall back to local PRODUCTS catalog
+  // The catalogue names the product, in the language the admin is reading.
   const currentLang =
     typeof localStorage !== 'undefined' ? localStorage.getItem('flexiron_lang') || 'en' : 'en'
   const fullProduct = PRODUCTS_STORE.find((p) => p.id === data.productId)
   let productName =
     fullProduct?.name?.[currentLang as keyof typeof fullProduct.name] ?? fullProduct?.name?.en
-  if (!productName) {
-    productName = PRODUCTS.find((p) => p.id === data.productId)?.name ?? data.productId
-  }
+  if (!productName) productName = data.productId
   // The caller hands over a selling price; cost and margin are what the model
   // actually stores, so the margin is derived to land on that price.
   //
