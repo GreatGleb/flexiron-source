@@ -52,6 +52,7 @@ import {
   addOrderPayment,
   allocateOrderTotal,
   cancelOrderShipment,
+  correctOrderLine,
   createOrderInvoice,
   createOrderShipment,
   deleteOrderPayment,
@@ -1090,6 +1091,43 @@ export function useOrderCard(id: string) {
     }
   }
 
+  /**
+   * Correcting a frozen line — the only way past the freeze (model, sections 6
+   * and 12). A server action, like splitting: it issues a document, so unsaved
+   * line changes have to be in first, or the correction would be measured against
+   * a price the server has never seen.
+   */
+  const correcting = ref(false)
+
+  async function correctLine(
+    lineId: string,
+    data: { unitPrice?: number; unitCost?: number; reason: string },
+  ): Promise<boolean> {
+    if (correcting.value) return false
+    if (hasPendingChanges.value) {
+      toast.error(t('orders.error_save_lines_first'))
+      return false
+    }
+    correcting.value = true
+    try {
+      // The reload below replaces the form and its dirty baseline, so anything
+      // still unsaved there would simply vanish.
+      await saveFormFields()
+      await correctOrderLine(id, lineId, data)
+      await load()
+      // The correcting invoice belongs to a delivery, and the panel that lists
+      // them is read separately.
+      await loadShipments()
+      toast.success(t('orders.toast_line_corrected'))
+      return true
+    } catch (e) {
+      toast.error(t(lineEditErrorKey(e)))
+      return false
+    } finally {
+      correcting.value = false
+    }
+  }
+
   // ─── Deferred files ───────────────────────────────────────────────────
   function onFilesUploaded(files: UploadedFile[]) {
     if (!order.value) return
@@ -1466,6 +1504,8 @@ export function useOrderCard(id: string) {
     cancelKeepTotal,
     // Line edits
     editLine,
+    correctLine,
+    correcting,
     splitItemLine,
     splitting,
     pendingLineEdits,

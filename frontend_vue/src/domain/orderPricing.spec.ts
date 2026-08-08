@@ -394,6 +394,21 @@ describe('cost change', () => {
     expect(corrected.costSource).toBe('manual')
   })
 
+  it('holds the client price even on a line that was still computing it', () => {
+    // Cost × margin IS the price here, so correcting the cost carried the price
+    // with it — and re-billed a client holding the old figure on paper. Section
+    // 11.4 says the price does not move, and that has to be made true.
+    const computed = line({ state: 'shipped', shippedQuantity: 10, unitCost: 60 })
+    expect(calcLine(computed).unitPrice).toBe(72) // 60 + 20%
+    const corrected = applyCostCorrection(computed, 75)
+    const totals = calcLine(corrected)
+    expect(totals.unitPrice).toBe(72)
+    expect(totals.lineNet).toBe(720)
+    // What absorbs the correction is the margin, which is what it is for.
+    expect(totals.marginAmount).toBe(-30)
+    expect(corrected.marginPercent).toBe(computed.marginPercent)
+  })
+
   it('a FIFO refresh reprices drafts and steps over frozen lines', () => {
     const lines = [
       line({ id: 'draft' }),

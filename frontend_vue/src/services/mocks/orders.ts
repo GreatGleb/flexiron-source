@@ -33,6 +33,11 @@ import {
   splitLine as splitPricingLine,
   applyPriceEdit,
   applyDiscountEdit,
+  applyCorrection,
+  applyCostCorrection,
+  canEditPrice,
+  formatCents,
+  isCostFrozen,
   computeAvailable,
   syncLineState,
 } from '@/domain/orderPricing'
@@ -1665,6 +1670,142 @@ export function mockAllocateOrderTotal(
     achievedGross: result.achievedGross,
     rows: result.rows,
   }
+}
+
+// ─── Correcting a frozen line ───────────────────────────────────────────────
+
+/**
+ * The only way past the freeze — model, sections 6, 11.4 and 12.
+ *
+ * A line goes rigid the moment it is named by a document the client holds: a
+ * waybill for goods, an invoice for a service. That is the point of the freeze,
+ * and it left exactly one problem — a price typed wrong before the truck left
+ * could never be put right. The alternatives were both lies: split the line, which
+ * only reaches the part that has not gone, or cancel the whole delivery, which
+ * returns goods that never came back.
+ *
+ * So it is done in the open instead. Behind a right, with a reason that is
+ * mandatory, written into the order's history, and — where the client is holding
+ * a document — followed by a correcting invoice for the DIFFERENCE. The document
+ * already issued is not rewritten; a second one adjusts it, and the two together
+ * say what was really agreed.
+ *
+ * The warehouse is not touched at all. Nothing moved, so nothing moves back: this
+ * corrects a figure, not a delivery. A wrong QUANTITY is a different operation —
+ * cancel the shipment and send the right one.
+ */
+export function mockCorrectOrderLine(
+  orderId: string,
+  lineId: string,
+  data: { unitPrice?: number; unitCost?: number; reason?: string },
+): OrderItem | OrderService {
+  const order = STORE.find((o) => o.id === orderId)
+  if (!order) throw new Error('ORDER_NOT_FOUND')
+  const item = order.items.find((i) => i.id === lineId)
+  const service = item ? undefined : order.services.find((s) => s.id === lineId)
+  const line = item ?? service
+  if (!line) throw new Error('ORDER_ITEM_NOT_FOUND')
+
+  const reason = data.reason?.trim() ?? ''
+  // Checked before the right, so a user without it still learns what else is wrong.
+  if (!reason) throw new Error('CORRECTION_REASON_REQUIRED')
+  if (data.unitPrice === undefined && data.unitCost === undefined) {
+    throw new Error('CORRECTION_NEEDS_CHANGE')
+  }
+  const actor = requireRight('correction')
+
+  const before = toPricingLine(line)
+  // An open line is edited the ordinary way. Letting this path touch one would put
+  // a correcting document against a delivery that never happened, and skip every
+  // check an ordinary edit makes on the way.
+  if (canEditPrice(before) && !isCostFrozen(before)) throw new Error('LINE_NOT_FROZEN')
+
+  // Cost first: the corrected price is expressed against the corrected cost, so
+  // the margin that comes out of it is the one that was really earned.
+  let pricing = before
+  if (data.unitCost !== undefined) pricing = applyCostCorrection(pricing, data.unitCost, 'manual')
+  if (data.unitPrice !== undefined) pricing = applyCorrection(pricing, data.unitPrice)
+
+  // What each document that names this line would have said, before and after.
+  // Through `calcLine` rather than a unit price multiplied out, for the reason
+  // `shippedLineNet` exists: the stored price carries more decimals than it shows.
+  const netFor = (state: PricingLine, quantity: number) =>
+    calcLine({ ...state, quantity }).lineNet
+
+  const documents = item
+    ? liveInvoicesCovering(order, item)
+    : order.invoices.filter((i) => i.coversServices && !isWithdrawn(order, i.id))
+
+  applyPricing(line, pricing)
+  if (item) projectItem(item)
+  else projectService(line as OrderService)
+
+  if (data.unitCost !== undefined && before.unitCost !== pricing.unitCost) {
+    recordInHistory(
+      order,
+      {
+        ru: `Корректировка себестоимости — ${lineNameOf(line)}`,
+        en: `Cost correction — ${lineNameOf(line)}`,
+        lt: `Savikainos korekcija — ${lineNameOf(line)}`,
+      },
+      String(before.unitCost),
+      `${pricing.unitCost} — ${reason}`,
+      actor,
+    )
+  }
+
+  if (data.unitPrice !== undefined) {
+    recordInHistory(
+      order,
+      {
+        ru: `Корректировка цены — ${lineNameOf(line)}`,
+        en: `Price correction — ${lineNameOf(line)}`,
+        lt: `Kainos korekcija — ${lineNameOf(line)}`,
+      },
+      formatCents(netFor(before, 1)),
+      `${formatCents(netFor(pricing, 1))} — ${reason}`,
+      actor,
+    )
+
+    // One correcting document per document the client is holding, each for the
+    // difference on the quantity that document actually billed. A delivery that
+    // was never invoiced needs none: there is nothing out there to adjust.
+    for (const invoice of documents) {
+      const quantity = item ? invoicedQuantityOf(order, invoice, item.id) : line.quantity
+      const delta = round2(netFor(pricing, quantity) - netFor(before, quantity))
+      if (delta === 0) continue
+      mockCreateInvoice(order.id, {
+        kind: 'correction',
+        correctsInvoiceId: invoice.id,
+        amountNet: delta,
+        reason,
+      })
+    }
+  }
+
+  recalcOrder(order)
+  return clone(line)
+}
+
+function lineNameOf(line: OrderItem | OrderService): string {
+  return 'productName' in line ? line.productName : line.serviceName
+}
+
+/** Documents the client still holds that name this goods line. */
+function liveInvoicesCovering(order: StoreOrder, item: OrderItem): Invoice[] {
+  return order.invoices.filter((invoice) => {
+    if (invoice.kind === 'correction' || isWithdrawn(order, invoice.id)) return false
+    const shipment = order.shipments.find((s) => s.id === invoice.shipmentId)
+    return shipment?.lines.some((sl) => sl.lineId === item.id) ?? false
+  })
+}
+
+/** How much of the line that document billed — the correction covers no more. */
+function invoicedQuantityOf(order: StoreOrder, invoice: Invoice, lineId: string): number {
+  const shipment = order.shipments.find((s) => s.id === invoice.shipmentId)
+  return round2(
+    shipment?.lines.reduce((sum, sl) => (sl.lineId === lineId ? sum + sl.quantity : sum), 0) ?? 0,
+  )
 }
 
 // ─── Split a partially shipped line ─────────────────────────────────────────

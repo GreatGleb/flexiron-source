@@ -9,6 +9,7 @@ import {
   mockUpdateOrderService,
   mockAllocateOrderTotal,
   mockSplitOrderItem,
+  mockCorrectOrderLine,
   mockCreateShipment,
   mockCancelShipment,
   mockReserveOrder,
@@ -2885,5 +2886,169 @@ describe('the orders list filters by date', () => {
     const page = listBetween(day, day)
     expect(page.items.length).toBeGreaterThan(0)
     expect(page.items.every((o) => o.createdAt.slice(0, 10) === day)).toBe(true)
+  })
+})
+
+// ─── Correcting a frozen line ───────────────────────────────────────────────
+
+describe('correcting a line that has already gone out', () => {
+  /** A shipped, invoiced line — the only state a correction applies to. */
+  function shippedAndInvoiced(quantity = 4, unitPrice = 100) {
+    const created = freshOrder()
+    const line = mockAddOrderItem(created.id, {
+      productId: 'prod-001',
+      quantity,
+      unit: 'pcs',
+      unitPrice,
+      unitCost: 60,
+    })
+    const shipment = mockCreateShipment(created.id, {
+      lines: [{ lineId: line.id, quantity }],
+    })
+    const invoice = mockCreateInvoice(created.id, { shipmentId: shipment.id })
+    return { orderId: created.id, lineId: line.id, shipment, invoice }
+  }
+
+  it('is the only way past the freeze, and it produces a document', () => {
+    const { orderId, lineId, invoice } = shippedAndInvoiced()
+    // The ordinary way is closed, and stays closed.
+    expect(() => mockUpdateOrderItem(orderId, lineId, { manualUnitPrice: 90 })).toThrow(
+      'PRICE_FROZEN_BY_SHIPMENT',
+    )
+
+    mockCorrectOrderLine(orderId, lineId, {
+      unitPrice: 90,
+      reason: 'Agreed at 90,00; the waybill was printed with 100,00',
+    })
+
+    const after = mockGetOrder(orderId)!
+    expect(after.items[0]!.unitPrice).toBe(90)
+    expect(after.totalAmount).toBe(360)
+    // The issued document is not rewritten — a second one adjusts it by the
+    // difference over the quantity that document actually billed: 4 × −10.
+    const correction = after.invoices.find((i) => i.kind === 'correction')!
+    expect(correction.correctsInvoiceId).toBe(invoice.id)
+    expect(correction.amountNet).toBe(-40)
+    expect(correction.withdrawsOriginal).toBe(false)
+    expect(correction.reason).toContain('Agreed at 90,00')
+    // The two documents together say what was really agreed.
+    expect(round2(invoice.amountNet + correction.amountNet)).toBe(after.totalAmount)
+    // The line stays frozen: the goods are still gone.
+    expect(after.items[0]!.state).toBe('shipped')
+    expect(after.items[0]!.documentIssued).toBe(true)
+    // And it is in the history, with who and why.
+    const entry = after.auditLog[after.auditLog.length - 1]!
+    expect(entry.property.ru).toContain('Корректировка цены')
+    expect(entry.newValue).toContain('Agreed at 90,00')
+  })
+
+  it('does not touch the warehouse — a wrong quantity is a different operation', () => {
+    const { orderId, lineId, shipment } = shippedAndInvoiced()
+    const before = mockGetMovementsFor('order-shipment', shipment.id).map((m) => m.quantity)
+    mockCorrectOrderLine(orderId, lineId, { unitPrice: 90, reason: 'Price agreed lower' })
+    expect(mockGetMovementsFor('order-shipment', shipment.id).map((m) => m.quantity)).toEqual(before)
+    expect(mockGetOrder(orderId)!.items[0]!.shippedQuantity).toBe(4)
+  })
+
+  it('moves only the margin when the cost is what was wrong', () => {
+    const { orderId, lineId } = shippedAndInvoiced()
+    const before = mockGetOrder(orderId)!
+    mockCorrectOrderLine(orderId, lineId, {
+      unitCost: 75,
+      reason: 'Supplier invoice priced the batch at 75,00',
+    })
+    const after = mockGetOrder(orderId)!
+    // The client sees nothing: no new document, and the price does not move.
+    expect(after.invoices.filter((i) => i.kind === 'correction')).toHaveLength(0)
+    expect(after.items[0]!.unitPrice).toBe(before.items[0]!.unitPrice)
+    expect(after.totalAmount).toBe(before.totalAmount)
+    // Only the profit does.
+    expect(after.items[0]!.unitCost).toBe(75)
+    expect(after.totalCost).toBe(300)
+    expect(after.items[0]!.costSource).toBe('manual')
+  })
+
+  it('needs a reason, a change, a right, and a line that is actually frozen', () => {
+    const { orderId, lineId } = shippedAndInvoiced()
+    expect(() => mockCorrectOrderLine(orderId, lineId, { unitPrice: 90 })).toThrow(
+      'CORRECTION_REASON_REQUIRED',
+    )
+    expect(() => mockCorrectOrderLine(orderId, lineId, { reason: 'why not' })).toThrow(
+      'CORRECTION_NEEDS_CHANGE',
+    )
+
+    // An open line is edited the ordinary way; routing it through here would put a
+    // correcting document against a delivery that never happened.
+    const open = freshOrder()
+    const draft = mockAddOrderItem(open.id, {
+      productId: 'prod-001',
+      quantity: 1,
+      unit: 'pcs',
+      unitPrice: 100,
+      unitCost: 60,
+    })
+    expect(() =>
+      mockCorrectOrderLine(open.id, draft.id, { unitPrice: 90, reason: 'no' }),
+    ).toThrow('LINE_NOT_FROZEN')
+  })
+
+  it('is refused to a role without the right, whatever the buttons say', () => {
+    const { orderId, lineId } = shippedAndInvoiced()
+    const settings = mockGetSettings()
+    mockSaveSettings({ ...settings, profile: { ...settings.profile, role: 'manager' } })
+    try {
+      expect(() =>
+        mockCorrectOrderLine(orderId, lineId, { unitPrice: 90, reason: 'Agreed lower' }),
+      ).toThrow('FORBIDDEN_CORRECTION')
+    } finally {
+      const now = mockGetSettings()
+      mockSaveSettings({ ...now, profile: { ...now.profile, role: 'owner' } })
+    }
+    expect(mockGetOrder(orderId)!.items[0]!.unitPrice).toBe(100)
+  })
+
+  it('adjusts only the part each document billed', () => {
+    // Two trucks, two invoices, one line: correcting the price owes each document
+    // its own share of the difference, not the whole line's.
+    const created = freshOrder()
+    const line = mockAddOrderItem(created.id, {
+      productId: 'prod-001',
+      quantity: 10,
+      unit: 'pcs',
+      unitPrice: 100,
+      unitCost: 60,
+    })
+    const first = mockCreateShipment(created.id, { lines: [{ lineId: line.id, quantity: 4 }] })
+    const invoiceA = mockCreateInvoice(created.id, { shipmentId: first.id })
+    const second = mockCreateShipment(created.id, { lines: [{ lineId: line.id, quantity: 6 }] })
+    const invoiceB = mockCreateInvoice(created.id, { shipmentId: second.id })
+
+    mockCorrectOrderLine(created.id, line.id, { unitPrice: 90, reason: 'Agreed at 90,00' })
+
+    const after = mockGetOrder(created.id)!
+    const corrections = after.invoices.filter((i) => i.kind === 'correction')
+    expect(corrections.map((c) => c.amountNet).sort((a, b) => a - b)).toEqual([-60, -40])
+    expect(corrections.map((c) => c.correctsInvoiceId).sort()).toEqual(
+      [invoiceA.id, invoiceB.id].sort(),
+    )
+    // Everything issued, added up, is what the order now comes to.
+    expect(round2(after.invoices.reduce((sum, i) => sum + i.amountNet, 0))).toBe(after.totalAmount)
+  })
+
+  it('needs nothing issued to correct when nothing was issued', () => {
+    const created = freshOrder()
+    const line = mockAddOrderItem(created.id, {
+      productId: 'prod-001',
+      quantity: 2,
+      unit: 'pcs',
+      unitPrice: 100,
+      unitCost: 60,
+    })
+    mockCreateShipment(created.id, { lines: [{ lineId: line.id, quantity: 2 }] })
+
+    mockCorrectOrderLine(created.id, line.id, { unitPrice: 90, reason: 'Agreed at 90,00' })
+    const after = mockGetOrder(created.id)!
+    expect(after.invoices).toHaveLength(0)
+    expect(after.totalAmount).toBe(180)
   })
 })

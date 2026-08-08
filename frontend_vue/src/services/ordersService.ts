@@ -182,6 +182,22 @@ export async function splitOrderItem(
   return apiPost(`/api/orders/${orderId}/items/${lineId}/split`, { shippedQuantity })
 }
 
+/**
+ * Corrects a frozen line — the only way past the freeze (model, sections 6 and 12).
+ *
+ * Needs the `correction` right and a reason, both enforced by the server, and it
+ * issues a correcting invoice for the difference wherever the client is holding a
+ * document that named the line. The warehouse is not touched: this fixes a figure,
+ * not a delivery.
+ */
+export async function correctOrderLine(
+  orderId: string,
+  lineId: string,
+  data: { unitPrice?: number; unitCost?: number; reason: string },
+): Promise<OrderItem | OrderService> {
+  return apiPost(`/api/orders/${orderId}/items/${lineId}/correct`, data)
+}
+
 /** Which lines can go on a truck right now, and how much of each. */
 export async function planOrderShipment(orderId: string): Promise<ShippableLine[]> {
   return apiGet(`/api/orders/${orderId}/ship-plan`)

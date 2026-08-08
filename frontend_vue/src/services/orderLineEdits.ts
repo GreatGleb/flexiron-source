@@ -311,6 +311,8 @@ const ERROR_KEYS: Array<[string, string]> = [
   ['CORRECTION_NEEDS_ORIGINAL', 'orders.error_correction_needs_original'],
   ['CORRECTION_NEEDS_KIND', 'orders.error_correction_needs_kind'],
   ['CORRECTION_REASON_REQUIRED', 'orders.error_correction_reason_required'],
+  ['CORRECTION_NEEDS_CHANGE', 'orders.error_correction_needs_change'],
+  ['LINE_NOT_FROZEN', 'orders.error_line_not_frozen'],
   ['ORIGINAL_INVOICE_NOT_FOUND', 'orders.error_original_invoice_not_found'],
   ['CANNOT_CORRECT_A_CORRECTION', 'orders.error_cannot_correct_a_correction'],
   ['INVOICE_ALREADY_CORRECTED', 'orders.error_invoice_already_corrected'],

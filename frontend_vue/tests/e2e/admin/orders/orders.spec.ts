@@ -1473,6 +1473,65 @@ test.describe('Order Card › payments and invoices', () => {
     await expect(shipment.locator('[data-test="shipment-invoice-btn"]')).toHaveCount(0)
   })
 
+  test('a price printed wrong is corrected in the open, not rewritten', async ({ page }) => {
+    // The one door through the freeze — model, sections 6 and 12. Before it there
+    // was no way at all: the cells are shut, and the alternatives were to split
+    // the line (which only reaches what has not gone) or cancel the whole
+    // delivery (which returns goods that never came back).
+    await page.goto('/admin/orders/ORD-001')
+    await page.waitForSelector('[data-test="order-item-row"]')
+    await shipSomething(page)
+    await page
+      .locator('[data-test="order-shipment-row"]')
+      .first()
+      .locator('[data-test="shipment-invoice-btn"]')
+      .click()
+    await expect(page.locator('[data-test="order-invoice-row"]')).toHaveCount(1)
+
+    const row = page
+      .locator('[data-test="order-item-row"]')
+      .filter({ has: page.locator('[data-test="line-correct-btn"]') })
+      .first()
+    // Shut to an ordinary edit, and the bin is gone: the client holds a document.
+    await expect(row.locator('[data-test="cell-input"]')).toHaveCount(0)
+    await expect(row.locator('[data-test="line-remove-btn"]')).toHaveCount(0)
+
+    const totalBefore = Number(
+      await page.locator('[data-test="field-gross-total"]').inputValue(),
+    )
+    const priced = Number(await lineCell(row, 'unitPrice'))
+    await row.locator('[data-test="line-correct-btn"]').click()
+    await expect(page.locator('[data-test="correct-modal"]')).toBeVisible()
+
+    // Nothing happens without a reason: it goes to the client's accountant.
+    await expect(page.locator('[data-test="correct-confirm"]')).toBeDisabled()
+    await page.fill('[data-test="correct-price-input"]', String(priced - 5))
+    await expect(page.locator('[data-test="correct-confirm"]')).toBeDisabled()
+    await page.fill('[data-test="correct-reason-input"]', 'Agreed 5,00 lower before the truck left')
+    await expect(page.locator('[data-test="correct-effect"]')).toBeVisible()
+    await page.click('[data-test="correct-confirm"]')
+
+    // The line moved, and it is still frozen — the goods are still gone.
+    await expect(page.locator('[data-test="correct-modal"]')).toHaveCount(0)
+    const corrected = page
+      .locator('[data-test="order-item-row"]')
+      .filter({ has: page.locator('[data-test="line-correct-btn"]') })
+      .first()
+    expect(Number(await lineCell(corrected, 'unitPrice'))).toBeCloseTo(priced - 5, 2)
+    await expect(corrected.locator('[data-test="cell-input"]')).toHaveCount(0)
+    expect(Number(await page.locator('[data-test="field-gross-total"]').inputValue())).toBeLessThan(
+      totalBefore,
+    )
+
+    // The issued document was not rewritten — a second one adjusts it.
+    await expect(page.locator('[data-test="order-invoice-row"]')).toHaveCount(2)
+    await expect(page.locator('[data-test="order-invoice-row"]').last()).toContainText('Correction')
+    // And it is in the order's history, with the reason attached.
+    await expect(page.locator('[data-test="order-audit-table"]')).toContainText(
+      'Agreed 5,00 lower before the truck left',
+    )
+  })
+
   test('cancelling an invoiced delivery asks for a reason and corrects it', async ({ page }) => {
     await page.goto('/admin/orders/ORD-001')
     await page.waitForSelector('[data-test="order-item-row"]')

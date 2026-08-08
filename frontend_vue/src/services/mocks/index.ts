@@ -165,6 +165,7 @@ import {
   mockRemoveOrderFile,
   mockAllocateOrderTotal,
   mockSplitOrderItem,
+  mockCorrectOrderLine,
   mockGetShipments,
   mockCreateShipment,
   mockCancelShipment,
@@ -886,6 +887,17 @@ export async function postMock<T>(
         orderSplitMatch[1] as string,
         orderSplitMatch[2] as string,
         shippedQuantity,
+      ) as T,
+    )
+  }
+
+  const orderCorrectMatch = path.match(/^\/api\/orders\/([^/]+)\/items\/([^/]+)\/correct$/)
+  if (orderCorrectMatch) {
+    return delay(
+      mockCorrectOrderLine(
+        orderCorrectMatch[1] as string,
+        orderCorrectMatch[2] as string,
+        body as { unitPrice?: number; unitCost?: number; reason?: string },
       ) as T,
     )
   }

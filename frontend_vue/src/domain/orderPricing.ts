@@ -358,6 +358,13 @@ export function applyCostChange(
  * Cost correction on a frozen line — the supplier price in the batch was wrong.
  * Same rules as `applyCorrection`: a right, a reason, and an entry in the order
  * history, all the caller's job. The client price does not move; the margin does.
+ *
+ * "Does not move" has to be made true, not merely intended. On a line whose price
+ * is still computed, cost × margin IS the price — correcting a cost of 60 to 75
+ * carried the price from 100 to 125 and quietly re-billed a client who had the
+ * old figure on paper. So the price is pinned at what it already is, and the
+ * margin becomes the number that absorbs the correction, which is the whole point
+ * of model section 11.4.
  */
 export function applyCostCorrection(
   line: PricingLine,
@@ -365,7 +372,12 @@ export function applyCostCorrection(
   costSource: CostSource = 'manual',
 ): PricingLine {
   if (newUnitCost < 0) throw new Error('NEGATIVE_COST')
-  return { ...line, unitCost: newUnitCost, costSource }
+  return {
+    ...line,
+    unitCost: newUnitCost,
+    costSource,
+    manualUnitPrice: line.manualUnitPrice ?? rawUnitPrice(line),
+  }
 }
 
 /**

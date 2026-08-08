@@ -26,8 +26,16 @@ import {
   type LineKind,
 } from '@/services/orderLineEdits'
 import { toPricingLine } from '@/services/orderLines'
-import { calcLine, formatCents as money, roundTo } from '@/domain/orderPricing'
+import {
+  applyCorrection,
+  applyCostCorrection,
+  calcLine,
+  formatCents as money,
+  rollupOrder,
+  roundTo,
+} from '@/domain/orderPricing'
 import type {
+  Invoice,
   OrderItem,
   OrderService,
   OrderStatus,
@@ -108,6 +116,8 @@ const {
   confirmKeepTotal,
   cancelKeepTotal,
   editLine,
+  correctLine,
+  correcting,
   splitItemLine,
   splitting,
   tf,
@@ -380,6 +390,97 @@ function confirmCostEdit() {
   if (!pending || !reason) return
   editLine(pending.lineId, 'item', { field: 'unitCost', value: pending.to, reason })
   costEdit.value = null
+}
+
+// ─── Correcting a frozen line ──────────────────────────────────
+// Model, sections 6 and 12. The freeze exists so a document the client is holding
+// cannot be rewritten behind their back — and this is the one door through it:
+// a right, a mandatory reason, a line in the order's history, and a correcting
+// invoice for the difference. It is a server action, so nothing happens locally.
+
+const correctTarget = ref<{ line: OrderLine; kind: LineKind } | null>(null)
+const correctPrice = ref('')
+const correctCost = ref('')
+const correctReason = ref('')
+
+function askCorrection(line: OrderLine, kind: LineKind) {
+  // Said out loud rather than by a missing button: the admin needs to know whom
+  // to ask, and the server refuses it anyway.
+  if (!canCorrect.value) {
+    toast.error(t('orders.error_forbidden_correction'))
+    return
+  }
+  correctTarget.value = { line, kind }
+  correctPrice.value = cellValue(line, 'unitPrice')
+  correctCost.value = cellValue(line, 'unitCost')
+  correctReason.value = ''
+}
+
+/**
+ * What the correction would do, run through the same functions the server runs.
+ *
+ * The exact amount of the correcting invoice is deliberately NOT restated here:
+ * it is the difference over the quantity each document actually billed, the server
+ * works that out from the shipments, and a second implementation of it on this
+ * side is precisely the kind of copy that drifts. The dialog says what changes and
+ * that a document follows; the invoices panel then shows the figure.
+ */
+const correctionPreview = computed(() => {
+  const target = correctTarget.value
+  if (!target || !order.value) return null
+  const before = toPricingLine(target.line)
+  const price = Number(correctPrice.value)
+  const cost = Number(correctCost.value)
+  const priceChanged =
+    Number.isFinite(price) && Math.abs(price - Number(cellValue(target.line, 'unitPrice'))) > 1e-9
+  const costChanged =
+    Number.isFinite(cost) && Math.abs(cost - Number(cellValue(target.line, 'unitCost'))) > 1e-9
+
+  let after = before
+  try {
+    if (costChanged) after = applyCostCorrection(after, cost, 'manual')
+    if (priceChanged) after = applyCorrection(after, price)
+  } catch {
+    return null
+  }
+
+  const others = [...order.value.items, ...order.value.services]
+    .filter((l) => l.id !== target.line.id)
+    .map(toPricingLine)
+  return {
+    priceChanged,
+    costChanged,
+    changed: priceChanged || costChanged,
+    lineBefore: calcLine(before),
+    lineAfter: calcLine(after),
+    totalBefore: totals.value.totalGross,
+    totalAfter: rollupOrder([...others, after], form.value.vatMode, form.value.vatPercent)
+      .totalGross,
+    // Which document the client is holding for this line, if any.
+    invoice: invoiceCovering(target.line.id),
+  }
+})
+
+/** The live invoice that names this line — what a correction would adjust. */
+function invoiceCovering(lineId: string): Invoice | null {
+  for (const shipment of shipments.value) {
+    if (!shipment.lines.some((sl) => sl.lineId === lineId)) continue
+    const invoice = liveInvoiceFor(shipment.id)
+    if (invoice) return invoice
+  }
+  return invoices.value.find((i) => i.coversServices) ?? null
+}
+
+async function confirmLineCorrection() {
+  const target = correctTarget.value
+  const preview = correctionPreview.value
+  const reason = correctReason.value.trim()
+  if (!target || !preview?.changed || !reason) return
+  const payload: { unitPrice?: number; unitCost?: number; reason: string } = { reason }
+  if (preview.priceChanged) payload.unitPrice = Number(correctPrice.value)
+  if (preview.costChanged) payload.unitCost = Number(correctCost.value)
+  correctTarget.value = null
+  await correctLine(target.line.id, payload)
 }
 
 // ─── Shipments ─────────────────────────────────────────────────
@@ -1343,6 +1444,15 @@ onMounted(loadShipments)
                       <SvgIcon name="scissors" :width="14" :height="14" />
                     </button>
                     <button
+                      v-if="isFrozenLine(item)"
+                      v-tooltip="t('orders.btn_correct_line')"
+                      class="action-icon-btn"
+                      data-test="line-correct-btn"
+                      @click="askCorrection(item, 'item')"
+                    >
+                      <SvgIcon name="edit" :width="14" :height="14" />
+                    </button>
+                    <button
                       v-if="canDelete(item)"
                       v-tooltip="t('orders.btn_remove_item')"
                       class="action-icon-btn action-danger"
@@ -1444,6 +1554,15 @@ onMounted(loadShipments)
                   </td>
                   <td class="line-state" data-test="line-state">{{ lineStateLabel(svc) }}</td>
                   <td class="line-actions">
+                    <button
+                      v-if="isFrozenLine(svc)"
+                      v-tooltip="t('orders.btn_correct_line')"
+                      class="action-icon-btn"
+                      data-test="line-correct-btn"
+                      @click="askCorrection(svc, 'service')"
+                    >
+                      <SvgIcon name="edit" :width="14" :height="14" />
+                    </button>
                     <button
                       v-if="canDelete(svc)"
                       v-tooltip="t('orders.btn_remove_service')"
@@ -2342,6 +2461,102 @@ onMounted(loadShipments)
           @click="confirmCostEdit"
         >
           {{ t('orders.cost_reason_apply') }}
+        </button>
+      </template>
+    </AppModal>
+
+    <!-- Корректировка отгруженной строки: право, причина, корректирующий счёт -->
+    <AppModal
+      :model-value="correctTarget !== null"
+      :title="t('orders.correct_title')"
+      size="small"
+      data-test="correct-modal"
+      @update:model-value="correctTarget = null"
+    >
+      <template v-if="correctTarget && correctionPreview">
+        <p class="correct-line-name" data-test="correct-line">
+          {{
+            'productName' in correctTarget.line
+              ? correctTarget.line.productName
+              : correctTarget.line.serviceName
+          }}
+          · {{ lineStateLabel(correctTarget.line) }}
+        </p>
+        <InputGroup :label="t('orders.col_unit_price')">
+          <input
+            v-model="correctPrice"
+            class="glass-input"
+            type="number"
+            step="0.01"
+            data-test="correct-price-input"
+          />
+        </InputGroup>
+        <InputGroup v-if="canSeeCost" :label="t('orders.col_unit_cost')">
+          <input
+            v-model="correctCost"
+            class="glass-input"
+            type="number"
+            step="0.01"
+            data-test="correct-cost-input"
+          />
+        </InputGroup>
+        <InputGroup :label="t('orders.correct_reason_label')">
+          <input
+            v-model="correctReason"
+            class="glass-input"
+            type="text"
+            :placeholder="t('orders.correct_reason_placeholder')"
+            data-test="correct-reason-input"
+            @keyup.enter="confirmLineCorrection"
+          />
+        </InputGroup>
+        <div v-if="correctionPreview.changed" class="correct-effect" data-test="correct-effect">
+          <p v-if="correctionPreview.priceChanged && correctionPreview.invoice">
+            {{
+              t('orders.correct_effect_invoice', { invoice: correctionPreview.invoice.number })
+            }}
+          </p>
+          <p v-else-if="correctionPreview.priceChanged">
+            {{ t('orders.correct_effect_no_invoice') }}
+          </p>
+          <p v-if="correctionPreview.costChanged && !correctionPreview.priceChanged">
+            {{
+              t('orders.correct_effect_cost_only', {
+                before: money(correctionPreview.lineBefore.marginAmount),
+                after: money(correctionPreview.lineAfter.marginAmount),
+              })
+            }}
+          </p>
+          <p>
+            {{
+              t('orders.correct_effect_total', {
+                before: money(correctionPreview.totalBefore),
+                after: money(correctionPreview.totalAfter),
+              })
+            }}
+          </p>
+          <p class="correct-effect-note">{{ t('orders.correct_effect_stock') }}</p>
+        </div>
+      </template>
+      <template #footer>
+        <button
+          type="button"
+          class="btn btn-secondary"
+          data-test="correct-cancel"
+          @click="correctTarget = null"
+        >
+          {{ t('btn.cancel') }}
+        </button>
+        <button
+          type="button"
+          class="btn btn-primary"
+          :disabled="
+            correcting || correctReason.trim().length === 0 || !correctionPreview?.changed
+          "
+          data-test="correct-confirm"
+          @click="confirmLineCorrection"
+        >
+          {{ t('orders.correct_apply') }}
         </button>
       </template>
     </AppModal>

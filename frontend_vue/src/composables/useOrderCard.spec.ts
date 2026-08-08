@@ -90,6 +90,10 @@ vi.mock('@/services/ordersService', () => ({
   deleteOrderPayment: vi.fn(async () => ({})),
   reserveOrderStock: vi.fn(async () => ({})),
   splitOrderItem: vi.fn(async () => ({})),
+  correctOrderLine: vi.fn(async (_id: string, lineId: string, payload: Record<string, unknown>) => {
+    calls.push({ fn: 'correctOrderLine', lineId, payload })
+    return {}
+  }),
   allocateOrderTotal: vi.fn(async () => ({})),
 }))
 
@@ -413,4 +417,33 @@ describe('a line the freeze covers', () => {
     expect(card.pendingItemDeletions.value).toEqual(['item-1'])
   })
 
+  it('goes to the server for a correction, with the reason attached', async () => {
+    frozen()
+    const card = await loadedCard()
+    calls.length = 0
+
+    const ok = await card.correctLine('item-1', { unitPrice: 9, reason: 'Agreed at 9,00' })
+
+    expect(ok).toBe(true)
+    expect(calls.find((c) => c.fn === 'correctOrderLine')).toMatchObject({
+      lineId: 'item-1',
+      payload: { unitPrice: 9, reason: 'Agreed at 9,00' },
+    })
+  })
+
+  it('will not correct on top of edits the server has not seen', async () => {
+    frozen()
+    const card = await loadedCard()
+    await card.handleAddItemDirect(COPPER)
+    calls.length = 0
+
+    const ok = await card.correctLine('item-1', { unitPrice: 9, reason: 'Agreed at 9,00' })
+
+    // The correction is measured against the price the server holds, and issues a
+    // document from it. Run over an unsaved table, it would correct a figure
+    // nobody has.
+    expect(ok).toBe(false)
+    expect(calls.filter((c) => c.fn === 'correctOrderLine')).toEqual([])
+    expect(toasts.error).toHaveBeenCalledWith('orders.error_save_lines_first')
+  })
 })
