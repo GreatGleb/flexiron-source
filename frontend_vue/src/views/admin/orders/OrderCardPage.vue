@@ -2509,6 +2509,12 @@ onMounted(loadShipments)
   min-width: 120px;
 }
 
+/* A bare button between the fields keeps their rhythm: .input-group carries a
+   20px bottom margin, this one does not, so the VAT field sat right under it. */
+.apply-defaults-btn {
+  margin-bottom: 20px;
+}
+
 /* Subsection title */
 .subsection-title {
   font-size: 13px;
