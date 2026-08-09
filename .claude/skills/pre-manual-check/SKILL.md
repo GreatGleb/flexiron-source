@@ -1,0 +1,1 @@
+../../../roo_code/skills/pre-manual-check.md

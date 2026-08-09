@@ -185,5 +185,13 @@ When user mentions a page, bugs, work stage, section, or task continuation — *
 
 ## MCP Servers
 
-MCP server configuration is in:
-`C:/Users/great/AppData/Roaming/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json`
+Configuration location depends on the client — there is no shared file.
+
+- **Claude Code:** project-level `.mcp.json` in the repo root, or the `mcpServers` key in `~/.claude.json`. As of 2026-08-09 neither exists — no MCP servers are configured.
+- **Roo Code (Windows machine only):** `C:/Users/great/AppData/Roaming/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json`. The Linux equivalent would be `~/.config/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/`, but that directory does not exist here — the extension is not installed on this machine.
+
+## Skills and Claude Code
+
+The skill files live in `roo_code/skills/` and are the single source of truth for both clients. Claude Code discovers them through symlinks: `.claude/skills/<name>/SKILL.md` → `../../../roo_code/skills/<name>.md`. Editing a file in `roo_code/skills/` updates both; a new skill needs a matching symlink created by hand.
+
+The `arguments:` frontmatter block is Roo Code syntax. Claude Code ignores it and passes arguments through as free-form text, so a skill invoked as `/fix-bugs 1.1` receives `1.1` as a raw string.

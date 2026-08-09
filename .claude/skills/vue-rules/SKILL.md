@@ -1,0 +1,1 @@
+../../../roo_code/skills/vue-rules.md
