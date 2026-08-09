@@ -35,11 +35,61 @@ import {
 import { mockGetClients } from './clients'
 import { mockGetSettings, mockSaveSettings } from './settings'
 import { mockCreateService, mockPatchService } from './services'
-import { batchById, mockCalculateFifoCost, mockGetMovementsFor } from './warehouse'
+import {
+  batchById,
+  batchesForProduct,
+  mockCalculateFifoCost,
+  mockCreateBatch,
+  mockDeleteBatch,
+  mockGetMovementsFor,
+} from './warehouse'
 import { calcLine, round2, validateLine, netToGross } from '@/domain/orderPricing'
 import { toPricingLine } from '@/services/orderLines'
 import type { Order } from '@/types/order'
 import type { UserProfile } from '@/types/settings'
+
+// ─── The shelf these tests price against ────────────────────────────────────
+//
+// A line's cost is the warehouse's answer, and the orders API takes none from
+// the body (contract §4.2): the cost, the batch breakdown and the provenance
+// mark are all produced by FIFO over what is really on the shelf. So the 100,00
+// this file has always costed its prod-001 lines at is stated where a cost
+// actually lives — on the batches behind that product — and every line built
+// below is handed exactly the figure it used to be sent with.
+//
+// Both batches are priced alike on purpose: how much of the older one is free
+// varies as tests reserve and ship, and a line that spills into the second one
+// must still come to the same cost per unit.
+const STOCK_UNIT_COST = 100
+for (const batch of batchesForProduct('prod-001')) {
+  batch.unitPrice = STOCK_UNIT_COST
+  batch.totalCost = batch.quantity * STOCK_UNIT_COST
+}
+
+/**
+ * A catalogue product the warehouse holds nothing of.
+ *
+ * It has to be a real one. An id the catalogue does not know is refused outright
+ * (`CATALOG_PRODUCT_NOT_FOUND`, the rule services have always had), so "nothing
+ * in stock" cannot be said by inventing a product — only by naming one whose
+ * shelf is empty.
+ */
+const PRODUCT_OUT_OF_STOCK = 'prod-043'
+
+/**
+ * Makes a batch hold exactly `quantity` free units, and cost that much a unit.
+ *
+ * Seeding the warehouse is the only way to ask for a particular breakdown: FIFO
+ * produces it, the orders API cannot be told it. Returns the undo, because every
+ * other test in this file reads the same shelves.
+ */
+function shelve(batchId: string, quantity: number, unitCost = STOCK_UNIT_COST): () => void {
+  const batch = batchById(batchId)!
+  const stashed = { unitPrice: batch.unitPrice, quantityRemaining: batch.quantityRemaining }
+  batch.unitPrice = unitCost
+  batch.quantityRemaining = round2(mockReservedQuantity(batchId) + quantity)
+  return () => Object.assign(batch, stashed)
+}
 
 function allOrders(): Order[] {
   const page = mockGetOrders(
@@ -77,7 +127,6 @@ function orderWithLine(quantity = 10, unitPrice = 120): { order: Order; lineId: 
     quantity,
     unit: 'pcs',
     unitPrice,
-    unitCost: 100,
   })
   return { order: mockGetOrder(created.id)!, lineId: item.id }
 }
@@ -423,14 +472,12 @@ describe('allocating a manual total', () => {
       quantity: 3,
       unit: 'pcs',
       unitPrice: 100,
-      unitCost: 100,
     })
     mockAddOrderItem(created.id, {
       productId: 'prod-002',
       quantity: 7,
       unit: 'm',
       unitPrice: 100,
-      unitCost: 100,
     })
     mockCreateShipment(created.id, { lines: [{ lineId: shippedLine.id, quantity: 3 }] })
 
@@ -478,36 +525,22 @@ describe('server authority', () => {
   })
 
   it('splits the batch breakdown along with the goods', () => {
+    // Six free units on the older batch, so FIFO spans two of them: the breakdown
+    // is the warehouse's, and the only way to ask for this one is to put the
+    // goods where it would find them.
     const created = freshOrder()
+    const unshelve = shelve('whb-001', 6)
     const item = mockAddOrderItem(created.id, {
       productId: 'prod-001',
       quantity: 10,
       unit: 'pcs',
       unitPrice: 120,
-      unitCost: 100,
     })
-    mockUpdateOrderItem(created.id, item.id, {
-      allocations: [
-        {
-          batchId: 'whb-001',
-          offcutId: null,
-          quantity: 6,
-          unitCost: 100,
-          currency: 'cur-eur',
-          exchangeRate: 1,
-          source: 'stock',
-        },
-        {
-          batchId: 'whb-002',
-          offcutId: null,
-          quantity: 4,
-          unitCost: 100,
-          currency: 'cur-eur',
-          exchangeRate: 1,
-          source: 'stock',
-        },
-      ],
-    })
+    unshelve()
+    expect(item.allocations.map((a) => [a.batchId, a.quantity])).toEqual([
+      ['whb-001', 6],
+      ['whb-002', 4],
+    ])
     mockCreateShipment(created.id, { lines: [{ lineId: item.id, quantity: 6 }] })
 
     const { shipped, remainder } = mockSplitOrderItem(created.id, item.id, 6)
@@ -599,7 +632,6 @@ describe('reservations', () => {
       quantity: 10,
       unit: 'pcs',
       unitPrice: 120,
-      unitCost: 100,
       batchId: 'whb-001',
     })
 
@@ -617,11 +649,10 @@ describe('reservations', () => {
     // there is no shelf to hold anything on.
     const created = freshOrder()
     mockAddOrderItem(created.id, {
-      productId: 'prod-nothing-in-stock',
+      productId: PRODUCT_OUT_OF_STOCK,
       quantity: 10,
       unit: 'pcs',
       unitPrice: 120,
-      unitCost: 100,
     })
     expect(mockGetOrder(created.id)!.items[0]!.allocations).toEqual([])
     mockReserveOrder(created.id)
@@ -630,37 +661,17 @@ describe('reservations', () => {
   })
 
   it('hold only what is left to ship, however many batches the line spans', () => {
+    // Six free on the older shelf, so FIFO takes this line from two batches.
     const created = freshOrder()
+    const unshelve = shelve('whb-001', 6)
     const item = mockAddOrderItem(created.id, {
       productId: 'prod-001',
       quantity: 10,
       unit: 'pcs',
       unitPrice: 120,
-      unitCost: 100,
     })
-    // FIFO took this line from two batches.
-    mockUpdateOrderItem(created.id, item.id, {
-      allocations: [
-        {
-          batchId: 'whb-001',
-          offcutId: null,
-          quantity: 6,
-          unitCost: 100,
-          currency: 'cur-eur',
-          exchangeRate: 1,
-          source: 'stock',
-        },
-        {
-          batchId: 'whb-002',
-          offcutId: null,
-          quantity: 4,
-          unitCost: 100,
-          currency: 'cur-eur',
-          exchangeRate: 1,
-          source: 'stock',
-        },
-      ],
-    })
+    unshelve()
+    expect(item.allocations.length).toBe(2)
     mockCreateShipment(created.id, { lines: [{ lineId: item.id, quantity: 6 }] })
 
     mockReserveOrder(created.id)
@@ -676,8 +687,11 @@ describe('reservations', () => {
       quantity: 5,
       unit: 'pcs',
       unitPrice: 120,
-      unitCost: 100,
     })
+    // The breakdown is warehouse data and the orders API does not take it at all
+    // any more (contract §4.2) — so a breakdown of nine against a line of five is
+    // now refused one step earlier, by the field rather than by its size. The
+    // line is untouched, which is the point either way.
     expect(() =>
       mockUpdateOrderItem(created.id, item.id, {
         allocations: [
@@ -687,12 +701,13 @@ describe('reservations', () => {
             quantity: 9,
             unitCost: 100,
             currency: 'cur-eur',
-            exchangeRate: 1,
             source: 'stock',
           },
         ],
       }),
-    ).toThrow('ALLOCATION_EXCEEDS_QUANTITY')
+    ).toThrow('ALLOCATIONS_NOT_ACCEPTED')
+    const after = mockGetOrder(created.id)!.items[0]!
+    expect(round2(after.allocations.reduce((sum, a) => sum + a.quantity, 0))).toBe(5)
   })
 })
 
@@ -706,7 +721,6 @@ describe('payments', () => {
       quantity: 10,
       unit: 'pcs',
       unitPrice: 100,
-      unitCost: 100,
     })
     // net 1000, gross 1210
     mockAddOrderPayment(created.id, { amount: 302.5, purpose: 'advance' })
@@ -717,7 +731,6 @@ describe('payments', () => {
       quantity: 10,
       unit: 'm',
       unitPrice: 100,
-      unitCost: 100,
     })
     const grown = mockGetOrder(created.id)!
     expect(grown.paidPercent).toBe(12.5)
@@ -751,7 +764,7 @@ describe('invoices', () => {
     // 1200 of goods off the waybill plus the 12 of service that rides with them:
     // the service never ships, so this is the only document that can carry it —
     // and it is the same document that freezes it below.
-    expect(invoice.coversServices).toBe(true)
+    expect(invoice.coveredServiceIds).toHaveLength(1)
     expect(invoice.amountNet).toBe(1212)
     expect(invoice.amountGross).toBe(netToGross(1212, 'standard', 21))
     // Nothing is left unbilled: what the client owes is what the documents say.
@@ -777,7 +790,6 @@ describe('invoices', () => {
       quantity: 396.1,
       unit: 'pcs',
       unitPrice: 120.5,
-      unitCost: 80,
     })
     mockAllocateOrderTotal(created.id, 40000)
     const stored = mockGetOrder(created.id)!.items[0]!
@@ -807,26 +819,24 @@ describe('invoices', () => {
       quantity: 4,
       unit: 'pcs',
       unitPrice: 100,
-      unitCost: 60,
     })
     const b = mockAddOrderItem(created.id, {
       productId: 'prod-001',
       quantity: 6,
       unit: 'pcs',
       unitPrice: 100,
-      unitCost: 60,
     })
     mockAddOrderService(created.id, { serviceId: 'svc-001', quantity: 1, price: 12 })
 
     const first = mockCreateShipment(created.id, { lines: [{ lineId: a.id, quantity: 4 }] })
     const invoiceA = mockCreateInvoice(created.id, { shipmentId: first.id })
-    expect(invoiceA.coversServices).toBe(true)
+    expect(invoiceA.coveredServiceIds).toHaveLength(1)
     expect(invoiceA.amountNet).toBe(412)
 
     const second = mockCreateShipment(created.id, { lines: [{ lineId: b.id, quantity: 6 }] })
     const invoiceB = mockCreateInvoice(created.id, { shipmentId: second.id })
     // Billed once, not once per truck.
-    expect(invoiceB.coversServices).toBe(false)
+    expect(invoiceB.coveredServiceIds).toEqual([])
     expect(invoiceB.amountNet).toBe(600)
 
     // Every cent of the order is on a document the client holds. The service used
@@ -845,7 +855,6 @@ describe('invoices', () => {
       quantity: 4,
       unit: 'pcs',
       unitPrice: 100,
-      unitCost: 60,
     })
     const svc = mockAddOrderService(created.id, { serviceId: 'svc-001', quantity: 1, price: 12 })
     const shipment = mockCreateShipment(created.id, { lines: [{ lineId: line.id, quantity: 4 }] })
@@ -872,7 +881,6 @@ describe('invoices', () => {
       quantity: 4,
       unit: 'pcs',
       unitPrice: 100,
-      unitCost: 60,
     })
     const shipment = mockCreateShipment(created.id, { lines: [{ lineId: line.id, quantity: 4 }] })
     const invoice = mockCreateInvoice(created.id, { shipmentId: shipment.id })
@@ -922,14 +930,12 @@ describe('removing a line', () => {
       quantity: 5,
       unit: 'pcs',
       unitPrice: 100,
-      unitCost: 100,
     })
     const drop = mockAddOrderItem(created.id, {
       productId: 'prod-002',
       quantity: 3,
       unit: 'm',
       unitPrice: 100,
-      unitCost: 100,
     })
     // A negotiated price on the line that stays.
     mockUpdateOrderItem(created.id, keep.id, { manualUnitPrice: 90 })
@@ -953,7 +959,6 @@ describe('removing a line', () => {
       quantity: 1,
       unit: 'pcs',
       unitPrice: 100,
-      unitCost: 100,
     })
     const svc = mockAddOrderService(created.id, { serviceId: 'svc-001', quantity: 1, price: 12 })
     expect(mockGetOrder(created.id)!.totalAmount).toBe(112)
@@ -969,7 +974,6 @@ describe('removing a line', () => {
       quantity: 3,
       unit: 'pcs',
       unitPrice: 100,
-      unitCost: 60,
     })
     const svc = mockAddOrderService(created.id, { serviceId: 'svc-001', quantity: 1, price: 12 })
     const shipment = mockCreateShipment(created.id, {
@@ -1000,7 +1004,6 @@ describe('removing a line', () => {
       quantity: 1,
       unit: 'pcs',
       unitPrice: 100,
-      unitCost: 100,
     })
     const svc = mockAddOrderService(created.id, { serviceId: 'svc-001', quantity: 1, price: 12 })
 
@@ -1049,7 +1052,6 @@ describe('reserved quantity', () => {
       quantity: 7,
       unit: 'pcs',
       unitPrice: 120,
-      unitCost: 100,
       // A real batch with room to spare: goods cannot be held on a shelf that
       // does not exist, and a hold is capped by what is actually free.
       batchId: 'whb-002',
@@ -1114,14 +1116,12 @@ describe('details that only show up on real data', () => {
       quantity: 1,
       unit: 'pcs',
       unitPrice: 1000,
-      unitCost: 800,
     })
     mockAddOrderItem(created.id, {
       productId: 'prod-007',
       quantity: 500,
       unit: 'kg',
       unitPrice: 1,
-      unitCost: 0.8,
     })
     // Shipping the single 1000 EUR piece is half the money, but 1 of 501 "units".
     mockCreateShipment(created.id, { lines: [{ lineId: pieces.id, quantity: 1 }] })
@@ -1143,36 +1143,17 @@ describe('details that only show up on real data', () => {
   })
 
   it('trims the batch breakdown when the quantity is reduced', () => {
+    // Six free on the older shelf, so the line comes in spanning two batches.
     const created = freshOrder()
+    const unshelve = shelve('whb-001', 6)
     const item = mockAddOrderItem(created.id, {
       productId: 'prod-001',
       quantity: 10,
       unit: 'pcs',
       unitPrice: 120,
-      unitCost: 100,
     })
-    mockUpdateOrderItem(created.id, item.id, {
-      allocations: [
-        {
-          batchId: 'whb-001',
-          offcutId: null,
-          quantity: 6,
-          unitCost: 100,
-          currency: 'cur-eur',
-          exchangeRate: 1,
-          source: 'stock',
-        },
-        {
-          batchId: 'whb-002',
-          offcutId: null,
-          quantity: 4,
-          unitCost: 100,
-          currency: 'cur-eur',
-          exchangeRate: 1,
-          source: 'stock',
-        },
-      ],
-    })
+    unshelve()
+    expect(item.allocations.length).toBe(2)
 
     // A perfectly ordinary edit that used to trip the "breakdown too big" guard.
     const shrunk = mockUpdateOrderItem(created.id, item.id, { quantity: 4 })
@@ -1438,7 +1419,11 @@ describe('a service line comes from the service catalogue', () => {
     const created = freshOrder()
     expect(() =>
       mockAddOrderService(created.id, { serviceId: 'svc-does-not-exist', quantity: 1, price: 10 }),
-    ).toThrow('SERVICE_NOT_FOUND')
+      // The whole code, not the tail of it. `toThrow` matches by substring, and so
+      // does the frontend — which is why this code was renamed: it used to fit
+      // inside ORDER_SERVICE_NOT_FOUND, and a check written like this could not
+      // tell the two apart (contract §6).
+    ).toThrow('CATALOG_SERVICE_NOT_FOUND')
   })
 })
 
@@ -1450,7 +1435,6 @@ describe('cost provenance', () => {
       quantity: 1,
       unit: 'pcs',
       unitPrice: 120,
-      unitCost: 100,
     })
     expect(item.costSource).toBe('stock')
   })
@@ -1475,7 +1459,7 @@ describe('cost provenance', () => {
     const created = freshOrder()
     // Nothing in the warehouse under this product, so there is no cost to read.
     const item = mockAddOrderItem(created.id, {
-      productId: 'prod-no-batches-at-all',
+      productId: PRODUCT_OUT_OF_STOCK,
       quantity: 1,
       unit: 'pcs',
       unitPrice: 120,
@@ -1554,34 +1538,18 @@ describe('a shipment is the only thing that moves the warehouse', () => {
     // A line spanning two batches: the first truck empties the older one, and the
     // second must not write the same units off again.
     const created = freshOrder()
+    const unshelve = shelve('whb-001', 6)
     const item = mockAddOrderItem(created.id, {
       productId: 'prod-001',
       quantity: 10,
       unit: 'pcs',
       unitPrice: 200,
     })
-    mockUpdateOrderItem(created.id, item.id, {
-      allocations: [
-        {
-          batchId: 'whb-001',
-          offcutId: null,
-          quantity: 6,
-          unitCost: 100,
-          currency: 'cur-eur',
-          exchangeRate: 1,
-          source: 'stock',
-        },
-        {
-          batchId: 'whb-002',
-          offcutId: null,
-          quantity: 4,
-          unitCost: 110,
-          currency: 'cur-eur',
-          exchangeRate: 1,
-          source: 'stock',
-        },
-      ],
-    })
+    unshelve()
+    expect(item.allocations.map((a) => [a.batchId, a.quantity])).toEqual([
+      ['whb-001', 6],
+      ['whb-002', 4],
+    ])
 
     const first = mockCreateShipment(created.id, { lines: [{ lineId: item.id, quantity: 6 }] })
     const second = mockCreateShipment(created.id, { lines: [{ lineId: item.id, quantity: 4 }] })
@@ -1605,19 +1573,7 @@ describe('a shipment is the only thing that moves the warehouse', () => {
       unitPrice: 200,
     })
     const batchId = 'whb-001'
-    mockUpdateOrderItem(created.id, item.id, {
-      allocations: [
-        {
-          batchId,
-          offcutId: null,
-          quantity: 10,
-          unitCost: 100,
-          currency: 'cur-eur',
-          exchangeRate: 1,
-          source: 'stock',
-        },
-      ],
-    })
+    expect(item.allocations.map((a) => [a.batchId, a.quantity])).toEqual([[batchId, 10]])
     const batch = batchById(batchId)!
     const stashed = batch.quantityRemaining
     batch.quantityRemaining = 3
@@ -1635,11 +1591,10 @@ describe('a shipment is the only thing that moves the warehouse', () => {
   it('refuses to ship a line the warehouse never backed', () => {
     const created = freshOrder()
     const item = mockAddOrderItem(created.id, {
-      productId: 'prod-nothing-in-stock',
+      productId: PRODUCT_OUT_OF_STOCK,
       quantity: 5,
       unit: 'pcs',
       unitPrice: 200,
-      unitCost: 100,
     })
     expect(item.allocations).toEqual([])
     expect(() =>
@@ -1921,10 +1876,25 @@ describe('a shipment is the only thing that moves the warehouse', () => {
     expect(round2(after[0]!.quantity)).toBe(9)
   })
 
-  it('treats a breakdown pointing at a batch that is gone as nothing at all', () => {
+  it('treats a breakdown pointing at a batch that is gone as nothing at all', async () => {
     // Goods on no shelf cannot leave one, and a batch that no longer exists is
     // exactly that. The line is not shippable, and it says so as a shortage
     // rather than by throwing.
+    //
+    // The breakdown cannot be dictated, so the batch is real when the line takes
+    // it and gone by the time the line tries to ship: received before every other
+    // batch of this product, it is the one FIFO reaches for, and then it is
+    // written off the warehouse entirely. That is the case as it actually
+    // happens — a batch corrected away after an order was already planned on it.
+    const doomed = await mockCreateBatch({
+      productId: 'prod-001',
+      batchNumber: 'INV-GONE-001',
+      lotCode: 'LOT-GONE-001',
+      quantity: 5,
+      unit: 'kg',
+      unitPrice: STOCK_UNIT_COST,
+      receivedAt: '2000-01-01T00:00:00Z',
+    })
     const created = freshOrder()
     const item = mockAddOrderItem(created.id, {
       productId: 'prod-001',
@@ -1932,19 +1902,11 @@ describe('a shipment is the only thing that moves the warehouse', () => {
       unit: 'pcs',
       unitPrice: 200,
     })
-    mockUpdateOrderItem(created.id, item.id, {
-      allocations: [
-        {
-          batchId: 'whb-does-not-exist',
-          offcutId: null,
-          quantity: 5,
-          unitCost: 100,
-          currency: 'cur-eur',
-          exchangeRate: 1,
-          source: 'stock',
-        },
-      ],
-    })
+    expect(item.allocations.map((a) => [a.batchId, a.quantity])).toEqual([[doomed.id, 5]])
+
+    await mockDeleteBatch(doomed.id)
+    expect(batchById(doomed.id)).toBeUndefined()
+
     expect(mockPlanOrderShipment(created.id)[0]!.shippable).toBe(0)
     expect(() =>
       mockCreateShipment(created.id, { lines: [{ lineId: item.id, quantity: 5 }] }),
@@ -2156,19 +2118,10 @@ describe('the ordinary case: one truck, driven by the status', () => {
     withStatusRule('st-shipped', { writeOffOnTransition: true }, () => {
       const order = orderReadyToShip(10)
       const lineId = order.items[0]!.id
-      mockUpdateOrderItem(order.id, lineId, {
-        allocations: [
-          {
-            batchId: 'whb-001',
-            offcutId: null,
-            quantity: 10,
-            unitCost: 100,
-            currency: 'cur-eur',
-            exchangeRate: 1,
-            source: 'stock',
-          },
-        ],
-      })
+      // The whole line sits on the older batch — which is where FIFO put it.
+      expect(order.items[0]!.allocations.map((a) => [a.batchId, a.quantity])).toEqual([
+        ['whb-001', 10],
+      ])
       const batch = batchById('whb-001')!
       const stashed = batch.quantityRemaining
       batch.quantityRemaining = 4
@@ -2556,7 +2509,6 @@ describe('services never ship', () => {
       quantity: 2,
       unit: 'pcs',
       unitPrice: 100,
-      unitCost: 100,
     })
     mockAddOrderService(created.id, { serviceId: 'svc-001', quantity: 1, price: 12 })
     mockCreateShipment(created.id, { lines: [{ lineId: item.id, quantity: 2 }] })
@@ -2583,33 +2535,36 @@ describe('services never ship', () => {
 
 describe('taking a manual cost back off', () => {
   /**
-   * A line whose breakdown is stated outright. The batch ids are real ones from
-   * the warehouse mock — a shipment writes goods off an actual shelf, and an
-   * invented batch id would only prove that the test data is invented.
+   * A line with exactly this breakdown behind it — asked for by putting the goods
+   * on the shelves that would produce it.
+   *
+   * The batch ids are real ones from the warehouse mock: a shipment writes goods
+   * off an actual shelf, and an invented batch id would only prove that the test
+   * data is invented. They are stated in FIFO order, and each is given exactly
+   * the free quantity and the cost the line is supposed to read off it; the shelf
+   * goes back to what it was as soon as the line has been costed, because every
+   * other test in this file reads the same batches.
    */
   function lineWithBatches(
     allocations: Array<{ batchId: string; quantity: number; unitCost: number }>,
     quantity: number,
   ): { orderId: string; lineId: string } {
     const created = freshOrder()
-    const item = mockAddOrderItem(created.id, {
-      productId: 'prod-001',
-      quantity,
-      unit: 'pcs',
-      unitPrice: 200,
-      unitCost: 100,
-    })
-    mockUpdateOrderItem(created.id, item.id, {
-      allocations: allocations.map((a) => ({
-        batchId: a.batchId,
-        offcutId: null,
-        quantity: a.quantity,
-        unitCost: a.unitCost,
-        currency: 'cur-eur',
-        exchangeRate: 1,
-        source: 'stock' as const,
-      })),
-    })
+    const undo = allocations.map((a) => shelve(a.batchId, a.quantity, a.unitCost))
+    let item
+    try {
+      item = mockAddOrderItem(created.id, {
+        productId: 'prod-001',
+        quantity,
+        unit: 'pcs',
+        unitPrice: 200,
+      })
+    } finally {
+      for (const restore of undo) restore()
+    }
+    expect(item.allocations.map((a) => [a.batchId, a.quantity, a.unitCost])).toEqual(
+      allocations.map((a) => [a.batchId, a.quantity, a.unitCost]),
+    )
     return { orderId: created.id, lineId: item.id }
   }
 
@@ -2652,11 +2607,10 @@ describe('taking a manual cost back off', () => {
     // claims to come from the warehouse and no longer says who typed it.
     const created = freshOrder()
     const item = mockAddOrderItem(created.id, {
-      productId: 'prod-nothing-in-stock',
+      productId: PRODUCT_OUT_OF_STOCK,
       quantity: 10,
       unit: 'pcs',
       unitPrice: 120,
-      unitCost: 100,
     })
     mockUpdateOrderItem(created.id, item.id, {
       manualUnitCost: 130,
@@ -2937,7 +2891,6 @@ describe('correcting a line that has already gone out', () => {
       quantity,
       unit: 'pcs',
       unitPrice,
-      unitCost: 60,
     })
     const shipment = mockCreateShipment(created.id, {
       lines: [{ lineId: line.id, quantity }],
@@ -2983,7 +2936,9 @@ describe('correcting a line that has already gone out', () => {
     const { orderId, lineId, shipment } = shippedAndInvoiced()
     const before = mockGetMovementsFor('order-shipment', shipment.id).map((m) => m.quantity)
     mockCorrectOrderLine(orderId, lineId, { unitPrice: 90, reason: 'Price agreed lower' })
-    expect(mockGetMovementsFor('order-shipment', shipment.id).map((m) => m.quantity)).toEqual(before)
+    expect(mockGetMovementsFor('order-shipment', shipment.id).map((m) => m.quantity)).toEqual(
+      before,
+    )
     expect(mockGetOrder(orderId)!.items[0]!.shippedQuantity).toBe(4)
   })
 
@@ -3022,11 +2977,10 @@ describe('correcting a line that has already gone out', () => {
       quantity: 1,
       unit: 'pcs',
       unitPrice: 100,
-      unitCost: 60,
     })
-    expect(() =>
-      mockCorrectOrderLine(open.id, draft.id, { unitPrice: 90, reason: 'no' }),
-    ).toThrow('LINE_NOT_FROZEN')
+    expect(() => mockCorrectOrderLine(open.id, draft.id, { unitPrice: 90, reason: 'no' })).toThrow(
+      'LINE_NOT_FROZEN',
+    )
   })
 
   it('is refused to a role without the right, whatever the buttons say', () => {
@@ -3053,7 +3007,6 @@ describe('correcting a line that has already gone out', () => {
       quantity: 10,
       unit: 'pcs',
       unitPrice: 100,
-      unitCost: 60,
     })
     const first = mockCreateShipment(created.id, { lines: [{ lineId: line.id, quantity: 4 }] })
     const invoiceA = mockCreateInvoice(created.id, { shipmentId: first.id })
@@ -3079,7 +3032,6 @@ describe('correcting a line that has already gone out', () => {
       quantity: 2,
       unit: 'pcs',
       unitPrice: 100,
-      unitCost: 60,
     })
     mockCreateShipment(created.id, { lines: [{ lineId: line.id, quantity: 2 }] })
 

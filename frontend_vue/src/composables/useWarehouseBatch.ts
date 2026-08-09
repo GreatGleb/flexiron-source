@@ -94,7 +94,13 @@ export function useWarehouseBatch(id: string) {
     lotCode: string
     quantity: number
     unit: StockUnit
-    unitPrice: number
+    /**
+     * Warehouse cost in the base currency, or `null` for a batch nobody priced —
+     * a purchase in another currency whose base-currency sum was left empty.
+     * There is no rate to fill it in with, so the field stays empty and the card
+     * shows a dash rather than a zero (contract §7.1).
+     */
+    unitPrice: number | null
     marginPercent: number | null
     currency: string
     locationRack: string

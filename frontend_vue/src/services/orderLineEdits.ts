@@ -327,6 +327,43 @@ const ERROR_KEYS: Array<[string, string]> = [
   ['NEGATIVE_QUANTITY', 'orders.error_negative_value'],
   ['NEGATIVE_PRICE', 'orders.error_negative_value'],
   ['NEGATIVE_COST', 'orders.error_negative_value'],
+  // Not found. Every one of these used to fall through to "could not save" —
+  // which is the outcome contract §3 describes as the bad one: the person is told
+  // that something went wrong and nothing about what.
+  ['ORDER_AUDIT_ENTRY_NOT_FOUND', 'orders.error_order_audit_entry_not_found'],
+  ['ORDER_ITEM_NOT_FOUND', 'orders.error_order_item_not_found'],
+  ['ORDER_SERVICE_NOT_FOUND', 'orders.error_order_service_not_found'],
+  ['ORDER_NOT_FOUND', 'orders.error_order_not_found'],
+  ['CLIENT_NOT_FOUND', 'orders.error_client_not_found'],
+  ['CATALOG_PRODUCT_NOT_FOUND', 'orders.error_catalog_product_not_found'],
+  ['CATALOG_SERVICE_NOT_FOUND', 'orders.error_catalog_service_not_found'],
+  ['ALLOCATION_LINE_NOT_FOUND', 'orders.error_allocation_line_not_found'],
+  ['SHIPMENT_BATCH_NOT_FOUND', 'orders.error_shipment_batch_not_found'],
+  ['SHIPMENT_HAS_NO_LINES', 'orders.error_shipment_has_no_lines'],
+  ['SHIPMENT_QUANTITY_MUST_BE_POSITIVE', 'orders.error_shipment_quantity_positive'],
+  ['SHIPMENT_NOT_FOUND', 'orders.error_shipment_not_found'],
+  // Input the server refuses before it writes anything.
+  ['ORDER_VERSION_CONFLICT', 'orders.error_version_conflict'],
+  ['ALLOCATIONS_NOT_ACCEPTED', 'orders.error_allocations_not_accepted'],
+  ['NUMBER_NOT_FINITE', 'orders.error_number_not_finite'],
+  ['UNKNOWN_SORT_KEY', 'orders.error_unknown_sort_key'],
+  ['UNKNOWN_SORT_DIRECTION', 'orders.error_unknown_sort_direction'],
+  ['INVALID_PAGE', 'orders.error_invalid_page'],
+  ['INVALID_DATE_FILTER', 'orders.error_invalid_date_filter'],
+  // Spreading a total by hand. `BELOW_FROZEN_MINIMUM` and `NO_EDITABLE_LINES` are
+  // also matched by substring in the card's total preview, so the backend has to
+  // return these exact strings — §6 says so now.
+  ['BELOW_FROZEN_MINIMUM', 'orders.error_below_frozen_minimum'],
+  ['NO_EDITABLE_LINES', 'orders.error_no_editable_lines'],
+  ['ZERO_BASE_TOTAL', 'orders.error_zero_base_total'],
+  ['NEGATIVE_TARGET', 'orders.error_negative_target'],
+  // Internal invariants — a bug in the server, not something the person did. They
+  // are here so the sentence is honest rather than absent; on a real server they
+  // are a 500 and the code itself must not travel outwards.
+  ['INVALID_LINE', 'orders.error_internal_invariant'],
+  ['DUPLICATE_LINE_ID', 'orders.error_internal_invariant'],
+  ['ALLOCATION_EXCEEDS_QUANTITY', 'orders.error_internal_invariant'],
+  ['INVALID_VAT_RATE', 'orders.error_internal_invariant'],
 ]
 
 /**

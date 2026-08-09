@@ -10,7 +10,7 @@ import {
   toPricingLine,
 } from './orderLines'
 import type { OrderLineAllocation } from '@/types/order'
-import { calcLine, validateLine, round2 } from '@/domain/orderPricing'
+import { calcLine, isPriceLocked, validateLine, round2 } from '@/domain/orderPricing'
 
 describe('marginFor', () => {
   it('gives the markup that turns a cost into the wanted price', () => {
@@ -50,7 +50,6 @@ describe('buildOrderItem', () => {
     unitCost: 100,
     marginPercent: 20,
     receivedCurrency: 'cur-eur',
-    exchangeRate: 1,
   }
 
   it('produces a line that is valid and already projected', () => {
@@ -72,7 +71,6 @@ describe('buildOrderItem', () => {
         quantity: 10,
         unitCost: 100,
         currency: 'cur-eur',
-        exchangeRate: 1,
         source: 'stock',
       },
     ])
@@ -125,10 +123,34 @@ describe('buildOrderService', () => {
 })
 
 describe('pricingSeedFor', () => {
-  it('expresses the price as a markup when there is a cost to mark up', () => {
+  it('stores the price AND the markup when there is a cost to mark up', () => {
+    // This test used to demand the opposite — that only the markup be stored —
+    // and that demand was the defect. A price rebuilt from a percentage lands a
+    // cent below the number that was quoted in 12% of catalogue-shaped
+    // combinations, at any storage precision: a cost of 405,02 and a price of
+    // 963,13 over 72,5 units billed 69 826,92 against a quoted 69 826,93.
+    // Both numbers are stored now (contract §7) and they say different things.
     const seed = pricingSeedFor(100, 120)
     expect(seed.marginPercent).toBe(20)
-    expect(seed.manualUnitPrice).toBeNull()
+    expect(seed.manualUnitPrice).toBe(120)
+
+    // Stored is not the same as locked. The price follows the cost, so the line
+    // carries no 🔒 and a FIFO refresh still reprices it — the markup is the rule
+    // for where the price goes when the cost actually moves.
+    expect(seed.priceFollowsCost).toBe(true)
+    const line = buildOrderItem({
+      id: 'l1',
+      lineNumber: 1,
+      productId: 'p1',
+      productName: 'Steel Sheet 3mm',
+      quantity: 4,
+      unit: 'pcs',
+      unitCost: 100,
+      receivedCurrency: 'cur-eur',
+      ...seed,
+    })
+    expect(isPriceLocked(toPricingLine(line))).toBe(false)
+    expect(line.unitPrice).toBe(120)
   })
 
   it('states the price outright when there is no cost — never lets it fall to zero', () => {
@@ -159,7 +181,6 @@ describe('pricingSeedFor', () => {
       unit: 'pcs',
       unitCost: 0,
       receivedCurrency: 'cur-eur',
-      exchangeRate: 1,
       ...pricingSeedFor(0, 120.5),
     })
     expect(item.unitPrice).toBe(120.5)
@@ -183,7 +204,6 @@ describe('a price of zero', () => {
       unitCost: 100,
       ...seed,
       receivedCurrency: 'cur-eur',
-      exchangeRate: 1,
     })
     expect(() => validateLine(toPricingLine(line))).not.toThrow()
     expect(line.unitPrice).toBe(0)
@@ -227,7 +247,6 @@ describe('the picker preview and the line it becomes', () => {
       // price, and a line without a cost has none.
       discountPercent: unitCost > 0 ? orderDiscount : 0,
       receivedCurrency: 'cur-eur',
-      exchangeRate: 1,
     })
   }
 
@@ -255,7 +274,6 @@ describe('splitAllocations', () => {
       quantity: 6,
       unitCost: 100,
       currency: 'cur-eur',
-      exchangeRate: 1,
       source: 'stock',
       ...over,
     }

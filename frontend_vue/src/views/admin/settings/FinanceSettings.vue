@@ -5,7 +5,7 @@ import GlassPanel from '@/components/admin/GlassPanel.vue'
 import InputGroup from '@/components/admin/ui/InputGroup.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
 import { useTranslatedField } from '@/composables/useTranslatedData'
-import type { AppSettings, Currency } from '@/types/settings'
+import type { AppSettings } from '@/types/settings'
 
 const { t } = useI18n()
 const { tf } = useTranslatedField()
@@ -14,17 +14,8 @@ const settings = inject<AppSettings>('settings')!
 const updateConstants =
   inject<(patch: Partial<AppSettings['constants']>) => void>('updateConstants')!
 const removeCurrency = inject<(id: string) => void>('removeCurrency')!
-const updateCurrency = inject<(id: string, patch: Partial<Currency>) => void>('updateCurrency')!
 const handleSetDefaultCurrency = inject<(id: string) => void>('handleSetDefaultCurrency')!
 const currencyModal = inject<Ref<boolean>>('currencyModal')!
-
-/** Normalize comma → dot for decimal input */
-const handleRateInput = (id: string, event: Event) => {
-  const target = event.target as HTMLInputElement
-  const val = target.value.replace(',', '.')
-  target.value = val
-  updateCurrency(id, { exchangeRate: Number(val) })
-}
 </script>
 
 <template>
@@ -89,7 +80,6 @@ const handleRateInput = (id: string, event: Event) => {
             <tr>
               <th>{{ t('settingsFinance.currency_code') }}</th>
               <th>{{ t('settingsFinance.currency_name') }}</th>
-              <th>{{ t('settingsFinance.exchange_rate') }}</th>
               <th>{{ t('settingsFinance.is_default') }}</th>
               <th class="text-right"></th>
             </tr>
@@ -100,16 +90,6 @@ const handleRateInput = (id: string, event: Event) => {
                 <strong>{{ cur.code }}</strong>
               </td>
               <td>{{ tf(cur.name) }}</td>
-              <td>
-                <input
-                  type="number"
-                  step="0.0001"
-                  class="glass-input"
-                  :value="String(cur.exchangeRate).replace(',', '.')"
-                  data-test="settings-finance-currency-rate"
-                  @input="handleRateInput(cur.id, $event)"
-                />
-              </td>
               <td>
                 <label class="radio-label">
                   <input

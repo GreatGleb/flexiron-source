@@ -10,5 +10,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.spec.ts'],
+    // The audit specs have their own run — see vitest.audit.config.ts.
+    exclude: ['**/node_modules/**', '**/dist/**', 'src/**/order-audit-*.spec.ts'],
   },
 })

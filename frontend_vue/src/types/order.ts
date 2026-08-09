@@ -67,12 +67,10 @@ export interface OrderLineAllocation {
   batchId: string | null
   offcutId: string | null
   quantity: number
-  /** Cost per unit, already converted into the order currency. */
+  /** Cost per unit. */
   unitCost: number
-  /** Batch currency the cost came from. */
+  /** Batch currency the cost came from — a label on the number, not a factor. */
   currency: string
-  /** Rate batch currency → order currency, frozen together with the price. */
-  exchangeRate: number | null
   source: CostSource
 }
 
@@ -107,6 +105,14 @@ export interface OrderItem {
   discountPercent: number
   /** Set → the price is 🔒 locked and no longer follows cost or order defaults. */
   manualUnitPrice: number | null
+  /**
+   * The price the line was quoted at, stored as a price and NOT locked — a
+   * catalogue price. It is what the line shows, totals and invoices; a real cost
+   * change reprices it through `marginPercent`. Never set together with
+   * `manualUnitPrice`: storing a price and locking it are different statements
+   * (contract §7), and a line makes exactly one of them.
+   */
+  namedUnitPrice: number | null
 
   // ── Lifecycle ───────────────────────────────────────────────────────────
   state: LineState
@@ -129,10 +135,8 @@ export interface OrderItem {
   /** First allocation, kept for older call sites; `allocations` is the truth. */
   batchId: string | null
   offcutId: string | null
-  /** Currency of the batch the cost came from. */
+  /** Currency of the batch the cost came from. A label, never a multiplier. */
   receivedCurrency: string
-  /** Rate from `receivedCurrency` to the order currency. */
-  exchangeRate: number | null
 }
 
 /**
@@ -154,6 +158,8 @@ export interface OrderService {
   marginPercent: number
   discountPercent: number
   manualUnitPrice: number | null
+  /** A quoted price that is stored but not locked — see `OrderItem`. */
+  namedUnitPrice: number | null
 
   state: LineState
   shippedQuantity: number
@@ -195,9 +201,14 @@ export interface ShipmentLine {
    * released — and a cancellation has to put it back, or the goods return to the
    * shelf unclaimed and the next order can take them. How much was held, and off
    * which batch, is knowable only at the moment it is released, so the shipment
-   * records it. Absent or empty means the line held nothing when it shipped.
+   * records it.
+   *
+   * `null` — and never absent — when the line held nothing when it shipped. The
+   * field used to be left off the object entirely, and through JSON that is a key
+   * nobody sees: a schema read off one response would not know the column exists
+   * (contract §3, "необязательное поле присутствует всегда со значением null").
    */
-  heldReleased?: ShipmentHold[]
+  heldReleased: ShipmentHold[] | null
 }
 
 /**
@@ -283,15 +294,20 @@ export interface Invoice {
    */
   withdrawsOriginal: boolean
   /**
-   * The order's services are billed on this document.
+   * Which of the order's services this document charged for, by service line id.
    *
-   * Services never ship, so they cannot belong to a shipment — they ride on the
-   * first regular invoice of the order, which is the same document that freezes
-   * them. Recorded on the invoice rather than worked out again later: the amount
-   * and the freeze have to be one decision, or the services end up frozen by a
-   * document that never charged for them.
+   * Services never ship, so they cannot belong to a shipment — they ride on an
+   * ordinary invoice, which is the same document that freezes them. Recorded on
+   * the invoice rather than worked out again later: the amount and the freeze
+   * have to be one decision, or a service ends up frozen by a document that never
+   * charged for it.
+   *
+   * A list and not a flag, because both questions asked of it are per service.
+   * "This invoice covers the services", handed out once, stranded any service
+   * added to a live order afterwards — on no document, yet frozen by all of them
+   * (contract §4.6, findings 4 and 7). Empty on a document that carries none.
    */
-  coversServices: boolean
+  coveredServiceIds: string[]
   amountNet: number
   amountVat: number
   amountGross: number
@@ -372,9 +388,97 @@ export interface Order {
   notes: string | null
   documents: OrderDocument[]
   files: OrderFile[]
-  auditLog: StockAuditEntry[]
+  auditLog: OrderAuditEntry[]
   createdAt: string
   updatedAt: string
+
+  /**
+   * What the shelf would give each goods line NEXT, by line id — oldest batch
+   * first, and only what is still free to that line beyond what it already
+   * claims.
+   *
+   * Computed by the server on the way out and never stored (§1, rule 5): it is
+   * the warehouse's answer to "and if this line grew?", and the shelf moves
+   * under it. Growing a line takes its extra units off real batches at real
+   * prices and the line's cost becomes the blend of everything it then holds —
+   * so a card without this cannot show what a quantity change will really store,
+   * and two runs in six hundred of the randomised card fuzz ended with the admin
+   * approving one figure and the order being worth another.
+   *
+   * Deliberately the ladder and not the answer. WHICH batches, in what order,
+   * minus what other orders hold and what this line already claims, is a rule,
+   * and it stays in the one place that owns it; what a client does with the
+   * ladder is a weighted average, which is arithmetic. Handing a client the
+   * shelf and letting it run FIFO for itself would be the second implementation
+   * that every finding in this audit grew out of.
+   *
+   * Keyed by line id and kept off the line itself on purpose: a line is compared
+   * field for field between what a client applied locally and what the server
+   * stored, and a figure that depends on the shelf rather than on the line would
+   * make those two disagree for a reason that is not about the edit at all.
+   * Missing entry — including for a row that has never been to the server —
+   * means "no word from the warehouse", and a client that has no word leaves the
+   * cost alone rather than guessing.
+   */
+  costTopUp?: Record<string, OrderLineAllocation[]>
+
+  /**
+   * What the order is on, counted up by the server on every write (contract §3).
+   *
+   * The one thing two people on the same order can compare. A client sends back
+   * the version it was looking at; a server that finds it behind refuses the
+   * whole mutation with `ORDER_VERSION_CONFLICT` and writes nothing. Without it
+   * two tabs pricing the same line at 130,00 and at 80,00 both hear "saved" and
+   * the order is worth 800,00, with the first card still showing 1 300,00.
+   *
+   * Optional in the TYPE and never absent on the wire — the two are not the same
+   * statement. A response always carries it; `undefined` here means "this client
+   * never saw a version", which is also exactly what it means in a request: no
+   * precondition was offered, so there is nothing to check. That is what lets a
+   * caller that never read the order — a test harness, a migration — still write
+   * through the same functions.
+   */
+  version?: number
+}
+
+/**
+ * What a line-edit request carries besides the fields of the line itself.
+ *
+ * Both are about the CALL rather than the line, which is why they cannot live in
+ * `LineEditDelta`: one says which order state the edit was made against, the
+ * other supplies the order field the edit is settled with.
+ */
+export interface LineEditEnvelope {
+  /**
+   * The order default `resetPrice` resets the line to, as it stood at the moment
+   * the button was pressed (contract §4.2).
+   *
+   * "Reset to computed" is the one edit whose result depends on a field of the
+   * ORDER, and therefore the one that comes apart when the order fields and the
+   * line edits travel in separate requests: the card worked the price out against
+   * the default it was showing, sent `{ resetPrice: true }` with no number, and
+   * the server redid it against the default this very save had just written a
+   * moment earlier. A percentage the header calls "for new lines" reached a line
+   * that already existed, 240,00 out of 1 200,00, in both directions. An edit is
+   * an operation, not a final state, and the default is part of the operation.
+   */
+  defaultDiscountPercent?: number
+  /** The order version this edit was made against — see `Order.version`. */
+  version?: number
+}
+
+/**
+ * One line of the order's history — a stock audit entry that can be named.
+ *
+ * The record is addressed by `id`, never by its place in the list: two clients
+ * holding the same history and deleting different entries shift each other's
+ * indices, and the second deletion then lands on whatever slid into the position
+ * it read — silently, since a position always names something (contract §2, §4.1).
+ * The id is unique inside its order, like a line id and for the same reason: the
+ * record is reached through the order's path, `DELETE /orders/:id/audit/:entryId`.
+ */
+export interface OrderAuditEntry extends StockAuditEntry {
+  id: string
 }
 
 export interface OrderFile {

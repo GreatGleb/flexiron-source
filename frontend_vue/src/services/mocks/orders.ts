@@ -16,13 +16,17 @@ import type {
   ShipmentShortage,
   StatusTransitionPlan,
   SalesCrmStats,
+  OrderAuditEntry,
+  LineEditEnvelope,
 } from '@/types/order'
-import type { StockAuditEntry, StockReservation } from '@/types/warehouse'
+import type { CostSource } from '@/types/order'
+import type { StockReservation } from '@/types/warehouse'
 import type { PaginatedResponse, PaginationParams } from '@/types/api'
 import {
   type PricingLine,
   calcLine,
   round2,
+  roundStored,
   rollupOrder,
   validateLine,
   paidPercent,
@@ -49,6 +53,7 @@ import {
   projectItem,
   projectService,
   pricingSeedFor,
+  marginFor,
   splitAllocations,
   stockCostFor,
 } from '@/services/orderLines'
@@ -56,12 +61,22 @@ import {
   applyLineEdit,
   canDeleteLine,
   deltaToOps,
+  type LineEditContext,
   type LineEditDelta,
 } from '@/services/orderLineEdits'
+
+/**
+ * The body of one line edit as it arrives — the edit itself plus the envelope
+ * around it. Same type `ordersService` sends under the name `LineEditPayload`;
+ * spelled out here rather than imported so the reference implementation of the
+ * server does not depend on the client that talks to it.
+ */
+type LineEditPayload = LineEditDelta & LineEditEnvelope
 import {
   findReservations,
   holdOnBatch,
   releaseFromLine,
+  releaseFromLineOnBatches,
   releaseLine,
   releaseOrder,
   reservedForLine,
@@ -71,10 +86,12 @@ import {
 import { mockGetClients, registerClientOrderLookup } from './clients'
 import { shiftDemoDate } from './demoClock'
 import { mockGetSettings } from './settings'
-import { STORE as PRODUCTS_STORE } from './products'
+import { STORE as PRODUCTS_STORE, registerProductSalesLookup } from './products'
+import { compareDocumentNumbers } from '@/services/documentNumbers'
 import {
   batchById,
   batchesForProduct,
+  clearShortages,
   mockFifoAllocation,
   mockGetMovementsFor,
   recordShortage,
@@ -83,11 +100,24 @@ import {
 import { allServices, serviceById } from './services'
 
 interface StoreOrder extends Order {
+  /**
+   * Always a number in the store, even though the wire type calls it optional —
+   * absent there means "the client never read one", which is a statement only a
+   * request can make.
+   */
+  version: number
   _nextLineSeq: number
   _nextServiceSeq: number
   _nextShipmentSeq: number
   _nextInvoiceSeq: number
   _nextPaymentSeq: number
+  /**
+   * Numbers the history entries. Counts entries ever written, not entries held:
+   * a counter derived from `auditLog.length` would hand a deleted entry's name
+   * to the next one written, and a deletion aimed at the first would land on the
+   * second (§2, the ids are unique inside the order).
+   */
+  _nextAuditSeq: number
   /** Scenario setup: a payment sized as a share of the total, known only after the rollup. */
   _pendingAdvanceShare?: number
   /** Scenario setup: issue an invoice for this shipment once the prices are projected. */
@@ -289,13 +319,32 @@ const PRODUCTS: ProductSpec[] = catalogueProducts()
  * service created later came into an order under someone else's name and someone
  * else's cost, and a cost corrected in the services page never arrived at all.
  */
+/**
+ * The language the catalogue is kept in, and the only one the server writes in.
+ *
+ * `productName` and `serviceName` on a line are a snapshot: what this thing was
+ * called at the moment it entered the order, kept so a later rename of the
+ * catalogue cannot rewrite a document that has already gone out. A snapshot has
+ * to be one thing, and it was three — the server read `flexiron_lang` out of the
+ * browser and wrote whichever language the admin who typed happened to be
+ * reading, so one product sat in one order twice, as "Электроды ESAB OK 48.00
+ * 4мм" and as "ESAB OK 48.00 Elektrodai 4mm", forever (contract §4.2).
+ *
+ * It is also code a backend cannot run: a server has no `localStorage` and no
+ * reader, so there is no language there to pick up. The choice belongs to the
+ * catalogue, is made once, and the reader's language is applied where reading
+ * happens — in the interface, off the catalogue, and never onto the record.
+ */
+const CATALOGUE_LANGUAGE = 'en' as const
+
 function serviceEntry(id: string): { name: string; cost: number; price: number } {
   const svc = serviceById(id)
-  if (!svc) throw new Error('SERVICE_NOT_FOUND')
-  const lang =
-    typeof localStorage !== 'undefined' ? localStorage.getItem('flexiron_lang') || 'en' : 'en'
+  // Named so it is not a substring of `ORDER_SERVICE_NOT_FOUND`: the frontend
+  // matches error codes by substring (§6), so "the service is not in the
+  // catalogue" and "this order has no such service line" would read as one.
+  if (!svc) throw new Error('CATALOG_SERVICE_NOT_FOUND')
   return {
-    name: svc.name[lang as keyof typeof svc.name] ?? svc.name.en,
+    name: svc.name[CATALOGUE_LANGUAGE] ?? svc.name.en,
     cost: svc.costPrice,
     price: svc.sellingPrice,
   }
@@ -354,8 +403,6 @@ function generateOrders(): StoreOrder[] {
       usedIds.add(prod.id)
 
       const fullProd = PRODUCTS_STORE.find((p) => p.id === prod.id)
-      const initLang =
-        typeof localStorage !== 'undefined' ? localStorage.getItem('flexiron_lang') || 'en' : 'en'
       // The first nine are the hand-built scenarios — see `applyScenario`.
       const qty = generatedQuantity(prod, rng)
       const discount = rng() < 0.15 ? Math.round(rng() * 15) : 0
@@ -381,10 +428,7 @@ function generateOrders(): StoreOrder[] {
           id: `oi-${i * 20 + j}`,
           lineNumber: j + 1,
           productId: prod.id,
-          productName:
-            fullProd?.name?.[initLang as keyof typeof fullProd.name] ??
-            fullProd?.name?.en ??
-            prod.name,
+          productName: fullProd?.name?.[CATALOGUE_LANGUAGE] ?? fullProd?.name?.en ?? prod.name,
           quantity: qty,
           unit: prod.unit,
           unitCost,
@@ -396,14 +440,12 @@ function generateOrders(): StoreOrder[] {
                 quantity: a.quantity,
                 unitCost: a.unitCost,
                 currency: a.currency,
-                exchangeRate: a.exchangeRate,
                 source: a.source,
               }))
             : undefined,
           ...pricingSeedFor(unitCost, prod.price),
           discountPercent: discount,
           receivedCurrency: fullProd?.currencyId ?? 'cur-eur',
-          exchangeRate: 1,
         }),
       )
     }
@@ -454,9 +496,13 @@ function generateOrders(): StoreOrder[] {
     )
     const updatedAt = updatedDate.toISOString()
 
-    const auditLog: StockAuditEntry[] = [
+    // Written the way the endpoints write it: an id of its own on every entry,
+    // and the same full ISO-8601 stamp the order's own dates carry — the demo
+    // store is held to the rules the API is held to, or it is not a demo of it.
+    const auditLog: OrderAuditEntry[] = [
       {
-        timestamp: createdAt.slice(0, 16).replace('T', ' '),
+        id: 'au-1',
+        timestamp: createdAt,
         user: { ru: 'Система', en: 'System', lt: 'Sistema' },
         userInitials: 'SY',
         property: { ru: 'Заказ создан', en: 'Order created', lt: 'Užsakymas sukurtas' },
@@ -466,7 +512,8 @@ function generateOrders(): StoreOrder[] {
     ]
     if (status !== 'new') {
       auditLog.push({
-        timestamp: updatedAt.slice(0, 16).replace('T', ' '),
+        id: 'au-2',
+        timestamp: updatedAt,
         user: { ru: 'Иван Н.', en: 'Ivan N.', lt: 'Ivan N.' },
         userInitials: 'IN',
         property: { ru: 'Статус', en: 'Status', lt: 'Būsena' },
@@ -528,11 +575,16 @@ function generateOrders(): StoreOrder[] {
       auditLog,
       createdAt,
       updatedAt,
+      // Where every order starts. The generator writes to it below through the
+      // ordinary paths, so a freshly generated order does not claim to be
+      // untouched.
+      version: 1,
       _nextLineSeq: items.length + 1,
       _nextServiceSeq: services.length + 1,
       _nextShipmentSeq: 1,
       _nextInvoiceSeq: 1,
       _nextPaymentSeq: 1,
+      _nextAuditSeq: auditLog.length + 1,
     }
 
     applyScenario(order, i)
@@ -743,11 +795,23 @@ function applyScenario(order: StoreOrder, index: number): void {
       return
 
     // ORD-007 — the batch was not booked in yet, so the cost was typed by hand.
+    //
+    // Through the very edit `PATCH /items/:id` runs, not by assignment: a cost
+    // written straight onto the line leaves the price behind on the old figure,
+    // and the demo then shows a line whose stated margin does not produce its own
+    // price. Scenario data is held to the model like everything else — one rule,
+    // one path, here as well.
     case 6:
-      first.manualUnitCost = round2(first.unitCost * 1.08)
-      first.manualCostReason = 'Batch not booked in — supplier invoice price used'
-      first.unitCost = first.manualUnitCost
-      first.costSource = 'manual'
+      applyLineEdit(
+        first,
+        {
+          field: 'unitCost',
+          value: round2(first.unitCost * 1.08),
+          reason: 'Batch not booked in — supplier invoice price used',
+        },
+        { defaultDiscountPercent: order.defaultDiscountPercent },
+      )
+      // Nothing was booked in, so there is no batch breakdown behind this cost.
       first.allocations = []
       return
 
@@ -780,14 +844,12 @@ function applyScenario(order: StoreOrder, index: number): void {
           unitCost: round2(fifo.weightedUnitCost),
           marginPercent: template.marginPercent,
           receivedCurrency: template.receivedCurrency,
-          exchangeRate: template.exchangeRate,
           allocations: fifo.allocations.map((a) => ({
             batchId: a.batchId,
             offcutId: a.offcutId,
             quantity: a.quantity,
             unitCost: a.unitCost,
             currency: a.currency,
-            exchangeRate: a.exchangeRate,
             source: a.source,
           })),
         })
@@ -890,6 +952,30 @@ registerClientOrderLookup((clientId) =>
   STORE.filter((o) => o.clientId === clientId).map((o) => ({ id: o.id })),
 )
 
+// "What did this product actually sell for?" is a question about orders too, and
+// it is answered the same way — the catalogue asks, it does not import.
+//
+// Only what SHIPPED counts, and only from orders that were not cancelled: an
+// average sale price built from what was merely ordered would move every time
+// somebody drafts a line and abandons it. The net is recomputed for the shipped
+// quantity rather than taken from the line total, because a partly shipped line
+// bills the part that left, not the whole.
+registerProductSalesLookup((productId) => {
+  let quantity = 0
+  let net = 0
+  for (const order of STORE) {
+    if (order.status === 'cancelled') continue
+    for (const item of order.items) {
+      if (item.productId !== productId || item.shippedQuantity <= 0) continue
+      quantity = round2(quantity + item.shippedQuantity)
+      net = round2(
+        net + calcLine({ ...toPricingLine(item), quantity: item.shippedQuantity }).lineNet,
+      )
+    }
+  }
+  return quantity > 0 ? { quantity, net } : null
+})
+
 let nextSeq = TOTAL_ORDERS + 1
 
 function nextId(): string {
@@ -900,16 +986,94 @@ function clone<T>(data: T): T {
   return JSON.parse(JSON.stringify(data))
 }
 
-/** Strips the store's own bookkeeping — a real server would not send it. */
+/**
+ * Strips the store's own bookkeeping — a real server would not send it — and
+ * adds back the one thing that is computed rather than kept: what the shelf
+ * would give each goods line next.
+ */
 function publicOrder(order: StoreOrder): Order {
   const copy = clone(order) as StoreOrder & Record<string, unknown>
   for (const key of Object.keys(copy)) {
     if (key.startsWith('_')) delete copy[key]
   }
+  copy.costTopUp = Object.fromEntries(order.items.map((i) => [i.id, topUpLadder(order, i)]))
   return copy as Order
 }
 
 // ─── List ───
+
+/**
+ * The columns the list can be ordered by — the ones the user actually sees.
+ *
+ * A key outside this set is refused rather than ignored. `default: return 0` is
+ * how it used to end, and that answers a request nobody made: `totalCost` (a
+ * real column that never reached the switch) and the typo `clientNmae` both came
+ * back in raw storage order — not the order asked for, and not even the default
+ * of newest first. Indistinguishable from "sorting is broken" (contract §4.1).
+ */
+const ORDER_SORT_KEYS = [
+  'orderNumber',
+  'clientName',
+  'status',
+  'totalAmount',
+  'totalWithVat',
+  'paidPercent',
+  'shippedPercent',
+  'createdAt',
+] as const
+
+type OrderSortKey = (typeof ORDER_SORT_KEYS)[number]
+
+/** A day, as the filter means it: `YYYY-MM-DD` that is a real date on a calendar. */
+function isCalendarDay(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+  const parsed = new Date(`${value}T00:00:00Z`)
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value
+}
+
+/**
+ * The list parameters, checked before they are believed — contract §4.1.
+ *
+ * Every one of these used to fail silently, and two of them failed in opposite
+ * directions from the same cause: compared as strings, `dateFrom="not-a-date"`
+ * sits above every date and hid everything, while a broken `dateTo` sits above
+ * every date at the other end and hid nothing. An empty list is the answer to
+ * "nothing matched"; it must never also be the answer to "your request is
+ * broken", because then neither the user nor the developer can tell them apart.
+ */
+function validateListRequest(
+  filters: { dateFrom: string; dateTo: string; sortBy: string | null; sortDir: string },
+  pagination: PaginationParams,
+): { sortBy: OrderSortKey | null; descending: boolean } {
+  if (filters.sortBy && !ORDER_SORT_KEYS.includes(filters.sortBy as OrderSortKey)) {
+    // The key is named in the refusal: "sorting failed" without it sends whoever
+    // reads the log looking through eight columns for the one that was asked for.
+    throw new Error(`UNKNOWN_SORT_KEY: ${filters.sortBy}`)
+  }
+  const dir = filters.sortDir || 'asc'
+  if (dir !== 'asc' && dir !== 'desc') throw new Error(`UNKNOWN_SORT_DIRECTION: ${filters.sortDir}`)
+
+  for (const [name, value] of [
+    ['dateFrom', filters.dateFrom],
+    ['dateTo', filters.dateTo],
+  ] as const) {
+    if (value && !isCalendarDay(value)) throw new Error(`INVALID_DATE_FILTER: ${name}=${value}`)
+  }
+
+  // `page = -1` became `slice(-14, -7)` and handed back the tail of the list: a
+  // client that asked for a page it can name got a page it did not. `pageSize` is
+  // the same request read from the other end, and it was left out of the same
+  // check: a size below one answered with `totalPages: Infinity`, a number that
+  // goes on to be rendered. One rule, so one refusal — §4.1 now names both.
+  for (const [name, value] of [
+    ['page', pagination.page],
+    ['pageSize', pagination.pageSize],
+  ] as const) {
+    if (!Number.isInteger(value) || value < 1) throw new Error(`INVALID_PAGE: ${name}=${value}`)
+  }
+
+  return { sortBy: (filters.sortBy as OrderSortKey | null) || null, descending: dir === 'desc' }
+}
 
 export function mockGetOrders(
   filters: {
@@ -923,6 +1087,8 @@ export function mockGetOrders(
   },
   pagination: PaginationParams,
 ): PaginatedResponse<OrderListItem> {
+  const { sortBy, descending } = validateListRequest(filters, pagination)
+
   let filtered = STORE.map((o) => ({
     id: o.id,
     orderNumber: o.orderNumber,
@@ -967,50 +1133,19 @@ export function mockGetOrders(
     filtered = filtered.filter((o) => o.createdAt.slice(0, 10) <= filters.dateTo)
   }
 
-  // Apply sorting
-  const sortBy = filters.sortBy
-  const sortDir = filters.sortDir === 'desc' ? -1 : 1
+  // Apply sorting. The key was checked against `ORDER_SORT_KEYS` before a single
+  // row was read, so every key that gets here names a column of the row — sorted
+  // by what the column actually shows: with VAT modes differing per order, the
+  // net order and the gross order are not the same order.
+  const sortDir = descending ? -1 : 1
   if (sortBy) {
     filtered.sort((a, b) => {
-      let va: string | number
-      let vb: string | number
-      switch (sortBy) {
-        case 'orderNumber':
-          va = a.orderNumber
-          vb = b.orderNumber
-          break
-        case 'clientName':
-          va = a.clientName
-          vb = b.clientName
-          break
-        case 'status':
-          va = a.status
-          vb = b.status
-          break
-        case 'totalAmount':
-          va = a.totalAmount
-          vb = b.totalAmount
-          break
-        // Sorted by what the column actually shows: with VAT modes differing per
-        // order, the net order and the gross order are not the same order.
-        case 'totalWithVat':
-          va = a.totalWithVat
-          vb = b.totalWithVat
-          break
-        case 'paidPercent':
-          va = a.paidPercent
-          vb = b.paidPercent
-          break
-        case 'shippedPercent':
-          va = a.shippedPercent
-          vb = b.shippedPercent
-          break
-        case 'createdAt':
-          va = a.createdAt
-          vb = b.createdAt
-          break
-        default:
-          return 0
+      const va: string | number = a[sortBy]
+      const vb: string | number = b[sortBy]
+      // The order number is a counter written as text, and text order stops
+      // being counter order at the thousandth — see `compareDocumentNumbers`.
+      if (sortBy === 'orderNumber') {
+        return compareDocumentNumbers(String(va), String(vb)) * sortDir
       }
       if (va < vb) return -1 * sortDir
       if (va > vb) return 1 * sortDir
@@ -1123,21 +1258,24 @@ export function mockCreateOrder(data: {
     files: [],
     auditLog: [
       {
+        id: 'au-1',
         timestamp: new Date().toISOString(),
         user: { ru: 'Система', en: 'System', lt: 'Sistema' },
         userInitials: 'SY',
         property: { ru: 'Заказ создан', en: 'Order created', lt: 'Užsakymas sukurtas' },
         oldValue: '',
         newValue: orderNumber,
-      } as StockAuditEntry,
+      },
     ],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
+    version: 1,
     _nextLineSeq: 1,
     _nextServiceSeq: 1,
     _nextShipmentSeq: 1,
     _nextInvoiceSeq: 1,
     _nextPaymentSeq: 1,
+    _nextAuditSeq: 2,
   }
   STORE.push(order)
   return publicOrder(order)
@@ -1159,6 +1297,15 @@ export function mockPatchOrder(
 ): Order {
   const order = STORE.find((o) => o.id === id)
   if (!order) throw new Error('ORDER_NOT_FOUND')
+  assertVersion(order, delta.version)
+  requireFiniteNumbers({
+    vatPercent: delta.vatPercent,
+    defaultMarginPercent: delta.defaultMarginPercent,
+    defaultDiscountPercent: delta.defaultDiscountPercent,
+    totalWeight: delta.totalWeight,
+    marginPercent: delta.marginPercent,
+    orderDiscount: delta.orderDiscount,
+  })
 
   if (delta.notes !== undefined) order.notes = delta.notes
   if (delta.documentType !== undefined) order.documentType = delta.documentType
@@ -1177,8 +1324,10 @@ export function mockPatchOrder(
 
   // Everything else on an order is derived and is produced below, never taken
   // from the caller: a client that could dictate the total would make the
-  // invoice and the lines disagree.
+  // invoice and the lines disagree — `version` included, which is the server's
+  // count of its own writes and is never read out of the body.
   recalcOrder(order)
+  bumpVersion(order)
   return publicOrder(order)
 }
 
@@ -1245,9 +1394,8 @@ export function mockPatchOrderStatus(id: string, status: OrderStatus): Order {
   if (rules.reserves) mockReserveOrder(id)
 
   order.status = status
-  order.updatedAt = new Date().toISOString()
-  order.auditLog.push({
-    timestamp: new Date().toISOString().slice(0, 16).replace('T', ' '),
+  bumpVersion(order)
+  appendHistory(order, {
     user: { ru: 'Система', en: 'System', lt: 'Sistema' },
     userInitials: 'SY',
     property: { ru: 'Статус', en: 'Status', lt: 'Būsena' },
@@ -1279,6 +1427,31 @@ function requireRight(right: 'manualCost' | 'correction'): { name: string; initi
 }
 
 /**
+ * Appends one entry to an order's history — the only way an entry gets written.
+ *
+ * It hands out the two things the entry owes whoever reads it back. A name of
+ * its own, because a history is deleted from while other people are reading it,
+ * and a position is not a name (§2, §4.1). And a timestamp in the one format
+ * every other timestamp in the payload uses: full ISO-8601. The stamp used to be
+ * cut to `"2026-08-08 17:30"` here and left whole in `mockCreateOrder`, so one
+ * array carried two formats — same type, `string`, so nothing type-checked
+ * catches it, and sorted as strings the short ones land ahead of the long ones
+ * whatever the clock said (§3).
+ */
+function appendHistory(
+  order: StoreOrder,
+  entry: Omit<OrderAuditEntry, 'id' | 'timestamp'>,
+): OrderAuditEntry {
+  const stored: OrderAuditEntry = {
+    id: `au-${order._nextAuditSeq++}`,
+    timestamp: new Date().toISOString(),
+    ...entry,
+  }
+  order.auditLog.push(stored)
+  return stored
+}
+
+/**
  * Writes the order's own history entry.
  *
  * The model asks for all three gated actions to be recorded with author and
@@ -1291,14 +1464,138 @@ function recordInHistory(
   newValue: string,
   user: { name: string; initials: string },
 ): void {
-  order.auditLog.push({
-    timestamp: new Date().toISOString().slice(0, 16).replace('T', ' '),
+  appendHistory(order, {
     user: { ru: user.name, en: user.name, lt: user.name },
     userInitials: user.initials,
     property,
     oldValue,
     newValue,
   })
+}
+
+// ─── Two people, one order ──────────────────────────────────────────────────
+// Contract §3: the order carries a version, the server counts it up on every
+// write, and a client sends back the version it was looking at.
+//
+// Why it is CHECKED only when one was sent, rather than demanded: a version is a
+// statement about what the caller read, and a caller that never read the order
+// cannot make it. The mock's own functions are called directly — by the demo
+// generator that fills the store, by the shipping code that creates an invoice
+// while it works, and by every test that drives the server without a card in
+// front of it — and none of those has a version to send. Demanding one would not
+// make those callers safe, it would only stop them working. Two tabs on one
+// order is what this exists for, and a tab always has a version, because it
+// always read the order first.
+//
+// What it costs to leave out is written down in §3 and was reproduced whole:
+// 130,00 and 80,00 typed into the same line in two tabs, saved one after the
+// other, leave the order worth 800,00 with nobody told anything and the first
+// card still showing 1 300,00.
+
+/**
+ * Refuses a write made against an order the caller has not seen — and refuses it
+ * BEFORE anything is written, so the order is left byte for byte as it was.
+ */
+function assertVersion(order: StoreOrder, sent: number | undefined): void {
+  if (sent === undefined) return
+  if (sent !== order.version) throw new Error('ORDER_VERSION_CONFLICT')
+}
+
+/**
+ * One accepted write, one step. Called exactly once at the end of each endpoint
+ * that changes an order, which is what lets a client that is sending several
+ * requests for one save follow along: it knows the version it is on after each
+ * answer without asking again.
+ *
+ * `updatedAt` moves with it — they say the same thing, and a version that had
+ * moved while the timestamp had not would let a reader believe either.
+ */
+function bumpVersion(order: StoreOrder): void {
+  order.version += 1
+  order.updatedAt = new Date().toISOString()
+}
+
+// ─── Input validation ───────────────────────────────────────────────────────
+// Contract §1, rule 6: the input is checked before anything believes it.
+//
+// Written once and called from everywhere, on purpose. The checks that stood
+// here before were comparisons spelled out at each call site — and a comparison
+// with NaN is false, so `NaN` and `Infinity` walked through every one of them:
+// a line stored with `quantity: NaN` goes on the wire as `null` and collapses
+// the order's total to 0, which on a server is a NOT NULL numeric column and a
+// 500. Spelled out per call site, the next endpoint added would miss it again;
+// this is the same shape of defect as the unknown product below.
+
+/**
+ * Refuses anything that is not a finite number, and says which field it was.
+ *
+ * Absent is not the same as wrong: an optional field that was not sent is not an
+ * edit, and `null` is how "clear this" travels — neither is a number to check.
+ */
+function requireFiniteNumbers(fields: Record<string, unknown>): void {
+  for (const [field, value] of Object.entries(fields)) {
+    if (value === undefined || value === null) continue
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      throw new Error(`NUMBER_NOT_FINITE: ${field}`)
+    }
+  }
+}
+
+/**
+ * A cost stated on the line that is being created is refused — contract §4.2.
+ *
+ * There is no way to make it legitimate here: this endpoint asks for no right,
+ * carries no reason, and would store the client's figure wearing the label
+ * `stock`. One move around the right, the mandatory reason, the `manual` mark
+ * and the history entry all at once. A cost is typed by hand through
+ * `PATCH manualUnitCost` with a reason, and nowhere else.
+ *
+ * The right is still asked for first, so a role that does not have it hears the
+ * very same `FORBIDDEN_MANUALCOST` it hears at the door that was already watched
+ * — the two doors answer alike because they guard the same thing.
+ */
+function refuseStatedCost(stated: number | undefined): void {
+  if (stated === undefined) return
+  requireRight('manualCost')
+  throw new Error('MANUAL_COST_REASON_REQUIRED')
+}
+
+/**
+ * What "reset to computed" resets the line to.
+ *
+ * The number rides with the edit, because it belongs to the moment the button
+ * was pressed and not to the moment the request is read (contract §4.2). This is
+ * the ONE line edit whose result depends on a field of the order, so it is the
+ * one that comes apart when the order fields and the line edits travel as
+ * separate requests — and they do: the card sends its own fields first, so a
+ * default typed AFTER the reset used to reach a line that had already been
+ * settled without it. Deferring to the order's own field when nothing was sent
+ * keeps every direct caller working exactly as before.
+ */
+function lineEditContext(order: StoreOrder, delta: LineEditPayload): LineEditContext {
+  return { defaultDiscountPercent: delta.defaultDiscountPercent ?? order.defaultDiscountPercent }
+}
+
+/** Every number a line edit can carry, and the one field it may not carry. */
+function validateLineEdit(delta: LineEditPayload): void {
+  requireFiniteNumbers({
+    defaultDiscountPercent: delta.defaultDiscountPercent,
+    quantity: delta.quantity,
+    manualUnitPrice: delta.manualUnitPrice,
+    lineTotal: delta.lineTotal,
+    discountPercent: delta.discountPercent,
+    marginPercent: delta.marginPercent,
+    manualUnitCost: delta.manualUnitCost,
+    unitCost: delta.unitCost,
+    weightPerUnitKg: delta.weightPerUnitKg,
+  })
+  // The batch breakdown is the warehouse's record of which batches this line
+  // consumes, and warehouse data is not written through the orders API
+  // (contract §4.2). Taken from the body, it let a client name a batch nobody
+  // has: the line stored, and then could never ship — the planner skips an
+  // unknown batch — with nothing anywhere saying why.
+  const { allocations: stated } = delta
+  if (stated !== undefined) throw new Error('ALLOCATIONS_NOT_ACCEPTED')
 }
 
 // ─── Delete ───
@@ -1327,6 +1624,10 @@ export function mockDeleteOrder(id: string): void {
   // holds would belong to an order nobody can open, and nothing could ever
   // release them — the goods would be promised away for the rest of the session.
   releaseOrder(id)
+  // And everything it asked somebody to buy is withdrawn with it, for the same
+  // reason and by the same rule: a shortage naming an order that cannot be opened
+  // is a purchase nobody can justify (§4.2).
+  clearShortages({ orderId: id })
 }
 
 // ─── Items ───
@@ -1344,16 +1645,36 @@ export function mockAddOrderItem(
     marginPercent?: number
     discountPercent?: number
     batchId?: string | null
+    /** The order version the caller was looking at — see `assertVersion`. */
+    version?: number
   },
 ): OrderItem {
   const order = STORE.find((o) => o.id === orderId)
   if (!order) throw new Error('ORDER_NOT_FOUND')
-  // The catalogue names the product, in the language the admin is reading.
-  const currentLang =
-    typeof localStorage !== 'undefined' ? localStorage.getItem('flexiron_lang') || 'en' : 'en'
+  assertVersion(order, data.version)
+  // Checked before a single figure is read — §1, rule 6. Nothing below writes
+  // anything until every one of these has passed.
+  requireFiniteNumbers({
+    quantity: data.quantity,
+    unitPrice: data.unitPrice,
+    marginPercent: data.marginPercent,
+    discountPercent: data.discountPercent,
+  })
+  // A line for nothing is not a line. The domain has always known this refusal —
+  // it just was never asked for here, so the one endpoint that creates lines was
+  // the one place it did not apply.
+  if (data.quantity === 0) throw new Error('ZERO_QUANTITY')
+  // Whatever cost came with the request is not a cost — see `refuseStatedCost`.
+  const { unitCost: statedCost } = data
+  refuseStatedCost(statedCost)
+  // The catalogue names the product — in the catalogue's own language, not the
+  // reader's (see `CATALOGUE_LANGUAGE`) — and it has to BE in the catalogue. An
+  // unknown id used to become a line named after its own id with a cost of zero,
+  // while an unknown service was refused: one rule, written for services and
+  // forgotten next door (§1, rule 6).
   const fullProduct = PRODUCTS_STORE.find((p) => p.id === data.productId)
-  let productName =
-    fullProduct?.name?.[currentLang as keyof typeof fullProduct.name] ?? fullProduct?.name?.en
+  if (!fullProduct) throw new Error('CATALOG_PRODUCT_NOT_FOUND')
+  let productName = fullProduct.name?.[CATALOGUE_LANGUAGE] ?? fullProduct.name?.en
   if (!productName) productName = data.productId
   // The caller hands over a selling price; cost and margin are what the model
   // actually stores, so the margin is derived to land on that price.
@@ -1363,24 +1684,14 @@ export function mockAddOrderItem(
   // under the admin the moment it is stored. A product with no batches has no
   // cost, and gets none: an invented number dressed up as a warehouse figure is
   // worse than no number at all, and two sides inventing separately is worse still.
-  const fifo = mockFifoAllocation(data.productId, data.quantity)
-  const { unitCost, costSource } = stockCostFor(
-    data.unitCost ?? fifo.weightedUnitCost,
-    fifo.shortageQuantity > 0,
-  )
-
-  // What the warehouse cannot cover is written down as a shortage: the order can
-  // be taken, but nobody may ship goods that are not there, and a shortage with
-  // no record is one nobody will ever buy.
-  if (fifo.shortageQuantity > 0) {
-    recordShortage({
-      productId: data.productId,
-      productName: productName ?? data.productId,
-      quantity: fifo.shortageQuantity,
-      unit: data.unit,
-      orderId: order.id,
-    })
-  }
+  const covered = coverFromStock(order, {
+    id: null,
+    productId: data.productId,
+    quantity: data.quantity,
+    shippedQuantity: 0,
+    allocations: [],
+  })
+  const { unitCost, costSource } = covered
 
   // What the admin decided, not what was derived from it: a catalogue price, or
   // a markup when the product carries no price. Never both — two ways to say the
@@ -1404,21 +1715,10 @@ export function mockAddOrderItem(
     ...seed,
     discountPercent: data.discountPercent ?? order.defaultDiscountPercent,
     receivedCurrency: fullProduct?.currencyId ?? 'cur-eur',
-    exchangeRate: 1,
     batchId: data.batchId ?? null,
     // Which batches this line consumes. FIFO routinely spans several, and without
     // the breakdown a partial shipment cannot write off the very batches it took.
-    allocations: data.batchId
-      ? undefined
-      : fifo.allocations.map((a) => ({
-          batchId: a.batchId,
-          offcutId: a.offcutId,
-          quantity: a.quantity,
-          unitCost: a.unitCost,
-          currency: a.currency,
-          exchangeRate: a.exchangeRate,
-          source: a.source,
-        })),
+    allocations: data.batchId ? undefined : covered.allocations,
   })
   // Checked BEFORE it goes into the store: `recalcOrder` validates every line and
   // throws, and a line pushed first would stay behind and take every later
@@ -1427,6 +1727,12 @@ export function mockAddOrderItem(
   order._nextLineSeq++
   order.items.push(item)
   recalcOrder(order)
+  bumpVersion(order)
+  // What the warehouse cannot cover is written down as a shortage: the order can
+  // be taken, but nobody may ship goods that are not there, and a shortage with
+  // no record is one nobody will ever buy. Filed after the line is in the store,
+  // not before — a refusal must not leave a purchase request behind it.
+  syncShortages(order, data.productId)
   return clone(item)
 }
 
@@ -1442,12 +1748,16 @@ export function mockAddOrderItem(
 export function mockUpdateOrderItem(
   orderId: string,
   lineId: string,
-  delta: LineEditDelta,
+  delta: LineEditPayload,
 ): OrderItem {
   const order = STORE.find((o) => o.id === orderId)
   if (!order) throw new Error('ORDER_NOT_FOUND')
+  assertVersion(order, delta.version)
   const idx = order.items.findIndex((i) => i.id === lineId)
   if (idx === -1) throw new Error('ORDER_ITEM_NOT_FOUND')
+
+  // Everything the body claims, checked before anything acts on it — §1, rule 6.
+  validateLineEdit(delta)
 
   // Typing a cost by hand is behind a right, and it is refused here rather than in
   // the card: the button is a suggestion, the server is the answer.
@@ -1460,15 +1770,15 @@ export function mockUpdateOrderItem(
   // Applied to a copy and swapped in only once every edit went through: a delta
   // carrying two edits must not leave the first one applied and the second refused.
   const draft = clone(before)
+  const ctx = lineEditContext(order, delta)
   for (const op of deltaToOps(delta, 'item')) {
-    applyLineEdit(draft, op, { defaultDiscountPercent: order.defaultDiscountPercent })
+    applyLineEdit(draft, op, ctx)
   }
 
   // Non-pricing fields pass through untouched.
   if (delta.productName !== undefined) draft.productName = delta.productName
   if (delta.unit !== undefined) draft.unit = delta.unit
   if (delta.weightPerUnitKg !== undefined) draft.weightPerUnitKg = delta.weightPerUnitKg
-  if (delta.allocations !== undefined) draft.allocations = delta.allocations.map((a) => ({ ...a }))
 
   order.items[idx] = draft
   if (actor && draft.unitCost !== before.unitCost) {
@@ -1488,9 +1798,13 @@ export function mockUpdateOrderItem(
   }
   // A grown line gets batches for the units it gained; a shrunk one gives its
   // surplus hold back. Holding MORE stays the reservation's job, not an edit's.
-  topUpAllocation(orderId, draft)
+  topUpAllocation(order, draft)
   trimHoldToLine(orderId, draft)
   recalcOrder(order)
+  bumpVersion(order)
+  // Whatever the shelf still cannot cover, restated: growing a line files what it
+  // could not get, and shrinking one takes back what it no longer needs.
+  syncShortages(order, draft.productId)
   return clone(draft)
 }
 
@@ -1498,20 +1812,27 @@ export function mockUpdateOrderItem(
 export function mockUpdateOrderService(
   orderId: string,
   serviceLineId: string,
-  delta: LineEditDelta,
+  delta: LineEditPayload,
 ): OrderService {
   const order = STORE.find((o) => o.id === orderId)
   if (!order) throw new Error('ORDER_NOT_FOUND')
+  assertVersion(order, delta.version)
   const idx = order.services.findIndex((s) => s.id === serviceLineId)
   if (idx === -1) throw new Error('ORDER_SERVICE_NOT_FOUND')
 
+  // The same validator as goods: one rule written twice is how the last six of
+  // these were missed.
+  validateLineEdit(delta)
+
   const draft = clone(order.services[idx]!)
+  const ctx = lineEditContext(order, delta)
   for (const op of deltaToOps(delta, 'service')) {
-    applyLineEdit(draft, op, { defaultDiscountPercent: order.defaultDiscountPercent })
+    applyLineEdit(draft, op, ctx)
   }
 
   order.services[idx] = draft
   recalcOrder(order)
+  bumpVersion(order)
   return clone(draft)
 }
 
@@ -1529,11 +1850,17 @@ export function mockDeleteOrderItem(orderId: string, lineId: string): void {
   if (!order) throw new Error('ORDER_NOT_FOUND')
   const idx = order.items.findIndex((i) => i.id === lineId)
   if (idx === -1) throw new Error('ORDER_ITEM_NOT_FOUND')
-  assertDeletable(order.items[idx]!)
+  const removed = order.items[idx]!
+  assertDeletable(removed)
   order.items.splice(idx, 1)
-  // The line is gone; anything it was holding is nobody's and goes back.
+  // The line is gone; anything it was holding is nobody's and goes back — and so
+  // is anything it asked somebody to buy. A reservation and a shortage are both
+  // things the line produced, and a delete that takes back only one of them
+  // leaves the buying list ordering goods for a line that no longer exists.
   releaseLine(orderId, lineId)
   recalcOrder(order)
+  bumpVersion(order)
+  syncShortages(order, removed.productId)
 }
 
 /**
@@ -1558,10 +1885,23 @@ function assertDeletable(line: OrderItem | OrderService): void {
 
 export function mockAddOrderService(
   orderId: string,
-  data: { serviceId: string; quantity: number; price?: number; discountPercent?: number },
+  data: {
+    serviceId: string
+    quantity: number
+    price?: number
+    discountPercent?: number
+    /** The order version the caller was looking at — see `assertVersion`. */
+    version?: number
+  },
 ): OrderService {
   const order = STORE.find((o) => o.id === orderId)
   if (!order) throw new Error('ORDER_NOT_FOUND')
+  assertVersion(order, data.version)
+  requireFiniteNumbers({
+    quantity: data.quantity,
+    price: data.price,
+    discountPercent: data.discountPercent,
+  })
   // From the catalogue, and refused if it is not in it: falling back to some
   // other service stored the line under a name nobody picked.
   const svcEntry = serviceEntry(data.serviceId)
@@ -1579,6 +1919,7 @@ export function mockAddOrderService(
   order._nextServiceSeq++
   order.services.push(service)
   recalcOrder(order)
+  bumpVersion(order)
   return clone(service)
 }
 
@@ -1592,16 +1933,32 @@ export function mockDeleteOrderService(orderId: string, serviceId: string): void
   assertDeletable(order.services[idx]!)
   order.services.splice(idx, 1)
   recalcOrder(order)
+  bumpVersion(order)
 }
 
 // ─── Audit ───
 
-export function mockDeleteOrderAuditEntry(orderId: string, entryIndex: number): void {
+/**
+ * `DELETE /orders/:id/audit/:entryId` — one record, named by its own id.
+ *
+ * It used to take the entry's POSITION, and a position is not a name for a
+ * record other people are deleting from. Two clients read the same four-entry
+ * history; the first deletes entry 1, every index below it slides up by one, and
+ * the second — asking, correctly, for what it read at 2 — takes the neighbour
+ * and leaves its own. Nobody is told, because a position always names something.
+ *
+ * An address that names nothing is refused, for the reason `DELETE /items/:id`
+ * refuses an unknown line: a silent success cannot be told apart from "it was
+ * already gone", and the caller that got its id from a stale list needs to hear
+ * that its list is stale (§4.1).
+ */
+export function mockDeleteOrderAuditEntry(orderId: string, entryId: string): void {
   const order = STORE.find((o) => o.id === orderId)
   if (!order) throw new Error('ORDER_NOT_FOUND')
-  if (entryIndex >= 0 && entryIndex < order.auditLog.length) {
-    order.auditLog.splice(entryIndex, 1)
-  }
+  const idx = order.auditLog.findIndex((entry) => entry.id === entryId)
+  if (idx === -1) throw new Error('ORDER_AUDIT_ENTRY_NOT_FOUND')
+  order.auditLog.splice(idx, 1)
+  bumpVersion(order)
 }
 
 // ─── Files ───
@@ -1625,6 +1982,7 @@ export function mockAddOrderFile(
     uploadedAt: new Date().toISOString(),
   }
   order.files.push(file)
+  bumpVersion(order)
   return structuredClone(file)
 }
 
@@ -1634,6 +1992,7 @@ export function mockRemoveOrderFile(orderId: string, fileId: string): void {
   const idx = order.files.findIndex((f) => f.fileId === fileId)
   if (idx !== -1) {
     order.files.splice(idx, 1)
+    bumpVersion(order)
   }
 }
 
@@ -1658,6 +2017,7 @@ export function mockAllocateOrderTotal(
 } {
   const order = STORE.find((o) => o.id === orderId)
   if (!order) throw new Error('ORDER_NOT_FOUND')
+  requireFiniteNumbers({ targetGross })
 
   const result = allocateGrossTotal(
     orderPricingLines(order),
@@ -1678,6 +2038,7 @@ export function mockAllocateOrderTotal(
   })
 
   recalcOrder(order)
+  bumpVersion(order)
   return {
     order: publicOrder(order),
     requestedGross: result.requestedGross,
@@ -1719,6 +2080,7 @@ export function mockCorrectOrderLine(
   const service = item ? undefined : order.services.find((s) => s.id === lineId)
   const line = item ?? service
   if (!line) throw new Error('ORDER_ITEM_NOT_FOUND')
+  requireFiniteNumbers({ unitPrice: data.unitPrice, unitCost: data.unitCost })
 
   const reason = data.reason?.trim() ?? ''
   // Checked before the right, so a user without it still learns what else is wrong.
@@ -1734,22 +2096,57 @@ export function mockCorrectOrderLine(
   // check an ordinary edit makes on the way.
   if (canEditPrice(before) && !isCostFrozen(before)) throw new Error('LINE_NOT_FROZEN')
 
+  // ── The plan ───────────────────────────────────────────────────────────────
+  // Everything this operation would do is worked out before any of it is done —
+  // §1 rule 3, and this is the one operation in the module that used to break it.
+  // The price went onto the line, the correcting documents were issued after it
+  // and the rollup came last, so a refusal from the second document left the line
+  // repriced, the order's total stale and the difference on no document at all:
+  // 20,00 € on a two-line invoice, 2 612,00 € once the fuzzer got hold of it
+  // (contract §4.2.1). A refused correction has to leave the order untouched.
+
   // Cost first: the corrected price is expressed against the corrected cost, so
   // the margin that comes out of it is the one that was really earned.
   let pricing = before
   if (data.unitCost !== undefined) pricing = applyCostCorrection(pricing, data.unitCost, 'manual')
   if (data.unitPrice !== undefined) pricing = applyCorrection(pricing, data.unitPrice)
+  // The corrected line has to be one the order can hold. `recalcOrder` validates
+  // every line and it runs at the END of this operation — by which time the price
+  // would already be stored.
+  validateLine(pricing)
 
   // What each document that names this line would have said, before and after.
   // Through `calcLine` rather than a unit price multiplied out, for the reason
   // `shippedLineNet` exists: the stored price carries more decimals than it shows.
-  const netFor = (state: PricingLine, quantity: number) =>
-    calcLine({ ...state, quantity }).lineNet
+  const netFor = (state: PricingLine, quantity: number) => calcLine({ ...state, quantity }).lineNet
 
   const documents = item
     ? liveInvoicesCovering(order, item)
-    : order.invoices.filter((i) => i.coversServices && !isWithdrawn(order, i.id))
+    : liveInvoicesCoveringService(order, line.id)
 
+  // One correcting document per document the client is holding, each for the
+  // difference on the quantity that document actually billed. A delivery that was
+  // never invoiced needs none: there is nothing out there to adjust.
+  const corrections =
+    data.unitPrice === undefined
+      ? []
+      : documents
+          .map((invoice) => {
+            const quantity = item ? invoicedQuantityOf(order, invoice, item.id) : line.quantity
+            return {
+              invoice,
+              delta: round2(netFor(pricing, quantity) - netFor(before, quantity)),
+            }
+          })
+          .filter(({ delta }) => delta !== 0)
+
+  // One document is adjusted once (§4.6). Asked here, where the answer still
+  // costs nothing — this is the refusal that used to arrive after the write.
+  for (const { invoice } of corrections) {
+    if (hasCorrection(order, invoice.id)) throw new Error('INVOICE_ALREADY_CORRECTED')
+  }
+
+  // ── Everything is checked; from here on it only writes. ────────────────────
   applyPricing(line, pricing)
   if (item) projectItem(item)
   else projectService(line as OrderService)
@@ -1781,13 +2178,7 @@ export function mockCorrectOrderLine(
       actor,
     )
 
-    // One correcting document per document the client is holding, each for the
-    // difference on the quantity that document actually billed. A delivery that
-    // was never invoiced needs none: there is nothing out there to adjust.
-    for (const invoice of documents) {
-      const quantity = item ? invoicedQuantityOf(order, invoice, item.id) : line.quantity
-      const delta = round2(netFor(pricing, quantity) - netFor(before, quantity))
-      if (delta === 0) continue
+    for (const { invoice, delta } of corrections) {
       mockCreateInvoice(order.id, {
         kind: 'correction',
         correctsInvoiceId: invoice.id,
@@ -1798,6 +2189,7 @@ export function mockCorrectOrderLine(
   }
 
   recalcOrder(order)
+  bumpVersion(order)
   return clone(line)
 }
 
@@ -1838,6 +2230,7 @@ export function mockSplitOrderItem(
   if (!order) throw new Error('ORDER_NOT_FOUND')
   const idx = order.items.findIndex((i) => i.id === lineId)
   if (idx === -1) throw new Error('ORDER_ITEM_NOT_FOUND')
+  requireFiniteNumbers({ shippedQuantity })
   const item = order.items[idx]!
 
   const split = splitPricingLine(toPricingLine(item), shippedQuantity)
@@ -1865,6 +2258,7 @@ export function mockSplitOrderItem(
   // fresh line and is reserved like any other.
   trimHoldToLine(orderId, shipped)
   recalcOrder(order)
+  bumpVersion(order)
   return { shipped: clone(shipped), remainder: clone(remainder) }
 }
 
@@ -1882,7 +2276,8 @@ export function mockGetShipments(orderId: string): Shipment[] {
  * warehouse instead of two.
  */
 /**
- * Tops the batch breakdown up to cover the whole line.
+ * Tops the batch breakdown up to cover the whole line — and re-reads what that
+ * makes the line cost.
  *
  * A line that grows needs batches for the units it just gained, or they can be
  * neither reserved nor shipped and nobody is told why. Only the shortfall is
@@ -1892,44 +2287,207 @@ export function mockGetShipments(orderId: string): Shipment[] {
  * This runs on a partially shipped line too, and must: "the truck has left and
  * the client wants two more" is the case the whole model is built around. Adding
  * to the end of the breakdown cannot disturb the prefix the first truck took.
- * Freezing applies to the COST, which is not touched here.
  *
- * The cost is deliberately NOT re-read. The card applies the same edit locally to
- * show the result at once, and it has no shelf to read; a cost that moved only on
- * the server would make the preview disagree with what was stored.
+ * The units that were just added come off real batches at real prices, so the
+ * cost follows them — through `coverFromStock`, the one function that answers
+ * this for every road a line gets stock by. The comment that used to stand here
+ * said the cost was deliberately not re-read so the card's local preview would
+ * agree with the server; what it actually bought was a line of 405 costed at the
+ * first batch's 9,45, 123,00 under the truth and labelled "from stock". A preview
+ * that agrees with a wrong number is not agreement.
+ *
+ * A cost named by a person is not re-read, and a cost that has gone out on paper
+ * cannot move at all — that is what `correct` is for (§4.2.1).
+ *
+ * What it does NOT do is move the price. A quantity edit "keeps the price per
+ * unit; the line total follows" — that is `applyQuantityEdit`'s own rule, and it
+ * held until the cost started being re-read underneath it: on a line whose price
+ * is computed, cost × margin IS the price, so a blend two cents dearer quietly
+ * repriced goods the admin had already agreed. The units that were in the line
+ * did not get more expensive; only the average did, because cheaper ones ran out
+ * and dearer ones were added. So the price stays where it was and the planned
+ * margin takes the difference — the same rule §4.2.1 states for a corrected cost
+ * and the same shape `pricingSeedFor` uses at creation, where the price is the
+ * decision and the margin is derived from it.
+ *
+ * This is also the only honest answer to a second question: the card cannot
+ * predict this figure. Which batches the shelf offers next is warehouse
+ * knowledge, and reproducing the blend in the browser would be a second copy of
+ * this very function — the mistake at the root of every finding in this audit.
+ * Holding the price means the card does not have to predict it: what it showed
+ * is what gets stored, and the cost it could not know shows up where it belongs,
+ * in the margin the server sends back.
  */
-function topUpAllocation(orderId: string, item: OrderItem): void {
-  const covered = round2(item.allocations.reduce((sum, a) => sum + a.quantity, 0))
-  const missing = round2(item.quantity - covered)
-  if (missing <= 0) return
+function topUpAllocation(order: StoreOrder, item: OrderItem): void {
+  const before = round2(item.allocations.reduce((sum, a) => sum + a.quantity, 0))
+  const covered = coverFromStock(order, item)
+  item.allocations = covered.allocations
+  // Only when the shelf really answered: an edit that added no batches has
+  // nothing new to say about the cost, and rewriting it anyway would move the
+  // figure on every unrelated save.
+  const after = round2(item.allocations.reduce((sum, a) => sum + a.quantity, 0))
+  if (after <= before) return
+  if (item.costSource === 'manual' || isCostFrozen(toPricingLine(item))) return
 
-  const fifo = mockFifoAllocation(item.productId, missing, {
-    exceptLine: { orderId, lineId: item.id },
-  })
-  if (fifo.allocations.length === 0) return
+  // The price as it stands, before the cost moves under it. A line that stores
+  // its price — quoted or hand-named — already keeps it through a cost change;
+  // one that computes it from the margin needs the margin restated, and both
+  // numbers stay at storage precision so nothing is rebuilt a cent short (§7).
+  const computesItsPrice = item.manualUnitPrice === null && item.namedUnitPrice === null
+  const priceBefore = item.unitCost * (1 + item.marginPercent / 100)
 
-  // One entry per batch, kept in the order the batches are consumed. Two entries
-  // for the same batch would still add up, but every rule expressed per entry —
-  // how much of it is already shipped, how much of it is held — would then be
-  // reading half the story.
-  const merged = [...item.allocations]
-  for (const a of fifo.allocations) {
-    const existing = merged.find((m) => m.batchId === a.batchId && m.offcutId === a.offcutId)
-    if (existing) {
-      existing.quantity = round2(existing.quantity + a.quantity)
-      continue
-    }
-    merged.push({
-      batchId: a.batchId,
-      offcutId: a.offcutId,
-      quantity: a.quantity,
-      unitCost: a.unitCost,
-      currency: a.currency,
-      exchangeRate: a.exchangeRate,
-      source: a.source,
-    })
+  item.unitCost = covered.unitCost
+  item.costSource = covered.costSource
+
+  if (computesItsPrice && priceBefore > 0 && covered.unitCost > 0) {
+    item.marginPercent = marginFor(covered.unitCost, priceBefore)
   }
-  item.allocations = merged
+}
+
+/**
+ * Which batches a line draws on, and what they make it cost.
+ *
+ * ONE function answers that, for every road a line gets stock by — being created,
+ * and being grown (contract §4.2, rule 3). It used to be answered in two places,
+ * and the second knew none of the first's rules: it read availability without
+ * noticing that the line asking already stood on the batch in its own breakdown,
+ * so it handed the same 305 units out a second time; it filed no shortage; and it
+ * left `costSource` saying "stock" over a number the warehouse had never given.
+ * The same order reached by two roads has to come back with the same figures.
+ *
+ * The cost is stored with room to spare and shown in cents (§7). Rounded to the
+ * cent before it is multiplied by the quantity, a weighted 9,753703… becomes 9,75
+ * and the order's cost lands 1,50 below the batches it is made of.
+ */
+/**
+ * What this line already claims and has not shipped, per batch.
+ *
+ * Not free shelf, and the physical remainder cannot say so — a breakdown is not
+ * a reservation — so the asking line has to declare it, or FIFO offers it the
+ * batch it is already standing on. That is finding 3 in one sentence: the same
+ * 305 units handed out twice, a cost 3,1% under the truth, labelled `stock`.
+ */
+function claimedByLine(
+  allocations: OrderLineAllocation[],
+  shippedQuantity: number,
+): Map<string, number> {
+  const claimed = new Map<string, number>()
+  for (const a of splitAllocations(allocations, shippedQuantity).remainder) {
+    if (a.batchId) claimed.set(a.batchId, round2((claimed.get(a.batchId) ?? 0) + a.quantity))
+  }
+  return claimed
+}
+
+/**
+ * Everything the shelf would still give this line, oldest batch first.
+ *
+ * The same question `coverFromStock` asks, asked open-ended: not "cover these
+ * four more" but "and then what?". It goes out with the order so a card can show
+ * what a quantity change will really cost without asking again per keystroke and
+ * without running FIFO itself — the rule (which batches, minus other orders'
+ * holds, minus this line's own claims) is answered here, once, and the card only
+ * takes units off the front of the answer.
+ *
+ * Never stored: the shelf moves under it, and a kept copy would be a promise the
+ * warehouse never made (§1, rule 5).
+ */
+function topUpLadder(order: StoreOrder, item: OrderItem): OrderLineAllocation[] {
+  const free = batchesForProduct(item.productId).reduce((sum, b) => sum + b.quantityRemaining, 0)
+  if (free <= 0) return []
+  const fifo = mockFifoAllocation(item.productId, free, {
+    exceptLine: { orderId: order.id, lineId: item.id },
+    claimed: claimedByLine(item.allocations, item.shippedQuantity),
+  })
+  return fifo.allocations.map((a) => ({
+    batchId: a.batchId,
+    offcutId: a.offcutId ?? null,
+    quantity: a.quantity,
+    unitCost: a.unitCost,
+    currency: a.currency,
+    source: a.source,
+  }))
+}
+
+function coverFromStock(
+  order: StoreOrder,
+  line: {
+    id: string | null
+    productId: string
+    quantity: number
+    shippedQuantity: number
+    allocations: OrderLineAllocation[]
+  },
+): { allocations: OrderLineAllocation[]; unitCost: number; costSource: CostSource } {
+  const merged = line.allocations.map((a) => ({ ...a }))
+  const missing = round2(line.quantity - merged.reduce((sum, a) => sum + a.quantity, 0))
+
+  if (missing > 0) {
+    const fifo = mockFifoAllocation(line.productId, missing, {
+      exceptLine: line.id ? { orderId: order.id, lineId: line.id } : undefined,
+      claimed: claimedByLine(merged, line.shippedQuantity),
+    })
+    // One entry per batch, kept in the order the batches are consumed. Two entries
+    // for the same batch would still add up, but every rule expressed per entry —
+    // how much of it is already shipped, how much of it is held — would then be
+    // reading half the story.
+    for (const a of fifo.allocations) {
+      const existing = merged.find((m) => m.batchId === a.batchId && m.offcutId === a.offcutId)
+      if (existing) {
+        existing.quantity = round2(existing.quantity + a.quantity)
+        continue
+      }
+      merged.push({
+        batchId: a.batchId,
+        offcutId: a.offcutId,
+        quantity: a.quantity,
+        unitCost: a.unitCost,
+        currency: a.currency,
+        source: a.source,
+      })
+    }
+  }
+
+  const covered = round2(merged.reduce((sum, a) => sum + a.quantity, 0))
+  const spent = merged.reduce((sum, a) => sum + a.quantity * a.unitCost, 0)
+  const weighted = covered > 0 ? roundStored(spent / covered) : 0
+  // `stockCostFor` still decides WHAT the figure is — a cost of nothing is no
+  // cost, and a line the shelf cannot fully cover carries an estimate. Only the
+  // precision it is kept at differs; the cent is for showing.
+  const { unitCost, costSource } = stockCostFor(weighted, round2(line.quantity - covered) > 0)
+  return { allocations: merged, unitCost: unitCost === 0 ? 0 : weighted, costSource }
+}
+
+/**
+ * Files what this order cannot cover for one product — and nothing else.
+ *
+ * The record says "Order X" and names a product, which is all it can say, so it
+ * is rewritten from the lines rather than added to. That is what makes it
+ * disappear when it should: a line that shrank, or went away, or an order that
+ * was deleted, takes its share of the shortage with it (§4.2). Left behind, it
+ * asks somebody to buy goods for an order nobody can open.
+ *
+ * The gap is read off the breakdown — quantity the batches did not cover — and
+ * not asked of the warehouse a second time: the two questions would drift apart
+ * the moment somebody else reserved something in between.
+ */
+function syncShortages(order: StoreOrder, productId: string): void {
+  clearShortages({ orderId: order.id, productId })
+  let missing = 0
+  let productName = ''
+  let unit = ''
+  for (const item of order.items) {
+    if (item.productId !== productId) continue
+    const gap = round2(item.quantity - item.allocations.reduce((sum, a) => sum + a.quantity, 0))
+    if (gap <= 0) continue
+    // Two lines of one product are two claims on the same shelf, so what they
+    // lack adds up — `max` of the two would send somebody shopping for less than
+    // the order needs.
+    missing = round2(missing + gap)
+    productName = productName || item.productName
+    unit = unit || item.unit
+  }
+  if (missing <= 0) return
+  recordShortage({ productId, productName, quantity: missing, unit, orderId: order.id })
 }
 
 /**
@@ -1988,6 +2546,11 @@ export function planShipment(
     // operation would catch it only after the goods were gone.
     if (seen.has(shipLine.lineId)) throw new Error('DUPLICATE_SHIPMENT_LINE')
     seen.add(shipLine.lineId)
+    // Before the comparison, because `NaN <= 0` is false and `Infinity <= 0` is
+    // false: the quantity that is not a number is exactly the one the positive
+    // check waves through. Planning happens before anything moves, so a refusal
+    // here leaves the warehouse and the order untouched.
+    requireFiniteNumbers({ quantity: shipLine.quantity })
     if (shipLine.quantity <= 0) throw new Error('SHIPMENT_QUANTITY_MUST_BE_POSITIVE')
     const remaining = round2(item.quantity - item.shippedQuantity)
     if (shipLine.quantity > remaining) throw new Error('SHIPMENT_EXCEEDS_REMAINING')
@@ -2085,7 +2648,11 @@ export function mockCreateShipment(
     carrier: data.carrier ?? null,
     vehicle: data.vehicle ?? null,
     waybillNumber: data.waybillNumber ?? `WB-${order.orderNumber}-${order._nextShipmentSeq}`,
-    lines: data.lines.map((l) => ({ ...l })),
+    // Field by field, and `heldReleased` starts at `null`: the shipment line is
+    // the server's record, not the request's, so nothing rides in on a spread —
+    // and the key is on the object from the first moment, because a field that
+    // appears only sometimes is a column nobody reading one response can see (§3).
+    lines: data.lines.map((l) => ({ lineId: l.lineId, quantity: l.quantity, heldReleased: null })),
     cancelled: false,
   }
   order._nextShipmentSeq++
@@ -2097,10 +2664,14 @@ export function mockCreateShipment(
     // State follows the quantities — never set by hand.
     applyPricing(item, syncLineState(toPricingLine(item)))
     // What shipped is no longer reserved: the hold is replaced by a real
-    // write-off. Recorded on the line, because cancelling has to put back exactly
-    // this much off exactly these batches.
-    const released = releaseFromLine(order.id, item.id, shipLine.quantity)
-    if (released.length > 0) shipLine.heldReleased = released
+    // write-off. Off the SAME batches the write-off takes, because it is one
+    // decision and not two — see `releaseFromLineOnBatches`. Recorded on the line,
+    // because cancelling has to put back exactly this much off exactly these
+    // batches, and a record of the wrong batch puts it back in the wrong place.
+    const consumed = planned.find((l) => l.lineId === item.id)?.consume ?? []
+    const released = releaseFromLineOnBatches(order.id, item.id, consumed, shipLine.quantity)
+    // Nothing held is `null`, not an absent key — see the shipment above.
+    shipLine.heldReleased = released.length > 0 ? released : null
   }
 
   // ── The only thing in the system that takes goods off the shelf ──
@@ -2127,6 +2698,7 @@ export function mockCreateShipment(
   }
 
   recalcOrder(order)
+  bumpVersion(order)
   return clone(shipment)
 }
 
@@ -2175,7 +2747,12 @@ export function mockCancelShipment(
     if (!batchById(movement.batchId)) throw new Error('SHIPMENT_BATCH_NOT_FOUND')
   }
 
-  // Everything is checked; from here on it only writes.
+  // Everything is checked; from here on it only writes — and it really does now.
+  // The withdrawal below used to be refused whenever the invoice had already been
+  // adjusted by a price correction ("one document is corrected once"), so a line
+  // whose price had been put right could not be shipped back at all. Withdrawing a
+  // document and fixing a figure on it are different events, and the second does
+  // not close the first — see `mockCreateInvoice` and §4.5.
   for (const invoice of live) {
     mockCreateInvoice(order.id, {
       kind: 'correction',
@@ -2249,6 +2826,7 @@ export function mockCancelShipment(
   }
 
   recalcOrder(order)
+  bumpVersion(order)
   return clone(shipment)
 }
 
@@ -2304,6 +2882,7 @@ export function mockReserveOrder(orderId: string): StockReservation[] {
     // remainder at the same time — one enum cannot say both.
   }
   recalcOrder(order)
+  bumpVersion(order)
   return created.map((r) => ({ ...r }))
 }
 
@@ -2332,6 +2911,10 @@ export function mockAddOrderPayment(
 ): Payment {
   const order = STORE.find((o) => o.id === orderId)
   if (!order) throw new Error('ORDER_NOT_FOUND')
+  // Before the zero check, because the zero check is where this used to be got
+  // around: `round2(NaN)` is NaN, `NaN === 0` is false, and the payment was
+  // written with an amount of zero — the very thing the next line refuses.
+  requireFiniteNumbers({ amount: data.amount })
   if (data.amount === 0) throw new Error('PAYMENT_AMOUNT_REQUIRED')
   const purpose: PaymentPurpose = data.purpose ?? (data.amount < 0 ? 'refund' : 'balance')
   if (purpose === 'refund' && data.amount > 0) throw new Error('REFUND_MUST_BE_NEGATIVE')
@@ -2353,6 +2936,7 @@ export function mockAddOrderPayment(
   order._nextPaymentSeq++
   order.payments.push(payment)
   recalcOrder(order)
+  bumpVersion(order)
   return clone(payment)
 }
 
@@ -2363,6 +2947,7 @@ export function mockDeleteOrderPayment(orderId: string, paymentId: string): void
   if (idx === -1) throw new Error('PAYMENT_NOT_FOUND')
   order.payments.splice(idx, 1)
   recalcOrder(order)
+  bumpVersion(order)
 }
 
 // ─── Invoices ───────────────────────────────────────────────────────────────
@@ -2384,6 +2969,38 @@ export function mockGetInvoices(orderId: string): Invoice[] {
  */
 function shippedLineNet(line: OrderItem, quantity: number): number {
   return calcLine({ ...toPricingLine(line), quantity }).lineNet
+}
+
+/** How much of one line the documents the client still holds have charged for. */
+function billedQuantityOf(order: StoreOrder, lineId: string): number {
+  return order.invoices.reduce((sum, invoice) => {
+    if (invoice.kind !== 'regular' || !invoice.shipmentId) return sum
+    if (isWithdrawn(order, invoice.id)) return sum
+    const shipment = order.shipments.find((s) => s.id === invoice.shipmentId)
+    if (!shipment || shipment.cancelled) return sum
+    return round2(sum + (shipment.lines.find((l) => l.lineId === lineId)?.quantity ?? 0))
+  }, 0)
+}
+
+/**
+ * What this document may charge for a quantity off one line.
+ *
+ * Rounding belongs where the sum is NAMED, not on every piece of it (§7), and the
+ * sum a line is named at is the line — once, over its whole quantity. Rounded per
+ * truck instead, a price of 11,5575 became 11,56 on each of six one-unit
+ * shipments: 69,36 billed against an order that says 69,35, a cent on every
+ * shipment after the first, and the documents no longer adding up to the order.
+ *
+ * Cured the way the order total is spread across lines — `allocateTotal` puts the
+ * remainder in the last piece. Each document is the running total up to and
+ * including it, less the running total before it; the last one absorbs whatever
+ * the cent left over, and the documents come to the line exactly however many
+ * pieces it left in.
+ */
+function billableLineNet(line: OrderItem, alreadyBilled: number, quantity: number): number {
+  return round2(
+    shippedLineNet(line, round2(alreadyBilled + quantity)) - shippedLineNet(line, alreadyBilled),
+  )
 }
 
 /**
@@ -2426,6 +3043,56 @@ function liveInvoicesFor(order: StoreOrder, shipmentId: string): Invoice[] {
 }
 
 /**
+ * Ordinary documents of this order the client is still holding.
+ *
+ * An advance is deliberately not one of them: it is a promise to pay ahead, not a
+ * charge for work presented, and services do not travel on it.
+ */
+function liveRegularInvoices(order: StoreOrder): Invoice[] {
+  return order.invoices.filter((i) => i.kind === 'regular' && !isWithdrawn(order, i.id))
+}
+
+/** Which services a live document has already charged for. */
+function billedServiceIds(order: StoreOrder): Set<string> {
+  const billed = new Set<string>()
+  for (const invoice of liveRegularInvoices(order)) {
+    for (const id of invoice.coveredServiceIds) billed.add(id)
+  }
+  return billed
+}
+
+/** Services no live document has charged for — what the next one carries. */
+function unbilledServices(order: StoreOrder): OrderService[] {
+  const billed = billedServiceIds(order)
+  return order.services.filter((s) => !billed.has(s.id))
+}
+
+/** Documents the client still holds that charged for this service line. */
+function liveInvoicesCoveringService(order: StoreOrder, serviceLineId: string): Invoice[] {
+  return liveRegularInvoices(order).filter((i) => i.coveredServiceIds.includes(serviceLineId))
+}
+
+/** What a set of service lines comes to, net. */
+function servicesNet(services: OrderService[]): number {
+  return services.reduce((sum, s) => round2(sum + calcLine(toPricingLine(s)).lineNet), 0)
+}
+
+/**
+ * What the client is still holding on this document — the invoice and whatever
+ * correction has already adjusted it.
+ *
+ * Withdrawing it mirrors THIS, not the figure it was first issued for: an
+ * adjustment left standing against a document that no longer exists is money on
+ * no paper, which is the whole disease this module is being treated for.
+ */
+function outstandingNetOf(order: StoreOrder, invoice: Invoice): number {
+  return order.invoices.reduce(
+    (sum, i) => (i.correctsInvoiceId === invoice.id ? round2(sum + i.amountNet) : sum),
+    invoice.amountNet,
+  )
+}
+
+/**
  * An invoice is tied to a shipment, which is why adding lines after one is
  * issued is not a problem: the new lines leave on their own truck and land on
  * their own invoice. A correcting invoice is only for fixing an issued one.
@@ -2447,7 +3114,26 @@ export function mockCreateInvoice(
   const kind: InvoiceKind = data.kind ?? 'regular'
   const reason = data.reason?.trim() ?? ''
 
-  if (kind === 'regular' && !data.shipmentId) throw new Error('INVOICE_NEEDS_SHIPMENT')
+  // Services never ship, so no delivery can carry them: they ride on an ordinary
+  // invoice of the order — the same document that freezes them, because the
+  // amount and the freeze have to be one decision, or a service ends up frozen by
+  // a document that never charged for it.
+  //
+  // WHICH services is decided here, once, and recorded: those no live document has
+  // charged for yet. "The first regular invoice carries them" was one rule too
+  // many — a service added to a live order afterwards (model §6 allows it) could
+  // then never reach a document at all, while every correction froze it against
+  // the document that had charged for none of it (§4.6).
+  const carried = kind === 'regular' ? unbilledServices(order) : []
+
+  // An ordinary invoice is billed off a delivery — for GOODS. Services do not
+  // ship, so there is no waybill to demand of them: an invoice that carries
+  // nothing but unbilled services stands on its own (§4.6), and its amount comes
+  // from them. It is still an ordinary invoice and not an advance — an advance is
+  // a promise to pay ahead, and this is work done and presented.
+  if (kind === 'regular' && !data.shipmentId && carried.length === 0) {
+    throw new Error('INVOICE_NEEDS_SHIPMENT')
+  }
   // An advance is paid before anything ships — a shipment of its own would make
   // it an ordinary invoice, and the delivery would then be billed twice.
   if (kind === 'advance' && data.shipmentId) throw new Error('ADVANCE_HAS_NO_SHIPMENT')
@@ -2460,22 +3146,21 @@ export function mockCreateInvoice(
     if (!reason) throw new Error('CORRECTION_REASON_REQUIRED')
     original = order.invoices.find((i) => i.id === data.correctsInvoiceId)
     if (!original) throw new Error('ORIGINAL_INVOICE_NOT_FOUND')
-    // A correction corrects an issued document, not another correction — and only
-    // once, or two withdrawals of one invoice would reverse it twice over.
+    // A correction corrects an issued document, not another correction.
     if (original.kind === 'correction') throw new Error('CANNOT_CORRECT_A_CORRECTION')
-    if (hasCorrection(order, original.id)) throw new Error('INVOICE_ALREADY_CORRECTED')
+    // Taken back once: a second withdrawal would reverse the same document twice
+    // over, and there is nothing left of it to take back anyway.
+    if (isWithdrawn(order, original.id)) throw new Error('INVOICE_ALREADY_CORRECTED')
+    // A stated amount ADJUSTS the document, and one document is adjusted once.
+    // Withdrawing it afterwards is a different event and stays open: returning a
+    // delivery must not be barred by a price somebody put right (§4.5). Read as
+    // one rule, "corrected once" made a corrected line impossible to ship back.
+    if (statedNet(order, data) !== undefined && hasCorrection(order, original.id)) {
+      throw new Error('INVOICE_ALREADY_CORRECTED')
+    }
   } else if (data.correctsInvoiceId) {
     throw new Error('CORRECTION_NEEDS_KIND')
   }
-
-  // Services never ship, so no delivery can carry them: they go on the FIRST
-  // regular invoice of the order — the same document that freezes them. Decided
-  // once, here, and recorded on the invoice: worked out separately, the amount and
-  // the freeze disagreed, and every service in the order was frozen by a document
-  // that had charged for none of them.
-  const coversServices =
-    kind === 'regular' &&
-    !order.invoices.some((i) => i.coversServices && !isWithdrawn(order, i.id))
 
   // Mirror amount → the document is taken back. Stated amount → it is adjusted and
   // the client goes on holding it. See `withdrawsOriginal`.
@@ -2484,10 +3169,11 @@ export function mockCreateInvoice(
 
   let net: number
   if (original) {
-    // Withdrawing the document means the mirror image of it. An explicit amount
-    // is still allowed — a price corrected downwards is a partial correction —
-    // but the default is the whole thing, because that is what a cancellation is.
-    net = stated ?? round2(-original.amountNet)
+    // Withdrawing the document means the mirror image of what the client is
+    // holding — see `outstandingNetOf`. An explicit amount is still allowed — a
+    // price corrected downwards is a partial correction — but the default is the
+    // whole thing, because that is what a cancellation is.
+    net = stated ?? round2(-outstandingNetOf(order, original))
   } else if (data.shipmentId) {
     const shipment = order.shipments.find((s) => s.id === data.shipmentId)
     if (!shipment) throw new Error('SHIPMENT_NOT_FOUND')
@@ -2502,12 +3188,13 @@ export function mockCreateInvoice(
     // disagrees with its own waybill is the thing this whole model avoids.
     const goods = shipment.lines.reduce((sum, sl) => {
       const line = order.items.find((i) => i.id === sl.lineId)
-      return line ? round2(sum + shippedLineNet(line, sl.quantity)) : sum
+      if (!line) return sum
+      return round2(sum + billableLineNet(line, billedQuantityOf(order, sl.lineId), sl.quantity))
     }, 0)
-    const services = coversServices
-      ? order.services.reduce((sum, s) => round2(sum + calcLine(toPricingLine(s)).lineNet), 0)
-      : 0
-    net = round2(goods + services)
+    net = round2(goods + servicesNet(carried))
+  } else if (kind === 'regular') {
+    // Nothing but services — the case above with no delivery under it.
+    net = servicesNet(carried)
   } else {
     const amount = statedNet(order, data)
     if (amount === undefined) throw new Error('INVOICE_AMOUNT_REQUIRED')
@@ -2526,7 +3213,8 @@ export function mockCreateInvoice(
     shipmentId: data.shipmentId ?? original?.shipmentId ?? null,
     correctsInvoiceId: data.correctsInvoiceId ?? null,
     withdrawsOriginal,
-    coversServices,
+    // What this document charged for, decided once and travelling with it.
+    coveredServiceIds: carried.map((s) => s.id),
     amountNet: net,
     amountVat: round2(gross - net),
     amountGross: gross,
@@ -2540,6 +3228,23 @@ export function mockCreateInvoice(
     // unless another live invoice still covers it. Without this the "correction"
     // operation would be pointless: the line it exists to fix stays uneditable.
     refreshDocumentFreeze(order)
+
+    // A withdrawal takes the services it carried off paper with it, and they have
+    // to land somewhere. While the client holds no other ordinary document for
+    // this order, nothing is stranded: the next regular invoice picks them up the
+    // ordinary way. But when other deliveries are already invoiced, that next
+    // invoice need never come — every delivery has its document — and the money
+    // sits on nothing at all (§4.6, finding 4). So the withdrawal puts it straight
+    // back on an ordinary invoice of its own, which needs no delivery under it.
+    const released = original?.coveredServiceIds ?? []
+    if (
+      withdrawsOriginal &&
+      released.length > 0 &&
+      liveRegularInvoices(order).length > 0 &&
+      unbilledServices(order).length > 0
+    ) {
+      mockCreateInvoice(order.id, { kind: 'regular' })
+    }
   } else {
     // Everything on an issued invoice is frozen from now on — including services,
     // which never ship and would otherwise stay editable forever.
@@ -2550,15 +3255,15 @@ export function mockCreateInvoice(
         if (item) item.documentIssued = true
       })
     }
-    // Only the document that actually billed them freezes them — see `coversServices`.
-    if (coversServices) {
-      order.services.forEach((s) => {
-        s.documentIssued = true
-      })
-    }
+    // Only the services this document actually billed, and no others: a service
+    // the invoice predates was never charged for by it.
+    carried.forEach((s) => {
+      s.documentIssued = true
+    })
   }
 
   recalcOrder(order)
+  bumpVersion(order)
   return clone(invoice)
 }
 
@@ -2597,9 +3302,10 @@ function refreshDocumentFreeze(order: StoreOrder): void {
     item.documentIssued = covered.has(item.id)
     applyPricing(item, syncLineState(toPricingLine(item)))
   }
-  // A service is frozen by the one document that billed it, and by no other.
-  const servicesBilled = live.some((i) => i.coversServices)
+  // A service is frozen by the one document that billed IT, and by no other — a
+  // question about that service, never about "some invoice covers services".
+  const billed = billedServiceIds(order)
   for (const service of order.services) {
-    service.documentIssued = servicesBilled
+    service.documentIssued = billed.has(service.id)
   }
 }

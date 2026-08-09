@@ -21,7 +21,9 @@ import { getBatchCostBreakdown } from '@/services/warehouseService'
 import {
   buildOrderItem,
   buildOrderService,
+  marginFor,
   pricingSeedFor,
+  projectItem,
   stockCostFor,
   toPricingLine,
 } from '@/services/orderLines'
@@ -31,6 +33,7 @@ import {
   lineEditDelta,
   lineEditErrorKey,
   lineKindOf,
+  type LineEditContext,
   type LineEditOp,
   type LineKind,
 } from '@/services/orderLineEdits'
@@ -43,8 +46,10 @@ import {
   addLineModes,
   effectiveDiscountPercent,
   isAllocatable,
+  isCostFrozen,
   paymentState,
   paymentSummary,
+  roundStored,
   type AddLineMode,
   type PricingLine,
 } from '@/domain/orderPricing'
@@ -63,10 +68,12 @@ import {
   splitOrderItem,
   updateOrderItem,
   updateOrderService,
+  type LineEditPayload,
 } from '@/services/ordersService'
 import type {
   Invoice,
   Order,
+  OrderAuditEntry,
   OrderItem,
   OrderService,
   OrderStatus,
@@ -77,7 +84,6 @@ import type {
   StatusTransitionPlan,
   VatMode,
 } from '@/types/order'
-import type { StockAuditEntry } from '@/types/warehouse'
 import type { UploadedFile } from '@/services/uploadsService'
 
 /**
@@ -171,8 +177,50 @@ export function useOrderCard(id: string) {
    * Line edits, in the order the admin made them — see `orderLineEdits`. Order is
    * kept because it decides the outcome: a margin edit after a price edit clears
    * the lock, the other way round it does not.
+   *
+   * Each one carries the context it was made in as well as the edit itself. An
+   * edit is an operation, and "reset to computed" is settled against the order's
+   * default discount — so that default belongs to the moment the button was
+   * pressed, not to the moment the request is written. Kept alongside rather than
+   * folded into the number, because the same context is what the local
+   * `applyLineEdit` above ran with: one value, both sides.
    */
-  const pendingLineEdits = ref<Array<{ lineId: string; kind: LineKind; op: LineEditOp }>>([])
+  const pendingLineEdits = ref<
+    Array<{ lineId: string; kind: LineKind; op: LineEditOp; ctx: LineEditContext }>
+  >([])
+
+  /**
+   * The order version this card is writing against — contract §3.
+   *
+   * `null` means this card has never seen one (a server that predates the field,
+   * or a test harness), and then no precondition is sent and nothing is checked:
+   * a version is a claim about what was read, and a client that read no version
+   * cannot make it.
+   *
+   * Otherwise it moves with the save. The server counts one step per accepted
+   * write and answers one request at a time, so a save that sends five requests
+   * is writing against five successive versions; sending the loaded one five
+   * times would have the client's own second request refused by its first. What
+   * this buys is the real thing: another tab writing in the middle of this save
+   * is caught on the very next request, and that request writes nothing.
+   */
+  const orderVersion = ref<number | null>(null)
+
+  /**
+   * The request body with the precondition on it — and without the KEY at all
+   * when there is no version to state. An absent field and a field holding
+   * `undefined` read the same through JSON but not to a reader of this code, and
+   * the two mean different things to the server: one offers no precondition, the
+   * other would be offering an empty one.
+   */
+  function withVersion<T extends object>(payload: T): T & { version?: number } {
+    return orderVersion.value === null ? payload : { ...payload, version: orderVersion.value }
+  }
+
+  /** One accepted write, one step — the other half of the server's `bumpVersion`. */
+  function serverWrote(): void {
+    if (orderVersion.value !== null) orderVersion.value += 1
+  }
 
   /**
    * On-screen id of a new line → the id the server gave it. Outlives a single
@@ -206,11 +254,16 @@ export function useOrderCard(id: string) {
     for (const key of SAVABLE_FIELDS) {
       if (delta[key] !== undefined) payload[key] = delta[key]
     }
-    if (Object.keys(payload).length > 0) await patchOrder(id, payload)
+    if (Object.keys(payload).length === 0) return
+    // Added after the emptiness test, never before it: a precondition is not a
+    // change, and a request carrying nothing but a version would write nothing
+    // and still spend a step of it.
+    await patchOrder(id, withVersion(payload))
+    serverWrote()
   }
 
   // ─── Audit log ─────────────────────────────────────────────────────────
-  const auditLog = ref<StockAuditEntry[]>([])
+  const auditLog = ref<OrderAuditEntry[]>([])
   const auditLoading = ref(false)
 
   async function loadAudit() {
@@ -225,10 +278,19 @@ export function useOrderCard(id: string) {
     }
   }
 
-  async function deleteAuditEntry(index: number) {
+  /**
+   * By the record's own name, not by where it sits.
+   *
+   * The list grows while it is open — every save appends to it — and another
+   * admin can be deleting from it at the same time. A position read at render
+   * time names a different record by the time the request lands, and the local
+   * splice would then hide the wrong row on top of that.
+   */
+  async function deleteAuditEntry(entryId: string) {
     try {
-      await deleteOrderAuditEntry(id, index)
-      auditLog.value.splice(index, 1)
+      await deleteOrderAuditEntry(id, entryId)
+      serverWrote()
+      auditLog.value = auditLog.value.filter((entry) => entry.id !== entryId)
       toast.success(t('orders.toast_saved'))
     } catch {
       toast.error(t('orders.toast_error_save'))
@@ -267,6 +329,9 @@ export function useOrderCard(id: string) {
     error.value = null
     try {
       order.value = await getOrder(id)
+      // What this card is now writing against. A reload is the only thing that
+      // can put it back in step after somebody else has written.
+      orderVersion.value = order.value.version ?? null
       // Kept apart from `order.totalWithVat`, which follows the local edits: the
       // payment warning is about the difference between the two.
       savedTotalGross.value = order.value.totalWithVat
@@ -313,26 +378,34 @@ export function useOrderCard(id: string) {
       // 2. New lines, before their edits, so an edit has a real id to land on.
       while (pendingItems.value.length > 0) {
         const item = pendingItems.value[0]!
-        const created = await addOrderItem(id, {
-          productId: item.productId,
-          quantity: item.quantity,
-          unit: item.unit,
-          unitPrice: item.unitPrice,
-          // Sent explicitly: the server would otherwise apply the order default,
-          // and the line would change under the admin the moment it is stored.
-          discountPercent: item.discountPercent,
-        })
+        const created = await addOrderItem(
+          id,
+          withVersion({
+            productId: item.productId,
+            quantity: item.quantity,
+            unit: item.unit,
+            unitPrice: item.unitPrice,
+            // Sent explicitly: the server would otherwise apply the order default,
+            // and the line would change under the admin the moment it is stored.
+            discountPercent: item.discountPercent,
+          }),
+        )
+        serverWrote()
         serverLineId.set(item.localId, created.id)
         pendingItems.value = pendingItems.value.slice(1)
       }
       while (pendingServices.value.length > 0) {
         const svc = pendingServices.value[0]!
-        const created = await addOrderService(id, {
-          serviceId: svc.serviceId,
-          quantity: svc.quantity,
-          price: svc.price,
-          discountPercent: svc.discountPercent,
-        })
+        const created = await addOrderService(
+          id,
+          withVersion({
+            serviceId: svc.serviceId,
+            quantity: svc.quantity,
+            price: svc.price,
+            discountPercent: svc.discountPercent,
+          }),
+        )
+        serverWrote()
         serverLineId.set(svc.localId, created.id)
         pendingServices.value = pendingServices.value.slice(1)
       }
@@ -343,9 +416,17 @@ export function useOrderCard(id: string) {
       while (pendingLineEdits.value.length > 0) {
         const edit = pendingLineEdits.value[0]!
         const target = serverLineId.get(edit.lineId) ?? edit.lineId
-        const delta = lineEditDelta(edit.op, edit.kind)
+        const delta: LineEditPayload = withVersion(lineEditDelta(edit.op, edit.kind))
+        // "Reset to computed" is the one edit whose result depends on a field of
+        // the order, so it is the one that cannot be left to the server's copy of
+        // that field: the fields above went out first, and the default typed
+        // AFTER the button was pressed would then settle a line it was never
+        // meant to touch. The number that was on screen at the time travels with
+        // the operation. See `LineEditEnvelope`.
+        if (delta.resetPrice) delta.defaultDiscountPercent = edit.ctx.defaultDiscountPercent
         if (edit.kind === 'item') await updateOrderItem(id, target, delta)
         else await updateOrderService(id, target, delta)
+        serverWrote()
         pendingLineEdits.value = pendingLineEdits.value.slice(1)
       }
 
@@ -355,24 +436,34 @@ export function useOrderCard(id: string) {
       //    line, so the id on screen is no longer the id the server knows it by.
       //    Sent raw, the deletion named an id nobody had issued, was accepted as
       //    a no-op, and the line the admin removed came back with the reload.
+      //    A deletion carries no body and so states no version. It does not need
+      //    to: the requests above have already established that this card was
+      //    looking at the order as it is, and they refuse the whole save the
+      //    moment that stops being true. What a deletion still has to do is keep
+      //    the count straight — the server steps its version for a deletion like
+      //    any other write.
       while (pendingItemDeletions.value.length > 0) {
         const lineId = pendingItemDeletions.value[0]!
         await deleteOrderItem(id, serverLineId.get(lineId) ?? lineId)
+        serverWrote()
         pendingItemDeletions.value = pendingItemDeletions.value.slice(1)
       }
       while (pendingServiceDeletions.value.length > 0) {
         const lineId = pendingServiceDeletions.value[0]!
         await deleteOrderService(id, serverLineId.get(lineId) ?? lineId)
+        serverWrote()
         pendingServiceDeletions.value = pendingServiceDeletions.value.slice(1)
       }
 
       // 5. Files
       while (pendingFileAdds.value.length > 0) {
         await addOrderFile(id, pendingFileAdds.value[0]!)
+        serverWrote()
         pendingFileAdds.value = pendingFileAdds.value.slice(1)
       }
       while (pendingFileRemoves.value.length > 0) {
         await removeOrderFile(id, pendingFileRemoves.value[0]!)
+        serverWrote()
         pendingFileRemoves.value = pendingFileRemoves.value.slice(1)
       }
 
@@ -381,6 +472,18 @@ export function useOrderCard(id: string) {
       clearPending()
       toast.success(t('orders.toast_saved'))
     } catch (e) {
+      // Somebody else wrote this order while this card was being edited. The
+      // refused request wrote nothing, so what is on the server is entirely
+      // theirs — and the one thing that must not happen is what happened before
+      // the version existed: "saved", and one of the two numbers gone. Said out
+      // loud, and the card is put back on what the server actually holds, so the
+      // admin can see what they are typing over and decide again.
+      if (String(e).includes('ORDER_VERSION_CONFLICT')) {
+        toast.error(t('orders.error_version_conflict'))
+        clearPending()
+        await load()
+        return
+      }
       // A refused line edit says which line and why; anything else is a plain
       // save failure. Silently showing "could not save" for a frozen line is how
       // an admin ends up retyping the same number five times.
@@ -614,22 +717,50 @@ export function useOrderCard(id: string) {
   })
 
   /**
+   * Documents the client is no longer holding.
+   *
+   * Withdrawn, not merely corrected: an adjusting correction fixes a figure on a
+   * document the client still holds, and that document still has to be taken back
+   * before its delivery can be cancelled. Same rule as the server's `isWithdrawn`,
+   * and derived once here so the two questions below cannot drift apart.
+   */
+  const withdrawnIds = computed(
+    () =>
+      new Set(
+        invoices.value
+          .filter((i) => i.kind === 'correction' && i.withdrawsOriginal)
+          .map((i) => i.correctsInvoiceId),
+      ),
+  )
+
+  /**
    * The invoice the client is still holding for this delivery — a corrected one
    * does not count, which is what makes the delivery cancellable again.
    */
   function liveInvoiceFor(shipmentId: string): Invoice | null {
-    // Withdrawn, not merely corrected: an adjusting correction fixes a figure on a
-    // document the client is still holding, and that document still has to be
-    // taken back before its delivery can be cancelled. Same rule as the server's
-    // `isWithdrawn`.
-    const withdrawn = new Set(
-      invoices.value
-        .filter((i) => i.kind === 'correction' && i.withdrawsOriginal)
-        .map((i) => i.correctsInvoiceId),
-    )
     return (
       invoices.value.find(
-        (i) => i.shipmentId === shipmentId && i.kind !== 'correction' && !withdrawn.has(i.id),
+        (i) =>
+          i.shipmentId === shipmentId && i.kind !== 'correction' && !withdrawnIds.value.has(i.id),
+      ) ?? null
+    )
+  }
+
+  /**
+   * The invoice the client is still holding that charged for this service line.
+   *
+   * Asked per service and not "the invoice that covers services", because a live
+   * order can carry several, each having charged for a different set — a service
+   * added after the first invoice rides on a later one (contract §4.6). Looking
+   * for the first services-carrying document named the wrong one.
+   */
+  function liveInvoiceCoveringService(serviceLineId: string): Invoice | null {
+    return (
+      invoices.value.find(
+        (i) =>
+          i.kind !== 'correction' &&
+          !withdrawnIds.value.has(i.id) &&
+          i.coveredServiceIds.includes(serviceLineId),
       ) ?? null
     )
   }
@@ -656,6 +787,7 @@ export function useOrderCard(id: string) {
     paymentSaving.value = true
     try {
       const created = await addOrderPayment(id, data)
+      serverWrote()
       order.value = { ...order.value, payments: [...order.value.payments, created] }
       toast.success(t('orders.toast_payment_added'))
       return true
@@ -672,6 +804,7 @@ export function useOrderCard(id: string) {
     paymentSaving.value = true
     try {
       await deleteOrderPayment(id, paymentId)
+      serverWrote()
       order.value = {
         ...order.value,
         payments: order.value.payments.filter((p) => p.id !== paymentId),
@@ -722,6 +855,7 @@ export function useOrderCard(id: string) {
     paymentSaving.value = true
     try {
       const created = await createOrderInvoice(id, { kind: 'advance', amountGross })
+      serverWrote()
       order.value = { ...order.value, invoices: [...order.value.invoices, created] }
       toast.success(t('orders.toast_invoice_issued'))
       return true
@@ -799,7 +933,6 @@ export function useOrderCard(id: string) {
         ...pricingSeedFor(unitCost, item.unitPrice),
         discountPercent: item.discountPercent,
         receivedCurrency: 'cur-eur',
-        exchangeRate: 1,
       })
     })
 
@@ -1043,17 +1176,94 @@ export function useOrderCard(id: string) {
       : order.value.services.find((s) => s.id === lineId)
   }
 
+  /**
+   * What a quantity change does to a goods line's cost — settled here so the row
+   * shows what the save will store.
+   *
+   * Growing a line takes its extra units off real batches at real prices, and
+   * the line's cost is the blend of everything it now holds. Only the warehouse
+   * knows which batches those are, so the server sends the ladder with the order
+   * (`costTopUp`) and this takes units off the front of it: the rule stays on
+   * the server, the arithmetic — a weighted average — happens on both sides,
+   * over the same numbers, and lands on the same figure to all ten stored
+   * digits. Running FIFO here instead would be a second copy of the rule, which
+   * is where every finding in this audit began.
+   *
+   * The price does not move: a quantity edit "keeps the price per unit; the line
+   * total follows" (`applyQuantityEdit`). The units already in the line did not
+   * get dearer — the average did, because cheap ones ran out — so the planned
+   * margin takes the difference, exactly as it does for a corrected cost (§4.2.1,
+   * rule 4). The server's `topUpAllocation` is the twin of this; changing one
+   * without the other puts the card and the order back out of step.
+   */
+  function settleCostAfterQuantity(line: OrderItem): void {
+    // A cost somebody typed by hand is not the shelf's to move, and one that has
+    // gone out on paper cannot move at all — the same two exemptions the server
+    // makes, for the same reasons.
+    if (line.costSource === 'manual' || isCostFrozen(toPricingLine(line))) return
+
+    const held = round2(line.allocations.reduce((sum, a) => sum + a.quantity, 0))
+    let missing = round2(line.quantity - held)
+    // A line that shrank hands batches back and keeps its cost. The server does
+    // not re-read one either: an edit that took no new units off the shelf has
+    // nothing new to say about what they cost.
+    if (missing <= 0) return
+    // No ladder means the server has never spoken about this line — a row added
+    // on screen a minute ago. Nothing here may invent what the shelf would give
+    // it; the cost stays, and the price is what has to agree, which is why both
+    // sides hold the price rather than the cost.
+    const ladder = order.value?.costTopUp?.[line.id]
+    if (!ladder) return
+
+    // The price as it stands, at full precision, before the cost moves under it.
+    const priceBefore = line.unitCost * (1 + line.marginPercent / 100)
+    const computesItsPrice = line.manualUnitPrice === null && line.namedUnitPrice === null
+
+    while (missing > 0 && ladder.length > 0) {
+      const next = ladder[0]!
+      const take = Math.min(missing, next.quantity)
+      line.allocations = [...line.allocations, { ...next, quantity: take }]
+      next.quantity = round2(next.quantity - take)
+      if (next.quantity <= 0) ladder.shift()
+      missing = round2(missing - take)
+    }
+
+    const covered = round2(line.allocations.reduce((sum, a) => sum + a.quantity, 0))
+    const spent = line.allocations.reduce((sum, a) => sum + a.quantity * a.unitCost, 0)
+    // Kept at storage precision, not rounded to the cent a second time: the cent
+    // is for showing, and a cost rounded twice stops matching the one the order
+    // is really worth (§7). `stockCostFor` still decides WHAT the figure is — a
+    // cost of nothing is no cost, and a line the shelf cannot cover is a guess.
+    const weighted = covered > 0 ? roundStored(spent / covered) : 0
+    const { unitCost, costSource } = stockCostFor(weighted, round2(line.quantity - covered) > 0)
+
+    line.unitCost = unitCost === 0 ? 0 : weighted
+    line.costSource = costSource
+    if (computesItsPrice && priceBefore > 0 && line.unitCost > 0) {
+      line.marginPercent = marginFor(line.unitCost, priceBefore)
+    }
+    projectItem(line)
+  }
+
   /** Returns false when the model refused the edit; the line is left untouched. */
   function editLine(lineId: string, kind: LineKind, op: LineEditOp): boolean {
     const line = findLine(lineId, kind)
     if (!line) return false
+    // Read once and kept: the preview below and the request that goes out on Save
+    // are the same operation, and an operation settled against a number has to be
+    // settled against the SAME number both times. The order default can change
+    // between the two — the field is right there on the screen — and it used to.
+    const ctx: LineEditContext = { defaultDiscountPercent: form.value.defaultDiscountPercent }
     try {
-      applyLineEdit(line, op, { defaultDiscountPercent: form.value.defaultDiscountPercent })
+      applyLineEdit(line, op, ctx)
     } catch (e) {
       toast.error(t(lineEditErrorKey(e)))
       return false
     }
-    pendingLineEdits.value = [...pendingLineEdits.value, { lineId, kind, op }]
+    // Only goods draw on the warehouse, and only a quantity change asks it for
+    // more. Everything else on a line is priced from a cost that has not moved.
+    if (kind === 'item' && op.field === 'quantity') settleCostAfterQuantity(line as OrderItem)
+    pendingLineEdits.value = [...pendingLineEdits.value, { lineId, kind, op, ctx }]
     recalcLocalTotals()
     return true
   }
@@ -1466,6 +1676,7 @@ export function useOrderCard(id: string) {
     paymentDrift,
     paymentSaving,
     liveInvoiceFor,
+    liveInvoiceCoveringService,
     addPayment,
     removePayment,
     issueInvoiceFor,

@@ -129,7 +129,10 @@ test.describe('Finance Settings', () => {
     await page.locator('[data-test="settings-finance-add-currency"]').click()
     await expect(page.locator('[data-test="settings-modal-currency-code"]')).toBeVisible()
     await expect(page.locator('[data-test="settings-modal-currency-name"]')).toBeVisible()
-    await expect(page.locator('[data-test="settings-modal-currency-rate"]')).toBeVisible()
+    // A currency has a code and a name, and no rate: there is no conversion
+    // anywhere in this system, so a rate here would be a number nothing reads.
+    // The directory of currencies stays; the table of rates is gone (§7.1).
+    await expect(page.locator('[data-test="settings-modal-currency-rate"]')).toHaveCount(0)
   })
 
   test('currency delete button is visible', async ({ page }) => {

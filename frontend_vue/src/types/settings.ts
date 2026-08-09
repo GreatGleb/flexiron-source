@@ -23,7 +23,6 @@ export interface Currency {
   id: string
   code: string
   name: TranslatedString
-  exchangeRate: number
   isDefault: boolean
   updatedAt?: string
 }

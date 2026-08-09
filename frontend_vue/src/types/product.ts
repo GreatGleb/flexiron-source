@@ -33,6 +33,8 @@ export interface ProductListItem {
   minStock: number | null
   priceUnit: string | null
   avgCostPrice: number | null
+  /** Average price actually achieved on shipped sales; `null` when nothing sold. */
+  avgSalePrice?: number | null
   createdAt: string
 
   // UoM references for unit display in order modals

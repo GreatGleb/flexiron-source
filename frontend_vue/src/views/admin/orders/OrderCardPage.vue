@@ -31,6 +31,7 @@ import {
   applyCostCorrection,
   calcLine,
   formatCents as money,
+  isPriceLocked,
   rollupOrder,
   roundTo,
 } from '@/domain/orderPricing'
@@ -86,6 +87,7 @@ const {
   paymentDrift,
   paymentSaving,
   liveInvoiceFor,
+  liveInvoiceCoveringService,
   addPayment,
   removePayment,
   issueInvoiceFor,
@@ -468,7 +470,7 @@ function invoiceCovering(lineId: string): Invoice | null {
     const invoice = liveInvoiceFor(shipment.id)
     if (invoice) return invoice
   }
-  return invoices.value.find((i) => i.coversServices) ?? null
+  return liveInvoiceCoveringService(lineId)
 }
 
 async function confirmLineCorrection() {
@@ -741,13 +743,28 @@ async function onDeleteConfirm() {
   }
 }
 
+/**
+ * The history stamp, for reading.
+ *
+ * The wire carries a full ISO-8601 instant, in one format everywhere, so that a
+ * column of them sorts by time when sorted as text (contract §3). That is a
+ * storage decision, not a display one — nobody reads `2026-08-08T17:30:03.475Z`.
+ * Cutting it here rather than shortening it at the source is the whole point:
+ * the two used to be the same string, and the server was writing the short one.
+ */
+function auditTimestamp(iso: string): string {
+  return iso.slice(0, 16).replace('T', ' ')
+}
+
 // ─── Audit delete modal ────────────────────────────────────────
 const deleteAuditOpen = ref(false)
-const auditToDeleteIdx = ref<number | null>(null)
+// The record's own name, not its place in the list: the log grows underneath the
+// open dialog, and a position picked before it grew points somewhere else after.
+const auditToDeleteId = ref<string | null>(null)
 const deletingAudit = ref(false)
 
-function askDeleteAudit(index: number) {
-  auditToDeleteIdx.value = index
+function askDeleteAudit(entryId: string) {
+  auditToDeleteId.value = entryId
   deleteAuditOpen.value = true
 }
 
@@ -772,11 +789,10 @@ function onServicesAdded(payload: AddedServices, mode: AddMode) {
 }
 
 async function confirmDeleteAudit() {
-  if (auditToDeleteIdx.value === null || deletingAudit.value) return
+  if (auditToDeleteId.value === null || deletingAudit.value) return
   deletingAudit.value = true
-  const idx = auditToDeleteIdx.value
-  await deleteAuditEntry(idx)
-  auditToDeleteIdx.value = null
+  await deleteAuditEntry(auditToDeleteId.value)
+  auditToDeleteId.value = null
   deleteAuditOpen.value = false
   deletingAudit.value = false
 }
@@ -1375,7 +1391,9 @@ onMounted(loadShipments)
                       />
                       <span v-else class="cell-static">{{ cellValue(item, cell.field) }}</span>
                       <span v-if="cell.suffix" class="cell-suffix">{{ cell.suffix }}</span>
-                      <template v-if="cell.field === 'unitPrice' && item.manualUnitPrice !== null">
+                      <template
+                        v-if="cell.field === 'unitPrice' && isPriceLocked(toPricingLine(item))"
+                      >
                         <span
                           v-tooltip="t('orders.badge_manual_price')"
                           class="cell-badge"
@@ -1524,7 +1542,9 @@ onMounted(loadShipments)
                       />
                       <span v-else class="cell-static">{{ cellValue(svc, cell.field) }}</span>
                       <span v-if="cell.suffix" class="cell-suffix">{{ cell.suffix }}</span>
-                      <template v-if="cell.field === 'unitPrice' && svc.manualUnitPrice !== null">
+                      <template
+                        v-if="cell.field === 'unitPrice' && isPriceLocked(toPricingLine(svc))"
+                      >
                         <span
                           v-tooltip="t('orders.badge_manual_price')"
                           class="cell-badge"
@@ -1842,8 +1862,8 @@ onMounted(loadShipments)
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-for="(a, i) in auditLog" :key="i" data-test="order-audit-row">
-                      <td class="audit-log-ts">{{ a.timestamp }}</td>
+                    <tr v-for="a in auditLog" :key="a.id" data-test="order-audit-row">
+                      <td class="audit-log-ts">{{ auditTimestamp(a.timestamp) }}</td>
                       <td>
                         <div class="audit-log-user">
                           <div class="audit-log-avatar">{{ a.userInitials }}</div>
@@ -1863,7 +1883,7 @@ onMounted(loadShipments)
                           type="button"
                           class="action-icon-btn action-danger"
                           data-test="order-audit-delete-btn"
-                          @click="askDeleteAudit(i)"
+                          @click="askDeleteAudit(a.id)"
                         >
                           <svg
                             width="14"

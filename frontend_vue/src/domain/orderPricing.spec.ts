@@ -37,7 +37,6 @@ import {
   outstandingAmount,
   paymentState,
   paymentSummary,
-  convertCost,
   computeAvailable,
   allocateFifo,
   allocationCost,
@@ -824,15 +823,6 @@ describe('payments', () => {
   })
 })
 
-// ─── Currency ───────────────────────────────────────────────────────────────
-
-describe('currency', () => {
-  it('converts the batch cost into the order currency', () => {
-    expect(convertCost(100, 0.92)).toBe(92)
-    expect(convertCost(100, null)).toBe(100)
-  })
-})
-
 // ─── What must be refused ───────────────────────────────────────────────────
 
 describe('rejected input', () => {
@@ -882,11 +872,6 @@ describe('rejected input', () => {
     expect(() => splitLine(partial, 4)).toThrow('SPLIT_MUST_MATCH_SHIPPED')
     expect(() => splitLine(partial, 8)).toThrow('SPLIT_MUST_MATCH_SHIPPED')
     expect(splitLine(partial, 6).shipped.quantity).toBe(6)
-  })
-
-  it('a missing exchange rate is refused instead of costing the goods at zero', () => {
-    expect(() => convertCost(100, 0)).toThrow('INVALID_EXCHANGE_RATE')
-    expect(() => convertCost(100, -1)).toThrow('INVALID_EXCHANGE_RATE')
   })
 
   it('a VAT rate that would divide by zero is refused', () => {
@@ -969,16 +954,14 @@ describe('purity', () => {
         availableQuantity: 5,
         unitCost: 110,
         currency: 'EUR',
-        exchangeRate: null,
-      },
+          },
       {
         batchId: 'old',
         receivedAt: '2026-01-01',
         availableQuantity: 5,
         unitCost: 100,
         currency: 'EUR',
-        exchangeRate: null,
-      },
+          },
     ]
 
     allocateFifo(batches, 8)
@@ -1045,8 +1028,7 @@ describe('allocateFifo', () => {
       availableQuantity: 10,
       unitCost: 100,
       currency: 'EUR',
-      exchangeRate: null,
-      ...over,
+        ...over,
     }
   }
 
@@ -1082,10 +1064,16 @@ describe('allocateFifo', () => {
     expect(result.weightedUnitCost).toBe(100)
   })
 
-  it('converts each batch cost into the order currency', () => {
-    const result = allocateFifo([batch({ unitCost: 100, currency: 'USD', exchangeRate: 0.92 })], 5)
-    expect(result.allocations[0]!.unitCost).toBe(92)
-    expect(result.weightedUnitCost).toBe(92)
+  it('carries the batch currency through without converting it', () => {
+    // Currencies coexist and nothing multiplies between them (contract §7.1):
+    // the currency says what the number is expressed in, and the number itself
+    // travels untouched. This check used to assert the opposite — 100 USD
+    // arriving as 92 — through a conversion that was never once reached with a
+    // rate other than 1.
+    const result = allocateFifo([batch({ unitCost: 100, currency: 'USD' })], 5)
+    expect(result.allocations[0]!.unitCost).toBe(100)
+    expect(result.allocations[0]!.currency).toBe('USD')
+    expect(result.weightedUnitCost).toBe(100)
   })
 
   it('handles an empty warehouse and a zero request', () => {

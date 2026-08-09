@@ -81,11 +81,18 @@ export interface WarehouseBatch {
   /** Remaining quantity (in warehouse_uom) */
   quantityRemaining: number
   unit: StockUnit
-  /** Unit price (cost price, in product's currency, per warehouse_uom) */
-  unitPrice: number
-  /** Total cost = quantity × unitPrice */
-  totalCost: number
-  /** Currency (inherited from product) */
+  /**
+   * Warehouse cost per warehouse_uom, ALWAYS in the base currency.
+   *
+   * `null` when nobody priced it: the purchase was in another currency and the
+   * base-currency sum was left empty. There is no exchange rate in this system,
+   * so the batch has no cost until a human names one — and `null` says exactly
+   * that, where 0 would claim the goods were free.
+   */
+  unitPrice: number | null
+  /** Total cost = quantity × unitPrice; `null` when the batch has no cost. */
+  totalCost: number | null
+  /** Currency of `unitPrice` — the base currency, and nothing else (§7.1). */
   currency: string
   /** Date of receipt */
   receivedAt: string
@@ -119,10 +126,8 @@ export interface WarehouseBatch {
   receivedUnitPrice: number | null
   /** Original purchase currency */
   receivedCurrencyId: string | null
-  /** Conversion rate used (received_qty → warehouse_qty) */
+  /** Unit-of-measure factor used (received_qty → warehouse_qty). Not a currency rate. */
   purchaseToWarehouseRate: number | null
-  /** Exchange rate used (received_currency → product_currency) */
-  exchangeRate: number | null
 }
 
 export interface BatchListItem {
@@ -134,7 +139,8 @@ export interface BatchListItem {
   quantity: number
   quantityRemaining: number
   unit: StockUnit
-  unitPrice: number
+  /** `null` when nobody priced the batch — an unknown cost is not a zero one. */
+  unitPrice: number | null
   currency: string
   receivedAt: string
   status: BatchStatus
@@ -149,7 +155,15 @@ export interface BatchCreatePayload {
   lotCode: string
   quantity: number
   unit: StockUnit
-  unitPrice: number
+  /**
+   * Warehouse cost in the BASE currency, named by a human.
+   *
+   * Optional on purpose: for a purchase in the base currency it is derived from
+   * the purchase and nobody is asked for it, and for a purchase in another
+   * currency it may be left empty — then the batch has no cost.
+   */
+  unitPrice?: number | null
+  /** Must be the base currency if sent at all — the warehouse layer speaks no other. */
   currency?: string
   receivedAt: string
   expiresAt?: string | null
@@ -163,14 +177,15 @@ export interface BatchCreatePayload {
   receivedUnitPrice?: number | null
   receivedCurrencyId?: string | null
   purchaseToWarehouseRate?: number | null
-  exchangeRate?: number | null
 }
 
 export interface BatchPatchPayload {
   batchNumber?: string
   lotCode?: string
   quantity?: number
-  unitPrice?: number
+  /** Warehouse cost in the base currency; `null` clears it. */
+  unitPrice?: number | null
+  /** Only the base currency is accepted — see WarehouseBatch.unitPrice. */
   currency?: string
   location?: string | null
   certificateRef?: string | null
@@ -393,6 +408,16 @@ export interface DeficitListItem {
   unit: StockUnit
   priority: DeficitPriority
   status: DeficitStatus
+  /**
+   * Why this is on the buying list — for a shortage an order filed, it names the
+   * order (`Order ORD-…`).
+   *
+   * Declared because the row already carried it: the list endpoint hands the
+   * whole record back, and a field a payload carries but a type does not name is
+   * a column nobody reads off the schema (contract §3). It is also what ties a
+   * shortage to the order that caused it, which is how it gets cleared again.
+   */
+  notes: string | null
 }
 
 export interface DeficitCreatePayload {

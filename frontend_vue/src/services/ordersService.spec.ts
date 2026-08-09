@@ -176,7 +176,9 @@ describe('every order endpoint is reachable through the service layer', () => {
     expect((await getOrder(order.id)).files.length).toBe(1)
     await removeOrderFile(order.id, 'file-1')
     expect((await getOrder(order.id)).files.length).toBe(0)
-    await deleteOrderAuditEntry(order.id, 0)
+    // By the entry's own name. Position 0 always names something, which is
+    // exactly why addressing by position could not be caught by a test.
+    await deleteOrderAuditEntry(order.id, (await getOrder(order.id)).auditLog[0]!.id)
 
     // ── Deletes ──
     await deleteOrderService(order.id, svc.id)

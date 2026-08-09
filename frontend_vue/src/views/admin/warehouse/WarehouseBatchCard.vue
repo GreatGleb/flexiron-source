@@ -58,16 +58,27 @@ function resolveUnitLabel(code: string | null): string {
   return uom.code[currentLocale] || uom.code.en || uom.code.ru || uom.code.lt || code
 }
 
-/** Computed selling price per warehouse UoM (unitPrice × (1 + marginPercent/100)) */
-const sellingPrice = computed(() => {
+/**
+ * Selling price per warehouse UoM (unitPrice × (1 + marginPercent/100)).
+ *
+ * `null` when the batch has no cost: a margin on an unknown cost is an unknown
+ * price, and the field shows a dash instead of inventing one.
+ */
+const sellingPrice = computed<number | null>(() => {
+  if (form.value.unitPrice == null) return null
   const margin = form.value.marginPercent ?? 0
   return form.value.unitPrice * (1 + margin / 100)
 })
 
-/** Computed total selling value (sellingPrice × quantity) */
-const totalSellingValue = computed(() => {
-  return sellingPrice.value * form.value.quantity
-})
+/** Total selling value (sellingPrice × quantity), or `null` for the same reason. */
+const totalSellingValue = computed<number | null>(() =>
+  sellingPrice.value == null ? null : sellingPrice.value * form.value.quantity,
+)
+
+/** A money field that may have no number behind it at all. */
+function money(amount: number | null | undefined, suffix: string): string {
+  return amount == null ? '—' : `${amount.toFixed(2)} ${suffix}`
+}
 
 const id = route.params.id as string
 const {
@@ -215,10 +226,14 @@ const aggregateEntries = computed(() => {
   return result
 })
 
-// ─── Currency selector for unit price (dynamic from settings) ───
-const CURRENCY_OPTIONS = computed(() => {
+// ─── Currency of the unit price: the base one, and no other (contract §7.1) ───
+// The warehouse layer is kept in one currency, because nothing in this system
+// converts between them. Offering the rest here only ever produced a batch the
+// stock total could not add up, and the store now refuses to store one.
+const CURRENCY_OPTIONS = computed<string[]>(() => {
   const currencies = settings.currencies ?? []
-  return currencies.map((c: { code: string }) => c.code)
+  const base = currencies.find((c: { isDefault?: boolean }) => c.isDefault)
+  return [base?.code ?? settings.constants.defaultCurrency]
 })
 const currencyOpen = ref(false)
 
@@ -841,7 +856,7 @@ async function onMovementCreated() {
                     </span>
                   </label>
                   <input
-                    :value="`${batch.totalCost.toFixed(2)} ${resolveCurrencyLabel(form.currency)}`"
+                    :value="money(batch.totalCost, resolveCurrencyLabel(form.currency))"
                     class="glass-input"
                     type="text"
                     readonly
@@ -905,7 +920,12 @@ async function onMovementCreated() {
                     </span>
                   </label>
                   <input
-                    :value="`${sellingPrice.toFixed(2)} ${resolveCurrencyLabel(form.currency)} / ${resolveUnitLabel(form.unit)}`"
+                    :value="
+                      money(
+                        sellingPrice,
+                        `${resolveCurrencyLabel(form.currency)} / ${resolveUnitLabel(form.unit)}`,
+                      )
+                    "
                     class="glass-input"
                     type="text"
                     readonly
@@ -937,7 +957,7 @@ async function onMovementCreated() {
                     </span>
                   </label>
                   <input
-                    :value="`${totalSellingValue.toFixed(2)} ${resolveCurrencyLabel(form.currency)}`"
+                    :value="money(totalSellingValue, resolveCurrencyLabel(form.currency))"
                     class="glass-input"
                     type="text"
                     readonly
@@ -1296,17 +1316,6 @@ async function onMovementCreated() {
                   type="text"
                   readonly
                   data-test="field-conversion-rate"
-                />
-                <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
-              </div>
-              <div v-if="batch.exchangeRate" class="input-group">
-                <label class="field-label">{{ t('warehouse.field_exchange_rate') }}</label>
-                <input
-                  :value="batch.exchangeRate"
-                  class="glass-input"
-                  type="text"
-                  readonly
-                  data-test="field-exchange-rate"
                 />
                 <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
               </div>

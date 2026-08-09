@@ -28,7 +28,6 @@ describe('order routes', () => {
       quantity: 10,
       unit: 'pcs',
       unitPrice: 120,
-      unitCost: 100,
     })
     expect(item.totalPrice).toBe(1200)
 
@@ -161,7 +160,6 @@ describe('order routes', () => {
       quantity: 1,
       unit: 'pcs',
       unitPrice: 100,
-      unitCost: 100,
     })
     const patched = await patchMock<Order>(`/api/orders/${order.id}`, {
       notes: 'kept',

@@ -150,6 +150,54 @@ export function releaseFromLine(
   return released
 }
 
+/**
+ * Gives back a hold off the very batches the goods left from.
+ *
+ * The write-off already decided which batches a shipment consumes — FIFO, oldest
+ * first — and the hold has to follow that one decision instead of making a second
+ * one of its own. Released newest-first, the two answers came apart on the first
+ * line that spanned two batches: 305 units of the old batch plus 2 of the new,
+ * ship 2, and the goods left the old batch while the hold came off the new one.
+ * The old batch was then promising 305 units off a shelf of 303, read as fully
+ * taken, while the new batch read as free and the order had lost its place in the
+ * queue for it. And `heldReleased` remembered the wrong batch, so cancelling the
+ * shipment put the hold back where it had never been taken from.
+ *
+ * Anything the named batches cannot cover falls back to the general release: what
+ * shipped stops being held, whichever batch the hold happened to sit on.
+ */
+export function releaseFromLineOnBatches(
+  orderId: string,
+  lineId: string,
+  consumed: ReadonlyArray<{ batchId: string | null; quantity: number }>,
+  quantity: number,
+): Array<{ batchId: string | null; offcutId: string | null; quantity: number }> {
+  const released: Array<{ batchId: string | null; offcutId: string | null; quantity: number }> = []
+  let left = round2(quantity)
+
+  for (const consumption of consumed) {
+    if (left <= 0) break
+    const index = RESERVATIONS.findIndex(
+      (r) => r.orderId === orderId && r.lineId === lineId && r.batchId === consumption.batchId,
+    )
+    if (index === -1) continue
+    const reservation = RESERVATIONS[index]!
+    const take = round2(Math.min(reservation.quantity, consumption.quantity, left))
+    if (take <= 0) continue
+    released.push({
+      batchId: reservation.batchId,
+      offcutId: reservation.offcutId,
+      quantity: take,
+    })
+    reservation.quantity = round2(reservation.quantity - take)
+    left = round2(left - take)
+    if (reservation.quantity <= 0) RESERVATIONS.splice(index, 1)
+  }
+
+  if (left > 0) released.push(...releaseFromLine(orderId, lineId, left))
+  return released
+}
+
 /** Gives back everything one line holds — it is going away. */
 export function releaseLine(orderId: string, lineId: string): void {
   for (let i = RESERVATIONS.length - 1; i >= 0; i--) {

@@ -9,11 +9,25 @@
  * they exist for the older parts of the UI and must never be assigned directly.
  */
 import type { OrderItem, OrderService, OrderLineAllocation, CostSource } from '@/types/order'
-import { type PricingLine, calcLine, round2, roundStored } from '@/domain/orderPricing'
+import {
+  type PricingLine,
+  calcLine,
+  isPriceLocked,
+  round2,
+  roundStored,
+} from '@/domain/orderPricing'
 
 // ─── Pricing bridge ─────────────────────────────────────────────────────────
 
+/**
+ * A stored line keeps the two meanings of "the price" in two fields, because the
+ * rest of the app reads them: `manualUnitPrice` is the 🔒 — a price named by hand
+ * that no longer follows the cost — and `namedUnitPrice` is a price that is
+ * stored but still followed by the cost, which is what a catalogue price is.
+ * The pricing module works with one field and a flag; this is the seam.
+ */
 export function toPricingLine(line: OrderItem | OrderService): PricingLine {
+  const named = line.namedUnitPrice ?? null
   return {
     id: line.id,
     quantity: line.quantity,
@@ -21,7 +35,8 @@ export function toPricingLine(line: OrderItem | OrderService): PricingLine {
     costSource: line.costSource,
     marginPercent: line.marginPercent,
     discountPercent: line.discountPercent,
-    manualUnitPrice: line.manualUnitPrice,
+    manualUnitPrice: line.manualUnitPrice ?? named,
+    priceFollowsCost: line.manualUnitPrice === null && named !== null,
     state: line.state,
     shippedQuantity: line.shippedQuantity,
     documentIssued: line.documentIssued,
@@ -35,7 +50,11 @@ export function applyPricing(line: OrderItem | OrderService, pricing: PricingLin
   line.costSource = pricing.costSource
   line.marginPercent = pricing.marginPercent
   line.discountPercent = pricing.discountPercent
-  line.manualUnitPrice = pricing.manualUnitPrice
+  // Which of the two fields the stored price belongs in is exactly the question
+  // `isPriceLocked` answers — the lock is never inferred twice.
+  const locked = isPriceLocked(pricing)
+  line.manualUnitPrice = locked ? pricing.manualUnitPrice : null
+  line.namedUnitPrice = locked ? null : pricing.manualUnitPrice
   line.state = pricing.state
   line.shippedQuantity = pricing.shippedQuantity
   line.documentIssued = pricing.documentIssued
@@ -61,10 +80,13 @@ export function projectService(svc: OrderService): void {
 /**
  * Margin that turns a known cost into a known selling price.
  *
- * Kept at storage precision, not display precision: the price is rebuilt from
- * this value, so rounding it to two places would move the money. A cost of 90
- * and a price of 120 need 33.333…%, and a rounded 33.33% rebuilds 119.997 — a
- * price nobody quoted. Round it when showing it, never on the way in.
+ * Kept at storage precision, not display precision: this is the rule the price is
+ * rebuilt from when the COST moves, so rounding it to two places would move the
+ * money. A cost of 90 and a price of 120 need 33.333…%, and a rounded 33.33%
+ * rebuilds 119.997 — a price nobody quoted. Round it when showing it, never here.
+ *
+ * Ten digits are enough for the rule and not enough for the price: see
+ * `pricingSeedFor`, which stores the price itself alongside it.
  */
 export function marginFor(unitCost: number, sellingPrice: number): number {
   return unitCost > 0 ? roundStored((sellingPrice / unitCost - 1) * 100) : 0
@@ -73,21 +95,36 @@ export function marginFor(unitCost: number, sellingPrice: number): number {
 /**
  * Turns "I know the cost and the price I want" into the fields a line stores.
  *
- * With a cost, the price is a markup on it. Without one there is nothing to mark
- * up — a margin of 0% on a cost of 0 gives a price of 0, not the price asked for
- * — so the price is stated outright instead. Every caller must go through this,
- * or a service added without a cost quietly shows up as free.
+ * BOTH numbers are stored, and they are not the same statement (contract §7).
+ * The price is what the line shows, totals and invoices — kept as a price,
+ * because rebuilding it from a percentage lands a cent below the number that was
+ * quoted, at any storage precision. The margin is the rule for where that price
+ * goes when the warehouse cost actually moves, which is what keeps a draft
+ * following FIFO. `priceFollowsCost` is what says the price is stored and NOT
+ * locked — a catalogue line carries no 🔒.
+ *
+ * Without a cost there is nothing to mark up — a margin of 0% on a cost of 0
+ * gives a price of 0, not the price asked for — so the price is stated outright
+ * and the line is locked on it. Every caller must go through this, or a service
+ * added without a cost quietly shows up as free.
  */
 export function pricingSeedFor(
   unitCost: number,
   sellingPrice: number,
-): { marginPercent: number; manualUnitPrice: number | null } {
+): { marginPercent: number; manualUnitPrice: number | null; priceFollowsCost?: boolean } {
   // A price of zero is a stated price, not a markup: expressing it as one gives
   // exactly −100%, which the model refuses as impossible — and the line would be
   // rejected at the door instead of showing the zero somebody actually entered.
   if (unitCost > 0 && sellingPrice > 0) {
-    return { marginPercent: marginFor(unitCost, sellingPrice), manualUnitPrice: null }
+    return {
+      marginPercent: marginFor(unitCost, sellingPrice),
+      manualUnitPrice: sellingPrice,
+      priceFollowsCost: true,
+    }
   }
+  // The flag is left off rather than set to false: everywhere it is absent it
+  // means the older reading — a stored price that also locks the line — and that
+  // is exactly what a price named without a cost behind it is.
   return { marginPercent: 0, manualUnitPrice: sellingPrice }
 }
 
@@ -157,6 +194,21 @@ export function allocatedUnitCost(allocations: OrderLineAllocation[]): number | 
 
 // ─── Factories ──────────────────────────────────────────────────────────────
 
+/**
+ * Where a seeded price lands: the 🔒 field when it was named outright, the
+ * followed field when the cost is still allowed to reprice it. One decision in
+ * one place, so goods and services cannot disagree about it.
+ */
+function storedPrice(seed: { manualUnitPrice?: number | null; priceFollowsCost?: boolean }): {
+  manualUnitPrice: number | null
+  namedUnitPrice: number | null
+} {
+  const price = seed.manualUnitPrice ?? null
+  return seed.priceFollowsCost
+    ? { manualUnitPrice: null, namedUnitPrice: price }
+    : { manualUnitPrice: price, namedUnitPrice: null }
+}
+
 export interface OrderItemSeed {
   id: string
   lineNumber: number
@@ -164,11 +216,10 @@ export interface OrderItemSeed {
   productName: string
   quantity: number
   unit: string
-  /** Cost per unit in the order currency. */
+  /** Cost per unit. */
   unitCost: number
   marginPercent: number
   receivedCurrency: string
-  exchangeRate: number | null
   batchId?: string | null
   /** The full FIFO breakdown, when it is known. Wins over `batchId`. */
   allocations?: OrderLineAllocation[]
@@ -176,8 +227,10 @@ export interface OrderItemSeed {
   weightPerUnitKg?: number | null
   /** 'estimate' when the cost was guessed rather than read off a batch. */
   costSource?: CostSource
-  /** Set only when the price cannot be expressed as a markup — see pricingSeedFor. */
+  /** The price the line was given, if it was given one — see pricingSeedFor. */
   manualUnitPrice?: number | null
+  /** That price is stored but not locked: the cost still reprices it. */
+  priceFollowsCost?: boolean
 }
 
 export function buildOrderItem(seed: OrderItemSeed): OrderItem {
@@ -191,7 +244,6 @@ export function buildOrderItem(seed: OrderItemSeed): OrderItem {
             quantity: seed.quantity,
             unitCost: seed.unitCost,
             currency: seed.receivedCurrency,
-            exchangeRate: seed.exchangeRate,
             source: seed.costSource ?? 'stock',
           },
         ]
@@ -211,7 +263,7 @@ export function buildOrderItem(seed: OrderItemSeed): OrderItem {
     allocations,
     marginPercent: seed.marginPercent,
     discountPercent: seed.discountPercent ?? 0,
-    manualUnitPrice: seed.manualUnitPrice ?? null,
+    ...storedPrice(seed),
     state: 'draft',
     shippedQuantity: 0,
     documentIssued: false,
@@ -222,7 +274,6 @@ export function buildOrderItem(seed: OrderItemSeed): OrderItem {
     batchId: seed.batchId ?? null,
     offcutId: null,
     receivedCurrency: seed.receivedCurrency,
-    exchangeRate: seed.exchangeRate,
   }
   projectItem(item)
   return item
@@ -236,8 +287,10 @@ export interface OrderServiceSeed {
   unitCost: number
   marginPercent: number
   discountPercent?: number
-  /** Set only when the price cannot be expressed as a markup — see pricingSeedFor. */
+  /** The price the line was given, if it was given one — see pricingSeedFor. */
   manualUnitPrice?: number | null
+  /** That price is stored but not locked: the cost still reprices it. */
+  priceFollowsCost?: boolean
 }
 
 export function buildOrderService(seed: OrderServiceSeed): OrderService {
@@ -252,7 +305,7 @@ export function buildOrderService(seed: OrderServiceSeed): OrderService {
     manualCostReason: null,
     marginPercent: seed.marginPercent,
     discountPercent: seed.discountPercent ?? 0,
-    manualUnitPrice: seed.manualUnitPrice ?? null,
+    ...storedPrice(seed),
     state: 'draft',
     // Services never ship; an issued invoice freezes them instead.
     shippedQuantity: 0,

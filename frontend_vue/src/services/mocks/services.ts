@@ -108,7 +108,7 @@ export async function mockCreateService(
 
 export async function mockGetService(id: string): Promise<Service> {
   const svc = STORE.find((s) => s.id === id)
-  if (!svc) throw new Error('SERVICE_NOT_FOUND')
+  if (!svc) throw new Error('CATALOG_SERVICE_NOT_FOUND')
   return { ...svc }
 }
 
@@ -124,7 +124,7 @@ export async function mockPatchService(
   _locale?: string,
 ): Promise<Service> {
   const idx = STORE.findIndex((s) => s.id === id)
-  if (idx === -1) throw new Error('SERVICE_NOT_FOUND')
+  if (idx === -1) throw new Error('CATALOG_SERVICE_NOT_FOUND')
   const svc = STORE[idx]!
   if (data.name !== undefined) svc.name = data.name
   if (data.costPrice !== undefined) svc.costPrice = data.costPrice

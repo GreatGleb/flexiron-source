@@ -106,6 +106,8 @@ export const adminOrders = {
       vat_mode_keep_net: 'Сохранить цену без НДС',
       vat_mode_keep_gross: 'Сохранить итог',
       error_save_lines_first: 'Сначала сохраните изменения по позициям',
+      error_version_conflict:
+        'Заказ изменил кто-то другой — ваши правки не сохранены. Внизу актуальные данные, внесите правки заново.',
       field_vat_percent_unused: 'При нулевой ставке не применяется',
       error_total_below_shipped: 'Итог не может быть ниже суммы уже отгруженных позиций',
       error_no_editable_lines: 'Нет позиций, которые можно править — все отгружены',
@@ -326,6 +328,38 @@ export const adminOrders = {
         'Нельзя удалить: по заказу есть отгрузка. Сначала отмените её — товар вернётся на склад.',
       error_order_has_payment: 'Нельзя удалить: по заказу есть платежи. Сначала удалите их.',
 
+      // Не найдено. Каждое из них раньше превращалось в «ошибка сохранения» —
+      // сообщение, из которого человек не может понять, что делать (контракт §3).
+      error_order_not_found: 'Заказ не найден',
+      error_order_item_not_found: 'Строка заказа не найдена',
+      error_order_service_not_found: 'Услуга в заказе не найдена',
+      error_order_audit_entry_not_found: 'Записи истории уже нет — возможно, её удалили',
+      error_client_not_found: 'Клиент не найден',
+      error_catalog_product_not_found: 'Такого товара нет в каталоге',
+      error_catalog_service_not_found: 'Такой услуги нет в каталоге',
+      error_allocation_line_not_found: 'Строка, к которой относится раскладка, не найдена',
+      error_shipment_not_found: 'Отгрузка не найдена',
+      error_shipment_batch_not_found: 'Партии из этой отгрузки нет на складе',
+      error_shipment_has_no_lines: 'В отгрузке нет ни одной строки',
+      error_shipment_quantity_positive: 'Количество в отгрузке должно быть больше нуля',
+
+      // Вход, который сервер не принимает.
+      error_allocations_not_accepted: 'Раскладку по партиям задаёт склад, а не заказ',
+      error_number_not_finite: 'Здесь нужно число',
+      error_unknown_sort_key: 'Неизвестная колонка сортировки',
+      error_unknown_sort_direction: 'Неизвестное направление сортировки',
+      error_invalid_page: 'Неверный номер страницы',
+      error_invalid_date_filter: 'Неверная дата в фильтре',
+
+      // Раскладка итога вручную.
+      error_below_frozen_minimum: 'Итог не может быть ниже уже выставленного клиенту',
+      error_zero_base_total: 'Раскладывать нечего: сумма правимых строк — ноль',
+      error_negative_target: 'Итог не может быть отрицательным',
+
+      // Внутренние инварианты. На сервере это 500, наружу такое выставлять нельзя;
+      // здесь сообщение честное — сохранить не удалось, и данные не тронуты.
+      error_internal_invariant: 'Внутренняя ошибка расчёта. Ничего не сохранено.',
+
       col_service: 'Услуга',
       col_cost: 'Себестоимость',
       col_price: 'Цена',
@@ -503,6 +537,8 @@ export const adminOrders = {
       vat_mode_keep_net: 'Keep the net price',
       vat_mode_keep_gross: 'Keep the total',
       error_save_lines_first: 'Save the line changes first',
+      error_version_conflict:
+        'Somebody else changed this order — your edits were not saved. What you see now is theirs; make your changes again.',
       field_vat_percent_unused: 'Not used at a zero rate',
       error_total_below_shipped: 'The total cannot go below what has already shipped',
       error_no_editable_lines: 'No line can be repriced — everything has shipped',
@@ -719,6 +755,38 @@ export const adminOrders = {
         'Cannot delete: the order has a shipment. Cancel it first — the goods go back on the shelf.',
       error_order_has_payment: 'Cannot delete: the order has payments. Delete them first.',
 
+      // Not found. Each of these used to become "could not save" — a sentence
+      // nobody can act on (contract §3).
+      error_order_not_found: 'Order not found',
+      error_order_item_not_found: 'Order line not found',
+      error_order_service_not_found: 'Service line not found',
+      error_order_audit_entry_not_found: 'That history record is gone — somebody may have deleted it',
+      error_client_not_found: 'Client not found',
+      error_catalog_product_not_found: 'No such product in the catalogue',
+      error_catalog_service_not_found: 'No such service in the catalogue',
+      error_allocation_line_not_found: 'The line this breakdown belongs to was not found',
+      error_shipment_not_found: 'Shipment not found',
+      error_shipment_batch_not_found: 'A batch from this shipment is not on the shelf',
+      error_shipment_has_no_lines: 'The shipment has no lines',
+      error_shipment_quantity_positive: 'A shipped quantity has to be above zero',
+
+      // Input the server does not take.
+      error_allocations_not_accepted: 'The batch breakdown is warehouse data, not order data',
+      error_number_not_finite: 'This has to be a number',
+      error_unknown_sort_key: 'Unknown sort column',
+      error_unknown_sort_direction: 'Unknown sort direction',
+      error_invalid_page: 'Invalid page number',
+      error_invalid_date_filter: 'Invalid date in the filter',
+
+      // Spreading a total by hand.
+      error_below_frozen_minimum: 'The total cannot go below what the client has already been billed',
+      error_zero_base_total: 'Nothing to spread: the editable lines come to zero',
+      error_negative_target: 'The total cannot be negative',
+
+      // Internal invariants. On a server these are a 500 and must not be shown
+      // as such; the sentence here is honest — nothing was saved.
+      error_internal_invariant: 'Internal calculation error. Nothing was saved.',
+
       col_service: 'Service',
       col_cost: 'Cost',
       col_price: 'Price',
@@ -896,6 +964,8 @@ export const adminOrders = {
       vat_mode_keep_net: 'Išsaugoti kainą be PVM',
       vat_mode_keep_gross: 'Išsaugoti bendrą sumą',
       error_save_lines_first: 'Pirma išsaugokite eilučių pakeitimus',
+      error_version_conflict:
+        'Užsakymą pakeitė kitas naudotojas — jūsų pakeitimai neišsaugoti. Dabar matote jų duomenis; pakeiskite iš naujo.',
       field_vat_percent_unused: 'Netaikoma esant nuliniam tarifui',
       error_total_below_shipped: 'Suma negali būti mažesnė už jau išsiųstas eilutes',
       error_no_editable_lines: 'Nėra eilučių, kurių kainą galima keisti — viskas išsiųsta',
@@ -1115,6 +1185,38 @@ export const adminOrders = {
         'Negalima ištrinti: užsakymas turi išsiuntimą. Pirma jį atšaukite — prekės grįš į sandėlį.',
       error_order_has_payment:
         'Negalima ištrinti: užsakymas turi apmokėjimų. Pirma juos ištrinkite.',
+
+      // Nerasta. Anksčiau kiekvienas iš jų virsdavo „nepavyko išsaugoti“ — sakiniu,
+      // iš kurio žmogus nesupranta, ką daryti (sutarties §3).
+      error_order_not_found: 'Užsakymas nerastas',
+      error_order_item_not_found: 'Užsakymo eilutė nerasta',
+      error_order_service_not_found: 'Paslaugos eilutė nerasta',
+      error_order_audit_entry_not_found: 'Šio istorijos įrašo nebėra — galbūt jį ištrynė',
+      error_client_not_found: 'Klientas nerastas',
+      error_catalog_product_not_found: 'Tokios prekės kataloge nėra',
+      error_catalog_service_not_found: 'Tokios paslaugos kataloge nėra',
+      error_allocation_line_not_found: 'Eilutė, kuriai priklauso šis išskaidymas, nerasta',
+      error_shipment_not_found: 'Išsiuntimas nerastas',
+      error_shipment_batch_not_found: 'Šio išsiuntimo partijos sandėlyje nėra',
+      error_shipment_has_no_lines: 'Išsiuntime nėra nė vienos eilutės',
+      error_shipment_quantity_positive: 'Išsiunčiamas kiekis turi būti didesnis už nulį',
+
+      // Įvestis, kurios serveris nepriima.
+      error_allocations_not_accepted: 'Partijų išskaidymas yra sandėlio, o ne užsakymo duomenys',
+      error_number_not_finite: 'Čia turi būti skaičius',
+      error_unknown_sort_key: 'Nežinomas rikiavimo stulpelis',
+      error_unknown_sort_direction: 'Nežinoma rikiavimo kryptis',
+      error_invalid_page: 'Neteisingas puslapio numeris',
+      error_invalid_date_filter: 'Neteisinga data filtre',
+
+      // Sumos išskaidymas ranka.
+      error_below_frozen_minimum: 'Suma negali būti mažesnė už jau klientui išrašytą',
+      error_zero_base_total: 'Nėra ko išskaidyti: redaguojamų eilučių suma — nulis',
+      error_negative_target: 'Suma negali būti neigiama',
+
+      // Vidiniai invariantai. Serveryje tai 500 ir tokio pranešimo rodyti negalima;
+      // čia sakinys sąžiningas — niekas nebuvo išsaugota.
+      error_internal_invariant: 'Vidinė skaičiavimo klaida. Niekas neišsaugota.',
 
       col_service: 'Paslauga',
       col_cost: 'Savikaina',

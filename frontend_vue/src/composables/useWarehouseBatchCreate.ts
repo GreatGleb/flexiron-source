@@ -1,6 +1,7 @@
 import { ref, reactive, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { createBatch } from '@/services/warehouseService'
+import { round2 } from '@/domain/orderPricing'
 import { getProducts, getProduct } from '@/services/productsService'
 import { getSupplierList } from '@/services/suppliersService'
 import { useToast } from './useToast'
@@ -15,6 +16,20 @@ export function useWarehouseBatchCreate() {
   const toast = useToast()
   const { tf } = useTranslatedField()
   const { settings } = useSettings()
+
+  /**
+   * The currency the warehouse layer speaks — the base one, and no other (§7.1).
+   *
+   * Not a choice on this form any more. There is no exchange rate anywhere in the
+   * system, so a batch priced in dollars could only ever be added to euro batches
+   * as if it were the same money; the store now refuses such a receipt outright,
+   * and offering the choice here would only produce an error nobody could explain.
+   */
+  const baseCurrency = computed<string>(
+    () =>
+      (settings.currencies ?? []).find((c: { isDefault?: boolean }) => c.isDefault)?.code ??
+      settings.constants.defaultCurrency,
+  )
 
   const form = reactive({
     productId: '',
@@ -125,13 +140,10 @@ export function useWarehouseBatchCreate() {
       try {
         selectedProductFull.value = await getProduct(newVal)
         autoFillUnit(selectedProductFull.value)
-        // Pre-fill currency from product
-        if (selectedProductFull.value?.currencyId) {
-          const cur = settings.currencies.find(
-            (c: { id: string }) => c.id === selectedProductFull.value!.currencyId,
-          )
-          if (cur) form.currency = cur.code
-        }
+        // The product's own currency used to be copied onto the warehouse price
+        // here. It is the currency the product is SOLD in, and the shelf is kept
+        // in the base currency regardless — copying it was how a batch ended up
+        // priced in a currency the stock total then added to euro.
       } catch {
         selectedProductFull.value = null
       }
@@ -143,8 +155,36 @@ export function useWarehouseBatchCreate() {
 
   const quantityStep = computed(() => (form.unit === 'pcs' ? 1 : 0.01))
 
+  /** Is the supplier's price in a currency that is not ours? */
+  const purchaseIsForeign = computed<boolean>(() => {
+    if (!form.receivedCurrencyId) return false
+    const cur = settings.currencies.find((c: { id: string }) => c.id === form.receivedCurrencyId)
+    return (cur?.code ?? form.receivedCurrencyId) !== baseCurrency.value
+  })
+
+  /**
+   * The warehouse cost the store will derive from the purchase, when it can.
+   *
+   * A purchase in the base currency IS the warehouse cost — over the purchase
+   * unit or over the warehouse unit, but the same money either way. A purchase in
+   * another currency derives nothing: there is no rate, so the base-currency sum
+   * is a human's to name, and if nobody names it the batch simply has no cost.
+   */
+  const derivedUnitPrice = computed<number | null>(() => {
+    if (form.receivedUnitPrice == null || purchaseIsForeign.value) return null
+    const quantity = form.quantity || 0
+    if (quantity <= 0) return null
+    const receivedQuantity = form.receivedQuantity ?? quantity
+    return round2((form.receivedUnitPrice * receivedQuantity) / quantity)
+  })
+
+  /** What the batch will actually be priced at, or `null` for no cost at all. */
+  const effectiveUnitPrice = computed<number | null>(() =>
+    form.unitPrice > 0 ? form.unitPrice : derivedUnitPrice.value,
+  )
+
   const totalCost = computed(() => {
-    return (form.quantity || 0) * (form.unitPrice || 0)
+    return (form.quantity || 0) * (effectiveUnitPrice.value ?? 0)
   })
 
   /** Dynamic UoM options from settings */
@@ -156,10 +196,8 @@ export function useWarehouseBatchCreate() {
     })
   })
 
-  /** Dynamic currency options from settings */
-  const CURRENCY_OPTIONS = computed<string[]>(() => {
-    return (settings.currencies ?? []).map((c: { code: string }) => c.code)
-  })
+  /** The warehouse price is in the base currency; there is nothing to choose. */
+  const CURRENCY_OPTIONS = computed<string[]>(() => [baseCurrency.value])
 
   /** Pre-fill conversion factor from product when product changes */
   watch(selectedProductFull, (product) => {
@@ -272,7 +310,12 @@ export function useWarehouseBatchCreate() {
     if (!form.lotCode.trim()) e.lotCode = t('validation.required')
     if (!form.quantity || form.quantity <= 0) e.quantity = t('validation.required')
     if (!form.unit) e.unit = t('validation.required')
-    if (form.unitPrice <= 0) e.unitPrice = t('validation.required')
+    // Asked for only when there is nothing to derive it from and no reason to
+    // leave it empty: a base-currency purchase supplies it, and a foreign one may
+    // legitimately arrive without it (the batch then has no cost — §7.1).
+    if (form.unitPrice <= 0 && derivedUnitPrice.value == null && !purchaseIsForeign.value) {
+      e.unitPrice = t('validation.required')
+    }
     if (!form.receivedAt) e.receivedAt = t('validation.required')
     errors.value = e
     return Object.keys(e).length === 0
@@ -293,7 +336,7 @@ export function useWarehouseBatchCreate() {
       form.lotCode.trim() &&
       form.quantity > 0 &&
       form.unit &&
-      form.unitPrice > 0 &&
+      (form.unitPrice > 0 || derivedUnitPrice.value != null || purchaseIsForeign.value) &&
       form.receivedAt
     )
   })
@@ -314,8 +357,11 @@ export function useWarehouseBatchCreate() {
         lotCode: form.lotCode.trim(),
         quantity: form.quantity,
         unit: form.unit,
-        unitPrice: form.unitPrice,
-        currency: form.currency,
+        // Empty stays empty: the store derives the cost from the purchase when it
+        // can, and leaves the batch without one when it cannot. Sending 0 would
+        // put "these goods were free" on the shelf.
+        unitPrice: form.unitPrice > 0 ? form.unitPrice : null,
+        currency: baseCurrency.value,
         receivedAt: form.receivedAt,
         expiresAt: form.expiresAt || null,
         location: composeLocation(

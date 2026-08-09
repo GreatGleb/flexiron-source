@@ -2252,7 +2252,7 @@ const deficitFiltersActive = computed(() => {
                   </span>
                 </td>
                 <td>{{ t(`warehouse.unit_${batch.unit}`, batch.unit) }}</td>
-                <td>{{ batch.unitPrice.toFixed(2) }} €</td>
+                <td>{{ batch.unitPrice === null ? '—' : `${batch.unitPrice.toFixed(2)} €` }}</td>
                 <td>{{ batch.receivedAt.slice(0, 10) }}</td>
                 <td>
                   <span class="status-pill" :class="BATCH_STATUS_PILL[batch.status]">

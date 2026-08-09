@@ -479,12 +479,6 @@ export function useSettings() {
     markDirty('currencies')
     isDirty.value = true
   }
-  const _updateCurrency = (id: string, patch: Partial<Currency>) => {
-    const cur = settings.currencies.find((c) => c.id === id)
-    if (cur) Object.assign(cur, patch)
-    markDirty('currencies')
-    isDirty.value = true
-  }
   const _addUom = (data: Omit<Uom, 'id'>) => {
     const uom: Uom = { ...data, id: `uom-temp-${Date.now()}` }
     settings.uoms.push(uom)
@@ -607,7 +601,6 @@ export function useSettings() {
     updateConstants: _updateConstants,
     addCurrency: _addCurrency,
     removeCurrency: _removeCurrency,
-    updateCurrency: _updateCurrency,
     addUom: _addUom,
     removeUom: _removeUom,
     addConversion: _addConversion,

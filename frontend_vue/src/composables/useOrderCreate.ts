@@ -165,7 +165,6 @@ export function useOrderCreate() {
         unitCost,
         ...pricingSeedFor(unitCost, item.unitPrice),
         receivedCurrency: 'cur-eur',
-        exchangeRate: 1,
       })
     })
 

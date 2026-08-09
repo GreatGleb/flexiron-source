@@ -18,8 +18,33 @@ import {
   mockUpdateOrderService,
 } from './mocks/orders'
 import { mockGetClients } from './mocks/clients'
+import { batchesForProduct } from './mocks/warehouse'
 import type { Order, OrderItem, OrderService } from '@/types/order'
 import type { PricingLine } from '@/domain/orderPricing'
+
+/**
+ * The shelf these fixtures price against.
+ *
+ * A cost is the warehouse's answer and the orders API takes none from the body
+ * (contract §4.2), so the 100,00 every line here has always been costed at is
+ * stated where a cost actually lives: on the batches behind the product. The
+ * lines below then get exactly the same figure they used to be handed, only by
+ * the route a real client has.
+ */
+const STOCK_UNIT_COST = 100
+for (const batch of batchesForProduct('prod-001')) {
+  batch.unitPrice = STOCK_UNIT_COST
+  batch.totalCost = batch.quantity * STOCK_UNIT_COST
+}
+
+/**
+ * A catalogue product the warehouse holds nothing of.
+ *
+ * It has to be a real one: an id the catalogue does not know is refused outright
+ * (`CATALOG_PRODUCT_NOT_FOUND`), so "no stock" cannot be expressed by inventing
+ * a product — only by naming one whose shelf is empty.
+ */
+const PRODUCT_OUT_OF_STOCK = 'prod-043'
 
 function freshOrder(): Order {
   const client = mockGetClients()[0]!
@@ -34,7 +59,6 @@ function orderWithLines(quantity = 10, unitPrice = 120) {
     quantity,
     unit: 'pcs',
     unitPrice,
-    unitCost: 100,
   })
   const svc = mockAddOrderService(created.id, { serviceId: 'svc-001', quantity: 2, price: 60 })
   return { orderId: created.id, item, svc }
@@ -48,8 +72,6 @@ function orderWithBatchLine() {
     quantity: 10,
     unit: 'pcs',
     unitPrice: 120,
-    unitCost: 100,
-    batchId: 'whb-001',
   })
   return { orderId: created.id, itemWithBatch }
 }
@@ -262,11 +284,10 @@ describe('a refused edit changes nothing', () => {
     // claiming to come from the warehouse.
     const created = freshOrder()
     const item = mockAddOrderItem(created.id, {
-      productId: 'prod-nothing-in-stock',
+      productId: PRODUCT_OUT_OF_STOCK,
       quantity: 10,
       unit: 'pcs',
       unitPrice: 120,
-      unitCost: 100,
     })
     const orderId = created.id
     mockUpdateOrderItem(orderId, item.id, { manualUnitCost: 140, manualCostReason: 'No batch yet' })
@@ -367,8 +388,13 @@ describe('which cells the table opens', () => {
     const invoiced: PricingLine = { ...draft, documentIssued: true }
     expect(canEditLineField(invoiced, 'unitPrice')).toBe(false)
     expect(canEditLineField(invoiced, 'unitCost')).toBe(false)
-    // Nothing has shipped, so the quantity itself is still a live question.
-    expect(canEditLineField(invoiced, 'quantity')).toBe(true)
+    // The document covers the quantity too (contract §4.2). This line used to say
+    // the opposite — "nothing has shipped, so the quantity is still a live
+    // question" — which is true of goods and false of a service: a service never
+    // ships, so shipped quantity was never going to close it. The invoiced 302,50
+    // service could be set to zero, leaving the order at 200,00 against a document
+    // for 502,50 the client is holding.
+    expect(canEditLineField(invoiced, 'quantity')).toBe(false)
   })
 })
 

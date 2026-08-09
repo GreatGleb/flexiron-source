@@ -913,29 +913,36 @@ export async function postMock<T>(
     )
   }
 
-  const shipmentCreateMatch = path.match(/^\/api\/orders\/([^/]+)\/shipments$/)
-  if (shipmentCreateMatch) {
-    return delay(
-      mockCreateShipment(
-        shipmentCreateMatch[1] as string,
-        body as Parameters<typeof mockCreateShipment>[1],
-      ) as T,
-    )
+  // ── The two operations contract §3 calls mandatory ──
+  // A shipment and a payment are the two POSTs that cost real money to repeat:
+  // the same request twice gave two shipments, six units off the shelf for a
+  // request about three, two 'sale' movements, and two payments of 500 adding up
+  // to 1000. The only guard was a busy flag in the card, which is exactly what
+  // §3 calls "not a guard". The order id is folded out of the path so the route
+  // is named rather than pattern-matched, and the guard is visible on it.
+  const orderRouteMatch = path.match(/^(\/api\/orders\/)([^/]+)(\/[^/]+)$/)
+  if (orderRouteMatch) {
+    const orderId = orderRouteMatch[2] as string
+    const orderSubpath = `${orderRouteMatch[1]}:id${orderRouteMatch[3]}`
+    if (orderSubpath === '/api/orders/:id/shipments') {
+      return delay(
+        withIdempotency(headers, () =>
+          mockCreateShipment(orderId, body as Parameters<typeof mockCreateShipment>[1]),
+        ) as T,
+      )
+    }
+    if (orderSubpath === '/api/orders/:id/payments') {
+      return delay(
+        withIdempotency(headers, () =>
+          mockAddOrderPayment(orderId, body as Parameters<typeof mockAddOrderPayment>[1]),
+        ) as T,
+      )
+    }
   }
 
   const orderReserveMatch = path.match(/^\/api\/orders\/([^/]+)\/reserve$/)
   if (orderReserveMatch) {
     return delay(mockReserveOrder(orderReserveMatch[1] as string) as T)
-  }
-
-  const paymentCreateMatch = path.match(/^\/api\/orders\/([^/]+)\/payments$/)
-  if (paymentCreateMatch) {
-    return delay(
-      mockAddOrderPayment(
-        paymentCreateMatch[1] as string,
-        body as Parameters<typeof mockAddOrderPayment>[1],
-      ) as T,
-    )
   }
 
   const invoiceCreateMatch = path.match(/^\/api\/orders\/([^/]+)\/invoices$/)
@@ -1359,7 +1366,7 @@ export async function deleteMock<T>(path: string, _headers?: Record<string, stri
   const serviceDeleteMatch = path.match(/^\/api\/services\/([^/]+)$/)
   if (serviceDeleteMatch) {
     const deleted = mockDeleteService(serviceDeleteMatch[1] as string)
-    if (!deleted) throw new Error('SERVICE_NOT_FOUND')
+    if (!deleted) throw new Error('CATALOG_SERVICE_NOT_FOUND')
     return delay(undefined as T)
   }
 
@@ -1415,9 +1422,12 @@ export async function deleteMock<T>(path: string, _headers?: Record<string, stri
     return delay(undefined as T)
   }
 
-  const orderAuditDeleteMatch = path.match(/^\/api\/orders\/([^/]+)\/audit\/(\d+)$/)
+  // The entry is named, not counted. A position in a list that other people are
+  // appending to and deleting from names a different record by the time the
+  // request arrives — see contract §4.1.
+  const orderAuditDeleteMatch = path.match(/^\/api\/orders\/([^/]+)\/audit\/([^/]+)$/)
   if (orderAuditDeleteMatch) {
-    mockDeleteOrderAuditEntry(orderAuditDeleteMatch[1] as string, Number(orderAuditDeleteMatch[2]))
+    mockDeleteOrderAuditEntry(orderAuditDeleteMatch[1] as string, orderAuditDeleteMatch[2] as string)
     return delay(undefined as T)
   }
 

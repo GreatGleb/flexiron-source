@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPatch, apiDelete } from './api'
+import { apiGet, apiPost, apiPatch, apiDelete, newIdempotencyKey } from './api'
 import type {
   Order,
   OrderListItem,
@@ -15,8 +15,18 @@ import type {
   ShippableLine,
   StatusTransitionPlan,
   SalesCrmStats,
+  LineEditEnvelope,
 } from '@/types/order'
 import type { LineEditDelta } from './orderLineEdits'
+
+/**
+ * The body of `PATCH .../items/:id` as it really goes out: the edit, plus the
+ * two things an edit needs that are not fields of the line — the order version
+ * it was made against and, for `resetPrice`, the default it resets to.
+ *
+ * Kept as its own name so whoever implements the endpoint sees both halves.
+ */
+export type LineEditPayload = LineEditDelta & LineEditEnvelope
 import type { StockReservation } from '@/types/warehouse'
 import type { PaginatedResponse, PaginationParams } from '@/types/api'
 
@@ -95,21 +105,25 @@ export async function addOrderItem(
     marginPercent?: number
     discountPercent?: number
     batchId?: string | null
+    /** The order version this line is being added to — contract §3. */
+    version?: number
   },
 ): Promise<OrderItem> {
   return apiPost(`/api/orders/${orderId}/items`, data)
 }
 
 /**
- * One line edit. `LineEditDelta` is the honest shape of the wire format — it
- * carries `lineTotal` and `resetPrice`, which are edits rather than fields, and
- * a signature of `Partial<OrderItem>` would hide them from whoever implements
- * the real endpoint. Build it with `lineEditDelta`, never by hand.
+ * One line edit. `LineEditPayload` is the honest shape of the wire format — it
+ * carries `lineTotal` and `resetPrice`, which are edits rather than fields, the
+ * default `resetPrice` is settled against, and the order version the edit was
+ * made against; a signature of `Partial<OrderItem>` would hide all four from
+ * whoever implements the real endpoint. Build the edit itself with
+ * `lineEditDelta`, never by hand.
  */
 export async function updateOrderItem(
   orderId: string,
   lineId: string,
-  delta: LineEditDelta,
+  delta: LineEditPayload,
 ): Promise<OrderItem> {
   return apiPatch(`/api/orders/${orderId}/items/${lineId}`, delta)
 }
@@ -125,6 +139,8 @@ export async function addOrderService(
     quantity: number
     price?: number
     discountPercent?: number
+    /** The order version this line is being added to — contract §3. */
+    version?: number
   },
 ): Promise<OrderService> {
   return apiPost(`/api/orders/${orderId}/services`, data)
@@ -134,8 +150,8 @@ export async function deleteOrderService(orderId: string, serviceId: string): Pr
   return apiDelete(`/api/orders/${orderId}/services/${serviceId}`)
 }
 
-export async function deleteOrderAuditEntry(orderId: string, entryIndex: number): Promise<void> {
-  return apiDelete(`/api/orders/${orderId}/audit/${entryIndex}`)
+export async function deleteOrderAuditEntry(orderId: string, entryId: string): Promise<void> {
+  return apiDelete(`/api/orders/${orderId}/audit/${entryId}`)
 }
 
 export async function addOrderFile(orderId: string, fileId: string): Promise<void> {
@@ -151,7 +167,7 @@ export async function removeOrderFile(orderId: string, fileId: string): Promise<
 export async function updateOrderService(
   orderId: string,
   serviceLineId: string,
-  delta: LineEditDelta,
+  delta: LineEditPayload,
 ): Promise<OrderService> {
   return apiPatch(`/api/orders/${orderId}/services/${serviceLineId}`, delta)
 }
@@ -217,7 +233,14 @@ export async function createOrderShipment(
     shippedAt?: string
   },
 ): Promise<Shipment> {
-  return apiPost(`/api/orders/${orderId}/shipments`, data)
+  // Contract §3: mandatory here. A retry — a slow answer, a double click, a
+  // reconnect — must not put a second truck on the road: the key lets the server
+  // recognise the repeat and hand back the first answer instead of shipping
+  // again. Sending it is the client's half of the deal, and a server that can
+  // accept the header is no use if nobody ever sends one.
+  return apiPost(`/api/orders/${orderId}/shipments`, data, {
+    headers: { 'Idempotency-Key': newIdempotencyKey() },
+  })
 }
 
 /** Reverse movements, never a deletion — warehouse history has to add up. */
@@ -256,7 +279,11 @@ export async function addOrderPayment(
     note?: string | null
   },
 ): Promise<Payment> {
-  return apiPost(`/api/orders/${orderId}/payments`, data)
+  // Same as the shipment above, and for the same money: two payments of 500 sent
+  // twice read as 1000 received (contract §3).
+  return apiPost(`/api/orders/${orderId}/payments`, data, {
+    headers: { 'Idempotency-Key': newIdempotencyKey() },
+  })
 }
 
 export async function deleteOrderPayment(orderId: string, paymentId: string): Promise<void> {

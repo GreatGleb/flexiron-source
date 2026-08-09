@@ -39,21 +39,36 @@ export type LineState = 'draft' | 'partially_shipped' | 'shipped'
 /**
  * Pricing-relevant subset of an order line (goods or service).
  *
- * `manualUnitPrice` is the single source of the 🔒 lock: when it is set, the
- * price no longer follows cost or order defaults. It is stored at FULL
- * precision on purpose — that is what makes `allocateTotal` cent-exact.
+ * `manualUnitPrice` is the price the line STORES — the number somebody named,
+ * kept as a number instead of as a percentage to rebuild it from. It is stored
+ * at FULL precision on purpose — that is what makes `allocateTotal` cent-exact.
+ *
+ * "The price is stored" and "the price is locked" are different things, and the
+ * flag below is what tells them apart (contract §7). A hand-typed price does
+ * both: it is stored AND it stops following the cost. A catalogue price needs
+ * only the first — it must show and invoice exactly the number that was quoted,
+ * and still be repriced when the warehouse cost actually moves.
  */
 export interface PricingLine {
   id: string
   quantity: number
-  /** Cost per unit, already converted into the order currency. */
+  /** Cost per unit. */
   unitCost: number
   costSource: CostSource
   /** Planned margin — markup over cost, before discount. An input. */
   marginPercent: number
   discountPercent: number
-  /** Manual price per unit, or null when the price is computed. */
+  /** The stored price per unit, or null when the price is computed. */
   manualUnitPrice: number | null
+  /**
+   * The stored price is a price, not a lock: it is what the line shows and
+   * invoices, but a real cost change reprices it through `marginPercent`.
+   *
+   * Absent means the old meaning — a stored price that also locks the line.
+   * Only `pricingSeedFor` (a catalogue price) and the remainder of a split turn
+   * it on; every hand edit turns it back off.
+   */
+  priceFollowsCost?: boolean
   state: LineState
   shippedQuantity: number
   /**
@@ -118,7 +133,7 @@ export function formatCents(value: number): string {
 }
 
 /**
- * Stored values a price is rebuilt from — a margin, an exchange rate. Enough
+ * Stored values a price is rebuilt from — a margin, a discount. Enough
  * digits that the price comes back exactly, few enough to keep float dust out:
  * unrounded, (120 / 100 − 1) × 100 is 19.999999999999996.
  */
@@ -128,18 +143,32 @@ export function roundStored(value: number): number {
 
 // ─── Line calculation ───────────────────────────────────────────────────────
 
-/** Unrounded computed price per unit before discount. */
+/**
+ * Unrounded price per unit before discount.
+ *
+ * A line that was given a price keeps that price as its base. Rebuilding it from
+ * `marginPercent` does not give it back: a margin is a ratio, and cost × (1 + m)
+ * lands a hair below the price that produced it — which costs a whole cent every
+ * time the honest total sits on a half-cent (contract §7, finding 16). More
+ * stored digits do not help; the loss is the rebuild itself. The margin stays as
+ * the rule for where the price goes when the COST moves — see `applyCostChange`.
+ */
 function rawBasePrice(line: PricingLine): number {
+  if (line.priceFollowsCost && line.manualUnitPrice !== null) return line.manualUnitPrice
   return line.unitCost * (1 + line.marginPercent / 100)
 }
 
 /** Unrounded effective price per unit. */
 function rawUnitPrice(line: PricingLine): number {
-  return line.manualUnitPrice ?? rawBasePrice(line) * (1 - line.discountPercent / 100)
+  // A locked price is the final price — the discount is already inside it, which
+  // is what `applyPriceEdit` derived it from. A stored price that still follows
+  // cost stands in for the computed base, so the discount still comes off it.
+  if (line.manualUnitPrice !== null && !line.priceFollowsCost) return line.manualUnitPrice
+  return rawBasePrice(line) * (1 - line.discountPercent / 100)
 }
 
 export function isPriceLocked(line: PricingLine): boolean {
-  return line.manualUnitPrice !== null
+  return line.manualUnitPrice !== null && !line.priceFollowsCost
 }
 
 /**
@@ -152,8 +181,20 @@ export function canEditPrice(line: PricingLine): boolean {
   return line.state === 'draft'
 }
 
-/** Quantity can still grow on a partially shipped line — the rest goes on the next truck. */
+/**
+ * Quantity can still grow on a partially shipped line — the rest goes on the next
+ * truck. What it cannot do is move once a document names it.
+ *
+ * `documentIssued` is asked here for the same reason its neighbours ask it — the
+ * price, the cost and the deletion all do — and leaving it out was not a smaller
+ * hole but a bigger one. On goods the shipped quantity happened to cover it; a
+ * service never ships, so its state is `draft` for ever and nothing covered it at
+ * all. An invoiced service sat with its trash can hidden, its DELETE refused and
+ * its price closed, and a quantity cell wide open: set it to zero and 302,50 left
+ * an order the client already holds a 502,50 invoice for.
+ */
 export function canEditQuantity(line: PricingLine): boolean {
+  if (line.documentIssued) return false
   return line.state !== 'shipped'
 }
 
@@ -252,10 +293,13 @@ function repriceUnchecked(line: PricingLine, newUnitPrice: number): PricingLine 
   // Storage precision, not display precision: these two are stored and a price
   // is rebuilt from them when the line is reset, so two decimals would shift the
   // money. They are rounded where they are shown, not here.
+  // A price named by hand locks the line: it is stored AND it stops following
+  // the cost, which is exactly the difference `priceFollowsCost` carries.
   if (basePrice > 0 && newUnitPrice < basePrice) {
     return {
       ...line,
       manualUnitPrice: newUnitPrice,
+      priceFollowsCost: false,
       discountPercent: roundStored((1 - newUnitPrice / basePrice) * 100),
     }
   }
@@ -264,13 +308,14 @@ function repriceUnchecked(line: PricingLine, newUnitPrice: number): PricingLine 
     return {
       ...line,
       manualUnitPrice: newUnitPrice,
+      priceFollowsCost: false,
       discountPercent: 0,
       marginPercent: roundStored((newUnitPrice / line.unitCost - 1) * 100),
     }
   }
 
   // Equal to the computed price, or cost is zero so no margin can be derived.
-  return { ...line, manualUnitPrice: newUnitPrice, discountPercent: 0 }
+  return { ...line, manualUnitPrice: newUnitPrice, priceFollowsCost: false, discountPercent: 0 }
 }
 
 /** Editing the line total is the same edit seen from the other side. */
@@ -294,6 +339,7 @@ export function applyDiscountEdit(line: PricingLine, discountPercent: number): P
     ...line,
     discountPercent,
     manualUnitPrice: rawBasePrice(line) * (1 - discountPercent / 100),
+    priceFollowsCost: false,
   }
 }
 
@@ -310,7 +356,7 @@ export function applyMarginEdit(line: PricingLine, marginPercent: number): Prici
   // on a line whose price was stated outright — a service with no cost — and
   // quietly reprice it to zero. Such a line is priced, not marked up.
   if (line.unitCost <= 0) throw new Error('NO_COST_TO_MARK_UP')
-  return { ...line, marginPercent, manualUnitPrice: null }
+  return { ...line, marginPercent, manualUnitPrice: null, priceFollowsCost: false }
 }
 
 /**
@@ -351,7 +397,17 @@ export function applyCostChange(
   // when refreshing costs across a whole order.
   if (isCostFrozen(line)) throw new Error('COST_FROZEN_BY_SHIPMENT')
   if (newUnitCost < 0) throw new Error('NEGATIVE_COST')
-  return { ...line, unitCost: newUnitCost, costSource }
+  const next = { ...line, unitCost: newUnitCost, costSource }
+
+  // The line stores a price and follows its cost — the two halves of contract §7.
+  // Between two cost changes the stored number IS the price; when the cost really
+  // moves, the margin says where the price goes, and the new base is stored as a
+  // price again. "Really moves" is the whole condition: a FIFO refresh that hands
+  // back the same cost must not throw away the number that was quoted.
+  if (next.priceFollowsCost && next.manualUnitPrice !== null && newUnitCost !== line.unitCost) {
+    return { ...next, manualUnitPrice: newUnitCost * (1 + line.marginPercent / 100) }
+  }
+  return next
 }
 
 /**
@@ -376,7 +432,11 @@ export function applyCostCorrection(
     ...line,
     unitCost: newUnitCost,
     costSource,
-    manualUnitPrice: line.manualUnitPrice ?? rawUnitPrice(line),
+    // Pinned at the price it already has — and pinned means locked, not merely
+    // stored: a line that still followed its cost would be repriced by the very
+    // correction this is meant to absorb.
+    manualUnitPrice: isPriceLocked(line) ? line.manualUnitPrice : rawUnitPrice(line),
+    priceFollowsCost: false,
   }
 }
 
@@ -407,7 +467,12 @@ export function resetLinePrice(line: PricingLine, defaultDiscountPercent = 0): P
   // "Back to computed" needs something to compute from. Without a cost the
   // computed price is zero, and resetting would give the line away for free.
   if (line.unitCost <= 0) throw new Error('NO_COST_TO_MARK_UP')
-  return { ...line, manualUnitPrice: null, discountPercent: defaultDiscountPercent }
+  return {
+    ...line,
+    manualUnitPrice: null,
+    priceFollowsCost: false,
+    discountPercent: defaultDiscountPercent,
+  }
 }
 
 // ─── Order rollup ───────────────────────────────────────────────────────────
@@ -674,23 +739,50 @@ export function splitLine(line: PricingLine, shippedQuantity: number): LineSplit
     throw new Error('SPLIT_MUST_MATCH_SHIPPED')
   }
 
+  const shipped: PricingLine = {
+    ...line,
+    quantity: shippedQuantity,
+    shippedQuantity,
+    state: 'shipped',
+  }
+
+  // Rounded because this is a stored quantity that gets written off the
+  // warehouse and shown to the admin: 396.1 − 237.66 is 158.44000000000003
+  // in IEEE-754, and that is not a quantity anybody ordered.
+  const remainderQuantity = roundTo(line.quantity - shippedQuantity, 6)
+
+  // Round where the sum is named, not on each piece. Rounding both halves of a
+  // cent the same way moved money on one split in five; the same rule and the
+  // same cure as `allocateTotal`, which puts its residual on one line and lands
+  // on the target exactly.
+  //
+  // The residual goes to the REMAINDER, never to the shipped piece: the shipped
+  // piece may already be printed on a waybill, and it is priced as a line of its
+  // own quantity. The remainder has been on no document — that is what splitting
+  // is for.
+  const locked = isPriceLocked(line)
+  // What the stored number has to mean on the remainder: the final price when the
+  // line is locked, the pre-discount base when it still follows its cost — so the
+  // discount is applied exactly once either way.
+  const discountFactor = locked ? 1 : 1 - line.discountPercent / 100
+  const residual = round2(calcLine(line).lineNet - calcLine(shipped).lineNet)
+  const cutIsReal = remainderQuantity > 0 && discountFactor > 0
+
   return {
-    shipped: {
-      ...line,
-      quantity: shippedQuantity,
-      shippedQuantity,
-      state: 'shipped',
-    },
+    shipped,
     remainder: {
-      // Rounded because this is a stored quantity that gets written off the
-      // warehouse and shown to the admin: 396.1 − 237.66 is 158.44000000000003
-      // in IEEE-754, and that is not a quantity anybody ordered.
-      quantity: roundTo(line.quantity - shippedQuantity, 6),
+      quantity: remainderQuantity,
       unitCost: line.unitCost,
       costSource: line.costSource,
       marginPercent: line.marginPercent,
       discountPercent: line.discountPercent,
-      manualUnitPrice: line.manualUnitPrice,
+      // Full precision on purpose: round2(price × quantity) === residual.
+      manualUnitPrice: cutIsReal
+        ? residual / remainderQuantity / discountFactor
+        : line.manualUnitPrice,
+      // Storing the residual must not put a 🔒 on a line that never had one: a
+      // remainder that was following its cost goes on following it.
+      priceFollowsCost: cutIsReal ? !locked : line.priceFollowsCost,
       state: 'draft',
       shippedQuantity: 0,
       // The remainder has not been on any document yet — that is the point of splitting.
@@ -756,20 +848,6 @@ export function paymentSummary(totalGross: number, payments: number[]): PaymentS
   }
 }
 
-// ─── Currency ───────────────────────────────────────────────────────────────
-
-/**
- * Cost arrives in the batch currency; the order runs in its own. The rate is
- * frozen together with the price — otherwise the profit on a closed order
- * would drift with the exchange rate.
- */
-export function convertCost(cost: number, exchangeRate: number | null): number {
-  // null means "same currency". A zero or negative rate means missing data, and
-  // silently costing the goods at zero would show a wonderful fake margin.
-  if (exchangeRate !== null && exchangeRate <= 0) throw new Error('INVALID_EXCHANGE_RATE')
-  return roundTo(cost * (exchangeRate ?? 1), 6)
-}
-
 // ─── FIFO allocation across batches ─────────────────────────────────────────
 
 export interface FifoBatch {
@@ -779,21 +857,19 @@ export interface FifoBatch {
   receivedAt: string
   /** Physical remainder minus reservations of OTHER orders. */
   availableQuantity: number
-  /** Cost per unit in the batch currency. */
+  /** Cost per unit. */
   unitCost: number
+  /** What the cost is expressed in. A label, never a multiplier — see §7.1. */
   currency: string
-  /** Batch currency → order currency. */
-  exchangeRate: number | null
 }
 
 export interface FifoAllocation {
   batchId: string
   offcutId: string | null
   quantity: number
-  /** Already converted into the order currency. */
   unitCost: number
+  /** What the cost is expressed in. Nothing converts it. */
   currency: string
-  exchangeRate: number | null
   source: CostSource
 }
 
@@ -835,19 +911,17 @@ export function allocateFifo(batches: FifoBatch[], quantity: number): FifoResult
     // Rounded before it is stored: this quantity gets written off the warehouse
     // and shown to the admin, and 2.6500000000000004 is not a quantity.
     const take = roundTo(Math.min(remaining, batch.availableQuantity), 6)
-    const unitCost = convertCost(batch.unitCost, batch.exchangeRate)
 
     allocations.push({
       batchId: batch.batchId,
       offcutId: batch.offcutId ?? null,
       quantity: take,
-      unitCost,
+      unitCost: batch.unitCost,
       currency: batch.currency,
-      exchangeRate: batch.exchangeRate,
       source: 'stock',
     })
 
-    costSum += take * unitCost
+    costSum += take * batch.unitCost
     remaining = roundTo(remaining - take, 6)
   }
 
@@ -860,7 +934,7 @@ export function allocateFifo(batches: FifoBatch[], quantity: number): FifoResult
   }
 }
 
-/** Total cost of an allocation, in the order currency. */
+/** Total cost of an allocation. */
 export function allocationCost(allocations: FifoAllocation[]): number {
   return round2(allocations.reduce((sum, a) => sum + a.quantity * a.unitCost, 0))
 }

@@ -121,7 +121,6 @@ function savedOrder(): Order {
     marginPercent: 40,
     discountPercent: 0,
     receivedCurrency: 'cur-eur',
-    exchangeRate: 1,
   })
   return {
     id: 'ORD-1',
@@ -295,7 +294,6 @@ describe('applying the order percentages to every line', () => {
         marginPercent: 0,
         manualUnitPrice: 99,
         receivedCurrency: 'cur-eur',
-        exchangeRate: 1,
       }),
     )
     const card = await loadedCard()
