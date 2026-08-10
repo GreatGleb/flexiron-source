@@ -129,6 +129,31 @@ export function pricingSeedFor(
 }
 
 /**
+ * The currency a warehouse cost is stated in.
+ *
+ * There is exactly one right answer and it is not per product: the warehouse
+ * layer speaks the base currency and no other — `mockCreateBatch` refuses a batch
+ * in anything else (`BATCH_CURRENCY_NOT_BASE`), and `WarehouseBatch.currency` is
+ * documented as "the base currency, and nothing else" (contract §7.1). So a
+ * line's `receivedCurrency` — the caption on the cost it was seeded with — is the
+ * base currency, in the form the warehouse and the order already use: the code.
+ *
+ * It used to be the literal `'cur-eur'` on the client and the PRODUCT's currency
+ * on the server. A product's currency captions its SALE price, a different number
+ * in a different place; putting it on a warehouse-derived cost is the same class
+ * of error as adding 25 000 USD to 190,30 EUR.
+ */
+export function baseCurrencyOf(settings: {
+  // Optional because the same fact is stated twice and either statement answers:
+  // the directory flags its default, and the constants name it outright. A
+  // settings object carrying only the second one is still answerable.
+  currencies?: ReadonlyArray<{ code: string; isDefault: boolean }>
+  constants: { defaultCurrency: string }
+}): string {
+  return settings.currencies?.find((c) => c.isDefault)?.code ?? settings.constants.defaultCurrency
+}
+
+/**
  * The cost a new line starts with, read off what the warehouse could answer.
  *
  * A product with no batch behind it has NO cost — not "some share of the price".

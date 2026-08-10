@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, watchEffect } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getProducts } from '@/services/productsService'
 import { getStockOverview, getBatchCostBreakdown } from '@/services/warehouseService'
 import { useToast } from '@/composables/useToast'
 import { useSettings } from '@/composables/useSettings'
+import { usePagination } from '@/composables/usePagination'
 import { useTranslatedField } from '@/composables/useTranslatedData'
 import type { ProductListItem } from '@/types/product'
 import type { StockOverviewItem } from '@/types/warehouse'
@@ -13,6 +14,7 @@ import AppModal from '@/components/admin/ui/AppModal.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
 import SearchInput from '@/components/admin/ui/SearchInput.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
+import Pagination from '@/components/admin/ui/Pagination.vue'
 import AddLineModeChooser from './AddLineModeChooser.vue'
 import {
   calcLine,
@@ -31,7 +33,6 @@ const { tf } = useTranslatedField()
 const props = withDefaults(
   defineProps<{
     show: boolean
-    orderId: string
     /** What to ask about pricing, if anything — model, section 10. */
     modes?: AddLineMode[]
     /** The discount the order really gave; the number "order terms" applies. */
@@ -269,8 +270,16 @@ function isSelected(id: string): boolean {
 }
 
 // ─── Pagination ───────────────────────────────────────────────────────────
-const productPage = ref(1)
-const productPageSize = ref(5)
+// `usePagination` — the same one the create page's client list uses. The window
+// of page numbers used to be copied here, character for character.
+const pagination = usePagination(5)
+const {
+  page: productPage,
+  pageSize: productPageSize,
+  totalPages: productTotalPages,
+  pageNumbers: productPageNumbers,
+} = pagination
+
 const PAGE_SIZE_OPTIONS_PRODUCTS: SelectOption[] = [
   { value: '5', label: '5' },
   { value: '15', label: '15' },
@@ -281,15 +290,17 @@ const productPageSizeStr = computed({
   get: () => String(productPageSize.value),
   set: (v: string) => {
     productPageSize.value = Number(v)
-    productPage.value = 1
+    pagination.reset()
   },
 })
-const productTotalPages = computed(() =>
-  Math.max(1, Math.ceil(filteredProducts.value.length / productPageSize.value)),
-)
-watch([filteredProducts, productPageSize], () => {
-  if (productPage.value > productTotalPages.value) productPage.value = productTotalPages.value
+
+// The list is filtered in the browser, so the count the composable pages over
+// is the filtered length, not a number the server sent.
+watchEffect(() => {
+  pagination.total.value = filteredProducts.value.length
 })
+// A filter that shortens the list can leave the current page past the end.
+watch(productTotalPages, () => pagination.goTo(productPage.value))
 
 // Group products by category and slice for current page
 const pagedProductGroups = computed(() => {
@@ -327,15 +338,6 @@ const pagedProductGroups = computed(() => {
   }
   return result
 })
-
-function productPageNumbers(): (number | '...')[] {
-  const n = productTotalPages.value
-  if (n <= 7) return Array.from({ length: n }, (_, i) => i + 1)
-  const p = productPage.value
-  if (p <= 3) return [1, 2, 3, 4, '...', n]
-  if (p >= n - 2) return [1, '...', n - 3, n - 2, n - 1, n]
-  return [1, '...', p - 1, p, p + 1, '...', n]
-}
 
 // ─── Load products + stock overview ──────────────────────────────────────
 async function loadProducts() {
@@ -626,51 +628,15 @@ function onCancel() {
             <tfoot v-if="filteredProducts.length > 0">
               <tr>
                 <td :colspan="6" class="pagination-cell">
-                  <div class="pagination-bar">
-                    <div class="page-size">
-                      <span>{{ t('orders.page_size') }}</span>
-                      <CustomSelect
-                        v-model="productPageSizeStr"
-                        :options="PAGE_SIZE_OPTIONS_PRODUCTS"
-                        :open-up="true"
-                        class="custom-select-sm"
-                      />
-                    </div>
-                    <div class="pagination-nav">
-                      <button
-                        class="btn btn-icon btn-sm page-nav-btn"
-                        :disabled="productPage <= 1"
-                        @click="productPage = Math.max(1, productPage - 1)"
-                      >
-                        <SvgIcon
-                          name="chevron-right"
-                          :width="14"
-                          :height="14"
-                          style="transform: rotate(180deg)"
-                        />
-                      </button>
-                      <div class="pagination-pages">
-                        <template v-for="(p, i) in productPageNumbers()" :key="i">
-                          <span v-if="p === '...'" class="pagination-ellipsis">...</span>
-                          <button
-                            v-else
-                            class="page-btn"
-                            :class="{ active: p === productPage }"
-                            @click="productPage = p as number"
-                          >
-                            {{ p }}
-                          </button>
-                        </template>
-                      </div>
-                      <button
-                        class="btn btn-icon btn-sm page-nav-btn"
-                        :disabled="productPage >= productTotalPages"
-                        @click="productPage = Math.min(productTotalPages, productPage + 1)"
-                      >
-                        <SvgIcon name="chevron-right" :width="14" :height="14" />
-                      </button>
-                    </div>
-                  </div>
+                  <Pagination
+                    v-model:page="productPage"
+                    v-model:size="productPageSizeStr"
+                    :total-pages="productTotalPages"
+                    :pages="productPageNumbers()"
+                    :page-size-options="PAGE_SIZE_OPTIONS_PRODUCTS"
+                    :size-label="t('orders.page_size')"
+                    :compact="true"
+                  />
                 </td>
               </tr>
             </tfoot>
@@ -932,75 +898,6 @@ function onCancel() {
 .products-table tfoot td {
   overflow: visible;
   padding-top: 12px;
-}
-
-.pagination-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  row-gap: 10px;
-}
-
-.page-size {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.6);
-}
-
-.pagination-nav {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.pagination-pages {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.page-btn {
-  min-width: 26px;
-  height: 26px;
-  padding: 0 6px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 5px;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 11px;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-.page-btn:hover {
-  background: rgba(24, 144, 255, 0.2);
-  border-color: var(--primary);
-}
-.page-btn.active {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: #fff;
-}
-
-.page-nav-btn {
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.pagination-ellipsis {
-  padding: 0 4px;
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 11px;
 }
 
 /* ─── Selected items table ─────────────────────────────── */

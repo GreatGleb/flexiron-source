@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useToast } from '@/composables/useToast'
 import { useDirtyCheck } from '@/composables/useDirtyCheck'
@@ -19,6 +19,7 @@ import {
 } from '@/services/ordersService'
 import { getBatchCostBreakdown } from '@/services/warehouseService'
 import {
+  baseCurrencyOf,
   buildOrderItem,
   buildOrderService,
   marginFor,
@@ -217,6 +218,16 @@ export function useOrderCard(id: string) {
     return orderVersion.value === null ? payload : { ...payload, version: orderVersion.value }
   }
 
+  /**
+   * The same precondition for a call that takes it positionally rather than in a
+   * body — a deletion, a status change, a reservation. `undefined` is the honest
+   * answer when this card has never seen a version: it states no precondition
+   * instead of an empty one, exactly as `withVersion` omits the key.
+   */
+  function atVersion(): number | undefined {
+    return orderVersion.value ?? undefined
+  }
+
   /** One accepted write, one step — the other half of the server's `bumpVersion`. */
   function serverWrote(): void {
     if (orderVersion.value !== null) orderVersion.value += 1
@@ -243,6 +254,33 @@ export function useOrderCard(id: string) {
   const { isDirty, capture, diff } = useDirtyCheck(form)
 
   /**
+   * An emptied number field is not a number — pitfall #25.
+   *
+   * `v-model.number` runs `parseFloat('')` and stores `NaN`. None of these four
+   * fields is nullable, so there is no `null` to fall back to and the honest
+   * reading of an empty percentage box is zero.
+   *
+   * Left alone it does not look broken, which is the trouble. `roundTo` returns
+   * zero for anything non-finite, so a cleared VAT rate reads as a perfectly
+   * ordinary "VAT 0.00, gross = net": a 21% order quietly presented as one with
+   * no VAT at all. And it travels — `useDirtyCheck.diff()` compares through
+   * `JSON.stringify` but RETURNS the raw value, so the `NaN` itself goes into the
+   * request. Here `requireFiniteNumbers` refuses it and the order simply stops
+   * saving; on a real server JSON flattens it to `null` on the way out, which is
+   * contract §1 rule 6 word for word.
+   */
+  watch(
+    form,
+    (val) => {
+      if (Number.isNaN(val.vatPercent)) val.vatPercent = 0
+      if (Number.isNaN(val.defaultMarginPercent)) val.defaultMarginPercent = 0
+      if (Number.isNaN(val.defaultDiscountPercent)) val.defaultDiscountPercent = 0
+      if (Number.isNaN(val.totalWeight)) val.totalWeight = 0
+    },
+    { deep: true },
+  )
+
+  /**
    * Sends only the fields the admin owns. The totals are the server's to compute,
    * and a client that could dictate them would make the invoice and the lines
    * disagree.
@@ -264,18 +302,20 @@ export function useOrderCard(id: string) {
 
   // ─── Audit log ─────────────────────────────────────────────────────────
   const auditLog = ref<OrderAuditEntry[]>([])
-  const auditLoading = ref(false)
 
-  async function loadAudit() {
-    auditLoading.value = true
-    try {
-      const o = await getOrder(id)
-      auditLog.value = o.auditLog ?? []
-    } catch {
-      auditLog.value = []
-    } finally {
-      auditLoading.value = false
-    }
+  /**
+   * The history comes with the order — §4.1 sends it inside `GET /orders/:id` —
+   * so it is read off the copy `load()` already has.
+   *
+   * It used to fetch the whole order a second time for this one field, with a
+   * loading flag of its own. Besides the round trip, that was a second READ:
+   * between the two the order can move, and the history on screen would then
+   * belong to a version other than the one `order.value` and `orderVersion` are
+   * holding. There is nothing left to load separately, so there is nothing left
+   * to show a separate spinner for.
+   */
+  function readAudit() {
+    auditLog.value = order.value?.auditLog ?? []
   }
 
   /**
@@ -288,7 +328,7 @@ export function useOrderCard(id: string) {
    */
   async function deleteAuditEntry(entryId: string) {
     try {
-      await deleteOrderAuditEntry(id, entryId)
+      await deleteOrderAuditEntry(id, entryId, atVersion())
       serverWrote()
       auditLog.value = auditLog.value.filter((entry) => entry.id !== entryId)
       toast.success(t('orders.toast_saved'))
@@ -350,9 +390,12 @@ export function useOrderCard(id: string) {
       // re-read whenever the order is. Without this the shipping dialog offers
       // the list it was built with — a line added a minute ago simply is not there.
       await loadShipPlan()
-      await loadAudit()
+      readAudit()
     } catch (e) {
-      error.value = String(e)
+      // A key, not the exception's own words: `String(e)` put `Error:
+      // ORDER_NOT_FOUND` in front of a person, and the table that turns every
+      // one of those codes into a sentence is right here (contract §3).
+      error.value = lineEditErrorKey(e, 'orders.toast_error_load')
     } finally {
       loading.value = false
     }
@@ -436,33 +479,33 @@ export function useOrderCard(id: string) {
       //    line, so the id on screen is no longer the id the server knows it by.
       //    Sent raw, the deletion named an id nobody had issued, was accepted as
       //    a no-op, and the line the admin removed came back with the reload.
-      //    A deletion carries no body and so states no version. It does not need
-      //    to: the requests above have already established that this card was
-      //    looking at the order as it is, and they refuse the whole save the
-      //    moment that stops being true. What a deletion still has to do is keep
-      //    the count straight — the server steps its version for a deletion like
-      //    any other write.
+      //    A deletion carries no body, so its version travels as `If-Match`
+      //    (contract §3). It used to state none at all, on the argument that the
+      //    requests above had already established what this card was looking at —
+      //    which holds only for a save that HAS requests above it. A save whose
+      //    single act is a deletion had nothing in front of it, and went through
+      //    against an order somebody else had already changed.
       while (pendingItemDeletions.value.length > 0) {
         const lineId = pendingItemDeletions.value[0]!
-        await deleteOrderItem(id, serverLineId.get(lineId) ?? lineId)
+        await deleteOrderItem(id, serverLineId.get(lineId) ?? lineId, atVersion())
         serverWrote()
         pendingItemDeletions.value = pendingItemDeletions.value.slice(1)
       }
       while (pendingServiceDeletions.value.length > 0) {
         const lineId = pendingServiceDeletions.value[0]!
-        await deleteOrderService(id, serverLineId.get(lineId) ?? lineId)
+        await deleteOrderService(id, serverLineId.get(lineId) ?? lineId, atVersion())
         serverWrote()
         pendingServiceDeletions.value = pendingServiceDeletions.value.slice(1)
       }
 
       // 5. Files
       while (pendingFileAdds.value.length > 0) {
-        await addOrderFile(id, pendingFileAdds.value[0]!)
+        await addOrderFile(id, pendingFileAdds.value[0]!, atVersion())
         serverWrote()
         pendingFileAdds.value = pendingFileAdds.value.slice(1)
       }
       while (pendingFileRemoves.value.length > 0) {
-        await removeOrderFile(id, pendingFileRemoves.value[0]!)
+        await removeOrderFile(id, pendingFileRemoves.value[0]!, atVersion())
         serverWrote()
         pendingFileRemoves.value = pendingFileRemoves.value.slice(1)
       }
@@ -512,7 +555,7 @@ export function useOrderCard(id: string) {
   async function remove(): Promise<boolean> {
     saving.value = true
     try {
-      await deleteOrder(id)
+      await deleteOrder(id, atVersion())
       toast.success(t('orders.toast_deleted'))
       return true
     } catch (e) {
@@ -558,10 +601,42 @@ export function useOrderCard(id: string) {
     await applyStatusChange(plan.status)
   }
 
+  /**
+   * Every server action here ends in `load()`, and `load()` is destructive: it
+   * replaces the order, rewrites the form and re-captures the dirty baseline. So
+   * each one has to answer the same two questions first — what happens to the
+   * unsaved LINES, and what happens to the unsaved FIELDS.
+   *
+   * Written once because three of them had answered neither: a status change, a
+   * cancelled shipment and a reservation all reloaded on top of whatever the
+   * admin had typed. The note vanished, the save bar went out, and nobody was
+   * told. With line edits it was worse — the table went back to the server's
+   * version while `pendingLineEdits` stayed full, so the bar went on offering to
+   * save changes that were no longer on screen.
+   *
+   * Returns false when the lines have to go out first; the caller stops there.
+   */
+  async function flushBeforeReload(): Promise<boolean> {
+    if (hasPendingChanges.value) {
+      toast.error(t('orders.error_save_lines_first'))
+      return false
+    }
+    try {
+      await saveFormFields()
+    } catch (e) {
+      // The fields did not go out, so the action below must not happen either:
+      // it would reload and take them with it.
+      toast.error(t(lineEditErrorKey(e)))
+      return false
+    }
+    return true
+  }
+
   async function applyStatusChange(status: OrderStatus) {
+    if (!(await flushBeforeReload())) return
     statusChanging.value = true
     try {
-      await patchOrderStatus(id, status)
+      await patchOrderStatus(id, status, atVersion())
       toast.success(t('orders.toast_status_changed'))
       await load()
       // The transition may have created a shipment and emptied a shelf. Without
@@ -584,11 +659,15 @@ export function useOrderCard(id: string) {
   const shipments = ref<Shipment[]>([])
   const shipmentsLoading = ref(false)
 
+  /**
+   * The deliveries panel. The ship PLAN is `load()`'s — every caller of this
+   * pairs the two, and asking for it here as well fetched it twice each time,
+   * including on mount.
+   */
   async function loadShipments() {
     shipmentsLoading.value = true
     try {
       shipments.value = await getOrderShipments(id)
-      await loadShipPlan()
     } catch {
       shipments.value = []
     } finally {
@@ -619,15 +698,11 @@ export function useOrderCard(id: string) {
     // goods off the shelf again.
     if (shipmentsLoading.value) return false
     // A shipment writes stock off; the lines it references have to exist on the
-    // server first.
-    if (hasPendingChanges.value) {
-      toast.error(t('orders.error_save_lines_first'))
-      return false
-    }
+    // server first — and the reload below would take the unsaved fields.
+    if (!(await flushBeforeReload())) return false
     shipmentsLoading.value = true
     try {
-      await saveFormFields()
-      await createOrderShipment(id, { lines, vehicle: note ?? null })
+      await createOrderShipment(id, withVersion({ lines, vehicle: note ?? null }))
       await load()
       await loadShipments()
       toast.success(t('orders.toast_shipment_created'))
@@ -647,9 +722,14 @@ export function useOrderCard(id: string) {
    */
   async function cancelShipment(shipmentId: string, correctionReason?: string) {
     if (shipmentsLoading.value) return
+    if (!(await flushBeforeReload())) return
     shipmentsLoading.value = true
     try {
-      await cancelOrderShipment(id, shipmentId, { correctionReason: correctionReason ?? null })
+      await cancelOrderShipment(
+        id,
+        shipmentId,
+        withVersion({ correctionReason: correctionReason ?? null }),
+      )
       await load()
       await loadShipments()
       toast.success(
@@ -665,12 +745,11 @@ export function useOrderCard(id: string) {
   }
 
   async function reserveStock() {
-    if (hasPendingChanges.value) {
-      toast.error(t('orders.error_save_lines_first'))
-      return
-    }
+    // The lines were already guarded here; the fields were not, and `load()`
+    // below takes both.
+    if (!(await flushBeforeReload())) return
     try {
-      const created = await reserveOrderStock(id)
+      const created = await reserveOrderStock(id, atVersion())
       await load()
       toast.success(
         created.length > 0 ? t('orders.toast_reserved') : t('orders.toast_nothing_to_reserve'),
@@ -786,7 +865,7 @@ export function useOrderCard(id: string) {
     if (!order.value || paymentSaving.value) return false
     paymentSaving.value = true
     try {
-      const created = await addOrderPayment(id, data)
+      const created = await addOrderPayment(id, withVersion(data))
       serverWrote()
       order.value = { ...order.value, payments: [...order.value.payments, created] }
       toast.success(t('orders.toast_payment_added'))
@@ -803,7 +882,7 @@ export function useOrderCard(id: string) {
     if (!order.value || paymentSaving.value) return
     paymentSaving.value = true
     try {
-      await deleteOrderPayment(id, paymentId)
+      await deleteOrderPayment(id, paymentId, atVersion())
       serverWrote()
       order.value = {
         ...order.value,
@@ -831,11 +910,59 @@ export function useOrderCard(id: string) {
     }
     paymentSaving.value = true
     try {
-      await createOrderInvoice(id, { kind: 'regular', shipmentId })
+      await createOrderInvoice(id, withVersion({ kind: 'regular' as const, shipmentId }))
       // The freeze lands on the lines of that shipment, so the table has to be
       // re-read — it is what tells the admin why a cell stopped accepting edits.
       await load()
       await loadShipments()
+      toast.success(t('orders.toast_invoice_issued'))
+      return true
+    } catch (e) {
+      toast.error(t(lineEditErrorKey(e)))
+      return false
+    } finally {
+      paymentSaving.value = false
+    }
+  }
+
+  /**
+   * Service lines no live document has charged for yet.
+   *
+   * The same question the server asks itself in `unbilledServices`, and asked the
+   * same way: a service is billed when a regular invoice the client is still
+   * holding names it. A correction, or a document that has been withdrawn, does
+   * not count — which is exactly how a service becomes billable again after its
+   * delivery was cancelled.
+   */
+  const unbilledServices = computed(() =>
+    (order.value?.services ?? []).filter((s) => liveInvoiceCoveringService(s.id) === null),
+  )
+
+  /**
+   * The invoice for services alone.
+   *
+   * Services do not ship, so there is no waybill to demand of them: a regular
+   * invoice carrying nothing but unbilled services stands on its own, and its
+   * amount comes from them (contract §4.6). The server has accepted this since
+   * the service-invoicing finding was closed; the card had no way to ask for it,
+   * and so an order whose deliveries were all invoiced already held service money
+   * that could not be put on any document at all. An advance invoice is not the
+   * way round it — an advance is a promise to pay ahead, and this is work done.
+   *
+   * Issuing it freezes those services, so unsaved changes go out first for the
+   * same reason they do for a delivery's invoice.
+   */
+  async function issueServicesInvoice(): Promise<boolean> {
+    if (paymentSaving.value) return false
+    if (hasPendingChanges.value || isDirty.value) {
+      toast.error(t('orders.error_save_lines_first'))
+      return false
+    }
+    paymentSaving.value = true
+    try {
+      await createOrderInvoice(id, withVersion({ kind: 'regular' as const }))
+      // The freeze lands on the service lines, so the table has to be re-read.
+      await load()
       toast.success(t('orders.toast_invoice_issued'))
       return true
     } catch (e) {
@@ -854,7 +981,10 @@ export function useOrderCard(id: string) {
     if (!order.value || paymentSaving.value) return false
     paymentSaving.value = true
     try {
-      const created = await createOrderInvoice(id, { kind: 'advance', amountGross })
+      const created = await createOrderInvoice(
+        id,
+        withVersion({ kind: 'advance' as const, amountGross }),
+      )
       serverWrote()
       order.value = { ...order.value, invoices: [...order.value.invoices, created] }
       toast.success(t('orders.toast_invoice_issued'))
@@ -932,7 +1062,8 @@ export function useOrderCard(id: string) {
         // The price the picker showed, expressed as a markup where possible.
         ...pricingSeedFor(unitCost, item.unitPrice),
         discountPercent: item.discountPercent,
-        receivedCurrency: 'cur-eur',
+        // The caption on a warehouse cost — see `baseCurrencyOf`.
+        receivedCurrency: baseCurrencyOf(settings),
       })
     })
 
@@ -1278,18 +1409,14 @@ export function useOrderCard(id: string) {
   async function splitItemLine(lineId: string): Promise<boolean> {
     const line = findLine(lineId, 'item')
     if (!line || splitting.value) return false
-    if (hasPendingChanges.value) {
-      toast.error(t('orders.error_save_lines_first'))
-      return false
-    }
+    // The reload below replaces the form and its dirty baseline, so anything
+    // still unsaved there would simply vanish.
+    if (!(await flushBeforeReload())) return false
     splitting.value = true
     try {
-      // The reload below replaces the form and its dirty baseline, so anything
-      // still unsaved there would simply vanish.
-      await saveFormFields()
       // The cut lands exactly on what already shipped — anywhere else and goods
       // would either vanish from the records or count as shipped twice.
-      await splitOrderItem(id, lineId, line.shippedQuantity)
+      await splitOrderItem(id, lineId, line.shippedQuantity, atVersion())
       await load()
       toast.success(t('orders.toast_line_split'))
       return true
@@ -1314,16 +1441,12 @@ export function useOrderCard(id: string) {
     data: { unitPrice?: number; unitCost?: number; reason: string },
   ): Promise<boolean> {
     if (correcting.value) return false
-    if (hasPendingChanges.value) {
-      toast.error(t('orders.error_save_lines_first'))
-      return false
-    }
+    // The reload below replaces the form and its dirty baseline, so anything
+    // still unsaved there would simply vanish.
+    if (!(await flushBeforeReload())) return false
     correcting.value = true
     try {
-      // The reload below replaces the form and its dirty baseline, so anything
-      // still unsaved there would simply vanish.
-      await saveFormFields()
-      await correctOrderLine(id, lineId, data)
+      await correctOrderLine(id, lineId, withVersion(data))
       await load()
       // The correcting invoice belongs to a delivery, and the panel that lists
       // them is read separately.
@@ -1441,7 +1564,7 @@ export function useOrderCard(id: string) {
       // Flushed first: the reload below replaces the whole form, and with it the
       // dirty baseline, so anything still unsaved would simply vanish.
       await saveFormFields()
-      await allocateOrderTotal(id, allocationPreview.value.requestedGross)
+      await allocateOrderTotal(id, allocationPreview.value.requestedGross, atVersion())
       allocationPreview.value = null
       await load()
       toast.success(t('orders.toast_total_allocated'))
@@ -1634,11 +1757,6 @@ export function useOrderCard(id: string) {
     toast.success(t('orders.toast_defaults_applied'))
   }
 
-  // Document generation placeholder
-  async function handleGenerateDocument(_type: string) {
-    toast.info(t('orders.toast_document_generated'))
-  }
-
   return {
     form,
     order,
@@ -1651,8 +1769,6 @@ export function useOrderCard(id: string) {
     discard,
     remove,
     auditLog,
-    auditLoading,
-    loadAudit,
     deleteAuditEntry,
     handleChangeStatus,
     // Status change and shipments
@@ -1681,11 +1797,12 @@ export function useOrderCard(id: string) {
     removePayment,
     issueInvoiceFor,
     issueAdvanceInvoice,
+    issueServicesInvoice,
+    unbilledServices,
     handleAddItemDirect,
     handleDeleteItem,
     handleAddServiceDirect,
     handleDeleteService,
-    handleGenerateDocument,
     onFilesUploaded,
     removeFile,
     tf,

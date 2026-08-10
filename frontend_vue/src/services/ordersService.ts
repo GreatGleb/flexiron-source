@@ -27,6 +27,17 @@ import type { LineEditDelta } from './orderLineEdits'
  * Kept as its own name so whoever implements the endpoint sees both halves.
  */
 export type LineEditPayload = LineEditDelta & LineEditEnvelope
+
+/**
+ * The precondition for a request with no body.
+ *
+ * `undefined` means the caller never read a version and so cannot state one —
+ * the header is left off entirely rather than sent empty, which is the same
+ * distinction `withVersion` makes on the card for bodies.
+ */
+function ifMatch(version?: number): { headers: Record<string, string> } | undefined {
+  return version === undefined ? undefined : { headers: { 'If-Match': String(version) } }
+}
 import type { StockReservation } from '@/types/warehouse'
 import type { PaginatedResponse, PaginationParams } from '@/types/api'
 
@@ -82,12 +93,21 @@ export async function planOrderStatus(
   return apiGet(`/api/orders/${id}/status-plan`, { status })
 }
 
-export async function patchOrderStatus(id: string, status: OrderStatus): Promise<Order> {
-  return apiPatch(`/api/orders/${id}/status`, { status })
+export async function patchOrderStatus(
+  id: string,
+  status: OrderStatus,
+  version?: number,
+): Promise<Order> {
+  return apiPatch(`/api/orders/${id}/status`, { status, version })
 }
 
-export async function deleteOrder(id: string): Promise<void> {
-  return apiDelete(`/api/orders/${id}`)
+/**
+ * A DELETE carries no body, so the version it is written against travels as
+ * `If-Match` — contract §3 names that header for exactly this. Everything else
+ * states it in the payload; the precondition is the same either way.
+ */
+export async function deleteOrder(id: string, version?: number): Promise<void> {
+  return apiDelete(`/api/orders/${id}`, ifMatch(version))
 }
 
 /**
@@ -128,8 +148,12 @@ export async function updateOrderItem(
   return apiPatch(`/api/orders/${orderId}/items/${lineId}`, delta)
 }
 
-export async function deleteOrderItem(orderId: string, lineId: string): Promise<void> {
-  return apiDelete(`/api/orders/${orderId}/items/${lineId}`)
+export async function deleteOrderItem(
+  orderId: string,
+  lineId: string,
+  version?: number,
+): Promise<void> {
+  return apiDelete(`/api/orders/${orderId}/items/${lineId}`, ifMatch(version))
 }
 
 export async function addOrderService(
@@ -146,20 +170,36 @@ export async function addOrderService(
   return apiPost(`/api/orders/${orderId}/services`, data)
 }
 
-export async function deleteOrderService(orderId: string, serviceId: string): Promise<void> {
-  return apiDelete(`/api/orders/${orderId}/services/${serviceId}`)
+export async function deleteOrderService(
+  orderId: string,
+  serviceId: string,
+  version?: number,
+): Promise<void> {
+  return apiDelete(`/api/orders/${orderId}/services/${serviceId}`, ifMatch(version))
 }
 
-export async function deleteOrderAuditEntry(orderId: string, entryId: string): Promise<void> {
-  return apiDelete(`/api/orders/${orderId}/audit/${entryId}`)
+export async function deleteOrderAuditEntry(
+  orderId: string,
+  entryId: string,
+  version?: number,
+): Promise<void> {
+  return apiDelete(`/api/orders/${orderId}/audit/${entryId}`, ifMatch(version))
 }
 
-export async function addOrderFile(orderId: string, fileId: string): Promise<void> {
-  return apiPost(`/api/orders/${orderId}/files`, { fileId })
+export async function addOrderFile(
+  orderId: string,
+  fileId: string,
+  version?: number,
+): Promise<void> {
+  return apiPost(`/api/orders/${orderId}/files`, { fileId, version })
 }
 
-export async function removeOrderFile(orderId: string, fileId: string): Promise<void> {
-  return apiDelete(`/api/orders/${orderId}/files/${fileId}`)
+export async function removeOrderFile(
+  orderId: string,
+  fileId: string,
+  version?: number,
+): Promise<void> {
+  return apiDelete(`/api/orders/${orderId}/files/${fileId}`, ifMatch(version))
 }
 
 // ─── Pricing, shipments, invoices, payments ─────────────────────────────────
@@ -180,13 +220,14 @@ export async function updateOrderService(
 export async function allocateOrderTotal(
   orderId: string,
   targetGross: number,
+  version?: number,
 ): Promise<{
   order: Order
   requestedGross: number
   achievedGross: number
   rows: Array<{ lineId: string; before: number; after: number }>
 }> {
-  return apiPost(`/api/orders/${orderId}/allocate-total`, { targetGross })
+  return apiPost(`/api/orders/${orderId}/allocate-total`, { targetGross, version })
 }
 
 /** Cuts a partially shipped line into the shipped part and a free remainder. */
@@ -194,8 +235,9 @@ export async function splitOrderItem(
   orderId: string,
   lineId: string,
   shippedQuantity: number,
+  version?: number,
 ): Promise<{ shipped: OrderItem; remainder: OrderItem }> {
-  return apiPost(`/api/orders/${orderId}/items/${lineId}/split`, { shippedQuantity })
+  return apiPost(`/api/orders/${orderId}/items/${lineId}/split`, { shippedQuantity, version })
 }
 
 /**
@@ -209,7 +251,7 @@ export async function splitOrderItem(
 export async function correctOrderLine(
   orderId: string,
   lineId: string,
-  data: { unitPrice?: number; unitCost?: number; reason: string },
+  data: { unitPrice?: number; unitCost?: number; reason: string; version?: number },
 ): Promise<OrderItem | OrderService> {
   return apiPost(`/api/orders/${orderId}/items/${lineId}/correct`, data)
 }
@@ -231,6 +273,8 @@ export async function createOrderShipment(
     vehicle?: string | null
     waybillNumber?: string | null
     shippedAt?: string
+    /** The order version this shipment is written against — contract §3. */
+    version?: number
   },
 ): Promise<Shipment> {
   // Contract §3: mandatory here. A retry — a slow answer, a double click, a
@@ -252,13 +296,16 @@ export async function createOrderShipment(
 export async function cancelOrderShipment(
   orderId: string,
   shipmentId: string,
-  data: { correctionReason?: string | null } = {},
+  data: { correctionReason?: string | null; version?: number } = {},
 ): Promise<Shipment> {
   return apiPost(`/api/orders/${orderId}/shipments/${shipmentId}/cancel`, data)
 }
 
-export async function reserveOrderStock(orderId: string): Promise<StockReservation[]> {
-  return apiPost(`/api/orders/${orderId}/reserve`, {})
+export async function reserveOrderStock(
+  orderId: string,
+  version?: number,
+): Promise<StockReservation[]> {
+  return apiPost(`/api/orders/${orderId}/reserve`, { version })
 }
 
 export async function getOrderReservations(orderId: string): Promise<StockReservation[]> {
@@ -277,6 +324,8 @@ export async function addOrderPayment(
     paidAt?: string
     invoiceId?: string | null
     note?: string | null
+    /** The order version this payment is written against — contract §3. */
+    version?: number
   },
 ): Promise<Payment> {
   // Same as the shipment above, and for the same money: two payments of 500 sent
@@ -286,8 +335,12 @@ export async function addOrderPayment(
   })
 }
 
-export async function deleteOrderPayment(orderId: string, paymentId: string): Promise<void> {
-  return apiDelete(`/api/orders/${orderId}/payments/${paymentId}`)
+export async function deleteOrderPayment(
+  orderId: string,
+  paymentId: string,
+  version?: number,
+): Promise<void> {
+  return apiDelete(`/api/orders/${orderId}/payments/${paymentId}`, ifMatch(version))
 }
 
 export async function getOrderInvoices(orderId: string): Promise<Invoice[]> {
@@ -304,6 +357,8 @@ export async function createOrderInvoice(
     /** What the client pays. The server turns it into net — VAT is its arithmetic. */
     amountGross?: number
     reason?: string | null
+    /** The order version this invoice is written against — contract §3. */
+    version?: number
   },
 ): Promise<Invoice> {
   return apiPost(`/api/orders/${orderId}/invoices`, data)

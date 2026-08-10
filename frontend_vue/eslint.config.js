@@ -49,6 +49,7 @@ export default tseslint.config(
         AbortController: 'readonly',
         navigator: 'readonly',
         ResizeObserver: 'readonly',
+        IntersectionObserver: 'readonly',
         requestAnimationFrame: 'readonly',
       },
     },

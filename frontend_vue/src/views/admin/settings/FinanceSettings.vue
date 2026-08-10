@@ -7,6 +7,8 @@ import SvgIcon from '@/components/admin/SvgIcon.vue'
 import { useTranslatedField } from '@/composables/useTranslatedData'
 import type { AppSettings } from '@/types/settings'
 
+import '@styles/admin/components/_radio.css'
+
 const { t } = useI18n()
 const { tf } = useTranslatedField()
 
@@ -172,37 +174,6 @@ const currencyModal = inject<Ref<boolean>>('currencyModal')!
   display: inline-flex;
   align-items: center;
   cursor: pointer;
-}
-
-.radio-input {
-  display: none;
-}
-
-.radio-custom {
-  width: 18px;
-  height: 18px;
-  border: 2px solid rgba(255, 255, 255, 0.25);
-  border-radius: 50%;
-  position: relative;
-  transition: all 0.2s;
-  flex-shrink: 0;
-}
-
-.radio-input:checked + .radio-custom {
-  border-color: #1890ff;
-  background: rgba(24, 144, 255, 0.15);
-  box-shadow: 0 0 6px rgba(24, 144, 255, 0.3);
-}
-
-.radio-input:checked + .radio-custom::after {
-  content: '';
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 8px;
-  height: 8px;
-  background: #1890ff;
-  border-radius: 50%;
 }
 
 /* ─── Table cell padding — more breathing room ─── */

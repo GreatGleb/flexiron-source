@@ -31,6 +31,8 @@ import {
   mockGetInvoices,
   mockDeleteOrder,
   mockGetSalesCrmStats,
+  mockAddOrderFile,
+  mockRemoveOrderFile,
 } from './orders'
 import { mockGetClients } from './clients'
 import { mockGetSettings, mockSaveSettings } from './settings'
@@ -278,6 +280,9 @@ describe('scenario orders', () => {
       'ORD-007',
       'ORD-008',
       'ORD-009',
+      // The showcase, which the list opens on — see `buildShowcaseOrder`. Named
+      // here so it can be found by number like the other nine.
+      'ORD-100',
     ])
   })
 
@@ -1417,8 +1422,13 @@ describe('a service line comes from the service catalogue', () => {
 
   it('refuses a service nobody has heard of', () => {
     const created = freshOrder()
-    expect(() =>
-      mockAddOrderService(created.id, { serviceId: 'svc-does-not-exist', quantity: 1, price: 10 }),
+    expect(
+      () =>
+        mockAddOrderService(created.id, {
+          serviceId: 'svc-does-not-exist',
+          quantity: 1,
+          price: 10,
+        }),
       // The whole code, not the tail of it. `toThrow` matches by substring, and so
       // does the frontend — which is why this code was renamed: it used to fit
       // inside ORDER_SERVICE_NOT_FOUND, and a check written like this could not
@@ -2350,6 +2360,55 @@ describe('the three rights of model section 12', () => {
     expect(entry.user.en).not.toBe('System')
   })
 
+  // The same right, at the neighbouring entity. `PATCH /items/:id` asked for it;
+  // `PATCH /services/:id` did not ask at all, and the card hides the cell for
+  // both — a rule the client keeps and the server does not.
+  it('refuses a hand-typed cost on a SERVICE line too', () => {
+    const created = freshOrder()
+    const svc = mockAddOrderService(created.id, { serviceId: 'svc-001', quantity: 2, price: 12 })
+
+    asRole('manager')
+    expect(() => mockUpdateOrderService(created.id, svc.id, { unitCost: 3 })).toThrow(
+      'FORBIDDEN_MANUALCOST',
+    )
+    // Refused before anything was written.
+    expect(mockGetOrder(created.id)!.services[0]!.unitCost).toBe(svc.unitCost)
+
+    asRole('admin')
+    const edited = mockUpdateOrderService(created.id, svc.id, { unitCost: 3 })
+    expect(edited.unitCost).toBe(3)
+    const after = mockGetOrder(created.id)!
+    const entry = after.auditLog[after.auditLog.length - 1]!
+    expect(entry.property.en).toContain('Manual cost')
+    expect(entry.user.en).not.toBe('System')
+  })
+
+  // Contract §5: cost is not sent to a user who may not see it. A history entry
+  // that names the unit cost is cost, and the card renders the history whole —
+  // so a role outside `seeCost` was reading the figure in the "was"/"became"
+  // columns of a table nobody thought to guard.
+  it('keeps cost out of the history a role without `seeCost` is given', () => {
+    const { order, lineId } = orderWithLine(10, 120)
+    mockUpdateOrderItem(order.id, lineId, {
+      manualUnitCost: 90,
+      manualCostReason: 'Supplier invoice',
+    })
+
+    const asOwner = mockGetOrder(order.id)!.auditLog
+    expect(asOwner.some((e) => e.sensitive === 'cost')).toBe(true)
+    expect(asOwner.some((e) => e.newValue.includes('90'))).toBe(true)
+
+    asRole('manager')
+    const asManager = mockGetOrder(order.id)!.auditLog
+    expect(asManager.some((e) => e.sensitive === 'cost')).toBe(false)
+    expect(asManager.some((e) => e.newValue.includes('Supplier invoice'))).toBe(false)
+    // Everything that is not a cost still reaches them: the entry is filtered,
+    // not the log.
+    expect(asManager.length).toBeGreaterThan(0)
+    // And the field is present on every entry, never absent — §3.
+    expect(asManager.every((e) => 'sensitive' in e)).toBe(true)
+  })
+
   it('refuses to correct an issued document without the right', () => {
     const { order, lineId } = orderWithLine(10, 120)
     const shipment = mockCreateShipment(order.id, { lines: [{ lineId, quantity: 10 }] })
@@ -2686,10 +2745,14 @@ describe('every kind of service edit', () => {
     expect(mockUpdateOrderService(orderId, svcId, { resetPrice: true }).price).toBe(12)
   })
 
-  it('refuses a line total when there is no quantity to divide by', () => {
+  // This used to set the quantity to zero and then check that a line total was
+  // refused for want of something to divide by. The zero is now refused where it
+  // is set — the creating endpoints always refused it and the editing one did
+  // not — so the setup is the assertion.
+  it('refuses a quantity of zero on an edit, as it does on a create', () => {
     const { orderId, svcId } = service()
-    mockUpdateOrderService(orderId, svcId, { quantity: 0 })
-    expect(() => mockUpdateOrderService(orderId, svcId, { lineTotal: 50 })).toThrow('ZERO_QUANTITY')
+    expect(() => mockUpdateOrderService(orderId, svcId, { quantity: 0 })).toThrow('ZERO_QUANTITY')
+    expect(mockGetOrder(orderId)!.services.find((s) => s.id === svcId)!.quantity).toBeGreaterThan(0)
   })
 })
 
@@ -3039,5 +3102,230 @@ describe('correcting a line that has already gone out', () => {
     const after = mockGetOrder(created.id)!
     expect(after.invoices).toHaveLength(0)
     expect(after.totalAmount).toBe(180)
+  })
+})
+
+// ─── Contract §3: the version on every mutation ─────────────────────────────
+
+describe('the order version guards every write, not five of them', () => {
+  /**
+   * §3: "клиент присылает ту версию, которую видел; если она отстала, сервер
+   * отклоняет ORDER_VERSION_CONFLICT и не пишет ничего."
+   *
+   * It used to guard five endpoints out of twenty. The other fifteen — a status
+   * change, a shipment, a payment, an invoice, a correction, every deletion —
+   * took a stale write in silence, which is precisely the two-tabs case the
+   * version exists for.
+   */
+  function twoTabs(): { orderId: string; lineId: string; stale: number } {
+    const { order, lineId } = orderWithLine(10, 120)
+    // Optional on the type — a server that predates the field sends none — but
+    // this mock always has one, and a test that shrugged at its absence would
+    // pass while checking nothing.
+    const stale = mockGetOrder(order.id)!.version!
+    // Somebody else writes. Both tabs were holding `stale`; only one still is.
+    mockPatchOrder(order.id, { notes: 'the other tab got here first' })
+    return { orderId: order.id, lineId, stale }
+  }
+
+  it('refuses a stale write on every mutating endpoint', () => {
+    const cases: Array<[string, (o: string, l: string, v: number) => unknown]> = [
+      ['patch order', (o, _l, v) => mockPatchOrder(o, { notes: 'mine', version: v })],
+      ['patch status', (o, _l, v) => mockPatchOrderStatus(o, 'confirmed', v)],
+      [
+        'add item',
+        (o, _l, v) =>
+          mockAddOrderItem(o, {
+            productId: 'prod-001',
+            quantity: 1,
+            unit: 'pcs',
+            unitPrice: 10,
+            version: v,
+          }),
+      ],
+      ['update item', (o, l, v) => mockUpdateOrderItem(o, l, { quantity: 5, version: v })],
+      ['delete item', (o, l, v) => mockDeleteOrderItem(o, l, v)],
+      [
+        'add service',
+        (o, _l, v) =>
+          mockAddOrderService(o, { serviceId: 'svc-001', quantity: 1, price: 10, version: v }),
+      ],
+      ['allocate total', (o, _l, v) => mockAllocateOrderTotal(o, 100, v)],
+      [
+        'create shipment',
+        (o, l, v) => mockCreateShipment(o, { lines: [{ lineId: l, quantity: 1 }], version: v }),
+      ],
+      ['reserve', (o, _l, v) => mockReserveOrder(o, v)],
+      ['add payment', (o, _l, v) => mockAddOrderPayment(o, { amount: 10, version: v })],
+      [
+        'create invoice',
+        (o, _l, v) => mockCreateInvoice(o, { kind: 'advance', amountGross: 10, version: v }),
+      ],
+      ['delete order', (o, _l, v) => mockDeleteOrder(o, v)],
+    ]
+    for (const [name, run] of cases) {
+      const { orderId, lineId, stale } = twoTabs()
+      const before = structuredClone(mockGetOrder(orderId)!)
+      expect(() => run(orderId, lineId, stale), name).toThrow('ORDER_VERSION_CONFLICT')
+      // And nothing was written: a refused write leaves the order byte for byte.
+      expect(mockGetOrder(orderId), name).toEqual(before)
+    }
+  })
+
+  it('lets the same write through once the caller has caught up', () => {
+    const { orderId } = twoTabs()
+    const current = mockGetOrder(orderId)!.version!
+    expect(() => mockPatchOrderStatus(orderId, 'confirmed', current)).not.toThrow()
+    expect(mockGetOrder(orderId)!.status).toBe('confirmed')
+  })
+
+  it('checks nothing when the caller states no version — the mock is driven directly', () => {
+    // The demo generator, the shipping code that invoices as it works, and a
+    // hundred specs call these functions without ever reading an order. A version
+    // is a claim about what was read; a caller that read nothing cannot make it.
+    const { orderId } = twoTabs()
+    expect(() => mockPatchOrderStatus(orderId, 'confirmed')).not.toThrow()
+  })
+
+  /**
+   * The bookkeeping this rests on: one accepted write, one step. A mutation that
+   * writes without stepping — or steps without writing — puts a card that counts
+   * along out of phase, and from then on its own next request is refused as a
+   * conflict that never happened.
+   */
+  it('steps exactly once per accepted write, and not at all per refused one', () => {
+    const { order, lineId } = orderWithLine(4, 100)
+    const v0 = mockGetOrder(order.id)!.version!
+
+    mockUpdateOrderItem(order.id, lineId, { quantity: 5 })
+    expect(mockGetOrder(order.id)!.version!).toBe(v0 + 1)
+
+    expect(() => mockUpdateOrderItem(order.id, lineId, { quantity: 0 })).toThrow('ZERO_QUANTITY')
+    expect(mockGetOrder(order.id)!.version!).toBe(v0 + 1)
+
+    const file = mockAddOrderFile(order.id, 'file-abc', 'spec.pdf')
+    expect(mockGetOrder(order.id)!.version!).toBe(v0 + 2)
+
+    // Removing a file nobody attached used to write nothing, step nothing and
+    // report success — the one mutation whose bump sat inside an `if`.
+    expect(() => mockRemoveOrderFile(order.id, 'file-that-was-never-here')).toThrow(
+      'ORDER_FILE_NOT_FOUND',
+    )
+    expect(mockGetOrder(order.id)!.version!).toBe(v0 + 2)
+
+    mockRemoveOrderFile(order.id, file.fileId)
+    expect(mockGetOrder(order.id)!.version!).toBe(v0 + 3)
+  })
+})
+
+// ─── ORD-100 — the order the list opens on ──────────────────────────────────
+
+describe('the showcase order', () => {
+  /**
+   * It exists so the first thing anybody opens shows every state the module can
+   * express. That is only worth something if the states are really there — and
+   * they are produced by driving the endpoints, so each assertion below is also a
+   * statement that the path which produces it still works.
+   *
+   * Written as "at least one of each" rather than exact counts: the shelf is
+   * shared with a hundred generated orders and a truck the warehouse cannot back
+   * simply does not go. What must not happen is a state quietly disappearing.
+   */
+  const order = mockGetOrder('ORD-100')!
+
+  it('is the newest of the seeded orders, so the demo opens on it', () => {
+    // Asked of the SEEDED hundred, not of the whole store: the specs above this
+    // one create orders as they go, and by the time this runs the newest row is
+    // one of theirs. The claim being made is about the demo as it ships.
+    const page = mockGetOrders(
+      {
+        search: '',
+        status: 'all',
+        clientId: null,
+        dateFrom: '',
+        dateTo: '',
+        sortBy: null,
+        sortDir: 'asc',
+      },
+      { page: 1, pageSize: 1000 },
+    )
+    const seeded = page.items.filter((o) => /^ORD-0\d\d$|^ORD-100$/.test(o.id))
+    expect(seeded.length).toBe(100)
+    expect(seeded[0]!.id).toBe('ORD-100')
+  })
+
+  it('carries a line in every state the table can render', () => {
+    const items = order.items
+    // Shipped whole and named by a document — no cell open, no bin.
+    expect(items.some((i) => i.state === 'shipped' && i.documentIssued)).toBe(true)
+    // Half gone — the state that offers the split.
+    expect(items.some((i) => i.state === 'partially_shipped')).toBe(true)
+    // A price somebody named: locked, and offering "back to computed".
+    expect(items.some((i) => i.manualUnitPrice !== null)).toBe(true)
+    // A cost somebody typed, with the sentence that says why.
+    expect(items.some((i) => i.manualUnitCost !== null && i.manualCostReason !== null)).toBe(true)
+    // More than the shelf holds: the covered part real, the rest a guess.
+    expect(items.some((i) => i.costSource === 'estimate')).toBe(true)
+    // And one ordinary draft the others are read against.
+    expect(
+      items.some(
+        (i) =>
+          i.state === 'draft' &&
+          !i.documentIssued &&
+          i.manualUnitPrice === null &&
+          i.manualUnitCost === null,
+      ),
+    ).toBe(true)
+  })
+
+  it('carries a service already billed and one that is not', () => {
+    expect(order.services.some((s) => s.documentIssued)).toBe(true)
+    // The service added after the invoice — §4.6, the money that used to have
+    // nowhere to go. It is what makes the card's "invoice services" button appear.
+    expect(order.services.some((s) => !s.documentIssued)).toBe(true)
+  })
+
+  it('carries a delivery that went and one that came back', () => {
+    expect(order.shipments.some((s) => !s.cancelled)).toBe(true)
+    expect(order.shipments.some((s) => s.cancelled)).toBe(true)
+  })
+
+  it('carries all three kinds of document, and the correction adjusts rather than withdraws', () => {
+    const kinds = new Set(order.invoices.map((i) => i.kind))
+    expect([...kinds].sort()).toEqual(['advance', 'correction', 'regular'])
+    const correction = order.invoices.find((i) => i.kind === 'correction')!
+    // A stated amount, so the client goes on holding the original — which is why
+    // the corrected line is still frozen.
+    expect(correction.withdrawsOriginal).toBe(false)
+    expect(correction.reason).toBeTruthy()
+  })
+
+  it('carries money in and money back', () => {
+    expect(order.payments.some((p) => p.purpose === 'advance' && p.amount > 0)).toBe(true)
+    expect(order.payments.some((p) => p.purpose === 'balance' && p.amount > 0)).toBe(true)
+    // A refund is a negative amount, never a deleted payment.
+    expect(order.payments.some((p) => p.purpose === 'refund' && p.amount < 0)).toBe(true)
+  })
+
+  it('carries a history that wrote itself, including one entry the cost right hides', () => {
+    expect(order.auditLog.length).toBeGreaterThan(0)
+    expect(order.auditLog.some((a) => a.sensitive === 'cost')).toBe(true)
+    // Every entry says what it is, present or null — never absent (§3).
+    expect(order.auditLog.every((a) => 'sensitive' in a)).toBe(true)
+  })
+
+  it('holds stock and carries files', () => {
+    expect(mockGetReservations({ orderId: 'ORD-100' }).length).toBeGreaterThan(0)
+    expect(order.files.length).toBeGreaterThan(0)
+  })
+
+  it('invents nothing: it is assembled by the endpoints, so it obeys the rollup', () => {
+    const sum = [...order.items, ...order.services].reduce(
+      (s, l) => round2(s + calcLine(toPricingLine(l)).lineNet),
+      0,
+    )
+    expect(order.totalAmount).toBe(sum)
+    // And no hand-written weight — products carry none, so neither does this.
+    expect(order.totalWeight).toBe(0)
   })
 })

@@ -331,6 +331,7 @@ const ERROR_KEYS: Array<[string, string]> = [
   // which is the outcome contract §3 describes as the bad one: the person is told
   // that something went wrong and nothing about what.
   ['ORDER_AUDIT_ENTRY_NOT_FOUND', 'orders.error_order_audit_entry_not_found'],
+  ['ORDER_FILE_NOT_FOUND', 'orders.error_order_file_not_found'],
   ['ORDER_ITEM_NOT_FOUND', 'orders.error_order_item_not_found'],
   ['ORDER_SERVICE_NOT_FOUND', 'orders.error_order_service_not_found'],
   ['ORDER_NOT_FOUND', 'orders.error_order_not_found'],

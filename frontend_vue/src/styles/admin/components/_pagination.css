@@ -143,3 +143,41 @@
     display: none;
   }
 }
+
+/* --- Compact variant (a bar inside a modal) --- */
+/* The add-item and add-service dialogs each carried a private copy of these
+   numbers in a <style scoped> block. */
+.pagination-compact {
+  gap: 8px;
+  row-gap: 10px;
+}
+
+.pagination-compact .page-size {
+  gap: 6px;
+  font-size: 11px;
+}
+
+.pagination-compact .pagination-pages .page-btn {
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
+  border-radius: 5px;
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pagination-compact .pagination-nav > button {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pagination-compact .pagination-ellipsis {
+  padding: 0 4px;
+  font-size: 11px;
+}

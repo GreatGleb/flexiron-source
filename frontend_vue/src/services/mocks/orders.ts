@@ -46,6 +46,7 @@ import {
   syncLineState,
 } from '@/domain/orderPricing'
 import {
+  baseCurrencyOf,
   buildOrderItem as buildItem,
   buildOrderService as buildService,
   toPricingLine,
@@ -445,7 +446,7 @@ function generateOrders(): StoreOrder[] {
             : undefined,
           ...pricingSeedFor(unitCost, prod.price),
           discountPercent: discount,
-          receivedCurrency: fullProd?.currencyId ?? 'cur-eur',
+          receivedCurrency: baseCurrencyOf(mockGetSettings()),
         }),
       )
     }
@@ -508,6 +509,7 @@ function generateOrders(): StoreOrder[] {
         property: { ru: 'Заказ создан', en: 'Order created', lt: 'Užsakymas sukurtas' },
         oldValue: '',
         newValue: `ORD-2026-${seq}`,
+        sensitive: null,
       },
     ]
     if (status !== 'new') {
@@ -519,6 +521,7 @@ function generateOrders(): StoreOrder[] {
         property: { ru: 'Статус', en: 'Status', lt: 'Būsena' },
         oldValue: 'new',
         newValue: status,
+        sensitive: null,
       })
     }
 
@@ -551,7 +554,7 @@ function generateOrders(): StoreOrder[] {
       status,
       items,
       services,
-      defaultMarginPercent: 15,
+      defaultMarginPercent: mockGetSettings().constants.defaultMargin,
       defaultDiscountPercent: 0,
       vatMode: 'standard',
       vatPercent: 21,
@@ -616,6 +619,9 @@ const SCENARIOS: Record<number, string> = {
   6: 'manual cost with a reason',
   7: 'export — VAT 0%',
   8: 'two shipments, an invoice and a part payment',
+  // ORD-100 — built after the store exists, through the endpoints. See
+  // `buildShowcaseOrder`: this entry only gives it a name in the scenario list.
+  99: 'the full picture — every state the module can show',
 }
 
 export function mockOrderScenarios(): Array<{ id: string; scenario: string }> {
@@ -944,6 +950,266 @@ function createScenarioShipments(): void {
 
 createScenarioShipments()
 
+/**
+ * ORD-100 — the order that shows everything.
+ *
+ * The list opens on it (newest first), so it is the first thing anybody sees, and
+ * the demo is worth more if that first order exercises every state the module can
+ * express rather than being two plain lines. What it carries: a line shipped and
+ * invoiced, a line half gone, a hand-priced line, a hand-costed line with its
+ * reason, a line the shelf cannot cover, a service already billed and a service
+ * that is not, three deliveries of which one came back, four documents including
+ * a correction, three payments including a refund, held stock, files and a
+ * history that wrote itself.
+ *
+ * Built by CALLING THE ENDPOINTS, never by assembling objects. That is the same
+ * rule the hand-built scenarios follow and it is the whole point: a demo assembled
+ * by hand says goods left while the shelf still holds them, prices that no margin
+ * produces, and invoices whose amount no delivery backs. Everything below goes
+ * through the code an admin's click goes through, so every figure on the screen is
+ * one the application really computed.
+ *
+ * Defensive throughout, like `createScenarioShipments`: this runs while the module
+ * is loading, the shelf is shared with a hundred other orders, and a demo one
+ * truck short beats an application that will not start.
+ */
+function buildShowcaseOrder(): void {
+  const order = STORE.find((o) => o.id === SHOWCASE_ORDER_ID)
+  if (!order) return
+
+  // ── Clean ground ──────────────────────────────────────────────────────────
+  // The generated content goes back where it came from: its holds to the shelf
+  // and its shortages to the buying list. Dropping the lines without this would
+  // leave both pointing at rows that no longer exist.
+  releaseOrder(order.id)
+  clearShortages({ orderId: order.id })
+  order.items = []
+  order.services = []
+  order.shipments = []
+  order.invoices = []
+  order.payments = []
+  order.files = []
+  order.auditLog = []
+  order._nextLineSeq = 1
+  order._nextServiceSeq = 1
+  order._nextShipmentSeq = 1
+  order._nextInvoiceSeq = 1
+  order._nextPaymentSeq = 1
+  order._nextAuditSeq = 1
+  order.status = 'confirmed'
+  order.notes =
+    'Showcase order — every state the module can show. Built through the endpoints, not seeded.'
+  // No weight, deliberately. Products carry none, so an order's total weight is
+  // hand-entered — and a seeded figure would be exactly the invention the store's
+  // own spec forbids. A showcase is worth nothing if it decorates.
+  order.defaultMarginPercent = 22
+  order.defaultDiscountPercent = 5
+
+  /** The goods this order trades in: real catalogue rows the shelf can back. */
+  const pick = (id: string) => PRODUCTS.find((p) => p.id === id)
+  const onShelf = (id: string) =>
+    batchesForProduct(id).reduce((sum, b) => sum + b.quantityRemaining, 0)
+
+  /** Adds a line only if the shelf can really cover it. */
+  function addLine(productId: string, quantity: number, price?: number): OrderItem | null {
+    const spec = pick(productId)
+    if (!spec || onShelf(productId) < quantity) return null
+    try {
+      return mockAddOrderItem(order!.id, {
+        productId,
+        quantity,
+        unit: spec.unit,
+        unitPrice: price ?? spec.price,
+      })
+    } catch {
+      return null
+    }
+  }
+
+  // ── The lines ─────────────────────────────────────────────────────────────
+  const shipped = addLine('prod-001', 12) // goes out whole, then gets invoiced
+  const partial = addLine('prod-021', 40) // one truck takes part of it
+  const handPriced = addLine('prod-107', 300) // a price agreed by hand
+  const handCosted = addLine('prod-036', 60) // a cost typed by hand, with a reason
+  const plain = addLine('prod-009', 8) // an ordinary draft line
+
+  // An ordinary draft line, touched by nothing — the state the other five are
+  // read against.
+  addLine('prod-021', 5)
+
+  // A line the warehouse cannot cover: the covered part is real, the rest is a
+  // guess (`costSource: 'estimate'`) and goes on the buying list. Asking for more
+  // than the shelf holds is the only way to produce that state honestly — which
+  // means picking a product the shelf is genuinely short of rather than one with
+  // no price, whose line would say nothing about cost at all.
+  const short = PRODUCTS.find((p) => {
+    const stock = onShelf(p.id)
+    return stock > 0 && stock < 40
+  })
+  if (short) {
+    try {
+      mockAddOrderItem(order.id, {
+        productId: short.id,
+        quantity: round2(onShelf(short.id) + 25),
+        unit: short.unit,
+        unitPrice: short.price,
+      })
+    } catch {
+      // The catalogue moved; the demo does without this one.
+    }
+  }
+
+  // A price somebody named. Through the edit, so the discount it implies is the
+  // one the model derives rather than a number written next to it.
+  if (handPriced) {
+    try {
+      mockUpdateOrderItem(order.id, handPriced.id, {
+        manualUnitPrice: round2(handPriced.unitPrice * 0.92),
+      })
+    } catch {
+      /* refused — the line simply keeps its computed price */
+    }
+  }
+
+  // A cost somebody typed, and the sentence that says why. The right is checked
+  // by the endpoint, and the entry it writes is the first row of the history.
+  if (handCosted) {
+    try {
+      mockUpdateOrderItem(order.id, handCosted.id, {
+        manualUnitCost: round2(handCosted.unitCost * 1.15),
+        manualCostReason: 'Batch not booked in yet — supplier invoice price used',
+      })
+    } catch {
+      /* the acting role may not type costs; the line keeps the warehouse figure */
+    }
+  }
+
+  if (plain) {
+    try {
+      mockUpdateOrderItem(order.id, plain.id, { discountPercent: 12 })
+    } catch {
+      /* out of range for this line — it stays at the order default */
+    }
+  }
+
+  // ── Services ──────────────────────────────────────────────────────────────
+  // The first two ride on the invoice below. The third is added AFTER it, which
+  // is the case §4.6 exists for: a live order may gain a service, and it has to
+  // be billable on a later document rather than stranded.
+  const service = (serviceId: string, quantity: number, price: number) => {
+    try {
+      return mockAddOrderService(order!.id, { serviceId, quantity, price })
+    } catch {
+      return null
+    }
+  }
+  service('svc-001', 6, 45)
+  service('svc-002', 1, 180)
+
+  // ── Deliveries ────────────────────────────────────────────────────────────
+  const truck = (lines: Array<{ lineId: string; quantity: number }>, vehicle: string) => {
+    const shippable = new Map(
+      mockPlanOrderShipment(order!.id).map((line) => [line.lineId, line.shippable]),
+    )
+    const real = lines
+      .map((l) => ({
+        lineId: l.lineId,
+        quantity: round2(Math.min(l.quantity, shippable.get(l.lineId) ?? 0)),
+      }))
+      .filter((l) => l.quantity > 0)
+    if (real.length === 0) return null
+    try {
+      return mockCreateShipment(order!.id, { lines: real, carrier: 'Own transport', vehicle })
+    } catch {
+      return null
+    }
+  }
+
+  const truck1 = shipped
+    ? truck([{ lineId: shipped.id, quantity: shipped.quantity }], 'ABC-123')
+    : null
+  // Part of a line, so it lands in `partially_shipped` — the state that offers
+  // the split, and the only one from which a remainder can be repriced.
+  if (partial) truck([{ lineId: partial.id, quantity: 16 }], 'XYZ-987')
+  // A third delivery that came back. Cancelled through the endpoint, so the goods
+  // return by opposite movements instead of the record quietly disappearing.
+  const truck3 = plain ? truck([{ lineId: plain.id, quantity: 3 }], 'LMN-456') : null
+  if (truck3) {
+    try {
+      mockCancelShipment(order.id, truck3.id)
+    } catch {
+      /* it stays on the road */
+    }
+  }
+
+  // ── Documents ─────────────────────────────────────────────────────────────
+  // The regular invoice takes its amount off the delivery and carries the two
+  // services that exist at this moment — which is what makes the third one below
+  // an unbilled service rather than a duplicate.
+  let regular: Invoice | null = null
+  if (truck1) {
+    try {
+      regular = mockCreateInvoice(order.id, { kind: 'regular', shipmentId: truck1.id })
+    } catch {
+      /* the delivery is already billed */
+    }
+  }
+  // Added after the document: the service §4.6 is about.
+  service('svc-003', 2, 95)
+
+  // A price put right after the client already held the document — the one door
+  // through the freeze (§4.2.1). It writes the history entry with author, before,
+  // after and reason, AND issues the correcting invoice for the difference, which
+  // is why it comes before anything else that might correct that document: one
+  // invoice is corrected once, and a rebate drawn by hand here simply took the
+  // slot and left the line uncorrected with nothing to say so.
+  if (shipped && regular) {
+    try {
+      mockCorrectOrderLine(order.id, shipped.id, {
+        unitPrice: round2(shipped.unitPrice * 0.97),
+        reason: 'Price agreed lower after the truck had left',
+      })
+    } catch {
+      /* the acting role may not correct; the line keeps its price */
+    }
+  }
+
+  try {
+    mockCreateInvoice(order.id, { kind: 'advance', amountGross: 1500 })
+  } catch {
+    /* nothing to advance against */
+  }
+
+  // ── Money ─────────────────────────────────────────────────────────────────
+  const pay = (amount: number, purpose: PaymentPurpose, note: string, invoiceId?: string) => {
+    try {
+      mockAddOrderPayment(order!.id, { amount, purpose, note, invoiceId: invoiceId ?? null })
+    } catch {
+      /* refused — the demo does without this record */
+    }
+  }
+  pay(1500, 'advance', 'Advance against the proforma')
+  pay(2000, 'balance', 'Part payment on the first delivery', regular?.id)
+  // A refund is a negative amount, never a deleted payment: money that went back
+  // is a fact, and facts are not removed from the record.
+  pay(-120, 'refund', 'Rebate returned to the client')
+
+  // ── Held stock, files ─────────────────────────────────────────────────────
+  try {
+    mockReserveOrder(order.id)
+  } catch {
+    /* nothing left to hold */
+  }
+  mockAddOrderFile(order.id, 'showcase-file-1', 'Signed order confirmation.pdf')
+  mockAddOrderFile(order.id, 'showcase-file-2', 'Delivery photos.zip')
+
+  recalcOrder(order)
+  order.status = statusFromFacts(order)
+}
+
+/** The order the list opens on — see `buildShowcaseOrder`. */
+const SHOWCASE_ORDER_ID = 'ORD-100'
+
 // "Can this client be deleted?" is a question about orders, so the orders module
 // answers it. Registered rather than imported the other way round: clients know
 // nothing about orders, and a cycle here would decide at import time whether the
@@ -997,7 +1263,26 @@ function publicOrder(order: StoreOrder): Order {
     if (key.startsWith('_')) delete copy[key]
   }
   copy.costTopUp = Object.fromEntries(order.items.map((i) => [i.id, topUpLadder(order, i)]))
+  // A history entry that names a cost is a cost, and §5 says the server does not
+  // send one to a user who may not see it. Hiding it in the card would be the
+  // curtain the contract calls out by name — the card hides it too, but that is
+  // the second lock, not the first.
+  //
+  // Everything else §5 asks for — `unitCost`, `costSource`, `allocations`,
+  // `marginPercent` on the lines — is still sent to everyone, deliberately: the
+  // card recomputes prices from the cost, and stripping those needs the other
+  // half of §5 (the server sending computed prices, the card ceasing to compute)
+  // which is not built. The history has no such tie: nothing is derived from it.
+  if (!maySeeCost()) {
+    copy.auditLog = copy.auditLog.filter((entry) => entry.sensitive !== 'cost')
+  }
   return copy as Order
+}
+
+/** The `seeCost` right of whoever is asking — model §12, contract §5. */
+function maySeeCost(): boolean {
+  const settings = mockGetSettings()
+  return (settings.orderPermissions.seeCost ?? []).includes(settings.profile.role)
 }
 
 // ─── List ───
@@ -1234,7 +1519,7 @@ export function mockCreateOrder(data: {
     status: 'new',
     items: [],
     services: [],
-    defaultMarginPercent: 15,
+    defaultMarginPercent: mockGetSettings().constants.defaultMargin,
     defaultDiscountPercent: 0,
     // Export documents are zero-rated by default; the admin can override.
     vatMode: data.documentType === 'export' ? 'export_zero' : 'standard',
@@ -1265,6 +1550,7 @@ export function mockCreateOrder(data: {
         property: { ru: 'Заказ создан', en: 'Order created', lt: 'Užsakymas sukurtas' },
         oldValue: '',
         newValue: orderNumber,
+        sensitive: null,
       },
     ],
     createdAt: new Date().toISOString(),
@@ -1373,9 +1659,15 @@ export function mockPlanStatusTransition(
   }
 }
 
-export function mockPatchOrderStatus(id: string, status: OrderStatus): Order {
+export function mockPatchOrderStatus(
+  id: string,
+  status: OrderStatus,
+  /** The order version the caller was looking at — contract §3. */
+  version?: number,
+): Order {
   const order = STORE.find((o) => o.id === id)
   if (!order) throw new Error('ORDER_NOT_FOUND')
+  assertVersion(order, version)
   const oldStatus = order.status
   const rules = statusRules(status)
 
@@ -1440,12 +1732,15 @@ function requireRight(right: 'manualCost' | 'correction'): { name: string; initi
  */
 function appendHistory(
   order: StoreOrder,
-  entry: Omit<OrderAuditEntry, 'id' | 'timestamp'>,
+  entry: Omit<OrderAuditEntry, 'id' | 'timestamp' | 'sensitive'> & { sensitive?: 'cost' | null },
 ): OrderAuditEntry {
   const stored: OrderAuditEntry = {
     id: `au-${order._nextAuditSeq++}`,
     timestamp: new Date().toISOString(),
     ...entry,
+    // Never `undefined`: an absent key and a key holding null read the same
+    // through JSON and differently to everything else (§3).
+    sensitive: entry.sensitive ?? null,
   }
   order.auditLog.push(stored)
   return stored
@@ -1463,6 +1758,8 @@ function recordInHistory(
   oldValue: string,
   newValue: string,
   user: { name: string; initials: string },
+  /** Set when the values are a cost — the card hides those without `seeCost`. */
+  sensitive: 'cost' | null = null,
 ): void {
   appendHistory(order, {
     user: { ru: user.name, en: user.name, lt: user.name },
@@ -1470,6 +1767,7 @@ function recordInHistory(
     property,
     oldValue,
     newValue,
+    sensitive,
   })
 }
 
@@ -1610,10 +1908,15 @@ function validateLineEdit(delta: LineEditPayload): void {
  * correct the invoice, cancel the shipment, delete the payment — and after that
  * the order deletes. The refusal says which one is in the way.
  */
-export function mockDeleteOrder(id: string): void {
+export function mockDeleteOrder(
+  id: string,
+  /** The order version the caller was looking at — contract §3. */
+  version?: number,
+): void {
   const idx = STORE.findIndex((o) => o.id === id)
   if (idx === -1) return
   const order = STORE[idx]!
+  assertVersion(order, version)
   if (order.invoices.some((i) => i.kind !== 'correction' && !isWithdrawn(order, i.id))) {
     throw new Error('ORDER_HAS_INVOICE')
   }
@@ -1714,7 +2017,10 @@ export function mockAddOrderItem(
     unitCost,
     ...seed,
     discountPercent: data.discountPercent ?? order.defaultDiscountPercent,
-    receivedCurrency: fullProduct?.currencyId ?? 'cur-eur',
+    // The caption on a warehouse cost is the base currency, not the currency the
+    // product is SOLD in — see `baseCurrencyOf`. Reading it off the product put a
+    // sale-price currency on a warehouse-derived number.
+    receivedCurrency: baseCurrencyOf(mockGetSettings()),
     batchId: data.batchId ?? null,
     // Which batches this line consumes. FIFO routinely spans several, and without
     // the breakdown a partial shipment cannot write off the very batches it took.
@@ -1794,6 +2100,7 @@ export function mockUpdateOrderItem(
       String(before.unitCost),
       `${draft.unitCost} — ${draft.manualCostReason ?? '—'}`,
       actor,
+      'cost',
     )
   }
   // A grown line gets batches for the units it gained; a shrunk one gives its
@@ -1824,13 +2131,41 @@ export function mockUpdateOrderService(
   // these were missed.
   validateLineEdit(delta)
 
-  const draft = clone(order.services[idx]!)
+  const before = order.services[idx]!
+  // The `manualCost` right, asked here for the same reason `PATCH /items/:id`
+  // asks it: §5 says the server checks the two write rights itself, and §1 rule 6
+  // says it checks them in the function that writes. A service's cost is typed by
+  // hand by definition — that is not a reason to stop asking who may type it. The
+  // card already refuses the cell to a role without the right, and a rule the
+  // client keeps and the server does not is the shape this module keeps growing.
+  //
+  // A reason is not demanded, and that IS by definition: a reason exists to say
+  // why a warehouse figure was overridden, and a service has no warehouse figure.
+  const actor = delta.unitCost !== undefined ? requireRight('manualCost') : null
+
+  const draft = clone(before)
   const ctx = lineEditContext(order, delta)
   for (const op of deltaToOps(delta, 'service')) {
     applyLineEdit(draft, op, ctx)
   }
 
   order.services[idx] = draft
+  // A right that leaves no trace is a right nobody can audit — the same entry
+  // goods get, and it was missing here alongside the check itself.
+  if (actor && draft.unitCost !== before.unitCost) {
+    recordInHistory(
+      order,
+      {
+        ru: `Себестоимость вручную — ${draft.serviceName}`,
+        en: `Manual cost — ${draft.serviceName}`,
+        lt: `Rankinė savikaina — ${draft.serviceName}`,
+      },
+      String(before.unitCost),
+      String(draft.unitCost),
+      actor,
+      'cost',
+    )
+  }
   recalcOrder(order)
   bumpVersion(order)
   return clone(draft)
@@ -1845,9 +2180,15 @@ export function mockUpdateOrderService(
  *
  * And refuses a line that has gone out on paper — see `assertDeletable`.
  */
-export function mockDeleteOrderItem(orderId: string, lineId: string): void {
+export function mockDeleteOrderItem(
+  orderId: string,
+  lineId: string,
+  /** The order version the caller was looking at — contract §3. */
+  version?: number,
+): void {
   const order = STORE.find((o) => o.id === orderId)
   if (!order) throw new Error('ORDER_NOT_FOUND')
+  assertVersion(order, version)
   const idx = order.items.findIndex((i) => i.id === lineId)
   if (idx === -1) throw new Error('ORDER_ITEM_NOT_FOUND')
   const removed = order.items[idx]!
@@ -1902,6 +2243,10 @@ export function mockAddOrderService(
     price: data.price,
     discountPercent: data.discountPercent,
   })
+  // Same refusal as `mockAddOrderItem`. A rule written for one entity and
+  // forgotten next door is the commonest defect in this module (contract §1,
+  // rule 6) — and `validateLine` does not catch it: it tests `quantity < 0`.
+  if (data.quantity === 0) throw new Error('ZERO_QUANTITY')
   // From the catalogue, and refused if it is not in it: falling back to some
   // other service stored the line under a name nobody picked.
   const svcEntry = serviceEntry(data.serviceId)
@@ -1925,9 +2270,15 @@ export function mockAddOrderService(
 
 /** Same rules as `mockDeleteOrderItem`: an unknown id is a refusal, and a service
  *  the client has an invoice for is not removed behind the document's back. */
-export function mockDeleteOrderService(orderId: string, serviceId: string): void {
+export function mockDeleteOrderService(
+  orderId: string,
+  serviceId: string,
+  /** The order version the caller was looking at — contract §3. */
+  version?: number,
+): void {
   const order = STORE.find((o) => o.id === orderId)
   if (!order) throw new Error('ORDER_NOT_FOUND')
+  assertVersion(order, version)
   const idx = order.services.findIndex((s) => s.id === serviceId)
   if (idx === -1) throw new Error('ORDER_SERVICE_NOT_FOUND')
   assertDeletable(order.services[idx]!)
@@ -1952,9 +2303,15 @@ export function mockDeleteOrderService(orderId: string, serviceId: string): void
  * already gone", and the caller that got its id from a stale list needs to hear
  * that its list is stale (§4.1).
  */
-export function mockDeleteOrderAuditEntry(orderId: string, entryId: string): void {
+export function mockDeleteOrderAuditEntry(
+  orderId: string,
+  entryId: string,
+  /** The order version the caller was looking at — contract §3. */
+  version?: number,
+): void {
   const order = STORE.find((o) => o.id === orderId)
   if (!order) throw new Error('ORDER_NOT_FOUND')
+  assertVersion(order, version)
   const idx = order.auditLog.findIndex((entry) => entry.id === entryId)
   if (idx === -1) throw new Error('ORDER_AUDIT_ENTRY_NOT_FOUND')
   order.auditLog.splice(idx, 1)
@@ -1969,9 +2326,12 @@ export function mockAddOrderFile(
   orderId: string,
   fileId: string,
   originalName?: string,
+  /** The order version the caller was looking at — contract §3. */
+  version?: number,
 ): OrderFile {
   const order = STORE.find((o) => o.id === orderId)
   if (!order) throw new Error('ORDER_NOT_FOUND')
+  assertVersion(order, version)
   const file: OrderFile = {
     id: `ord-file-${fileSeq++}`,
     name: originalName ?? `File ${fileSeq - 1}`,
@@ -1986,14 +2346,27 @@ export function mockAddOrderFile(
   return structuredClone(file)
 }
 
-export function mockRemoveOrderFile(orderId: string, fileId: string): void {
+export function mockRemoveOrderFile(
+  orderId: string,
+  fileId: string,
+  /** The order version the caller was looking at — contract §3. */
+  version?: number,
+): void {
   const order = STORE.find((o) => o.id === orderId)
   if (!order) throw new Error('ORDER_NOT_FOUND')
+  assertVersion(order, version)
   const idx = order.files.findIndex((f) => f.fileId === fileId)
-  if (idx !== -1) {
-    order.files.splice(idx, 1)
-    bumpVersion(order)
-  }
+  // An id nobody knows is refused, like its two neighbours — the line deletion
+  // and the history deletion both stopped answering "fine" to a request they had
+  // not carried out. Here it was worse than untidy, and only the version made it
+  // visible: the bump sat INSIDE the branch, so a removal that matched nothing
+  // wrote nothing and stepped nothing, while the card stepped its own counter
+  // regardless. From then on the card was a version ahead of the server, and
+  // every later request of that save was refused as a conflict that never
+  // happened.
+  if (idx === -1) throw new Error('ORDER_FILE_NOT_FOUND')
+  order.files.splice(idx, 1)
+  bumpVersion(order)
 }
 
 // ─── Total allocation ───────────────────────────────────────────────────────
@@ -2009,6 +2382,8 @@ export function mockRemoveOrderFile(orderId: string, fileId: string): void {
 export function mockAllocateOrderTotal(
   orderId: string,
   targetGross: number,
+  /** The order version the caller was looking at — contract §3. */
+  version?: number,
 ): {
   order: Order
   requestedGross: number
@@ -2017,6 +2392,7 @@ export function mockAllocateOrderTotal(
 } {
   const order = STORE.find((o) => o.id === orderId)
   if (!order) throw new Error('ORDER_NOT_FOUND')
+  assertVersion(order, version)
   requireFiniteNumbers({ targetGross })
 
   const result = allocateGrossTotal(
@@ -2072,10 +2448,11 @@ export function mockAllocateOrderTotal(
 export function mockCorrectOrderLine(
   orderId: string,
   lineId: string,
-  data: { unitPrice?: number; unitCost?: number; reason?: string },
+  data: { unitPrice?: number; unitCost?: number; reason?: string; version?: number },
 ): OrderItem | OrderService {
   const order = STORE.find((o) => o.id === orderId)
   if (!order) throw new Error('ORDER_NOT_FOUND')
+  assertVersion(order, data.version)
   const item = order.items.find((i) => i.id === lineId)
   const service = item ? undefined : order.services.find((s) => s.id === lineId)
   const line = item ?? service
@@ -2162,6 +2539,7 @@ export function mockCorrectOrderLine(
       String(before.unitCost),
       `${pricing.unitCost} — ${reason}`,
       actor,
+      'cost',
     )
   }
 
@@ -2225,9 +2603,12 @@ export function mockSplitOrderItem(
   orderId: string,
   lineId: string,
   shippedQuantity: number,
+  /** The order version the caller was looking at — contract §3. */
+  version?: number,
 ): { shipped: OrderItem; remainder: OrderItem } {
   const order = STORE.find((o) => o.id === orderId)
   if (!order) throw new Error('ORDER_NOT_FOUND')
+  assertVersion(order, version)
   const idx = order.items.findIndex((i) => i.id === lineId)
   if (idx === -1) throw new Error('ORDER_ITEM_NOT_FOUND')
   requireFiniteNumbers({ shippedQuantity })
@@ -2629,10 +3010,13 @@ export function mockCreateShipment(
     vehicle?: string | null
     waybillNumber?: string | null
     shippedAt?: string
+    /** The order version the caller was looking at — contract §3. */
+    version?: number
   },
 ): Shipment {
   const order = STORE.find((o) => o.id === orderId)
   if (!order) throw new Error('ORDER_NOT_FOUND')
+  assertVersion(order, data.version)
   if (!data.lines.length) throw new Error('SHIPMENT_HAS_NO_LINES')
 
   // Everything is checked before anything moves — see `planShipment`.
@@ -2714,10 +3098,11 @@ export function mockCreateShipment(
 export function mockCancelShipment(
   orderId: string,
   shipmentId: string,
-  opts?: { correctionReason?: string | null },
+  opts?: { correctionReason?: string | null; version?: number },
 ): Shipment {
   const order = STORE.find((o) => o.id === orderId)
   if (!order) throw new Error('ORDER_NOT_FOUND')
+  assertVersion(order, opts?.version)
   const shipment = order.shipments.find((s) => s.id === shipmentId)
   if (!shipment) throw new Error('SHIPMENT_NOT_FOUND')
   if (shipment.cancelled) throw new Error('SHIPMENT_ALREADY_CANCELLED')
@@ -2832,9 +3217,14 @@ export function mockCancelShipment(
 
 // ─── Reservations ───────────────────────────────────────────────────────────
 
-export function mockReserveOrder(orderId: string): StockReservation[] {
+export function mockReserveOrder(
+  orderId: string,
+  /** The order version the caller was looking at — contract §3. */
+  version?: number,
+): StockReservation[] {
   const order = STORE.find((o) => o.id === orderId)
   if (!order) throw new Error('ORDER_NOT_FOUND')
+  assertVersion(order, version)
 
   const created: StockReservation[] = []
   for (const item of order.items) {
@@ -2907,10 +3297,13 @@ export function mockAddOrderPayment(
     paidAt?: string
     invoiceId?: string | null
     note?: string | null
+    /** The order version the caller was looking at — contract §3. */
+    version?: number
   },
 ): Payment {
   const order = STORE.find((o) => o.id === orderId)
   if (!order) throw new Error('ORDER_NOT_FOUND')
+  assertVersion(order, data.version)
   // Before the zero check, because the zero check is where this used to be got
   // around: `round2(NaN)` is NaN, `NaN === 0` is false, and the payment was
   // written with an amount of zero — the very thing the next line refuses.
@@ -2940,9 +3333,15 @@ export function mockAddOrderPayment(
   return clone(payment)
 }
 
-export function mockDeleteOrderPayment(orderId: string, paymentId: string): void {
+export function mockDeleteOrderPayment(
+  orderId: string,
+  paymentId: string,
+  /** The order version the caller was looking at — contract §3. */
+  version?: number,
+): void {
   const order = STORE.find((o) => o.id === orderId)
   if (!order) throw new Error('ORDER_NOT_FOUND')
+  assertVersion(order, version)
   const idx = order.payments.findIndex((p) => p.id === paymentId)
   if (idx === -1) throw new Error('PAYMENT_NOT_FOUND')
   order.payments.splice(idx, 1)
@@ -3107,10 +3506,13 @@ export function mockCreateInvoice(
     /** What the client pays. Converted here, so the caller never does VAT arithmetic. */
     amountGross?: number
     reason?: string | null
+    /** The order version the caller was looking at — contract §3. */
+    version?: number
   },
 ): Invoice {
   const order = STORE.find((o) => o.id === orderId)
   if (!order) throw new Error('ORDER_NOT_FOUND')
+  assertVersion(order, data.version)
   const kind: InvoiceKind = data.kind ?? 'regular'
   const reason = data.reason?.trim() ?? ''
 
@@ -3309,3 +3711,8 @@ function refreshDocumentFreeze(order: StoreOrder): void {
     service.documentIssued = billed.has(service.id)
   }
 }
+
+// Last in the file, and it has to be: the showcase drives the real endpoints, and
+// those read counters and helpers declared further down. Called any earlier it
+// walks into the temporal dead zone of the first one it touches.
+buildShowcaseOrder()

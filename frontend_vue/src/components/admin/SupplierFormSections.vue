@@ -9,6 +9,7 @@ import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
 import TagInput from '@/components/admin/ui/TagInput.vue'
 import RatingSelect from '@/components/admin/ui/RatingSelect.vue'
 import DatePicker from '@/components/admin/ui/DatePicker.vue'
+import AutoResizeTextarea from '@/components/admin/ui/AutoResizeTextarea.vue'
 import { useTranslatedField } from '@/composables/useTranslatedData'
 import type { SupplierCardData, SupplierStatus } from '@/types/supplier'
 
@@ -151,7 +152,7 @@ function removeNoteAt(index: number) {
       </div>
       <div class="input-group">
         <label class="field-label">{{ t('sp.status_reason') }}</label>
-        <textarea
+        <AutoResizeTextarea
           v-model="statusReasonModel"
           class="glass-input"
           rows="2"
@@ -189,7 +190,7 @@ function removeNoteAt(index: number) {
       </div>
       <div v-if="supplier.addresses[0]" class="input-group" style="margin-bottom: 0">
         <label class="field-label">{{ t('sp.address') }}</label>
-        <textarea
+        <AutoResizeTextarea
           v-model="supplier.addresses[0].line1"
           class="glass-input"
           rows="2"
@@ -315,7 +316,7 @@ function removeNoteAt(index: number) {
 
     <GlassPanel :title="t('sp.notes_title')" data-test="supplier-form-notes">
       <div class="notes-input-area" style="margin-bottom: 20px">
-        <textarea
+        <AutoResizeTextarea
           v-model="newNote"
           class="glass-input"
           rows="2"

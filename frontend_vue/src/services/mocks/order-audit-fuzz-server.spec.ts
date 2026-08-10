@@ -53,9 +53,16 @@ function stockedProducts(): string[] {
   )
   const ids = new Set<string>()
   for (const row of page.items) for (const i of mockGetOrder(row.id)!.items) ids.add(i.productId)
-  return [...ids].filter(
-    (id) => batchesForProduct(id).reduce((s, b) => s + b.quantityRemaining, 0) > 20,
-  )
+  // Sorted, and that is not tidiness. The set is filled by walking the orders in
+  // list order, so the pool's ORDER — which is what the seeded rng indexes into —
+  // used to depend on which seeded order happened to mention which product first.
+  // Editing one demo order therefore re-dealt the whole random walk and moved the
+  // operation count by thousands, for reasons having nothing to do with the code
+  // under test. A fuzzer whose sequence turns on unrelated fixtures cannot be
+  // read as a measurement of anything.
+  return [...ids]
+    .filter((id) => batchesForProduct(id).reduce((s, b) => s + b.quantityRemaining, 0) > 20)
+    .sort()
 }
 
 /** Every rule the order has to satisfy at rest, whatever happened to it. */

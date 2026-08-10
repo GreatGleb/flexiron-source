@@ -1,9 +1,11 @@
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useToast } from '@/composables/useToast'
 import { useSettings } from '@/composables/useSettings'
+import { usePagination } from '@/composables/usePagination'
 import {
   createOrder,
+  getOrder,
   patchOrder,
   addOrderItem,
   addOrderService,
@@ -14,13 +16,14 @@ import type { Order, OrderDocumentType, OrderItem, OrderService, OrderFile } fro
 import type { Client } from '@/types/client'
 import type { UploadedFile } from '@/services/uploadsService'
 import {
+  baseCurrencyOf,
   buildOrderItem,
   buildOrderService,
   pricingSeedFor,
   stockCostFor,
   toPricingLine,
 } from '@/services/orderLines'
-import { rollupOrder } from '@/domain/orderPricing'
+import { rollupOrder, type VatMode } from '@/domain/orderPricing'
 
 export function useOrderCreate() {
   const { t } = useI18n()
@@ -44,6 +47,18 @@ export function useOrderCreate() {
   const error = ref<string | null>(null)
   const clients = ref<Client[]>([])
   const loadingClients = ref(false)
+  /**
+   * A failed load is not an empty directory.
+   *
+   * Kept apart from `clients` so the page can say which of the two happened: an
+   * empty list under a broken request reads as "this company has no clients",
+   * and the admin has no way to tell, nor anything to press.
+   */
+  const clientsError = ref<string | null>(null)
+  /** The chosen client, kept whole — the selection has to survive paging away. */
+  const selectedClient = ref<Client | null>(null)
+  const clientSearch = ref('')
+  const clientPagination = usePagination(5)
 
   // ─── Local order state (for UI rendering before server creation) ────────
   const localOrder = ref<{
@@ -73,11 +88,18 @@ export function useOrderCreate() {
   // emptied by product, so removing one of two lines of the same product
   // removed both from the queue and the admin got an order that was missing a
   // line they were looking at when they pressed Save.
+  //
+  // Its one reader is the guard that asks before leaving the page, so it counts
+  // everything the reader would lose — not only the lines. A chosen client and a
+  // typed note used to leave without a word, while the guard's own comment said
+  // nothing typed is worth losing to a mis-click.
   const hasPendingChanges = computed(
     () =>
       localOrder.value.items.length > 0 ||
       localOrder.value.services.length > 0 ||
-      localOrder.value.files.length > 0,
+      localOrder.value.files.length > 0 ||
+      form.value.clientId !== null ||
+      (form.value.notes ?? '').trim().length > 0,
   )
 
   // ─── Computed for template convenience ─────────────────────────────────
@@ -85,22 +107,65 @@ export function useOrderCreate() {
   const totalWeight = computed(() => localOrder.value.totalWeight)
 
   // ─── Client loading ────────────────────────────────────────────────────
+  //
+  // Search and paging belong to the server, the same as on the clients list.
+  // Asking for one page of a thousand and filtering it here looked like "load
+  // everything": the client at position 1001 was unreachable and indistinguishable
+  // from a client that does not exist, and the local filter searched name and
+  // e-mail while the server also searches the company code — so the same query
+  // found a client on one screen and nothing on this one.
+  let clientsInitialized = false
+
   async function loadClients() {
-    loadingClients.value = true
+    // Skeleton on the first load only. The search field lives inside the panel,
+    // and `.glass-panel.loading .panel-body` hides it — re-showing it on every
+    // keystroke would take the focus with it (pitfall #20).
+    if (!clientsInitialized) loadingClients.value = true
+    clientsError.value = null
     try {
       const result = await getClients({
-        search: '',
+        search: clientSearch.value,
+        // Every client, active or not: refusing an order for a client somebody
+        // marked inactive is a decision for the order rules, not for a picker.
         status: null,
         sortBy: 'name',
         sortDir: 'asc',
-        pageSize: 1000,
+        page: clientPagination.page.value,
+        pageSize: clientPagination.pageSize.value,
       })
       clients.value = result.items
+      clientPagination.total.value = result.total
+      clientsInitialized = true
     } catch (e) {
-      error.value = String(e)
+      clientsError.value = String(e)
+      clients.value = []
+      clientPagination.total.value = 0
     } finally {
       loadingClients.value = false
     }
+  }
+
+  // A new query starts from the first page; the page watcher below must not then
+  // fire a second identical request — same guard as `useClients`.
+  let skipNextPageWatch = false
+  watch(clientSearch, () => {
+    skipNextPageWatch = clientPagination.page.value !== 1
+    clientPagination.page.value = 1
+    loadClients()
+  })
+
+  watch([clientPagination.page, clientPagination.pageSize], () => {
+    if (skipNextPageWatch) {
+      skipNextPageWatch = false
+      return
+    }
+    loadClients()
+  })
+
+  function selectClient(client: Client) {
+    form.value.clientId = client.id
+    selectedClient.value = client
+    clearError('clientId')
   }
 
   // ─── Validation ────────────────────────────────────────────────────────
@@ -164,7 +229,8 @@ export function useOrderCreate() {
         unit: item.unit,
         unitCost,
         ...pricingSeedFor(unitCost, item.unitPrice),
-        receivedCurrency: 'cur-eur',
+        // The caption on a warehouse cost — see `baseCurrencyOf`.
+        receivedCurrency: baseCurrencyOf(settings),
       })
     })
 
@@ -259,12 +325,20 @@ export function useOrderCreate() {
   }
 
   // ─── Local totals ──────────────────────────────────────────────────────
+  //
   // Same pricing module as everywhere else: no second VAT rate, no invented
-  // weight. A brand-new order is always standard-rated until the client and the
-  // document type say otherwise, which happens after it is created.
+  // weight. The rate follows the document type, because that is what the server
+  // does the moment the order is created — `mockCreateOrder` sets
+  // `vatMode: documentType === 'export' ? 'export_zero' : 'standard'`. Reading it
+  // as standard regardless meant an export order showed 21% here and came back
+  // zero-rated: the totals on screen were not the totals being created.
+  const vatMode = computed<VatMode>(() =>
+    form.value.documentType === 'export' ? 'export_zero' : 'standard',
+  )
+
   function recalcLocalTotals() {
     const lines = [...localOrder.value.items, ...localOrder.value.services].map(toPricingLine)
-    const rolled = rollupOrder(lines, 'standard', settings.constants.vatRate)
+    const rolled = rollupOrder(lines, vatMode.value, settings.constants.vatRate)
     localOrder.value = {
       ...localOrder.value,
       totalCost: rolled.totalCost,
@@ -276,7 +350,28 @@ export function useOrderCreate() {
     }
   }
 
+  // Switching Local ↔ Export changes the rate, so the totals have to be redone —
+  // they used to be recomputed only when a line was added or removed.
+  watch(vatMode, recalcLocalTotals)
+
   // ─── Save: create order → patch notes → add items/services/files ────
+  //
+  // Creating an order is five kinds of request, and the order exists after the
+  // first of them. So the whole thing has to be resumable: if a line is refused
+  // half-way — and the server refuses lines on purpose, `ZERO_QUANTITY`,
+  // `CATALOG_PRODUCT_NOT_FOUND`, a number that is not finite — the order is
+  // already on the server. Starting over would create a second one and leave the
+  // first half-built, while the admin was told nothing was created at all.
+  //
+  // What has already landed is remembered here, so pressing Create again finishes
+  // the order that exists instead of beginning another.
+  const createdOrderId = ref<string | null>(null)
+  const notesSaved = ref(false)
+  const savedLineIds = ref(new Set<string>())
+
+  /** True once the order exists on the server — the next Save resumes it. */
+  const isPartiallySaved = computed(() => createdOrderId.value !== null)
+
   async function handleSave(): Promise<Order | null> {
     if (!validate()) {
       toast.error(t('orders.error_no_client'))
@@ -287,22 +382,30 @@ export function useOrderCreate() {
     error.value = null
 
     try {
-      // 1. Create the order
-      const order = await createOrder({
-        clientId: form.value.clientId!,
-        documentType: form.value.documentType,
-        currency: form.value.currency,
-      })
+      // 1. The order itself — once. On a retry it is already there.
+      if (!createdOrderId.value) {
+        const created = await createOrder({
+          clientId: form.value.clientId!,
+          documentType: form.value.documentType,
+          currency: form.value.currency,
+        })
+        createdOrderId.value = created.id
+      }
+      const orderId = createdOrderId.value
 
       // 2. Patch notes if provided
-      if (form.value.notes) {
-        await patchOrder(order.id, { notes: form.value.notes })
+      if (form.value.notes && !notesSaved.value) {
+        await patchOrder(orderId, { notes: form.value.notes })
+        notesSaved.value = true
       }
 
       // 3. The lines, in the order they are on screen. Each line is sent once,
-      //    including two lines of the same product: they are two lines.
+      //    including two lines of the same product: they are two lines. The local
+      //    id is what marks a line as sent — the same id the table is keyed by,
+      //    so a duplicate product cannot mark its twin as done.
       for (const item of localOrder.value.items) {
-        await addOrderItem(order.id, {
+        if (savedLineIds.value.has(item.id)) continue
+        await addOrderItem(orderId, {
           productId: item.productId,
           quantity: item.quantity,
           unit: item.unit,
@@ -312,28 +415,42 @@ export function useOrderCreate() {
           // the admin between the table they saw and the order they got.
           discountPercent: item.discountPercent,
         })
+        savedLineIds.value.add(item.id)
       }
 
       // 4. Services, same rule.
       for (const svc of localOrder.value.services) {
-        await addOrderService(order.id, {
+        if (savedLineIds.value.has(svc.id)) continue
+        await addOrderService(orderId, {
           serviceId: svc.serviceId,
           quantity: svc.quantity,
           price: svc.price,
           discountPercent: svc.discountPercent,
         })
+        savedLineIds.value.add(svc.id)
       }
 
       // 5. Files
       for (const file of localOrder.value.files) {
-        await addOrderFile(order.id, file.fileId)
+        if (savedLineIds.value.has(file.id)) continue
+        await addOrderFile(orderId, file.fileId)
+        savedLineIds.value.add(file.id)
       }
 
       toast.success(t('orders.toast_created'))
-      return order
+      // Read back rather than returning what `createOrder` answered: that copy
+      // predates every line, and on a resumed save there is no such copy at all.
+      return await getOrder(orderId)
     } catch (e) {
       error.value = String(e)
-      toast.error(t('orders.toast_error_create'))
+      // Two different failures, and telling them apart is the whole point: before
+      // the order exists nothing was written, after it exists the admin owns a
+      // half-built order and needs to know it is there.
+      toast.error(
+        createdOrderId.value
+          ? t('orders.toast_error_create_partial')
+          : t('orders.toast_error_create'),
+      )
       return null
     } finally {
       saving.value = false
@@ -346,18 +463,25 @@ export function useOrderCreate() {
     errors,
     saving,
     error,
+    settings,
     // Validation
     validate,
     clearError,
     // Clients
     clients,
     loadingClients,
+    clientsError,
+    clientSearch,
+    clientPagination,
+    selectedClient,
+    selectClient,
     loadClients,
     // Local order state
     localOrder,
     totalAmount,
     totalWeight,
     hasPendingChanges,
+    isPartiallySaved,
     // Actions
     addItem,
     removeItem,

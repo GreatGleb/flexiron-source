@@ -2,41 +2,6 @@
   padding: 24px;
 }
 
-/* ─── Custom radio button ─────────────────────────── */
-.client-radio-input {
-  display: none;
-}
-
-.client-radio-custom {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.25);
-  background: transparent;
-  flex-shrink: 0;
-  position: relative;
-  transition:
-    border-color 0.2s,
-    background 0.2s;
-}
-
-.client-radio-input:checked + .client-radio-custom {
-  border-color: var(--primary, #1890ff);
-  background: rgba(24, 144, 255, 0.15);
-}
-
-.client-radio-input:checked + .client-radio-custom::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--primary, #1890ff);
-  transform: translate(-50%, -50%);
-}
-
 .order-create-header {
   margin-bottom: 24px;
 }
@@ -55,22 +20,144 @@
   gap: 12px;
 }
 
-/* ─── Required field indicator ─────────────────────────── */
-.required-star {
-  color: var(--danger, #e74c3c);
-  margin-left: 2px;
-}
-
-.field-error {
-  color: var(--danger, #e74c3c);
-  font-size: 11px;
-  margin-left: 4px;
-}
-
 /* ─── Validation error state on client checkbox-list ────── */
 .checkbox-list.has-error {
   border-color: var(--danger, #e74c3c) !important;
   box-shadow: 0 0 0 1px var(--danger, #e74c3c) !important;
   border-radius: 6px;
   padding: 8px;
+}
+
+/* ─── Client field label & error ─────────────────────────── */
+.client-field-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  margin-left: 0;
+}
+
+.client-selected-name {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.client-list-empty {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.8);
+  padding: 16px 0;
+}
+
+.client-list-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 0;
+  color: var(--danger, #e74c3c);
+}
+
+.client-list-error p {
+  margin: 0;
+}
+
+.order-create-file-list {
+  margin-bottom: 15px;
+}
+
+/* ─── Totals ─────────────────────────────────────────────── */
+.order-create-totals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+/* ─── Client pagination ──────────────────────────────────────
+   Compact variant of the shared pagination, kept here rather than borrowed
+   from another page's <style> block — see pitfall #63. */
+.client-pagination {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  position: relative;
+}
+
+.client-pagination .pagination-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  row-gap: 10px;
+}
+
+.client-pagination .page-size {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.client-pagination .pagination-nav,
+.client-pagination .pagination-pages {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+
+.client-pagination .page-btn {
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 5px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.client-pagination .page-btn:hover {
+  background: rgba(24, 144, 255, 0.2);
+  border-color: var(--primary);
+}
+
+.client-pagination .page-btn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.client-pagination .btn-sm {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+}
+
+.client-pagination .pagination-ellipsis {
+  padding: 0 4px;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 11px;
+}
+
+/* ─── Responsive (pitfall #29) ───────────────────────────── */
+@media (max-width: 992px) {
+  .order-create-header-row {
+    gap: 12px;
+  }
+}
+
+@media (max-width: 600px) {
+  .order-create-header-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .order-create-header-row .btn {
+    width: 100%;
+    justify-content: center;
+  }
 }

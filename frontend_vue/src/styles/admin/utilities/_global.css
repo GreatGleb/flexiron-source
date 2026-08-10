@@ -40,3 +40,9 @@ input[type='number'] {
   -moz-appearance: textfield;
   appearance: textfield;
 }
+
+/* The chevron points right; a previous-page button is the same icon mirrored.
+   Eighteen places wrote `style="transform: rotate(180deg)"` inline instead. */
+.icon-flip-x {
+  transform: rotate(180deg);
+}

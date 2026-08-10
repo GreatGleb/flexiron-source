@@ -11,6 +11,8 @@ import type { UploadedFile } from '@/services/uploadsService'
 import FileItem from '@/components/admin/FileItem.vue'
 import AppModal from '@/components/admin/ui/AppModal.vue'
 import SearchInput from '@/components/admin/ui/SearchInput.vue'
+import SuffixSelect from '@/components/admin/ui/SuffixSelect.vue'
+import Pagination from '@/components/admin/ui/Pagination.vue'
 import type { BccEventStatus, BccRequest } from '@/types/bcc'
 import { useBccRequest } from '@/composables/useBccRequest'
 import { acceptBccResponse, markBccNoResponse, logBccRequest } from '@/services/bccService'
@@ -322,21 +324,8 @@ const responseSupplier = ref('')
 const responseProducts = ref<string[]>([])
 const responsePrice = ref('')
 const responseUnit = ref('kg')
-const responseUnitOpen = ref(false)
 
 const UNIT_OPTIONS = ['kg', 'm', 'piece', 'ton']
-
-function selectUnit(u: string) {
-  responseUnit.value = u
-  responseUnitOpen.value = false
-}
-
-function onDocClickCloseUnit(e: MouseEvent) {
-  const el = (e.target as HTMLElement | null)?.closest?.('.input-with-suffix')
-  if (!el) responseUnitOpen.value = false
-}
-onMounted(() => document.addEventListener('click', onDocClickCloseUnit))
-onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseUnit))
 
 function openResponseModal(evt: BccRequest) {
   modalEventId.value = evt.id
@@ -717,51 +706,15 @@ onMounted(async () => {
                   <tfoot v-if="filteredProducts.length > 0">
                     <tr>
                       <td colspan="2">
-                        <div class="pagination-bar">
-                          <div class="page-size">
-                            <span>{{ t('suppliers.page_size') }}</span>
-                            <CustomSelect
-                              v-model="productPageSizeStr"
-                              :options="PAGE_SIZE_OPTIONS_PRODUCTS"
-                              :open-up="true"
-                              class="custom-select-sm"
-                            />
-                          </div>
-                          <div class="pagination-nav">
-                            <button
-                              class="btn btn-icon btn-sm"
-                              :disabled="productPage <= 1"
-                              @click="productPage = Math.max(1, productPage - 1)"
-                            >
-                              <SvgIcon
-                                name="chevron-right"
-                                :width="14"
-                                :height="14"
-                                style="transform: rotate(180deg)"
-                              />
-                            </button>
-                            <div class="pagination-pages">
-                              <template v-for="(p, i) in productPageNumbers()" :key="i">
-                                <span v-if="p === '...'" class="pagination-ellipsis">...</span>
-                                <button
-                                  v-else
-                                  class="page-btn"
-                                  :class="{ active: p === productPage }"
-                                  @click="productPage = p as number"
-                                >
-                                  {{ p }}
-                                </button>
-                              </template>
-                            </div>
-                            <button
-                              class="btn btn-icon btn-sm"
-                              :disabled="productPage >= productTotalPages"
-                              @click="productPage = Math.min(productTotalPages, productPage + 1)"
-                            >
-                              <SvgIcon name="chevron-right" :width="14" :height="14" />
-                            </button>
-                          </div>
-                        </div>
+                        <Pagination
+                          v-model:page="productPage"
+                          v-model:size="productPageSizeStr"
+                          :total-pages="productTotalPages"
+                          :pages="productPageNumbers()"
+                          :page-size-options="PAGE_SIZE_OPTIONS_PRODUCTS"
+                          :size-label="t('suppliers.page_size')"
+                          :compact="true"
+                        />
                       </td>
                     </tr>
                   </tfoot>
@@ -839,51 +792,15 @@ onMounted(async () => {
                   </div>
                 </div>
                 <div v-if="filteredRecipients.length > 0" class="recipients-pagination">
-                  <div class="pagination-bar">
-                    <div class="page-size">
-                      <span>{{ t('suppliers.page_size') }}</span>
-                      <CustomSelect
-                        v-model="recipientPageSizeStr"
-                        :options="PAGE_SIZE_OPTIONS_RECIPIENTS"
-                        :open-up="true"
-                        class="custom-select-sm"
-                      />
-                    </div>
-                    <div class="pagination-nav">
-                      <button
-                        class="btn btn-icon btn-sm"
-                        :disabled="recipientPage <= 1"
-                        @click="recipientPage = Math.max(1, recipientPage - 1)"
-                      >
-                        <SvgIcon
-                          name="chevron-right"
-                          :width="14"
-                          :height="14"
-                          style="transform: rotate(180deg)"
-                        />
-                      </button>
-                      <div class="pagination-pages">
-                        <template v-for="(p, i) in recipientPageNumbers()" :key="i">
-                          <span v-if="p === '...'" class="pagination-ellipsis">...</span>
-                          <button
-                            v-else
-                            class="page-btn"
-                            :class="{ active: p === recipientPage }"
-                            @click="recipientPage = p as number"
-                          >
-                            {{ p }}
-                          </button>
-                        </template>
-                      </div>
-                      <button
-                        class="btn btn-icon btn-sm"
-                        :disabled="recipientPage >= recipientTotalPages"
-                        @click="recipientPage = Math.min(recipientTotalPages, recipientPage + 1)"
-                      >
-                        <SvgIcon name="chevron-right" :width="14" :height="14" />
-                      </button>
-                    </div>
-                  </div>
+                  <Pagination
+                    v-model:page="recipientPage"
+                    v-model:size="recipientPageSizeStr"
+                    :total-pages="recipientTotalPages"
+                    :pages="recipientPageNumbers()"
+                    :page-size-options="PAGE_SIZE_OPTIONS_RECIPIENTS"
+                    :size-label="t('suppliers.page_size')"
+                    :compact="true"
+                  />
                 </div>
               </div>
 
@@ -1122,25 +1039,13 @@ onMounted(async () => {
             data-test="bcc-request-response-price"
             placeholder="0.00"
           />
-          <div
-            class="input-suffix custom-select-trigger"
-            data-test="bcc-request-response-unit-trigger"
-            @click.stop="responseUnitOpen = !responseUnitOpen"
-          >
-            <span class="curr-val">{{ responseUnit }}</span>
-          </div>
-          <div class="custom-select-list" :class="{ open: responseUnitOpen }">
-            <div
-              v-for="u in UNIT_OPTIONS"
-              :key="u"
-              class="custom-select-option"
-              data-test="bcc-request-response-unit-option"
-              :data-unit="u"
-              @click="selectUnit(u)"
-            >
-              {{ u }}
-            </div>
-          </div>
+          <SuffixSelect
+            v-model="responseUnit"
+            :options="UNIT_OPTIONS"
+            trigger-test="bcc-request-response-unit-trigger"
+            option-test="bcc-request-response-unit-option"
+            option-attr="unit"
+          />
         </div>
       </div>
     </div>
@@ -1242,134 +1147,12 @@ onMounted(async () => {
   position: relative;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
-.products-table tfoot .pagination-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  row-gap: 10px;
-}
-.products-table tfoot .page-size {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.6);
-}
-.products-table tfoot .pagination-nav {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex-wrap: wrap;
-}
-.products-table tfoot .pagination-pages {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex-wrap: wrap;
-}
-.products-table tfoot .page-btn {
-  min-width: 24px;
-  height: 24px;
-  padding: 0 6px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 5px;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 11px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.products-table tfoot .page-btn:hover {
-  background: rgba(24, 144, 255, 0.2);
-  border-color: var(--primary);
-}
-.products-table tfoot .page-btn.active {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: #fff;
-}
-.products-table tfoot .btn-sm {
-  width: 24px;
-  height: 24px;
-  padding: 0;
-}
-.products-table tfoot .pagination-ellipsis {
-  padding: 0 4px;
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 11px;
-}
-.products-table tfoot .custom-select-sm .custom-select-trigger {
-  min-height: 26px;
-  padding: 2px 24px 2px 8px;
-  font-size: 11px;
-}
-
 /* Recipients pagination — same compact style */
 .recipients-pagination {
   margin-top: 10px;
   padding-top: 10px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   position: relative;
-}
-.recipients-pagination .pagination-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  row-gap: 10px;
-}
-.recipients-pagination .page-size {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.6);
-}
-.recipients-pagination .pagination-nav,
-.recipients-pagination .pagination-pages {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex-wrap: wrap;
-}
-.recipients-pagination .page-btn {
-  min-width: 24px;
-  height: 24px;
-  padding: 0 6px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 5px;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 11px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.recipients-pagination .page-btn:hover {
-  background: rgba(24, 144, 255, 0.2);
-  border-color: var(--primary);
-}
-.recipients-pagination .page-btn.active {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: #fff;
-}
-.recipients-pagination .btn-sm {
-  width: 24px;
-  height: 24px;
-  padding: 0;
-}
-.recipients-pagination .pagination-ellipsis {
-  padding: 0 4px;
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 11px;
-}
-.recipients-pagination .custom-select-sm .custom-select-trigger {
-  min-height: 26px;
-  padding: 2px 24px 2px 8px;
-  font-size: 11px;
 }
 .products-table + .supplier-count-display {
   margin-top: 8px;

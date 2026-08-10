@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useHead } from '@/composables/useHead'
@@ -12,6 +12,9 @@ import SearchInput from '@/components/admin/ui/SearchInput.vue'
 import DatePicker from '@/components/admin/ui/DatePicker.vue'
 import FileItem from '@/components/admin/FileItem.vue'
 import DropZone from '@/components/admin/ui/DropZone.vue'
+import SuffixSelect from '@/components/admin/ui/SuffixSelect.vue'
+import Pagination from '@/components/admin/ui/Pagination.vue'
+import AutoResizeTextarea from '@/components/admin/ui/AutoResizeTextarea.vue'
 import '@styles/admin/warehouse_list.css'
 import '@styles/admin/components/_entity-card-layout.css'
 import '@styles/admin/components/_pagination.css'
@@ -159,21 +162,6 @@ function handleCancel() {
 function selectProduct(id: string) {
   selectedProductId.value = selectedProductId.value === id ? null : id
 }
-
-// ─── Currency selector for unit price ───────────────────────────────────
-const currencyOpen = ref(false)
-
-function selectCurrency(c: string) {
-  form.currency = c
-  currencyOpen.value = false
-}
-
-function onDocClickCloseCurrency(e: MouseEvent) {
-  const el = (e.target as HTMLElement | null)?.closest?.('.input-with-suffix')
-  if (!el) currencyOpen.value = false
-}
-onMounted(() => document.addEventListener('click', onDocClickCloseCurrency))
-onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseCurrency))
 </script>
 
 <template>
@@ -330,51 +318,14 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseCurre
             <tfoot v-if="filteredProducts.length > 0">
               <tr>
                 <td :colspan="4">
-                  <div class="pagination-bar">
-                    <div class="page-size">
-                      <span>{{ t('warehouse.page_size') }}</span>
-                      <CustomSelect
-                        v-model="productPageSizeStr"
-                        :options="PAGE_SIZE_OPTIONS_PRODUCTS"
-                        :open-up="true"
-                        class="custom-select-sm"
-                      />
-                    </div>
-                    <div class="pagination-nav">
-                      <button
-                        class="btn btn-icon btn-sm"
-                        :disabled="productPage <= 1"
-                        @click="productPage = Math.max(1, productPage - 1)"
-                      >
-                        <SvgIcon
-                          name="chevron-right"
-                          :width="14"
-                          :height="14"
-                          style="transform: rotate(180deg)"
-                        />
-                      </button>
-                      <div class="pagination-pages">
-                        <template v-for="(p, i) in productPageNumbers()" :key="i">
-                          <span v-if="p === '...'" class="pagination-ellipsis">...</span>
-                          <button
-                            v-else
-                            class="page-btn"
-                            :class="{ active: p === productPage }"
-                            @click="productPage = p as number"
-                          >
-                            {{ p }}
-                          </button>
-                        </template>
-                      </div>
-                      <button
-                        class="btn btn-icon btn-sm"
-                        :disabled="productPage >= productTotalPages"
-                        @click="productPage = Math.min(productTotalPages, productPage + 1)"
-                      >
-                        <SvgIcon name="chevron-right" :width="14" :height="14" />
-                      </button>
-                    </div>
-                  </div>
+                  <Pagination
+                    v-model:page="productPage"
+                    v-model:size="productPageSizeStr"
+                    :total-pages="productTotalPages"
+                    :pages="productPageNumbers()"
+                    :page-size-options="PAGE_SIZE_OPTIONS_PRODUCTS"
+                    :size-label="t('warehouse.page_size')"
+                  />
                 </td>
               </tr>
             </tfoot>
@@ -618,25 +569,13 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseCurre
                   data-test="field-unit-price"
                   @input="clearError('unitPrice')"
                 />
-                <div
-                  class="input-suffix custom-select-trigger"
-                  data-test="field-currency-trigger"
-                  @click.stop="currencyOpen = !currencyOpen"
-                >
-                  <span class="curr-val">{{ form.currency }}</span>
-                </div>
-                <div class="custom-select-list" :class="{ open: currencyOpen }">
-                  <div
-                    v-for="c in CURRENCY_OPTIONS"
-                    :key="c"
-                    class="custom-select-option"
-                    data-test="field-currency-option"
-                    :data-currency="c"
-                    @click="selectCurrency(c)"
-                  >
-                    {{ c }}
-                  </div>
-                </div>
+                <SuffixSelect
+                  v-model="form.currency"
+                  :options="CURRENCY_OPTIONS"
+                  trigger-test="field-currency-trigger"
+                  option-test="field-currency-option"
+                  option-attr="currency"
+                />
               </div>
             </div>
             <div class="input-group">
@@ -760,7 +699,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseCurre
                   </svg>
                 </span>
               </label>
-              <textarea
+              <AutoResizeTextarea
                 v-model="form.notes"
                 class="glass-input batch-notes-input"
                 :placeholder="t('warehouse.field_notes_placeholder')"
@@ -880,7 +819,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseCurre
               </svg>
             </span>
           </label>
-          <textarea
+          <AutoResizeTextarea
             v-model="form.locationNotes"
             class="glass-input"
             data-test="field-location-notes"

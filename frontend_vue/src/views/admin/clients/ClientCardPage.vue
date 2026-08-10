@@ -11,6 +11,7 @@ import SvgIcon from '@/components/admin/SvgIcon.vue'
 import InputGroup from '@/components/admin/ui/InputGroup.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
 import DatePicker from '@/components/admin/ui/DatePicker.vue'
+import AutoResizeTextarea from '@/components/admin/ui/AutoResizeTextarea.vue'
 
 import '@styles/admin/components/_entity-card-layout.css'
 import '@styles/admin/components/_audit-log.css'
@@ -296,9 +297,9 @@ onMounted(() => {
                 </InputGroup>
 
                 <InputGroup :label="t('clients.field_notes')">
-                  <textarea
+                  <AutoResizeTextarea
                     v-model="client.notes"
-                    class="glass-input glass-textarea"
+                    class="glass-input"
                     rows="3"
                     data-test="field-notes"
                   />
@@ -457,9 +458,9 @@ onMounted(() => {
                 </div>
 
                 <InputGroup :label="t('clients.interaction_field_summary')">
-                  <textarea
+                  <AutoResizeTextarea
                     v-model="newInteraction.summary"
-                    class="glass-input glass-textarea"
+                    class="glass-input"
                     rows="3"
                     :placeholder="t('clients.notes_placeholder')"
                     data-test="field-interaction-summary-inline"

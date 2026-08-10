@@ -378,6 +378,13 @@ export function syncLineState(line: PricingLine): PricingLine {
 export function applyQuantityEdit(line: PricingLine, quantity: number): PricingLine {
   if (!canEditQuantity(line)) throw new Error('LINE_FULLY_SHIPPED')
   if (quantity < 0) throw new Error('NEGATIVE_QUANTITY')
+  // A line for nothing is not a line — the same refusal the two creating
+  // endpoints already make. It belongs HERE, in the one function through which a
+  // quantity is ever assigned: written at the door where lines appear, it left
+  // the door where they are edited wide open, and `quantity < 0` lets zero
+  // through by one character. Set from the card's cell it stored a line of zero
+  // units for zero money, which every report then counts as a line.
+  if (quantity === 0) throw new Error('ZERO_QUANTITY')
   if (quantity < line.shippedQuantity) throw new Error('BELOW_SHIPPED_QUANTITY')
   return syncLineState({ ...line, quantity })
 }

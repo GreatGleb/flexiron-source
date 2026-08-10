@@ -10,6 +10,7 @@ import Breadcrumb from '@/components/admin/Breadcrumb.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
 import InputGroup from '@/components/admin/ui/InputGroup.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
+import AutoResizeTextarea from '@/components/admin/ui/AutoResizeTextarea.vue'
 import type { ClientFormData } from '@/types/client'
 
 import '@styles/admin/components/_entity-card-layout.css'
@@ -187,9 +188,9 @@ function handleCancel() {
             </InputGroup>
 
             <InputGroup :label="t('clients.field_notes')">
-              <textarea
+              <AutoResizeTextarea
                 v-model="form.notes"
-                class="glass-input glass-textarea"
+                class="glass-input"
                 rows="3"
                 data-test="field-notes"
               />

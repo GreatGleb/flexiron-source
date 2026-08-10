@@ -875,18 +875,19 @@ export async function postMock<T>(
 
   const orderAllocateMatch = path.match(/^\/api\/orders\/([^/]+)\/allocate-total$/)
   if (orderAllocateMatch) {
-    const { targetGross } = body as { targetGross: number }
-    return delay(mockAllocateOrderTotal(orderAllocateMatch[1] as string, targetGross) as T)
+    const { targetGross, version } = body as { targetGross: number; version?: number }
+    return delay(mockAllocateOrderTotal(orderAllocateMatch[1] as string, targetGross, version) as T)
   }
 
   const orderSplitMatch = path.match(/^\/api\/orders\/([^/]+)\/items\/([^/]+)\/split$/)
   if (orderSplitMatch) {
-    const { shippedQuantity } = body as { shippedQuantity: number }
+    const { shippedQuantity, version } = body as { shippedQuantity: number; version?: number }
     return delay(
       mockSplitOrderItem(
         orderSplitMatch[1] as string,
         orderSplitMatch[2] as string,
         shippedQuantity,
+        version,
       ) as T,
     )
   }
@@ -897,7 +898,7 @@ export async function postMock<T>(
       mockCorrectOrderLine(
         orderCorrectMatch[1] as string,
         orderCorrectMatch[2] as string,
-        body as { unitPrice?: number; unitCost?: number; reason?: string },
+        body as { unitPrice?: number; unitCost?: number; reason?: string; version?: number },
       ) as T,
     )
   }
@@ -942,7 +943,8 @@ export async function postMock<T>(
 
   const orderReserveMatch = path.match(/^\/api\/orders\/([^/]+)\/reserve$/)
   if (orderReserveMatch) {
-    return delay(mockReserveOrder(orderReserveMatch[1] as string) as T)
+    const { version } = (body ?? {}) as { version?: number }
+    return delay(mockReserveOrder(orderReserveMatch[1] as string, version) as T)
   }
 
   const invoiceCreateMatch = path.match(/^\/api\/orders\/([^/]+)\/invoices$/)
@@ -977,9 +979,11 @@ export async function postMock<T>(
 
   const orderFilesPostMatch = path.match(/^\/api\/orders\/([^/]+)\/files$/)
   if (orderFilesPostMatch) {
-    const fileId = (body as { fileId: string }).fileId
+    const { fileId, version } = body as { fileId: string; version?: number }
     const originalName = uploadedFiles.get(fileId)?.name
-    return delay(mockAddOrderFile(orderFilesPostMatch[1] as string, fileId, originalName) as T)
+    return delay(
+      mockAddOrderFile(orderFilesPostMatch[1] as string, fileId, originalName, version) as T,
+    )
   }
 
   // ── Warehouse POST ──
@@ -1135,8 +1139,11 @@ export async function patchMock<T>(
   // ── Orders PATCH ──
   const orderStatusMatch = path.match(/^\/api\/orders\/([^/]+)\/status$/)
   if (orderStatusMatch) {
-    const { status } = body as { status: import('@/types/order').OrderStatus }
-    return delay(mockPatchOrderStatus(orderStatusMatch[1] as string, status) as T)
+    const { status, version } = body as {
+      status: import('@/types/order').OrderStatus
+      version?: number
+    }
+    return delay(mockPatchOrderStatus(orderStatusMatch[1] as string, status, version) as T)
   }
 
   const orderServiceUpdateMatch = path.match(/^\/api\/orders\/([^/]+)\/services\/([^/]+)$/)
@@ -1280,7 +1287,21 @@ export async function patchMock<T>(
 }
 
 // ─── DELETE ───
-export async function deleteMock<T>(path: string, _headers?: Record<string, string>): Promise<T> {
+/**
+ * A DELETE carries no body, so the version it is written against arrives as
+ * `If-Match` — contract §3. Absent means the caller never read a version and is
+ * making no claim about what it saw; the mock then checks nothing, exactly as it
+ * does for a body without one.
+ */
+function ifMatchVersion(headers?: Record<string, string>): number | undefined {
+  const raw = headers?.['If-Match'] ?? headers?.['if-match']
+  if (raw === undefined) return undefined
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
+export async function deleteMock<T>(path: string, headers?: Record<string, string>): Promise<T> {
+  const version = ifMatchVersion(headers)
   const auditMatch = path.match(/^\/api\/suppliers\/([^/]+)\/audit\/(\d+)$/)
   if (auditMatch) {
     mockDeleteAuditEntry(auditMatch[1] as string, Number(auditMatch[2]))
@@ -1397,13 +1418,21 @@ export async function deleteMock<T>(path: string, _headers?: Record<string, stri
   // ── Orders DELETE ──
   const orderItemDeleteMatch = path.match(/^\/api\/orders\/([^/]+)\/items\/([^/]+)$/)
   if (orderItemDeleteMatch) {
-    mockDeleteOrderItem(orderItemDeleteMatch[1] as string, orderItemDeleteMatch[2] as string)
+    mockDeleteOrderItem(
+      orderItemDeleteMatch[1] as string,
+      orderItemDeleteMatch[2] as string,
+      version,
+    )
     return delay(undefined as T)
   }
 
   const paymentDeleteMatch = path.match(/^\/api\/orders\/([^/]+)\/payments\/([^/]+)$/)
   if (paymentDeleteMatch) {
-    mockDeleteOrderPayment(paymentDeleteMatch[1] as string, paymentDeleteMatch[2] as string)
+    mockDeleteOrderPayment(
+      paymentDeleteMatch[1] as string,
+      paymentDeleteMatch[2] as string,
+      version,
+    )
     return delay(undefined as T)
   }
 
@@ -1412,13 +1441,14 @@ export async function deleteMock<T>(path: string, _headers?: Record<string, stri
     mockDeleteOrderService(
       orderServiceDeleteMatch[1] as string,
       orderServiceDeleteMatch[2] as string,
+      version,
     )
     return delay(undefined as T)
   }
 
   const orderDeleteMatch = path.match(/^\/api\/orders\/([^/]+)$/)
   if (orderDeleteMatch) {
-    mockDeleteOrder(orderDeleteMatch[1] as string)
+    mockDeleteOrder(orderDeleteMatch[1] as string, version)
     return delay(undefined as T)
   }
 
@@ -1427,13 +1457,21 @@ export async function deleteMock<T>(path: string, _headers?: Record<string, stri
   // request arrives — see contract §4.1.
   const orderAuditDeleteMatch = path.match(/^\/api\/orders\/([^/]+)\/audit\/([^/]+)$/)
   if (orderAuditDeleteMatch) {
-    mockDeleteOrderAuditEntry(orderAuditDeleteMatch[1] as string, orderAuditDeleteMatch[2] as string)
+    mockDeleteOrderAuditEntry(
+      orderAuditDeleteMatch[1] as string,
+      orderAuditDeleteMatch[2] as string,
+      version,
+    )
     return delay(undefined as T)
   }
 
   const orderFileDeleteMatch = path.match(/^\/api\/orders\/([^/]+)\/files\/([^/]+)$/)
   if (orderFileDeleteMatch) {
-    mockRemoveOrderFile(orderFileDeleteMatch[1] as string, orderFileDeleteMatch[2] as string)
+    mockRemoveOrderFile(
+      orderFileDeleteMatch[1] as string,
+      orderFileDeleteMatch[2] as string,
+      version,
+    )
     return delay(undefined as T)
   }
 

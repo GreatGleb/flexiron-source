@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useHead } from '@/composables/useHead'
@@ -11,6 +11,8 @@ import SvgIcon from '@/components/admin/SvgIcon.vue'
 import AppModal from '@/components/admin/ui/AppModal.vue'
 import FileItem from '@/components/admin/FileItem.vue'
 import DropZone from '@/components/admin/ui/DropZone.vue'
+import AutoResizeTextarea from '@/components/admin/ui/AutoResizeTextarea.vue'
+import SuffixSelect from '@/components/admin/ui/SuffixSelect.vue'
 import type { OffcutStatus } from '@/types/warehouse'
 import { getBatch } from '@/services/warehouseService'
 import CreateMovementModal from './CreateMovementModal.vue'
@@ -235,19 +237,6 @@ const CURRENCY_OPTIONS = computed<string[]>(() => {
   const base = currencies.find((c: { isDefault?: boolean }) => c.isDefault)
   return [base?.code ?? settings.constants.defaultCurrency]
 })
-const currencyOpen = ref(false)
-
-function selectCurrency(c: string) {
-  form.value.currency = c
-  currencyOpen.value = false
-}
-
-function onDocClickCloseCurrency(e: MouseEvent) {
-  const el = (e.target as HTMLElement | null)?.closest?.('.input-with-suffix')
-  if (!el) currencyOpen.value = false
-}
-onMounted(() => document.addEventListener('click', onDocClickCloseCurrency))
-onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseCurrency))
 
 function onDeleteClick() {
   if (batch.value?.orderId) {
@@ -332,30 +321,6 @@ useHead({
 })
 
 onMounted(load)
-
-// ─── Auto-resize notes textarea ──────────────────────────────────────
-const notesTextarea = ref<HTMLTextAreaElement | null>(null)
-const MAX_NOTES_HEIGHT = 300
-
-function autoResizeNotes() {
-  const el = notesTextarea.value
-  if (!el) return
-  el.style.height = 'auto'
-  if (el.scrollHeight > MAX_NOTES_HEIGHT) {
-    el.style.height = MAX_NOTES_HEIGHT + 'px'
-    el.style.overflowY = 'auto'
-  } else {
-    el.style.height = el.scrollHeight + 'px'
-    el.style.overflowY = 'hidden'
-  }
-}
-
-watch(
-  () => form.value.notes,
-  () => {
-    nextTick(autoResizeNotes)
-  },
-)
 
 // ─── Movement creation modal ──────────────────────────────────────────
 const showMovementModal = ref(false)
@@ -814,25 +779,14 @@ async function onMovementCreated() {
                       step="0.01"
                       data-test="field-unit-price"
                     />
-                    <div
-                      class="input-suffix custom-select-trigger"
-                      data-test="field-currency-trigger"
-                      @click.stop="currencyOpen = !currencyOpen"
-                    >
-                      <span class="curr-val">{{ resolveCurrencyLabel(form.currency) }}</span>
-                    </div>
-                    <div class="custom-select-list" :class="{ open: currencyOpen }">
-                      <div
-                        v-for="c in CURRENCY_OPTIONS"
-                        :key="c"
-                        class="custom-select-option"
-                        data-test="field-currency-option"
-                        :data-currency="c"
-                        @click="selectCurrency(c)"
-                      >
-                        {{ c }}
-                      </div>
-                    </div>
+                    <SuffixSelect
+                      v-model="form.currency"
+                      :options="CURRENCY_OPTIONS"
+                      :display-value="resolveCurrencyLabel(form.currency)"
+                      trigger-test="field-currency-trigger"
+                      option-test="field-currency-option"
+                      option-attr="currency"
+                    />
                   </div>
                 </div>
                 <div class="input-group">
@@ -1114,12 +1068,10 @@ async function onMovementCreated() {
                       </svg>
                     </span>
                   </label>
-                  <textarea
-                    ref="notesTextarea"
+                  <AutoResizeTextarea
                     v-model="form.notes"
                     class="glass-input batch-notes-input"
                     data-test="field-notes"
-                    @input="autoResizeNotes"
                   />
                 </div>
               </template>
@@ -1236,7 +1188,7 @@ async function onMovementCreated() {
                   </svg>
                 </span>
               </label>
-              <textarea
+              <AutoResizeTextarea
                 v-model="form.locationNotes"
                 class="glass-input"
                 data-test="field-location-notes"

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { computed, ref, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useHead } from '@/composables/useHead'
@@ -9,6 +9,9 @@ import GlassPanel from '@/components/admin/GlassPanel.vue'
 import Breadcrumb from '@/components/admin/Breadcrumb.vue'
 import InputGroup from '@/components/admin/ui/InputGroup.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
+import AutoResizeTextarea from '@/components/admin/ui/AutoResizeTextarea.vue'
+import DatePicker from '@/components/admin/ui/DatePicker.vue'
+import SuffixSelect from '@/components/admin/ui/SuffixSelect.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
 import AppModal from '@/components/admin/ui/AppModal.vue'
 import FileItem from '@/components/admin/FileItem.vue'
@@ -67,7 +70,6 @@ const {
   discard,
   remove,
   auditLog,
-  auditLoading,
   deleteAuditEntry,
   statusPlan,
   statusChanging,
@@ -92,6 +94,8 @@ const {
   removePayment,
   issueInvoiceFor,
   issueAdvanceInvoice,
+  issueServicesInvoice,
+  unbilledServices,
   handleAddItemDirect,
   handleDeleteItem,
   handleAddServiceDirect,
@@ -182,7 +186,7 @@ const { ready: rightsReady, canSeeCost, canSetManualCost, canCorrect } = useOrde
  * rendering first and then adding two columns is a visible jump, and the first
  * frame is a card that quietly says this user may not see cost.
  */
-const cardLoading = computed(() => loading.value || !rightsReady.value)
+const cardLoading = computed(() => (loading.value && !order.value) || !rightsReady.value)
 
 /** Product name for a shipment row, which stores only the line id. */
 function lineNameFor(lineId: string): string {
@@ -211,6 +215,20 @@ function onGrossCommit() {
   if (Math.abs(target - totals.value.totalGross) < 0.005) return
   const problem = previewTotal(target)
   if (problem) grossError.value = t(problem)
+}
+
+/**
+ * Walking away from the preview puts the field back on the order's real total.
+ *
+ * The watch above only fires when the TOTAL moves, and cancelling moves nothing
+ * — so the field went on showing the figure that was asked for and refused,
+ * next to a net and a VAT amount that were still telling the truth, with no
+ * error beside it to say which of the three to believe.
+ */
+function onCancelAllocation() {
+  cancelAllocation()
+  grossError.value = null
+  grossInput.value = totals.value.totalGross.toFixed(2)
 }
 
 const VAT_MODE_OPTIONS = computed(() => [
@@ -262,6 +280,24 @@ const LINE_CELLS = computed(() =>
   canSeeCost.value
     ? ALL_LINE_CELLS
     : ALL_LINE_CELLS.filter((c) => c.field !== 'unitCost' && c.field !== 'marginPercent'),
+)
+
+/**
+ * The order's history, minus what this user may not see.
+ *
+ * Two kinds of entry carry the unit cost as a number — a cost typed by hand and
+ * a cost correction — and the history table used to render every entry there
+ * was. Cost and margin are hidden in six other places on this card and were
+ * readable here in plain figures, which is the same right defeated by a
+ * different road (contract §5). The entry says so itself rather than being
+ * recognised by its text: the property is translated into three languages, and
+ * matching on words is not a rule.
+ *
+ * The real answer is the server not sending them, and it does not — this is the
+ * curtain on top of the rule, not instead of it.
+ */
+const visibleAuditLog = computed(() =>
+  canSeeCost.value ? auditLog.value : auditLog.value.filter((e) => e.sensitive !== 'cost'),
 )
 
 type OrderLine = OrderItem | OrderService
@@ -702,6 +738,14 @@ function isAdjustedInvoice(invoiceId: string): boolean {
   )
 }
 
+/**
+ * Whether this delivery can still be billed.
+ *
+ * The two buttons on a delivery row — issue the invoice, cancel it — are both
+ * disabled while `shipmentsLoading` is up. A row still showing the state it was
+ * in before the last action would otherwise take a click meant for the new one.
+ * (Kept here rather than in the template: pitfall #9.)
+ */
 function canInvoiceShipment(shipmentId: string): boolean {
   const shipment = shipments.value.find((s) => s.id === shipmentId)
   return !!shipment && !shipment.cancelled && !liveInvoiceFor(shipmentId)
@@ -797,30 +841,6 @@ async function confirmDeleteAudit() {
   deletingAudit.value = false
 }
 
-// ─── Auto-resize notes textarea ─────────────────────────────────
-const notesTextarea = ref<HTMLTextAreaElement | null>(null)
-const MAX_NOTES_HEIGHT = 300
-
-function autoResizeNotes() {
-  const el = notesTextarea.value
-  if (!el) return
-  el.style.height = 'auto'
-  if (el.scrollHeight > MAX_NOTES_HEIGHT) {
-    el.style.height = MAX_NOTES_HEIGHT + 'px'
-    el.style.overflowY = 'auto'
-  } else {
-    el.style.height = el.scrollHeight + 'px'
-    el.style.overflowY = 'hidden'
-  }
-}
-
-watch(
-  () => form.value.notes,
-  () => {
-    nextTick(autoResizeNotes)
-  },
-)
-
 // ─── Currency selector for total amount ─────────────────────
 const currencyList = ref<Currency[]>([])
 const currenciesLoading = ref(false)
@@ -835,23 +855,19 @@ async function loadCurrencies() {
 }
 
 const CURRENCY_OPTIONS = computed(() => currencyList.value.map((c) => c.code))
-const currencyOpen = ref(false)
 
+// Opening and closing the list belongs to `SuffixSelect`; what stays here is
+// the one thing that is this card's own — the order object follows the form,
+// so the pricing shown beside every line changes label with it.
 function selectCurrency(c: string) {
   form.value.currency = c
   if (order.value) order.value.currency = c
-  currencyOpen.value = false
 }
-
-function onDocClickCloseCurrency(e: MouseEvent) {
-  const el = (e.target as HTMLElement | null)?.closest?.('.input-with-suffix')
-  if (!el) currencyOpen.value = false
-}
-onMounted(() => document.addEventListener('click', onDocClickCloseCurrency))
-onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseCurrency))
 
 onMounted(load)
 onMounted(loadCurrencies)
+// Not `loadShipPlan` as well: `load()` reads it, and asking twice on mount was
+// half of the five requests the card used to open with.
 onMounted(loadShipments)
 </script>
 
@@ -1006,7 +1022,6 @@ onMounted(loadShipments)
           </div>
 
           <div class="entity-col-center">
-            <!-- Финансовый расчёт -->
             <GlassPanel
               :title="t('orders.section_financial')"
               :loading="loading"
@@ -1014,8 +1029,6 @@ onMounted(loadShipments)
               data-test="order-financial"
             >
               <template v-if="order">
-                <!-- Себестоимость — сумма по строкам, только на чтение. Под правом:
-                     без него в карточке остаётся только цена клиента. -->
                 <InputGroup v-if="canSeeCost" :label="t('orders.field_total_cost')">
                   <div class="input-with-suffix">
                     <input
@@ -1030,7 +1043,6 @@ onMounted(loadShipments)
                   <span class="field-hint">{{ t('orders.field_total_cost_hint') }}</span>
                 </InputGroup>
 
-                <!-- Проценты — только для новых позиций -->
                 <div class="inline-group">
                   <InputGroup :label="t('orders.field_default_margin')" class="inline-short">
                     <div class="input-with-suffix">
@@ -1074,7 +1086,6 @@ onMounted(loadShipments)
                   {{ t('orders.btn_apply_to_all_lines') }}
                 </button>
 
-                <!-- Режим НДС -->
                 <InputGroup :label="t('orders.field_vat_mode')">
                   <CustomSelect
                     v-model="vatModeStr"
@@ -1109,7 +1120,6 @@ onMounted(loadShipments)
 
                 <h4 class="subsection-title">{{ t('orders.field_calculation_breakdown') }}</h4>
 
-                <!-- Цена без НДС -->
                 <InputGroup :label="t('orders.field_net_total')">
                   <div class="input-with-suffix">
                     <input
@@ -1140,7 +1150,6 @@ onMounted(loadShipments)
 
                 <div class="section-divider" />
 
-                <!-- Итог с НДС — единственное редактируемое поле суммы -->
                 <InputGroup :label="t('orders.field_gross_total')">
                   <div class="input-with-suffix custom-select-wrap">
                     <input
@@ -1153,25 +1162,14 @@ onMounted(loadShipments)
                       @change="onGrossCommit"
                       @keyup.enter="onGrossCommit"
                     />
-                    <div
-                      class="input-suffix custom-select-trigger"
-                      data-test="field-currency-trigger"
-                      @click.stop="currencyOpen = !currencyOpen"
-                    >
-                      <span class="curr-val">{{ form.currency }}</span>
-                    </div>
-                    <div class="custom-select-list" :class="{ open: currencyOpen }">
-                      <div
-                        v-for="c in CURRENCY_OPTIONS"
-                        :key="c"
-                        class="custom-select-option"
-                        data-test="field-currency-option"
-                        :data-currency="c"
-                        @click="selectCurrency(c)"
-                      >
-                        {{ c }}
-                      </div>
-                    </div>
+                    <SuffixSelect
+                      :model-value="form.currency"
+                      :options="CURRENCY_OPTIONS"
+                      trigger-test="field-currency-trigger"
+                      option-test="field-currency-option"
+                      option-attr="currency"
+                      @update:model-value="selectCurrency"
+                    />
                   </div>
                   <span v-if="grossError" class="field-error" data-test="gross-total-error">{{
                     grossError
@@ -1179,7 +1177,6 @@ onMounted(loadShipments)
                   <span v-else class="field-hint">{{ t('orders.field_gross_total_hint') }}</span>
                 </InputGroup>
 
-                <!-- Фактические маржа и скидка — следствия, не настройки -->
                 <div class="inline-group">
                   <InputGroup
                     v-if="canSeeCost"
@@ -1193,7 +1190,7 @@ onMounted(loadShipments)
                         :value="totals.marginAmount.toFixed(2)"
                         readonly
                         data-test="field-total-margin"
-                        :style="totals.marginAmount < 0 ? 'color: var(--danger, #dc3545)' : ''"
+                        :class="{ 'value-negative': totals.marginAmount < 0 }"
                       />
                       <span class="input-suffix static-suffix">{{ form.currency }}</span>
                     </div>
@@ -1218,7 +1215,6 @@ onMounted(loadShipments)
                   </InputGroup>
                 </div>
 
-                <!-- Оплата: доля от итога, поэтому пересчитывается вместе с ним -->
                 <template v-if="isMoneyOn">
                   <div class="section-divider" />
                   <div class="inline-group">
@@ -1253,14 +1249,13 @@ onMounted(loadShipments)
                           :value="money(Math.abs(paid.outstanding))"
                           readonly
                           data-test="field-outstanding"
-                          :style="paid.outstanding < 0 ? 'color: var(--danger, #dc3545)' : ''"
+                          :class="{ 'value-negative': paid.outstanding < 0 }"
                         />
                         <span class="input-suffix static-suffix">{{ form.currency }}</span>
                       </div>
                     </InputGroup>
                   </div>
 
-                  <!-- Предупреждение, а не запрет: правку никто не блокирует -->
                   <p v-if="paymentDrift" class="payment-warning" data-test="payment-drift-warning">
                     {{
                       paymentDrift.kind === 'overpaid'
@@ -1291,7 +1286,6 @@ onMounted(loadShipments)
               </template>
             </GlassPanel>
 
-            <!-- Вес -->
             <GlassPanel
               :title="t('orders.field_total_weight')"
               :loading="loading"
@@ -1314,16 +1308,13 @@ onMounted(loadShipments)
               </template>
             </GlassPanel>
 
-            <!-- Примечания -->
             <GlassPanel :title="t('orders.field_notes')" :loading="loading" :skeleton-rows="1">
               <template v-if="order">
                 <InputGroup :label="t('orders.field_notes')">
-                  <textarea
-                    ref="notesTextarea"
+                  <AutoResizeTextarea
                     v-model="form.notes"
                     class="glass-input"
                     data-test="field-notes"
-                    @input="autoResizeNotes"
                   />
                 </InputGroup>
               </template>
@@ -1599,11 +1590,10 @@ onMounted(loadShipments)
           </div>
         </GlassPanel>
 
-        <!-- Отгрузки: единственное, что двигает склад -->
         <GlassPanel v-if="isShipmentsOn" data-test="order-shipments">
           <template #header>
             <span class="panel-title">{{ t('orders.section_shipments') }}</span>
-            <div class="doc-gen-actions" style="margin: 0">
+            <div class="doc-gen-actions in-header">
               <button
                 class="btn btn-sm btn-secondary"
                 :disabled="shipmentsLoading"
@@ -1659,9 +1649,6 @@ onMounted(loadShipments)
                       t('orders.shipment_cancelled')
                     }}</span>
                     <template v-else>
-                      <!-- Both are disabled while the panel is reloading: a row
-                           still showing the state before the last action would
-                           otherwise take a click meant for the new one. -->
                       <button
                         v-if="isMoneyOn && canInvoiceShipment(s.id)"
                         v-tooltip="t('orders.btn_issue_invoice')"
@@ -1689,7 +1676,6 @@ onMounted(loadShipments)
           </div>
         </GlassPanel>
 
-        <!-- Оплаты: записи. Процент — производное от них и от итога -->
         <GlassPanel v-if="isMoneyOn" data-test="order-payments">
           <template #header>
             <span class="panel-title">{{ t('orders.section_payments') }}</span>
@@ -1699,7 +1685,7 @@ onMounted(loadShipments)
               data-test="order-payment-state"
               >{{ paidStateLabel }}</span
             >
-            <div class="doc-gen-actions" style="margin: 0">
+            <div class="doc-gen-actions in-header">
               <button
                 class="btn btn-sm btn-primary"
                 :disabled="paymentSaving"
@@ -1750,11 +1736,19 @@ onMounted(loadShipments)
           </div>
         </GlassPanel>
 
-        <!-- Счета: обычный привязан к отгрузке, авансовый — ни к чему -->
         <GlassPanel v-if="isMoneyOn" data-test="order-invoices">
           <template #header>
             <span class="panel-title">{{ t('orders.section_invoices') }}</span>
-            <div class="doc-gen-actions" style="margin: 0">
+            <div class="doc-gen-actions in-header">
+              <button
+                v-if="unbilledServices.length > 0"
+                class="btn btn-sm btn-secondary"
+                :disabled="paymentSaving"
+                data-test="order-services-invoice-btn"
+                @click="issueServicesInvoice"
+              >
+                {{ t('orders.btn_invoice_services') }}
+              </button>
               <button
                 class="btn btn-sm btn-secondary"
                 :disabled="paymentSaving"
@@ -1824,7 +1818,7 @@ onMounted(loadShipments)
 
         <GlassPanel :title="t('orders.section_files')" data-test="order-files">
           <template v-if="order">
-            <div data-test="order-file-list" style="margin-bottom: 15px">
+            <div class="order-file-list" data-test="order-file-list">
               <FileItem
                 v-for="f in order.files"
                 :key="f.id"
@@ -1845,10 +1839,7 @@ onMounted(loadShipments)
 
         <div class="audit-panel-wide" data-test="order-audit">
           <GlassPanel :title="t('orders.section_audit')">
-            <div v-if="auditLoading" class="text-muted" style="padding: 12px 0">
-              {{ t('orders.loading') }}...
-            </div>
-            <template v-else-if="auditLog.length > 0">
+            <template v-if="visibleAuditLog.length > 0">
               <div class="table-responsive">
                 <table class="audit-log-table" data-test="order-audit-table">
                   <thead>
@@ -1858,11 +1849,11 @@ onMounted(loadShipments)
                       <th>{{ t('orders.audit_col_property') }}</th>
                       <th>{{ t('orders.audit_col_old_value') }}</th>
                       <th>{{ t('orders.audit_col_new_value') }}</th>
-                      <th style="width: 40px" />
+                      <th class="audit-actions-col" />
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-for="a in auditLog" :key="a.id" data-test="order-audit-row">
+                    <tr v-for="a in visibleAuditLog" :key="a.id" data-test="order-audit-row">
                       <td class="audit-log-ts">{{ auditTimestamp(a.timestamp) }}</td>
                       <td>
                         <div class="audit-log-user">
@@ -1877,7 +1868,7 @@ onMounted(loadShipments)
                       <td>
                         <span class="audit-diff-new">{{ a.newValue }}</span>
                       </td>
-                      <td style="text-align: right">
+                      <td class="audit-actions-cell">
                         <button
                           v-tooltip="t('btn.delete')"
                           type="button"
@@ -1885,19 +1876,7 @@ onMounted(loadShipments)
                           data-test="order-audit-delete-btn"
                           @click="askDeleteAudit(a.id)"
                         >
-                          <svg
-                            width="14"
-                            height="14"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                          >
-                            <line x1="18" y1="6" x2="6" y2="18" />
-                            <line x1="6" y1="6" x2="18" y2="18" />
-                          </svg>
+                          <SvgIcon name="x-close" :width="14" :height="14" />
                         </button>
                       </td>
                     </tr>
@@ -1914,13 +1893,12 @@ onMounted(loadShipments)
       </div>
     </div>
 
-    <!-- Превью раскладки итога: что станет с каждой строкой -->
     <AppModal
       :model-value="allocationPreview !== null"
       :title="t('orders.allocate_title')"
       size="medium"
       data-test="allocate-modal"
-      @update:model-value="cancelAllocation"
+      @update:model-value="onCancelAllocation"
     >
       <template v-if="allocationPreview">
         <p
@@ -1963,7 +1941,7 @@ onMounted(loadShipments)
           class="btn btn-secondary"
           :disabled="allocating"
           data-test="allocate-cancel"
-          @click="cancelAllocation"
+          @click="onCancelAllocation"
         >
           {{ t('btn.cancel') }}
         </button>
@@ -1979,7 +1957,6 @@ onMounted(loadShipments)
       </template>
     </AppModal>
 
-    <!-- Применение процентов ко всем позициям: сначала что получится -->
     <AppModal
       :model-value="defaultsPreview !== null"
       :title="t('orders.apply_defaults_title')"
@@ -2030,7 +2007,6 @@ onMounted(loadShipments)
       </template>
     </AppModal>
 
-    <!-- Смена статуса, которая двигает склад: сказать, что произойдёт -->
     <AppModal
       :model-value="statusPlan !== null"
       :title="t('orders.status_plan_title')"
@@ -2108,7 +2084,6 @@ onMounted(loadShipments)
       </template>
     </AppModal>
 
-    <!-- Создание отгрузки: что и сколько уезжает -->
     <AppModal
       v-model="showShipModal"
       :title="t('orders.ship_modal_title')"
@@ -2182,7 +2157,6 @@ onMounted(loadShipments)
       </template>
     </AppModal>
 
-    <!-- Отмена отгрузки: товар возвращается обратным движением -->
     <AppModal
       :model-value="cancelShipmentTarget !== null"
       :title="t('orders.btn_cancel_shipment')"
@@ -2212,7 +2186,6 @@ onMounted(loadShipments)
       </template>
     </AppModal>
 
-    <!-- Корректировка: документ у клиента отзывается, не переписывается -->
     <AppModal
       :model-value="correctionTarget !== null"
       :title="t('orders.correction_title')"
@@ -2261,7 +2234,6 @@ onMounted(loadShipments)
       </template>
     </AppModal>
 
-    <!-- Платёж: запись о деньгах, которые пришли -->
     <AppModal
       v-model="showPaymentModal"
       :title="t('orders.add_payment_title')"
@@ -2301,7 +2273,7 @@ onMounted(loadShipments)
         }}</span>
       </InputGroup>
       <InputGroup :label="t('orders.payment_date_label')">
-        <input v-model="paymentDate" class="glass-input" type="date" data-test="payment-date" />
+        <DatePicker v-model="paymentDate" data-test="payment-date" />
       </InputGroup>
       <InputGroup v-if="invoices.length > 0" :label="t('orders.payment_invoice_label')">
         <CustomSelect
@@ -2341,7 +2313,6 @@ onMounted(loadShipments)
       </template>
     </AppModal>
 
-    <!-- Авансовый счёт: ни к какой отгрузке не привязан, сумму задают руками -->
     <AppModal
       v-model="showAdvanceModal"
       :title="t('orders.advance_invoice_title')"
@@ -2384,7 +2355,6 @@ onMounted(loadShipments)
       </template>
     </AppModal>
 
-    <!-- «Не менять итог»: что станет с остальными строками -->
     <AppModal
       :model-value="keepTotalPreview !== null"
       :title="t('orders.keep_total_title')"
@@ -2435,7 +2405,6 @@ onMounted(loadShipments)
       </template>
     </AppModal>
 
-    <!-- Ручная себестоимость: причина обязательна -->
     <AppModal
       :model-value="costEdit !== null"
       :title="t('orders.cost_reason_title')"
@@ -2485,7 +2454,6 @@ onMounted(loadShipments)
       </template>
     </AppModal>
 
-    <!-- Корректировка отгруженной строки: право, причина, корректирующий счёт -->
     <AppModal
       :model-value="correctTarget !== null"
       :title="t('orders.correct_title')"
@@ -2532,9 +2500,7 @@ onMounted(loadShipments)
         </InputGroup>
         <div v-if="correctionPreview.changed" class="correct-effect" data-test="correct-effect">
           <p v-if="correctionPreview.priceChanged && correctionPreview.invoice">
-            {{
-              t('orders.correct_effect_invoice', { invoice: correctionPreview.invoice.number })
-            }}
+            {{ t('orders.correct_effect_invoice', { invoice: correctionPreview.invoice.number }) }}
           </p>
           <p v-else-if="correctionPreview.priceChanged">
             {{ t('orders.correct_effect_no_invoice') }}
@@ -2570,9 +2536,7 @@ onMounted(loadShipments)
         <button
           type="button"
           class="btn btn-primary"
-          :disabled="
-            correcting || correctReason.trim().length === 0 || !correctionPreview?.changed
-          "
+          :disabled="correcting || correctReason.trim().length === 0 || !correctionPreview?.changed"
           data-test="correct-confirm"
           @click="confirmLineCorrection"
         >
@@ -2581,7 +2545,6 @@ onMounted(loadShipments)
       </template>
     </AppModal>
 
-    <!-- Разделение частично отгруженной строки -->
     <AppModal
       :model-value="splitTarget !== null"
       :title="t('orders.split_title')"
@@ -2623,7 +2586,6 @@ onMounted(loadShipments)
       </template>
     </AppModal>
 
-    <!-- Смена режима НДС: что сохранить — цену без НДС или итог -->
     <AppModal
       :model-value="pendingVatMode !== null"
       :title="t('orders.vat_mode_change_title')"
@@ -2718,7 +2680,6 @@ onMounted(loadShipments)
 
     <AddOrderItemsModal
       :show="showAddItemsModal"
-      :order-id="id"
       :modes="addModes"
       :effective-discount="orderTermsDiscount"
       :default-margin-percent="form.defaultMarginPercent"
@@ -2729,7 +2690,6 @@ onMounted(loadShipments)
 
     <AddOrderServicesModal
       :show="showAddServicesModal"
-      :order-id="id"
       :modes="addModes"
       :effective-discount="orderTermsDiscount"
       :default-discount-percent="form.defaultDiscountPercent"
@@ -2769,22 +2729,11 @@ onMounted(loadShipments)
   font-size: 15px !important;
 }
 
-/* Static suffix (not a dropdown trigger) */
-.static-suffix {
-  cursor: default !important;
-  opacity: 0.7;
-}
-
-/* Inline group for percent fields */
-:deep(.inline-group) {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-:deep(.inline-short) {
-  flex: 1 1 140px;
-  min-width: 120px;
-}
+/* `.inline-group` / `.inline-short` used to live here behind `:deep()`. This
+   block is NOT scoped, and a non-scoped block never expands `:deep()` — the
+   selector went to the browser verbatim and was thrown away as invalid. They
+   are form layout helpers used by more than one page, so they now sit in
+   `components/_forms.css`, which `admin-core.scss` loads globally. */
 
 /* A bare button between the fields keeps their rhythm: .input-group carries a
    20px bottom margin, this one does not, so the VAT field sat right under it. */

@@ -104,8 +104,7 @@
 
 /* ─── Table row transitions ────────────────────────────────── */
 .order-item-row td,
-.order-service-row td,
-.order-doc-row td {
+.order-service-row td {
   transition:
     background 0.15s,
     color 0.15s;
@@ -205,6 +204,14 @@
   opacity: 1;
 }
 
+/* ─── Data table wrapper ─────────────────────────────────────
+   Both order pages rely on this and neither imported a file that defines it —
+   the rule lived only in other pages' CSS (pitfall #63). */
+.data-table-wrapper {
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
 /* ─── Empty state inline ────────────────────────────────────── */
 .empty-state-inline {
   display: flex;
@@ -274,4 +281,96 @@
   color: #ffc107;
   font-size: 0.85rem;
   line-height: 1.4;
+}
+
+/* ─── Classes the card's template asked for and nobody declared ──────────────
+   Six of them, found by walking every class in the template against the files
+   the page actually imports plus `admin-core.scss`. `.allocate-warning` was the
+   expensive one: "the total you asked for is not reachable" and "there is not
+   enough stock" rendered in the panel's ordinary colour, so a warning read like
+   an explanation. */
+.page-order-card .allocate-warning,
+.modal-overlay .allocate-warning {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 77, 79, 0.35);
+  border-radius: 8px;
+  background: rgba(255, 77, 79, 0.1);
+  color: #ff7875;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+/* A cell the freeze closed. Same box as `.cell-input` so the column does not
+   shift when one row becomes read-only and its neighbours do not. */
+.cell-static {
+  display: inline-block;
+  min-width: 74px;
+  padding: 2px 4px;
+  text-align: right;
+  font-size: 0.82rem;
+}
+
+/* One shipped line per row — as a bare inline span they ran together into a
+   single sentence with no separator. */
+.shipment-line {
+  display: block;
+  white-space: nowrap;
+}
+
+.correct-line-name {
+  margin: 0 0 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.correct-effect {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.correct-effect p {
+  margin: 0 0 6px;
+}
+
+.correct-effect-note {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.78rem;
+}
+
+/* ─── Rules that used to be inline `style` attributes ────────────────────── */
+/* `.doc-gen-actions` carries a 16px top margin for a standalone row; inside a
+   panel header it must not. */
+.doc-gen-actions.in-header {
+  margin-top: 0;
+}
+
+.order-file-list {
+  margin-bottom: 15px;
+}
+
+.audit-loading {
+  padding: 12px 0;
+}
+
+.audit-actions-col {
+  width: 40px;
+}
+
+.audit-log-table td.audit-actions-cell {
+  text-align: right;
+}
+
+/* A figure that has gone the wrong way — the same red the line table uses.
+   Spelled out against `.glass-input` on purpose: both are single-class
+   selectors, so which one wins would otherwise depend on the order the two
+   stylesheets happen to be injected in. */
+.page-order-card .glass-input.value-negative {
+  color: #ff4d4f;
 }

@@ -26,6 +26,7 @@ import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
 import MultiSelect from '@/components/admin/ui/MultiSelect.vue'
 import DatePicker from '@/components/admin/ui/DatePicker.vue'
 import AppModal from '@/components/admin/ui/AppModal.vue'
+import Pagination from '@/components/admin/ui/Pagination.vue'
 // DEPRECATED: import CreateBatchModal from './CreateBatchModal.vue' (batch creation moved to WarehouseBatchCreatePage)
 // DEPRECATED: import CreateMovementModal from './CreateMovementModal.vue' (movement creation removed from UI)
 import '@styles/admin/components/_pagination.css'
@@ -375,20 +376,13 @@ const skipStockTransition = ref(false)
  * expression parser then rejects the template — `npm run format` alone used to
  * break this page.
  */
-function goToStockPage(page: number) {
-  skipStockTransition.value = true
-  stockPagination.goTo(page)
-}
-
-function prevStockPage() {
-  skipStockTransition.value = true
-  stockPagination.prev()
-}
-
-function nextStockPage() {
-  skipStockTransition.value = true
-  stockPagination.next()
-}
+const stockPageModel = computed({
+  get: () => stockPagination.page.value,
+  set: (page: number) => {
+    skipStockTransition.value = true
+    stockPagination.goTo(page)
+  },
+})
 
 async function startFilterTransition() {
   if (skipStockTransition.value) {
@@ -1758,65 +1752,23 @@ const deficitFiltersActive = computed(() => {
         <!-- /.stock-table-area -->
 
         <!-- Stock pagination -->
-        <div
-          v-if="stockItems.length > 0"
-          class="pagination-bar"
-          data-test="warehouse-stock-pagination"
-        >
-          <div class="page-size" data-test="warehouse-stock-page-size">
-            <span>{{ t('warehouse.page_size') }}</span>
-            <CustomSelect
-              v-model="stockPageSizeStr"
-              :options="PAGE_SIZE_OPTIONS"
-              :open-up="true"
-              class="custom-select-sm"
-            />
-          </div>
-          <div class="pagination-nav">
-            <button
-              class="btn btn-icon btn-sm"
-              :disabled="!stockPagination.hasPrev.value"
-              :style="{ display: stockPagination.totalPages.value <= 1 ? 'none' : 'flex' }"
-              data-test="warehouse-stock-prev-page"
-              @click="prevStockPage()"
-            >
-              <SvgIcon
-                name="chevron-right"
-                :width="14"
-                :height="14"
-                style="transform: rotate(180deg)"
-              />
-            </button>
-            <div class="pagination-pages">
-              <template v-for="(p, i) in stockPagination.pageNumbers()" :key="i">
-                <span v-if="p === '...'" class="pagination-ellipsis">...</span>
-                <button
-                  v-else
-                  class="page-btn"
-                  :class="{ active: p === stockPagination.page.value }"
-                  :data-test="`warehouse-stock-page-${p}`"
-                  @click="goToStockPage(p as number)"
-                >
-                  {{ p }}
-                </button>
-              </template>
-            </div>
-            <button
-              class="btn btn-icon btn-sm"
-              :disabled="!stockPagination.hasNext.value"
-              :style="{ display: stockPagination.totalPages.value <= 1 ? 'none' : 'flex' }"
-              data-test="warehouse-stock-next-page"
-              @click="nextStockPage()"
-            >
-              <SvgIcon name="chevron-right" :width="14" :height="14" />
-            </button>
-          </div>
-          <div class="pagination-info">
-            <span>{{ stockPagination.showingFrom }}-{{ stockPagination.showingTo }}</span>
-            <span>&nbsp;{{ t('warehouse.of') }}&nbsp;</span>
-            <span>{{ stockPagination.total.value }}</span>
-          </div>
-        </div>
+        <Pagination
+          v-model:page="stockPageModel"
+          v-model:size="stockPageSizeStr"
+          :total-pages="stockPagination.totalPages.value"
+          :pages="stockPagination.pageNumbers()"
+          :page-size-options="PAGE_SIZE_OPTIONS"
+          :size-label="t('warehouse.page_size')"
+          :showing-from="stockPagination.showingFrom.value"
+          :showing-to="stockPagination.showingTo.value"
+          :total="stockPagination.total.value"
+          :of-label="t('warehouse.of')"
+          test-id="warehouse-stock-pagination"
+          size-test-id="warehouse-stock-page-size"
+          prev-test-id="warehouse-stock-prev-page"
+          next-test-id="warehouse-stock-next-page"
+          page-test-prefix="warehouse-stock-page-"
+        />
       </GlassPanel>
     </div>
 
@@ -2286,65 +2238,23 @@ const deficitFiltersActive = computed(() => {
         </div>
 
         <!-- Pagination -->
-        <div
-          v-if="batchesPagination.total.value > 0"
-          class="pagination-bar"
-          data-test="warehouse-batches-pagination"
-        >
-          <div class="page-size" data-test="warehouse-batches-page-size">
-            <span>{{ t('warehouse.page_size') }}</span>
-            <CustomSelect
-              v-model="batchesPageSizeStr"
-              :options="PAGE_SIZE_OPTIONS"
-              :open-up="true"
-              class="custom-select-sm"
-            />
-          </div>
-          <div class="pagination-nav">
-            <button
-              class="btn btn-icon btn-sm"
-              :disabled="!batchesPagination.hasPrev.value"
-              :style="{ display: batchesPagination.totalPages.value <= 1 ? 'none' : 'flex' }"
-              data-test="warehouse-batches-prev-page"
-              @click="batchesPagination.prev()"
-            >
-              <SvgIcon
-                name="chevron-right"
-                :width="14"
-                :height="14"
-                style="transform: rotate(180deg)"
-              />
-            </button>
-            <div class="pagination-pages">
-              <template v-for="(p, i) in batchesPagination.pageNumbers()" :key="i">
-                <span v-if="p === '...'" class="pagination-ellipsis">...</span>
-                <button
-                  v-else
-                  class="page-btn"
-                  :class="{ active: p === batchesPagination.page.value }"
-                  :data-test="`warehouse-batches-page-${p}`"
-                  @click="batchesPagination.goTo(p as number)"
-                >
-                  {{ p }}
-                </button>
-              </template>
-            </div>
-            <button
-              class="btn btn-icon btn-sm"
-              :disabled="!batchesPagination.hasNext.value"
-              :style="{ display: batchesPagination.totalPages.value <= 1 ? 'none' : 'flex' }"
-              data-test="warehouse-batches-next-page"
-              @click="batchesPagination.next()"
-            >
-              <SvgIcon name="chevron-right" :width="14" :height="14" />
-            </button>
-          </div>
-          <div class="pagination-info">
-            <span>{{ batchesPagination.showingFrom }}-{{ batchesPagination.showingTo }}</span>
-            <span>&nbsp;{{ t('warehouse.of') }}&nbsp;</span>
-            <span>{{ batchesPagination.total.value }}</span>
-          </div>
-        </div>
+        <Pagination
+          v-model:page="batchesPagination.page.value"
+          v-model:size="batchesPageSizeStr"
+          :total-pages="batchesPagination.totalPages.value"
+          :pages="batchesPagination.pageNumbers()"
+          :page-size-options="PAGE_SIZE_OPTIONS"
+          :size-label="t('warehouse.page_size')"
+          :showing-from="batchesPagination.showingFrom.value"
+          :showing-to="batchesPagination.showingTo.value"
+          :total="batchesPagination.total.value"
+          :of-label="t('warehouse.of')"
+          test-id="warehouse-batches-pagination"
+          size-test-id="warehouse-batches-page-size"
+          prev-test-id="warehouse-batches-prev-page"
+          next-test-id="warehouse-batches-next-page"
+          page-test-prefix="warehouse-batches-page-"
+        />
       </GlassPanel>
     </div>
 
@@ -2873,65 +2783,23 @@ const deficitFiltersActive = computed(() => {
         </div>
 
         <!-- Pagination -->
-        <div
-          v-if="offcutsPagination.total.value > 0"
-          class="pagination-bar"
-          data-test="warehouse-offcuts-pagination"
-        >
-          <div class="page-size" data-test="warehouse-offcuts-page-size">
-            <span>{{ t('warehouse.page_size') }}</span>
-            <CustomSelect
-              v-model="offcutsPageSizeStr"
-              :options="PAGE_SIZE_OPTIONS"
-              :open-up="true"
-              class="custom-select-sm"
-            />
-          </div>
-          <div class="pagination-nav">
-            <button
-              class="btn btn-icon btn-sm"
-              :disabled="!offcutsPagination.hasPrev.value"
-              :style="{ display: offcutsPagination.totalPages.value <= 1 ? 'none' : 'flex' }"
-              data-test="warehouse-offcuts-prev-page"
-              @click="offcutsPagination.prev()"
-            >
-              <SvgIcon
-                name="chevron-right"
-                :width="14"
-                :height="14"
-                style="transform: rotate(180deg)"
-              />
-            </button>
-            <div class="pagination-pages">
-              <template v-for="(p, i) in offcutsPagination.pageNumbers()" :key="i">
-                <span v-if="p === '...'" class="pagination-ellipsis">...</span>
-                <button
-                  v-else
-                  class="page-btn"
-                  :class="{ active: p === offcutsPagination.page.value }"
-                  :data-test="`warehouse-offcuts-page-${p}`"
-                  @click="offcutsPagination.goTo(p as number)"
-                >
-                  {{ p }}
-                </button>
-              </template>
-            </div>
-            <button
-              class="btn btn-icon btn-sm"
-              :disabled="!offcutsPagination.hasNext.value"
-              :style="{ display: offcutsPagination.totalPages.value <= 1 ? 'none' : 'flex' }"
-              data-test="warehouse-offcuts-next-page"
-              @click="offcutsPagination.next()"
-            >
-              <SvgIcon name="chevron-right" :width="14" :height="14" />
-            </button>
-          </div>
-          <div class="pagination-info">
-            <span>{{ offcutsPagination.showingFrom }}-{{ offcutsPagination.showingTo }}</span>
-            <span>&nbsp;{{ t('warehouse.of') }}&nbsp;</span>
-            <span>{{ offcutsPagination.total.value }}</span>
-          </div>
-        </div>
+        <Pagination
+          v-model:page="offcutsPagination.page.value"
+          v-model:size="offcutsPageSizeStr"
+          :total-pages="offcutsPagination.totalPages.value"
+          :pages="offcutsPagination.pageNumbers()"
+          :page-size-options="PAGE_SIZE_OPTIONS"
+          :size-label="t('warehouse.page_size')"
+          :showing-from="offcutsPagination.showingFrom.value"
+          :showing-to="offcutsPagination.showingTo.value"
+          :total="offcutsPagination.total.value"
+          :of-label="t('warehouse.of')"
+          test-id="warehouse-offcuts-pagination"
+          size-test-id="warehouse-offcuts-page-size"
+          prev-test-id="warehouse-offcuts-prev-page"
+          next-test-id="warehouse-offcuts-next-page"
+          page-test-prefix="warehouse-offcuts-page-"
+        />
       </GlassPanel>
     </div>
 
@@ -3419,65 +3287,23 @@ const deficitFiltersActive = computed(() => {
         </div>
 
         <!-- Pagination -->
-        <div
-          v-if="movementsPagination.total.value > 0"
-          class="pagination-bar"
-          data-test="warehouse-movements-pagination"
-        >
-          <div class="page-size" data-test="warehouse-movements-page-size">
-            <span>{{ t('warehouse.page_size') }}</span>
-            <CustomSelect
-              v-model="movementsPageSizeStr"
-              :options="PAGE_SIZE_OPTIONS"
-              :open-up="true"
-              class="custom-select-sm"
-            />
-          </div>
-          <div class="pagination-nav">
-            <button
-              class="btn btn-icon btn-sm"
-              :disabled="!movementsPagination.hasPrev.value"
-              :style="{ display: movementsPagination.totalPages.value <= 1 ? 'none' : 'flex' }"
-              data-test="warehouse-movements-prev-page"
-              @click="movementsPagination.prev()"
-            >
-              <SvgIcon
-                name="chevron-right"
-                :width="14"
-                :height="14"
-                style="transform: rotate(180deg)"
-              />
-            </button>
-            <div class="pagination-pages">
-              <template v-for="(p, i) in movementsPagination.pageNumbers()" :key="i">
-                <span v-if="p === '...'" class="pagination-ellipsis">...</span>
-                <button
-                  v-else
-                  class="page-btn"
-                  :class="{ active: p === movementsPagination.page.value }"
-                  :data-test="`warehouse-movements-page-${p}`"
-                  @click="movementsPagination.goTo(p as number)"
-                >
-                  {{ p }}
-                </button>
-              </template>
-            </div>
-            <button
-              class="btn btn-icon btn-sm"
-              :disabled="!movementsPagination.hasNext.value"
-              :style="{ display: movementsPagination.totalPages.value <= 1 ? 'none' : 'flex' }"
-              data-test="warehouse-movements-next-page"
-              @click="movementsPagination.next()"
-            >
-              <SvgIcon name="chevron-right" :width="14" :height="14" />
-            </button>
-          </div>
-          <div class="pagination-info">
-            <span>{{ movementsPagination.showingFrom }}-{{ movementsPagination.showingTo }}</span>
-            <span>&nbsp;{{ t('warehouse.of') }}&nbsp;</span>
-            <span>{{ movementsPagination.total.value }}</span>
-          </div>
-        </div>
+        <Pagination
+          v-model:page="movementsPagination.page.value"
+          v-model:size="movementsPageSizeStr"
+          :total-pages="movementsPagination.totalPages.value"
+          :pages="movementsPagination.pageNumbers()"
+          :page-size-options="PAGE_SIZE_OPTIONS"
+          :size-label="t('warehouse.page_size')"
+          :showing-from="movementsPagination.showingFrom.value"
+          :showing-to="movementsPagination.showingTo.value"
+          :total="movementsPagination.total.value"
+          :of-label="t('warehouse.of')"
+          test-id="warehouse-movements-pagination"
+          size-test-id="warehouse-movements-page-size"
+          prev-test-id="warehouse-movements-prev-page"
+          next-test-id="warehouse-movements-next-page"
+          page-test-prefix="warehouse-movements-page-"
+        />
       </GlassPanel>
     </div>
 
@@ -3909,65 +3735,23 @@ const deficitFiltersActive = computed(() => {
         </div>
 
         <!-- Pagination -->
-        <div
-          v-if="deficitPagination.total.value > 0"
-          class="pagination-bar"
-          data-test="warehouse-deficit-pagination"
-        >
-          <div class="page-size" data-test="warehouse-deficit-page-size">
-            <span>{{ t('warehouse.page_size') }}</span>
-            <CustomSelect
-              v-model="deficitPageSizeStr"
-              :options="PAGE_SIZE_OPTIONS"
-              :open-up="true"
-              class="custom-select-sm"
-            />
-          </div>
-          <div class="pagination-nav">
-            <button
-              class="btn btn-icon btn-sm"
-              :disabled="!deficitPagination.hasPrev.value"
-              :style="{ display: deficitPagination.totalPages.value <= 1 ? 'none' : 'flex' }"
-              data-test="warehouse-deficit-prev-page"
-              @click="deficitPagination.prev()"
-            >
-              <SvgIcon
-                name="chevron-right"
-                :width="14"
-                :height="14"
-                style="transform: rotate(180deg)"
-              />
-            </button>
-            <div class="pagination-pages">
-              <template v-for="(p, i) in deficitPagination.pageNumbers()" :key="i">
-                <span v-if="p === '...'" class="pagination-ellipsis">...</span>
-                <button
-                  v-else
-                  class="page-btn"
-                  :class="{ active: p === deficitPagination.page.value }"
-                  :data-test="`warehouse-deficit-page-${p}`"
-                  @click="deficitPagination.goTo(p as number)"
-                >
-                  {{ p }}
-                </button>
-              </template>
-            </div>
-            <button
-              class="btn btn-icon btn-sm"
-              :disabled="!deficitPagination.hasNext.value"
-              :style="{ display: deficitPagination.totalPages.value <= 1 ? 'none' : 'flex' }"
-              data-test="warehouse-deficit-next-page"
-              @click="deficitPagination.next()"
-            >
-              <SvgIcon name="chevron-right" :width="14" :height="14" />
-            </button>
-          </div>
-          <div class="pagination-info">
-            <span>{{ deficitPagination.showingFrom }}-{{ deficitPagination.showingTo }}</span>
-            <span>&nbsp;{{ t('warehouse.of') }}&nbsp;</span>
-            <span>{{ deficitPagination.total.value }}</span>
-          </div>
-        </div>
+        <Pagination
+          v-model:page="deficitPagination.page.value"
+          v-model:size="deficitPageSizeStr"
+          :total-pages="deficitPagination.totalPages.value"
+          :pages="deficitPagination.pageNumbers()"
+          :page-size-options="PAGE_SIZE_OPTIONS"
+          :size-label="t('warehouse.page_size')"
+          :showing-from="deficitPagination.showingFrom.value"
+          :showing-to="deficitPagination.showingTo.value"
+          :total="deficitPagination.total.value"
+          :of-label="t('warehouse.of')"
+          test-id="warehouse-deficit-pagination"
+          size-test-id="warehouse-deficit-page-size"
+          prev-test-id="warehouse-deficit-prev-page"
+          next-test-id="warehouse-deficit-next-page"
+          page-test-prefix="warehouse-deficit-page-"
+        />
       </GlassPanel>
     </div>
 

@@ -1,6 +1,6 @@
 <!-- DEPRECATED: Movement creation removed from UI. Keep file for backward compatibility / potential future use. -->
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { createMovement } from '@/services/warehouseService'
 import { useToast } from '@/composables/useToast'
@@ -17,6 +17,7 @@ import AppModal from '@/components/admin/ui/AppModal.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
 import DatePicker from '@/components/admin/ui/DatePicker.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
+import AutoResizeTextarea from '@/components/admin/ui/AutoResizeTextarea.vue'
 
 const { t } = useI18n()
 const toast = useToast()
@@ -524,28 +525,6 @@ function onCancel() {
   emit('close')
 }
 
-// ─── Notes auto-resize ──────────────────────────────────────────────────────────
-
-const notesTextarea = ref<HTMLTextAreaElement | null>(null)
-const MAX_NOTES_HEIGHT = 300
-
-function autoResizeNotes() {
-  const el = notesTextarea.value
-  if (!el) return
-  el.style.height = 'auto'
-  if (el.scrollHeight > MAX_NOTES_HEIGHT) {
-    el.style.height = MAX_NOTES_HEIGHT + 'px'
-    el.style.overflowY = 'auto'
-  } else {
-    el.style.height = el.scrollHeight + 'px'
-    el.style.overflowY = 'hidden'
-  }
-}
-
-watch(notes, () => {
-  nextTick(autoResizeNotes)
-})
-
 // ─── Format helpers ──────────────────────────────────────────────────────────
 
 function formatDate(iso: string): string {
@@ -827,13 +806,11 @@ function formatDate(iso: string): string {
         <!-- Notes -->
         <div class="form-group">
           <label class="field-label">{{ t('warehouse.field_notes') }}</label>
-          <textarea
-            ref="notesTextarea"
+          <AutoResizeTextarea
             v-model="notes"
-            class="glass-input glass-textarea batch-notes-input"
+            class="glass-input batch-notes-input"
             rows="3"
             data-test="create-movement-notes-input"
-            @input="autoResizeNotes"
           />
         </div>
       </div>

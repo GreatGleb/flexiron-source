@@ -11,6 +11,7 @@ import Breadcrumb from '@/components/admin/Breadcrumb.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
 import SearchInput from '@/components/admin/ui/SearchInput.vue'
+import Pagination from '@/components/admin/ui/Pagination.vue'
 
 import '@styles/admin/components/_pagination.css'
 import '@styles/admin/orders_list.css'
@@ -252,58 +253,20 @@ onMounted(() => {
           <tfoot v-if="pagination.total.value > 0">
             <tr>
               <td colspan="4">
-                <div class="pagination-bar" data-test="notifications-pagination">
-                  <div class="page-size" data-test="notifications-page-size">
-                    <span>{{ t('orders.page_size') }}</span>
-                    <CustomSelect
-                      v-model="pageSizeStr"
-                      :options="PAGE_SIZE_OPTIONS"
-                      :open-up="true"
-                      class="custom-select-sm"
-                    />
-                  </div>
-                  <div class="pagination-nav">
-                    <button
-                      class="btn btn-icon btn-sm"
-                      :disabled="!pagination.hasPrev.value"
-                      :style="{ display: pagination.totalPages.value <= 1 ? 'none' : 'flex' }"
-                      @click="pagination.prev()"
-                    >
-                      <SvgIcon
-                        name="chevron-right"
-                        :width="14"
-                        :height="14"
-                        style="transform: rotate(180deg)"
-                      />
-                    </button>
-                    <div class="pagination-pages">
-                      <template v-for="(p, i) in pagination.pageNumbers()" :key="i">
-                        <span v-if="p === '...'" class="pagination-ellipsis">...</span>
-                        <button
-                          v-else
-                          class="page-btn"
-                          :class="{ active: p === pagination.page.value }"
-                          @click="pagination.goTo(p as number)"
-                        >
-                          {{ p }}
-                        </button>
-                      </template>
-                    </div>
-                    <button
-                      class="btn btn-icon btn-sm"
-                      :disabled="!pagination.hasNext.value"
-                      :style="{ display: pagination.totalPages.value <= 1 ? 'none' : 'flex' }"
-                      @click="pagination.next()"
-                    >
-                      <SvgIcon name="chevron-right" :width="14" :height="14" />
-                    </button>
-                  </div>
-                  <div class="pagination-info">
-                    <span>{{ pagination.showingFrom.value }}-{{ pagination.showingTo.value }}</span>
-                    <span>&nbsp;{{ t('orders.of') }}&nbsp;</span>
-                    <span>{{ pagination.total.value }}</span>
-                  </div>
-                </div>
+                <Pagination
+                  v-model:page="pagination.page.value"
+                  v-model:size="pageSizeStr"
+                  :total-pages="pagination.totalPages.value"
+                  :pages="pagination.pageNumbers()"
+                  :page-size-options="PAGE_SIZE_OPTIONS"
+                  :size-label="t('orders.page_size')"
+                  :showing-from="pagination.showingFrom.value"
+                  :showing-to="pagination.showingTo.value"
+                  :total="pagination.total.value"
+                  :of-label="t('orders.of')"
+                  test-id="notifications-pagination"
+                  size-test-id="notifications-page-size"
+                />
               </td>
             </tr>
           </tfoot>

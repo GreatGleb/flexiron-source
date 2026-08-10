@@ -1,23 +1,30 @@
 <script setup lang="ts">
-import { computed, ref, watch, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, ref, onMounted } from 'vue'
+import { useRouter, onBeforeRouteLeave } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useHead } from '@/composables/useHead'
 import { useOrderCreate } from '@/composables/useOrderCreate'
+import { useOrderPermissions } from '@/composables/useOrderPermissions'
 import { formatCents as money } from '@/domain/orderPricing'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
 import Breadcrumb from '@/components/admin/Breadcrumb.vue'
 import InputGroup from '@/components/admin/ui/InputGroup.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
+import AutoResizeTextarea from '@/components/admin/ui/AutoResizeTextarea.vue'
+import AppModal from '@/components/admin/ui/AppModal.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
 import SearchInput from '@/components/admin/ui/SearchInput.vue'
 import FileItem from '@/components/admin/FileItem.vue'
 import DropZone from '@/components/admin/ui/DropZone.vue'
+import Pagination from '@/components/admin/ui/Pagination.vue'
 import AddOrderItemsModal from './AddOrderItemsModal.vue'
 import AddOrderServicesModal from './AddOrderServicesModal.vue'
+import type { Client } from '@/types/client'
 
 import '@styles/admin/components/_entity-card-layout.css'
 import '@styles/admin/components/_checkbox-list.css'
+import '@styles/admin/components/_radio.css'
+import '@styles/admin/components/_input-suffix.css'
 import '@styles/admin/components/_pagination.css'
 import '@styles/admin/orders_card.css'
 import '@styles/admin/orders_create.css'
@@ -34,11 +41,17 @@ const {
   form,
   errors,
   saving,
-  clearError,
+  settings,
   clients,
   loadingClients,
+  clientsError,
+  clientSearch,
+  clientPagination,
+  selectedClient,
+  selectClient,
   loadClients,
   localOrder,
+  hasPendingChanges,
   addItem,
   removeItem,
   addService,
@@ -48,33 +61,25 @@ const {
   handleSave,
 } = useOrderCreate()
 
+// Cost and margin are a right, not a layout decision — the card hides both
+// behind it in seven places, and an order being created is no less an order.
+// `ready` matters because the rights arrive a moment after the page: rendering
+// once without the columns and again with them is a visible flicker.
+const { ready: rightsReady, canSeeCost } = useOrderPermissions()
+const showCost = computed(() => rightsReady.value && canSeeCost.value)
+
 // ─── Document type options ─────────────────────────────────────
 const DOCUMENT_TYPE_OPTIONS = [
   { value: 'local', label: t('orders.create_option_local') },
   { value: 'export', label: t('orders.create_option_export') },
 ]
 
-// ─── Client selector (radio list with search & pagination) ─────
-const clientSearch = ref('')
-const clientPage = ref(1)
-const clientPageSize = ref(5)
-
-const filteredClients = computed(() => {
-  const q = clientSearch.value.trim().toLowerCase()
-  if (!q) return clients.value
-  return clients.value.filter(
-    (c) => c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q),
-  )
-})
-
-const clientTotalPages = computed(() =>
-  Math.max(1, Math.ceil(filteredClients.value.length / clientPageSize.value)),
-)
-
-const pagedClients = computed(() => {
-  const start = (clientPage.value - 1) * clientPageSize.value
-  return filteredClients.value.slice(start, start + clientPageSize.value)
-})
+// ─── Client selector (radio list, searched and paged by the server) ─────
+const {
+  page: clientPage,
+  pageSize: clientPageSize,
+  totalPages: clientTotalPages,
+} = clientPagination
 
 const PAGE_SIZE_OPTIONS_CLIENTS = [
   { value: '5', label: '5' },
@@ -90,28 +95,13 @@ const clientPageSizeStr = computed({
   },
 })
 
-function clientPageNumbers(): (number | '...')[] {
-  const n = clientTotalPages.value
-  if (n <= 7) return Array.from({ length: n }, (_, i) => i + 1)
-  const p = clientPage.value
-  if (p <= 3) return [1, 2, 3, 4, '...', n]
-  if (p >= n - 2) return [1, '...', n - 3, n - 2, n - 1, n]
-  return [1, '...', p - 1, p, p + 1, '...', n]
-}
-
-function selectClient(id: string) {
-  form.value.clientId = id
-  clearError('clientId')
-}
-
 function isClientSelected(id: string): boolean {
   return form.value.clientId === id
 }
 
-// Reset page when search changes
-watch(clientSearch, () => {
-  clientPage.value = 1
-})
+function onClientPicked(client: Client) {
+  selectClient(client)
+}
 
 // ─── Items modals ──────────────────────────────────────────────
 const showAddItemsModal = ref(false)
@@ -134,16 +124,61 @@ function onServicesAdded(payload: Parameters<typeof addService>[0]) {
 }
 
 // ─── Create action ─────────────────────────────────────────────
+/**
+ * Set for the one navigation that follows a successful create.
+ *
+ * `saving` cannot stand in for it: it is already back to false by the time the
+ * redirect runs, so the guard below would ask the admin whether to discard the
+ * order it had just saved — and a dismissed dialog cancels the redirect, leaving
+ * them on the form of an order that exists.
+ */
+const leavingAfterCreate = ref(false)
+
 async function onCreate() {
   const order = await handleSave()
   if (order) {
+    leavingAfterCreate.value = true
     router.push({ name: 'admin-order-card', params: { id: order.id } })
   }
 }
 
+/**
+ * Nothing typed is worth losing to a mis-click on a breadcrumb.
+ *
+ * This was the one `window.confirm` in the admin — a grey system box in front of
+ * a dark page. The router guard may answer with a promise, so the question can
+ * be an `AppModal` like every other question the app asks.
+ */
+const leaveConfirmOpen = ref(false)
+let answerLeave: ((leave: boolean) => void) | null = null
+
+function askLeave(): boolean | Promise<boolean> {
+  if (!hasPendingChanges.value) return true
+  leaveConfirmOpen.value = true
+  return new Promise<boolean>((resolve) => {
+    answerLeave = resolve
+  })
+}
+
+function closeLeaveConfirm(leave: boolean) {
+  leaveConfirmOpen.value = false
+  answerLeave?.(leave)
+  answerLeave = null
+}
+
+/**
+ * Only navigates. The guard below is what asks — routing through it means the
+ * question is asked once, however the reader chose to leave. Asking here as
+ * well is what the old code did, and it put the box up twice.
+ */
 function handleCancel() {
   router.push({ name: 'admin-orders' })
 }
+
+onBeforeRouteLeave(() => {
+  if (leavingAfterCreate.value) return true
+  return askLeave()
+})
 
 onMounted(loadClients)
 </script>
@@ -200,29 +235,20 @@ onMounted(loadClients)
             data-test="order-create-client-panel"
           >
             <div
-              class="checkbox-list searchable"
+              class="checkbox-list"
               :class="{ 'has-error': errors.clientId }"
               data-test="order-create-client-section"
             >
               <div class="checkbox-list-controls">
-                <span
-                  style="
-                    font-size: 13px;
-                    font-weight: 600;
-                    color: rgba(255, 255, 255, 0.7);
-                    margin-left: 0;
-                  "
-                >
+                <span class="client-field-label">
                   <span
                     >{{ t('orders.create_field_client') }}
                     <span class="required-star">*</span></span
                   >
-                  <span v-if="errors.clientId" class="field-error" style="margin-left: 6px">{{
-                    errors.clientId
-                  }}</span>
+                  <span v-if="errors.clientId" class="field-error">{{ errors.clientId }}</span>
                 </span>
                 <span
-                  v-if="form.clientId"
+                  v-if="selectedClient"
                   class="selected-count"
                   data-test="order-create-client-selected"
                 >
@@ -231,6 +257,14 @@ onMounted(loadClients)
                 </span>
               </div>
 
+              <p
+                v-if="selectedClient"
+                class="client-selected-name"
+                data-test="order-create-client-selected-name"
+              >
+                {{ t('orders.create_selected_client', { name: selectedClient.name }) }}
+              </p>
+
               <div data-test="order-create-client-search">
                 <SearchInput
                   v-model="clientSearch"
@@ -238,85 +272,66 @@ onMounted(loadClients)
                 />
               </div>
 
-              <div class="checkbox-list-items" data-test="order-create-client-list">
-                <label
-                  v-for="c in pagedClients"
-                  :key="c.id"
-                  class="checkbox-item"
-                  data-test="order-create-client-item"
-                  :data-client-id="c.id"
+              <div
+                v-if="clientsError"
+                class="client-list-error"
+                data-test="order-create-client-error"
+              >
+                <p>{{ t('orders.create_clients_error') }}</p>
+                <button
+                  type="button"
+                  class="btn btn-secondary btn-sm"
+                  data-test="order-create-client-retry"
+                  @click="loadClients"
                 >
-                  <input
-                    type="radio"
-                    name="order-client"
-                    class="client-radio-input"
-                    :checked="isClientSelected(c.id)"
-                    @change="selectClient(c.id)"
-                  />
-                  <span class="client-radio-custom"></span>
-                  <span class="checkbox-label">{{ c.name }}</span>
-                  <span class="checkbox-email">{{ c.email }}</span>
-                </label>
-                <div
-                  v-if="filteredClients.length === 0"
-                  style="text-align: center; color: rgba(255, 255, 255, 0.8); padding: 16px 0"
-                  data-test="order-create-client-empty"
-                >
-                  {{ t('orders.create_no_clients') }}
-                </div>
+                  {{ t('orders.create_btn_retry') }}
+                </button>
               </div>
 
-              <div
-                v-if="filteredClients.length > 0"
-                class="recipients-pagination"
-                data-test="order-create-client-pagination"
-              >
-                <div class="pagination-bar">
-                  <div class="page-size">
-                    <span>{{ t('suppliers.page_size') }}</span>
-                    <CustomSelect
-                      v-model="clientPageSizeStr"
-                      :options="PAGE_SIZE_OPTIONS_CLIENTS"
-                      :open-up="true"
-                      class="custom-select-sm"
+              <template v-else>
+                <div class="checkbox-list-items" data-test="order-create-client-list">
+                  <label
+                    v-for="c in clients"
+                    :key="c.id"
+                    class="checkbox-item"
+                    data-test="order-create-client-item"
+                    :data-client-id="c.id"
+                  >
+                    <input
+                      type="radio"
+                      name="order-client"
+                      class="radio-input"
+                      :checked="isClientSelected(c.id)"
+                      @change="onClientPicked(c)"
                     />
-                  </div>
-                  <div class="pagination-nav">
-                    <button
-                      class="btn btn-icon btn-sm"
-                      :disabled="clientPage <= 1"
-                      @click="clientPage = Math.max(1, clientPage - 1)"
-                    >
-                      <SvgIcon
-                        name="chevron-right"
-                        :width="14"
-                        :height="14"
-                        style="transform: rotate(180deg)"
-                      />
-                    </button>
-                    <div class="pagination-pages">
-                      <template v-for="(p, i) in clientPageNumbers()" :key="i">
-                        <span v-if="p === '...'" class="pagination-ellipsis">...</span>
-                        <button
-                          v-else
-                          class="page-btn"
-                          :class="{ active: p === clientPage }"
-                          @click="clientPage = p as number"
-                        >
-                          {{ p }}
-                        </button>
-                      </template>
-                    </div>
-                    <button
-                      class="btn btn-icon btn-sm"
-                      :disabled="clientPage >= clientTotalPages"
-                      @click="clientPage = Math.min(clientTotalPages, clientPage + 1)"
-                    >
-                      <SvgIcon name="chevron-right" :width="14" :height="14" />
-                    </button>
+                    <span class="radio-custom"></span>
+                    <span class="checkbox-label">{{ c.name }}</span>
+                    <span class="checkbox-email">{{ c.email }}</span>
+                  </label>
+                  <div
+                    v-if="clients.length === 0"
+                    class="client-list-empty"
+                    data-test="order-create-client-empty"
+                  >
+                    {{ t('orders.create_no_clients') }}
                   </div>
                 </div>
-              </div>
+
+                <div
+                  v-if="clients.length > 0"
+                  class="client-pagination"
+                  data-test="order-create-client-pagination"
+                >
+                  <Pagination
+                    v-model:page="clientPagination.page.value"
+                    v-model:size="clientPageSizeStr"
+                    :total-pages="clientTotalPages"
+                    :pages="clientPagination.pageNumbers()"
+                    :page-size-options="PAGE_SIZE_OPTIONS_CLIENTS"
+                    :size-label="t('suppliers.page_size')"
+                  />
+                </div>
+              </template>
             </div>
           </GlassPanel>
         </div>
@@ -324,9 +339,9 @@ onMounted(loadClients)
         <div class="entity-col-center">
           <GlassPanel :title="t('orders.field_notes')" data-test="order-create-notes-panel">
             <InputGroup :label="t('orders.field_notes')">
-              <textarea
+              <AutoResizeTextarea
                 v-model="form.notes"
-                class="glass-input glass-textarea"
+                class="glass-input"
                 rows="4"
                 data-test="order-create-notes"
               />
@@ -427,20 +442,25 @@ onMounted(loadClients)
               <tr>
                 <th>{{ t('orders.col_service') }}</th>
                 <th>{{ t('orders.col_quantity') }}</th>
-                <th>{{ t('orders.col_cost') }}</th>
+                <th v-if="showCost">{{ t('orders.col_cost') }}</th>
                 <th>{{ t('orders.col_price') }}</th>
-                <th>{{ t('orders.col_margin') }}</th>
+                <th v-if="showCost">{{ t('orders.col_margin_amount') }}</th>
                 <th>{{ t('orders.col_total_price') }}</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="svc in localOrder.services" :key="svc.id" class="order-service-row">
+              <tr
+                v-for="svc in localOrder.services"
+                :key="svc.id"
+                class="order-service-row"
+                data-test="order-create-service-row"
+              >
                 <td>{{ svc.serviceName }}</td>
                 <td>{{ svc.quantity }}</td>
-                <td>{{ money(svc.cost * svc.quantity) }}</td>
+                <td v-if="showCost">{{ money(svc.cost * svc.quantity) }}</td>
                 <td>{{ money(svc.price) }}</td>
-                <td>{{ money(svc.marginAmount) }}</td>
+                <td v-if="showCost">{{ money(svc.marginAmount) }}</td>
                 <td>{{ money(svc.totalPrice) }}</td>
                 <td>
                   <button
@@ -457,8 +477,65 @@ onMounted(loadClients)
         </div>
       </GlassPanel>
 
+      <GlassPanel :title="t('orders.section_totals')" data-test="order-create-totals">
+        <div class="order-create-totals">
+          <InputGroup v-if="showCost" :label="t('orders.field_total_cost')">
+            <div class="input-with-suffix">
+              <input
+                :value="money(localOrder.totalCost)"
+                class="glass-input"
+                readonly
+                data-test="order-create-total-cost"
+              />
+              <span class="input-suffix static-suffix">{{
+                settings.constants.defaultCurrency
+              }}</span>
+            </div>
+          </InputGroup>
+          <InputGroup :label="t('orders.field_net_total')">
+            <div class="input-with-suffix">
+              <input
+                :value="money(localOrder.totalAmount)"
+                class="glass-input"
+                readonly
+                data-test="order-create-total-net"
+              />
+              <span class="input-suffix static-suffix">{{
+                settings.constants.defaultCurrency
+              }}</span>
+            </div>
+          </InputGroup>
+          <InputGroup :label="t('orders.field_vat_amount')">
+            <div class="input-with-suffix">
+              <input
+                :value="money(localOrder.totalVat)"
+                class="glass-input"
+                readonly
+                data-test="order-create-total-vat"
+              />
+              <span class="input-suffix static-suffix">{{
+                settings.constants.defaultCurrency
+              }}</span>
+            </div>
+          </InputGroup>
+          <InputGroup :label="t('orders.field_gross_total')">
+            <div class="input-with-suffix">
+              <input
+                :value="money(localOrder.totalWithVat)"
+                class="glass-input"
+                readonly
+                data-test="order-create-total-gross"
+              />
+              <span class="input-suffix static-suffix">{{
+                settings.constants.defaultCurrency
+              }}</span>
+            </div>
+          </InputGroup>
+        </div>
+      </GlassPanel>
+
       <GlassPanel :title="t('orders.section_files')" data-test="order-create-files">
-        <div data-test="order-create-file-list" style="margin-bottom: 15px">
+        <div class="order-create-file-list" data-test="order-create-file-list">
           <FileItem
             v-for="f in localOrder.files"
             :key="f.id"
@@ -479,17 +556,46 @@ onMounted(loadClients)
 
     <AddOrderItemsModal
       :show="showAddItemsModal"
-      :order-id="''"
+      :default-margin-percent="settings.constants.defaultMargin"
+      :default-discount-percent="settings.constants.defaultDiscountPercent"
       @close="showAddItemsModal = false"
       @add="onItemsAdded($event)"
     />
 
     <AddOrderServicesModal
       :show="showAddServicesModal"
-      :order-id="''"
+      :default-discount-percent="settings.constants.defaultDiscountPercent"
       @close="showAddServicesModal = false"
       @add="onServicesAdded($event)"
     />
+
+    <AppModal
+      :model-value="leaveConfirmOpen"
+      :title="t('orders.confirm_leave_title')"
+      size="small"
+      data-test="order-create-leave-modal"
+      @update:model-value="closeLeaveConfirm(false)"
+    >
+      <p>{{ t('orders.confirm_leave') }}</p>
+      <template #footer>
+        <button
+          type="button"
+          class="btn btn-secondary"
+          data-test="order-create-leave-stay"
+          @click="closeLeaveConfirm(false)"
+        >
+          {{ t('orders.confirm_leave_stay') }}
+        </button>
+        <button
+          type="button"
+          class="btn btn-danger"
+          data-test="order-create-leave-discard"
+          @click="closeLeaveConfirm(true)"
+        >
+          {{ t('orders.confirm_leave_discard') }}
+        </button>
+      </template>
+    </AppModal>
   </div>
 </template>
 

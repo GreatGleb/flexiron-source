@@ -7,6 +7,7 @@ import SvgIcon from '@/components/admin/SvgIcon.vue'
 import FinanceSubNav from './FinanceSubNav.vue'
 import FileItem from '@/components/admin/FileItem.vue'
 import DropZone from '@/components/admin/ui/DropZone.vue'
+import AutoResizeTextarea from '@/components/admin/ui/AutoResizeTextarea.vue'
 import { getPayment, patchPayment } from '@/services/financeService'
 import type { UploadedFile } from '@/services/uploadsService'
 import { useHead } from '@/composables/useHead'
@@ -265,7 +266,7 @@ onMounted(() => load())
           <template v-if="payment">
             <div class="input-group">
               <label class="field-label">{{ t('financePayment.section_notes') }}</label>
-              <textarea
+              <AutoResizeTextarea
                 v-model="notesDraft"
                 class="glass-input"
                 rows="4"

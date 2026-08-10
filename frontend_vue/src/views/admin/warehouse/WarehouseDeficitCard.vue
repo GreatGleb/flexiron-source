@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, onMounted, nextTick } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useHead } from '@/composables/useHead'
@@ -9,6 +9,7 @@ import Breadcrumb from '@/components/admin/Breadcrumb.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
 import AppModal from '@/components/admin/ui/AppModal.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
+import AutoResizeTextarea from '@/components/admin/ui/AutoResizeTextarea.vue'
 import type { SelectOption } from '@/components/admin/ui/CustomSelect.vue'
 import type { DeficitPriority, DeficitStatus } from '@/types/warehouse'
 import '@styles/admin/warehouse_list.css'
@@ -175,30 +176,6 @@ useHead({
 })
 
 onMounted(load)
-
-// ─── Auto-resize notes textarea ──────────────────────────────────────
-const notesTextarea = ref<HTMLTextAreaElement | null>(null)
-const MAX_NOTES_HEIGHT = 300
-
-function autoResizeNotes() {
-  const el = notesTextarea.value
-  if (!el) return
-  el.style.height = 'auto'
-  if (el.scrollHeight > MAX_NOTES_HEIGHT) {
-    el.style.height = MAX_NOTES_HEIGHT + 'px'
-    el.style.overflowY = 'auto'
-  } else {
-    el.style.height = el.scrollHeight + 'px'
-    el.style.overflowY = 'hidden'
-  }
-}
-
-watch(
-  () => form.value.notes,
-  () => {
-    nextTick(autoResizeNotes)
-  },
-)
 </script>
 
 <template>
@@ -659,12 +636,10 @@ watch(
                       </svg>
                     </span>
                   </label>
-                  <textarea
-                    ref="notesTextarea"
+                  <AutoResizeTextarea
                     v-model="form.notes"
                     class="glass-input batch-notes-input"
                     data-test="field-notes"
-                    @input="autoResizeNotes"
                   />
                 </div>
               </template>

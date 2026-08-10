@@ -195,6 +195,47 @@ test.describe('Order Create', () => {
     await expect(page.locator('[data-test="order-create-notes"]')).toBeVisible()
   })
 
+  test('leaving a started order asks in our own dialog, once, and can be refused', async ({
+    page,
+  }) => {
+    // Never a `window.confirm`: a dialog handler would fire if one appeared, and
+    // the assertions below would then be looking at a page that already left.
+    let systemDialogs = 0
+    page.on('dialog', (d) => {
+      systemDialogs++
+      void d.dismiss()
+    })
+
+    await page.goto('/admin/orders/new')
+    await page.locator('[data-test="order-create-notes"]').fill('half an order')
+
+    await page.click('[data-test="order-create-cancel-btn"]')
+    const modal = page.locator('[data-test="order-create-leave-modal"]')
+    await expect(modal).toBeVisible()
+
+    // Refusing keeps the page and everything typed into it.
+    await page.click('[data-test="order-create-leave-stay"]')
+    await expect(modal).toBeHidden()
+    await expect(page).toHaveURL(/\/admin\/orders\/new/)
+    await expect(page.locator('[data-test="order-create-notes"]')).toHaveValue('half an order')
+
+    // Asked once per attempt — the old code asked, navigated, and asked again.
+    await page.click('[data-test="order-create-cancel-btn"]')
+    await expect(modal).toBeVisible()
+    await page.click('[data-test="order-create-leave-discard"]')
+    await expect(page).toHaveURL(/\/admin\/orders$/)
+    await expect(modal).toBeHidden()
+
+    expect(systemDialogs).toBe(0)
+  })
+
+  test('leaving an untouched order asks nothing', async ({ page }) => {
+    await page.goto('/admin/orders/new')
+    await page.click('[data-test="order-create-cancel-btn"]')
+    await expect(page).toHaveURL(/\/admin\/orders$/)
+    await expect(page.locator('[data-test="order-create-leave-modal"]')).toHaveCount(0)
+  })
+
   test('document type panel renders with dropdown', async ({ page }) => {
     await page.goto('/admin/orders/new')
     await expect(page.locator('[data-test="order-create-doctype-panel"]')).toBeVisible()
@@ -245,6 +286,49 @@ test.describe('Order Create', () => {
     await expect(savedRows).toHaveCount(2)
     await expect(savedRows.nth(0)).toContainText('Aluminium Pipe 25x2')
     await expect(savedRows.nth(1)).toContainText('Copper Pipe 15x1')
+  })
+
+  /**
+   * One product, one price, whichever screen it was added from.
+   *
+   * What this does NOT cover, and it is the half that mattered: a product with no
+   * catalogue price is quoted as cost plus the order's markup, and the markup
+   * arrives as a prop the create page used not to pass — so the same product was
+   * quoted at cost here and at cost + markup on the card. That branch cannot be
+   * reached from a test today: the only seeded product without a catalogue price
+   * is Cutting Oil (`prod-006`) and the warehouse has no batch for it, so it has
+   * no cost either and both screens answer zero. `page.route()` is no help — with
+   * `VITE_USE_MOCKS` the app issues no HTTP at all.
+   *
+   * Reaching it needs a seeded product that has stock and no catalogue price.
+   * Until then this guards the weaker half: that the two screens agree at all.
+   */
+  test('the picker quotes the same price here as it does on a card', async ({ page }) => {
+    const product = 'Aluminium Pipe 25x2'
+
+    async function quotedPriceIn(modal: ReturnType<Page['locator']>): Promise<string> {
+      await modal.locator('[data-test="add-items-filters"] input').fill(product)
+      const row = modal.locator('[data-test="add-items-product-row"]').first()
+      await expect(row).toContainText(product)
+      await row.click()
+      const selected = modal.locator('[data-test="add-items-selected-row"]').first()
+      await expect(selected).toBeVisible()
+      return (await selected.locator('[data-test="add-items-price"]').innerText()).trim()
+    }
+
+    await page.goto('/admin/orders/new')
+    await page.locator('[data-test="order-create-add-item-btn"]').click()
+    const createModal = page.locator('[data-test="add-order-items-modal"]')
+    await expect(createModal).toBeVisible()
+    const onCreate = await quotedPriceIn(createModal)
+
+    await page.goto('/admin/orders/ORD-001')
+    await page.locator('[data-test="order-add-item-btn"]').click()
+    const cardModal = page.locator('[data-test="add-order-items-modal"]')
+    await expect(cardModal).toBeVisible()
+    const onCard = await quotedPriceIn(cardModal)
+
+    expect(onCreate).toBe(onCard)
   })
 })
 
@@ -1420,6 +1504,38 @@ test.describe('Order Card › payments and invoices', () => {
     expect(await paidPercent(page)).toBe(0)
   })
 
+  test('the payment date is our own calendar, and the day picked is the day recorded', async ({
+    page,
+  }) => {
+    await page.goto('/admin/orders/ORD-001')
+    await page.waitForSelector('[data-test="order-item-row"]')
+
+    await page.click('[data-test="order-add-payment-btn"]')
+    await expect(page.locator('[data-test="payment-modal"]')).toBeVisible()
+
+    // The browser's own date widget is gone: it drew a black glyph on a dark
+    // panel and ignored the theme entirely.
+    await expect(page.locator('[data-test="payment-date"] input[type="date"]')).toHaveCount(0)
+    const trigger = page.locator('[data-test="payment-date"] .datepicker-trigger')
+    await expect(trigger).toBeVisible()
+
+    await trigger.click()
+    const popup = page.locator('[data-test="payment-date"] .datepicker-popup.open')
+    await expect(popup).toBeVisible()
+    // The first of whatever month the calendar opened on — read off the page,
+    // never a date written into the test.
+    await popup.locator('.calendar-day:not(.other-month)', { hasText: /^1$/ }).first().click()
+    await expect(popup).toBeHidden()
+
+    const shown = (await trigger.locator('.date-val').textContent())!.trim()
+    const [dd, mm, yyyy] = shown.split('.')
+    const picked = `${yyyy}-${mm}-${dd}`
+
+    await page.click('[data-test="payment-confirm"]')
+    await expect(page.locator('[data-test="payment-modal"]')).toBeHidden()
+    await expect(page.locator('[data-test="order-payment-row"] td').first()).toHaveText(picked)
+  })
+
   test('a refund is entered as a positive number and stored as a negative one', async ({
     page,
   }) => {
@@ -1560,7 +1676,14 @@ test.describe('Order Card › payments and invoices', () => {
     await page.click('[data-test="correct-confirm"]')
 
     // The line moved, and it is still frozen — the goods are still gone.
-    await expect(page.locator('[data-test="correct-modal"]')).toHaveCount(0)
+    //
+    // Hidden, not absent: `AppModal` always renders its overlay and only toggles
+    // `.active` on it, so the count is 1 for as long as the card is mounted —
+    // which is what the other nineteen modal assertions in this file say. This
+    // one asked for a count of zero and passed only because the card used to
+    // blank itself to a skeleton on every reload, unmounting the modals with it.
+    // It was asserting the flash, not the closing.
+    await expect(page.locator('[data-test="correct-modal"]')).toBeHidden()
     const corrected = page
       .locator('[data-test="order-item-row"]')
       .filter({ has: page.locator('[data-test="line-correct-btn"]') })

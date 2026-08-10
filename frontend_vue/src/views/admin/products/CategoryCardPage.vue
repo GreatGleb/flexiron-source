@@ -10,6 +10,7 @@ import AppModal from '@/components/admin/ui/AppModal.vue'
 import TagInput from '@/components/admin/ui/TagInput.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
 import InputGroup from '@/components/admin/ui/InputGroup.vue'
+import AutoResizeTextarea from '@/components/admin/ui/AutoResizeTextarea.vue'
 import { useHead } from '@/composables/useHead'
 import { useFeatureFlag } from '@/composables/useFeatureFlag'
 import { useCategoryCard } from '@/composables/useCategoryCard'
@@ -319,7 +320,7 @@ onMounted(() => {
             />
           </InputGroup>
           <InputGroup :label="t('categories.field_description')">
-            <textarea
+            <AutoResizeTextarea
               v-model="formDescription"
               class="glass-input"
               rows="3"

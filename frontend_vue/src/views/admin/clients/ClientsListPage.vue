@@ -10,6 +10,7 @@ import SvgIcon from '@/components/admin/SvgIcon.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
 import SearchInput from '@/components/admin/ui/SearchInput.vue'
 import AppModal from '@/components/admin/ui/AppModal.vue'
+import Pagination from '@/components/admin/ui/Pagination.vue'
 import { getOrders } from '@/services/ordersService'
 
 import '@styles/admin/components/_entity-card-layout.css'
@@ -424,58 +425,20 @@ onMounted(() => {
           <tfoot v-if="total > 0">
             <tr>
               <td colspan="8">
-                <div class="pagination-bar" data-test="clients-pagination">
-                  <div class="page-size" data-test="clients-page-size">
-                    <span>{{ t('clients.page_size') }}</span>
-                    <CustomSelect
-                      v-model="pageSizeStr"
-                      :options="PAGE_SIZE_OPTIONS"
-                      :open-up="true"
-                      class="custom-select-sm"
-                    />
-                  </div>
-                  <div class="pagination-nav">
-                    <button
-                      class="btn btn-icon btn-sm"
-                      :disabled="page <= 1"
-                      :style="{ display: totalPages <= 1 ? 'none' : 'flex' }"
-                      @click="page--"
-                    >
-                      <SvgIcon
-                        name="chevron-right"
-                        :width="14"
-                        :height="14"
-                        style="transform: rotate(180deg)"
-                      />
-                    </button>
-                    <div class="pagination-pages">
-                      <template v-for="(p, i) in pageNumbers" :key="i">
-                        <span v-if="p === '...'" class="pagination-ellipsis">...</span>
-                        <button
-                          v-else
-                          class="page-btn"
-                          :class="{ active: p === page }"
-                          @click="page = p as number"
-                        >
-                          {{ p }}
-                        </button>
-                      </template>
-                    </div>
-                    <button
-                      class="btn btn-icon btn-sm"
-                      :disabled="page * pageSize >= total"
-                      :style="{ display: totalPages <= 1 ? 'none' : 'flex' }"
-                      @click="page++"
-                    >
-                      <SvgIcon name="chevron-right" :width="14" :height="14" />
-                    </button>
-                  </div>
-                  <div class="pagination-info">
-                    <span>{{ showingFrom }}-{{ showingTo }}</span>
-                    <span>&nbsp;{{ t('clients.of') }}&nbsp;</span>
-                    <span>{{ total }}</span>
-                  </div>
-                </div>
+                <Pagination
+                  v-model:page="page"
+                  v-model:size="pageSizeStr"
+                  :total-pages="totalPages"
+                  :pages="pageNumbers"
+                  :page-size-options="PAGE_SIZE_OPTIONS"
+                  :size-label="t('clients.page_size')"
+                  :showing-from="showingFrom"
+                  :showing-to="showingTo"
+                  :total="total"
+                  :of-label="t('clients.of')"
+                  test-id="clients-pagination"
+                  size-test-id="clients-page-size"
+                />
               </td>
             </tr>
           </tfoot>

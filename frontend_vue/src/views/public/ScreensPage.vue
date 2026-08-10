@@ -162,6 +162,15 @@ const salesCrmPages = [
     params: { id: 'CL-001' },
     titleKey: 'clients.card_title',
   },
+  // 3.2, not 3.1 as the orders plan numbers them: 3.1 is taken by clients here.
+  { id: '3.2', routeName: 'admin-orders', titleKey: 'orders.header_title' },
+  { id: '3.2n', routeName: 'admin-order-create', titleKey: 'orders.create_title' },
+  {
+    id: '3.2c',
+    routeName: 'admin-order-card',
+    params: { id: 'ORD-001' },
+    titleKey: 'orders.card_title',
+  },
 ]
 
 const suppliersPages = [

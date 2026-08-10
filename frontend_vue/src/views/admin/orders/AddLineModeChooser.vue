@@ -9,6 +9,8 @@
 import { useI18n } from 'vue-i18n'
 import { formatCents, type AddLineMode } from '@/domain/orderPricing'
 
+import '@styles/admin/components/_radio.css'
+
 const props = defineProps<{
   modes: AddLineMode[]
   /** The discount the order really gave — the number "order terms" means. */
@@ -39,7 +41,8 @@ function hintFor(mode: AddLineMode): string {
       :class="{ active: model === mode }"
       :data-test="'add-mode-' + mode"
     >
-      <input v-model="model" type="radio" :value="mode" class="add-mode-radio" />
+      <input v-model="model" type="radio" :value="mode" class="radio-input" />
+      <span class="radio-custom" />
       <span class="add-mode-text">
         <span class="add-mode-label">{{ t('orders.add_mode_' + mode) }}</span>
         <span class="add-mode-hint">{{ hintFor(mode) }}</span>
@@ -87,9 +90,9 @@ function hintFor(mode: AddLineMode): string {
   background: rgba(80, 160, 255, 0.08);
 }
 
-.add-mode-radio {
-  margin-top: 3px;
-  accent-color: #50a0ff;
+/* The rows align on their first line of text, so the ring drops to meet it. */
+.add-mode-option .radio-custom {
+  margin-top: 2px;
 }
 
 .add-mode-text {

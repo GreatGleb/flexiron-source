@@ -135,7 +135,15 @@ export interface OrderItem {
   /** First allocation, kept for older call sites; `allocations` is the truth. */
   batchId: string | null
   offcutId: string | null
-  /** Currency of the batch the cost came from. A label, never a multiplier. */
+  /**
+   * The caption on `unitCost`. A label, never a multiplier.
+   *
+   * Always the BASE currency, and stated as the code (`EUR`), the way the
+   * warehouse and `Order.currency` state it: the warehouse layer speaks the base
+   * currency and no other, and a batch in anything else is refused outright
+   * (`BATCH_CURRENCY_NOT_BASE`, contract §7.1). Not the currency the product is
+   * sold in — that captions a different number.
+   */
   receivedCurrency: string
 }
 
@@ -479,6 +487,20 @@ export interface LineEditEnvelope {
  */
 export interface OrderAuditEntry extends StockAuditEntry {
   id: string
+  /**
+   * What the entry gives away, if anything — for the rights in §5.
+   *
+   * A manual cost and a cost correction record the unit cost as a plain figure,
+   * and the history table renders every entry it is given. Cost and margin are
+   * withheld from a user without `seeCost` in every other place on the card and
+   * were readable here: the same right, defeated by a different road.
+   *
+   * The entry has to say so itself. `property` is translated into three
+   * languages, so recognising a cost entry by its words is not a rule; and the
+   * caption on the value would still be a guess. Present always with `null`
+   * rather than sometimes absent — §3, on the uniformity of the answer.
+   */
+  sensitive: 'cost' | null
 }
 
 export interface OrderFile {

@@ -40,3 +40,16 @@
   background: rgba(50, 54, 62, 0.98);
   border-color: rgba(255, 255, 255, 0.2);
 }
+
+/* A suffix that only labels — a currency, a percent sign, a unit. It is not a
+   dropdown trigger, so it drops the pointer and the hover the base class gives.
+   Lived in `OrderCardPage.vue`'s style block while `WarehouseBatchCard` used it
+   too — see pitfall #63. */
+.static-suffix {
+  cursor: default;
+  opacity: 0.7;
+}
+.static-suffix:hover {
+  background: rgba(0, 0, 0, 0.25);
+  color: #1890ff;
+}

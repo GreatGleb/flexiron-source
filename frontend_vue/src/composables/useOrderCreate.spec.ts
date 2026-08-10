@@ -31,11 +31,22 @@ vi.mock('@/composables/useSettings', () => ({
 
 const sentItems: Array<Record<string, unknown>> = []
 const sentServices: Array<Record<string, unknown>> = []
+/** Set by a test to make the next matching line fail once, as the server would. */
+let failItemOnce: string | null = null
+const createCalls = { n: 0 }
 
 vi.mock('@/services/ordersService', () => ({
-  createOrder: vi.fn(async () => ({ id: 'ORD-TEST' })),
+  createOrder: vi.fn(async () => {
+    createCalls.n += 1
+    return { id: 'ORD-TEST' }
+  }),
+  getOrder: vi.fn(async (id: string) => ({ id })),
   patchOrder: vi.fn(async () => ({})),
   addOrderItem: vi.fn(async (_orderId: string, data: Record<string, unknown>) => {
+    if (failItemOnce !== null && data.productId === failItemOnce) {
+      failItemOnce = null
+      throw new Error('ZERO_QUANTITY')
+    }
     sentItems.push(data)
     return {}
   }),
@@ -81,6 +92,8 @@ const WELDING = {
 beforeEach(() => {
   sentItems.length = 0
   sentServices.length = 0
+  failItemOnce = null
+  createCalls.n = 0
 })
 
 describe('useOrderCreate — what is saved is what is on screen', () => {
@@ -159,5 +172,50 @@ describe('useOrderCreate — what is saved is what is on screen', () => {
     await page.handleSave()
 
     expect(sentItems).toHaveLength(0)
+  })
+})
+
+/**
+ * Creating an order is five kinds of request and the order exists after the
+ * first one. A refusal in the middle used to leave a half-built order on the
+ * server while the admin was told nothing had been created — and pressing the
+ * button again made a second one.
+ */
+describe('useOrderCreate — a save that failed half-way is resumed, not restarted', () => {
+  it('creates the order once and re-sends only the lines that did not land', async () => {
+    const page = useOrderCreate()
+    page.form.value.clientId = 'cli-1'
+
+    page.addItem(PIPE)
+    page.addItem(COPPER)
+
+    // The server refuses the second line, exactly as it refuses a zero quantity
+    // or a product that is not in the catalogue.
+    failItemOnce = 'prod-cu'
+    const failed = await page.handleSave()
+
+    expect(failed).toBeNull()
+    expect(createCalls.n).toBe(1)
+    expect(sentItems.map((i) => i.productId)).toEqual(['prod-alu'])
+    expect(page.isPartiallySaved.value).toBe(true)
+
+    // The admin presses Create again.
+    const order = await page.handleSave()
+
+    expect(order).toMatchObject({ id: 'ORD-TEST' })
+    // No second order...
+    expect(createCalls.n).toBe(1)
+    // ...and the first line is not duplicated by the retry.
+    expect(sentItems.map((i) => i.productId)).toEqual(['prod-alu', 'prod-cu'])
+  })
+
+  it('returns the order that was actually created', async () => {
+    const page = useOrderCreate()
+    page.form.value.clientId = 'cli-1'
+    page.addItem(PIPE)
+
+    const order = await page.handleSave()
+
+    expect(order).toMatchObject({ id: 'ORD-TEST' })
   })
 })
