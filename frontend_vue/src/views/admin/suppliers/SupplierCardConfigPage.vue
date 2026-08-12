@@ -503,7 +503,7 @@ onMounted(load)
   </h1>
 
   <div class="flex-end" style="margin-bottom: 24px" data-test="supplier-card-config-action-bar">
-    <div class="entity-action-bar no-margin pos-static flex-group">
+    <div class="entity-action-bar no-margin pos-static">
       <button
         class="btn btn-primary"
         :disabled="saving"

@@ -2,6 +2,7 @@ import type {
   AppSettings,
   CompanyInfo,
   GlobalConstants,
+  OrderPermissions,
   Currency,
   Uom,
   UomConversion,
@@ -30,26 +31,32 @@ export const MOCK_SETTINGS: AppSettings = {
     defaultDiscountPercent: 0,
   },
 
+  // Model section 12. Accounting sees cost because it reconciles it; only the
+  // owner and the admin may type one by hand or correct a shipped line, because
+  // both of those rewrite something a client or the warehouse already believes.
+  orderPermissions: {
+    seeCost: ['owner', 'admin', 'accounting'],
+    manualCost: ['owner', 'admin'],
+    correction: ['owner', 'admin'],
+  },
+
   currencies: [
     {
       id: 'cur-eur',
       code: 'EUR',
       name: { ru: 'Евро', en: 'Euro', lt: 'Euras' },
-      exchangeRate: 1,
       isDefault: true,
     },
     {
       id: 'cur-usd',
       code: 'USD',
       name: { ru: 'Доллар США', en: 'US Dollar', lt: 'JAV doleris' },
-      exchangeRate: 1.08,
       isDefault: false,
     },
     {
       id: 'cur-gbp',
       code: 'GBP',
       name: { ru: 'Фунт стерлингов', en: 'British Pound', lt: 'Svaras sterlingų' },
-      exchangeRate: 0.86,
       isDefault: false,
     },
   ] satisfies Currency[],
@@ -263,10 +270,75 @@ export const MOCK_SETTINGS: AppSettings = {
       writeOffOnTransition: false,
     },
     {
+      id: 'st-completed',
+      name: { ru: 'Завершён', en: 'Completed', lt: 'Užbaigtas' },
+      color: '#047857',
+      order: 7,
+      system: true,
+      reserveOnTransition: false,
+      writeOffOnTransition: false,
+    },
+    // The return statuses move nothing by themselves. Goods come back through a
+    // return document; the status is the note that says it happened.
+    {
+      id: 'st-return_requested',
+      name: { ru: 'Запрос на возврат', en: 'Return requested', lt: 'Prašomas grąžinimas' },
+      color: '#F59E0B',
+      order: 8,
+      system: true,
+      reserveOnTransition: false,
+      writeOffOnTransition: false,
+    },
+    {
+      id: 'st-return_processing',
+      name: { ru: 'Возврат в процессе', en: 'Return processing', lt: 'Grąžinimas vykdomas' },
+      color: '#D97706',
+      order: 9,
+      system: true,
+      reserveOnTransition: false,
+      writeOffOnTransition: false,
+    },
+    {
+      id: 'st-returned',
+      name: { ru: 'Возвращён', en: 'Returned', lt: 'Grąžintas' },
+      color: '#DC2626',
+      order: 10,
+      system: true,
+      reserveOnTransition: false,
+      writeOffOnTransition: false,
+    },
+    {
       id: 'st-cancelled',
       name: { ru: 'Отменён', en: 'Cancelled', lt: 'Atšauktas' },
       color: '#EF4444',
-      order: 7,
+      order: 11,
+      system: true,
+      reserveOnTransition: false,
+      writeOffOnTransition: false,
+    },
+    {
+      id: 'st-rejected',
+      name: { ru: 'Отклонён продавцом', en: 'Rejected', lt: 'Atmestas' },
+      color: '#B91C1C',
+      order: 12,
+      system: true,
+      reserveOnTransition: false,
+      writeOffOnTransition: false,
+    },
+    {
+      id: 'st-cancelled_by_customer',
+      name: { ru: 'Отменён покупателем', en: 'Cancelled by customer', lt: 'Atšaukė pirkėjas' },
+      color: '#EF4444',
+      order: 13,
+      system: true,
+      reserveOnTransition: false,
+      writeOffOnTransition: false,
+    },
+    {
+      id: 'st-refused',
+      name: { ru: 'Отказ при получении', en: 'Refused on delivery', lt: 'Atsisakyta pristatant' },
+      color: '#991B1B',
+      order: 14,
       system: true,
       reserveOnTransition: false,
       writeOffOnTransition: false,
@@ -339,6 +411,17 @@ export function mockPatchCompany(patch: Partial<CompanyInfo>): CompanyInfo {
 
 export function mockGetConstants(): GlobalConstants {
   return structuredClone(settingsStore.constants)
+}
+
+/**
+ * Who may see cost, type one by hand, or correct an issued document.
+ *
+ * Its own endpoint because it is its own decision: the constants are numbers the
+ * business picks, this is who is allowed to do what — and the server has to have
+ * an answer even when nothing else about the settings is on screen.
+ */
+export function mockGetOrderPermissions(): OrderPermissions {
+  return structuredClone(settingsStore.orderPermissions)
 }
 
 export function mockSaveConstants(data: GlobalConstants): void {

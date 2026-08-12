@@ -62,6 +62,21 @@ textarea.glass-input {
   flex: 0 0 auto;
 }
 
+/* Required field indicator, and the message a failed field carries.
+   These lived in `orders_create.css` while the order *card* used `.field-error`
+   for its gross-total error and never imported that file: the message came out
+   grey unless the create page had been opened first in the same session. */
+.required-star {
+  color: var(--danger, #e74c3c);
+  margin-left: 2px;
+}
+
+.field-error {
+  color: var(--danger, #e74c3c);
+  font-size: 11px;
+  margin-left: 4px;
+}
+
 /* Field validation error (dark red) — p tag selector needed to override .modal-body p (higher specificity) */
 .modal-body p.field-error {
   margin: 6px 0 0;
@@ -760,4 +775,21 @@ textarea.glass-input {
     height: 14px;
     margin-left: 4px;
   }
+}
+
+/* ─── Two form fields side by side ───────────────────────────────────────────
+   Layout helpers, not page styling: the order card and the product card both
+   put a pair of short fields on one row. They lived in OrderCardPage's own
+   <style> behind `:deep()`, which a NON-scoped block never expands — the
+   selector reached the browser as `:deep(.inline-group)` and was dropped, so
+   both pages had been stacking the pairs vertically. */
+.inline-group {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.inline-short {
+  flex: 1 1 140px;
+  min-width: 120px;
 }

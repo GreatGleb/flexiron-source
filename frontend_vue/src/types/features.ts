@@ -52,6 +52,11 @@ export interface FeatureFlags {
   orderDocumentGen: boolean
   orderCuttingTool: boolean
 
+  // Order pricing rework
+  orderShipments: boolean
+  orderInvoicesPayments: boolean
+  orderReturns: boolean
+
   // Notifications
   notificationsPage: boolean
 

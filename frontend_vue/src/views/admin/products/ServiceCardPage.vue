@@ -8,6 +8,7 @@ import Breadcrumb from '@/components/admin/Breadcrumb.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
 import InputGroup from '@/components/admin/ui/InputGroup.vue'
+import AutoResizeTextarea from '@/components/admin/ui/AutoResizeTextarea.vue'
 import { useHead } from '@/composables/useHead'
 import { useServiceCard } from '@/composables/useServiceCard'
 
@@ -149,7 +150,7 @@ onMounted(() => {
               />
             </InputGroup>
             <InputGroup :label="t('services.field_description')">
-              <textarea
+              <AutoResizeTextarea
                 v-model="formDescription"
                 class="glass-input"
                 rows="3"

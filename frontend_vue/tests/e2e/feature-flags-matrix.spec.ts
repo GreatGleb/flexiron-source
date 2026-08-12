@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { testBare as test, expect } from './fixtures'
 import { ALL_FLAGS_ENABLED } from './helpers/flags'
 
 /**

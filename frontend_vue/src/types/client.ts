@@ -1,13 +1,5 @@
 import type { StockAuditEntry } from '@/types/warehouse'
 
-export interface ClientOrderSummary {
-  id: string
-  date: string
-  total: number
-  currency: string
-  status: string
-}
-
 /** A single entry in the client's interaction history (calls, emails, notes) */
 export interface InteractionHistoryEntry {
   date: string
@@ -33,8 +25,6 @@ export interface Client {
   createdAt: string
   /** Client change audit log */
   auditLog?: StockAuditEntry[]
-  /** Client order history — orders associated with this client */
-  orderHistory?: ClientOrderSummary[]
   /** Manager's interaction history (calls, emails, notes, meetings) */
   interactionHistory?: InteractionHistoryEntry[]
 }
@@ -42,7 +32,9 @@ export interface Client {
 export interface ClientFilters {
   search: string
   status: 'active' | 'inactive' | null
-  sortBy: 'name' | 'email' | 'status' | null
+  // `createdAt` is what "the newest clients" is sorted by, and that sort belongs
+  // to the server: picking the newest out of one page picks them out of a page.
+  sortBy: 'name' | 'email' | 'status' | 'createdAt' | null
   sortDir: 'asc' | 'desc'
 }
 

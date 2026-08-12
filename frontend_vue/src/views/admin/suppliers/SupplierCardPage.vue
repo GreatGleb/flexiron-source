@@ -100,7 +100,7 @@ onMounted(load)
     <div class="flex-end" style="margin-bottom: 32px">
       <div
         data-test="supplier-card-action-bar"
-        class="entity-action-bar no-margin pos-static flex-group"
+        class="entity-action-bar no-margin pos-static"
       >
         <router-link
           :to="{ name: 'admin-bcc-request', query: { supplier: id } }"

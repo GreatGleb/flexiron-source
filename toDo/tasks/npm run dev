@@ -1,3 +1,14 @@
+cd /home/greatgleb/PycharmProjects/flexiron-source/frontend_vue
+npm run dev
+
+cd /home/greatgleb/PycharmProjects/flexiron-source/backend
+uvicorn app.main:app --reload --port 8000
+
+cd /home/greatgleb/PycharmProjects/flexiron-source/backend
+alembic upgrade head
+
+--------------------------------- Windows (старое) ---------------------------------
+
 cd C:\Users\great\Documents\bussiness\flexiron_enterprise\frontend_vue\
 npm run dev
 
@@ -6,4 +17,3 @@ uvicorn app.main:app --reload --port 8000
 
 cd C:\Users\great\Documents\bussiness\flexiron_enterprise\backend
 alembic upgrade head
-

@@ -3,6 +3,7 @@ import { useI18n } from 'vue-i18n'
 import { useToast } from '@/composables/useToast'
 import { usePagination } from '@/composables/usePagination'
 import { getOrders, deleteOrder } from '@/services/ordersService'
+import { lineEditErrorKey } from '@/services/orderLineEdits'
 import type { OrderListItem, OrderFilters } from '@/types/order'
 
 export function useOrders() {
@@ -46,12 +47,11 @@ export function useOrders() {
       toast.success(t('orders.toast_deleted'))
       await load()
     } catch (e) {
-      const msg = String(e)
-      if (msg.includes('ORDER_HAS_SHIPMENTS')) {
-        toast.error(t('orders.toast_error_delete_conflict'))
-      } else {
-        toast.error(t('orders.toast_error_delete'))
-      }
+      // The server names what is in the way — an invoice, a shipment or a payment
+      // — and each has a different way back. One generic "cannot delete" would
+      // leave the admin guessing which. (The code this used to look for,
+      // ORDER_HAS_SHIPMENTS, was never thrown by anything.)
+      toast.error(t(lineEditErrorKey(e, 'orders.toast_error_delete')))
     }
   }
 

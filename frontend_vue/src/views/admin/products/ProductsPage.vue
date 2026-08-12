@@ -16,6 +16,7 @@ import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
 import MultiSelect from '@/components/admin/ui/MultiSelect.vue'
 import AppModal from '@/components/admin/ui/AppModal.vue'
 import InputGroup from '@/components/admin/ui/InputGroup.vue'
+import Pagination from '@/components/admin/ui/Pagination.vue'
 import '@styles/admin/components/_entity-card-layout.css'
 import '@styles/admin/components/_pagination.css'
 import '@styles/admin/products_list.css'
@@ -421,58 +422,20 @@ async function handleCreate() {
           <tfoot>
             <tr>
               <td colspan="5">
-                <div class="pagination-bar" data-test="products-pagination">
-                  <div class="page-size" data-test="products-page-size">
-                    <span>{{ t('products.page_size') }}</span>
-                    <CustomSelect
-                      v-model="pageSizeStr"
-                      :options="PAGE_SIZE_OPTIONS"
-                      :open-up="true"
-                      class="custom-select-sm"
-                    />
-                  </div>
-                  <div class="pagination-nav">
-                    <button
-                      class="btn btn-icon btn-sm"
-                      :disabled="!pagination.hasPrev.value"
-                      :style="{ display: pagination.totalPages.value <= 1 ? 'none' : 'flex' }"
-                      @click="pagination.prev"
-                    >
-                      <SvgIcon
-                        name="chevron-right"
-                        :width="14"
-                        :height="14"
-                        style="transform: rotate(180deg)"
-                      />
-                    </button>
-                    <div class="pagination-pages">
-                      <template v-for="(p, i) in pagination.pageNumbers()" :key="i">
-                        <span v-if="p === '...'" class="pagination-ellipsis">...</span>
-                        <button
-                          v-else
-                          class="page-btn"
-                          :class="{ active: p === pagination.page.value }"
-                          @click="pagination.goTo(p as number)"
-                        >
-                          {{ p }}
-                        </button>
-                      </template>
-                    </div>
-                    <button
-                      class="btn btn-icon btn-sm"
-                      :disabled="!pagination.hasNext.value"
-                      :style="{ display: pagination.totalPages.value <= 1 ? 'none' : 'flex' }"
-                      @click="pagination.next"
-                    >
-                      <SvgIcon name="chevron-right" :width="14" :height="14" />
-                    </button>
-                  </div>
-                  <div class="pagination-info">
-                    <span>{{ pagination.showingFrom.value }}-{{ pagination.showingTo.value }}</span>
-                    <span>&nbsp;{{ t('products.of') }}&nbsp;</span>
-                    <span>{{ pagination.total.value }}</span>
-                  </div>
-                </div>
+                <Pagination
+                  v-model:page="pagination.page.value"
+                  v-model:size="pageSizeStr"
+                  :total-pages="pagination.totalPages.value"
+                  :pages="pagination.pageNumbers()"
+                  :page-size-options="PAGE_SIZE_OPTIONS"
+                  :size-label="t('products.page_size')"
+                  :showing-from="pagination.showingFrom.value"
+                  :showing-to="pagination.showingTo.value"
+                  :total="pagination.total.value"
+                  :of-label="t('products.of')"
+                  test-id="products-pagination"
+                  size-test-id="products-page-size"
+                />
               </td>
             </tr>
           </tfoot>

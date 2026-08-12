@@ -15,6 +15,7 @@ import type {
   StockOverviewResponse,
   StockPatchPayload,
   BatchListResponse,
+  BatchListItem,
   BatchCreatePayload,
   BatchPatchPayload,
   OffcutListResponse,
@@ -25,8 +26,9 @@ import type {
   DeficitPatchPayload,
 } from '@/types/warehouse'
 import type { PaginatedResponse } from '@/types/api'
+import type { TranslatedString } from '@/types/i18n'
 import type { Uom, Currency } from '@/types/settings'
-import { STORE as PRODUCTS_STORE } from './products'
+import { STORE as PRODUCTS_STORE, registerProductBatchLookup } from './products'
 import { MOCK_SETTINGS } from './settings'
 import {
   mockBatches as mockBatchesData,
@@ -35,6 +37,28 @@ import {
   mockDeficit as mockDeficitData,
   mockStockOverview as mockStockOverviewData,
 } from '@/mocks/warehouse'
+import {
+  allocateFifo,
+  computeAvailable,
+  round2,
+  type FifoBatch,
+  type FifoResult,
+} from '@/domain/orderPricing'
+import { reservedOn } from './reservations'
+import { compareDocumentNumbers } from '@/services/documentNumbers'
+
+/**
+ * The one currency the warehouse layer speaks (contract §7.1).
+ *
+ * Currencies coexist in this system and nothing converts between them — there is
+ * no rate anywhere, and that is a decision, not a gap. So the border is drawn at
+ * the warehouse: a batch is priced in the base currency or it is not priced at
+ * all. A purchase in another currency stays on the purchase trail, where it is a
+ * record of what was paid, and never becomes the price of goods on the shelf.
+ */
+const BASE_CURRENCY: string =
+  (MOCK_SETTINGS.currencies as Currency[]).find((c) => c.isDefault)?.code ??
+  MOCK_SETTINGS.constants.defaultCurrency
 
 // ─── Helpers to resolve code strings to UUIDs from settings ──────────────
 function _resolveUomId(code: string): string {
@@ -75,11 +99,83 @@ function _normalizeBatchAudit(b: WarehouseBatch): WarehouseBatch {
   return b
 }
 
+/**
+ * A batch does not own the product's name — the catalogue does.
+ *
+ * Each seeded batch carried its own, and they had drifted: prod-001 was "Steel
+ * Sheet 3mm" in the catalogue, "Лист стальной 2мм" on the batch and "Stainless
+ * steel sheet 2mm" on the stock row. The warehouse journal then signed a steel
+ * sheet write-off as "Oxygen gas". Resolved once, here, so every screen that shows
+ * a batch shows the same name as the product page.
+ */
+function _resolveProductName(entity: { productId: string; productName: TranslatedString }): void {
+  const product = PRODUCTS_STORE.find((p) => p.id === entity.productId)
+  if (product?.name) entity.productName = product.name
+}
+
+/** Stable 0…1 from a string — so the same batch always costs the same. */
+function _seedFrom(text: string): number {
+  let hash = 2166136261
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i)
+    hash = Math.imul(hash, 16777619)
+  }
+  return ((hash >>> 0) % 10000) / 10000
+}
+
+/**
+ * A batch is bought to be sold, and the two numbers have to live in one world.
+ *
+ * The seeded batches were priced with no reference to the catalogue, so the
+ * warehouse held a pipe at 1 000,00 that the catalogue sells at 45,00, and a coil
+ * at 9,50 against a price of 185 000,00. Every order line drawing on them showed a
+ * margin of −91% or +2 106%, and one demo line in six was sold below cost. The
+ * arithmetic was right every time; the data it ran on was nonsense, in the one
+ * place the demo exists to explain.
+ *
+ * Reconciled here for the same reason the drifted product names are, a few lines
+ * up: one catalogue, one truth, settled at load. The spread between batches is
+ * kept — that is what makes FIFO worth showing — and a product the catalogue does
+ * not price keeps whatever it was seeded with, because there is nothing to anchor
+ * it to.
+ */
+function _resolveBatchCost(batch: WarehouseBatch): void {
+  const price = PRODUCTS_STORE.find((p) => p.id === batch.productId)?.price
+  if (price == null || price <= 0) return
+  // 58–84% of the selling price: a trade that pays for itself, with room for the
+  // odd bad buy the deficit and margin reports exist to show.
+  const unitPrice = round2(price * (0.58 + _seedFrom(batch.id) * 0.26))
+  if (unitPrice <= 0) return
+  // The purchase trail is a record of the same money in the supplier's currency
+  // and unit, so it moves by the same factor rather than being invented afresh.
+  const factor = batch.unitPrice != null && batch.unitPrice > 0 ? unitPrice / batch.unitPrice : 1
+  if (batch.receivedUnitPrice != null) {
+    batch.receivedUnitPrice = round2(batch.receivedUnitPrice * factor)
+  }
+  batch.unitPrice = unitPrice
+  batch.totalCost = round2(batch.quantity * unitPrice)
+}
+
 const rawBatches = mockBatchesData as unknown as WarehouseBatch[]
-for (const b of rawBatches) _normalizeBatchAudit(b)
+for (const b of rawBatches) {
+  _normalizeBatchAudit(b)
+  _resolveProductName(b)
+  _resolveBatchCost(b)
+}
 const batchStore: WarehouseBatch[] = rawBatches
 const offcutStore: WarehouseOffcut[] = [...mockOffcutsData]
 const movementStore: WarehouseMovement[] = [...mockMovementsData]
+for (const m of movementStore) {
+  _resolveProductName(m)
+  // A movement is the batch changing hands, so it is priced at what the batch
+  // costs. Left alone, the journal would go on quoting the figure the batch no
+  // longer carries, and the two screens showing it would disagree.
+  const batch = batchStore.find((b) => b.id === m.batchId)
+  if (batch && batch.unitPrice != null) {
+    m.unitPrice = batch.unitPrice
+    m.totalCost = round2(m.quantity * batch.unitPrice)
+  }
+}
 const deficitStore: WarehouseDeficit[] = [...mockDeficitData]
 const stockStore: StockOverviewItem[] = [...mockStockOverviewData]
 
@@ -219,6 +315,50 @@ function paginate<T>(items: T[], page: number, pageSize: number): PaginatedRespo
 
 // ─── Stock Overview ─────────────────────────────────────────────────────────
 
+/**
+ * A stock row is a PROJECTION of the batches behind it, not a record of its own.
+ *
+ * Everything a batch can answer is read off the batches: how much is there, in how
+ * many of them, at what average price, worth what, in which unit. The seeded row
+ * had its own numbers, and they had drifted into fiction — prod-001 claimed 150
+ * pieces at 45 EUR where the batches hold 2 608 kg at 1,20. It had its own product
+ * name too, a third one, different from both the catalogue and the batch.
+ *
+ * What stays on the row is what no batch knows: the minimum threshold, the
+ * category and its own audit trail.
+ */
+function projectStockRow(row: StockOverviewItem): StockOverviewItem {
+  const batches = batchesForProduct(row.productId)
+  const product = PRODUCTS_STORE.find((p) => p.id === row.productId)
+  const totalQuantity = round2(batches.reduce((sum, b) => sum + b.quantityRemaining, 0))
+  // Money only from batches that have a cost. Every batch here is in the base
+  // currency, so this is one currency added to itself; a batch nobody priced
+  // contributes nothing, because an unknown cost is not zero and not NaN.
+  const costed = batches.filter((b) => b.unitPrice != null)
+  const costedQuantity = round2(costed.reduce((sum, b) => sum + b.quantityRemaining, 0))
+  const totalValue = round2(
+    costed.reduce((sum, b) => sum + b.quantityRemaining * (b.unitPrice ?? 0), 0),
+  )
+  const reserved = round2(batches.reduce((sum, b) => sum + reservedOn(b.id), 0))
+  return {
+    ...row,
+    productName: product?.name ?? row.productName,
+    totalQuantity,
+    batchCount: batches.length,
+    // Weighted by what is left, not by what arrived: the cheap batch that sold out
+    // stops being part of the average the moment it does. Weighted over the priced
+    // batches only — an unpriced one would otherwise drag the average towards zero.
+    avgUnitPrice: costedQuantity > 0 ? round2(totalValue / costedQuantity) : 0,
+    totalValue,
+    unit: (batches[0]?.unit as StockUnit) ?? row.unit,
+    // Reserved and available are derived for the same reason: a hold belongs to an
+    // order, and a number copied here would lie the moment that order shipped.
+    reservedQuantity: reserved,
+    availableQuantity: computeAvailable(totalQuantity, reserved),
+    isDeficit: row.minStock !== null && totalQuantity < row.minStock,
+  }
+}
+
 export async function mockGetStockOverview(
   filters: {
     search: string
@@ -231,7 +371,7 @@ export async function mockGetStockOverview(
   },
   pagination: { page: number; pageSize: number },
 ): Promise<StockOverviewResponse> {
-  let filtered = [...stockStore]
+  let filtered = stockStore.map(projectStockRow)
 
   // Search
   if (filters.search) {
@@ -289,7 +429,9 @@ function paginateStock(
 export async function mockGetStockItem(productId: string): Promise<StockOverviewItem> {
   const item = stockStore.find((s) => s.productId === productId)
   if (!item) throw new Error('STOCK_ITEM_NOT_FOUND')
-  return { ...item }
+  // Through the same projection as the list: the card and the list disagreeing
+  // about the same shelf is how neither gets believed.
+  return projectStockRow(item)
 }
 
 export async function mockPatchStockItem(
@@ -340,12 +482,14 @@ export async function mockGetBatches(
   const sortDir = filters.sortDir || 'desc'
   filtered.sort((a, b) => {
     let cmp = 0
-    if (sortBy === 'batchNumber') cmp = a.batchNumber.localeCompare(b.batchNumber)
+    // A batch number is a document number, and it hits the same wall an order
+    // number does at the thousandth — see `compareDocumentNumbers`.
+    if (sortBy === 'batchNumber') cmp = compareDocumentNumbers(a.batchNumber, b.batchNumber)
     else if (sortBy === 'productName') cmp = a.productName.en.localeCompare(b.productName.en)
     else if (sortBy === 'quantity') cmp = a.quantity - b.quantity
     else if (sortBy === 'quantityRemaining') cmp = a.quantityRemaining - b.quantityRemaining
     else if (sortBy === 'unit') cmp = a.unit.localeCompare(b.unit)
-    else if (sortBy === 'unitPrice') cmp = a.unitPrice - b.unitPrice
+    else if (sortBy === 'unitPrice') cmp = (a.unitPrice ?? 0) - (b.unitPrice ?? 0)
     else if (sortBy === 'status') cmp = a.status.localeCompare(b.status)
     else if (sortBy === 'supplierName')
       cmp = (a.supplierName?.en ?? '').localeCompare(b.supplierName?.en ?? '')
@@ -353,7 +497,34 @@ export async function mockGetBatches(
     return sortDir === 'desc' ? -cmp : cmp
   })
 
-  return paginate(filtered, pagination.page, pagination.pageSize)
+  return paginate(filtered.map(toBatchListItem), pagination.page, pagination.pageSize)
+}
+
+/**
+ * The list row of a batch.
+ *
+ * `unitPrice` carries `null` through rather than falling back to 0: a batch
+ * nobody priced has no cost, and a zero here would read as "free" in the column
+ * and in anything that sums it. Nothing in the seeded store is unpriced, so no
+ * row shows it today; a receipt in a foreign currency with the base-currency sum
+ * left empty would be the first.
+ */
+function toBatchListItem(b: WarehouseBatch): BatchListItem {
+  return {
+    id: b.id,
+    productId: b.productId,
+    productName: b.productName,
+    batchNumber: b.batchNumber,
+    lotCode: b.lotCode,
+    quantity: b.quantity,
+    quantityRemaining: b.quantityRemaining,
+    unit: b.unit,
+    unitPrice: b.unitPrice,
+    currency: b.currency,
+    receivedAt: b.receivedAt,
+    status: b.status,
+    orderId: b.orderId,
+  }
 }
 
 export async function mockGetBatch(id: string): Promise<WarehouseBatch> {
@@ -412,13 +583,22 @@ export async function mockCreateBatch(
     locParts.push(`Notes: ${parsed.locationNotes}`)
   }
 
-  // Auto-fill purchase audit from main fields if not explicitly provided.
-  // When auto-filling from codes (data.unit = 'kg', data.currency = 'EUR'),
-  // resolve them to proper UUIDs from settings seed data.
+  // ── The purchase is the fact; the warehouse cost is derived from it ──────
+  //
+  // How much arrived, and in which unit, is the same physical event either way,
+  // so those still auto-fill from the receipt. The PRICE does not: it used to be
+  // copied backwards (`receivedUnitPrice = data.receivedUnitPrice ?? data.unitPrice`),
+  // which invented a supplier price nobody paid — and, with a currency free to be
+  // anything, put dollars on a shelf that is kept in euro. The arrow points one
+  // way only: an empty purchase price stays empty.
   const receivedQuantity = data.receivedQuantity ?? data.quantity
   const receivedUnitId = data.receivedUnitId ?? _resolveUomId(data.unit)
-  const receivedUnitPrice = data.receivedUnitPrice ?? data.unitPrice
-  const receivedCurrencyId = data.receivedCurrencyId ?? _resolveCurrencyId(data.currency ?? 'EUR')
+  const receivedUnitPrice = data.receivedUnitPrice ?? null
+  // A currency is a caption to a number; with no purchase price there is nothing
+  // to caption. When a price came without one, it came in the base currency.
+  const receivedCurrencyId =
+    data.receivedCurrencyId ??
+    (receivedUnitPrice != null ? _resolveCurrencyId(BASE_CURRENCY) : null)
   const purchaseToWarehouseRate =
     data.purchaseToWarehouseRate ??
     (receivedUnitId !== data.unit
@@ -426,6 +606,40 @@ export async function mockCreateBatch(
         ? receivedQuantity / data.quantity
         : null
       : null)
+
+  // The warehouse layer speaks the base currency and no other. A price labelled
+  // in a foreign currency cannot be stored — and must not be quietly relabelled:
+  // 250 USD is not 250 EUR, and nothing in this system may say it is.
+  if (data.currency != null && data.currency !== BASE_CURRENCY) {
+    throw new Error('BATCH_CURRENCY_NOT_BASE')
+  }
+
+  const purchaseCurrencyCode =
+    receivedCurrencyId == null
+      ? null
+      : ((MOCK_SETTINGS.currencies as Currency[]).find((c) => c.id === receivedCurrencyId)?.code ??
+        receivedCurrencyId)
+  const purchaseInBaseCurrency =
+    receivedUnitPrice != null &&
+    (purchaseCurrencyCode == null || purchaseCurrencyCode === BASE_CURRENCY)
+
+  /**
+   * base currency, same unit    → the warehouse cost IS the purchase cost
+   * base currency, other unit   → the same money spread over the other unit
+   * another currency            → a human names the base-currency sum, or there is none
+   *
+   * Converting the UNIT is arithmetic and the machine may do it; converting the
+   * MONEY is a judgement, and there is no rate to make it with.
+   */
+  let warehouseUnitPrice: number | null = null
+  if (data.unitPrice != null && data.unitPrice > 0) {
+    // Named by a human, in the base currency (validated just above).
+    warehouseUnitPrice = data.unitPrice
+  } else if (purchaseInBaseCurrency && data.quantity > 0) {
+    // The money that arrived, spread over the unit the shelf keeps. 1000 kg at
+    // 2,00 is 2 000,00 whether it is stored as kilogrammes or as a tonne.
+    warehouseUnitPrice = round2((receivedUnitPrice! * receivedQuantity) / data.quantity)
+  }
 
   const batch: WarehouseBatch = {
     id,
@@ -441,9 +655,10 @@ export async function mockCreateBatch(
     quantity: data.quantity,
     quantityRemaining: data.quantity,
     unit: data.unit as StockUnit,
-    unitPrice: data.unitPrice,
-    totalCost: data.quantity * data.unitPrice,
-    currency: data.currency ?? 'EUR',
+    unitPrice: warehouseUnitPrice,
+    // No cost means no total. NaN and 0 both claim something nobody knows.
+    totalCost: warehouseUnitPrice == null ? null : round2(data.quantity * warehouseUnitPrice),
+    currency: BASE_CURRENCY,
     receivedAt: data.receivedAt,
     expiresAt: data.expiresAt ?? null,
     location: locParts.length > 0 ? locParts.join('\n') : null,
@@ -462,7 +677,6 @@ export async function mockCreateBatch(
     receivedUnitPrice,
     receivedCurrencyId,
     purchaseToWarehouseRate,
-    exchangeRate: data.exchangeRate ?? null,
   }
   batchStore.push(batch)
   return batch
@@ -474,7 +688,16 @@ export async function mockPatchBatch(
 ): Promise<WarehouseBatch> {
   const batch = batchStore.find((b) => b.id === id)
   if (!batch) throw new Error('BATCH_NOT_FOUND')
+  // The same border as on creation: a batch cannot be re-labelled into a currency
+  // the warehouse layer does not speak, on the way in or later.
+  if (delta.currency != null && delta.currency !== BASE_CURRENCY) {
+    throw new Error('BATCH_CURRENCY_NOT_BASE')
+  }
   Object.assign(batch, delta, { updatedAt: new Date().toISOString() })
+  // The total follows the cost it is a total of.
+  if (delta.unitPrice !== undefined || delta.quantity !== undefined) {
+    batch.totalCost = batch.unitPrice == null ? null : round2(batch.quantity * batch.unitPrice)
+  }
   // If location changed, auto-create a transfer movement
   if (delta.location && delta.location !== batch.location) {
     // (This is handled by useWarehouseBatch composable)
@@ -698,7 +921,14 @@ export async function mockGetMovements(
   return paginate(filtered.map(toMovementListItem), pagination.page, pagination.pageSize)
 }
 
-export async function mockCreateMovement(data: {
+/**
+ * Writes a movement and moves the batch, synchronously.
+ *
+ * A shipment has to record itself and write off the stock in one go: with an
+ * `await` in the middle, a failure between the two leaves goods sold and still
+ * on the shelf. The async export below is the API-facing wrapper.
+ */
+export function writeMovement(data: {
   type: string
   batchId: string
   offcutId?: string | null
@@ -711,7 +941,7 @@ export async function mockCreateMovement(data: {
   performedBy?: string | null
   notes?: string | null
   movedAt?: string
-}): Promise<WarehouseMovement> {
+}): WarehouseMovement {
   const batch = batchStore.find((b) => b.id === data.batchId)
   if (!batch) throw new Error('BATCH_NOT_FOUND')
 
@@ -727,8 +957,10 @@ export async function mockCreateMovement(data: {
     productName: batch.productName,
     quantity: data.quantity,
     unit: batch.unit,
-    unitPrice: data.unitPrice ?? batch.unitPrice,
-    totalCost: data.quantity * (data.unitPrice ?? batch.unitPrice),
+    // A movement is priced at what the batch costs; a batch with no cost moves
+    // goods without moving a known amount of money.
+    unitPrice: data.unitPrice ?? batch.unitPrice ?? 0,
+    totalCost: data.quantity * (data.unitPrice ?? batch.unitPrice ?? 0),
     referenceId: data.referenceId ?? null,
     referenceType: data.referenceType ?? null,
     fromLocation: data.fromLocation ?? null,
@@ -776,7 +1008,9 @@ export async function mockCreateMovement(data: {
   } else if (data.type === 'receipt') {
     batch.quantityRemaining += data.quantity
     batch.quantity += data.quantity
-    batch.totalCost += data.quantity * batch.unitPrice
+    if (batch.totalCost != null && batch.unitPrice != null) {
+      batch.totalCost += data.quantity * batch.unitPrice
+    }
   } else if (data.type === 'return') {
     batch.quantityRemaining += data.quantity
   } else if (data.type === 'correction') {
@@ -789,7 +1023,9 @@ export async function mockCreateMovement(data: {
       // Non-receipt correction: adjusts total batch quantity and cost, NOT remaining.
       // Goods are added/removed from inventory, not transferred from receipt.
       batch.quantity += correctionDelta
-      batch.totalCost += correctionDelta * batch.unitPrice
+      if (batch.totalCost != null && batch.unitPrice != null) {
+        batch.totalCost += correctionDelta * batch.unitPrice
+      }
     }
   }
 
@@ -798,6 +1034,53 @@ export async function mockCreateMovement(data: {
   batch.updatedAt = now
 
   return movement
+}
+
+export async function mockCreateMovement(
+  data: Parameters<typeof writeMovement>[0],
+): Promise<WarehouseMovement> {
+  return writeMovement(data)
+}
+
+/** Batches of one product, oldest first — the order FIFO consumes them in. */
+export function batchesForProduct(productId: string): WarehouseBatch[] {
+  return batchStore
+    .filter((b) => b.productId === productId)
+    .sort((a, b) => a.receivedAt.localeCompare(b.receivedAt))
+}
+
+/**
+ * "What is on the shelf, at what cost?" is a question about the warehouse, so the
+ * warehouse answers it.
+ *
+ * Registered rather than imported the other way round. The catalogue used to read
+ * the raw seed array itself and average it at module load — the same array this
+ * module reprices a moment later, and always afterwards, because warehouse imports
+ * products and not the reverse. One mutable array with two owners: whoever read it
+ * first kept prices that no longer existed anywhere. Now it has one owner, and the
+ * average is asked for when it is needed instead of frozen at import time.
+ */
+registerProductBatchLookup((productId) =>
+  batchesForProduct(productId).map((b) => ({
+    quantityRemaining: b.quantityRemaining,
+    unitPrice: b.unitPrice,
+    currency: b.currency,
+  })),
+)
+
+/** Movements written against one reference — a shipment, for instance. */
+export function mockGetMovementsFor(
+  referenceType: string,
+  referenceId: string,
+): WarehouseMovement[] {
+  return movementStore.filter(
+    (m) => m.referenceType === referenceType && m.referenceId === referenceId,
+  )
+}
+
+/** One batch, or undefined. For callers that hold an allocation and need its cost. */
+export function batchById(batchId: string): WarehouseBatch | undefined {
+  return batchStore.find((b) => b.id === batchId)
 }
 
 export async function mockGetMovement(id: string): Promise<WarehouseMovement> {
@@ -982,6 +1265,78 @@ export async function mockGetDeficitItem(id: string): Promise<WarehouseDeficit> 
   return { ...deficit }
 }
 
+/**
+ * Records that an order asked for more than the warehouse can cover.
+ *
+ * Synchronous so it can happen inside the same operation that accepted the line:
+ * a shortage nobody wrote down is a shortage nobody buys, and the order would sit
+ * there un-shippable with no trace of why.
+ */
+export function recordShortage(data: {
+  productId: string
+  productName: string
+  quantity: number
+  unit: string
+  orderId: string
+}): WarehouseDeficit {
+  const now = new Date().toISOString()
+  // Matched on the whole note, not a substring: "Order ORD-1" is contained in
+  // "Order ORD-10", and one order's shortage would quietly overwrite another's.
+  const note = `Order ${data.orderId}`
+  const existing = deficitStore.find(
+    (d) => d.productId === data.productId && d.status === 'open' && d.notes === note,
+  )
+  if (existing) {
+    // The same order asking again is the same shortage, not a second one.
+    existing.deficitAmount = round2(Math.max(existing.deficitAmount, data.quantity))
+    existing.minRequired = existing.deficitAmount
+    existing.updatedAt = now
+    return existing
+  }
+
+  const deficit: WarehouseDeficit = {
+    id: `whd-${String(deficitSeq++).padStart(3, '0')}`,
+    productId: data.productId,
+    productName: { ru: data.productName, en: data.productName, lt: data.productName },
+    currentStock: 0,
+    minRequired: round2(data.quantity),
+    deficitAmount: round2(data.quantity),
+    unit: data.unit,
+    priority: 'high',
+    status: 'open',
+    suggestedOrderQty: round2(data.quantity),
+    purchaseOrderId: null,
+    notes: note,
+    createdAt: now,
+    updatedAt: now,
+    auditLog: [],
+  }
+  deficitStore.push(deficit)
+  return deficit
+}
+
+/**
+ * Takes back what an order filed, for one product or for all of them.
+ *
+ * A shortage is something a line PRODUCED, exactly as its reservation is, and it
+ * has to go the same way: the line that asked for more than the shelf holds is
+ * deleted, the order is deleted, and the record must not outlive either. Left
+ * behind, it sits on the buying list asking somebody to purchase goods for an
+ * order that cannot even be opened (contract §4.2).
+ *
+ * Only records this module filed itself are touched — a shortage entered by hand
+ * carries no order note and is nobody's to remove.
+ */
+export function clearShortages(filter: { orderId: string; productId?: string }): void {
+  const note = `Order ${filter.orderId}`
+  for (let i = deficitStore.length - 1; i >= 0; i--) {
+    const deficit = deficitStore[i]!
+    if (deficit.notes !== note) continue
+    if (filter.productId && deficit.productId !== filter.productId) continue
+    deficitStore.splice(i, 1)
+  }
+}
+
 export async function mockCreateDeficitItem(data: DeficitCreatePayload): Promise<WarehouseDeficit> {
   const id = `whd-${String(deficitSeq++).padStart(3, '0')}`
   const now = new Date().toISOString()
@@ -1024,34 +1379,76 @@ export async function mockDeleteDeficitItem(id: string): Promise<void> {
 
 // ─── FIFO Cost Calculation ──────────────────────────────────────────────────
 
+/**
+ * Which batches a quantity would consume, oldest first — and what it would cost.
+ *
+ * Runs on what is AVAILABLE, not on what is on the shelf: a batch already
+ * promised to another order cannot also be promised here, or two orders would
+ * both price the same tonne and only one could ever write it off.
+ *
+ * `exceptLine` excludes one line's own hold, so a line asking about itself is not
+ * blocked by the goods it is already holding. Everyone else's holds count —
+ * including other lines of the same order, which are separate claims.
+ *
+ * `claimed` is the other half of that same sentence, and it was missing. A hold
+ * is not the only way a line stands on a batch: its breakdown claims those units
+ * too, from the moment the line is written down and long before anybody reserves
+ * anything. Asked for more without being told, FIFO offered a line the very batch
+ * it was already standing on — 305 units handed out twice, a breakdown of 405
+ * against a batch of 305, and a cost 3,1% under the truth wearing the label
+ * "from stock".
+ *
+ * A shortage is REPORTED, never quietly averaged over: the caller decides whether
+ * to accept the order and mark the cost as an estimate, and the goods still
+ * cannot be shipped.
+ */
+export function mockFifoAllocation(
+  productId: string,
+  quantity: number,
+  options?: {
+    exceptLine?: { orderId: string; lineId: string }
+    /** Per batch: what the asking line already claims and has not shipped. */
+    claimed?: ReadonlyMap<string, number>
+  },
+): FifoResult {
+  const batches: FifoBatch[] = batchesForProduct(productId).map((b) => ({
+    batchId: b.id,
+    offcutId: null,
+    receivedAt: b.receivedAt,
+    availableQuantity: computeAvailable(
+      b.quantityRemaining,
+      round2(
+        reservedOn(b.id, { exceptLine: options?.exceptLine }) + (options?.claimed?.get(b.id) ?? 0),
+      ),
+    ),
+    // A batch with no cost still holds goods, so FIFO must still see it. What it
+    // cannot do is name a price: the order module has no "unknown" to carry, so
+    // it reads 0 here. See the note in the audit report — the line should sell at
+    // the price it was given and show "—" for margin (model §11.9), and that needs
+    // a cost of `null` in FifoBatch, which lives outside this module.
+    unitCost: b.unitPrice ?? 0,
+    currency: b.currency,
+  }))
+  return allocateFifo(batches, quantity)
+}
+
+/**
+ * The cost of a quantity, for the card to show before the line exists. Same
+ * function the order module uses, so the preview and the stored line agree.
+ */
 export function mockCalculateFifoCost(
   productId: string,
   quantity: number,
-): { unitPrice: number; totalCost: number } {
-  const batches = mockBatchesData
-    .filter(b => b.productId === productId && b.quantityRemaining > 0)
-    .sort((a, b) => new Date(a.receivedAt).getTime() - new Date(b.receivedAt).getTime())
-
-  let remaining = quantity
-  let totalCost = 0
-
-  for (const batch of batches) {
-    if (remaining <= 0) break
-    const take = Math.min(remaining, batch.quantityRemaining)
-    totalCost += take * batch.unitPrice
-    remaining -= take
-  }
-
-  // If not enough stock, estimate remaining at avg price
-  if (remaining > 0) {
-    const avgBatch = (mockStockOverviewData as StockOverviewItem[]).find(i => i.productId === productId)
-    const avgPrice = avgBatch?.avgUnitPrice ?? (totalCost / Math.max(1, quantity - remaining))
-    totalCost += remaining * avgPrice
-  }
-
+  options?: { exceptLine?: { orderId: string; lineId: string } },
+): { unitPrice: number; totalCost: number; shortageQuantity: number } {
+  const fifo = mockFifoAllocation(productId, quantity, options)
+  const covered = round2(quantity - fifo.shortageQuantity)
   return {
-    unitPrice: quantity > 0 ? totalCost / quantity : 0,
-    totalCost,
+    // The shortage is priced at what the covered part costs — there is nothing
+    // better to price it at — but it is reported so it can be called an estimate.
+    unitPrice: fifo.weightedUnitCost,
+    totalCost: round2(fifo.weightedUnitCost * covered),
+    shortageQuantity: fifo.shortageQuantity,
   }
 }
 

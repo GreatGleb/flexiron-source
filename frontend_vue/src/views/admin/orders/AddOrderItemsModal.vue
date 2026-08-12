@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, watchEffect } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getProducts } from '@/services/productsService'
 import { getStockOverview, getBatchCostBreakdown } from '@/services/warehouseService'
 import { useToast } from '@/composables/useToast'
 import { useSettings } from '@/composables/useSettings'
+import { usePagination } from '@/composables/usePagination'
 import { useTranslatedField } from '@/composables/useTranslatedData'
 import type { ProductListItem } from '@/types/product'
 import type { StockOverviewItem } from '@/types/warehouse'
@@ -13,16 +14,34 @@ import AppModal from '@/components/admin/ui/AppModal.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
 import SearchInput from '@/components/admin/ui/SearchInput.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
+import Pagination from '@/components/admin/ui/Pagination.vue'
+import AddLineModeChooser from './AddLineModeChooser.vue'
+import {
+  calcLine,
+  formatCents as money,
+  round2,
+  type AddLineMode,
+  type LineTotals,
+} from '@/domain/orderPricing'
+import { pricingSeedFor, stockCostFor } from '@/services/orderLines'
 
 const { t, locale } = useI18n()
 const toast = useToast()
 const { settings } = useSettings()
 const { tf } = useTranslatedField()
 
-const props = defineProps<{
-  show: boolean
-  orderId: string
-}>()
+const props = withDefaults(
+  defineProps<{
+    show: boolean
+    /** What to ask about pricing, if anything — model, section 10. */
+    modes?: AddLineMode[]
+    /** The discount the order really gave; the number "order terms" applies. */
+    effectiveDiscount?: number
+    defaultMarginPercent?: number
+    defaultDiscountPercent?: number
+  }>(),
+  { modes: () => [], effectiveDiscount: 0, defaultMarginPercent: 0, defaultDiscountPercent: 0 },
+)
 
 const emit = defineEmits<{
   close: []
@@ -34,11 +53,31 @@ const emit = defineEmits<{
       unit: string
       unitPrice: number
       unitCost?: number
+      /** The warehouse could not cover the whole line — the cost is an estimate. */
+      hasShortage?: boolean
       /** Quantity in warehouse UoM (converted from sale qty if UoMs differ) */
       warehouseQty?: number
     }>,
+    mode: AddLineMode | null,
   ]
 }>()
+
+// ─── How the new lines should be priced ───────────────────────────────────
+const chosenMode = ref<AddLineMode>(props.modes[0] ?? 'computed_price')
+
+watch(
+  () => [props.show, props.modes] as const,
+  () => {
+    // Reopening starts from the recommended option rather than from whatever was
+    // picked last time — the order may look completely different by now.
+    chosenMode.value = props.modes[0] ?? 'computed_price'
+  },
+)
+
+/** The discount the chosen mode implies, in percent. */
+const modeDiscount = computed(() =>
+  chosenMode.value === 'order_terms' ? props.effectiveDiscount : props.defaultDiscountPercent,
+)
 
 // ─── Product data ─────────────────────────────────────────────────────────
 const products = ref<ProductListItem[]>([])
@@ -165,35 +204,47 @@ interface SelectedOrderItem {
 const selectedItems = ref<SelectedOrderItem[]>([])
 
 /** FIFO batch cost breakdown per selected product (unitPrice + totalCost) */
-const selectedItemsCosts = ref<Map<string, { unitPrice: number; totalCost: number }>>(new Map())
+const selectedItemsCosts = ref<
+  Map<string, { unitPrice: number; totalCost: number; shortageQuantity: number }>
+>(new Map())
 
-function toggleProduct(id: string) {
+/** Products whose cost is still on its way — one click, one row. */
+const pendingProducts = ref(new Set<string>())
+
+async function toggleProduct(id: string) {
   const idx = selectedItems.value.findIndex((item) => item.productId === id)
-  if (idx === -1) {
-    // Add new item with default quantity=1
-    const product = products.value.find((p) => p.id === id)
-    if (!product) return
-    const unit = getProductUnit(product)
-    const saleQty = 1
-    // Use FIFO cost as unitPrice if available, fallback to product price
-    const fifoCost = selectedItemsCosts.value.get(product.id)?.unitPrice
-    const unitPrice = fifoCost ?? (product.price ?? 0)
-    selectedItems.value = [
-      ...selectedItems.value,
-      {
-        productId: product.id,
-        productName: tf(product.name),
-        quantity: saleQty,
-        unit,
-        unitPrice,
-        warehouseQty: saleQtyToWarehouseQty(product, saleQty),
-      },
-    ]
-    // Trigger FIFO cost calculation and update unitPrice when ready
-    recalcFifoCost(product.id, saleQty)
-  } else {
+  if (idx !== -1) {
     selectedItems.value = selectedItems.value.filter((v) => v.productId !== id)
+    return
   }
+  const product = products.value.find((p) => p.id === id)
+  if (!product || pendingProducts.value.has(id)) return
+
+  const saleQty = 1
+  // The row waits for the cost instead of appearing without it. The cost decides
+  // the price for a product the catalogue prices at nothing, and it decides
+  // whether the line takes the order's discount at all — a row shown first and
+  // corrected a moment later quotes a number that was never going to be true.
+  pendingProducts.value = new Set(pendingProducts.value).add(id)
+  try {
+    await recalcFifoCost(id, saleQty)
+  } finally {
+    const rest = new Set(pendingProducts.value)
+    rest.delete(id)
+    pendingProducts.value = rest
+  }
+
+  selectedItems.value = [
+    ...selectedItems.value,
+    {
+      productId: product.id,
+      productName: tf(product.name),
+      quantity: saleQty,
+      unit: getProductUnit(product),
+      unitPrice: priceFor(product, selectedItemsCosts.value.get(product.id)?.unitPrice),
+      warehouseQty: saleQtyToWarehouseQty(product, saleQty),
+    },
+  ]
 }
 
 function removeProduct(id: string) {
@@ -219,8 +270,16 @@ function isSelected(id: string): boolean {
 }
 
 // ─── Pagination ───────────────────────────────────────────────────────────
-const productPage = ref(1)
-const productPageSize = ref(5)
+// `usePagination` — the same one the create page's client list uses. The window
+// of page numbers used to be copied here, character for character.
+const pagination = usePagination(5)
+const {
+  page: productPage,
+  pageSize: productPageSize,
+  totalPages: productTotalPages,
+  pageNumbers: productPageNumbers,
+} = pagination
+
 const PAGE_SIZE_OPTIONS_PRODUCTS: SelectOption[] = [
   { value: '5', label: '5' },
   { value: '15', label: '15' },
@@ -231,15 +290,17 @@ const productPageSizeStr = computed({
   get: () => String(productPageSize.value),
   set: (v: string) => {
     productPageSize.value = Number(v)
-    productPage.value = 1
+    pagination.reset()
   },
 })
-const productTotalPages = computed(() =>
-  Math.max(1, Math.ceil(filteredProducts.value.length / productPageSize.value)),
-)
-watch([filteredProducts, productPageSize], () => {
-  if (productPage.value > productTotalPages.value) productPage.value = productTotalPages.value
+
+// The list is filtered in the browser, so the count the composable pages over
+// is the filtered length, not a number the server sent.
+watchEffect(() => {
+  pagination.total.value = filteredProducts.value.length
 })
+// A filter that shortens the list can leave the current page past the end.
+watch(productTotalPages, () => pagination.goTo(productPage.value))
 
 // Group products by category and slice for current page
 const pagedProductGroups = computed(() => {
@@ -277,15 +338,6 @@ const pagedProductGroups = computed(() => {
   }
   return result
 })
-
-function productPageNumbers(): (number | '...')[] {
-  const n = productTotalPages.value
-  if (n <= 7) return Array.from({ length: n }, (_, i) => i + 1)
-  const p = productPage.value
-  if (p <= 3) return [1, 2, 3, 4, '...', n]
-  if (p >= n - 2) return [1, '...', n - 3, n - 2, n - 1, n]
-  return [1, '...', p - 1, p, p + 1, '...', n]
-}
 
 // ─── Load products + stock overview ──────────────────────────────────────
 async function loadProducts() {
@@ -343,10 +395,12 @@ async function recalcFifoCost(productId: string, quantity: number) {
   try {
     const cost = await getBatchCostBreakdown(productId, quantity)
     selectedItemsCosts.value.set(productId, cost)
-    // Update unitPrice on the selected item to use FIFO cost
+    // The cost never becomes the price. It only fills in for a product the
+    // catalogue prices at nothing, and then as a markup, not at cost.
     const item = selectedItems.value.find((i) => i.productId === productId)
-    if (item && cost.unitPrice > 0) {
-      item.unitPrice = cost.unitPrice
+    const product = products.value.find((p) => p.id === productId)
+    if (item && product && product.price == null) {
+      item.unitPrice = priceFor(product, cost.unitPrice)
     }
   } catch {
     selectedItemsCosts.value.delete(productId)
@@ -369,26 +423,99 @@ watch(
   { deep: true },
 )
 
+/**
+ * What the line will be sold at, before the discount.
+ *
+ * The catalogue price is a real business figure and wins. Only when the product
+ * carries none is the price computed from the cost and the order's markup.
+ * Selling at cost — which this dialog did by overwriting the price with the FIFO
+ * figure — is not a default anybody chose.
+ */
+function priceFor(product: ProductListItem | undefined, cost: number | undefined): number {
+  // A catalogue price of zero is missing data, not a decision to give it away.
+  if (product?.price != null && product.price > 0) return product.price
+  if (cost === undefined || cost <= 0) return 0
+  return round2(cost * (1 + props.defaultMarginPercent / 100))
+}
+
+/**
+ * What the product will be quoted at, for the picker's price column.
+ *
+ * The column used to show the warehouse's average cost for anything in stock
+ * and the catalogue price for everything else — two different quantities under
+ * one heading, in neighbouring rows. It shows the selling price now, arrived at
+ * exactly the way selecting the product arrives at it, so the number does not
+ * change when the row moves into the table below.
+ */
+function catalogueQuote(product: ProductListItem): string {
+  const price = priceFor(product, stockMap.value.get(product.id)?.avgUnitPrice)
+  if (price <= 0) return '—'
+  return `${money(price)} ${settings.constants.defaultCurrency}`
+}
+
+/** The cost this product would come into the order with — one rule for both sides. */
+function costFor(productId: string): ReturnType<typeof stockCostFor> {
+  const answer = selectedItemsCosts.value.get(productId)
+  return stockCostFor(answer?.unitPrice ?? null, (answer?.shortageQuantity ?? 0) > 0)
+}
+
+/**
+ * The row as the order will really hold it — built the way the card builds it and
+ * priced by the same `calcLine`.
+ *
+ * Not "price × (1 − discount)" spelled out again here: that copy did not know the
+ * rule that a line with no cost takes no discount (model section 10), so a product
+ * the warehouse cannot cost was quoted at 880,00 and landed in the order at
+ * 1 000,00. A preview that runs the real function cannot promise a total the order
+ * then does not show — including the rounding, which is why the total comes from
+ * `lineNet` rather than from a rounded unit price multiplied out.
+ */
+const previews = computed(() => {
+  const rows = new Map<string, LineTotals>()
+  for (const item of selectedItems.value) {
+    const { unitCost } = costFor(item.productId)
+    rows.set(
+      item.productId,
+      calcLine({
+        id: item.productId,
+        quantity: item.quantity,
+        unitCost,
+        costSource: 'stock',
+        ...pricingSeedFor(unitCost, item.unitPrice),
+        // A line with no cost keeps its stated price: a discount is a share of a
+        // computed price, and it has none.
+        discountPercent: unitCost > 0 ? modeDiscount.value : 0,
+        state: 'draft',
+        shippedQuantity: 0,
+        documentIssued: false,
+      }),
+    )
+  }
+  return rows
+})
+
 // ─── Save ─────────────────────────────────────────────────────────────────
 function onSave() {
   if (selectedItems.value.length === 0) return
   const items = selectedItems.value
     .filter((item) => item.quantity > 0)
     .map((item) => {
-      const fifoCost = selectedItemsCosts.value.get(item.productId)?.unitPrice
+      const answer = selectedItemsCosts.value.get(item.productId)
       return {
         productId: item.productId,
         productName: item.productName,
         quantity: item.quantity,
         unit: item.unit,
-        // Use FIFO cost as unitPrice (matches the displayed value)
-        unitPrice: fifoCost ?? item.unitPrice,
-        unitCost: fifoCost ?? item.unitPrice,
+        // The price before the discount: the mode decides the discount, and the
+        // line stores the two separately.
+        unitPrice: item.unitPrice,
+        unitCost: answer?.unitPrice,
+        hasShortage: (answer?.shortageQuantity ?? 0) > 0,
         warehouseQty: item.warehouseQty,
       }
     })
   if (items.length > 0) {
-    emit('add', items)
+    emit('add', items, props.modes.length > 0 ? chosenMode.value : null)
     emit('close')
   }
 }
@@ -485,20 +612,13 @@ function onCancel() {
                       <span v-else class="stock-na">—</span>
                     </template>
                   </td>
-                  <td class="col-price-cell">
+                  <td class="col-price-cell" data-test="add-items-product-price">
                     <template v-if="stockLoading">
                       <span class="stock-loading">…</span>
                     </template>
                     <template v-else>
-                      <span
-                        v-if="stockMap.get(p.id)"
-                        v-tooltip="'Avg cost: ' + stockMap.get(p.id)!.avgUnitPrice.toFixed(2) + ' ' + settings.constants.defaultCurrency"
-                        class="stock-value"
-                      >
-                        {{ Number(stockMap.get(p.id)!.avgUnitPrice.toFixed(2)).toLocaleString() }}
-                      </span>
-                      <span v-else>
-                        {{ p.price != null ? p.price.toFixed(2) + ' ' + settings.constants.defaultCurrency : '—' }}
+                      <span>
+                        {{ catalogueQuote(p) }}
                       </span>
                     </template>
                   </td>
@@ -508,51 +628,15 @@ function onCancel() {
             <tfoot v-if="filteredProducts.length > 0">
               <tr>
                 <td :colspan="6" class="pagination-cell">
-                  <div class="pagination-bar">
-                    <div class="page-size">
-                      <span>{{ t('orders.page_size') }}</span>
-                      <CustomSelect
-                        v-model="productPageSizeStr"
-                        :options="PAGE_SIZE_OPTIONS_PRODUCTS"
-                        :open-up="true"
-                        class="custom-select-sm"
-                      />
-                    </div>
-                    <div class="pagination-nav">
-                      <button
-                        class="btn btn-icon btn-sm page-nav-btn"
-                        :disabled="productPage <= 1"
-                        @click="productPage = Math.max(1, productPage - 1)"
-                      >
-                        <SvgIcon
-                          name="chevron-right"
-                          :width="14"
-                          :height="14"
-                          style="transform: rotate(180deg)"
-                        />
-                      </button>
-                      <div class="pagination-pages">
-                        <template v-for="(p, i) in productPageNumbers()" :key="i">
-                          <span v-if="p === '...'" class="pagination-ellipsis">...</span>
-                          <button
-                            v-else
-                            class="page-btn"
-                            :class="{ active: p === productPage }"
-                            @click="productPage = p as number"
-                          >
-                            {{ p }}
-                          </button>
-                        </template>
-                      </div>
-                      <button
-                        class="btn btn-icon btn-sm page-nav-btn"
-                        :disabled="productPage >= productTotalPages"
-                        @click="productPage = Math.min(productTotalPages, productPage + 1)"
-                      >
-                        <SvgIcon name="chevron-right" :width="14" :height="14" />
-                      </button>
-                    </div>
-                  </div>
+                  <Pagination
+                    v-model:page="productPage"
+                    v-model:size="productPageSizeStr"
+                    :total-pages="productTotalPages"
+                    :pages="productPageNumbers()"
+                    :page-size-options="PAGE_SIZE_OPTIONS_PRODUCTS"
+                    :size-label="t('orders.page_size')"
+                    :compact="true"
+                  />
                 </td>
               </tr>
             </tfoot>
@@ -574,7 +658,6 @@ function onCancel() {
                 <th class="col-qty-header">{{ t('orders.col_quantity') }}</th>
                 <th class="col-unit-header">{{ t('orders.col_unit') }}</th>
                 <th class="col-price-ro-header">{{ t('orders.col_unit_price') }}</th>
-                <th class="col-cost-header">{{ t('orders.col_avg_cost') }}</th>
                 <th class="col-total-header">{{ t('orders.col_total_price') }}</th>
                 <th class="col-action-header"></th>
               </tr>
@@ -601,18 +684,15 @@ function onCancel() {
                   <span class="unit-label">{{ t('orders.unit_' + item.unit, item.unit) }}</span>
                 </td>
                 <td class="col-price-ro-cell">
-                  <span class="price-display">{{ item.unitPrice.toFixed(2) }} {{ settings.constants.defaultCurrency }}</span>
-                </td>
-                <td class="col-cost-cell">
-                  <span class="cost-display"
-                    >{{ selectedItemsCosts.get(item.productId)?.unitPrice
-                      ? selectedItemsCosts.get(item.productId)!.unitPrice.toFixed(2) + ' ' + settings.constants.defaultCurrency
-                      : '—' }}</span
+                  <span class="price-display" data-test="add-items-price"
+                    >{{ money(previews.get(item.productId)?.unitPrice ?? 0) }}
+                    {{ settings.constants.defaultCurrency }}</span
                   >
                 </td>
                 <td class="col-total-cell">
-                  <span class="item-total"
-                    >{{ (item.quantity * item.unitPrice).toFixed(2) }} {{ settings.constants.defaultCurrency }}</span
+                  <span class="item-total" data-test="add-items-total"
+                    >{{ money(previews.get(item.productId)?.lineNet ?? 0) }}
+                    {{ settings.constants.defaultCurrency }}</span
                   >
                 </td>
                 <td class="col-action-cell">
@@ -630,6 +710,13 @@ function onCancel() {
           </table>
         </div>
       </div>
+
+      <AddLineModeChooser
+        v-if="selectedItems.length > 0"
+        v-model="chosenMode"
+        :modes="modes"
+        :effective-discount="effectiveDiscount"
+      />
     </div>
 
     <template #footer>
@@ -811,75 +898,6 @@ function onCancel() {
 .products-table tfoot td {
   overflow: visible;
   padding-top: 12px;
-}
-
-.pagination-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  row-gap: 10px;
-}
-
-.page-size {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.6);
-}
-
-.pagination-nav {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.pagination-pages {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.page-btn {
-  min-width: 26px;
-  height: 26px;
-  padding: 0 6px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 5px;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 11px;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-.page-btn:hover {
-  background: rgba(24, 144, 255, 0.2);
-  border-color: var(--primary);
-}
-.page-btn.active {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: #fff;
-}
-
-.page-nav-btn {
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.pagination-ellipsis {
-  padding: 0 4px;
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 11px;
 }
 
 /* ─── Selected items table ─────────────────────────────── */

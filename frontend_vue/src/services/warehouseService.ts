@@ -60,10 +60,17 @@ export async function patchStockItem(
   return apiPatch<StockOverviewItem>(`/api/warehouse/stock/${productId}`, delta)
 }
 
+/**
+ * What a quantity of a product costs, oldest batches first.
+ *
+ * `shortageQuantity` is part of the answer, not a detail: a cost read off batches
+ * that cover only half the line is an estimate, and a caller that cannot tell the
+ * two apart marks warehouse data and guesswork with the same label.
+ */
 export async function getBatchCostBreakdown(
   productId: string,
   quantity: number,
-): Promise<{ unitPrice: number; totalCost: number }> {
+): Promise<{ unitPrice: number; totalCost: number; shortageQuantity: number }> {
   return apiGet(`/api/warehouse/stock/${productId}/cost`, {
     quantity: String(quantity),
   })

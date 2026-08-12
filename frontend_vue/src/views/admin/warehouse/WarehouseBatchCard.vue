@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useHead } from '@/composables/useHead'
@@ -11,6 +11,8 @@ import SvgIcon from '@/components/admin/SvgIcon.vue'
 import AppModal from '@/components/admin/ui/AppModal.vue'
 import FileItem from '@/components/admin/FileItem.vue'
 import DropZone from '@/components/admin/ui/DropZone.vue'
+import AutoResizeTextarea from '@/components/admin/ui/AutoResizeTextarea.vue'
+import SuffixSelect from '@/components/admin/ui/SuffixSelect.vue'
 import type { OffcutStatus } from '@/types/warehouse'
 import { getBatch } from '@/services/warehouseService'
 import CreateMovementModal from './CreateMovementModal.vue'
@@ -58,16 +60,27 @@ function resolveUnitLabel(code: string | null): string {
   return uom.code[currentLocale] || uom.code.en || uom.code.ru || uom.code.lt || code
 }
 
-/** Computed selling price per warehouse UoM (unitPrice × (1 + marginPercent/100)) */
-const sellingPrice = computed(() => {
+/**
+ * Selling price per warehouse UoM (unitPrice × (1 + marginPercent/100)).
+ *
+ * `null` when the batch has no cost: a margin on an unknown cost is an unknown
+ * price, and the field shows a dash instead of inventing one.
+ */
+const sellingPrice = computed<number | null>(() => {
+  if (form.value.unitPrice == null) return null
   const margin = form.value.marginPercent ?? 0
   return form.value.unitPrice * (1 + margin / 100)
 })
 
-/** Computed total selling value (sellingPrice × quantity) */
-const totalSellingValue = computed(() => {
-  return sellingPrice.value * form.value.quantity
-})
+/** Total selling value (sellingPrice × quantity), or `null` for the same reason. */
+const totalSellingValue = computed<number | null>(() =>
+  sellingPrice.value == null ? null : sellingPrice.value * form.value.quantity,
+)
+
+/** A money field that may have no number behind it at all. */
+function money(amount: number | null | undefined, suffix: string): string {
+  return amount == null ? '—' : `${amount.toFixed(2)} ${suffix}`
+}
 
 const id = route.params.id as string
 const {
@@ -215,24 +228,15 @@ const aggregateEntries = computed(() => {
   return result
 })
 
-// ─── Currency selector for unit price (dynamic from settings) ───
-const CURRENCY_OPTIONS = computed(() => {
+// ─── Currency of the unit price: the base one, and no other (contract §7.1) ───
+// The warehouse layer is kept in one currency, because nothing in this system
+// converts between them. Offering the rest here only ever produced a batch the
+// stock total could not add up, and the store now refuses to store one.
+const CURRENCY_OPTIONS = computed<string[]>(() => {
   const currencies = settings.currencies ?? []
-  return currencies.map((c: { code: string }) => c.code)
+  const base = currencies.find((c: { isDefault?: boolean }) => c.isDefault)
+  return [base?.code ?? settings.constants.defaultCurrency]
 })
-const currencyOpen = ref(false)
-
-function selectCurrency(c: string) {
-  form.value.currency = c
-  currencyOpen.value = false
-}
-
-function onDocClickCloseCurrency(e: MouseEvent) {
-  const el = (e.target as HTMLElement | null)?.closest?.('.input-with-suffix')
-  if (!el) currencyOpen.value = false
-}
-onMounted(() => document.addEventListener('click', onDocClickCloseCurrency))
-onBeforeUnmount(() => document.removeEventListener('click', onDocClickCloseCurrency))
 
 function onDeleteClick() {
   if (batch.value?.orderId) {
@@ -317,30 +321,6 @@ useHead({
 })
 
 onMounted(load)
-
-// ─── Auto-resize notes textarea ──────────────────────────────────────
-const notesTextarea = ref<HTMLTextAreaElement | null>(null)
-const MAX_NOTES_HEIGHT = 300
-
-function autoResizeNotes() {
-  const el = notesTextarea.value
-  if (!el) return
-  el.style.height = 'auto'
-  if (el.scrollHeight > MAX_NOTES_HEIGHT) {
-    el.style.height = MAX_NOTES_HEIGHT + 'px'
-    el.style.overflowY = 'auto'
-  } else {
-    el.style.height = el.scrollHeight + 'px'
-    el.style.overflowY = 'hidden'
-  }
-}
-
-watch(
-  () => form.value.notes,
-  () => {
-    nextTick(autoResizeNotes)
-  },
-)
 
 // ─── Movement creation modal ──────────────────────────────────────────
 const showMovementModal = ref(false)
@@ -799,25 +779,14 @@ async function onMovementCreated() {
                       step="0.01"
                       data-test="field-unit-price"
                     />
-                    <div
-                      class="input-suffix custom-select-trigger"
-                      data-test="field-currency-trigger"
-                      @click.stop="currencyOpen = !currencyOpen"
-                    >
-                      <span class="curr-val">{{ resolveCurrencyLabel(form.currency) }}</span>
-                    </div>
-                    <div class="custom-select-list" :class="{ open: currencyOpen }">
-                      <div
-                        v-for="c in CURRENCY_OPTIONS"
-                        :key="c"
-                        class="custom-select-option"
-                        data-test="field-currency-option"
-                        :data-currency="c"
-                        @click="selectCurrency(c)"
-                      >
-                        {{ c }}
-                      </div>
-                    </div>
+                    <SuffixSelect
+                      v-model="form.currency"
+                      :options="CURRENCY_OPTIONS"
+                      :display-value="resolveCurrencyLabel(form.currency)"
+                      trigger-test="field-currency-trigger"
+                      option-test="field-currency-option"
+                      option-attr="currency"
+                    />
                   </div>
                 </div>
                 <div class="input-group">
@@ -841,7 +810,7 @@ async function onMovementCreated() {
                     </span>
                   </label>
                   <input
-                    :value="`${batch.totalCost.toFixed(2)} ${resolveCurrencyLabel(form.currency)}`"
+                    :value="money(batch.totalCost, resolveCurrencyLabel(form.currency))"
                     class="glass-input"
                     type="text"
                     readonly
@@ -905,7 +874,12 @@ async function onMovementCreated() {
                     </span>
                   </label>
                   <input
-                    :value="`${sellingPrice.toFixed(2)} ${resolveCurrencyLabel(form.currency)} / ${resolveUnitLabel(form.unit)}`"
+                    :value="
+                      money(
+                        sellingPrice,
+                        `${resolveCurrencyLabel(form.currency)} / ${resolveUnitLabel(form.unit)}`,
+                      )
+                    "
                     class="glass-input"
                     type="text"
                     readonly
@@ -937,7 +911,7 @@ async function onMovementCreated() {
                     </span>
                   </label>
                   <input
-                    :value="`${totalSellingValue.toFixed(2)} ${resolveCurrencyLabel(form.currency)}`"
+                    :value="money(totalSellingValue, resolveCurrencyLabel(form.currency))"
                     class="glass-input"
                     type="text"
                     readonly
@@ -1094,12 +1068,10 @@ async function onMovementCreated() {
                       </svg>
                     </span>
                   </label>
-                  <textarea
-                    ref="notesTextarea"
+                  <AutoResizeTextarea
                     v-model="form.notes"
                     class="glass-input batch-notes-input"
                     data-test="field-notes"
-                    @input="autoResizeNotes"
                   />
                 </div>
               </template>
@@ -1216,7 +1188,7 @@ async function onMovementCreated() {
                   </svg>
                 </span>
               </label>
-              <textarea
+              <AutoResizeTextarea
                 v-model="form.locationNotes"
                 class="glass-input"
                 data-test="field-location-notes"
@@ -1299,17 +1271,6 @@ async function onMovementCreated() {
                 />
                 <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
               </div>
-              <div v-if="batch.exchangeRate" class="input-group">
-                <label class="field-label">{{ t('warehouse.field_exchange_rate') }}</label>
-                <input
-                  :value="batch.exchangeRate"
-                  class="glass-input"
-                  type="text"
-                  readonly
-                  data-test="field-exchange-rate"
-                />
-                <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
-              </div>
             </div>
           </template>
         </GlassPanel>
@@ -1341,7 +1302,10 @@ async function onMovementCreated() {
                 >
                   <td>{{ movement.movedAt.slice(0, 10) }}</td>
                   <td>{{ t(`warehouse.movement_type_${movement.type}`) }}</td>
-                  <td>{{ movement.quantity }} {{ t(`warehouse.unit_${movement.unit}`) }}</td>
+                  <td>
+                    {{ movement.quantity }}
+                    {{ t(`warehouse.unit_${movement.unit}`, movement.unit) }}
+                  </td>
                   <td>{{ movement.referenceId ?? '—' }}</td>
                   <td style="text-align: center">
                     <router-link
@@ -1405,7 +1369,9 @@ async function onMovementCreated() {
                     <span v-else>—</span>
                   </td>
                   <td>{{ offcut.weightKg ?? '—' }} кг</td>
-                  <td>{{ offcut.quantity }} {{ t(`warehouse.unit_${offcut.unit}`) }}</td>
+                  <td>
+                    {{ offcut.quantity }} {{ t(`warehouse.unit_${offcut.unit}`, offcut.unit) }}
+                  </td>
                   <td>
                     <span
                       class="pill pill-sm"

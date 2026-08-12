@@ -6,6 +6,22 @@ import { mockServices as mockServicesData } from '@/mocks/services'
 
 const STORE: Service[] = [...mockServicesData]
 
+/**
+ * The live catalogue, for the modules that price a service.
+ *
+ * Exported because there must be exactly one of these. The orders module used to
+ * carry its own five-entry copy: a service created afterwards fell back to the
+ * first entry of that list and was stored under the wrong NAME and the wrong
+ * cost, and a cost corrected here never reached an order at all.
+ */
+export function serviceById(id: string): Service | undefined {
+  return STORE.find((s) => s.id === id)
+}
+
+export function allServices(): Service[] {
+  return [...STORE]
+}
+
 function toListItem(svc: Service): ServiceListItem {
   return {
     id: svc.id,
@@ -92,7 +108,7 @@ export async function mockCreateService(
 
 export async function mockGetService(id: string): Promise<Service> {
   const svc = STORE.find((s) => s.id === id)
-  if (!svc) throw new Error('SERVICE_NOT_FOUND')
+  if (!svc) throw new Error('CATALOG_SERVICE_NOT_FOUND')
   return { ...svc }
 }
 
@@ -108,7 +124,7 @@ export async function mockPatchService(
   _locale?: string,
 ): Promise<Service> {
   const idx = STORE.findIndex((s) => s.id === id)
-  if (idx === -1) throw new Error('SERVICE_NOT_FOUND')
+  if (idx === -1) throw new Error('CATALOG_SERVICE_NOT_FOUND')
   const svc = STORE[idx]!
   if (data.name !== undefined) svc.name = data.name
   if (data.costPrice !== undefined) svc.costPrice = data.costPrice

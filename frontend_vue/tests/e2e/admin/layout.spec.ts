@@ -1,5 +1,4 @@
 import { test, expect } from '../fixtures'
-import { mockExternalRequests } from '../helpers/mockExternalRequests'
 import { waitForFontsReady } from '../helpers/visual'
 
 /**
@@ -299,7 +298,6 @@ test.describe('admin layout › navigation', () => {
 // ────────────────────────────────────────────────────────────────────────────
 test.describe('admin layout › visual @1440', () => {
   test.beforeEach(async ({ page }) => {
-    await mockExternalRequests(page)
     await page.setViewportSize(DESKTOP)
     await page.goto(DASHBOARD)
     await waitForFontsReady(page)
@@ -330,7 +328,6 @@ test.describe('admin layout › visual @1440', () => {
 // ────────────────────────────────────────────────────────────────────────────
 test.describe('admin layout › responsive', () => {
   test('shell @ 1440 (desktop)', async ({ page }) => {
-    await mockExternalRequests(page)
     await page.setViewportSize(DESKTOP)
     await page.goto(DASHBOARD)
     await waitForFontsReady(page)
@@ -341,7 +338,6 @@ test.describe('admin layout › responsive', () => {
   })
 
   test('shell @ 768 (tablet)', async ({ page }) => {
-    await mockExternalRequests(page)
     await page.setViewportSize(TABLET)
     await page.goto(DASHBOARD)
     await waitForFontsReady(page)
@@ -350,7 +346,6 @@ test.describe('admin layout › responsive', () => {
   })
 
   test('shell @ 375 (mobile)', async ({ page }) => {
-    await mockExternalRequests(page)
     await page.setViewportSize(MOBILE)
     await page.goto(DASHBOARD)
     await waitForFontsReady(page)

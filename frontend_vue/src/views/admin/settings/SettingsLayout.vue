@@ -42,7 +42,6 @@ const {
   updateConstants,
   addCurrency,
   removeCurrency,
-  updateCurrency,
   addUom,
   removeUom,
   addConversion,
@@ -102,7 +101,6 @@ provide('updateCompany', updateCompany)
 provide('updateConstants', updateConstants)
 provide('addCurrency', addCurrency)
 provide('removeCurrency', removeCurrency)
-provide('updateCurrency', updateCurrency)
 provide('addUom', addUom)
 provide('removeUom', removeUom)
 provide('addConversion', addConversion)
@@ -121,29 +119,13 @@ const statusModal = ref(false)
 const currencyChangeConfirmModal = ref(false)
 const pendingCurrencyId = ref<string | null>(null)
 
-const newCurrency = ref<{ code: string; name: string; rate: number }>({
+const newCurrency = ref<{ code: string; name: string }>({
   code: '',
   name: '',
-  rate: 0,
 })
 
-/** Normalize comma → dot for rate input in the currency modal */
-function handleCurrencyRateInput(event: Event) {
-  const target = event.target as HTMLInputElement
-  const raw = target.value.replace(',', '.')
-  target.value = raw
-  const num = Number(raw)
-  if (!isNaN(num)) {
-    newCurrency.value.rate = num
-  }
-}
-
 const isCurrencyFormValid = computed(() => {
-  return (
-    newCurrency.value.code.trim().length > 0 &&
-    newCurrency.value.name.trim().length > 0 &&
-    newCurrency.value.rate > 0
-  )
+  return newCurrency.value.code.trim().length > 0 && newCurrency.value.name.trim().length > 0
 })
 const newUom = ref<{ code: string; name: string; category: UomCategory }>({
   code: '',
@@ -317,10 +299,9 @@ function confirmAddCurrency() {
   addCurrency({
     code: newCurrency.value.code.toUpperCase(),
     name: { ru: newCurrency.value.name, en: newCurrency.value.name, lt: newCurrency.value.name },
-    exchangeRate: newCurrency.value.rate,
     isDefault: false,
   })
-  newCurrency.value = { code: '', name: '', rate: 0 }
+  newCurrency.value = { code: '', name: '' }
   currencyModal.value = false
 }
 
@@ -530,17 +511,6 @@ provide('resetAndCloseStatusModal', resetAndCloseStatusModal)
             :placeholder="t('settingsFinance.currency_name')"
             data-test="settings-modal-currency-name"
             @input="newCurrency.name = ($event.target as HTMLInputElement).value"
-          />
-        </InputGroup>
-        <InputGroup :label="t('settingsFinance.exchange_rate')">
-          <input
-            class="glass-input"
-            type="text"
-            inputmode="decimal"
-            :value="String(newCurrency.rate)"
-            :placeholder="t('settingsFinance.exchange_rate')"
-            data-test="settings-modal-currency-rate"
-            @input="handleCurrencyRateInput($event)"
           />
         </InputGroup>
         <div class="modal-actions">

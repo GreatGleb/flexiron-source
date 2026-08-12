@@ -8,6 +8,8 @@ import SearchInput from '@/components/admin/ui/SearchInput.vue'
 import AppModal from '@/components/admin/ui/AppModal.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
 import InputGroup from '@/components/admin/ui/InputGroup.vue'
+import Pagination from '@/components/admin/ui/Pagination.vue'
+import AutoResizeTextarea from '@/components/admin/ui/AutoResizeTextarea.vue'
 import { useHead } from '@/composables/useHead'
 import { useFeatureFlag } from '@/composables/useFeatureFlag'
 import { useCategories } from '@/composables/useCategories'
@@ -186,60 +188,20 @@ async function handleCreate() {
             <tfoot v-if="pagination.total.value > 0">
               <tr>
                 <td colspan="5">
-                  <div class="pagination-bar" data-test="categories-pagination">
-                    <div class="page-size" data-test="categories-page-size">
-                      <span>{{ t('categories.page_size') }}</span>
-                      <CustomSelect
-                        v-model="pageSizeStr"
-                        :options="PAGE_SIZE_OPTIONS"
-                        :open-up="true"
-                        class="custom-select-sm"
-                      />
-                    </div>
-                    <div class="pagination-nav">
-                      <button
-                        class="btn btn-icon btn-sm"
-                        :disabled="!pagination.hasPrev.value"
-                        :style="{ display: pagination.totalPages.value <= 1 ? 'none' : 'flex' }"
-                        @click="pagination.prev"
-                      >
-                        <SvgIcon
-                          name="chevron-right"
-                          :width="14"
-                          :height="14"
-                          style="transform: rotate(180deg)"
-                        />
-                      </button>
-                      <div class="pagination-pages">
-                        <template v-for="(p, i) in pagination.pageNumbers()" :key="i">
-                          <span v-if="p === '...'" class="pagination-ellipsis">...</span>
-                          <button
-                            v-else
-                            class="page-btn"
-                            :class="{ active: p === pagination.page.value }"
-                            @click="pagination.goTo(p as number)"
-                          >
-                            {{ p }}
-                          </button>
-                        </template>
-                      </div>
-                      <button
-                        class="btn btn-icon btn-sm"
-                        :disabled="!pagination.hasNext.value"
-                        :style="{ display: pagination.totalPages.value <= 1 ? 'none' : 'flex' }"
-                        @click="pagination.next"
-                      >
-                        <SvgIcon name="chevron-right" :width="14" :height="14" />
-                      </button>
-                    </div>
-                    <div class="pagination-info">
-                      <span
-                        >{{ pagination.showingFrom.value }}-{{ pagination.showingTo.value }}</span
-                      >
-                      <span>&nbsp;{{ t('categories.of') }}&nbsp;</span>
-                      <span>{{ pagination.total.value }}</span>
-                    </div>
-                  </div>
+                  <Pagination
+                    v-model:page="pagination.page.value"
+                    v-model:size="pageSizeStr"
+                    :total-pages="pagination.totalPages.value"
+                    :pages="pagination.pageNumbers()"
+                    :page-size-options="PAGE_SIZE_OPTIONS"
+                    :size-label="t('categories.page_size')"
+                    :showing-from="pagination.showingFrom.value"
+                    :showing-to="pagination.showingTo.value"
+                    :total="pagination.total.value"
+                    :of-label="t('categories.of')"
+                    test-id="categories-pagination"
+                    size-test-id="categories-page-size"
+                  />
                 </td>
               </tr>
             </tfoot>
@@ -265,7 +227,7 @@ async function handleCreate() {
         />
       </InputGroup>
       <InputGroup :label="t('categories.field_description')">
-        <textarea
+        <AutoResizeTextarea
           v-model="newCatDescription"
           class="glass-input"
           rows="3"

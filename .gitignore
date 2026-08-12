@@ -30,6 +30,9 @@ test-results/
 playwright-report/
 playwright/.cache/
 
+# Vitest coverage
+coverage/
+
 demo/
 xlx tables/
 

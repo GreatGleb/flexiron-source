@@ -23,7 +23,6 @@ export interface Currency {
   id: string
   code: string
   name: TranslatedString
-  exchangeRate: number
   isDefault: boolean
   updatedAt?: string
 }
@@ -114,9 +113,28 @@ export interface UserProfile {
 }
 
 /** Полный срез настроек системы */
+/**
+ * The three things the pricing model puts behind a right (model section 12), as
+ * lists of roles.
+ *
+ * Roles are the ones the users list uses — owner, admin, manager, warehouse,
+ * accounting — not the role names in the supplier card's permission matrix, which
+ * is a different vocabulary for a different purpose (which fields of that card a
+ * role may see).
+ */
+export interface OrderPermissions {
+  /** See cost and margin. Without it the card shows only what the client pays. */
+  seeCost: string[]
+  /** Type a cost by hand, with a mandatory reason. */
+  manualCost: string[]
+  /** Correct what has already been shipped or invoiced. */
+  correction: string[]
+}
+
 export interface AppSettings {
   company: CompanyInfo
   constants: GlobalConstants
+  orderPermissions: OrderPermissions
   currencies: Currency[]
   uoms: Uom[]
   conversions: UomConversion[]

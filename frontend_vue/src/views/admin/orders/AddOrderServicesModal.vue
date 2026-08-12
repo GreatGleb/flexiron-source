@@ -1,29 +1,71 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, watchEffect } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getServices } from '@/services/servicesService'
 import { useToast } from '@/composables/useToast'
+import { useSettings } from '@/composables/useSettings'
+import { usePagination } from '@/composables/usePagination'
 import { useTranslatedField } from '@/composables/useTranslatedData'
 import type { ServiceListItem } from '@/types/service'
 import type { SelectOption } from '@/components/admin/ui/CustomSelect.vue'
 import AppModal from '@/components/admin/ui/AppModal.vue'
-import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
 import SearchInput from '@/components/admin/ui/SearchInput.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
+import Pagination from '@/components/admin/ui/Pagination.vue'
+import AddLineModeChooser from './AddLineModeChooser.vue'
+import {
+  calcLine,
+  formatCents as money,
+  type AddLineMode,
+  type LineTotals,
+} from '@/domain/orderPricing'
+import { pricingSeedFor } from '@/services/orderLines'
 
 const { t } = useI18n()
 const toast = useToast()
+const { settings } = useSettings()
 const { tf } = useTranslatedField()
 
-const props = defineProps<{
-  show: boolean
-  orderId: string
-}>()
+const props = withDefaults(
+  defineProps<{
+    show: boolean
+    /** What to ask about pricing, if anything — model, section 10. */
+    modes?: AddLineMode[]
+    effectiveDiscount?: number
+    defaultDiscountPercent?: number
+  }>(),
+  { modes: () => [], effectiveDiscount: 0, defaultDiscountPercent: 0 },
+)
 
 const emit = defineEmits<{
   close: []
-  add: [items: Array<{ serviceId: string; serviceName: string; quantity: number; price: number }>]
+  add: [
+    items: Array<{
+      serviceId: string
+      serviceName: string
+      quantity: number
+      price: number
+      /** So the card can show the real margin before the line is saved. */
+      cost: number
+    }>,
+    mode: AddLineMode | null,
+  ]
 }>()
+
+// ─── How the new lines should be priced ───────────────────────────────────
+const chosenMode = ref<AddLineMode>(props.modes[0] ?? 'computed_price')
+
+watch(
+  () => [props.show, props.modes] as const,
+  () => {
+    chosenMode.value = props.modes[0] ?? 'computed_price'
+  },
+)
+
+/** The discount the chosen mode implies, in percent. */
+const modeDiscount = computed(() =>
+  chosenMode.value === 'order_terms' ? props.effectiveDiscount : props.defaultDiscountPercent,
+)
 
 // ─── Services data ──────────────────────────────────────────────────────
 const services = ref<ServiceListItem[]>([])
@@ -61,6 +103,7 @@ interface SelectedServiceItem {
   serviceName: string
   quantity: number
   price: number
+  cost: number
 }
 
 const selectedItems = ref<SelectedServiceItem[]>([])
@@ -78,6 +121,7 @@ function toggleService(id: string) {
         serviceName: tf(svc.name),
         quantity: 1,
         price: svc.sellingPrice ?? 0,
+        cost: svc.costPrice ?? 0,
       },
     ]
   } else {
@@ -89,14 +133,52 @@ function removeService(id: string) {
   selectedItems.value = selectedItems.value.filter((v) => v.serviceId !== id)
 }
 
+/**
+ * The row as the order will really hold it — built the way the card builds it and
+ * priced by the same `calcLine`.
+ *
+ * Spelling "price × (1 − discount)" out again here is what let this dialog quote a
+ * discount on a service with no cost, which the model gives none (section 10) —
+ * the total promised here and the total in the order were different numbers.
+ */
+const previews = computed(() => {
+  const rows = new Map<string, LineTotals>()
+  for (const item of selectedItems.value) {
+    const unitCost = item.cost > 0 ? item.cost : 0
+    rows.set(
+      item.serviceId,
+      calcLine({
+        id: item.serviceId,
+        quantity: item.quantity,
+        unitCost,
+        costSource: 'manual',
+        ...pricingSeedFor(unitCost, item.price),
+        discountPercent: unitCost > 0 ? modeDiscount.value : 0,
+        state: 'draft',
+        shippedQuantity: 0,
+        documentIssued: false,
+      }),
+    )
+  }
+  return rows
+})
+
 // Helper to check if a service is selected (used in template)
 function isSelected(id: string): boolean {
   return selectedItems.value.some((item) => item.serviceId === id)
 }
 
 // ─── Pagination ─────────────────────────────────────────────────────────
-const servicePage = ref(1)
-const servicePageSize = ref(5)
+// `usePagination` — the same one the create page's client list uses. The window
+// of page numbers used to be copied here, character for character.
+const pagination = usePagination(5)
+const {
+  page: servicePage,
+  pageSize: servicePageSize,
+  totalPages: serviceTotalPages,
+  pageNumbers,
+} = pagination
+
 const PAGE_SIZE_OPTIONS: SelectOption[] = [
   { value: '5', label: '5' },
   { value: '15', label: '15' },
@@ -107,29 +189,22 @@ const servicePageSizeStr = computed({
   get: () => String(servicePageSize.value),
   set: (v: string) => {
     servicePageSize.value = Number(v)
-    servicePage.value = 1
+    pagination.reset()
   },
 })
-const serviceTotalPages = computed(() =>
-  Math.max(1, Math.ceil(filteredServices.value.length / servicePageSize.value)),
-)
-watch([filteredServices, servicePageSize], () => {
-  if (servicePage.value > serviceTotalPages.value) servicePage.value = serviceTotalPages.value
+
+// The list is filtered in the browser, so the count the composable pages over
+// is the filtered length, not a number the server sent.
+watchEffect(() => {
+  pagination.total.value = filteredServices.value.length
 })
+// A filter that shortens the list can leave the current page past the end.
+watch(serviceTotalPages, () => pagination.goTo(servicePage.value))
 
 const pagedServices = computed(() => {
   const start = (servicePage.value - 1) * servicePageSize.value
   return filteredServices.value.slice(start, start + servicePageSize.value)
 })
-
-function pageNumbers(): (number | '...')[] {
-  const n = serviceTotalPages.value
-  if (n <= 7) return Array.from({ length: n }, (_, i) => i + 1)
-  const p = servicePage.value
-  if (p <= 3) return [1, 2, 3, 4, '...', n]
-  if (p >= n - 2) return [1, '...', n - 3, n - 2, n - 1, n]
-  return [1, '...', p - 1, p, p + 1, '...', n]
-}
 
 // ─── Load services ──────────────────────────────────────────────────────
 async function loadServices() {
@@ -169,9 +244,10 @@ function onSave() {
       serviceName: item.serviceName,
       quantity: item.quantity,
       price: item.price,
+      cost: item.cost,
     }))
   if (items.length > 0) {
-    emit('add', items)
+    emit('add', items, props.modes.length > 0 ? chosenMode.value : null)
     emit('close')
   }
 }
@@ -244,58 +320,26 @@ function onCancel() {
                 <td class="col-service-name">{{ tf(s.name) }}</td>
                 <td class="col-unit-cell">{{ displayUnit(s.priceUnit) }}</td>
                 <td class="col-price-cell">
-                  {{ s.sellingPrice != null ? s.sellingPrice.toFixed(2) + ' EUR' : '—' }}
+                  {{
+                    s.sellingPrice != null
+                      ? s.sellingPrice.toFixed(2) + ' ' + settings.constants.defaultCurrency
+                      : '—'
+                  }}
                 </td>
               </tr>
             </tbody>
             <tfoot v-if="filteredServices.length > 0">
               <tr>
                 <td :colspan="4" class="pagination-cell">
-                  <div class="pagination-bar">
-                    <div class="page-size">
-                      <span>{{ t('orders.page_size') }}</span>
-                      <CustomSelect
-                        v-model="servicePageSizeStr"
-                        :options="PAGE_SIZE_OPTIONS"
-                        :open-up="true"
-                        class="custom-select-sm"
-                      />
-                    </div>
-                    <div class="pagination-nav">
-                      <button
-                        class="btn btn-icon btn-sm page-nav-btn"
-                        :disabled="servicePage <= 1"
-                        @click="servicePage = Math.max(1, servicePage - 1)"
-                      >
-                        <SvgIcon
-                          name="chevron-right"
-                          :width="14"
-                          :height="14"
-                          style="transform: rotate(180deg)"
-                        />
-                      </button>
-                      <div class="pagination-pages">
-                        <template v-for="(p, i) in pageNumbers()" :key="i">
-                          <span v-if="p === '...'" class="pagination-ellipsis">...</span>
-                          <button
-                            v-else
-                            class="page-btn"
-                            :class="{ active: p === servicePage }"
-                            @click="servicePage = p as number"
-                          >
-                            {{ p }}
-                          </button>
-                        </template>
-                      </div>
-                      <button
-                        class="btn btn-icon btn-sm page-nav-btn"
-                        :disabled="servicePage >= serviceTotalPages"
-                        @click="servicePage = Math.min(serviceTotalPages, servicePage + 1)"
-                      >
-                        <SvgIcon name="chevron-right" :width="14" :height="14" />
-                      </button>
-                    </div>
-                  </div>
+                  <Pagination
+                    v-model:page="servicePage"
+                    v-model:size="servicePageSizeStr"
+                    :total-pages="serviceTotalPages"
+                    :pages="pageNumbers()"
+                    :page-size-options="PAGE_SIZE_OPTIONS"
+                    :size-label="t('orders.page_size')"
+                    :compact="true"
+                  />
                 </td>
               </tr>
             </tfoot>
@@ -339,10 +383,16 @@ function onCancel() {
                   />
                 </td>
                 <td class="col-price-ro-cell">
-                  <span class="price-display">{{ item.price.toFixed(2) }} EUR</span>
+                  <span class="price-display" data-test="add-services-price"
+                    >{{ money(previews.get(item.serviceId)?.unitPrice ?? 0) }}
+                    {{ settings.constants.defaultCurrency }}</span
+                  >
                 </td>
                 <td class="col-total-cell">
-                  <span class="item-total">{{ (item.quantity * item.price).toFixed(2) }} EUR</span>
+                  <span class="item-total" data-test="add-services-total"
+                    >{{ money(previews.get(item.serviceId)?.lineNet ?? 0) }}
+                    {{ settings.constants.defaultCurrency }}</span
+                  >
                 </td>
                 <td class="col-action-cell">
                   <button
@@ -359,6 +409,13 @@ function onCancel() {
           </table>
         </div>
       </div>
+
+      <AddLineModeChooser
+        v-if="selectedItems.length > 0"
+        v-model="chosenMode"
+        :modes="modes"
+        :effective-discount="effectiveDiscount"
+      />
     </div>
 
     <template #footer>
@@ -494,75 +551,6 @@ function onCancel() {
 .services-table tfoot td {
   overflow: visible;
   padding-top: 12px;
-}
-
-.pagination-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  row-gap: 10px;
-}
-
-.page-size {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.6);
-}
-
-.pagination-nav {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.pagination-pages {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.page-btn {
-  min-width: 26px;
-  height: 26px;
-  padding: 0 6px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 5px;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 11px;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-.page-btn:hover {
-  background: rgba(24, 144, 255, 0.2);
-  border-color: var(--primary);
-}
-.page-btn.active {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: #fff;
-}
-
-.page-nav-btn {
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.pagination-ellipsis {
-  padding: 0 4px;
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 11px;
 }
 
 /* ─── Selected items table ─────────────────────────────── */

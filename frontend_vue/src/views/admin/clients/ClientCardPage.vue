@@ -11,9 +11,13 @@ import SvgIcon from '@/components/admin/SvgIcon.vue'
 import InputGroup from '@/components/admin/ui/InputGroup.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
 import DatePicker from '@/components/admin/ui/DatePicker.vue'
+import AutoResizeTextarea from '@/components/admin/ui/AutoResizeTextarea.vue'
+
+import { ORDER_STATUS_PILL } from '@/domain/orderStatus'
 
 import '@styles/admin/components/_entity-card-layout.css'
 import '@styles/admin/components/_audit-log.css'
+import '@styles/admin/components/_order-status-pill.css'
 import '@styles/admin/client_card.css'
 
 const { t } = useI18n()
@@ -34,6 +38,8 @@ const {
   auditLog,
   auditLoading,
   loadAudit,
+  orders,
+  loadOrders,
   deleteAuditEntry,
   handleDeleteInteraction,
   newInteraction,
@@ -64,19 +70,6 @@ const statusStr = computed({
   },
 })
 
-const ORDER_STATUS_PILL: Record<string, string> = {
-  completed: 'pill-success',
-  shipped: 'pill-info',
-  processing: 'pill-warning',
-  pending: 'pill-warning',
-  cancelled: 'pill-danger',
-  new: 'pill-secondary',
-  confirmed: 'pill-info',
-  picking: 'pill-warning',
-  packing: 'pill-warning',
-  delivered: 'pill-success',
-  paid: 'pill-success',
-}
 
 function orderStatusLabel(status: string): string {
   const key = `orders.status_${status}`
@@ -142,6 +135,7 @@ async function confirmDeleteAudit() {
 onMounted(() => {
   load()
   loadAudit()
+  loadOrders()
 })
 </script>
 
@@ -293,9 +287,9 @@ onMounted(() => {
                 </InputGroup>
 
                 <InputGroup :label="t('clients.field_notes')">
-                  <textarea
+                  <AutoResizeTextarea
                     v-model="client.notes"
-                    class="glass-input glass-textarea"
+                    class="glass-input"
                     rows="3"
                     data-test="field-notes"
                   />
@@ -367,7 +361,7 @@ onMounted(() => {
         <!-- Order History -->
         <div class="audit-panel-wide" data-test="client-card-order-history">
           <GlassPanel :title="t('clients.section_order_history')">
-            <template v-if="client && client.orderHistory && client.orderHistory.length > 0">
+            <template v-if="orders.length > 0">
               <div class="table-responsive">
                 <table class="audit-log-table" data-test="client-card-order-table">
                   <thead>
@@ -380,7 +374,7 @@ onMounted(() => {
                   </thead>
                   <tbody>
                     <tr
-                      v-for="order in client.orderHistory"
+                      v-for="order in orders"
                       :key="order.id"
                       class="clickable-row"
                       data-test="client-card-order-row"
@@ -392,19 +386,21 @@ onMounted(() => {
                           class="order-link"
                           @click.stop
                         >
-                          {{ order.id }}
+                          {{ order.orderNumber }}
                         </router-link>
                       </td>
-                      <td class="audit-log-ts">{{ order.date }}</td>
+                      <td class="audit-log-ts">{{ order.createdAt.slice(0, 10) }}</td>
                       <td>
+                        <!-- With VAT: the same figure the orders list and the order
+                             card show for this order. -->
                         <span class="order-total"
-                          >{{ order.currency }} {{ formatPrice(order.total) }}</span
+                          >{{ order.currency }} {{ formatPrice(order.totalWithVat) }}</span
                         >
                       </td>
                       <td>
                         <span
-                          class="status-pill"
-                          :class="ORDER_STATUS_PILL[order.status] || 'pill-secondary'"
+                          class="order-status-pill"
+                          :class="ORDER_STATUS_PILL[order.status] || 'order-status-pill--new'"
                         >
                           {{ orderStatusLabel(order.status) }}
                         </span>
@@ -452,9 +448,9 @@ onMounted(() => {
                 </div>
 
                 <InputGroup :label="t('clients.interaction_field_summary')">
-                  <textarea
+                  <AutoResizeTextarea
                     v-model="newInteraction.summary"
-                    class="glass-input glass-textarea"
+                    class="glass-input"
                     rows="3"
                     :placeholder="t('clients.notes_placeholder')"
                     data-test="field-interaction-summary-inline"

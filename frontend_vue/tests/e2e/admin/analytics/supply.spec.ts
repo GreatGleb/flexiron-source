@@ -1,8 +1,6 @@
-import { test as base } from '@playwright/test'
-import { test, expect } from '../../fixtures'
+import { test, expect, testBare as base } from '../../fixtures'
 import { ALL_FLAGS_ENABLED } from '../../helpers/flags'
 import { freezeTime } from '../../helpers/mocks'
-import { mockExternalRequests } from '../../helpers/mockExternalRequests'
 import { waitForFontsReady, SNAPSHOT_OPTIONS } from '../../helpers/visual'
 
 /**
@@ -47,7 +45,6 @@ const DESKTOP = { width: 1440, height: 900 }
 // ────────────────────────────────────────────────────────────────────────────
 test.describe('supply › structure', () => {
   test.beforeEach(async ({ page }) => {
-    await mockExternalRequests(page)
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
     await page.goto(SUPPLY)
@@ -72,7 +69,6 @@ test.describe('supply › structure', () => {
 // ────────────────────────────────────────────────────────────────────────────
 test.describe('supply › kpi cards', () => {
   test.beforeEach(async ({ page }) => {
-    await mockExternalRequests(page)
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
     await page.goto(SUPPLY)
@@ -94,12 +90,18 @@ test.describe('supply › kpi cards', () => {
   })
 
   test('per-card unit suffixes (EUR / % / pcs. / %)', async ({ page }) => {
-    // Units are hard-coded in the template — one per card in that order.
-    const units = page.locator('[data-test="supply-kpi-card"] .kpi-value span')
-    await expect.soft(units.nth(0)).toHaveText('EUR')
-    await expect.soft(units.nth(1)).toHaveText('%')
-    await expect.soft(units.nth(2)).toHaveText('pcs.')
-    await expect.soft(units.nth(3)).toHaveText('%')
+    // The unit belongs to the KPI, not to the card position: the set of KPIs
+    // changes and a position-based unit goes wrong silently — "Avg check" was
+    // labelled in pieces that way.
+    const cards = page.locator('[data-test="supply-kpi-card"]')
+    // Purchased (month)
+    await expect.soft(cards.nth(0).locator('.kpi-value span')).toHaveText('EUR')
+    // On-time delivery
+    await expect.soft(cards.nth(1).locator('.kpi-value span')).toHaveText('%')
+    // Overdue
+    await expect.soft(cards.nth(2).locator('.kpi-value span')).toHaveText('pcs.')
+    // Price Change
+    await expect.soft(cards.nth(3).locator('.kpi-value span')).toHaveText('%')
   })
 
   test('values are the expected formatted numbers', async ({ page }) => {

@@ -292,48 +292,6 @@
   gap: 8px;
 }
 
-/* --- CUSTOM SELECT SMALL (for modals) --- */
-.custom-select-sm .custom-select-trigger {
-  padding: 6px 10px;
-  font-size: 13px;
-  min-height: 34px;
-}
-.custom-select-sm .select-arrow {
-  width: 10px;
-  height: 10px;
-}
-.custom-select-sm .custom-select-list {
-  background: rgba(30, 34, 40, 0.98);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
-}
-.custom-select-sm .select-option {
-  padding: 8px 12px;
-  font-size: 13px;
-  color: var(--text);
-  cursor: pointer;
-  transition: background 0.2s;
-}
-.custom-select-sm .select-option:hover {
-  background: rgba(24, 144, 255, 0.15);
-  color: var(--primary);
-}
-.custom-select-sm .select-option.selected {
-  background: rgba(24, 144, 255, 0.2);
-  color: var(--primary);
-}
-.custom-select-sm .custom-select-list.open {
-  display: block;
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  z-index: 1000;
-  margin-top: 4px;
-}
-
 /* --- INPUT TEXT COLOR FIX --- */
 .glass-input,
 .subject-input,

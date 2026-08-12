@@ -1,5 +1,74 @@
 /* --- PAGE LAYOUT: SUPPLIERS LIST --- */
 
+/* Suppliers table column widths.
+ *
+ * Without these the table runs on auto layout, and auto layout is not
+ * reproducible: loading this page repeatedly with byte-identical markup and the
+ * same font yields two different column distributions — STATUS at 124.78px or
+ * at 141.63px, with every other column absorbing the difference. Roughly one
+ * load in eight lands on the second one, which is why the table snapshot failed
+ * intermittently with the same data in the frame.
+ *
+ * Widths are declared once, on the header cells, and the rest of the column
+ * follows. The shares are the proportions auto layout settled on in its common
+ * variant, so the table looks the way it always did on a wide screen — it just
+ * always looks that way now.
+ *
+ * From 1366px up only. The eight columns together want about 16px more than the
+ * table has at 1440px, and auto layout resolves that by taking the slack out of
+ * whichever column can spare it; a fixed share cannot. 1366px is the narrowest
+ * viewport at which no cell's content spills out of its share — measured, not
+ * guessed. Below it the table also starts dropping columns as the viewport
+ * narrows (.hid-768 / .hid-600 / .hid-480) and sits in a horizontally scrolling
+ * wrapper, where content-driven widths are what keeps the survivors readable.
+ * So auto layout stays below 1366px, exactly as it was.
+ */
+@media (min-width: 1366px) {
+  .suppliers-table {
+    table-layout: fixed;
+    width: 100%;
+  }
+  .suppliers-table th:nth-child(1) {
+    width: 15.8%;
+  } /* Company — also holds the header search box */
+  .suppliers-table th:nth-child(2) {
+    width: 11.75%;
+  } /* Status */
+  .suppliers-table th:nth-child(3) {
+    width: 9.75%;
+  } /* Rating — five stars */
+  .suppliers-table th:nth-child(4) {
+    width: 16%;
+  } /* Specialization — tags */
+  .suppliers-table th:nth-child(5) {
+    width: 9%;
+  } /* Lead time */
+  .suppliers-table th:nth-child(6) {
+    width: 11.75%;
+  } /* Last request */
+  .suppliers-table th:nth-child(7) {
+    width: 16.7%;
+  } /* Contacts — longest e-mail must stay on one line */
+  .suppliers-table th:nth-child(8) {
+    width: 9.25%;
+  } /* Actions */
+
+  /* A status label is a name, not a sentence: "Under Review" belongs on one
+     line. Auto layout used to guarantee that by widening the column around the
+     pill; a fixed share does not, and the column is wide enough only as long as
+     the label is not allowed to break. */
+  .suppliers-table .status-pill {
+    white-space: nowrap;
+  }
+
+  /* An e-mail address is one unbreakable token. Its column has room for the
+     addresses in use, but a longer one must fold into the cell rather than run
+     across ACTIONS — which is what it would do under a fixed share. */
+  .suppliers-table td:nth-child(7) {
+    overflow-wrap: anywhere;
+  }
+}
+
 /* Table Links */
 .data-table a.link {
   color: var(--primary);

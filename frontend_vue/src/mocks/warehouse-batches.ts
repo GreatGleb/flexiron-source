@@ -157,7 +157,6 @@ export const mockBatches = [
     receivedUnitPrice: 1.0,
     receivedCurrencyId: 'cur-eur',
     purchaseToWarehouseRate: 0.001,
-    exchangeRate: null,
   },
   {
     id: 'whb-076',
@@ -196,7 +195,6 @@ export const mockBatches = [
     receivedUnitPrice: 0.95,
     receivedCurrencyId: 'cur-eur',
     purchaseToWarehouseRate: 0.001,
-    exchangeRate: null,
     auditLog: [
       {
         timestamp: '2025-03-20T10:00:00Z',

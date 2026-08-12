@@ -16,6 +16,7 @@ import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
 import DatePicker from '@/components/admin/ui/DatePicker.vue'
 import DropZone from '@/components/admin/ui/DropZone.vue'
 import FileItem from '@/components/admin/FileItem.vue'
+import AutoResizeTextarea from '@/components/admin/ui/AutoResizeTextarea.vue'
 import type { UploadedFile } from '@/services/uploadsService'
 import type { LinkedSupplier } from '@/types/product'
 import type { TranslatedString } from '@/types/i18n'
@@ -176,7 +177,9 @@ const currencyOptions = computed(() => {
 
 const currencySymbol = computed(() => {
   if (!form.value.currencyId) return ''
-  const c = settings.currencies?.find((cur: { id: string; code: string }) => cur.id === form.value.currencyId)
+  const c = settings.currencies?.find(
+    (cur: { id: string; code: string }) => cur.id === form.value.currencyId,
+  )
   return c?.code ?? ''
 })
 
@@ -322,7 +325,7 @@ onMounted(() => {
               </InputGroup>
 
               <InputGroup :label="t('products.field_description')" :required="false">
-                <textarea
+                <AutoResizeTextarea
                   v-model="formDescription"
                   class="glass-input"
                   rows="3"
@@ -395,7 +398,11 @@ onMounted(() => {
                 <input
                   class="glass-input"
                   type="text"
-                  :value="product?.avgCostPrice != null ? product.avgCostPrice.toFixed(2) + ' ' + currencySymbol : '—'"
+                  :value="
+                    product?.avgCostPrice != null
+                      ? product.avgCostPrice.toFixed(2) + ' ' + currencySymbol
+                      : '—'
+                  "
                   readonly
                   data-test="field-avg-cost-price"
                 />
@@ -405,7 +412,11 @@ onMounted(() => {
                 <input
                   class="glass-input"
                   type="text"
-                  :value="product?.avgSalePrice != null ? product.avgSalePrice.toFixed(2) + ' ' + currencySymbol : '—'"
+                  :value="
+                    product?.avgSalePrice != null
+                      ? product.avgSalePrice.toFixed(2) + ' ' + currencySymbol
+                      : '—'
+                  "
                   readonly
                   data-test="field-avg-sale-price"
                 />

@@ -1,8 +1,6 @@
-import { test as base } from '@playwright/test'
-import { test, expect } from '../../fixtures'
+import { test, expect, testBare as base } from '../../fixtures'
 import { ALL_FLAGS_ENABLED } from '../../helpers/flags'
 import { freezeTime } from '../../helpers/mocks'
-import { mockExternalRequests } from '../../helpers/mockExternalRequests'
 import { waitForFontsReady, SNAPSHOT_OPTIONS } from '../../helpers/visual'
 
 /**
@@ -142,7 +140,9 @@ test.describe('clients-list › search', () => {
     await expect(page.locator('[data-test="clients-row"]')).toHaveCount(1, { timeout: 5000 })
   })
 
-  test('typing "steelworks" (case-insensitive) narrows to 1 row (SIA SteelWorks)', async ({ page }) => {
+  test('typing "steelworks" (case-insensitive) narrows to 1 row (SIA SteelWorks)', async ({
+    page,
+  }) => {
     // Mock search checks name, companyCode, email — SIA SteelWorks name includes "SteelWorks"
     const searchInput = page.locator('[data-test="clients-search-input"] input')
     await searchInput.fill('SteelWorks')
@@ -161,7 +161,9 @@ test.describe('clients-list › search', () => {
     await searchInput.fill('Metalica')
     await expect(page.locator('[data-test="clients-row"]')).toHaveCount(1, { timeout: 5000 })
     await searchInput.fill('')
-    await expect(page.locator('[data-test="clients-row"]')).toHaveCount(DEFAULT_PAGE_SIZE, { timeout: 5000 })
+    await expect(page.locator('[data-test="clients-row"]')).toHaveCount(DEFAULT_PAGE_SIZE, {
+      timeout: 5000,
+    })
   })
 })
 
@@ -238,8 +240,9 @@ test.describe('clients-list › pagination', () => {
   })
 
   test('next page button is visible and clickable', async ({ page }) => {
-    const nextBtn = page
-      .locator('[data-test="clients-pagination"] .pagination-nav > button:last-child')
+    const nextBtn = page.locator(
+      '[data-test="clients-pagination"] .pagination-nav > button:last-child',
+    )
     // Should be visible since totalPages > 1
     await expect(nextBtn).toBeVisible()
     const beforeText = await page
@@ -277,19 +280,22 @@ test.describe('clients-list › delete modal', () => {
   })
 
   test('cancelling the modal closes it', async ({ page }) => {
+    // Cancel is always there and always means the same thing — the branching this
+    // test used to do existed because the footer changed shape depending on whether
+    // the client had orders, which is an answer that arrives a moment later.
     await page.locator('[data-test="clients-delete-btn"]').first().click()
     await expect(page.locator('[data-test="clients-delete-modal"]')).toBeVisible()
-    // Find the cancel button — it might be in the footer or it might be a secondary button
-    // For clients without orders, the cancel button is `clients-delete-cancel`
-    const cancelBtn = page.locator('[data-test="clients-delete-cancel"]')
-    if ((await cancelBtn.count()) > 0) {
-      await cancelBtn.click()
-      await expect(page.locator('[data-test="clients-delete-modal"]')).toBeHidden()
-    } else {
-      // If the client has orders, only OK button is shown — click it to close
-      await page.locator('[data-test="clients-delete-confirm"]').click()
-      await expect(page.locator('[data-test="clients-delete-modal"]')).toBeHidden()
-    }
+    await page.locator('[data-test="clients-delete-cancel"]').click()
+    await expect(page.locator('[data-test="clients-delete-modal"]')).toBeHidden()
+  })
+
+  test('a client with orders is not offered for deletion', async ({ page }) => {
+    // Every seeded client has real orders, so the destructive button must be gone —
+    // and it must not flash into view before the answer arrives either.
+    await page.locator('[data-test="clients-delete-btn"]').first().click()
+    await expect(page.locator('[data-test="clients-delete-modal"]')).toBeVisible()
+    await expect(page.locator('[data-test="clients-delete-confirm"]')).toHaveCount(0)
+    await expect(page.locator('[data-test="clients-delete-modal"] .text-warning')).toBeVisible()
   })
 })
 
@@ -348,8 +354,9 @@ test.describe('client-create › structure & validation', () => {
     // Name is already empty by default, click save
     await page.locator('[data-test="client-create-save-btn"]').click()
     // The field-error span should appear for name
-    await expect(page.locator('[data-test="field-name"]').locator('..').locator('.field-error'))
-      .toBeVisible()
+    await expect(
+      page.locator('[data-test="field-name"]').locator('..').locator('.field-error'),
+    ).toBeVisible()
   })
 
   test('all form fields are present', async ({ page }) => {
@@ -447,9 +454,7 @@ test.describe('client-card › fields & save flow', () => {
 
   test('editing a field activates the save bar (dirty state)', async ({ page }) => {
     // Find the Save button in the save bar
-    const saveBtn = page
-      .locator('[data-test="client-card-save-bar"]')
-      .locator('button.btn-save')
+    const saveBtn = page.locator('[data-test="client-card-save-bar"]').locator('button.btn-save')
     // Initially the save button should be disabled (not dirty and not loading)
     // Actually, the button exists and shows "Save" text but is disabled when not dirty
     await expect(saveBtn).toBeDisabled()
@@ -473,9 +478,7 @@ test.describe('client-card › fields & save flow', () => {
   })
 
   test('save commits the change and disables save button', async ({ page }) => {
-    const saveBtn = page
-      .locator('[data-test="client-card-save-bar"]')
-      .locator('button.btn-save')
+    const saveBtn = page.locator('[data-test="client-card-save-bar"]').locator('button.btn-save')
     const newName = 'UAB Metalica — saved'
     await page.locator('[data-test="field-name"]').fill(newName)
     await expect(saveBtn).toBeEnabled()
@@ -515,11 +518,22 @@ test.describe('client-card › audit log', () => {
     const rows = page.locator('[data-test="client-card-audit-row"]')
     const before = await rows.count()
     await page.locator('[data-test="client-card-audit-delete-btn"]').first().click()
+    // Deleting asks first — the row goes only after the confirmation.
+    await page.click('[data-test="client-card-audit-modal-confirm"]')
     await expect(rows).toHaveCount(before - 1)
+  })
+
+  test('cancelling the delete keeps the entry', async ({ page }) => {
+    const rows = page.locator('[data-test="client-card-audit-row"]')
+    const before = await rows.count()
+    await page.locator('[data-test="client-card-audit-delete-btn"]').first().click()
+    await page.click('[data-test="client-card-audit-modal-cancel"]')
+    await expect(rows).toHaveCount(before)
   })
 
   test('delete entry shows toast notification', async ({ page }) => {
     await page.locator('[data-test="client-card-audit-delete-btn"]').first().click()
+    await page.click('[data-test="client-card-audit-modal-confirm"]')
     await expect(page.locator('.toast-container .toast.show')).toBeVisible({ timeout: 5000 })
   })
 })
@@ -538,9 +552,19 @@ test.describe('client-card › order history', () => {
     await expect(page.locator('[data-test="client-card-order-history"]')).toBeVisible()
   })
 
-  test('order history renders 3 rows for CL-001', async ({ page }) => {
+  test("the order history is the client's real orders", async ({ page }) => {
+    // It used to be a seeded list on the client: invented ids that opened nothing,
+    // invented totals, and statuses the order model does not have. Now it is the
+    // orders module answering about its own orders, so the rows have to lead
+    // somewhere and name this same client.
     await expect(page.locator('[data-test="client-card-order-table"]')).toBeVisible()
-    await expect(page.locator('[data-test="client-card-order-row"]')).toHaveCount(3)
+    const rows = page.locator('[data-test="client-card-order-row"]')
+    expect(await rows.count()).toBeGreaterThan(0)
+    const clientName = await page.locator('[data-test="field-name"]').inputValue()
+
+    await rows.first().locator('.order-link').click()
+    await expect(page).toHaveURL(/\/admin\/orders\/ORD-\d{3}$/)
+    await expect(page.locator('[data-test="field-client"]')).toHaveText(clientName)
   })
 
   test('order row renders order ID, date, total and status', async ({ page }) => {
@@ -548,7 +572,10 @@ test.describe('client-card › order history', () => {
     await expect(firstRow.locator('.order-link')).toBeVisible()
     await expect(firstRow.locator('.audit-log-ts')).toBeVisible()
     await expect(firstRow.locator('.order-total')).toBeVisible()
-    await expect(firstRow.locator('.status-pill')).toBeVisible()
+    // `order-status-pill`, not the generic `status-pill`: order statuses render
+    // from one shared scheme now, so this row, the orders list and the CRM show
+    // the same status the same way.
+    await expect(firstRow.locator('.order-status-pill')).toBeVisible()
   })
 
   test('order row navigates to order card on click', async ({ page }) => {
@@ -563,14 +590,19 @@ test.describe('client-card › order history', () => {
 })
 
 test.describe('client-card › order history empty', () => {
-  const INACTIVE_CLIENT = '/admin/clients/CL-004'
-
-  test('shows empty state for client with no orders', async ({ page }) => {
+  test('shows the empty state for a client nobody has ordered from', async ({ page }) => {
+    // Created here rather than picked by id: every seeded client has real orders
+    // now, and a hardcoded "client with no orders" would only be true until the
+    // next order lands on them.
     await page.setViewportSize(DESKTOP)
-    await page.goto(INACTIVE_CLIENT)
-    await page.waitForLoadState('networkidle')
+    await page.goto('/admin/clients/new')
+    await page.locator('[data-test="field-name"]').fill('E2E No Orders')
+    await page.locator('[data-test="field-company-code"]').fill('E2E000001')
+    await page.locator('[data-test="field-email"]').fill('no-orders@test.lt')
+    await page.locator('[data-test="client-create-save-btn"]').click()
+    await expect(page).toHaveURL(/\/admin\/clients\/CL-\d{3}$/, { timeout: 10000 })
+
     await expect(page.locator('[data-test="client-card-order-history"]')).toBeVisible()
-    // CL-004 has no orderHistory so it should show the empty state text
     await expect(page.locator('[data-test="client-card-order-history"] .audit-empty')).toBeVisible()
   })
 })
@@ -600,12 +632,16 @@ test.describe('client-card › interaction history', () => {
   })
 
   test('filling summary enables the add button', async ({ page }) => {
-    await page.locator('[data-test="field-interaction-summary-inline"]').fill('Test interaction note')
+    await page
+      .locator('[data-test="field-interaction-summary-inline"]')
+      .fill('Test interaction note')
     await expect(page.locator('[data-test="client-card-add-interaction-btn"]')).toBeEnabled()
   })
 
   test('adding an interaction appends a row to the table', async ({ page }) => {
-    await page.locator('[data-test="field-interaction-summary-inline"]').fill('E2E test interaction')
+    await page
+      .locator('[data-test="field-interaction-summary-inline"]')
+      .fill('E2E test interaction')
     const rowsBefore = await page.locator('[data-test="client-card-interaction-row"]').count()
     await page.locator('[data-test="client-card-add-interaction-btn"]').click()
     await page.waitForTimeout(300)
@@ -653,19 +689,16 @@ test.describe('client-card › error state', () => {
 // ────────────────────────────────────────────────────────────────────────────
 // Page-level feature flag (adminClients) — OFF → /404
 // ────────────────────────────────────────────────────────────────────────────
-baseTest(
-  'clients › redirects to /404 when adminClients flag is OFF',
-  async ({ page, context }) => {
-    await context.addInitScript(
-      (flags) => localStorage.setItem('ff_overrides', JSON.stringify(flags)),
-      { ...ALL_FLAGS_ENABLED, adminClients: false },
-    )
-    await page.goto(CLIENTS_LIST)
-    await page.waitForLoadState('networkidle')
-    await expect(page).toHaveURL(/\/404$/)
-    await expect(page.locator('[data-test="page-clients"]')).toHaveCount(0)
-  },
-)
+baseTest('clients › redirects to /404 when adminClients flag is OFF', async ({ page, context }) => {
+  await context.addInitScript(
+    (flags) => localStorage.setItem('ff_overrides', JSON.stringify(flags)),
+    { ...ALL_FLAGS_ENABLED, adminClients: false },
+  )
+  await page.goto(CLIENTS_LIST)
+  await page.waitForLoadState('networkidle')
+  await expect(page).toHaveURL(/\/404$/)
+  await expect(page.locator('[data-test="page-clients"]')).toHaveCount(0)
+})
 
 // ────────────────────────────────────────────────────────────────────────────
 // i18n — language switch
@@ -771,7 +804,6 @@ test.describe('client-create › visual @1440', () => {
 
 test.describe('client-card › visual @1440', () => {
   test.beforeEach(async ({ page }) => {
-    await mockExternalRequests(page)
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
     await page.goto(CLIENTS_CARD)

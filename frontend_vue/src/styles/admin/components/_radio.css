@@ -1,0 +1,49 @@
+/* --- UI COMPONENTS: RADIO --- */
+/* One radio for the admin. There used to be three: the client picker on the
+   order create page, the currency list in finance settings, and a bare native
+   input with `accent-color` in the add-line chooser — which opened from the
+   same order pages as the first one, so both were on screen in one flow.
+
+   Markup:
+     <input type="radio" class="radio-input" ...>
+     <span class="radio-custom"></span>
+   The input is hidden and the span is what the eye sees, so the two must stay
+   adjacent siblings in that order. */
+
+.radio-input {
+  display: none;
+}
+
+.radio-custom {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  background: transparent;
+  flex-shrink: 0;
+  position: relative;
+  transition:
+    border-color 0.2s,
+    background 0.2s,
+    box-shadow 0.2s;
+}
+
+.radio-input:checked + .radio-custom {
+  border-color: var(--primary, #1890ff);
+  background: rgba(24, 144, 255, 0.15);
+  box-shadow: 0 0 6px rgba(24, 144, 255, 0.3);
+}
+
+/* Centred by translate rather than by a hand-counted 3px offset: the dot stays
+   put if the ring ever changes size. */
+.radio-input:checked + .radio-custom::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary, #1890ff);
+  transform: translate(-50%, -50%);
+}

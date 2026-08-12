@@ -10,8 +10,13 @@ import SvgIcon from '@/components/admin/SvgIcon.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
 import SearchInput from '@/components/admin/ui/SearchInput.vue'
 import AppModal from '@/components/admin/ui/AppModal.vue'
+import Pagination from '@/components/admin/ui/Pagination.vue'
+import { formatCents as money } from '@/domain/orderPricing'
+import { ORDER_STATUSES, ORDER_STATUS_PILL } from '@/domain/orderStatus'
+import type { OrderListItem } from '@/types/order'
 
 import '@styles/admin/components/_pagination.css'
+import '@styles/admin/components/_order-status-pill.css'
 import '@styles/admin/orders_list.css'
 
 const { t } = useI18n()
@@ -24,18 +29,23 @@ useHead({
 const toast = useToast()
 const { items, loading, error, filters, pagination, load, handleDelete, toggleSort } = useOrders()
 
+/**
+ * Both shares are derived server-side from the payments and the shipped
+ * quantities, never stored — see the order card. Coloured only when it says
+ * something: fully paid is good news, and nothing else on this row shows it.
+ */
+function paidClass(item: OrderListItem): string {
+  if (item.paidPercent >= 100) return 'paid-full'
+  return item.paidPercent > 0 ? 'paid-part' : ''
+}
+
 // ─── Status filter ───
-const STATUS_OPTIONS = [
+// Built from the one list there is, not written out again: a hand-kept copy is
+// how the filter ends up offering fewer statuses than orders can be in.
+const STATUS_OPTIONS = computed(() => [
   { value: 'all', label: t('orders.filter_status_all') },
-  { value: 'new', label: t('orders.status_new') },
-  { value: 'confirmed', label: t('orders.status_confirmed') },
-  { value: 'picking', label: t('orders.status_picking') },
-  { value: 'packing', label: t('orders.status_packing') },
-  { value: 'shipped', label: t('orders.status_shipped') },
-  { value: 'delivered', label: t('orders.status_delivered') },
-  { value: 'paid', label: t('orders.status_paid') },
-  { value: 'cancelled', label: t('orders.status_cancelled') },
-]
+  ...ORDER_STATUSES.map((s) => ({ value: s, label: t(`orders.status_${s}`) })),
+])
 
 // ─── Search with debounce ───
 const searchInput = ref('')
@@ -62,18 +72,6 @@ const pageSizeStr = computed({
     pagination.reset()
   },
 })
-
-// ─── Order status pill class mapping ───
-const ORDER_STATUS_PILL: Record<string, string> = {
-  new: 'order-status-pill--new',
-  confirmed: 'order-status-pill--confirmed',
-  picking: 'order-status-pill--picking',
-  packing: 'order-status-pill--packing',
-  shipped: 'order-status-pill--shipped',
-  delivered: 'order-status-pill--delivered',
-  paid: 'order-status-pill--paid',
-  cancelled: 'order-status-pill--cancelled',
-}
 
 // ─── Delete modal ───
 const deletingId = ref<string | null>(null)
@@ -282,7 +280,7 @@ onMounted(() => {
                 </button>
               </th>
               <th>
-                <button class="th-sort-btn" @click="toggleSort('totalAmount')">
+                <button class="th-sort-btn" @click="toggleSort('totalWithVat')">
                   {{ t('orders.col_total') }}
                   <span class="sort-icon-group">
                     <SvgIcon
@@ -291,7 +289,7 @@ onMounted(() => {
                       :height="16"
                       class="sort-icon"
                       :class="{
-                        active: filters.sortBy === 'totalAmount' && filters.sortDir === 'asc',
+                        active: filters.sortBy === 'totalWithVat' && filters.sortDir === 'asc',
                       }"
                     />
                     <SvgIcon
@@ -300,7 +298,57 @@ onMounted(() => {
                       :height="16"
                       class="sort-icon"
                       :class="{
-                        active: filters.sortBy === 'totalAmount' && filters.sortDir === 'desc',
+                        active: filters.sortBy === 'totalWithVat' && filters.sortDir === 'desc',
+                      }"
+                    />
+                  </span>
+                </button>
+              </th>
+              <th>
+                <button class="th-sort-btn" @click="toggleSort('paidPercent')">
+                  {{ t('orders.col_paid_percent') }}
+                  <span class="sort-icon-group">
+                    <SvgIcon
+                      name="chevron-up"
+                      :width="16"
+                      :height="16"
+                      class="sort-icon"
+                      :class="{
+                        active: filters.sortBy === 'paidPercent' && filters.sortDir === 'asc',
+                      }"
+                    />
+                    <SvgIcon
+                      name="chevron-down"
+                      :width="16"
+                      :height="16"
+                      class="sort-icon"
+                      :class="{
+                        active: filters.sortBy === 'paidPercent' && filters.sortDir === 'desc',
+                      }"
+                    />
+                  </span>
+                </button>
+              </th>
+              <th>
+                <button class="th-sort-btn" @click="toggleSort('shippedPercent')">
+                  {{ t('orders.col_shipped_percent') }}
+                  <span class="sort-icon-group">
+                    <SvgIcon
+                      name="chevron-up"
+                      :width="16"
+                      :height="16"
+                      class="sort-icon"
+                      :class="{
+                        active: filters.sortBy === 'shippedPercent' && filters.sortDir === 'asc',
+                      }"
+                    />
+                    <SvgIcon
+                      name="chevron-down"
+                      :width="16"
+                      :height="16"
+                      class="sort-icon"
+                      :class="{
+                        active: filters.sortBy === 'shippedPercent' && filters.sortDir === 'desc',
                       }"
                     />
                   </span>
@@ -347,13 +395,17 @@ onMounted(() => {
               <td>{{ item.clientName }}</td>
               <td>
                 <span
-                  class="status-pill"
+                  class="order-status-pill"
                   :class="ORDER_STATUS_PILL[item.status] || 'order-status-pill--new'"
                 >
                   {{ t(`orders.status_${item.status}`) }}
                 </span>
               </td>
-              <td>{{ item.totalAmount.toFixed(2) }} €</td>
+              <td data-test="orders-row-total">{{ money(item.totalWithVat) }} €</td>
+              <td data-test="orders-row-paid">
+                <span :class="paidClass(item)">{{ money(item.paidPercent) }}%</span>
+              </td>
+              <td data-test="orders-row-shipped">{{ money(item.shippedPercent) }}%</td>
               <td>{{ new Date(item.createdAt).toLocaleDateString() }}</td>
               <td>
                 <div class="orders-row-actions">
@@ -390,59 +442,21 @@ onMounted(() => {
           </tbody>
           <tfoot v-if="pagination.total.value > 0">
             <tr>
-              <td colspan="6">
-                <div class="pagination-bar" data-test="orders-pagination">
-                  <div class="page-size" data-test="orders-page-size">
-                    <span>{{ t('orders.page_size') }}</span>
-                    <CustomSelect
-                      v-model="pageSizeStr"
-                      :options="PAGE_SIZE_OPTIONS"
-                      :open-up="true"
-                      class="custom-select-sm"
-                    />
-                  </div>
-                  <div class="pagination-nav">
-                    <button
-                      class="btn btn-icon btn-sm"
-                      :disabled="!pagination.hasPrev.value"
-                      :style="{ display: pagination.totalPages.value <= 1 ? 'none' : 'flex' }"
-                      @click="pagination.prev()"
-                    >
-                      <SvgIcon
-                        name="chevron-right"
-                        :width="14"
-                        :height="14"
-                        style="transform: rotate(180deg)"
-                      />
-                    </button>
-                    <div class="pagination-pages">
-                      <template v-for="(p, i) in pagination.pageNumbers()" :key="i">
-                        <span v-if="p === '...'" class="pagination-ellipsis">...</span>
-                        <button
-                          v-else
-                          class="page-btn"
-                          :class="{ active: p === pagination.page.value }"
-                          @click="pagination.goTo(p as number)"
-                        >
-                          {{ p }}
-                        </button>
-                      </template>
-                    </div>
-                    <button
-                      class="btn btn-icon btn-sm"
-                      :disabled="!pagination.hasNext.value"
-                      :style="{ display: pagination.totalPages.value <= 1 ? 'none' : 'flex' }"
-                      @click="pagination.next()"
-                    >
-                      <SvgIcon name="chevron-right" :width="14" :height="14" />
-                    </button>
-                  </div>
-                  <div class="pagination-info">
-                    <span>{{ pagination.showingFrom.value }}-{{ pagination.showingTo.value }}</span>
-                    <span>&nbsp;{{ t('orders.of') }}&nbsp;</span>
-                    <span>{{ pagination.total.value }}</span>
-                  </div>
-                </div>
+              <td colspan="8">
+                <Pagination
+                  v-model:page="pagination.page.value"
+                  v-model:size="pageSizeStr"
+                  :total-pages="pagination.totalPages.value"
+                  :pages="pagination.pageNumbers()"
+                  :page-size-options="PAGE_SIZE_OPTIONS"
+                  :size-label="t('orders.page_size')"
+                  :showing-from="pagination.showingFrom.value"
+                  :showing-to="pagination.showingTo.value"
+                  :total="pagination.total.value"
+                  :of-label="t('orders.of')"
+                  test-id="orders-pagination"
+                  size-test-id="orders-page-size"
+                />
               </td>
             </tr>
           </tfoot>
@@ -460,7 +474,7 @@ onMounted(() => {
         <button class="btn btn-secondary" @click="showDeleteModal = false">
           {{ t('orders.btn_discard') }}
         </button>
-        <button class="btn btn-danger" @click="onDeleteConfirm">
+        <button class="btn btn-danger" data-test="orders-delete-confirm" @click="onDeleteConfirm">
           {{ t('orders.btn_delete') }}
         </button>
       </template>

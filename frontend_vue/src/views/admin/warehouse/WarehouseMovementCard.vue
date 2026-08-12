@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, onMounted, nextTick } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useHead } from '@/composables/useHead'
@@ -8,6 +8,7 @@ import GlassPanel from '@/components/admin/GlassPanel.vue'
 import Breadcrumb from '@/components/admin/Breadcrumb.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
 import AppModal from '@/components/admin/ui/AppModal.vue'
+import AutoResizeTextarea from '@/components/admin/ui/AutoResizeTextarea.vue'
 import '@styles/admin/warehouse_list.css'
 import '@styles/admin/components/_entity-card-layout.css'
 import '@styles/admin/components/_audit-log.css'
@@ -112,30 +113,6 @@ useHead({
 })
 
 onMounted(load)
-
-// ─── Auto-resize notes textarea ──────────────────────────────────────
-const notesTextarea = ref<HTMLTextAreaElement | null>(null)
-const MAX_NOTES_HEIGHT = 300
-
-function autoResizeNotes() {
-  const el = notesTextarea.value
-  if (!el) return
-  el.style.height = 'auto'
-  if (el.scrollHeight > MAX_NOTES_HEIGHT) {
-    el.style.height = MAX_NOTES_HEIGHT + 'px'
-    el.style.overflowY = 'auto'
-  } else {
-    el.style.height = el.scrollHeight + 'px'
-    el.style.overflowY = 'hidden'
-  }
-}
-
-watch(
-  () => movement.value?.notes,
-  () => {
-    nextTick(autoResizeNotes)
-  },
-)
 </script>
 
 <template>
@@ -552,7 +529,7 @@ watch(
                     </span>
                   </label>
                   <input
-                    :value="`${movement.quantity} ${t(`warehouse.unit_${movement.unit}`)}`"
+                    :value="`${movement.quantity} ${t(`warehouse.unit_${movement.unit}`, movement.unit)}`"
                     class="glass-input"
                     type="text"
                     readonly
@@ -581,7 +558,7 @@ watch(
                     </span>
                   </label>
                   <input
-                    :value="t(`warehouse.unit_${movement.unit}`)"
+                    :value="t(`warehouse.unit_${movement.unit}`, movement.unit)"
                     class="glass-input"
                     type="text"
                     readonly
@@ -681,9 +658,8 @@ watch(
                   </svg>
                 </span>
               </label>
-              <textarea
-                ref="notesTextarea"
-                :value="movement.notes ?? ''"
+              <AutoResizeTextarea
+                :model-value="movement.notes"
                 class="glass-input batch-notes-input"
                 readonly
                 data-test="field-notes"

@@ -11,6 +11,8 @@ import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
 import SearchInput from '@/components/admin/ui/SearchInput.vue'
 import FileItem from '@/components/admin/FileItem.vue'
 import DropZone from '@/components/admin/ui/DropZone.vue'
+import Pagination from '@/components/admin/ui/Pagination.vue'
+import AutoResizeTextarea from '@/components/admin/ui/AutoResizeTextarea.vue'
 import type { BatchStatus } from '@/types/warehouse'
 import type { UploadedFile } from '@/services/uploadsService'
 import '@styles/admin/warehouse_list.css'
@@ -307,51 +309,14 @@ function selectBatch(id: string) {
             <tfoot v-if="filteredProducts.length > 0">
               <tr>
                 <td colspan="2">
-                  <div class="pagination-bar">
-                    <div class="page-size">
-                      <span>{{ t('warehouse.page_size') }}</span>
-                      <CustomSelect
-                        v-model="productPageSizeStr"
-                        :options="PAGE_SIZE_OPTIONS_PRODUCTS"
-                        :open-up="true"
-                        class="custom-select-sm"
-                      />
-                    </div>
-                    <div class="pagination-nav">
-                      <button
-                        class="btn btn-icon btn-sm"
-                        :disabled="productPage <= 1"
-                        @click="productPage = Math.max(1, productPage - 1)"
-                      >
-                        <SvgIcon
-                          name="chevron-right"
-                          :width="14"
-                          :height="14"
-                          style="transform: rotate(180deg)"
-                        />
-                      </button>
-                      <div class="pagination-pages">
-                        <template v-for="(p, i) in productPageNumbers()" :key="i">
-                          <span v-if="p === '...'" class="pagination-ellipsis">...</span>
-                          <button
-                            v-else
-                            class="page-btn"
-                            :class="{ active: p === productPage }"
-                            @click="productPage = p as number"
-                          >
-                            {{ p }}
-                          </button>
-                        </template>
-                      </div>
-                      <button
-                        class="btn btn-icon btn-sm"
-                        :disabled="productPage >= productTotalPages"
-                        @click="productPage = Math.min(productTotalPages, productPage + 1)"
-                      >
-                        <SvgIcon name="chevron-right" :width="14" :height="14" />
-                      </button>
-                    </div>
-                  </div>
+                  <Pagination
+                    v-model:page="productPage"
+                    v-model:size="productPageSizeStr"
+                    :total-pages="productTotalPages"
+                    :pages="productPageNumbers()"
+                    :page-size-options="PAGE_SIZE_OPTIONS_PRODUCTS"
+                    :size-label="t('warehouse.page_size')"
+                  />
                 </td>
               </tr>
             </tfoot>
@@ -428,8 +393,8 @@ function selectBatch(id: string) {
                     />
                   </td>
                   <td>{{ b.batchNumber }}</td>
-                  <td>{{ b.quantity }} {{ t(`warehouse.unit_${b.unit}`) }}</td>
-                  <td>{{ b.quantityRemaining }} {{ t(`warehouse.unit_${b.unit}`) }}</td>
+                  <td>{{ b.quantity }} {{ t(`warehouse.unit_${b.unit}`, b.unit) }}</td>
+                  <td>{{ b.quantityRemaining }} {{ t(`warehouse.unit_${b.unit}`, b.unit) }}</td>
                   <td>
                     <span class="status-pill" :class="BATCH_STATUS_PILL[b.status]">
                       {{ t(`warehouse.batch_status_${b.status}`) }}
@@ -705,7 +670,7 @@ function selectBatch(id: string) {
                 style="display: flex; align-items: center; opacity: 0.7; cursor: default"
               >
                 <span v-if="selectedBatch">
-                  {{ t(`warehouse.unit_${form.unit}`) }}
+                  {{ t(`warehouse.unit_${form.unit}`, form.unit) }}
                 </span>
                 <span v-else style="color: var(--text-dim)">
                   {{ t('warehouse.offcut_create_unit_placeholder') }}
@@ -733,7 +698,7 @@ function selectBatch(id: string) {
                   </svg>
                 </span>
               </label>
-              <textarea
+              <AutoResizeTextarea
                 v-model="form.notes"
                 class="glass-input batch-notes-input"
                 :placeholder="t('warehouse.field_notes_placeholder')"
@@ -852,7 +817,7 @@ function selectBatch(id: string) {
               </svg>
             </span>
           </label>
-          <textarea
+          <AutoResizeTextarea
             v-model="form.locationNotes"
             class="glass-input"
             data-test="field-location-notes"

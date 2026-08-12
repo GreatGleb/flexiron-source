@@ -41,6 +41,12 @@ export const ALL_FLAGS_ENABLED = {
   categorySupplierLinks: true,
   productSupplierLinks: true,
 
+  // Order pricing rework — shipments and invoices/payments. The financial panel
+  // and line editing ship unflagged.
+  orderShipments: true,
+  orderInvoicesPayments: true,
+  orderReturns: true,
+
   // Notifications
   notificationsPage: true,
 } as const
@@ -52,9 +58,16 @@ export async function enableAllFlags(context: BrowserContext) {
   }, ALL_FLAGS_ENABLED)
 }
 
-/** Override a single flag for one test (requires page.reload() after). */
+/**
+ * Flips one flag for the rest of this page's life, and reloads so it takes hold.
+ *
+ * Registered as an init script, not written straight into localStorage: the
+ * context script from `enableAllFlags` re-runs before every load and would put
+ * every flag back to true on the reload. Page init scripts run after context
+ * ones, so this one has the last word.
+ */
 export async function setFlag(page: Page, flag: string, value: boolean) {
-  await page.evaluate(
+  await page.addInitScript(
     ({ f, v }) => {
       const existing = JSON.parse(localStorage.getItem('ff_overrides') || '{}')
       existing[f] = v

@@ -7,6 +7,7 @@ import type {
   UomConversion,
   OrderStatusSetting,
   UserProfile,
+  OrderPermissions,
 } from '@/types/settings'
 
 // ─── Auth headers helper ─────────────────────────────────────────────────
@@ -28,6 +29,12 @@ export async function saveCompany(data: Partial<CompanyInfo>): Promise<CompanyIn
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────
+
+export async function getOrderPermissions(): Promise<OrderPermissions> {
+  return apiGet<OrderPermissions>('/api/settings/order-permissions', undefined, {
+    headers: authHeaders(),
+  })
+}
 
 export async function getConstants(): Promise<GlobalConstants> {
   return apiGet<GlobalConstants>('/api/settings/constants', undefined, { headers: authHeaders() })

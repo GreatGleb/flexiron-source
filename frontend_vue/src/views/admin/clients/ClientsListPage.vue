@@ -10,6 +10,8 @@ import SvgIcon from '@/components/admin/SvgIcon.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
 import SearchInput from '@/components/admin/ui/SearchInput.vue'
 import AppModal from '@/components/admin/ui/AppModal.vue'
+import Pagination from '@/components/admin/ui/Pagination.vue'
+import { getOrders } from '@/services/ordersService'
 
 import '@styles/admin/components/_entity-card-layout.css'
 import '@styles/admin/components/_pagination.css'
@@ -83,15 +85,48 @@ const deletingClientName = computed(() => {
   return client?.name ?? ''
 })
 
-const deletingClientHasOrders = computed(() => {
-  if (!deletingId.value) return false
-  const client = items.value.find((c) => c.id === deletingId.value)
-  return (client?.orderHistory?.length ?? 0) > 0
-})
+/**
+ * Whether this client has orders — asked of the orders module, not of the client.
+ *
+ * The client used to carry a seeded `orderHistory`, and this warning was decided by
+ * invented data: clients with real orders were offered for deletion, clients with
+ * none were refused. Orders belong to the orders module, so it is the one asked.
+ */
+const deletingClientHasOrders = ref(false)
+/** True until the orders module has answered — the delete button waits for it. */
+const deletingClientOrdersUnknown = ref(false)
 
-function confirmDelete(id: string) {
+async function confirmDelete(id: string) {
   deletingId.value = id
+  deletingClientHasOrders.value = false
+  deletingClientOrdersUnknown.value = true
   showDeleteModal.value = true
+  try {
+    const page = await getOrders(
+      {
+        search: '',
+        status: 'all',
+        clientId: id,
+        dateFrom: '',
+        dateTo: '',
+        sortBy: null,
+        sortDir: 'asc',
+      },
+      { page: 1, pageSize: 1 },
+    )
+    // Still the same client? The modal may have been closed and reopened.
+    if (deletingId.value === id) {
+      deletingClientHasOrders.value = page.total > 0
+      deletingClientOrdersUnknown.value = false
+    }
+  } catch {
+    // Cannot tell — the confirmation stays as it is rather than claiming there are
+    // no orders, which is the answer that loses data.
+    if (deletingId.value === id) {
+      deletingClientHasOrders.value = true
+      deletingClientOrdersUnknown.value = false
+    }
+  }
 }
 
 async function onDeleteConfirm() {
@@ -390,58 +425,20 @@ onMounted(() => {
           <tfoot v-if="total > 0">
             <tr>
               <td colspan="8">
-                <div class="pagination-bar" data-test="clients-pagination">
-                  <div class="page-size" data-test="clients-page-size">
-                    <span>{{ t('clients.page_size') }}</span>
-                    <CustomSelect
-                      v-model="pageSizeStr"
-                      :options="PAGE_SIZE_OPTIONS"
-                      :open-up="true"
-                      class="custom-select-sm"
-                    />
-                  </div>
-                  <div class="pagination-nav">
-                    <button
-                      class="btn btn-icon btn-sm"
-                      :disabled="page <= 1"
-                      :style="{ display: totalPages <= 1 ? 'none' : 'flex' }"
-                      @click="page--"
-                    >
-                      <SvgIcon
-                        name="chevron-right"
-                        :width="14"
-                        :height="14"
-                        style="transform: rotate(180deg)"
-                      />
-                    </button>
-                    <div class="pagination-pages">
-                      <template v-for="(p, i) in pageNumbers" :key="i">
-                        <span v-if="p === '...'" class="pagination-ellipsis">...</span>
-                        <button
-                          v-else
-                          class="page-btn"
-                          :class="{ active: p === page }"
-                          @click="page = p as number"
-                        >
-                          {{ p }}
-                        </button>
-                      </template>
-                    </div>
-                    <button
-                      class="btn btn-icon btn-sm"
-                      :disabled="page * pageSize >= total"
-                      :style="{ display: totalPages <= 1 ? 'none' : 'flex' }"
-                      @click="page++"
-                    >
-                      <SvgIcon name="chevron-right" :width="14" :height="14" />
-                    </button>
-                  </div>
-                  <div class="pagination-info">
-                    <span>{{ showingFrom }}-{{ showingTo }}</span>
-                    <span>&nbsp;{{ t('clients.of') }}&nbsp;</span>
-                    <span>{{ total }}</span>
-                  </div>
-                </div>
+                <Pagination
+                  v-model:page="page"
+                  v-model:size="pageSizeStr"
+                  :total-pages="totalPages"
+                  :pages="pageNumbers"
+                  :page-size-options="PAGE_SIZE_OPTIONS"
+                  :size-label="t('clients.page_size')"
+                  :showing-from="showingFrom"
+                  :showing-to="showingTo"
+                  :total="total"
+                  :of-label="t('clients.of')"
+                  test-id="clients-pagination"
+                  size-test-id="clients-page-size"
+                />
               </td>
             </tr>
           </tfoot>
@@ -460,32 +457,28 @@ onMounted(() => {
       <p v-if="deletingClientHasOrders" class="text-warning">
         {{ t('clients.delete_warning_orders') }}
       </p>
+      <!-- One shape, always. The footer used to swap between "cancel + delete" and
+           a lone "OK" depending on the answer about orders — and that answer now
+           arrives a moment after the dialog opens, so a click in between landed on
+           a button that was about to be replaced. Cancel is always there and always
+           safe; only the destructive button waits for the answer. -->
       <template #footer>
-        <template v-if="deletingClientHasOrders">
-          <button
-            class="btn btn-primary"
-            data-test="clients-delete-confirm"
-            @click="showDeleteModal = false"
-          >
-            {{ t('clients.btn_ok') }}
-          </button>
-        </template>
-        <template v-else>
-          <button
-            class="btn btn-secondary"
-            data-test="clients-delete-cancel"
-            @click="showDeleteModal = false"
-          >
-            {{ t('clients.btn_discard') }}
-          </button>
-          <button
-            class="btn btn-danger"
-            data-test="clients-delete-confirm"
-            @click="onDeleteConfirm"
-          >
-            {{ t('clients.btn_delete') }}
-          </button>
-        </template>
+        <button
+          class="btn btn-secondary"
+          data-test="clients-delete-cancel"
+          @click="showDeleteModal = false"
+        >
+          {{ t('clients.btn_discard') }}
+        </button>
+        <button
+          v-if="!deletingClientHasOrders"
+          class="btn btn-danger"
+          :disabled="deletingClientOrdersUnknown"
+          data-test="clients-delete-confirm"
+          @click="onDeleteConfirm"
+        >
+          {{ t('clients.btn_delete') }}
+        </button>
       </template>
     </AppModal>
   </div>

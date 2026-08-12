@@ -1,5 +1,12 @@
 # Plan: Product UoM Restructure
 
+> ⚠️ **Устарело в части валютного курса, 2026-08-09.** Владелец решил: автоматической
+> конвертации нет ни на каком уровне, курса нет ни на заказе, ни на строке, ни на
+> партии, ни в раскладке, таблица курсов из настроек удалена. Валюта — подпись к
+> числу, а не множитель. Складской слой партии всегда в базовой валюте. Актуальное
+> правило — [orders-backend-contract.md](orders-backend-contract.md), §7.1.
+> Всё, что ниже говорит о курсе, читать как отменённое; остальное в силе.
+
 ## Summary
 
 Refactor product's unit-of-measure model from a single `uom_id` to three separate UoM fields (purchase, warehouse, sale), add per-product currency, price quantity basis, and conversion rules. Update warehouse batch model to track purchase audit trail.

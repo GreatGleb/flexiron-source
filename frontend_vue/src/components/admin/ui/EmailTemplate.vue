@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 
+import AutoResizeTextarea from '@/components/admin/ui/AutoResizeTextarea.vue'
+
 import '@styles/admin/components/_email-template.css'
 
 const { t } = useI18n()
@@ -35,13 +37,13 @@ const emit = defineEmits<{
     </div>
     <div class="email-template-body">
       <label class="field-label">{{ bodyLabel ?? t('bcc.body') }}</label>
-      <textarea
+      <AutoResizeTextarea
         class="glass-input body-input"
         data-test="email-template-body"
         rows="8"
         :placeholder="bodyPlaceholder ?? t('bcc.body_placeholder')"
-        :value="body"
-        @input="emit('update:body', ($event.target as HTMLTextAreaElement).value)"
+        :model-value="body"
+        @update:model-value="emit('update:body', $event)"
       />
     </div>
     <slot />

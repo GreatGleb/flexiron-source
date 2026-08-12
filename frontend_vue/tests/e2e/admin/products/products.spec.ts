@@ -1,5 +1,5 @@
-import { test as base, type Page } from '@playwright/test'
-import { test, testWithFlags, expect } from '../../fixtures'
+import type { Page } from '@playwright/test'
+import { test, testWithFlags, expect, testBare as base } from '../../fixtures'
 import { ALL_FLAGS_ENABLED } from '../../helpers/flags'
 import { navigateToAdmin, switchLanguage } from '../../helpers/admin'
 import { waitForFontsReady, SNAPSHOT_OPTIONS, stabilizeForSnapshot } from '../../helpers/visual'
@@ -106,7 +106,9 @@ async function navigateToProductsList(page: Page) {
   const appHtml = await page.evaluate(() => {
     const app = document.querySelector('#app')
     if (!app) return 'NO #app FOUND'
-    return Array.from(app.children).map((el) => `${el.tagName}${el.className ? '.' + el.className.split(' ').join('.') : ''}`).join(', ')
+    return Array.from(app.children)
+      .map((el) => `${el.tagName}${el.className ? '.' + el.className.split(' ').join('.') : ''}`)
+      .join(', ')
   })
   console.log('[DIAG] #app children:', appHtml)
 
@@ -128,7 +130,9 @@ async function navigateToProductsList(page: Page) {
   const appHtml2 = await page.evaluate(() => {
     const app = document.querySelector('#app')
     if (!app) return 'NO #app FOUND'
-    return Array.from(app.children).map((el) => `${el.tagName}${el.className ? '.' + el.className.split(' ').join('.') : ''}`).join(', ')
+    return Array.from(app.children)
+      .map((el) => `${el.tagName}${el.className ? '.' + el.className.split(' ').join('.') : ''}`)
+      .join(', ')
   })
   console.log('[DIAG] #app children after networkidle:', appHtml2)
 
@@ -306,13 +310,28 @@ test.describe('products-list › delete', () => {
   })
 
   test('confirm deletes and reloads list', async ({ page }) => {
-    const deleteBtn = page.locator('[data-test="products-delete-btn"]').first()
-    await deleteBtn.click()
+    const rows = page.locator('[data-test="products-row"]')
+    // Not the first row: the mock marks prod-001 as linked to live orders, and
+    // that path is covered by the test below.
+    const doomed = (await rows.nth(1).locator('td').first().textContent())?.trim() ?? ''
+    expect(doomed).not.toBe('')
+
+    await page.locator('[data-test="products-delete-btn"]').nth(1).click()
     await expect(page.locator('[data-test="modal-delete-product"]')).toBeVisible()
     await page.locator('[data-test="confirm-delete-submit"]').click()
     await expect(page.locator('[data-test="modal-delete-product"]')).toBeHidden()
-    // Toast should appear
-    await expect(page.getByText('Product deleted').or(page.getByText('Товар удален'))).toBeVisible()
+    await expect(page.locator('.toast-container .toast.show')).toBeVisible()
+    // The list is paged, so a row count says nothing — the next product moves up.
+    await expect(rows.filter({ hasText: doomed })).toHaveCount(0)
+  })
+
+  test('a product still used by orders is refused, not silently kept', async ({ page }) => {
+    const rows = page.locator('[data-test="products-row"]')
+    const kept = (await rows.first().locator('td').first().textContent())?.trim() ?? ''
+    await page.locator('[data-test="products-delete-btn"]').first().click()
+    await page.locator('[data-test="confirm-delete-submit"]').click()
+    await expect(page.locator('.toast-container .toast.show')).toBeVisible()
+    await expect(rows.filter({ hasText: kept })).toHaveCount(1)
   })
 })
 
@@ -325,11 +344,7 @@ test.describe('products-list › navigation', () => {
   })
 
   test('row click navigates to /admin/products/:id', async ({ page }) => {
-    await page
-      .locator('[data-test="products-row"]')
-      .first()
-      .locator('a.name-link')
-      .click()
+    await page.locator('[data-test="products-row"]').first().locator('a.name-link').click()
     await expect(page).toHaveURL(/\/admin\/products\/prod-\w+$/)
   })
 })
@@ -526,7 +541,9 @@ test.describe('product-card › suppliers', () => {
     await page.locator('[data-test="confirm-remove-supplier"]').click()
     await expect(page.locator('[data-test="modal-remove-supplier"]')).toBeHidden()
     // Supplier should no longer be in the table (remove is local, no save needed)
-    await expect(page.locator('[data-test="product-card-suppliers"] .supplier-remove-btn')).toHaveCount(1)
+    await expect(
+      page.locator('[data-test="product-card-suppliers"] .supplier-remove-btn'),
+    ).toHaveCount(1)
   })
 })
 

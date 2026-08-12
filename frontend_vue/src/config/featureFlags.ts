@@ -53,6 +53,16 @@ const defaults: FeatureFlags = {
   orderDocumentGen: true,
   orderCuttingTool: false,
 
+  // Order pricing rework. The corrected calculation itself is NOT behind a flag —
+  // a wrong total is not a feature anybody opts into. These two are new
+  // capabilities and stay switchable, like every other section of the app.
+  orderShipments: true,
+  orderInvoicesPayments: true,
+  // Partial returns: the return document, the header badge, the marked lines and
+  // the net-amount rows. The statuses are NOT behind it — a status list that is
+  // missing values is not a feature anybody opts into.
+  orderReturns: true,
+
   warehouseOffcutCreate: true,
 
   // Notifications
