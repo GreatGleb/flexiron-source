@@ -169,6 +169,9 @@ import {
   mockGetShipments,
   mockCreateShipment,
   mockCancelShipment,
+  mockGetReturns,
+  mockPlanReturn,
+  mockCreateReturn,
   mockReserveOrder,
   mockGetReservations,
   mockGetOrderPayments,
@@ -490,6 +493,18 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
   const orderShipmentsMatch = path.match(/^\/api\/orders\/([^/]+)\/shipments$/)
   if (orderShipmentsMatch) {
     return delay(mockGetShipments(orderShipmentsMatch[1] as string) as T)
+  }
+
+  // What can still come back, and what already has. Both before the bare
+  // `/api/orders/:id` below — that pattern would swallow them.
+  const returnPlanMatch = path.match(/^\/api\/orders\/([^/]+)\/return-plan$/)
+  if (returnPlanMatch) {
+    return delay(mockPlanReturn(returnPlanMatch[1] as string) as T)
+  }
+
+  const orderReturnsMatch = path.match(/^\/api\/orders\/([^/]+)\/returns$/)
+  if (orderReturnsMatch) {
+    return delay(mockGetReturns(orderReturnsMatch[1] as string) as T)
   }
 
   const orderPaymentsMatch = path.match(/^\/api\/orders\/([^/]+)\/payments$/)
@@ -936,6 +951,15 @@ export async function postMock<T>(
       return delay(
         withIdempotency(headers, () =>
           mockAddOrderPayment(orderId, body as Parameters<typeof mockAddOrderPayment>[1]),
+        ) as T,
+      )
+    }
+    // A return moves the shelf and the documents exactly as a shipment does, so
+    // it is the third operation that may not happen twice on one intent.
+    if (orderSubpath === '/api/orders/:id/returns') {
+      return delay(
+        withIdempotency(headers, () =>
+          mockCreateReturn(orderId, body as Parameters<typeof mockCreateReturn>[1]),
         ) as T,
       )
     }

@@ -61,6 +61,19 @@ for (const route of ALL_ROUTES) {
     page.on('pageerror', (err) => {
       pageErrors.push(err.message)
     })
+    // Collected for the failure message only. Chromium reports a failed subresource
+    // as the bare string "Failed to load resource: the server responded with a
+    // status of 404 ()" — no URL, nothing to act on. That message is what this
+    // suite showed for months while fonts.gstatic.com intermittently 404'd a font
+    // subset under load, and it named neither the host nor the file. Whatever
+    // breaks next, the report should say what did not load.
+    const badResponses: string[] = []
+    page.on('response', (r) => {
+      if (r.status() >= 400) badResponses.push(`${r.status()} ${r.request().resourceType()} ${r.url()}`)
+    })
+    page.on('requestfailed', (r) => {
+      badResponses.push(`FAILED ${r.failure()?.errorText} ${r.request().resourceType()} ${r.url()}`)
+    })
 
     await page.goto(route.path)
     await page.waitForLoadState('networkidle')
@@ -72,7 +85,7 @@ for (const route of ALL_ROUTES) {
     // slowest of them, failed at random and was written off as a flake for three
     // stages. The generous timeout is for a cold dev server compiling the route.
     await expect.soft(page.locator('h1').first()).toBeVisible({ timeout: 15_000 })
-    expect.soft(consoleErrors, 'console errors on page').toEqual([])
+    expect.soft(consoleErrors, `console errors on page; network: ${JSON.stringify(badResponses)}`).toEqual([])
     expect.soft(pageErrors, 'uncaught JS errors').toEqual([])
   })
 }

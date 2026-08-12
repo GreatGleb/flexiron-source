@@ -1,0 +1,126 @@
+/* ─── Order status pill ───────────────────────────────────────────────────────
+ *
+ * One scheme for every screen that shows an order status: the list, the card,
+ * the client card and the sales CRM. They used to carry three different schemes
+ * between them, so the same "Shipped" was green in one place and blue in
+ * another — and the CRM asked for `order-status--*` classes that were never
+ * written anywhere, so its badge had no styling at all.
+ *
+ * Self-contained on purpose: the base class does not lean on `.pill` or
+ * `.status-pill` from a page stylesheet, because a component may not borrow CSS
+ * it does not import.
+ *
+ * Imported by: OrdersListPage, OrderCardPage, ClientCardPage, SalesCrmPage.
+ */
+
+/* The table look, taken from the orders list where it was already settled: a
+   status in a row is a small uppercase tag, and every table showing one now
+   agrees on that. */
+.order-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Standalone badge in a card header — bigger, squarer, and not shouted. */
+.order-status-pill--lg {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 14px;
+  border-radius: 6px;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  backdrop-filter: blur(4px);
+}
+
+/* ── In progress ── */
+
+.order-status-pill--new {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.6);
+}
+.order-status-pill--confirmed {
+  background: rgba(24, 144, 255, 0.2);
+  border: 1px solid rgba(24, 144, 255, 0.3);
+  color: #1890ff;
+}
+.order-status-pill--picking {
+  background: rgba(250, 173, 20, 0.2);
+  border: 1px solid rgba(250, 173, 20, 0.3);
+  color: #faad14;
+}
+.order-status-pill--packing {
+  background: rgba(250, 173, 20, 0.2);
+  border: 1px solid rgba(250, 173, 20, 0.3);
+  color: #faad14;
+}
+.order-status-pill--shipped {
+  background: rgba(82, 196, 26, 0.2);
+  border: 1px solid rgba(82, 196, 26, 0.3);
+  color: #52c41a;
+}
+.order-status-pill--delivered {
+  background: rgba(82, 196, 26, 0.2);
+  border: 1px solid rgba(82, 196, 26, 0.3);
+  color: #52c41a;
+}
+.order-status-pill--paid {
+  background: rgba(82, 196, 26, 0.2);
+  border: 1px solid rgba(82, 196, 26, 0.3);
+  color: #52c41a;
+}
+
+/* Finished for good — deeper green than "paid", which is a step and not an end. */
+.order-status-pill--completed {
+  background: rgba(4, 120, 87, 0.25);
+  border: 1px solid rgba(4, 120, 87, 0.45);
+  color: #34d399;
+}
+
+/* ── Coming back ── amber while it is in motion, red once it has landed. */
+
+.order-status-pill--return-requested {
+  background: rgba(245, 158, 11, 0.2);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #f59e0b;
+}
+.order-status-pill--return-processing {
+  background: rgba(217, 119, 6, 0.2);
+  border: 1px solid rgba(217, 119, 6, 0.35);
+  color: #d97706;
+}
+.order-status-pill--returned {
+  background: rgba(220, 38, 38, 0.2);
+  border: 1px solid rgba(220, 38, 38, 0.35);
+  color: #f87171;
+}
+
+/* ── Annulled ── four shades of the same red: who stopped it decides what next. */
+
+.order-status-pill--cancelled {
+  background: rgba(255, 77, 79, 0.2);
+  border: 1px solid rgba(255, 77, 79, 0.3);
+  color: #ff4d4f;
+}
+.order-status-pill--rejected {
+  background: rgba(185, 28, 28, 0.22);
+  border: 1px solid rgba(185, 28, 28, 0.4);
+  color: #ef4444;
+}
+.order-status-pill--cancelled-by-customer {
+  background: rgba(239, 68, 68, 0.18);
+  border: 1px solid rgba(239, 68, 68, 0.32);
+  color: #fca5a5;
+}
+.order-status-pill--refused {
+  background: rgba(153, 27, 27, 0.25);
+  border: 1px solid rgba(153, 27, 27, 0.45);
+  color: #f87171;
+}

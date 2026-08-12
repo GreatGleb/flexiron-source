@@ -13,8 +13,11 @@ import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
 import DatePicker from '@/components/admin/ui/DatePicker.vue'
 import AutoResizeTextarea from '@/components/admin/ui/AutoResizeTextarea.vue'
 
+import { ORDER_STATUS_PILL } from '@/domain/orderStatus'
+
 import '@styles/admin/components/_entity-card-layout.css'
 import '@styles/admin/components/_audit-log.css'
+import '@styles/admin/components/_order-status-pill.css'
 import '@styles/admin/client_card.css'
 
 const { t } = useI18n()
@@ -67,19 +70,6 @@ const statusStr = computed({
   },
 })
 
-const ORDER_STATUS_PILL: Record<string, string> = {
-  completed: 'pill-success',
-  shipped: 'pill-info',
-  processing: 'pill-warning',
-  pending: 'pill-warning',
-  cancelled: 'pill-danger',
-  new: 'pill-secondary',
-  confirmed: 'pill-info',
-  picking: 'pill-warning',
-  packing: 'pill-warning',
-  delivered: 'pill-success',
-  paid: 'pill-success',
-}
 
 function orderStatusLabel(status: string): string {
   const key = `orders.status_${status}`
@@ -409,8 +399,8 @@ onMounted(() => {
                       </td>
                       <td>
                         <span
-                          class="status-pill"
-                          :class="ORDER_STATUS_PILL[order.status] || 'pill-secondary'"
+                          class="order-status-pill"
+                          :class="ORDER_STATUS_PILL[order.status] || 'order-status-pill--new'"
                         >
                           {{ orderStatusLabel(order.status) }}
                         </span>

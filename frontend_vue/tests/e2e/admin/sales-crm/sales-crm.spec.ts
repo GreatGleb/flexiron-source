@@ -1,6 +1,5 @@
 import type { Page } from '@playwright/test'
 import { test, expect } from '../../fixtures'
-import { mockExternalRequests } from '../../helpers/mockExternalRequests'
 
 /**
  * The dashboard's four numbers.
@@ -19,10 +18,6 @@ async function kpi(page: Page, name: string): Promise<number> {
     .innerText()
   return Number(text.replace(/[^\d.-]/g, ''))
 }
-
-test.beforeEach(async ({ page }) => {
-  await mockExternalRequests(page)
-})
 
 test.describe('Sales CRM dashboard', () => {
   test('KPI counts include an order created after them', async ({ page }) => {

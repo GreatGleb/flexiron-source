@@ -1,5 +1,4 @@
-import { test as base } from '@playwright/test'
-import { test, expect } from '../../fixtures'
+import { test, expect, testBare as base } from '../../fixtures'
 import { ALL_FLAGS_ENABLED } from '../../helpers/flags'
 import { freezeTime } from '../../helpers/mocks'
 import { waitForFontsReady, SNAPSHOT_OPTIONS } from '../../helpers/visual'

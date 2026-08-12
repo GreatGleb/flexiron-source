@@ -1,8 +1,6 @@
-import { test as base } from '@playwright/test'
-import { test, expect } from '../../fixtures'
+import { test, expect, testBare as base } from '../../fixtures'
 import { ALL_FLAGS_ENABLED } from '../../helpers/flags'
 import { freezeTime } from '../../helpers/mocks'
-import { mockExternalRequests } from '../../helpers/mockExternalRequests'
 import { waitForFontsReady, SNAPSHOT_OPTIONS } from '../../helpers/visual'
 
 /**
@@ -574,7 +572,10 @@ test.describe('client-card › order history', () => {
     await expect(firstRow.locator('.order-link')).toBeVisible()
     await expect(firstRow.locator('.audit-log-ts')).toBeVisible()
     await expect(firstRow.locator('.order-total')).toBeVisible()
-    await expect(firstRow.locator('.status-pill')).toBeVisible()
+    // `order-status-pill`, not the generic `status-pill`: order statuses render
+    // from one shared scheme now, so this row, the orders list and the CRM show
+    // the same status the same way.
+    await expect(firstRow.locator('.order-status-pill')).toBeVisible()
   })
 
   test('order row navigates to order card on click', async ({ page }) => {
@@ -803,7 +804,6 @@ test.describe('client-create › visual @1440', () => {
 
 test.describe('client-card › visual @1440', () => {
   test.beforeEach(async ({ page }) => {
-    await mockExternalRequests(page)
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
     await page.goto(CLIENTS_CARD)

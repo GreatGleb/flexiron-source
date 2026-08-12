@@ -55,6 +55,7 @@ export interface FeatureFlags {
   // Order pricing rework
   orderShipments: boolean
   orderInvoicesPayments: boolean
+  orderReturns: boolean
 
   // Notifications
   notificationsPage: boolean

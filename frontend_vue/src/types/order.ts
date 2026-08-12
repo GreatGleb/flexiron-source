@@ -1,19 +1,18 @@
 import type { StockAuditEntry } from './warehouse'
 import type { CostSource, LineState, VatMode } from '@/domain/orderPricing'
+import type { OrderStatus } from '@/domain/orderStatus'
 
 export type { CostSource, LineState, VatMode }
 
-export type OrderDocumentType = 'local' | 'export'
+/**
+ * The lifecycle statuses live in `domain/orderStatus` — the list, the pill
+ * classes and the predicates that read them are one module, the way the pricing
+ * arithmetic is. Re-exported here so the dozens of `import type { OrderStatus }
+ * from '@/types/order'` around the app keep pointing at the same thing.
+ */
+export type { OrderStatus }
 
-export type OrderStatus =
-  | 'new'
-  | 'confirmed'
-  | 'picking'
-  | 'packing'
-  | 'shipped'
-  | 'delivered'
-  | 'paid'
-  | 'cancelled'
+export type OrderDocumentType = 'local' | 'export'
 
 export interface OrderListItem {
   id: string
@@ -117,6 +116,13 @@ export interface OrderItem {
   // ── Lifecycle ───────────────────────────────────────────────────────────
   state: LineState
   shippedQuantity: number
+  /**
+   * How much of what shipped has come back. Counted beside `shippedQuantity`
+   * and never subtracted from it: the goods did leave, on a waybill the client
+   * signed, and a line that forgets that cannot be reconciled with the movement
+   * ledger. `state` therefore stays 'shipped' — the return is a separate fact.
+   */
+  returnedQuantity: number
   /** Printed on a document the client already holds. Freezes the line. */
   documentIssued: boolean
 
@@ -277,6 +283,73 @@ export interface Shipment {
   cancelled: boolean
 }
 
+// ─── Returns ────────────────────────────────────────────────────────────────
+
+/**
+ * What came back — sellable stock, or a loss.
+ *
+ * Independent of whether the client gets their money back: goods can come back
+ * damaged and still be refunded, and they can come back perfect and be kept
+ * against a debt. One field per question, because they are two questions.
+ */
+export type ReturnCondition = 'good' | 'defective'
+
+export interface OrderReturnLine {
+  lineId: string
+  quantity: number
+  condition: ReturnCondition
+  /** Whether the money for this quantity goes back to the client. */
+  compensated: boolean
+  /**
+   * Which batches the goods went back onto, and how much of each — the mirror
+   * of `heldReleased` on a shipment line, and there for the same reason: what
+   * the return did has to be reproducible, and undoing it later has to put the
+   * goods back exactly where they came from.
+   *
+   * Present always — `null` when nothing landed anywhere, never an absent key
+   * (contract §3).
+   */
+  restored: ShipmentHold[] | null
+}
+
+/**
+ * Goods coming back from the client.
+ *
+ * Deliberately not a cancelled shipment. A cancellation says the delivery never
+ * effectively happened, so it takes `shippedQuantity` back down; a return says
+ * it happened and was reversed, so the shipped quantity stands and the returned
+ * one is counted beside it. The order total does not move either: the order was
+ * for that much, and what the client owes after the return is derived.
+ */
+export interface OrderReturn {
+  id: string
+  orderId: string
+  number: string
+  returnedAt: string
+  /** Mandatory. A return is an event somebody will be asked about. */
+  reason: string
+  lines: OrderReturnLine[]
+  /**
+   * The correcting invoices issued for the compensated part. Empty when nothing
+   * was compensated, and also when the returned quantity had never been billed
+   * — there is no document to correct.
+   */
+  correctionInvoiceIds: string[]
+}
+
+/**
+ * A line with something that can still come back. The mirror of `ShippableLine`.
+ */
+export interface ReturnableLine {
+  lineId: string
+  productName: string
+  unit: string
+  shipped: number
+  alreadyReturned: number
+  /** `shipped − alreadyReturned` — what the dialog may offer. */
+  returnable: number
+}
+
 // ─── Invoices and payments ──────────────────────────────────────────────────
 
 export type InvoiceKind = 'advance' | 'regular' | 'correction'
@@ -390,6 +463,7 @@ export interface Order {
   totalWeight: number
 
   shipments: Shipment[]
+  returns: OrderReturn[]
   invoices: Invoice[]
   payments: Payment[]
 

@@ -1,5 +1,5 @@
-import { test as base, type Page } from '@playwright/test'
-import { test, testWithFlags, expect } from '../../fixtures'
+import type { Page } from '@playwright/test'
+import { test, testWithFlags, expect, testBare as base } from '../../fixtures'
 import { ALL_FLAGS_ENABLED } from '../../helpers/flags'
 import { navigateToAdmin, switchLanguage } from '../../helpers/admin'
 import { waitForFontsReady, SNAPSHOT_OPTIONS, stabilizeForSnapshot } from '../../helpers/visual'

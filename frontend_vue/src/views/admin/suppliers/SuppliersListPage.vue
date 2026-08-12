@@ -429,7 +429,7 @@ onBeforeUnmount(() => {
       </div>
 
       <div v-else class="data-table-wrapper">
-        <table class="data-table" data-test="suppliers-table">
+        <table class="data-table suppliers-table" data-test="suppliers-table">
           <thead>
             <tr>
               <th>

@@ -46,6 +46,7 @@ import {
   mockGetMovementsFor,
 } from './warehouse'
 import { calcLine, round2, validateLine, netToGross } from '@/domain/orderPricing'
+import { countsAsSale } from '@/domain/orderStatus'
 import { toPricingLine } from '@/services/orderLines'
 import type { Order } from '@/types/order'
 import type { UserProfile } from '@/types/settings'
@@ -2793,11 +2794,10 @@ describe('sales CRM statistics', () => {
 
     const stats = mockGetSalesCrmStats()
     const expectedSales = allOrders()
-      .filter(
-        (o) =>
-          ['confirmed', 'shipped', 'delivered'].includes(o.status) &&
-          new Date(o.createdAt) >= monthStart,
-      )
+      // Named by the same predicate the server uses, not by a hand-kept list of
+      // statuses: the list version silently dropped `paid` and would have gone
+      // stale again on every status the module gained (§4.7).
+      .filter((o) => countsAsSale(o.status) && new Date(o.createdAt) >= monthStart)
       .reduce((sum, o) => round2(sum + o.totalAmount), 0)
     expect(stats.salesMtd).toBe(expectedSales)
     expect(stats.newClientsThisMonth).toBe(

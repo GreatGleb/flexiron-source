@@ -41,6 +41,8 @@ import {
 import {
   round2,
   rollupOrder,
+  calcLine,
+  netToGross,
   grossToNet,
   achievableGross,
   allocateTotal,
@@ -61,8 +63,11 @@ import {
   correctOrderLine,
   createOrderInvoice,
   createOrderShipment,
+  createOrderReturn,
   deleteOrderPayment,
   getOrderShipments,
+  getOrderReturns,
+  planOrderReturn,
   planOrderShipment,
   planOrderStatus,
   reserveOrderStock,
@@ -76,10 +81,13 @@ import type {
   Order,
   OrderAuditEntry,
   OrderItem,
+  OrderReturn,
   OrderService,
   OrderStatus,
   Payment,
   PaymentPurpose,
+  ReturnCondition,
+  ReturnableLine,
   ShippableLine,
   Shipment,
   StatusTransitionPlan,
@@ -390,6 +398,10 @@ export function useOrderCard(id: string) {
       // re-read whenever the order is. Without this the shipping dialog offers
       // the list it was built with — a line added a minute ago simply is not there.
       await loadShipPlan()
+      // Same reason as the ship plan: what can come back changes with every
+      // shipment and every earlier return.
+      await loadReturns()
+      await loadReturnPlan()
       readAudit()
     } catch (e) {
       // A key, not the exception's own words: `String(e)` put `Error:
@@ -743,6 +755,127 @@ export function useOrderCard(id: string) {
       shipmentsLoading.value = false
     }
   }
+
+  // ─── Returns ────────────────────────────────────────────────────────────
+  // Goods coming back. Not a cancelled shipment: that one says the delivery
+  // never effectively happened, this one says it happened and was reversed.
+
+  const returns = ref<OrderReturn[]>([])
+  const returnableLines = ref<ReturnableLine[]>([])
+  const returnsLoading = ref(false)
+
+  async function loadReturns() {
+    try {
+      returns.value = await getOrderReturns(id)
+    } catch {
+      returns.value = []
+    }
+  }
+
+  async function loadReturnPlan() {
+    try {
+      returnableLines.value = await planOrderReturn(id)
+    } catch {
+      returnableLines.value = []
+    }
+  }
+
+  async function createReturn(
+    lines: Array<{
+      lineId: string
+      quantity: number
+      condition: ReturnCondition
+      compensated: boolean
+    }>,
+    reason: string,
+  ): Promise<boolean> {
+    if (!order.value || lines.length === 0) return false
+    // Already going out — `disabled` lands a tick late, and a second Enter puts
+    // the same steel back on the shelf twice.
+    if (returnsLoading.value) return false
+    // The reload below takes the unsaved fields with it, so they go first.
+    if (!(await flushBeforeReload())) return false
+    returnsLoading.value = true
+    try {
+      await createOrderReturn(id, withVersion({ lines, reason }))
+      await load()
+      await loadReturns()
+      await loadReturnPlan()
+      toast.success(t('orders.toast_return_created'))
+      return true
+    } catch (e) {
+      toast.error(t(lineEditErrorKey(e)))
+      return false
+    } finally {
+      returnsLoading.value = false
+    }
+  }
+
+  /** How much of each line has come back — what the line table marks. */
+  const returnedByLine = computed<Record<string, number>>(() => {
+    const map: Record<string, number> = {}
+    for (const item of order.value?.items ?? []) {
+      if (item.returnedQuantity > 0) map[item.id] = item.returnedQuantity
+    }
+    return map
+  })
+
+  /**
+   * What the returns take off the bill, gross.
+   *
+   * Only the compensated part: goods kept against a debt came back without the
+   * money following them. Derived, never stored — the order total says what the
+   * order was for, and this says what is coming off it.
+   */
+  const returnedGross = computed(() => {
+    let net = 0
+    for (const ret of returns.value) {
+      for (const line of ret.lines) {
+        if (!line.compensated) continue
+        const item = order.value?.items.find((i) => i.id === line.lineId)
+        if (!item) continue
+        net = round2(net + calcLine({ ...toPricingLine(item), quantity: line.quantity }).lineNet)
+      }
+    }
+    return round2(netToGross(net, form.value.vatMode, form.value.vatPercent))
+  })
+
+  /** What the client is ultimately expected to pay: the order less what came back. */
+  const netAmount = computed(() => round2(totals.value.totalGross - returnedGross.value))
+
+  /**
+   * Has anything come back, and is it everything?
+   *
+   * Counted in goods, not money — the two axes are independent, and this is the
+   * one the header badge and the line marks speak about.
+   */
+  const returnState = computed<'none' | 'partial' | 'full'>(() => {
+    let shipped = 0
+    let returned = 0
+    for (const item of order.value?.items ?? []) {
+      shipped = round2(shipped + item.shippedQuantity)
+      returned = round2(returned + item.returnedQuantity)
+    }
+    if (returned <= 0) return 'none'
+    return returned >= shipped ? 'full' : 'partial'
+  })
+
+  /**
+   * Has the money gone back?
+   *
+   * The other axis, and deliberately separate: goods can be back with the refund
+   * still unpaid, and a refund can be paid before the truck arrives. Read off the
+   * payments, the way the paid share is — never stored.
+   */
+  const refundState = computed<'none' | 'partial' | 'full'>(() => {
+    const refunded = round2(
+      payments.value
+        .filter((p) => p.purpose === 'refund')
+        .reduce((sum, p) => sum + Math.abs(p.amount), 0),
+    )
+    if (refunded <= 0) return 'none'
+    return refunded >= returnedGross.value ? 'full' : 'partial'
+  })
 
   async function reserveStock() {
     // The lines were already guarded here; the fields were not, and `load()`
@@ -1785,6 +1918,16 @@ export function useOrderCard(id: string) {
     shipLines,
     cancelShipment,
     reserveStock,
+    // Returns
+    returns,
+    returnableLines,
+    returnsLoading,
+    createReturn,
+    returnedByLine,
+    returnedGross,
+    netAmount,
+    returnState,
+    refundState,
     // Money: payments and invoices
     payments,
     invoices,

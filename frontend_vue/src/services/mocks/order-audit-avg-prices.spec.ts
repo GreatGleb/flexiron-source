@@ -23,6 +23,7 @@ import { STORE as PRODUCTS_STORE } from './products'
 import { batchesForProduct } from './warehouse'
 import { mockGetOrders, mockGetOrder } from './orders'
 import { calcLine, round2 } from '@/domain/orderPricing'
+import { countsAsSale } from '@/domain/orderStatus'
 import { toPricingLine } from '@/services/orderLines'
 
 const log: string[] = []
@@ -60,13 +61,18 @@ function saleFromOrders(): Map<string, { qty: number; net: number }> {
   )
   for (const row of page.items) {
     const order = mockGetOrder(row.id)!
-    if (order.status === 'cancelled') continue
+    // Annulled, however it was annulled, and fully returned orders are not sales
+    // (contract §4.7). Naming `cancelled` alone went stale the moment the module
+    // gained the other four ways to end.
+    if (!countsAsSale(order.status)) continue
     for (const item of order.items) {
-      // Only what really left the warehouse — a draft line is not a sale.
-      if (item.shippedQuantity <= 0) continue
-      const net = calcLine({ ...toPricingLine(item), quantity: item.shippedQuantity }).lineNet
+      // Only what really left the warehouse and stayed gone: a draft line is not
+      // a sale, and neither is steel the client sent back (§7.2).
+      const sold = round2(item.shippedQuantity - item.returnedQuantity)
+      if (sold <= 0) continue
+      const net = calcLine({ ...toPricingLine(item), quantity: sold }).lineNet
       const cur = per.get(item.productId) ?? { qty: 0, net: 0 }
-      cur.qty = round2(cur.qty + item.shippedQuantity)
+      cur.qty = round2(cur.qty + sold)
       cur.net = round2(cur.net + net)
       per.set(item.productId, cur)
     }

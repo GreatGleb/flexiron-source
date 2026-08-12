@@ -291,6 +291,7 @@ export function buildOrderItem(seed: OrderItemSeed): OrderItem {
     ...storedPrice(seed),
     state: 'draft',
     shippedQuantity: 0,
+    returnedQuantity: 0,
     documentIssued: false,
     weightPerUnitKg: seed.weightPerUnitKg ?? null,
     unitPrice: 0,

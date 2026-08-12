@@ -45,6 +45,7 @@ export const ALL_FLAGS_ENABLED = {
   // and line editing ship unflagged.
   orderShipments: true,
   orderInvoicesPayments: true,
+  orderReturns: true,
 
   // Notifications
   notificationsPage: true,

@@ -6,8 +6,10 @@ import { useSalesCrmDashboard } from '@/composables/useSalesCrmDashboard'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
 import { formatCents as money } from '@/domain/orderPricing'
+import { ORDER_STATUS_PILL } from '@/domain/orderStatus'
 
 import '@styles/admin/components/_entity-card-layout.css'
+import '@styles/admin/components/_order-status-pill.css'
 import '@styles/admin/sales_crm.css'
 
 const { t } = useI18n()
@@ -195,7 +197,10 @@ function formatCurrency(value: number): string {
                   </td>
                   <td>{{ order.clientName }}</td>
                   <td>
-                    <span class="order-status-badge" :class="`order-status--${order.status}`">
+                    <span
+                      class="order-status-pill"
+                      :class="ORDER_STATUS_PILL[order.status] || 'order-status-pill--new'"
+                    >
                       {{ t(`orders.status_${order.status}`) }}
                     </span>
                   </td>

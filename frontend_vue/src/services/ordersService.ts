@@ -13,6 +13,9 @@ import type {
   InvoiceKind,
   PaymentPurpose,
   ShippableLine,
+  OrderReturn,
+  ReturnableLine,
+  ReturnCondition,
   StatusTransitionPlan,
   SalesCrmStats,
   LineEditEnvelope,
@@ -299,6 +302,49 @@ export async function cancelOrderShipment(
   data: { correctionReason?: string | null; version?: number } = {},
 ): Promise<Shipment> {
   return apiPost(`/api/orders/${orderId}/shipments/${shipmentId}/cancel`, data)
+}
+
+// ─── Returns ────────────────────────────────────────────────────────────────
+
+export async function getOrderReturns(orderId: string): Promise<OrderReturn[]> {
+  return apiGet(`/api/orders/${orderId}/returns`)
+}
+
+/** What can still come back: shipped, already returned, and the difference. */
+export async function planOrderReturn(orderId: string): Promise<ReturnableLine[]> {
+  return apiGet(`/api/orders/${orderId}/return-plan`)
+}
+
+/**
+ * Goods coming back from the client.
+ *
+ * Not the same operation as cancelling a shipment: that one says the delivery
+ * never effectively happened, this one says it happened and was reversed. Each
+ * line states two things independently — whether the goods are sellable, and
+ * whether the money goes back — because a damaged return can still be refunded
+ * and a sound one can be kept against a debt.
+ */
+export async function createOrderReturn(
+  orderId: string,
+  data: {
+    lines: Array<{
+      lineId: string
+      quantity: number
+      condition: ReturnCondition
+      compensated: boolean
+    }>
+    reason: string
+    returnedAt?: string
+    /** The order version this return is written against — contract §3. */
+    version?: number
+  },
+): Promise<OrderReturn> {
+  // Same deal as the shipment above: a repeat — a slow answer, a double click, a
+  // reconnect — must not put the goods back on the shelf twice and issue two
+  // credit notes for one lot of returned steel.
+  return apiPost(`/api/orders/${orderId}/returns`, data, {
+    headers: { 'Idempotency-Key': newIdempotencyKey() },
+  })
 }
 
 export async function reserveOrderStock(

@@ -45,7 +45,7 @@ function handleCancel() {
 
   <div class="flex-end" style="margin-bottom: 32px">
     <div
-      class="entity-action-bar no-margin pos-static flex-group"
+      class="entity-action-bar no-margin pos-static"
       data-test="supplier-create-action-bar"
     >
       <button

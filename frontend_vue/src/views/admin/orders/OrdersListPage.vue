@@ -12,9 +12,11 @@ import SearchInput from '@/components/admin/ui/SearchInput.vue'
 import AppModal from '@/components/admin/ui/AppModal.vue'
 import Pagination from '@/components/admin/ui/Pagination.vue'
 import { formatCents as money } from '@/domain/orderPricing'
+import { ORDER_STATUSES, ORDER_STATUS_PILL } from '@/domain/orderStatus'
 import type { OrderListItem } from '@/types/order'
 
 import '@styles/admin/components/_pagination.css'
+import '@styles/admin/components/_order-status-pill.css'
 import '@styles/admin/orders_list.css'
 
 const { t } = useI18n()
@@ -38,17 +40,12 @@ function paidClass(item: OrderListItem): string {
 }
 
 // ─── Status filter ───
-const STATUS_OPTIONS = [
+// Built from the one list there is, not written out again: a hand-kept copy is
+// how the filter ends up offering fewer statuses than orders can be in.
+const STATUS_OPTIONS = computed(() => [
   { value: 'all', label: t('orders.filter_status_all') },
-  { value: 'new', label: t('orders.status_new') },
-  { value: 'confirmed', label: t('orders.status_confirmed') },
-  { value: 'picking', label: t('orders.status_picking') },
-  { value: 'packing', label: t('orders.status_packing') },
-  { value: 'shipped', label: t('orders.status_shipped') },
-  { value: 'delivered', label: t('orders.status_delivered') },
-  { value: 'paid', label: t('orders.status_paid') },
-  { value: 'cancelled', label: t('orders.status_cancelled') },
-]
+  ...ORDER_STATUSES.map((s) => ({ value: s, label: t(`orders.status_${s}`) })),
+])
 
 // ─── Search with debounce ───
 const searchInput = ref('')
@@ -75,18 +72,6 @@ const pageSizeStr = computed({
     pagination.reset()
   },
 })
-
-// ─── Order status pill class mapping ───
-const ORDER_STATUS_PILL: Record<string, string> = {
-  new: 'order-status-pill--new',
-  confirmed: 'order-status-pill--confirmed',
-  picking: 'order-status-pill--picking',
-  packing: 'order-status-pill--packing',
-  shipped: 'order-status-pill--shipped',
-  delivered: 'order-status-pill--delivered',
-  paid: 'order-status-pill--paid',
-  cancelled: 'order-status-pill--cancelled',
-}
 
 // ─── Delete modal ───
 const deletingId = ref<string | null>(null)
@@ -410,7 +395,7 @@ onMounted(() => {
               <td>{{ item.clientName }}</td>
               <td>
                 <span
-                  class="status-pill"
+                  class="order-status-pill"
                   :class="ORDER_STATUS_PILL[item.status] || 'order-status-pill--new'"
                 >
                   {{ t(`orders.status_${item.status}`) }}

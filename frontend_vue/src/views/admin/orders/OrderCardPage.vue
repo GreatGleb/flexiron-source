@@ -38,6 +38,7 @@ import {
   rollupOrder,
   roundTo,
 } from '@/domain/orderPricing'
+import { ORDER_STATUSES, ORDER_STATUS_PILL } from '@/domain/orderStatus'
 import type {
   Invoice,
   OrderItem,
@@ -45,11 +46,14 @@ import type {
   OrderStatus,
   PaymentPurpose,
   ShippableLine,
+  ReturnableLine,
+  ReturnCondition,
   VatMode,
 } from '@/types/order'
 
 import '@styles/admin/components/_entity-card-layout.css'
 import '@styles/admin/components/_audit-log.css'
+import '@styles/admin/components/_order-status-pill.css'
 import '@styles/admin/orders_card.css'
 
 const route = useRoute()
@@ -83,6 +87,15 @@ const {
   shipLines,
   cancelShipment,
   reserveStock,
+  returns,
+  returnableLines,
+  returnsLoading,
+  createReturn,
+  returnedByLine,
+  returnedGross,
+  netAmount,
+  returnState,
+  refundState,
   payments,
   invoices,
   paid,
@@ -146,16 +159,11 @@ const DOCUMENT_TYPE_OPTIONS = [
 ]
 
 // ─── Status options ────────────────────────────────────────────
-const STATUS_OPTIONS = [
-  { value: 'new', label: t('orders.status_new') },
-  { value: 'confirmed', label: t('orders.status_confirmed') },
-  { value: 'picking', label: t('orders.status_picking') },
-  { value: 'packing', label: t('orders.status_packing') },
-  { value: 'shipped', label: t('orders.status_shipped') },
-  { value: 'delivered', label: t('orders.status_delivered') },
-  { value: 'paid', label: t('orders.status_paid') },
-  { value: 'cancelled', label: t('orders.status_cancelled') },
-]
+// One list, from `domain/orderStatus`. Written out here as well, it drifted from
+// the list page's copy the moment either gained a status.
+const STATUS_OPTIONS = computed(() =>
+  ORDER_STATUSES.map((s) => ({ value: s, label: t(`orders.status_${s}`) })),
+)
 
 const statusStr = computed({
   get: () => order.value?.status ?? 'new',
@@ -173,6 +181,7 @@ const statusStr = computed({
 
 const isShipmentsOn = useFeatureFlag('orderShipments')
 const isMoneyOn = useFeatureFlag('orderInvoicesPayments')
+const isReturnsOn = useFeatureFlag('orderReturns')
 
 // Model section 12: three rights. Not flags — a flag says the system has the
 // capability, a right says this user may use it. The server refuses the two write
@@ -564,6 +573,92 @@ async function confirmShipment() {
   if (ok) showShipModal.value = false
 }
 
+// ─── Returns ───────────────────────────────────────────────────
+const showReturnModal = ref(false)
+const returnQuantities = ref<Record<string, number>>({})
+const returnConditions = ref<Record<string, ReturnCondition>>({})
+const returnCompensated = ref<Record<string, boolean>>({})
+const returnReason = ref('')
+
+const RETURN_CONDITION_OPTIONS = computed(() => [
+  { value: 'good', label: t('orders.return_condition_good') },
+  { value: 'defective', label: t('orders.return_condition_defective') },
+])
+
+function openReturnModal() {
+  returnQuantities.value = {}
+  returnConditions.value = {}
+  returnCompensated.value = {}
+  returnReason.value = ''
+  showReturnModal.value = true
+}
+
+/**
+ * Nothing is pre-filled here, unlike the shipping dialog.
+ *
+ * Shipping offers everything that can go, because sending the lot is the normal
+ * case. A return is the opposite: what came back is a fact somebody has in front
+ * of them, and a dialog that guesses "all of it" invites a return of goods still
+ * sitting at the client's.
+ */
+function returnQty(line: ReturnableLine): number {
+  return returnQuantities.value[line.lineId] ?? 0
+}
+
+function setReturnQty(line: ReturnableLine, value: string) {
+  returnQuantities.value[line.lineId] = Number(value)
+}
+
+function returnCondition(line: ReturnableLine): ReturnCondition {
+  return returnConditions.value[line.lineId] ?? 'good'
+}
+
+/**
+ * Damaged goods default to no refund and sound ones to a refund — the answer
+ * that is right more often, and switchable either way, because the two are
+ * genuinely independent decisions.
+ */
+function setReturnCondition(line: ReturnableLine, value: string) {
+  const condition = value as ReturnCondition
+  returnConditions.value[line.lineId] = condition
+  if (returnCompensated.value[line.lineId] === undefined) return
+  returnCompensated.value[line.lineId] = condition === 'good'
+}
+
+function returnCompensates(line: ReturnableLine): boolean {
+  return returnCompensated.value[line.lineId] ?? returnCondition(line) === 'good'
+}
+
+function toggleReturnCompensate(line: ReturnableLine, value: boolean) {
+  returnCompensated.value[line.lineId] = value
+}
+
+const returnSelection = computed(() =>
+  returnableLines.value
+    .map((line) => ({
+      lineId: line.lineId,
+      quantity: returnQty(line),
+      condition: returnCondition(line),
+      compensated: returnCompensates(line),
+    }))
+    .filter((line) => Number.isFinite(line.quantity) && line.quantity > 0),
+)
+
+async function confirmReturn() {
+  const lines = returnSelection.value
+  if (lines.length === 0 || !returnReason.value.trim()) return
+  const ok = await createReturn(lines, returnReason.value.trim())
+  if (ok) showReturnModal.value = false
+}
+
+function returnLineSummary(line: { lineId: string; quantity: number; condition: ReturnCondition; compensated: boolean }): string {
+  const marks: string[] = []
+  if (line.condition === 'defective') marks.push(t('orders.return_line_defective'))
+  if (!line.compensated) marks.push(t('orders.return_line_not_compensated'))
+  const suffix = marks.length > 0 ? ` (${marks.join(', ')})` : ''
+  return `${lineNameFor(line.lineId)} — ${line.quantity}${suffix}`
+}
+
 const cancelShipmentTarget = ref<string | null>(null)
 
 async function confirmCancelShipment() {
@@ -671,7 +766,20 @@ async function confirmAdvanceInvoice() {
 }
 
 /** Money the client has settled: shown as a share, so it moves with the total. */
+/**
+ * The refund, when there is one, outranks the coverage label.
+ *
+ * `PaymentState` is deliberately not extended with it: coverage answers "has the
+ * client paid for this order", refunds answer "has money gone back", and an
+ * order can be fully paid and partly refunded at the same time. Two questions,
+ * two computeds — one pill, because the refund is the newer news.
+ */
 const paidStateLabel = computed(() => {
+  if (isReturnsOn.value && refundState.value !== 'none') {
+    return refundState.value === 'full'
+      ? t('orders.payment_state_refunded')
+      : t('orders.payment_state_partially_refunded')
+  }
   switch (paid.value.state) {
     case 'paid':
       return t('orders.payment_state_paid')
@@ -761,16 +869,6 @@ async function confirmSplit() {
 }
 
 // ─── Status pill mapping ───────────────────────────────────────
-const ORDER_STATUS_PILL: Record<string, string> = {
-  new: 'pill-secondary',
-  confirmed: 'pill-info',
-  picking: 'pill-warning',
-  packing: 'pill-warning',
-  shipped: 'pill-info',
-  delivered: 'pill-success',
-  paid: 'pill-success',
-  cancelled: 'pill-danger',
-}
 
 // ─── Delete order modal ────────────────────────────────────────
 const showDeleteModal = ref(false)
@@ -925,8 +1023,8 @@ onMounted(loadShipments)
             </h1>
             <span v-if="order" class="order-status-wrapper">
               <span
-                class="pill pill-lg"
-                :class="ORDER_STATUS_PILL[order.status] || 'pill-secondary'"
+                class="order-status-pill order-status-pill--lg"
+                :class="ORDER_STATUS_PILL[order.status] || 'order-status-pill--new'"
                 data-test="order-card-status-pill"
               >
                 {{ t(`orders.status_${order.status}`) }}
@@ -950,6 +1048,18 @@ onMounted(loadShipments)
                   <line x1="12" y1="16" x2="12" y2="12" />
                   <line x1="12" y1="8" x2="12.01" y2="8" />
                 </svg>
+              </span>
+              <span
+                v-if="isReturnsOn && returnState !== 'none'"
+                class="pill pill-lg"
+                :class="returnState === 'full' ? 'pill-danger' : 'pill-warning'"
+                data-test="order-card-return-badge"
+              >
+                {{
+                  returnState === 'full'
+                    ? t('orders.badge_returned')
+                    : t('orders.badge_partially_returned')
+                }}
               </span>
             </span>
           </div>
@@ -1215,6 +1325,39 @@ onMounted(loadShipments)
                   </InputGroup>
                 </div>
 
+                <template v-if="isReturnsOn && returnState !== 'none'">
+                  <div class="section-divider" />
+                  <div class="inline-group">
+                    <InputGroup :label="t('orders.field_returned_amount')" class="inline-short">
+                      <div class="input-with-suffix">
+                        <input
+                          class="glass-input value-negative"
+                          type="text"
+                          :value="'−' + money(returnedGross)"
+                          readonly
+                          data-test="field-returned-amount"
+                        />
+                        <span class="input-suffix static-suffix">{{ form.currency }}</span>
+                      </div>
+                      <span class="field-hint">{{ t('orders.field_returned_amount_hint') }}</span>
+                    </InputGroup>
+
+                    <InputGroup :label="t('orders.field_net_amount')" class="inline-short">
+                      <div class="input-with-suffix">
+                        <input
+                          class="glass-input"
+                          type="text"
+                          :value="money(netAmount)"
+                          readonly
+                          data-test="field-net-amount"
+                        />
+                        <span class="input-suffix static-suffix">{{ form.currency }}</span>
+                      </div>
+                      <span class="field-hint">{{ t('orders.field_net_amount_hint') }}</span>
+                    </InputGroup>
+                  </div>
+                </template>
+
                 <template v-if="isMoneyOn">
                   <div class="section-divider" />
                   <div class="inline-group">
@@ -1357,11 +1500,24 @@ onMounted(loadShipments)
                   v-for="item in order.items"
                   :key="item.id"
                   class="order-item-row"
-                  :class="{ 'line-frozen': isFrozenLine(item) }"
+                  :class="{
+                    'line-frozen': isFrozenLine(item),
+                    'is-returned': (returnedByLine[item.id] ?? 0) > 0,
+                    'is-returned-fully': (returnedByLine[item.id] ?? 0) >= item.shippedQuantity,
+                  }"
                   data-test="order-item-row"
                 >
                   <td>{{ item.lineNumber }}</td>
-                  <td>{{ item.productName }}</td>
+                  <td>
+                    {{ item.productName }}
+                    <span
+                      v-if="(returnedByLine[item.id] ?? 0) > 0"
+                      class="pill pill-warning line-returned-pill"
+                      data-test="line-returned"
+                    >
+                      {{ t('orders.line_returned', { qty: returnedByLine[item.id] }) }}
+                    </span>
+                  </td>
                   <td>{{ t('orders.unit_' + item.unit, item.unit) }}</td>
                   <td
                     v-for="cell in LINE_CELLS"
@@ -1676,12 +1832,74 @@ onMounted(loadShipments)
           </div>
         </GlassPanel>
 
+        <GlassPanel v-if="isReturnsOn" :loading="returnsLoading" data-test="order-returns">
+          <template #header>
+            <span class="panel-title">{{ t('orders.section_returns') }}</span>
+            <span
+              v-if="returnState !== 'none'"
+              class="pill"
+              :class="returnState === 'full' ? 'pill-danger' : 'pill-warning'"
+              data-test="order-returns-state"
+            >
+              {{
+                returnState === 'full'
+                  ? t('orders.badge_returned')
+                  : t('orders.badge_partially_returned')
+              }}
+            </span>
+            <div class="doc-gen-actions in-header">
+              <button
+                class="btn btn-sm btn-secondary"
+                :disabled="returnsLoading || returnableLines.length === 0"
+                data-test="order-return-btn"
+                @click="openReturnModal"
+              >
+                <SvgIcon name="corner-up-left" :width="14" :height="14" />
+                {{ t('orders.btn_create_return') }}
+              </button>
+            </div>
+          </template>
+          <div v-if="!returnsLoading && returns.length === 0" class="empty-state-inline">
+            <p>{{ t('orders.returns_empty') }}</p>
+          </div>
+          <div v-else class="data-table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>{{ t('orders.col_return_number') }}</th>
+                  <th>{{ t('orders.col_return_date') }}</th>
+                  <th>{{ t('orders.col_return_reason') }}</th>
+                  <th>{{ t('orders.col_return_lines') }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="r in returns" :key="r.id" data-test="order-return-row">
+                  <td>{{ r.number }}</td>
+                  <td>{{ r.returnedAt.slice(0, 10) }}</td>
+                  <td>{{ r.reason }}</td>
+                  <td>
+                    <span v-for="line in r.lines" :key="line.lineId" class="shipment-line">
+                      {{ returnLineSummary(line) }}
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </GlassPanel>
+
         <GlassPanel v-if="isMoneyOn" data-test="order-payments">
           <template #header>
             <span class="panel-title">{{ t('orders.section_payments') }}</span>
             <span
               class="pill"
-              :class="PAID_STATE_PILL[paid.state]"
+              :class="
+                isReturnsOn && refundState !== 'none'
+                  ? refundState === 'full'
+                    ? 'pill-danger'
+                    : 'pill-warning'
+                  : PAID_STATE_PILL[paid.state]
+              "
               data-test="order-payment-state"
               >{{ paidStateLabel }}</span
             >
@@ -2153,6 +2371,94 @@ onMounted(loadShipments)
           @click="confirmShipment"
         >
           {{ t('orders.btn_create_shipment') }}
+        </button>
+      </template>
+    </AppModal>
+
+    <AppModal
+      v-model="showReturnModal"
+      :title="t('orders.return_modal_title')"
+      size="medium"
+      data-test="return-modal"
+    >
+      <p>{{ t('orders.return_modal_explain') }}</p>
+      <div class="data-table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>{{ t('orders.col_product') }}</th>
+              <th>{{ t('orders.col_shipped_qty') }}</th>
+              <th>{{ t('orders.col_available_to_return') }}</th>
+              <th>{{ t('orders.col_quantity') }}</th>
+              <th>{{ t('orders.col_condition') }}</th>
+              <th>{{ t('orders.col_compensate') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="line in returnableLines" :key="line.lineId" data-test="return-line-row">
+              <td>{{ line.productName }}</td>
+              <td>{{ line.shipped }} {{ t('orders.unit_' + line.unit, line.unit) }}</td>
+              <td data-test="return-line-available">
+                {{ line.returnable }} {{ t('orders.unit_' + line.unit, line.unit) }}
+              </td>
+              <td>
+                <input
+                  class="cell-input"
+                  type="number"
+                  min="0"
+                  :max="line.returnable"
+                  step="0.001"
+                  :value="returnQty(line)"
+                  data-test="return-line-qty"
+                  @input="setReturnQty(line, ($event.target as HTMLInputElement).value)"
+                />
+              </td>
+              <td>
+                <CustomSelect
+                  :model-value="returnCondition(line)"
+                  :options="RETURN_CONDITION_OPTIONS"
+                  data-test="return-line-condition"
+                  @update:model-value="setReturnCondition(line, $event)"
+                />
+              </td>
+              <td>
+                <input
+                  type="checkbox"
+                  :checked="returnCompensates(line)"
+                  data-test="return-line-compensate"
+                  @change="
+                    toggleReturnCompensate(line, ($event.target as HTMLInputElement).checked)
+                  "
+                />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <InputGroup :label="t('orders.return_reason_label')">
+        <AutoResizeTextarea
+          v-model="returnReason"
+          :placeholder="t('orders.return_reason_placeholder')"
+          data-test="return-reason"
+        />
+      </InputGroup>
+      <template #footer>
+        <button
+          type="button"
+          class="btn btn-secondary"
+          data-test="return-cancel"
+          @click="showReturnModal = false"
+        >
+          {{ t('btn.cancel') }}
+        </button>
+        <button
+          type="button"
+          class="btn btn-primary"
+          :disabled="returnsLoading || returnSelection.length === 0 || !returnReason.trim()"
+          data-test="return-confirm"
+          @click="confirmReturn"
+        >
+          {{ t('orders.btn_confirm_return') }}
         </button>
       </template>
     </AppModal>

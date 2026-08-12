@@ -149,6 +149,7 @@ function savedOrder(): Order {
     outstandingAmount: 0,
     totalWeight: 0,
     shipments: [],
+    returns: [],
     invoices: [],
     payments: [],
     notes: null,

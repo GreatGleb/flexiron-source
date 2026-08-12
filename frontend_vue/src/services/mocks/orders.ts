@@ -14,6 +14,11 @@ import type {
   PaymentPurpose,
   ShippableLine,
   ShipmentShortage,
+  ShipmentHold,
+  OrderReturn,
+  OrderReturnLine,
+  ReturnCondition,
+  ReturnableLine,
   StatusTransitionPlan,
   SalesCrmStats,
   OrderAuditEntry,
@@ -99,6 +104,7 @@ import {
   writeMovement,
 } from './warehouse'
 import { allServices, serviceById } from './services'
+import { countsAsSale, isActive, isOrderStatus } from '@/domain/orderStatus'
 
 interface StoreOrder extends Order {
   /**
@@ -110,6 +116,7 @@ interface StoreOrder extends Order {
   _nextLineSeq: number
   _nextServiceSeq: number
   _nextShipmentSeq: number
+  _nextReturnSeq: number
   _nextInvoiceSeq: number
   _nextPaymentSeq: number
   /**
@@ -570,6 +577,7 @@ function generateOrders(): StoreOrder[] {
       outstandingAmount: 0,
       totalWeight,
       shipments: [],
+      returns: [],
       invoices: [],
       payments: [],
       notes: note,
@@ -585,6 +593,7 @@ function generateOrders(): StoreOrder[] {
       _nextLineSeq: items.length + 1,
       _nextServiceSeq: services.length + 1,
       _nextShipmentSeq: 1,
+      _nextReturnSeq: 1,
       _nextInvoiceSeq: 1,
       _nextPaymentSeq: 1,
       _nextAuditSeq: auditLog.length + 1,
@@ -1221,22 +1230,27 @@ registerClientOrderLookup((clientId) =>
 // "What did this product actually sell for?" is a question about orders too, and
 // it is answered the same way — the catalogue asks, it does not import.
 //
-// Only what SHIPPED counts, and only from orders that were not cancelled: an
+// Only what SHIPPED counts, and only from orders that count as a sale: an
 // average sale price built from what was merely ordered would move every time
 // somebody drafts a line and abandons it. The net is recomputed for the shipped
 // quantity rather than taken from the line total, because a partly shipped line
 // bills the part that left, not the whole.
+//
+// And what came back is taken off both sides. Goods returned were not sold, and
+// leaving them in names an average price for something nobody ended up buying
+// (§7.2). The whole order can also come back — status `returned` — and then none
+// of it counts, the same way an annulled one does not.
 registerProductSalesLookup((productId) => {
   let quantity = 0
   let net = 0
   for (const order of STORE) {
-    if (order.status === 'cancelled') continue
+    if (!countsAsSale(order.status)) continue
     for (const item of order.items) {
-      if (item.productId !== productId || item.shippedQuantity <= 0) continue
-      quantity = round2(quantity + item.shippedQuantity)
-      net = round2(
-        net + calcLine({ ...toPricingLine(item), quantity: item.shippedQuantity }).lineNet,
-      )
+      if (item.productId !== productId) continue
+      const sold = round2(item.shippedQuantity - item.returnedQuantity)
+      if (sold <= 0) continue
+      quantity = round2(quantity + sold)
+      net = round2(net + calcLine({ ...toPricingLine(item), quantity: sold }).lineNet)
     }
   }
   return quantity > 0 ? { quantity, net } : null
@@ -1471,14 +1485,15 @@ export function mockGetSalesCrmStats(): SalesCrmStats {
   monthStart.setDate(1)
   monthStart.setHours(0, 0, 0, 0)
 
+  // Stated as "counts as revenue", not as a list of statuses. The list version
+  // named `confirmed | shipped | delivered` and went stale the moment a status
+  // was added — which is exactly what happened (§4.7).
   const salesMtd = STORE.filter(
-    (o) =>
-      (o.status === 'confirmed' || o.status === 'shipped' || o.status === 'delivered') &&
-      new Date(o.createdAt) >= monthStart,
+    (o) => countsAsSale(o.status) && new Date(o.createdAt) >= monthStart,
   ).reduce((sum, o) => round2(sum + o.totalAmount), 0)
 
   return {
-    activeOrders: STORE.filter((o) => o.status !== 'delivered' && o.status !== 'cancelled').length,
+    activeOrders: STORE.filter((o) => isActive(o.status)).length,
     pendingOrders: STORE.filter((o) => o.status === 'new' || o.status === 'confirmed').length,
     salesMtd,
     newClientsThisMonth: mockGetClients().filter((c) => new Date(c.createdAt) >= monthStart).length,
@@ -1536,6 +1551,7 @@ export function mockCreateOrder(data: {
     outstandingAmount: 0,
     totalWeight: 0,
     shipments: [],
+    returns: [],
     invoices: [],
     payments: [],
     notes: null,
@@ -1559,6 +1575,7 @@ export function mockCreateOrder(data: {
     _nextLineSeq: 1,
     _nextServiceSeq: 1,
     _nextShipmentSeq: 1,
+    _nextReturnSeq: 1,
     _nextInvoiceSeq: 1,
     _nextPaymentSeq: 1,
     _nextAuditSeq: 2,
@@ -1667,6 +1684,12 @@ export function mockPatchOrderStatus(
 ): Order {
   const order = STORE.find((o) => o.id === id)
   if (!order) throw new Error('ORDER_NOT_FOUND')
+  // Before the version, because a status nobody recognises is not a write worth
+  // arbitrating. This used to record whatever string arrived: `statusRules` then
+  // failed to find `st-<typo>` in the settings and quietly answered "reserves
+  // nothing, writes off nothing", leaving an order in a state no list, no filter
+  // and no pill knows — without an error (§4.5).
+  if (!isOrderStatus(status)) throw new Error('UNKNOWN_ORDER_STATUS')
   assertVersion(order, version)
   const oldStatus = order.status
   const rules = statusRules(status)
@@ -3215,6 +3238,327 @@ export function mockCancelShipment(
   return clone(shipment)
 }
 
+// ─── Returns ────────────────────────────────────────────────────────────────
+
+/** One rung of the ladder a return climbs: a batch that took goods off this line. */
+interface ReturnPlacement {
+  batchId: string
+  offcutId: string | null
+  quantity: number
+  unitCost: number
+}
+
+/**
+ * Which batches this line's goods can go back onto, newest departure first.
+ *
+ * Deliberately the reverse of the shipping order. Writing off goes FIFO — oldest
+ * batch first — so a return that also went oldest-first would put goods back
+ * into a batch they never left once a line had shipped twice: the cost of the
+ * return would then disagree with the cost of the sale, and the batch that
+ * actually gave up the goods would stay short forever.
+ *
+ * What earlier returns already took is subtracted off the front, because they
+ * took from the front as well: the ladder is the same sequence seen from where
+ * it now stands.
+ */
+function returnLadder(order: StoreOrder, item: OrderItem): ReturnPlacement[] {
+  const shipments = order.shipments
+    .filter((s) => !s.cancelled && s.lines.some((l) => l.lineId === item.id))
+    .sort((a, b) => b.shippedAt.localeCompare(a.shippedAt))
+
+  const ladder: ReturnPlacement[] = []
+  for (const shipment of shipments) {
+    for (const movement of mockGetMovementsFor('order-shipment', shipment.id)) {
+      if (movement.type !== 'sale' || !movement.batchId) continue
+      const batch = batchById(movement.batchId)
+      // A shipment carries several lines; the movements do not name one, so the
+      // line is recognised by the product its batch holds.
+      if (!batch || batch.productId !== item.productId) continue
+      ladder.push({
+        batchId: movement.batchId,
+        offcutId: movement.offcutId ?? null,
+        quantity: movement.quantity,
+        unitCost: movement.unitPrice,
+      })
+    }
+  }
+
+  for (const ret of order.returns) {
+    for (const line of ret.lines) {
+      if (line.lineId !== item.id || !line.restored) continue
+      for (const hold of line.restored) {
+        let left = hold.quantity
+        for (const rung of ladder) {
+          if (left <= 0) break
+          if (rung.batchId !== hold.batchId) continue
+          const taken = Math.min(rung.quantity, left)
+          rung.quantity = round2(rung.quantity - taken)
+          left = round2(left - taken)
+        }
+      }
+    }
+  }
+
+  return ladder.filter((rung) => rung.quantity > 0)
+}
+
+/** How much of this line has already come back. */
+function returnedQuantityOf(item: OrderItem): number {
+  return round2(item.returnedQuantity)
+}
+
+/**
+ * Live ordinary documents that charged for this line, oldest first — the order a
+ * refund eats through them.
+ */
+function invoicesBillingLine(order: StoreOrder, lineId: string): Invoice[] {
+  return liveRegularInvoices(order)
+    .filter((invoice) => {
+      if (!invoice.shipmentId) return false
+      const shipment = order.shipments.find((s) => s.id === invoice.shipmentId)
+      return !!shipment && !shipment.cancelled && shipment.lines.some((l) => l.lineId === lineId)
+    })
+    .sort((a, b) => a.issuedAt.localeCompare(b.issuedAt))
+}
+
+/** A correcting invoice this return will issue: which document, and for how much. */
+interface CorrectionPlan {
+  invoiceId: string
+  /** Negative — money coming off a document the client holds. */
+  net: number
+}
+
+/**
+ * What the compensated part of one line costs the documents.
+ *
+ * Whatever the invoices cannot absorb produces no correction at all, and that is
+ * correct rather than a shortfall: the client was never billed for it, so there
+ * is nothing on paper to take back.
+ */
+function planCorrections(
+  order: StoreOrder,
+  item: OrderItem,
+  quantity: number,
+  alreadyReturned: number,
+): CorrectionPlan[] {
+  // The running-total trick the invoices themselves use: successive slices of
+  // one line add up to the line exactly, instead of each rounding on its own.
+  let left = billableLineNet(item, alreadyReturned, quantity)
+  const plans: CorrectionPlan[] = []
+  for (const invoice of invoicesBillingLine(order, item.id)) {
+    if (left <= 0) break
+    const room = round2(outstandingNetOf(order, invoice))
+    if (room <= 0) continue
+    const take = round2(Math.min(left, room))
+    plans.push({ invoiceId: invoice.id, net: round2(-take) })
+    left = round2(left - take)
+  }
+  return plans
+}
+
+export function mockGetReturns(orderId: string): OrderReturn[] {
+  const order = STORE.find((o) => o.id === orderId)
+  if (!order) throw new Error('ORDER_NOT_FOUND')
+  return clone(order.returns)
+}
+
+/**
+ * What can still come back. Services never ship, so they never appear here.
+ */
+export function mockPlanReturn(orderId: string): ReturnableLine[] {
+  const order = STORE.find((o) => o.id === orderId)
+  if (!order) throw new Error('ORDER_NOT_FOUND')
+  return order.items
+    .map((item) => ({
+      lineId: item.id,
+      productName: item.productName,
+      unit: item.unit,
+      shipped: round2(item.shippedQuantity),
+      alreadyReturned: returnedQuantityOf(item),
+      returnable: round2(item.shippedQuantity - returnedQuantityOf(item)),
+    }))
+    .filter((line) => line.returnable > 0)
+}
+
+/**
+ * Goods coming back from the client.
+ *
+ * Built the way `mockCreateShipment` is built, and for the same reason: the
+ * warehouse journal has no undo, so everything is planned — the batches, the
+ * documents — before a single record is written.
+ */
+export function mockCreateReturn(
+  orderId: string,
+  data: {
+    lines: Array<{
+      lineId: string
+      quantity: number
+      condition: ReturnCondition
+      compensated: boolean
+    }>
+    reason: string
+    returnedAt?: string
+    /** The order version the caller was looking at — contract §3. */
+    version?: number
+  },
+): OrderReturn {
+  const order = STORE.find((o) => o.id === orderId)
+  if (!order) throw new Error('ORDER_NOT_FOUND')
+  assertVersion(order, data.version)
+
+  const reason = data.reason?.trim() ?? ''
+  if (!reason) throw new Error('RETURN_REASON_REQUIRED')
+  if (!data.lines?.length) throw new Error('RETURN_HAS_NO_LINES')
+
+  const seen = new Set<string>()
+  for (const line of data.lines) {
+    if (seen.has(line.lineId)) throw new Error('DUPLICATE_RETURN_LINE')
+    seen.add(line.lineId)
+    // Compared, not merely bounded: `NaN < 0` is false, so a bare comparison
+    // waves it through and the quantity reaches the ledger (§1, rule 6).
+    requireFiniteNumbers({ quantity: line.quantity })
+    if (line.quantity <= 0) throw new Error('RETURN_QUANTITY_MUST_BE_POSITIVE')
+  }
+
+  // ── Plan the shelf ──
+  const placements = new Map<string, ReturnPlacement[]>()
+  for (const request of data.lines) {
+    const item = order.items.find((i) => i.id === request.lineId)
+    if (!item) throw new Error('ORDER_ITEM_NOT_FOUND')
+    const returnable = round2(item.shippedQuantity - returnedQuantityOf(item))
+    if (request.quantity > returnable) throw new Error('RETURN_EXCEEDS_SHIPPED')
+
+    const ladder = returnLadder(order, item)
+    const taken: ReturnPlacement[] = []
+    let left = request.quantity
+    for (const rung of ladder) {
+      if (left <= 0) break
+      if (!batchById(rung.batchId)) throw new Error('RETURN_BATCH_NOT_FOUND')
+      const quantity = round2(Math.min(rung.quantity, left))
+      taken.push({ ...rung, quantity })
+      left = round2(left - quantity)
+    }
+    // The line says it shipped, and no batch will own the goods back. Something
+    // upstream is inconsistent, and guessing a batch here would invent a cost.
+    if (left > 0) throw new Error('RETURN_BATCH_NOT_FOUND')
+    placements.set(request.lineId, taken)
+  }
+
+  // ── Plan the documents ──
+  const corrections = new Map<string, CorrectionPlan[]>()
+  for (const request of data.lines) {
+    if (!request.compensated) continue
+    const item = order.items.find((i) => i.id === request.lineId)!
+    corrections.set(
+      request.lineId,
+      planCorrections(order, item, request.quantity, returnedQuantityOf(item)),
+    )
+  }
+
+  // ── Everything is checked; from here it only writes ──
+  const seq = order._nextReturnSeq
+  const orderReturn: OrderReturn = {
+    id: `${order.id}-RET-${seq}`,
+    orderId: order.id,
+    number: `${order.orderNumber}/RET-${seq}`,
+    returnedAt: data.returnedAt ?? new Date().toISOString(),
+    reason,
+    lines: data.lines.map<OrderReturnLine>((request) => {
+      const taken = placements.get(request.lineId) ?? []
+      return {
+        lineId: request.lineId,
+        quantity: round2(request.quantity),
+        condition: request.condition,
+        compensated: request.compensated,
+        // Never an absent key — §3, on responses being the same shape every time.
+        restored:
+          taken.length > 0
+            ? taken.map<ShipmentHold>((p) => ({
+                batchId: p.batchId,
+                offcutId: p.offcutId,
+                quantity: p.quantity,
+              }))
+            : null,
+      }
+    }),
+    correctionInvoiceIds: [],
+  }
+  order._nextReturnSeq++
+  order.returns.push(orderReturn)
+
+  for (const request of data.lines) {
+    const item = order.items.find((i) => i.id === request.lineId)!
+    for (const placement of placements.get(request.lineId) ?? []) {
+      // The goods really did come back — the batch gets them, at the cost they
+      // left at. Faulty ones are written off immediately afterwards rather than
+      // never arriving: the shelf has to read true at every moment, and a loss
+      // belongs in the write-off report, not in a gap.
+      writeMovement({
+        type: 'return',
+        batchId: placement.batchId,
+        offcutId: placement.offcutId,
+        quantity: placement.quantity,
+        unitPrice: placement.unitCost,
+        referenceType: 'order-return',
+        referenceId: orderReturn.id,
+        movedAt: orderReturn.returnedAt,
+        notes: `${order.orderNumber} · ${orderReturn.number}`,
+      })
+      if (request.condition === 'defective') {
+        writeMovement({
+          type: 'write-off',
+          batchId: placement.batchId,
+          offcutId: placement.offcutId,
+          quantity: placement.quantity,
+          unitPrice: placement.unitCost,
+          referenceType: 'order-return-writeoff',
+          referenceId: orderReturn.id,
+          movedAt: orderReturn.returnedAt,
+          notes: `${orderReturn.number} · ${reason}`,
+        })
+      }
+    }
+
+    // Counted beside what shipped, never subtracted from it: the goods did leave
+    // on a waybill the client signed.
+    item.returnedQuantity = round2(item.returnedQuantity + request.quantity)
+  }
+
+  for (const request of data.lines) {
+    for (const plan of corrections.get(request.lineId) ?? []) {
+      const correction = mockCreateInvoice(order.id, {
+        kind: 'correction',
+        correctsInvoiceId: plan.invoiceId,
+        amountNet: plan.net,
+        reason,
+      })
+      orderReturn.correctionInvoiceIds.push(correction.id)
+    }
+  }
+
+  recordInHistory(
+    order,
+    { ru: 'Возврат', en: 'Return', lt: 'Grąžinimas' },
+    orderReturn.lines
+      .map(
+        (l) =>
+          `${lineNameOf(order.items.find((i) => i.id === l.lineId)!)} — ${l.quantity}` +
+          (l.condition === 'defective' ? ' (defective)' : '') +
+          (l.compensated ? '' : ' (not compensated)'),
+      )
+      .join(', '),
+    reason,
+    actingUser(),
+  )
+
+  // The hold is NOT put back, unlike a cancelled shipment. There the order still
+  // owes the client those goods and has to keep its place in the queue; here the
+  // client gave them back and is not waiting for them.
+  recalcOrder(order)
+  bumpVersion(order)
+  return clone(orderReturn)
+}
+
 // ─── Reservations ───────────────────────────────────────────────────────────
 
 export function mockReserveOrder(
@@ -3553,12 +3897,24 @@ export function mockCreateInvoice(
     // Taken back once: a second withdrawal would reverse the same document twice
     // over, and there is nothing left of it to take back anyway.
     if (isWithdrawn(order, original.id)) throw new Error('INVOICE_ALREADY_CORRECTED')
-    // A stated amount ADJUSTS the document, and one document is adjusted once.
-    // Withdrawing it afterwards is a different event and stays open: returning a
-    // delivery must not be barred by a price somebody put right (§4.5). Read as
-    // one rule, "corrected once" made a corrected line impossible to ship back.
-    if (statedNet(order, data) !== undefined && hasCorrection(order, original.id)) {
-      throw new Error('INVOICE_ALREADY_CORRECTED')
+    // A stated amount ADJUSTS the document, and adjustments are limited by the
+    // amount, not by their number. "One document is adjusted once" was a proxy
+    // for the invariant that actually matters — corrections must not add up past
+    // what the client is holding — and on the first partial return the proxy and
+    // the invariant part company: a delivery could be returned in pieces exactly
+    // once, and the second piece was refused with money still left on the paper.
+    // So the real thing is checked instead (§4.6).
+    // Only downwards. A credit cannot give back more than the document still
+    // has on it; charging MORE is not bounded by that number at all — the client
+    // simply owes more than before. Bounding both directions refused a legitimate
+    // price correction upwards, and the fuzzer found it inside a minute.
+    const adjustment = statedNet(order, data)
+    if (
+      adjustment !== undefined &&
+      adjustment < 0 &&
+      round2(-adjustment) > round2(outstandingNetOf(order, original))
+    ) {
+      throw new Error('CORRECTION_EXCEEDS_ORIGINAL')
     }
   } else if (data.correctsInvoiceId) {
     throw new Error('CORRECTION_NEEDS_KIND')
@@ -3712,7 +4068,64 @@ function refreshDocumentFreeze(order: StoreOrder): void {
   }
 }
 
+/**
+ * One order that has taken goods back — the returns panel needs something in it.
+ *
+ * Built through the real endpoint rather than by pushing an object onto the
+ * order, for the same reason the showcase shipments are: a return that skipped
+ * `mockCreateReturn` would put no movements on the shelf and no correction on
+ * the documents, and the demo would then contradict the module it demonstrates.
+ *
+ * Two lines, deliberately different: one sound and refunded, one faulty and not.
+ * That is the pair the card's two axes exist for, and a demo showing only the
+ * simple case teaches the wrong model.
+ */
+function buildShowcaseReturn(): void {
+  // Never a hand-built scenario and never the showcase: those orders exist to
+  // demonstrate exact states, and tests pin their document counts. A return
+  // dropped onto one of them changes a fixture somebody else is reading.
+  const reserved = new Set(mockOrderScenarios().map((s) => s.id))
+  reserved.add('ORD-100')
+
+  const candidate = STORE.find(
+    (order) =>
+      !reserved.has(order.id) &&
+      order.shipments.some((s) => !s.cancelled) &&
+      order.items.filter((i) => i.shippedQuantity > 0).length >= 2,
+  )
+  if (!candidate) return
+
+  const [first, second] = candidate.items.filter((i) => i.shippedQuantity > 0)
+  if (!first || !second) return
+
+  try {
+    mockCreateReturn(candidate.id, {
+      lines: [
+        {
+          lineId: first.id,
+          quantity: round2(Math.min(1, first.shippedQuantity)),
+          condition: 'good',
+          compensated: true,
+        },
+        {
+          lineId: second.id,
+          quantity: round2(Math.min(1, second.shippedQuantity)),
+          condition: 'defective',
+          compensated: false,
+        },
+      ],
+      reason: 'Wrong profile delivered; one length arrived bent',
+      version: candidate.version,
+    })
+  } catch {
+    // The demo warehouse is generated, so the batches a line left from may no
+    // longer hold what a return needs. A missing demo return is worth less than a
+    // module that refuses to load.
+  }
+}
+
 // Last in the file, and it has to be: the showcase drives the real endpoints, and
 // those read counters and helpers declared further down. Called any earlier it
 // walks into the temporal dead zone of the first one it touches.
 buildShowcaseOrder()
+buildShowcaseReturn()

@@ -67,6 +67,13 @@
 }
 
 /* Entity Action Bar */
+/* Do NOT also put `flex-group` on these elements. Both classes set `gap` (16px
+   here, 12px there) with the same specificity, so the winner is whichever file
+   the browser saw last — and that is module evaluation order, which is not
+   fixed under Vite's dev server. The three supplier pages carried both, and
+   their action bar measured 519px or 527px depending on the run; the visual
+   snapshot could not even be compared, because an element screenshot is sized
+   by its content. The other 23 action bars in the app use this class alone. */
 .entity-action-bar {
   display: flex;
   justify-content: flex-end;

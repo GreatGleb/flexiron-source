@@ -126,6 +126,24 @@
   color: rgba(255, 255, 255, 0.45);
 }
 
+/* Some of it came back. Dimmed, not struck through: part of this line was sold. */
+.order-lines-table tr.is-returned td {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* All of it came back — now the money on the row is genuinely no longer owed,
+   and only then may it be crossed out. Struck through on a partial return, the
+   line would deny the part the client kept and paid for. */
+.order-lines-table tr.is-returned-fully td.num {
+  text-decoration: line-through;
+  text-decoration-color: rgba(255, 77, 79, 0.7);
+}
+
+.order-lines-table .line-returned-pill {
+  margin-left: 8px;
+  font-size: 0.68rem;
+}
+
 .order-lines-table .line-state {
   white-space: nowrap;
   font-size: 0.78rem;

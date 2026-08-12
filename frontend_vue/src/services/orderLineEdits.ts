@@ -358,6 +358,15 @@ const ERROR_KEYS: Array<[string, string]> = [
   ['NO_EDITABLE_LINES', 'orders.error_no_editable_lines'],
   ['ZERO_BASE_TOTAL', 'orders.error_zero_base_total'],
   ['NEGATIVE_TARGET', 'orders.error_negative_target'],
+  // Returns.
+  ['RETURN_HAS_NO_LINES', 'orders.error_return_has_no_lines'],
+  ['RETURN_REASON_REQUIRED', 'orders.error_return_reason_required'],
+  ['RETURN_QUANTITY_MUST_BE_POSITIVE', 'orders.error_return_quantity_positive'],
+  ['DUPLICATE_RETURN_LINE', 'orders.error_duplicate_return_line'],
+  ['RETURN_EXCEEDS_SHIPPED', 'orders.error_return_exceeds_shipped'],
+  ['RETURN_BATCH_NOT_FOUND', 'orders.error_return_batch_not_found'],
+  ['CORRECTION_EXCEEDS_ORIGINAL', 'orders.error_correction_exceeds_original'],
+  ['UNKNOWN_ORDER_STATUS', 'orders.error_unknown_order_status'],
   // Internal invariants — a bug in the server, not something the person did. They
   // are here so the sentence is honest rather than absent; on a real server they
   // are a 500 and the code itself must not travel outwards.

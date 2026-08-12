@@ -1,7 +1,6 @@
 import type { Locator, Page } from '@playwright/test'
 import { test, expect } from '../../fixtures'
 import { enableAllFlags, setFlag } from '../../helpers/flags'
-import { mockExternalRequests } from '../../helpers/mockExternalRequests'
 
 /**
  * Reads a line cell whether it is editable (an input) or frozen (plain text).
@@ -28,9 +27,8 @@ async function addProductOnCreatePage(page: Page, productName: string) {
   await expect(modal).toBeHidden()
 }
 
-test.beforeEach(async ({ context, page }) => {
+test.beforeEach(async ({ context }) => {
   await enableAllFlags(context)
-  await mockExternalRequests(page)
 })
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1369,6 +1367,139 @@ test.describe('Order Card › shipments', () => {
     await page.waitForSelector('[data-test="order-items"]')
     await expect(page.locator('[data-test="order-shipments"]')).toHaveCount(0)
     await expect(page.locator('[data-test="order-ship-btn"]')).toHaveCount(0)
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Order Card — returns
+// ═══════════════════════════════════════════════════════════════════════════
+
+test.describe('Order Card › returns', () => {
+  /**
+   * Fills the return dialog for the first line it offers and confirms it.
+   *
+   * The quantity is read from the row rather than written into the test: how
+   * much ORD-004's seeded shipment moved depends on what the demo warehouse
+   * could back at start-up.
+   */
+  async function returnFirstLine(page: Page, reason: string): Promise<number> {
+    await page.click('[data-test="order-return-btn"]')
+    const modal = page.locator('[data-test="return-modal"]')
+    await expect(modal).toBeVisible()
+
+    const row = modal.locator('[data-test="return-line-row"]').first()
+    const available = Number(
+      (await row.locator('[data-test="return-line-available"]').textContent())!.split(' ')[0],
+    )
+    // Part of it, not all: the point of the feature is the partial case.
+    const returning = Math.round((available / 2) * 100) / 100
+    await row.locator('[data-test="return-line-qty"]').fill(String(returning))
+    await modal.locator('[data-test="return-reason"]').fill(reason)
+    await modal.locator('[data-test="return-confirm"]').click()
+    await expect(modal).toBeHidden()
+    return returning
+  }
+
+  test('the panel is there, and empty until something comes back', async ({ page }) => {
+    await page.goto('/admin/orders/ORD-004')
+    await expect(page.locator('[data-test="order-returns"]')).toBeVisible()
+    await expect(page.locator('[data-test="order-return-row"]')).toHaveCount(0)
+  })
+
+  test('nothing shipped means nothing to return', async ({ page }) => {
+    await page.goto('/admin/orders/ORD-001')
+    await page.waitForSelector('[data-test="order-item-row"]')
+    await expect(page.locator('[data-test="order-return-btn"]')).toBeDisabled()
+  })
+
+  test('the dialog offers only what shipped, and closes on Escape', async ({ page }) => {
+    await page.goto('/admin/orders/ORD-004')
+    await page.waitForSelector('[data-test="order-shipment-row"]')
+    await page.click('[data-test="order-return-btn"]')
+
+    const modal = page.locator('[data-test="return-modal"]')
+    await expect(modal).toBeVisible()
+    const rows = modal.locator('[data-test="return-line-row"]')
+    await expect(rows.first()).toBeVisible()
+
+    // Nothing is pre-filled: what came back is a fact somebody has in front of
+    // them, and a dialog that guesses "all of it" invites a phantom return.
+    await expect(rows.first().locator('[data-test="return-line-qty"]')).toHaveValue('0')
+
+    await page.keyboard.press('Escape')
+    await expect(modal).toBeHidden()
+  })
+
+  test('a return needs a reason before it can be confirmed', async ({ page }) => {
+    await page.goto('/admin/orders/ORD-004')
+    await page.waitForSelector('[data-test="order-shipment-row"]')
+    await page.click('[data-test="order-return-btn"]')
+
+    const modal = page.locator('[data-test="return-modal"]')
+    const row = modal.locator('[data-test="return-line-row"]').first()
+    await row.locator('[data-test="return-line-qty"]').fill('1')
+    // A quantity alone is not enough — the client validation is no weaker than
+    // the server's, which refuses with RETURN_REASON_REQUIRED.
+    await expect(modal.locator('[data-test="return-confirm"]')).toBeDisabled()
+
+    await modal.locator('[data-test="return-reason"]').fill('Wrong profile delivered')
+    await expect(modal.locator('[data-test="return-confirm"]')).toBeEnabled()
+  })
+
+  test('a partial return is recorded, badged, marked on the line and taken off the total', async ({
+    page,
+  }) => {
+    await page.goto('/admin/orders/ORD-004')
+    await page.waitForSelector('[data-test="order-shipment-row"]')
+
+    const gross = Number(await page.locator('[data-test="field-gross-total"]').inputValue())
+    const before = await page.locator('[data-test="order-return-row"]').count()
+
+    const returned = await returnFirstLine(page, 'Wrong profile delivered')
+    expect(returned).toBeGreaterThan(0)
+
+    // The document exists…
+    await expect(page.locator('[data-test="order-return-row"]')).toHaveCount(before + 1)
+    await expect(page.locator('[data-test="order-return-row"]').first()).toContainText(
+      'Wrong profile delivered',
+    )
+
+    // …the header says so beside the status, without replacing it…
+    await expect(page.locator('[data-test="order-card-return-badge"]')).toBeVisible()
+    await expect(page.locator('[data-test="order-card-status-pill"]')).toBeVisible()
+
+    // …the line carries the quantity that came back…
+    await expect(page.locator('[data-test="line-returned"]').first()).toBeVisible()
+
+    // …and the money splits into what was ordered and what is still expected.
+    const net = Number(
+      (await page.locator('[data-test="field-net-amount"]').inputValue()).replace(/\s/g, ''),
+    )
+    expect(net).toBeLessThan(gross)
+    // The order total itself does not move: the order WAS for that much.
+    expect(Number(await page.locator('[data-test="field-gross-total"]').inputValue())).toBe(gross)
+  })
+
+  test('a second partial return of the same line still goes through', async ({ page }) => {
+    await page.goto('/admin/orders/ORD-004')
+    await page.waitForSelector('[data-test="order-shipment-row"]')
+
+    await returnFirstLine(page, 'First piece back')
+    await expect(page.locator('[data-test="order-return-row"]')).toHaveCount(1)
+
+    // The old invoice rule — one document corrected once — refused here, so a
+    // delivery could be returned in pieces exactly once.
+    await returnFirstLine(page, 'Second piece back')
+    await expect(page.locator('[data-test="order-return-row"]')).toHaveCount(2)
+  })
+
+  test('with the flag off the panel is gone and nothing can be returned', async ({ page }) => {
+    await page.goto('/admin/orders/ORD-004')
+    await page.waitForSelector('[data-test="order-returns"]')
+    await setFlag(page, 'orderReturns', false)
+    await page.waitForSelector('[data-test="order-items"]')
+    await expect(page.locator('[data-test="order-returns"]')).toHaveCount(0)
+    await expect(page.locator('[data-test="order-return-btn"]')).toHaveCount(0)
   })
 })
 

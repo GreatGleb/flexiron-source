@@ -1,10 +1,8 @@
 import { test, expect } from '../../fixtures'
 import { enableAllFlags } from '../../helpers/flags'
-import { mockExternalRequests } from '../../helpers/mockExternalRequests'
 
-test.beforeEach(async ({ context, page }) => {
+test.beforeEach(async ({ context }) => {
   await enableAllFlags(context)
-  await mockExternalRequests(page)
 })
 
 // ═══════════════════════════════════════════════════════════════════════════

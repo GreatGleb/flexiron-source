@@ -1,5 +1,4 @@
-import { test as base } from '@playwright/test'
-import { test, testWithFlags, expect } from '../../fixtures'
+import { test, testWithFlags, expect, testBare as base } from '../../fixtures'
 import { ALL_FLAGS_ENABLED } from '../../helpers/flags'
 import { waitForFontsReady, SNAPSHOT_OPTIONS, stabilizeForSnapshot } from '../../helpers/visual'
 
