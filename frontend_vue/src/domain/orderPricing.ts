@@ -1,7 +1,7 @@
 /**
  * Order pricing — pure business logic, no Vue and no API.
  *
- * Model: plans/order-pricing-model.md
+ * Model: roo_code/plans/orders/order-pricing-model.md
  *
  * Core rule: cost is a fact about the warehouse, price is a commitment to the
  * client, and margin is the shock absorber between them. Cost and price never

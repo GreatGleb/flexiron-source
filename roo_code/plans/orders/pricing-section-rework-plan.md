@@ -8,8 +8,8 @@
 ## 1. Карточка товара — переименование полей цен
 
 **Файлы:**
-- [`frontend_vue/src/views/admin/products/ProductCardPage.vue`](../frontend_vue/src/views/admin/products/ProductCardPage.vue)
-- [`frontend_vue/src/i18n/admin/products.ts`](../frontend_vue/src/i18n/admin/products.ts)
+- [`frontend_vue/src/views/admin/products/ProductCardPage.vue`](../../../frontend_vue/src/views/admin/products/ProductCardPage.vue)
+- [`frontend_vue/src/i18n/admin/products.ts`](../../../frontend_vue/src/i18n/admin/products.ts)
 
 **Текущее состояние:**
 - Секция `section_price` содержит поле `field_price` ("Цена") + `field_price_quantity` + `field_sale_uom` + `field_currency`
@@ -40,7 +40,7 @@
 
 ### 2.1 Типы данных
 
-**Файл:** [`frontend_vue/src/types/order.ts`](../frontend_vue/src/types/order.ts)
+**Файл:** [`frontend_vue/src/types/order.ts`](../../../frontend_vue/src/types/order.ts)
 
 Добавить в `Order`:
 ```ts
@@ -63,7 +63,7 @@ interface OrderFormFields {
 
 ### 2.2 Композабл useOrderCard
 
-**Файл:** [`frontend_vue/src/composables/useOrderCard.ts`](../frontend_vue/src/composables/useOrderCard.ts)
+**Файл:** [`frontend_vue/src/composables/useOrderCard.ts`](../../../frontend_vue/src/composables/useOrderCard.ts)
 
 Добавить в форму:
 - `costPrice: number` — себестоимость (редактируемая, сумма товаров и услуг без маржи)
@@ -81,7 +81,7 @@ const totalMargin = computed(() => marginAmount - discountAmount)
 
 ### 2.3 Шаблон OrderCardPage
 
-**Файл:** [`frontend_vue/src/views/admin/orders/OrderCardPage.vue`](../frontend_vue/src/views/admin/orders/OrderCardPage.vue)
+**Файл:** [`frontend_vue/src/views/admin/orders/OrderCardPage.vue`](../../../frontend_vue/src/views/admin/orders/OrderCardPage.vue)
 
 #### Новая структура секции центральной колонки:
 
@@ -106,7 +106,7 @@ GlassPanel title="Финансовый расчёт"
 
 ### 2.4 Мок-данные заказа
 
-**Файл:** [`frontend_vue/src/services/mocks/orders.ts`](../frontend_vue/src/services/mocks/orders.ts)
+**Файл:** [`frontend_vue/src/services/mocks/orders.ts`](../../../frontend_vue/src/services/mocks/orders.ts)
 
 - Добавить `vatPercent` и `marginPercent` в мок-заказы
 
@@ -180,13 +180,13 @@ flowchart LR
 
 | Файл | Изменения |
 |------|-----------|
-| [`frontend_vue/src/types/order.ts`](../frontend_vue/src/types/order.ts) | Добавить `vatPercent`, `marginPercent` в `Order`, обновить `OrderFormFields` |
-| [`frontend_vue/src/composables/useOrderCard.ts`](../frontend_vue/src/composables/useOrderCard.ts) | Добавить `costPrice`, `vatPercent`, `marginPercent` в форму и computed |
-| [`frontend_vue/src/views/admin/orders/OrderCardPage.vue`](../frontend_vue/src/views/admin/orders/OrderCardPage.vue) | Реструктурировать секцию цен, вынести вес и примечания |
-| [`frontend_vue/src/views/admin/products/ProductCardPage.vue`](../frontend_vue/src/views/admin/products/ProductCardPage.vue) | Переименовать поле цены |
-| [`frontend_vue/src/i18n/admin/orders.ts`](../frontend_vue/src/i18n/admin/orders.ts) | Новые ключи для НДС%, маржи%, себестоимости |
-| [`frontend_vue/src/i18n/admin/products.ts`](../frontend_vue/src/i18n/admin/products.ts) | Переименовать ключ `field_price` |
-| [`frontend_vue/src/services/mocks/orders.ts`](../frontend_vue/src/services/mocks/orders.ts) | Добавить `vatPercent`, `marginPercent` |
+| [`frontend_vue/src/types/order.ts`](../../../frontend_vue/src/types/order.ts) | Добавить `vatPercent`, `marginPercent` в `Order`, обновить `OrderFormFields` |
+| [`frontend_vue/src/composables/useOrderCard.ts`](../../../frontend_vue/src/composables/useOrderCard.ts) | Добавить `costPrice`, `vatPercent`, `marginPercent` в форму и computed |
+| [`frontend_vue/src/views/admin/orders/OrderCardPage.vue`](../../../frontend_vue/src/views/admin/orders/OrderCardPage.vue) | Реструктурировать секцию цен, вынести вес и примечания |
+| [`frontend_vue/src/views/admin/products/ProductCardPage.vue`](../../../frontend_vue/src/views/admin/products/ProductCardPage.vue) | Переименовать поле цены |
+| [`frontend_vue/src/i18n/admin/orders.ts`](../../../frontend_vue/src/i18n/admin/orders.ts) | Новые ключи для НДС%, маржи%, себестоимости |
+| [`frontend_vue/src/i18n/admin/products.ts`](../../../frontend_vue/src/i18n/admin/products.ts) | Переименовать ключ `field_price` |
+| [`frontend_vue/src/services/mocks/orders.ts`](../../../frontend_vue/src/services/mocks/orders.ts) | Добавить `vatPercent`, `marginPercent` |
 
 ---
 

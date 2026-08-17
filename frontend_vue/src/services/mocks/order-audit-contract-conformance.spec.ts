@@ -42,7 +42,7 @@ function thrownCodes(): Set<string> {
 
 /** Codes §6 of the contract lists. */
 function documentedCodes(): Set<string> {
-  const doc = read('../plans/orders-backend-contract.md')
+  const doc = read('../roo_code/plans/orders/orders-backend-contract.md')
   const section = doc.split('## 6. Коды ошибок')[1] ?? ''
   return new Set([...section.matchAll(/`([A-Z_0-9]{4,})`/g)].map((m) => m[1]!))
 }

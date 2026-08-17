@@ -1,7 +1,7 @@
 # UoM Restructure Completion Plan
 
 ## Overview
-Complete the UoM (Unit of Measure) restructure for the Flexiron ERP. Based on the [session-summary-and-next-prompt.md](../session-summary-and-next-prompt.md), this plan covers 5 steps to finish the remaining work.
+Complete the UoM (Unit of Measure) restructure for the Flexiron ERP. Based on the [session-summary-and-next-prompt.md](../../../session-summary-and-next-prompt.md), this plan covers 5 steps to finish the remaining work.
 
 ## Architecture Diagram
 
@@ -37,8 +37,8 @@ flowchart LR
 ### Step 1: Mock product with 3 different UoMs
 
 **Files:**
-- [`frontend_vue/src/services/mocks/products.ts`](../frontend_vue/src/services/mocks/products.ts)
-- [`frontend_vue/src/mocks/warehouse-batches.ts`](../frontend_vue/src/mocks/warehouse-batches.ts)
+- [`frontend_vue/src/services/mocks/products.ts`](../../../frontend_vue/src/services/mocks/products.ts)
+- [`frontend_vue/src/mocks/warehouse-batches.ts`](../../../frontend_vue/src/mocks/warehouse-batches.ts)
 
 **Tasks:**
 - [ ] Modify product `prod-003` (Steel Pipe 60x4) to have 3 different UoMs:
@@ -53,8 +53,8 @@ flowchart LR
 ### Step 2: Sale conversion in AddOrderItemsModal
 
 **Files:**
-- [`frontend_vue/src/views/admin/orders/AddOrderItemsModal.vue`](../frontend_vue/src/views/admin/orders/AddOrderItemsModal.vue)
-- [`frontend_vue/src/composables/useSettings.ts`](../frontend_vue/src/composables/useSettings.ts)
+- [`frontend_vue/src/views/admin/orders/AddOrderItemsModal.vue`](../../../frontend_vue/src/views/admin/orders/AddOrderItemsModal.vue)
+- [`frontend_vue/src/composables/useSettings.ts`](../../../frontend_vue/src/composables/useSettings.ts)
 
 **Tasks:**
 - [ ] Load `StockOverviewItem` for each product to get stock quantity in warehouseUoM
@@ -69,8 +69,8 @@ flowchart LR
 ### Step 3: Movement creation with conversion
 
 **Files:**
-- [`frontend_vue/src/views/admin/warehouse/CreateMovementModal.vue`](../frontend_vue/src/views/admin/warehouse/CreateMovementModal.vue)
-- [`frontend_vue/src/types/warehouse.ts`](../frontend_vue/src/types/warehouse.ts)
+- [`frontend_vue/src/views/admin/warehouse/CreateMovementModal.vue`](../../../frontend_vue/src/views/admin/warehouse/CreateMovementModal.vue)
+- [`frontend_vue/src/types/warehouse.ts`](../../../frontend_vue/src/types/warehouse.ts)
 
 **Tasks:**
 - [ ] When creating an expense/sale movement where `warehouseUoM !== saleUoM`:
@@ -82,10 +82,10 @@ flowchart LR
 ### Step 4: Batch card — margin, selling price
 
 **Files:**
-- [`frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue`](../frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue)
-- [`frontend_vue/src/types/warehouse.ts`](../frontend_vue/src/types/warehouse.ts)
-- [`frontend_vue/src/composables/useWarehouseBatch.ts`](../frontend_vue/src/composables/useWarehouseBatch.ts)
-- [`frontend_vue/src/composables/useWarehouseBatchCreate.ts`](../frontend_vue/src/composables/useWarehouseBatchCreate.ts)
+- [`frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue`](../../../frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue)
+- [`frontend_vue/src/types/warehouse.ts`](../../../frontend_vue/src/types/warehouse.ts)
+- [`frontend_vue/src/composables/useWarehouseBatch.ts`](../../../frontend_vue/src/composables/useWarehouseBatch.ts)
+- [`frontend_vue/src/composables/useWarehouseBatchCreate.ts`](../../../frontend_vue/src/composables/useWarehouseBatchCreate.ts)
 
 **Tasks:**
 - [ ] Add `marginPercent` field to `WarehouseBatch` type (editable, default from settings.constants.defaultMargin)
@@ -131,5 +131,5 @@ flowchart TD
 
 ## Files Not Modified (read-only reference)
 
-- [`frontend_vue/src/types/product.ts`](../frontend_vue/src/types/product.ts) — verify types are sufficient
-- [`frontend_vue/src/types/settings.ts`](../frontend_vue/src/types/settings.ts) — verify settings types
+- [`frontend_vue/src/types/product.ts`](../../../frontend_vue/src/types/product.ts) — verify types are sufficient
+- [`frontend_vue/src/types/settings.ts`](../../../frontend_vue/src/types/settings.ts) — verify settings types

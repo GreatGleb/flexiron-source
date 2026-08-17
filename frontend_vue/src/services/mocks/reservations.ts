@@ -10,7 +10,7 @@
  *    to answer "what is available", so the store lives here, where orders and
  *    warehouse can both reach it without importing each other.
  *
- * Model: plans/order-pricing-model.md, section 7.
+ * Model: roo_code/plans/orders/order-pricing-model.md, section 7.
  */
 import type { StockReservation } from '@/types/warehouse'
 import { round2 } from '@/domain/orderPricing'

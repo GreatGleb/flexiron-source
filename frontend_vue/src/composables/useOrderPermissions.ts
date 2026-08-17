@@ -18,7 +18,7 @@ import { useSettings } from '@/composables/useSettings'
  * is a curtain, not a right. The server must not send cost and margin to a user
  * who may not see them. The card recomputes prices from cost, so a server that
  * strips them has to send the computed price instead, and the card has to stop
- * recomputing for that user — see `plans/orders-backend-contract.md`, section 5.
+ * recomputing for that user — see `roo_code/plans/orders/orders-backend-contract.md`, section 5.
  */
 export function useOrderPermissions() {
   const { settings, settled } = useSettings()

@@ -398,4 +398,4 @@ FIFO по своей природе берёт 6 тонн из партии А �
 
 **Расчёт — один модуль с тестами**, один и тот же на фронте и бэке, чтобы они не разъехались. Авторитет — сервер: принимает строки, возвращает пересчитанные итоги.
 
-Затрагиваемые файлы: [useOrderCard.ts](../frontend_vue/src/composables/useOrderCard.ts), [useOrderCreate.ts](../frontend_vue/src/composables/useOrderCreate.ts), [OrderCardPage.vue](../frontend_vue/src/views/admin/orders/OrderCardPage.vue), [AddOrderItemsModal.vue](../frontend_vue/src/views/admin/orders/AddOrderItemsModal.vue), [types/order.ts](../frontend_vue/src/types/order.ts) + новый модуль заказов, отгрузок, счетов и платежей на бэкенде.
+Затрагиваемые файлы: [useOrderCard.ts](../../../frontend_vue/src/composables/useOrderCard.ts), [useOrderCreate.ts](../../../frontend_vue/src/composables/useOrderCreate.ts), [OrderCardPage.vue](../../../frontend_vue/src/views/admin/orders/OrderCardPage.vue), [AddOrderItemsModal.vue](../../../frontend_vue/src/views/admin/orders/AddOrderItemsModal.vue), [types/order.ts](../../../frontend_vue/src/types/order.ts) + новый модуль заказов, отгрузок, счетов и платежей на бэкенде.

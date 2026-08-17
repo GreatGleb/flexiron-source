@@ -74,7 +74,7 @@ Start a new chat with the following prompt:
 
 > Продолжаем проект Flexiron ERP (путь: `c:/Users/great/Documents/bussiness/flexiron_enterprise`).
 > 
-> В предыдущей сессии мы реализовали часть плана из `/plans/currency-fix-and-fifo-plan.md` — обновили типы, i18n, добавили mockCalculateFifoCost и getBatchCostBreakdown API, обновили useOrderCard.ts.
+> В предыдущей сессии мы реализовали часть плана из `/roo_code/plans/orders/currency-fix-and-fifo-plan.md` — обновили типы, i18n, добавили mockCalculateFifoCost и getBatchCostBreakdown API, обновили useOrderCard.ts.
 > 
 > Осталось доделать:
 > 1. [`useWarehouseBatchCreate.ts:27`](frontend_vue/src/composables/useWarehouseBatchCreate.ts) — заменить `'EUR'` на `settings.constants.defaultCurrency`
@@ -84,4 +84,4 @@ Start a new chat with the following prompt:
 > 5. [`ProductCardPage.vue`](frontend_vue/src/views/admin/products/ProductCardPage.vue) — показывать `currency` в таблице поставщиков
 > 6. [`useWarehouseBatchCreate.ts`](frontend_vue/src/composables/useWarehouseBatchCreate.ts) — pre-fill `receivedCurrencyId` из LinkedSupplier при выборе поставщика
 > 
-> Подробный план: `/plans/currency-fix-and-fifo-plan.md`
+> Подробный план: `/roo_code/plans/orders/currency-fix-and-fifo-plan.md`
