@@ -143,6 +143,9 @@ import {
   mockDeleteOrderStatus,
   mockGetProfile,
   mockPatchProfile,
+  mockGetWarehouseMap,
+  mockSaveWarehouseMap,
+  mockDeleteWarehouseMap,
 } from './settings'
 import {
   mockGetOrders,
@@ -329,6 +332,7 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
   if (path === '/api/settings/conversions') return delay(mockGetConversions() as T)
   if (path === '/api/settings/order-statuses') return delay(mockGetOrderStatuses() as T)
   if (path === '/api/settings/profile') return delay(mockGetProfile() as T)
+  if (path === '/api/settings/warehouse-map') return delay(mockGetWarehouseMap() as T)
   if (path === '/api/settings') return delay(mockGetSettings() as T)
   if (path === '/api/config/fields') return delay(mockGetFieldLibrary() as T)
   if (path === '/api/config/sections') return delay(mockGetSections() as T)
@@ -1060,6 +1064,9 @@ export async function putMock<T>(
     mockSaveSettings(body as Parameters<typeof mockSaveSettings>[0])
     return delay(undefined as T)
   }
+  if (path === '/api/settings/warehouse-map') {
+    return delay(mockSaveWarehouseMap(body as Parameters<typeof mockSaveWarehouseMap>[0]) as T)
+  }
   if (path === '/api/config/sections') {
     mockSaveSections(body as Parameters<typeof mockSaveSections>[0])
     return delay(undefined as T)
@@ -1543,6 +1550,10 @@ export async function deleteMock<T>(path: string, headers?: Record<string, strin
   const statusDeleteMatch = path.match(/^\/api\/settings\/order-statuses\/([^/]+)$/)
   if (statusDeleteMatch) {
     mockDeleteOrderStatus(statusDeleteMatch[1] as string)
+    return delay(undefined as T)
+  }
+  if (path === '/api/settings/warehouse-map') {
+    mockDeleteWarehouseMap()
     return delay(undefined as T)
   }
 

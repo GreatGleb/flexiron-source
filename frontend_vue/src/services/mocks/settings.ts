@@ -8,6 +8,7 @@ import type {
   UomConversion,
   OrderStatusSetting,
   WarehouseSector,
+  WarehouseMapFile,
   SettingUser,
   UserProfile,
 } from '@/types/settings'
@@ -183,6 +184,11 @@ export const MOCK_SETTINGS: AppSettings = {
       zone: 'Резка',
     },
   ] satisfies WarehouseSector[],
+
+  // Карты нет, пока её не загрузили. Демо-данные держатся тех же правил, что
+  // приложение: нарисовать здесь ссылку на несуществующий файл — значит показать
+  // пустому складу картинку, которой ни у кого нет.
+  warehouseMap: null,
 
   users: [
     { id: 'usr-0', email: 'owner@flexiron.com', name: 'Миндаугас В.', role: 'owner', active: true },
@@ -576,4 +582,26 @@ export function mockSaveProfile(data: UserProfile): void {
 export function mockPatchProfile(patch: Partial<UserProfile>): UserProfile {
   Object.assign(settingsStore.profile, patch)
   return structuredClone(settingsStore.profile)
+}
+
+// ─── Warehouse map ───────────────────────────────────────────────────────
+//
+// Одна карта, одно место хранения. PUT заменяет её целиком — версий нет, поэтому
+// «обновить» и «загрузить новую» это одно и то же действие, и второго реестра карт
+// (в складском моке или где-то ещё) быть не должно.
+
+export function mockGetWarehouseMap(): WarehouseMapFile | null {
+  return settingsStore.warehouseMap ? structuredClone(settingsStore.warehouseMap) : null
+}
+
+export function mockSaveWarehouseMap(data: WarehouseMapFile): WarehouseMapFile {
+  // Карта — это картинка. Сервер не верит клиенту на слово о типе файла, потому что
+  // страница показывает её через <img> и открывает как изображение.
+  if (!data.mime.startsWith('image/')) throw new Error('MAP_NOT_AN_IMAGE')
+  settingsStore.warehouseMap = structuredClone(data)
+  return structuredClone(settingsStore.warehouseMap)
+}
+
+export function mockDeleteWarehouseMap(): void {
+  settingsStore.warehouseMap = null
 }

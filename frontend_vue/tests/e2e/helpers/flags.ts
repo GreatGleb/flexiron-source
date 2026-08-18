@@ -49,6 +49,9 @@ export const ALL_FLAGS_ENABLED = {
 
   // Notifications
   notificationsPage: true,
+
+  // Warehouse map — its own page, not one of the warehouse table tabs
+  warehouseMap: true,
 } as const
 
 /** Writes ALL_FLAGS_ENABLED to localStorage before every page in this context loads. */

@@ -39,6 +39,8 @@ const defaults: FeatureFlags = {
   warehouseOffcuts: true,
   warehouseDeficit: true,
   warehouseQrPrint: true,
+  // Карта склада — отдельная страница с картинкой (не вкладка складских таблиц)
+  warehouseMap: true,
 
   // Warehouse per-tab page config flags (disabled by default — in development)
   warehouseStockPageConfig: false,

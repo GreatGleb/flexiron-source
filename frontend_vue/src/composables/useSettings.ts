@@ -20,17 +20,19 @@ const defaultSettings: AppSettings = {
   conversions: [],
   orderStatuses: [],
   sectors: [],
+  warehouseMap: null,
   users: [],
   profile: { firstName: '', lastName: '', email: '', phone: '', role: 'owner' },
 }
 
 // ─── localStorage cache helpers ──────────────────────────────────────────
-const CACHE_VERSION = 4 // bump when data shape changes (e.g., new fields)
+const CACHE_VERSION = 5 // bump when data shape changes (e.g., new fields)
 const CACHE_KEY = `flexiron_settings_cache_v${CACHE_VERSION}`
 const LEGACY_CACHE_KEYS = [
   'flexiron_settings_cache',
   'flexiron_settings_cache_v2',
   'flexiron_settings_cache_v3',
+  'flexiron_settings_cache_v4', // до появления warehouseMap
 ] // old keys to purge
 // const CACHE_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
 

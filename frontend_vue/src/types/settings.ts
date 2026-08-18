@@ -82,6 +82,27 @@ export interface WarehouseSector {
   zone?: string
 }
 
+/**
+ * Карта склада — картинка, и только одна.
+ *
+ * Место хранения партии осталось свободным текстом, справочника секторов не будет
+ * (решение ревью, п. 3), поэтому карта — это фотография, которую открывают глазами,
+ * а не структура, по которой что-то ищут. Хранится только текущая: истории версий
+ * нет, загрузка новой заменяет прежнюю.
+ *
+ * Поля повторяют ответ `POST /api/uploads` (`UploadedFile`): страница загружает файл
+ * штатным путём и кладёт сюда то, что вернул сервер, ничего не пересобирая.
+ */
+export interface WarehouseMapFile {
+  fileId: string
+  name: string
+  mime: string
+  size: number
+  /** Прямая ссылка на файл — по ней он и открывается в новой вкладке. */
+  url: string
+  uploadedAt: string
+}
+
 /** Роль пользователя */
 export type UserRole =
   | 'owner'
@@ -140,6 +161,8 @@ export interface AppSettings {
   conversions: UomConversion[]
   orderStatuses: OrderStatusSetting[]
   sectors: WarehouseSector[]
+  /** Текущая карта склада, или её нет. Единственное место хранения — второго реестра быть не должно. */
+  warehouseMap: WarehouseMapFile | null
   users: SettingUser[]
   profile: UserProfile
 }

@@ -39,6 +39,8 @@ const batchesPageConfigEnabled = useFeatureFlag('warehouseBatchesPageConfig')
 const offcutsPageConfigEnabled = useFeatureFlag('warehouseOffcutsPageConfig')
 const movementsPageConfigEnabled = useFeatureFlag('warehouseMovementsPageConfig')
 const deficitPageConfigEnabled = useFeatureFlag('warehouseDeficitPageConfig')
+// Карта не привязана к вкладке — ссылка на неё видна на любой.
+const showWarehouseMap = useFeatureFlag('warehouseMap')
 const pageConfigForActiveTab = computed(() => {
   switch (activeTab.value) {
     case 'stock':
@@ -810,6 +812,16 @@ const deficitFiltersActive = computed(() => {
     <div class="suppliers-header" data-test="warehouse-toolbar">
       <div class="suppliers-header-left" />
       <div class="suppliers-header-right">
+        <router-link
+          v-if="showWarehouseMap"
+          :to="{ name: 'admin-warehouse-map' }"
+          class="btn btn-secondary"
+          data-test="warehouse-map-btn"
+        >
+          <SvgIcon name="map" :width="18" :height="18" />
+          <span>{{ t('warehouse.btn_map') }}</span>
+        </router-link>
+
         <!-- Export (all tabs) -->
         <button
           class="btn btn-secondary"

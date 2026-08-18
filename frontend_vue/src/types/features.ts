@@ -36,6 +36,7 @@ export interface FeatureFlags {
   warehouseOffcuts: boolean
   warehouseDeficit: boolean
   warehouseQrPrint: boolean
+  warehouseMap: boolean
 
   // Warehouse per-tab page config flags
   warehouseStockPageConfig: boolean
