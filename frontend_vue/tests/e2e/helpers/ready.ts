@@ -33,6 +33,29 @@ const LOADING_MARKERS = [
  * the moment `networkidle` fires — so idleness only counts once traffic has been
  * seen, or once a page has demonstrably asked for nothing.
  */
+export type ReadyExit =
+  /** The mock server was seen working and then went idle — the honest signal. */
+  | 'traffic-seen'
+  /** It stayed idle: taken to mean the page asked for nothing. A time-based guess. */
+  | 'idle-timeout'
+  /** The mocks module never loaded: the page made no API call at all. Also a guess. */
+  | 'no-mock-module'
+  /** No hook at all — real-API mode. */
+  | 'no-hook'
+
+/**
+ * Which branch let the wait finish, recorded on the page.
+ *
+ * Two of the four branches believe a clock rather than a signal, which is the very
+ * thing pitfall #64 forbids — and the windows they trust (400ms, 2000ms) are smaller
+ * than measured data delays under load (1.7–2.2s). The hole is narrow but real: a
+ * page whose first request starts late would be waved through as "asked for nothing".
+ *
+ * So the assumption is made checkable instead of being argued about. `readyExitOf`
+ * reads it back, and `ready-exits.spec.ts` walks every route to record which pages
+ * leave by a timed branch. Anyone tempted to shorten these windows can see first
+ * exactly whose correctness rests on them.
+ */
 async function waitForMockServerIdle(page: Page, timeout: number) {
   await page
     .waitForFunction(
@@ -42,20 +65,33 @@ async function waitForMockServerIdle(page: Page, timeout: number) {
           __readyBusySeen?: boolean
           __readyFirstCheck?: number
           __readyIdleSince?: number
+          __readyExit?: string
         }
         w.__readyFirstCheck ??= performance.now()
 
         if (typeof w.__mockPending !== 'number') {
           // The mocks module is loaded by the first API call. A page that never
           // makes one (a public page, a 404) must not hang here.
-          return performance.now() - w.__readyFirstCheck > 2000
+          if (performance.now() - w.__readyFirstCheck > 2000) {
+            w.__readyExit = 'no-mock-module'
+            return true
+          }
+          return false
         }
         if (w.__mockPending > 0) {
           w.__readyBusySeen = true
           return false
         }
         w.__readyIdleSince ??= performance.now()
-        return w.__readyBusySeen === true || performance.now() - w.__readyIdleSince > 400
+        if (w.__readyBusySeen === true) {
+          w.__readyExit = 'traffic-seen'
+          return true
+        }
+        if (performance.now() - w.__readyIdleSince > 400) {
+          w.__readyExit = 'idle-timeout'
+          return true
+        }
+        return false
       },
       undefined,
       { timeout },
@@ -63,6 +99,13 @@ async function waitForMockServerIdle(page: Page, timeout: number) {
     .catch(() => {
       // Real-API mode has no such hook; the marker check below still applies.
     })
+}
+
+/** How the last `waitForDataReady` on this page finished. */
+export async function readyExitOf(page: Page): Promise<ReadyExit> {
+  return page.evaluate(
+    () => ((window as unknown as { __readyExit?: string }).__readyExit ?? 'no-hook') as never,
+  )
 }
 
 /**
