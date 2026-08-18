@@ -36,6 +36,8 @@ export type UomCategory =
   | 'quantity'
   | 'density'
   | 'thickness'
+  /** Час у услуги. Во времени ничего не взвешивают — правил пересчёта у него нет. */
+  | 'time'
 
 /** Тип правила пересчёта */
 export type ConversionType = 'static' | 'dynamic'

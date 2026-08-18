@@ -6,7 +6,8 @@ export const mockServices: Service[] = [
     name: { ru: 'Резка металла', en: 'Metal cutting', lt: 'Metalo pjovimas' },
     costPrice: 5.0,
     sellingPrice: 12.0,
-    priceUnit: 'EUR/m',
+    currencyId: 'cur-eur',
+    uomId: 'uom-m',
     description: {
       ru: 'Резка листового металла любой сложности',
       en: 'Cutting of sheet metal of any complexity',
@@ -20,7 +21,8 @@ export const mockServices: Service[] = [
     name: { ru: 'Доставка', en: 'Delivery', lt: 'Pristatymas' },
     costPrice: 10.0,
     sellingPrice: 25.0,
-    priceUnit: 'EUR/vnt',
+    currencyId: 'cur-eur',
+    uomId: 'uom-pcs',
     description: {
       ru: 'Доставка по городу и области',
       en: 'Delivery within the city and region',
@@ -34,7 +36,8 @@ export const mockServices: Service[] = [
     name: { ru: 'Упаковка', en: 'Packaging', lt: 'Pakavimas' },
     costPrice: 2.0,
     sellingPrice: 5.0,
-    priceUnit: 'EUR/vnt',
+    currencyId: 'cur-eur',
+    uomId: 'uom-pcs',
     description: {
       ru: 'Упаковка готовой продукции',
       en: 'Packaging of finished products',
@@ -48,7 +51,8 @@ export const mockServices: Service[] = [
     name: { ru: 'Гибка металла', en: 'Metal bending', lt: 'Metalo lenkimas' },
     costPrice: 8.0,
     sellingPrice: 18.0,
-    priceUnit: 'EUR/m',
+    currencyId: 'cur-eur',
+    uomId: 'uom-m',
     description: {
       ru: 'Гибка листового металла под любым углом',
       en: 'Bending of sheet metal at any angle',
@@ -62,7 +66,8 @@ export const mockServices: Service[] = [
     name: { ru: 'Сварка', en: 'Welding', lt: 'Suvirinimas' },
     costPrice: 15.0,
     sellingPrice: 35.0,
-    priceUnit: 'EUR/h',
+    currencyId: 'cur-eur',
+    uomId: 'uom-h',
     description: {
       ru: 'Сварочные работы любой сложности',
       en: 'Welding work of any complexity',

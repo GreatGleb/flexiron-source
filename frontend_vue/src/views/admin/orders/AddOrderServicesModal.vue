@@ -20,6 +20,7 @@ import {
   type LineTotals,
 } from '@/domain/orderPricing'
 import { pricingSeedFor } from '@/services/orderLines'
+import { uomKeySuffix } from '@/domain/servicePricing'
 
 const { t } = useI18n()
 const toast = useToast()
@@ -75,16 +76,18 @@ const saving = ref(false)
 const serviceSearch = ref('')
 
 // ─── Price unit display ─────────────────────────────────────────────────
-function displayUnit(priceUnit: string | null): string {
-  if (!priceUnit) return '—'
-  const unitMap: Record<string, string> = {
-    'EUR/vnt': 'pcs',
-    'EUR/kg': 'kg',
-    'EUR/m': 'm',
-    'EUR/h': 'h',
-  }
-  const stockUnit = unitMap[priceUnit] ?? priceUnit.replace('EUR/', '')
-  return t('orders.unit_' + stockUnit, stockUnit)
+//
+// По ключам `orders.unit_*`, как весь остальной модуль заказов: строка услуги стоит
+// в одной таблице со строками товаров, и подпиши её кодом из справочника — одна
+// таблица заговорит на двух диалектах.
+//
+// Здесь была своя таблица `{'EUR/vnt': 'pcs', …}` и запасной вариант
+// `priceUnit.replace('EUR/', '')` — то есть валюта отрезалась от единицы строковой
+// операцией. Это и был симптом: другой валюты у услуги существовать не могло.
+function displayUnit(uomId: string | null): string {
+  if (!uomId) return '—'
+  const suffix = uomKeySuffix(uomId)
+  return t('orders.unit_' + suffix, suffix)
 }
 
 // ─── Filtered services ──────────────────────────────────────────────────
@@ -318,7 +321,7 @@ function onCancel() {
                   />
                 </td>
                 <td class="col-service-name">{{ tf(s.name) }}</td>
-                <td class="col-unit-cell">{{ displayUnit(s.priceUnit) }}</td>
+                <td class="col-unit-cell">{{ displayUnit(s.uomId) }}</td>
                 <td class="col-price-cell">
                   {{
                     s.sellingPrice != null

@@ -5,7 +5,7 @@ import { useHead } from '@/composables/useHead'
 import { useServices } from '@/composables/useServices'
 import { createService } from '@/services/servicesService'
 import { useToast } from '@/composables/useToast'
-import type { ServicePriceUnit, ServiceListItem } from '@/types/service'
+import type { ServiceListItem } from '@/types/service'
 import type { TranslatedString } from '@/types/i18n'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
 import Breadcrumb from '@/components/admin/Breadcrumb.vue'
@@ -18,8 +18,11 @@ import Pagination from '@/components/admin/ui/Pagination.vue'
 import AutoResizeTextarea from '@/components/admin/ui/AutoResizeTextarea.vue'
 import '@styles/admin/components/_pagination.css'
 import '@styles/admin/services_list.css'
+import { useSettings } from '@/composables/useSettings'
+import { serviceUnitLabel } from '@/domain/servicePricing'
 
 const { t, locale } = useI18n()
+const { settings, load: loadSettings } = useSettings()
 const toast = useToast()
 
 const PAGE_SIZE_OPTIONS = [
@@ -53,16 +56,28 @@ const createForm = reactive({
   name: '',
   costPrice: 0,
   sellingPrice: 0,
-  priceUnit: 'EUR/vnt' as ServicePriceUnit,
+  currencyId: 'cur-eur',
+  uomId: 'uom-pcs',
   description: '',
 })
 
-const priceUnitOptions = [
-  { value: 'EUR/vnt', label: t('services.price_unit_eur_vnt') },
-  { value: 'EUR/kg', label: t('services.price_unit_eur_kg') },
-  { value: 'EUR/m', label: t('services.price_unit_eur_m') },
-  { value: 'EUR/h', label: t('services.price_unit_eur_h') },
-]
+// Валюта и единица — из справочника, а не из четырёх зашитых пар. Услуга в долларах
+// или за квадратный метр была невыразима ровно потому, что список был здесь.
+const currencyOptions = computed(() =>
+  settings.currencies.map((c) => ({ value: c.id, label: c.code })),
+)
+const uomOptions = computed(() => settings.uoms.map((u) => ({ value: u.id, label: tf(u.code) })))
+
+/** Подпись «EUR/шт» — собирается для показа, не хранится. */
+function unitLabel(service: { currencyId: string; uomId: string }): string {
+  return serviceUnitLabel(
+    service.currencyId,
+    service.uomId,
+    settings.currencies,
+    settings.uoms,
+    locale.value,
+  )
+}
 
 async function handleCreate() {
   if (!createForm.name.trim()) return
@@ -72,7 +87,8 @@ async function handleCreate() {
         name: createForm.name.trim(),
         costPrice: createForm.costPrice,
         sellingPrice: createForm.sellingPrice,
-        priceUnit: createForm.priceUnit,
+        currencyId: createForm.currencyId,
+        uomId: createForm.uomId,
         description: createForm.description.trim() || undefined,
       },
       locale.value,
@@ -81,7 +97,8 @@ async function handleCreate() {
     createForm.name = ''
     createForm.costPrice = 0
     createForm.sellingPrice = 0
-    createForm.priceUnit = 'EUR/vnt'
+    createForm.currencyId = 'cur-eur'
+    createForm.uomId = 'uom-pcs'
     createForm.description = ''
     toast.success(t('services.toast_created'))
     await load()
@@ -104,6 +121,8 @@ async function handleDelete() {
 
 onMounted(() => {
   load()
+  // Валюты и единицы нужны и для селектов, и для подписи в таблице.
+  loadSettings()
 })
 </script>
 
@@ -254,11 +273,7 @@ onMounted(() => {
               </td>
               <td>{{ item.costPrice != null ? `${item.costPrice.toFixed(2)} €` : '—' }}</td>
               <td>{{ item.sellingPrice != null ? `${item.sellingPrice.toFixed(2)} €` : '—' }}</td>
-              <td>
-                {{
-                  t('services.price_unit_' + item.priceUnit.replace('EUR/', 'eur_').toLowerCase())
-                }}
-              </td>
+              <td>{{ unitLabel(item) }}</td>
               <td>
                 <div class="services-row-actions">
                   <router-link
@@ -337,10 +352,17 @@ onMounted(() => {
           data-test="create-service-selling-price"
         />
       </InputGroup>
+      <InputGroup :label="t('services.field_currency')" :required="false">
+        <CustomSelect
+          v-model="createForm.currencyId"
+          :options="currencyOptions"
+          data-test="create-service-currency"
+        />
+      </InputGroup>
       <InputGroup :label="t('services.field_price_unit')" :required="false">
         <CustomSelect
-          v-model="createForm.priceUnit"
-          :options="priceUnitOptions"
+          v-model="createForm.uomId"
+          :options="uomOptions"
           data-test="create-service-price-unit"
         />
       </InputGroup>

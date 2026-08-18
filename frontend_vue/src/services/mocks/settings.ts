@@ -114,6 +114,15 @@ export const MOCK_SETTINGS: AppSettings = {
       name: { ru: 'Миллиметр', en: 'Millimeter', lt: 'Milimetras' },
       category: 'thickness',
     },
+    {
+      // Услуги продаются за час. Ни одного правила пересчёта у часа нет и не будет:
+      // час не переводится ни в килограммы, ни в метры, и пустая строка в матрице
+      // честнее выдуманного коэффициента.
+      id: 'uom-h',
+      code: { ru: 'ч', en: 'h', lt: 'val.' },
+      name: { ru: 'Час', en: 'Hour', lt: 'Valanda' },
+      category: 'time',
+    },
   ] satisfies Uom[],
 
   conversions: [

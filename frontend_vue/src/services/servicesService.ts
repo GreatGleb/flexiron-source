@@ -33,7 +33,8 @@ export async function createService(data: ServiceCreatePayload, locale: string):
     name: toTranslatedString(data.name, locale),
     costPrice: data.costPrice,
     sellingPrice: data.sellingPrice,
-    priceUnit: data.priceUnit,
+    currencyId: data.currencyId,
+    uomId: data.uomId,
     description:
       data.description !== undefined ? toTranslatedString(data.description, locale) : undefined,
   }
@@ -62,7 +63,8 @@ export async function patchService(
   if (name !== undefined) payload.name = name
   if (delta.costPrice !== undefined) payload.costPrice = delta.costPrice
   if (delta.sellingPrice !== undefined) payload.sellingPrice = delta.sellingPrice
-  if (delta.priceUnit) payload.priceUnit = delta.priceUnit
+  if (delta.currencyId) payload.currencyId = delta.currencyId
+  if (delta.uomId) payload.uomId = delta.uomId
   const desc = toPayloadValue(
     delta.description as string | TranslatedString | null | undefined,
     locale,

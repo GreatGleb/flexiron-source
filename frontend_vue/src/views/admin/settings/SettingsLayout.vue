@@ -251,6 +251,7 @@ const UOM_CATEGORIES: { value: UomCategory; label: string }[] = [
   { value: 'quantity', label: t('settingsUom.category_quantity') },
   { value: 'density', label: t('settingsUom.category_density') },
   { value: 'thickness', label: t('settingsUom.category_thickness') },
+  { value: 'time', label: t('settingsUom.category_time') },
 ]
 
 const uomOptions = computed(() =>
