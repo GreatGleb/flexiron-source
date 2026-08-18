@@ -19,7 +19,6 @@ const defaultSettings: AppSettings = {
   uoms: [],
   conversions: [],
   orderStatuses: [],
-  sectors: [],
   warehouseMap: null,
   users: [],
   profile: { firstName: '', lastName: '', email: '', phone: '', role: 'owner' },

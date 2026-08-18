@@ -7,7 +7,6 @@ import type {
   Uom,
   UomConversion,
   OrderStatusSetting,
-  WarehouseSector,
   WarehouseMapFile,
   SettingUser,
   UserProfile,
@@ -145,45 +144,6 @@ export const MOCK_SETTINGS: AppSettings = {
       formulaType: 'pcs_to_weight',
     },
   ] satisfies UomConversion[],
-
-  sectors: [
-    {
-      id: 'sec-a1',
-      code: 'A1',
-      name: { ru: 'Сектор A1', en: 'Sector A1', lt: 'Sektorius A1' },
-      zone: 'Основной',
-    },
-    {
-      id: 'sec-a2',
-      code: 'A2',
-      name: { ru: 'Сектор A2', en: 'Sector A2', lt: 'Sektorius A2' },
-      zone: 'Основной',
-    },
-    {
-      id: 'sec-a3',
-      code: 'A3',
-      name: { ru: 'Сектор A3', en: 'Sector A3', lt: 'Sektorius A3' },
-      zone: 'Основной',
-    },
-    {
-      id: 'sec-b1',
-      code: 'B1',
-      name: { ru: 'Сектор B1', en: 'Sector B1', lt: 'Sektorius B1' },
-      zone: 'Уличный',
-    },
-    {
-      id: 'sec-b2',
-      code: 'B2',
-      name: { ru: 'Сектор B2', en: 'Sector B2', lt: 'Sektorius B2' },
-      zone: 'Уличный',
-    },
-    {
-      id: 'sec-c1',
-      code: 'C1',
-      name: { ru: 'Сектор C1', en: 'Sector C1', lt: 'Sektorius C1' },
-      zone: 'Резка',
-    },
-  ] satisfies WarehouseSector[],
 
   // Карты нет, пока её не загрузили. Демо-данные держатся тех же правил, что
   // приложение: нарисовать здесь ссылку на несуществующий файл — значит показать

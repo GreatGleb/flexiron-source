@@ -3,6 +3,7 @@ import { clientAuditSources } from './clients'
 import { supplierAuditSources } from './suppliers'
 import { orderAuditSources } from './orders'
 import { warehouseAuditSources } from './warehouse'
+import { auditTimestampValue } from './auditClock'
 import type {
   AuditFeedFilters,
   AuditFeedResponse,
@@ -29,20 +30,10 @@ function allSources(): AuditSource[] {
   ]
 }
 
-/**
- * Two timestamp formats live in these logs: `2026-04-23 13:17` and full ISO.
- *
- * Sorted as strings they interleave wrongly — `T` sorts after a space, so for one
- * date every short stamp lands ahead of every long one whatever the clock said.
- * The feed is sorted by time, so it sorts by an actual instant.
- */
-export function auditTimestampValue(timestamp: string): number {
-  const direct = Date.parse(timestamp)
-  if (!Number.isNaN(direct)) return direct
-  // `2026-04-23 13:17` — a local stamp with no zone.
-  const normalized = Date.parse(timestamp.replace(' ', 'T'))
-  return Number.isNaN(normalized) ? 0 : normalized
-}
+// Sorting is by an actual instant, not by the string: two stamp formats live in these
+// logs and `T` sorts after a space. The parser lives in `auditClock` — one definition,
+// shared with the shifter that moves these logs onto the demo clock.
+export { auditTimestampValue } from './auditClock'
 
 /** The day a stamp falls on, for date-range filtering. */
 function auditDay(timestamp: string): string {

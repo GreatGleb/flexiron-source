@@ -14,6 +14,7 @@ import { mockGetCategory } from './categories'
 import { round2 } from '@/domain/orderPricing'
 import { sealAuditIds, type AuditSeeded } from '@/mocks/auditIds'
 import type { AuditSource } from '@/types/audit'
+import { shiftAuditSeries } from './auditClock'
 // fieldIds from categories.ts STORE:
 // cat-2 Sheets: f-2-1 (number), f-2-2 (enum), f-2-3 Width(number), f-2-4 Length(number), f-2-5 Weight per m²(number) + inherited: f-1-1 (text), f-1-2 (text), f-1-3 Density(number)
 // cat-4 Pipes:  f-4-1 (number), f-4-2 (number), f-4-3 Length(number), f-4-4 Pipe type(enum), f-4-5 Bend radius(number), f-4-6 Width(mm), f-4-7 Weight per meter(number) + inherited: f-1-1 (text), f-1-2 (text), f-1-3 Density(number)
@@ -13958,6 +13959,9 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
 /** Every seeded entry gets the id its log addresses it by — see `sealAuditIds`. */
 export const STORE: Product[] = sealAuditIds(PRODUCT_SEED, 'prod')
 
+// ...and the log rides the demo clock, by its OWN newest entry — see `shiftAuditSeries`.
+shiftAuditSeries(STORE.map((product) => product.auditLog))
+
 // ─── The two averages on the product card: computed, not stored ─────────────
 //
 // Both used to be written once, at module load, and never again (contract §7.2).
@@ -14255,17 +14259,12 @@ export async function mockCreateProduct(
       ...s,
       name: typeof s.name === 'string' ? toTranslatedString(s.name, locale) : s.name,
     })),
-    auditLog: [
-      {
-        id: 'prod-au-1',
-        timestamp: '2026-02-27 08:24',
-        user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
-        userInitials: 'MV',
-        property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
-        oldValue: 'Steel Plus OÜ',
-        newValue: 'Euro Metal GmbH',
-      },
-    ],
+    // A product created a second ago has no history. It used to be given one — a
+    // February entry claiming its suppliers had been changed from Steel Plus OÜ to
+    // Euro Metal GmbH — which was untrue about the record it was attached to, and
+    // dated before the record existed. The demo store is held to the rules the app
+    // is held to.
+    auditLog: [],
   }
   defineDerivedAverages(product)
   STORE.push(product)

@@ -74,14 +74,6 @@ export interface OrderStatusSetting {
   writeOffOnTransition?: boolean
 }
 
-/** Сектор склада */
-export interface WarehouseSector {
-  id: string
-  code: string
-  name: TranslatedString
-  zone?: string
-}
-
 /**
  * Карта склада — картинка, и только одна.
  *
@@ -160,7 +152,6 @@ export interface AppSettings {
   uoms: Uom[]
   conversions: UomConversion[]
   orderStatuses: OrderStatusSetting[]
-  sectors: WarehouseSector[]
   /** Текущая карта склада, или её нет. Единственное место хранения — второго реестра быть не должно. */
   warehouseMap: WarehouseMapFile | null
   users: SettingUser[]

@@ -2,6 +2,7 @@ import { mergeTranslatedString } from '@/types/i18n'
 import type { Supplier, SupplierCardData, SupplierFilters } from '@/types/supplier'
 import type { PaginatedResponse, PaginationParams } from '@/types/api'
 import type { AuditSource } from '@/types/audit'
+import { shiftAuditSeries } from './auditClock'
 
 export const MOCK_SUPPLIERS: Supplier[] = [
   {
@@ -554,3 +555,14 @@ export function supplierAuditSources(): AuditSource[] {
     }
   }).filter((source) => source.log.length > 0)
 }
+
+// ─── The supplier log rides the demo clock ──────────────────────────────────
+//
+// Through `supplierAuditSources()` deliberately, rather than a second pass of its
+// own. That function already builds every card (five of the six are assembled on
+// demand from literal `createdAt` / `updatedAt`, and this file does not import the
+// demo clock) and hands back `MOCK_CARD[id].auditLog` — the canonical array. Both
+// halves matter: shift before materialising and the cards built later arrive
+// unshifted, and shift what `mockGetSupplier` returns — a deep copy — and the store
+// never changes at all.
+shiftAuditSeries(supplierAuditSources().map((source) => source.log))

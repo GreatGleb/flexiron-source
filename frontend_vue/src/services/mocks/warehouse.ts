@@ -48,6 +48,7 @@ import { reservedOn } from './reservations'
 import { compareDocumentNumbers } from '@/services/documentNumbers'
 import { sealAuditIds, type AuditSeeded } from '@/mocks/auditIds'
 import type { AuditSource } from '@/types/audit'
+import { shiftAuditSeries } from './auditClock'
 
 /**
  * The one currency the warehouse layer speaks (contract §7.1).
@@ -186,6 +187,25 @@ const stockStore: StockOverviewItem[] = [...mockStockOverviewData]
 // Track IDs of pre-existing mock entities so we can distinguish them
 // from dynamically created ones (e.g. to avoid generating fake audit data for new entities)
 const preExistingMovementIds = new Set(mockMovementsData.map((m) => m.id))
+
+// ─── The five warehouse logs ride the demo clock ────────────────────────────
+//
+// Five series, five ends, five shifts: their newest entries were 2025-05-10
+// (batches), 2025-04-05 (stock), 2025-04-01 (deficit), 2025-01-20 (offcuts) and
+// 2025-01-15 (movements). One shared end would leave the last two a year and a half
+// behind, which is the whole reason `demoShiftDays` takes the end as a parameter.
+//
+// Movements are shifted HERE, on the seed, and not through `getOrCreateMovementAudit`:
+// that accessor copies the seed into `movementAuditStore` on first read, and the copy
+// is what the card and the feed are served. Shift the seed before anything reads it
+// and the copy inherits the shift; shift the copy instead and the seed stays behind,
+// which is two truths about one log. Every caller of that accessor runs at request
+// time, never at module load, so "before anything reads it" is here.
+shiftAuditSeries(stockStore.map((item) => item.auditLog))
+shiftAuditSeries(batchStore.map((batch) => batch.auditLog))
+shiftAuditSeries(offcutStore.map((offcut) => offcut.auditLog))
+shiftAuditSeries(movementStore.map((movement) => movement.auditLog))
+shiftAuditSeries(deficitStore.map((deficit) => deficit.auditLog))
 
 let batchSeq = batchStore.length + 1
 let offcutSeq = offcutStore.length + 1

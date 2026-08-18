@@ -3,6 +3,7 @@ import type { StockAuditEntry } from '@/types/warehouse'
 import { shiftDemoDay } from './demoClock'
 import { sealAuditIds, type AuditSeeded } from '@/mocks/auditIds'
 import type { AuditSource } from '@/types/audit'
+import { shiftAuditSeries } from './auditClock'
 
 const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
   // ── Existing clients (1-9) ──
@@ -921,6 +922,9 @@ const STORE: Client[] = sealAuditIds(
   })),
   'cl',
 )
+
+// The client log rides the demo clock, by its own newest entry.
+shiftAuditSeries(STORE.map((client) => client.auditLog))
 
 let nextSeq = STORE.length + 1
 
