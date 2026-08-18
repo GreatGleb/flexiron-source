@@ -294,8 +294,13 @@ test.describe('dashboard › visual @1440', () => {
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
     await page.goto(DASHBOARD)
+    // The dashboard's figures arrive on a timer inside the mock layer, not over
+    // the network, so `networkidle` says nothing about whether they are on screen:
+    // measured, the charts panel holds zero bars when it resolves. An empty panel
+    // is exactly as tall as a full one, so a snapshot taken then is not an obvious
+    // blank — it is a pixel diff that looks like a layout change. Wait for the data.
+    await page.locator('[data-test="dashboard-charts"] .bar-chart-row').first().waitFor()
     await waitForFontsReady(page)
-    await page.waitForLoadState('networkidle')
   })
 
   test('sub-nav', async ({ page }) => {
