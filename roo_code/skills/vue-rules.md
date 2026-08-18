@@ -930,8 +930,64 @@ await panel.locator('.bar-chart-row').first().waitFor() // в графике е�
 
 ---
 
+### 🔥 #65 — Инъекция сбоя в мок — это СОСТОЯНИЕ, а не мгновение
+
+**Симптом:** тест «страница показывает ошибку» проходит поодиночке и падает в полном
+прогоне, редко — раз в десять-двенадцать прогонов. Ассерт не находит состояние ошибки,
+хотя мок должен был выбросить исключение.
+
+**Причина:** флаг, который стирает себя при первом чтении.
+
+```ts
+// ❌ одноразовый сбой — гонка по построению
+if (localStorage.getItem('test_mock_force_error') === 'true') {
+  localStorage.removeItem('test_mock_force_error')   // достанется первому дошедшему
+  throw new Error('SIMULATED_MOCK_ERROR')
+}
+```
+
+Ошибку получает тот, кто дошёл до мока первым, — а кто дойдёт первым, тест назвать не
+может. Дальше два исхода, оба плохие: конкурент проглотил ошибку (его `catch` пустой)
+или проглотил и следом успешно перезапросил, обнулив `error` из-под ассерта.
+
+**Почему у нас конкурент есть всегда:** композаблы уровня модуля — синглтоны.
+`useNotifications`, `useAuth`, `useSidebar`, `useSettings` держат состояние и вотчеры на
+уровне модуля, то есть общие для всех, кто их вызвал. Колокольчик в шапке
+(`NotificationDropdown` внутри `AdminTopbar`) спрашивает уведомления на **каждой**
+админской странице. То есть у страницы уведомлений соперник за одноразовый флаг есть
+всегда, и «первый вызвавший» зависит от порядка монтирования и задержек, а не от теста.
+
+**Решение:** флаг держится, пока тест его не снимет.
+
+```ts
+// ✅ сбой — состояние: его получает каждый спросивший
+if (localStorage.getItem('test_mock_force_error') === 'true') {
+  throw new Error('SIMULATED_MOCK_ERROR')
+}
+```
+
+```ts
+// в тесте: снять после проверки
+await expect(page.locator('[data-test="notifications-error"]')).toBeVisible()
+await page.evaluate(() => localStorage.removeItem('test_mock_force_error'))
+```
+
+Состояние ошибки перестаёт быть мгновением: никакой последующий успех не уберёт его, и
+не важно, кто спросил мок первым. Проверено: 12/12 при `--repeat-each=12` против 5/6 до
+правки.
+
+**Родство с #64:** это одна и та же болезнь. Там тест зависел от момента, когда придут
+данные, здесь — от момента, когда сбой будет прочитан. Оба раза тест держится за момент,
+которым не управляет; лечится оба раза тем, что момент превращают в проверяемое
+состояние — пришедшие данные в #64, залипший флаг здесь.
+
+**Где искать:** `grep -rn "test_mock\|force_error\|SIMULATED" src/services/mocks/`.
+На 2026-08-18 такой крючок в проекте один — в `mocks/notifications.ts`.
+
+---
+
 ## Applying this skill
 
 When starting a task from trigger list (see description above) — **read this skill completely** before writing code. If task not from list — `Read` only the needed section.
 
-After completing task — run through checklist: pitfalls #1–#64, save mode (if form), HTTP method (if new endpoint).
+After completing task — run through checklist: pitfalls #1–#65, save mode (if form), HTTP method (if new endpoint).
