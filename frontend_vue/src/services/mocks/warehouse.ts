@@ -46,6 +46,7 @@ import {
 } from '@/domain/orderPricing'
 import { reservedOn } from './reservations'
 import { compareDocumentNumbers } from '@/services/documentNumbers'
+import { sealAuditIds, type AuditSeeded } from '@/mocks/auditIds'
 
 /**
  * The one currency the warehouse layer speaks (contract §7.1).
@@ -156,7 +157,9 @@ function _resolveBatchCost(batch: WarehouseBatch): void {
   batch.totalCost = round2(batch.quantity * unitPrice)
 }
 
-const rawBatches = mockBatchesData as unknown as WarehouseBatch[]
+// The batch seeds carry no ids either — they are sealed here rather than in the
+// seed file only because that file has never been annotated with its own type.
+const rawBatches = sealAuditIds(mockBatchesData as unknown as AuditSeeded<WarehouseBatch>[], 'bch')
 for (const b of rawBatches) {
   _normalizeBatchAudit(b)
   _resolveProductName(b)
@@ -1501,31 +1504,29 @@ export async function mockGetStockAudit(productId: string): Promise<StockAuditEn
   return item?.auditLog ? structuredClone(item.auditLog) : []
 }
 
-export async function mockDeleteStockAuditEntry(
-  productId: string,
-  entryIndex: number,
-): Promise<void> {
+export async function mockDeleteStockAuditEntry(productId: string, entryId: string): Promise<void> {
   const item = stockStore.find((s) => s.productId === productId)
-  if (!item || !item.auditLog) return
-  if (entryIndex >= 0 && entryIndex < item.auditLog.length) {
-    item.auditLog.splice(entryIndex, 1)
-  }
+  if (!item?.auditLog) throw new Error('STOCK_NOT_FOUND')
+  const idx = item.auditLog.findIndex((entry) => entry.id === entryId)
+  if (idx === -1) throw new Error('AUDIT_ENTRY_NOT_FOUND')
+  item.auditLog.splice(idx, 1)
 }
 
 export async function mockGetBatchAudit(batchId: string): Promise<StockAuditEntry[]> {
   const batch = batchStore.find((b) => b.id === batchId)
-  return batch?.auditLog ?? []
+  // A read hands out a copy, like every other read here: returning the live array
+  // let a caller edit the store by editing what it had merely asked to look at,
+  // and made a deletion look as though it had not happened — the caller's own
+  // array had already changed underneath it.
+  return batch?.auditLog ? structuredClone(batch.auditLog) : []
 }
 
-export async function mockDeleteBatchAuditEntry(
-  batchId: string,
-  entryIndex: number,
-): Promise<void> {
+export async function mockDeleteBatchAuditEntry(batchId: string, entryId: string): Promise<void> {
   const batch = batchStore.find((b) => b.id === batchId)
-  if (!batch || !batch.auditLog) return
-  if (entryIndex >= 0 && entryIndex < batch.auditLog.length) {
-    batch.auditLog.splice(entryIndex, 1)
-  }
+  if (!batch?.auditLog) throw new Error('BATCH_NOT_FOUND')
+  const idx = batch.auditLog.findIndex((entry) => entry.id === entryId)
+  if (idx === -1) throw new Error('AUDIT_ENTRY_NOT_FOUND')
+  batch.auditLog.splice(idx, 1)
 }
 
 export async function mockGetOffcutAudit(offcutId: string): Promise<StockAuditEntry[]> {
@@ -1533,27 +1534,26 @@ export async function mockGetOffcutAudit(offcutId: string): Promise<StockAuditEn
   return offcut?.auditLog ? structuredClone(offcut.auditLog) : []
 }
 
-export async function mockDeleteOffcutAuditEntry(
-  offcutId: string,
-  entryIndex: number,
-): Promise<void> {
+export async function mockDeleteOffcutAuditEntry(offcutId: string, entryId: string): Promise<void> {
   const offcut = offcutStore.find((o) => o.id === offcutId)
-  if (!offcut || !offcut.auditLog) return
-  if (entryIndex >= 0 && entryIndex < offcut.auditLog.length) {
-    offcut.auditLog.splice(entryIndex, 1)
-  }
+  if (!offcut?.auditLog) throw new Error('OFFCUT_NOT_FOUND')
+  const idx = offcut.auditLog.findIndex((entry) => entry.id === entryId)
+  if (idx === -1) throw new Error('AUDIT_ENTRY_NOT_FOUND')
+  offcut.auditLog.splice(idx, 1)
 }
 
 export async function mockGetMovementAudit(movementId: string): Promise<StockAuditEntry[]> {
-  return getOrCreateMovementAudit(movementId)
+  return structuredClone(getOrCreateMovementAudit(movementId))
 }
 
 export async function mockDeleteMovementAuditEntry(
   movementId: string,
-  entryIndex: number,
+  entryId: string,
 ): Promise<void> {
   const audit = getOrCreateMovementAudit(movementId)
-  if (entryIndex >= 0 && entryIndex < audit.length) audit.splice(entryIndex, 1)
+  const idx = audit.findIndex((entry) => entry.id === entryId)
+  if (idx === -1) throw new Error('AUDIT_ENTRY_NOT_FOUND')
+  audit.splice(idx, 1)
 }
 
 export async function mockGetDeficitAudit(deficitId: string): Promise<StockAuditEntry[]> {
@@ -1563,11 +1563,11 @@ export async function mockGetDeficitAudit(deficitId: string): Promise<StockAudit
 
 export async function mockDeleteDeficitAuditEntry(
   deficitId: string,
-  entryIndex: number,
+  entryId: string,
 ): Promise<void> {
   const deficit = deficitStore.find((d) => d.id === deficitId)
-  if (!deficit || !deficit.auditLog) return
-  if (entryIndex >= 0 && entryIndex < deficit.auditLog.length) {
-    deficit.auditLog.splice(entryIndex, 1)
-  }
+  if (!deficit?.auditLog) throw new Error('DEFICIT_NOT_FOUND')
+  const idx = deficit.auditLog.findIndex((entry) => entry.id === entryId)
+  if (idx === -1) throw new Error('AUDIT_ENTRY_NOT_FOUND')
+  deficit.auditLog.splice(idx, 1)
 }

@@ -232,6 +232,7 @@ const MOCK_CARD: Record<string, SupplierCardData> = {
     ],
     auditLog: [
       {
+        id: 'sup-au-1',
         timestamp: '2026-04-05 01:10',
         user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
         userInitials: 'MV',
@@ -240,6 +241,7 @@ const MOCK_CARD: Record<string, SupplierCardData> = {
         newValue: '30 Days Net',
       },
       {
+        id: 'sup-au-2',
         timestamp: '2026-04-01 10:25',
         user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
         userInitials: 'AZ',
@@ -380,6 +382,7 @@ export function mockGetSupplier(id: string): SupplierCardData {
     ],
     auditLog: [
       {
+        id: 'sup-au-1',
         timestamp: base.updatedAt + ' 10:00',
         user: { ru: 'Система', en: 'System', lt: 'Sistema' },
         userInitials: 'SY',
@@ -388,6 +391,7 @@ export function mockGetSupplier(id: string): SupplierCardData {
         newValue: String(base.rating),
       },
       {
+        id: 'sup-au-2',
         timestamp: base.createdAt + ' 09:00',
         user: { ru: base.contactPerson.ru, en: base.contactPerson.en, lt: base.contactPerson.lt },
         userInitials: buildInitials(base.contactPerson.ru),
@@ -447,12 +451,12 @@ export function mockUpdateSupplierStatus(id: string, status: string): void {
   if (s) s.status = status as Supplier['status']
 }
 
-export function mockDeleteAuditEntry(supplierId: string, entryIndex: number): void {
+export function mockDeleteAuditEntry(supplierId: string, entryId: string): void {
   const card = MOCK_CARD[supplierId]
-  if (!card) return
-  if (entryIndex >= 0 && entryIndex < card.auditLog.length) {
-    card.auditLog.splice(entryIndex, 1)
-  }
+  if (!card) throw new Error('SUPPLIER_NOT_FOUND')
+  const idx = card.auditLog.findIndex((entry) => entry.id === entryId)
+  if (idx === -1) throw new Error('AUDIT_ENTRY_NOT_FOUND')
+  card.auditLog.splice(idx, 1)
 }
 
 export function mockCreateSupplier(payload: Partial<SupplierCardData>): SupplierCardData {

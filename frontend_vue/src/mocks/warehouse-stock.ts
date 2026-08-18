@@ -1,6 +1,7 @@
 ﻿import type { StockOverviewItem } from '@/types/warehouse'
+import { sealAuditIds, type AuditSeeded } from './auditIds'
 
-export const mockStockOverview: StockOverviewItem[] = [
+const mockStockOverview_SEED: AuditSeeded<StockOverviewItem>[] = [
   // ── cat-2: Листовые материалы / Sheet materials / Lakštinės medžiagos ──────
   {
     productId: 'prod-001',
@@ -1388,3 +1389,6 @@ export const mockStockOverview: StockOverviewItem[] = [
     auditLog: [],
   },
 ]
+
+/** Every seeded entry gets the id its log addresses it by — see `sealAuditIds`. */
+export const mockStockOverview: StockOverviewItem[] = sealAuditIds(mockStockOverview_SEED, 'stk')

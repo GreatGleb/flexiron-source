@@ -1,8 +1,9 @@
 import type { Client, ClientFormData } from '@/types/client'
 import type { StockAuditEntry } from '@/types/warehouse'
 import { shiftDemoDay } from './demoClock'
+import { sealAuditIds, type AuditSeeded } from '@/mocks/auditIds'
 
-const SEEDED_CLIENTS: Client[] = [
+const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
   // ── Existing clients (1-9) ──
   {
     id: 'CL-001',
@@ -912,10 +913,13 @@ const SEEDED_END = new Date(
     'T00:00:00',
 )
 
-const STORE: Client[] = SEEDED_CLIENTS.map((client) => ({
-  ...client,
-  createdAt: shiftDemoDay(client.createdAt, SEEDED_END),
-}))
+const STORE: Client[] = sealAuditIds(
+  SEEDED_CLIENTS.map((client) => ({
+    ...client,
+    createdAt: shiftDemoDay(client.createdAt, SEEDED_END),
+  })),
+  'cl',
+)
 
 let nextSeq = STORE.length + 1
 
@@ -997,13 +1001,12 @@ export function mockDeleteClient(id: string): void {
   STORE.splice(idx, 1)
 }
 
-export function mockDeleteClientAuditEntry(clientId: string, entryIndex: number): void {
+export function mockDeleteClientAuditEntry(clientId: string, entryId: string): void {
   const client = STORE.find((c) => c.id === clientId)
   if (!client) throw new Error('CLIENT_NOT_FOUND')
-  if (!client.auditLog || entryIndex < 0 || entryIndex >= client.auditLog.length) {
-    throw new Error('AUDIT_ENTRY_NOT_FOUND')
-  }
-  client.auditLog.splice(entryIndex, 1)
+  const idx = client.auditLog?.findIndex((entry) => entry.id === entryId) ?? -1
+  if (idx === -1) throw new Error('AUDIT_ENTRY_NOT_FOUND')
+  client.auditLog!.splice(idx, 1)
 }
 
 export function mockAddClientInteraction(

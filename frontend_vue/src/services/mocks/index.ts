@@ -1333,49 +1333,49 @@ function ifMatchVersion(headers?: Record<string, string>): number | undefined {
 
 export async function deleteMock<T>(path: string, headers?: Record<string, string>): Promise<T> {
   const version = ifMatchVersion(headers)
-  const auditMatch = path.match(/^\/api\/suppliers\/([^/]+)\/audit\/(\d+)$/)
+  const auditMatch = path.match(/^\/api\/suppliers\/([^/]+)\/audit\/([^/]+)$/)
   if (auditMatch) {
-    mockDeleteAuditEntry(auditMatch[1] as string, Number(auditMatch[2]))
+    mockDeleteAuditEntry(auditMatch[1] as string, auditMatch[2] as string)
     return delay(undefined as T)
   }
 
-  const stockAuditMatch = path.match(/^\/api\/warehouse\/stock\/([^/]+)\/audit\/(\d+)$/)
+  const stockAuditMatch = path.match(/^\/api\/warehouse\/stock\/([^/]+)\/audit\/([^/]+)$/)
   if (stockAuditMatch) {
-    mockDeleteStockAuditEntry(stockAuditMatch[1] as string, Number(stockAuditMatch[2]))
+    mockDeleteStockAuditEntry(stockAuditMatch[1] as string, stockAuditMatch[2] as string)
     return delay(undefined as T)
   }
 
-  const batchAuditMatch = path.match(/^\/api\/warehouse\/batches\/([^/]+)\/audit\/(\d+)$/)
+  const batchAuditMatch = path.match(/^\/api\/warehouse\/batches\/([^/]+)\/audit\/([^/]+)$/)
   if (batchAuditMatch) {
-    mockDeleteBatchAuditEntry(batchAuditMatch[1] as string, Number(batchAuditMatch[2]))
+    mockDeleteBatchAuditEntry(batchAuditMatch[1] as string, batchAuditMatch[2] as string)
     return delay(undefined as T)
   }
 
-  const offcutAuditDeleteMatch = path.match(/^\/api\/warehouse\/offcuts\/([^/]+)\/audit\/(\d+)$/)
+  const offcutAuditDeleteMatch = path.match(/^\/api\/warehouse\/offcuts\/([^/]+)\/audit\/([^/]+)$/)
   if (offcutAuditDeleteMatch) {
     mockDeleteOffcutAuditEntry(
       offcutAuditDeleteMatch[1] as string,
-      Number(offcutAuditDeleteMatch[2]),
+      offcutAuditDeleteMatch[2] as string,
     )
     return delay(undefined as T)
   }
 
   const movementAuditDeleteMatch = path.match(
-    /^\/api\/warehouse\/movements\/([^/]+)\/audit\/(\d+)$/,
+    /^\/api\/warehouse\/movements\/([^/]+)\/audit\/([^/]+)$/,
   )
   if (movementAuditDeleteMatch) {
     mockDeleteMovementAuditEntry(
       movementAuditDeleteMatch[1] as string,
-      Number(movementAuditDeleteMatch[2]),
+      movementAuditDeleteMatch[2] as string,
     )
     return delay(undefined as T)
   }
 
-  const deficitAuditDeleteMatch = path.match(/^\/api\/warehouse\/deficit\/([^/]+)\/audit\/(\d+)$/)
+  const deficitAuditDeleteMatch = path.match(/^\/api\/warehouse\/deficit\/([^/]+)\/audit\/([^/]+)$/)
   if (deficitAuditDeleteMatch) {
     mockDeleteDeficitAuditEntry(
       deficitAuditDeleteMatch[1] as string,
-      Number(deficitAuditDeleteMatch[2]),
+      deficitAuditDeleteMatch[2] as string,
     )
     return delay(undefined as T)
   }
@@ -1399,11 +1399,11 @@ export async function deleteMock<T>(path: string, headers?: Record<string, strin
     return delay(undefined as T)
   }
 
-  const productAuditDeleteMatch = path.match(/^\/api\/products\/([^/]+)\/audit\/(\d+)$/)
+  const productAuditDeleteMatch = path.match(/^\/api\/products\/([^/]+)\/audit\/([^/]+)$/)
   if (productAuditDeleteMatch) {
     mockDeleteProductAuditEntry(
       productAuditDeleteMatch[1] as string,
-      Number(productAuditDeleteMatch[2]),
+      productAuditDeleteMatch[2] as string,
     )
     return delay(undefined as T)
   }
@@ -1428,11 +1428,11 @@ export async function deleteMock<T>(path: string, headers?: Record<string, strin
     return delay(undefined as T)
   }
 
-  const clientAuditDeleteMatch = path.match(/^\/api\/clients\/([^/]+)\/audit\/(\d+)$/)
+  const clientAuditDeleteMatch = path.match(/^\/api\/clients\/([^/]+)\/audit\/([^/]+)$/)
   if (clientAuditDeleteMatch) {
     mockDeleteClientAuditEntry(
       clientAuditDeleteMatch[1] as string,
-      Number(clientAuditDeleteMatch[2]),
+      clientAuditDeleteMatch[2] as string,
     )
     return delay(undefined as T)
   }

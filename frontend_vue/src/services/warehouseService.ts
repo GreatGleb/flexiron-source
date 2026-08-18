@@ -317,8 +317,8 @@ export async function getStockAudit(productId: string): Promise<StockAuditEntry[
   return apiGet<StockAuditEntry[]>(`/api/warehouse/stock/${productId}/audit`)
 }
 
-export async function deleteStockAuditEntry(productId: string, entryIndex: number): Promise<void> {
-  return apiDelete<void>(`/api/warehouse/stock/${productId}/audit/${entryIndex}`)
+export async function deleteStockAuditEntry(productId: string, entryId: string): Promise<void> {
+  return apiDelete<void>(`/api/warehouse/stock/${productId}/audit/${entryId}`)
 }
 
 // ─── Batch Audit ────────────────────────────────────────────────────────────
@@ -327,8 +327,8 @@ export async function getBatchAudit(batchId: string): Promise<StockAuditEntry[]>
   return apiGet<StockAuditEntry[]>(`/api/warehouse/batches/${batchId}/audit`)
 }
 
-export async function deleteBatchAuditEntry(batchId: string, entryIndex: number): Promise<void> {
-  return apiDelete<void>(`/api/warehouse/batches/${batchId}/audit/${entryIndex}`)
+export async function deleteBatchAuditEntry(batchId: string, entryId: string): Promise<void> {
+  return apiDelete<void>(`/api/warehouse/batches/${batchId}/audit/${entryId}`)
 }
 
 // ─── Offcut Audit ───────────────────────────────────────────────────────────
@@ -337,8 +337,8 @@ export async function getOffcutAudit(offcutId: string): Promise<StockAuditEntry[
   return apiGet<StockAuditEntry[]>(`/api/warehouse/offcuts/${offcutId}/audit`)
 }
 
-export async function deleteOffcutAuditEntry(offcutId: string, entryIndex: number): Promise<void> {
-  return apiDelete<void>(`/api/warehouse/offcuts/${offcutId}/audit/${entryIndex}`)
+export async function deleteOffcutAuditEntry(offcutId: string, entryId: string): Promise<void> {
+  return apiDelete<void>(`/api/warehouse/offcuts/${offcutId}/audit/${entryId}`)
 }
 
 // ─── Movement Audit ─────────────────────────────────────────────────────────
@@ -347,11 +347,8 @@ export async function getMovementAudit(movementId: string): Promise<StockAuditEn
   return apiGet<StockAuditEntry[]>(`/api/warehouse/movements/${movementId}/audit`)
 }
 
-export async function deleteMovementAuditEntry(
-  movementId: string,
-  entryIndex: number,
-): Promise<void> {
-  return apiDelete<void>(`/api/warehouse/movements/${movementId}/audit/${entryIndex}`)
+export async function deleteMovementAuditEntry(movementId: string, entryId: string): Promise<void> {
+  return apiDelete<void>(`/api/warehouse/movements/${movementId}/audit/${entryId}`)
 }
 
 // ─── Deficit Audit ──────────────────────────────────────────────────────────
@@ -360,9 +357,6 @@ export async function getDeficitAudit(deficitId: string): Promise<StockAuditEntr
   return apiGet<StockAuditEntry[]>(`/api/warehouse/deficit/${deficitId}/audit`)
 }
 
-export async function deleteDeficitAuditEntry(
-  deficitId: string,
-  entryIndex: number,
-): Promise<void> {
-  return apiDelete<void>(`/api/warehouse/deficit/${deficitId}/audit/${entryIndex}`)
+export async function deleteDeficitAuditEntry(deficitId: string, entryId: string): Promise<void> {
+  return apiDelete<void>(`/api/warehouse/deficit/${deficitId}/audit/${entryId}`)
 }

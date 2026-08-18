@@ -55,24 +55,24 @@ const {
 
 // ─── Audit log entry deletion (with confirm modal) ───
 const deleteAuditOpen = ref(false)
-const auditToDeleteIdx = ref<number | null>(null)
+const auditToDeleteId = ref<string | null>(null)
 
-function askDeleteAudit(index: number) {
-  auditToDeleteIdx.value = index
+function askDeleteAudit(entryId: string) {
+  auditToDeleteId.value = entryId
   deleteAuditOpen.value = true
 }
 
 async function confirmDeleteAudit() {
-  if (auditToDeleteIdx.value === null || !product.value) return
-  const idx = auditToDeleteIdx.value
+  if (auditToDeleteId.value === null || !product.value) return
+  const entryId = auditToDeleteId.value
   try {
-    await deleteProductAuditEntry(id, idx)
-    product.value.auditLog.splice(idx, 1)
+    await deleteProductAuditEntry(id, entryId)
+    product.value.auditLog = product.value.auditLog.filter((entry) => entry.id !== entryId)
     toast.show(t('msg.audit_deleted'))
   } catch {
     toast.show(t('msg.status_error'), 'error')
   } finally {
-    auditToDeleteIdx.value = null
+    auditToDeleteId.value = null
     deleteAuditOpen.value = false
   }
 }
@@ -672,8 +672,8 @@ onMounted(() => {
               </thead>
               <tbody>
                 <tr
-                  v-for="(a, i) in product?.auditLog ?? []"
-                  :key="i"
+                  v-for="a in product?.auditLog ?? []"
+                  :key="a.id"
                   data-test="product-card-audit-row"
                 >
                   <td class="audit-log-ts">{{ a.timestamp }}</td>
@@ -695,7 +695,7 @@ onMounted(() => {
                       type="button"
                       class="action-icon-btn action-danger"
                       data-test="product-card-audit-delete-btn"
-                      @click="askDeleteAudit(i)"
+                      @click="askDeleteAudit(a.id)"
                     >
                       <svg
                         width="14"

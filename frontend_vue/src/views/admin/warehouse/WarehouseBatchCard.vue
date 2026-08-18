@@ -125,20 +125,20 @@ const pageTitle = computed(() =>
 
 // ─── Audit log entry deletion (with confirm modal) ───
 const deleteAuditOpen = ref(false)
-const auditToDeleteIdx = ref<number | null>(null)
+const auditToDeleteId = ref<string | null>(null)
 const deletingAudit = ref(false)
 
-function askDeleteAudit(index: number) {
-  auditToDeleteIdx.value = index
+function askDeleteAudit(entryId: string) {
+  auditToDeleteId.value = entryId
   deleteAuditOpen.value = true
 }
 
 async function confirmDeleteAudit() {
-  if (auditToDeleteIdx.value === null || deletingAudit.value) return
+  if (auditToDeleteId.value === null || deletingAudit.value) return
   deletingAudit.value = true
-  const idx = auditToDeleteIdx.value
-  await deleteAuditEntry(idx)
-  auditToDeleteIdx.value = null
+  const entryId = auditToDeleteId.value
+  await deleteAuditEntry(entryId)
+  auditToDeleteId.value = null
   deleteAuditOpen.value = false
   deletingAudit.value = false
 }
@@ -1444,7 +1444,7 @@ async function onMovementCreated() {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="(a, i) in auditLog" :key="i" data-test="batch-card-audit-row">
+                  <tr v-for="a in auditLog" :key="a.id" data-test="batch-card-audit-row">
                     <td class="audit-log-ts">{{ a.timestamp }}</td>
                     <td>
                       <div class="audit-log-user">
@@ -1465,7 +1465,7 @@ async function onMovementCreated() {
                         type="button"
                         class="action-icon-btn action-danger"
                         data-test="batch-card-audit-delete-btn"
-                        @click="askDeleteAudit(i)"
+                        @click="askDeleteAudit(a.id)"
                       >
                         <svg
                           width="14"

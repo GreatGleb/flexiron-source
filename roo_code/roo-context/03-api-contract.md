@@ -95,6 +95,32 @@ interface PaginationParams { page: number; pageSize: number }
 - Деньги — `number` (minor units не используем, точность до 2 знаков).
 - Временные штампы в заметках (notes) — локальный формат `dd.mm.yyyy hh:mm` в начале блока.
 
+### Записи аудита адресуются по id, а не по позиции
+
+Аудит есть у **девяти** сущностей: товар, заказ, клиент, поставщик, партия, остаток, обрезок,
+движение, дефицит. У всех девяти запись имеет собственный `id`, и удаление адресуется им:
+
+```
+DELETE /api/<entity>/:id/audit/:entryId
+```
+
+`entryId` уникален **внутри своего лога** (как id строки заказа) — запись достаётся через путь
+своей сущности, глобальной уникальности не требуется. В моках он читаемый: префикс сущности +
+порядковый номер (`bch-au-2` — вторая запись лога партии), у заказов — `au-2`. На бэкенде это
+DB-идентификатор.
+
+**Почему не индекс.** Позиция всегда что-то называет, поэтому устаревшая позиция удаляет не ту
+запись — и молча. Для этого не нужны два пользователя: удалили одну запись, и все последующие
+позиции в этом логе сдвинулись под строками, которые уже нарисованы на экране. В сводной ленте
+логов (Настройки → Логи) это обычный сценарий: записи одной сущности стоят вперемешку с чужими,
+и вторая правка попадает мимо. Проверено тестом
+`src/services/mocks/audit-entry-identity.spec.ts`: на логе из четырёх записей позиционная
+адресация оставляет `[2, 3]` там, где должно остаться `[2, 4]`.
+
+**Неизвестный `entryId` — ошибка**, а не тихий no-op и не «удалить последнюю»: сервер отвечает
+404 `AUDIT_ENTRY_NOT_FOUND`. Молчание неотличимо от успеха, и клиент сотрёт у себя строку,
+которая на сервере осталась.
+
 ### Авторизация и заголовки
 
 - Бэкенд выдаёт **HttpOnly Secure cookie** `session` (после `POST /api/auth/login`). Fetch должен ходить с `credentials: 'include'`.
@@ -729,7 +755,7 @@ P&L. KPI: gross/net profit, margin; chart: по месяцам.
   - `GET /api/warehouse/batches/:id/aggregates` — агрегированные статусы
   - `GET /api/warehouse/batches/:id/active-sales` — активные продажи для возврата
   - `GET /api/warehouse/batches/:id/audit` — аудит партии
-  - `DELETE /api/warehouse/batches/:id/audit/:entryIndex` — удаление записи аудита
+  - `DELETE /api/warehouse/batches/:id/audit/:entryId` — удаление записи аудита
   - `GET /api/warehouse/movements` — список движений (с фильтром batchNumber)
   - `POST /api/warehouse/movements` — создание движения
   - `GET /api/warehouse/offcuts` — список обрезков (с фильтром batchNumber)
@@ -1360,11 +1386,13 @@ Page: `WarehouseBatchCard.vue`. Composable: `useWarehouseBatch` + `useDirtyCheck
 - **Response 200:** `ApiResponse<void>`.
 - **Notes:** 409 `BATCH_LINKED_TO_ORDER` если `orderId !== null`. Каскадное удаление: сервер удаляет все движения и обрезки, привязанные к партии. Клиент показывает предупреждение о количестве удаляемых связанных записей до подтверждения.
 
-### DELETE /api/warehouse/batches/:id/audit/:entryIndex
+### DELETE /api/warehouse/batches/:id/audit/:entryId
 
 - **Когда:** клик на иконку удаления в строке аудита → confirmation modal → confirm. **Quick action.**
 - **Response 200:** `ApiResponse<void>`.
-- **Notes:** 404 `NOT_FOUND` если запись не существует. `entryIndex` — порядковый номер записи в массиве аудита.
+- **Notes:** 404 `AUDIT_ENTRY_NOT_FOUND`, если записи с таким id в логе нет. Неизвестный id — ошибка,
+  а не тихий no-op: молчание неотличимо от успеха, и клиент сотрёт строку у себя.
+  Адресация — по `entryId` из `auditLog[].id`, **не по позиции** (см. правило ниже).
 
 ---
 
@@ -1592,7 +1620,7 @@ transfer с названным адресом переносит его цели
   ```
 - **Notes:** `timestamp` — локальный формат `dd.mm.yyyy hh:mm`. Значения `oldValue`/`newValue` могут содержать enum-коды (с префиксами `batch_status_`, `movement_type_`, `offcut_status_`), которые клиент переводит через `translateAuditValue()`.
 
-### DELETE /api/warehouse/batches/:id/audit/:entryIndex
+### DELETE /api/warehouse/batches/:id/audit/:entryId
 
 (Документирован выше, в разделе "Карточка партии")
 

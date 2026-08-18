@@ -18,10 +18,10 @@ export function useWarehouseMovementCard(id: string) {
   const auditLog = ref<StockAuditEntry[]>([])
   const auditLoading = ref(false)
 
-  async function deleteAuditEntry(entryIndex: number) {
+  async function deleteAuditEntry(entryId: string) {
     try {
-      await deleteMovementAuditEntry(id, entryIndex)
-      auditLog.value = auditLog.value.filter((_, i) => i !== entryIndex)
+      await deleteMovementAuditEntry(id, entryId)
+      auditLog.value = auditLog.value.filter((entry) => entry.id !== entryId)
       toast.success(t('warehouse.toast_audit_entry_deleted'))
     } catch {
       toast.error(t('warehouse.toast_error_save'))

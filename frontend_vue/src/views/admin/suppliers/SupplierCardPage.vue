@@ -58,25 +58,25 @@ function removeFile(fileId: string) {
 
 // ─── Audit log entry deletion (with confirm modal) ───
 const deleteAuditOpen = ref(false)
-const auditToDeleteIdx = ref<number | null>(null)
+const auditToDeleteId = ref<string | null>(null)
 
-function askDeleteAudit(index: number) {
-  auditToDeleteIdx.value = index
+function askDeleteAudit(entryId: string) {
+  auditToDeleteId.value = entryId
   deleteAuditOpen.value = true
 }
 
 async function confirmDeleteAudit() {
-  if (auditToDeleteIdx.value === null || !supplier.value) return
-  const idx = auditToDeleteIdx.value
+  if (auditToDeleteId.value === null || !supplier.value) return
+  const entryId = auditToDeleteId.value
   try {
     // Quick-action: server-side delete applies immediately (no batched Save)
-    await deleteAuditEntry(id.value, idx)
-    supplier.value.auditLog.splice(idx, 1)
+    await deleteAuditEntry(id.value, entryId)
+    supplier.value.auditLog = supplier.value.auditLog.filter((entry) => entry.id !== entryId)
     toast.show(t('msg.audit_deleted'))
   } catch {
     toast.show(t('msg.status_error'), 'error')
   } finally {
-    auditToDeleteIdx.value = null
+    auditToDeleteId.value = null
     deleteAuditOpen.value = false
   }
 }
@@ -98,10 +98,7 @@ onMounted(load)
     <h1 class="page-title" data-test="supplier-card-title">{{ t('supplier.header_title') }}</h1>
 
     <div class="flex-end" style="margin-bottom: 32px">
-      <div
-        data-test="supplier-card-action-bar"
-        class="entity-action-bar no-margin pos-static"
-      >
+      <div data-test="supplier-card-action-bar" class="entity-action-bar no-margin pos-static">
         <router-link
           :to="{ name: 'admin-bcc-request', query: { supplier: id } }"
           class="btn btn-primary"
@@ -290,7 +287,7 @@ onMounted(load)
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(a, i) in supplier.auditLog" :key="i" data-test="supplier-card-audit-row">
+              <tr v-for="a in supplier.auditLog" :key="a.id" data-test="supplier-card-audit-row">
                 <td class="audit-log-ts">{{ a.timestamp }}</td>
                 <td>
                   <div class="audit-log-user">
@@ -310,7 +307,7 @@ onMounted(load)
                     type="button"
                     class="action-icon-btn action-danger"
                     data-test="supplier-card-audit-delete-btn"
-                    @click="askDeleteAudit(i)"
+                    @click="askDeleteAudit(a.id)"
                   >
                     <svg
                       width="14"

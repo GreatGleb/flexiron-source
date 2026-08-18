@@ -12,6 +12,7 @@ import { mockGetCategory } from './categories'
 // One rounding rule for the whole system — the averages round where they are
 // named, like every other figure that reaches a screen (contract §7).
 import { round2 } from '@/domain/orderPricing'
+import { sealAuditIds, type AuditSeeded } from '@/mocks/auditIds'
 // fieldIds from categories.ts STORE:
 // cat-2 Sheets: f-2-1 (number), f-2-2 (enum), f-2-3 Width(number), f-2-4 Length(number), f-2-5 Weight per m²(number) + inherited: f-1-1 (text), f-1-2 (text), f-1-3 Density(number)
 // cat-4 Pipes:  f-4-1 (number), f-4-2 (number), f-4-3 Length(number), f-4-4 Pipe type(enum), f-4-5 Bend radius(number), f-4-6 Width(mm), f-4-7 Weight per meter(number) + inherited: f-1-1 (text), f-1-2 (text), f-1-3 Density(number)
@@ -22,7 +23,7 @@ import { round2 } from '@/domain/orderPricing'
 // They are derived — see the two lookups at the end of the file — and the numbers
 // that used to sit here were overwritten at load anyway, so they told whoever read
 // this file for a schema something that was never true at runtime.
-export const STORE: Product[] = [
+const PRODUCT_SEED: AuditSeeded<Product>[] = [
   {
     id: 'prod-001',
     name: { ru: 'Стальной лист 3мм', en: 'Steel Sheet 3mm', lt: 'Plieno lakštas 3mm' },
@@ -13953,6 +13954,9 @@ export const STORE: Product[] = [
   },
 ]
 
+/** Every seeded entry gets the id its log addresses it by — see `sealAuditIds`. */
+export const STORE: Product[] = sealAuditIds(PRODUCT_SEED, 'prod')
+
 // ─── The two averages on the product card: computed, not stored ─────────────
 //
 // Both used to be written once, at module load, and never again (contract §7.2).
@@ -14252,6 +14256,7 @@ export async function mockCreateProduct(
     })),
     auditLog: [
       {
+        id: 'prod-au-1',
         timestamp: '2026-02-27 08:24',
         user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
         userInitials: 'MV',
@@ -14377,11 +14382,10 @@ export async function mockDeleteProduct(id: string): Promise<{ ok: boolean; code
   return { ok: true }
 }
 
-export function mockDeleteProductAuditEntry(productId: string, entryIndex: number): void {
+export function mockDeleteProductAuditEntry(productId: string, entryId: string): void {
   const product = STORE.find((p) => p.id === productId)
   if (!product) throw new Error('PRODUCT_NOT_FOUND')
-  if (!product.auditLog || entryIndex < 0 || entryIndex >= product.auditLog.length) {
-    throw new Error('AUDIT_ENTRY_NOT_FOUND')
-  }
-  product.auditLog.splice(entryIndex, 1)
+  const idx = product.auditLog?.findIndex((entry) => entry.id === entryId) ?? -1
+  if (idx === -1) throw new Error('AUDIT_ENTRY_NOT_FOUND')
+  product.auditLog.splice(idx, 1)
 }

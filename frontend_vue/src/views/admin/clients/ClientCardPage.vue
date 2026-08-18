@@ -70,7 +70,6 @@ const statusStr = computed({
   },
 })
 
-
 function orderStatusLabel(status: string): string {
   const key = `orders.status_${status}`
   const translated = t(key)
@@ -111,21 +110,21 @@ function formatPrice(value: number): string {
 
 // ─── Audit log entry deletion (with confirm modal) ───
 const deleteAuditOpen = ref(false)
-const auditToDeleteIdx = ref<number | null>(null)
+const auditToDeleteId = ref<string | null>(null)
 const deletingAudit = ref(false)
 
-function askDeleteAudit(index: number) {
-  auditToDeleteIdx.value = index
+function askDeleteAudit(entryId: string) {
+  auditToDeleteId.value = entryId
   deleteAuditOpen.value = true
 }
 
 async function confirmDeleteAudit() {
-  const idx = auditToDeleteIdx.value
-  if (idx === null || deletingAudit.value) return
+  const entryId = auditToDeleteId.value
+  if (entryId === null || deletingAudit.value) return
   deletingAudit.value = true
   try {
-    await deleteAuditEntry(idx)
-    auditToDeleteIdx.value = null
+    await deleteAuditEntry(entryId)
+    auditToDeleteId.value = null
     deleteAuditOpen.value = false
   } finally {
     deletingAudit.value = false
@@ -575,7 +574,7 @@ onMounted(() => {
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-for="(a, i) in auditLog" :key="i" data-test="client-card-audit-row">
+                    <tr v-for="a in auditLog" :key="a.id" data-test="client-card-audit-row">
                       <td class="audit-log-ts">{{ a.timestamp }}</td>
                       <td>
                         <div class="audit-log-user">
@@ -596,7 +595,7 @@ onMounted(() => {
                           type="button"
                           class="action-icon-btn action-danger"
                           data-test="client-card-audit-delete-btn"
-                          @click="askDeleteAudit(i)"
+                          @click="askDeleteAudit(a.id)"
                         >
                           <svg
                             width="14"

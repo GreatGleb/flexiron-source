@@ -1,6 +1,7 @@
 ﻿import type { WarehouseDeficit } from '@/types/warehouse'
+import { sealAuditIds, type AuditSeeded } from './auditIds'
 
-export const mockDeficit: WarehouseDeficit[] = [
+const mockDeficit_SEED: AuditSeeded<WarehouseDeficit>[] = [
   {
     id: 'whd-001',
     productId: 'prod-007',
@@ -415,3 +416,6 @@ export const mockDeficit: WarehouseDeficit[] = [
     auditLog: [],
   },
 ]
+
+/** Every seeded entry gets the id its log addresses it by — see `sealAuditIds`. */
+export const mockDeficit: WarehouseDeficit[] = sealAuditIds(mockDeficit_SEED, 'def')

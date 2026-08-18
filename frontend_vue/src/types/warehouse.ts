@@ -438,7 +438,24 @@ export interface DeficitPatchPayload {
 
 // ─── Stock Audit Entry ──────────────────────────────────────────────────────
 
+/**
+ * One recorded change, addressed by `id` and never by its place in the list.
+ *
+ * A position always names something, so a stale one deletes whatever slid into
+ * it — silently. That happens without any concurrency at all: delete one entry
+ * and every later position in the same log shifts under the rows still on
+ * screen. The order card met this first and answered it the same way
+ * (`OrderAuditEntry`, `types/order.ts`); the other eight entities follow it here,
+ * so the whole system addresses a record the same way, and the audit feed can
+ * name a row as entity type + entity id + entry id.
+ *
+ * The id is unique inside its own log, like an order line id and for the same
+ * reason: the record is reached through its entity's path,
+ * `DELETE /api/<entity>/:id/audit/:entryId`. The prefix says which kind of
+ * entity the log belongs to, so a row in the merged feed can be read on sight.
+ */
 export interface StockAuditEntry {
+  id: string
   timestamp: string
   user: TranslatedString
   userInitials: string
@@ -446,6 +463,16 @@ export interface StockAuditEntry {
   oldValue: string
   newValue: string
 }
+
+/**
+ * An entry as written in a mock seed file — everything but the id.
+ *
+ * The seeds carry no ids: 294 of them exist across eight files, and typing them
+ * out by hand would be 294 chances to repeat one. `sealAuditIds` assigns them
+ * when the store is built, which is also what a real backend does with a
+ * generated column.
+ */
+export type StockAuditSeed = Omit<StockAuditEntry, 'id'>
 
 // ─── Batch Status Aggregate (Агрегированные данные по статусам партии) ──────
 

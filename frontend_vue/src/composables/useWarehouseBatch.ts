@@ -449,10 +449,10 @@ export function useWarehouseBatch(id: string) {
     }
   }
 
-  async function deleteAuditEntry(entryIndex: number) {
+  async function deleteAuditEntry(entryId: string) {
     try {
-      await deleteBatchAuditEntry(id, entryIndex)
-      auditLog.value.splice(entryIndex, 1)
+      await deleteBatchAuditEntry(id, entryId)
+      auditLog.value = auditLog.value.filter((entry) => entry.id !== entryId)
       toast.success(t('msg.audit_deleted'))
     } catch {
       toast.error(t('warehouse.toast_error'))

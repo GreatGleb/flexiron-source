@@ -64,7 +64,7 @@ const {
 } = useWarehouseOffcutCard(id)
 
 const showAuditDeleteModal = ref(false)
-const auditDeleteIndex = ref<number | null>(null)
+const auditDeleteId = ref<string | null>(null)
 const deletingAudit = ref(false)
 
 const pageTitle = computed(() =>
@@ -87,17 +87,17 @@ const OFFCUT_STATUS_PILL: Record<string, string> = {
   in_storage: 'pill-info',
 }
 
-function onAuditDeleteClick(index: number) {
-  auditDeleteIndex.value = index
+function onAuditDeleteClick(entryId: string) {
+  auditDeleteId.value = entryId
   showAuditDeleteModal.value = true
 }
 
 async function onAuditDeleteConfirm() {
-  if (auditDeleteIndex.value === null || deletingAudit.value) return
+  if (auditDeleteId.value === null || deletingAudit.value) return
   deletingAudit.value = true
-  await deleteAuditEntry(auditDeleteIndex.value)
+  await deleteAuditEntry(auditDeleteId.value)
   showAuditDeleteModal.value = false
-  auditDeleteIndex.value = null
+  auditDeleteId.value = null
   deletingAudit.value = false
 }
 
@@ -846,11 +846,7 @@ onMounted(load)
                   </tr>
                 </thead>
                 <tbody>
-                  <tr
-                    v-for="(entry, index) in auditLog"
-                    :key="index"
-                    data-test="offcut-card-audit-row"
-                  >
+                  <tr v-for="entry in auditLog" :key="entry.id" data-test="offcut-card-audit-row">
                     <td class="audit-log-ts">{{ entry.timestamp }}</td>
                     <td>
                       <div class="audit-log-user">
@@ -871,7 +867,7 @@ onMounted(load)
                         type="button"
                         class="action-icon-btn action-danger"
                         data-test="offcut-card-audit-delete-btn"
-                        @click="onAuditDeleteClick(index)"
+                        @click="onAuditDeleteClick(entry.id)"
                       >
                         <svg
                           width="14"

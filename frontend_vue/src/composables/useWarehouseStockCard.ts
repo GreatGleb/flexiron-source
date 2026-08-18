@@ -177,10 +177,10 @@ export function useWarehouseStockCard(productId: string) {
     dirty.capture()
   }
 
-  async function deleteAuditEntry(entryIndex: number) {
+  async function deleteAuditEntry(entryId: string) {
     try {
-      await deleteStockAuditEntry(productId, entryIndex)
-      auditLog.value.splice(entryIndex, 1)
+      await deleteStockAuditEntry(productId, entryId)
+      auditLog.value = auditLog.value.filter((entry) => entry.id !== entryId)
       toast.success(t('msg.audit_deleted'))
     } catch {
       toast.error(t('warehouse.toast_error'))

@@ -1,6 +1,7 @@
 ﻿import type { WarehouseOffcut } from '@/types/warehouse'
+import { sealAuditIds, type AuditSeeded } from './auditIds'
 
-export const mockOffcuts: WarehouseOffcut[] = [
+const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
   // ── 1. Sheet (cat-2) ──────────────────────────────────────────────────────
   {
     id: 'who-001',
@@ -396,3 +397,6 @@ export const mockOffcuts: WarehouseOffcut[] = [
     auditLog: [],
   },
 ]
+
+/** Every seeded entry gets the id its log addresses it by — see `sealAuditIds`. */
+export const mockOffcuts: WarehouseOffcut[] = sealAuditIds(mockOffcuts_SEED, 'ofc')
