@@ -46,7 +46,8 @@ function addDaysToDatePart(datePart: string, days: number): string {
 }
 
 /**
- * Moves one log series so its newest entry lands today, and returns the shift.
+ * Moves one log series so its newest entry lands TODAY, keeping its time of day,
+ * and returns the shift in days.
  *
  * Only the first ten characters are rewritten — the date — and everything after
  * them is left byte-identical: ` 13:17`, `T08:00:00Z`, `T13:17:00.000Z`. Passing the
@@ -63,13 +64,29 @@ export function shiftAuditSeries(logs: (StockAuditEntry[] | undefined | null)[])
   if (entries.length === 0) return 0
 
   let newest = 0
+  let newestStamp = ''
   for (const entry of entries) {
     const value = auditTimestampValue(entry.timestamp)
-    if (value > newest) newest = value
+    if (value > newest) {
+      newest = value
+      newestStamp = entry.timestamp
+    }
   }
-  if (newest === 0) return 0
+  if (newestStamp === '') return 0
 
-  const shift = demoShiftDays(new Date(newest))
+  // From the DATE PART of the series end, not from the instant.
+  //
+  // `demoShiftDays` measures against local midnight, so handing it a stamp that
+  // carries a time of day gives "N days minus part of a day", and `Math.round`
+  // shaves a whole day off whenever that time is past midday. The landing day then
+  // depended on the time of day the log happened to end at: 08:24 landed on today,
+  // 13:17 landed on yesterday. Silently, and differently per log — batch ended at
+  // 10:00Z and arrived a day early while products ended at 08:24 and arrived right.
+  //
+  // Both endpoints at midnight: the difference is whole days, `Math.round` has
+  // nothing to take, and the newest entry lands on today keeping its own time. This
+  // is also the same unit of work the rewrite below uses — the date part as written.
+  const shift = demoShiftDays(new Date(`${newestStamp.slice(0, 10)}T00:00:00`))
   if (shift === 0) return 0
 
   for (const entry of entries) {

@@ -1444,7 +1444,7 @@ async function onMovementCreated() {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="a in auditLog" :key="a.id" data-test="batch-card-audit-row">
+                  <tr v-for="a in auditLog" :key="a.id" :data-entry-id="a.id" data-test="batch-card-audit-row">
                     <td class="audit-log-ts">{{ a.timestamp }}</td>
                     <td>
                       <div class="audit-log-user">

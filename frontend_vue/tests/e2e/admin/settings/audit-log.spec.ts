@@ -174,59 +174,65 @@ test.describe('Audit log page', () => {
     await expect(page.locator(`[data-row-key="${second}"]`)).toHaveCount(1)
   })
 
+  /**
+   * Both directions of "one source of data" are walked INSIDE the SPA — link clicks
+   * and history moves, never `goto`.
+   *
+   * A full page load rebuilds the mock stores from their seeds, so a deletion made
+   * before it simply comes back, and the assertion that follows proves nothing. These
+   * two tests did exactly that and passed anyway, because `toHaveCount(0)` is equally
+   * true when the row exists but sits on page three: the batch entries they used were
+   * old enough to be far down the feed. Once those logs moved onto the demo clock the
+   * rows landed on page one and the emptiness showed.
+   */
   test('deleted in the feed, gone from the object card', async ({ page }) => {
-    // The point of the page: one source of data. A record removed here is removed
-    // from the entity, because it is deleted through the entity's own endpoint.
-    await expect(rows(page).first()).toBeVisible()
-
     await selectEntity(page, 'Batch')
-    const batchRow = rows(page).first()
-    await expect(batchRow).toBeVisible()
+    const feedRow = rows(page).first()
+    await expect(feedRow).toBeVisible()
+    const key = await keyOf(feedRow)
+    const [, , entryId] = key.split(':')
 
-    const key = await keyOf(batchRow)
-    const [, entityId, entryId] = key.split(':')
-    const property = (await batchRow.locator('td').nth(3).textContent())!.trim()
-    const href = (await batchRow.getByTestId('audit-log-entity-link').getAttribute('href'))!
+    // Visit the card first, so the way back to it is a history move rather than a load.
+    await feedRow.getByTestId('audit-log-entity-link').click()
+    const cardRow = page.locator(`[data-entry-id="${entryId}"]`)
+    await expect(cardRow).toBeVisible()
 
-    await batchRow.getByTestId('audit-log-delete-btn').click()
+    await page.goBack()
+    await expect(page.locator(`[data-row-key="${key}"]`)).toBeVisible()
+    await page.locator(`[data-row-key="${key}"]`).getByTestId('audit-log-delete-btn').click()
     await page.getByTestId('audit-log-delete-confirm').click()
     await expect(page.locator(`[data-row-key="${key}"]`)).toHaveCount(0)
 
-    // Now open the batch card and look at its history.
-    await page.goto(href)
-    await page.waitForLoadState('networkidle')
-    const cardRows = page.getByTestId('batch-card-audit-row')
-    await expect(cardRows.first()).toBeVisible()
-    const count = await cardRows.count()
-    for (let i = 0; i < count; i++) {
-      const text = (await cardRows.nth(i).textContent())!
-      expect(text.includes(property) && text.includes(entryId!)).toBe(false)
-    }
-    expect(entityId).toBeTruthy()
+    await page.goForward()
+    await expect(page.getByTestId('batch-card-audit-row').first()).toBeVisible()
+    // The card reads the same log: the record deleted in the feed is not on it.
+    await expect(page.locator(`[data-entry-id="${entryId}"]`)).toHaveCount(0)
   })
 
   test('deleted on the object card, gone from the feed', async ({ page }) => {
-    // ...and the other way round.
     await selectEntity(page, 'Batch')
-    const batchRow = rows(page).first()
-    await expect(batchRow).toBeVisible()
-    const key = await keyOf(batchRow)
-    const href = (await batchRow.getByTestId('audit-log-entity-link').getAttribute('href'))!
+    const feedRow = rows(page).first()
+    await expect(feedRow).toBeVisible()
+    const key = await keyOf(feedRow)
+    const [, , entryId] = key.split(':')
 
-    await page.goto(href)
-    await page.waitForLoadState('networkidle')
+    await feedRow.getByTestId('audit-log-entity-link').click()
     const cardRows = page.getByTestId('batch-card-audit-row')
     await expect(cardRows.first()).toBeVisible()
     const before = await cardRows.count()
 
-    await cardRows.first().getByTestId('batch-card-audit-delete-btn').click()
+    // The row for THIS entry, not the first one on screen: the card lists the log in
+    // store order while the feed sorts it newest-first, so "first" names two different
+    // records.
+    const cardRow = page.locator(`[data-entry-id="${entryId}"]`)
+    await expect(cardRow).toBeVisible()
+    await cardRow.getByTestId('batch-card-audit-delete-btn').click()
     await expect(page.getByTestId('batch-card-audit-modal')).toBeVisible()
     await page.getByTestId('batch-card-audit-modal-confirm').click()
     await expect(cardRows).toHaveCount(before - 1)
 
-    await navigateToAdmin(page, '/admin/settings/logs')
+    await page.goBack()
     await expect(rows(page).first()).toBeVisible()
-    // The feed is rebuilt from the same log, so the deleted record is not in it.
     await expect(page.locator(`[data-row-key="${key}"]`)).toHaveCount(0)
   })
 })
