@@ -103,6 +103,10 @@ test.describe('Orders List', () => {
     await page.fill('[data-test="orders-filter-search"] input', 'ORD-2026-005')
     const row = page.locator('[data-test="orders-row"]').first()
     await expect(row).toBeVisible()
+    // The filter is applied by a request, and the old table is still on screen
+    // until it answers. Read the number before the money, or the sums compared
+    // below belong to two different orders.
+    await expect(row).toContainText('ORD-2026-005')
     const listTotal = (await row.locator('[data-test="orders-row-total"]').textContent())!
     await expect(row.locator('[data-test="orders-row-paid"]')).toHaveText('25.00%')
     await expect(row.locator('[data-test="orders-row-shipped"]')).toHaveText('0.00%')
