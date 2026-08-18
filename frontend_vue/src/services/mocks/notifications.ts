@@ -401,12 +401,16 @@ export function mockGetNotifications(
   filters: NotificationFilters,
   pagination: PaginationParams,
 ): PaginatedResponse<Notification> {
-  // Allow E2E tests to force an error by setting a localStorage flag
+  // Lets an E2E test force an error. The flag STAYS set until the test clears it:
+  // it used to remove itself on the first read, which made the failure land on
+  // whichever caller reached this mock first. `useNotifications` is a module-level
+  // singleton shared with the bell in the topbar, so "first caller" is not something
+  // a test can name — and a competing success afterwards would clear `error` again.
+  // A one-shot fault is a race by construction; a latched one is a state.
   if (
     typeof localStorage !== 'undefined' &&
     localStorage.getItem('test_mock_force_error') === 'true'
   ) {
-    localStorage.removeItem('test_mock_force_error')
     throw new Error('SIMULATED_MOCK_ERROR')
   }
   const filtered = applyFilters(notifications, filters)

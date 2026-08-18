@@ -12,7 +12,9 @@ test.beforeEach(async ({ context }) => {
 test.describe('Notifications Page', () => {
   test('loads without console errors', async ({ page }) => {
     const errors: string[] = []
-    page.on('console', (msg) => { if (msg.type() === 'error') errors.push(msg.text()) })
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') errors.push(msg.text())
+    })
 
     await page.goto('/admin/notifications')
     await expect(page.locator('[data-test="page-notifications"]')).toBeVisible()
@@ -43,7 +45,9 @@ test.describe('Notifications Page', () => {
   test('table renders with notification rows', async ({ page }) => {
     await page.goto('/admin/notifications')
     await expect(page.locator('[data-test="notifications-table"]')).toBeVisible()
-    await expect(page.locator('[data-test="notifications-row"]').first()).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('[data-test="notifications-row"]').first()).toBeVisible({
+      timeout: 5000,
+    })
   })
 
   test('pagination is visible when notifications exist', async ({ page }) => {
@@ -66,7 +70,11 @@ test.describe('Notifications Page', () => {
     await page.waitForTimeout(500)
     await page.evaluate(() => localStorage.setItem('test_mock_force_error', 'true'))
     await page.reload()
+    // The flag stays set, so the error state is a state and not a moment: whoever
+    // asks the mock gets the error, and no later success can clear it out from under
+    // the assertion.
     await expect(page.locator('[data-test="notifications-error"]')).toBeVisible({ timeout: 8000 })
+    await page.evaluate(() => localStorage.removeItem('test_mock_force_error'))
   })
 
   test('mark all as read clears unread badges', async ({ page }) => {
@@ -91,7 +99,9 @@ test.describe('Notifications Page', () => {
   test('type filter changes notification list', async ({ page }) => {
     await page.goto('/admin/notifications')
     // Wait for table to load
-    await expect(page.locator('[data-test="notifications-row"]').first()).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('[data-test="notifications-row"]').first()).toBeVisible({
+      timeout: 5000,
+    })
 
     // Open the type dropdown via CustomSelect trigger
     const filterGroup = page.locator('[data-test="notifications-filter-type"]')
@@ -128,7 +138,13 @@ test.describe('Notification Dropdown', () => {
     await page.goto('/admin/notifications')
     await page.locator('[data-test="topbar-notifications"]').click()
     // Footer with links
-    await expect(page.locator('[data-test="notif-dropdown"] a.router-link-active, [data-test="notif-dropdown"] .notif-footer-link').first()).toBeVisible()
+    await expect(
+      page
+        .locator(
+          '[data-test="notif-dropdown"] a.router-link-active, [data-test="notif-dropdown"] .notif-footer-link',
+        )
+        .first(),
+    ).toBeVisible()
   })
 
   test('mark all read in dropdown updates badge count', async ({ page }) => {
