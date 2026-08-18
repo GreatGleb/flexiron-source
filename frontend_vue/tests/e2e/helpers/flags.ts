@@ -29,6 +29,7 @@ export const ALL_FLAGS_ENABLED = {
   adminOrders: true,
   adminSalesCrm: true,
   adminSettings: true,
+  settingsAuditLog: true,
 
   // Section-level
   dashboardAlerts: true,

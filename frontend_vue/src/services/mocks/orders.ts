@@ -105,6 +105,7 @@ import {
 } from './warehouse'
 import { allServices, serviceById } from './services'
 import { countsAsSale, isActive, isOrderStatus } from '@/domain/orderStatus'
+import type { AuditSource } from '@/types/audit'
 
 interface StoreOrder extends Order {
   /**
@@ -4129,3 +4130,15 @@ function buildShowcaseReturn(): void {
 // walks into the temporal dead zone of the first one it touches.
 buildShowcaseOrder()
 buildShowcaseReturn()
+
+// ─── Audit source ───────────────────────────────────────────────────────────
+
+/** The order logs, for the merged audit feed — same store the card reads. */
+export function orderAuditSources(): AuditSource[] {
+  return STORE.filter((o) => o.auditLog.length).map((o) => ({
+    entityType: 'order' as const,
+    entityId: o.id,
+    entityLabel: o.orderNumber,
+    log: o.auditLog,
+  }))
+}

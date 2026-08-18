@@ -1,6 +1,7 @@
 import { mergeTranslatedString } from '@/types/i18n'
 import type { Supplier, SupplierCardData, SupplierFilters } from '@/types/supplier'
 import type { PaginatedResponse, PaginationParams } from '@/types/api'
+import type { AuditSource } from '@/types/audit'
 
 export const MOCK_SUPPLIERS: Supplier[] = [
   {
@@ -530,4 +531,26 @@ export function mockExportSuppliersCsv(filters: SupplierFilters): string {
     ].join(','),
   )
   return [header, ...rows].join('\n')
+}
+
+// ─── Audit source ───────────────────────────────────────────────────────────
+
+/**
+ * The supplier logs, for the merged audit feed.
+ *
+ * Goes through `mockGetSupplier`, which is where a supplier card is built and
+ * cached (`MOCK_CARD`): reading the seed list instead would show entries that
+ * deletion — which edits the card — could never remove.
+ */
+export function supplierAuditSources(): AuditSource[] {
+  return MOCK_SUPPLIERS.map((s) => {
+    mockGetSupplier(s.id)
+    const card = MOCK_CARD[s.id]!
+    return {
+      entityType: 'supplier' as const,
+      entityId: s.id,
+      entityLabel: s.company.en || s.company.ru || s.id,
+      log: card.auditLog,
+    }
+  }).filter((source) => source.log.length > 0)
 }

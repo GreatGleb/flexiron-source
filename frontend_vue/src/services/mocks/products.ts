@@ -13,6 +13,7 @@ import { mockGetCategory } from './categories'
 // named, like every other figure that reaches a screen (contract §7).
 import { round2 } from '@/domain/orderPricing'
 import { sealAuditIds, type AuditSeeded } from '@/mocks/auditIds'
+import type { AuditSource } from '@/types/audit'
 // fieldIds from categories.ts STORE:
 // cat-2 Sheets: f-2-1 (number), f-2-2 (enum), f-2-3 Width(number), f-2-4 Length(number), f-2-5 Weight per m²(number) + inherited: f-1-1 (text), f-1-2 (text), f-1-3 Density(number)
 // cat-4 Pipes:  f-4-1 (number), f-4-2 (number), f-4-3 Length(number), f-4-4 Pipe type(enum), f-4-5 Bend radius(number), f-4-6 Width(mm), f-4-7 Weight per meter(number) + inherited: f-1-1 (text), f-1-2 (text), f-1-3 Density(number)
@@ -14388,4 +14389,22 @@ export function mockDeleteProductAuditEntry(productId: string, entryId: string):
   const idx = product.auditLog?.findIndex((entry) => entry.id === entryId) ?? -1
   if (idx === -1) throw new Error('AUDIT_ENTRY_NOT_FOUND')
   product.auditLog.splice(idx, 1)
+}
+
+// ─── Audit source ───────────────────────────────────────────────────────────
+
+/**
+ * The product logs, for the merged audit feed (Настройки → Логи).
+ *
+ * The feed does not keep records of its own: it reads the same store the card
+ * reads and deletes through the same endpoint, so one deletion shows up in both
+ * places. A second copy would be a second truth.
+ */
+export function productAuditSources(): AuditSource[] {
+  return STORE.filter((p) => p.auditLog?.length).map((p) => ({
+    entityType: 'product' as const,
+    entityId: p.id,
+    entityLabel: p.sku || p.name.en || p.id,
+    log: p.auditLog,
+  }))
 }

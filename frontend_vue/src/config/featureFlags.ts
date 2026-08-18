@@ -23,6 +23,8 @@ const defaults: FeatureFlags = {
   adminOrders: true,
   adminSalesCrm: true,
   adminSettings: true,
+  // Настройки → Логи: сводная лента аудита по всем девяти сущностям
+  settingsAuditLog: true,
 
   // Section-level flags
   dashboardAlerts: true,

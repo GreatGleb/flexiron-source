@@ -2,6 +2,7 @@ import type { Client, ClientFormData } from '@/types/client'
 import type { StockAuditEntry } from '@/types/warehouse'
 import { shiftDemoDay } from './demoClock'
 import { sealAuditIds, type AuditSeeded } from '@/mocks/auditIds'
+import type { AuditSource } from '@/types/audit'
 
 const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
   // ── Existing clients (1-9) ──
@@ -1038,4 +1039,16 @@ export function mockDeleteClientInteraction(clientId: string, entryIndex: number
 export function mockGetClientAudit(clientId: string): StockAuditEntry[] {
   const client = STORE.find((c) => c.id === clientId)
   return structuredClone(client?.auditLog ?? [])
+}
+
+// ─── Audit source ───────────────────────────────────────────────────────────
+
+/** The client logs, for the merged audit feed — same store the card reads. */
+export function clientAuditSources(): AuditSource[] {
+  return STORE.filter((c) => c.auditLog?.length).map((c) => ({
+    entityType: 'client' as const,
+    entityId: c.id,
+    entityLabel: c.name || c.id,
+    log: c.auditLog!,
+  }))
 }

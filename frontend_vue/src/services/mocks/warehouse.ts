@@ -47,6 +47,7 @@ import {
 import { reservedOn } from './reservations'
 import { compareDocumentNumbers } from '@/services/documentNumbers'
 import { sealAuditIds, type AuditSeeded } from '@/mocks/auditIds'
+import type { AuditSource } from '@/types/audit'
 
 /**
  * The one currency the warehouse layer speaks (contract §7.1).
@@ -1570,4 +1571,75 @@ export async function mockDeleteDeficitAuditEntry(
   const idx = deficit.auditLog.findIndex((entry) => entry.id === entryId)
   if (idx === -1) throw new Error('AUDIT_ENTRY_NOT_FOUND')
   deficit.auditLog.splice(idx, 1)
+}
+
+// ─── Audit sources ──────────────────────────────────────────────────────────
+
+/**
+ * The five warehouse logs, for the merged audit feed.
+ *
+ * Movements go through `getOrCreateMovementAudit` rather than `movement.auditLog`
+ * on purpose: deletion edits that copy, and reading the seed instead would show
+ * entries the delete button could never remove — two views of one log that
+ * disagree, which is the whole thing the feed must not do.
+ */
+export function warehouseAuditSources(): AuditSource[] {
+  const sources: AuditSource[] = []
+
+  for (const item of stockStore) {
+    if (item.auditLog?.length) {
+      sources.push({
+        entityType: 'stock',
+        entityId: item.productId,
+        entityLabel: item.productName.en || item.productName.ru || item.productId,
+        log: item.auditLog,
+      })
+    }
+  }
+  for (const batch of batchStore) {
+    if (batch.auditLog?.length) {
+      sources.push({
+        entityType: 'batch',
+        entityId: batch.id,
+        entityLabel: batch.batchNumber,
+        log: batch.auditLog,
+      })
+    }
+  }
+  for (const offcut of offcutStore) {
+    if (offcut.auditLog?.length) {
+      sources.push({
+        entityType: 'offcut',
+        entityId: offcut.id,
+        entityLabel: offcut.batchNumber ? `${offcut.batchNumber} / ${offcut.id}` : offcut.id,
+        log: offcut.auditLog,
+      })
+    }
+  }
+  for (const movement of movementStore) {
+    if (!preExistingMovementIds.has(movement.id)) continue
+    const log = getOrCreateMovementAudit(movement.id)
+    if (log.length) {
+      sources.push({
+        entityType: 'movement',
+        entityId: movement.id,
+        entityLabel: movement.batchNumber
+          ? `${movement.batchNumber} / ${movement.id}`
+          : movement.id,
+        log,
+      })
+    }
+  }
+  for (const deficit of deficitStore) {
+    if (deficit.auditLog?.length) {
+      sources.push({
+        entityType: 'deficit',
+        entityId: deficit.id,
+        entityLabel: deficit.productName.en || deficit.productName.ru || deficit.id,
+        log: deficit.auditLog,
+      })
+    }
+  }
+
+  return sources
 }

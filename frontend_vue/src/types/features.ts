@@ -20,6 +20,7 @@ export interface FeatureFlags {
   adminOrders: boolean
   adminSalesCrm: boolean
   adminSettings: boolean
+  settingsAuditLog: boolean
 
   // Section-level flags
   dashboardAlerts: boolean

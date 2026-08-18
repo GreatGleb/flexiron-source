@@ -189,6 +189,8 @@ import type { PaginationParams } from '@/types/api'
 import type { OrderFilters } from '@/types/order'
 import type { FinancePaymentFilters } from '@/types/finance'
 import { mockGetPayments, mockGetPayment, mockPatchPayment, mockGetArchive } from './finance'
+import { mockGetAuditFeed, mockGetAuditFeedUsers } from './auditFeed'
+import type { AuditFeedFilters } from '@/types/audit'
 
 function delay<T>(data: T, ms = 300): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(data), ms))
@@ -333,6 +335,25 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
   if (path === '/api/settings/order-statuses') return delay(mockGetOrderStatuses() as T)
   if (path === '/api/settings/profile') return delay(mockGetProfile() as T)
   if (path === '/api/settings/warehouse-map') return delay(mockGetWarehouseMap() as T)
+
+  // The audit feed reads the nine logs where they live; it has no store of its own,
+  // and deletion goes to the entity's own endpoint — never to a path under /audit-feed.
+  if (path === '/api/audit-feed/users') return delay(mockGetAuditFeedUsers() as T)
+  if (path === '/api/audit-feed') {
+    const filters: AuditFeedFilters = {
+      entityType: params?.entityType ?? '',
+      user: params?.user ?? '',
+      dateFrom: params?.dateFrom ?? '',
+      dateTo: params?.dateTo ?? '',
+      search: params?.search ?? '',
+    }
+    return delay(
+      mockGetAuditFeed(filters, {
+        page: Number(params?.page ?? 1),
+        pageSize: Number(params?.pageSize ?? 25),
+      }) as T,
+    )
+  }
   if (path === '/api/settings') return delay(mockGetSettings() as T)
   if (path === '/api/config/fields') return delay(mockGetFieldLibrary() as T)
   if (path === '/api/config/sections') return delay(mockGetSections() as T)
