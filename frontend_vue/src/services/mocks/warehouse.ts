@@ -942,6 +942,12 @@ export function writeMovement(data: {
   notes?: string | null
   movedAt?: string
 }): WarehouseMovement {
+  // Every movement — an offcut's included — is recorded against a batch: the record
+  // copies its number, product, unit, price and currency from there, so a batch is
+  // not decoration but the only place those fields exist. `batchId` is required by
+  // the payload type and by `WarehouseOffcut` itself, so a movement without one is
+  // unrepresentable; an unknown one fails here, BEFORE anything is written, and in
+  // particular before any location is moved. Nothing is left half-done.
   const batch = batchStore.find((b) => b.id === data.batchId)
   if (!batch) throw new Error('BATCH_NOT_FOUND')
 
@@ -1025,6 +1031,36 @@ export function writeMovement(data: {
       batch.quantity += correctionDelta
       if (batch.totalCost != null && batch.unitPrice != null) {
         batch.totalCost += correctionDelta * batch.unitPrice
+      }
+    }
+  } else if (data.type === 'transfer') {
+    // A transfer moves metal, not stock: the quantities stay as they are. What it
+    // moves is the place the metal is found in — and a location is free text (there
+    // is no sector reference), so that string is the whole guarantee the metal gets
+    // found again. A stale one is worse than an empty one: it points the wrong way.
+    //
+    // With no destination named there is nothing better to write, so the known place
+    // is kept rather than blanked.
+    const destination =
+      typeof data.toLocation === 'string' && data.toLocation !== '' ? data.toLocation : null
+    if (destination != null) {
+      if (data.offcutId != null) {
+        // An offcut is ONE physical piece: it cannot be in two places, so there is no
+        // partial move to weigh — any transfer takes all of it. `batchId` on the
+        // movement is its parent, carried for provenance; the parent stays put.
+        // An unknown offcutId writes nothing: the movement is recorded, but a piece
+        // the warehouse has never heard of is not given a shelf.
+        const offcut = offcutStore.find((o) => o.id === data.offcutId)
+        if (offcut) {
+          offcut.location = destination
+          offcut.updatedAt = now
+        }
+      } else if (data.quantity >= batch.quantityRemaining) {
+        // A batch is divisible, so this one is weighed: the field follows the metal
+        // only when the WHOLE remainder goes. On a partial transfer the batch is in
+        // two places at once, and overwriting the origin would claim it had all left
+        // — the field is left alone and the second place is written by hand.
+        batch.location = destination
       }
     }
   }
