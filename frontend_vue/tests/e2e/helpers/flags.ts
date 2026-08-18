@@ -1,4 +1,5 @@
 import type { BrowserContext, Page } from '@playwright/test'
+import { waitForDataReady } from './ready'
 
 /**
  * ALL feature flags from src/config/featureFlags.ts, all ON.
@@ -80,5 +81,5 @@ export async function setFlag(page: Page, flag: string, value: boolean) {
     { f: flag, v: value },
   )
   await page.reload()
-  await page.waitForLoadState('networkidle')
+  await waitForDataReady(page)
 }

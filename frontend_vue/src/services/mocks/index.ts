@@ -192,8 +192,35 @@ import { mockGetPayments, mockGetPayment, mockPatchPayment, mockGetArchive } fro
 import { mockGetAuditFeed, mockGetAuditFeedUsers } from './auditFeed'
 import type { AuditFeedFilters } from '@/types/audit'
 
+/**
+ * How many mock answers are still on their way.
+ *
+ * Every mock response goes through `delay`, so this is the one place that knows
+ * whether the "server" is done. E2E needs that number: under mocks there is no
+ * network request at all — an answer is a `setTimeout` — so Playwright's
+ * `networkidle` reports quiet while the data is still pending, and a test that
+ * waits for it reads a page that has rendered nothing yet.
+ *
+ * Published on `window` rather than exported, because the reader is the test
+ * runner in another process. Nothing in the app may branch on it.
+ */
+let pendingMockResponses = 0
+
+function publishPending() {
+  ;(globalThis as unknown as { __mockPending?: number }).__mockPending = pendingMockResponses
+}
+publishPending()
+
 function delay<T>(data: T, ms = 300): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(data), ms))
+  pendingMockResponses += 1
+  publishPending()
+  return new Promise((resolve) =>
+    setTimeout(() => {
+      pendingMockResponses -= 1
+      publishPending()
+      resolve(data)
+    }, ms),
+  )
 }
 
 // ─── Idempotency cache (Idempotency-Key → cached response) ───
