@@ -1,4 +1,5 @@
 import { test, expect } from '../../fixtures'
+import { waitForDataReady } from '../../helpers/ready'
 import { enableAllFlags } from '../../helpers/flags'
 
 test.beforeEach(async ({ context }) => {
@@ -57,11 +58,20 @@ test.describe('Notifications Page', () => {
 
   test('empty state when no matching notifications', async ({ page }) => {
     await page.goto('/admin/notifications')
-    // Filter by a non-existent search term
+    // Фильтр, введённый раньше первой загрузки, глотает сторож `initialized` (#20) —
+    // тогда список остаётся полным, пустого состояния не будет, и тест упадёт по
+    // причине, к делу не относящейся.
+    await waitForDataReady(page)
+    await expect(page.locator('[data-test="notifications-row"]').first()).toBeVisible()
+
     await page.locator('[data-test="notifications-search"] input').fill('ZZZZ_NONEXISTENT')
-    // Wait for debounce + reload
-    await page.waitForTimeout(600)
+    // Часов здесь нет и не нужно: пустое состояние закрыто условием
+    // `!loading && items.length === 0`, то есть появиться раньше отфильтрованного
+    // ответа оно не может — это признак, а не совпадение. А строка выше доказывает,
+    // что до фильтра список был непустым (#66: отсутствие проверяется там, где
+    // присутствие было).
     await expect(page.locator('[data-test="notifications-empty"]')).toBeVisible()
+    await expect(page.locator('[data-test="notifications-row"]')).toHaveCount(0)
   })
 
   test('error state shows retry button', async ({ page }) => {

@@ -200,16 +200,25 @@ test.describe('products-list › search', () => {
 
   test('search narrows results', async ({ page }) => {
     const rows = page.locator('[data-test="products-row"]')
+    // Мерить длину списка можно только когда он отрисован: `count()` до этого даёт ноль.
+    await expect(rows.first()).toBeVisible()
     const totalBefore = await rows.count()
-    // Read the first row name to build a search term that is guaranteed to exist
-    const firstName = (await rows.first().locator('td').first().textContent())!.trim()
-    const searchTerm = firstName.split(' ')[0]!
+    // Полное имя, а не первое слово: слово вроде «Steel» может совпасть со всей
+    // страницей, и тогда «стало меньше» перестанет быть проверяемым.
+    const searchTerm = (await rows.first().locator('td').first().textContent())!.trim()
     const input = page.locator('[data-test="products-filter-search"] input')
     await input.fill(searchTerm)
-    await page.waitForTimeout(300)
-    const countAfter = await rows.count()
-    expect(countAfter).toBeGreaterThan(0)
-    expect(countAfter).toBeLessThanOrEqual(totalBefore)
+
+    // Признак применённого фильтра — изменившаяся длина, а не 300 мс по часам. Прежняя
+    // проверка была `countAfter <= totalBefore`: она проходила и при фильтре, который
+    // не применился вовсе, потому что равенство её устраивало.
+    await expect(rows).not.toHaveCount(totalBefore)
+    const names = await rows.evaluateAll((els) =>
+      els.map((el) => (el.querySelector('td')?.textContent ?? '').trim()),
+    )
+    expect(names.length).toBeGreaterThan(0)
+    // И фильтр применился ПРАВИЛЬНО: в выдаче нет строк без искомого имени.
+    expect(names.filter((n) => !n.includes(searchTerm))).toEqual([])
   })
 
   test('no match shows empty state', async ({ page }) => {
@@ -221,15 +230,15 @@ test.describe('products-list › search', () => {
 
   test('clearing search restores results', async ({ page }) => {
     const rows = page.locator('[data-test="products-row"]')
+    await expect(rows.first()).toBeVisible()
     const totalBefore = await rows.count()
-    const firstName = (await rows.first().locator('td').first().textContent())!.trim()
-    const searchTerm = firstName.split(' ')[0]!
+    const searchTerm = (await rows.first().locator('td').first().textContent())!.trim()
     const input = page.locator('[data-test="products-filter-search"] input')
+    // Обе перерисовки ждём признаком — изменившейся длиной списка. Часы здесь были
+    // лишними: следующая проверка и так самоперепроверяющаяся.
     await input.fill(searchTerm)
-    await page.waitForTimeout(300)
     await expect(rows).not.toHaveCount(totalBefore)
     await input.fill('')
-    await page.waitForTimeout(300)
     await expect(rows).toHaveCount(totalBefore)
   })
 })
