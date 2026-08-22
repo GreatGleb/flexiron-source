@@ -57,6 +57,13 @@ Lesson learned: adding `SupplierCreatePage` with `SupplierCardPage` refactoring 
 
 **Rule: contract read → code → contract write-back.**
 
+> **Ссылка на документ в инструкции ничем не проверяется.** Тест падает, а «прочитай
+> контракт по пути X» не падает никогда: файл переименовали — инструкция молча посылает в
+> никуда. Так и вышло: `toDo/admin-api-contract.md` стал
+> `toDo/archive-admin-api-contract.md`, а двадцать восемь ссылок в четырёх скиллах остались
+> на прежнее имя. Правило: переименовал или перенёс файл в `roo_code/` или `toDo/` — сразу
+> `grep` по старому имени и правь ссылки, потому что ничто другое об этом не скажет.
+>
 > **Где контракт лежит.** Живой — `roo_code/roo-context/03-api-contract.md` (2745 строк),
 > его дописывает каждая задача. У заказов есть свой:
 > `roo_code/plans/orders/orders-backend-contract.md`. А `toDo/admin-api-contract.md`,

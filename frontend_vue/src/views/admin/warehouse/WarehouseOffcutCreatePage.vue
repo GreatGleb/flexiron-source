@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useHead } from '@/composables/useHead'
 import { useWarehouseOffcutCreate } from '@/composables/useWarehouseOffcutCreate'
+import { offcutAreaM2 } from '@/domain/cutting'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
 import Breadcrumb from '@/components/admin/Breadcrumb.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
@@ -58,6 +59,15 @@ const {
   noBatchesMessage,
   tf,
 } = useWarehouseOffcutCreate()
+
+/**
+ * Площадь по мере ввода. Условие «нужны длина и ширина» здесь не выражается второй раз —
+ * его знает `offcutAreaM2`, спрашивающий таблицу требований резолвера.
+ */
+const areaLabel = computed(() => {
+  const area = offcutAreaM2({ lengthMm: form.lengthMm, widthMm: form.widthMm })
+  return area == null ? '—' : `${area} m²`
+})
 
 useHead({
   title: () => `Flexiron — ${t('warehouse.offcut_create_title')}`,
@@ -608,6 +618,40 @@ function selectBatch(id: string) {
                 :placeholder="t('warehouse.field_weight_placeholder')"
                 data-test="field-weight"
               />
+            </div>
+            <!--
+              Площадь по мере ввода: она тут же проверяет введённые размеры — оператор
+              видит нелепицу сразу, а не после сохранения. Поля в типе у неё нет,
+              величина выводится. Прочерк — «невыразима» (нет ширины), а не ноль.
+            -->
+            <div class="input-group">
+              <label class="field-label">
+                <span>{{ t('warehouse.offcut_area') }}</span>
+                <span v-tooltip="t('warehouse.offcut_area_hint')" class="info-hint">
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="3"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="16" x2="12" y2="12" />
+                    <line x1="12" y1="8" x2="12.01" y2="8" />
+                  </svg>
+                </span>
+              </label>
+              <div
+                class="glass-input"
+                style="display: flex; align-items: center; opacity: 0.7; cursor: default"
+                data-test="field-area"
+              >
+                {{ areaLabel }}
+              </div>
+              <span class="field-hint">{{ t('warehouse.offcut_area_derived') }}</span>
             </div>
           </GlassPanel>
         </div>

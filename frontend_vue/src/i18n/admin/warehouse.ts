@@ -502,6 +502,10 @@ export const adminWarehouse = {
       field_waste: 'Отходы (кг)',
       btn_add_offcut: 'Добавить обрезок',
       // ── Резка металла (страница) ──
+      offcut_area: 'Площадь',
+      offcut_area_hint:
+        'Считается из длины и ширины. У линейного куска (труба, профиль) ширины нет — площадь не выражается',
+      offcut_area_derived: 'Выводится из размеров',
       cutting_subtitle: 'Из партии выходят куски, пропилы и отходы',
       cutting_pick_batch_hint: 'Выберите партию, из которой режете',
       cutting_batch_search: 'Номер партии или товар',
@@ -1168,6 +1172,10 @@ export const adminWarehouse = {
       field_waste: 'Waste (kg)',
       btn_add_offcut: 'Add offcut',
       // ── Metal cutting (page) ──
+      offcut_area: 'Area',
+      offcut_area_hint:
+        'Computed from length and width. A linear piece (pipe, profile) has no width — its area is not expressible',
+      offcut_area_derived: 'Derived from the dimensions',
       cutting_subtitle: 'A batch turns into pieces, kerf and waste',
       cutting_pick_batch_hint: 'Pick the batch you are cutting from',
       cutting_batch_search: 'Batch number or product',
@@ -1832,6 +1840,10 @@ export const adminWarehouse = {
       field_waste: 'Atliekos (kg)',
       btn_add_offcut: 'Pridėti atraižą',
       // ── Metalo pjovimas (puslapis) ──
+      offcut_area: 'Plotas',
+      offcut_area_hint:
+        'Skaičiuojamas iš ilgio ir pločio. Linijinis gabalas (vamzdis, profilis) pločio neturi — plotas neišreiškiamas',
+      offcut_area_derived: 'Išvedama iš matmenų',
       cutting_subtitle: 'Iš partijos gaunami gabalai, propilai ir atliekos',
       cutting_pick_batch_hint: 'Pasirinkite partiją, iš kurios pjaunate',
       cutting_batch_search: 'Partijos numeris arba prekė',

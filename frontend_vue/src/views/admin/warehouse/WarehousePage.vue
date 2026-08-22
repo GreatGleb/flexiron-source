@@ -2745,6 +2745,11 @@ const deficitFiltersActive = computed(() => {
                 <td>
                   <code class="lot-code">{{ offcut.batchNumber }}</code>
                 </td>
+                <!--
+                  Площади в строке НЕТ сознательно: размеры здесь уже стоят, а площадь
+                  стоила бы колонки ширины на и без того широкой таблице. В карточку —
+                  один клик, и там она есть.
+                -->
                 <td>
                   <template v-if="offcut.lengthMm">
                     <span class="offcut-dimensions">

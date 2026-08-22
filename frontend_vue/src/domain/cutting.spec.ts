@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   LINEAR_BATCH_UNITS,
+  offcutAreaM2,
   MATERIAL_ERROR_CODE,
   SUPPORTED_BATCH_UNITS,
   computeCuttingConsumption,
@@ -318,5 +319,49 @@ describe('сложение не показывает 2.5030000000000001', () => 
     )
     // 2.1 + 3 × 0.003 = 2.109, а не 2.1089999999999995
     expect(result.consumed).toBe(2.109)
+  })
+})
+
+describe('площадь обрезка выводится, а не хранится', () => {
+  it('лист 500×300 — это 0.15 м²', () => {
+    expect(offcutAreaM2({ lengthMm: 500, widthMm: 300 })).toBe(0.15)
+    expect(offcutAreaM2({ lengthMm: 900, widthMm: 450 })).toBe(0.405)
+    expect(offcutAreaM2({ lengthMm: 2000, widthMm: 1000 })).toBe(2)
+  })
+
+  it('без ширины площадь НЕВЫРАЗИМА, а не равна нулю', () => {
+    // Труба: ширины нет по природе куска. Ноль означал бы «площадь есть и она нулевая».
+    expect(offcutAreaM2({ lengthMm: 1500, widthMm: null })).toBeNull()
+    expect(offcutAreaM2({ lengthMm: null, widthMm: 300 })).toBeNull()
+    expect(offcutAreaM2({})).toBeNull()
+  })
+
+  it('нулевой и отрицательный размер — тоже невыразима', () => {
+    expect(offcutAreaM2({ lengthMm: 0, widthMm: 300 })).toBeNull()
+    expect(offcutAreaM2({ lengthMm: 500, widthMm: -1 })).toBeNull()
+    expect(offcutAreaM2({ lengthMm: 500, widthMm: Number.NaN })).toBeNull()
+  })
+
+  it('спрашивает требования резолвера, а не свои: тот же ответ, что у m²-партии', () => {
+    // Если требования разойдутся — например, у m2 в таблице останется только длина —
+    // этот тест покажет расхождение раньше, чем экран покажет неверную площадь.
+    const piece = { quantity: 1, lengthMm: 1800, widthMm: 200 }
+    const viaResolver = resolvePieceSize(piece, 'm2')
+    expect(viaResolver.ok && viaResolver.pieceSize).toBe(offcutAreaM2(piece))
+  })
+
+  it('счётчик кусков к площади одного куска не относится', () => {
+    // Дробное количество отказало бы в ответе на вопрос, к которому не относится.
+    expect(offcutAreaM2({ lengthMm: 500, widthMm: 300, ...{ quantity: 2.5 } } as never)).toBe(0.15)
+  })
+
+  it('у обрезков из сидов площадь либо число, либо null — и известно, у кого что', () => {
+    const withArea = mockOffcuts.filter((o) => offcutAreaM2(o) !== null)
+    const without = mockOffcuts.filter((o) => offcutAreaM2(o) === null)
+    expect(withArea.length).toBeGreaterThan(0)
+    // who-006 и who-012 — линейные куски трубы без ширины: площади у них нет.
+    expect(without.map((o) => o.id)).toContain('who-006')
+    expect(without.map((o) => o.id)).toContain('who-012')
+    expect(withArea.map((o) => o.id)).toContain('who-001')
   })
 })

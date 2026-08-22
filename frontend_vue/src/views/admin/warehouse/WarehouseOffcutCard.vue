@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useHead } from '@/composables/useHead'
 import { useWarehouseOffcutCard } from '@/composables/useWarehouseOffcutCard'
+import { offcutAreaM2 } from '@/domain/cutting'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
 import Breadcrumb from '@/components/admin/Breadcrumb.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
@@ -179,6 +180,19 @@ function translateAuditValue(value: string): string {
   }
   return value
 }
+
+/**
+ * Площадь — выведенная величина, поэтому computed, а не поле.
+ *
+ * Условие «нужны и длина, и ширина» второй раз здесь НЕ выражается: его знает
+ * `offcutAreaM2`, который спрашивает таблицу требований резолвера. Прочерк — это
+ * «невыразима», и он приходит из домена, а не из проверки в шаблоне.
+ */
+const areaLabel = computed(() => {
+  if (!offcut.value) return '—'
+  const area = offcutAreaM2(offcut.value)
+  return area == null ? '—' : `${area} m²`
+})
 
 useHead({
   title: () => `Flexiron — ${pageTitle.value}`,
@@ -535,6 +549,40 @@ onMounted(load)
                     data-test="field-weight"
                   />
                   <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
+                </div>
+                <!--
+                  Площадь ВЫВОДИТСЯ из длины и ширины, поля в типе у неё нет и не будет:
+                  величина, выводимая из размеров, не хранится рядом с ними. Прочерк
+                  здесь значит «невыразима» (у трубы нет ширины), а не «ноль».
+                -->
+                <div class="input-group">
+                  <label class="field-label">
+                    <span>{{ t('warehouse.offcut_area') }}</span>
+                    <span v-tooltip="t('warehouse.offcut_area_hint')" class="info-hint">
+                      <svg
+                        width="10"
+                        height="10"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="3"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="16" x2="12" y2="12" />
+                        <line x1="12" y1="8" x2="12.01" y2="8" />
+                      </svg>
+                    </span>
+                  </label>
+                  <input
+                    :value="areaLabel"
+                    class="glass-input"
+                    type="text"
+                    readonly
+                    data-test="field-area"
+                  />
+                  <span class="field-hint">{{ t('warehouse.offcut_area_derived') }}</span>
                 </div>
               </template>
             </GlassPanel>

@@ -141,6 +141,26 @@ export function resolvePieceSize(offcut: OffcutMaterialInput, unit: StockUnit): 
   return { ok: true, pieceSize: formula(offcut) }
 }
 
+/**
+ * Площадь одного куска в м² — или `null`, если её нельзя выразить.
+ *
+ * Живёт здесь, рядом с резолвером, и СПРАШИВАЕТ его, а не повторяет условие: требование
+ * «нужны и длина, и ширина» уже записано данными в `REQUIRED_DIMENSION.m2`, и второе
+ * выражение того же требования в шаблоне разошлось бы с первым на первой же правке.
+ *
+ * `null` — это «невыразима», а не ноль: у трубы ширины нет, и площади у неё не ноль, её
+ * попросту нет (то же различие, что у пропила на нелинейной партии). Экран показывает
+ * прочерк, а не 0 м².
+ *
+ * Счётчик кусков здесь не при чём — спрашивается площадь ОДНОГО куска, поэтому
+ * `quantity` подменяется единицей: иначе дробное или нулевое количество отказало бы в
+ * ответе на вопрос, к которому оно не относится.
+ */
+export function offcutAreaM2(offcut: Omit<OffcutMaterialInput, 'quantity'>): number | null {
+  const resolved = resolvePieceSize({ ...offcut, quantity: 1 }, 'm2')
+  return resolved.ok ? resolved.pieceSize : null
+}
+
 export type MaterialResult =
   | { ok: true; pieces: number; pieceSize: number; material: number }
   | MaterialFailure

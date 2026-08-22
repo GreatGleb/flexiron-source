@@ -1377,6 +1377,11 @@ async function onMovementCreated() {
               </thead>
               <tbody>
                 <tr v-for="offcut in offcuts" :key="offcut.id" data-test="batch-card-offcuts-row">
+                  <!--
+                    Площади здесь НЕТ сознательно, по той же причине, что в списке
+                    обрезков: размеры уже стоят, а площадь стоила бы ещё одной колонки.
+                    Она есть в карточке обрезка, куда ведёт эта строка.
+                  -->
                   <td>
                     <template v-if="offcut.lengthMm && offcut.widthMm">
                       {{ offcut.lengthMm }} × {{ offcut.widthMm }} мм
@@ -1459,7 +1464,12 @@ async function onMovementCreated() {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="a in auditLog" :key="a.id" :data-entry-id="a.id" data-test="batch-card-audit-row">
+                  <tr
+                    v-for="a in auditLog"
+                    :key="a.id"
+                    :data-entry-id="a.id"
+                    data-test="batch-card-audit-row"
+                  >
                     <td class="audit-log-ts">{{ a.timestamp }}</td>
                     <td>
                       <div class="audit-log-user">
