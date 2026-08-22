@@ -38,7 +38,7 @@ Read **before writing a single line of code**:
 Read `vue-rules` skill completely. Pay attention to:
 - Save UX (clean-slate vs quick-action) — determines Phase 4 architecture
 - HTTP methods — determines Phase 3 service signatures
-- All pitfalls (#1–#68) — apply from the start, not as a hotfix after
+- All pitfalls, весь список — apply from the start, not as a hotfix after
 
 ### Step 0b — TZ Sources
 Read all relevant docs:
@@ -1032,7 +1032,7 @@ Open `toDo/admin-api-contract.md`:
 Open 2–3 existing pages (Dashboard, SuppliersListPage) — verify no new console errors.
 
 ### 9e — Pitfalls final pass
-Run through vue-rules pitfalls #1–#68 for this page:
+Run through ALL vue-rules pitfalls for this page:
 - [ ] #1: `@` in translations escaped
 - [ ] #9: No comments inside `<template>`
 - [ ] #10: All route names verified against router

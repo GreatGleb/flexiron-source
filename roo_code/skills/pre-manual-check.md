@@ -199,11 +199,11 @@ Read reference page and compare:
 
 ---
 
-## GROUP 5 — Pitfalls #1–#68 (was Prompt 9)
+## GROUP 5 — Pitfalls, все (was Prompt 9)
 
 **Focus:** run through all pitfalls from vue-rules.md on new files.
 
-1. Read `roo_code/skills/vue-rules.md` (full pitfalls list #1–#68)
+1. Read `roo_code/skills/vue-rules.md` (полный список питфоллов — до последнего)
 2. For each pitfall — determine: applicable to this page?
 3. If applicable → Grep or Read → ✅ or ❌
 
