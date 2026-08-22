@@ -54,7 +54,7 @@ Read all relevant docs:
 - `frontend_vue/src/components/admin/` — available components (use, don't recreate)
 - `frontend_vue/src/types/` — existing TypeScript types (reuse where possible)
 - `frontend_vue/src/config/featureFlags.ts` — existing flags
-- `toDo/admin-api-contract.md` — **contract-first**: add a new section for this domain BEFORE writing any service/composable
+- `roo_code/roo-context/03-api-contract.md` — **contract-first**: add a new section for this domain BEFORE writing any service/composable
 
 ### Checkpoint 0 — Extract and OUTPUT before proceeding:
 
@@ -193,7 +193,7 @@ Continue?
 ## Phase 3: Service Layer
 
 ### Write the contract first
-Open `toDo/admin-api-contract.md` and **add a new section** for this domain. Use existing sections (suppliers, bcc, config) as structural template. Define before writing a single line of service code:
+Open `roo_code/roo-context/03-api-contract.md` and **add a new section** for this domain. Use existing sections (suppliers, bcc, config) as structural template. Define before writing a single line of service code:
 - Endpoint paths + HTTP methods (GET/POST/PATCH/PUT/DELETE)
 - Request body shape (required vs optional fields, types)
 - Response shape (envelope `ApiResponse<T>` or `PaginatedResponse<T>`)
@@ -272,7 +272,7 @@ import { uploadFile } from './uploadsService'
 - **Verify /translated endpoint necessity:** After any backend refactoring, verify which endpoints still need the `/translated` suffix. If the backend now returns translated data from the base endpoint (`/api/domain`), use that directly instead of `/api/domain/translated`.
 
 ### Update api-contract write-back
-After implementing, open `toDo/admin-api-contract.md` and:
+After implementing, open `roo_code/roo-context/03-api-contract.md` and:
 - Remove `"TBD"`, `"UI — separate iteration"` markers for implemented endpoints
 - Add reference to actual `Page.vue` and composable
 
@@ -284,7 +284,7 @@ cd frontend_vue && npm run typecheck
 
 ```
 ⏸ STOP — Phase 3: Service Layer
-Done: contract in admin-api-contract.md written, [domain]Service.ts created, typecheck ✅
+Done: contract in 03-api-contract.md written, [domain]Service.ts created, typecheck ✅
 Next: Phase 4 — Composable
 Continue?
 ```
@@ -1007,7 +1007,7 @@ cd frontend_vue && npm run typecheck && npm run lint
 ```
 
 ### 9b — Contract sync
-Open `toDo/admin-api-contract.md`:
+Open `roo_code/roo-context/03-api-contract.md`:
 - Implemented endpoints marked (no "TBD" remaining)
 - References to actual `Page.vue` and composable added
 

@@ -14,7 +14,7 @@ Rules collected from real bugs during `demo/` → `frontend_vue/` migration. Eac
 
 - **Thoroughness over speed.** Before completing a task — Grep all callers related to the change (router-link, event names, class names, props). "Skimming" already caused bugs.
 - **Verify against original in details.** Before implementing logic from `demo/admin/*.html` or `demo/assets/js/admin/*.js` — read the original entirely, don't rely on memory.
-- **Phase verification ≠ only typecheck+lint.** Static analysis doesn't catch: missing components, wrong string literals (route names, i18n keys), visual regressions, outdated **specs in `toDo/admin-api-contract.md`** and meta-pages (ScreensPage, README). Final check = plan→files→typecheck→lint→contract sync→browser.
+- **Phase verification ≠ only typecheck+lint.** Static analysis doesn't catch: missing components, wrong string literals (route names, i18n keys), visual regressions, outdated **specs in `roo_code/roo-context/03-api-contract.md`** and meta-pages (ScreensPage, README). Final check = plan→files→typecheck→lint→contract sync→browser.
 - **NEVER use `git restore` or `git checkout` on tracked files.** These commands permanently destroy uncommitted changes in the working tree. If a file needs to be reverted to its committed state for any reason, use `git show HEAD:<path>` to read the committed version, then manually apply only the needed parts. If uncommitted changes were accidentally destroyed, stop immediately and use `git reflog` + `git show` to attempt recovery before any further writes.
 
 ---
@@ -53,12 +53,19 @@ Rules collected from real bugs during `demo/` → `frontend_vue/` migration. Eac
 
 ## Contract-first (new endpoint / page refactoring)
 
-Lesson learned: adding `SupplierCreatePage` with `SupplierCardPage` refactoring (extract `SupplierFormSections`) — missed (a) updating `toDo/admin-api-contract.md` ("UI component — separate iteration" remained after implementation), (b) syncing client validation with contract (validate checked only `company`, contract required `company + email`, server would reject with 422). Typecheck+lint doesn't catch this.
+Lesson learned: adding `SupplierCreatePage` with `SupplierCardPage` refactoring (extract `SupplierFormSections`) — missed (a) updating `roo_code/roo-context/03-api-contract.md` ("UI component — separate iteration" remained after implementation), (b) syncing client validation with contract (validate checked only `company`, contract required `company + email`, server would reject with 422). Typecheck+lint doesn't catch this.
 
 **Rule: contract read → code → contract write-back.**
 
+> **Где контракт лежит.** Живой — `roo_code/roo-context/03-api-contract.md` (2745 строк),
+> его дописывает каждая задача. У заказов есть свой:
+> `roo_code/plans/orders/orders-backend-contract.md`. А `toDo/admin-api-contract.md`,
+> на который эти скиллы ссылались в пятнадцати местах, **не существует** — файл
+> переименован в `toDo/archive-admin-api-contract.md` и с тех пор архив: не читать как
+> действующий и не дописывать.
+
 **Read-first** — before writing composable/service/validate for endpoint:
-- Read corresponding section of `toDo/admin-api-contract.md` (search by endpoint path)
+- Read corresponding section of `roo_code/roo-context/03-api-contract.md` (search by endpoint path)
 - Required fields, response shape, save pattern (clean-slate vs quick-action), idempotency, error codes — taken **from there**, not from UX intuition. Client validation ≥ server validation (never weaker).
 
 **Write-back** — after implementing endpoint UI, update contract:
@@ -69,7 +76,7 @@ Lesson learned: adding `SupplierCreatePage` with `SupplierCardPage` refactoring 
 **Refactor checklist** (task = new page + extract shared component from existing):
 1. Grep all callers of removed/renamed exports (services, composables, components) — including **template usage**, which TypeScript doesn't always catch
 2. In old page: remove unused `import`s and utility functions after extraction
-3. Update `toDo/admin-api-contract.md` if endpoint signature changed
+3. Update `roo_code/roo-context/03-api-contract.md` if endpoint signature changed
 4. If route structure changes — check `ScreensPage.vue`, `roo_code/roo-context/frontend-vue-quickref.md` (patterns, SOLID, DDD), README
 5. Done ≠ typecheck+lint. Done = (1-4) + все питфоллы + contract sync + browser walk-through golden path
 

@@ -40,7 +40,7 @@ Read in this order (batch reads where possible):
 7. `frontend_vue/src/types/` (all files) — types to reuse
 8. `frontend_vue/src/config/featureFlags.ts` — existing flags and format
 9. `frontend_vue/src/components/admin/` (file list) — available components
-10. `toDo/admin-api-contract.md` — contract format of existing sections
+10. `roo_code/roo-context/03-api-contract.md` — contract format of existing sections
 11. `toDo/Flexiron_ERP_CRM.md` — TZ for this page's section
 12. `toDo/Flexiron_ERP_Process_Algorithm.md` — business logic algorithms
 13. `toDo/design/Flexiron_ERP_Sitemap.md` — navigation placement, section hierarchy
@@ -123,7 +123,7 @@ This differs from create-page.md's phase numbering but is intentional: types mus
 **Prompt 0 — Phase 0: Context & Checkpoint**
 
 Include ALL of:
-- Reading list: create-page.md → vue-rules.md → frontend-vue-quickref.md → router → i18n → types → featureFlags → components → TZ sources (CRM ToDo + Algorithm + Sitemap + screen_spec if exists) → admin-api-contract.md
+- Reading list: create-page.md → vue-rules.md → frontend-vue-quickref.md → router → i18n → types → featureFlags → components → TZ sources (CRM ToDo + Algorithm + Sitemap + screen_spec if exists) → 03-api-contract.md
 - Checkpoint 0 output format exactly as in create-page.md: page goal, sections (per view separately), key entities, user actions, related pages, API endpoints, save mode decision, existing components to reuse, existing types to reuse, route paths, feature flag name
 - "If any field is empty — re-read TZ sources. Do not proceed."
 - STOP
@@ -133,7 +133,7 @@ Include ALL of:
 **Prompt 1 — Phase 3 (part 1): API Contract**
 
 Include ALL of:
-- Open toDo/admin-api-contract.md, add new section following existing format
+- Open roo_code/roo-context/03-api-contract.md, add new section following existing format
 - For each endpoint: HTTP method + path, request body (required/optional fields with types), response shape (ApiResponse\<T\> or PaginatedResponse\<T\>), domain-specific error codes, save mode note
 - Show written contract to user for review
 - **Verify /translated endpoint necessity:** After any backend refactoring, check whether the base endpoint (`/api/domain`) now returns translated data. If so, the plan should NOT use `/api/domain/translated` — use the base endpoint directly.
@@ -180,7 +180,7 @@ Include ALL of:
 - Create src/services/[domain]Service.ts
 - Functions matching the contract exactly (apiGet/apiPost/apiPatch/apiDelete/apiPut)
 - If apiPut missing → add to api.ts following apiPatch pattern
-- Write-back: add to toDo/admin-api-contract.md section → "Implementation: src/services/[domain]Service.ts"
+- Write-back: add to roo_code/roo-context/03-api-contract.md section → "Implementation: src/services/[domain]Service.ts"
 - typecheck
 
 ---
@@ -288,7 +288,7 @@ Include ALL of:
 
 Include ALL of:
 - 9a: npm run typecheck && npm run lint → 0 errors
-- 9b: contract sync — add all implementation references to admin-api-contract.md
+- 9b: contract sync — add all implementation references to 03-api-contract.md
 - 9c: golden path browser walk:
   - Navigate via sidebar → page loads with mock data
   - Every filter/search works
@@ -346,7 +346,7 @@ Continue?
 
 ### Pass 1 — Static checklist (quick scan)
 
-- [ ] **Prompt 0**: reading list has all TZ sources + admin-api-contract.md; Checkpoint 0 has all fields; "IF empty → re-read"; STOP
+- [ ] **Prompt 0**: reading list has all TZ sources + 03-api-contract.md; Checkpoint 0 has all fields; "IF empty → re-read"; STOP
 - [ ] **Phase 1 (types)**: check existing first; check api.ts for PaginatedResponse; all domain types defined; typecheck
 - [ ] **Phase 2 (mocks)**: structuredClone on reads; JSON.parse note; all mock functions; register in index.ts; typecheck
 - [ ] **Phase 3 (service)**: contract written BEFORE service code; write-back after service; typecheck
