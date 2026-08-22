@@ -37,7 +37,7 @@ When the user asks about a configuration setting or timeout behavior:
 ### 4. Session start protocol — read skills BEFORE any code
 At the START of every session, BEFORE writing any code, creating any plan, or making any edit:
 
-1. **Read [`roo_code/skills/vue-rules.md`](roo_code/skills/vue-rules.md) completely** — especially pitfalls #1–#67 and the "Applying this skill" section
+1. **Read [`roo_code/skills/vue-rules.md`](roo_code/skills/vue-rules.md) completely** — especially pitfalls #1–#68 and the "Applying this skill" section
 2. **If task involves a page** → also read [`roo_code/skills/create-page.md`](roo_code/skills/create-page.md)
 3. **If task involves a plan** → also read [`roo_code/skills/create-plan.md`](roo_code/skills/create-plan.md)
 4. **If task involves bugs** → also read [`roo_code/skills/fix-bugs.md`](roo_code/skills/fix-bugs.md)
@@ -119,7 +119,7 @@ Use this matrix to determine which skill to invoke for any given task. **Read th
 | Fixing bugs from a bugs-file (one bug per cycle, max 5 verification iterations) | **fix-bugs** — read → verify → plan → fix → verify cycle | [`fix-bugs.md`](roo_code/skills/fix-bugs.md) |
 | After all bugs fixed — root cause analysis and skill improvement | **update-skills** — finds gaps in create-page/create-plan/vue-rules and closes them | [`update-skills.md`](roo_code/skills/update-skills.md) |
 | Running full verification (typecheck + lint + integrity checks) | **verify** — runs checklist and reports results | [`verify.md`](roo_code/skills/verify.md) |
-| Writing Vue 3 code, adding `:class` bindings, editing mocks, building forms, adding pages/components, refactoring, choosing HTTP methods, debugging CSS/reactivity | **vue-rules** — 67 pitfalls + save UX + HTTP methods + contract-first rules | [`vue-rules.md`](roo_code/skills/vue-rules.md) |
+| Writing Vue 3 code, adding `:class` bindings, editing mocks, building forms, adding pages/components, refactoring, choosing HTTP methods, debugging CSS/reactivity | **vue-rules** — 68 pitfalls + save UX + HTTP methods + contract-first rules | [`vue-rules.md`](roo_code/skills/vue-rules.md) |
 
 ---
 
@@ -132,7 +132,7 @@ Use this matrix to determine which skill to invoke for any given task. **Read th
 3. **Fixing any bug** → read [`fix-bugs.md`](roo_code/skills/fix-bugs.md) before touching code
 4. **Before manual testing** → read [`pre-manual-check.md`](roo_code/skills/pre-manual-check.md)
 5. **After fixing bugs** → read [`update-skills.md`](roo_code/skills/update-skills.md)
-6. **Writing any Vue code** → read [`vue-rules.md`](roo_code/skills/vue-rules.md) — especially pitfalls #1–#67
+6. **Writing any Vue code** → read [`vue-rules.md`](roo_code/skills/vue-rules.md) — especially pitfalls #1–#68
 7. **Running verification** → read [`verify.md`](roo_code/skills/verify.md)
 
 ### 🟡 Consider reading when:
@@ -181,7 +181,7 @@ When user mentions a page, bugs, work stage, section, or task continuation — *
 | `/fix-bugs <plan> [bug]` | [`fix-bugs.md`](roo_code/skills/fix-bugs.md) | Fix bugs from file, max 5 verification iterations per bug |
 | `/update-skills <plan>` | [`update-skills.md`](roo_code/skills/update-skills.md) | For each ✅ bug find root cause → add to skills |
 | `/verify` | [`verify.md`](roo_code/skills/verify.md) | Run verification checklist (typecheck + lint + integrity checks) |
-| `/vue-rules` | [`vue-rules.md`](roo_code/skills/vue-rules.md) | Vue 3 pitfalls and rules (67 pitfalls) |
+| `/vue-rules` | [`vue-rules.md`](roo_code/skills/vue-rules.md) | Vue 3 pitfalls and rules (68 pitfalls) |
 
 ## MCP Servers
 

@@ -71,7 +71,7 @@ Lesson learned: adding `SupplierCreatePage` with `SupplierCardPage` refactoring 
 2. In old page: remove unused `import`s and utility functions after extraction
 3. Update `toDo/admin-api-contract.md` if endpoint signature changed
 4. If route structure changes — check `ScreensPage.vue`, `roo_code/roo-context/frontend-vue-quickref.md` (patterns, SOLID, DDD), README
-5. Done ≠ typecheck+lint. Done = (1-4) + pitfalls #1–#67 + contract sync + browser walk-through golden path
+5. Done ≠ typecheck+lint. Done = (1-4) + pitfalls #1–#68 + contract sync + browser walk-through golden path
 
 **Trigger moment**: as soon as I notice task = "new page + extract from old" / "new endpoint caller" — **immediately** read contract **before** plan, not after.
 
@@ -1186,4 +1186,4 @@ expect(names.filter((n) => !n.includes(searchTerm))).toEqual([])
 
 When starting a task from trigger list (see description above) — **read this skill completely** before writing code. If task not from list — `Read` only the needed section.
 
-After completing task — run through checklist: pitfalls #1–#67, save mode (if form), HTTP method (if new endpoint).
+After completing task — run through checklist: pitfalls #1–#68, save mode (if form), HTTP method (if new endpoint).
