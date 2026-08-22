@@ -71,7 +71,7 @@ Lesson learned: adding `SupplierCreatePage` with `SupplierCardPage` refactoring 
 2. In old page: remove unused `import`s and utility functions after extraction
 3. Update `toDo/admin-api-contract.md` if endpoint signature changed
 4. If route structure changes — check `ScreensPage.vue`, `roo_code/roo-context/frontend-vue-quickref.md` (patterns, SOLID, DDD), README
-5. Done ≠ typecheck+lint. Done = (1-4) + pitfalls #1-#28 + contract sync + browser walk-through golden path
+5. Done ≠ typecheck+lint. Done = (1-4) + pitfalls #1–#67 + contract sync + browser walk-through golden path
 
 **Trigger moment**: as soon as I notice task = "new page + extract from old" / "new endpoint caller" — **immediately** read contract **before** plan, not after.
 
@@ -920,6 +920,51 @@ await panel.locator('.bar-chart-row').first().waitFor() // в графике е�
 Это **пол, а не потолок**: helper знает, что данные пришли вообще, но не что пришли
 именно те, о которых тест. Утверждение по-прежнему должно ждать своё значение.
 
+**Затихший мок — ещё НЕ признак пришедших данных.** Мок стоит ВЫШЕ отрисовки: он ответил,
+Vue перерисует на следующем тике, и снимок, снятый между этими двумя моментами, пуст.
+
+- для **навигации** `waitForDataReady` достаточно: он отвечает на «сервер ответил и скелета
+  нет», а разметки маршрута до этого не существовало вовсе
+- для **внутристраничного перехода** (пагинация, фильтр, смена вкладки) — нет: разметка уже
+  есть, старое содержимое на месте, мок затих, а новых строк ещё нет. Ожидание вернётся, и
+  снимок возьмётся со старой страницы или пустым
+- признак для таких случаев — **значение, которое меняется только вместе с отрисовкой новых
+  данных**. Рабочий пример: счётчик страниц «26-50 of 179» в `Pagination` — он меняется ровно
+  тогда, когда новая страница нарисована:
+
+```ts
+// ❌ мок затих — но строки те же, что были
+await next.click()
+await waitForDataReady(page)
+const labels = await rows.evaluateAll(...)
+
+// ✅ ждём значение, которое без новых данных не изменится
+const shown = await info.innerText()          // «26-50 of 179»
+await next.click()
+await expect(info).not.toHaveText(shown)
+const labels = await rows.evaluateAll(...)
+```
+
+**У утверждения о НАБОРЕ собранных значений обязана быть проверка непустоты.** Пустой снимок
+иначе проходит как успех: цикл по страницам молча пропускает страницу, набор оказывается
+беднее, чем обещает имя теста, а тест зелёный.
+
+```ts
+expect(labels.length).toBeGreaterThan(0)      // страница отдала хоть что-то
+for (const label of labels) seen.add(label)
+```
+
+Стоимость пропуска измерена: тест «every movement type is a label» собирал **7 подписей из
+10** — редкие типы (`storage` 1 движение, `offcut` 3, `return-to-supplier` 1) выпадали вместе
+с непрочитанной страницей. Сломанный перевод любого из трёх проходил мимо теста, названного
+«каждый тип движения имеет подпись».
+
+**Состояние ожидания сбрасывается на КАЖДЫЙ вызов.** Если ожидание помнит «трафик уже был» с
+прошлого раза, то второй вызов на той же странице вернётся мгновенно — а внутри SPA любой
+вызов, кроме первого, второй. И то, чем ожидание считает трафик, должно быть **монотонным
+счётчиком вызовов**, а не числом запросов в полёте: запрос, успевший начаться и закончиться
+между двумя опросами, в полёте не виден ни в один из моментов.
+
 **Проверка от обратного обязательна:** правку ожидания легко принять на веру, потому
 что «стало зелёно». Зелёным оно было и до того — через раз. Докажи, что старое
 ожидание падает: под `Emulation.setCPUThrottlingRate` (CDP) задержка данных
@@ -1036,8 +1081,54 @@ await expect(page.locator(`[data-row-key="${key}"]`)).toHaveCount(0)
 
 ---
 
+### 🔥 #67 — Многооператорный `@click` в шаблоне: prettier ломает, а typecheck и lint молчат
+
+**Симптом:** кнопка не работает. Тест выглядит как «локатор не нашёлся» или «клик ничего не
+сделал», страница пустая. `npm run typecheck` чистый, `npm run lint` чистый.
+
+**Причина:** два вызова в одном inline-обработчике держатся на разделителе, а prettier его
+убирает при форматировании:
+
+```html
+<!-- ❌ написано так -->
+@click="clearBatch(); loadBatches()"
+
+<!-- ❌ prettier переформатировал — точки с запятой нет, выражение сломано -->
+@click="
+  clearBatch()
+  loadBatches()
+"
+```
+
+Vue парсит значение атрибута как ОДНО JS-выражение, и после переноса получает
+`clearBatch() loadBatches()`.
+
+**Где это ловится (проверено на этом проекте, три команды подряд):**
+
+| Команда | Результат |
+|---|---|
+| `npm run typecheck` (`vue-tsc --noEmit`) | **exit 0** — не ловит |
+| `npm run lint` (`eslint src/`) | **exit 0** — не ловит |
+| `npx vite build` | `SyntaxError: [plugin vite:vue] … Error parsing JavaScript expression`, exit 1 |
+| dev-сервер | 500 Internal server error на этот `.vue`, в консоли Playwright — только `[WebServer]` |
+
+То есть ошибка приходит **исключительно от компилятора шаблонов** — на сборке или при
+запросе модуля. Статические проверки, на которые мы обычно опираемся, её не видят.
+
+**Осторожно с воспроизведением:** если вынести обработчик в функцию и оставить её
+неиспользованной, `vue-tsc` покраснеет — но на `TS6133 declared but never read`, а не на
+разборе шаблона. Легко решить, что «typecheck ловит», и записать неверный механизм.
+
+**Решение:** любой обработчик из более чем одного вызова — **функция в `<script setup>`**.
+Не ради красоты: inline-версия держится на символе, который форматтер вправе убрать.
+
+**Диагностика, когда «кнопка не работает» в e2e:** первым делом ищи в выводе Playwright
+строки `[WebServer]` — ошибка компиляции лежит там, а не в ассерте, который покраснел.
+
+---
+
 ## Applying this skill
 
 When starting a task from trigger list (see description above) — **read this skill completely** before writing code. If task not from list — `Read` only the needed section.
 
-After completing task — run through checklist: pitfalls #1–#66, save mode (if form), HTTP method (if new endpoint).
+After completing task — run through checklist: pitfalls #1–#67, save mode (if form), HTTP method (if new endpoint).
