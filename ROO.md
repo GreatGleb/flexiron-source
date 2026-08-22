@@ -76,7 +76,13 @@ Explore agent gives structural overview — it does not replace targeted verific
 - **Styling:** Custom CSS (no Tailwind), scoped styles in `.vue` files
 - **i18n:** Custom i18n system (`src/i18n/`)
 - **Testing:** Playwright for e2e tests
-- **Backend:** Not in this repo (API contract in `toDo/admin-api-contract.md`)
+- **Backend:** `backend/` — FastAPI, Modular Monolith + Vertical Slice (see `/create-api-feature`).
+  Состояние на 2026-08-22: десять модулей, модели у девяти, 17 миграций — и всего восемь
+  вертикальных слайсов (auth ×4, products ×2, settings ×2). То есть схема заложена, а
+  эндпоинтов почти нет. Модуля `orders` нет вовсе: `billing` — это тарифы SaaS (plans,
+  tenant_plans, feature_definitions), а не заказы клиентов.
+- **API-контракт:** `roo_code/roo-context/03-api-contract.md` — единственный живой.
+  Файла `toDo/admin-api-contract.md`, на который тут ссылались раньше, в репозитории нет.
 
 ### Key Directories
 - `frontend_vue/src/` — main source code
@@ -85,6 +91,10 @@ Explore agent gives structural overview — it does not replace targeted verific
 - `frontend_vue/src/types/` — TypeScript type definitions
 - `frontend_vue/src/i18n/` — translations
 - `frontend_vue/src/styles/` — CSS files
+- `backend/app/modules/<module>/features/<feature>/` — вертикальные слайсы бэкенда
+- `backend/app/modules/<module>/shared/models.py` — модели модуля
+- `backend/app/core/` — инфраструктура, трогать только по необходимости
+- `backend/alembic/versions/` — миграции
 - `roo_code/roo-context/` — project context for AI (design docs, plans, specs)
 - `roo_code/skills/` — Roo Code skills
 - `toDo/` — original project documentation (design specs, plans, bugs)
