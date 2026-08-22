@@ -54,6 +54,9 @@ export const ALL_FLAGS_ENABLED = {
 
   // Warehouse map — its own page, not one of the warehouse table tabs
   warehouseMap: true,
+
+  // Metal cutting — the operation that turns a batch into offcuts, kerf and waste
+  warehouseCutting: true,
 } as const
 
 /** Writes ALL_FLAGS_ENABLED to localStorage before every page in this context loads. */

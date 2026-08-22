@@ -288,6 +288,12 @@ const routes: RouteRecordRaw[] = [
         meta: { layout: 'admin', featureFlag: 'adminWarehouse' as FeatureFlagKey },
       },
       {
+        path: 'warehouse/cutting',
+        name: 'admin-warehouse-cutting',
+        component: () => import('@/views/admin/warehouse/WarehouseCuttingPage.vue'),
+        meta: { layout: 'admin', featureFlag: 'warehouseCutting' as FeatureFlagKey },
+      },
+      {
         path: 'warehouse/map',
         name: 'admin-warehouse-map',
         component: () => import('@/views/admin/warehouse/WarehouseMapPage.vue'),

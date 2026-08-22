@@ -854,15 +854,31 @@ const deficitFiltersActive = computed(() => {
           <span>{{ t('warehouse.btn_new_batch') }}</span>
         </button>
 
-        <!-- Offcuts tab: new offcut -->
+        <!-- Offcuts tab: record a piece by hand -->
         <button
           v-if="activeTab === 'offcuts'"
-          class="btn btn-primary"
+          class="btn btn-secondary"
           data-test="warehouse-new-offcut-btn"
           @click="router.push({ name: 'admin-warehouse-offcut-create' })"
         >
-          <SvgIcon name="scissors" :width="18" :height="18" />
+          <SvgIcon name="plus-add" :width="18" :height="18" />
           <span>{{ t('warehouse.btn_new_offcut') }}</span>
+        </button>
+
+        <!--
+          Резка — не то же, что «новый обрезок»: там кусок записывают, здесь его
+          отрезают, и с партии уходит ещё и пропил. До этого кнопка «Резка» стояла
+          только в пустом состоянии вкладки и вела на форму ручной записи, то есть
+          мимо операции резки вообще.
+        -->
+        <button
+          v-if="activeTab === 'offcuts'"
+          class="btn btn-primary"
+          data-test="warehouse-offcuts-cut-btn"
+          @click="router.push({ name: 'admin-warehouse-cutting' })"
+        >
+          <SvgIcon name="scissors" :width="18" :height="18" />
+          <span>{{ t('warehouse.btn_cut') }}</span>
         </button>
 
         <!-- Page config stub (all tabs) — feature-flagged per tab -->
@@ -2211,7 +2227,10 @@ const deficitFiltersActive = computed(() => {
                 </td>
                 <td>{{ batch.quantity }}</td>
                 <td>
-                  <span :class="{ 'text-danger': batch.quantityRemaining <= 0 }">
+                  <span
+                    :class="{ 'text-danger': batch.quantityRemaining <= 0 }"
+                    data-test="warehouse-batch-remaining"
+                  >
                     {{ batch.quantityRemaining }}
                   </span>
                 </td>
@@ -2295,7 +2314,7 @@ const deficitFiltersActive = computed(() => {
             <button
               class="btn btn-primary"
               data-test="warehouse-offcuts-cut-btn-empty"
-              @click="router.push({ name: 'admin-warehouse-offcut-create' })"
+              @click="router.push({ name: 'admin-warehouse-cutting' })"
             >
               <SvgIcon name="scissors" :width="16" :height="16" />
               <span>{{ t('warehouse.btn_cut') }}</span>

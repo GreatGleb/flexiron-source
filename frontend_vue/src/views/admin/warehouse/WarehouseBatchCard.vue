@@ -1337,12 +1337,27 @@ async function onMovementCreated() {
                 name: 'admin-warehouse-offcut-create',
                 query: { batchId: batch.id, productId: batch.productId },
               }"
-              class="btn btn-sm btn-primary"
+              class="btn btn-sm btn-secondary"
               style="margin-left: auto"
               data-test="batch-card-create-offcut-link"
             >
               <SvgIcon name="plus-add" :width="14" :height="14" />
               {{ t('warehouse.btn_new_offcut') }}
+            </router-link>
+            <!--
+              Резка приходит сюда с уже известной партией: выбирать её заново на
+              странице резки не нужно. Ручное создание обрезка рядом и осталось —
+              это разные действия: там кусок просто записывают, здесь его отрезают,
+              и с партии уходит ещё и пропил.
+            -->
+            <router-link
+              v-if="batch"
+              :to="{ name: 'admin-warehouse-cutting', query: { batchId: batch.id } }"
+              class="btn btn-sm btn-primary"
+              data-test="batch-card-cutting-link"
+            >
+              <SvgIcon name="scissors" :width="14" :height="14" />
+              {{ t('warehouse.btn_cut') }}
             </router-link>
           </template>
           <div v-if="offcutsLoading" class="text-muted" style="padding: 12px 0">

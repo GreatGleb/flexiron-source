@@ -1597,6 +1597,104 @@ transfer с названным адресом переносит его цели
 
 ---
 
+## Резка металла (Cutting)
+
+Используется в `WarehouseCuttingPage.vue` (`useWarehouseCutting`). Вход — карточка партии
+(`?batchId=`) или вкладка обрезков (партия выбирается на самой странице).
+
+### POST /api/warehouse/cutting
+
+- **Когда:** оператор подтвердил резку. **Quick-action**: одна проводка, копить нечего.
+- **Payload** (`CuttingOperation`):
+  ```ts
+  {
+    sourceBatchId: string
+    sourceQuantity: number        // СВЕРКА, а не ввод — см. ниже
+    kerfMm: number                // ширина реза в миллиметрах
+    offcuts: Array<{              // Omit<OffcutCreatePayload, 'batchId'>
+      productId: string
+      categoryId?: string | null
+      offcutType?: 'sheet' | 'linear'
+      lengthMm?: number | null
+      widthMm?: number | null
+      thicknessMm?: number | null
+      weightKg?: number | null
+      quantity: number            // СЧЁТЧИК КУСКОВ, целое ≥ 1
+      unit: StockUnit
+      location?: string | null
+      notes?: string | null
+    }>
+    wasteQuantity: number
+    notes?: string | null
+  }
+  ```
+- **Response 200:** `{ offcuts: WarehouseOffcut[]; wasteQuantity: number }`
+
+**Арифметика (сервер считает сам, клиенту не верит):**
+
+```
+material(кусок) = quantity × размер одного куска в единице партии
+cuts            = Σ quantity                       // по резу на каждый кусок
+consumed        = Σ material + cuts × kerf + waste
+```
+
+Размер одного куска по единице партии — пять строк геометрии и две на весе:
+
+| `batch.unit` | размер куска |
+|---|---|
+| `m` | `lengthMm / 1000` |
+| `mm` | `lengthMm` |
+| `m2` | `lengthMm × widthMm / 1 000 000` |
+| `kg` | `weightKg` |
+| `t` | `weightKg / 1000` |
+| `pcs` | 1 |
+
+`quantity` обрезка — это счётчик кусков, а НЕ количество материала: единица обрезка и
+единица партии — разные величины. Пример из ТЗ (Process 2.2 §2): партия в метрах, один
+кусок 2500 мм, пропил 3 мм → `consumed = 2.503`.
+
+`cuts = Σ quantity` переоценивает на один рез при ровном расходе (6000 на два по 3000 —
+физически один рез). Выбрано сознательно: переоценка показывает металла МЕНЬШЕ, чем лежит,
+и лишнее находится при инвентаризации; недооценка обещает клиенту металл, которого нет.
+
+**Пропил только у линейных единиц** (`m`, `mm`). Для остальных `kerfMm > 0` — отказ, а не
+молчаливый ноль: 3 мм в килограммы без веса погонного метра не переводятся.
+
+**Что пишется в движения:**
+
+- по одному `type: 'offcut'` на каждую строку кусков, `quantity` = материал этой строки
+  (в единице партии), `offcutId` — созданный обрезок
+- одно `type: 'write-off'` c `referenceType: 'cutting'` на `kerf + waste`, если оно
+  больше нуля; в `notes` расшифровка обоих слагаемых
+
+Количество партии уменьшают ТОЛЬКО эти движения — второго вычитания нет нигде.
+
+**Отказы (все — до первой записи; резка либо проведена целиком, либо не проведена):**
+
+| Код | Когда |
+|---|---|
+| `BATCH_NOT_FOUND` | неизвестный `sourceBatchId` |
+| `CUTTING_NO_OFFCUTS` | пустой `offcuts` |
+| `CUTTING_NEGATIVE_AMOUNT` | `kerfMm < 0` или `wasteQuantity < 0` |
+| `CUTTING_KERF_NOT_APPLICABLE` | `kerfMm > 0` у нелинейной партии |
+| `BATCH_UNIT_NOT_SUPPORTED` | единицы партии нет в таблице размеров |
+| `OFFCUT_DIMENSION_MISSING` | нет размера, нужного для этой единицы (или он ≤ 0) |
+| `OFFCUT_PIECES_NOT_INTEGER` | `quantity` не целое или меньше 1 |
+| `INSUFFICIENT_QUANTITY` | `consumed > batch.quantityRemaining` |
+| `CUTTING_QUANTITY_MISMATCH` | `sourceQuantity` разошлось с пересчитанным `consumed` (допуск 1e-6) |
+
+`sourceQuantity` — это то же число, что показано оператору. Сервер считает расход заново и
+отказывает при расхождении: два поля, которые обязаны совпадать, расходятся ровно тогда,
+когда их два.
+
+### POST /api/warehouse/offcuts (ручное создание) — то же списание
+
+Тот же резолвер размера, тот же владелец количества. Отличия от резки: нет пропила, нет
+отхода, один кусок за вызов. Отказы `BATCH_NOT_FOUND`, `OFFCUT_DIMENSION_MISSING`,
+`OFFCUT_PIECES_NOT_INTEGER`, `INSUFFICIENT_QUANTITY` — те же.
+
+---
+
 ## Аудит партии (Batch Audit)
 
 ### GET /api/warehouse/batches/:id/audit

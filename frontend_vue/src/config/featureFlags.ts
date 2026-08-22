@@ -43,6 +43,8 @@ const defaults: FeatureFlags = {
   warehouseQrPrint: true,
   // Карта склада — отдельная страница с картинкой (не вкладка складских таблиц)
   warehouseMap: true,
+  // Резка металла: операция, из которой выходят обрезки, пропилы и отходы
+  warehouseCutting: true,
 
   // Warehouse per-tab page config flags (disabled by default — in development)
   warehouseStockPageConfig: false,

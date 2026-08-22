@@ -45,13 +45,21 @@ function freshBatch(quantity: number, location: string) {
   })
 }
 
-/** A batch and one offcut cut out of it, both on the same shelf. */
+/**
+ * A batch and one offcut cut out of it, both on the same shelf.
+ *
+ * `quantity` on an offcut counts PIECES; how much material a piece is comes from its
+ * size, and for a batch measured in kilograms that size is `weightKg`. This helper
+ * used to pass the batch's whole quantity as the piece count and no weight at all —
+ * now refused outright, and previously taken off the batch twice over.
+ */
 async function freshOffcut(quantity: number, location: string) {
   const batch = await freshBatch(quantity, location)
   const offcut = await mockCreateOffcut({
     batchId: batch.id,
     productId: 'prod-001',
-    quantity,
+    quantity: 1,
+    weightKg: quantity,
     unit: 'kg',
     offcutType: 'linear',
     location,
@@ -189,8 +197,11 @@ describe('transfer movement and offcut.location', () => {
 
     const after = await mockGetOffcut(offcut.id)
     expect(after.location).toBe(SHELF_C)
-    // The piece was carried, not consumed.
-    expect(after.quantity).toBe(2)
+    // The piece was carried, not consumed: the count and the size it was created
+    // with are both still there. Read again after the movement, so this compares
+    // two moments rather than a value with itself.
+    expect(after.quantity).toBe(offcut.quantity)
+    expect(after.weightKg).toBe(2)
     expect(after.status).toBe('available')
   })
 
