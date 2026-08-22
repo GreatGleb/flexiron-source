@@ -1384,11 +1384,21 @@ async function onMovementCreated() {
                   -->
                   <td>
                     <template v-if="offcut.lengthMm && offcut.widthMm">
-                      {{ offcut.lengthMm }} × {{ offcut.widthMm }} мм
+                      {{
+                        t('warehouse.offcut_dimensions', {
+                          length: offcut.lengthMm,
+                          width: offcut.widthMm,
+                        })
+                      }}
                     </template>
                     <span v-else>—</span>
                   </td>
-                  <td>{{ offcut.weightKg ?? '—' }} кг</td>
+                  <td>
+                    <template v-if="offcut.weightKg != null">
+                      {{ offcut.weightKg }} {{ t('warehouse.unit_kg') }}
+                    </template>
+                    <span v-else>—</span>
+                  </td>
                   <td>
                     {{ offcut.quantity }} {{ t(`warehouse.unit_${offcut.unit}`, offcut.unit) }}
                   </td>
