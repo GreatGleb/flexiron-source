@@ -6,6 +6,7 @@ import {
   mockSupplierList,
 } from '../../mocks/warehouse'
 import { navigateToAdmin } from '../../helpers/admin'
+import { waitForDataReady } from '../../helpers/ready'
 
 test.describe('Warehouse module', () => {
   test.beforeEach(async ({ page }) => {
@@ -172,18 +173,36 @@ test.describe('Warehouse module', () => {
       // and those were the untranslated ones.
       await page.locator('[data-test="warehouse-tab-movements"] thead th button').first().click()
 
+      const info = page.locator(
+        '[data-test="warehouse-tab-movements"] .pagination-bar .pagination-info',
+      )
       const seen = new Set<string>()
-      for (let visited = 0; visited < 10; visited++) {
-        const rows = page.getByTestId('warehouse-movement-row')
-        for (let i = 0; i < (await rows.count()); i++) {
-          seen.add(((await rows.nth(i).locator('td').nth(1).innerText()) ?? '').trim())
-        }
+      for (let visited = 0; visited < 20; visited++) {
+        // ОДИН снимок DOM на страницу. `count()` и следующие за ним `nth(i)` — разные
+        // обращения, и между ними страница успевает перерисоваться: количество приходит
+        // из одного рендера, а строка запрашивается из другого. На последней странице их
+        // 4 из 179, поэтому `nth(4)`, взятый по счёту предыдущей страницы, не появится
+        // никогда — не «поздно», а вообще.
+        const labels = await page
+          .getByTestId('warehouse-movement-row')
+          .evaluateAll((els) =>
+            els.map((el) => (el.querySelectorAll('td')[1]?.textContent ?? '').trim()),
+          )
+        // Пустой снимок молча съел бы целую страницу типов — и тест остался бы зелёным,
+        // проверив меньше, чем обещает имя.
+        expect(labels.length).toBeGreaterThan(0)
+        for (const label of labels) seen.add(label)
+
         const next = page
           .locator('[data-test="warehouse-tab-movements"] .pagination-bar button')
           .last()
         if (!(await next.isEnabled())) break
+
+        // Ждать ПРИШЕДШИЕ ДАННЫЕ, а не часы (ловушка #64). Признак — сменившийся счётчик
+        // «26-50 of 179»: он меняется ровно тогда, когда новая страница отрисована.
+        const shown = await info.innerText()
         await next.click()
-        await page.waitForTimeout(300)
+        await expect(info).not.toHaveText(shown)
       }
 
       expect(seen.size).toBeGreaterThan(5)

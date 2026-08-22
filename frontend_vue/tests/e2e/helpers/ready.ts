@@ -34,61 +34,114 @@ const LOADING_MARKERS = [
  * seen, or once a page has demonstrably asked for nothing.
  */
 export type ReadyExit =
-  /** The mock server was seen working and then went idle — the honest signal. */
+  /** The mock server answered at least once since this wait began — the signal. */
   | 'traffic-seen'
-  /** It stayed idle: taken to mean the page asked for nothing. A time-based guess. */
-  | 'idle-timeout'
-  /** The mocks module never loaded: the page made no API call at all. Also a guess. */
+  /** A declared no-data route: nothing to wait for, so nothing was waited for. */
+  | 'no-data-route'
+  /** No mock layer at all — real-API mode, decided at once. */
   | 'no-mock-module'
   /** No hook at all — real-API mode. */
   | 'no-hook'
+  /** The budget ran out with no traffic: a route that asks nothing and is not declared. */
+  | 'no-traffic'
+
+/**
+ * Маршруты, которые ЗАКОННО не спрашивают у API ничего.
+ *
+ * Объявленный список вместо окна по времени. Раньше «страница ничего не спрашивает»
+ * решалось часами: подождали 400 мс (а до этого — 2000 мс на загрузку мок-чанка) и,
+ * если тихо, пошли дальше. Под нагрузкой это ложь ровно в опасную сторону: страница,
+ * которая ЕЩЁ не спросила, объявлялась спросившей ничего, и проверка гонялась с
+ * пустым экраном. Замерено на 40× троттлинге — первая строка приходила на 19-й
+ * секунде.
+ *
+ * Значение — ПРИЧИНА, а не украшение: объявляя маршрут, объясняешь, почему он ничего не
+ * спрашивает. Пустая причина — незакрытое объявление, и перепись её не пропустит; так
+ * список остаётся объяснённым, а не превращается в свалку исключений.
+ *
+ * Список стережёт `ready-exits.spec.ts`: маршрут отсюда обязан выходить по ветке
+ * `no-data-route` и не сделать ни одного запроса, а всякий прочий маршрут — по
+ * `traffic-seen`. Единственное оставшееся время — общий бюджет ожидания, и он может
+ * истечь только у маршрута, который данных не запрашивает и в списке не объявлен: это
+ * `no-traffic`, громко и по имени.
+ */
+export const ROUTES_WITHOUT_DATA: Readonly<Record<string, string>> = {
+  '/': 'landing page: static marketing copy',
+  '/login': 'auth form: nothing is fetched until submit',
+  '/register': 'auth form: nothing is fetched until submit',
+  '/about': 'static text page',
+  '/support': 'static text page',
+  '/terms': 'static text page',
+  '/screens': 'meta page: a hand-written list of routes',
+  '/404': 'not-found page: nothing to fetch',
+}
+
+/** The declared paths alone. */
+export const ROUTES_WITHOUT_DATA_PATHS = Object.keys(ROUTES_WITHOUT_DATA)
+
+function asksForNothing(url: string): boolean {
+  let path: string
+  try {
+    path = new URL(url).pathname
+  } catch {
+    return false
+  }
+  const normalized = path.replace(/\/+$/, '') || '/'
+  return normalized in ROUTES_WITHOUT_DATA
+}
 
 /**
  * Which branch let the wait finish, recorded on the page.
  *
- * Two of the four branches believe a clock rather than a signal, which is the very
- * thing pitfall #64 forbids — and the windows they trust (400ms, 2000ms) are smaller
- * than measured data delays under load (1.7–2.2s). The hole is narrow but real: a
- * page whose first request starts late would be waved through as "asked for nothing".
+ * `traffic-seen` rests on `__mockCalls`, a counter that never decreases and is bumped
+ * at the dispatcher, so a request that started and finished between two polls still
+ * counts — and so does one that ended in an error, which the old bookkeeping (kept
+ * inside `delay()`) never saw at all.
  *
- * So the assumption is made checkable instead of being argued about. `readyExitOf`
- * reads it back, and `ready-exits.spec.ts` walks every route to record which pages
- * leave by a timed branch. Anyone tempted to shorten these windows can see first
- * exactly whose correctness rests on them.
+ * No branch on this path believes a clock any more. A route either is declared as
+ * asking for nothing, or is waited for until its mock layer has answered. `readyExitOf`
+ * reads the branch back and `ready-exits.spec.ts` records it for every route.
  */
 async function waitForMockServerIdle(page: Page, timeout: number) {
+  if (asksForNothing(page.url())) {
+    await page
+      .evaluate(() => {
+        ;(window as unknown as { __readyExit?: string }).__readyExit = 'no-data-route'
+      })
+      .catch(() => {
+        // Nothing to record on a page that will not run scripts.
+      })
+    return
+  }
+
   await page
     .waitForFunction(
       () => {
         const w = window as unknown as {
+          __mockMode?: boolean
           __mockPending?: number
-          __readyBusySeen?: boolean
-          __readyFirstCheck?: number
-          __readyIdleSince?: number
+          __mockCalls?: number
+          __readyCallsAtStart?: number
           __readyExit?: string
         }
-        w.__readyFirstCheck ??= performance.now()
 
         if (typeof w.__mockPending !== 'number') {
-          // The mocks module is loaded by the first API call. A page that never
-          // makes one (a public page, a 404) must not hang here.
-          if (performance.now() - w.__readyFirstCheck > 2000) {
-            w.__readyExit = 'no-mock-module'
-            return true
-          }
-          return false
-        }
-        if (w.__mockPending > 0) {
-          w.__readyBusySeen = true
-          return false
-        }
-        w.__readyIdleSince ??= performance.now()
-        if (w.__readyBusySeen === true) {
-          w.__readyExit = 'traffic-seen'
+          // `__mockMode` is set synchronously at boot, before anything can be waited
+          // on, and promises that the counter is on its way — so waiting for it needs
+          // no clock. Without the flag there is no mock layer: real-API mode, decided
+          // at once rather than guessed at after two seconds.
+          if (w.__mockMode === true) return false
+          w.__readyExit = 'no-mock-module'
           return true
         }
-        if (performance.now() - w.__readyIdleSince > 400) {
-          w.__readyExit = 'idle-timeout'
+        if (w.__mockPending > 0) return false
+
+        // Nothing in flight. Did anything fly SINCE THIS WAIT BEGAN? Only growth over
+        // the baseline counts, or every wait after the first would return at once on
+        // the strength of some earlier page's traffic — and inside an SPA every wait
+        // but the first is a later one.
+        if ((w.__mockCalls ?? 0) > (w.__readyCallsAtStart ?? 0)) {
+          w.__readyExit = 'traffic-seen'
           return true
         }
         return false
@@ -96,8 +149,18 @@ async function waitForMockServerIdle(page: Page, timeout: number) {
       undefined,
       { timeout },
     )
-    .catch(() => {
-      // Real-API mode has no such hook; the marker check below still applies.
+    .catch(async () => {
+      // The budget ran out with no traffic at all. Either real-API mode with no hook,
+      // or a route that asks for nothing and is missing from ROUTES_WITHOUT_DATA —
+      // and the census names it rather than this returning quietly.
+      await page
+        .evaluate(() => {
+          const w = window as unknown as { __mockMode?: boolean; __readyExit?: string }
+          w.__readyExit = w.__mockMode === true ? 'no-traffic' : 'no-hook'
+        })
+        .catch(() => {
+          // Real-API mode has no such hook; the marker check below still applies.
+        })
     })
 }
 
@@ -120,6 +183,27 @@ export async function readyExitOf(page: Page): Promise<ReadyExit> {
  * proves the data it needs, rather than data in general, has arrived.
  */
 export async function waitForDataReady(page: Page, timeout = 30_000) {
+  // Every wait starts from scratch. Without this reset the SECOND wait on a page
+  // returns instantly on the first one's bookkeeping — and inside an SPA (a tab
+  // switch, a filter, a pagination click) every wait but the first is a second one.
+  // That is not a theory: a test that snapshots rows right after such a wait was
+  // reading the page before it redrew, and silently skipped three movement types.
+  await page
+    .evaluate(() => {
+      const w = window as unknown as {
+        __mockCalls?: number
+        __readyCallsAtStart?: number
+        __readyIdleSince?: number
+        __readyExit?: string
+      }
+      w.__readyCallsAtStart = w.__mockCalls ?? 0
+      w.__readyIdleSince = undefined
+      w.__readyExit = undefined
+    })
+    .catch(() => {
+      // Nothing to reset before the first navigation of a context.
+    })
+
   const main = page.locator('[data-test="admin-main"]')
   if (await main.count()) {
     await main

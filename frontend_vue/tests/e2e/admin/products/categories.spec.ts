@@ -68,9 +68,7 @@ test.describe('categories-list › structure', () => {
   })
 
   test('table has 5 columns (name, parent, fields, products, actions)', async ({ page }) => {
-    await expect(
-      page.locator('[data-test="categories-table"] table thead tr th'),
-    ).toHaveCount(5)
+    await expect(page.locator('[data-test="categories-table"] table thead tr th')).toHaveCount(5)
   })
 
   test('create button is visible in header', async ({ page }) => {
@@ -202,11 +200,7 @@ test.describe('categories-list › navigation', () => {
   })
 
   test('clicking a row navigates to the category card', async ({ page }) => {
-    await page
-      .locator('[data-test="categories-row"]')
-      .first()
-      .locator('a.name-link')
-      .click()
+    await page.locator('[data-test="categories-row"]').first().locator('a.name-link').click()
     await expect(page).toHaveURL(/\/admin\/products\/categories\/cat-\w+$/)
   })
 })
@@ -316,7 +310,9 @@ test.describe('category-card › own fields', () => {
     const modal = page.locator('[data-test="modal-field"]')
     await expect(modal).toBeVisible()
     await modal.locator('[data-test="field-type-select"] .custom-select-trigger').click()
-    const enumOption = modal.locator('.custom-select-option').filter({ hasText: /enum|select list|список/i })
+    const enumOption = modal
+      .locator('.custom-select-option')
+      .filter({ hasText: /enum|select list|список/i })
     await enumOption.first().click()
     await expect(modal.locator('[data-test="field-options-input"]')).toBeVisible()
   })
@@ -325,12 +321,20 @@ test.describe('category-card › own fields', () => {
     await page.locator('[data-test="category-add-field-btn"]').click()
     const modal = page.locator('[data-test="modal-field"]')
     await modal.locator('[data-test="field-type-select"] .custom-select-trigger').click()
-    await modal.locator('.custom-select-option').filter({ hasText: /text|текст/i }).first().click()
+    await modal
+      .locator('.custom-select-option')
+      .filter({ hasText: /text|текст/i })
+      .first()
+      .click()
     await expect(modal.locator('[data-test="field-options-input"]')).toHaveCount(0)
   })
 
   test('adding a text field appends it to the own fields list', async ({ page }) => {
-    const initialCount = await page.locator('[data-test="category-field-row"]').count()
+    // Как и в тесте на удаление ниже: сначала доказать, что список отрисован, и только
+    // потом мерить длину — иначе под нагрузкой считается ноль.
+    const rows = page.locator('[data-test="category-field-row"]')
+    await expect(rows.first()).toBeVisible()
+    const initialCount = await rows.count()
     await page.locator('[data-test="category-add-field-btn"]').click()
     const modal = page.locator('[data-test="modal-field"]')
     await modal.locator('[data-test="field-name-input"]').fill('New field')
@@ -347,7 +351,12 @@ test.describe('category-card › own fields', () => {
   })
 
   test('deleting a field removes it from the list', async ({ page }) => {
-    const initialCount = await page.locator('[data-test="category-field-row"]').count()
+    // Считать до того, как строки отрисованы, — значит получить 0 и ждать потом -1
+    // (ровно это и случилось под нагрузкой: `Expected: -1, Received: 2`). Сначала
+    // доказать, что список есть, и только потом мерить его длину.
+    const rows = page.locator('[data-test="category-field-row"]')
+    await expect(rows.first()).toBeVisible()
+    const initialCount = await rows.count()
     await page.locator('[data-test="category-field-row"]').first().locator('.action-danger').click()
     // Confirm deletion in the modal
     await expect(page.locator('[data-test="modal-delete-field"]')).toBeVisible()

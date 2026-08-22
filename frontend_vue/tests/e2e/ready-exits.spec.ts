@@ -1,22 +1,29 @@
 import { testBare as test, expect } from './fixtures'
 import { ALL_FLAGS_ENABLED } from './helpers/flags'
-import { waitForDataReady, readyExitOf, type ReadyExit } from './helpers/ready'
+import {
+  ROUTES_WITHOUT_DATA,
+  ROUTES_WITHOUT_DATA_PATHS,
+  readyExitOf,
+  waitForDataReady,
+  type ReadyExit,
+} from './helpers/ready'
 
 /**
- * Which pages leave `waitForDataReady` by a branch that believes a clock.
+ * Which branch each route leaves `waitForDataReady` by — and whether any of them is a
+ * clock.
  *
- * Two of its four exits are guesses: "idle held for 400ms and no traffic was seen"
- * and "the mocks module never loaded within 2s". Both mean *asked for nothing* — and
- * both would wave through a page whose first request merely starts late. Measured
- * data delays under load are 1.7–2.2s, an order of magnitude past the 400ms window,
- * so the assumption is worth checking rather than asserting.
+ * There is no timed window on that path any more: a route is either declared in
+ * `ROUTES_WITHOUT_DATA` (nothing to wait for) or waited for until its mock layer has
+ * answered. This census is what keeps the declaration honest in both directions — a
+ * route with data listed as data-free, or a data-free route left out of the list, is
+ * named here by path.
  *
- * This walks every route and records the exit. A page with data leaving by a timed
- * branch is a lie in the helper, and the helper is what gets fixed — not this list.
+ * It is not a formality. The windows this replaced were 400ms and 2000ms, against
+ * measured page loads of 1.6s idle and 19s under 40x CPU throttle; both fired in the
+ * dangerous direction, waving a page through before it had asked for anything.
  */
-
-/** Pages that genuinely ask the API for nothing. */
-const DATA_FREE = ['/', '/login', '/register', '/about', '/support', '/terms', '/screens', '/404']
+/** Declared in the helper, asserted here: one list, not two. */
+const DATA_FREE = [...ROUTES_WITHOUT_DATA_PATHS]
 
 /** Every admin route: all of these load data and must exit by `traffic-seen`. */
 const ADMIN = [
@@ -47,6 +54,7 @@ const ADMIN = [
   '/admin/sales-crm',
   '/admin/warehouse',
   '/admin/warehouse/map',
+  '/admin/warehouse/cutting',
   '/admin/warehouse/batches/whb-001',
   '/admin/warehouse/stock/prod-001',
   '/admin/warehouse/offcuts/who-001',
@@ -92,26 +100,102 @@ test.beforeEach(async ({ context }) => {
   )
 })
 
-test('every admin page leaves by the honest branch, having seen its traffic', async ({ page }) => {
+test('every admin route is either traffic-seen or declared — never a silent third thing', async ({
+  page,
+}) => {
   test.setTimeout(300_000)
-  const timed: string[] = []
+
+  // Утверждается ИМЕННО развилка, а не «все админские спрашивают данные». Статическая
+  // админская страница когда-нибудь появится (справка, «о системе», заглушка раздела),
+  // и правильным действием будет объявить её в списке — а не ослаблять этот тест под
+  // новое поведение. Запрещено третье: выйти по `no-traffic`, то есть ничего не
+  // спросить, не будучи объявленным.
+  const wrong: string[] = []
   for (const path of ADMIN) {
     const exit = await exitFor(page, path)
-    if (exit !== 'traffic-seen') timed.push(`${path} → ${exit}`)
+    const declared = path in ROUTES_WITHOUT_DATA
+    if (declared) {
+      if (exit !== 'no-data-route') wrong.push(`${path} → declared but exited ${exit}`)
+      // Объявление без причины — незакрытое объявление.
+      if (!ROUTES_WITHOUT_DATA[path]?.trim()) wrong.push(`${path} → declared without a reason`)
+      continue
+    }
+    if (exit !== 'traffic-seen') wrong.push(`${path} → ${exit}`)
   }
   console.log(
-    timed.length ? `NOT traffic-seen:\n${timed.join('\n')}` : 'all admin pages: traffic-seen',
+    wrong.length ? `неверная развилка:\n${wrong.join('\n')}` : 'all admin routes: traffic-seen',
   )
-  // A page with data that exits on a timer is the helper lying, not a page to list.
-  expect(timed, `admin pages leaving waitForDataReady on a clock:\n${timed.join('\n')}`).toEqual([])
+  expect(
+    wrong,
+    `admin routes that are neither traffic-seen nor declared:\n${wrong.join('\n')}`,
+  ).toEqual([])
 })
 
-test('the timed branches belong to pages that ask for nothing', async ({ page }) => {
-  const exits = new Map<string, ReadyExit>()
-  for (const path of DATA_FREE) exits.set(path, await exitFor(page, path))
+test('every declaration carries a reason', async () => {
+  const unexplained = Object.entries(ROUTES_WITHOUT_DATA)
+    .filter(([, reason]) => !reason?.trim())
+    .map(([path]) => path)
+  expect(unexplained, `declared without a reason: ${unexplained}`).toEqual([])
+})
+
+/** Маршрут, который точно спрашивает данные — положительный контроль для счётчика. */
+const KNOWN_DATA_ROUTE = '/admin/notifications'
+
+async function mockCalls(page: import('@playwright/test').Page): Promise<number> {
+  return page.evaluate(() => (window as unknown as { __mockCalls?: number }).__mockCalls ?? -1)
+}
+
+test('the declared no-data routes ask for nothing, and are not waited for', async ({ page }) => {
+  test.setTimeout(180_000)
+  const exits = new Map<string, ReadyExit | string>()
+  const asked = new Map<string, number>()
+
+  for (const path of DATA_FREE) {
+    exits.set(path, await exitFor(page, path))
+
+    // Эти маршруты теперь НЕ ждут ничего, поэтому чтение счётчика обгоняет загрузку
+    // мок-модуля: на странице его ещё нет. Ждём, пока число появится (в мок-режиме
+    // `__mockMode` это обещает), иначе проверялось бы отсутствие значения вместо его
+    // величины.
+    await page.waitForFunction(
+      () => typeof (window as unknown as { __mockCalls?: number }).__mockCalls === 'number',
+      undefined,
+      { timeout: 10_000 },
+    )
+    expect(await mockCalls(page), `${path} asked before the module even loaded`).toBe(0)
+
+    // Утверждение об ОТСУТСТВИИ запросов требует окна, в котором запрос был бы виден
+    // (#66). Счётчик растёт в момент вызова, но вызов идёт после `await import()` в
+    // `apiGet`, то есть позже монтирования: прочитать сразу — значит прочитать до того,
+    // как присутствие стало возможным.
+    //
+    // Окно взято от ИЗМЕРЕННОГО зазора «счётчик появился → первый запрос посчитан» на
+    // маршруте с данными (`/admin/notifications`) под троттлингом CPU:
+    //
+    //   1x → 0 мс      20x → 72 мс      40x → 360 мс
+    //
+    // 700 мс — почти двойной запас над худшим измеренным. Инверсия это подтверждает:
+    // объяви здесь админский маршрут с данными — тест краснеет.
+    await page.waitForTimeout(700)
+    asked.set(path, await mockCalls(page))
+  }
+
+  console.log('data-free exits:', JSON.stringify(Object.fromEntries(exits), null, 1))
+  console.log('data-free mock calls:', JSON.stringify(Object.fromEntries(asked), null, 1))
 
   for (const [path, exit] of exits) {
-    expect(['no-mock-module', 'idle-timeout'], `${path} exited via ${exit}`).toContain(exit)
+    expect(exit, `${path} exited via ${exit}`).toBe('no-data-route')
+    // И само основание объявления: они правда ничего не спросили. Маршрут, который
+    // начнёт спрашивать, обязан выйти из списка, иначе его тесты молча перестанут ждать.
+    expect(asked.get(path), `${path} made ${asked.get(path)} mock calls`).toBe(0)
   }
-  console.log('data-free exits:', JSON.stringify(Object.fromEntries(exits), null, 1))
+
+  // Положительный контроль: «ноль» выше стоит чего-то только если счётчик вообще
+  // считает. На маршруте с данными, в том же браузере, он обязан вырасти.
+  await page.goto(KNOWN_DATA_ROUTE)
+  await waitForDataReady(page)
+  expect(
+    await mockCalls(page),
+    `${KNOWN_DATA_ROUTE} counted nothing — the meter is dead`,
+  ).toBeGreaterThan(0)
 })

@@ -1,6 +1,7 @@
 import type { Locator, Page } from '@playwright/test'
 import { test, expect } from '../../fixtures'
 import { enableAllFlags, setFlag } from '../../helpers/flags'
+import { waitForDataReady } from '../../helpers/ready'
 
 /**
  * Reads a line cell whether it is editable (an input) or frozen (plain text).
@@ -100,6 +101,9 @@ test.describe('Orders List', () => {
     // numbers — the same order named two different totals is how nobody trusts
     // either screen.
     await page.goto('/admin/orders')
+    // Фильтр, введённый раньше первой загрузки, глотает сторож `initialized` (#20), и
+    // проверка потом смотрит на нефильтрованный список.
+    await waitForDataReady(page)
     await page.fill('[data-test="orders-filter-search"] input', 'ORD-2026-005')
     const row = page.locator('[data-test="orders-row"]').first()
     await expect(row).toBeVisible()
@@ -125,13 +129,22 @@ test.describe('Orders List', () => {
     // so the order does not simply vanish — and the message names the blocker
     // instead of a generic failure.
     await page.goto('/admin/orders')
+    // Фильтр, введённый раньше первой загрузки, глотает сторож `initialized` (#20), и
+    // проверка потом смотрит на нефильтрованный список.
+    await waitForDataReady(page)
     await page.fill('[data-test="orders-filter-search"] input', 'ORD-2026-005')
-    const row = page.locator('[data-test="orders-row"]').first()
-    await expect(row).toBeVisible()
+    // Признак применённого фильтра — сама отфильтрованная строка, а не «список виден»:
+    // нефильтрованный список виден тоже, и первой в нём стоит другой заказ. Тест
+    // удалял ORD-2026-100 и ждал сообщение про оплаты, которого у того заказа нет
+    // («Cannot delete: the order has an invoice»).
+    const row = page.locator('[data-test="orders-row"]').filter({ hasText: 'ORD-2026-005' })
+    await expect(row).toHaveCount(1)
     await row.locator('[data-test="orders-delete-btn"]').click()
     await page.locator('[data-test="orders-delete-confirm"]').click()
 
-    await expect(page.locator('.toast').first()).toContainText(/payment/i)
+    // Тост приходит после ответа мока, а под полным прогоном ответ идёт дольше пяти
+    // секунд, которые даёт expect по умолчанию.
+    await expect(page.locator('.toast').first()).toContainText(/payment/i, { timeout: 20_000 })
     // Still there.
     await expect(page.locator('[data-test="orders-row"]').first()).toBeVisible()
   })
@@ -1795,9 +1808,7 @@ test.describe('Order Card › payments and invoices', () => {
     await expect(row.locator('[data-test="cell-input"]')).toHaveCount(0)
     await expect(row.locator('[data-test="line-remove-btn"]')).toHaveCount(0)
 
-    const totalBefore = Number(
-      await page.locator('[data-test="field-gross-total"]').inputValue(),
-    )
+    const totalBefore = Number(await page.locator('[data-test="field-gross-total"]').inputValue())
     const priced = Number(await lineCell(row, 'unitPrice'))
     await row.locator('[data-test="line-correct-btn"]').click()
     await expect(page.locator('[data-test="correct-modal"]')).toBeVisible()

@@ -204,23 +204,46 @@ import type { AuditFeedFilters } from '@/types/audit'
  * Published on `window` rather than exported, because the reader is the test
  * runner in another process. Nothing in the app may branch on it.
  */
-let pendingMockResponses = 0
+let pendingMockRequests = 0
+/**
+ * Сколько запросов мок принял ЗА ВСЁ ВРЕМЯ — монотонно, не убывает.
+ *
+ * Без этого числа запрос, успевший начаться и закончиться между двумя опросами
+ * хелпера, невидим: `__mockPending` в оба момента ноль, и ожидание уходит по ветке
+ * «страница ничего не спрашивала» — то есть возвращается ДО данных, которые уже
+ * пришли. Ноль здесь значит «ещё ничего не спрашивали», и только он.
+ */
+let totalMockRequests = 0
 
 function publishPending() {
-  ;(globalThis as unknown as { __mockPending?: number }).__mockPending = pendingMockResponses
+  const w = globalThis as unknown as { __mockPending?: number; __mockCalls?: number }
+  w.__mockPending = pendingMockRequests
+  w.__mockCalls = totalMockRequests
 }
 publishPending()
 
-function delay<T>(data: T, ms = 300): Promise<T> {
-  pendingMockResponses += 1
+/**
+ * Считает ЗАПРОС, а не ответ, и делает это на границе диспетчера.
+ *
+ * Раньше счёт вёлся в `delay()`, то есть только по успешным ответам: обработчик,
+ * бросивший ошибку до задержки (`BATCH_NOT_FOUND` и вся семья «не найдено»), для
+ * ожидания не существовал вовсе — страница, спросившая и получившая отказ, выглядела
+ * как страница, которая ничего не спрашивала.
+ */
+async function dispatch<T>(run: () => Promise<T>): Promise<T> {
+  pendingMockRequests += 1
+  totalMockRequests += 1
   publishPending()
-  return new Promise((resolve) =>
-    setTimeout(() => {
-      pendingMockResponses -= 1
-      publishPending()
-      resolve(data)
-    }, ms),
-  )
+  try {
+    return await run()
+  } finally {
+    pendingMockRequests -= 1
+    publishPending()
+  }
+}
+
+function delay<T>(data: T, ms = 300): Promise<T> {
+  return new Promise((resolve) => setTimeout(() => resolve(data), ms))
 }
 
 // ─── Idempotency cache (Idempotency-Key → cached response) ───
@@ -266,7 +289,7 @@ function parseFinancePaymentsParams(params?: Record<string, string>) {
 }
 
 // ─── GET ───
-export async function getMock<T>(path: string, params?: Record<string, string>): Promise<T> {
+async function getMockRoute<T>(path: string, params?: Record<string, string>): Promise<T> {
   // ── Auth: get current user (validate session) ──
   if (path === '/api/auth/me') {
     const user = getStoredMockUser()
@@ -827,7 +850,7 @@ function clearStoredMockUser(): void {
 }
 
 // ─── POST ───
-export async function postMock<T>(
+async function postMockRoute<T>(
   path: string,
   body: unknown,
   headers?: Record<string, string>,
@@ -1098,7 +1121,7 @@ export async function postMock<T>(
 }
 
 // ─── PUT (bulk replace) ───
-export async function putMock<T>(
+async function putMockRoute<T>(
   path: string,
   body: unknown,
   _headers?: Record<string, string>,
@@ -1138,7 +1161,7 @@ export async function putMock<T>(
 }
 
 // ─── PATCH (merge) ───
-export async function patchMock<T>(
+async function patchMockRoute<T>(
   path: string,
   body: unknown,
   _headers?: Record<string, string>,
@@ -1379,7 +1402,7 @@ function ifMatchVersion(headers?: Record<string, string>): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined
 }
 
-export async function deleteMock<T>(path: string, headers?: Record<string, string>): Promise<T> {
+async function deleteMockRoute<T>(path: string, headers?: Record<string, string>): Promise<T> {
   const version = ifMatchVersion(headers)
   const auditMatch = path.match(/^\/api\/suppliers\/([^/]+)\/audit\/([^/]+)$/)
   if (auditMatch) {
@@ -1609,7 +1632,7 @@ export async function deleteMock<T>(path: string, headers?: Record<string, strin
 }
 
 // ─── UPLOAD ───
-export async function uploadMock<T>(path: string, file: File): Promise<T> {
+async function uploadMockRoute<T>(path: string, file: File): Promise<T> {
   if (path === '/api/uploads') {
     const fileId = `file-${uploadSeq++}-${Date.now()}`
     // Convert file to data URL so the URL survives localStorage cache across page reloads.
@@ -1637,4 +1660,43 @@ function fileToDataUrl(file: File): Promise<string> {
     reader.onerror = () => reject(new Error('Failed to read file'))
     reader.readAsDataURL(file)
   })
+}
+
+// ─── Точки входа: один счётчик на все шесть ─────────────────────────────────
+// Имена и подписи те же, что были: `services/api.ts` их и вызывает.
+
+export async function getMock<T>(path: string, params?: Record<string, string>): Promise<T> {
+  return dispatch(() => getMockRoute<T>(path, params))
+}
+
+export async function postMock<T>(
+  path: string,
+  body: unknown,
+  headers?: Record<string, string>,
+): Promise<T> {
+  return dispatch(() => postMockRoute<T>(path, body, headers))
+}
+
+export async function putMock<T>(
+  path: string,
+  body: unknown,
+  headers?: Record<string, string>,
+): Promise<T> {
+  return dispatch(() => putMockRoute<T>(path, body, headers))
+}
+
+export async function patchMock<T>(
+  path: string,
+  body: unknown,
+  headers?: Record<string, string>,
+): Promise<T> {
+  return dispatch(() => patchMockRoute<T>(path, body, headers))
+}
+
+export async function deleteMock<T>(path: string, headers?: Record<string, string>): Promise<T> {
+  return dispatch(() => deleteMockRoute<T>(path, headers))
+}
+
+export async function uploadMock<T>(path: string, file: File): Promise<T> {
+  return dispatch(() => uploadMockRoute<T>(path, file))
 }
