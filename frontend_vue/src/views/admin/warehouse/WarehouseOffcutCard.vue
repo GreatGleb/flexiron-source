@@ -48,6 +48,10 @@ const {
   error,
   deleteBlockedByOrder,
   form,
+  derivedWeight,
+  weightIsManual,
+  shownWeightKg,
+  useDerivedWeight,
   isAnythingDirty,
   movements,
   movementsLoading,
@@ -180,6 +184,20 @@ function translateAuditValue(value: string): string {
   }
   return value
 }
+
+/** Почему вывод веса не получился — словами, а не кодом отказа. */
+const notDerivableReason = computed(() => {
+  const d = derivedWeight.value
+  if (!d || d.ok) return ''
+  const key = {
+    no_density: 'weight_not_derivable_no_density',
+    no_dimensions: 'weight_not_derivable_no_dimensions',
+    no_per_unit_weight: 'weight_not_derivable_no_per_unit',
+    no_offcut_type: 'weight_not_derivable_no_type',
+    unit_not_supported: 'weight_not_derivable_unit',
+  }[d.reason]
+  return t(`warehouse.${key}`)
+})
 
 /**
  * Площадь — выведенная величина, поэтому computed, а не поле.
@@ -541,14 +559,63 @@ onMounted(load)
                       </svg>
                     </span>
                   </label>
+                  <!--
+                    Вес — единственное поле карточки, где хранится ТОЛЬКО ручной ввод.
+                    Показывается ручное, если оно есть, иначе выведенное из размеров и
+                    плотности. Источник не хранится, а вычисляется: есть значение —
+                    значит руками. Кнопка «рассчитать из размеров» обнуляет ручное, и
+                    расчётное число стоит РЯДОМ с ней до нажатия — иначе оператор стирает
+                    значение, не видя, что получит взамен, а разница бывает в разы.
+                  -->
                   <input
-                    :value="offcut.weightKg != null ? `${offcut.weightKg} kg` : '—'"
+                    v-model.number="form.weightKg"
                     class="glass-input"
-                    type="text"
-                    readonly
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    :placeholder="shownWeightKg != null ? String(shownWeightKg) : '—'"
                     data-test="field-weight"
                   />
-                  <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
+                  <div class="offcut-weight-source">
+                    <span
+                      class="status-pill"
+                      :class="weightIsManual ? 'pill-warning' : 'pill-info'"
+                      data-test="field-weight-source"
+                    >
+                      {{
+                        weightIsManual
+                          ? t('warehouse.weight_manual_badge')
+                          : t('warehouse.weight_derived_badge')
+                      }}
+                    </span>
+                    <template v-if="weightIsManual">
+                      <span
+                        v-if="derivedWeight?.ok"
+                        class="field-hint"
+                        data-test="field-weight-preview"
+                      >
+                        {{
+                          t('warehouse.weight_derived_preview', { value: derivedWeight.weightKg })
+                        }}
+                      </span>
+                      <button
+                        v-if="derivedWeight?.ok"
+                        type="button"
+                        class="btn btn-sm btn-secondary"
+                        data-test="field-weight-use-derived"
+                        @click="useDerivedWeight"
+                      >
+                        {{ t('warehouse.weight_use_derived') }}
+                      </button>
+                    </template>
+                    <span
+                      v-if="derivedWeight && !derivedWeight.ok"
+                      class="field-hint"
+                      data-test="field-weight-not-derivable"
+                    >
+                      {{ notDerivableReason }}
+                    </span>
+                  </div>
                 </div>
                 <!--
                   Площадь ВЫВОДИТСЯ из длины и ширины, поля в типе у неё нет и не будет:
@@ -1022,3 +1089,14 @@ onMounted(load)
     </div>
   </template>
 </template>
+
+<style scoped>
+/* Строка «откуда взялся вес»: бейдж, расчётное число и кнопка сброса в один ряд. */
+.offcut-weight-source {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+</style>

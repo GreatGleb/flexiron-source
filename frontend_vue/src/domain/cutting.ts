@@ -62,6 +62,8 @@ export interface OffcutMaterialInput {
   quantity: number
   lengthMm?: number | null
   widthMm?: number | null
+  /** Нужна выводу веса листового куска, а не размеру куска в единице партии. */
+  thicknessMm?: number | null
   weightKg?: number | null
 }
 
@@ -177,6 +179,149 @@ export function resolveOffcutMaterial(
     pieces: offcut.quantity,
     pieceSize: size.pieceSize,
     material: roundQuantity(offcut.quantity * size.pieceSize),
+  }
+}
+
+// ─── Вес обрезка ────────────────────────────────────────────────────────────
+
+/**
+ * Единица справочника → строка, которой пользуется таблица размеров.
+ *
+ * Второй явный список в этом файле, и по той же причине, что первый: `batch.unit` и
+ * таблица размеров говорят строками (`'m'`), а товар ссылается на справочник
+ * (`'uom-m'`). Пока величина хранится и строкой, и ссылкой, мост между ними неизбежен —
+ * он исчезнет вместе с п. 4d плана, когда всё переедет на `uomId`.
+ */
+const STOCK_UNIT_BY_UOM_ID: Readonly<Record<string, StockUnit>> = {
+  'uom-m': 'm',
+  'uom-mm': 'mm',
+  'uom-m2': 'm2',
+  'uom-kg': 'kg',
+  'uom-t': 't',
+  'uom-pcs': 'pcs',
+}
+
+/**
+ * Кастомное поле каталога, в котором лежит плотность материала.
+ *
+ * Магическая строка — по необходимости: плотность живёт не колонкой типа, а
+ * наследуемым кастомным полем каталога. Зато ссылка одна: `f-1-3` ↔ «Плотность
+ * (кг/м³)» — соответствие взаимно однозначное (id несёт только это имя, имя имеет
+ * только этот id), и это проверяется тестом. У остальных весовых полей так не вышло:
+ * у «Вес на метр (кг/м)» шесть разных id по категориям.
+ *
+ * Если правка каталога уведёт этот id, вывод веса сломается ТИХО — «поля нет»
+ * превратится в «веса нет», а не в ошибку. Поэтому тест на соответствие обязателен.
+ */
+export const DENSITY_FIELD_ID = 'f-1-3'
+
+/** Плотность материала товара, кг/м³ — или null, если каталог её не знает. */
+export function productDensityKgM3(
+  product: { fieldValues?: { fieldId: string; value: unknown }[] } | null | undefined,
+): number | null {
+  const raw = product?.fieldValues?.find((f) => f.fieldId === DENSITY_FIELD_ID)?.value
+  const value = Number(raw)
+  return raw !== null && raw !== undefined && raw !== '' && Number.isFinite(value) && value > 0
+    ? value
+    : null
+}
+
+export type OffcutWeightSource = 'geometry' | 'per-unit-weight'
+
+export type OffcutWeightResult =
+  | { ok: true; weightKg: number; source: OffcutWeightSource }
+  | {
+      ok: false
+      reason:
+        | 'no_offcut_type'
+        | 'no_density'
+        | 'no_dimensions'
+        | 'no_per_unit_weight'
+        | 'unit_not_supported'
+    }
+
+/**
+ * Вес обрезка — ВЫВОДИТСЯ, и путь выбирается по ЗАЯВЛЕННОМУ типу куска.
+ *
+ * `offcutType` — типизированное поле обрезка, то есть форма куска объявлена, а не
+ * угадана. Выбирать путь по тому, какие размеры оказались непустыми, нельзя: форма
+ * создания даёт оператору все три поля независимо от типа, и заполненная ширина у
+ * отрезка ТРУБЫ превратила бы кольцо в сплошную плиту — для трубы 100×5 это не
+ * погрешность, а втрое меньший вес, причём заявленный кг/м при этом молча
+ * игнорировался бы.
+ *
+ * ЛИСТ: собственные размеры обрезка × плотность материала. Толщина берётся у обрезка
+ * (`thicknessMm` — типизированное поле), а не у каталога: сиды показали, что толщина
+ * обрезка с толщиной товара расходится.
+ *
+ * ЛИНЕЙНЫЙ: размер куска в единице партии × килограммы на эту единицу у товара ПАРТИИ.
+ * Геометрия сюда НЕ подставляется, даже когда размеры заполнены: заявленное значение
+ * каталога главнее выведенного, и подстановка вернула бы ту самую вторую правду.
+ * Килограммов на штуку здесь нет ни на одном шаге — обрезок не целый лист.
+ *
+ * Плотность и кг/м берутся у товара ПАРТИИ, а не у товара обрезка: `productId` обрезка —
+ * копия ссылки, и она разошлась у десяти записей из тринадцати (п. 4e), а единица
+ * размера в резолвере и так приходит от партии. Один расчёт — один источник истины.
+ */
+export function resolveOffcutWeight(input: {
+  offcut: OffcutMaterialInput & { offcutType?: 'sheet' | 'linear' | null }
+  /**
+   * Товар ПАРТИИ, не обрезка.
+   *
+   * Единица партии сюда НЕ передаётся сознательно: листу она не нужна (считается своя
+   * геометрия), а линейному куску нужна единица, в которой задан коэффициент, то есть
+   * складская единица ТОВАРА. Принимать `batchUnit` значило бы держать под рукой не тот
+   * знаменатель — на этом расчёт уже один раз замкнулся сам на себя.
+   */
+  product: {
+    fieldValues?: { fieldId: string; value: unknown }[]
+    weightPerWarehouseUnitKg?: number | null
+    warehouseUomId?: string | null
+  } | null
+}): OffcutWeightResult {
+  const { offcut, product } = input
+
+  if (offcut.offcutType !== 'sheet' && offcut.offcutType !== 'linear') {
+    // Форма куска не объявлена — угадывать её по заполненным полям и есть та ошибка,
+    // от которой эта развилка защищает.
+    return { ok: false, reason: 'no_offcut_type' }
+  }
+
+  if (offcut.offcutType === 'sheet') {
+    const dimensions = [offcut.lengthMm, offcut.widthMm, offcut.thicknessMm]
+    if (!dimensions.every((d) => typeof d === 'number' && Number.isFinite(d) && d > 0)) {
+      return { ok: false, reason: 'no_dimensions' }
+    }
+    const density = productDensityKgM3(product)
+    if (density == null) return { ok: false, reason: 'no_density' }
+    const volumeM3 = (offcut.lengthMm! * offcut.widthMm! * offcut.thicknessMm!) / 1e9
+    return { ok: true, weightKg: roundQuantity(volumeM3 * density), source: 'geometry' }
+  }
+
+  const perUnit = product?.weightPerWarehouseUnitKg
+  if (perUnit == null) return { ok: false, reason: 'no_per_unit_weight' }
+
+  // Знаменатель коэффициента — складская единица ТОВАРА, а не единица партии. Взять
+  // размер куска в единице партии было ошибкой: у партии в килограммах размер куска
+  // это его же вес, и умножение на кг/м давало килограммы × кг/м — то есть круг
+  // (обрезок 0.5 «весил» 0.54). Партия и товар меряются в разных единицах чаще, чем
+  // кажется: это п. 4d, `batch.unit` — свободная строка, не ссылка на справочник.
+  const coefficientUnit = product?.warehouseUomId
+    ? STOCK_UNIT_BY_UOM_ID[product.warehouseUomId]
+    : undefined
+  if (!coefficientUnit) return { ok: false, reason: 'unit_not_supported' }
+
+  const size = resolvePieceSize({ ...offcut, quantity: 1 }, coefficientUnit)
+  if (!size.ok) {
+    return {
+      ok: false,
+      reason: size.reason === 'unit_not_supported' ? 'unit_not_supported' : 'no_dimensions',
+    }
+  }
+  return {
+    ok: true,
+    weightKg: roundQuantity(size.pieceSize * perUnit),
+    source: 'per-unit-weight',
   }
 }
 

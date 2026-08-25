@@ -499,6 +499,36 @@ onMounted(() => {
                   </span>
                 </InputGroup>
               </template>
+
+              <!--
+                Килограммов в ОДНОЙ складской единице этого товара. Знаменатель не
+                спрашивается и не хранится — он и есть складская единица, показанная
+                подписью ниже. Заполнено у тринадцати товаров из 114: только там, где
+                каталог это ЗАЯВИЛ и знаменатель совпал. Килограммы на штуку не
+                хранятся вовсе — вес обрезка их не спрашивает ни на одном шаге.
+              -->
+              <div class="section-divider" />
+              <h4 class="subsection-title">{{ t('products.weight_per_unit_title') }}</h4>
+              <InputGroup :label="t('products.weight_per_unit_label')" :required="false">
+                <input
+                  v-model.number="form.weightPerWarehouseUnitKg"
+                  class="glass-input"
+                  type="number"
+                  min="0"
+                  step="0.001"
+                  data-test="field-kg-per-unit"
+                />
+                <span class="field-hint">
+                  {{
+                    form.weightPerWarehouseUnitKg
+                      ? t('products.weight_per_unit_hint', {
+                          value: form.weightPerWarehouseUnitKg,
+                          unit: uomCode(form.warehouseUomId),
+                        })
+                      : t('products.weight_per_unit_empty')
+                  }}
+                </span>
+              </InputGroup>
             </GlassPanel>
           </div>
 

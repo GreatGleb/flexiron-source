@@ -51,6 +51,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: 0.00425,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-01-15',
     fieldValues: [
       {
@@ -172,6 +173,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-02-20',
     fieldValues: [
       {
@@ -290,6 +292,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: 0.001,
     warehouseToSaleFormulaType: 'static',
     warehouseToSaleFactor: 1000,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-03-01',
     fieldValues: [
       {
@@ -431,6 +434,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: 11.71,
     createdAt: '2025-03-15',
     fieldValues: [
       {
@@ -517,18 +521,6 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
         inherited: false,
         options: [],
       },
-      {
-        fieldId: 'f-4-7',
-        fieldName: {
-          ru: 'Вес на метр (кг)',
-          en: 'Weight per meter (kg)',
-          lt: 'Svoris metrui (kg)',
-        },
-        fieldType: 'number',
-        value: 11.71,
-        inherited: false,
-        options: [],
-      },
     ],
     linkedSuppliers: [
       {
@@ -604,6 +596,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-01',
     fieldValues: [
       {
@@ -698,6 +691,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-10',
     fieldValues: [
       {
@@ -788,6 +782,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-05-01',
     fieldValues: [
       {
@@ -881,6 +876,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-05-15',
     fieldValues: [
       {
@@ -1022,6 +1018,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-06-01',
     fieldValues: [],
     linkedSuppliers: [
@@ -1070,6 +1067,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-01-20',
     description: {
       ru: 'Горячекатаный конструкционный лист для несущих конструкций.',
@@ -1207,6 +1205,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-01-25',
     description: {
       ru: 'Тяжелый горячекатаный лист для машиностроения и строительных рам.',
@@ -1344,6 +1343,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-02-01',
     description: {
       ru: 'Горячекатаный конструкционный лист S235JR, 1250x2500мм.',
@@ -1473,6 +1473,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-02-10',
     description: {
       ru: 'Тяжелая горячекатаная плита для конструкционных применений.',
@@ -1610,6 +1611,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-03-05',
     description: {
       ru: 'Холоднокатаный лист DC01 для глубокой вытяжки.',
@@ -1731,6 +1733,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-03-20',
     description: {
       ru: 'Оцинкованный лист DX51D+Z275 для кровли и облицовки.',
@@ -1876,6 +1879,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-05',
     description: {
       ru: 'Конструкционная стальная плита S355J2 для рам тяжелого оборудования.',
@@ -2005,6 +2009,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-15',
     description: {
       ru: 'Алюминиевый лист 5083-H111 для морских и химических применений.',
@@ -2142,6 +2147,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-05-10',
     description: {
       ru: 'Лист нержавеющей стали AISI 304, 2B отделка, 1000x2000мм.',
@@ -2275,6 +2281,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-05-25',
     description: {
       ru: 'Медный лист C11000, 600x1500мм, для электротехники.',
@@ -2412,6 +2419,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-06-10',
     description: {
       ru: 'Титановый лист Ti-6Al-4V (Grade 5), 500x1000мм, для авиакосмической промышленности.',
@@ -2546,6 +2554,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: 1.08,
     createdAt: '2025-02-05',
     description: {
       ru: 'Бесшовная прецизионная стальная труба для гидравлических систем.',
@@ -2637,18 +2646,6 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
         inherited: false,
         options: [],
       },
-      {
-        fieldId: 'f-4-7',
-        fieldName: {
-          ru: 'Вес на метр (кг)',
-          en: 'Weight per meter (kg)',
-          lt: 'Svoris metrui (kg)',
-        },
-        fieldType: 'number',
-        value: 1.08,
-        inherited: false,
-        options: [],
-      },
     ],
     linkedSuppliers: [
       {
@@ -2699,6 +2696,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: 2.74,
     createdAt: '2025-02-15',
     description: {
       ru: 'Бесшовная стальная труба для общего машиностроения.',
@@ -2790,18 +2788,6 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
         inherited: false,
         options: [],
       },
-      {
-        fieldId: 'f-4-7',
-        fieldName: {
-          ru: 'Вес на метр (кг)',
-          en: 'Weight per meter (kg)',
-          lt: 'Svoris metrui (kg)',
-        },
-        fieldType: 'number',
-        value: 2.74,
-        inherited: false,
-        options: [],
-      },
     ],
     linkedSuppliers: [
       {
@@ -2868,6 +2854,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: 7.49,
     createdAt: '2025-03-10',
     description: {
       ru: 'Конструкционная стальная труба для строительных каркасов.',
@@ -2959,18 +2946,6 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
         inherited: false,
         options: [],
       },
-      {
-        fieldId: 'f-4-7',
-        fieldName: {
-          ru: 'Вес на метр (кг)',
-          en: 'Weight per meter (kg)',
-          lt: 'Svoris metrui (kg)',
-        },
-        fieldType: 'number',
-        value: 7.49,
-        inherited: false,
-        options: [],
-      },
     ],
     linkedSuppliers: [
       {
@@ -3037,6 +3012,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: 21.3,
     createdAt: '2025-04-01',
     description: {
       ru: 'Бесшовная труба большого диаметра для промышленных трубопроводов.',
@@ -3128,18 +3104,6 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
         inherited: false,
         options: [],
       },
-      {
-        fieldId: 'f-4-7',
-        fieldName: {
-          ru: 'Вес на метр (кг)',
-          en: 'Weight per meter (kg)',
-          lt: 'Svoris metrui (kg)',
-        },
-        fieldType: 'number',
-        value: 21.3,
-        inherited: false,
-        options: [],
-      },
     ],
     linkedSuppliers: [
       {
@@ -3186,6 +3150,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: 3.35,
     createdAt: '2025-04-20',
     description: {
       ru: 'Холодногнутый квадратный профиль для конструкционных каркасов.',
@@ -3277,18 +3242,6 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
         inherited: false,
         options: [],
       },
-      {
-        fieldId: 'f-4-7',
-        fieldName: {
-          ru: 'Вес на метр (кг)',
-          en: 'Weight per meter (kg)',
-          lt: 'Svoris metrui (kg)',
-        },
-        fieldType: 'number',
-        value: 3.35,
-        inherited: false,
-        options: [],
-      },
     ],
     linkedSuppliers: [
       {
@@ -3343,6 +3296,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: 5.2,
     createdAt: '2025-05-05',
     description: {
       ru: 'Прямоугольный полый профиль для конструкций.',
@@ -3434,18 +3388,6 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
         inherited: false,
         options: [],
       },
-      {
-        fieldId: 'f-4-7',
-        fieldName: {
-          ru: 'Вес на метр (кг)',
-          en: 'Weight per meter (kg)',
-          lt: 'Svoris metrui (kg)',
-        },
-        fieldType: 'number',
-        value: 5.2,
-        inherited: false,
-        options: [],
-      },
     ],
     linkedSuppliers: [
       {
@@ -3492,6 +3434,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: 1.38,
     createdAt: '2025-05-20',
     description: {
       ru: 'Бесшовная труба из нержавеющей стали AISI 304 для пищевой промышленности.',
@@ -3583,18 +3526,6 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
         inherited: false,
         options: [],
       },
-      {
-        fieldId: 'f-4-7',
-        fieldName: {
-          ru: 'Вес на метр (кг)',
-          en: 'Weight per meter (kg)',
-          lt: 'Svoris metrui (kg)',
-        },
-        fieldType: 'number',
-        value: 1.38,
-        inherited: false,
-        options: [],
-      },
     ],
     linkedSuppliers: [
       {
@@ -3665,6 +3596,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: 0.4,
     createdAt: '2025-06-05',
     description: {
       ru: 'Алюминиевая труба 6060-T6 для легких конструкций.',
@@ -3756,18 +3688,6 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
         inherited: false,
         options: [],
       },
-      {
-        fieldId: 'f-4-7',
-        fieldName: {
-          ru: 'Вес на метр (кг)',
-          en: 'Weight per meter (kg)',
-          lt: 'Svoris metrui (kg)',
-        },
-        fieldType: 'number',
-        value: 0.4,
-        inherited: false,
-        options: [],
-      },
     ],
     linkedSuppliers: [
       {
@@ -3818,6 +3738,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: 0.39,
     createdAt: '2025-06-20',
     description: {
       ru: 'Медная труба для сантехники и систем ОВиК.',
@@ -3909,18 +3830,6 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
         inherited: false,
         options: [],
       },
-      {
-        fieldId: 'f-4-7',
-        fieldName: {
-          ru: 'Вес на метр (кг)',
-          en: 'Weight per meter (kg)',
-          lt: 'Svoris metrui (kg)',
-        },
-        fieldType: 'number',
-        value: 0.39,
-        inherited: false,
-        options: [],
-      },
     ],
     linkedSuppliers: [
       {
@@ -3983,6 +3892,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: 1.95,
     createdAt: '2025-07-01',
     description: {
       ru: 'Бесшовная титановая труба Grade 2 для химической обработки.',
@@ -4074,18 +3984,6 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
         inherited: false,
         options: [],
       },
-      {
-        fieldId: 'f-4-7',
-        fieldName: {
-          ru: 'Вес на метр (кг)',
-          en: 'Weight per meter (kg)',
-          lt: 'Svoris metrui (kg)',
-        },
-        fieldType: 'number',
-        value: 1.95,
-        inherited: false,
-        options: [],
-      },
     ],
     linkedSuppliers: [
       {
@@ -4133,6 +4031,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-01-10',
     description: {
       ru: 'Рутиловые сварочные электроды для общей сварки.',
@@ -4223,6 +4122,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-01-15',
     description: {
       ru: 'Рутиловые электроды для сварки толстых сечений.',
@@ -4313,6 +4213,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-02-01',
     description: {
       ru: 'Сварочная проволока MIG ER70S-6 для углеродистой стали.',
@@ -4407,6 +4308,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-02-15',
     description: {
       ru: 'Агломерированный сварочный флюс для дуговой сварки под флюсом.',
@@ -4497,6 +4399,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-03-01',
     description: {
       ru: 'Смешанный защитный газ для MIG/MAG сварки углеродистой стали.',
@@ -4587,6 +4490,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-03-15',
     description: {
       ru: 'Армированный отрезной круг для стали и нержавейки.',
@@ -4693,6 +4597,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-01',
     description: {
       ru: 'Шлифовальный круг с вогнутым центром для удаления металла.',
@@ -4783,6 +4688,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-15',
     description: {
       ru: 'Спиральное сверло из быстрорежущей стали для общего сверления металла.',
@@ -4869,6 +4775,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-05-01',
     description: {
       ru: 'Ручной метчик M10x1.5 для нарезания резьбы в углеродистой стали.',
@@ -4955,6 +4862,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-05-15',
     description: {
       ru: 'Круглая плашка M10x1.5 для наружной резьбы.',
@@ -5038,6 +4946,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-01-20',
     description: {
       ru: 'Профессиональный сварочный аппарат MIG/MAG с синергетическим управлением.',
@@ -5143,6 +5052,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-02-01',
     description: {
       ru: 'Портативная плазменная система резки с интерфейсом ЧПУ.',
@@ -5232,6 +5142,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-02-15',
     description: {
       ru: 'Токарный станок с ЧПУ с длиной станины 2 метра и приводным инструментом.',
@@ -5313,6 +5224,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-03-01',
     description: {
       ru: '5-осевой обрабатывающий центр с ЧПУ со сменщиком паллет.',
@@ -5406,6 +5318,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-03-15',
     description: {
       ru: 'Гидравлическая гильотина для листового металла до 6мм.',
@@ -5495,6 +5408,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-01',
     description: {
       ru: 'Листогибочный пресс с ЧПУ с длиной гиба 3 метра.',
@@ -5596,6 +5510,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-15',
     description: {
       ru: 'Промышленный винтовой компрессор со встроенным осушителем.',
@@ -5685,6 +5600,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-05-01',
     description: {
       ru: 'Мостовой двухбалочный кран пролетом 20м.',
@@ -5782,6 +5698,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-05-15',
     description: {
       ru: 'Автоматическая горизонтальная ленточная пила для стальных профилей.',
@@ -5883,6 +5800,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-06-01',
     description: {
       ru: '6-осевой сварочный робот со встроенным отслеживанием шва.',
@@ -5969,6 +5887,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-06-15',
     description: {
       ru: 'Горячекатаный лист общего назначения для производства.',
@@ -6090,6 +6009,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-07-01',
     description: {
       ru: 'Тяжелая плита для строительных и горнодобывающих применений.',
@@ -6227,6 +6147,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-07-15',
     description: {
       ru: 'Лист нержавеющей стали AISI 316L для химических сред.',
@@ -6356,6 +6277,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-08-01',
     description: {
       ru: 'Алюминиевый лист 5083 для морского и транспортного применения.',
@@ -6481,6 +6403,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-08-15',
     description: {
       ru: 'Латунный лист CuZn37 для декоративных и электрических компонентов.',
@@ -6614,6 +6537,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-09-01',
     description: {
       ru: 'Фосфористая бронза для подшипников и износных пластин.',
@@ -6735,6 +6659,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-09-15',
     description: {
       ru: 'Высокопрочная стальная плита для тяжелого машиностроения.',
@@ -6872,6 +6797,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-10-01',
     description: {
       ru: 'Износостойкая стальная плита для применений с износом.',
@@ -7001,6 +6927,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-10-15',
     description: {
       ru: 'Перфорированный стальной лист с круглыми отверстиями 10мм, 40% открытой площади.',
@@ -7138,6 +7065,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-01-20',
     description: {
       ru: 'Квадратная профильная труба 40x40мм, стенка 2мм, для металлоконструкций.',
@@ -7290,6 +7218,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-02-10',
     description: {
       ru: 'Прямоугольная профильная труба 60x40мм, стенка 3мм, для конструкционных каркасов.',
@@ -7430,6 +7359,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-02-15',
     description: {
       ru: 'Бесшовная круглая труба диаметром 50мм, стенка 3мм, для гидравлических систем.',
@@ -7578,6 +7508,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-03-01',
     description: {
       ru: 'Бесшовная круглая труба диаметром 76мм, стенка 4мм, для высокого давления.',
@@ -7734,6 +7665,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-03-10',
     description: {
       ru: 'Оцинкованная газовая труба 1 дюйм, с резьбой, для газораспределения.',
@@ -7882,6 +7814,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-11-01',
     description: {
       ru: 'Рифленый лист с ромбовидным рисунком для полов и лестниц.',
@@ -8011,6 +7944,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-03-15',
     description: {
       ru: 'Труба из нержавеющей стали 25мм, стенка 2мм, для пищевой промышленности.',
@@ -8163,6 +8097,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-01',
     description: {
       ru: 'Оцинкованная стальная труба 1/2 дюйма для систем водоснабжения.',
@@ -8323,6 +8258,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-10',
     description: {
       ru: 'Тяжелая квадратная профильная труба 80x80мм, стенка 4мм, для несущих конструкций.',
@@ -8483,6 +8419,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-15',
     description: {
       ru: 'Прямоугольная профильная труба 100x50мм, стенка 3мм, для каркасов и опор.',
@@ -8627,6 +8564,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-20',
     description: {
       ru: 'Труба из нержавеющей стали 50мм, стенка 3мм, для химической промышленности.',
@@ -8787,6 +8725,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-01-10',
     description: {
       ru: 'Рутиловые сварочные электроды 3мм для общей сварки.',
@@ -8868,6 +8807,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-01-15',
     description: {
       ru: 'Основные сварочные электроды 4мм для конструкционной сварки.',
@@ -8965,6 +8905,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-02-01',
     description: {
       ru: 'Медненная сварочная проволока MIG 1мм, катушка 15кг.',
@@ -9062,6 +9003,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-02-10',
     description: {
       ru: 'Порошковая сварочная проволока 1.2мм для высокопроизводительной сварки.',
@@ -9139,6 +9081,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-03-01',
     description: {
       ru: 'Баллон сжатого аргона 40л, 200 бар, для TIG сварки.',
@@ -9236,6 +9179,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-03-10',
     description: {
       ru: 'Смесь защитных газов аргон + CO2 для MIG/MAG сварки, баллон 40л.',
@@ -9321,6 +9265,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-03-15',
     description: {
       ru: 'Баллон сжатого кислорода 40л для резки и сварки.',
@@ -9406,6 +9351,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-01',
     description: {
       ru: 'Баллон пропана 50л для нагрева и резки.',
@@ -9495,6 +9441,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-10',
     description: {
       ru: 'Баллон растворенного ацетилена 40л для газокислородной резки.',
@@ -9576,6 +9523,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-15',
     description: {
       ru: 'Агломерированный сварочный флюс для сварки под флюсом, мешок 25кг.',
@@ -9657,6 +9605,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-01-05',
     description: {
       ru: 'Профессиональный инверторный сварочный аппарат TIG/MMA 250А с функцией импульса.',
@@ -9758,6 +9707,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-01-10',
     description: {
       ru: 'Многофункциональный сварочный аппарат MIG/TIG/MMA 235А с синергетическим управлением.',
@@ -9843,6 +9793,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-01-20',
     description: {
       ru: 'Портативный плазморез 45А, режет сталь до 16мм.',
@@ -9928,6 +9879,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-02-01',
     description: {
       ru: 'Автоматическая горизонтальная ленточная пила для резки металла, 280мм.',
@@ -10021,6 +9973,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-02-10',
     description: {
       ru: 'Гидравлический листогибочный пресс 3000мм, 120 тонн, с ЧПУ.',
@@ -10122,6 +10075,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-02-20',
     description: {
       ru: 'Волоконный лазерный станок 6кВт, стол 4000x2000мм.',
@@ -10207,6 +10161,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-03-01',
     description: {
       ru: 'Промышленный винтовой компрессор 30кВт со встроенным осушителем.',
@@ -10296,6 +10251,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-03-10',
     description: {
       ru: 'Мостовой кран грузоподъемностью 10 тонн, пролет 20м.',
@@ -10397,6 +10353,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-03-20',
     description: {
       ru: 'Самоходная дробеструйная машина для подготовки поверхности.',
@@ -10498,6 +10455,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-01',
     description: {
       ru: 'Модульный сварочный стол 2000x1000мм с системой зажимов.',
@@ -10599,6 +10557,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-05',
     description: {
       ru: 'Оцинкованный стальной лист 1.5мм, 1250x2500мм, покрытие Z275.',
@@ -10720,6 +10679,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-10',
     description: {
       ru: 'Холоднокатаный стальной лист 1мм, 1000x2000мм, для автомобильных панелей.',
@@ -10845,6 +10805,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-15',
     description: {
       ru: 'Лист нержавеющей стали 2мм, 1250x2500мм, AISI 304, 2B отделка.',
@@ -10970,6 +10931,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-20',
     description: {
       ru: 'Алюминиевый лист 3мм, 1200x2400мм, сплав 5083, морского исполнения.',
@@ -11091,6 +11053,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-25',
     description: {
       ru: 'Тонкий оцинкованный лист 0.7мм для кровли и облицовки.',
@@ -11220,6 +11183,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-05-01',
     description: {
       ru: 'Малая квадратная профильная труба 30x30мм, стенка 2мм, для легких каркасов.',
@@ -11368,6 +11332,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-05-05',
     description: {
       ru: 'Бесшовная круглая труба 32мм, стенка 3мм, для гидравлических линий.',
@@ -11512,6 +11477,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-05-10',
     description: {
       ru: 'Большая прямоугольная профильная труба 120x60мм, стенка 4мм, для тяжелых конструкций.',
@@ -11664,6 +11630,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-05-15',
     description: {
       ru: 'Большая труба из нержавеющей стали 100мм, стенка 4мм, для технологической промышленности.',
@@ -11824,6 +11791,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-05-20',
     description: {
       ru: 'Износостойкая стальная плита Hardox 450 6мм, 1500x3000мм, для тяжелой техники.',
@@ -11942,6 +11910,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-06-01',
     description: {
       ru: 'Стальная балка IPE 200, S235JR, высота 200мм, для конструкций.',
@@ -12105,6 +12074,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-06-01',
     description: {
       ru: 'Широкополочная балка HEA 300, S355J2, высота 300мм, для тяжелых нагрузок.',
@@ -12265,6 +12235,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-06-05',
     description: {
       ru: 'Стальной швеллер UPN 100, S235JR, высота 100мм, для строительных каркасов.',
@@ -12410,6 +12381,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-06-05',
     description: {
       ru: 'Стальной швеллер UPN 200, S355J2, высота 200мм, для тяжелых конструкций.',
@@ -12548,6 +12520,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-06-10',
     description: {
       ru: 'Равнополочный уголок 50x50x5мм, S235JR, для легких строительных связей.',
@@ -12700,6 +12673,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-06-10',
     description: {
       ru: 'Неравнополочный уголок 80x60x6мм, S355J2, для конструкционных соединений.',
@@ -12833,6 +12807,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: 0.888,
     createdAt: '2025-06-15',
     description: {
       ru: 'Арматурный стержень A500C, диаметр 12мм, для армирования бетона.',
@@ -12892,18 +12867,6 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
           { ru: 'A500C', en: 'A500C', lt: 'A500C' },
           { ru: 'B500C', en: 'B500C', lt: 'B500C' },
         ],
-      },
-      {
-        fieldId: 'f-10-4',
-        fieldName: {
-          ru: 'Вес на метр (кг/м)',
-          en: 'Weight per meter (kg/m)',
-          lt: 'Svoris metrui (kg/m)',
-        },
-        fieldType: 'number',
-        value: 0.888,
-        inherited: false,
-        options: [],
       },
       {
         fieldId: 'f-10-5',
@@ -12979,6 +12942,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: 1.58,
     createdAt: '2025-06-15',
     description: {
       ru: 'Арматурный стержень B500C, диаметр 16мм, высокая пластичность для сейсмических применений.',
@@ -13038,18 +13002,6 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
           { ru: 'A500C', en: 'A500C', lt: 'A500C' },
           { ru: 'B500C', en: 'B500C', lt: 'B500C' },
         ],
-      },
-      {
-        fieldId: 'f-10-4',
-        fieldName: {
-          ru: 'Вес на метр (кг/м)',
-          en: 'Weight per meter (kg/m)',
-          lt: 'Svoris metrui (kg/m)',
-        },
-        fieldType: 'number',
-        value: 1.58,
-        inherited: false,
-        options: [],
       },
       {
         fieldId: 'f-10-5',
@@ -13130,6 +13082,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-06-20',
     description: {
       ru: 'Квадратный полый профиль 40x40x3мм, S235JR, для легких строительных каркасов.',
@@ -13284,6 +13237,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-06-20',
     description: {
       ru: 'Прямоугольный полый профиль 80x40x4мм, S355J2, для конструкционных каркасов.',
@@ -13419,6 +13373,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-06-25',
     description: {
       ru: 'Оцинкованная стальная проволока 3мм, в бухтах, для ограждений и вязки.',
@@ -13557,6 +13512,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-06-25',
     description: {
       ru: 'Медненная сварочная проволока ER70S-6, 1.2мм, для MIG/MAG сварки.',
@@ -13688,6 +13644,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-07-01',
     description: {
       ru: 'Стальной трубный отвод 90°, DN50, S235JR, сварной тип, для трубопроводов.',
@@ -13837,6 +13794,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-07-01',
     description: {
       ru: 'Стальной фланец DN100, PN16, S355J2, фланцевый тип соединения, для трубопроводов.',
@@ -14163,6 +14121,7 @@ export async function mockCreateProduct(
     purchaseToWarehouseFactor?: number | null
     warehouseToSaleFormulaType?: string | null
     warehouseToSaleFactor?: number | null
+    weightPerWarehouseUnitKg?: number | null
     fieldValues?: ProductFieldValue[] | null
     linkedSuppliers?: LinkedSupplier[] | null
   },
@@ -14249,6 +14208,7 @@ export async function mockCreateProduct(
     purchaseToWarehouseFactor: data.purchaseToWarehouseFactor ?? null,
     warehouseToSaleFormulaType: data.warehouseToSaleFormulaType ?? null,
     warehouseToSaleFactor: data.warehouseToSaleFactor ?? null,
+    weightPerWarehouseUnitKg: data.weightPerWarehouseUnitKg ?? null,
     createdAt: new Date().toISOString().slice(0, 10),
     fieldValues,
     // Placeholders: both are replaced by derived properties below. A new product
@@ -14291,6 +14251,7 @@ export async function mockPatchProduct(
     purchaseToWarehouseFactor: number | null
     warehouseToSaleFormulaType: string | null
     warehouseToSaleFactor: number | null
+    weightPerWarehouseUnitKg: number | null
     fieldValues: ProductFieldValue[]
     linkedSuppliers: LinkedSupplier[]
     // avgCostPrice / avgSalePrice are derived, so the client does not get to send
@@ -14357,6 +14318,10 @@ export async function mockPatchProduct(
       data.warehouseToSaleFactor !== undefined
         ? data.warehouseToSaleFactor
         : existing.warehouseToSaleFactor,
+    weightPerWarehouseUnitKg:
+      data.weightPerWarehouseUnitKg !== undefined
+        ? data.weightPerWarehouseUnitKg
+        : existing.weightPerWarehouseUnitKg,
     createdAt: existing.createdAt,
     fieldValues: data.fieldValues ?? existing.fieldValues,
     // Placeholders again: the patched product is a fresh object, so the derived
