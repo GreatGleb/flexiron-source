@@ -20,7 +20,7 @@ export interface LinkedSupplier {
   price: number | null
   priceUnit: string | null
   leadDays: number | null
-  currency: string | null   // snapshot of supplier's currency at time of linking
+  currency: string | null // snapshot of supplier's currency at time of linking
 }
 
 export interface ProductListItem {

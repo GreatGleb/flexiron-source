@@ -1,3 +1,4 @@
+import { type Page } from '@playwright/test'
 import { test, expect } from '../../fixtures'
 import {
   mockWarehouseEndpoints,
@@ -6,7 +7,6 @@ import {
   mockSupplierList,
 } from '../../mocks/warehouse'
 import { navigateToAdmin } from '../../helpers/admin'
-import { waitForDataReady } from '../../helpers/ready'
 
 test.describe('Warehouse module', () => {
   test.beforeEach(async ({ page }) => {
@@ -15,7 +15,7 @@ test.describe('Warehouse module', () => {
   })
 
   // ─── Helper: click a warehouse tab button (first element — tab button, not panel) ───
-  async function clickTab(page: any, tab: string) {
+  async function clickTab(page: Page, tab: string) {
     await page.getByTestId(`warehouse-tab-${tab}`).first().click()
   }
 

@@ -40,13 +40,19 @@ const MOCK_PRODUCT_DETAIL: Record<string, Record<string, unknown>> = {
     categoryName: { en: 'Sheets', ru: 'Листы', lt: 'Lakštai' },
     sku: 'SS-3-1000',
     description: 'Hot-rolled steel sheet, 1000x2000mm',
-    price: 120.50,
+    price: 120.5,
     minStock: 50,
     priceUnit: 'EUR/kg',
     createdAt: '2025-01-15',
     fieldValues: [],
     linkedSuppliers: [
-      { id: '1', name: { en: 'Steel Plus OÜ', ru: 'Steel Plus OÜ', lt: 'Steel Plus OÜ' }, price: 115.00, priceUnit: 'EUR/kg', leadDays: 7 },
+      {
+        id: '1',
+        name: { en: 'Steel Plus OÜ', ru: 'Steel Plus OÜ', lt: 'Steel Plus OÜ' },
+        price: 115.0,
+        priceUnit: 'EUR/kg',
+        leadDays: 7,
+      },
     ],
     auditLog: [],
   },
@@ -67,13 +73,21 @@ function isSingleProductRequest(url: URL): boolean {
 /**
  * Mock GET /api/products (paginated product list)
  */
-export async function mockProductList(page: Page, data = MOCK_PRODUCTS_FOR_CREATE, status?: number) {
+export async function mockProductList(
+  page: Page,
+  data = MOCK_PRODUCTS_FOR_CREATE,
+  status?: number,
+) {
   await page.route('**/api/products**', async (route) => {
     const url = new URL(route.request().url())
     if (route.request().method() !== 'GET') return route.fallback()
     if (isSingleProductRequest(url)) return route.fallback()
     if (status && status >= 400) {
-      return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ error: 'Mock error' }) })
+      return route.fulfill({
+        status,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Mock error' }),
+      })
     }
     return route.fulfill(jsonResponse(paginate(data, url))(route))
   })
@@ -86,10 +100,18 @@ export async function mockProductDetail(page: Page, productId: string, status?: 
   await page.route(`**/api/products/${productId}**`, async (route) => {
     if (route.request().method() !== 'GET') return route.fallback()
     if (status && status >= 400) {
-      return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ error: 'Mock error' }) })
+      return route.fulfill({
+        status,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Mock error' }),
+      })
     }
     const product = MOCK_PRODUCT_DETAIL[productId] ?? null
-    return route.fulfill({ status: product ? 200 : 404, contentType: 'application/json', body: JSON.stringify(product) })
+    return route.fulfill({
+      status: product ? 200 : 404,
+      contentType: 'application/json',
+      body: JSON.stringify(product),
+    })
   })
 }
 
@@ -100,7 +122,11 @@ export async function mockSupplierList(page: Page, data = MOCK_SUPPLIERS_LIST, s
   await page.route('**/api/suppliers/list', async (route) => {
     if (route.request().method() !== 'GET') return route.fallback()
     if (status && status >= 400) {
-      return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ error: 'Mock error' }) })
+      return route.fulfill({
+        status,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Mock error' }),
+      })
     }
     return route.fulfill(jsonResponse(data)(route))
   })
@@ -108,7 +134,10 @@ export async function mockSupplierList(page: Page, data = MOCK_SUPPLIERS_LIST, s
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function paginate<T>(items: T[], url: URL): { items: T[]; total: number; page: number; pageSize: number; totalPages: number } {
+function paginate<T>(
+  items: T[],
+  url: URL,
+): { items: T[]; total: number; page: number; pageSize: number; totalPages: number } {
   const page = Math.max(1, parseInt(url.searchParams.get('page') ?? '1', 10))
   const pageSize = Math.max(1, parseInt(url.searchParams.get('pageSize') ?? '20', 10))
   const total = items.length
@@ -119,7 +148,8 @@ function paginate<T>(items: T[], url: URL): { items: T[]; total: number; page: n
 }
 
 function jsonResponse(data: unknown, status = 200) {
-  return (route: Route) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) })
+  return (route: Route) =>
+    route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) })
 }
 
 function isSingleBatchRequest(url: URL): boolean {
@@ -170,12 +200,20 @@ export async function mockStockList(page: Page, data = mockStockOverview, status
   await page.route('**/api/warehouse/stock**', async (route) => {
     const url = new URL(route.request().url())
     if (status && status >= 400) {
-      return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ error: 'Mock error' }) })
+      return route.fulfill({
+        status,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Mock error' }),
+      })
     }
     if (isSingleStockRequest(url)) {
       const id = extractId(url)
       const item = data.find((s) => s.productId === id) ?? null
-      return route.fulfill({ status: item ? 200 : 404, contentType: 'application/json', body: JSON.stringify(item) })
+      return route.fulfill({
+        status: item ? 200 : 404,
+        contentType: 'application/json',
+        body: JSON.stringify(item),
+      })
     }
     return route.fulfill(jsonResponse(paginate(data, url))(route))
   })
@@ -188,12 +226,20 @@ export async function mockBatchesList(page: Page, data = mockBatches, status?: n
   await page.route('**/api/warehouse/batches**', async (route) => {
     const url = new URL(route.request().url())
     if (status && status >= 400) {
-      return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ error: 'Mock error' }) })
+      return route.fulfill({
+        status,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Mock error' }),
+      })
     }
     if (isSingleBatchRequest(url)) {
       const id = extractId(url)
       const batch = data.find((b) => b.id === id) ?? null
-      return route.fulfill({ status: batch ? 200 : 404, contentType: 'application/json', body: JSON.stringify(batch) })
+      return route.fulfill({
+        status: batch ? 200 : 404,
+        contentType: 'application/json',
+        body: JSON.stringify(batch),
+      })
     }
     return route.fulfill(jsonResponse(paginate(data, url))(route))
   })
@@ -202,13 +248,26 @@ export async function mockBatchesList(page: Page, data = mockBatches, status?: n
 /**
  * Mock GET /api/warehouse/batches/:id (single batch detail)
  */
-export async function mockBatchDetail(page: Page, batchId: string, data?: unknown, status?: number) {
+export async function mockBatchDetail(
+  page: Page,
+  batchId: string,
+  data?: unknown,
+  status?: number,
+) {
   await page.route(`**/api/warehouse/batches/${batchId}**`, async (route) => {
     if (status && status >= 400) {
-      return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ error: 'Mock error' }) })
+      return route.fulfill({
+        status,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Mock error' }),
+      })
     }
     const batch = data ?? mockBatches.find((b) => b.id === batchId) ?? null
-    return route.fulfill({ status: batch ? 200 : 404, contentType: 'application/json', body: JSON.stringify(batch) })
+    return route.fulfill({
+      status: batch ? 200 : 404,
+      contentType: 'application/json',
+      body: JSON.stringify(batch),
+    })
   })
 }
 
@@ -219,9 +278,17 @@ export async function mockCreateBatch(page: Page, response?: unknown, status?: n
   await page.route('**/api/warehouse/batches', async (route) => {
     if (route.request().method() !== 'POST') return route.fallback()
     if (status && status >= 400) {
-      return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ error: 'Mock error' }) })
+      return route.fulfill({
+        status,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Mock error' }),
+      })
     }
-    return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify(response ?? { id: 'whb-new', ...route.request().postDataJSON() }) })
+    return route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify(response ?? { id: 'whb-new', ...route.request().postDataJSON() }),
+    })
   })
 }
 
@@ -232,9 +299,17 @@ export async function mockUpdateBatch(page: Page, batchId: string, status?: numb
   await page.route(`**/api/warehouse/batches/${batchId}`, async (route) => {
     if (route.request().method() !== 'PATCH') return route.fallback()
     if (status && status >= 400) {
-      return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ error: 'Mock error' }) })
+      return route.fulfill({
+        status,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Mock error' }),
+      })
     }
-    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: batchId, ...route.request().postDataJSON() }) })
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ id: batchId, ...route.request().postDataJSON() }),
+    })
   })
 }
 
@@ -245,9 +320,17 @@ export async function mockDeleteBatch(page: Page, batchId: string, status?: numb
   await page.route(`**/api/warehouse/batches/${batchId}`, async (route) => {
     if (route.request().method() !== 'DELETE') return route.fallback()
     if (status && status >= 400) {
-      return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ error: 'Mock error' }) })
+      return route.fulfill({
+        status,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Mock error' }),
+      })
     }
-    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) })
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ success: true }),
+    })
   })
 }
 
@@ -258,12 +341,20 @@ export async function mockOffcutsList(page: Page, data = mockOffcuts, status?: n
   await page.route('**/api/warehouse/offcuts**', async (route) => {
     const url = new URL(route.request().url())
     if (status && status >= 400) {
-      return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ error: 'Mock error' }) })
+      return route.fulfill({
+        status,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Mock error' }),
+      })
     }
     if (isSingleOffcutRequest(url)) {
       const id = extractId(url)
       const offcut = data.find((o) => o.id === id) ?? null
-      return route.fulfill({ status: offcut ? 200 : 404, contentType: 'application/json', body: JSON.stringify(offcut) })
+      return route.fulfill({
+        status: offcut ? 200 : 404,
+        contentType: 'application/json',
+        body: JSON.stringify(offcut),
+      })
     }
     return route.fulfill(jsonResponse(paginate(data, url))(route))
   })
@@ -276,9 +367,17 @@ export async function mockCreateOffcut(page: Page, response?: unknown, status?: 
   await page.route('**/api/warehouse/offcuts', async (route) => {
     if (route.request().method() !== 'POST') return route.fallback()
     if (status && status >= 400) {
-      return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ error: 'Mock error' }) })
+      return route.fulfill({
+        status,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Mock error' }),
+      })
     }
-    return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify(response ?? { id: 'who-new', ...route.request().postDataJSON() }) })
+    return route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify(response ?? { id: 'who-new', ...route.request().postDataJSON() }),
+    })
   })
 }
 
@@ -289,9 +388,17 @@ export async function mockDeleteOffcut(page: Page, offcutId: string, status?: nu
   await page.route(`**/api/warehouse/offcuts/${offcutId}`, async (route) => {
     if (route.request().method() !== 'DELETE') return route.fallback()
     if (status && status >= 400) {
-      return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ error: 'Mock error' }) })
+      return route.fulfill({
+        status,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Mock error' }),
+      })
     }
-    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) })
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ success: true }),
+    })
   })
 }
 
@@ -302,12 +409,20 @@ export async function mockMovementsList(page: Page, data = mockMovements, status
   await page.route('**/api/warehouse/movements**', async (route) => {
     const url = new URL(route.request().url())
     if (status && status >= 400) {
-      return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ error: 'Mock error' }) })
+      return route.fulfill({
+        status,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Mock error' }),
+      })
     }
     if (isSingleMovementRequest(url)) {
       const id = extractId(url)
       const movement = data.find((m) => m.id === id) ?? null
-      return route.fulfill({ status: movement ? 200 : 404, contentType: 'application/json', body: JSON.stringify(movement) })
+      return route.fulfill({
+        status: movement ? 200 : 404,
+        contentType: 'application/json',
+        body: JSON.stringify(movement),
+      })
     }
     return route.fulfill(jsonResponse(paginate(data, url))(route))
   })
@@ -320,9 +435,17 @@ export async function mockCreateMovement(page: Page, response?: unknown, status?
   await page.route('**/api/warehouse/movements', async (route) => {
     if (route.request().method() !== 'POST') return route.fallback()
     if (status && status >= 400) {
-      return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ error: 'Mock error' }) })
+      return route.fulfill({
+        status,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Mock error' }),
+      })
     }
-    return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify(response ?? { id: 'whm-new', ...route.request().postDataJSON() }) })
+    return route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify(response ?? { id: 'whm-new', ...route.request().postDataJSON() }),
+    })
   })
 }
 
@@ -333,9 +456,17 @@ export async function mockCutting(page: Page, response?: unknown, status?: numbe
   await page.route('**/api/warehouse/cutting', async (route) => {
     if (route.request().method() !== 'POST') return route.fallback()
     if (status && status >= 400) {
-      return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ error: 'Mock error' }) })
+      return route.fulfill({
+        status,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Mock error' }),
+      })
     }
-    return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify(response ?? { id: 'cut-new', success: true }) })
+    return route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify(response ?? { id: 'cut-new', success: true }),
+    })
   })
 }
 
@@ -346,12 +477,20 @@ export async function mockDeficitList(page: Page, data = mockDeficit, status?: n
   await page.route('**/api/warehouse/deficit**', async (route) => {
     const url = new URL(route.request().url())
     if (status && status >= 400) {
-      return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ error: 'Mock error' }) })
+      return route.fulfill({
+        status,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Mock error' }),
+      })
     }
     if (isSingleDeficitRequest(url)) {
       const id = extractId(url)
       const item = data.find((d) => d.id === id) ?? null
-      return route.fulfill({ status: item ? 200 : 404, contentType: 'application/json', body: JSON.stringify(item) })
+      return route.fulfill({
+        status: item ? 200 : 404,
+        contentType: 'application/json',
+        body: JSON.stringify(item),
+      })
     }
     return route.fulfill(jsonResponse(paginate(data, url))(route))
   })
@@ -364,9 +503,17 @@ export async function mockCreateDeficit(page: Page, response?: unknown, status?:
   await page.route('**/api/warehouse/deficit', async (route) => {
     if (route.request().method() !== 'POST') return route.fallback()
     if (status && status >= 400) {
-      return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ error: 'Mock error' }) })
+      return route.fulfill({
+        status,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Mock error' }),
+      })
     }
-    return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify(response ?? { id: 'whd-new', ...route.request().postDataJSON() }) })
+    return route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify(response ?? { id: 'whd-new', ...route.request().postDataJSON() }),
+    })
   })
 }
 
@@ -377,9 +524,17 @@ export async function mockUpdateDeficit(page: Page, deficitId: string, status?: 
   await page.route(`**/api/warehouse/deficit/${deficitId}`, async (route) => {
     if (route.request().method() !== 'PATCH') return route.fallback()
     if (status && status >= 400) {
-      return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ error: 'Mock error' }) })
+      return route.fulfill({
+        status,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Mock error' }),
+      })
     }
-    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: deficitId, ...route.request().postDataJSON() }) })
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ id: deficitId, ...route.request().postDataJSON() }),
+    })
   })
 }
 
@@ -390,22 +545,43 @@ export async function mockDeleteDeficit(page: Page, deficitId: string, status?: 
   await page.route(`**/api/warehouse/deficit/${deficitId}`, async (route) => {
     if (route.request().method() !== 'DELETE') return route.fallback()
     if (status && status >= 400) {
-      return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ error: 'Mock error' }) })
+      return route.fulfill({
+        status,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Mock error' }),
+      })
     }
-    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) })
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ success: true }),
+    })
   })
 }
 
 /**
  * Mock GET /api/warehouse/stock/:productId (single stock item)
  */
-export async function mockStockDetail(page: Page, productId: string, data?: unknown, status?: number) {
+export async function mockStockDetail(
+  page: Page,
+  productId: string,
+  data?: unknown,
+  status?: number,
+) {
   await page.route(`**/api/warehouse/stock/${productId}**`, async (route) => {
     if (status && status >= 400) {
-      return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ error: 'Mock error' }) })
+      return route.fulfill({
+        status,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Mock error' }),
+      })
     }
     const stock = data ?? null
-    return route.fulfill({ status: stock ? 200 : 404, contentType: 'application/json', body: JSON.stringify(stock) })
+    return route.fulfill({
+      status: stock ? 200 : 404,
+      contentType: 'application/json',
+      body: JSON.stringify(stock),
+    })
   })
 }
 

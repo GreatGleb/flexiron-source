@@ -954,14 +954,14 @@ describe('purity', () => {
         availableQuantity: 5,
         unitCost: 110,
         currency: 'EUR',
-          },
+      },
       {
         batchId: 'old',
         receivedAt: '2026-01-01',
         availableQuantity: 5,
         unitCost: 100,
         currency: 'EUR',
-          },
+      },
     ]
 
     allocateFifo(batches, 8)
@@ -1028,7 +1028,7 @@ describe('allocateFifo', () => {
       availableQuantity: 10,
       unitCost: 100,
       currency: 'EUR',
-        ...over,
+      ...over,
     }
   }
 

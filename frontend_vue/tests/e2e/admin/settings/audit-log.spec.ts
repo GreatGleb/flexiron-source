@@ -102,7 +102,7 @@ test.describe('Audit log page', () => {
 
     await link.click()
     await expect(page).not.toHaveURL(/\/admin\/settings\/logs$/)
-    await expect(page).toHaveURL(new RegExp(href!.replace(/[/\-]/g, '\\$&') + '$'))
+    await expect(page).toHaveURL(new RegExp(href!.replace(/[/-]/g, '\\$&') + '$'))
   })
 
   test('entity filter narrows the feed', async ({ page }) => {

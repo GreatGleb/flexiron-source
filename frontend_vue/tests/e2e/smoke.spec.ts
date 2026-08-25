@@ -69,7 +69,8 @@ for (const route of ALL_ROUTES) {
     // breaks next, the report should say what did not load.
     const badResponses: string[] = []
     page.on('response', (r) => {
-      if (r.status() >= 400) badResponses.push(`${r.status()} ${r.request().resourceType()} ${r.url()}`)
+      if (r.status() >= 400)
+        badResponses.push(`${r.status()} ${r.request().resourceType()} ${r.url()}`)
     })
     page.on('requestfailed', (r) => {
       badResponses.push(`FAILED ${r.failure()?.errorText} ${r.request().resourceType()} ${r.url()}`)
@@ -85,7 +86,9 @@ for (const route of ALL_ROUTES) {
     // slowest of them, failed at random and was written off as a flake for three
     // stages. The generous timeout is for a cold dev server compiling the route.
     await expect.soft(page.locator('h1').first()).toBeVisible({ timeout: 15_000 })
-    expect.soft(consoleErrors, `console errors on page; network: ${JSON.stringify(badResponses)}`).toEqual([])
+    expect
+      .soft(consoleErrors, `console errors on page; network: ${JSON.stringify(badResponses)}`)
+      .toEqual([])
     expect.soft(pageErrors, 'uncaught JS errors').toEqual([])
   })
 }

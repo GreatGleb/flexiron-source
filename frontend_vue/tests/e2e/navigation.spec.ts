@@ -82,5 +82,4 @@ test.describe('Navigation', () => {
     await expect(page).toHaveURL('/admin/orders/ORD-001')
     await expect(page.locator('[data-test="page-order-card"]')).toBeVisible()
   })
-
 })
