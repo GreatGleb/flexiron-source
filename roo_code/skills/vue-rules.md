@@ -51,6 +51,38 @@ Rules collected from real bugs during `demo/` → `frontend_vue/` migration. Eac
 
 ---
 
+## Слои тестов — какой для чего
+
+| Слой | Чем | Что проверяет | Цена |
+|---|---|---|---|
+| Юнит | vitest, окружение `node` | чистые функции домена: цена, раскрой, округление | миллисекунды |
+| Компонентный | vitest + `@vue/test-utils`, окружение `happy-dom` | один компонент: пропс → разметка, действие → эмит, `v-model` | ~0.5 с |
+| Браузерный | Playwright | путь целиком: роутинг, права, моки, вёрстка | минуты |
+
+Выбор слоя: проверяемое выражается функцией — юнит. Нужен отрисованный компонент, но не нужны
+роутер, стор и сеть — компонентный. Нужен весь путь пользователя — Playwright.
+
+**Компонентных тестов в проекте сегодня ноль.** Всё, что «отрисовать компонент и проверить эмит»,
+проверяется шестнадцатиминутным браузерным прогоном либо не проверяется вовсе. Инструмент поставлен
+2026-08-25, слой пуст — заполнять по мере того, как трогаются компоненты.
+
+Как писать: файл `<Имя>.spec.ts` рядом с компонентом (`vitest.config.ts` берёт `src/**/*.spec.ts`),
+**первой строкой прагма окружения**:
+
+```ts
+// @vitest-environment happy-dom
+import { mount } from '@vue/test-utils'
+```
+
+Прагма не украшение: по умолчанию в конфиге стоит `environment: 'node'`, и без неё `mount()` падает
+с `ReferenceError: document is not defined` — проверено 2026-08-25.
+
+И то же правило инверсии, что и везде (линза Л9 в [`verify.md`](verify.md)): сломай проверяемое
+поведение и убедись, что тест краснеет. Компонентный тест, утверждающий «отрисовалось без ошибок»,
+— это питфолл #64 в новой обёртке: ждали элемент вместо того, что должно было в нём оказаться.
+
+---
+
 ## Contract-first (new endpoint / page refactoring)
 
 Lesson learned: adding `SupplierCreatePage` with `SupplierCardPage` refactoring (extract `SupplierFormSections`) — missed (a) updating `roo_code/roo-context/03-api-contract.md` ("UI component — separate iteration" remained after implementation), (b) syncing client validation with contract (validate checked only `company`, contract required `company + email`, server would reject with 422). Typecheck+lint doesn't catch this.
