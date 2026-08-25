@@ -1,17 +1,18 @@
 import { ref, reactive, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { getProducts } from '@/services/productsService'
+import { getProducts, getProduct } from '@/services/productsService'
 import { getBatches, createOffcut } from '@/services/warehouseService'
 import { useToast } from './useToast'
 import { useTranslatedField } from './useTranslatedData'
+import { resolveOffcutWeight } from '@/domain/cutting'
 import type {
   OffcutCreatePayload,
   WarehouseOffcut,
   StockUnit,
   BatchListItem,
 } from '@/types/warehouse'
-import type { ProductListItem } from '@/types/product'
+import type { Product, ProductListItem } from '@/types/product'
 
 // ─── Location compose helper (same pattern as useWarehouseBatch / useWarehouseOffcutCard) ──
 function composeLocation(rack: string, row: string, cell: string, notes: string): string | null {
@@ -246,12 +247,47 @@ export function useWarehouseOffcutCreate() {
     return batches.value.find((b) => b.id === selectedBatchId.value) ?? null
   })
 
+  /**
+   * Товар ПАРТИИ — источник плотности и килограммов на складскую единицу.
+   *
+   * На этой странице товар выбирают до партии, поэтому он совпадает с выбранным; читаем
+   * всё равно по `batch.productId`, чтобы правило было одно и то же на всех экранах:
+   * материал берётся у партии, а не у копии ссылки в обрезке.
+   */
+  const batchProduct = ref<Product | null>(null)
+
+  /** Вес, который посчитается из размеров: то, что предлагает система. */
+  const derivedWeight = computed(() =>
+    resolveOffcutWeight({
+      offcut: {
+        quantity: form.quantity,
+        offcutType: form.offcutType ?? null,
+        lengthMm: form.lengthMm,
+        widthMm: form.widthMm,
+        thicknessMm: form.thicknessMm,
+      },
+      product: batchProduct.value,
+    }),
+  )
+
+  /** Источник вычисляется, а не хранится: есть ручное значение — значит руками. */
+  const weightIsManual = computed(() => form.weightKg != null)
+
+  /** Отдать расчёту: обнулить ручное, а не записать выведенное. */
+  function useDerivedWeight() {
+    form.weightKg = null
+  }
+
   // ─── Watch batch selection ────────────────────────────────────────────────
-  watch(selectedBatchId, (newVal) => {
+  watch(selectedBatchId, async (newVal) => {
     form.batchId = newVal ?? ''
+    batchProduct.value = null
     if (newVal) {
       const batch = batches.value.find((b) => b.id === newVal)
-      if (batch) form.unit = batch.unit
+      if (batch) {
+        form.unit = batch.unit
+        batchProduct.value = await getProduct(batch.productId).catch(() => null)
+      }
     }
   })
 
@@ -344,6 +380,10 @@ export function useWarehouseOffcutCreate() {
     filteredBatches,
     selectedBatchId,
     selectedBatch,
+    batchProduct,
+    derivedWeight,
+    weightIsManual,
+    useDerivedWeight,
     noBatchesMessage,
 
     // Utils

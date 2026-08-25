@@ -88,15 +88,26 @@ test.describe('categories-list › search', () => {
 
   test('search narrows results — dynamic term from first row', async ({ page }) => {
     const rows = page.locator('[data-test="categories-row"]')
+    // Та же правка, что в products.spec.ts, и по двум причинам сразу. Первая: `count()`
+    // до отрисовки даёт ноль, и `countAfter <= 0` падает не по делу (так и вышло:
+    // Expected <= 0, Received 13). Вторая: `<=` устраивается РАВЕНСТВОМ, то есть
+    // фильтром, который не применился вовсе (#68).
+    await expect(rows.first()).toBeVisible()
     const totalBefore = await rows.count()
-    // Read the first row name to build a search term that is guaranteed to exist
-    const firstName = (await rows.first().locator('td').first().textContent())!.trim()
-    const searchTerm = firstName.split(' ')[0]! // first word — likely unique or narrows the list
+    // Полное имя, а не первое слово: слово может совпасть со всей страницей, и тогда
+    // «список изменился» перестанет быть проверяемым.
+    const searchTerm = (await rows.first().locator('td').first().textContent())!.trim()
     const input = page.locator('[data-test="categories-search"] input')
     await input.fill(searchTerm)
-    const countAfter = await rows.count()
-    expect(countAfter).toBeGreaterThan(0)
-    expect(countAfter).toBeLessThanOrEqual(totalBefore)
+
+    // Признак применённого фильтра — изменившаяся длина.
+    await expect(rows).not.toHaveCount(totalBefore)
+    const names = await rows.evaluateAll((els) =>
+      els.map((el) => (el.querySelector('td')?.textContent ?? '').trim()),
+    )
+    expect(names.length).toBeGreaterThan(0)
+    // И применился ПРАВИЛЬНО: строк без искомого имени в выдаче нет.
+    expect(names.filter((n) => !n.includes(searchTerm))).toEqual([])
   })
 
   test('search with no match shows empty state', async ({ page }) => {
@@ -108,9 +119,14 @@ test.describe('categories-list › search', () => {
 
   test('clearing search restores all rows', async ({ page }) => {
     const rows = page.locator('[data-test="categories-row"]')
+    // Длину мерить только по отрисованному списку: ноль в `totalBefore` делает
+    // `not.toHaveCount(0)` истинным сразу, а финальное `toHaveCount(0)` — ложным
+    // (Expected 0, Received 13). Та же правка, что в products.spec.ts.
+    await expect(rows.first()).toBeVisible()
     const totalBefore = await rows.count()
-    const firstName = (await rows.first().locator('td').first().textContent())!.trim()
-    const searchTerm = firstName.split(' ')[0]!
+    // Полное имя, а не первое слово: слово может совпасть со всей страницей, и тогда
+    // «список изменился» перестанет быть проверяемым.
+    const searchTerm = (await rows.first().locator('td').first().textContent())!.trim()
     const input = page.locator('[data-test="categories-search"] input')
     await input.fill(searchTerm)
     await expect(rows).not.toHaveCount(totalBefore)

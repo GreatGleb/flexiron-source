@@ -273,6 +273,9 @@ test.describe('dashboard › analytics grid', () => {
 
   test('each card links to an /admin/analytics/ route', async ({ page }) => {
     const cards = page.locator('[data-test="dashboard-acard"]')
+    // Цикл по элементам, которых ещё нет, не проверяет ничего и проходит
+    // молча (#68). Число — то же, что утверждает соседний тест.
+    await expect(cards).toHaveCount(7)
     const count = await cards.count()
     for (let i = 0; i < count; i++) {
       const href = await cards.nth(i).getAttribute('href')

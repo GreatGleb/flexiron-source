@@ -309,6 +309,9 @@ test.describe('products-list › delete', () => {
 
   test('cancel leaves row count unchanged', async ({ page }) => {
     const rows = page.locator('[data-test="products-row"]')
+    // Считать до отрисовки — получить ноль и утверждать его производное:
+    // `toHaveCount(before - 1)` превращается в `toHaveCount(-1)`.
+    await expect(rows.first()).toBeVisible()
     const countBefore = await rows.count()
     await page.locator('[data-test="products-delete-btn"]').first().click()
     const modal = page.locator('[data-test="modal-delete-product"]')

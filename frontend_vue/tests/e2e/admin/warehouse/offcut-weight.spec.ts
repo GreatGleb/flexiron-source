@@ -63,3 +63,45 @@ test.describe('Offcut weight: manual vs derived', () => {
     await expect(page.getByTestId('field-weight-source')).toHaveText(/hand|руками|ranka/i)
   })
 })
+
+test.describe('Offcut weight on the create form', () => {
+  /** Товар prod-004 «Стальная труба 100x5», партия INV-2025-078 в метрах, 11.71 кг/м. */
+  async function pickPipeBatch(page: import('@playwright/test').Page) {
+    await navigateToAdmin(page, '/admin/warehouse/offcuts/new')
+    // Фикстура ставит английский, поэтому и название английское: «Steel Pipe 100x5».
+    // «100x5» само по себе ловит ещё и «Profile Pipe 100x50x3», поэтому строка точная.
+    await page.getByTestId('offcut-create-search-products').locator('input').fill('100x5')
+    const productRow = page.locator('[data-test="offcut-create-product-row"]', {
+      hasText: 'Steel Pipe 100x5',
+    })
+    await expect(productRow).toHaveCount(1)
+    await productRow.click()
+    const batchRow = page.locator('[data-test="offcut-create-batch-row"]', {
+      hasText: 'INV-2025-078',
+    })
+    await expect(batchRow).toHaveCount(1)
+    await batchRow.click()
+  }
+
+  test('the form proposes a weight before anything is saved', async ({ page }) => {
+    await pickPipeBatch(page)
+    // Линейный кусок 2500 мм: 2.5 м × 11.71 кг/м = 29.275. Вес ещё не сохранён, и
+    // оператор видит предложение системы до того, как принять его или переписать.
+    await page.getByTestId('field-length').fill('2500')
+    await expect(page.getByTestId('field-weight-preview')).toContainText('29.275')
+    await expect(page.getByTestId('field-weight-source')).toHaveText(/derived|Выведен|Išvesta/i)
+  })
+
+  test('typing a weight by hand switches the source and offers the way back', async ({ page }) => {
+    await pickPipeBatch(page)
+    await page.getByTestId('field-length').fill('2500')
+    await page.getByTestId('field-weight').fill('40')
+
+    await expect(page.getByTestId('field-weight-source')).toHaveText(/hand|руками|ranka/i)
+    // Расчётное число по-прежнему на виду — рядом с кнопкой, до нажатия.
+    await expect(page.getByTestId('field-weight-preview')).toContainText('29.275')
+    await page.getByTestId('field-weight-use-derived').click()
+    await expect(page.getByTestId('field-weight')).toHaveValue('')
+    await expect(page.getByTestId('field-weight-source')).toHaveText(/derived|Выведен|Išvesta/i)
+  })
+})

@@ -200,6 +200,10 @@ test.describe('sales › top clients chart', () => {
   test('bar widths decrease monotonically (88 → 62 → 45 → 30 → 19)', async ({ page }) => {
     // Highest-revenue client is first in the template, so widths should be non-increasing.
     const fills = page.locator('[data-test="sales-top-clients-row"] .bar-fill')
+    // Ждать ВСЕ элементы, а не читать сколько успело отрисоваться: под
+    // нагрузкой count() возвращал 1 из 5, и сравнение покраснело не по делу.
+    // Число берётся из самого утверждения ниже, а не выдумывается.
+    await expect(fills).toHaveCount(5)
     const widths: number[] = []
     const count = await fills.count()
     for (let i = 0; i < count; i++) {
@@ -253,6 +257,10 @@ test.describe('sales › refusal reasons chart', () => {
 
   test('bar widths match the refusal distribution (62 / 28 / 10)', async ({ page }) => {
     const fills = page.locator('[data-test="sales-refusal-row"] .bar-fill')
+    // Ждать ВСЕ элементы, а не читать сколько успело отрисоваться: под
+    // нагрузкой count() возвращал 1 из 5, и сравнение покраснело не по делу.
+    // Число берётся из самого утверждения ниже, а не выдумывается.
+    await expect(fills).toHaveCount(3)
     const widths: number[] = []
     const count = await fills.count()
     for (let i = 0; i < count; i++) {

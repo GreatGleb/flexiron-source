@@ -56,6 +56,9 @@ const {
   filteredBatches,
   selectedBatchId,
   selectedBatch,
+  derivedWeight,
+  weightIsManual,
+  useDerivedWeight,
   noBatchesMessage,
   tf,
 } = useWarehouseOffcutCreate()
@@ -64,6 +67,20 @@ const {
  * Площадь по мере ввода. Условие «нужны длина и ширина» здесь не выражается второй раз —
  * его знает `offcutAreaM2`, спрашивающий таблицу требований резолвера.
  */
+/** Почему вывод веса не получился — словами, а не кодом отказа. */
+const notDerivableReason = computed(() => {
+  const d = derivedWeight.value
+  if (d.ok) return ''
+  const key = {
+    no_density: 'weight_not_derivable_no_density',
+    no_dimensions: 'weight_not_derivable_no_dimensions',
+    no_per_unit_weight: 'weight_not_derivable_no_per_unit',
+    no_offcut_type: 'weight_not_derivable_no_type',
+    unit_not_supported: 'weight_not_derivable_unit',
+  }[d.reason]
+  return t(`warehouse.${key}`)
+})
+
 const areaLabel = computed(() => {
   const area = offcutAreaM2({ lengthMm: form.lengthMm, widthMm: form.widthMm })
   return area == null ? '—' : `${area} m²`
@@ -250,6 +267,7 @@ function selectBatch(id: string) {
             <SearchInput
               v-model="productSearch"
               :placeholder="t('warehouse.offcut_create_search_product')"
+              data-test="offcut-create-search-products"
             />
           </div>
           <div style="min-width: 160px">
@@ -618,6 +636,44 @@ function selectBatch(id: string) {
                 :placeholder="t('warehouse.field_weight_placeholder')"
                 data-test="field-weight"
               />
+              <!--
+                Здесь вес ещё НЕ СОХРАНЁН, поэтому расчётное число особенно важно видеть
+                до выбора: оператор должен понимать, что предлагает система, прежде чем
+                принять или переписать. Хранится только введённое руками, источник
+                вычисляется, «рассчитать из размеров» обнуляет ручное.
+              -->
+              <div class="offcut-weight-source">
+                <span
+                  class="status-pill"
+                  :class="weightIsManual ? 'pill-warning' : 'pill-info'"
+                  data-test="field-weight-source"
+                >
+                  {{
+                    weightIsManual
+                      ? t('warehouse.weight_manual_badge')
+                      : t('warehouse.weight_derived_badge')
+                  }}
+                </span>
+                <span v-if="derivedWeight.ok" class="field-hint" data-test="field-weight-preview">
+                  {{ t('warehouse.weight_derived_preview', { value: derivedWeight.weightKg }) }}
+                </span>
+                <button
+                  v-if="weightIsManual && derivedWeight.ok"
+                  type="button"
+                  class="btn btn-sm btn-secondary"
+                  data-test="field-weight-use-derived"
+                  @click="useDerivedWeight"
+                >
+                  {{ t('warehouse.weight_use_derived') }}
+                </button>
+                <span
+                  v-if="!derivedWeight.ok"
+                  class="field-hint"
+                  data-test="field-weight-not-derivable"
+                >
+                  {{ notDerivableReason }}
+                </span>
+              </div>
             </div>
             <!--
               Площадь по мере ввода: она тут же проверяет введённые размеры — оператор
@@ -900,6 +956,15 @@ function selectBatch(id: string) {
 </template>
 
 <style scoped>
+/* Строка «откуда возьмётся вес»: бейдж, расчётное число и кнопка — в один ряд. */
+.offcut-weight-source {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
 .products-table .product-row {
   cursor: pointer;
   transition: background 0.15s;

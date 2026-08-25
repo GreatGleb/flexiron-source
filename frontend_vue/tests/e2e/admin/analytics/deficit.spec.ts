@@ -306,6 +306,10 @@ test.describe('deficit › refusals chart', () => {
 
   test('bar widths match the refusal distribution (90 / 75 / 50 / 40 / 25)', async ({ page }) => {
     const fills = page.locator('[data-test="deficit-refusals-row"] .bar-fill')
+    // Дождаться ВСЕХ полос, а не читать сколько успело отрисоваться: под полным
+    // прогоном `count()` вернул 1, и сравнение пяти ширин с одной покраснело не по
+    // делу. Пять — это утверждение о данных графика, поэтому его и ждём.
+    await expect(fills).toHaveCount(5)
     const widths: number[] = []
     const count = await fills.count()
     for (let i = 0; i < count; i++) {
@@ -321,6 +325,10 @@ test.describe('deficit › refusals chart', () => {
     // blue accent for the lowest. Browsers serialise the hex seeds back to rgb()
     // when re-reading .style.background, so assert on the rgb form.
     const fills = page.locator('[data-test="deficit-refusals-row"] .bar-fill')
+    // Пять полос — столько же, сколько проверяет `bgs[0..4]` ниже. Цикл по тому,
+    // чего ещё нет, оставил бы массив пустым, и все пять проверок читали бы
+    // undefined (#68).
+    await expect(fills).toHaveCount(5)
     const bgs: string[] = []
     const count = await fills.count()
     for (let i = 0; i < count; i++) {

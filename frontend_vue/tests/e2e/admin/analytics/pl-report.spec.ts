@@ -132,6 +132,9 @@ test.describe('pl-report › breakdown panel', () => {
 
   test('each line-item row has a label and a value', async ({ page }) => {
     const rows = page.locator('[data-test="pl-report-breakdown-row"]')
+    // Цикл по элементам, которых ещё нет, не проверяет ничего и проходит
+    // молча (#68). Число — то же, что утверждает соседний тест.
+    await expect(rows).toHaveCount(7)
     const count = await rows.count()
     for (let i = 0; i < count; i++) {
       const r = rows.nth(i)
@@ -142,6 +145,9 @@ test.describe('pl-report › breakdown panel', () => {
 
   test('labels are non-empty (i18n translated)', async ({ page }) => {
     const labels = page.locator('[data-test="pl-report-breakdown-row"] .pl-label')
+    // Цикл по элементам, которых ещё нет, не проверяет ничего и проходит
+    // молча (#68). Число — то же, что утверждает соседний тест.
+    await expect(labels).toHaveCount(7)
     const count = await labels.count()
     for (let i = 0; i < count; i++) {
       await expect.soft(labels.nth(i)).not.toBeEmpty()

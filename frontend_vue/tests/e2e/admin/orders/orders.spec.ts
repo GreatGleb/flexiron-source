@@ -9,6 +9,10 @@ import { waitForDataReady } from '../../helpers/ready'
  */
 async function lineCell(row: Locator, field: string): Promise<string> {
   const cell = row.locator(`[data-test="cell-${field}"]`)
+  // Ноль здесь законен: у замороженной строки ячейка рисует текст, а не input. Поэтому
+  // ждём КОНТЕЙНЕР — саму ячейку, которая есть в обоих случаях, — иначе чтение
+  // обгоняет отрисовку строки и «input не найден» читается как «строка заморожена».
+  await expect(cell).toBeVisible()
   const input = cell.locator('input')
   if ((await input.count()) > 0) return input.inputValue()
   return ((await cell.textContent()) ?? '').replace('%', '').trim()
@@ -479,8 +483,13 @@ test.describe('Order Card › fields & structure', () => {
 
     // And it agrees with the lines it is the sum of.
     const rows = page.locator('[data-test="order-item-row"]')
+    // `count()` в условии цикла читается на каждой итерации и до отрисовки даёт ноль:
+    // сумма по нулю строк равна нулю, и `toBeCloseTo` сравнил бы её с нулём же.
+    await expect(rows.first()).toBeVisible()
     let lineCosts = 0
-    for (let i = 0; i < (await rows.count()); i++) {
+    const rowCount = await rows.count()
+    expect(rowCount).toBeGreaterThan(0)
+    for (let i = 0; i < rowCount; i++) {
       const row = rows.nth(i)
       lineCosts += Number(await lineCell(row, 'unitCost')) * Number(await lineCell(row, 'quantity'))
     }
@@ -650,6 +659,9 @@ test.describe('Order Card › fields & structure', () => {
     await page.goto('/admin/orders/ORD-001')
     await page.waitForSelector('[data-test="order-item-row"]')
     const rows = page.locator('[data-test="order-item-row"]')
+    // Считать до отрисовки — получить ноль и утверждать его производное:
+    // `toHaveCount(before - 1)` превращается в `toHaveCount(-1)`.
+    await expect(rows.first()).toBeVisible()
     const before = await rows.count()
 
     await page.click('[data-test="order-add-item-btn"]')
@@ -960,6 +972,9 @@ test.describe('Order Card › line table', () => {
     await page.goto('/admin/orders/ORD-001')
     await page.waitForSelector('[data-test="order-item-row"]')
     const rows = page.locator('[data-test="order-item-row"]')
+    // Считать до отрисовки — получить ноль и утверждать его производное:
+    // `toHaveCount(before - 1)` превращается в `toHaveCount(-1)`.
+    await expect(rows.first()).toBeVisible()
     const before = await rows.count()
 
     await page.click('[data-test="order-add-item-btn"]')
@@ -991,6 +1006,9 @@ test.describe('Order Card › line table', () => {
     await page.goto('/admin/orders/ORD-001')
     await page.waitForSelector('[data-test="order-item-row"]')
     const rows = page.locator('[data-test="order-item-row"]')
+    // Считать до отрисовки — получить ноль и утверждать его производное:
+    // `toHaveCount(before - 1)` превращается в `toHaveCount(-1)`.
+    await expect(rows.first()).toBeVisible()
     const before = await rows.count()
 
     await page.click('[data-test="order-add-item-btn"]')
@@ -1090,6 +1108,9 @@ test.describe('Order Card › adding lines', () => {
     await page.goto('/admin/orders/ORD-001')
     await page.waitForSelector('[data-test="order-item-row"]')
     const rows = page.locator('[data-test="order-item-row"]')
+    // Считать до отрисовки — получить ноль и утверждать его производное:
+    // `toHaveCount(before - 1)` превращается в `toHaveCount(-1)`.
+    await expect(rows.first()).toBeVisible()
     const before = await rows.count()
 
     await pickFirstProduct(page)
@@ -1220,6 +1241,9 @@ test.describe('Order Card › adding lines', () => {
     await page.goto('/admin/orders/ORD-004')
     await page.waitForSelector('[data-test="order-item-row"]')
     const rows = page.locator('[data-test="order-item-row"]')
+    // Считать до отрисовки — получить ноль и утверждать его производное:
+    // `toHaveCount(before - 1)` превращается в `toHaveCount(-1)`.
+    await expect(rows.first()).toBeVisible()
     const before = await rows.count()
     const frozenRow = rows.first()
     const frozenBefore = [
@@ -1350,6 +1374,9 @@ test.describe('Order Card › shipments', () => {
     await page.waitForSelector('[data-test="order-item-row"]')
     const rows = page.locator('[data-test="order-item-row"]')
     await expect(rows.first().locator('[data-test="line-state"]')).toContainText(/Shipped/)
+    // Считать до отрисовки — получить ноль и утверждать его производное:
+    // `toHaveCount(before - 1)` превращается в `toHaveCount(-1)`.
+    await expect(rows.first()).toBeVisible()
     const before = await rows.count()
 
     await addShippableLine(page)
@@ -1951,22 +1978,25 @@ test.describe('Order Card › audit log', () => {
 
   test('audit delete button opens confirmation modal', async ({ page }) => {
     await page.goto('/admin/orders/ORD-001')
+    // `if (count > 0)` здесь пропускал ВСЁ тело, когда кнопка ещё не отрисовалась, и
+    // тест проходил, ничего не проверив (#68). У ORD-001 журнал непустой, значит кнопка
+    // обязана быть — это утверждение, а не условие.
+    await expect(page.locator('[data-test="order-audit"]')).toBeVisible()
     const deleteBtn = page.locator('[data-test="order-audit-delete-btn"]')
-    if ((await deleteBtn.count()) > 0) {
-      await deleteBtn.first().click()
-      await expect(page.locator('[data-test="order-audit-modal"]')).toBeVisible()
-    }
+    await expect(deleteBtn.first()).toBeVisible()
+    await deleteBtn.first().click()
+    await expect(page.locator('[data-test="order-audit-modal"]')).toBeVisible()
   })
 
   test('cancel closes audit delete modal', async ({ page }) => {
     await page.goto('/admin/orders/ORD-001')
+    await expect(page.locator('[data-test="order-audit"]')).toBeVisible()
     const deleteBtn = page.locator('[data-test="order-audit-delete-btn"]')
-    if ((await deleteBtn.count()) > 0) {
-      await deleteBtn.first().click()
-      await expect(page.locator('[data-test="order-audit-modal"]')).toBeVisible()
-      await page.locator('[data-test="order-audit-modal-cancel"]').click()
-      await expect(page.locator('[data-test="order-audit-modal"]')).toBeHidden()
-    }
+    await expect(deleteBtn.first()).toBeVisible()
+    await deleteBtn.first().click()
+    await expect(page.locator('[data-test="order-audit-modal"]')).toBeVisible()
+    await page.locator('[data-test="order-audit-modal-cancel"]').click()
+    await expect(page.locator('[data-test="order-audit-modal"]')).toBeHidden()
   })
 })
 
