@@ -1087,7 +1087,7 @@ test.describe('Order Card › line table', () => {
 
 test.describe('Order Card › adding lines', () => {
   /** Opens the picker and selects the first product. */
-  async function pickFirstProduct(page: Parameters<Parameters<typeof test>[1]>[0]['page']) {
+  async function pickFirstProduct(page: Page) {
     await page.click('[data-test="order-add-item-btn"]')
     await page.waitForSelector('[data-test="add-items-product-checkbox"]')
     await page.locator('[data-test="add-items-product-checkbox"]').first().click()
@@ -1282,7 +1282,7 @@ test.describe('Order Card › shipments', () => {
    * a test that assumed a particular shelf was full would pass or fail on who
    * else took the goods first.
    */
-  async function addShippableLine(page: Parameters<Parameters<typeof test>[1]>[0]['page']) {
+  async function addShippableLine(page: Page) {
     await page.click('[data-test="order-add-item-btn"]')
     await page.waitForSelector('[data-test="add-items-product-row"]')
     // The picker shows what is on the shelf, so the product is chosen by that
@@ -1552,8 +1552,6 @@ test.describe('Order Card › returns', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 test.describe('Order Card › payments and invoices', () => {
-  type Page = Parameters<Parameters<typeof test>[1]>[0]['page']
-
   /** The paid share as the card shows it. */
   async function paidPercent(page: Page): Promise<number> {
     return parseFloat((await page.locator('[data-test="field-paid-percent"]').textContent())!)

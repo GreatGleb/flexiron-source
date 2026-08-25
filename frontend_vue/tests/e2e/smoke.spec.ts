@@ -73,7 +73,7 @@ for (const route of ALL_ROUTES) {
         badResponses.push(`${r.status()} ${r.request().resourceType()} ${r.url()}`)
     })
     page.on('requestfailed', (r) => {
-      badResponses.push(`FAILED ${r.failure()?.errorText} ${r.request().resourceType()} ${r.url()}`)
+      badResponses.push(`FAILED ${r.failure()?.errorText} ${r.resourceType()} ${r.url()}`)
     })
 
     await page.goto(route.path)

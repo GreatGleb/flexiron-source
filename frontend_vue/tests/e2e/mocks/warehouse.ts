@@ -89,7 +89,7 @@ export async function mockProductList(
         body: JSON.stringify({ error: 'Mock error' }),
       })
     }
-    return route.fulfill(jsonResponse(paginate(data, url))(route))
+    return jsonResponse(paginate(data, url))(route)
   })
 }
 
@@ -128,7 +128,7 @@ export async function mockSupplierList(page: Page, data = MOCK_SUPPLIERS_LIST, s
         body: JSON.stringify({ error: 'Mock error' }),
       })
     }
-    return route.fulfill(jsonResponse(data)(route))
+    return jsonResponse(data)(route)
   })
 }
 
@@ -215,7 +215,7 @@ export async function mockStockList(page: Page, data = mockStockOverview, status
         body: JSON.stringify(item),
       })
     }
-    return route.fulfill(jsonResponse(paginate(data, url))(route))
+    return jsonResponse(paginate(data, url))(route)
   })
 }
 
@@ -241,7 +241,7 @@ export async function mockBatchesList(page: Page, data = mockBatches, status?: n
         body: JSON.stringify(batch),
       })
     }
-    return route.fulfill(jsonResponse(paginate(data, url))(route))
+    return jsonResponse(paginate(data, url))(route)
   })
 }
 
@@ -356,7 +356,7 @@ export async function mockOffcutsList(page: Page, data = mockOffcuts, status?: n
         body: JSON.stringify(offcut),
       })
     }
-    return route.fulfill(jsonResponse(paginate(data, url))(route))
+    return jsonResponse(paginate(data, url))(route)
   })
 }
 
@@ -424,7 +424,7 @@ export async function mockMovementsList(page: Page, data = mockMovements, status
         body: JSON.stringify(movement),
       })
     }
-    return route.fulfill(jsonResponse(paginate(data, url))(route))
+    return jsonResponse(paginate(data, url))(route)
   })
 }
 
@@ -492,7 +492,7 @@ export async function mockDeficitList(page: Page, data = mockDeficit, status?: n
         body: JSON.stringify(item),
       })
     }
-    return route.fulfill(jsonResponse(paginate(data, url))(route))
+    return jsonResponse(paginate(data, url))(route)
   })
 }
 

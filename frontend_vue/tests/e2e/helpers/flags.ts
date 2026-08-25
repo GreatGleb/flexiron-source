@@ -1,4 +1,5 @@
 import type { BrowserContext, Page } from '@playwright/test'
+import type { FeatureFlags } from '@/types/features'
 import { waitForDataReady } from './ready'
 
 /**
@@ -8,7 +9,7 @@ import { waitForDataReady } from './ready'
  * Tests rely on this to force every guarded section/page visible so regressions
  * in prod-hidden areas are caught.
  */
-export const ALL_FLAGS_ENABLED = {
+export const ALL_FLAGS_ENABLED: FeatureFlags = {
   // Page-level
   adminDashboard: true,
   adminWarehouse: true,
@@ -57,7 +58,32 @@ export const ALL_FLAGS_ENABLED = {
 
   // Metal cutting — the operation that turns a batch into offcuts, kerf and waste
   warehouseCutting: true,
-} as const
+
+  // Warehouse tabs and their operations
+  warehouseOffcuts: true,
+  warehouseDeficit: true,
+  warehouseOffcutCreate: true,
+  warehouseQrPrint: true,
+
+  // Per-tab column configurators. ВСЕ ПЯТЬ по умолчанию false — до 2026-08-25 их
+  // не было в этом списке, значит ни один e2e-тест этот UI никогда не открывал.
+  warehouseStockPageConfig: true,
+  warehouseBatchesPageConfig: true,
+  warehouseOffcutsPageConfig: true,
+  warehouseMovementsPageConfig: true,
+  warehouseDeficitPageConfig: true,
+
+  // Заказы. orderKanbanView и orderCuttingTool по умолчанию false — та же история.
+  orderKanbanView: true,
+  orderCuttingTool: true,
+  orderDocumentGen: true,
+
+  // Финансы — модуль целиком отсутствовал в списке
+  adminFinance: true,
+  financeIncoming: true,
+  financeOutgoing: true,
+  financeDocumentArchive: true,
+}
 
 /** Writes ALL_FLAGS_ENABLED to localStorage before every page in this context loads. */
 export async function enableAllFlags(context: BrowserContext) {

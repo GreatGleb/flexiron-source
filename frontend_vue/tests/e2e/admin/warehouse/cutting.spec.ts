@@ -1,4 +1,5 @@
-import { test, expect, type Page } from '../../fixtures'
+import { type Page } from '@playwright/test'
+import { test, expect } from '../../fixtures'
 import { navigateToAdmin } from '../../helpers/admin'
 import { waitForDataReady } from '../../helpers/ready'
 
