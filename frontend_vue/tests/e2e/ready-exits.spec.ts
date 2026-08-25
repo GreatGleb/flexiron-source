@@ -178,6 +178,10 @@ test('the declared no-data routes ask for nothing, and are not waited for', asyn
     // здесь админский маршрут с данными (`/admin/notifications`) — тест краснеет и под
     // 20×, и под 40×. Под 40× он краснеет и одним этим окном, без проверки выше: за
     // 700 мс успевают быть посчитанными 11 запросов страницы.
+    // Окно здесь и есть предмет проверки: доказывается, что за 700 мс НЕ случилось
+    // ни одного запроса. Отсутствие события web-first утверждением не выражается —
+    // ждать нечего, поэтому фиксированное ожидание тут законно.
+    // eslint-disable-next-line sonarjs/no-fixed-wait-in-tests
     await page.waitForTimeout(700)
     asked.set(path, await mockCalls(page))
   }

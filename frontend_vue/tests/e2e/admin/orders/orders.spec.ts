@@ -1938,7 +1938,6 @@ test.describe('Order Card › save flow', () => {
     await page.goto('/admin/orders/ORD-001')
     await page.locator('[data-test="field-notes"]').fill('Modified notes')
     await page.locator('[data-test="order-card-discard-btn"]').click()
-    await page.waitForTimeout(500)
     // Value should be restored to original (null/empty)
     await expect(page.locator('[data-test="field-notes"]')).toHaveValue('')
   })
@@ -2019,13 +2018,15 @@ test.describe('Order Create › client selector', () => {
     await expect(page.locator('[data-test="order-create-client-item"]').first()).toBeVisible({
       timeout: 5000,
     })
-    const itemsBefore = await page.locator('[data-test="order-create-client-item"]').count()
+    const items = page.locator('[data-test="order-create-client-item"]')
     // Search for a specific client
     await page.locator('[data-test="order-create-client-search"] input').fill('Metalica')
-    await page.waitForTimeout(300)
-    // Count should be less than or equal to before
-    const itemsAfter = await page.locator('[data-test="order-create-client-item"]').count()
-    expect(itemsAfter).toBeLessThanOrEqual(itemsBefore)
+    // Утверждение не зависит ни от таймера, ни от того, сколько клиентов в моке
+    // (питфолл #15): проверяем, что НИ ОДИН оставшийся элемент не лишён искомого,
+    // и что список не опустел. Прежнее `itemsAfter <= itemsBefore` устраивало
+    // бездействие — оно выполнялось и когда фильтр не сработал вовсе (питфолл #68).
+    await expect(items.filter({ hasNotText: /Metalica/i })).toHaveCount(0)
+    await expect(items).not.toHaveCount(0)
   })
 
   test('selecting a client shows selected indicator', async ({ page }) => {
@@ -2040,7 +2041,6 @@ test.describe('Order Create › client selector', () => {
   test('new client search shows empty state for no results', async ({ page }) => {
     await page.goto('/admin/orders/new')
     await page.locator('[data-test="order-create-client-search"] input').fill('zzz-no-match')
-    await page.waitForTimeout(300)
     await expect(page.locator('[data-test="order-create-client-empty"]')).toBeVisible()
   })
 })

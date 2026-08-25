@@ -275,15 +275,11 @@ test.describe('clients-list › pagination', () => {
       .first()
       .textContent()
     await nextBtn.click()
-    await page.waitForTimeout(500)
-    // The first row should have a different name after going to page 2
-    const afterText = await page
-      .locator('[data-test="clients-row"]')
-      .first()
-      .locator('td')
-      .first()
-      .textContent()
-    expect(afterText).not.toBe(beforeText)
+    // Ждём саму смену строки, а не отмеренные полсекунды: утверждение
+    // повторяется само, пока страница не перерисуется.
+    await expect(
+      page.locator('[data-test="clients-row"]').first().locator('td').first(),
+    ).not.toHaveText(beforeText ?? '')
   })
 })
 
@@ -494,8 +490,7 @@ test.describe('client-card › fields & save flow', () => {
     const saveBar = page.locator('[data-test="client-card-save-bar"]')
     // Find the discard button
     await saveBar.locator('button.btn-secondary').click()
-    // Wait for load to complete
-    await page.waitForTimeout(500)
+    // Ожидание не нужно: toHaveValue ниже повторяется само, пока load() не вернёт форму.
     // Value should be restored
     await expect(page.locator('[data-test="field-name"]')).toHaveValue('UAB Metalica')
   })

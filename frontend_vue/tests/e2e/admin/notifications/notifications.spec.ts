@@ -77,7 +77,6 @@ test.describe('Notifications Page', () => {
   test('error state shows retry button', async ({ page }) => {
     // Set a localStorage flag BEFORE navigation that tells the mock to throw
     await page.goto('/admin/notifications')
-    await page.waitForTimeout(500)
     await page.evaluate(() => localStorage.setItem('test_mock_force_error', 'true'))
     await page.reload()
     // The flag stays set, so the error state is a state and not a moment: whoever
@@ -91,7 +90,6 @@ test.describe('Notifications Page', () => {
     await page.goto('/admin/notifications')
     // Click "Mark all as read"
     await page.locator('[data-test="notifications-header"] button').click()
-    await page.waitForTimeout(500)
     // All rows should show "read" status
     const unreadRows = page.locator('[data-test="notifications-row"].notif-row--unread')
     await expect(unreadRows).toHaveCount(0)
@@ -120,7 +118,6 @@ test.describe('Notifications Page', () => {
     // Select the second option (first non-"All") — CustomSelect uses .custom-select-option
     await expect(filterGroup.locator('.custom-select-option').nth(1)).toBeVisible({ timeout: 3000 })
     await filterGroup.locator('.custom-select-option').nth(1).click()
-    await page.waitForTimeout(600)
 
     // Verify the table re-renders (rows count >= 0)
     const rows = page.locator('[data-test="notifications-row"]')
@@ -164,7 +161,6 @@ test.describe('Notification Dropdown', () => {
     // Click "Mark all as read" in dropdown footer
     const markAllBtn = page.locator('.notif-footer-btn')
     await markAllBtn.click()
-    await page.waitForTimeout(300)
     // Badge dot should disappear
     await expect(page.locator('.badge-dot')).not.toBeVisible()
   })
