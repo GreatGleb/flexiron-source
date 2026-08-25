@@ -211,7 +211,7 @@ export function useWarehouseOffcutCard(id: string) {
       // Deep-clone original files for removal detection and discard restoration
       originalFiles.value = data.files ? JSON.parse(JSON.stringify(data.files)) : []
       fileIdsToAttach.value = []
-      auditLog.value = data.auditLog ?? []
+      auditLog.value = data.auditLog
       await loadMovements()
       await loadBatchProduct(data.batchId)
     } catch (e) {

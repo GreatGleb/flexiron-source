@@ -3,5 +3,5 @@ import { featureFlags } from '@/config/featureFlags'
 import type { FeatureFlagKey } from '@/types/features'
 
 export function useFeatureFlag(flag: FeatureFlagKey): ComputedRef<boolean> {
-  return computed(() => featureFlags[flag] ?? false)
+  return computed(() => featureFlags[flag])
 }

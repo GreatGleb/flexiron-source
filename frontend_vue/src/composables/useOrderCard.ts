@@ -389,9 +389,9 @@ export function useOrderCard(id: string) {
         documentType: order.value.documentType,
         currency: order.value.currency,
         vatMode: order.value.vatMode,
-        vatPercent: order.value.vatPercent ?? settings.constants.vatRate,
-        defaultMarginPercent: order.value.defaultMarginPercent ?? settings.constants.defaultMargin,
-        defaultDiscountPercent: order.value.defaultDiscountPercent ?? 0,
+        vatPercent: order.value.vatPercent,
+        defaultMarginPercent: order.value.defaultMarginPercent,
+        defaultDiscountPercent: order.value.defaultDiscountPercent,
       }
       capture()
       // What can go on a truck depends on the lines and on the shelf, so it is

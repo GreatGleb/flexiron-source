@@ -99,7 +99,7 @@ export function useWarehouseStockCard(productId: string) {
   const formName = computed({
     get: () => {
       if (!form.value.productName) return ''
-      return form.value.productName[locale.value as keyof TranslatedString] ?? ''
+      return form.value.productName[locale.value as keyof TranslatedString]
     },
     set: (val: string) => {
       form.value.productName = mergeLocaleValue(form.value.productName, val, locale.value)
@@ -110,7 +110,7 @@ export function useWarehouseStockCard(productId: string) {
   const formCategoryName = computed({
     get: () => {
       if (!form.value.categoryName) return ''
-      return form.value.categoryName[locale.value as keyof TranslatedString] ?? ''
+      return form.value.categoryName[locale.value as keyof TranslatedString]
     },
     set: (val: string) => {
       form.value.categoryName = mergeLocaleValue(form.value.categoryName, val, locale.value)
@@ -130,7 +130,7 @@ export function useWarehouseStockCard(productId: string) {
         minStock: data.minStock,
         categoryName: data.categoryName ?? null,
       }
-      auditLog.value = data.auditLog ?? []
+      auditLog.value = data.auditLog
       dirty.capture()
       // Also load aggregates across all batches for this product
       await loadStockAggregates()

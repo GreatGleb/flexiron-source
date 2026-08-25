@@ -34,7 +34,7 @@ export function useWarehouseMovementCard(id: string) {
     try {
       const data = await getMovement(id)
       movement.value = data
-      auditLog.value = data.auditLog ?? []
+      auditLog.value = data.auditLog
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to load movement'
     } finally {

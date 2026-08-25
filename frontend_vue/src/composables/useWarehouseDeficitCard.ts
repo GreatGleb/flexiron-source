@@ -69,7 +69,7 @@ export function useWarehouseDeficitCard(id: string) {
         notes: data.notes,
       }
       dirty.capture()
-      auditLog.value = data.auditLog ?? []
+      auditLog.value = data.auditLog
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to load deficit item'
     } finally {
