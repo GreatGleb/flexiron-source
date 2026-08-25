@@ -130,7 +130,7 @@ export function useWarehouseBatch(id: string) {
   const dirty = useDirtyCheck(form)
 
   // Deep clone of the original batch.files so we can detect removals and restore on discard
-  const originalFiles = ref<WarehouseBatch['files']>([])
+  const originalFiles = ref<NonNullable<WarehouseBatch['files']>>([])
 
   const isAnythingDirty = computed(() => {
     // Form field changes
@@ -144,7 +144,7 @@ export function useWarehouseBatch(id: string) {
       // Touch files array so Vue tracks mutations/reassignments to it
       const currentFiles = batch.value.files
       if (originalFiles.value.length > 0) {
-        const currentIds = currentFiles.map((f) => f.id)
+        const currentIds = currentFiles?.map((f) => f.id) ?? []
         if (originalFiles.value.some((f) => !currentIds.includes(f.id))) return true
       }
     }

@@ -124,7 +124,7 @@ export function useWarehouseOffcutCard(id: string) {
     if (offcut.value) {
       const currentFiles = offcut.value.files
       if (originalFiles.value.length > 0) {
-        const currentIds = currentFiles.map((f) => f.id)
+        const currentIds = currentFiles?.map((f) => f.id) ?? []
         if (originalFiles.value.some((f) => !currentIds.includes(f.id))) return true
       }
     }
@@ -133,7 +133,7 @@ export function useWarehouseOffcutCard(id: string) {
 
   // ─── Files ────────────────────────────────────────────────────────────────
   const fileIdsToAttach = ref<string[]>([])
-  const originalFiles = ref<WarehouseOffcut['files']>([])
+  const originalFiles = ref<NonNullable<WarehouseOffcut['files']>>([])
 
   function onFilesUploaded(uploaded: UploadedFile[]) {
     if (!offcut.value) return

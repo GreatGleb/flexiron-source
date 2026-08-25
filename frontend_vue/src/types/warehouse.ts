@@ -65,7 +65,13 @@ export interface WarehouseBatchFile {
 
 export interface WarehouseBatch {
   id: string
-  files: WarehouseBatchFile[]
+  /**
+   * Прикреплённые файлы. Необязательно СОЗНАТЕЛЬНО (решение 2026-08-25): контракт
+   * для складских сущностей это поле не описывает, а значит гарантии, что сервер
+   * его пришлёт, нет. Сделаешь обязательным — страховки в композаблах станут
+   * мёртвым кодом, их снимут, и первый же ответ без `files` уронит карточку.
+   */
+  files?: WarehouseBatchFile[]
   /** Link to product */
   productId: string
   productName: TranslatedString
@@ -225,8 +231,8 @@ export interface WarehouseOffcut {
   notes: string | null
   /** QR code data (for scanning) */
   qrData: string | null
-  /** Attached files (certificates, photos) */
-  files: WarehouseBatchFile[]
+  /** Attached files (certificates, photos). Необязательно — см. `WarehouseBatch.files`. */
+  files?: WarehouseBatchFile[]
   /** Link to order if offcut is reserved for an order */
   orderId: string | null
   createdAt: string
