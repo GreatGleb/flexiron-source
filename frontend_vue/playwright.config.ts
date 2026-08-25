@@ -39,7 +39,17 @@ export default defineConfig({
 
   use: {
     baseURL: 'http://localhost:5173',
-    trace: 'on-first-retry',
+    /*
+     * Локально повторов нет (`retries: 0` выше), значит «первого повтора» не бывает
+     * и `on-first-retry` не снимал trace НИКОГДА — настройка выглядела диагностикой
+     * и не давала ничего. Обнаружено 2026-08-26, когда понадобилось разобрать
+     * падения из БАГ-09 и выяснилось, что улик нет и взять их неоткуда.
+     *
+     * `retain-on-failure` пишет trace для каждого теста и выбрасывает на успехе:
+     * платим временем прогона, получаем разбираемое падение вместо загадки. В CI
+     * повторы есть, там прежнее поведение осмысленно.
+     */
+    trace: process.env.CI ? 'on-first-retry' : 'retain-on-failure',
     screenshot: 'only-on-failure',
     testIdAttribute: 'data-test',
   },
