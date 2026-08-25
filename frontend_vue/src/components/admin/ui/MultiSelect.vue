@@ -5,7 +5,7 @@ import SvgIcon from '@/components/admin/SvgIcon.vue'
 
 import '@styles/admin/components/_multiselect.css'
 
-export interface MultiSelectOption {
+interface MultiSelectOption {
   value: string
   label?: string
   group?: string

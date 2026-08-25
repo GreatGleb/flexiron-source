@@ -80,7 +80,7 @@ export const MATERIAL_ERROR_CODE: Record<MaterialFailureReason, string> = {
   pieces_not_integer: 'OFFCUT_PIECES_NOT_INTEGER',
 }
 
-export type MaterialFailure = {
+type MaterialFailure = {
   ok: false
   reason: MaterialFailureReason
   /** Единица, имя недостающего размера или присланный счётчик — для сообщения */
@@ -226,7 +226,7 @@ export function productDensityKgM3(
     : null
 }
 
-export type OffcutWeightSource = 'geometry' | 'per-unit-weight'
+type OffcutWeightSource = 'geometry' | 'per-unit-weight'
 
 export type OffcutWeightResult =
   | { ok: true; weightKg: number; source: OffcutWeightSource }

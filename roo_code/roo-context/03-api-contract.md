@@ -2743,3 +2743,40 @@ interface Notification {
 - Composable: [`composables/useNotifications.ts`](frontend_vue/src/composables/useNotifications.ts)
 - Views: [`views/admin/notifications/NotificationsPage.vue`](frontend_vue/src/views/admin/notifications/NotificationsPage.vue), [`components/admin/NotificationDropdown.vue`](frontend_vue/src/components/admin/NotificationDropdown.vue)
 - i18n: [`i18n/admin/notifications.ts`](frontend_vue/src/i18n/admin/notifications.ts)
+
+---
+
+# Клиент написан, UI нет
+
+Реестр эндпоинтов, для которых **клиентская функция и мок уже существуют**, а вызывающего UI нет.
+Заведён 2026-08-25, когда `npm run deadcode` показал их как «неиспользуемые экспорты». Удалять их
+было бы выбрасыванием готовой работы, а молчать — держать код, про который никто не знает, живой он
+или забытый. Отсюда список: пока строка здесь, экспорт не считается мёртвым.
+
+**Правило снятия:** появился UI — строка уходит отсюда, а у самого эндпоинта выше проставляется
+конкретный вызывающий (`Page.vue`, композабл), как требует contract-first из `vue-rules.md`.
+
+| Метод и путь | Функция клиента | Описан выше | Примечание |
+|---|---|---|---|
+| `POST /api/config/fields` | `createField()` | да | модалка «New field» не подключена |
+| `PATCH /api/config/fields/:id` | `patchField()` | да | inline rename, «будущий UI» так и записан в разделе |
+| `DELETE /api/config/fields/:id` | `deleteField()` | да | — |
+| `POST /api/config/sections` | `createSection({ name })` | **нет** | тело `{ name: string }`, ответ `SectionConfig` |
+| `PATCH /api/config/sections/:id` | `patchSection(id, patch, locale)` | да | — |
+| `DELETE /api/config/sections/:id` | `deleteSection()` | **нет** | ответ пустой |
+| `PATCH /api/settings/uoms/:id` | `updateUom()` | да | — |
+| `GET /api/products/list` | `getProductList()` | **нет** | ответ `Array<{ id, name: { ru, en, lt } }>` — плоский справочник для селектов |
+| `GET /api/suppliers/export.csv` | `exportSuppliersCsv(filters)` | **нет** | параметры `search`, `status`, `rating`, `categories` (через запятую); ответ — CSV строкой |
+| `POST /api/warehouse/deficit` | `createDeficitItem()` | **нет** | тело `DeficitCreatePayload`, ответ `WarehouseDeficit` |
+| `GET /api/warehouse/stock/:productId/audit` | `getStockAudit()` | **нет** | ответ `StockAuditEntry[]` |
+| `GET /api/warehouse/offcuts/:id/audit` | `getOffcutAudit()` | **нет** | ответ `StockAuditEntry[]` |
+| `GET /api/warehouse/movements/:id/audit` | `getMovementAudit()` | **нет** | ответ `StockAuditEntry[]` |
+| `GET /api/warehouse/deficit/:id/audit` | `getDeficitAudit()` | **нет** | ответ `StockAuditEntry[]` |
+
+Про четыре `*/audit`: парные `delete*AuditEntry` **вызываются** из карточек, а `get*Audit` — нет.
+Значит записи аудита UI получает вместе с сущностью, а отдельная загрузка осталась вторым путём к
+тем же данным. Это кандидат либо на подключение, либо на удаление — но решать по контракту, а не по
+счётчику линтера.
+
+Формы запросов и ответов в строках выше сняты **с клиента и мока**, а не согласованы с сервером:
+серверной реализации ни у одного из этих эндпоинтов пока нет.

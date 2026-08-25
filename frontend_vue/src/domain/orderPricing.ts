@@ -591,7 +591,7 @@ export function achievableGross(
 
 // ─── Total allocation ───────────────────────────────────────────────────────
 
-export interface AllocationRow {
+interface AllocationRow {
   lineId: string
   before: number
   after: number
