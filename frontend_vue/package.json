@@ -19,7 +19,9 @@
     "test:unit:watch": "vitest",
     "test:unit:coverage": "vitest run --coverage",
     "audit": "npm audit --audit-level=high",
-    "verify": "npm run typecheck && npm run lint && npm run format:check && npm run test:unit"
+    "dupes": "jscpd src",
+    "deadcode": "knip",
+    "verify": "npm run typecheck && npm run lint && npm run dupes && npm run format:check && npm run test:unit"
   },
   "dependencies": {
     "vue": "^3.5.13",
@@ -32,9 +34,14 @@
     "@types/node": "^26.2.0",
     "@vitejs/plugin-vue": "^5.2.3",
     "@vitest/coverage-v8": "^4.1.10",
+    "@vue/test-utils": "^2.4.11",
     "eslint": "^10.2.0",
     "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-sonarjs": "^4.2.0",
     "eslint-plugin-vue": "^10.8.0",
+    "happy-dom": "^20.11.6",
+    "jscpd": "^5.0.16",
+    "knip": "^6.32.2",
     "prettier": "^3.8.3",
     "sass": "^1.99.0",
     "typescript": "^6.0.2",
