@@ -1,5 +1,5 @@
 import { createI18n } from 'vue-i18n'
-import { translations } from './translations.js'
+import { translations } from './translations'
 
 const savedLang = localStorage.getItem('flexiron_lang') || 'en'
 

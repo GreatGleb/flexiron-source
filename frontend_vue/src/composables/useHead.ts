@@ -1,6 +1,9 @@
 import { watchEffect } from 'vue'
 
-export function useHead({ title, description }) {
+/** Заголовок и описание страницы: либо значение, либо геттер для реактивного. */
+type HeadSource = string | (() => string)
+
+export function useHead({ title, description }: { title?: HeadSource; description?: HeadSource }) {
   watchEffect(() => {
     const t = typeof title === 'function' ? title() : title
     if (t) document.title = t

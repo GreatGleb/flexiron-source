@@ -21,7 +21,6 @@
             <label class="form-label">{{ t('login.pwdLabel') }}</label>
             <div class="input-icon-wrapper">
               <input
-                ref="passwordInput"
                 v-model="password"
                 :type="showPassword ? 'text' : 'password'"
                 class="form-input"
@@ -107,7 +106,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useHead } from '@/composables/useHead'
@@ -119,8 +118,7 @@ const { t } = useI18n()
 const { login, isLoading } = useAuth()
 
 const showPassword = ref(false)
-const passwordInput = ref(null)
-const submitError = ref(null)
+const submitError = ref<string | null>(null)
 
 const email = ref('')
 const password = ref('')
