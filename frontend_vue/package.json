@@ -8,15 +8,18 @@
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit",
-    "lint": "eslint src/",
-    "lint:fix": "eslint src/ --fix",
-    "format": "prettier --write src/",
+    "lint": "eslint src/ --max-warnings=0 --cache --cache-location node_modules/.cache/eslint/",
+    "lint:fix": "eslint src/ --fix --cache --cache-location node_modules/.cache/eslint/",
+    "format": "prettier --write src/ tests/ --cache",
+    "format:check": "prettier --check src/ tests/ --cache",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:unit": "vitest run",
     "test:audit": "vitest run --config vitest.audit.config.ts",
     "test:unit:watch": "vitest",
-    "test:unit:coverage": "vitest run --coverage --coverage.include='src/domain/**'"
+    "test:unit:coverage": "vitest run --coverage",
+    "audit": "npm audit --audit-level=high",
+    "verify": "npm run typecheck && npm run lint && npm run format:check && npm run test:unit"
   },
   "dependencies": {
     "vue": "^3.5.13",

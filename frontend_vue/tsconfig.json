@@ -33,6 +33,6 @@
       "@images/*": ["./src/assets/images/*"]
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.vue", "env.d.ts"],
+  "include": ["src/**/*.ts", "src/**/*.vue", "src/**/*.js", "env.d.ts"],
   "exclude": ["node_modules", "dist"]
 }
