@@ -2,7 +2,6 @@ import { apiGet, apiPost, apiPatch, apiDelete } from './api'
 import type { PaginatedResponse, PaginationParams } from '@/types/api'
 import type {
   Service,
-  ServiceListItem,
   ServiceFilters,
   ServiceCreatePayload,
   ServicePatchPayload,
@@ -13,7 +12,7 @@ import { toTranslatedString } from '@/types/i18n'
 export async function getServices(
   filters: ServiceFilters,
   pagination: PaginationParams,
-): Promise<PaginatedResponse<ServiceListItem>> {
+): Promise<PaginatedResponse<Service>> {
   const params: Record<string, string> = {
     search: filters.search,
     sortBy: filters.sortBy,
@@ -21,7 +20,7 @@ export async function getServices(
     page: String(pagination.page),
     pageSize: String(pagination.pageSize),
   }
-  return apiGet<PaginatedResponse<ServiceListItem>>('/api/services', params)
+  return apiGet<PaginatedResponse<Service>>('/api/services', params)
 }
 
 export async function getService(id: string): Promise<Service> {

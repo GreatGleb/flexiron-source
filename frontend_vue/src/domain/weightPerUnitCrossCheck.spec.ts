@@ -92,6 +92,8 @@ describe('заявленный кг/м против независимой ге�
     // Сверка обязана что-то сверять: пустой список проверенных прошёл бы молча.
     expect(checked.length).toBeGreaterThanOrEqual(11)
     // И исключения — ровно те, что объявлены, ни одного тихого.
-    expect(skipped.sort()).toEqual(Object.keys(EXCLUDED).sort())
+    expect([...skipped].sort((a, b) => a.localeCompare(b))).toEqual(
+      [...Object.keys(EXCLUDED)].sort((a, b) => a.localeCompare(b)),
+    )
   })
 })

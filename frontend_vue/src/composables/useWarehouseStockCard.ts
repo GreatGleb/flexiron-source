@@ -39,7 +39,7 @@ export function useWarehouseStockCard(productId: string) {
    */
   const totalUsableQuantity = computed(() => {
     const aggs = stockAggregates.value
-    if (!aggs || aggs.length === 0) return item.value?.totalQuantity ?? 0
+    if (aggs.length === 0) return item.value?.totalQuantity ?? 0
     const usableTypes = new Set(['receipt', 'storage', 'offcut'])
     return aggs.filter((a) => usableTypes.has(a.type)).reduce((sum, a) => sum + a.quantity, 0)
   })
