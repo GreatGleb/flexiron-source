@@ -27,7 +27,7 @@ describe('страховка: id поля плотности', () => {
     const idsUnderName = new Set<string>()
     for (const item of list.items) {
       const p = await mockGetProduct(item.id)
-      for (const f of p.fieldValues ?? []) {
+      for (const f of p.fieldValues) {
         if (f.fieldId === DENSITY_FIELD_ID) namesUnderId.add(f.fieldName.ru)
         if (f.fieldName.ru === 'Плотность (кг/м³)') idsUnderName.add(f.fieldId)
       }

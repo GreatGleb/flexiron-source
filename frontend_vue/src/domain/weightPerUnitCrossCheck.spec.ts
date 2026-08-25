@@ -54,7 +54,7 @@ describe('заявленный кг/м против независимой ге�
       if (stated == null) continue
 
       const f = new Map<string, number>()
-      for (const fv of p.fieldValues ?? []) {
+      for (const fv of p.fieldValues) {
         const n = Number(fv.value)
         if (Number.isFinite(n)) f.set(fv.fieldName.ru, n)
       }

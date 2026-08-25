@@ -45,7 +45,7 @@ function parseErrorBody(
       }
       const firstMsg =
         Array.isArray(detail) && detail.length > 0
-          ? String((detail[0] as { msg?: string })?.msg ?? 'Validation error')
+          ? String((detail[0] as { msg?: string } | undefined)?.msg ?? 'Validation error')
           : 'Validation error'
       return { message: firstMsg, code: 'VALIDATION_ERROR', fieldErrors }
     }

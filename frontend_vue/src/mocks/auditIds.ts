@@ -54,7 +54,7 @@ export function assignAuditIds(
 export function nextAuditId(log: StockAuditEntry[], prefix: string): string {
   let max = 0
   for (const entry of log) {
-    const match = entry.id?.match(/-au-(\d+)$/)
+    const match = entry.id.match(/-au-(\d+)$/)
     if (match) max = Math.max(max, Number(match[1]))
   }
   return `${prefix}-au-${max + 1}`
