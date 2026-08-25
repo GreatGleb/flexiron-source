@@ -38,9 +38,10 @@ When the user asks about a configuration setting or timeout behavior:
 At the START of every session, BEFORE writing any code, creating any plan, or making any edit:
 
 1. **Read [`roo_code/skills/vue-rules.md`](roo_code/skills/vue-rules.md) completely** — полностью — все питфоллы и раздел "Applying this skill"
-2. **If task involves a page** → also read [`roo_code/skills/create-page.md`](roo_code/skills/create-page.md)
-3. **If task involves a plan** → also read [`roo_code/skills/create-plan.md`](roo_code/skills/create-plan.md)
-4. **If task involves bugs** → also read [`roo_code/skills/fix-bugs.md`](roo_code/skills/fix-bugs.md)
+2. **Read [`roo_code/skills/verify.md`](roo_code/skills/verify.md)** — цикл проверок. Он центральный: остальные скилы не описывают проверку сами, а вызывают его. Не прочитан — проверять будешь по памяти, то есть никак
+3. **If task involves a page** → also read [`roo_code/skills/create-page.md`](roo_code/skills/create-page.md)
+4. **If task involves a plan** → also read [`roo_code/skills/create-plan.md`](roo_code/skills/create-plan.md)
+5. **If task involves bugs** → also read [`roo_code/skills/fix-bugs.md`](roo_code/skills/fix-bugs.md)
 
 **Why:** Skills contain accumulated lessons from real bugs. Skipping them = repeating past mistakes. The 30 seconds to read a skill saves 30 minutes of fixing.
 
@@ -68,6 +69,26 @@ Steps 2–4 are never skipped — even if the claim seems obvious. Especially if
 - No exceptions for "large tasks" — attention does not decrease per item
 
 Explore agent gives structural overview — it does not replace targeted verification. Logical deduction is not a substitute for grep.
+
+## Два режима работы
+
+Скилы описывают оба; путать их нельзя.
+
+| | Интерактивный | Автономный |
+|---|---|---|
+| Кто запустил | человек в чате | скрипт прогона (workflow) |
+| Стопы между фазами и багами | есть, ждут ответа | нет |
+| Неясность в задаче | спросить и ждать | задача **падает** с указанием, чего нет в плане; догадка запрещена |
+| Источник багов | ручное тестирование | линзы цикла проверок |
+| Признак «готово» | человек посмотрел | чистый свип цикла из [`verify.md`](roo_code/skills/verify.md) |
+| Подтверждение починки | человек | отдельный агент-скептик, не автор правки |
+| Мерж ветки | человек | только по чистому свипу, `--no-ff`, без пуша |
+
+**Режим не угадывается.** Автономный — только когда задачу запустил скрипт. Во всех остальных случаях интерактивный, со стопами.
+
+Правило «после `ask_followup_question` — СТОП и ждать» (раздел 2 выше) действует в интерактивном режиме. В автономном вопросов не задают вовсе: спрашивать некого, а незаданный вопрос превращается в догадку, которую никто не увидит.
+
+Политика автономных прогонов — ветка, коммит на задачу, условия остановки, требование чистого дерева: [`roo_code/plans/general/autonomous-run-policy-plan.md`](roo_code/plans/general/autonomous-run-policy-plan.md).
 
 ## Project Context
 
@@ -111,7 +132,7 @@ Explore agent gives structural overview — it does not replace targeted verific
 
 **All skills are located at:** [`roo_code/skills/`](roo_code/skills/)
 
-This directory contains 9 skill files. **Every session starts with awareness of these skills.** When a task matches a skill's purpose — read and follow that skill. Do not wait to be told.
+This directory contains 10 skill files. **Every session starts with awareness of these skills.** When a task matches a skill's purpose — read and follow that skill. Do not wait to be told.
 
 ---
 
@@ -128,7 +149,8 @@ Use this matrix to determine which skill to invoke for any given task. **Read th
 | User sends a bug list, describes UI issues, or pastes problems | **add-bug** — auto-triggered, formats and records bugs to bugs-file | [`add-bug.md`](roo_code/skills/add-bug.md) |
 | Fixing bugs from a bugs-file (one bug per cycle, max 5 verification iterations) | **fix-bugs** — read → verify → plan → fix → verify cycle | [`fix-bugs.md`](roo_code/skills/fix-bugs.md) |
 | After all bugs fixed — root cause analysis and skill improvement | **update-skills** — finds gaps in create-page/create-plan/vue-rules and closes them | [`update-skills.md`](roo_code/skills/update-skills.md) |
-| Running full verification (typecheck + lint + integrity checks) | **verify** — runs checklist and reports results | [`verify.md`](roo_code/skills/verify.md) |
+| Any verification of written code — after a phase, after a fix, before a merge | **verify** — цикл проверок: машинная приёмка + 10 линз, до чистого свипа или 30 итераций | [`verify.md`](roo_code/skills/verify.md) |
+| Adding a FastAPI backend feature inside an existing module | **create-api-feature** — schemas → repository → domain → action | [`create-api-feature.md`](roo_code/skills/create-api-feature.md) |
 | Writing Vue 3 code, adding `:class` bindings, editing mocks, building forms, adding pages/components, refactoring, choosing HTTP methods, debugging CSS/reactivity | **vue-rules** — полный список питфоллов + save UX + HTTP methods + contract-first rules | [`vue-rules.md`](roo_code/skills/vue-rules.md) |
 
 ---
@@ -143,7 +165,7 @@ Use this matrix to determine which skill to invoke for any given task. **Read th
 4. **Before manual testing** → read [`pre-manual-check.md`](roo_code/skills/pre-manual-check.md)
 5. **After fixing bugs** → read [`update-skills.md`](roo_code/skills/update-skills.md)
 6. **Writing any Vue code** → read [`vue-rules.md`](roo_code/skills/vue-rules.md) — весь список питфоллов, до конца
-7. **Running verification** → read [`verify.md`](roo_code/skills/verify.md)
+7. **Verifying anything you wrote** → read [`verify.md`](roo_code/skills/verify.md) — проверка это цикл, а не один проход; выход только по чистому свипу
 
 ### 🟡 Consider reading when:
 
@@ -190,7 +212,8 @@ When user mentions a page, bugs, work stage, section, or task continuation — *
 | `add-bug` | [`add-bug.md`](roo_code/skills/add-bug.md) | Auto-trigger when user sends bug list |
 | `/fix-bugs <plan> [bug]` | [`fix-bugs.md`](roo_code/skills/fix-bugs.md) | Fix bugs from file, max 5 verification iterations per bug |
 | `/update-skills <plan>` | [`update-skills.md`](roo_code/skills/update-skills.md) | For each ✅ bug find root cause → add to skills |
-| `/verify` | [`verify.md`](roo_code/skills/verify.md) | Run verification checklist (typecheck + lint + integrity checks) |
+| `/verify` | [`verify.md`](roo_code/skills/verify.md) | Цикл проверок — машинная приёмка + 10 линз, выход только по чистому свипу (лимит 30 итераций) |
+| `/create-api-feature` | [`create-api-feature.md`](roo_code/skills/create-api-feature.md) | Backend feature: schemas → repository → domain → action |
 | `/vue-rules` | [`vue-rules.md`](roo_code/skills/vue-rules.md) | Vue 3 pitfalls and rules (полный список) |
 
 ## MCP Servers

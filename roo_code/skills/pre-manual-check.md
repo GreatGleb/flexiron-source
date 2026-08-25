@@ -1,435 +1,130 @@
 ---
 name: pre-manual-check
-description: Deep verification of a newly implemented page before user manual testing. Runs targeted checks grouped by category — each group has one STOP. Findings are added to the bugs file.
+description: Приёмка только что реализованной страницы — эталон и пофайловые ожидания. Общие регрессионные проверки не дублирует, берёт их циклом из verify.md. Находки уходят в bugs-файл.
 user_invocable: true
 arguments:
   - name: plan
-    description: "Plan file identifier, e.g. '1.1' → reads roo_code/plans/*/1.1-products-plan.md"
+    description: "Идентификатор плана, например '1.1' → roo_code/plans/*/1.1-products-plan.md"
     required: true
 ---
 
-# Pre-Manual Check — Deep verification before manual testing
+# Pre-Manual Check — приёмка новой страницы
 
-Run AFTER page implementation, BEFORE manual testing. Goal: find maximum bugs before user opens browser.
+Запускается ПОСЛЕ реализации, ДО ручного теста. Цель — найти максимум багов раньше, чем страницу откроют в браузере.
 
-**Principle: checks grouped by category** — each group runs all its checks in one pass, then STOP. This reduces 20 individual stops to ~8 grouped stops.
+## Что здесь есть и чего здесь нет
 
----
-
-## CRITICAL RULES
-
-1. **ONE STOP PER GROUP** — execute all checks in a group, then STOP and wait for confirmation
-2. **Claim → Verify → Conclude** — every code assertion = Grep or Read BEFORE conclusion, never from memory
-3. **No skipping "obvious" checks** — each check independent, verify even if "obviously clean"
-4. **Add bugs immediately** — when found, add to bugs-file DURING the same group, before STOP
-5. **✅ or ❌, never "probably ok"** — each item must be verified by tool
-
----
-
-## Step 0: Initialization (run once before Group 1)
-
-```
-Read the following files:
-
-1. roo_code/plans/*/{plan}-plan.md — extract:
-   - Full list of created/modified files (views, composables, services, types, CSS, i18n, router)
-   - TZ section of plan ("TZ" or "What is X" section)
-   - Feature flags list
-   - API endpoints
-   - Final checklist
-
-2. TZ sources (mentioned in plan or create-page.md):
-   - toDo/Flexiron_ERP_CRM.md — this page's section
-   - toDo/Flexiron_ERP_Process_Algorithm.md — if mentioned in plan
-   - toDo/design/screen_specs/[XX.X_Page].md — if exists for this page
-   - roo_code/roo-context/03-api-contract.md — this domain's section
-
-3. Determine bugs-file path:
-   - Plan name: roo_code/plans/*/{plan}-[domain]-plan.md (e.g. 1.1-products-plan.md)
-   - Bugs-file: roo_code/plans/bugs/{plan}-[domain]-bugs.md
-   - If bugs-file doesn't exist — create with header and empty summary table
-   - Read summary table → determine NEXT_BUG_ID
-
-Save in memory:
-- PLAN_FILES: all implementation files list
-- TZ_REQUIREMENTS: requirements list from TZ (all items)
-- BUGS_FILE: full path to bugs-file
-- NEXT_BUG_ID: next bug sequence number
-```
-
-After initialization — immediately execute Group 1 without waiting.
-
----
-
-## GROUP 1 — CSS & Design Consistency (was Prompts 1-2)
-
-**Focus:** every CSS class defined and accessible; UI elements match existing page patterns.
-
-### CSS class availability
-1. For each view file from PLAN_FILES — read the file
-2. Extract all CSS classes from `class="..."` and `:class="{...}"` in template
-3. Read CSS imports of component (`import '@styles/...'`)
-4. Read `src/styles/admin/admin-core.scss` — its `@import` list (global classes)
-5. For each class — Grep in accessible files (component imports + admin-core.scss imports)
-6. Class not found anywhere → BUG
-
-**Specifically check:**
-- `.empty-state` — NOT in admin-core.scss, must be in page CSS
-- Classes from `_entity-card-layout.css` — NOT in admin-core.scss, need explicit `import`
-- Any custom class from plan that may not be in CSS file
-
-### Design consistency
-Read reference page and compare:
-- **Card page** → `src/views/admin/suppliers/SupplierCardPage.vue`
-- **List page** → `src/views/admin/suppliers/SuppliersListPage.vue`
-
-| Element | Expected pattern |
+| | Где |
 |---|---|
-| Back button | `<router-link class="btn btn-secondary">` — not button, not router.back() |
-| Header buttons | `entity-action-bar no-margin pos-static` container |
-| Delete/action button | `action-icon-btn action-danger` from `_action-icons.css` |
-| Section title | `:title` prop on GlassPanel — not `<h2>` inside panel body |
-| Table | `data-table` + `data-table-wrapper` |
-| Clickable row | CSS cursor:pointer in page CSS, `@click` on `<tr>` |
-| Save bar | `entity-action-bar no-margin pos-static` with `v-if="isAnythingDirty"` |
-| Page title | `<h1 class="page-title">` |
-| Empty state | `class="empty-state"` (display:flex, flex-direction:column, align-items:center) |
-| Read-only field | `<input readonly class="glass-input">` — not `<span class="glass-input">` |
+| Общие регрессионные проверки (реактивность, i18n, контракт, мок, дубли правил, UI, флаги, тесты, целостность) | линзы Л1–Л10 в [`verify.md`](verify.md) |
+| Эталон дизайна и пофайловые ожидания к **новой** странице | здесь |
 
-**After completion:** add found bugs to BUGS_FILE → **STOP**
+Своего списка общих правил этот скил не держит: он вызывает цикл проверок, а сам занимается тем, чего в линзах нет — как должна быть устроена только что созданная страница.
 
----
+Порядок: **сначала цикл проверок** (машинная приёмка + Л1–Л10), потом 6 групп ниже. Обратный порядок бессмысленен — разбирать устройство страницы, которая не компилируется, нечего.
 
-## GROUP 2 — Template Hygiene & v-model Contracts (was Prompts 3-4)
+## Режимы
 
-**Focus:** forbidden template patterns, correct v-model usage.
+- **Интерактивно:** после каждой группы стоп, ждём человека. Дальше — ручное тестирование.
+- **Автономно:** стопов нет; находки пишутся в bugs-файл через [`add-bug.md`](add-bug.md) по ходу группы, вердикт даёт чистый свип цикла. Ручной тест заменяется полным свипом — и это единственное, чем он заменяется.
 
-### Template hygiene — for each view file:
-1. **Comments** — Grep `<!--` inside `<template>` → pitfall #9, FORBIDDEN
-2. **`<a href>`** — Grep `<a ` in template → must be `<router-link>`
-3. **`router.back()`** → must be named route `{ name: 'X' }`
-4. **`v-for` without `:key`** — Grep `v-for` → each must have `:key`
-5. **Hardcoded strings** — visible text not through `t('...')` (except `—` and numbers)
-6. **`v-html`** — Grep `v-html` → needs explicit reason
-7. **Unused imports** — each import in `<script setup>` used in template or script
+## Критические правила
 
-### v-model contracts
-1. **CustomSelect** — accepts only `string`, not `string | null` and not `number`
-   - Grep `v-model` on `<CustomSelect` in new files
-   - For each binding — check source type (ref, reactive, computed)
-   - `string | null` → needs computed adapter `null ↔ ''`
-   - "empty/all" option → `{ value: '', label: '...' }`, not `{ value: null }`
+1. **Заявил → проверил → заключил.** Каждое утверждение о коде — grep или чтение ДО вывода, никогда по памяти.
+2. **«Очевидно чистое» тоже проверяется.** Проверки независимы.
+3. **Находка записывается сразу** — в ту же группу, до стопа, а не «в конце соберу».
+4. **✅ или ❌, «вероятно, нормально» не бывает.** Не проверено инструментом — значит не проверено.
 
-2. **DropZone** — NOT v-model component
-   - Grep `v-model` on `<DropZone` → must be `hint` prop + `@uploaded` event
+## Шаг 0 — инициализация
 
-3. **`v-model.number` on nullable number** → watcher `NaN → null` must be in composable
-   - Grep `v-model.number` → for each nullable field — check watcher in composable
+Прочитать:
 
-4. **Other components** — for each `v-model` → read `defineProps` of component → type of `modelValue`
+1. `roo_code/plans/<домен>/{plan}-*-plan.md` — список созданных файлов, раздел ТЗ, флаги, эндпоинты, финальный чеклист.
+2. Источники ТЗ: `toDo/Flexiron_ERP_CRM.md` (раздел этой страницы), `toDo/Flexiron_ERP_Process_Algorithm.md` и `toDo/design/screen_specs/<XX.X_Page>.md` — если упомянуты в плане, `roo_code/roo-context/03-api-contract.md` — раздел домена.
+3. Bugs-файл: `roo_code/plans/bugs/{plan}-<домен>-bugs.md`; нет — создать (шапка описана в `add-bug.md`).
 
-**After completion:** add found bugs to BUGS_FILE → **STOP**
+Зафиксировать: список файлов реализации, список требований ТЗ (все пункты), путь к bugs-файлу.
 
----
+## ГРУППА 1 — эталон дизайна и доступность CSS
 
-## GROUP 3 — TypeScript & i18n (was Prompts 5-6)
+**Доступность классов.** Для каждого файла представления: выбрать все классы из `class="..."` и `:class="{...}"` → прочитать CSS-импорты компонента (`import '@styles/...'`) → прочитать список `@import` в `src/styles/admin/admin-core.scss` → каждый класс грепнуть по доступным файлам. Не найден нигде → баг.
 
-**Focus:** null safety, data normalization, translation completeness.
+Отдельно: `.empty-state` в `admin-core.scss` нет — должен быть в CSS страницы. Классы из `src/styles/admin/components/_entity-card-layout.css` и `_action-icons.css` в `admin-core.scss` не входят — нужен явный импорт.
 
-### TypeScript: null safety and data normalization
-1. **Nullable string before save** — in `save()` composable:
-   - `form.field === ''` normalizes to `null` after `dirty.diff()`
-   - Grep `delta.` in save() → check normalization for each nullable string
+**Эталон.** Карточка — `src/views/admin/suppliers/SupplierCardPage.vue`; список — `src/views/admin/suppliers/SuppliersListPage.vue`. Сверить:
 
-2. **Nullable number fields** — `v-model.number` gives NaN when cleared:
-   - Grep NaN in composable → watcher present for all fields
+| Элемент | Ожидание |
+|---|---|
+| Кнопка «назад» | `<router-link class="btn btn-secondary">` — не `button`, не `router.back()` |
+| Кнопки в шапке | контейнер `entity-action-bar no-margin pos-static` |
+| Кнопка удаления | `action-icon-btn action-danger` из `_action-icons.css` |
+| Заголовок секции | проп `:title` у GlassPanel — не `<h2>` внутри тела панели |
+| Таблица | `data-table` + `data-table-wrapper` |
+| Кликабельная строка | `cursor: pointer` в CSS страницы, `@click` на `<tr>` |
+| Панель сохранения | `entity-action-bar no-margin pos-static` с `v-if="isAnythingDirty"` |
+| Заголовок страницы | `<h1 class="page-title">` |
+| Пустое состояние | `class="empty-state"` |
+| Поле только для чтения | `<input readonly class="glass-input">` — не `<span class="glass-input">` |
 
-3. **Nullable access in template**:
-   - `item.price != null ? item.price : '—'` — for numbers (not `item.price ?? '—'` — 0 is falsy with `||`)
-   - `item.field ?? '—'` — for strings
-   - `product?.name` — optional chaining where product may be null
+## ГРУППА 2 — шаблон и контракты v-model
 
-4. **No `any`** — Grep `: any` in new files → each case justified
+**Шаблон**, по каждому файлу представления: `<!--` внутри `<template>` (запрещено); `<a ` вместо `router-link`; `router.back()` вместо именованного роута; `v-for` без `:key`; видимый текст не через `t()` (кроме `—` и чисел); `v-html` без причины; неиспользованные импорты.
 
-5. **No `undefined` as nullable** — `T | null`, not `T | undefined`
+**Контракты v-model:**
 
-### i18n: translation completeness
-1. Read `src/i18n/admin/[domain].ts`
-2. Count keys in `ru.[domain]` → N
-3. Count keys in `en.[domain]` → must be N
-4. Count keys in `lt.[domain]` → must be N
-5. Mismatch → list missing keys
-6. For each `t('domain.key')` in new files — key exists in the domain file?
-7. Grep `@` in translation string values → unescaped `@` (must be `{'@'}`)
-8. Grep hardcoded text in templates (not through `t()`) — check visible strings
+| Компонент | Контракт |
+|---|---|
+| CustomSelect | только `string`. `string \| null` → computed-адаптер `null ↔ ''`; вариант «все/пусто» → `{ value: '', label: '...' }`, не `null` |
+| DropZone | не v-model-компонент: проп `hint` + событие `@uploaded` |
+| `v-model.number` на nullable | watcher-нормализатор `NaN → null` в композабле |
+| прочие | прочитать `defineProps` компонента и сверить тип `modelValue` |
 
-**After completion:** add found bugs to BUGS_FILE → **STOP**
+## ГРУППА 3 — типы, мок, сервис
 
----
+**`src/types/<домен>.ts`:** все поля контракта отражены; nullable как `T | null` (не `T | undefined`, не `T?`); без `: any`; общие типы импортируются, а не копируются; списки через `PaginatedResponse<T>` из `src/types/api.ts`; тип формы отдельно (`Pick<Entity, ...>`), если отличается от типа сущности.
 
-## GROUP 4 — Mock Data & Feature Flags (was Prompts 7-8)
+**`src/services/mocks/<домен>.ts`:** в STORE 8+ записей с разными данными, включая краевые (`price: null`, `categoryId: null`); `mockCreate` — уникальный ID, `createdAt`, разрешённые имена ссылок; `mockPatch` — применяет дельту, возвращает копию; `mockDelete` — `splice` и верный статус; фильтрация в `mockGetList` — поиск без учёта регистра, фильтр по ID проверяет `!== null`; перекрёстные ID существуют в целевых STORE.
 
-**Focus:** mock STORE integrity, feature flag triple registration.
+**`src/services/mocks/index.ts` и `src/services/<домен>.ts`:** зарегистрированы все роуты (GET списка, GET `:id`, POST, PATCH `:id`, DELETE `:id`), совпадения путей не пересекаются; в сервисе верный метод на операцию, null-проверка фильтров перед добавлением в параметры, типы ответов из `src/types/api.ts`.
 
-### Mock data: integrity and completeness
-1. **Cross-ID check** — for each reference to another STORE (linkedSuppliers.id, categoryId etc.):
-   - Grep ID in target mock file → ID exists
+## ГРУППА 4 — композаблы
 
-2. **Field type coverage** — if dynamic fields (text/number/boolean/enum/email/date/file):
-   - Grep each fieldType in STORE → at least one product contains field of each type
+**Список (`use<Домен>.ts`):** флаг `initialized` (обычный boolean, не ref) — `loading = true` только при `!initialized`; `watch(filters, load, { deep: true })` без `immediate` (иначе дубль загрузки с `onMounted`); удаление — вызов сервиса, `toast.success`, `await load()`, `catch` → `toast.error`; `initialized = true` внутри `try` после успешной загрузки; в `return` только то, что использует представление.
 
-3. **Inherited fields** — for each category with `inheritedFields` in categories STORE:
-   - Products of this category have corresponding fieldValues with `inherited: true`
+**Карточка (`use<Домен>Card.ts`):** `form` — `ref<Pick<Entity, ...>>` из редактируемых полей, а не вся сущность; `useDirtyCheck(form)` получает Ref, а не `form.value`; watcher `NaN → null` на каждое числовое поле; `dirty.capture()` — ПОСЛЕ заполнения формы; `save()` — ранний выход при отсутствии изменений, дельта из `dirty.diff()`, нормализация пустых строк в `null`, затем `await load()`; `discard()` = `load()`, а не ручной сброс.
 
-4. **structuredClone** — Grep each mock function reading from STORE → returns `structuredClone(...)`
+## ГРУППА 5 — представления
 
-5. **English language** — all STORE strings in English (not Russian)
+**Скрипт:** все импорты используются; computed-адаптеры для CustomSelect с nullable-источником; `onMounted` вызывает все нужные загрузки; `useHead` через computed; ID карточки из `route.params`; пустой вариант `{ value: '', label: '—' }` первым; никаких ref/reactive, дублирующих логику композабла.
 
-6. **Edge cases** — at least one product with `price: null`, one with `categoryId: null`
-
-### Feature flags: triple registration
-1. Grep `useFeatureFlag(` in new files → list of all used flags
-2. Grep `featureFlag:` in new route definitions → flags in route meta
-3. For each flag X:
-   - Grep X in `src/types/features.ts` → present in FeatureFlags interface
-   - Grep X in `src/config/featureFlags.ts` → present with default value
-   - Grep X in `tests/e2e/helpers/flags.ts` → present in ALL_FLAGS_ENABLED
-
-**After completion:** add found bugs to BUGS_FILE → **STOP**
-
----
-
-## GROUP 5 — Pitfalls, все (was Prompt 9)
-
-**Focus:** run through all pitfalls from vue-rules.md on new files.
-
-1. Read `roo_code/skills/vue-rules.md` (полный список питфоллов — до последнего)
-2. For each pitfall — determine: applicable to this page?
-3. If applicable → Grep or Read → ✅ or ❌
-
-**Mandatory checks (regardless of rest):**
-
-| # | What to check | Tool |
-|---|---|---|
-| #9 | No `<!--` in `<template>` | Grep `<!--` in view files |
-| #10 | All route names in router.push/router-link exist | Grep name in router/index.ts |
-| #13 | Mock reads return structuredClone | Read mock file |
-| #16 | Each component imports its own CSS explicitly | Read imports of view files |
-| #17 | All `<SvgIcon name="X">` — X exists in SvgIcon.vue | Grep X in SvgIcon.vue |
-| #18 | Save bar = `btn_discard_changes`; modals = `btn_discard` | Grep in view files |
-| #19 | Filters/search inside same GlassPanel as table | Read template |
-| #20 | `initialized` flag in list composable | Read composable |
-
-**After completion:** add found bugs to BUGS_FILE → **STOP**
-
----
-
-## GROUP 6 — Router & TZ Compliance (was Prompts 10-11)
-
-**Focus:** all routes correct, every TZ requirement implemented.
-
-### Router and navigation
-1. Grep `{ name:` in new view/composable files → list of all used route names
-2. For each name → Grep in `src/router/index.ts` → name exists
-3. Read new routes block in router/index.ts:
-   - Static paths (`products/categories`) come BEFORE dynamic (`:id`)
-   - Vue Router 4: static segment = 40pts, dynamic = 20pts
-4. For each `meta: { featureFlag: 'X' }` → X registered (see Group 4)
-5. `ScreensPage.vue` updated if plan requires it — Grep in plan → Grep in ScreensPage
-
-### TZ compliance
-1. Take TZ_REQUIREMENTS from initialization (plan + all TZ sources)
-2. For each requirement — find its implementation:
-   - Section in template → Grep `data-test` / Read template
-   - Field in form → Read view InputGroup
-   - Button / action → Read view + handler in composable
-   - API endpoint → Read service + mock/index.ts
-   - Feature flag → Read featureFlags.ts
-3. Requirement without implementation → BUG
-4. Implementation doesn't match requirement → BUG
-
-**Check explicitly:**
-- Save mode correct (clean-slate vs quick-action)
-- All TZ sections present
-- All user actions implemented
-- API endpoints match contract (HTTP method, path, request shape)
-
-**After completion:** add found bugs to BUGS_FILE → **STOP**
-
----
-
-## GROUP 7 — File-by-file: Types, Mocks, Service (was Prompts 12-14)
-
-**Focus:** deep check of types, mocks, and service files.
-
-### types/[domain].ts
-1. Read file entirely
-2. All fields from API contract reflected in types
-3. Nullable fields → `T | null` (not `T | undefined`, not `T?`)
-4. No `any` — Grep `: any`
-5. Shared types imported from source file, not duplicated
-6. `PaginatedResponse<T>` used for lists (from `src/types/api.ts`)
-7. Form type (if different from API type) — separate `Pick<Entity, ...>` or interface
-
-### mocks/[domain].ts
-1. STORE contains 8+ records with diverse data
-2. `mockCreate` — generates unique ID, sets `createdAt`, resolves reference names
-3. `mockPatch` — applies delta via `Object.assign` or field by field; returns `structuredClone`
-4. `mockDelete` — removes via `splice`, returns correct status
-5. Filtering in `mockGetList` — search by name (case-insensitive), categoryId filter checks `!== null`
-6. All read functions return `structuredClone(...)`; mutations work directly on STORE
-7. `structuredClone` NOT used on Vue reactive proxy → `JSON.parse(JSON.stringify(...))` if needed
-
-### mocks/index.ts + [domain]Service.ts
-**mocks/index.ts:**
-1. All 5 routes registered: GET list, GET `:id`, POST, PATCH `:id`, DELETE `:id`
-2. Path matching and method checking — same pattern as existing routes
-3. No duplicate paths (GET list vs GET :id differ by ID segment check)
-
-**[domain]Service.ts:**
-1. Each function uses correct method (`apiGet`/`apiPost`/`apiPatch`/`apiDelete`)
-2. Filters in GET → null-check before adding to params
-3. Functions return correct types (from `src/types/api.ts` envelope)
-
-**After completion:** add found bugs to BUGS_FILE → **STOP**
-
----
-
-## GROUP 8 — File-by-file: Composables & Views (was Prompts 15-20)
-
-**Focus:** deep check of composables and view files.
-
-### use[Domain].ts (list composable)
-1. `initialized` flag (not ref, plain boolean) — `loading.value = true` only if `!initialized`
-2. `watch(filters, load, { deep: true })` — NOT `{ immediate: true }` (otherwise duplicates onMounted load)
-3. `deleteProduct`:
-   - `await deleteProductApi(id)` from service
-   - `toast.success(t('...'))`
-   - `await load()` after successful delete
-   - `catch` → `toast.error(t('...'))`
-4. `load()` sets `initialized = true` in `try` block (after successful fetch)
-5. Returns only what view uses (no extras in return)
-6. `error` ref present and set in catch if view shows it
-
-### use[Domain]Card.ts (card composable)
-1. **form** — `ref<Pick<Entity, 'field1'|'field2'|...>>({...})` — only editable fields, not entire Entity
-2. **useDirtyCheck(form)** — passed `form` as Ref (not `form.value`)
-3. **NaN watcher** — `watch(form, (val) => { if (NaN) form.value.field = null }, { deep: true })` for each `v-model.number` field
-4. **load()**: form filled → `dirty.capture()` called AFTER form fill → fieldValues set
-5. **save()**: early exit `if (!isAnythingDirty.value) return` → delta from `dirty.diff()` → normalization → toast → `await load()`
-6. **discard()** = `return load()` (not manual reset)
-
-### [Domain]Page.vue — script setup
-1. All `import` used in template or script
-2. Computed adapters for CustomSelect with nullable sources
-3. `onMounted(() => { load(); loadCats() })` — both loads called if needed
-4. `handleCreate`: navigation or reload logic, modal close
-5. `confirmDelete` — checks `deletingId.value` before calling
-6. Submit buttons: `:disabled="!name.trim() || creating"` — correct conditions
-7. Feature flags used only where needed (v-if in template)
-
-### [Domain]Page.vue — template
-1. **data-test** on each: page root, header, table/panel, search, row, empty, modals
-2. **`@click.stop`** on delete button inside clickable row
-3. **Empty state**: `v-if="!loading && items.length === 0"` — not just `v-if="items.length === 0"`
-4. **Table**: `v-else` (not `v-if="items.length > 0"`) — prevents both rendering
-5. **Delete modal**: delete button `btn-danger`, cancel `btn-secondary`
-6. **Create modal footer**: submit button `:disabled="!newProduct.name.trim() || creating"`
-7. **Modals**: `v-model="showModal"` / `:title="t('...')"` / `size="small"` on AppModal
-8. **Filters inside GlassPanel** (pitfall #19) — not outside panel
-9. All `t('products.X')` — keys exist (from Group 3)
-10. All `{ name: 'X' }` — routes exist (from Group 6)
-
-### [Domain]CardPage.vue — script setup
-1. `id = route.params.id as string` — ID from route params
-2. All composable fields destructured
-3. `useHead` with computed: `computed(() => product.value?.name ?? t('...'))`
-4. Computed adapter for nullable enum: `null ↔ ''`
-5. Empty option `{ value: '', label: '—' }` first — for reset
-6. `onMounted(load)` present
-7. No extra `ref` or `reactive` duplicating composable logic
-8. All imports used
-9. `showX` = `useFeatureFlag('xFeature')`
-
-### [Domain]CardPage.vue — template
-1. **Sections** — all TZ sections present
-2. **`:title` prop** on each GlassPanel — not `<h2>` inside panel body
-3. **Save bar**: `v-if="isAnythingDirty"` — only when changes exist
-4. **Save bar buttons**: both have `:disabled="saving"`; first `btn-secondary` (discard), second `btn-primary` (save)
-5. **Read-only fields**: `<input :value="..." readonly class="glass-input">` — not `<span>`
-6. **Dynamic fields** — all types in v-else-if: text / number / email / date / boolean / enum / file
-7. **Inherited badge** on `v-if="fv.inherited"` fields
-8. **Empty state** — condition covers `!product || product.linkedSuppliers.length === 0`
-9. **data-test** on each section
-10. All `t('...')` keys exist
-
-**After completion:** add found bugs to BUGS_FILE → **STOP**
-
----
-
-## Bug format for BUGS_FILE
-
-When bug found — add DURING current group:
-
-```markdown
-## БАГ-[N] — [Short title]
-
-**File:** `[path]`  
-**Severity:** High / Medium / Low — [reason]
-
-### Problem
-
-[What's wrong. What happens in runtime / what user sees]
-
-### Fix
-
-[What needs to be done — specifically]
-
-### Future rule
-
-[How to avoid repetition]
+**Шаблон:** `data-test` на корне страницы, шапке, панели/таблице, поиске, строке, пустом состоянии, модалах и секциях; `@click.stop` на кнопке удаления внутри кликабельной строки; пустое состояние `v-if="!loading && items.length === 0"`; таблица через `v-else`, а не второе `v-if`; в модале удаления `btn-danger` и `btn-secondary`; у AppModal `v-model`, `:title`, `size`; фильтры внутри GlassPanel; панель сохранения `v-if="isAnythingDirty"`, обе кнопки с `:disabled="saving"`; поля только для чтения — `<input readonly>`; динамические поля покрывают все типы (text/number/email/date/boolean/enum/file); бейдж «наследовано» на `v-if="fv.inherited"`.
+
+## ГРУППА 6 — ТЗ и роутинг
+
+**ТЗ.** Для каждого требования из шага 0 найти реализацию: секция → `data-test` или чтение шаблона; поле → InputGroup; действие → обработчик в композабле; эндпоинт → сервис и `mocks/index.ts`; флаг → `featureFlags.ts`. Требование без реализации → баг. Реализация не по требованию → баг. Отдельно сверить: режим сохранения (clean-slate или quick-action), наличие всех секций, все действия пользователя, соответствие эндпоинтов контракту (метод, путь, форма запроса).
+
+**Роутинг.** Все `{ name: ... }` из новых файлов существуют в `src/router/index.ts`. Статические пути объявлены ДО динамических (`products/categories` раньше `:id`) — в Vue Router 4 статический сегмент весит 40 очков, динамический 20. `ScreensPage.vue` обновлён, если план это требует.
+
+## Стоп между группами (интерактивно)
+
+```
+⏸ СТОП — группа N/6: <название>
+Результат: ✅ чисто / ❌ найдено N
+[БАГ-NN — заголовок (файл:строка)]
+Дальше — группа N+1/6: <название>
+Запускать?
 ```
 
-And add row to summary table at end of BUGS_FILE:
-```
-| БАГ-[N] | [Type] | `[file]` | [One-line summary] |
-```
-
----
-
-## STOP — format after each group
+## Итог
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⏸ STOP — Group [N]/8: [Group name]
+Приёмка страницы <plan> — 6 групп
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Result: ✅ Clean  /  ❌ Found [N] problems
-
-[List: БАГ-X — short title (file:line)]
-
-Added to bugs-file: yes / no (clean)
-
-Next — Group [N+1]/8: [Next group name]
-Run?
+Цикл проверок:  чистый свип за N итераций / НЕ СОШЛОСЬ
+Группы 1–6:     пройдены / не пройдены: N
+Найдено:        N       Bugs-файл: <путь>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
----
-
-## After Group 8
-
-```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-✅ Pre-manual-check complete — all 8 groups
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Total new bugs found: [N]
-Bugs-file: {BUGS_FILE}
-
-Next steps:
-1. Fix all new bugs (each with typecheck + lint)
-2. Pass to manual testing
-3. After manual test → Playwright E2E (last plan prompt)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
+Дальше: починка найденного через [`fix-bugs.md`](fix-bugs.md), затем фаза 10 (спеки Playwright с обязательной инверсией по Л9). Интерактивно между этим — ручное тестирование.

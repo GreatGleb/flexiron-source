@@ -14,8 +14,8 @@ Rules collected from real bugs during `demo/` → `frontend_vue/` migration. Eac
 
 - **Thoroughness over speed.** Before completing a task — Grep all callers related to the change (router-link, event names, class names, props). "Skimming" already caused bugs.
 - **Verify against original in details.** Before implementing logic from `demo/admin/*.html` or `demo/assets/js/admin/*.js` — read the original entirely, don't rely on memory.
-- **Phase verification ≠ only typecheck+lint.** Static analysis doesn't catch: missing components, wrong string literals (route names, i18n keys), visual regressions, outdated **specs in `roo_code/roo-context/03-api-contract.md`** and meta-pages (ScreensPage, README). Final check = plan→files→typecheck→lint→contract sync→browser.
-- **NEVER use `git restore` or `git checkout` on tracked files.** These commands permanently destroy uncommitted changes in the working tree. If a file needs to be reverted to its committed state for any reason, use `git show HEAD:<path>` to read the committed version, then manually apply only the needed parts. If uncommitted changes were accidentally destroyed, stop immediately and use `git reflog` + `git show` to attempt recovery before any further writes.
+- **Проверка фазы ≠ typecheck+lint.** Статический анализ не ловит: отсутствующие компоненты, неверные строковые литералы (имена роутов, ключи i18n), визуальные регрессии, устаревшие спеки в `roo_code/roo-context/03-api-contract.md` и мета-страницы (ScreensPage, README). Готово = чистый свип цикла проверок из [`verify.md`](verify.md), а не зелёный typecheck.
+- **`git restore` / `git checkout -- <файл>` запрещены.** Уничтожают несохранённое без следа; в `.claude/settings.json` они в deny-листе. Прочитать закоммиченное — `git show HEAD:<путь>` и применить руками только нужное. Выкинуть неудачную правку — `git stash push -u -m "<причина>"`: работа остаётся достаётся. Если несохранённое всё же потеряно — остановиться и пробовать `git reflog` + `git show` до любых новых записей.
 
 ---
 
@@ -85,7 +85,7 @@ Lesson learned: adding `SupplierCreatePage` with `SupplierCardPage` refactoring 
 2. In old page: remove unused `import`s and utility functions after extraction
 3. Update `roo_code/roo-context/03-api-contract.md` if endpoint signature changed
 4. If route structure changes — check `ScreensPage.vue`, `roo_code/roo-context/frontend-vue-quickref.md` (patterns, SOLID, DDD), README
-5. Done ≠ typecheck+lint. Done = (1-4) + все питфоллы + contract sync + browser walk-through golden path
+5. Готово ≠ typecheck+lint. Готово = (1–4) + чистый свип цикла из [`verify.md`](verify.md) + contract sync
 
 **Trigger moment**: as soon as I notice task = "new page + extract from old" / "new endpoint caller" — **immediately** read contract **before** plan, not after.
 
@@ -97,6 +97,11 @@ Lesson learned: adding `SupplierCreatePage` with `SupplierCardPage` refactoring 
 > других скиллов говорят «все питфоллы» без числа. Десять копий этого числа дважды за
 > двое суток указывали мимо — сначала отправляли останавливаться на #33, потом на #67
 > через один добавленный питфолл. Добавил новый — правь только эту строку.
+>
+> **И допиши его номер в линзу.** Цикл проверок гоняет линзы Л1–Л10 из [`verify.md`](verify.md),
+> а не этот список. Питфолл, не упомянутый ни в одной линзе, не проверяется никогда — он
+> остаётся текстом, который прочитают, только если откроют файл. Какая линза какому классу
+> соответствует — таблица целей в [`update-skills.md`](update-skills.md).
 
 ### 1. `@` in translations breaks vue-i18n
 `name@company.com` → `SyntaxError: Invalid linked format`. **Fix:** escape `name{'@'}company.com`.
@@ -129,7 +134,7 @@ Glass effect (`backdrop-filter: blur`) on sidebar/topbar works only when backgro
 `<router-link :to="{ name: 'X' }">` silently fails if `X` not in router. **Fix:** before using — verify against `src/router/index.ts`. TypeScript doesn't catch this.
 
 ### 11. Typecheck + lint ≠ full phase verification
-Static analysis doesn't catch: missing components, wrong string literals, visual regressions. **Fix:** checklist plan→files→typecheck→lint→browser. Don't declare phase done after only typecheck.
+Статический анализ не ловит: отсутствующие компоненты, неверные строковые литералы, визуальные регрессии. **Fix:** цикл проверок из [`verify.md`](verify.md) — машинная приёмка плюс линзы, выход по чистому свипу. Фаза не объявляется готовой по одному typecheck.
 
 ### 12. Generic class names break local styles
 `.hidden { display: none !important }` in `suppliers_list.css` — global. When using `:class="{ hidden }"` locally — global display:none overrides local opacity/dashed. **Fix:** for state modifiers — BEM-style: `.is-hidden`, `.is-active`, `.has-error`. Before `:class="{ X }"` → `grep -rn "^\.X" demo/assets/css/` to confirm name is free.
@@ -620,7 +625,7 @@ Always consider whether a section title should reflect its context (parent entit
 
 **Причина:** Developers forget to run `npx vue-tsc --noEmit` after making changes. The IDE may not catch all type errors, especially with complex generics or Vue template types.
 
-**Решение:** After every prompt/code change, run `npx vue-tsc --noEmit` to verify types. Add this as a mandatory step in the development workflow. If the project has a `typecheck` script in package.json, use that.
+**Решение:** после каждой правки — машинная приёмка целиком: `npm run verify`. Одного `vue-tsc` мало: питфолл #67 (многооператорный `@click`) проходит typecheck и lint, а ломается на prettier — и именно поэтому форматирование входит в скрипт, а не запускается отдельно «когда вспомню».
 
 ### 🔥 #48 — Feature flag registration in all 3 required files
 
@@ -898,7 +903,9 @@ The `name-link` class is defined in each page's CSS and inherits text color (`co
 поставщика — вообще ничего.
 
 `waitForSelector` / `toBeVisible` на контейнере — та же ошибка помельче: элемент
-существует и пуст. `.glass-panel` виден и когда рисует скелет.
+существует и пуст. `.glass-panel` виден и когда рисует скелет. **Исключение одно** — там,
+где ноль законный ответ (пустое состояние), контейнер и есть признак; см. ниже «Где ноль —
+законный ответ», вместе с границей этого исключения.
 
 **Почему это выглядит как чужая поломка:** пустая панель ровно той же высоты, что
 полная (замерено: 325.875px в обоих состояниях). Снимок, снятый в этот момент, — не
@@ -963,6 +970,23 @@ await next.click()
 await expect(info).not.toHaveText(shown)
 const labels = await rows.evaluateAll(...)
 ```
+
+**Где ноль — законный ответ, признаком служит КОНТЕЙНЕР, а не строка.** У пустого
+состояния ждать первую строку нельзя — её не будет никогда, и тест повиснет. Ждать надо то,
+что рисуется и при нуле: сама секция, пустое состояние, заголовок таблицы. «Данные пришли»
+там означает «страница ответила», а не «строки появились».
+
+**Но у этого исключения есть граница, и она стоила падения.** Контейнер годится признаком
+только при ПЕРВОЙ загрузке — там его до данных нет вовсе. При внутристраничном переходе
+(фильтр, пагинация, смена вкладки) он не годится: контейнер существует и ДО перехода, со
+старым содержимым, и ожидание удовлетворяется прежними строками. Признак там обязан быть
+таким, какого до перехода быть НЕ МОЖЕТ.
+
+Пример — полный прогон, `clients.spec.ts`, фильтр «inactive». Ожидание «строки или пустое
+состояние» было удовлетворено **25 нефильтрованными** строками, `rows.count()` прочитал их,
+а бейджей отфильтрованный список дал **14**: `Expected 25, Received 14`. Рабочий признак
+здесь — отсутствие АКТИВНЫХ бейджей: до фильтра они есть, после нет ни одного, и пустой
+список признака не портит, потому что непустота проверяется отдельно.
 
 **У утверждения о НАБОРЕ собранных значений обязана быть проверка непустоты.** Пустой снимок
 иначе проходит как успех: цикл по страницам молча пропускает страницу, набор оказывается
@@ -1205,4 +1229,4 @@ expect(names.filter((n) => !n.includes(searchTerm))).toEqual([])
 
 When starting a task from trigger list (see description above) — **read this skill completely** before writing code. If task not from list — `Read` only the needed section.
 
-After completing task — run through checklist: все питфоллы до последнего, save mode (if form), HTTP method (if new endpoint).
+После задачи — цикл проверок из [`verify.md`](verify.md): машинная приёмка плюс линзы, выход по чистому свипу. Отдельно сверить: save mode (если форма) и HTTP-метод (если новый эндпоинт) — этого в линзах нет.

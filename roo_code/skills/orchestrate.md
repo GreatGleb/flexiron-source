@@ -1,182 +1,160 @@
 ---
 name: orchestrate
-description: Orchestrator for full page implementation workflow. Auto-trigger when user mentions a page, section, or task continuation. Determines current state from files and transitions between skills automatically.
+description: Диспетчер полного цикла страницы. Определяет стадию по файлам и переходит между скилами. Два режима — интерактивный (со стопами) и автономный (без стопов, вердикт машинный).
 user_invocable: true
 arguments:
   - name: id
-    description: "Page identifier e.g. '1.2' → matches roo_code/plans/*/1.2-*-plan.md"
+    description: "Идентификатор страницы, например '1.2' → roo_code/plans/*/1.2-*-plan.md"
     required: false
 ---
 
-# Orchestrate — Page Implementation Orchestrator
+# Orchestrate — диспетчер реализации страницы
 
-Knows the full algorithm and determines where to start from file state. Manages transitions BETWEEN skills only — does NOT manage stops inside skills.
+Знает весь алгоритм и определяет, с чего начать, по состоянию файлов. Управляет переходами **между** скилами — не управляет остановками **внутри** них.
 
----
+## Два режима
 
-## CRITICAL RULES
+| | Интерактивный | Автономный |
+|---|---|---|
+| Стопы между стадиями | есть, ждут человека | нет |
+| Источник багов | список от человека после ручного теста | цикл проверок из [`verify.md`](verify.md) |
+| Вердикт стадии | человек посмотрел | чистый свип цикла |
+| Исполнение стадий | inline, один контекст | агент на стадию, чистый контекст |
+| Выход из цикла багов | человек сказал «новых нет» | чистый свип или лимит 30 |
+| Финал | человек мержит | мерж только по чистому свипу |
 
-1. **State = files** — current stage determined only by files, not memory
-2. **Resume without questions** — determine stage, explain to user, continue
-3. **After skill completes → immediately announce next** without asking user
-4. **Inline execution** — skills run in same context, not as sub-agents
+Режим не угадывается: автономный — только когда стадию запустил скрипт прогона. Во всех остальных случаях интерактивный.
 
----
+## Критические правила
 
-## Step 0: Determine Plan ID & Current Stage
+1. **Состояние = файлы.** Стадия определяется только файлами, не памятью о том, что делалось.
+2. **Возобновление без вопросов.** Определить стадию, объявить, продолжить.
+3. **Стадия закончилась → сразу объявить следующую**, не спрашивая разрешения на объявление.
+4. **Исполнение по режиму.** Интерактивно — inline, в одном контексте. Автономно — каждая стадия отдельным агентом: сотня задач не вмещается в один контекст, и состояние обязано жить в файлах, а не в диалоге.
 
-### Extract Plan ID
+## Шаг 0 — Plan ID и текущая стадия
 
-From user message:
-- "create page 1.2" → id = "1.2"
-- "continue products" → Glob `roo_code/plans/` → find file with "products" → extract id
+### Plan ID
 
-If unclear → ask once: "Specify page ID (e.g. 1.2)"
+Из сообщения: «сделай страницу 1.2» → `1.2`; «продолжи products» → найти в `roo_code/plans/` файл с `products` → взять id. Неясно — спросить один раз (в автономном режиме спрашивать некого: нет id → стадия не определена, задача падает с этой причиной).
 
-### Determine current stage from files
-
-Read in order, stop at first match:
-
-```
-1. roo_code/plans/*/{id}-*-plan.md DOES NOT exist
-   → Stage: CREATE-PLAN
-
-2. Plan exists, but src/views/admin/**/*Page.vue for this page DOES NOT exist
-   → Stage: CREATE-PAGE (Phase 0)
-
-3. Vue file exists, bugs-file roo_code/plans/bugs/{id}-*-bugs.md DOES NOT exist
-   → Ask: "Page partially created or all Phase 0–9 complete?"
-     - Not complete → Stage: CREATE-PAGE (continue from needed phase)
-     - Complete → Stage: PRE-MANUAL-CHECK
-
-4. Bugs-file exists, unfixed bugs (without ✅)
-   → Stage: FIX-BUGS
-
-5. All bugs ✅, test spec tests/e2e/admin/**/{domain}.spec.ts DOES NOT exist
-   → Stage: PHASE-10
-
-6. Spec exists, bugs have ✅ that haven't been through update-skills
-   → Stage: UPDATE-SKILLS
-
-7. All done
-   → Report: "Page {id} fully complete"
-```
-
-### Announce to user
+### Стадия — по файлам, сверху вниз, первое совпадение
 
 ```
-Page {id}: [NEW / resuming from stage X]
-Starting: [current stage name]
+1. roo_code/plans/*/{id}-*-plan.md НЕТ
+   → CREATE-PLAN
+
+2. План есть, страницы src/views/admin/**/*Page.vue НЕТ
+   → CREATE-PAGE, фаза 0
+
+3. Страница есть — определить первую недоделанную фазу по артефактам:
+     типы           src/types/<домен>.ts
+     мок            src/services/mocks/<домен>.ts
+     регистрация    src/services/mocks/index.ts — роуты домена
+     сервис         src/services/<домен>.ts
+     композаблы     src/composables/use<Домен>*.ts
+     i18n           src/i18n/admin/<домен>.ts + импорт в index.ts
+     представления  src/views/admin/<домен>/
+     роутинг+флаги  src/router/index.ts, src/config/featureFlags.ts
+   → CREATE-PAGE с первой отсутствующей
+   (Вопрос «страница готова или нет?» здесь запрещён: ответ выводится из
+    артефактов. Спрошенное вместо проверенного — это домысел, и в
+    автономном прогоне на него никто не ответит.)
+
+4. Все артефакты 0–9 есть, bugs-файла roo_code/plans/bugs/{id}-*-bugs.md НЕТ
+   → PRE-MANUAL-CHECK
+
+5. Bugs-файл есть, в нём баги без ✅
+   → FIX-BUGS
+
+6. Все баги ✅, спека tests/e2e/admin/<домен>/ НЕТ
+   → PHASE-10
+
+7. Спека есть, есть ✅-баги, не прошедшие update-skills
+   → UPDATE-SKILLS
+
+8. Всё выше пройдено
+   → ФИНАЛ (цикл проверок целиком, затем мерж)
 ```
 
----
-
-## Execution Algorithm
-
-Execute stages in order. After each skill completes → STOP, wait for confirmation before next skill.
-
-Stop format (between skills):
-```
-⏸ STOP — [Skill] complete
-[Brief summary: what was created/fixed]
-Next: [next stage name]
-Continue?
-```
-
----
-
-### Stage CREATE-PLAN
-
-Execute skill `roo_code/skills/create-plan.md` fully.
-
-After completion:
-```
-⏸ STOP — create-plan complete
-Plan: roo_code/plans/*/{id}-*-plan.md
-Next: create-page Phase 0–9
-Continue?
-```
-
----
-
-### Stage CREATE-PAGE (Phase 0–9)
-
-Execute `roo_code/skills/create-page.md` Phase 0–9.
-
-Skill makes its own stops after each phase.
-
-After Phase 9:
-```
-⏸ STOP — create-page Phase 0–9 complete
-Next: pre-manual-check (20 automated checks)
-Continue?
-```
-
----
-
-### Stage PRE-MANUAL-CHECK
-
-Execute `roo_code/skills/pre-manual-check.md` fully.
-
-After all 20 checks:
-```
-⏸ STOP — pre-manual-check complete
-Issues written to bugs-file.
-Next: manual testing — test UI and send bug list.
-```
-Wait for user's bug list.
-
----
-
-### Bug cycle (repeats until fully closed)
+### Объявление
 
 ```
-LOOP:
-  1. User sends bug list (any count)
-     → add-bug auto-records all to bugs-file
-     ⏸ STOP: "Recorded {N} bugs. Start fixing?"
-
-  2. fix-bugs — fixes one per stop, marks ✅
-
-  3. After all current bugs fixed:
-     ⏸ STOP: "All bugs fixed ✅
-              Found new bugs during testing?
-              → Yes, here's the list: [...] → return to step 1
-              → No → exit cycle, proceed to Phase 10"
-
-REPEAT until user confirms "no new bugs"
+Страница {id}: [новая / возобновление со стадии X]
+Режим: интерактивный / автономный
+Стадия: [название]
 ```
 
----
+## Стадии
 
-### Stage PHASE-10
+Формат стопа в интерактивном режиме — между стадиями:
 
-Execute `roo_code/skills/create-page.md` starting from Phase 10.
-
-After completion:
 ```
-⏸ STOP — Phase 10 complete
-Playwright tests written and green ✅
-Next: update-skills
-Continue?
+⏸ СТОП — [стадия] закончена
+[что сделано, коротко]
+Дальше: [следующая стадия]
+Продолжаем?
 ```
 
----
+В автономном режиме стопа нет: вместо него **цикл проверок из `verify.md`** по области стадии. Свип чистый → следующая стадия. Не сошлось → стадия провалена, задача останавливается, ветка не мержится.
 
-### Stage UPDATE-SKILLS
+### CREATE-PLAN
+Выполнить [`create-plan.md`](create-plan.md). Дальше: create-page, фазы 0–9.
 
-Execute `roo_code/skills/update-skills.md`.
+### CREATE-PAGE (фазы 0–9)
+Выполнить [`create-page.md`](create-page.md). Скил делает свои остановки внутри фаз — это его дело, диспетчер в них не вмешивается. Дальше: pre-manual-check.
 
-After all bugs:
+### PRE-MANUAL-CHECK
+Выполнить [`pre-manual-check.md`](pre-manual-check.md) — 6 групп: эталон дизайна и пофайловые ожидания к новой странице. Находки уходят в bugs-файл через [`add-bug.md`](add-bug.md).
+Интерактивно: дальше ручное тестирование, ждём список от человека.
+Автономно: ручного теста нет, его заменяет полный цикл проверок — все 10 линз.
+
+### Цикл багов
+
+Интерактивно:
+
+```
+ПОВТОРЯТЬ:
+  1. Человек присылает список → add-bug записывает все
+     ⏸ СТОП: «Записано N багов. Начинать починку?»
+  2. fix-bugs — по одному, каждый до ✅
+  3. ⏸ СТОП: «Все баги ✅. Новые при тестировании нашлись?»
+ПОКА человек не скажет «новых нет»
+```
+
+Автономно:
+
+```
+ПОВТОРЯТЬ:
+  1. Цикл проверок по области задачи → находки в bugs-файл
+  2. fix-bugs — по одному, каждый до ✅
+  3. Любая правка сбрасывает подтверждение всех линз → новый свип
+ПОКА свип не окажется чистым  (лимит 30 итераций — из verify.md)
+```
+
+Разница не в темпе, а в источнике истины: человек подтверждает глазами, автономный прогон — чистым свипом. Третьего варианта — «агент решил, что достаточно» — нет.
+
+### PHASE-10
+Выполнить [`create-page.md`](create-page.md) с фазы 10 — тесты Playwright.
+**Зелёный прогон новой спеки ничего не значит сам по себе.** Обязательна инверсия по Л9: сломать проверяемое поведение и убедиться, что тест краснеет. Не покраснел — тест переписывается, а не принимается.
+
+### UPDATE-SKILLS
+Выполнить [`update-skills.md`](update-skills.md) — по каждому ✅-багу найти пробел в скилах и закрыть его.
+
+### ФИНАЛ
+
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-✅ Page {id} fully complete
+Страница {id}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-create-plan      ✅
-create-page      ✅ Phase 0–9
-pre-manual-check ✅
-fix-bugs         ✅
-Phase 10         ✅ Playwright tests
-update-skills    ✅
+create-plan       ✅
+create-page       ✅ фазы 0–9
+pre-manual-check  ✅ 6 групп
+fix-bugs          ✅ N багов
+Phase 10          ✅ спека + инверсия Л9
+update-skills     ✅
+цикл проверок     чистый свип за N итераций / НЕ СОШЛОСЬ
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
+
+Мерж ветки — только при чистом свипе. «Не сошлось» — ветка остаётся неслитой и ждёт человека; строка «Страница готова» в этом случае не пишется.
