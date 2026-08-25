@@ -156,7 +156,7 @@ vatPercent: order.value.vatPercent ?? settings.constants.vatRate
 
 ---
 
-## БАГ-07 — Площадь обрезка уходит в разметку без округления
+## БАГ-07 — Площадь обрезка уходит в разметку без округления — ПОЧИНЕН ✅
 
 **File:** `src/views/admin/warehouse/WarehouseOffcutCreatePage.vue:83-86`, `src/views/admin/warehouse/WarehouseOffcutCard.vue:209-213`, корень — `src/domain/cutting.ts:143` (`resolvePieceSize` возвращает `formula(offcut)` без `roundQuantity`)
 **Severity:** Medium — видно пользователю, в фиче, добавленной 63e6987.
@@ -177,11 +177,17 @@ return area == null ? '—' : `${area} m²`
 остальные выходы (`material`, `consumed`, `offcutTotal`, `weightKg`) округлены. То есть это ещё и
 Л5: одно правило округления, у которого есть исключение.
 
-### Fix
+### Fix — сделано 2026-08-25
 
-`roundQuantity` в `resolvePieceSize` — там, где размер рождается, а не в каждой подписи. Проверка:
-`npm run test:unit` + `npm run test:audit` (значение участвует в расчёте материала) и спек
-`tests/e2e/admin/warehouse/offcut-weight.spec.ts`.
+`roundQuantity` применён в `resolvePieceSize`, там, где размер рождается, а не в каждой подписи.
+Одна строка плюс два теста в `cutting.spec.ts`.
+
+Проверено инверсией (Л9): без правки тест краснеет с
+`expected 0.010020009999999998 to be 0.01002`. Второй тест держит обратное — что округление не
+портит точные значения: 500×300 → 0.15, 900×450 → 0.405, `pieceSize` метрового куска → 2.5.
+
+Приёмка: verify зелёный, `test:audit` 97 passed (размер участвует в расчёте материала), складские
+спеки дважды подряд — 76 passed, 76 passed.
 
 ### Future rule
 
@@ -231,4 +237,4 @@ return area == null ? '—' : `${area} m²`
 | ✅ | БАГ-04 | Contract | `src/services/**` | write-back: реестр «клиент готов, UI нет» в контракте |
 | ✅ | БАГ-05 | Test | `src/**/*.spec.ts` | 61 сравнение float — разобрано, чинить нечего |
 | | БАГ-06 | Code style | `src/**` | 40 сложных функций, 24 вложенных тернарника |
-| | БАГ-07 | Runtime | `WarehouseOffcut*.vue` | площадь уходит в подпись без округления |
+| ✅ | БАГ-07 | Runtime | `domain/cutting.ts` | площадь округляется общим правилом |

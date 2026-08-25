@@ -365,3 +365,18 @@ describe('площадь обрезка выводится, а не хранит
     expect(withArea.map((o) => o.id)).toContain('who-001')
   })
 })
+
+describe('размер куска округляется тем же правилом, что и всё остальное', () => {
+  it('дробные миллиметры не дают хвоста в площади', () => {
+    // Форма ставит step="1", но браузер не запрещает ввести дробь: поле лишь
+    // помечается невалидным, а v-model.number связывает значение.
+    // (100.1 * 100.1) / 1e6 в двоичной дроби = 0.010020009999999998.
+    expect(offcutAreaM2({ lengthMm: 100.1, widthMm: 100.1 })).toBe(0.01002)
+  })
+
+  it('целые миллиметры не меняются — округление не портит точное', () => {
+    expect(offcutAreaM2({ lengthMm: 500, widthMm: 300 })).toBe(0.15)
+    expect(offcutAreaM2({ lengthMm: 900, widthMm: 450 })).toBe(0.405)
+    expect(resolvePieceSize({ quantity: 1, lengthMm: 2500 }, 'm')).toMatchObject({ pieceSize: 2.5 })
+  })
+})

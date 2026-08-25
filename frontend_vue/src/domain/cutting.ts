@@ -140,7 +140,13 @@ export function resolvePieceSize(offcut: OffcutMaterialInput, unit: StockUnit): 
     }
   }
 
-  return { ok: true, pieceSize: formula(offcut) }
+  // `roundQuantity` здесь не украшение и не дубль внешнего округления. Это
+  // ЕДИНСТВЕННОЕ правило округления складских величин (`quantity.ts`), и до
+  // 2026-08-25 `resolvePieceSize` был единственным выходом домена, который его
+  // не применял: `material`, `consumed`, `offcutTotal`, `weightKg` — все округлены,
+  // а размер куска уходил сырым. Через `offcutAreaM2` он попадает прямо в подпись
+  // на карточке обрезка, и дробные миллиметры давали там `0.010020009999999998`.
+  return { ok: true, pieceSize: roundQuantity(formula(offcut)) }
 }
 
 /**
