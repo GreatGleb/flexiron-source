@@ -446,7 +446,7 @@ router.beforeEach((to) => {
   // own flag (settings → logs), and merged meta would let the child's flag shadow
   // the parent's — the section switched off, the sub-page still reachable.
   for (const record of to.matched) {
-    const flag = record.meta?.featureFlag as FeatureFlagKey | undefined
+    const flag = record.meta.featureFlag as FeatureFlagKey | undefined
     if (flag && !isEnabled(flag)) {
       return { name: 'not-found' }
     }

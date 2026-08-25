@@ -96,5 +96,5 @@ export const featureFlags = reactive<FeatureFlags>({
 })
 
 export function isEnabled(flag: FeatureFlagKey): boolean {
-  return featureFlags[flag] ?? false
+  return featureFlags[flag]
 }

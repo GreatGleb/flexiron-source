@@ -41,9 +41,7 @@ export function mergeTranslatedString(
     ru: existing?.ru || '',
     en: existing?.en || '',
     lt: existing?.lt || '',
-    ...Object.fromEntries(
-      Object.entries(incoming).filter(([, v]) => v !== undefined && v !== null),
-    ),
+    ...Object.fromEntries(Object.entries(incoming).filter(([, v]) => v !== undefined)),
   }
 }
 
