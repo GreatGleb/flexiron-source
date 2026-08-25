@@ -40,15 +40,8 @@ export function useWarehouse() {
   const activeTab = ref<WarehouseTab>('stock')
 
   // ─── Modal state ──────────────────────────────────────────────────────────────
-  // DEPRECATED: const showCreateBatchModal = ref(false) — batch creation moved to WarehouseBatchCreatePage
   // DEPRECATED: const showCreateMovementModal = ref(false) — movement creation removed from UI
   const showCreateOffcutModal = ref(false)
-
-  // DEPRECATED: onBatchCreated() — batch creation moved to WarehouseBatchCreatePage
-  // function onBatchCreated() {
-  //   showCreateBatchModal.value = false
-  //   loadBatches()
-  // }
 
   // DEPRECATED: onMovementCreated() — movement creation removed from UI
 
@@ -651,7 +644,6 @@ export function useWarehouse() {
     deficitPagination,
 
     // Modal state
-    // DEPRECATED: showCreateBatchModal — batch creation moved to WarehouseBatchCreatePage
     // DEPRECATED: showCreateMovementModal — movement creation removed from UI
     showCreateOffcutModal,
 

@@ -27,7 +27,6 @@ import MultiSelect from '@/components/admin/ui/MultiSelect.vue'
 import DatePicker from '@/components/admin/ui/DatePicker.vue'
 import AppModal from '@/components/admin/ui/AppModal.vue'
 import Pagination from '@/components/admin/ui/Pagination.vue'
-// DEPRECATED: import CreateBatchModal from './CreateBatchModal.vue' (batch creation moved to WarehouseBatchCreatePage)
 // DEPRECATED: import CreateMovementModal from './CreateMovementModal.vue' (movement creation removed from UI)
 import '@styles/admin/components/_pagination.css'
 import '@styles/admin/warehouse_list.css'
@@ -102,9 +101,7 @@ const {
   toggleMovementsSort,
   deficitSort,
   toggleDeficitSort,
-  // DEPRECATED: showCreateBatchModal (batch creation moved to WarehouseBatchCreatePage)
   // DEPRECATED: showCreateMovementModal (removed from UI)
-  // DEPRECATED: onBatchCreated (batch creation moved to WarehouseBatchCreatePage)
   // DEPRECATED: onMovementCreated (removed from UI)
   updateOffcutStatus,
   updateDeficitStatus,
@@ -3810,11 +3807,5 @@ const deficitFiltersActive = computed(() => {
         </button>
       </template>
     </AppModal>
-
-    <!-- ════════════════════════════════════════════════════════════════════════
-         Create modals (DEPRECATED)
-         ════════════════════════════════════════════════════════════════════════ -->
-    <!-- DEPRECATED: <CreateBatchModal> removed — batch creation moved to WarehouseBatchCreatePage -->
-    <!-- DEPRECATED: <CreateMovementModal> removed from UI -->
   </div>
 </template>
