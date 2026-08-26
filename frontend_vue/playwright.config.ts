@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test'
+import { REAL_API_BASE_URL, REAL_API_PORT } from './tests/e2e/helpers/realApi'
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -56,10 +57,32 @@ export default defineConfig({
 
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
 
-  webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:5173',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  webServer: [
+    {
+      command: 'npm run dev',
+      url: 'http://localhost:5173',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+    /*
+     * Второй сервер — то же приложение, поднятое БЕЗ мок-слоя.
+     *
+     * Он нужен ровно одному спеку (`ready-real-api.spec.ts`), и без него ветка
+     * `no-mock-module` в `tests/e2e/helpers/ready.ts` не исполняется ни разу за прогон:
+     * под моками `main.ts` синхронно ставит `__mockMode`, и ожидание туда не заходит
+     * никогда. Ветка при этом отвечает за то, чтобы тест против реального API не платил
+     * бюджет ожидания на каждой странице.
+     *
+     * Цена — один `vite` в режиме разработки (замер: готов за ~0.2 с). Бэкенд не
+     * поднимается: спек подменяет `/api/**` через `page.route`, что в реальном режиме
+     * возможно, а под моками нет.
+     */
+    {
+      command: `npm run dev -- --port ${REAL_API_PORT} --strictPort`,
+      env: { VITE_USE_MOCKS: 'false' },
+      url: REAL_API_BASE_URL,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+  ],
 })
