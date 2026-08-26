@@ -152,8 +152,18 @@ if (!disc || !disc.plans || disc.plans.length === 0) {
   return { вердикт: 'ПРИЁМКА НЕ ПРОЙДЕНА', error: 'Разведка не вернула ни одного плана' }
 }
 
+// Резать прогон: {offset, limit} в args. По умолчанию — все планы, чтобы промпты судей
+// совпадали с прошлым прогоном и отдавались из кеша при resumeFromRunId.
+const slice = args && typeof args === 'object' ? args : {}
+const offset = Number(slice.offset) > 0 ? Number(slice.offset) : 0
+const limit = Number(slice.limit) > 0 ? Number(slice.limit) : 0
+
 const CAP = 250
 let plans = disc.plans
+if (offset > 0 || limit > 0) {
+  plans = plans.slice(offset, limit > 0 ? offset + limit : undefined)
+  log(`Кусок: планы с ${offset + 1} по ${offset + plans.length} из ${disc.plans.length}`)
+}
 let dropped = 0
 if (plans.length > CAP) {
   dropped = plans.length - CAP
@@ -272,7 +282,7 @@ const judged = await pipeline(
   (res, b) => {
     if (!res || !res.results) return { batch: b, failed: true, results: [], refutations: [], partFile: null }
     const done = res.results.filter((r) => r.verdict === 'сделано')
-    if (done.length === 0) return { batch: b, failed: false, results: res.results, refutations: [], partFile: res.partFile }
+    if (done.length === 0) return { batch: b, failed: false, results: res.results, refutations: [], skepticFailed: false, partFile: res.partFile }
     return agent(skepticPrompt(done), {
       schema: SKEPTIC,
       label: `скептик ${b.index + 1}`,
@@ -282,6 +292,10 @@ const judged = await pipeline(
       failed: false,
       results: res.results,
       refutations: v && v.verdicts ? v.verdicts : [],
+      // Скептик мог умереть (таймаут, обрыв). Пустой список опровержений тогда НЕ значит
+      // «всё подтверждено»: в первом прогоне так прошли 38 групп из 39, и 80 вердиктов
+      // «сделано» оказались непроверенными, хотя выглядели проверенными.
+      skepticFailed: !v || !v.verdicts,
       partFile: res.partFile,
     }))
   },
@@ -322,6 +336,8 @@ if (retryList.length > 0) {
 // Части, которых мы ВПРАВЕ ожидать на диске: только от агентов, вернувших результат.
 const expectedParts = []
 const partMismatch = []
+let skepticMissing = 0
+let skepticSilent = 0
 // Сведение результатов
 const rows = []
 for (const c of chunks) {
@@ -335,6 +351,12 @@ for (const c of chunks) {
     const ref = byPath.get(r.path)
     if (ref && ref.refuted) {
       rows.push({ ...r, verdict: ref.newVerdict || 'непонятно', detail: `[скептик опроверг «сделано»] ${ref.reason}` })
+    } else if (r.verdict === 'сделано' && c.skepticFailed) {
+      skepticMissing++
+      rows.push({ ...r, verdict: 'непонятно', detail: `[скептик не отработал, «сделано» не подтверждено] ${r.detail || ''}`.trim() })
+    } else if (r.verdict === 'сделано' && !byPath.has(r.path)) {
+      skepticSilent++
+      rows.push({ ...r, detail: `[скептик не высказался по этому плану] ${r.detail || ''}`.trim() })
     } else {
       rows.push(r)
     }
@@ -403,6 +425,8 @@ if (duplicated.length > 0) log(`Дубли вердиктов: ${duplicated.join
 if (itemsIncomplete.length > 0) log(`Пункты потеряны у ${itemsIncomplete.length} планов: ${itemsIncomplete.slice(0, 5).join(' | ')}`)
 if (itemsDisagree.length > 0) log(`Число пунктов разошлось у ${itemsDisagree.length} планов: ${itemsDisagree.slice(0, 5).join(' | ')}`)
 if (partMismatch.length > 0) log(`Часть записана не туда, куда просили: ${partMismatch.join('; ')}`)
+if (skepticMissing > 0) log(`«Сделано» разжаловано из-за упавшего скептика: ${skepticMissing}`)
+if (skepticSilent > 0) log(`«Сделано», по которым скептик не высказался: ${skepticSilent}`)
 
 phase('Сборка')
 
@@ -414,9 +438,40 @@ const index = rows.map((r) => ({
   short: String(r.detail || r.evidence || '').slice(0, 160),
 }))
 
+// Разделы пишутся параллельно, по ~40 планов на агента: один агент в конце часового
+// прогона — это одна точка отказа, и в первом прогоне она отказала.
+const SECTION_SIZE = 40
+const sectionGroups = []
+for (let i = 0; i < index.length; i += SECTION_SIZE) {
+  sectionGroups.push({ n: sectionGroups.length + 1, rows: index.slice(i, i + SECTION_SIZE) })
+}
+const sectionFiles = sectionGroups.map((g) => `${PART_DIR}/section-${String(g.n).padStart(2, '0')}.md`)
+
+const sections = await parallel(
+  sectionGroups.map((g) => () =>
+    agent(
+      [
+        `Запиши раздел сводного отчёта в ${sectionFiles[g.n - 1]}. В коде ничего не меняй.`,
+        '',
+        'По каждому плану — ОДНА строка: путь, вердикт, коротко что осталось.',
+        'Подробности не дублируй: они в частях inventory-parts/part-*.md.',
+        'Перечисли ВСЕ планы из списка ниже, без исключений и без «самого важного».',
+        '',
+        JSON.stringify(g.rows),
+      ].join('\n'),
+      { label: `раздел ${g.n}/${sectionGroups.length}`, phase: 'Сборка' },
+    ),
+  ),
+)
+const sectionsFailed = sections.filter((x) => !x).length
+if (sectionsFailed > 0) log(`Разделов не записано: ${sectionsFailed} из ${sectionGroups.length}`)
+
 const report = await agent(
   [
-    'Собери сводный отчёт инвентаризации. В коде ничего не меняй.',
+    'Собери ГОЛОВУ сводного отчёта инвентаризации. В коде ничего не меняй.',
+    'Разделы с перечнем планов уже записаны другими агентами — не переписывай их и не дублируй:',
+    ...sectionFiles.map((f) => '  ' + f),
+    '',
     '',
     '1. Узнай дату: date +%F',
     '2. Частичные отчёты этого прогона перечислены ниже — там доказательства целиком.',
@@ -427,7 +482,10 @@ const report = await agent(
     '',
     'Части этого прогона:',
     expectedParts.map((f) => '  ' + f).join('\n'),
-    '3. Запиши сводный отчёт в roo_code/plans/general/inventory-<дата>.md',
+    '3. Запиши голову отчёта в roo_code/plans/general/inventory-<дата>.md:',
+    '   шапка с датой и сводкой, объяснение вердиктов, ссылки на разделы и на части.',
+    '   Затем ПРИСОЕДИНИ содержимое разделов к этому файлу (cat разделов в конец),',
+    '   чтобы отчёт был полным одним файлом, а не оглавлением без содержания.',
     '',
     'Структура: шапка (дата, сколько планов, сводка по вердиктам, сколько опроверг скептик),',
     'затем четыре раздела — «Работа» (не начато и частично), «Можно закрыть» (сделано),',
@@ -461,7 +519,7 @@ const accept = await agent(
     '   grep -o "roo_code/plans/[^ )`|]*\\.md" <файл> | sort -u | wc -l',
     '4. sectionsPresent — все четыре раздела на месте: Работа, Можно закрыть, Непонятно, Вердикт не окончателен.',
     '5. missingFromReport — какие из путей ниже в отчёте отсутствуют.',
-    '6. Части прогона: проверь существование КАЖДОГО файла из списка «Части» ниже (ls или test -f).',
+    '6. Части и разделы прогона: проверь существование КАЖДОГО файла из списков ниже (ls или test -f).',
     '   partsFound — сколько нашлось, partsMissing — чего нет. Отсутствующая часть означает, что',
     '   агент вернул вердикты, но подробностей не записал: сводный отчёт выглядит полным, а доказательств нет.',
     '',
@@ -475,6 +533,9 @@ const accept = await agent(
     '',
     'Части:',
     expectedParts.map((f) => '  ' + f).join('\n'),
+    '',
+    'Разделы отчёта:',
+    sectionFiles.map((f) => '  ' + f).join('\n'),
   ].join('\n'),
   { schema: ACCEPT, label: 'приёмка отчёта', phase: 'Приёмка' },
 )
@@ -503,6 +564,9 @@ return {
   дубли: duplicated,
   пункты_потеряны: itemsIncomplete,
   пункты_разошлись: itemsDisagree,
+  скептик_не_отработал: skepticMissing,
+  скептик_молчал: skepticSilent,
+  разделов_не_записано: sectionsFailed,
   части_ожидалось: expectedParts.length,
   часть_записана_не_туда: partMismatch,
   разведка_неполна: discoveryMismatch,
