@@ -1,7 +1,7 @@
 import { testBare as test, expect } from './fixtures'
 import { ALL_FLAGS_ENABLED } from './helpers/flags'
 import { readyExitOf, waitForDataReady } from './helpers/ready'
-import { REAL_API_BASE_URL, REAL_API_TOKEN, stubRealApi } from './helpers/realApi'
+import { holdAppBoot, REAL_API_BASE_URL, REAL_API_TOKEN, stubRealApi } from './helpers/realApi'
 
 /**
  * Ветка `no-mock-module` в `helpers/ready.ts` — единственная, которую весь остальной
@@ -87,23 +87,73 @@ test('в реальном режиме счётчика запросов нет 
   )
 })
 
-test('оставшееся ожидание — исчезновение скелетов, и оно настоящее', async ({ page }) => {
-  // Ответы задержаны на секунду с лишним, поэтому скелеты заведомо стоят в тот момент,
-  // когда ветка `no-mock-module` уже приняла решение. Если бы ожидание держалось только
-  // на ней, оно вернулось бы мгновенно и на пустой экран — как раз то, за чем этот
-  // набор охотится (питфолл #64).
-  const STALL = 1_500
-  await stubRealApi(page, STALL)
+/**
+ * Маркер загрузки, который рисует `SettingsLayout.vue`, пока настройки не пришли.
+ *
+ * Класс взят не с потолка: ровно он перечислен в `LOADING_MARKERS` (`helpers/ready.ts`) —
+ * то есть это тот самый элемент, по которому ожидание принимает решение. Уберут его
+ * оттуда — тест ниже покраснеет, а не станет тихо проверять чужой div.
+ */
+const LOADING_MARKER = '.settings-loading'
+
+/**
+ * Окно пробы: столько тест смотрит, не вернулось ли ожидание раньше времени.
+ *
+ * Ложно ЗЕЛЁНЫМ это окно сделать нельзя — ответы удержаны, и ожидание, которое правда
+ * ждёт, не вернётся ни через две секунды, ни через час. Ложно КРАСНЫМ тоже: сломанное
+ * ожидание возвращается за десятки миллисекунд (замерено: 112 мс на свободной машине,
+ * 243 мс под двенадцатью busy-loop на восьми ядрах), и до двух секунд ему далеко.
+ */
+const PROBE = 2_000
+
+test('пока маркер загрузки на экране, ожидание не возвращается', async ({ page }) => {
+  const api = await stubRealApi(page, { held: true })
   await page.goto(ROUTE)
 
-  const startedAt = Date.now()
-  await waitForDataReady(page, BUDGET)
-  const waited = Date.now() - startedAt
+  // Ожидание начинается заведомо ПОСЛЕ того, как ему есть чего ждать. Прежняя редакция
+  // этого порядка не задавала и мерила гонку: кто раньше — первый опрос ожидания или
+  // первая отрисовка страницы.
+  await expect(page.locator(LOADING_MARKER)).toBeVisible()
+
+  const wait = waitForDataReady(page, BUDGET)
+  const outcome = await Promise.race([
+    wait.then(() => 'вернулось' as const),
+    // Отсутствие события web-first утверждением не выражается: доказывается, что за
+    // окно НЕ случилось возврата (питфолл #66, тот же приём, что в `ready-exits.spec.ts`).
+    // eslint-disable-next-line sonarjs/no-fixed-wait-in-tests
+    page.waitForTimeout(PROBE).then(() => 'ещё ждёт' as const),
+  ])
+  expect(outcome, `ожидание вернулось при стоящем маркере загрузки`).toBe('ещё ждёт')
+
+  // Ответы отпущены — маркер уходит, и только теперь ожидание вправе вернуться.
+  api.release()
+  await wait
 
   expect(await readyExitOf(page)).toBe('no-mock-module')
-  // Задержку внёс сам тест, поэтому это не догадка о скорости машины, а нижняя граница,
-  // которую ожидание не могло не переждать, если оно вообще чего-то ждёт.
-  expect(waited, `ожидание вернулось через ${waited} мс при задержке ${STALL} мс`).toBeGreaterThan(
-    STALL,
-  )
+  await expect(page.locator(LOADING_MARKER)).toHaveCount(0)
+})
+
+test('страница ещё не нарисована — ожидание выходит сразу и на пустой экран', async ({ page }) => {
+  const api = await stubRealApi(page)
+  const boot = await holdAppBoot(page)
+  // `commit` — документ пришёл, скрипты ещё нет. Точка входа удержана, поэтому Vue не
+  // смонтируется, пока тест не отпустит: это построенное состояние, а не пойманное.
+  await page.goto(ROUTE, { waitUntil: 'commit' })
+
+  await waitForDataReady(page, BUDGET)
+
+  // Вот честный ответ на второе следствие пункта 2b, и он неприятный: признак «данные
+  // пришли» в реальном режиме не держится НИ НА ЧЁМ. Счётчика запросов нет (тест выше),
+  // а единственная оставшаяся опора — маркер загрузки, которого на неотрисованной
+  // странице ещё не существует. Ожидание выходит на пустой экран — питфолл #64, ровно
+  // тот, за которым охотится весь этот набор.
+  //
+  // Тест закрепляет ограничение, а не одобряет его: появится в `ready.ts` настоящий
+  // признак для реального режима (ответы `fetch`) — он покраснеет и потребует переписать
+  // себя. До тех пор проверка против реального API обязана ждать своё значение сама.
+  expect(await readyExitOf(page)).toBe('no-mock-module')
+  await expect(page.locator('#app')).toBeEmpty()
+  expect(api.count, 'страница успела что-то спросить — проверялось бы не то').toBe(0)
+
+  boot.release()
 })
