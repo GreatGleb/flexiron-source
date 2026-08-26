@@ -27,7 +27,7 @@ export function useWarehouseBatchCreate() {
    */
   const baseCurrency = computed<string>(
     () =>
-      (settings.currencies ?? []).find((c: { isDefault?: boolean }) => c.isDefault)?.code ??
+      settings.currencies.find((c: { isDefault?: boolean }) => c.isDefault)?.code ??
       settings.constants.defaultCurrency,
   )
 
@@ -189,7 +189,7 @@ export function useWarehouseBatchCreate() {
 
   /** Dynamic UoM options from settings */
   const UNIT_OPTIONS = computed<SelectOption[]>(() => {
-    const uoms = settings.uoms ?? []
+    const uoms = settings.uoms
     return uoms.map((u: { id: string; code: { en?: string; ru?: string; lt?: string } }) => {
       const label = u.code.en || u.code.ru || u.code.lt || u.id
       return { value: u.id, label }

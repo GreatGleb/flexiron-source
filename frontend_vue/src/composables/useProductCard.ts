@@ -154,7 +154,7 @@ export function useProductCard(id: string) {
    */
   function findConversionFactor(fromUomId: string | null, toUomId: string | null): number | null {
     if (!fromUomId || !toUomId) return null
-    const conv = (settings.conversions ?? []).find(
+    const conv = settings.conversions.find(
       (c: UomConversion) =>
         c.fromUomId === fromUomId &&
         c.toUomId === toUomId &&
