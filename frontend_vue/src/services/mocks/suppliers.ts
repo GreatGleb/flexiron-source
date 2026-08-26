@@ -260,9 +260,9 @@ function applyFilters(list: Supplier[], filters: SupplierFilters): Supplier[] {
     if (filters.search) {
       const q = filters.search.toLowerCase()
       const matchesSearch =
-        s.company.ru?.toLowerCase().includes(q) ||
-        s.company.en?.toLowerCase().includes(q) ||
-        s.company.lt?.toLowerCase().includes(q) ||
+        s.company.ru.toLowerCase().includes(q) ||
+        s.company.en.toLowerCase().includes(q) ||
+        s.company.lt.toLowerCase().includes(q) ||
         s.email.toLowerCase().includes(q)
       if (!matchesSearch) return false
     }

@@ -392,7 +392,7 @@ function projectStockRow(row: StockOverviewItem): StockOverviewItem {
     // batches only — an unpriced one would otherwise drag the average towards zero.
     avgUnitPrice: costedQuantity > 0 ? round2(totalValue / costedQuantity) : 0,
     totalValue,
-    unit: (batches[0]?.unit as StockUnit) ?? row.unit,
+    unit: (batches[0]?.unit ?? row.unit) as StockUnit,
     // Reserved and available are derived for the same reason: a hold belongs to an
     // order, and a number copied here would lie the moment that order shipped.
     reservedQuantity: reserved,
@@ -791,7 +791,7 @@ export async function mockGetOffcuts(
   }
   if (filters.batchNumber)
     filtered = filtered.filter((o) =>
-      o.batchNumber?.toLowerCase().includes(filters.batchNumber!.toLowerCase()),
+      o.batchNumber.toLowerCase().includes(filters.batchNumber!.toLowerCase()),
     )
   const sortBy = filters.sortBy || 'createdAt'
   const sortDir = filters.sortDir || 'desc'
@@ -1679,7 +1679,7 @@ export function warehouseAuditSources(): AuditSource[] {
   const sources: AuditSource[] = []
 
   for (const item of stockStore) {
-    if (item.auditLog?.length) {
+    if (item.auditLog.length) {
       sources.push({
         entityType: 'stock',
         entityId: item.productId,
@@ -1699,7 +1699,7 @@ export function warehouseAuditSources(): AuditSource[] {
     }
   }
   for (const offcut of offcutStore) {
-    if (offcut.auditLog?.length) {
+    if (offcut.auditLog.length) {
       sources.push({
         entityType: 'offcut',
         entityId: offcut.id,
@@ -1723,7 +1723,7 @@ export function warehouseAuditSources(): AuditSource[] {
     }
   }
   for (const deficit of deficitStore) {
-    if (deficit.auditLog?.length) {
+    if (deficit.auditLog.length) {
       sources.push({
         entityType: 'deficit',
         entityId: deficit.id,

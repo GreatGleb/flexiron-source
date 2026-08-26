@@ -67,8 +67,8 @@ export async function mockGetServices(
   }
 
   const total = filtered.length
-  const page = pagination.page ?? 1
-  const pageSize = pagination.pageSize ?? 25
+  const page = pagination.page
+  const pageSize = pagination.pageSize
   const start = (page - 1) * pageSize
   const items = filtered.slice(start, start + pageSize).map(toListItem)
 

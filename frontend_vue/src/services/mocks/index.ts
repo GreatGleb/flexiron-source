@@ -313,7 +313,7 @@ async function getMockRoute<T>(path: string, params?: Record<string, string>): P
   if (path === '/api/suppliers/export.csv') {
     const filters: SupplierFilters = {
       search: params?.search ?? '',
-      status: (params?.status as SupplierFilters['status']) ?? 'all',
+      status: (params?.status ?? 'all') as SupplierFilters['status'],
       categories: params?.categories ? params.categories.split(',') : [],
       rating: Number(params?.rating ?? 0),
     }
@@ -332,7 +332,7 @@ async function getMockRoute<T>(path: string, params?: Record<string, string>): P
   if (path === '/api/suppliers') {
     const filters: SupplierFilters = {
       search: params?.search ?? '',
-      status: (params?.status as SupplierFilters['status']) ?? 'all',
+      status: (params?.status ?? 'all') as SupplierFilters['status'],
       categories: params?.categories ? params.categories.split(',') : [],
       rating: Number(params?.rating ?? 0),
     }
@@ -365,7 +365,7 @@ async function getMockRoute<T>(path: string, params?: Record<string, string>): P
       type: params?.type ?? 'all',
       isRead: params?.isRead ? params.isRead === 'true' : null,
       sortBy: params?.sortBy ?? 'createdAt',
-      sortDir: (params?.sortDir as 'asc' | 'desc') ?? 'desc',
+      sortDir: (params?.sortDir ?? 'desc') as 'asc' | 'desc',
     }
     const pagination = {
       page: Number(params?.page ?? 1),
@@ -425,7 +425,7 @@ async function getMockRoute<T>(path: string, params?: Record<string, string>): P
       search: params?.search ?? '',
       categoryIds: params?.categoryIds ? params.categoryIds.split(',') : [],
       sortBy: (params?.sortBy as ProductFilters['sortBy']) ?? null,
-      sortDir: (params?.sortDir as 'asc' | 'desc') ?? 'asc',
+      sortDir: (params?.sortDir ?? 'asc') as 'asc' | 'desc',
     }
     const pagination = {
       page: params?.page ? Number(params.page) : 1,
@@ -451,8 +451,8 @@ async function getMockRoute<T>(path: string, params?: Record<string, string>): P
   if (path === '/api/services') {
     const filters: ServiceFilters = {
       search: params?.search ?? '',
-      sortBy: (params?.sortBy as ServiceFilters['sortBy']) ?? 'name',
-      sortDir: (params?.sortDir as 'asc' | 'desc') ?? 'asc',
+      sortBy: (params?.sortBy ?? 'name') as ServiceFilters['sortBy'],
+      sortDir: (params?.sortDir ?? 'asc') as 'asc' | 'desc',
     }
     const pagination = {
       page: params?.page ? Number(params.page) : 1,
@@ -724,19 +724,13 @@ async function getMockRoute<T>(path: string, params?: Record<string, string>): P
     return delay(mockGetOffcutAudit(offcutAuditMatch[1] as string) as T)
   }
 
-  const movementCardMatch = path.match(/^\/api\/warehouse\/movements\/([^/]+)$/)
-  if (movementCardMatch) {
-    // Check if this is an audit request
-    if (path.endsWith('/audit')) {
-      return delay(mockGetMovementAudit(movementCardMatch[1] as string) as T)
-    }
-    return delay(mockGetMovement(movementCardMatch[1] as string) as T)
-  }
-
+  // Порядок важен: аудит проверяется ПЕРВЫМ, потому что оба пути начинаются одинаково.
   const movementAuditMatch = path.match(/^\/api\/warehouse\/movements\/([^/]+)\/audit$/)
   if (movementAuditMatch) {
     return delay(mockGetMovementAudit(movementAuditMatch[1] as string) as T)
   }
+
+  const movementCardMatch = path.match(/^\/api\/warehouse\/movements\/([^/]+)$/)
   if (movementCardMatch) {
     return delay(mockGetMovement(movementCardMatch[1] as string) as T)
   }
@@ -1488,7 +1482,11 @@ async function deleteMockRoute<T>(path: string, headers?: Record<string, string>
 
   const serviceDeleteMatch = path.match(/^\/api\/services\/([^/]+)$/)
   if (serviceDeleteMatch) {
-    const deleted = mockDeleteService(serviceDeleteMatch[1] as string)
+    // `await` здесь не украшение: без него `deleted` — это промис, он всегда
+    // истинный, и проверка ниже не срабатывала НИКОГДА. Удаление несуществующей
+    // услуги молча возвращало успех вместо ошибки. Нашло правило
+    // no-unnecessary-condition, включённое 2026-08-26.
+    const deleted = await mockDeleteService(serviceDeleteMatch[1] as string)
     if (!deleted) throw new Error('CATALOG_SERVICE_NOT_FOUND')
     return delay(undefined as T)
   }

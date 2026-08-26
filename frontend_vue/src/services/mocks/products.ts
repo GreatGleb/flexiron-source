@@ -14071,7 +14071,7 @@ export async function mockGetProducts(
   }
 
   // category filter
-  if (params.categoryIds?.length) {
+  if (params.categoryIds.length) {
     filtered = filtered.filter((p) => params.categoryIds.includes(p.categoryId ?? ''))
   }
 
@@ -14088,8 +14088,8 @@ export async function mockGetProducts(
   }
 
   const total = filtered.length
-  const page = params.page ?? 1
-  const pageSize = params.pageSize ?? 20
+  const page = params.page
+  const pageSize = params.pageSize
   const start = (page - 1) * pageSize
   const items = filtered.slice(start, start + pageSize).map(toListItem)
 
@@ -14139,8 +14139,9 @@ export async function mockCreateProduct(
         ? toTranslatedString(data.categoryName, locale)
         : data.categoryName
   } else if (data.categoryId) {
-    const cat = mockGetCategory(data.categoryId)
-    if (cat) categoryName = cat.name
+    // mockGetCategory бросает, если категории нет, и возвращает Category — проверка
+    // на пустоту не срабатывала никогда.
+    categoryName = mockGetCategory(data.categoryId).name
   }
 
   // Build fieldValues from category fields + inherited fields when categoryId is set
@@ -14154,29 +14155,27 @@ export async function mockCreateProduct(
     }))
   } else if (data.categoryId) {
     const cat = mockGetCategory(data.categoryId)
-    if (cat) {
-      // Inherited fields come first with inherited: true
-      const inherited: ProductFieldValue[] = cat.inheritedFields.map((f) => ({
-        fieldId: f.id,
-        fieldName: f.name,
-        fieldType: f.type,
-        value: null,
-        inherited: true,
-        options: f.options.length > 0 ? f.options : undefined,
-      }))
-      // Own fields with inherited: false
-      const own: ProductFieldValue[] = cat.fields.map((f) => ({
-        fieldId: f.id,
-        fieldName: f.name,
-        fieldType: f.type,
-        value: null,
-        inherited: false,
-        options: f.options.length > 0 ? f.options : undefined,
-      }))
-      fieldValues = [...inherited, ...own]
-    } else {
-      fieldValues = []
-    }
+    // mockGetCategory бросает, если категории нет, и возвращает Category —
+    // ветка else была недостижима.
+    // Inherited fields come first with inherited: true
+    const inherited: ProductFieldValue[] = cat.inheritedFields.map((f) => ({
+      fieldId: f.id,
+      fieldName: f.name,
+      fieldType: f.type,
+      value: null,
+      inherited: true,
+      options: f.options.length > 0 ? f.options : undefined,
+    }))
+    // Own fields with inherited: false
+    const own: ProductFieldValue[] = cat.fields.map((f) => ({
+      fieldId: f.id,
+      fieldName: f.name,
+      fieldType: f.type,
+      value: null,
+      inherited: false,
+      options: f.options.length > 0 ? f.options : undefined,
+    }))
+    fieldValues = [...inherited, ...own]
   } else {
     fieldValues = []
   }
@@ -14293,8 +14292,7 @@ export async function mockPatchProduct(
     sku: data.sku !== undefined ? data.sku : existing.sku,
     description: patchDescription !== undefined ? patchDescription : existing.description,
     price: data.price !== undefined ? data.price : existing.price,
-    priceQuantity:
-      data.priceQuantity !== undefined ? data.priceQuantity : (existing.priceQuantity ?? 1),
+    priceQuantity: data.priceQuantity !== undefined ? data.priceQuantity : existing.priceQuantity,
     currencyId: data.currencyId !== undefined ? data.currencyId : existing.currencyId,
     minStock: data.minStock !== undefined ? data.minStock : existing.minStock,
     priceUnit: data.priceUnit ?? existing.priceUnit,
@@ -14350,7 +14348,7 @@ export async function mockDeleteProduct(id: string): Promise<{ ok: boolean; code
 export function mockDeleteProductAuditEntry(productId: string, entryId: string): void {
   const product = STORE.find((p) => p.id === productId)
   if (!product) throw new Error('PRODUCT_NOT_FOUND')
-  const idx = product.auditLog?.findIndex((entry) => entry.id === entryId) ?? -1
+  const idx = product.auditLog.findIndex((entry) => entry.id === entryId)
   if (idx === -1) throw new Error('AUDIT_ENTRY_NOT_FOUND')
   product.auditLog.splice(idx, 1)
 }
@@ -14365,7 +14363,7 @@ export function mockDeleteProductAuditEntry(productId: string, entryId: string):
  * places. A second copy would be a second truth.
  */
 export function productAuditSources(): AuditSource[] {
-  return STORE.filter((p) => p.auditLog?.length).map((p) => ({
+  return STORE.filter((p) => p.auditLog.length).map((p) => ({
     entityType: 'product' as const,
     entityId: p.id,
     entityLabel: p.sku || p.name.en || p.id,

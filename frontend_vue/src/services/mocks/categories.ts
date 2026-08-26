@@ -1394,9 +1394,9 @@ export function mockGetCategories(
     if (!filters.search) return true
     const q = filters.search.toLowerCase()
     return (
-      c.name.ru?.toLowerCase().includes(q) ||
-      c.name.en?.toLowerCase().includes(q) ||
-      c.name.lt?.toLowerCase().includes(q)
+      c.name.ru.toLowerCase().includes(q) ||
+      c.name.en.toLowerCase().includes(q) ||
+      c.name.lt.toLowerCase().includes(q)
     )
   })
   const sorted = filters.search
@@ -1495,12 +1495,12 @@ export function mockPutCategoryFields(
   cat.fields = JSON.parse(JSON.stringify(fields)).map((f: CategoryField, i: number) => ({
     ...f,
     name: mergeTranslatedString(
-      (cat.fields[i]?.name as TranslatedString) ?? { ru: '', en: '', lt: '' },
+      (cat.fields[i]?.name ?? { ru: '', en: '', lt: '' }) as TranslatedString,
       f.name as TranslatedString,
     ),
-    options: f.options?.map((o: TranslatedString, oi: number) =>
+    options: f.options.map((o: TranslatedString, oi: number) =>
       mergeTranslatedString(
-        (cat.fields[i]?.options?.[oi] as TranslatedString) ?? { ru: '', en: '', lt: '' },
+        (cat.fields[i]?.options?.[oi] ?? { ru: '', en: '', lt: '' }) as TranslatedString,
         o as unknown as TranslatedString,
       ),
     ),
