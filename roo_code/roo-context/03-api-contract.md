@@ -918,7 +918,7 @@ Page: `CategoryCardPage.vue`. Composable: `useCategoryCard` + `useDirtyCheck`.
         { "id": "f-2", "name": "Тип листа", "type": "enum", "required": false, "order": 1, "options": ["Горячекатаный", "Холоднокатаный", "Оцинкованный"] }
       ],
       "linkedSuppliers": [
-        { "id": "1", "name": "Steel Plus OÜ", "price": null, "priceUnit": null, "leadDays": 7 }
+        { "id": "1", "name": "Steel Plus OÜ", "price": null, "priceUomId": null, "leadDays": 7 }
       ]
     }
   }
@@ -943,7 +943,7 @@ Page: `CategoryCardPage.vue`. Composable: `useCategoryCard` + `useDirtyCheck`.
   PATCH /api/categories/cat-2
   { "name": "Листы металла" }
   ```
-- **Notes:** Если изменился `parentId` — сервер пересчитывает `inheritedFields` (возвращает в ответе актуальную цепочку). Last-write-wins. `linkedSuppliers` — администратор вручную привязывает поставщиков к категории (default-список для товаров этой категории); `price`/`priceUnit` всегда `null` на уровне категории (цена — на уровне товара).
+- **Notes:** Если изменился `parentId` — сервер пересчитывает `inheritedFields` (возвращает в ответе актуальную цепочку). Last-write-wins. `linkedSuppliers` — администратор вручную привязывает поставщиков к категории (default-список для товаров этой категории); `price`/`priceUomId` всегда `null` на уровне категории (цена — на уровне товара).
 
 ### PUT /api/categories/:id/fields
 
@@ -1014,7 +1014,7 @@ Page: `ProductsPage.vue`. Composable: `useProducts`.
     "data": {
       "items": [
         { "id": "prod-1", "name": "Steel Sheet 3mm", "categoryId": "cat-2", "categoryName": "Sheets",
-          "sku": "SS-3-1000", "price": 120.50, "minStock": 50, "priceUnit": "EUR/vnt", "createdAt": "2025-01-15" }
+          "sku": "SS-3-1000", "price": 120.50, "minStock": 50, "createdAt": "2025-01-15" }
       ],
       "total": 10, "page": 1, "pageSize": 25, "totalPages": 1
     }
@@ -1034,7 +1034,6 @@ Page: `ProductsPage.vue`. Composable: `useProducts`.
     description?: string | null
     price?: number | null
     minStock?: number | null
-    priceUnit?: 'EUR/vnt' | 'EUR/kg' | 'EUR/m' | null
   }
   ```
 - **Response 200:** `ApiResponse<Product>` — созданный товар целиком (с `fieldValues: []`, `linkedSuppliers: []`).
@@ -1064,13 +1063,13 @@ Page: `ProductCardPage.vue`. Composable: `useProductCard` + `useDirtyCheck`.
       "name": "Steel Sheet 3mm",
       "categoryId": "cat-2", "categoryName": "Sheets",
       "sku": "SS-3-1000", "description": "Hot-rolled steel sheet", "price": 120.50, "minStock": 50,
-      "priceUnit": "EUR/vnt", "createdAt": "2025-01-15",
+      "createdAt": "2025-01-15",
       "fieldValues": [
         { "fieldId": "f-2-1", "fieldName": "Thickness (mm)", "fieldType": "number", "value": 3, "inherited": false, "options": [] },
         { "fieldId": "f-2-2", "fieldName": "Sheet type", "fieldType": "enum", "value": "Hot-rolled", "inherited": false, "options": ["Hot-rolled","Cold-rolled","Galvanized"] }
       ],
       "linkedSuppliers": [
-        { "id": "sup-1", "name": "Metinvest", "price": 115.00, "priceUnit": "EUR/vnt", "leadDays": 7 }
+        { "id": "sup-1", "name": "Metinvest", "price": 115.00, "priceUomId": "uom-pcs", "leadDays": 7 }
       ]
     }
   }
@@ -1088,13 +1087,12 @@ Page: `ProductCardPage.vue`. Composable: `useProductCard` + `useDirtyCheck`.
     description?: string | null
     price?: number | null
     minStock?: number | null
-    priceUnit?: 'EUR/vnt' | 'EUR/kg' | 'EUR/m' | null
     fieldValues?: ProductFieldValue[]       // полный массив если изменились dynamic fields
     linkedSuppliers?: LinkedSupplier[]      // полный массив если изменился список поставщиков
   }
   ```
 - **Response 200:** `ApiResponse<Product>` — обновлённый товар целиком.
-- **Notes:** Last-write-wins. Клиент пересчитывает `fieldValues` из `Record<fieldId,value>` обратно в массив перед отправкой. `linkedSuppliers` — администратор вручную добавляет/удаляет поставщиков из карточки товара; BCC requests к этому списку не относятся.
+- **Notes:** Last-write-wins. Клиент пересчитывает `fieldValues` из `Record<fieldId,value>` обратно в массив перед отправкой. `linkedSuppliers` — администратор вручную добавляет/удаляет поставщиков из карточки товара; BCC requests к этому списку не относятся. `priceUomId` в элементе списка — **ссылка на единицу из справочника** (`uom-kg`, `uom-pcs`, …), а не собранная подпись: подпись зависит от языка читателя и в хранимых данных ей делать нечего. Валюта цены поставщика лежит в `currency` того же элемента.
 
 ---
 
@@ -1103,7 +1101,7 @@ Page: `ProductCardPage.vue`. Composable: `useProductCard` + `useDirtyCheck`.
 **ProductsPage** — **quick-action**: POST и DELETE применяются немедленно. DELETE требует confirmation modal.
 
 **ProductCardPage** — **clean-slate**:
-- `useDirtyCheck` для `name`/`sku`/`description`/`price`/`minStock`/`priceUnit`
+- `useDirtyCheck` для `name`/`sku`/`description`/`price`/`minStock`
 - `fieldValues: ref<Record<fieldId,value>>` для dynamic fields + `originalFieldValues: ref<string>` (JSON.stringify baseline)
 - Save bar видна при `isAnythingDirty = isDirty || fieldValuesChanged`
 - Save = PATCH (если `isAnythingDirty`) → затем `load()` (сброс baseline)

@@ -16,7 +16,7 @@ const { currencies, uoms } = MOCK_SETTINGS
 describe('подпись цены собирается, а не хранится', () => {
   it('берёт код единицы в текущем языке', () => {
     // Литовская подпись сегодня — EUR/vnt, и она обязана такой остаться: собирать
-    // её из code.en (как делает карточка товара) значит показать литовцу EUR/pcs.
+    // её из code.en (как делала карточка товара до п. 4b) значит показать литовцу EUR/pcs.
     expect(serviceUnitLabel('cur-eur', 'uom-pcs', currencies, uoms, 'lt')).toBe('EUR/vnt')
     expect(serviceUnitLabel('cur-eur', 'uom-pcs', currencies, uoms, 'en')).toBe('EUR/pcs')
     expect(serviceUnitLabel('cur-eur', 'uom-pcs', currencies, uoms, 'ru')).toBe('EUR/шт')
