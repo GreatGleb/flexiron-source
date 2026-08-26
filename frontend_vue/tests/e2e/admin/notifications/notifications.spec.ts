@@ -88,6 +88,9 @@ test.describe('Notifications Page', () => {
 
   test('mark all as read clears unread badges', async ({ page }) => {
     await page.goto('/admin/notifications')
+    // Переход и сразу действие: без ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     // Click "Mark all as read"
     await page.locator('[data-test="notifications-header"] button').click()
     // All rows should show "read" status
@@ -137,12 +140,18 @@ test.describe('Notification Dropdown', () => {
 
   test('dropdown opens on bell click showing notifications', async ({ page }) => {
     await page.goto('/admin/notifications')
+    // Переход и сразу действие: без ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.locator('[data-test="topbar-notifications"]').click()
     await expect(page.locator('[data-test="notif-dropdown"]')).toBeVisible()
   })
 
   test('dropdown has view all and mark all read buttons', async ({ page }) => {
     await page.goto('/admin/notifications')
+    // Переход и сразу действие: без ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.locator('[data-test="topbar-notifications"]').click()
     // Footer with links
     await expect(
@@ -156,6 +165,9 @@ test.describe('Notification Dropdown', () => {
 
   test('mark all read in dropdown updates badge count', async ({ page }) => {
     await page.goto('/admin/notifications')
+    // Переход и сразу действие: без ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     // Click bell to open dropdown
     await page.locator('[data-test="topbar-notifications"]').click()
     // Click "Mark all as read" in dropdown footer

@@ -78,6 +78,9 @@ test.describe('Orders List', () => {
 
   test('create button navigates to create page', async ({ page }) => {
     await page.goto('/admin/orders')
+    // Переход и сразу действие: без этого ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.locator('[data-test="orders-header"] a.btn-primary').click()
     await expect(page).toHaveURL('/admin/orders/new')
   })
@@ -226,6 +229,9 @@ test.describe('Order Create', () => {
     })
 
     await page.goto('/admin/orders/new')
+    // Переход и сразу действие: без этого ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.locator('[data-test="order-create-notes"]').fill('half an order')
 
     await page.click('[data-test="order-create-cancel-btn"]')
@@ -250,6 +256,9 @@ test.describe('Order Create', () => {
 
   test('leaving an untouched order asks nothing', async ({ page }) => {
     await page.goto('/admin/orders/new')
+    // Переход и сразу действие: без этого ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.click('[data-test="order-create-cancel-btn"]')
     await expect(page).toHaveURL(/\/admin\/orders$/)
     await expect(page.locator('[data-test="order-create-leave-modal"]')).toHaveCount(0)
@@ -281,6 +290,9 @@ test.describe('Order Create', () => {
 
   test('saves the lines that are on screen, duplicates and removals included', async ({ page }) => {
     await page.goto('/admin/orders/new')
+    // Переход и сразу действие: без этого ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.locator('[data-test="order-create-client-item"]').first().click()
 
     // Twice the same product, then a different one: the duplicate is the case
@@ -336,12 +348,18 @@ test.describe('Order Create', () => {
     }
 
     await page.goto('/admin/orders/new')
+    // Переход и сразу действие: без этого ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.locator('[data-test="order-create-add-item-btn"]').click()
     const createModal = page.locator('[data-test="add-order-items-modal"]')
     await expect(createModal).toBeVisible()
     const onCreate = await quotedPriceIn(createModal)
 
     await page.goto('/admin/orders/ORD-001')
+    // Переход и сразу действие: без этого ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.locator('[data-test="order-add-item-btn"]').click()
     const cardModal = page.locator('[data-test="add-order-items-modal"]')
     await expect(cardModal).toBeVisible()
@@ -536,6 +554,9 @@ test.describe('Order Card › fields & structure', () => {
 
   test('unsaved lines block the total edit rather than failing on the server', async ({ page }) => {
     await page.goto('/admin/orders/ORD-001')
+    // Переход и сразу действие: без этого ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.click('[data-test="order-add-item-btn"]')
     await page.waitForSelector('[data-test="add-order-items-modal"]')
     await page.locator('[data-test="add-items-product-checkbox"]').first().click()
@@ -1936,6 +1957,9 @@ test.describe('Order Card › save flow', () => {
 
   test('discard resets notes field', async ({ page }) => {
     await page.goto('/admin/orders/ORD-001')
+    // Переход и сразу действие: без этого ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.locator('[data-test="field-notes"]').fill('Modified notes')
     await page.locator('[data-test="order-card-discard-btn"]').click()
     // Value should be restored to original (null/empty)
@@ -1950,12 +1974,18 @@ test.describe('Order Card › save flow', () => {
 test.describe('Order Card › delete', () => {
   test('delete button opens confirmation modal', async ({ page }) => {
     await page.goto('/admin/orders/ORD-001')
+    // Переход и сразу действие: без этого ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.locator('[data-test="order-card-delete-btn"]').click()
     await expect(page.locator('[data-test="order-card-delete-modal"]')).toBeVisible()
   })
 
   test('cancel closes deletion modal', async ({ page }) => {
     await page.goto('/admin/orders/ORD-001')
+    // Переход и сразу действие: без этого ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.locator('[data-test="order-card-delete-btn"]').click()
     await expect(page.locator('[data-test="order-card-delete-modal"]')).toBeVisible()
     await page.locator('[data-test="order-card-delete-modal-cancel"]').click()
@@ -2040,6 +2070,9 @@ test.describe('Order Create › client selector', () => {
 
   test('new client search shows empty state for no results', async ({ page }) => {
     await page.goto('/admin/orders/new')
+    // Переход и сразу действие: без этого ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.locator('[data-test="order-create-client-search"] input').fill('zzz-no-match')
     await expect(page.locator('[data-test="order-create-client-empty"]')).toBeVisible()
   })
@@ -2073,6 +2106,9 @@ test.describe('Add item modal', () => {
 
   test('the price column quotes the price the line will be sold at', async ({ page }) => {
     await page.goto('/admin/orders/ORD-001')
+    // Переход и сразу действие: без этого ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.locator('[data-test="order-add-item-btn"]').click()
     const modal = page.locator('[data-test="add-order-items-modal"]')
     await expect(modal).toBeVisible()

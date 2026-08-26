@@ -2,6 +2,7 @@ import { test, expect, testBare as base } from '../../fixtures'
 import { ALL_FLAGS_ENABLED } from '../../helpers/flags'
 import { freezeTime } from '../../helpers/mocks'
 import { waitForFontsReady, SNAPSHOT_OPTIONS } from '../../helpers/visual'
+import { waitForDataReady } from '../../helpers/ready'
 
 /**
  * Deep audit of all Clients pages:
@@ -620,6 +621,9 @@ test.describe('client-card › order history empty', () => {
     // next order lands on them.
     await page.setViewportSize(DESKTOP)
     await page.goto('/admin/clients/new')
+    // Переход и сразу действие: без ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.locator('[data-test="field-name"]').fill('E2E No Orders')
     await page.locator('[data-test="field-company-code"]').fill('E2E000001')
     await page.locator('[data-test="field-email"]').fill('no-orders@test.lt')
