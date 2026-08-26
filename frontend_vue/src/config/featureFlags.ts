@@ -23,6 +23,8 @@ const defaults: FeatureFlags = {
   adminOrders: true,
   adminSalesCrm: true,
   adminSettings: true,
+  // Настройки → Логи: сводная лента аудита по всем девяти сущностям
+  settingsAuditLog: true,
 
   // Section-level flags
   dashboardAlerts: true,
@@ -39,6 +41,10 @@ const defaults: FeatureFlags = {
   warehouseOffcuts: true,
   warehouseDeficit: true,
   warehouseQrPrint: true,
+  // Карта склада — отдельная страница с картинкой (не вкладка складских таблиц)
+  warehouseMap: true,
+  // Резка металла: операция, из которой выходят обрезки, пропилы и отходы
+  warehouseCutting: true,
 
   // Warehouse per-tab page config flags (disabled by default — in development)
   warehouseStockPageConfig: false,
@@ -90,5 +96,5 @@ export const featureFlags = reactive<FeatureFlags>({
 })
 
 export function isEnabled(flag: FeatureFlagKey): boolean {
-  return featureFlags[flag] ?? false
+  return featureFlags[flag]
 }

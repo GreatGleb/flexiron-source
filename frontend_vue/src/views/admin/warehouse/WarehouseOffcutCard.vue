@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useHead } from '@/composables/useHead'
 import { useWarehouseOffcutCard } from '@/composables/useWarehouseOffcutCard'
+import { offcutAreaM2 } from '@/domain/cutting'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
 import Breadcrumb from '@/components/admin/Breadcrumb.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
@@ -47,6 +48,10 @@ const {
   error,
   deleteBlockedByOrder,
   form,
+  derivedWeight,
+  weightIsManual,
+  shownWeightKg,
+  useDerivedWeight,
   isAnythingDirty,
   movements,
   movementsLoading,
@@ -64,7 +69,7 @@ const {
 } = useWarehouseOffcutCard(id)
 
 const showAuditDeleteModal = ref(false)
-const auditDeleteIndex = ref<number | null>(null)
+const auditDeleteId = ref<string | null>(null)
 const deletingAudit = ref(false)
 
 const pageTitle = computed(() =>
@@ -87,17 +92,17 @@ const OFFCUT_STATUS_PILL: Record<string, string> = {
   in_storage: 'pill-info',
 }
 
-function onAuditDeleteClick(index: number) {
-  auditDeleteIndex.value = index
+function onAuditDeleteClick(entryId: string) {
+  auditDeleteId.value = entryId
   showAuditDeleteModal.value = true
 }
 
 async function onAuditDeleteConfirm() {
-  if (auditDeleteIndex.value === null || deletingAudit.value) return
+  if (auditDeleteId.value === null || deletingAudit.value) return
   deletingAudit.value = true
-  await deleteAuditEntry(auditDeleteIndex.value)
+  await deleteAuditEntry(auditDeleteId.value)
   showAuditDeleteModal.value = false
-  auditDeleteIndex.value = null
+  auditDeleteId.value = null
   deletingAudit.value = false
 }
 
@@ -179,6 +184,33 @@ function translateAuditValue(value: string): string {
   }
   return value
 }
+
+/** Почему вывод веса не получился — словами, а не кодом отказа. */
+const notDerivableReason = computed(() => {
+  const d = derivedWeight.value
+  if (!d || d.ok) return ''
+  const key = {
+    no_density: 'weight_not_derivable_no_density',
+    no_dimensions: 'weight_not_derivable_no_dimensions',
+    no_per_unit_weight: 'weight_not_derivable_no_per_unit',
+    no_offcut_type: 'weight_not_derivable_no_type',
+    unit_not_supported: 'weight_not_derivable_unit',
+  }[d.reason]
+  return t(`warehouse.${key}`)
+})
+
+/**
+ * Площадь — выведенная величина, поэтому computed, а не поле.
+ *
+ * Условие «нужны и длина, и ширина» второй раз здесь НЕ выражается: его знает
+ * `offcutAreaM2`, который спрашивает таблицу требований резолвера. Прочерк — это
+ * «невыразима», и он приходит из домена, а не из проверки в шаблоне.
+ */
+const areaLabel = computed(() => {
+  if (!offcut.value) return '—'
+  const area = offcutAreaM2(offcut.value)
+  return area == null ? '—' : `${area} m²`
+})
 
 useHead({
   title: () => `Flexiron — ${pageTitle.value}`,
@@ -527,14 +559,97 @@ onMounted(load)
                       </svg>
                     </span>
                   </label>
+                  <!--
+                    Вес — единственное поле карточки, где хранится ТОЛЬКО ручной ввод.
+                    Показывается ручное, если оно есть, иначе выведенное из размеров и
+                    плотности. Источник не хранится, а вычисляется: есть значение —
+                    значит руками. Кнопка «рассчитать из размеров» обнуляет ручное, и
+                    расчётное число стоит РЯДОМ с ней до нажатия — иначе оператор стирает
+                    значение, не видя, что получит взамен, а разница бывает в разы.
+                  -->
                   <input
-                    :value="offcut.weightKg != null ? `${offcut.weightKg} kg` : '—'"
+                    v-model.number="form.weightKg"
+                    class="glass-input"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    :placeholder="shownWeightKg != null ? String(shownWeightKg) : '—'"
+                    data-test="field-weight"
+                  />
+                  <div class="offcut-weight-source">
+                    <span
+                      class="status-pill"
+                      :class="weightIsManual ? 'pill-warning' : 'pill-info'"
+                      data-test="field-weight-source"
+                    >
+                      {{
+                        weightIsManual
+                          ? t('warehouse.weight_manual_badge')
+                          : t('warehouse.weight_derived_badge')
+                      }}
+                    </span>
+                    <template v-if="weightIsManual">
+                      <span
+                        v-if="derivedWeight?.ok"
+                        class="field-hint"
+                        data-test="field-weight-preview"
+                      >
+                        {{
+                          t('warehouse.weight_derived_preview', { value: derivedWeight.weightKg })
+                        }}
+                      </span>
+                      <button
+                        v-if="derivedWeight?.ok"
+                        type="button"
+                        class="btn btn-sm btn-secondary"
+                        data-test="field-weight-use-derived"
+                        @click="useDerivedWeight"
+                      >
+                        {{ t('warehouse.weight_use_derived') }}
+                      </button>
+                    </template>
+                    <span
+                      v-if="derivedWeight && !derivedWeight.ok"
+                      class="field-hint"
+                      data-test="field-weight-not-derivable"
+                    >
+                      {{ notDerivableReason }}
+                    </span>
+                  </div>
+                </div>
+                <!--
+                  Площадь ВЫВОДИТСЯ из длины и ширины, поля в типе у неё нет и не будет:
+                  величина, выводимая из размеров, не хранится рядом с ними. Прочерк
+                  здесь значит «невыразима» (у трубы нет ширины), а не «ноль».
+                -->
+                <div class="input-group">
+                  <label class="field-label">
+                    <span>{{ t('warehouse.offcut_area') }}</span>
+                    <span v-tooltip="t('warehouse.offcut_area_hint')" class="info-hint">
+                      <svg
+                        width="10"
+                        height="10"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="3"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="16" x2="12" y2="12" />
+                        <line x1="12" y1="8" x2="12.01" y2="8" />
+                      </svg>
+                    </span>
+                  </label>
+                  <input
+                    :value="areaLabel"
                     class="glass-input"
                     type="text"
                     readonly
-                    data-test="field-weight"
+                    data-test="field-area"
                   />
-                  <span class="field-hint">{{ t('warehouse.hint_readonly') }}</span>
+                  <span class="field-hint">{{ t('warehouse.offcut_area_derived') }}</span>
                 </div>
               </template>
             </GlassPanel>
@@ -846,11 +961,7 @@ onMounted(load)
                   </tr>
                 </thead>
                 <tbody>
-                  <tr
-                    v-for="(entry, index) in auditLog"
-                    :key="index"
-                    data-test="offcut-card-audit-row"
-                  >
+                  <tr v-for="entry in auditLog" :key="entry.id" data-test="offcut-card-audit-row">
                     <td class="audit-log-ts">{{ entry.timestamp }}</td>
                     <td>
                       <div class="audit-log-user">
@@ -871,7 +982,7 @@ onMounted(load)
                         type="button"
                         class="action-icon-btn action-danger"
                         data-test="offcut-card-audit-delete-btn"
-                        @click="onAuditDeleteClick(index)"
+                        @click="onAuditDeleteClick(entry.id)"
                       >
                         <svg
                           width="14"
@@ -978,3 +1089,14 @@ onMounted(load)
     </div>
   </template>
 </template>
+
+<style scoped>
+/* Строка «откуда взялся вес»: бейдж, расчётное число и кнопка сброса в один ряд. */
+.offcut-weight-source {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+</style>

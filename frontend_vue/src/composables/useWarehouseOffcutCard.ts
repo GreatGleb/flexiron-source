@@ -8,7 +8,10 @@ import {
   deleteOffcutAuditEntry,
   createMovement,
   getMovements,
+  getBatch,
 } from '@/services/warehouseService'
+import { getProduct } from '@/services/productsService'
+import { resolveOffcutWeight } from '@/domain/cutting'
 import { useDirtyCheck } from './useDirtyCheck'
 import { useToast } from './useToast'
 import { useTranslatedField } from './useTranslatedData'
@@ -20,6 +23,7 @@ import type {
   StockAuditEntry,
   MovementListItem,
 } from '@/types/warehouse'
+import type { Product } from '@/types/product'
 import type { UploadedFile } from '@/services/uploadsService'
 
 // ─── Offcut status → Movement type mapping ──────────────────────────
@@ -98,6 +102,8 @@ export function useWarehouseOffcutCard(id: string) {
     locationCell: string
     locationNotes: string
     notes: string | null
+    /** Введённый руками вес. null — «пусть отвечает вывод». */
+    weightKg: number | null
   }>({
     status: 'available',
     locationRack: '',
@@ -105,6 +111,7 @@ export function useWarehouseOffcutCard(id: string) {
     locationCell: '',
     locationNotes: '',
     notes: null,
+    weightKg: null,
   })
 
   const dirty = useDirtyCheck(form)
@@ -117,7 +124,7 @@ export function useWarehouseOffcutCard(id: string) {
     if (offcut.value) {
       const currentFiles = offcut.value.files
       if (originalFiles.value.length > 0) {
-        const currentIds = currentFiles.map((f) => f.id)
+        const currentIds = currentFiles?.map((f) => f.id) ?? []
         if (originalFiles.value.some((f) => !currentIds.includes(f.id))) return true
       }
     }
@@ -126,7 +133,7 @@ export function useWarehouseOffcutCard(id: string) {
 
   // ─── Files ────────────────────────────────────────────────────────────────
   const fileIdsToAttach = ref<string[]>([])
-  const originalFiles = ref<WarehouseOffcut['files']>([])
+  const originalFiles = ref<NonNullable<WarehouseOffcut['files']>>([])
 
   function onFilesUploaded(uploaded: UploadedFile[]) {
     if (!offcut.value) return
@@ -174,10 +181,10 @@ export function useWarehouseOffcutCard(id: string) {
   const auditLog = ref<StockAuditEntry[]>([])
   const auditLoading = ref(false)
 
-  async function deleteAuditEntry(entryIndex: number) {
+  async function deleteAuditEntry(entryId: string) {
     try {
-      await deleteOffcutAuditEntry(id, entryIndex)
-      auditLog.value = auditLog.value.filter((_, i) => i !== entryIndex)
+      await deleteOffcutAuditEntry(id, entryId)
+      auditLog.value = auditLog.value.filter((entry) => entry.id !== entryId)
       toast.success(t('warehouse.toast_audit_entry_deleted'))
     } catch {
       toast.error(t('warehouse.toast_error_save'))
@@ -198,18 +205,66 @@ export function useWarehouseOffcutCard(id: string) {
         locationCell: parsed.locationCell,
         locationNotes: parsed.locationNotes,
         notes: data.notes,
+        weightKg: data.weightKg,
       }
       dirty.capture()
       // Deep-clone original files for removal detection and discard restoration
       originalFiles.value = data.files ? JSON.parse(JSON.stringify(data.files)) : []
       fileIdsToAttach.value = []
-      auditLog.value = data.auditLog ?? []
+      auditLog.value = data.auditLog
       await loadMovements()
+      await loadBatchProduct(data.batchId)
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to load offcut'
     } finally {
       loading.value = false
     }
+  }
+
+  /**
+   * Товар ПАРТИИ — источник плотности и килограммов на складскую единицу.
+   *
+   * Не товар обрезка: `productId` обрезка это копия ссылки, разошедшаяся у десяти
+   * записей из тринадцати (п. 4e). Партия — единственная настоящая ссылка.
+   */
+  const batchProduct = ref<Product | null>(null)
+
+  async function loadBatchProduct(batchId: string) {
+    batchProduct.value = null
+    try {
+      const batch = await getBatch(batchId)
+      batchProduct.value = await getProduct(batch.productId)
+    } catch {
+      // Вывод веса просто откажет — с названной причиной, а не молча.
+    }
+  }
+
+  /** Вес, посчитанный из размеров и материала: то, что будет, если убрать ручной ввод. */
+  const derivedWeight = computed(() =>
+    offcut.value
+      ? resolveOffcutWeight({
+          offcut: { ...offcut.value, quantity: 1 },
+          product: batchProduct.value,
+        })
+      : null,
+  )
+
+  /**
+   * Источник ВЫЧИСЛЯЕТСЯ, а не хранится: есть ручное значение — значит руками, нет —
+   * значит вывод. Отдельное поле источника было бы третьей правдой об одном и том же.
+   */
+  const weightIsManual = computed(() => form.value.weightKg != null)
+
+  /** Показываемый вес: ручной, если введён, иначе выведенный. */
+  const shownWeightKg = computed<number | null>(() => {
+    if (form.value.weightKg != null) return form.value.weightKg
+    const derived = derivedWeight.value
+    return derived?.ok ? derived.weightKg : null
+  })
+
+  /** Сброс к расчётному — это обнулить ручное, а не записать выведенное. */
+  function useDerivedWeight() {
+    form.value.weightKg = null
   }
 
   async function save() {
@@ -283,6 +338,7 @@ export function useWarehouseOffcutCard(id: string) {
         locationCell: parsed.locationCell,
         locationNotes: parsed.locationNotes,
         notes: updated.notes,
+        weightKg: updated.weightKg,
       }
       dirty.capture()
       // Re-capture original files after save
@@ -308,6 +364,7 @@ export function useWarehouseOffcutCard(id: string) {
       locationCell: parsed.locationCell,
       locationNotes: parsed.locationNotes,
       notes: offcut.value.notes,
+      weightKg: offcut.value.weightKg,
     }
     dirty.capture()
     // Restore removed files from the original snapshot
@@ -340,6 +397,12 @@ export function useWarehouseOffcutCard(id: string) {
 
   return {
     offcut,
+    // Вес: показанное значение, откуда оно, и как вернуться к выведенному
+    batchProduct,
+    derivedWeight,
+    weightIsManual,
+    shownWeightKg,
+    useDerivedWeight,
     loading,
     saving,
     error,

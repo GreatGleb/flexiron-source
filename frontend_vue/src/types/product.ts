@@ -20,7 +20,7 @@ export interface LinkedSupplier {
   price: number | null
   priceUnit: string | null
   leadDays: number | null
-  currency: string | null   // snapshot of supplier's currency at time of linking
+  currency: string | null // snapshot of supplier's currency at time of linking
 }
 
 export interface ProductListItem {
@@ -70,6 +70,26 @@ export interface Product {
   purchaseToWarehouseFactor: number | null
   warehouseToSaleFormulaType: string | null
   warehouseToSaleFactor: number | null
+
+  /**
+   * Килограммов в ОДНОЙ складской единице этого товара.
+   *
+   * Знаменатель не хранится, потому что он и есть `warehouseUomId`: у метрового товара
+   * это кг/м, у площадного кг/м², у штучного кг/шт. Одна величина, а не три — в
+   * кастомных полях каталога она лежала под тремя написаниями («Вес на метр (кг)» 26
+   * товаров, «Вес на метр (кг/м)» 12, «Вес на м² (кг)» 30), то есть два написания
+   * одного и того же плюс площадной вариант.
+   *
+   * НЕ переиспользует `purchaseToWarehouseFactor` / `warehouseToSaleFactor`: те отвечают
+   * на конкретные пары единиц (закупка→склад, склад→продажа) и совпали бы с этим числом
+   * только там, где одна из сторон случайно килограммы. Вывод «когда получится» — это
+   * выдуманный коэффициент, замаскированный под существующее поле.
+   *
+   * `null` у килограммовых и тонных товаров СОЗНАТЕЛЬНО: там это 1 и 1000, то есть
+   * пересказ единицы, а выведенная константа рядом с тем, из чего она выводится, —
+   * вторая правда об одном числе.
+   */
+  weightPerWarehouseUnitKg: number | null
 
   createdAt: string
   fieldValues: ProductFieldValue[]

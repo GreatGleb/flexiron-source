@@ -65,7 +65,13 @@ export interface WarehouseBatchFile {
 
 export interface WarehouseBatch {
   id: string
-  files: WarehouseBatchFile[]
+  /**
+   * Прикреплённые файлы. Необязательно СОЗНАТЕЛЬНО (решение 2026-08-25): контракт
+   * для складских сущностей это поле не описывает, а значит гарантии, что сервер
+   * его пришлёт, нет. Сделаешь обязательным — страховки в композаблах станут
+   * мёртвым кодом, их снимут, и первый же ответ без `files` уронит карточку.
+   */
+  files?: WarehouseBatchFile[]
   /** Link to product */
   productId: string
   productName: TranslatedString
@@ -225,8 +231,8 @@ export interface WarehouseOffcut {
   notes: string | null
   /** QR code data (for scanning) */
   qrData: string | null
-  /** Attached files (certificates, photos) */
-  files: WarehouseBatchFile[]
+  /** Attached files (certificates, photos). Необязательно — см. `WarehouseBatch.files`. */
+  files?: WarehouseBatchFile[]
   /** Link to order if offcut is reserved for an order */
   orderId: string | null
   createdAt: string
@@ -275,6 +281,17 @@ export interface OffcutPatchPayload {
   status?: OffcutStatus
   notes?: string | null
   location?: string | null
+  /**
+   * Вес, ВВЕДЁННЫЙ РУКАМИ. `null` — «не вводили, пусть отвечает вывод».
+   *
+   * Выведенное значение здесь не хранится и храниться не должно: оно считается из
+   * размеров куска и плотности материала, а ни то, ни другое со временем не меняется.
+   * Образец `unitCost` / `costSource` / `manualUnitCost` у строки заказа хранит все три
+   * НАМЕРЕННО — там себестоимость это снимок момента (FIFO-цена партий на дату строки),
+   * и она обязана не меняться вслед за складом. У веса такой причины нет, поэтому форма
+   * здесь другая: одно поле, а источник вычисляется — есть значение, значит руками.
+   */
+  weightKg?: number | null
   /** File IDs to attach (replaces existing) */
   fileIds?: string[]
 }
@@ -438,7 +455,24 @@ export interface DeficitPatchPayload {
 
 // ─── Stock Audit Entry ──────────────────────────────────────────────────────
 
+/**
+ * One recorded change, addressed by `id` and never by its place in the list.
+ *
+ * A position always names something, so a stale one deletes whatever slid into
+ * it — silently. That happens without any concurrency at all: delete one entry
+ * and every later position in the same log shifts under the rows still on
+ * screen. The order card met this first and answered it the same way
+ * (`OrderAuditEntry`, `types/order.ts`); the other eight entities follow it here,
+ * so the whole system addresses a record the same way, and the audit feed can
+ * name a row as entity type + entity id + entry id.
+ *
+ * The id is unique inside its own log, like an order line id and for the same
+ * reason: the record is reached through its entity's path,
+ * `DELETE /api/<entity>/:id/audit/:entryId`. The prefix says which kind of
+ * entity the log belongs to, so a row in the merged feed can be read on sight.
+ */
 export interface StockAuditEntry {
+  id: string
   timestamp: string
   user: TranslatedString
   userInitials: string
@@ -446,6 +480,16 @@ export interface StockAuditEntry {
   oldValue: string
   newValue: string
 }
+
+/**
+ * An entry as written in a mock seed file — everything but the id.
+ *
+ * The seeds carry no ids: 294 of them exist across eight files, and typing them
+ * out by hand would be 294 chances to repeat one. `sealAuditIds` assigns them
+ * when the store is built, which is also what a real backend does with a
+ * generated column.
+ */
+export type StockAuditSeed = Omit<StockAuditEntry, 'id'>
 
 // ─── Batch Status Aggregate (Агрегированные данные по статусам партии) ──────
 

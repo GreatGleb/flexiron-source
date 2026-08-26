@@ -16,13 +16,13 @@ import type { TranslatedString } from '@/types/i18n'
 import '@styles/admin/components/_entity-card-layout.css'
 
 import '@styles/admin/warehouse_list.css'
+import { isEnabled } from '@/config/featureFlags'
+import type { FeatureFlagKey } from '@/types/features'
 
 const { t, locale } = useI18n()
 const toast = useToast()
 const route = useRoute()
 const router = useRouter()
-
-const VALID_TABS = ['profile', 'company', 'finance', 'units', 'order-statuses'] as const
 
 useHead({
   title: () => `Flexiron — ${t('settings.title')}`,
@@ -54,7 +54,13 @@ const {
   updateProfile,
 } = useSettings()
 
-const SETTINGS_TABS: { key: string; path: string; labelKey: string; icon: string }[] = [
+const SETTINGS_TABS: {
+  key: string
+  path: string
+  labelKey: string
+  icon: string
+  flag?: FeatureFlagKey
+}[] = [
   {
     key: 'profile',
     path: '/admin/settings/profile',
@@ -80,7 +86,28 @@ const SETTINGS_TABS: { key: string; path: string; labelKey: string; icon: string
     labelKey: 'settingsTabs.statuses',
     icon: 'list-status',
   },
+  {
+    key: 'logs',
+    path: '/admin/settings/logs',
+    labelKey: 'settingsTabs.logs',
+    icon: 'file-text',
+    flag: 'settingsAuditLog' as FeatureFlagKey,
+  },
 ]
+
+/**
+ * Which tab paths exist, derived from the tabs themselves.
+ *
+ * This was a second hardcoded list, and it did what second lists do: a tab added
+ * to `SETTINGS_TABS` rendered, and then `onMounted` redirected away from it,
+ * because the other list had never heard of it.
+ */
+const VALID_TABS: readonly string[] = SETTINGS_TABS.map((tab) => tab.key)
+
+/** Tabs whose feature flag is on — a tab to a route the guard would refuse is a dead end. */
+const VISIBLE_SETTINGS_TABS = computed(() =>
+  SETTINGS_TABS.filter((tab) => !tab.flag || isEnabled(tab.flag)),
+)
 
 const activeTab = computed(() => {
   const match = route.path.match(/\/admin\/settings\/(.+)/)
@@ -224,6 +251,7 @@ const UOM_CATEGORIES: { value: UomCategory; label: string }[] = [
   { value: 'quantity', label: t('settingsUom.category_quantity') },
   { value: 'density', label: t('settingsUom.category_density') },
   { value: 'thickness', label: t('settingsUom.category_thickness') },
+  { value: 'time', label: t('settingsUom.category_time') },
 ]
 
 const uomOptions = computed(() =>
@@ -246,7 +274,7 @@ onMounted(() => {
   load()
   // Ensure we always land on a valid tab route
   const currentTab = route.path.match(/\/admin\/settings\/(.+)/)?.[1]
-  if (!currentTab || !(VALID_TABS as readonly string[]).includes(currentTab)) {
+  if (!currentTab || !VALID_TABS.includes(currentTab)) {
     router.replace('/admin/settings/profile')
   }
   document.addEventListener('click', handleStatusColorClickOutside)
@@ -476,7 +504,7 @@ provide('resetAndCloseStatusModal', resetAndCloseStatusModal)
     <template v-else>
       <div class="warehouse-tabs" data-test="settings-tabs">
         <button
-          v-for="tab in SETTINGS_TABS"
+          v-for="tab in VISIBLE_SETTINGS_TABS"
           :key="tab.key"
           class="warehouse-tab"
           :class="{ active: activeTab === tab.key }"

@@ -57,7 +57,10 @@ function lineOf(orderId: string, lineId: string): OrderItem {
 
 function stockOf(orderId: string, lineId: string): number {
   const line = lineOf(orderId, lineId)
-  return line.allocations.reduce((sum, a) => sum + (batchById(a.batchId!)?.quantityRemaining ?? 0), 0)
+  return line.allocations.reduce(
+    (sum, a) => sum + (batchById(a.batchId!)?.quantityRemaining ?? 0),
+    0,
+  )
 }
 
 describe('partial returns — the shelf', () => {
@@ -288,9 +291,11 @@ describe('partial returns — what the card reads', () => {
     })
 
     const plan = mockPlanReturn(ctx.order.id).find((l) => l.lineId === ctx.item.id)!
-    expect({ shipped: plan.shipped, returned: plan.alreadyReturned, left: plan.returnable }).toEqual(
-      { shipped: 4, returned: 1, left: 3 },
-    )
+    expect({
+      shipped: plan.shipped,
+      returned: plan.alreadyReturned,
+      left: plan.returnable,
+    }).toEqual({ shipped: 4, returned: 1, left: 3 })
   })
 
   it('a fully returned line drops out of the plan', () => {

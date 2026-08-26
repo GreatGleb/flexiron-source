@@ -14,8 +14,8 @@ Rules collected from real bugs during `demo/` → `frontend_vue/` migration. Eac
 
 - **Thoroughness over speed.** Before completing a task — Grep all callers related to the change (router-link, event names, class names, props). "Skimming" already caused bugs.
 - **Verify against original in details.** Before implementing logic from `demo/admin/*.html` or `demo/assets/js/admin/*.js` — read the original entirely, don't rely on memory.
-- **Phase verification ≠ only typecheck+lint.** Static analysis doesn't catch: missing components, wrong string literals (route names, i18n keys), visual regressions, outdated **specs in `toDo/admin-api-contract.md`** and meta-pages (ScreensPage, README). Final check = plan→files→typecheck→lint→contract sync→browser.
-- **NEVER use `git restore` or `git checkout` on tracked files.** These commands permanently destroy uncommitted changes in the working tree. If a file needs to be reverted to its committed state for any reason, use `git show HEAD:<path>` to read the committed version, then manually apply only the needed parts. If uncommitted changes were accidentally destroyed, stop immediately and use `git reflog` + `git show` to attempt recovery before any further writes.
+- **Проверка фазы ≠ typecheck+lint.** Статический анализ не ловит: отсутствующие компоненты, неверные строковые литералы (имена роутов, ключи i18n), визуальные регрессии, устаревшие спеки в `roo_code/roo-context/03-api-contract.md` и мета-страницы (ScreensPage, README). Готово = чистый свип цикла проверок из [`verify.md`](verify.md), а не зелёный typecheck.
+- **`git restore` / `git checkout -- <файл>` запрещены.** Уничтожают несохранённое без следа; в `.claude/settings.json` они в deny-листе. Прочитать закоммиченное — `git show HEAD:<путь>` и применить руками только нужное. Выкинуть неудачную правку — `git stash push -u -m "<причина>"`: работа остаётся достаётся. Если несохранённое всё же потеряно — остановиться и пробовать `git reflog` + `git show` до любых новых записей.
 
 ---
 
@@ -51,14 +51,60 @@ Rules collected from real bugs during `demo/` → `frontend_vue/` migration. Eac
 
 ---
 
+## Слои тестов — какой для чего
+
+| Слой | Чем | Что проверяет | Цена |
+|---|---|---|---|
+| Юнит | vitest, окружение `node` | чистые функции домена: цена, раскрой, округление | миллисекунды |
+| Компонентный | vitest + `@vue/test-utils`, окружение `happy-dom` | один компонент: пропс → разметка, действие → эмит, `v-model` | ~0.5 с |
+| Браузерный | Playwright | путь целиком: роутинг, права, моки, вёрстка | минуты |
+
+Выбор слоя: проверяемое выражается функцией — юнит. Нужен отрисованный компонент, но не нужны
+роутер, стор и сеть — компонентный. Нужен весь путь пользователя — Playwright.
+
+**Компонентных тестов в проекте сегодня ноль.** Всё, что «отрисовать компонент и проверить эмит»,
+проверяется шестнадцатиминутным браузерным прогоном либо не проверяется вовсе. Инструмент поставлен
+2026-08-25, слой пуст — заполнять по мере того, как трогаются компоненты.
+
+Как писать: файл `<Имя>.spec.ts` рядом с компонентом (`vitest.config.ts` берёт `src/**/*.spec.ts`),
+**первой строкой прагма окружения**:
+
+```ts
+// @vitest-environment happy-dom
+import { mount } from '@vue/test-utils'
+```
+
+Прагма не украшение: по умолчанию в конфиге стоит `environment: 'node'`, и без неё `mount()` падает
+с `ReferenceError: document is not defined` — проверено 2026-08-25.
+
+И то же правило инверсии, что и везде (линза Л9 в [`verify.md`](verify.md)): сломай проверяемое
+поведение и убедись, что тест краснеет. Компонентный тест, утверждающий «отрисовалось без ошибок»,
+— это питфолл #64 в новой обёртке: ждали элемент вместо того, что должно было в нём оказаться.
+
+---
+
 ## Contract-first (new endpoint / page refactoring)
 
-Lesson learned: adding `SupplierCreatePage` with `SupplierCardPage` refactoring (extract `SupplierFormSections`) — missed (a) updating `toDo/admin-api-contract.md` ("UI component — separate iteration" remained after implementation), (b) syncing client validation with contract (validate checked only `company`, contract required `company + email`, server would reject with 422). Typecheck+lint doesn't catch this.
+Lesson learned: adding `SupplierCreatePage` with `SupplierCardPage` refactoring (extract `SupplierFormSections`) — missed (a) updating `roo_code/roo-context/03-api-contract.md` ("UI component — separate iteration" remained after implementation), (b) syncing client validation with contract (validate checked only `company`, contract required `company + email`, server would reject with 422). Typecheck+lint doesn't catch this.
 
 **Rule: contract read → code → contract write-back.**
 
+> **Ссылка на документ в инструкции ничем не проверяется.** Тест падает, а «прочитай
+> контракт по пути X» не падает никогда: файл переименовали — инструкция молча посылает в
+> никуда. Так и вышло: `toDo/admin-api-contract.md` стал
+> `toDo/archive-admin-api-contract.md`, а двадцать восемь ссылок в четырёх скиллах остались
+> на прежнее имя. Правило: переименовал или перенёс файл в `roo_code/` или `toDo/` — сразу
+> `grep` по старому имени и правь ссылки, потому что ничто другое об этом не скажет.
+>
+> **Где контракт лежит.** Живой — `roo_code/roo-context/03-api-contract.md` (2745 строк),
+> его дописывает каждая задача. У заказов есть свой:
+> `roo_code/plans/orders/orders-backend-contract.md`. А `toDo/admin-api-contract.md`,
+> на который эти скиллы ссылались в пятнадцати местах, **не существует** — файл
+> переименован в `toDo/archive-admin-api-contract.md` и с тех пор архив: не читать как
+> действующий и не дописывать.
+
 **Read-first** — before writing composable/service/validate for endpoint:
-- Read corresponding section of `toDo/admin-api-contract.md` (search by endpoint path)
+- Read corresponding section of `roo_code/roo-context/03-api-contract.md` (search by endpoint path)
 - Required fields, response shape, save pattern (clean-slate vs quick-action), idempotency, error codes — taken **from there**, not from UX intuition. Client validation ≥ server validation (never weaker).
 
 **Write-back** — after implementing endpoint UI, update contract:
@@ -69,15 +115,25 @@ Lesson learned: adding `SupplierCreatePage` with `SupplierCardPage` refactoring 
 **Refactor checklist** (task = new page + extract shared component from existing):
 1. Grep all callers of removed/renamed exports (services, composables, components) — including **template usage**, which TypeScript doesn't always catch
 2. In old page: remove unused `import`s and utility functions after extraction
-3. Update `toDo/admin-api-contract.md` if endpoint signature changed
+3. Update `roo_code/roo-context/03-api-contract.md` if endpoint signature changed
 4. If route structure changes — check `ScreensPage.vue`, `roo_code/roo-context/frontend-vue-quickref.md` (patterns, SOLID, DDD), README
-5. Done ≠ typecheck+lint. Done = (1-4) + pitfalls #1-#28 + contract sync + browser walk-through golden path
+5. Готово ≠ typecheck+lint. Готово = (1–4) + чистый свип цикла из [`verify.md`](verify.md) + contract sync
 
 **Trigger moment**: as soon as I notice task = "new page + extract from old" / "new endpoint caller" — **immediately** read contract **before** plan, not after.
 
 ---
 
 ## Pitfalls (complete list)
+
+> Питфоллов сейчас **68**. Это единственное место, где их считают: ссылки из ROO.md и
+> других скиллов говорят «все питфоллы» без числа. Десять копий этого числа дважды за
+> двое суток указывали мимо — сначала отправляли останавливаться на #33, потом на #67
+> через один добавленный питфолл. Добавил новый — правь только эту строку.
+>
+> **И допиши его номер в линзу.** Цикл проверок гоняет линзы Л1–Л10 из [`verify.md`](verify.md),
+> а не этот список. Питфолл, не упомянутый ни в одной линзе, не проверяется никогда — он
+> остаётся текстом, который прочитают, только если откроют файл. Какая линза какому классу
+> соответствует — таблица целей в [`update-skills.md`](update-skills.md).
 
 ### 1. `@` in translations breaks vue-i18n
 `name@company.com` → `SyntaxError: Invalid linked format`. **Fix:** escape `name{'@'}company.com`.
@@ -110,7 +166,7 @@ Glass effect (`backdrop-filter: blur`) on sidebar/topbar works only when backgro
 `<router-link :to="{ name: 'X' }">` silently fails if `X` not in router. **Fix:** before using — verify against `src/router/index.ts`. TypeScript doesn't catch this.
 
 ### 11. Typecheck + lint ≠ full phase verification
-Static analysis doesn't catch: missing components, wrong string literals, visual regressions. **Fix:** checklist plan→files→typecheck→lint→browser. Don't declare phase done after only typecheck.
+Статический анализ не ловит: отсутствующие компоненты, неверные строковые литералы, визуальные регрессии. **Fix:** цикл проверок из [`verify.md`](verify.md) — машинная приёмка плюс линзы, выход по чистому свипу. Фаза не объявляется готовой по одному typecheck.
 
 ### 12. Generic class names break local styles
 `.hidden { display: none !important }` in `suppliers_list.css` — global. When using `:class="{ hidden }"` locally — global display:none overrides local opacity/dashed. **Fix:** for state modifiers — BEM-style: `.is-hidden`, `.is-active`, `.has-error`. Before `:class="{ X }"` → `grep -rn "^\.X" demo/assets/css/` to confirm name is free.
@@ -601,7 +657,7 @@ Always consider whether a section title should reflect its context (parent entit
 
 **Причина:** Developers forget to run `npx vue-tsc --noEmit` after making changes. The IDE may not catch all type errors, especially with complex generics or Vue template types.
 
-**Решение:** After every prompt/code change, run `npx vue-tsc --noEmit` to verify types. Add this as a mandatory step in the development workflow. If the project has a `typecheck` script in package.json, use that.
+**Решение:** после каждой правки — машинная приёмка целиком: `npm run verify`. Одного `vue-tsc` мало: питфолл #67 (многооператорный `@click`) проходит typecheck и lint, а ломается на prettier — и именно поэтому форматирование входит в скрипт, а не запускается отдельно «когда вспомню».
 
 ### 🔥 #48 — Feature flag registration in all 3 required files
 
@@ -863,8 +919,346 @@ The `name-link` class is defined in each page's CSS and inherits text color (`co
 
 ---
 
+### 🔥 #64 — E2E: ждать ПРИШЕДШИЕ ДАННЫЕ, а не элемент и не тишину в сети
+
+**Симптом:** тест проходит поодиночке и падает в полном прогоне; каждый раз падает
+что-то своё; снимок расходится с базлайном так, будто «поехала вёрстка», хотя вёрстку
+никто не трогал; ассерт видит не то значение — сумму другого заказа, пустую панель,
+отсутствующую строку.
+
+**Причина:** ждали не то.
+
+`waitForLoadState('networkidle')` у нас **врёт по построению**: под моками сетевого
+запроса нет вовсе — `services/mocks/index.ts` отвечает из `setTimeout`. «Грузиться
+нечему» становится правдой раньше, чем появятся данные. Замерено: в момент networkidle
+панель графиков дашборда содержит **ноль** строк-баров, а страница конфига карточки
+поставщика — вообще ничего.
+
+`waitForSelector` / `toBeVisible` на контейнере — та же ошибка помельче: элемент
+существует и пуст. `.glass-panel` виден и когда рисует скелет. **Исключение одно** — там,
+где ноль законный ответ (пустое состояние), контейнер и есть признак; см. ниже «Где ноль —
+законный ответ», вместе с границей этого исключения.
+
+**Почему это выглядит как чужая поломка:** пустая панель ровно той же высоты, что
+полная (замерено: 325.875px в обоих состояниях). Снимок, снятый в этот момент, — не
+очевидно пустая картинка, а пиксельный дифф, который читается как регресс вёрстки в
+коде, которого никто не касался. Так теряют дни: ищут причину в CSS, которого не меняли.
+
+**Четыре случая одной сессии:**
+
+| Тест | Что прочитал | Что это было |
+|---|---|---|
+| `orders.spec.ts:98` | сумму 5930.69 | строка ORD-2026-100 из **неотфильтрованной** таблицы |
+| лента логов, фильтр по сущности | «Order» | таблица до применения фильтра |
+| `dashboard › visual › charts panel` | пустую панель | данные приходят на ~670 мс позже |
+| `supplier-card-config › flag OFF` | ничего | страница ещё не отрисовалась |
+
+**Решение:** дождаться значения, которое **может прийти только из новых данных**.
+
+```ts
+// ❌ ждём тишину в сети — она наступает раньше данных
+await page.goto(url)
+await page.waitForLoadState('networkidle')
+await expect(row.locator('.total')).toHaveText('...')
+
+// ❌ ждём элемент — он существует пустым
+await page.waitForSelector('.glass-panel')
+
+// ✅ ждём признак самих данных
+await expect(row).toContainText('ORD-2026-005')        // строка про нужный заказ
+await expect(firstKind).toHaveText('Batch')            // лента применила фильтр
+await panel.locator('.bar-chart-row').first().waitFor() // в графике есть бары
+```
+
+**Общий пол уже есть:** `tests/e2e/helpers/ready.ts` → `waitForDataReady(page)` ждёт,
+пока мок-слой ответит на всё, о чём его спросили (счётчик `window.__mockPending`,
+публикуется из `delay()`), и пока не исчезнут скелеты. Он вшит в `navigateToAdmin`,
+`switchLanguage`, `setFeatureFlag`, `setFlag`, `stabilizeForSnapshot`.
+
+Это **пол, а не потолок**: helper знает, что данные пришли вообще, но не что пришли
+именно те, о которых тест. Утверждение по-прежнему должно ждать своё значение.
+
+**Затихший мок — ещё НЕ признак пришедших данных.** Мок стоит ВЫШЕ отрисовки: он ответил,
+Vue перерисует на следующем тике, и снимок, снятый между этими двумя моментами, пуст.
+
+- для **навигации** `waitForDataReady` достаточно: он отвечает на «сервер ответил и скелета
+  нет», а разметки маршрута до этого не существовало вовсе
+- для **внутристраничного перехода** (пагинация, фильтр, смена вкладки) — нет: разметка уже
+  есть, старое содержимое на месте, мок затих, а новых строк ещё нет. Ожидание вернётся, и
+  снимок возьмётся со старой страницы или пустым
+- признак для таких случаев — **значение, которое меняется только вместе с отрисовкой новых
+  данных**. Рабочий пример: счётчик страниц «26-50 of 179» в `Pagination` — он меняется ровно
+  тогда, когда новая страница нарисована:
+
+```ts
+// ❌ мок затих — но строки те же, что были
+await next.click()
+await waitForDataReady(page)
+const labels = await rows.evaluateAll(...)
+
+// ✅ ждём значение, которое без новых данных не изменится
+const shown = await info.innerText()          // «26-50 of 179»
+await next.click()
+await expect(info).not.toHaveText(shown)
+const labels = await rows.evaluateAll(...)
+```
+
+**Где ноль — законный ответ, признаком служит КОНТЕЙНЕР, а не строка.** У пустого
+состояния ждать первую строку нельзя — её не будет никогда, и тест повиснет. Ждать надо то,
+что рисуется и при нуле: сама секция, пустое состояние, заголовок таблицы. «Данные пришли»
+там означает «страница ответила», а не «строки появились».
+
+**Но у этого исключения есть граница, и она стоила падения.** Контейнер годится признаком
+только при ПЕРВОЙ загрузке — там его до данных нет вовсе. При внутристраничном переходе
+(фильтр, пагинация, смена вкладки) он не годится: контейнер существует и ДО перехода, со
+старым содержимым, и ожидание удовлетворяется прежними строками. Признак там обязан быть
+таким, какого до перехода быть НЕ МОЖЕТ.
+
+Пример — полный прогон, `clients.spec.ts`, фильтр «inactive». Ожидание «строки или пустое
+состояние» было удовлетворено **25 нефильтрованными** строками, `rows.count()` прочитал их,
+а бейджей отфильтрованный список дал **14**: `Expected 25, Received 14`. Рабочий признак
+здесь — отсутствие АКТИВНЫХ бейджей: до фильтра они есть, после нет ни одного, и пустой
+список признака не портит, потому что непустота проверяется отдельно.
+
+**У утверждения о НАБОРЕ собранных значений обязана быть проверка непустоты.** Пустой снимок
+иначе проходит как успех: цикл по страницам молча пропускает страницу, набор оказывается
+беднее, чем обещает имя теста, а тест зелёный.
+
+```ts
+expect(labels.length).toBeGreaterThan(0)      // страница отдала хоть что-то
+for (const label of labels) seen.add(label)
+```
+
+Стоимость пропуска измерена: тест «every movement type is a label» собирал **7 подписей из
+10** — редкие типы (`storage` 1 движение, `offcut` 3, `return-to-supplier` 1) выпадали вместе
+с непрочитанной страницей. Сломанный перевод любого из трёх проходил мимо теста, названного
+«каждый тип движения имеет подпись».
+
+**Состояние ожидания сбрасывается на КАЖДЫЙ вызов.** Если ожидание помнит «трафик уже был» с
+прошлого раза, то второй вызов на той же странице вернётся мгновенно — а внутри SPA любой
+вызов, кроме первого, второй. И то, чем ожидание считает трафик, должно быть **монотонным
+счётчиком вызовов**, а не числом запросов в полёте: запрос, успевший начаться и закончиться
+между двумя опросами, в полёте не виден ни в один из моментов.
+
+**Проверка от обратного обязательна:** правку ожидания легко принять на веру, потому
+что «стало зелёно». Зелёным оно было и до того — через раз. Докажи, что старое
+ожидание падает: под `Emulation.setCPUThrottlingRate` (CDP) задержка данных
+растягивается детерминированно, и снимок со старым ожиданием краснеет, а с новым —
+проходит **против того же закоммиченного базлайна**. Совпадение с существующим
+базлайном и есть доказательство, что вёрстка не менялась; перезапись снимка — это
+последний шаг, а не первый.
+
+---
+
+### 🔥 #65 — Инъекция сбоя в мок — это СОСТОЯНИЕ, а не мгновение
+
+**Симптом:** тест «страница показывает ошибку» проходит поодиночке и падает в полном
+прогоне, редко — раз в десять-двенадцать прогонов. Ассерт не находит состояние ошибки,
+хотя мок должен был выбросить исключение.
+
+**Причина:** флаг, который стирает себя при первом чтении.
+
+```ts
+// ❌ одноразовый сбой — гонка по построению
+if (localStorage.getItem('test_mock_force_error') === 'true') {
+  localStorage.removeItem('test_mock_force_error')   // достанется первому дошедшему
+  throw new Error('SIMULATED_MOCK_ERROR')
+}
+```
+
+Ошибку получает тот, кто дошёл до мока первым, — а кто дойдёт первым, тест назвать не
+может. Дальше два исхода, оба плохие: конкурент проглотил ошибку (его `catch` пустой)
+или проглотил и следом успешно перезапросил, обнулив `error` из-под ассерта.
+
+**Почему у нас конкурент есть всегда:** композаблы уровня модуля — синглтоны.
+`useNotifications`, `useAuth`, `useSidebar`, `useSettings` держат состояние и вотчеры на
+уровне модуля, то есть общие для всех, кто их вызвал. Колокольчик в шапке
+(`NotificationDropdown` внутри `AdminTopbar`) спрашивает уведомления на **каждой**
+админской странице. То есть у страницы уведомлений соперник за одноразовый флаг есть
+всегда, и «первый вызвавший» зависит от порядка монтирования и задержек, а не от теста.
+
+**Решение:** флаг держится, пока тест его не снимет.
+
+```ts
+// ✅ сбой — состояние: его получает каждый спросивший
+if (localStorage.getItem('test_mock_force_error') === 'true') {
+  throw new Error('SIMULATED_MOCK_ERROR')
+}
+```
+
+```ts
+// в тесте: снять после проверки
+await expect(page.locator('[data-test="notifications-error"]')).toBeVisible()
+await page.evaluate(() => localStorage.removeItem('test_mock_force_error'))
+```
+
+Состояние ошибки перестаёт быть мгновением: никакой последующий успех не уберёт его, и
+не важно, кто спросил мок первым. Проверено: 12/12 при `--repeat-each=12` против 5/6 до
+правки.
+
+**Родство с #64:** это одна и та же болезнь. Там тест зависел от момента, когда придут
+данные, здесь — от момента, когда сбой будет прочитан. Оба раза тест держится за момент,
+которым не управляет; лечится оба раза тем, что момент превращают в проверяемое
+состояние — пришедшие данные в #64, залипший флаг здесь.
+
+**Где искать:** `grep -rn "test_mock\|force_error\|SIMULATED" src/services/mocks/`.
+На 2026-08-18 такой крючок в проекте один — в `mocks/notifications.ts`.
+
+---
+
+### 🔥 #66 — Утверждение об ОТСУТСТВИИ доказывает что-то только там, где присутствие было возможно
+
+**Симптом:** тест «после удаления записи нет» зелёный с самого начала и остаётся зелёным,
+если удаление вообще выключить. Ломается он не тогда, когда ломается приложение, а когда
+меняются данные — например, записи переехали на первую страницу.
+
+**Причина:** `toHaveCount(0)` верно по слишком многим причинам сразу.
+
+Два механизма, оба найдены в этом проекте на одном тесте:
+
+**1. Полная загрузка страницы откатывает мутацию.** `page.goto`, `page.reload`,
+`navigateToAdmin` — это перезагрузка приложения, а моки живут в модулях: сторы
+пересобираются из сидов. Значит порядок «удалили → полная загрузка → проверили, что нет»
+проверяет сид, а не удаление. Удаление к моменту проверки отменено.
+
+```ts
+// ❌ мутация, потом перезагрузка — проверять уже нечего
+await deleteRowInFeed()
+await navigateToAdmin(page, '/admin/settings/logs')
+await expect(page.locator(`[data-row-key="${key}"]`)).toHaveCount(0)  // всегда true
+
+// ✅ внутри SPA: клик по ссылке и история, состояние модулей живо
+await feedRow.getByTestId('audit-log-entity-link').click()
+await page.goBack()
+await expect(page.locator(`[data-row-key="${key}"]`)).toHaveCount(0)
+```
+
+**2. Пагинация.** Строки нет на экране и тогда, когда она есть в данных, но лежит на
+третьей странице. Проверять отсутствие нужно там, где присутствие было бы видно: в том же
+отфильтрованном виде, на той же странице, где строка только что была.
+
+Оба механизма прятались за одним тестом «удалил в карточке — исчезло в ленте». Он был
+зелёным месяц: удаление откатывалось перезагрузкой, а строка и так не попадала на первую
+страницу, потому что записи партий отставали на полтора года. Как только логи поехали по
+демо-часам, строки поднялись наверх — и тест впервые покраснел, ничего не сломав.
+
+**Решение:**
+- ходить по приложению так, как ходит пользователь: ссылками и историей, а не `goto`
+- утверждать отсутствие в области, где присутствие возможно и видимо
+- **доказывать инверсией**: сломай механизм, который тест якобы проверяет (дай ленте
+  собственную копию данных), и убедись, что он краснеет. Зелень сама по себе ничего
+  не значит — она была зелёной и до того
+
+**Родство с #64 и #65:** один класс. #64 — тест ждёт не тот признак, #65 — тест зависит
+от момента чтения флага, #66 — тест проверяет отсутствие там, где присутствие и не могло
+проявиться. Во всех трёх тест проходит не по той причине, которую заявляет, и во всех трёх
+единственная защита — инверсия.
+
+---
+
+### 🔥 #67 — Многооператорный `@click` в шаблоне: prettier ломает, а typecheck и lint молчат
+
+**Симптом:** кнопка не работает. Тест выглядит как «локатор не нашёлся» или «клик ничего не
+сделал», страница пустая. `npm run typecheck` чистый, `npm run lint` чистый.
+
+**Причина:** два вызова в одном inline-обработчике держатся на разделителе, а prettier его
+убирает при форматировании:
+
+```html
+<!-- ❌ написано так -->
+@click="clearBatch(); loadBatches()"
+
+<!-- ❌ prettier переформатировал — точки с запятой нет, выражение сломано -->
+@click="
+  clearBatch()
+  loadBatches()
+"
+```
+
+Vue парсит значение атрибута как ОДНО JS-выражение, и после переноса получает
+`clearBatch() loadBatches()`.
+
+**Где это ловится (проверено на этом проекте, три команды подряд):**
+
+| Команда | Результат |
+|---|---|
+| `npm run typecheck` (`vue-tsc --noEmit`) | **exit 0** — не ловит |
+| `npm run lint` (`eslint src/`) | **exit 0** — не ловит |
+| `npx vite build` | `SyntaxError: [plugin vite:vue] … Error parsing JavaScript expression`, exit 1 |
+| dev-сервер | 500 Internal server error на этот `.vue`, в консоли Playwright — только `[WebServer]` |
+
+То есть ошибка приходит **исключительно от компилятора шаблонов** — на сборке или при
+запросе модуля. Статические проверки, на которые мы обычно опираемся, её не видят.
+
+**Осторожно с воспроизведением:** если вынести обработчик в функцию и оставить её
+неиспользованной, `vue-tsc` покраснеет — но на `TS6133 declared but never read`, а не на
+разборе шаблона. Легко решить, что «typecheck ловит», и записать неверный механизм.
+
+**Решение:** любой обработчик из более чем одного вызова — **функция в `<script setup>`**.
+Не ради красоты: inline-версия держится на символе, который форматтер вправе убрать.
+
+**Диагностика, когда «кнопка не работает» в e2e:** первым делом ищи в выводе Playwright
+строки `[WebServer]` — ошибка компиляции лежит там, а не в ассерте, который покраснел.
+
+---
+
+### 🔥 #68 — Утверждение, которое устраивает БЕЗДЕЙСТВИЕ
+
+**Отличается от #64–#66 способом обнаружения.** Те ищутся инверсией, то есть прогоном:
+сломай механизм и посмотри, покраснеет ли. Этот виден глазами, без запуска.
+
+**Правило:** спроси у утверждения — «выполняется ли оно, если действие НЕ произошло
+вовсе?» Если да, утверждение не проверяет действие.
+
+**Пример из этого проекта** (`products.spec.ts`, тест «search narrows results»):
+
+```ts
+const totalBefore = await rows.count()      // 25
+await input.fill(searchTerm)
+await page.waitForTimeout(300)
+const countAfter = await rows.count()
+expect(countAfter).toBeGreaterThan(0)
+expect(countAfter).toBeLessThanOrEqual(totalBefore)   // ❌ 25 <= 25 — зелено
+```
+
+Фильтр не применился — строк по-прежнему 25 — и тест проходит, потому что равенство его
+устраивает. Здесь были и часы (300 мс), и чтение до отрисовки, но дело не в них: **даже с
+идеальным ожиданием этот тест ничего не утверждал**. Ожидание починить можно, построение —
+нет.
+
+**Формы, которым не верить с ходу:**
+
+| форма | чем удовлетворяется без действия |
+|---|---|
+| `<=`, `>=`, `toBeLessThanOrEqual`, `toBeGreaterThanOrEqual` | «не изменилось» входит в диапазон |
+| `toContain` / `toContainText` на надмножестве | искомое найдётся и в нефильтрованной выдаче |
+| `not.toBeNull`, `toBeTruthy` | значение и не было null — проверено ничто |
+| `toHaveCount(0)` там, где ноль возможен по другой причине | см. #66: пустой список, другая страница, неотрисованный ещё экран |
+| `toBeVisible` на элементе, который виден и до действия | видимость не менялась |
+
+**Приём:** вместо одного расплывчатого утверждения — два раздельных факта:
+
+```ts
+// ✅ 1) действие произошло: длина изменилась
+await expect(rows).not.toHaveCount(totalBefore)
+// ✅ 2) произошло ПРАВИЛЬНОЕ действие: в выдаче нет строк без искомого
+const names = await rows.evaluateAll((els) => els.map((el) => el.querySelector('td')!.textContent!.trim()))
+expect(names.filter((n) => !n.includes(searchTerm))).toEqual([])
+```
+
+Первое отличает применённый фильтр от неприменённого, второе — правильный от любого.
+Порознь каждое слабее: длина меняется и от случайной перезагрузки, а «все строки содержат
+искомое» верно и для выдачи из одной строки, попавшей туда по другой причине.
+
+**Родство:** #64 — ждали не тот признак; #65 — сбой был мгновением, а не состоянием;
+#66 — отсутствие проверяли там, где присутствие было невозможно; #68 — утверждение
+сформулировано так, что бездействие его устраивает. Первые три ловятся инверсией,
+последний — чтением, поэтому его стоит искать глазами на код-ревью, а не ждать прогона.
+
+---
+
 ## Applying this skill
 
 When starting a task from trigger list (see description above) — **read this skill completely** before writing code. If task not from list — `Read` only the needed section.
 
-After completing task — run through checklist: pitfalls #1–#62, save mode (if form), HTTP method (if new endpoint).
+После задачи — цикл проверок из [`verify.md`](verify.md): машинная приёмка плюс линзы, выход по чистому свипу. Отдельно сверить: save mode (если форма) и HTTP-метод (если новый эндпоинт) — этого в линзах нет.

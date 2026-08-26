@@ -3,7 +3,7 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 
 import '@styles/admin/components/_tag-input.css'
 
-export type TagOption = string | { value: string; label: string }
+type TagOption = string | { value: string; label: string }
 
 const props = defineProps<{
   modelValue: string[]

@@ -1,6 +1,6 @@
 ---
 name: create-api-feature
-description: Generate a complete FastAPI backend feature following Modular Monolith + Vertical Slice Architecture — from schemas → repository → domain → action, within an existing module.
+description: Бэкенд-фича FastAPI по Modular Monolith + Vertical Slice: schemas → repository → domain → action внутри существующего модуля. Приёмка — импорт-проверка, миграции и линзы Б1–Б5 из verify.md.
 user_invocable: true
 arguments:
   - name: module
@@ -121,8 +121,8 @@ If business logic is complex, **DECOMPOSE** into additional files and subfolders
    - The `internal_api/interface.py` for this module (if it already exists)
    - Existing feature examples in the same module for style consistency
 2. **Analyze** — determine feature pattern (see table below)
-3. **STOP after each file** — wait for confirmation before proceeding
-4. **typecheck** — run `python -c "from app.modules.[module].features.[feature].* import ..."` after each file
+3. **Стопы — по режиму.** Интерактивно: стоп после каждого файла и ожидание подтверждения. Автономно: стопов нет, после каждого файла — импорт-проверка, в конце слайса — линзы Б1–Б5.
+4. **Импорт-проверка после каждого файла** — `python -c "from app.modules.[module].features.[feature].<файл> import ..."`. Это не typecheck: статического анализатора в `backend/` нет вовсе (ни mypy, ни pyright, ни ruff), и называть импорт проверкой типов — врать себе. Что бэкенд проверяет по-настоящему и чего он не проверяет — раздел «Бэкенд: приёмка и линзы Б1–Б5» в [`verify.md`](verify.md)
 5. **ALWAYS create `__init__.py`** in any new package directory with proper `__all__` exports
 6. **Register router** in [`app/main.py`](backend/app/main.py) — import and `app.include_router()`
 
@@ -1266,15 +1266,32 @@ from app.modules.[module].features.[feature].action import router
 print('All layers import OK')
 "
 
-# 2. Static type check (if available)
-cd backend && python -m pyright app/ 2>/dev/null || echo "pyright not configured — skipping"
+# 2. Миграции применяются
+cd backend && alembic upgrade head
 
-# 3. Quick server start (if uvicorn available)
-uvicorn app.main:app --reload
-# Then test:
-# curl http://localhost:8000/api/[domain]
-# curl http://localhost:8000/health
+# 3. Подъём приложения — неблокирующе
+cd backend && uvicorn app.main:app --port 8000 &
+sleep 2 && curl -s http://localhost:8000/health && curl -s http://localhost:8000/api/[domain]
+kill %1
 ```
+
+**Строки `python -m pyright app/ 2>/dev/null || echo "skipping"` здесь больше нет.** Она стояла в
+этом шаге и всегда печатала `skipping`: pyright в проекте не установлен, статического анализа у
+бэкенда нет ни одного. Проверка, которая молча пропускается, хуже отсутствующей — она создаёт вид
+гейта.
+
+**`uvicorn --reload` тоже убран.** С `--reload` процесс не завершается никогда: интерактивно его
+гасит человек, а в автономном прогоне задача висит до конца прогона. Отсюда фоновый запуск и `kill`.
+
+### Линзы
+
+После импорт-проверки — линзы **Б1–Б5** из [`verify.md`](verify.md): изоляция модулей,
+модель ↔ миграция ↔ контракт, мультиарендность (`tenant_id` в каждом запросе), транзакции и N+1,
+контракт наружу. Плюс **Л3**, **Л5**, **Л10** оттуда же.
+
+Тестов в `backend/` нет ни одного, поэтому здесь нет и того, что на фронтенде даёт зелёный прогон:
+единственная приёмка бэкенд-фичи — эти линзы и импорт. Утверждение «фича работает» без пройденных
+линз ничем не подкреплено.
 
 ```
 ⏸ STOP — Step 5: Verification

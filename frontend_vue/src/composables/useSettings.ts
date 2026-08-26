@@ -19,18 +19,19 @@ const defaultSettings: AppSettings = {
   uoms: [],
   conversions: [],
   orderStatuses: [],
-  sectors: [],
+  warehouseMap: null,
   users: [],
   profile: { firstName: '', lastName: '', email: '', phone: '', role: 'owner' },
 }
 
 // ─── localStorage cache helpers ──────────────────────────────────────────
-const CACHE_VERSION = 4 // bump when data shape changes (e.g., new fields)
+const CACHE_VERSION = 5 // bump when data shape changes (e.g., new fields)
 const CACHE_KEY = `flexiron_settings_cache_v${CACHE_VERSION}`
 const LEGACY_CACHE_KEYS = [
   'flexiron_settings_cache',
   'flexiron_settings_cache_v2',
   'flexiron_settings_cache_v3',
+  'flexiron_settings_cache_v4', // до появления warehouseMap
 ] // old keys to purge
 // const CACHE_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
 
@@ -145,6 +146,70 @@ function findUpdated<T extends { id: string }>(
 }
 
 export function useSettings() {
+  /**
+   * Тянет все восемь разделов настроек и раскладывает их по стору, каждый СО СВОИМ типом.
+   * Возвращает имена упавших разделов.
+   *
+   * До 2026-08-26 этот кусок existed в двух копиях — в `load()` и в перезагрузке, — и обе
+   * клали значения через `(settings as Record<string, unknown>)[key] = value` с параллельным
+   * массивом меток. Дыра была с трёх сторон: каст впускал в стор что угодно, из-за чего
+   * десяток страховок вида `settings.currencies ?? []` в композаблах был не перестраховкой,
+   * а необходимостью; соответствие «i-й запрос — i-я метка» держалось на порядке двух
+   * списков и молча разъехалось бы, добавь кто-нибудь запрос без метки; а две копии одного
+   * правила расходятся сами — это линза Л5.
+   */
+  async function fetchAllSections(): Promise<{
+    failed: (keyof AppSettings)[]
+    anySuccess: boolean
+  }> {
+    const [
+      company,
+      constants,
+      orderPermissions,
+      currencies,
+      uoms,
+      conversions,
+      orderStatuses,
+      profile,
+    ] = await Promise.allSettled([
+      settingsService.getCompany(),
+      settingsService.getConstants(),
+      settingsService.getOrderPermissions(),
+      settingsService.getCurrencies(),
+      settingsService.getUoms(),
+      settingsService.getConversions(),
+      settingsService.getOrderStatuses(),
+      settingsService.getProfile(),
+    ])
+
+    const failed: (keyof AppSettings)[] = []
+    let anySuccess = false
+
+    function take<K extends keyof AppSettings>(
+      key: K,
+      result: PromiseSettledResult<AppSettings[K]>,
+    ): void {
+      if (result.status === 'rejected') {
+        failed.push(key)
+        console.warn(`[useSettings] Failed to load "${key}"`)
+        return
+      }
+      settings[key] = result.value
+      anySuccess = true
+    }
+
+    take('company', company)
+    take('constants', constants)
+    take('orderPermissions', orderPermissions)
+    take('currencies', currencies)
+    take('uoms', uoms)
+    take('conversions', conversions)
+    take('orderStatuses', orderStatuses)
+    take('profile', profile)
+
+    return { failed, anySuccess }
+  }
+
   async function load() {
     console.log('[useSettings] load() called — always fetching from API')
     console.log('[useSettings] USE_MOCKS =', import.meta.env.VITE_USE_MOCKS)
@@ -164,41 +229,7 @@ export function useSettings() {
     loading.value = true
     error.value = null
 
-    const allResults = await Promise.allSettled([
-      settingsService.getCompany(),
-      settingsService.getConstants(),
-      settingsService.getOrderPermissions(),
-      settingsService.getCurrencies(),
-      settingsService.getUoms(),
-      settingsService.getConversions(),
-      settingsService.getOrderStatuses(),
-      settingsService.getProfile(),
-    ])
-
-    const labels: (keyof AppSettings)[] = [
-      'company',
-      'constants',
-      'orderPermissions',
-      'currencies',
-      'uoms',
-      'conversions',
-      'orderStatuses',
-      'profile',
-    ]
-    let anySuccess = false
-
-    allResults.forEach((result, i) => {
-      const key = labels[i]!
-      if (result.status === 'fulfilled') {
-        ;(settings as Record<string, unknown>)[key] = (
-          result as PromiseFulfilledResult<unknown>
-        ).value
-        anySuccess = true
-        console.log(`[useSettings] "${key}" loaded successfully`)
-      } else {
-        console.warn(`[useSettings] Failed to load "${key as string}"`)
-      }
-    })
+    const { anySuccess } = await fetchAllSections()
 
     if (!anySuccess) {
       // All requests failed — don't cache
@@ -233,40 +264,7 @@ export function useSettings() {
     loading.value = true
     error.value = null
 
-    const allResults = await Promise.allSettled([
-      settingsService.getCompany(),
-      settingsService.getConstants(),
-      settingsService.getOrderPermissions(),
-      settingsService.getCurrencies(),
-      settingsService.getUoms(),
-      settingsService.getConversions(),
-      settingsService.getOrderStatuses(),
-      settingsService.getProfile(),
-    ])
-
-    const labels: (keyof AppSettings)[] = [
-      'company',
-      'constants',
-      'orderPermissions',
-      'currencies',
-      'uoms',
-      'conversions',
-      'orderStatuses',
-      'profile',
-    ]
-    const failed: string[] = []
-
-    allResults.forEach((result, i) => {
-      const key = labels[i]!
-      if (result.status === 'fulfilled') {
-        ;(settings as Record<string, unknown>)[key] = (
-          result as PromiseFulfilledResult<unknown>
-        ).value
-      } else {
-        failed.push(key as string)
-        console.warn(`[useSettings] Failed to reload "${key as string}"`)
-      }
-    })
+    const { failed } = await fetchAllSections()
 
     if (failed.length > 0) {
       error.value = `Failed to load: ${failed.join(', ')}. Some settings may be unavailable.`

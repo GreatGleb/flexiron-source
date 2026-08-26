@@ -1,5 +1,6 @@
 import { test, expect, testBare as base } from '../../fixtures'
 import { ALL_FLAGS_ENABLED } from '../../helpers/flags'
+import { waitForDataReady } from '../../helpers/ready'
 import { freezeTime } from '../../helpers/mocks'
 import { waitForFontsReady, SNAPSHOT_OPTIONS } from '../../helpers/visual'
 
@@ -98,11 +99,14 @@ async function loadBcc(page: import('@playwright/test').Page, query = '') {
   await page.setViewportSize(DESKTOP)
   await freezeTime(page)
   await page.goto(BCC_URL + query)
+  // Загрузка приложения под полным прогоном занимает больше пяти секунд, которые даёт
+  // `expect` по умолчанию: заголовок ещё не отрисован, и падает не проверка, а старт.
+  // `waitForDataReady` ждёт содержимое маршрута и пришедшие данные с общим бюджетом
+  // (30 с), а `networkidle` здесь врал и до этого — под моками сети нет вовсе.
+  await waitForDataReady(page)
   await expect(page.locator('[data-test="bcc-request-title"]')).toBeVisible()
-  await page.waitForLoadState('networkidle')
-  // apiGet() under VITE_USE_MOCKS=true uses `await import()` rather than fetch, so
-  // `networkidle` fires before onMounted's await-chain resolves. Wait for each
-  // composable-fed section to actually paint its first row before returning.
+  // Дальше — по первой строке каждой секции: данные вообще пришли ещё не значит, что
+  // пришли ЭТИ (ловушка #64, «пол, а не потолок»).
   await expect(page.locator('[data-test="bcc-request-recipient-item"]').first()).toBeVisible()
   await expect(page.locator('[data-test="bcc-request-product-row"]').first()).toBeVisible()
   await expect(page.locator('[data-test="bcc-request-history-row"]').first()).toBeVisible()

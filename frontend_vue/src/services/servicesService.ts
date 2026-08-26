@@ -2,7 +2,6 @@ import { apiGet, apiPost, apiPatch, apiDelete } from './api'
 import type { PaginatedResponse, PaginationParams } from '@/types/api'
 import type {
   Service,
-  ServiceListItem,
   ServiceFilters,
   ServiceCreatePayload,
   ServicePatchPayload,
@@ -13,7 +12,7 @@ import { toTranslatedString } from '@/types/i18n'
 export async function getServices(
   filters: ServiceFilters,
   pagination: PaginationParams,
-): Promise<PaginatedResponse<ServiceListItem>> {
+): Promise<PaginatedResponse<Service>> {
   const params: Record<string, string> = {
     search: filters.search,
     sortBy: filters.sortBy,
@@ -21,7 +20,7 @@ export async function getServices(
     page: String(pagination.page),
     pageSize: String(pagination.pageSize),
   }
-  return apiGet<PaginatedResponse<ServiceListItem>>('/api/services', params)
+  return apiGet<PaginatedResponse<Service>>('/api/services', params)
 }
 
 export async function getService(id: string): Promise<Service> {
@@ -33,7 +32,8 @@ export async function createService(data: ServiceCreatePayload, locale: string):
     name: toTranslatedString(data.name, locale),
     costPrice: data.costPrice,
     sellingPrice: data.sellingPrice,
-    priceUnit: data.priceUnit,
+    currencyId: data.currencyId,
+    uomId: data.uomId,
     description:
       data.description !== undefined ? toTranslatedString(data.description, locale) : undefined,
   }
@@ -62,7 +62,8 @@ export async function patchService(
   if (name !== undefined) payload.name = name
   if (delta.costPrice !== undefined) payload.costPrice = delta.costPrice
   if (delta.sellingPrice !== undefined) payload.sellingPrice = delta.sellingPrice
-  if (delta.priceUnit) payload.priceUnit = delta.priceUnit
+  if (delta.currencyId) payload.currencyId = delta.currencyId
+  if (delta.uomId) payload.uomId = delta.uomId
   const desc = toPayloadValue(
     delta.description as string | TranslatedString | null | undefined,
     locale,

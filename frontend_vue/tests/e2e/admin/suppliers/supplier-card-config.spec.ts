@@ -702,7 +702,13 @@ baseTest(
       { ...ALL_FLAGS_ENABLED, permissionsEditor: false },
     )
     await page.goto(CONFIG_URL)
-    await page.waitForLoadState('networkidle')
+    // Not `networkidle`: this page's data comes from a timer in the mock layer, so
+    // network silence arrives while the page still holds nothing — measured, the
+    // library panel is absent at that moment. Waiting for the panel waits for the
+    // page to be ready instead of hoping it renders inside the assertion budget.
+    await page
+      .locator('[data-test="supplier-card-config-library"]')
+      .waitFor({ state: 'visible', timeout: 30_000 })
     await expect(page.locator('[data-test="supplier-card-config-title"]')).toBeVisible()
     // Library + builder unaffected.
     await expect.soft(page.locator('[data-test="supplier-card-config-library"]')).toBeVisible()

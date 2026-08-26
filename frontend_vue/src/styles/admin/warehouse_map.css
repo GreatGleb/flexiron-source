@@ -1,0 +1,161 @@
+/* ─── Warehouse map page ─────────────────────────────────────────────────────
+   Одна картинка и три действия. Своего вьювера нет: превью — это ссылка, файл
+   открывает браузер в новой вкладке.
+   ────────────────────────────────────────────────────────────────────────── */
+
+.page-warehouse-map .warehouse-map-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.page-warehouse-map .warehouse-map-subtitle {
+  margin: 6px 0 0;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+/* ─── Current map ─────────────────────────────────────────────────────────── */
+
+.page-warehouse-map .warehouse-map-current {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.page-warehouse-map .warehouse-map-preview {
+  display: block;
+  flex: 0 0 320px;
+  max-width: 320px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.03);
+  transition: border-color 0.2s ease;
+}
+
+.page-warehouse-map .warehouse-map-preview:hover {
+  border-color: rgba(24, 144, 255, 0.5);
+}
+
+.page-warehouse-map .warehouse-map-preview img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 240px;
+  object-fit: contain;
+}
+
+.page-warehouse-map .warehouse-map-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.page-warehouse-map .warehouse-map-name {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+  overflow-wrap: anywhere;
+}
+
+.page-warehouse-map .warehouse-map-facts {
+  font-size: 0.8rem;
+  color: var(--text-dim, rgba(255, 255, 255, 0.55));
+}
+
+.page-warehouse-map .warehouse-map-hint {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.page-warehouse-map .warehouse-map-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+/* ─── Upload ──────────────────────────────────────────────────────────────── */
+
+.page-warehouse-map .warehouse-map-upload {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.page-warehouse-map .warehouse-map-upload-label {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+/* ─── Empty and error states ──────────────────────────────────────────────── */
+
+.page-warehouse-map .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--text-secondary, #888);
+}
+
+.page-warehouse-map .empty-state svg {
+  opacity: 0.5;
+}
+
+.page-warehouse-map .empty-state p {
+  margin: 0;
+  font-size: 16px;
+  color: var(--text-secondary, #888);
+}
+
+.page-warehouse-map .error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--text-secondary, #888);
+}
+
+/* ─── Responsive ──────────────────────────────────────────────────────────── */
+
+@media (max-width: 992px) {
+  .page-warehouse-map .warehouse-map-header {
+    gap: 12px;
+  }
+}
+
+@media (max-width: 768px) {
+  .page-warehouse-map .warehouse-map-current {
+    flex-direction: column;
+  }
+
+  .page-warehouse-map .warehouse-map-preview {
+    flex: 1 1 auto;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 600px) {
+  .page-warehouse-map .warehouse-map-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .page-warehouse-map .warehouse-map-header .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}

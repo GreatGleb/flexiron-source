@@ -1,4 +1,16 @@
-<!-- DEPRECATED: Movement creation removed from UI. Keep file for backward compatibility / potential future use. -->
+<!--
+  ЖИВОЙ КОМПОНЕНТ. Создание движения убрано со СТРАНИЦЫ склада (`WarehousePage.vue`,
+  там комментарии честные), но осталось на КАРТОЧКЕ ПАРТИИ: `WarehouseBatchCard.vue`
+  импортирует его (строка 18), рендерит (1512) и открывает кнопкой
+  `batch-card-add-movement-btn` — `btn btn-primary`, без флага, видна всегда.
+
+  Здесь стояло «DEPRECATED: Movement creation removed from UI. Keep file for backward
+  compatibility», и это было неправдой. Неверная метка опаснее отсутствующей: следующий
+  читатель либо не станет искать здесь баг, либо удалит файл вместе с работающей кнопкой.
+
+  Продублированное четырежды условие «каким типам движения нужна ссылка на объект»
+  (строки 256, 281, 316, 329) — отдельный пункт 4f плана, оно терпит.
+-->
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'

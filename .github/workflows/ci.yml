@@ -1,0 +1,107 @@
+name: CI
+
+# Хук `.git/hooks/pre-commit` живёт на одной машине и в репозиторий не попадает —
+# хуки не версионируются. Этот файл и есть общий гейт: то же, что проверяет хук,
+# но там, где это увидят все и всегда.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  # Новый пуш в ту же ветку отменяет предыдущий прогон: держать очередь из
+  # устаревших проверок незачем.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: frontend_vue
+
+jobs:
+  gate:
+    name: Машинная приёмка
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend_vue/package-lock.json
+
+      - run: npm ci
+
+      # typecheck · lint · dupes · format:check · test:unit — одной командой,
+      # ровно та же, что гоняется локально. Состав меняется в package.json, а не здесь.
+      - name: npm run verify
+        run: npm run verify
+
+      # Спеки аудита цен живут отдельным конфигом: они медленнее и краснеют
+      # намеренно, пока находка открыта.
+      - name: npm run test:audit
+        run: npm run test:audit
+
+  e2e:
+    name: Браузерные тесты
+    runs-on: ubuntu-latest
+    # Час — не запас «на всякий случай», а расчёт: в CI стоит workers: 1
+    # (playwright.config.ts), и тысяча тестов в один поток идёт долго.
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend_vue/package-lock.json
+
+      - run: npm ci
+
+      # Только chromium: в playwright.config.ts объявлен один проект, ставить
+      # остальные браузеры значит платить за то, чем никто не пользуется.
+      - name: Установка браузера
+        run: npx playwright install --with-deps chromium
+
+      - name: npm run test:e2e
+        run: npm run test:e2e
+
+      # Отчёт и трассировки нужны именно тогда, когда прогон упал.
+      - name: Отчёт при падении
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            frontend_vue/playwright-report
+            frontend_vue/test-results
+          retention-days: 7
+
+  # Эти две проверки красные ожидаемо и мерж не блокируют — они дают ЧИСЛО.
+  # Смысл в разнице: прогон, добавивший мёртвый файл или уязвимую зависимость,
+  # должен быть виден сразу, а не всплыть через месяц.
+  observed:
+    name: Наблюдаемое (не блокирует)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend_vue/package-lock.json
+
+      - run: npm ci
+
+      - name: Уязвимости зависимостей
+        continue-on-error: true
+        run: npm run audit
+
+      - name: Мёртвый код
+        continue-on-error: true
+        run: npm run deadcode

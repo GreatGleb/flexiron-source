@@ -1,6 +1,7 @@
 import js from '@eslint/js'
 import pluginVue from 'eslint-plugin-vue'
 import tseslint from 'typescript-eslint'
+import sonarjs from 'eslint-plugin-sonarjs'
 import prettierConfig from 'eslint-config-prettier'
 
 export default tseslint.config(
@@ -9,6 +10,7 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   ...pluginVue.configs['flat/recommended'],
+  sonarjs.configs.recommended,
   prettierConfig,
 
   {
@@ -71,6 +73,103 @@ export default tseslint.config(
           varsIgnorePattern: '^_',
         },
       ],
+    },
+  },
+
+  {
+    /*
+     * sonarjs: пресет включён целиком, а эти правила выключены по факту замера
+     * 2026-08-25 — число в комментарии показывает, сколько нарушений было в тот
+     * день. Шаг гейта вводится только зелёным (см. verify.md), поэтому пресет
+     * нельзя включить «как есть»: 233 нарушения превратили бы линт в фон.
+     * Обратно правило включается вместе с починкой, по одному, и число тогда
+     * уходит из этого списка. Всё, чего здесь нет, уже работает и держит ноль —
+     * включая ради чего пресет и брали: no-duplicated-branches,
+     * no-identical-expressions, no-all-duplicated-branches.
+     */
+    rules: {
+      'sonarjs/no-floating-point-equality': 'off', // 61
+      'sonarjs/prefer-specific-assertions': 'off', // 51, всё в спеках
+      'sonarjs/cognitive-complexity': 'off', // 40
+      'sonarjs/no-nested-conditional': 'off', // 24
+      'sonarjs/pseudo-random': 'off', // 22, Math.random в моках и фаззерах
+      'sonarjs/super-linear-regex': 'off', // 13
+      'sonarjs/void-use': 'off', // 4
+      'sonarjs/use-type-alias': 'off', // 4
+      'sonarjs/no-nested-template-literals': 'off', // 3
+      'sonarjs/no-nested-functions': 'off', // 2
+      'sonarjs/no-inverted-boolean-check': 'off', // 2
+      'sonarjs/no-identical-functions': 'off', // 2 — mocks/warehouse.ts:455 и спека
+      'sonarjs/redundant-type-aliases': 'off', // 2
+      // 1 срабатывание, ложное: литовское «Slaptažodis» (подпись поля пароля)
+      // в i18n/public.js принято за пароль в коде.
+      'sonarjs/no-hardcoded-passwords': 'off',
+      // дубль правила typescript-eslint, которое уже настроено выше
+      'sonarjs/no-unused-vars': 'off',
+    },
+  },
+
+  {
+    /*
+     * `no-unnecessary-condition` — правило, требующее типовой информации, поэтому
+     * здесь же включается `projectService`. Оно ловит расхождение между типом и
+     * кодом: `?? fallback` там, где тип запрещает пустоту, — либо мёртвый код,
+     * либо врущий тип.
+     *
+     * Включено НЕ везде, и это осознанно. 2026-08-25/26 разбор 109 срабатываний
+     * показал, что «лишняя проверка» бывает трёх разных видов, и только один из
+     * них — мёртвый код:
+     *
+     *   1. линтер неправ: `let ok = false`, меняемая внутри колбэка, — анализ
+     *      потока в замыкания не заходит (`useSettings.ts`, «!anySuccess»);
+     *   2. тип обойдён кастом в другом месте: `(settings as Record<string,
+     *      unknown>)[key] = value` — страховка защищает ровно от того, что этот
+     *      каст и допускает;
+     *   3. тип утверждает, а контракт молчит — как было с `files` у складских
+     *      сущностей.
+     *
+     * Один из «лишних» фильтров, снятый по подсказке линтера, СТИРАЛ БЫ ПЕРЕВОД
+     * (`mergeTranslatedString`, проверено исполнением). Поэтому правило стоит
+     * там, где сегодня чисто, а `src/services/mocks` (60 срабатываний) и
+     * `src/composables` (15) остаются с разбором в
+     * `roo_code/plans/bugs/static-analysis-debt-bugs.md`, БАГ-02. Каталог
+     * добавляется сюда, когда становится чистым, — по одному.
+     */
+    files: [
+      'src/domain/**/*.ts',
+      'src/config/**/*.ts',
+      'src/router/**/*.ts',
+      'src/i18n/**/*.ts',
+      'src/mocks/**/*.ts',
+      'src/services/*.ts',
+    ],
+    languageOptions: {
+      parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
+    },
+    rules: { '@typescript-eslint/no-unnecessary-condition': 'error' },
+  },
+
+  {
+    /*
+     * Спеки Playwright. Три правила sonarjs выключены здесь и только здесь —
+     * замер 2026-08-25, когда `tests/` впервые попал под линт.
+     */
+    files: ['tests/**/*.ts'],
+    rules: {
+      /*
+       * 186 срабатываний, и все до единого ложные — проверено пофайлово, с
+       * чтением тела каждого помеченного теста. Правило не считает утверждением
+       * ни `expect.soft()`, ни `expect.poll()`, а это основной стиль набора:
+       * мягкая проверка показывает все расхождения разом, а не первое.
+       * Тестов без утверждений в наборе нет.
+       */
+      'sonarjs/assertions-in-tests': 'off',
+      /*
+       * 2 срабатывания, оба ложные: это `test.skip(условие, причина)` —
+       * пропуск по данным (в первой строке нет годного терма для поиска),
+       * а не отключённый тест.
+       */
+      'sonarjs/no-skipped-tests': 'off',
     },
   },
 )

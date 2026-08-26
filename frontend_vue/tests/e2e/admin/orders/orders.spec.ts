@@ -1,6 +1,7 @@
 import type { Locator, Page } from '@playwright/test'
 import { test, expect } from '../../fixtures'
 import { enableAllFlags, setFlag } from '../../helpers/flags'
+import { waitForDataReady } from '../../helpers/ready'
 
 /**
  * Reads a line cell whether it is editable (an input) or frozen (plain text).
@@ -8,6 +9,10 @@ import { enableAllFlags, setFlag } from '../../helpers/flags'
  */
 async function lineCell(row: Locator, field: string): Promise<string> {
   const cell = row.locator(`[data-test="cell-${field}"]`)
+  // Ноль здесь законен: у замороженной строки ячейка рисует текст, а не input. Поэтому
+  // ждём КОНТЕЙНЕР — саму ячейку, которая есть в обоих случаях, — иначе чтение
+  // обгоняет отрисовку строки и «input не найден» читается как «строка заморожена».
+  await expect(cell).toBeVisible()
   const input = cell.locator('input')
   if ((await input.count()) > 0) return input.inputValue()
   return ((await cell.textContent()) ?? '').replace('%', '').trim()
@@ -73,6 +78,9 @@ test.describe('Orders List', () => {
 
   test('create button navigates to create page', async ({ page }) => {
     await page.goto('/admin/orders')
+    // Переход и сразу действие: без этого ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.locator('[data-test="orders-header"] a.btn-primary').click()
     await expect(page).toHaveURL('/admin/orders/new')
   })
@@ -100,9 +108,16 @@ test.describe('Orders List', () => {
     // numbers — the same order named two different totals is how nobody trusts
     // either screen.
     await page.goto('/admin/orders')
+    // Фильтр, введённый раньше первой загрузки, глотает сторож `initialized` (#20), и
+    // проверка потом смотрит на нефильтрованный список.
+    await waitForDataReady(page)
     await page.fill('[data-test="orders-filter-search"] input', 'ORD-2026-005')
     const row = page.locator('[data-test="orders-row"]').first()
     await expect(row).toBeVisible()
+    // The filter is applied by a request, and the old table is still on screen
+    // until it answers. Read the number before the money, or the sums compared
+    // below belong to two different orders.
+    await expect(row).toContainText('ORD-2026-005')
     const listTotal = (await row.locator('[data-test="orders-row-total"]').textContent())!
     await expect(row.locator('[data-test="orders-row-paid"]')).toHaveText('25.00%')
     await expect(row.locator('[data-test="orders-row-shipped"]')).toHaveText('0.00%')
@@ -121,13 +136,22 @@ test.describe('Orders List', () => {
     // so the order does not simply vanish — and the message names the blocker
     // instead of a generic failure.
     await page.goto('/admin/orders')
+    // Фильтр, введённый раньше первой загрузки, глотает сторож `initialized` (#20), и
+    // проверка потом смотрит на нефильтрованный список.
+    await waitForDataReady(page)
     await page.fill('[data-test="orders-filter-search"] input', 'ORD-2026-005')
-    const row = page.locator('[data-test="orders-row"]').first()
-    await expect(row).toBeVisible()
+    // Признак применённого фильтра — сама отфильтрованная строка, а не «список виден»:
+    // нефильтрованный список виден тоже, и первой в нём стоит другой заказ. Тест
+    // удалял ORD-2026-100 и ждал сообщение про оплаты, которого у того заказа нет
+    // («Cannot delete: the order has an invoice»).
+    const row = page.locator('[data-test="orders-row"]').filter({ hasText: 'ORD-2026-005' })
+    await expect(row).toHaveCount(1)
     await row.locator('[data-test="orders-delete-btn"]').click()
     await page.locator('[data-test="orders-delete-confirm"]').click()
 
-    await expect(page.locator('.toast').first()).toContainText(/payment/i)
+    // Тост приходит после ответа мока, а под полным прогоном ответ идёт дольше пяти
+    // секунд, которые даёт expect по умолчанию.
+    await expect(page.locator('.toast').first()).toContainText(/payment/i, { timeout: 20_000 })
     // Still there.
     await expect(page.locator('[data-test="orders-row"]').first()).toBeVisible()
   })
@@ -205,6 +229,9 @@ test.describe('Order Create', () => {
     })
 
     await page.goto('/admin/orders/new')
+    // Переход и сразу действие: без этого ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.locator('[data-test="order-create-notes"]').fill('half an order')
 
     await page.click('[data-test="order-create-cancel-btn"]')
@@ -229,6 +256,9 @@ test.describe('Order Create', () => {
 
   test('leaving an untouched order asks nothing', async ({ page }) => {
     await page.goto('/admin/orders/new')
+    // Переход и сразу действие: без этого ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.click('[data-test="order-create-cancel-btn"]')
     await expect(page).toHaveURL(/\/admin\/orders$/)
     await expect(page.locator('[data-test="order-create-leave-modal"]')).toHaveCount(0)
@@ -260,6 +290,9 @@ test.describe('Order Create', () => {
 
   test('saves the lines that are on screen, duplicates and removals included', async ({ page }) => {
     await page.goto('/admin/orders/new')
+    // Переход и сразу действие: без этого ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.locator('[data-test="order-create-client-item"]').first().click()
 
     // Twice the same product, then a different one: the duplicate is the case
@@ -315,12 +348,18 @@ test.describe('Order Create', () => {
     }
 
     await page.goto('/admin/orders/new')
+    // Переход и сразу действие: без этого ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.locator('[data-test="order-create-add-item-btn"]').click()
     const createModal = page.locator('[data-test="add-order-items-modal"]')
     await expect(createModal).toBeVisible()
     const onCreate = await quotedPriceIn(createModal)
 
     await page.goto('/admin/orders/ORD-001')
+    // Переход и сразу действие: без этого ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.locator('[data-test="order-add-item-btn"]').click()
     const cardModal = page.locator('[data-test="add-order-items-modal"]')
     await expect(cardModal).toBeVisible()
@@ -462,8 +501,13 @@ test.describe('Order Card › fields & structure', () => {
 
     // And it agrees with the lines it is the sum of.
     const rows = page.locator('[data-test="order-item-row"]')
+    // `count()` в условии цикла читается на каждой итерации и до отрисовки даёт ноль:
+    // сумма по нулю строк равна нулю, и `toBeCloseTo` сравнил бы её с нулём же.
+    await expect(rows.first()).toBeVisible()
     let lineCosts = 0
-    for (let i = 0; i < (await rows.count()); i++) {
+    const rowCount = await rows.count()
+    expect(rowCount).toBeGreaterThan(0)
+    for (let i = 0; i < rowCount; i++) {
       const row = rows.nth(i)
       lineCosts += Number(await lineCell(row, 'unitCost')) * Number(await lineCell(row, 'quantity'))
     }
@@ -510,6 +554,9 @@ test.describe('Order Card › fields & structure', () => {
 
   test('unsaved lines block the total edit rather than failing on the server', async ({ page }) => {
     await page.goto('/admin/orders/ORD-001')
+    // Переход и сразу действие: без этого ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.click('[data-test="order-add-item-btn"]')
     await page.waitForSelector('[data-test="add-order-items-modal"]')
     await page.locator('[data-test="add-items-product-checkbox"]').first().click()
@@ -633,6 +680,9 @@ test.describe('Order Card › fields & structure', () => {
     await page.goto('/admin/orders/ORD-001')
     await page.waitForSelector('[data-test="order-item-row"]')
     const rows = page.locator('[data-test="order-item-row"]')
+    // Считать до отрисовки — получить ноль и утверждать его производное:
+    // `toHaveCount(before - 1)` превращается в `toHaveCount(-1)`.
+    await expect(rows.first()).toBeVisible()
     const before = await rows.count()
 
     await page.click('[data-test="order-add-item-btn"]')
@@ -943,6 +993,9 @@ test.describe('Order Card › line table', () => {
     await page.goto('/admin/orders/ORD-001')
     await page.waitForSelector('[data-test="order-item-row"]')
     const rows = page.locator('[data-test="order-item-row"]')
+    // Считать до отрисовки — получить ноль и утверждать его производное:
+    // `toHaveCount(before - 1)` превращается в `toHaveCount(-1)`.
+    await expect(rows.first()).toBeVisible()
     const before = await rows.count()
 
     await page.click('[data-test="order-add-item-btn"]')
@@ -974,6 +1027,9 @@ test.describe('Order Card › line table', () => {
     await page.goto('/admin/orders/ORD-001')
     await page.waitForSelector('[data-test="order-item-row"]')
     const rows = page.locator('[data-test="order-item-row"]')
+    // Считать до отрисовки — получить ноль и утверждать его производное:
+    // `toHaveCount(before - 1)` превращается в `toHaveCount(-1)`.
+    await expect(rows.first()).toBeVisible()
     const before = await rows.count()
 
     await page.click('[data-test="order-add-item-btn"]')
@@ -1052,7 +1108,7 @@ test.describe('Order Card › line table', () => {
 
 test.describe('Order Card › adding lines', () => {
   /** Opens the picker and selects the first product. */
-  async function pickFirstProduct(page: Parameters<Parameters<typeof test>[1]>[0]['page']) {
+  async function pickFirstProduct(page: Page) {
     await page.click('[data-test="order-add-item-btn"]')
     await page.waitForSelector('[data-test="add-items-product-checkbox"]')
     await page.locator('[data-test="add-items-product-checkbox"]').first().click()
@@ -1073,6 +1129,9 @@ test.describe('Order Card › adding lines', () => {
     await page.goto('/admin/orders/ORD-001')
     await page.waitForSelector('[data-test="order-item-row"]')
     const rows = page.locator('[data-test="order-item-row"]')
+    // Считать до отрисовки — получить ноль и утверждать его производное:
+    // `toHaveCount(before - 1)` превращается в `toHaveCount(-1)`.
+    await expect(rows.first()).toBeVisible()
     const before = await rows.count()
 
     await pickFirstProduct(page)
@@ -1203,6 +1262,9 @@ test.describe('Order Card › adding lines', () => {
     await page.goto('/admin/orders/ORD-004')
     await page.waitForSelector('[data-test="order-item-row"]')
     const rows = page.locator('[data-test="order-item-row"]')
+    // Считать до отрисовки — получить ноль и утверждать его производное:
+    // `toHaveCount(before - 1)` превращается в `toHaveCount(-1)`.
+    await expect(rows.first()).toBeVisible()
     const before = await rows.count()
     const frozenRow = rows.first()
     const frozenBefore = [
@@ -1241,7 +1303,7 @@ test.describe('Order Card › shipments', () => {
    * a test that assumed a particular shelf was full would pass or fail on who
    * else took the goods first.
    */
-  async function addShippableLine(page: Parameters<Parameters<typeof test>[1]>[0]['page']) {
+  async function addShippableLine(page: Page) {
     await page.click('[data-test="order-add-item-btn"]')
     await page.waitForSelector('[data-test="add-items-product-row"]')
     // The picker shows what is on the shelf, so the product is chosen by that
@@ -1333,6 +1395,9 @@ test.describe('Order Card › shipments', () => {
     await page.waitForSelector('[data-test="order-item-row"]')
     const rows = page.locator('[data-test="order-item-row"]')
     await expect(rows.first().locator('[data-test="line-state"]')).toContainText(/Shipped/)
+    // Считать до отрисовки — получить ноль и утверждать его производное:
+    // `toHaveCount(before - 1)` превращается в `toHaveCount(-1)`.
+    await expect(rows.first()).toBeVisible()
     const before = await rows.count()
 
     await addShippableLine(page)
@@ -1508,8 +1573,6 @@ test.describe('Order Card › returns', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 test.describe('Order Card › payments and invoices', () => {
-  type Page = Parameters<Parameters<typeof test>[1]>[0]['page']
-
   /** The paid share as the card shows it. */
   async function paidPercent(page: Page): Promise<number> {
     return parseFloat((await page.locator('[data-test="field-paid-percent"]').textContent())!)
@@ -1791,9 +1854,7 @@ test.describe('Order Card › payments and invoices', () => {
     await expect(row.locator('[data-test="cell-input"]')).toHaveCount(0)
     await expect(row.locator('[data-test="line-remove-btn"]')).toHaveCount(0)
 
-    const totalBefore = Number(
-      await page.locator('[data-test="field-gross-total"]').inputValue(),
-    )
+    const totalBefore = Number(await page.locator('[data-test="field-gross-total"]').inputValue())
     const priced = Number(await lineCell(row, 'unitPrice'))
     await row.locator('[data-test="line-correct-btn"]').click()
     await expect(page.locator('[data-test="correct-modal"]')).toBeVisible()
@@ -1896,9 +1957,11 @@ test.describe('Order Card › save flow', () => {
 
   test('discard resets notes field', async ({ page }) => {
     await page.goto('/admin/orders/ORD-001')
+    // Переход и сразу действие: без этого ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.locator('[data-test="field-notes"]').fill('Modified notes')
     await page.locator('[data-test="order-card-discard-btn"]').click()
-    await page.waitForTimeout(500)
     // Value should be restored to original (null/empty)
     await expect(page.locator('[data-test="field-notes"]')).toHaveValue('')
   })
@@ -1911,12 +1974,18 @@ test.describe('Order Card › save flow', () => {
 test.describe('Order Card › delete', () => {
   test('delete button opens confirmation modal', async ({ page }) => {
     await page.goto('/admin/orders/ORD-001')
+    // Переход и сразу действие: без этого ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.locator('[data-test="order-card-delete-btn"]').click()
     await expect(page.locator('[data-test="order-card-delete-modal"]')).toBeVisible()
   })
 
   test('cancel closes deletion modal', async ({ page }) => {
     await page.goto('/admin/orders/ORD-001')
+    // Переход и сразу действие: без этого ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.locator('[data-test="order-card-delete-btn"]').click()
     await expect(page.locator('[data-test="order-card-delete-modal"]')).toBeVisible()
     await page.locator('[data-test="order-card-delete-modal-cancel"]').click()
@@ -1936,22 +2005,25 @@ test.describe('Order Card › audit log', () => {
 
   test('audit delete button opens confirmation modal', async ({ page }) => {
     await page.goto('/admin/orders/ORD-001')
+    // `if (count > 0)` здесь пропускал ВСЁ тело, когда кнопка ещё не отрисовалась, и
+    // тест проходил, ничего не проверив (#68). У ORD-001 журнал непустой, значит кнопка
+    // обязана быть — это утверждение, а не условие.
+    await expect(page.locator('[data-test="order-audit"]')).toBeVisible()
     const deleteBtn = page.locator('[data-test="order-audit-delete-btn"]')
-    if ((await deleteBtn.count()) > 0) {
-      await deleteBtn.first().click()
-      await expect(page.locator('[data-test="order-audit-modal"]')).toBeVisible()
-    }
+    await expect(deleteBtn.first()).toBeVisible()
+    await deleteBtn.first().click()
+    await expect(page.locator('[data-test="order-audit-modal"]')).toBeVisible()
   })
 
   test('cancel closes audit delete modal', async ({ page }) => {
     await page.goto('/admin/orders/ORD-001')
+    await expect(page.locator('[data-test="order-audit"]')).toBeVisible()
     const deleteBtn = page.locator('[data-test="order-audit-delete-btn"]')
-    if ((await deleteBtn.count()) > 0) {
-      await deleteBtn.first().click()
-      await expect(page.locator('[data-test="order-audit-modal"]')).toBeVisible()
-      await page.locator('[data-test="order-audit-modal-cancel"]').click()
-      await expect(page.locator('[data-test="order-audit-modal"]')).toBeHidden()
-    }
+    await expect(deleteBtn.first()).toBeVisible()
+    await deleteBtn.first().click()
+    await expect(page.locator('[data-test="order-audit-modal"]')).toBeVisible()
+    await page.locator('[data-test="order-audit-modal-cancel"]').click()
+    await expect(page.locator('[data-test="order-audit-modal"]')).toBeHidden()
   })
 })
 
@@ -1976,13 +2048,15 @@ test.describe('Order Create › client selector', () => {
     await expect(page.locator('[data-test="order-create-client-item"]').first()).toBeVisible({
       timeout: 5000,
     })
-    const itemsBefore = await page.locator('[data-test="order-create-client-item"]').count()
+    const items = page.locator('[data-test="order-create-client-item"]')
     // Search for a specific client
     await page.locator('[data-test="order-create-client-search"] input').fill('Metalica')
-    await page.waitForTimeout(300)
-    // Count should be less than or equal to before
-    const itemsAfter = await page.locator('[data-test="order-create-client-item"]').count()
-    expect(itemsAfter).toBeLessThanOrEqual(itemsBefore)
+    // Утверждение не зависит ни от таймера, ни от того, сколько клиентов в моке
+    // (питфолл #15): проверяем, что НИ ОДИН оставшийся элемент не лишён искомого,
+    // и что список не опустел. Прежнее `itemsAfter <= itemsBefore` устраивало
+    // бездействие — оно выполнялось и когда фильтр не сработал вовсе (питфолл #68).
+    await expect(items.filter({ hasNotText: /Metalica/i })).toHaveCount(0)
+    await expect(items).not.toHaveCount(0)
   })
 
   test('selecting a client shows selected indicator', async ({ page }) => {
@@ -1996,8 +2070,10 @@ test.describe('Order Create › client selector', () => {
 
   test('new client search shows empty state for no results', async ({ page }) => {
     await page.goto('/admin/orders/new')
+    // Переход и сразу действие: без этого ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.locator('[data-test="order-create-client-search"] input').fill('zzz-no-match')
-    await page.waitForTimeout(300)
     await expect(page.locator('[data-test="order-create-client-empty"]')).toBeVisible()
   })
 })
@@ -2030,6 +2106,9 @@ test.describe('Add item modal', () => {
 
   test('the price column quotes the price the line will be sold at', async ({ page }) => {
     await page.goto('/admin/orders/ORD-001')
+    // Переход и сразу действие: без этого ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.locator('[data-test="order-add-item-btn"]').click()
     const modal = page.locator('[data-test="add-order-items-modal"]')
     await expect(modal).toBeVisible()

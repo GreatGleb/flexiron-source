@@ -1,74 +1,111 @@
 ---
 name: add-bug
-description: Record manually found bugs to the bugs file. Auto-trigger when user sends a bug list, describes UI issues, or pastes problems without explicit command. Plan ID inferred from context or asked once.
+description: Записать найденный баг в bugs-файл. Авто-триггер, когда пользователь присылает список багов или описывает проблемы. Находки цикла проверок из verify.md пишутся сюда же.
 user_invocable: true
 arguments:
   - name: plan
-    description: "Plan file identifier, e.g. '1.1' → roo_code/plans/bugs/1.1-products-bugs.md"
+    description: "Идентификатор плана, например '1.1' → roo_code/plans/bugs/1.1-products-bugs.md"
     required: true
 ---
 
-# Add Bug — Record manual bug to file
+# Add Bug — запись находки в bugs-файл
 
-User describes found bugs in free form. Task: format and write to bugs-file.
+Два источника находок, один формат записи:
 
----
+- **человек** — присланный список, описание проблемы, свободная форма;
+- **цикл проверок** ([`verify.md`](verify.md)) — находка вне области текущей задачи не чинится молча, она уходит сюда.
 
-## Steps
+## Шаг 1 — определить bugs-файл
 
-**1. Determine bugs-file:**
-- Find plan file: `roo_code/plans/*/{plan}-*-plan.md` (e.g. `1.1-products-plan.md`)
-- Bugs-file: same name, directory `roo_code/plans/bugs/`, `-plan.md` → `-bugs.md`
-- Read summary table → determine NEXT_BUG_ID
+- План: `roo_code/plans/<домен>/{plan}-*-plan.md`
+- Bugs-файл: то же имя, каталог `roo_code/plans/bugs/`, `-plan.md` → `-bugs.md`
 
-**2. Read user description:**
-- User writes what they found — free form, any language
-- If unclear: file, severity, or specific manifestation → ask one clarifying question (not multiple)
-
-**3. Format and record bug:**
+Файла нет — создать с шапкой (формат действующих файлов):
 
 ```markdown
-## БАГ-[N] — [Short title]
+# Bugs — <план> / <что за страница>
 
-**File:** `[file or component if known]`  
-**Severity:** High / Medium / Low — [one phrase why]
+Источник: <кто нашёл — человек / `/pre-manual-check` / цикл проверок Л<N>>.
+Область: <файлы, которых это касается>.
+Начато: <YYYY-MM-DD>.
+
+---
+```
+
+## Шаг 2 — проверить находку ДО записи
+
+Запись без подтверждённого `файл:строка` бесполезна: тот, кто будет чинить, начнёт с поиска, и половину находок не найдёт вовсе.
+
+1. Найти место в коде — grep или чтение файла.
+2. Убедиться, что описанное поведение действительно следует из этого кода.
+3. Записать точные номера строк (`OrderCreatePage.vue:368,424` — так в действующих файлах).
+
+Не подтвердилось — не записывать как баг. Записать в конец файла в раздел `## Не подтверждено` одной строкой: что заявлено, чем проверял, почему не воспроизводится. Пустой ответ хуже, чем «проверил, этого в коде нет».
+
+**Уточняющий вопрос** можно задать один и только человеку. В автономном прогоне спрашивать некого: неясную находку проверяем кодом, а остаётся неясной — пишем в `## Не подтверждено`, а не догадку в тело бага.
+
+## Шаг 3 — дедупликация
+
+Ключ находки — `файл:строка:тип`, тот же, что в цикле проверок. Перед записью грепнуть bugs-файл по имени файла и по типу. Уже есть — **не** записывать второй раз; если новая деталь важна, дописать её в существующий баг.
+
+Без этого шага сто агентов пишут одну находку сто раз, и bugs-файл перестаёт быть списком работы.
+
+## Шаг 4 — запись
+
+```markdown
+## БАГ-NN — <короткий заголовок>
+
+**File:** `<путь:строки>`
+**Severity:** High / Medium / Low — <одна фраза почему>
+**Источник:** человек / Л<N> / машинная приёмка
 
 ### Problem
 
-[What happens — specifically, as user sees the bug]
+<что происходит — конкретно, как это видно снаружи>
 
 ### Fix
 
-[What needs to be done — if obvious from description; otherwise: "TBD"]
+<что сделать; неочевидно — «TBD», а не выдуманный план>
 
 ### Future rule
 
-[How to avoid — if applicable; otherwise omit]
+<как не допустить впредь; нечего сказать — раздел опустить>
 ```
 
-Add row to summary table at end of file:
-```
-| БАГ-[N] | [Type] | `[file]` | [Summary] |
-```
-
-**4. Confirm:**
+Строка в сводную таблицу в конце файла — колонка статуса первая, пустая до починки, `✅` после:
 
 ```
-✅ БАГ-[N] recorded in [path to bugs-file]
-[Short title as confirmation]
+| БАГ-NN | <Тип> | `<файл>` | <суть одной строкой> |
 ```
 
----
+ID — две цифры с ведущим нулём (`БАГ-07`), как во всех действующих файлах.
 
-## Bug types for table
+## Шаг 5 — параллельная запись
 
-| Type | When |
+В автономном прогоне в один bugs-файл пишут несколько агентов одновременно. Правила, без которых записи теряются:
+
+1. **Только добавление в конец.** Существующие разделы не переписывать и не переупорядочивать.
+2. **ID берётся непосредственно перед записью:** перечитать файл, взять максимум + 1. Не переиспользовать номер, посчитанный раньше в ходе задачи.
+3. **Коллизия** (номер уже занят — значит кто-то записал между чтением и записью) → перечитать, взять новый номер, записать заново.
+
+## Типы для таблицы
+
+| Тип | Когда |
 |---|---|
-| Runtime | Behavioral error during operation |
-| TypeScript | Type error |
-| CSS | Visual error, incorrect styles |
-| Design | Non-compliance with project design patterns |
-| Mock data | Incorrect data in mock STORE |
-| i18n | Translation issue |
-| Code style | Code rule violation (comments, patterns) |
-| UX | Inconvenient or unexpected user behavior |
+| Runtime | Ошибка поведения при работе |
+| TypeScript | Ошибка типов |
+| CSS | Визуальная ошибка, неверные стили |
+| Design | Расхождение с дизайн-паттернами проекта |
+| Mock data | Неверные данные в моке |
+| i18n | Перевод: сырой ключ, расхождение языков, не тот файл |
+| Contract | Метод, роут, форма ответа расходятся с контрактом |
+| Test | Тест, который ничего не утверждает (Л9) |
+| Duplicate | Второй экземпляр того же правила (Л5) |
+| Code style | Нарушение правил кода |
+| UX | Неудобное или неожиданное поведение |
+| Docs | План или документ описывает не то, что в коде |
+
+## Подтверждение
+
+Человеку — одна строка: `✅ БАГ-NN записан в <путь>` плюс заголовок.
+В автономном прогоне — та же строка в журнал прогона, и номер бага в отчёте задачи: находка, оставленная в bugs-файле, делает свип нечистым, и это должно быть видно в отчёте, а не только в файле.

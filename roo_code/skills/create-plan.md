@@ -1,6 +1,6 @@
 ---
 name: create-plan
-description: Write a complete implementation plan for a new admin page — covers all create-page.md phases, self-verified before output
+description: План реализации страницы — покрывает все фазы create-page.md, проверяет себя до выдачи. Пригоден для автономного прогона: задачи самостоятельны, критерии приёмки машинные.
 user_invocable: true
 arguments:
   - name: page
@@ -23,10 +23,30 @@ Generate `roo_code/plans/[domain]/[X.X-name]-plan.md` — a complete, verified, 
 3. **Domain-specific content, not generic text** — tailored to THIS page's TZ
 4. **Self-verify via checklist (Step 4) before saving** — if any box fails, fix first
 5. **Verify every code claim** — before stating "X exists / is used / is named Y": state the Grep or Read query, run it, show the result, then conclude. Never from logic or memory alone.
-6. **STOP after every Step** — after completing each Step (1–5), output the stop block and wait for explicit confirmation before proceeding.
-7. **NEVER use `git restore` or `git checkout` on tracked files** — these permanently destroy uncommitted changes. Use `git show HEAD:<path>` to read committed version, then manually apply only needed parts. If uncommitted changes were destroyed, use `git reflog` + `git show` before any further writes.
+6. **Стопы — по режиму.** Интерактивно: после каждого шага (1–5) стоп-блок и ожидание подтверждения. Автономно: стопов нет, приёмкой плана служит пройденный чеклист шага 4 и Pass 2.
+7. **`git restore` / `git checkout -- <файл>` запрещены** — уничтожают несохранённое без следа (в `.claude/settings.json` они в deny-листе). Прочитать закоммиченное — `git show HEAD:<путь>`. Выкинуть неудачную правку — `git stash push -u`. Потеряно — `git reflog` + `git show` до любых новых записей.
 
 ---
+
+## Режимы
+
+| | Интерактивный | Автономный |
+|---|---|---|
+| Стоп-блоки шагов 1–5 | есть | нет |
+| Приёмка плана | человек посмотрел | чеклист шага 4 + Pass 2 пройдены |
+| Показ контракта | человеку на ревью | пометка в отчёте, ревью по диффу в конце прогона |
+
+Стоп-блоки ниже относятся только к интерактивному режиму.
+
+## План для автономного прогона
+
+План — это вход скрипта прогона, и от его формы зависит, можно ли гнать сотню задач без человека:
+
+1. **Каждый промпт — самостоятельная задача**, файлы перечислены явно. Задача, которой нужен «контекст предыдущего ответа», в прогоне не работает: у каждого исполнителя контекст чистый.
+2. **Порядок объявлен.** Зависимый промпт называет номер того, от чего зависит. Независимые помечены как независимые — их можно гнать параллельно (одновременно работает 6 агентов).
+3. **У каждой задачи критерий приёмки** — чем доказывается, что сделано: команда машинной приёмки и номера линз из [`verify.md`](verify.md) по области правки.
+4. **Ни одна задача не требует человека.** Формулировки «показать пользователю», «дождаться подтверждения», «спросить, какой вариант» запрещены — исполнить их в прогоне некому. Решение принимается при написании плана и записывается в него.
+5. **Задача не перезаписывает целиком файл**, который меняет и другая задача, — параллельные правки затрут друг друга.
 
 ## Step 1: Read Everything
 
@@ -36,15 +56,15 @@ Read in this order (batch reads where possible):
 2. `roo_code/skills/vue-rules.md` — pitfalls, save modes, HTTP methods
 3. `roo_code/roo-context/frontend-vue-quickref.md` — patterns, SOLID, DRY, DDD, prohibitions, verification checklist
 4. `frontend_vue/src/router/index.ts` — existing route names (avoid conflicts)
-6. `frontend_vue/src/i18n/admin/` — list domain files, check existing prefixes
-7. `frontend_vue/src/types/` (all files) — types to reuse
-8. `frontend_vue/src/config/featureFlags.ts` — existing flags and format
-9. `frontend_vue/src/components/admin/` (file list) — available components
-10. `toDo/admin-api-contract.md` — contract format of existing sections
-11. `toDo/Flexiron_ERP_CRM.md` — TZ for this page's section
-12. `toDo/Flexiron_ERP_Process_Algorithm.md` — business logic algorithms
-13. `toDo/design/Flexiron_ERP_Sitemap.md` — navigation placement, section hierarchy
-14. `toDo/design/screen_specs/[XX.X_Page].md` — detailed screen spec (if file exists)
+5. `frontend_vue/src/i18n/admin/` — list domain files, check existing prefixes
+6. `frontend_vue/src/types/` (all files) — types to reuse
+7. `frontend_vue/src/config/featureFlags.ts` — existing flags and format
+8. `frontend_vue/src/components/admin/` (file list) — available components
+9. `roo_code/roo-context/03-api-contract.md` — contract format of existing sections
+10. `toDo/Flexiron_ERP_CRM.md` — TZ for this page's section
+11. `toDo/Flexiron_ERP_Process_Algorithm.md` — business logic algorithms
+12. `toDo/design/Flexiron_ERP_Sitemap.md` — navigation placement, section hierarchy
+13. `toDo/design/screen_specs/[XX.X_Page].md` — detailed screen spec (if file exists)
 
 ```
 ⏸ STOP — Step 1: Read Everything
@@ -123,7 +143,7 @@ This differs from create-page.md's phase numbering but is intentional: types mus
 **Prompt 0 — Phase 0: Context & Checkpoint**
 
 Include ALL of:
-- Reading list: create-page.md → vue-rules.md → frontend-vue-quickref.md → router → i18n → types → featureFlags → components → TZ sources (CRM ToDo + Algorithm + Sitemap + screen_spec if exists) → admin-api-contract.md
+- Reading list: create-page.md → vue-rules.md → frontend-vue-quickref.md → router → i18n → types → featureFlags → components → TZ sources (CRM ToDo + Algorithm + Sitemap + screen_spec if exists) → 03-api-contract.md
 - Checkpoint 0 output format exactly as in create-page.md: page goal, sections (per view separately), key entities, user actions, related pages, API endpoints, save mode decision, existing components to reuse, existing types to reuse, route paths, feature flag name
 - "If any field is empty — re-read TZ sources. Do not proceed."
 - STOP
@@ -133,9 +153,9 @@ Include ALL of:
 **Prompt 1 — Phase 3 (part 1): API Contract**
 
 Include ALL of:
-- Open toDo/admin-api-contract.md, add new section following existing format
+- Open roo_code/roo-context/03-api-contract.md, add new section following existing format
 - For each endpoint: HTTP method + path, request body (required/optional fields with types), response shape (ApiResponse\<T\> or PaginatedResponse\<T\>), domain-specific error codes, save mode note
-- Show written contract to user for review
+- Контракт записан. Интерактивно — показать человеку. Автономно — отметить в отчёте задачи, что раздел контракта изменён; ревью по диффу в конце прогона
 - **Verify /translated endpoint necessity:** After any backend refactoring, check whether the base endpoint (`/api/domain`) now returns translated data. If so, the plan should NOT use `/api/domain/translated` — use the base endpoint directly.
 - **Register both mock route variants:** The plan must include both `/api/domain` and `/api/domain/translated` mock routes in the test setup section.
 - Checkpoint: contract written and shown
@@ -149,7 +169,7 @@ Include ALL of:
 - Check: does src/types/api.ts have PaginatedResponse\<T\>, ApiResponse\<T\>? Reuse them
 - Define all types for this domain: main entity, list item, filters, sub-types
 - Rules: no any, string|null (not undefined), string unions (not enum), [] not null
-- typecheck
+- машинная приёмка (`npm run verify`)
 
 ---
 
@@ -161,7 +181,7 @@ Include ALL of:
 - All mock functions: mockGetX (with filters), mockGetX (single), mockCreate, mockPatch, mockDelete, any domain-specific mutations
 - structuredClone on all reads; mutations operate on STORE directly
 - "IMPORTANT: structuredClone on reactive data causes DataCloneError → use JSON.parse(JSON.stringify(...))"
-- typecheck
+- машинная приёмка (`npm run verify`)
 
 ---
 
@@ -170,7 +190,7 @@ Include ALL of:
 Include ALL of:
 - Open src/services/mocks/index.ts
 - Register all domain routes following the exact existing pattern
-- typecheck
+- машинная приёмка (`npm run verify`)
 
 ---
 
@@ -180,8 +200,8 @@ Include ALL of:
 - Create src/services/[domain]Service.ts
 - Functions matching the contract exactly (apiGet/apiPost/apiPatch/apiDelete/apiPut)
 - If apiPut missing → add to api.ts following apiPatch pattern
-- Write-back: add to toDo/admin-api-contract.md section → "Implementation: src/services/[domain]Service.ts"
-- typecheck
+- Write-back: add to roo_code/roo-context/03-api-contract.md section → "Implementation: src/services/[domain]Service.ts"
+- машинная приёмка (`npm run verify`)
 
 ---
 
@@ -193,7 +213,7 @@ One prompt per composable — Prompt 6 for list, Prompt 7 for card. For list com
 - watch(filters, load, { deep: true })
 - Quick-action operations (delete with 409-handling toast, etc.)
 - Expose ONLY what view needs
-- typecheck
+- машинная приёмка (`npm run verify`)
 
 For card/detail composable include:
 - useDirtyCheck for basic fields
@@ -204,7 +224,7 @@ For card/detail composable include:
 - JSON.parse(JSON.stringify(...)) for cloning reactive state
 - **Use watchEffect for dirty checks:** The plan must specify `watchEffect` (not `watch({ deep: true })`) for dirty check logic, because `structuredClone` crashes on Vue reactive proxies.
 - **Never use watch getter + toRaw():** The plan must avoid `watch(() => toRaw(source.value), ...)` — this breaks Vue dependency tracking.
-- typecheck
+- машинная приёмка (`npm run verify`)
 
 ---
 
@@ -238,7 +258,7 @@ Include ALL of:
 - Step A — script setup: imports (verify each exists in src/components/admin/), composable destructure, onMounted(load), modal state refs, action handler functions
 - Step B — template skeleton: ALL sections from Phase 0 Checkpoint as data-test divs; `<h1 class="page-title">` in view itself; GlassPanel wraps every panel; no template comments; CSS root class follows existing pattern
 - **Use skeleton loading states:** The plan must specify skeleton layouts (using `<GlassPanel :loading="true" :skeleton-rows="5" />`) instead of text-based loading indicators.
-- typecheck && lint
+- машинная приёмка (`npm run verify`)
 
 ---
 
@@ -248,7 +268,7 @@ Same structure as N+1 but for card page:
 - Read existing similar page: `src/views/admin/suppliers/SupplierCardPage.vue` — study sections (GlassPanel), Save bar markup, scss import pattern; if drag-and-drop → `SupplierCardConfigPage.vue`
 - Step A — script setup: route params, use[Name]Card destructure, onMounted(load), sub-item modal state if applicable
 - Step B — template skeleton: header + ALL card sections each with data-test; no comments; CSS root class follows existing pattern
-- typecheck && lint
+- машинная приёмка (`npm run verify`)
 
 ---
 
@@ -257,7 +277,7 @@ Same structure as N+1 but for card page:
 Include ALL of:
 - "Section by section, max 40 lines at a time"
 - For each section (A, B, C…): exact bindings (v-for, v-if, v-model, @click, :disabled)
-- After each step: typecheck && lint
+- After each step: машинная приёмка
 - Final checkpoint: browser — page opens, mock data visible, no console errors
 
 ---
@@ -266,7 +286,7 @@ Include ALL of:
 
 Include ALL of:
 - Step-by-step bindings for each section: basic fields, inherited fields (read-only), own fields (with drag-drop if needed), save bar v-if="isAnythingDirty", field modal
-- After each step: typecheck && lint
+- After each step: машинная приёмка
 - Final checkpoint: browser — card page opens, all sections visible, save bar triggers on edit
 
 ---
@@ -280,16 +300,16 @@ Include ALL of:
 - src/views/public/ScreensPage.vue: card with screen-id (X.X)
 - tests/e2e/helpers/flags.ts: add ALL flags (page + section) to ALL_FLAGS_ENABLED
 - In view template: section-level flags via `v-if="useFeatureFlag('XFeature').value"`
-- typecheck && lint + browser verify (sidebar link → correct URL)
+- машинная приёмка (`npm run verify`) + browser verify (sidebar link → correct URL)
 
 ---
 
 **Prompt M+1 — Phase 9: Verification**
 
 Include ALL of:
-- 9a: npm run typecheck && npm run lint → 0 errors
-- 9b: contract sync — add all implementation references to admin-api-contract.md
-- 9c: golden path browser walk:
+- 9a: машинная приёмка из `verify.md` — `npm run verify` → 0 ошибок
+- 9b: contract sync — add all implementation references to 03-api-contract.md
+- 9c: golden path — интерактивно проход в браузере, автономно то же покрывается спекой Playwright из фазы 10 (глазами в прогоне смотреть некому):
   - Navigate via sidebar → page loads with mock data
   - Every filter/search works
   - Open EVERY modal → renders → close with Escape → close with overlay click
@@ -297,7 +317,7 @@ Include ALL of:
   - Navigation links in rows work
   - Language switch RU → EN → LT — no untranslated keys
 - 9d: Regression — open /admin/analytics/dashboard + /admin/suppliers — no new errors
-- 9e: Pitfalls checklist: #1 @ escaped, #9 no template comments, #10 route names correct, #12 no generic CSS classes, #13 mock structuredClone, #14 no native select
+- 9e: цикл проверок из `verify.md` — линзы Л1–Л10 до чистого свипа (лимит 30 итераций). Отдельный список питфоллов здесь НЕ заводится: выборка из шести номеров устаревает при каждом новом питфолле
 - ✅ report format (fill in domain values):
   ```
   - ✅ Page routes: /admin/[path] + /admin/[path]/:id
@@ -331,6 +351,7 @@ Include ALL of:
 - Playwright rules: many small test(), expect.soft() for linked assertions, wait toBeVisible (not networkidle)
 - Register: smoke.spec.ts + navigation.spec.ts + feature-flags.spec.ts
 - Run: npx playwright test --update-snapshots [path]
+- **Инверсия по Л9 обязательна:** на каждое утверждение сломать проверяемое поведение и убедиться, что тест краснеет. Не покраснел — тест переписывается, а не принимается
 - Checkpoint: all green, snapshots created
 
 ```
@@ -346,7 +367,7 @@ Continue?
 
 ### Pass 1 — Static checklist (quick scan)
 
-- [ ] **Prompt 0**: reading list has all TZ sources + admin-api-contract.md; Checkpoint 0 has all fields; "IF empty → re-read"; STOP
+- [ ] **Prompt 0**: reading list has all TZ sources + 03-api-contract.md; Checkpoint 0 has all fields; "IF empty → re-read"; STOP
 - [ ] **Phase 1 (types)**: check existing first; check api.ts for PaginatedResponse; all domain types defined; typecheck
 - [ ] **Phase 2 (mocks)**: structuredClone on reads; JSON.parse note; all mock functions; register in index.ts; typecheck
 - [ ] **Phase 3 (service)**: contract written BEFORE service code; write-back after service; typecheck
@@ -358,7 +379,7 @@ Continue?
 - [ ] **Phase 9 (verification)**: 9a–9e all; modal Escape+overlay close in golden path; regression; ✅ report format
 - [ ] **Phase 10 (playwright)**: enableAllFlags; per-section snapshots; functional tests per element; smoke+navigation+feature-flags registered
 
-#### Single-locale refactoring lessons checklist
+#### Уроки одноязычного рефакторинга (сюда смотрят линзы Л1 и Л2)
 
 - [ ] All `/api/domain` routes have corresponding `/api/domain/translated` mock routes
 - [ ] All `{{ }}` expressions with TranslatedString values are wrapped in `tf()`

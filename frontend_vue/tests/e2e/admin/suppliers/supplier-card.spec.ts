@@ -278,6 +278,9 @@ test.describe('supplier-card › notes section', () => {
   test('typing a note + clicking "add" appends it as a NoteItem', async ({ page }) => {
     // Mock id=1 has notes='Reliable partner since 2020' which lacks a date header,
     // so parsedNotes() returns 0 items initially. Adding one should produce exactly 1.
+    // Заметок изначально НОЛЬ (см. комментарий выше), поэтому ждём контейнер — поле
+    // ввода заметок, — а не первую заметку: её нет и не будет до нашего же действия.
+    await expect(page.locator('[data-test="supplier-form-notes-input"]')).toBeVisible()
     const beforeCount = await page.locator('[data-test="supplier-form-note-item"]').count()
     await page.locator('[data-test="supplier-form-notes-input"]').fill('Tested via Playwright')
     await page.locator('[data-test="supplier-form-notes-add-btn"]').click()
@@ -285,6 +288,7 @@ test.describe('supplier-card › notes section', () => {
   })
 
   test('add button is a no-op when the textarea is blank', async ({ page }) => {
+    await expect(page.locator('[data-test="supplier-form-notes-input"]')).toBeVisible()
     const beforeCount = await page.locator('[data-test="supplier-form-note-item"]').count()
     await page.locator('[data-test="supplier-form-notes-add-btn"]').click()
     await expect(page.locator('[data-test="supplier-form-note-item"]')).toHaveCount(beforeCount)
@@ -354,6 +358,9 @@ test.describe('supplier-card › files section', () => {
 
   test('clicking a file’s delete icon removes it from the list', async ({ page }) => {
     const items = page.locator('[data-test="supplier-card-file-item"]')
+    // Считать до отрисовки — получить ноль и утверждать его производное:
+    // `toHaveCount(before - 1)` превращается в `toHaveCount(-1)`.
+    await expect(items.first()).toBeVisible()
     const before = await items.count()
     // The 2nd `.action-btn-wrap` SVG inside .file-actions is the delete icon
     // (1st is the download anchor's icon — it sits inside the <a>, not in .file-actions).

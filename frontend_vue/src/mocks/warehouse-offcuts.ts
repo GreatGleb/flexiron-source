@@ -1,6 +1,7 @@
 ﻿import type { WarehouseOffcut } from '@/types/warehouse'
+import { sealAuditIds, type AuditSeeded } from './auditIds'
 
-export const mockOffcuts: WarehouseOffcut[] = [
+const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
   // ── 1. Sheet (cat-2) ──────────────────────────────────────────────────────
   {
     id: 'who-001',
@@ -180,11 +181,15 @@ export const mockOffcuts: WarehouseOffcut[] = [
     auditLog: [],
   },
   // ── 6. Pipe (cat-4) ──────────────────────────────────────────────────────
+  // Отрезок трубы висит на партии труб, которая меряется в метрах. До этого он
+  // ссылался на whb-007 — партию листа в м², — и его размер был невыразим: у трубы
+  // нет ширины, а площадь без неё не считается. Обрезок обязан лежать на партии
+  // того же товара, что и он сам: так его создаёт приложение.
   {
     id: 'who-006',
-    batchId: 'whb-007',
-    batchNumber: 'INV-2025-007',
-    productId: 'prod-012',
+    batchId: 'whb-077',
+    batchNumber: 'INV-2025-078',
+    productId: 'prod-004',
     productName: { ru: 'Труба стальная 50мм', en: 'Steel pipe 50mm', lt: 'Plieninis vamzdis 50mm' },
     categoryId: 'cat-4',
     offcutType: 'linear',
@@ -344,9 +349,9 @@ export const mockOffcuts: WarehouseOffcut[] = [
   // ── 12. Sheet (cat-2) ─────────────────────────────────────────────────────
   {
     id: 'who-012',
-    batchId: 'whb-007',
-    batchNumber: 'INV-2025-007',
-    productId: 'prod-012',
+    batchId: 'whb-078',
+    batchNumber: 'INV-2025-079',
+    productId: 'prod-004',
     productName: { ru: 'Труба стальная 50мм', en: 'Steel pipe 50mm', lt: 'Plieninis vamzdis 50mm' },
     categoryId: 'cat-4',
     offcutType: 'linear',
@@ -396,3 +401,6 @@ export const mockOffcuts: WarehouseOffcut[] = [
     auditLog: [],
   },
 ]
+
+/** Every seeded entry gets the id its log addresses it by — see `sealAuditIds`. */
+export const mockOffcuts: WarehouseOffcut[] = sealAuditIds(mockOffcuts_SEED, 'ofc')

@@ -105,6 +105,7 @@ import {
 } from './warehouse'
 import { allServices, serviceById } from './services'
 import { countsAsSale, isActive, isOrderStatus } from '@/domain/orderStatus'
+import type { AuditSource } from '@/types/audit'
 
 interface StoreOrder extends Order {
   /**
@@ -310,7 +311,7 @@ const LINE_BUDGET = 25000
 function catalogueProducts(): ProductSpec[] {
   return PRODUCTS_STORE.filter((p) => p.price != null && p.price > 0).map((p) => ({
     id: p.id,
-    name: p.name?.en ?? p.id,
+    name: p.name.en,
     // 'uom-pcs' → 'pcs'; the table and the pickers label units by this code.
     unit: (p.saleUomId ?? p.warehouseUomId ?? 'uom-pcs').replace(/^uom-/, ''),
     price: p.price as number,
@@ -352,7 +353,7 @@ function serviceEntry(id: string): { name: string; cost: number; price: number }
   // catalogue" and "this order has no such service line" would read as one.
   if (!svc) throw new Error('CATALOG_SERVICE_NOT_FOUND')
   return {
-    name: svc.name[CATALOGUE_LANGUAGE] ?? svc.name.en,
+    name: svc.name[CATALOGUE_LANGUAGE],
     cost: svc.costPrice,
     price: svc.sellingPrice,
   }
@@ -436,7 +437,7 @@ function generateOrders(): StoreOrder[] {
           id: `oi-${i * 20 + j}`,
           lineNumber: j + 1,
           productId: prod.id,
-          productName: fullProd?.name?.[CATALOGUE_LANGUAGE] ?? fullProd?.name?.en ?? prod.name,
+          productName: fullProd ? fullProd.name[CATALOGUE_LANGUAGE] : prod.name,
           quantity: qty,
           unit: prod.unit,
           unitCost,
@@ -1296,7 +1297,7 @@ function publicOrder(order: StoreOrder): Order {
 /** The `seeCost` right of whoever is asking — model §12, contract §5. */
 function maySeeCost(): boolean {
   const settings = mockGetSettings()
-  return (settings.orderPermissions.seeCost ?? []).includes(settings.profile.role)
+  return settings.orderPermissions.seeCost.includes(settings.profile.role)
 }
 
 // ─── List ───
@@ -1403,7 +1404,7 @@ export function mockGetOrders(
     shippedPercent: shippedPercentOf(o),
   }))
 
-  const search = filters.search?.toLowerCase() ?? ''
+  const search = filters.search.toLowerCase()
   if (search) {
     filtered = filtered.filter(
       (o) =>
@@ -1411,7 +1412,7 @@ export function mockGetOrders(
     )
   }
 
-  const status = filters.status ?? ''
+  const status = filters.status
   if (status && status !== 'all') {
     filtered = filtered.filter((o) => o.status === status)
   }
@@ -1636,7 +1637,7 @@ export function mockPatchOrder(
 
 function statusRules(status: OrderStatus): { reserves: boolean; writesOff: boolean } {
   const settings = mockGetSettings()
-  const entry = settings.orderStatuses?.find((s) => s.id === `st-${status}`)
+  const entry = settings.orderStatuses.find((s) => s.id === `st-${status}`)
   return {
     reserves: entry?.reserveOnTransition === true,
     writesOff: entry?.writeOffOnTransition === true,
@@ -1736,7 +1737,7 @@ function actingUser(): { role: string; name: string; initials: string } {
 
 function requireRight(right: 'manualCost' | 'correction'): { name: string; initials: string } {
   const user = actingUser()
-  const allowed = mockGetSettings().orderPermissions[right] ?? []
+  const allowed = mockGetSettings().orderPermissions[right]
   if (!allowed.includes(user.role)) throw new Error('FORBIDDEN_' + right.toUpperCase())
   return user
 }
@@ -2000,7 +2001,7 @@ export function mockAddOrderItem(
   // forgotten next door (§1, rule 6).
   const fullProduct = PRODUCTS_STORE.find((p) => p.id === data.productId)
   if (!fullProduct) throw new Error('CATALOG_PRODUCT_NOT_FOUND')
-  let productName = fullProduct.name?.[CATALOGUE_LANGUAGE] ?? fullProduct.name?.en
+  let productName = fullProduct.name[CATALOGUE_LANGUAGE]
   if (!productName) productName = data.productId
   // The caller hands over a selling price; cost and margin are what the model
   // actually stores, so the margin is derived to land on that price.
@@ -3406,9 +3407,9 @@ export function mockCreateReturn(
   if (!order) throw new Error('ORDER_NOT_FOUND')
   assertVersion(order, data.version)
 
-  const reason = data.reason?.trim() ?? ''
+  const reason = data.reason.trim()
   if (!reason) throw new Error('RETURN_REASON_REQUIRED')
-  if (!data.lines?.length) throw new Error('RETURN_HAS_NO_LINES')
+  if (!data.lines.length) throw new Error('RETURN_HAS_NO_LINES')
 
   const seen = new Set<string>()
   for (const line of data.lines) {
@@ -4129,3 +4130,15 @@ function buildShowcaseReturn(): void {
 // walks into the temporal dead zone of the first one it touches.
 buildShowcaseOrder()
 buildShowcaseReturn()
+
+// ─── Audit source ───────────────────────────────────────────────────────────
+
+/** The order logs, for the merged audit feed — same store the card reads. */
+export function orderAuditSources(): AuditSource[] {
+  return STORE.filter((o) => o.auditLog.length).map((o) => ({
+    entityType: 'order' as const,
+    entityId: o.id,
+    entityLabel: o.orderNumber,
+    log: o.auditLog,
+  }))
+}

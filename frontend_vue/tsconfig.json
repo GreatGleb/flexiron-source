@@ -20,7 +20,10 @@
 
     /* Linting */
     "strict": true,
+    /* .js в src больше нет (переведены 2026-08-25); allowJs с checkJs оставлены
+       храповиком: появится новый .js — он будет проверен, а не пропущен молча. */
     "allowJs": true,
+    "checkJs": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
@@ -33,6 +36,6 @@
       "@images/*": ["./src/assets/images/*"]
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.vue", "env.d.ts"],
+  "include": ["src/**/*.ts", "src/**/*.vue", "src/**/*.js", "env.d.ts", "tests/**/*.ts", "*.config.ts"],
   "exclude": ["node_modules", "dist"]
 }

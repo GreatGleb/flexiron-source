@@ -288,6 +288,18 @@ const routes: RouteRecordRaw[] = [
         meta: { layout: 'admin', featureFlag: 'adminWarehouse' as FeatureFlagKey },
       },
       {
+        path: 'warehouse/cutting',
+        name: 'admin-warehouse-cutting',
+        component: () => import('@/views/admin/warehouse/WarehouseCuttingPage.vue'),
+        meta: { layout: 'admin', featureFlag: 'warehouseCutting' as FeatureFlagKey },
+      },
+      {
+        path: 'warehouse/map',
+        name: 'admin-warehouse-map',
+        component: () => import('@/views/admin/warehouse/WarehouseMapPage.vue'),
+        meta: { layout: 'admin', featureFlag: 'warehouseMap' as FeatureFlagKey },
+      },
+      {
         path: 'warehouse/deficit/:id',
         name: 'admin-warehouse-deficit',
         component: () => import('@/views/admin/warehouse/WarehouseDeficitCard.vue'),
@@ -377,6 +389,12 @@ const routes: RouteRecordRaw[] = [
                 name: 'admin-settings-order-statuses',
                 component: () => import('@/views/admin/settings/OrderStatusesSettings.vue'),
               },
+              {
+                path: 'logs',
+                name: 'admin-settings-logs',
+                component: () => import('@/views/admin/settings/LogsSettings.vue'),
+                meta: { featureFlag: 'settingsAuditLog' as FeatureFlagKey },
+              },
             ],
           },
         ],
@@ -424,8 +442,13 @@ router.beforeEach((to) => {
 
 // Feature flag guard — redirect to /404 if route is disabled
 router.beforeEach((to) => {
-  const flag = to.meta?.featureFlag as FeatureFlagKey | undefined
-  if (flag && !isEnabled(flag)) {
-    return { name: 'not-found' }
+  // Every matched record, not just the merged `to.meta`: a nested route carries its
+  // own flag (settings → logs), and merged meta would let the child's flag shadow
+  // the parent's — the section switched off, the sub-page still reachable.
+  for (const record of to.matched) {
+    const flag = record.meta.featureFlag as FeatureFlagKey | undefined
+    if (flag && !isEnabled(flag)) {
+      return { name: 'not-found' }
+    }
   }
 })

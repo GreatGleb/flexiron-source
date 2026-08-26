@@ -264,6 +264,10 @@ test.describe('supply › categories chart', () => {
 
   test('bar widths match the price-growth distribution (72 / 45 / 30 / 90)', async ({ page }) => {
     const fills = page.locator('[data-test="supply-category-row"] .bar-fill')
+    // Ждать ВСЕ элементы, а не читать сколько успело отрисоваться: под
+    // нагрузкой count() возвращал 1 из 5, и сравнение покраснело не по делу.
+    // Число берётся из самого утверждения ниже, а не выдумывается.
+    await expect(fills).toHaveCount(4)
     const widths: number[] = []
     const count = await fills.count()
     for (let i = 0; i < count; i++) {

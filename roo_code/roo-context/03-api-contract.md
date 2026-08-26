@@ -95,6 +95,32 @@ interface PaginationParams { page: number; pageSize: number }
 - Деньги — `number` (minor units не используем, точность до 2 знаков).
 - Временные штампы в заметках (notes) — локальный формат `dd.mm.yyyy hh:mm` в начале блока.
 
+### Записи аудита адресуются по id, а не по позиции
+
+Аудит есть у **девяти** сущностей: товар, заказ, клиент, поставщик, партия, остаток, обрезок,
+движение, дефицит. У всех девяти запись имеет собственный `id`, и удаление адресуется им:
+
+```
+DELETE /api/<entity>/:id/audit/:entryId
+```
+
+`entryId` уникален **внутри своего лога** (как id строки заказа) — запись достаётся через путь
+своей сущности, глобальной уникальности не требуется. В моках он читаемый: префикс сущности +
+порядковый номер (`bch-au-2` — вторая запись лога партии), у заказов — `au-2`. На бэкенде это
+DB-идентификатор.
+
+**Почему не индекс.** Позиция всегда что-то называет, поэтому устаревшая позиция удаляет не ту
+запись — и молча. Для этого не нужны два пользователя: удалили одну запись, и все последующие
+позиции в этом логе сдвинулись под строками, которые уже нарисованы на экране. В сводной ленте
+логов (Настройки → Логи) это обычный сценарий: записи одной сущности стоят вперемешку с чужими,
+и вторая правка попадает мимо. Проверено тестом
+`src/services/mocks/audit-entry-identity.spec.ts`: на логе из четырёх записей позиционная
+адресация оставляет `[2, 3]` там, где должно остаться `[2, 4]`.
+
+**Неизвестный `entryId` — ошибка**, а не тихий no-op и не «удалить последнюю»: сервер отвечает
+404 `AUDIT_ENTRY_NOT_FOUND`. Молчание неотличимо от успеха, и клиент сотрёт у себя строку,
+которая на сервере осталась.
+
 ### Авторизация и заголовки
 
 - Бэкенд выдаёт **HttpOnly Secure cookie** `session` (после `POST /api/auth/login`). Fetch должен ходить с `credentials: 'include'`.
@@ -729,7 +755,7 @@ P&L. KPI: gross/net profit, margin; chart: по месяцам.
   - `GET /api/warehouse/batches/:id/aggregates` — агрегированные статусы
   - `GET /api/warehouse/batches/:id/active-sales` — активные продажи для возврата
   - `GET /api/warehouse/batches/:id/audit` — аудит партии
-  - `DELETE /api/warehouse/batches/:id/audit/:entryIndex` — удаление записи аудита
+  - `DELETE /api/warehouse/batches/:id/audit/:entryId` — удаление записи аудита
   - `GET /api/warehouse/movements` — список движений (с фильтром batchNumber)
   - `POST /api/warehouse/movements` — создание движения
   - `GET /api/warehouse/offcuts` — список обрезков (с фильтром batchNumber)
@@ -1360,11 +1386,13 @@ Page: `WarehouseBatchCard.vue`. Composable: `useWarehouseBatch` + `useDirtyCheck
 - **Response 200:** `ApiResponse<void>`.
 - **Notes:** 409 `BATCH_LINKED_TO_ORDER` если `orderId !== null`. Каскадное удаление: сервер удаляет все движения и обрезки, привязанные к партии. Клиент показывает предупреждение о количестве удаляемых связанных записей до подтверждения.
 
-### DELETE /api/warehouse/batches/:id/audit/:entryIndex
+### DELETE /api/warehouse/batches/:id/audit/:entryId
 
 - **Когда:** клик на иконку удаления в строке аудита → confirmation modal → confirm. **Quick action.**
 - **Response 200:** `ApiResponse<void>`.
-- **Notes:** 404 `NOT_FOUND` если запись не существует. `entryIndex` — порядковый номер записи в массиве аудита.
+- **Notes:** 404 `AUDIT_ENTRY_NOT_FOUND`, если записи с таким id в логе нет. Неизвестный id — ошибка,
+  а не тихий no-op: молчание неотличимо от успеха, и клиент сотрёт строку у себя.
+  Адресация — по `entryId` из `auditLog[].id`, **не по позиции** (см. правило ниже).
 
 ---
 
@@ -1498,6 +1526,35 @@ Page: `WarehouseBatchCard.vue`. Composable: `useWarehouseBatch` + `useDirtyCheck
 | `return` | `+= quantity` | без изменений | без изменений |
 | `correction` (receipt) | `= quantity` | `+= (new - old) remainder` | без изменений |
 | `correction` (non-receipt) | без изменений | `+= delta` | `+= delta × unitPrice` |
+| `transfer` | без изменений | без изменений | без изменений |
+
+**Логика места хранения при `transfer` (бэкенд):**
+
+`transfer` перемещает металл между полками, а не в остатки и не из них, — количества не
+трогает. Что он меняет, так это место хранения: `offcut.location`, если движение принадлежит
+обрезку, иначе `batch.location`. Общее условие одно: **`toLocation` — непустая строка**.
+Движение без названного адреса назначения известный адрес не стирает: писать нечего, а
+устаревшая строка хуже пустой — место хранения свободный текст (справочника секторов нет),
+поэтому именно она единственное, что читает кладовщик, и она увела бы не туда.
+
+**Обрезок (`offcutId != null`) — переезжает целиком.** Обрезок это **один физический кусок**,
+он не может лежать в двух местах, поэтому вопроса «весь остаток или часть» здесь нет: любой
+transfer с названным адресом переносит его целиком, какое бы количество ни стояло в движении.
+`batchId` в таком движении — родитель, он несётся ради происхождения; **место родителя не
+меняется**. Неизвестный `offcutId` не пишет ничего: движение регистрируется, но куску, о
+котором склад не знает, полка не назначается.
+
+**Партия (`offcutId == null`) — только при полном перемещении**, то есть дополнительно
+`quantity >= batch.quantityRemaining`. При частичном `batch.location` не трогается: партия
+лежит в двух местах, а запись адреса назначения поверх исходного заявила бы, что уехала вся.
+Второе место дописывается руками. Принятое следствие: два последовательных частичных
+перемещения оставят место старым, потому что каждое по отдельности частичное. Место обрезков
+этой партии при её перемещении не меняется — отрезанный кусок живёт своей жизнью.
+
+**Порядок и предусловие.** Движение всегда регистрируется против партии: номер, товар,
+единица, цена и валюта копируются из неё, поэтому `batchId` обязателен и в payload, и в самом
+`WarehouseOffcut`. Неизвестный `batchId` → `BATCH_NOT_FOUND` **до** любой записи, в том числе
+до переноса места: половинчатого результата быть не должно.
 
 **Логика определения статуса партии (бэкенд):**
 
@@ -1540,6 +1597,104 @@ Page: `WarehouseBatchCard.vue`. Composable: `useWarehouseBatch` + `useDirtyCheck
 
 ---
 
+## Резка металла (Cutting)
+
+Используется в `WarehouseCuttingPage.vue` (`useWarehouseCutting`). Вход — карточка партии
+(`?batchId=`) или вкладка обрезков (партия выбирается на самой странице).
+
+### POST /api/warehouse/cutting
+
+- **Когда:** оператор подтвердил резку. **Quick-action**: одна проводка, копить нечего.
+- **Payload** (`CuttingOperation`):
+  ```ts
+  {
+    sourceBatchId: string
+    sourceQuantity: number        // СВЕРКА, а не ввод — см. ниже
+    kerfMm: number                // ширина реза в миллиметрах
+    offcuts: Array<{              // Omit<OffcutCreatePayload, 'batchId'>
+      productId: string
+      categoryId?: string | null
+      offcutType?: 'sheet' | 'linear'
+      lengthMm?: number | null
+      widthMm?: number | null
+      thicknessMm?: number | null
+      weightKg?: number | null
+      quantity: number            // СЧЁТЧИК КУСКОВ, целое ≥ 1
+      unit: StockUnit
+      location?: string | null
+      notes?: string | null
+    }>
+    wasteQuantity: number
+    notes?: string | null
+  }
+  ```
+- **Response 200:** `{ offcuts: WarehouseOffcut[]; wasteQuantity: number }`
+
+**Арифметика (сервер считает сам, клиенту не верит):**
+
+```
+material(кусок) = quantity × размер одного куска в единице партии
+cuts            = Σ quantity                       // по резу на каждый кусок
+consumed        = Σ material + cuts × kerf + waste
+```
+
+Размер одного куска по единице партии — пять строк геометрии и две на весе:
+
+| `batch.unit` | размер куска |
+|---|---|
+| `m` | `lengthMm / 1000` |
+| `mm` | `lengthMm` |
+| `m2` | `lengthMm × widthMm / 1 000 000` |
+| `kg` | `weightKg` |
+| `t` | `weightKg / 1000` |
+| `pcs` | 1 |
+
+`quantity` обрезка — это счётчик кусков, а НЕ количество материала: единица обрезка и
+единица партии — разные величины. Пример из ТЗ (Process 2.2 §2): партия в метрах, один
+кусок 2500 мм, пропил 3 мм → `consumed = 2.503`.
+
+`cuts = Σ quantity` переоценивает на один рез при ровном расходе (6000 на два по 3000 —
+физически один рез). Выбрано сознательно: переоценка показывает металла МЕНЬШЕ, чем лежит,
+и лишнее находится при инвентаризации; недооценка обещает клиенту металл, которого нет.
+
+**Пропил только у линейных единиц** (`m`, `mm`). Для остальных `kerfMm > 0` — отказ, а не
+молчаливый ноль: 3 мм в килограммы без веса погонного метра не переводятся.
+
+**Что пишется в движения:**
+
+- по одному `type: 'offcut'` на каждую строку кусков, `quantity` = материал этой строки
+  (в единице партии), `offcutId` — созданный обрезок
+- одно `type: 'write-off'` c `referenceType: 'cutting'` на `kerf + waste`, если оно
+  больше нуля; в `notes` расшифровка обоих слагаемых
+
+Количество партии уменьшают ТОЛЬКО эти движения — второго вычитания нет нигде.
+
+**Отказы (все — до первой записи; резка либо проведена целиком, либо не проведена):**
+
+| Код | Когда |
+|---|---|
+| `BATCH_NOT_FOUND` | неизвестный `sourceBatchId` |
+| `CUTTING_NO_OFFCUTS` | пустой `offcuts` |
+| `CUTTING_NEGATIVE_AMOUNT` | `kerfMm < 0` или `wasteQuantity < 0` |
+| `CUTTING_KERF_NOT_APPLICABLE` | `kerfMm > 0` у нелинейной партии |
+| `BATCH_UNIT_NOT_SUPPORTED` | единицы партии нет в таблице размеров |
+| `OFFCUT_DIMENSION_MISSING` | нет размера, нужного для этой единицы (или он ≤ 0) |
+| `OFFCUT_PIECES_NOT_INTEGER` | `quantity` не целое или меньше 1 |
+| `INSUFFICIENT_QUANTITY` | `consumed > batch.quantityRemaining` |
+| `CUTTING_QUANTITY_MISMATCH` | `sourceQuantity` разошлось с пересчитанным `consumed` (допуск 1e-6) |
+
+`sourceQuantity` — это то же число, что показано оператору. Сервер считает расход заново и
+отказывает при расхождении: два поля, которые обязаны совпадать, расходятся ровно тогда,
+когда их два.
+
+### POST /api/warehouse/offcuts (ручное создание) — то же списание
+
+Тот же резолвер размера, тот же владелец количества. Отличия от резки: нет пропила, нет
+отхода, один кусок за вызов. Отказы `BATCH_NOT_FOUND`, `OFFCUT_DIMENSION_MISSING`,
+`OFFCUT_PIECES_NOT_INTEGER`, `INSUFFICIENT_QUANTITY` — те же.
+
+---
+
 ## Аудит партии (Batch Audit)
 
 ### GET /api/warehouse/batches/:id/audit
@@ -1563,7 +1718,7 @@ Page: `WarehouseBatchCard.vue`. Composable: `useWarehouseBatch` + `useDirtyCheck
   ```
 - **Notes:** `timestamp` — локальный формат `dd.mm.yyyy hh:mm`. Значения `oldValue`/`newValue` могут содержать enum-коды (с префиксами `batch_status_`, `movement_type_`, `offcut_status_`), которые клиент переводит через `translateAuditValue()`.
 
-### DELETE /api/warehouse/batches/:id/audit/:entryIndex
+### DELETE /api/warehouse/batches/:id/audit/:entryId
 
 (Документирован выше, в разделе "Карточка партии")
 
@@ -2274,6 +2429,136 @@ Page: `ProfileSettings.vue` (таб `/admin/settings/profile`).
 
 ---
 
+## Логи аудита (Настройки → Логи)
+
+Страница: [`LogsSettings.vue`](frontend_vue/src/views/admin/settings/LogsSettings.vue)
+(маршрут `/admin/settings/logs`, вкладка в `SettingsLayout`, флаг `settingsAuditLog`),
+композабл [`useAuditFeed.ts`](frontend_vue/src/composables/useAuditFeed.ts).
+
+**Лента — представление над девятью логами, а не десятое хранилище.** Своих записей у неё
+нет: сервер собирает ответ из тех же логов, которые отдают карточки, поэтому «удалил здесь —
+исчезло там» верно по построению, а не потому, что два механизма держат в синхроне.
+
+### GET /api/audit-feed
+
+- **Когда:** открытие страницы, смена фильтра, смена страницы.
+- **Query:** `entityType`, `user`, `dateFrom`, `dateTo`, `search`, `page`, `pageSize`.
+  Пустая строка в фильтре — «все».
+- **Response 200:**
+  ```ts
+  {
+    items: Array<{
+      entityType: 'product' | 'order' | 'client' | 'supplier'
+                | 'batch' | 'stock' | 'offcut' | 'movement' | 'deficit'
+      entityId: string
+      entityLabel: string   // номер партии, номер заказа, имя клиента — что писать в строке
+      entryId: string       // id записи ВНУТРИ лога своей сущности
+      timestamp: string
+      user: TranslatedString
+      userInitials: string
+      property: TranslatedString
+      oldValue: string
+      newValue: string
+    }>
+    total: number
+    page: number
+    pageSize: number
+    totalPages: number
+  }
+  ```
+- **Notes:**
+  - **Сортировка по времени убыв. и пагинация — ПОСЛЕ слияния.** Страница обязана быть срезом
+    единого списка. Если листать каждую сущность отдельно и сшивать страницы, вторая страница
+    может содержать записи старше третьей.
+  - `timestamp` в логах встречается в двух форматах (`2026-04-23 13:17` и полный ISO).
+    Сортировать нужно по моменту времени, а не по строке: `T` сортируется после пробела, и при
+    строковой сортировке короткие штампы одной даты встают впереди длинных.
+  - `search` ищет по полю (`property`), старому и новому значению и по `entityLabel`.
+  - Фильтр по пользователю приходит ключом `user.en`; подпись клиент переводит сам.
+
+### GET /api/audit-feed/users
+
+- **Когда:** открытие страницы — для выпадающего списка «Пользователь».
+- **Response 200:** `Array<{ key: string; name: TranslatedString; initials: string }>` —
+  все, кто встречается в ленте. `key` — то, что уходит в фильтр `user`.
+
+### Удаление записи из ленты
+
+**Своего эндпоинта у ленты нет.** Строка удаляется тем же вызовом, что и в карточке объекта:
+
+```
+DELETE /api/<entity>/:entityId/audit/:entryId
+```
+
+Сущность выбирается по `entityType` строки. Второй путь к той же записи означал бы второе
+правило о том, кому можно её удалять и что при этом происходит, — и эти два правила разойдутся.
+
+### Идентификация строки
+
+`entryId` уникален только внутри своего лога: `bch-au-2` есть у каждой партии. Поэтому строка
+ленты адресуется **тройкой** `entityType + entityId + entryId` — этим же ключом должны быть
+`:key` списка, выбранная строка, цель модалки удаления и оптимистичное убирание строки.
+Ключом по одному `entryId` удаление уносит с экрана чужую запись; ключом по позиции в ленте —
+любую, потому что позиция меняется на каждом фильтре.
+
+---
+
+## Карта склада (Warehouse map)
+
+Страница: [`WarehouseMapPage.vue`](frontend_vue/src/views/admin/warehouse/WarehouseMapPage.vue)
+(маршрут `/admin/warehouse/map`, флаг `warehouseMap`), композабл
+[`useWarehouseMap.ts`](frontend_vue/src/composables/useWarehouseMap.ts).
+
+Карта — это **картинка**, а не справочник секторов: место хранения осталось свободным
+текстом (решение ревью, п. 3). Смотрят её штатным просмотрщиком браузера — страница даёт
+обычную ссылку `target="_blank"`, своего вьювера, зума и аннотаций нет.
+
+**Хранится ровно одна текущая карта, версий нет.** Живёт она в настройках
+(`AppSettings.warehouseMap: WarehouseMapFile | null`) и больше нигде: второго реестра той
+же сущности в складском модуле быть не должно — это ровно та болезнь, что у оплат
+(находка 5-A), где две страницы показывали разные числа про одни и те же деньги.
+
+```ts
+interface WarehouseMapFile {
+  fileId: string
+  name: string
+  mime: string   // только image/*
+  size: number
+  url: string    // прямая ссылка на файл — по ней он и открывается
+  uploadedAt: string
+}
+```
+
+Сам файл загружается штатным `POST /api/uploads` (multipart), и уже его метаданные
+кладутся сюда. Бинарник в JSON не отправляется — общее правило проекта.
+
+### GET /api/settings/warehouse-map
+
+- **Когда:** открытие страницы карты.
+- **Response 200:** `WarehouseMapFile | null` — `null`, если карту ещё не загружали
+  (страница показывает пустое состояние, а не битую картинку).
+
+### PUT /api/settings/warehouse-map
+
+- **Когда:** пользователь выбрал файл и подтвердил замену. **Quick action.**
+- **Body:** `WarehouseMapFile` целиком.
+- **Response 200:** `WarehouseMapFile` — сохранённая карта.
+- **Notes:**
+  - PUT, а не PATCH: ресурс единичный и заменяется целиком. «Загрузить новую» и
+    «обновить» — одно и то же действие, прежняя карта не сохраняется.
+  - 415 `MAP_NOT_AN_IMAGE`, если `mime` не начинается с `image/`. Проверка обязана быть
+    на сервере: атрибут `accept` фильтрует только диалог выбора файла и ничего не значит
+    для перетаскивания — в дропзону можно бросить PDF.
+
+### DELETE /api/settings/warehouse-map
+
+- **Когда:** пользователь подтвердил удаление. **Quick action.**
+- **Response 200:** пусто. Карты больше нет, страница возвращается к пустому состоянию.
+- **Notes:** удаление предусмотрено намеренно — иначе единственным способом убрать карту
+  была бы загрузка пустого файла.
+
+---
+
 ## Save UX — Settings
 
 Settings работает по **local-first** принципу (см. «Save UX / Clean-slate»):
@@ -2458,3 +2743,55 @@ interface Notification {
 - Composable: [`composables/useNotifications.ts`](frontend_vue/src/composables/useNotifications.ts)
 - Views: [`views/admin/notifications/NotificationsPage.vue`](frontend_vue/src/views/admin/notifications/NotificationsPage.vue), [`components/admin/NotificationDropdown.vue`](frontend_vue/src/components/admin/NotificationDropdown.vue)
 - i18n: [`i18n/admin/notifications.ts`](frontend_vue/src/i18n/admin/notifications.ts)
+
+---
+
+# Клиент написан, UI нет
+
+Реестр эндпоинтов, для которых **клиентская функция и мок уже существуют**, а вызывающего UI нет.
+Заведён 2026-08-25, когда `npm run deadcode` показал их как «неиспользуемые экспорты». Удалять их
+было бы выбрасыванием готовой работы, а молчать — держать код, про который никто не знает, живой он
+или забытый. Отсюда список: пока строка здесь, экспорт не считается мёртвым.
+
+**Правило снятия:** появился UI — строка уходит отсюда, а у самого эндпоинта выше проставляется
+конкретный вызывающий (`Page.vue`, композабл), как требует contract-first из `vue-rules.md`.
+
+| Метод и путь | Функция клиента | Описан выше | Примечание |
+|---|---|---|---|
+| `POST /api/config/fields` | `createField()` | да | модалка «New field» не подключена |
+| `PATCH /api/config/fields/:id` | `patchField()` | да | inline rename, «будущий UI» так и записан в разделе |
+| `DELETE /api/config/fields/:id` | `deleteField()` | да | — |
+| `POST /api/config/sections` | `createSection({ name })` | **нет** | тело `{ name: string }`, ответ `SectionConfig` |
+| `PATCH /api/config/sections/:id` | `patchSection(id, patch, locale)` | да | — |
+| `DELETE /api/config/sections/:id` | `deleteSection()` | **нет** | ответ пустой |
+| `PATCH /api/settings/uoms/:id` | `updateUom()` | да | — |
+| `GET /api/products/list` | `getProductList()` | **нет** | ответ `Array<{ id, name: { ru, en, lt } }>` — плоский справочник для селектов |
+| `GET /api/suppliers/export.csv` | `exportSuppliersCsv(filters)` | **нет** | параметры `search`, `status`, `rating`, `categories` (через запятую); ответ — CSV строкой |
+| `POST /api/warehouse/deficit` | `createDeficitItem()` | **нет** | тело `DeficitCreatePayload`, ответ `WarehouseDeficit` |
+| `GET /api/warehouse/stock/:productId/audit` | `getStockAudit()` | **нет** | ответ `StockAuditEntry[]` |
+| `GET /api/warehouse/offcuts/:id/audit` | `getOffcutAudit()` | **нет** | ответ `StockAuditEntry[]` |
+| `GET /api/warehouse/movements/:id/audit` | `getMovementAudit()` | **нет** | ответ `StockAuditEntry[]` |
+| `GET /api/warehouse/deficit/:id/audit` | `getDeficitAudit()` | **нет** | ответ `StockAuditEntry[]` |
+
+Про четыре `*/audit`: парные `delete*AuditEntry` **вызываются** из карточек, а `get*Audit` — нет.
+Значит записи аудита UI получает вместе с сущностью, а отдельная загрузка осталась вторым путём к
+тем же данным. Это кандидат либо на подключение, либо на удаление — но решать по контракту, а не по
+счётчику линтера.
+
+## Складские сущности: `files` необязателен
+
+Решение 2026-08-25. У `WarehouseBatch` и `WarehouseOffcut` поле `files` объявлено как
+`files?: WarehouseBatchFile[]` — **необязательное**, и это записано здесь, а не только в типе.
+
+Почему так, а не «всегда массив, как у супплайера»: у супплайера ответ описан выше и показывает
+`"files": []` явно, а для батча и обрезка контракт не описывает это поле вовсе. Гарантии, что
+сервер его пришлёт, нет — значит страховки в композаблах (`if (!batch.value.files)`,
+`data.files ? … : []`) не мёртвый код, а единственное, что стоит между отсутствующим полем и
+упавшей карточкой.
+
+Обратная сторона: пока строка здесь, поле нельзя «почистить» до обязательного по подсказке
+линтера. Появится серверная реализация и в ней гарантия — раздел переписывается, тип становится
+обязательным, страховки снимаются вместе.
+
+Формы запросов и ответов в строках выше сняты **с клиента и мока**, а не согласованы с сервером:
+серверной реализации ни у одного из этих эндпоинтов пока нет.

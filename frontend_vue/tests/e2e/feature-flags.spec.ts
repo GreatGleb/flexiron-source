@@ -31,6 +31,8 @@ const PAGE_FLAG_ROUTES: Array<{ flag: keyof typeof ALL_FLAGS_ENABLED; route: str
   { flag: 'adminOrders', route: '/admin/orders' },
   { flag: 'adminOrders', route: '/admin/orders/new' },
   { flag: 'adminOrders', route: '/admin/orders/ORD-001' },
+  { flag: 'warehouseMap', route: '/admin/warehouse/map' },
+  { flag: 'warehouseCutting', route: '/admin/warehouse/cutting' },
 ]
 
 for (const { flag, route } of PAGE_FLAG_ROUTES) {

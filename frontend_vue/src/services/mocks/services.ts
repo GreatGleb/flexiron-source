@@ -3,6 +3,7 @@ import type { PaginatedResponse, PaginationParams } from '@/types/api'
 import type { TranslatedString } from '@/types/i18n'
 import { toTranslatedString } from '@/types/i18n'
 import { mockServices as mockServicesData } from '@/mocks/services'
+import { MOCK_SETTINGS } from './settings'
 
 const STORE: Service[] = [...mockServicesData]
 
@@ -28,7 +29,8 @@ function toListItem(svc: Service): ServiceListItem {
     name: svc.name,
     costPrice: svc.costPrice,
     sellingPrice: svc.sellingPrice,
-    priceUnit: svc.priceUnit,
+    currencyId: svc.currencyId,
+    uomId: svc.uomId,
     description: svc.description,
     createdAt: svc.createdAt,
     updatedAt: svc.updatedAt,
@@ -65,12 +67,29 @@ export async function mockGetServices(
   }
 
   const total = filtered.length
-  const page = pagination.page ?? 1
-  const pageSize = pagination.pageSize ?? 25
+  const page = pagination.page
+  const pageSize = pagination.pageSize
   const start = (page - 1) * pageSize
   const items = filtered.slice(start, start + pageSize).map(toListItem)
 
   return { items, total, page, pageSize, totalPages: Math.ceil(total / pageSize) }
+}
+
+/**
+ * Валюта и единица проверяются по справочнику, а не приводятся типом.
+ *
+ * Раньше здесь стояло `data.priceUnit as Service['priceUnit']` — непроверенный каст,
+ * через который проходила любая строка. После смены типа старое значение `'EUR/kg'`
+ * пролезло бы молча, и тайпчек бы промолчал: «мигрировали» осталось бы утверждением
+ * без доказательства. Неизвестный id — ошибка, а не запись в стор.
+ */
+function assertKnownPricing(currencyId: string, uomId: string): void {
+  if (!MOCK_SETTINGS.currencies.some((c) => c.id === currencyId)) {
+    throw new Error('SERVICE_CURRENCY_NOT_FOUND')
+  }
+  if (!MOCK_SETTINGS.uoms.some((u) => u.id === uomId)) {
+    throw new Error('SERVICE_UOM_NOT_FOUND')
+  }
 }
 
 export async function mockCreateService(
@@ -78,7 +97,8 @@ export async function mockCreateService(
     name: TranslatedString | string
     costPrice: number
     sellingPrice: number
-    priceUnit: string
+    currencyId: string
+    uomId: string
     description?: TranslatedString | string
   },
   locale: string = 'en',
@@ -92,12 +112,15 @@ export async function mockCreateService(
       : data.description
     : undefined
 
+  assertKnownPricing(data.currencyId, data.uomId)
+
   const service: Service = {
     id: `svc-${String(STORE.length + 1).padStart(3, '0')}`,
     name,
     costPrice: data.costPrice,
     sellingPrice: data.sellingPrice,
-    priceUnit: data.priceUnit as Service['priceUnit'],
+    currencyId: data.currencyId,
+    uomId: data.uomId,
     description,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -118,7 +141,8 @@ export async function mockPatchService(
     name?: TranslatedString
     costPrice?: number
     sellingPrice?: number
-    priceUnit?: string
+    currencyId?: string
+    uomId?: string
     description?: TranslatedString
   },
   _locale?: string,
@@ -129,7 +153,11 @@ export async function mockPatchService(
   if (data.name !== undefined) svc.name = data.name
   if (data.costPrice !== undefined) svc.costPrice = data.costPrice
   if (data.sellingPrice !== undefined) svc.sellingPrice = data.sellingPrice
-  if (data.priceUnit !== undefined) svc.priceUnit = data.priceUnit as Service['priceUnit']
+  if (data.currencyId !== undefined || data.uomId !== undefined) {
+    assertKnownPricing(data.currencyId ?? svc.currencyId, data.uomId ?? svc.uomId)
+    if (data.currencyId !== undefined) svc.currencyId = data.currencyId
+    if (data.uomId !== undefined) svc.uomId = data.uomId
+  }
   if (data.description !== undefined) svc.description = data.description
   svc.updatedAt = new Date().toISOString()
   return { ...svc } as Service

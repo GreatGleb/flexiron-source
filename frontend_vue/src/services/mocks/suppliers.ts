@@ -1,6 +1,8 @@
 import { mergeTranslatedString } from '@/types/i18n'
 import type { Supplier, SupplierCardData, SupplierFilters } from '@/types/supplier'
 import type { PaginatedResponse, PaginationParams } from '@/types/api'
+import type { AuditSource } from '@/types/audit'
+import { shiftAuditSeries } from './auditClock'
 
 export const MOCK_SUPPLIERS: Supplier[] = [
   {
@@ -232,6 +234,7 @@ const MOCK_CARD: Record<string, SupplierCardData> = {
     ],
     auditLog: [
       {
+        id: 'sup-au-1',
         timestamp: '2026-04-05 01:10',
         user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
         userInitials: 'MV',
@@ -240,6 +243,7 @@ const MOCK_CARD: Record<string, SupplierCardData> = {
         newValue: '30 Days Net',
       },
       {
+        id: 'sup-au-2',
         timestamp: '2026-04-01 10:25',
         user: { ru: 'Алекс З.', en: 'Alex Z.', lt: 'Alex Z.' },
         userInitials: 'AZ',
@@ -256,9 +260,9 @@ function applyFilters(list: Supplier[], filters: SupplierFilters): Supplier[] {
     if (filters.search) {
       const q = filters.search.toLowerCase()
       const matchesSearch =
-        s.company.ru?.toLowerCase().includes(q) ||
-        s.company.en?.toLowerCase().includes(q) ||
-        s.company.lt?.toLowerCase().includes(q) ||
+        s.company.ru.toLowerCase().includes(q) ||
+        s.company.en.toLowerCase().includes(q) ||
+        s.company.lt.toLowerCase().includes(q) ||
         s.email.toLowerCase().includes(q)
       if (!matchesSearch) return false
     }
@@ -380,6 +384,7 @@ export function mockGetSupplier(id: string): SupplierCardData {
     ],
     auditLog: [
       {
+        id: 'sup-au-1',
         timestamp: base.updatedAt + ' 10:00',
         user: { ru: 'Система', en: 'System', lt: 'Sistema' },
         userInitials: 'SY',
@@ -388,6 +393,7 @@ export function mockGetSupplier(id: string): SupplierCardData {
         newValue: String(base.rating),
       },
       {
+        id: 'sup-au-2',
         timestamp: base.createdAt + ' 09:00',
         user: { ru: base.contactPerson.ru, en: base.contactPerson.en, lt: base.contactPerson.lt },
         userInitials: buildInitials(base.contactPerson.ru),
@@ -447,12 +453,12 @@ export function mockUpdateSupplierStatus(id: string, status: string): void {
   if (s) s.status = status as Supplier['status']
 }
 
-export function mockDeleteAuditEntry(supplierId: string, entryIndex: number): void {
+export function mockDeleteAuditEntry(supplierId: string, entryId: string): void {
   const card = MOCK_CARD[supplierId]
-  if (!card) return
-  if (entryIndex >= 0 && entryIndex < card.auditLog.length) {
-    card.auditLog.splice(entryIndex, 1)
-  }
+  if (!card) throw new Error('SUPPLIER_NOT_FOUND')
+  const idx = card.auditLog.findIndex((entry) => entry.id === entryId)
+  if (idx === -1) throw new Error('AUDIT_ENTRY_NOT_FOUND')
+  card.auditLog.splice(idx, 1)
 }
 
 export function mockCreateSupplier(payload: Partial<SupplierCardData>): SupplierCardData {
@@ -527,3 +533,36 @@ export function mockExportSuppliersCsv(filters: SupplierFilters): string {
   )
   return [header, ...rows].join('\n')
 }
+
+// ─── Audit source ───────────────────────────────────────────────────────────
+
+/**
+ * The supplier logs, for the merged audit feed.
+ *
+ * Goes through `mockGetSupplier`, which is where a supplier card is built and
+ * cached (`MOCK_CARD`): reading the seed list instead would show entries that
+ * deletion — which edits the card — could never remove.
+ */
+export function supplierAuditSources(): AuditSource[] {
+  return MOCK_SUPPLIERS.map((s) => {
+    mockGetSupplier(s.id)
+    const card = MOCK_CARD[s.id]!
+    return {
+      entityType: 'supplier' as const,
+      entityId: s.id,
+      entityLabel: s.company.en || s.company.ru || s.id,
+      log: card.auditLog,
+    }
+  }).filter((source) => source.log.length > 0)
+}
+
+// ─── The supplier log rides the demo clock ──────────────────────────────────
+//
+// Through `supplierAuditSources()` deliberately, rather than a second pass of its
+// own. That function already builds every card (five of the six are assembled on
+// demand from literal `createdAt` / `updatedAt`, and this file does not import the
+// demo clock) and hands back `MOCK_CARD[id].auditLog` — the canonical array. Both
+// halves matter: shift before materialising and the cards built later arrive
+// unshifted, and shift what `mockGetSupplier` returns — a deep copy — and the store
+// never changes at all.
+shiftAuditSeries(supplierAuditSources().map((source) => source.log))

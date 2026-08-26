@@ -1,355 +1,175 @@
 ---
 name: fix-bugs
-description: Fix bugs from the bugs file one at a time. Each bug: read → verify → plan → fix → verify cycle (up to 5 iterations) → mark ✅. Never self-approves verification.
+description: Починка багов из bugs-файла по одному. На баг: прочитать → воспроизвести → план → правка → проверка (до 5 попыток) → ✅. Закрывает баг не тот, кто его чинил.
 user_invocable: true
 arguments:
   - name: plan
-    description: "Plan file identifier, e.g. '1.1' → roo_code/plans/bugs/1.1-products-bugs.md"
+    description: "Идентификатор плана, например '1.1' → roo_code/plans/bugs/1.1-products-bugs.md"
     required: true
   - name: bug
-    description: "Optional: specific bug ID, e.g. 'БАГ-13'. If omitted — show list and let user choose."
+    description: "Необязательно: конкретный баг, например 'БАГ-13'. Без него — показать список."
     required: false
 ---
 
-# Fix Bugs — Bug fixing workflow
+# Fix Bugs — починка багов
 
-One bug = one complete cycle. Each step fully before next.
+Один баг = один полный цикл. Каждый шаг до конца, прежде чем следующий.
 
----
+## Два лимита, они не конфликтуют
 
-## CRITICAL RULES
+| Лимит | Область | Где описан |
+|---|---|---|
+| **5 попыток** | один баг: правка → проверка → всё ещё не закрыт → правка | здесь |
+| **30 итераций** | весь код задачи: свип всех линз | [`verify.md`](verify.md) |
 
-1. **Read before touch** — read ENTIRE file before editing, not just the bug line
-2. **Verify the problem exists** — Grep or Read proves problem is there BEFORE changing anything
-3. **Plan before edit** — describe what will change and why, before opening Edit
-4. **Minimal change** — change exactly what's needed. No refactoring around, no "while we're at it"
-5. **Check callers** — if changing public API (function, prop, type) → grep all consumers
-6. **Min 2 stops per bug** — STOP-1 (after fix) + STOP-2 (result). Verification cycle max 5 iterations.
-7. **Mark ✅ only after verification cycle complete** — not after fix, not "probably passes"
-8. **Never self-approve** — after fix, don't proceed to verification without user confirmation
-9. **Stop on each error iteration** — found errors in cycle → show errors → ask confirmation → only then fix
-10. **NEVER use `git restore` or `git checkout` on tracked files** — these permanently destroy uncommitted changes. Use `git show HEAD:<path>` to read committed version, then manually apply only needed parts. If uncommitted changes were destroyed, use `git reflog` + `git show` before any further writes.
+Баг упёрся в 5 попыток → остаётся **незакрытым**, помечается `⚠️`, свип от этого нечистый, ветка не мержится. Обойти это, закрыв баг «в целом починен», нельзя.
 
----
+## Критические правила
 
-## Step 0: Initialization (once)
+1. **Читать до правки** — файл целиком, а не строку из бага.
+2. **Воспроизвести проблему** — grep или чтение доказывают, что она есть, **до** любой правки.
+3. **План до Edit** — что меняется и почему.
+4. **Минимальное изменение** — ровно то, что нужно. Никакого «раз уж открыли файл».
+5. **Проверить вызывающих** — меняется публичное (функция, проп, тип) → grep всех потребителей.
+6. **Закрывает баг не тот, кто чинил.** Интерактивно подтверждает человек; автономно — отдельный агент-скептик, который этот баг не правил. Автор правки не ставит ✅ себе никогда.
+7. **✅ только после проверки** — не после правки и не «скорее всего проходит».
+8. **`git restore` / `git checkout -- <файл>` запрещены** — уничтожают несохранённое без следа (в `.claude/settings.json` они в deny-листе). Прочитать закоммиченную версию — `git show HEAD:<путь>`. Выкинуть неудачную правку — `git stash push -u -m "<причина>"`: работа остаётся достаётся. Если несохранённое всё же потеряно — `git reflog` + `git show` **до** любых новых записей.
 
-```
-1. Determine bugs-file:
-   - Find roo_code/plans/*/{plan}-*-plan.md (e.g. 1.1-products-plan.md)
-   - Bugs-file: same prefix, directory roo_code/plans/bugs/, suffix -bugs.md
-   - Example: "1.1" → roo_code/plans/bugs/1.1-products-bugs.md
+## Шаг 0 — инициализация (один раз)
 
-2. Read bugs-file entirely
+1. Bugs-файл: план `roo_code/plans/<домен>/{plan}-*-plan.md` → тот же префикс, каталог `roo_code/plans/bugs/`, суффикс `-bugs.md`.
+2. Прочитать bugs-файл целиком.
+3. Разобрать список: `## БАГ-NN` без `✅` — незакрытый; `## ✅ БАГ-NN` — пропустить; `## PAT-NN` — паттерн, не код, пропустить.
+4. Аргумент `bug` задан → сразу к нему. Не задан: интерактивно — показать список и ждать выбор; автономно — брать по порядку, от High к Low.
 
-3. List unfixed bugs:
-   - "## БАГ-N" without "✅" → unfixed
-   - "## ✅ БАГ-N" → already fixed, skip
-   - "## PAT-N" → pattern, not code — skip unless explicitly specified
+## Цикл починки одного бага
 
-4. If bug argument specified → go directly to it
-   If not → show list (format below) and wait for user choice
-```
+### A — прочитать баг целиком
 
-**List format:**
-```
-Unfixed bugs — {BUGS_FILE}:
+Разделы `**File:**`, `**Severity:**`, `### Problem`, `### Fix`. Каждый файл из `**File:**` прочитать целиком, а не вокруг строки.
 
-  БАГ-01 [Type] — summary
-  БАГ-05 [Runtime] — summary
-  ...
+`### Fix` = «TBD» → сформулировать план из `### Problem`. Интерактивно — показать и ждать. Автономно — **записать план в тело бага** перед правкой: скептик потом сверяет сделанное с планом, а не с догадкой о нём.
 
-Already fixed: ✅ БАГ-03, ✅ БАГ-07
-PAT-* (patterns, not code): PAT-01, PAT-02
+### B — воспроизвести проблему
 
-Which to start with? (or "all in order")
-```
+Доказать, что проблема есть, до правки:
 
----
+- класс CSS отсутствует → grep класса по импортированным файлам компонента → не найден;
+- неверный тип → прочитать файл, найти строку;
+- ошибка логики → прочитать функцию, провести значение по коду;
+- данные мока → прочитать STORE, убедиться, что поля нет;
+- имя роута → grep по `src/router/index.ts`.
 
-## Single bug fix cycle
+**Не воспроизводится** — не закрывать молча. Пометить `## ✅ БАГ-NN — <заголовок> (не воспроизводится)` и **в теле бага записать команду и её вывод**, которыми это доказано. Интерактивно — сначала спросить. «Наверное, починили в другой сессии» без команды — не доказательство.
 
----
-
-### Step A — Read and understand bug fully
-
-1. Read bug section in bugs-file:
-   - `**File:**` — affected files list
-   - `**Severity:**` — priority and context
-   - `### Problem` — what happens, why it's a bug
-   - `### Fix` — what's written as solution (may be "TBD")
-
-2. Read EACH file from `**File:**` entirely (not just the bug line):
-   - Understand structure around problem area
-   - Find all places where problem may manifest
-
-3. If `### Fix` = "TBD" or incomplete:
-   - Study problem from `### Problem`
-   - Formulate fix plan and SHOW to user before applying
-   - Wait for confirmation
-
----
-
-### Step B — Verify the problem
-
-Before any edit — prove problem exists:
-
-- **CSS class missing** → Grep class in component's imported files → confirm not found
-- **Wrong type** → Read file → find bug line
-- **Logic error** → Read function → trace value through code
-- **Mock data** → Read STORE → verify missing field
-- **Wrong route name** → Grep name in router/index.ts → confirm mismatch
-
-If problem NOT reproducible (already fixed):
-```
-Problem from БАГ-N not reproducible in current code.
-Possibly fixed in another session.
-Mark ✅ without changes?
-```
-
----
-
-### Step C — Plan the fix
-
-Before opening Edit — describe plan:
+### C — план правки
 
 ```
-File: src/...
-Line ~N: [what's there] → [what it becomes]
-Reason: [why this solves the problem]
-Side effects: [none / or: check X]
+Файл: src/...
+Строка ~N: [что там] → [что станет]
+Причина: [почему это закрывает проблему]
+Побочные эффекты: [нет / проверить X]
 ```
 
-If fix affects public API (export, prop, type):
-- Grep all consumers (components, composables, tests)
-- List in plan which other files need changes
+Правка задевает публичное (export, проп, тип) → grep всех потребителей (компоненты, композаблы, тесты) и перечислить их в плане.
 
----
+### D — применить правку
 
-### Step D — Apply fix
+Ровно то, что в плане. Соседний код (форматирование, порядок, стиль) не трогать. Баг в нескольких файлах — все в этом же шаге. После правки перечитать изменённый фрагмент.
 
-Edit rules:
-- Change exactly what's described in plan
-- Don't touch adjacent code (formatting, order, style) unless related to bug
-- If bug in multiple files → fix all within this step
+### СТОП-1 — правка применена
 
-After edit — read changed fragment again and verify it looks correct.
-
----
-
-### STOP-1 — After fix applied
-
-Announce to user and request confirmation to start verification:
+Интерактивно: показать изменения и ждать разрешения на проверку.
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-БАГ-[N] — [title] — fix applied
+БАГ-NN — <заголовок> — правка применена
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Changes:
-  [file] line ~N: [what was] → [what became]
-
-Ready to start verification cycle (bug fixed? → TZ → patterns, up to 5 iterations).
-Start?
+Изменения:
+  <файл> строка ~N: <было> → <стало>
+Начинать проверку?
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-**Wait for confirmation. Do not start verification until user responds.**
+Автономно стопа нет — проверка начинается сразу. То, что здесь давал человек, дальше даёт скептик: разрешение начать ничего не гарантировало, гарантирует независимая проверка.
 
----
+### E — проверка (до 5 попыток)
 
-### Step E — Verification cycle (up to 5 iterations)
+Каждая попытка — два уровня.
 
-Starts only after user confirmation on STOP-1.
+**Уровень 1 — баг закрыт?** Только этот уровень специфичен для бага и здесь описан.
+Прочитать изменённые файлы и `### Problem`. Вопрос: *это конкретное поведение теперь невозможно?* CSS — правило применяется к нужному селектору; JS/TS — провести логику от источника к результату; мок — поле есть и верное; компонент — правка активна в шаблоне или скрипте.
 
-**Each iteration — 3 levels by priority:**
+**Уровень 2 — линзы.** Свой список правил здесь **не заводится**: прогнать линзы из [`verify.md`](verify.md) по области правки. Что брать — по типу бага:
 
----
+| Тип бага | Линзы |
+|---|---|
+| Runtime, композабл | Л1 (реактивность), Л5 (один источник), Л8 (потеря данных) |
+| CSS, Design | Л6 (UI и CSS) |
+| i18n | Л2 |
+| Mock data | Л4, Л3 (контракт) |
+| Contract | Л3 |
+| Test | Л9 (инверсия обязательна) |
+| TypeScript, Code style | машинная приёмка + Л5 |
 
-**Level 1 — Bug fixed? (main check)**
+Плюс машинная приёмка из `verify.md` (`npm run verify`) — с кэшами lint и format она дешёвая, гонять её каждую попытку.
 
-Read changed files and `### Problem` section.
-Ask: _is this specific behavior now impossible?_
+**Итог попытки:**
 
-- CSS bug → find class in file → verify rule applies to correct selector
-- JS/TS bug → trace logic from problem source to result
-- Mock bug → read STORE → verify field now exists and is correct
-- Component bug → find in template/script → verify fix is active
+- чисто → шаг F;
+- найдено, попытка < 5 → интерактивно СТОП-попытки и ждать; автономно — чинить сразу, счётчик +1;
+- попытка = 5, осталось → выйти из цикла, баг **не закрывать**, пометить `⚠️` и записать в тело бага, что именно осталось.
 
-If bug **NOT fixed** — find reason and describe in iteration STOP.
+### F — соседний код
 
----
+Для типов CSS, Design, Runtime — быстрая проверка, что не сломано рядом: изменённый класс grep'нуть по другим компонентам; изменённую функцию композабла — по представлениям; изменённое поле мока — по остальным функциям мока. Нечего проверять — шаг пропускается.
 
-**Level 2 — TZ compliance**
+### G — закрыть баг в файле
 
-Check against `### Fix` in bugs-file:
-- All fix points implemented?
-- Nothing missed from description?
+Ставит **не автор правки** (правило 6). Две правки в bugs-файле:
 
----
+```
+## БАГ-NN — <заголовок>        →  ## ✅ БАГ-NN — <заголовок>
+| БАГ-NN | Тип | файл | суть | →  | ✅ БАГ-NN | Тип | файл | суть |
+```
 
-**Level 3 — Project patterns**
+В bugs-файл могут писать несколько агентов одновременно: перед правкой перечитать файл, править **только строки своего бага**, остальное не переупорядочивать (те же правила, что в [`add-bug.md`](add-bug.md)).
 
-Verify fix doesn't violate rules from `roo_code/roo-context/frontend-vue-quickref.md` and `roo_code/skills/vue-rules.md`:
-- Correct component usage?
-- No forbidden patterns (HTML comments, span instead of input, router.back() etc.)?
+Автономно после закрытия — коммит: заголовок с номером бага, в теле одна строка что и почему. Незакрытый баг (`⚠️`) не коммитится — неудачная правка уходит в `git stash push -u`.
 
----
-
-**After all 3 levels:**
-
-- **Clean** → exit cycle → go to Step F
-- **Problems found, iteration < 5** → STOP-iteration → wait for confirmation → fix → counter +1 → repeat
-- **Iteration = 5, problems remain** → exit cycle → Step F → in STOP-2 indicate limit
-
-**STOP-iteration format (when problems found):**
+### СТОП-2 — итог по багу
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Iteration [N]/5 — problems found
+✅ БАГ-NN закрыт — <заголовок>        (или: ⚠️ лимит 5/5, не закрыт)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-[Level 1 / 2 / 3]:
-  [problem description]
-  [what's wrong: file, line, reason]
-
-Will fix: [plan in one line]
-Continue?
+Изменения:      <файл> строка ~N: <было> → <стало>
+Проверка:       попытка X/5 · линзы: <какие> · приёмка: npm run verify
+Подтвердил:     человек / скептик (не автор правки)
+Осталось:       N незакрытых
+Дальше:         БАГ-NN+1 — <суть>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
----
+При `⚠️` — что именно осталось и что пробовать дальше. Формулировка «в целом починено» запрещена: баг либо закрыт, либо нет.
 
-### Step F — Check adjacent code (if needed)
+## Завершение
 
-Only for CSS, Design, Runtime bug types — quick check that fix didn't break neighbors:
-
-- **CSS bug** → Grep changed class across other components → didn't break globally?
-- **Runtime bug in composable** → Grep function across views → all callers get what they expect?
-- **Mock bug** → Grep changed ID/field → didn't break other mock functions?
-
-If nothing adjacent — skip this step.
-
----
-
-### Step G — Mark ✅ in bugs-file
-
-Two changes in bugs-file:
-
-**1. Bug section header:**
-```
-## БАГ-N — [title]
-         ↓
-## ✅ БАГ-N — [title]
-```
-
-**2. Summary table row:**
-```
-| БАГ-N | Type | file | summary |
-         ↓
-| ✅ БАГ-N | Type | file | summary |
-```
-
----
-
-### STOP-2 — format after verification cycle
-
-**If verification passed (0 errors):**
+Все баги пройдены → **полный цикл проверок** из `verify.md` (не только typecheck и lint: правки багов ломают соседей, а десять линз для этого и нужны).
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-✅ БАГ-[N] fixed — [title]
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Changes:
-  [file] line ~N: [what was] → [what became]
-
-Verification (iteration [X]/5): ✅ clean
-
-Remaining unfixed: [N]
-  [list of remaining with brief description]
-
-Next: БАГ-[N+1] — [summary]
-Fix?
+Баги: <путь к файлу>
+Закрыто: N        Не закрыто (⚠️): N
+Цикл проверок: чистый свип за N итераций / НЕ СОШЛОСЬ
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-**If limit 5 iterations reached and errors remain:**
+Строка «все баги починены» пишется только при нуле `⚠️` и чистом свипе. Иначе — перечень того, что осталось.
 
-```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⚠️ БАГ-[N] — verification limit reached (5/5)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+## Особые случаи
 
-Changes applied, but verification errors remain (5/5):
-  [list remaining errors briefly]
-
-Recommendation: [what to try manually]
-
-Remaining unfixed: [N]
-  [list]
-
-Next: БАГ-[N+1] — [summary]
-Continue?
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
-
----
-
-## Completion
-
-After all bugs closed — run typecheck + lint once:
-
-```bash
-cd frontend_vue && npm run typecheck && npm run lint
-```
-
-**If errors found:**
-- Read each error
-- Determine which file and if related to fixed bugs
-- Fix — same rules: Read → plan → Edit → read result
-- Re-run until 0 errors
-- If error clearly unrelated to fixed bugs — report to user separately, don't fix silently
-
-**If no errors:**
-
-```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-✅ All bugs fixed
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Fixed this session: [N]
-  ✅ БАГ-N — title
-  ✅ БАГ-N — title
-  ...
-
-typecheck: ✅ 0 errors
-lint:      ✅ 0 errors
-
-Bugs-file: [path]
-
-Next step: manual testing
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
-
----
-
-## Special cases
-
-### Fixing "TBD"
-`### Fix` is "TBD" → study `### Problem` → formulate fix → **show user and wait for confirmation** before editing.
-
-### Multiple files in one bug
-Fix all within one cycle → one ✅ mark.
-
-### PAT-* (patterns)
-Patterns describe future rules — don't require code changes. Skip automatically. If user specified PAT-N explicitly — explain: "This is a pattern, not a bug. Code intentionally unchanged."
-
-### Bug in multiple unrelated places
-If `**File:**` contains files with unrelated logic (e.g. composable AND CSS) — fix both in one cycle, one ✅ mark.
-
-### Regression after final typecheck
-If typecheck + lint in Completion shows errors in files NOT from fixed bugs:
-- Read errors
-- If related to any fix → fix
-- If unrelated → report to user separately, don't fix silently
+- **TBD** — план формулируется и записывается в тело бага до правки (шаг A).
+- **Несколько файлов в одном баге** — один цикл, одна пометка ✅.
+- **PAT-\*** — паттерн, не код. Пропускать. Указали явно — объяснить, что кода это не касается.
+- **Регрессия на завершении** — ошибка в файле, не входившем ни в один баг: связана с правкой → чинить в том же порядке (прочитать → план → правка); не связана → отдельной находкой в bugs-файл через `add-bug.md`, молча не чинить.

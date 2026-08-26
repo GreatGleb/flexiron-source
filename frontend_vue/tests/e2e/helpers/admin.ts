@@ -1,8 +1,9 @@
 import { type Page } from '@playwright/test'
+import { waitForDataReady } from './ready'
 
 export async function navigateToAdmin(page: Page, path = '/admin/analytics/dashboard') {
   await page.goto(path)
-  await page.waitForLoadState('networkidle')
+  await waitForDataReady(page)
 }
 
 export async function switchLanguage(page: Page, lang: 'ru' | 'en' | 'lt') {
@@ -10,11 +11,14 @@ export async function switchLanguage(page: Page, lang: 'ru' | 'en' | 'lt') {
     localStorage.setItem('flexiron_lang', l)
   }, lang)
   await page.reload()
-  await page.waitForLoadState('networkidle')
+  await waitForDataReady(page)
 }
 
 export async function waitForPanelsLoaded(page: Page) {
+  // A visible `.glass-panel` proves the panel exists, not that it holds anything —
+  // a panel drawing a skeleton is visible too.
   await page.waitForSelector('.glass-panel', { state: 'visible' })
+  await waitForDataReady(page)
 }
 
 export async function setFeatureFlag(page: Page, flag: string, value: boolean) {
@@ -27,5 +31,5 @@ export async function setFeatureFlag(page: Page, flag: string, value: boolean) {
     { f: flag, v: value },
   )
   await page.reload()
-  await page.waitForLoadState('networkidle')
+  await waitForDataReady(page)
 }

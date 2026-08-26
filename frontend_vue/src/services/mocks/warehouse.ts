@@ -1,3 +1,10 @@
+import {
+  MATERIAL_ERROR_CODE,
+  computeCuttingConsumption,
+  isLinearBatchUnit,
+  resolveOffcutMaterial,
+} from '@/domain/cutting'
+import { roundQuantity } from '@/domain/quantity'
 import type {
   WarehouseBatch,
   WarehouseOffcut,
@@ -46,6 +53,9 @@ import {
 } from '@/domain/orderPricing'
 import { reservedOn } from './reservations'
 import { compareDocumentNumbers } from '@/services/documentNumbers'
+import { sealAuditIds, type AuditSeeded } from '@/mocks/auditIds'
+import type { AuditSource } from '@/types/audit'
+import { shiftAuditSeries } from './auditClock'
 
 /**
  * The one currency the warehouse layer speaks (contract §7.1).
@@ -156,7 +166,9 @@ function _resolveBatchCost(batch: WarehouseBatch): void {
   batch.totalCost = round2(batch.quantity * unitPrice)
 }
 
-const rawBatches = mockBatchesData as unknown as WarehouseBatch[]
+// The batch seeds carry no ids either — they are sealed here rather than in the
+// seed file only because that file has never been annotated with its own type.
+const rawBatches = sealAuditIds(mockBatchesData as unknown as AuditSeeded<WarehouseBatch>[], 'bch')
 for (const b of rawBatches) {
   _normalizeBatchAudit(b)
   _resolveProductName(b)
@@ -182,6 +194,25 @@ const stockStore: StockOverviewItem[] = [...mockStockOverviewData]
 // Track IDs of pre-existing mock entities so we can distinguish them
 // from dynamically created ones (e.g. to avoid generating fake audit data for new entities)
 const preExistingMovementIds = new Set(mockMovementsData.map((m) => m.id))
+
+// ─── The five warehouse logs ride the demo clock ────────────────────────────
+//
+// Five series, five ends, five shifts: their newest entries were 2025-05-10
+// (batches), 2025-04-05 (stock), 2025-04-01 (deficit), 2025-01-20 (offcuts) and
+// 2025-01-15 (movements). One shared end would leave the last two a year and a half
+// behind, which is the whole reason `demoShiftDays` takes the end as a parameter.
+//
+// Movements are shifted HERE, on the seed, and not through `getOrCreateMovementAudit`:
+// that accessor copies the seed into `movementAuditStore` on first read, and the copy
+// is what the card and the feed are served. Shift the seed before anything reads it
+// and the copy inherits the shift; shift the copy instead and the seed stays behind,
+// which is two truths about one log. Every caller of that accessor runs at request
+// time, never at module load, so "before anything reads it" is here.
+shiftAuditSeries(stockStore.map((item) => item.auditLog))
+shiftAuditSeries(batchStore.map((batch) => batch.auditLog))
+shiftAuditSeries(offcutStore.map((offcut) => offcut.auditLog))
+shiftAuditSeries(movementStore.map((movement) => movement.auditLog))
+shiftAuditSeries(deficitStore.map((deficit) => deficit.auditLog))
 
 let batchSeq = batchStore.length + 1
 let offcutSeq = offcutStore.length + 1
@@ -225,15 +256,6 @@ const AGGREGATE_TO_STATUS: Record<string, string> = {
 
 function computeBatchStatus(batch: WarehouseBatch): string {
   const movements = movementStore.filter((m) => m.batchId === batch.id)
-  const outgoingTypes = new Set([
-    'sale',
-    'expense',
-    'write-off',
-    'production',
-    'return-to-supplier',
-    'storage',
-    'offcut',
-  ])
   const byType: Record<string, number> = {}
 
   for (const m of movements) {
@@ -241,16 +263,16 @@ function computeBatchStatus(batch: WarehouseBatch): string {
     if (m.type === 'correction') continue
     if (m.type === 'return') {
       const reduceType = m.referenceType || ''
-      if (reduceType && outgoingTypes.has(reduceType))
+      if (reduceType && OUTGOING_MOVEMENT_TYPES.has(reduceType))
         byType[reduceType] = (byType[reduceType] || 0) - m.quantity
       continue
     }
-    if (outgoingTypes.has(m.type)) byType[m.type] = (byType[m.type] || 0) + m.quantity
+    if (OUTGOING_MOVEMENT_TYPES.has(m.type)) byType[m.type] = (byType[m.type] || 0) + m.quantity
   }
   // Second pass: corrections set aggregate directly
   for (const m of movements) {
     if (m.type !== 'correction' || !m.referenceType || m.referenceType === 'receipt') continue
-    if (outgoingTypes.has(m.referenceType)) byType[m.referenceType] = m.quantity
+    if (OUTGOING_MOVEMENT_TYPES.has(m.referenceType)) byType[m.referenceType] = m.quantity
   }
 
   // Find which single aggregate has 100% of goods
@@ -272,32 +294,52 @@ function computeBatchStatus(batch: WarehouseBatch): string {
   return 'depleted'
 }
 
-// ─── Sync batch quantities & statuses with movements ────────────────────────
-// Runs once at module load to ensure all batches reflect their movements.
-;(function syncBatchQuantities() {
-  const outgoingTypes: ReadonlySet<string> = new Set([
-    'sale',
-    'expense',
-    'write-off',
-    'production',
-    'return-to-supplier',
-    'storage',
-    'offcut',
-  ])
+/**
+ * Типы движений, уносящие металл с партии.
+ *
+ * ОДИН список на два правила: по нему `writeMovement` списывает при записи, и по нему же
+ * остаток пересчитывается из журнала. Разойдись они — и пересчёт «вернул» бы партии то,
+ * что при записи с неё ушло: молча и только после пересборки хранилища. Резка пишет
+ * `offcut` на куски и `write-off` на пропил с отходом — оба здесь.
+ */
+const OUTGOING_MOVEMENT_TYPES: ReadonlySet<string> = new Set([
+  'sale',
+  'expense',
+  'write-off',
+  'production',
+  'return-to-supplier',
+  'storage',
+  'offcut',
+])
+
+/**
+ * Приводит остатки и статусы партий в согласие с журналом движений.
+ *
+ * Вызывается один раз при загрузке модуля — и вызываема из тестов, потому что это
+ * инвариант, а не разовая инициализация: остаток, посчитанный из журнала целиком, обязан
+ * совпадать с остатком, полученным вычитаниями по одному движению. Бэкенд сделает
+ * ровно этот пересчёт при старте с сохранённого журнала.
+ */
+export function syncBatchQuantities() {
   for (const batch of batchStore) {
     const movements = movementStore.filter((m) => m.batchId === batch.id)
     let remaining = batch.quantity
     for (const m of movements) {
-      if (outgoingTypes.has(m.type)) {
+      if (OUTGOING_MOVEMENT_TYPES.has(m.type)) {
         remaining -= m.quantity
       } else if (m.type === 'return') {
         remaining += m.quantity
       }
     }
-    batch.quantityRemaining = Math.max(0, remaining)
+    // Округление тем же правилом, что при записи: иначе сумма журнала и цепочка
+    // вычитаний разойдутся в последних битах, и «тот же остаток» перестанет быть тем же.
+    batch.quantityRemaining = Math.max(0, roundQuantity(remaining))
     batch.status = computeBatchStatus(batch) as WarehouseBatch['status']
   }
-})()
+}
+
+// Runs once at module load to ensure all batches reflect their movements.
+syncBatchQuantities()
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -350,7 +392,7 @@ function projectStockRow(row: StockOverviewItem): StockOverviewItem {
     // batches only — an unpriced one would otherwise drag the average towards zero.
     avgUnitPrice: costedQuantity > 0 ? round2(totalValue / costedQuantity) : 0,
     totalValue,
-    unit: (batches[0]?.unit as StockUnit) ?? row.unit,
+    unit: (batches[0]?.unit ?? row.unit) as StockUnit,
     // Reserved and available are derived for the same reason: a hold belongs to an
     // order, and a number copied here would lie the moment that order shipped.
     reservedQuantity: reserved,
@@ -749,7 +791,7 @@ export async function mockGetOffcuts(
   }
   if (filters.batchNumber)
     filtered = filtered.filter((o) =>
-      o.batchNumber?.toLowerCase().includes(filters.batchNumber!.toLowerCase()),
+      o.batchNumber.toLowerCase().includes(filters.batchNumber!.toLowerCase()),
     )
   const sortBy = filters.sortBy || 'createdAt'
   const sortDir = filters.sortDir || 'desc'
@@ -769,20 +811,40 @@ export async function mockGetOffcut(id: string): Promise<WarehouseOffcut> {
   return { ...offcut }
 }
 
+/**
+ * Создаёт обрезок и списывает с партии РОВНО столько материала, сколько он забрал.
+ *
+ * Три вещи, которых здесь раньше не было.
+ *
+ * 1. Партия обязательна. Без неё нет ни единицы измерения (а значит и размера
+ *    куска), ни номера, ни цены — обрезок без партии был бы записью, которую
+ *    невозможно ни посчитать, ни найти. `writeMovement` требует того же.
+ * 2. Списывается материал, а не `quantity`. `quantity` — счётчик кусков: «1 шт»
+ *    из партии в метрах списывало один метр. Размер куска считает
+ *    `resolveOffcutMaterial` — одна функция на оба пути, ручной и резку.
+ * 3. Количество партии уменьшает ТОЛЬКО `writeMovement`. Здесь стояло второе
+ *    такое же вычитание, и обрезок в 3 забирал с партии 6.
+ */
 export async function mockCreateOffcut(data: OffcutCreatePayload): Promise<WarehouseOffcut> {
+  const batch = batchStore.find((b) => b.id === data.batchId)
+  if (!batch) throw new Error('BATCH_NOT_FOUND')
+
+  const material = resolveOffcutMaterial(data, batch.unit)
+  if (!material.ok) throw new Error(MATERIAL_ERROR_CODE[material.reason])
+  // Списать больше, чем лежит, и отчитаться об успехе — значит создать металл из
+  // ничего: `Math.max(0, …)` ниже по стеку молча согласился бы.
+  if (material.material > batch.quantityRemaining) throw new Error('INSUFFICIENT_QUANTITY')
+
   const id = `offcut-${String(offcutSeq++).padStart(3, '0')}`
   const now = new Date().toISOString()
-
-  // Find the source batch
-  const batch = batchStore.find((b) => b.id === data.batchId)
-  const batchNumber = batch?.batchNumber ?? ''
+  const batchNumber = batch.batchNumber
 
   const offcut: WarehouseOffcut = {
     id,
     batchId: data.batchId,
     batchNumber,
     productId: data.productId,
-    productName: batch?.productName ?? { ru: '', en: '', lt: '' },
+    productName: batch.productName,
     categoryId: data.categoryId ?? null,
     offcutType: data.offcutType ?? 'sheet',
     lengthMm: data.lengthMm ?? null,
@@ -803,21 +865,15 @@ export async function mockCreateOffcut(data: OffcutCreatePayload): Promise<Wareh
   }
   offcutStore.push(offcut)
 
-  // Decrease batch remaining quantity
-  if (batch) {
-    batch.quantityRemaining = Math.max(0, batch.quantityRemaining - data.quantity)
-    batch.updatedAt = now
-
-    // Create a movement record for the offcut creation
-    await mockCreateMovement({
-      type: 'offcut',
-      batchId: data.batchId,
-      offcutId: id,
-      quantity: data.quantity,
-      movedAt: now,
-      notes: `Offcut created from batch ${batchNumber}`,
-    })
-  }
+  // Движение — единственный владелец количества партии: оно и списывает.
+  await mockCreateMovement({
+    type: 'offcut',
+    batchId: data.batchId,
+    offcutId: id,
+    quantity: material.material,
+    movedAt: now,
+    notes: `Offcut created from batch ${batchNumber}`,
+  })
 
   return offcut
 }
@@ -942,6 +998,12 @@ export function writeMovement(data: {
   notes?: string | null
   movedAt?: string
 }): WarehouseMovement {
+  // Every movement — an offcut's included — is recorded against a batch: the record
+  // copies its number, product, unit, price and currency from there, so a batch is
+  // not decoration but the only place those fields exist. `batchId` is required by
+  // the payload type and by `WarehouseOffcut` itself, so a movement without one is
+  // unrepresentable; an unknown one fails here, BEFORE anything is written, and in
+  // particular before any location is moved. Nothing is left half-done.
   const batch = batchStore.find((b) => b.id === data.batchId)
   if (!batch) throw new Error('BATCH_NOT_FOUND')
 
@@ -976,17 +1038,8 @@ export function writeMovement(data: {
   // ─── For non-receipt correction: compute delta BEFORE movement added ──
   // (getAggregateQty would include the new movement and return delta=0)
   let correctionDelta = 0
-  const outgoingTypes = new Set([
-    'sale',
-    'expense',
-    'write-off',
-    'production',
-    'return-to-supplier',
-    'storage',
-    'offcut',
-  ])
   if (data.type === 'correction' && data.referenceType && data.referenceType !== 'receipt') {
-    if (outgoingTypes.has(data.referenceType)) {
+    if (OUTGOING_MOVEMENT_TYPES.has(data.referenceType)) {
       const currentQty = getAggregateQty(batch.id, data.referenceType)
       correctionDelta = data.quantity - currentQty
     }
@@ -995,24 +1048,20 @@ export function writeMovement(data: {
   movementStore.push(movement)
 
   // ─── Update batch quantity remaining based on movement type ──────────
-  if (
-    data.type === 'sale' ||
-    data.type === 'expense' ||
-    data.type === 'write-off' ||
-    data.type === 'production' ||
-    data.type === 'return-to-supplier' ||
-    data.type === 'storage' ||
-    data.type === 'offcut'
-  ) {
-    batch.quantityRemaining = Math.max(0, batch.quantityRemaining - data.quantity)
+  // Тот же набор, что у пересчёта из журнала: два списка «что уносит металл» — это
+  // две правды об одном правиле, и расходятся они на первом же новом типе.
+  if (OUTGOING_MOVEMENT_TYPES.has(data.type)) {
+    // Округление — здесь, у единственного владельца количества: списание 2.503 с
+    // партии 102.24 иначе оставляет в хранилище 99.73700000000001.
+    batch.quantityRemaining = Math.max(0, roundQuantity(batch.quantityRemaining - data.quantity))
   } else if (data.type === 'receipt') {
-    batch.quantityRemaining += data.quantity
-    batch.quantity += data.quantity
+    batch.quantityRemaining = roundQuantity(batch.quantityRemaining + data.quantity)
+    batch.quantity = roundQuantity(batch.quantity + data.quantity)
     if (batch.totalCost != null && batch.unitPrice != null) {
       batch.totalCost += data.quantity * batch.unitPrice
     }
   } else if (data.type === 'return') {
-    batch.quantityRemaining += data.quantity
+    batch.quantityRemaining = roundQuantity(batch.quantityRemaining + data.quantity)
   } else if (data.type === 'correction') {
     if (data.referenceType === 'receipt') {
       // receipt correction: set remaining directly and adjust total by delta
@@ -1025,6 +1074,36 @@ export function writeMovement(data: {
       batch.quantity += correctionDelta
       if (batch.totalCost != null && batch.unitPrice != null) {
         batch.totalCost += correctionDelta * batch.unitPrice
+      }
+    }
+  } else if (data.type === 'transfer') {
+    // A transfer moves metal, not stock: the quantities stay as they are. What it
+    // moves is the place the metal is found in — and a location is free text (there
+    // is no sector reference), so that string is the whole guarantee the metal gets
+    // found again. A stale one is worse than an empty one: it points the wrong way.
+    //
+    // With no destination named there is nothing better to write, so the known place
+    // is kept rather than blanked.
+    const destination =
+      typeof data.toLocation === 'string' && data.toLocation !== '' ? data.toLocation : null
+    if (destination != null) {
+      if (data.offcutId != null) {
+        // An offcut is ONE physical piece: it cannot be in two places, so there is no
+        // partial move to weigh — any transfer takes all of it. `batchId` on the
+        // movement is its parent, carried for provenance; the parent stays put.
+        // An unknown offcutId writes nothing: the movement is recorded, but a piece
+        // the warehouse has never heard of is not given a shelf.
+        const offcut = offcutStore.find((o) => o.id === data.offcutId)
+        if (offcut) {
+          offcut.location = destination
+          offcut.updatedAt = now
+        }
+      } else if (data.quantity >= batch.quantityRemaining) {
+        // A batch is divisible, so this one is weighed: the field follows the metal
+        // only when the WHOLE remainder goes. On a partial transfer the batch is in
+        // two places at once, and overwriting the origin would claim it had all left
+        // — the field is left alone and the second place is written by hand.
+        batch.location = destination
       }
     }
   }
@@ -1103,14 +1182,6 @@ export async function mockGetBatchAggregates(batchId: string): Promise<BatchStat
   if (!batch) return []
 
   const movements = movementStore.filter((m) => m.batchId === batchId)
-  const outgoingTypes = new Set([
-    'sale',
-    'expense',
-    'write-off',
-    'production',
-    'return-to-supplier',
-    'storage',
-  ])
   const byType: Record<string, number> = {}
 
   for (const m of movements) {
@@ -1118,7 +1189,7 @@ export async function mockGetBatchAggregates(batchId: string): Promise<BatchStat
     if (m.type === 'correction') continue // applied in second pass
     if (m.type === 'return') {
       const reduceType = m.referenceType || ''
-      if (reduceType && outgoingTypes.has(reduceType))
+      if (reduceType && OUTGOING_MOVEMENT_TYPES.has(reduceType))
         byType[reduceType] = (byType[reduceType] || 0) - m.quantity
       continue
     }
@@ -1127,7 +1198,7 @@ export async function mockGetBatchAggregates(batchId: string): Promise<BatchStat
   // Second pass: corrections set aggregate directly
   for (const m of movements) {
     if (m.type !== 'correction' || !m.referenceType || m.referenceType === 'receipt') continue
-    if (outgoingTypes.has(m.referenceType)) byType[m.referenceType] = m.quantity
+    if (OUTGOING_MOVEMENT_TYPES.has(m.referenceType)) byType[m.referenceType] = m.quantity
   }
 
   const receiptQty = Math.max(0, batch.quantityRemaining)
@@ -1176,14 +1247,75 @@ export async function mockGetBatchActiveSales(batchId: string): Promise<BatchAct
 
 // ─── Cutting Operation ──────────────────────────────────────────────────────
 
+/**
+ * Резка: из партии выходят куски, пропилы и отходы.
+ *
+ * До этого здесь была заглушка — она списывала присланное `sourceQuantity`, не
+ * смотрела ни на `offcuts`, ни на `kerfMm`, возвращала `{ offcuts: [],
+ * wasteQuantity: 0 }` и не писала ни одного движения. То есть операция «прошла», а
+ * обрезков не появлялось нигде.
+ *
+ * Всё, что уходит с партии, уходит через `mockCreateOffcut` и `writeMovement` — те
+ * же две функции, что и при ручном создании обрезка. Второго пути списания нет.
+ *
+ * `sourceQuantity` здесь НЕ ВХОДНОЕ ЧИСЛО, а сверка: расход считается заново из
+ * кусков, пропилов и отходов, и разошедшееся с клиентом значение — отказ, а не
+ * повод поверить клиенту. Два числа, которые обязаны совпадать, расходятся ровно
+ * тогда, когда одно из них считают в двух местах.
+ */
 export async function mockExecuteCutting(
   data: CuttingOperation,
 ): Promise<{ offcuts: WarehouseOffcut[]; wasteQuantity: number }> {
   const batch = batchStore.find((b) => b.id === data.sourceBatchId)
   if (!batch) throw new Error('BATCH_NOT_FOUND')
-  batch.quantityRemaining = Math.max(0, batch.quantityRemaining - data.sourceQuantity)
-  batch.updatedAt = new Date().toISOString()
-  return { offcuts: [], wasteQuantity: 0 }
+  if (!Array.isArray(data.offcuts) || data.offcuts.length === 0) {
+    throw new Error('CUTTING_NO_OFFCUTS')
+  }
+
+  const kerfMm = data.kerfMm ?? 0
+  const wasteQuantity = data.wasteQuantity ?? 0
+  if (kerfMm < 0 || wasteQuantity < 0) throw new Error('CUTTING_NEGATIVE_AMOUNT')
+  // Ширина реза в килограммах не выражается без веса погонного метра. Отказ, а не
+  // молчаливый ноль: присланный пропил означает, что клиент считает его значащим.
+  if (kerfMm > 0 && !isLinearBatchUnit(batch.unit)) throw new Error('CUTTING_KERF_NOT_APPLICABLE')
+
+  const consumption = computeCuttingConsumption({
+    offcuts: data.offcuts,
+    kerfMm,
+    wasteQuantity,
+    unit: batch.unit,
+  })
+  if (!consumption.ok) throw new Error(MATERIAL_ERROR_CODE[consumption.reason])
+  if (consumption.consumed > batch.quantityRemaining) throw new Error('INSUFFICIENT_QUANTITY')
+  if (
+    typeof data.sourceQuantity === 'number' &&
+    Math.abs(data.sourceQuantity - consumption.consumed) > 1e-6
+  ) {
+    throw new Error('CUTTING_QUANTITY_MISMATCH')
+  }
+
+  // Проверки закончились — теперь пишем. Ни одного отказа после первой записи:
+  // резка одна проводка, и половина заявленного хуже, чем ничего.
+  const offcuts: WarehouseOffcut[] = []
+  for (const offcut of data.offcuts) {
+    offcuts.push(await mockCreateOffcut({ ...offcut, batchId: batch.id }))
+  }
+
+  // Пропил и отход — металл, который с партии ушёл, но обрезком не стал. Одно
+  // списание на оба, с расшифровкой в примечании: пропила физически больше нет,
+  // отход существует и негоден.
+  const scrap = roundQuantity(consumption.kerfTotal + consumption.waste)
+  if (scrap > 0) {
+    await mockCreateMovement({
+      type: 'write-off',
+      batchId: batch.id,
+      quantity: scrap,
+      referenceType: 'cutting',
+      notes: `Cutting: kerf ${consumption.kerfTotal} (${consumption.cuts} cuts x ${kerfMm} mm), waste ${consumption.waste}`,
+    })
+  }
+
+  return { offcuts, wasteQuantity: consumption.waste }
 }
 
 // ─── Audit helpers & generators ─────────────────────────────────────────────
@@ -1465,31 +1597,29 @@ export async function mockGetStockAudit(productId: string): Promise<StockAuditEn
   return item?.auditLog ? structuredClone(item.auditLog) : []
 }
 
-export async function mockDeleteStockAuditEntry(
-  productId: string,
-  entryIndex: number,
-): Promise<void> {
+export async function mockDeleteStockAuditEntry(productId: string, entryId: string): Promise<void> {
   const item = stockStore.find((s) => s.productId === productId)
-  if (!item || !item.auditLog) return
-  if (entryIndex >= 0 && entryIndex < item.auditLog.length) {
-    item.auditLog.splice(entryIndex, 1)
-  }
+  if (!item?.auditLog) throw new Error('STOCK_NOT_FOUND')
+  const idx = item.auditLog.findIndex((entry) => entry.id === entryId)
+  if (idx === -1) throw new Error('AUDIT_ENTRY_NOT_FOUND')
+  item.auditLog.splice(idx, 1)
 }
 
 export async function mockGetBatchAudit(batchId: string): Promise<StockAuditEntry[]> {
   const batch = batchStore.find((b) => b.id === batchId)
-  return batch?.auditLog ?? []
+  // A read hands out a copy, like every other read here: returning the live array
+  // let a caller edit the store by editing what it had merely asked to look at,
+  // and made a deletion look as though it had not happened — the caller's own
+  // array had already changed underneath it.
+  return batch?.auditLog ? structuredClone(batch.auditLog) : []
 }
 
-export async function mockDeleteBatchAuditEntry(
-  batchId: string,
-  entryIndex: number,
-): Promise<void> {
+export async function mockDeleteBatchAuditEntry(batchId: string, entryId: string): Promise<void> {
   const batch = batchStore.find((b) => b.id === batchId)
-  if (!batch || !batch.auditLog) return
-  if (entryIndex >= 0 && entryIndex < batch.auditLog.length) {
-    batch.auditLog.splice(entryIndex, 1)
-  }
+  if (!batch?.auditLog) throw new Error('BATCH_NOT_FOUND')
+  const idx = batch.auditLog.findIndex((entry) => entry.id === entryId)
+  if (idx === -1) throw new Error('AUDIT_ENTRY_NOT_FOUND')
+  batch.auditLog.splice(idx, 1)
 }
 
 export async function mockGetOffcutAudit(offcutId: string): Promise<StockAuditEntry[]> {
@@ -1497,27 +1627,26 @@ export async function mockGetOffcutAudit(offcutId: string): Promise<StockAuditEn
   return offcut?.auditLog ? structuredClone(offcut.auditLog) : []
 }
 
-export async function mockDeleteOffcutAuditEntry(
-  offcutId: string,
-  entryIndex: number,
-): Promise<void> {
+export async function mockDeleteOffcutAuditEntry(offcutId: string, entryId: string): Promise<void> {
   const offcut = offcutStore.find((o) => o.id === offcutId)
-  if (!offcut || !offcut.auditLog) return
-  if (entryIndex >= 0 && entryIndex < offcut.auditLog.length) {
-    offcut.auditLog.splice(entryIndex, 1)
-  }
+  if (!offcut?.auditLog) throw new Error('OFFCUT_NOT_FOUND')
+  const idx = offcut.auditLog.findIndex((entry) => entry.id === entryId)
+  if (idx === -1) throw new Error('AUDIT_ENTRY_NOT_FOUND')
+  offcut.auditLog.splice(idx, 1)
 }
 
 export async function mockGetMovementAudit(movementId: string): Promise<StockAuditEntry[]> {
-  return getOrCreateMovementAudit(movementId)
+  return structuredClone(getOrCreateMovementAudit(movementId))
 }
 
 export async function mockDeleteMovementAuditEntry(
   movementId: string,
-  entryIndex: number,
+  entryId: string,
 ): Promise<void> {
   const audit = getOrCreateMovementAudit(movementId)
-  if (entryIndex >= 0 && entryIndex < audit.length) audit.splice(entryIndex, 1)
+  const idx = audit.findIndex((entry) => entry.id === entryId)
+  if (idx === -1) throw new Error('AUDIT_ENTRY_NOT_FOUND')
+  audit.splice(idx, 1)
 }
 
 export async function mockGetDeficitAudit(deficitId: string): Promise<StockAuditEntry[]> {
@@ -1527,11 +1656,82 @@ export async function mockGetDeficitAudit(deficitId: string): Promise<StockAudit
 
 export async function mockDeleteDeficitAuditEntry(
   deficitId: string,
-  entryIndex: number,
+  entryId: string,
 ): Promise<void> {
   const deficit = deficitStore.find((d) => d.id === deficitId)
-  if (!deficit || !deficit.auditLog) return
-  if (entryIndex >= 0 && entryIndex < deficit.auditLog.length) {
-    deficit.auditLog.splice(entryIndex, 1)
+  if (!deficit?.auditLog) throw new Error('DEFICIT_NOT_FOUND')
+  const idx = deficit.auditLog.findIndex((entry) => entry.id === entryId)
+  if (idx === -1) throw new Error('AUDIT_ENTRY_NOT_FOUND')
+  deficit.auditLog.splice(idx, 1)
+}
+
+// ─── Audit sources ──────────────────────────────────────────────────────────
+
+/**
+ * The five warehouse logs, for the merged audit feed.
+ *
+ * Movements go through `getOrCreateMovementAudit` rather than `movement.auditLog`
+ * on purpose: deletion edits that copy, and reading the seed instead would show
+ * entries the delete button could never remove — two views of one log that
+ * disagree, which is the whole thing the feed must not do.
+ */
+export function warehouseAuditSources(): AuditSource[] {
+  const sources: AuditSource[] = []
+
+  for (const item of stockStore) {
+    if (item.auditLog.length) {
+      sources.push({
+        entityType: 'stock',
+        entityId: item.productId,
+        entityLabel: item.productName.en || item.productName.ru || item.productId,
+        log: item.auditLog,
+      })
+    }
   }
+  for (const batch of batchStore) {
+    if (batch.auditLog?.length) {
+      sources.push({
+        entityType: 'batch',
+        entityId: batch.id,
+        entityLabel: batch.batchNumber,
+        log: batch.auditLog,
+      })
+    }
+  }
+  for (const offcut of offcutStore) {
+    if (offcut.auditLog.length) {
+      sources.push({
+        entityType: 'offcut',
+        entityId: offcut.id,
+        entityLabel: offcut.batchNumber ? `${offcut.batchNumber} / ${offcut.id}` : offcut.id,
+        log: offcut.auditLog,
+      })
+    }
+  }
+  for (const movement of movementStore) {
+    if (!preExistingMovementIds.has(movement.id)) continue
+    const log = getOrCreateMovementAudit(movement.id)
+    if (log.length) {
+      sources.push({
+        entityType: 'movement',
+        entityId: movement.id,
+        entityLabel: movement.batchNumber
+          ? `${movement.batchNumber} / ${movement.id}`
+          : movement.id,
+        log,
+      })
+    }
+  }
+  for (const deficit of deficitStore) {
+    if (deficit.auditLog.length) {
+      sources.push({
+        entityType: 'deficit',
+        entityId: deficit.id,
+        entityLabel: deficit.productName.en || deficit.productName.ru || deficit.id,
+        log: deficit.auditLog,
+      })
+    }
+  }
+
+  return sources
 }

@@ -39,7 +39,7 @@ export function useWarehouseStockCard(productId: string) {
    */
   const totalUsableQuantity = computed(() => {
     const aggs = stockAggregates.value
-    if (!aggs || aggs.length === 0) return item.value?.totalQuantity ?? 0
+    if (aggs.length === 0) return item.value?.totalQuantity ?? 0
     const usableTypes = new Set(['receipt', 'storage', 'offcut'])
     return aggs.filter((a) => usableTypes.has(a.type)).reduce((sum, a) => sum + a.quantity, 0)
   })
@@ -99,7 +99,7 @@ export function useWarehouseStockCard(productId: string) {
   const formName = computed({
     get: () => {
       if (!form.value.productName) return ''
-      return form.value.productName[locale.value as keyof TranslatedString] ?? ''
+      return form.value.productName[locale.value as keyof TranslatedString]
     },
     set: (val: string) => {
       form.value.productName = mergeLocaleValue(form.value.productName, val, locale.value)
@@ -110,7 +110,7 @@ export function useWarehouseStockCard(productId: string) {
   const formCategoryName = computed({
     get: () => {
       if (!form.value.categoryName) return ''
-      return form.value.categoryName[locale.value as keyof TranslatedString] ?? ''
+      return form.value.categoryName[locale.value as keyof TranslatedString]
     },
     set: (val: string) => {
       form.value.categoryName = mergeLocaleValue(form.value.categoryName, val, locale.value)
@@ -130,7 +130,7 @@ export function useWarehouseStockCard(productId: string) {
         minStock: data.minStock,
         categoryName: data.categoryName ?? null,
       }
-      auditLog.value = data.auditLog ?? []
+      auditLog.value = data.auditLog
       dirty.capture()
       // Also load aggregates across all batches for this product
       await loadStockAggregates()
@@ -177,10 +177,10 @@ export function useWarehouseStockCard(productId: string) {
     dirty.capture()
   }
 
-  async function deleteAuditEntry(entryIndex: number) {
+  async function deleteAuditEntry(entryId: string) {
     try {
-      await deleteStockAuditEntry(productId, entryIndex)
-      auditLog.value.splice(entryIndex, 1)
+      await deleteStockAuditEntry(productId, entryId)
+      auditLog.value = auditLog.value.filter((entry) => entry.id !== entryId)
       toast.success(t('msg.audit_deleted'))
     } catch {
       toast.error(t('warehouse.toast_error'))

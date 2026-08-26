@@ -232,7 +232,10 @@ test.describe('warehouse › turnover chart', () => {
 
   test('bar fills all have non-zero widths (inline style)', async ({ page }) => {
     const rows = page.locator('[data-test="warehouse-chart-row"]')
+    // Цикл по полосам, которых ещё нет, не проверяет ничего и проходит молча (#68).
+    await expect(rows.first()).toBeVisible()
     const count = await rows.count()
+    expect(count).toBeGreaterThan(0)
     for (let i = 0; i < count; i++) {
       const width = await rows
         .nth(i)
@@ -246,6 +249,10 @@ test.describe('warehouse › turnover chart', () => {
   test('bar widths decrease monotonically (85 → 65 → 50 → 35 → 20)', async ({ page }) => {
     // Worst turnover is last in the template, so widths should be non-increasing.
     const fills = page.locator('[data-test="warehouse-chart-row"] .bar-fill')
+    // Ждать ВСЕ элементы, а не читать сколько успело отрисоваться: под
+    // нагрузкой count() возвращал 1 из 5, и сравнение покраснело не по делу.
+    // Число берётся из самого утверждения ниже, а не выдумывается.
+    await expect(fills).toHaveCount(5)
     const widths: number[] = []
     const count = await fills.count()
     for (let i = 0; i < count; i++) {

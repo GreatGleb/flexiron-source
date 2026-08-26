@@ -12,6 +12,9 @@ import { mockGetCategory } from './categories'
 // One rounding rule for the whole system — the averages round where they are
 // named, like every other figure that reaches a screen (contract §7).
 import { round2 } from '@/domain/orderPricing'
+import { sealAuditIds, type AuditSeeded } from '@/mocks/auditIds'
+import type { AuditSource } from '@/types/audit'
+import { shiftAuditSeries } from './auditClock'
 // fieldIds from categories.ts STORE:
 // cat-2 Sheets: f-2-1 (number), f-2-2 (enum), f-2-3 Width(number), f-2-4 Length(number), f-2-5 Weight per m²(number) + inherited: f-1-1 (text), f-1-2 (text), f-1-3 Density(number)
 // cat-4 Pipes:  f-4-1 (number), f-4-2 (number), f-4-3 Length(number), f-4-4 Pipe type(enum), f-4-5 Bend radius(number), f-4-6 Width(mm), f-4-7 Weight per meter(number) + inherited: f-1-1 (text), f-1-2 (text), f-1-3 Density(number)
@@ -22,7 +25,7 @@ import { round2 } from '@/domain/orderPricing'
 // They are derived — see the two lookups at the end of the file — and the numbers
 // that used to sit here were overwritten at load anyway, so they told whoever read
 // this file for a schema something that was never true at runtime.
-export const STORE: Product[] = [
+const PRODUCT_SEED: AuditSeeded<Product>[] = [
   {
     id: 'prod-001',
     name: { ru: 'Стальной лист 3мм', en: 'Steel Sheet 3mm', lt: 'Plieno lakštas 3mm' },
@@ -48,6 +51,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: 0.00425,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-01-15',
     fieldValues: [
       {
@@ -169,6 +173,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-02-20',
     fieldValues: [
       {
@@ -287,6 +292,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: 0.001,
     warehouseToSaleFormulaType: 'static',
     warehouseToSaleFactor: 1000,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-03-01',
     fieldValues: [
       {
@@ -428,6 +434,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: 11.71,
     createdAt: '2025-03-15',
     fieldValues: [
       {
@@ -514,18 +521,6 @@ export const STORE: Product[] = [
         inherited: false,
         options: [],
       },
-      {
-        fieldId: 'f-4-7',
-        fieldName: {
-          ru: 'Вес на метр (кг)',
-          en: 'Weight per meter (kg)',
-          lt: 'Svoris metrui (kg)',
-        },
-        fieldType: 'number',
-        value: 11.71,
-        inherited: false,
-        options: [],
-      },
     ],
     linkedSuppliers: [
       {
@@ -601,6 +596,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-01',
     fieldValues: [
       {
@@ -695,6 +691,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-10',
     fieldValues: [
       {
@@ -785,6 +782,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-05-01',
     fieldValues: [
       {
@@ -878,6 +876,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-05-15',
     fieldValues: [
       {
@@ -1019,6 +1018,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-06-01',
     fieldValues: [],
     linkedSuppliers: [
@@ -1067,6 +1067,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-01-20',
     description: {
       ru: 'Горячекатаный конструкционный лист для несущих конструкций.',
@@ -1204,6 +1205,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-01-25',
     description: {
       ru: 'Тяжелый горячекатаный лист для машиностроения и строительных рам.',
@@ -1341,6 +1343,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-02-01',
     description: {
       ru: 'Горячекатаный конструкционный лист S235JR, 1250x2500мм.',
@@ -1470,6 +1473,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-02-10',
     description: {
       ru: 'Тяжелая горячекатаная плита для конструкционных применений.',
@@ -1607,6 +1611,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-03-05',
     description: {
       ru: 'Холоднокатаный лист DC01 для глубокой вытяжки.',
@@ -1728,6 +1733,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-03-20',
     description: {
       ru: 'Оцинкованный лист DX51D+Z275 для кровли и облицовки.',
@@ -1873,6 +1879,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-05',
     description: {
       ru: 'Конструкционная стальная плита S355J2 для рам тяжелого оборудования.',
@@ -2002,6 +2009,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-15',
     description: {
       ru: 'Алюминиевый лист 5083-H111 для морских и химических применений.',
@@ -2139,6 +2147,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-05-10',
     description: {
       ru: 'Лист нержавеющей стали AISI 304, 2B отделка, 1000x2000мм.',
@@ -2272,6 +2281,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-05-25',
     description: {
       ru: 'Медный лист C11000, 600x1500мм, для электротехники.',
@@ -2409,6 +2419,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-06-10',
     description: {
       ru: 'Титановый лист Ti-6Al-4V (Grade 5), 500x1000мм, для авиакосмической промышленности.',
@@ -2543,6 +2554,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: 1.08,
     createdAt: '2025-02-05',
     description: {
       ru: 'Бесшовная прецизионная стальная труба для гидравлических систем.',
@@ -2634,18 +2646,6 @@ export const STORE: Product[] = [
         inherited: false,
         options: [],
       },
-      {
-        fieldId: 'f-4-7',
-        fieldName: {
-          ru: 'Вес на метр (кг)',
-          en: 'Weight per meter (kg)',
-          lt: 'Svoris metrui (kg)',
-        },
-        fieldType: 'number',
-        value: 1.08,
-        inherited: false,
-        options: [],
-      },
     ],
     linkedSuppliers: [
       {
@@ -2696,6 +2696,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: 2.74,
     createdAt: '2025-02-15',
     description: {
       ru: 'Бесшовная стальная труба для общего машиностроения.',
@@ -2787,18 +2788,6 @@ export const STORE: Product[] = [
         inherited: false,
         options: [],
       },
-      {
-        fieldId: 'f-4-7',
-        fieldName: {
-          ru: 'Вес на метр (кг)',
-          en: 'Weight per meter (kg)',
-          lt: 'Svoris metrui (kg)',
-        },
-        fieldType: 'number',
-        value: 2.74,
-        inherited: false,
-        options: [],
-      },
     ],
     linkedSuppliers: [
       {
@@ -2865,6 +2854,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: 7.49,
     createdAt: '2025-03-10',
     description: {
       ru: 'Конструкционная стальная труба для строительных каркасов.',
@@ -2956,18 +2946,6 @@ export const STORE: Product[] = [
         inherited: false,
         options: [],
       },
-      {
-        fieldId: 'f-4-7',
-        fieldName: {
-          ru: 'Вес на метр (кг)',
-          en: 'Weight per meter (kg)',
-          lt: 'Svoris metrui (kg)',
-        },
-        fieldType: 'number',
-        value: 7.49,
-        inherited: false,
-        options: [],
-      },
     ],
     linkedSuppliers: [
       {
@@ -3034,6 +3012,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: 21.3,
     createdAt: '2025-04-01',
     description: {
       ru: 'Бесшовная труба большого диаметра для промышленных трубопроводов.',
@@ -3125,18 +3104,6 @@ export const STORE: Product[] = [
         inherited: false,
         options: [],
       },
-      {
-        fieldId: 'f-4-7',
-        fieldName: {
-          ru: 'Вес на метр (кг)',
-          en: 'Weight per meter (kg)',
-          lt: 'Svoris metrui (kg)',
-        },
-        fieldType: 'number',
-        value: 21.3,
-        inherited: false,
-        options: [],
-      },
     ],
     linkedSuppliers: [
       {
@@ -3183,6 +3150,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: 3.35,
     createdAt: '2025-04-20',
     description: {
       ru: 'Холодногнутый квадратный профиль для конструкционных каркасов.',
@@ -3274,18 +3242,6 @@ export const STORE: Product[] = [
         inherited: false,
         options: [],
       },
-      {
-        fieldId: 'f-4-7',
-        fieldName: {
-          ru: 'Вес на метр (кг)',
-          en: 'Weight per meter (kg)',
-          lt: 'Svoris metrui (kg)',
-        },
-        fieldType: 'number',
-        value: 3.35,
-        inherited: false,
-        options: [],
-      },
     ],
     linkedSuppliers: [
       {
@@ -3340,6 +3296,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: 5.2,
     createdAt: '2025-05-05',
     description: {
       ru: 'Прямоугольный полый профиль для конструкций.',
@@ -3431,18 +3388,6 @@ export const STORE: Product[] = [
         inherited: false,
         options: [],
       },
-      {
-        fieldId: 'f-4-7',
-        fieldName: {
-          ru: 'Вес на метр (кг)',
-          en: 'Weight per meter (kg)',
-          lt: 'Svoris metrui (kg)',
-        },
-        fieldType: 'number',
-        value: 5.2,
-        inherited: false,
-        options: [],
-      },
     ],
     linkedSuppliers: [
       {
@@ -3489,6 +3434,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: 1.38,
     createdAt: '2025-05-20',
     description: {
       ru: 'Бесшовная труба из нержавеющей стали AISI 304 для пищевой промышленности.',
@@ -3580,18 +3526,6 @@ export const STORE: Product[] = [
         inherited: false,
         options: [],
       },
-      {
-        fieldId: 'f-4-7',
-        fieldName: {
-          ru: 'Вес на метр (кг)',
-          en: 'Weight per meter (kg)',
-          lt: 'Svoris metrui (kg)',
-        },
-        fieldType: 'number',
-        value: 1.38,
-        inherited: false,
-        options: [],
-      },
     ],
     linkedSuppliers: [
       {
@@ -3662,6 +3596,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: 0.4,
     createdAt: '2025-06-05',
     description: {
       ru: 'Алюминиевая труба 6060-T6 для легких конструкций.',
@@ -3753,18 +3688,6 @@ export const STORE: Product[] = [
         inherited: false,
         options: [],
       },
-      {
-        fieldId: 'f-4-7',
-        fieldName: {
-          ru: 'Вес на метр (кг)',
-          en: 'Weight per meter (kg)',
-          lt: 'Svoris metrui (kg)',
-        },
-        fieldType: 'number',
-        value: 0.4,
-        inherited: false,
-        options: [],
-      },
     ],
     linkedSuppliers: [
       {
@@ -3815,6 +3738,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: 0.39,
     createdAt: '2025-06-20',
     description: {
       ru: 'Медная труба для сантехники и систем ОВиК.',
@@ -3906,18 +3830,6 @@ export const STORE: Product[] = [
         inherited: false,
         options: [],
       },
-      {
-        fieldId: 'f-4-7',
-        fieldName: {
-          ru: 'Вес на метр (кг)',
-          en: 'Weight per meter (kg)',
-          lt: 'Svoris metrui (kg)',
-        },
-        fieldType: 'number',
-        value: 0.39,
-        inherited: false,
-        options: [],
-      },
     ],
     linkedSuppliers: [
       {
@@ -3980,6 +3892,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: 1.95,
     createdAt: '2025-07-01',
     description: {
       ru: 'Бесшовная титановая труба Grade 2 для химической обработки.',
@@ -4071,18 +3984,6 @@ export const STORE: Product[] = [
         inherited: false,
         options: [],
       },
-      {
-        fieldId: 'f-4-7',
-        fieldName: {
-          ru: 'Вес на метр (кг)',
-          en: 'Weight per meter (kg)',
-          lt: 'Svoris metrui (kg)',
-        },
-        fieldType: 'number',
-        value: 1.95,
-        inherited: false,
-        options: [],
-      },
     ],
     linkedSuppliers: [
       {
@@ -4130,6 +4031,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-01-10',
     description: {
       ru: 'Рутиловые сварочные электроды для общей сварки.',
@@ -4220,6 +4122,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-01-15',
     description: {
       ru: 'Рутиловые электроды для сварки толстых сечений.',
@@ -4310,6 +4213,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-02-01',
     description: {
       ru: 'Сварочная проволока MIG ER70S-6 для углеродистой стали.',
@@ -4404,6 +4308,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-02-15',
     description: {
       ru: 'Агломерированный сварочный флюс для дуговой сварки под флюсом.',
@@ -4494,6 +4399,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-03-01',
     description: {
       ru: 'Смешанный защитный газ для MIG/MAG сварки углеродистой стали.',
@@ -4584,6 +4490,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-03-15',
     description: {
       ru: 'Армированный отрезной круг для стали и нержавейки.',
@@ -4690,6 +4597,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-01',
     description: {
       ru: 'Шлифовальный круг с вогнутым центром для удаления металла.',
@@ -4780,6 +4688,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-15',
     description: {
       ru: 'Спиральное сверло из быстрорежущей стали для общего сверления металла.',
@@ -4866,6 +4775,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-05-01',
     description: {
       ru: 'Ручной метчик M10x1.5 для нарезания резьбы в углеродистой стали.',
@@ -4952,6 +4862,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-05-15',
     description: {
       ru: 'Круглая плашка M10x1.5 для наружной резьбы.',
@@ -5035,6 +4946,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-01-20',
     description: {
       ru: 'Профессиональный сварочный аппарат MIG/MAG с синергетическим управлением.',
@@ -5140,6 +5052,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-02-01',
     description: {
       ru: 'Портативная плазменная система резки с интерфейсом ЧПУ.',
@@ -5229,6 +5142,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-02-15',
     description: {
       ru: 'Токарный станок с ЧПУ с длиной станины 2 метра и приводным инструментом.',
@@ -5310,6 +5224,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-03-01',
     description: {
       ru: '5-осевой обрабатывающий центр с ЧПУ со сменщиком паллет.',
@@ -5403,6 +5318,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-03-15',
     description: {
       ru: 'Гидравлическая гильотина для листового металла до 6мм.',
@@ -5492,6 +5408,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-01',
     description: {
       ru: 'Листогибочный пресс с ЧПУ с длиной гиба 3 метра.',
@@ -5593,6 +5510,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-15',
     description: {
       ru: 'Промышленный винтовой компрессор со встроенным осушителем.',
@@ -5682,6 +5600,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-05-01',
     description: {
       ru: 'Мостовой двухбалочный кран пролетом 20м.',
@@ -5779,6 +5698,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-05-15',
     description: {
       ru: 'Автоматическая горизонтальная ленточная пила для стальных профилей.',
@@ -5880,6 +5800,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-06-01',
     description: {
       ru: '6-осевой сварочный робот со встроенным отслеживанием шва.',
@@ -5966,6 +5887,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-06-15',
     description: {
       ru: 'Горячекатаный лист общего назначения для производства.',
@@ -6087,6 +6009,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-07-01',
     description: {
       ru: 'Тяжелая плита для строительных и горнодобывающих применений.',
@@ -6224,6 +6147,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-07-15',
     description: {
       ru: 'Лист нержавеющей стали AISI 316L для химических сред.',
@@ -6353,6 +6277,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-08-01',
     description: {
       ru: 'Алюминиевый лист 5083 для морского и транспортного применения.',
@@ -6478,6 +6403,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-08-15',
     description: {
       ru: 'Латунный лист CuZn37 для декоративных и электрических компонентов.',
@@ -6611,6 +6537,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-09-01',
     description: {
       ru: 'Фосфористая бронза для подшипников и износных пластин.',
@@ -6732,6 +6659,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-09-15',
     description: {
       ru: 'Высокопрочная стальная плита для тяжелого машиностроения.',
@@ -6869,6 +6797,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-10-01',
     description: {
       ru: 'Износостойкая стальная плита для применений с износом.',
@@ -6998,6 +6927,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-10-15',
     description: {
       ru: 'Перфорированный стальной лист с круглыми отверстиями 10мм, 40% открытой площади.',
@@ -7135,6 +7065,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-01-20',
     description: {
       ru: 'Квадратная профильная труба 40x40мм, стенка 2мм, для металлоконструкций.',
@@ -7287,6 +7218,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-02-10',
     description: {
       ru: 'Прямоугольная профильная труба 60x40мм, стенка 3мм, для конструкционных каркасов.',
@@ -7427,6 +7359,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-02-15',
     description: {
       ru: 'Бесшовная круглая труба диаметром 50мм, стенка 3мм, для гидравлических систем.',
@@ -7575,6 +7508,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-03-01',
     description: {
       ru: 'Бесшовная круглая труба диаметром 76мм, стенка 4мм, для высокого давления.',
@@ -7731,6 +7665,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-03-10',
     description: {
       ru: 'Оцинкованная газовая труба 1 дюйм, с резьбой, для газораспределения.',
@@ -7879,6 +7814,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-11-01',
     description: {
       ru: 'Рифленый лист с ромбовидным рисунком для полов и лестниц.',
@@ -8008,6 +7944,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-03-15',
     description: {
       ru: 'Труба из нержавеющей стали 25мм, стенка 2мм, для пищевой промышленности.',
@@ -8160,6 +8097,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-01',
     description: {
       ru: 'Оцинкованная стальная труба 1/2 дюйма для систем водоснабжения.',
@@ -8320,6 +8258,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-10',
     description: {
       ru: 'Тяжелая квадратная профильная труба 80x80мм, стенка 4мм, для несущих конструкций.',
@@ -8480,6 +8419,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-15',
     description: {
       ru: 'Прямоугольная профильная труба 100x50мм, стенка 3мм, для каркасов и опор.',
@@ -8624,6 +8564,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-20',
     description: {
       ru: 'Труба из нержавеющей стали 50мм, стенка 3мм, для химической промышленности.',
@@ -8784,6 +8725,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-01-10',
     description: {
       ru: 'Рутиловые сварочные электроды 3мм для общей сварки.',
@@ -8865,6 +8807,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-01-15',
     description: {
       ru: 'Основные сварочные электроды 4мм для конструкционной сварки.',
@@ -8962,6 +8905,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-02-01',
     description: {
       ru: 'Медненная сварочная проволока MIG 1мм, катушка 15кг.',
@@ -9059,6 +9003,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-02-10',
     description: {
       ru: 'Порошковая сварочная проволока 1.2мм для высокопроизводительной сварки.',
@@ -9136,6 +9081,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-03-01',
     description: {
       ru: 'Баллон сжатого аргона 40л, 200 бар, для TIG сварки.',
@@ -9233,6 +9179,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-03-10',
     description: {
       ru: 'Смесь защитных газов аргон + CO2 для MIG/MAG сварки, баллон 40л.',
@@ -9318,6 +9265,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-03-15',
     description: {
       ru: 'Баллон сжатого кислорода 40л для резки и сварки.',
@@ -9403,6 +9351,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-01',
     description: {
       ru: 'Баллон пропана 50л для нагрева и резки.',
@@ -9492,6 +9441,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-10',
     description: {
       ru: 'Баллон растворенного ацетилена 40л для газокислородной резки.',
@@ -9573,6 +9523,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-15',
     description: {
       ru: 'Агломерированный сварочный флюс для сварки под флюсом, мешок 25кг.',
@@ -9654,6 +9605,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-01-05',
     description: {
       ru: 'Профессиональный инверторный сварочный аппарат TIG/MMA 250А с функцией импульса.',
@@ -9755,6 +9707,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-01-10',
     description: {
       ru: 'Многофункциональный сварочный аппарат MIG/TIG/MMA 235А с синергетическим управлением.',
@@ -9840,6 +9793,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-01-20',
     description: {
       ru: 'Портативный плазморез 45А, режет сталь до 16мм.',
@@ -9925,6 +9879,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-02-01',
     description: {
       ru: 'Автоматическая горизонтальная ленточная пила для резки металла, 280мм.',
@@ -10018,6 +9973,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-02-10',
     description: {
       ru: 'Гидравлический листогибочный пресс 3000мм, 120 тонн, с ЧПУ.',
@@ -10119,6 +10075,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-02-20',
     description: {
       ru: 'Волоконный лазерный станок 6кВт, стол 4000x2000мм.',
@@ -10204,6 +10161,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-03-01',
     description: {
       ru: 'Промышленный винтовой компрессор 30кВт со встроенным осушителем.',
@@ -10293,6 +10251,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-03-10',
     description: {
       ru: 'Мостовой кран грузоподъемностью 10 тонн, пролет 20м.',
@@ -10394,6 +10353,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-03-20',
     description: {
       ru: 'Самоходная дробеструйная машина для подготовки поверхности.',
@@ -10495,6 +10455,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-01',
     description: {
       ru: 'Модульный сварочный стол 2000x1000мм с системой зажимов.',
@@ -10596,6 +10557,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-05',
     description: {
       ru: 'Оцинкованный стальной лист 1.5мм, 1250x2500мм, покрытие Z275.',
@@ -10717,6 +10679,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-10',
     description: {
       ru: 'Холоднокатаный стальной лист 1мм, 1000x2000мм, для автомобильных панелей.',
@@ -10842,6 +10805,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-15',
     description: {
       ru: 'Лист нержавеющей стали 2мм, 1250x2500мм, AISI 304, 2B отделка.',
@@ -10967,6 +10931,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-20',
     description: {
       ru: 'Алюминиевый лист 3мм, 1200x2400мм, сплав 5083, морского исполнения.',
@@ -11088,6 +11053,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-04-25',
     description: {
       ru: 'Тонкий оцинкованный лист 0.7мм для кровли и облицовки.',
@@ -11217,6 +11183,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-05-01',
     description: {
       ru: 'Малая квадратная профильная труба 30x30мм, стенка 2мм, для легких каркасов.',
@@ -11365,6 +11332,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-05-05',
     description: {
       ru: 'Бесшовная круглая труба 32мм, стенка 3мм, для гидравлических линий.',
@@ -11509,6 +11477,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-05-10',
     description: {
       ru: 'Большая прямоугольная профильная труба 120x60мм, стенка 4мм, для тяжелых конструкций.',
@@ -11661,6 +11630,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-05-15',
     description: {
       ru: 'Большая труба из нержавеющей стали 100мм, стенка 4мм, для технологической промышленности.',
@@ -11821,6 +11791,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-05-20',
     description: {
       ru: 'Износостойкая стальная плита Hardox 450 6мм, 1500x3000мм, для тяжелой техники.',
@@ -11939,6 +11910,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-06-01',
     description: {
       ru: 'Стальная балка IPE 200, S235JR, высота 200мм, для конструкций.',
@@ -12102,6 +12074,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-06-01',
     description: {
       ru: 'Широкополочная балка HEA 300, S355J2, высота 300мм, для тяжелых нагрузок.',
@@ -12262,6 +12235,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-06-05',
     description: {
       ru: 'Стальной швеллер UPN 100, S235JR, высота 100мм, для строительных каркасов.',
@@ -12407,6 +12381,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-06-05',
     description: {
       ru: 'Стальной швеллер UPN 200, S355J2, высота 200мм, для тяжелых конструкций.',
@@ -12545,6 +12520,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-06-10',
     description: {
       ru: 'Равнополочный уголок 50x50x5мм, S235JR, для легких строительных связей.',
@@ -12697,6 +12673,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-06-10',
     description: {
       ru: 'Неравнополочный уголок 80x60x6мм, S355J2, для конструкционных соединений.',
@@ -12830,6 +12807,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: 0.888,
     createdAt: '2025-06-15',
     description: {
       ru: 'Арматурный стержень A500C, диаметр 12мм, для армирования бетона.',
@@ -12889,18 +12867,6 @@ export const STORE: Product[] = [
           { ru: 'A500C', en: 'A500C', lt: 'A500C' },
           { ru: 'B500C', en: 'B500C', lt: 'B500C' },
         ],
-      },
-      {
-        fieldId: 'f-10-4',
-        fieldName: {
-          ru: 'Вес на метр (кг/м)',
-          en: 'Weight per meter (kg/m)',
-          lt: 'Svoris metrui (kg/m)',
-        },
-        fieldType: 'number',
-        value: 0.888,
-        inherited: false,
-        options: [],
       },
       {
         fieldId: 'f-10-5',
@@ -12976,6 +12942,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: 1.58,
     createdAt: '2025-06-15',
     description: {
       ru: 'Арматурный стержень B500C, диаметр 16мм, высокая пластичность для сейсмических применений.',
@@ -13035,18 +13002,6 @@ export const STORE: Product[] = [
           { ru: 'A500C', en: 'A500C', lt: 'A500C' },
           { ru: 'B500C', en: 'B500C', lt: 'B500C' },
         ],
-      },
-      {
-        fieldId: 'f-10-4',
-        fieldName: {
-          ru: 'Вес на метр (кг/м)',
-          en: 'Weight per meter (kg/m)',
-          lt: 'Svoris metrui (kg/m)',
-        },
-        fieldType: 'number',
-        value: 1.58,
-        inherited: false,
-        options: [],
       },
       {
         fieldId: 'f-10-5',
@@ -13127,6 +13082,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-06-20',
     description: {
       ru: 'Квадратный полый профиль 40x40x3мм, S235JR, для легких строительных каркасов.',
@@ -13281,6 +13237,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-06-20',
     description: {
       ru: 'Прямоугольный полый профиль 80x40x4мм, S355J2, для конструкционных каркасов.',
@@ -13416,6 +13373,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-06-25',
     description: {
       ru: 'Оцинкованная стальная проволока 3мм, в бухтах, для ограждений и вязки.',
@@ -13554,6 +13512,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-06-25',
     description: {
       ru: 'Медненная сварочная проволока ER70S-6, 1.2мм, для MIG/MAG сварки.',
@@ -13685,6 +13644,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-07-01',
     description: {
       ru: 'Стальной трубный отвод 90°, DN50, S235JR, сварной тип, для трубопроводов.',
@@ -13834,6 +13794,7 @@ export const STORE: Product[] = [
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
     createdAt: '2025-07-01',
     description: {
       ru: 'Стальной фланец DN100, PN16, S355J2, фланцевый тип соединения, для трубопроводов.',
@@ -13952,6 +13913,12 @@ export const STORE: Product[] = [
     ],
   },
 ]
+
+/** Every seeded entry gets the id its log addresses it by — see `sealAuditIds`. */
+export const STORE: Product[] = sealAuditIds(PRODUCT_SEED, 'prod')
+
+// ...and the log rides the demo clock, by its OWN newest entry — see `shiftAuditSeries`.
+shiftAuditSeries(STORE.map((product) => product.auditLog))
 
 // ─── The two averages on the product card: computed, not stored ─────────────
 //
@@ -14104,7 +14071,7 @@ export async function mockGetProducts(
   }
 
   // category filter
-  if (params.categoryIds?.length) {
+  if (params.categoryIds.length) {
     filtered = filtered.filter((p) => params.categoryIds.includes(p.categoryId ?? ''))
   }
 
@@ -14121,8 +14088,8 @@ export async function mockGetProducts(
   }
 
   const total = filtered.length
-  const page = params.page ?? 1
-  const pageSize = params.pageSize ?? 20
+  const page = params.page
+  const pageSize = params.pageSize
   const start = (page - 1) * pageSize
   const items = filtered.slice(start, start + pageSize).map(toListItem)
 
@@ -14154,6 +14121,7 @@ export async function mockCreateProduct(
     purchaseToWarehouseFactor?: number | null
     warehouseToSaleFormulaType?: string | null
     warehouseToSaleFactor?: number | null
+    weightPerWarehouseUnitKg?: number | null
     fieldValues?: ProductFieldValue[] | null
     linkedSuppliers?: LinkedSupplier[] | null
   },
@@ -14171,8 +14139,9 @@ export async function mockCreateProduct(
         ? toTranslatedString(data.categoryName, locale)
         : data.categoryName
   } else if (data.categoryId) {
-    const cat = mockGetCategory(data.categoryId)
-    if (cat) categoryName = cat.name
+    // mockGetCategory бросает, если категории нет, и возвращает Category — проверка
+    // на пустоту не срабатывала никогда.
+    categoryName = mockGetCategory(data.categoryId).name
   }
 
   // Build fieldValues from category fields + inherited fields when categoryId is set
@@ -14186,29 +14155,27 @@ export async function mockCreateProduct(
     }))
   } else if (data.categoryId) {
     const cat = mockGetCategory(data.categoryId)
-    if (cat) {
-      // Inherited fields come first with inherited: true
-      const inherited: ProductFieldValue[] = cat.inheritedFields.map((f) => ({
-        fieldId: f.id,
-        fieldName: f.name,
-        fieldType: f.type,
-        value: null,
-        inherited: true,
-        options: f.options.length > 0 ? f.options : undefined,
-      }))
-      // Own fields with inherited: false
-      const own: ProductFieldValue[] = cat.fields.map((f) => ({
-        fieldId: f.id,
-        fieldName: f.name,
-        fieldType: f.type,
-        value: null,
-        inherited: false,
-        options: f.options.length > 0 ? f.options : undefined,
-      }))
-      fieldValues = [...inherited, ...own]
-    } else {
-      fieldValues = []
-    }
+    // mockGetCategory бросает, если категории нет, и возвращает Category —
+    // ветка else была недостижима.
+    // Inherited fields come first with inherited: true
+    const inherited: ProductFieldValue[] = cat.inheritedFields.map((f) => ({
+      fieldId: f.id,
+      fieldName: f.name,
+      fieldType: f.type,
+      value: null,
+      inherited: true,
+      options: f.options.length > 0 ? f.options : undefined,
+    }))
+    // Own fields with inherited: false
+    const own: ProductFieldValue[] = cat.fields.map((f) => ({
+      fieldId: f.id,
+      fieldName: f.name,
+      fieldType: f.type,
+      value: null,
+      inherited: false,
+      options: f.options.length > 0 ? f.options : undefined,
+    }))
+    fieldValues = [...inherited, ...own]
   } else {
     fieldValues = []
   }
@@ -14240,6 +14207,7 @@ export async function mockCreateProduct(
     purchaseToWarehouseFactor: data.purchaseToWarehouseFactor ?? null,
     warehouseToSaleFormulaType: data.warehouseToSaleFormulaType ?? null,
     warehouseToSaleFactor: data.warehouseToSaleFactor ?? null,
+    weightPerWarehouseUnitKg: data.weightPerWarehouseUnitKg ?? null,
     createdAt: new Date().toISOString().slice(0, 10),
     fieldValues,
     // Placeholders: both are replaced by derived properties below. A new product
@@ -14250,16 +14218,12 @@ export async function mockCreateProduct(
       ...s,
       name: typeof s.name === 'string' ? toTranslatedString(s.name, locale) : s.name,
     })),
-    auditLog: [
-      {
-        timestamp: '2026-02-27 08:24',
-        user: { ru: 'Максим В.', en: 'Maxim V.', lt: 'Maxim V.' },
-        userInitials: 'MV',
-        property: { ru: 'Поставщики', en: 'Suppliers', lt: 'Tiekėjai' },
-        oldValue: 'Steel Plus OÜ',
-        newValue: 'Euro Metal GmbH',
-      },
-    ],
+    // A product created a second ago has no history. It used to be given one — a
+    // February entry claiming its suppliers had been changed from Steel Plus OÜ to
+    // Euro Metal GmbH — which was untrue about the record it was attached to, and
+    // dated before the record existed. The demo store is held to the rules the app
+    // is held to.
+    auditLog: [],
   }
   defineDerivedAverages(product)
   STORE.push(product)
@@ -14286,6 +14250,7 @@ export async function mockPatchProduct(
     purchaseToWarehouseFactor: number | null
     warehouseToSaleFormulaType: string | null
     warehouseToSaleFactor: number | null
+    weightPerWarehouseUnitKg: number | null
     fieldValues: ProductFieldValue[]
     linkedSuppliers: LinkedSupplier[]
     // avgCostPrice / avgSalePrice are derived, so the client does not get to send
@@ -14327,8 +14292,7 @@ export async function mockPatchProduct(
     sku: data.sku !== undefined ? data.sku : existing.sku,
     description: patchDescription !== undefined ? patchDescription : existing.description,
     price: data.price !== undefined ? data.price : existing.price,
-    priceQuantity:
-      data.priceQuantity !== undefined ? data.priceQuantity : (existing.priceQuantity ?? 1),
+    priceQuantity: data.priceQuantity !== undefined ? data.priceQuantity : existing.priceQuantity,
     currencyId: data.currencyId !== undefined ? data.currencyId : existing.currencyId,
     minStock: data.minStock !== undefined ? data.minStock : existing.minStock,
     priceUnit: data.priceUnit ?? existing.priceUnit,
@@ -14352,6 +14316,10 @@ export async function mockPatchProduct(
       data.warehouseToSaleFactor !== undefined
         ? data.warehouseToSaleFactor
         : existing.warehouseToSaleFactor,
+    weightPerWarehouseUnitKg:
+      data.weightPerWarehouseUnitKg !== undefined
+        ? data.weightPerWarehouseUnitKg
+        : existing.weightPerWarehouseUnitKg,
     createdAt: existing.createdAt,
     fieldValues: data.fieldValues ?? existing.fieldValues,
     // Placeholders again: the patched product is a fresh object, so the derived
@@ -14377,11 +14345,28 @@ export async function mockDeleteProduct(id: string): Promise<{ ok: boolean; code
   return { ok: true }
 }
 
-export function mockDeleteProductAuditEntry(productId: string, entryIndex: number): void {
+export function mockDeleteProductAuditEntry(productId: string, entryId: string): void {
   const product = STORE.find((p) => p.id === productId)
   if (!product) throw new Error('PRODUCT_NOT_FOUND')
-  if (!product.auditLog || entryIndex < 0 || entryIndex >= product.auditLog.length) {
-    throw new Error('AUDIT_ENTRY_NOT_FOUND')
-  }
-  product.auditLog.splice(entryIndex, 1)
+  const idx = product.auditLog.findIndex((entry) => entry.id === entryId)
+  if (idx === -1) throw new Error('AUDIT_ENTRY_NOT_FOUND')
+  product.auditLog.splice(idx, 1)
+}
+
+// ─── Audit source ───────────────────────────────────────────────────────────
+
+/**
+ * The product logs, for the merged audit feed (Настройки → Логи).
+ *
+ * The feed does not keep records of its own: it reads the same store the card
+ * reads and deletes through the same endpoint, so one deletion shows up in both
+ * places. A second copy would be a second truth.
+ */
+export function productAuditSources(): AuditSource[] {
+  return STORE.filter((p) => p.auditLog.length).map((p) => ({
+    entityType: 'product' as const,
+    entityId: p.id,
+    entityLabel: p.sku || p.name.en || p.id,
+    log: p.auditLog,
+  }))
 }

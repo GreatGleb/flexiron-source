@@ -68,9 +68,7 @@ test.describe('categories-list › structure', () => {
   })
 
   test('table has 5 columns (name, parent, fields, products, actions)', async ({ page }) => {
-    await expect(
-      page.locator('[data-test="categories-table"] table thead tr th'),
-    ).toHaveCount(5)
+    await expect(page.locator('[data-test="categories-table"] table thead tr th')).toHaveCount(5)
   })
 
   test('create button is visible in header', async ({ page }) => {
@@ -90,15 +88,26 @@ test.describe('categories-list › search', () => {
 
   test('search narrows results — dynamic term from first row', async ({ page }) => {
     const rows = page.locator('[data-test="categories-row"]')
+    // Та же правка, что в products.spec.ts, и по двум причинам сразу. Первая: `count()`
+    // до отрисовки даёт ноль, и `countAfter <= 0` падает не по делу (так и вышло:
+    // Expected <= 0, Received 13). Вторая: `<=` устраивается РАВЕНСТВОМ, то есть
+    // фильтром, который не применился вовсе (#68).
+    await expect(rows.first()).toBeVisible()
     const totalBefore = await rows.count()
-    // Read the first row name to build a search term that is guaranteed to exist
-    const firstName = (await rows.first().locator('td').first().textContent())!.trim()
-    const searchTerm = firstName.split(' ')[0]! // first word — likely unique or narrows the list
+    // Полное имя, а не первое слово: слово может совпасть со всей страницей, и тогда
+    // «список изменился» перестанет быть проверяемым.
+    const searchTerm = (await rows.first().locator('td').first().textContent())!.trim()
     const input = page.locator('[data-test="categories-search"] input')
     await input.fill(searchTerm)
-    const countAfter = await rows.count()
-    expect(countAfter).toBeGreaterThan(0)
-    expect(countAfter).toBeLessThanOrEqual(totalBefore)
+
+    // Признак применённого фильтра — изменившаяся длина.
+    await expect(rows).not.toHaveCount(totalBefore)
+    const names = await rows.evaluateAll((els) =>
+      els.map((el) => (el.querySelector('td')?.textContent ?? '').trim()),
+    )
+    expect(names.length).toBeGreaterThan(0)
+    // И применился ПРАВИЛЬНО: строк без искомого имени в выдаче нет.
+    expect(names.filter((n) => !n.includes(searchTerm))).toEqual([])
   })
 
   test('search with no match shows empty state', async ({ page }) => {
@@ -110,9 +119,14 @@ test.describe('categories-list › search', () => {
 
   test('clearing search restores all rows', async ({ page }) => {
     const rows = page.locator('[data-test="categories-row"]')
+    // Длину мерить только по отрисованному списку: ноль в `totalBefore` делает
+    // `not.toHaveCount(0)` истинным сразу, а финальное `toHaveCount(0)` — ложным
+    // (Expected 0, Received 13). Та же правка, что в products.spec.ts.
+    await expect(rows.first()).toBeVisible()
     const totalBefore = await rows.count()
-    const firstName = (await rows.first().locator('td').first().textContent())!.trim()
-    const searchTerm = firstName.split(' ')[0]!
+    // Полное имя, а не первое слово: слово может совпасть со всей страницей, и тогда
+    // «список изменился» перестанет быть проверяемым.
+    const searchTerm = (await rows.first().locator('td').first().textContent())!.trim()
     const input = page.locator('[data-test="categories-search"] input')
     await input.fill(searchTerm)
     await expect(rows).not.toHaveCount(totalBefore)
@@ -202,11 +216,7 @@ test.describe('categories-list › navigation', () => {
   })
 
   test('clicking a row navigates to the category card', async ({ page }) => {
-    await page
-      .locator('[data-test="categories-row"]')
-      .first()
-      .locator('a.name-link')
-      .click()
+    await page.locator('[data-test="categories-row"]').first().locator('a.name-link').click()
     await expect(page).toHaveURL(/\/admin\/products\/categories\/cat-\w+$/)
   })
 })
@@ -316,7 +326,9 @@ test.describe('category-card › own fields', () => {
     const modal = page.locator('[data-test="modal-field"]')
     await expect(modal).toBeVisible()
     await modal.locator('[data-test="field-type-select"] .custom-select-trigger').click()
-    const enumOption = modal.locator('.custom-select-option').filter({ hasText: /enum|select list|список/i })
+    const enumOption = modal
+      .locator('.custom-select-option')
+      .filter({ hasText: /enum|select list|список/i })
     await enumOption.first().click()
     await expect(modal.locator('[data-test="field-options-input"]')).toBeVisible()
   })
@@ -325,12 +337,20 @@ test.describe('category-card › own fields', () => {
     await page.locator('[data-test="category-add-field-btn"]').click()
     const modal = page.locator('[data-test="modal-field"]')
     await modal.locator('[data-test="field-type-select"] .custom-select-trigger').click()
-    await modal.locator('.custom-select-option').filter({ hasText: /text|текст/i }).first().click()
+    await modal
+      .locator('.custom-select-option')
+      .filter({ hasText: /text|текст/i })
+      .first()
+      .click()
     await expect(modal.locator('[data-test="field-options-input"]')).toHaveCount(0)
   })
 
   test('adding a text field appends it to the own fields list', async ({ page }) => {
-    const initialCount = await page.locator('[data-test="category-field-row"]').count()
+    // Как и в тесте на удаление ниже: сначала доказать, что список отрисован, и только
+    // потом мерить длину — иначе под нагрузкой считается ноль.
+    const rows = page.locator('[data-test="category-field-row"]')
+    await expect(rows.first()).toBeVisible()
+    const initialCount = await rows.count()
     await page.locator('[data-test="category-add-field-btn"]').click()
     const modal = page.locator('[data-test="modal-field"]')
     await modal.locator('[data-test="field-name-input"]').fill('New field')
@@ -347,7 +367,12 @@ test.describe('category-card › own fields', () => {
   })
 
   test('deleting a field removes it from the list', async ({ page }) => {
-    const initialCount = await page.locator('[data-test="category-field-row"]').count()
+    // Считать до того, как строки отрисованы, — значит получить 0 и ждать потом -1
+    // (ровно это и случилось под нагрузкой: `Expected: -1, Received: 2`). Сначала
+    // доказать, что список есть, и только потом мерить его длину.
+    const rows = page.locator('[data-test="category-field-row"]')
+    await expect(rows.first()).toBeVisible()
+    const initialCount = await rows.count()
     await page.locator('[data-test="category-field-row"]').first().locator('.action-danger').click()
     // Confirm deletion in the modal
     await expect(page.locator('[data-test="modal-delete-field"]')).toBeVisible()

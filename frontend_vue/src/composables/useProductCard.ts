@@ -30,6 +30,7 @@ interface ProductForm {
   purchaseToWarehouseFactor: number | null
   warehouseToSaleFormulaType: string | null
   warehouseToSaleFactor: number | null
+  weightPerWarehouseUnitKg: number | null
 }
 type FieldValueMap = Record<string, ProductFieldValue['value']>
 
@@ -61,6 +62,7 @@ export function useProductCard(id: string) {
     purchaseToWarehouseFactor: null,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
   })
   const dirty = useDirtyCheck(form)
 
@@ -71,12 +73,16 @@ export function useProductCard(id: string) {
       form.value.minStock,
       form.value.purchaseToWarehouseFactor,
       form.value.warehouseToSaleFactor,
+      form.value.weightPerWarehouseUnitKg,
     ],
-    ([price, minStock, p2wf, w2sf]) => {
+    ([price, minStock, p2wf, w2sf, kgPerUnit]) => {
       if (Number.isNaN(price as unknown)) form.value.price = null
       if (Number.isNaN(minStock as unknown)) form.value.minStock = null
       if (Number.isNaN(p2wf as unknown)) form.value.purchaseToWarehouseFactor = null
       if (Number.isNaN(w2sf as unknown)) form.value.warehouseToSaleFactor = null
+      // Пустое числовое поле даёт NaN (питфолл #25). Здесь это особенно важно: NaN
+      // уехал бы в хранимое значение и вывод веса стал бы NaN килограммов.
+      if (Number.isNaN(kgPerUnit as unknown)) form.value.weightPerWarehouseUnitKg = null
     },
   )
 
@@ -148,7 +154,7 @@ export function useProductCard(id: string) {
    */
   function findConversionFactor(fromUomId: string | null, toUomId: string | null): number | null {
     if (!fromUomId || !toUomId) return null
-    const conv = (settings.conversions ?? []).find(
+    const conv = settings.conversions.find(
       (c: UomConversion) =>
         c.fromUomId === fromUomId &&
         c.toUomId === toUomId &&
@@ -194,6 +200,7 @@ export function useProductCard(id: string) {
         purchaseToWarehouseFactor: defaultP2wFactor,
         warehouseToSaleFormulaType: data.warehouseToSaleFormulaType,
         warehouseToSaleFactor: defaultW2sFactor,
+        weightPerWarehouseUnitKg: data.weightPerWarehouseUnitKg,
       }
       dirty.capture()
       const map: FieldValueMap = {}

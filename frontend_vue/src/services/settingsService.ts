@@ -8,6 +8,7 @@ import type {
   OrderStatusSetting,
   UserProfile,
   OrderPermissions,
+  WarehouseMapFile,
 } from '@/types/settings'
 
 // ─── Auth headers helper ─────────────────────────────────────────────────
@@ -131,6 +132,26 @@ export async function moveOrderStatus(orderedIds: string[]): Promise<void> {
 
 export async function deleteOrderStatus(id: string): Promise<void> {
   await apiDelete<void>(`/api/settings/order-statuses/${id}`, { headers: authHeaders() })
+}
+
+// ─── Warehouse map ───────────────────────────────────────────────────────
+//
+// Одна карта на всю систему, поэтому это единичный ресурс без id: PUT заменяет её
+// целиком, DELETE убирает. Сам файл кладётся штатным `POST /api/uploads`, сюда
+// приходит уже его метаданные — бинарник в JSON не отправляется никогда.
+
+export async function getWarehouseMap(): Promise<WarehouseMapFile | null> {
+  return apiGet<WarehouseMapFile | null>('/api/settings/warehouse-map', undefined, {
+    headers: authHeaders(),
+  })
+}
+
+export async function saveWarehouseMap(data: WarehouseMapFile): Promise<WarehouseMapFile> {
+  return apiPut<WarehouseMapFile>('/api/settings/warehouse-map', data, { headers: authHeaders() })
+}
+
+export async function deleteWarehouseMap(): Promise<void> {
+  await apiDelete<void>('/api/settings/warehouse-map', { headers: authHeaders() })
 }
 
 // ─── Profile ─────────────────────────────────────────────────────────────

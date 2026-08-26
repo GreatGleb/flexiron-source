@@ -42,12 +42,12 @@ textarea.glass-input {
   font-style: italic;
 }
 
-/* Form group (used in modals: CreateBatchModal, CreateMovementModal) */
+/* Form group (used in CreateMovementModal, ClientCardPage, LoginPage, RegisterPage) */
 .form-group {
   margin-bottom: 20px;
 }
 
-/* Form row — side-by-side fields (used in CreateBatchModal, CreateMovementModal) */
+/* Form row — side-by-side fields (used in CreateMovementModal) */
 .form-row {
   display: flex;
   gap: 16px;

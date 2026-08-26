@@ -651,7 +651,12 @@ async function confirmReturn() {
   if (ok) showReturnModal.value = false
 }
 
-function returnLineSummary(line: { lineId: string; quantity: number; condition: ReturnCondition; compensated: boolean }): string {
+function returnLineSummary(line: {
+  lineId: string
+  quantity: number
+  condition: ReturnCondition
+  compensated: boolean
+}): string {
   const marks: string[] = []
   if (line.condition === 'defective') marks.push(t('orders.return_line_defective'))
   if (!line.compensated) marks.push(t('orders.return_line_not_compensated'))

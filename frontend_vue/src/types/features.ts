@@ -20,6 +20,7 @@ export interface FeatureFlags {
   adminOrders: boolean
   adminSalesCrm: boolean
   adminSettings: boolean
+  settingsAuditLog: boolean
 
   // Section-level flags
   dashboardAlerts: boolean
@@ -36,6 +37,8 @@ export interface FeatureFlags {
   warehouseOffcuts: boolean
   warehouseDeficit: boolean
   warehouseQrPrint: boolean
+  warehouseMap: boolean
+  warehouseCutting: boolean
 
   // Warehouse per-tab page config flags
   warehouseStockPageConfig: boolean

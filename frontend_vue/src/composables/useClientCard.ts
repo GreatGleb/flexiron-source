@@ -123,10 +123,10 @@ export function useClientCard(id: string) {
     }
   }
 
-  async function deleteAuditEntry(entryIndex: number) {
+  async function deleteAuditEntry(entryId: string) {
     try {
-      await deleteClientAuditEntry(id, entryIndex)
-      auditLog.value = auditLog.value.filter((_, i) => i !== entryIndex)
+      await deleteClientAuditEntry(id, entryId)
+      auditLog.value = auditLog.value.filter((entry) => entry.id !== entryId)
       toast.success(t('clients.toast_audit_deleted'))
     } catch {
       toast.error(t('clients.toast_error_audit_delete'))

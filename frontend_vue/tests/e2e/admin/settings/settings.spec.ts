@@ -1,5 +1,6 @@
 import { test, expect } from '../../fixtures'
 import { enableAllFlags } from '../../helpers/flags'
+import { waitForDataReady } from '../../helpers/ready'
 
 test.beforeEach(async ({ context }) => {
   await enableAllFlags(context)
@@ -12,17 +13,28 @@ test.beforeEach(async ({ context }) => {
 test.describe('Settings Layout', () => {
   test('loads without errors', async ({ page }) => {
     const errors: string[] = []
-    page.on('console', (msg) => { if (msg.type() === 'error') errors.push(msg.text()) })
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') errors.push(msg.text())
+    })
 
     await page.goto('/admin/settings/profile')
     await expect(page.locator('[data-test="settings-tabs"]')).toBeVisible()
     expect(errors).toHaveLength(0)
   })
 
-  test('all 5 tabs are visible', async ({ page }) => {
+  test('the settings tabs are the six sections, in order', async ({ page }) => {
+    // The names, not the count: a number says only that something changed, and a
+    // count taken from the rendered buttons would be the DOM compared with itself.
     await page.goto('/admin/settings/profile')
     const tabs = page.locator('[data-test="settings-tabs"] .warehouse-tab')
-    await expect(tabs).toHaveCount(5)
+    await expect(tabs).toHaveText([
+      'Profile',
+      'Company',
+      'Finance',
+      'Units of Measure',
+      'Order Statuses',
+      'Logs',
+    ])
   })
 
   test('tab navigation works — click through all tabs', async ({ page }) => {
@@ -124,6 +136,9 @@ test.describe('Finance Settings', () => {
 
   test('add currency modal opens and has inputs', async ({ page }) => {
     await page.goto('/admin/settings/finance')
+    // Переход и сразу действие: без ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.locator('[data-test="settings-finance-add-currency"]').click()
     await expect(page.locator('[data-test="settings-modal-currency-code"]')).toBeVisible()
     await expect(page.locator('[data-test="settings-modal-currency-name"]')).toBeVisible()
@@ -135,7 +150,9 @@ test.describe('Finance Settings', () => {
 
   test('currency delete button is visible', async ({ page }) => {
     await page.goto('/admin/settings/finance')
-    await expect(page.locator('[data-test="settings-finance-currency-delete"]').first()).toBeVisible()
+    await expect(
+      page.locator('[data-test="settings-finance-currency-delete"]').first(),
+    ).toBeVisible()
   })
 })
 
@@ -160,6 +177,9 @@ test.describe('Units Settings', () => {
 
   test('add UoM modal opens with category dropdown', async ({ page }) => {
     await page.goto('/admin/settings/units')
+    // Переход и сразу действие: без ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.locator('[data-test="settings-uom-add"]').click()
     await expect(page.locator('[data-test="settings-modal-uom-code"]')).toBeVisible()
     await expect(page.locator('[data-test="settings-modal-uom-name"]')).toBeVisible()
@@ -167,6 +187,9 @@ test.describe('Units Settings', () => {
 
   test('add conversion modal opens', async ({ page }) => {
     await page.goto('/admin/settings/units')
+    // Переход и сразу действие: без ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.locator('[data-test="settings-conversion-add"]').click()
     // AppModal renders .modal-overlay.active with .modal-title containing the title text
     const activeOverlay = page.locator('.modal-overlay.active')
@@ -197,6 +220,9 @@ test.describe('Order Statuses Settings', () => {
 
   test('add status modal opens with color picker', async ({ page }) => {
     await page.goto('/admin/settings/order-statuses')
+    // Переход и сразу действие: без ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.locator('[data-test="settings-status-add"]').click()
     await expect(page.locator('[data-test="settings-status-modal-name"]')).toBeVisible()
   })

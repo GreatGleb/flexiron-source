@@ -1,5 +1,6 @@
 import { test, expect } from '../fixtures'
 import { waitForFontsReady } from '../helpers/visual'
+import { waitForDataReady } from '../helpers/ready'
 
 /**
  * Deep audit of AdminLayout shell: AdminSidebar + AdminTopbar + useSidebar behavior.
@@ -105,6 +106,9 @@ test.describe('admin layout › sidebar collapse (desktop)', () => {
 
   test('clicking menu-toggle adds sidebar-collapsed class', async ({ page }) => {
     await page.goto(DASHBOARD)
+    // Переход и сразу действие: без ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.locator('[data-test="topbar-menu-toggle"]').click()
     await expect(page.locator('[data-test="admin-shell"]')).toHaveClass(/sidebar-collapsed/)
   })
@@ -121,6 +125,9 @@ test.describe('admin layout › sidebar collapse (desktop)', () => {
 
   test('collapsed state persists to localStorage', async ({ page }) => {
     await page.goto(DASHBOARD)
+    // Переход и сразу действие: без ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.locator('[data-test="topbar-menu-toggle"]').click()
     const stored = await page.evaluate(() => localStorage.getItem('sidebar-collapsed'))
     expect(stored).toBe('true')
@@ -128,6 +135,9 @@ test.describe('admin layout › sidebar collapse (desktop)', () => {
 
   test('collapsed state restored after reload', async ({ page }) => {
     await page.goto(DASHBOARD)
+    // Переход и сразу действие: без ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.locator('[data-test="topbar-menu-toggle"]').click()
     await expect(page.locator('[data-test="admin-shell"]')).toHaveClass(/sidebar-collapsed/)
     await page.reload()
@@ -164,6 +174,9 @@ test.describe('admin layout › sidebar drawer (mobile)', () => {
 
   test('mobile toggle does NOT persist to localStorage', async ({ page }) => {
     await page.goto(DASHBOARD)
+    // Переход и сразу действие: без ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.locator('[data-test="topbar-menu-toggle"]').click()
     const stored = await page.evaluate(() => localStorage.getItem('sidebar-collapsed'))
     // On mobile, toggle flips `active`, not `collapsed` — LS key should stay untouched (null).
@@ -182,6 +195,9 @@ test.describe('admin layout › sidebar drawer (mobile)', () => {
 
   test('open drawer locks body scroll', async ({ page }) => {
     await page.goto(DASHBOARD)
+    // Переход и сразу действие: без ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.locator('[data-test="topbar-menu-toggle"]').click()
     const overflow = await page.evaluate(() => document.body.style.overflow)
     expect(overflow).toBe('hidden')
@@ -222,6 +238,9 @@ test.describe('admin layout › lang switcher', () => {
 
   test('topbar EN click sets html[lang]=en and persists', async ({ page }) => {
     await page.goto(DASHBOARD)
+    // Переход и сразу действие: без ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.locator('[data-test="topbar-lang-en"]').click()
     await expect(page.locator('html')).toHaveAttribute('lang', 'en')
     const stored = await page.evaluate(() => localStorage.getItem('flexiron_lang'))
@@ -230,12 +249,18 @@ test.describe('admin layout › lang switcher', () => {
 
   test('topbar LT click sets html[lang]=lt', async ({ page }) => {
     await page.goto(DASHBOARD)
+    // Переход и сразу действие: без ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.locator('[data-test="topbar-lang-lt"]').click()
     await expect(page.locator('html')).toHaveAttribute('lang', 'lt')
   })
 
   test('topbar RU click sets html[lang]=ru', async ({ page }) => {
     await page.goto(DASHBOARD)
+    // Переход и сразу действие: без ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.locator('[data-test="topbar-lang-en"]').click()
     await page.locator('[data-test="topbar-lang-ru"]').click()
     await expect(page.locator('html')).toHaveAttribute('lang', 'ru')
@@ -245,6 +270,9 @@ test.describe('admin layout › lang switcher', () => {
     // sidebar lang-switcher is hidden by CSS until <=1024; use tablet viewport.
     await page.setViewportSize(TABLET)
     await page.goto(DASHBOARD)
+    // Переход и сразу действие: без ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.locator('[data-test="sidebar-lang-en"]').click()
     await expect(page.locator('html')).toHaveAttribute('lang', 'en')
   })
@@ -252,6 +280,9 @@ test.describe('admin layout › lang switcher', () => {
   test('active class reflects current locale in both switchers', async ({ page }) => {
     // Active class is set on DOM regardless of visibility — safe to assert at desktop.
     await page.goto(DASHBOARD)
+    // Переход и сразу действие: без ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.locator('[data-test="topbar-lang-en"]').click()
     await expect(page.locator('[data-test="topbar-lang-en"]')).toHaveClass(/active/)
     await expect(page.locator('[data-test="sidebar-lang-en"]')).toHaveClass(/active/)
@@ -268,6 +299,9 @@ test.describe('admin layout › navigation', () => {
 
   test('suppliers nav-link navigates to /admin/suppliers', async ({ page }) => {
     await page.goto(DASHBOARD)
+    // Переход и сразу действие: без ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.locator('[data-test="sidebar-nav-suppliers"]').click()
     await expect(page).toHaveURL(SUPPLIERS)
   })
@@ -286,6 +320,9 @@ test.describe('admin layout › navigation', () => {
     page,
   }) => {
     await page.goto(DASHBOARD)
+    // Переход и сразу действие: без ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.locator('[data-test="sidebar-nav-items"]').click()
     // href="#" — stays on same path (possibly adds #), URL should not change to /admin/items etc.
     await expect(page).not.toHaveURL(/\/admin\/items/)

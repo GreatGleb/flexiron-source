@@ -79,8 +79,8 @@ export async function createSupplier(
   })
 }
 
-export async function deleteAuditEntry(supplierId: string, entryIndex: number): Promise<void> {
-  await apiDelete<void>(`/api/suppliers/${supplierId}/audit/${entryIndex}`)
+export async function deleteAuditEntry(supplierId: string, entryId: string): Promise<void> {
+  await apiDelete<void>(`/api/suppliers/${supplierId}/audit/${entryId}`)
 }
 
 export async function exportSuppliersCsv(filters: SupplierFilters): Promise<string> {

@@ -224,7 +224,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -240,11 +240,11 @@ const router = useRouter()
 const { register, isLoading } = useAuth()
 
 const showPassword = ref(false)
-const submitError = ref(null)
-const secretLink = ref(null)
+const submitError = ref<string | null>(null)
+const secretLink = ref<string | null>(null)
 const copied = ref(false)
 
-const secretLinkInput = ref(null)
+const secretLinkInput = ref<HTMLInputElement | null>(null)
 
 /**
  * Reactive form state with v-model binding.
@@ -285,8 +285,11 @@ useHead({
   description: () => t('reg.seo.description'),
 })
 
+/** Имя поля формы — оно же ключ в `fieldErrors`. */
+type FieldName = keyof typeof fieldErrors
+
 /** Clear error for a single field when user starts typing in it. */
-function clearFieldError(field) {
+function clearFieldError(field: FieldName) {
   if (fieldErrors[field]) {
     fieldErrors[field] = ''
   }
@@ -300,7 +303,7 @@ async function onSubmit() {
   submitError.value = null
 
   // Clear previous field errors
-  for (const key of Object.keys(fieldErrors)) {
+  for (const key of Object.keys(fieldErrors) as FieldName[]) {
     fieldErrors[key] = ''
   }
 
@@ -352,7 +355,7 @@ async function onSubmit() {
       if (err.fieldErrors && Object.keys(err.fieldErrors).length > 0) {
         for (const [field, message] of Object.entries(err.fieldErrors)) {
           if (field in fieldErrors) {
-            fieldErrors[field] = message
+            fieldErrors[field as FieldName] = message
           }
         }
       }

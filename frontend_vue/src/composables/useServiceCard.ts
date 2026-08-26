@@ -4,7 +4,7 @@ import { getService, patchService } from '@/services/servicesService'
 import { useDirtyCheck } from './useDirtyCheck'
 import { useToast } from './useToast'
 import { useTranslatedField } from './useTranslatedData'
-import type { Service, ServicePriceUnit } from '@/types/service'
+import type { Service } from '@/types/service'
 import type { TranslatedString } from '@/types/i18n'
 
 export function useServiceCard(id: string) {
@@ -21,13 +21,17 @@ export function useServiceCard(id: string) {
     name: TranslatedString | null
     costPrice: number
     sellingPrice: number
-    priceUnit: ServicePriceUnit
+    currencyId: string
+    uomId: string
     description: TranslatedString | null
   }>({
     name: null,
     costPrice: 0,
     sellingPrice: 0,
-    priceUnit: 'EUR/vnt',
+    // Пока карточка не загрузилась, валюта и единица неизвестны — не 'EUR/шт' по
+    // умолчанию: подставленное значение здесь стало бы записанным при первом же save.
+    currencyId: '',
+    uomId: '',
     description: null,
   })
 
@@ -45,7 +49,8 @@ export function useServiceCard(id: string) {
         name: data.name,
         costPrice: data.costPrice,
         sellingPrice: data.sellingPrice,
-        priceUnit: data.priceUnit,
+        currencyId: data.currencyId,
+        uomId: data.uomId,
         description: data.description ?? null,
       }
       dirty.capture()
@@ -72,7 +77,8 @@ export function useServiceCard(id: string) {
         name: updated.name,
         costPrice: updated.costPrice,
         sellingPrice: updated.sellingPrice,
-        priceUnit: updated.priceUnit,
+        currencyId: updated.currencyId,
+        uomId: updated.uomId,
         description: updated.description ?? null,
       }
       dirty.capture()
@@ -90,7 +96,8 @@ export function useServiceCard(id: string) {
       name: service.value.name,
       costPrice: service.value.costPrice,
       sellingPrice: service.value.sellingPrice,
-      priceUnit: service.value.priceUnit,
+      currencyId: service.value.currencyId,
+      uomId: service.value.uomId,
       description: service.value.description ?? null,
     }
     dirty.capture()

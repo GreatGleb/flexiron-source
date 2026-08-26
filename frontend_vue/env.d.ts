@@ -14,3 +14,13 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+/**
+ * Флаги, которые приложение вешает на `window` для тестов.
+ *
+ * `__mockMode` ставится синхронно в `main.ts` до любого ожидания: без него тест не
+ * может отличить «мок ещё грузится» от «моков нет вовсе», кроме как по часам.
+ */
+interface Window {
+  __mockMode?: boolean
+}

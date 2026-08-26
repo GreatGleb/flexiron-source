@@ -1,3 +1,4 @@
+import type { StockAuditEntry } from '@/types/warehouse'
 import type { TranslatedString } from '@/types/i18n'
 
 export type SupplierStatus =
@@ -68,14 +69,16 @@ export interface SupplierPriceEntry {
   status: 'replied' | 'pending' | 'sent'
 }
 
-export interface SupplierAuditEntry {
-  timestamp: string
-  user: TranslatedString
-  userInitials: string
-  property: TranslatedString
-  oldValue: string
-  newValue: string
-}
+/**
+ * The supplier's (and the product's) audit entry — the same record as everywhere
+ * else, kept only as a name.
+ *
+ * It used to be a second, byte-identical declaration of `StockAuditEntry`. Two
+ * copies of one idea drift: the id that makes a record addressable was added to
+ * the base type and would have reached seven entities, silently leaving supplier
+ * and product on positional deletion. One definition, one rule.
+ */
+export type SupplierAuditEntry = StockAuditEntry
 
 export interface SupplierAddress {
   type: string

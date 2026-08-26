@@ -558,9 +558,13 @@ export interface LineEditEnvelope {
  * it read — silently, since a position always names something (contract §2, §4.1).
  * The id is unique inside its order, like a line id and for the same reason: the
  * record is reached through the order's path, `DELETE /orders/:id/audit/:entryId`.
+ *
+ * The order was the first to need this and is no longer the only one: `id` now
+ * lives on `StockAuditEntry` itself, so all nine entities are addressed alike.
+ * Declaring it again here would say the order's identity is its own rule; it is
+ * not, it is the rule.
  */
 export interface OrderAuditEntry extends StockAuditEntry {
-  id: string
   /**
    * What the entry gives away, if anything — for the rights in §5.
    *

@@ -1,6 +1,6 @@
 ---
 name: create-page
-description: Create a new Vue 3 admin page from scratch based on TZ specs in toDo/. Phase-by-phase discipline — complete each phase fully, validate, then proceed.
+description: Реализация страницы Vue 3 по ТЗ из toDo/ фазами 0–10. Фаза закрывается целиком и проверяется циклом из verify.md. Два режима: интерактивный со стопами и автономный без них.
 user_invocable: true
 arguments:
   - name: page
@@ -19,16 +19,26 @@ Build a new admin page in `frontend_vue/` based on TZ specs. **Phase-by-phase di
 1. **NEVER skip a phase** — every phase is mandatory
 2. **NEVER generate >60 lines per file in one step** — split into multiple edits
 3. **NEVER guess data shapes or HTTP methods** — read TZ and api-contract first
-4. **ALWAYS run typecheck after each phase** — catch errors immediately
+4. **После каждой фазы — машинная приёмка** (`npm run verify`): ошибка ловится там, где сделана, а не через пять фаз
 5. **ALWAYS use existing components** — never recreate what's in `src/components/admin/`
-6. **Done ≠ typecheck+lint** — final verification = plan→files→typecheck→lint→contract sync→browser walk-through golden path
-7. **IF save-mode is unclear** — STOP and ask: "Clean-slate (Save-batch) or quick-action (immediate)?"
-8. **IF anything is unclear** — STOP and ask
+6. **Готово ≠ typecheck+lint.** Готово = чистый свип цикла проверок из [`verify.md`](verify.md): машинная приёмка плюс линзы Л1–Л10, ни одной новой находки
+7. **Режим сохранения неясен** — интерактивно спросить: clean-slate (Save-batch) или quick-action (immediate). Автономно — взять решение из плана; в плане его нет → задача падает с формулировкой «в плане не задан режим сохранения», а не с угаданным вариантом
+8. **Непонятно что-либо ещё** — интерактивно спросить. Автономно — то же правило: задача падает с указанием, чего именно не хватает в плане. Догадка в автономном прогоне дороже упавшей задачи: её никто не увидит
 9. **Verify every code claim** — before stating "X exists / is used / is named Y": state the Grep or Read query, run it, show the result, then conclude. Never from logic or memory alone.
-10. **STOP after every Phase** — after completing each Phase (0–10), output the stop block and wait for explicit confirmation before proceeding.
+10. **Стопы — по режиму.** Интерактивно: после каждой фазы (0–10) стоп-блок и ожидание подтверждения. Автономно: стопов нет, вместо каждого — цикл проверок по области фазы; свип чистый → следующая фаза, «не сошлось» → фаза провалена и прогон по этой задаче остановлен.
 11. **Create new entity = separate route page, NOT a modal** — creating a resource requires its own URL (`[Entity]CreatePage.vue`), full form validation with save-bar, and SPA-navigable route. Modals (`AppModal`) are only for quick actions: delete confirm, discard changes, simple field selection. Modal = ephemeral, page = permanent. Exception: very simple inline create (e.g. adding a tag) where the form is a single field and no URL is meaningful.
 
 ---
+
+## Режимы
+
+| | Интерактивный | Автономный |
+|---|---|---|
+| Стоп после фазы | есть, ждёт человека | нет — вместо него цикл проверок по области фазы |
+| Неясность (режим сохранения и прочее) | спросить | задача падает с указанием, чего нет в плане |
+| Golden path (9c) | проход в браузере | спека Playwright из фазы 10 |
+| Пауза перед фазой 10 | подтверждение человека | чистый свип |
+| Признак «готово» | человек посмотрел | чистый свип цикла |
 
 ## Phase 0: Context & Spec Analysis
 
@@ -38,7 +48,7 @@ Read **before writing a single line of code**:
 Read `vue-rules` skill completely. Pay attention to:
 - Save UX (clean-slate vs quick-action) — determines Phase 4 architecture
 - HTTP methods — determines Phase 3 service signatures
-- All pitfalls (#1–#28) — apply from the start, not as a hotfix after
+- All pitfalls, весь список — apply from the start, not as a hotfix after
 
 ### Step 0b — TZ Sources
 Read all relevant docs:
@@ -54,7 +64,7 @@ Read all relevant docs:
 - `frontend_vue/src/components/admin/` — available components (use, don't recreate)
 - `frontend_vue/src/types/` — existing TypeScript types (reuse where possible)
 - `frontend_vue/src/config/featureFlags.ts` — existing flags
-- `toDo/admin-api-contract.md` — **contract-first**: add a new section for this domain BEFORE writing any service/composable
+- `roo_code/roo-context/03-api-contract.md` — **contract-first**: add a new section for this domain BEFORE writing any service/composable
 
 ### Checkpoint 0 — Extract and OUTPUT before proceeding:
 
@@ -193,7 +203,7 @@ Continue?
 ## Phase 3: Service Layer
 
 ### Write the contract first
-Open `toDo/admin-api-contract.md` and **add a new section** for this domain. Use existing sections (suppliers, bcc, config) as structural template. Define before writing a single line of service code:
+Open `roo_code/roo-context/03-api-contract.md` and **add a new section** for this domain. Use existing sections (suppliers, bcc, config) as structural template. Define before writing a single line of service code:
 - Endpoint paths + HTTP methods (GET/POST/PATCH/PUT/DELETE)
 - Request body shape (required vs optional fields, types)
 - Response shape (envelope `ApiResponse<T>` or `PaginatedResponse<T>`)
@@ -272,7 +282,7 @@ import { uploadFile } from './uploadsService'
 - **Verify /translated endpoint necessity:** After any backend refactoring, verify which endpoints still need the `/translated` suffix. If the backend now returns translated data from the base endpoint (`/api/domain`), use that directly instead of `/api/domain/translated`.
 
 ### Update api-contract write-back
-After implementing, open `toDo/admin-api-contract.md` and:
+After implementing, open `roo_code/roo-context/03-api-contract.md` and:
 - Remove `"TBD"`, `"UI — separate iteration"` markers for implemented endpoints
 - Add reference to actual `Page.vue` and composable
 
@@ -284,7 +294,7 @@ cd frontend_vue && npm run typecheck
 
 ```
 ⏸ STOP — Phase 3: Service Layer
-Done: contract in admin-api-contract.md written, [domain]Service.ts created, typecheck ✅
+Done: contract in 03-api-contract.md written, [domain]Service.ts created, typecheck ✅
 Next: Phase 4 — Composable
 Continue?
 ```
@@ -1001,17 +1011,22 @@ Continue?
 
 Full verification before declaring done.
 
-### 9a — Static checks
+### 9a — Машинная приёмка
 ```bash
-cd frontend_vue && npm run typecheck && npm run lint
+cd frontend_vue && npm run verify
 ```
+Состав команды и почему форматирование входит в гейт — [`verify.md`](verify.md), раздел «Машинная
+приёмка». Список шагов здесь намеренно не продублирован: две копии одного правила расходятся, и
+расходиться начинает та, которую забыли.
 
 ### 9b — Contract sync
-Open `toDo/admin-api-contract.md`:
+Open `roo_code/roo-context/03-api-contract.md`:
 - Implemented endpoints marked (no "TBD" remaining)
 - References to actual `Page.vue` and composable added
 
-### 9c — Browser walk-through (golden path)
+### 9c — Golden path
+
+Интерактивно — проход в браузере по шагам ниже. Автономно то же покрывается спекой Playwright из фазы 10: смотреть глазами в прогоне некому, и «проверил визуально» там означает «не проверил».
 1. Navigate to the page via sidebar link
 2. Mock data renders in all sections
 3. Every filter/search input works
@@ -1031,38 +1046,23 @@ Open `toDo/admin-api-contract.md`:
 ### 9d — Regression check
 Open 2–3 existing pages (Dashboard, SuppliersListPage) — verify no new console errors.
 
-### 9e — Pitfalls final pass
-Run through vue-rules pitfalls #1–#28 for this page:
-- [ ] #1: `@` in translations escaped
-- [ ] #9: No comments inside `<template>`
-- [ ] #10: All route names verified against router
-- [ ] #12: No generic class names in `:class` bindings
-- [ ] #13: Mock returns structuredClone, not raw ref
-- [ ] #14: No mix of native + custom selects
-- [ ] #15: Mock STORE in English; tests use dynamic values not hardcoded strings
-- [ ] #16: Every component imports its own CSS — no borrowing from co-located components
-- [ ] #17: Every `<SvgIcon name="X">` verified against SvgIcon.vue grep
-- [ ] #18: Save bar uses `btn_discard_changes`; modal cancel uses `btn_discard`
-- [ ] #19: Search/filters inside GlassPanel (same panel as the table)
-- [ ] #20: Filter watcher composable uses `initialized` flag — no skeleton on filter reload
-- [ ] #21: Sidebar has only section entry point; sub-pages link via `router-link.btn.btn-secondary`
-- [ ] #22: Snapshot baseline updated if any UI element in snapshot zone changed
-- [ ] #23: Any new `<Teleport>` root component has `inheritAttrs: false` + `v-bind="$attrs"`
-- [ ] All `/api/domain` routes have corresponding `/api/domain/translated` mock routes
-- [ ] All `{{ }}` expressions with TranslatedString values are wrapped in `tf()`
-- [ ] All TranslatedString form fields use computed get/set, not direct v-model
-- [ ] All dirty checks use `watchEffect` instead of `watch({ deep: true })`
-- [ ] All UI translation updates use `mergeTranslatedString()` not `toTranslatedString()`
-- [ ] Loading states use skeleton layouts, not text placeholders
-- [ ] `tf()` has null guard for null/undefined safety
+### 9e — Цикл проверок
 
-**Done = all 9a–9e passed. Not just typecheck.**
+Прогнать цикл из [`verify.md`](verify.md): линзы Л1–Л10 до чистого свипа, лимит 30 итераций.
+
+Рукописного чеклиста питфоллов здесь больше нет — и не появится снова. Он был, обещал «пройти ВСЕ
+питфоллы» и перечислял `#1`–`#23` при шестидесяти восьми существующих: сорок пять последних,
+включая все находки по TranslatedString, реактивности и тестам, не проверялись вовсе. Список
+питфоллов растёт каждую неделю, копия в этом файле устаревает в тот же день. Линзы ссылаются на
+номера, а не воспроизводят их.
+
+**Готово = 9a–9e пройдены и свип чистый.** Не «typecheck зелёный».
 
 ---
 
 ## ⏸ PAUSE — Full Testing Cycle Before Phase 10
 
-**After Phase 9 is complete, STOP and report to the user:**
+**Интерактивно — после фазы 9 стоп и отчёт пользователю:**
 
 > "Phase 9 complete. Next — full testing cycle before writing tests:
 > 1. `/pre-manual-check [plan]` — automated checks
@@ -1071,7 +1071,12 @@ Run through vue-rules pitfalls #1–#28 for this page:
 > 4. `/update-skills [plan]` — update skills from bug lessons
 > After this — confirm, and we'll start Phase 10."
 
-**Only proceed to Phase 10 after explicit user confirmation that all steps above are done.**
+**Интерактивно: к фазе 10 только после явного подтверждения, что всё выше сделано.**
+
+**Автономно:** ручного тестирования нет, поэтому цепочка идёт сама — `pre-manual-check` (6 групп)
+→ находки в bugs-файл → `fix-bugs` → цикл проверок. К фазе 10 переход по чистому свипу, а не по
+подтверждению. Причина ниже от режима не зависит: тесты, написанные по багованному UI,
+после починок недействительны.
 
 **Why:** Tests written against buggy UI become invalid after fixes, snapshot baselines need regeneration, and test assumptions about behavior change. Writing tests last saves 40+ minutes of rework.
 
@@ -1213,6 +1218,10 @@ Continue?
 ```
 
 ### Step 10d — Run tests
+
+**Инверсия по Л9 — часть этого шага, а не пожелание.** Зелёная новая спека сама по себе не
+доказывает ничего: она может быть зелёной и на сломанном коде. На каждое утверждение сломать
+проверяемое поведение и убедиться, что тест краснеет. Не покраснел — тест переписывается.
 ```bash
 cd frontend_vue && npx playwright test admin/[section]/[domain]
 ```

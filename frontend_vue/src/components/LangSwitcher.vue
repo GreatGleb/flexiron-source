@@ -13,13 +13,13 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 
 const { locale, availableLocales } = useI18n()
 const locales = availableLocales
 
-function switchTo(code) {
+function switchTo(code: string) {
   locale.value = code
   localStorage.setItem('flexiron_lang', code)
   document.documentElement.lang = code

@@ -2,6 +2,7 @@ import { test, expect, testBare as base } from '../../fixtures'
 import { ALL_FLAGS_ENABLED } from '../../helpers/flags'
 import { freezeTime } from '../../helpers/mocks'
 import { waitForFontsReady, SNAPSHOT_OPTIONS } from '../../helpers/visual'
+import { waitForDataReady } from '../../helpers/ready'
 
 /**
  * Deep audit of all Clients pages:
@@ -116,6 +117,9 @@ test.describe('clients-list › table view', () => {
 
   test('status badge renders for each row', async ({ page }) => {
     const rows = page.locator('[data-test="clients-row"]')
+    // Считать до отрисовки — значит получить ноль и утверждать «ноль равен 25».
+    // Под полным прогоном это и произошло: Expected 25, Received 0.
+    await expect(rows.first()).toBeVisible()
     const activeBadges = rows.locator('.client-status-badge.badge-active')
     const inactiveBadges = rows.locator('.client-status-badge.badge-inactive')
     const total = (await activeBadges.count()) + (await inactiveBadges.count())
@@ -178,8 +182,11 @@ test.describe('clients-list › status filter', () => {
   })
 
   test('selecting "active" changes row count compared to unfiltered', async ({ page }) => {
-    // Get baseline count (unfiltered, page 1 = 25 rows)
-    const beforeCount = await page.locator('[data-test="clients-row"]').count()
+    // Get baseline count (unfiltered, page 1 = 25 rows). Сначала дождаться строк:
+    // одноразовый `count()` до отрисовки даёт ноль (Expected 25, Received 0).
+    const clientRows = page.locator('[data-test="clients-row"]')
+    await expect(clientRows.first()).toBeVisible()
+    const beforeCount = await clientRows.count()
     expect(beforeCount).toBe(25)
 
     // Open the status dropdown and select "active"
@@ -201,15 +208,32 @@ test.describe('clients-list › status filter', () => {
       '[data-test="clients-filter-status"] .custom-select-list.open .custom-select-option',
     )
     await options.nth(2).click()
-    await page.waitForTimeout(500)
+
+    // Контейнер здесь НЕ ПОДХОДИТ, и это выяснилось падением: он был удовлетворён
+    // строками ДО фильтра, `rows.count()` прочитал 25 нефильтрованных, а бейджей
+    // отфильтрованный список дал 14 — «Expected 25, Received 14». Признак
+    // внутристраничного перехода обязан быть таким, какого до перехода быть не может:
+    // здесь это отсутствие АКТИВНЫХ бейджей. До фильтра они есть, после — ни одного,
+    // и пустой список этого признака не портит (см. проверку непустоты ниже).
     const rows = page.locator('[data-test="clients-row"]')
-    if ((await rows.count()) > 0) {
-      await expect(rows.first()).toBeVisible()
-      // All visible rows should have inactive badge
-      const inactiveBadges = rows.locator('.client-status-badge.badge-inactive')
-      await expect(inactiveBadges).toHaveCount(await rows.count())
+    await expect(rows.locator('.client-status-badge.badge-active')).toHaveCount(0)
+
+    // Один снимок DOM: количество строк и количество неактивных бейджей из ОДНОГО
+    // рендера. Два отдельных чтения давали числа из разных моментов — та же
+    // неатомарность, что у `count()` с последующим `nth(i)`.
+    const [rowCount, inactiveCount] = await page.evaluate(() => {
+      const all = [...document.querySelectorAll('[data-test="clients-row"]')]
+      return [
+        all.length,
+        all.filter((r) => r.querySelector('.client-status-badge.badge-inactive')).length,
+      ]
+    })
+
+    if (rowCount > 0) {
+      // Каждая показанная строка неактивна — то, что тест и обещает названием.
+      expect(inactiveCount).toBe(rowCount)
     } else {
-      await expect(page.locator('[data-test="clients-empty-state"]')).toBeVisible({ timeout: 5000 })
+      await expect(page.locator('[data-test="clients-empty-state"]')).toBeVisible()
     }
   })
 })
@@ -252,15 +276,11 @@ test.describe('clients-list › pagination', () => {
       .first()
       .textContent()
     await nextBtn.click()
-    await page.waitForTimeout(500)
-    // The first row should have a different name after going to page 2
-    const afterText = await page
-      .locator('[data-test="clients-row"]')
-      .first()
-      .locator('td')
-      .first()
-      .textContent()
-    expect(afterText).not.toBe(beforeText)
+    // Ждём саму смену строки, а не отмеренные полсекунды: утверждение
+    // повторяется само, пока страница не перерисуется.
+    await expect(
+      page.locator('[data-test="clients-row"]').first().locator('td').first(),
+    ).not.toHaveText(beforeText ?? '')
   })
 })
 
@@ -471,8 +491,7 @@ test.describe('client-card › fields & save flow', () => {
     const saveBar = page.locator('[data-test="client-card-save-bar"]')
     // Find the discard button
     await saveBar.locator('button.btn-secondary').click()
-    // Wait for load to complete
-    await page.waitForTimeout(500)
+    // Ожидание не нужно: toHaveValue ниже повторяется само, пока load() не вернёт форму.
     // Value should be restored
     await expect(page.locator('[data-test="field-name"]')).toHaveValue('UAB Metalica')
   })
@@ -516,6 +535,9 @@ test.describe('client-card › audit log', () => {
 
   test('clicking delete removes the audit entry', async ({ page }) => {
     const rows = page.locator('[data-test="client-card-audit-row"]')
+    // Считать до отрисовки — получить ноль и утверждать его производное:
+    // `toHaveCount(before - 1)` превращается в `toHaveCount(-1)`.
+    await expect(rows.first()).toBeVisible()
     const before = await rows.count()
     await page.locator('[data-test="client-card-audit-delete-btn"]').first().click()
     // Deleting asks first — the row goes only after the confirmation.
@@ -525,6 +547,9 @@ test.describe('client-card › audit log', () => {
 
   test('cancelling the delete keeps the entry', async ({ page }) => {
     const rows = page.locator('[data-test="client-card-audit-row"]')
+    // Ноль в базовой величине сделал бы `toHaveCount(0)` истинным по другой причине:
+    // «записи не удалились» и «записи не отрисовались» — разные вещи (#66).
+    await expect(rows.first()).toBeVisible()
     const before = await rows.count()
     await page.locator('[data-test="client-card-audit-delete-btn"]').first().click()
     await page.click('[data-test="client-card-audit-modal-cancel"]')
@@ -596,6 +621,9 @@ test.describe('client-card › order history empty', () => {
     // next order lands on them.
     await page.setViewportSize(DESKTOP)
     await page.goto('/admin/clients/new')
+    // Переход и сразу действие: без ожидания тест зависит от того,
+    // успела ли страница подняться, а этого он не контролирует.
+    await waitForDataReady(page)
     await page.locator('[data-test="field-name"]').fill('E2E No Orders')
     await page.locator('[data-test="field-company-code"]').fill('E2E000001')
     await page.locator('[data-test="field-email"]').fill('no-orders@test.lt')
@@ -642,11 +670,13 @@ test.describe('client-card › interaction history', () => {
     await page
       .locator('[data-test="field-interaction-summary-inline"]')
       .fill('E2E test interaction')
-    const rowsBefore = await page.locator('[data-test="client-card-interaction-row"]').count()
+    const interactionRows = page.locator('[data-test="client-card-interaction-row"]')
+    await expect(interactionRows.first()).toBeVisible()
+    const rowsBefore = await interactionRows.count()
     await page.locator('[data-test="client-card-add-interaction-btn"]').click()
-    await page.waitForTimeout(300)
-    const rowsAfter = await page.locator('[data-test="client-card-interaction-row"]').count()
-    expect(rowsAfter).toBe(rowsBefore + 1)
+    // Признак вместо 300 мс по часам: строк стало на одну больше. Само ожидание и есть
+    // проверка, поэтому второе чтение не нужно.
+    await expect(interactionRows).toHaveCount(rowsBefore + 1)
   })
 
   test('discard button resets the interaction form', async ({ page }) => {
@@ -667,6 +697,9 @@ test.describe('client-card › interaction history', () => {
 
   test('clicking delete removes the interaction row from UI', async ({ page }) => {
     const rows = page.locator('[data-test="client-card-interaction-row"]')
+    // Считать до отрисовки — получить ноль и утверждать его производное:
+    // `toHaveCount(before - 1)` превращается в `toHaveCount(-1)`.
+    await expect(rows.first()).toBeVisible()
     const before = await rows.count()
     await page.locator('[data-test="client-card-interaction-delete-btn"]').first().click()
     await expect(rows).toHaveCount(before - 1)

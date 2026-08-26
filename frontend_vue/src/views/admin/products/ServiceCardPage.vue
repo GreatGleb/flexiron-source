@@ -13,8 +13,10 @@ import { useHead } from '@/composables/useHead'
 import { useServiceCard } from '@/composables/useServiceCard'
 
 import '@styles/admin/components/_entity-card-layout.css'
+import { useSettings } from '@/composables/useSettings'
 
 const { t, locale } = useI18n()
+const { settings, load: loadSettings } = useSettings()
 const route = useRoute()
 
 const id = route.params.id as string
@@ -41,15 +43,15 @@ useHead({
   description: () => t('services.title'),
 })
 
-const priceUnitOptions = [
-  { value: 'EUR/vnt', label: t('services.price_unit_eur_vnt') },
-  { value: 'EUR/kg', label: t('services.price_unit_eur_kg') },
-  { value: 'EUR/m', label: t('services.price_unit_eur_m') },
-  { value: 'EUR/h', label: t('services.price_unit_eur_h') },
-]
+// Из справочника — те же валюты и единицы, что у товара, а не четыре зашитые пары.
+const currencyOptions = computed(() =>
+  settings.currencies.map((c) => ({ value: c.id, label: c.code })),
+)
+const uomOptions = computed(() => settings.uoms.map((u) => ({ value: u.id, label: tf(u.code) })))
 
 onMounted(() => {
   load()
+  loadSettings()
 })
 </script>
 
@@ -142,10 +144,17 @@ onMounted(() => {
                 data-test="service-selling-input"
               />
             </InputGroup>
+            <InputGroup :label="t('services.field_currency')">
+              <CustomSelect
+                v-model="form.currencyId"
+                :options="currencyOptions"
+                data-test="service-currency-select"
+              />
+            </InputGroup>
             <InputGroup :label="t('services.field_price_unit')">
               <CustomSelect
-                v-model="form.priceUnit"
-                :options="priceUnitOptions"
+                v-model="form.uomId"
+                :options="uomOptions"
                 data-test="service-unit-select"
               />
             </InputGroup>

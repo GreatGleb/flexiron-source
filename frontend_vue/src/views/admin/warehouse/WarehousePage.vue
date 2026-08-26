@@ -27,7 +27,6 @@ import MultiSelect from '@/components/admin/ui/MultiSelect.vue'
 import DatePicker from '@/components/admin/ui/DatePicker.vue'
 import AppModal from '@/components/admin/ui/AppModal.vue'
 import Pagination from '@/components/admin/ui/Pagination.vue'
-// DEPRECATED: import CreateBatchModal from './CreateBatchModal.vue' (batch creation moved to WarehouseBatchCreatePage)
 // DEPRECATED: import CreateMovementModal from './CreateMovementModal.vue' (movement creation removed from UI)
 import '@styles/admin/components/_pagination.css'
 import '@styles/admin/warehouse_list.css'
@@ -39,6 +38,8 @@ const batchesPageConfigEnabled = useFeatureFlag('warehouseBatchesPageConfig')
 const offcutsPageConfigEnabled = useFeatureFlag('warehouseOffcutsPageConfig')
 const movementsPageConfigEnabled = useFeatureFlag('warehouseMovementsPageConfig')
 const deficitPageConfigEnabled = useFeatureFlag('warehouseDeficitPageConfig')
+// Карта не привязана к вкладке — ссылка на неё видна на любой.
+const showWarehouseMap = useFeatureFlag('warehouseMap')
 const pageConfigForActiveTab = computed(() => {
   switch (activeTab.value) {
     case 'stock':
@@ -100,9 +101,7 @@ const {
   toggleMovementsSort,
   deficitSort,
   toggleDeficitSort,
-  // DEPRECATED: showCreateBatchModal (batch creation moved to WarehouseBatchCreatePage)
   // DEPRECATED: showCreateMovementModal (removed from UI)
-  // DEPRECATED: onBatchCreated (batch creation moved to WarehouseBatchCreatePage)
   // DEPRECATED: onMovementCreated (removed from UI)
   updateOffcutStatus,
   updateDeficitStatus,
@@ -810,6 +809,16 @@ const deficitFiltersActive = computed(() => {
     <div class="suppliers-header" data-test="warehouse-toolbar">
       <div class="suppliers-header-left" />
       <div class="suppliers-header-right">
+        <router-link
+          v-if="showWarehouseMap"
+          :to="{ name: 'admin-warehouse-map' }"
+          class="btn btn-secondary"
+          data-test="warehouse-map-btn"
+        >
+          <SvgIcon name="map" :width="18" :height="18" />
+          <span>{{ t('warehouse.btn_map') }}</span>
+        </router-link>
+
         <!-- Export (all tabs) -->
         <button
           class="btn btn-secondary"
@@ -842,15 +851,31 @@ const deficitFiltersActive = computed(() => {
           <span>{{ t('warehouse.btn_new_batch') }}</span>
         </button>
 
-        <!-- Offcuts tab: new offcut -->
+        <!-- Offcuts tab: record a piece by hand -->
         <button
           v-if="activeTab === 'offcuts'"
-          class="btn btn-primary"
+          class="btn btn-secondary"
           data-test="warehouse-new-offcut-btn"
           @click="router.push({ name: 'admin-warehouse-offcut-create' })"
         >
-          <SvgIcon name="scissors" :width="18" :height="18" />
+          <SvgIcon name="plus-add" :width="18" :height="18" />
           <span>{{ t('warehouse.btn_new_offcut') }}</span>
+        </button>
+
+        <!--
+          Резка — не то же, что «новый обрезок»: там кусок записывают, здесь его
+          отрезают, и с партии уходит ещё и пропил. До этого кнопка «Резка» стояла
+          только в пустом состоянии вкладки и вела на форму ручной записи, то есть
+          мимо операции резки вообще.
+        -->
+        <button
+          v-if="activeTab === 'offcuts'"
+          class="btn btn-primary"
+          data-test="warehouse-offcuts-cut-btn"
+          @click="router.push({ name: 'admin-warehouse-cutting' })"
+        >
+          <SvgIcon name="scissors" :width="18" :height="18" />
+          <span>{{ t('warehouse.btn_cut') }}</span>
         </button>
 
         <!-- Page config stub (all tabs) — feature-flagged per tab -->
@@ -2199,7 +2224,10 @@ const deficitFiltersActive = computed(() => {
                 </td>
                 <td>{{ batch.quantity }}</td>
                 <td>
-                  <span :class="{ 'text-danger': batch.quantityRemaining <= 0 }">
+                  <span
+                    :class="{ 'text-danger': batch.quantityRemaining <= 0 }"
+                    data-test="warehouse-batch-remaining"
+                  >
                     {{ batch.quantityRemaining }}
                   </span>
                 </td>
@@ -2283,7 +2311,7 @@ const deficitFiltersActive = computed(() => {
             <button
               class="btn btn-primary"
               data-test="warehouse-offcuts-cut-btn-empty"
-              @click="router.push({ name: 'admin-warehouse-offcut-create' })"
+              @click="router.push({ name: 'admin-warehouse-cutting' })"
             >
               <SvgIcon name="scissors" :width="16" :height="16" />
               <span>{{ t('warehouse.btn_cut') }}</span>
@@ -2714,6 +2742,11 @@ const deficitFiltersActive = computed(() => {
                 <td>
                   <code class="lot-code">{{ offcut.batchNumber }}</code>
                 </td>
+                <!--
+                  Площади в строке НЕТ сознательно: размеры здесь уже стоят, а площадь
+                  стоила бы колонки ширины на и без того широкой таблице. В карточку —
+                  один клик, и там она есть.
+                -->
                 <td>
                   <template v-if="offcut.lengthMm">
                     <span class="offcut-dimensions">
@@ -3774,11 +3807,5 @@ const deficitFiltersActive = computed(() => {
         </button>
       </template>
     </AppModal>
-
-    <!-- ════════════════════════════════════════════════════════════════════════
-         Create modals (DEPRECATED)
-         ════════════════════════════════════════════════════════════════════════ -->
-    <!-- DEPRECATED: <CreateBatchModal> removed — batch creation moved to WarehouseBatchCreatePage -->
-    <!-- DEPRECATED: <CreateMovementModal> removed from UI -->
   </div>
 </template>

@@ -29,8 +29,8 @@ export async function getClientAudit(clientId: string): Promise<StockAuditEntry[
   return apiGet<StockAuditEntry[]>(`/api/clients/${clientId}/audit`)
 }
 
-export async function deleteClientAuditEntry(clientId: string, entryIndex: number): Promise<void> {
-  return apiDelete<void>(`/api/clients/${clientId}/audit/${entryIndex}`)
+export async function deleteClientAuditEntry(clientId: string, entryId: string): Promise<void> {
+  return apiDelete<void>(`/api/clients/${clientId}/audit/${entryId}`)
 }
 
 export async function addClientInteraction(

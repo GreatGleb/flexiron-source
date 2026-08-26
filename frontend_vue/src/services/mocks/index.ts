@@ -143,6 +143,9 @@ import {
   mockDeleteOrderStatus,
   mockGetProfile,
   mockPatchProfile,
+  mockGetWarehouseMap,
+  mockSaveWarehouseMap,
+  mockDeleteWarehouseMap,
 } from './settings'
 import {
   mockGetOrders,
@@ -186,6 +189,58 @@ import type { PaginationParams } from '@/types/api'
 import type { OrderFilters } from '@/types/order'
 import type { FinancePaymentFilters } from '@/types/finance'
 import { mockGetPayments, mockGetPayment, mockPatchPayment, mockGetArchive } from './finance'
+import { mockGetAuditFeed, mockGetAuditFeedUsers } from './auditFeed'
+import type { AuditFeedFilters } from '@/types/audit'
+
+/**
+ * How many mock answers are still on their way.
+ *
+ * Every mock response goes through `delay`, so this is the one place that knows
+ * whether the "server" is done. E2E needs that number: under mocks there is no
+ * network request at all — an answer is a `setTimeout` — so Playwright's
+ * `networkidle` reports quiet while the data is still pending, and a test that
+ * waits for it reads a page that has rendered nothing yet.
+ *
+ * Published on `window` rather than exported, because the reader is the test
+ * runner in another process. Nothing in the app may branch on it.
+ */
+let pendingMockRequests = 0
+/**
+ * Сколько запросов мок принял ЗА ВСЁ ВРЕМЯ — монотонно, не убывает.
+ *
+ * Без этого числа запрос, успевший начаться и закончиться между двумя опросами
+ * хелпера, невидим: `__mockPending` в оба момента ноль, и ожидание уходит по ветке
+ * «страница ничего не спрашивала» — то есть возвращается ДО данных, которые уже
+ * пришли. Ноль здесь значит «ещё ничего не спрашивали», и только он.
+ */
+let totalMockRequests = 0
+
+function publishPending() {
+  const w = globalThis as unknown as { __mockPending?: number; __mockCalls?: number }
+  w.__mockPending = pendingMockRequests
+  w.__mockCalls = totalMockRequests
+}
+publishPending()
+
+/**
+ * Считает ЗАПРОС, а не ответ, и делает это на границе диспетчера.
+ *
+ * Раньше счёт вёлся в `delay()`, то есть только по успешным ответам: обработчик,
+ * бросивший ошибку до задержки (`BATCH_NOT_FOUND` и вся семья «не найдено»), для
+ * ожидания не существовал вовсе — страница, спросившая и получившая отказ, выглядела
+ * как страница, которая ничего не спрашивала.
+ */
+async function dispatch<T>(run: () => Promise<T>): Promise<T> {
+  pendingMockRequests += 1
+  totalMockRequests += 1
+  publishPending()
+  try {
+    return await run()
+  } finally {
+    pendingMockRequests -= 1
+    publishPending()
+  }
+}
 
 function delay<T>(data: T, ms = 300): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(data), ms))
@@ -234,7 +289,7 @@ function parseFinancePaymentsParams(params?: Record<string, string>) {
 }
 
 // ─── GET ───
-export async function getMock<T>(path: string, params?: Record<string, string>): Promise<T> {
+async function getMockRoute<T>(path: string, params?: Record<string, string>): Promise<T> {
   // ── Auth: get current user (validate session) ──
   if (path === '/api/auth/me') {
     const user = getStoredMockUser()
@@ -258,7 +313,7 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
   if (path === '/api/suppliers/export.csv') {
     const filters: SupplierFilters = {
       search: params?.search ?? '',
-      status: (params?.status as SupplierFilters['status']) ?? 'all',
+      status: (params?.status ?? 'all') as SupplierFilters['status'],
       categories: params?.categories ? params.categories.split(',') : [],
       rating: Number(params?.rating ?? 0),
     }
@@ -277,7 +332,7 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
   if (path === '/api/suppliers') {
     const filters: SupplierFilters = {
       search: params?.search ?? '',
-      status: (params?.status as SupplierFilters['status']) ?? 'all',
+      status: (params?.status ?? 'all') as SupplierFilters['status'],
       categories: params?.categories ? params.categories.split(',') : [],
       rating: Number(params?.rating ?? 0),
     }
@@ -310,7 +365,7 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
       type: params?.type ?? 'all',
       isRead: params?.isRead ? params.isRead === 'true' : null,
       sortBy: params?.sortBy ?? 'createdAt',
-      sortDir: (params?.sortDir as 'asc' | 'desc') ?? 'desc',
+      sortDir: (params?.sortDir ?? 'desc') as 'asc' | 'desc',
     }
     const pagination = {
       page: Number(params?.page ?? 1),
@@ -329,6 +384,26 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
   if (path === '/api/settings/conversions') return delay(mockGetConversions() as T)
   if (path === '/api/settings/order-statuses') return delay(mockGetOrderStatuses() as T)
   if (path === '/api/settings/profile') return delay(mockGetProfile() as T)
+  if (path === '/api/settings/warehouse-map') return delay(mockGetWarehouseMap() as T)
+
+  // The audit feed reads the nine logs where they live; it has no store of its own,
+  // and deletion goes to the entity's own endpoint — never to a path under /audit-feed.
+  if (path === '/api/audit-feed/users') return delay(mockGetAuditFeedUsers() as T)
+  if (path === '/api/audit-feed') {
+    const filters: AuditFeedFilters = {
+      entityType: params?.entityType ?? '',
+      user: params?.user ?? '',
+      dateFrom: params?.dateFrom ?? '',
+      dateTo: params?.dateTo ?? '',
+      search: params?.search ?? '',
+    }
+    return delay(
+      mockGetAuditFeed(filters, {
+        page: Number(params?.page ?? 1),
+        pageSize: Number(params?.pageSize ?? 25),
+      }) as T,
+    )
+  }
   if (path === '/api/settings') return delay(mockGetSettings() as T)
   if (path === '/api/config/fields') return delay(mockGetFieldLibrary() as T)
   if (path === '/api/config/sections') return delay(mockGetSections() as T)
@@ -350,7 +425,7 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
       search: params?.search ?? '',
       categoryIds: params?.categoryIds ? params.categoryIds.split(',') : [],
       sortBy: (params?.sortBy as ProductFilters['sortBy']) ?? null,
-      sortDir: (params?.sortDir as 'asc' | 'desc') ?? 'asc',
+      sortDir: (params?.sortDir ?? 'asc') as 'asc' | 'desc',
     }
     const pagination = {
       page: params?.page ? Number(params.page) : 1,
@@ -376,8 +451,8 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
   if (path === '/api/services') {
     const filters: ServiceFilters = {
       search: params?.search ?? '',
-      sortBy: (params?.sortBy as ServiceFilters['sortBy']) ?? 'name',
-      sortDir: (params?.sortDir as 'asc' | 'desc') ?? 'asc',
+      sortBy: (params?.sortBy ?? 'name') as ServiceFilters['sortBy'],
+      sortDir: (params?.sortDir ?? 'asc') as 'asc' | 'desc',
     }
     const pagination = {
       page: params?.page ? Number(params.page) : 1,
@@ -649,19 +724,13 @@ export async function getMock<T>(path: string, params?: Record<string, string>):
     return delay(mockGetOffcutAudit(offcutAuditMatch[1] as string) as T)
   }
 
-  const movementCardMatch = path.match(/^\/api\/warehouse\/movements\/([^/]+)$/)
-  if (movementCardMatch) {
-    // Check if this is an audit request
-    if (path.endsWith('/audit')) {
-      return delay(mockGetMovementAudit(movementCardMatch[1] as string) as T)
-    }
-    return delay(mockGetMovement(movementCardMatch[1] as string) as T)
-  }
-
+  // Порядок важен: аудит проверяется ПЕРВЫМ, потому что оба пути начинаются одинаково.
   const movementAuditMatch = path.match(/^\/api\/warehouse\/movements\/([^/]+)\/audit$/)
   if (movementAuditMatch) {
     return delay(mockGetMovementAudit(movementAuditMatch[1] as string) as T)
   }
+
+  const movementCardMatch = path.match(/^\/api\/warehouse\/movements\/([^/]+)$/)
   if (movementCardMatch) {
     return delay(mockGetMovement(movementCardMatch[1] as string) as T)
   }
@@ -775,7 +844,7 @@ function clearStoredMockUser(): void {
 }
 
 // ─── POST ───
-export async function postMock<T>(
+async function postMockRoute<T>(
   path: string,
   body: unknown,
   headers?: Record<string, string>,
@@ -1046,7 +1115,7 @@ export async function postMock<T>(
 }
 
 // ─── PUT (bulk replace) ───
-export async function putMock<T>(
+async function putMockRoute<T>(
   path: string,
   body: unknown,
   _headers?: Record<string, string>,
@@ -1059,6 +1128,9 @@ export async function putMock<T>(
   if (path === '/api/settings') {
     mockSaveSettings(body as Parameters<typeof mockSaveSettings>[0])
     return delay(undefined as T)
+  }
+  if (path === '/api/settings/warehouse-map') {
+    return delay(mockSaveWarehouseMap(body as Parameters<typeof mockSaveWarehouseMap>[0]) as T)
   }
   if (path === '/api/config/sections') {
     mockSaveSections(body as Parameters<typeof mockSaveSections>[0])
@@ -1083,7 +1155,7 @@ export async function putMock<T>(
 }
 
 // ─── PATCH (merge) ───
-export async function patchMock<T>(
+async function patchMockRoute<T>(
   path: string,
   body: unknown,
   _headers?: Record<string, string>,
@@ -1324,51 +1396,51 @@ function ifMatchVersion(headers?: Record<string, string>): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined
 }
 
-export async function deleteMock<T>(path: string, headers?: Record<string, string>): Promise<T> {
+async function deleteMockRoute<T>(path: string, headers?: Record<string, string>): Promise<T> {
   const version = ifMatchVersion(headers)
-  const auditMatch = path.match(/^\/api\/suppliers\/([^/]+)\/audit\/(\d+)$/)
+  const auditMatch = path.match(/^\/api\/suppliers\/([^/]+)\/audit\/([^/]+)$/)
   if (auditMatch) {
-    mockDeleteAuditEntry(auditMatch[1] as string, Number(auditMatch[2]))
+    mockDeleteAuditEntry(auditMatch[1] as string, auditMatch[2] as string)
     return delay(undefined as T)
   }
 
-  const stockAuditMatch = path.match(/^\/api\/warehouse\/stock\/([^/]+)\/audit\/(\d+)$/)
+  const stockAuditMatch = path.match(/^\/api\/warehouse\/stock\/([^/]+)\/audit\/([^/]+)$/)
   if (stockAuditMatch) {
-    mockDeleteStockAuditEntry(stockAuditMatch[1] as string, Number(stockAuditMatch[2]))
+    mockDeleteStockAuditEntry(stockAuditMatch[1] as string, stockAuditMatch[2] as string)
     return delay(undefined as T)
   }
 
-  const batchAuditMatch = path.match(/^\/api\/warehouse\/batches\/([^/]+)\/audit\/(\d+)$/)
+  const batchAuditMatch = path.match(/^\/api\/warehouse\/batches\/([^/]+)\/audit\/([^/]+)$/)
   if (batchAuditMatch) {
-    mockDeleteBatchAuditEntry(batchAuditMatch[1] as string, Number(batchAuditMatch[2]))
+    mockDeleteBatchAuditEntry(batchAuditMatch[1] as string, batchAuditMatch[2] as string)
     return delay(undefined as T)
   }
 
-  const offcutAuditDeleteMatch = path.match(/^\/api\/warehouse\/offcuts\/([^/]+)\/audit\/(\d+)$/)
+  const offcutAuditDeleteMatch = path.match(/^\/api\/warehouse\/offcuts\/([^/]+)\/audit\/([^/]+)$/)
   if (offcutAuditDeleteMatch) {
     mockDeleteOffcutAuditEntry(
       offcutAuditDeleteMatch[1] as string,
-      Number(offcutAuditDeleteMatch[2]),
+      offcutAuditDeleteMatch[2] as string,
     )
     return delay(undefined as T)
   }
 
   const movementAuditDeleteMatch = path.match(
-    /^\/api\/warehouse\/movements\/([^/]+)\/audit\/(\d+)$/,
+    /^\/api\/warehouse\/movements\/([^/]+)\/audit\/([^/]+)$/,
   )
   if (movementAuditDeleteMatch) {
     mockDeleteMovementAuditEntry(
       movementAuditDeleteMatch[1] as string,
-      Number(movementAuditDeleteMatch[2]),
+      movementAuditDeleteMatch[2] as string,
     )
     return delay(undefined as T)
   }
 
-  const deficitAuditDeleteMatch = path.match(/^\/api\/warehouse\/deficit\/([^/]+)\/audit\/(\d+)$/)
+  const deficitAuditDeleteMatch = path.match(/^\/api\/warehouse\/deficit\/([^/]+)\/audit\/([^/]+)$/)
   if (deficitAuditDeleteMatch) {
     mockDeleteDeficitAuditEntry(
       deficitAuditDeleteMatch[1] as string,
-      Number(deficitAuditDeleteMatch[2]),
+      deficitAuditDeleteMatch[2] as string,
     )
     return delay(undefined as T)
   }
@@ -1392,11 +1464,11 @@ export async function deleteMock<T>(path: string, headers?: Record<string, strin
     return delay(undefined as T)
   }
 
-  const productAuditDeleteMatch = path.match(/^\/api\/products\/([^/]+)\/audit\/(\d+)$/)
+  const productAuditDeleteMatch = path.match(/^\/api\/products\/([^/]+)\/audit\/([^/]+)$/)
   if (productAuditDeleteMatch) {
     mockDeleteProductAuditEntry(
       productAuditDeleteMatch[1] as string,
-      Number(productAuditDeleteMatch[2]),
+      productAuditDeleteMatch[2] as string,
     )
     return delay(undefined as T)
   }
@@ -1410,7 +1482,11 @@ export async function deleteMock<T>(path: string, headers?: Record<string, strin
 
   const serviceDeleteMatch = path.match(/^\/api\/services\/([^/]+)$/)
   if (serviceDeleteMatch) {
-    const deleted = mockDeleteService(serviceDeleteMatch[1] as string)
+    // `await` здесь не украшение: без него `deleted` — это промис, он всегда
+    // истинный, и проверка ниже не срабатывала НИКОГДА. Удаление несуществующей
+    // услуги молча возвращало успех вместо ошибки. Нашло правило
+    // no-unnecessary-condition, включённое 2026-08-26.
+    const deleted = await mockDeleteService(serviceDeleteMatch[1] as string)
     if (!deleted) throw new Error('CATALOG_SERVICE_NOT_FOUND')
     return delay(undefined as T)
   }
@@ -1421,11 +1497,11 @@ export async function deleteMock<T>(path: string, headers?: Record<string, strin
     return delay(undefined as T)
   }
 
-  const clientAuditDeleteMatch = path.match(/^\/api\/clients\/([^/]+)\/audit\/(\d+)$/)
+  const clientAuditDeleteMatch = path.match(/^\/api\/clients\/([^/]+)\/audit\/([^/]+)$/)
   if (clientAuditDeleteMatch) {
     mockDeleteClientAuditEntry(
       clientAuditDeleteMatch[1] as string,
-      Number(clientAuditDeleteMatch[2]),
+      clientAuditDeleteMatch[2] as string,
     )
     return delay(undefined as T)
   }
@@ -1545,12 +1621,16 @@ export async function deleteMock<T>(path: string, headers?: Record<string, strin
     mockDeleteOrderStatus(statusDeleteMatch[1] as string)
     return delay(undefined as T)
   }
+  if (path === '/api/settings/warehouse-map') {
+    mockDeleteWarehouseMap()
+    return delay(undefined as T)
+  }
 
   throw new Error(`[mock] DELETE ${path} not found`)
 }
 
 // ─── UPLOAD ───
-export async function uploadMock<T>(path: string, file: File): Promise<T> {
+async function uploadMockRoute<T>(path: string, file: File): Promise<T> {
   if (path === '/api/uploads') {
     const fileId = `file-${uploadSeq++}-${Date.now()}`
     // Convert file to data URL so the URL survives localStorage cache across page reloads.
@@ -1578,4 +1658,43 @@ function fileToDataUrl(file: File): Promise<string> {
     reader.onerror = () => reject(new Error('Failed to read file'))
     reader.readAsDataURL(file)
   })
+}
+
+// ─── Точки входа: один счётчик на все шесть ─────────────────────────────────
+// Имена и подписи те же, что были: `services/api.ts` их и вызывает.
+
+export async function getMock<T>(path: string, params?: Record<string, string>): Promise<T> {
+  return dispatch(() => getMockRoute<T>(path, params))
+}
+
+export async function postMock<T>(
+  path: string,
+  body: unknown,
+  headers?: Record<string, string>,
+): Promise<T> {
+  return dispatch(() => postMockRoute<T>(path, body, headers))
+}
+
+export async function putMock<T>(
+  path: string,
+  body: unknown,
+  headers?: Record<string, string>,
+): Promise<T> {
+  return dispatch(() => putMockRoute<T>(path, body, headers))
+}
+
+export async function patchMock<T>(
+  path: string,
+  body: unknown,
+  headers?: Record<string, string>,
+): Promise<T> {
+  return dispatch(() => patchMockRoute<T>(path, body, headers))
+}
+
+export async function deleteMock<T>(path: string, headers?: Record<string, string>): Promise<T> {
+  return dispatch(() => deleteMockRoute<T>(path, headers))
+}
+
+export async function uploadMock<T>(path: string, file: File): Promise<T> {
+  return dispatch(() => uploadMockRoute<T>(path, file))
 }

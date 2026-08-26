@@ -44,10 +44,7 @@ function handleCancel() {
   <h1 class="page-title" data-test="supplier-create-title">{{ t('supplier.create_title') }}</h1>
 
   <div class="flex-end" style="margin-bottom: 32px">
-    <div
-      class="entity-action-bar no-margin pos-static"
-      data-test="supplier-create-action-bar"
-    >
+    <div class="entity-action-bar no-margin pos-static" data-test="supplier-create-action-bar">
       <button
         type="button"
         class="btn btn-secondary"

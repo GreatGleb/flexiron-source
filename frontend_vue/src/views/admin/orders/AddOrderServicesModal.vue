@@ -20,6 +20,7 @@ import {
   type LineTotals,
 } from '@/domain/orderPricing'
 import { pricingSeedFor } from '@/services/orderLines'
+import { uomKeySuffix } from '@/domain/servicePricing'
 
 const { t } = useI18n()
 const toast = useToast()
@@ -75,16 +76,31 @@ const saving = ref(false)
 const serviceSearch = ref('')
 
 // ─── Price unit display ─────────────────────────────────────────────────
-function displayUnit(priceUnit: string | null): string {
-  if (!priceUnit) return '—'
-  const unitMap: Record<string, string> = {
-    'EUR/vnt': 'pcs',
-    'EUR/kg': 'kg',
-    'EUR/m': 'm',
-    'EUR/h': 'h',
-  }
-  const stockUnit = unitMap[priceUnit] ?? priceUnit.replace('EUR/', '')
-  return t('orders.unit_' + stockUnit, stockUnit)
+//
+// ЗДЕСЬ — ключи `orders.unit_*`, а в модуле услуг — код единицы из справочника.
+// Асимметрия намеренная, и её не надо «чинить» приведением к одному виду:
+//
+//   1. Справочник — то, КУДА мигрируют услуги: у единицы есть свой код на трёх
+//      языках (`шт` / `pcs` / `vnt`), и услуги подписываются именно им.
+//   2. Но эта строка стоит в ОДНОЙ таблице со строками товаров, а товары в модуле
+//      заказов подписаны ключами `orders.unit_*` (11 мест). Возьми здесь код
+//      справочника — и одна таблица заговорит на двух диалектах.
+//   3. Обратное «выравнивание» — перевести услуги на `orders.unit_*` — расширило бы
+//      слабую систему: ключей четыре на восемь единиц, а второй аргумент `t()` это
+//      дефолт, поэтому единица без ключа молча рисуется своим id-кодом на всех трёх
+//      языках. Ровно поэтому пришлось заводить `unit_h`. Плюс это была бы
+//      кросс-неймспейсная ссылка, запрещённая правилами страниц.
+//
+// Какая из двух систем источник — решается целиком и отдельно: пункт 4c плана
+// `roo_code/plans/general/review-followups.md`.
+//
+// Здесь была своя, третья таблица — `{'EUR/vnt': 'pcs', …}` с запасным вариантом
+// `priceUnit.replace('EUR/', '')`: валюта отрезалась от единицы строковой операцией.
+// Это и был симптом того, что другой валюты у услуги существовать не могло.
+function displayUnit(uomId: string | null): string {
+  if (!uomId) return '—'
+  const suffix = uomKeySuffix(uomId)
+  return t('orders.unit_' + suffix, suffix)
 }
 
 // ─── Filtered services ──────────────────────────────────────────────────
@@ -318,7 +334,7 @@ function onCancel() {
                   />
                 </td>
                 <td class="col-service-name">{{ tf(s.name) }}</td>
-                <td class="col-unit-cell">{{ displayUnit(s.priceUnit) }}</td>
+                <td class="col-unit-cell">{{ displayUnit(s.uomId) }}</td>
                 <td class="col-price-cell">
                   {{
                     s.sellingPrice != null

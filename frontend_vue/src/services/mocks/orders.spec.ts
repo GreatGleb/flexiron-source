@@ -1384,7 +1384,8 @@ describe('a service line comes from the service catalogue', () => {
       name: { ru: 'Гибка труб', en: 'Pipe bending', lt: 'Vamzdžių lankstymas' },
       costPrice: 40,
       sellingPrice: 90,
-      priceUnit: 'EUR/vnt',
+      currencyId: 'cur-eur',
+      uomId: 'uom-pcs',
     })
     const created = freshOrder()
     const line = mockAddOrderService(created.id, {

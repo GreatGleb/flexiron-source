@@ -1,4 +1,6 @@
 import type { BrowserContext, Page } from '@playwright/test'
+import type { FeatureFlags } from '@/types/features'
+import { waitForDataReady } from './ready'
 
 /**
  * ALL feature flags from src/config/featureFlags.ts, all ON.
@@ -7,7 +9,7 @@ import type { BrowserContext, Page } from '@playwright/test'
  * Tests rely on this to force every guarded section/page visible so regressions
  * in prod-hidden areas are caught.
  */
-export const ALL_FLAGS_ENABLED = {
+export const ALL_FLAGS_ENABLED: FeatureFlags = {
   // Page-level
   adminDashboard: true,
   adminWarehouse: true,
@@ -29,6 +31,7 @@ export const ALL_FLAGS_ENABLED = {
   adminOrders: true,
   adminSalesCrm: true,
   adminSettings: true,
+  settingsAuditLog: true,
 
   // Section-level
   dashboardAlerts: true,
@@ -49,7 +52,38 @@ export const ALL_FLAGS_ENABLED = {
 
   // Notifications
   notificationsPage: true,
-} as const
+
+  // Warehouse map — its own page, not one of the warehouse table tabs
+  warehouseMap: true,
+
+  // Metal cutting — the operation that turns a batch into offcuts, kerf and waste
+  warehouseCutting: true,
+
+  // Warehouse tabs and their operations
+  warehouseOffcuts: true,
+  warehouseDeficit: true,
+  warehouseOffcutCreate: true,
+  warehouseQrPrint: true,
+
+  // Per-tab column configurators. ВСЕ ПЯТЬ по умолчанию false — до 2026-08-25 их
+  // не было в этом списке, значит ни один e2e-тест этот UI никогда не открывал.
+  warehouseStockPageConfig: true,
+  warehouseBatchesPageConfig: true,
+  warehouseOffcutsPageConfig: true,
+  warehouseMovementsPageConfig: true,
+  warehouseDeficitPageConfig: true,
+
+  // Заказы. orderKanbanView и orderCuttingTool по умолчанию false — та же история.
+  orderKanbanView: true,
+  orderCuttingTool: true,
+  orderDocumentGen: true,
+
+  // Финансы — модуль целиком отсутствовал в списке
+  adminFinance: true,
+  financeIncoming: true,
+  financeOutgoing: true,
+  financeDocumentArchive: true,
+}
 
 /** Writes ALL_FLAGS_ENABLED to localStorage before every page in this context loads. */
 export async function enableAllFlags(context: BrowserContext) {
@@ -76,5 +110,5 @@ export async function setFlag(page: Page, flag: string, value: boolean) {
     { f: flag, v: value },
   )
   await page.reload()
-  await page.waitForLoadState('networkidle')
+  await waitForDataReady(page)
 }

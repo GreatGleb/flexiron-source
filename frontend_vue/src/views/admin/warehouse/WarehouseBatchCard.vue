@@ -125,20 +125,20 @@ const pageTitle = computed(() =>
 
 // ─── Audit log entry deletion (with confirm modal) ───
 const deleteAuditOpen = ref(false)
-const auditToDeleteIdx = ref<number | null>(null)
+const auditToDeleteId = ref<string | null>(null)
 const deletingAudit = ref(false)
 
-function askDeleteAudit(index: number) {
-  auditToDeleteIdx.value = index
+function askDeleteAudit(entryId: string) {
+  auditToDeleteId.value = entryId
   deleteAuditOpen.value = true
 }
 
 async function confirmDeleteAudit() {
-  if (auditToDeleteIdx.value === null || deletingAudit.value) return
+  if (auditToDeleteId.value === null || deletingAudit.value) return
   deletingAudit.value = true
-  const idx = auditToDeleteIdx.value
-  await deleteAuditEntry(idx)
-  auditToDeleteIdx.value = null
+  const entryId = auditToDeleteId.value
+  await deleteAuditEntry(entryId)
+  auditToDeleteId.value = null
   deleteAuditOpen.value = false
   deletingAudit.value = false
 }
@@ -1337,12 +1337,27 @@ async function onMovementCreated() {
                 name: 'admin-warehouse-offcut-create',
                 query: { batchId: batch.id, productId: batch.productId },
               }"
-              class="btn btn-sm btn-primary"
+              class="btn btn-sm btn-secondary"
               style="margin-left: auto"
               data-test="batch-card-create-offcut-link"
             >
               <SvgIcon name="plus-add" :width="14" :height="14" />
               {{ t('warehouse.btn_new_offcut') }}
+            </router-link>
+            <!--
+              Резка приходит сюда с уже известной партией: выбирать её заново на
+              странице резки не нужно. Ручное создание обрезка рядом и осталось —
+              это разные действия: там кусок просто записывают, здесь его отрезают,
+              и с партии уходит ещё и пропил.
+            -->
+            <router-link
+              v-if="batch"
+              :to="{ name: 'admin-warehouse-cutting', query: { batchId: batch.id } }"
+              class="btn btn-sm btn-primary"
+              data-test="batch-card-cutting-link"
+            >
+              <SvgIcon name="scissors" :width="14" :height="14" />
+              {{ t('warehouse.btn_cut') }}
             </router-link>
           </template>
           <div v-if="offcutsLoading" class="text-muted" style="padding: 12px 0">
@@ -1362,13 +1377,28 @@ async function onMovementCreated() {
               </thead>
               <tbody>
                 <tr v-for="offcut in offcuts" :key="offcut.id" data-test="batch-card-offcuts-row">
+                  <!--
+                    Площади здесь НЕТ сознательно, по той же причине, что в списке
+                    обрезков: размеры уже стоят, а площадь стоила бы ещё одной колонки.
+                    Она есть в карточке обрезка, куда ведёт эта строка.
+                  -->
                   <td>
                     <template v-if="offcut.lengthMm && offcut.widthMm">
-                      {{ offcut.lengthMm }} × {{ offcut.widthMm }} мм
+                      {{
+                        t('warehouse.offcut_dimensions', {
+                          length: offcut.lengthMm,
+                          width: offcut.widthMm,
+                        })
+                      }}
                     </template>
                     <span v-else>—</span>
                   </td>
-                  <td>{{ offcut.weightKg ?? '—' }} кг</td>
+                  <td>
+                    <template v-if="offcut.weightKg != null">
+                      {{ offcut.weightKg }} {{ t('warehouse.unit_kg') }}
+                    </template>
+                    <span v-else>—</span>
+                  </td>
                   <td>
                     {{ offcut.quantity }} {{ t(`warehouse.unit_${offcut.unit}`, offcut.unit) }}
                   </td>
@@ -1444,7 +1474,12 @@ async function onMovementCreated() {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="(a, i) in auditLog" :key="i" data-test="batch-card-audit-row">
+                  <tr
+                    v-for="a in auditLog"
+                    :key="a.id"
+                    :data-entry-id="a.id"
+                    data-test="batch-card-audit-row"
+                  >
                     <td class="audit-log-ts">{{ a.timestamp }}</td>
                     <td>
                       <div class="audit-log-user">
@@ -1465,7 +1500,7 @@ async function onMovementCreated() {
                         type="button"
                         class="action-icon-btn action-danger"
                         data-test="batch-card-audit-delete-btn"
-                        @click="askDeleteAudit(i)"
+                        @click="askDeleteAudit(a.id)"
                       >
                         <svg
                           width="14"

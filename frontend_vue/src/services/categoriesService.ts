@@ -66,7 +66,7 @@ export async function putCategoryFields(
     fields: fields.map((f) => ({
       ...f,
       fieldName: typeof f.name === 'string' ? toTranslatedString(f.name, locale) : f.name,
-      options: f.options?.map((o) => (typeof o === 'string' ? toTranslatedString(o, locale) : o)),
+      options: f.options.map((o) => (typeof o === 'string' ? toTranslatedString(o, locale) : o)),
     })),
   })
 }

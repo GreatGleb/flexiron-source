@@ -16,55 +16,37 @@ import { adminCommon } from './common'
 import { adminNotifications } from './notifications'
 import { adminFinance } from './finance'
 
-type LocaleModule = Record<string, unknown>
+import { deepMerge, type MessageTree } from '../messages'
 
 /**
- * Deep merge two or more objects.
- * Nested objects are merged recursively (not replaced).
- * Arrays and primitives from later sources override earlier ones.
+ * Домены складывают свои ключи в общее дерево локали. Раньше этот цикл был написан
+ * трижды — по разу на `ru`, `en`, `lt`; один хелпер вместо трёх копий.
  */
-function deepMerge(...sources: Record<string, unknown>[]): Record<string, unknown> {
-  const result: Record<string, unknown> = {}
-  for (const source of sources) {
-    for (const key of Object.keys(source)) {
-      const val = source[key]
-      if (val && typeof val === 'object' && !Array.isArray(val)) {
-        result[key] = deepMerge(
-          (result[key] as Record<string, unknown>) || {},
-          val as Record<string, unknown>,
-        )
-      } else {
-        result[key] = val
-      }
+function mergeInto(target: MessageTree, source: MessageTree): void {
+  for (const key of Object.keys(source)) {
+    const node = source[key]
+    if (node === undefined) continue
+    if (typeof node === 'string' || Array.isArray(node)) {
+      target[key] = node
+      continue
     }
+    const existing = target[key]
+    target[key] = deepMerge(
+      typeof existing === 'object' && !Array.isArray(existing) ? existing : {},
+      node,
+    )
   }
-  return result
 }
 
 // Merge all domain objects into per-locale aggregates
-function mergeLocales(...modules: { ru: LocaleModule; en: LocaleModule; lt: LocaleModule }[]) {
-  const ru: Record<string, unknown> = {}
-  const en: Record<string, unknown> = {}
-  const lt: Record<string, unknown> = {}
+function mergeLocales(...modules: { ru: MessageTree; en: MessageTree; lt: MessageTree }[]) {
+  const ru: MessageTree = {}
+  const en: MessageTree = {}
+  const lt: MessageTree = {}
   for (const mod of modules) {
-    for (const key of Object.keys(mod.ru)) {
-      ru[key] = deepMerge(
-        (ru[key] as Record<string, unknown>) || {},
-        mod.ru[key] as Record<string, unknown>,
-      )
-    }
-    for (const key of Object.keys(mod.en)) {
-      en[key] = deepMerge(
-        (en[key] as Record<string, unknown>) || {},
-        mod.en[key] as Record<string, unknown>,
-      )
-    }
-    for (const key of Object.keys(mod.lt)) {
-      lt[key] = deepMerge(
-        (lt[key] as Record<string, unknown>) || {},
-        mod.lt[key] as Record<string, unknown>,
-      )
-    }
+    mergeInto(ru, mod.ru)
+    mergeInto(en, mod.en)
+    mergeInto(lt, mod.lt)
   }
   return { ru, en, lt }
 }

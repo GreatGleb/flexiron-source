@@ -7,7 +7,7 @@ import type {
   Uom,
   UomConversion,
   OrderStatusSetting,
-  WarehouseSector,
+  WarehouseMapFile,
   SettingUser,
   UserProfile,
 } from '@/types/settings'
@@ -114,6 +114,15 @@ export const MOCK_SETTINGS: AppSettings = {
       name: { ru: 'Миллиметр', en: 'Millimeter', lt: 'Milimetras' },
       category: 'thickness',
     },
+    {
+      // Услуги продаются за час. Ни одного правила пересчёта у часа нет и не будет:
+      // час не переводится ни в килограммы, ни в метры, и пустая строка в матрице
+      // честнее выдуманного коэффициента.
+      id: 'uom-h',
+      code: { ru: 'ч', en: 'h', lt: 'val.' },
+      name: { ru: 'Час', en: 'Hour', lt: 'Valanda' },
+      category: 'time',
+    },
   ] satisfies Uom[],
 
   conversions: [
@@ -145,44 +154,10 @@ export const MOCK_SETTINGS: AppSettings = {
     },
   ] satisfies UomConversion[],
 
-  sectors: [
-    {
-      id: 'sec-a1',
-      code: 'A1',
-      name: { ru: 'Сектор A1', en: 'Sector A1', lt: 'Sektorius A1' },
-      zone: 'Основной',
-    },
-    {
-      id: 'sec-a2',
-      code: 'A2',
-      name: { ru: 'Сектор A2', en: 'Sector A2', lt: 'Sektorius A2' },
-      zone: 'Основной',
-    },
-    {
-      id: 'sec-a3',
-      code: 'A3',
-      name: { ru: 'Сектор A3', en: 'Sector A3', lt: 'Sektorius A3' },
-      zone: 'Основной',
-    },
-    {
-      id: 'sec-b1',
-      code: 'B1',
-      name: { ru: 'Сектор B1', en: 'Sector B1', lt: 'Sektorius B1' },
-      zone: 'Уличный',
-    },
-    {
-      id: 'sec-b2',
-      code: 'B2',
-      name: { ru: 'Сектор B2', en: 'Sector B2', lt: 'Sektorius B2' },
-      zone: 'Уличный',
-    },
-    {
-      id: 'sec-c1',
-      code: 'C1',
-      name: { ru: 'Сектор C1', en: 'Sector C1', lt: 'Sektorius C1' },
-      zone: 'Резка',
-    },
-  ] satisfies WarehouseSector[],
+  // Карты нет, пока её не загрузили. Демо-данные держатся тех же правил, что
+  // приложение: нарисовать здесь ссылку на несуществующий файл — значит показать
+  // пустому складу картинку, которой ни у кого нет.
+  warehouseMap: null,
 
   users: [
     { id: 'usr-0', email: 'owner@flexiron.com', name: 'Миндаугас В.', role: 'owner', active: true },
@@ -576,4 +551,26 @@ export function mockSaveProfile(data: UserProfile): void {
 export function mockPatchProfile(patch: Partial<UserProfile>): UserProfile {
   Object.assign(settingsStore.profile, patch)
   return structuredClone(settingsStore.profile)
+}
+
+// ─── Warehouse map ───────────────────────────────────────────────────────
+//
+// Одна карта, одно место хранения. PUT заменяет её целиком — версий нет, поэтому
+// «обновить» и «загрузить новую» это одно и то же действие, и второго реестра карт
+// (в складском моке или где-то ещё) быть не должно.
+
+export function mockGetWarehouseMap(): WarehouseMapFile | null {
+  return settingsStore.warehouseMap ? structuredClone(settingsStore.warehouseMap) : null
+}
+
+export function mockSaveWarehouseMap(data: WarehouseMapFile): WarehouseMapFile {
+  // Карта — это картинка. Сервер не верит клиенту на слово о типе файла, потому что
+  // страница показывает её через <img> и открывает как изображение.
+  if (!data.mime.startsWith('image/')) throw new Error('MAP_NOT_AN_IMAGE')
+  settingsStore.warehouseMap = structuredClone(data)
+  return structuredClone(settingsStore.warehouseMap)
+}
+
+export function mockDeleteWarehouseMap(): void {
+  settingsStore.warehouseMap = null
 }
