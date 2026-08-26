@@ -1,9 +1,15 @@
 import { test, expect } from '../../fixtures'
+import { openAdminCard } from '../../helpers/admin'
 
 test.describe('Service card page', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/admin/products/services/svc-001')
-    await page.waitForLoadState('networkidle')
+    // Признак — непустое имя: тесты ниже правят это поле, и правка, сделанная до
+    // прихода данных, была бы затёрта загрузкой (питфолл #64).
+    await openAdminCard(
+      page,
+      '/admin/products/services/svc-001',
+      '[data-test="service-name-input"]',
+    )
   })
 
   test('should display service card with header and breadcrumbs', async ({ page }) => {

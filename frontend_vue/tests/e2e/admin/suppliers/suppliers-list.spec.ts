@@ -1,4 +1,6 @@
+import type { Page } from '@playwright/test'
 import { test, expect, testBare as base } from '../../fixtures'
+import { openAdminPage } from '../../helpers/admin'
 import { ALL_FLAGS_ENABLED } from '../../helpers/flags'
 import { freezeTime } from '../../helpers/mocks'
 import { waitForFontsReady, SNAPSHOT_OPTIONS } from '../../helpers/visual'
@@ -59,6 +61,10 @@ const PREFS_KEY = 'suppliers_list_prefs'
 // Deterministic mock counts — these follow MOCK_SUPPLIERS in src/services/mocks/suppliers.ts.
 const TOTAL_MOCK = 6
 
+/** Первая строка таблицы: шесть сеяных поставщиков, пустым список не бывает. */
+const openSuppliersList = (page: Page) =>
+  openAdminPage(page, SUPPLIERS, '[data-test="suppliers-row"]')
+
 // ────────────────────────────────────────────────────────────────────────────
 // Structure
 // ────────────────────────────────────────────────────────────────────────────
@@ -66,8 +72,7 @@ test.describe('suppliers-list › structure', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
-    await page.goto(SUPPLIERS)
-    await page.waitForLoadState('networkidle')
+    await openSuppliersList(page)
   })
 
   test('title visible', async ({ page }) => {
@@ -99,8 +104,7 @@ test.describe('suppliers-list › structure', () => {
 test.describe('suppliers-list › toolbar', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(SUPPLIERS)
-    await page.waitForLoadState('networkidle')
+    await openSuppliersList(page)
   })
 
   test('view tabs, export, bcc, new-supplier buttons all present', async ({ page }) => {
@@ -146,8 +150,7 @@ test.describe('suppliers-list › toolbar', () => {
 test.describe('suppliers-list › table view', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(SUPPLIERS)
-    await page.waitForLoadState('networkidle')
+    await openSuppliersList(page)
   })
 
   test(`renders all ${TOTAL_MOCK} mock rows`, async ({ page }) => {
@@ -211,8 +214,7 @@ test.describe('suppliers-list › table view', () => {
 test.describe('suppliers-list › search', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(SUPPLIERS)
-    await page.waitForLoadState('networkidle')
+    await openSuppliersList(page)
   })
 
   test('typing "Steel" narrows to 2 rows (Steel Plus + Nordic Steel)', async ({ page }) => {
@@ -248,8 +250,7 @@ test.describe('suppliers-list › search', () => {
 test.describe('suppliers-list › status filter', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(SUPPLIERS)
-    await page.waitForLoadState('networkidle')
+    await openSuppliersList(page)
   })
 
   test('clicking a status opens the dropdown and shows 7 options (all + 6 statuses)', async ({
@@ -298,8 +299,7 @@ test.describe('suppliers-list › status filter', () => {
 test.describe('suppliers-list › category filter', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(SUPPLIERS)
-    await page.waitForLoadState('networkidle')
+    await openSuppliersList(page)
   })
 
   test('renders 8 checkbox options (one per CATEGORY_KEY)', async ({ page }) => {
@@ -349,8 +349,7 @@ test.describe('suppliers-list › category filter', () => {
 test.describe('suppliers-list › rating filter', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(SUPPLIERS)
-    await page.waitForLoadState('networkidle')
+    await openSuppliersList(page)
   })
 
   test('renders 6 options (any + 5..1)', async ({ page }) => {
@@ -381,8 +380,7 @@ test.describe('suppliers-list › rating filter', () => {
 test.describe('suppliers-list › view switch', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(SUPPLIERS)
-    await page.waitForLoadState('networkidle')
+    await openSuppliersList(page)
   })
 
   test('clicking the kanban tab shows the kanban view and hides the table', async ({ page }) => {
@@ -414,8 +412,7 @@ test.describe('suppliers-list › view switch', () => {
 test.describe('suppliers-list › kanban view', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(SUPPLIERS)
-    await page.waitForLoadState('networkidle')
+    await openSuppliersList(page)
     await page.locator('[data-test="suppliers-view-tabs"] button').nth(1).click()
     await expect(page.locator('[data-test="suppliers-kanban-view"]')).toBeVisible()
   })
@@ -502,8 +499,7 @@ test.describe('suppliers-list › kanban view', () => {
 test.describe('suppliers-list › pagination', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(SUPPLIERS)
-    await page.waitForLoadState('networkidle')
+    await openSuppliersList(page)
   })
 
   test('pagination bar renders', async ({ page }) => {
@@ -546,8 +542,7 @@ test.describe('suppliers-list › pagination', () => {
 test.describe('suppliers-list › export', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(SUPPLIERS)
-    await page.waitForLoadState('networkidle')
+    await openSuppliersList(page)
   })
 
   test('export button is visible when flag is ON', async ({ page }) => {
@@ -569,8 +564,7 @@ test.describe('suppliers-list › export', () => {
 test.describe('suppliers-list › save view', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(SUPPLIERS)
-    await page.waitForLoadState('networkidle')
+    await openSuppliersList(page)
   })
 
   test('clicking save-view writes the current view + filters to localStorage', async ({ page }) => {
@@ -587,7 +581,7 @@ test.describe('suppliers-list › save view', () => {
     await page.locator('[data-test="suppliers-view-tabs"] button').nth(1).click()
     await page.locator('[data-test="suppliers-save-view-btn"]').click()
     await page.reload()
-    await page.waitForLoadState('networkidle')
+    // Признак — сам восстановленный вид: утверждение ниже его и ждёт.
     await expect(page.locator('[data-test="suppliers-kanban-view"]')).toBeVisible()
     await expect(page.locator('[data-test="suppliers-table-view"]')).toBeHidden()
   })
@@ -603,8 +597,9 @@ baseTest(
       (flags) => localStorage.setItem('ff_overrides', JSON.stringify(flags)),
       { ...ALL_FLAGS_ENABLED, suppliersList: false },
     )
+    // Данных не будет: гард уводит на /404, признак перехода — сам URL, и
+    // проверка отсутствия ниже осмысленна только ПОСЛЕ него (питфолл #66).
     await page.goto(SUPPLIERS)
-    await page.waitForLoadState('networkidle')
     await expect(page).toHaveURL(/\/404$/)
     await expect(page.locator('[data-test="suppliers-title"]')).toHaveCount(0)
   },
@@ -620,8 +615,9 @@ baseTest(
       (flags) => localStorage.setItem('ff_overrides', JSON.stringify(flags)),
       { ...ALL_FLAGS_ENABLED, supplierKanbanView: false },
     )
-    await page.goto(SUPPLIERS)
-    await page.waitForLoadState('networkidle')
+    // Отсутствие доказывает что-то только на пришедшей странице: до данных ноль
+    // здесь был бы истиной по другой причине (питфолл #66).
+    await openSuppliersList(page)
     await expect.soft(page.locator('[data-test="suppliers-view-tabs"]')).toHaveCount(0)
     await expect.soft(page.locator('[data-test="suppliers-kanban-view"]')).toHaveCount(0)
     await expect.soft(page.locator('[data-test="suppliers-table-view"]')).toBeVisible()
@@ -639,8 +635,7 @@ baseTest(
       },
       { flags: { ...ALL_FLAGS_ENABLED, supplierKanbanView: false }, prefsKey: PREFS_KEY },
     )
-    await page.goto(SUPPLIERS)
-    await page.waitForLoadState('networkidle')
+    await openSuppliersList(page)
     await expect(page.locator('[data-test="suppliers-table-view"]')).toBeVisible()
     await expect(page.locator('[data-test="suppliers-kanban-view"]')).toHaveCount(0)
   },
@@ -656,8 +651,7 @@ baseTest(
       (flags) => localStorage.setItem('ff_overrides', JSON.stringify(flags)),
       { ...ALL_FLAGS_ENABLED, supplierExport: false },
     )
-    await page.goto(SUPPLIERS)
-    await page.waitForLoadState('networkidle')
+    await openSuppliersList(page)
     await expect.soft(page.locator('[data-test="suppliers-export-btn"]')).toHaveCount(0)
     // BCC + New Supplier buttons are not flag-gated — they must remain.
     await expect.soft(page.locator('[data-test="suppliers-bcc-btn"]')).toBeVisible()
@@ -672,9 +666,8 @@ test.describe('suppliers-list › visual @1440', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
-    await page.goto(SUPPLIERS)
+    await openSuppliersList(page)
     await waitForFontsReady(page)
-    await page.waitForLoadState('networkidle')
   })
 
   test('toolbar', async ({ page }) => {

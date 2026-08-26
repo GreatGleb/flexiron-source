@@ -1,4 +1,6 @@
+import type { Page } from '@playwright/test'
 import { test, testWithFlags, expect, testBare as base } from '../../fixtures'
+import { navigateToAdmin, openAdminCard, openAdminPage, switchLanguage } from '../../helpers/admin'
 import { ALL_FLAGS_ENABLED } from '../../helpers/flags'
 import { waitForFontsReady, SNAPSHOT_OPTIONS, stabilizeForSnapshot } from '../../helpers/visual'
 
@@ -43,14 +45,21 @@ const CARD_URL = (id: string) => `/admin/products/categories/${id}`
 const DESKTOP = { width: 1440, height: 900 }
 const TOTAL_MOCK = 13
 
+/** Первая строка таблицы: тринадцать сеяных категорий, пустым список не бывает. */
+const openCategoriesList = (page: Page) =>
+  openAdminPage(page, CATEGORIES_URL, '[data-test="categories-row"]')
+
+/** Карточка: непустое имя приходит только из ответа мока. */
+const openCategoryCard = (page: Page, id: string) =>
+  openAdminCard(page, CARD_URL(id), '[data-test="category-name-input"]')
+
 // ────────────────────────────────────────────────────────────────────────────
 // List — structure
 // ────────────────────────────────────────────────────────────────────────────
 test.describe('categories-list › structure', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(CATEGORIES_URL)
-    await page.waitForLoadState('networkidle')
+    await openCategoriesList(page)
   })
 
   test('page container renders', async ({ page }) => {
@@ -82,8 +91,7 @@ test.describe('categories-list › structure', () => {
 test.describe('categories-list › search', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(CATEGORIES_URL)
-    await page.waitForLoadState('networkidle')
+    await openCategoriesList(page)
   })
 
   test('search narrows results — dynamic term from first row', async ({ page }) => {
@@ -141,8 +149,7 @@ test.describe('categories-list › search', () => {
 test.describe('categories-list › create modal', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(CATEGORIES_URL)
-    await page.waitForLoadState('networkidle')
+    await openCategoriesList(page)
   })
 
   test('clicking create button opens modal', async ({ page }) => {
@@ -186,8 +193,7 @@ test.describe('categories-list › create modal', () => {
 test.describe('categories-list › delete', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(CATEGORIES_URL)
-    await page.waitForLoadState('networkidle')
+    await openCategoriesList(page)
   })
 
   test('clicking delete button opens confirm modal', async ({ page }) => {
@@ -211,8 +217,7 @@ test.describe('categories-list › delete', () => {
 test.describe('categories-list › navigation', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(CATEGORIES_URL)
-    await page.waitForLoadState('networkidle')
+    await openCategoriesList(page)
   })
 
   test('clicking a row navigates to the category card', async ({ page }) => {
@@ -227,8 +232,7 @@ test.describe('categories-list › navigation', () => {
 test.describe('category-card › structure', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(CARD_URL('cat-1'))
-    await page.waitForLoadState('networkidle')
+    await openCategoryCard(page, 'cat-1')
   })
 
   test('page container renders', async ({ page }) => {
@@ -262,15 +266,13 @@ test.describe('category-card › inherited fields', () => {
     page,
   }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(CARD_URL('cat-2'))
-    await page.waitForLoadState('networkidle')
+    await openCategoryCard(page, 'cat-2')
     await expect(page.locator('[data-test="category-inherited-fields"]')).toBeVisible()
   })
 
   test('inherited fields section hidden for root category (cat-1 → Metal)', async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(CARD_URL('cat-1'))
-    await page.waitForLoadState('networkidle')
+    await openCategoryCard(page, 'cat-1')
     await expect(page.locator('[data-test="category-inherited-fields"]')).toHaveCount(0)
   })
 })
@@ -281,8 +283,7 @@ test.describe('category-card › inherited fields', () => {
 test.describe('category-card › dirty check', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(CARD_URL('cat-1'))
-    await page.waitForLoadState('networkidle')
+    await openCategoryCard(page, 'cat-1')
   })
 
   test('editing name enables save button', async ({ page }) => {
@@ -297,7 +298,8 @@ test.describe('category-card › dirty check', () => {
     const saveBtn = page.locator('[data-test="category-save-bar"] .btn-save')
     await expect(saveBtn).not.toBeDisabled()
     await page.locator('[data-test="category-save-bar"] .btn-secondary').click()
-    await page.waitForLoadState('networkidle')
+    // Признак — сама кнопка: `toBeDisabled` повторяется, пока форма не вернётся
+    // к сохранённому состоянию. Тишина в сети тут не значила ничего.
     await expect(saveBtn).toBeDisabled()
   })
 })
@@ -308,8 +310,7 @@ test.describe('category-card › dirty check', () => {
 test.describe('category-card › own fields', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(CARD_URL('cat-1'))
-    await page.waitForLoadState('networkidle')
+    await openCategoryCard(page, 'cat-1')
   })
 
   test('add field button is visible', async ({ page }) => {
@@ -388,8 +389,7 @@ test.describe('category-card › own fields', () => {
 test.describe('category-card › save lifecycle', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(CARD_URL('cat-1'))
-    await page.waitForLoadState('networkidle')
+    await openCategoryCard(page, 'cat-1')
   })
 
   test('save button activates on edit, goes disabled after save', async ({ page }) => {
@@ -398,7 +398,8 @@ test.describe('category-card › save lifecycle', () => {
     await page.locator('[data-test="category-name-input"]').fill('Metal — updated')
     await expect(saveBtn).not.toBeDisabled()
     await saveBtn.click()
-    await page.waitForLoadState('networkidle')
+    // Сохранение закончилось не когда «в сети тихо», а когда форма перестала
+    // быть грязной — это и утверждается ниже, само себя дожидаясь.
     await expect(saveBtn).toBeDisabled()
   })
 })
@@ -409,8 +410,7 @@ test.describe('category-card › save lifecycle', () => {
 test.describe('category-card › drag-drop', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(CARD_URL('cat-1'))
-    await page.waitForLoadState('networkidle')
+    await openCategoryCard(page, 'cat-1')
   })
 
   test('field rows are draggable when flag is ON', async ({ page }) => {
@@ -439,24 +439,20 @@ testWithFlags.describe('categories › i18n', () => {
     await page.setViewportSize(DESKTOP)
 
     // load in EN (default)
-    await page.goto(CATEGORIES_URL)
-    await page.waitForLoadState('networkidle')
+    await openCategoriesList(page)
     const createBtn = page.locator('[data-test="categories-create-btn"]')
-    const enText = await createBtn.textContent()
+    const enText = ((await createBtn.textContent()) ?? '').trim()
 
-    // switch to RU via localStorage + reload
-    await page.evaluate(() => localStorage.setItem('flexiron_lang', 'ru'))
-    await page.reload()
-    await page.waitForLoadState('networkidle')
-    const ruText = await createBtn.textContent()
-    expect(ruText?.trim()).not.toBe(enText?.trim())
+    // Признак прихода перевода — сам изменившийся текст. Одноразовое чтение сразу
+    // после «тишины в сети» брало ПРЕЖНЮЮ надпись, и «ru ≠ en» держалось на том,
+    // что перерисовка успевала раньше (питфолл #64).
+    await switchLanguage(page, 'ru')
+    await expect(createBtn).not.toHaveText(enText)
+    const ruText = ((await createBtn.textContent()) ?? '').trim()
 
-    // switch to LT via localStorage + reload
-    await page.evaluate(() => localStorage.setItem('flexiron_lang', 'lt'))
-    await page.reload()
-    await page.waitForLoadState('networkidle')
-    const ltText = await createBtn.textContent()
-    expect(ltText?.trim()).not.toBe(enText?.trim())
+    await switchLanguage(page, 'lt')
+    await expect(createBtn).not.toHaveText(enText)
+    await expect(createBtn).not.toHaveText(ruText)
   })
 })
 
@@ -543,8 +539,8 @@ baseTest(
       (flags) => localStorage.setItem('ff_overrides', JSON.stringify(flags)),
       { ...ALL_FLAGS_ENABLED, adminCategories: false },
     )
+    // Данных не будет: гард уводит на /404, и признак перехода — сам URL.
     await page.goto(CATEGORIES_URL)
-    await page.waitForLoadState('networkidle')
     await expect(page).toHaveURL(/\/404$/)
   },
 )
@@ -560,9 +556,9 @@ baseTest(
       { ...ALL_FLAGS_ENABLED, categoryFieldReorder: false },
     )
     await page.setViewportSize(DESKTOP)
-    await page.goto(CARD_URL('cat-1'))
-    await page.waitForLoadState('networkidle')
+    await navigateToAdmin(page, CARD_URL('cat-1'))
     const firstRow = page.locator('[data-test="category-field-row"]').first()
+    await expect(firstRow).toBeVisible()
     await expect(firstRow).toHaveAttribute('draggable', 'false')
   },
 )

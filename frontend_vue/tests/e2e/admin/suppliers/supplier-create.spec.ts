@@ -1,4 +1,5 @@
 import { test, expect, testBare as base } from '../../fixtures'
+import { navigateToAdmin } from '../../helpers/admin'
 import { ALL_FLAGS_ENABLED } from '../../helpers/flags'
 import { freezeTime } from '../../helpers/mocks'
 import { waitForFontsReady, SNAPSHOT_OPTIONS } from '../../helpers/visual'
@@ -76,9 +77,10 @@ const NEW_ID = '7'
 async function loadCreate(page: import('@playwright/test').Page) {
   await page.setViewportSize(DESKTOP)
   await freezeTime(page)
-  await page.goto(CREATE_URL)
+  await navigateToAdmin(page, CREATE_URL)
+  // Признак — сама форма. `networkidle` стоял ПОСЛЕ неё и не добавлял ничего:
+  // под моками он наступает раньше данных, потому что запроса нет вовсе (#64).
   await expect(page.locator('[data-test="supplier-create-content"]')).toBeVisible()
-  await page.waitForLoadState('networkidle')
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -323,7 +325,7 @@ test.describe('supplier-create › cancel', () => {
     await page.locator('[data-test="supplier-form-company"]').fill('Discarded Co')
     await page.locator('[data-test="supplier-create-cancel-btn"]').click()
     await expect(page).toHaveURL(/\/admin\/suppliers$/)
-    await page.waitForLoadState('networkidle')
+    // Признак возврата к списку — шесть его строк; `toHaveCount` ждёт их сам.
     await expect(page.locator('[data-test="suppliers-row"]')).toHaveCount(6)
     await expect(page.locator('[data-test="suppliers-table"]')).not.toContainText('Discarded Co')
   })
@@ -339,8 +341,8 @@ baseTest(
       (flags) => localStorage.setItem('ff_overrides', JSON.stringify(flags)),
       { ...ALL_FLAGS_ENABLED, supplierCreate: false },
     )
+    // Данных не будет: гард уводит на /404, признак перехода — сам URL.
     await page.goto(CREATE_URL)
-    await page.waitForLoadState('networkidle')
     await expect(page).toHaveURL(/\/404$/)
     await expect(page.locator('[data-test="supplier-create-title"]')).toHaveCount(0)
   },

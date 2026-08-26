@@ -1,4 +1,6 @@
+import type { Page } from '@playwright/test'
 import { test, expect, testBare as base } from '../../fixtures'
+import { openAdminPage } from '../../helpers/admin'
 import { ALL_FLAGS_ENABLED } from '../../helpers/flags'
 import { freezeTime } from '../../helpers/mocks'
 import { waitForFontsReady, SNAPSHOT_OPTIONS } from '../../helpers/visual'
@@ -36,6 +38,9 @@ const baseTest = base
 const SALES = '/admin/analytics/sales'
 const DESKTOP = { width: 1440, height: 900 }
 
+/** Признак пришедших данных на этой странице — KPI-карточки: без отрисовки их нет. */
+const openSales = (page: Page) => openAdminPage(page, SALES, '[data-test="sales-kpi-card"]')
+
 // ────────────────────────────────────────────────────────────────────────────
 // Structure
 // ────────────────────────────────────────────────────────────────────────────
@@ -43,8 +48,7 @@ test.describe('sales › structure', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
-    await page.goto(SALES)
-    await page.waitForLoadState('networkidle')
+    await openSales(page)
   })
 
   test('title visible', async ({ page }) => {
@@ -67,8 +71,7 @@ test.describe('sales › kpi cards', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
-    await page.goto(SALES)
-    await page.waitForLoadState('networkidle')
+    await openSales(page)
   })
 
   test('renders exactly 4 KPI cards', async ({ page }) => {
@@ -125,8 +128,7 @@ test.describe('sales › kpi cards', () => {
 test.describe('sales › sub-nav', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(SALES)
-    await page.waitForLoadState('networkidle')
+    await openSales(page)
   })
 
   test('has 8 tabs', async ({ page }) => {
@@ -164,8 +166,7 @@ test.describe('sales › top clients chart', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
-    await page.goto(SALES)
-    await page.waitForLoadState('networkidle')
+    await openSales(page)
   })
 
   test('renders 5 client rows', async ({ page }) => {
@@ -231,8 +232,7 @@ test.describe('sales › refusal reasons chart', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
-    await page.goto(SALES)
-    await page.waitForLoadState('networkidle')
+    await openSales(page)
   })
 
   test('renders 3 reason rows', async ({ page }) => {
@@ -286,8 +286,9 @@ baseTest('sales › redirects to /404 when adminSales flag is OFF', async ({ pag
     (flags) => localStorage.setItem('ff_overrides', JSON.stringify(flags)),
     { ...ALL_FLAGS_ENABLED, adminSales: false },
   )
+  // Данных не будет: гард уводит на /404. Признак перехода — сам URL,
+  // и проверка отсутствия ниже осмысленна только после него (#66).
   await page.goto(SALES)
-  await page.waitForLoadState('networkidle')
   await expect(page).toHaveURL(/\/404$/)
   await expect(page.locator('[data-test="sales-title"]')).toHaveCount(0)
 })
@@ -299,9 +300,8 @@ test.describe('sales › visual @1440', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
-    await page.goto(SALES)
+    await openSales(page)
     await waitForFontsReady(page)
-    await page.waitForLoadState('networkidle')
   })
 
   test('sub-nav', async ({ page }) => {

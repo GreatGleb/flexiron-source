@@ -1,4 +1,5 @@
 import { test, expect, testBare as base } from '../../fixtures'
+import { navigateToAdmin } from '../../helpers/admin'
 import { ALL_FLAGS_ENABLED } from '../../helpers/flags'
 import { waitForDataReady } from '../../helpers/ready'
 import { freezeTime } from '../../helpers/mocks'
@@ -578,9 +579,11 @@ baseTest(
       (flags) => localStorage.setItem('ff_overrides', JSON.stringify(flags)),
       { ...ALL_FLAGS_ENABLED, bccHistory: false },
     )
-    await page.goto(BCC_URL)
-    await page.waitForLoadState('networkidle')
+    await navigateToAdmin(page, BCC_URL)
     await expect(page.locator('[data-test="bcc-request-title"]')).toBeVisible()
+    // Отсутствие панели истории доказывает что-то только на странице, которая
+    // УЖЕ показала свои данные: до них ноль был бы истиной по другой причине (#66).
+    await expect(page.locator('[data-test="bcc-request-recipient-item"]').first()).toBeVisible()
     // Categories/Recipients/Template still render.
     await expect.soft(page.locator('[data-test="bcc-request-categories-panel"]')).toBeVisible()
     await expect.soft(page.locator('[data-test="bcc-request-recipients-panel"]')).toBeVisible()
@@ -600,8 +603,8 @@ baseTest(
       (flags) => localStorage.setItem('ff_overrides', JSON.stringify(flags)),
       { ...ALL_FLAGS_ENABLED, bccRequest: false },
     )
+    // Данных не будет: гард уводит на /404, признак перехода — сам URL.
     await page.goto(BCC_URL)
-    await page.waitForLoadState('networkidle')
     await expect(page).toHaveURL(/\/404$/)
     await expect(page.locator('[data-test="bcc-request-title"]')).toHaveCount(0)
   },

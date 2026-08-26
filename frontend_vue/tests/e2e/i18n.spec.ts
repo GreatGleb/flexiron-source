@@ -1,11 +1,14 @@
 import { test, expect } from './fixtures'
+import { waitForDataReady } from './helpers/ready'
 
 const LANGS = ['ru', 'en', 'lt'] as const
 
 test.describe('Language switching — landing (via LangSwitcher)', () => {
   test('all three locales are reachable via switcher', async ({ page }) => {
     await page.goto('/')
-    await page.waitForLoadState('networkidle')
+    // Лендинг объявлен в `ROUTES_WITHOUT_DATA`: ждать нечего, и хелпер говорит это
+    // прямо — в отличие от `networkidle`, который «ждал» и на страницах с данными.
+    await waitForDataReady(page)
     await expect(page.locator('.lang-switcher')).toBeVisible()
 
     const title = page.locator('h1')
@@ -30,7 +33,7 @@ test.describe('Language persistence (via localStorage) on admin pages', () => {
         localStorage.setItem('flexiron_lang', l)
       }, lang)
       await page.goto('/admin/analytics/dashboard')
-      await page.waitForLoadState('networkidle')
+      await waitForDataReady(page)
       await expect(page.locator('html')).toHaveAttribute('lang', lang)
     })
   }

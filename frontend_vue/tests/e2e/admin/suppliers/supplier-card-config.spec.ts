@@ -1,4 +1,5 @@
 import { test, expect, testBare as base } from '../../fixtures'
+import { navigateToAdmin } from '../../helpers/admin'
 import { ALL_FLAGS_ENABLED } from '../../helpers/flags'
 import { freezeTime } from '../../helpers/mocks'
 import { waitForFontsReady, SNAPSHOT_OPTIONS } from '../../helpers/visual'
@@ -98,9 +99,11 @@ const MOCK = {
 async function loadConfig(page: import('@playwright/test').Page) {
   await page.setViewportSize(DESKTOP)
   await freezeTime(page)
-  await page.goto(CONFIG_URL)
+  await navigateToAdmin(page, CONFIG_URL)
+  // Признак — сам заголовок страницы. `networkidle` стоял ПОСЛЕ него и не добавлял
+  // ничего: под моками он наступает раньше данных, и замерено, что на нём эта
+  // страница держит вообще ничего (#64).
   await expect(page.locator('[data-test="supplier-card-config-title"]')).toBeVisible()
-  await page.waitForLoadState('networkidle')
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -684,8 +687,8 @@ baseTest(
       (flags) => localStorage.setItem('ff_overrides', JSON.stringify(flags)),
       { ...ALL_FLAGS_ENABLED, supplierCardConfig: false },
     )
+    // Данных не будет: гард уводит на /404, признак перехода — сам URL.
     await page.goto(CONFIG_URL)
-    await page.waitForLoadState('networkidle')
     await expect(page).toHaveURL(/\/404$/)
     await expect(page.locator('[data-test="supplier-card-config-title"]')).toHaveCount(0)
   },

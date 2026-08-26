@@ -1,4 +1,6 @@
+import type { Page } from '@playwright/test'
 import { test, expect, testBare as base } from '../../fixtures'
+import { openAdminPage } from '../../helpers/admin'
 import { ALL_FLAGS_ENABLED } from '../../helpers/flags'
 import { freezeTime } from '../../helpers/mocks'
 import { waitForFontsReady, SNAPSHOT_OPTIONS } from '../../helpers/visual'
@@ -37,6 +39,10 @@ const baseTest = base
 const WAREHOUSE = '/admin/analytics/warehouse'
 const DESKTOP = { width: 1440, height: 900 }
 
+/** Признак пришедших данных на этой странице — KPI-карточки: без отрисовки их нет. */
+const openWarehouse = (page: Page) =>
+  openAdminPage(page, WAREHOUSE, '[data-test="warehouse-kpi-card"]')
+
 // ────────────────────────────────────────────────────────────────────────────
 // Structure
 // ────────────────────────────────────────────────────────────────────────────
@@ -44,8 +50,7 @@ test.describe('warehouse › structure', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
-    await page.goto(WAREHOUSE)
-    await page.waitForLoadState('networkidle')
+    await openWarehouse(page)
   })
 
   test('title visible', async ({ page }) => {
@@ -68,8 +73,7 @@ test.describe('warehouse › kpi cards', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
-    await page.goto(WAREHOUSE)
-    await page.waitForLoadState('networkidle')
+    await openWarehouse(page)
   })
 
   test('renders exactly 4 KPI cards', async ({ page }) => {
@@ -125,8 +129,7 @@ test.describe('warehouse › kpi cards', () => {
 test.describe('warehouse › sub-nav', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(WAREHOUSE)
-    await page.waitForLoadState('networkidle')
+    await openWarehouse(page)
   })
 
   test('has 8 tabs', async ({ page }) => {
@@ -166,8 +169,7 @@ test.describe('warehouse › deadstock table', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
-    await page.goto(WAREHOUSE)
-    await page.waitForLoadState('networkidle')
+    await openWarehouse(page)
   })
 
   test('renders 5 deadstock rows', async ({ page }) => {
@@ -212,8 +214,7 @@ test.describe('warehouse › turnover chart', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
-    await page.goto(WAREHOUSE)
-    await page.waitForLoadState('networkidle')
+    await openWarehouse(page)
   })
 
   test('renders 5 chart rows (one per category)', async ({ page }) => {
@@ -282,8 +283,9 @@ baseTest(
       (flags) => localStorage.setItem('ff_overrides', JSON.stringify(flags)),
       { ...ALL_FLAGS_ENABLED, adminWarehouse: false },
     )
+    // Данных не будет: гард уводит на /404. Признак перехода — сам URL,
+    // и проверка отсутствия ниже осмысленна только после него (#66).
     await page.goto(WAREHOUSE)
-    await page.waitForLoadState('networkidle')
     await expect(page).toHaveURL(/\/404$/)
     await expect(page.locator('[data-test="warehouse-title"]')).toHaveCount(0)
   },
@@ -296,9 +298,8 @@ test.describe('warehouse › visual @1440', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
-    await page.goto(WAREHOUSE)
+    await openWarehouse(page)
     await waitForFontsReady(page)
-    await page.waitForLoadState('networkidle')
   })
 
   test('sub-nav', async ({ page }) => {

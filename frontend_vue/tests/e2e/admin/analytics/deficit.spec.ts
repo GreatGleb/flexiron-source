@@ -1,4 +1,6 @@
+import type { Page } from '@playwright/test'
 import { test, expect, testBare as base } from '../../fixtures'
+import { openAdminPage } from '../../helpers/admin'
 import { ALL_FLAGS_ENABLED } from '../../helpers/flags'
 import { freezeTime } from '../../helpers/mocks'
 import { waitForFontsReady, SNAPSHOT_OPTIONS } from '../../helpers/visual'
@@ -39,6 +41,9 @@ const baseTest = base
 const DEFICIT = '/admin/analytics/deficit'
 const DESKTOP = { width: 1440, height: 900 }
 
+/** Признак пришедших данных на этой странице — KPI-карточки: без отрисовки их нет. */
+const openDeficit = (page: Page) => openAdminPage(page, DEFICIT, '[data-test="deficit-kpi-card"]')
+
 // ────────────────────────────────────────────────────────────────────────────
 // Structure
 // ────────────────────────────────────────────────────────────────────────────
@@ -46,8 +51,7 @@ test.describe('deficit › structure', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
-    await page.goto(DEFICIT)
-    await page.waitForLoadState('networkidle')
+    await openDeficit(page)
   })
 
   test('title visible', async ({ page }) => {
@@ -70,8 +74,7 @@ test.describe('deficit › kpi cards', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
-    await page.goto(DEFICIT)
-    await page.waitForLoadState('networkidle')
+    await openDeficit(page)
   })
 
   test('renders exactly 4 KPI cards', async ({ page }) => {
@@ -146,8 +149,7 @@ test.describe('deficit › kpi cards', () => {
 test.describe('deficit › sub-nav', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(DEFICIT)
-    await page.waitForLoadState('networkidle')
+    await openDeficit(page)
   })
 
   test('has 8 tabs', async ({ page }) => {
@@ -195,8 +197,7 @@ test.describe('deficit › items table', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
-    await page.goto(DEFICIT)
-    await page.waitForLoadState('networkidle')
+    await openDeficit(page)
   })
 
   test('renders 5 item rows', async ({ page }) => {
@@ -278,8 +279,7 @@ test.describe('deficit › refusals chart', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
-    await page.goto(DEFICIT)
-    await page.waitForLoadState('networkidle')
+    await openDeficit(page)
   })
 
   test('renders 5 bar rows', async ({ page }) => {
@@ -380,8 +380,9 @@ baseTest('deficit › redirects to /404 when adminDeficit flag is OFF', async ({
     (flags) => localStorage.setItem('ff_overrides', JSON.stringify(flags)),
     { ...ALL_FLAGS_ENABLED, adminDeficit: false },
   )
+  // Данных не будет: гард уводит на /404. Признак перехода — сам URL,
+  // и проверка отсутствия ниже осмысленна только после него (#66).
   await page.goto(DEFICIT)
-  await page.waitForLoadState('networkidle')
   await expect(page).toHaveURL(/\/404$/)
   await expect(page.locator('[data-test="deficit-title"]')).toHaveCount(0)
 })
@@ -393,9 +394,8 @@ test.describe('deficit › visual @1440', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
-    await page.goto(DEFICIT)
+    await openDeficit(page)
     await waitForFontsReady(page)
-    await page.waitForLoadState('networkidle')
   })
 
   test('sub-nav', async ({ page }) => {

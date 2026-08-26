@@ -1,4 +1,6 @@
+import type { Page } from '@playwright/test'
 import { test, expect, testBare as base } from '../../fixtures'
+import { openAdminPage } from '../../helpers/admin'
 import { ALL_FLAGS_ENABLED } from '../../helpers/flags'
 import { freezeTime } from '../../helpers/mocks'
 import { waitForFontsReady, SNAPSHOT_OPTIONS } from '../../helpers/visual'
@@ -40,6 +42,10 @@ const baseTest = base
 const DASHBOARD = '/admin/analytics/dashboard'
 const DESKTOP = { width: 1440, height: 900 }
 
+/** Признак пришедших данных на этой странице — KPI-карточки: без отрисовки их нет. */
+const openDashboard = (page: Page) =>
+  openAdminPage(page, DASHBOARD, '[data-test="dashboard-kpi-card"]')
+
 // ────────────────────────────────────────────────────────────────────────────
 // Structure
 // ────────────────────────────────────────────────────────────────────────────
@@ -47,8 +53,7 @@ test.describe('dashboard › structure', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
-    await page.goto(DASHBOARD)
-    await page.waitForLoadState('networkidle')
+    await openDashboard(page)
   })
 
   test('title visible', async ({ page }) => {
@@ -78,8 +83,7 @@ test.describe('dashboard › kpi cards', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
-    await page.goto(DASHBOARD)
-    await page.waitForLoadState('networkidle')
+    await openDashboard(page)
   })
 
   test('renders exactly 5 KPI cards', async ({ page }) => {
@@ -132,8 +136,7 @@ test.describe('dashboard › kpi cards', () => {
 test.describe('dashboard › sub-nav', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(DASHBOARD)
-    await page.waitForLoadState('networkidle')
+    await openDashboard(page)
   })
 
   test('has 8 tabs', async ({ page }) => {
@@ -168,8 +171,7 @@ test.describe('dashboard › alerts table', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
-    await page.goto(DASHBOARD)
-    await page.waitForLoadState('networkidle')
+    await openDashboard(page)
   })
 
   test('renders 5 alert rows', async ({ page }) => {
@@ -201,8 +203,7 @@ baseTest(
       (flags) => localStorage.setItem('ff_overrides', JSON.stringify(flags)),
       { ...ALL_FLAGS_ENABLED, dashboardAlerts: false },
     )
-    await page.goto(DASHBOARD)
-    await page.waitForLoadState('networkidle')
+    await openDashboard(page)
     await expect(page.locator('[data-test="dashboard-alerts"]')).toHaveCount(0)
     // Sanity: charts panel is unaffected.
     await expect(page.locator('[data-test="dashboard-charts"]')).toBeVisible()
@@ -216,8 +217,7 @@ test.describe('dashboard › bar chart', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
-    await page.goto(DASHBOARD)
-    await page.waitForLoadState('networkidle')
+    await openDashboard(page)
   })
 
   test('renders 5 chart rows (one per category)', async ({ page }) => {
@@ -249,8 +249,7 @@ baseTest(
       (flags) => localStorage.setItem('ff_overrides', JSON.stringify(flags)),
       { ...ALL_FLAGS_ENABLED, dashboardCharts: false },
     )
-    await page.goto(DASHBOARD)
-    await page.waitForLoadState('networkidle')
+    await openDashboard(page)
     await expect(page.locator('[data-test="dashboard-charts"]')).toHaveCount(0)
     // Sanity: alerts panel is unaffected.
     await expect(page.locator('[data-test="dashboard-alerts"]')).toBeVisible()
@@ -263,8 +262,7 @@ baseTest(
 test.describe('dashboard › analytics grid', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(DASHBOARD)
-    await page.waitForLoadState('networkidle')
+    await openDashboard(page)
   })
 
   test('renders 7 preview cards', async ({ page }) => {

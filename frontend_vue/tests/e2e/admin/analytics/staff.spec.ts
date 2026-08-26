@@ -1,4 +1,6 @@
+import type { Page } from '@playwright/test'
 import { test, expect, testBare as base } from '../../fixtures'
+import { openAdminPage } from '../../helpers/admin'
 import { ALL_FLAGS_ENABLED } from '../../helpers/flags'
 import { freezeTime } from '../../helpers/mocks'
 import { waitForFontsReady, SNAPSHOT_OPTIONS } from '../../helpers/visual'
@@ -39,6 +41,9 @@ const baseTest = base
 const STAFF = '/admin/analytics/staff'
 const DESKTOP = { width: 1440, height: 900 }
 
+/** Признак пришедших данных на этой странице — строки таблицы менеджеров: без отрисовки их нет. */
+const openStaff = (page: Page) => openAdminPage(page, STAFF, '[data-test="staff-manager-row"]')
+
 // ────────────────────────────────────────────────────────────────────────────
 // Structure
 // ────────────────────────────────────────────────────────────────────────────
@@ -46,8 +51,7 @@ test.describe('staff › structure', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
-    await page.goto(STAFF)
-    await page.waitForLoadState('networkidle')
+    await openStaff(page)
   })
 
   test('title visible', async ({ page }) => {
@@ -73,8 +77,7 @@ test.describe('staff › structure', () => {
 test.describe('staff › sub-nav', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(STAFF)
-    await page.waitForLoadState('networkidle')
+    await openStaff(page)
   })
 
   test('has 8 tabs', async ({ page }) => {
@@ -122,8 +125,7 @@ test.describe('staff › managers table', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
-    await page.goto(STAFF)
-    await page.waitForLoadState('networkidle')
+    await openStaff(page)
   })
 
   test('renders 4 manager rows', async ({ page }) => {
@@ -199,8 +201,7 @@ test.describe('staff › warehouse workers table', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
-    await page.goto(STAFF)
-    await page.waitForLoadState('networkidle')
+    await openStaff(page)
   })
 
   test('renders 3 worker rows', async ({ page }) => {
@@ -258,8 +259,7 @@ test.describe('staff › revenue dynamics chart', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
-    await page.goto(STAFF)
-    await page.waitForLoadState('networkidle')
+    await openStaff(page)
   })
 
   test('renders 4 revenue rows (one per manager)', async ({ page }) => {
@@ -323,8 +323,9 @@ baseTest('staff › redirects to /404 when adminStaff flag is OFF', async ({ pag
     (flags) => localStorage.setItem('ff_overrides', JSON.stringify(flags)),
     { ...ALL_FLAGS_ENABLED, adminStaff: false },
   )
+  // Данных не будет: гард уводит на /404. Признак перехода — сам URL,
+  // и проверка отсутствия ниже осмысленна только после него (#66).
   await page.goto(STAFF)
-  await page.waitForLoadState('networkidle')
   await expect(page).toHaveURL(/\/404$/)
   await expect(page.locator('[data-test="staff-title"]')).toHaveCount(0)
 })
@@ -336,9 +337,8 @@ test.describe('staff › visual @1440', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
-    await page.goto(STAFF)
+    await openStaff(page)
     await waitForFontsReady(page)
-    await page.waitForLoadState('networkidle')
   })
 
   test('sub-nav', async ({ page }) => {

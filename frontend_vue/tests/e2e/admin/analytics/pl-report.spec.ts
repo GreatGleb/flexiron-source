@@ -1,4 +1,6 @@
+import type { Page } from '@playwright/test'
 import { test, expect, testBare as base } from '../../fixtures'
+import { openAdminPage } from '../../helpers/admin'
 import { ALL_FLAGS_ENABLED } from '../../helpers/flags'
 import { freezeTime } from '../../helpers/mocks'
 import { waitForFontsReady, SNAPSHOT_OPTIONS } from '../../helpers/visual'
@@ -36,6 +38,10 @@ const baseTest = base
 const PL_REPORT = '/admin/analytics/pl-report'
 const DESKTOP = { width: 1440, height: 900 }
 
+/** Признак пришедших данных на этой странице — строки разбивки: без отрисовки их нет. */
+const openPlReport = (page: Page) =>
+  openAdminPage(page, PL_REPORT, '[data-test="pl-report-breakdown-row"]')
+
 // ────────────────────────────────────────────────────────────────────────────
 // Structure
 // ────────────────────────────────────────────────────────────────────────────
@@ -43,8 +49,7 @@ test.describe('pl-report › structure', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
-    await page.goto(PL_REPORT)
-    await page.waitForLoadState('networkidle')
+    await openPlReport(page)
   })
 
   test('title visible', async ({ page }) => {
@@ -65,8 +70,7 @@ test.describe('pl-report › structure', () => {
 test.describe('pl-report › sub-nav', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(PL_REPORT)
-    await page.waitForLoadState('networkidle')
+    await openPlReport(page)
   })
 
   test('has 8 tabs', async ({ page }) => {
@@ -116,8 +120,7 @@ test.describe('pl-report › breakdown panel', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
-    await page.goto(PL_REPORT)
-    await page.waitForLoadState('networkidle')
+    await openPlReport(page)
   })
 
   test('panel header shows chart title + march badge', async ({ page }) => {
@@ -198,8 +201,7 @@ test.describe('pl-report › calendar panel', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
-    await page.goto(PL_REPORT)
-    await page.waitForLoadState('networkidle')
+    await openPlReport(page)
   })
 
   test('panel header shows chart title + april badge', async ({ page }) => {
@@ -269,8 +271,9 @@ baseTest(
       (flags) => localStorage.setItem('ff_overrides', JSON.stringify(flags)),
       { ...ALL_FLAGS_ENABLED, adminPlReport: false },
     )
+    // Данных не будет: гард уводит на /404. Признак перехода — сам URL,
+    // и проверка отсутствия ниже осмысленна только после него (#66).
     await page.goto(PL_REPORT)
-    await page.waitForLoadState('networkidle')
     await expect(page).toHaveURL(/\/404$/)
     await expect(page.locator('[data-test="pl-report-title"]')).toHaveCount(0)
   },
@@ -283,9 +286,8 @@ test.describe('pl-report › visual @1440', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
-    await page.goto(PL_REPORT)
+    await openPlReport(page)
     await waitForFontsReady(page)
-    await page.waitForLoadState('networkidle')
   })
 
   test('sub-nav', async ({ page }) => {

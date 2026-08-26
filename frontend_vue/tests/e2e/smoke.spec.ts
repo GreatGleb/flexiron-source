@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures'
+import { waitForDataReady } from './helpers/ready'
 
 /**
  * Smoke suite — fast sanity pass over every page.
@@ -77,7 +78,11 @@ for (const route of ALL_ROUTES) {
     })
 
     await page.goto(route.path)
-    await page.waitForLoadState('networkidle')
+    // Не «в сети тихо», а «страница получила свои данные» (питфолл #64): под моками
+    // сетевого запроса нет вовсе, и `networkidle` наступал раньше, чем страница
+    // успевала хоть что-то запросить — а именно на ней тут и ловят ошибки консоли.
+    // Публичные семь маршрутов объявлены в `ROUTES_WITHOUT_DATA` и проходят сразу.
+    await waitForDataReady(page)
 
     // AWAITED, and that matters: `expect.soft(locator).toBeVisible()` returns a
     // promise, and without awaiting it the assertion never gets its retry window —

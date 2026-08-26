@@ -1,4 +1,6 @@
+import type { Page } from '@playwright/test'
 import { test, expect, testBare as base } from '../../fixtures'
+import { openAdminPage } from '../../helpers/admin'
 import { ALL_FLAGS_ENABLED } from '../../helpers/flags'
 import { freezeTime } from '../../helpers/mocks'
 import { waitForFontsReady, SNAPSHOT_OPTIONS } from '../../helpers/visual'
@@ -40,6 +42,9 @@ const baseTest = base
 const SUPPLY = '/admin/analytics/supply'
 const DESKTOP = { width: 1440, height: 900 }
 
+/** Признак пришедших данных на этой странице — KPI-карточки: без отрисовки их нет. */
+const openSupply = (page: Page) => openAdminPage(page, SUPPLY, '[data-test="supply-kpi-card"]')
+
 // ────────────────────────────────────────────────────────────────────────────
 // Structure
 // ────────────────────────────────────────────────────────────────────────────
@@ -47,8 +52,7 @@ test.describe('supply › structure', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
-    await page.goto(SUPPLY)
-    await page.waitForLoadState('networkidle')
+    await openSupply(page)
   })
 
   test('title visible', async ({ page }) => {
@@ -71,8 +75,7 @@ test.describe('supply › kpi cards', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
-    await page.goto(SUPPLY)
-    await page.waitForLoadState('networkidle')
+    await openSupply(page)
   })
 
   test('renders exactly 4 KPI cards', async ({ page }) => {
@@ -128,8 +131,7 @@ test.describe('supply › kpi cards', () => {
 test.describe('supply › sub-nav', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(SUPPLY)
-    await page.waitForLoadState('networkidle')
+    await openSupply(page)
   })
 
   test('has 8 tabs', async ({ page }) => {
@@ -170,8 +172,7 @@ test.describe('supply › suppliers table', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
-    await page.goto(SUPPLY)
-    await page.waitForLoadState('networkidle')
+    await openSupply(page)
   })
 
   test('renders 4 supplier rows', async ({ page }) => {
@@ -238,8 +239,7 @@ test.describe('supply › categories chart', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
-    await page.goto(SUPPLY)
-    await page.waitForLoadState('networkidle')
+    await openSupply(page)
   })
 
   test('renders 4 category rows', async ({ page }) => {
@@ -303,8 +303,9 @@ baseTest('supply › redirects to /404 when adminSupply flag is OFF', async ({ p
     (flags) => localStorage.setItem('ff_overrides', JSON.stringify(flags)),
     { ...ALL_FLAGS_ENABLED, adminSupply: false },
   )
+  // Данных не будет: гард уводит на /404. Признак перехода — сам URL,
+  // и проверка отсутствия ниже осмысленна только после него (#66).
   await page.goto(SUPPLY)
-  await page.waitForLoadState('networkidle')
   await expect(page).toHaveURL(/\/404$/)
   await expect(page.locator('[data-test="supply-title"]')).toHaveCount(0)
 })
@@ -316,9 +317,8 @@ test.describe('supply › visual @1440', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
-    await page.goto(SUPPLY)
+    await openSupply(page)
     await waitForFontsReady(page)
-    await page.waitForLoadState('networkidle')
   })
 
   test('sub-nav', async ({ page }) => {

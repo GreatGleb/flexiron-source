@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test'
 import { test, testWithFlags, expect, testBare as base } from '../../fixtures'
 import { ALL_FLAGS_ENABLED } from '../../helpers/flags'
-import { navigateToAdmin, switchLanguage } from '../../helpers/admin'
+import { navigateToAdmin, openAdminCard, openAdminPage, switchLanguage } from '../../helpers/admin'
 import { waitForFontsReady, SNAPSHOT_OPTIONS, stabilizeForSnapshot } from '../../helpers/visual'
 
 /**
@@ -63,86 +63,17 @@ const CARD_URL = (id: string) => `/admin/products/${id}`
 const DESKTOP = { width: 1440, height: 900 }
 
 /**
- * Navigate to the products list page and wait for data to finish loading.
+ * Открыть список товаров и дождаться ПРИШЕДШИХ ДАННЫХ (питфолл #64).
  *
- * Strategy (mirrors categories.spec.ts approach):
- * 1. Set viewport
- * 2. Navigate and wait for network idle
- * 3. Wait for the page root to be present
- * 4. Wait for data rows to appear (or error/empty state)
+ * Здесь стояла диагностическая простыня: `goto` с `domcontentloaded`, восемь
+ * `console.log` про состояние `#app` и `waitForLoadState('networkidle')` посередине.
+ * Ждать она не умела — под моками сетевого запроса нет вовсе, ответ приходит из
+ * `setTimeout`, — а печатала ровно то, что тест и должен утверждать. Признак теперь
+ * один и настоящий: первая строка таблицы, которой без ответа мока не бывает.
  */
 async function navigateToProductsList(page: Page) {
   await page.setViewportSize(DESKTOP)
-
-  // DIAGNOSTIC: log before navigation
-  console.log('[DIAG] Navigating to', PRODUCTS_URL)
-
-  // Listen for console errors
-  const errors: string[] = []
-  page.on('console', (msg) => {
-    if (msg.type() === 'error') {
-      errors.push(`[PAGE_ERROR] ${msg.text()}`)
-    }
-  })
-  page.on('pageerror', (err) => {
-    errors.push(`[PAGE_CRASH] ${err.message}`)
-  })
-
-  await page.goto(PRODUCTS_URL, { waitUntil: 'domcontentloaded' })
-
-  // DIAGNOSTIC: check current URL after goto
-  const url1 = page.url()
-  console.log('[DIAG] URL after goto:', url1)
-
-  // DIAGNOSTIC: check if admin shell rendered
-  const shellCount = await page.locator('[data-test="admin-shell"]').count()
-  console.log('[DIAG] admin-shell count:', shellCount)
-
-  // DIAGNOSTIC: check if 404 page rendered
-  const notFoundCount = await page.locator('.error-code:has-text("404")').count()
-  console.log('[DIAG] 404 page count:', notFoundCount)
-
-  // DIAGNOSTIC: check what top-level elements exist in #app
-  const appHtml = await page.evaluate(() => {
-    const app = document.querySelector('#app')
-    if (!app) return 'NO #app FOUND'
-    return Array.from(app.children)
-      .map((el) => `${el.tagName}${el.className ? '.' + el.className.split(' ').join('.') : ''}`)
-      .join(', ')
-  })
-  console.log('[DIAG] #app children:', appHtml)
-
-  await page.waitForLoadState('networkidle')
-
-  // DIAGNOSTIC: check URL after networkidle
-  const url2 = page.url()
-  console.log('[DIAG] URL after networkidle:', url2)
-
-  // DIAGNOSTIC: check localStorage ff_overrides
-  const overrides = await page.evaluate(() => localStorage.getItem('ff_overrides'))
-  console.log('[DIAG] ff_overrides:', overrides)
-
-  // DIAGNOSTIC: check page title
-  const title = await page.title()
-  console.log('[DIAG] page title:', title)
-
-  // DIAGNOSTIC: check #app children again after networkidle
-  const appHtml2 = await page.evaluate(() => {
-    const app = document.querySelector('#app')
-    if (!app) return 'NO #app FOUND'
-    return Array.from(app.children)
-      .map((el) => `${el.tagName}${el.className ? '.' + el.className.split(' ').join('.') : ''}`)
-      .join(', ')
-  })
-  console.log('[DIAG] #app children after networkidle:', appHtml2)
-
-  // DIAGNOSTIC: print any page errors
-  for (const err of errors) {
-    console.log(err)
-  }
-
-  // Wait for the products page root to be present
-  await expect(page.locator('[data-test="page-products"]')).toBeVisible({ timeout: 10000 })
+  await openAdminPage(page, PRODUCTS_URL, '[data-test="products-row"]')
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -580,8 +511,7 @@ test.describe('product-card › dynamic fields', () => {
 
   test('boolean field renders as checkbox', async ({ page }) => {
     // Navigate to prod-005 (cat-5 Consumables) which has a boolean field (f-5-2 Hazardous material)
-    await page.goto(CARD_URL('prod-005'))
-    await page.waitForLoadState('networkidle')
+    await navigateToAdmin(page, CARD_URL('prod-005'))
     await expect(page.locator('[data-test="page-product-card"]')).toBeVisible()
     const fields = page.locator('[data-test="product-card-fields"] .input-group')
     await expect(fields.locator('input[type="checkbox"]').first()).toBeVisible()
@@ -719,8 +649,8 @@ baseTest(
       (flags) => localStorage.setItem('ff_overrides', JSON.stringify(flags)),
       { ...ALL_FLAGS_ENABLED, adminProducts: false },
     )
+    // Данных не будет: гард уводит на /404, признак перехода — сам URL.
     await page.goto(PRODUCTS_URL)
-    await page.waitForLoadState('networkidle')
     await expect(page).toHaveURL(/\/404$/)
   },
 )
@@ -736,8 +666,11 @@ baseTest(
       { ...ALL_FLAGS_ENABLED, productSupplierLinks: false },
     )
     await page.setViewportSize(DESKTOP)
-    await page.goto(CARD_URL('prod-001'))
-    await page.waitForLoadState('networkidle')
+    // Сначала доказать, что карточка пришла: до данных ноль ниже был бы истиной
+    // по другой причине (питфолл #66). Признак — непустое имя: панели тут не
+    // годятся, `product-card-info` виден и со скелетом, а `product-card-suppliers`
+    // выключен этим же флагом, то есть ждать его — ждать никогда.
+    await openAdminCard(page, CARD_URL('prod-001'), '[data-test="field-name"]')
     await expect(page.locator('[data-test="add-supplier-open"]')).toHaveCount(0)
   },
 )

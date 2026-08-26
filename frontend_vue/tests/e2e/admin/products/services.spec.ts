@@ -1,9 +1,11 @@
 import { test, expect } from '../../fixtures'
+import { openAdminPage } from '../../helpers/admin'
 
 test.describe('Services page', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/admin/products/services')
-    await page.waitForLoadState('networkidle')
+    // Признак ПРИШЕДШИХ ДАННЫХ, а не тишины в сети (питфолл #64): кнопка «открыть»
+    // есть у каждой строки таблицы и не существует до её отрисовки.
+    await openAdminPage(page, '/admin/products/services', '[data-test="services-btn-open"]')
   })
 
   test('should display services page with header and table', async ({ page }) => {

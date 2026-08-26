@@ -6,7 +6,22 @@ import {
   mockProductDetail,
   mockSupplierList,
 } from '../../mocks/warehouse'
-import { navigateToAdmin } from '../../helpers/admin'
+import { navigateToAdmin, openAdminPage } from '../../helpers/admin'
+
+/**
+ * Шапка карточки — `v-if="batch"`, `v-if="offcut"` и так далее — рисуется ТОЛЬКО с
+ * пришедшей сущностью, в отличие от `*-card-content` (`v-if="… || loading"`),
+ * который виден и со скелетом. Поэтому признак здесь именно она.
+ */
+const openCard = (page: Page, url: string, headerTestId: string) =>
+  openAdminPage(page, url, `[data-test="${headerTestId}"]`)
+
+/**
+ * Страница создания: признак — список товаров. Пустым он не бывает, а выбор товара —
+ * первое, что делает почти каждый тест этих страниц.
+ */
+const openCreatePage = (page: Page, url: string, rowTestId: string) =>
+  openAdminPage(page, url, `[data-test="${rowTestId}"]`)
 
 test.describe('Warehouse module', () => {
   test.beforeEach(async ({ page }) => {
@@ -82,15 +97,15 @@ test.describe('Warehouse module', () => {
 
   test.describe('Batch card', () => {
     test('should display batch details', async ({ page }) => {
-      await page.goto('/admin/warehouse/batches/whb-001')
-      await page.waitForLoadState('networkidle')
+      await openCard(page, '/admin/warehouse/batches/whb-001', 'batch-card-header')
       await expect(page.getByTestId('page-batch-card')).toBeVisible()
       await expect(page.getByTestId('batch-card-content')).toBeVisible()
     })
 
     test('should show error state when batch not found', async ({ page }) => {
-      await page.goto('/admin/warehouse/batches/nonexistent')
-      await page.waitForLoadState('networkidle')
+      // Сущности нет — ждать её признак нельзя, признаком служит то, что
+      // рисуется вместо карточки; утверждение ниже ждёт его само.
+      await navigateToAdmin(page, '/admin/warehouse/batches/nonexistent')
       await expect(page.getByTestId('batch-card-error')).toBeVisible()
     })
   })
@@ -137,23 +152,22 @@ test.describe('Warehouse module', () => {
 
   test.describe('Offcut card', () => {
     test('should display offcut details', async ({ page }) => {
-      await page.goto('/admin/warehouse/offcuts/who-001')
-      await page.waitForLoadState('networkidle')
+      await openCard(page, '/admin/warehouse/offcuts/who-001', 'offcut-card-header')
       await expect(page.getByTestId('offcut-card-page')).toBeVisible()
       await expect(page.getByTestId('offcut-card-content')).toBeVisible()
     })
 
     test('should display offcut sections', async ({ page }) => {
-      await page.goto('/admin/warehouse/offcuts/who-001')
-      await page.waitForLoadState('networkidle')
+      await openCard(page, '/admin/warehouse/offcuts/who-001', 'offcut-card-header')
       await expect(page.getByTestId('offcut-card-location-section')).toBeVisible()
       await expect(page.getByTestId('offcut-card-movements-section')).toBeVisible()
       await expect(page.getByTestId('offcut-card-audit-section')).toBeVisible()
     })
 
     test('should show error state when offcut not found', async ({ page }) => {
-      await page.goto('/admin/warehouse/offcuts/nonexistent')
-      await page.waitForLoadState('networkidle')
+      // Сущности нет — ждать её признак нельзя, признаком служит то, что
+      // рисуется вместо карточки; утверждение ниже ждёт его само.
+      await navigateToAdmin(page, '/admin/warehouse/offcuts/nonexistent')
       await expect(page.getByTestId('offcut-card-error')).toBeVisible()
     })
   })
@@ -227,15 +241,15 @@ test.describe('Warehouse module', () => {
 
   test.describe('Movement card', () => {
     test('should display movement details', async ({ page }) => {
-      await page.goto('/admin/warehouse/movements/whm-001')
-      await page.waitForLoadState('networkidle')
+      await openCard(page, '/admin/warehouse/movements/whm-001', 'movement-card-header')
       await expect(page.getByTestId('movement-card-page')).toBeVisible()
       await expect(page.getByTestId('movement-card-content')).toBeVisible()
     })
 
     test('should show error state when movement not found', async ({ page }) => {
-      await page.goto('/admin/warehouse/movements/nonexistent')
-      await page.waitForLoadState('networkidle')
+      // Сущности нет — ждать её признак нельзя, признаком служит то, что
+      // рисуется вместо карточки; утверждение ниже ждёт его само.
+      await navigateToAdmin(page, '/admin/warehouse/movements/nonexistent')
       await expect(page.getByTestId('movement-card-error')).toBeVisible()
     })
   })
@@ -276,30 +290,30 @@ test.describe('Warehouse module', () => {
 
   test.describe('Deficit card', () => {
     test('should display deficit details', async ({ page }) => {
-      await page.goto('/admin/warehouse/deficit/whd-001')
-      await page.waitForLoadState('networkidle')
+      await openCard(page, '/admin/warehouse/deficit/whd-001', 'deficit-card-header')
       await expect(page.getByTestId('deficit-card-page')).toBeVisible()
       await expect(page.getByTestId('deficit-card-content')).toBeVisible()
     })
 
     test('should show error state when deficit not found', async ({ page }) => {
-      await page.goto('/admin/warehouse/deficit/nonexistent')
-      await page.waitForLoadState('networkidle')
+      // Сущности нет — ждать её признак нельзя, признаком служит то, что
+      // рисуется вместо карточки; утверждение ниже ждёт его само.
+      await navigateToAdmin(page, '/admin/warehouse/deficit/nonexistent')
       await expect(page.getByTestId('deficit-card-error')).toBeVisible()
     })
   })
 
   test.describe('Stock card', () => {
     test('should display stock card details', async ({ page }) => {
-      await page.goto('/admin/warehouse/stock/prod-002')
-      await page.waitForLoadState('networkidle')
+      await navigateToAdmin(page, '/admin/warehouse/stock/prod-002')
       await expect(page.getByTestId('stock-card-page')).toBeVisible()
       await expect(page.getByTestId('stock-card-header')).toBeVisible()
     })
 
     test('should show error state when stock item not found', async ({ page }) => {
-      await page.goto('/admin/warehouse/stock/nonexistent')
-      await page.waitForLoadState('networkidle')
+      // Сущности нет — ждать её признак нельзя, признаком служит то, что
+      // рисуется вместо карточки; утверждение ниже ждёт его само.
+      await navigateToAdmin(page, '/admin/warehouse/stock/nonexistent')
       await expect(page.getByTestId('stock-card-error')).toBeVisible()
     })
   })
@@ -332,8 +346,7 @@ test.describe('Warehouse module', () => {
     })
 
     test('should load with product selection panel and form sections', async ({ page }) => {
-      await page.goto('/admin/warehouse/batches/new')
-      await page.waitForLoadState('networkidle')
+      await openCreatePage(page, '/admin/warehouse/batches/new', 'batch-create-product-row')
       await expect(page.getByTestId('batch-create-page')).toBeVisible()
       await expect(page.getByTestId('batch-create-product-panel')).toBeVisible()
       // Verify products table is rendered
@@ -353,8 +366,7 @@ test.describe('Warehouse module', () => {
     })
 
     test('should allow product selection via radio button', async ({ page }) => {
-      await page.goto('/admin/warehouse/batches/new')
-      await page.waitForLoadState('networkidle')
+      await openCreatePage(page, '/admin/warehouse/batches/new', 'batch-create-product-row')
       // Click first product row
       await page.getByTestId('batch-create-product-radio').first().click()
       // Verify it's selected (radio checked)
@@ -362,8 +374,7 @@ test.describe('Warehouse module', () => {
     })
 
     test('should show validation errors on empty form submit', async ({ page }) => {
-      await page.goto('/admin/warehouse/batches/new')
-      await page.waitForLoadState('networkidle')
+      await openCreatePage(page, '/admin/warehouse/batches/new', 'batch-create-product-row')
       // Click save without filling anything
       await page.getByTestId('batch-create-save-btn').click()
       // Verify error messages appear for required fields
@@ -372,8 +383,7 @@ test.describe('Warehouse module', () => {
     })
 
     test('should save and redirect to batch card on valid form submit', async ({ page }) => {
-      await page.goto('/admin/warehouse/batches/new')
-      await page.waitForLoadState('networkidle')
+      await openCreatePage(page, '/admin/warehouse/batches/new', 'batch-create-product-row')
       // Select product
       await page.getByTestId('batch-create-product-radio').first().click()
       // Fill required fields
@@ -388,15 +398,13 @@ test.describe('Warehouse module', () => {
     })
 
     test('should cancel and return to batches list', async ({ page }) => {
-      await page.goto('/admin/warehouse/batches/new')
-      await page.waitForLoadState('networkidle')
+      await openCreatePage(page, '/admin/warehouse/batches/new', 'batch-create-product-row')
       await page.getByTestId('batch-create-cancel-btn').click()
       await expect(page).toHaveURL(/\/admin\/warehouse/)
     })
 
     test('should have search and category filter for products', async ({ page }) => {
-      await page.goto('/admin/warehouse/batches/new')
-      await page.waitForLoadState('networkidle')
+      await openCreatePage(page, '/admin/warehouse/batches/new', 'batch-create-product-row')
       // Product search input
       await expect(page.locator('input[placeholder*="Search"]').first()).toBeVisible()
       // Products table should have rows
@@ -414,8 +422,7 @@ test.describe('Warehouse module', () => {
     })
 
     test('should load with all sections including files', async ({ page }) => {
-      await page.goto('/admin/warehouse/offcuts/new')
-      await page.waitForLoadState('networkidle')
+      await openCreatePage(page, '/admin/warehouse/offcuts/new', 'offcut-create-product-row')
       await expect(page.getByTestId('offcut-create-page')).toBeVisible()
       // Product selection panel
       await expect(page.getByTestId('offcut-create-product-panel')).toBeVisible()
@@ -437,8 +444,7 @@ test.describe('Warehouse module', () => {
     })
 
     test('should show batch selection panel after selecting a product', async ({ page }) => {
-      await page.goto('/admin/warehouse/offcuts/new')
-      await page.waitForLoadState('networkidle')
+      await openCreatePage(page, '/admin/warehouse/offcuts/new', 'offcut-create-product-row')
       // Select a product by clicking radio
       await page.getByTestId('offcut-create-product-radio').first().click()
       // Batch selection panel should appear
@@ -446,8 +452,7 @@ test.describe('Warehouse module', () => {
     })
 
     test('should cancel and return to offcuts list', async ({ page }) => {
-      await page.goto('/admin/warehouse/offcuts/new')
-      await page.waitForLoadState('networkidle')
+      await openCreatePage(page, '/admin/warehouse/offcuts/new', 'offcut-create-product-row')
       await page.getByTestId('offcut-create-cancel-btn').click()
       await expect(page).toHaveURL(/\/admin\/warehouse/)
     })

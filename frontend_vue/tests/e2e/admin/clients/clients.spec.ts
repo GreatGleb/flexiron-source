@@ -1,4 +1,6 @@
-import { test, expect, testBare as base } from '../../fixtures'
+import type { Page } from '@playwright/test'
+import { test, testWithFlags, expect, testBare as base } from '../../fixtures'
+import { navigateToAdmin, openAdminCard, openAdminPage, switchLanguage } from '../../helpers/admin'
 import { ALL_FLAGS_ENABLED } from '../../helpers/flags'
 import { freezeTime } from '../../helpers/mocks'
 import { waitForFontsReady, SNAPSHOT_OPTIONS } from '../../helpers/visual'
@@ -31,6 +33,23 @@ const DESKTOP = { width: 1440, height: 900 }
 const TOTAL_MOCK = 55
 const DEFAULT_PAGE_SIZE = 25
 
+/** Первая строка таблицы: 55 сеяных клиентов, пустым этот список не бывает. */
+const openClientsList = (page: Page) =>
+  openAdminPage(page, CLIENTS_LIST, '[data-test="clients-row"]')
+
+/**
+ * Форма создания пуста по определению — строк тут не будет никогда, поэтому
+ * признаком служит готовность самой формы (случай «где ноль — законный ответ»).
+ */
+async function openClientCreate(page: Page) {
+  await navigateToAdmin(page, CLIENTS_CREATE)
+  await expect(page.locator('[data-test="client-create-save-btn"]')).toBeEnabled()
+}
+
+/** Карточка: непустое имя приходит только из ответа мока. */
+const openClientCard = (page: Page, url = CLIENTS_CARD) =>
+  openAdminCard(page, url, '[data-test="field-name"]')
+
 // ────────────────────────────────────────────────────────────────────────────
 // ClientsListPage — Structure
 // ────────────────────────────────────────────────────────────────────────────
@@ -38,8 +57,7 @@ test.describe('clients-list › structure', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
-    await page.goto(CLIENTS_LIST)
-    await page.waitForLoadState('networkidle')
+    await openClientsList(page)
   })
 
   test('page root is visible', async ({ page }) => {
@@ -70,8 +88,7 @@ test.describe('clients-list › structure', () => {
 test.describe('clients-list › table view', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(CLIENTS_LIST)
-    await page.waitForLoadState('networkidle')
+    await openClientsList(page)
   })
 
   test(`renders ${DEFAULT_PAGE_SIZE} mock rows on page 1`, async ({ page }) => {
@@ -133,8 +150,7 @@ test.describe('clients-list › table view', () => {
 test.describe('clients-list › search', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(CLIENTS_LIST)
-    await page.waitForLoadState('networkidle')
+    await openClientsList(page)
   })
 
   test('typing "Metalica" narrows to 1 row (UAB Metalica)', async ({ page }) => {
@@ -177,8 +193,7 @@ test.describe('clients-list › search', () => {
 test.describe('clients-list › status filter', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(CLIENTS_LIST)
-    await page.waitForLoadState('networkidle')
+    await openClientsList(page)
   })
 
   test('selecting "active" changes row count compared to unfiltered', async ({ page }) => {
@@ -244,8 +259,7 @@ test.describe('clients-list › status filter', () => {
 test.describe('clients-list › pagination', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(CLIENTS_LIST)
-    await page.waitForLoadState('networkidle')
+    await openClientsList(page)
   })
 
   test('pagination bar renders', async ({ page }) => {
@@ -290,8 +304,7 @@ test.describe('clients-list › pagination', () => {
 test.describe('clients-list › delete modal', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(CLIENTS_LIST)
-    await page.waitForLoadState('networkidle')
+    await openClientsList(page)
   })
 
   test('clicking delete opens the confirmation modal', async ({ page }) => {
@@ -325,8 +338,7 @@ test.describe('clients-list › delete modal', () => {
 test.describe('clients-list › empty state', () => {
   test('shows empty state when search yields no results', async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(CLIENTS_LIST)
-    await page.waitForLoadState('networkidle')
+    await openClientsList(page)
     await page.locator('[data-test="clients-search-input"] input').fill('zzz-no-match')
     await expect(page.locator('[data-test="clients-empty-state"]')).toBeVisible({ timeout: 5000 })
     // The empty state has a "Create" button linking to /admin/clients/new
@@ -343,8 +355,7 @@ test.describe('clients-list › empty state', () => {
 test.describe('client-create › structure & validation', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(CLIENTS_CREATE)
-    await page.waitForLoadState('networkidle')
+    await openClientCreate(page)
   })
 
   test('page root is visible', async ({ page }) => {
@@ -397,8 +408,7 @@ test.describe('client-create › structure & validation', () => {
 test.describe('client-create › create flow', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(CLIENTS_CREATE)
-    await page.waitForLoadState('networkidle')
+    await openClientCreate(page)
   })
 
   test('filling the form and saving redirects to the card page', async ({ page }) => {
@@ -423,8 +433,7 @@ test.describe('client-create › create flow', () => {
 test.describe('client-card › structure', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(CLIENTS_CARD)
-    await page.waitForLoadState('networkidle')
+    await openClientCard(page)
   })
 
   test('page root is visible', async ({ page }) => {
@@ -459,8 +468,7 @@ test.describe('client-card › structure', () => {
 test.describe('client-card › fields & save flow', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(CLIENTS_CARD)
-    await page.waitForLoadState('networkidle')
+    await openClientCard(page)
   })
 
   test('all form fields carry mock data for CL-001', async ({ page }) => {
@@ -516,8 +524,7 @@ test.describe('client-card › fields & save flow', () => {
 test.describe('client-card › audit log', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(CLIENTS_CARD)
-    await page.waitForLoadState('networkidle')
+    await openClientCard(page)
   })
 
   test('audit table renders with mock entries', async ({ page }) => {
@@ -569,8 +576,7 @@ test.describe('client-card › audit log', () => {
 test.describe('client-card › order history', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(CLIENTS_CARD)
-    await page.waitForLoadState('networkidle')
+    await openClientCard(page)
   })
 
   test('order history section is visible', async ({ page }) => {
@@ -641,8 +647,7 @@ test.describe('client-card › order history empty', () => {
 test.describe('client-card › interaction history', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(CLIENTS_CARD)
-    await page.waitForLoadState('networkidle')
+    await openClientCard(page)
   })
 
   test('interaction section is visible', async ({ page }) => {
@@ -712,10 +717,9 @@ test.describe('client-card › interaction history', () => {
 test.describe('client-card › error state', () => {
   test('non-existent client shows error state', async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto('/admin/clients/CL-NONEXISTENT')
-    await page.waitForLoadState('networkidle')
-    // Should show the error state
-    await expect(page.locator('[data-test="client-card-error"]')).toBeVisible({ timeout: 10000 })
+    await navigateToAdmin(page, '/admin/clients/CL-NONEXISTENT')
+    // Карточки не будет — признаком служит то, что рисуется вместо неё.
+    await expect(page.locator('[data-test="client-card-error"]')).toBeVisible()
   })
 })
 
@@ -728,7 +732,8 @@ baseTest('clients › redirects to /404 when adminClients flag is OFF', async ({
     { ...ALL_FLAGS_ENABLED, adminClients: false },
   )
   await page.goto(CLIENTS_LIST)
-  await page.waitForLoadState('networkidle')
+  // Данных не будет вовсе: гард уводит на /404. Признак перехода — сам URL,
+  // и утверждение ниже ждёт его само.
   await expect(page).toHaveURL(/\/404$/)
   await expect(page.locator('[data-test="page-clients"]')).toHaveCount(0)
 })
@@ -736,30 +741,27 @@ baseTest('clients › redirects to /404 when adminClients flag is OFF', async ({
 // ────────────────────────────────────────────────────────────────────────────
 // i18n — language switch
 // ────────────────────────────────────────────────────────────────────────────
-test.describe('clients › i18n', () => {
-  test('key header text translates in RU/EN/LT', async ({ page }) => {
+// Язык переключается САМИМ тестом, поэтому фикстура без замка языка: обычный `test`
+// ставит `flexiron_lang = 'en'` init-скриптом контекста, а он выполняется на КАЖДОЙ
+// загрузке — то есть возвращает английский после любого reload, и переключение
+// не срабатывало никогда. Проверка «заголовок виден» этого не замечала: он виден
+// на любом языке (питфолл #68). Тот же приём, что в categories и products.
+testWithFlags.describe('clients › i18n', () => {
+  testWithFlags('key header text translates in RU/EN/LT', async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(CLIENTS_LIST)
-    await page.waitForLoadState('networkidle')
+    await openClientsList(page)
+    const title = page.locator('h1.page-title')
 
     // Should start in English (from fixtures)
-    await expect(page.locator('h1.page-title')).toContainText('Clients')
+    await expect(title).toContainText('Clients')
 
-    // Switch to RU
-    await page.evaluate(() => localStorage.setItem('flexiron_lang', 'ru'))
-    await page.reload()
-    await page.waitForLoadState('networkidle')
-    // The page title should now show Russian
-    // The header_title key for clients in RU should be visible
-    const ruTitle = page.locator('h1.page-title')
-    await expect(ruTitle).toBeVisible()
+    // Признак прихода перевода — сам перевод. Видимость заголовка тут не значила
+    // ничего: он виден на любом языке, в том числе на прежнем (питфолл #68).
+    await switchLanguage(page, 'ru')
+    await expect(title).toContainText('Клиенты')
 
-    // Switch to LT
-    await page.evaluate(() => localStorage.setItem('flexiron_lang', 'lt'))
-    await page.reload()
-    await page.waitForLoadState('networkidle')
-    const ltTitle = page.locator('h1.page-title')
-    await expect(ltTitle).toBeVisible()
+    await switchLanguage(page, 'lt')
+    await expect(title).toContainText('Klientai')
   })
 })
 
@@ -770,9 +772,8 @@ test.describe('clients-list › visual @1440', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
-    await page.goto(CLIENTS_LIST)
+    await openClientsList(page)
     await waitForFontsReady(page)
-    await page.waitForLoadState('networkidle')
   })
 
   test('header section', async ({ page }) => {
@@ -801,9 +802,8 @@ test.describe('client-create › visual @1440', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
-    await page.goto(CLIENTS_CREATE)
+    await openClientCreate(page)
     await waitForFontsReady(page)
-    await page.waitForLoadState('networkidle')
   })
 
   test('create page header', async ({ page }) => {
@@ -839,9 +839,8 @@ test.describe('client-card › visual @1440', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await freezeTime(page)
-    await page.goto(CLIENTS_CARD)
+    await openClientCard(page)
     await waitForFontsReady(page)
-    await page.waitForLoadState('networkidle')
   })
 
   test('card header and save bar', async ({ page }) => {

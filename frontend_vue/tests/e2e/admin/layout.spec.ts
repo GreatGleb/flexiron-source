@@ -1,4 +1,6 @@
+import type { Page } from '@playwright/test'
 import { test, expect } from '../fixtures'
+import { navigateToAdmin } from '../helpers/admin'
 import { waitForFontsReady } from '../helpers/visual'
 import { waitForDataReady } from '../helpers/ready'
 
@@ -26,14 +28,32 @@ const DESKTOP = { width: 1440, height: 900 } // > 1024: sidebar lang/profile hid
 const TABLET = { width: 1000, height: 900 } // 861..1024: sidebar lang/profile visible, topbar ones hidden
 const MOBILE = { width: 375, height: 812 } // <= 860: shell grid disabled, sidebar-close visible, drawer mode
 
+/**
+ * Открыть дашборд и дождаться ПРИШЕДШИХ ДАННЫХ (питфолл #64).
+ *
+ * Снимок делается с оболочки, а внутри неё — содержимое страницы. Замерено: на
+ * `networkidle` панель графиков дашборда держит НОЛЬ полос, при этом пустая панель
+ * ровно той же высоты, что полная, — то есть снимок в этот момент не очевидно
+ * пустой, а пиксельный дифф, который читается как регресс вёрстки.
+ *
+ * Полоса графика ждётся как `attached`, а не `visible`: на 375 и 1000 часть
+ * содержимого прячется медиазапросами, а признаком должно быть наличие данных,
+ * а не то, какой ширины сейчас окно.
+ */
+async function openDashboardShell(page: Page) {
+  await navigateToAdmin(page, DASHBOARD)
+  await page.locator('[data-test="dashboard-charts"] .bar-chart-row').first().waitFor({
+    state: 'attached',
+  })
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // Load & structure
 // ────────────────────────────────────────────────────────────────────────────
 test.describe('admin layout › structure', () => {
   test('shell, sidebar, topbar, main all render', async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(DASHBOARD)
-    await page.waitForLoadState('networkidle')
+    await navigateToAdmin(page, DASHBOARD)
 
     await expect.soft(page.locator('[data-test="admin-shell"]')).toBeVisible()
     await expect.soft(page.locator('[data-test="sidebar-root"]')).toBeVisible()
@@ -141,7 +161,9 @@ test.describe('admin layout › sidebar collapse (desktop)', () => {
     await page.locator('[data-test="topbar-menu-toggle"]').click()
     await expect(page.locator('[data-test="admin-shell"]')).toHaveClass(/sidebar-collapsed/)
     await page.reload()
-    await page.waitForLoadState('networkidle')
+    // Тот же признак, что и до перезагрузки: страница снова поднялась и получила
+    // свои данные. `networkidle` наступал бы раньше этого.
+    await waitForDataReady(page)
     await expect(page.locator('[data-test="admin-shell"]')).toHaveClass(/sidebar-collapsed/)
   })
 
@@ -336,9 +358,8 @@ test.describe('admin layout › navigation', () => {
 test.describe('admin layout › visual @1440', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(DASHBOARD)
+    await openDashboardShell(page)
     await waitForFontsReady(page)
-    await page.waitForLoadState('networkidle')
   })
 
   test('sidebar expanded', async ({ page }) => {
@@ -366,9 +387,8 @@ test.describe('admin layout › visual @1440', () => {
 test.describe('admin layout › responsive', () => {
   test('shell @ 1440 (desktop)', async ({ page }) => {
     await page.setViewportSize(DESKTOP)
-    await page.goto(DASHBOARD)
+    await openDashboardShell(page)
     await waitForFontsReady(page)
-    await page.waitForLoadState('networkidle')
     await expect(page.locator('[data-test="admin-shell"]')).toHaveScreenshot(
       'layout-shell-1440.png',
     )
@@ -376,17 +396,15 @@ test.describe('admin layout › responsive', () => {
 
   test('shell @ 768 (tablet)', async ({ page }) => {
     await page.setViewportSize(TABLET)
-    await page.goto(DASHBOARD)
+    await openDashboardShell(page)
     await waitForFontsReady(page)
-    await page.waitForLoadState('networkidle')
     await expect(page.locator('[data-test="admin-shell"]')).toHaveScreenshot('layout-shell-768.png')
   })
 
   test('shell @ 375 (mobile)', async ({ page }) => {
     await page.setViewportSize(MOBILE)
-    await page.goto(DASHBOARD)
+    await openDashboardShell(page)
     await waitForFontsReady(page)
-    await page.waitForLoadState('networkidle')
     await expect(page.locator('[data-test="admin-shell"]')).toHaveScreenshot('layout-shell-375.png')
   })
 })
