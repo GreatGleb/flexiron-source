@@ -582,7 +582,7 @@ Page: `BccRequestPage.vue`. Composable `useBccRequest`.
   ```json
   { "success": true, "data": { "requestId": "req-008" } }
   ```
-- **Notes:** валидация: оба массива непустые; subject обязателен. Сервер отправляет email с BCC и одновременно создаёт N × M row'ов в history со `status: 'sent'`, `source: 'BCC Tool'`. Аттачменты предварительно загружены через `POST /api/uploads` (см. раздел «Файлы и аплоады») и переданы как `fileIds`.
+- **Notes:** валидация: оба массива непустые; subject обязателен. Сервер отправляет email с BCC и одновременно создаёт N × M row'ов в history со `status: 'sent'`, `source: 'BCC Tool'`. Аттачменты предварительно загружены через `POST /api/uploads` (см. раздел «Файлы и аплоады») и переданы как `fileIds`. `subject` и `body` клиент собирает сам — `src/domain/bccEmail.ts`: тема из названия компании и даты, подпись из реквизитов компании и профиля менеджера (обе секции настроек). Сервер получает готовый текст и своей константы с названием компании не держит.
 
 ### POST /api/bcc/log
 

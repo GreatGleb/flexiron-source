@@ -23,6 +23,7 @@ import { useToast } from '@/composables/useToast'
 import { useHead } from '@/composables/useHead'
 import { useFeatureFlag } from '@/composables/useFeatureFlag'
 import { getSupplier } from '@/services/suppliersService'
+import { formatBccDate as formatDate } from '@/domain/bccEmail'
 
 import '@styles/admin/components/_checkbox-list.css'
 import '@styles/admin/bcc_request.css'
@@ -43,6 +44,7 @@ const {
   history,
   selectedProductIds,
   template,
+  emailItems,
   sending,
   loading,
   error,
@@ -478,13 +480,6 @@ const STATUS_PILL: Record<BccEventStatus, string> = {
   no_response: 'pill-default',
 }
 
-function formatDate(iso: string): string {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return iso
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}`
-}
-
 function formatReqId(requestId: string): string {
   return requestId.replace('req-', '#')
 }
@@ -497,23 +492,16 @@ function isLatestEvent(evt: BccRequest): boolean {
   return first?.id === evt.id
 }
 
-// Auto-rebuild the email body whenever the product selection changes — mirrors original updateEmailTemplate()
-function rebuildEmailBody() {
-  const items = selectedProductIds.value
+// The page knows WHICH products were picked; the letter itself is composed in one
+// place (domain/bccEmail.ts), so here we only hand over their labels.
+function syncEmailItems() {
+  emailItems.value = selectedProductIds.value
     .map((id) => productOptions.value.find((p) => p.value === id)?.label)
     .filter((s): s is string => !!s)
-    .map((name) => `  - ${name}`)
-    .join('\n')
-  const itemsSection = items || 'All categories'
-  template.body = {
-    ru: `Здравствуйте!\n\nПожалуйста, предоставьте текущие цены на следующие позиции:\n\n${itemsSection}\n\nС уважением,\nКоманда InBox LT`,
-    en: `Hello!\n\nPlease provide current prices for the following items:\n\n${itemsSection}\n\nBest regards,\nInBox LT Team`,
-    lt: `Sveiki!\n\nPrašome pateikti dabartines kainas šioms prekėms:\n\n${itemsSection}\n\nPagarbiai,\nInBox LT komanda`,
-  }
 }
 
-watch(selectedProductIds, rebuildEmailBody, { deep: true })
-watch(productOptions, rebuildEmailBody, { deep: true })
+watch(selectedProductIds, syncEmailItems, { deep: true })
+watch(productOptions, syncEmailItems, { deep: true })
 
 // Auto-sync selectedRecipientIds with recipient.selected flags whenever the list reloads
 // (e.g. after products change). Any preselect set via preselectEmail is merged in.

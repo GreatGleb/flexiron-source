@@ -293,11 +293,26 @@ test.describe('bcc-request › email template', () => {
     await loadBcc(page)
   })
 
-  test('subject and body come pre-filled from the default template', async ({ page }) => {
-    await expect(page.locator('[data-test="email-template-subject"]')).toHaveValue(
-      'Price Request — InBox LT',
-    )
-    await expect(page.locator('[data-test="email-template-body"]')).toHaveValue(/Hello/)
+  test('the subject names OUR company and the date, not a hardcoded third party', async ({
+    page,
+  }) => {
+    const subject = page.locator('[data-test="email-template-subject"]')
+    // `loadBcc` pins "now" via freezeTime, so the date is the test's own value.
+    await expect(subject).toHaveValue(/^Metal price request 18\.04\.2026 — .+$/)
+    // The letter used to go out signed "InBox LT" — a company that is not ours.
+    await expect(subject).not.toHaveValue(/InBox/)
+  })
+
+  test('the body is signed by the manager the app is logged in as', async ({ page }) => {
+    // The name in the sidebar comes from settings.profile — the same manager the
+    // signature has to name. Read it instead of hardcoding: whoever is signed in,
+    // the letter must be signed by them.
+    const manager = (await page.locator('[data-test="sidebar-user"] .user-name').innerText()).trim()
+    expect(manager.length).toBeGreaterThan(0)
+    const body = page.locator('[data-test="email-template-body"]')
+    await expect(body).toHaveValue(/Hello/)
+    await expect(body).toHaveValue(new RegExp(`Best regards,\\n${manager}`))
+    await expect(body).not.toHaveValue(/InBox/)
   })
 
   test('selecting a product rebuilds the body to include its label', async ({ page }) => {
