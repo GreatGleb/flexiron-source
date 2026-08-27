@@ -41,6 +41,9 @@ const {
   discard,
   updateCompany,
   updateConstants,
+  updateMail,
+  mailPassword,
+  setMailPassword,
   addCurrency,
   removeCurrency,
   addUom,
@@ -88,6 +91,12 @@ const SETTINGS_TABS: {
     icon: 'list-status',
   },
   {
+    key: 'mail',
+    path: '/admin/settings/mail',
+    labelKey: 'settingsTabs.mail',
+    icon: 'email',
+  },
+  {
     key: 'logs',
     path: '/admin/settings/logs',
     labelKey: 'settingsTabs.logs',
@@ -127,6 +136,9 @@ provide('save', save)
 provide('updateProfile', updateProfile)
 provide('updateCompany', updateCompany)
 provide('updateConstants', updateConstants)
+provide('updateMail', updateMail)
+provide('mailPassword', mailPassword)
+provide('setMailPassword', setMailPassword)
 provide('addCurrency', addCurrency)
 provide('removeCurrency', removeCurrency)
 provide('addUom', addUom)

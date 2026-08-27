@@ -582,7 +582,7 @@ Page: `BccRequestPage.vue`. Composable `useBccRequest`.
   ```json
   { "success": true, "data": { "requestId": "req-008" } }
   ```
-- **Notes:** валидация: оба массива непустые; subject обязателен. Сервер отправляет email с BCC и одновременно создаёт N × M row'ов в history со `status: 'sent'`, `source: 'BCC Tool'`. Аттачменты предварительно загружены через `POST /api/uploads` (см. раздел «Файлы и аплоады») и переданы как `fileIds`. `subject` и `body` клиент собирает сам — `src/domain/bccEmail.ts`: тема из названия компании и даты, подпись из реквизитов компании и профиля менеджера (обе секции настроек). Сервер получает готовый текст и своей константы с названием компании не держит.
+- **Notes:** валидация: оба массива непустые; subject обязателен. Сервер отправляет письмо **одной транзакцией**: один конверт, все адреса получателей в BCC и ни одного в To/Cc (спека 04.2 §4 — поставщики не должны видеть друг друга; рассылка циклом по одному письму снаружи выглядит так же и потому проверяется тестом, а не глазами: `src/services/mocks/bcc-envelope.spec.ts`). Отправитель и параметры сервера берутся из `GET /api/settings/mail`, своей копии у BCC нет; ненастроенный почтовый сервер — 422 `MAIL_NOT_CONFIGURED`, а не молчаливый успех. Одновременно создаётся N × M row'ов в history со `status: 'sent'`, `source: 'BCC Tool'`. Аттачменты предварительно загружены через `POST /api/uploads` (см. раздел «Файлы и аплоады») и переданы как `fileIds`. `subject` и `body` клиент собирает сам — `src/domain/bccEmail.ts`: тема из названия компании и даты, подпись из реквизитов компании и профиля менеджера (обе секции настроек). Сервер получает готовый текст и своей константы с названием компании не держит.
 
 ### POST /api/bcc/log
 
@@ -2480,6 +2480,68 @@ Page: `ProfileSettings.vue` (таб `/admin/settings/profile`).
 
 ---
 
+## Почтовый сервер (Mail)
+
+Page: [`MailSettings.vue`](frontend_vue/src/views/admin/settings/MailSettings.vue)
+(таб `/admin/settings/mail`), тип `MailServerSettings` — `src/types/settings.ts`.
+Один сервер на арендатора, поэтому единичный ресурс без `id`.
+
+**Пароль пишется и не читается.** В типе `MailServerSettings` поля `password` нет вовсе:
+GET его не возвращает никогда, а форма узнаёт о нём из булева `passwordSet`. Так секрет не
+попадает ни в стор `useSettings`, ни в его кэш в localStorage — не по дисциплине, а потому
+что положить его туда нечем.
+
+### GET /api/settings/mail
+
+- **Когда:** загрузка настроек, `useSettings.load()` (девятый запрос параллельного набора).
+- **Response 200:** `MailServerSettings`
+  ```json
+  {
+    "success": true,
+    "data": {
+      "host": "smtp.flexiron.lt",
+      "port": 587,
+      "encryption": "starttls",
+      "username": "sales@flexiron.lt",
+      "passwordSet": true,
+      "fromEmail": "sales@flexiron.lt",
+      "fromName": "Flexiron UAB"
+    }
+  }
+  ```
+- **Notes:** `encryption` — `'none' | 'ssl' | 'starttls'` (`MAIL_ENCRYPTIONS`). Пароля в
+  ответе нет ни при каких условиях.
+
+### PATCH /api/settings/mail
+
+- **Когда:** клик Save при изменениях в почтовой секции (та же кнопка, что у остальных
+  настроек — clean-slate).
+- **Body:** dirty-only поля плюс необязательный пароль:
+  ```ts
+  {
+    host?: string
+    port?: number
+    encryption?: 'none' | 'ssl' | 'starttls'
+    username?: string
+    fromEmail?: string
+    fromName?: string
+    password?: string   // только запись; пустая строка НЕ отправляется
+  }
+  ```
+- **Response 200:** `MailServerSettings` — полный объект после merge, снова без пароля.
+- **Notes:** отсутствующий `password` означает «не менять». Пустая строка сюда не попадает:
+  пустое поле формы — это «не трогать пароль», а не «стереть его».
+
+### POST /api/settings/mail/test
+
+- **Когда:** клик «Отправить тестовое письмо» — quick-action, сохранения не требует и не
+  выполняет: проверяются параметры, которые УЖЕ на сервере.
+- **Body:** пусто.
+- **Response 200:** `{ deliveredTo: string }` — адрес, на который ушло письмо (адрес
+  отправителя, сам себе).
+- **Notes:** 422 `MAIL_NOT_CONFIGURED`, если не заданы хост, адрес отправителя или пароль.
+  Молчаливый успех недонастроенного сервера запрещён — кнопка тогда проверяла бы себя.
+
 ## Логи аудита (Настройки → Логи)
 
 Страница: [`LogsSettings.vue`](frontend_vue/src/views/admin/settings/LogsSettings.vue)
@@ -2618,7 +2680,9 @@ Settings работает по **local-first** принципу (см. «Save UX
 - **Snapshot:** после каждого load/save фиксируется снепшот для diff-детекции.
 - **Dirty tracking:** каждая секция отслеживается отдельно через `dirtySections Set`.
 - **Save = granular:** на Save клиент итерирует dirty-секции и для каждой вызывает соответствующий endpoint:
-  - Простые секции (`company`, `constants`, `profile`) → PATCH с dirty-полями
+  - Простые секции (`company`, `constants`, `mail`, `profile`) → PATCH с dirty-полями
+    (у `mail` пароль уходит отдельным полем `password` и только если его ввели — см. раздел
+    «Почтовый сервер»)
   - Коллекции (`currencies`, `uoms`, `conversions`, `order-statuses`) → diff против снепшота → POST созданий + PATCH изменений + DELETE удалений
 - **Reorder статусов:** при изменении порядка (drag-and-drop) шлётся `PUT /api/settings/order-statuses/reorder` с полным `orderedIds`.
 - **Discard:** сброс локального state до последнего снепшота.
@@ -2636,7 +2700,7 @@ Settings работает по **local-first** принципу (см. «Save UX
 - Service: `src/services/settingsService.ts`
 - Mock: `src/services/mocks/settings.ts`
 - Composable: `src/composables/useSettings.ts`
-- Views: `src/views/admin/settings/SettingsLayout.vue`, `ProfileSettings.vue`, `CompanySettings.vue`, `FinanceSettings.vue`, `UnitsSettings.vue`, `OrderStatusesSettings.vue`
+- Views: `src/views/admin/settings/SettingsLayout.vue`, `ProfileSettings.vue`, `CompanySettings.vue`, `FinanceSettings.vue`, `UnitsSettings.vue`, `OrderStatusesSettings.vue`, `MailSettings.vue`
 - i18n: `src/i18n/admin/settings.ts`
 
 ---
