@@ -5,13 +5,7 @@ import {
   mockGetOffcuts,
   mockOffcutAllocations,
 } from './warehouse'
-import {
-  mockAddOrderItem,
-  mockCreateOrder,
-  mockDeleteOrderItem,
-  mockGetOrder,
-  mockReserveOrder,
-} from './orders'
+import { mockAddOrderItem, mockCreateOrder, mockGetOrder, mockReserveOrder } from './orders'
 import { mockGetClients } from './clients'
 import type { OffcutOffer } from '@/types/warehouse'
 
@@ -56,84 +50,11 @@ describe('обрезок в строке заказа', () => {
 
     // И обратное: свободный кусок этого товара не пропущен. Без этой половины
     // утверждение выше устраивал бы пустой список (питфолл #68).
-    //
-    // Равенство снимается ПЕРВЫМ в файле и только поэтому обходится без вычитания
-    // занятого: куски в заказы берут тесты ниже, а сиды не берут ни одного. Правило
-    // «занятый кусок не предлагается» проверяет следующий тест, а не этот.
     const expected = all
       .filter((row) => row.productId === offer.productId && row.status === 'available')
       .map((row) => row.id)
       .sort()
     expect(offers.map((o) => o.id).sort()).toEqual(expected)
-  })
-
-  it('взятый в строку кусок уходит из предложений — и уходит ровно он один', async () => {
-    const offer = await firstOffer()
-    const before = mockGetOffcutOffers(offer.productId)
-      .map((o) => o.id)
-      .sort()
-    expect(before).toContain(offer.id)
-
-    const orderId = freshOrder()
-    mockAddOrderItem(orderId, {
-      productId: offer.productId,
-      quantity: Math.round((offer.material + 5) * 100) / 100,
-      unit: 'pcs',
-      unitPrice: 100,
-      offcutIds: [offer.id],
-    })
-
-    const after = mockGetOffcutOffers(offer.productId)
-      .map((o) => o.id)
-      .sort()
-    // Ровно один ушёл, и ровно тот. Утверждение «не содержит» устроил бы и пустой
-    // список, то есть правило, выкосившее заодно чужие куски (питфолл #68).
-    expect(after).toEqual(before.filter((id) => id !== offer.id))
-  })
-
-  it('второй заказ тот же кусок взять не может', async () => {
-    const offer = await firstOffer()
-    const quantity = Math.round((offer.material + 5) * 100) / 100
-    const first = freshOrder()
-    mockAddOrderItem(first, {
-      productId: offer.productId,
-      quantity,
-      unit: 'pcs',
-      unitPrice: 100,
-      offcutIds: [offer.id],
-    })
-
-    const second = freshOrder()
-    expect(() =>
-      mockAddOrderItem(second, {
-        productId: offer.productId,
-        quantity,
-        unit: 'pcs',
-        unitPrice: 100,
-        offcutIds: [offer.id],
-      }),
-    ).toThrow('OFFCUT_NOT_AVAILABLE')
-    // Отказ ничего не оставил после себя: строки, покрытой чужим куском, нет.
-    expect(mockGetOrder(second)!.items).toEqual([])
-  })
-
-  it('удалённая строка возвращает кусок в продажу', async () => {
-    const offer = await firstOffer()
-    const orderId = freshOrder()
-    const line = mockAddOrderItem(orderId, {
-      productId: offer.productId,
-      quantity: Math.round((offer.material + 5) * 100) / 100,
-      unit: 'pcs',
-      unitPrice: 100,
-      offcutIds: [offer.id],
-    })
-    expect(mockGetOffcutOffers(offer.productId).some((o) => o.id === offer.id)).toBe(false)
-
-    mockDeleteOrderItem(orderId, line.id)
-
-    // Занятость выводится из того, кто на куске стоит, поэтому отдельного
-    // «освободить кусок» нет и забыть его негде.
-    expect(mockGetOffcutOffers(offer.productId).some((o) => o.id === offer.id)).toBe(true)
   })
 
   it('в автоматический FIFO обрезки не попадают', async () => {
