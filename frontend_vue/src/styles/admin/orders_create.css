@@ -42,6 +42,13 @@
   color: rgba(255, 255, 255, 0.7);
 }
 
+/* Условия оплаты, подтянутые вместе с клиентом: строка под его именем. */
+.client-selected-terms {
+  margin: -4px 0 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
 .client-list-empty {
   text-align: center;
   color: rgba(255, 255, 255, 0.8);

@@ -27,6 +27,7 @@ const router = useRouter()
 const id = route.params.id as string
 const {
   client,
+  paymentTermsDays,
   loading,
   saving,
   isDirty,
@@ -283,6 +284,21 @@ onMounted(() => {
                     type="text"
                     data-test="field-vat"
                   />
+                </InputGroup>
+
+                <InputGroup :label="t('clients.field_payment_terms')">
+                  <div class="input-with-suffix">
+                    <input
+                      v-model.number="paymentTermsDays"
+                      class="glass-input"
+                      type="number"
+                      min="0"
+                      step="1"
+                      data-test="field-payment-terms"
+                    />
+                    <span class="input-suffix static-suffix">{{ t('clients.unit_days') }}</span>
+                  </div>
+                  <span class="field-hint">{{ t('clients.field_payment_terms_hint') }}</span>
                 </InputGroup>
 
                 <InputGroup :label="t('clients.field_notes')">

@@ -567,6 +567,7 @@ function generateOrders(): StoreOrder[] {
       clientName: client.name,
       clientVatCode: client.vatCode,
       clientAddress: client.address,
+      clientPaymentTermsDays: client.paymentTermsDays,
       documentType: docType,
       status,
       items,
@@ -1540,6 +1541,8 @@ export function mockCreateOrder(data: {
     clientName: client.name,
     clientVatCode: client.vatCode,
     clientAddress: client.address,
+    // Условия оплаты подтягиваются вместе с реквизитами — ТЗ Process 2.1 §1.
+    clientPaymentTermsDays: client.paymentTermsDays,
     documentType: data.documentType,
     status: 'new',
     items: [],

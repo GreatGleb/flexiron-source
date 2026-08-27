@@ -1127,6 +1127,12 @@ onMounted(loadShipments)
                   }}</span>
                   <span class="field-hint">{{ t('orders.field_client_hint') }}</span>
                 </InputGroup>
+                <InputGroup :label="t('clients.field_payment_terms')">
+                  <span class="glass-input-static" data-test="field-payment-terms">{{
+                    t('clients.payment_terms_days', { days: order.clientPaymentTermsDays })
+                  }}</span>
+                  <span class="field-hint">{{ t('orders.field_payment_terms_hint') }}</span>
+                </InputGroup>
                 <InputGroup :label="t('orders.field_document_type')">
                   <CustomSelect
                     v-model="form.documentType"

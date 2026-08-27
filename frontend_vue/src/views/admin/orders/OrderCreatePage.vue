@@ -267,6 +267,22 @@ onMounted(loadClients)
                 {{ t('orders.create_selected_client', { name: selectedClient.name }) }}
               </p>
 
+              <!-- ТЗ Process 2.1 §1: выбрали клиента — условия оплаты видны сразу,
+                   не после сохранения заказа. -->
+              <p
+                v-if="selectedClient"
+                class="client-selected-terms"
+                data-test="order-create-client-payment-terms"
+              >
+                {{
+                  t('orders.create_client_payment_terms', {
+                    terms: t('clients.payment_terms_days', {
+                      days: selectedClient.paymentTermsDays,
+                    }),
+                  })
+                }}
+              </p>
+
               <div data-test="order-create-client-search">
                 <SearchInput
                   v-model="clientSearch"

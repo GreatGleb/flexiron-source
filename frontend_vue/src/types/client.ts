@@ -19,6 +19,15 @@ export interface Client {
   phone: string
   email: string
   status: 'active' | 'inactive'
+  /**
+   * Условия оплаты: отсрочка в днях от даты счёта, 0 — оплата по счёту.
+   *
+   * Правило и его границы живут в `domain/paymentTerms.ts` — там же сказано,
+   * почему это дни, а не свободная строка вроде поставщицкой `'30 Days Net'`.
+   * Обязательное: клиент без условий оплаты — это заказ, которому нечего
+   * подтянуть, а ТЗ (Process 2.1 §1) обещает подтягивать их при выборе клиента.
+   */
+  paymentTermsDays: number
   notes: string | null
   /** Free-text reason when client is rejected or blocked */
   rejectionReason?: string | null
@@ -47,6 +56,7 @@ export type ClientFormData = Pick<
   | 'phone'
   | 'email'
   | 'status'
+  | 'paymentTermsDays'
   | 'notes'
   | 'rejectionReason'
 >

@@ -1,4 +1,4 @@
-import { ref, reactive, toRaw } from 'vue'
+import { computed, ref, reactive, toRaw } from 'vue'
 import {
   getClient,
   patchClient,
@@ -12,6 +12,7 @@ import { useToast } from './useToast'
 import { useTranslatedField } from './useTranslatedData'
 import { useI18n } from 'vue-i18n'
 import { getOrders } from '@/services/ordersService'
+import { normalizePaymentTermsDays } from '@/domain/paymentTerms'
 import type { Client, InteractionHistoryEntry } from '@/types/client'
 import type { OrderListItem } from '@/types/order'
 import type { StockAuditEntry } from '@/types/warehouse'
@@ -60,6 +61,22 @@ export function useClientCard(id: string) {
   }
 
   const dirty = useDirtyCheck(client)
+
+  /**
+   * Условия оплаты правятся через переходник, а не напрямую.
+   *
+   * `v-model.number` на очищенном поле кладёт `NaN` (питфолл #25), и `diff()`
+   * отдаёт сырое значение — то есть `NaN` уехал бы в PATCH. Нормализация стоит на
+   * записи, а не в вотчере: вотчер чинит уже испорченное состояние, а карточка
+   * между его срабатыванием и сохранением успевает показать пустое поле как
+   * «условий нет».
+   */
+  const paymentTermsDays = computed<number>({
+    get: () => client.value?.paymentTermsDays ?? 0,
+    set: (value) => {
+      if (client.value) client.value.paymentTermsDays = normalizePaymentTermsDays(value)
+    },
+  })
 
   async function load() {
     loading.value = true
@@ -224,6 +241,7 @@ export function useClientCard(id: string) {
 
   return {
     client,
+    paymentTermsDays,
     loading,
     saving,
     error,

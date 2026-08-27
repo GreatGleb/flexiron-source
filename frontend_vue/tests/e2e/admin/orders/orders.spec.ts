@@ -2068,6 +2068,22 @@ test.describe('Order Create › client selector', () => {
     await expect(page.locator('[data-test="order-create-client-selected"]')).toBeVisible()
   })
 
+  test("selecting a client pulls in that client's payment terms", async ({ page }) => {
+    await page.goto('/admin/orders/new')
+    const terms = page.locator('[data-test="order-create-client-payment-terms"]')
+    await expect(page.locator('[data-test="order-create-client-item"]').first()).toBeVisible({
+      timeout: 5000,
+    })
+    // До выбора подтягивать нечего: строки условий не существует вовсе. Иначе
+    // утверждение ниже устраивало бы бездействие (питфолл #68).
+    await expect(terms).toHaveCount(0)
+
+    await page.locator('[data-test="order-create-client-item"]').first().click()
+
+    // Число дней, а не пустая подпись: пустое значение прошло бы `toBeVisible`.
+    await expect(terms).toHaveText(/\d+\s*days/)
+  })
+
   test('new client search shows empty state for no results', async ({ page }) => {
     await page.goto('/admin/orders/new')
     // Переход и сразу действие: без этого ожидания тест зависит от того,

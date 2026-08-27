@@ -34,7 +34,7 @@ import {
   mockAddOrderFile,
   mockRemoveOrderFile,
 } from './orders'
-import { mockGetClients } from './clients'
+import { mockGetClients, mockPatchClient } from './clients'
 import { mockGetSettings, mockSaveSettings } from './settings'
 import { mockCreateService, mockPatchService } from './services'
 import {
@@ -264,6 +264,58 @@ describe('the generated store', () => {
       expect(order.items.every((i) => i.weightPerUnitKg === null)).toBe(true)
       expect(order.totalWeight).toBe(0)
     }
+  })
+
+  it("carries each client's own payment terms, not one value for the whole store", () => {
+    const terms = new Map(mockGetClients().map((c) => [c.id, c.paymentTermsDays]))
+    for (const order of orders) {
+      expect(order.clientPaymentTermsDays).toBe(terms.get(order.clientId))
+    }
+    // Иначе утверждение выше устраивает константа: если бы каждый заказ и каждый
+    // клиент несли одни и те же 30 дней, оно было бы верным и без подстановки.
+    expect(new Set(orders.map((o) => o.clientPaymentTermsDays)).size).toBeGreaterThan(1)
+  })
+})
+
+// ─── Условия оплаты клиента (пункт 9 плана `review-followups.md`) ────────────
+
+describe('payment terms pulled from the client', () => {
+  it('a new order takes the terms of the client it is created for', () => {
+    // По одному клиенту на каждое встреченное значение отсрочки: совпадение с
+    // константой так не проходит — значения заведомо разные.
+    const byTerms = new Map(mockGetClients().map((c) => [c.paymentTermsDays, c]))
+    expect(byTerms.size).toBeGreaterThan(1)
+
+    for (const [days, client] of byTerms) {
+      const order = mockCreateOrder({ clientId: client.id, documentType: 'local' })
+      expect(order.clientPaymentTermsDays).toBe(days)
+    }
+  })
+
+  it('keeps the terms the order was placed on when the client is renegotiated later', () => {
+    const client = mockGetClients().find((c) => c.paymentTermsDays > 0)!
+    const agreed = client.paymentTermsDays
+    const order = mockCreateOrder({ clientId: client.id, documentType: 'local' })
+
+    try {
+      mockPatchClient(client.id, { paymentTermsDays: agreed + 15 })
+      // Счёт этого заказа не становится просроченным задним числом оттого, что
+      // клиенту сократили или продлили отсрочку после оформления.
+      expect(mockGetOrder(order.id)!.clientPaymentTermsDays).toBe(agreed)
+    } finally {
+      mockPatchClient(client.id, { paymentTermsDays: agreed })
+    }
+  })
+
+  it('refuses terms that no calendar can express', () => {
+    const client = mockGetClients()[0]!
+    expect(() => mockPatchClient(client.id, { paymentTermsDays: -1 })).toThrow(/paymentTermsDays/)
+    expect(() => mockPatchClient(client.id, { paymentTermsDays: 14.5 })).toThrow(/paymentTermsDays/)
+    expect(() => mockPatchClient(client.id, { paymentTermsDays: NaN })).toThrow(/paymentTermsDays/)
+    // И запись не состоялась: отказ — это отказ, а не «записал и пожаловался».
+    expect(mockGetClients().find((c) => c.id === client.id)!.paymentTermsDays).toBe(
+      client.paymentTermsDays,
+    )
   })
 })
 

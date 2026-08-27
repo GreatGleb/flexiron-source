@@ -4,6 +4,7 @@ import { shiftDemoDay } from './demoClock'
 import { sealAuditIds, type AuditSeeded } from '@/mocks/auditIds'
 import type { AuditSource } from '@/types/audit'
 import { shiftAuditSeries } from './auditClock'
+import { isValidPaymentTermsDays } from '@/domain/paymentTerms'
 
 const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
   // ── Existing clients (1-9) ──
@@ -18,6 +19,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: 'Main client, sheet steel orders',
     createdAt: '2025-01-10',
+    paymentTermsDays: 30,
     interactionHistory: [
       {
         date: '2025-06-01',
@@ -79,6 +81,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: 'Export partner, pipe products',
     createdAt: '2025-02-15',
+    paymentTermsDays: 14,
     auditLog: [
       {
         timestamp: '2025-02-15 10:00',
@@ -109,6 +112,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: null,
     createdAt: '2025-03-20',
+    paymentTermsDays: 0,
     auditLog: [
       {
         timestamp: '2025-03-20 08:00',
@@ -132,6 +136,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     notes: 'Temporarily suspended due to sanctions check',
     rejectionReason: 'Sanctions compliance - awaiting legal review',
     createdAt: '2025-04-05',
+    paymentTermsDays: 45,
     interactionHistory: [
       {
         date: '2025-04-10',
@@ -167,6 +172,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: 'Regular buyer of stainless steel coils',
     createdAt: '2025-04-18',
+    paymentTermsDays: 30,
     auditLog: [
       {
         timestamp: '2025-04-18 08:00',
@@ -197,6 +203,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: 'Distributor, aluminum profiles',
     createdAt: '2025-05-02',
+    paymentTermsDays: 60,
   },
   {
     id: 'CL-007',
@@ -209,6 +216,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'inactive',
     notes: null,
     createdAt: '2025-05-20',
+    paymentTermsDays: 7,
   },
   {
     id: 'CL-008',
@@ -221,6 +229,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: 'Construction materials, quarterly contracts',
     createdAt: '2025-06-10',
+    paymentTermsDays: 30,
     auditLog: [
       {
         timestamp: '2025-06-10 08:00',
@@ -251,6 +260,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: 'Scrap metal recycling partner',
     createdAt: '2025-07-01',
+    paymentTermsDays: 14,
   },
 
   // ── Lithuanian companies (CL-010 – CL-030) ──
@@ -265,6 +275,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: 'Road construction, rebar orders',
     createdAt: '2025-07-15',
+    paymentTermsDays: 0,
   },
   {
     id: 'CL-011',
@@ -277,6 +288,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: 'Large industrial client, monthly rolled steel allocations',
     createdAt: '2025-07-22',
+    paymentTermsDays: 90,
     auditLog: [
       {
         timestamp: '2025-07-22 08:00',
@@ -315,6 +327,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: null,
     createdAt: '2025-08-01',
+    paymentTermsDays: 30,
   },
   {
     id: 'CL-013',
@@ -327,6 +340,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'inactive',
     notes: 'Public procurement entity, contract expired',
     createdAt: '2025-08-10',
+    paymentTermsDays: 30,
     auditLog: [
       {
         timestamp: '2025-08-10 08:00',
@@ -357,6 +371,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: 'Small-batch custom orders',
     createdAt: '2025-08-18',
+    paymentTermsDays: 14,
   },
   {
     id: 'CL-015',
@@ -369,6 +384,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: 'Export-import, container flat steel',
     createdAt: '2025-08-25',
+    paymentTermsDays: 0,
   },
   {
     id: 'CL-016',
@@ -381,6 +397,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'inactive',
     notes: 'Seasonal buyer, only spring-summer',
     createdAt: '2025-09-01',
+    paymentTermsDays: 45,
   },
   {
     id: 'CL-017',
@@ -393,6 +410,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: 'Regional distributor, wire rod products',
     createdAt: '2025-09-12',
+    paymentTermsDays: 30,
   },
   {
     id: 'CL-018',
@@ -405,6 +423,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: null,
     createdAt: '2025-09-20',
+    paymentTermsDays: 60,
   },
   {
     id: 'CL-019',
@@ -417,6 +436,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: 'Steel structures for commercial buildings',
     createdAt: '2025-10-01',
+    paymentTermsDays: 7,
   },
   {
     id: 'CL-020',
@@ -429,6 +449,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'inactive',
     notes: null,
     createdAt: '2025-10-08',
+    paymentTermsDays: 30,
   },
   {
     id: 'CL-021',
@@ -441,6 +462,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: 'Warehouse and distribution, regular coil orders',
     createdAt: '2025-10-15',
+    paymentTermsDays: 14,
   },
   {
     id: 'CL-022',
@@ -453,6 +475,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: 'Wind tower component manufacturer',
     createdAt: '2025-10-22',
+    paymentTermsDays: 0,
     auditLog: [
       {
         timestamp: '2025-10-22 08:00',
@@ -483,6 +506,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: 'Landscaping and small structures',
     createdAt: '2025-11-01',
+    paymentTermsDays: 90,
   },
   {
     id: 'CL-024',
@@ -495,6 +519,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'inactive',
     notes: 'Seasonal agricultural equipment',
     createdAt: '2025-11-10',
+    paymentTermsDays: 30,
   },
   {
     id: 'CL-025',
@@ -507,6 +532,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: 'Home appliance manufacturer, sheet metal',
     createdAt: '2025-11-18',
+    paymentTermsDays: 30,
   },
   {
     id: 'CL-026',
@@ -519,6 +545,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: null,
     createdAt: '2025-11-25',
+    paymentTermsDays: 14,
   },
   {
     id: 'CL-027',
@@ -531,6 +558,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'inactive',
     notes: 'Switched to wood-only supplier',
     createdAt: '2025-12-01',
+    paymentTermsDays: 0,
   },
   {
     id: 'CL-028',
@@ -543,6 +571,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: 'Injection mold steel buyer',
     createdAt: '2025-12-10',
+    paymentTermsDays: 45,
   },
   {
     id: 'CL-029',
@@ -555,6 +584,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: 'Road construction, rebar and mesh',
     createdAt: '2025-12-18',
+    paymentTermsDays: 30,
   },
   {
     id: 'CL-030',
@@ -567,6 +597,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'inactive',
     notes: null,
     createdAt: '2026-01-05',
+    paymentTermsDays: 60,
   },
 
   // ── Latvian companies (CL-031 – CL-045) ──
@@ -581,6 +612,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: 'National metal distributor, LT and EE market',
     createdAt: '2026-01-12',
+    paymentTermsDays: 7,
     auditLog: [
       {
         timestamp: '2026-01-12 08:00',
@@ -611,6 +643,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: 'General construction, profile pipes',
     createdAt: '2026-01-20',
+    paymentTermsDays: 30,
   },
   {
     id: 'CL-033',
@@ -623,6 +656,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: 'Bridge construction, heavy beams',
     createdAt: '2026-01-28',
+    paymentTermsDays: 14,
   },
   {
     id: 'CL-034',
@@ -635,6 +669,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: 'Metalworking, custom fabrication',
     createdAt: '2026-02-05',
+    paymentTermsDays: 0,
   },
   {
     id: 'CL-035',
@@ -647,6 +682,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'inactive',
     notes: null,
     createdAt: '2026-02-14',
+    paymentTermsDays: 90,
   },
   {
     id: 'CL-036',
@@ -659,6 +695,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: 'Energy sector, boiler steel',
     createdAt: '2026-02-22',
+    paymentTermsDays: 30,
   },
   {
     id: 'CL-037',
@@ -671,6 +708,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'inactive',
     notes: 'Temporary halt due to furnace maintenance',
     createdAt: '2026-03-01',
+    paymentTermsDays: 30,
   },
   {
     id: 'CL-038',
@@ -683,6 +721,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: 'Building materials wholesaler',
     createdAt: '2026-03-10',
+    paymentTermsDays: 14,
   },
   {
     id: 'CL-039',
@@ -695,6 +734,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: 'Port operations, steel re-export',
     createdAt: '2026-03-18',
+    paymentTermsDays: 0,
   },
   {
     id: 'CL-040',
@@ -707,6 +747,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: null,
     createdAt: '2026-03-25',
+    paymentTermsDays: 45,
   },
   {
     id: 'CL-041',
@@ -719,6 +760,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'inactive',
     notes: 'Contract under renegotiation',
     createdAt: '2026-04-01',
+    paymentTermsDays: 30,
   },
   {
     id: 'CL-042',
@@ -731,6 +773,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: 'Machine building, cast iron and steel',
     createdAt: '2026-04-08',
+    paymentTermsDays: 60,
   },
   {
     id: 'CL-043',
@@ -743,6 +786,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: 'Solar panel frame manufacturer',
     createdAt: '2026-04-15',
+    paymentTermsDays: 7,
   },
   {
     id: 'CL-044',
@@ -755,6 +799,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'inactive',
     notes: null,
     createdAt: '2026-04-22',
+    paymentTermsDays: 30,
   },
   {
     id: 'CL-045',
@@ -767,6 +812,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: 'Transit and logistics, regular buyer',
     createdAt: '2026-05-01',
+    paymentTermsDays: 14,
   },
 
   // ── Estonian & other EU (CL-046 – CL-055) ──
@@ -781,6 +827,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: 'Estonian steel distributor',
     createdAt: '2026-05-08',
+    paymentTermsDays: 0,
   },
   {
     id: 'CL-047',
@@ -793,6 +840,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: 'Northern Estonian construction company',
     createdAt: '2026-05-15',
+    paymentTermsDays: 90,
   },
   {
     id: 'CL-048',
@@ -805,6 +853,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'inactive',
     notes: null,
     createdAt: '2026-05-20',
+    paymentTermsDays: 30,
   },
   {
     id: 'CL-049',
@@ -817,6 +866,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: 'Port city client, imported steel',
     createdAt: '2026-05-25',
+    paymentTermsDays: 30,
   },
   {
     id: 'CL-050',
@@ -829,6 +879,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: 'Polish partner, large volume orders',
     createdAt: '2026-06-01',
+    paymentTermsDays: 14,
     auditLog: [
       {
         timestamp: '2026-06-01 08:00',
@@ -851,6 +902,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: null,
     createdAt: '2026-06-03',
+    paymentTermsDays: 0,
   },
   {
     id: 'CL-052',
@@ -863,6 +915,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: 'Forestry equipment steel parts',
     createdAt: '2026-06-05',
+    paymentTermsDays: 45,
   },
   {
     id: 'CL-053',
@@ -875,6 +928,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: 'Aviation parts, specialty alloys',
     createdAt: '2026-06-07',
+    paymentTermsDays: 30,
   },
   {
     id: 'CL-054',
@@ -887,6 +941,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'active',
     notes: 'Additive manufacturing, metal powders',
     createdAt: '2026-06-09',
+    paymentTermsDays: 60,
   },
   {
     id: 'CL-055',
@@ -899,6 +954,7 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     status: 'inactive',
     notes: 'Startup, paused operations',
     createdAt: '2026-06-10',
+    paymentTermsDays: 7,
   },
 ]
 
@@ -951,6 +1007,11 @@ export function mockCreateClient(data: ClientFormData): Client {
   if (!data.email || !data.email.trim()) {
     throw new Error('VALIDATION_ERROR: email is required')
   }
+  if (!isValidPaymentTermsDays(data.paymentTermsDays)) {
+    throw new Error(
+      'VALIDATION_ERROR: paymentTermsDays must be a non-negative whole number of days',
+    )
+  }
   // Проверка на duplicate companyCode
   const existing = STORE.find((c) => c.companyCode === data.companyCode.trim())
   if (existing) {
@@ -972,6 +1033,15 @@ export function mockCreateClient(data: ClientFormData): Client {
 export function mockPatchClient(id: string, delta: Partial<Client>): Client {
   const idx = STORE.findIndex((c) => c.id === id)
   if (idx === -1) throw new Error('CLIENT_NOT_FOUND')
+  // Те же границы, что на создании: `useDirtyCheck.diff()` возвращает сырое значение
+  // поля, поэтому в дельту попадает ровно то, что лежит в форме, — включая `NaN`
+  // с очищенного поля. Молча записанная отсрочка `null`/`-1` даёт срок оплаты,
+  // который никто не сможет объяснить.
+  if ('paymentTermsDays' in delta && !isValidPaymentTermsDays(delta.paymentTermsDays)) {
+    throw new Error(
+      'VALIDATION_ERROR: paymentTermsDays must be a non-negative whole number of days',
+    )
+  }
   Object.assign(STORE[idx]!, delta)
   return structuredClone(STORE[idx]!)
 }

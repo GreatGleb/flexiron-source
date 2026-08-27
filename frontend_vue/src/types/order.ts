@@ -430,6 +430,16 @@ export interface Order {
   clientName: string
   clientVatCode: string
   clientAddress: string
+  /**
+   * Условия оплаты клиента на момент создания заказа — отсрочка в днях от даты
+   * счёта, 0 — оплата по счёту.
+   *
+   * Снимок, а не ссылка на клиента, по той же причине, по которой рядом лежат
+   * копии кода НДС и адреса: заказ должен помнить условия, на которых он был
+   * оформлен. Клиенту потом сократят отсрочку — счета прошлых заказов от этого
+   * не станут просроченными задним числом.
+   */
+  clientPaymentTermsDays: number
   documentType: OrderDocumentType
   status: OrderStatus
   items: OrderItem[]
