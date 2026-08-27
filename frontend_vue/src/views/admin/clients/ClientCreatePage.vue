@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useHead } from '@/composables/useHead'
@@ -11,12 +11,13 @@ import SvgIcon from '@/components/admin/SvgIcon.vue'
 import InputGroup from '@/components/admin/ui/InputGroup.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
 import AutoResizeTextarea from '@/components/admin/ui/AutoResizeTextarea.vue'
+import { countryOptions, isCountryCode } from '@/domain/countries'
 import type { ClientFormData } from '@/types/client'
 
 import '@styles/admin/components/_entity-card-layout.css'
 import '@styles/admin/client_card.css'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const router = useRouter()
 const toast = useToast()
 
@@ -30,6 +31,7 @@ const form = ref<ClientFormData>({
   companyCode: '',
   vatCode: '',
   address: '',
+  country: null,
   phone: '',
   email: '',
   status: 'active',
@@ -39,6 +41,22 @@ const form = ref<ClientFormData>({
 
 const errors = ref<{ name?: string; email?: string; companyCode?: string }>({})
 const saving = ref(false)
+
+// Справочник стран собирается заново при смене языка: названия и их порядок
+// зависят от языка, а список открывают уже после переключения.
+const COUNTRY_OPTIONS = computed(() => [
+  { value: '', label: t('clients.country_not_selected') },
+  ...countryOptions(locale.value),
+])
+
+// CustomSelect работает со строкой, а «страна не выбрана» в данных — это null
+// (питфолл #24). Переходник между ними один и живёт здесь.
+const countryStr = computed({
+  get: () => form.value.country ?? '',
+  set: (v: string) => {
+    form.value.country = isCountryCode(v) ? v : null
+  },
+})
 
 const STATUS_OPTIONS = [
   { value: 'active', label: t('clients.status_active') },
@@ -207,6 +225,14 @@ function handleCancel() {
                 class="glass-input"
                 type="text"
                 data-test="field-address"
+              />
+            </InputGroup>
+
+            <InputGroup :label="t('clients.field_country')">
+              <CustomSelect
+                v-model="countryStr"
+                :options="COUNTRY_OPTIONS"
+                data-test="field-country"
               />
             </InputGroup>
 
