@@ -3,7 +3,6 @@ import { useI18n } from 'vue-i18n'
 import { getBatch, getBatches, executeCutting } from '@/services/warehouseService'
 import { getProduct } from '@/services/productsService'
 import { useToast } from './useToast'
-import { useTranslatedField } from './useTranslatedData'
 import {
   computeCuttingConsumption,
   isLinearBatchUnit,
@@ -11,6 +10,7 @@ import {
   type MaterialFailureReason,
 } from '@/domain/cutting'
 import { roundQuantity } from '@/domain/quantity'
+import { ensureProductNames } from './useProductNames'
 import type { BatchListItem, OffcutCreatePayload, WarehouseBatch } from '@/types/warehouse'
 
 /** Один вид получаемых кусков: размеры одного куска плюс сколько их. */
@@ -61,7 +61,6 @@ function emptyRow(): CuttingRow {
 export function useWarehouseCutting() {
   const { t } = useI18n()
   const toast = useToast()
-  const { tf } = useTranslatedField()
 
   // ─── Партия-источник ──────────────────────────────────────────────────────
   const batches = ref<BatchListItem[]>([])
@@ -80,10 +79,13 @@ export function useWarehouseCutting() {
   async function loadBatches() {
     batchesLoading.value = true
     try {
-      const response = await getBatches(
-        { search: batchSearch.value, sortBy: 'receivedAt', sortDir: 'desc' },
-        { page: 1, pageSize: 50 },
-      )
+      const [response] = await Promise.all([
+        getBatches(
+          { search: batchSearch.value, sortBy: 'receivedAt', sortDir: 'desc' },
+          { page: 1, pageSize: 50 },
+        ),
+        ensureProductNames(),
+      ])
       batches.value = response.items
     } catch {
       batches.value = []
@@ -262,6 +264,5 @@ export function useWarehouseCutting() {
     canSubmit,
     saving,
     submit,
-    tf,
   }
 }

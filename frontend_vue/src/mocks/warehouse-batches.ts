@@ -3,7 +3,6 @@ export const mockBatches = [
   {
     id: 'whb-001',
     productId: 'prod-001',
-    productName: { ru: 'Лист стальной 2мм', en: 'Steel sheet 2mm', lt: 'Plieno lakštas 2mm' },
     supplierId: 'sup-001',
     supplierName: { ru: 'МеталлТрейд', en: 'MetalTrade', lt: 'MetalTrade' },
     batchNumber: 'INV-2025-001',
@@ -70,7 +69,6 @@ export const mockBatches = [
   {
     id: 'whb-002',
     productId: 'prod-001',
-    productName: { ru: 'Лист стальной 2мм', en: 'Steel sheet 2mm', lt: 'Plieno lakštas 2mm' },
     supplierId: 'sup-003',
     supplierName: { ru: 'СтальИнвест', en: 'SteelInvest', lt: 'SteelInvest' },
     batchNumber: 'INV-2025-004',
@@ -123,7 +121,6 @@ export const mockBatches = [
   {
     id: 'whb-075',
     productId: 'prod-003',
-    productName: { ru: 'Стальная труба 60x4', en: 'Steel Pipe 60x4', lt: 'Plieninis vamzdis 60x4' },
     supplierId: 'sup-001',
     supplierName: { ru: 'МеталлТрейд', en: 'MetalTrade', lt: 'MetalTrade' },
     batchNumber: 'INV-2025-012',
@@ -161,7 +158,6 @@ export const mockBatches = [
   {
     id: 'whb-076',
     productId: 'prod-003',
-    productName: { ru: 'Стальная труба 60x4', en: 'Steel Pipe 60x4', lt: 'Plieninis vamzdis 60x4' },
     supplierId: 'sup-003',
     supplierName: { ru: 'СтальИнвест', en: 'SteelInvest', lt: 'SteelInvest' },
     batchNumber: 'INV-2025-013',
@@ -217,11 +213,6 @@ export const mockBatches = [
   {
     id: 'whb-003',
     productId: 'prod-009',
-    productName: {
-      ru: 'Лист оцинкованный 1.5мм',
-      en: 'Galvanized sheet 1.5mm',
-      lt: 'Cinkuotas lakštas 1.5mm',
-    },
     supplierId: 'sup-001',
     supplierName: { ru: 'МеталлТрейд', en: 'MetalTrade', lt: 'MetalTrade' },
     batchNumber: 'INV-2025-007',
@@ -261,11 +252,6 @@ export const mockBatches = [
   {
     id: 'whb-004',
     productId: 'prod-009',
-    productName: {
-      ru: 'Лист оцинкованный 1.5мм',
-      en: 'Galvanized sheet 1.5mm',
-      lt: 'Cinkuotas lakštas 1.5mm',
-    },
     supplierId: 'sup-005',
     supplierName: { ru: 'ЛистМет', en: 'ListMet', lt: 'ListMet' },
     batchNumber: 'INV-2025-008',
@@ -288,11 +274,6 @@ export const mockBatches = [
   {
     id: 'whb-005',
     productId: 'prod-009',
-    productName: {
-      ru: 'Лист оцинкованный 1.5мм',
-      en: 'Galvanized sheet 1.5mm',
-      lt: 'Cinkuotas lakštas 1.5mm',
-    },
     supplierId: 'sup-001',
     supplierName: { ru: 'МеталлТрейд', en: 'MetalTrade', lt: 'MetalTrade' },
     batchNumber: 'INV-2025-009',
@@ -333,11 +314,6 @@ export const mockBatches = [
   {
     id: 'whb-006',
     productId: 'prod-020',
-    productName: {
-      ru: 'Фанера 10мм 1525x1525',
-      en: 'Plywood 10mm 1525x1525',
-      lt: 'Fanera 10mm 1525x1525',
-    },
     supplierId: 'sup-006',
     supplierName: { ru: 'ДревПром', en: 'DrevProm', lt: 'DrevProm' },
     batchNumber: 'INV-2025-010',
@@ -360,11 +336,6 @@ export const mockBatches = [
   {
     id: 'whb-007',
     productId: 'prod-020',
-    productName: {
-      ru: 'Фанера 10мм 1525x1525',
-      en: 'Plywood 10mm 1525x1525',
-      lt: 'Fanera 10mm 1525x1525',
-    },
     supplierId: 'sup-006',
     supplierName: { ru: 'ДревПром', en: 'DrevProm', lt: 'DrevProm' },
     batchNumber: 'INV-2025-011',
@@ -387,7 +358,6 @@ export const mockBatches = [
   {
     id: 'whb-008',
     productId: 'prod-021',
-    productName: { ru: 'Лист стальной 3мм', en: 'Steel sheet 3mm', lt: 'Plieno lakštas 3mm' },
     supplierId: 'sup-001',
     supplierName: { ru: 'МеталлТрейд', en: 'MetalTrade', lt: 'MetalTrade' },
     batchNumber: 'INV-2025-012',
@@ -419,7 +389,6 @@ export const mockBatches = [
   {
     id: 'whb-009',
     productId: 'prod-021',
-    productName: { ru: 'Лист стальной 3мм', en: 'Steel sheet 3mm', lt: 'Plieno lakštas 3mm' },
     supplierId: 'sup-003',
     supplierName: { ru: 'СтальИнвест', en: 'SteelInvest', lt: 'SteelInvest' },
     batchNumber: 'INV-2025-013',
@@ -442,7 +411,6 @@ export const mockBatches = [
   {
     id: 'whb-010',
     productId: 'prod-022',
-    productName: { ru: 'Лист стальной 5мм', en: 'Steel sheet 5mm', lt: 'Plieno lakštas 5mm' },
     supplierId: 'sup-001',
     supplierName: { ru: 'МеталлТрейд', en: 'MetalTrade', lt: 'MetalTrade' },
     batchNumber: 'INV-2025-014',
@@ -465,7 +433,6 @@ export const mockBatches = [
   {
     id: 'whb-011',
     productId: 'prod-023',
-    productName: { ru: 'Лист стальной 10мм', en: 'Steel sheet 10mm', lt: 'Plieno lakštas 10mm' },
     supplierId: 'sup-003',
     supplierName: { ru: 'СтальИнвест', en: 'SteelInvest', lt: 'SteelInvest' },
     batchNumber: 'INV-2025-015',
@@ -498,11 +465,6 @@ export const mockBatches = [
   {
     id: 'whb-012',
     productId: 'prod-024',
-    productName: {
-      ru: 'Лист нержавеющий 2мм',
-      en: 'Stainless sheet 2mm',
-      lt: 'Nerūdijančio plieno lakštas 2mm',
-    },
     supplierId: 'sup-007',
     supplierName: { ru: 'НержМет', en: 'NerzhMet', lt: 'NerzhMet' },
     batchNumber: 'INV-2025-016',
@@ -549,11 +511,6 @@ export const mockBatches = [
   {
     id: 'whb-013',
     productId: 'prod-025',
-    productName: {
-      ru: 'Лист алюминиевый 2мм',
-      en: 'Aluminum sheet 2mm',
-      lt: 'Aliuminio lakštas 2mm',
-    },
     supplierId: 'sup-008',
     supplierName: { ru: 'АлюмСнаб', en: 'AlumSnab', lt: 'AlumSnab' },
     batchNumber: 'INV-2025-017',
@@ -576,11 +533,6 @@ export const mockBatches = [
   {
     id: 'whb-014',
     productId: 'prod-026',
-    productName: {
-      ru: 'Профнастил НС-35',
-      en: 'Corrugated sheet NS-35',
-      lt: 'Profilinis lakštas NS-35',
-    },
     supplierId: 'sup-001',
     supplierName: { ru: 'МеталлТрейд', en: 'MetalTrade', lt: 'MetalTrade' },
     batchNumber: 'INV-2025-018',
@@ -635,11 +587,6 @@ export const mockBatches = [
   {
     id: 'whb-015',
     productId: 'prod-026',
-    productName: {
-      ru: 'Профнастил НС-35',
-      en: 'Corrugated sheet NS-35',
-      lt: 'Profilinis lakštas NS-35',
-    },
     supplierId: 'sup-005',
     supplierName: { ru: 'ЛистМет', en: 'ListMet', lt: 'ListMet' },
     batchNumber: 'INV-2025-019',
@@ -662,7 +609,6 @@ export const mockBatches = [
   {
     id: 'whb-016',
     productId: 'prod-084',
-    productName: { ru: 'Лист стальной 1.5мм', en: 'Steel sheet 1.5mm', lt: 'Plieno lakštas 1.5mm' },
     supplierId: 'sup-001',
     supplierName: { ru: 'МеталлТрейд', en: 'MetalTrade', lt: 'MetalTrade' },
     batchNumber: 'INV-2025-020',
@@ -687,7 +633,6 @@ export const mockBatches = [
   {
     id: 'whb-017',
     productId: 'prod-084',
-    productName: { ru: 'Лист стальной 1.5мм', en: 'Steel sheet 1.5mm', lt: 'Plieno lakštas 1.5mm' },
     supplierId: 'sup-003',
     supplierName: { ru: 'СтальИнвест', en: 'SteelInvest', lt: 'SteelInvest' },
     batchNumber: 'INV-2025-021',
@@ -711,7 +656,6 @@ export const mockBatches = [
   {
     id: 'whb-018',
     productId: 'prod-085',
-    productName: { ru: 'Лист рифленый 4мм', en: 'Chequer plate 4mm', lt: 'Rifliuotas lakštas 4mm' },
     supplierId: 'sup-001',
     supplierName: { ru: 'МеталлТрейд', en: 'MetalTrade', lt: 'MetalTrade' },
     batchNumber: 'INV-2025-022',
@@ -736,11 +680,6 @@ export const mockBatches = [
   {
     id: 'whb-019',
     productId: 'prod-002',
-    productName: {
-      ru: 'Труба профильная 40x20',
-      en: 'Profile pipe 40x20',
-      lt: 'Profilinis vamzdis 40x20',
-    },
     supplierId: 'sup-002',
     supplierName: { ru: 'ТрубоМет', en: 'TruboMet', lt: 'TruboMet' },
     batchNumber: 'INV-2025-002',
@@ -801,11 +740,6 @@ export const mockBatches = [
   {
     id: 'whb-020',
     productId: 'prod-027',
-    productName: {
-      ru: 'Труба профильная 60x40',
-      en: 'Profile pipe 60x40',
-      lt: 'Profilinis vamzdis 60x40',
-    },
     supplierId: 'sup-002',
     supplierName: { ru: 'ТрубоМет', en: 'TruboMet', lt: 'TruboMet' },
     batchNumber: 'INV-2025-023',
@@ -828,11 +762,6 @@ export const mockBatches = [
   {
     id: 'whb-021',
     productId: 'prod-028',
-    productName: {
-      ru: 'Труба профильная 80x80',
-      en: 'Profile pipe 80x80',
-      lt: 'Profilinis vamzdis 80x80',
-    },
     supplierId: 'sup-002',
     supplierName: { ru: 'ТрубоМет', en: 'TruboMet', lt: 'TruboMet' },
     batchNumber: 'INV-2025-024',
@@ -855,7 +784,6 @@ export const mockBatches = [
   {
     id: 'whb-022',
     productId: 'prod-029',
-    productName: { ru: 'Труба круглая 50мм', en: 'Round pipe 50mm', lt: 'Apvalus vamzdis 50mm' },
     supplierId: 'sup-009',
     supplierName: { ru: 'ТрубСервис', en: 'TrubService', lt: 'TrubService' },
     batchNumber: 'INV-2025-025',
@@ -879,7 +807,6 @@ export const mockBatches = [
   {
     id: 'whb-023',
     productId: 'prod-029',
-    productName: { ru: 'Труба круглая 50мм', en: 'Round pipe 50mm', lt: 'Apvalus vamzdis 50mm' },
     supplierId: 'sup-009',
     supplierName: { ru: 'ТрубСервис', en: 'TrubService', lt: 'TrubService' },
     batchNumber: 'INV-2025-026',
@@ -902,7 +829,6 @@ export const mockBatches = [
   {
     id: 'whb-024',
     productId: 'prod-030',
-    productName: { ru: 'Труба круглая 76мм', en: 'Round pipe 76mm', lt: 'Apvalus vamzdis 76mm' },
     supplierId: 'sup-009',
     supplierName: { ru: 'ТрубСервис', en: 'TrubService', lt: 'TrubService' },
     batchNumber: 'INV-2025-027',
@@ -925,7 +851,6 @@ export const mockBatches = [
   {
     id: 'whb-025',
     productId: 'prod-031',
-    productName: { ru: 'Труба водогазопроводная 1"', en: 'Gas pipe 1"', lt: 'Dujų vamzdis 1"' },
     supplierId: 'sup-009',
     supplierName: { ru: 'ТрубСервис', en: 'TrubService', lt: 'TrubService' },
     batchNumber: 'INV-2025-028',
@@ -974,7 +899,6 @@ export const mockBatches = [
   {
     id: 'whb-026',
     productId: 'prod-031',
-    productName: { ru: 'Труба водогазопроводная 1"', en: 'Gas pipe 1"', lt: 'Dujų vamzdis 1"' },
     supplierId: 'sup-002',
     supplierName: { ru: 'ТрубоМет', en: 'TruboMet', lt: 'TruboMet' },
     batchNumber: 'INV-2025-029',
@@ -997,11 +921,6 @@ export const mockBatches = [
   {
     id: 'whb-027',
     productId: 'prod-032',
-    productName: {
-      ru: 'Труба нержавеющая 20мм',
-      en: 'Stainless pipe 20mm',
-      lt: 'Nerūdijančio plieno vamzdis 20mm',
-    },
     supplierId: 'sup-007',
     supplierName: { ru: 'НержМет', en: 'NerzhMet', lt: 'NerzhMet' },
     batchNumber: 'INV-2025-030',
@@ -1048,11 +967,6 @@ export const mockBatches = [
   {
     id: 'whb-028',
     productId: 'prod-033',
-    productName: {
-      ru: 'Труба профильная 20x20',
-      en: 'Profile pipe 20x20',
-      lt: 'Profilinis vamzdis 20x20',
-    },
     supplierId: 'sup-002',
     supplierName: { ru: 'ТрубоМет', en: 'TruboMet', lt: 'TruboMet' },
     batchNumber: 'INV-2025-031',
@@ -1088,11 +1002,6 @@ export const mockBatches = [
   {
     id: 'whb-029',
     productId: 'prod-033',
-    productName: {
-      ru: 'Труба профильная 20x20',
-      en: 'Profile pipe 20x20',
-      lt: 'Profilinis vamzdis 20x20',
-    },
     supplierId: 'sup-009',
     supplierName: { ru: 'ТрубСервис', en: 'TrubService', lt: 'TrubService' },
     batchNumber: 'INV-2025-032',
@@ -1116,11 +1025,6 @@ export const mockBatches = [
   {
     id: 'whb-030',
     productId: 'prod-086',
-    productName: {
-      ru: 'Труба профильная 100x50',
-      en: 'Profile pipe 100x50',
-      lt: 'Profilinis vamzdis 100x50',
-    },
     supplierId: 'sup-002',
     supplierName: { ru: 'ТрубоМет', en: 'TruboMet', lt: 'TruboMet' },
     batchNumber: 'INV-2025-033',
@@ -1143,7 +1047,6 @@ export const mockBatches = [
   {
     id: 'whb-031',
     productId: 'prod-087',
-    productName: { ru: 'Труба круглая 32мм', en: 'Round pipe 32mm', lt: 'Apvalus vamzdis 32mm' },
     supplierId: 'sup-009',
     supplierName: { ru: 'ТрубСервис', en: 'TrubService', lt: 'TrubService' },
     batchNumber: 'INV-2025-034',
@@ -1169,11 +1072,6 @@ export const mockBatches = [
   {
     id: 'whb-032',
     productId: 'prod-005',
-    productName: {
-      ru: 'Сварочная проволока 1.2мм',
-      en: 'Welding wire 1.2mm',
-      lt: 'Suvirinimo viela 1.2mm',
-    },
     supplierId: 'sup-004',
     supplierName: { ru: 'СварКомплект', en: 'SvarKomplekt', lt: 'SvarKomplekt' },
     batchNumber: 'INV-2025-035',
@@ -1227,11 +1125,6 @@ export const mockBatches = [
   {
     id: 'whb-033',
     productId: 'prod-005',
-    productName: {
-      ru: 'Сварочная проволока 1.2мм',
-      en: 'Welding wire 1.2mm',
-      lt: 'Suvirinimo viela 1.2mm',
-    },
     supplierId: 'sup-004',
     supplierName: { ru: 'СварКомплект', en: 'SvarKomplekt', lt: 'SvarKomplekt' },
     batchNumber: 'INV-2025-036',
@@ -1254,11 +1147,6 @@ export const mockBatches = [
   {
     id: 'whb-034',
     productId: 'prod-031',
-    productName: {
-      ru: 'Электроды сварные 3мм',
-      en: 'Welding electrodes 3mm',
-      lt: 'Suvirinimo elektrodai 3mm',
-    },
     supplierId: 'sup-004',
     supplierName: { ru: 'СварКомплект', en: 'SvarKomplekt', lt: 'SvarKomplekt' },
     batchNumber: 'INV-2025-037',
@@ -1281,11 +1169,6 @@ export const mockBatches = [
   {
     id: 'whb-035',
     productId: 'prod-032',
-    productName: {
-      ru: 'Электроды сварные 4мм',
-      en: 'Welding electrodes 4mm',
-      lt: 'Suvirinimo elektrodai 4mm',
-    },
     supplierId: 'sup-004',
     supplierName: { ru: 'СварКомплект', en: 'SvarKomplekt', lt: 'SvarKomplekt' },
     batchNumber: 'INV-2025-038',
@@ -1308,11 +1191,6 @@ export const mockBatches = [
   {
     id: 'whb-036',
     productId: 'prod-033',
-    productName: {
-      ru: 'Сварочная проволока 0.8мм',
-      en: 'Welding wire 0.8mm',
-      lt: 'Suvirinimo viela 0.8mm',
-    },
     supplierId: 'sup-004',
     supplierName: { ru: 'СварКомплект', en: 'SvarKomplekt', lt: 'SvarKomplekt' },
     batchNumber: 'INV-2025-039',
@@ -1335,11 +1213,6 @@ export const mockBatches = [
   {
     id: 'whb-037',
     productId: 'prod-071',
-    productName: {
-      ru: 'Электроды ESAB OK 46.00 3мм',
-      en: 'ESAB OK 46.00 electrodes 3mm',
-      lt: 'ESAB OK 46.00 elektrodai 3mm',
-    },
     supplierId: 'sup-004',
     supplierName: { ru: 'СварКомплект', en: 'SvarKomplekt', lt: 'SvarKomplekt' },
     batchNumber: 'INV-2025-040',
@@ -1386,11 +1259,6 @@ export const mockBatches = [
   {
     id: 'whb-038',
     productId: 'prod-072',
-    productName: {
-      ru: 'Электроды ESAB OK 48.00 4мм',
-      en: 'ESAB OK 48.00 electrodes 4mm',
-      lt: 'ESAB OK 48.00 elektrodai 4mm',
-    },
     supplierId: 'sup-004',
     supplierName: { ru: 'СварКомплект', en: 'SvarKomplekt', lt: 'SvarKomplekt' },
     batchNumber: 'INV-2025-041',
@@ -1414,11 +1282,6 @@ export const mockBatches = [
   {
     id: 'whb-039',
     productId: 'prod-073',
-    productName: {
-      ru: 'Проволока сварочная Lincoln L-56 1мм',
-      en: 'Lincoln L-56 welding wire 1mm',
-      lt: 'Lincoln L-56 suvirinimo viela 1mm',
-    },
     supplierId: 'sup-004',
     supplierName: { ru: 'СварКомплект', en: 'SvarKomplekt', lt: 'SvarKomplekt' },
     batchNumber: 'INV-2025-042',
@@ -1442,11 +1305,6 @@ export const mockBatches = [
   {
     id: 'whb-040',
     productId: 'prod-074',
-    productName: {
-      ru: 'Проволока сварочная ESAB OK Autrod 12.64 1.2мм',
-      en: 'ESAB OK Autrod 12.64 wire 1.2mm',
-      lt: 'ESAB OK Autrod 12.64 viela 1.2mm',
-    },
     supplierId: 'sup-004',
     supplierName: { ru: 'СварКомплект', en: 'SvarKomplekt', lt: 'SvarKomplekt' },
     batchNumber: 'INV-2025-043',
@@ -1470,7 +1328,6 @@ export const mockBatches = [
   {
     id: 'whb-041',
     productId: 'prod-034',
-    productName: { ru: 'Флюс сварочный', en: 'Welding flux', lt: 'Suvirinimo fliusas' },
     supplierId: 'sup-004',
     supplierName: { ru: 'СварКомплект', en: 'SvarKomplekt', lt: 'SvarKomplekt' },
     batchNumber: 'INV-2025-044',
@@ -1494,11 +1351,6 @@ export const mockBatches = [
   {
     id: 'whb-042',
     productId: 'prod-080',
-    productName: {
-      ru: 'Флюс сварочный Lincoln 860 25кг',
-      en: 'Lincoln 860 welding flux 25kg',
-      lt: 'Lincoln 860 suvirinimo fliusas 25kg',
-    },
     supplierId: 'sup-004',
     supplierName: { ru: 'СварКомплект', en: 'SvarKomplekt', lt: 'SvarKomplekt' },
     batchNumber: 'INV-2025-045',
@@ -1535,11 +1387,6 @@ export const mockBatches = [
   {
     id: 'whb-043',
     productId: 'prod-112',
-    productName: {
-      ru: 'Проволока сварочная 1.2мм ER70S-6',
-      en: 'Welding wire 1.2mm ER70S-6',
-      lt: 'Suvirinimo viela 1.2mm ER70S-6',
-    },
     supplierId: 'sup-004',
     supplierName: { ru: 'СварКомплект', en: 'SvarKomplekt', lt: 'SvarKomplekt' },
     batchNumber: 'INV-2025-046',
@@ -1565,11 +1412,6 @@ export const mockBatches = [
   {
     id: 'whb-044',
     productId: 'prod-035',
-    productName: {
-      ru: 'Газ защитный Ar/CO2 80/20',
-      en: 'Shielding gas Ar/CO2 80/20',
-      lt: 'Apsauginės dujos Ar/CO2 80/20',
-    },
     supplierId: 'sup-010',
     supplierName: { ru: 'ГазСнаб', en: 'GazSnab', lt: 'GazSnab' },
     batchNumber: 'INV-2025-047',
@@ -1606,11 +1448,6 @@ export const mockBatches = [
   {
     id: 'whb-045',
     productId: 'prod-035',
-    productName: {
-      ru: 'Газ защитный Ar/CO2 80/20',
-      en: 'Shielding gas Ar/CO2 80/20',
-      lt: 'Apsauginės dujos Ar/CO2 80/20',
-    },
     supplierId: 'sup-010',
     supplierName: { ru: 'ГазСнаб', en: 'GazSnab', lt: 'GazSnab' },
     batchNumber: 'INV-2025-048',
@@ -1652,7 +1489,6 @@ export const mockBatches = [
   {
     id: 'whb-046',
     productId: 'prod-075',
-    productName: { ru: 'Аргон сжатый 40л', en: 'Compressed argon 40L', lt: 'Spaustas argonas 40L' },
     supplierId: 'sup-010',
     supplierName: { ru: 'ГазСнаб', en: 'GazSnab', lt: 'GazSnab' },
     batchNumber: 'INV-2025-049',
@@ -1675,11 +1511,6 @@ export const mockBatches = [
   {
     id: 'whb-047',
     productId: 'prod-076',
-    productName: {
-      ru: 'Смесь газов Corgon 18 (Ar+CO2) 40л',
-      en: 'Corgon 18 gas mix (Ar+CO2) 40L',
-      lt: 'Corgon 18 dujų mišinys (Ar+CO2) 40L',
-    },
     supplierId: 'sup-010',
     supplierName: { ru: 'ГазСнаб', en: 'GazSnab', lt: 'GazSnab' },
     batchNumber: 'INV-2025-050',
@@ -1703,11 +1534,6 @@ export const mockBatches = [
   {
     id: 'whb-048',
     productId: 'prod-077',
-    productName: {
-      ru: 'Кислород сжатый 40л',
-      en: 'Compressed oxygen 40L',
-      lt: 'Spaustas deguonis 40L',
-    },
     supplierId: 'sup-010',
     supplierName: { ru: 'ГазСнаб', en: 'GazSnab', lt: 'GazSnab' },
     batchNumber: 'INV-2025-051',
@@ -1744,11 +1570,6 @@ export const mockBatches = [
   {
     id: 'whb-049',
     productId: 'prod-078',
-    productName: {
-      ru: 'Пропан сжатый 50л',
-      en: 'Compressed propane 50L',
-      lt: 'Spaustas propanas 50L',
-    },
     supplierId: 'sup-010',
     supplierName: { ru: 'ГазСнаб', en: 'GazSnab', lt: 'GazSnab' },
     batchNumber: 'INV-2025-052',
@@ -1772,11 +1593,6 @@ export const mockBatches = [
   {
     id: 'whb-050',
     productId: 'prod-079',
-    productName: {
-      ru: 'Ацетилен растворенный 40л',
-      en: 'Dissolved acetylene 40L',
-      lt: 'Ištirpintas acetilenas 40L',
-    },
     supplierId: 'sup-010',
     supplierName: { ru: 'ГазСнаб', en: 'GazSnab', lt: 'GazSnab' },
     batchNumber: 'INV-2025-053',
@@ -1801,11 +1617,6 @@ export const mockBatches = [
   {
     id: 'whb-051',
     productId: 'prod-036',
-    productName: {
-      ru: 'Отрезной круг 125x1мм',
-      en: 'Cut-off wheel 125x1mm',
-      lt: 'Pjovimo diskas 125x1mm',
-    },
     supplierId: 'sup-011',
     supplierName: { ru: 'АбрТрейд', en: 'AbrTrade', lt: 'AbrTrade' },
     batchNumber: 'INV-2025-054',
@@ -1842,11 +1653,6 @@ export const mockBatches = [
   {
     id: 'whb-052',
     productId: 'prod-036',
-    productName: {
-      ru: 'Отрезной круг 125x1мм',
-      en: 'Cut-off wheel 125x1mm',
-      lt: 'Pjovimo diskas 125x1mm',
-    },
     supplierId: 'sup-011',
     supplierName: { ru: 'АбрТрейд', en: 'AbrTrade', lt: 'AbrTrade' },
     batchNumber: 'INV-2025-055',
@@ -1869,11 +1675,6 @@ export const mockBatches = [
   {
     id: 'whb-053',
     productId: 'prod-037',
-    productName: {
-      ru: 'Шлифовальный круг 125мм',
-      en: 'Grinding wheel 125mm',
-      lt: 'Šlifavimo diskas 125mm',
-    },
     supplierId: 'sup-011',
     supplierName: { ru: 'АбрТрейд', en: 'AbrTrade', lt: 'AbrTrade' },
     batchNumber: 'INV-2025-056',
@@ -1897,11 +1698,6 @@ export const mockBatches = [
   {
     id: 'whb-054',
     productId: 'prod-037',
-    productName: {
-      ru: 'Шлифовальный круг 125мм',
-      en: 'Grinding wheel 125mm',
-      lt: 'Šlifavimo diskas 125mm',
-    },
     supplierId: 'sup-011',
     supplierName: { ru: 'АбрТрейд', en: 'AbrTrade', lt: 'AbrTrade' },
     batchNumber: 'INV-2025-057',
@@ -1926,11 +1722,6 @@ export const mockBatches = [
   {
     id: 'whb-055',
     productId: 'prod-038',
-    productName: {
-      ru: 'Сверло по металлу 10мм HSS',
-      en: 'HSS drill bit 10mm',
-      lt: 'Grąžtas metalui 10mm HSS',
-    },
     supplierId: 'sup-012',
     supplierName: { ru: 'ИнстрМаркет', en: 'InstrMarket', lt: 'InstrMarket' },
     batchNumber: 'INV-2025-058',
@@ -1966,7 +1757,6 @@ export const mockBatches = [
   {
     id: 'whb-056',
     productId: 'prod-039',
-    productName: { ru: 'Метчик M10 HSS', en: 'Tap M10 HSS', lt: 'Sriegtuvas M10 HSS' },
     supplierId: 'sup-012',
     supplierName: { ru: 'ИнстрМаркет', en: 'InstrMarket', lt: 'InstrMarket' },
     batchNumber: 'INV-2025-059',
@@ -1989,7 +1779,6 @@ export const mockBatches = [
   {
     id: 'whb-057',
     productId: 'prod-040',
-    productName: { ru: 'Плашка M10 HSS', en: 'Die M10 HSS', lt: 'Srieginė plokštelė M10 HSS' },
     supplierId: 'sup-012',
     supplierName: { ru: 'ИнстрМаркет', en: 'InstrMarket', lt: 'InstrMarket' },
     batchNumber: 'INV-2025-060',
@@ -2014,11 +1803,6 @@ export const mockBatches = [
   {
     id: 'whb-058',
     productId: 'prod-041',
-    productName: {
-      ru: 'Сварочный аппарат MIG 250',
-      en: 'MIG welder 250A',
-      lt: 'MIG suvirinimo aparatas 250A',
-    },
     supplierId: 'sup-013',
     supplierName: { ru: 'ОборудСервис', en: 'OborudServis', lt: 'OborudServis' },
     batchNumber: 'INV-2025-061',
@@ -2090,11 +1874,6 @@ export const mockBatches = [
   {
     id: 'whb-059',
     productId: 'prod-042',
-    productName: {
-      ru: 'Плазменный резак 40A',
-      en: 'Plasma cutter 40A',
-      lt: 'Plazminis pjaustytuvas 40A',
-    },
     supplierId: 'sup-013',
     supplierName: { ru: 'ОборудСервис', en: 'OborudServis', lt: 'OborudServis' },
     batchNumber: 'INV-2025-062',
@@ -2141,11 +1920,6 @@ export const mockBatches = [
   {
     id: 'whb-060',
     productId: 'prod-081',
-    productName: {
-      ru: 'Сварочный аппарат Lincoln Invertec 250',
-      en: 'Lincoln Invertec 250 welder',
-      lt: 'Lincoln Invertec 250 suvirinimo aparatas',
-    },
     supplierId: 'sup-013',
     supplierName: { ru: 'ОборудСервис', en: 'OborudServis', lt: 'OborudServis' },
     batchNumber: 'INV-2025-063',
@@ -2192,11 +1966,6 @@ export const mockBatches = [
   {
     id: 'whb-061',
     productId: 'prod-082',
-    productName: {
-      ru: 'Сварочный аппарат ESAB Rebel EMP 235',
-      en: 'ESAB Rebel EMP 235 welder',
-      lt: 'ESAB Rebel EMP 235 suvirinimo aparatas',
-    },
     supplierId: 'sup-013',
     supplierName: { ru: 'ОборудСервис', en: 'OborudServis', lt: 'OborudServis' },
     batchNumber: 'INV-2025-064',
@@ -2245,11 +2014,6 @@ export const mockBatches = [
   {
     id: 'whb-062',
     productId: 'prod-101',
-    productName: {
-      ru: 'Балка IPE 200 S235JR',
-      en: 'IPE 200 beam S235JR',
-      lt: 'IPE 200 sija S235JR',
-    },
     supplierId: 'sup-014',
     supplierName: { ru: 'МеталлБаза', en: 'MetalBaza', lt: 'MetalBaza' },
     batchNumber: 'INV-2025-065',
@@ -2296,11 +2060,6 @@ export const mockBatches = [
   {
     id: 'whb-063',
     productId: 'prod-102',
-    productName: {
-      ru: 'Балка HEA 300 S355J2',
-      en: 'HEA 300 beam S355J2',
-      lt: 'HEA 300 sija S355J2',
-    },
     supplierId: 'sup-014',
     supplierName: { ru: 'МеталлБаза', en: 'MetalBaza', lt: 'MetalBaza' },
     batchNumber: 'INV-2025-066',
@@ -2347,11 +2106,6 @@ export const mockBatches = [
   {
     id: 'whb-064',
     productId: 'prod-103',
-    productName: {
-      ru: 'Швеллер UPN 100 S235JR',
-      en: 'UPN 100 channel S235JR',
-      lt: 'UPN 100 šveleris S235JR',
-    },
     supplierId: 'sup-014',
     supplierName: { ru: 'МеталлБаза', en: 'MetalBaza', lt: 'MetalBaza' },
     batchNumber: 'INV-2025-067',
@@ -2374,11 +2128,6 @@ export const mockBatches = [
   {
     id: 'whb-065',
     productId: 'prod-104',
-    productName: {
-      ru: 'Швеллер UPN 200 S355J2',
-      en: 'UPN 200 channel S355J2',
-      lt: 'UPN 200 šveleris S355J2',
-    },
     supplierId: 'sup-014',
     supplierName: { ru: 'МеталлБаза', en: 'MetalBaza', lt: 'MetalBaza' },
     batchNumber: 'INV-2025-068',
@@ -2401,11 +2150,6 @@ export const mockBatches = [
   {
     id: 'whb-066',
     productId: 'prod-105',
-    productName: {
-      ru: 'Уголок равнополочный 50x50x5 S235JR',
-      en: 'Equal angle 50x50x5 S235JR',
-      lt: 'Lygiakraštis kampainis 50x50x5 S235JR',
-    },
     supplierId: 'sup-014',
     supplierName: { ru: 'МеталлБаза', en: 'MetalBaza', lt: 'MetalBaza' },
     batchNumber: 'INV-2025-069',
@@ -2441,11 +2185,6 @@ export const mockBatches = [
   {
     id: 'whb-067',
     productId: 'prod-106',
-    productName: {
-      ru: 'Уголок неравнополочный 80x60x6 S355J2',
-      en: 'Unequal angle 80x60x6 S355J2',
-      lt: 'Nelygiakraštis kampainis 80x60x6 S355J2',
-    },
     supplierId: 'sup-014',
     supplierName: { ru: 'МеталлБаза', en: 'MetalBaza', lt: 'MetalBaza' },
     batchNumber: 'INV-2025-070',
@@ -2470,7 +2209,6 @@ export const mockBatches = [
   {
     id: 'whb-068',
     productId: 'prod-107',
-    productName: { ru: 'Арматура A500C 12мм', en: 'Rebar A500C 12mm', lt: 'Armatūra A500C 12mm' },
     supplierId: 'sup-014',
     supplierName: { ru: 'МеталлБаза', en: 'MetalBaza', lt: 'MetalBaza' },
     batchNumber: 'INV-2025-071',
@@ -2517,7 +2255,6 @@ export const mockBatches = [
   {
     id: 'whb-069',
     productId: 'prod-108',
-    productName: { ru: 'Арматура B500C 16мм', en: 'Rebar B500C 16mm', lt: 'Armatūra B500C 16mm' },
     supplierId: 'sup-014',
     supplierName: { ru: 'МеталлБаза', en: 'MetalBaza', lt: 'MetalBaza' },
     batchNumber: 'INV-2025-072',
@@ -2555,11 +2292,6 @@ export const mockBatches = [
   {
     id: 'whb-070',
     productId: 'prod-109',
-    productName: {
-      ru: 'Профиль квадратный 40x40x3 S235JR',
-      en: 'Square tube 40x40x3 S235JR',
-      lt: 'Kvadratinis vamzdis 40x40x3 S235JR',
-    },
     supplierId: 'sup-014',
     supplierName: { ru: 'МеталлБаза', en: 'MetalBaza', lt: 'MetalBaza' },
     batchNumber: 'INV-2025-073',
@@ -2595,11 +2327,6 @@ export const mockBatches = [
   {
     id: 'whb-071',
     productId: 'prod-110',
-    productName: {
-      ru: 'Профиль прямоугольный 80x40x4 S355J2',
-      en: 'Rectangular tube 80x40x4 S355J2',
-      lt: 'Stačiakampis vamzdis 80x40x4 S355J2',
-    },
     supplierId: 'sup-014',
     supplierName: { ru: 'МеталлБаза', en: 'MetalBaza', lt: 'MetalBaza' },
     batchNumber: 'INV-2025-074',
@@ -2622,11 +2349,6 @@ export const mockBatches = [
   {
     id: 'whb-072',
     productId: 'prod-111',
-    productName: {
-      ru: 'Проволока оцинкованная 3мм',
-      en: 'Galvanized wire 3mm',
-      lt: 'Cinkuota viela 3mm',
-    },
     supplierId: 'sup-015',
     supplierName: { ru: 'МетИзделия', en: 'MetIzdelia', lt: 'MetIzdelia' },
     batchNumber: 'INV-2025-075',
@@ -2651,11 +2373,6 @@ export const mockBatches = [
   {
     id: 'whb-073',
     productId: 'prod-113',
-    productName: {
-      ru: 'Отвод 90° DN50 S235JR',
-      en: 'Elbow 90° DN50 S235JR',
-      lt: 'Alkūnė 90° DN50 S235JR',
-    },
     supplierId: 'sup-015',
     supplierName: { ru: 'МетИзделия', en: 'MetIzdelia', lt: 'MetIzdelia' },
     batchNumber: 'INV-2025-076',
@@ -2691,11 +2408,6 @@ export const mockBatches = [
   {
     id: 'whb-074',
     productId: 'prod-114',
-    productName: {
-      ru: 'Фланец DN100 PN16 S355J2',
-      en: 'Flange DN100 PN16 S355J2',
-      lt: 'Flanšas DN100 PN16 S355J2',
-    },
     supplierId: 'sup-015',
     supplierName: { ru: 'МетИзделия', en: 'MetIzdelia', lt: 'MetIzdelia' },
     batchNumber: 'INV-2025-077',
@@ -2719,7 +2431,6 @@ export const mockBatches = [
   {
     id: 'whb-077',
     productId: 'prod-004',
-    productName: { ru: 'Труба стальная 50мм', en: 'Steel pipe 50mm', lt: 'Plieninis vamzdis 50mm' },
     supplierId: 'sup-002',
     supplierName: { ru: 'ТрубоМет', en: 'TruboMet', lt: 'TruboMet' },
     batchNumber: 'INV-2025-078',
@@ -2777,7 +2488,6 @@ export const mockBatches = [
   {
     id: 'whb-078',
     productId: 'prod-004',
-    productName: { ru: 'Труба стальная 50мм', en: 'Steel pipe 50mm', lt: 'Plieninis vamzdis 50mm' },
     supplierId: 'sup-009',
     supplierName: { ru: 'ТрубСервис', en: 'TrubService', lt: 'TrubService' },
     batchNumber: 'INV-2025-079',
@@ -2809,7 +2519,6 @@ export const mockBatches = [
   {
     id: 'whb-079',
     productId: 'prod-004',
-    productName: { ru: 'Труба стальная 50мм', en: 'Steel pipe 50mm', lt: 'Plieninis vamzdis 50mm' },
     supplierId: 'sup-002',
     supplierName: { ru: 'ТрубоМет', en: 'TruboMet', lt: 'TruboMet' },
     batchNumber: 'INV-2025-080',
@@ -2834,11 +2543,6 @@ export const mockBatches = [
   {
     id: 'whb-080',
     productId: 'prod-006',
-    productName: {
-      ru: 'Электроды сварочные 3мм',
-      en: 'Welding electrodes 3mm',
-      lt: 'Suvirinimo elektrodai 3mm',
-    },
     supplierId: 'sup-004',
     supplierName: { ru: 'СварКомплект', en: 'SvarKomplekt', lt: 'SvarKomplekt' },
     batchNumber: 'INV-2025-081',
@@ -2870,11 +2574,6 @@ export const mockBatches = [
   {
     id: 'whb-081',
     productId: 'prod-006',
-    productName: {
-      ru: 'Электроды сварочные 3мм',
-      en: 'Welding electrodes 3mm',
-      lt: 'Suvirinimo elektrodai 3mm',
-    },
     supplierId: 'sup-004',
     supplierName: { ru: 'СварКомплект', en: 'SvarKomplekt', lt: 'SvarKomplekt' },
     batchNumber: 'INV-2025-082',
@@ -2899,7 +2598,6 @@ export const mockBatches = [
   {
     id: 'whb-082',
     productId: 'prod-007',
-    productName: { ru: 'Аргон газообразный', en: 'Argon gas', lt: 'Argono dujos' },
     supplierId: 'sup-010',
     supplierName: { ru: 'ГазСнаб', en: 'GazSnab', lt: 'GazSnab' },
     batchNumber: 'INV-2025-083',
@@ -2932,11 +2630,6 @@ export const mockBatches = [
   {
     id: 'whb-083',
     productId: 'prod-008',
-    productName: {
-      ru: 'Круги отрезные 230мм',
-      en: 'Cut-off wheels 230mm',
-      lt: 'Pjovimo diskai 230mm',
-    },
     supplierId: 'sup-011',
     supplierName: { ru: 'АбрТрейд', en: 'AbrTrade', lt: 'AbrTrade' },
     batchNumber: 'INV-2025-084',
@@ -2961,7 +2654,6 @@ export const mockBatches = [
   {
     id: 'whb-084',
     productId: 'prod-010',
-    productName: { ru: 'Балка двутавровая 20', en: 'I-beam 20', lt: 'Dvitėjinė sija 20' },
     supplierId: 'sup-014',
     supplierName: { ru: 'МеталлБаза', en: 'MetalBaza', lt: 'MetalBaza' },
     batchNumber: 'INV-2025-085',
@@ -2993,7 +2685,6 @@ export const mockBatches = [
   {
     id: 'whb-085',
     productId: 'prod-010',
-    productName: { ru: 'Балка двутавровая 20', en: 'I-beam 20', lt: 'Dvitėjinė sija 20' },
     supplierId: 'sup-014',
     supplierName: { ru: 'МеталлБаза', en: 'MetalBaza', lt: 'MetalBaza' },
     batchNumber: 'INV-2025-086',
@@ -3018,7 +2709,6 @@ export const mockBatches = [
   {
     id: 'whb-086',
     productId: 'prod-011',
-    productName: { ru: 'Швеллер 12', en: 'Channel 12', lt: 'Kanalas 12' },
     supplierId: 'sup-014',
     supplierName: { ru: 'МеталлБаза', en: 'MetalBaza', lt: 'MetalBaza' },
     batchNumber: 'INV-2025-087',
@@ -3050,7 +2740,6 @@ export const mockBatches = [
   {
     id: 'whb-087',
     productId: 'prod-011',
-    productName: { ru: 'Швеллер 12', en: 'Channel 12', lt: 'Kanalas 12' },
     supplierId: 'sup-014',
     supplierName: { ru: 'МеталлБаза', en: 'MetalBaza', lt: 'MetalBaza' },
     batchNumber: 'INV-2025-088',
@@ -3075,7 +2764,6 @@ export const mockBatches = [
   {
     id: 'whb-088',
     productId: 'prod-012',
-    productName: { ru: 'Арматура 12мм', en: 'Rebar 12mm', lt: 'Armatūra 12mm' },
     supplierId: 'sup-014',
     supplierName: { ru: 'МеталлБаза', en: 'MetalBaza', lt: 'MetalBaza' },
     batchNumber: 'INV-2025-089',
@@ -3107,7 +2795,6 @@ export const mockBatches = [
   {
     id: 'whb-089',
     productId: 'prod-012',
-    productName: { ru: 'Арматура 12мм', en: 'Rebar 12mm', lt: 'Armatūra 12mm' },
     supplierId: 'sup-014',
     supplierName: { ru: 'МеталлБаза', en: 'MetalBaza', lt: 'MetalBaza' },
     batchNumber: 'INV-2025-090',
@@ -3131,7 +2818,6 @@ export const mockBatches = [
   {
     id: 'whb-090',
     productId: 'prod-012',
-    productName: { ru: 'Арматура 12мм', en: 'Rebar 12mm', lt: 'Armatūra 12mm' },
     supplierId: 'sup-014',
     supplierName: { ru: 'МеталлБаза', en: 'MetalBaza', lt: 'MetalBaza' },
     batchNumber: 'INV-2025-091',
@@ -3156,11 +2842,6 @@ export const mockBatches = [
   {
     id: 'whb-091',
     productId: 'prod-013',
-    productName: {
-      ru: 'Профиль стальной 40x40',
-      en: 'Steel profile 40x40',
-      lt: 'Plieninis profilis 40x40',
-    },
     supplierId: 'sup-014',
     supplierName: { ru: 'МеталлБаза', en: 'MetalBaza', lt: 'MetalBaza' },
     batchNumber: 'INV-2025-092',
@@ -3210,11 +2891,6 @@ export const mockBatches = [
   {
     id: 'whb-092',
     productId: 'prod-013',
-    productName: {
-      ru: 'Профиль стальной 40x40',
-      en: 'Steel profile 40x40',
-      lt: 'Plieninis profilis 40x40',
-    },
     supplierId: 'sup-014',
     supplierName: { ru: 'МеталлБаза', en: 'MetalBaza', lt: 'MetalBaza' },
     batchNumber: 'INV-2025-093',
@@ -3239,11 +2915,6 @@ export const mockBatches = [
   {
     id: 'whb-093',
     productId: 'prod-014',
-    productName: {
-      ru: 'Фитинг стальной 1/2"',
-      en: 'Steel fitting 1/2"',
-      lt: 'Plieninė jungtis 1/2"',
-    },
     supplierId: 'sup-015',
     supplierName: { ru: 'МетИзделия', en: 'MetIzdelia', lt: 'MetIzdelia' },
     batchNumber: 'INV-2025-094',
@@ -3275,11 +2946,6 @@ export const mockBatches = [
   {
     id: 'whb-094',
     productId: 'prod-014',
-    productName: {
-      ru: 'Фитинг стальной 1/2"',
-      en: 'Steel fitting 1/2"',
-      lt: 'Plieninė jungtis 1/2"',
-    },
     supplierId: 'sup-015',
     supplierName: { ru: 'МетИзделия', en: 'MetIzdelia', lt: 'MetIzdelia' },
     batchNumber: 'INV-2025-095',
@@ -3304,11 +2970,6 @@ export const mockBatches = [
   {
     id: 'whb-095',
     productId: 'prod-015',
-    productName: {
-      ru: 'Уголок стальной 50x50',
-      en: 'Steel angle 50x50',
-      lt: 'Plieninis kampas 50x50',
-    },
     supplierId: 'sup-014',
     supplierName: { ru: 'МеталлБаза', en: 'MetalBaza', lt: 'MetalBaza' },
     batchNumber: 'INV-2025-096',
@@ -3340,11 +3001,6 @@ export const mockBatches = [
   {
     id: 'whb-096',
     productId: 'prod-015',
-    productName: {
-      ru: 'Уголок стальной 50x50',
-      en: 'Steel angle 50x50',
-      lt: 'Plieninis kampas 50x50',
-    },
     supplierId: 'sup-014',
     supplierName: { ru: 'МеталлБаза', en: 'MetalBaza', lt: 'MetalBaza' },
     batchNumber: 'INV-2025-097',
@@ -3369,7 +3025,6 @@ export const mockBatches = [
   {
     id: 'whb-097',
     productId: 'prod-016',
-    productName: { ru: 'Кислород газообразный', en: 'Oxygen gas', lt: 'Deguonies dujos' },
     supplierId: 'sup-010',
     supplierName: { ru: 'ГазСнаб', en: 'GazSnab', lt: 'GazSnab' },
     batchNumber: 'INV-2025-098',
@@ -3402,7 +3057,6 @@ export const mockBatches = [
   {
     id: 'whb-098',
     productId: 'prod-017',
-    productName: { ru: 'Дрель ударная', en: 'Hammer drill', lt: 'Perforatorius' },
     supplierId: 'sup-012',
     supplierName: { ru: 'ИнстрМаркет', en: 'InstrMarket', lt: 'InstrMarket' },
     batchNumber: 'INV-2025-099',
@@ -3435,7 +3089,6 @@ export const mockBatches = [
   {
     id: 'whb-099',
     productId: 'prod-018',
-    productName: { ru: 'Болгарка угловая', en: 'Angle grinder', lt: 'Kampinis šlifuoklis' },
     supplierId: 'sup-012',
     supplierName: { ru: 'ИнстрМаркет', en: 'InstrMarket', lt: 'InstrMarket' },
     batchNumber: 'INV-2025-100',
@@ -3468,7 +3121,6 @@ export const mockBatches = [
   {
     id: 'whb-100',
     productId: 'prod-019',
-    productName: { ru: 'Сварочный аппарат', en: 'Welding machine', lt: 'Suvirinimo aparatas' },
     supplierId: 'sup-013',
     supplierName: { ru: 'ОборудСервис', en: 'OborudServis', lt: 'OborudServis' },
     batchNumber: 'INV-2025-101',

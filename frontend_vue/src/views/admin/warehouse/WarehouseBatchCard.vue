@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n'
 import { useHead } from '@/composables/useHead'
 import { useSettings } from '@/composables/useSettings'
 import { useUnitLabel } from '@/composables/useUnitLabel'
+import { useProductNames } from '@/composables/useProductNames'
 import { useWarehouseBatch } from '@/composables/useWarehouseBatch'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
 import Breadcrumb from '@/components/admin/Breadcrumb.vue'
@@ -23,6 +24,7 @@ import '@styles/admin/components/_audit-log.css'
 
 const { t, locale } = useI18n()
 const unitLabel = useUnitLabel()
+const { productName } = useProductNames()
 const route = useRoute()
 const { settings } = useSettings()
 
@@ -112,7 +114,7 @@ const pageTitle = computed(() =>
   batch.value
     ? t('warehouse.batch_card_title', { batchNumber: batch.value.batchNumber }) +
       ' — ' +
-      tf(batch.value.productName)
+      productName(batch.value.productId)
     : t('warehouse.header_title'),
 )
 
@@ -381,7 +383,7 @@ async function onMovementCreated() {
               label:
                 t('warehouse.batch_card_title', { batchNumber: batch.batchNumber }) +
                 ' — ' +
-                tf(batch.productName),
+                productName(batch.productId),
             },
           ]"
         />
@@ -389,7 +391,7 @@ async function onMovementCreated() {
           <div class="batch-card-header-left">
             <h1 class="page-title">
               {{ t('warehouse.batch_card_title', { batchNumber: batch.batchNumber }) }} —
-              {{ tf(batch.productName) }}
+              {{ productName(batch.productId) }}
               <router-link
                 v-tooltip="t('warehouse.open_product_card')"
                 :to="{ name: 'admin-product-card', params: { id: batch.productId } }"
@@ -639,7 +641,7 @@ async function onMovementCreated() {
                     <SvgIcon name="external-link" :width="14" :height="14" />
                   </router-link>
                   <input
-                    :value="tf(batch.productName)"
+                    :value="productName(batch.productId)"
                     class="glass-input"
                     type="text"
                     readonly

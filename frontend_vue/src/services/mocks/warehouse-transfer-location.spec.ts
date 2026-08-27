@@ -57,7 +57,6 @@ async function freshOffcut(quantity: number, location: string) {
   const batch = await freshBatch(quantity, location)
   const offcut = await mockCreateOffcut({
     batchId: batch.id,
-    productId: 'prod-001',
     quantity: 1,
     weightKg: quantity,
     uomId: 'uom-kg',

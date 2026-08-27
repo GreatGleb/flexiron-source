@@ -18,6 +18,7 @@ import { useDirtyCheck } from './useDirtyCheck'
 import { useToast } from './useToast'
 import { useTranslatedField } from './useTranslatedData'
 import { useSettings } from './useSettings'
+import { ensureProductNames } from './useProductNames'
 import type {
   WarehouseBatch,
   BatchPatchPayload,
@@ -194,7 +195,7 @@ export function useWarehouseBatch(id: string) {
     loading.value = true
     error.value = null
     try {
-      const data = await getBatch(id)
+      const [data] = await Promise.all([getBatch(id), ensureProductNames()])
       batch.value = data
       const parsed = parseLocation(data.location)
       form.value = {

@@ -9,6 +9,7 @@ import { useCategories } from '@/composables/useCategories'
 import { useToast } from '@/composables/useToast'
 import { useSettings } from '@/composables/useSettings'
 import { useUnitLabel } from '@/composables/useUnitLabel'
+import { useProductNames } from '@/composables/useProductNames'
 import type { WarehouseTab } from '@/composables/useWarehouse'
 import type {
   BatchStatus,
@@ -35,6 +36,7 @@ import '@styles/admin/warehouse_list.css'
 const { t, locale } = useI18n()
 const { settings } = useSettings()
 const unitLabel = useUnitLabel()
+const { productName } = useProductNames()
 const pageConfigEnabled = useFeatureFlag('warehouseStockPageConfig')
 const batchesPageConfigEnabled = useFeatureFlag('warehouseBatchesPageConfig')
 const offcutsPageConfigEnabled = useFeatureFlag('warehouseOffcutsPageConfig')
@@ -2223,7 +2225,7 @@ const deficitFiltersActive = computed(() => {
                     :to="{ name: 'admin-warehouse-batch', params: { id: batch.id } }"
                     class="name-link"
                   >
-                    {{ tf(batch.productName) }}
+                    {{ productName(batch.productId) }}
                   </router-link>
                 </td>
                 <td>{{ batch.batchNumber }}</td>
@@ -2262,7 +2264,7 @@ const deficitFiltersActive = computed(() => {
                       v-tooltip="t('warehouse.btn_delete')"
                       class="action-icon-btn action-danger"
                       data-test="batch-delete-btn"
-                      @click.stop="confirmDeleteBatch(batch.id, tf(batch.productName))"
+                      @click.stop="confirmDeleteBatch(batch.id, productName(batch.productId))"
                     >
                       <SvgIcon name="trash" :width="16" :height="16" />
                     </button>
@@ -2734,7 +2736,7 @@ const deficitFiltersActive = computed(() => {
                     :to="{ name: 'admin-warehouse-offcut', params: { id: offcut.id } }"
                     class="name-link"
                   >
-                    {{ tf(offcut.productName) }}
+                    {{ productName(offcut.productId) }}
                   </router-link>
                 </td>
                 <td>
@@ -2812,7 +2814,7 @@ const deficitFiltersActive = computed(() => {
                       v-tooltip="t('warehouse.btn_delete')"
                       class="action-icon-btn action-danger"
                       data-test="offcut-delete-btn"
-                      @click.stop="confirmDeleteOffcut(offcut.id, tf(offcut.productName))"
+                      @click.stop="confirmDeleteOffcut(offcut.id, productName(offcut.productId))"
                     >
                       <SvgIcon name="trash" :width="16" :height="16" />
                     </button>
@@ -3283,7 +3285,7 @@ const deficitFiltersActive = computed(() => {
                     :to="{ name: 'admin-warehouse-movement', params: { id: mov.id } }"
                     class="name-link"
                   >
-                    {{ tf(mov.productName) }}
+                    {{ productName(mov.productId) }}
                   </router-link>
                 </td>
                 <td>

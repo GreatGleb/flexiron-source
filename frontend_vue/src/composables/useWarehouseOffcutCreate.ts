@@ -38,7 +38,6 @@ export function useWarehouseOffcutCreate() {
     }
   >({
     batchId: '',
-    productId: '',
     categoryId: null,
     offcutType: undefined,
     lengthMm: null,
@@ -219,14 +218,12 @@ export function useWarehouseOffcutCreate() {
   watch(selectedProductId, (newVal) => {
     if (newVal) {
       const product = products.value.find((p) => p.id === newVal) ?? null
-      form.productId = newVal
       form.categoryId = product?.categoryId ?? null
       form.offcutType = getOffcutTypeForProduct(product)
       form.batchId = ''
       selectedBatchId.value = null
       loadBatches(newVal)
     } else {
-      form.productId = ''
       form.categoryId = null
       form.offcutType = undefined
       form.uomId = 'uom-pcs'
@@ -289,7 +286,9 @@ export function useWarehouseOffcutCreate() {
   // ─── Save ─────────────────────────────────────────────────────────────────
   async function save(fileIds?: string[]): Promise<WarehouseOffcut | null> {
     // Validate required fields
-    if (!form.batchId || !form.productId) {
+    // Товар в запрос не уходит (п. 4e): его знает партия. Но выбрать его всё равно
+    // надо — партии показываются только для выбранного товара.
+    if (!form.batchId || !selectedProductId.value) {
       error.value = t('warehouse.toast_offcut_create_error')
       toast.error(t('warehouse.toast_offcut_create_error'))
       return null
@@ -325,7 +324,6 @@ export function useWarehouseOffcutCreate() {
   // ─── Reset ────────────────────────────────────────────────────────────────
   function reset() {
     form.batchId = ''
-    form.productId = ''
     form.categoryId = null
     form.offcutType = undefined
     form.lengthMm = null

@@ -50,7 +50,6 @@ describe('пример из ТЗ проходит через мок целико
       wasteQuantity: 0,
       offcuts: [
         {
-          productId: 'prod-001',
           quantity: 1,
           lengthMm: 2500,
           uomId: 'uom-m',
@@ -74,7 +73,6 @@ describe('пример из ТЗ проходит через мок целико
       wasteQuantity: 0,
       offcuts: [
         {
-          productId: 'prod-001',
           quantity: 1,
           lengthMm: 1500,
           uomId: 'uom-m',
@@ -99,13 +97,12 @@ describe('след из движений: обрезки одним типом, 
       wasteQuantity: 0,
       offcuts: [
         {
-          productId: 'prod-001',
           quantity: 2,
           lengthMm: 1500,
           uomId: 'uom-m',
           offcutType: 'linear',
         },
-        { productId: 'prod-001', quantity: 2, lengthMm: 750, uomId: 'uom-m', offcutType: 'linear' },
+        { quantity: 2, lengthMm: 750, uomId: 'uom-m', offcutType: 'linear' },
       ],
     })
 
@@ -125,7 +122,6 @@ describe('след из движений: обрезки одним типом, 
       wasteQuantity: 0.5,
       offcuts: [
         {
-          productId: 'prod-001',
           quantity: 3,
           lengthMm: 1000,
           uomId: 'uom-m',
@@ -151,7 +147,7 @@ describe('след из движений: обрезки одним типом, 
       sourceQuantity: 2,
       kerfMm: 0,
       wasteQuantity: 0,
-      offcuts: [{ productId: 'prod-001', quantity: 2, uomId: 'uom-pcs', offcutType: 'linear' }],
+      offcuts: [{ quantity: 2, uomId: 'uom-pcs', offcutType: 'linear' }],
     })
 
     const movements = await movementsOf(batch.batchNumber)
@@ -166,7 +162,6 @@ describe('оба пути списывают одинаково', () => {
     const manual = await freshBatch(100, 'uom-m')
     await mockCreateOffcut({
       batchId: manual.id,
-      productId: 'prod-001',
       quantity: 2,
       lengthMm: 1250,
       uomId: 'uom-m',
@@ -181,7 +176,6 @@ describe('оба пути списывают одинаково', () => {
       wasteQuantity: 0,
       offcuts: [
         {
-          productId: 'prod-001',
           quantity: 2,
           lengthMm: 1250,
           uomId: 'uom-m',
@@ -199,7 +193,6 @@ describe('оба пути списывают одинаково', () => {
     const batch = await freshBatch(100, 'uom-kg')
     await mockCreateOffcut({
       batchId: batch.id,
-      productId: 'prod-001',
       quantity: 1,
       weightKg: 3,
       uomId: 'uom-kg',
@@ -212,7 +205,6 @@ describe('оба пути списывают одинаково', () => {
     const batch = await freshBatch(100, 'uom-m')
     await mockCreateOffcut({
       batchId: batch.id,
-      productId: 'prod-001',
       quantity: 1,
       lengthMm: 300,
       uomId: 'uom-m',
@@ -232,7 +224,6 @@ describe('отказы: ни одной записи после первого �
         wasteQuantity: 0,
         offcuts: [
           {
-            productId: 'prod-001',
             quantity: 1,
             lengthMm: 1000,
             uomId: 'uom-m',
@@ -268,7 +259,6 @@ describe('отказы: ни одной записи после первого �
         wasteQuantity: 0,
         offcuts: [
           {
-            productId: 'prod-001',
             quantity: 1,
             weightKg: 5,
             uomId: 'uom-kg',
@@ -288,7 +278,7 @@ describe('отказы: ни одной записи после первого �
         sourceQuantity: 1,
         kerfMm: 0,
         wasteQuantity: 0,
-        offcuts: [{ productId: 'prod-001', quantity: 1, uomId: 'uom-m', offcutType: 'linear' }],
+        offcuts: [{ quantity: 1, uomId: 'uom-m', offcutType: 'linear' }],
       }),
     ).rejects.toThrow('OFFCUT_DIMENSION_MISSING')
     expect((await mockGetBatch(batch.id)).quantityRemaining).toBe(100)
@@ -304,7 +294,6 @@ describe('отказы: ни одной записи после первого �
         wasteQuantity: 0,
         offcuts: [
           {
-            productId: 'prod-001',
             quantity: 2.5,
             lengthMm: 500,
             uomId: 'uom-m',
@@ -325,7 +314,6 @@ describe('отказы: ни одной записи после первого �
         wasteQuantity: 0,
         offcuts: [
           {
-            productId: 'prod-001',
             quantity: 1,
             lengthMm: 3000,
             uomId: 'uom-m',
@@ -348,7 +336,6 @@ describe('отказы: ни одной записи после первого �
         wasteQuantity: 0,
         offcuts: [
           {
-            productId: 'prod-001',
             quantity: 1,
             lengthMm: 2500,
             uomId: 'uom-m',
@@ -372,13 +359,12 @@ describe('отказы: ни одной записи после первого �
         wasteQuantity: 0,
         offcuts: [
           {
-            productId: 'prod-001',
             quantity: 1,
             lengthMm: 1000,
             uomId: 'uom-m',
             offcutType: 'linear',
           },
-          { productId: 'prod-001', quantity: 1, uomId: 'uom-m', offcutType: 'linear' },
+          { quantity: 1, uomId: 'uom-m', offcutType: 'linear' },
         ],
       }),
     ).rejects.toThrow('OFFCUT_DIMENSION_MISSING')
@@ -392,7 +378,6 @@ describe('отказы: ни одной записи после первого �
     await expect(
       mockCreateOffcut({
         batchId: batch.id,
-        productId: 'prod-001',
         quantity: 1,
         lengthMm: 2000,
         uomId: 'uom-m',
@@ -408,7 +393,6 @@ describe('отказы: ни одной записи после первого �
     await expect(
       mockCreateOffcut({
         batchId: 'whb-does-not-exist',
-        productId: 'prod-001',
         quantity: 1,
         weightKg: 1,
         uomId: 'uom-kg',
@@ -433,14 +417,12 @@ describe('пересчёт из журнала даёт тот же остато
       wasteQuantity: 0.5,
       offcuts: [
         {
-          productId: 'prod-001',
           quantity: 2,
           lengthMm: 1500,
           uomId: 'uom-m',
           offcutType: 'linear',
         },
         {
-          productId: 'prod-001',
           quantity: 1,
           lengthMm: 2000,
           uomId: 'uom-m',
@@ -462,7 +444,6 @@ describe('пересчёт из журнала даёт тот же остато
     const batch = await freshBatch(60, 'uom-kg')
     await mockCreateOffcut({
       batchId: batch.id,
-      productId: 'prod-001',
       quantity: 2,
       weightKg: 4.5,
       uomId: 'uom-kg',
@@ -487,9 +468,7 @@ describe('пересчёт из журнала даёт тот же остато
       sourceQuantity: 2.109,
       kerfMm: 3,
       wasteQuantity: 0,
-      offcuts: [
-        { productId: 'prod-001', quantity: 3, lengthMm: 700, uomId: 'uom-m', offcutType: 'linear' },
-      ],
+      offcuts: [{ quantity: 3, lengthMm: 700, uomId: 'uom-m', offcutType: 'linear' }],
     })
 
     expect((await mockGetBatch(batch.id)).quantityRemaining).toBe(37.901)

@@ -69,9 +69,12 @@ export interface WarehouseBatch {
    * мёртвым кодом, их снимут, и первый же ответ без `files` уронит карточку.
    */
   files?: WarehouseBatchFile[]
-  /** Link to product */
+  /**
+   * Ссылка на товар. Имени товара здесь нет НАМЕРЕННО (пункт 4e): владелец имени —
+   * карточка товара, а копия в партии разошлась с ней у 92 партий из 100. Подпись
+   * собирает `productLabel` из `@/domain/product` в момент показа.
+   */
   productId: string
-  productName: TranslatedString
   /** Supplier reference */
   supplierId: string | null
   supplierName: TranslatedString | null
@@ -137,7 +140,6 @@ export interface WarehouseBatch {
 export interface BatchListItem {
   id: string
   productId: string
-  productName: TranslatedString
   batchNumber: string
   lotCode: string
   quantity: number
@@ -208,9 +210,14 @@ export interface WarehouseOffcut {
   /** Source batch */
   batchId: string
   batchNumber: string
-  /** Link to product */
+  /**
+   * Ссылка на товар — ВСЕГДА товар исходной партии (`batch.productId`).
+   *
+   * Обрезок режут из партии, значит другого товара у него быть не может. До пункта 4e
+   * поле заполнялось независимо от партии, и 10 обрезков из 13 висели на партии чужого
+   * товара. Имя товара, как и у партии, здесь не хранится.
+   */
   productId: string
-  productName: TranslatedString
   /** Product category ID (for filtering / display) */
   categoryId: string | null
   /** Offcut type: 'sheet' for 2D materials, 'linear' for pipes/beams/etc. */
@@ -247,7 +254,6 @@ export interface OffcutListItem {
   batchId: string
   batchNumber: string
   productId: string
-  productName: TranslatedString
   categoryId: string | null
   offcutType: 'sheet' | 'linear'
   lengthMm: number | null
@@ -264,7 +270,6 @@ export interface OffcutListItem {
 
 export interface OffcutCreatePayload {
   batchId: string
-  productId: string
   categoryId?: string | null
   offcutType?: 'sheet' | 'linear'
   lengthMm?: number | null
@@ -309,9 +314,8 @@ export interface WarehouseMovement {
   batchNumber: string
   /** Reference to offcut (if movement belongs to an offcut) */
   offcutId: string | null
-  /** Link to product */
+  /** Link to product — always the product of `batchId`; see `WarehouseOffcut.productId`. */
   productId: string
-  productName: TranslatedString
   /** Quantity moved */
   quantity: number
   /** Единица измерения — ссылка на справочник настроек (`Uom.id`). */
@@ -346,7 +350,6 @@ export interface MovementListItem {
   batchNumber: string
   offcutId: string | null
   productId: string
-  productName: TranslatedString
   quantity: number
   /** Единица измерения — ссылка на справочник настроек (`Uom.id`). */
   uomId: string

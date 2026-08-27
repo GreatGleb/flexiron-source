@@ -25,6 +25,7 @@ import type {
 } from '@/types/warehouse'
 import type { Product } from '@/types/product'
 import type { UploadedFile } from '@/services/uploadsService'
+import { ensureProductNames } from './useProductNames'
 
 // ─── Offcut status → Movement type mapping ──────────────────────────
 const OFFCUT_STATUS_TO_MOVEMENT_TYPE: Record<OffcutStatus, MovementType> = {
@@ -195,7 +196,7 @@ export function useWarehouseOffcutCard(id: string) {
     loading.value = true
     error.value = null
     try {
-      const data = await getOffcut(id)
+      const [data] = await Promise.all([getOffcut(id), ensureProductNames()])
       offcut.value = data
       const parsed = parseLocation(data.location)
       form.value = {

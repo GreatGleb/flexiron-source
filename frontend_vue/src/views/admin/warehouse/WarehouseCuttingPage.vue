@@ -3,6 +3,7 @@ import { computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useUnitLabel } from '@/composables/useUnitLabel'
+import { useProductNames } from '@/composables/useProductNames'
 import { useHead } from '@/composables/useHead'
 import { useWarehouseCutting } from '@/composables/useWarehouseCutting'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
@@ -17,6 +18,7 @@ import '@styles/admin/components/_entity-card-layout.css'
 
 const { t } = useI18n()
 const unitLabel = useUnitLabel()
+const { productName } = useProductNames()
 const route = useRoute()
 const router = useRouter()
 
@@ -41,7 +43,6 @@ const {
   canSubmit,
   saving,
   submit,
-  tf,
 } = useWarehouseCutting()
 
 // Геттером, а не computed: useHead вызывает title(), ref сюда передавать нельзя.
@@ -194,7 +195,7 @@ watch(batchSearch, () => {
               data-test="warehouse-cutting-batch-row"
             >
               <td>{{ b.batchNumber }}</td>
-              <td>{{ tf(b.productName) }}</td>
+              <td>{{ productName(b.productId) }}</td>
               <td>{{ b.quantityRemaining }} {{ unitLabel(b.uomId) }}</td>
               <td>
                 <button
@@ -242,7 +243,7 @@ watch(batchSearch, () => {
           <div class="entity-col-center">
             <InputGroup :label="t('warehouse.col_product')">
               <div class="glass-input readonly-value" data-test="warehouse-cutting-product">
-                {{ tf(batch.productName) }}
+                {{ productName(batch.productId) }}
               </div>
             </InputGroup>
           </div>

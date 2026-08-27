@@ -3,6 +3,7 @@ import { computed, ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useUnitLabel } from '@/composables/useUnitLabel'
+import { useProductNames } from '@/composables/useProductNames'
 import { useHead } from '@/composables/useHead'
 import { useWarehouseOffcutCard } from '@/composables/useWarehouseOffcutCard'
 import { offcutAreaM2 } from '@/domain/cutting'
@@ -40,6 +41,7 @@ const statusOptions = computed<SelectOption[]>(() =>
 
 const { t } = useI18n()
 const unitLabel = useUnitLabel()
+const { productName } = useProductNames()
 const route = useRoute()
 
 const id = route.params.id as string
@@ -78,7 +80,7 @@ const pageTitle = computed(() =>
   offcut.value
     ? t('warehouse.offcut_card_title', {
         id: offcut.value.id,
-        productName: tf(offcut.value.productName),
+        productName: productName(offcut.value.productId),
       })
     : t('warehouse.header_title'),
 )
@@ -260,7 +262,7 @@ onMounted(load)
             {
               label: t('warehouse.offcut_card_title', {
                 id: offcut?.id ?? id,
-                productName: offcut ? tf(offcut.productName) : '',
+                productName: offcut ? productName(offcut.productId) : '',
               }),
             },
           ]"
@@ -270,7 +272,7 @@ onMounted(load)
             {{
               t('warehouse.offcut_card_title', {
                 id: offcut?.id ?? id,
-                productName: offcut ? tf(offcut.productName) : '',
+                productName: offcut ? productName(offcut.productId) : '',
               })
             }}
             <router-link
@@ -409,7 +411,7 @@ onMounted(load)
                     </span>
                   </label>
                   <input
-                    :value="tf(offcut.productName)"
+                    :value="productName(offcut.productId)"
                     class="glass-input"
                     type="text"
                     readonly

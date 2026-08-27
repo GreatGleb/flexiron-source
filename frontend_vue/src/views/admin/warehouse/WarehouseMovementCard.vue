@@ -3,6 +3,7 @@ import { computed, ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useUnitLabel } from '@/composables/useUnitLabel'
+import { useProductNames } from '@/composables/useProductNames'
 import { useHead } from '@/composables/useHead'
 import { useWarehouseMovementCard } from '@/composables/useWarehouseMovementCard'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
@@ -16,6 +17,7 @@ import '@styles/admin/components/_audit-log.css'
 
 const { t } = useI18n()
 const unitLabel = useUnitLabel()
+const { productName } = useProductNames()
 const route = useRoute()
 
 const id = route.params.id as string
@@ -30,7 +32,7 @@ const pageTitle = computed(() =>
   movement.value
     ? t('warehouse.movement_card_title', {
         id: movement.value.id,
-        productName: tf(movement.value.productName),
+        productName: productName(movement.value.productId),
       })
     : t('warehouse.header_title'),
 )
@@ -155,7 +157,7 @@ onMounted(load)
             {
               label: t('warehouse.movement_card_title', {
                 id: movement?.id ?? id,
-                productName: movement ? tf(movement.productName) : '',
+                productName: movement ? productName(movement.productId) : '',
               }),
             },
           ]"
@@ -165,7 +167,7 @@ onMounted(load)
             {{
               t('warehouse.movement_card_title', {
                 id: movement?.id ?? id,
-                productName: movement ? tf(movement.productName) : '',
+                productName: movement ? productName(movement.productId) : '',
               })
             }}
             <router-link
@@ -321,7 +323,7 @@ onMounted(load)
                     </span>
                   </label>
                   <input
-                    :value="tf(movement.productName)"
+                    :value="productName(movement.productId)"
                     class="glass-input"
                     type="text"
                     readonly

@@ -1283,6 +1283,17 @@ Page: `ServiceCardPage.vue`. Composable: `useServiceCard` + `useDirtyCheck`.
   коды переведены (`{ ru: 'шт', en: 'pcs', lt: 'vnt' }`), и сопоставление вырождалось в
   сравнение с `code.en`. Подпись собирается на месте отображения из справочника в текущем
   языке (`unitLabel`, `src/domain/uom.ts`).
+- Имя товара у партии, обрезка и движения **не хранится и в ответах не приходит** — есть только
+  `productId`. До п. 4e плана `review-followups.md` каждая из трёх записей несла свою копию
+  `productName`, и копии разошлись: 92 партии из 100 называли себя не тем товаром, на который
+  ссылались, а `prod-012` звался «Стальной лист S235 2мм» в каталоге, «Арматура 12мм» в партии и
+  «Труба стальная 50мм» в обрезке. Подпись собирается на месте отображения из справочника
+  товаров (`productLabel`, `src/domain/product.ts`; справочник тянет `GET /api/products/list`).
+  Поиск и сортировка по имени товара остаются серверными: это join по `productId`, а не поле.
+- `WarehouseOffcut.productId` и `WarehouseMovement.productId` **всегда** равны `productId` их
+  партии — обрезок режут из партии, движение регистрируют против партии. Поэтому `productId`
+  нет ни в `OffcutCreatePayload`, ни в `MovementCreatePayload`: сервер берёт его у партии, и
+  разойтись двум ссылкам негде.
 
 ### Коды ошибок (специфичные для домена)
 
@@ -1331,7 +1342,6 @@ Page: `WarehouseBatchCard.vue`. Composable: `useWarehouseBatch` + `useDirtyCheck
     "data": {
       "id": "whb-001",
       "productId": "prod-1",
-      "productName": { "ru": "Стальной лист 3мм", "en": "Steel Sheet 3mm", "lt": "Plieno lakštas 3mm" },
       "supplierId": "sup-1",
       "supplierName": { "ru": "Металлторг", "en": "Metalltorg", "lt": "Metalltorg" },
       "batchNumber": "INV-2026-001",
@@ -1459,7 +1469,7 @@ Page: `WarehouseBatchCard.vue`. Composable: `useWarehouseBatch` + `useDirtyCheck
 - **Query:**
   ```ts
   {
-    search?: string         // поиск по productName / batchNumber
+    search?: string         // поиск по имени товара (join по productId) / batchNumber
     type?: string           // фильтр по MovementType
     uomId?: string          // id единицы из справочника настроек (`uom-kg`), не код
     categoryIds?: string    // ID категорий через запятую
@@ -1484,7 +1494,6 @@ Page: `WarehouseBatchCard.vue`. Composable: `useWarehouseBatch` + `useDirtyCheck
           "batchId": "whb-001",
           "batchNumber": "INV-2026-001",
           "productId": "prod-1",
-          "productName": { "ru": "Стальной лист 3мм", "en": "Steel Sheet 3mm", "lt": "Plieno lakštas 3mm" },
           "quantity": 300,
           "uomId": "uom-kg",
           "unitPrice": 1.25,
@@ -1617,7 +1626,6 @@ transfer с названным адресом переносит его цели
     sourceQuantity: number        // СВЕРКА, а не ввод — см. ниже
     kerfMm: number                // ширина реза в миллиметрах
     offcuts: Array<{              // Omit<OffcutCreatePayload, 'batchId'>
-      productId: string
       categoryId?: string | null
       offcutType?: 'sheet' | 'linear'
       lengthMm?: number | null
@@ -2770,13 +2778,15 @@ interface Notification {
 | `PATCH /api/config/sections/:id` | `patchSection(id, patch, locale)` | да | — |
 | `DELETE /api/config/sections/:id` | `deleteSection()` | **нет** | ответ пустой |
 | `PATCH /api/settings/uoms/:id` | `updateUom()` | да | — |
-| `GET /api/products/list` | `getProductList()` | **нет** | ответ `Array<{ id, name: { ru, en, lt } }>` — плоский справочник для селектов |
 | `GET /api/suppliers/export.csv` | `exportSuppliersCsv(filters)` | **нет** | параметры `search`, `status`, `rating`, `categories` (через запятую); ответ — CSV строкой |
 | `POST /api/warehouse/deficit` | `createDeficitItem()` | **нет** | тело `DeficitCreatePayload`, ответ `WarehouseDeficit` |
 | `GET /api/warehouse/stock/:productId/audit` | `getStockAudit()` | **нет** | ответ `StockAuditEntry[]` |
 | `GET /api/warehouse/offcuts/:id/audit` | `getOffcutAudit()` | **нет** | ответ `StockAuditEntry[]` |
 | `GET /api/warehouse/movements/:id/audit` | `getMovementAudit()` | **нет** | ответ `StockAuditEntry[]` |
 | `GET /api/warehouse/deficit/:id/audit` | `getDeficitAudit()` | **нет** | ответ `StockAuditEntry[]` |
+
+`GET /api/products/list` из этого реестра убран 2026-08-27: с п. 4e его зовёт
+`useProductNames` — справочник, по которому склад подписывает товар в списках и карточках.
 
 Про четыре `*/audit`: парные `delete*AuditEntry` **вызываются** из карточек, а `get*Audit` — нет.
 Значит записи аудита UI получает вместе с сущностью, а отдельная загрузка осталась вторым путём к

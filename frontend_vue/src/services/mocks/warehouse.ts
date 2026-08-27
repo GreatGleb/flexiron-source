@@ -112,15 +112,35 @@ function _normalizeBatchAudit(b: WarehouseBatch): WarehouseBatch {
 /**
  * A batch does not own the product's name — the catalogue does.
  *
- * Each seeded batch carried its own, and they had drifted: prod-001 was "Steel
- * Sheet 3mm" in the catalogue, "Лист стальной 2мм" on the batch and "Stainless
- * steel sheet 2mm" on the stock row. The warehouse journal then signed a steel
- * sheet write-off as "Oxygen gas". Resolved once, here, so every screen that shows
- * a batch shows the same name as the product page.
+ * Each seeded batch used to carry its own, and they had drifted: prod-001 was
+ * "Steel Sheet 3mm" in the catalogue, "Лист стальной 2мм" on the batch and
+ * "Stainless steel sheet 2mm" on the stock row. The warehouse journal then signed a
+ * steel sheet write-off as "Oxygen gas". Until 2026-08-27 that was patched HERE, by
+ * overwriting the stored copy on load — which repaired the symptom and kept the
+ * field. Пункт 4e removed the field instead: nothing stores a product's name any
+ * more, and the screens ask the catalogue at display time (`@/domain/product`).
+ *
+ * What is left is what a server does anyway — search and sort by a name it holds in
+ * another table. Читается, не пишется.
  */
-function _resolveProductName(entity: { productId: string; productName: TranslatedString }): void {
-  const product = PRODUCTS_STORE.find((p) => p.id === entity.productId)
-  if (product?.name) entity.productName = product.name
+function _productName(productId: string): TranslatedString | null {
+  return PRODUCTS_STORE.find((p) => p.id === productId)?.name ?? null
+}
+
+/** Одна строка правила «искать по имени товара» — на партии, обрезки и движения. */
+function _matchesProductName(productId: string, query: string): boolean {
+  const name = _productName(productId)
+  if (!name) return false
+  return (
+    name.ru.toLowerCase().includes(query) ||
+    name.en.toLowerCase().includes(query) ||
+    name.lt.toLowerCase().includes(query)
+  )
+}
+
+/** И одна строка правила «сортировать по имени товара» — тем же трём спискам. */
+function _compareProductName(a: { productId: string }, b: { productId: string }): number {
+  return (_productName(a.productId)?.en ?? '').localeCompare(_productName(b.productId)?.en ?? '')
 }
 
 /** Stable 0…1 from a string — so the same batch always costs the same. */
@@ -171,14 +191,12 @@ function _resolveBatchCost(batch: WarehouseBatch): void {
 const rawBatches = sealAuditIds(mockBatchesData as unknown as AuditSeeded<WarehouseBatch>[], 'bch')
 for (const b of rawBatches) {
   _normalizeBatchAudit(b)
-  _resolveProductName(b)
   _resolveBatchCost(b)
 }
 const batchStore: WarehouseBatch[] = rawBatches
 const offcutStore: WarehouseOffcut[] = [...mockOffcutsData]
 const movementStore: WarehouseMovement[] = [...mockMovementsData]
 for (const m of movementStore) {
-  _resolveProductName(m)
   // A movement is the batch changing hands, so it is priced at what the batch
   // costs. Left alone, the journal would go on quoting the figure the batch no
   // longer carries, and the two screens showing it would disagree.
@@ -506,11 +524,7 @@ export async function mockGetBatches(
   if (filters.search) {
     const q = filters.search.toLowerCase()
     filtered = filtered.filter(
-      (b) =>
-        b.productName.ru.toLowerCase().includes(q) ||
-        b.productName.en.toLowerCase().includes(q) ||
-        b.productName.lt.toLowerCase().includes(q) ||
-        b.batchNumber.toLowerCase().includes(q),
+      (b) => _matchesProductName(b.productId, q) || b.batchNumber.toLowerCase().includes(q),
     )
   }
   if (filters.productId) filtered = filtered.filter((b) => b.productId === filters.productId)
@@ -527,7 +541,7 @@ export async function mockGetBatches(
     // A batch number is a document number, and it hits the same wall an order
     // number does at the thousandth — see `compareDocumentNumbers`.
     if (sortBy === 'batchNumber') cmp = compareDocumentNumbers(a.batchNumber, b.batchNumber)
-    else if (sortBy === 'productName') cmp = a.productName.en.localeCompare(b.productName.en)
+    else if (sortBy === 'productName') cmp = _compareProductName(a, b)
     else if (sortBy === 'quantity') cmp = a.quantity - b.quantity
     else if (sortBy === 'quantityRemaining') cmp = a.quantityRemaining - b.quantityRemaining
     else if (sortBy === 'uomId') cmp = a.uomId.localeCompare(b.uomId)
@@ -555,7 +569,6 @@ function toBatchListItem(b: WarehouseBatch): BatchListItem {
   return {
     id: b.id,
     productId: b.productId,
-    productName: b.productName,
     batchNumber: b.batchNumber,
     lotCode: b.lotCode,
     quantity: b.quantity,
@@ -686,10 +699,6 @@ export async function mockCreateBatch(
   const batch: WarehouseBatch = {
     id,
     productId: data.productId,
-    productName: (() => {
-      const product = PRODUCTS_STORE.find((p) => p.id === data.productId)
-      return product ? { ...product.name } : { ru: '', en: '', lt: '' }
-    })(),
     supplierId: data.supplierId || null,
     supplierName: null,
     batchNumber: data.batchNumber,
@@ -774,12 +783,7 @@ export async function mockGetOffcuts(
   let filtered = [...offcutStore]
   if (filters.search) {
     const q = filters.search.toLowerCase()
-    filtered = filtered.filter(
-      (o) =>
-        o.productName.ru.toLowerCase().includes(q) ||
-        o.productName.en.toLowerCase().includes(q) ||
-        o.productName.lt.toLowerCase().includes(q),
-    )
+    filtered = filtered.filter((o) => _matchesProductName(o.productId, q))
   }
   if (filters.productId) filtered = filtered.filter((o) => o.productId === filters.productId)
   if (filters.status) filtered = filtered.filter((o) => o.status === filters.status)
@@ -799,7 +803,7 @@ export async function mockGetOffcuts(
   filtered.sort((a, b) => {
     let cmp = 0
     if (sortBy === 'createdAt') cmp = a.createdAt.localeCompare(b.createdAt)
-    else if (sortBy === 'productName') cmp = a.productName.en.localeCompare(b.productName.en)
+    else if (sortBy === 'productName') cmp = _compareProductName(a, b)
     else if (sortBy === 'quantity') cmp = a.quantity - b.quantity
     return sortDir === 'desc' ? -cmp : cmp
   })
@@ -844,8 +848,10 @@ export async function mockCreateOffcut(data: OffcutCreatePayload): Promise<Wareh
     id,
     batchId: data.batchId,
     batchNumber,
-    productId: data.productId,
-    productName: batch.productName,
+    // Товар берётся у ПАРТИИ, а не у payload: обрезок режут из партии, значит другого
+    // товара у него быть не может. Отдельное поле в запросе позволяло им разойтись —
+    // и в сидах они разошлись у десяти записей из тринадцати (п. 4e).
+    productId: batch.productId,
     categoryId: data.categoryId ?? null,
     offcutType: data.offcutType ?? 'sheet',
     lengthMm: data.lengthMm ?? null,
@@ -906,7 +912,6 @@ function toMovementListItem(m: WarehouseMovement): MovementListItem {
     batchNumber: m.batchNumber,
     offcutId: m.offcutId,
     productId: m.productId,
-    productName: m.productName,
     quantity: m.quantity,
     uomId: m.uomId,
     unitPrice: m.unitPrice,
@@ -939,11 +944,7 @@ export async function mockGetMovements(
   if (filters.search) {
     const q = filters.search.toLowerCase()
     filtered = filtered.filter(
-      (m) =>
-        m.productName.ru.toLowerCase().includes(q) ||
-        m.productName.en.toLowerCase().includes(q) ||
-        m.productName.lt.toLowerCase().includes(q) ||
-        m.batchNumber.toLowerCase().includes(q),
+      (m) => _matchesProductName(m.productId, q) || m.batchNumber.toLowerCase().includes(q),
     )
   }
   if (filters.type) filtered = filtered.filter((m) => m.type === filters.type)
@@ -964,7 +965,7 @@ export async function mockGetMovements(
     let cmp = 0
     if (sortBy === 'movedAt') cmp = a.movedAt.localeCompare(b.movedAt)
     else if (sortBy === 'type') cmp = a.type.localeCompare(b.type)
-    else if (sortBy === 'productName') cmp = a.productName.en.localeCompare(b.productName.en)
+    else if (sortBy === 'productName') cmp = _compareProductName(a, b)
     else if (sortBy === 'batchNumber') cmp = a.batchNumber.localeCompare(b.batchNumber)
     else if (sortBy === 'quantity') cmp = a.quantity - b.quantity
     else if (sortBy === 'uomId') cmp = a.uomId.localeCompare(b.uomId)
@@ -1017,7 +1018,6 @@ export function writeMovement(data: {
     batchNumber: batch.batchNumber,
     offcutId: data.offcutId ?? null,
     productId: batch.productId,
-    productName: batch.productName,
     quantity: data.quantity,
     uomId: batch.uomId,
     // A movement is priced at what the batch costs; a batch with no cost moves
