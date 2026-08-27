@@ -108,7 +108,6 @@ import {
   notifyOrderStatusChanged,
   notifyPaymentReceived,
   notifyWarehouseReady,
-  seedQuietly,
 } from './notifications'
 import { countsAsSale, isActive, isOrderStatus } from '@/domain/orderStatus'
 import type { AuditSource } from '@/types/audit'
@@ -4166,14 +4165,7 @@ function buildShowcaseReturn(): void {
 // Last in the file, and it has to be: the showcase drives the real endpoints, and
 // those read counters and helpers declared further down. Called any earlier it
 // walks into the temporal dead zone of the first one it touches.
-// The showcase pays invoices and orders goods the shelf cannot cover, and it does
-// it through the real endpoints — which emit notifications. Loading a module is
-// not an event, so the seed is built with the feed muted; see `seedQuietly` in
-// `notifications.ts`. Nothing else in this file's seed reaches an emitter today,
-// and nothing needs to be wrapped in advance: the guard against the next one is
-// the load-time check in `notification-triggers.spec.ts`, which compares the feed
-// as it stands after import against the seeded records — whatever path wrote them.
-seedQuietly(buildShowcaseOrder)
+buildShowcaseOrder()
 buildShowcaseReturn()
 
 // ─── Audit source ───────────────────────────────────────────────────────────
