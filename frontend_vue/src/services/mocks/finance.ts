@@ -7,6 +7,7 @@ import type {
   PaymentStatus,
   ArchiveDocumentType,
 } from '@/types/finance'
+import { notifyPaymentOverdue } from './notifications'
 
 // ─── Helpers ───
 function rnd(min: number, max: number): number {
@@ -283,6 +284,17 @@ export function mockPatchPayment(id: string, data: Partial<FinancePayment>): Fin
   const current = MOCK_PAYMENTS[idx]!
   const payload = data as Record<string, unknown>
 
+  // Просрочка — переход, а не свойство: платёж, который УЖЕ был просрочен, при
+  // правке заметки или документов события не порождает. Оба выхода функции
+  // проходят через `commit`, иначе правило пришлось бы записать дважды и одна
+  // из копий однажды отстала бы от другой.
+  const wasOverdue = current.status === 'overdue'
+  const commit = (updated: FinancePayment): FinancePayment => {
+    MOCK_PAYMENTS[idx] = updated
+    if (!wasOverdue && updated.status === 'overdue') notifyPaymentOverdue(updated)
+    return updated
+  }
+
   // Handle fileIds replace-semantics (common upload pattern: POST /api/uploads + PATCH with fileIds[])
   if (payload.fileIds && Array.isArray(payload.fileIds)) {
     const incomingFileIds = payload.fileIds as string[]
@@ -309,11 +321,9 @@ export function mockPatchPayment(id: string, data: Partial<FinancePayment>): Fin
       documents: [...kept, ...newDocs],
       updatedAt: new Date().toISOString(),
     }
-    MOCK_PAYMENTS[idx] = updated
-    return updated
+    return commit(updated)
   }
 
   const updated: FinancePayment = { ...current, ...data, updatedAt: new Date().toISOString() }
-  MOCK_PAYMENTS[idx] = updated
-  return updated
+  return commit(updated)
 }

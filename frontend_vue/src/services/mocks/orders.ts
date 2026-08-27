@@ -104,6 +104,11 @@ import {
   writeMovement,
 } from './warehouse'
 import { allServices, serviceById } from './services'
+import {
+  notifyOrderStatusChanged,
+  notifyPaymentReceived,
+  notifyWarehouseReady,
+} from './notifications'
 import { countsAsSale, isActive, isOrderStatus } from '@/domain/orderStatus'
 import type { AuditSource } from '@/types/audit'
 
@@ -1651,6 +1656,24 @@ function unshippedLines(order: StoreOrder): Array<{ lineId: string; quantity: nu
     .filter((line) => line.quantity > 0)
 }
 
+/**
+ * Is every unshipped line of the order held on the shelf right now?
+ *
+ * This is what "ready at the warehouse" means for an order: nothing left to
+ * ship that is not already reserved against a batch. An order with nothing left
+ * to ship is not ready — it is shipped, which is a different fact and has its
+ * own status.
+ *
+ * The tolerance is there because both sides are sums of rounded quantities: a
+ * hold of 3.33 + 3.33 + 3.34 against a line of 10 must count as covered, and
+ * bare `>=` on binary floats occasionally says it is not.
+ */
+function fullyReserved(order: StoreOrder): boolean {
+  const lines = unshippedLines(order)
+  if (lines.length === 0) return false
+  return lines.every((line) => reservedForLine(order.id, line.lineId) >= line.quantity - 0.005)
+}
+
 export function mockPlanStatusTransition(
   orderId: string,
   status: OrderStatus,
@@ -1718,6 +1741,10 @@ export function mockPatchOrderStatus(
     oldValue: oldStatus,
     newValue: status,
   })
+  // Only a status that actually moved is an event. Re-sending the status the
+  // order already had is a write that changed nothing, and a feed that records
+  // it tells the user something happened when nothing did.
+  if (oldStatus !== status) notifyOrderStatusChanged(order, status)
   return publicOrder(order)
 }
 
@@ -3571,6 +3598,12 @@ export function mockReserveOrder(
   if (!order) throw new Error('ORDER_NOT_FOUND')
   assertVersion(order, version)
 
+  // Taken BEFORE anything is held: "ready" is a transition, and an order that
+  // was already covered has nothing to announce. Without this, every repeated
+  // reserve — and the status transitions that call this function — would file
+  // the same "prepare the metal" note again.
+  const wasReady = fullyReserved(order)
+
   const created: StockReservation[] = []
   for (const item of order.items) {
     const unshipped = round2(item.quantity - item.shippedQuantity)
@@ -3618,6 +3651,7 @@ export function mockReserveOrder(
   }
   recalcOrder(order)
   bumpVersion(order)
+  if (!wasReady && fullyReserved(order)) notifyWarehouseReady(order)
   return created.map((r) => ({ ...r }))
 }
 
@@ -3675,6 +3709,9 @@ export function mockAddOrderPayment(
   order.payments.push(payment)
   recalcOrder(order)
   bumpVersion(order)
+  // Money that came IN. A refund is a payment record too, and telling the user
+  // "payment received" when the company just paid money back would be false.
+  if (payment.amount > 0) notifyPaymentReceived(order, payment.amount)
   return clone(payment)
 }
 

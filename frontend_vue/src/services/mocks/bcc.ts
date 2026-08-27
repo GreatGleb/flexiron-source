@@ -1,6 +1,7 @@
 import type { BccCategory, BccRecipient, BccRequest } from '@/types/bcc'
 import type { TranslatedString } from '@/types/i18n'
 import { MOCK_SUPPLIERS } from './suppliers'
+import { notifySupplierResponse } from './notifications'
 
 export const MOCK_BCC_CATEGORIES: BccCategory[] = [
   {
@@ -302,6 +303,10 @@ export function mockAcceptResponse(
     unit: payload.unit,
   }
   MOCK_BCC_HISTORY.unshift(next)
+  // The supplier answering is the event. `mockMarkNoResponse` below is the
+  // opposite fact — nobody answered — and files nothing: a feed that reports
+  // silence as news would fill up with things that did not happen.
+  notifySupplierResponse({ id: next.supplierId, name: next.supplierName })
   return next
 }
 

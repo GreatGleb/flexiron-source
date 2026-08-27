@@ -49,6 +49,36 @@ Replace `inject<any>('settings')` with `inject<AppSettings>('settings')` and imp
 
 Never use `inject<any>('key')` when the provided value has a known type. Always use the proper type.
 
+## БАГ-12 — `mockMarkAsRead` правит сид, и «сброс в непрочитанные» ничего не сбрасывает
+
+**File:** `frontend_vue/src/services/mocks/notifications.ts:353,435-439,454`
+**Severity:** Low — `mockResetNotifications` сегодня не зовёт никто (проверено грепом), так что дефект спящий
+**Источник:** Л4 (мок = правда), цикл проверок по пункту 2 `review-followups.md`
+
+### Problem
+
+`let notifications = [...MOCK_NOTIFICATIONS]` — копия МАССИВА, но не записей: обе ссылки
+смотрят на одни и те же объекты. `mockMarkAsRead` правит объект на месте
+(`notification.isRead = true`), то есть правит запись сида. После этого
+`mockResetNotifications`, который обещает «reset all notifications to unread», делает
+`MOCK_NOTIFICATIONS.map((n) => ({ ...n }))` — и копирует уже испорченный `isRead: true`.
+
+`mockMarkAllAsRead` этой болезнью не болеет: он собирает новые объекты через `map`.
+Уведомления, рождённые событиями (эмиттеры ниже в том же файле), тоже не задеты — их
+объекты создаются на месте и сидом не делятся.
+
+### Fix
+
+`let notifications = MOCK_NOTIFICATIONS.map((n) => ({ ...n }))` — сид перестаёт быть общим
+с лентой. Правка на строку, но за ней тянется проверка: `mockResetNotifications` не вызван
+ниоткуда, и до появления вызывающего утверждать инверсией нечего.
+
+### Future rule
+
+Мок, у которого есть «сброс к исходному», обязан копировать записи, а не массив: копия
+массива защищает от `push`, но не от правки поля. Это тот же питфолл #13 (мок отдаёт прямую
+ссылку), только направленный внутрь.
+
 ## Summary
 
 | Bug ID | Type | File | Summary |
@@ -64,3 +94,4 @@ Never use `inject<any>('key')` when the provided value has a known type. Always 
 | ~~БАГ-9~~ | Pitfall #13 | `notifications.ts` mock | ~~missing structuredClone~~ ✅ FIXED |
 | БАГ-10 | Pitfall #19 | `NotificationsPage.vue` | Filters outside GlassPanel — visual preference, low priority |
 | ~~БАГ-11~~ | Pitfall #20 | `useNotifications.ts` | ~~missing initialized flag~~ ✅ FIXED |
+| БАГ-12 | Л4 / Pitfall #13 | `notifications.ts` mock | `mockMarkAsRead` правит сид — «сброс в непрочитанные» не сбрасывает |

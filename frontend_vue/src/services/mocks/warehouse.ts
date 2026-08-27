@@ -36,6 +36,7 @@ import type { PaginatedResponse } from '@/types/api'
 import type { TranslatedString } from '@/types/i18n'
 import type { Uom, Currency } from '@/types/settings'
 import { STORE as PRODUCTS_STORE, registerProductBatchLookup } from './products'
+import { notifyBatchReceived, notifyStockDeficit } from './notifications'
 import { MOCK_SETTINGS } from './settings'
 import {
   mockBatches as mockBatchesData,
@@ -721,6 +722,7 @@ export async function mockCreateBatch(
     purchaseToWarehouseRate,
   }
   batchStore.push(batch)
+  notifyBatchReceived(batch)
   return batch
 }
 
@@ -1444,6 +1446,10 @@ export function recordShortage(data: {
     auditLog: [],
   }
   deficitStore.push(deficit)
+  // Only the record that was just OPENED is an event. The branch above — the
+  // same order asking again — raises the amount on a shortage the user has
+  // already been told about, and a second note about it says nothing new.
+  notifyStockDeficit({ productId: deficit.productId, productName: deficit.productName })
   return deficit
 }
 

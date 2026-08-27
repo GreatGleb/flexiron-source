@@ -1,5 +1,9 @@
 import type { Notification, NotificationFilters } from '@/types/notifications'
 import type { PaginatedResponse, PaginationParams } from '@/types/api'
+import type { TranslatedString } from '@/types/i18n'
+import type { OrderStatus } from '@/domain/orderStatus'
+import type { FinancePayment } from '@/types/finance'
+import { adminOrders } from '@/i18n/admin/orders'
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
 
@@ -440,7 +444,268 @@ export function mockMarkAllAsRead(): void {
   notifications = notifications.map((n) => ({ ...n, isRead: true }))
 }
 
-/** Reset all notifications to unread — useful for dev/testing */
+/**
+ * Reset all notifications to unread — useful for dev/testing.
+ *
+ * The event counter goes back with them: the records it numbered are gone, and
+ * a counter that kept climbing would leave gaps that read like lost events.
+ */
 export function mockResetNotifications(): void {
   notifications = MOCK_NOTIFICATIONS.map((n) => ({ ...n }))
+  eventSeq = 1
 }
+
+// ─── Events that create notifications ─────────────────────────────────────────
+//
+// Until now the twenty-one records above were the entire history the app could
+// ever show: the eight notification types existed on the front end, the bell
+// polled every thirty seconds, and nothing ever wrote a new record. The feed was
+// seeded, not fed.
+//
+// The rules for what a notification SAYS live here and nowhere else — the module
+// that owns the event calls a function of this file and passes the facts. A
+// caller that builds its own title and message would be the second copy of the
+// same rule, and the feed would drift apart one event type at a time.
+//
+// Every emitter below is called on a STATE TRANSITION, never on a repeated
+// moment: a status that did not change, a shortage already on file, a
+// reservation that was already complete write nothing. Otherwise the same fact
+// lands in the feed once per call, and the bell ends up counting calls.
+
+/** Continues past the seeded ids so a generated record can never collide. */
+let eventSeq = 1
+
+function emit(input: Omit<Notification, 'id' | 'isRead' | 'createdAt'>): void {
+  notifications.unshift({
+    ...input,
+    id: `notif-ev-${String(eventSeq++).padStart(3, '0')}`,
+    isRead: false,
+    createdAt: new Date().toISOString(),
+  })
+}
+
+/**
+ * The status caption, taken from the one place that has all three languages.
+ *
+ * Writing the captions out here would be the fifth copy of a list that already
+ * cost this project four (see `domain/orderStatus.ts`): a status renamed in the
+ * dictionary would keep its old name in the feed for as long as nobody looked.
+ * The index is typed, so a status without a caption fails typecheck.
+ */
+function statusLabel(status: OrderStatus): TranslatedString {
+  const key = `status_${status}` as const
+  return {
+    ru: adminOrders.ru.orders[key],
+    en: adminOrders.en.orders[key],
+    lt: adminOrders.lt.orders[key],
+  }
+}
+
+/** `order_status` — the order moved to another status. */
+export function notifyOrderStatusChanged(
+  order: { id: string; orderNumber: string },
+  status: OrderStatus,
+): void {
+  const label = statusLabel(status)
+  emit({
+    type: 'order_status',
+    title: {
+      ru: 'Статус заказа изменён',
+      en: 'Order status changed',
+      lt: 'Užsakymo būsena pakeista',
+    },
+    message: {
+      ru: `Заказ ${order.orderNumber} перешёл в статус «${label.ru}»`,
+      en: `Order ${order.orderNumber} has moved to "${label.en}"`,
+      lt: `Užsakymas ${order.orderNumber} perėjo į "${label.lt}" būseną`,
+    },
+    entityType: 'order',
+    entityId: order.id,
+    entityRouteName: 'admin-order-card',
+  })
+}
+
+/** `warehouse_ready` — every unshipped line of the order is now held on the shelf. */
+export function notifyWarehouseReady(order: { id: string; orderNumber: string }): void {
+  emit({
+    type: 'warehouse_ready',
+    title: {
+      ru: 'Подготовка склада',
+      en: 'Warehouse ready',
+      lt: 'Sandėlio paruošimas',
+    },
+    message: {
+      ru: `Кладовщику: подготовить металл для заказа ${order.orderNumber}`,
+      en: `Warehouse: prepare metal for order ${order.orderNumber}`,
+      lt: `Sandininkui: paruošti metalą užsakymui ${order.orderNumber}`,
+    },
+    entityType: 'order',
+    entityId: order.id,
+    entityRouteName: 'admin-order-card',
+  })
+}
+
+/**
+ * `payment_received` — money came in against the order.
+ *
+ * The sum is written with the code of the currency it arrived in and never
+ * converted: this system has no rates anywhere, and a notification is not the
+ * place to invent the first one.
+ */
+export function notifyPaymentReceived(
+  order: { id: string; orderNumber: string; currency: string },
+  amount: number,
+): void {
+  const sum = `${amount.toFixed(2)} ${order.currency}`
+  emit({
+    type: 'payment_received',
+    title: {
+      ru: 'Поступление оплаты',
+      en: 'Payment received',
+      lt: 'Mokėjimas gautas',
+    },
+    message: {
+      ru: `Поступила оплата по заказу ${order.orderNumber} на сумму ${sum}`,
+      en: `Payment received for order ${order.orderNumber} in the amount of ${sum}`,
+      lt: `Gautas mokėjimas už užsakymą ${order.orderNumber}, suma ${sum}`,
+    },
+    entityType: 'order',
+    entityId: order.id,
+    entityRouteName: 'admin-order-card',
+  })
+}
+
+/** `batch_received` — a batch was taken onto the shelf. */
+export function notifyBatchReceived(batch: {
+  id: string
+  batchNumber: string
+  location: string | null
+}): void {
+  const where = batch.location ? batch.location.split('\n')[0] : null
+  emit({
+    type: 'batch_received',
+    title: { ru: 'Приёмка партии', en: 'Batch received', lt: 'Partija gauta' },
+    message: {
+      ru: `Партия ${batch.batchNumber} принята на склад${where ? ` (${where})` : ''}`,
+      en: `Batch ${batch.batchNumber} has been received${where ? ` (${where})` : ''}`,
+      lt: `Partija ${batch.batchNumber} priimta į sandėlį${where ? ` (${where})` : ''}`,
+    },
+    entityType: 'batch',
+    entityId: batch.id,
+    entityRouteName: 'admin-warehouse-batch',
+  })
+}
+
+/** `stock_deficit` — an order asked for more than the shelf holds. */
+export function notifyStockDeficit(deficit: {
+  productId: string
+  productName: TranslatedString
+}): void {
+  const name = deficit.productName
+  emit({
+    type: 'stock_deficit',
+    title: { ru: 'Дефицит склада', en: 'Stock deficit', lt: 'Sandėlio trūkumas' },
+    message: {
+      ru: `[${name.ru}] достиг нижнего лимита остатка`,
+      en: `[${name.en}] has reached minimum stock level`,
+      lt: `[${name.lt}] pasiekė minimalų atsargų lygį`,
+    },
+    entityType: 'product',
+    entityId: deficit.productId,
+    entityRouteName: 'admin-product-card',
+  })
+}
+
+/** `supplier_response` — a supplier answered a BCC request. */
+export function notifySupplierResponse(supplier: { id: string; name: TranslatedString }): void {
+  const name = supplier.name
+  emit({
+    type: 'supplier_response',
+    title: { ru: 'Ответ поставщика', en: 'Supplier response', lt: 'Tiekėjo atsakymas' },
+    message: {
+      ru: `Пришёл ответ от поставщика «${name.ru}» на BCC-запрос`,
+      en: `Response received from supplier "${name.en}" for BCC request`,
+      lt: `Gautas tiekėjo "${name.lt}" atsakymas į BCC užklausą`,
+    },
+    entityType: 'supplier',
+    entityId: supplier.id,
+    entityRouteName: 'admin-supplier-card',
+  })
+}
+
+/**
+ * `payment_overdue` — платёж перешёл в статус «просрочен».
+ *
+ * Просрочка в этой системе — не событие часов, а состояние платежа: своего
+ * будильника у мока нет, и единственный момент, когда факт становится известен,
+ * — это переход статуса. Отсюда и точка вызова.
+ *
+ * Срок назван датой, а не числом дней. Текст уведомления хранится таким, каким
+ * его записали: «просрочена на 1 день» через месяц превратится в неправду —
+ * ровно так, как это уже случилось с сидами выше. Дата не стареет.
+ */
+export function notifyPaymentOverdue(
+  payment: Pick<
+    FinancePayment,
+    | 'paymentNumber'
+    | 'direction'
+    | 'dueDate'
+    | 'orderId'
+    | 'orderNumber'
+    | 'counterpartyId'
+    | 'counterpartyName'
+  >,
+): void {
+  const due = payment.dueDate.slice(0, 10)
+  // Счёт поставщика живёт без заказа — тогда уведомление ведёт к контрагенту,
+  // а не в никуда: `entityId` заказа, которого нет, открыл бы пустую карточку.
+  const order =
+    payment.orderId && payment.orderNumber
+      ? { id: payment.orderId, number: payment.orderNumber }
+      : null
+  const subject: TranslatedString = order
+    ? {
+        ru: `Оплата по заказу ${order.number}`,
+        en: `Payment for order ${order.number}`,
+        lt: `Mokėjimas už užsakymą ${order.number}`,
+      }
+    : {
+        ru: `Оплата ${payment.paymentNumber} (${payment.counterpartyName})`,
+        en: `Payment ${payment.paymentNumber} (${payment.counterpartyName})`,
+        lt: `Mokėjimas ${payment.paymentNumber} (${payment.counterpartyName})`,
+      }
+  const link: Pick<Notification, 'entityType' | 'entityId' | 'entityRouteName'> = order
+    ? { entityType: 'order', entityId: order.id, entityRouteName: 'admin-order-card' }
+    : payment.direction === 'outgoing'
+      ? {
+          entityType: 'supplier',
+          entityId: payment.counterpartyId,
+          entityRouteName: 'admin-supplier-card',
+        }
+      : {
+          entityType: 'client',
+          entityId: payment.counterpartyId,
+          entityRouteName: 'admin-client-card',
+        }
+  emit({
+    type: 'payment_overdue',
+    title: { ru: 'Просрочка оплаты', en: 'Payment overdue', lt: 'Mokėjimo vėlavimas' },
+    message: {
+      ru: `${subject.ru} просрочена — срок был ${due}`,
+      en: `${subject.en} is overdue — due ${due}`,
+      lt: `${subject.lt} vėluoja — terminas ${due}`,
+    },
+    ...link,
+  })
+}
+
+// `reserve_expiring` — восьмой тип с фронта, и единственный, которому здесь
+// нечего вызвать. У `StockReservation` (`types/warehouse.ts`) нет ни срока, ни
+// даты окончания, а в настройках нет срока резерва: `Batch.expiresAt` — это
+// годность металла, а не граница брони. Сид «резерв по заказу истекает через
+// 2 дня» называет дату, которой в модели не существует.
+//
+// Написать эмиттер можно только выдумав срок резерва — то есть добавив в мок
+// данные, которых нет в приложении. Это ровно то, что запрещает «мок = правда».
+// Тип останется без триггера, пока у брони не появится срок; тогда событие —
+// переход через порог, и место ему рядом с остальными эмиттерами выше.
