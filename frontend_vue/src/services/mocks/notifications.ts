@@ -475,44 +475,7 @@ export function mockResetNotifications(): void {
 /** Continues past the seeded ids so a generated record can never collide. */
 let eventSeq = 1
 
-/**
- * True while a mock module is building its own seed state at load time.
- *
- * The seeded orders are assembled by CALLING THE ENDPOINTS (`buildShowcaseOrder`
- * and friends in `orders.ts`) — that is what makes their figures ones the
- * application really computed. The side effect is that the emitters below fire
- * during the import, and those calls are not events: nothing is happening, a
- * history that already happened is being restored. `emit` stamps
- * `new Date().toISOString()` and the feed sorts by it, so every page load put
- * three "just now" records at the top of the list and +3 on the bell, announcing
- * payments the demo made long ago. The feed would be telling the truth about the
- * mock and lying about the events — the exact thing this file refuses to do.
- *
- * What the seeded history says is the twenty records above, and nothing else.
- */
-let seeding = false
-
-/**
- * Builds seed state without the feed hearing about it.
- *
- * Restores the previous value rather than clearing the flag, so a seed that
- * calls another seed does not turn the emitters back on halfway through; and it
- * restores in `finally`, because the seed builders throw on purpose (a demo one
- * truck short beats a module that will not load) and a thrown seed must not
- * leave the feed muted for the rest of the session.
- */
-export function seedQuietly<T>(build: () => T): T {
-  const outer = seeding
-  seeding = true
-  try {
-    return build()
-  } finally {
-    seeding = outer
-  }
-}
-
 function emit(input: Omit<Notification, 'id' | 'isRead' | 'createdAt'>): void {
-  if (seeding) return
   notifications.unshift({
     ...input,
     id: `notif-ev-${String(eventSeq++).padStart(3, '0')}`,
