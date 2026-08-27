@@ -1,5 +1,5 @@
 import type { Currency, Uom } from '@/types/settings'
-import type { TranslatedString } from '@/types/i18n'
+import { uomCode } from '@/domain/uom'
 
 /**
  * Подпись цены услуги — «EUR/шт», собранная там, где её показывают.
@@ -21,21 +21,7 @@ export function serviceUnitLabel(
   locale: string,
 ): string {
   const currency = currencies.find((c) => c.id === currencyId)
-  const uom = uoms.find((u) => u.id === uomId)
-  if (!currency || !uom) return '—'
-  const key = locale as keyof TranslatedString
-  const unitCode = uom.code[key] || uom.code.en || uom.code.ru
+  const unitCode = uomCode(uomId, uoms, locale)
+  if (!currency || !unitCode) return '—'
   return `${currency.code}/${unitCode}`
-}
-
-/**
- * Суффикс ключа `orders.unit_*` для единицы.
- *
- * В модуле заказов единицы подписываются своими ключами (`orders.unit_kg`, …), и
- * строка услуги стоит в одной таблице со строками товаров: подпиши её кодом из
- * справочника — и одна таблица заговорит на двух диалектах. Ключей четыре на восемь
- * единиц, поэтому у `t()` есть дефолт; про это расхождение — пункт 4c плана.
- */
-export function uomKeySuffix(uomId: string): string {
-  return uomId.replace(/^uom-/, '')
 }

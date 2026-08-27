@@ -139,11 +139,6 @@ export const adminOrders = {
       apply_defaults_skipped:
         'Позиций без себестоимости — {count}: у них задана цена, наценка и скидка к ним не применяются.',
 
-      unit_kg: 'кг',
-      unit_m: 'м',
-      unit_pcs: 'шт',
-      unit_m2: 'м²',
-      unit_h: 'ч',
       col_line: '№',
       col_product: 'Товар',
       col_available: 'Доступно',
@@ -618,11 +613,6 @@ export const adminOrders = {
       apply_defaults_skipped:
         'Lines with no cost: {count}. Their markup is left alone — they carry a stated price.',
 
-      unit_kg: 'kg',
-      unit_m: 'm',
-      unit_pcs: 'pcs',
-      unit_m2: 'm²',
-      unit_h: 'h',
       col_line: '#',
       col_product: 'Product',
       col_available: 'Available',
@@ -1096,11 +1086,6 @@ export const adminOrders = {
       apply_defaults_skipped:
         'Eilučių be savikainos: {count}. Jų antkainis neliečiamas — jose nurodyta kaina.',
 
-      unit_kg: 'kg',
-      unit_m: 'm',
-      unit_pcs: 'vnt',
-      unit_m2: 'm²',
-      unit_h: 'val.',
       col_line: 'Nr.',
       col_product: 'Prekė',
       col_available: 'Prieinama',

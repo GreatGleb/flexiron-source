@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { serviceUnitLabel, uomKeySuffix } from './servicePricing'
+import { serviceUnitLabel } from './servicePricing'
 import { MOCK_SETTINGS } from '@/services/mocks/settings'
 import { mockServices } from '@/mocks/services'
 import { mockCreateService, mockPatchService } from '@/services/mocks/services'
@@ -29,11 +29,6 @@ describe('подпись цены собирается, а не хранится
   it('на неизвестный id отвечает прочерком, а не выдуманной подписью', () => {
     expect(serviceUnitLabel('cur-eur', 'uom-nope', currencies, uoms, 'en')).toBe('—')
     expect(serviceUnitLabel('cur-nope', 'uom-pcs', currencies, uoms, 'en')).toBe('—')
-  })
-
-  it('ключ единицы для модуля заказов — суффикс id', () => {
-    expect(uomKeySuffix('uom-pcs')).toBe('pcs')
-    expect(uomKeySuffix('uom-h')).toBe('h')
   })
 })
 

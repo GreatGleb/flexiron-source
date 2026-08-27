@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useHead } from '@/composables/useHead'
 import { useOrderCard } from '@/composables/useOrderCard'
+import { useUnitLabel } from '@/composables/useUnitLabel'
 import { useToast } from '@/composables/useToast'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
 import Breadcrumb from '@/components/admin/Breadcrumb.vue'
@@ -59,6 +60,7 @@ import '@styles/admin/orders_card.css'
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
+const unitLabel = useUnitLabel()
 const toast = useToast()
 const id = route.params.id as string
 
@@ -1523,7 +1525,7 @@ onMounted(loadShipments)
                       {{ t('orders.line_returned', { qty: returnedByLine[item.id] }) }}
                     </span>
                   </td>
-                  <td>{{ t('orders.unit_' + item.unit, item.unit) }}</td>
+                  <td>{{ unitLabel(item.unit) }}</td>
                   <td
                     v-for="cell in LINE_CELLS"
                     :key="cell.field"
@@ -2263,7 +2265,7 @@ onMounted(loadShipments)
             <tbody>
               <tr v-for="row in statusPlan.shortages" :key="row.lineId" data-test="status-plan-row">
                 <td>{{ row.productName }}</td>
-                <td>{{ row.missing }} {{ t('orders.unit_' + row.unit, row.unit) }}</td>
+                <td>{{ row.missing }} {{ unitLabel(row.unit) }}</td>
               </tr>
             </tbody>
           </table>
@@ -2279,7 +2281,7 @@ onMounted(loadShipments)
             <tbody>
               <tr v-for="row in statusPlan.lines" :key="row.lineId" data-test="status-plan-row">
                 <td>{{ row.productName }}</td>
-                <td>{{ row.quantity }} {{ t('orders.unit_' + row.unit, row.unit) }}</td>
+                <td>{{ row.quantity }} {{ unitLabel(row.unit) }}</td>
               </tr>
             </tbody>
           </table>
@@ -2327,12 +2329,12 @@ onMounted(loadShipments)
           <tbody>
             <tr v-for="line in shippableLines" :key="line.lineId" data-test="ship-line-row">
               <td>{{ line.productName }}</td>
-              <td>{{ line.remaining }} {{ t('orders.unit_' + line.unit, line.unit) }}</td>
+              <td>{{ line.remaining }} {{ unitLabel(line.unit) }}</td>
               <td
                 :class="{ 'margin-negative': line.shippable < line.remaining }"
                 data-test="ship-line-available"
               >
-                {{ line.shippable }} {{ t('orders.unit_' + line.unit, line.unit) }}
+                {{ line.shippable }} {{ unitLabel(line.unit) }}
               </td>
               <td>
                 <input
@@ -2402,9 +2404,9 @@ onMounted(loadShipments)
           <tbody>
             <tr v-for="line in returnableLines" :key="line.lineId" data-test="return-line-row">
               <td>{{ line.productName }}</td>
-              <td>{{ line.shipped }} {{ t('orders.unit_' + line.unit, line.unit) }}</td>
+              <td>{{ line.shipped }} {{ unitLabel(line.unit) }}</td>
               <td data-test="return-line-available">
-                {{ line.returnable }} {{ t('orders.unit_' + line.unit, line.unit) }}
+                {{ line.returnable }} {{ unitLabel(line.unit) }}
               </td>
               <td>
                 <input
@@ -2870,7 +2872,7 @@ onMounted(loadShipments)
               line: splitTarget.productName,
               shipped: splitTarget.shippedQuantity,
               remainder: roundTo(splitTarget.quantity - splitTarget.shippedQuantity, 6),
-              unit: t('orders.unit_' + splitTarget.unit, splitTarget.unit),
+              unit: unitLabel(splitTarget.unit),
             })
           }}
         </p>

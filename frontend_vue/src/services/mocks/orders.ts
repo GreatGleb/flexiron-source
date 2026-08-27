@@ -110,6 +110,7 @@ import {
   notifyWarehouseReady,
 } from './notifications'
 import { countsAsSale, isActive, isOrderStatus } from '@/domain/orderStatus'
+import { orderLineUnit } from '@/domain/uom'
 import type { AuditSource } from '@/types/audit'
 
 interface StoreOrder extends Order {
@@ -318,7 +319,7 @@ function catalogueProducts(): ProductSpec[] {
     id: p.id,
     name: p.name.en,
     // 'uom-pcs' → 'pcs'; the table and the pickers label units by this code.
-    unit: (p.saleUomId ?? p.warehouseUomId ?? 'uom-pcs').replace(/^uom-/, ''),
+    unit: orderLineUnit(p.saleUomId ?? p.warehouseUomId),
     price: p.price as number,
   }))
 }

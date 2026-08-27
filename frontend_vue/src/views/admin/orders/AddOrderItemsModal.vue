@@ -24,11 +24,14 @@ import {
   type LineTotals,
 } from '@/domain/orderPricing'
 import { pricingSeedFor, stockCostFor } from '@/services/orderLines'
+import { orderLineUnit, uomCode } from '@/domain/uom'
+import { useUnitLabel } from '@/composables/useUnitLabel'
 
 const { t, locale } = useI18n()
 const toast = useToast()
 const { settings } = useSettings()
 const { tf } = useTranslatedField()
+const unitLabel = useUnitLabel()
 
 const props = withDefaults(
   defineProps<{
@@ -88,15 +91,14 @@ const saving = ref(false)
 const stockMap = ref<Map<string, StockOverviewItem>>(new Map())
 const stockLoading = ref(false)
 
-/** Resolve locale-aware UoM code from settings by UoM id */
+/**
+ * Подпись единицы по её id из справочника. Правило подписи одно на проект —
+ * `uomCode` в домене (пункт 4c плана); здесь только запасной вариант, свой у
+ * каждого места показа.
+ */
 function resolveUomCode(uomId: string | null): string {
   if (!uomId) return '—'
-  const uom = settings.uoms.find((u: { id: string }) => u.id === uomId)
-  if (!uom) return uomId.slice(0, 8) + '…'
-  const currentLocale = locale.value as keyof typeof uom.code
-  return (
-    uom.code[currentLocale] || uom.code.en || uom.code.ru || uom.code.lt || uomId.slice(0, 8) + '…'
-  )
+  return uomCode(uomId, settings.uoms, locale.value) ?? uomId.slice(0, 8) + '…'
 }
 
 /**
@@ -144,18 +146,6 @@ function saleQtyToWarehouseQty(product: ProductListItem, saleQty: number): numbe
 
 const productSearch = ref('')
 const productCategoryFilter = ref('all')
-
-/** Derive display unit from product's saleUomId (looked up from settings) */
-function getProductUnit(product: ProductListItem): string {
-  if (product.saleUomId) {
-    const uom = settings.uoms.find((u: { id: string }) => u.id === product.saleUomId)
-    if (uom) {
-      const currentLocale = locale.value as keyof typeof uom.code
-      return uom.code[currentLocale] || uom.code.en || uom.code.ru || uom.code.lt || 'pcs'
-    }
-  }
-  return 'pcs'
-}
 
 // ─── Categories ───────────────────────────────────────────────────────────
 const categories = computed(() => {
@@ -240,7 +230,7 @@ async function toggleProduct(id: string) {
       productId: product.id,
       productName: tf(product.name),
       quantity: saleQty,
-      unit: getProductUnit(product),
+      unit: orderLineUnit(product.saleUomId),
       unitPrice: priceFor(product, selectedItemsCosts.value.get(product.id)?.unitPrice),
       warehouseQty: saleQtyToWarehouseQty(product, saleQty),
     },
@@ -253,15 +243,8 @@ function removeProduct(id: string) {
 
 /** Resolve display unit for a product: use saleUomId + settings */
 function getProductDisplayUnit(product: ProductListItem): string {
-  if (product.saleUomId) {
-    const uom = settings.uoms.find((u: { id: string }) => u.id === product.saleUomId)
-    if (uom) {
-      const currentLocale = locale.value as keyof typeof uom.code
-      const code = uom.code[currentLocale] || uom.code.en || uom.code.ru || uom.code.lt
-      if (code) return code
-    }
-  }
-  return '—'
+  if (!product.saleUomId) return '—'
+  return uomCode(product.saleUomId, settings.uoms, locale.value) ?? '—'
 }
 
 // Helper to check if a product is selected (used in template)
@@ -681,7 +664,7 @@ function onCancel() {
                   />
                 </td>
                 <td class="col-unit-cell">
-                  <span class="unit-label">{{ t('orders.unit_' + item.unit, item.unit) }}</span>
+                  <span class="unit-label">{{ unitLabel(item.unit) }}</span>
                 </td>
                 <td class="col-price-ro-cell">
                   <span class="price-display" data-test="add-items-price"

@@ -4,6 +4,7 @@ import { useRouter, onBeforeRouteLeave } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useHead } from '@/composables/useHead'
 import { useOrderCreate } from '@/composables/useOrderCreate'
+import { useUnitLabel } from '@/composables/useUnitLabel'
 import { useOrderPermissions } from '@/composables/useOrderPermissions'
 import { formatCents as money } from '@/domain/orderPricing'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
@@ -31,6 +32,7 @@ import '@styles/admin/orders_create.css'
 
 const router = useRouter()
 const { t } = useI18n()
+const unitLabel = useUnitLabel()
 
 useHead({
   title: () => `Flexiron — ${t('orders.create_title')}`,
@@ -403,7 +405,7 @@ onMounted(loadClients)
                 <td>{{ item.lineNumber }}</td>
                 <td>{{ item.productName }}</td>
                 <td>{{ item.quantity }}</td>
-                <td>{{ t('orders.unit_' + item.unit, item.unit) }}</td>
+                <td>{{ unitLabel(item.unit) }}</td>
                 <td>{{ money(item.unitPrice) }}</td>
                 <td>{{ money(item.totalPrice) }}</td>
                 <td>
