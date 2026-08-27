@@ -22,7 +22,7 @@ test.describe('Settings Layout', () => {
     expect(errors).toHaveLength(0)
   })
 
-  test('the settings tabs are the seven sections, in order', async ({ page }) => {
+  test('the settings tabs are the six sections, in order', async ({ page }) => {
     // The names, not the count: a number says only that something changed, and a
     // count taken from the rendered buttons would be the DOM compared with itself.
     await page.goto('/admin/settings/profile')
@@ -33,7 +33,6 @@ test.describe('Settings Layout', () => {
       'Finance',
       'Units of Measure',
       'Order Statuses',
-      'Mail',
       'Logs',
     ])
   })
@@ -112,53 +111,6 @@ test.describe('Company Settings', () => {
     // Save button should become active (not disabled)
     const saveBtn = page.locator('.btn-save')
     await expect(saveBtn).not.toBeDisabled()
-  })
-})
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Mail Settings
-// ═══════════════════════════════════════════════════════════════════════════
-
-test.describe('Mail Settings', () => {
-  test('loads the mail server form filled from settings', async ({ page }) => {
-    await page.goto('/admin/settings/mail')
-    // Ждём пришедшее значение, а не поле: форма существует и пустой (#64).
-    await expect(page.locator('[data-test="settings-mail-host"]')).not.toHaveValue('')
-    await expect(page.locator('[data-test="settings-mail-from-email"]')).not.toHaveValue('')
-    await expect(page.locator('[data-test="settings-mail-port"]')).not.toHaveValue('')
-    await expect(page.locator('[data-test="settings-mail-encryption"]')).toBeVisible()
-  })
-
-  test('the password field stays empty even though a password is set', async ({ page }) => {
-    await page.goto('/admin/settings/mail')
-    await expect(page.locator('[data-test="settings-mail-host"]')).not.toHaveValue('')
-
-    // Сервер пароль не отдаёт: поле пустое, а о том, что пароль есть, говорит
-    // подсказка — иначе форма стирала бы его при сохранении соседнего поля.
-    const password = page.locator('[data-test="settings-mail-password"]')
-    await expect(password).toHaveValue('')
-    await expect(password).toHaveAttribute('placeholder', /password is set/i)
-  })
-
-  test('the test button reports the address the letter went to', async ({ page }) => {
-    await page.goto('/admin/settings/mail')
-    const from = page.locator('[data-test="settings-mail-from-email"]')
-    await expect(from).not.toHaveValue('')
-    const sender = await from.inputValue()
-
-    await page.locator('[data-test="settings-mail-test-btn"]').click()
-
-    // Успех именно этой отправки: в тосте адрес отправителя, а не любое сообщение.
-    await expect(page.locator('.toast-container .toast.show')).toContainText(sender)
-  })
-
-  test('typing in the host field makes the save bar dirty', async ({ page }) => {
-    await page.goto('/admin/settings/mail')
-    const host = page.locator('[data-test="settings-mail-host"]')
-    await expect(host).not.toHaveValue('')
-    await host.fill('smtp.changed.lt')
-
-    await expect(page.locator('.btn-save')).not.toBeDisabled()
   })
 })
 

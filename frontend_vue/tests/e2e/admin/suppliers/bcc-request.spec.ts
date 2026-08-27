@@ -144,29 +144,6 @@ test.describe('bcc-request › structure', () => {
 })
 
 // ────────────────────────────────────────────────────────────────────────────
-// Sender — параметры почтового сервера приходят из настроек, а не из константы
-// ────────────────────────────────────────────────────────────────────────────
-test.describe('bcc-request › sender', () => {
-  test('shows the sender configured in the mail settings', async ({ page }) => {
-    // Сначала читаем, что стоит в настройках, и только потом сверяем письмо с
-    // прочитанным: константа в тесте проверяла бы совпадение теста с моком, а не
-    // страницы с настройками.
-    await page.goto('/admin/settings/mail')
-    const emailField = page.locator('[data-test="settings-mail-from-email"]')
-    await expect(emailField).not.toHaveValue('')
-    const fromEmail = await emailField.inputValue()
-    const fromName = await page.locator('[data-test="settings-mail-from-name"]').inputValue()
-
-    await loadBcc(page)
-
-    const sender = page.locator('[data-test="bcc-request-sender-value"]')
-    await expect(sender).toHaveText(fromName ? `${fromName} <${fromEmail}>` : fromEmail)
-    // Настроенный сервер — отправка доступна.
-    await expect(page.locator('[data-test="bcc-request-send-btn"]')).toBeEnabled()
-  })
-})
-
-// ────────────────────────────────────────────────────────────────────────────
 // Products table
 // ────────────────────────────────────────────────────────────────────────────
 test.describe('bcc-request › products table', () => {

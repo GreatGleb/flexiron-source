@@ -19,7 +19,7 @@ const EMPTY_TEXT: TranslatedString = { ru: '', en: '', lt: '' }
 export function useBccRequest() {
   const { locale } = useI18n()
   const { tf } = useTranslatedField()
-  const { settings, settled: settingsSettled } = useSettings()
+  const { settings } = useSettings()
 
   const categories = ref<BccCategory[]>([])
   const recipients = ref<BccRecipient[]>([])
@@ -59,29 +59,6 @@ export function useBccRequest() {
     template.subject = buildBccSubject(sender.value, formatBccDate(new Date().toISOString()))
     template.body = buildBccBody(sender.value, emailItems.value)
   })
-
-  /**
-   * Через какой ящик уйдёт письмо. Параметры почтового сервера живут в настройках
-   * (спека 04.2 §6), и BCC-инструмент их только читает — своей копии у него нет.
-   */
-  const mailFrom = computed(() => {
-    const { fromName, fromEmail } = settings.mail
-    if (!fromEmail) return ''
-    return fromName ? `${fromName} <${fromEmail}>` : fromEmail
-  })
-
-  /**
-   * Можно ли вообще отправлять. То же правило стоит на сервере
-   * (`mockIsMailConfigured`) — здесь оно не решает за него, а объясняет
-   * пользователю, почему кнопка неактивна, до того как он нажмёт.
-   */
-  const mailReady = computed(
-    () =>
-      Boolean(settings.mail.host) && Boolean(settings.mail.fromEmail) && settings.mail.passwordSet,
-  )
-
-  /** Настройки уже пришли — до этого «не настроено» означает «ещё не спросили». */
-  const mailSettled = settingsSettled
 
   const loading = ref(false)
   const sending = ref(false)
@@ -187,9 +164,6 @@ export function useBccRequest() {
     sending,
     error,
     recipientsLocked,
-    mailFrom,
-    mailReady,
-    mailSettled,
     loadCategories,
     loadHistory,
     refreshRecipients,

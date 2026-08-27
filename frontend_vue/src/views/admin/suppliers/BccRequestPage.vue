@@ -48,9 +48,6 @@ const {
   sending,
   loading,
   error,
-  mailFrom,
-  mailReady,
-  mailSettled,
   loadCategories,
   loadHistory,
   refreshRecipients,
@@ -585,7 +582,7 @@ onMounted(async () => {
 
       <button
         class="btn btn-primary"
-        :disabled="sending || !mailReady"
+        :disabled="sending"
         data-test="bcc-request-send-btn"
         @click="sendRequest"
       >
@@ -811,20 +808,6 @@ onMounted(async () => {
 
         <div class="col-center" data-test="bcc-request-template-panel">
           <GlassPanel :title="t('bcc.email_template')" :loading="loading" :skeleton-rows="5">
-            <div class="email-sender" data-test="bcc-request-sender">
-              <span class="field-label">{{ t('bcc.sender_label') }}</span>
-              <span v-if="mailFrom" class="email-sender-value" data-test="bcc-request-sender-value">
-                {{ mailFrom }}
-              </span>
-              <router-link
-                v-else-if="mailSettled"
-                :to="{ name: 'admin-settings-mail' }"
-                class="email-sender-missing"
-                data-test="bcc-request-sender-missing"
-              >
-                {{ t('bcc.sender_missing') }}
-              </router-link>
-            </div>
             <EmailTemplate
               v-model:subject="subjectModel"
               v-model:body="bodyModel"
@@ -1126,22 +1109,6 @@ onMounted(async () => {
   padding: 6px 8px;
   font-size: 10px;
 }
-.email-sender {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin-bottom: 12px;
-  font-size: 0.8125rem;
-}
-
-.email-sender-value {
-  color: rgba(255, 255, 255, 0.85);
-}
-
-.email-sender-missing {
-  color: #ff9f43;
-}
-
 .products-table tbody td {
   padding: 6px 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);

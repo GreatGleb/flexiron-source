@@ -390,11 +390,6 @@ const routes: RouteRecordRaw[] = [
                 component: () => import('@/views/admin/settings/OrderStatusesSettings.vue'),
               },
               {
-                path: 'mail',
-                name: 'admin-settings-mail',
-                component: () => import('@/views/admin/settings/MailSettings.vue'),
-              },
-              {
                 path: 'logs',
                 name: 'admin-settings-logs',
                 component: () => import('@/views/admin/settings/LogsSettings.vue'),

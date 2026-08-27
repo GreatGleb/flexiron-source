@@ -9,8 +9,6 @@ import type {
   UserProfile,
   OrderPermissions,
   WarehouseMapFile,
-  MailServerSettings,
-  MailServerPayload,
 } from '@/types/settings'
 
 // ─── Auth headers helper ─────────────────────────────────────────────────
@@ -154,29 +152,6 @@ export async function saveWarehouseMap(data: WarehouseMapFile): Promise<Warehous
 
 export async function deleteWarehouseMap(): Promise<void> {
   await apiDelete<void>('/api/settings/warehouse-map', { headers: authHeaders() })
-}
-
-// ─── Mail server ─────────────────────────────────────────────────────────
-//
-// Один почтовый сервер на арендатора, поэтому единичный ресурс без id. Пароль
-// ходит только в одну сторону: PATCH его принимает, GET не возвращает — ответ
-// сообщает лишь `passwordSet` (пункт 12 плана review-followups).
-
-export async function getMailServer(): Promise<MailServerSettings> {
-  return apiGet<MailServerSettings>('/api/settings/mail', undefined, { headers: authHeaders() })
-}
-
-export async function saveMailServer(data: MailServerPayload): Promise<MailServerSettings> {
-  return apiPatch<MailServerSettings>('/api/settings/mail', data, { headers: authHeaders() })
-}
-
-/**
- * Проверка настроек: сервер отправляет тестовое письмо самому себе и отвечает,
- * на какой адрес оно ушло. Действие немедленное (quick-action), сохранения не
- * требует — но и не сохраняет: проверяются те параметры, что уже на сервере.
- */
-export async function sendMailServerTest(): Promise<{ deliveredTo: string }> {
-  return apiPost<{ deliveredTo: string }>('/api/settings/mail/test', {}, { headers: authHeaders() })
 }
 
 // ─── Profile ─────────────────────────────────────────────────────────────
