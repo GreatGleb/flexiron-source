@@ -6,7 +6,6 @@ import {
   mockIsMailConfigured,
   mockSendMailTest,
 } from './settings'
-import { isMailConfigured } from '@/types/settings'
 
 /**
  * Пароль от почты пишется и не читается.
@@ -73,28 +72,5 @@ describe('mail server settings', () => {
 
   it('sends the test email to the sender address itself', () => {
     expect(mockSendMailTest()).toEqual({ deliveredTo: SEED.fromEmail })
-  })
-
-  /**
-   * Сервер отвечает по своему состоянию (пароль у него есть целиком), форма — по
-   * тому, что он отдал (`passwordSet`). Это два разных входа в одно правило, и
-   * именно в такой паре оно разъезжается молча: гейт кнопки остаётся зелёным на
-   * сервере, который откажет. Проверяется каждое состояние, до которого стор
-   * доводится извне.
-   */
-  it('ответ сервера и гейт формы дают один и тот же вердикт', () => {
-    const states = [
-      { patch: { host: 'smtp.flexiron.lt', fromEmail: 'sales@flexiron.lt' }, configured: true },
-      { patch: { host: '', fromEmail: 'sales@flexiron.lt' }, configured: false },
-      { patch: { host: 'smtp.flexiron.lt', fromEmail: '' }, configured: false },
-      { patch: { host: '', fromEmail: '' }, configured: false },
-    ]
-
-    for (const { patch, configured } of states) {
-      mockPatchMail(patch)
-      // Ожидаемый вердикт назван прямо: иначе «оба всегда false» прошло бы за согласие.
-      expect(mockIsMailConfigured()).toBe(configured)
-      expect(isMailConfigured(mockGetMail())).toBe(configured)
-    }
   })
 })

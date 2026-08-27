@@ -13,7 +13,6 @@ import type {
   MailServerSettings,
   MailServerPayload,
 } from '@/types/settings'
-import { isMailConfigured } from '@/types/settings'
 
 // ─── Seed data ───────────────────────────────────────────────────────────
 
@@ -601,15 +600,9 @@ export function mockPatchMail(patch: MailServerPayload): MailServerSettings {
   return mockGetMail()
 }
 
-/**
- * Настроен ли сервер настолько, чтобы через него можно было отправить письмо.
- *
- * Правило берётся из `isMailConfigured` — того же, по которому гаснут кнопки на
- * фронте. Своей формулировки у сервера нет: она была третьей записью одного правила
- * и разъехалась бы с двумя другими молча.
- */
+/** Настроен ли сервер настолько, чтобы через него можно было отправить письмо. */
 export function mockIsMailConfigured(): boolean {
-  return isMailConfigured(mockGetMail())
+  return Boolean(mailStore.host && mailStore.fromEmail && mailPassword)
 }
 
 /**
