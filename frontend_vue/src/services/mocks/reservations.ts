@@ -59,6 +59,37 @@ export function reservedOn(
   )
 }
 
+/**
+ * Держит ли этот КУСОК кто-нибудь — и сколько.
+ *
+ * Отдельная функция, а не `reservedOn` с другим аргументом: у обрезка `batchId`
+ * пустой (материал ушёл с партии в момент резки), и по партии его хват не найти. Тот
+ * же `exceptLine`, что у партии, и по той же причине: строка, спрашивающая про себя,
+ * не должна натыкаться на собственный хват.
+ */
+export function reservedOnOffcut(
+  offcutId: string,
+  options?: { exceptLine?: { orderId: string; lineId: string } },
+): number {
+  const except = options?.exceptLine
+  return round2(
+    RESERVATIONS.filter(
+      (r) =>
+        r.offcutId === offcutId &&
+        !(except && r.orderId === except.orderId && r.lineId === except.lineId),
+    ).reduce((sum, r) => sum + r.quantity, 0),
+  )
+}
+
+/** Сколько этого куска уже держит одна строка. */
+export function reservedForLineOnOffcut(orderId: string, lineId: string, offcutId: string): number {
+  return round2(
+    RESERVATIONS.filter(
+      (r) => r.orderId === orderId && r.lineId === lineId && r.offcutId === offcutId,
+    ).reduce((sum, r) => sum + r.quantity, 0),
+  )
+}
+
 /** Total held by one line, across every batch it draws from. */
 export function reservedForLine(orderId: string, lineId: string): number {
   return round2(findReservations({ orderId, lineId }).reduce((sum, r) => sum + r.quantity, 0))
@@ -95,15 +126,22 @@ export function holdOnBatch(hold: {
   offcutId: string | null
   quantity: number
 }): StockReservation {
+  // Ключ — партия И кусок. По одной только партии два разных обрезка (у обоих
+  // `batchId` пустой) слились бы в один хват, и запись сказала бы «кусок такой-то»
+  // про количество двух кусков сразу.
   const existing = RESERVATIONS.find(
-    (r) => r.orderId === hold.orderId && r.lineId === hold.lineId && r.batchId === hold.batchId,
+    (r) =>
+      r.orderId === hold.orderId &&
+      r.lineId === hold.lineId &&
+      r.batchId === hold.batchId &&
+      r.offcutId === hold.offcutId,
   )
   if (existing) {
     existing.quantity = round2(existing.quantity + hold.quantity)
     return existing
   }
   const reservation: StockReservation = {
-    id: `RSV-${hold.orderId}-${hold.lineId}-${hold.batchId ?? 'none'}`,
+    id: `RSV-${hold.orderId}-${hold.lineId}-${hold.batchId ?? hold.offcutId ?? 'none'}`,
     batchId: hold.batchId,
     offcutId: hold.offcutId,
     orderId: hold.orderId,

@@ -25,6 +25,7 @@ import type {
   BatchCreatePayload,
   BatchPatchPayload,
   OffcutListResponse,
+  OffcutOffer,
   OffcutCreatePayload,
   OffcutPatchPayload,
   MovementListResponse,
@@ -52,6 +53,8 @@ import {
   type FifoResult,
 } from '@/domain/orderPricing'
 import { reservedOn } from './reservations'
+import { offcutAllocation } from '@/services/orderLines'
+import type { OrderLineAllocation } from '@/types/order'
 import { compareDocumentNumbers } from '@/services/documentNumbers'
 import { sealAuditIds, type AuditSeeded } from '@/mocks/auditIds'
 import type { AuditSource } from '@/types/audit'
@@ -883,6 +886,75 @@ export async function mockCreateOffcut(data: OffcutCreatePayload): Promise<Wareh
   })
 
   return offcut
+}
+
+/**
+ * Обрезки, которые СТРОКА ЗАКАЗА может взять по этому товару.
+ *
+ * Обрезки не участвуют в автоматическом FIFO и участвовать не будут (пункт 7 плана
+ * `review-followups.md`): кусок выбирают глазами по размеру, а не по дате поступления.
+ * Поэтому FIFO по-прежнему строится только из партий, а этот список — единственная
+ * дорога куска в заказ.
+ *
+ * Предлагается только `available`: кусок, уже отданный заказу или списанный, продать
+ * второй раз нельзя. Кусок, размер которого в единице партии невыразим, не предлагается
+ * вовсе — взять его в строку всё равно не получилось бы, и показать его значило бы
+ * пообещать выбор, который откажут на сохранении.
+ */
+export function mockGetOffcutOffers(productId: string): OffcutOffer[] {
+  const offers: OffcutOffer[] = []
+  for (const offcut of offcutStore) {
+    if (offcut.productId !== productId || offcut.status !== 'available') continue
+    const batch = batchStore.find((b) => b.id === offcut.batchId)
+    if (!batch) continue
+    const allocation = offcutAllocation(offcut, batch)
+    if (!allocation) continue
+    offers.push({
+      id: offcut.id,
+      batchId: offcut.batchId,
+      batchNumber: offcut.batchNumber,
+      productId: offcut.productId,
+      offcutType: offcut.offcutType,
+      lengthMm: offcut.lengthMm,
+      widthMm: offcut.widthMm,
+      thicknessMm: offcut.thicknessMm,
+      weightKg: offcut.weightKg,
+      quantity: offcut.quantity,
+      location: offcut.location,
+      material: allocation.quantity,
+      batchUomId: batch.uomId,
+      unitCost: allocation.unitCost,
+      currency: allocation.currency,
+    })
+  }
+  return offers
+}
+
+/**
+ * Аллокации под ВЫБРАННЫЕ куски — то, чем строка заказа начинает своё покрытие.
+ *
+ * Каждый отказ назван кодом, а не пропущен молча: кусок, которого нет, кусок чужого
+ * товара и кусок, уже отданный кому-то, — это три разные ошибки, и строка, которая
+ * тихо потеряла один из выбранных кусков, обещает клиенту металл по цене, которой
+ * никто не считал. Один и тот же id дважды — один кусок: он физически один.
+ */
+export function mockOffcutAllocations(
+  productId: string,
+  offcutIds: readonly string[],
+): OrderLineAllocation[] {
+  const allocations: OrderLineAllocation[] = []
+  for (const id of new Set(offcutIds)) {
+    const offcut = offcutStore.find((o) => o.id === id)
+    if (!offcut) throw new Error('OFFCUT_NOT_FOUND')
+    if (offcut.productId !== productId) throw new Error('OFFCUT_PRODUCT_MISMATCH')
+    if (offcut.status !== 'available') throw new Error('OFFCUT_NOT_AVAILABLE')
+    const batch = batchStore.find((b) => b.id === offcut.batchId)
+    if (!batch) throw new Error('BATCH_NOT_FOUND')
+    const allocation = offcutAllocation(offcut, batch)
+    if (!allocation) throw new Error('OFFCUT_SIZE_NOT_EXPRESSIBLE')
+    allocations.push(allocation)
+  }
+  return allocations
 }
 
 export async function mockPatchOffcut(

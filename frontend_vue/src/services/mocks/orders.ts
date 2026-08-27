@@ -87,7 +87,9 @@ import {
   releaseOrder,
   reservedForLine,
   reservedForLineOnBatch,
+  reservedForLineOnOffcut,
   reservedOn,
+  reservedOnOffcut,
 } from './reservations'
 import { mockGetClients, registerClientOrderLookup } from './clients'
 import { shiftDemoDate } from './demoClock'
@@ -100,6 +102,7 @@ import {
   clearShortages,
   mockFifoAllocation,
   mockGetMovementsFor,
+  mockOffcutAllocations,
   recordShortage,
   writeMovement,
 } from './warehouse'
@@ -2000,6 +2003,14 @@ export function mockAddOrderItem(
     marginPercent?: number
     discountPercent?: number
     batchId?: string | null
+    /**
+     * Обрезки, выбранные РУКАМИ — куски, с которых строка начинает своё покрытие.
+     *
+     * В автоматический FIFO обрезки не попадают и не попадут (пункт 7 плана
+     * `review-followups.md`): кусок выбирают глазами по размеру, а не по дате
+     * поступления. Поэтому это единственный способ назвать обрезок в строке.
+     */
+    offcutIds?: string[]
     /** The order version the caller was looking at — see `assertVersion`. */
     version?: number
   },
@@ -2039,12 +2050,26 @@ export function mockAddOrderItem(
   // under the admin the moment it is stored. A product with no batches has no
   // cost, and gets none: an invented number dressed up as a warehouse figure is
   // worse than no number at all, and two sides inventing separately is worse still.
+  // Выбранные куски — это то, ЧЕМ строка уже покрыта; остальное добирает FIFO из
+  // партий. Порядок именно такой: кусок выбрали руками, и подменять его партией,
+  // которая пришла раньше, значит отменить решение менеджера.
+  const chosen = mockOffcutAllocations(data.productId, data.offcutIds ?? [])
+  // Партия, названная целиком, и выбранные куски — два разных ответа на вопрос «чем
+  // покрыта строка», и ниже победил бы тот, что читают первым: `batchId` затирает всю
+  // разбивку. Отказ называет противоречие вместо того, чтобы разрешать его молча.
+  if (data.batchId && chosen.length > 0) throw new Error('OFFCUTS_WITH_BATCH')
+  // Кусков набрали больше, чем в строке. Отказ, а не усечение: обрезок неделим —
+  // урезать аллокацию до количества строки значит списать половину куска, которого
+  // в природе нет, а молча выбросить лишний кусок значит потерять выбор менеджера.
+  if (chosen.length > 0 && round2(chosen.reduce((sum, a) => sum + a.quantity, 0)) > data.quantity) {
+    throw new Error('OFFCUTS_EXCEED_QUANTITY')
+  }
   const covered = coverFromStock(order, {
     id: null,
     productId: data.productId,
     quantity: data.quantity,
     shippedQuantity: 0,
-    allocations: [],
+    allocations: chosen,
   })
   const { unitCost, costSource } = covered
 
@@ -3631,6 +3656,31 @@ export function mockReserveOrder(
     let left = toReserve
     for (const allocation of item.allocations) {
       if (left <= 0) break
+      if (allocation.offcutId) {
+        // Обрезок — ОДИН физический кусок, и лежит он отдельно от своей партии: его
+        // материал ушёл с неё в момент резки. Поэтому свободен он не «сколько осталось
+        // на партии», а «пока его не держит кто-то другой», и держится он целиком.
+        if (
+          reservedOnOffcut(allocation.offcutId, {
+            exceptLine: { orderId: order.id, lineId: item.id },
+          }) > 0
+        )
+          continue
+        const mine = reservedForLineOnOffcut(order.id, item.id, allocation.offcutId)
+        const quantity = round2(Math.min(round2(allocation.quantity - mine), left))
+        if (quantity <= 0) continue
+        created.push(
+          holdOnBatch({
+            orderId: order.id,
+            lineId: item.id,
+            batchId: null,
+            offcutId: allocation.offcutId,
+            quantity,
+          }),
+        )
+        left = round2(left - quantity)
+        continue
+      }
       if (!allocation.batchId) continue
       const batch = batchById(allocation.batchId)
       if (!batch) continue

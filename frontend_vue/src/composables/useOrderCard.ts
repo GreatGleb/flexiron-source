@@ -165,6 +165,8 @@ export function useOrderCard(id: string) {
       unitPrice: number
       /** Decided by the add-mode, so the server cannot fall back to the default. */
       discountPercent: number
+      /** Куски, выбранные руками в диалоге. Их не знает никто, кроме этой записи. */
+      offcutIds?: string[]
     }>
   >([])
   const pendingItemDeletions = ref<string[]>([])
@@ -443,6 +445,9 @@ export function useOrderCard(id: string) {
             // Sent explicitly: the server would otherwise apply the order default,
             // and the line would change under the admin the moment it is stored.
             discountPercent: item.discountPercent,
+            // Куски, выбранные руками: FIFO их не найдёт — он строится только из
+            // партий, и назвать обрезок можно единственным способом, вот этим.
+            offcutIds: item.offcutIds,
           }),
         )
         serverWrote()
@@ -1140,6 +1145,7 @@ export function useOrderCard(id: string) {
           unit: string
           unitPrice: number
           unitCost?: number
+          offcutIds?: string[]
         }>
       | {
           productId: string
@@ -1148,6 +1154,7 @@ export function useOrderCard(id: string) {
           unit: string
           unitPrice: number
           unitCost?: number
+          offcutIds?: string[]
         },
     mode: AddLineMode | null = null,
   ) {

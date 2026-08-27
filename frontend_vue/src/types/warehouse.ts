@@ -268,6 +268,42 @@ export interface OffcutListItem {
   orderId: string | null
 }
 
+/**
+ * Обрезок, ПРЕДЛОЖЕННЫЙ строке заказа: сам кусок плюс то, что о нём знает только склад.
+ *
+ * Отдельный тип, а не поля в `OffcutListItem`: складская вкладка перечисляет куски, а
+ * это ответ на другой вопрос — «что этот кусок даст строке заказа». Материал в единице
+ * ПАРТИИ и цена партии-родителя не выводятся из списочной записи (в ней нет ни толщины,
+ * ни единицы партии, ни её цены), а угадывать их на клиенте значило бы завести вторую
+ * реализацию правила из `offcutAllocation`.
+ *
+ * Пункт 7 плана `review-followups.md`: обрезки в автоматический FIFO НЕ попадают —
+ * кусок выбирают глазами по размеру, а не по дате поступления, — поэтому единственный
+ * путь обрезка в заказ проходит через этот список.
+ */
+export interface OffcutOffer {
+  id: string
+  batchId: string
+  batchNumber: string
+  productId: string
+  offcutType: 'sheet' | 'linear'
+  lengthMm: number | null
+  widthMm: number | null
+  thicknessMm: number | null
+  weightKg: number | null
+  /** Счётчик кусков — обычно 1. Не количество материала. */
+  quantity: number
+  location: string | null
+  /** Сколько материала кусок забрал с партии, в единице ПАРТИИ. */
+  material: number
+  /** Единица партии, в которой выражен `material` (`Uom.id`). */
+  batchUomId: string
+  /** Цена партии-родителя за единицу — себестоимость куска. */
+  unitCost: number
+  /** Валюта этой цены. Подпись на числе, никогда не множитель. */
+  currency: string
+}
+
 export interface OffcutCreatePayload {
   batchId: string
   categoryId?: string | null

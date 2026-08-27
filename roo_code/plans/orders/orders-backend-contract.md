@@ -133,7 +133,7 @@
 
 | Метод | Путь | Тело |
 |---|---|---|
-| POST | `/api/orders/:id/items` | `{ productId, quantity, unit, unitPrice, marginPercent?, discountPercent? }` — себестоимости здесь нет, см. ниже |
+| POST | `/api/orders/:id/items` | `{ productId, quantity, unit, unitPrice, marginPercent?, discountPercent?, offcutIds? }` — себестоимости здесь нет, см. ниже; `offcutIds` — куски, выбранные руками (§6, «Обрезки») |
 | PATCH | `/api/orders/:id/items/:lineId` | одна правка, см. ниже |
 | DELETE | `/api/orders/:id/items/:lineId` | |
 | POST | `/api/orders/:id/items/:lineId/split` | `{ shippedQuantity }` |
@@ -341,6 +341,8 @@
 **Возврат:** `RETURN_HAS_NO_LINES`, `RETURN_REASON_REQUIRED`, `RETURN_QUANTITY_MUST_BE_POSITIVE`, `DUPLICATE_RETURN_LINE`, `RETURN_EXCEEDS_SHIPPED`, `RETURN_BATCH_NOT_FOUND`.
 
 **Статус:** `UNKNOWN_ORDER_STATUS`.
+
+**Обрезки, выбранные руками:** `OFFCUTS_EXCEED_QUANTITY`, `OFFCUTS_WITH_BATCH`, `OFFCUT_NOT_FOUND`, `OFFCUT_PRODUCT_MISMATCH`, `OFFCUT_NOT_AVAILABLE`, `OFFCUT_SIZE_NOT_EXPRESSIBLE`. Строка заказа может назвать конкретные куски (`POST /orders/:id/items`, поле `offcutIds`) — обрезки в автоматический подбор по партиям не попадают и попасть не должны: кусок выбирают глазами по размеру, а не по дате поступления (пункт 7 плана `review-followups.md`). Отказы разные, потому что события разные: кусок исчез, кусок отрезан от другого товара, кусок уже занят, размер куска не выражается в единице партии, выбранных кусков больше, чем помещается в количество строки, и — противоречие — строке названы одновременно партия целиком и отдельные куски.
 
 **Склад и отгрузка:** `STATUS_BLOCKED_BY_STOCK`, `SHIPMENT_EXCEEDS_STOCK`, `SHIPMENT_EXCEEDS_REMAINING`, `DUPLICATE_SHIPMENT_LINE`, `SHIPMENT_HAS_NO_LINES`, `SHIPMENT_QUANTITY_MUST_BE_POSITIVE`, `SHIPMENT_ALREADY_CANCELLED`, `SHIPMENT_ALREADY_INVOICED`, `SHIPMENT_BATCH_NOT_FOUND`, `SHIPMENT_NOT_FOUND`.
 

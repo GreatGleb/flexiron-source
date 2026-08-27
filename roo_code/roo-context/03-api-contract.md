@@ -1609,6 +1609,44 @@ transfer с названным адресом переносит его цели
   ```
 - **Response 200:** `PaginatedResponse<OffcutListItem>`
 
+### GET /api/warehouse/offcuts/offers
+
+- **Когда:** менеджер выбрал товар в диалоге добавления позиций заказа
+  (`AddOrderItemsModal.vue`) — список кусков, которые эта строка может взять.
+- **Query:** `{ productId: string }`
+- **Response 200:** `OffcutOffer[]`
+  ```ts
+  {
+    id: string
+    batchId: string
+    batchNumber: string
+    productId: string
+    offcutType: 'sheet' | 'linear'
+    lengthMm: number | null
+    widthMm: number | null
+    thicknessMm: number | null
+    weightKg: number | null
+    quantity: number      // счётчик кусков, обычно 1 — не количество материала
+    location: string | null
+    material: number      // сколько кусок забрал с партии, в единице ПАРТИИ
+    batchUomId: string    // единица партии, в которой выражен `material`
+    unitCost: number      // цена партии-родителя за единицу — себестоимость куска
+    currency: string
+  }
+  ```
+
+Отдельный маршрут, а не фильтр над `/offcuts`: списочная запись обрезка не знает ни
+единицы партии, ни её цены, а без них кусок нельзя ни выразить в количестве строки, ни
+оценить. Считать это на клиенте значило бы завести вторую реализацию правила.
+
+Предлагаются только куски со статусом `available` и только те, размер которых выражается
+в единице партии. **Обрезки не участвуют в автоматическом подборе по партиям (FIFO) и
+участвовать не будут** — кусок выбирают глазами по размеру, а не по дате поступления
+(пункт 7 плана `review-followups.md`). Этот список — единственная дорога обрезка в заказ;
+выбранные `offcutIds` уходят в `POST /api/orders/:id/items` и становятся аллокациями
+строки с пустым `batchId` (материал куска ушёл с партии в момент резки, и названная партия
+вычла бы его второй раз).
+
 ---
 
 ## Резка металла (Cutting)

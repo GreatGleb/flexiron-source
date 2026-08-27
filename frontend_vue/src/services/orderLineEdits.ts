@@ -367,6 +367,15 @@ const ERROR_KEYS: Array<[string, string]> = [
   ['RETURN_BATCH_NOT_FOUND', 'orders.error_return_batch_not_found'],
   ['CORRECTION_EXCEEDS_ORIGINAL', 'orders.error_correction_exceeds_original'],
   ['UNKNOWN_ORDER_STATUS', 'orders.error_unknown_order_status'],
+  // Обрезки, выбранные руками. Каждый отказ свой: кусок исчез, кусок чужого товара,
+  // кусок уже занят — это разные события, и «не удалось сохранить» на все три говорит
+  // менеджеру ровно ничего.
+  ['OFFCUTS_EXCEED_QUANTITY', 'orders.error_offcuts_exceed_quantity'],
+  ['OFFCUTS_WITH_BATCH', 'orders.error_offcuts_with_batch'],
+  ['OFFCUT_NOT_FOUND', 'orders.error_offcut_not_found'],
+  ['OFFCUT_PRODUCT_MISMATCH', 'orders.error_offcut_product_mismatch'],
+  ['OFFCUT_NOT_AVAILABLE', 'orders.error_offcut_not_available'],
+  ['OFFCUT_SIZE_NOT_EXPRESSIBLE', 'orders.error_offcut_size_not_expressible'],
   // Internal invariants — a bug in the server, not something the person did. They
   // are here so the sentence is honest rather than absent; on a real server they
   // are a 500 and the code itself must not travel outwards.

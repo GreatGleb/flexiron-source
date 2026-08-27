@@ -20,6 +20,7 @@ import type {
   StockOverviewItem,
   BatchListResponse,
   OffcutListResponse,
+  OffcutOffer,
   MovementListResponse,
   DeficitListResponse,
   StockOverviewResponse,
@@ -135,6 +136,17 @@ export async function getOffcuts(
   if (filters.sortBy) params.sortBy = filters.sortBy
   if (filters.sortDir) params.sortDir = filters.sortDir
   return apiGet<OffcutListResponse>('/api/warehouse/offcuts', params)
+}
+
+/**
+ * Обрезки, которые может взять строка заказа по этому товару.
+ *
+ * Отдельный маршрут, а не фильтр над `/offcuts`: списочная запись обрезка не знает ни
+ * единицы партии, ни её цены, а без них кусок нельзя ни выразить в количестве строки,
+ * ни оценить. Считать это на клиенте значило бы повторить `offcutAllocation` второй раз.
+ */
+export async function getOffcutOffers(productId: string): Promise<OffcutOffer[]> {
+  return apiGet<OffcutOffer[]>('/api/warehouse/offcuts/offers', { productId })
 }
 
 export async function getOffcut(id: string): Promise<WarehouseOffcut> {

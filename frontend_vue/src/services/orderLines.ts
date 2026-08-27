@@ -9,6 +9,7 @@
  * they exist for the older parts of the UI and must never be assigned directly.
  */
 import type { OrderItem, OrderService, OrderLineAllocation, CostSource } from '@/types/order'
+import { resolveOffcutMaterial, type OffcutMaterialInput } from '@/domain/cutting'
 import {
   type PricingLine,
   calcLine,
@@ -208,6 +209,42 @@ export function splitAllocations(
   }
 
   return { shipped, remainder }
+}
+
+/**
+ * Что одна выбранная штука обрезка даёт строке заказа.
+ *
+ * `batchId` здесь `null` НАМЕРЕННО, и это не пропуск. Материал обрезка ушёл с партии в
+ * тот момент, когда обрезок создали: `mockCreateOffcut` пишет движение типа `offcut`, а
+ * движение — единственный владелец количества партии. Кусок лежит на полке отдельно от
+ * своей партии, и аллокация, назвавшая партию, вычла бы его из неё второй раз — то есть
+ * пообещала бы заказу металл, которого на партии уже нет.
+ *
+ * Количество аллокации — это МАТЕРИАЛ куска в единице ПАРТИИ, а не `offcut.quantity`
+ * (счётчик кусков, обычно «1 шт»). Правило перевода одно на проект —
+ * `resolveOffcutMaterial`; здесь оно вызывается, а не повторяется.
+ *
+ * Себестоимость — цена партии-родителя за единицу: обрезок отрезан от неё и стоит
+ * ровно столько же за метр или килограмм. Партия без цены даёт 0, и `stockCostFor`
+ * дальше называет такую строку оценкой — тот же ответ, что у партии без цены в FIFO.
+ *
+ * `null` — отказ, а не ноль: у куска, размер которого в единице партии невыразим,
+ * нет количества, которое можно списать.
+ */
+export function offcutAllocation(
+  offcut: OffcutMaterialInput & { id: string },
+  batch: { uomId: string; unitPrice: number | null; currency: string },
+): OrderLineAllocation | null {
+  const material = resolveOffcutMaterial(offcut, batch.uomId)
+  if (!material.ok) return null
+  return {
+    batchId: null,
+    offcutId: offcut.id,
+    quantity: material.material,
+    unitCost: batch.unitPrice ?? 0,
+    currency: batch.currency,
+    source: 'stock',
+  }
 }
 
 /** Cost per unit implied by the batch breakdown, or null when there is none. */
