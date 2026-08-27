@@ -77,7 +77,7 @@ const prep = await agent(
     '',
     'Верни branch, treeClean, gateGreen, baseBranch и notes с фактическим выводом команд.',
   ].join('\n'),
-  { schema: PREP, label: 'подготовка', phase: 'Подготовка' },
+  { schema: PREP, label: 'подготовка', phase: 'Подготовка', effort: 'low' },
 )
 
 if (!prep || !prep.treeClean || !prep.gateGreen) {
@@ -90,7 +90,7 @@ if (!prep || !prep.treeClean || !prep.gateGreen) {
 
 log(`Ветка ${prep.branch} от ${prep.baseBranch || 'текущей'}. Пунктов в очереди: ${items.length}`)
 
-function workPrompt(item, fixReason) {
+function workPrompt(item, fixReason, afterCrash) {
   return [
     'АВТОНОМНЫЙ РЕЖИМ. Вопросов задавать некому: неясность в пункте — это провал задачи',
     'с указанием, чего именно не хватает, а не догадка. Догадку никто не увидит.',
@@ -103,6 +103,9 @@ function workPrompt(item, fixReason) {
     `Задача: пункт ${item} в ${PLAN}. Найди его раздел (заголовок вида "## ${item}.") и прочитай целиком.`,
     fixReason
       ? `\nЭто ВТОРАЯ попытка. Скептик отклонил первую: ${fixReason}\nПочини именно это, не переделывая остальное.\n`
+      : '',
+    afterCrash
+      ? '\nПРЕДЫДУЩАЯ ПОПЫТКА ПО ЭТОМУ ПУНКТУ ОБОРВАЛАСЬ НА ПОЛУСЛОВЕ — это была потеря связи,\nа не отказ. Начни с git status --short и git log --oneline -3: могли остаться\nнезакоммиченные следы или коммит без приёмки. Приведи дерево в порядок и только потом\nработай. Уже сделанное собой не считай «устаревшим» — это твой незаконченный след,\nа не чужая правка.\n'
       : '',
     'Порядок:',
     '1. **Воспроизведи.** Докажи грепом или чтением, что описанное в пункте всё ещё в коде.',
@@ -139,6 +142,12 @@ function judgePrompt(item, w) {
     '4. Найди в пункте хотя бы одно требование, которого в правке нет. Нашёл — refuted = true.',
     '5. Если пункт касался тестов — проверь инверсию: сломай поведение, убедись, что тест краснеет.',
     '   Тест, не покрасневший на сломанном коде, не тест, и правка не принята.',
+    '',
+    'Playwright гоняй ТОЧЕЧНО: только спеки, задетые правкой, и только нужные -g.',
+    'Назови в checked, какие именно и почему их достаточно. Полные наборы здесь не гоняй —',
+    'полный e2e один раз делает финальная приёмка. Машинную приёмку (typecheck, lint,',
+    'prettier, test:unit) это НЕ сокращает: её гони целиком, она минуты, а не десятки минут.',
+    '',
     '6. Заявлено "устарело"? Проверь это сам: если проблема в коде есть — refuted = true.',
     '',
     'refuted = true, если сделано не то, ИЛИ сделано не полностью, ИЛИ приёмка у тебя не зелёная,',
@@ -153,12 +162,44 @@ const results = []
 let failStreak = 0
 let stopped = null
 
-for (const item of items) {
-  let w = await agent(workPrompt(item, null), { schema: WORK, label: `пункт ${item}`, phase: 'Работа' })
+// Приёмщик ничего не меняет, поэтому его молчание лечится простым повтором.
+async function tryAgent(prompt, opts, attempts = 2) {
+  for (let i = 0; i < attempts; i++) {
+    const r = await agent(prompt, opts)
+    if (r) return r
+    if (i + 1 < attempts) log(`${opts.label}: пустой ответ, повтор ${i + 2}/${attempts}`)
+  }
+  return null
+}
+
+// Молчание агента — не приговор пункту. Оборванная связь и 529 Overloaded выглядят точно
+// так же, как «не справился», но означают другое: пункт уходит в конец очереди и становится
+// провалом только после MAX_SILENT попыток. Иначе ночь недоступности API съедает весь список.
+const queue = [...items]
+const silentCount = {}
+const MAX_SILENT = 2
+let silentInARow = 0
+
+while (queue.length) {
+  const item = queue.shift()
+
+  let w = await agent(workPrompt(item, null, (silentCount[item] || 0) > 0), { schema: WORK, label: `пункт ${item}`, phase: 'Работа' })
 
   if (!w) {
-    // Упавший агент — это провал пункта, а не «сделано». Молчание не подтверждение.
-    results.push({ item, status: 'провалено', notes: 'агент реализации не вернул результат (падение или таймаут)' })
+    silentCount[item] = (silentCount[item] || 0) + 1
+    silentInARow++
+    // Шесть молчаний подряд — это уже не пункты, это недоступный API. Дальше идти незачем.
+    if (silentInARow >= 6) {
+      stopped = 'шесть агентов подряд не вернули результат — недоступность API, а не свойство пунктов'
+      queue.unshift(item)
+      break
+    }
+    if (silentCount[item] <= MAX_SILENT) {
+      log(`Пункт ${item}: агент не вернул результат (${silentCount[item]}/${MAX_SILENT}) — в конец очереди, счётчик провалов не трогаем`)
+      queue.push(item)
+      continue
+    }
+    results.push({ item, status: 'провалено', notes: `агент реализации не вернул результат ${silentCount[item]} раза подряд` })
     failStreak++
     if (failStreak >= 2) {
       stopped = `два пункта подряд провалены (последний ${item})`
@@ -167,14 +208,23 @@ for (const item of items) {
     continue
   }
 
-  let judge = await agent(judgePrompt(item, w), { schema: JUDGE, label: `приёмка ${item}`, phase: 'Работа' })
+  silentInARow = 0
+
+  // Откатывать надо всё, что пункт успел закоммитить. Второй заход коммитит поверх первого,
+  // и если откатить только последний, первый останется на ветке как принятый — при том что
+  // пункт провален. Так на ветке оседает непроверенный код, иногда с регрессом.
+  const itemCommits = []
+  if (w.commit) itemCommits.push(w.commit)
+
+  let judge = await tryAgent(judgePrompt(item, w), { schema: JUDGE, label: `приёмка ${item}`, phase: 'Работа' })
 
   // Вторая попытка — ровно одна, и только если скептик сказал, что именно не так.
   if (judge && judge.refuted) {
-    const w2 = await agent(workPrompt(item, judge.reason), { schema: WORK, label: `пункт ${item} — вторая попытка`, phase: 'Работа' })
+    const w2 = await agent(workPrompt(item, judge.reason, false), { schema: WORK, label: `пункт ${item} — вторая попытка`, phase: 'Работа' })
     if (w2) {
+      if (w2.commit && !itemCommits.includes(w2.commit)) itemCommits.push(w2.commit)
       w = w2
-      judge = await agent(judgePrompt(item, w2), { schema: JUDGE, label: `приёмка ${item} — повтор`, phase: 'Работа' })
+      judge = await tryAgent(judgePrompt(item, w2), { schema: JUDGE, label: `приёмка ${item} — повтор`, phase: 'Работа' })
     }
   }
 
@@ -182,7 +232,7 @@ for (const item of items) {
   const refuted = judgeMissing || judge.refuted
   const status = refuted ? 'провалено' : w.status
 
-  if (refuted && w.commit) {
+  if (refuted && itemCommits.length) {
     // Отклонённая правка не остаётся в истории как принятая: откатываем её коммитом,
     // а не стиранием — работа остаётся достаётся, и наутро видно, что пробовали.
     await agent(
@@ -190,14 +240,16 @@ for (const item of items) {
         `Пункт ${item} отклонён приёмкой. Откати его коммит и ничего больше не меняй.`,
         `Причина отклонения: ${judgeMissing ? 'приёмщик не вернул вердикт' : judge.reason}`,
         '',
-        `1. git revert --no-edit ${w.commit}`,
-        '2. Конфликт при откате → git revert --abort, и напиши это в ответе.',
+        `1. Откати ВСЕ коммиты пункта, новейший первым: ${itemCommits.slice().reverse().join(', ')}`,
+        `   То есть: ${itemCommits.slice().reverse().map((c) => `git revert --no-edit ${c}`).join(' && ')}`,
+        '   Порядок важен: откат старого раньше нового даст конфликт на ровном месте.',
+        '2. Конфликт при откате → git revert --abort, и напиши в ответе, какие коммиты остались.',
         '3. git status --short обязан стать пустым: следующий пункт стартует с чистого дерева.',
         `4. Допиши причину отклонения в roo_code/roo-context/verify-runs/followups-${item}.md`,
         '',
         'Не пушь. Ветку не переключай.',
       ].join('\n'),
-      { label: `откат ${item}`, phase: 'Работа' },
+      { label: `откат ${item}`, phase: 'Работа', effort: 'low' },
     )
   }
 
@@ -233,6 +285,7 @@ const done = results.filter((r) => r.status === 'сделано')
 const stale = results.filter((r) => r.status === 'устарело')
 const failed = results.filter((r) => r.status === 'провалено')
 const untouched = items.filter((i) => !results.some((r) => r.item === i))
+// queue здесь непуст только при остановке — пункты из неё тоже не тронуты, они уже в untouched.
 
 const final = await agent(
   [
