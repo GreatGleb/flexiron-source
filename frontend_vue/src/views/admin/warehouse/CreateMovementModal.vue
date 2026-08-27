@@ -7,9 +7,6 @@
   Здесь стояло «DEPRECATED: Movement creation removed from UI. Keep file for backward
   compatibility», и это было неправдой. Неверная метка опаснее отсутствующей: следующий
   читатель либо не станет искать здесь баг, либо удалит файл вместе с работающей кнопкой.
-
-  Продублированное четырежды условие «каким типам движения нужна ссылка на объект»
-  (строки 256, 281, 316, 329) — отдельный пункт 4f плана, оно терпит.
 -->
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
@@ -109,6 +106,22 @@ const MOVEMENT_TYPE_AGGREGATE_COLORS: Record<string, string> = {
 
 /** Movement types that should NOT be shown in the aggregate cards in this modal */
 const HIDDEN_AGGREGATE_TYPES = new Set(['return', 'transfer'])
+
+/**
+ * Типы движения, которым обязательна ссылка на объект-основание.
+ *
+ * Один список на два следствия: по нему в форме показывается блок ссылки, и по нему же
+ * количество сверяется с остатком партии — списать по основанию больше, чем на партии
+ * осталось, нельзя. Условие стояло здесь четырьмя копиями и разошлось бы на первом типе,
+ * добавленном в три места из четырёх.
+ *
+ * Это НЕ список исходящих типов: тот один и живёт в `src/services/mocks/warehouse.ts`
+ * (`OUTGOING_MOVEMENT_TYPES`), правило другое.
+ */
+const REFERENCE_REQUIRED_TYPES: ReadonlySet<MovementType> = new Set<MovementType>([
+  'expense',
+  'write-off',
+])
 
 /** Sorted aggregate entries for display (from pre-computed aggregates prop).
  *  Sale is always placed last, right before the active sales section. */
@@ -242,6 +255,11 @@ const batchUnitLabel = computed(() => {
   return unitLabel(props.batch.uomId)
 })
 
+/** Выбранному типу движения нужна ссылка на объект-основание. */
+const requiresReference = computed(
+  () => type.value !== '' && REFERENCE_REQUIRED_TYPES.has(type.value),
+)
+
 // ─── Validation errors ───────────────────────────────────────────────────────
 
 const errors = ref<Record<string, string>>({})
@@ -265,12 +283,8 @@ function validate(): boolean {
     ) {
       e.quantity = t('validation.max', { max: selectedAggregateQuantity.value })
     }
-    // For expense/write-off, check against remaining
-    if (
-      (type.value === 'expense' || type.value === 'write-off') &&
-      props.batch &&
-      quantity.value > props.batch.quantityRemaining
-    ) {
+    // For reference-required types, check against remaining
+    if (requiresReference.value && props.batch && quantity.value > props.batch.quantityRemaining) {
       e.quantity = t('validation.max', { max: props.batch.quantityRemaining })
     }
   }
@@ -291,11 +305,7 @@ const isFormValid = computed(() => {
       quantity.value > selectedAggregateQuantity.value
     )
       return false
-    if (
-      (type.value === 'expense' || type.value === 'write-off') &&
-      props.batch &&
-      quantity.value > props.batch.quantityRemaining
-    )
+    if (requiresReference.value && props.batch && quantity.value > props.batch.quantityRemaining)
       return false
   }
   return true
@@ -325,12 +335,8 @@ const quantityError = computed<string | null>(() => {
     return t('warehouse.movement_modal_quantity_exceeds', { max: selectedAggregateQuantity.value })
   }
 
-  // For expense/write-off, check against remaining stock
-  if (
-    (type.value === 'expense' || type.value === 'write-off') &&
-    props.batch &&
-    quantity.value > props.batch.quantityRemaining
-  ) {
+  // For reference-required types, check against remaining stock
+  if (requiresReference.value && props.batch && quantity.value > props.batch.quantityRemaining) {
     return t('warehouse.movement_modal_quantity_exceeds', { max: props.batch.quantityRemaining })
   }
 
@@ -340,7 +346,6 @@ const quantityError = computed<string | null>(() => {
 // ─── Conditional visibility ──────────────────────────────────────────────────
 
 const showTransferLocations = computed(() => type.value === 'transfer')
-const showReference = computed(() => type.value === 'expense' || type.value === 'write-off')
 
 /** Summary of the selected movement type (label + effect description) */
 const selectedMovementEffect = computed(() => {
@@ -752,8 +757,8 @@ function formatDate(iso: string): string {
           <p class="field-readonly-hint">{{ t('warehouse.field_readonly_hint') }}</p>
         </div>
 
-        <!-- Reference (conditional: expense / write-off) -->
-        <template v-if="showReference">
+        <!-- Reference (conditional: REFERENCE_REQUIRED_TYPES) -->
+        <template v-if="requiresReference">
           <div class="form-group">
             <label class="field-label">{{ t('warehouse.field_reference_type') }}</label>
             <CustomSelect
