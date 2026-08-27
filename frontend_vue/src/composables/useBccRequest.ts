@@ -13,6 +13,7 @@ import { buildBccBody, buildBccSubject, formatBccDate } from '@/domain/bccEmail'
 import type { BccSender } from '@/domain/bccEmail'
 import type { BccCategory, BccRecipient, BccRequest, BccEmailTemplate } from '@/types/bcc'
 import type { TranslatedString } from '@/types/i18n'
+import { isMailConfigured } from '@/types/settings'
 
 const EMPTY_TEXT: TranslatedString = { ru: '', en: '', lt: '' }
 
@@ -71,14 +72,11 @@ export function useBccRequest() {
   })
 
   /**
-   * Можно ли вообще отправлять. То же правило стоит на сервере
-   * (`mockIsMailConfigured`) — здесь оно не решает за него, а объясняет
-   * пользователю, почему кнопка неактивна, до того как он нажмёт.
+   * Можно ли вообще отправлять. Правило одно на проект — `isMailConfigured` в
+   * `@/types/settings`; здесь оно не решает за сервер, а объясняет пользователю,
+   * почему кнопка неактивна, до того как он нажмёт.
    */
-  const mailReady = computed(
-    () =>
-      Boolean(settings.mail.host) && Boolean(settings.mail.fromEmail) && settings.mail.passwordSet,
-  )
+  const mailReady = computed(() => isMailConfigured(settings.mail))
 
   /** Настройки уже пришли — до этого «не настроено» означает «ещё не спросили». */
   const mailSettled = settingsSettled

@@ -7,7 +7,7 @@ import GlassPanel from '@/components/admin/GlassPanel.vue'
 import InputGroup from '@/components/admin/ui/InputGroup.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
 import { sendMailServerTest } from '@/services/settingsService'
-import { MAIL_ENCRYPTIONS, isMailEncryption } from '@/types/settings'
+import { MAIL_ENCRYPTIONS, isMailEncryption, isMailConfigured } from '@/types/settings'
 import type { AppSettings, MailServerSettings } from '@/types/settings'
 
 const { t } = useI18n()
@@ -37,18 +37,15 @@ function onPortInput(raw: string) {
 }
 
 /**
- * Отправить письмо не через что, пока нет хоста, адреса отправителя и пароля.
- * То же правило стоит на сервере (`mockIsMailConfigured`) — здесь оно объясняет,
- * почему кнопка неактивна, а не решает за него.
+ * Отправить письмо не через что, пока сервер не настроен. Само правило — одно на
+ * проект, `isMailConfigured` в `@/types/settings`; здесь оно объясняет пользователю,
+ * почему кнопка неактивна, а не решает за сервер.
  *
- * Смотрим на `passwordSet` — состояние СЕРВЕРА, — а не на только что введённый
- * пароль: тест проверяет то, что на сервере, и кнопка, включённая несохранённым
- * паролем, обещала бы проверку того, чего сервер ещё не видел.
+ * На вход идёт `settings.mail` — состояние СЕРВЕРА, а не только что введённый пароль:
+ * тест проверяет то, что на сервере, и кнопка, включённая несохранённым паролем,
+ * обещала бы проверку того, чего сервер ещё не видел.
  */
-const configured = computed(
-  () =>
-    Boolean(settings.mail.host) && Boolean(settings.mail.fromEmail) && settings.mail.passwordSet,
-)
+const configured = computed(() => isMailConfigured(settings.mail))
 
 const testing = ref(false)
 
