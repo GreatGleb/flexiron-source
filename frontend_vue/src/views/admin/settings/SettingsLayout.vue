@@ -10,7 +10,8 @@ import InputGroup from '@/components/admin/ui/InputGroup.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
 import { useSettings } from '@/composables/useSettings'
 import { useToast } from '@/composables/useToast'
-import type { UomCategory, UomConversion } from '@/types/settings'
+import type { ConversionFormulaType, UomCategory } from '@/types/settings'
+import { CONVERSION_FORMULA_TYPES, isConversionFormulaType } from '@/types/settings'
 import type { TranslatedString } from '@/types/i18n'
 
 import '@styles/admin/components/_entity-card-layout.css'
@@ -217,7 +218,8 @@ const newConversion = ref<{
   toUomId: string
   type: 'static' | 'dynamic'
   factor: number
-  formulaType: string
+  /** Пусто — формула ещё не выбрана; иначе только имя из справочника формул */
+  formulaType: ConversionFormulaType | ''
 }>({ fromUomId: '', toUomId: '', type: 'static', factor: 1, formulaType: '' })
 const newStatus = ref<{
   name: string
@@ -263,11 +265,19 @@ const uomOptions = computed(() =>
   }),
 )
 
-const FORMULA_TYPE_OPTIONS = computed(() => [
-  { value: 'weight_per_meter', label: t('settingsUom.formula_weight_per_meter') },
-  { value: 'area_to_weight', label: t('settingsUom.formula_area_to_weight') },
-  { value: 'pcs_to_weight', label: t('settingsUom.formula_pcs_to_weight') },
-])
+// Варианты собираются из того же списка, что и тип: формула, добавленная в
+// CONVERSION_FORMULA_TYPES, появляется в форме сама, а не забывается здесь.
+const FORMULA_TYPE_OPTIONS = computed(() =>
+  CONVERSION_FORMULA_TYPES.map((value) => ({
+    value,
+    label: t(`settingsUom.formula_${value}`),
+  })),
+)
+
+/** Селект отдаёт строку — в состояние она попадает, только если это имя формулы */
+function selectFormulaType(value: string) {
+  newConversion.value.formulaType = isConversionFormulaType(value) ? value : ''
+}
 
 // ─── Lifecycle ───
 onMounted(() => {
@@ -361,7 +371,7 @@ function confirmAddConversion() {
       fromUomId: newConversion.value.fromUomId,
       toUomId: newConversion.value.toUomId,
       type: newConversion.value.type,
-      formulaType: newConversion.value.formulaType as UomConversion['formulaType'],
+      formulaType: newConversion.value.formulaType || undefined,
     })
   }
 
@@ -658,7 +668,7 @@ provide('resetAndCloseStatusModal', resetAndCloseStatusModal)
             :model-value="newConversion.formulaType"
             :options="FORMULA_TYPE_OPTIONS"
             :placeholder="t('settingsUom.formula_placeholder')"
-            @update:model-value="newConversion.formulaType = $event as string"
+            @update:model-value="selectFormulaType($event as string)"
           />
         </InputGroup>
 

@@ -6,6 +6,7 @@ import type {
   LinkedSupplier,
 } from '@/types/product'
 import type { PaginatedResponse, PaginationParams } from '@/types/api'
+import type { ConversionFormulaType } from '@/types/settings'
 import type { TranslatedString } from '@/types/i18n'
 import { mergeTranslatedString, toTranslatedString } from '@/types/i18n'
 import { mockGetCategory } from './categories'
@@ -46,7 +47,7 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     saleUomId: 'uom-pcs',
     warehouseUomId: 'uom-pcs',
     purchaseUomId: 'uom-kg',
-    purchaseToWarehouseFormulaType: 'weight_per_unit',
+    purchaseToWarehouseFormulaType: 'pcs_to_weight',
     purchaseToWarehouseFactor: 0.00425,
     warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: null,
@@ -285,9 +286,9 @@ const PRODUCT_SEED: AuditSeeded<Product>[] = [
     saleUomId: 'uom-kg',
     warehouseUomId: 'uom-t',
     purchaseUomId: 'uom-kg',
-    purchaseToWarehouseFormulaType: 'static',
+    purchaseToWarehouseFormulaType: null,
     purchaseToWarehouseFactor: 0.001,
-    warehouseToSaleFormulaType: 'static',
+    warehouseToSaleFormulaType: null,
     warehouseToSaleFactor: 1000,
     weightPerWarehouseUnitKg: null,
     createdAt: '2025-03-01',
@@ -14001,9 +14002,9 @@ export async function mockCreateProduct(
     purchaseUomId?: string | null
     warehouseUomId?: string | null
     saleUomId?: string | null
-    purchaseToWarehouseFormulaType?: string | null
+    purchaseToWarehouseFormulaType?: ConversionFormulaType | null
     purchaseToWarehouseFactor?: number | null
-    warehouseToSaleFormulaType?: string | null
+    warehouseToSaleFormulaType?: ConversionFormulaType | null
     warehouseToSaleFactor?: number | null
     weightPerWarehouseUnitKg?: number | null
     fieldValues?: ProductFieldValue[] | null
@@ -14128,9 +14129,9 @@ export async function mockPatchProduct(
     purchaseUomId: string | null
     warehouseUomId: string | null
     saleUomId: string | null
-    purchaseToWarehouseFormulaType: string | null
+    purchaseToWarehouseFormulaType: ConversionFormulaType | null
     purchaseToWarehouseFactor: number | null
-    warehouseToSaleFormulaType: string | null
+    warehouseToSaleFormulaType: ConversionFormulaType | null
     warehouseToSaleFactor: number | null
     weightPerWarehouseUnitKg: number | null
     fieldValues: ProductFieldValue[]

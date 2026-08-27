@@ -4,7 +4,7 @@ import { useI18n } from 'vue-i18n'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
 import { useTranslatedField } from '@/composables/useTranslatedData'
-import type { AppSettings, UomConversion } from '@/types/settings'
+import type { AppSettings, ConversionFormulaType, UomConversion } from '@/types/settings'
 
 const { t } = useI18n()
 const { tf } = useTranslatedField()
@@ -30,11 +30,9 @@ const getUomCode = (id: string): string => {
 const isDynamic = (conv: UomConversion): boolean => conv.type === 'dynamic'
 
 /** Get translated formula type label */
-const formulaTypeLabel = (formulaType?: string): string => {
+const formulaTypeLabel = (formulaType?: ConversionFormulaType): string => {
   if (!formulaType) return ''
-  const key = `settingsUom.formula_${formulaType}`
-  const translated = t(key)
-  return translated !== key ? translated : formulaType
+  return t(`settingsUom.formula_${formulaType}`)
 }
 
 /** Normalize comma → dot for decimal input */

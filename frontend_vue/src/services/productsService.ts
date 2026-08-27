@@ -1,6 +1,7 @@
 import { apiGet, apiPost, apiPatch, apiDelete } from './api'
 import type { Product, ProductListItem, ProductFilters } from '@/types/product'
 import type { PaginatedResponse, PaginationParams } from '@/types/api'
+import type { ConversionFormulaType } from '@/types/settings'
 import { toTranslatedString } from '@/types/i18n'
 
 export async function getProducts(
@@ -38,9 +39,9 @@ export async function createProduct(
     purchaseUomId?: string | null
     warehouseUomId?: string | null
     saleUomId?: string | null
-    purchaseToWarehouseFormulaType?: string | null
+    purchaseToWarehouseFormulaType?: ConversionFormulaType | null
     purchaseToWarehouseFactor?: number | null
-    warehouseToSaleFormulaType?: string | null
+    warehouseToSaleFormulaType?: ConversionFormulaType | null
     warehouseToSaleFactor?: number | null
   },
   locale: string,

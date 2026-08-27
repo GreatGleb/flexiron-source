@@ -1,6 +1,7 @@
 import type { CategoryFieldType } from './category'
 import type { TranslatedString } from './i18n'
 import type { SupplierAuditEntry } from './supplier'
+import type { ConversionFormulaType } from './settings'
 
 // PriceUnit is now dynamic from settings; keep as string alias for backward compat
 export type PriceUnit = string
@@ -74,9 +75,11 @@ export interface Product {
   saleUomId: string | null
 
   // === Conversion overrides (optional) ===
-  purchaseToWarehouseFormulaType: string | null
+  // Имя формулы — только из справочника формул (`CONVERSION_FORMULA_TYPES`).
+  // `null` означает пересчёт коэффициентом, без формулы.
+  purchaseToWarehouseFormulaType: ConversionFormulaType | null
   purchaseToWarehouseFactor: number | null
-  warehouseToSaleFormulaType: string | null
+  warehouseToSaleFormulaType: ConversionFormulaType | null
   warehouseToSaleFactor: number | null
 
   /**

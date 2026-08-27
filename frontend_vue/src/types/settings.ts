@@ -42,8 +42,29 @@ export type UomCategory =
 /** Тип правила пересчёта */
 export type ConversionType = 'static' | 'dynamic'
 
+/**
+ * Идентификаторы формул динамического пересчёта — единственный список в проекте.
+ *
+ * Список рантаймовый, а тип выводится из него: опции селекта и подписи
+ * (`settingsUom.formula_<имя>`) собираются из этого же массива, поэтому
+ * добавленная формула не может остаться без варианта в форме. Поля товара
+ * (`purchaseToWarehouseFormulaType`, `warehouseToSaleFormulaType`) ссылаются
+ * сюда же: раньше они были `string`, и в сидах лежали имена, которых нет
+ * ни в одном справочнике.
+ */
+export const CONVERSION_FORMULA_TYPES = [
+  'weight_per_meter',
+  'area_to_weight',
+  'pcs_to_weight',
+] as const
+
 /** Идентификатор формулы для динамического пересчёта */
-export type ConversionFormulaType = 'weight_per_meter' | 'area_to_weight' | 'pcs_to_weight'
+export type ConversionFormulaType = (typeof CONVERSION_FORMULA_TYPES)[number]
+
+/** Строка пришла извне (форма, payload) — проверить, что это имя формулы, а не любой текст */
+export function isConversionFormulaType(value: string): value is ConversionFormulaType {
+  return (CONVERSION_FORMULA_TYPES as readonly string[]).includes(value)
+}
 
 /** Единица измерения */
 export interface Uom {
