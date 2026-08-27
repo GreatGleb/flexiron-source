@@ -24,7 +24,6 @@ import {
   toPricingLine,
 } from '@/services/orderLines'
 import { rollupOrder, type VatMode } from '@/domain/orderPricing'
-import { suggestedDocumentType } from '@/domain/countries'
 
 export function useOrderCreate() {
   const { t } = useI18n()
@@ -167,19 +166,6 @@ export function useOrderCreate() {
     form.value.clientId = client.id
     selectedClient.value = client
     clearError('clientId')
-
-    /**
-     * Тип комплекта документов система ПРЕДЛАГАЕТ по стране клиента: Литва —
-     * локальный, остальные — экспорт (ТЗ, Process 2.1 §2).
-     *
-     * Предложение делается только здесь — в момент выбора клиента, — и потому
-     * не вотчером на `form.clientId`: менеджер вправе поменять тип, и вотчер,
-     * сработавший на любой последующей правке заказа, затёр бы его выбор. Тем
-     * же объясняется `null`: у клиента без страны предлагать нечего, и молча
-     * поставленный «локальный» читался бы как решение системы.
-     */
-    const suggestion = suggestedDocumentType(client.country)
-    if (suggestion) form.value.documentType = suggestion
   }
 
   // ─── Validation ────────────────────────────────────────────────────────

@@ -62,7 +62,6 @@ vi.mock('@/services/clientsService', () => ({
 }))
 
 import { useOrderCreate } from './useOrderCreate'
-import type { Client } from '@/types/client'
 
 const PIPE = {
   productId: 'prod-alu',
@@ -218,77 +217,5 @@ describe('useOrderCreate — a save that failed half-way is resumed, not restart
     const order = await page.handleSave()
 
     expect(order).toMatchObject({ id: 'ORD-TEST' })
-  })
-})
-
-/**
- * Тип комплекта документов система предлагает, а не назначает.
- *
- * ТЗ (Process 2.1 §2): «Система предлагает тип автоматически на основе страны
- * клиента, менеджер может изменить». Отсюда два разных утверждения — что
- * предложение приходит и что оно не возвращается поверх выбора менеджера.
- */
-describe('useOrderCreate — тип документов предлагается по стране клиента', () => {
-  function client(id: string, country: Client['country']): Client {
-    return {
-      id,
-      name: id,
-      companyCode: '000',
-      vatCode: '',
-      address: '',
-      country,
-      phone: '',
-      email: `${id}@example.com`,
-      status: 'active',
-      notes: null,
-      createdAt: '2026-01-01',
-    }
-  }
-
-  it('литовскому клиенту — локальный комплект', () => {
-    const page = useOrderCreate()
-    page.form.value.documentType = 'export'
-
-    page.selectClient(client('cli-lt', 'LT'))
-
-    expect(page.form.value.documentType).toBe('local')
-  })
-
-  it('клиенту из другой страны — экспортный комплект', () => {
-    const page = useOrderCreate()
-    expect(page.form.value.documentType).toBe('local')
-
-    page.selectClient(client('cli-lv', 'LV'))
-
-    expect(page.form.value.documentType).toBe('export')
-  })
-
-  // Оба направления проверяются, потому что поодиночке каждое устраивает
-  // бездействие не того рода (питфолл #68): «страна пуста → всегда локальный»
-  // прошло бы мимо первого утверждения, «всегда экспорт» — мимо второго.
-  it.each(['local', 'export'] as const)(
-    'у клиента без страны предлагать нечего — выбранный «%s» остаётся',
-    (chosen) => {
-      const page = useOrderCreate()
-      page.form.value.documentType = chosen
-
-      page.selectClient(client('cli-none', null))
-
-      expect(page.form.value.documentType).toBe(chosen)
-    },
-  )
-
-  it('не перезаписывает выбор менеджера при последующих правках заказа', () => {
-    const page = useOrderCreate()
-
-    page.selectClient(client('cli-lv', 'LV'))
-    expect(page.form.value.documentType).toBe('export')
-
-    // Менеджер поправил тип вручную и продолжил собирать заказ.
-    page.form.value.documentType = 'local'
-    page.addItem(PIPE)
-    page.form.value.notes = 'pickup on friday'
-
-    expect(page.form.value.documentType).toBe('local')
   })
 })
