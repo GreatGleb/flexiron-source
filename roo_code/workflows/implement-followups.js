@@ -20,6 +20,14 @@ const items = args && Array.isArray(args.items) && args.items.length > 0 ? args.
 // ту же ошибку, а разбор скептика пропадёт впустую. args.fixReasons — карта «пункт → что
 // именно было не так», и такой пункт стартует сразу работой над ошибками.
 const fixReasons = (args && args.fixReasons) || {}
+// Сколько провалов подряд обрывают прогон. 0 = не обрывать никогда: провал остаётся
+// провалом и попадает в отчёт, но очередь идёт до конца. Ночь, отданная списку, не должна
+// пропадать из-за двух трудных пунктов подряд — остальные к ним отношения не имеют.
+const MAX_FAIL_STREAK = args && args.stopAfterFailures !== undefined ? args.stopAfterFailures : 2
+// Сколько раз молчание агента (обрыв связи, 529) возвращает пункт в очередь, прежде чем
+// считать это провалом. И сколько молчаний подряд признать недоступностью API (0 = не обрывать).
+const MAX_SILENT_RETRIES = args && args.maxSilentRetries !== undefined ? args.maxSilentRetries : 2
+const API_OUTAGE_STOP = args && args.apiOutageStop !== undefined ? args.apiOutageStop : 6
 
 const PREP = {
   type: 'object',
@@ -181,7 +189,7 @@ async function tryAgent(prompt, opts, attempts = 2) {
 // провалом только после MAX_SILENT попыток. Иначе ночь недоступности API съедает весь список.
 const queue = [...items]
 const silentCount = {}
-const MAX_SILENT = 2
+const MAX_SILENT = MAX_SILENT_RETRIES
 let silentInARow = 0
 
 while (queue.length) {
@@ -193,8 +201,8 @@ while (queue.length) {
     silentCount[item] = (silentCount[item] || 0) + 1
     silentInARow++
     // Шесть молчаний подряд — это уже не пункты, это недоступный API. Дальше идти незачем.
-    if (silentInARow >= 6) {
-      stopped = 'шесть агентов подряд не вернули результат — недоступность API, а не свойство пунктов'
+    if (API_OUTAGE_STOP > 0 && silentInARow >= API_OUTAGE_STOP) {
+      stopped = `${API_OUTAGE_STOP} агентов подряд не вернули результат — недоступность API, а не свойство пунктов`
       queue.unshift(item)
       break
     }
@@ -205,8 +213,8 @@ while (queue.length) {
     }
     results.push({ item, status: 'провалено', notes: `агент реализации не вернул результат ${silentCount[item]} раза подряд` })
     failStreak++
-    if (failStreak >= 2) {
-      stopped = `два пункта подряд провалены (последний ${item})`
+    if (MAX_FAIL_STREAK > 0 && failStreak >= MAX_FAIL_STREAK) {
+      stopped = `${MAX_FAIL_STREAK} пунктов подряд провалены (последний ${item})`
       break
     }
     continue
@@ -270,9 +278,9 @@ while (queue.length) {
 
   if (status === 'провалено') {
     failStreak++
-    log(`Пункт ${item}: провален (${failStreak} подряд)`)
-    if (failStreak >= 2) {
-      stopped = `два пункта подряд провалены (последний ${item})`
+    log(`Пункт ${item}: провален (${failStreak} подряд)${MAX_FAIL_STREAK > 0 ? '' : ' — идём дальше, остановка отключена'}`)
+    if (MAX_FAIL_STREAK > 0 && failStreak >= MAX_FAIL_STREAK) {
+      stopped = `${MAX_FAIL_STREAK} пунктов подряд провалены (последний ${item})`
       break
     }
   } else {
