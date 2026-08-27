@@ -22,9 +22,8 @@ vi.mock('@/composables/useTranslatedData', () => ({
 
 // `vi.mock` поднимается наверх файла, поэтому шпион объявляется через `vi.hoisted`:
 // обычная константа к моменту подстановки ещё не инициализирована.
-const { patchClient, getClientInvoices } = vi.hoisted(() => ({
+const { patchClient } = vi.hoisted(() => ({
   patchClient: vi.fn(async (_id: string, _delta: Record<string, unknown>) => ({})),
-  getClientInvoices: vi.fn(async (_id: string) => [] as unknown[]),
 }))
 
 vi.mock('@/services/clientsService', () => ({
@@ -34,7 +33,6 @@ vi.mock('@/services/clientsService', () => ({
   deleteClientAuditEntry: vi.fn(async () => ({})),
   addClientInteraction: vi.fn(async () => ({})),
   deleteClientInteraction: vi.fn(async () => ({})),
-  getClientInvoices,
 }))
 
 const TOTAL = 137
@@ -59,12 +57,10 @@ vi.mock('@/services/ordersService', () => ({
 }))
 
 import { useClientCard } from './useClientCard'
-import type { ClientInvoice } from '@/types/client'
 
 beforeEach(() => {
   requestedPages.length = 0
   patchClient.mockClear()
-  getClientInvoices.mockClear()
 })
 
 describe('useClientCard — order history', () => {
@@ -114,97 +110,5 @@ describe('useClientCard — payment terms', () => {
 
     expect(patchClient).toHaveBeenCalledTimes(1)
     expect(patchClient.mock.calls[0]![1]).toEqual({ paymentTermsDays: 0 })
-  })
-})
-
-/**
- * Итог по счетам клиента.
- *
- * Две вещи, которые ломают простую сумму по колонке: отозванный документ,
- * который клиент не держит, и вторая валюта, которую не во что пересчитать —
- * курса в системе нет нигде.
- */
-describe('useClientCard — сводка выставленных счетов', () => {
-  function invoice(over: Partial<ClientInvoice>): ClientInvoice {
-    return {
-      id: 'inv',
-      orderId: 'ORD-1',
-      orderNumber: 'ORD-2026-001',
-      number: 'ORD-2026-001/INV-1',
-      issuedAt: '2026-08-01T10:00:00.000Z',
-      kind: 'regular',
-      currency: 'EUR',
-      amountGross: 100,
-      amountGrossCurrent: 100,
-      withdrawn: false,
-      paidAmount: 0,
-      outstanding: 100,
-      ...over,
-    }
-  }
-
-  it('не считает выставленным документ, который клиент не держит', async () => {
-    getClientInvoices.mockResolvedValueOnce([
-      invoice({ id: 'a', amountGross: 100, amountGrossCurrent: 100, outstanding: 100 }),
-      invoice({
-        id: 'b',
-        amountGross: 250,
-        amountGrossCurrent: 0,
-        withdrawn: true,
-        outstanding: 0,
-      }),
-    ])
-
-    const card = useClientCard('cli-1')
-    await card.loadInvoices()
-
-    expect(card.invoices.value).toHaveLength(2)
-    expect(card.invoiceTotals.value).toHaveLength(1)
-    // 100, а не 350: отозванные 250 в «выставлено» не входят.
-    expect(card.invoiceTotals.value[0]).toEqual({
-      currency: 'EUR',
-      issued: 100,
-      paid: 0,
-      outstanding: 100,
-    })
-  })
-
-  it('складывает каждую валюту отдельно — пересчитывать их нечем', async () => {
-    getClientInvoices.mockResolvedValueOnce([
-      invoice({
-        id: 'a',
-        currency: 'EUR',
-        amountGrossCurrent: 100,
-        paidAmount: 40,
-        outstanding: 60,
-      }),
-      invoice({
-        id: 'b',
-        currency: 'USD',
-        amountGrossCurrent: 200,
-        paidAmount: 200,
-        outstanding: 0,
-      }),
-      invoice({ id: 'c', currency: 'EUR', amountGrossCurrent: 50, paidAmount: 0, outstanding: 50 }),
-    ])
-
-    const card = useClientCard('cli-1')
-    await card.loadInvoices()
-
-    expect(card.invoiceTotals.value).toEqual([
-      { currency: 'EUR', issued: 150, paid: 40, outstanding: 110 },
-      { currency: 'USD', issued: 200, paid: 200, outstanding: 0 },
-    ])
-  })
-
-  it('сбой запроса оставляет пустой список, а не роняет карточку', async () => {
-    getClientInvoices.mockRejectedValueOnce(new Error('boom'))
-
-    const card = useClientCard('cli-1')
-    await card.loadInvoices()
-
-    expect(card.invoices.value).toEqual([])
-    expect(card.invoiceTotals.value).toEqual([])
-    expect(card.invoicesLoading.value).toBe(false)
   })
 })

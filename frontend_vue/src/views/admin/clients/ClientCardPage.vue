@@ -41,10 +41,6 @@ const {
   loadAudit,
   orders,
   loadOrders,
-  invoices,
-  invoicesLoading,
-  invoiceTotals,
-  loadInvoices,
   deleteAuditEntry,
   handleDeleteInteraction,
   newInteraction,
@@ -113,19 +109,6 @@ function formatPrice(value: number): string {
   return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-/**
- * Валюта подписью, а не множителем: курса в системе нет, поэтому суммы разных
- * валют стоят рядом каждая со своей подписью и в один итог не складываются.
- */
-function formatMoney(currency: string, value: number): string {
-  return `${currency} ${formatPrice(value)}`
-}
-
-const INVOICE_KIND_LABEL: Record<string, string> = {
-  regular: t('clients.invoice_kind_regular'),
-  advance: t('clients.invoice_kind_advance'),
-}
-
 // ─── Audit log entry deletion (with confirm modal) ───
 const deleteAuditOpen = ref(false)
 const auditToDeleteId = ref<string | null>(null)
@@ -153,7 +136,6 @@ onMounted(() => {
   load()
   loadAudit()
   loadOrders()
-  loadInvoices()
 })
 </script>
 
@@ -446,121 +428,6 @@ onMounted(() => {
             <div v-else class="audit-empty">
               <SvgIcon name="warehouse-box" :width="32" :height="32" />
               <p>{{ t('clients.no_orders') }}</p>
-            </div>
-          </GlassPanel>
-        </div>
-
-        <!-- Issued invoices -->
-        <div class="audit-panel-wide" data-test="client-card-invoices">
-          <GlassPanel
-            :title="t('clients.section_invoices')"
-            :loading="invoicesLoading"
-            :skeleton-rows="3"
-          >
-            <template v-if="invoices.length > 0">
-              <div class="table-responsive">
-                <table class="audit-log-table" data-test="client-card-invoice-table">
-                  <thead>
-                    <tr>
-                      <th>{{ t('clients.invoice_col_number') }}</th>
-                      <th>{{ t('clients.invoice_col_date') }}</th>
-                      <th>{{ t('clients.invoice_col_order') }}</th>
-                      <th>{{ t('clients.invoice_col_amount') }}</th>
-                      <th>{{ t('clients.invoice_col_paid') }}</th>
-                      <th>{{ t('clients.invoice_col_outstanding') }}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr
-                      v-for="invoice in invoices"
-                      :key="invoice.id"
-                      data-test="client-card-invoice-row"
-                      :data-withdrawn="invoice.withdrawn ? 'true' : 'false'"
-                    >
-                      <td>
-                        <span
-                          class="invoice-number"
-                          :class="{ 'is-withdrawn': invoice.withdrawn }"
-                          data-test="client-card-invoice-number"
-                        >
-                          {{ invoice.number }}
-                        </span>
-                        <span class="invoice-kind-pill">
-                          {{ INVOICE_KIND_LABEL[invoice.kind] || invoice.kind }}
-                        </span>
-                        <span
-                          v-if="invoice.withdrawn"
-                          v-tooltip="t('clients.invoice_withdrawn_hint')"
-                          class="invoice-withdrawn-pill"
-                          data-test="client-card-invoice-withdrawn"
-                        >
-                          {{ t('clients.invoice_withdrawn') }}
-                        </span>
-                      </td>
-                      <td class="audit-log-ts">{{ invoice.issuedAt.slice(0, 10) }}</td>
-                      <td>
-                        <router-link
-                          :to="{ name: 'admin-order-card', params: { id: invoice.orderId } }"
-                          class="order-link"
-                          data-test="client-card-invoice-order-link"
-                        >
-                          {{ invoice.orderNumber }}
-                        </router-link>
-                      </td>
-                      <td>
-                        <span class="order-total" data-test="client-card-invoice-amount">
-                          {{ formatMoney(invoice.currency, invoice.amountGrossCurrent) }}
-                        </span>
-                        <span
-                          v-if="invoice.amountGrossCurrent !== invoice.amountGross"
-                          class="invoice-amount-was"
-                        >
-                          {{ formatMoney(invoice.currency, invoice.amountGross) }}
-                        </span>
-                      </td>
-                      <td>
-                        <span class="order-total">
-                          {{ formatMoney(invoice.currency, invoice.paidAmount) }}
-                        </span>
-                      </td>
-                      <td>
-                        <span class="order-total" data-test="client-card-invoice-outstanding">
-                          {{ formatMoney(invoice.currency, invoice.outstanding) }}
-                        </span>
-                      </td>
-                    </tr>
-                  </tbody>
-                  <tfoot>
-                    <tr
-                      v-for="total in invoiceTotals"
-                      :key="total.currency"
-                      class="invoice-totals-row"
-                      data-test="client-card-invoice-totals"
-                    >
-                      <td colspan="3">{{ t('clients.invoice_totals') }}</td>
-                      <td>
-                        <span class="order-total" data-test="client-card-invoice-total-issued">
-                          {{ formatMoney(total.currency, total.issued) }}
-                        </span>
-                      </td>
-                      <td>
-                        <span class="order-total">
-                          {{ formatMoney(total.currency, total.paid) }}
-                        </span>
-                      </td>
-                      <td>
-                        <span class="order-total">
-                          {{ formatMoney(total.currency, total.outstanding) }}
-                        </span>
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            </template>
-            <div v-else class="audit-empty">
-              <SvgIcon name="warehouse-box" :width="32" :height="32" />
-              <p>{{ t('clients.no_invoices') }}</p>
             </div>
           </GlassPanel>
         </div>

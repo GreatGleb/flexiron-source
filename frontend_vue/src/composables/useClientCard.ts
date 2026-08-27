@@ -6,7 +6,6 @@ import {
   deleteClientAuditEntry,
   addClientInteraction,
   deleteClientInteraction,
-  getClientInvoices,
 } from '@/services/clientsService'
 import { useDirtyCheck } from './useDirtyCheck'
 import { useToast } from './useToast'
@@ -14,8 +13,7 @@ import { useTranslatedField } from './useTranslatedData'
 import { useI18n } from 'vue-i18n'
 import { getOrders } from '@/services/ordersService'
 import { normalizePaymentTermsDays } from '@/domain/paymentTerms'
-import { round2 } from '@/domain/orderPricing'
-import type { Client, ClientInvoice, InteractionHistoryEntry } from '@/types/client'
+import type { Client, InteractionHistoryEntry } from '@/types/client'
 import type { OrderListItem } from '@/types/order'
 import type { StockAuditEntry } from '@/types/warehouse'
 
@@ -42,43 +40,6 @@ export function useClientCard(id: string) {
    */
   const orders = ref<OrderListItem[]>([])
   const ordersLoading = ref(false)
-
-  /**
-   * Выставленные клиенту счета — вторая половина сводки из ТЗ (CRM §54).
-   *
-   * Приходят одним запросом и уже размеченными: держит клиент документ или он
-   * отозван, решено на стороне заказов, где это правило и живёт.
-   */
-  const invoices = ref<ClientInvoice[]>([])
-  const invoicesLoading = ref(false)
-
-  /**
-   * Итог по колонкам — отдельно на каждую валюту.
-   *
-   * Курса в системе нет нигде, поэтому один общий итог по счетам в евро и
-   * долларах был бы не суммой, а склейкой двух разных величин. Отозванные
-   * документы в «выставлено» не входят: `amountGrossCurrent` у них ноль, потому
-   * что клиент их не держит.
-   */
-  const invoiceTotals = computed(() => {
-    const byCurrency = new Map<
-      string,
-      { currency: string; issued: number; paid: number; outstanding: number }
-    >()
-    for (const invoice of invoices.value) {
-      const row = byCurrency.get(invoice.currency) ?? {
-        currency: invoice.currency,
-        issued: 0,
-        paid: 0,
-        outstanding: 0,
-      }
-      row.issued = round2(row.issued + invoice.amountGrossCurrent)
-      row.paid = round2(row.paid + invoice.paidAmount)
-      row.outstanding = round2(row.outstanding + invoice.outstanding)
-      byCurrency.set(invoice.currency, row)
-    }
-    return [...byCurrency.values()].sort((a, b) => a.currency.localeCompare(b.currency))
-  })
 
   const newInteraction = reactive<{
     type: 'call' | 'email' | 'note' | 'meeting'
@@ -165,17 +126,6 @@ export function useClientCard(id: string) {
       orders.value = []
     } finally {
       ordersLoading.value = false
-    }
-  }
-
-  async function loadInvoices() {
-    invoicesLoading.value = true
-    try {
-      invoices.value = await getClientInvoices(id)
-    } catch {
-      invoices.value = []
-    } finally {
-      invoicesLoading.value = false
     }
   }
 
@@ -306,10 +256,6 @@ export function useClientCard(id: string) {
     orders,
     ordersLoading,
     loadOrders,
-    invoices,
-    invoicesLoading,
-    invoiceTotals,
-    loadInvoices,
     deleteAuditEntry,
     handleDeleteInteraction,
     newInteraction,

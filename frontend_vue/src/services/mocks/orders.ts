@@ -25,7 +25,6 @@ import type {
   LineEditEnvelope,
 } from '@/types/order'
 import type { CostSource } from '@/types/order'
-import type { ClientInvoice } from '@/types/client'
 import type { StockReservation } from '@/types/warehouse'
 import type { PaginatedResponse, PaginationParams } from '@/types/api'
 import {
@@ -3802,60 +3801,6 @@ export function mockGetInvoices(orderId: string): Invoice[] {
   const order = STORE.find((o) => o.id === orderId)
   if (!order) throw new Error('ORDER_NOT_FOUND')
   return clone(order.invoices)
-}
-
-/**
- * Every document this client was issued, across all their orders.
- *
- * Answered by the side that holds the orders, and not assembled in the card out
- * of a list of orders and a request per order: "is the client still holding this
- * document" is `isWithdrawn`, and a second copy of that rule on the client side
- * would drift from this one the first time a correction changed meaning. The
- * card gets rows that already know it.
- *
- * Corrections get no row of their own. A correction is not a document the client
- * was billed on — it changes the amount on one they already have — so it lands in
- * `amountGrossCurrent` and, when it takes the document back, in `withdrawn`.
- */
-export function mockGetClientInvoices(clientId: string): ClientInvoice[] {
-  const rows: ClientInvoice[] = []
-  for (const order of STORE) {
-    if (order.clientId !== clientId) continue
-    for (const invoice of order.invoices) {
-      if (invoice.kind === 'correction') continue
-      const withdrawn = isWithdrawn(order, invoice.id)
-      // Withdrawn is exactly zero, not "the mirror amount added back": the two
-      // documents come to nothing, and a stray cent of rounding would show up in
-      // the client's outstanding balance as money somebody owes.
-      const current = withdrawn
-        ? 0
-        : round2(
-            order.invoices.reduce(
-              (sum, i) => (i.correctsInvoiceId === invoice.id ? sum + i.amountGross : sum),
-              invoice.amountGross,
-            ),
-          )
-      const paid = round2(
-        order.payments.reduce((sum, p) => (p.invoiceId === invoice.id ? sum + p.amount : sum), 0),
-      )
-      rows.push({
-        id: invoice.id,
-        orderId: order.id,
-        orderNumber: order.orderNumber,
-        number: invoice.number,
-        issuedAt: invoice.issuedAt,
-        kind: invoice.kind,
-        currency: order.currency,
-        amountGross: invoice.amountGross,
-        amountGrossCurrent: current,
-        withdrawn,
-        paidAmount: paid,
-        outstanding: round2(current - paid),
-      })
-    }
-  }
-  // Newest first — the same order the card's history reads in.
-  return rows.sort((a, b) => b.issuedAt.localeCompare(a.issuedAt))
 }
 
 /**
