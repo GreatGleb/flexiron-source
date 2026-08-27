@@ -1,4 +1,5 @@
 import type { StockAuditEntry } from '@/types/warehouse'
+import type { InvoiceKind } from '@/types/order'
 
 /** A single entry in the client's interaction history (calls, emails, notes) */
 export interface InteractionHistoryEntry {
@@ -60,3 +61,43 @@ export type ClientFormData = Pick<
   | 'notes'
   | 'rejectionReason'
 >
+
+/**
+ * Одна строка сводки выставленных счетов в карточке клиента (ТЗ CRM §54).
+ *
+ * Счёт живёт внутри заказа, а карточка клиента спрашивает про клиента — поэтому
+ * сюда едет плоская строка, у которой уже есть и заказ, и деньги. Корректировки
+ * своей строки не получают: документ у клиента один, а корректировка меняет
+ * сумму на нём — она приходит в `amountGrossCurrent` и в `withdrawn`.
+ */
+export interface ClientInvoice {
+  id: string
+  orderId: string
+  orderNumber: string
+  number: string
+  issuedAt: string
+  kind: InvoiceKind
+  /**
+   * Валюта заказа, под которым выписан счёт.
+   *
+   * Подпись, а не множитель: курса в системе нет нигде, поэтому суммы разных
+   * валют не складываются в один итог — итог считается по каждой отдельно.
+   */
+  currency: string
+  /** Что было написано на документе в день выписки. */
+  amountGross: number
+  /**
+   * Сколько на документе сейчас — после всех корректировок, которые его называют.
+   *
+   * У отозванного документа это ноль: клиент его не держит, и в «выставлено» он
+   * не входит. Иначе простая сумма по колонке насчитала бы деньги, которых
+   * никто не должен.
+   */
+  amountGrossCurrent: number
+  /** Клиент больше не держит этот документ — зеркальная корректировка его отозвала. */
+  withdrawn: boolean
+  /** Деньги, пришедшие именно по этому счёту. */
+  paidAmount: number
+  /** `amountGrossCurrent - paidAmount`; минус — переплата, её возвращают. */
+  outstanding: number
+}

@@ -182,6 +182,7 @@ import {
   mockAddOrderPayment,
   mockDeleteOrderPayment,
   mockGetInvoices,
+  mockGetClientInvoices,
   mockCreateInvoice,
 } from './orders'
 import type { SupplierFilters, SupplierCardData } from '@/types/supplier'
@@ -523,6 +524,13 @@ async function getMockRoute<T>(path: string, params?: Record<string, string>): P
   const clientAuditMatch = path.match(/^\/api\/clients\/([^/]+)\/audit$/)
   if (clientAuditMatch) {
     return delay(mockGetClientAudit(clientAuditMatch[1] as string) as T)
+  }
+
+  // Documents, not orders — answered by the orders store, which is where an
+  // invoice lives, and already knowing which of them the client still holds.
+  const clientInvoicesMatch = path.match(/^\/api\/clients\/([^/]+)\/invoices$/)
+  if (clientInvoicesMatch) {
+    return delay(mockGetClientInvoices(clientInvoicesMatch[1] as string) as T)
   }
 
   // ── Sales CRM ──
