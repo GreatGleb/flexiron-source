@@ -889,6 +889,47 @@ export async function mockCreateOffcut(data: OffcutCreatePayload): Promise<Wareh
 }
 
 /**
+ * Кто уже стоит на куске — вопрос к ЗАКАЗАМ, потому что записан этот хват в разбивке
+ * строки, а не на складе.
+ *
+ * Регистрацией, а не импортом, и по той же причине, что `registerClientOrderLookup` и
+ * `registerProductSalesLookup`: склад спрашивает, заказы отвечают, а импорт в эту сторону
+ * был бы циклом — `orders.ts` уже импортирует этот модуль.
+ *
+ * Пока никто не зарегистрировался (склад подняли без модуля заказов), занятых кусков
+ * нет — это правда, а не заглушка: без заказов и претендентов на кусок не существует.
+ */
+let offcutClaimLookup: (() => ReadonlySet<string>) | null = null
+
+export function registerOffcutClaimLookup(lookup: () => ReadonlySet<string>): void {
+  offcutClaimLookup = lookup
+}
+
+/**
+ * Куски, которые уже кому-то обещаны и второй раз обещаны быть не могут.
+ *
+ * Обрезок — ОДИН физический кусок, и делится он только резкой: «остатка», из которого
+ * вычитают чужой хват, у него нет. Поэтому занят он не частично, а целиком — с той
+ * минуты, как его назвали в разбивке строки, и задолго до того, как кто-нибудь его
+ * зарезервирует.
+ *
+ * Спрашивается только разбивка, хотя держат кусок и резервы. Так и надо: резерв на
+ * кусок возникает единственным способом — из разбивки, которая его назвала
+ * (`mockReserveOrder`), — и разбивку переживает, потому что удаление строки снимает
+ * хват, а не наоборот. Разбивка тут шире резерва и старше его, так что второй вопрос
+ * дал бы тот же ответ и завёл бы второй источник одного правила.
+ *
+ * Ничего не хранится: занятость ВЫВОДИТСЯ из того, кто на куске стоит. Поэтому строка,
+ * которую удалили, отпускает кусок сама — отдельного «освободить кусок», который
+ * когда-нибудь забудут позвать, не нужно. Обратная сторона того же: аннулированный
+ * заказ кусок НЕ отдаёт, пока его строки живы, — ровно как аннулированный заказ не
+ * отпускает и хват на партии. Это одно поведение, и менять его надо сразу для обоих.
+ */
+function takenOffcuts(): ReadonlySet<string> {
+  return offcutClaimLookup?.() ?? new Set<string>()
+}
+
+/**
  * Обрезки, которые СТРОКА ЗАКАЗА может взять по этому товару.
  *
  * Обрезки не участвуют в автоматическом FIFO и участвовать не будут (пункт 7 плана
@@ -896,15 +937,19 @@ export async function mockCreateOffcut(data: OffcutCreatePayload): Promise<Wareh
  * Поэтому FIFO по-прежнему строится только из партий, а этот список — единственная
  * дорога куска в заказ.
  *
- * Предлагается только `available`: кусок, уже отданный заказу или списанный, продать
- * второй раз нельзя. Кусок, размер которого в единице партии невыразим, не предлагается
+ * Предлагается только СВОБОДНЫЙ кусок: не списанный (`status`) и никем не занятый
+ * (`takenOffcuts`). Партии тут не пример для подражания: у партии `mockFifoAllocation`
+ * вычитает чужой хват из количества, а у куска вычитать нечего — он один и делится
+ * только резкой. Кусок, размер которого в единице партии невыразим, не предлагается
  * вовсе — взять его в строку всё равно не получилось бы, и показать его значило бы
  * пообещать выбор, который откажут на сохранении.
  */
 export function mockGetOffcutOffers(productId: string): OffcutOffer[] {
+  const taken = takenOffcuts()
   const offers: OffcutOffer[] = []
   for (const offcut of offcutStore) {
     if (offcut.productId !== productId || offcut.status !== 'available') continue
+    if (taken.has(offcut.id)) continue
     const batch = batchStore.find((b) => b.id === offcut.batchId)
     if (!batch) continue
     const allocation = offcutAllocation(offcut, batch)
@@ -937,17 +982,25 @@ export function mockGetOffcutOffers(productId: string): OffcutOffer[] {
  * товара и кусок, уже отданный кому-то, — это три разные ошибки, и строка, которая
  * тихо потеряла один из выбранных кусков, обещает клиенту металл по цене, которой
  * никто не считал. Один и тот же id дважды — один кусок: он физически один.
+ *
+ * «Уже отданный» проверяется ТЕМ ЖЕ `takenOffcuts`, которым отбирается список
+ * предложений, — иначе отказ и предложение разошлись бы, и то, что второму заказу
+ * показали, третьему бы не сохранилось. Список отсеивает занятое заранее, а этот отказ
+ * ловит то, что заняли между показом и сохранением: список — вежливость, отказ —
+ * правило.
  */
 export function mockOffcutAllocations(
   productId: string,
   offcutIds: readonly string[],
 ): OrderLineAllocation[] {
+  const taken = takenOffcuts()
   const allocations: OrderLineAllocation[] = []
   for (const id of new Set(offcutIds)) {
     const offcut = offcutStore.find((o) => o.id === id)
     if (!offcut) throw new Error('OFFCUT_NOT_FOUND')
     if (offcut.productId !== productId) throw new Error('OFFCUT_PRODUCT_MISMATCH')
-    if (offcut.status !== 'available') throw new Error('OFFCUT_NOT_AVAILABLE')
+    if (offcut.status !== 'available' || taken.has(offcut.id))
+      throw new Error('OFFCUT_NOT_AVAILABLE')
     const batch = batchStore.find((b) => b.id === offcut.batchId)
     if (!batch) throw new Error('BATCH_NOT_FOUND')
     const allocation = offcutAllocation(offcut, batch)

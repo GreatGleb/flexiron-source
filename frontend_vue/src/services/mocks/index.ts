@@ -713,8 +713,6 @@ async function getMockRoute<T>(path: string, params?: Record<string, string>): P
 
   // Проверяется ДО карточки обрезка: `/offcuts/offers` подходит под её шаблон
   // `/offcuts/:id`, и обобщённое совпадение увело бы запрос в «обрезок не найден».
-  // Проверяется ДО карточки обрезка: `/offcuts/offers` подходит под её шаблон
-  // `/offcuts/:id`, и обобщённое совпадение увело бы запрос в «обрезок не найден».
   if (path === '/api/warehouse/offcuts/offers') {
     return delay(mockGetOffcutOffers(params?.productId ?? '') as T)
   }

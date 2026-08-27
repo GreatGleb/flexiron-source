@@ -104,6 +104,7 @@ import {
   mockGetMovementsFor,
   mockOffcutAllocations,
   recordShortage,
+  registerOffcutClaimLookup,
   writeMovement,
 } from './warehouse'
 import { allServices, serviceById } from './services'
@@ -1264,6 +1265,32 @@ registerProductSalesLookup((productId) => {
     }
   }
   return quantity > 0 ? { quantity, net } : null
+})
+
+// "Занят ли этот кусок?" — тоже вопрос о заказах, и отвечает он тем же способом.
+// Склад обязан вычитать занятое, чтобы ответить «что свободно», но записан хват куска
+// в разбивке СТРОКИ, и знать о нём склад может только спросив.
+//
+// Кусок неделим, поэтому занят он целиком с той минуты, как его назвали в строке, — а
+// не с резервирования: между добавлением позиции и резервом заказ уже стоит на куске, и
+// показать этот кусок второму менеджеру значит продать один металл дважды. Партия так
+// себя не ведёт и вести не может: у неё есть количество, из которого чужой хват
+// вычитается, а у куска вычитать нечего.
+//
+// Статус заказа тут не спрашивается ни у кого. Кусок отпускает СТРОКА — тем, что её
+// удалили или что удалили весь заказ; аннулированный заказ со списком живых строк
+// держит свой металл дальше, ровно как держит хват на партии. Одна оговорка на два
+// случая лучше, чем правило, которое для куска и для партии звучит по-разному.
+registerOffcutClaimLookup(() => {
+  const taken = new Set<string>()
+  for (const order of STORE) {
+    for (const item of order.items) {
+      for (const allocation of item.allocations) {
+        if (allocation.offcutId) taken.add(allocation.offcutId)
+      }
+    }
+  }
+  return taken
 })
 
 let nextSeq = TOTAL_ORDERS + 1
