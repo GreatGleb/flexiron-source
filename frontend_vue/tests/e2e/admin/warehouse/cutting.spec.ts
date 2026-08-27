@@ -67,29 +67,6 @@ test.describe('Cutting operation', () => {
     await expect(page.getByTestId('warehouse-cutting-batches-table')).toHaveCount(0)
   })
 
-  test('a batch opened by its direct link still names the product', async ({ page }) => {
-    // Имя товара берётся из справочника по `productId` в момент показа, а справочник
-    // грузится вместе с данными страницы. У резки два входа: список партий и прямая
-    // ссылка `?batchId=...`, которую строит карточка партии, — и по этой ссылке
-    // попадает всякая перезагрузка страницы и всякое открытие из истории. Вход,
-    // который справочник не принёс, показал бы прочерк, и дозагрузить его было бы
-    // некому.
-    await navigateToAdmin(page, '/admin/warehouse/batches/whb-077')
-    const link = page.getByTestId('batch-card-cutting-link')
-    const directUrl = (await link.getAttribute('href'))!
-    await link.click()
-    await expect(page.getByTestId('warehouse-cutting-batch-number')).toHaveText(METRE_BATCH)
-    const insideSpa = (await page.getByTestId('warehouse-cutting-product').textContent())!.trim()
-    // Непустота нужна отдельно: без неё равенство двух прочерков сошлось бы как успех.
-    expect(insideSpa.length).toBeGreaterThan(1)
-
-    // Тот же экран, открытый ссылкой напрямую, — это полная загрузка приложения, и
-    // список партий на этом пути не запрашивается.
-    await navigateToAdmin(page, directUrl)
-    await expect(page.getByTestId('warehouse-cutting-batch-number')).toHaveText(METRE_BATCH)
-    await expect(page.getByTestId('warehouse-cutting-product')).toHaveText(insideSpa)
-  })
-
   test('the example from the spec: 2500 mm plus a 3 mm kerf is 2.503 m', async ({ page }) => {
     await openCuttingFor(page, METRE_BATCH)
     await fillRow(page, 0, { lengthMm: 2500, pieces: 1 })

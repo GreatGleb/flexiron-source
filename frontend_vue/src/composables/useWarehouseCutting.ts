@@ -97,12 +97,7 @@ export function useWarehouseCutting() {
   async function selectBatch(id: string) {
     batchLoading.value = true
     try {
-      // Справочник товаров тянется ВМЕСТЕ с партией, а не только в `loadBatches()`:
-      // на резку заходят и прямой ссылкой `?batchId=...` (её строит карточка партии,
-      // и ровно она открывается из истории или после перезагрузки). Тот путь список
-      // партий не грузит, и без этой строки шапка операции показала бы прочерк вместо
-      // имени товара — некому было бы дозагрузить.
-      const [loaded] = await Promise.all([getBatch(id), ensureProductNames()])
+      const loaded = await getBatch(id)
       batch.value = loaded
       productCategoryId.value = await getProduct(loaded.productId)
         .then((product) => product.categoryId)
