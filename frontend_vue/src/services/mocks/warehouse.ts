@@ -15,7 +15,6 @@ import type {
   DeficitListResponse,
   StockOverviewItem,
   StockAuditEntry,
-  StockUnit,
   CuttingOperation,
   BatchStatusAggregate,
   BatchActiveSale,
@@ -393,7 +392,7 @@ function projectStockRow(row: StockOverviewItem): StockOverviewItem {
     // batches only — an unpriced one would otherwise drag the average towards zero.
     avgUnitPrice: costedQuantity > 0 ? round2(totalValue / costedQuantity) : 0,
     totalValue,
-    unit: (batches[0]?.unit ?? row.unit) as StockUnit,
+    uomId: batches[0]?.uomId ?? row.uomId,
     // Reserved and available are derived for the same reason: a hold belongs to an
     // order, and a number copied here would lie the moment that order shipped.
     reservedQuantity: reserved,
@@ -406,7 +405,7 @@ export async function mockGetStockOverview(
   filters: {
     search: string
     categoryIds?: string
-    unit?: string
+    uomId?: string
     showDeficitOnly?: string
     showInStockOnly?: string
     sortBy?: string
@@ -432,7 +431,7 @@ export async function mockGetStockOverview(
     const cats = filters.categoryIds.split(',').filter(Boolean)
     if (cats.length > 0) filtered = filtered.filter((s) => cats.includes(s.categoryId!))
   }
-  if (filters.unit) filtered = filtered.filter((s) => s.unit === filters.unit)
+  if (filters.uomId) filtered = filtered.filter((s) => s.uomId === filters.uomId)
   if (filters.showDeficitOnly === 'true') filtered = filtered.filter((s) => s.isDeficit)
   if (filters.showInStockOnly === 'true') filtered = filtered.filter((s) => s.availableQuantity > 0)
 
@@ -495,7 +494,7 @@ export async function mockGetBatches(
     productId?: string
     supplierId?: string
     status?: string
-    unit?: string
+    uomId?: string
     dateFrom?: string
     dateTo?: string
     sortBy?: string
@@ -517,7 +516,7 @@ export async function mockGetBatches(
   if (filters.productId) filtered = filtered.filter((b) => b.productId === filters.productId)
   if (filters.supplierId) filtered = filtered.filter((b) => b.supplierId === filters.supplierId)
   if (filters.status) filtered = filtered.filter((b) => b.status === filters.status)
-  if (filters.unit) filtered = filtered.filter((b) => b.unit === filters.unit)
+  if (filters.uomId) filtered = filtered.filter((b) => b.uomId === filters.uomId)
   if (filters.dateFrom) filtered = filtered.filter((b) => b.receivedAt >= filters.dateFrom!)
   if (filters.dateTo) filtered = filtered.filter((b) => b.receivedAt <= filters.dateTo!)
 
@@ -531,7 +530,7 @@ export async function mockGetBatches(
     else if (sortBy === 'productName') cmp = a.productName.en.localeCompare(b.productName.en)
     else if (sortBy === 'quantity') cmp = a.quantity - b.quantity
     else if (sortBy === 'quantityRemaining') cmp = a.quantityRemaining - b.quantityRemaining
-    else if (sortBy === 'unit') cmp = a.unit.localeCompare(b.unit)
+    else if (sortBy === 'uomId') cmp = a.uomId.localeCompare(b.uomId)
     else if (sortBy === 'unitPrice') cmp = (a.unitPrice ?? 0) - (b.unitPrice ?? 0)
     else if (sortBy === 'status') cmp = a.status.localeCompare(b.status)
     else if (sortBy === 'supplierName')
@@ -561,7 +560,7 @@ function toBatchListItem(b: WarehouseBatch): BatchListItem {
     lotCode: b.lotCode,
     quantity: b.quantity,
     quantityRemaining: b.quantityRemaining,
-    unit: b.unit,
+    uomId: b.uomId,
     unitPrice: b.unitPrice,
     currency: b.currency,
     receivedAt: b.receivedAt,
@@ -635,7 +634,7 @@ export async function mockCreateBatch(
   // anything, put dollars on a shelf that is kept in euro. The arrow points one
   // way only: an empty purchase price stays empty.
   const receivedQuantity = data.receivedQuantity ?? data.quantity
-  const receivedUnitId = data.receivedUnitId ?? _resolveUomId(data.unit)
+  const receivedUnitId = data.receivedUnitId ?? data.uomId
   const receivedUnitPrice = data.receivedUnitPrice ?? null
   // A currency is a caption to a number; with no purchase price there is nothing
   // to caption. When a price came without one, it came in the base currency.
@@ -644,7 +643,7 @@ export async function mockCreateBatch(
     (receivedUnitPrice != null ? _resolveCurrencyId(BASE_CURRENCY) : null)
   const purchaseToWarehouseRate =
     data.purchaseToWarehouseRate ??
-    (receivedUnitId !== data.unit
+    (receivedUnitId !== data.uomId
       ? data.quantity && receivedQuantity
         ? receivedQuantity / data.quantity
         : null
@@ -697,7 +696,7 @@ export async function mockCreateBatch(
     lotCode: data.lotCode,
     quantity: data.quantity,
     quantityRemaining: data.quantity,
-    unit: data.unit as StockUnit,
+    uomId: data.uomId,
     unitPrice: warehouseUnitPrice,
     // No cost means no total. NaN and 0 both claim something nobody knows.
     totalCost: warehouseUnitPrice == null ? null : round2(data.quantity * warehouseUnitPrice),
@@ -763,7 +762,7 @@ export async function mockGetOffcuts(
     search: string
     productId?: string
     status?: string
-    unit?: string
+    uomId?: string
     offcutType?: string
     categoryIds?: string
     batchNumber?: string
@@ -784,7 +783,7 @@ export async function mockGetOffcuts(
   }
   if (filters.productId) filtered = filtered.filter((o) => o.productId === filters.productId)
   if (filters.status) filtered = filtered.filter((o) => o.status === filters.status)
-  if (filters.unit) filtered = filtered.filter((o) => o.unit === filters.unit)
+  if (filters.uomId) filtered = filtered.filter((o) => o.uomId === filters.uomId)
   if (filters.offcutType) filtered = filtered.filter((o) => o.offcutType === filters.offcutType)
   if (filters.categoryIds) {
     const cats = filters.categoryIds.split(',').filter(Boolean)
@@ -831,7 +830,7 @@ export async function mockCreateOffcut(data: OffcutCreatePayload): Promise<Wareh
   const batch = batchStore.find((b) => b.id === data.batchId)
   if (!batch) throw new Error('BATCH_NOT_FOUND')
 
-  const material = resolveOffcutMaterial(data, batch.unit)
+  const material = resolveOffcutMaterial(data, batch.uomId)
   if (!material.ok) throw new Error(MATERIAL_ERROR_CODE[material.reason])
   // Списать больше, чем лежит, и отчитаться об успехе — значит создать металл из
   // ничего: `Math.max(0, …)` ниже по стеку молча согласился бы.
@@ -854,7 +853,7 @@ export async function mockCreateOffcut(data: OffcutCreatePayload): Promise<Wareh
     thicknessMm: data.thicknessMm ?? null,
     weightKg: data.weightKg ?? null,
     quantity: data.quantity,
-    unit: data.unit as StockUnit,
+    uomId: data.uomId,
     location: data.location ?? null,
     status: 'available',
     notes: data.notes ?? null,
@@ -909,7 +908,7 @@ function toMovementListItem(m: WarehouseMovement): MovementListItem {
     productId: m.productId,
     productName: m.productName,
     quantity: m.quantity,
-    unit: m.unit,
+    uomId: m.uomId,
     unitPrice: m.unitPrice,
     referenceId: m.referenceId,
     referenceType: m.referenceType,
@@ -924,7 +923,7 @@ export async function mockGetMovements(
     search: string
     type?: string
     productId?: string
-    unit?: string
+    uomId?: string
     categoryIds?: string
     batchNumber?: string
     referenceId?: string
@@ -949,7 +948,7 @@ export async function mockGetMovements(
   }
   if (filters.type) filtered = filtered.filter((m) => m.type === filters.type)
   if (filters.productId) filtered = filtered.filter((m) => m.productId === filters.productId)
-  if (filters.unit) filtered = filtered.filter((m) => m.unit === filters.unit)
+  if (filters.uomId) filtered = filtered.filter((m) => m.uomId === filters.uomId)
   if (filters.batchNumber)
     filtered = filtered.filter((m) =>
       m.batchNumber.toLowerCase().includes(filters.batchNumber!.toLowerCase()),
@@ -968,7 +967,7 @@ export async function mockGetMovements(
     else if (sortBy === 'productName') cmp = a.productName.en.localeCompare(b.productName.en)
     else if (sortBy === 'batchNumber') cmp = a.batchNumber.localeCompare(b.batchNumber)
     else if (sortBy === 'quantity') cmp = a.quantity - b.quantity
-    else if (sortBy === 'unit') cmp = a.unit.localeCompare(b.unit)
+    else if (sortBy === 'uomId') cmp = a.uomId.localeCompare(b.uomId)
     else if (sortBy === 'unitPrice') cmp = a.unitPrice - b.unitPrice
     else if (sortBy === 'totalCost') cmp = a.quantity * a.unitPrice - b.quantity * b.unitPrice
     else if (sortBy === 'referenceId')
@@ -1020,7 +1019,7 @@ export function writeMovement(data: {
     productId: batch.productId,
     productName: batch.productName,
     quantity: data.quantity,
-    unit: batch.unit,
+    uomId: batch.uomId,
     // A movement is priced at what the batch costs; a batch with no cost moves
     // goods without moving a known amount of money.
     unitPrice: data.unitPrice ?? batch.unitPrice ?? 0,
@@ -1205,13 +1204,13 @@ export async function mockGetBatchAggregates(batchId: string): Promise<BatchStat
 
   const receiptQty = Math.max(0, batch.quantityRemaining)
   const result: BatchStatusAggregate[] = []
-  if (receiptQty > 0) result.push({ type: 'receipt', quantity: receiptQty, unit: batch.unit })
+  if (receiptQty > 0) result.push({ type: 'receipt', quantity: receiptQty, uomId: batch.uomId })
 
   const sorted = Object.entries(byType)
     .filter(([, q]) => q > 0)
     .sort(([, a], [, b]) => b - a)
   for (const [type, quantity] of sorted) {
-    result.push({ type: type as MovementType, quantity, unit: batch.unit })
+    result.push({ type: type as MovementType, quantity, uomId: batch.uomId })
   }
   return result
 }
@@ -1239,7 +1238,7 @@ export async function mockGetBatchActiveSales(batchId: string): Promise<BatchAct
       id: `sale-${batchId}-${String(idx).padStart(3, '0')}`,
       movementId: s.id,
       quantity: remaining,
-      unit: s.unit,
+      uomId: s.uomId,
       referenceId: s.referenceId ?? null,
       soldAt: s.movedAt,
     })
@@ -1279,13 +1278,13 @@ export async function mockExecuteCutting(
   if (kerfMm < 0 || wasteQuantity < 0) throw new Error('CUTTING_NEGATIVE_AMOUNT')
   // Ширина реза в килограммах не выражается без веса погонного метра. Отказ, а не
   // молчаливый ноль: присланный пропил означает, что клиент считает его значащим.
-  if (kerfMm > 0 && !isLinearBatchUnit(batch.unit)) throw new Error('CUTTING_KERF_NOT_APPLICABLE')
+  if (kerfMm > 0 && !isLinearBatchUnit(batch.uomId)) throw new Error('CUTTING_KERF_NOT_APPLICABLE')
 
   const consumption = computeCuttingConsumption({
     offcuts: data.offcuts,
     kerfMm,
     wasteQuantity,
-    unit: batch.unit,
+    uomId: batch.uomId,
   })
   if (!consumption.ok) throw new Error(MATERIAL_ERROR_CODE[consumption.reason])
   if (consumption.consumed > batch.quantityRemaining) throw new Error('INSUFFICIENT_QUANTITY')
@@ -1339,7 +1338,7 @@ export async function mockGetDeficitList(
     search: string
     priority?: string
     status?: string
-    unit?: string
+    uomId?: string
     categoryIds?: string
     sortBy?: string
     sortDir?: string
@@ -1370,8 +1369,8 @@ export async function mockGetDeficitList(
   }
 
   // Filter by unit
-  if (filters.unit) {
-    filtered = filtered.filter((d) => d.unit === filters.unit)
+  if (filters.uomId) {
+    filtered = filtered.filter((d) => d.uomId === filters.uomId)
   }
 
   // Sort
@@ -1410,7 +1409,7 @@ export function recordShortage(data: {
   productId: string
   productName: string
   quantity: number
-  unit: string
+  uomId: string
   orderId: string
 }): WarehouseDeficit {
   const now = new Date().toISOString()
@@ -1435,7 +1434,7 @@ export function recordShortage(data: {
     currentStock: 0,
     minRequired: round2(data.quantity),
     deficitAmount: round2(data.quantity),
-    unit: data.unit,
+    uomId: data.uomId,
     priority: 'high',
     status: 'open',
     suggestedOrderQty: round2(data.quantity),
@@ -1485,7 +1484,7 @@ export async function mockCreateDeficitItem(data: DeficitCreatePayload): Promise
     currentStock: 0,
     minRequired: data.minRequired,
     deficitAmount: data.minRequired,
-    unit: 'pcs',
+    uomId: 'uom-pcs',
     priority: data.priority,
     status: 'open',
     suggestedOrderQty: null,

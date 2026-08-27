@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useHead } from '@/composables/useHead'
 import { useWarehouseBatchCreate } from '@/composables/useWarehouseBatchCreate'
+import { useUnitLabel } from '@/composables/useUnitLabel'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
 import Breadcrumb from '@/components/admin/Breadcrumb.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
@@ -23,6 +24,7 @@ import '@styles/admin/products_card.css'
 import type { UploadedFile } from '@/services/uploadsService'
 
 const { t } = useI18n()
+const unitLabel = useUnitLabel()
 const router = useRouter()
 
 const {
@@ -41,7 +43,6 @@ const {
   quantityStep,
   totalCost,
   conversionPreview,
-  resolveUnitLabel,
   loadOptions,
   loadProducts,
   save,
@@ -302,16 +303,11 @@ function selectProduct(id: string) {
                   </td>
                   <td>{{ tf(p.name) }}</td>
                   <td>{{ p.categoryName ? tf(p.categoryName) : '—' }}</td>
-                  <td>
-                    {{
-                      (p as { unit?: string }).unit
-                        ? t(
-                            `warehouse.unit_${(p as { unit?: string }).unit}`,
-                            (p as { unit?: string }).unit!,
-                          )
-                        : '—'
-                    }}
-                  </td>
+                  <!-- Складская единица товара — она же станет единицей партии
+                       (`autoFillUnit`). До п. 4d здесь читалось поле `unit`, которого
+                       у строки списка товаров нет: приведение типом молчало, и колонка
+                       показывала прочерк всегда. -->
+                  <td>{{ unitLabel(p.warehouseUomId) }}</td>
                 </tr>
               </template>
             </tbody>
@@ -495,8 +491,8 @@ function selectProduct(id: string) {
                 class="glass-input"
                 style="display: flex; align-items: center; opacity: 0.7; cursor: default"
               >
-                <span v-if="form.unit">
-                  {{ resolveUnitLabel(form.unit) }}
+                <span v-if="form.uomId">
+                  {{ unitLabel(form.uomId) }}
                 </span>
                 <span v-else style="color: var(--text-dim)">
                   {{ t('warehouse.offcut_create_unit_placeholder') }}

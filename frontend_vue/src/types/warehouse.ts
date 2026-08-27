@@ -48,9 +48,6 @@ export type DeficitPriority = 'critical' | 'high' | 'medium' | 'low'
 /** Deficit status */
 export type DeficitStatus = 'open' | 'in_progress' | 'ordered' | 'resolved' | 'cancelled'
 
-/** Stock unit of measure — now dynamic from settings */
-export type StockUnit = string
-
 // ─── Batch File ─────────────────────────────────────────────────────────────
 
 export interface WarehouseBatchFile {
@@ -86,7 +83,8 @@ export interface WarehouseBatch {
   quantity: number
   /** Remaining quantity (in warehouse_uom) */
   quantityRemaining: number
-  unit: StockUnit
+  /** Единица измерения — ссылка на справочник настроек (`Uom.id`). */
+  uomId: string
   /**
    * Warehouse cost per warehouse_uom, ALWAYS in the base currency.
    *
@@ -144,7 +142,8 @@ export interface BatchListItem {
   lotCode: string
   quantity: number
   quantityRemaining: number
-  unit: StockUnit
+  /** Единица измерения — ссылка на справочник настроек (`Uom.id`). */
+  uomId: string
   /** `null` when nobody priced the batch — an unknown cost is not a zero one. */
   unitPrice: number | null
   currency: string
@@ -160,7 +159,8 @@ export interface BatchCreatePayload {
   batchNumber: string
   lotCode: string
   quantity: number
-  unit: StockUnit
+  /** Единица измерения — ссылка на справочник настроек (`Uom.id`). */
+  uomId: string
   /**
    * Warehouse cost in the BASE currency, named by a human.
    *
@@ -223,7 +223,8 @@ export interface WarehouseOffcut {
   weightKg: number | null
   /** Quantity (usually 1 piece) */
   quantity: number
-  unit: StockUnit
+  /** Единица измерения — ссылка на справочник настроек (`Uom.id`). */
+  uomId: string
   /** Storage location */
   location: string | null
   status: OffcutStatus
@@ -253,7 +254,8 @@ export interface OffcutListItem {
   widthMm: number | null
   weightKg: number | null
   quantity: number
-  unit: StockUnit
+  /** Единица измерения — ссылка на справочник настроек (`Uom.id`). */
+  uomId: string
   location: string | null
   status: OffcutStatus
   /** Link to order if offcut is reserved for an order */
@@ -270,7 +272,8 @@ export interface OffcutCreatePayload {
   thicknessMm?: number | null
   weightKg?: number | null
   quantity: number
-  unit: StockUnit
+  /** Единица измерения — ссылка на справочник настроек (`Uom.id`). */
+  uomId: string
   location?: string | null
   notes?: string | null
   /** File IDs to attach to the offcut */
@@ -311,7 +314,8 @@ export interface WarehouseMovement {
   productName: TranslatedString
   /** Quantity moved */
   quantity: number
-  unit: StockUnit
+  /** Единица измерения — ссылка на справочник настроек (`Uom.id`). */
+  uomId: string
   /** Unit price at time of movement */
   unitPrice: number
   /** Total cost = quantity × unitPrice */
@@ -344,7 +348,8 @@ export interface MovementListItem {
   productId: string
   productName: TranslatedString
   quantity: number
-  unit: StockUnit
+  /** Единица измерения — ссылка на справочник настроек (`Uom.id`). */
+  uomId: string
   unitPrice: number
   referenceId: string | null
   referenceType: string | null
@@ -400,7 +405,8 @@ export interface WarehouseDeficit {
   minRequired: number
   /** Deficit amount = minRequired - currentStock (positive) */
   deficitAmount: number
-  unit: StockUnit
+  /** Единица измерения — ссылка на справочник настроек (`Uom.id`). */
+  uomId: string
   priority: DeficitPriority
   status: DeficitStatus
   /** Suggested order quantity */
@@ -422,7 +428,8 @@ export interface DeficitListItem {
   currentStock: number
   minRequired: number
   deficitAmount: number
-  unit: StockUnit
+  /** Единица измерения — ссылка на справочник настроек (`Uom.id`). */
+  uomId: string
   priority: DeficitPriority
   status: DeficitStatus
   /**
@@ -496,7 +503,8 @@ export type StockAuditSeed = Omit<StockAuditEntry, 'id'>
 export interface BatchStatusAggregate {
   type: MovementType
   quantity: number
-  unit: StockUnit
+  /** Единица измерения — ссылка на справочник настроек (`Uom.id`). */
+  uomId: string
 }
 
 // ─── Batch Active Sale (Активная продажа для возврата) ───────────────────────
@@ -505,7 +513,8 @@ export interface BatchActiveSale {
   id: string
   movementId: string
   quantity: number
-  unit: StockUnit
+  /** Единица измерения — ссылка на справочник настроек (`Uom.id`). */
+  uomId: string
   /** Customer / order reference */
   referenceId: string | null
   /** Sale date */
@@ -523,7 +532,8 @@ export interface StockOverviewItem {
   reservedQuantity: number
   /** Available quantity = total - reserved */
   availableQuantity: number
-  unit: StockUnit
+  /** Единица измерения — ссылка на справочник настроек (`Uom.id`). */
+  uomId: string
   /** Number of active batches */
   batchCount: number
   /** Weighted average unit price */
@@ -545,8 +555,8 @@ export interface StockOverviewItem {
 export interface StockPatchPayload {
   /** Product name (TranslatedString) */
   productName?: TranslatedString
-  /** Unit of measure */
-  unit?: StockUnit
+  /** Единица измерения — ссылка на справочник настроек (`Uom.id`). */
+  uomId?: string
   /** Weighted average unit price */
   avgUnitPrice?: number
   /** Minimum stock threshold */
@@ -585,7 +595,7 @@ export interface WarehouseFilters {
   status?: BatchStatus | OffcutStatus | DeficitStatus
   type?: MovementType
   priority?: DeficitPriority
-  unit?: string
+  uomId?: string
   offcutType?: 'sheet' | 'linear'
   categoryIds?: string[]
   batchNumber?: string
@@ -601,14 +611,14 @@ export interface WarehouseFilters {
 export interface StockFilters {
   search: string
   categoryIds: string[]
-  unit: string
+  uomId: string
   showDeficitOnly: boolean
   showInStockOnly: boolean
   sortBy:
     | 'name'
     | 'totalQuantity'
     | 'availableQuantity'
-    | 'unit'
+    | 'uomId'
     | 'avgUnitPrice'
     | 'totalValue'
     | 'minStock'

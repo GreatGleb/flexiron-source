@@ -14,6 +14,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useUnitLabel } from '@/composables/useUnitLabel'
 import { createMovement } from '@/services/warehouseService'
 import { useToast } from '@/composables/useToast'
 import type {
@@ -32,6 +33,7 @@ import SvgIcon from '@/components/admin/SvgIcon.vue'
 import AutoResizeTextarea from '@/components/admin/ui/AutoResizeTextarea.vue'
 
 const { t } = useI18n()
+const unitLabel = useUnitLabel()
 const toast = useToast()
 
 const props = defineProps<{
@@ -232,12 +234,12 @@ const totalInStockAfter = computed(() => {
 })
 
 /** Step for quantity inputs: 1 for pcs, 0.01 for others */
-const quantityStep = computed(() => (props.batch?.unit === 'pcs' ? 1 : 0.01))
+const quantityStep = computed(() => (props.batch?.uomId === 'uom-pcs' ? 1 : 0.01))
 
 /** Translated unit label for the batch (e.g. "шт", "кг", "м", "м²") */
 const batchUnitLabel = computed(() => {
-  if (!props.batch?.unit) return ''
-  return t(`warehouse.unit_${props.batch.unit}`, props.batch.unit)
+  if (!props.batch?.uomId) return ''
+  return unitLabel(props.batch.uomId)
 })
 
 // ─── Validation errors ───────────────────────────────────────────────────────
@@ -569,7 +571,7 @@ function formatDate(iso: string): string {
             <div class="total-label">{{ t('warehouse.batch_summary_total') }}</div>
             <div class="total-value">
               {{ batch.quantity }}
-              <span class="total-unit">{{ t(`warehouse.unit_${batch.unit}`, batch.unit) }}</span>
+              <span class="total-unit">{{ unitLabel(batch.uomId) }}</span>
             </div>
           </div>
         </div>
@@ -618,7 +620,7 @@ function formatDate(iso: string): string {
               </div>
               <div class="agg-value">
                 {{ qty }}
-                <span class="agg-unit">{{ t(`warehouse.unit_${batch.unit}`, batch.unit) }}</span>
+                <span class="agg-unit">{{ unitLabel(batch.uomId) }}</span>
               </div>
               <!-- Hint inside sale card: select a specific sale below -->
               <div v-if="movementType === 'sale'" class="agg-sale-hint">

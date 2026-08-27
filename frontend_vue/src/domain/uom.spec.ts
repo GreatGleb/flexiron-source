@@ -55,6 +55,14 @@ describe('подпись для показа', () => {
     expect(unitLabel('kg', uoms, 'ru')).toBe('кг')
   })
 
+  it('склад присылает ССЫЛКУ — до ответа справочника видно `kg`, а не `uom-kg`', () => {
+    // С п. 4d партия, движение, обрезок, дефицит и остаток держат `uom-kg`.
+    // Сырой id в таблице читается как мусор, а не как единица.
+    expect(unitLabel('uom-kg', [], 'ru')).toBe('kg')
+    expect(unitLabel('uom-kg', uoms, 'ru')).toBe('кг')
+    expect(unitLabel('uom-m2', [], 'en')).toBe('m2')
+  })
+
   it('единицы нет вовсе — прочерк', () => {
     expect(unitLabel(null, uoms, 'ru')).toBe('—')
     expect(unitLabel('', uoms, 'ru')).toBe('—')

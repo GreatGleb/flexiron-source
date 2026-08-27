@@ -7,7 +7,7 @@ import { getSupplierList } from '@/services/suppliersService'
 import { useToast } from './useToast'
 import { useTranslatedField } from './useTranslatedData'
 import { useSettings } from './useSettings'
-import type { BatchCreatePayload, StockUnit } from '@/types/warehouse'
+import type { BatchCreatePayload } from '@/types/warehouse'
 import type { ProductListItem, Product } from '@/types/product'
 import type { SelectOption } from '@/components/admin/ui/CustomSelect.vue'
 
@@ -37,7 +37,7 @@ export function useWarehouseBatchCreate() {
     batchNumber: '',
     lotCode: '',
     quantity: 0,
-    unit: 'kg' as StockUnit,
+    uomId: 'uom-kg',
     unitPrice: 0,
     currency: settings.constants.defaultCurrency,
     receivedAt: new Date().toISOString().slice(0, 10),
@@ -123,13 +123,17 @@ export function useWarehouseBatchCreate() {
     return products.value.find((p) => p.id === selectedProductId.value) ?? null
   })
 
-  /** Auto-fill unit from product's warehouseUomId */
+  /**
+   * Складская единица партии — ССЫЛКА товара, а не его подпись.
+   *
+   * До п. 4d здесь из справочника доставали `uom.code.en` и клали английскую
+   * подпись в данные партии — тот же дефект, что чинился в п. 4b: «показали не на
+   * том языке» было бы правкой шаблона, а «сохранили не на том языке» уезжает в
+   * хранимое. Теперь копируется сам id, и подпись собирается на экране.
+   */
   function autoFillUnit(product: Product | null) {
     if (product?.warehouseUomId) {
-      const uom = settings.uoms.find((u: { id: string }) => u.id === product.warehouseUomId)
-      if (uom) {
-        form.unit = uom.code.en || uom.code.ru || uom.code.lt || form.unit
-      }
+      form.uomId = product.warehouseUomId
     }
   }
 
@@ -153,7 +157,7 @@ export function useWarehouseBatchCreate() {
     }
   })
 
-  const quantityStep = computed(() => (form.unit === 'pcs' ? 1 : 0.01))
+  const quantityStep = computed(() => (form.uomId === 'uom-pcs' ? 1 : 0.01))
 
   /** Is the supplier's price in a currency that is not ours? */
   const purchaseIsForeign = computed<boolean>(() => {
@@ -309,7 +313,7 @@ export function useWarehouseBatchCreate() {
     if (!form.batchNumber.trim()) e.batchNumber = t('validation.required')
     if (!form.lotCode.trim()) e.lotCode = t('validation.required')
     if (!form.quantity || form.quantity <= 0) e.quantity = t('validation.required')
-    if (!form.unit) e.unit = t('validation.required')
+    if (!form.uomId) e.uomId = t('validation.required')
     // Asked for only when there is nothing to derive it from and no reason to
     // leave it empty: a base-currency purchase supplies it, and a foreign one may
     // legitimately arrive without it (the batch then has no cost — §7.1).
@@ -335,7 +339,7 @@ export function useWarehouseBatchCreate() {
       form.batchNumber.trim() &&
       form.lotCode.trim() &&
       form.quantity > 0 &&
-      form.unit &&
+      form.uomId &&
       (form.unitPrice > 0 || derivedUnitPrice.value != null || purchaseIsForeign.value) &&
       form.receivedAt
     )
@@ -356,7 +360,7 @@ export function useWarehouseBatchCreate() {
         batchNumber: form.batchNumber.trim(),
         lotCode: form.lotCode.trim(),
         quantity: form.quantity,
-        unit: form.unit,
+        uomId: form.uomId,
         // Empty stays empty: the store derives the cost from the purchase when it
         // can, and leaves the batch without one when it cannot. Sending 0 would
         // put "these goods were free" on the shelf.
@@ -393,14 +397,6 @@ export function useWarehouseBatchCreate() {
     }
   }
 
-  function resolveUnitLabel(code: string | null): string {
-    if (!code) return '—'
-    const uom = settings.uoms.find((u: { code: { en?: string } }) => u.code.en === code)
-    if (!uom) return code
-    const currentLocale = locale.value as keyof typeof uom.code
-    return uom.code[currentLocale] || uom.code.en || uom.code.ru || uom.code.lt || code
-  }
-
   return {
     form,
     saving,
@@ -416,7 +412,6 @@ export function useWarehouseBatchCreate() {
     conversionPreview,
     loadOptions,
     save,
-    resolveUnitLabel,
     // Product selection
     products,
     productSearch,

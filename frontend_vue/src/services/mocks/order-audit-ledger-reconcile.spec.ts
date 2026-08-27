@@ -26,7 +26,7 @@ const NO_FILTER = {
   search: '',
   status: '',
   priority: '',
-  unit: '',
+  uomId: '',
   categoryIds: '',
   type: '',
   sortBy: undefined,

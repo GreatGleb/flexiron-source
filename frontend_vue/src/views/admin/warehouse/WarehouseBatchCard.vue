@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useHead } from '@/composables/useHead'
 import { useSettings } from '@/composables/useSettings'
+import { useUnitLabel } from '@/composables/useUnitLabel'
 import { useWarehouseBatch } from '@/composables/useWarehouseBatch'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
 import Breadcrumb from '@/components/admin/Breadcrumb.vue'
@@ -21,6 +22,7 @@ import '@styles/admin/components/_entity-card-layout.css'
 import '@styles/admin/components/_audit-log.css'
 
 const { t, locale } = useI18n()
+const unitLabel = useUnitLabel()
 const route = useRoute()
 const { settings } = useSettings()
 
@@ -49,15 +51,6 @@ function resolveCurrencyLabel(code: string | null): string {
   const cur = settings.currencies.find((c: { code: string }) => c.code === code)
   if (!cur) return code
   return cur.code
-}
-
-/** Resolve unit code string (e.g. 'kg', 'pcs') to locale-aware display from settings */
-function resolveUnitLabel(code: string | null): string {
-  if (!code) return '—'
-  const uom = settings.uoms.find((u: { code: { en?: string } }) => u.code.en === code)
-  if (!uom) return code
-  const currentLocale = locale.value as keyof typeof uom.code
-  return uom.code[currentLocale] || uom.code.en || uom.code.ru || uom.code.lt || code
 }
 
 /**
@@ -491,7 +484,7 @@ async function onMovementCreated() {
             <div class="total-label">{{ t('warehouse.batch_summary_total') }}</div>
             <div class="total-value">
               {{ batch.quantity }}
-              <span class="total-unit">{{ resolveUnitLabel(batch.unit) }}</span>
+              <span class="total-unit">{{ unitLabel(batch.uomId) }}</span>
             </div>
           </div>
         </div>
@@ -520,7 +513,7 @@ async function onMovementCreated() {
               </div>
               <div class="agg-value">
                 {{ qty }}
-                <span class="agg-unit">{{ resolveUnitLabel(batch.unit) }}</span>
+                <span class="agg-unit">{{ unitLabel(batch.uomId) }}</span>
               </div>
             </div>
           </div>
@@ -742,7 +735,7 @@ async function onMovementCreated() {
                     </span>
                   </label>
                   <input
-                    :value="resolveUnitLabel(form.unit)"
+                    :value="unitLabel(form.uomId)"
                     class="glass-input"
                     type="text"
                     readonly
@@ -877,7 +870,7 @@ async function onMovementCreated() {
                     :value="
                       money(
                         sellingPrice,
-                        `${resolveCurrencyLabel(form.currency)} / ${resolveUnitLabel(form.unit)}`,
+                        `${resolveCurrencyLabel(form.currency)} / ${unitLabel(form.uomId)}`,
                       )
                     "
                     class="glass-input"
@@ -1304,7 +1297,7 @@ async function onMovementCreated() {
                   <td>{{ t(`warehouse.movement_type_${movement.type}`) }}</td>
                   <td>
                     {{ movement.quantity }}
-                    {{ t(`warehouse.unit_${movement.unit}`, movement.unit) }}
+                    {{ unitLabel(movement.uomId) }}
                   </td>
                   <td>{{ movement.referenceId ?? '—' }}</td>
                   <td style="text-align: center">
@@ -1395,13 +1388,11 @@ async function onMovementCreated() {
                   </td>
                   <td>
                     <template v-if="offcut.weightKg != null">
-                      {{ offcut.weightKg }} {{ t('warehouse.unit_kg') }}
+                      {{ offcut.weightKg }} {{ unitLabel('uom-kg') }}
                     </template>
                     <span v-else>—</span>
                   </td>
-                  <td>
-                    {{ offcut.quantity }} {{ t(`warehouse.unit_${offcut.unit}`, offcut.unit) }}
-                  </td>
+                  <td>{{ offcut.quantity }} {{ unitLabel(offcut.uomId) }}</td>
                   <td>
                     <span
                       class="pill pill-sm"

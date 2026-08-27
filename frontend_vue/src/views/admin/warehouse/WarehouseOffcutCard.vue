@@ -2,6 +2,7 @@
 import { computed, ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { useUnitLabel } from '@/composables/useUnitLabel'
 import { useHead } from '@/composables/useHead'
 import { useWarehouseOffcutCard } from '@/composables/useWarehouseOffcutCard'
 import { offcutAreaM2 } from '@/domain/cutting'
@@ -38,6 +39,7 @@ const statusOptions = computed<SelectOption[]>(() =>
 )
 
 const { t } = useI18n()
+const unitLabel = useUnitLabel()
 const route = useRoute()
 
 const id = route.params.id as string
@@ -680,7 +682,7 @@ onMounted(load)
                     </span>
                   </label>
                   <input
-                    :value="`${offcut.quantity} ${t(`warehouse.unit_${offcut.unit}`, offcut.unit)}`"
+                    :value="`${offcut.quantity} ${unitLabel(offcut.uomId)}`"
                     class="glass-input"
                     type="text"
                     readonly
@@ -892,7 +894,7 @@ onMounted(load)
                   <td>{{ t(`warehouse.movement_type_${movement.type}`) }}</td>
                   <td>
                     {{ movement.quantity }}
-                    {{ t(`warehouse.unit_${movement.unit}`, movement.unit) }}
+                    {{ unitLabel(movement.uomId) }}
                   </td>
                   <td>{{ movement.referenceId ?? '—' }}</td>
                   <td style="text-align: center">

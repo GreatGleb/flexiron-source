@@ -39,7 +39,7 @@ export async function getStockOverview(
     pageSize: String(pagination.pageSize),
   }
   if (filters.categoryIds.length > 0) params.categoryIds = filters.categoryIds.join(',')
-  if (filters.unit) params.unit = filters.unit
+  if (filters.uomId) params.uomId = filters.uomId
   if (filters.showDeficitOnly) params.showDeficitOnly = 'true'
   if (filters.showInStockOnly) params.showInStockOnly = 'true'
   if (filters.sortBy) {
@@ -90,7 +90,7 @@ export async function getBatches(
   if (filters.productId) params.productId = filters.productId
   if (filters.supplierId) params.supplierId = filters.supplierId
   if (filters.status) params.status = filters.status
-  if (filters.unit) params.unit = filters.unit
+  if (filters.uomId) params.uomId = filters.uomId
   if (filters.dateFrom) params.dateFrom = filters.dateFrom
   if (filters.dateTo) params.dateTo = filters.dateTo
   if (filters.sortBy) params.sortBy = filters.sortBy
@@ -127,7 +127,7 @@ export async function getOffcuts(
   }
   if (filters.productId) params.productId = filters.productId
   if (filters.status) params.status = filters.status
-  if (filters.unit) params.unit = filters.unit
+  if (filters.uomId) params.uomId = filters.uomId
   if (filters.offcutType) params.offcutType = filters.offcutType
   if (filters.categoryIds && filters.categoryIds.length > 0)
     params.categoryIds = filters.categoryIds.join(',')
@@ -166,7 +166,7 @@ export async function getMovements(
   }
   if (filters.type) params.type = filters.type
   if (filters.productId) params.productId = filters.productId
-  if (filters.unit) params.unit = filters.unit
+  if (filters.uomId) params.uomId = filters.uomId
   if (filters.categoryIds && filters.categoryIds.length > 0)
     params.categoryIds = filters.categoryIds.join(',')
   if (filters.batchNumber) params.batchNumber = filters.batchNumber
@@ -218,7 +218,7 @@ export async function getDeficitList(
   }
   if (filters.priority) params.priority = filters.priority
   if (filters.status) params.status = filters.status
-  if (filters.unit) params.unit = filters.unit
+  if (filters.uomId) params.uomId = filters.uomId
   if (filters.categoryIds && filters.categoryIds.length > 0)
     params.categoryIds = filters.categoryIds.join(',')
   if (filters.sortBy) params.sortBy = filters.sortBy
@@ -262,7 +262,7 @@ export async function exportWarehouseData(
   if (tab === 'stock') {
     const sf = filters as StockFilters
     if (sf.categoryIds.length > 0) params.categoryIds = sf.categoryIds.join(',')
-    if (sf.unit) params.unit = sf.unit
+    if (sf.uomId) params.uomId = sf.uomId
     if (sf.showDeficitOnly) params.showDeficitOnly = 'true'
     if (sf.showInStockOnly) params.showInStockOnly = 'true'
   }
@@ -273,7 +273,7 @@ export async function exportWarehouseData(
     if (bf.productId) params.productId = bf.productId
     if (bf.supplierId) params.supplierId = bf.supplierId
     if (bf.status) params.status = bf.status
-    if (bf.unit) params.unit = bf.unit
+    if (bf.uomId) params.uomId = bf.uomId
     if (bf.dateFrom) params.dateFrom = bf.dateFrom
     if (bf.dateTo) params.dateTo = bf.dateTo
   }
@@ -282,7 +282,7 @@ export async function exportWarehouseData(
   if (tab === 'offcuts') {
     const of = filters as WarehouseFilters
     if (of.status) params.status = of.status
-    if (of.unit) params.unit = of.unit
+    if (of.uomId) params.uomId = of.uomId
     if (of.offcutType) params.offcutType = of.offcutType
     if (of.categoryIds?.length) params.categoryIds = of.categoryIds.join(',')
     if (of.batchNumber) params.batchNumber = of.batchNumber
@@ -292,7 +292,7 @@ export async function exportWarehouseData(
   if (tab === 'movements') {
     const mf = filters as WarehouseFilters
     if (mf.type) params.type = mf.type
-    if (mf.unit) params.unit = mf.unit
+    if (mf.uomId) params.uomId = mf.uomId
     if (mf.categoryIds?.length) params.categoryIds = mf.categoryIds.join(',')
     if (mf.batchNumber) params.batchNumber = mf.batchNumber
     if (mf.dateFrom) params.dateFrom = mf.dateFrom
@@ -304,7 +304,7 @@ export async function exportWarehouseData(
     const df = filters as WarehouseFilters
     if (df.status) params.status = df.status
     if (df.priority) params.priority = df.priority
-    if (df.unit) params.unit = df.unit
+    if (df.uomId) params.uomId = df.uomId
     if (df.categoryIds?.length) params.categoryIds = df.categoryIds.join(',')
   }
 

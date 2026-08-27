@@ -30,6 +30,7 @@ import {
 import { STORE as PRODUCTS_STORE } from './products'
 import { mockGetSettings } from './settings'
 import { round2 } from '@/domain/orderPricing'
+import { orderLineUnit } from '@/domain/uom'
 import type { BatchCreatePayload } from '@/types/warehouse'
 
 const log: string[] = []
@@ -43,7 +44,7 @@ const report = (t: string) => `\n=== ${t} ===\n${log.join('\n')}\n`
 const STOCK_FILTER = {
   search: '',
   categoryIds: '',
-  unit: '',
+  uomId: '',
   showDeficitOnly: false,
   showInStockOnly: false,
   sortBy: null,
@@ -90,7 +91,7 @@ const receipt = (extra: Partial<BatchCreatePayload> & { productId: string }) =>
   ({
     batchNumber: `AUDIT-24-${extra.productId}`,
     lotCode: 'AUDIT-24',
-    unit: 'kg',
+    uomId: 'uom-kg',
     receivedAt: '2020-01-01T00:00:00Z',
     ...extra,
   }) as unknown as BatchCreatePayload
@@ -127,7 +128,7 @@ describe('FINDING 24 — the warehouse layer is one currency', () => {
       receipt({
         productId: nextFresh(),
         quantity: 40,
-        unit: 'kg',
+        uomId: 'uom-kg',
         receivedQuantity: 40,
         receivedUnitId: 'uom-kg',
         receivedUnitPrice: 7.5,
@@ -143,7 +144,7 @@ describe('FINDING 24 — the warehouse layer is one currency', () => {
       receipt({
         productId: nextFresh(),
         quantity: 1,
-        unit: 't',
+        uomId: 'uom-t',
         receivedQuantity: 1000,
         receivedUnitId: 'uom-kg',
         receivedUnitPrice: 2,
@@ -153,7 +154,7 @@ describe('FINDING 24 — the warehouse layer is one currency', () => {
     )
     say(
       'purchase 1000 kg @ 2,00 EUR    :',
-      `unitPrice=${otherUnit.unitPrice} ${otherUnit.currency} per ${otherUnit.unit}`,
+      `unitPrice=${otherUnit.unitPrice} ${otherUnit.currency} per ${otherUnit.uomId}`,
     )
     say('  money in                     :', round2(2 * 1000))
     say(
@@ -224,7 +225,7 @@ describe('FINDING 24 — the warehouse layer is one currency', () => {
         receipt({
           productId,
           quantity: 100,
-          unit: before[0]!.unit,
+          uomId: before[0]!.uomId,
           unitPrice: 250,
           currency: 'USD',
           receivedUnitPrice: 250,
@@ -287,7 +288,7 @@ describe('FINDING 24 — the warehouse layer is one currency', () => {
     const line = mockAddOrderItem(order.id, {
       productId,
       quantity: 120,
-      unit: batchesForProduct(productId)[0]!.unit,
+      unit: orderLineUnit(batchesForProduct(productId)[0]!.uomId),
       unitPrice: 400,
     })
     const ord = mockGetOrder(order.id)!

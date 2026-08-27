@@ -336,7 +336,7 @@ async function loadProducts() {
         {
           search: '',
           categoryIds: [],
-          unit: '',
+          uomId: '',
           showDeficitOnly: false,
           showInStockOnly: false,
           sortBy: 'name',

@@ -2,6 +2,7 @@
 import { computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { useUnitLabel } from '@/composables/useUnitLabel'
 import { useHead } from '@/composables/useHead'
 import { useWarehouseCutting } from '@/composables/useWarehouseCutting'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
@@ -15,6 +16,7 @@ import '@styles/admin/warehouse_list.css'
 import '@styles/admin/components/_entity-card-layout.css'
 
 const { t } = useI18n()
+const unitLabel = useUnitLabel()
 const route = useRoute()
 const router = useRouter()
 
@@ -31,7 +33,7 @@ const {
   form,
   addRow,
   removeRow,
-  unit,
+  uomId,
   kerfApplies,
   consumption,
   remainingAfter,
@@ -48,8 +50,8 @@ useHead({
   description: () => t('warehouse.cutting_subtitle'),
 })
 
-/** Подпись единицы партии — своими ключами склада, с кодом как дефолтом. */
-const unitLabel = computed(() => (unit.value ? t(`warehouse.unit_${unit.value}`, unit.value) : ''))
+/** Подпись единицы партии — из справочника, в текущем языке (п. 4d). */
+const batchUnitLabel = computed(() => (uomId.value ? unitLabel(uomId.value) : ''))
 
 const TYPE_OPTIONS = computed(() => [
   { value: 'linear', label: t('warehouse.offcut_type_linear') },
@@ -67,11 +69,11 @@ const problemMessage = computed(() => {
   if (!p) return ''
   if (p.kind === 'no_offcuts') return t('warehouse.cutting_error_no_offcuts')
   if (p.kind === 'unit_not_supported')
-    return t('warehouse.cutting_error_unit_not_supported', { unit: unitLabel.value })
+    return t('warehouse.cutting_error_unit_not_supported', { unit: batchUnitLabel.value })
   if (p.kind === 'insufficient')
     return t('warehouse.cutting_error_insufficient', {
-      remaining: `${p.remaining} ${unitLabel.value}`,
-      consumed: `${p.consumed} ${unitLabel.value}`,
+      remaining: `${p.remaining} ${batchUnitLabel.value}`,
+      consumed: `${p.consumed} ${batchUnitLabel.value}`,
     })
   if (p.kind === 'pieces_not_integer')
     return t('warehouse.cutting_error_pieces_not_integer', { row: p.row + 1 })
@@ -193,7 +195,7 @@ watch(batchSearch, () => {
             >
               <td>{{ b.batchNumber }}</td>
               <td>{{ tf(b.productName) }}</td>
-              <td>{{ b.quantityRemaining }} {{ t(`warehouse.unit_${b.unit}`, b.unit) }}</td>
+              <td>{{ b.quantityRemaining }} {{ unitLabel(b.uomId) }}</td>
               <td>
                 <button
                   type="button"
@@ -247,7 +249,7 @@ watch(batchSearch, () => {
           <div class="entity-col-right">
             <InputGroup :label="t('warehouse.cutting_remaining')">
               <div class="glass-input readonly-value" data-test="warehouse-cutting-remaining">
-                {{ batch.quantityRemaining }} {{ unitLabel }}
+                {{ batch.quantityRemaining }} {{ batchUnitLabel }}
               </div>
             </InputGroup>
           </div>
@@ -386,10 +388,10 @@ watch(batchSearch, () => {
               <span class="field-hint">{{ t('warehouse.cutting_field_kerf_hint') }}</span>
             </InputGroup>
             <p v-else class="text-muted" data-test="warehouse-cutting-kerf-absent">
-              {{ t('warehouse.cutting_kerf_only_linear', { unit: unitLabel }) }}
+              {{ t('warehouse.cutting_kerf_only_linear', { unit: batchUnitLabel }) }}
             </p>
 
-            <InputGroup :label="t('warehouse.cutting_field_waste', { unit: unitLabel })">
+            <InputGroup :label="t('warehouse.cutting_field_waste', { unit: batchUnitLabel })">
               <input
                 v-model.number="form.wasteQuantity"
                 type="number"
@@ -424,7 +426,7 @@ watch(batchSearch, () => {
               <div>
                 <dt>{{ t('warehouse.cutting_summary_pieces') }}</dt>
                 <dd data-test="warehouse-cutting-total-pieces">
-                  {{ consumption.offcutTotal }} {{ unitLabel }}
+                  {{ consumption.offcutTotal }} {{ batchUnitLabel }}
                 </dd>
               </div>
               <div>
@@ -434,25 +436,25 @@ watch(batchSearch, () => {
               <div v-if="kerfApplies">
                 <dt>{{ t('warehouse.cutting_summary_kerf') }}</dt>
                 <dd data-test="warehouse-cutting-total-kerf">
-                  {{ consumption.kerfTotal }} {{ unitLabel }}
+                  {{ consumption.kerfTotal }} {{ batchUnitLabel }}
                 </dd>
               </div>
               <div>
                 <dt>{{ t('warehouse.cutting_summary_waste') }}</dt>
                 <dd data-test="warehouse-cutting-total-waste">
-                  {{ consumption.waste }} {{ unitLabel }}
+                  {{ consumption.waste }} {{ batchUnitLabel }}
                 </dd>
               </div>
               <div class="cutting-summary-total">
                 <dt>{{ t('warehouse.cutting_summary_total') }}</dt>
                 <dd data-test="warehouse-cutting-consumed">
-                  {{ consumption.consumed }} {{ unitLabel }}
+                  {{ consumption.consumed }} {{ batchUnitLabel }}
                 </dd>
               </div>
               <div v-if="remainingAfter !== null">
                 <dt>{{ t('warehouse.cutting_summary_remaining') }}</dt>
                 <dd data-test="warehouse-cutting-remaining-after">
-                  {{ remainingAfter }} {{ unitLabel }}
+                  {{ remainingAfter }} {{ batchUnitLabel }}
                 </dd>
               </div>
             </dl>

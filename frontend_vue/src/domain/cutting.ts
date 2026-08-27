@@ -1,4 +1,3 @@
-import type { StockUnit } from '@/types/warehouse'
 import { roundQuantity } from './quantity'
 
 /**
@@ -12,48 +11,13 @@ import { roundQuantity } from './quantity'
  * создание обрезка. Вторая реализация означала бы две схемы списания с партии.
  */
 
-/**
- * Единицы партии, для которых ширина реза имеет смысл.
- *
- * ЯВНЫЙ СПИСОК, А НЕ СПРАВОЧНИК — и это не лень. `batch.unit` имеет тип
- * `StockUnit = string`: в партиях лежат `'m'`, `'kg'`, `'pcs'`, `'m2'`, `'t'`, и это
- * не `uomId`. Коды справочника переведены (`TranslatedString`), поэтому `'m2'` не
- * совпадает с кодом `uom-m2` («м²» / «m²» / «m²») ни на одном языке, а `'pcs'`
- * совпадает только с английским. Любая проверка «по справочнику» на деле свелась бы
- * к сравнению с `code.en` — ровно тот дефект, что чинился в п. 4b плана, только
- * заведённый сознательно, и молча ломающийся на первой партии в м².
- *
- * Маленький честный список лучше правила, которое ВЫГЛЯДИТ выведенным из данных.
- * Он исчезнет, когда партии переедут с `StockUnit` на `uomId` — п. 4d плана.
- */
-export const LINEAR_BATCH_UNITS: readonly StockUnit[] = ['m', 'mm']
-
-/** Меряется ли партия по длине — то есть имеет ли смысл ширина реза. */
-export function isLinearBatchUnit(unit: StockUnit): boolean {
-  return LINEAR_BATCH_UNITS.includes(unit)
-}
-
-/**
- * Ширина реза, переведённая в единицу партии.
- *
- * Ввод всегда в миллиметрах — полотно меряют в них, а не в метрах партии.
- * Для нелинейной партии — ноль: 3 мм в килограммы переводятся только через вес
- * погонного метра товара, в м² — только через ширину, и выдумывать здесь
- * коэффициент мы не будем (та же причина, по которой у `uom-h` нет ни одного
- * правила пересчёта).
- */
-export function kerfInBatchUnit(kerfMm: number, unit: StockUnit): number {
-  if (!isLinearBatchUnit(unit)) return 0
-  return unit === 'mm' ? kerfMm : kerfMm / 1000
-}
-
 // ─── Резолвер размера куска ─────────────────────────────────────────────────
 
 /**
  * Что нужно знать про обрезок, чтобы посчитать, сколько материала он забрал.
  *
  * `quantity` — СЧЁТЧИК КУСКОВ, а не количество материала. В сидах у всех тринадцати
- * обрезков `quantity: 1` и `unit: 'pcs'`, а настоящий размер лежит в `lengthMm` /
+ * обрезков `quantity: 1` и `uomId: 'uom-pcs'`, а настоящий размер лежит в `lengthMm` /
  * `widthMm` / `weightKg`. Единица обрезка и единица партии — разные величины, и
  * вычитать одну из другой (как делал `mockCreateOffcut`) значит списать один метр
  * с 35-метровой партии за «1 шт».
@@ -91,26 +55,54 @@ export type PieceSizeResult = { ok: true; pieceSize: number } | MaterialFailure
 
 /** Какой размер обрезка нужен, чтобы выразить его в единице партии. */
 const REQUIRED_DIMENSION: Record<string, readonly (keyof OffcutMaterialInput)[]> = {
-  m: ['lengthMm'],
-  mm: ['lengthMm'],
-  m2: ['lengthMm', 'widthMm'],
-  kg: ['weightKg'],
-  t: ['weightKg'],
-  pcs: [],
+  'uom-m': ['lengthMm'],
+  'uom-mm': ['lengthMm'],
+  'uom-m2': ['lengthMm', 'widthMm'],
+  'uom-kg': ['weightKg'],
+  'uom-t': ['weightKg'],
+  'uom-pcs': [],
 }
 
 /** Размер одного куска, выраженный в единице партии. */
 const PIECE_SIZE: Record<string, (offcut: OffcutMaterialInput) => number> = {
-  m: (o) => o.lengthMm! / 1000,
-  mm: (o) => o.lengthMm!,
-  m2: (o) => (o.lengthMm! * o.widthMm!) / 1_000_000,
-  kg: (o) => o.weightKg!,
-  t: (o) => o.weightKg! / 1000,
-  pcs: () => 1,
+  'uom-m': (o) => o.lengthMm! / 1000,
+  'uom-mm': (o) => o.lengthMm!,
+  'uom-m2': (o) => (o.lengthMm! * o.widthMm!) / 1_000_000,
+  'uom-kg': (o) => o.weightKg!,
+  'uom-t': (o) => o.weightKg! / 1000,
+  'uom-pcs': () => 1,
 }
 
 /** Единицы партии, для которых размер куска вообще выразим. */
-export const SUPPORTED_BATCH_UNITS: readonly StockUnit[] = Object.keys(PIECE_SIZE)
+export const SUPPORTED_BATCH_UNITS: readonly string[] = Object.keys(PIECE_SIZE)
+
+/**
+ * Меряется ли партия по длине — то есть имеет ли смысл ширина реза.
+ *
+ * ВЫВОДИТСЯ из таблицы требований резолвера, а не задаётся вторым списком. До
+ * п. 4d здесь лежал `LINEAR_BATCH_UNITS = ['m', 'mm']` — отдельный перечень тех же
+ * единиц, который при любой правке `PIECE_SIZE` расходился бы с ней молча. «Партия
+ * меряется по длине» и «размер куска определяется одной только длиной» — это одно
+ * утверждение, и записано оно теперь один раз.
+ */
+export function isLinearBatchUnit(uomId: string): boolean {
+  const dimensions = REQUIRED_DIMENSION[uomId]
+  return dimensions?.length === 1 && dimensions[0] === 'lengthMm'
+}
+
+/**
+ * Ширина реза, переведённая в единицу партии.
+ *
+ * Ввод всегда в миллиметрах — полотно меряют в них, а не в метрах партии.
+ * Для нелинейной партии — ноль: 3 мм в килограммы переводятся только через вес
+ * погонного метра товара, в м² — только через ширину, и выдумывать здесь
+ * коэффициент мы не будем (та же причина, по которой у `uom-h` нет ни одного
+ * правила пересчёта).
+ */
+export function kerfInBatchUnit(kerfMm: number, uomId: string): number {
+  if (!isLinearBatchUnit(uomId)) return 0
+  return uomId === 'uom-mm' ? kerfMm : kerfMm / 1000
+}
 
 /**
  * Размер ОДНОГО куска в единице партии.
@@ -123,15 +115,15 @@ export const SUPPORTED_BATCH_UNITS: readonly StockUnit[] = Object.keys(PIECE_SIZ
  * дробный счётчик кусков — это ОТКАЗЫ. Молчаливый ноль списал бы с партии ничего и
  * оставил металл в системе навсегда, а «считать как штуки» — списал бы метр за кусок.
  */
-export function resolvePieceSize(offcut: OffcutMaterialInput, unit: StockUnit): PieceSizeResult {
-  const formula = PIECE_SIZE[unit]
-  if (!formula) return { ok: false, reason: 'unit_not_supported', detail: unit }
+export function resolvePieceSize(offcut: OffcutMaterialInput, uomId: string): PieceSizeResult {
+  const formula = PIECE_SIZE[uomId]
+  if (!formula) return { ok: false, reason: 'unit_not_supported', detail: uomId }
 
   if (!Number.isInteger(offcut.quantity) || offcut.quantity < 1) {
     return { ok: false, reason: 'pieces_not_integer', detail: String(offcut.quantity) }
   }
 
-  for (const dimension of REQUIRED_DIMENSION[unit] ?? []) {
+  for (const dimension of REQUIRED_DIMENSION[uomId] ?? []) {
     const value = offcut[dimension]
     // Ноль здесь так же непригоден, как null: кусок нулевой длины не забирает
     // с партии ничего, а «ничего» — это не ответ, это тот же молчаливый ноль.
@@ -165,7 +157,7 @@ export function resolvePieceSize(offcut: OffcutMaterialInput, unit: StockUnit): 
  * ответе на вопрос, к которому оно не относится.
  */
 export function offcutAreaM2(offcut: Omit<OffcutMaterialInput, 'quantity'>): number | null {
-  const resolved = resolvePieceSize({ ...offcut, quantity: 1 }, 'm2')
+  const resolved = resolvePieceSize({ ...offcut, quantity: 1 }, 'uom-m2')
   return resolved.ok ? resolved.pieceSize : null
 }
 
@@ -174,11 +166,8 @@ export type MaterialResult =
   | MaterialFailure
 
 /** Сколько материала забрал обрезок целиком: счётчик кусков × размер куска. */
-export function resolveOffcutMaterial(
-  offcut: OffcutMaterialInput,
-  unit: StockUnit,
-): MaterialResult {
-  const size = resolvePieceSize(offcut, unit)
+export function resolveOffcutMaterial(offcut: OffcutMaterialInput, uomId: string): MaterialResult {
+  const size = resolvePieceSize(offcut, uomId)
   if (!size.ok) return size
   return {
     ok: true,
@@ -189,23 +178,6 @@ export function resolveOffcutMaterial(
 }
 
 // ─── Вес обрезка ────────────────────────────────────────────────────────────
-
-/**
- * Единица справочника → строка, которой пользуется таблица размеров.
- *
- * Второй явный список в этом файле, и по той же причине, что первый: `batch.unit` и
- * таблица размеров говорят строками (`'m'`), а товар ссылается на справочник
- * (`'uom-m'`). Пока величина хранится и строкой, и ссылкой, мост между ними неизбежен —
- * он исчезнет вместе с п. 4d плана, когда всё переедет на `uomId`.
- */
-const STOCK_UNIT_BY_UOM_ID: Readonly<Record<string, StockUnit>> = {
-  'uom-m': 'm',
-  'uom-mm': 'mm',
-  'uom-m2': 'm2',
-  'uom-kg': 'kg',
-  'uom-t': 't',
-  'uom-pcs': 'pcs',
-}
 
 /**
  * Кастомное поле каталога, в котором лежит плотность материала.
@@ -311,10 +283,9 @@ export function resolveOffcutWeight(input: {
   // размер куска в единице партии было ошибкой: у партии в килограммах размер куска
   // это его же вес, и умножение на кг/м давало килограммы × кг/м — то есть круг
   // (обрезок 0.5 «весил» 0.54). Партия и товар меряются в разных единицах чаще, чем
-  // кажется: это п. 4d, `batch.unit` — свободная строка, не ссылка на справочник.
+  // кажется — и с п. 4d обе меряются ССЫЛКОЙ на один справочник, поэтому моста между
+  // двумя записями одной величины здесь больше нет.
   const coefficientUnit = product?.warehouseUomId
-    ? STOCK_UNIT_BY_UOM_ID[product.warehouseUomId]
-    : undefined
   if (!coefficientUnit) return { ok: false, reason: 'unit_not_supported' }
 
   const size = resolvePieceSize({ ...offcut, quantity: 1 }, coefficientUnit)
@@ -388,23 +359,23 @@ export function computeCuttingConsumption(input: {
   offcuts: readonly OffcutMaterialInput[]
   kerfMm: number
   wasteQuantity: number
-  unit: StockUnit
+  uomId: string
 }): ConsumptionResult {
   let offcutTotal = 0
   for (const [index, offcut] of input.offcuts.entries()) {
-    const resolved = resolveOffcutMaterial(offcut, input.unit)
+    const resolved = resolveOffcutMaterial(offcut, input.uomId)
     if (!resolved.ok) return { ...resolved, offcutIndex: index }
     offcutTotal += resolved.material
   }
 
   // Единица без формулы отказывает и на пустом списке: «нечего резать» — это не
   // повод согласиться с партией, которую мы не умеем считать.
-  if (!PIECE_SIZE[input.unit]) {
-    return { ok: false, reason: 'unit_not_supported', detail: input.unit, offcutIndex: -1 }
+  if (!PIECE_SIZE[input.uomId]) {
+    return { ok: false, reason: 'unit_not_supported', detail: input.uomId, offcutIndex: -1 }
   }
 
   const cuts = cutCount(input.offcuts)
-  const kerfTotal = roundQuantity(cuts * kerfInBatchUnit(input.kerfMm, input.unit))
+  const kerfTotal = roundQuantity(cuts * kerfInBatchUnit(input.kerfMm, input.uomId))
   const waste = input.wasteQuantity
   return {
     ok: true,

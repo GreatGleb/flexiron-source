@@ -110,7 +110,7 @@ import {
   notifyWarehouseReady,
 } from './notifications'
 import { countsAsSale, isActive, isOrderStatus } from '@/domain/orderStatus'
-import { orderLineUnit } from '@/domain/uom'
+import { orderLineUnit, uomIdFromOrderLineUnit } from '@/domain/uom'
 import type { AuditSource } from '@/types/audit'
 
 interface StoreOrder extends Order {
@@ -2920,7 +2920,17 @@ function syncShortages(order: StoreOrder, productId: string): void {
     unit = unit || item.unit
   }
   if (missing <= 0) return
-  recordShortage({ productId, productName, quantity: missing, unit, orderId: order.id })
+  // Дефицит — складская запись, и единицу он хранит ссылкой на справочник (п. 4d).
+  // Строка заказа держит тот же id без начала, поэтому здесь одно преобразование,
+  // а не второе правило: `uomIdFromOrderLineUnit` — обратная сторона того, чем
+  // строка заказа этот код и получила.
+  recordShortage({
+    productId,
+    productName,
+    quantity: missing,
+    uomId: uomIdFromOrderLineUnit(unit),
+    orderId: order.id,
+  })
 }
 
 /**

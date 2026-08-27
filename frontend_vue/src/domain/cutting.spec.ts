@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
 import {
-  LINEAR_BATCH_UNITS,
   offcutAreaM2,
   MATERIAL_ERROR_CODE,
   SUPPORTED_BATCH_UNITS,
@@ -37,7 +36,7 @@ describe('пример из ТЗ', () => {
         offcuts: [{ quantity: 1, lengthMm: 2500 }],
         kerfMm: 3,
         wasteQuantity: 0,
-        unit: 'm',
+        uomId: 'uom-m',
       }),
     )
     expect(result.cuts).toBe(1)
@@ -50,36 +49,42 @@ describe('пример из ТЗ', () => {
 describe('размер куска: счётчик кусков и материал — разные величины', () => {
   it('метровая партия берёт длину, а не счётчик', () => {
     // Это и есть пойманный баг: «1 шт» из партии в метрах — не один метр.
-    const resolved = resolveOffcutMaterial({ quantity: 1, lengthMm: 500 }, 'm')
+    const resolved = resolveOffcutMaterial({ quantity: 1, lengthMm: 500 }, 'uom-m')
     expect(resolved).toMatchObject({ ok: true, pieces: 1, pieceSize: 0.5, material: 0.5 })
   })
 
   it('три куска по 500 мм — это три реза и полтора метра', () => {
-    const resolved = resolveOffcutMaterial({ quantity: 3, lengthMm: 500 }, 'm')
+    const resolved = resolveOffcutMaterial({ quantity: 3, lengthMm: 500 }, 'uom-m')
     expect(resolved).toMatchObject({ ok: true, pieces: 3, material: 1.5 })
     expect(cutCount([{ quantity: 3 }])).toBe(3)
   })
 
   it('пять строк геометрии считают из размеров', () => {
-    expect(resolvePieceSize({ quantity: 1, lengthMm: 2500 }, 'm')).toMatchObject({ pieceSize: 2.5 })
-    expect(resolvePieceSize({ quantity: 1, lengthMm: 2500 }, 'mm')).toMatchObject({
+    expect(resolvePieceSize({ quantity: 1, lengthMm: 2500 }, 'uom-m')).toMatchObject({
+      pieceSize: 2.5,
+    })
+    expect(resolvePieceSize({ quantity: 1, lengthMm: 2500 }, 'uom-mm')).toMatchObject({
       pieceSize: 2500,
     })
-    expect(resolvePieceSize({ quantity: 1, lengthMm: 2000, widthMm: 1000 }, 'm2')).toMatchObject({
+    expect(
+      resolvePieceSize({ quantity: 1, lengthMm: 2000, widthMm: 1000 }, 'uom-m2'),
+    ).toMatchObject({
       pieceSize: 2,
     })
-    expect(resolvePieceSize({ quantity: 1 }, 'pcs')).toMatchObject({ pieceSize: 1 })
+    expect(resolvePieceSize({ quantity: 1 }, 'uom-pcs')).toMatchObject({ pieceSize: 1 })
   })
 
   it('kg и t стоят на весе — единственные две строки, где размер не геометрия', () => {
-    expect(resolvePieceSize({ quantity: 1, weightKg: 12.5 }, 'kg')).toMatchObject({
+    expect(resolvePieceSize({ quantity: 1, weightKg: 12.5 }, 'uom-kg')).toMatchObject({
       pieceSize: 12.5,
     })
-    expect(resolvePieceSize({ quantity: 1, weightKg: 1200 }, 't')).toMatchObject({ pieceSize: 1.2 })
+    expect(resolvePieceSize({ quantity: 1, weightKg: 1200 }, 'uom-t')).toMatchObject({
+      pieceSize: 1.2,
+    })
   })
 
   it('штучная партия сворачивает формулу в ту, что была: материал = счётчик', () => {
-    const resolved = resolveOffcutMaterial({ quantity: 4 }, 'pcs')
+    const resolved = resolveOffcutMaterial({ quantity: 4 }, 'uom-pcs')
     expect(resolved).toMatchObject({ ok: true, material: 4 })
   })
 })
@@ -87,9 +92,9 @@ describe('размер куска: счётчик кусков и материа
 describe('три отказа вместо значений по умолчанию', () => {
   it('единица партии не из таблицы — отказ, а не «как штуки»', () => {
     // m3 в справочнике есть, среди партий его нет, формулы для него у нас нет.
-    const resolved = resolvePieceSize({ quantity: 1, lengthMm: 500 }, 'm3')
-    expect(resolved).toEqual({ ok: false, reason: 'unit_not_supported', detail: 'm3' })
-    expect(resolvePieceSize({ quantity: 1 }, 'парсеки')).toMatchObject({
+    const resolved = resolvePieceSize({ quantity: 1, lengthMm: 500 }, 'uom-m3')
+    expect(resolved).toEqual({ ok: false, reason: 'unit_not_supported', detail: 'uom-m3' })
+    expect(resolvePieceSize({ quantity: 1 }, 'uom-парсеки')).toMatchObject({
       reason: 'unit_not_supported',
     })
   })
@@ -100,54 +105,58 @@ describe('три отказа вместо значений по умолчан�
       offcuts: [],
       kerfMm: 0,
       wasteQuantity: 0,
-      unit: 'm3',
+      uomId: 'uom-m3',
     })
     expect(result).toMatchObject({ ok: false, reason: 'unit_not_supported', offcutIndex: -1 })
   })
 
   it('нет нужного размера — отказ; молчаливый ноль оставил бы металл в системе навсегда', () => {
-    expect(resolvePieceSize({ quantity: 1, lengthMm: null }, 'm')).toEqual({
+    expect(resolvePieceSize({ quantity: 1, lengthMm: null }, 'uom-m')).toEqual({
       ok: false,
       reason: 'dimension_missing',
       detail: 'lengthMm',
     })
-    expect(resolvePieceSize({ quantity: 1, weightKg: null }, 'kg')).toMatchObject({
+    expect(resolvePieceSize({ quantity: 1, weightKg: null }, 'uom-kg')).toMatchObject({
       detail: 'weightKg',
     })
-    expect(resolvePieceSize({ quantity: 1, lengthMm: 2000, widthMm: null }, 'm2')).toMatchObject({
+    expect(
+      resolvePieceSize({ quantity: 1, lengthMm: 2000, widthMm: null }, 'uom-m2'),
+    ).toMatchObject({
       detail: 'widthMm',
     })
     // Отсутствующее поле и ноль непригодны одинаково: кусок нулевой длины не
     // забирает с партии ничего.
-    expect(resolvePieceSize({ quantity: 1 }, 'm')).toMatchObject({ reason: 'dimension_missing' })
-    expect(resolvePieceSize({ quantity: 1, lengthMm: 0 }, 'm')).toMatchObject({
+    expect(resolvePieceSize({ quantity: 1 }, 'uom-m')).toMatchObject({
       reason: 'dimension_missing',
     })
-    expect(resolvePieceSize({ quantity: 1, lengthMm: Number.NaN }, 'm')).toMatchObject({
+    expect(resolvePieceSize({ quantity: 1, lengthMm: 0 }, 'uom-m')).toMatchObject({
+      reason: 'dimension_missing',
+    })
+    expect(resolvePieceSize({ quantity: 1, lengthMm: Number.NaN }, 'uom-m')).toMatchObject({
       reason: 'dimension_missing',
     })
   })
 
   it('размер, ненужный для этой единицы, не требуется', () => {
     // Вес не нужен метровой партии, длина — килограммовой.
-    expect(resolvePieceSize({ quantity: 1, lengthMm: 500 }, 'm').ok).toBe(true)
-    expect(resolvePieceSize({ quantity: 1, weightKg: 3 }, 'kg').ok).toBe(true)
+    expect(resolvePieceSize({ quantity: 1, lengthMm: 500 }, 'uom-m').ok).toBe(true)
+    expect(resolvePieceSize({ quantity: 1, weightKg: 3 }, 'uom-kg').ok).toBe(true)
   })
 
   it('дробный или нулевой счётчик кусков — отказ', () => {
     // Тот же провал, что с длиной, только с другой стороны: 2.5 куска не бывает.
-    expect(resolvePieceSize({ quantity: 2.5, lengthMm: 500 }, 'm')).toEqual({
+    expect(resolvePieceSize({ quantity: 2.5, lengthMm: 500 }, 'uom-m')).toEqual({
       ok: false,
       reason: 'pieces_not_integer',
       detail: '2.5',
     })
-    expect(resolvePieceSize({ quantity: 0, lengthMm: 500 }, 'm')).toMatchObject({
+    expect(resolvePieceSize({ quantity: 0, lengthMm: 500 }, 'uom-m')).toMatchObject({
       reason: 'pieces_not_integer',
     })
-    expect(resolvePieceSize({ quantity: -1, lengthMm: 500 }, 'm')).toMatchObject({
+    expect(resolvePieceSize({ quantity: -1, lengthMm: 500 }, 'uom-m')).toMatchObject({
       reason: 'pieces_not_integer',
     })
-    expect(resolvePieceSize({ quantity: Number.NaN, lengthMm: 500 }, 'm')).toMatchObject({
+    expect(resolvePieceSize({ quantity: Number.NaN, lengthMm: 500 }, 'uom-m')).toMatchObject({
       reason: 'pieces_not_integer',
     })
   })
@@ -157,7 +166,7 @@ describe('три отказа вместо значений по умолчан�
       offcuts: [{ quantity: 1, lengthMm: 500 }, { quantity: 1 }],
       kerfMm: 3,
       wasteQuantity: 0,
-      unit: 'm',
+      uomId: 'uom-m',
     })
     expect(result).toMatchObject({ ok: false, reason: 'dimension_missing', offcutIndex: 1 })
   })
@@ -187,7 +196,7 @@ describe('число резов', () => {
         offcuts: [{ quantity: 2, lengthMm: 3000 }],
         kerfMm: 3,
         wasteQuantity: 0,
-        unit: 'm',
+        uomId: 'uom-m',
       }),
     )
     expect(result.cuts).toBe(2)
@@ -198,37 +207,40 @@ describe('число резов', () => {
 
 describe('пропил считается только там, где единица меряет длину', () => {
   it('метр и миллиметр — да, вес, штуки и площадь — нет', () => {
-    expect(isLinearBatchUnit('m')).toBe(true)
-    expect(isLinearBatchUnit('mm')).toBe(true)
-    expect(isLinearBatchUnit('kg')).toBe(false)
-    expect(isLinearBatchUnit('pcs')).toBe(false)
-    expect(isLinearBatchUnit('m2')).toBe(false)
-    expect(isLinearBatchUnit('t')).toBe(false)
+    expect(isLinearBatchUnit('uom-m')).toBe(true)
+    expect(isLinearBatchUnit('uom-mm')).toBe(true)
+    expect(isLinearBatchUnit('uom-kg')).toBe(false)
+    expect(isLinearBatchUnit('uom-pcs')).toBe(false)
+    expect(isLinearBatchUnit('uom-m2')).toBe(false)
+    expect(isLinearBatchUnit('uom-t')).toBe(false)
   })
 
   it('3 мм — это 0.003 метра и 3 миллиметра', () => {
-    expect(kerfInBatchUnit(3, 'm')).toBe(0.003)
-    expect(kerfInBatchUnit(3, 'mm')).toBe(3)
+    expect(kerfInBatchUnit(3, 'uom-m')).toBe(0.003)
+    expect(kerfInBatchUnit(3, 'uom-mm')).toBe(3)
   })
 
   it('для нелинейной партии пропил ноль, каким бы его ни прислали', () => {
     // Ноль здесь — не «мы забыли», а «в килограммах ширина реза не выражается без
     // веса погонного метра». Выдуманного коэффициента не будет.
-    expect(kerfInBatchUnit(3, 'kg')).toBe(0)
+    expect(kerfInBatchUnit(3, 'uom-kg')).toBe(0)
     const result = ok(
       computeCuttingConsumption({
         offcuts: [{ quantity: 2, weightKg: 50 }],
         kerfMm: 3,
         wasteQuantity: 0,
-        unit: 'kg',
+        uomId: 'uom-kg',
       }),
     )
     expect(result.kerfTotal).toBe(0)
     expect(result.consumed).toBe(100)
   })
 
-  it('список линейных единиц — именно тот, что описан', () => {
-    expect([...LINEAR_BATCH_UNITS]).toEqual(['m', 'mm'])
+  it('линейность ВЫВОДИТСЯ из таблицы требований, а не из второго списка', () => {
+    // До п. 4d рядом лежал `LINEAR_BATCH_UNITS`, и утверждение сверяло список сам с
+    // собой. Теперь сверяется вывод: линейны ровно те единицы, у которых размер куска
+    // определяется одной длиной. Уедет `REQUIRED_DIMENSION` — покраснеет здесь.
+    expect(SUPPORTED_BATCH_UNITS.filter(isLinearBatchUnit)).toEqual(['uom-m', 'uom-mm'])
   })
 })
 
@@ -236,10 +248,10 @@ describe('таблица покрывает то, что реально лежи
   it('каждая единица партии из сидов умеет считать размер куска', () => {
     // Список маленький и захардкоженный — значит обязан покрывать все партии,
     // иначе резка отказывает на существующих данных.
-    const units = [...new Set(mockBatches.map((b) => b.unit))]
+    const units = [...new Set(mockBatches.map((b) => b.uomId))]
     expect(units.length).toBeGreaterThan(1)
     for (const unit of units) expect(SUPPORTED_BATCH_UNITS).toContain(unit)
-    expect(units.filter(isLinearBatchUnit)).toEqual(['m'])
+    expect(units.filter(isLinearBatchUnit)).toEqual(['uom-m'])
   })
 
   it('у каждого обрезка из сидов есть размер под единицу его партии', () => {
@@ -250,8 +262,8 @@ describe('таблица покрывает то, что реально лежи
     expect(checked.length).toBeGreaterThan(5)
     for (const offcut of checked) {
       const batch = byId.get(offcut.batchId)!
-      const resolved = resolveOffcutMaterial(offcut, batch.unit)
-      expect(resolved.ok, `${offcut.id} (партия ${batch.unit})`).toBe(true)
+      const resolved = resolveOffcutMaterial(offcut, batch.uomId)
+      expect(resolved.ok, `${offcut.id} (партия ${batch.uomId})`).toBe(true)
     }
   })
 })
@@ -266,7 +278,7 @@ describe('пропил и отход — разные слагаемые', () =>
         ],
         kerfMm: 5,
         wasteQuantity: 0.35,
-        unit: 'm',
+        uomId: 'uom-m',
       }),
     )
     expect(result.offcutTotal).toBe(2)
@@ -282,7 +294,7 @@ describe('пропил и отход — разные слагаемые', () =>
         offcuts: [{ quantity: 1, weightKg: 40 }],
         kerfMm: 0,
         wasteQuantity: 2.5,
-        unit: 'kg',
+        uomId: 'uom-kg',
       }),
     )
     expect(result.consumed).toBe(42.5)
@@ -301,7 +313,7 @@ describe('сложение не показывает 2.5030000000000001', () => 
         ],
         kerfMm: 0,
         wasteQuantity: 0,
-        unit: 'm',
+        uomId: 'uom-m',
       }),
     )
     expect(result.offcutTotal).toBe(0.3)
@@ -314,7 +326,7 @@ describe('сложение не показывает 2.5030000000000001', () => 
         offcuts: [{ quantity: 3, lengthMm: 700 }],
         kerfMm: 3,
         wasteQuantity: 0,
-        unit: 'm',
+        uomId: 'uom-m',
       }),
     )
     // 2.1 + 3 × 0.003 = 2.109, а не 2.1089999999999995
@@ -346,7 +358,7 @@ describe('площадь обрезка выводится, а не хранит
     // Если требования разойдутся — например, у m2 в таблице останется только длина —
     // этот тест покажет расхождение раньше, чем экран покажет неверную площадь.
     const piece = { quantity: 1, lengthMm: 1800, widthMm: 200 }
-    const viaResolver = resolvePieceSize(piece, 'm2')
+    const viaResolver = resolvePieceSize(piece, 'uom-m2')
     expect(viaResolver.ok && viaResolver.pieceSize).toBe(offcutAreaM2(piece))
   })
 
@@ -377,6 +389,8 @@ describe('размер куска округляется тем же прави�
   it('целые миллиметры не меняются — округление не портит точное', () => {
     expect(offcutAreaM2({ lengthMm: 500, widthMm: 300 })).toBe(0.15)
     expect(offcutAreaM2({ lengthMm: 900, widthMm: 450 })).toBe(0.405)
-    expect(resolvePieceSize({ quantity: 1, lengthMm: 2500 }, 'm')).toMatchObject({ pieceSize: 2.5 })
+    expect(resolvePieceSize({ quantity: 1, lengthMm: 2500 }, 'uom-m')).toMatchObject({
+      pieceSize: 2.5,
+    })
   })
 })

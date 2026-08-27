@@ -51,7 +51,7 @@ const NO_FILTER = {
   search: '',
   status: '',
   priority: '',
-  unit: '',
+  uomId: '',
   categoryIds: '',
   sortBy: undefined,
   sortDir: 'asc',
@@ -266,12 +266,12 @@ describe('LAYER 12 — what a delete leaves behind', () => {
     say('  deficit records for it       :', shortAfter.length)
     say('  reservation records          :', heldAfter)
     shortAfter.forEach((d) =>
-      say(`    ${d.id} ${d.deficitAmount} ${d.unit} "${d.notes}" status=${d.status}`),
+      say(`    ${d.id} ${d.deficitAmount} ${d.uomId} "${d.notes}" status=${d.status}`),
     )
 
     expect(heldAfter, report('LAYER 12 — a deleted line kept its reservation')).toBe(0)
     expect(
-      shortAfter.map((d) => `${d.id} ${d.deficitAmount} ${d.unit} "${d.notes}"`),
+      shortAfter.map((d) => `${d.id} ${d.deficitAmount} ${d.uomId} "${d.notes}"`),
       report(
         'LAYER 12 — FINDING 22: the line is gone and its shortage is still on the buying list',
       ),
@@ -305,13 +305,13 @@ describe('LAYER 12 — what a delete leaves behind', () => {
     say('  deficit records for it       :', shortAfter.length)
     say('  reservation records          :', heldAfter)
     shortAfter.forEach((d) =>
-      say(`    ${d.id} ${d.deficitAmount} ${d.unit} "${d.notes}" status=${d.status}`),
+      say(`    ${d.id} ${d.deficitAmount} ${d.uomId} "${d.notes}" status=${d.status}`),
     )
 
     expect(mockGetOrder(order.id), report('LAYER 12 — the order did not delete')).toBeUndefined()
     expect(heldAfter, report('LAYER 12 — a deleted order kept its reservations')).toBe(0)
     expect(
-      shortAfter.map((d) => `${d.id} ${d.deficitAmount} ${d.unit} "${d.notes}"`),
+      shortAfter.map((d) => `${d.id} ${d.deficitAmount} ${d.uomId} "${d.notes}"`),
       report(
         'LAYER 12 — FINDING 22: the order is gone and its shortage still asks somebody to buy for it',
       ),
@@ -325,7 +325,7 @@ describe('LAYER 12 — what a delete leaves behind', () => {
     const named = all.filter((d) => ORDER_NOTE.test(d.notes ?? ''))
     const dangling = named
       .filter((d) => !live.has(ORDER_NOTE.exec(d.notes!)![1]!))
-      .map((d) => `${d.id} ${d.deficitAmount} ${d.unit} "${d.notes}" status=${d.status}`)
+      .map((d) => `${d.id} ${d.deficitAmount} ${d.uomId} "${d.notes}" status=${d.status}`)
     say('deficit records in the store   :', all.length)
     say('…filed by an order             :', named.length)
     say('…whose order is gone           :', dangling.length)

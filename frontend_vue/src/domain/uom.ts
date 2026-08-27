@@ -25,8 +25,7 @@ import type { TranslatedString } from '@/types/i18n'
  * когда величина везде станет ссылкой на справочник.
  */
 export function uomCode(unit: string, uoms: Uom[], locale: string): string | null {
-  const id = unit.startsWith('uom-') ? unit : `uom-${unit}`
-  const uom = uoms.find((u) => u.id === id)
+  const uom = uoms.find((u) => u.id === uomIdFromOrderLineUnit(unit))
   if (!uom) return null
   const key = locale as keyof TranslatedString
   return uom.code[key] || uom.code.en || uom.code.ru || null
@@ -36,10 +35,26 @@ export function uomCode(unit: string, uoms: Uom[], locale: string): string | nul
  * Подпись единицы для показа. Справочник ещё не загружен или единицы в нём нет —
  * показываем сам код: он короткий и узнаваемый, а прочерк на месте килограммов
  * читается как «единицы нет», что неправда.
+ *
+ * Запасной вариант — КОРОТКАЯ форма, а не сырой id: с п. 4d сюда приходит
+ * `'uom-kg'` со склада, и до ответа справочника (его тянет сайдбар, окно в
+ * несколько тиков) в таблице стояло бы `uom-kg` вместо `kg`.
  */
 export function unitLabel(unit: string | null | undefined, uoms: Uom[], locale: string): string {
   if (!unit) return '—'
-  return uomCode(unit, uoms, locale) ?? unit
+  return uomCode(unit, uoms, locale) ?? shortUomCode(unit)
+}
+
+/**
+ * Короткая форма ссылки: `uom-kg` → `kg`. Одно правило, три применения.
+ *
+ * Соответствие «id справочника без начала» держится здесь и только здесь: его
+ * спрашивают и запасной вариант подписи выше, и `orderLineUnit` ниже, а
+ * `uomIdFromOrderLineUnit` — обратная его сторона. Второй `replace` рядом с первым
+ * разошёлся бы с ним на первой же правке.
+ */
+function shortUomCode(unit: string): string {
+  return unit.replace(/^uom-/, '')
 }
 
 /**
@@ -53,5 +68,17 @@ export function unitLabel(unit: string | null | undefined, uoms: Uom[], locale: 
  */
 export function orderLineUnit(uomId: string | null | undefined): string {
   if (!uomId) return 'pcs'
-  return uomId.replace(/^uom-/, '')
+  return shortUomCode(uomId)
+}
+
+/**
+ * Обратная сторона `orderLineUnit`: огрызок кода строки заказа → id справочника.
+ *
+ * Живёт рядом с прямым преобразованием НАМЕРЕННО. Соответствие «`'pcs'` — это
+ * `'uom-pcs'` без начала» — одно правило, и записано оно здесь один раз: и подпись
+ * (`uomCode`), и граница со складом (дефицит по недостаче заказа) спрашивают его,
+ * а не повторяют `replace` у себя.
+ */
+export function uomIdFromOrderLineUnit(unit: string): string {
+  return unit.startsWith('uom-') ? unit : `uom-${unit}`
 }

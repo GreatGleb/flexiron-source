@@ -1275,7 +1275,14 @@ Page: `ServiceCardPage.vue`. Composable: `useServiceCard` + `useDirtyCheck`.
 - `WarehouseDeficit`, `DeficitListItem`, `DeficitCreatePayload`, `DeficitPatchPayload`
 - `StockOverviewItem`, `StockPatchPayload`
 - `BatchStatusAggregate`, `BatchActiveSale`
-- `StockAuditEntry`, `StockUnit` = `'kg' | 'm' | 'pcs' | 'm2'`
+- `StockAuditEntry`
+- Единица измерения у партии, движения, обрезка, дефицита и строки остатка — поле
+  `uomId: string`, **ссылка на справочник настроек** (`Uom.id`, например `uom-kg`).
+  Типа `StockUnit` больше нет: до п. 4d плана `review-followups.md` величина хранилась
+  свободной строкой (`'kg'`, `'m2'`), которая ни с одним кодом справочника не совпадала —
+  коды переведены (`{ ru: 'шт', en: 'pcs', lt: 'vnt' }`), и сопоставление вырождалось в
+  сравнение с `code.en`. Подпись собирается на месте отображения из справочника в текущем
+  языке (`unitLabel`, `src/domain/uom.ts`).
 
 ### Коды ошибок (специфичные для домена)
 
@@ -1331,7 +1338,7 @@ Page: `WarehouseBatchCard.vue`. Composable: `useWarehouseBatch` + `useDirtyCheck
       "lotCode": "LOT-2026-001",
       "quantity": 5000,
       "quantityRemaining": 4200,
-      "unit": "kg",
+      "uomId": "uom-kg",
       "unitPrice": 1.25,
       "totalCost": 6250.00,
       "currency": "EUR",
@@ -1406,10 +1413,10 @@ Page: `WarehouseBatchCard.vue`. Composable: `useWarehouseBatch` + `useDirtyCheck
   {
     "success": true,
     "data": [
-      { "type": "receipt", "quantity": 4200, "unit": "kg" },
-      { "type": "sale", "quantity": 500, "unit": "kg" },
-      { "type": "production", "quantity": 200, "unit": "kg" },
-      { "type": "write-off", "quantity": 100, "unit": "kg" }
+      { "type": "receipt", "quantity": 4200, "uomId": "uom-kg" },
+      { "type": "sale", "quantity": 500, "uomId": "uom-kg" },
+      { "type": "production", "quantity": 200, "uomId": "uom-kg" },
+      { "type": "write-off", "quantity": 100, "uomId": "uom-kg" }
     ]
   }
   ```
@@ -1433,8 +1440,8 @@ Page: `WarehouseBatchCard.vue`. Composable: `useWarehouseBatch` + `useDirtyCheck
   {
     "success": true,
     "data": [
-      { "id": "sale-whb-001-001", "movementId": "whm-005", "quantity": 300, "unit": "kg", "referenceId": "ORD-2026-042", "soldAt": "2026-04-20T10:30:00Z" },
-      { "id": "sale-whb-001-002", "movementId": "whm-008", "quantity": 200, "unit": "kg", "referenceId": "ORD-2026-048", "soldAt": "2026-04-25T14:00:00Z" }
+      { "id": "sale-whb-001-001", "movementId": "whm-005", "quantity": 300, "uomId": "uom-kg", "referenceId": "ORD-2026-042", "soldAt": "2026-04-20T10:30:00Z" },
+      { "id": "sale-whb-001-002", "movementId": "whm-008", "quantity": 200, "uomId": "uom-kg", "referenceId": "ORD-2026-048", "soldAt": "2026-04-25T14:00:00Z" }
     ]
   }
   ```
@@ -1454,7 +1461,7 @@ Page: `WarehouseBatchCard.vue`. Composable: `useWarehouseBatch` + `useDirtyCheck
   {
     search?: string         // поиск по productName / batchNumber
     type?: string           // фильтр по MovementType
-    unit?: string
+    uomId?: string          // id единицы из справочника настроек (`uom-kg`), не код
     categoryIds?: string    // ID категорий через запятую
     batchNumber?: string    // фильтр по номеру партии (частичное совпадение, ILIKE) (основной для карточки партии)
     dateFrom?: string       // ISO
@@ -1479,7 +1486,7 @@ Page: `WarehouseBatchCard.vue`. Composable: `useWarehouseBatch` + `useDirtyCheck
           "productId": "prod-1",
           "productName": { "ru": "Стальной лист 3мм", "en": "Steel Sheet 3mm", "lt": "Plieno lakštas 3mm" },
           "quantity": 300,
-          "unit": "kg",
+          "uomId": "uom-kg",
           "unitPrice": 1.25,
           "referenceId": "ORD-2026-042",
           "referenceType": "sale",
@@ -1581,7 +1588,7 @@ transfer с названным адресом переносит его цели
     search?: string
     productId?: string
     status?: string
-    unit?: string
+    uomId?: string           // id единицы из справочника настроек (`uom-kg`), не код
     offcutType?: string      // "sheet" | "linear"
     categoryIds?: string
     batchNumber?: string     // фильтр по номеру партии (основной для карточки партии)
@@ -1618,7 +1625,7 @@ transfer с названным адресом переносит его цели
       thicknessMm?: number | null
       weightKg?: number | null
       quantity: number            // СЧЁТЧИК КУСКОВ, целое ≥ 1
-      unit: StockUnit
+      uomId: string               // id единицы из справочника настроек
       location?: string | null
       notes?: string | null
     }>
@@ -1638,14 +1645,14 @@ consumed        = Σ material + cuts × kerf + waste
 
 Размер одного куска по единице партии — пять строк геометрии и две на весе:
 
-| `batch.unit` | размер куска |
+| `batch.uomId` | размер куска |
 |---|---|
-| `m` | `lengthMm / 1000` |
-| `mm` | `lengthMm` |
-| `m2` | `lengthMm × widthMm / 1 000 000` |
-| `kg` | `weightKg` |
-| `t` | `weightKg / 1000` |
-| `pcs` | 1 |
+| `uom-m` | `lengthMm / 1000` |
+| `uom-mm` | `lengthMm` |
+| `uom-m2` | `lengthMm × widthMm / 1 000 000` |
+| `uom-kg` | `weightKg` |
+| `uom-t` | `weightKg / 1000` |
+| `uom-pcs` | 1 |
 
 `quantity` обрезка — это счётчик кусков, а НЕ количество материала: единица обрезка и
 единица партии — разные величины. Пример из ТЗ (Process 2.2 §2): партия в метрах, один

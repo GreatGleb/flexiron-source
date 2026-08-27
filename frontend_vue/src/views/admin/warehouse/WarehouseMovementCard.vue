@@ -2,6 +2,7 @@
 import { computed, ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { useUnitLabel } from '@/composables/useUnitLabel'
 import { useHead } from '@/composables/useHead'
 import { useWarehouseMovementCard } from '@/composables/useWarehouseMovementCard'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
@@ -14,6 +15,7 @@ import '@styles/admin/components/_entity-card-layout.css'
 import '@styles/admin/components/_audit-log.css'
 
 const { t } = useI18n()
+const unitLabel = useUnitLabel()
 const route = useRoute()
 
 const id = route.params.id as string
@@ -529,7 +531,7 @@ onMounted(load)
                     </span>
                   </label>
                   <input
-                    :value="`${movement.quantity} ${t(`warehouse.unit_${movement.unit}`, movement.unit)}`"
+                    :value="`${movement.quantity} ${unitLabel(movement.uomId)}`"
                     class="glass-input"
                     type="text"
                     readonly
@@ -558,7 +560,7 @@ onMounted(load)
                     </span>
                   </label>
                   <input
-                    :value="t(`warehouse.unit_${movement.unit}`, movement.unit)"
+                    :value="unitLabel(movement.uomId)"
                     class="glass-input"
                     type="text"
                     readonly

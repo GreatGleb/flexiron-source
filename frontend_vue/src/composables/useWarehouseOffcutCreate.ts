@@ -6,12 +6,7 @@ import { getBatches, createOffcut } from '@/services/warehouseService'
 import { useToast } from './useToast'
 import { useTranslatedField } from './useTranslatedData'
 import { resolveOffcutWeight } from '@/domain/cutting'
-import type {
-  OffcutCreatePayload,
-  WarehouseOffcut,
-  StockUnit,
-  BatchListItem,
-} from '@/types/warehouse'
+import type { OffcutCreatePayload, WarehouseOffcut, BatchListItem } from '@/types/warehouse'
 import type { Product, ProductListItem } from '@/types/product'
 
 // ─── Location compose helper (same pattern as useWarehouseBatch / useWarehouseOffcutCard) ──
@@ -51,7 +46,7 @@ export function useWarehouseOffcutCreate() {
     thicknessMm: null,
     weightKg: null,
     quantity: 1,
-    unit: 'pcs' as StockUnit,
+    uomId: 'uom-pcs',
     location: null,
     notes: null,
     locationRack: '',
@@ -193,7 +188,7 @@ export function useWarehouseOffcutCreate() {
       // Auto-set unit from the first batch (all batches for a product share the same unit)
       const firstBatch = res.items[0]
       if (firstBatch) {
-        form.unit = firstBatch.unit
+        form.uomId = firstBatch.uomId
       }
     } catch {
       toast.error(t('warehouse.toast_error_save'))
@@ -234,7 +229,7 @@ export function useWarehouseOffcutCreate() {
       form.productId = ''
       form.categoryId = null
       form.offcutType = undefined
-      form.unit = 'pcs' as StockUnit
+      form.uomId = 'uom-pcs'
       form.batchId = ''
       batches.value = []
       selectedBatchId.value = null
@@ -285,7 +280,7 @@ export function useWarehouseOffcutCreate() {
     if (newVal) {
       const batch = batches.value.find((b) => b.id === newVal)
       if (batch) {
-        form.unit = batch.unit
+        form.uomId = batch.uomId
         batchProduct.value = await getProduct(batch.productId).catch(() => null)
       }
     }
@@ -338,7 +333,7 @@ export function useWarehouseOffcutCreate() {
     form.thicknessMm = null
     form.weightKg = null
     form.quantity = 1
-    form.unit = 'pcs' as StockUnit
+    form.uomId = 'uom-pcs'
     form.location = null
     form.notes = null
     form.locationRack = ''

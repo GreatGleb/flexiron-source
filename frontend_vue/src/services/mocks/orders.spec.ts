@@ -1903,7 +1903,7 @@ describe('a shipment is the only thing that moves the warehouse', () => {
       batchNumber: 'INV-GONE-001',
       lotCode: 'LOT-GONE-001',
       quantity: 5,
-      unit: 'kg',
+      uomId: 'uom-kg',
       unitPrice: STOCK_UNIT_COST,
       receivedAt: '2000-01-01T00:00:00Z',
     })

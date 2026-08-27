@@ -143,10 +143,10 @@ export function useWarehouseCutting() {
     { deep: true },
   )
 
-  const unit = computed(() => batch.value?.unit ?? '')
+  const uomId = computed(() => batch.value?.uomId ?? '')
 
   /** Ширина реза имеет смысл только у партии, которая меряется по длине. */
-  const kerfApplies = computed(() => (unit.value ? isLinearBatchUnit(unit.value) : false))
+  const kerfApplies = computed(() => (uomId.value ? isLinearBatchUnit(uomId.value) : false))
 
   /** Пропил, который реально пойдёт в расчёт: у нелинейной партии его нет. */
   const effectiveKerfMm = computed(() => (kerfApplies.value ? form.kerfMm || 0 : 0))
@@ -157,7 +157,7 @@ export function useWarehouseCutting() {
       offcuts: rows,
       kerfMm: effectiveKerfMm.value,
       wasteQuantity: form.wasteQuantity || 0,
-      unit: batch.value.unit,
+      uomId: batch.value.uomId,
     })
     return result.ok ? result : null
   })
@@ -175,7 +175,7 @@ export function useWarehouseCutting() {
       offcuts: rows,
       kerfMm: effectiveKerfMm.value,
       wasteQuantity: form.wasteQuantity || 0,
-      unit: batch.value.unit,
+      uomId: batch.value.uomId,
     })
     if (!result.ok) return { kind: result.reason, detail: result.detail, row: result.offcutIndex }
     if (result.consumed > batch.value.quantityRemaining) {
@@ -215,7 +215,7 @@ export function useWarehouseCutting() {
         thicknessMm: row.thicknessMm,
         weightKg: row.weightKg,
         quantity: row.quantity,
-        unit: source.unit,
+        uomId: source.uomId,
         location: row.location.trim() || source.location,
         notes: row.notes.trim() || null,
       }))
@@ -253,7 +253,7 @@ export function useWarehouseCutting() {
     form,
     addRow,
     removeRow,
-    unit,
+    uomId,
     kerfApplies,
     // Расчёт
     consumption,

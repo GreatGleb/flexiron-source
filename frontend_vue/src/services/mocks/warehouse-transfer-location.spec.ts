@@ -38,7 +38,7 @@ function freshBatch(quantity: number, location: string) {
     batchNumber: `TRF-${String(seq).padStart(3, '0')}`,
     lotCode: `LOT-TRF-${String(seq).padStart(3, '0')}`,
     quantity,
-    unit: 'kg',
+    uomId: 'uom-kg',
     unitPrice: 10,
     receivedAt: '2026-01-01T00:00:00Z',
     location,
@@ -60,7 +60,7 @@ async function freshOffcut(quantity: number, location: string) {
     productId: 'prod-001',
     quantity: 1,
     weightKg: quantity,
-    unit: 'kg',
+    uomId: 'uom-kg',
     offcutType: 'linear',
     location,
   })

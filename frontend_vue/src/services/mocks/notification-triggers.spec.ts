@@ -52,7 +52,7 @@ async function freshBatch(productId: string, quantity: number) {
     batchNumber: `NOTIF-${String(batchSeq).padStart(3, '0')}`,
     lotCode: `LOT-NOTIF-${String(batchSeq).padStart(3, '0')}`,
     quantity,
-    unit: 'pcs',
+    uomId: 'uom-pcs',
     unitPrice: 10,
     receivedAt: '2026-01-01T00:00:00Z',
     location: 'Rack: A | Row: 01 | Cell: 01',
@@ -138,7 +138,7 @@ describe('дефицит', () => {
       productId: 'prod-001',
       productName: 'Steel Sheet 3mm',
       quantity: 5,
-      unit: 'pcs',
+      uomId: 'uom-pcs',
       orderId: 'ORD-NOTIF-DEFICIT',
     })
 
@@ -153,7 +153,7 @@ describe('дефицит', () => {
       productId: 'prod-002',
       productName: 'Steel Sheet 4mm',
       quantity: 5,
-      unit: 'pcs',
+      uomId: 'uom-pcs',
       orderId: 'ORD-NOTIF-DEFICIT-2',
     })
     const after = feed('stock_deficit').length
@@ -162,7 +162,7 @@ describe('дефицит', () => {
       productId: 'prod-002',
       productName: 'Steel Sheet 4mm',
       quantity: 9,
-      unit: 'pcs',
+      uomId: 'uom-pcs',
       orderId: 'ORD-NOTIF-DEFICIT-2',
     })
 
