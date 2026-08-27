@@ -1,7 +1,15 @@
 import type { Locator, Page } from '@playwright/test'
 import { test, expect } from '../../fixtures'
 import { enableAllFlags, setFlag } from '../../helpers/flags'
+import { openAdminCard } from '../../helpers/admin'
 import { waitForDataReady } from '../../helpers/ready'
+
+/** Число дней из подписи условий оплаты — «Payment terms: 30 days» → 30. */
+function daysShown(text: string): number {
+  const match = /(\d+)\s*days/.exec(text)
+  if (!match) throw new Error(`условия оплаты не показывают числа дней: ${JSON.stringify(text)}`)
+  return Number(match[1])
+}
 
 /**
  * Reads a line cell whether it is editable (an input) or frozen (plain text).
@@ -2068,20 +2076,74 @@ test.describe('Order Create › client selector', () => {
     await expect(page.locator('[data-test="order-create-client-selected"]')).toBeVisible()
   })
 
-  test("selecting a client pulls in that client's payment terms", async ({ page }) => {
+  /**
+   * Требование пункта 9 — условия ЕГО клиента, и «его» здесь единственное, что
+   * стоит проверять. Прежняя версия теста ждала `/\d+\s*days/` и оставалась
+   * зелёной, когда на месте `selectedClient.paymentTermsDays` стояла константа 0:
+   * любое число её устраивало (питфолл #68). Поэтому показанное число сверяется
+   * с карточкой самого клиента — источником, до которого страница создания
+   * заказа не дотягивается.
+   */
+  test("selecting a client pulls in that client's own payment terms", async ({ page }) => {
     await page.goto('/admin/orders/new')
+    await waitForDataReady(page)
+    const items = page.locator('[data-test="order-create-client-item"]')
     const terms = page.locator('[data-test="order-create-client-payment-terms"]')
-    await expect(page.locator('[data-test="order-create-client-item"]').first()).toBeVisible({
-      timeout: 5000,
-    })
+    await expect(items.first()).toBeVisible()
     // До выбора подтягивать нечего: строки условий не существует вовсе. Иначе
     // утверждение ниже устраивало бы бездействие (питфолл #68).
     await expect(terms).toHaveCount(0)
 
-    await page.locator('[data-test="order-create-client-item"]').first().click()
+    const shown = new Map<string, number>()
+    const total = await items.count()
+    expect(total).toBeGreaterThan(1)
+    for (let i = 0; i < total; i++) {
+      const item = items.nth(i)
+      const clientId = (await item.getAttribute('data-client-id'))!
+      await item.click()
+      await expect(terms).toHaveText(/\d+\s*days/)
+      shown.set(clientId, daysShown(await terms.innerText()))
+    }
 
-    // Число дней, а не пустая подпись: пустое значение прошло бы `toBeVisible`.
-    await expect(terms).toHaveText(/\d+\s*days/)
+    // Подстановка, а не одно число на весь список: константа отвечает одинаково
+    // на каждого клиента и краснеет здесь.
+    expect(new Set(shown.values()).size).toBeGreaterThan(1)
+
+    // И это условия ИМЕННО его: то же число стоит в карточке каждого клиента.
+    for (const [clientId, days] of shown) {
+      await openAdminCard(page, `/admin/clients/${clientId}`, '[data-test="field-payment-terms"]')
+      await expect(page.locator('[data-test="field-payment-terms"]')).toHaveValue(String(days))
+    }
+  })
+
+  /**
+   * Вторая половина того же требования: подтянутое при выборе должно доехать до
+   * заказа снимком, а не остаться подписью на форме. Без этого теста весь
+   * `InputGroup` с условиями в `OrderCardPage.vue` можно было удалить целиком,
+   * и ни одна спека не краснела.
+   */
+  test('the saved order carries the terms its client was picked with', async ({ page }) => {
+    await page.goto('/admin/orders/new')
+    await waitForDataReady(page)
+    const items = page.locator('[data-test="order-create-client-item"]')
+    const terms = page.locator('[data-test="order-create-client-payment-terms"]')
+    await expect(items.first()).toBeVisible()
+
+    // Клиент с ненулевой отсрочкой: на нуле утверждение о карточке устроила бы и
+    // захардкоженная константа — ровно то, чем прошлая версия теста и болела.
+    let days = 0
+    const total = await items.count()
+    for (let i = 0; i < total && days === 0; i++) {
+      await items.nth(i).click()
+      await expect(terms).toHaveText(/\d+\s*days/)
+      days = daysShown(await terms.innerText())
+    }
+    expect(days).toBeGreaterThan(0)
+
+    await page.locator('[data-test="order-create-save-btn"]').click()
+    await page.waitForURL(/\/admin\/orders\/ORD-/)
+
+    await expect(page.locator('[data-test="field-payment-terms"]')).toHaveText(`${days} days`)
   })
 
   test('new client search shows empty state for no results', async ({ page }) => {
