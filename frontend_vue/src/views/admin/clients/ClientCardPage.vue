@@ -14,13 +14,14 @@ import DatePicker from '@/components/admin/ui/DatePicker.vue'
 import AutoResizeTextarea from '@/components/admin/ui/AutoResizeTextarea.vue'
 
 import { ORDER_STATUS_PILL } from '@/domain/orderStatus'
+import { countryOptions, isCountryCode } from '@/domain/countries'
 
 import '@styles/admin/components/_entity-card-layout.css'
 import '@styles/admin/components/_audit-log.css'
 import '@styles/admin/components/_order-status-pill.css'
 import '@styles/admin/client_card.css'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const route = useRoute()
 const router = useRouter()
 
@@ -62,6 +63,22 @@ const pageTitle = computed(() =>
 useHead({
   title: () => `Flexiron - ${pageTitle.value}`,
   description: () => t('clients.card_title'),
+})
+
+// Справочник стран собирается заново при смене языка: названия и их порядок
+// зависят от языка, а список открывают уже после переключения.
+const COUNTRY_OPTIONS = computed(() => [
+  { value: '', label: t('clients.country_not_selected') },
+  ...countryOptions(locale.value),
+])
+
+// CustomSelect работает со строкой, а «страна не выбрана» в данных — это null
+// (питфолл #24). Переходник между ними один и живёт здесь.
+const countryStr = computed({
+  get: () => client.value?.country ?? '',
+  set: (v: string) => {
+    if (client.value) client.value.country = isCountryCode(v) ? v : null
+  },
 })
 
 const STATUS_OPTIONS = [
@@ -347,6 +364,14 @@ onMounted(() => {
                     class="glass-input"
                     type="text"
                     data-test="field-address"
+                  />
+                </InputGroup>
+
+                <InputGroup :label="t('clients.field_country')">
+                  <CustomSelect
+                    v-model="countryStr"
+                    :options="COUNTRY_OPTIONS"
+                    data-test="field-country"
                   />
                 </InputGroup>
 

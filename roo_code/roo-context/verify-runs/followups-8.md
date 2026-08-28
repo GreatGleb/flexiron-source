@@ -317,3 +317,265 @@ null-guard `suggestedDocumentType(null)` возвращает `'export'` (null �
 Дополнительно, но самостоятельным основанием не считаю: (а) базлайны `client-card-contact-chromium-win32.png` и `client-create-contact-chromium-win32.png` остались от старой вёрстки — коммит перерисовал только linux-пару, автор об этом сказал вслух, но пункт от этого не перестаёт быть незакрытым; (б) мой первый полный прогон clients.spec.ts был красным (1 failed / 74 passed), зелёным стал только на повторе.
 
 Что при этом действительно сделано и проверено мной: справочник ISO закрытый и типизированный, поле есть и в карточке, и на создании, дельта сохраняется, страны 55 сидов сходятся и с префиксом VAT, и с городом в адресе, инверсии краснеют. Отклоняю только по невыполненной ветке «иначе → Экспорт».
+
+---
+
+## Заход 2 — 2026-08-28, работа над ошибками
+
+Отклонение выше принято целиком. Чинилась ровно названная дыра: третья ветка
+«страна не заполнена → не предлагать ничего». Всё остальное из первого захода
+приёмщик подтвердил как верное и потому не переписывалось — оно снято с
+коммита `165d478` как есть и перенесено на текущее дерево.
+
+### 1. Воспроизведение — на текущем дереве пункта нет вовсе
+
+Ревертом `0944d8b` снято всё, поэтому воспроизводились обе половины пункта:
+
+```
+$ grep -n "country" frontend_vue/src/types/client.ts
+(пусто, exit=1)
+
+$ ls -la frontend_vue/src/domain/countries.ts
+ls: cannot access 'frontend_vue/src/domain/countries.ts': No such file or directory
+
+$ grep -n "documentType\|selectClient" frontend_vue/src/composables/useOrderCreate.ts
+35:    documentType: OrderDocumentType
+40:    documentType: 'local',
+165:  function selectClient(client: Client) {
+343:    form.value.documentType === 'export' ? 'export_zero' : 'standard',
+405:          documentType: form.value.documentType,
+495:    selectClient,
+```
+
+`selectClient` тип комплекта не трогает, страны у клиента нет ни в типе, ни в
+справочнике — пункт воспроизводится полностью, как в заходе 1.
+
+### 2. Перенос принятой части — не копией коммита, а трёхсторонним применением
+
+Первая попытка переноса (`git show 165d478:<файл> > <файл>` по всем файлам)
+оказалась ошибкой и была отловлена гейтом: между `165d478` и HEAD прошли пункты 9
+и 10, и целиком взятые файлы затёрли `paymentTermsDays`, `ClientInvoice`,
+`ClientInvoiceSummary`, `ClientUnassignedPayment` — 40 ошибок typecheck.
+
+```
+$ npx vue-tsc --noEmit | head -3
+src/composables/useClientCard.spec.ts(65,15): error TS2305: Module '"@/types/client"' has no exported member 'ClientInvoice'.
+src/composables/useClientCard.ts(146,30): error TS2339: Property 'paymentTermsDays' does not exist on type ...
+```
+
+Правильный перенос: файлы возвращены к HEAD, а дельта пункта наложена
+трёхсторонним `git apply -3`.
+
+```
+$ git diff --stat 165d478^ HEAD -- <пять файлов>
+types/client.ts             +94
+services/mocks/clients.ts   +70
+ClientCardPage.vue         +189
+ClientCreatePage.vue       +53 −3
+i18n/admin/clients.ts       +73
+(useOrderCreate.ts и его спека с тех пор не менялись — им перенос не нужен)
+
+$ git apply -3 item8.patch
+Applied patch to 'frontend_vue/src/types/client.ts' with conflicts.
+```
+
+Конфликт один и на одной строке — соседний `import type { InvoiceKind }`,
+появившийся пунктом 10. Разрешён сохранением обоих импортов.
+
+### 3. Правка по существу отклонения
+
+**Правило стало полным — веток две, а не три.**
+
+```ts
+// было: третья ветка, которой в плане нет
+export function suggestedDocumentType(country): OrderDocumentType | null {
+  if (!country) return null
+  return country === LOCAL_DOCUMENT_COUNTRY ? 'local' : 'export'
+}
+
+// стало: буквально «LT → Локальный, иначе → Экспорт»
+export function suggestedDocumentType(country): OrderDocumentType {
+  return country === LOCAL_DOCUMENT_COUNTRY ? 'local' : 'export'
+}
+```
+
+```ts
+// было: у клиента без страны не подставлялось ничего
+const suggestion = suggestedDocumentType(client.country)
+if (suggestion) form.value.documentType = suggestion
+
+// стало: предложение применяется всегда
+form.value.documentType = suggestedDocumentType(client.country)
+```
+
+**Почему именно так, а не обязательной страной в форме.** Приёмщик назвал оба
+закрытия допустимыми. Выбрано то, которое совпадает с текстом плана дословно
+(«LT → «Локальный», иначе → «Экспорт»») и не меняет поведение формы клиента,
+подтверждённое приёмкой. Дыра закрывается тем же движением: немецкая фирма без
+страны получает **Экспорт**, а не молчаливый «Локальный» с 21 % НДС.
+
+Собственное обоснование `null` из захода 1 не защищается, а признано неверным и
+переписано в комментариях обоих файлов: воздержаться от предложения нельзя,
+потому что в форме заказа у `documentType` есть значение по умолчанию `'local'`
+— молчание не оставляет поле пустым, оно оставляет локальный комплект.
+
+Оговорка ТЗ («система предлагает, менеджер может изменить») от этого не
+страдает: подстановка по-прежнему живёт только в `selectClient`, а не в вотчере
+на `form.clientId`, и предложение видно и правится — `OrderCreatePage.vue:377`,
+`CustomSelect` с `data-test="order-create-doctype"`.
+
+### 4. Тест на путь, которого не проверял никто
+
+Приёмщик указал и на дыру в тесте: `it.each(['local','export'])` сам заранее
+выставлял `documentType`, поэтому путь «менеджер ничего не трогал» не
+проверялся ни разу. Заменён двумя утверждениями:
+
+```ts
+it('клиенту без страны — экспорт, а не оставленный по умолчанию «локальный»', () => {
+  const page = useOrderCreate()
+  expect(page.form.value.documentType).toBe('local')   // менеджер не трогал
+  page.selectClient(client('cli-none', null))
+  expect(page.form.value.documentType).toBe('export')
+})
+
+it('и заказ такому клиенту создаётся экспортным — тип едет на сервер, а с ним ставка НДС', async () => {
+  ...
+  expect(createdPayload).toMatchObject({ documentType: 'export' })
+})
+```
+
+Второе утверждение читает **уехавший payload**, а не экранное значение: именно
+из этого поля `mockCreateOrder` выводит `vatMode` (`'export'` → `export_zero`,
+`'local'` → `standard`, то есть 21 %). Для этого мок `createOrder` в спеке стал
+запоминать аргумент.
+
+### 5. Машинная приёмка
+
+```
+$ cd frontend_vue && npm run verify ; echo "exit=$?"
+exit=0
+  typecheck    — vue-tsc --noEmit, чисто
+  lint         — eslint --max-warnings=0, чисто
+  dupes        — jscpd 9.20 % при пороге 10 %
+  format:check — All matched files use Prettier code style!
+  test:unit    — Test Files 30 passed (30) · Tests 643 passed (643)
+
+$ npm run test:audit ; echo "exit=$?"
+exit=0
+  Test Files 22 passed (22) · Tests 97 passed (97)
+```
+
+`test:audit` — потому что тронут `src/services/mocks/clients.ts`, который читает
+мок заказов.
+
+### 6. E2E — уровень 1
+
+Правка не в общем полу (helpers, фикстуры, диспетчер моков, роутер, глобальный
+CSS не тронуты), поэтому гонялись затронутая область и все, кто читает мок
+клиентов (`grep -rln "clients" tests/e2e`).
+
+```
+$ npx playwright test tests/e2e/admin/clients/clients.spec.ts --reporter=line --workers=3
+exit=1   2 failed · 74 passed (1.2m)
+```
+
+Оба падения — снимки `client-create-contact` и `client-card-contact`, то есть
+ровно две панели, куда добавлено поле. Базлайны перерисованы и **просмотрены
+глазами**:
+
+```
+$ npx playwright test … -g "contact panel" --update-snapshots --workers=1
+exit=0   2 passed
+```
+
+- `client-card-contact-chromium-linux.png` — у CL-001 (Каунас, `LT`) в поле
+  COUNTRY стоит **Lithuania**: путь «сид → тип → карточка → подпись ICU» цел.
+- `client-create-contact-chromium-linux.png` — на пустой форме **No country
+  selected**.
+
+Дальше зелено с первого раза, повторов не потребовалось:
+
+```
+$ npx playwright test tests/e2e/admin/clients/clients.spec.ts --workers=3
+exit=0   76 passed (1.2m)
+
+$ npx playwright test tests/e2e/admin/orders tests/e2e/admin/sales-crm --workers=3
+exit=0   121 passed (2.7m)
+
+$ npx playwright test tests/e2e/admin/analytics/pl-report.spec.ts \
+      tests/e2e/admin/analytics/sales.spec.ts tests/e2e/navigation.spec.ts \
+      tests/e2e/smoke.spec.ts --workers=3
+exit=0   97 passed (1.1m)
+```
+
+Замечание приёмщика (б) — «первый прогон clients.spec.ts был красным, зелёным
+стал на повторе» — в этом заходе не воспроизвелось: единственная краснота была
+объяснимой (два устаревших базлайна), после перерисовки прогон зелёный сразу.
+
+Снимки `*-chromium-win32.png` двух этих панелей остаются от старой вёрстки:
+перерисовать их можно только на Windows. Сказано вслух повторно, как и в заходе 1.
+
+### 7. Инверсии (Л9) — семь, каждая красная
+
+| # | Что сломано | Что покраснело |
+|---|---|---|
+| 1 | возвращена третья ветка (`if (!country) return null` + `if (suggestion)`) | ровно 3 теста, пиннящих закрытую дыру: «страна не заполнена — экспорт», «клиенту без страны — экспорт», «заказ создаётся экспортным» (`documentType: "local"` в payload) |
+| 2 | `suggestedDocumentType` всегда `'local'` | 6 тестов в двух файлах |
+| 3 | `suggestedDocumentType` всегда `'export'` | 2 теста про Литву |
+| 4 | `selectClient` вычисляет предложение и не применяет | 5 тестов `useOrderCreate.spec.ts` |
+| 5 | `countryLabel` всегда возвращает код | 3 теста справочника |
+| 6 | `countryOptions` не сортирует | «упорядочен по названию, а не по коду» |
+| 7 | у сида CL-001 убрано поле `country` | `npx vue-tsc --noEmit`: `TS2322 … Property 'country' is missing in type` |
+
+Инверсия №1 — главная: она доказывает, что новый тест ловит именно ту дыру, за
+которую пункт отклонили, а не соседнее поведение. Файлы после каждой инверсии
+возвращались из копии в скрэтчпаде и сверялись `diff` (`countries.ts identical
+to backup`), а не «на глаз».
+
+### 8. Линзы
+
+| Линза | Чем проверял | Что вернулось | Вывод |
+|---|---|---|---|
+| Л1 | `grep -n "structuredClone\|toRaw(\|useHead(\|watch("` по `countries.ts`, обеим страницам клиента, `useOrderCreate.ts` | новых `watch` нет; два `computed` на страницу (список стран от `locale`, переходник `null ↔ ''`); `watch(vatMode, recalcLocalTotals)` уже был — теперь предложение всегда меняет ставку вместе с типом | чисто |
+| Л2 | скрипт-сверка ключей по трём локалям `src/i18n/admin/clients.ts` | `ru 122 · en 122 · lt 122`, разностей нет; `field_country` и `country_not_selected` есть во всех трёх; `@` в новых строках нет | чисто |
+| Л3 | `grep -n "/api/clients" 03-api-contract.md` → пусто; сверка вызовов `clientsService.ts` с роутами `mocks/index.ts` | новых эндпоинтов нет, поле едет в существующих `POST /api/clients` и `PATCH /api/clients/:id`; у каждого вызванного пути мок есть | чисто; отсутствие раздела о клиентах в контракте — прежняя находка вне области (см. §8 захода 1) |
+| Л4 | python-сверка страны с префиксом VAT по 55 сидам | `parsed 55 · mismatch [] · LT 28, LV 21, EE 4, PL 1, DE 1` | чисто |
+| Л5 | `grep -rn "documentType = \|documentType:"` по `src/`; `grep -rn "'LT'"` вне справочника | правило существует ровно в одном месте — `suggestedDocumentType`; `useOrderCard` клиента не выбирает (`grep -n "clientId"` пусто), `mocks/orders.ts:847` — рукописный сид ORD-008, а не правило; литералов `'LT'` вне справочника нет | чисто |
+| Л6 | `grep -n "<select"` по страницам клиента; два перерисованных снимка | нативных `<select>` нет, везде `CustomSelect`; панели читаются | чисто |
+| Л7 | `git diff HEAD --stat -- src/router src/config/featureFlags.ts` | пусто | роутов и флагов правка не касается |
+| Л8 | чтение `useClientCard.save()` и сеттера `countryStr` | сохраняется дельтой `dirty.diff()`; «не выбрана» нормализуется в `null`, а не в пустую строку (питфолл #50); `mockCreateClient` кладёт `data.country ?? null` | чисто |
+| Л9 | семь инверсий (§7); `grep -rn "await page.waitForLoadState" tests/ \| wc -l` → `0` | инверсии красные все семь | чисто |
+| Л10 | `grep -n "clients" src/i18n/admin/index.ts`; `git diff HEAD -- src/router` | `import { adminClients } from './clients'` на месте; роутер не тронут | чисто |
+
+### 9. Рассмотрено и отклонено в этом заходе
+
+- **БАГ-24** (недетерминированный тест карточки заказа) был заведён заходом 1 и
+  снят тем же ревертом. В этом заходе прогон `orders` + `sales-crm` зелёный
+  121/121, то есть падение не воспроизвелось, и заводить баг заново «по памяти»
+  без воспроизведения нельзя. Разбор не потерян: он целиком в §5 этого журнала.
+- **Обязательная страна в форме клиента** — второе из двух закрытий, названных
+  приёмщиком. Не делалось: одного достаточно, а выбранное совпадает с текстом
+  плана дословно и не трогает поведение формы, которое приёмка подтвердила.
+- **Сиды заказов не выводят тип комплекта из страны клиента**, **e2e на путь
+  «латвийский клиент → Экспорт»**, **свободная строка `country` у поставщика**,
+  **отсутствие раздела о клиентах в контракте** — четыре отклонения захода 1
+  (§8) в силе, обстоятельства не изменились.
+
+### 10. Итог захода 2
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Цикл проверок: пункт 8, заход 2 — закрыта третья молчаливая ветка
+Итераций: 2 из 30        Вердикт: чистый свип
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Машинная приёмка:  typecheck OK · lint OK · dupes 9.20 % · format OK · unit 643
+                   test:audit 97 · e2e ур. 1 (76 + 121 + 97)
+Линзы:             Л1–Л10 подтверждены
+Найдено за прогон: 2       Починено: 2      Отклонено: 6
+В bugs-file ушло:  0
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+Найдено и починено в этом заходе: затёртые пунктами 9–10 поля при первом
+переносе (поймано typecheck, перенос переделан трёхсторонним применением) и два
+устаревших базлайна. Отметку ✅ в плане ставит не автор правки.

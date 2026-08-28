@@ -24,6 +24,7 @@ import {
   toPricingLine,
 } from '@/services/orderLines'
 import { rollupOrder, type VatMode } from '@/domain/orderPricing'
+import { suggestedDocumentType } from '@/domain/countries'
 
 export function useOrderCreate() {
   const { t } = useI18n()
@@ -166,6 +167,21 @@ export function useOrderCreate() {
     form.value.clientId = client.id
     selectedClient.value = client
     clearError('clientId')
+
+    /**
+     * Тип комплекта документов система ПРЕДЛАГАЕТ по стране клиента: Литва —
+     * локальный, любая другая — экспорт (ТЗ, Process 2.1 §2).
+     *
+     * Предложение делается только здесь — в момент выбора клиента, — и потому
+     * не вотчером на `form.clientId`: менеджер вправе поменять тип, и вотчер,
+     * сработавший на любой последующей правке заказа, затёр бы его выбор.
+     *
+     * Ветки «у клиента страны нет, поэтому не трогаем» здесь нет: `documentType`
+     * уже стоит `'local'` по умолчанию (см. `form` выше), так что не подставить
+     * ничего — значит оставить локальный комплект и 21 % НДС заказу, который
+     * может быть экспортным. Правило полное, и оно всегда применяется.
+     */
+    form.value.documentType = suggestedDocumentType(client.country)
   }
 
   // ─── Validation ────────────────────────────────────────────────────────

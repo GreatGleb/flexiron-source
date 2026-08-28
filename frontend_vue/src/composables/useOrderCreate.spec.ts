@@ -34,10 +34,13 @@ const sentServices: Array<Record<string, unknown>> = []
 /** Set by a test to make the next matching line fail once, as the server would. */
 let failItemOnce: string | null = null
 const createCalls = { n: 0 }
+/** The payload the order itself was created with — the document type rides here. */
+let createdPayload: Record<string, unknown> | null = null
 
 vi.mock('@/services/ordersService', () => ({
-  createOrder: vi.fn(async () => {
+  createOrder: vi.fn(async (data: Record<string, unknown>) => {
     createCalls.n += 1
+    createdPayload = data
     return { id: 'ORD-TEST' }
   }),
   getOrder: vi.fn(async (id: string) => ({ id })),
@@ -62,6 +65,7 @@ vi.mock('@/services/clientsService', () => ({
 }))
 
 import { useOrderCreate } from './useOrderCreate'
+import type { Client } from '@/types/client'
 
 const PIPE = {
   productId: 'prod-alu',
@@ -94,6 +98,7 @@ beforeEach(() => {
   sentServices.length = 0
   failItemOnce = null
   createCalls.n = 0
+  createdPayload = null
 })
 
 describe('useOrderCreate — what is saved is what is on screen', () => {
@@ -217,5 +222,91 @@ describe('useOrderCreate — a save that failed half-way is resumed, not restart
     const order = await page.handleSave()
 
     expect(order).toMatchObject({ id: 'ORD-TEST' })
+  })
+})
+
+/**
+ * Тип комплекта документов система предлагает, а не назначает.
+ *
+ * ТЗ (Process 2.1 §2): «Система предлагает тип автоматически на основе страны
+ * клиента, менеджер может изменить». Отсюда два разных утверждения — что
+ * предложение приходит и что оно не возвращается поверх выбора менеджера.
+ */
+describe('useOrderCreate — тип документов предлагается по стране клиента', () => {
+  function client(id: string, country: Client['country']): Client {
+    return {
+      id,
+      name: id,
+      companyCode: '000',
+      vatCode: '',
+      address: '',
+      country,
+      phone: '',
+      email: `${id}@example.com`,
+      paymentTermsDays: 0,
+      status: 'active',
+      notes: null,
+      createdAt: '2026-01-01',
+    }
+  }
+
+  it('литовскому клиенту — локальный комплект', () => {
+    const page = useOrderCreate()
+    page.form.value.documentType = 'export'
+
+    page.selectClient(client('cli-lt', 'LT'))
+
+    expect(page.form.value.documentType).toBe('local')
+  })
+
+  it('клиенту из другой страны — экспортный комплект', () => {
+    const page = useOrderCreate()
+    expect(page.form.value.documentType).toBe('local')
+
+    page.selectClient(client('cli-lv', 'LV'))
+
+    expect(page.form.value.documentType).toBe('export')
+  })
+
+  // Путь, которого раньше не было ни в коде, ни в тесте: менеджер завёл
+  // немецкую фирму, не заполнив страну (форма клиента её не требует), и типа
+  // документов не касался. Система тогда не предлагала ничего — и «Локальный»
+  // оставался стоять сам собой, потому что он стоит в форме по умолчанию.
+  // Тест начинается именно с нетронутой формы: подставь код обратно «ничего» —
+  // и утверждение покраснеет.
+  it('клиенту без страны — экспорт, а не оставленный по умолчанию «локальный»', () => {
+    const page = useOrderCreate()
+    expect(page.form.value.documentType).toBe('local')
+
+    page.selectClient(client('cli-none', null))
+
+    expect(page.form.value.documentType).toBe('export')
+  })
+
+  it('и заказ такому клиенту создаётся экспортным — тип едет на сервер, а с ним ставка НДС', async () => {
+    const page = useOrderCreate()
+    page.selectClient(client('cli-none', null))
+    page.addItem(PIPE)
+
+    await page.handleSave()
+
+    // `mockCreateOrder` выводит из этого поля `vatMode`: 'export' → export_zero,
+    // 'local' → standard, то есть 21 %. Проверяется то, что уехало, а не то,
+    // что нарисовано на экране.
+    expect(createdPayload).toMatchObject({ documentType: 'export' })
+  })
+
+  it('не перезаписывает выбор менеджера при последующих правках заказа', () => {
+    const page = useOrderCreate()
+
+    page.selectClient(client('cli-lv', 'LV'))
+    expect(page.form.value.documentType).toBe('export')
+
+    // Менеджер поправил тип вручную и продолжил собирать заказ.
+    page.form.value.documentType = 'local'
+    page.addItem(PIPE)
+    page.form.value.notes = 'pickup on friday'
+
+    expect(page.form.value.documentType).toBe('local')
   })
 })

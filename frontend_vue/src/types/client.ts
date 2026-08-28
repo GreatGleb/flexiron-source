@@ -1,5 +1,6 @@
 import type { StockAuditEntry } from '@/types/warehouse'
 import type { InvoiceKind } from '@/types/order'
+import type { CountryCode } from '@/domain/countries'
 
 /** A single entry in the client's interaction history (calls, emails, notes) */
 export interface InteractionHistoryEntry {
@@ -17,6 +18,14 @@ export interface Client {
   companyCode: string
   vatCode: string
   address: string
+  /**
+   * Страна клиента кодом справочника ISO 3166-1 alpha-2 (`src/domain/countries.ts`),
+   * или `null` у клиента, заведённого до появления поля.
+   *
+   * Отдельно от `address` потому, что по ней система предлагает тип комплекта
+   * документов: вытащить страну из строки «Vytauto g. 15, Kaunas» нечем.
+   */
+  country: CountryCode | null
   phone: string
   email: string
   status: 'active' | 'inactive'
@@ -54,6 +63,7 @@ export type ClientFormData = Pick<
   | 'companyCode'
   | 'vatCode'
   | 'address'
+  | 'country'
   | 'phone'
   | 'email'
   | 'status'
