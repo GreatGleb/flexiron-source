@@ -118,6 +118,69 @@ export interface WarehouseMapFile {
   uploadedAt: string
 }
 
+/** Шифрование SMTP-соединения */
+export const MAIL_ENCRYPTIONS = ['none', 'ssl', 'starttls'] as const
+
+/** Идентификатор шифрования — список и тип живут в одном месте */
+export type MailEncryption = (typeof MAIL_ENCRYPTIONS)[number]
+
+/** Строка пришла извне (форма, payload) — проверить, что это способ шифрования, а не любой текст */
+export function isMailEncryption(value: string): value is MailEncryption {
+  return (MAIL_ENCRYPTIONS as readonly string[]).includes(value)
+}
+
+/**
+ * Почтовый сервер: через него уходят письма поставщикам (BCC-инструмент, спека 04.2 §6).
+ *
+ * **Пароля здесь нет и не будет.** Сервер его не отдаёт при чтении настроек — только
+ * принимает при записи, — а раз поля нет в типе, пароль физически некуда положить: ни в
+ * стор `useSettings`, ни в его кэш в localStorage. Признак «пароль задан» приходит
+ * отдельным булевым полем: форме надо знать, есть он или нет, а не какой он.
+ */
+export interface MailServerSettings {
+  host: string
+  port: number
+  encryption: MailEncryption
+  /** Логин SMTP. Часто совпадает с адресом отправителя, но не обязан. */
+  username: string
+  /** Пароль/токен задан на сервере. Сам он не приходит никогда. */
+  passwordSet: boolean
+  /** Адрес в поле From — от него уходит письмо. */
+  fromEmail: string
+  /** Имя в поле From — его видит получатель рядом с адресом. */
+  fromName: string
+}
+
+/**
+ * Настроен ли почтовый сервер настолько, чтобы через него можно было отправить письмо.
+ *
+ * Правило одно на весь проект и живёт здесь, рядом с типом: его зовут гейт кнопки
+ * «отправить тестовое письмо» (`MailSettings.vue`), гейт кнопки Send BCC-инструмента
+ * (`useBccRequest.ts`) и отказ сервера (`mockIsMailConfigured`). Раньше оно было
+ * записано в этих трёх местах порознь — две записи посимвольно одинаковы, третья по
+ * самому паролю, — и добавленное условие (например, обязательный `username`) разъехалось
+ * бы молча: ни typecheck, ни jscpd такого выражения не видят.
+ *
+ * Аргумент — только те поля, от которых правило зависит: подставить сюда весь срез
+ * настроек нельзя по типу, а значит нельзя и незаметно начать смотреть на что-то ещё.
+ */
+export function isMailConfigured(
+  mail: Pick<MailServerSettings, 'host' | 'fromEmail' | 'passwordSet'>,
+): boolean {
+  return Boolean(mail.host) && Boolean(mail.fromEmail) && mail.passwordSet
+}
+
+/**
+ * Что уходит на сервер при сохранении почтовых настроек.
+ *
+ * `passwordSet` сюда не входит: это ответ сервера о своём состоянии, а не поле формы.
+ * `password` — наоборот, только здесь: он пишется и не читается.
+ */
+export interface MailServerPayload extends Partial<Omit<MailServerSettings, 'passwordSet'>> {
+  /** Новый пароль/токен. Пустая строка не отправляется — она означала бы «стереть». */
+  password?: string
+}
+
 /** Роль пользователя */
 export type UserRole =
   | 'owner'
@@ -170,6 +233,8 @@ export interface OrderPermissions {
 export interface AppSettings {
   company: CompanyInfo
   constants: GlobalConstants
+  /** Почтовый сервер — один на арендатора, без пароля (см. `MailServerSettings`). */
+  mail: MailServerSettings
   orderPermissions: OrderPermissions
   currencies: Currency[]
   uoms: Uom[]

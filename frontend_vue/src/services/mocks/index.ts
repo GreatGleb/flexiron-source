@@ -144,6 +144,9 @@ import {
   mockDeleteOrderStatus,
   mockGetProfile,
   mockPatchProfile,
+  mockGetMail,
+  mockPatchMail,
+  mockSendMailTest,
   mockGetWarehouseMap,
   mockSaveWarehouseMap,
   mockDeleteWarehouseMap,
@@ -386,6 +389,7 @@ async function getMockRoute<T>(path: string, params?: Record<string, string>): P
   if (path === '/api/settings/conversions') return delay(mockGetConversions() as T)
   if (path === '/api/settings/order-statuses') return delay(mockGetOrderStatuses() as T)
   if (path === '/api/settings/profile') return delay(mockGetProfile() as T)
+  if (path === '/api/settings/mail') return delay(mockGetMail() as T)
   if (path === '/api/settings/warehouse-map') return delay(mockGetWarehouseMap() as T)
 
   // The audit feed reads the nine logs where they live; it has no store of its own,
@@ -1128,6 +1132,7 @@ async function postMockRoute<T>(
   if (path === '/api/settings/order-statuses')
     return delay(mockCreateOrderStatus(body as Parameters<typeof mockCreateOrderStatus>[0]) as T)
   if (path === '/api/settings/change-password') return delay(undefined as T) // no-op mock
+  if (path === '/api/settings/mail/test') return delay(mockSendMailTest() as T)
 
   throw new Error(`[mock] POST ${path} not found`)
 }
@@ -1341,6 +1346,10 @@ async function patchMockRoute<T>(
   }
   if (path === '/api/settings/profile') {
     const result = mockPatchProfile(body as Parameters<typeof mockPatchProfile>[0])
+    return delay(result as T)
+  }
+  if (path === '/api/settings/mail') {
+    const result = mockPatchMail(body as Parameters<typeof mockPatchMail>[0])
     return delay(result as T)
   }
 

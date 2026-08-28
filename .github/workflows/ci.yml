@@ -44,6 +44,14 @@ jobs:
       - name: npm run test:audit
         run: npm run test:audit
 
+      # Единственный тест бэкенда: письмо запроса цен уходит одной транзакцией и
+      # список поставщиков не виден никому из них. Только стандартная
+      # библиотека — ставить в CI нечего, и потому шаг не может «временно
+      # отвалиться по зависимостям».
+      - name: backend unittest
+        working-directory: backend
+        run: python3 -m unittest discover -s tests -t .
+
   e2e:
     name: Браузерные тесты
     runs-on: ubuntu-latest

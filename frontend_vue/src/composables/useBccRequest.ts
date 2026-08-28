@@ -13,13 +13,14 @@ import { buildBccBody, buildBccSubject, formatBccDate } from '@/domain/bccEmail'
 import type { BccSender } from '@/domain/bccEmail'
 import type { BccCategory, BccRecipient, BccRequest, BccEmailTemplate } from '@/types/bcc'
 import type { TranslatedString } from '@/types/i18n'
+import { isMailConfigured } from '@/types/settings'
 
 const EMPTY_TEXT: TranslatedString = { ru: '', en: '', lt: '' }
 
 export function useBccRequest() {
   const { locale } = useI18n()
   const { tf } = useTranslatedField()
-  const { settings } = useSettings()
+  const { settings, settled: settingsSettled } = useSettings()
 
   const categories = ref<BccCategory[]>([])
   const recipients = ref<BccRecipient[]>([])
@@ -59,6 +60,26 @@ export function useBccRequest() {
     template.subject = buildBccSubject(sender.value, formatBccDate(new Date().toISOString()))
     template.body = buildBccBody(sender.value, emailItems.value)
   })
+
+  /**
+   * Через какой ящик уйдёт письмо. Параметры почтового сервера живут в настройках
+   * (спека 04.2 §6), и BCC-инструмент их только читает — своей копии у него нет.
+   */
+  const mailFrom = computed(() => {
+    const { fromName, fromEmail } = settings.mail
+    if (!fromEmail) return ''
+    return fromName ? `${fromName} <${fromEmail}>` : fromEmail
+  })
+
+  /**
+   * Можно ли вообще отправлять. Правило одно на проект — `isMailConfigured` в
+   * `@/types/settings`; здесь оно не решает за сервер, а объясняет пользователю,
+   * почему кнопка неактивна, до того как он нажмёт.
+   */
+  const mailReady = computed(() => isMailConfigured(settings.mail))
+
+  /** Настройки уже пришли — до этого «не настроено» означает «ещё не спросили». */
+  const mailSettled = settingsSettled
 
   const loading = ref(false)
   const sending = ref(false)
@@ -164,6 +185,9 @@ export function useBccRequest() {
     sending,
     error,
     recipientsLocked,
+    mailFrom,
+    mailReady,
+    mailSettled,
     loadCategories,
     loadHistory,
     refreshRecipients,
