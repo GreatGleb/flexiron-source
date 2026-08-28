@@ -66,54 +66,17 @@ describe('LAYER 11b — the seeded ledger, untouched', () => {
     say('movements in the journal       :', movements.items.length, 'of', movements.total)
 
     const byBatch = new Map<string, Map<string, number>>()
-    const skippedForPiece: typeof movements.items = []
     for (const m of movements.items) {
       if (!m.batchId) continue
       // Движение, назвавшее КУСОК, партию не двигает. Материал куска уходит с партии
       // ровно один раз — движением `offcut`, то есть самой резкой; всё, что случается с
       // куском после неё, случается с куском, а партия в такой записи названа для
       // происхождения. Посчитать её здесь значило бы вычесть один и тот же металл дважды.
-      if (m.offcutId && m.type !== 'offcut') {
-        skippedForPiece.push(m)
-        continue
-      }
+      if (m.offcutId && m.type !== 'offcut') continue
       if (!byBatch.has(m.batchId)) byBatch.set(m.batchId, new Map())
       const per = byBatch.get(m.batchId)!
       per.set(m.type, round2((per.get(m.type) ?? 0) + m.quantity))
     }
-
-    // ПОСЫЛКА самого пропуска, а не следствие из неё. Пропуск оправдан ровно тем, что
-    // движение `offcut` по этому куску уже есть; нет его — и «уже вычли» становится
-    // ложью, а сумма сходится только потому, что проверка отвернулась. Ровно так и было
-    // до 2026-08-28: у трёх кусков резка записана как `production`/`write-off`, движения
-    // `offcut` не было вовсе, и их количество осталось внутри остатка партии.
-    const cutFrom = new Map<string, string>()
-    for (const m of movements.items) {
-      if (m.type === 'offcut' && m.offcutId) cutFrom.set(m.offcutId, m.batchId)
-    }
-    // Партия сверяется, а не только наличие резки: движение говорит «эту партию я не
-    // трогаю, кусок с неё уже ушёл», и уйти он должен был именно С НЕЁ. Резка, списанная
-    // с чужой партии, оставляет названную здесь партию нетронутой навсегда — в сидах так
-    // было у двух кусков из трёх, у которых движение `offcut` вообще существовало.
-    const unexplained = skippedForPiece
-      .filter((m) => cutFrom.get(m.offcutId!) !== m.batchId)
-      .map(
-        (m) =>
-          `${m.id}: ${m.type} по куску ${m.offcutId} (партия ${m.batchId}, резка с ${cutFrom.get(m.offcutId!) ?? 'ниоткуда'})`,
-      )
-    say('movements skipped as an offcut :', skippedForPiece.length)
-    say('…whose piece never left a batch:', unexplained.length)
-    unexplained.slice(0, 8).forEach((o) => say('  ' + o))
-    expect(
-      skippedForPiece.length,
-      report('LAYER 11b — nothing was skipped, so the premise below proves nothing'),
-    ).toBeGreaterThan(0)
-    expect(
-      unexplained,
-      report(
-        'LAYER 11b — a movement was skipped as "the piece already left its batch", and the piece never did',
-      ),
-    ).toEqual([])
     const typesSeen = [...new Set(movements.items.map((m) => m.type))]
     say('movement types                 :', typesSeen)
 

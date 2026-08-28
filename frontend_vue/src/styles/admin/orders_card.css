@@ -183,14 +183,6 @@
   border-color: rgba(255, 255, 255, 0.32);
 }
 
-/* Количество, которое отгрузка отклонит (оно режет неделимый обрезок). Модификатор
-   состояния именуется по BEM — `.hidden` из общих файлов уже показал, чем кончается
-   общее имя. */
-.cell-input.has-error,
-.cell-input.has-error:focus {
-  border-color: var(--danger, #e74c3c);
-}
-
 /* The spinner arrows steal the width the number needs. */
 .cell-input::-webkit-outer-spin-button,
 .cell-input::-webkit-inner-spin-button {

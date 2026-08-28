@@ -1,21 +1,6 @@
 ﻿import type { WarehouseOffcut } from '@/types/warehouse'
 import { sealAuditIds, type AuditSeeded } from './auditIds'
 
-/**
- * Статус куска согласован с его собственным журналом движений.
- *
- * Кусок неделим, поэтому «сколько его лежит» у него нет — есть только статус, и он же
- * весь его остаток. Значит движение, УНОСЯЩЕЕ кусок, обязано быть видно в статусе:
- * `write-off` → `scrapped`, `production` по наряду → `in_production`. Ровно это правило
- * `writeMovement` применяет к живым движениям (`OFFCUT_STATUS_BY_MOVEMENT`), и сиды от
- * него отставать не могут: до 2026-08-28 `who-011` был списан в утиль актом WR-2025-001
- * и при этом предлагался в заказ как свободный металл, а `who-013` был израсходован по
- * наряду WO-2025-042 и тоже числился свободным.
- *
- * Запись СОЗДАНИЯ куска (`referenceType: 'cutting'`) статуса не меняет: она не уносит
- * кусок, а рождает его — тип `production` в таких сидовых записях означает «отрезан при
- * резке», а не «израсходован в производстве».
- */
 const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
   // ── who-001 ───────────────────────────────────────────────────────────────
   {
@@ -310,7 +295,7 @@ const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
     quantity: 1,
     uomId: 'uom-pcs',
     location: 'Rack: A | Row: 03 | Cell: 03',
-    status: 'scrapped',
+    status: 'available',
     notes: 'Остаток после раскроя, годен в дело',
     qrData: 'QR-WHO-011',
     orderId: null,
@@ -358,7 +343,7 @@ const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
     quantity: 1,
     uomId: 'uom-kg',
     location: 'Rack: A | Row: 01 | Cell: 08',
-    status: 'in_production',
+    status: 'available',
     notes: 'Остаток после наплавки',
     qrData: 'QR-WHO-013',
     orderId: null,

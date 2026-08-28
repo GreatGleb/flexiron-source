@@ -29,7 +29,7 @@ import {
   type LineEditOp,
   type LineKind,
 } from '@/services/orderLineEdits'
-import { splitsWholePiece, toPricingLine } from '@/services/orderLines'
+import { toPricingLine } from '@/services/orderLines'
 import {
   applyCorrection,
   applyCostCorrection,
@@ -562,33 +562,15 @@ function setShipQty(line: ShippableLine, value: string) {
   shipQuantities.value[line.lineId] = Number(value)
 }
 
-/**
- * Режет ли введённое количество обрезок.
- *
- * Кусок неделим: он уезжает весь или не уезжает вовсе, поэтому количество, попавшее
- * СТРОГО внутрь куска, отгрузка отклонит. Верхнюю границу держит `max` поля, нижнюю —
- * ноль, а эти дырки внутри диапазона ничем, кроме проверки, не выразить: `step` у
- * `input[type=number]` умеет решётку, но не пропуски.
- *
- * Границы приходят с планом (`ShippableLine.wholePieces`) — вычислять их здесь значило
- * бы завести вторую разбивку строки рядом с той, по которой отгружают.
- */
-function shipQtySplitsPiece(line: ShippableLine): boolean {
-  return splitsWholePiece(shipQty(line), line.wholePieces)
-}
-
 const shipSelection = computed(() =>
   shippableLines.value
     .map((line) => ({ lineId: line.lineId, quantity: shipQty(line) }))
     .filter((line) => Number.isFinite(line.quantity) && line.quantity > 0),
 )
 
-/** Диалог не отправляет то, что списание отклонит, — и говорит об этом до отправки. */
-const shipSplitsPiece = computed(() => shippableLines.value.some(shipQtySplitsPiece))
-
 async function confirmShipment() {
   const lines = shipSelection.value
-  if (lines.length === 0 || shipSplitsPiece.value) return
+  if (lines.length === 0) return
   const ok = await shipLines(lines, shipVehicle.value.trim() || undefined)
   if (ok) showShipModal.value = false
 }
@@ -2363,7 +2345,6 @@ onMounted(loadShipments)
               <td>
                 <input
                   class="cell-input"
-                  :class="{ 'has-error': shipQtySplitsPiece(line) }"
                   type="number"
                   min="0"
                   :max="line.shippable"
@@ -2372,13 +2353,6 @@ onMounted(loadShipments)
                   data-test="ship-line-qty"
                   @input="setShipQty(line, ($event.target as HTMLInputElement).value)"
                 />
-                <p
-                  v-if="shipQtySplitsPiece(line)"
-                  class="field-error"
-                  data-test="ship-line-splits-offcut"
-                >
-                  {{ t('orders.ship_qty_splits_offcut') }}
-                </p>
               </td>
             </tr>
           </tbody>
@@ -2405,7 +2379,7 @@ onMounted(loadShipments)
         <button
           type="button"
           class="btn btn-primary"
-          :disabled="shipmentsLoading || shipSelection.length === 0 || shipSplitsPiece"
+          :disabled="shipmentsLoading || shipSelection.length === 0"
           data-test="ship-confirm"
           @click="confirmShipment"
         >

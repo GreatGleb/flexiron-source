@@ -243,20 +243,6 @@ export interface ShippableLine {
   unit: string
   remaining: number
   shippable: number
-  /**
-   * Куски в разбивке строки, выраженные в количестве.
-   *
-   * Обрезок неделим: количество, попавшее СТРОГО внутрь такого отрезка, режет кусок
-   * пополам, и списание его отклонит. Диалогу это нужно знать до отправки — иначе он
-   * предлагает диапазон, часть которого откажут.
-   */
-  wholePieces: WholePieceRange[]
-}
-
-/** Отрезок количества, занятый одним неделимым куском: `(from; to)` — запретная зона. */
-export interface WholePieceRange {
-  from: number
-  to: number
 }
 
 /** What the warehouse cannot cover — the numbers a confirmation dialog must show. */

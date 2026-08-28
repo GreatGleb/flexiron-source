@@ -8,13 +8,7 @@
  * `cost` and `marginAmount` are projections computed by the pricing module —
  * they exist for the older parts of the UI and must never be assigned directly.
  */
-import type {
-  OrderItem,
-  OrderService,
-  OrderLineAllocation,
-  CostSource,
-  WholePieceRange,
-} from '@/types/order'
+import type { OrderItem, OrderService, OrderLineAllocation, CostSource } from '@/types/order'
 import { resolveOffcutMaterial, type OffcutMaterialInput } from '@/domain/cutting'
 import {
   type PricingLine,
@@ -251,22 +245,6 @@ export function offcutAllocation(
     currency: batch.currency,
     source: 'stock',
   }
-}
-
-/**
- * Режет ли это количество неделимый кусок.
- *
- * Границы приходят с планом отгрузки (`ShippableLine.wholePieces`): разбивка строки
- * потребляется префиксом, поэтому кусок занимает в количестве отрезок `(from; to)`, и
- * число строго внутри него означает «увезти половину куска» — то, чего списание не
- * делает. Живёт здесь, а не в шаблоне карточки: диалогу нужно спросить это до отправки,
- * а спеке — проверить без отрисовки страницы.
- *
- * Ноль и не-число ничего не режут: пустое поле — это «строку не отгружаем», а не отказ.
- */
-export function splitsWholePiece(quantity: number, pieces: WholePieceRange[]): boolean {
-  if (!Number.isFinite(quantity) || quantity <= 0) return false
-  return pieces.some((piece) => quantity > piece.from && quantity < piece.to)
 }
 
 /** Cost per unit implied by the batch breakdown, or null when there is none. */
