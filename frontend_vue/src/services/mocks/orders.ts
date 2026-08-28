@@ -13,6 +13,7 @@ import type {
   InvoiceKind,
   PaymentPurpose,
   ShippableLine,
+  WholePieceRange,
   ShipmentShortage,
   ShipmentHold,
   OrderReturn,
@@ -3137,6 +3138,65 @@ export function planShipment(
 }
 
 /**
+ * Куски в неотгруженной части строки, выраженные в количестве.
+ *
+ * Разбивка потребляется префиксом, поэтому «где стоит кусок» — это пара чисел: сколько
+ * количества идёт до него и сколько после. Количество строго между ними режет кусок, а
+ * кусок неделим. Ничего про доступность куска здесь не решается — только геометрия
+ * разбивки; доступность считает `planShipment`, и второй раз она тут не повторяется.
+ */
+function wholePieceRanges(item: OrderItem): WholePieceRange[] {
+  const unshipped = splitAllocations(item.allocations, item.shippedQuantity).remainder
+  const ranges: WholePieceRange[] = []
+  let at = 0
+  let lastOffcutId: string | null = null
+  for (const allocation of unshipped) {
+    const next = round2(at + allocation.quantity)
+    if (allocation.offcutId) {
+      // Один кусок — один отрезок, даже если разбивка назвала его двумя строками
+      // подряд: неделим он целиком, а не построчно.
+      if (allocation.offcutId === lastOffcutId) ranges[ranges.length - 1]!.to = next
+      else ranges.push({ from: at, to: next })
+    }
+    lastOffcutId = allocation.offcutId
+    at = next
+  }
+  return ranges
+}
+
+/**
+ * Количество, которое диалог имеет право показать, — ПРОВЕРЕННОЕ планом.
+ *
+ * `остаток − недостача` называет число, которого план сам никогда не видел, и для строки
+ * с куском оно врёт: кусок, которого нет на полке, уносит в недостачу себя, а не всё, что
+ * стоит в разбивке за ним, — хотя за ним уже не добраться, разбивку потребляют префиксом.
+ * Поэтому число не вычисляется, а спрашивается: план вызывают ровно тем количеством,
+ * которое собираются предложить, и если он его не принял — пробуют границы кусков и
+ * партий, сверху вниз.
+ *
+ * Ни одна граница не принята — предлагается ноль. Не предложить ничего честнее, чем
+ * предложить количество, которое отгрузка отклонит: именно этот инвариант тут и держат.
+ */
+function offerableQuantity(order: StoreOrder, item: OrderItem, candidate: number): number {
+  const accepted = (quantity: number) =>
+    quantity > 0 && planShipment(order, [{ lineId: item.id, quantity }]).shortages.length === 0
+
+  if (accepted(candidate)) return candidate
+
+  const unshipped = splitAllocations(item.allocations, item.shippedQuantity).remainder
+  const boundaries: number[] = []
+  let at = 0
+  for (const allocation of unshipped) {
+    at = round2(at + allocation.quantity)
+    boundaries.push(at)
+  }
+  for (const boundary of boundaries.reverse()) {
+    if (boundary < candidate && accepted(boundary)) return boundary
+  }
+  return 0
+}
+
+/**
  * The lines a shipment could take right now, and how much of each.
  *
  * Same planner as the shipment itself, so the dialog cannot offer a quantity the
@@ -3150,13 +3210,15 @@ export function mockPlanOrderShipment(orderId: string): ShippableLine[] {
 
   const plan = planShipment(order, requested)
   return plan.lines.map((line) => {
+    const item = order.items.find((i) => i.id === line.lineId)!
     const missing = plan.shortages.find((s) => s.lineId === line.lineId)?.missing ?? 0
     return {
       lineId: line.lineId,
       productName: line.productName,
       unit: line.unit,
       remaining: line.quantity,
-      shippable: round2(line.quantity - missing),
+      shippable: offerableQuantity(order, item, round2(line.quantity - missing)),
+      wholePieces: wholePieceRanges(item),
     }
   })
 }
@@ -3605,16 +3667,27 @@ export function mockCreateReturn(
     const ladder = returnLadder(order, item)
     const taken: ReturnPlacement[] = []
     let left = request.quantity
+    let pieceSkipped = false
     for (const rung of ladder) {
       if (left <= 0) break
       if (!batchById(rung.batchId)) throw new Error('RETURN_BATCH_NOT_FOUND')
+      // Кусок неделим и на возврате тоже — то же правило, что на погрузке. Только
+      // отказ здесь не сразу: возврат меньше куска чаще всего означает, что вернули
+      // не кусок, а металл из партии, уехавшей той же машиной, — и такой возврат
+      // ложится на следующую ступеньку лестницы, не тронув куска. Отказ остаётся на
+      // случай, когда положить остаток больше некуда: тогда вернуть просили именно
+      // ПОЛОВИНУ куска, а половины у куска нет.
+      if (rung.offcutId && rung.quantity > left) {
+        pieceSkipped = true
+        continue
+      }
       const quantity = round2(Math.min(rung.quantity, left))
       taken.push({ ...rung, quantity })
       left = round2(left - quantity)
     }
     // The line says it shipped, and no batch will own the goods back. Something
     // upstream is inconsistent, and guessing a batch here would invent a cost.
-    if (left > 0) throw new Error('RETURN_BATCH_NOT_FOUND')
+    if (left > 0) throw new Error(pieceSkipped ? 'RETURN_SPLITS_OFFCUT' : 'RETURN_BATCH_NOT_FOUND')
     placements.set(request.lineId, taken)
   }
 

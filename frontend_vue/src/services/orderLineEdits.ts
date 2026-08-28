@@ -365,6 +365,7 @@ const ERROR_KEYS: Array<[string, string]> = [
   ['DUPLICATE_RETURN_LINE', 'orders.error_duplicate_return_line'],
   ['RETURN_EXCEEDS_SHIPPED', 'orders.error_return_exceeds_shipped'],
   ['RETURN_BATCH_NOT_FOUND', 'orders.error_return_batch_not_found'],
+  ['RETURN_SPLITS_OFFCUT', 'orders.error_return_splits_offcut'],
   ['CORRECTION_EXCEEDS_ORIGINAL', 'orders.error_correction_exceeds_original'],
   ['UNKNOWN_ORDER_STATUS', 'orders.error_unknown_order_status'],
   // Обрезки, выбранные руками. Каждый отказ свой: кусок исчез, кусок чужого товара,

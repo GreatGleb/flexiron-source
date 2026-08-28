@@ -39,7 +39,12 @@ function costFromBatches(productId: string): number | null {
   const batches = batchesForProduct(productId).filter(
     (b) => b.quantityRemaining > 0 && b.unitPrice !== null,
   )
-  const qty = round2(batches.reduce((s, b) => s + b.quantityRemaining, 0))
+  // Знаменатель НЕ округляется до копеек: это количество, а не деньги, и правило его
+  // округления своё (`roundQuantity`, шесть знаков). `round2` стоял здесь до 2026-08-28
+  // и молчал ровно до первого остатка с третьим знаком — м² партии, у которой отрезали
+  // кусок: 79.235 превращалось в 79.24, и «независимый счёт» расходился со складом на
+  // две копейки, хотя формула у обоих одна и записана строкой выше.
+  const qty = batches.reduce((s, b) => s + b.quantityRemaining, 0)
   if (qty <= 0) return null
   return round2(batches.reduce((s, b) => s + b.quantityRemaining * b.unitPrice!, 0) / qty)
 }

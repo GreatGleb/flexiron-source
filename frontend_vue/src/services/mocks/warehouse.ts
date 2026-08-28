@@ -8,6 +8,7 @@ import { roundQuantity } from '@/domain/quantity'
 import type {
   WarehouseBatch,
   WarehouseOffcut,
+  OffcutStatus,
   WarehouseMovement,
   MovementListItem,
   MovementType,
@@ -274,6 +275,29 @@ const AGGREGATE_TO_STATUS: Record<string, string> = {
   expense: 'expensed',
   'return-to-supplier': 'returned_to_supplier',
   offcut: 'converted_to_offcuts',
+}
+
+/**
+ * Статус КУСКА по типу движения — то же правило, что `AGGREGATE_TO_STATUS` говорит про
+ * партию, сказанное про неделимую штуку.
+ *
+ * Отдельная запись, а не производная от той: у куска нет `receipt` (он не приходит от
+ * поставщика, его отрезают) и нет `converted_to_offcuts` (кусок из куска в этой модели не
+ * режут) — зато есть `return`, которого у агрегатов партии быть не может: партия
+ * возвращённое кладёт в остаток числом, а кусок возвращается на полку целиком.
+ *
+ * `offcut` здесь не нужен намеренно: это движение самой резки, и оно рождает кусок
+ * `available` — тем же `mockCreateOffcut`, который его пишет. `movesOffcut` этот тип
+ * отсекает раньше.
+ */
+const OFFCUT_STATUS_BY_MOVEMENT: Readonly<Record<string, OffcutStatus>> = {
+  sale: 'sold',
+  'write-off': 'scrapped',
+  production: 'in_production',
+  expense: 'expensed',
+  storage: 'in_storage',
+  'return-to-supplier': 'returned_to_supplier',
+  return: 'available',
 }
 
 function computeBatchStatus(batch: WarehouseBatch): string {
@@ -1280,19 +1304,23 @@ export function writeMovement(data: {
     }
   }
 
-  // ─── Кусок: продажа уносит его с полки, отмена отгрузки кладёт обратно ──────
+  // ─── Кусок: движение меняет его статус ──────────────────────────────────────
   // Статус куска — это и есть его остаток: кусок неделим, «сколько его лежит» у него
-  // нет, есть только «лежит или нет». Поэтому продажу записывает сюда же, где партия
+  // нет, есть только «лежит или нет». Поэтому статус переписывает сюда же, где партия
   // теряет количество, а не отдельным вызовом рядом: забытый вызов оставил бы кусок
   // `available`, и его предложили бы следующему заказу вторым.
   //
-  // Остальные типы статус не трогают намеренно: сегодня их ставит рука кладовщика
-  // через PATCH («использован», «в утиль»), и второе правило поверх первого писало бы
-  // статус дважды с разных сторон.
-  if (movesOffcut(data) && (data.type === 'sale' || data.type === 'return')) {
+  // Правило — по ТИПУ движения, а не по перечню случаев, которые вспомнились. Пока
+  // здесь стояли только `sale` и `return`, бракованный возврат оставлял кусок свободным:
+  // возврат клал его на полку (`available`), следующий за ним акт списания уносил его в
+  // утиль — и никто не переписывал статус, потому что `write-off` в перечень не попал.
+  // У ПАРТИИ тот же сценарий сходился в ноль сам, у куска — нет: количества у него нет,
+  // весь его остаток и есть статус.
+  const offcutStatus = movesOffcut(data) ? OFFCUT_STATUS_BY_MOVEMENT[data.type] : undefined
+  if (offcutStatus) {
     const offcut = offcutStore.find((o) => o.id === data.offcutId)
     if (offcut) {
-      offcut.status = data.type === 'sale' ? 'sold' : 'available'
+      offcut.status = offcutStatus
       offcut.updatedAt = now
     }
   }
