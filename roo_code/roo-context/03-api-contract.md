@@ -1819,8 +1819,11 @@ Mock: [`mocks/finance.ts`](frontend_vue/src/services/mocks/finance.ts).
   из условий оплаты клиента (`Order.clientPaymentTermsDays`), поступления — из платежей
   заказа (`Order.payments[]`), привязанных к этому счёту (`Payment.invoiceId`). **Статус не
   хранится**, а вычисляется (`domain/receivable.ts`): оплат меньше суммы и срок прошёл →
-  `overdue`, сумма платежей ≥ суммы счёта → `completed`, иначе `pending`. Частичная оплата
-  видна двумя суммами (`paidAmount` из `amount`), отдельного статуса не имеет.
+  `overdue`, сумма платежей ≥ суммы счёта → `completed`, иначе `pending`. «Срок прошёл» — это
+  конец ДНЯ срока, а не сам его момент: при нулевой отсрочке (`paymentTermsDays = 0`) срок
+  наступает в день выдачи счёта, и просроченным такой счёт становится не раньше следующего
+  дня. Частичная оплата видна двумя суммами (`paidAmount` из `amount`), отдельного статуса
+  не имеет.
   Корректировка своей строки не заводит — она поправляет сумму исходного счёта; счёт,
   отозванный корректировкой (`withdrawsOriginal`), в реестре не показывается вовсе.
   Карточки у строки нет: подробности живут в карточке заказа, туда и ведёт ссылка.
@@ -1946,39 +1949,39 @@ Mock: [`mocks/finance.ts`](frontend_vue/src/services/mocks/finance.ts).
   {
     "success": true,
     "data": {
-      "id": "pay-in-1",
+      "id": "pay-out-1",
       "paymentNumber": "PAY-2026-001",
-      "direction": "incoming",
-      "status": "pending",
-      "amount": 5000.00,
+      "direction": "outgoing",
+      "status": "completed",
+      "amount": 18450.00,
       "currency": "EUR",
-      "counterpartyId": "CL-001",
-      "counterpartyName": "UAB Metalica",
-      "counterpartyVatCode": "LT304567890",
-      "orderId": "ORD-001",
-      "orderNumber": "ORD-2026-001",
-      "supplierInvoiceRef": null,
-      "description": "Payment for order ORD-2026-001",
-      "dueDate": "2026-06-01T00:00:00Z",
-      "paidAt": null,
+      "counterpartyId": "sup-001",
+      "counterpartyName": "ArcelorMittal",
+      "counterpartyVatCode": "LU12345678",
+      "orderId": null,
+      "orderNumber": null,
+      "supplierInvoiceRef": "INV-SUP-2026-014",
+      "description": "Payment to ArcelorMittal",
+      "dueDate": "2026-08-07T00:00:00Z",
+      "paidAt": "2026-08-09T00:00:00Z",
       "documents": [
         {
           "id": "pdoc-1",
-          "name": "Invoice #INV-2026-001",
-          "fileId": "file-abc123",
-          "url": "/uploads/file-abc123/preview",
-          "size": 102400,
+          "name": "Invoice #INV-SUP-2026-014",
+          "fileId": "file-fin-1",
+          "url": "/uploads/file-fin-1/preview",
+          "size": 135000,
           "mime": "application/pdf",
-          "uploadedAt": "2026-05-15T10:00:00Z"
+          "uploadedAt": "2026-08-04T00:00:00Z"
         }
       ],
-      "notes": "Client confirmed payment via bank transfer.",
-      "createdAt": "2026-04-17T08:00:00Z",
-      "updatedAt": "2026-04-17T08:00:00Z"
+      "notes": "Paid by bank transfer, two days after the due date.",
+      "createdAt": "2026-07-29T00:00:00Z",
+      "updatedAt": "2026-08-09T00:00:00Z"
     }
   }
   ```
-- **Notes:** 404 `PAYMENT_NOT_FOUND`. Поля read-only на карточке: все, кроме `notes`. Документы управляются через `fileIds` (см. Общие соглашения — «Файлы и аплоады»).
+- **Notes:** 404 `PAYMENT_NOT_FOUND`. Поля read-only на карточке: все, кроме `notes`. Документы управляются через `fileIds` (см. Общие соглашения — «Файлы и аплоады»). Эндпоинт обслуживает **только исходящие**: `direction` здесь всегда `outgoing`, `orderId`/`orderNumber` — всегда `null`, а `supplierInvoiceRef` заполнен. Входящего платежа-записи в системе нет: долг клиента — это счёт заказа, см. `GET /api/finance/receivables`.
 
 ### PATCH /api/finance/payments/:id
 
@@ -1993,12 +1996,12 @@ Mock: [`mocks/finance.ts`](frontend_vue/src/services/mocks/finance.ts).
 - **Response 200:** `FinancePayment` — обновлённый объект целиком (с пересчитанными `documents`).
 - **Example:**
   ```http
-  PATCH /api/finance/payments/pay-in-1
+  PATCH /api/finance/payments/pay-out-1
   Content-Type: application/json
 
   {
-    "notes": "Updated: payment received 01.06.2026",
-    "fileIds": ["file-abc123", "file-def456"]
+    "notes": "Updated: paid by bank transfer 09.08.2026",
+    "fileIds": ["file-fin-1", "file-fin-2"]
   }
   ```
 - **Notes:**

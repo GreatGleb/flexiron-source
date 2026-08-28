@@ -60,4 +60,42 @@ describe('receivableStatus', () => {
       'completed',
     )
   })
+
+  /*
+   * Срок — это день, а не мгновение. Даты в реестре показываются
+   * `toLocaleDateString()`, то есть по локальному календарю, — по нему же и
+   * считается граница просрочки, иначе пилюля спорит с колонкой рядом.
+   */
+  it('счёт с нулевой отсрочкой не просрочен через миг после выдачи', () => {
+    const issued = new Date()
+    const dueDate = receivableDueDate(issued.toISOString(), 0)
+    const now = new Date(issued.getTime() + 60_000)
+    expect(receivableStatus({ amount: 1000, paidAmount: 0, dueDate, now })).toBe('pending')
+  })
+
+  it('день срока ещё не кончился — счёт ожидается, а не просрочен', () => {
+    const dueMoment = new Date(2026, 2, 31, 10, 0, 0)
+    const lateSameDay = new Date(2026, 2, 31, 23, 59, 59, 999)
+    expect(
+      receivableStatus({
+        amount: 1000,
+        paidAmount: 0,
+        dueDate: dueMoment.toISOString(),
+        now: lateSameDay,
+      }),
+    ).toBe('pending')
+  })
+
+  it('просрочка наступает со следующего дня', () => {
+    const dueMoment = new Date(2026, 2, 31, 10, 0, 0)
+    const nextDay = new Date(2026, 3, 1, 0, 0, 0, 1)
+    expect(
+      receivableStatus({
+        amount: 1000,
+        paidAmount: 0,
+        dueDate: dueMoment.toISOString(),
+        now: nextDay,
+      }),
+    ).toBe('overdue')
+  })
 })

@@ -7,7 +7,7 @@
  * статусом под реальным документом, и она не сходилась с самим заказом. Здесь
  * проверяется, что своих чисел у реестра больше нет ни одного.
  */
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import {
@@ -28,8 +28,14 @@ function clientWithTerms() {
   return client
 }
 
-function orderWithLine() {
-  const client = clientWithTerms()
+/** Клиент-предоплатник: отсрочки нет, срок счёта — день его выдачи. */
+function clientWithoutTerms() {
+  const client = mockGetClients().find((c) => c.paymentTermsDays === 0)!
+  expect(client).toBeDefined()
+  return client
+}
+
+function orderWithLine(client = clientWithTerms()) {
   const order = mockCreateOrder({ clientId: client.id, documentType: 'local' })
   mockAddOrderItem(order.id, {
     productId: 'prod-001',
@@ -108,6 +114,35 @@ describe('строка реестра — это счёт заказа', () => {
     const rows = orderReceivables()
     expect(rows.find((r) => r.id === correction.id)).toBeUndefined()
     expect(rows.find((r) => r.id === invoice.id)!.amount).toBe(700)
+  })
+
+  it('счёт клиенту с предоплатой не просрочен, пока идёт день выдачи', () => {
+    // Отсрочки нет, значит срок счёта — день его выдачи. Пока этот день идёт,
+    // клиент не опоздал: «просрочен» через миллисекунды после выдачи — это
+    // выдуманный сигнал под настоящим документом, и в колонке «Срок» рядом с ним
+    // стоит сегодняшнее число.
+    //
+    // Время здесь задаётся, а не берётся настоящее: между выдачей счёта и
+    // чтением реестра проходит доля миллисекунды, и на такой дистанции проверка
+    // прошла бы и на сломанном сравнении по мгновению — то есть не проверяла бы
+    // ничего (питфолл #68).
+    const { order } = orderWithLine(clientWithoutTerms())
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(new Date(2026, 4, 12, 9, 0, 0))
+      const invoice = mockCreateInvoice(order.id, { kind: 'advance', amountGross: 1000 })
+
+      vi.setSystemTime(new Date(2026, 4, 12, 23, 30, 0))
+      const row = rowFor(invoice.id)!
+      expect(row.dueDate).toBe(invoice.issuedAt)
+      expect(row.status).toBe('pending')
+
+      // А со следующего дня — просрочен: срок кончился вместе с днём.
+      vi.setSystemTime(new Date(2026, 4, 13, 0, 30, 0))
+      expect(rowFor(invoice.id)!.status).toBe('overdue')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('счёт, отозванный корректировкой, из реестра исчезает вовсе', () => {
