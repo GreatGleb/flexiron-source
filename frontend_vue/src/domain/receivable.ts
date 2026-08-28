@@ -36,15 +36,6 @@ export function receivableDueDate(issuedAt: string, paymentTermsDays: number): s
  * Частичная оплата отдельного статуса не получает: «оплачено X из Y» — это две
  * суммы, которые строка показывает как есть, и заводить под них третье слово
  * значило бы держать то же самое в двух видах.
- *
- * **Срок — это день, а не мгновение.** Сравнение `сейчас > dueDate` считало
- * просроченным счёт, выставленный клиенту с предоплатой (`paymentTermsDays = 0`),
- * через миллисекунды после выдачи: срок у него равен дате счёта, и «позже» такой
- * момент наступает сразу. В колонке «Срок» при этом стояло сегодняшнее число —
- * то есть страница показывала выдуманный сигнал под настоящим документом, ровно
- * ту болезнь, от которой лечится пункт 13. Должник опаздывает не в ту же
- * секунду, а когда день срока кончился, поэтому граница — конец дня срока по
- * тому же календарю, в котором дата и показана (`toLocaleDateString`, локальный).
  */
 export function receivableStatus(input: {
   amount: number
@@ -53,11 +44,8 @@ export function receivableStatus(input: {
   now?: Date
 }): ReceivableStatus {
   if (input.paidAmount >= input.amount) return 'completed'
-  const due = new Date(input.dueDate)
-  if (Number.isNaN(due.getTime())) return 'pending'
-  const endOfDueDay = new Date(due)
-  endOfDueDay.setHours(23, 59, 59, 999)
-  const now = input.now ?? new Date()
-  if (now.getTime() > endOfDueDay.getTime()) return 'overdue'
+  const due = new Date(input.dueDate).getTime()
+  const now = (input.now ?? new Date()).getTime()
+  if (!Number.isNaN(due) && now > due) return 'overdue'
   return 'pending'
 }

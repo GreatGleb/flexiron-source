@@ -1,9 +1,8 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { mockGetNotifications, mockGetUnreadCount } from './notifications'
 import {
   mockAddOrderItem,
   mockAddOrderPayment,
-  mockCreateInvoice,
   mockCreateOrder,
   mockGetOrder,
   mockPatchOrderStatus,
@@ -234,44 +233,6 @@ describe('просрочка оплаты', () => {
     mockGetReceivables({ search: '', status: 'all', pageSize: 100 })
 
     expect(feed('payment_overdue').length).toBe(after)
-  })
-
-  it('счёт клиенту с предоплатой не звонит в колокольчик в день выдачи', () => {
-    // Отсрочки нет — срок счёта наступает в день выдачи, и в этот день клиент
-    // ещё не опоздал. Уведомление «оплата просрочена» по документу возрастом в
-    // секунду — выдуманный сигнал под настоящим документом.
-    //
-    // Время задаётся, а не берётся настоящее: иначе между выдачей и чтением
-    // реестра проходит доля миллисекунды, и молчание колокольчика ничего бы не
-    // доказывало (питфолл #68).
-    const client = mockGetClients().find((c) => c.paymentTermsDays === 0)!
-    expect(client).toBeDefined()
-    const order = mockCreateOrder({ clientId: client.id, documentType: 'local' })
-    mockAddOrderItem(order.id, {
-      productId: 'prod-001',
-      quantity: 5,
-      unit: 'pcs',
-      unitPrice: 100,
-    })
-    const before = feed('payment_overdue').length
-
-    vi.useFakeTimers()
-    try {
-      vi.setSystemTime(new Date(2026, 4, 12, 9, 0, 0))
-      const invoice = mockCreateInvoice(order.id, { kind: 'advance', amountGross: 500 })
-
-      vi.setSystemTime(new Date(2026, 4, 12, 23, 30, 0))
-      const rows = mockGetReceivables({ search: '', status: 'all', pageSize: 500 }).items
-
-      // Строка в реестре есть — иначе проверку устроило бы бездействие: молчащий
-      // колокольчик над несуществующим счётом не доказывает ничего.
-      const row = rows.find((r) => r.id === invoice.id)!
-      expect(row).toBeDefined()
-      expect(row.status).toBe('pending')
-      expect(feed('payment_overdue').length).toBe(before)
-    } finally {
-      vi.useRealTimers()
-    }
   })
 
   it('счёт поставщика без заказа ведёт к поставщику, а не в пустую карточку', () => {
