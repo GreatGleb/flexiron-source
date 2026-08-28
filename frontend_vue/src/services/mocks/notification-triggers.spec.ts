@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { mockGetNotifications, mockGetUnreadCount } from './notifications'
+import { mockGetNotifications, mockGetUnreadCount, mockResetNotifications } from './notifications'
 import {
   mockAddOrderItem,
   mockAddOrderPayment,
@@ -60,6 +60,32 @@ async function freshBatch(productId: string, quantity: number) {
     location: 'Rack: A | Row: 01 | Cell: 01',
   })
 }
+
+/**
+ * Лента в тот момент, когда моки только что загрузились и не произошло ещё
+ * ничего. Снимок берётся на уровне модуля намеренно: `it` выполняется позже, и
+ * внутри проверки было бы видно уже не загрузку, а работу соседних проверок.
+ */
+const feedAtLoad = feed('all')
+
+describe('загрузка мок-слоя', () => {
+  it('не рождает ни одного уведомления: сид — это история, а не сегодняшние события', () => {
+    // Сид собирается вызовами настоящих эндпоинтов (`buildShowcaseOrder` и
+    // соседи), а те зовут эмиттеры. Пока сборка не глушила ленту, КАЖДАЯ загрузка
+    // страницы добавляла записи с меткой «только что» о платежах и дефиците,
+    // которых в этот момент не было, — и они вставали первыми, потому что лента
+    // сортируется по createdAt убыв. Дельтам «до/после» в остальных проверках
+    // этот мусор не виден: он лежит в ленте ещё до того, как они начинают счёт.
+    expect(feedAtLoad.length).toBeGreaterThan(0)
+
+    // Что считать сидом, спрашиваем у самого модуля, а не угадываем по форме id:
+    // mockResetNotifications возвращает ленту ровно к заведённым руками записям.
+    mockResetNotifications()
+    const seedIds = new Set(feed('all').map((n) => n.id))
+    const born = feedAtLoad.filter((n) => !seedIds.has(n.id))
+    expect(born.map((n) => `${n.type}: ${n.message.en}`)).toEqual([])
+  })
+})
 
 describe('смена статуса заказа', () => {
   it('пишет одно уведомление с номером заказа и подписью нового статуса', () => {
