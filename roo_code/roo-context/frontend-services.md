@@ -38,7 +38,7 @@ newIdempotencyKey()             // crypto.randomUUID() based
 | `patchProduct(id, delta)` | PATCH | `/api/products/:id` | `Product` |
 | `deleteProduct(id)` | DELETE | `/api/products/:id` | `void` |
 
-- `delta` type: `Partial<Pick<Product, 'name' | 'sku' | 'description' | 'price' | 'minStock' | 'priceUnit' | 'fieldValues' | 'linkedSuppliers'>>`
+- `delta` type: `Partial<Pick<Product, 'name' | 'sku' | 'description' | 'price' | 'minStock' | 'fieldValues' | 'linkedSuppliers'>>`
 
 ### [`suppliersService.ts`](../frontend_vue/src/services/suppliersService.ts)
 

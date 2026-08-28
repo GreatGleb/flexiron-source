@@ -472,6 +472,78 @@ test.describe('product-card › suppliers', () => {
     )
   })
 
+  /**
+   * Что записалось В ДАННЫЕ, а не что нарисовалось.
+   *
+   * Единица поставщика нигде не отображается — это хранимое поле, — поэтому через DOM
+   * её не проверить в принципе, и тест выше («модалка закрылась, текста про пустой
+   * список нет») устраивало бы любое записанное значение, включая собранную подпись
+   * `EUR/pcs`. Читаем то самое хранилище, куда ушло сохранение: под моками запроса в
+   * сеть нет, роль бэкенда играет мок-модуль, а dev-сервер Vite отдаёт его по URL
+   * исходника — приложение уже загрузило ровно этот URL, значит `import()` вернёт ТОТ
+   * ЖЕ экземпляр модуля, а не вторую копию данных.
+   */
+  async function storedProduct(page: Page, productId: string) {
+    return page.evaluate(async (id) => {
+      // Путь уходит через переменную не для красоты: строковый литерал здесь стал бы
+      // для `vue-tsc` ссылкой на модуль проекта, которого по такому пути нет — URL
+      // dev-сервера проектом не является.
+      const load = (url: string): Promise<unknown> => import(url)
+      const products = (await load('/src/services/mocks/products.ts')) as {
+        mockGetProduct: (id: string) => Promise<{
+          saleUomId: string | null
+          linkedSuppliers: Array<{ id: string; priceUomId: string | null }>
+        }>
+      }
+      const settings = (await load('/src/services/mocks/settings.ts')) as {
+        mockGetUoms: () => Array<{ id: string }>
+      }
+      const product = await products.mockGetProduct(id)
+      return {
+        saleUomId: product.saleUomId,
+        suppliers: product.linkedSuppliers.map((s) => ({ id: s.id, priceUomId: s.priceUomId })),
+        uomIds: settings.mockGetUoms().map((u) => u.id),
+      }
+    }, productId)
+  }
+
+  test('added supplier keeps the unit as a dictionary id, not a composed label', async ({
+    page,
+  }) => {
+    const before = await storedProduct(page, 'prod-001')
+    // Положительный контроль: без единицы продажи у товара сравнивать было бы не с чем,
+    // и утверждение ниже прошло бы на любом коде.
+    expect(before.saleUomId, 'у prod-001 нет единицы продажи — проверялось бы не то').toMatch(
+      /^uom-/,
+    )
+    const linkedBefore = before.suppliers.map((s) => s.id)
+
+    await page.locator('[data-test="add-supplier-open"]').click()
+    await page.locator('[data-test="add-supplier-select"] .custom-select-trigger').click()
+    await page.locator('[data-test="add-supplier-select"] .custom-select-option').first().click()
+    await page.locator('[data-test="add-supplier-price"]').fill('150')
+    await page.locator('[data-test="add-supplier-lead"]').fill('10')
+    await page.locator('[data-test="add-supplier-confirm"]').click()
+
+    const saveBtn = page.locator('[data-test="product-save-bar"] .btn-save')
+    await expect(saveBtn).toBeEnabled()
+    await saveBtn.click()
+    await expect(saveBtn).toBeDisabled({ timeout: 5000 })
+
+    const after = await storedProduct(page, 'prod-001')
+    const added = after.suppliers.filter((s) => !linkedBefore.includes(s.id))
+    expect(added, 'сохранение не довезло нового поставщика до данных').toHaveLength(1)
+
+    // Единица хранится ссылкой на справочник — тем же id, что стоит у товара. Подпись
+    // вида `EUR/pcs` не равна ему ни на одном языке, поэтому утверждение краснеет на
+    // любом возврате склейки, а не только на английской.
+    expect(added[0]!.priceUomId, 'в данные уехала подпись вместо ссылки').toBe(before.saleUomId)
+    // И ссылка разрешается: собранная строка в справочнике единиц не находится никогда.
+    expect(after.uomIds, 'хранимая единица не найдена в справочнике').toContain(
+      added[0]!.priceUomId,
+    )
+  })
+
   test('remove supplier modal opens', async ({ page }) => {
     // prod-001 already has suppliers, click remove on the first one
     await page.locator('[data-test="product-card-suppliers"] .supplier-remove-btn').first().click()
