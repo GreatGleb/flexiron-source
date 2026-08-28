@@ -2,7 +2,7 @@
 import { sealAuditIds, type AuditSeeded } from './auditIds'
 
 const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
-  // ── 1. Sheet (cat-2) ──────────────────────────────────────────────────────
+  // ── who-001 ───────────────────────────────────────────────────────────────
   {
     id: 'who-001',
     batchId: 'whb-001',
@@ -59,7 +59,7 @@ const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
       },
     ],
   },
-  // ── 2. Pipe (cat-4) ──────────────────────────────────────────────────────
+  // ── who-002 ──────────────────────────────────────────────────────────────
   {
     id: 'who-002',
     batchId: 'whb-004',
@@ -83,7 +83,7 @@ const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
     updatedAt: '2025-06-20T09:00:00Z',
     auditLog: [],
   },
-  // ── 3. Sheet (cat-2) ──────────────────────────────────────────────────────
+  // ── who-003 ───────────────────────────────────────────────────────────────
   {
     id: 'who-003',
     batchId: 'whb-003',
@@ -99,7 +99,7 @@ const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
     uomId: 'uom-pcs',
     location: 'Rack: A | Row: 03 | Cell: 02',
     status: 'available',
-    notes: 'Остаток после раскроя алюминиевого листа',
+    notes: 'Остаток после раскроя',
     qrData: 'QR-WHO-003',
     orderId: null,
     files: [],
@@ -107,7 +107,7 @@ const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
     updatedAt: '2025-03-05T09:30:00Z',
     auditLog: [],
   },
-  // ── 4. Sheet (cat-2) ──────────────────────────────────────────────────────
+  // ── who-004 ───────────────────────────────────────────────────────────────
   {
     id: 'who-004',
     batchId: 'whb-005',
@@ -131,7 +131,7 @@ const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
     updatedAt: '2025-04-01T08:00:00Z',
     auditLog: [],
   },
-  // ── 5. Sheet (cat-2) ──────────────────────────────────────────────────────
+  // ── who-005 ───────────────────────────────────────────────────────────────
   {
     id: 'who-005',
     batchId: 'whb-006',
@@ -155,11 +155,12 @@ const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
     updatedAt: '2025-04-15T10:00:00Z',
     auditLog: [],
   },
-  // ── 6. Pipe (cat-4) ──────────────────────────────────────────────────────
-  // Отрезок трубы висит на партии труб, которая меряется в метрах. До этого он
-  // ссылался на whb-007 — партию листа в м², — и его размер был невыразим: у трубы
-  // нет ширины, а площадь без неё не считается. Обрезок обязан лежать на партии
-  // того же товара, что и он сам: так его создаёт приложение.
+  // ── who-006 ──────────────────────────────────────────────────────────────
+  // Линейный обрезок висит на партии того же товара (whb-077, prod-004), которая
+  // меряется в метрах. До этого он ссылался на whb-007 — партию, которая меряется
+  // в м², — и его размер был невыразим: у линейного куска нет ширины, а площадь без
+  // неё не считается. Обрезок обязан лежать на партии того же товара, что и он сам:
+  // так его создаёт приложение.
   {
     id: 'who-006',
     batchId: 'whb-077',
@@ -175,7 +176,7 @@ const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
     uomId: 'uom-pcs',
     location: 'Rack: C | Row: 02 | Cell: 01',
     status: 'available',
-    notes: 'Обрезок трубы после резки',
+    notes: 'Обрезок после резки',
     qrData: 'QR-WHO-006',
     orderId: null,
     files: [],
@@ -183,7 +184,7 @@ const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
     updatedAt: '2025-04-20T08:00:00Z',
     auditLog: [],
   },
-  // ── 7. Pipe (cat-4) ──────────────────────────────────────────────────────
+  // ── who-007 ──────────────────────────────────────────────────────────────
   {
     id: 'who-007',
     batchId: 'whb-008',
@@ -207,7 +208,7 @@ const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
     updatedAt: '2025-05-05T09:00:00Z',
     auditLog: [],
   },
-  // ── 8. Sheet (cat-2) ──────────────────────────────────────────────────────
+  // ── who-008 ───────────────────────────────────────────────────────────────
   {
     id: 'who-008',
     batchId: 'whb-009',
@@ -223,7 +224,7 @@ const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
     uomId: 'uom-pcs',
     location: 'Rack: D | Row: 01 | Cell: 02',
     status: 'expensed',
-    notes: 'Остаток газа, израсходован на тестовые работы',
+    notes: 'Остаток израсходован на тестовые работы',
     qrData: 'QR-WHO-008',
     orderId: null,
     files: [],
@@ -231,7 +232,7 @@ const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
     updatedAt: '2025-05-15T10:00:00Z',
     auditLog: [],
   },
-  // ── 9. Sheet (cat-2) ──────────────────────────────────────────────────────
+  // ── who-009 ───────────────────────────────────────────────────────────────
   {
     id: 'who-009',
     batchId: 'whb-008',
@@ -247,7 +248,7 @@ const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
     uomId: 'uom-kg',
     location: 'Rack: D | Row: 02 | Cell: 03',
     status: 'available',
-    notes: 'Остаток проволоки после сварки',
+    notes: 'Остаток после сварки',
     qrData: 'QR-WHO-009',
     orderId: null,
     files: [],
@@ -255,7 +256,7 @@ const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
     updatedAt: '2025-05-20T08:00:00Z',
     auditLog: [],
   },
-  // ── 10. Sheet (cat-2) ─────────────────────────────────────────────────────
+  // ── who-010 ───────────────────────────────────────────────────────────────
   {
     id: 'who-010',
     batchId: 'whb-010',
@@ -271,7 +272,7 @@ const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
     uomId: 'uom-kg',
     location: 'Rack: D | Row: 03 | Cell: 01',
     status: 'scrapped',
-    notes: 'Остаток электродов, брак',
+    notes: 'Остаток списан как брак',
     qrData: 'QR-WHO-010',
     orderId: null,
     files: [],
@@ -279,7 +280,7 @@ const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
     updatedAt: '2025-06-01T08:00:00Z',
     auditLog: [],
   },
-  // ── 11. Sheet (cat-2) ─────────────────────────────────────────────────────
+  // ── who-011 ───────────────────────────────────────────────────────────────
   {
     id: 'who-011',
     batchId: 'whb-006',
@@ -295,7 +296,7 @@ const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
     uomId: 'uom-pcs',
     location: 'Rack: A | Row: 03 | Cell: 03',
     status: 'available',
-    notes: 'Остаток алюминиевого листа после раскроя',
+    notes: 'Остаток после раскроя, годен в дело',
     qrData: 'QR-WHO-011',
     orderId: null,
     files: [],
@@ -303,7 +304,7 @@ const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
     updatedAt: '2025-04-15T10:00:00Z',
     auditLog: [],
   },
-  // ── 12. Sheet (cat-2) ─────────────────────────────────────────────────────
+  // ── who-012 ───────────────────────────────────────────────────────────────
   {
     id: 'who-012',
     batchId: 'whb-078',
@@ -319,7 +320,7 @@ const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
     uomId: 'uom-pcs',
     location: 'Rack: C | Row: 01 | Cell: 06',
     status: 'available',
-    notes: 'Половина трубы после резки',
+    notes: 'Половина остатка после резки',
     qrData: 'QR-WHO-012',
     orderId: null,
     files: [],
@@ -327,7 +328,7 @@ const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
     updatedAt: '2025-04-20T08:00:00Z',
     auditLog: [],
   },
-  // ── 13. Sheet (cat-2) ─────────────────────────────────────────────────────
+  // ── who-013 ───────────────────────────────────────────────────────────────
   {
     id: 'who-013',
     batchId: 'whb-008',
@@ -343,7 +344,7 @@ const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
     uomId: 'uom-kg',
     location: 'Rack: A | Row: 01 | Cell: 08',
     status: 'available',
-    notes: 'Остаток проволоки после сварки',
+    notes: 'Остаток после наплавки',
     qrData: 'QR-WHO-013',
     orderId: null,
     files: [],
