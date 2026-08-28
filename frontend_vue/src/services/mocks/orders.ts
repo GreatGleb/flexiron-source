@@ -71,6 +71,7 @@ import {
   marginFor,
   splitAllocations,
   stockCostFor,
+  wholePieceRanges,
 } from '@/services/orderLines'
 import {
   applyLineEdit,
@@ -3214,30 +3215,14 @@ export function planShipment(
 }
 
 /**
- * Куски в неотгруженной части строки, выраженные в количестве.
+ * Куски в НЕОТГРУЖЕННОЙ части строки, выраженные в количестве.
  *
- * Разбивка потребляется префиксом, поэтому «где стоит кусок» — это пара чисел: сколько
- * количества идёт до него и сколько после. Количество строго между ними режет кусок, а
- * кусок неделим. Ничего про доступность куска здесь не решается — только геометрия
- * разбивки; доступность считает `planShipment`, и второй раз она тут не повторяется.
+ * Отрезки считает `wholePieceRanges` из `orderLines` — одно правило геометрии на проект;
+ * здесь только выбирается, по какой части разбивки его спросить. Ничего про доступность
+ * куска не решается: её считает `planShipment`, и второй раз она тут не повторяется.
  */
-function wholePieceRanges(item: OrderItem): WholePieceRange[] {
-  const unshipped = splitAllocations(item.allocations, item.shippedQuantity).remainder
-  const ranges: WholePieceRange[] = []
-  let at = 0
-  let lastOffcutId: string | null = null
-  for (const allocation of unshipped) {
-    const next = round2(at + allocation.quantity)
-    if (allocation.offcutId) {
-      // Один кусок — один отрезок, даже если разбивка назвала его двумя строками
-      // подряд: неделим он целиком, а не построчно.
-      if (allocation.offcutId === lastOffcutId) ranges[ranges.length - 1]!.to = next
-      else ranges.push({ from: at, to: next })
-    }
-    lastOffcutId = allocation.offcutId
-    at = next
-  }
-  return ranges
+function unshippedPieceRanges(item: OrderItem): WholePieceRange[] {
+  return wholePieceRanges(splitAllocations(item.allocations, item.shippedQuantity).remainder)
 }
 
 /**
@@ -3262,7 +3247,7 @@ export function mockPlanOrderShipment(orderId: string): ShippableLine[] {
       unit: line.unit,
       remaining: line.quantity,
       shippable: line.offerable,
-      wholePieces: wholePieceRanges(item),
+      wholePieces: unshippedPieceRanges(item),
     }
   })
 }

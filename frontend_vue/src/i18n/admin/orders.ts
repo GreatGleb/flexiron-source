@@ -491,6 +491,8 @@ export const adminOrders = {
       error_return_batch_not_found: 'Партия, из которой уходил товар, не найдена',
       error_return_splits_offcut:
         'Обрезок неделим: вернуть можно либо весь кусок, либо металл из партии',
+      error_quantity_splits_offcut:
+        'Обрезок неделим: такое количество разрежет кусок. Возьмите весь кусок целиком или пересоберите строку без него',
       error_correction_exceeds_original: 'Корректировка больше, чем осталось по счёту',
       error_unknown_order_status: 'Неизвестный статус заказа',
     },
@@ -985,6 +987,8 @@ export const adminOrders = {
       error_return_batch_not_found: 'The batch the goods left from no longer exists',
       error_return_splits_offcut:
         'An offcut is one piece: return all of it, or return batch metal instead',
+      error_quantity_splits_offcut:
+        'An offcut is one piece: this quantity would cut it. Keep the whole piece, or rebuild the line without it',
       error_correction_exceeds_original: 'The correction is larger than the invoice has left',
       error_unknown_order_status: 'Unknown order status',
     },
@@ -1480,6 +1484,8 @@ export const adminOrders = {
       error_return_batch_not_found: 'Partija, iš kurios prekės išvyko, nerasta',
       error_return_splits_offcut:
         'Atraiža nedaloma: grąžinkite visą gabalą arba metalą iš partijos',
+      error_quantity_splits_offcut:
+        'Atraiža nedaloma: toks kiekis perpjautų gabalą. Palikite visą gabalą arba sudarykite eilutę iš naujo be jo',
       error_correction_exceeds_original: 'Korekcija didesnė, nei liko sąskaitoje',
       error_unknown_order_status: 'Nežinoma užsakymo būsena',
     },

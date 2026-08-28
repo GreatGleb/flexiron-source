@@ -21,6 +21,7 @@ import {
   mockGetOrder,
   mockPlanOrderShipment,
   mockReserveOrder,
+  mockUpdateOrderItem,
 } from './orders'
 import { splitsWholePiece } from '@/services/orderLines'
 import { mockGetClients } from './clients'
@@ -634,5 +635,117 @@ describe('возврат строки, покрытой обрезком', () =>
     expect(round2(ret.lines[0]!.restored!.reduce((sum, r) => sum + r.quantity, 0))).toBe(back)
     expect((await mockGetOffcut(offer.id)).status).toBe('sold')
     expect(batchById(offer.batchId)!.quantityRemaining).toBe(round2(parentBefore + back))
+  })
+})
+
+/**
+ * Четвёртое место, где кусок обязан остаться целым: ПРАВКА КОЛИЧЕСТВА строки.
+ *
+ * Три остальных были закрыты раньше — добавление строки (`OFFCUTS_EXCEED_QUANTITY`),
+ * отгрузка (кусок берётся только целиком) и возврат (`RETURN_SPLITS_OFFCUT`). Правка
+ * количества обходила их все: `splitAllocations` резала разбивку по числу, не спрашивая,
+ * попал ли разрез внутрь куска, и молча оставляла в заказе половину куска. Дальше это
+ * доезжало до склада: план видел уже усечённую аллокацию и считал её целым куском —
+ * продажа списывала половину, кусок помечался `sold` целиком, а вторая половина металла
+ * исчезала без единой записи.
+ *
+ * Проверяется поэтому не «правка отклонена», а обе половины: отказ, и то, что после
+ * отказа строка и кусок остались ровно такими же, какими были.
+ */
+describe('правка количества строки, покрытой обрезком', () => {
+  /** Строка «кусок + хвост партии» и её текущая версия — на каждую правку своя. */
+  async function mixedLine() {
+    const offer = await wholeOffer()
+    const orderId = freshOrder()
+    const quantity = round2(offer.material + TAIL)
+    const line = mockAddOrderItem(orderId, {
+      productId: offer.productId,
+      quantity,
+      unit: 'pcs',
+      unitPrice: 100,
+      offcutIds: [offer.id],
+    })
+    // Посылка теста: кусок стоит первым, значит занимает отрезок (0; material) — именно
+    // тот, внутрь которого целится правка ниже. Без этой строки тест мог бы «пройти» на
+    // строке, где куска нет вовсе.
+    expect(line.allocations[0]!.offcutId).toBe(offer.id)
+    expect(line.allocations[0]!.quantity).toBe(offer.material)
+    return { offer, orderId, line, quantity }
+  }
+
+  const shown = (orderId: string, lineId: string) =>
+    mockGetOrder(orderId)!
+      .items.find((i) => i.id === lineId)!
+      .allocations.map((a) => [a.offcutId, a.batchId, a.quantity])
+
+  it('количество внутрь куска отклонено, и разбивка осталась прежней', async () => {
+    const { offer, orderId, line } = await mixedLine()
+    const before = shown(orderId, line.id)
+    const inside = round2(offer.material / 2)
+    expect(inside).toBeGreaterThan(0)
+    expect(inside).toBeLessThan(offer.material)
+
+    expect(() =>
+      mockUpdateOrderItem(orderId, line.id, {
+        quantity: inside,
+        version: mockGetOrder(orderId)!.version,
+      }),
+    ).toThrow('QUANTITY_SPLITS_OFFCUT')
+
+    // Отказ ничего не записал: ни количества, ни урезанной аллокации.
+    expect(shown(orderId, line.id)).toEqual(before)
+    expect(mockGetOrder(orderId)!.items.find((i) => i.id === line.id)!.quantity).toBe(
+      round2(offer.material + TAIL),
+    )
+  })
+
+  it('после отказа кусок уезжает целым, а не половиной', async () => {
+    const { offer, orderId, line } = await mixedLine()
+    const inside = round2(offer.material / 2)
+    expect(() =>
+      mockUpdateOrderItem(orderId, line.id, {
+        quantity: inside,
+        version: mockGetOrder(orderId)!.version,
+      }),
+    ).toThrow('QUANTITY_SPLITS_OFFCUT')
+
+    // Вторая половина утверждения, ради которой отказ и нужен. С усечением план назвал бы
+    // куском половину: wholePieces [0; material/2] и shippable в половину размера, а
+    // отгрузка списала бы половину и пометила кусок `sold` целиком — остальной металл
+    // исчезал бы без записи.
+    const planned = mockPlanOrderShipment(orderId).find((l) => l.lineId === line.id)!
+    expect(planned.wholePieces).toEqual([{ from: 0, to: offer.material }])
+    expect(planned.shippable).toBe(round2(offer.material + TAIL))
+
+    const shipment = mockCreateShipment(orderId, {
+      lines: [{ lineId: line.id, quantity: planned.shippable }],
+    })
+    const sold = mockGetMovementsFor('order-shipment', shipment.id).filter(
+      (m) => m.type === 'sale' && m.offcutId === offer.id,
+    )
+    expect(sold.map((m) => m.quantity)).toEqual([offer.material])
+    expect((await mockGetOffcut(offer.id)).status).toBe('sold')
+  })
+
+  it('количество ровно в кусок и больше куска проходят — режется только хвост партии', async () => {
+    const { offer, orderId, line } = await mixedLine()
+
+    // Больше куска: разрез попадает в партию, металл делится, кусок цел.
+    const overPiece = round2(offer.material + 1)
+    mockUpdateOrderItem(orderId, line.id, {
+      quantity: overPiece,
+      version: mockGetOrder(orderId)!.version,
+    })
+    expect(shown(orderId, line.id)).toEqual([
+      [offer.id, null, offer.material],
+      [null, line.allocations[1]!.batchId, 1],
+    ])
+
+    // Ровно в кусок: граница отрезка запретом не считается, хвост партии уходит целиком.
+    mockUpdateOrderItem(orderId, line.id, {
+      quantity: offer.material,
+      version: mockGetOrder(orderId)!.version,
+    })
+    expect(shown(orderId, line.id)).toEqual([[offer.id, null, offer.material]])
   })
 })

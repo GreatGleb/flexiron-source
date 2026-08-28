@@ -30,7 +30,9 @@ import {
   projectItem,
   projectService,
   splitAllocations,
+  splitsWholePiece,
   toPricingLine,
+  wholePieceRanges,
 } from './orderLines'
 
 export type LineEditField =
@@ -139,7 +141,25 @@ export function applyLineEdit(
     case 'quantity':
       pricing = applyQuantityEdit(before, op.value)
       // Fewer goods need fewer batches: trim the breakdown, oldest kept first.
-      if (isGoods(line)) line.allocations = splitAllocations(line.allocations, op.value).shipped
+      //
+      // У партии обрезать аллокацию можно — металл делится. У куска нельзя: он один
+      // предмет на полке, и `splitAllocations`, срезав его до количества строки,
+      // оставила бы в заказе половину куска, которого в природе нет. Дальше это
+      // доезжает до склада молча: план видит уже усечённую аллокацию, считает её целым
+      // куском, продажа списывает половину, а кусок помечается `sold` целиком — вторая
+      // половина металла исчезает без единой записи.
+      //
+      // Поэтому отказ, а не усечение — то же решение, что при добавлении строки
+      // (`OFFCUTS_EXCEED_QUANTITY`), при отгрузке и при возврате
+      // (`RETURN_SPLITS_OFFCUT`). Кусок целиком не нужен — его убирает количество,
+      // которое до него не доходит или проходит его насквозь: разрез ЗА границей куска
+      // отбрасывает аллокацию целиком и возвращает кусок в продажу.
+      if (isGoods(line)) {
+        if (splitsWholePiece(op.value, wholePieceRanges(line.allocations))) {
+          throw new Error('QUANTITY_SPLITS_OFFCUT')
+        }
+        line.allocations = splitAllocations(line.allocations, op.value).shipped
+      }
       break
     case 'unitPrice':
       pricing = applyPriceEdit(before, op.value)
@@ -366,6 +386,7 @@ const ERROR_KEYS: Array<[string, string]> = [
   ['RETURN_EXCEEDS_SHIPPED', 'orders.error_return_exceeds_shipped'],
   ['RETURN_BATCH_NOT_FOUND', 'orders.error_return_batch_not_found'],
   ['RETURN_SPLITS_OFFCUT', 'orders.error_return_splits_offcut'],
+  ['QUANTITY_SPLITS_OFFCUT', 'orders.error_quantity_splits_offcut'],
   ['CORRECTION_EXCEEDS_ORIGINAL', 'orders.error_correction_exceeds_original'],
   ['UNKNOWN_ORDER_STATUS', 'orders.error_unknown_order_status'],
   // Обрезки, выбранные руками. Каждый отказ свой: кусок исчез, кусок чужого товара,
