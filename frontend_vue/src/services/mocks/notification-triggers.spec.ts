@@ -1,8 +1,9 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { mockGetNotifications, mockGetUnreadCount } from './notifications'
 import {
   mockAddOrderItem,
   mockAddOrderPayment,
+  mockCreateInvoice,
   mockCreateOrder,
   mockGetOrder,
   mockPatchOrderStatus,
@@ -11,8 +12,9 @@ import {
 import { mockCreateBatch, recordShortage } from './warehouse'
 import { mockAcceptResponse, mockGetBccHistory } from './bcc'
 import { mockGetClients } from './clients'
-import { mockGetPayment, mockPatchPayment } from './finance'
+import { mockGetPayment, mockGetReceivables, mockPatchPayment } from './finance'
 import type { Notification, NotificationType } from '@/types/notifications'
+import { invoiceBalances, nextUnsettledInvoice } from '@/domain/receivable'
 
 /**
  * Уведомления рождаются из событий, а не лежат сидом.
@@ -206,31 +208,113 @@ describe('готовность склада', () => {
 })
 
 describe('просрочка оплаты', () => {
-  it('переход в «просрочен» пишет уведомление со сроком и ссылкой на заказ', () => {
-    // Сид раздаёт статус случайно, поэтому исходное состояние задаётся явно:
-    // проверяется ПЕРЕХОД, а не то, каким платёж родился.
-    mockPatchPayment('pay-in-1', { status: 'pending' })
-    const payment = mockGetPayment('pay-in-1')
+  it('просроченный счёт заказа пишет уведомление со сроком и ссылкой на заказ', () => {
+    // Реестр входящих своего хранилища не имеет: просрочку он ВЫЧИСЛЯЕТ по счетам
+    // заказов. Уведомление пишется в момент, когда факт впервые посчитан.
     const before = feed('payment_overdue').length
-
-    mockPatchPayment('pay-in-1', { status: 'overdue' })
+    const overdue = mockGetReceivables({ search: '', status: 'overdue', pageSize: 100 }).items
+    expect(overdue.length).toBeGreaterThan(0)
 
     const after = feed('payment_overdue')
-    expect(after.length).toBe(before + 1)
-    expect(after[0]!.message.en).toContain(payment.orderNumber!)
-    expect(after[0]!.message.en).toContain(payment.dueDate.slice(0, 10))
-    expect(after[0]!.entityId).toBe(payment.orderId)
-    expect(after[0]!.entityRouteName).toBe('admin-order-card')
+    expect(after.length).toBe(before + overdue.length)
+
+    const newest = after[0]!
+    const row = overdue.find((r) => newest.entityId === r.orderId)!
+    expect(row).toBeDefined()
+    expect(newest.message.en).toContain(row.orderNumber)
+    expect(newest.message.en).toContain(row.dueDate.slice(0, 10))
+    expect(newest.entityRouteName).toBe('admin-order-card')
   })
 
-  it('платёж, уже бывший просроченным, при правке заметки ничего не пишет', () => {
-    mockPatchPayment('pay-in-2', { status: 'overdue' })
+  it('тот же счёт, прочитанный второй раз, ничего не пишет', () => {
+    // Первое чтение уже состоялось выше — но проверка не должна зависеть от
+    // порядка: читаем дважды здесь и сравниваем второе чтение с первым.
+    mockGetReceivables({ search: '', status: 'all', pageSize: 100 })
     const after = feed('payment_overdue').length
 
-    mockPatchPayment('pay-in-2', { notes: 'звонили клиенту' })
-    mockPatchPayment('pay-in-2', { status: 'overdue' })
+    mockGetReceivables({ search: '', status: 'all', pageSize: 100 })
 
     expect(feed('payment_overdue').length).toBe(after)
+  })
+
+  it('счёт клиенту с предоплатой не звонит в колокольчик в день выдачи', () => {
+    // Отсрочки нет — срок счёта наступает в день выдачи, и в этот день клиент
+    // ещё не опоздал. Уведомление «оплата просрочена» по документу возрастом в
+    // секунду — выдуманный сигнал под настоящим документом.
+    //
+    // Время задаётся, а не берётся настоящее: иначе между выдачей и чтением
+    // реестра проходит доля миллисекунды, и молчание колокольчика ничего бы не
+    // доказывало (питфолл #68).
+    const client = mockGetClients().find((c) => c.paymentTermsDays === 0)!
+    expect(client).toBeDefined()
+    const order = mockCreateOrder({ clientId: client.id, documentType: 'local' })
+    mockAddOrderItem(order.id, {
+      productId: 'prod-001',
+      quantity: 5,
+      unit: 'pcs',
+      unitPrice: 100,
+    })
+    const before = feed('payment_overdue').length
+
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(new Date(2026, 4, 12, 9, 0, 0))
+      const invoice = mockCreateInvoice(order.id, { kind: 'advance', amountGross: 500 })
+
+      vi.setSystemTime(new Date(2026, 4, 12, 23, 30, 0))
+      const rows = mockGetReceivables({ search: '', status: 'all', pageSize: 500 }).items
+
+      // Строка в реестре есть — иначе проверку устроило бы бездействие: молчащий
+      // колокольчик над несуществующим счётом не доказывает ничего.
+      const row = rows.find((r) => r.id === invoice.id)!
+      expect(row).toBeDefined()
+      expect(row.status).toBe('pending')
+      expect(feed('payment_overdue').length).toBe(before)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('по счёту, закрытому штатным путём, колокольчик молчит — просрочки нет', () => {
+    // Зонд, на котором пункт 13 был отклонён: карточка заказа показывала деньги
+    // полученными, «Входящие» рядом рисовали по тому же документу «Просрочен» и
+    // «оплачено 0.00», а колокольчик звонил о просрочке счёта, оплаченного
+    // полностью. Расходились не расчёты — расходилось то, что деньги не называли
+    // документ. Здесь оплата регистрируется ровно тем решением, которое
+    // подставляет модалка карточки заказа.
+    const client = mockGetClients().find((c) => c.paymentTermsDays > 0)!
+    expect(client).toBeDefined()
+    const order = mockCreateOrder({ clientId: client.id, documentType: 'local' })
+    mockAddOrderItem(order.id, {
+      productId: 'prod-001',
+      quantity: 5,
+      unit: 'pcs',
+      unitPrice: 100,
+    })
+
+    vi.useFakeTimers()
+    let invoiceId: string
+    try {
+      // Документ выписан достаточно давно, чтобы срок его успел пройти: без
+      // этого молчание колокольчика устраивало бы и ненаступивший срок.
+      vi.setSystemTime(new Date(2026, 0, 10, 9, 0, 0))
+      invoiceId = mockCreateInvoice(order.id, { kind: 'advance', amountGross: 500 }).id
+
+      const live = mockGetOrder(order.id)!
+      const target = nextUnsettledInvoice(invoiceBalances(live.invoices, live.payments))!
+      expect(target.id).toBe(invoiceId)
+      mockAddOrderPayment(order.id, { amount: target.outstanding, invoiceId: target.id })
+    } finally {
+      vi.useRealTimers()
+    }
+
+    const row = mockGetReceivables({ search: '', status: 'all', pageSize: 500 }).items.find(
+      (r) => r.id === invoiceId,
+    )!
+    expect(row).toBeDefined()
+    expect(row.paidAmount).toBe(mockGetOrder(order.id)!.paidAmount)
+    expect(row.status).toBe('completed')
+    expect(feed('payment_overdue').filter((n) => n.entityId === order.id)).toEqual([])
   })
 
   it('счёт поставщика без заказа ведёт к поставщику, а не в пустую карточку', () => {

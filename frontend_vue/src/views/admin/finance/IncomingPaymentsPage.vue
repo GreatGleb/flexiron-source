@@ -1,42 +1,49 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
 import FinanceSubNav from './FinanceSubNav.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
 import Pagination from '@/components/admin/ui/Pagination.vue'
-import { getPayments } from '@/services/financeService'
+import { getReceivables } from '@/services/financeService'
 import { usePagination } from '@/composables/usePagination'
 import { useHead } from '@/composables/useHead'
-import type { FinancePaymentListItem } from '@/types/finance'
+import type { Receivable } from '@/types/finance'
 
 import '@styles/admin/components/_pagination.css'
 import '@styles/admin/finance_list.css'
 
+/**
+ * Реестр входящих — представление над счетами заказов.
+ *
+ * Строка здесь не самостоятельная запись, а счёт: номер, дата и сумма его,
+ * срок — из условий оплаты клиента, «оплачено» — из платежей заказа, статус
+ * вычислен. Поэтому карточки у строки нет и быть не может: подробности живут в
+ * заказе, и ссылка ведёт туда, а не во вторую реализацию того же экрана.
+ */
+
 const { t } = useI18n()
-const router = useRouter()
 
 useHead({
   title: () => `Flexiron — ${t('page.financeIncoming')}`,
   description: () => t('page.financeIncoming'),
 })
 
-const payments = ref<FinancePaymentListItem[]>([])
+const receivables = ref<Receivable[]>([])
 const loading = ref(false)
 const error = ref(false)
 
 const searchInput = ref('')
 const statusFilter = ref('all')
 
-// ─── Status filter options (computed for reactive i18n) ───
+// Отменённого счёта в модели заказа нет: отозванный корректировкой в реестр не
+// попадает вовсе, поэтому и варианта «Отменён» здесь нет.
 const STATUS_OPTIONS = computed(() => [
   { value: 'all', label: t('st.all') },
   { value: 'pending', label: t('financeList.status_pending') },
-  { value: 'completed', label: t('financeList.status_completed') },
   { value: 'overdue', label: t('financeList.status_overdue') },
-  { value: 'cancelled', label: t('financeList.status_cancelled') },
+  { value: 'completed', label: t('financeList.status_completed') },
 ])
 
 const pagination = usePagination(25)
@@ -44,20 +51,12 @@ const pagination = usePagination(25)
 function load() {
   loading.value = true
   error.value = false
-  getPayments(
-    'incoming',
-    {
-      search: searchInput.value,
-      status: statusFilter.value,
-      counterpartyId: null,
-      dateFrom: '',
-      dateTo: '',
-      direction: 'incoming',
-    },
+  getReceivables(
+    { search: searchInput.value, status: statusFilter.value },
     { page: pagination.page.value, pageSize: pagination.pageSize.value },
   )
     .then((res) => {
-      payments.value = res.items
+      receivables.value = res.items
       pagination.total.value = res.total
     })
     .catch(() => {
@@ -82,15 +81,14 @@ watch(statusFilter, () => {
   load()
 })
 
+watch([pagination.page, pagination.pageSize], () => {
+  load()
+})
+
 const STATUS_PILL: Record<string, string> = {
   pending: 'pill-warning',
   completed: 'pill-success',
   overdue: 'pill-danger',
-  cancelled: 'pill-suspended',
-}
-
-function goToPayment(id: string) {
-  router.push({ name: 'admin-finance-incoming-payment', params: { id } })
 }
 
 const PAGE_SIZE_OPTIONS = [
@@ -108,10 +106,9 @@ const pageSizeStr = computed({
   },
 })
 
-// Reload on page/pageSize changes
-watch([pagination.page, pagination.pageSize], () => {
-  load()
-})
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString()
+}
 
 onMounted(() => load())
 </script>
@@ -156,7 +153,7 @@ onMounted(() => load())
     </div>
 
     <div
-      v-else-if="!loading && payments.length === 0"
+      v-else-if="!loading && receivables.length === 0"
       class="empty-state"
       data-test="finance-incoming-empty"
     >
@@ -169,55 +166,54 @@ onMounted(() => load())
       <table class="data-table" data-test="finance-incoming-table">
         <thead>
           <tr>
-            <th>{{ t('financeList.th_number') }}</th>
+            <th>{{ t('financeList.th_invoice') }}</th>
             <th>{{ t('financeList.th_counterparty') }}</th>
             <th>{{ t('financeList.th_order') }}</th>
-            <th>{{ t('financeList.th_amount') }}</th>
-            <th>{{ t('financeList.th_status') }}</th>
+            <th>{{ t('financeList.th_issued_at') }}</th>
             <th>{{ t('financeList.th_due_date') }}</th>
-            <th>{{ t('financeList.th_documents') }}</th>
+            <th>{{ t('financeList.th_amount') }}</th>
+            <th>{{ t('financeList.th_paid') }}</th>
+            <th>{{ t('financeList.th_status') }}</th>
             <th class="text-right">{{ t('financeList.th_actions') }}</th>
           </tr>
         </thead>
         <tbody>
-          <tr
-            v-for="p in payments"
-            :key="p.id"
-            class="clickable-row"
-            data-test="finance-payment-row"
-            @click="goToPayment(p.id)"
-          >
-            <td>{{ p.paymentNumber }}</td>
-            <td>{{ p.counterpartyName }}</td>
-            <td>{{ p.orderNumber ?? '—' }}</td>
-            <td>{{ p.amount.toFixed(2) }} {{ p.currency }}</td>
+          <tr v-for="r in receivables" :key="r.id" data-test="finance-receivable-row">
             <td>
-              <span :class="['status-pill', STATUS_PILL[p.status]]">
-                {{ t(`financeList.status_${p.status}`) }}
-              </span>
+              <router-link
+                :to="{ name: 'admin-order-card', params: { id: r.orderId } }"
+                class="name-link"
+                data-test="receivable-invoice-link"
+              >
+                {{ r.invoiceNumber }}
+              </router-link>
             </td>
-            <td>{{ new Date(p.dueDate).toLocaleDateString() }}</td>
+            <td>{{ r.clientName }}</td>
+            <td>{{ r.orderNumber }}</td>
+            <td>{{ formatDate(r.issuedAt) }}</td>
+            <td>{{ formatDate(r.dueDate) }}</td>
+            <td>{{ r.amount.toFixed(2) }} {{ r.currency }}</td>
+            <td data-test="receivable-paid">{{ r.paidAmount.toFixed(2) }} {{ r.currency }}</td>
             <td>
-              <span v-if="p.documentCount > 0" class="doc-badge">
-                <SvgIcon name="file" :width="14" :height="14" />
-                {{ p.documentCount }}
+              <span :class="['status-pill', STATUS_PILL[r.status]]" data-test="receivable-status">
+                {{ t(`financeList.status_${r.status}`) }}
               </span>
-              <span v-else class="doc-badge doc-badge-empty">0</span>
             </td>
             <td class="text-right">
-              <button
+              <router-link
+                v-tooltip="t('financeList.open_order')"
+                :to="{ name: 'admin-order-card', params: { id: r.orderId } }"
                 class="action-icon-btn"
-                data-test="payment-view-btn"
-                @click.stop="goToPayment(p.id)"
+                data-test="receivable-order-btn"
               >
-                <SvgIcon name="external-link" width="16" height="16" />
-              </button>
+                <SvgIcon name="external-link" :width="16" :height="16" />
+              </router-link>
             </td>
           </tr>
         </tbody>
         <tfoot>
           <tr>
-            <td colspan="8">
+            <td colspan="9">
               <Pagination
                 v-model:page="pagination.page.value"
                 v-model:size="pageSizeStr"
@@ -244,21 +240,16 @@ onMounted(() => load())
 .text-right {
   text-align: right;
 }
-.clickable-row {
-  cursor: pointer;
+.name-link {
+  color: inherit;
+  text-decoration: none;
+  transition: text-decoration-color 0.2s ease;
+  text-decoration-line: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 2px;
 }
-.clickable-row:hover {
-  background: rgba(255, 255, 255, 0.03);
-}
-.doc-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.8125rem;
-  color: rgba(255, 255, 255, 0.65);
-}
-.doc-badge-empty {
-  opacity: 0.4;
+.name-link:hover {
+  text-decoration-color: currentColor;
 }
 .empty-text {
   font-size: 0.875rem;

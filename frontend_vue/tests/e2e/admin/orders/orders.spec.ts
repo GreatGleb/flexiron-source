@@ -1825,6 +1825,49 @@ test.describe('Order Card › payments and invoices', () => {
     )
   })
 
+  test('the dialog names the document, and the incoming registry says what the card says', async ({
+    page,
+  }) => {
+    // Пункт 13: два представления об оплатах не имеют права расходиться. Поле
+    // счёта открывалось пустым, «Сохранить» отправляло `invoiceId: null` — и
+    // карточка показывала деньги полученными, пока «Входящие» рисовали по тому
+    // же документу «Просрочен» и «оплачено 0.00».
+    await page.goto('/admin/orders/ORD-001')
+    await page.waitForSelector('[data-test="order-invoices"]')
+    await page.click('[data-test="order-advance-invoice-btn"]')
+    await page.fill('[data-test="advance-amount-input"]', '500')
+    await page.click('[data-test="advance-confirm"]')
+    const invoiceNumber = (await page
+      .locator('[data-test="order-invoice-row"]')
+      .first()
+      .locator('td')
+      .first()
+      .textContent())!.trim()
+
+    // Штатный путь: открыть модалку и нажать «Сохранить», ничего больше не трогая.
+    await page.click('[data-test="order-add-payment-btn"]')
+    await expect(page.locator('[data-test="payment-modal"]')).toBeVisible()
+    // Именно ВЫБРАННОЕ значение, а не текст списка: варианты лежат в DOM всегда,
+    // и утверждение по контейнеру устраивало бы пустое поле (питфолл #68).
+    await expect(page.locator('[data-test="payment-invoice"] .curr-val')).toHaveText(
+      new RegExp(`^${invoiceNumber}`),
+    )
+    expect(Number(await page.locator('[data-test="payment-amount-input"]').inputValue())).toBe(500)
+    await page.click('[data-test="payment-confirm"]')
+    await expect(page.locator('[data-test="payment-modal"]')).toBeHidden()
+    await expect(page.locator('[data-test="order-payment-row"]').first()).toContainText(
+      invoiceNumber,
+    )
+
+    // Переход по ссылке внутри приложения, а не `goto`: полная загрузка пересобрала
+    // бы моки из сидов, и проверять было бы нечего (питфолл #66).
+    await page.click('[data-test="sidebar-nav-finance"]')
+    const row = page.locator('[data-test="finance-receivable-row"]', { hasText: invoiceNumber })
+    await expect(row).toHaveCount(1)
+    await expect(row.locator('[data-test="receivable-paid"]')).toContainText('500.00')
+    await expect(row.locator('[data-test="receivable-status"]')).toHaveText('Completed')
+  })
+
   test('a delivery is invoiced once, and the document freezes what it covers', async ({ page }) => {
     await page.goto('/admin/orders/ORD-001')
     await page.waitForSelector('[data-test="order-item-row"]')

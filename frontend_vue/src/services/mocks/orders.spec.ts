@@ -420,8 +420,15 @@ describe('scenario orders', () => {
   it('ORD-009 — two trucks, an invoice, a part payment', () => {
     const order = mockGetOrder('ORD-009')!
     expect(order.shipments.length).toBe(2)
-    expect(order.invoices.length).toBe(1)
-    expect(order.invoices[0]!.shipmentId).toBe(order.shipments[0]!.id)
+    // Two documents, not one: the proforma the prepayment was made against, and
+    // the invoice for the first truck. Money that names no document is money the
+    // incoming registry cannot see — the order read "paid" while the registry
+    // showed its own invoice overdue and nothing received (plan item 13).
+    expect(order.invoices).toHaveLength(2)
+    const proforma = order.invoices.find((i) => i.kind === 'advance')!
+    expect(order.payments.map((p) => p.invoiceId)).toEqual([proforma.id])
+    const forTheTruck = order.invoices.find((i) => i.kind === 'regular')!
+    expect(forTheTruck.shipmentId).toBe(order.shipments[0]!.id)
     expect(order.paidPercent).toBeCloseTo(40, 0)
     // Found through the shipments rather than by position: which lines the two
     // trucks took depends on what the shelf could back.

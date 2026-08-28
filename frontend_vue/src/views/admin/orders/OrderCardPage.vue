@@ -40,6 +40,7 @@ import {
   roundTo,
 } from '@/domain/orderPricing'
 import { ORDER_STATUSES, ORDER_STATUS_PILL } from '@/domain/orderStatus'
+import { invoiceBalances, isInvoiceWithdrawn, nextUnsettledInvoice } from '@/domain/receivable'
 import type {
   Invoice,
   OrderItem,
@@ -724,16 +725,43 @@ const paymentDate = ref('')
 const paymentNote = ref('')
 const paymentInvoiceId = ref('')
 
+/**
+ * What each of the order's documents is worth today and what has come in on it —
+ * from the domain, the same call the incoming registry and the client's summary
+ * make. The dialog needs it to say WHICH document the money settles.
+ */
+const invoiceBalanceList = computed(() => invoiceBalances(invoices.value, payments.value))
+
 function openPaymentModal() {
-  // Suggested, not imposed: what is left to pay is the amount asked for nine
-  // times out of ten, and an advance is the tenth.
-  paymentAmount.value = paid.value.outstanding > 0 ? money(paid.value.outstanding) : ''
+  // The money names the document it settles — the oldest one still owed.
+  //
+  // Left unnamed (the field used to open empty), the card counted the money and
+  // the incoming registry did not: the same order showed "Paid" here and an
+  // "Overdue, 0.00 received" line there, under the very invoice just settled.
+  // Suggested, not imposed: the picker still offers every document and "no
+  // document" for money that genuinely settles none — an advance before the
+  // proforma, a rebate going back.
+  const target = nextUnsettledInvoice(invoiceBalanceList.value)
+  const owed = target ? target.outstanding : paid.value.outstanding
+  paymentAmount.value = owed > 0 ? money(owed) : ''
   paymentPurpose.value = paid.value.paidAmount > 0 ? 'balance' : 'advance'
   paymentDate.value = new Date().toISOString().slice(0, 10)
   paymentNote.value = ''
-  paymentInvoiceId.value = ''
+  paymentInvoiceId.value = target?.id ?? ''
   showPaymentModal.value = true
 }
+
+/**
+ * What one click of "fill what is left" should put in the field: the balance of
+ * the document being paid, and the order's own remainder only when the money
+ * names no document. Filling the order's remainder against a single invoice is
+ * how one document ends up overpaid while another stays open — the two views
+ * part company again, one click away from the dialog that was just taught not to.
+ */
+const paymentTargetOutstanding = computed(() => {
+  const selected = invoiceBalanceList.value.find((b) => b.id === paymentInvoiceId.value)
+  return selected ? selected.outstanding : paid.value.outstanding
+})
 
 const paymentInvoiceOptions = computed(() => [
   { value: '', label: t('orders.payment_invoice_none') },
@@ -841,9 +869,7 @@ function invoiceBasis(shipmentId: string | null, kind: string): string {
  * document had been withdrawn when it had only been put right.
  */
 function isWithdrawnInvoice(invoiceId: string): boolean {
-  return invoices.value.some(
-    (i) => i.kind === 'correction' && i.correctsInvoiceId === invoiceId && i.withdrawsOriginal,
-  )
+  return isInvoiceWithdrawn(invoices.value, invoiceId)
 }
 
 /** Adjusted by a later document, and still in the client's hands. */
@@ -2572,13 +2598,17 @@ onMounted(loadShipments)
           <span class="input-suffix static-suffix">{{ form.currency }}</span>
         </div>
         <button
-          v-if="paid.outstanding > 0"
+          v-if="paymentTargetOutstanding > 0"
           type="button"
           class="btn btn-sm btn-secondary"
           data-test="payment-fill-outstanding"
-          @click="paymentAmount = money(paid.outstanding)"
+          @click="paymentAmount = money(paymentTargetOutstanding)"
         >
-          {{ t('orders.payment_amount_fill_outstanding', { amount: money(paid.outstanding) }) }}
+          {{
+            t('orders.payment_amount_fill_outstanding', {
+              amount: money(paymentTargetOutstanding),
+            })
+          }}
         </button>
       </InputGroup>
       <InputGroup :label="t('orders.col_payment_purpose')">

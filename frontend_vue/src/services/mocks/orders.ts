@@ -26,6 +26,7 @@ import type {
 } from '@/types/order'
 import type { CostSource } from '@/types/order'
 import type { ClientInvoice, ClientInvoiceSummary, ClientUnassignedPayment } from '@/types/client'
+import type { Receivable } from '@/types/finance'
 import type { StockReservation } from '@/types/warehouse'
 import type { PaginatedResponse, PaginationParams } from '@/types/api'
 import {
@@ -51,6 +52,12 @@ import {
   computeAvailable,
   syncLineState,
 } from '@/domain/orderPricing'
+import {
+  invoiceBalances,
+  isInvoiceWithdrawn,
+  receivableDueDate,
+  receivableStatus,
+} from '@/domain/receivable'
 import {
   baseCurrencyOf,
   buildOrderItem as buildItem,
@@ -726,6 +733,35 @@ function resolvePendingScenario(order: StoreOrder): void {
 }
 
 /**
+ * Даёт предоплате документ — там, где заказу предстоит документы иметь.
+ *
+ * Деньги, не названные ни на одном счёте, ничей долг не закрывают (это правило
+ * модели, а не упрощение мока), и на заказе БЕЗ документов спорить не о чем:
+ * реестру «Входящих» нечего показать, расходиться не с чем. А вот на заказе с
+ * документами такая предоплата ровно та болезнь, ради которой заведён пункт 13:
+ * ORD-2026-009 получил 22 256,26, и карточка показывала их полученными, пока
+ * реестр рядом рисовал по его же счёту красную пилюлю «Просрочен» и «оплачено
+ * 0.00». Клиент платит вперёд по проформе — она здесь и выписывается, а платёж
+ * называет её, как это сделано в собранном руками ORD-2026-100.
+ */
+function issueProformaForPrepayment(order: StoreOrder): void {
+  if (!order._pendingInvoiceForShipment) return
+  const unnamed = order.payments.filter((p) => p.invoiceId === null && p.amount > 0)
+  const amount = round2(unnamed.reduce((sum, p) => round2(sum + p.amount), 0))
+  if (amount <= 0) return
+
+  // Через тот же путь, которым проформу выписывает администратор.
+  mockCreateInvoice(order.id, { kind: 'advance', amountGross: amount })
+  const proforma = order.invoices[order.invoices.length - 1]
+  if (!proforma) return
+  // Документ старше денег: сначала счёт, потом оплата по нему.
+  proforma.issuedAt = order.createdAt
+  unnamed.forEach((p) => {
+    p.invoiceId = proforma.id
+  })
+}
+
+/**
  * Issues the scenario's invoice for its first real shipment.
  *
  * Split out because an invoice is issued FOR a shipment, and the seeded shipments
@@ -962,7 +998,10 @@ function createScenarioShipments(): void {
         // The shelf moved under us; this seeded truck simply does not go.
       }
     }
-    // Only now is there a shipment to invoice.
+    // Only now is there a shipment to invoice — and the prepayment that came in
+    // before it needs a document of its own, or the order's own money is money the
+    // incoming registry cannot see.
+    issueProformaForPrepayment(order)
     issuePendingInvoice(order)
     // The scenario said what the order should look like; the facts now say it.
     order.status = statusFromFacts(order)
@@ -1195,6 +1234,9 @@ function buildShowcaseOrder(): void {
     }
   }
 
+  // Держится в переменной, потому что аванс ниже платится ИМЕННО по нему: платёж
+  // без ссылки на документ не закрывает ничей долг, и реестр входящих показал бы
+  // проформу на 1500 неоплаченной рядом с пришедшими 1500.
   let advance: Invoice | null = null
   try {
     advance = mockCreateInvoice(order.id, { kind: 'advance', amountGross: 1500 })
@@ -3843,38 +3885,21 @@ export function mockGetClientInvoiceSummary(clientId: string): ClientInvoiceSumm
   for (const order of STORE) {
     if (order.clientId !== clientId) continue
 
-    /**
-     * Which row a payment belongs to: the document it names, or — for money paid
-     * against a correction — the document that correction fixes. A correction of
-     * a correction is refused at issue time (`CANNOT_CORRECT_A_CORRECTION`), so
-     * one hop is the whole chain.
-     */
-    const rowOf = (invoiceId: string): string | null => {
-      const named = order.invoices.find((i) => i.id === invoiceId)
-      if (!named) return null
-      return named.kind === 'correction' ? named.correctsInvoiceId : named.id
-    }
+    // Which row a payment belongs to, what a document is worth today and what
+    // came in on it — all three answered by `invoiceBalances` in the domain, the
+    // same call the incoming registry and the payment dialog make. A second copy
+    // of this arithmetic living here is what let the two views disagree.
+    const balances = invoiceBalances(order.invoices, order.payments)
+    // What a payment may name and still be counted: this order's own invoices, and
+    // corrections that have a document to correct.
+    const attachable = new Set(
+      order.invoices
+        .filter((i) => i.kind !== 'correction' || i.correctsInvoiceId !== null)
+        .map((i) => i.id),
+    )
 
-    for (const invoice of order.invoices) {
-      if (invoice.kind === 'correction') continue
-      const withdrawn = isWithdrawn(order, invoice.id)
-      // Withdrawn is exactly zero, not "the mirror amount added back": the two
-      // documents come to nothing, and a stray cent of rounding would show up in
-      // the client's outstanding balance as money somebody owes.
-      const current = withdrawn
-        ? 0
-        : round2(
-            order.invoices.reduce(
-              (sum, i) => (i.correctsInvoiceId === invoice.id ? sum + i.amountGross : sum),
-              invoice.amountGross,
-            ),
-          )
-      const paid = round2(
-        order.payments.reduce(
-          (sum, p) => (p.invoiceId && rowOf(p.invoiceId) === invoice.id ? sum + p.amount : sum),
-          0,
-        ),
-      )
+    for (const balance of balances) {
+      const invoice = order.invoices.find((i) => i.id === balance.id)!
       invoices.push({
         id: invoice.id,
         orderId: order.id,
@@ -3884,17 +3909,17 @@ export function mockGetClientInvoiceSummary(clientId: string): ClientInvoiceSumm
         kind: invoice.kind,
         currency: order.currency,
         amountGross: invoice.amountGross,
-        amountGrossCurrent: current,
-        withdrawn,
-        paidAmount: paid,
-        outstanding: round2(current - paid),
+        amountGrossCurrent: balance.amount,
+        withdrawn: balance.withdrawn,
+        paidAmount: balance.paidAmount,
+        outstanding: balance.outstanding,
       })
     }
 
     // One line per order, not per payment: the card's question is how much of this
     // client's money is standing against no document, and the order it came in on
     // is where the individual records are read.
-    const loose = order.payments.filter((p) => !p.invoiceId || rowOf(p.invoiceId) === null)
+    const loose = order.payments.filter((p) => !p.invoiceId || !attachable.has(p.invoiceId))
     if (loose.length > 0) {
       unassignedPayments.push({
         orderId: order.id,
@@ -3977,9 +4002,7 @@ function billableLineNet(line: OrderItem, alreadyBilled: number, quantity: numbe
  * document nobody had taken back.
  */
 function isWithdrawn(order: StoreOrder, invoiceId: string): boolean {
-  return order.invoices.some(
-    (i) => i.kind === 'correction' && i.correctsInvoiceId === invoiceId && i.withdrawsOriginal,
-  )
+  return isInvoiceWithdrawn(order.invoices, invoiceId)
 }
 
 /**
@@ -4354,4 +4377,60 @@ export function orderAuditSources(): AuditSource[] {
     entityLabel: o.orderNumber,
     log: o.auditLog,
   }))
+}
+
+// ─── Реестр входящих: счета заказов, а не отдельные записи ──────────────────
+
+/**
+ * Счета к получению по всем заказам — то, из чего страница «Входящие» строит
+ * свои строки (пункт 13 плана `review-followups.md`).
+ *
+ * Живёт здесь по той же причине, что и `orderAuditSources`: счета принадлежат
+ * заказу. Сам расчёт «сколько выставлено и сколько по этому пришло» — не здесь,
+ * а в домене (`invoiceBalances`): тот же вопрос задают сводка счетов клиента и
+ * модалка регистрации оплаты, и три экземпляра одного расчёта разошлись бы в тот
+ * день, когда корректировки поменяются. Два из них уже разошлись.
+ *
+ * Что НЕ попадает в реестр:
+ * - корректировка сама по себе — она не самостоятельный долг, а поправка к сумме
+ *   исходного счёта, и уже учтена в ней;
+ * - счёт, отозванный корректировкой на зеркальную сумму: клиент не держит ничего,
+ *   значит и требовать по нему нечего.
+ */
+export function orderReceivables(): Receivable[] {
+  const rows: Receivable[] = []
+  for (const order of STORE) {
+    // «Сколько выставлено и сколько по этому пришло» считает домен, один раз на
+    // все три места, где этот вопрос задаётся (`invoiceBalances`). Свой экземпляр
+    // расчёта здесь и второй в сводке клиента уже разошлись на деньгах, названных
+    // корректировкой: сводка засчитывала их, реестр — нет.
+    const balances = invoiceBalances(order.invoices, order.payments)
+    for (const balance of balances) {
+      if (balance.withdrawn) continue
+      const invoice = order.invoices.find((i) => i.id === balance.id)!
+      const dueDate = receivableDueDate(invoice.issuedAt, order.clientPaymentTermsDays)
+
+      rows.push({
+        id: invoice.id,
+        invoiceNumber: invoice.number,
+        issuedAt: invoice.issuedAt,
+        dueDate,
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        clientId: order.clientId,
+        clientName: order.clientName,
+        currency: order.currency,
+        amount: balance.amount,
+        paidAmount: balance.paidAmount,
+        outstandingAmount: Math.max(0, balance.outstanding),
+        paidAt: balance.paidAt,
+        status: receivableStatus({
+          amount: balance.amount,
+          paidAmount: balance.paidAmount,
+          dueDate,
+        }),
+      })
+    }
+  }
+  return rows
 }

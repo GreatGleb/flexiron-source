@@ -192,8 +192,13 @@ import type { SupplierFilters, SupplierCardData } from '@/types/supplier'
 import type { ClientFormData } from '@/types/client'
 import type { PaginationParams } from '@/types/api'
 import type { OrderFilters } from '@/types/order'
-import type { FinancePaymentFilters } from '@/types/finance'
-import { mockGetPayments, mockGetPayment, mockPatchPayment, mockGetArchive } from './finance'
+import {
+  mockGetPayments,
+  mockGetPayment,
+  mockPatchPayment,
+  mockGetArchive,
+  mockGetReceivables,
+} from './finance'
 import { mockGetAuditFeed, mockGetAuditFeedUsers } from './auditFeed'
 import type { AuditFeedFilters } from '@/types/audit'
 
@@ -276,21 +281,13 @@ interface UploadedFileMeta {
 const uploadedFiles = new Map<string, UploadedFileMeta>()
 
 // ─── Finance ───
-function parseFinancePaymentsParams(params?: Record<string, string>) {
-  const direction = (params?.direction ?? 'all') as 'incoming' | 'outgoing' | 'all'
-  const filters: FinancePaymentFilters = {
+function parseFinanceListParams(params?: Record<string, string>) {
+  return {
     search: params?.search ?? '',
     status: params?.status ?? 'all',
-    counterpartyId: params?.counterpartyId ?? null,
-    dateFrom: params?.dateFrom ?? '',
-    dateTo: params?.dateTo ?? '',
-    direction,
-  }
-  const pagination = {
     page: Number(params?.page ?? 1),
     pageSize: Number(params?.pageSize ?? 25),
   }
-  return { direction, filters, pagination }
 }
 
 // ─── GET ───
@@ -823,9 +820,14 @@ async function getMockRoute<T>(path: string, params?: Record<string, string>): P
   }
 
   // ── Finance ──
+  // Реестр входящих — представление над счетами заказов, своего хранилища у него
+  // нет; исходящие платежи — самостоятельные записи. Поэтому и роута два.
+  if (path === '/api/finance/receivables') {
+    return delay(mockGetReceivables(parseFinanceListParams(params)) as T)
+  }
+
   if (path === '/api/finance/payments') {
-    const { direction, filters, pagination } = parseFinancePaymentsParams(params)
-    return delay(mockGetPayments(direction, { ...filters, ...pagination }) as T)
+    return delay(mockGetPayments(parseFinanceListParams(params)) as T)
   }
 
   const financePaymentCardMatch = path.match(/^\/api\/finance\/payments\/([^/]+)$/)
@@ -1402,6 +1404,7 @@ async function patchMockRoute<T>(
       mockPatchPayment(
         financePaymentPatchMatch[1] as string,
         body as Partial<import('@/types/finance').FinancePayment>,
+        (fileId) => uploadedFiles.get(fileId),
       ) as T,
     )
   }
