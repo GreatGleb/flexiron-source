@@ -8,6 +8,11 @@
  * reported "36 of 96 do not reconcile". The sets below are copied from
  * `writeMovement` itself (warehouse.ts:827+) — a movement type is not guessed at
  * here, and if a new type is added to `writeMovement` it has to be added here too.
+ *
+ * Тип — половина правила. Вторая половина: движение, назвавшее КУСОК, партию не двигает
+ * (см. `movesOffcut` там же). Она переписана здесь словами, а не импортирована, — этот
+ * файл сверяет склад со своим независимым счётом, и счёт, взятый у проверяемого,
+ * сошёлся бы всегда.
  */
 import { describe, it, expect } from 'vitest'
 import { mockGetOrders, mockGetOrder } from './orders'
@@ -63,6 +68,11 @@ describe('LAYER 11b — the seeded ledger, untouched', () => {
     const byBatch = new Map<string, Map<string, number>>()
     for (const m of movements.items) {
       if (!m.batchId) continue
+      // Движение, назвавшее КУСОК, партию не двигает. Материал куска уходит с партии
+      // ровно один раз — движением `offcut`, то есть самой резкой; всё, что случается с
+      // куском после неё, случается с куском, а партия в такой записи названа для
+      // происхождения. Посчитать её здесь значило бы вычесть один и тот же металл дважды.
+      if (m.offcutId && m.type !== 'offcut') continue
       if (!byBatch.has(m.batchId)) byBatch.set(m.batchId, new Map())
       const per = byBatch.get(m.batchId)!
       per.set(m.type, round2((per.get(m.type) ?? 0) + m.quantity))
