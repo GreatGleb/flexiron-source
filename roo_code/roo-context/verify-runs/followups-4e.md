@@ -373,3 +373,359 @@ tests/e2e/helpers/flags.ts` пуст.
 выравнивание ссылок) оставлен в ветке: приёмка его подтвердила, а решение по нему принимает
 человек вместе с требованием про сиды. Отметку ✅ в плане автор не ставил — с вердиктом
 согласуется.
+
+---
+
+# Возврат в работу — 2026-08-28
+
+Прогон автономный. Отклонение от 2026-08-27 закрывалось ВПЕРЁД, руками: `git revert` реверта
+(`ba50844`) даёт конфликт и механически не восстанавливается. Отметку ✅ в плане автор не ставит.
+
+Два незакрытых долга, оба из разбора приёмки:
+
+1. **Регресс.** Откат `313850e` унёс подтверждённую приёмкой правку `selectBatch` вместе с
+   незакрытым пунктом. Прямой вход на резку снова показывал прочерк вместо имени товара.
+2. **Суть пункта.** Вторая копия имени товара жива в сиде партий: заголовки секций и `notes`.
+
+---
+
+## 1. Воспроизведение — обе находки на текущем коде
+
+### 1.1 Регресс `selectBatch`
+
+```
+$ sed -n '97,101p' frontend_vue/src/composables/useWarehouseCutting.ts
+  async function selectBatch(id: string) {
+    batchLoading.value = true
+    try {
+      const loaded = await getBatch(id)
+
+$ grep -n "ensureProductNames" frontend_vue/src/composables/useWarehouseCutting.ts
+13:import { ensureProductNames } from './useProductNames'
+86:        ensureProductNames(),        ← единственный вызов, внутри loadBatches()
+
+$ grep -n "batchId\|selectBatch" frontend_vue/src/views/admin/warehouse/WarehouseCuttingPage.vue
+116:  const preselected = route.query.batchId
+117:  if (typeof preselected === 'string' && preselected) selectBatch(preselected)
+118:  else loadBatches()
+```
+
+Справочник — модульный `ref` в `useProductNames.ts`, наполняемый только через
+`ensureProductNames()`. Вход `?batchId=` идёт веткой 117, список партий не грузит, значит
+справочник пуст, а шаблон рисует `productName(batch.productId)` — `productLabel` отдаёт `'—'`.
+Подтверждено прогоном (инверсия И1 ниже): `Expected "Steel Pipe 100x5", Received "—"`.
+
+### 1.2 Вторая копия имени в сиде партий
+
+Обе новые проверки написаны ДО правки данных и обе на невправленном коде красные:
+
+```
+$ npx vitest run src/services/mocks/warehouse-product-reference.spec.ts
+ × заметка партии описывает партию, а не товар
+   expected [ …(54) ] to deeply equal []
+   + "whb-088: rebar"            (prod-012 = Steel Sheet S235 2mm 1250×2500)
+   + "whb-097: oxygen"           (prod-016 = Steel Sheet S355 6mm 2000×4000)
+   + "whb-082: argon"            (prod-007 = Angle Grinder 125mm)
+   + "whb-084: beam"             (prod-010 = Steel Sheet S355 5mm 1500×3000)
+   … 50 строк опущено
+ × заголовок секции называет товар так же, как каталог
+   expected [ …(15) ] to deeply equal []
+   + "prod-004: «Труба стальная 50мм / Steel pipe 50mm / …» ≠ «Steel Pipe 100x5»"
+   + "prod-012: «Арматура 12мм / Rebar 12mm / Armatūra 12mm» ≠ «Steel Sheet S235 2mm 1250×2500»"
+   + "prod-016: «Кислород газообразный / Oxygen gas / …» ≠ «Steel Sheet S355 6mm 2000×4000»"
+   … 12 строк опущено
+ Tests  2 failed | 4 passed (6)
+```
+
+**Поправка к цифре разбора:** заголовков `// ── prod-XXX: …` пятнадцать, и расходились с
+каталогом **14 из 15**, а не 15 из 15: `prod-003` («Стальная труба 60x4») каталогу не
+противоречил — расходился только язык. Пятнадцатым в списке выше он стоит потому, что
+проверка требует точного совпадения с `name.en`.
+
+Заметок, называющих товар, оказалось **54 из 100**, а не 20: разбор считал те, что называют
+ЧУЖОЙ товар, проверка — любое упоминание товара вообще (см. §2, почему именно так).
+
+---
+
+## 2. Что сделано
+
+### 2.1 `selectBatch` тянет справочник вместе с партией
+
+Правка восстановлена **побайтово** — `git diff` даёт те же хеши блобов, что откаченный
+`313850e` (`index 4cb19ab..a944e50`), то есть подтверждённое приёмкой не переписано, а
+возвращено:
+
+```
+-      const loaded = await getBatch(id)
++      const [loaded] = await Promise.all([getBatch(id), ensureProductNames()])
+```
+
+Вместе с ней возвращён её e2e-тест (`cutting.spec.ts`, «a batch opened by its direct link
+still names the product»).
+
+### 2.2 Имя товара перестало копироваться в сид партий
+
+**Заметка (`notes`) — то же лечение, что у снятого поля: имя не выравнивается, а перестаёт
+храниться.** `notes` описывает ПАРТИЮ (сколько израсходовано, какой сертификат, где лежит), и
+товара не называет вовсе. Причина, по которой правится не 20 заметок «про чужой товар», а все
+54, называющие товар: «согласовать» свободный текст с каталогом машина не может, а значит
+согласие продержится ровно до следующей правки каталога — ровно та болезнь, от которой пункт
+и избавлялся, только в тексте вместо поля. Правильная заметка про свой товар («Rebar A500C
+12mm — certificate CERT-071 attached» у партии арматуры) — такая же копия, как неправильная,
+и живёт до первого переименования.
+
+Правлено 60 заметок: 54 по словарю каталога плюс шесть, которые словарь не ловит и которые
+найдены чтением, — `whb-006`/`whb-007` («Plywood» у партии титанового листа: фанеры в каталоге
+нет вовсе, поэтому слова нет и в словаре), `whb-024` («76mm diameter» при каталожных 50×3),
+`whb-030`, `whb-083` (габарит чужого товара после первой правки), `whb-088`.
+
+**Заголовок секции** — комментарий, пользователю он не виден, и без имени в файле на три с
+лишним тысячи строк нужную запись не найти. Поэтому имя в нём осталось, но приколочено к
+каталогу проверкой: разойтись молча больше не может. Пятнадцать заголовков переписаны на
+`name.en` каталога; у `prod-003` пометка «(3 UoM demo)» переехала перед двоеточием, чтобы
+проверка сравнивала имя, а не имя с примечанием.
+
+**Шестнадцатая копия — в сиде движений:** `// ── whb-001 (Steel sheet 2mm, 1000 kg)` при
+каталожном «Steel Sheet 3mm». Строка одна, болезнь та же; имя из неё убрано совсем
+(`// ── whb-001 (prod-001, 1000 kg)`), потому что ссылки здесь достаточно.
+
+### 2.3 Чем это теперь держится
+
+Две проверки в `src/services/mocks/warehouse-product-reference.spec.ts` — файле, который уже
+владеет правилом «склад ссылается на товар, а не хранит его имя»:
+
+- **заметка партии описывает партию, а не товар** — словарь строится ИЗ каталога (все имена,
+  все три локали, слова от четырёх букв), руками не пишется и потому не устаревает;
+- **заголовок секции называет товар так же, как каталог** — заголовки читаются из самого файла
+  сида регуляркой и сверяются с `name.en`.
+
+**Что этот словарь НЕ ловит, сказано вслух.** Порог в четыре буквы взят намеренно:
+трёхбуквенные обрывки каталожных имён («Cut-off Wheel» даёт `cut` и `off`) совпадают с обычным
+английским, и заметка «500 kg written off» краснела бы ни за что. Цена порога — коды профилей
+`IPE`, `UPN`, `HEA` и слово `MIG` сквозь него проходят; они называют стандарт профиля и способ
+сварки, а не товар из каталога. Множественное число учтено отдельно (`wheels` → `wheel`),
+иначе `whb-083` («Cut-off wheels» у партии оцинкованного листа) проскочил бы.
+
+### Файлы
+
+```
+frontend_vue/src/composables/useWarehouseCutting.ts               (возврат 313850e, побайтово)
+frontend_vue/src/mocks/warehouse-batches.ts                       (15 заголовков + 60 заметок)
+frontend_vue/src/mocks/warehouse-movements.ts                     (1 заголовок)
+frontend_vue/src/services/mocks/warehouse-product-reference.spec.ts (+2 проверки)
+frontend_vue/tests/e2e/admin/warehouse/cutting.spec.ts            (возврат 313850e, +1 тест)
+```
+
+---
+
+## 3. Приёмка
+
+Итерация 1 — единственная, свип чистый.
+
+```
+$ cd frontend_vue && npm run verify
+> typecheck    vue-tsc --noEmit                                    exit 0
+> lint         eslint src/ tests/ *.ts --max-warnings=0            exit 0
+> dupes        jscpd src        686 clones · 9.20 % (порог 10 %)   exit 0
+> format:check prettier --check src/ tests/
+               All matched files use Prettier code style!          exit 0
+> test:unit    vitest run       30 файлов, 645 тестов — passed     exit 0
+exit=0
+```
+
+```
+$ npm run test:audit
+ Test Files  22 passed (22)
+      Tests  97 passed (97)
+exit=0
+
+$ npx vite build          # компилятор шаблонов, питфолл #67
+✓ built in 8.31s
+exit=0
+```
+
+E2E, уровень 1 — правка в одной области (склад) плюс те, кто читает тот же мок:
+
+```
+$ npx playwright test tests/e2e/admin/warehouse tests/e2e/admin/analytics/warehouse.spec.ts \
+    tests/e2e/admin/analytics/deficit.spec.ts tests/e2e/admin/analytics/supply.spec.ts \
+    --reporter=line --workers=3
+  168 passed (2.9m)      exit=0
+
+$ npx playwright test tests/e2e/admin/orders tests/e2e/admin/settings \
+    tests/e2e/admin/analytics/dashboard.spec.ts --reporter=line --workers=3
+  1 failed · 178 passed (3.5m)      exit=1
+```
+
+**Разбор красного.** Упал `orders.spec.ts:1842` «a price printed wrong is corrected in the
+open, not rewritten»: `Expected 115.5, Received 120.5` — исправление цены строки не
+применилось к моменту чтения. К этой правке отношения не имеет, и это не «наверное»:
+
+```
+$ npx playwright test tests/e2e/admin/orders/orders.spec.ts \
+    -g "corrected in the open, not rewritten" --workers=1
+  1 passed (16.4s)      exit=0
+
+$ npx playwright test tests/e2e/admin/orders --reporter=line --workers=3
+  120 passed (2.8m)     exit=0
+
+$ grep -rn "warehouse-batches" frontend_vue/src/ --include=*.ts | grep -v spec
+frontend_vue/src/mocks/warehouse.ts:1:export { mockBatches } from './warehouse-batches'
+```
+
+То есть: тест зелёный и поодиночке, и в своей группе, а пути от мока заказов к сиду партий нет
+вовсе — `services/mocks/orders.ts` импортирует `reservations`, `clients`, `settings`,
+`products`, `services`, домен цен; `warehouse-batches` не импортирует ни он, ни его импорты.
+Правка комментариев и текстовых заметок в сиде склада на цену строки заказа повлиять не может.
+Это гоночное чтение семейства #64 в чужой спеке, а не находка этого пункта; в bugs-file не
+уводится, потому что воспроизводится не она, а её отсутствие.
+
+Финальный прогон на итоговом дереве (после правки заголовка в сиде движений):
+
+```
+$ npx vite build                                                   exit=0
+$ npx playwright test tests/e2e/admin/warehouse --workers=3
+  77 passed (1.7m)                                                 exit=0
+```
+
+### Линзы
+
+**Л1 — реактивность.**
+```
+$ grep -n "structuredClone\|toRaw(\|useHead(\|watch(" \
+    src/composables/useWarehouseCutting.ts src/mocks/warehouse-batches.ts \
+    src/services/mocks/warehouse-product-reference.spec.ts tests/e2e/admin/warehouse/cutting.spec.ts
+src/composables/useWarehouseCutting.ts:140:  watch(
+```
+Единственное вхождение — вотчер, существовавший до правки; `git diff` по файлу состоит из
+одной строки `selectBatch` и комментария к ней, вотчера не касается. Ни `structuredClone`, ни
+`toRaw` не добавлено. `ensureProductNames()` в `Promise.all` не создаёт нового состояния:
+справочник — тот же модульный `ref`, а повторный вызов возвращает уже висящее обещание.
+
+**Л2 — i18n.** Новых ключей нет. Заметки партий остались английскими — проверено:
+```
+$ grep -n "notes: '.*[А-Яа-я]" src/mocks/warehouse-batches.ts
+(exit 1 — ни одного)
+$ grep -c "notes: '" src/mocks/warehouse-batches.ts
+100
+```
+Кириллица в файле осталась только там, где она — данные перевода (`supplierName`, имена файлов,
+свойства аудита: `{ ru, en, lt }`), и в одном поле `location` (`whb-001`), где русский текст
+приписан к адресу ячейки. Последнее — питфолл #33 вне области пункта, см. §5.
+
+**Л3 — контракт и HTTP.** Новых вызовов нет: правка `selectBatch` зовёт уже описанный
+`GET /api/products/list`. Примеры ответов в контракте на изменённые заметки не ссылаются:
+```
+$ grep -rn "Rebar A500C\|Oxygen cylinder\|Cut-off wheels\|Plywood\|Steel pipe 50mm" \
+    roo_code/roo-context/03-api-contract.md
+715: … "alerts": [{ "type": "deficit", "description": "Rebar A500C below safety stock" … }]
+```
+Единственное попадание — текст оповещения дашборда про дефицит, к заметкам партий отношения не
+имеющий. Дописывать контракт нечем: ни поле, ни метод, ни форма ответа не менялись.
+
+**Л4 — мок = правда.** Согласие сида с каталогом стало машинным по обеим оставшимся копиям
+(§2.3), обе проверки красные на невправленных данных (§1.2) и зелёные после. Демо больше не
+«украшено»: партия стального листа не подписана кислородным баллоном.
+
+**Л5 — один источник.**
+```
+$ grep -rn "productLabel\|_productName" src/ --include=*.ts --include=*.vue | grep -v "\.spec\."
+src/domain/product.ts:25:export function productLabel(
+src/composables/useProductNames.ts:48:      productLabel(productId, products.value, locale.value)
+src/services/mocks/warehouse.ts:129:function _productName(productId)      ← сторона сервера
+src/services/mocks/warehouse.ts:135,146                                    ← поиск и сортировка
+src/types/warehouse.ts:75 — комментарий
+```
+Второй реализации подписи не появилось: на клиенте один `productLabel`, в моке один
+`_productName`. Хелперы новой проверки (`nameWords`, `catalogVocabulary`, `namesCatalogWord`)
+живут только в спеке и правила «как зовут товар» не содержат — они его ищут.
+Машинная часть: `npm run dupes` 9.20 % при пороге 10 (было 9.39 % — заметки стали короче),
+sonarjs внутри `lint` — чисто.
+
+**Л6 — UI и CSS.** Ни одного `.vue` не тронуто:
+```
+$ git diff --stat -- 'frontend_vue/src/views' 'frontend_vue/src/components'
+(пусто)
+```
+
+**Л7 — права, флаги, роутинг.**
+```
+$ git diff --stat -- frontend_vue/src/router frontend_vue/src/config/featureFlags.ts \
+    frontend_vue/tests/e2e/helpers/flags.ts
+(пусто)
+```
+
+**Л8 — сохранение и потеря данных.** `selectBatch` получил вторую загрузку в том же
+`Promise.all`; ничего не пишется, `batch.value` присваивается тем же значением, ветка `catch`
+не изменилась. Заметки — сид, а не пользовательский ввод: правка сида не может затереть
+несохранённое.
+
+**Л9 — тесты, которые ничего не утверждают.** Машинная часть:
+```
+$ grep -rn "await page.waitForLoadState" tests/
+(exit 1 — пусто)
+```
+Инверсии, по одной на утверждение; каждый раз ломалась ОДНА запись, а не весь файл, — иначе
+краснота ничего не доказывает про конкретное утверждение:
+
+| # | что сломано | что покраснело |
+|---|---|---|
+| И1 | `selectBatch` вернули к `const loaded = await getBatch(id)` | e2e «direct link still names the product»: `Expected "Steel Pipe 100x5", Received "—"`, exit=1 |
+| И2 | `whb-088.notes` → `'Rebar A500C. Partial consumption.'` | «заметка описывает партию, а не товар»: `expected [ 'whb-088: rebar' ] to deeply equal []` |
+| И3 | заголовок `prod-012` → `«Rebar 12mm»` | «заголовок называет товар так же, как каталог»: `expected [ 'prod-012: «Rebar 12mm» ≠ «Steel Sheet S235 2mm 1250×2500»' ]` |
+
+Откат каждой инверсии возвращал зелёное (`6 passed`, e2e `1 passed`).
+
+Утверждения защищены от бездействия (питфолл #68): у обеих новых проверок стоит
+`expect(vocabulary.size).toBeGreaterThan(0)`, `expect(BATCH_SEED.length).toBeGreaterThan(0)`,
+`expect(headers.length).toBeGreaterThan(0)` — пустой словарь, пустой сид или неразобранный файл
+иначе давали бы `toEqual([])` как успех. У e2e-теста непустота имени проверяется отдельно, иначе
+равенство двух прочерков сошлось бы как совпадение.
+
+**Л10 — целостность.** `npx vite build` exit 0 на итоговом дереве. Роутер, флаги и i18n не
+трогались (Л7), новых файлов не добавлено.
+
+---
+
+## 4. Что НЕ чинилось и почему — список полный, это и есть предмет прошлого отказа
+
+- **Заметки обрезков и движений.** `13 из 13` и `98 из 98` написаны по-русски
+  (`grep -c "notes: '.*[А-Яа-я]"`), и часть называет материал: «Остаток алюминиевого листа
+  после раскроя» у `who-011`, чья партия `whb-006` ссылается на титановый лист; «Перемещение
+  круглой трубы», «Раскрой листа». Болезнь та же. Не чинится здесь по двум причинам, и обе
+  проверяемые: (1) разбор приёмки называет заголовки секций и `notes` ПАРТИЙ, а задача велит
+  чинить названное; (2) построенная здесь машинная проверка на этот текст не работает в
+  принципе — словарь сверяет точные словоформы, а «листа» ≠ «лист», так что согласие пришлось
+  бы либо доказывать иначе, либо сперва перевести заметки на английский (питфолл #33). Это
+  отдельная работа с отдельным объёмом, а не строка правки. **Кандидат в отдельный пункт плана.**
+- **`location` у `whb-001`** — `'Rack: A-01 | Row: 01 | Cell: 01\nNotes: Часть партии также
+  в ячейках 02-03 этого же ряда'`: русский текст в поле адреса. Питфолл #33, товара не
+  называет, к имени товара отношения не имеет.
+- **`StockOverviewItem.productName` и `WarehouseDeficit.productName`** — хранимая копия имени в
+  остатке и дефиците. Пункт называет партию, обрезок и движение; остаток и дефицит — нет.
+  Как и в прошлый раз: кандидат в отдельный пункт.
+- **`OrderLine.productName`** — снимок момента, а не копия справочника. Не находка.
+- **Три «врущие толщины»** (`who-001`, `who-005`, `who-011`) — пункт прямо запрещает гадать,
+  какая из трёх правд верна.
+- **`movement.batchNumber` — тоже копия.** Пункт её не называет.
+- **`orders.spec.ts:1842`** — гоночное чтение в чужой спеке, разобрано выше по трём командам.
+- **Коды профилей `IPE`/`UPN`/`HEA` и слово `MIG` в заметках** — сквозь порог словаря проходят
+  осознанно, цена названа в §2.3.
+
+---
+
+## Итог
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Цикл проверок: пункт 4e — возврат в работу после отказа приёмки
+Итераций: 1 из 30        Вердикт: чистый свип
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Машинная приёмка:  typecheck OK · lint OK · dupes OK (9.20 %) · format OK · unit OK (645)
+                   test:audit OK (97) · vite build OK
+                   e2e ур. 1 OK (168 + 178 при одном разобранном чужом флейке + 77 финально)
+Линзы:             Л1–Л10 подтверждены, каждая с командой и выводом
+Найдено за прогон: 2 (оба из разбора приёмки)   Починено: 2   Отклонено: 0
+В bugs-file ушло:  0 (восемь отложенных перечислены в §4 — они не новые)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```

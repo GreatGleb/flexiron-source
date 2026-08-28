@@ -116,7 +116,7 @@ export const mockBatches = [
     createdAt: '2025-03-15T11:00:00Z',
     updatedAt: '2025-03-15T11:00:00Z',
   },
-  // ── prod-003: Стальная труба 60x4 (3 UoM demo) ──
+  // ── prod-003 (3 UoM demo): Steel Pipe 60x4 ──
   // warehouseUoM = tonnes, saleUoM = kg, factor = 1000 kg/t
   {
     id: 'whb-075',
@@ -136,7 +136,7 @@ export const mockBatches = [
     location: 'Rack: B-12 | Row: 01 | Cell: 01\nNotes: Тяжелый материал — нижний стеллаж',
     certificateRef: null,
     status: 'available',
-    notes: 'Full batch. 10 tonnes of Steel Pipe 60x4. warehouseUoM=t, saleUoM=kg (factor 1000).',
+    notes: 'Full batch, 10 tonnes. warehouseUoM=t, saleUoM=kg (factor 1000).',
     files: [
       {
         id: 'f-inv-012',
@@ -228,7 +228,7 @@ export const mockBatches = [
     location: 'Rack: A-02 | Row: 01 | Cell: 01\nNotes: Также в ячейке 07, ряд 02',
     certificateRef: 'CERT-007',
     status: 'available',
-    notes: 'Galvanized sheet — store indoors to prevent white rust.',
+    notes: 'Store indoors to prevent white rust.',
     files: [
       {
         id: 'f-inv-003',
@@ -329,7 +329,7 @@ export const mockBatches = [
     location: 'Rack: F-01 | Row: 01 | Cell: 01\nNotes: Растянуто по ячейкам 02, 04, 06 ряда 01',
     certificateRef: null,
     status: 'available',
-    notes: 'Plywood — keep dry. Remaining 60m² stored in F-01-01.',
+    notes: 'Keep dry. Remaining 60m² stored in F-01-01.',
     createdAt: '2025-02-01T08:00:00Z',
     updatedAt: '2025-02-01T08:00:00Z',
   },
@@ -351,7 +351,7 @@ export const mockBatches = [
     location: 'Rack: F-01 | Row: 02 | Cell: 01\nNotes: Часть в ячейке 05, ряд 03',
     certificateRef: null,
     status: 'available',
-    notes: 'Second plywood batch from DrevProm. Lower price due to bulk discount.',
+    notes: 'Second batch from DrevProm. Lower price due to bulk discount.',
     createdAt: '2025-04-10T08:00:00Z',
     updatedAt: '2025-04-10T08:00:00Z',
   },
@@ -480,7 +480,7 @@ export const mockBatches = [
     location: 'Rack: A-06 | Row: 01 | Cell: 01\nNotes: Часть материала в ячейках 04-06',
     certificateRef: 'CERT-016',
     status: 'available',
-    notes: 'Stainless steel - handle with care',
+    notes: 'Handle with care.',
     files: [
       {
         id: 'f-inv-012',
@@ -526,7 +526,7 @@ export const mockBatches = [
     location: 'Rack: A-07 | Row: 01 | Cell: 01\nNotes: Также в ячейке 09, ряд 03',
     certificateRef: null,
     status: 'available',
-    notes: 'Aluminium sheet — store separately from carbon steel to avoid contamination.',
+    notes: 'Store separately to avoid contamination.',
     createdAt: '2025-03-20T08:00:00Z',
     updatedAt: '2025-03-20T08:00:00Z',
   },
@@ -549,7 +549,7 @@ export const mockBatches = [
       'Rack: A-08 | Row: 01 | Cell: 01\nNotes: 50% материала на стеллаже B-03, ряд 02, ячейки 04-05',
     certificateRef: null,
     status: 'available',
-    notes: 'Corrugated sheet batch with photo documentation attached.',
+    notes: 'Photo documentation attached.',
     files: [
       {
         id: 'f-pho-014',
@@ -602,7 +602,7 @@ export const mockBatches = [
     location: 'Rack: A-08 | Row: 02 | Cell: 01\nNotes: 30% на стеллаже C-01, ряд 01, ячейка 03',
     certificateRef: null,
     status: 'available',
-    notes: 'Second corrugated batch from ListMet. 30m² consumed.',
+    notes: 'Second batch from ListMet. 30m² consumed.',
     createdAt: '2025-04-15T09:00:00Z',
     updatedAt: '2025-04-15T09:00:00Z',
   },
@@ -671,7 +671,7 @@ export const mockBatches = [
     location: 'Rack: A-10 | Row: 01 | Cell: 01\nNotes: Остаток на стеллаже E-01, ряд 02, ячейка 01',
     certificateRef: null,
     status: 'available',
-    notes: 'Chequer plate — new product in stock. Full batch.',
+    notes: 'New in stock. Full batch.',
     createdAt: '2025-05-01T08:00:00Z',
     updatedAt: '2025-05-01T08:00:00Z',
   },
@@ -800,7 +800,7 @@ export const mockBatches = [
       'Rack: B-05 | Row: 01 | Cell: 01\nNotes: Половина на стеллаже I-01, ряд 02, ячейка 01',
     certificateRef: null,
     status: 'available',
-    notes: 'Full batch from TrubService. Round pipe 50mm.',
+    notes: 'Full batch from TrubService.',
     createdAt: '2025-01-10T08:00:00Z',
     updatedAt: '2025-01-10T08:00:00Z',
   },
@@ -822,7 +822,7 @@ export const mockBatches = [
     location: 'Rack: B-05 | Row: 02 | Cell: 01\nNotes: Часть на стеллаже J-02, ряд 01, ячейка 02',
     certificateRef: null,
     status: 'available',
-    notes: 'Second round pipe batch — lower price than previous (€5.80 vs €6.00/m).',
+    notes: 'Second batch — lower price than previous (€5.80 vs €6.00/m).',
     createdAt: '2025-04-01T08:00:00Z',
     updatedAt: '2025-04-01T08:00:00Z',
   },
@@ -844,7 +844,7 @@ export const mockBatches = [
     location: 'Rack: B-06 | Row: 01 | Cell: 01\nNotes: Требуется погрузчик — верхний ряд',
     certificateRef: null,
     status: 'available',
-    notes: '30m consumed. 76mm diameter — used for handrails.',
+    notes: '30m consumed. Used for handrails.',
     createdAt: '2025-02-20T08:00:00Z',
     updatedAt: '2025-02-20T08:00:00Z',
   },
@@ -936,7 +936,7 @@ export const mockBatches = [
     location: 'Rack: B-08 | Row: 01 | Cell: 01\nNotes: Хрупкий материал — обращаться осторожно',
     certificateRef: 'CERT-030',
     status: 'available',
-    notes: 'Stainless pipe — certificate CERT-030 attached. 10m consumed.',
+    notes: 'Certificate CERT-030 attached. 10m consumed.',
     files: [
       {
         id: 'f-inv-027',
@@ -1040,7 +1040,7 @@ export const mockBatches = [
     location: 'Rack: B-10 | Row: 01 | Cell: 01\nNotes: Тяжелый — максимальная нагрузка на ячейку',
     certificateRef: null,
     status: 'available',
-    notes: '20m consumed. Heavy profile 100×50 — stored at B-10-01.',
+    notes: '20m consumed. Stored at B-10-01.',
     createdAt: '2025-03-20T08:00:00Z',
     updatedAt: '2025-03-20T08:00:00Z',
   },
@@ -1063,7 +1063,7 @@ export const mockBatches = [
       'Rack: B-11 | Row: 01 | Cell: 01\nNotes: Осторожно! Острые края — использовать перчатки',
     certificateRef: null,
     status: 'available',
-    notes: '50m consumed. Most-used pipe size for general fabrication.',
+    notes: '50m consumed. Most-used size for general fabrication.',
     createdAt: '2025-02-25T08:00:00Z',
     updatedAt: '2025-02-25T08:00:00Z',
   },
@@ -1184,7 +1184,7 @@ export const mockBatches = [
     location: 'Rack: C-02 | Row: 02 | Cell: 01\nNotes: Ячейка заблокирована, ожидает перемещения',
     certificateRef: null,
     status: 'partial',
-    notes: '60kg consumed. Electrodes 4mm — used for heavy welding.',
+    notes: '60kg consumed. Used for heavy joints.',
     createdAt: '2025-03-01T08:00:00Z',
     updatedAt: '2025-04-15T08:00:00Z',
   },
@@ -1206,7 +1206,7 @@ export const mockBatches = [
     location: 'Rack: C-03 | Row: 01 | Cell: 01\nNotes: Резерв для производства — не отгружать',
     certificateRef: null,
     status: 'available',
-    notes: '20kg consumed. Wire 0.8mm — used for thin sheet welding.',
+    notes: '20kg consumed. Used on thin stock.',
     createdAt: '2025-01-25T08:00:00Z',
     updatedAt: '2025-01-25T08:00:00Z',
   },
@@ -1228,7 +1228,7 @@ export const mockBatches = [
     location: 'Rack: C-04 | Row: 01 | Cell: 01\nNotes: Занято совместно с whb-078, whb-079',
     certificateRef: null,
     status: 'available',
-    notes: 'Premium electrodes',
+    notes: 'Premium quality.',
     files: [
       {
         id: 'f-inv-037',
@@ -1275,7 +1275,7 @@ export const mockBatches = [
       'Rack: C-04 | Row: 02 | Cell: 01\nNotes: Временно на проходе, ожидает перемещения на стеллаж C-04',
     certificateRef: null,
     status: 'available',
-    notes: 'Full batch. ESAB OK 48.00 — premium quality electrodes.',
+    notes: 'Full batch. OK 48.00 — premium quality.',
     createdAt: '2025-05-05T08:00:00Z',
     updatedAt: '2025-05-05T08:00:00Z',
   },
@@ -1298,7 +1298,7 @@ export const mockBatches = [
       'Rack: C-05 | Row: 01 | Cell: 01\nNotes: Временное хранение, запланировано перемещение в зону A',
     certificateRef: null,
     status: 'available',
-    notes: 'Full batch. Lincoln L-56 wire — compatible with most MIG welders.',
+    notes: 'Full batch. L-56 — compatible with most MIG units.',
     createdAt: '2025-04-20T08:00:00Z',
     updatedAt: '2025-04-20T08:00:00Z',
   },
@@ -1321,7 +1321,7 @@ export const mockBatches = [
       'Rack: C-05 | Row: 02 | Cell: 01\nNotes: Overflow — временно здесь до освобождения основного места',
     certificateRef: null,
     status: 'available',
-    notes: 'Full batch. ESAB OK Autrod 12.64 — for stainless steel welding.',
+    notes: 'Full batch. For corrosion-resistant joints.',
     createdAt: '2025-05-10T08:00:00Z',
     updatedAt: '2025-05-10T08:00:00Z',
   },
@@ -1344,7 +1344,7 @@ export const mockBatches = [
       'Rack: C-06 | Row: 01 | Cell: 01\nNotes: Временное размещение из-за реорганизации склада',
     certificateRef: null,
     status: 'partial',
-    notes: '40kg consumed. Flux for submerged arc welding.',
+    notes: '40kg consumed. Used for submerged arc work.',
     createdAt: '2025-02-15T08:00:00Z',
     updatedAt: '2025-04-01T08:00:00Z',
   },
@@ -1367,7 +1367,7 @@ export const mockBatches = [
       'Rack: C-06 | Row: 02 | Cell: 01\nNotes: Ожидает перемещения на постоянное место в зоне B',
     certificateRef: null,
     status: 'available',
-    notes: 'Full batch. Lincoln 860 flux — 25kg pails. Invoice attached.',
+    notes: 'Full batch. 25kg pails. Invoice attached.',
     files: [
       {
         id: 'f-inv-042',
@@ -1403,7 +1403,7 @@ export const mockBatches = [
       'Rack: C-07 | Row: 01 | Cell: 01\nNotes: Хранить вдали от источников влаги. Не штабелировать более 3 рядов.',
     certificateRef: null,
     status: 'available',
-    notes: 'Full batch. ER70S-6 wire — general purpose MIG wire.',
+    notes: 'Full batch. ER70S-6 — general purpose MIG consumable.',
     createdAt: '2025-05-15T08:00:00Z',
     updatedAt: '2025-05-15T08:00:00Z',
   },
@@ -1504,7 +1504,7 @@ export const mockBatches = [
     location: 'Rack: D-02 | Row: 01 | Cell: 01\nNotes: Не хранить рядом с кислотами и химикатами.',
     certificateRef: null,
     status: 'partial',
-    notes: '5 cylinders consumed. Argon — used for TIG welding.',
+    notes: '5 cylinders consumed. Used for TIG work.',
     createdAt: '2025-02-10T08:00:00Z',
     updatedAt: '2025-03-15T08:00:00Z',
   },
@@ -1527,7 +1527,7 @@ export const mockBatches = [
       'Rack: D-03 | Row: 01 | Cell: 01\nNotes: На карантине — ожидает проверки качества. Не использовать!',
     certificateRef: null,
     status: 'available',
-    notes: 'Full batch. Corgon 18 mix — optimal for MIG welding carbon steel.',
+    notes: 'Full batch. 18% CO₂ blend — optimal for MIG on mild stock.',
     createdAt: '2025-03-20T08:00:00Z',
     updatedAt: '2025-03-20T08:00:00Z',
   },
@@ -1550,7 +1550,7 @@ export const mockBatches = [
       'Rack: D-04 | Row: 01 | Cell: 01\nNotes: Карантин: протокол испытаний не получен. До выяснения.',
     certificateRef: null,
     status: 'partial',
-    notes: '7 cylinders consumed. Oxygen — used for plasma cutting.',
+    notes: '7 cylinders consumed. Used for torch work.',
     files: [
       {
         id: 'f-inv-048',
@@ -1586,7 +1586,7 @@ export const mockBatches = [
       'Rack: D-05 | Row: 01 | Cell: 01\nNotes: Ожидает сертификации. Временное хранение изолированно.',
     certificateRef: null,
     status: 'available',
-    notes: 'Full batch. Propane 50L — used for heating and cutting.',
+    notes: 'Full batch. 50L bottles — used for heating and torch work.',
     createdAt: '2025-04-15T08:00:00Z',
     updatedAt: '2025-04-15T08:00:00Z',
   },
@@ -1691,7 +1691,7 @@ export const mockBatches = [
       'Rack: E-02 | Row: 01 | Cell: 01\nNotes: Перемешано с электродами 4мм (партия whb-035)',
     certificateRef: null,
     status: 'partial',
-    notes: '60 pcs consumed. Grinding wheels 125mm.',
+    notes: '60 pcs consumed. High usage in the fabrication bay.',
     createdAt: '2025-02-20T08:00:00Z',
     updatedAt: '2025-04-01T08:00:00Z',
   },
@@ -1713,7 +1713,7 @@ export const mockBatches = [
     location: 'Rack: E-02 | Row: 02 | Cell: 01',
     certificateRef: null,
     status: 'available',
-    notes: 'Fresh batch. New stock of grinding wheels.',
+    notes: 'Fresh batch. Restocked after the January runout.',
     createdAt: '2025-05-01T08:00:00Z',
     updatedAt: '2025-05-01T08:00:00Z',
   },
@@ -1737,7 +1737,7 @@ export const mockBatches = [
     location: 'Rack: F-02 | Row: 01 | Cell: 01',
     certificateRef: null,
     status: 'available',
-    notes: '20 pcs consumed. HSS drill bits 10mm — high demand size.',
+    notes: '20 pcs consumed. High demand size.',
     files: [
       {
         id: 'f-inv-055',
@@ -1981,7 +1981,7 @@ export const mockBatches = [
     location: 'Rack: G-03 | Row: 02 | Cell: 01',
     certificateRef: 'CERT-064',
     status: 'available',
-    notes: 'Full batch of 2 units. Certificate CERT-064 attached. ESAB Rebel EMP 235.',
+    notes: 'Full batch of 2 units. Certificate CERT-064 attached.',
     files: [
       {
         id: 'f-inv-061',
@@ -2029,7 +2029,7 @@ export const mockBatches = [
     location: 'Rack: H-01 | Row: 01 | Cell: 01',
     certificateRef: 'CERT-065',
     status: 'available',
-    notes: 'Full batch. IPE 200 beam — certificate CERT-065 attached.',
+    notes: 'Full batch. IPE 200 — certificate CERT-065 attached.',
     files: [
       {
         id: 'f-inv-062',
@@ -2075,7 +2075,7 @@ export const mockBatches = [
     location: 'Rack: H-02 | Row: 01 | Cell: 01',
     certificateRef: 'CERT-066',
     status: 'available',
-    notes: 'Full batch. HEA 300 heavy beam — certificate CERT-066 attached.',
+    notes: 'Full batch. HEA 300 — certificate CERT-066 attached.',
     files: [
       {
         id: 'f-inv-063',
@@ -2121,7 +2121,7 @@ export const mockBatches = [
     location: 'Rack: H-03 | Row: 01 | Cell: 01',
     certificateRef: null,
     status: 'available',
-    notes: '15m consumed. UPN 100 channel — used for framing.',
+    notes: '15m consumed. UPN 100 — used for framing.',
     createdAt: '2025-02-15T08:00:00Z',
     updatedAt: '2025-02-15T08:00:00Z',
   },
@@ -2143,7 +2143,7 @@ export const mockBatches = [
     location: 'Rack: H-04 | Row: 01 | Cell: 01',
     certificateRef: null,
     status: 'available',
-    notes: 'Full batch. UPN 200 heavy channel.',
+    notes: 'Full batch. UPN 200 — heavy section.',
     createdAt: '2025-04-20T08:00:00Z',
     updatedAt: '2025-04-20T08:00:00Z',
   },
@@ -2165,7 +2165,7 @@ export const mockBatches = [
     location: 'Rack: H-05 | Row: 01 | Cell: 01',
     certificateRef: null,
     status: 'available',
-    notes: '20m consumed. Equal angle 50×50×5 — versatile size.',
+    notes: '20m consumed. 50×50×5 — versatile size.',
     files: [
       {
         id: 'f-inv-066',
@@ -2200,7 +2200,7 @@ export const mockBatches = [
     location: 'Rack: H-06 | Row: 01 | Cell: 01',
     certificateRef: null,
     status: 'available',
-    notes: 'Full batch. Unequal angle 80×60×6 — special size.',
+    notes: 'Full batch. 80×60×6 — special size.',
     createdAt: '2025-03-25T08:00:00Z',
     updatedAt: '2025-03-25T08:00:00Z',
   },
@@ -2224,7 +2224,7 @@ export const mockBatches = [
     location: 'Rack: I-01 | Row: 01 | Cell: 01',
     certificateRef: 'CERT-071',
     status: 'available',
-    notes: '800kg consumed. Rebar A500C 12mm — certificate CERT-071 attached.',
+    notes: '800kg consumed. Certificate CERT-071 attached.',
     files: [
       {
         id: 'f-inv-068',
@@ -2270,7 +2270,7 @@ export const mockBatches = [
     location: 'Rack: I-02 | Row: 01 | Cell: 01',
     certificateRef: 'CERT-072',
     status: 'available',
-    notes: 'Full batch. Rebar B500C 16mm — certificate CERT-072 attached.',
+    notes: 'Full batch. Certificate CERT-072 attached.',
     files: [
       {
         id: 'f-inv-069',
@@ -2307,7 +2307,7 @@ export const mockBatches = [
     location: 'Rack: J-01 | Row: 01 | Cell: 01',
     certificateRef: null,
     status: 'available',
-    notes: '20m consumed. Square tube 40×40×3 — common size for frames.',
+    notes: '20m consumed. 40×40×3 — common size for frames.',
     files: [
       {
         id: 'f-inv-070',
@@ -2342,7 +2342,7 @@ export const mockBatches = [
     location: 'Rack: J-02 | Row: 01 | Cell: 01',
     certificateRef: null,
     status: 'available',
-    notes: 'Full batch. Rectangular tube 80×40×4 — heavy duty profile.',
+    notes: 'Full batch. 80×40×4 — heavy duty section.',
     createdAt: '2025-04-15T08:00:00Z',
     updatedAt: '2025-04-15T08:00:00Z',
   },
@@ -2364,7 +2364,7 @@ export const mockBatches = [
     location: 'Rack: J-03 | Row: 01 | Cell: 01',
     certificateRef: null,
     status: 'available',
-    notes: '50kg consumed. Galvanized wire 3mm — used for binding and fencing.',
+    notes: '50kg consumed. Used for binding and fencing.',
     createdAt: '2025-03-10T08:00:00Z',
     updatedAt: '2025-03-10T08:00:00Z',
   },
@@ -2388,7 +2388,7 @@ export const mockBatches = [
     location: 'Rack: K-01 | Row: 01 | Cell: 01',
     certificateRef: null,
     status: 'available',
-    notes: '30 pcs consumed. Elbow 90° DN50 — used in piping project.',
+    notes: '30 pcs consumed. DN50 — used in a piping project.',
     files: [
       {
         id: 'f-inv-073',
@@ -2423,11 +2423,11 @@ export const mockBatches = [
     location: 'Rack: K-02 | Row: 01 | Cell: 01',
     certificateRef: null,
     status: 'available',
-    notes: 'Full batch. Flange DN100 PN16 — high pressure rating.',
+    notes: 'Full batch. DN100 PN16 — high pressure rating.',
     createdAt: '2025-04-01T08:00:00Z',
     updatedAt: '2025-04-01T08:00:00Z',
   },
-  // ── prod-004: Труба стальная 50мм / Steel pipe 50mm / Plieninis vamzdis 50mm ──
+  // ── prod-004: Steel Pipe 100x5 ──
   {
     id: 'whb-077',
     productId: 'prod-004',
@@ -2446,7 +2446,7 @@ export const mockBatches = [
     location: 'Rack: B-01 | Row: 01 | Cell: 01',
     certificateRef: 'CERT-078',
     status: 'available',
-    notes: 'Steel pipe 50mm, schedule 40. Partial consumption for order #ORD-2025-031.',
+    notes: 'Schedule 40. Partial consumption for order #ORD-2025-031.',
     files: [
       {
         id: 'f-inv-078',
@@ -2539,7 +2539,7 @@ export const mockBatches = [
     createdAt: '2025-05-10T08:00:00Z',
     updatedAt: '2025-05-10T08:00:00Z',
   },
-  // ── prod-006: Электроды сварочные 3мм / Welding electrodes 3mm / Suvirinimo elektrodai 3mm ──
+  // ── prod-006: Cutting Oil ──
   {
     id: 'whb-080',
     productId: 'prod-006',
@@ -2558,7 +2558,7 @@ export const mockBatches = [
     location: 'Rack: C-01 | Row: 01 | Cell: 01',
     certificateRef: null,
     status: 'available',
-    notes: 'Standard welding electrodes 3mm. Partial consumption.',
+    notes: 'Standard quality. Partial consumption.',
     files: [
       {
         id: 'f-inv-081',
@@ -2594,7 +2594,7 @@ export const mockBatches = [
     createdAt: '2025-04-20T08:00:00Z',
     updatedAt: '2025-04-20T08:00:00Z',
   },
-  // ── prod-007: Аргон газообразный / Argon gas / Argono dujos ──
+  // ── prod-007: Angle Grinder 125mm ──
   {
     id: 'whb-082',
     productId: 'prod-007',
@@ -2613,7 +2613,7 @@ export const mockBatches = [
     location: 'Rack: D-01 | Row: 01 | Cell: 01',
     certificateRef: null,
     status: 'available',
-    notes: 'Argon cylinder 40L, full.',
+    notes: 'Full batch, unopened.',
     files: [
       {
         id: 'f-inv-083',
@@ -2626,7 +2626,7 @@ export const mockBatches = [
     createdAt: '2025-03-25T08:00:00Z',
     updatedAt: '2025-03-25T08:00:00Z',
   },
-  // ── prod-008: Круги отрезные 230мм / Cut-off wheels 230mm / Pjovimo diskai 230mm ──
+  // ── prod-008: Galvanized Sheet 1.5mm ──
   {
     id: 'whb-083',
     productId: 'prod-008',
@@ -2645,12 +2645,12 @@ export const mockBatches = [
     location: 'Rack: E-01 | Row: 01 | Cell: 01',
     certificateRef: null,
     status: 'available',
-    notes: 'Cut-off wheels 230x3x22mm. Full pack.',
+    notes: 'Full pack.',
     files: [],
     createdAt: '2025-04-05T08:00:00Z',
     updatedAt: '2025-04-05T08:00:00Z',
   },
-  // ── prod-010: Балка двутавровая 20 / I-beam 20 / Dvitėjinė sija 20 ──
+  // ── prod-010: Steel Sheet S355 5mm 1500×3000 ──
   {
     id: 'whb-084',
     productId: 'prod-010',
@@ -2669,7 +2669,7 @@ export const mockBatches = [
     location: 'Rack: F-01 | Row: 01 | Cell: 01',
     certificateRef: 'CERT-085',
     status: 'available',
-    notes: 'I-beam 200mm. Partial consumption for structural frame.',
+    notes: 'Partial consumption for a structural frame.',
     files: [
       {
         id: 'f-inv-085',
@@ -2705,7 +2705,7 @@ export const mockBatches = [
     createdAt: '2025-04-10T08:00:00Z',
     updatedAt: '2025-04-10T08:00:00Z',
   },
-  // ── prod-011: Швеллер 12 / Channel 12 / Kanalas 12 ──
+  // ── prod-011: Steel Sheet S355 8mm 2000×6000 ──
   {
     id: 'whb-086',
     productId: 'prod-011',
@@ -2724,7 +2724,7 @@ export const mockBatches = [
     location: 'Rack: F-02 | Row: 01 | Cell: 01',
     certificateRef: null,
     status: 'available',
-    notes: 'Channel 120mm. Partially used.',
+    notes: 'Partially used.',
     files: [
       {
         id: 'f-inv-087',
@@ -2760,7 +2760,7 @@ export const mockBatches = [
     createdAt: '2025-05-01T08:00:00Z',
     updatedAt: '2025-05-01T08:00:00Z',
   },
-  // ── prod-012: Арматура 12мм / Rebar 12mm / Armatūra 12mm ──
+  // ── prod-012: Steel Sheet S235 2mm 1250×2500 ──
   {
     id: 'whb-088',
     productId: 'prod-012',
@@ -2779,7 +2779,7 @@ export const mockBatches = [
     location: 'Rack: G-01 | Row: 01 | Cell: 01',
     certificateRef: 'CERT-089',
     status: 'available',
-    notes: 'Rebar A500C. Partial consumption.',
+    notes: 'Partial consumption.',
     files: [
       {
         id: 'f-inv-089',
@@ -2838,7 +2838,7 @@ export const mockBatches = [
     createdAt: '2025-05-15T08:00:00Z',
     updatedAt: '2025-05-15T08:00:00Z',
   },
-  // ── prod-013: Профиль стальной 40x40 / Steel profile 40x40 / Plieninis profilis 40x40 ──
+  // ── prod-013: Steel Sheet S235 10mm 1500×3000 ──
   {
     id: 'whb-091',
     productId: 'prod-013',
@@ -2857,7 +2857,7 @@ export const mockBatches = [
     location: 'Rack: H-01 | Row: 01 | Cell: 01',
     certificateRef: null,
     status: 'available',
-    notes: 'Square tube 40x40x3. Partial consumption.',
+    notes: 'Partial consumption for a frame order.',
     files: [
       {
         id: 'f-inv-092',
@@ -2911,7 +2911,7 @@ export const mockBatches = [
     createdAt: '2025-04-20T08:00:00Z',
     updatedAt: '2025-04-20T08:00:00Z',
   },
-  // ── prod-014: Фитинг стальной 1/2" / Steel fitting 1/2" / Plieninė jungtis 1/2" ──
+  // ── prod-014: Cold-rolled Sheet 1mm DC01 ──
   {
     id: 'whb-093',
     productId: 'prod-014',
@@ -2930,7 +2930,7 @@ export const mockBatches = [
     location: 'Rack: I-01 | Row: 01 | Cell: 01',
     certificateRef: null,
     status: 'available',
-    notes: 'Steel fitting 1/2" NPT. Partial consumption.',
+    notes: 'Partial consumption for a piping order.',
     files: [
       {
         id: 'f-inv-094',
@@ -2966,7 +2966,7 @@ export const mockBatches = [
     createdAt: '2025-05-05T08:00:00Z',
     updatedAt: '2025-05-05T08:00:00Z',
   },
-  // ── prod-015: Уголок стальной 50x50 / Steel angle 50x50 / Plieninis kampas 50x50 ──
+  // ── prod-015: Galvanized Sheet 0.8mm DX51D ──
   {
     id: 'whb-095',
     productId: 'prod-015',
@@ -2985,7 +2985,7 @@ export const mockBatches = [
     location: 'Rack: J-01 | Row: 01 | Cell: 01',
     certificateRef: null,
     status: 'available',
-    notes: 'Equal angle 50x50x5. Partial consumption.',
+    notes: 'Partial consumption for a bracket order.',
     files: [
       {
         id: 'f-inv-096',
@@ -3021,7 +3021,7 @@ export const mockBatches = [
     createdAt: '2025-05-01T08:00:00Z',
     updatedAt: '2025-05-01T08:00:00Z',
   },
-  // ── prod-016: Кислород газообразный / Oxygen gas / Deguonies dujos ──
+  // ── prod-016: Steel Sheet S355 6mm 2000×4000 ──
   {
     id: 'whb-097',
     productId: 'prod-016',
@@ -3040,7 +3040,7 @@ export const mockBatches = [
     location: 'Rack: D-02 | Row: 01 | Cell: 01',
     certificateRef: null,
     status: 'available',
-    notes: 'Oxygen cylinder 40L. 2 cylinders consumed.',
+    notes: '2 units consumed.',
     files: [
       {
         id: 'f-inv-098',
@@ -3053,7 +3053,7 @@ export const mockBatches = [
     createdAt: '2025-04-01T08:00:00Z',
     updatedAt: '2025-04-01T08:00:00Z',
   },
-  // ── prod-017: Дрель ударная / Hammer drill / Perforatorius ──
+  // ── prod-017: Aluminium Sheet 3mm 1200×2400 ──
   {
     id: 'whb-098',
     productId: 'prod-017',
@@ -3072,7 +3072,7 @@ export const mockBatches = [
     location: 'Rack: K-01 | Row: 01 | Cell: 01',
     certificateRef: null,
     status: 'available',
-    notes: 'Bosch hammer drill GBH 2-26. 3 units in stock.',
+    notes: '3 units in stock.',
     files: [
       {
         id: 'f-inv-099',
@@ -3085,7 +3085,7 @@ export const mockBatches = [
     createdAt: '2025-03-01T08:00:00Z',
     updatedAt: '2025-03-01T08:00:00Z',
   },
-  // ── prod-018: Болгарка угловая / Angle grinder / Kampinis šlifuoklis ──
+  // ── prod-018: Stainless Sheet 2mm 304 ──
   {
     id: 'whb-099',
     productId: 'prod-018',
@@ -3104,7 +3104,7 @@ export const mockBatches = [
     location: 'Rack: K-01 | Row: 02 | Cell: 01',
     certificateRef: null,
     status: 'available',
-    notes: 'Makita angle grinder GA7020. 2 units.',
+    notes: '2 units in stock.',
     files: [
       {
         id: 'f-inv-100',
@@ -3117,7 +3117,7 @@ export const mockBatches = [
     createdAt: '2025-02-15T08:00:00Z',
     updatedAt: '2025-02-15T08:00:00Z',
   },
-  // ── prod-019: Сварочный аппарат / Welding machine / Suvirinimo aparatas ──
+  // ── prod-019: Copper Sheet 1mm ──
   {
     id: 'whb-100',
     productId: 'prod-019',
@@ -3136,7 +3136,7 @@ export const mockBatches = [
     location: 'Rack: L-01 | Row: 01 | Cell: 01',
     certificateRef: null,
     status: 'available',
-    notes: 'MIG welder 250A. Single unit, fully available.',
+    notes: 'Single unit, fully available.',
     files: [
       {
         id: 'f-inv-101',

@@ -1743,7 +1743,7 @@ const mockMovements_SEED: AuditSeeded<WarehouseMovement>[] = [
       },
     ],
   },
-  // ── whb-001 (Steel sheet 2mm, 1000 kg) — all movement types ────────────
+  // ── whb-001 (prod-001, 1000 kg) — all movement types ───────────────────
   {
     id: 'whm-100',
     type: 'sale',
