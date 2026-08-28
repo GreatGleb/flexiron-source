@@ -25,7 +25,6 @@ import type {
   LineEditEnvelope,
 } from '@/types/order'
 import type { CostSource } from '@/types/order'
-import type { Receivable } from '@/types/finance'
 import type { StockReservation } from '@/types/warehouse'
 import type { PaginatedResponse, PaginationParams } from '@/types/api'
 import {
@@ -51,7 +50,6 @@ import {
   computeAvailable,
   syncLineState,
 } from '@/domain/orderPricing'
-import { receivableDueDate, receivableStatus } from '@/domain/receivable'
 import {
   baseCurrencyOf,
   buildOrderItem as buildItem,
@@ -1196,12 +1194,8 @@ function buildShowcaseOrder(): void {
     }
   }
 
-  // Держится в переменной, потому что аванс ниже платится ИМЕННО по нему: платёж
-  // без ссылки на документ не закрывает ничей долг, и реестр входящих показал бы
-  // проформу на 1500 неоплаченной рядом с пришедшими 1500.
-  let advance: Invoice | null = null
   try {
-    advance = mockCreateInvoice(order.id, { kind: 'advance', amountGross: 1500 })
+    mockCreateInvoice(order.id, { kind: 'advance', amountGross: 1500 })
   } catch {
     /* nothing to advance against */
   }
@@ -1214,7 +1208,7 @@ function buildShowcaseOrder(): void {
       /* refused — the demo does without this record */
     }
   }
-  pay(1500, 'advance', 'Advance against the proforma', advance?.id)
+  pay(1500, 'advance', 'Advance against the proforma')
   pay(2000, 'balance', 'Part payment on the first delivery', regular?.id)
   // A refund is a negative amount, never a deleted payment: money that went back
   // is a fact, and facts are not removed from the record.
@@ -3936,28 +3930,11 @@ function servicesNet(services: OrderService[]): number {
  * adjustment left standing against a document that no longer exists is money on
  * no paper, which is the whole disease this module is being treated for.
  */
-function outstandingAmountOf(
-  order: StoreOrder,
-  invoice: Invoice,
-  field: 'amountNet' | 'amountGross',
-): number {
-  return order.invoices.reduce(
-    (sum, i) => (i.correctsInvoiceId === invoice.id ? round2(sum + i[field]) : sum),
-    invoice[field],
-  )
-}
-
 function outstandingNetOf(order: StoreOrder, invoice: Invoice): number {
-  return outstandingAmountOf(order, invoice, 'amountNet')
-}
-
-/**
- * То же, но в том, что платит клиент: реестр входящих сравнивает сумму счёта с
- * поступившими деньгами, а деньги приходят с НДС. Считать «нетто против брутто»
- * значило бы объявлять оплаченным счёт, по которому не хватает как раз налога.
- */
-function outstandingGrossOf(order: StoreOrder, invoice: Invoice): number {
-  return outstandingAmountOf(order, invoice, 'amountGross')
+  return order.invoices.reduce(
+    (sum, i) => (i.correctsInvoiceId === invoice.id ? round2(sum + i.amountNet) : sum),
+    invoice.amountNet,
+  )
 }
 
 /**
@@ -4265,73 +4242,4 @@ export function orderAuditSources(): AuditSource[] {
     entityLabel: o.orderNumber,
     log: o.auditLog,
   }))
-}
-
-// ─── Реестр входящих: счета заказов, а не отдельные записи ──────────────────
-
-/**
- * Счета к получению по всем заказам — то, из чего страница «Входящие» строит
- * свои строки (пункт 13 плана `review-followups.md`).
- *
- * Живёт здесь по той же причине, что и `orderAuditSources`: счета принадлежат
- * заказу, и «какой документ клиент ещё держит» — вопрос про корректировки,
- * ответ на который уже записан в этом файле (`isWithdrawn`, `outstandingGrossOf`).
- * Второй экземпляр этого правила в финансовом моке разошёлся бы с первым в тот
- * день, когда корректировки поменяются.
- *
- * Что НЕ попадает в реестр:
- * - корректировка сама по себе — она не самостоятельный долг, а поправка к сумме
- *   исходного счёта, и уже учтена в ней;
- * - счёт, отозванный корректировкой на зеркальную сумму: клиент не держит ничего,
- *   значит и требовать по нему нечего.
- */
-export function orderReceivables(): Receivable[] {
-  const rows: Receivable[] = []
-  for (const order of STORE) {
-    for (const invoice of order.invoices) {
-      if (invoice.kind === 'correction') continue
-      if (isWithdrawn(order, invoice.id)) continue
-
-      // Деньги, пришедшие ИМЕННО по этому документу. Аванс, не привязанный ни к
-      // одному счёту, ничей долг не закрывает: он виден в заказе, но реестр
-      // отвечает за «сколько пришло по этому счёту», а не «сколько пришло вообще».
-      const paidRecords = order.payments
-        .filter((p) => p.invoiceId === invoice.id)
-        .sort((a, b) => a.paidAt.localeCompare(b.paidAt))
-      const amount = round2(outstandingGrossOf(order, invoice))
-      const paidAmount = round2(paidRecords.reduce((sum, p) => round2(sum + p.amount), 0))
-      const dueDate = receivableDueDate(invoice.issuedAt, order.clientPaymentTermsDays)
-
-      // Дата закрытия — платёж, на котором накопленная сумма впервые покрыла счёт.
-      // Последний платёж на эту роль не годится: после закрытия по счёту может
-      // пройти возврат, и тогда «оплачен» датировался бы днём, когда деньги ушли.
-      let running = 0
-      let paidAt: string | null = null
-      for (const record of paidRecords) {
-        running = round2(running + record.amount)
-        if (running >= amount) {
-          paidAt = record.paidAt
-          break
-        }
-      }
-
-      rows.push({
-        id: invoice.id,
-        invoiceNumber: invoice.number,
-        issuedAt: invoice.issuedAt,
-        dueDate,
-        orderId: order.id,
-        orderNumber: order.orderNumber,
-        clientId: order.clientId,
-        clientName: order.clientName,
-        currency: order.currency,
-        amount,
-        paidAmount,
-        outstandingAmount: Math.max(0, round2(amount - paidAmount)),
-        paidAt: paidAmount >= amount ? paidAt : null,
-        status: receivableStatus({ amount, paidAmount, dueDate }),
-      })
-    }
-  }
-  return rows
 }

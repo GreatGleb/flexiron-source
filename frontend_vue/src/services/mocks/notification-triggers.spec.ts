@@ -11,7 +11,7 @@ import {
 import { mockCreateBatch, recordShortage } from './warehouse'
 import { mockAcceptResponse, mockGetBccHistory } from './bcc'
 import { mockGetClients } from './clients'
-import { mockGetPayment, mockGetReceivables, mockPatchPayment } from './finance'
+import { mockGetPayment, mockPatchPayment } from './finance'
 import type { Notification, NotificationType } from '@/types/notifications'
 
 /**
@@ -206,31 +206,29 @@ describe('готовность склада', () => {
 })
 
 describe('просрочка оплаты', () => {
-  it('просроченный счёт заказа пишет уведомление со сроком и ссылкой на заказ', () => {
-    // Реестр входящих своего хранилища не имеет: просрочку он ВЫЧИСЛЯЕТ по счетам
-    // заказов. Уведомление пишется в момент, когда факт впервые посчитан.
+  it('переход в «просрочен» пишет уведомление со сроком и ссылкой на заказ', () => {
+    // Сид раздаёт статус случайно, поэтому исходное состояние задаётся явно:
+    // проверяется ПЕРЕХОД, а не то, каким платёж родился.
+    mockPatchPayment('pay-in-1', { status: 'pending' })
+    const payment = mockGetPayment('pay-in-1')
     const before = feed('payment_overdue').length
-    const overdue = mockGetReceivables({ search: '', status: 'overdue', pageSize: 100 }).items
-    expect(overdue.length).toBeGreaterThan(0)
+
+    mockPatchPayment('pay-in-1', { status: 'overdue' })
 
     const after = feed('payment_overdue')
-    expect(after.length).toBe(before + overdue.length)
-
-    const newest = after[0]!
-    const row = overdue.find((r) => newest.entityId === r.orderId)!
-    expect(row).toBeDefined()
-    expect(newest.message.en).toContain(row.orderNumber)
-    expect(newest.message.en).toContain(row.dueDate.slice(0, 10))
-    expect(newest.entityRouteName).toBe('admin-order-card')
+    expect(after.length).toBe(before + 1)
+    expect(after[0]!.message.en).toContain(payment.orderNumber!)
+    expect(after[0]!.message.en).toContain(payment.dueDate.slice(0, 10))
+    expect(after[0]!.entityId).toBe(payment.orderId)
+    expect(after[0]!.entityRouteName).toBe('admin-order-card')
   })
 
-  it('тот же счёт, прочитанный второй раз, ничего не пишет', () => {
-    // Первое чтение уже состоялось выше — но проверка не должна зависеть от
-    // порядка: читаем дважды здесь и сравниваем второе чтение с первым.
-    mockGetReceivables({ search: '', status: 'all', pageSize: 100 })
+  it('платёж, уже бывший просроченным, при правке заметки ничего не пишет', () => {
+    mockPatchPayment('pay-in-2', { status: 'overdue' })
     const after = feed('payment_overdue').length
 
-    mockGetReceivables({ search: '', status: 'all', pageSize: 100 })
+    mockPatchPayment('pay-in-2', { notes: 'звонили клиенту' })
+    mockPatchPayment('pay-in-2', { status: 'overdue' })
 
     expect(feed('payment_overdue').length).toBe(after)
   })

@@ -1805,38 +1805,17 @@ consumed        = Σ material + cuts × kerf + waste
 
 Управление платежами (входящими/исходящими) и архивом документов.
 
-Pages: `IncomingPaymentsPage.vue`, `OutgoingPaymentsPage.vue`, `DocumentArchivePage.vue`, `OutgoingPaymentCardPage.vue`.
+Pages: `IncomingPaymentsPage.vue`, `OutgoingPaymentsPage.vue`, `DocumentArchivePage.vue`, `IncomingPaymentCardPage.vue`, `OutgoingPaymentCardPage.vue`.
 Service: [`financeService.ts`](frontend_vue/src/services/financeService.ts).
 Mock: [`mocks/finance.ts`](frontend_vue/src/services/mocks/finance.ts).
 
-## Модель: у одной суммы один владелец
-
-Раздел состоит из двух разных сущностей, и путать их нельзя (пункт 13 плана
-[`review-followups.md`](../plans/general/review-followups.md)):
-
-- **Входящие** — это **представление над счетами заказов**, своего хранилища у них нет.
-  Строка реестра = счёт (`Order.invoices[]`): его номер, дата и сумма. Срок оплаты выводится
-  из условий оплаты клиента (`Order.clientPaymentTermsDays`), поступления — из платежей
-  заказа (`Order.payments[]`), привязанных к этому счёту (`Payment.invoiceId`). **Статус не
-  хранится**, а вычисляется (`domain/receivable.ts`): оплат меньше суммы и срок прошёл →
-  `overdue`, сумма платежей ≥ суммы счёта → `completed`, иначе `pending`. Частичная оплата
-  видна двумя суммами (`paidAmount` из `amount`), отдельного статуса не имеет.
-  Корректировка своей строки не заводит — она поправляет сумму исходного счёта; счёт,
-  отозванный корректировкой (`withdrawsOriginal`), в реестре не показывается вовсе.
-  Карточки у строки нет: подробности живут в карточке заказа, туда и ведёт ссылка.
-- **Исходящие** — самостоятельные записи с ручным вводом: заказа поставщику в системе нет
-  (Purchase Orders отложены), выводить их не из чего. У них хранится и статус, и `dueDate`,
-  и заметки с документами.
-
 Типы из [`types/finance.ts`](frontend_vue/src/types/finance.ts):
 - `PaymentDirection` = `'incoming' | 'outgoing'`
-- `PaymentStatus` = `'pending' | 'completed' | 'overdue' | 'cancelled'` — статус **исходящего** платежа
+- `PaymentStatus` = `'pending' | 'completed' | 'overdue' | 'cancelled'`
 - `PaymentDocument` — файл, прикреплённый к платежу (`id`, `name`, `fileId`, `url`, `size`, `mime`, `uploadedAt`)
-- `FinancePayment` — полная карточка исходящего платежа
+- `FinancePayment` — полная карточка платежа
 - `FinancePaymentListItem` — строка списка платежей (без documents, notes)
-- `FinanceListFilters` — `{ search, status }`, общие для обеих таблиц
-- `ReceivableStatus` = `'pending' | 'overdue' | 'completed'` — вычисляемый статус счёта
-- `Receivable` — строка реестра входящих
+- `FinancePaymentFilters` — параметры фильтрации
 - `ArchiveDocumentType` = `'invoice' | 'facture' | 'waybill' | 'cmr' | 'other'`
 - `FinanceDocumentArchiveItem` — строка архива документов
 
@@ -1848,61 +1827,20 @@ Mock: [`mocks/finance.ts`](frontend_vue/src/services/mocks/finance.ts).
 
 ---
 
-## Реестр входящих
-
-### GET /api/finance/receivables
-
-- **Когда:** загрузка `IncomingPaymentsPage` (`onMounted`), изменение search/status фильтра (debounce 300 мс для search), смена page/pageSize.
-- **Query:**
-  ```ts
-  {
-    search?: string         // по invoiceNumber, clientName, orderNumber (LIKE)
-    status?: ReceivableStatus | 'all'
-    page: string            // "1"
-    pageSize: string        // "25" | "50" | "100"
-  }
-  ```
-- **Response 200:** `PaginatedResponse<Receivable>`
-  ```json
-  {
-    "success": true,
-    "data": {
-      "items": [
-        {
-          "id": "ORD-100-INV-1",
-          "invoiceNumber": "ORD-2026-100/INV-1",
-          "issuedAt": "2026-08-11T09:12:00Z",
-          "dueDate": "2026-09-10T09:12:00Z",
-          "orderId": "ORD-100",
-          "orderNumber": "ORD-2026-100",
-          "clientId": "CL-001",
-          "clientName": "UAB Metalica",
-          "currency": "EUR",
-          "amount": 2129.57,
-          "paidAmount": 2000.00,
-          "outstandingAmount": 129.57,
-          "paidAt": null,
-          "status": "pending"
-        }
-      ],
-      "total": 3, "page": 1, "pageSize": 25, "totalPages": 1
-    }
-  }
-  ```
-- **Notes:** Read-only, мутаций нет — деньги регистрируются в карточке заказа (`POST /api/orders/:id/payments`), документы выставляются там же (`POST /api/orders/:id/invoices`). Сортировка `dueDate ASC` — ближайший срок сверху. `status` и `dueDate` **вычисляются сервером на выдаче**, в базе их нет.
-
----
-
-## Список платежей поставщикам
+## Список платежей
 
 ### GET /api/finance/payments
 
-- **Когда:** загрузка `OutgoingPaymentsPage` (`onMounted`), изменение search/status фильтра (debounce 300 мс), смена page/pageSize.
+- **Когда:** загрузка `IncomingPaymentsPage` / `OutgoingPaymentsPage` (`onMounted`), изменение search/status фильтра (debounce 300 мс), смена page/pageSize.
 - **Query:**
   ```ts
   {
-    search?: string         // по paymentNumber, counterpartyName, supplierInvoiceRef (LIKE)
+    direction: 'incoming' | 'outgoing' | 'all'
+    search?: string         // по paymentNumber, counterpartyName, orderNumber (LIKE)
     status?: PaymentStatus | 'all'
+    counterpartyId?: string
+    dateFrom?: string       // ISO
+    dateTo?: string         // ISO
     page: string            // "1"
     pageSize: string        // "25" | "50" | "100"
   }
@@ -1914,33 +1852,33 @@ Mock: [`mocks/finance.ts`](frontend_vue/src/services/mocks/finance.ts).
     "data": {
       "items": [
         {
-          "id": "pay-out-1",
+          "id": "pay-in-1",
           "paymentNumber": "PAY-2026-001",
-          "direction": "outgoing",
-          "status": "completed",
-          "amount": 18450.00,
+          "direction": "incoming",
+          "status": "pending",
+          "amount": 5000.00,
           "currency": "EUR",
-          "counterpartyName": "ArcelorMittal",
-          "orderNumber": null,
-          "supplierInvoiceRef": "INV-SUP-2026-014",
-          "dueDate": "2026-08-07T00:00:00Z",
-          "paidAt": "2026-08-09T00:00:00Z",
+          "counterpartyName": "UAB Metalica",
+          "orderNumber": "ORD-2026-001",
+          "supplierInvoiceRef": null,
+          "dueDate": "2026-06-01T00:00:00Z",
+          "paidAt": null,
           "documentCount": 2
         }
       ],
-      "total": 5, "page": 1, "pageSize": 25, "totalPages": 1
+      "total": 87, "page": 1, "pageSize": 25, "totalPages": 4
     }
   }
   ```
-- **Notes:** Только исходящие. Входящие сюда не попадают: они не записи, а представление — см. `GET /api/finance/receivables`. Сортировка фиксированная — `dueDate ASC`. Пагинация обязательна.
+- **Notes:** Сортировка фиксированная — `dueDate ASC` (ближайшие сверху) или `createdAt DESC` (на усмотрение бэкенда). Пагинация обязательна.
 
 ---
 
-## Карточка платежа поставщику
+## Карточка платежа
 
 ### GET /api/finance/payments/:id
 
-- **Когда:** `onMounted` карточки платежа (`OutgoingPaymentCardPage`).
+- **Когда:** `onMounted` карточки платежа (`IncomingPaymentCardPage`, `OutgoingPaymentCardPage`).
 - **Response 200:** `FinancePayment` (включая `documents[]`, `notes`).
   ```json
   {
@@ -1982,7 +1920,7 @@ Mock: [`mocks/finance.ts`](frontend_vue/src/services/mocks/finance.ts).
 
 ### PATCH /api/finance/payments/:id
 
-- **Когда:** клик Save на карточке платежа поставщика (`saveChanges()`), только если `isDirty`.
+- **Когда:** клик Save на карточке платежа (`saveChanges()`), только если `isDirty`.
 - **Body:** dirty-only delta:
   ```ts
   {
@@ -2054,11 +1992,11 @@ Mock: [`mocks/finance.ts`](frontend_vue/src/services/mocks/finance.ts).
 
 ## Save UX — Finance
 
-**Payment list pages** (`IncomingPaymentsPage`, `OutgoingPaymentsPage`) — read-only с серверной фильтрацией (search debounce 300 мс, статус). Никаких мутаций. У реестра входящих мутаций не может быть в принципе: своего хранилища у него нет.
+**Payment list pages** (`IncomingPaymentsPage`, `OutgoingPaymentsPage`) — read-only с серверной фильтрацией (search debounce 300 мс, статус). Никаких мутаций.
 
 **Document Archive** (`DocumentArchivePage`) — read-only с серверной фильтрацией.
 
-**Payment card page** (`OutgoingPaymentCardPage`) — **clean-slate** (как SupplierCardPage, см. «Save UX / Clean-slate»):
+**Payment card pages** (`IncomingPaymentCardPage`, `OutgoingPaymentCardPage`) — **clean-slate** (как SupplierCardPage, см. «Save UX / Clean-slate»):
 
 - Локальный state: `notesDraft`, `payment.value.documents` (модифицируется in-place при add/delete)
 - Save bar при `isDirty` (notesChanged || filesChanged)
@@ -2075,17 +2013,15 @@ Mock: [`mocks/finance.ts`](frontend_vue/src/services/mocks/finance.ts).
 | Флаг | Уровень | Что скрывает |
 |------|---------|--------------|
 | `adminFinance` | page-level | мастер-флаг всего раздела |
-| `financeIncoming` | page-level | роут `/admin/finance/incoming` (карточки у строки реестра нет — ссылка ведёт в заказ) |
+| `financeIncoming` | page-level | роут `/admin/finance/incoming` и `/admin/finance/incoming/:id` |
 | `financeOutgoing` | page-level | роут `/admin/finance/outgoing` и `/admin/finance/outgoing/:id` |
 | `financeDocumentArchive` | page-level | роут `/admin/finance/archive` |
 
 → Implementation:
 - Service: `src/services/financeService.ts`
 - Mock: `src/services/mocks/finance.ts`
-- Domain: `src/domain/receivable.ts` (срок и статус счёта), реестр строится в `src/services/mocks/orders.ts` → `orderReceivables()`
-- Views: `src/views/admin/finance/IncomingPaymentsPage.vue`, `src/views/admin/finance/OutgoingPaymentsPage.vue`, `src/views/admin/finance/DocumentArchivePage.vue`, `src/views/admin/finance/OutgoingPaymentCardPage.vue`
+- Views: `src/views/admin/finance/IncomingPaymentsPage.vue`, `src/views/admin/finance/OutgoingPaymentsPage.vue`, `src/views/admin/finance/DocumentArchivePage.vue`, `src/views/admin/finance/IncomingPaymentCardPage.vue`, `src/views/admin/finance/OutgoingPaymentCardPage.vue`
 - i18n: `src/i18n/admin/finance.ts`
-- Unit: `src/domain/receivable.spec.ts`, `src/services/mocks/finance-receivables.spec.ts`
 
 ---
 

@@ -3,39 +3,27 @@ import type {
   FinancePayment,
   FinancePaymentListItem,
   FinanceDocumentArchiveItem,
-  FinanceListFilters,
-  Receivable,
+  PaymentDirection,
+  FinancePaymentFilters,
 } from '@/types/finance'
 import type { PaginatedResponse, PaginationParams } from '@/types/api'
 
-/**
- * Реестр «Входящие» — счета заказов, а не отдельные платёжные записи: своего
- * хранилища у него нет, и потому это отдельный эндпоинт, а не направление
- * фильтра над `/payments` (пункт 13 плана `review-followups.md`).
- */
-export async function getReceivables(
-  filters: FinanceListFilters,
-  pagination: PaginationParams,
-): Promise<PaginatedResponse<Receivable>> {
-  return apiGet<PaginatedResponse<Receivable>>('/api/finance/receivables', {
-    search: filters.search,
-    status: filters.status,
-    page: String(pagination.page),
-    pageSize: String(pagination.pageSize),
-  })
-}
-
-/** Счета поставщиков — записи с ручным вводом, выводить их не из чего. */
 export async function getPayments(
-  filters: FinanceListFilters,
+  direction: PaymentDirection | 'all',
+  filters: FinancePaymentFilters,
   pagination: PaginationParams,
 ): Promise<PaginatedResponse<FinancePaymentListItem>> {
-  return apiGet<PaginatedResponse<FinancePaymentListItem>>('/api/finance/payments', {
+  const params: Record<string, string> = {
+    direction,
     search: filters.search,
     status: filters.status,
     page: String(pagination.page),
     pageSize: String(pagination.pageSize),
-  })
+  }
+  if (filters.counterpartyId) params.counterpartyId = filters.counterpartyId
+  if (filters.dateFrom) params.dateFrom = filters.dateFrom
+  if (filters.dateTo) params.dateTo = filters.dateTo
+  return apiGet<PaginatedResponse<FinancePaymentListItem>>('/api/finance/payments', params)
 }
 
 export async function getPayment(id: string): Promise<FinancePayment> {

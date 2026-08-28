@@ -45,7 +45,15 @@ function load() {
   loading.value = true
   error.value = false
   getPayments(
-    { search: searchInput.value, status: statusFilter.value },
+    'outgoing',
+    {
+      search: searchInput.value,
+      status: statusFilter.value,
+      counterpartyId: null,
+      dateFrom: '',
+      dateTo: '',
+      direction: 'outgoing',
+    },
     { page: pagination.page.value, pageSize: pagination.pageSize.value },
   )
     .then((res) => {
