@@ -3,27 +3,39 @@ import type {
   FinancePayment,
   FinancePaymentListItem,
   FinanceDocumentArchiveItem,
-  PaymentDirection,
-  FinancePaymentFilters,
+  FinanceListFilters,
+  Receivable,
 } from '@/types/finance'
 import type { PaginatedResponse, PaginationParams } from '@/types/api'
 
-export async function getPayments(
-  direction: PaymentDirection | 'all',
-  filters: FinancePaymentFilters,
+/**
+ * Реестр «Входящие» — счета заказов, а не отдельные платёжные записи: своего
+ * хранилища у него нет, и потому это отдельный эндпоинт, а не направление
+ * фильтра над `/payments` (пункт 13 плана `review-followups.md`).
+ */
+export async function getReceivables(
+  filters: FinanceListFilters,
   pagination: PaginationParams,
-): Promise<PaginatedResponse<FinancePaymentListItem>> {
-  const params: Record<string, string> = {
-    direction,
+): Promise<PaginatedResponse<Receivable>> {
+  return apiGet<PaginatedResponse<Receivable>>('/api/finance/receivables', {
     search: filters.search,
     status: filters.status,
     page: String(pagination.page),
     pageSize: String(pagination.pageSize),
-  }
-  if (filters.counterpartyId) params.counterpartyId = filters.counterpartyId
-  if (filters.dateFrom) params.dateFrom = filters.dateFrom
-  if (filters.dateTo) params.dateTo = filters.dateTo
-  return apiGet<PaginatedResponse<FinancePaymentListItem>>('/api/finance/payments', params)
+  })
+}
+
+/** Счета поставщиков — записи с ручным вводом, выводить их не из чего. */
+export async function getPayments(
+  filters: FinanceListFilters,
+  pagination: PaginationParams,
+): Promise<PaginatedResponse<FinancePaymentListItem>> {
+  return apiGet<PaginatedResponse<FinancePaymentListItem>>('/api/finance/payments', {
+    search: filters.search,
+    status: filters.status,
+    page: String(pagination.page),
+    pageSize: String(pagination.pageSize),
+  })
 }
 
 export async function getPayment(id: string): Promise<FinancePayment> {
