@@ -13,6 +13,7 @@ import type {
   InvoiceKind,
   PaymentPurpose,
   ShippableLine,
+  WholePieceRange,
   ShipmentShortage,
   ShipmentHold,
   OrderReturn,
@@ -112,6 +113,8 @@ import {
   mockGetMovementsFor,
   mockOffcutAllocations,
   recordShortage,
+  registerOffcutClaimLookup,
+  shelvedOffcut,
   writeMovement,
 } from './warehouse'
 import { allServices, serviceById } from './services'
@@ -1316,6 +1319,32 @@ registerProductSalesLookup((productId) => {
     }
   }
   return quantity > 0 ? { quantity, net } : null
+})
+
+// "Занят ли этот кусок?" — тоже вопрос о заказах, и отвечает он тем же способом.
+// Склад обязан вычитать занятое, чтобы ответить «что свободно», но записан хват куска
+// в разбивке СТРОКИ, и знать о нём склад может только спросив.
+//
+// Кусок неделим, поэтому занят он целиком с той минуты, как его назвали в строке, — а
+// не с резервирования: между добавлением позиции и резервом заказ уже стоит на куске, и
+// показать этот кусок второму менеджеру значит продать один металл дважды. Партия так
+// себя не ведёт и вести не может: у неё есть количество, из которого чужой хват
+// вычитается, а у куска вычитать нечего.
+//
+// Статус заказа тут не спрашивается ни у кого. Кусок отпускает СТРОКА — тем, что её
+// удалили или что удалили весь заказ; аннулированный заказ со списком живых строк
+// держит свой металл дальше, ровно как держит хват на партии. Одна оговорка на два
+// случая лучше, чем правило, которое для куска и для партии звучит по-разному.
+registerOffcutClaimLookup(() => {
+  const taken = new Set<string>()
+  for (const order of STORE) {
+    for (const item of order.items) {
+      for (const allocation of item.allocations) {
+        if (allocation.offcutId) taken.add(allocation.offcutId)
+      }
+    }
+  }
+  return taken
 })
 
 let nextSeq = TOTAL_ORDERS + 1
@@ -3032,6 +3061,20 @@ export interface ShipmentPlanLine {
   unit: string
   quantity: number
   consume: OrderLineAllocation[]
+  /**
+   * Наибольшее количество ОТ НАЧАЛА запроса, которое это же списание примет.
+   *
+   * Не «остаток минус недостача»: недостача складывается со всей разбивки, а
+   * потребляют её префиксом. Партия, свободная наполовину, обрывает строку ВНУТРИ
+   * своей аллокации — за неё уже не добраться, и то, что стоит за ней, в предложение
+   * не входит, хотя в вычитание входило.
+   *
+   * Считается здесь же, в том цикле, который решает по каждой аллокации: отдельный
+   * проход по разбивке был бы вторым экземпляром того же правила и разошёлся бы с
+   * ним — а расхождение здесь означает диалог, предлагающий количество, которое
+   * списание отклонит.
+   */
+  offerable: number
 }
 
 export interface ShipmentPlan {
@@ -3081,26 +3124,77 @@ export function planShipment(
     // already consumed is skipped, so the second truck writes off the next
     // batches rather than the same ones again.
     const unshipped = splitAllocations(item.allocations, item.shippedQuantity).remainder
+    // Сколько куска осталось неотгруженным — целиком, до нарезки под эту машину.
+    // Кусок неделим: он либо уезжает весь, либо не уезжает вовсе, и «половина куска»
+    // в срезе означает, что в эту машину он не поместился, а не что его нет.
+    const wholePieces = new Map<string, number>()
+    for (const allocation of unshipped) {
+      if (!allocation.offcutId) continue
+      const already = wholePieces.get(allocation.offcutId) ?? 0
+      wholePieces.set(allocation.offcutId, round2(already + allocation.quantity))
+    }
     const consume: OrderLineAllocation[] = []
     let missing = shipLine.quantity
+    // Предложение собирается тем же проходом: `at` — сколько количества уже позади,
+    // `offerable` — последняя точка, до которой списание доходит без недостачи, а
+    // `blocked` ставится первой же аллокацией, которая прошла не целиком. Дальше неё
+    // предлагать нечего: разбивку потребляют префиксом, и всё, что стоит за пропуском,
+    // достаётся только вместе с ним.
+    let at = 0
+    let offerable = 0
+    let blocked = false
 
     for (const allocation of splitAllocations(unshipped, shipLine.quantity).shipped) {
+      const size = allocation.quantity
+      if (allocation.offcutId && !allocation.batchId) {
+        // Кусок лежит на полке отдельно от своей партии, поэтому и спрашивают о нём
+        // самого его, а не партию: партия своего куска давно не содержит.
+        //
+        // Три условия, и все три — «весь или никак». В срез поместилась только часть
+        // куска: распилить его на погрузке нельзя, эта машина уедет без него, а
+        // недостача покажет менеджеру ровно то, чего не хватило. Куска нет на полке:
+        // кладовщик успел отправить его в утиль или в производство. Кусок держит другая
+        // строка: то же правило, что у партии, — отгружают не «что лежит», а «что лежит
+        // и никому не обещано».
+        const whole = wholePieces.get(allocation.offcutId) ?? 0
+        const takeable =
+          round2(whole - size) <= 0 &&
+          shelvedOffcut(allocation.offcutId) &&
+          reservedOnOffcut(allocation.offcutId, {
+            exceptLine: { orderId: order.id, lineId: item.id },
+          }) === 0
+        if (takeable) {
+          consume.push({ ...allocation })
+          missing = round2(missing - size)
+          if (!blocked) offerable = round2(at + size)
+        } else {
+          blocked = true
+        }
+        at = round2(at + size)
+        continue
+      }
       // A line costed on a guess has no batch behind it, and goods that are on no
       // shelf cannot leave one.
       const batch = allocation.batchId ? batchById(allocation.batchId) : undefined
-      if (!batch) continue
       // Not just what is on the shelf — what is on the shelf and not promised to
       // somebody else. Shipping straight off the remainder would walk past every
       // reservation another order is holding, which is the same tonne sold twice
       // by a different route.
-      const free = computeAvailable(
-        batch.quantityRemaining,
-        reservedOn(batch.id, { exceptLine: { orderId: order.id, lineId: item.id } }),
-      )
-      const take = round2(Math.min(allocation.quantity, free))
-      if (take <= 0) continue
-      consume.push({ ...allocation, quantity: take })
-      missing = round2(missing - take)
+      const free = batch
+        ? computeAvailable(
+            batch.quantityRemaining,
+            reservedOn(batch.id, { exceptLine: { orderId: order.id, lineId: item.id } }),
+          )
+        : 0
+      const take = round2(Math.min(size, free))
+      if (take > 0) {
+        consume.push({ ...allocation, quantity: take })
+        missing = round2(missing - take)
+        if (!blocked) offerable = round2(at + take)
+      }
+      // Взяли не всё, что стояло в аллокации, — дальше по разбивке хода нет.
+      if (take < size) blocked = true
+      at = round2(at + size)
     }
 
     if (missing > 0) {
@@ -3112,6 +3206,7 @@ export function planShipment(
       unit: item.unit,
       quantity: shipLine.quantity,
       consume,
+      offerable,
     })
   }
 
@@ -3119,10 +3214,38 @@ export function planShipment(
 }
 
 /**
+ * Куски в неотгруженной части строки, выраженные в количестве.
+ *
+ * Разбивка потребляется префиксом, поэтому «где стоит кусок» — это пара чисел: сколько
+ * количества идёт до него и сколько после. Количество строго между ними режет кусок, а
+ * кусок неделим. Ничего про доступность куска здесь не решается — только геометрия
+ * разбивки; доступность считает `planShipment`, и второй раз она тут не повторяется.
+ */
+function wholePieceRanges(item: OrderItem): WholePieceRange[] {
+  const unshipped = splitAllocations(item.allocations, item.shippedQuantity).remainder
+  const ranges: WholePieceRange[] = []
+  let at = 0
+  let lastOffcutId: string | null = null
+  for (const allocation of unshipped) {
+    const next = round2(at + allocation.quantity)
+    if (allocation.offcutId) {
+      // Один кусок — один отрезок, даже если разбивка назвала его двумя строками
+      // подряд: неделим он целиком, а не построчно.
+      if (allocation.offcutId === lastOffcutId) ranges[ranges.length - 1]!.to = next
+      else ranges.push({ from: at, to: next })
+    }
+    lastOffcutId = allocation.offcutId
+    at = next
+  }
+  return ranges
+}
+
+/**
  * The lines a shipment could take right now, and how much of each.
  *
  * Same planner as the shipment itself, so the dialog cannot offer a quantity the
- * write-off would then refuse.
+ * write-off would then refuse — и предложенное число берётся у самого плана
+ * (`ShipmentPlanLine.offerable`), а не вычитается из остатка задним числом.
  */
 export function mockPlanOrderShipment(orderId: string): ShippableLine[] {
   const order = STORE.find((o) => o.id === orderId)
@@ -3132,13 +3255,14 @@ export function mockPlanOrderShipment(orderId: string): ShippableLine[] {
 
   const plan = planShipment(order, requested)
   return plan.lines.map((line) => {
-    const missing = plan.shortages.find((s) => s.lineId === line.lineId)?.missing ?? 0
+    const item = order.items.find((i) => i.id === line.lineId)!
     return {
       lineId: line.lineId,
       productName: line.productName,
       unit: line.unit,
       remaining: line.quantity,
-      shippable: round2(line.quantity - missing),
+      shippable: line.offerable,
+      wholePieces: wholePieceRanges(item),
     }
   })
 }
@@ -3164,6 +3288,25 @@ export function mockCreateShipment(
   const plan = planShipment(order, data.lines)
   if (plan.shortages.length > 0) throw new Error('SHIPMENT_EXCEEDS_STOCK')
   const planned = plan.lines
+
+  // Движение по куску пишется против его РОДИТЕЛЬСКОЙ партии: `writeMovement` без
+  // партии не пишет ничего, и номер, товар, единица и цена у движения берутся оттуда.
+  // Металл с партии при этом не уходит второй раз — она отдала его в момент резки, и
+  // `writeMovement` узнаёт этот случай по заполненному `offcutId`.
+  //
+  // Родители разрешаются здесь, ДО первой записи, по той же причине, по которой
+  // планируется вся отгрузка: половина отгрузки — не то состояние, из которого склад
+  // выбирается. `planShipment` кусок уже проверил, так что пусто тут не бывает; пусто
+  // означало бы, что план и запись разошлись, а это отказ, а не пропуск.
+  const pieceParent = new Map<string, string>()
+  for (const line of plan.lines) {
+    for (const allocation of line.consume) {
+      if (allocation.batchId || !allocation.offcutId) continue
+      const piece = shelvedOffcut(allocation.offcutId)
+      if (!piece) throw new Error('SHIPMENT_EXCEEDS_STOCK')
+      pieceParent.set(allocation.offcutId, piece.batchId)
+    }
+  }
 
   const shipment: Shipment = {
     id: `${order.id}-SHP-${order._nextShipmentSeq}`,
@@ -3207,7 +3350,7 @@ export function mockCreateShipment(
     for (const allocation of line.consume) {
       writeMovement({
         type: 'sale',
-        batchId: allocation.batchId!,
+        batchId: allocation.batchId ?? pieceParent.get(allocation.offcutId!)!,
         offcutId: allocation.offcutId,
         quantity: allocation.quantity,
         unitPrice: allocation.unitCost,
@@ -3334,6 +3477,25 @@ export function mockCancelShipment(
     let left = round2(Math.max(0, owed - reservedForLine(order.id, item.id)))
     for (const hold of shipLine.heldReleased) {
       if (left <= 0) break
+      if (!hold.batchId && hold.offcutId) {
+        // Кусок вернулся на полку возвратным движением выше, и хват на него ставится
+        // обратно по тому же правилу, что на партию: только то, что действительно
+        // свободно. Свободного КОЛИЧЕСТВА у куска нет — есть «свободен или нет», —
+        // поэтому вместо вычитания чужого хвата здесь проверка, что чужого хвата нет.
+        if (!shelvedOffcut(hold.offcutId)) continue
+        if (reservedOnOffcut(hold.offcutId) > 0) continue
+        const quantity = round2(Math.min(hold.quantity, left))
+        if (quantity <= 0) continue
+        holdOnBatch({
+          orderId: order.id,
+          lineId: item.id,
+          batchId: null,
+          offcutId: hold.offcutId,
+          quantity,
+        })
+        left = round2(left - quantity)
+        continue
+      }
       if (!hold.batchId) continue
       const batch = batchById(hold.batchId)
       if (!batch) continue
@@ -3549,16 +3711,27 @@ export function mockCreateReturn(
     const ladder = returnLadder(order, item)
     const taken: ReturnPlacement[] = []
     let left = request.quantity
+    let pieceSkipped = false
     for (const rung of ladder) {
       if (left <= 0) break
       if (!batchById(rung.batchId)) throw new Error('RETURN_BATCH_NOT_FOUND')
+      // Кусок неделим и на возврате тоже — то же правило, что на погрузке. Только
+      // отказ здесь не сразу: возврат меньше куска чаще всего означает, что вернули
+      // не кусок, а металл из партии, уехавшей той же машиной, — и такой возврат
+      // ложится на следующую ступеньку лестницы, не тронув куска. Отказ остаётся на
+      // случай, когда положить остаток больше некуда: тогда вернуть просили именно
+      // ПОЛОВИНУ куска, а половины у куска нет.
+      if (rung.offcutId && rung.quantity > left) {
+        pieceSkipped = true
+        continue
+      }
       const quantity = round2(Math.min(rung.quantity, left))
       taken.push({ ...rung, quantity })
       left = round2(left - quantity)
     }
     // The line says it shipped, and no batch will own the goods back. Something
     // upstream is inconsistent, and guessing a batch here would invent a cost.
-    if (left > 0) throw new Error('RETURN_BATCH_NOT_FOUND')
+    if (left > 0) throw new Error(pieceSkipped ? 'RETURN_SPLITS_OFFCUT' : 'RETURN_BATCH_NOT_FOUND')
     placements.set(request.lineId, taken)
   }
 

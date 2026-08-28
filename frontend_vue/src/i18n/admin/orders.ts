@@ -218,6 +218,7 @@ export const adminOrders = {
       ship_modal_explain:
         'Товар будет списан со склада по конкретным партиям, а строки — зафиксированы. Услуги в отгрузку не входят.',
       ship_vehicle_placeholder: 'Например: ABC-123',
+      ship_qty_splits_offcut: 'Обрезок неделим — такое количество разрезало бы кусок',
       cancel_shipment_explain:
         'Товар вернётся на склад обратным движением, и резерв под эту строку восстановится. Сама отгрузка и её списание останутся в истории — записи склада не удаляются никогда.',
       status_plan_title: 'Что произойдёт со складом',
@@ -488,6 +489,8 @@ export const adminOrders = {
       error_duplicate_return_line: 'Одна позиция указана в возврате дважды',
       error_return_exceeds_shipped: 'Нельзя вернуть больше, чем было отгружено',
       error_return_batch_not_found: 'Партия, из которой уходил товар, не найдена',
+      error_return_splits_offcut:
+        'Обрезок неделим: вернуть можно либо весь кусок, либо металл из партии',
       error_correction_exceeds_original: 'Корректировка больше, чем осталось по счёту',
       error_unknown_order_status: 'Неизвестный статус заказа',
     },
@@ -710,6 +713,7 @@ export const adminOrders = {
       ship_modal_explain:
         'The goods will be written off the specific batches behind these lines, and the lines will be frozen. Services do not ship.',
       ship_vehicle_placeholder: 'e.g. ABC-123',
+      ship_qty_splits_offcut: 'An offcut is one piece — this quantity would cut it in half',
       cancel_shipment_explain:
         'The goods come back by an opposite movement, and the hold on this line is restored. The shipment and its write-off stay on record — warehouse entries are never deleted.',
       status_plan_title: 'What this does to the warehouse',
@@ -979,6 +983,8 @@ export const adminOrders = {
       error_duplicate_return_line: 'The same line is listed twice in this return',
       error_return_exceeds_shipped: 'More cannot come back than went out',
       error_return_batch_not_found: 'The batch the goods left from no longer exists',
+      error_return_splits_offcut:
+        'An offcut is one piece: return all of it, or return batch metal instead',
       error_correction_exceeds_original: 'The correction is larger than the invoice has left',
       error_unknown_order_status: 'Unknown order status',
     },
@@ -1200,6 +1206,7 @@ export const adminOrders = {
       ship_modal_explain:
         'Prekės bus nurašytos iš konkrečių partijų, o eilutės užfiksuotos. Paslaugos nesiunčiamos.',
       ship_vehicle_placeholder: 'pvz. ABC-123',
+      ship_qty_splits_offcut: 'Atraiža nedaloma — toks kiekis perpjautų gabalą',
       cancel_shipment_explain:
         'Prekės grįš atgaliniu judėjimu, o šios eilutės rezervas bus atkurtas. Pats išsiuntimas ir nurašymas lieka istorijoje — sandėlio įrašai niekada nešalinami.',
       status_plan_title: 'Kas nutiks sandėlyje',
@@ -1471,6 +1478,8 @@ export const adminOrders = {
       error_duplicate_return_line: 'Ta pati eilutė grąžinime nurodyta du kartus',
       error_return_exceeds_shipped: 'Negalima grąžinti daugiau, nei buvo išsiųsta',
       error_return_batch_not_found: 'Partija, iš kurios prekės išvyko, nerasta',
+      error_return_splits_offcut:
+        'Atraiža nedaloma: grąžinkite visą gabalą arba metalą iš partijos',
       error_correction_exceeds_original: 'Korekcija didesnė, nei liko sąskaitoje',
       error_unknown_order_status: 'Nežinoma užsakymo būsena',
     },

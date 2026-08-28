@@ -8,6 +8,7 @@ import { roundQuantity } from '@/domain/quantity'
 import type {
   WarehouseBatch,
   WarehouseOffcut,
+  OffcutStatus,
   WarehouseMovement,
   MovementListItem,
   MovementType,
@@ -247,6 +248,7 @@ function getAggregateQty(batchId: string, targetType: string): number {
   for (const m of movements) {
     if (m.type === 'receipt' || m.type === 'transfer') continue
     if (m.type === 'correction') continue
+    if (movesOffcut(m)) continue
     if (m.type === targetType) qty += m.quantity
     else if (m.type === 'return' && m.referenceType === targetType) qty -= m.quantity
   }
@@ -275,6 +277,29 @@ const AGGREGATE_TO_STATUS: Record<string, string> = {
   offcut: 'converted_to_offcuts',
 }
 
+/**
+ * Статус КУСКА по типу движения — то же правило, что `AGGREGATE_TO_STATUS` говорит про
+ * партию, сказанное про неделимую штуку.
+ *
+ * Отдельная запись, а не производная от той: у куска нет `receipt` (он не приходит от
+ * поставщика, его отрезают) и нет `converted_to_offcuts` (кусок из куска в этой модели не
+ * режут) — зато есть `return`, которого у агрегатов партии быть не может: партия
+ * возвращённое кладёт в остаток числом, а кусок возвращается на полку целиком.
+ *
+ * `offcut` здесь не нужен намеренно: это движение самой резки, и оно рождает кусок
+ * `available` — тем же `mockCreateOffcut`, который его пишет. `movesOffcut` этот тип
+ * отсекает раньше.
+ */
+const OFFCUT_STATUS_BY_MOVEMENT: Readonly<Record<string, OffcutStatus>> = {
+  sale: 'sold',
+  'write-off': 'scrapped',
+  production: 'in_production',
+  expense: 'expensed',
+  storage: 'in_storage',
+  'return-to-supplier': 'returned_to_supplier',
+  return: 'available',
+}
+
 function computeBatchStatus(batch: WarehouseBatch): string {
   const movements = movementStore.filter((m) => m.batchId === batch.id)
   const byType: Record<string, number> = {}
@@ -282,6 +307,9 @@ function computeBatchStatus(batch: WarehouseBatch): string {
   for (const m of movements) {
     if (m.type === 'receipt' || m.type === 'transfer') continue
     if (m.type === 'correction') continue
+    // Движение по куску партию не двигает — см. `movesOffcut`. В агрегат партии оно
+    // положило бы тот же металл второй раз: он уже посчитан движением `offcut`.
+    if (movesOffcut(m)) continue
     if (m.type === 'return') {
       const reduceType = m.referenceType || ''
       if (reduceType && OUTGOING_MOVEMENT_TYPES.has(reduceType))
@@ -334,6 +362,30 @@ const OUTGOING_MOVEMENT_TYPES: ReadonlySet<string> = new Set([
 ])
 
 /**
+ * Двигает ли движение КУСОК, а не партию.
+ *
+ * Материал куска уходит с партии ровно один раз — движением `offcut`, то есть самой
+ * резкой. Всё, что случается с куском ПОСЛЕ неё — продажа, списание, возврат отменённой
+ * отгрузки, — происходит с куском: он лежит на полке отдельно от своей партии, и вычесть
+ * его из неё второй раз значило бы уничтожить металл, которого там уже нет. Партия в
+ * таком движении названа для происхождения — тем же приёмом, что у переноса куска
+ * (`transfer` в `writeMovement`): `batchId` на движении это его родитель, и родитель при
+ * этом стоит.
+ *
+ * Одна функция на все места, где журнал превращается в число партии: списание при записи,
+ * пересчёт остатка из журнала, агрегаты и статус. Разойдись они — и партия «вернула» бы
+ * себе кусок при следующей пересборке хранилища: молча и только после перезагрузки.
+ */
+function movesOffcut(m: { type: string; offcutId?: string | null }): boolean {
+  return m.offcutId != null && m.type !== 'offcut'
+}
+
+/** Уносит ли движение металл С ПАРТИИ: тип уносящий И двигает оно партию, а не кусок. */
+function takesFromBatch(m: { type: string; offcutId?: string | null }): boolean {
+  return OUTGOING_MOVEMENT_TYPES.has(m.type) && !movesOffcut(m)
+}
+
+/**
  * Приводит остатки и статусы партий в согласие с журналом движений.
  *
  * Вызывается один раз при загрузке модуля — и вызываема из тестов, потому что это
@@ -346,9 +398,9 @@ export function syncBatchQuantities() {
     const movements = movementStore.filter((m) => m.batchId === batch.id)
     let remaining = batch.quantity
     for (const m of movements) {
-      if (OUTGOING_MOVEMENT_TYPES.has(m.type)) {
+      if (takesFromBatch(m)) {
         remaining -= m.quantity
-      } else if (m.type === 'return') {
+      } else if (m.type === 'return' && !movesOffcut(m)) {
         remaining += m.quantity
       }
     }
@@ -889,6 +941,66 @@ export async function mockCreateOffcut(data: OffcutCreatePayload): Promise<Wareh
 }
 
 /**
+ * Кто уже стоит на куске — вопрос к ЗАКАЗАМ, потому что записан этот хват в разбивке
+ * строки, а не на складе.
+ *
+ * Регистрацией, а не импортом, и по той же причине, что `registerClientOrderLookup` и
+ * `registerProductSalesLookup`: склад спрашивает, заказы отвечают, а импорт в эту сторону
+ * был бы циклом — `orders.ts` уже импортирует этот модуль.
+ *
+ * Пока никто не зарегистрировался (склад подняли без модуля заказов), занятых кусков
+ * нет — это правда, а не заглушка: без заказов и претендентов на кусок не существует.
+ */
+let offcutClaimLookup: (() => ReadonlySet<string>) | null = null
+
+export function registerOffcutClaimLookup(lookup: () => ReadonlySet<string>): void {
+  offcutClaimLookup = lookup
+}
+
+/**
+ * Куски, которые уже кому-то обещаны и второй раз обещаны быть не могут.
+ *
+ * Обрезок — ОДИН физический кусок, и делится он только резкой: «остатка», из которого
+ * вычитают чужой хват, у него нет. Поэтому занят он не частично, а целиком — с той
+ * минуты, как его назвали в разбивке строки, и задолго до того, как кто-нибудь его
+ * зарезервирует.
+ *
+ * Спрашивается только разбивка, хотя держат кусок и резервы. Так и надо: резерв на
+ * кусок возникает единственным способом — из разбивки, которая его назвала
+ * (`mockReserveOrder`), — и разбивку переживает, потому что удаление строки снимает
+ * хват, а не наоборот. Разбивка тут шире резерва и старше его, так что второй вопрос
+ * дал бы тот же ответ и завёл бы второй источник одного правила.
+ *
+ * Ничего не хранится: занятость ВЫВОДИТСЯ из того, кто на куске стоит. Поэтому строка,
+ * которую удалили, отпускает кусок сама — отдельного «освободить кусок», который
+ * когда-нибудь забудут позвать, не нужно. Обратная сторона того же: аннулированный
+ * заказ кусок НЕ отдаёт, пока его строки живы, — ровно как аннулированный заказ не
+ * отпускает и хват на партии. Это одно поведение, и менять его надо сразу для обоих.
+ */
+function takenOffcuts(): ReadonlySet<string> {
+  return offcutClaimLookup?.() ?? new Set<string>()
+}
+
+/**
+ * Кусок, который прямо сейчас лежит на полке, — или `null`.
+ *
+ * Отгрузка спрашивает это перед тем, как списать кусок: между выбором куска в строку и
+ * приездом машины кладовщик мог отправить его в утиль или в производство, и отгрузить
+ * то, чего на полке нет, нельзя. Возвращается родительская партия, а не сам кусок:
+ * движение записывается против партии («каждое движение — и движение куска тоже —
+ * пишется против партии», см. `writeMovement`), а больше отгрузке от куска ничего не
+ * нужно.
+ *
+ * Занятость здесь НЕ спрашивается: строка, которая кусок отгружает, — это ровно та
+ * строка, которая его заняла, и `takenOffcuts` ответил бы «занят» ей самой.
+ */
+export function shelvedOffcut(offcutId: string): { id: string; batchId: string } | null {
+  const offcut = offcutStore.find((o) => o.id === offcutId)
+  if (!offcut || offcut.status !== 'available') return null
+  return { id: offcut.id, batchId: offcut.batchId }
+}
+
+/**
  * Обрезки, которые СТРОКА ЗАКАЗА может взять по этому товару.
  *
  * Обрезки не участвуют в автоматическом FIFO и участвовать не будут (пункт 7 плана
@@ -896,15 +1008,19 @@ export async function mockCreateOffcut(data: OffcutCreatePayload): Promise<Wareh
  * Поэтому FIFO по-прежнему строится только из партий, а этот список — единственная
  * дорога куска в заказ.
  *
- * Предлагается только `available`: кусок, уже отданный заказу или списанный, продать
- * второй раз нельзя. Кусок, размер которого в единице партии невыразим, не предлагается
- * вовсе — взять его в строку всё равно не получилось бы, и показать его значило бы
- * пообещать выбор, который откажут на сохранении.
+ * Предлагается только СВОБОДНЫЙ кусок: не проданный и не списанный (`status`) и никем не
+ * занятый (`takenOffcuts`). Партии тут не пример для подражания: у партии
+ * `mockFifoAllocation` вычитает чужой хват из количества, а у куска вычитать нечего — он
+ * один и делится только резкой. Кусок, размер которого в единице партии невыразим, не
+ * предлагается вовсе — взять его в строку всё равно не получилось бы, и показать его
+ * значило бы пообещать выбор, который откажут на сохранении.
  */
 export function mockGetOffcutOffers(productId: string): OffcutOffer[] {
+  const taken = takenOffcuts()
   const offers: OffcutOffer[] = []
   for (const offcut of offcutStore) {
     if (offcut.productId !== productId || offcut.status !== 'available') continue
+    if (taken.has(offcut.id)) continue
     const batch = batchStore.find((b) => b.id === offcut.batchId)
     if (!batch) continue
     const allocation = offcutAllocation(offcut, batch)
@@ -937,17 +1053,24 @@ export function mockGetOffcutOffers(productId: string): OffcutOffer[] {
  * товара и кусок, уже отданный кому-то, — это три разные ошибки, и строка, которая
  * тихо потеряла один из выбранных кусков, обещает клиенту металл по цене, которой
  * никто не считал. Один и тот же id дважды — один кусок: он физически один.
+ *
+ * «Уже отданный» проверяется ТЕМ ЖЕ `takenOffcuts`, которым отбирается список
+ * предложений, — иначе отказ и предложение разошлись бы, и то, что второму заказу
+ * показали, третьему бы не сохранилось. Список отсеивает занятое заранее, а этот отказ
+ * ловит то, что заняли между показом и сохранением: список — вежливость, отказ — правило.
  */
 export function mockOffcutAllocations(
   productId: string,
   offcutIds: readonly string[],
 ): OrderLineAllocation[] {
+  const taken = takenOffcuts()
   const allocations: OrderLineAllocation[] = []
   for (const id of new Set(offcutIds)) {
     const offcut = offcutStore.find((o) => o.id === id)
     if (!offcut) throw new Error('OFFCUT_NOT_FOUND')
     if (offcut.productId !== productId) throw new Error('OFFCUT_PRODUCT_MISMATCH')
-    if (offcut.status !== 'available') throw new Error('OFFCUT_NOT_AVAILABLE')
+    if (offcut.status !== 'available' || taken.has(offcut.id))
+      throw new Error('OFFCUT_NOT_AVAILABLE')
     const batch = batchStore.find((b) => b.id === offcut.batchId)
     if (!batch) throw new Error('BATCH_NOT_FOUND')
     const allocation = offcutAllocation(offcut, batch)
@@ -1123,7 +1246,7 @@ export function writeMovement(data: {
   // ─── Update batch quantity remaining based on movement type ──────────
   // Тот же набор, что у пересчёта из журнала: два списка «что уносит металл» — это
   // две правды об одном правиле, и расходятся они на первом же новом типе.
-  if (OUTGOING_MOVEMENT_TYPES.has(data.type)) {
+  if (takesFromBatch(data)) {
     // Округление — здесь, у единственного владельца количества: списание 2.503 с
     // партии 102.24 иначе оставляет в хранилище 99.73700000000001.
     batch.quantityRemaining = Math.max(0, roundQuantity(batch.quantityRemaining - data.quantity))
@@ -1133,7 +1256,7 @@ export function writeMovement(data: {
     if (batch.totalCost != null && batch.unitPrice != null) {
       batch.totalCost += data.quantity * batch.unitPrice
     }
-  } else if (data.type === 'return') {
+  } else if (data.type === 'return' && !movesOffcut(data)) {
     batch.quantityRemaining = roundQuantity(batch.quantityRemaining + data.quantity)
   } else if (data.type === 'correction') {
     if (data.referenceType === 'receipt') {
@@ -1178,6 +1301,27 @@ export function writeMovement(data: {
         // — the field is left alone and the second place is written by hand.
         batch.location = destination
       }
+    }
+  }
+
+  // ─── Кусок: движение меняет его статус ──────────────────────────────────────
+  // Статус куска — это и есть его остаток: кусок неделим, «сколько его лежит» у него
+  // нет, есть только «лежит или нет». Поэтому статус переписывает сюда же, где партия
+  // теряет количество, а не отдельным вызовом рядом: забытый вызов оставил бы кусок
+  // `available`, и его предложили бы следующему заказу вторым.
+  //
+  // Правило — по ТИПУ движения, а не по перечню случаев, которые вспомнились. Пока
+  // здесь стояли только `sale` и `return`, бракованный возврат оставлял кусок свободным:
+  // возврат клал его на полку (`available`), следующий за ним акт списания уносил его в
+  // утиль — и никто не переписывал статус, потому что `write-off` в перечень не попал.
+  // У ПАРТИИ тот же сценарий сходился в ноль сам, у куска — нет: количества у него нет,
+  // весь его остаток и есть статус.
+  const offcutStatus = movesOffcut(data) ? OFFCUT_STATUS_BY_MOVEMENT[data.type] : undefined
+  if (offcutStatus) {
+    const offcut = offcutStore.find((o) => o.id === data.offcutId)
+    if (offcut) {
+      offcut.status = offcutStatus
+      offcut.updatedAt = now
     }
   }
 
@@ -1260,6 +1404,7 @@ export async function mockGetBatchAggregates(batchId: string): Promise<BatchStat
   for (const m of movements) {
     if (m.type === 'receipt' || m.type === 'transfer') continue
     if (m.type === 'correction') continue // applied in second pass
+    if (movesOffcut(m)) continue
     if (m.type === 'return') {
       const reduceType = m.referenceType || ''
       if (reduceType && OUTGOING_MOVEMENT_TYPES.has(reduceType))

@@ -1634,6 +1634,60 @@ describe('a shipment is the only thing that moves the warehouse', () => {
     ])
   })
 
+  it('offers what the write-off takes when the first batch is only partly free', () => {
+    // Рядовая отгрузка: ни одного обрезка в строке, просто два заказа на один товар.
+    // Настоящий максимум лежит ВНУТРИ первой аллокации, а не на границе разбивки, и
+    // ни то, ни другое из двух очевидных чисел им не является: «остаток минус
+    // недостача» (9) обещает то, за чем не добраться — за занятой частью первой партии
+    // стоит вторая, — а перебор границ разбивки (10, 12) не принимает ни одной и
+    // назвал бы ноль, то есть погасил бы кнопку отгрузки на строке, где свободно семь.
+    const unshelveFirst = shelve('whb-001', 10)
+    const unshelveSecond = shelve('whb-002', 5)
+    const created = freshOrder()
+    const item = mockAddOrderItem(created.id, {
+      productId: 'prod-001',
+      quantity: 12,
+      unit: 'pcs',
+      unitPrice: 200,
+    })
+    expect(item.allocations.map((a) => [a.batchId, a.quantity])).toEqual([
+      ['whb-001', 10],
+      ['whb-002', 2],
+    ])
+    // Строка БЕЗ куска — иначе проверялся бы край обрезков, а не основной поток.
+    expect(item.allocations.every((a) => a.offcutId === null)).toBe(true)
+
+    // Соперник забирает три с первой партии: свободных на ней остаётся семь.
+    const rival = freshOrder()
+    mockAddOrderItem(rival.id, {
+      productId: 'prod-001',
+      quantity: 3,
+      unit: 'pcs',
+      unitPrice: 200,
+    })
+    mockReserveOrder(rival.id)
+    expect(mockGetReservations({ orderId: rival.id }).map((r) => [r.batchId, r.quantity])).toEqual([
+      ['whb-001', 3],
+    ])
+
+    const planned = mockPlanOrderShipment(created.id).find((l) => l.lineId === item.id)!
+    expect([planned.remaining, planned.shippable]).toEqual([12, 7])
+    // Никаких запретных зон: их создаёт только неделимый кусок, а его тут нет.
+    expect(planned.wholePieces).toEqual([])
+
+    // «Остаток минус недостача» списание отклоняет — потому его и не предлагают…
+    expect(() =>
+      mockCreateShipment(created.id, { lines: [{ lineId: item.id, quantity: 9 }] }),
+    ).toThrow('SHIPMENT_EXCEEDS_STOCK')
+    // …а предложенное принимается.
+    mockCreateShipment(created.id, { lines: [{ lineId: item.id, quantity: planned.shippable }] })
+    expect(mockGetOrder(created.id)!.items[0]!.shippedQuantity).toBe(7)
+
+    mockReleaseOrderReservations(rival.id)
+    unshelveFirst()
+    unshelveSecond()
+  })
+
   it('refuses to ship goods the shelf no longer has', () => {
     // The breakdown was computed when the line was added; by shipping time another
     // order may have taken the goods. The shelf is the truth, not the plan.

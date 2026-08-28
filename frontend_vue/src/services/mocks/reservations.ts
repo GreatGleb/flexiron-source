@@ -207,7 +207,7 @@ export function releaseFromLine(
 export function releaseFromLineOnBatches(
   orderId: string,
   lineId: string,
-  consumed: ReadonlyArray<{ batchId: string | null; quantity: number }>,
+  consumed: ReadonlyArray<{ batchId: string | null; offcutId?: string | null; quantity: number }>,
   quantity: number,
 ): Array<{ batchId: string | null; offcutId: string | null; quantity: number }> {
   const released: Array<{ batchId: string | null; offcutId: string | null; quantity: number }> = []
@@ -215,8 +215,16 @@ export function releaseFromLineOnBatches(
 
   for (const consumption of consumed) {
     if (left <= 0) break
+    // Ключ — партия И кусок, тем же правилом, что у `holdOnBatch`. У всех кусков
+    // `batchId` пустой, и поиск по одной партии нашёл бы хват ЧУЖОГО куска: отгрузили
+    // бы один кусок, а сняли хват с другого, и `heldReleased` запомнил бы отмене
+    // не тот кусок, который уехал.
     const index = RESERVATIONS.findIndex(
-      (r) => r.orderId === orderId && r.lineId === lineId && r.batchId === consumption.batchId,
+      (r) =>
+        r.orderId === orderId &&
+        r.lineId === lineId &&
+        r.batchId === consumption.batchId &&
+        r.offcutId === (consumption.offcutId ?? null),
     )
     if (index === -1) continue
     const reservation = RESERVATIONS[index]!
