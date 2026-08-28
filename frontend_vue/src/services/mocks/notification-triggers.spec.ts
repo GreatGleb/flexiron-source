@@ -137,7 +137,9 @@ describe('оплата заказа', () => {
     mockAddOrderPayment(order.id, { amount: 1250 })
     const after = feed('payment_received').length
 
-    mockAddOrderPayment(order.id, { amount: -100, purpose: 'refund' })
+    // Возврат называет документ (пункт 14) — иначе модель его не примет вовсе.
+    const invoice = mockCreateInvoice(order.id, { kind: 'advance', amountGross: 1250 })
+    mockAddOrderPayment(order.id, { amount: -100, purpose: 'refund', invoiceId: invoice.id })
 
     expect(feed('payment_received').length).toBe(after)
   })

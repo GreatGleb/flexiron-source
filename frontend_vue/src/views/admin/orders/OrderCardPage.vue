@@ -781,16 +781,43 @@ const paymentTargetOutstanding = computed(() => {
   return selected ? selected.outstanding : paid.value.outstanding
 })
 
+/**
+ * Документы, которые деньги могут назвать.
+ *
+ * «Без счёта» — вариант ТОЛЬКО для пришедших денег: аванс приходит раньше
+ * проформы, «на счёт» не закрывает ничей долг, и такие деньги живут отдельной
+ * строкой. У возврата этого варианта нет (пункт 14): деньги уходят по
+ * документу, который клиент держит на руках, а безымянный возврат считался
+ * карточкой заказа и не считался реестром «Входящих» — те же два расхождения,
+ * что пункт 13 закрыл для оплаты.
+ */
 const paymentInvoiceOptions = computed(() => [
-  { value: '', label: t('orders.payment_invoice_none') },
+  ...(paymentPurpose.value === 'refund'
+    ? []
+    : [{ value: '', label: t('orders.payment_invoice_none') }]),
   ...invoices.value
     .filter((i) => i.kind !== 'correction')
     .map((i) => ({ value: i.id, label: `${i.number} · ${money(i.amountGross)}` })),
 ])
 
+/** Возврату нужен документ, и без выбранного документа его не сохранить. */
+const refundNeedsInvoice = computed(
+  () => paymentPurpose.value === 'refund' && paymentInvoiceId.value === '',
+)
+
+// Переключились на возврат — подсказываем документ, по которому деньги пришли:
+// возвращают то, что получили. Подсказка, а не подстановка молча: список открыт,
+// «без счёта» из него убран, и человек видит, что документ назван.
+watch(paymentPurpose, (purpose) => {
+  if (purpose !== 'refund' || paymentInvoiceId.value !== '') return
+  const settled = invoiceBalanceList.value.find((b) => b.paidAmount > 0)
+  paymentInvoiceId.value = settled?.id ?? ''
+})
+
 async function confirmPayment() {
   const typed = Number(paymentAmount.value)
   if (!Number.isFinite(typed) || typed === 0) return
+  if (refundNeedsInvoice.value) return
   const ok = await addPayment({
     // The admin types what arrived; a refund is money going the other way, and
     // making them type the minus sign themselves is how it gets forgotten.
@@ -2643,9 +2670,13 @@ onMounted(loadShipments)
           :options="PAYMENT_PURPOSES"
           data-test="payment-purpose"
         />
-        <span v-if="paymentPurpose === 'refund'" class="field-hint">{{
-          t('orders.payment_refund_hint')
-        }}</span>
+        <span v-if="paymentPurpose === 'refund'" class="field-hint" data-test="payment-refund-hint">
+          {{
+            invoices.length === 0
+              ? t('orders.payment_refund_needs_invoice')
+              : t('orders.payment_refund_hint')
+          }}
+        </span>
       </InputGroup>
       <InputGroup :label="t('orders.payment_date_label')">
         <DatePicker v-model="paymentDate" data-test="payment-date" />
@@ -2654,6 +2685,7 @@ onMounted(loadShipments)
         <CustomSelect
           v-model="paymentInvoiceId"
           :options="paymentInvoiceOptions"
+          :placeholder="paymentPurpose === 'refund' ? t('orders.payment_invoice_pick') : undefined"
           data-test="payment-invoice"
         />
       </InputGroup>
@@ -2679,7 +2711,12 @@ onMounted(loadShipments)
         <button
           type="button"
           class="btn btn-primary"
-          :disabled="paymentSaving || Number(paymentAmount) === 0 || paymentAmount === ''"
+          :disabled="
+            paymentSaving ||
+            Number(paymentAmount) === 0 ||
+            paymentAmount === '' ||
+            refundNeedsInvoice
+          "
           data-test="payment-confirm"
           @click="confirmPayment"
         >

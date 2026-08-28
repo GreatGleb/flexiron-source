@@ -289,7 +289,11 @@ export const adminOrders = {
       payment_note_placeholder: 'Например: платёжное поручение №145',
       payment_invoice_label: 'По счёту',
       payment_invoice_none: 'Без счёта',
-      payment_refund_hint: 'Возврат уйдёт со знаком минус — остаток к доплате снова вырастет.',
+      payment_refund_hint:
+        'Возврат уйдёт со знаком минус — остаток к доплате снова вырастет. Счёт обязателен: деньги уходят по документу, который клиент держит на руках.',
+      payment_refund_needs_invoice:
+        'По этому заказу счетов ещё нет, а возврат обязан назвать документ. Сначала выставьте счёт.',
+      payment_invoice_pick: 'Выберите счёт',
       advance_invoice_title: 'Авансовый счёт',
       advance_invoice_explain:
         'Авансовый счёт не привязан к отгрузке — сумму задаёте вы. НДС посчитается по режиму заказа.',
@@ -306,6 +310,7 @@ export const adminOrders = {
       toast_shipment_corrected: 'Выпущен корректирующий счёт, товар возвращён',
       error_payment_amount_required: 'Введите сумму платежа',
       error_refund_must_be_negative: 'Возврат — это отрицательная сумма',
+      error_refund_invoice_required: 'Возврат обязан называть счёт',
       error_invoice_needs_shipment: 'Обычный счёт выставляется по отгрузке',
       error_advance_has_no_shipment: 'Авансовый счёт не привязывается к отгрузке',
       error_correction_needs_original: 'Не указан счёт, который корректируем',
@@ -787,7 +792,11 @@ export const adminOrders = {
       payment_note_placeholder: 'e.g. transfer no. 145',
       payment_invoice_label: 'Against invoice',
       payment_invoice_none: 'No invoice',
-      payment_refund_hint: 'A refund goes out negative — the outstanding balance grows again.',
+      payment_refund_hint:
+        'A refund goes out negative — the outstanding balance grows again. The invoice is required: money leaves against the document the client holds.',
+      payment_refund_needs_invoice:
+        'This order has no invoice yet, and a refund must name one. Issue an invoice first.',
+      payment_invoice_pick: 'Pick an invoice',
       advance_invoice_title: 'Advance invoice',
       advance_invoice_explain:
         'An advance invoice covers no shipment, so you state the amount. VAT follows the order.',
@@ -804,6 +813,7 @@ export const adminOrders = {
       toast_shipment_corrected: 'Correcting invoice issued, goods returned',
       error_payment_amount_required: 'Enter the amount',
       error_refund_must_be_negative: 'A refund is a negative amount',
+      error_refund_invoice_required: 'A refund must name an invoice',
       error_invoice_needs_shipment: 'A regular invoice is issued for a shipment',
       error_advance_has_no_shipment: 'An advance invoice is not tied to a shipment',
       error_correction_needs_original: 'The invoice being corrected is missing',
@@ -1281,7 +1291,11 @@ export const adminOrders = {
       payment_note_placeholder: 'Pvz.: mokėjimo nurodymas Nr. 145',
       payment_invoice_label: 'Pagal sąskaitą',
       payment_invoice_none: 'Be sąskaitos',
-      payment_refund_hint: 'Grąžinimas įrašomas su minuso ženklu — likutis vėl išauga.',
+      payment_refund_hint:
+        'Grąžinimas įrašomas su minuso ženklu — likutis vėl išauga. Sąskaita privaloma: pinigai grąžinami pagal dokumentą, kurį klientas turi.',
+      payment_refund_needs_invoice:
+        'Šiam užsakymui sąskaitų dar nėra, o grąžinimas privalo nurodyti dokumentą. Pirma išrašykite sąskaitą.',
+      payment_invoice_pick: 'Pasirinkite sąskaitą',
       advance_invoice_title: 'Avansinė sąskaita',
       advance_invoice_explain:
         'Avansinė sąskaita nesiejama su išsiuntimu — sumą nurodote jūs. PVM apskaičiuojamas pagal užsakymo režimą.',
@@ -1298,6 +1312,7 @@ export const adminOrders = {
       toast_shipment_corrected: 'Išrašyta koreguojanti sąskaita, prekės grąžintos',
       error_payment_amount_required: 'Įveskite sumą',
       error_refund_must_be_negative: 'Grąžinimas yra negatyvi suma',
+      error_refund_invoice_required: 'Grąžinimas privalo nurodyti sąskaitą',
       error_invoice_needs_shipment: 'Paprasta sąskaita išrašoma pagal išsiuntimą',
       error_advance_has_no_shipment: 'Avansinė sąskaita nesiejama su išsiuntimu',
       error_correction_needs_original: 'Nenurodyta koreguojama sąskaita',

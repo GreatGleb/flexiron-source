@@ -326,6 +326,7 @@ const ERROR_KEYS: Array<[string, string]> = [
   ['PAYMENT_NOT_FOUND', 'orders.error_payment_not_found'],
   ['PAYMENT_INVOICE_NOT_FOUND', 'orders.error_original_invoice_not_found'],
   ['REFUND_MUST_BE_NEGATIVE', 'orders.error_refund_must_be_negative'],
+  ['REFUND_INVOICE_REQUIRED', 'orders.error_refund_invoice_required'],
   ['INVOICE_NEEDS_SHIPMENT', 'orders.error_invoice_needs_shipment'],
   ['ADVANCE_HAS_NO_SHIPMENT', 'orders.error_advance_has_no_shipment'],
   ['CORRECTION_NEEDS_ORIGINAL', 'orders.error_correction_needs_original'],

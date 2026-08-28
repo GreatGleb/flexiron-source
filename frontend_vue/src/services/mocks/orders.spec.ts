@@ -47,6 +47,7 @@ import {
   mockGetMovementsFor,
 } from './warehouse'
 import { calcLine, round2, validateLine, netToGross } from '@/domain/orderPricing'
+import { invoiceBalances } from '@/domain/receivable'
 import { countsAsSale } from '@/domain/orderStatus'
 import { toPricingLine } from '@/services/orderLines'
 import type { Order } from '@/types/order'
@@ -142,6 +143,17 @@ describe('the generated store', () => {
 
   it('produces 100 orders', () => {
     expect(orders.length).toBe(100)
+  })
+
+  it('holds no refund that names no document', () => {
+    // Линза Л4: мок держится того же правила, что приложение. Модель отказывает
+    // безымянному возврату (пункт 14) — значит собственные данные демо не имеют
+    // права его содержать, иначе первый же открытый заказ нарушает правило,
+    // которое приложение объявляет.
+    const unnamed = orders.flatMap((o) =>
+      o.payments.filter((p) => p.amount < 0 && !p.invoiceId).map((p) => `${o.id}/${p.id}`),
+    )
+    expect(unnamed).toEqual([])
   })
 
   it('sells above cost, because a business that does not is not a demo of one', () => {
@@ -803,13 +815,27 @@ describe('payments', () => {
     expect(grown.outstandingAmount).toBe(round2(grown.totalWithVat - 302.5))
   })
 
-  it('records a refund as a negative amount', () => {
+  it('records a refund as a negative amount, and only against a document', () => {
     const { order } = orderWithLine()
-    mockAddOrderPayment(order.id, { amount: -50, purpose: 'refund' })
-    expect(mockGetOrderPayments(order.id)[0]!.amount).toBe(-50)
-    expect(() => mockAddOrderPayment(order.id, { amount: 50, purpose: 'refund' })).toThrow(
-      'REFUND_MUST_BE_NEGATIVE',
+    // Пункт 14: пришедшие деньги могут не называть документ, ушедшие — обязаны.
+    expect(() => mockAddOrderPayment(order.id, { amount: -50, purpose: 'refund' })).toThrow(
+      'REFUND_INVOICE_REQUIRED',
     )
+    const invoice = mockCreateInvoice(order.id, { kind: 'advance', amountGross: 500 })
+    mockAddOrderPayment(order.id, { amount: -50, purpose: 'refund', invoiceId: invoice.id })
+    expect(mockGetOrderPayments(order.id)[0]!.amount).toBe(-50)
+    expect(() =>
+      mockAddOrderPayment(order.id, { amount: 50, purpose: 'refund', invoiceId: invoice.id }),
+    ).toThrow('REFUND_MUST_BE_NEGATIVE')
+  })
+
+  it('refuses a refund that names no document however the purpose was arrived at', () => {
+    // Назначение платежа выводится из знака суммы, когда его не назвали: минус —
+    // это возврат. Правило пункта 14 обязано держаться и на этом пути, иначе
+    // безымянный возврат заходит через дверь, которую забыли запереть.
+    const { order } = orderWithLine()
+    expect(() => mockAddOrderPayment(order.id, { amount: -50 })).toThrow('REFUND_INVOICE_REQUIRED')
+    expect(mockGetOrderPayments(order.id)).toEqual([])
   })
 
   it('refuses a payment of nothing', () => {
@@ -3420,6 +3446,17 @@ describe('the showcase order', () => {
     expect(order.payments.some((p) => p.purpose === 'balance' && p.amount > 0)).toBe(true)
     // A refund is a negative amount, never a deleted payment.
     expect(order.payments.some((p) => p.purpose === 'refund' && p.amount < 0)).toBe(true)
+  })
+
+  it('says the same figure in the card and in the incoming registry', () => {
+    // Пункт 14. Карточка считает деньги ЗАКАЗА, реестр «Входящих» — деньги по
+    // ДОКУМЕНТАМ. Пока возврат на -120 не называл документа, первая цифра была
+    // 3380, вторая 3500, и на экране ничто этого не объясняло. Проверяется не
+    // «панель непустая», а то, что две цифры сошлись.
+    const byDocument = round2(
+      invoiceBalances(order.invoices, order.payments).reduce((sum, b) => sum + b.paidAmount, 0),
+    )
+    expect(order.paidAmount).toBe(byDocument)
   })
 
   it('carries a history that wrote itself, including one entry the cost right hides', () => {

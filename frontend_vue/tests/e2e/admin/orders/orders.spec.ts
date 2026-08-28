@@ -1738,17 +1738,49 @@ test.describe('Order Card › payments and invoices', () => {
     await expect(page.locator('[data-test="order-payment-row"] td').first()).toHaveText(picked)
   })
 
-  test('a refund is entered as a positive number and stored as a negative one', async ({
+  test('a refund names its document, and is entered positive and stored negative', async ({
     page,
   }) => {
+    // Пункт 14: возврат обязан назвать счёт. Пришедшие деньги могут не называть
+    // ничего — аванс приходит раньше проформы; ушедшие не могут: безымянный
+    // возврат считался карточкой заказа и не считался реестром «Входящих».
     await page.goto('/admin/orders/ORD-005')
     await page.waitForSelector('[data-test="order-payment-row"]')
     const owedBefore = await outstanding(page)
+
+    // По этому заказу документов ещё нет — значит возврату нечего назвать, и
+    // сохранить его нельзя. Кнопку держит выключенной ИМЕННО это: сумма введена,
+    // назначение выбрано, других причин у неё не осталось.
+    await page.click('[data-test="order-add-payment-btn"]')
+    await page.fill('[data-test="payment-amount-input"]', '100')
+    await page.click('[data-test="payment-purpose"]')
+    await page.click('[data-test="payment-purpose"] >> text=Refund')
+    await expect(page.locator('[data-test="payment-refund-hint"]')).toContainText(
+      'Issue an invoice first',
+    )
+    await expect(page.locator('[data-test="payment-confirm"]')).toBeDisabled()
+    await page.click('[data-test="payment-cancel"]')
+    await expect(page.locator('[data-test="payment-modal"]')).toBeHidden()
+    // Отказ — это отказ: записи не прибавилось.
+    await expect(page.locator('[data-test="order-payment-row"]')).toHaveCount(1)
+
+    // Появился документ — возврату есть что назвать.
+    await page.click('[data-test="order-advance-invoice-btn"]')
+    await page.fill('[data-test="advance-amount-input"]', '500')
+    await page.click('[data-test="advance-confirm"]')
+    const invoiceNumber = (await page
+      .locator('[data-test="order-invoice-row"]')
+      .first()
+      .locator('td')
+      .first()
+      .textContent())!.trim()
 
     await page.click('[data-test="order-add-payment-btn"]')
     await page.fill('[data-test="payment-amount-input"]', '100')
     await page.click('[data-test="payment-purpose"]')
     await page.click('[data-test="payment-purpose"] >> text=Refund')
+    await page.click('[data-test="payment-invoice"]')
+    await page.click(`[data-test="payment-invoice"] >> text=${invoiceNumber}`)
     await page.click('[data-test="payment-confirm"]')
     await expect(page.locator('[data-test="payment-modal"]')).toBeHidden()
 
@@ -1756,6 +1788,8 @@ test.describe('Order Card › payments and invoices', () => {
     const rows = page.locator('[data-test="order-payment-row"]')
     await expect(rows).toHaveCount(2)
     await expect(rows.last().locator('[data-test="payment-amount"]')).toHaveText('-100.00')
+    // И строка называет документ, а не прочерк.
+    await expect(rows.last()).toContainText(invoiceNumber)
     expect(await outstanding(page)).toBeCloseTo(owedBefore + 100, 1)
   })
 

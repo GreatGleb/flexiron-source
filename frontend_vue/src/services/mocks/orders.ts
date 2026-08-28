@@ -1264,11 +1264,12 @@ function buildShowcaseOrder(): void {
   pay(1500, 'advance', 'Advance against the proforma', advance?.id ?? undefined)
   pay(2000, 'balance', 'Part payment on the first delivery', regular?.id)
   // A refund is a negative amount, never a deleted payment: money that went back
-  // is a fact, and facts are not removed from the record. This one names no
-  // document on purpose — a rebate agreed on top of the corrected price, and money
-  // that names nothing is an ordinary state of the model (13 orders of 100 hold
-  // some). The summary owes it a line rather than a guess at which invoice it fits.
-  pay(-120, 'refund', 'Rebate returned to the client')
+  // is a fact, and facts are not removed from the record. It names the document it
+  // goes back on — the rebate was agreed on the delivery this invoice covers, and
+  // money leaving names what it leaves against (§14). Left unnamed, this very
+  // record made the card say 3380 while the incoming registry said 3500 on the
+  // same order: the demo store broke the app's own rule on the first screen.
+  pay(-120, 'refund', 'Rebate returned to the client', regular?.id)
 
   // ── Held stock, files ─────────────────────────────────────────────────────
   try {
@@ -3964,6 +3965,13 @@ export function mockAddOrderPayment(
   if (data.amount === 0) throw new Error('PAYMENT_AMOUNT_REQUIRED')
   const purpose: PaymentPurpose = data.purpose ?? (data.amount < 0 ? 'refund' : 'balance')
   if (purpose === 'refund' && data.amount > 0) throw new Error('REFUND_MUST_BE_NEGATIVE')
+  // Возврат обязан назвать документ (пункт 14 `review-followups.md`). Деньги
+  // ПРИШЕДШИЕ могут не называть ничего — аванс приходит раньше проформы, «на
+  // счёт» не называет ничей документ. Деньги УШЕДШИЕ так не бывают: они уходят
+  // по тому, что клиент держит на руках. Безымянный возврат попадал в
+  // `paidAmount` заказа и не попадал ни в один баланс документа, и карточка
+  // заказа расходилась с реестром «Входящих» ровно на его сумму.
+  if (purpose === 'refund' && !data.invoiceId) throw new Error('REFUND_INVOICE_REQUIRED')
   // A payment against a document nobody issued points at nothing: the panel would
   // show a dash where the invoice number belongs and never say why.
   if (data.invoiceId && !order.invoices.some((i) => i.id === data.invoiceId)) {
@@ -4030,9 +4038,11 @@ export function mockGetInvoices(orderId: string): Invoice[] {
  * computed by two rules, and the difference is money nobody can see.
  *
  * Money that names no document at all is not swallowed either — it comes back in
- * `unassignedPayments`. `payment.invoiceId` is optional by design (an advance
- * arrives before the proforma; "paid on account" names nothing), and in the demo
- * store 13 orders of 100 hold such money. Attaching it to some invoice would be an
+ * `unassignedPayments`. `payment.invoiceId` is optional for money COMING IN by
+ * design (an advance arrives before the proforma; "paid on account" names
+ * nothing) — never for a refund, which must name the document it goes back on
+ * (§14). Counted, not remembered: 11 orders of the seeded 100 hold such money
+ * today, and none of it is a refund. Attaching it to some invoice would be an
  * invention; dropping it made the card say a client who had paid 6971,72 EUR had
  * paid 2000. So every payment lands in exactly one of the two lists, and the sum
  * of the summary agrees with the orders' own `paidAmount` to the cent.
