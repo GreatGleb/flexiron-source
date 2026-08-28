@@ -25,6 +25,7 @@ import type {
   LineEditEnvelope,
 } from '@/types/order'
 import type { CostSource } from '@/types/order'
+import type { ClientInvoice, ClientInvoiceSummary, ClientUnassignedPayment } from '@/types/client'
 import type { StockReservation } from '@/types/warehouse'
 import type { PaginatedResponse, PaginationParams } from '@/types/api'
 import {
@@ -1194,8 +1195,9 @@ function buildShowcaseOrder(): void {
     }
   }
 
+  let advance: Invoice | null = null
   try {
-    mockCreateInvoice(order.id, { kind: 'advance', amountGross: 1500 })
+    advance = mockCreateInvoice(order.id, { kind: 'advance', amountGross: 1500 })
   } catch {
     /* nothing to advance against */
   }
@@ -1208,10 +1210,17 @@ function buildShowcaseOrder(): void {
       /* refused — the demo does without this record */
     }
   }
-  pay(1500, 'advance', 'Advance against the proforma')
+  // Named on the document it pays, because it IS that document's money: the note
+  // says "against the proforma", the proforma is two lines up, and the client's
+  // summary asks each document what came in on it. Left unnamed, the demo showed a
+  // 1500 debt on a document paid to the cent — the client card's own first client.
+  pay(1500, 'advance', 'Advance against the proforma', advance?.id ?? undefined)
   pay(2000, 'balance', 'Part payment on the first delivery', regular?.id)
   // A refund is a negative amount, never a deleted payment: money that went back
-  // is a fact, and facts are not removed from the record.
+  // is a fact, and facts are not removed from the record. This one names no
+  // document on purpose — a rebate agreed on top of the corrected price, and money
+  // that names nothing is an ordinary state of the model (13 orders of 100 hold
+  // some). The summary owes it a line rather than a guess at which invoice it fits.
   pay(-120, 'refund', 'Rebate returned to the client')
 
   // ── Held stock, files ─────────────────────────────────────────────────────
@@ -3801,6 +3810,109 @@ export function mockGetInvoices(orderId: string): Invoice[] {
   const order = STORE.find((o) => o.id === orderId)
   if (!order) throw new Error('ORDER_NOT_FOUND')
   return clone(order.invoices)
+}
+
+/**
+ * Everything this client was billed, and every euro of theirs the orders hold.
+ *
+ * Answered by the side that holds the orders, and not assembled in the card out
+ * of a list of orders and a request per order: "is the client still holding this
+ * document" is `isWithdrawn`, and a second copy of that rule on the client side
+ * would drift from this one the first time a correction changed meaning. The
+ * card gets rows that already know it.
+ *
+ * Corrections get no row of their own. A correction is not a document the client
+ * was billed on — it changes the amount on one they already have — so it lands in
+ * `amountGrossCurrent` and, when it takes the document back, in `withdrawn`. Money
+ * paid against a correction follows its amount into the SAME row, because a row
+ * whose amount counts corrections and whose paid figure does not is one balance
+ * computed by two rules, and the difference is money nobody can see.
+ *
+ * Money that names no document at all is not swallowed either — it comes back in
+ * `unassignedPayments`. `payment.invoiceId` is optional by design (an advance
+ * arrives before the proforma; "paid on account" names nothing), and in the demo
+ * store 13 orders of 100 hold such money. Attaching it to some invoice would be an
+ * invention; dropping it made the card say a client who had paid 6971,72 EUR had
+ * paid 2000. So every payment lands in exactly one of the two lists, and the sum
+ * of the summary agrees with the orders' own `paidAmount` to the cent.
+ */
+export function mockGetClientInvoiceSummary(clientId: string): ClientInvoiceSummary {
+  const invoices: ClientInvoice[] = []
+  const unassignedPayments: ClientUnassignedPayment[] = []
+
+  for (const order of STORE) {
+    if (order.clientId !== clientId) continue
+
+    /**
+     * Which row a payment belongs to: the document it names, or — for money paid
+     * against a correction — the document that correction fixes. A correction of
+     * a correction is refused at issue time (`CANNOT_CORRECT_A_CORRECTION`), so
+     * one hop is the whole chain.
+     */
+    const rowOf = (invoiceId: string): string | null => {
+      const named = order.invoices.find((i) => i.id === invoiceId)
+      if (!named) return null
+      return named.kind === 'correction' ? named.correctsInvoiceId : named.id
+    }
+
+    for (const invoice of order.invoices) {
+      if (invoice.kind === 'correction') continue
+      const withdrawn = isWithdrawn(order, invoice.id)
+      // Withdrawn is exactly zero, not "the mirror amount added back": the two
+      // documents come to nothing, and a stray cent of rounding would show up in
+      // the client's outstanding balance as money somebody owes.
+      const current = withdrawn
+        ? 0
+        : round2(
+            order.invoices.reduce(
+              (sum, i) => (i.correctsInvoiceId === invoice.id ? sum + i.amountGross : sum),
+              invoice.amountGross,
+            ),
+          )
+      const paid = round2(
+        order.payments.reduce(
+          (sum, p) => (p.invoiceId && rowOf(p.invoiceId) === invoice.id ? sum + p.amount : sum),
+          0,
+        ),
+      )
+      invoices.push({
+        id: invoice.id,
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        number: invoice.number,
+        issuedAt: invoice.issuedAt,
+        kind: invoice.kind,
+        currency: order.currency,
+        amountGross: invoice.amountGross,
+        amountGrossCurrent: current,
+        withdrawn,
+        paidAmount: paid,
+        outstanding: round2(current - paid),
+      })
+    }
+
+    // One line per order, not per payment: the card's question is how much of this
+    // client's money is standing against no document, and the order it came in on
+    // is where the individual records are read.
+    const loose = order.payments.filter((p) => !p.invoiceId || rowOf(p.invoiceId) === null)
+    if (loose.length > 0) {
+      unassignedPayments.push({
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        currency: order.currency,
+        paidAt: loose.reduce(
+          (latest, p) => (p.paidAt > latest ? p.paidAt : latest),
+          loose[0]!.paidAt,
+        ),
+        amount: round2(loose.reduce((sum, p) => sum + p.amount, 0)),
+      })
+    }
+  }
+
+  // Newest first — the same order the card's history reads in.
+  invoices.sort((a, b) => b.issuedAt.localeCompare(a.issuedAt))
+  unassignedPayments.sort((a, b) => b.paidAt.localeCompare(a.paidAt))
+  return { invoices, unassignedPayments }
 }
 
 /**

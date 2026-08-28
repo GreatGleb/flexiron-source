@@ -620,6 +620,77 @@ test.describe('client-card › order history', () => {
   })
 })
 
+test.describe('client-card › issued invoices', () => {
+  /**
+   * Панель обязана говорить то же, что говорит заказ.
+   *
+   * Первая версия этой сводки складывала только платежи со ссылкой на счёт и
+   * показывала долг 1500 по документу, оплаченному ровно на свою сумму: платёж
+   * лежал в том же заказе и своей запиской называл этот самый документ. Ни один
+   * тест этого не увидел — панель проверяли на непустоту.
+   *
+   * Поэтому проверка идёт через две страницы: что заказ считает деньгами по
+   * документу, то карточка клиента и обязана показать в строке этого документа.
+   * Клиента и заказ выбирает не тест, а данные — список открывается на самом
+   * свежем заказе, и дальше тест идёт так, как ходит пользователь.
+   */
+  const parseMoney = (text: string) => Number(text.replace(/[^\d.-]/g, ''))
+
+  test('a payment that names a document is money on that document row', async ({ page }) => {
+    await page.setViewportSize(DESKTOP)
+    await openAdminPage(page, '/admin/orders', '[data-test="orders-row"]')
+    await page.locator('[data-test="orders-row"] a.name-link').first().click()
+    await expect(page).toHaveURL(/\/admin\/orders\/ORD-\d+$/)
+
+    // Признак пришедшего заказа — имя клиента, а не сама разметка карточки.
+    const clientName = (await page.locator('[data-test="field-client"]').innerText()).trim()
+    expect(clientName.length).toBeGreaterThan(0)
+
+    const paymentRows = page.locator('[data-test="order-payment-row"]')
+    await expect(paymentRows.first()).toBeVisible()
+    const namedByInvoice = new Map<string, number>()
+    for (const row of await paymentRows.all()) {
+      const invoiceNumber = (await row.locator('td').nth(3).innerText()).trim()
+      if (invoiceNumber === '—') continue
+      const amount = parseMoney(await row.locator('[data-test="payment-amount"]').innerText())
+      namedByInvoice.set(invoiceNumber, (namedByInvoice.get(invoiceNumber) ?? 0) + amount)
+    }
+    // Утверждение о наборе без проверки непустоты устраивает пустой набор.
+    expect(namedByInvoice.size).toBeGreaterThan(0)
+
+    // Дальше — в карточку клиента поиском по списку, как ходит пользователь.
+    await openAdminPage(page, '/admin/clients', '[data-test="clients-row"]')
+    const clientRows = page.locator('[data-test="clients-row"]')
+    const unfiltered = await clientRows.count()
+    await page.locator('[data-test="clients-search-input"] input').fill(clientName)
+    // Признак применённого фильтра — изменившееся число строк: дождаться просто
+    // «строк» значит дождаться нефильтрованных, они на месте с самого начала.
+    await expect(clientRows).not.toHaveCount(unfiltered, { timeout: 5000 })
+    await clientRows
+      .filter({ has: page.getByRole('link', { name: clientName, exact: true }) })
+      .first()
+      .locator('a.name-link')
+      .click()
+    await expect(page).toHaveURL(/\/admin\/clients\/CL-\d{3}$/)
+
+    const invoiceRows = page.locator('[data-test="client-card-invoice-row"]')
+    await expect(invoiceRows.first()).toBeVisible()
+    const paidByNumber = new Map<string, number>()
+    for (const row of await invoiceRows.all()) {
+      const number = (
+        await row.locator('[data-test="client-card-invoice-number"]').innerText()
+      ).trim()
+      const paid = await row.locator('[data-test="client-card-invoice-paid"]').innerText()
+      paidByNumber.set(number, parseMoney(paid))
+    }
+
+    for (const [number, amount] of namedByInvoice) {
+      expect(paidByNumber.has(number)).toBe(true)
+      expect(paidByNumber.get(number)).toBeCloseTo(amount, 2)
+    }
+  })
+})
+
 test.describe('client-card › order history empty', () => {
   test('shows the empty state for a client nobody has ordered from', async ({ page }) => {
     // Created here rather than picked by id: every seeded client has real orders

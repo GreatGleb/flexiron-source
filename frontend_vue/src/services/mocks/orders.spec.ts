@@ -29,6 +29,7 @@ import {
   mockReleaseOrderReservations,
   mockGetShipments,
   mockGetInvoices,
+  mockGetClientInvoiceSummary,
   mockDeleteOrder,
   mockGetSalesCrmStats,
   mockAddOrderFile,
@@ -3380,5 +3381,294 @@ describe('the showcase order', () => {
     expect(order.totalAmount).toBe(sum)
     // And no hand-written weight — products carry none, so neither does this.
     expect(order.totalWeight).toBe(0)
+  })
+})
+
+describe("the client's issued invoices", () => {
+  /**
+   * The client card asks one question — "what has this client been billed and what
+   * of it is still owed" — and the answer has to survive three things the demo
+   * store really contains: a correction that takes a document back, a correction
+   * that only moves its amount, and money that names no document at all.
+   *
+   * The last one is the reason this file counts money and not just rows. Thirteen
+   * of the hundred seeded orders hold payments with `invoiceId: null`, eleven of
+   * them have no invoice whatever — a summary that adds up only the payments with a
+   * reference tells a client who has paid 6971,72 EUR that they have paid 2000.
+   */
+
+  /** Every currency the client's orders received money in, from the orders. */
+  function paidByOrders(clientId: string): Map<string, number> {
+    const page = mockGetOrders(
+      {
+        search: '',
+        status: 'all',
+        clientId,
+        dateFrom: '',
+        dateTo: '',
+        sortBy: null,
+        sortDir: 'asc',
+      },
+      { page: 1, pageSize: 500 },
+    )
+    const byCurrency = new Map<string, number>()
+    for (const row of page.items) {
+      const order = mockGetOrder(row.id)!
+      byCurrency.set(
+        order.currency,
+        round2((byCurrency.get(order.currency) ?? 0) + order.paidAmount),
+      )
+    }
+    return byCurrency
+  }
+
+  /** The same figure as the summary states it — rows plus money naming nothing. */
+  function paidBySummary(clientId: string): Map<string, number> {
+    const summary = mockGetClientInvoiceSummary(clientId)
+    const byCurrency = new Map<string, number>()
+    for (const row of summary.invoices) {
+      byCurrency.set(row.currency, round2((byCurrency.get(row.currency) ?? 0) + row.paidAmount))
+    }
+    for (const loose of summary.unassignedPayments) {
+      byCurrency.set(loose.currency, round2((byCurrency.get(loose.currency) ?? 0) + loose.amount))
+    }
+    return byCurrency
+  }
+
+  it('lists a document per order, with the money that went against it', () => {
+    const client = mockGetClients()[0]!
+    const created = mockCreateOrder({ clientId: client.id, documentType: 'local' })
+    const line = mockAddOrderItem(created.id, {
+      productId: 'prod-001',
+      quantity: 4,
+      unit: 'pcs',
+      unitPrice: 100,
+    })
+    const shipment = mockCreateShipment(created.id, { lines: [{ lineId: line.id, quantity: 4 }] })
+    const invoice = mockCreateInvoice(created.id, { shipmentId: shipment.id })
+    mockAddOrderPayment(created.id, {
+      amount: 100,
+      purpose: 'advance',
+      invoiceId: invoice.id,
+    })
+
+    const summary = mockGetClientInvoiceSummary(client.id)
+    const rows = summary.invoices.filter((r) => r.orderId === created.id)
+    expect(rows).toHaveLength(1)
+    const row = rows[0]!
+    expect(row.number).toBe(invoice.number)
+    expect(row.orderNumber).toBe(mockGetOrder(created.id)!.orderNumber)
+    expect(row.currency).toBe(mockGetOrder(created.id)!.currency)
+    expect(row.amountGross).toBe(invoice.amountGross)
+    expect(row.amountGrossCurrent).toBe(invoice.amountGross)
+    expect(row.withdrawn).toBe(false)
+    expect(row.paidAmount).toBe(100)
+    expect(row.outstanding).toBe(round2(invoice.amountGross - 100))
+    // Named money is named — it does not also turn up as money naming nothing.
+    expect(summary.unassignedPayments.filter((u) => u.orderId === created.id)).toEqual([])
+
+    mockCancelShipment(created.id, shipment.id, { correctionReason: 'Test teardown' })
+  })
+
+  it('a withdrawn document stays on the list but stops being owed', () => {
+    const client = mockGetClients()[0]!
+    const created = mockCreateOrder({ clientId: client.id, documentType: 'local' })
+    const line = mockAddOrderItem(created.id, {
+      productId: 'prod-001',
+      quantity: 4,
+      unit: 'pcs',
+      unitPrice: 100,
+    })
+    const shipment = mockCreateShipment(created.id, { lines: [{ lineId: line.id, quantity: 4 }] })
+    const invoice = mockCreateInvoice(created.id, { shipmentId: shipment.id })
+    mockCreateInvoice(created.id, {
+      kind: 'correction',
+      correctsInvoiceId: invoice.id,
+      reason: 'Goods came back',
+    })
+
+    const rows = mockGetClientInvoiceSummary(client.id).invoices.filter(
+      (r) => r.orderId === created.id,
+    )
+    // The correction is not a document the client was billed on — it changes the
+    // amount on one they already had, so it gets no row of its own.
+    expect(rows).toHaveLength(1)
+    const row = rows[0]!
+    expect(row.withdrawn).toBe(true)
+    // What the paper said stays readable; what is owed on it is nothing.
+    expect(row.amountGross).toBe(invoice.amountGross)
+    expect(row.amountGrossCurrent).toBe(0)
+    expect(row.outstanding).toBe(0)
+
+    mockCancelShipment(created.id, shipment.id)
+  })
+
+  it('a withdrawn document is exactly nothing, not a cent of rounding', () => {
+    // The two papers cancel in NET; each is rounded to cents on its own, and the
+    // halves can round the other way. 100,90 net at 21% is 122,09 gross, and the
+    // two 50,45 halves are 61,04 each — a cent short of it. Added back up, the
+    // client's summary would show one cent owed on a document nobody is holding,
+    // and that cent is the kind of thing an accountant chases for an afternoon.
+    const client = mockGetClients()[0]!
+    const created = mockCreateOrder({ clientId: client.id, documentType: 'local' })
+    mockAddOrderItem(created.id, {
+      productId: 'prod-001',
+      quantity: 1,
+      unit: 'pcs',
+      unitPrice: 100,
+    })
+    const advance = mockCreateInvoice(created.id, { kind: 'advance', amountNet: 100.9 })
+    const half = mockCreateInvoice(created.id, {
+      kind: 'correction',
+      correctsInvoiceId: advance.id,
+      amountNet: -50.45,
+      reason: 'Half given back',
+    })
+    const rest = mockCreateInvoice(created.id, {
+      kind: 'correction',
+      correctsInvoiceId: advance.id,
+      reason: 'And the rest — the order fell through',
+    })
+    expect(rest.withdrawsOriginal).toBe(true)
+    // The papers really do leave a cent behind when simply added up.
+    expect(round2(advance.amountGross + half.amountGross + rest.amountGross)).not.toBe(0)
+
+    const row = mockGetClientInvoiceSummary(client.id).invoices.find((r) => r.id === advance.id)!
+    expect(row.withdrawn).toBe(true)
+    expect(row.amountGrossCurrent).toBe(0)
+    expect(row.outstanding).toBe(0)
+  })
+
+  it('an adjusting correction moves the amount without taking the document back', () => {
+    const client = mockGetClients()[0]!
+    const created = mockCreateOrder({ clientId: client.id, documentType: 'local' })
+    const line = mockAddOrderItem(created.id, {
+      productId: 'prod-001',
+      quantity: 4,
+      unit: 'pcs',
+      unitPrice: 100,
+    })
+    const shipment = mockCreateShipment(created.id, { lines: [{ lineId: line.id, quantity: 4 }] })
+    const invoice = mockCreateInvoice(created.id, { shipmentId: shipment.id })
+    const adjustment = mockCreateInvoice(created.id, {
+      kind: 'correction',
+      correctsInvoiceId: invoice.id,
+      amountNet: -40,
+      reason: 'Price agreed at 90,00',
+    })
+
+    const rows = mockGetClientInvoiceSummary(client.id).invoices.filter(
+      (r) => r.orderId === created.id,
+    )
+    expect(rows).toHaveLength(1)
+    const row = rows[0]!
+    // Still in the client's hands — struck through it would read as cancelled.
+    expect(row.withdrawn).toBe(false)
+    expect(row.amountGrossCurrent).toBe(round2(invoice.amountGross + adjustment.amountGross))
+    expect(row.amountGrossCurrent).toBeLessThan(row.amountGross)
+
+    mockCancelShipment(created.id, shipment.id, { correctionReason: 'Test teardown' })
+  })
+
+  it('money paid against a correction lands on the document that correction fixes', () => {
+    // The row's amount already counts its corrections. If its paid figure did not,
+    // the two halves of one balance would be computed by two different rules and a
+    // refund issued on the correcting document would be money nobody can see.
+    const client = mockGetClients()[0]!
+    const created = mockCreateOrder({ clientId: client.id, documentType: 'local' })
+    const line = mockAddOrderItem(created.id, {
+      productId: 'prod-001',
+      quantity: 4,
+      unit: 'pcs',
+      unitPrice: 100,
+    })
+    const shipment = mockCreateShipment(created.id, { lines: [{ lineId: line.id, quantity: 4 }] })
+    const invoice = mockCreateInvoice(created.id, { shipmentId: shipment.id })
+    mockAddOrderPayment(created.id, { amount: 200, purpose: 'balance', invoiceId: invoice.id })
+    const adjustment = mockCreateInvoice(created.id, {
+      kind: 'correction',
+      correctsInvoiceId: invoice.id,
+      amountNet: -40,
+      reason: 'Price agreed at 90,00',
+    })
+    mockAddOrderPayment(created.id, {
+      amount: -30,
+      purpose: 'refund',
+      invoiceId: adjustment.id,
+      note: 'Returned on the correction',
+    })
+
+    const summary = mockGetClientInvoiceSummary(client.id)
+    const rows = summary.invoices.filter((r) => r.orderId === created.id)
+    expect(rows).toHaveLength(1)
+    const row = rows[0]!
+    expect(row.paidAmount).toBe(170)
+    expect(row.outstanding).toBe(round2(row.amountGrossCurrent - 170))
+    // And it is not parked as money naming no document either: the correction
+    // names one, and the row it belongs to is the corrected invoice.
+    expect(summary.unassignedPayments.filter((u) => u.orderId === created.id)).toEqual([])
+
+    mockCancelShipment(created.id, shipment.id, { correctionReason: 'Test teardown' })
+  })
+
+  it('money that names no document comes back as its own line, not as nothing', () => {
+    // `invoiceId` is optional by design: an advance arrives before the proforma and
+    // "paid on account" names nothing at all. Such money is the client's all the
+    // same, and a summary that quietly drops it under-reports what they have paid.
+    const client = mockGetClients()[0]!
+    const created = mockCreateOrder({ clientId: client.id, documentType: 'local' })
+    mockAddOrderItem(created.id, {
+      productId: 'prod-001',
+      quantity: 4,
+      unit: 'pcs',
+      unitPrice: 100,
+    })
+    mockAddOrderPayment(created.id, { amount: 250, purpose: 'advance', note: 'On account' })
+
+    const summary = mockGetClientInvoiceSummary(client.id)
+    // Nothing was issued on this order, so it has no document row at all…
+    expect(summary.invoices.filter((r) => r.orderId === created.id)).toEqual([])
+    // …and the money is still there, on the order it arrived with.
+    const loose = summary.unassignedPayments.filter((u) => u.orderId === created.id)
+    expect(loose).toHaveLength(1)
+    expect(loose[0]!.amount).toBe(250)
+    expect(loose[0]!.orderNumber).toBe(mockGetOrder(created.id)!.orderNumber)
+    expect(loose[0]!.currency).toBe(mockGetOrder(created.id)!.currency)
+  })
+
+  it('every euro of the client money is in the summary exactly once — all 55 clients', () => {
+    // The rule the card's totals stand on, checked against the orders themselves
+    // rather than against a repeat of the same arithmetic: whatever an order says
+    // it received, the summary of that client accounts for, in that currency, once.
+    const clients = mockGetClients()
+    expect(clients.length).toBeGreaterThan(0)
+    let compared = 0
+    for (const client of clients) {
+      const expected = paidByOrders(client.id)
+      const actual = paidBySummary(client.id)
+      for (const [currency, amount] of expected) {
+        expect(actual.get(currency) ?? 0).toBe(amount)
+        compared += 1
+      }
+      // And nothing invented in a currency the orders never received.
+      for (const currency of actual.keys()) expect(expected.has(currency)).toBe(true)
+    }
+    // Пустой прогон устраивает любое правило: сравнений должно быть больше нуля.
+    expect(compared).toBeGreaterThan(0)
+  })
+
+  it('the showcase advance is shown paid, not as a debt on a document paid in full', () => {
+    // The demo's own first order used to say exactly that: 1500 issued on the
+    // proforma, 0 paid, 1500 owed — while the payment sat two records below in the
+    // same order, its note naming that very document.
+    const showcase = mockGetOrder('ORD-100')!
+    const advanceRow = mockGetClientInvoiceSummary(showcase.clientId).invoices.find(
+      (r) => r.orderId === showcase.id && r.kind === 'advance',
+    )!
+    expect(advanceRow).toBeDefined()
+    const named = showcase.payments.filter((p) => p.invoiceId === advanceRow.id)
+    expect(named.length).toBeGreaterThan(0)
+    expect(advanceRow.paidAmount).toBe(advanceRow.amountGrossCurrent)
+    expect(advanceRow.outstanding).toBe(0)
   })
 })
