@@ -1130,7 +1130,12 @@ Page: `ProductCardPage.vue`. Composable: `useProductCard` + `useDirtyCheck`.
 Типы из `src/types/service.ts`:
 - `Service`, `ServiceListItem`, `ServiceFilters`
 - `ServiceCreatePayload`, `ServicePatchPayload`
-- `ServicePriceUnit` = `'EUR/vnt' | 'EUR/kg' | 'EUR/m' | 'EUR/h'`
+
+Союза `ServicePriceUnit` (`'EUR/vnt' | 'EUR/kg' | 'EUR/m' | 'EUR/h'`) больше нет: валюта была
+вварена в единицу, и услуга в валюте, отличной от евро, была невыразима. Цена услуги — три
+отдельных поля: сумма (`costPrice`/`sellingPrice`), `currencyId` из справочника валют и `uomId`
+из справочника единиц (`GET /api/settings/currencies`, `GET /api/settings/uoms`). Выведенного
+поля-подписи вида `"EUR/шт"` в ответе нет — подпись собирается там, где её показывают.
 
 ### Коды ошибок (специфичные для домена)
 
@@ -1162,7 +1167,7 @@ Page: `ServicesPage.vue`. Composable: `useServices`.
     "success": true,
     "data": {
       "items": [
-        { "id": "svc-1", "name": { "ru": "Лазерная резка", "en": "Laser Cutting", "lt": "Lazerinis pjovimas" }, "costPrice": 15.00, "sellingPrice": 25.00, "priceUnit": "EUR/h" }
+        { "id": "svc-1", "name": { "ru": "Лазерная резка", "en": "Laser Cutting", "lt": "Lazerinis pjovimas" }, "costPrice": 15.00, "sellingPrice": 25.00, "currencyId": "cur-eur", "uomId": "uom-h" }
       ],
       "total": 10, "page": 1, "pageSize": 25, "totalPages": 1
     }
@@ -1179,7 +1184,8 @@ Page: `ServicesPage.vue`. Composable: `useServices`.
     name: string               // обязательное
     costPrice?: number         // default: 0
     sellingPrice?: number      // default: 0
-    priceUnit?: ServicePriceUnit   // default: 'EUR/vnt'
+    currencyId: string         // id из справочника валют, клиент шлёт 'cur-eur' по умолчанию
+    uomId: string              // id из справочника единиц, клиент шлёт 'uom-pcs' по умолчанию
     description?: string
   }
   ```
@@ -1210,7 +1216,8 @@ Page: `ServiceCardPage.vue`. Composable: `useServiceCard` + `useDirtyCheck`.
       "name": { "ru": "Лазерная резка", "en": "Laser Cutting", "lt": "Lazerinis pjovimas" },
       "costPrice": 15.00,
       "sellingPrice": 25.00,
-      "priceUnit": "EUR/h",
+      "currencyId": "cur-eur",
+      "uomId": "uom-h",
       "description": null,
       "createdAt": "2025-01-15"
     }
@@ -1227,7 +1234,8 @@ Page: `ServiceCardPage.vue`. Composable: `useServiceCard` + `useDirtyCheck`.
     name?: TranslatedString
     costPrice?: number
     sellingPrice?: number
-    priceUnit?: ServicePriceUnit
+    currencyId?: string
+    uomId?: string
     description?: TranslatedString | null
   }
   ```
@@ -1241,7 +1249,7 @@ Page: `ServiceCardPage.vue`. Composable: `useServiceCard` + `useDirtyCheck`.
 **ServicesPage** — **quick-action**: POST и DELETE применяются немедленно. DELETE требует confirmation modal.
 
 **ServiceCardPage** — **clean-slate**:
-- `useDirtyCheck` для `name`/`costPrice`/`sellingPrice`/`priceUnit`/`description`
+- `useDirtyCheck` для `name`/`costPrice`/`sellingPrice`/`currencyId`/`uomId`/`description`
 - Save bar видна при `isAnythingDirty`
 - Save = PATCH с dirty-only delta
 - Discard = сброс формы до последнего сохранённого состояния
