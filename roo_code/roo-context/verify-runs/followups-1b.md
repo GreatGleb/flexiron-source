@@ -241,3 +241,315 @@ exit=0
 скрипт из §3 выражает, но в гейт он не поставлен (правило «шаг вводится только зелёным»
 он бы прошёл — сегодня он зелёный). Заводить его надо отдельным пунктом плана, а не
 попутно этим прогоном.
+
+---
+
+# Прогон 2 — 2026-08-28, перепроверка независимым проходом
+
+Первый прогон (выше) закончился выводом «случаев не осталось», но **скептик по нему не
+запускался**: агент упал на ошибке API и результата не вернул, а финальный приёмщик того
+прогона высказался ПРОТИВ — по его счёту утверждений об отсутствии стало 166 в 36 спеках
+против 102 на момент постановки пункта, и он прочитал это как «сплошного прохода не было».
+
+Поэтому проход сделан заново, с нуля и другим инструментом: не регулярками по строкам, а
+**разбором AST** (`typescript` 6.0.2 из `node_modules`). Ниже — что искалось, чем, и почему
+«ноль» здесь означает ноль, а не сломанный детектор.
+
+## 1. Почему счёт утверждений ничего не решает
+
+Число зависит только от того, какие матчеры считать «утверждением об отсутствии», и трёх
+разных наборов достаточно, чтобы получить три разных числа на одном и том же дереве:
+
+```
+$ cd frontend_vue
+$ grep -rnE "toHaveCount\(0\)|not\.toBeVisible|toBeHidden\(\)|not\.toContainText|not\.toContain\(|toHaveLength\(0\)|toEqual\(\[\]\)" tests --include=*.spec.ts | wc -l
+181
+$ grep -rlE "…то же…" tests --include=*.spec.ts | wc -l
+29
+$ grep -rnE "toHaveCount\(0\)|not\.to|toBeHidden\(\)|toHaveLength\(0\)|toEqual\(\[\]\)|toBeNull\(\)|toBeUndefined\(\)|toBeFalsy\(\)|toBeEmpty\(\)" tests --include=*.spec.ts | wc -l
+317
+$ grep -rlE "…то же…" tests --include=*.spec.ts | wc -l
+32
+```
+
+Узкий набор (тот, которым мерили 2026-08-18) — 181 в 29 файлах; широкий — 317 в 32.
+Счёт AST по операторам — 241 в 32 файлах. Ни одно из этих чисел не совпадает со 166 в 36,
+и это ожидаемо: 36 файлов получается, если считать вместе с юнит-спеками `src/**/*.spec.ts`,
+где ни `page`, ни перезагрузки нет вовсе.
+
+**Вывод: спор о счёте неразрешим и не нужен.** Пункт называет диагнозом не количество
+утверждений, а ПОРЯДОК трёх событий. Поэтому проверяется покрытие прохода, а не популяция:
+разобраны ли ВСЕ тестовые блоки.
+
+## 2. Покрытие: разобраны все тестовые блоки, до единого
+
+```
+$ node list-tests.js | head -1          # блоки, найденные разбором AST
+959
+$ grep -rn "^\s*\(test\|baseTest\|testWithFlags\|it\)\(\.\w\+\)*(" tests --include=*.spec.ts \
+    | grep -v "describe\|beforeEach\|afterEach\|beforeAll\|afterAll\|\.step(" | wc -l
+964
+$ diff <(разбор) <(греп)                # чего греп видит больше
+> tests/e2e/admin/settings/audit-log.spec.ts:130     test.skip(term.length < 3, …)
+> tests/e2e/admin/settings/audit-log.spec.ts:167     test.skip(!twins, …)
+> tests/e2e/ready-exits.spec.ts:106                  test.setTimeout(300_000)
+> tests/e2e/ready-exits.spec.ts:149                  test.setTimeout(…)
+> tests/e2e/ready-real-api.spec.ts:20                test.use({ baseURL: … })
+```
+
+Все пять расхождений — не тестовые блоки, а `test.skip(условие)`, `test.setTimeout`,
+`test.use`. То есть разбор покрывает 964 блока из 964.
+
+## 3. Что именно ищется
+
+Опасен порядок: **мутация → полная загрузка → утверждение об отсутствии**. Полная загрузка
+пересобирает мок-сторы из сидов (они живут в модулях), мутация к моменту проверки отменена,
+и ноль истинен по чужой причине — питфолл #66, механизм 1.
+
+| Звено | Как распознаётся в AST |
+|---|---|
+| мутация | вызов метода `click` `dblclick` `fill` `check` `uncheck` `press` `selectOption` `setInputFiles` `tap` `hover` `dragTo` `clear` `setChecked` `focus` `blur` `dispatchEvent` `pressSequentially` `type`; `request.post/put/patch/delete`; `evaluate` c `localStorage`/`__mock`; **плюс любой вызов функции, в теле которой это есть** — по транзитивному замыканию, а не по списку имён |
+| полная загрузка | `goto` / `reload` — и снова транзитивно: `navigateToAdmin`, `openAdminPage`, `openAdminCard`, `switchLanguage`, `setFeatureFlag`, `setFlag` попадают сюда сами, их не нужно перечислять руками |
+| отсутствие | `toHaveCount(0)` `toHaveLength(0)` `toBe(0)` `toEqual([])` `toBeHidden()` `toBeEmpty()` `toBeNull()` `toBeUndefined()` `toBeFalsy()` `toBe('')` и `not.` перед `toBeVisible` `toBeAttached` `toContainText` `toContain` `toHaveText` `toHaveCount` `toBeChecked` `toHaveValue` `toBeEnabled` `toMatch` `toHaveAttribute` `toHaveClass` `toBeDefined` |
+
+Транзитивное замыкание — главное отличие от прохода регулярками: `deleteFirstRow(page)`
+для регулярки просто вызов, для этого скана — мутация, потому что внутри неё `click`.
+
+Три прохода:
+
+1. **тела тестов** — включая операторы хуков `beforeEach`/`beforeAll` своей области
+   (и области верхнего уровня файла): мутация в хуке предшествует всему телу теста;
+2. **тела хелперов** — тестовый проход видит хелпер чёрным ящиком, здесь он раскрыт:
+   опасный порядок может целиком лежать внутри одной функции;
+3. **история SPA** — `goBack`/`goForward` выписываются отдельно. Это НЕ полная загрузка:
+   записи после первой `goto` кладёт роутер через `pushState`, popstate документ не
+   перезагружает, состояние модулей живо. Именно этим приёмом чинили два теста в
+   `audit-log.spec.ts` (коммит f2def93). Пары выписаны, чтобы прочитать их глазами.
+
+## 4. Скан, дословно
+
+Файл клался в скретчпад, репозиторий он не трогает; воспроизводится копированием.
+
+```js
+/* node scan-1b.js [корень тестов]   — по умолчанию frontend_vue/tests */
+const ts = require('./frontend_vue/node_modules/typescript')
+const fs = require('fs'), path = require('path')
+const ROOT = process.argv[2] || 'frontend_vue/tests'
+
+const NAV_NAMES = new Set(['goto', 'reload'])
+const MUT_NAMES = new Set(['click','dblclick','fill','check','uncheck','press','selectOption',
+  'setInputFiles','tap','hover','dragTo','clear','setChecked','focus','blur','dispatchEvent',
+  'pressSequentially','type'])
+const REQ_MUT = new Set(['post','put','patch','delete'])
+const ABS_NEG = ['toBeVisible','toBeAttached','toContainText','toContain','toHaveText','toHaveCount',
+  'toBeChecked','toHaveValue','toBeEnabled','toMatch','toHaveAttribute','toHaveClass','toBeDefined']
+const HOOKS = new Set(['beforeEach','beforeAll'])
+
+function walkFiles(dir, out = []) {
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, e.name)
+    if (e.isDirectory()) walkFiles(p, out); else if (e.name.endsWith('.ts')) out.push(p)
+  }
+  return out
+}
+const src = new Map()
+for (const f of walkFiles(ROOT).sort())
+  src.set(f, ts.createSourceFile(f, fs.readFileSync(f, 'utf8'), ts.ScriptTarget.Latest, true))
+
+function callEffects(node, sf) {                       // эффекты одного вызова
+  const eff = new Set(); const ex = node.expression
+  if (!ts.isPropertyAccessExpression(ex)) return eff
+  const name = ex.name.text, obj = ex.expression.getText(sf)
+  if (NAV_NAMES.has(name)) eff.add('NAV')
+  // msg.type() в сборщиках консольных ошибок — чтение типа сообщения, не действие
+  if (MUT_NAMES.has(name) && !(name === 'type' && /^(msg|message|err|error|e)\b/.test(obj))) eff.add('MUT')
+  if (REQ_MUT.has(name) && /request$/.test(obj)) eff.add('MUT')
+  if (name === 'evaluate' && /localStorage|sessionStorage|__mock/.test(node.getText(sf))) eff.add('MUT')
+  if (name === 'goBack' || name === 'goForward') eff.add('HIST')
+  return eff
+}
+function isAbs(node, sf) {                             // утверждение об отсутствии
+  if (!/^(await\s+)?expect(\.soft)?\s*\(/.test(node.getText(sf))) return false
+  const ex = node.expression
+  if (!ts.isPropertyAccessExpression(ex)) return false
+  const m = ex.name.text, neg = /\.not\./.test(ex.getText(sf))
+  const arg = (node.arguments[0] ? node.arguments[0].getText(sf) : '').trim()
+  if (neg) return ABS_NEG.includes(m)
+  if (['toBeHidden','toBeEmpty','toBeNull','toBeUndefined','toBeFalsy'].includes(m)) return true
+  if (['toHaveCount','toHaveLength','toBe'].includes(m) && arg === '0') return true
+  if (m === 'toEqual' && /^\[\s*\]$/.test(arg)) return true
+  if (['toBe','toHaveText','toContainText'].includes(m) && /^(''|"")$/.test(arg)) return true
+  return false
+}
+// эффекты функций по имени + транзитивное замыкание по вызовам
+const fnEffects = new Map(), fnCalls = new Map()
+function funcName(n) {
+  if (ts.isFunctionDeclaration(n) && n.name) return n.name.text
+  if (n.parent && ts.isVariableDeclaration(n.parent) && ts.isIdentifier(n.parent.name)) return n.parent.name.text
+  return null
+}
+for (const [, sf] of src) {
+  const visit = (n) => {
+    if ((ts.isFunctionDeclaration(n) || ts.isArrowFunction(n) || ts.isFunctionExpression(n)) && n.body) {
+      const name = funcName(n)
+      if (name) {
+        const eff = fnEffects.get(name) || new Set(), calls = fnCalls.get(name) || new Set()
+        const inner = (m) => {
+          if (ts.isCallExpression(m)) {
+            for (const e of callEffects(m, sf)) eff.add(e)
+            if (isAbs(m, sf)) eff.add('ABS')
+            if (ts.isIdentifier(m.expression)) calls.add(m.expression.text)
+          }
+          ts.forEachChild(m, inner)
+        }
+        ts.forEachChild(n.body, inner); fnEffects.set(name, eff); fnCalls.set(name, calls)
+      }
+    }
+    ts.forEachChild(n, visit)
+  }
+  visit(sf)
+}
+for (let i = 0; i < 10; i++) {                          // замыкание
+  let changed = false
+  for (const [name, calls] of fnCalls) { const eff = fnEffects.get(name)
+    for (const c of calls) { const ce = fnEffects.get(c); if (!ce) continue
+      for (const e of ce) if (!eff.has(e)) { eff.add(e); changed = true } } }
+  if (!changed) break
+}
+const isStmt = (n) => ts.isExpressionStatement(n) || ts.isVariableStatement(n) ||
+  ts.isReturnStatement(n) || ts.isThrowStatement(n)
+function leaves(body) {                                 // листовые операторы по позиции
+  const out = []
+  const visit = (n) => {
+    if (isStmt(n)) { let inner = false
+      const probe = (m) => { if (m !== n && isStmt(m)) inner = true; else ts.forEachChild(m, probe) }
+      ts.forEachChild(n, probe); if (!inner) { out.push(n); return } }
+    ts.forEachChild(n, visit)
+  }
+  visit(body); return out.sort((a, b) => a.pos - b.pos)
+}
+function effects(stmt, sf) {
+  const eff = new Set()
+  const visit = (n) => {
+    if (ts.isCallExpression(n)) {
+      for (const e of callEffects(n, sf)) eff.add(e)
+      if (isAbs(n, sf)) eff.add('ABS')
+      if (ts.isIdentifier(n.expression)) { const fe = fnEffects.get(n.expression.text)
+        if (fe) for (const e of fe) eff.add(e) }
+    }
+    ts.forEachChild(n, visit)
+  }
+  visit(stmt); return eff
+}
+// дальше: обход спеков (describe → хуки области → тесты), для каждого утверждения об
+// отсутствии ищется ближайшая предшествующая NAV, а перед ней — любая MUT; отдельно то же
+// по телам хелперов и отдельно пары MUT → HIST → ABS. Печатаются файл, строки и текст.
+```
+
+Полнота поиска: для утверждения на позиции k берётся ПОСЛЕДНЯЯ загрузка до k, и мутация
+ищется до неё. Этого достаточно: если мутация стоит перед какой-то более ранней загрузкой,
+она стоит и перед последней — то есть пара не теряется.
+
+## 5. Скан проверен инверсией — «ноль» настоящий
+
+Проверка, которая всегда печатает ноль, — это питфолл #68. Поэтому дерево тестов скопировано
+в скретчпад, туда положен файл с ЗАВЕДОМО плохими образцами и с законными, и скан прогнан по
+копии (репозиторий не тронут):
+
+- **A** — `click` → `page.goto` → `toHaveCount(0)`;
+- **B** — мутация через хелпер `deleteFirstRow` → `page.reload()` → `not.toBeVisible`;
+- **C** — мутация в `beforeEach` → `navigateToAdmin` → `toBeHidden()`;
+- **D** — законный порядок: загрузка → мутация → отсутствие;
+- **E** — законный: отсутствие на свежей странице без мутации.
+
+```
+$ node scan-1b.js selftest/tests | grep -A3 "__selftest"
+── tests/e2e/__selftest.spec.ts:10 «A: клик -> goto -> toHaveCount(0)»
+   MUT 12  await page.getByTestId('row-delete-btn').first().click()
+   NAV 13  await page.goto('/admin/clients')
+   ABS 14  await expect(page.getByTestId('clients-row')).toHaveCount(0)
+── tests/e2e/__selftest.spec.ts:17 «B: мутация через хелпер -> reload -> not.toBeVisible»
+   MUT 19  await deleteFirstRow(page)
+   NAV 20  await page.reload()
+   ABS 21  await expect(page.getByTestId('products-row')).not.toBeVisible()
+── tests/e2e/__selftest.spec.ts:29 «C: мутация в хуке -> navigateToAdmin -> toBeHidden»
+   MUT 27  await deleteFirstRow(page)
+   NAV 30  await navigateToAdmin(page, '/admin/orders')
+   ABS 31  await expect(page.getByTestId('orders-row')).toBeHidden()
+```
+
+Все три плохих пойманы — включая мутацию, спрятанную в хелпере, и мутацию из хука.
+D и E не сработали ни разу. Детектор рабочий.
+
+## 6. Результат прохода по настоящему дереву
+
+```
+$ node scan-1b.js
+тестов разобрано: 959, из них с полной загрузкой: 581
+операторов с утверждением об отсутствии: 241 в 32 файлах
+1) в тестах «мутация → полная загрузка → отсутствие»: 8
+2) в хелперах то же: 0
+3) «мутация → история SPA → отсутствие» (перезагрузки документа нет, для чтения): 3
+```
+
+Все восемь срабатываний прочитаны целиком. Ни одно не является случаем пункта:
+
+| # | Место | Почему не случай |
+|---|---|---|
+| 1 | `clients.spec.ts:639` «a payment that names a document is money on that document row» | «Мутация» — клик по `a.name-link`, то есть переход внутри SPA, ничего не меняющий. А само утверждение (`not.toHaveCount(unfiltered)`) стоит ПОСЛЕ загрузки и после `fill` фильтра: оно про фильтр, применённый уже на новой странице |
+| 2–3 | `order-offcuts.spec.ts:34` | «Мутация» — `firstAvailableOffcut`, которая только читает товар и партию со складской вкладки (внутри `openAdminPage` есть `evaluate(__mockCalls)`, отсюда и метка). Утверждения `not.toHaveText('—')` — про содержимое пришедшей строки, а не про исчезновение |
+| 4–5 | `categories.spec.ts:438` «switching language updates UI text» | Язык лежит в `localStorage`; перезагрузка его не откатывает — она и есть предмет теста. Утверждается, что подпись сменилась, а не что запись исчезла |
+| 6 | `audit-log.spec.ts:48` «loads without console errors and shows records» | `expect(errors).toHaveLength(0)` — про консоль, а не про данные; мутации нет вовсе (метку MUT дал `evaluate(__mockCalls)` внутри `navigateToAdmin`) |
+| 7 | `suppliers-list.spec.ts:580` «stored kanban view is restored on reload» | Сохранённый вид — `localStorage`, перезагрузка предмет теста. Присутствие канбана утверждается строкой выше, то есть ноль у таблицы не может быть истиной «страница пуста» |
+| 8 | `warehouse-map.spec.ts:61` «loads without console errors» | То же, что 6 |
+
+Пары из прохода 3 (`audit-log.spec.ts:188` и `:212`) — это и есть починенные в f2def93
+тесты: `goBack`/`goForward` вместо `goto`. История здесь принадлежит одному документу —
+`navigateToAdmin` в `beforeEach` вызывается ОДИН раз (строка 45), дальше только клик по
+ссылке и движения по истории, второй `goto` в тестах отсутствует. Значит модули живы и
+удаление к моменту проверки не отменено.
+
+Отдельно закрыта дыра «полная загрузка не от Playwright»: приложение само нигде не грузит
+документ заново, поэтому третьего источника перезагрузки нет.
+
+```
+$ grep -rn "window\.location\s*=\|location\.href\s*=\|location\.reload\|location\.assign\|location\.replace" src --include=*.vue --include=*.ts --include=*.js
+$ echo "exit=$?"
+exit=1
+```
+
+Пусто. Ссылки с `target="_blank"` (карта склада, сертификаты в модале позиций) открывают
+новую вкладку, текущий документ не перезагружают.
+
+## 7. Вердикт
+
+**Случаев «мутация → полная загрузка → проверка отсутствия» в `frontend_vue/tests` нет.**
+Проход сплошной: 964 тестовых блока из 964, тела хелперов, хуки, история SPA. Детектор
+проверен инверсией на трёх заведомо плохих образцах. Кода не менял — чинить нечего.
+
+Пункт можно закрывать как исчерпанный. Отметку в плане ставит не автор правки.
+
+## 8. Приёмка
+
+```
+$ cd frontend_vue && npm run verify > run.txt 2>&1; echo "exit=$?"
+exit=0
+```
+
+- `typecheck` — чисто
+- `lint` (`--max-warnings=0`) — чисто
+- `dupes` — 9.19 % при пороге 10 %
+- `format:check` — `All matched files use Prettier code style!`
+- `test:unit` — `Test Files 30 passed (30)`, `Tests 646 passed (646)`
+
+`npm run test:e2e` не гонялся: ни один файл в `src/` и `tests/` не изменён, доказывать
+шестнадцатью минутами нечего.
+
+## 9. Линзы
+
+| Линза | Чем проверял | Что вернулось | Вывод |
+|---|---|---|---|
+| **Л9** (тесты, которые ничего не утверждают) | скан из §4 по всем 964 блокам, трём проходам и телам хелперов; инверсия детектора из §5; `grep -rn "await page.waitForLoadState" tests/` | скан: 8 кандидатов, все разобраны и отклонены поимённо (§6); инверсия: 3/3 плохих образца пойманы, 0 ложных на законных; греп: пусто (`exit=1`) | подтверждена |
+| **Л10** (целостность) | `npm run verify` — typecheck и eslint покрывают `tests/**` | `exit=0` | подтверждена |
+
+Остальные линзы не применимы: ни одного файла кода не изменено, менялся только этот журнал.
