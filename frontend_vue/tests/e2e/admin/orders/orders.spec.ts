@@ -1559,6 +1559,56 @@ test.describe('Order Card › returns', () => {
     expect(Number(await page.locator('[data-test="field-gross-total"]').inputValue())).toBe(gross)
   })
 
+  /**
+   * Пилюля «Возвращено» стоит В ЯЧЕЙКЕ с названием товара — единственное место,
+   * где пилюля делит строку с текстом. Там и вскрылось, что базового правила у
+   * `.pill` в проекте не было вовсе: строчный бокс рвался по словам, «Возвращено:»
+   * оставалось на одной строке, число уходило на следующую, и обе половины со
+   * своей заливкой залезали на соседние ряды.
+   *
+   * Утверждения намеренно ГЕОМЕТРИЧЕСКИЕ, а не про класс: класс на месте и при
+   * сломанной вёрстке — он там был всё это время. Считается то, что ломалось.
+   *
+   * Размер и паддинг сверяются с ДРУГОЙ пилюлей этой же страницы, а не с числом
+   * из стиля: вопрос пункта — «неотличима от остальных», и ответ на него может
+   * дать только сравнение. Заодно это переживает смену темы, чего константа не
+   * пережила бы.
+   */
+  test('пилюля возврата — цельный бокс в одну строку, как все прочие пилюли', async ({ page }) => {
+    await page.goto('/admin/orders/ORD-004')
+    await page.waitForSelector('[data-test="order-shipment-row"]')
+    await returnFirstLine(page, 'Wrong profile delivered')
+
+    const pill = page.locator('[data-test="line-returned"]').first()
+    await expect(pill).toBeVisible()
+
+    const shape = await pill.evaluate((el) => {
+      const row = el.closest('tr')!.getBoundingClientRect()
+      const box = el.getBoundingClientRect()
+      const cs = getComputedStyle(el)
+      return {
+        rects: el.getClientRects().length,
+        overflowsRow: box.top < row.top - 0.5 || box.bottom > row.bottom + 0.5,
+        fontSize: cs.fontSize,
+        padding: cs.padding,
+        whiteSpace: cs.whiteSpace,
+      }
+    })
+
+    // Один прямоугольник — значит одна строка. Разорванный надвое бокс даёт два.
+    expect(shape.rects).toBe(1)
+    // И он целиком внутри своего ряда, а не поверх соседних.
+    expect(shape.overflowsRow).toBe(false)
+    expect(shape.whiteSpace).toBe('nowrap')
+
+    const reference = await page.locator('[data-test="order-returns-state"]').evaluate((el) => {
+      const cs = getComputedStyle(el)
+      return { fontSize: cs.fontSize, padding: cs.padding }
+    })
+    expect(shape.fontSize).toBe(reference.fontSize)
+    expect(shape.padding).toBe(reference.padding)
+  })
+
   test('a second partial return of the same line still goes through', async ({ page }) => {
     await page.goto('/admin/orders/ORD-004')
     await page.waitForSelector('[data-test="order-shipment-row"]')

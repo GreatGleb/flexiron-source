@@ -139,9 +139,12 @@
   text-decoration-color: rgba(255, 77, 79, 0.7);
 }
 
+/* Отступ от названия товара — и только он. Уменьшенный шрифт (0.68rem) убран:
+   такого не было больше нигде, и он-то и делал пилюлю в этой ячейке не похожей
+   на пилюли в столбце «Состояние». Размер теперь общий, от `.page-order-card
+   .pill` выше. */
 .order-lines-table .line-returned-pill {
   margin-left: 8px;
-  font-size: 0.68rem;
 }
 
 .order-lines-table .line-state {
