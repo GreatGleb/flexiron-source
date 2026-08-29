@@ -1759,6 +1759,21 @@ test.describe('Order Card › payments and invoices', () => {
       'Issue an invoice first',
     )
     await expect(page.locator('[data-test="payment-confirm"]')).toBeDisabled()
+
+    // Тот же отказ, но по ЗНАКУ суммы, а не по ярлыку над ней: поле принимает
+    // минус (`type="number"` без `min`), и «-50» при назначении «Balance» — это
+    // те же ушедшие деньги. Стража, смотревшая только на назначение, пропускала
+    // их: модалка закрывалась, и в таблице появлялась строка «Balance -50.00 —»
+    // без документа — ровно то расхождение, ради которого пункт 14 заведён.
+    await page.click('[data-test="payment-purpose"]')
+    await page.click('[data-test="payment-purpose"] >> text=Balance')
+    await expect(page.locator('[data-test="payment-refund-hint"]')).toBeHidden()
+    await page.fill('[data-test="payment-amount-input"]', '-50')
+    await expect(page.locator('[data-test="payment-refund-hint"]')).toContainText(
+      'Issue an invoice first',
+    )
+    await expect(page.locator('[data-test="payment-confirm"]')).toBeDisabled()
+
     await page.click('[data-test="payment-cancel"]')
     await expect(page.locator('[data-test="payment-modal"]')).toBeHidden()
     // Отказ — это отказ: записи не прибавилось.

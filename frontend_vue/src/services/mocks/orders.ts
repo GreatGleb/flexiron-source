@@ -3963,8 +3963,13 @@ export function mockAddOrderPayment(
   // written with an amount of zero — the very thing the next line refuses.
   requireFiniteNumbers({ amount: data.amount })
   if (data.amount === 0) throw new Error('PAYMENT_AMOUNT_REQUIRED')
-  const purpose: PaymentPurpose = data.purpose ?? (data.amount < 0 ? 'refund' : 'balance')
-  if (purpose === 'refund' && data.amount > 0) throw new Error('REFUND_MUST_BE_NEGATIVE')
+  if (data.purpose === 'refund' && data.amount > 0) throw new Error('REFUND_MUST_BE_NEGATIVE')
+  // Возврат — это ЗНАК суммы, а не ярлык над ней. Минус — деньги, ушедшие
+  // обратно, как бы вызывающий их ни назвал: `purpose` приходит снаружи, и
+  // проверка ярлыка запирала одну дверь из двух — `{ amount: -50, purpose:
+  // 'balance' }` проходила мимо неё. Отсюда назначение выводится из знака, а
+  // переданное имя решает только среди пришедших денег.
+  const purpose: PaymentPurpose = data.amount < 0 ? 'refund' : (data.purpose ?? 'balance')
   // Возврат обязан назвать документ (пункт 14 `review-followups.md`). Деньги
   // ПРИШЕДШИЕ могут не называть ничего — аванс приходит раньше проформы, «на
   // счёт» не называет ничей документ. Деньги УШЕДШИЕ так не бывают: они уходят

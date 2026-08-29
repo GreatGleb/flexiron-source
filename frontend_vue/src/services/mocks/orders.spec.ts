@@ -838,6 +838,33 @@ describe('payments', () => {
     expect(mockGetOrderPayments(order.id)).toEqual([])
   })
 
+  it('reads money going out by the sign of the amount, not by the label above it', () => {
+    // Ярлык приходит от вызывающего, знак — факт. Стража, смотревшая на ярлык,
+    // запирала одну дверь из двух: «-50 с назначением balance» проходила без
+    // документа, попадала в `paidAmount` заказа и не попадала ни в один баланс
+    // счёта — карточка снова расходилась с реестром «Входящих» на эту сумму.
+    const { order } = orderWithLine()
+    expect(() => mockAddOrderPayment(order.id, { amount: -50, purpose: 'balance' })).toThrow(
+      'REFUND_INVOICE_REQUIRED',
+    )
+    expect(() => mockAddOrderPayment(order.id, { amount: -50, purpose: 'advance' })).toThrow(
+      'REFUND_INVOICE_REQUIRED',
+    )
+    expect(mockGetOrderPayments(order.id)).toEqual([])
+
+    const invoice = mockCreateInvoice(order.id, { kind: 'advance', amountGross: 500 })
+    const saved = mockAddOrderPayment(order.id, {
+      amount: -50,
+      purpose: 'balance',
+      invoiceId: invoice.id,
+    })
+    // И записаны такие деньги возвратом: назначение выведено из знака. Иначе
+    // ушедшие деньги остались бы приходом для всех, кто читает `purpose` —
+    // например для признака «деньги вернулись» в карточке заказа.
+    expect(saved.purpose).toBe('refund')
+    expect(saved.amount).toBe(-50)
+  })
+
   it('refuses a payment of nothing', () => {
     const { order } = orderWithLine()
     expect(() => mockAddOrderPayment(order.id, { amount: 0 })).toThrow('PAYMENT_AMOUNT_REQUIRED')
@@ -3457,6 +3484,23 @@ describe('the showcase order', () => {
       invoiceBalances(order.invoices, order.payments).reduce((sum, b) => sum + b.paidAmount, 0),
     )
     expect(order.paidAmount).toBe(byDocument)
+  })
+
+  it('cannot be pushed apart again by money going out under another name', () => {
+    // Ровно тот путь, которым признак готовности пункта 14 ломался после первой
+    // правки: минус с ЯВНЫМ назначением «balance» и без документа. Он проходил,
+    // и карточка называла 3330 против 3380 у реестра. Утверждается не «модель
+    // что-то бросила», а обе половины: запись не появилась и цифры сошлись.
+    const before = mockGetOrder('ORD-100')!
+    expect(() =>
+      mockAddOrderPayment('ORD-100', { amount: -50, purpose: 'balance', invoiceId: null }),
+    ).toThrow('REFUND_INVOICE_REQUIRED')
+    const after = mockGetOrder('ORD-100')!
+    expect(after.payments.length).toBe(before.payments.length)
+    const byDocument = round2(
+      invoiceBalances(after.invoices, after.payments).reduce((sum, b) => sum + b.paidAmount, 0),
+    )
+    expect(after.paidAmount).toBe(byDocument)
   })
 
   it('carries a history that wrote itself, including one entry the cost right hides', () => {

@@ -758,7 +758,8 @@ function openPaymentModal() {
   // "Overdue, 0.00 received" line there, under the very invoice just settled.
   // Suggested, not imposed: the picker still offers every document and "no
   // document" for money that genuinely settles none — an advance before the
-  // proforma, a rebate going back.
+  // proforma, a payment on account. Money going the other way has no such
+  // option: a refund names the document it goes back on (пункт 14).
   const target = nextUnsettledInvoice(invoiceBalanceList.value)
   const owed = target ? target.outstanding : paid.value.outstanding
   paymentAmount.value = owed > 0 ? money(owed) : ''
@@ -782,28 +783,37 @@ const paymentTargetOutstanding = computed(() => {
 })
 
 /**
+ * Уходят ли эти деньги обратно.
+ *
+ * Тот же ответ, что даёт модель, и по тому же признаку — по ЗНАКУ суммы, а не
+ * по ярлыку назначения. Поле суммы принимает минус (`type="number"` без `min`),
+ * и «-50» при назначении «Balance» — это ушедшие деньги, названные приходом:
+ * стража, смотревшая только на назначение, пропускала их без документа, и
+ * карточка заказа снова расходилась с реестром «Входящих» на их сумму.
+ */
+const paymentGoesOut = computed(
+  () => paymentPurpose.value === 'refund' || Number(paymentAmount.value) < 0,
+)
+
+/**
  * Документы, которые деньги могут назвать.
  *
  * «Без счёта» — вариант ТОЛЬКО для пришедших денег: аванс приходит раньше
  * проформы, «на счёт» не закрывает ничей долг, и такие деньги живут отдельной
- * строкой. У возврата этого варианта нет (пункт 14): деньги уходят по
+ * строкой. У ушедших этого варианта нет (пункт 14): деньги уходят по
  * документу, который клиент держит на руках, а безымянный возврат считался
  * карточкой заказа и не считался реестром «Входящих» — те же два расхождения,
  * что пункт 13 закрыл для оплаты.
  */
 const paymentInvoiceOptions = computed(() => [
-  ...(paymentPurpose.value === 'refund'
-    ? []
-    : [{ value: '', label: t('orders.payment_invoice_none') }]),
+  ...(paymentGoesOut.value ? [] : [{ value: '', label: t('orders.payment_invoice_none') }]),
   ...invoices.value
     .filter((i) => i.kind !== 'correction')
     .map((i) => ({ value: i.id, label: `${i.number} · ${money(i.amountGross)}` })),
 ])
 
-/** Возврату нужен документ, и без выбранного документа его не сохранить. */
-const refundNeedsInvoice = computed(
-  () => paymentPurpose.value === 'refund' && paymentInvoiceId.value === '',
-)
+/** Ушедшим деньгам нужен документ, и без выбранного документа их не сохранить. */
+const refundNeedsInvoice = computed(() => paymentGoesOut.value && paymentInvoiceId.value === '')
 
 // Переключились на возврат — подсказываем документ, по которому деньги пришли:
 // возвращают то, что получили. Подсказка, а не подстановка молча: список открыт,
@@ -2670,7 +2680,7 @@ onMounted(loadShipments)
           :options="PAYMENT_PURPOSES"
           data-test="payment-purpose"
         />
-        <span v-if="paymentPurpose === 'refund'" class="field-hint" data-test="payment-refund-hint">
+        <span v-if="paymentGoesOut" class="field-hint" data-test="payment-refund-hint">
           {{
             invoices.length === 0
               ? t('orders.payment_refund_needs_invoice')
@@ -2685,7 +2695,7 @@ onMounted(loadShipments)
         <CustomSelect
           v-model="paymentInvoiceId"
           :options="paymentInvoiceOptions"
-          :placeholder="paymentPurpose === 'refund' ? t('orders.payment_invoice_pick') : undefined"
+          :placeholder="paymentGoesOut ? t('orders.payment_invoice_pick') : undefined"
           data-test="payment-invoice"
         />
       </InputGroup>
