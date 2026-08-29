@@ -59,9 +59,15 @@ function formatCurrency(value: number): string {
           <SvgIcon name="shopping-cart" :width="18" :height="18" />
           <span>{{ t('salesCrm.new_order') }}</span>
         </router-link>
+        <!--
+          «Новый клиент» — такое же создание, как «Новый заказ», и цвет у них общий.
+          «Список клиентов» — такой же переход к списку, как «Список заказов», и
+          иконка у них общая: разные значки на одинаковых действиях читались как
+          разные действия.
+        -->
         <router-link
           :to="{ name: 'admin-client-create' }"
-          class="btn btn-secondary"
+          class="btn btn-primary"
           data-test="sales-crm-action-new-client"
         >
           <SvgIcon name="users" :width="18" :height="18" />
@@ -72,7 +78,7 @@ function formatCurrency(value: number): string {
           class="btn btn-secondary"
           data-test="sales-crm-action-clients-list"
         >
-          <SvgIcon name="folder" :width="18" :height="18" />
+          <SvgIcon name="list-status" :width="18" :height="18" />
           <span>{{ t('salesCrm.clients_list') }}</span>
         </router-link>
         <router-link
