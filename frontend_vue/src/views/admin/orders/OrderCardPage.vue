@@ -665,6 +665,16 @@ const returnSelection = computed(() =>
     .filter((line) => Number.isFinite(line.quantity) && line.quantity > 0),
 )
 
+/**
+ * Чего не хватает для подтверждения возврата — пустая строка означает «всё готово».
+ * Порядок веток тот же, что у `disabled` кнопки: сперва количества, потом причина.
+ */
+const returnBlockReason = computed(() => {
+  if (returnSelection.value.length === 0) return t('orders.return_need_qty')
+  if (!returnReason.value.trim()) return t('orders.return_need_reason')
+  return ''
+})
+
 async function confirmReturn() {
   const lines = returnSelection.value
   if (lines.length === 0 || !returnReason.value.trim()) return
@@ -2537,13 +2547,31 @@ onMounted(loadShipments)
           </tbody>
         </table>
       </div>
-      <InputGroup :label="t('orders.return_reason_label')">
+      <InputGroup>
+        <!--
+          Метка написана здесь, а не отдана `:label` в InputGroup: звёздочку тот
+          не рисует. Разметка та же, что у обязательных полей на страницах
+          создания клиента и партии — общий `.required-star` из
+          `components/_forms.css`.
+        -->
+        <label class="field-label"
+          >{{ t('orders.return_reason_label') }} <span class="required-star">*</span></label
+        >
         <AutoResizeTextarea
           v-model="returnReason"
           :placeholder="t('orders.return_reason_placeholder')"
           data-test="return-reason"
         />
       </InputGroup>
+      <!--
+        Кнопка подтверждения гаснет по двум причинам сразу — нет количеств и нет
+        причины, — и раньше молчала о том, какая из них сработала. Строка называет
+        недостающее и исчезает, когда всё заполнено: она и кнопка читают одно и то
+        же условие, разойтись им негде.
+      -->
+      <p v-if="returnBlockReason" class="return-block-reason" data-test="return-block-reason">
+        {{ returnBlockReason }}
+      </p>
       <template #footer>
         <button
           type="button"
@@ -3172,6 +3200,20 @@ onMounted(loadShipments)
   opacity: 0.75;
   margin: 0 0 10px 0;
   color: var(--text-color, rgba(255, 255, 255, 0.85));
+}
+
+/* Строка «чего не хватает» под формой возврата.
+
+   Селектор с тегом `p` — не украшение: `.modal-body p` в `components/_modal.css`
+   задаёт цвет и размер и весит больше одноклассового селектора. Без `p` строка
+   вышла бы обычным текстом модалки, а не приглушённой подсказкой. Та же причина
+   у `.modal-body p.field-error` в `components/_forms.css`. */
+.modal-body p.return-block-reason {
+  margin: 8px 0 0 0;
+  font-size: 12px;
+  /* 0.5, как у поясняющих строк в настройках. `.text-muted` этой страницы —
+     0.35: он для пустых мест, а это указание, которое надо прочитать. */
+  color: rgba(255, 255, 255, 0.5);
 }
 
 /* Section divider */
