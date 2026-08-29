@@ -132,6 +132,9 @@ function onTabClick(tabPath: string) {
 provide('settings', settings)
 provide('loading', loading)
 provide('saving', saving)
+/* Несохранённые правки: их видит не только полоса сохранения. Проверка почты
+   уходит на сохранённые настройки, и ей нужно знать, разошёлся ли черновик. */
+provide('isDirty', isDirty)
 provide('save', save)
 provide('updateProfile', updateProfile)
 provide('updateCompany', updateCompany)

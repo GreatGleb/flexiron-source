@@ -17,6 +17,7 @@ const settings = inject<AppSettings>('settings')!
 const updateMail =
   inject<(patch: Partial<Omit<MailServerSettings, 'passwordSet'>>) => void>('updateMail')!
 const mailPassword = inject<Ref<string>>('mailPassword')!
+const isDirty = inject<Ref<boolean>>('isDirty')!
 const setMailPassword = inject<(value: string) => void>('setMailPassword')!
 
 const encryptionOptions = computed(() =>
@@ -46,6 +47,25 @@ function onPortInput(raw: string) {
  * обещала бы проверку того, чего сервер ещё не видел.
  */
 const configured = computed(() => isMailConfigured(settings.mail))
+
+/**
+ * Куда уйдёт письмо — сказанное ДО нажатия, а не тостом после.
+ *
+ * Адрес берётся не откуда попало: `/api/settings/mail/test` шлёт на СОХРАНЁННЫЕ
+ * настройки, а `settings.mail` здесь — черновик формы, меняющийся с каждой
+ * буквой. Совпадают они, только пока правок нет: успешное сохранение кладёт в
+ * стор ответ сервера. Поэтому при несохранённых правках адрес не называется
+ * вовсе — назвать черновик значило бы соврать о получателе, а тост потом
+ * показал бы другой адрес.
+ *
+ * `isDirty` общий на все разделы настроек: правка в «Компании» тоже спрячет
+ * адрес. Это осторожнее, чем необходимо, зато не врёт никогда.
+ */
+const testTarget = computed(() => {
+  if (!settings.mail.fromEmail) return t('settingsMail.test_no_sender')
+  if (isDirty.value) return t('settingsMail.test_target_stale')
+  return t('settingsMail.test_target', { email: settings.mail.fromEmail })
+})
 
 const testing = ref(false)
 
@@ -166,6 +186,9 @@ async function handleTest() {
         >
           {{ testing ? t('settingsMail.testing') : t('settingsMail.test') }}
         </button>
+        <p class="settings-mail-hint" data-test="settings-mail-test-target">
+          {{ testTarget }}
+        </p>
         <p v-if="!configured" class="settings-mail-hint" data-test="settings-mail-not-configured">
           {{ t('settingsMail.not_configured') }}
         </p>
