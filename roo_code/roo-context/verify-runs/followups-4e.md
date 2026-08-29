@@ -1,6 +1,6 @@
 # Пункт 4e — имя товара перестало храниться в партии, обрезке и движении
 
-План: [`review-followups.md` § 4e](../../plans/general/review-followups.md)
+План: [`review-followups.md` § 4e](../../plans/archive/2026-08/review-followups.md)
 Прогон: 2026-08-27, автономный. Отметку ✅ в плане ставит не автор правки.
 
 ---

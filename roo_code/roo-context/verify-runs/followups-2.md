@@ -1,6 +1,6 @@
 # Пункт 2 — «Бэкенд: каждое событие триггерит уведомление»
 
-План: [`review-followups.md`](../../plans/general/review-followups.md), раздел `## 2`.
+План: [`review-followups.md`](../../plans/archive/2026-08/review-followups.md), раздел `## 2`.
 Ветка: `auto/followups-2026-08-27`. Дата: 2026-08-27. Режим автономный.
 
 ---
@@ -383,7 +383,7 @@ bcc, billing, finance, notifications, services, suppliers, warehouse → пус�
 пункта требует триггеры под все восемь. Разбор — раздел 7, пункт (2); он в силе.
 
 **(3) Отметки ✅ у пункта 2 в плане нет.** В
-[`review-followups.md`](../../plans/general/review-followups.md) закрытые пункты помечены
+[`review-followups.md`](../../plans/archive/2026-08/review-followups.md) закрытые пункты помечены
 явно — 1, 1c, 3, 4h, 5, 6 несут «✅ СДЕЛАНО» прямо в заголовке. У заголовка строки 179
 («## 2. Бэкенд: каждое событие триггерит уведомление») отметки нет. Пункт открыт и по
 собственному признанию автора.

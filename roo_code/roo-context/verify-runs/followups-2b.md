@@ -1,6 +1,6 @@
 # Цикл проверок: пункт 2b — ветка `no-mock-module` в `helpers/ready.ts`
 
-Цель: [`review-followups.md` §2b](../../plans/general/review-followups.md) — ветка
+Цель: [`review-followups.md` §2b](../../plans/archive/2026-08/review-followups.md) — ветка
 `no-mock-module` в [`tests/e2e/helpers/ready.ts`](../../../frontend_vue/tests/e2e/helpers/ready.ts)
 не проверена ничем. Область — только `frontend_vue/tests/` и `playwright.config.ts`;
 приложение (`src/`) не менялось ни строкой.

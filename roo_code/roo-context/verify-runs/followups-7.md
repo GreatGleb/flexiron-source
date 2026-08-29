@@ -1,6 +1,6 @@
 # Пункт 7 — обрезок можно выбрать в строке заказа
 
-План: [`review-followups.md` § 7](../../plans/general/review-followups.md)
+План: [`review-followups.md` § 7](../../plans/archive/2026-08/review-followups.md)
 Прогон: 2026-08-27, автономный. Отметку ✅ в плане ставит не автор правки.
 
 ---

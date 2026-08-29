@@ -1,6 +1,6 @@
 # Цикл проверок: пункт 1c — `networkidle` как признак прихода данных
 
-Цель: [`review-followups.md` §1c](../../plans/general/review-followups.md) — 169 мест
+Цель: [`review-followups.md` §1c](../../plans/archive/2026-08/review-followups.md) — 169 мест
 `waitForLoadState('networkidle')` в 23 файлах заменить на признак ПРИШЕДШИХ ДАННЫХ
 (питфолл #64). Область: только `frontend_vue/tests/`, приложение не трогается.
 

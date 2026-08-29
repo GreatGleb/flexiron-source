@@ -342,7 +342,7 @@ attach=true  | ORDER paidAmount=500 | REGISTRY paid=500 outstanding=0   status=c
 ---
 ## 5. Отметки ✅, поставленные приёмкой
 
-В [`review-followups.md`](../../plans/general/review-followups.md) добавлено **шесть** отметок
+В [`review-followups.md`](../../plans/archive/2026-08/review-followups.md) добавлено **шесть** отметок
 — и ни одной сверх условия «принят приёмщиком **и** подтверждён зелёным полным e2e»:
 
 | Пункт | Отметка | Основание |

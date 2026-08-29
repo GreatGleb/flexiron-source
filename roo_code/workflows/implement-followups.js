@@ -13,7 +13,7 @@ export const meta = {
 // Цикл проверок: roo_code/skills/verify.md
 // Режим автономный: вопросов не задают, неясность = провал задачи с указанием, чего нет в плане.
 
-const PLAN = 'roo_code/plans/general/review-followups.md'
+const PLAN = 'roo_code/plans/archive/2026-08/review-followups.md'
 const DEFAULT_ITEMS = ['1b', '2', '2b', '4b', '4c', '4d', '4e', '4f', '4g', '7', '8', '9', '10', '11', '12', '13']
 const items = args && Array.isArray(args.items) && args.items.length > 0 ? args.items : DEFAULT_ITEMS
 // Пункт, уже завёрнутый приёмкой, нельзя отдавать заново как чистый лист: агент повторит

@@ -172,7 +172,7 @@ $ ls -d demo frontend_vue/dist
 demo
 frontend_vue/dist
 $ grep -rl "InBox LT" . --exclude-dir=node_modules --exclude-dir=.git
-roo_code/plans/general/review-followups.md
+roo_code/plans/archive/2026-08/review-followups.md
 roo_code/plans/general/move-project-to-flexiron-enterprise.md
 frontend_vue/tests/e2e/admin/suppliers/bcc-request.spec.ts
 frontend_vue/src/composables/useBccRequest.ts

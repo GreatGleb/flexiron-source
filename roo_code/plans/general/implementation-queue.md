@@ -43,7 +43,7 @@
 
 | План | Вердикт | Что осталось | Файлов | Подробности |
 |---|---|---|---|---|
-| `roo_code/plans/general/review-followups.md` | частично | из 22 разделов сделано 8, остальные частично или не начаты | 29 | [`part-015.md`](inventory-parts/part-015.md) |
+| `roo_code/plans/archive/2026-08/review-followups.md` | частично | из 22 разделов сделано 8, остальные частично или не начаты | 29 | [`part-015.md`](inventory-parts/part-015.md) |
 | `roo_code/plans/sales-crm/01-sales-crm-initial-plan.md` | частично | инфраструктура (роут, флаг, типы) есть, сама страница — нет; 9 чекбоксов | 18 | [`part-036.md`](inventory-parts/part-036.md) |
 | `roo_code/plans/warehouse/new-tasks-autotests-plan.md` | частично | все пять шагов заведены, часть тестов не дописана | 11 | [`part-051.md`](inventory-parts/part-051.md) |
 | `roo_code/plans/warehouse/phase3-subtask2-WarehouseBatchCard.md` | частично | 7 из 10 `data-test` есть; 12 чекбоксов открыты | 8 | [`part-052.md`](inventory-parts/part-052.md) |

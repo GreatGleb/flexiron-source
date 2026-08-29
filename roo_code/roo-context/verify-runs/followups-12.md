@@ -1,6 +1,6 @@
 # Пункт 12 — Почтовый сервер в настройках (находка 4-D)
 
-План: [`review-followups.md` §12](../../plans/general/review-followups.md).
+План: [`review-followups.md` §12](../../plans/archive/2026-08/review-followups.md).
 Спека: [04.2 §4 и §6](../../../toDo/design/screen_specs/04.2_BCC_Request_Tool.md).
 Режим автономный, ветка `auto/followups-2026-08-28`.
 

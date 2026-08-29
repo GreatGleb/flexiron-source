@@ -1,6 +1,6 @@
 # Пункт 4g — имена формул пересчёта: один типизированный союз вместо трёх словарей
 
-План: [`review-followups.md` § 4g](../../plans/general/review-followups.md)
+План: [`review-followups.md` § 4g](../../plans/archive/2026-08/review-followups.md)
 Прогон: 2026-08-27, автономный. Отметку ✅ в плане ставит не автор правки.
 
 ---

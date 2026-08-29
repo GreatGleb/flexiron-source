@@ -1,6 +1,6 @@
 # Пункт 8 — страна клиента справочником и автоопределение типа комплекта
 
-План: [`review-followups.md` § 8](../../plans/general/review-followups.md)
+План: [`review-followups.md` § 8](../../plans/archive/2026-08/review-followups.md)
 Прогон: 2026-08-27, автономный. Отметку ✅ в плане ставит не автор правки.
 
 ---

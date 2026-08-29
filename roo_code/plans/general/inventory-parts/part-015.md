@@ -1,4 +1,4 @@
-# Инвентаризация: roo_code/plans/general/review-followups.md
+# Инвентаризация: roo_code/plans/archive/2026-08/review-followups.md
 
 **Вердикт: частично**
 

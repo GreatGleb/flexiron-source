@@ -1889,7 +1889,7 @@ Mock: [`mocks/finance.ts`](frontend_vue/src/services/mocks/finance.ts).
 ## Модель: у одной суммы один владелец
 
 Раздел состоит из двух разных сущностей, и путать их нельзя (пункт 13 плана
-[`review-followups.md`](../plans/general/review-followups.md)):
+[`review-followups.md`](../plans/archive/2026-08/review-followups.md)):
 
 - **Входящие** — это **представление над счетами заказов**, своего хранилища у них нет.
   Строка реестра = счёт (`Order.invoices[]`): его номер, дата и сумма. Срок оплаты выводится

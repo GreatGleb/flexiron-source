@@ -1,6 +1,6 @@
 # Пункт 4b — код единицы по-английски в ХРАНИМЫХ данных (карточка товара)
 
-План: [`review-followups.md` § 4b](../../plans/general/review-followups.md)
+План: [`review-followups.md` § 4b](../../plans/archive/2026-08/review-followups.md)
 Прогон: 2026-08-27, автономный. Отметку ✅ в плане ставит не автор правки.
 
 ---

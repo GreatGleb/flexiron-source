@@ -1,6 +1,6 @@
 # Пункт 4d — `batch.unit` переехал со свободной строки на ссылку на справочник
 
-План: [`review-followups.md` § 4d](../../plans/general/review-followups.md)
+План: [`review-followups.md` § 4d](../../plans/archive/2026-08/review-followups.md)
 Прогон: 2026-08-27, автономный. Отметку ✅ в плане ставит не автор правки.
 
 ---

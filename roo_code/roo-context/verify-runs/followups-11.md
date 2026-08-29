@@ -1,6 +1,6 @@
 # Пункт 11 — BCC-письма: подпись и тема из настроек (находка 4-C)
 
-План: [`review-followups.md` §11](../../plans/general/review-followups.md).
+План: [`review-followups.md` §11](../../plans/archive/2026-08/review-followups.md).
 Спека: [04.2 §3](../../../toDo/design/screen_specs/04.2_BCC_Request_Tool.md).
 Режим автономный, ветка `auto/followups-2026-08-28`.
 
