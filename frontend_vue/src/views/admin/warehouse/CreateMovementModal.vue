@@ -827,7 +827,7 @@ function formatDate(iso: string): string {
           <label class="field-label">{{ t('warehouse.field_notes') }}</label>
           <AutoResizeTextarea
             v-model="notes"
-            class="glass-input batch-notes-input"
+            class="batch-notes-input"
             rows="3"
             data-test="create-movement-notes-input"
           />

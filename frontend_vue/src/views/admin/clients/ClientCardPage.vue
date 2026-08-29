@@ -338,12 +338,7 @@ onMounted(() => {
                 </InputGroup>
 
                 <InputGroup :label="t('clients.field_notes')">
-                  <AutoResizeTextarea
-                    v-model="client.notes"
-                    class="glass-input"
-                    rows="3"
-                    data-test="field-notes"
-                  />
+                  <AutoResizeTextarea v-model="client.notes" rows="3" data-test="field-notes" />
                 </InputGroup>
               </template>
             </GlassPanel>
@@ -663,7 +658,6 @@ onMounted(() => {
                 <InputGroup :label="t('clients.interaction_field_summary')">
                   <AutoResizeTextarea
                     v-model="newInteraction.summary"
-                    class="glass-input"
                     rows="3"
                     :placeholder="t('clients.notes_placeholder')"
                     data-test="field-interaction-summary-inline"

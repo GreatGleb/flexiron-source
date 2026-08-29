@@ -229,7 +229,6 @@ async function handleCreate() {
       <InputGroup :label="t('categories.field_description')">
         <AutoResizeTextarea
           v-model="newCatDescription"
-          class="glass-input"
           rows="3"
           data-test="create-cat-description"
         />

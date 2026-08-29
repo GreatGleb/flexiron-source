@@ -266,12 +266,7 @@ onMounted(() => load())
           <template v-if="payment">
             <div class="input-group">
               <label class="field-label">{{ t('financePayment.section_notes') }}</label>
-              <AutoResizeTextarea
-                v-model="notesDraft"
-                class="glass-input"
-                rows="4"
-                data-test="payment-notes-input"
-              />
+              <AutoResizeTextarea v-model="notesDraft" rows="4" data-test="payment-notes-input" />
             </div>
           </template>
         </GlassPanel>

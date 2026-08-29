@@ -664,7 +664,7 @@ onMounted(load)
               </label>
               <AutoResizeTextarea
                 :model-value="movement.notes"
-                class="glass-input batch-notes-input"
+                class="batch-notes-input"
                 readonly
                 data-test="field-notes"
               />

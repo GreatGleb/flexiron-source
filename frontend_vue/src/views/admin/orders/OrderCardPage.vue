@@ -1558,11 +1558,7 @@ onMounted(loadShipments)
             <GlassPanel :title="t('orders.field_notes')" :loading="loading" :skeleton-rows="1">
               <template v-if="order">
                 <InputGroup :label="t('orders.field_notes')">
-                  <AutoResizeTextarea
-                    v-model="form.notes"
-                    class="glass-input"
-                    data-test="field-notes"
-                  />
+                  <AutoResizeTextarea v-model="form.notes" data-test="field-notes" />
                 </InputGroup>
               </template>
             </GlassPanel>
@@ -2493,76 +2489,86 @@ onMounted(loadShipments)
       size="medium"
       data-test="return-modal"
     >
-      <p>{{ t('orders.return_modal_explain') }}</p>
-      <div class="data-table-wrapper">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>{{ t('orders.col_product') }}</th>
-              <th>{{ t('orders.col_shipped_qty') }}</th>
-              <th>{{ t('orders.col_available_to_return') }}</th>
-              <th>{{ t('orders.col_quantity') }}</th>
-              <th>{{ t('orders.col_condition') }}</th>
-              <th>{{ t('orders.col_compensate') }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="line in returnableLines" :key="line.lineId" data-test="return-line-row">
-              <td>{{ line.productName }}</td>
-              <td>{{ line.shipped }} {{ unitLabel(line.unit) }}</td>
-              <td data-test="return-line-available">
-                {{ line.returnable }} {{ unitLabel(line.unit) }}
-              </td>
-              <td>
-                <input
-                  class="cell-input"
-                  type="number"
-                  min="0"
-                  :max="line.returnable"
-                  step="0.001"
-                  :value="returnQty(line)"
-                  data-test="return-line-qty"
-                  @input="setReturnQty(line, ($event.target as HTMLInputElement).value)"
-                />
-              </td>
-              <td>
-                <CustomSelect
-                  :model-value="returnCondition(line)"
-                  :options="RETURN_CONDITION_OPTIONS"
-                  data-test="return-line-condition"
-                  @update:model-value="setReturnCondition(line, $event)"
-                />
-              </td>
-              <td>
-                <input
-                  type="checkbox"
-                  :checked="returnCompensates(line)"
-                  data-test="return-line-compensate"
-                  @change="
-                    toggleReturnCompensate(line, ($event.target as HTMLInputElement).checked)
-                  "
-                />
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <!--
+        Пояснение, таблица позиций и поле причины разведены общим `.modal-form`
+        из `components/_modal.css` — тем же, что у модалок настроек и конфига
+        карточки поставщика. Глобальный сброс обнуляет margin у всего, поэтому
+        без обёртки блоки стоят впритык: своих отступов у них нет и взяться им
+        неоткуда. Строка «чего не хватает» оставлена снаружи: у неё собственный
+        margin-top, и внутри контейнера он сложился бы с gap.
+      -->
+      <div class="modal-form">
+        <p>{{ t('orders.return_modal_explain') }}</p>
+        <div class="data-table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>{{ t('orders.col_product') }}</th>
+                <th>{{ t('orders.col_shipped_qty') }}</th>
+                <th>{{ t('orders.col_available_to_return') }}</th>
+                <th>{{ t('orders.col_quantity') }}</th>
+                <th>{{ t('orders.col_condition') }}</th>
+                <th>{{ t('orders.col_compensate') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="line in returnableLines" :key="line.lineId" data-test="return-line-row">
+                <td>{{ line.productName }}</td>
+                <td>{{ line.shipped }} {{ unitLabel(line.unit) }}</td>
+                <td data-test="return-line-available">
+                  {{ line.returnable }} {{ unitLabel(line.unit) }}
+                </td>
+                <td>
+                  <input
+                    class="cell-input"
+                    type="number"
+                    min="0"
+                    :max="line.returnable"
+                    step="0.001"
+                    :value="returnQty(line)"
+                    data-test="return-line-qty"
+                    @input="setReturnQty(line, ($event.target as HTMLInputElement).value)"
+                  />
+                </td>
+                <td>
+                  <CustomSelect
+                    :model-value="returnCondition(line)"
+                    :options="RETURN_CONDITION_OPTIONS"
+                    data-test="return-line-condition"
+                    @update:model-value="setReturnCondition(line, $event)"
+                  />
+                </td>
+                <td>
+                  <input
+                    type="checkbox"
+                    :checked="returnCompensates(line)"
+                    data-test="return-line-compensate"
+                    @change="
+                      toggleReturnCompensate(line, ($event.target as HTMLInputElement).checked)
+                    "
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <InputGroup>
+          <!--
+            Метка написана здесь, а не отдана `:label` в InputGroup: звёздочку тот
+            не рисует. Разметка та же, что у обязательных полей на страницах
+            создания клиента и партии — общий `.required-star` из
+            `components/_forms.css`.
+          -->
+          <label class="field-label"
+            >{{ t('orders.return_reason_label') }} <span class="required-star">*</span></label
+          >
+          <AutoResizeTextarea
+            v-model="returnReason"
+            :placeholder="t('orders.return_reason_placeholder')"
+            data-test="return-reason"
+          />
+        </InputGroup>
       </div>
-      <InputGroup>
-        <!--
-          Метка написана здесь, а не отдана `:label` в InputGroup: звёздочку тот
-          не рисует. Разметка та же, что у обязательных полей на страницах
-          создания клиента и партии — общий `.required-star` из
-          `components/_forms.css`.
-        -->
-        <label class="field-label"
-          >{{ t('orders.return_reason_label') }} <span class="required-star">*</span></label
-        >
-        <AutoResizeTextarea
-          v-model="returnReason"
-          :placeholder="t('orders.return_reason_placeholder')"
-          data-test="return-reason"
-        />
-      </InputGroup>
       <!--
         Кнопка подтверждения гаснет по двум причинам сразу — нет количеств и нет
         причины, — и раньше молчала о том, какая из них сработала. Строка называет

@@ -256,12 +256,7 @@ function handleCancel() {
             </div>
 
             <InputGroup :label="t('clients.field_notes')">
-              <AutoResizeTextarea
-                v-model="form.notes"
-                class="glass-input"
-                rows="3"
-                data-test="field-notes"
-              />
+              <AutoResizeTextarea v-model="form.notes" rows="3" data-test="field-notes" />
             </InputGroup>
           </GlassPanel>
         </div>

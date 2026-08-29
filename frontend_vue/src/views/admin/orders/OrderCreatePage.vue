@@ -357,12 +357,7 @@ onMounted(loadClients)
         <div class="entity-col-center">
           <GlassPanel :title="t('orders.field_notes')" data-test="order-create-notes-panel">
             <InputGroup :label="t('orders.field_notes')">
-              <AutoResizeTextarea
-                v-model="form.notes"
-                class="glass-input"
-                rows="4"
-                data-test="order-create-notes"
-              />
+              <AutoResizeTextarea v-model="form.notes" rows="4" data-test="order-create-notes" />
             </InputGroup>
           </GlassPanel>
         </div>

@@ -6,8 +6,20 @@
  * function, once. The root element IS the textarea, so `class`, `rows`,
  * `placeholder` and `data-test` land on it as fall-through attributes and every
  * selector written against the old markup keeps working.
+ *
+ * The root carries `glass-input` itself. It used to be the caller's job, and out
+ * of 28 call sites two forgot it — the return modal on the order card and the
+ * cutting page — so those two boxes were unstyled `<textarea>` among glass
+ * fields. A base that every caller has to remember is not a base; a caller that
+ * forgets it gets no warning from typecheck, lint or any test. Extra classes
+ * from the caller still land: Vue merges fall-through `class` with the root's
+ * own, so `class="batch-notes-input"` renders as both.
  */
 import { ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
+
+// Own CSS, not borrowed from whoever else is on the page (pitfall #16):
+// `admin-core.scss` happens to load this too, but that is the layout's business.
+import '@styles/admin/components/_forms.css'
 
 const props = withDefaults(
   defineProps<{
@@ -72,5 +84,5 @@ defineExpose({ resize })
 </script>
 
 <template>
-  <textarea ref="el" :value="modelValue ?? ''" @input="onInput" />
+  <textarea ref="el" class="glass-input" :value="modelValue ?? ''" @input="onInput" />
 </template>

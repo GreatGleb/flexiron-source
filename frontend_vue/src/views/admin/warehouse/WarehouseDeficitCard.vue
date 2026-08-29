@@ -640,7 +640,7 @@ onMounted(load)
                   </label>
                   <AutoResizeTextarea
                     v-model="form.notes"
-                    class="glass-input batch-notes-input"
+                    class="batch-notes-input"
                     data-test="field-notes"
                   />
                 </div>

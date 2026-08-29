@@ -1065,7 +1065,7 @@ async function onMovementCreated() {
                   </label>
                   <AutoResizeTextarea
                     v-model="form.notes"
-                    class="glass-input batch-notes-input"
+                    class="batch-notes-input"
                     data-test="field-notes"
                   />
                 </div>
@@ -1183,11 +1183,7 @@ async function onMovementCreated() {
                   </svg>
                 </span>
               </label>
-              <AutoResizeTextarea
-                v-model="form.locationNotes"
-                class="glass-input"
-                data-test="field-location-notes"
-              />
+              <AutoResizeTextarea v-model="form.locationNotes" data-test="field-location-notes" />
             </div>
           </template>
         </GlassPanel>

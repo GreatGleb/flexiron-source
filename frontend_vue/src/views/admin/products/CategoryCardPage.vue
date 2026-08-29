@@ -322,7 +322,6 @@ onMounted(() => {
           <InputGroup :label="t('categories.field_description')">
             <AutoResizeTextarea
               v-model="formDescription"
-              class="glass-input"
               rows="3"
               data-test="category-description-input"
             />

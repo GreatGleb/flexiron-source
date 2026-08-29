@@ -802,7 +802,7 @@ function selectBatch(id: string) {
               </label>
               <AutoResizeTextarea
                 v-model="form.notes"
-                class="glass-input batch-notes-input"
+                class="batch-notes-input"
                 :placeholder="t('warehouse.field_notes_placeholder')"
                 data-test="field-notes"
               />
@@ -919,11 +919,7 @@ function selectBatch(id: string) {
               </svg>
             </span>
           </label>
-          <AutoResizeTextarea
-            v-model="form.locationNotes"
-            class="glass-input"
-            data-test="field-location-notes"
-          />
+          <AutoResizeTextarea v-model="form.locationNotes" data-test="field-location-notes" />
         </div>
       </GlassPanel>
 
