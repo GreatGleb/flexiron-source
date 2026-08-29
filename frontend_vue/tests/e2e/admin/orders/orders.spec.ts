@@ -568,8 +568,14 @@ test.describe('Order Card › fields & structure', () => {
     await page.click('[data-test="order-add-item-btn"]')
     await page.waitForSelector('[data-test="add-order-items-modal"]')
     await page.locator('[data-test="add-items-product-checkbox"]').first().click()
+    const rowsBefore = await page.locator('[data-test="order-item-row"]').count()
     await page.click('[data-test="add-items-save-btn"]')
     await expect(page.locator('[data-test="add-order-items-modal"]')).toBeHidden()
+    // Закрытая модалка не значит «строка уже в заказе»: подтверждение уходит в
+    // перезагрузку карточки. Ждём саму строку, а не исчезновение окна — раньше
+    // тест успевал только потому, что `toBeHidden` заодно пережидал затухание
+    // оверлея, то есть держался за анимацию, которой не управляет.
+    await expect(page.locator('[data-test="order-item-row"]')).toHaveCount(rowsBefore + 1)
 
     await page.fill('[data-test="field-gross-total"]', '21000')
     await page.locator('[data-test="field-gross-total"]').press('Enter')
@@ -1980,7 +1986,11 @@ test.describe('Order Card › payments and invoices', () => {
       .locator('[data-test="order-item-row"]')
       .filter({ has: page.locator('[data-test="line-correct-btn"]') })
       .first()
-    expect(Number(await lineCell(corrected, 'unitPrice'))).toBeCloseTo(priced - 5, 2)
+    // Одним снимком читать нельзя: подтверждение поправки уходит в перезагрузку
+    // карточки, и до неё в ячейке ещё старая цена. Опрос ждёт саму цифру.
+    await expect
+      .poll(async () => Number(await lineCell(corrected, 'unitPrice')))
+      .toBeCloseTo(priced - 5, 2)
     await expect(corrected.locator('[data-test="cell-input"]')).toHaveCount(0)
     expect(Number(await page.locator('[data-test="field-gross-total"]').inputValue())).toBeLessThan(
       totalBefore,

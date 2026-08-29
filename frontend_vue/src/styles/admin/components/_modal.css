@@ -13,15 +13,18 @@
   justify-content: center;
   opacity: 0;
   visibility: hidden;
-  /* A closed overlay must not take clicks, and `visibility` alone does not
-     promise that here: it is inside `transition: all`, so it interpolates and
-     stays `visible` for the whole 300ms fade. The overlay covers the viewport,
-     so for those 300ms a modal that has already closed swallows the next click
-     — which lands on whatever the person was reaching for after confirming.
-     It went unnoticed while the order card blanked to a skeleton on every
-     reload and tore the overlays out of the DOM with it. */
+  /* Only `opacity` transitions. `visibility` used to sit inside `transition: all`,
+     so a closed overlay stayed `visible` for the whole fade: it covered the
+     viewport and swallowed the next click — the one aimed at whatever the person
+     reached for after confirming. `pointer-events: none` was added to blunt that,
+     but the overlay still ANSWERED as visible, to the browser and to anyone
+     asking. Forty-one e2e tests ask exactly that question (`toBeHidden` on a
+     modal), and the answer was late by the length of a fade plus however long
+     the main thread stayed busy — unbounded, because the card reloads right
+     after closing. Now closing is a step: hidden is hidden, at once. The
+     fade-in on open survives; the fade-out does not, and that is the price. */
   pointer-events: none;
-  transition: all 0.3s;
+  transition: opacity 0.3s;
 }
 .modal-overlay.active {
   opacity: 1;
