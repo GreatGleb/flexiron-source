@@ -35,7 +35,7 @@
 > правды — **строка**, цепочка `себестоимость → + маржа → − скидка → нетто → + НДС
 > → брутто`, НДС всегда последний и только на нетто, а заказ хранит лишь умолчания
 > для новых строк и производные итоги. Реализация и её история —
-> [order-pricing-frontend-plan.md](order-pricing-frontend-plan.md).
+> [order-pricing-frontend-plan.md](../archive/2026-08/roo_code/orders/order-pricing-frontend-plan.md).
 
 
 ### 2.1 Типы данных
