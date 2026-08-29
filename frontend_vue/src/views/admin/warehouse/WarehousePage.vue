@@ -1311,6 +1311,7 @@ const deficitFiltersActive = computed(() => {
            overrides display:none on .panel-body so the table stays in DOM for height sync. -->
       <GlassPanel
         :loading="stockLoading || filteringStock"
+        :force-skeleton="filteringStock"
         :class="{ 'filtering-stock': filteringStock }"
         :skeleton-rows="6"
         data-test="warehouse-stock-panel"

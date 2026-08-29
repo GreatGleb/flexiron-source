@@ -62,6 +62,65 @@ test.describe('Warehouse module', () => {
       await expect(page.getByTestId('warehouse-stock-unit-filter')).toBeVisible()
     })
 
+    /**
+     * Переход фильтра на «Остатках» накрыт скелетом — и это НЕ тот скелет, что
+     * пункт 7 убрал с перезапросов.
+     *
+     * Механизм намеренный (`plans/bugs/fix-filter-transition-flicker.md`): на время
+     * пересчёта высот строк таблица прячется классом `.stock-table-hidden`, иначе
+     * видно, как строки схлопываются и разъезжаются обратно. Пока она спрятана,
+     * накрыть её обязан скелет — иначе на её месте пустое место на полсекунды.
+     *
+     * Панель сама этого знать не может: для неё тело наполнено. Поэтому страница
+     * говорит об этом явным `:force-skeleton`.
+     *
+     * Признак — КЛАСС, а не `opacity`. Первая версия теста ждала
+     * `opacity === '0'` и оказалась гоночной: у `.stock-table-split` стоит
+     * `transition: opacity 0.5s`, то есть нуля прозрачность достигает лишь в конце
+     * затухания — примерно тогда же, когда снимается флаг фильтрации. Окно, где
+     * верно и то и другое, схлопывается почти в точку: тест прошёл в первом полном
+     * прогоне и упал во втором. Класс держится всё окно целиком и не анимируется.
+     *
+     * Утверждений два, и они о разном: переход вообще случился, и ни в один момент
+     * он не был голым.
+     */
+    test('во время фильтрации таблица накрыта скелетом, а не пустым местом', async ({ page }) => {
+      const panel = page.getByTestId('warehouse-stock-panel')
+      await panel.locator('.stock-table-split').first().waitFor()
+
+      await page.evaluate(() => {
+        const w = window as unknown as { __hidden: number; __bare: number; __t: number }
+        w.__hidden = 0
+        w.__bare = 0
+        w.__t = window.setInterval(() => {
+          const p = document.querySelector('[data-test="warehouse-stock-panel"]')
+          const table = p?.querySelector('.stock-table-split')
+          if (!p || !table || !table.classList.contains('stock-table-hidden')) return
+          w.__hidden++
+          if (!p.querySelector('.panel-skeleton')) w.__bare++
+        }, 25)
+      })
+
+      await page.getByTestId('warehouse-stock-search').locator('input').first().fill('a')
+
+      // Ждём наблюдаемое условие — сам факт перехода, а не часы.
+      await expect
+        .poll(
+          async () => page.evaluate(() => (window as unknown as { __hidden: number }).__hidden),
+          { timeout: 10_000 },
+        )
+        .toBeGreaterThan(0)
+
+      const bare = await page.evaluate(() => {
+        const w = window as unknown as { __bare: number; __t: number }
+        window.clearInterval(w.__t)
+        return w.__bare
+      })
+
+      // Ни одного кадра, где таблица спрятана, а накрыть её нечем.
+      expect(bare).toBe(0)
+    })
+
     test('should have pagination for stock', async ({ page }) => {
       await expect(page.getByTestId('warehouse-stock-pagination')).toBeVisible()
     })
