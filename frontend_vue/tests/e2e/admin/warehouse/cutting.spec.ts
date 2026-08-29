@@ -51,6 +51,54 @@ async function fillRow(
 }
 
 test.describe('Cutting operation', () => {
+  /**
+   * Пункт 7: поиск партии терял фокус на каждой букве.
+   *
+   * Механизм не в странице, а в панели: `.glass-panel.loading .panel-body`
+   * скрыт через `display: none`, а тело — это и таблица, и само поле ввода.
+   * Каждая буква перезапрашивала список, панель уходила в `loading`, поле
+   * исчезало, и браузер снимал с него фокус.
+   *
+   * Два утверждения на два разных факта. Первое операционное: слово набирается
+   * целиком, то есть буквы дошли до поля, а не в `document.body` после потери
+   * фокуса. Второе механическое: панель ни разу не ушла в скелет, пока в ней
+   * было живое содержимое. Порознь каждое слабее — первое прошло бы и при
+   * другом способе удержать фокус, второе и при поле, вынесенном из панели.
+   */
+  test('поиск партии не теряет фокус на каждой букве', async ({ page }) => {
+    await navigateToAdmin(page, '/admin/warehouse/cutting')
+    // Признак ПРИШЕДШИХ данных, а не отрисованной панели: панель видна и со скелетом.
+    await expect(page.getByTestId('warehouse-cutting-batch-row').first()).toBeVisible()
+
+    // Считаем переходы панели в скелет НАЧИНАЯ ОТСЮДА: первая загрузка уже позади,
+    // её скелет законен и к делу не относится.
+    await page.evaluate(() => {
+      const panel = document.querySelector('[data-test="warehouse-cutting-batch-panel"]')!
+      const w = window as unknown as { __panelHidden: number }
+      w.__panelHidden = 0
+      new MutationObserver(() => {
+        if (panel.classList.contains('loading')) w.__panelHidden++
+      }).observe(panel, { attributes: true, attributeFilter: ['class'] })
+    })
+
+    const search = page.getByTestId('warehouse-cutting-batch-search').locator('input')
+    await search.click()
+    await expect(search).toBeFocused()
+
+    // По букве, с паузой, которой хватает на перезапрос — как печатает человек.
+    await page.keyboard.type('INV', { delay: 120 })
+
+    // Слово набралось целиком: ни одна буква не ушла мимо поля.
+    await expect(search).toHaveValue('INV')
+    await expect(search).toBeFocused()
+
+    // И тело панели не пряталось ни разу при живом содержимом.
+    const hidden = await page.evaluate(
+      () => (window as unknown as { __panelHidden: number }).__panelHidden,
+    )
+    expect(hidden).toBe(0)
+  })
+
   test('the offcuts tab leads to cutting, not to the manual offcut form', async ({ page }) => {
     // Кнопка «Резка» вела на форму ручной записи обрезка, то есть мимо операции.
     await navigateToAdmin(page, '/admin/warehouse/offcuts')
