@@ -105,6 +105,21 @@ test.describe('dashboard › kpi cards', () => {
     await expect.soft(cards.nth(4).locator('.kpi-value span')).toHaveText('pcs.')
   })
 
+  test('unit is separated from the number by real whitespace', async ({ page }) => {
+    // `toHaveText` normalizes whitespace away, so the assertion above stays green
+    // even when the gap is gone. Vue's condense strategy drops a whitespace-only
+    // text node that is an element's first child: `<span> {{ unit }}</span>`
+    // renders as "38 750EUR". The separator must be a character (&nbsp;), not
+    // template indentation — so this checks the raw textContent.
+    const raw = await page
+      .locator('[data-test="dashboard-kpi-card"] .kpi-value')
+      .evaluateAll((els) => els.map((el) => el.textContent ?? ''))
+    expect(raw).toHaveLength(5)
+    for (const text of raw) {
+      expect.soft(text.trim()).toMatch(/\d[\u00a0 ](?:EUR|pcs\.)$/)
+    }
+  })
+
   test('values are the expected formatted numbers', async ({ page }) => {
     // Whitespace in the template is a non-breaking-ish mix (ASCII space + NBSP);
     // normalize with `toContainText` on the digits only.
