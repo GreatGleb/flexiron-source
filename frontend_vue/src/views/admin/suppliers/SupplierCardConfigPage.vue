@@ -549,38 +549,39 @@ onMounted(load)
           :skeleton-rows="8"
         >
           <template #header>
-            <!-- Mobile toggle button for global fields panel -->
-            <button
-              class="nav-btn mobile-library-toggle"
-              data-test="supplier-card-config-library-toggle"
-              @click="libraryExpanded = !libraryExpanded"
-            >
-              <SvgIcon
-                :name="libraryExpanded ? 'chevron-up' : 'chevron-down'"
-                :width="12"
-                :height="12"
-              />
-              <span>{{ libraryExpanded ? t('btn.collapse') : t('btn.show') }}</span>
-            </button>
-            <button
-              class="nav-btn"
-              style="
-                width: auto;
-                padding: 0 10px;
-                font-size: 10px;
-                height: 22px;
-                gap: 5px;
-                opacity: 0.8;
-                background: rgba(24, 144, 255, 0.1);
-                border-color: rgba(24, 144, 255, 0.2);
-                margin-left: auto;
-              "
-              data-test="supplier-card-config-library-new-btn"
-              @click="newFieldOpen = true"
-            >
-              <SvgIcon name="plus-add" :width="10" :height="10" stroke-width="3" />
-              <span>{{ t('btn.new_field') }}</span>
-            </button>
+            <div class="panel-header-actions">
+              <!-- Mobile toggle button for global fields panel -->
+              <button
+                class="nav-btn mobile-library-toggle"
+                data-test="supplier-card-config-library-toggle"
+                @click="libraryExpanded = !libraryExpanded"
+              >
+                <SvgIcon
+                  :name="libraryExpanded ? 'chevron-up' : 'chevron-down'"
+                  :width="12"
+                  :height="12"
+                />
+                <span>{{ libraryExpanded ? t('btn.collapse') : t('btn.show') }}</span>
+              </button>
+              <button
+                class="nav-btn"
+                style="
+                  width: auto;
+                  padding: 0 10px;
+                  font-size: 10px;
+                  height: 22px;
+                  gap: 5px;
+                  opacity: 0.8;
+                  background: rgba(24, 144, 255, 0.1);
+                  border-color: rgba(24, 144, 255, 0.2);
+                "
+                data-test="supplier-card-config-library-new-btn"
+                @click="newFieldOpen = true"
+              >
+                <SvgIcon name="plus-add" :width="10" :height="10" stroke-width="3" />
+                <span>{{ t('btn.new_field') }}</span>
+              </button>
+            </div>
           </template>
           <div class="input-group" style="margin-bottom: 16px">
             <input
