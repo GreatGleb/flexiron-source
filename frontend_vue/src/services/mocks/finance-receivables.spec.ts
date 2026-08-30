@@ -154,6 +154,37 @@ describe('строка реестра — это счёт заказа', () => {
     expect(row.paidAt).toBe(closing.paidAt)
   })
 
+  it('переплата видна как отрицательный остаток, а не сведена в ноль', () => {
+    // Решение владельца 2026-08-30. Раньше реестр писал `Math.max(0, …)` и
+    // показывал ровно ноль там, где деньги ушли клиенту в плюс, — то есть
+    // выглядел как сведённый счёт. Домен рядом с самого начала говорил обратное,
+    // и карточка заказа переплату показывала (`useOrderCard`, `kind: 'overpaid'`).
+    // Спорили два представления одних и тех же денег; теперь оба говорят одно.
+    const { order } = orderWithLine()
+    const invoice = mockCreateInvoice(order.id, { kind: 'advance', amountGross: 1000 })
+
+    mockAddOrderPayment(order.id, { amount: 1200, invoiceId: invoice.id })
+
+    const row = rowFor(invoice.id)!
+    expect(row.paidAmount).toBe(1200)
+    expect(row.outstandingAmount).toBe(-200)
+    // Счёт при этом закрыт: переплата — не долг, а именно переплата.
+    expect(row.status).toBe('completed')
+  })
+
+  it('переплата реестра сходится с доменом до копейки, а не «примерно»', () => {
+    // Два представления одних денег обязаны давать ОДНО число. Проверяется не
+    // знак, а равенство: разойдись они на цент — и сверка перестанет сходиться.
+    const { order } = orderWithLine()
+    const invoice = mockCreateInvoice(order.id, { kind: 'advance', amountGross: 333.33 })
+    mockAddOrderPayment(order.id, { amount: 500.01, invoiceId: invoice.id })
+
+    const fresh = mockGetOrder(order.id)!
+    const [balance] = invoiceBalances(fresh.invoices, fresh.payments)
+    expect(rowFor(invoice.id)!.outstandingAmount).toBe(balance!.outstanding)
+    expect(balance!.outstanding).toBeLessThan(0)
+  })
+
   it('корректировка поправляет сумму счёта, а своей строки не заводит', () => {
     const { order } = orderWithLine()
     const invoice = mockCreateInvoice(order.id, { kind: 'advance', amountGross: 1000 })
@@ -363,12 +394,11 @@ describe('карточка заказа и реестр показывают о�
         const row = rowFor(invoice.id)
         if (!row) continue
         проверено++
-        // Признак — `paidAmount` против `amount`, а НЕ `outstandingAmount`.
-        // Первая версия смотрела на остаток и не краснела на переплате: реестр
-        // зажимает его нулём (`orders.ts`: `Math.max(0, balance.outstanding)`),
-        // хотя домен рядом пишет прямо противоположное — «переплату скрывать
-        // нельзя, её видно как есть» (`receivable.ts:90`). Пока эти двое спорят,
-        // остаток переплату не покажет, и утверждать по нему нечего.
+        // Признак — `paidAmount` против `amount`. Раньше здесь стояло объяснение,
+        // почему нельзя смотреть на `outstandingAmount`: реестр зажимал его нулём
+        // и спорил с доменом. Спор закрыт 2026-08-30 — зажим снят, — но признак
+        // остаётся прежним: он проверяет, что в сидах нет переплаты, а остаток
+        // теперь её показал бы и тем сделал утверждение про сиды косвенным.
         expect(row.paidAmount).toBeLessThanOrEqual(row.amount)
       }
     }

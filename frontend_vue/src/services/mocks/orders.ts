@@ -4732,7 +4732,13 @@ export function orderReceivables(): Receivable[] {
         currency: order.currency,
         amount: balance.amount,
         paidAmount: balance.paidAmount,
-        outstandingAmount: Math.max(0, balance.outstanding),
+        // НЕ зажимается нулём. Домен рядом говорит прямо: «переплату скрывать
+        // нельзя, её видно как есть» (`domain/receivable.ts`, поле `outstanding`),
+        // и карточка заказа её так и показывает — `useOrderCard` разбирает
+        // отрицательный остаток в состояние `overpaid`. Реестр, приводивший то же
+        // число к нулю, спорил с обоими и делал переплату невидимой ровно там, где
+        // деньги сводят. Решение владельца 2026-08-30: показывать как есть.
+        outstandingAmount: balance.outstanding,
         paidAt: balance.paidAt,
         status: receivableStatus({
           amount: balance.amount,
