@@ -1587,11 +1587,7 @@ onMounted(loadShipments)
                   <th>{{ t('orders.col_line') }}</th>
                   <th>{{ t('orders.col_product') }}</th>
                   <th>{{ t('orders.col_unit') }}</th>
-                  <th
-                    v-for="cell in LINE_CELLS"
-                    :key="cell.field"
-                    :class="['num', `cell-${cell.field}`]"
-                  >
+                  <th v-for="cell in LINE_CELLS" :key="cell.field" class="num">
                     {{ t(cell.label) }}
                   </th>
                   <th v-if="canSeeCost" class="num">{{ t('orders.col_margin_amount') }}</th>
@@ -1612,7 +1608,7 @@ onMounted(loadShipments)
                   data-test="order-item-row"
                 >
                   <td>{{ item.lineNumber }}</td>
-                  <td>
+                  <td class="line-product">
                     {{ item.productName }}
                     <span
                       v-if="(returnedByLine[item.id] ?? 0) > 0"
@@ -1626,7 +1622,7 @@ onMounted(loadShipments)
                   <td
                     v-for="cell in LINE_CELLS"
                     :key="cell.field"
-                    :class="['num', `cell-${cell.field}`]"
+                    class="num"
                     :data-test="'cell-' + cell.field"
                   >
                     <span class="cell-wrap">
@@ -1757,11 +1753,7 @@ onMounted(loadShipments)
               <thead>
                 <tr>
                   <th>{{ t('orders.col_service') }}</th>
-                  <th
-                    v-for="cell in LINE_CELLS"
-                    :key="cell.field"
-                    :class="['num', `cell-${cell.field}`]"
-                  >
+                  <th v-for="cell in LINE_CELLS" :key="cell.field" class="num">
                     {{ t(cell.label) }}
                   </th>
                   <th v-if="canSeeCost" class="num">{{ t('orders.col_margin_amount') }}</th>
@@ -1781,7 +1773,7 @@ onMounted(loadShipments)
                   <td
                     v-for="cell in LINE_CELLS"
                     :key="cell.field"
-                    :class="['num', `cell-${cell.field}`]"
+                    class="num"
                     :data-test="'cell-' + cell.field"
                   >
                     <span class="cell-wrap">
