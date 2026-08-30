@@ -23,7 +23,7 @@
 ## Прогресс
 
 
-**Проверено 50 из 89.** По доменам ниже.
+**Проверено 55 из 89.** По доменам ниже.
 
 
 ### warehouse — 42
@@ -85,7 +85,7 @@
 | ✅ | `fix-clients-delete-modal-text.md` | частично (скептик) — буквальные правки на месте, но требование сверх них не подтверждено | модалка починена (`confirm_delete` + `delete_warning_orders` в `ClientsListPage.vue`), но требование сверх — причина ошибки в тосте — не выполнено: `e.message` в `useClients.ts` 0 вхождений |
 | 📦 | `fix-filter-transition-flicker.md` | частично (скептик) — шаги 1–3 сделаны, дальше плана — нет | шаги 1–3 выполнены: `syncTableRowHeights()` awaited в `WarehousePage.vue:401`, то есть возвращает Promise; шаг 4 — «сохранить существующие правки», работы не создаёт |
 | 📦 | `fix-structuredClone-v2.md` | частично (скептик) — пункты 1–3 есть, остаток плана не выполнен | обе проблемы плана сняты: `structuredClone` в `mocks/categories.ts` — 0 (заменён JSON-обходом с документированной причиной), кнопка сохранения работает (`isDirty` ×6 в `useCategoryCard.ts`) |
-| ✅ | `fix-toTranslatedString-merge-bug.md` | частично — слияние есть под другим именем (`mergeLocaleValue`), часть мест не переведена на него | остаток реален: `mergeLocaleValue` внедрён (9), но `toTranslatedString` ещё живёт в 8 файлах — сервисы products/services/config/suppliers, `useProductCard`, две вьюхи и мок |
+| ✅ | `fix-toTranslatedString-merge-bug.md` | частично — слияние есть под другим именем (`mergeLocaleValue`), часть мест не переведена на него | остаток реален, но уже: `toTranslatedString` (обёртка, `types/i18n.ts:19`) и `mergeLocaleValue` (слияние, `:53`) — **разные функции и обе законны**. В сервисах обёртка на месте по праву; вопрос только к путям сохранения — `CategoryCardPage.vue`, `SupplierCardConfigPage.vue`, `useProductCard.ts`. Их и надо сверять |
 | ⬜ | `orders-spec-waits-for-element-not-data.md` | — — — | |
 | ⬜ | `pagination-counter-is-not-a-data-signal.md` | — — — | |
 | ⬜ | `pill-escapes-parent-on-cards.md` | живая мета — свежий баг-файл | |
@@ -119,17 +119,17 @@
 | ⬜ | `currency-fix-and-fifo-plan.md` | частично — Phase A и B сделаны (кроме UI движения), Phase C не начата — 5 чекбоксов | |
 | ⬜ | `order-pricing-model.md` | документ — действующая модель ценообразования | |
 | ⬜ | `orders-backend-contract.md` | документ — действующий контракт домена | |
-| ⬜ | `pricing-section-rework-plan.md` | частично — разделы 2–4 устарели по существу; раздел 1 (переименования) не выполнен | |
+| 📦 | `pricing-section-rework-plan.md` | частично — разделы 2–4 устарели по существу; раздел 1 (переименования) не выполнен | раздел 1 выполнен: `priceUnit` в живом коде не осталось — только исторические комментарии и спека `servicePricing.spec.ts:59`, которая утверждает его отсутствие. Разделы 2–4 по вердикту устарели по существу |
 
 ### refactor — 7
 
 
 | ✓ | Файл | Унаследовано | Чем доказано |
 |---|---|---|---|
-| ⬜ | `single-locale-prompts/02-domain-categories.md` | частично (скептик) — вызовы `toTranslatedString` есть, но требования плана не выполнены — нужна проверка срабатывания | |
-| ⬜ | `single-locale-prompts/03-domain-products.md` | частично — обёртки в сервисе есть, часть требований плана не закрыта | |
-| ⬜ | `single-locale-prompts/04-domain-suppliers.md` | частично — три поля оборачиваются и сливаются, остальное по плану — нет | |
-| ⬜ | `single-locale-prompts/06-domain-config.md` | частично — поля `name` оборачиваются и сливаются, часть требований не закрыта | |
+| 📦 | `single-locale-prompts/02-domain-categories.md` | частично (скептик) — вызовы `toTranslatedString` есть, но требования плана не выполнены — нужна проверка срабатывания | обёртка на месте: `categoriesService.ts` — 6 вхождений `toTranslatedString`/`mergeLocaleValue` |
+| 📦 | `single-locale-prompts/03-domain-products.md` | частично — обёртки в сервисе есть, часть требований плана не закрыта | `productsService.ts` — 8 вхождений |
+| 📦 | `single-locale-prompts/04-domain-suppliers.md` | частично — три поля оборачиваются и сливаются, остальное по плану — нет | `suppliersService.ts` — 9 вхождений |
+| 📦 | `single-locale-prompts/06-domain-config.md` | частично — поля `name` оборачиваются и сливаются, часть требований не закрыта | `configService.ts` — 4 вхождения |
 | ⬜ | `single-locale-prompts/08-phase3-global-cleanup.md` | частично — пункты 1, 3, 4 сделаны; GET-роуты мока не соответствуют букве плана | |
 | ⬜ | `single-locale-prompts/09-phase4-verification.md` | частично — тайпчек и билд чисты, e2e — выборкой; ручной чеклист (10 пунктов) не покрыт | |
 | ⬜ | `single-locale-save-refactor.md` | частично — Фаза 1 и домены categories/products есть; часть доменов не переведена | |
