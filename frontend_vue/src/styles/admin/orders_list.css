@@ -247,15 +247,10 @@
   color: var(--primary, #1890ff);
 }
 
-/* ─── Status pills (matching _status-pills.css — batch table style) ────────── */
-
-.status-pill {
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-}
+/* Объявления `.status-pill` здесь БОЛЬШЕ НЕТ: оно было мёртвым. На
+   `/admin/orders` нет ни одной `.status-pill` — у заказов свой класс
+   `order-status-pill` (`components/_order-status-pill.css`). Проверено
+   локатором: элемент не найден. Удалено при сведении 2026-08-30. */
 
 /* ─── Name link ───────────────────────────────────────────────────────────── */
 

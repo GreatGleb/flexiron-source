@@ -732,16 +732,9 @@ html.sidebar-no-animation .sidebar {
 .data-table.relaxed td {
   height: 48px;
 }
-/* STATUS PILLS */
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  padding: 2px 9px;
-  border-radius: 30px;
-}
+/* STATUS PILLS — объявление переехало в `admin/components/_status-pills.css`.
+   Здесь ему не место: этот файл грузится из `main.ts`, то есть и на публичных
+   страницах, а `.status-pill` встречается только в админке. Сведено 2026-08-30. */
 /* BAR CHART */
 .bar-chart-row {
   display: flex;
