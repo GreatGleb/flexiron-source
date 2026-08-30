@@ -1518,7 +1518,7 @@ testWithFlags.describe('Order Card › ширина таблицы позици�
 
   /**
    * «Влезло» не должно означать «сплющено» — и это отдельный тест, а не строка в
-   * предыдущем, потому что ловится он на ДРУГОМ заказе.
+   * предыдущем, потому что ловится он на ДРУГИХ заказах.
    *
    * Первая версия правки сузила поля ввода по замеру шести заказов. Длинных сумм в
    * той выборке не было, и на десяти заказах из тридцати значения обрезались:
@@ -1526,30 +1526,60 @@ testWithFlags.describe('Order Card › ширина таблицы позици�
    * это приёмка, а не тест: тест смотрел только таблицу позиций ORD-100, где таких
    * чисел нет.
    *
-   * ORD-054 выбран не наугад: свип всех ста заказов показал, что самые длинные
-   * значения именно там — «185000.00» в цене и сумме, «115986.86» в себестоимости.
-   * Проверяются ОБЕ таблицы карточки, позиции и услуги: пропущенной тогда была
-   * вторая.
+   * Заказов ДВА, и каждый закрывает свою половину дыры:
+   *   ORD-054 — самые длинные числа во всём моке («185000.00», «115986.86»), свип
+   *             всех ста заказов показал, что длиннее нет нигде. Но таблицы услуг у
+   *             него нет вовсе;
+   *   ORD-100 — есть таблица услуг, и обрезку в ней приёмка находила отдельно от
+   *             таблицы позиций. Без него услуги не сторожил бы никто.
+   *
+   * Селектор `.order-lines-wrapper` общий для обеих таблиц, но общего селектора мало,
+   * если заказ второй таблицы не содержит.
    */
-  testWithFlags('ни одно значение в поле ввода не обрезано', async ({ page }) => {
-    await page.setViewportSize({ width: 1440, height: 900 })
+  for (const orderId of ['ORD-054', 'ORD-100'] as const) {
+    testWithFlags(`ни одно значение в поле ввода не обрезано (${orderId})`, async ({ page }) => {
+      await page.setViewportSize({ width: 1440, height: 900 })
+      await enableAllFlags(page.context())
+      await page.goto(`/admin/orders/${orderId}`)
+      await page.waitForSelector('[data-test="order-item-row"]')
+      await switchLanguage(page, 'ru')
+
+      const seen = await page.evaluate(() =>
+        [...document.querySelectorAll('.order-lines-wrapper input.cell-input')].map((el) => {
+          const i = el as HTMLInputElement
+          return { value: i.value, clipped: i.scrollWidth > i.clientWidth + 1 }
+        }),
+      )
+
+      // Проверять нечего, если полей нет вовсе — тогда тест устраивало бы бездействие.
+      expect(seen.length).toBeGreaterThan(0)
+      expect(seen.filter((s) => s.clipped).map((s) => s.value)).toEqual([])
+    })
+  }
+
+  /**
+   * И отдельно — что в ORD-054 действительно есть, что резать. Утверждение выше
+   * без этого держится на вере в мок: подрежь сид, и «ничего не обрезано» станет
+   * верным потому, что нечего.
+   */
+  testWithFlags('в ORD-054 есть значение, на котором обрезка и проявлялась', async ({ page }) => {
     await enableAllFlags(page.context())
     await page.goto('/admin/orders/ORD-054')
     await page.waitForSelector('[data-test="order-item-row"]')
-    await switchLanguage(page, 'ru')
-
-    const seen = await page.evaluate(() =>
-      [...document.querySelectorAll('.order-lines-wrapper input.cell-input')].map((el) => {
-        const i = el as HTMLInputElement
-        return { value: i.value, clipped: i.scrollWidth > i.clientWidth + 1 }
-      }),
+    const values = await page.evaluate(() =>
+      [...document.querySelectorAll('.order-lines-wrapper input.cell-input')].map(
+        (el) => (el as HTMLInputElement).value,
+      ),
     )
+    expect(values.some((v) => v.replace('.', '').length >= 8)).toBe(true)
+  })
 
-    // Проверять нечего, если полей нет вовсе — тогда тест устраивало бы бездействие.
-    expect(seen.length).toBeGreaterThan(0)
-    // И среди них есть длинное значение, ради которого заказ и выбран.
-    expect(seen.some((s) => s.value.replace('.', '').length >= 8)).toBe(true)
-    expect(seen.filter((s) => s.clipped).map((s) => s.value)).toEqual([])
+  /** У ORD-100 таблица услуг обязана существовать — иначе кейс выше проверяет половину. */
+  testWithFlags('у ORD-100 есть таблица услуг', async ({ page }) => {
+    await enableAllFlags(page.context())
+    await page.goto('/admin/orders/ORD-100')
+    await page.waitForSelector('[data-test="order-item-row"]')
+    await expect(page.locator('.order-lines-wrapper')).toHaveCount(2)
   })
 })
 
