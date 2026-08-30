@@ -246,21 +246,17 @@ test.describe('Warehouse module', () => {
       // and those were the untranslated ones.
       await page.locator('[data-test="warehouse-tab-movements"] thead th button').first().click()
 
-      const info = page.locator(
-        '[data-test="warehouse-tab-movements"] .pagination-bar .pagination-info',
-      )
+      const rows = page.getByTestId('warehouse-movement-row')
       const seen = new Set<string>()
       for (let visited = 0; visited < 20; visited++) {
         // ОДИН снимок DOM на страницу. `count()` и следующие за ним `nth(i)` — разные
         // обращения, и между ними страница успевает перерисоваться: количество приходит
         // из одного рендера, а строка запрашивается из другого. На последней странице их
-        // 4 из 179, поэтому `nth(4)`, взятый по счёту предыдущей страницы, не появится
+        // 14 из 189, поэтому `nth(14)`, взятый по счёту предыдущей страницы, не появится
         // никогда — не «поздно», а вообще.
-        const labels = await page
-          .getByTestId('warehouse-movement-row')
-          .evaluateAll((els) =>
-            els.map((el) => (el.querySelectorAll('td')[1]?.textContent ?? '').trim()),
-          )
+        const labels = await rows.evaluateAll((els) =>
+          els.map((el) => (el.querySelectorAll('td')[1]?.textContent ?? '').trim()),
+        )
         // Пустой снимок молча съел бы целую страницу типов — и тест остался бы зелёным,
         // проверив меньше, чем обещает имя.
         expect(labels.length).toBeGreaterThan(0)
@@ -271,11 +267,21 @@ test.describe('Warehouse module', () => {
           .last()
         if (!(await next.isEnabled())) break
 
-        // Ждать ПРИШЕДШИЕ ДАННЫЕ, а не часы (ловушка #64). Признак — сменившийся счётчик
-        // «26-50 of 179»: он меняется ровно тогда, когда новая страница отрисована.
-        const shown = await info.innerText()
+        /*
+         * Признак — САМА СТРОКА, а не счётчик «26-50 of 189». Счётчик здесь не годится,
+         * и это замерено на ЭТОЙ вкладке: `showingFrom`/`showingTo` в `usePagination`
+         * считаются из локального `page`, поэтому меняются по клику, до ответа.
+         *
+         *   T+155мс  счётчик уже новый, первая строка ещё старая
+         *   T+480мс  пришла новая первая строка
+         *
+         * То есть ожидание по счётчику отдавало управление за ~325 мс до новых строк:
+         * цикл собирал подписи ПРЕДЫДУЩЕЙ страницы, а последнюю не читал вовсе.
+         * Ловушка #64, замаскированная под её же решение; образец — `cutting.spec.ts`.
+         */
+        const firstBefore = (await rows.first().innerText()).trim()
         await next.click()
-        await expect(info).not.toHaveText(shown)
+        await expect.poll(async () => (await rows.first().innerText()).trim()).not.toBe(firstBefore)
       }
 
       expect(seen.size).toBeGreaterThan(5)
