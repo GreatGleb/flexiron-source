@@ -23,7 +23,7 @@
 ## Прогресс
 
 
-**Проверено 12 из 89.** По доменам ниже.
+**Проверено 18 из 89.** По доменам ниже.
 
 
 ### warehouse — 42
@@ -41,18 +41,18 @@
 | 📦 | `auto-create-movement-on-location-change.md` | частично — шаги 1, 3, 5 сделаны, шаги 2 и 4 — нет | `useWarehouseBatch.ts:249–269` ловит старую локацию и создаёт transfer; мок делает то же — `services/mocks/warehouse.ts:809` |
 | 📦 | `auto-create-movement-on-offcut-location-change.md` | частично — шаг 1 перевыполнен, остальные шаги не закрыты | `useWarehouseOffcutCard.ts:289–307` + обновление списка движений (348) |
 | 📦 | `correction-behavior-refinement.md` | частично (скептик) — нет красной подсказки под полем при отрицательном значении (Problem #2) | отрицательное количество даёт ошибку под полем — `CreateMovementModal.vue:272` `e.quantity = t('validation.min')`, и форма блокируется (298) |
-| ⬜ | `enhance-movement-modal-with-batch-summary.md` | частично — размер, пропсы и секция сводки есть, часть плана — нет | |
-| ⬜ | `extract-batch-location-section.md` | частично (скептик) — секция и i18n на месте, но Edge Case плана не обработан | |
-| ⬜ | `extract-offcut-location-section.md` | частично (скептик) — шаблон и форма есть, Edge Case 3 (пустые rack/row/cell) не обработан | |
-| ⬜ | `fix-batch-count-inconsistency.md` | частично (скептик) — две записи существуют, но соответствие цифрам плана не доказано | |
+| 📦 | `enhance-movement-modal-with-batch-summary.md` | частично — размер, пропсы и секция сводки есть, часть плана — нет | все три элемента в `CreateMovementModal.vue`: величина партии (9), агрегаты по статусам (42), карточки движений с чекбоксом (5) |
+| 📦 | `extract-batch-location-section.md` | частично (скептик) — секция и i18n на месте, но Edge Case плана не обработан | Edge Case обработан: `composeLocation()` в `useWarehouseBatch.ts:68–77` возвращает `null`, когда rack/row/cell/notes пусты |
+| 📦 | `extract-offcut-location-section.md` | частично (скептик) — шаблон и форма есть, Edge Case 3 (пустые rack/row/cell) не обработан | тот же Edge Case закрыт в `useWarehouseOffcutCard.ts:76–84` |
+| 📦 | `fix-batch-count-inconsistency.md` | частично (скептик) — две записи существуют, но соответствие цифрам плана не доказано | баг снят структурно: `batchCount: batches.length` выводится при сборке строки остатка (`services/mocks/warehouse.ts:463`), а не пересчитывается только на запись — устареть больше не может |
 | ⬜ | `fix-entity-card-links-plan.md` | частично (скептик) — файлы, роуты и ключи есть, содержание карточек не сверено | |
 | 📦 | `fix-export-functionality.md` | частично — обвязка экспорта есть целиком, часть плана — нет | `exportWarehouseData()` — `warehouseService.ts:262`, эндпойнт `/api/warehouse/export/${tab}` с params; `WarehousePage.vue:326` передаёт фильтры. Все три требования плана закрыты |
-| ⬜ | `fix-offcut-movement-deficit-not-found.md` | частично — шаг 2 сделан целиком, остальные шаги — нет | |
+| 📦 | `fix-offcut-movement-deficit-not-found.md` | частично — шаг 2 сделан целиком, остальные шаги — нет | все шаги плана выполнены: `loadAudit` нет ни в одном композабле, импортов `getOffcutAudit`/`getMovementAudit` нет |
 | ⬜ | `fix-offcuts-type-column.md` | частично — все шесть файловых правок есть; 10 чекбоксов открыты | |
 | ⬜ | `fix-warehouse-phase2-bugs-remaining-tabs.md` | частично — шаги 1–4 сделаны, дальше — нет | |
 | ⬜ | `fix-warehouse-stock-delete-mock.md` | не начато — ни одной из трёх правок нет; премисса плана под вопросом (см. `remove-stock-deletion`) | |
 | ⬜ | `fix-warehouse-table-row-padding.md` | частично (скептик) — Change 3 (responsive adjustments) — мёртвый код, план не закрыт | |
-| ⬜ | `generalize-offcuts-for-all-categories.md` | частично — шаги 1 и 3 есть, остальные — нет | |
+| ✅ | `generalize-offcuts-for-all-categories.md` | частично — шаги 1 и 3 есть, остальные — нет | остаток реален: обрезки только в двух категориях — `cat-2` ×3 и `cat-4` ×7; план требует все категории вперемешку |
 | ⬜ | `implement-batch-card-write-off.md` | частично — ни одной из трёх правок плана нет — ключи `write_off_*` в коде отсутствуют | |
 | ⬜ | `new-tasks-autotests-plan.md` | частично — все пять шагов заведены, часть тестов не дописана | |
 | ⬜ | `offcut-create-page-plan.md` | частично (скептик) — доказательство содержало ложный факт про `CreateOffcutModal` — сверка нужна заново | |

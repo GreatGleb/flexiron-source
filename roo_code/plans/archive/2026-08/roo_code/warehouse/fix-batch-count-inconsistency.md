@@ -6,17 +6,17 @@ On the stock card page at `/admin/warehouse/stock/prod-003`, the field "коли
 
 ## Root Cause
 
-**Data inconsistency in mock data.** The stock overview item for `prod-003` in [`warehouse-stock.ts:44`](../../frontend_vue/src/mocks/warehouse-stock.ts:44) has `batchCount: 2` hardcoded, but there are **zero batches** in [`warehouse-batches.ts`](../../frontend_vue/src/mocks/warehouse-batches.ts) with `productId: 'prod-003'`.
+**Data inconsistency in mock data.** The stock overview item for `prod-003` in [`warehouse-stock.ts:44`](../../../../../../frontend_vue/src/mocks/warehouse-stock.ts:44) has `batchCount: 2` hardcoded, but there are **zero batches** in [`warehouse-batches.ts`](../../../../../../frontend_vue/src/mocks/warehouse-batches.ts) with `productId: 'prod-003'`.
 
 The data flow:
-1. [`mockGetStockItem('prod-003')`](../../frontend_vue/src/services/mocks/warehouse.ts:132-139) returns the item from `stockStore` as-is — it does **not** call `recalculateStockForProduct()`.
-2. [`recalculateStockForProduct()`](../../frontend_vue/src/services/mocks/warehouse.ts:168-202) correctly computes `stockItem.batchCount = productBatches.length`, but is only invoked when batches are created/patched/deleted — not on stock item load.
-3. The router-link in [`WarehouseStockCard.vue:321-328`](../../frontend_vue/src/views/admin/warehouse/WarehouseStockCard.vue:321) navigates to the batches tab with `?productId=prod-003`.
-4. [`mockGetBatches()`](../../frontend_vue/src/services/mocks/warehouse.ts:224-240) filters by `productId` and finds nothing.
+1. [`mockGetStockItem('prod-003')`](../../../../../../frontend_vue/src/services/mocks/warehouse.ts:132-139) returns the item from `stockStore` as-is — it does **not** call `recalculateStockForProduct()`.
+2. [`recalculateStockForProduct()`](../../../../../../frontend_vue/src/services/mocks/warehouse.ts:168-202) correctly computes `stockItem.batchCount = productBatches.length`, but is only invoked when batches are created/patched/deleted — not on stock item load.
+3. The router-link in [`WarehouseStockCard.vue:321-328`](../../../../../../frontend_vue/src/views/admin/warehouse/WarehouseStockCard.vue:321) navigates to the batches tab with `?productId=prod-003`.
+4. [`mockGetBatches()`](../../../../../../frontend_vue/src/services/mocks/warehouse.ts:224-240) filters by `productId` and finds nothing.
 
 ## Fix
 
-**Add two mock batches for `prod-003`** (Aluminum sheet 3mm) in [`warehouse-batches.ts`](../../frontend_vue/src/mocks/warehouse-batches.ts) to match the `batchCount: 2` declared in the stock overview.
+**Add two mock batches for `prod-003`** (Aluminum sheet 3mm) in [`warehouse-batches.ts`](../../../../../../frontend_vue/src/mocks/warehouse-batches.ts) to match the `batchCount: 2` declared in the stock overview.
 
 ### New batch entries to add
 
@@ -60,7 +60,7 @@ These values are consistent with the stock overview:
 
 | File | Change |
 |------|--------|
-| [`frontend_vue/src/mocks/warehouse-batches.ts`](../../frontend_vue/src/mocks/warehouse-batches.ts) | Add two new batch entries for `prod-003` |
+| [`frontend_vue/src/mocks/warehouse-batches.ts`](../../../../../../frontend_vue/src/mocks/warehouse-batches.ts) | Add two new batch entries for `prod-003` |
 
 ## Verification
 
