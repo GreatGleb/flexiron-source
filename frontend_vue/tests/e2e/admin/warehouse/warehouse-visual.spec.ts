@@ -15,9 +15,13 @@ import { waitForFontsReady, SNAPSHOT_OPTIONS } from '../../helpers/visual'
  * существовал и ничего не охранял — ровно та болезнь, ради которой пункт 5 и
  * заводился, только этажом ниже.
  *
- * У пилюли кадр целиком и есть предмет проверки, поэтому допуск нулевой.
+ * У пилюли кадр целиком и есть предмет проверки, поэтому доля нулевая.
+ *
+ * `threshold: 0` отсюда убран 2026-08-30: он стал общим и стоит в
+ * `playwright.config.ts`. Оставленный здесь, он был бы вторым экземпляром того же
+ * правила — и разошёлся бы с первым молча. Своё у пилюли только `maxDiffPixelRatio`.
  */
-const PILL_SNAPSHOT_OPTIONS = { ...SNAPSHOT_OPTIONS, maxDiffPixelRatio: 0, threshold: 0 } as const
+const PILL_SNAPSHOT_OPTIONS = { ...SNAPSHOT_OPTIONS, maxDiffPixelRatio: 0 } as const
 
 /**
  * Скриншот-эталоны складского модуля.
