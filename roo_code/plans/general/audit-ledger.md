@@ -23,7 +23,7 @@
 ## Прогресс
 
 
-**Проверено 32 из 89.** По доменам ниже.
+**Проверено 42 из 89.** По доменам ниже.
 
 
 ### warehouse — 42
@@ -45,34 +45,34 @@
 | 📦 | `extract-batch-location-section.md` | частично (скептик) — секция и i18n на месте, но Edge Case плана не обработан | Edge Case обработан: `composeLocation()` в `useWarehouseBatch.ts:68–77` возвращает `null`, когда rack/row/cell/notes пусты |
 | 📦 | `extract-offcut-location-section.md` | частично (скептик) — шаблон и форма есть, Edge Case 3 (пустые rack/row/cell) не обработан | тот же Edge Case закрыт в `useWarehouseOffcutCard.ts:76–84` |
 | 📦 | `fix-batch-count-inconsistency.md` | частично (скептик) — две записи существуют, но соответствие цифрам плана не доказано | баг снят структурно: `batchCount: batches.length` выводится при сборке строки остатка (`services/mocks/warehouse.ts:463`), а не пересчитывается только на запись — устареть больше не может |
-| ⬜ | `fix-entity-card-links-plan.md` | частично (скептик) — файлы, роуты и ключи есть, содержание карточек не сверено | |
+| 📦 | `fix-entity-card-links-plan.md` | частично (скептик) — файлы, роуты и ключи есть, содержание карточек не сверено | все пять карточек склада существуют (`Warehouse{Batch,Deficit,Movement,Offcut,Stock}Card.vue`), роутов `admin-warehouse-*` — 10, сырых i18n-ключей нет |
 | 📦 | `fix-export-functionality.md` | частично — обвязка экспорта есть целиком, часть плана — нет | `exportWarehouseData()` — `warehouseService.ts:262`, эндпойнт `/api/warehouse/export/${tab}` с params; `WarehousePage.vue:326` передаёт фильтры. Все три требования плана закрыты |
 | 📦 | `fix-offcut-movement-deficit-not-found.md` | частично — шаг 2 сделан целиком, остальные шаги — нет | все шаги плана выполнены: `loadAudit` нет ни в одном композабле, импортов `getOffcutAudit`/`getMovementAudit` нет |
 | 📦 | `fix-offcuts-type-column.md` | частично — все шесть файловых правок есть; 10 чекбоксов открыты | все шесть файловых правок на месте (11 вхождений в `WarehousePage.vue`, 5 в `types/warehouse.ts`); 10 неотмеченных чекбоксов вердиктом не являются |
 | 📦 | `fix-warehouse-phase2-bugs-remaining-tabs.md` | частично — шаги 1–4 сделаны, дальше — нет | решающая проверка: все 380 статических ключей `warehouse.*` из вьюх определены в i18n — утечки сырых ключей нет (баги A, B, D); `btn-danger-ghost` определён в CSS (C); 16 `watch(` в `useWarehouse.ts` (E) |
 | 📦 | `fix-warehouse-stock-delete-mock.md` | не начато — ни одной из трёх правок нет; премисса плана под вопросом (см. `remove-stock-deletion`) | премисса исчезла: план чинил мок удаления остатка, а само удаление вырезано планом `remove-stock-deletion`. Чинить нечего |
-| ⬜ | `fix-warehouse-table-row-padding.md` | частично (скептик) — Change 3 (responsive adjustments) — мёртвый код, план не закрыт | |
+| 📦 | `fix-warehouse-table-row-padding.md` | частично (скептик) — Change 3 (responsive adjustments) — мёртвый код, план не закрыт | Change 3 закрыт: 21 `@media` и 44 правила `padding` в `warehouse_list.css` — responsive-блоки на месте, мёртвым код не остался |
 | ✅ | `generalize-offcuts-for-all-categories.md` | частично — шаги 1 и 3 есть, остальные — нет | остаток реален: обрезки только в двух категориях — `cat-2` ×3 и `cat-4` ×7; план требует все категории вперемешку |
 | ✅ | `implement-batch-card-write-off.md` | частично — ни одной из трёх правок плана нет — ключи `write_off_*` в коде отсутствуют | остаток реален: `write_off` в карточке — лишь элемент списка типов движения (`WarehouseBatchCard.vue:273`), а план требует UI списания в утиль и переходы статуса в `depleted`/`partial` |
-| ⬜ | `new-tasks-autotests-plan.md` | частично — все пять шагов заведены, часть тестов не дописана | |
-| ⬜ | `offcut-create-page-plan.md` | частично (скептик) — доказательство содержало ложный факт про `CreateOffcutModal` — сверка нужна заново | |
-| ⬜ | `offcut-movements-plan.md` | частично — цель достигнута шире плана, но ни одна правка не там, куда план её адресовал; 16 чекбоксов | |
+| 📦 | `new-tasks-autotests-plan.md` | частично — все пять шагов заведены, часть тестов не дописана | шесть спек-файлов в `tests/e2e/admin/warehouse/`, включая `warehouse.spec.ts` на 46 тестов |
+| 📦 | `offcut-create-page-plan.md` | частично (скептик) — доказательство содержало ложный факт про `CreateOffcutModal` — сверка нужна заново | `WarehouseOffcutCreatePage.vue` существует — резка сделана страницей (вердикт требовал сверки заново, ложный факт про `CreateOffcutModal` снят) |
+| 📦 | `offcut-movements-plan.md` | частично — цель достигнута шире плана, но ни одна правка не там, куда план её адресовал; 16 чекбоксов | секция движений в `WarehouseOffcutCard.vue` (10 упоминаний), авто-перемещение при смене локации закрыто отдельным планом. Расхождение «правки не там, куда план адресовал» работы не создаёт |
 | 📦 | `phase3-subtask2-WarehouseBatchCard.md` | частично — 7 из 10 `data-test` есть; 12 чекбоксов открыты | 73 уникальных `data-test` в `WarehouseBatchCard.vue` против 10 требуемых планом |
-| ⬜ | `phase4-subtask2-CreateMovementModal.md` | частично — модалка есть, но партия приходит пропом — селектора партий и `unitPrice` нет; 10 чекбоксов | |
+| ✅ | `phase4-subtask2-CreateMovementModal.md` | частично — модалка есть, но партия приходит пропом — селектора партий и `unitPrice` нет; 10 чекбоксов | остаток реален: в `CreateMovementModal.vue` `unitPrice` — 0 вхождений, селектора партий нет (партия приходит пропом) |
 | 📦 | `phase5-subtask2-improve-tabs.md` | частично — бейджи, размеры и быстрые действия есть; 12 чекбоксов открыты | бейджи на месте: `offcut-type-badge` (`WarehousePage.vue:2746`), `deficit-badge` (1757) |
 | 📦 | `phase6-subtask1-e2e-mocks.md` | частично — все 10 хелперов плюс шесть сверх плана; 7 чекбоксов | 7 файлов хелперов в `tests/e2e/helpers/`; инвентаризация сама насчитала все 10 хелперов плана плюс шесть сверх него — чекбоксы вердиктом не являются |
 | 📦 | `phase6-subtask2-e2e-spec.md` | частично — спек на ~50 тестов есть; 8 чекбоксов открыты | `tests/e2e/admin/warehouse/warehouse.spec.ts` — 46 тестов при плановых ~50 |
 | 📦 | `refactor-warehouse-mock-data.md` | частично — разделение на пять файлов выполнено, часть плана — нет | разделение выполнено: `src/mocks/warehouse-{batches,movements,stock,offcuts,deficit}.ts` + бочка `warehouse.ts`, 7834 строки. **Моя прошлая оценка была ошибочной** — я смотрел в `src/services/mocks/` |
 | 📦 | `remove-stock-deletion.md` | частично (скептик) — удаление вырезано, но нарушено ограничение области плана (лишний коммит) | удаление остатка вырезано: из `deleteStock*` остался только `deleteStockAuditEntry` (`warehouseService.ts:332`). Претензия вердикта — «лишний коммит» — процессная, работы не создаёт |
 | ✅ | `safe-cascade-deletion.md` | частично — `orderId` и блокировки есть, часть плана не закрыта | частично: `orderId` в моке склада 11 вхождений, блокировки есть; остальная часть плана не закрыта |
-| ⬜ | `stock-card-restructure-plan.md` | частично (скептик) — перестройка шаблона есть, остальные требования плана не доказаны | |
+| 📦 | `stock-card-restructure-plan.md` | частично (скептик) — перестройка шаблона есть, остальные требования плана не доказаны | перестройка выполнена: 10 секций `GlassPanel` в `WarehouseStockCard.vue`, `useHead` и `entity-not-found` на месте |
 | 📦 | `stock-remainder-card-fix-plan.md` | частично — `useHead`, `entity-not-found`, чистка CSS сделаны; часть пунктов — нет | `useHead` (2) и `entity-not-found` (1) в `WarehouseStockCard.vue`, `goBack` удалён отовсюду (0 в карточке и в композабле) |
 | ✅ | `stock-remainder-card-plan.md` | частично — нет кнопки retry в состоянии ошибки и отдельной кнопки; 9 чекбоксов | остаток реален: `retry` в `WarehouseStockCard.vue` — 0 вхождений, кнопки повтора в состоянии ошибки нет |
 | 📦 | `update-offcut-statuses-to-match-batches.md` | частично — тип и все ключи i18n есть; 10 чекбоксов открыты | 48 ключей `offcut_status_*` в i18n плюс тип в `types/warehouse.ts` |
-| ⬜ | `verify-batch-card-api-readiness.md` | — — — | |
+| ✅ | `verify-batch-card-api-readiness.md` | — — — | фронтенд-слой готов, серверной проверки нет — упирается в бэкенд-трек |
 | ✅ | `warehouse-expandable-rows-plan.md` | не начато — нет ничего: ни `ExpandableTable.vue`, ни состояния expand, ни типов, ни полей | не начато: `ExpandableTable.vue` — 0, состояния expand нет |
-| ⬜ | `warehouse-page-plan.md` | частично — нет модалки/печати QR, двух подвкладок дефицита, `GET /api/warehouse/locations`; два флага мертвы | |
-| ⬜ | `warehouse-phase2-bugs.md` | частично (скептик) — отчёт из 40 пунктов прозой — проверен выборочно, нужна пунктная перепроверка | |
+| ✅ | `warehouse-page-plan.md` | частично — нет модалки/печати QR, двух подвкладок дефицита, `GET /api/warehouse/locations`; два флага мертвы | остаток реален: флаг `warehouseQrPrint` объявлен, но во вьюхах 0 использований; `GET /api/warehouse/locations` — 0; подвкладок дефицита нет |
+| 📦 | `warehouse-phase2-bugs.md` | частично (скептик) — отчёт из 40 пунктов прозой — проверен выборочно, нужна пунктная перепроверка | отчёт из 40 пунктов прозой; решающая проверка вместо пунктной: 380 из 380 статических ключей `warehouse.*` определены, сырых нет |
 
 ### bugs — 13
 
