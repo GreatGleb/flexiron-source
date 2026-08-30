@@ -6,7 +6,7 @@ Remove all UI elements (buttons, modals) and backend logic (service functions, m
 
 ## Files to Modify
 
-### 1. [`frontend_vue/src/views/admin/warehouse/WarehousePage.vue`](../../frontend_vue/src/views/admin/warehouse/WarehousePage.vue)
+### 1. [`frontend_vue/src/views/admin/warehouse/WarehousePage.vue`](../../../../../../frontend_vue/src/views/admin/warehouse/WarehousePage.vue)
 
 **What to remove:**
 
@@ -18,7 +18,7 @@ Remove all UI elements (buttons, modals) and backend logic (service functions, m
 
 4. **`deleteStock` from destructured imports** (line ~70) — Remove `deleteStock` from the `useWarehouse()` destructuring.
 
-### 2. [`frontend_vue/src/composables/useWarehouse.ts`](../../frontend_vue/src/composables/useWarehouse.ts)
+### 2. [`frontend_vue/src/composables/useWarehouse.ts`](../../../../../../frontend_vue/src/composables/useWarehouse.ts)
 
 **What to remove:**
 
@@ -28,19 +28,19 @@ Remove all UI elements (buttons, modals) and backend logic (service functions, m
 
 3. **`deleteStock` from return object** (line ~599) — Remove `deleteStock` from the returned properties.
 
-### 3. [`frontend_vue/src/services/warehouseService.ts`](../../frontend_vue/src/services/warehouseService.ts)
+### 3. [`frontend_vue/src/services/warehouseService.ts`](../../../../../../frontend_vue/src/services/warehouseService.ts)
 
 **What to remove:**
 
 1. **`deleteStockItem` function** (lines ~58-60) — Remove the entire function.
 
-### 4. [`frontend_vue/src/services/mocks/warehouse.ts`](../../frontend_vue/src/services/mocks/warehouse.ts)
+### 4. [`frontend_vue/src/services/mocks/warehouse.ts`](../../../../../../frontend_vue/src/services/mocks/warehouse.ts)
 
 **What to remove:**
 
 1. **`mockDeleteStockItem` function** (lines ~161-165) — Remove the entire function.
 
-### 5. [`frontend_vue/src/services/mocks/index.ts`](../../frontend_vue/src/services/mocks/index.ts)
+### 5. [`frontend_vue/src/services/mocks/index.ts`](../../../../../../frontend_vue/src/services/mocks/index.ts)
 
 **What to remove:**
 
@@ -48,7 +48,7 @@ Remove all UI elements (buttons, modals) and backend logic (service functions, m
 
 2. **Stock delete route handler** (lines ~697-700) — Remove the `stockDeleteMatch` block inside `deleteMock()`.
 
-### 6. [`frontend_vue/src/i18n/admin/warehouse.ts`](../../frontend_vue/src/i18n/admin/warehouse.ts)
+### 6. [`frontend_vue/src/i18n/admin/warehouse.ts`](../../../../../../frontend_vue/src/i18n/admin/warehouse.ts)
 
 **What to remove:**
 

@@ -66,7 +66,7 @@ type OffcutStatus =
 
 ## 3. Файлы для изменения (полный список)
 
-### 3.1. Типы — [`frontend_vue/src/types/warehouse.ts`](../../../frontend_vue/src/types/warehouse.ts)
+### 3.1. Типы — [`frontend_vue/src/types/warehouse.ts`](../../../../../../frontend_vue/src/types/warehouse.ts)
 
 **Строка 23:** Заменить тип `OffcutStatus`
 ```typescript
@@ -85,7 +85,7 @@ export type OffcutStatus =
   | 'in_storage'
 ```
 
-### 3.2. Переводы — [`frontend_vue/src/i18n/admin/warehouse.ts`](../../../frontend_vue/src/i18n/admin/warehouse.ts)
+### 3.2. Переводы — [`frontend_vue/src/i18n/admin/warehouse.ts`](../../../../../../frontend_vue/src/i18n/admin/warehouse.ts)
 
 #### 3.2.1. Обновить существующие ключи (ru, en, lt)
 
@@ -132,7 +132,7 @@ offcut_status_hint_in_storage: 'Обрезок переведён на отве�
 
 **Повторить для en (строки ~730-741) и lt (строки ~1262-1273)**
 
-### 3.3. Список обрезков (WarehousePage) — [`frontend_vue/src/views/admin/warehouse/WarehousePage.vue`](../../../frontend_vue/src/views/admin/warehouse/WarehousePage.vue)
+### 3.3. Список обрезков (WarehousePage) — [`frontend_vue/src/views/admin/warehouse/WarehousePage.vue`](../../../../../../frontend_vue/src/views/admin/warehouse/WarehousePage.vue)
 
 #### 3.3.1. OFFCUT_STATUS_OPTIONS (строка ~398)
 ```typescript
@@ -178,7 +178,7 @@ const OFFCUT_STATUS_PILL: Record<OffcutStatus, string> = {
 ```
 **Также обновить `data-test` атрибуты и тексты кнопок** с `btn_mark_used` → `btn_mark_in_production` (или создать новый ключ).
 
-### 3.4. Карточка обрезка — [`frontend_vue/src/views/admin/warehouse/WarehouseOffcutCard.vue`](../../../frontend_vue/src/views/admin/warehouse/WarehouseOffcutCard.vue)
+### 3.4. Карточка обрезка — [`frontend_vue/src/views/admin/warehouse/WarehouseOffcutCard.vue`](../../../../../../frontend_vue/src/views/admin/warehouse/WarehouseOffcutCard.vue)
 
 **Строка 18-24:** Обновить список статусов
 ```typescript
@@ -203,7 +203,7 @@ offcut_status_: ['available', 'reserved', 'sold', 'damaged', 'used', 'scrap'],
 offcut_status_: ['available', 'reserved', 'in_production', 'sold', 'scrapped', 'expensed', 'returned_to_supplier', 'in_storage'],
 ```
 
-### 3.5. Карточка партии (BatchCard) — [`frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue`](../../../frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue)
+### 3.5. Карточка партии (BatchCard) — [`frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue`](../../../../../../frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue)
 
 **Строка 183:** Обновить `AUDIT_ENUM_MAP`
 ```typescript
@@ -217,11 +217,11 @@ offcut_status_: ['available', 'reserved', 'in_production', 'sold', 'scrapped', '
 ### 3.6. Остальные файлы с AUDIT_ENUM_MAP
 
 Обновить `offcut_status_` массив во всех файлах, где он встречается:
-- [`frontend_vue/src/views/admin/warehouse/WarehouseMovementCard.vue`](../../../frontend_vue/src/views/admin/warehouse/WarehouseMovementCard.vue) — строка ~60
-- [`frontend_vue/src/views/admin/warehouse/WarehouseDeficitCard.vue`](../../../frontend_vue/src/views/admin/warehouse/WarehouseDeficitCard.vue) — строка ~115
-- [`frontend_vue/src/views/admin/warehouse/WarehouseStockCard.vue`](../../../frontend_vue/src/views/admin/warehouse/WarehouseStockCard.vue) — строка ~50
+- [`frontend_vue/src/views/admin/warehouse/WarehouseMovementCard.vue`](../../../../../../frontend_vue/src/views/admin/warehouse/WarehouseMovementCard.vue) — строка ~60
+- [`frontend_vue/src/views/admin/warehouse/WarehouseDeficitCard.vue`](../../../../../../frontend_vue/src/views/admin/warehouse/WarehouseDeficitCard.vue) — строка ~115
+- [`frontend_vue/src/views/admin/warehouse/WarehouseStockCard.vue`](../../../../../../frontend_vue/src/views/admin/warehouse/WarehouseStockCard.vue) — строка ~50
 
-### 3.7. Mock данные — [`frontend_vue/src/mocks/warehouse-offcuts.ts`](../../../frontend_vue/src/mocks/warehouse-offcuts.ts)
+### 3.7. Mock данные — [`frontend_vue/src/mocks/warehouse-offcuts.ts`](../../../../../../frontend_vue/src/mocks/warehouse-offcuts.ts)
 
 Обновить статусы во всех offcut-записях:
 - `status: 'scrap'` → `status: 'scrapped'` (записи who-011, who-019, who-028)
@@ -229,15 +229,15 @@ offcut_status_: ['available', 'reserved', 'in_production', 'sold', 'scrapped', '
 
 Все записи с `status: 'available'`, `'reserved'`, `'sold'` остаются без изменений.
 
-### 3.8. Offcut composable — [`frontend_vue/src/composables/useWarehouseOffcutCard.ts`](../../../frontend_vue/src/composables/useWarehouseOffcutCard.ts)
+### 3.8. Offcut composable — [`frontend_vue/src/composables/useWarehouseOffcutCard.ts`](../../../../../../frontend_vue/src/composables/useWarehouseOffcutCard.ts)
 
 Проверить, что `form.status` правильно типизируется новым `OffcutStatus`. Если где-то используется `'used'` или `'scrap'` как литерал — заменить.
 
-### 3.9. Warehouse service mock — [`frontend_vue/src/services/mocks/warehouse.ts`](../../../frontend_vue/src/services/mocks/warehouse.ts)
+### 3.9. Warehouse service mock — [`frontend_vue/src/services/mocks/warehouse.ts`](../../../../../../frontend_vue/src/services/mocks/warehouse.ts)
 
 Проверить `mockPatchOffcut` (строка ~448) — убедиться, что функция корректно принимает новый набор статусов.
 
-### 3.10. CSS стили — [`frontend_vue/src/styles/admin/components/_status-pills.css`](../../../frontend_vue/src/styles/admin/components/_status-pills.css)
+### 3.10. CSS стили — [`frontend_vue/src/styles/admin/components/_status-pills.css`](../../../../../../frontend_vue/src/styles/admin/components/_status-pills.css)
 
 Проверить, что все используемые pill-классы существуют:
 - `pill-success` (available) ✅
