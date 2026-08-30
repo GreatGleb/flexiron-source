@@ -7,6 +7,13 @@ import { vTooltip } from './composables/useTooltip'
 /* Existing shared styles from demo */
 import '@styles/erp-base.css'
 import '@styles/public/public.css'
+/*
+ * Полосы прокрутки для Firefox — здесь, а не в `admin-core.scss`, потому что тот
+ * подключается из `AdminLayout` и до публичных страниц не достаёт, а прокручиваемая
+ * область есть и там (`.terms-content`). Chrome файл не трогает по построению: внутри
+ * стоит `@supports not selector(::-webkit-scrollbar)`, куда webkit-движки не заходят.
+ */
+import '@styles/scrollbars-firefox.css'
 
 /*
  * В мок-режиме мок-слой — это и есть слой данных приложения, поэтому он грузится на
