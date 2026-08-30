@@ -1255,6 +1255,10 @@ test.describe('Order Card › shipments', () => {
     await expect(page.locator('[data-test="add-items-price"]').first()).toBeVisible()
     await page.click('[data-test="add-items-save-btn"]')
     await page.click('[data-test="order-card-save-btn"]')
+    // Ждать `disabled` мало: он гаснет и на время самого сохранения. Серверные
+    // действия ниже отказывают, пока правки позиций не ушли, а `dirty` держится
+    // ровно до этого момента.
+    await expect(page.locator('[data-test="order-card-save-btn"]')).not.toHaveClass(/dirty/)
     await expect(page.locator('[data-test="order-card-save-btn"]')).toBeDisabled()
   }
 
@@ -1534,6 +1538,40 @@ test.describe('Order Card › returns', () => {
     await expect(page.locator('[data-test="order-return-btn"]')).toBeDisabled()
   })
 
+  /**
+   * Возврат оформляется по позициям, которые есть у сервера. Раньше диалог
+   * открывался поверх несохранённой таблицы, давал заполнить количества, состояние
+   * и причину — и только на подтверждении отвечал «сначала сохраните изменения по
+   * позициям», не поясняя, при чём тут возврат. Отказ перенесён на открытие.
+   */
+  test('an unsaved line stops the return dialog before it opens', async ({ page }) => {
+    await openAdminPage(page, '/admin/orders/ORD-004', '[data-test="order-shipment-row"]')
+    const rows = page.locator('[data-test="order-item-row"]')
+    await expect(rows.first()).toBeVisible()
+    const before = await rows.count()
+
+    await page.click('[data-test="order-add-item-btn"]')
+    await page.locator('[data-test="add-items-product-checkbox"]').first().click()
+    await page.click('[data-test="add-items-save-btn"]')
+    await expect(rows).toHaveCount(before + 1)
+
+    await page.click('[data-test="order-return-btn"]')
+    await expect(page.locator('[data-test="return-modal"]')).toBeHidden()
+    await expect(
+      page.locator('.toast', { hasText: /the lines table has been changed/i }),
+    ).toBeVisible()
+
+    // Сохранили — и то же нажатие открывает диалог: причина названа и устранима.
+    const saveBtn = page.locator('[data-test="order-card-save-btn"]')
+    await saveBtn.click()
+    // `disabled` гаснет и на время самого сохранения, поэтому ждём отсутствия
+    // `dirty`: она держится ровно до тех пор, пока несохранённое есть.
+    await expect(saveBtn).not.toHaveClass(/dirty/)
+    await expect(saveBtn).toBeDisabled()
+    await page.click('[data-test="order-return-btn"]')
+    await expect(page.locator('[data-test="return-modal"]')).toBeVisible()
+  })
+
   test('the dialog offers only what shipped, and closes on Escape', async ({ page }) => {
     await openAdminPage(page, '/admin/orders/ORD-004', '[data-test="order-shipment-row"]')
     await page.click('[data-test="order-return-btn"]')
@@ -1670,6 +1708,117 @@ test.describe('Order Card › returns', () => {
 })
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Order Card — несохранённые позиции закрывают дверь до диалога
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Всё, что здесь проверяется, сервер выполняет по СВОИМ позициям заказа, и с
+ * несохранённой таблицей отказывал и раньше — но отказывал последним действием,
+ * после заполненного диалога, сообщением «сначала сохраните изменения по позициям».
+ * Проверка перенесена ко входу: диалог не открывается вовсе, а сообщение называет
+ * действие, в которое админ только что ткнул.
+ */
+test.describe('Order Card › unsaved lines close the door', () => {
+  /** Добавляет строку и НЕ сохраняет её — карточка остаётся с правками позиций. */
+  async function addUnsavedLine(page: Page) {
+    const rows = page.locator('[data-test="order-item-row"]')
+    await expect(rows.first()).toBeVisible()
+    const before = await rows.count()
+
+    await page.click('[data-test="order-add-item-btn"]')
+    await page.locator('[data-test="add-items-product-checkbox"]').first().click()
+    await page.click('[data-test="add-items-save-btn"]')
+    await expect(rows).toHaveCount(before + 1)
+  }
+
+  /**
+   * Отказ ищется по тексту, а не по «первому тосту»: к моменту проверки на экране
+   * могут висеть и предыдущие — «отгрузка создана», «счёт выставлен», — и `.first()`
+   * поймал бы любой из них.
+   */
+  const refusal = (page: Page) =>
+    page.locator('.toast', { hasText: /the lines table has been changed/i })
+
+  test('the shipping dialog does not open', async ({ page }) => {
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-item-row"]')
+    await addUnsavedLine(page)
+
+    await page.click('[data-test="order-ship-btn"]')
+    await expect(page.locator('[data-test="ship-modal"]')).toBeHidden()
+    await expect(refusal(page)).toBeVisible()
+  })
+
+  test('cancelling a delivery does not open either of its dialogs', async ({ page }) => {
+    await openAdminPage(page, '/admin/orders/ORD-004', '[data-test="order-shipment-row"]')
+    await addUnsavedLine(page)
+
+    // Дверь одна на оба случая: и на простое подтверждение, и на отзыв документа
+    // с причиной — какой из диалогов был бы дальше, роли не играет.
+    await page.locator('[data-test="shipment-cancel-btn"]').first().click()
+    await expect(page.locator('[data-test="cancel-shipment-modal"]')).toBeHidden()
+    await expect(page.locator('[data-test="correction-modal"]')).toBeHidden()
+    await expect(refusal(page)).toBeVisible()
+  })
+
+  test('correcting a frozen line does not open its dialog', async ({ page }) => {
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-item-row"]')
+    // Заморозить строку: отгрузить и выставить счёт — только у такой есть кнопка
+    // корректировки.
+    await page.click('[data-test="order-add-item-btn"]')
+    await page.waitForSelector('[data-test="add-items-product-row"]')
+    await page.fill('[data-test="add-items-filters"] input', 'Steel Sheet 3mm')
+    const picked = page.locator('[data-test="add-items-product-row"]').first()
+    await expect(picked).toBeVisible()
+    await picked.locator('[data-test="add-items-product-checkbox"]').click()
+    await expect(page.locator('[data-test="add-items-price"]').first()).toBeVisible()
+    await page.click('[data-test="add-items-save-btn"]')
+    await page.click('[data-test="order-card-save-btn"]')
+    // Не `disabled`: он гаснет и на время самого сохранения, а отгрузка теперь
+    // отказывает, пока правки позиций не ушли на сервер.
+    await expect(page.locator('[data-test="order-card-save-btn"]')).not.toHaveClass(/dirty/)
+    await page.click('[data-test="order-ship-btn"]')
+    await expect(page.locator('[data-test="ship-modal"]')).toBeVisible()
+    await page.click('[data-test="ship-confirm"]')
+    await expect(page.locator('[data-test="order-shipment-row"]').first()).toBeVisible()
+    await page
+      .locator('[data-test="order-shipment-row"]')
+      .first()
+      .locator('[data-test="shipment-invoice-btn"]')
+      .click()
+    await expect(page.locator('[data-test="order-invoice-row"]')).toHaveCount(1)
+
+    const frozen = page
+      .locator('[data-test="order-item-row"]')
+      .filter({ has: page.locator('[data-test="line-correct-btn"]') })
+      .first()
+    await expect(frozen).toBeVisible()
+
+    await addUnsavedLine(page)
+    await frozen.locator('[data-test="line-correct-btn"]').click()
+    await expect(page.locator('[data-test="correct-modal"]')).toBeHidden()
+    await expect(refusal(page)).toBeVisible()
+  })
+
+  test('a status change never reaches its plan', async ({ page }) => {
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-item-row"]')
+    const status = page.locator('[data-test="order-card-status"]')
+    // Подпись триггера, а не весь виджет: список опций живёт в том же контейнере и,
+    // пока он раскрыт, попадает в его текст целиком.
+    const shown = status.locator('.curr-val')
+    const before = (await shown.innerText()).trim()
+    await addUnsavedLine(page)
+
+    await status.click()
+    await page.locator('.custom-select-option', { hasText: 'Confirmed' }).first().click()
+    await expect(page.locator('[data-test="status-plan-modal"]')).toBeHidden()
+    await expect(refusal(page)).toBeVisible()
+    // Селектор читает статус заказа, а не собственный выбор, — поэтому откатывается
+    // сам, без отдельной уборки.
+    await expect(shown).toHaveText(before)
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Order Card — payments and invoices
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1716,6 +1865,10 @@ test.describe('Order Card › payments and invoices', () => {
     await expect(page.locator('[data-test="add-items-price"]').first()).toBeVisible()
     await page.click('[data-test="add-items-save-btn"]')
     await page.click('[data-test="order-card-save-btn"]')
+    // Ждать `disabled` мало: он гаснет и на время самого сохранения. Серверные
+    // действия ниже отказывают, пока правки позиций не ушли, а `dirty` держится
+    // ровно до этого момента.
+    await expect(page.locator('[data-test="order-card-save-btn"]')).not.toHaveClass(/dirty/)
     await expect(page.locator('[data-test="order-card-save-btn"]')).toBeDisabled()
 
     await page.click('[data-test="order-ship-btn"]')

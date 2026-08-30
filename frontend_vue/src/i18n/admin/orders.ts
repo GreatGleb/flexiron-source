@@ -110,7 +110,18 @@ export const adminOrders = {
         'Что сохранить? Цена без НДС — итог изменится на величину налога. Итог — вырастет цена без НДС.',
       vat_mode_keep_net: 'Сохранить цену без НДС',
       vat_mode_keep_gross: 'Сохранить итог',
-      error_save_lines_first: 'Сначала сохраните изменения по позициям',
+      error_save_lines_first:
+        'Сначала сохраните изменения в таблице позиций — действие выполняется по сохранённым позициям',
+      error_return_needs_save:
+        'Возврат оформляется по сохранённым позициям, а таблица позиций изменена. Сохраните изменения и откройте возврат заново.',
+      error_shipment_needs_save:
+        'Отгрузка списывает со склада сохранённые позиции, а таблица позиций изменена. Сохраните изменения и откройте отгрузку заново.',
+      error_shipment_cancel_needs_save:
+        'Отмена отгрузки возвращает на склад сохранённые позиции, а таблица позиций изменена. Сохраните изменения и повторите.',
+      error_correction_needs_save:
+        'Корректировка считается от сохранённой цены позиции, а таблица позиций изменена. Сохраните изменения и повторите.',
+      error_status_needs_save:
+        'Смена статуса считает резервы и списания по сохранённым позициям, а таблица позиций изменена. Сохраните изменения и повторите.',
       error_version_conflict:
         'Заказ изменил кто-то другой — ваши правки не сохранены. Внизу актуальные данные, внесите правки заново.',
       field_vat_percent_unused: 'При нулевой ставке не применяется',
@@ -615,7 +626,18 @@ export const adminOrders = {
         'What should stay? Keep the net price and the total moves by the tax. Keep the total and the net price rises.',
       vat_mode_keep_net: 'Keep the net price',
       vat_mode_keep_gross: 'Keep the total',
-      error_save_lines_first: 'Save the line changes first',
+      error_save_lines_first:
+        'Save the changes in the lines table first — this action works on the saved lines',
+      error_return_needs_save:
+        'A return is made against the saved lines, and the lines table has been changed. Save it and open the return again.',
+      error_shipment_needs_save:
+        'A shipment writes off the saved lines, and the lines table has been changed. Save it and open the shipment again.',
+      error_shipment_cancel_needs_save:
+        'Cancelling a shipment returns the saved lines to stock, and the lines table has been changed. Save it and try again.',
+      error_correction_needs_save:
+        'A correction is measured against the saved price of the line, and the lines table has been changed. Save it and try again.',
+      error_status_needs_save:
+        'A status change plans the holds and the write-offs from the saved lines, and the lines table has been changed. Save it and try again.',
       error_version_conflict:
         'Somebody else changed this order — your edits were not saved. What you see now is theirs; make your changes again.',
       field_vat_percent_unused: 'Not used at a zero rate',
@@ -1118,7 +1140,18 @@ export const adminOrders = {
         'Ką išsaugoti? Kainą be PVM — bendra suma pasikeis mokesčio dydžiu. Bendrą sumą — kaina be PVM padidės.',
       vat_mode_keep_net: 'Išsaugoti kainą be PVM',
       vat_mode_keep_gross: 'Išsaugoti bendrą sumą',
-      error_save_lines_first: 'Pirma išsaugokite eilučių pakeitimus',
+      error_save_lines_first:
+        'Pirma išsaugokite eilučių lentelės pakeitimus — veiksmas atliekamas su išsaugotomis eilutėmis',
+      error_return_needs_save:
+        'Grąžinimas įforminamas pagal išsaugotas eilutes, o eilučių lentelė pakeista. Išsaugokite pakeitimus ir atidarykite grąžinimą iš naujo.',
+      error_shipment_needs_save:
+        'Išsiuntimas nurašo išsaugotas eilutes, o eilučių lentelė pakeista. Išsaugokite pakeitimus ir atidarykite išsiuntimą iš naujo.',
+      error_shipment_cancel_needs_save:
+        'Išsiuntimo atšaukimas grąžina į sandėlį išsaugotas eilutes, o eilučių lentelė pakeista. Išsaugokite pakeitimus ir bandykite dar kartą.',
+      error_correction_needs_save:
+        'Korekcija skaičiuojama nuo išsaugotos eilutės kainos, o eilučių lentelė pakeista. Išsaugokite pakeitimus ir bandykite dar kartą.',
+      error_status_needs_save:
+        'Būsenos keitimas rezervus ir nurašymus skaičiuoja pagal išsaugotas eilutes, o eilučių lentelė pakeista. Išsaugokite pakeitimus ir bandykite dar kartą.',
       error_version_conflict:
         'Užsakymą pakeitė kitas naudotojas — jūsų pakeitimai neišsaugoti. Dabar matote jų duomenis; pakeiskite iš naujo.',
       field_vat_percent_unused: 'Netaikoma esant nuliniam tarifui',

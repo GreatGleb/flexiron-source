@@ -594,6 +594,15 @@ export function useOrderCard(id: string) {
 
   async function requestStatusChange(status: OrderStatus) {
     if (!order.value || status === order.value.status) return
+    // Отказ до плана, а не после него. План строит СЕРВЕР по своим позициям: с
+    // несохранёнными правками он посчитал бы резервы и списания по другой таблице,
+    // показал бы их в диалоге — и `applyStatusChange` всё равно отклонил бы переход
+    // на выходе из диалога. Селектор статуса при этом ничего не теряет: он читает
+    // `order.status`, поэтому выбор просто откатывается на месте.
+    if (hasPendingChanges.value) {
+      toast.error(t('orders.error_status_needs_save'))
+      return
+    }
     try {
       const plan = await planOrderStatus(id, status)
       // A status that touches neither the shelf nor the holds is just a status.

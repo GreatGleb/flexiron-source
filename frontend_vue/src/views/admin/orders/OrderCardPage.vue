@@ -442,6 +442,29 @@ function confirmCostEdit() {
   costEdit.value = null
 }
 
+/**
+ * Отказ на входе, а не на подтверждении.
+ *
+ * Всё, что перечислено ниже, сервер выполняет по СВОИМ позициям заказа: он спишет
+ * со склада, вернёт на склад, посчитает корректировку и спланирует резервы по той
+ * таблице, которая у него сохранена. Пока в карточке висят несохранённые правки
+ * позиций, любое из этих действий будет отклонено — раньше отклонялось в самом
+ * конце, после заполненного диалога, и сообщением, из которого было не понять, при
+ * чём тут вообще возврат или отгрузка.
+ *
+ * Поэтому проверка стоит там, где диалог ещё не открыт: работу, которую всё равно
+ * выбросят, не дают начать, а причина названа в тот момент, когда её можно убрать
+ * одним нажатием Save. Несохранённые ПОЛЯ карточки сюда не входят — их
+ * `flushBeforeReload()` отправляет сам, и мешать они не могут.
+ *
+ * Возвращает true, когда действие не должно состояться.
+ */
+function refusedForUnsavedLines(messageKey: string): boolean {
+  if (!hasPendingChanges.value) return false
+  toast.error(t(messageKey))
+  return true
+}
+
 // ─── Correcting a frozen line ──────────────────────────────────
 // Model, sections 6 and 12. The freeze exists so a document the client is holding
 // cannot be rewritten behind their back — and this is the one door through it:
@@ -460,6 +483,7 @@ function askCorrection(line: OrderLine, kind: LineKind) {
     toast.error(t('orders.error_forbidden_correction'))
     return
   }
+  if (refusedForUnsavedLines('orders.error_correction_needs_save')) return
   correctTarget.value = { line, kind }
   correctPrice.value = cellValue(line, 'unitPrice')
   correctCost.value = cellValue(line, 'unitCost')
@@ -539,6 +563,7 @@ const shipQuantities = ref<Record<string, number>>({})
 const shipVehicle = ref('')
 
 function openShipModal() {
+  if (refusedForUnsavedLines('orders.error_shipment_needs_save')) return
   shipQuantities.value = {}
   shipVehicle.value = ''
   showShipModal.value = true
@@ -607,6 +632,7 @@ const RETURN_CONDITION_OPTIONS = computed(() => [
 ])
 
 function openReturnModal() {
+  if (refusedForUnsavedLines('orders.error_return_needs_save')) return
   returnQuantities.value = {}
   returnConditions.value = {}
   returnCompensated.value = {}
@@ -709,6 +735,7 @@ async function confirmCancelShipment() {
  * button leads to a different dialog rather than to a refusal.
  */
 function askCancelShipment(shipmentId: string) {
+  if (refusedForUnsavedLines('orders.error_shipment_cancel_needs_save')) return
   if (isMoneyOn.value && liveInvoiceFor(shipmentId)) {
     // Withdrawing a document the client holds is the "correction" right. Said out
     // loud rather than by a missing button: the admin needs to know whom to ask.
