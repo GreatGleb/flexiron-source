@@ -209,7 +209,7 @@ $ npx playwright test tests/e2e/admin/orders tests/e2e/admin/sales-crm --workers
 знает, а цены накрыты юнит-тестами и `test:audit`, оба зелёные.
 
 Находка вне области пункта → в bugs-файл, а не молчком:
-**БАГ-24** в [`3.1-orders-card-bugs.md`](../../plans/bugs/3.1-orders-card-bugs.md).
+**БАГ-24** в [`3.1-orders-card-bugs.md`](../../plans/archive/2026-08/roo_code/bugs/3.1-orders-card-bugs.md).
 
 ---
 

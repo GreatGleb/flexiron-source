@@ -23,7 +23,7 @@
 ## Прогресс
 
 
-**Проверено 42 из 89.** По доменам ниже.
+**Проверено 50 из 89.** По доменам ниже.
 
 
 ### warehouse — 42
@@ -79,19 +79,19 @@
 
 | ✓ | Файл | Унаследовано | Чем доказано |
 |---|---|---|---|
-| ⬜ | `3.1-orders-card-bugs.md` | частично (скептик) — 22 из 23 багов закрыты, один не подтверждён | |
+| 📦 | `3.1-orders-card-bugs.md` | частично (скептик) — 22 из 23 багов закрыты, один не подтверждён | 47 отметок ✅ и ни одного открытого бага: единственный ❌ в файле — ячейка сравнительной таблицы (строка 842), а не статус |
 | ⬜ | `coverage-gate-is-red-since-before.md` | — — — | |
-| ⬜ | `fix-4-remaining-products-bugs.md` | частично — из четырёх багов закрыты не все — остаток в части | |
-| ⬜ | `fix-clients-delete-modal-text.md` | частично (скептик) — буквальные правки на месте, но требование сверх них не подтверждено | |
-| ⬜ | `fix-filter-transition-flicker.md` | частично (скептик) — шаги 1–3 сделаны, дальше плана — нет | |
-| ⬜ | `fix-structuredClone-v2.md` | частично (скептик) — пункты 1–3 есть, остаток плана не выполнен | |
-| ⬜ | `fix-toTranslatedString-merge-bug.md` | частично — слияние есть под другим именем (`mergeLocaleValue`), часть мест не переведена на него | |
+| 📦 | `fix-4-remaining-products-bugs.md` | частично — из четырёх багов закрыты не все — остаток в части | БАГ-40 закрыт (полный путь категории собирается в `ProductsPage.vue`), остальные три — те же, что в архивированном `toDo/bugs/1.1-products-bugs.md`, где все с отметкой ✅ |
+| ✅ | `fix-clients-delete-modal-text.md` | частично (скептик) — буквальные правки на месте, но требование сверх них не подтверждено | модалка починена (`confirm_delete` + `delete_warning_orders` в `ClientsListPage.vue`), но требование сверх — причина ошибки в тосте — не выполнено: `e.message` в `useClients.ts` 0 вхождений |
+| 📦 | `fix-filter-transition-flicker.md` | частично (скептик) — шаги 1–3 сделаны, дальше плана — нет | шаги 1–3 выполнены: `syncTableRowHeights()` awaited в `WarehousePage.vue:401`, то есть возвращает Promise; шаг 4 — «сохранить существующие правки», работы не создаёт |
+| 📦 | `fix-structuredClone-v2.md` | частично (скептик) — пункты 1–3 есть, остаток плана не выполнен | обе проблемы плана сняты: `structuredClone` в `mocks/categories.ts` — 0 (заменён JSON-обходом с документированной причиной), кнопка сохранения работает (`isDirty` ×6 в `useCategoryCard.ts`) |
+| ✅ | `fix-toTranslatedString-merge-bug.md` | частично — слияние есть под другим именем (`mergeLocaleValue`), часть мест не переведена на него | остаток реален: `mergeLocaleValue` внедрён (9), но `toTranslatedString` ещё живёт в 8 файлах — сервисы products/services/config/suppliers, `useProductCard`, две вьюхи и мок |
 | ⬜ | `orders-spec-waits-for-element-not-data.md` | — — — | |
 | ⬜ | `pagination-counter-is-not-a-data-signal.md` | — — — | |
 | ⬜ | `pill-escapes-parent-on-cards.md` | живая мета — свежий баг-файл | |
-| ⬜ | `settings-notifications-bugs.md` | частично — три бага с разделом «Fix» закрыты, остальные записи без починки | |
+| 📦 | `settings-notifications-bugs.md` | частично — три бага с разделом «Fix» закрыты, остальные записи без починки | `notificationsPage` и `adminSettings` есть в `tests/e2e/helpers/flags.ts`, `mockMarkAsRead` на месте — записи без раздела Fix были наблюдениями, а не багами |
 | ⬜ | `snapshot-threshold-blind-to-colour.md` | — — — | |
-| ⬜ | `static-analysis-debt-bugs.md` | частично — из девяти записей закрыта часть; статус несёт таблица в конце файла | |
+| ✅ | `static-analysis-debt-bugs.md` | частично — из девяти записей закрыта часть; статус несёт таблица в конце файла | остаток реален: из девяти записей закрыто пять, открыты БАГ-01 (10 `waitForTimeout`), БАГ-03 (22 ошибки под `checkJs`), БАГ-06 (40 сложных функций), БАГ-09 (`goto` без ожидания готовности) |
 
 ### general — 9
 

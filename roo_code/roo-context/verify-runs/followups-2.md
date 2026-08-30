@@ -215,7 +215,7 @@ exist … Did you mean 'status_returned'?   exit=2
 уведомления не рождаются при загрузке.
 
 Находка **вне области** — БАГ-12 в
-[`settings-notifications-bugs.md`](../../plans/bugs/settings-notifications-bugs.md):
+[`settings-notifications-bugs.md`](../../plans/archive/2026-08/roo_code/bugs/settings-notifications-bugs.md):
 `mockMarkAsRead` правит запись сида на месте, и `mockResetNotifications` после этого не
 сбрасывает `isRead`. Не чинил: не моя область и спящее (вызывающих у reset нет — грепнуто).
 Свип это не пачкает, решает человек.
