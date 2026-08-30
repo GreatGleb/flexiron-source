@@ -820,9 +820,12 @@ provide('resetAndCloseStatusModal', resetAndCloseStatusModal)
   margin-bottom: 24px;
 }
 
+/* Цвет — явно: `body` в приложении чёрный, тёмный фон даёт `.bg-image` под
+   содержимым. Заголовок без своего `color` печатался чёрным по тёмному. */
 .settings-title {
   font-size: 1.5rem;
   font-weight: 600;
+  color: var(--text, #fff);
 }
 
 .settings-loading {
