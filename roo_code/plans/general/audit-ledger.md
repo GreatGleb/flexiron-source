@@ -23,7 +23,7 @@
 ## Прогресс
 
 
-**Проверено 18 из 89.** По доменам ниже.
+**Проверено 22 из 89.** По доменам ниже.
 
 
 ### warehouse — 42
@@ -48,8 +48,8 @@
 | ⬜ | `fix-entity-card-links-plan.md` | частично (скептик) — файлы, роуты и ключи есть, содержание карточек не сверено | |
 | 📦 | `fix-export-functionality.md` | частично — обвязка экспорта есть целиком, часть плана — нет | `exportWarehouseData()` — `warehouseService.ts:262`, эндпойнт `/api/warehouse/export/${tab}` с params; `WarehousePage.vue:326` передаёт фильтры. Все три требования плана закрыты |
 | 📦 | `fix-offcut-movement-deficit-not-found.md` | частично — шаг 2 сделан целиком, остальные шаги — нет | все шаги плана выполнены: `loadAudit` нет ни в одном композабле, импортов `getOffcutAudit`/`getMovementAudit` нет |
-| ⬜ | `fix-offcuts-type-column.md` | частично — все шесть файловых правок есть; 10 чекбоксов открыты | |
-| ⬜ | `fix-warehouse-phase2-bugs-remaining-tabs.md` | частично — шаги 1–4 сделаны, дальше — нет | |
+| 📦 | `fix-offcuts-type-column.md` | частично — все шесть файловых правок есть; 10 чекбоксов открыты | все шесть файловых правок на месте (11 вхождений в `WarehousePage.vue`, 5 в `types/warehouse.ts`); 10 неотмеченных чекбоксов вердиктом не являются |
+| 📦 | `fix-warehouse-phase2-bugs-remaining-tabs.md` | частично — шаги 1–4 сделаны, дальше — нет | решающая проверка: все 380 статических ключей `warehouse.*` из вьюх определены в i18n — утечки сырых ключей нет (баги A, B, D); `btn-danger-ghost` определён в CSS (C); 16 `watch(` в `useWarehouse.ts` (E) |
 | ⬜ | `fix-warehouse-stock-delete-mock.md` | не начато — ни одной из трёх правок нет; премисса плана под вопросом (см. `remove-stock-deletion`) | |
 | ⬜ | `fix-warehouse-table-row-padding.md` | частично (скептик) — Change 3 (responsive adjustments) — мёртвый код, план не закрыт | |
 | ✅ | `generalize-offcuts-for-all-categories.md` | частично — шаги 1 и 3 есть, остальные — нет | остаток реален: обрезки только в двух категориях — `cat-2` ×3 и `cat-4` ×7; план требует все категории вперемешку |
@@ -66,8 +66,8 @@
 | ⬜ | `remove-stock-deletion.md` | частично (скептик) — удаление вырезано, но нарушено ограничение области плана (лишний коммит) | |
 | ⬜ | `safe-cascade-deletion.md` | частично — `orderId` и блокировки есть, часть плана не закрыта | |
 | ⬜ | `stock-card-restructure-plan.md` | частично (скептик) — перестройка шаблона есть, остальные требования плана не доказаны | |
-| ⬜ | `stock-remainder-card-fix-plan.md` | частично — `useHead`, `entity-not-found`, чистка CSS сделаны; часть пунктов — нет | |
-| ⬜ | `stock-remainder-card-plan.md` | частично — нет кнопки retry в состоянии ошибки и отдельной кнопки; 9 чекбоксов | |
+| 📦 | `stock-remainder-card-fix-plan.md` | частично — `useHead`, `entity-not-found`, чистка CSS сделаны; часть пунктов — нет | `useHead` (2) и `entity-not-found` (1) в `WarehouseStockCard.vue`, `goBack` удалён отовсюду (0 в карточке и в композабле) |
+| ✅ | `stock-remainder-card-plan.md` | частично — нет кнопки retry в состоянии ошибки и отдельной кнопки; 9 чекбоксов | остаток реален: `retry` в `WarehouseStockCard.vue` — 0 вхождений, кнопки повтора в состоянии ошибки нет |
 | ⬜ | `update-offcut-statuses-to-match-batches.md` | частично — тип и все ключи i18n есть; 10 чекбоксов открыты | |
 | ⬜ | `verify-batch-card-api-readiness.md` | — — — | |
 | ⬜ | `warehouse-expandable-rows-plan.md` | не начато — нет ничего: ни `ExpandableTable.vue`, ни состояния expand, ни типов, ни полей | |

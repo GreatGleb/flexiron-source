@@ -2,9 +2,9 @@
 
 ## Problems Identified
 
-The current [`WarehouseStockCard.vue`](../../frontend_vue/src/views/admin/warehouse/WarehouseStockCard.vue) does not follow the project's established card page conventions. Below is a comparison with reference cards:
+The current [`WarehouseStockCard.vue`](../../../../../../frontend_vue/src/views/admin/warehouse/WarehouseStockCard.vue) does not follow the project's established card page conventions. Below is a comparison with reference cards:
 
-| Pattern | Reference ([`WarehouseBatchCard.vue`](../../frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue)) | Current Stock Card | Fix |
+| Pattern | Reference ([`WarehouseBatchCard.vue`](../../../../../../frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue)) | Current Stock Card | Fix |
 |---------|------|------|-----|
 | `useHead` for page title | ✅ Line 52-55 | ❌ Missing | Add `useHead` import + call |
 | Back button class | `btn btn-ghost` (line 344) — but pitfall #27 says `btn-ghost` doesn't exist. Actually batch card uses it too, but the correct pattern per pitfall #27 is `btn btn-secondary` | `btn btn-ghost` | Change to `btn btn-secondary` |
@@ -19,44 +19,44 @@ The current [`WarehouseStockCard.vue`](../../frontend_vue/src/views/admin/wareho
 
 ## Specific Changes Needed
 
-### 1. [`WarehouseStockCard.vue`](../../frontend_vue/src/views/admin/warehouse/WarehouseStockCard.vue) — Script section
+### 1. [`WarehouseStockCard.vue`](../../../../../../frontend_vue/src/views/admin/warehouse/WarehouseStockCard.vue) — Script section
 
 - Add `import { useHead } from '@/composables/useHead'`
 - Add `import { computed } from 'vue'`
 - Add `useHead` call with reactive title
 - Remove `goBack` usage — use `$router.back()` directly in template
 
-### 2. [`WarehouseStockCard.vue`](../../frontend_vue/src/views/admin/warehouse/WarehouseStockCard.vue) — Template section
+### 2. [`WarehouseStockCard.vue`](../../../../../../frontend_vue/src/views/admin/warehouse/WarehouseStockCard.vue) — Template section
 
 - Change back button class from `btn btn-ghost` to `btn btn-secondary`
 - Change back button click from `@click="goBack"` to `@click="$router.back()"`
 - Change empty state from custom `.empty-state` to `.entity-not-found` (matching ProductCardPage pattern)
 - Add `entity-not-found` structure with h2 + p tags
 
-### 3. [`WarehouseStockCard.vue`](../../frontend_vue/src/views/admin/warehouse/WarehouseStockCard.vue) — Style section
+### 3. [`WarehouseStockCard.vue`](../../../../../../frontend_vue/src/views/admin/warehouse/WarehouseStockCard.vue) — Style section
 
 - Replace `--bg-secondary` with `--color-surface` (project's CSS variable)
 - Replace `--text-muted` with `--text-dim` (project's CSS variable)
 - Keep the grid layout but use project-consistent variables
 
-### 4. [`useWarehouseStockCard.ts`](../../frontend_vue/src/composables/useWarehouseStockCard.ts) — Composable
+### 4. [`useWarehouseStockCard.ts`](../../../../../../frontend_vue/src/composables/useWarehouseStockCard.ts) — Composable
 
 - Remove `goBack` function (template will use `$router.back()` directly)
 - Keep everything else as-is
 
 ## Files to Modify
 
-1. [`frontend_vue/src/views/admin/warehouse/WarehouseStockCard.vue`](../../frontend_vue/src/views/admin/warehouse/WarehouseStockCard.vue) — Script, template, and style fixes
-2. [`frontend_vue/src/composables/useWarehouseStockCard.ts`](../../frontend_vue/src/composables/useWarehouseStockCard.ts) — Remove `goBack`
+1. [`frontend_vue/src/views/admin/warehouse/WarehouseStockCard.vue`](../../../../../../frontend_vue/src/views/admin/warehouse/WarehouseStockCard.vue) — Script, template, and style fixes
+2. [`frontend_vue/src/composables/useWarehouseStockCard.ts`](../../../../../../frontend_vue/src/composables/useWarehouseStockCard.ts) — Remove `goBack`
 
 ## Files NOT to Modify (already correct)
 
-- [`frontend_vue/src/services/warehouseService.ts`](../../frontend_vue/src/services/warehouseService.ts) — `getStockItem()` is correct
-- [`frontend_vue/src/services/mocks/warehouse.ts`](../../frontend_vue/src/services/mocks/warehouse.ts) — `mockGetStockItem()` is correct
-- [`frontend_vue/src/services/mocks/index.ts`](../../frontend_vue/src/services/mocks/index.ts) — mock route handler is correct
-- [`frontend_vue/src/router/index.ts`](../../frontend_vue/src/router/index.ts) — route is correct
-- [`frontend_vue/src/views/admin/warehouse/WarehousePage.vue`](../../frontend_vue/src/views/admin/warehouse/WarehousePage.vue) — links are correct
-- [`frontend_vue/src/i18n/admin/warehouse.ts`](../../frontend_vue/src/i18n/admin/warehouse.ts) — translations are correct
+- [`frontend_vue/src/services/warehouseService.ts`](../../../../../../frontend_vue/src/services/warehouseService.ts) — `getStockItem()` is correct
+- [`frontend_vue/src/services/mocks/warehouse.ts`](../../../../../../frontend_vue/src/services/mocks/warehouse.ts) — `mockGetStockItem()` is correct
+- [`frontend_vue/src/services/mocks/index.ts`](../../../../../../frontend_vue/src/services/mocks/index.ts) — mock route handler is correct
+- [`frontend_vue/src/router/index.ts`](../../../../../../frontend_vue/src/router/index.ts) — route is correct
+- [`frontend_vue/src/views/admin/warehouse/WarehousePage.vue`](../../../../../../frontend_vue/src/views/admin/warehouse/WarehousePage.vue) — links are correct
+- [`frontend_vue/src/i18n/admin/warehouse.ts`](../../../../../../frontend_vue/src/i18n/admin/warehouse.ts) — translations are correct
 
 ## Verification
 

@@ -1,10 +1,10 @@
 # Очередь реализации — из инвентаризации 2026-08-26
 
-Источник: [inventory-2026-08-26.md](../archive/2026-08/roo_code/general/inventory-2026-08-26.md), пересортировано [queue-retriage-2026-08-29.md](queue-retriage-2026-08-29.md) — 30 строк вынуто из счёта. Задач **54** («частично» и «не начато»); 48 планов закрыты вердиктом «сделано» и сюда не входят.
+Источник: [inventory-2026-08-26.md](../archive/2026-08/roo_code/general/inventory-2026-08-26.md), пересортировано [queue-retriage-2026-08-29.md](queue-retriage-2026-08-29.md) — 30 строк вынуто из счёта. Задач **51** («частично» и «не начато»); 48 планов закрыты вердиктом «сделано» и сюда не входят.
 
 **Как читать.** «Частично» не значит «сделать план целиком» — остаток перечислен в столбце «Что осталось» и подробно в части прогона. Задача начинается с воспроизведения: остаток проверяется в коде, не воспроизвёлся — задача закрывается как устаревшая (см. [autonomous-run-policy-plan.md](autonomous-run-policy-plan.md), раздел 2).
 
-**Волны.** Внутри волны задачи не делят ни одного файла — их можно гнать параллельно (одновременно работают 6 агентов). Волн 24. Файлы извлечены из текстов планов грепом по путям `src/`, `tests/`, `backend/app/` — это оценка владения, а не доказательство: план может тронуть файл, который в нём не назван.
+**Волны.** Внутри волны задачи не делят ни одного файла — их можно гнать параллельно (одновременно работают 6 агентов). Волн 23. Файлы извлечены из текстов планов грепом по путям `src/`, `tests/`, `backend/app/` — это оценка владения, а не доказательство: план может тронуть файл, который в нём не назван.
 
 ## Волна 1 — 3 задачи
 
@@ -112,18 +112,16 @@
 |---|---|---|---|---|
 | `roo_code/plans/bugs/fix-filter-transition-flicker.md` | частично (скептик) | шаги 1–3 сделаны, дальше плана — нет | 1 | [`part-008.md`](../archive/2026-08/roo_code/general/inventory-parts/part-008.md) |
 
-## Волна 14 — 2 задачи
+## Волна 14 — 1 задача
 
 | План | Вердикт | Что осталось | Файлов | Подробности |
 |---|---|---|---|---|
 | `roo_code/plans/warehouse/phase4-subtask2-CreateMovementModal.md` | частично | модалка есть, но партия приходит пропом — селектора партий и `unitPrice` нет; 10 чекбоксов | 9 | [`part-052.md`](../archive/2026-08/roo_code/general/inventory-parts/part-052.md) |
-| `roo_code/plans/warehouse/fix-warehouse-phase2-bugs-remaining-tabs.md` | частично | шаги 1–4 сделаны, дальше — нет | 0 | [`part-049.md`](../archive/2026-08/roo_code/general/inventory-parts/part-049.md) |
 
-## Волна 15 — 2 задачи
+## Волна 15 — 1 задача
 
 | План | Вердикт | Что осталось | Файлов | Подробности |
 |---|---|---|---|---|
-| `roo_code/plans/warehouse/stock-remainder-card-fix-plan.md` | частично | `useHead`, `entity-not-found`, чистка CSS сделаны; часть пунктов — нет | 9 | [`part-054.md`](../archive/2026-08/roo_code/general/inventory-parts/part-054.md) |
 | `roo_code/plans/products/product-uom-restructure-plan.md` | частично | шаги 1,2,5–9 есть; остальные шаги не выполнены | 6 | [`part-027.md`](../archive/2026-08/roo_code/general/inventory-parts/part-027.md) |
 
 ## Волна 16 — 1 задача
@@ -142,39 +140,33 @@
 
 | План | Вердикт | Что осталось | Файлов | Подробности |
 |---|---|---|---|---|
-| `roo_code/plans/warehouse/fix-offcuts-type-column.md` | частично | все шесть файловых правок есть; 10 чекбоксов открыты | 3 | [`part-048.md`](../archive/2026-08/roo_code/general/inventory-parts/part-048.md) |
+| `roo_code/plans/warehouse/offcut-movements-plan.md` | частично | цель достигнута шире плана, но ни одна правка не там, куда план её адресовал; 16 чекбоксов | 7 | [`part-051.md`](../archive/2026-08/roo_code/general/inventory-parts/part-051.md) |
 
 ## Волна 19 — 1 задача
 
 | План | Вердикт | Что осталось | Файлов | Подробности |
 |---|---|---|---|---|
-| `roo_code/plans/warehouse/offcut-movements-plan.md` | частично | цель достигнута шире плана, но ни одна правка не там, куда план её адресовал; 16 чекбоксов | 7 | [`part-051.md`](../archive/2026-08/roo_code/general/inventory-parts/part-051.md) |
+| `roo_code/plans/warehouse/warehouse-expandable-rows-plan.md` | не начато | нет ничего: ни `ExpandableTable.vue`, ни состояния expand, ни типов, ни полей | 7 | [`part-056.md`](../archive/2026-08/roo_code/general/inventory-parts/part-056.md) |
 
 ## Волна 20 — 1 задача
 
 | План | Вердикт | Что осталось | Файлов | Подробности |
 |---|---|---|---|---|
-| `roo_code/plans/warehouse/warehouse-expandable-rows-plan.md` | не начато | нет ничего: ни `ExpandableTable.vue`, ни состояния expand, ни типов, ни полей | 7 | [`part-056.md`](../archive/2026-08/roo_code/general/inventory-parts/part-056.md) |
+| `roo_code/plans/warehouse/fix-warehouse-stock-delete-mock.md` | не начато | ни одной из трёх правок нет; премисса плана под вопросом (см. `remove-stock-deletion`) | 6 | [`part-049.md`](../archive/2026-08/roo_code/general/inventory-parts/part-049.md) |
 
 ## Волна 21 — 1 задача
 
 | План | Вердикт | Что осталось | Файлов | Подробности |
 |---|---|---|---|---|
-| `roo_code/plans/warehouse/fix-warehouse-stock-delete-mock.md` | не начато | ни одной из трёх правок нет; премисса плана под вопросом (см. `remove-stock-deletion`) | 6 | [`part-049.md`](../archive/2026-08/roo_code/general/inventory-parts/part-049.md) |
+| `roo_code/plans/warehouse/generalize-offcuts-for-all-categories.md` | частично | шаги 1 и 3 есть, остальные — нет | 6 | [`part-049.md`](../archive/2026-08/roo_code/general/inventory-parts/part-049.md) |
 
 ## Волна 22 — 1 задача
 
 | План | Вердикт | Что осталось | Файлов | Подробности |
 |---|---|---|---|---|
-| `roo_code/plans/warehouse/generalize-offcuts-for-all-categories.md` | частично | шаги 1 и 3 есть, остальные — нет | 6 | [`part-049.md`](../archive/2026-08/roo_code/general/inventory-parts/part-049.md) |
-
-## Волна 23 — 1 задача
-
-| План | Вердикт | Что осталось | Файлов | Подробности |
-|---|---|---|---|---|
 | `roo_code/plans/warehouse/remove-stock-deletion.md` | частично (скептик) | удаление вырезано, но нарушено ограничение области плана (лишний коммит) | 6 | [`part-054.md`](../archive/2026-08/roo_code/general/inventory-parts/part-054.md) |
 
-## Волна 24 — 1 задача
+## Волна 23 — 1 задача
 
 | План | Вердикт | Что осталось | Файлов | Подробности |
 |---|---|---|---|---|
