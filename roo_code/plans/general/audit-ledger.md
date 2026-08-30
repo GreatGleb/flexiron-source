@@ -23,7 +23,7 @@
 ## Прогресс
 
 
-**Проверено 6 из 89.** По доменам ниже.
+**Проверено 12 из 89.** По доменам ниже.
 
 
 ### warehouse — 42
@@ -32,14 +32,14 @@
 | ✓ | Файл | Унаследовано | Чем доказано |
 |---|---|---|---|
 | ✅ | `add-action-buttons-to-warehouse-tabs.md` | частично — тулбар и экспорт есть, часть кнопок плана — нет | есть Export, New Batch, New Offcut, Page Config; **нет** New Stock Item, New Movement, Add to Deficit — остаток реален |
-| ⬜ | `add-batch-auditlog-mock-data.md` | частично (скептик) — 12 блоков `auditLog` есть, но с таблицей плана не сходятся — типы записей другие | |
+| 📦 | `add-batch-auditlog-mock-data.md` | частично (скептик) — 12 блоков `auditLog` есть, но с таблицей плана не сходятся — типы записей другие | 12 блоков `auditLog` в сиде — ровно то, что насчитала инвентаризация; иные типы записей в демо-данных работы не создают |
 | 📦 | `add-batch-card-currency-selector.md` | частично — тип, форма и композабл есть, часть плана не закрыта | `currency: string` в `types/warehouse.ts:103`, 7 вхождений в композабле, 26 в моке, селектор в `WarehouseBatchCard.vue:778–783` |
-| ⬜ | `add-batch-mock-files.md` | частично (скептик) — количество файлов сходится, тип каждого документа — нет (расхождение в трёх местах) | |
+| 📦 | `add-batch-mock-files.md` | частично (скептик) — количество файлов сходится, тип каждого документа — нет (расхождение в трёх местах) | 54 партии с непустым `files`, 58 `application/pdf` + 1 `image/jpeg`; план чинил их полное отсутствие. Расхождение в типе трёх документов работы не создаёт |
 | 📦 | `add-deficit-tab-sorting.md` | частично — сортировка и композабл есть, часть плана — нет | `deficitSort` в `useWarehouse.ts:166`, уходит в API (289–290), тоггл 552; индикаторы в UI `WarehousePage.vue:3402–3412`; мок сортирует `mocks/warehouse.ts:1636–1643` |
 | 📦 | `add-movement-type-hints-in-dropdown.md` | частично (скептик) — правила `.option-hint { font-size: 11px }` в `_custom-select.css` нет | вердикт был ложным: `.option-hint` стилизован в `styles/admin/components/_custom-select.css:75` (инвентаризация искала в `styles/components/`), span в `CustomSelect.vue:85`, 45 ключей подсказок |
-| ⬜ | `add-offcut-movements.md` | частично — есть всё, кроме переводов примечаний | |
-| ⬜ | `auto-create-movement-on-location-change.md` | частично — шаги 1, 3, 5 сделаны, шаги 2 и 4 — нет | |
-| ⬜ | `auto-create-movement-on-offcut-location-change.md` | частично — шаг 1 перевыполнен, остальные шаги не закрыты | |
+| 📦 | `add-offcut-movements.md` | частично — есть всё, кроме переводов примечаний | вердикт ложен: `movement_auto_location_change` есть во всех трёх локалях — `i18n/admin/warehouse.ts:289` (ru), `972` (en), `1657` (lt), плюс тосты |
+| 📦 | `auto-create-movement-on-location-change.md` | частично — шаги 1, 3, 5 сделаны, шаги 2 и 4 — нет | `useWarehouseBatch.ts:249–269` ловит старую локацию и создаёт transfer; мок делает то же — `services/mocks/warehouse.ts:809` |
+| 📦 | `auto-create-movement-on-offcut-location-change.md` | частично — шаг 1 перевыполнен, остальные шаги не закрыты | `useWarehouseOffcutCard.ts:289–307` + обновление списка движений (348) |
 | 📦 | `correction-behavior-refinement.md` | частично (скептик) — нет красной подсказки под полем при отрицательном значении (Problem #2) | отрицательное количество даёт ошибку под полем — `CreateMovementModal.vue:272` `e.quantity = t('validation.min')`, и форма блокируется (298) |
 | ⬜ | `enhance-movement-modal-with-batch-summary.md` | частично — размер, пропсы и секция сводки есть, часть плана — нет | |
 | ⬜ | `extract-batch-location-section.md` | частично (скептик) — секция и i18n на месте, но Edge Case плана не обработан | |
@@ -62,7 +62,7 @@
 | ⬜ | `phase5-subtask2-improve-tabs.md` | частично — бейджи, размеры и быстрые действия есть; 12 чекбоксов открыты | |
 | ⬜ | `phase6-subtask1-e2e-mocks.md` | частично — все 10 хелперов плюс шесть сверх плана; 7 чекбоксов | |
 | ⬜ | `phase6-subtask2-e2e-spec.md` | частично — спек на ~50 тестов есть; 8 чекбоксов открыты | |
-| ⬜ | `refactor-warehouse-mock-data.md` | частично — разделение на пять файлов выполнено, часть плана — нет | |
+| 📦 | `refactor-warehouse-mock-data.md` | частично — разделение на пять файлов выполнено, часть плана — нет | разделение выполнено: `src/mocks/warehouse-{batches,movements,stock,offcuts,deficit}.ts` + бочка `warehouse.ts`, 7834 строки. **Моя прошлая оценка была ошибочной** — я смотрел в `src/services/mocks/` |
 | ⬜ | `remove-stock-deletion.md` | частично (скептик) — удаление вырезано, но нарушено ограничение области плана (лишний коммит) | |
 | ⬜ | `safe-cascade-deletion.md` | частично — `orderId` и блокировки есть, часть плана не закрыта | |
 | ⬜ | `stock-card-restructure-plan.md` | частично (скептик) — перестройка шаблона есть, остальные требования плана не доказаны | |

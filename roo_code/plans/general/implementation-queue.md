@@ -1,6 +1,6 @@
 # Очередь реализации — из инвентаризации 2026-08-26
 
-Источник: [inventory-2026-08-26.md](../archive/2026-08/roo_code/general/inventory-2026-08-26.md), пересортировано [queue-retriage-2026-08-29.md](queue-retriage-2026-08-29.md) — 30 строк вынуто из счёта. Задач **65** («частично» и «не начато»); 48 планов закрыты вердиктом «сделано» и сюда не входят.
+Источник: [inventory-2026-08-26.md](../archive/2026-08/roo_code/general/inventory-2026-08-26.md), пересортировано [queue-retriage-2026-08-29.md](queue-retriage-2026-08-29.md) — 30 строк вынуто из счёта. Задач **59** («частично» и «не начато»); 48 планов закрыты вердиктом «сделано» и сюда не входят.
 
 **Как читать.** «Частично» не значит «сделать план целиком» — остаток перечислен в столбце «Что осталось» и подробно в части прогона. Задача начинается с воспроизведения: остаток проверяется в коде, не воспроизвёлся — задача закрывается как устаревшая (см. [autonomous-run-policy-plan.md](autonomous-run-policy-plan.md), раздел 2).
 
@@ -47,13 +47,12 @@
 | `roo_code/plans/warehouse/warehouse-page-plan.md` | частично | нет модалки/печати QR, двух подвкладок дефицита, `GET /api/warehouse/locations`; два флага мертвы | 28 | [`part-057.md`](../archive/2026-08/roo_code/general/inventory-parts/part-057.md) |
 | `roo_code/plans/refactor/single-locale-prompts/03-domain-products.md` | частично | обёртки в сервисе есть, часть требований плана не закрыта | 5 | [`part-034.md`](../archive/2026-08/roo_code/general/inventory-parts/part-034.md) |
 
-## Волна 6 — 4 задачи
+## Волна 6 — 3 задачи
 
 | План | Вердикт | Что осталось | Файлов | Подробности |
 |---|---|---|---|---|
 | `roo_code/plans/orders/3.3-order-returns-plan.md` | частично | реализовано почти всё; остаток перечислен в части | 24 | [`part-019.md`](../archive/2026-08/roo_code/general/inventory-parts/part-019.md) |
 | `roo_code/plans/warehouse/phase5-subtask2-improve-tabs.md` | частично | бейджи, размеры и быстрые действия есть; 12 чекбоксов открыты | 9 | [`part-053.md`](../archive/2026-08/roo_code/general/inventory-parts/part-053.md) |
-| `roo_code/plans/warehouse/refactor-warehouse-mock-data.md` | частично | разделение на пять файлов выполнено, часть плана — нет | 7 | [`part-053.md`](../archive/2026-08/roo_code/general/inventory-parts/part-053.md) |
 | `roo_code/plans/refactor/single-locale-prompts/06-domain-config.md` | частично | поля `name` оборачиваются и сливаются, часть требований не закрыта | 4 | [`part-034.md`](../archive/2026-08/roo_code/general/inventory-parts/part-034.md) |
 
 ## Волна 7 — 4 задачи
@@ -92,12 +91,11 @@
 | `roo_code/plans/warehouse/offcut-create-page-plan.md` | частично (скептик) | доказательство содержало ложный факт про `CreateOffcutModal` — сверка нужна заново | 8 | [`part-051.md`](../archive/2026-08/roo_code/general/inventory-parts/part-051.md) |
 | `roo_code/plans/warehouse/fix-warehouse-table-row-padding.md` | частично (скептик) | Change 3 (responsive adjustments) — мёртвый код, план не закрыт | 2 | [`part-049.md`](../archive/2026-08/roo_code/general/inventory-parts/part-049.md) |
 
-## Волна 11 — 4 задачи
+## Волна 11 — 3 задачи
 
 | План | Вердикт | Что осталось | Файлов | Подробности |
 |---|---|---|---|---|
 | `roo_code/plans/bugs/3.1-orders-card-bugs.md` | частично (скептик) | 22 из 23 багов закрыты, один не подтверждён | 12 | [`part-006.md`](../archive/2026-08/roo_code/general/inventory-parts/part-006.md) |
-| `roo_code/plans/warehouse/add-offcut-movements.md` | частично | есть всё, кроме переводов примечаний | 9 | [`part-043.md`](../archive/2026-08/roo_code/general/inventory-parts/part-043.md) |
 | `roo_code/plans/bugs/fix-4-remaining-products-bugs.md` | частично | из четырёх багов закрыты не все — остаток в части | 6 | [`part-007.md`](../archive/2026-08/roo_code/general/inventory-parts/part-007.md) |
 | `roo_code/plans/bugs/fix-clients-delete-modal-text.md` | частично (скептик) | буквальные правки на месте, но требование сверх них не подтверждено | 0 | [`part-007.md`](../archive/2026-08/roo_code/general/inventory-parts/part-007.md) |
 
@@ -130,11 +128,10 @@
 | `roo_code/plans/warehouse/stock-remainder-card-fix-plan.md` | частично | `useHead`, `entity-not-found`, чистка CSS сделаны; часть пунктов — нет | 9 | [`part-054.md`](../archive/2026-08/roo_code/general/inventory-parts/part-054.md) |
 | `roo_code/plans/products/product-uom-restructure-plan.md` | частично | шаги 1,2,5–9 есть; остальные шаги не выполнены | 6 | [`part-027.md`](../archive/2026-08/roo_code/general/inventory-parts/part-027.md) |
 
-## Волна 16 — 2 задачи
+## Волна 16 — 1 задача
 
 | План | Вердикт | Что осталось | Файлов | Подробности |
 |---|---|---|---|---|
-| `roo_code/plans/warehouse/auto-create-movement-on-location-change.md` | частично | шаги 1, 3, 5 сделаны, шаги 2 и 4 — нет | 8 | [`part-043.md`](../archive/2026-08/roo_code/general/inventory-parts/part-043.md) |
 | `roo_code/plans/general/user-dropdown-menu-plan.md` | частично | всё есть, включая опциональный пункт 5; остаток — мелкие расхождения с буквой | 5 | [`part-016.md`](../archive/2026-08/roo_code/general/inventory-parts/part-016.md) |
 
 ## Волна 17 — 1 задача
@@ -143,11 +140,10 @@
 |---|---|---|---|---|
 | `roo_code/plans/warehouse/stock-remainder-card-plan.md` | частично | нет кнопки retry в состоянии ошибки и отдельной кнопки; 9 чекбоксов | 8 | [`part-054.md`](../archive/2026-08/roo_code/general/inventory-parts/part-054.md) |
 
-## Волна 18 — 2 задачи
+## Волна 18 — 1 задача
 
 | План | Вердикт | Что осталось | Файлов | Подробности |
 |---|---|---|---|---|
-| `roo_code/plans/warehouse/add-batch-mock-files.md` | частично (скептик) | количество файлов сходится, тип каждого документа — нет (расхождение в трёх местах) | 7 | [`part-041.md`](../archive/2026-08/roo_code/general/inventory-parts/part-041.md) |
 | `roo_code/plans/warehouse/fix-offcuts-type-column.md` | частично | все шесть файловых правок есть; 10 чекбоксов открыты | 3 | [`part-048.md`](../archive/2026-08/roo_code/general/inventory-parts/part-048.md) |
 
 ## Волна 19 — 1 задача
@@ -156,12 +152,11 @@
 |---|---|---|---|---|
 | `roo_code/plans/warehouse/offcut-movements-plan.md` | частично | цель достигнута шире плана, но ни одна правка не там, куда план её адресовал; 16 чекбоксов | 7 | [`part-051.md`](../archive/2026-08/roo_code/general/inventory-parts/part-051.md) |
 
-## Волна 20 — 2 задачи
+## Волна 20 — 1 задача
 
 | План | Вердикт | Что осталось | Файлов | Подробности |
 |---|---|---|---|---|
 | `roo_code/plans/warehouse/warehouse-expandable-rows-plan.md` | не начато | нет ничего: ни `ExpandableTable.vue`, ни состояния expand, ни типов, ни полей | 7 | [`part-056.md`](../archive/2026-08/roo_code/general/inventory-parts/part-056.md) |
-| `roo_code/plans/warehouse/auto-create-movement-on-offcut-location-change.md` | частично | шаг 1 перевыполнен, остальные шаги не закрыты | 5 | [`part-043.md`](../archive/2026-08/roo_code/general/inventory-parts/part-043.md) |
 
 ## Волна 21 — 2 задачи
 
@@ -188,12 +183,11 @@
 |---|---|---|---|---|
 | `roo_code/plans/warehouse/extract-batch-location-section.md` | частично (скептик) | секция и i18n на месте, но Edge Case плана не обработан | 5 | [`part-045.md`](../archive/2026-08/roo_code/general/inventory-parts/part-045.md) |
 
-## Волна 25 — 2 задачи
+## Волна 25 — 1 задача
 
 | План | Вердикт | Что осталось | Файлов | Подробности |
 |---|---|---|---|---|
 | `roo_code/plans/warehouse/enhance-movement-modal-with-batch-summary.md` | частично | размер, пропсы и секция сводки есть, часть плана — нет | 4 | [`part-044.md`](../archive/2026-08/roo_code/general/inventory-parts/part-044.md) |
-| `roo_code/plans/warehouse/add-batch-auditlog-mock-data.md` | частично (скептик) | 12 блоков `auditLog` есть, но с таблицей плана не сходятся — типы записей другие | 3 | [`part-040.md`](../archive/2026-08/roo_code/general/inventory-parts/part-040.md) |
 
 ## Волна 26 — 1 задача
 
