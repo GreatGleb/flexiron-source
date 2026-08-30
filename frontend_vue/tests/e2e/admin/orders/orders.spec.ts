@@ -2,6 +2,7 @@ import type { Locator, Page } from '@playwright/test'
 import { test, testWithFlags, expect } from '../../fixtures'
 import { enableAllFlags, setFlag } from '../../helpers/flags'
 import { navigateToAdmin, openAdminCard, openAdminPage, switchLanguage } from '../../helpers/admin'
+import { DATA_READY_TIMEOUT } from '../../helpers/ready'
 
 /** Число дней из подписи условий оплаты — «Payment terms: 30 days» → 30. */
 function daysShown(text: string): number {
@@ -790,7 +791,7 @@ test.describe('Order Card › line table', () => {
     // Cost is a warehouse fact and does not move; the price does.
     const cost = Number(await lineCell(row, 'unitCost'))
     await expect
-      .poll(async () => Number(await lineCell(row, 'unitPrice')))
+      .poll(async () => Number(await lineCell(row, 'unitPrice')), { timeout: DATA_READY_TIMEOUT })
       .toBeCloseTo(cost * 1.5, 1)
     const grossEdited = Number(await page.locator('[data-test="field-gross-total"]').inputValue())
     expect(grossEdited).not.toBeCloseTo(grossBefore, 2)
@@ -818,13 +819,15 @@ test.describe('Order Card › line table', () => {
     // The client sees a discount in the document, never a negative markup.
     await expect(row.locator('[data-test="line-lock"]')).toBeVisible()
     await expect
-      .poll(async () => Number(await lineCell(row, 'discountPercent')))
+      .poll(async () => Number(await lineCell(row, 'discountPercent')), {
+        timeout: DATA_READY_TIMEOUT,
+      })
       .toBeGreaterThan(discountBefore)
 
     await row.locator('[data-test="line-reset-price"]').click()
     await expect(row.locator('[data-test="line-lock"]')).toHaveCount(0)
     await expect
-      .poll(async () => Number(await lineCell(row, 'unitPrice')))
+      .poll(async () => Number(await lineCell(row, 'unitPrice')), { timeout: DATA_READY_TIMEOUT })
       .toBeCloseTo(priceBefore, 1)
   })
 
@@ -998,7 +1001,7 @@ test.describe('Order Card › line table', () => {
     // The price per unit follows, and the line total is cent-exact — a total the
     // admin typed may not come back a cent short.
     await expect
-      .poll(async () => Number(await lineCell(row, 'unitPrice')))
+      .poll(async () => Number(await lineCell(row, 'unitPrice')), { timeout: DATA_READY_TIMEOUT })
       .toBeCloseTo(1000 / quantity, 2)
     expect(Number(await lineCell(row, 'lineTotal'))).toBeCloseTo(1000, 2)
 
@@ -2072,7 +2075,9 @@ test.describe('Order Card › payments and invoices', () => {
     // Одним снимком читать нельзя: подтверждение поправки уходит в перезагрузку
     // карточки, и до неё в ячейке ещё старая цена. Опрос ждёт саму цифру.
     await expect
-      .poll(async () => Number(await lineCell(corrected, 'unitPrice')))
+      .poll(async () => Number(await lineCell(corrected, 'unitPrice')), {
+        timeout: DATA_READY_TIMEOUT,
+      })
       .toBeCloseTo(priced - 5, 2)
     await expect(corrected.locator('[data-test="cell-input"]')).toHaveCount(0)
     expect(Number(await page.locator('[data-test="field-gross-total"]').inputValue())).toBeLessThan(

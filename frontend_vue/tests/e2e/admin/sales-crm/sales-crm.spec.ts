@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test'
 import { test, expect } from '../../fixtures'
+import { DATA_READY_TIMEOUT } from '../../helpers/ready'
 
 /**
  * The dashboard's four numbers.
@@ -39,7 +40,9 @@ test.describe('Sales CRM dashboard', () => {
     await page.goBack()
     await expect(page.locator('[data-test="sales-crm-kpis"]')).toBeVisible()
 
-    await expect.poll(() => kpi(page, 'active-orders')).toBe(activeBefore + 1)
+    await expect
+      .poll(() => kpi(page, 'active-orders'), { timeout: DATA_READY_TIMEOUT })
+      .toBe(activeBefore + 1)
     expect(await kpi(page, 'pending-orders')).toBe(pendingBefore + 1)
   })
 })

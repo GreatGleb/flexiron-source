@@ -7,6 +7,7 @@ import {
   mockSupplierList,
 } from '../../mocks/warehouse'
 import { navigateToAdmin, openAdminPage } from '../../helpers/admin'
+import { DATA_READY_TIMEOUT } from '../../helpers/ready'
 
 /**
  * Шапка карточки — `v-if="batch"`, `v-if="offcut"` и так далее — рисуется ТОЛЬКО с
@@ -281,7 +282,11 @@ test.describe('Warehouse module', () => {
          */
         const firstBefore = (await rows.first().innerText()).trim()
         await next.click()
-        await expect.poll(async () => (await rows.first().innerText()).trim()).not.toBe(firstBefore)
+        await expect
+          .poll(async () => (await rows.first().innerText()).trim(), {
+            timeout: DATA_READY_TIMEOUT,
+          })
+          .not.toBe(firstBefore)
       }
 
       expect(seen.size).toBeGreaterThan(5)

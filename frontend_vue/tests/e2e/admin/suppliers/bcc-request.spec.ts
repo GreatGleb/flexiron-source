@@ -1,7 +1,7 @@
 import { test, expect, testBare as base } from '../../fixtures'
 import { navigateToAdmin } from '../../helpers/admin'
 import { ALL_FLAGS_ENABLED } from '../../helpers/flags'
-import { waitForDataReady } from '../../helpers/ready'
+import { DATA_READY_TIMEOUT, waitForDataReady } from '../../helpers/ready'
 import { freezeTime } from '../../helpers/mocks'
 import { waitForFontsReady, SNAPSHOT_OPTIONS } from '../../helpers/visual'
 
@@ -269,8 +269,9 @@ test.describe('bcc-request › recipients picker', () => {
     await page.locator('[data-test="bcc-request-product-row"][data-product-id="sheet-2mm"]').click()
     // Wait for the recipients watcher to propagate the `selected` flags.
     await expect
-      .poll(async () =>
-        page.locator('[data-test="bcc-request-recipients-count"] .count').textContent(),
+      .poll(
+        async () => page.locator('[data-test="bcc-request-recipients-count"] .count').textContent(),
+        { timeout: DATA_READY_TIMEOUT },
       )
       .toMatch(/\b[12]\b/)
   })
@@ -287,8 +288,9 @@ test.describe('bcc-request › ?supplier= preselect', () => {
     // The toast fires once the preselect branch resolves.
     await expect.soft(page.locator('.toast-container .toast.show')).toBeVisible()
     await expect
-      .poll(async () =>
-        page.locator('[data-test="bcc-request-recipients-count"] .count').textContent(),
+      .poll(
+        async () => page.locator('[data-test="bcc-request-recipients-count"] .count').textContent(),
+        { timeout: DATA_READY_TIMEOUT },
       )
       .toContain('1')
     // The preselected supplier floats to the top of the list and is checked.
@@ -380,8 +382,9 @@ test.describe('bcc-request › send flow', () => {
     // refresh + watcher to settle, THEN deselect everyone so the race doesn't re-populate.
     await page.locator('[data-test="bcc-request-product-row"][data-product-id="sheet-2mm"]').click()
     await expect
-      .poll(async () =>
-        page.locator('[data-test="bcc-request-recipients-count"] .count').textContent(),
+      .poll(
+        async () => page.locator('[data-test="bcc-request-recipients-count"] .count').textContent(),
+        { timeout: DATA_READY_TIMEOUT },
       )
       .toMatch(/\b[12]\b/)
     await page.locator('[data-test="bcc-request-recipients-deselect-all"]').click()
@@ -408,15 +411,16 @@ test.describe('bcc-request › send flow', () => {
     // Pick one product + one (auto-selected) recipient.
     await page.locator('[data-test="bcc-request-product-row"][data-product-id="sheet-2mm"]').click()
     await expect
-      .poll(async () =>
-        page.locator('[data-test="bcc-request-recipients-count"] .count').textContent(),
+      .poll(
+        async () => page.locator('[data-test="bcc-request-recipients-count"] .count').textContent(),
+        { timeout: DATA_READY_TIMEOUT },
       )
       .toMatch(/\b[12]\b/)
     await page.locator('[data-test="bcc-request-send-btn"]').click()
     // Success toast (non-error).
     await expect.soft(page.locator('.toast-container .toast.show').first()).toBeVisible()
     // One new event row per (recipient × product); sheet-2mm auto-selects 1–2 recipients.
-    await expect.poll(() => rows.count()).toBeGreaterThan(before)
+    await expect.poll(() => rows.count(), { timeout: DATA_READY_TIMEOUT }).toBeGreaterThan(before)
   })
 
   test('after a successful send, the product selection resets to 0', async ({ page }) => {
@@ -425,8 +429,9 @@ test.describe('bcc-request › send flow', () => {
     // Wait for auto-select watcher to settle so validateSelection() doesn't bail on
     // empty recipients — otherwise the send never runs and products stay selected.
     await expect
-      .poll(async () =>
-        page.locator('[data-test="bcc-request-recipients-count"] .count').textContent(),
+      .poll(
+        async () => page.locator('[data-test="bcc-request-recipients-count"] .count').textContent(),
+        { timeout: DATA_READY_TIMEOUT },
       )
       .toMatch(/\b[12]\b/)
     await page.locator('[data-test="bcc-request-send-btn"]').click()
@@ -453,15 +458,18 @@ test.describe('bcc-request › log request', () => {
   test('picking "Phone" from the dropdown logs rows with source=Phone', async ({ page }) => {
     await page.locator('[data-test="bcc-request-product-row"][data-product-id="sheet-2mm"]').click()
     await expect
-      .poll(async () =>
-        page.locator('[data-test="bcc-request-recipients-count"] .count').textContent(),
+      .poll(
+        async () => page.locator('[data-test="bcc-request-recipients-count"] .count').textContent(),
+        { timeout: DATA_READY_TIMEOUT },
       )
       .toMatch(/\b[12]\b/)
     const before = await page.locator('[data-test="bcc-request-history-row"]').count()
     await page.locator('[data-test="bcc-request-log-caret-btn"]').click()
     await page.locator('[data-test="bcc-request-log-dropdown-item"][data-source="Phone"]').click()
     await expect
-      .poll(() => page.locator('[data-test="bcc-request-history-row"]').count())
+      .poll(() => page.locator('[data-test="bcc-request-history-row"]').count(), {
+        timeout: DATA_READY_TIMEOUT,
+      })
       .toBeGreaterThan(before)
     // The newest row (top of the list) should carry source=Phone.
     await expect(page.locator('[data-test="bcc-request-history-row"]').first()).toContainText(
@@ -523,7 +531,9 @@ test.describe('bcc-request › history table', () => {
     // markBccNoResponse → apiPost → mock prepends a new event to MOCK_BCC_HISTORY and
     // the page unshifts the returned event into its own `history.value`.
     await expect
-      .poll(() => page.locator('[data-test="bcc-request-history-row"]').count())
+      .poll(() => page.locator('[data-test="bcc-request-history-row"]').count(), {
+        timeout: DATA_READY_TIMEOUT,
+      })
       .toBeGreaterThan(before)
     const latest = page.locator('[data-test="bcc-request-history-row"]').first()
     await expect.soft(latest).toHaveAttribute('data-status', 'no_response')
@@ -590,7 +600,9 @@ test.describe('bcc-request › response modal', () => {
     await expect.soft(page.locator('.modal-overlay.active')).toHaveCount(0)
     await expect.soft(page.locator('.toast-container .toast.show').first()).toBeVisible()
     await expect
-      .poll(() => page.locator('[data-test="bcc-request-history-row"]').count())
+      .poll(() => page.locator('[data-test="bcc-request-history-row"]').count(), {
+        timeout: DATA_READY_TIMEOUT,
+      })
       .toBeGreaterThan(before)
     const latest = page.locator('[data-test="bcc-request-history-row"]').first()
     await expect.soft(latest).toHaveAttribute('data-status', 'responded')

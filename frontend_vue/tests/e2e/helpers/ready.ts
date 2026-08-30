@@ -14,6 +14,35 @@ import { expect, type Page } from '@playwright/test'
  * — it is a pixel diff that reads like a layout regression in code nobody touched.
  */
 
+/**
+ * Бюджет ожидания ПРИШЕДШИХ ДАННЫХ — один на весь набор.
+ *
+ * Дефолтный потолок `expect` — 5 секунд, и он не растягивается вместе с загрузкой машины,
+ * в отличие от потолка самого теста (90 с). Замер 2026-08-30 на смене страницы движений
+ * склада под `Emulation.setCPUThrottlingRate` — время от клика до новых строк, и отдельно
+ * то, что успевает съесть сам клик:
+ *
+ *   rate   1    клик   96 мс   строки на   592 мс   (ожиданию досталось ~0.5 с)
+ *   rate  20    клик 1373 мс   строки на  3363 мс   (~2.0 с)
+ *   rate  40    клик 2849 мс   строки на  5319 мс   (~2.5 с)
+ *   rate 100    клик 12.4 с    строки на  23.3 с    (~10.9 с — пять секунд кончились)
+ *
+ * **Запас честнее назвать тонким, чем пробитым.** На rate 40 — той нагрузке, которой
+ * `playwright.config.ts` меряет свой потолок теста, — пятисекундного бюджета ещё хватает
+ * с двукратным запасом. Ломается он между 40 и 100. Инверсия проведена на rate 100:
+ * ожидание без бюджета падает с «Timeout 5000ms exceeded while waiting on the predicate»,
+ * с бюджетом проходит.
+ *
+ * Отсюда: всякий `expect.poll`, который ждёт состояние ПОСЛЕ действия на странице
+ * (пагинация, фильтр, отправка формы), берёт этот бюджет, а не дефолт. Значение то же, что
+ * у `waitForDataReady`, и живёт оно здесь в одном экземпляре — двадцать две копии числа
+ * разошлись бы молча.
+ *
+ * На успехе это не стоит ничего: `expect.poll` возвращается, как только условие выполнено.
+ * Платит только падающий тест — он падает через 30 секунд вместо пяти.
+ */
+export const DATA_READY_TIMEOUT = 30_000
+
 /** Anything the app draws while it is still waiting for its own data. */
 const LOADING_MARKERS = [
   '.panel-skeleton',
@@ -182,7 +211,7 @@ export async function readyExitOf(page: Page): Promise<ReadyExit> {
  * wait for the value it is about — a number, a row, a name — because only that
  * proves the data it needs, rather than data in general, has arrived.
  */
-export async function waitForDataReady(page: Page, timeout = 30_000) {
+export async function waitForDataReady(page: Page, timeout = DATA_READY_TIMEOUT) {
   // Every wait starts from scratch. Without this reset the SECOND wait on a page
   // returns instantly on the first one's bookkeeping — and inside an SPA (a tab
   // switch, a filter, a pagination click) every wait but the first is a second one.

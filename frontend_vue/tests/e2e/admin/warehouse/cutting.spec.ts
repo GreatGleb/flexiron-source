@@ -1,7 +1,7 @@
 import { type Page } from '@playwright/test'
 import { test, expect } from '../../fixtures'
 import { navigateToAdmin } from '../../helpers/admin'
-import { waitForDataReady } from '../../helpers/ready'
+import { DATA_READY_TIMEOUT, waitForDataReady } from '../../helpers/ready'
 
 /**
  * Резка металла: операция, а не подпись.
@@ -208,7 +208,9 @@ test.describe('Cutting operation', () => {
      * `not.toHaveText` было истинно при любом коде: инверсия «убрать серверную
      * пагинацию» оставляла тест зелёным. Питфолл #68, пойманный инверсией.
      */
-    await expect.poll(async () => (await rows.first().innerText()).trim()).not.toBe(firstOnPageOne)
+    await expect
+      .poll(async () => (await rows.first().innerText()).trim(), { timeout: DATA_READY_TIMEOUT })
+      .not.toBe(firstOnPageOne)
   })
 
   test('the offcuts tab leads to cutting, not to the manual offcut form', async ({ page }) => {
