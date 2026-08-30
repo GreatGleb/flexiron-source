@@ -1147,3 +1147,36 @@ describe('storage precision', () => {
     expect(roundStored(19.999999999999996)).toBe(20)
   })
 })
+
+describe('splitLine — разрез, у которого нет остатка в деньгах', () => {
+  /**
+   * `cutIsReal` выключает вычисление цены остатка. Ветка «выключено» не
+   * исполнялась ни разу, а достижима она законным заказом: строка, отданная со
+   * 100 % скидкой (`discountPercent: 100` контроль пропускает — бросает он на
+   * `> 100`), даёт делитель ноль. Без этой ветки в остаток попал бы Infinity
+   * или NaN и уехал бы в хранилище как цена.
+   */
+  it('строка со скидкой 100 % делится, не порождая Infinity в цене остатка', () => {
+    const free = line({ discountPercent: 100 })
+    const { shipped, remainder } = splitLine(free, 6)
+
+    expect(shipped.quantity).toBe(6)
+    expect(remainder.quantity).toBe(4)
+    // Цена остатка НАСЛЕДУЕТСЯ, а не вычисляется: вычисление здесь — деление на ноль.
+    expect(remainder.manualUnitPrice).toBe(free.manualUnitPrice)
+    expect(remainder.priceFollowsCost).toBe(free.priceFollowsCost)
+    expect(Number.isFinite(remainder.manualUnitPrice ?? 0)).toBe(true)
+    // И обе половины по-прежнему бесплатны — скидка не потерялась при разрезе.
+    expect(calcLine(shipped).lineNet).toBe(0)
+    expect(calcLine({ ...remainder, id: 'l2' }).lineNet).toBe(0)
+  })
+
+  it('остаток схлопнулся округлением — цена тоже наследуется, а не делится на ноль', () => {
+    // Контроль пропускает `shippedQuantity < quantity`, но разница меньше
+    // микроединицы после `roundTo(..., 6)` становится нулём. Делить на него нельзя.
+    const { remainder } = splitLine(line({ quantity: 10 }), 10 - 1e-9)
+    expect(remainder.quantity).toBe(0)
+    expect(remainder.manualUnitPrice).toBe(null)
+    expect(Number.isNaN(remainder.manualUnitPrice ?? 0)).toBe(false)
+  })
+})

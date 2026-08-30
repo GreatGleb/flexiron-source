@@ -394,3 +394,19 @@ describe('размер куска округляется тем же прави�
     })
   })
 })
+
+describe('размер куска — мусор из формы отсеивается отказом, а не считается', () => {
+  it('размер пришёл нечислом — отказ, а не расчёт по NaN', () => {
+    // `Number.isFinite` отсеивает NaN и Infinity отдельно от `<= 0`: NaN не
+    // больше нуля и не меньше, так что одним сравнением его не поймать. Пустое
+    // поле формы, прошедшее через `parseFloat`, даёт ровно NaN — питфолл #25.
+    const nan = resolvePieceSize({ quantity: 1, lengthMm: Number.NaN }, 'uom-m')
+    expect(nan.ok).toBe(false)
+    expect(nan.ok === false && nan.reason).toBe('dimension_missing')
+    expect(nan.ok === false && nan.detail).toBe('lengthMm')
+
+    const infinite = resolvePieceSize({ quantity: 1, lengthMm: Number.POSITIVE_INFINITY }, 'uom-m')
+    expect(infinite.ok).toBe(false)
+    expect(infinite.ok === false && infinite.reason).toBe('dimension_missing')
+  })
+})

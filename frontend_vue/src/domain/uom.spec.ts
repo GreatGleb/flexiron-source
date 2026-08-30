@@ -97,3 +97,36 @@ describe('код единицы, который строка заказа хра
     expect(unitLabel(orderLineUnit(null), uoms, 'lt')).toBe('vnt')
   })
 })
+
+describe('запасные языки кода единицы', () => {
+  /**
+   * `uomCode` повторяет цепочку `productLabel`: свой язык → английский →
+   * русский → null. Две последние ступени не исполнялись ни одним тестом.
+   */
+  const PARTIAL: Uom[] = [
+    {
+      id: 'uom-ru',
+      code: { ru: 'шт', en: '', lt: '' },
+      name: { ru: 'штука', en: '', lt: '' },
+      category: 'quantity',
+    },
+    {
+      id: 'uom-none',
+      code: { ru: '', en: '', lt: '' },
+      name: { ru: '', en: '', lt: '' },
+      category: 'quantity',
+    },
+  ]
+
+  it('нет ни своего языка, ни английского — берётся русский', () => {
+    expect(uomCode('uom-ru', PARTIAL, 'lt')).toBe('шт')
+    expect(uomCode('ru', PARTIAL, 'en')).toBe('шт')
+  })
+
+  it('кода нет ни на одном языке — null, а не пустая строка', () => {
+    // Пустая строка встала бы после числа как «12 », и это читалось бы как
+    // потерянная единица. null отличается тем, что вызывающий обязан решить.
+    expect(uomCode('uom-none', PARTIAL, 'en')).toBeNull()
+    expect(uomCode('uom-none', PARTIAL, 'ru')).toBeNull()
+  })
+})
