@@ -13,18 +13,27 @@
   justify-content: center;
   opacity: 0;
   visibility: hidden;
-  /* Only `opacity` transitions. `visibility` used to sit inside `transition: all`,
-     so a closed overlay stayed `visible` for the whole fade: it covered the
-     viewport and swallowed the next click — the one aimed at whatever the person
-     reached for after confirming. `pointer-events: none` was added to blunt that,
-     but the overlay still ANSWERED as visible, to the browser and to anyone
-     asking. Forty-one e2e tests ask exactly that question (`toBeHidden` on a
-     modal), and the answer was late by the length of a fade plus however long
-     the main thread stayed busy — unbounded, because the card reloads right
-     after closing. Now closing is a step: hidden is hidden, at once. The
-     fade-in on open survives; the fade-out does not, and that is the price. */
+  /* `visibility` rides the fade, and it has to. Dropping it out of the transition
+     made the overlay `hidden` on the first frame of closing while `opacity` here
+     and `transform` on `.modal` went on animating for 300ms more — an element
+     told not to paint, still animating. Chromium resolves that split down the
+     middle: the panel background goes at once, and the children the compositor
+     had already promoted (the selects, the textarea, the footer buttons) keep
+     being painted straight onto the page, shrinking as the transform runs out.
+     Measured on the return dialog of the order card — the panel gone at 2728ms,
+     its buttons still sliding at 2786ms — and it lasts as long as the main
+     thread is busy, which right after closing is exactly when the card reloads.
+
+     So the fade-out is not decoration here: it is what keeps painting and
+     hiding on the same clock. What the transition costs is honest and bounded —
+     for 0.3s a closing overlay still answers "visible", to the browser and to
+     the e2e tests that ask `toBeHidden`. Clicks are not part of that cost:
+     `pointer-events: none` lands on the first frame either way, so the overlay
+     stops swallowing the click aimed at whatever the person reached for next. */
   pointer-events: none;
-  transition: opacity 0.3s;
+  transition:
+    opacity 0.3s,
+    visibility 0.3s;
 }
 .modal-overlay.active {
   opacity: 1;
