@@ -4319,7 +4319,7 @@ export function mockCreateInvoice(
     // has on it; charging MORE is not bounded by that number at all — the client
     // simply owes more than before. Bounding both directions refused a legitimate
     // price correction upwards, and the fuzzer found it inside a minute.
-    const adjustment = statedNet(order, data)
+    const adjustment = statedAmounts(order, data)?.net
     if (
       adjustment !== undefined &&
       adjustment < 0 &&
@@ -4333,16 +4333,22 @@ export function mockCreateInvoice(
 
   // Mirror amount → the document is taken back. Stated amount → it is adjusted and
   // the client goes on holding it. See `withdrawsOriginal`.
-  const stated = original ? statedNet(order, data) : undefined
+  const stated = original ? statedAmounts(order, data) : undefined
   const withdrawsOriginal = original !== undefined && stated === undefined
 
   let net: number
+  /**
+   * Брутто, НАЗВАННЫЙ вызывающим, если он был назван. Документ обязан показать
+   * именно его: пересчёт из округлённого нетто уводит сумму на копейку от набранной.
+   */
+  let statedGross: number | undefined
   if (original) {
     // Withdrawing the document means the mirror image of what the client is
     // holding — see `outstandingNetOf`. An explicit amount is still allowed — a
     // price corrected downwards is a partial correction — but the default is the
     // whole thing, because that is what a cancellation is.
-    net = stated ?? round2(-outstandingNetOf(order, original))
+    net = stated?.net ?? round2(-outstandingNetOf(order, original))
+    statedGross = stated?.gross
   } else if (data.shipmentId) {
     const shipment = order.shipments.find((s) => s.id === data.shipmentId)
     if (!shipment) throw new Error('SHIPMENT_NOT_FOUND')
@@ -4365,12 +4371,15 @@ export function mockCreateInvoice(
     // Nothing but services — the case above with no delivery under it.
     net = servicesNet(carried)
   } else {
-    const amount = statedNet(order, data)
+    const amount = statedAmounts(order, data)
     if (amount === undefined) throw new Error('INVOICE_AMOUNT_REQUIRED')
-    net = amount
+    net = amount.net
+    statedGross = amount.gross
   }
 
-  const gross = netToGross(net, order.vatMode, order.vatPercent)
+  // Заявленный брутто побеждает вычисленный: см. `statedAmounts`. Там, где его не
+  // называли (счёт по отгрузке, счёт за услуги), брутто как и раньше выводится из нетто.
+  const gross = statedGross ?? netToGross(net, order.vatMode, order.vatPercent)
   const invoice: Invoice = {
     id: `${order.id}-INV-${order._nextInvoiceSeq}`,
     orderId: order.id,
@@ -4436,17 +4445,38 @@ export function mockCreateInvoice(
   return clone(invoice)
 }
 
-/** The amount the caller stated, net — from either field, never from both. */
-function statedNet(
+/**
+ * Суммы, названные вызывающим, — из одного поля, никогда из обоих.
+ *
+ * Возвращает ОБЕ: и нетто, и брутто. Раньше возвращалось только нетто, а брутто
+ * потом выводилось из него обратно — и на этом круге терялась копейка. При НДС 21 %
+ * заявленные 15000 превращались в 12396.69 нетто (округление до копейки), а обратно
+ * давали 14999.99. Документ называл не ту сумму, которую набрал человек.
+ *
+ * Развилка решена так: если брутто ЗАЯВЛЕН, документ обязан назвать именно его, а
+ * нетто и НДС вывести из него. Второй возможный ответ — предупредить, что 15000 при
+ * 21 % недостижим (`achievableGross` в домене умеет это считать) — верен для ИТОГА
+ * ЗАКАЗА, где нетто раскладывается по строкам и обязано сойтись с их суммой. У
+ * авансового счёта строк под ним нет: сумма заявлена целиком, и терять на ней копейку
+ * не из чего.
+ *
+ * Обратное направление не меняется: заявлено нетто — брутто выводится из него, как и
+ * было.
+ */
+function statedAmounts(
   order: StoreOrder,
   data: { amountNet?: number; amountGross?: number },
-): number | undefined {
+): { net: number; gross: number } | undefined {
   if (data.amountNet !== undefined && data.amountGross !== undefined) {
     throw new Error('INVOICE_AMOUNT_AMBIGUOUS')
   }
-  if (data.amountNet !== undefined) return round2(data.amountNet)
+  if (data.amountNet !== undefined) {
+    const net = round2(data.amountNet)
+    return { net, gross: netToGross(net, order.vatMode, order.vatPercent) }
+  }
   if (data.amountGross !== undefined) {
-    return round2(grossToNet(data.amountGross, order.vatMode, order.vatPercent))
+    const gross = round2(data.amountGross)
+    return { gross, net: grossToNet(gross, order.vatMode, order.vatPercent) }
   }
   return undefined
 }

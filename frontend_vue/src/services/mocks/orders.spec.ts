@@ -46,7 +46,7 @@ import {
   mockDeleteBatch,
   mockGetMovementsFor,
 } from './warehouse'
-import { calcLine, round2, validateLine, netToGross } from '@/domain/orderPricing'
+import { calcLine, round2, validateLine, netToGross, grossToNet } from '@/domain/orderPricing'
 import { invoiceBalances } from '@/domain/receivable'
 import { countsAsSale } from '@/domain/orderStatus'
 import { toPricingLine } from '@/services/orderLines'
@@ -1036,6 +1036,48 @@ describe('invoices', () => {
     expect(() => mockCreateInvoice(order.id, { kind: 'advance' })).toThrow(
       'INVOICE_AMOUNT_REQUIRED',
     )
+  })
+
+  /**
+   * Пункт 11: заявленная сумма — это сумма документа, а не отправная точка для круга.
+   *
+   * Было: заявленный брутто переводился в нетто с округлением до копейки, а брутто
+   * документа выводилось из уже округлённого нетто ОБРАТНО. При НДС 21 %:
+   * 15000 → 12396.694… → 12396.69 → 14999.9949 → **14999.99**. Человек набирал 15000,
+   * документ называл другое число.
+   *
+   * Различает правду и ложь ТОЛЬКО первое утверждение. Второе — «нетто плюс НДС даёт
+   * брутто» — выполнялось и на сломанном коде: 12396.69 + 2603.30 = 14999.99, сходится
+   * до копейки. Мок считает НДС как разность, поэтому эта сумма сходится ВСЕГДА, по
+   * построению, и сама по себе не значит ничего (питфолл #68). Оставлено потому, что
+   * ловит другую поломку — если однажды НДС начнут считать отдельной формулой.
+   *
+   * 15000 при 21 % выбрано не наугад: это как раз недостижимый брутто, на котором круг
+   * и терял копейку. На сумме вроде 121 (нетто ровно 100) разницы не видно, и тест был
+   * бы зелёным при любой реализации.
+   */
+  it('авансовый счёт называет заявленную сумму, а не на копейку мимо неё', () => {
+    const created = freshOrder()
+    const invoice = mockCreateInvoice(created.id, { kind: 'advance', amountGross: 15000 })
+
+    expect(invoice.amountGross).toBe(15000)
+    // Нетто выведено ИЗ брутто, а не наоборот.
+    expect(invoice.amountNet).toBe(grossToNet(15000, 'standard', 21))
+    expect(round2(invoice.amountNet + invoice.amountVat)).toBe(15000)
+
+    // И проверка, что случай вообще тот: обратный пересчёт даёт ДРУГОЕ число —
+    // иначе доказывать было бы нечего.
+    expect(netToGross(invoice.amountNet, 'standard', 21)).not.toBe(15000)
+  })
+
+  it('заявленное НЕТТО по-прежнему разворачивается в брутто, а не наоборот', () => {
+    // Обратное направление правка не трогает, и это стоит держать под тестом:
+    // «починить» его симметрично было бы ошибкой — там заявлено нетто, и брутто
+    // выводится из него по определению.
+    const created = freshOrder()
+    const invoice = mockCreateInvoice(created.id, { kind: 'advance', amountNet: 12396.69 })
+    expect(invoice.amountNet).toBe(12396.69)
+    expect(invoice.amountGross).toBe(netToGross(12396.69, 'standard', 21))
   })
 })
 
