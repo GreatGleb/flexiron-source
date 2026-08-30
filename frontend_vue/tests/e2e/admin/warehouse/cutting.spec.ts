@@ -99,6 +99,118 @@ test.describe('Cutting operation', () => {
     expect(hidden).toBe(0)
   })
 
+  /**
+   * Пункт 2: шесть расхождений страницы резки. Здесь сторожатся четыре из них —
+   * те, что видны в DOM. Пятое (отступы классами вместо инлайнового `style=`)
+   * проверяется отдельным утверждением ниже, шестое (текстовое поле без базового
+   * класса) закрыто пунктом 8 и сторожится его компонентным тестом.
+   */
+  test('заголовок панели печатается один раз, а не дважды', async ({ page }) => {
+    await navigateToAdmin(page, '/admin/warehouse/cutting')
+    await page.getByTestId('warehouse-cutting-batch-row').first().waitFor()
+    await page.getByTestId('warehouse-cutting-batch-pick').first().click()
+    await page.getByTestId('warehouse-cutting-batch-number').waitFor()
+
+    // Панели передавали и `:title`, и слот `#header` со своим `panel-title` —
+    // GlassPanel рисует оба, и выходило «Исходная партияИсходная партия».
+    const titles = page.getByTestId('warehouse-cutting-source-panel').locator('.panel-title')
+    await expect(titles).toHaveCount(1)
+  })
+
+  test('кнопка смены партии подписана собой, а не текстом подсказки', async ({ page }) => {
+    await navigateToAdmin(page, '/admin/warehouse/cutting')
+    await page.getByTestId('warehouse-cutting-batch-row').first().waitFor()
+
+    // Подсказка на экране выбора — та строка, которой кнопка была подписана раньше.
+    const hint = (await page.locator('.cutting-hint').innerText()).trim()
+
+    await page.getByTestId('warehouse-cutting-batch-pick').first().click()
+    await page.getByTestId('warehouse-cutting-batch-number').waitFor()
+
+    const label = (await page.getByTestId('warehouse-cutting-change-batch').innerText()).trim()
+    // Своя подпись, а не чужая. Сравнение с подсказкой, а не с константой: строку
+    // могут переписать, но подписью кнопки она быть не должна в любом случае.
+    expect(label).not.toBe(hint)
+    expect(label.length).toBeGreaterThan(0)
+  })
+
+  test('строка раскроя удаляется иконкой, как везде в проекте', async ({ page }) => {
+    await navigateToAdmin(page, '/admin/warehouse/cutting')
+    await page.getByTestId('warehouse-cutting-batch-row').first().waitFor()
+    await page.getByTestId('warehouse-cutting-batch-pick').first().click()
+    await page.getByTestId('warehouse-cutting-batch-number').waitFor()
+
+    const remove = page.getByTestId('warehouse-cutting-row-remove').first()
+    await expect(remove).toHaveClass(/action-icon-btn/)
+    await expect(remove).toHaveClass(/action-danger/)
+    // Иконка есть…
+    await expect(remove.locator('svg')).toHaveCount(1)
+    // …а подписи нет: она уехала в подсказку, как у остальных таких кнопок.
+    expect((await remove.innerText()).trim()).toBe('')
+  })
+
+  test('отступы заданы классами, инлайнового style в разметке не осталось', async ({ page }) => {
+    await navigateToAdmin(page, '/admin/warehouse/cutting')
+    await page.getByTestId('warehouse-cutting-batch-row').first().waitFor()
+    await page.getByTestId('warehouse-cutting-batch-pick').first().click()
+    await page.getByTestId('warehouse-cutting-batch-number').waitFor()
+
+    const inline = await page.evaluate(() =>
+      [...document.querySelectorAll('.page-warehouse-cutting [style]')].map((el) => ({
+        tag: el.tagName.toLowerCase(),
+        style: el.getAttribute('style') ?? '',
+      })),
+    )
+
+    // Единственный законный инлайновый стиль на странице — тот, что компонент
+    // ставит себе САМ во время работы: `AutoResizeTextarea` считает свою высоту.
+    // Всё прочее — разметка, и там ему делать нечего.
+    const fromTemplate = inline.filter((e) => !(e.tag === 'textarea' && e.style.includes('height')))
+    expect(fromTemplate).toEqual([])
+  })
+
+  test('список партий листается, а не вываливается целиком', async ({ page }) => {
+    await navigateToAdmin(page, '/admin/warehouse/cutting')
+    const rows = page.getByTestId('warehouse-cutting-batch-row')
+    await rows.first().waitFor()
+
+    const perPage = await rows.count()
+    const info = page
+      .getByTestId('warehouse-cutting-batches-pagination')
+      .locator('.pagination-info')
+    const total = Number((await info.innerText()).match(/(\d+)\s*$/)?.[1] ?? '0')
+
+    // Страница не одна — иначе листать нечего и тест ничего не проверяет.
+    expect(total).toBeGreaterThan(perPage)
+
+    const firstOnPageOne = (await rows.first().innerText()).trim()
+    await page.getByTestId('warehouse-cutting-batches-next').click()
+
+    /*
+     * Признак — САМА СТРОКА, а не счётчик «11-20 из 100».
+     *
+     * Счётчик тут не годится, и это ЗАМЕРЕНО, а не предположено: `showingFrom` и
+     * `showingTo` в `usePagination` считаются из локального `page`, поэтому счётчик
+     * показывает новую страницу уже на нулевой миллисекунде после клика, а строки
+     * приходят на ~300 мс позже:
+     *
+     *   T+   0мс  счётчик «11-20 из 100»  первая строка INV-2025-046  (старая)
+     *   T+ 300мс  счётчик «11-20 из 100»  первая строка INV-2025-097  (новая)
+     *
+     * То есть ожидание по счётчику возвращается со СТАРЫМИ строками на экране —
+     * ровно ловушка #64, только замаскированная под её же решение.
+     */
+    /*
+     * Сравнение ОДИНАКОВЫМ способом с обеих сторон, и это тоже не для красоты.
+     * Первая версия писала `expect(rows.first()).not.toHaveText(firstOnPageOne)`,
+     * где `firstOnPageOne` снят через `innerText()` — с табами и переносами, а
+     * `toHaveText` нормализует пробелы. Такие строки не совпадут НИКОГДА, то есть
+     * `not.toHaveText` было истинно при любом коде: инверсия «убрать серверную
+     * пагинацию» оставляла тест зелёным. Питфолл #68, пойманный инверсией.
+     */
+    await expect.poll(async () => (await rows.first().innerText()).trim()).not.toBe(firstOnPageOne)
+  })
+
   test('the offcuts tab leads to cutting, not to the manual offcut form', async ({ page }) => {
     // Кнопка «Резка» вела на форму ручной записи обрезка, то есть мимо операции.
     await navigateToAdmin(page, '/admin/warehouse/offcuts')

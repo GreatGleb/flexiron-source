@@ -9,6 +9,7 @@ import { useWarehouseCutting } from '@/composables/useWarehouseCutting'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
 import Breadcrumb from '@/components/admin/Breadcrumb.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
+import Pagination from '@/components/admin/ui/Pagination.vue'
 import SearchInput from '@/components/admin/ui/SearchInput.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
 import InputGroup from '@/components/admin/ui/InputGroup.vue'
@@ -26,6 +27,7 @@ const {
   batches,
   batchesLoading,
   batchSearch,
+  batchesPagination,
   batch,
   batchLoading,
   loadBatches,
@@ -162,10 +164,10 @@ watch(batchSearch, () => {
       :skeleton-rows="3"
       data-test="warehouse-cutting-batch-panel"
     >
-      <p class="text-muted" style="margin-bottom: 12px">
+      <p class="text-muted cutting-hint">
         {{ t('warehouse.cutting_pick_batch_hint') }}
       </p>
-      <div style="margin-bottom: 12px">
+      <div class="cutting-picker-search">
         <SearchInput
           v-model="batchSearch"
           :placeholder="t('warehouse.cutting_batch_search')"
@@ -179,12 +181,12 @@ watch(batchSearch, () => {
               <th>{{ t('warehouse.col_batch_number') }}</th>
               <th>{{ t('warehouse.col_product') }}</th>
               <th>{{ t('warehouse.col_remaining') }}</th>
-              <th style="width: 120px"></th>
+              <th class="col-pick"></th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="batches.length === 0 && !batchesLoading">
-              <td colspan="4" style="text-align: center; opacity: 0.5; padding: 24px 0">
+              <td colspan="4" class="cutting-empty-cell">
                 {{ t('warehouse.cutting_no_batches') }}
               </td>
             </tr>
@@ -212,6 +214,23 @@ watch(batchSearch, () => {
           </tbody>
         </table>
       </div>
+      <!--
+        Список партий листается сервером: раньше запрашивались первые пятьдесят и
+        рисовались все разом, и партии за пятидесятой не существовало вовсе.
+        Компонент и композабл общие — те же, что на остальных списках.
+      -->
+      <Pagination
+        v-model:page="batchesPagination.page.value"
+        :total-pages="batchesPagination.totalPages.value"
+        :pages="batchesPagination.pageNumbers()"
+        :showing-from="batchesPagination.showingFrom.value"
+        :showing-to="batchesPagination.showingTo.value"
+        :total="batchesPagination.total.value"
+        :of-label="t('warehouse.of')"
+        test-id="warehouse-cutting-batches-pagination"
+        prev-test-id="warehouse-cutting-batches-prev"
+        next-test-id="warehouse-cutting-batches-next"
+      />
     </GlassPanel>
 
     <!-- ── Резка выбранной партии ───────────────────────────────────────────── -->
@@ -220,17 +239,25 @@ watch(batchSearch, () => {
         :title="t('warehouse.field_source_batch')"
         data-test="warehouse-cutting-source-panel"
       >
+        <!--
+          Заголовок рисует сам GlassPanel по `:title`. Раньше слот дублировал его
+          вторым `panel-title`, и панель печатала «Исходная партияИсходная партия»:
+          компонент рендерит и то, и другое. В слоте остаётся только кнопка.
+
+          Обёртка `.panel-header-actions` — общая, из `_glass-panel.css`; она же
+          прижимает группу вправо, поэтому инлайновый `margin-left: auto` не нужен.
+        -->
         <template #header>
-          <span class="panel-title">{{ t('warehouse.field_source_batch') }}</span>
-          <button
-            type="button"
-            class="btn btn-sm btn-secondary"
-            style="margin-left: auto"
-            data-test="warehouse-cutting-change-batch"
-            @click="backToPicker"
-          >
-            {{ t('warehouse.cutting_pick_batch_hint') }}
-          </button>
+          <div class="panel-header-actions">
+            <button
+              type="button"
+              class="btn btn-sm btn-secondary"
+              data-test="warehouse-cutting-change-batch"
+              @click="backToPicker"
+            >
+              {{ t('warehouse.cutting_change_batch') }}
+            </button>
+          </div>
         </template>
         <div class="entity-card-grid">
           <div class="entity-col-left">
@@ -259,7 +286,7 @@ watch(batchSearch, () => {
 
       <GlassPanel
         :title="t('warehouse.field_offcuts')"
-        style="margin-top: 16px"
+        class="cutting-section-gap"
         data-test="warehouse-cutting-offcuts-panel"
       >
         <div class="data-table-wrapper">
@@ -276,7 +303,7 @@ watch(batchSearch, () => {
                     {{ t('warehouse.cutting_col_pieces') }}
                   </span>
                 </th>
-                <th style="width: 100px">{{ t('warehouse.col_actions') }}</th>
+                <th class="col-actions">{{ t('warehouse.col_actions') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -287,7 +314,7 @@ watch(batchSearch, () => {
                 :data-row-index="index"
                 data-test="warehouse-cutting-row"
               >
-                <td style="min-width: 140px">
+                <td class="col-offcut-type">
                   <CustomSelect
                     v-model="row.offcutType"
                     :options="TYPE_OPTIONS"
@@ -342,14 +369,21 @@ watch(batchSearch, () => {
                   />
                 </td>
                 <td>
+                  <!--
+                    Строку таблицы в этом проекте удаляют иконкой-корзиной, а не
+                    текстовой красной кнопкой: образец — `OrderCreatePage.vue`,
+                    `action-icon-btn action-danger` + `SvgIcon name="trash"`.
+                    Подпись переехала в подсказку — ключ тот же, ничего не потеряно.
+                  -->
                   <button
+                    v-tooltip="t('warehouse.cutting_btn_remove_row')"
                     type="button"
-                    class="btn btn-sm btn-danger"
+                    class="action-icon-btn action-danger"
                     :disabled="rows.length === 1"
                     data-test="warehouse-cutting-row-remove"
                     @click="removeRow(index)"
                   >
-                    {{ t('warehouse.cutting_btn_remove_row') }}
+                    <SvgIcon name="trash" :width="14" :height="14" />
                   </button>
                 </td>
               </tr>
@@ -358,8 +392,7 @@ watch(batchSearch, () => {
         </div>
         <button
           type="button"
-          class="btn btn-secondary"
-          style="margin-top: 12px"
+          class="btn btn-secondary cutting-add-row"
           data-test="warehouse-cutting-add-row"
           @click="addRow"
         >
@@ -368,7 +401,7 @@ watch(batchSearch, () => {
         </button>
       </GlassPanel>
 
-      <div class="entity-card-grid" style="margin-top: 16px">
+      <div class="entity-card-grid cutting-section-gap">
         <div class="entity-col-left">
           <GlassPanel data-test="warehouse-cutting-losses-panel">
             <!--
@@ -466,8 +499,7 @@ watch(batchSearch, () => {
 
             <button
               type="button"
-              class="btn btn-primary"
-              style="margin-top: 12px"
+              class="btn btn-primary cutting-submit"
               :class="{ loading: saving }"
               :disabled="!canSubmit"
               data-test="warehouse-cutting-execute"
@@ -527,5 +559,48 @@ watch(batchSearch, () => {
 
 .row-invalid td {
   background: rgba(229, 72, 77, 0.08);
+}
+
+/* ─── Отступы и ширины: классами, а не инлайновым `style=` ──────────────────
+   Их было одиннадцать штук россыпью по шаблону. Инлайновый стиль нельзя ни
+   переопределить, ни найти грепом по имени, ни поменять разом — а здесь это
+   были обычные отступы между секциями, у которых нет причин быть особенными.
+   Блок scoped: классы страничные и чужим файлам не нужны (питфолл #63). */
+
+.cutting-hint {
+  margin-bottom: 12px;
+}
+
+.cutting-picker-search {
+  margin-bottom: 12px;
+}
+
+.cutting-add-row,
+.cutting-submit {
+  margin-top: 12px;
+}
+
+/* Промежуток между секциями страницы — тот же, что между панелями. */
+.cutting-section-gap {
+  margin-top: 16px;
+}
+
+.cutting-empty-cell {
+  padding: 24px 0;
+  text-align: center;
+  opacity: 0.5;
+}
+
+/* Ширины столбцов, которые иначе разъезжаются: кнопка выбора и действия строки. */
+.col-pick {
+  width: 120px;
+}
+
+.col-actions {
+  width: 100px;
+}
+
+.col-offcut-type {
+  min-width: 140px;
 }
 </style>

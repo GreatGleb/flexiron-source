@@ -1,6 +1,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getBatch, getBatches, executeCutting } from '@/services/warehouseService'
+import { usePagination } from './usePagination'
 import { getProduct } from '@/services/productsService'
 import { useToast } from './useToast'
 import {
@@ -66,6 +67,15 @@ export function useWarehouseCutting() {
   const batches = ref<BatchListItem[]>([])
   const batchesLoading = ref(false)
   const batchSearch = ref('')
+  /**
+   * Список партий листается СЕРВЕРОМ, а не страницей.
+   *
+   * Раньше запрашивались первые пятьдесят и рисовались все разом: при длинном списке
+   * таблица вываливалась целиком, а партии за пятидесятой не существовало вовсе —
+   * ни на экране, ни в поиске по номеру, если тот не попал в первые пятьдесят.
+   * `getBatches` умеет постраничность с самого начала, ею просто не пользовались.
+   */
+  const batchesPagination = usePagination(10)
   const batch = ref<WarehouseBatch | null>(null)
   const batchLoading = ref(false)
   /**
@@ -82,17 +92,35 @@ export function useWarehouseCutting() {
       const [response] = await Promise.all([
         getBatches(
           { search: batchSearch.value, sortBy: 'receivedAt', sortDir: 'desc' },
-          { page: 1, pageSize: 50 },
+          { page: batchesPagination.page.value, pageSize: batchesPagination.pageSize.value },
         ),
         ensureProductNames(),
       ])
       batches.value = response.items
+      batchesPagination.total.value = response.total
     } catch {
       batches.value = []
+      batchesPagination.total.value = 0
     } finally {
       batchesLoading.value = false
     }
   }
+
+  /**
+   * Смена страницы перезапрашивает список. Смена строки поиска — тоже, но со сбросом
+   * на первую страницу: иначе поиск, сузивший выдачу до одной страницы, оставил бы
+   * человека на седьмой, то есть на пустом месте (питфолл #57).
+   */
+  watch(
+    () => batchesPagination.page.value,
+    () => {
+      if (!batch.value) void loadBatches()
+    },
+  )
+
+  watch(batchSearch, () => {
+    batchesPagination.reset()
+  })
 
   async function selectBatch(id: string) {
     batchLoading.value = true
@@ -250,6 +278,7 @@ export function useWarehouseCutting() {
     batches,
     batchesLoading,
     batchSearch,
+    batchesPagination,
     batch,
     batchLoading,
     loadBatches,
