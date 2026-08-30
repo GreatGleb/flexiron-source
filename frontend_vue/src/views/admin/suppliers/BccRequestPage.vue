@@ -1195,9 +1195,10 @@ onMounted(async () => {
   z-index: 100;
 }
 
-/* Don't clip upward dropdowns in the table wrapper */
-.products-table-wrapper,
-.col-left .data-table-wrapper {
+/* `.data-table-wrapper` отсюда убран: общее правило в `components/_tables.css`
+   (пункт 13), а префиксная копия давала те же вычисленные значения. Собственная
+   обёртка страницы осталась — у неё общего дома нет. */
+.products-table-wrapper {
   overflow-x: auto;
   overflow-y: visible;
 }

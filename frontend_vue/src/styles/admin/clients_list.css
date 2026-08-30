@@ -305,11 +305,9 @@
   text-decoration-color: currentColor;
 }
 
-/* ─── Data table wrapper ─────────────────────────────── */
-.page-clients .data-table-wrapper {
-  overflow-x: auto;
-  overflow-y: visible;
-}
+/* Обёртка таблицы — общее правило в `components/_tables.css` (пункт 13).
+   Префиксная копия здесь ничего не добавляла: значения те же, что вычисляются и
+   без неё. */
 
 /* ─── Table footer pagination ────────────────────────── */
 .page-clients .data-table tfoot td {
