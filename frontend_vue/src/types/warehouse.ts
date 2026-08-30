@@ -427,6 +427,12 @@ export interface CuttingOperation {
   offcuts: Omit<OffcutCreatePayload, 'batchId'>[]
   /** Waste / scrap quantity */
   wasteQuantity: number
+  /**
+   * Сколько ШТУК ПАРТИИ пущено в резку. Только для штучной партии: у измеримой
+   * расход выводится из размеров кусков, а у штучной выводиться не из чего —
+   * лист, распущенный на четыре куска, это один ушедший лист.
+   */
+  sourcePieces?: number
   /** Notes */
   notes?: string | null
 }

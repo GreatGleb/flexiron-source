@@ -6,13 +6,17 @@ import { getProduct } from '@/services/productsService'
 import { useToast } from './useToast'
 import {
   computeCuttingConsumption,
+  isCountedBatchUnit,
   isLinearBatchUnit,
+  resolveOffcutWeight,
+  type OffcutWeightResult,
+  type ConsumptionFailureReason,
   type CuttingConsumption,
-  type MaterialFailureReason,
 } from '@/domain/cutting'
 import { roundQuantity } from '@/domain/quantity'
 import { ensureProductNames } from './useProductNames'
 import type { BatchListItem, OffcutCreatePayload, WarehouseBatch } from '@/types/warehouse'
+import type { Product } from '@/types/product'
 
 /** Один вид получаемых кусков: размеры одного куска плюс сколько их. */
 export interface CuttingRow {
@@ -29,7 +33,7 @@ export interface CuttingRow {
 
 /** Почему операцию нельзя выполнить — в терминах, которые можно показать. */
 export type CuttingProblem =
-  | { kind: MaterialFailureReason; detail: string; row: number }
+  | { kind: ConsumptionFailureReason; detail: string; row: number }
   | { kind: 'no_offcuts' }
   | { kind: 'insufficient'; consumed: number; remaining: number }
   | { kind: 'kerf_not_applicable' }
@@ -84,7 +88,16 @@ export function useWarehouseCutting() {
    * спрашивается у оператора: у обрезка та же категория, что у металла, из которого
    * он вышел.
    */
-  const productCategoryId = ref<string | null>(null)
+  const productCategoryId = computed(() => batchProduct.value?.categoryId ?? null)
+
+  /**
+   * Товар ПАРТИИ целиком — источник плотности и килограммов на складскую единицу.
+   *
+   * Тот же самый запрос, что раньше брал одну категорию и остальное выбрасывал.
+   * Плотность и кг/ед. берутся у товара ПАРТИИ, а не у копии ссылки в куске, —
+   * то же правило, что на карточке обрезка и в форме его создания.
+   */
+  const batchProduct = ref<Product | null>(null)
 
   async function loadBatches() {
     batchesLoading.value = true
@@ -132,12 +145,10 @@ export function useWarehouseCutting() {
       // имени товара — некому было бы дозагрузить.
       const [loaded] = await Promise.all([getBatch(id), ensureProductNames()])
       batch.value = loaded
-      productCategoryId.value = await getProduct(loaded.productId)
-        .then((product) => product.categoryId)
-        .catch(() => null)
+      batchProduct.value = await getProduct(loaded.productId).catch(() => null)
     } catch {
       batch.value = null
-      productCategoryId.value = null
+      batchProduct.value = null
       toast.error(t('warehouse.cutting_toast_batch_error'))
     } finally {
       batchLoading.value = false
@@ -147,12 +158,18 @@ export function useWarehouseCutting() {
   /** Вернуться к выбору партии: форма кусков остаётся, партия — нет. */
   function clearBatch() {
     batch.value = null
-    productCategoryId.value = null
+    batchProduct.value = null
   }
 
   // ─── Форма ────────────────────────────────────────────────────────────────
   const rows = reactive<CuttingRow[]>([emptyRow()])
-  const form = reactive({ kerfMm: 3, wasteQuantity: 0, notes: '' })
+  /**
+   * `sourcePieces` — сколько ШТУК ПАРТИИ пущено в резку. Спрашивается только у
+   * штучной партии и только потому, что вывести это неоткуда: лист, распущенный на
+   * четыре куска, забирает с партии один лист, и по кускам единицу не получить.
+   * Единица по умолчанию — обычный случай, но она всё равно проходит проверку.
+   */
+  const form = reactive({ kerfMm: 3, wasteQuantity: 0, sourcePieces: 1, notes: '' })
 
   function addRow() {
     rows.push(emptyRow())
@@ -183,6 +200,12 @@ export function useWarehouseCutting() {
   /** Ширина реза имеет смысл только у партии, которая меряется по длине. */
   const kerfApplies = computed(() => (uomId.value ? isLinearBatchUnit(uomId.value) : false))
 
+  /** Штучная партия: число ушедших штук спрашивается, а не выводится из кусков. */
+  const countedBatch = computed(() => (uomId.value ? isCountedBatchUnit(uomId.value) : false))
+
+  /** Число штук партии, которое пойдёт в расчёт: у измеримой партии его нет. */
+  const effectiveSourcePieces = computed(() => (countedBatch.value ? form.sourcePieces : undefined))
+
   /** Пропил, который реально пойдёт в расчёт: у нелинейной партии его нет. */
   const effectiveKerfMm = computed(() => (kerfApplies.value ? form.kerfMm || 0 : 0))
 
@@ -193,6 +216,7 @@ export function useWarehouseCutting() {
       kerfMm: effectiveKerfMm.value,
       wasteQuantity: form.wasteQuantity || 0,
       uomId: batch.value.uomId,
+      sourcePieces: effectiveSourcePieces.value,
     })
     return result.ok ? result : null
   })
@@ -211,6 +235,7 @@ export function useWarehouseCutting() {
       kerfMm: effectiveKerfMm.value,
       wasteQuantity: form.wasteQuantity || 0,
       uomId: batch.value.uomId,
+      sourcePieces: effectiveSourcePieces.value,
     })
     if (!result.ok) return { kind: result.reason, detail: result.detail, row: result.offcutIndex }
     if (result.consumed > batch.value.quantityRemaining) {
@@ -222,6 +247,42 @@ export function useWarehouseCutting() {
     }
     return null
   })
+
+  // ─── Вес куска: расчётный или введённый руками ────────────────────────────
+
+  /**
+   * Вес, который посчитается из размеров и материала, — то, что предлагает система.
+   *
+   * Спрашивается у того же `resolveOffcutWeight`, что и на карточке обрезка, и в
+   * форме его создания: три экрана, один расчёт. Считается для ОДНОГО куска —
+   * `quantity` подменяется единицей, потому что вес куска к их числу не относится.
+   */
+  function derivedWeight(row: CuttingRow): OffcutWeightResult {
+    return resolveOffcutWeight({
+      offcut: {
+        quantity: 1,
+        offcutType: row.offcutType,
+        lengthMm: row.lengthMm,
+        widthMm: row.widthMm,
+        thicknessMm: row.thicknessMm,
+      },
+      product: batchProduct.value,
+    })
+  }
+
+  /**
+   * Источник ВЫЧИСЛЯЕТСЯ, а не хранится: есть введённое значение — значит руками.
+   * Отдельное поле источника было бы третьей правдой об одном и том же.
+   */
+  function weightIsManual(row: CuttingRow): boolean {
+    return row.weightKg != null
+  }
+
+  /** Отдать расчёту — это обнулить ручное, а не записать выведенное. */
+  function useDerivedWeight(index: number) {
+    const row = rows[index]
+    if (row) row.weightKg = null
+  }
 
   const saving = ref(false)
   const canSubmit = computed(
@@ -261,6 +322,7 @@ export function useWarehouseCutting() {
         kerfMm: effectiveKerfMm.value,
         offcuts,
         wasteQuantity: form.wasteQuantity || 0,
+        sourcePieces: effectiveSourcePieces.value,
         notes: form.notes.trim() || null,
       })
       toast.success(t('warehouse.toast_cutting_executed'))
@@ -291,6 +353,11 @@ export function useWarehouseCutting() {
     removeRow,
     uomId,
     kerfApplies,
+    countedBatch,
+    // Вес
+    derivedWeight,
+    weightIsManual,
+    useDerivedWeight,
     // Расчёт
     consumption,
     remainingAfter,

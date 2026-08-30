@@ -1,6 +1,7 @@
 import {
   MATERIAL_ERROR_CODE,
   computeCuttingConsumption,
+  isCountedBatchUnit,
   isLinearBatchUnit,
   resolveOffcutMaterial,
 } from '@/domain/cutting'
@@ -885,15 +886,28 @@ export async function mockGetOffcut(id: string): Promise<WarehouseOffcut> {
  * 3. Количество партии уменьшает ТОЛЬКО `writeMovement`. Здесь стояло второе
  *    такое же вычитание, и обрезок в 3 забирал с партии 6.
  */
-export async function mockCreateOffcut(data: OffcutCreatePayload): Promise<WarehouseOffcut> {
+export async function mockCreateOffcut(
+  data: OffcutCreatePayload,
+  /**
+   * Сколько этот кусок забирает с партии, если это знает не он сам.
+   *
+   * Единственный законный случай — резка ШТУЧНОЙ партии: там расход принадлежит
+   * операции, а не куску (лист один, кусков из него четыре), и операция передаёт
+   * сюда ноль, списывая свой лист одним движением. Во всех остальных случаях
+   * размер куска и есть его расход, и параметра тут быть не должно: он был бы
+   * вторым путём списания, ради отсутствия которого всё это и написано.
+   */
+  options?: { batchDebit: number },
+): Promise<WarehouseOffcut> {
   const batch = batchStore.find((b) => b.id === data.batchId)
   if (!batch) throw new Error('BATCH_NOT_FOUND')
 
   const material = resolveOffcutMaterial(data, batch.uomId)
   if (!material.ok) throw new Error(MATERIAL_ERROR_CODE[material.reason])
+  const debit = options?.batchDebit ?? material.material
   // Списать больше, чем лежит, и отчитаться об успехе — значит создать металл из
   // ничего: `Math.max(0, …)` ниже по стеку молча согласился бы.
-  if (material.material > batch.quantityRemaining) throw new Error('INSUFFICIENT_QUANTITY')
+  if (debit > batch.quantityRemaining) throw new Error('INSUFFICIENT_QUANTITY')
 
   const id = `offcut-${String(offcutSeq++).padStart(3, '0')}`
   const now = new Date().toISOString()
@@ -927,15 +941,19 @@ export async function mockCreateOffcut(data: OffcutCreatePayload): Promise<Wareh
   }
   offcutStore.push(offcut)
 
-  // Движение — единственный владелец количества партии: оно и списывает.
-  await mockCreateMovement({
-    type: 'offcut',
-    batchId: data.batchId,
-    offcutId: id,
-    quantity: material.material,
-    movedAt: now,
-    notes: `Offcut created from batch ${batchNumber}`,
-  })
+  // Движение — единственный владелец количества партии: оно и списывает. Нулевой
+  // расход движения не пишет: списывать нечего, а движение на ноль — запись о том,
+  // чего не было.
+  if (debit > 0) {
+    await mockCreateMovement({
+      type: 'offcut',
+      batchId: data.batchId,
+      offcutId: id,
+      quantity: debit,
+      movedAt: now,
+      notes: `Offcut created from batch ${batchNumber}`,
+    })
+  }
 
   return offcut
 }
@@ -1492,7 +1510,10 @@ export async function mockExecuteCutting(
 
   const kerfMm = data.kerfMm ?? 0
   const wasteQuantity = data.wasteQuantity ?? 0
-  if (kerfMm < 0 || wasteQuantity < 0) throw new Error('CUTTING_NEGATIVE_AMOUNT')
+  // Отрицательные пропил и отход отказывает `computeCuttingConsumption` — тем же
+  // кодом `CUTTING_NEGATIVE_AMOUNT`, что стоял здесь отдельной строкой. Правило
+  // переехало в домен, потому что форма его не знала: своя копия на сервере
+  // означала, что клиент может её не иметь, и он её не имел.
   // Ширина реза в килограммах не выражается без веса погонного метра. Отказ, а не
   // молчаливый ноль: присланный пропил означает, что клиент считает его значащим.
   if (kerfMm > 0 && !isLinearBatchUnit(batch.uomId)) throw new Error('CUTTING_KERF_NOT_APPLICABLE')
@@ -1502,6 +1523,7 @@ export async function mockExecuteCutting(
     kerfMm,
     wasteQuantity,
     uomId: batch.uomId,
+    sourcePieces: data.sourcePieces,
   })
   if (!consumption.ok) throw new Error(MATERIAL_ERROR_CODE[consumption.reason])
   if (consumption.consumed > batch.quantityRemaining) throw new Error('INSUFFICIENT_QUANTITY')
@@ -1514,9 +1536,29 @@ export async function mockExecuteCutting(
 
   // Проверки закончились — теперь пишем. Ни одного отказа после первой записи:
   // резка одна проводка, и половина заявленного хуже, чем ничего.
+  // У штучной партии расход принадлежит ОПЕРАЦИИ, а не куску: лист один, кусков из
+  // него четыре, и списание по кускам списало бы четыре листа. Куски пишутся без
+  // движения, а ушедшие листы уходят одним движением ниже. У измеримой партии всё
+  // как было: сумма кусков и есть ушедший материал, и списывает его каждый кусок сам.
+  const counted = isCountedBatchUnit(batch.uomId)
   const offcuts: WarehouseOffcut[] = []
   for (const offcut of data.offcuts) {
-    offcuts.push(await mockCreateOffcut({ ...offcut, batchId: batch.id }))
+    offcuts.push(
+      await mockCreateOffcut(
+        { ...offcut, batchId: batch.id },
+        counted ? { batchDebit: 0 } : undefined,
+      ),
+    )
+  }
+
+  if (counted) {
+    await mockCreateMovement({
+      type: 'offcut',
+      batchId: batch.id,
+      quantity: consumption.offcutTotal,
+      referenceType: 'cutting',
+      notes: `Cutting: ${consumption.offcutTotal} pieces cut into ${consumption.cuts} offcuts`,
+    })
   }
 
   // Пропил и отход — металл, который с партии ушёл, но обрезком не стал. Одно

@@ -37,11 +37,24 @@ export type MaterialFailureReason =
   | 'dimension_missing'
   | 'pieces_not_integer'
 
+/**
+ * Почему списание не считается, хотя каждый кусок по отдельности считается.
+ *
+ * `negative_amount` — про пропил и отход, а не про кусок: у отрицательного слагаемого
+ * нет номера строки.
+ */
+export type ConsumptionFailureReason =
+  | MaterialFailureReason
+  | 'negative_amount'
+  | 'source_pieces_invalid'
+
 /** Код ошибки для мока — один источник, чтобы тест и обработчик не разошлись. */
-export const MATERIAL_ERROR_CODE: Record<MaterialFailureReason, string> = {
+export const MATERIAL_ERROR_CODE: Record<ConsumptionFailureReason, string> = {
   unit_not_supported: 'BATCH_UNIT_NOT_SUPPORTED',
   dimension_missing: 'OFFCUT_DIMENSION_MISSING',
   pieces_not_integer: 'OFFCUT_PIECES_NOT_INTEGER',
+  negative_amount: 'CUTTING_NEGATIVE_AMOUNT',
+  source_pieces_invalid: 'CUTTING_SOURCE_PIECES_INVALID',
 }
 
 type MaterialFailure = {
@@ -88,6 +101,22 @@ export const SUPPORTED_BATCH_UNITS: readonly string[] = Object.keys(PIECE_SIZE)
 export function isLinearBatchUnit(uomId: string): boolean {
   const dimensions = REQUIRED_DIMENSION[uomId]
   return dimensions?.length === 1 && dimensions[0] === 'lengthMm'
+}
+
+/**
+ * Считается ли партия ШТУКАМИ — то есть не выражает размер куска геометрией вовсе.
+ *
+ * Выводится из той же таблицы требований, что и линейность: пустой список размеров
+ * и означает «у куска нет размера в единице партии, есть только сам кусок».
+ *
+ * Отличие не косметическое. У метровой партии расход ВЫВОДИТСЯ из кусков — сумма их
+ * длин и есть то, что ушло. У штучной не выводится ничем: лист, распущенный на четыре
+ * куска, — это один ушедший лист, а не четыре, и по кускам числа «один» не получить.
+ * Поэтому у штучной партии число ушедших штук СПРАШИВАЕТСЯ (см. `sourcePieces`), и это
+ * единственное место в расчёте, где расход берётся у оператора, а не считается.
+ */
+export function isCountedBatchUnit(uomId: string): boolean {
+  return REQUIRED_DIMENSION[uomId]?.length === 0
 }
 
 /**
@@ -331,7 +360,13 @@ export function cutCount(offcuts: readonly { quantity: number }[]): number {
 export interface CuttingConsumption {
   /** Число резов = число кусков */
   cuts: number
-  /** Материал, ушедший в куски, в единице партии */
+  /**
+   * Материал, ушедший в куски, в единице партии.
+   *
+   * У измеримой партии — сумма размеров кусков. У штучной — число ушедших ШТУК
+   * ПАРТИИ (`sourcePieces`), а не число вышедших кусков: лист, распущенный на
+   * четыре части, забирает с партии один лист.
+   */
   offcutTotal: number
   /** Пропилы: `cuts × kerf` в единице партии */
   kerfTotal: number
@@ -343,7 +378,7 @@ export interface CuttingConsumption {
 
 export type ConsumptionResult =
   | ({ ok: true } & CuttingConsumption)
-  | (MaterialFailure & { offcutIndex: number })
+  | { ok: false; reason: ConsumptionFailureReason; detail: string; offcutIndex: number }
 
 /**
  * Списание с партии: материал кусков + пропилы + отходы.
@@ -355,17 +390,50 @@ export type ConsumptionResult =
  * Отказ одного куска отказывает всей операции и называет его номер: резка — одна
  * проводка, и списать половину заявленного хуже, чем не списать ничего.
  */
+/** Число штук партии годится, если оно целое и не меньше одной. */
+function isValidSourcePieces(value: number | undefined): boolean {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 1
+}
+
 export function computeCuttingConsumption(input: {
   offcuts: readonly OffcutMaterialInput[]
   kerfMm: number
   wasteQuantity: number
   uomId: string
+  /**
+   * Сколько ШТУК ПАРТИИ пущено в резку. Только для штучной партии — у остальных
+   * расход выводится из кусков, и присланное сюда число там нечего было бы делать.
+   */
+  sourcePieces?: number
 }): ConsumptionResult {
-  let offcutTotal = 0
+  // Отрицательный пропил или отход — ОТКАЗ, и записан он здесь, а не в моке.
+  //
+  // Правило у сервера было (`CUTTING_NEGATIVE_AMOUNT`), а у формы — нет, и это
+  // ровно та сторона расхождения, которой быть нельзя: экран показывал «итого
+  // −92.491 м» и «остаток после операции 587.491 м», то есть партия РОСЛА от
+  // резки, кнопка оставалась доступной, а отказывал уже сервер — общим тостом
+  // «не удалось». Проверка клиента не бывает слабее серверной; значит правило
+  // одно, и живёт оно в домене, через который проходят оба.
+  //
+  // Ноль законен: резать без отходов и без пропила можно.
+  if (input.kerfMm < 0 || input.wasteQuantity < 0) {
+    return {
+      ok: false,
+      reason: 'negative_amount',
+      detail: String(input.kerfMm < 0 ? input.kerfMm : input.wasteQuantity),
+      offcutIndex: -1,
+    }
+  }
+
+  const counted = isCountedBatchUnit(input.uomId)
+
+  // Куски проверяются всегда — и там, где их размеры в расход не пойдут: дробный
+  // счётчик остаётся отказом на любой партии.
+  let measuredTotal = 0
   for (const [index, offcut] of input.offcuts.entries()) {
     const resolved = resolveOffcutMaterial(offcut, input.uomId)
     if (!resolved.ok) return { ...resolved, offcutIndex: index }
-    offcutTotal += resolved.material
+    measuredTotal += resolved.material
   }
 
   // Единица без формулы отказывает и на пустом списке: «нечего резать» — это не
@@ -373,6 +441,24 @@ export function computeCuttingConsumption(input: {
   if (!PIECE_SIZE[input.uomId]) {
     return { ok: false, reason: 'unit_not_supported', detail: input.uomId, offcutIndex: -1 }
   }
+
+  if (counted && !isValidSourcePieces(input.sourcePieces)) {
+    // Спрошенное число — тоже число штук, и требования к нему те же, что к счётчику
+    // кусков: целое, не меньше единицы. Отсутствие — не «наверное один»: молчаливая
+    // единица списала бы лист с партии за операцию, которой оператор не назвал объём.
+    return {
+      ok: false,
+      reason: 'source_pieces_invalid',
+      detail: String(input.sourcePieces),
+      offcutIndex: -1,
+    }
+  }
+
+  // ВОТ РАЗВИЛКА, ради которой всё остальное. У измеримой партии расход выводится
+  // из кусков: сумма их размеров и есть ушедший материал. У штучной выводиться не
+  // из чего — лист, распущенный на четыре куска, забирает с партии один лист, и
+  // сумма по кускам дала бы четыре.
+  const offcutTotal = counted ? input.sourcePieces! : measuredTotal
 
   const cuts = cutCount(input.offcuts)
   const kerfTotal = roundQuantity(cuts * kerfInBatchUnit(input.kerfMm, input.uomId))

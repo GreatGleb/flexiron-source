@@ -5,6 +5,7 @@ import {
   SUPPORTED_BATCH_UNITS,
   computeCuttingConsumption,
   cutCount,
+  isCountedBatchUnit,
   isLinearBatchUnit,
   kerfInBatchUnit,
   resolveOffcutMaterial,
@@ -176,6 +177,8 @@ describe('три отказа вместо значений по умолчан�
       unit_not_supported: 'BATCH_UNIT_NOT_SUPPORTED',
       dimension_missing: 'OFFCUT_DIMENSION_MISSING',
       pieces_not_integer: 'OFFCUT_PIECES_NOT_INTEGER',
+      negative_amount: 'CUTTING_NEGATIVE_AMOUNT',
+      source_pieces_invalid: 'CUTTING_SOURCE_PIECES_INVALID',
     })
   })
 })
@@ -298,6 +301,157 @@ describe('пропил и отход — разные слагаемые', () =>
       }),
     )
     expect(result.consumed).toBe(42.5)
+  })
+})
+
+describe('штучная партия: с партии уходят ЛИСТЫ, а не вышедшие из них куски', () => {
+  it('лист, распущенный на четыре куска, забирает с партии один лист', () => {
+    // До правки здесь выходило 4, и партию из одного листа резать было нельзя
+    // вовсе: «в партии 1 шт, а к списанию выходит 2 шт» на любую попытку.
+    const result = ok(
+      computeCuttingConsumption({
+        offcuts: [{ quantity: 4 }],
+        kerfMm: 0,
+        wasteQuantity: 0,
+        uomId: 'uom-pcs',
+        sourcePieces: 1,
+      }),
+    )
+    expect(result.offcutTotal).toBe(1)
+    expect(result.consumed).toBe(1)
+    // Резов по-прежнему четыре: их считают по кускам, и с расходом они не связаны.
+    expect(result.cuts).toBe(4)
+  })
+
+  it('два листа в одну операцию — два, потому что так сказал оператор', () => {
+    const result = ok(
+      computeCuttingConsumption({
+        offcuts: [{ quantity: 3 }, { quantity: 5 }],
+        kerfMm: 0,
+        wasteQuantity: 0,
+        uomId: 'uom-pcs',
+        sourcePieces: 2,
+      }),
+    )
+    expect(result.offcutTotal).toBe(2)
+    expect(result.consumed).toBe(2)
+  })
+
+  it('отход прибавляется к листам, а не заменяет их', () => {
+    const result = ok(
+      computeCuttingConsumption({
+        offcuts: [{ quantity: 2 }],
+        kerfMm: 0,
+        wasteQuantity: 1,
+        uomId: 'uom-pcs',
+        sourcePieces: 1,
+      }),
+    )
+    expect(result.consumed).toBe(2)
+  })
+
+  it('не сказали, сколько листов, — отказ, а не молчаливая единица', () => {
+    expect(
+      computeCuttingConsumption({
+        offcuts: [{ quantity: 2 }],
+        kerfMm: 0,
+        wasteQuantity: 0,
+        uomId: 'uom-pcs',
+      }),
+    ).toMatchObject({ ok: false, reason: 'source_pieces_invalid', offcutIndex: -1 })
+  })
+
+  it('дробное или нулевое число листов — отказ', () => {
+    for (const sourcePieces of [0, -1, 1.5]) {
+      expect(
+        computeCuttingConsumption({
+          offcuts: [{ quantity: 2 }],
+          kerfMm: 0,
+          wasteQuantity: 0,
+          uomId: 'uom-pcs',
+          sourcePieces,
+        }),
+      ).toMatchObject({ ok: false, reason: 'source_pieces_invalid' })
+    }
+  })
+
+  it('куски проверяются и здесь: дробный счётчик отказывает раньше листов', () => {
+    expect(
+      computeCuttingConsumption({
+        offcuts: [{ quantity: 2.5 }],
+        kerfMm: 0,
+        wasteQuantity: 0,
+        uomId: 'uom-pcs',
+        sourcePieces: 1,
+      }),
+    ).toMatchObject({ ok: false, reason: 'pieces_not_integer', offcutIndex: 0 })
+  })
+
+  it('измеримой партии число листов не нужно и ничего в ней не меняет', () => {
+    const withPieces = ok(
+      computeCuttingConsumption({
+        offcuts: [{ quantity: 3, lengthMm: 2500 }],
+        kerfMm: 3,
+        wasteQuantity: 0,
+        uomId: 'uom-m',
+        sourcePieces: 99,
+      }),
+    )
+    expect(withPieces.consumed).toBe(7.509)
+  })
+
+  it('штучность ВЫВОДИТСЯ из таблицы требований, а не из второго списка', () => {
+    expect(isCountedBatchUnit('uom-pcs')).toBe(true)
+    for (const unit of ['uom-m', 'uom-mm', 'uom-m2', 'uom-kg', 'uom-t']) {
+      expect(isCountedBatchUnit(unit)).toBe(false)
+    }
+    // Единицы вне таблицы штучными не считаются — у них нет вообще ничего.
+    expect(isCountedBatchUnit('uom-m3')).toBe(false)
+  })
+})
+
+describe('отрицательный пропил и отход — отказ, а не растущая партия', () => {
+  it('отрицательный отход отказывает: иначе резка ДОБАВЛЯЕТ металл', () => {
+    // Замерено на экране до правки: три куска по 2500 мм и отход −100 давали
+    // «итого с партии −92.491 м» и «остаток после операции 587.491 м» при 495 м
+    // в партии. Кнопка была доступна, отказывал уже сервер.
+    const result = computeCuttingConsumption({
+      offcuts: [{ quantity: 3, lengthMm: 2500 }],
+      kerfMm: 3,
+      wasteQuantity: -100,
+      uomId: 'uom-m',
+    })
+    expect(result).toMatchObject({ ok: false, reason: 'negative_amount', detail: '-100' })
+  })
+
+  it('отрицательный пропил отказывает: он вычитал бы металл из расхода', () => {
+    const result = computeCuttingConsumption({
+      offcuts: [{ quantity: 3, lengthMm: 2500 }],
+      kerfMm: -1000,
+      wasteQuantity: 0,
+      uomId: 'uom-m',
+    })
+    expect(result).toMatchObject({ ok: false, reason: 'negative_amount', detail: '-1000' })
+  })
+
+  it('отказ не указывает на кусок — отрицательное слагаемое не в строке', () => {
+    const result = computeCuttingConsumption({
+      offcuts: [{ quantity: 1, lengthMm: 500 }],
+      kerfMm: 0,
+      wasteQuantity: -1,
+      uomId: 'uom-m',
+    })
+    expect(result).toMatchObject({ ok: false, offcutIndex: -1 })
+  })
+
+  it('ноль законен: резать без отходов и без пропила можно', () => {
+    const result = computeCuttingConsumption({
+      offcuts: [{ quantity: 1, lengthMm: 500 }],
+      kerfMm: 0,
+      wasteQuantity: 0,
+      uomId: 'uom-m',
+    })
+    expect(result).toMatchObject({ ok: true, consumed: 0.5 })
   })
 })
 

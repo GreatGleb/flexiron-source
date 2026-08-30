@@ -16,6 +16,12 @@ import { DATA_READY_TIMEOUT, waitForDataReady } from '../../helpers/ready'
 
 const METRE_BATCH = 'INV-2025-078'
 
+/**
+ * Партия INV-2025-045 (`whb-042`) меряется в ШТУКАХ — на ней проверяется то, чего
+ * из метровой не видно: с партии уходят исходные штуки, а не вышедшие из них куски.
+ */
+const PIECE_BATCH = 'INV-2025-045'
+
 /** Число из ячейки сводки — без единицы, которой подписан столбец. */
 async function amount(page: Page, testId: string): Promise<number> {
   const text = (await page.getByTestId(testId).textContent())!.trim()
@@ -383,5 +389,115 @@ test.describe('Cutting operation', () => {
     await expect(rows.filter({ hasText: '1234' })).toHaveCount(1)
     // Единица — партии, а не «шт»: кусок отрезан от метров, значит меряется в метрах.
     await expect(rows.filter({ hasText: '1234' })).toContainText('m')
+  })
+
+  /**
+   * Штучная партия: лист один, кусков из него много.
+   *
+   * До этой правки расход считался по вышедшим кускам, и распустить лист на два
+   * куска было нельзя вовсе: «в партии 1 шт, а к списанию выходит 2 шт». То есть
+   * резка штучных партий не работала совсем — а именно на такой партии страница и
+   * открывается из карточки листа.
+   */
+  test('a counted batch loses source pieces, not the offcuts cut out of them', async ({ page }) => {
+    await openCuttingFor(page, PIECE_BATCH)
+    await expect(page.getByTestId('warehouse-cutting-source-pieces')).toBeVisible()
+    // Пропила у штучной партии нет — 3 мм в штуки не переводятся.
+    await expect(page.getByTestId('warehouse-cutting-kerf')).toHaveCount(0)
+
+    await fillRow(page, 0, { pieces: 4 })
+    await page.getByTestId('warehouse-cutting-source-pieces').fill('1')
+
+    // Четыре куска — четыре реза, но с партии ушёл ОДИН лист.
+    expect(await amount(page, 'warehouse-cutting-cuts')).toBe(4)
+    expect(await amount(page, 'warehouse-cutting-total-pieces')).toBe(1)
+    expect(await amount(page, 'warehouse-cutting-consumed')).toBe(1)
+    await expect(page.getByTestId('warehouse-cutting-execute')).toBeEnabled()
+  })
+
+  test('the counted batch asks how many pieces went in — it cannot be derived', async ({
+    page,
+  }) => {
+    await openCuttingFor(page, PIECE_BATCH)
+    await fillRow(page, 0, { pieces: 2 })
+    await page.getByTestId('warehouse-cutting-source-pieces').fill('')
+
+    // Молчаливая единица списала бы лист за операцию, объём которой не назвали.
+    await expect(page.getByTestId('warehouse-cutting-problem')).toBeVisible()
+    await expect(page.getByTestId('warehouse-cutting-execute')).toBeDisabled()
+  })
+
+  test('a measured batch is never asked for source pieces', async ({ page }) => {
+    // У метровой партии расход выводится из размеров; второе число рядом с ним было
+    // бы второй правдой о том же.
+    await openCuttingFor(page, METRE_BATCH)
+    await expect(page.getByTestId('warehouse-cutting-source-pieces')).toHaveCount(0)
+  })
+
+  test('a counted batch takes exactly one piece off the batch when one is cut', async ({
+    page,
+  }) => {
+    await openCuttingFor(page, PIECE_BATCH)
+    const before = await amount(page, 'warehouse-cutting-remaining')
+    await fillRow(page, 0, { pieces: 3, lengthMm: 500, widthMm: 300 })
+    await page.getByTestId('warehouse-cutting-source-pieces').fill('1')
+    await page.getByTestId('warehouse-cutting-execute').click()
+    await expect(page).toHaveURL(/\/admin\/warehouse\/offcuts$/)
+
+    await page.getByTestId('warehouse-tab-batches').first().click()
+    await waitForDataReady(page)
+    await page.getByTestId('warehouse-batches-search').locator('input').fill(PIECE_BATCH)
+    const row = page.locator('[data-test="warehouse-batch-row"]', { hasText: PIECE_BATCH })
+    await expect(row).toHaveCount(1)
+    const after = Number(
+      await row
+        .getByTestId('warehouse-batch-remaining')
+        .textContent()
+        .then((v) => v!.trim()),
+    )
+    // Три куска вышли — один лист ушёл. По старому счёту здесь было бы −3.
+    expect(before - after).toBe(1)
+  })
+
+  /**
+   * Вес куска — ВЫБОР между расчётом и ручным вводом, и он виден.
+   *
+   * Пустое поле означает «считай сам», и расчёт живёт дальше на карточке куска;
+   * вписанное число глушит расчёт навсегда. Раньше на экране об этом не говорилось
+   * ничего: пустая колонка «Вес» приглашала вписать число.
+   */
+  test('the weight cell says where the weight comes from, and lets it be given back', async ({
+    page,
+  }) => {
+    await openCuttingFor(page, METRE_BATCH)
+    const row = page.getByTestId('warehouse-cutting-row').first()
+    const badge = row.getByTestId('warehouse-cutting-row-weight-source')
+    const useDerived = row.getByTestId('warehouse-cutting-row-weight-use-derived')
+
+    // Лист с размерами: вес выводится из геометрии и плотности материала партии.
+    const typeSelect = row.getByTestId('warehouse-cutting-row-type')
+    await typeSelect.locator('.custom-select-trigger').click()
+    // Второй вариант — «лист»: у него вес считается из собственных размеров куска.
+    await typeSelect.locator('.custom-select-list.open .custom-select-option').nth(1).click()
+    await fillRow(page, 0, { lengthMm: 2500, widthMm: 1000 })
+    await row.getByTestId('warehouse-cutting-row-thickness').fill('2')
+
+    const derivedBadge = (await badge.textContent())!.trim()
+    // Предлагаемое число видно ДО выбора — в самом поле, как подсказка.
+    const suggested = await row
+      .getByTestId('warehouse-cutting-row-weight')
+      .getAttribute('placeholder')
+    expect(Number(suggested)).toBeGreaterThan(0)
+    await expect(useDerived).toHaveCount(0)
+
+    // Ввод руками меняет источник и открывает дорогу назад.
+    await row.getByTestId('warehouse-cutting-row-weight').fill('99')
+    await expect(badge).not.toHaveText(derivedBadge)
+    await expect(useDerived).toHaveCount(1)
+
+    // Вернуть расчёт — это обнулить ручное, а не записать выведенное.
+    await useDerived.click()
+    await expect(row.getByTestId('warehouse-cutting-row-weight')).toHaveValue('')
+    await expect(badge).toHaveText(derivedBadge)
   })
 })

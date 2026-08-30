@@ -499,6 +499,9 @@ export const adminWarehouse = {
       // ── Резка металла (страница) ──
       weight_manual_badge: 'Введён руками',
       weight_derived_badge: 'Выведен из размеров',
+      weight_badge_derived: 'расчёт',
+      weight_badge_manual: 'вручную',
+      weight_badge_none: 'нет расчёта',
       weight_use_derived: 'Рассчитать из размеров',
       weight_derived_preview: 'Расчёт даст {value} кг',
       weight_not_derivable_no_density: 'Плотность материала у товара партии не указана',
@@ -519,10 +522,14 @@ export const adminWarehouse = {
       cutting_col_pieces: 'Кусков',
       cutting_col_pieces_hint:
         'Сколько кусков этого размера. Расход считается по размеру куска, а не по этому числу',
+      cutting_field_source_pieces: 'Штук партии в резку, {unit}',
+      cutting_field_source_pieces_hint:
+        'Сколько штук взяли с партии. Кусков из них может выйти больше',
       cutting_field_waste: 'Отходы, {unit}',
       cutting_field_kerf_hint: 'По одному пропилу на каждый кусок',
       cutting_kerf_only_linear:
         'Ширина реза учитывается только у партий, измеряемых по длине. Эта партия — в «{unit}»',
+      cutting_losses_title: 'Параметры операции',
       cutting_field_notes: 'Примечание к операции',
       cutting_summary_title: 'Расчёт списания',
       cutting_summary_pieces: 'Куски',
@@ -539,6 +546,8 @@ export const adminWarehouse = {
       cutting_error_dimension_missing: 'Кусок {row}: нужен размер «{dimension}»',
       cutting_error_pieces_not_integer: 'Кусок {row}: число кусков — целое, не меньше 1',
       cutting_error_insufficient: 'В партии {remaining}, а к списанию выходит {consumed}',
+      cutting_error_negative_amount: 'Ширина реза и отходы не бывают отрицательными',
+      cutting_error_source_pieces: 'Штук партии в резку — целое число, не меньше 1',
       cutting_dim_lengthMm: 'длина, мм',
       cutting_dim_widthMm: 'ширина, мм',
       cutting_dim_weightKg: 'вес, кг',
@@ -1173,6 +1182,9 @@ export const adminWarehouse = {
       // ── Metal cutting (page) ──
       weight_manual_badge: 'Entered by hand',
       weight_derived_badge: 'Derived from the dimensions',
+      weight_badge_derived: 'derived',
+      weight_badge_manual: 'manual',
+      weight_badge_none: 'no estimate',
       weight_use_derived: 'Compute from dimensions',
       weight_derived_preview: 'The computation gives {value} kg',
       weight_not_derivable_no_density: 'The batch product has no material density',
@@ -1193,10 +1205,14 @@ export const adminWarehouse = {
       cutting_col_pieces: 'Pieces',
       cutting_col_pieces_hint:
         'How many pieces of this size. Consumption comes from the piece size, not from this count',
+      cutting_field_source_pieces: 'Batch pieces cut, {unit}',
+      cutting_field_source_pieces_hint:
+        'How many pieces were taken off the batch. They can yield more offcuts',
       cutting_field_waste: 'Waste, {unit}',
       cutting_field_kerf_hint: 'One kerf per piece',
       cutting_kerf_only_linear:
         'Kerf counts only for batches measured by length. This one is in "{unit}"',
+      cutting_losses_title: 'Operation details',
       cutting_field_notes: 'Operation note',
       cutting_summary_title: 'Consumption',
       cutting_summary_pieces: 'Pieces',
@@ -1214,6 +1230,8 @@ export const adminWarehouse = {
       cutting_error_pieces_not_integer:
         'Piece {row}: the piece count is a whole number, at least 1',
       cutting_error_insufficient: 'The batch holds {remaining}, the operation takes {consumed}',
+      cutting_error_negative_amount: 'Kerf and waste cannot be negative',
+      cutting_error_source_pieces: 'Batch pieces cut is a whole number, at least 1',
       cutting_dim_lengthMm: 'length, mm',
       cutting_dim_widthMm: 'width, mm',
       cutting_dim_weightKg: 'weight, kg',
@@ -1845,6 +1863,9 @@ export const adminWarehouse = {
       // ── Metalo pjovimas (puslapis) ──
       weight_manual_badge: 'Įvesta ranka',
       weight_derived_badge: 'Išvesta iš matmenų',
+      weight_badge_derived: 'skaičiuota',
+      weight_badge_manual: 'ranka',
+      weight_badge_none: 'neskaičiuojama',
       weight_use_derived: 'Apskaičiuoti iš matmenų',
       weight_derived_preview: 'Apskaičiavus bus {value} kg',
       weight_not_derivable_no_density: 'Partijos prekei nenurodytas medžiagos tankis',
@@ -1865,10 +1886,14 @@ export const adminWarehouse = {
       cutting_col_pieces: 'Gabalų',
       cutting_col_pieces_hint:
         'Kiek šio dydžio gabalų. Nurašymas skaičiuojamas pagal gabalo dydį, ne pagal šį skaičių',
+      cutting_field_source_pieces: 'Partijos vienetų pjovimui, {unit}',
+      cutting_field_source_pieces_hint:
+        'Kiek vienetų paimta iš partijos. Gabalų iš jų gali išeiti daugiau',
       cutting_field_waste: 'Atliekos, {unit}',
       cutting_field_kerf_hint: 'Vienas propilas kiekvienam gabalui',
       cutting_kerf_only_linear:
         'Pjovimo plotis skaičiuojamas tik ilgiu matuojamoms partijoms. Ši partija — „{unit}“',
+      cutting_losses_title: 'Operacijos duomenys',
       cutting_field_notes: 'Operacijos pastaba',
       cutting_summary_title: 'Nurašymo skaičiavimas',
       cutting_summary_pieces: 'Gabalai',
@@ -1886,6 +1911,9 @@ export const adminWarehouse = {
       cutting_error_pieces_not_integer:
         'Gabalas {row}: gabalų skaičius — sveikas, ne mažiau kaip 1',
       cutting_error_insufficient: 'Partijoje yra {remaining}, o nurašoma {consumed}',
+      cutting_error_negative_amount: 'Pjovimo plotis ir atliekos negali būti neigiami',
+      cutting_error_source_pieces:
+        'Partijos vienetų pjovimui — sveikasis skaičius, ne mažiau nei 1',
       cutting_dim_lengthMm: 'ilgis, mm',
       cutting_dim_widthMm: 'plotis, mm',
       cutting_dim_weightKg: 'svoris, kg',
