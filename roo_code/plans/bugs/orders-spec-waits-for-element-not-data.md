@@ -62,3 +62,82 @@ grep -c "await page.goto('/admin/orders" tests/e2e/admin/orders/orders.spec.ts
 `tests/e2e/helpers/admin.ts` — он ждёт непустое значение, а не существование узла.
 Доказательство правки — не зелёный прогон, а падение СТАРОГО ожидания под
 `Emulation.setCPUThrottlingRate`, как описано в питфолле #64.
+
+## Сделано 2026-08-30
+
+Журнал —
+[`verify-runs/found-not-fixed-2026-08-30-2.md`](../../roo-context/verify-runs/found-not-fixed-2026-08-30-2.md).
+
+Переписаны **все 125** переходов файла (123 строковых плюс два шаблонных литерала,
+которые счёт по `'/admin/orders` не видел):
+
+| было | стало | сколько |
+|---|---|---|
+| `goto` + `waitForSelector(sel)` | `openAdminPage(page, URL, sel)` | 62 |
+| `goto` + `expect(locator(sel)).toBeVisible()` | `openAdminPage(page, URL, sel)` | 34 |
+| `goto` + комментарий + `waitForDataReady` | `navigateToAdmin(page, URL)` | 16 |
+| `goto` + своё ожидание ниже | `navigateToAdmin(page, URL)` | 13 |
+
+`openAdminCard` не годится большинству мест: он ждёт непустое **значение поля ввода**, а
+две трети переходов ведут на список и на форму создания, где такого поля нет. Пол там даёт
+`navigateToAdmin` (то есть `waitForDataReady`), потолком остаётся собственное ожидание теста.
+
+### Доказательство — падение старого ожидания, а не зелёный прогон
+
+`Emulation.setCPUThrottlingRate` rate 40, CDP, один воркер. Оба варианта одного и того же
+теста рядом:
+
+| вариант | итог под троттлингом |
+|---|---|
+| старый: `goto` + `expect(...).toBeVisible()` (потолок 5 с) | **failed**, `element(s) not found` |
+| новый: `openAdminPage` (пол `waitForDataReady`, 30 с) | passed |
+| старый: `goto` + `waitForSelector` (потолок 30 с) | passed |
+| новый: `openAdminPage` на том же месте | passed |
+
+Третья строка объясняет, почему из ста двадцати трёх проявился ровно один: потолок
+`waitForSelector` — 30 секунд, потолок `expect` — 5. Ждали неверно все, а падал тот, кому
+не хватило запаса. Значит счёт «прикрыты 122» верен только пока машина свободна.
+
+### Поправка к описанию выше
+
+«`openAdminCard` там же импортирован и используется (строки 4–5, 91, 121, 149)» — неточно:
+до правки `openAdminCard` вызывался в файле **один раз** (строка 2412, и для карточки
+КЛИЕНТА), а 91, 121 и 149 — это вызовы `waitForDataReady`. Расхождение внутри файла было,
+но выражалось оно в `waitForDataReady`, а не в `openAdminCard`.
+
+---
+
+# БАГ-02 — та же семья ещё в семи спеках, 68 переходов
+
+Заведено 2026-08-30 при починке выше. **Вне области того пункта, не чинилось.**
+
+**Severity:** Medium — те же скрытые флейки, проявляются только на занятой машине
+
+Замер тем же способом (переход, а следом четыре строки без `waitForDataReady`):
+
+| файл | переходов без пола |
+|---|---|
+| `tests/e2e/admin/settings/settings.spec.ts` | 20 |
+| `tests/e2e/admin/followups-list1.spec.ts` | 12 |
+| `tests/e2e/feature-flags-matrix.spec.ts` | 12 |
+| `tests/e2e/navigation.spec.ts` | 12 |
+| `tests/e2e/admin/notifications/notifications.spec.ts` | 10 |
+| `tests/e2e/admin/sales-crm/sales-crm.spec.ts` | 1 |
+| `tests/e2e/admin/suppliers/bcc-request.spec.ts` | 1 |
+| **итого** | **68** |
+
+Ещё 11 переходов в этих же файлах пол имеют.
+
+### Fix
+
+Тем же порядком, что в `orders.spec.ts`, и с тем же доказательством: троттлинг CPU,
+старое ожидание обязано покраснеть. Механическую часть можно повторить скриптом — формы
+те же (`goto` + `waitForSelector`, `goto` + `toBeVisible`, `goto` + `waitForDataReady`).
+
+**Отдельно замерить `feature-flags-matrix.spec.ts` и `navigation.spec.ts`** — они ходят по
+маршрутам с ВЫКЛЮЧЕННЫМИ флагами, а перепись маршрутов (`ready-exits.spec.ts`) гоняется с
+включёнными, то есть эти пути ею не покрыты. Закрытый флагом маршрут обычно уводит на
+`/404`, а он объявлен в `ROUTES_WITHOUT_DATA` и выходит мгновенно; но маршрут, который при
+выключенном флаге ничего не спрашивает и никуда не уводит, уйдёт в `no-traffic` и отъест
+весь бюджет в 30 секунд молча. Перед механической заменой там — прогон с замером времени,
+а не только зелёный итог.

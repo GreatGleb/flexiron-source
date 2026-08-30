@@ -1,8 +1,7 @@
 import type { Locator, Page } from '@playwright/test'
 import { test, testWithFlags, expect } from '../../fixtures'
 import { enableAllFlags, setFlag } from '../../helpers/flags'
-import { openAdminCard, switchLanguage } from '../../helpers/admin'
-import { waitForDataReady } from '../../helpers/ready'
+import { navigateToAdmin, openAdminCard, openAdminPage, switchLanguage } from '../../helpers/admin'
 
 /** Число дней из подписи условий оплаты — «Payment terms: 30 days» → 30. */
 function daysShown(text: string): number {
@@ -55,46 +54,38 @@ test.describe('Orders List', () => {
       if (msg.type() === 'error') errors.push(msg.text())
     })
 
-    await page.goto('/admin/orders')
-    await expect(page.locator('[data-test="page-orders"]')).toBeVisible()
+    await openAdminPage(page, '/admin/orders', '[data-test="page-orders"]')
     expect(errors).toHaveLength(0)
   })
 
   test('header is visible', async ({ page }) => {
-    await page.goto('/admin/orders')
-    await expect(page.locator('[data-test="orders-header"]')).toBeVisible()
+    await openAdminPage(page, '/admin/orders', '[data-test="orders-header"]')
     await expect(page.locator('h1')).toBeVisible()
   })
 
   test('filters section is visible', async ({ page }) => {
-    await page.goto('/admin/orders')
-    await expect(page.locator('[data-test="orders-filters"]')).toBeVisible()
+    await openAdminPage(page, '/admin/orders', '[data-test="orders-filters"]')
     await expect(page.locator('[data-test="orders-filter-search"]')).toBeVisible()
     await expect(page.locator('[data-test="orders-filter-status"]')).toBeVisible()
   })
 
   test('table panel renders with rows', async ({ page }) => {
-    await page.goto('/admin/orders')
-    await expect(page.locator('[data-test="orders-table"]')).toBeVisible()
+    await openAdminPage(page, '/admin/orders', '[data-test="orders-table"]')
     await expect(page.locator('[data-test="orders-row"]').first()).toBeVisible({ timeout: 5000 })
   })
 
   test('pagination is visible when orders exist', async ({ page }) => {
-    await page.goto('/admin/orders')
-    await expect(page.locator('[data-test="orders-pagination"]')).toBeVisible()
+    await openAdminPage(page, '/admin/orders', '[data-test="orders-pagination"]')
   })
 
   test('create button navigates to create page', async ({ page }) => {
-    await page.goto('/admin/orders')
-    // Переход и сразу действие: без этого ожидания тест зависит от того,
-    // успела ли страница подняться, а этого он не контролирует.
-    await waitForDataReady(page)
+    await navigateToAdmin(page, '/admin/orders')
     await page.locator('[data-test="orders-header"] a.btn-primary').click()
     await expect(page).toHaveURL('/admin/orders/new')
   })
 
   test('order row links to card page', async ({ page }) => {
-    await page.goto('/admin/orders')
+    await navigateToAdmin(page, '/admin/orders')
     const firstRow = page.locator('[data-test="orders-row"]').first()
     await expect(firstRow).toBeVisible()
 
@@ -104,7 +95,7 @@ test.describe('Orders List', () => {
   })
 
   test('view button navigates to card page', async ({ page }) => {
-    await page.goto('/admin/orders')
+    await navigateToAdmin(page, '/admin/orders')
     const viewBtn = page.locator('[data-test="orders-view-btn"]').first()
     await expect(viewBtn).toBeVisible()
     await viewBtn.click()
@@ -115,10 +106,9 @@ test.describe('Orders List', () => {
     // ORD-005 carries a 25% advance. The list must agree with the card on both
     // numbers — the same order named two different totals is how nobody trusts
     // either screen.
-    await page.goto('/admin/orders')
     // Фильтр, введённый раньше первой загрузки, глотает сторож `initialized` (#20), и
     // проверка потом смотрит на нефильтрованный список.
-    await waitForDataReady(page)
+    await navigateToAdmin(page, '/admin/orders')
     await page.fill('[data-test="orders-filter-search"] input', 'ORD-2026-005')
     const row = page.locator('[data-test="orders-row"]').first()
     await expect(row).toBeVisible()
@@ -130,8 +120,7 @@ test.describe('Orders List', () => {
     await expect(row.locator('[data-test="orders-row-paid"]')).toHaveText('25.00%')
     await expect(row.locator('[data-test="orders-row-shipped"]')).toHaveText('0.00%')
 
-    await page.goto('/admin/orders/ORD-005')
-    await page.waitForSelector('[data-test="order-item-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-005', '[data-test="order-item-row"]')
     const cardGross = await page.locator('[data-test="field-gross-total"]').inputValue()
     expect(listTotal.replace(/[^\d.]/g, '')).toBe(cardGross)
     await expect(page.locator('[data-test="field-paid-percent"]')).toHaveText('25.00%')
@@ -143,10 +132,9 @@ test.describe('Orders List', () => {
     // ORD-005 has a payment on it. Money received is a fact outside this system,
     // so the order does not simply vanish — and the message names the blocker
     // instead of a generic failure.
-    await page.goto('/admin/orders')
     // Фильтр, введённый раньше первой загрузки, глотает сторож `initialized` (#20), и
     // проверка потом смотрит на нефильтрованный список.
-    await waitForDataReady(page)
+    await navigateToAdmin(page, '/admin/orders')
     await page.fill('[data-test="orders-filter-search"] input', 'ORD-2026-005')
     // Признак применённого фильтра — сама отфильтрованная строка, а не «список виден»:
     // нефильтрованный список виден тоже, и первой в нём стоит другой заказ. Тест
@@ -176,13 +164,12 @@ test.describe('Order Create', () => {
       if (msg.type() === 'error') errors.push(msg.text())
     })
 
-    await page.goto('/admin/orders/new')
-    await expect(page.locator('[data-test="page-order-create"]')).toBeVisible()
+    await openAdminPage(page, '/admin/orders/new', '[data-test="page-order-create"]')
     expect(errors).toHaveLength(0)
   })
 
   test('header with breadcrumbs and action bar is visible', async ({ page }) => {
-    await page.goto('/admin/orders/new')
+    await navigateToAdmin(page, '/admin/orders/new')
     // Breadcrumb
     await expect(page.locator('nav.breadcrumb, .breadcrumb').first()).toBeVisible()
     // Header
@@ -195,8 +182,7 @@ test.describe('Order Create', () => {
   })
 
   test('client selection panel renders with search, list and pagination', async ({ page }) => {
-    await page.goto('/admin/orders/new')
-    await expect(page.locator('[data-test="order-create-client-panel"]')).toBeVisible()
+    await openAdminPage(page, '/admin/orders/new', '[data-test="order-create-client-panel"]')
     await expect(page.locator('[data-test="order-create-client-search"]')).toBeVisible()
     await expect(page.locator('[data-test="order-create-client-list"]')).toBeVisible()
     // Client radio items should be visible
@@ -208,7 +194,7 @@ test.describe('Order Create', () => {
   })
 
   test('client selection highlights selected client', async ({ page }) => {
-    await page.goto('/admin/orders/new')
+    await navigateToAdmin(page, '/admin/orders/new')
     // Wait for clients to load
     await expect(page.locator('[data-test="order-create-client-item"]').first()).toBeVisible({
       timeout: 5000,
@@ -220,8 +206,7 @@ test.describe('Order Create', () => {
   })
 
   test('notes panel is visible', async ({ page }) => {
-    await page.goto('/admin/orders/new')
-    await expect(page.locator('[data-test="order-create-notes-panel"]')).toBeVisible()
+    await openAdminPage(page, '/admin/orders/new', '[data-test="order-create-notes-panel"]')
     await expect(page.locator('[data-test="order-create-notes"]')).toBeVisible()
   })
 
@@ -236,10 +221,7 @@ test.describe('Order Create', () => {
       void d.dismiss()
     })
 
-    await page.goto('/admin/orders/new')
-    // Переход и сразу действие: без этого ожидания тест зависит от того,
-    // успела ли страница подняться, а этого он не контролирует.
-    await waitForDataReady(page)
+    await navigateToAdmin(page, '/admin/orders/new')
     await page.locator('[data-test="order-create-notes"]').fill('half an order')
 
     await page.click('[data-test="order-create-cancel-btn"]')
@@ -263,44 +245,34 @@ test.describe('Order Create', () => {
   })
 
   test('leaving an untouched order asks nothing', async ({ page }) => {
-    await page.goto('/admin/orders/new')
-    // Переход и сразу действие: без этого ожидания тест зависит от того,
-    // успела ли страница подняться, а этого он не контролирует.
-    await waitForDataReady(page)
+    await navigateToAdmin(page, '/admin/orders/new')
     await page.click('[data-test="order-create-cancel-btn"]')
     await expect(page).toHaveURL(/\/admin\/orders$/)
     await expect(page.locator('[data-test="order-create-leave-modal"]')).toHaveCount(0)
   })
 
   test('document type panel renders with dropdown', async ({ page }) => {
-    await page.goto('/admin/orders/new')
-    await expect(page.locator('[data-test="order-create-doctype-panel"]')).toBeVisible()
+    await openAdminPage(page, '/admin/orders/new', '[data-test="order-create-doctype-panel"]')
     await expect(page.locator('[data-test="order-create-doctype"]')).toBeVisible()
   })
 
   test('items section is visible with add button', async ({ page }) => {
-    await page.goto('/admin/orders/new')
-    await expect(page.locator('[data-test="order-create-items"]')).toBeVisible()
+    await openAdminPage(page, '/admin/orders/new', '[data-test="order-create-items"]')
     await expect(page.locator('[data-test="order-create-add-item-btn"]')).toBeVisible()
   })
 
   test('services section is visible with add button', async ({ page }) => {
-    await page.goto('/admin/orders/new')
-    await expect(page.locator('[data-test="order-create-services"]')).toBeVisible()
+    await openAdminPage(page, '/admin/orders/new', '[data-test="order-create-services"]')
     await expect(page.locator('[data-test="order-create-add-service-btn"]')).toBeVisible()
   })
 
   test('files section with dropzone is visible', async ({ page }) => {
-    await page.goto('/admin/orders/new')
-    await expect(page.locator('[data-test="order-create-files"]')).toBeVisible()
+    await openAdminPage(page, '/admin/orders/new', '[data-test="order-create-files"]')
     await expect(page.locator('[data-test="order-create-file-dropzone"]')).toBeVisible()
   })
 
   test('saves the lines that are on screen, duplicates and removals included', async ({ page }) => {
-    await page.goto('/admin/orders/new')
-    // Переход и сразу действие: без этого ожидания тест зависит от того,
-    // успела ли страница подняться, а этого он не контролирует.
-    await waitForDataReady(page)
+    await navigateToAdmin(page, '/admin/orders/new')
     await page.locator('[data-test="order-create-client-item"]').first().click()
 
     // Twice the same product, then a different one: the duplicate is the case
@@ -355,19 +327,13 @@ test.describe('Order Create', () => {
       return (await selected.locator('[data-test="add-items-price"]').innerText()).trim()
     }
 
-    await page.goto('/admin/orders/new')
-    // Переход и сразу действие: без этого ожидания тест зависит от того,
-    // успела ли страница подняться, а этого он не контролирует.
-    await waitForDataReady(page)
+    await navigateToAdmin(page, '/admin/orders/new')
     await page.locator('[data-test="order-create-add-item-btn"]').click()
     const createModal = page.locator('[data-test="add-order-items-modal"]')
     await expect(createModal).toBeVisible()
     const onCreate = await quotedPriceIn(createModal)
 
-    await page.goto('/admin/orders/ORD-001')
-    // Переход и сразу действие: без этого ожидания тест зависит от того,
-    // успела ли страница подняться, а этого он не контролирует.
-    await waitForDataReady(page)
+    await navigateToAdmin(page, '/admin/orders/ORD-001')
     await page.locator('[data-test="order-add-item-btn"]').click()
     const cardModal = page.locator('[data-test="add-order-items-modal"]')
     await expect(cardModal).toBeVisible()
@@ -388,53 +354,45 @@ test.describe('Order Card', () => {
       if (msg.type() === 'error') errors.push(msg.text())
     })
 
-    await page.goto('/admin/orders/ORD-001')
-    await expect(page.locator('[data-test="page-order-card"]')).toBeVisible()
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="page-order-card"]')
     expect(errors).toHaveLength(0)
   })
 
   test('header with breadcrumbs, title and status pill is visible', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
-    await expect(page.locator('[data-test="order-card-header"]')).toBeVisible()
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-card-header"]')
     await expect(page.locator('h1.page-title')).toBeVisible()
     await expect(page.locator('[data-test="order-card-status-pill"]')).toBeVisible()
   })
 
   test('save bar with action buttons is visible', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
-    await expect(page.locator('[data-test="order-card-save-bar"]')).toBeVisible()
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-card-save-bar"]')
   })
 
   test('entity card grid with 3 columns is visible', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
-    await expect(page.locator('[data-test="order-info-left"]')).toBeVisible()
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-info-left"]')
     // The centre column IS the financial panel — there is no separate wrapper.
     await expect(page.locator('[data-test="order-financial"]')).toBeVisible()
     await expect(page.locator('[data-test="order-info-right"]')).toBeVisible()
   })
 
   test('items section renders with table', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
-    await expect(page.locator('[data-test="order-items"]')).toBeVisible()
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-items"]')
   })
 
   test('services section is visible', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
-    await expect(page.locator('[data-test="order-services"]')).toBeVisible()
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-services"]')
   })
 
   test('files section with dropzone is visible', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
-    await expect(page.locator('[data-test="order-files"]')).toBeVisible()
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-files"]')
   })
 
   test('audit log section is visible', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
-    await expect(page.locator('[data-test="order-audit"]')).toBeVisible()
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-audit"]')
   })
 
   test('error state for non-existent order', async ({ page }) => {
-    await page.goto('/admin/orders/DOES-NOT-EXIST')
+    await navigateToAdmin(page, '/admin/orders/DOES-NOT-EXIST')
     await expect(page.locator('[data-test="order-card-error"]')).toBeVisible({ timeout: 5000 })
   })
 })
@@ -445,19 +403,16 @@ test.describe('Order Card', () => {
 
 test.describe('Order Card › fields & structure', () => {
   test('status pill and hint are visible', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
-    await expect(page.locator('[data-test="order-card-status-pill"]')).toBeVisible()
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-card-status-pill"]')
     await expect(page.locator('[data-test="order-card-status-hint"]')).toBeVisible()
   })
 
   test('save bar is present', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
-    await expect(page.locator('[data-test="order-card-save-bar"]')).toBeVisible()
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-card-save-bar"]')
   })
 
   test('left column fields render', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
-    await expect(page.locator('[data-test="order-info-left"]')).toBeVisible()
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-info-left"]')
     // Order number and client name are readonly static fields
     await expect(
       page.locator('[data-test="order-info-left"] .glass-input-static').first(),
@@ -465,7 +420,7 @@ test.describe('Order Card › fields & structure', () => {
   })
 
   test('center column financial fields render', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
+    await navigateToAdmin(page, '/admin/orders/ORD-001')
     for (const field of [
       'field-total-cost',
       'field-default-margin',
@@ -484,7 +439,7 @@ test.describe('Order Card › fields & structure', () => {
   })
 
   test('the panel shows the money the order actually comes to', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
+    await navigateToAdmin(page, '/admin/orders/ORD-001')
     // VAT on the net total, and the gross is the two added up. The old panel
     // charged the tax on the cost and stacked margin on top of it, coming to 15%
     // over on every order it touched. Asserted as the relationship rather than as
@@ -523,21 +478,20 @@ test.describe('Order Card › fields & structure', () => {
   })
 
   test('a zero-rated order charges no VAT', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-008')
+    await navigateToAdmin(page, '/admin/orders/ORD-008')
     const net = await page.locator('[data-test="field-net-total"]').inputValue()
     await expect(page.locator('[data-test="field-vat-amount"]')).toHaveValue('0.00')
     await expect(page.locator('[data-test="field-gross-total"]')).toHaveValue(net)
   })
 
   test('an order-wide discount is visible, not hidden at zero', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-002')
+    await navigateToAdmin(page, '/admin/orders/ORD-002')
     await expect(page.locator('[data-test="field-effective-discount"]')).toHaveValue('5.00')
     await expect(page.locator('[data-test="field-default-discount"]')).toHaveValue('5')
   })
 
   test('editing the total spreads it across the lines', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
-    await page.waitForSelector('[data-test="field-gross-total"]')
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="field-gross-total"]')
 
     await page.fill('[data-test="field-gross-total"]', '20328.99')
     await page.locator('[data-test="field-gross-total"]').press('Enter')
@@ -552,8 +506,7 @@ test.describe('Order Card › fields & structure', () => {
   })
 
   test('a total that cannot exist is announced, never quietly substituted', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
-    await page.waitForSelector('[data-test="field-gross-total"]')
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="field-gross-total"]')
     // With 21% VAT rounded to cents there is no net that grosses up to 20000.00.
     await page.fill('[data-test="field-gross-total"]', '20000')
     await page.locator('[data-test="field-gross-total"]').press('Enter')
@@ -561,10 +514,7 @@ test.describe('Order Card › fields & structure', () => {
   })
 
   test('unsaved lines block the total edit rather than failing on the server', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
-    // Переход и сразу действие: без этого ожидания тест зависит от того,
-    // успела ли страница подняться, а этого он не контролирует.
-    await waitForDataReady(page)
+    await navigateToAdmin(page, '/admin/orders/ORD-001')
     await page.click('[data-test="order-add-item-btn"]')
     await page.waitForSelector('[data-test="add-order-items-modal"]')
     await page.locator('[data-test="add-items-product-checkbox"]').first().click()
@@ -586,8 +536,7 @@ test.describe('Order Card › fields & structure', () => {
   test('changing the VAT mode asks what to keep, and keeps the net by default', async ({
     page,
   }) => {
-    await page.goto('/admin/orders/ORD-001')
-    await page.waitForSelector('[data-test="field-vat-mode"]')
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="field-vat-mode"]')
     const netBefore = await page.locator('[data-test="field-net-total"]').inputValue()
 
     await page.locator('[data-test="field-vat-mode"]').click()
@@ -604,8 +553,7 @@ test.describe('Order Card › fields & structure', () => {
   })
 
   test('keeping the total across a VAT mode change re-targets the net', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-003')
-    await page.waitForSelector('[data-test="field-vat-mode"]')
+    await openAdminPage(page, '/admin/orders/ORD-003', '[data-test="field-vat-mode"]')
     const grossBefore = await page.locator('[data-test="field-gross-total"]').inputValue()
 
     await page.locator('[data-test="field-vat-mode"]').click()
@@ -627,8 +575,7 @@ test.describe('Order Card › fields & structure', () => {
   test('the services table shows per-line money, not per-unit times quantity', async ({ page }) => {
     let checked = 0
     for (const id of ['ORD-001', 'ORD-002', 'ORD-003', 'ORD-005', 'ORD-006', 'ORD-009']) {
-      await page.goto(`/admin/orders/${id}`)
-      await page.waitForSelector('[data-test="order-services"]')
+      await openAdminPage(page, `/admin/orders/${id}`, '[data-test="order-services"]')
       const rows = page.locator('[data-test="order-service-row"]')
       const count = await rows.count()
       for (let i = 0; i < count; i++) {
@@ -650,8 +597,7 @@ test.describe('Order Card › fields & structure', () => {
   test('an unsaved note survives an allocation', async ({ page }) => {
     // Applying an allocation reloads the card, and the reload replaces the whole
     // form — anything still unsaved has to be flushed first, not dropped.
-    await page.goto('/admin/orders/ORD-001')
-    await page.waitForSelector('[data-test="field-gross-total"]')
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="field-gross-total"]')
 
     await page.fill('[data-test="field-notes"]', 'typed but not saved')
     await page.fill('[data-test="field-gross-total"]', '20328.99')
@@ -663,8 +609,7 @@ test.describe('Order Card › fields & structure', () => {
   })
 
   test('applying the percentages to every line says what it will do first', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
-    await page.waitForSelector('[data-test="apply-defaults-btn"]')
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="apply-defaults-btn"]')
     const grossBefore = await page.locator('[data-test="field-gross-total"]').inputValue()
 
     await page.fill('[data-test="field-default-discount"]', '10')
@@ -691,8 +636,7 @@ test.describe('Order Card › fields & structure', () => {
     // answer was "save the lines first" — from a place with no Save in sight.
     // Applying them is a line edit like any other, so it reaches the new line
     // too, writes nothing on its own, and goes out with the same Save.
-    await page.goto('/admin/orders/ORD-001')
-    await page.waitForSelector('[data-test="order-item-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-item-row"]')
     const rows = page.locator('[data-test="order-item-row"]')
     // Считать до отрисовки — получить ноль и утверждать его производное:
     // `toHaveCount(before - 1)` превращается в `toHaveCount(-1)`.
@@ -726,8 +670,7 @@ test.describe('Order Card › fields & structure', () => {
   })
 
   test('saving stores the fields the admin owns', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-005')
-    await page.waitForSelector('[data-test="field-default-margin"]')
+    await openAdminPage(page, '/admin/orders/ORD-005', '[data-test="field-default-margin"]')
 
     await page.fill('[data-test="field-default-margin"]', '33')
     await page.fill('[data-test="field-total-weight"]', '1250')
@@ -746,8 +689,7 @@ test.describe('Order Card › fields & structure', () => {
   })
 
   test('cancelling the VAT dialog leaves the order untouched', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
-    await page.waitForSelector('[data-test="field-vat-mode"]')
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="field-vat-mode"]')
 
     await page.locator('[data-test="field-vat-mode"]').click()
     await page.locator('.custom-select-option', { hasText: '0% — export' }).first().click()
@@ -761,19 +703,16 @@ test.describe('Order Card › fields & structure', () => {
   })
 
   test('status dropdown renders', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
-    await expect(page.locator('[data-test="order-card-status"]')).toBeVisible()
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-card-status"]')
   })
 
   test('items and services sections render', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
-    await expect(page.locator('[data-test="order-items"]')).toBeVisible()
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-items"]')
     await expect(page.locator('[data-test="order-services"]')).toBeVisible()
   })
 
   test('files section with dropzone is visible', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
-    await expect(page.locator('[data-test="order-files"]')).toBeVisible()
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-files"]')
     await expect(page.locator('[data-test="order-file-dropzone"]')).toBeVisible()
   })
 })
@@ -808,8 +747,7 @@ test.describe('Order Card › line table', () => {
   }
 
   test('opens exactly the cells the line state allows', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-009')
-    await page.waitForSelector('[data-test="order-item-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-009', '[data-test="order-item-row"]')
     const { shipped, partial, draft } = await rowsByState(page)
 
     // Fully shipped — nothing to edit, and nothing to split either.
@@ -833,8 +771,7 @@ test.describe('Order Card › line table', () => {
   })
 
   test('the state of every line is spelled out, shipped quantity and all', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-009')
-    await page.waitForSelector('[data-test="line-state"]')
+    await openAdminPage(page, '/admin/orders/ORD-009', '[data-test="line-state"]')
     const { states } = await rowsByState(page)
     expect(states).toContain('Shipped')
     expect(states).toContain('Draft')
@@ -842,8 +779,7 @@ test.describe('Order Card › line table', () => {
   })
 
   test('a margin edit reprices the line and the order, and Save keeps it', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
-    await page.waitForSelector('[data-test="order-item-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-item-row"]')
     const row = page.locator('[data-test="order-item-row"]').first()
     const grossBefore = Number(await page.locator('[data-test="field-gross-total"]').inputValue())
 
@@ -870,8 +806,7 @@ test.describe('Order Card › line table', () => {
   })
 
   test('a price cut becomes a discount and locks the line; reset undoes both', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-002')
-    await page.waitForSelector('[data-test="order-item-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-002', '[data-test="order-item-row"]')
     const row = page.locator('[data-test="order-item-row"]').first()
     const priceBefore = Number(await lineCell(row, 'unitPrice'))
     const discountBefore = Number(await lineCell(row, 'discountPercent'))
@@ -895,8 +830,7 @@ test.describe('Order Card › line table', () => {
 
   test('a refused edit puts the cell back and says why', async ({ page }) => {
     // ORD-004 has a partially shipped first line.
-    await page.goto('/admin/orders/ORD-004')
-    await page.waitForSelector('[data-test="order-item-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-004', '[data-test="order-item-row"]')
     const row = page.locator('[data-test="order-item-row"]').first()
     const quantity = row.locator('[data-test="cell-quantity"] input')
     const before = await quantity.inputValue()
@@ -913,8 +847,7 @@ test.describe('Order Card › line table', () => {
   })
 
   test('a cost typed by hand demands a reason before it lands', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
-    await page.waitForSelector('[data-test="order-item-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-item-row"]')
     const row = page.locator('[data-test="order-item-row"]').first()
     const cost = row.locator('[data-test="cell-unitCost"] input')
     const before = await cost.inputValue()
@@ -941,8 +874,7 @@ test.describe('Order Card › line table', () => {
   })
 
   test('cancelling the reason dialog leaves the cost alone', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
-    await page.waitForSelector('[data-test="order-item-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-item-row"]')
     const row = page.locator('[data-test="order-item-row"]').first()
     const cost = row.locator('[data-test="cell-unitCost"] input')
     const before = await cost.inputValue()
@@ -956,8 +888,7 @@ test.describe('Order Card › line table', () => {
   })
 
   test('splitting a partially shipped line keeps every euro', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-004')
-    await page.waitForSelector('[data-test="order-item-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-004', '[data-test="order-item-row"]')
     const grossBefore = await page.locator('[data-test="field-gross-total"]').inputValue()
     const rowsBefore = await page.locator('[data-test="order-item-row"]').count()
 
@@ -982,8 +913,7 @@ test.describe('Order Card › line table', () => {
   })
 
   test('edits to several lines go out with one Save', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-007')
-    await page.waitForSelector('[data-test="order-item-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-007', '[data-test="order-item-row"]')
     const rows = page.locator('[data-test="order-item-row"]')
 
     const discount = rows.nth(1).locator('[data-test="cell-discountPercent"] input')
@@ -1004,8 +934,7 @@ test.describe('Order Card › line table', () => {
     // The row carries a temporary id until it exists on the server, so the edit
     // has to be re-pointed at the id the server hands back — otherwise it lands
     // on nothing and the admin loses it without being told.
-    await page.goto('/admin/orders/ORD-001')
-    await page.waitForSelector('[data-test="order-item-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-item-row"]')
     const rows = page.locator('[data-test="order-item-row"]')
     // Считать до отрисовки — получить ноль и утверждать его производное:
     // `toHaveCount(before - 1)` превращается в `toHaveCount(-1)`.
@@ -1038,8 +967,7 @@ test.describe('Order Card › line table', () => {
     // It was never created, so there is nothing to delete: recording a deletion
     // instead would create it on Save and then delete an id nobody issued,
     // leaving the line behind.
-    await page.goto('/admin/orders/ORD-001')
-    await page.waitForSelector('[data-test="order-item-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-item-row"]')
     const rows = page.locator('[data-test="order-item-row"]')
     // Считать до отрисовки — получить ноль и утверждать его производное:
     // `toHaveCount(before - 1)` превращается в `toHaveCount(-1)`.
@@ -1059,8 +987,7 @@ test.describe('Order Card › line table', () => {
   })
 
   test('editing the line total is the same edit seen from the other side', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-002')
-    await page.waitForSelector('[data-test="order-item-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-002', '[data-test="order-item-row"]')
     const row = page.locator('[data-test="order-item-row"]').first()
     const quantity = Number(await lineCell(row, 'quantity'))
 
@@ -1085,8 +1012,7 @@ test.describe('Order Card › line table', () => {
     // What this guards is the opposite mistake: gating the columns behind a right
     // and then hiding them from the people who have it. The refusals themselves
     // are unit-tested — the app has no way to sign in as another role.
-    await page.goto('/admin/orders/ORD-001')
-    await page.waitForSelector('[data-test="order-item-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-item-row"]')
     await expect(page.locator('[data-test="cell-unitCost"]').first()).toBeVisible()
     await expect(page.locator('[data-test="cell-marginPercent"]').first()).toBeVisible()
     await expect(page.locator('[data-test="line-margin"]').first()).toBeVisible()
@@ -1104,8 +1030,7 @@ test.describe('Order Card › line table', () => {
     // These used to sit behind `orderPricingV2` together with the editing. The
     // corrected calculation is not a feature anybody opts into, so the flag is
     // gone — what is left to assert is that the columns are simply present.
-    await page.goto('/admin/orders/ORD-009')
-    await page.waitForSelector('[data-test="order-item-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-009', '[data-test="order-item-row"]')
     await expect(page.locator('[data-test="cell-unitCost"]').first()).toBeVisible()
     await expect(page.locator('[data-test="line-margin"]').first()).toBeVisible()
     await expect(page.locator('[data-test="line-state"]').first()).toBeVisible()
@@ -1131,8 +1056,7 @@ test.describe('Order Card › adding lines', () => {
   }
 
   test('asks nothing when nobody has repriced the order by hand', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
-    await page.waitForSelector('[data-test="order-item-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-item-row"]')
     await pickFirstProduct(page)
     await expect(page.locator('[data-test="add-mode-chooser"]')).toHaveCount(0)
   })
@@ -1140,8 +1064,7 @@ test.describe('Order Card › adding lines', () => {
   test('sells at the catalogue price, never at cost', async ({ page }) => {
     // The picker used to overwrite the price with the FIFO cost, so every line
     // added to an order was sold at cost with no margin at all.
-    await page.goto('/admin/orders/ORD-001')
-    await page.waitForSelector('[data-test="order-item-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-item-row"]')
     const rows = page.locator('[data-test="order-item-row"]')
     // Считать до отрисовки — получить ноль и утверждать его производное:
     // `toHaveCount(before - 1)` превращается в `toHaveCount(-1)`.
@@ -1162,8 +1085,7 @@ test.describe('Order Card › adding lines', () => {
   test('a line added to a discounted order gets that discount', async ({ page }) => {
     // ORD-003 carries a hand-cut price, so the order gives a real discount that
     // its default percentage says nothing about.
-    await page.goto('/admin/orders/ORD-003')
-    await page.waitForSelector('[data-test="order-item-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-003', '[data-test="order-item-row"]')
     const effective = await page.locator('[data-test="field-effective-discount"]').inputValue()
     expect(Number(effective)).toBeGreaterThan(0)
     expect(await page.locator('[data-test="field-default-discount"]').inputValue()).toBe('0')
@@ -1193,8 +1115,7 @@ test.describe('Order Card › adding lines', () => {
   })
 
   test('"keep the total" shows what it will do, and can be called off', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-003')
-    await page.waitForSelector('[data-test="order-item-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-003', '[data-test="order-item-row"]')
     const rows = page.locator('[data-test="order-item-row"]')
     const before = await rows.count()
     // Services are lines too, and "keep the total" spreads across every line that
@@ -1232,8 +1153,7 @@ test.describe('Order Card › adding lines', () => {
     // 25.00 less a 9.70% discount is 22.575 — and 22.575 is 22.57499… in binary,
     // so `toFixed` alone put 22.57 in the price cell next to a total of 22.58
     // for a single unit. Two cells of the same row disagreeing about the money.
-    await page.goto('/admin/orders/ORD-003')
-    await page.waitForSelector('[data-test="order-item-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-003', '[data-test="order-item-row"]')
     await page.click('[data-test="order-add-service-btn"]')
     await page.waitForSelector('[data-test="add-services-checkbox"]')
     await page.locator('[data-test="add-services-checkbox"]').first().click()
@@ -1253,8 +1173,7 @@ test.describe('Order Card › adding lines', () => {
     // Rounding the unit price and multiplying by the quantity is not the same as
     // rounding once: at 22.575 × 2 the dialog said 45.16 and the row said 45.15.
     // A picker that promises a different total is worse than one showing nothing.
-    await page.goto('/admin/orders/ORD-003')
-    await page.waitForSelector('[data-test="order-item-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-003', '[data-test="order-item-row"]')
     await page.click('[data-test="order-add-service-btn"]')
     await page.waitForSelector('[data-test="add-services-checkbox"]')
     await page.locator('[data-test="add-services-checkbox"]').first().click()
@@ -1273,8 +1192,7 @@ test.describe('Order Card › adding lines', () => {
   test('a shipped order takes new lines without moving the old ones', async ({ page }) => {
     // "The truck has left and the client wants two more things" — one deal, one
     // order. The shipped line is frozen; the new one is a plain draft.
-    await page.goto('/admin/orders/ORD-004')
-    await page.waitForSelector('[data-test="order-item-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-004', '[data-test="order-item-row"]')
     const rows = page.locator('[data-test="order-item-row"]')
     // Считать до отрисовки — получить ноль и утверждать его производное:
     // `toHaveCount(before - 1)` превращается в `toHaveCount(-1)`.
@@ -1338,16 +1256,14 @@ test.describe('Order Card › shipments', () => {
   }
 
   test('the panel is there, with nothing in it until something ships', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
-    await expect(page.locator('[data-test="order-shipments"]')).toBeVisible()
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-shipments"]')
     await expect(page.locator('[data-test="order-shipment-row"]')).toHaveCount(0)
   })
 
   test('offers what the shelf can back, not what the client is owed', async ({ page }) => {
     // ORD-001 asks for far more of its product than the warehouse holds, so the
     // two numbers differ — and the dialog must offer the honest one.
-    await page.goto('/admin/orders/ORD-001')
-    await page.waitForSelector('[data-test="order-item-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-item-row"]')
     await page.click('[data-test="order-ship-btn"]')
     await expect(page.locator('[data-test="ship-modal"]')).toBeVisible()
 
@@ -1362,8 +1278,7 @@ test.describe('Order Card › shipments', () => {
   })
 
   test('a shipment freezes the line, carries a waybill, and can be undone', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
-    await page.waitForSelector('[data-test="order-item-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-item-row"]')
     await addShippableLine(page)
 
     const rows = page.locator('[data-test="order-item-row"]')
@@ -1405,8 +1320,7 @@ test.describe('Order Card › shipments', () => {
   test('a partially shipped order still takes new lines', async ({ page }) => {
     // "The truck has left and the client wants two more things" — with the goods
     // actually written off the shelf this time.
-    await page.goto('/admin/orders/ORD-004')
-    await page.waitForSelector('[data-test="order-item-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-004', '[data-test="order-item-row"]')
     const rows = page.locator('[data-test="order-item-row"]')
     await expect(rows.first().locator('[data-test="line-state"]')).toContainText(/Shipped/)
     // Считать до отрисовки — получить ноль и утверждать его производное:
@@ -1427,8 +1341,7 @@ test.describe('Order Card › shipments', () => {
     // ORD-004 ships part of its first line at start-up. That shipment goes
     // through the same code an admin's does, so it carries a waybill and the
     // line is frozen by it.
-    await page.goto('/admin/orders/ORD-004')
-    await page.waitForSelector('[data-test="order-shipment-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-004', '[data-test="order-shipment-row"]')
     await expect(page.locator('[data-test="order-shipment-row"]')).toHaveCount(1)
     await expect(page.locator('[data-test="order-shipment-row"]').first()).toContainText(/WB-/)
     await expect(
@@ -1440,8 +1353,7 @@ test.describe('Order Card › shipments', () => {
   })
 
   test('with the flag off the panel is gone and nothing can ship', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
-    await page.waitForSelector('[data-test="order-shipments"]')
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-shipments"]')
     await setFlag(page, 'orderShipments', false)
     await page.waitForSelector('[data-test="order-items"]')
     await expect(page.locator('[data-test="order-shipments"]')).toHaveCount(0)
@@ -1487,8 +1399,7 @@ testWithFlags.describe('Order Card › ширина таблицы позици�
     testWithFlags(`при 1440 и языке ${lang} таблица влезает целиком`, async ({ page }) => {
       await page.setViewportSize({ width: 1440, height: 900 })
       await enableAllFlags(page.context())
-      await page.goto('/admin/orders/ORD-100')
-      await page.waitForSelector('[data-test="order-item-row"]')
+      await openAdminPage(page, '/admin/orders/ORD-100', '[data-test="order-item-row"]')
       await switchLanguage(page, lang)
 
       const wrapper = page.locator('[data-test="order-items"] .data-table-wrapper')
@@ -1540,8 +1451,7 @@ testWithFlags.describe('Order Card › ширина таблицы позици�
     testWithFlags(`ни одно значение в поле ввода не обрезано (${orderId})`, async ({ page }) => {
       await page.setViewportSize({ width: 1440, height: 900 })
       await enableAllFlags(page.context())
-      await page.goto(`/admin/orders/${orderId}`)
-      await page.waitForSelector('[data-test="order-item-row"]')
+      await openAdminPage(page, `/admin/orders/${orderId}`, '[data-test="order-item-row"]')
       await switchLanguage(page, 'ru')
 
       const seen = await page.evaluate(() =>
@@ -1564,8 +1474,7 @@ testWithFlags.describe('Order Card › ширина таблицы позици�
    */
   testWithFlags('в ORD-054 есть значение, на котором обрезка и проявлялась', async ({ page }) => {
     await enableAllFlags(page.context())
-    await page.goto('/admin/orders/ORD-054')
-    await page.waitForSelector('[data-test="order-item-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-054', '[data-test="order-item-row"]')
     const values = await page.evaluate(() =>
       [...document.querySelectorAll('.order-lines-wrapper input.cell-input')].map(
         (el) => (el as HTMLInputElement).value,
@@ -1577,8 +1486,7 @@ testWithFlags.describe('Order Card › ширина таблицы позици�
   /** У ORD-100 таблица услуг обязана существовать — иначе кейс выше проверяет половину. */
   testWithFlags('у ORD-100 есть таблица услуг', async ({ page }) => {
     await enableAllFlags(page.context())
-    await page.goto('/admin/orders/ORD-100')
-    await page.waitForSelector('[data-test="order-item-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-100', '[data-test="order-item-row"]')
     await expect(page.locator('.order-lines-wrapper')).toHaveCount(2)
   })
 })
@@ -1614,20 +1522,17 @@ test.describe('Order Card › returns', () => {
   }
 
   test('the panel is there, and empty until something comes back', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-004')
-    await expect(page.locator('[data-test="order-returns"]')).toBeVisible()
+    await openAdminPage(page, '/admin/orders/ORD-004', '[data-test="order-returns"]')
     await expect(page.locator('[data-test="order-return-row"]')).toHaveCount(0)
   })
 
   test('nothing shipped means nothing to return', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
-    await page.waitForSelector('[data-test="order-item-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-item-row"]')
     await expect(page.locator('[data-test="order-return-btn"]')).toBeDisabled()
   })
 
   test('the dialog offers only what shipped, and closes on Escape', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-004')
-    await page.waitForSelector('[data-test="order-shipment-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-004', '[data-test="order-shipment-row"]')
     await page.click('[data-test="order-return-btn"]')
 
     const modal = page.locator('[data-test="return-modal"]')
@@ -1644,8 +1549,7 @@ test.describe('Order Card › returns', () => {
   })
 
   test('a return needs a reason before it can be confirmed', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-004')
-    await page.waitForSelector('[data-test="order-shipment-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-004', '[data-test="order-shipment-row"]')
     await page.click('[data-test="order-return-btn"]')
 
     const modal = page.locator('[data-test="return-modal"]')
@@ -1662,8 +1566,7 @@ test.describe('Order Card › returns', () => {
   test('a partial return is recorded, badged, marked on the line and taken off the total', async ({
     page,
   }) => {
-    await page.goto('/admin/orders/ORD-004')
-    await page.waitForSelector('[data-test="order-shipment-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-004', '[data-test="order-shipment-row"]')
 
     const gross = Number(await page.locator('[data-test="field-gross-total"]').inputValue())
     const before = await page.locator('[data-test="order-return-row"]').count()
@@ -1709,8 +1612,7 @@ test.describe('Order Card › returns', () => {
    * пережила бы.
    */
   test('пилюля возврата — цельный бокс в одну строку, как все прочие пилюли', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-004')
-    await page.waitForSelector('[data-test="order-shipment-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-004', '[data-test="order-shipment-row"]')
     await returnFirstLine(page, 'Wrong profile delivered')
 
     const pill = page.locator('[data-test="line-returned"]').first()
@@ -1744,8 +1646,7 @@ test.describe('Order Card › returns', () => {
   })
 
   test('a second partial return of the same line still goes through', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-004')
-    await page.waitForSelector('[data-test="order-shipment-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-004', '[data-test="order-shipment-row"]')
 
     await returnFirstLine(page, 'First piece back')
     await expect(page.locator('[data-test="order-return-row"]')).toHaveCount(1)
@@ -1757,8 +1658,7 @@ test.describe('Order Card › returns', () => {
   })
 
   test('with the flag off the panel is gone and nothing can be returned', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-004')
-    await page.waitForSelector('[data-test="order-returns"]')
+    await openAdminPage(page, '/admin/orders/ORD-004', '[data-test="order-returns"]')
     await setFlag(page, 'orderReturns', false)
     await page.waitForSelector('[data-test="order-items"]')
     await expect(page.locator('[data-test="order-returns"]')).toHaveCount(0)
@@ -1823,8 +1723,7 @@ test.describe('Order Card › payments and invoices', () => {
   }
 
   test('an order nobody has paid says so, and holds no records', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
-    await expect(page.locator('[data-test="order-payments"]')).toBeVisible()
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-payments"]')
     await expect(page.locator('[data-test="order-invoices"]')).toBeVisible()
     await expect(page.locator('[data-test="order-payment-state"]')).toHaveText('Unpaid')
     await expect(page.locator('[data-test="order-payment-row"]')).toHaveCount(0)
@@ -1836,8 +1735,7 @@ test.describe('Order Card › payments and invoices', () => {
 
   test('the advance is a record, and the percentage is worked out from it', async ({ page }) => {
     // ORD-005 has a 25% advance seeded against its total.
-    await page.goto('/admin/orders/ORD-005')
-    await page.waitForSelector('[data-test="order-payment-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-005', '[data-test="order-payment-row"]')
     await expect(page.locator('[data-test="order-payment-row"]')).toHaveCount(1)
     await expect(page.locator('[data-test="order-payment-state"]')).toContainText('Partially paid')
     expect(await paidPercent(page)).toBeCloseTo(25, 1)
@@ -1846,8 +1744,7 @@ test.describe('Order Card › payments and invoices', () => {
   test('the paid share falls by itself when the order grows', async ({ page }) => {
     // The whole reason the percentage is never stored. Nothing is saved here —
     // the figure follows the line table, not the server.
-    await page.goto('/admin/orders/ORD-005')
-    await page.waitForSelector('[data-test="order-item-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-005', '[data-test="order-item-row"]')
     const before = await paidPercent(page)
     const owedBefore = await outstanding(page)
 
@@ -1862,8 +1759,7 @@ test.describe('Order Card › payments and invoices', () => {
   test('a settled order that is changed warns, and still lets it happen', async ({ page }) => {
     // ORD-006 is paid in full. Adding a line makes it underpaid — which is a
     // warning, never a block (model section 6).
-    await page.goto('/admin/orders/ORD-006')
-    await page.waitForSelector('[data-test="order-item-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-006', '[data-test="order-item-row"]')
     await expect(page.locator('[data-test="order-payment-state"]')).toHaveText('Paid')
     await expect(page.locator('[data-test="payment-drift-warning"]')).toHaveCount(0)
 
@@ -1875,8 +1771,7 @@ test.describe('Order Card › payments and invoices', () => {
   })
 
   test('paying what is left settles the order, and deleting it undoes that', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
-    await page.waitForSelector('[data-test="order-item-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-item-row"]')
     const owed = await outstanding(page)
 
     await page.click('[data-test="order-add-payment-btn"]')
@@ -1899,8 +1794,7 @@ test.describe('Order Card › payments and invoices', () => {
   test('the payment date is our own calendar, and the day picked is the day recorded', async ({
     page,
   }) => {
-    await page.goto('/admin/orders/ORD-001')
-    await page.waitForSelector('[data-test="order-item-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-item-row"]')
 
     await page.click('[data-test="order-add-payment-btn"]')
     await expect(page.locator('[data-test="payment-modal"]')).toBeVisible()
@@ -1934,8 +1828,7 @@ test.describe('Order Card › payments and invoices', () => {
     // Пункт 14: возврат обязан назвать счёт. Пришедшие деньги могут не называть
     // ничего — аванс приходит раньше проформы; ушедшие не могут: безымянный
     // возврат считался карточкой заказа и не считался реестром «Входящих».
-    await page.goto('/admin/orders/ORD-005')
-    await page.waitForSelector('[data-test="order-payment-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-005', '[data-test="order-payment-row"]')
     const owedBefore = await outstanding(page)
 
     // По этому заказу документов ещё нет — значит возврату нечего назвать, и
@@ -2002,8 +1895,7 @@ test.describe('Order Card › payments and invoices', () => {
     // Enter twice is what people do, and a `disabled` attribute lands a tick too
     // late to stop the second one. Two records for the same money read as an order
     // paid twice over.
-    await page.goto('/admin/orders/ORD-001')
-    await page.waitForSelector('[data-test="order-item-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-item-row"]')
     await page.click('[data-test="order-add-payment-btn"]')
     const amount = page.locator('[data-test="payment-amount-input"]')
     await amount.fill('100')
@@ -2024,8 +1916,7 @@ test.describe('Order Card › payments and invoices', () => {
   })
 
   test('an advance invoice covers no delivery and states its own amount', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
-    await page.waitForSelector('[data-test="order-invoices"]')
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-invoices"]')
     await page.click('[data-test="order-advance-invoice-btn"]')
     await expect(page.locator('[data-test="advance-invoice-modal"]')).toBeVisible()
     await page.fill('[data-test="advance-amount-input"]', '1210')
@@ -2038,8 +1929,7 @@ test.describe('Order Card › payments and invoices', () => {
   })
 
   test('a payment can name the invoice it settles', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
-    await page.waitForSelector('[data-test="order-invoices"]')
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-invoices"]')
     await page.click('[data-test="order-advance-invoice-btn"]')
     await page.fill('[data-test="advance-amount-input"]', '500')
     await page.click('[data-test="advance-confirm"]')
@@ -2071,8 +1961,7 @@ test.describe('Order Card › payments and invoices', () => {
     // счёта открывалось пустым, «Сохранить» отправляло `invoiceId: null` — и
     // карточка показывала деньги полученными, пока «Входящие» рисовали по тому
     // же документу «Просрочен» и «оплачено 0.00».
-    await page.goto('/admin/orders/ORD-001')
-    await page.waitForSelector('[data-test="order-invoices"]')
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-invoices"]')
     await page.click('[data-test="order-advance-invoice-btn"]')
     await page.fill('[data-test="advance-amount-input"]', '500')
     await page.click('[data-test="advance-confirm"]')
@@ -2120,8 +2009,7 @@ test.describe('Order Card › payments and invoices', () => {
   })
 
   test('a delivery is invoiced once, and the document freezes what it covers', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
-    await page.waitForSelector('[data-test="order-item-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-item-row"]')
     await shipSomething(page)
 
     const shipment = page.locator('[data-test="order-shipment-row"]').first()
@@ -2138,8 +2026,7 @@ test.describe('Order Card › payments and invoices', () => {
     // was no way at all: the cells are shut, and the alternatives were to split
     // the line (which only reaches what has not gone) or cancel the whole
     // delivery (which returns goods that never came back).
-    await page.goto('/admin/orders/ORD-001')
-    await page.waitForSelector('[data-test="order-item-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-item-row"]')
     await shipSomething(page)
     await page
       .locator('[data-test="order-shipment-row"]')
@@ -2202,8 +2089,7 @@ test.describe('Order Card › payments and invoices', () => {
   })
 
   test('cancelling an invoiced delivery asks for a reason and corrects it', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
-    await page.waitForSelector('[data-test="order-item-row"]')
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-item-row"]')
     await shipSomething(page)
 
     const shipment = page.locator('[data-test="order-shipment-row"]').first()
@@ -2236,8 +2122,7 @@ test.describe('Order Card › payments and invoices', () => {
   })
 
   test('with the flag off both panels are gone', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-005')
-    await page.waitForSelector('[data-test="order-payments"]')
+    await openAdminPage(page, '/admin/orders/ORD-005', '[data-test="order-payments"]')
     await setFlag(page, 'orderInvoicesPayments', false)
     await page.waitForSelector('[data-test="order-items"]')
     await expect(page.locator('[data-test="order-payments"]')).toHaveCount(0)
@@ -2252,7 +2137,7 @@ test.describe('Order Card › payments and invoices', () => {
 
 test.describe('Order Card › save flow', () => {
   test('edit notes enables save button', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
+    await navigateToAdmin(page, '/admin/orders/ORD-001')
     const saveBtn = page.locator('[data-test="order-card-save-btn"]')
     // Initially save should be disabled (no changes)
     await expect(saveBtn).toBeDisabled()
@@ -2262,10 +2147,7 @@ test.describe('Order Card › save flow', () => {
   })
 
   test('discard resets notes field', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
-    // Переход и сразу действие: без этого ожидания тест зависит от того,
-    // успела ли страница подняться, а этого он не контролирует.
-    await waitForDataReady(page)
+    await navigateToAdmin(page, '/admin/orders/ORD-001')
     await page.locator('[data-test="field-notes"]').fill('Modified notes')
     await page.locator('[data-test="order-card-discard-btn"]').click()
     // Value should be restored to original (null/empty)
@@ -2279,19 +2161,13 @@ test.describe('Order Card › save flow', () => {
 
 test.describe('Order Card › delete', () => {
   test('delete button opens confirmation modal', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
-    // Переход и сразу действие: без этого ожидания тест зависит от того,
-    // успела ли страница подняться, а этого он не контролирует.
-    await waitForDataReady(page)
+    await navigateToAdmin(page, '/admin/orders/ORD-001')
     await page.locator('[data-test="order-card-delete-btn"]').click()
     await expect(page.locator('[data-test="order-card-delete-modal"]')).toBeVisible()
   })
 
   test('cancel closes deletion modal', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
-    // Переход и сразу действие: без этого ожидания тест зависит от того,
-    // успела ли страница подняться, а этого он не контролирует.
-    await waitForDataReady(page)
+    await navigateToAdmin(page, '/admin/orders/ORD-001')
     await page.locator('[data-test="order-card-delete-btn"]').click()
     await expect(page.locator('[data-test="order-card-delete-modal"]')).toBeVisible()
     await page.locator('[data-test="order-card-delete-modal-cancel"]').click()
@@ -2305,12 +2181,11 @@ test.describe('Order Card › delete', () => {
 
 test.describe('Order Card › audit log', () => {
   test('audit section is visible', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
-    await expect(page.locator('[data-test="order-audit"]')).toBeVisible()
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-audit"]')
   })
 
   test('audit delete button opens confirmation modal', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
+    await navigateToAdmin(page, '/admin/orders/ORD-001')
     // `if (count > 0)` здесь пропускал ВСЁ тело, когда кнопка ещё не отрисовалась, и
     // тест проходил, ничего не проверив (#68). У ORD-001 журнал непустой, значит кнопка
     // обязана быть — это утверждение, а не условие.
@@ -2322,8 +2197,7 @@ test.describe('Order Card › audit log', () => {
   })
 
   test('cancel closes audit delete modal', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
-    await expect(page.locator('[data-test="order-audit"]')).toBeVisible()
+    await openAdminPage(page, '/admin/orders/ORD-001', '[data-test="order-audit"]')
     const deleteBtn = page.locator('[data-test="order-audit-delete-btn"]')
     await expect(deleteBtn.first()).toBeVisible()
     await deleteBtn.first().click()
@@ -2339,8 +2213,7 @@ test.describe('Order Card › audit log', () => {
 
 test.describe('Order Create › client selector', () => {
   test('client panel renders with search, list and pagination', async ({ page }) => {
-    await page.goto('/admin/orders/new')
-    await expect(page.locator('[data-test="order-create-client-panel"]')).toBeVisible()
+    await openAdminPage(page, '/admin/orders/new', '[data-test="order-create-client-panel"]')
     await expect(page.locator('[data-test="order-create-client-search"]')).toBeVisible()
     await expect(page.locator('[data-test="order-create-client-list"]')).toBeVisible()
     await expect(page.locator('[data-test="order-create-client-item"]').first()).toBeVisible({
@@ -2350,7 +2223,7 @@ test.describe('Order Create › client selector', () => {
   })
 
   test('client search filters the list', async ({ page }) => {
-    await page.goto('/admin/orders/new')
+    await navigateToAdmin(page, '/admin/orders/new')
     await expect(page.locator('[data-test="order-create-client-item"]').first()).toBeVisible({
       timeout: 5000,
     })
@@ -2366,7 +2239,7 @@ test.describe('Order Create › client selector', () => {
   })
 
   test('selecting a client shows selected indicator', async ({ page }) => {
-    await page.goto('/admin/orders/new')
+    await navigateToAdmin(page, '/admin/orders/new')
     await expect(page.locator('[data-test="order-create-client-item"]').first()).toBeVisible({
       timeout: 5000,
     })
@@ -2383,8 +2256,7 @@ test.describe('Order Create › client selector', () => {
    * заказа не дотягивается.
    */
   test("selecting a client pulls in that client's own payment terms", async ({ page }) => {
-    await page.goto('/admin/orders/new')
-    await waitForDataReady(page)
+    await navigateToAdmin(page, '/admin/orders/new')
     const items = page.locator('[data-test="order-create-client-item"]')
     const terms = page.locator('[data-test="order-create-client-payment-terms"]')
     await expect(items.first()).toBeVisible()
@@ -2421,8 +2293,7 @@ test.describe('Order Create › client selector', () => {
    * и ни одна спека не краснела.
    */
   test('the saved order carries the terms its client was picked with', async ({ page }) => {
-    await page.goto('/admin/orders/new')
-    await waitForDataReady(page)
+    await navigateToAdmin(page, '/admin/orders/new')
     const items = page.locator('[data-test="order-create-client-item"]')
     const terms = page.locator('[data-test="order-create-client-payment-terms"]')
     await expect(items.first()).toBeVisible()
@@ -2445,10 +2316,7 @@ test.describe('Order Create › client selector', () => {
   })
 
   test('new client search shows empty state for no results', async ({ page }) => {
-    await page.goto('/admin/orders/new')
-    // Переход и сразу действие: без этого ожидания тест зависит от того,
-    // успела ли страница подняться, а этого он не контролирует.
-    await waitForDataReady(page)
+    await navigateToAdmin(page, '/admin/orders/new')
     await page.locator('[data-test="order-create-client-search"] input').fill('zzz-no-match')
     await expect(page.locator('[data-test="order-create-client-empty"]')).toBeVisible()
   })
@@ -2460,13 +2328,11 @@ test.describe('Order Create › client selector', () => {
 
 test.describe('Orders i18n', () => {
   test('orders list page renders with title', async ({ page }) => {
-    await page.goto('/admin/orders')
-    await expect(page.locator('h1')).toBeVisible()
+    await openAdminPage(page, '/admin/orders', 'h1')
   })
 
   test('order card page renders', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
-    await expect(page.locator('h1.page-title')).toBeVisible()
+    await openAdminPage(page, '/admin/orders/ORD-001', 'h1.page-title')
   })
 })
 
@@ -2481,10 +2347,7 @@ test.describe('Add item modal', () => {
   }
 
   test('the price column quotes the price the line will be sold at', async ({ page }) => {
-    await page.goto('/admin/orders/ORD-001')
-    // Переход и сразу действие: без этого ожидания тест зависит от того,
-    // успела ли страница подняться, а этого он не контролирует.
-    await waitForDataReady(page)
+    await navigateToAdmin(page, '/admin/orders/ORD-001')
     await page.locator('[data-test="order-add-item-btn"]').click()
     const modal = page.locator('[data-test="add-order-items-modal"]')
     await expect(modal).toBeVisible()
