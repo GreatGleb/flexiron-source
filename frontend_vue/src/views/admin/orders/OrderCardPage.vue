@@ -1580,14 +1580,18 @@ onMounted(loadShipments)
           <div v-if="order && order.items.length === 0" class="empty-state-inline">
             <p>{{ t('orders.items_empty') }}</p>
           </div>
-          <div v-else-if="order" class="data-table-wrapper">
+          <div v-else-if="order" class="data-table-wrapper order-lines-wrapper">
             <table class="data-table order-lines-table">
               <thead>
                 <tr>
                   <th>{{ t('orders.col_line') }}</th>
                   <th>{{ t('orders.col_product') }}</th>
                   <th>{{ t('orders.col_unit') }}</th>
-                  <th v-for="cell in LINE_CELLS" :key="cell.field" class="num">
+                  <th
+                    v-for="cell in LINE_CELLS"
+                    :key="cell.field"
+                    :class="['num', `cell-${cell.field}`]"
+                  >
                     {{ t(cell.label) }}
                   </th>
                   <th v-if="canSeeCost" class="num">{{ t('orders.col_margin_amount') }}</th>
@@ -1622,7 +1626,7 @@ onMounted(loadShipments)
                   <td
                     v-for="cell in LINE_CELLS"
                     :key="cell.field"
-                    class="num"
+                    :class="['num', `cell-${cell.field}`]"
                     :data-test="'cell-' + cell.field"
                   >
                     <span class="cell-wrap">
@@ -1748,12 +1752,16 @@ onMounted(loadShipments)
           <div v-if="order && order.services.length === 0" class="empty-state-inline">
             <p>{{ t('orders.services_empty') }}</p>
           </div>
-          <div v-else-if="order" class="data-table-wrapper">
+          <div v-else-if="order" class="data-table-wrapper order-lines-wrapper">
             <table class="data-table order-lines-table">
               <thead>
                 <tr>
                   <th>{{ t('orders.col_service') }}</th>
-                  <th v-for="cell in LINE_CELLS" :key="cell.field" class="num">
+                  <th
+                    v-for="cell in LINE_CELLS"
+                    :key="cell.field"
+                    :class="['num', `cell-${cell.field}`]"
+                  >
                     {{ t(cell.label) }}
                   </th>
                   <th v-if="canSeeCost" class="num">{{ t('orders.col_margin_amount') }}</th>
@@ -1773,7 +1781,7 @@ onMounted(loadShipments)
                   <td
                     v-for="cell in LINE_CELLS"
                     :key="cell.field"
-                    class="num"
+                    :class="['num', `cell-${cell.field}`]"
                     :data-test="'cell-' + cell.field"
                   >
                     <span class="cell-wrap">

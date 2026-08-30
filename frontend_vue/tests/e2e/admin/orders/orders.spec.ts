@@ -1,7 +1,7 @@
 import type { Locator, Page } from '@playwright/test'
-import { test, expect } from '../../fixtures'
+import { test, testWithFlags, expect } from '../../fixtures'
 import { enableAllFlags, setFlag } from '../../helpers/flags'
-import { openAdminCard } from '../../helpers/admin'
+import { openAdminCard, switchLanguage } from '../../helpers/admin'
 import { waitForDataReady } from '../../helpers/ready'
 
 /** Число дней из подписи условий оплаты — «Payment terms: 30 days» → 30. */
@@ -1447,6 +1447,81 @@ test.describe('Order Card › shipments', () => {
     await expect(page.locator('[data-test="order-shipments"]')).toHaveCount(0)
     await expect(page.locator('[data-test="order-ship-btn"]')).toHaveCount(0)
   })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Order Card — таблица позиций влезает по ширине (пункт 9б)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Язык переключает сам тест, поэтому фикстура без замка языка: обычный `test`
+ * ставит `flexiron_lang = 'en'` init-скриптом на КАЖДУЮ загрузку и возвращает
+ * английский после reload.
+ *
+ * Русский здесь не для полноты — он и есть условие задачи. Замерено: при
+ * английских подписях таблица ORD-004 помещалась и ДО правки, а переполнение
+ * давали именно русские шапки. Тест на английском прошёл бы по сломанному коду.
+ *
+ * Заказ ORD-100 — «тот, который показывает всё»: двенадцать столбцов, бейджи и
+ * кнопки у полей ввода. Он и был худшим случаем — 1241 px на 1062 доступных.
+ * Проверять на обычном заказе бессмысленно: тот влезал и раньше.
+ */
+testWithFlags.describe('Order Card › ширина таблицы позиций', () => {
+  /**
+   * Языков ДВА, и это не для полноты.
+   *
+   * Русский — требование пункта: «при 1440 и русском языке видны все столбцы».
+   * Литовский — настоящий худший случай, и без него тест почти ничего не сторожит.
+   * Замерено по точке слома (бинарный поиск по ширине окна, ORD-100):
+   *
+   *   рычаг убран        по-русски влезает с   по-литовски влезает с
+   *   ничего не убрано          1387                  1407
+   *   без выпуска               1427                  1447   ← 1440 уже мало
+   *   без ширин полей           1435                  1442   ← 1440 уже мало
+   *   без отступа 6             1531                  1551
+   *
+   * То есть по-русски любой ОДИН рычаг можно убрать, и таблица всё равно влезет:
+   * тест на одном русском краснел бы только на отступе и молчал бы про два других
+   * механизма. По-литовски нужны все три. Проверено инверсией по каждому.
+   */
+  for (const lang of ['ru', 'lt'] as const) {
+    testWithFlags(`при 1440 и языке ${lang} таблица влезает целиком`, async ({ page }) => {
+      await page.setViewportSize({ width: 1440, height: 900 })
+      await enableAllFlags(page.context())
+      await page.goto('/admin/orders/ORD-100')
+      await page.waitForSelector('[data-test="order-item-row"]')
+      await switchLanguage(page, lang)
+
+      const wrapper = page.locator('[data-test="order-items"] .data-table-wrapper')
+      await expect(wrapper.locator('tbody tr').first()).toBeVisible()
+
+      // Язык действительно применился — иначе мерили бы английскую таблицу, а она
+      // влезала и до правки, и тест был бы зелен по сломанному коду.
+      await expect(page.locator('[data-test="order-items"] thead th').nth(1)).toHaveText(
+        lang === 'ru' ? 'Товар' : 'Prekė',
+      )
+
+      const m = await wrapper.evaluate((w) => {
+        const last = w.querySelector('tbody tr')?.lastElementChild
+        return {
+          over: w.scrollWidth - w.clientWidth,
+          clipped: [...w.querySelectorAll('input.cell-input')].filter(
+            (i) => (i as HTMLInputElement).scrollWidth > i.clientWidth + 1,
+          ).length,
+          actionsInside: last
+            ? last.getBoundingClientRect().right <= w.getBoundingClientRect().right + 1
+            : false,
+        }
+      })
+
+      // Ни горизонтальной прокрутки…
+      expect(m.over).toBe(0)
+      // …ни обрезанных чисел в полях: «влезло» не должно означать «сплющено»…
+      expect(m.clipped).toBe(0)
+      // …и столбец действий виден, а не уехал за край.
+      expect(m.actionsInside).toBe(true)
+    })
+  }
 })
 
 // ═══════════════════════════════════════════════════════════════════════════
