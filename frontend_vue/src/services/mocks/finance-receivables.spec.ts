@@ -16,6 +16,7 @@ import {
   mockCreateInvoice,
   mockCreateOrder,
   mockGetOrder,
+  mockOrderScenarios,
   orderReceivables,
 } from './orders'
 import { mockGetPayments, mockGetReceivables } from './finance'
@@ -57,6 +58,28 @@ function orderWithLine(client = clientWithTerms()) {
 
 function rowFor(invoiceId: string) {
   return orderReceivables().find((r) => r.id === invoiceId)
+}
+
+/**
+ * Заказы, которых засев документов (пункт 6) КАСАЕТСЯ.
+ *
+ * Сценарные и показательный он не трогает: они демонстрируют точные состояния, и их
+ * числа документов пиноют другие тесты. Считать по всему стору нельзя — сценарные сами
+ * дают и «счёт закрыт», и «счёта нет», и утверждение выполнялось бы, даже если засев
+ * выключить или, наоборот, выписать документы всем подряд. Проверено инверсией: на
+ * полном сторе оба перекоса проходили молча.
+ */
+function seededOrders() {
+  const reserved = new Set(mockOrderScenarios().map((sc) => sc.id))
+  reserved.add('ORD-100')
+  const out = []
+  for (let i = 1; i <= 100; i++) {
+    const id = `ORD-${String(i).padStart(3, '0')}`
+    if (reserved.has(id)) continue
+    const order = mockGetOrder(id)
+    if (order) out.push(order)
+  }
+  return out
 }
 
 describe('строка реестра — это счёт заказа', () => {
@@ -237,6 +260,85 @@ describe('карточка заказа и реестр показывают о�
     expect(row.outstandingAmount).toBe(600)
     // И следующая оплата предлагается по тому же документу на остаток.
     expect(whatTheDialogOffers(order.id)).toEqual({ invoiceId: invoice.id, amount: 600 })
+  })
+
+  /**
+   * Пункт 6: у доли отгруженных заказов есть документы, и все ТРИ состояния на месте.
+   *
+   * Было: секция «Выставленные счета» пуста у 43 клиентов из 55, настоящие счета — ровно
+   * у одного. Решение владельца — выписывать документы ДОЛЕ отгруженных, а не всем:
+   * «отгружено, а счёт ещё не выписан» — законное состояние, которое модуль умеет
+   * показывать, и стереть его значило бы украсить демо-данные вместо того, чтобы их
+   * наполнить.
+   *
+   * Утверждается не «стало больше», а наличие каждого состояния. «Больше» ловится
+   * простым перекосом в любую сторону: выписать всем — тоже больше, и тоже неверно.
+   */
+  it('у отгруженных заказов есть все три состояния документа', () => {
+    let сСчётомОплачен = 0
+    let сСчётомДолг = 0
+    let безСчёта = 0
+
+    for (const order of seededOrders()) {
+      if (!order.shipments.some((sh) => !sh.cancelled)) continue
+
+      const live = order.invoices.filter((inv) => inv.kind !== 'correction')
+      if (live.length === 0) {
+        безСчёта++
+        continue
+      }
+      const paid = order.payments
+        .filter((pay) => pay.invoiceId !== null)
+        .reduce((sum, pay) => sum + pay.amount, 0)
+      if (paid > 0) сСчётомОплачен++
+      else сСчётомДолг++
+    }
+
+    expect(сСчётомОплачен).toBeGreaterThan(0)
+    expect(сСчётомДолг).toBeGreaterThan(0)
+    expect(безСчёта).toBeGreaterThan(0)
+  })
+
+  /**
+   * И деньги НАЗЫВАЮТ свой документ — проверяется по РЕЕСТРУ, а не по заказу.
+   * Расхождение между ними и есть то, чего этот тест не должен пропустить: прошлый
+   * список ловил ровно это — карточка показывала деньги полученными, а реестр рядом
+   * рисовал по тому же счёту «Просрочен» и «оплачено 0.00».
+   *
+   * Утверждается наличие ОБОИХ исходов среди засеянных счетов: закрытого и открытого.
+   * «Все закрыты» — это «выписать и оплатить всем», то есть тот же перекос, только с
+   * другой стороны.
+   *
+   * Первая версия этого теста утверждала `row.paidAmount >= платёж` для каждого платежа
+   * и упала на настоящем: 1880 против 2000. Причина не в засеве — по тому счёту есть
+   * ВОЗВРАТ, и реестр показывает чистую сумму. Утверждение было неверным, а не данные.
+   */
+  it('засеянные счета видны реестру и закрытыми, и открытыми', () => {
+    let закрытых = 0
+    let открытых = 0
+
+    for (const order of seededOrders()) {
+      for (const invoice of order.invoices) {
+        if (invoice.kind === 'correction') continue
+        const row = rowFor(invoice.id)
+        if (!row) continue
+        // Реестр называет ту же сумму, что документ, — до копейки. Но только у
+        // НЕскорректированных: у поправленного строка реестра показывает сумму вместе
+        // с корректировкой, и это не расхождение, а правило (соседний тест
+        // «корректировка поправляет сумму счёта, а своей строки не заводит»).
+        // Первая версия этого утверждения об исключение и споткнулась: 21246.99
+        // против 21262.12.
+        const corrected = order.invoices.some(
+          (other) => other.kind === 'correction' && other.correctsInvoiceId === invoice.id,
+        )
+        if (!corrected) expect(row.amount).toBe(invoice.amountGross)
+        if (row.outstandingAmount === 0) закрытых++
+        else открытых++
+      }
+    }
+
+    expect(закрытых).toBeGreaterThan(0)
+    expect(открытых).toBeGreaterThan(0)
   })
 
   it('в демо-сторе нет заказа, чьи деньги реестр не видит, пока его счёт не закрыт', () => {

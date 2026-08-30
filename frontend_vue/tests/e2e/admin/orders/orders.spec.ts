@@ -2101,6 +2101,18 @@ test.describe('Order Card › payments and invoices', () => {
     // Переход по ссылке внутри приложения, а не `goto`: полная загрузка пересобрала
     // бы моки из сидов, и проверять было бы нечего (питфолл #66).
     await page.click('[data-test="sidebar-nav-finance"]')
+
+    /*
+     * Найти строку ПОИСКОМ, а не рассчитывать, что она окажется на первой странице.
+     *
+     * Раньше здесь стояло просто ожидание строки: реестр был короткий, и она была
+     * видна сразу. С пунктом 6 документы появились у доли отгруженных заказов, реестр
+     * подрос, и строка уехала на другую страницу — тест покраснел не потому, что
+     * сломалось поведение, а потому что держался на неявном допущении о длине списка.
+     * Это питфолл #66 наоборот: присутствие проверялось там, где оно перестало быть
+     * видимым.
+     */
+    await page.fill('[data-test="finance-search-input"]', invoiceNumber)
     const row = page.locator('[data-test="finance-receivable-row"]', { hasText: invoiceNumber })
     await expect(row).toHaveCount(1)
     await expect(row.locator('[data-test="receivable-paid"]')).toContainText('500.00')
