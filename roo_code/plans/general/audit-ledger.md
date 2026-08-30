@@ -23,7 +23,7 @@
 ## Прогресс
 
 
-**Проверено 0 из 89.** По доменам ниже.
+**Проверено 6 из 89.** По доменам ниже.
 
 
 ### warehouse — 42
@@ -31,22 +31,22 @@
 
 | ✓ | Файл | Унаследовано | Чем доказано |
 |---|---|---|---|
-| ⬜ | `add-action-buttons-to-warehouse-tabs.md` | частично — тулбар и экспорт есть, часть кнопок плана — нет | |
+| ✅ | `add-action-buttons-to-warehouse-tabs.md` | частично — тулбар и экспорт есть, часть кнопок плана — нет | есть Export, New Batch, New Offcut, Page Config; **нет** New Stock Item, New Movement, Add to Deficit — остаток реален |
 | ⬜ | `add-batch-auditlog-mock-data.md` | частично (скептик) — 12 блоков `auditLog` есть, но с таблицей плана не сходятся — типы записей другие | |
-| ⬜ | `add-batch-card-currency-selector.md` | частично — тип, форма и композабл есть, часть плана не закрыта | |
+| 📦 | `add-batch-card-currency-selector.md` | частично — тип, форма и композабл есть, часть плана не закрыта | `currency: string` в `types/warehouse.ts:103`, 7 вхождений в композабле, 26 в моке, селектор в `WarehouseBatchCard.vue:778–783` |
 | ⬜ | `add-batch-mock-files.md` | частично (скептик) — количество файлов сходится, тип каждого документа — нет (расхождение в трёх местах) | |
-| ⬜ | `add-deficit-tab-sorting.md` | частично — сортировка и композабл есть, часть плана — нет | |
-| ⬜ | `add-movement-type-hints-in-dropdown.md` | частично (скептик) — правила `.option-hint { font-size: 11px }` в `_custom-select.css` нет | |
+| 📦 | `add-deficit-tab-sorting.md` | частично — сортировка и композабл есть, часть плана — нет | `deficitSort` в `useWarehouse.ts:166`, уходит в API (289–290), тоггл 552; индикаторы в UI `WarehousePage.vue:3402–3412`; мок сортирует `mocks/warehouse.ts:1636–1643` |
+| 📦 | `add-movement-type-hints-in-dropdown.md` | частично (скептик) — правила `.option-hint { font-size: 11px }` в `_custom-select.css` нет | вердикт был ложным: `.option-hint` стилизован в `styles/admin/components/_custom-select.css:75` (инвентаризация искала в `styles/components/`), span в `CustomSelect.vue:85`, 45 ключей подсказок |
 | ⬜ | `add-offcut-movements.md` | частично — есть всё, кроме переводов примечаний | |
 | ⬜ | `auto-create-movement-on-location-change.md` | частично — шаги 1, 3, 5 сделаны, шаги 2 и 4 — нет | |
 | ⬜ | `auto-create-movement-on-offcut-location-change.md` | частично — шаг 1 перевыполнен, остальные шаги не закрыты | |
-| ⬜ | `correction-behavior-refinement.md` | частично (скептик) — нет красной подсказки под полем при отрицательном значении (Problem #2) | |
+| 📦 | `correction-behavior-refinement.md` | частично (скептик) — нет красной подсказки под полем при отрицательном значении (Problem #2) | отрицательное количество даёт ошибку под полем — `CreateMovementModal.vue:272` `e.quantity = t('validation.min')`, и форма блокируется (298) |
 | ⬜ | `enhance-movement-modal-with-batch-summary.md` | частично — размер, пропсы и секция сводки есть, часть плана — нет | |
 | ⬜ | `extract-batch-location-section.md` | частично (скептик) — секция и i18n на месте, но Edge Case плана не обработан | |
 | ⬜ | `extract-offcut-location-section.md` | частично (скептик) — шаблон и форма есть, Edge Case 3 (пустые rack/row/cell) не обработан | |
 | ⬜ | `fix-batch-count-inconsistency.md` | частично (скептик) — две записи существуют, но соответствие цифрам плана не доказано | |
 | ⬜ | `fix-entity-card-links-plan.md` | частично (скептик) — файлы, роуты и ключи есть, содержание карточек не сверено | |
-| ⬜ | `fix-export-functionality.md` | частично — обвязка экспорта есть целиком, часть плана — нет | |
+| 📦 | `fix-export-functionality.md` | частично — обвязка экспорта есть целиком, часть плана — нет | `exportWarehouseData()` — `warehouseService.ts:262`, эндпойнт `/api/warehouse/export/${tab}` с params; `WarehousePage.vue:326` передаёт фильтры. Все три требования плана закрыты |
 | ⬜ | `fix-offcut-movement-deficit-not-found.md` | частично — шаг 2 сделан целиком, остальные шаги — нет | |
 | ⬜ | `fix-offcuts-type-column.md` | частично — все шесть файловых правок есть; 10 чекбоксов открыты | |
 | ⬜ | `fix-warehouse-phase2-bugs-remaining-tabs.md` | частично — шаги 1–4 сделаны, дальше — нет | |
