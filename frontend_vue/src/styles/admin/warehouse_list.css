@@ -763,11 +763,6 @@ textarea.batch-notes-input {
 
 /* ─── Table horizontal scroll ─────────────────────────────────────────────── */
 
-.data-table-wrapper {
-  overflow-x: auto;
-  overflow-y: visible;
-}
-
 @media (max-width: 480px) {
   .page-warehouse .data-table th,
   .page-warehouse .data-table td {

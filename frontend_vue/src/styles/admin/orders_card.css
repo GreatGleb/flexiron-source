@@ -306,13 +306,8 @@
   opacity: 1;
 }
 
-/* ─── Data table wrapper ─────────────────────────────────────
-   Both order pages rely on this and neither imported a file that defines it —
-   the rule lived only in other pages' CSS (pitfall #63). */
-.data-table-wrapper {
-  overflow-x: auto;
-  overflow-y: visible;
-}
+/* Обёртка таблицы объявлена один раз, в `components/_tables.css` — питфолл #63
+   решён домом, а не копией на каждой странице. */
 
 /* ─── Empty state inline ────────────────────────────────────── */
 .empty-state-inline {

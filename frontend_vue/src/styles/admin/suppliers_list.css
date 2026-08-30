@@ -819,27 +819,6 @@
   }
 }
 
-.pill-success {
-  background: rgba(82, 196, 26, 0.2);
-  color: #52c41a;
-}
-.pill-info {
-  background: rgba(24, 144, 255, 0.2);
-  color: #1890ff;
-}
-.pill-mint {
-  background: rgba(0, 210, 180, 0.2);
-  color: #00d2b4;
-}
-.pill-warning {
-  background: rgba(250, 173, 20, 0.2);
-  color: #faad14;
-}
-.pill-danger {
-  background: rgba(255, 77, 79, 0.2);
-  color: #ff4d4f;
-}
-
 /* Tags */
 .tag-sm {
   font-size: 11px;
@@ -915,13 +894,6 @@
 /* Hidden utility */
 .hidden {
   display: none !important;
-}
-
-/* Table responsive */
-.data-table-wrapper {
-  width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
 }
 
 /* Table wrapper - 320px */
