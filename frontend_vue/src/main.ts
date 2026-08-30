@@ -8,11 +8,18 @@ import { vTooltip } from './composables/useTooltip'
 import '@styles/erp-base.css'
 import '@styles/public/public.css'
 /*
- * Полосы прокрутки для Firefox — здесь, а не в `admin-core.scss`, потому что тот
- * подключается из `AdminLayout` и до публичных страниц не достаёт, а прокручиваемая
- * область есть и там (`.terms-content`). Правила внутри включаются признаком, который
- * ставит проба ниже; Chrome признака не получает и файла не замечает.
+ * Полосы прокрутки — ОБА движка и на всё приложение.
+ *
+ * Здесь, а не в `admin-core.scss`, потому что тот подключается из `AdminLayout` и до
+ * публичных страниц не достаёт, а прокручиваемая область есть и там (`.terms-content`).
+ * Раньше так стоял только firefox-файл, а webkit-правила лежали в
+ * `admin/utilities/_global.css` — и охват движков расходился: на публичной странице
+ * Firefox полосу красил, Chrome нет. Решение владельца 2026-08-30 — красят оба и везде.
+ *
+ * Firefox-правила внутри включаются признаком, который ставит проба ниже; Chrome
+ * признака не получает и того файла не замечает.
  */
+import '@styles/scrollbars-webkit.css'
 import '@styles/scrollbars-firefox.css'
 
 /*
@@ -43,7 +50,7 @@ import '@styles/scrollbars-firefox.css'
  * даёт и Chrome, и Firefox, и такая проверка соврала бы на обоих.
  *
  * Специфичность пробы (класс + псевдоэлемент) выше глобального `::-webkit-scrollbar` из
- * `utilities/_global.css`, поэтому наши же 6px замер не искажают.
+ * `scrollbars-webkit.css`, поэтому наши же 6px замер не искажают.
  */
 const WEBKIT_PROBE_WIDTH = 24
 

@@ -1,0 +1,37 @@
+/* --- ПОЛОСЫ ПРОКРУТКИ ДЛЯ WEBKIT --- */
+
+/* Пара к `scrollbars-firefox.css`: то же оформление, другой движок. Оба файла
+   подключаются из `main.ts`, то есть охватывают ВСЁ приложение — и админку, и
+   публичные страницы.
+
+   Раньше эти четыре правила лежали в `admin/utilities/_global.css`, который
+   приходит через `admin-core.scss` из `AdminLayout` и до публичных страниц не
+   достаёт. Правила для Firefox при этом всегда шли из `main.ts`. Охват движков
+   разошёлся: на публичной странице Firefox красил полосу, а Chrome — нет.
+   Владелец решил 2026-08-30: красят оба и везде.
+
+   Порядок впрыска у этого файла теперь РАНЬШЕ, чем был у `_global.css`, и это
+   безопасно: все прочие webkit-правила проекта привязаны к классам
+   (`.nav`, `.main`, `.sub-nav` в `erp-base.css`, `.terms-content` в
+   `public/terms.css`, `.request-history-table`, `.field-library-list`), то есть
+   специфичнее голого псевдоэлемента и выигрывают независимо от порядка.
+
+   Дорожки местами расходятся (`rgba(0,0,0,.2)` здесь, `rgba(255,255,255,.05)` в
+   двух местах) — разница не осмысленная, а накопившаяся, и сводить её отдельной
+   задачей. */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(24, 144, 255, 0.5);
+  border-radius: 10px;
+  transition: 0.3s;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(24, 144, 255, 0.7);
+}
