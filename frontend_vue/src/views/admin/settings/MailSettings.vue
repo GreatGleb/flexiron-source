@@ -17,7 +17,7 @@ const settings = inject<AppSettings>('settings')!
 const updateMail =
   inject<(patch: Partial<Omit<MailServerSettings, 'passwordSet'>>) => void>('updateMail')!
 const mailPassword = inject<Ref<string>>('mailPassword')!
-const isDirty = inject<Ref<boolean>>('isDirty')!
+const isSectionDirty = inject<(key: 'mail') => boolean>('isSectionDirty')!
 const setMailPassword = inject<(value: string) => void>('setMailPassword')!
 
 const encryptionOptions = computed(() =>
@@ -58,12 +58,13 @@ const configured = computed(() => isMailConfigured(settings.mail))
  * вовсе — назвать черновик значило бы соврать о получателе, а тост потом
  * показал бы другой адрес.
  *
- * `isDirty` общий на все разделы настроек: правка в «Компании» тоже спрячет
- * адрес. Это осторожнее, чем необходимо, зато не врёт никогда.
+ * Спрашивается именно ПОЧТА, а не настройки вообще: с общим `isDirty` правка
+ * названия компании гасила бы адрес в чужом разделе, и признак «адрес виден до
+ * нажатия» переставал выполняться там, где почту никто не трогал.
  */
 const testTarget = computed(() => {
   if (!settings.mail.fromEmail) return t('settingsMail.test_no_sender')
-  if (isDirty.value) return t('settingsMail.test_target_stale')
+  if (isSectionDirty('mail')) return t('settingsMail.test_target_stale')
   return t('settingsMail.test_target', { email: settings.mail.fromEmail })
 })
 

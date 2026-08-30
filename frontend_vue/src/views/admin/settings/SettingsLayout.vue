@@ -36,6 +36,7 @@ const {
   saving,
   error,
   isDirty,
+  isSectionDirty,
   load,
   save,
   discard,
@@ -132,9 +133,11 @@ function onTabClick(tabPath: string) {
 provide('settings', settings)
 provide('loading', loading)
 provide('saving', saving)
-/* Несохранённые правки: их видит не только полоса сохранения. Проверка почты
-   уходит на сохранённые настройки, и ей нужно знать, разошёлся ли черновик. */
-provide('isDirty', isDirty)
+/* Несохранённые правки ПО РАЗДЕЛАМ: их видит не только полоса сохранения.
+   Проверка почты уходит на сохранённые настройки, и ей нужно знать, разошлась
+   ли почта — не настройки вообще. Общий `isDirty` тут не годится: правка
+   названия компании гасила бы адрес в чужом разделе. */
+provide('isSectionDirty', isSectionDirty)
 provide('save', save)
 provide('updateProfile', updateProfile)
 provide('updateCompany', updateCompany)

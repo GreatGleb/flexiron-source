@@ -66,7 +66,14 @@ test.describe('followups №1 · пункт 1 · зазор между кноп�
     expect(wrap).toBe('wrap')
   })
 
-  test('обе кнопки влезают в панель на 320px и в русском языке', async ({ page }) => {
+  /*
+   * Сторож переполнения на будущее, а НЕ доказательство правки пункта 1: при
+   * полном откате правки он остаётся зелёным — проверено и инверсией, и приёмкой,
+   * которая откатила обе страницы целиком и получила его среди прошедших. При
+   * нынешних подписях пара влезает в строку и без общей обёртки. Ценность у него
+   * другая: третья кнопка или подпись подлиннее сделают его красным.
+   */
+  test('кнопки не вылезают за панель на 320px — сторож переполнения', async ({ page }) => {
     await setLang(page, 'ru')
     await page.setViewportSize({ width: 320, height: 900 })
     await page.goto('/admin/warehouse/batches/whb-100')
@@ -147,6 +154,33 @@ test.describe('followups №1 · пункт 3 · куда уйдёт тесто�
     await expect(page.locator('.toast-container .toast.show').last()).toContainText(
       'brand-new@example.com',
     )
+  })
+
+  test('правка чужого раздела настроек не гасит адрес почты', async ({ page }) => {
+    await setLang(page, 'en')
+    const line = page.locator('[data-test="settings-mail-test-target"]')
+    const tab = (name: string) =>
+      page.locator(`[data-test="settings-tabs"] .warehouse-tab:has-text("${name}")`)
+
+    await page.goto('/admin/settings/mail')
+    const saved = await page.locator('[data-test="settings-mail-from-email"]').inputValue()
+    await expect(line).toHaveText(`The email will be sent to ${saved}`)
+
+    // Переходы кликом, а не page.goto: goto перезагружает страницу и стирает
+    // несохранённое — с ним премисса теста не выполнялась вовсе, и он оставался
+    // зелёным даже при возврате к общему признаку. Найдено инверсией.
+    await tab('Company').click()
+    const company = page.locator('[data-test="settings-company-name"]')
+    await expect(company).toBeVisible()
+    await company.fill('Flexiron UABX')
+    await expect(page.locator('.btn-save')).toBeEnabled()
+
+    await tab('Mail').click()
+    await expect(page.locator('[data-test="settings-mail-from-email"]')).toBeVisible()
+    // Премисса: правка «Компании» жива. Без неё утверждение ниже ничего не значит.
+    await expect(page.locator('.btn-save')).toBeEnabled()
+    // Почта с сервером не разошлась — адрес обязан остаться названным.
+    await expect(line).toHaveText(`The email will be sent to ${saved}`)
   })
 
   test('пустой отправитель: письмо не уходит, кнопка объясняет почему', async ({ page }) => {

@@ -115,14 +115,44 @@ function markDirty(section: string) {
 //   dirtySections.clear()
 // }
 
+/**
+ * Версия снимка. Сам `snapshot` — обычная переменная, и вычислимые о его замене
+ * не узнают: сравнение с ним читается, но зависимостью не становится.
+ *
+ * Без версии ломается ровно один сценарий, и он не теоретический: после
+ * сохранения `settings.mail = saved` пересчитывает вычислимое СРАЗУ, ещё со
+ * старым снимком, оно кеширует «раздел грязный» — и `takeSnapshot()` следом
+ * сбросить его уже нечем. Адрес почты после сохранения не возвращался.
+ */
+const snapshotVersion = ref(0)
+
 function takeSnapshot() {
   snapshot = JSON.parse(JSON.stringify(settings)) as AppSettings
+  snapshotVersion.value++
 }
 
 /** Deep-diff a simple (non-array) section */
 function sectionChanged(key: keyof AppSettings): boolean {
   if (!snapshot) return false
   return JSON.stringify(settings[key]) !== JSON.stringify(snapshot[key])
+}
+
+/**
+ * Есть ли несохранённые правки в ОДНОМ разделе.
+ *
+ * То же условие, по которому `save()` решает, слать ли этот раздел на сервер, —
+ * и это не совпадение: вопрос «разошёлся ли черновик с сервером» один, и ответ
+ * на него должен быть один. Отдельно от `isDirty` понадобилось проверке почты:
+ * она обязана знать, разошлась ли ПОЧТА, а не настройки вообще, иначе правка
+ * названия компании гасит адрес в чужом разделе.
+ *
+ * Три зависимости, и все три нужны: `dirtySections` — reactive Set, `settings[key]`
+ * читается внутри `sectionChanged`, а замену снимка видно только через
+ * `snapshotVersion` — без него вычислимое застревает на «грязно» после сохранения.
+ */
+function isSectionDirty(key: keyof AppSettings): boolean {
+  void snapshotVersion.value
+  return dirtySections.has(key as string) || sectionChanged(key)
 }
 
 /** Detect added items in a collection (in current but not in original) */
@@ -648,6 +678,7 @@ export function useSettings() {
     saving,
     error,
     isDirty,
+    isSectionDirty,
     load,
     reload,
     save: _save,
