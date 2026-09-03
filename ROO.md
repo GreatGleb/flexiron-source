@@ -124,7 +124,12 @@ Explore agent gives structural overview — it does not replace targeted verific
   вертикальных слайсов (auth ×4, products ×2, settings ×2). То есть схема заложена, а
   эндпоинтов почти нет. Модуля `orders` нет вовсе: `billing` — это тарифы SaaS (plans,
   tenant_plans, feature_definitions), а не заказы клиентов.
-- **API-контракт:** `roo_code/roo-context/03-api-contract.md` — единственный живой.
+- **API-контракт:** переводится в `roo_code/roo-context/api/<домен>.md` — по файлу на домен,
+  плюс `00-conventions.md`. Сверка с кодом машинная: `contract-conformance.spec.ts` внутри
+  `npm run test:unit`, состояние печатается строкой `[контракт] сведено доменов: …`. План работы
+  и порядок фаз — [`roo_code/plans/api/contract-sync-plan.md`](roo_code/plans/api/contract-sync-plan.md).
+  Пока сверка не закончена, `roo_code/roo-context/03-api-contract.md` остаётся на месте как
+  источник для переноса — но он устарел, и читать его без сверки с кодом нельзя.
   Файла `toDo/admin-api-contract.md`, на который тут ссылались раньше, в репозитории нет.
 
 ### Key Directories
@@ -173,6 +178,7 @@ Use this matrix to determine which skill to invoke for any given task. **Read th
 | After all bugs fixed — root cause analysis and skill improvement | **update-skills** — finds gaps in create-page/create-plan/vue-rules and closes them | [`update-skills.md`](roo_code/skills/update-skills.md) |
 | Any verification of written code — after a phase, after a fix, before a merge | **verify** — цикл проверок: машинная приёмка + 10 линз, до чистого свипа или 30 итераций | [`verify.md`](roo_code/skills/verify.md) |
 | Adding a FastAPI backend feature inside an existing module | **create-api-feature** — schemas → repository → domain → action | [`create-api-feature.md`](roo_code/skills/create-api-feature.md) |
+| Writing or checking a section of the API contract for the backend | **api-contract** — порядок чтения кода, формат раздела, линзы К1–К7, свой цикл | [`api-contract.md`](roo_code/skills/api-contract.md) |
 | Writing Vue 3 code, adding `:class` bindings, editing mocks, building forms, adding pages/components, refactoring, choosing HTTP methods, debugging CSS/reactivity | **vue-rules** — полный список питфоллов + save UX + HTTP methods + contract-first rules | [`vue-rules.md`](roo_code/skills/vue-rules.md) |
 
 ---
@@ -236,7 +242,20 @@ When user mentions a page, bugs, work stage, section, or task continuation — *
 | `/update-skills <plan>` | [`update-skills.md`](roo_code/skills/update-skills.md) | For each ✅ bug find root cause → add to skills |
 | `/verify` | [`verify.md`](roo_code/skills/verify.md) | Цикл проверок — машинная приёмка + 10 линз, выход только по чистому свипу (лимит 30 итераций) |
 | `/create-api-feature` | [`create-api-feature.md`](roo_code/skills/create-api-feature.md) | Backend feature: schemas → repository → domain → action |
+| `/api-contract <домен>` | [`api-contract.md`](roo_code/skills/api-contract.md) | Раздел контракта для бэкенда по коду: аудит → контракт → линзы К1–К7 |
 | `/vue-rules` | [`vue-rules.md`](roo_code/skills/vue-rules.md) | Vue 3 pitfalls and rules (полный список) |
+
+## Воркфлоу
+
+Скрипты прогонов живут в `roo_code/workflows/`, Claude Code видит их через симлинки в
+`.claude/workflows/`. Скил описывает, КАК делать одну задачу; воркфлоу — кто и в каком порядке
+раздаёт задачи, где коммиты, когда стоп.
+
+| Скрипт | Что гоняет |
+|---|---|
+| [`implement-followups.js`](roo_code/workflows/implement-followups.js) | пункты `review-followups.md`: реализация → скептик → коммит |
+| [`inventory-plans.js`](roo_code/workflows/inventory-plans.js) | инвентаризация планов: что из них уже в коде |
+| [`contract-sync.js`](roo_code/workflows/contract-sync.js) | сверка API-контракта: аудит доменов → соглашения → написание → финал. Скил задачи — [`api-contract.md`](roo_code/skills/api-contract.md), план — [`contract-sync-plan.md`](roo_code/plans/api/contract-sync-plan.md) |
 
 ## MCP Servers
 
