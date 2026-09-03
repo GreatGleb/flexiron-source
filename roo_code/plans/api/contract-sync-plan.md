@@ -335,6 +335,7 @@ settings диапазон разорван: брать его целиком з�
 | правило | где живёт | что теряется |
 |---|---|---|
 | права | матрица `types/config.ts:35-53` + `GET/PUT /api/config/permissions` (домен `config`); три права заказов `seeCost`/`manualCost`/`correction` + `GET /api/settings/order-permissions` (домен `settings`); потребитель `useOrderPermissions.ts` (домен `orders`); модель — §5 контракта заказов | три аудитора видят по фрагменту, и «где сервер применяет матрицу и что отвечает при отказе» не спрашивает никто |
+| фичи и тарифы | бэкенд: `billing/shared/models.py` — `Plan`, `PlanFeature`, `TenantFeatureOverride`, `FeatureDefinition` («single source of truth»), ключи сеются миграцией `8cf3bfa380dd`; фронт: 52 флага константой в `config/featureFlags.ts` + `localStorage` | **эндпоинта между ними нет ни одного**, роутов у `billing` ноль. Ни один доменный аудитор этого не увидит: у фич нет своего домена, они рассыпаны по разделам «Feature Flags» каждой страницы |
 | кастомные поля | определения `FieldDefinition` + `/api/config/fields` + `PUT /api/categories/:id/fields` (домен `config`); значения `fieldValues` у товаров (`types/product.ts`, `mocks/products.ts`) | **жизненного цикла нет нигде**: что со значениями при удалении определения, кто валидирует тип — в `mocks/config.ts` об этом ни строки |
 
 Поэтому сквозные обязанности собирает **задача 19** — та, что пишет `00-conventions.md`, когда все
