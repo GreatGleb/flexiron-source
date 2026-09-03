@@ -74,5 +74,33 @@ The Vue SPA build is deployed via GitHub Pages:
 
 **[Open Flexiron Enterprise Demo](https://greatgleb.github.io/Flexiron-Enterprise/demo/)**
 
+### Deploying a build
+
+`demo/` is the build output (`outDir` in `vite.config.ts`) and is gitignored here — it is
+published from the separate repo `GreatGleb/Flexiron-Enterprise`, whose Pages source is the
+repo root. Hence the base path `/Flexiron-Enterprise/demo/`.
+
+```bash
+cd frontend_vue && npm run build
+rsync -a --delete demo/ ../Flexiron-Enterprise/demo/    # from the source repo root
+cp demo/404.html ../Flexiron-Enterprise/404.html        # see below — do not skip
+cd ../Flexiron-Enterprise && git add -A && git commit -m "build: ..." && git push origin main
+```
+
+The `cp` is not optional. GitHub Pages has no server-side routing: a refresh on any path
+deeper than the base (`/demo/admin/orders`) has no file behind it and returns 404. The fix is
+the pair `public/404.html` (stores the requested path in `sessionStorage`, redirects to the
+base) plus the inline script in `index.html` (restores the path via `history.replaceState`
+before the router initialises). GitHub's docs only guarantee that `404.html` is honoured **at
+the root of the publishing source**, and say nothing about subdirectories — so the copy at the
+repo root is the one that actually works, while `demo/404.html` is just where the build puts it.
+
+`.nojekyll` at that same root is equally load-bearing. GitHub Pages runs the tree through Jekyll
+by default, and Jekyll drops "every file or directory beginning with `.`, `_`, `#` or `~`" — which
+silently ate the CSS chunks Vite names after the `src/styles/**/_*.css` partials (7 of 35 in the
+2026-08-31 build; which ones get their own chunk varies per build, so renaming them is not a fix).
+Both files live outside `demo/`, so `rsync --delete` never touches them — but a fresh clone of the
+demo repo must keep them.
+
 ---
 *Created by GreatGleb for the Flexiron ecosystem.*
