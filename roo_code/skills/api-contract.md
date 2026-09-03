@@ -247,6 +247,27 @@ grep -rn "const [A-Z_]*OPTIONS\|defaultCurrency\|vatRate\|defaultMargin" fronten
 grep -rn "settings\.\(currencies\|uoms\|constants\|conversions\)" frontend_vue/src | grep -v '\.spec\.'
 ```
 
+### Сквозные обязанности домену не принадлежат
+
+Девять граф заполняются по домену — и правило, живущее поперёк доменов, в каждом аудите видно
+только куском. Замерено на двух примерах:
+
+- **права** размазаны по трём доменам: матрица `PermissionMatrix` (`types/config.ts:35-53`) и
+  `GET/PUT /api/config/permissions` — это `config`; три права заказов (`seeCost`, `manualCost`,
+  `correction`) и `GET /api/settings/order-permissions` — `settings`; потребитель
+  `composables/useOrderPermissions.ts` — `orders`. Каждый аудитор увидит свой фрагмент, и вопрос
+  «где сервер применяет матрицу» не задаст никто;
+- **кастомные поля**: определения в `config` (`FieldDefinition`, `/api/config/fields`,
+  `PUT /api/categories/:id/fields`), значения у товаров (`types/product.ts`, `mocks/products.ts` —
+  `fieldValues`), а жизненного цикла нет **нигде** — что делать со значениями при удалении
+  определения, не знает ни мок, ни бэкенд.
+
+Поэтому сквозные обязанности собираются **одной серийной задачей** — той же, что пишет
+`00-conventions.md`, когда все аудиты уже закрыты. Её промпт перечисляет их поимённо с якорями в
+коде: права, кастомные поля, аудит-лог, уведомления, мультиарендность, идемпотентность. Правило,
+которого нет нигде, идёт строкой в `00-решения-владельца.md`, а раздел контракта получает
+`**Статус:** спроектировано`.
+
 Замеренный пример этого класса: `composables/useSettings.ts:27` держит `defaultCurrency: 'EUR'`
 дефолтом состояния, а `components/admin/SupplierFormSections.vue:58-63` — жёсткий список
 `EUR/USD/PLN/GBP`, хотя валютами владеют настройки и пять других мест строят селект из
