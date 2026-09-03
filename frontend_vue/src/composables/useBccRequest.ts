@@ -1,4 +1,4 @@
-import { ref, reactive, watch } from 'vue'
+import { ref, reactive, computed, watch, watchEffect } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   getBccCategories,
@@ -8,33 +8,78 @@ import {
   logBccRequest,
 } from '@/services/bccService'
 import { useTranslatedField } from './useTranslatedData'
+import { useSettings } from './useSettings'
+import { buildBccBody, buildBccSubject, formatBccDate } from '@/domain/bccEmail'
+import type { BccSender } from '@/domain/bccEmail'
 import type { BccCategory, BccRecipient, BccRequest, BccEmailTemplate } from '@/types/bcc'
 import type { TranslatedString } from '@/types/i18n'
+import { isMailConfigured } from '@/types/settings'
 
-const DEFAULT_TEMPLATE: BccEmailTemplate = {
-  subject: {
-    ru: 'Запрос цен — InBox LT',
-    en: 'Price Request — InBox LT',
-    lt: 'Kainų užklausa — InBox LT',
-  },
-  body: {
-    ru: 'Здравствуйте!\n\nПожалуйста, предоставьте текущие цены на следующие позиции:\n\n\nС уважением,\nКоманда InBox LT',
-    en: 'Hello!\n\nPlease provide current prices for the following items:\n\n\nBest regards,\nInBox LT Team',
-    lt: 'Sveiki!\n\nPrašome pateikti dabartines kainas šioms prekėms:\n\n\nPagarbiai,\nInBox LT komanda',
-  },
-  attachments: [],
-}
+const EMPTY_TEXT: TranslatedString = { ru: '', en: '', lt: '' }
 
 export function useBccRequest() {
   const { locale } = useI18n()
   const { tf } = useTranslatedField()
+  const { settings, settled: settingsSettled } = useSettings()
 
   const categories = ref<BccCategory[]>([])
   const recipients = ref<BccRecipient[]>([])
   const history = ref<BccRequest[]>([])
   const selectedProductIds = ref<string[]>([])
 
-  const template = reactive<BccEmailTemplate>({ ...DEFAULT_TEMPLATE, attachments: [] })
+  const template = reactive<BccEmailTemplate>({
+    subject: { ...EMPTY_TEXT },
+    body: { ...EMPTY_TEXT },
+    attachments: [],
+  })
+
+  /**
+   * Подписи позиций, которые попадут в письмо. Их знает страница (она держит
+   * дерево категорий), поэтому она их сюда и кладёт — а собирает письмо один
+   * `domain/bccEmail.ts`, а не оба места по своей копии шаблона.
+   */
+  const emailItems = ref<string[]>([])
+
+  const sender = computed<BccSender>(() => ({
+    companyName: settings.company.name,
+    companyAddress: settings.company.legalAddress,
+    managerName: [settings.profile.firstName, settings.profile.lastName].filter(Boolean).join(' '),
+    managerPhone: settings.profile.phone,
+    managerEmail: settings.profile.email,
+  }))
+
+  /**
+   * Тема и тело пересобираются, как только приходят настройки или меняется
+   * набор позиций: на первом тике настроек ещё нет, и письмо без этого
+   * осталось бы без подписи и без названия компании навсегда.
+   *
+   * `watchEffect`, а не `watch(..., { deep: true })` — питфоллы #36/#37:
+   * deep-watch снимает снимок реактивного прокси и на нём падает.
+   */
+  watchEffect(() => {
+    template.subject = buildBccSubject(sender.value, formatBccDate(new Date().toISOString()))
+    template.body = buildBccBody(sender.value, emailItems.value)
+  })
+
+  /**
+   * Через какой ящик уйдёт письмо. Параметры почтового сервера живут в настройках
+   * (спека 04.2 §6), и BCC-инструмент их только читает — своей копии у него нет.
+   */
+  const mailFrom = computed(() => {
+    const { fromName, fromEmail } = settings.mail
+    if (!fromEmail) return ''
+    return fromName ? `${fromName} <${fromEmail}>` : fromEmail
+  })
+
+  /**
+   * Можно ли вообще отправлять. Правило одно на проект — `isMailConfigured` в
+   * `@/types/settings`; здесь оно не решает за сервер, а объясняет пользователю,
+   * почему кнопка неактивна, до того как он нажмёт.
+   */
+  const mailReady = computed(() => isMailConfigured(settings.mail))
+
+  /** Настройки уже пришли — до этого «не настроено» означает «ещё не спросили». */
+  const mailSettled = settingsSettled
 
   const loading = ref(false)
   const sending = ref(false)
@@ -125,7 +170,8 @@ export function useBccRequest() {
   function resetForm() {
     selectedProductIds.value = []
     recipients.value = []
-    Object.assign(template, { ...DEFAULT_TEMPLATE, attachments: [] })
+    emailItems.value = []
+    template.attachments = []
   }
 
   return {
@@ -134,10 +180,14 @@ export function useBccRequest() {
     history,
     selectedProductIds,
     template,
+    emailItems,
     loading,
     sending,
     error,
     recipientsLocked,
+    mailFrom,
+    mailReady,
+    mailSettled,
     loadCategories,
     loadHistory,
     refreshRecipients,

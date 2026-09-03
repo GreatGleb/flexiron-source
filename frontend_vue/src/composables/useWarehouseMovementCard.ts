@@ -3,6 +3,7 @@ import { useI18n } from 'vue-i18n'
 import { getMovement, deleteMovementAuditEntry } from '@/services/warehouseService'
 import { useToast } from './useToast'
 import { useTranslatedField } from './useTranslatedData'
+import { ensureProductNames } from './useProductNames'
 import type { WarehouseMovement, StockAuditEntry } from '@/types/warehouse'
 
 export function useWarehouseMovementCard(id: string) {
@@ -32,7 +33,7 @@ export function useWarehouseMovementCard(id: string) {
     loading.value = true
     error.value = null
     try {
-      const data = await getMovement(id)
+      const [data] = await Promise.all([getMovement(id), ensureProductNames()])
       movement.value = data
       auditLog.value = data.auditLog
     } catch (e) {

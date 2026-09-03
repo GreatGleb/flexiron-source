@@ -10,7 +10,8 @@ import InputGroup from '@/components/admin/ui/InputGroup.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
 import { useSettings } from '@/composables/useSettings'
 import { useToast } from '@/composables/useToast'
-import type { UomCategory, UomConversion } from '@/types/settings'
+import type { ConversionFormulaType, UomCategory } from '@/types/settings'
+import { CONVERSION_FORMULA_TYPES, isConversionFormulaType } from '@/types/settings'
 import type { TranslatedString } from '@/types/i18n'
 
 import '@styles/admin/components/_entity-card-layout.css'
@@ -35,11 +36,15 @@ const {
   saving,
   error,
   isDirty,
+  isSectionDirty,
   load,
   save,
   discard,
   updateCompany,
   updateConstants,
+  updateMail,
+  mailPassword,
+  setMailPassword,
   addCurrency,
   removeCurrency,
   addUom,
@@ -87,6 +92,12 @@ const SETTINGS_TABS: {
     icon: 'list-status',
   },
   {
+    key: 'mail',
+    path: '/admin/settings/mail',
+    labelKey: 'settingsTabs.mail',
+    icon: 'email',
+  },
+  {
     key: 'logs',
     path: '/admin/settings/logs',
     labelKey: 'settingsTabs.logs',
@@ -122,10 +133,18 @@ function onTabClick(tabPath: string) {
 provide('settings', settings)
 provide('loading', loading)
 provide('saving', saving)
+/* Несохранённые правки ПО РАЗДЕЛАМ: их видит не только полоса сохранения.
+   Проверка почты уходит на сохранённые настройки, и ей нужно знать, разошлась
+   ли почта — не настройки вообще. Общий `isDirty` тут не годится: правка
+   названия компании гасила бы адрес в чужом разделе. */
+provide('isSectionDirty', isSectionDirty)
 provide('save', save)
 provide('updateProfile', updateProfile)
 provide('updateCompany', updateCompany)
 provide('updateConstants', updateConstants)
+provide('updateMail', updateMail)
+provide('mailPassword', mailPassword)
+provide('setMailPassword', setMailPassword)
 provide('addCurrency', addCurrency)
 provide('removeCurrency', removeCurrency)
 provide('addUom', addUom)
@@ -217,7 +236,8 @@ const newConversion = ref<{
   toUomId: string
   type: 'static' | 'dynamic'
   factor: number
-  formulaType: string
+  /** Пусто — формула ещё не выбрана; иначе только имя из справочника формул */
+  formulaType: ConversionFormulaType | ''
 }>({ fromUomId: '', toUomId: '', type: 'static', factor: 1, formulaType: '' })
 const newStatus = ref<{
   name: string
@@ -263,11 +283,19 @@ const uomOptions = computed(() =>
   }),
 )
 
-const FORMULA_TYPE_OPTIONS = computed(() => [
-  { value: 'weight_per_meter', label: t('settingsUom.formula_weight_per_meter') },
-  { value: 'area_to_weight', label: t('settingsUom.formula_area_to_weight') },
-  { value: 'pcs_to_weight', label: t('settingsUom.formula_pcs_to_weight') },
-])
+// Варианты собираются из того же списка, что и тип: формула, добавленная в
+// CONVERSION_FORMULA_TYPES, появляется в форме сама, а не забывается здесь.
+const FORMULA_TYPE_OPTIONS = computed(() =>
+  CONVERSION_FORMULA_TYPES.map((value) => ({
+    value,
+    label: t(`settingsUom.formula_${value}`),
+  })),
+)
+
+/** Селект отдаёт строку — в состояние она попадает, только если это имя формулы */
+function selectFormulaType(value: string) {
+  newConversion.value.formulaType = isConversionFormulaType(value) ? value : ''
+}
 
 // ─── Lifecycle ───
 onMounted(() => {
@@ -361,7 +389,7 @@ function confirmAddConversion() {
       fromUomId: newConversion.value.fromUomId,
       toUomId: newConversion.value.toUomId,
       type: newConversion.value.type,
-      formulaType: newConversion.value.formulaType as UomConversion['formulaType'],
+      formulaType: newConversion.value.formulaType || undefined,
     })
   }
 
@@ -658,7 +686,7 @@ provide('resetAndCloseStatusModal', resetAndCloseStatusModal)
             :model-value="newConversion.formulaType"
             :options="FORMULA_TYPE_OPTIONS"
             :placeholder="t('settingsUom.formula_placeholder')"
-            @update:model-value="newConversion.formulaType = $event as string"
+            @update:model-value="selectFormulaType($event as string)"
           />
         </InputGroup>
 
@@ -792,9 +820,12 @@ provide('resetAndCloseStatusModal', resetAndCloseStatusModal)
   margin-bottom: 24px;
 }
 
+/* Цвет — явно: `body` в приложении чёрный, тёмный фон даёт `.bg-image` под
+   содержимым. Заголовок без своего `color` печатался чёрным по тёмному. */
 .settings-title {
   font-size: 1.5rem;
   font-weight: 600;
+  color: var(--text, #fff);
 }
 
 .settings-loading {

@@ -1,6 +1,7 @@
 import type { CategoryFieldType } from './category'
 import type { TranslatedString } from './i18n'
 import type { SupplierAuditEntry } from './supplier'
+import type { ConversionFormulaType } from './settings'
 
 // PriceUnit is now dynamic from settings; keep as string alias for backward compat
 export type PriceUnit = string
@@ -18,7 +19,17 @@ export interface LinkedSupplier {
   id: string
   name: TranslatedString
   price: number | null
-  priceUnit: string | null
+  /**
+   * За что берётся цена поставщика — id единицы из справочника (`uom-kg`, `uom-pcs`, …).
+   *
+   * Здесь стояла собранная подпись вида `EUR/pcs`, и код единицы в ней был всегда
+   * английским: `uom.code.en`. То есть литовский пользователь, добавив поставщика,
+   * записывал в данные `pcs` вместо `vnt` — «показали не на том языке» чинится в
+   * шаблоне, «сохранили не на том языке» читает потом кто-то другой. Валюта цены
+   * лежит в `currency` рядом, второй раз её хранить незачем; подпись собирается там,
+   * где её показывают.
+   */
+  priceUomId: string | null
   leadDays: number | null
   currency: string | null // snapshot of supplier's currency at time of linking
 }
@@ -31,7 +42,6 @@ export interface ProductListItem {
   sku: string | null
   price: number | null
   minStock: number | null
-  priceUnit: string | null
   avgCostPrice: number | null
   /** Average price actually achieved on shipped sales; `null` when nothing sold. */
   avgSalePrice?: number | null
@@ -56,7 +66,6 @@ export interface Product {
   priceQuantity: number // price per N sale units (default 1)
   currencyId: string | null
   minStock: number | null
-  priceUnit: string | null // legacy: reconstructed from currency+saleUom
   avgCostPrice: number | null
   avgSalePrice: number | null
 
@@ -66,9 +75,11 @@ export interface Product {
   saleUomId: string | null
 
   // === Conversion overrides (optional) ===
-  purchaseToWarehouseFormulaType: string | null
+  // Имя формулы — только из справочника формул (`CONVERSION_FORMULA_TYPES`).
+  // `null` означает пересчёт коэффициентом, без формулы.
+  purchaseToWarehouseFormulaType: ConversionFormulaType | null
   purchaseToWarehouseFactor: number | null
-  warehouseToSaleFormulaType: string | null
+  warehouseToSaleFormulaType: ConversionFormulaType | null
   warehouseToSaleFactor: number | null
 
   /**

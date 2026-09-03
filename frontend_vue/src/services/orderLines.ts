@@ -8,7 +8,14 @@
  * `cost` and `marginAmount` are projections computed by the pricing module —
  * they exist for the older parts of the UI and must never be assigned directly.
  */
-import type { OrderItem, OrderService, OrderLineAllocation, CostSource } from '@/types/order'
+import type {
+  OrderItem,
+  OrderService,
+  OrderLineAllocation,
+  CostSource,
+  WholePieceRange,
+} from '@/types/order'
+import { resolveOffcutMaterial, type OffcutMaterialInput } from '@/domain/cutting'
 import {
   type PricingLine,
   calcLine,
@@ -208,6 +215,91 @@ export function splitAllocations(
   }
 
   return { shipped, remainder }
+}
+
+/**
+ * Что одна выбранная штука обрезка даёт строке заказа.
+ *
+ * `batchId` здесь `null` НАМЕРЕННО, и это не пропуск. Материал обрезка ушёл с партии в
+ * тот момент, когда обрезок создали: `mockCreateOffcut` пишет движение типа `offcut`, а
+ * движение — единственный владелец количества партии. Кусок лежит на полке отдельно от
+ * своей партии, и аллокация, назвавшая партию, вычла бы его из неё второй раз — то есть
+ * пообещала бы заказу металл, которого на партии уже нет.
+ *
+ * Количество аллокации — это МАТЕРИАЛ куска в единице ПАРТИИ, а не `offcut.quantity`
+ * (счётчик кусков, обычно «1 шт»). Правило перевода одно на проект —
+ * `resolveOffcutMaterial`; здесь оно вызывается, а не повторяется.
+ *
+ * Себестоимость — цена партии-родителя за единицу: обрезок отрезан от неё и стоит
+ * ровно столько же за метр или килограмм. Партия без цены даёт 0, и `stockCostFor`
+ * дальше называет такую строку оценкой — тот же ответ, что у партии без цены в FIFO.
+ *
+ * `null` — отказ, а не ноль: у куска, размер которого в единице партии невыразим,
+ * нет количества, которое можно списать.
+ */
+export function offcutAllocation(
+  offcut: OffcutMaterialInput & { id: string },
+  batch: { uomId: string; unitPrice: number | null; currency: string },
+): OrderLineAllocation | null {
+  const material = resolveOffcutMaterial(offcut, batch.uomId)
+  if (!material.ok) return null
+  return {
+    batchId: null,
+    offcutId: offcut.id,
+    quantity: material.material,
+    unitCost: batch.unitPrice ?? 0,
+    currency: batch.currency,
+    source: 'stock',
+  }
+}
+
+/**
+ * Где в количестве стоят неделимые куски этой разбивки.
+ *
+ * Разбивку потребляют префиксом — и `splitAllocations`, и списание, — поэтому «где стоит
+ * кусок» выражается парой чисел: сколько количества идёт до него и сколько после. Число
+ * строго между ними режет кусок пополам.
+ *
+ * Правило геометрии одно на проект и живёт здесь, потому что спрашивают его из трёх
+ * разных мест: план отгрузки (`ShippableLine.wholePieces`) считает отрезки по
+ * НЕОТГРУЖЕННОМУ остатку разбивки, правка количества — по всей разбивке целиком, а
+ * карточка читает уже готовые отрезки. Вторая копия этого прохода рядом с первой — ровно
+ * тот дефект, из-за которого правка количества резала кусок молча: защита стояла в трёх
+ * местах из четырёх.
+ *
+ * Про доступность куска здесь не решается ничего — только геометрия.
+ */
+export function wholePieceRanges(allocations: OrderLineAllocation[]): WholePieceRange[] {
+  const ranges: WholePieceRange[] = []
+  let at = 0
+  let lastOffcutId: string | null = null
+  for (const allocation of allocations) {
+    const next = round2(at + allocation.quantity)
+    if (allocation.offcutId) {
+      // Один кусок — один отрезок, даже если разбивка назвала его двумя строками
+      // подряд: неделим он целиком, а не построчно.
+      if (allocation.offcutId === lastOffcutId) ranges[ranges.length - 1]!.to = next
+      else ranges.push({ from: at, to: next })
+    }
+    lastOffcutId = allocation.offcutId
+    at = next
+  }
+  return ranges
+}
+
+/**
+ * Режет ли это количество неделимый кусок.
+ *
+ * Границы считает `wholePieceRanges` — по плану отгрузки для диалога, по всей разбивке
+ * для правки количества. Число строго внутри отрезка означает «увезти половину куска» —
+ * то, чего списание не делает. Живёт здесь, а не в шаблоне карточки: диалогу нужно
+ * спросить это до отправки, а спеке — проверить без отрисовки страницы.
+ *
+ * Ноль и не-число ничего не режут: пустое поле — это «строку не отгружаем», а не отказ.
+ */
+export function splitsWholePiece(quantity: number, pieces: WholePieceRange[]): boolean {
+  if (!Number.isFinite(quantity) || quantity <= 0) return false
+  return pieces.some((piece) => quantity > piece.from && quantity < piece.to)
 }
 
 /** Cost per unit implied by the batch breakdown, or null when there is none. */

@@ -23,6 +23,7 @@ import { useToast } from '@/composables/useToast'
 import { useHead } from '@/composables/useHead'
 import { useFeatureFlag } from '@/composables/useFeatureFlag'
 import { getSupplier } from '@/services/suppliersService'
+import { formatBccDate as formatDate } from '@/domain/bccEmail'
 
 import '@styles/admin/components/_checkbox-list.css'
 import '@styles/admin/bcc_request.css'
@@ -43,9 +44,13 @@ const {
   history,
   selectedProductIds,
   template,
+  emailItems,
   sending,
   loading,
   error,
+  mailFrom,
+  mailReady,
+  mailSettled,
   loadCategories,
   loadHistory,
   refreshRecipients,
@@ -478,13 +483,6 @@ const STATUS_PILL: Record<BccEventStatus, string> = {
   no_response: 'pill-default',
 }
 
-function formatDate(iso: string): string {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return iso
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}`
-}
-
 function formatReqId(requestId: string): string {
   return requestId.replace('req-', '#')
 }
@@ -497,23 +495,16 @@ function isLatestEvent(evt: BccRequest): boolean {
   return first?.id === evt.id
 }
 
-// Auto-rebuild the email body whenever the product selection changes — mirrors original updateEmailTemplate()
-function rebuildEmailBody() {
-  const items = selectedProductIds.value
+// The page knows WHICH products were picked; the letter itself is composed in one
+// place (domain/bccEmail.ts), so here we only hand over their labels.
+function syncEmailItems() {
+  emailItems.value = selectedProductIds.value
     .map((id) => productOptions.value.find((p) => p.value === id)?.label)
     .filter((s): s is string => !!s)
-    .map((name) => `  - ${name}`)
-    .join('\n')
-  const itemsSection = items || 'All categories'
-  template.body = {
-    ru: `Здравствуйте!\n\nПожалуйста, предоставьте текущие цены на следующие позиции:\n\n${itemsSection}\n\nС уважением,\nКоманда InBox LT`,
-    en: `Hello!\n\nPlease provide current prices for the following items:\n\n${itemsSection}\n\nBest regards,\nInBox LT Team`,
-    lt: `Sveiki!\n\nPrašome pateikti dabartines kainas šioms prekėms:\n\n${itemsSection}\n\nPagarbiai,\nInBox LT komanda`,
-  }
 }
 
-watch(selectedProductIds, rebuildEmailBody, { deep: true })
-watch(productOptions, rebuildEmailBody, { deep: true })
+watch(selectedProductIds, syncEmailItems, { deep: true })
+watch(productOptions, syncEmailItems, { deep: true })
 
 // Auto-sync selectedRecipientIds with recipient.selected flags whenever the list reloads
 // (e.g. after products change). Any preselect set via preselectEmail is merged in.
@@ -594,7 +585,7 @@ onMounted(async () => {
 
       <button
         class="btn btn-primary"
-        :disabled="sending"
+        :disabled="sending || !mailReady"
         data-test="bcc-request-send-btn"
         @click="sendRequest"
       >
@@ -820,6 +811,20 @@ onMounted(async () => {
 
         <div class="col-center" data-test="bcc-request-template-panel">
           <GlassPanel :title="t('bcc.email_template')" :loading="loading" :skeleton-rows="5">
+            <div class="email-sender" data-test="bcc-request-sender">
+              <span class="field-label">{{ t('bcc.sender_label') }}</span>
+              <span v-if="mailFrom" class="email-sender-value" data-test="bcc-request-sender-value">
+                {{ mailFrom }}
+              </span>
+              <router-link
+                v-else-if="mailSettled"
+                :to="{ name: 'admin-settings-mail' }"
+                class="email-sender-missing"
+                data-test="bcc-request-sender-missing"
+              >
+                {{ t('bcc.sender_missing') }}
+              </router-link>
+            </div>
             <EmailTemplate
               v-model:subject="subjectModel"
               v-model:body="bodyModel"
@@ -1121,6 +1126,22 @@ onMounted(async () => {
   padding: 6px 8px;
   font-size: 10px;
 }
+.email-sender {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 0.8125rem;
+}
+
+.email-sender-value {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.email-sender-missing {
+  color: #ff9f43;
+}
+
 .products-table tbody td {
   padding: 6px 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
@@ -1174,9 +1195,10 @@ onMounted(async () => {
   z-index: 100;
 }
 
-/* Don't clip upward dropdowns in the table wrapper */
-.products-table-wrapper,
-.col-left .data-table-wrapper {
+/* `.data-table-wrapper` отсюда убран: общее правило в `components/_tables.css`
+   (пункт 13), а префиксная копия давала те же вычисленные значения. Собственная
+   обёртка страницы осталась — у неё общего дома нет. */
+.products-table-wrapper {
   overflow-x: auto;
   overflow-y: visible;
 }

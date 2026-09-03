@@ -247,45 +247,10 @@
   color: var(--primary, #1890ff);
 }
 
-/* ─── Status pills (matching _status-pills.css — batch table style) ────────── */
-
-.status-pill {
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.pill-success {
-  background: rgba(82, 196, 26, 0.2);
-  border: 1px solid rgba(82, 196, 26, 0.3);
-  color: #52c41a;
-}
-
-.pill-warning {
-  background: rgba(250, 173, 20, 0.2);
-  border: 1px solid rgba(250, 173, 20, 0.3);
-  color: #faad14;
-}
-
-.pill-danger {
-  background: rgba(255, 77, 79, 0.2);
-  border: 1px solid rgba(255, 77, 79, 0.3);
-  color: #ff4d4f;
-}
-
-.pill-info {
-  background: rgba(24, 144, 255, 0.2);
-  border: 1px solid rgba(24, 144, 255, 0.3);
-  color: #1890ff;
-}
-
-.pill-secondary {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: rgba(255, 255, 255, 0.6);
-}
+/* Объявления `.status-pill` здесь БОЛЬШЕ НЕТ: оно было мёртвым. На
+   `/admin/orders` нет ни одной `.status-pill` — у заказов свой класс
+   `order-status-pill` (`components/_order-status-pill.css`). Проверено
+   локатором: элемент не найден. Удалено при сведении 2026-08-30. */
 
 /* ─── Name link ───────────────────────────────────────────────────────────── */
 
@@ -472,11 +437,6 @@
 }
 
 /* ─── Data table wrapper ──────────────────────────────────────────────────── */
-
-.data-table-wrapper {
-  overflow-x: auto;
-  overflow-y: visible;
-}
 
 .data-table tfoot td {
   position: relative;

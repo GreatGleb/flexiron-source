@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { useUnitLabel } from '@/composables/useUnitLabel'
 import { useHead } from '@/composables/useHead'
 import { useWarehouseStockCard } from '@/composables/useWarehouseStockCard'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
@@ -13,6 +14,7 @@ import '@styles/admin/components/_entity-card-layout.css'
 import '@styles/admin/components/_audit-log.css'
 
 const { t } = useI18n()
+const unitLabel = useUnitLabel()
 const route = useRoute()
 const productId = route.params.id as string
 
@@ -106,7 +108,7 @@ const aggregateEntries = computed(() => {
 })
 
 /** Step for quantity inputs: 1 for pcs, 0.01 for others */
-const quantityStep = computed(() => (form.value.unit === 'pcs' ? 1 : 0.01))
+const quantityStep = computed(() => (form.value.uomId === 'uom-pcs' ? 1 : 0.01))
 
 const pageTitle = computed(() =>
   item.value
@@ -298,7 +300,7 @@ onMounted(load)
             <div class="total-label">{{ t('warehouse.stock_total') }}</div>
             <div class="total-value">
               {{ totalUsableQuantity }}
-              <span class="total-unit">{{ t(`warehouse.unit_${item.unit}`, item.unit) }}</span>
+              <span class="total-unit">{{ unitLabel(item.uomId) }}</span>
             </div>
           </div>
         </div>
@@ -327,7 +329,7 @@ onMounted(load)
               </div>
               <div class="agg-value">
                 {{ qty }}
-                <span class="agg-unit">{{ t(`warehouse.unit_${item.unit}`, item.unit) }}</span>
+                <span class="agg-unit">{{ unitLabel(item.uomId) }}</span>
               </div>
             </div>
           </div>
@@ -386,7 +388,7 @@ onMounted(load)
                     </span>
                   </label>
                   <input
-                    :value="t(`warehouse.unit_${form.unit}`, form.unit)"
+                    :value="unitLabel(form.uomId)"
                     class="glass-input"
                     type="text"
                     readonly
@@ -481,7 +483,7 @@ onMounted(load)
                     </span>
                   </label>
                   <input
-                    :value="`${item.totalQuantity} ${t(`warehouse.unit_${form.unit}`, form.unit)}`"
+                    :value="`${item.totalQuantity} ${unitLabel(form.uomId)}`"
                     class="glass-input"
                     type="text"
                     readonly
@@ -510,7 +512,7 @@ onMounted(load)
                     </span>
                   </label>
                   <input
-                    :value="`${item.reservedQuantity} ${t(`warehouse.unit_${form.unit}`, form.unit)}`"
+                    :value="`${item.reservedQuantity} ${unitLabel(form.uomId)}`"
                     class="glass-input"
                     type="text"
                     readonly
@@ -539,7 +541,7 @@ onMounted(load)
                     </span>
                   </label>
                   <input
-                    :value="`${item.availableQuantity} ${t(`warehouse.unit_${form.unit}`, form.unit)}`"
+                    :value="`${item.availableQuantity} ${unitLabel(form.uomId)}`"
                     class="glass-input"
                     type="text"
                     :class="{ 'text-danger': item.availableQuantity <= 0 }"

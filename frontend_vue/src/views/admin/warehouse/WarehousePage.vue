@@ -8,6 +8,8 @@ import { useWarehouse } from '@/composables/useWarehouse'
 import { useCategories } from '@/composables/useCategories'
 import { useToast } from '@/composables/useToast'
 import { useSettings } from '@/composables/useSettings'
+import { useUnitLabel } from '@/composables/useUnitLabel'
+import { useProductNames } from '@/composables/useProductNames'
 import type { WarehouseTab } from '@/composables/useWarehouse'
 import type {
   BatchStatus,
@@ -33,6 +35,8 @@ import '@styles/admin/warehouse_list.css'
 
 const { t, locale } = useI18n()
 const { settings } = useSettings()
+const unitLabel = useUnitLabel()
+const { productName } = useProductNames()
 const pageConfigEnabled = useFeatureFlag('warehouseStockPageConfig')
 const batchesPageConfigEnabled = useFeatureFlag('warehouseBatchesPageConfig')
 const offcutsPageConfigEnabled = useFeatureFlag('warehouseOffcutsPageConfig')
@@ -229,7 +233,7 @@ function saveView() {
     stockSearch: stockFilters.search,
     showDeficitOnly: stockFilters.showDeficitOnly,
     showInStockOnly: stockFilters.showInStockOnly,
-    stockUnitFilter: stockFilters.unit,
+    stockUnitFilter: stockFilters.uomId,
     stockCategoryIds: [...stockFilters.categoryIds],
   }
   localStorage.setItem(PREFS_KEY, JSON.stringify(prefs))
@@ -241,7 +245,7 @@ function saveBatchesView() {
     search: batchesFilters.search,
     status: batchesFilters.status,
     supplierId: batchesFilters.supplierId,
-    unit: batchesFilters.unit,
+    uomId: batchesFilters.uomId,
     dateFrom: batchesFilters.dateFrom,
     dateTo: batchesFilters.dateTo,
   }
@@ -253,7 +257,7 @@ function saveOffcutsView() {
   const prefs = {
     search: offcutFilters.search,
     status: offcutFilters.status,
-    unit: offcutFilters.unit,
+    uomId: offcutFilters.uomId,
     offcutType: offcutFilters.offcutType,
     categoryIds: offcutFilters.categoryIds ? [...offcutFilters.categoryIds] : [],
     batchNumber: offcutFilters.batchNumber,
@@ -266,7 +270,7 @@ function saveMovementsView() {
   const prefs = {
     search: movementFilters.search,
     type: movementFilters.type,
-    unit: movementFilters.unit,
+    uomId: movementFilters.uomId,
     categoryIds: movementFilters.categoryIds ? [...movementFilters.categoryIds] : [],
     batchNumber: movementFilters.batchNumber,
     dateFrom: movementFilters.dateFrom,
@@ -281,7 +285,7 @@ function saveDeficitView() {
     search: deficitFilters.search,
     status: deficitFilters.status,
     priority: deficitFilters.priority,
-    unit: deficitFilters.unit,
+    uomId: deficitFilters.uomId,
     categoryIds: deficitFilters.categoryIds ? [...deficitFilters.categoryIds] : [],
   }
   localStorage.setItem(DEFICIT_PREFS_KEY, JSON.stringify(prefs))
@@ -348,7 +352,13 @@ function loadPrefs() {
       stockFilters.showDeficitOnly = prefs.showDeficitOnly
     if (typeof prefs.showInStockOnly === 'boolean')
       stockFilters.showInStockOnly = prefs.showInStockOnly
-    if (typeof prefs.stockUnitFilter === 'string') stockFilters.unit = prefs.stockUnitFilter
+    // Сохранённый до п. 4d фильтр держал КОД единицы (`kg`), а не ссылку на справочник.
+    // Такое значение не совпадёт теперь ни с одной строкой, и пользователь получил бы
+    // пустую таблицу без всякой причины — поэтому принимается только ссылка либо пустая
+    // строка «все единицы».
+    const savedUnit = prefs.stockUnitFilter
+    if (typeof savedUnit === 'string' && (savedUnit === '' || savedUnit.startsWith('uom-')))
+      stockFilters.uomId = savedUnit
     if (Array.isArray(prefs.stockCategoryIds)) stockFilters.categoryIds = prefs.stockCategoryIds
   } catch {
     /* ignore malformed prefs */
@@ -416,13 +426,13 @@ const allUnitOptions = computed(() => {
   const cl = locale.value as string
   return [
     { value: '', label: t('warehouse.filter_unit_all') },
-    ...uoms.map((u: { code: Record<string, string | undefined> }) => {
-      // value = English code (used for filtering against DB/stored data)
-      const value = u.code.en || u.code.ru || u.code.lt || '?'
-      // label = locale-aware code (for display in the dropdown)
-      const label = u.code[cl] || u.code.en || u.code.ru || u.code.lt || '?'
-      return { value, label }
-    }),
+    // value = ссылка на справочник: ровно то, что лежит в данных (п. 4d). До этого
+    // здесь стоял английский код, то есть фильтр сравнивал `code.en` с хранимым —
+    // и в м² не совпадал ни с чем.
+    ...uoms.map((u: { id: string; code: Record<string, string | undefined> }) => ({
+      value: u.id,
+      label: u.code[cl] || u.code.en || u.code.ru || u.code.lt || '?',
+    })),
   ]
 })
 
@@ -763,7 +773,7 @@ const offcutFiltersActive = computed(() => {
   return !!(
     offcutFilters.search ||
     offcutFilters.status ||
-    offcutFilters.unit ||
+    offcutFilters.uomId ||
     offcutFilters.offcutType ||
     (offcutFilters.categoryIds && offcutFilters.categoryIds.length > 0) ||
     offcutFilters.batchNumber
@@ -776,7 +786,7 @@ const deficitFiltersActive = computed(() => {
     deficitFilters.search ||
     deficitFilters.status ||
     deficitFilters.priority ||
-    deficitFilters.unit ||
+    deficitFilters.uomId ||
     (deficitFilters.categoryIds && deficitFilters.categoryIds.length > 0)
   )
 })
@@ -924,7 +934,7 @@ const deficitFiltersActive = computed(() => {
           <div class="filter-group" data-test="warehouse-filter-unit">
             <label class="field-label">{{ t('warehouse.col_unit') }}</label>
             <CustomSelect
-              v-model="stockFilters.unit"
+              v-model="stockFilters.uomId"
               :options="UNIT_OPTIONS"
               data-test="warehouse-stock-unit-filter"
             />
@@ -1025,10 +1035,10 @@ const deficitFiltersActive = computed(() => {
           <div class="filter-group" data-test="warehouse-filter-unit">
             <label class="field-label">{{ t('warehouse.col_unit') }}</label>
             <CustomSelect
-              :model-value="batchesFilters.unit ?? ''"
+              :model-value="batchesFilters.uomId ?? ''"
               :options="BATCH_UNIT_OPTIONS"
               data-test="warehouse-batches-unit-filter"
-              @update:model-value="(v: string) => (batchesFilters.unit = v || undefined)"
+              @update:model-value="(v: string) => (batchesFilters.uomId = v || undefined)"
             />
           </div>
           <button
@@ -1075,10 +1085,10 @@ const deficitFiltersActive = computed(() => {
           <div class="filter-group" data-test="warehouse-filter-unit">
             <label class="field-label">{{ t('warehouse.col_unit') }}</label>
             <CustomSelect
-              :model-value="offcutFilters.unit ?? ''"
+              :model-value="offcutFilters.uomId ?? ''"
               :options="OFFCUT_UNIT_OPTIONS"
               data-test="warehouse-offcuts-unit-filter"
-              @update:model-value="(v: string) => (offcutFilters.unit = v || undefined)"
+              @update:model-value="(v: string) => (offcutFilters.uomId = v || undefined)"
             />
           </div>
           <div class="filter-group" data-test="warehouse-filter-offcut-type">
@@ -1172,10 +1182,10 @@ const deficitFiltersActive = computed(() => {
           <div class="filter-group" data-test="warehouse-filter-unit">
             <label class="field-label">{{ t('warehouse.col_unit') }}</label>
             <CustomSelect
-              :model-value="movementFilters.unit ?? ''"
+              :model-value="movementFilters.uomId ?? ''"
               :options="MOVEMENT_UNIT_OPTIONS"
               data-test="warehouse-movements-unit-filter"
-              @update:model-value="(v: string) => (movementFilters.unit = v || undefined)"
+              @update:model-value="(v: string) => (movementFilters.uomId = v || undefined)"
             />
           </div>
           <div class="filter-group" data-test="warehouse-filter-category">
@@ -1251,10 +1261,10 @@ const deficitFiltersActive = computed(() => {
           <div class="filter-group" data-test="warehouse-filter-unit">
             <label class="field-label">{{ t('warehouse.col_unit') }}</label>
             <CustomSelect
-              :model-value="deficitFilters.unit ?? ''"
+              :model-value="deficitFilters.uomId ?? ''"
               :options="DEFICIT_UNIT_OPTIONS"
               data-test="warehouse-deficit-unit-filter"
-              @update:model-value="(v: string) => (deficitFilters.unit = v || undefined)"
+              @update:model-value="(v: string) => (deficitFilters.uomId = v || undefined)"
             />
           </div>
           <div class="filter-group" data-test="warehouse-filter-category">
@@ -1301,6 +1311,7 @@ const deficitFiltersActive = computed(() => {
            overrides display:none on .panel-body so the table stays in DOM for height sync. -->
       <GlassPanel
         :loading="stockLoading || filteringStock"
+        :force-skeleton="filteringStock"
         :class="{ 'filtering-stock': filteringStock }"
         :skeleton-rows="6"
         data-test="warehouse-stock-panel"
@@ -1510,7 +1521,7 @@ const deficitFiltersActive = computed(() => {
                       </button>
                     </th>
                     <th class="hid-480">
-                      <button class="th-sort-btn" @click="toggleStockSort('unit')">
+                      <button class="th-sort-btn" @click="toggleStockSort('uomId')">
                         <div class="th-content">
                           {{ t('warehouse.col_unit') }}
                           <span v-tooltip="t('warehouse.col_unit_hint')" class="info-hint">
@@ -1538,7 +1549,7 @@ const deficitFiltersActive = computed(() => {
                             class="sort-icon"
                             :class="{
                               active:
-                                stockFilters.sortBy === 'unit' && stockFilters.sortDir === 'asc',
+                                stockFilters.sortBy === 'uomId' && stockFilters.sortDir === 'asc',
                             }"
                           />
                           <SvgIcon
@@ -1548,7 +1559,7 @@ const deficitFiltersActive = computed(() => {
                             class="sort-icon"
                             :class="{
                               active:
-                                stockFilters.sortBy === 'unit' && stockFilters.sortDir === 'desc',
+                                stockFilters.sortBy === 'uomId' && stockFilters.sortDir === 'desc',
                             }"
                           />
                         </span>
@@ -1733,7 +1744,7 @@ const deficitFiltersActive = computed(() => {
                         {{ item.availableQuantity }}
                       </span>
                     </td>
-                    <td class="hid-480">{{ t(`warehouse.unit_${item.unit}`, item.unit) }}</td>
+                    <td class="hid-480">{{ unitLabel(item.uomId) }}</td>
                     <td class="hid-480">{{ item.batchCount }}</td>
                     <td class="hid-600">{{ item.avgUnitPrice.toFixed(2) }} €</td>
                     <td class="hid-600">{{ item.totalValue.toFixed(2) }} €</td>
@@ -2030,7 +2041,7 @@ const deficitFiltersActive = computed(() => {
                   </button>
                 </th>
                 <th>
-                  <button class="th-sort-btn" @click="toggleBatchesSort('unit')">
+                  <button class="th-sort-btn" @click="toggleBatchesSort('uomId')">
                     <div class="th-content">
                       {{ t('warehouse.col_unit') }}
                       <span v-tooltip="t('warehouse.col_unit_hint')" class="info-hint">
@@ -2057,7 +2068,7 @@ const deficitFiltersActive = computed(() => {
                         :height="16"
                         class="sort-icon"
                         :class="{
-                          active: batchesSort.sortBy === 'unit' && batchesSort.sortDir === 'asc',
+                          active: batchesSort.sortBy === 'uomId' && batchesSort.sortDir === 'asc',
                         }"
                       />
                       <SvgIcon
@@ -2066,7 +2077,7 @@ const deficitFiltersActive = computed(() => {
                         :height="16"
                         class="sort-icon"
                         :class="{
-                          active: batchesSort.sortBy === 'unit' && batchesSort.sortDir === 'desc',
+                          active: batchesSort.sortBy === 'uomId' && batchesSort.sortDir === 'desc',
                         }"
                       />
                     </span>
@@ -2215,7 +2226,7 @@ const deficitFiltersActive = computed(() => {
                     :to="{ name: 'admin-warehouse-batch', params: { id: batch.id } }"
                     class="name-link"
                   >
-                    {{ tf(batch.productName) }}
+                    {{ productName(batch.productId) }}
                   </router-link>
                 </td>
                 <td>{{ batch.batchNumber }}</td>
@@ -2231,7 +2242,7 @@ const deficitFiltersActive = computed(() => {
                     {{ batch.quantityRemaining }}
                   </span>
                 </td>
-                <td>{{ t(`warehouse.unit_${batch.unit}`, batch.unit) }}</td>
+                <td>{{ unitLabel(batch.uomId) }}</td>
                 <td>{{ batch.unitPrice === null ? '—' : `${batch.unitPrice.toFixed(2)} €` }}</td>
                 <td>{{ batch.receivedAt.slice(0, 10) }}</td>
                 <td>
@@ -2254,7 +2265,7 @@ const deficitFiltersActive = computed(() => {
                       v-tooltip="t('warehouse.btn_delete')"
                       class="action-icon-btn action-danger"
                       data-test="batch-delete-btn"
-                      @click.stop="confirmDeleteBatch(batch.id, tf(batch.productName))"
+                      @click.stop="confirmDeleteBatch(batch.id, productName(batch.productId))"
                     >
                       <SvgIcon name="trash" :width="16" :height="16" />
                     </button>
@@ -2586,7 +2597,7 @@ const deficitFiltersActive = computed(() => {
                   </button>
                 </th>
                 <th>
-                  <button class="th-sort-btn" @click="toggleOffcutsSort('unit')">
+                  <button class="th-sort-btn" @click="toggleOffcutsSort('uomId')">
                     <div class="th-content">
                       {{ t('warehouse.col_unit') }}
                       <span v-tooltip="t('warehouse.col_unit_hint')" class="info-hint">
@@ -2613,7 +2624,7 @@ const deficitFiltersActive = computed(() => {
                         :height="16"
                         class="sort-icon"
                         :class="{
-                          active: offcutsSort.sortBy === 'unit' && offcutsSort.sortDir === 'asc',
+                          active: offcutsSort.sortBy === 'uomId' && offcutsSort.sortDir === 'asc',
                         }"
                       />
                       <SvgIcon
@@ -2622,7 +2633,7 @@ const deficitFiltersActive = computed(() => {
                         :height="16"
                         class="sort-icon"
                         :class="{
-                          active: offcutsSort.sortBy === 'unit' && offcutsSort.sortDir === 'desc',
+                          active: offcutsSort.sortBy === 'uomId' && offcutsSort.sortDir === 'desc',
                         }"
                       />
                     </span>
@@ -2726,7 +2737,7 @@ const deficitFiltersActive = computed(() => {
                     :to="{ name: 'admin-warehouse-offcut', params: { id: offcut.id } }"
                     class="name-link"
                   >
-                    {{ tf(offcut.productName) }}
+                    {{ productName(offcut.productId) }}
                   </router-link>
                 </td>
                 <td>
@@ -2762,7 +2773,7 @@ const deficitFiltersActive = computed(() => {
                 </td>
                 <td>{{ offcut.weightKg ?? '—' }}</td>
                 <td>{{ offcut.quantity }}</td>
-                <td>{{ t(`warehouse.unit_${offcut.unit}`, offcut.unit) }}</td>
+                <td>{{ unitLabel(offcut.uomId) }}</td>
                 <td>{{ offcut.location ?? '—' }}</td>
                 <td>
                   <span class="status-pill" :class="OFFCUT_STATUS_PILL[offcut.status]">
@@ -2804,7 +2815,7 @@ const deficitFiltersActive = computed(() => {
                       v-tooltip="t('warehouse.btn_delete')"
                       class="action-icon-btn action-danger"
                       data-test="offcut-delete-btn"
-                      @click.stop="confirmDeleteOffcut(offcut.id, tf(offcut.productName))"
+                      @click.stop="confirmDeleteOffcut(offcut.id, productName(offcut.productId))"
                     >
                       <SvgIcon name="trash" :width="16" :height="16" />
                     </button>
@@ -3076,7 +3087,7 @@ const deficitFiltersActive = computed(() => {
                   </button>
                 </th>
                 <th>
-                  <button class="th-sort-btn" @click="toggleMovementsSort('unit')">
+                  <button class="th-sort-btn" @click="toggleMovementsSort('uomId')">
                     <div class="th-content">
                       {{ t('warehouse.col_unit') }}
                       <span v-tooltip="t('warehouse.col_unit_hint')" class="info-hint">
@@ -3104,7 +3115,7 @@ const deficitFiltersActive = computed(() => {
                         class="sort-icon"
                         :class="{
                           active:
-                            movementsSort.sortBy === 'unit' && movementsSort.sortDir === 'asc',
+                            movementsSort.sortBy === 'uomId' && movementsSort.sortDir === 'asc',
                         }"
                       />
                       <SvgIcon
@@ -3114,7 +3125,7 @@ const deficitFiltersActive = computed(() => {
                         class="sort-icon"
                         :class="{
                           active:
-                            movementsSort.sortBy === 'unit' && movementsSort.sortDir === 'desc',
+                            movementsSort.sortBy === 'uomId' && movementsSort.sortDir === 'desc',
                         }"
                       />
                     </span>
@@ -3275,14 +3286,14 @@ const deficitFiltersActive = computed(() => {
                     :to="{ name: 'admin-warehouse-movement', params: { id: mov.id } }"
                     class="name-link"
                   >
-                    {{ tf(mov.productName) }}
+                    {{ productName(mov.productId) }}
                   </router-link>
                 </td>
                 <td>
                   <code class="lot-code">{{ mov.batchNumber }}</code>
                 </td>
                 <td>{{ mov.quantity }}</td>
-                <td>{{ t(`warehouse.unit_${mov.unit}`, mov.unit) }}</td>
+                <td>{{ unitLabel(mov.uomId) }}</td>
                 <td>{{ mov.unitPrice.toFixed(2) }} €</td>
                 <td>{{ (mov.quantity * mov.unitPrice).toFixed(2) }} €</td>
                 <td>
@@ -3541,7 +3552,7 @@ const deficitFiltersActive = computed(() => {
                   </button>
                 </th>
                 <th>
-                  <button class="th-sort-btn" @click="toggleDeficitSort('unit')">
+                  <button class="th-sort-btn" @click="toggleDeficitSort('uomId')">
                     <div class="th-content">
                       {{ t('warehouse.col_unit') }}
                       <span v-tooltip="t('warehouse.col_unit_hint')" class="info-hint">
@@ -3568,7 +3579,7 @@ const deficitFiltersActive = computed(() => {
                         :height="16"
                         class="sort-icon"
                         :class="{
-                          active: deficitSort.sortBy === 'unit' && deficitSort.sortDir === 'asc',
+                          active: deficitSort.sortBy === 'uomId' && deficitSort.sortDir === 'asc',
                         }"
                       />
                       <SvgIcon
@@ -3577,7 +3588,7 @@ const deficitFiltersActive = computed(() => {
                         :height="16"
                         class="sort-icon"
                         :class="{
-                          active: deficitSort.sortBy === 'unit' && deficitSort.sortDir === 'desc',
+                          active: deficitSort.sortBy === 'uomId' && deficitSort.sortDir === 'desc',
                         }"
                       />
                     </span>
@@ -3705,7 +3716,7 @@ const deficitFiltersActive = computed(() => {
                     {{ item.deficitAmount }}
                   </span>
                 </td>
-                <td>{{ t(`warehouse.unit_${item.unit}`, item.unit) }}</td>
+                <td>{{ unitLabel(item.uomId) }}</td>
                 <td>
                   <span
                     class="deficit-priority-badge"

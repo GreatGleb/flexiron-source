@@ -61,6 +61,8 @@ export const adminOrders = {
       field_order_number_hint: 'Номер присваивается автоматически при создании заказа',
       field_client: 'Клиент',
       field_client_hint: 'Клиент выбирается при создании заказа и не может быть изменён',
+      field_payment_terms_hint: 'Подтянуты из карточки клиента при создании заказа',
+      create_client_payment_terms: 'Условия оплаты: {terms}',
       field_status: 'Статус',
       field_document_type: 'Тип документов',
       field_notes: 'Примечания',
@@ -108,7 +110,18 @@ export const adminOrders = {
         'Что сохранить? Цена без НДС — итог изменится на величину налога. Итог — вырастет цена без НДС.',
       vat_mode_keep_net: 'Сохранить цену без НДС',
       vat_mode_keep_gross: 'Сохранить итог',
-      error_save_lines_first: 'Сначала сохраните изменения по позициям',
+      error_save_lines_first:
+        'Сначала сохраните изменения в таблице позиций — действие выполняется по сохранённым позициям',
+      error_return_needs_save:
+        'Возврат оформляется по сохранённым позициям, а таблица позиций изменена. Сохраните изменения и откройте возврат заново.',
+      error_shipment_needs_save:
+        'Отгрузка списывает со склада сохранённые позиции, а таблица позиций изменена. Сохраните изменения и откройте отгрузку заново.',
+      error_shipment_cancel_needs_save:
+        'Отмена отгрузки возвращает на склад сохранённые позиции, а таблица позиций изменена. Сохраните изменения и повторите.',
+      error_correction_needs_save:
+        'Корректировка считается от сохранённой цены позиции, а таблица позиций изменена. Сохраните изменения и повторите.',
+      error_status_needs_save:
+        'Смена статуса считает резервы и списания по сохранённым позициям, а таблица позиций изменена. Сохраните изменения и повторите.',
       error_version_conflict:
         'Заказ изменил кто-то другой — ваши правки не сохранены. Внизу актуальные данные, внесите правки заново.',
       field_vat_percent_unused: 'При нулевой ставке не применяется',
@@ -139,11 +152,6 @@ export const adminOrders = {
       apply_defaults_skipped:
         'Позиций без себестоимости — {count}: у них задана цена, наценка и скидка к ним не применяются.',
 
-      unit_kg: 'кг',
-      unit_m: 'м',
-      unit_pcs: 'шт',
-      unit_m2: 'м²',
-      unit_h: 'ч',
       col_line: '№',
       col_product: 'Товар',
       col_available: 'Доступно',
@@ -221,6 +229,7 @@ export const adminOrders = {
       ship_modal_explain:
         'Товар будет списан со склада по конкретным партиям, а строки — зафиксированы. Услуги в отгрузку не входят.',
       ship_vehicle_placeholder: 'Например: ABC-123',
+      ship_qty_splits_offcut: 'Обрезок неделим — такое количество разрезало бы кусок',
       cancel_shipment_explain:
         'Товар вернётся на склад обратным движением, и резерв под эту строку восстановится. Сама отгрузка и её списание останутся в истории — записи склада не удаляются никогда.',
       status_plan_title: 'Что произойдёт со складом',
@@ -291,7 +300,11 @@ export const adminOrders = {
       payment_note_placeholder: 'Например: платёжное поручение №145',
       payment_invoice_label: 'По счёту',
       payment_invoice_none: 'Без счёта',
-      payment_refund_hint: 'Возврат уйдёт со знаком минус — остаток к доплате снова вырастет.',
+      payment_refund_hint:
+        'Возврат уйдёт со знаком минус — остаток к доплате снова вырастет. Счёт обязателен: деньги уходят по документу, который клиент держит на руках.',
+      payment_refund_needs_invoice:
+        'По этому заказу счетов ещё нет, а возврат обязан назвать документ. Сначала выставьте счёт.',
+      payment_invoice_pick: 'Выберите счёт',
       advance_invoice_title: 'Авансовый счёт',
       advance_invoice_explain:
         'Авансовый счёт не привязан к отгрузке — сумму задаёте вы. НДС посчитается по режиму заказа.',
@@ -308,6 +321,7 @@ export const adminOrders = {
       toast_shipment_corrected: 'Выпущен корректирующий счёт, товар возвращён',
       error_payment_amount_required: 'Введите сумму платежа',
       error_refund_must_be_negative: 'Возврат — это отрицательная сумма',
+      error_refund_invoice_required: 'Возврат обязан называть счёт',
       error_invoice_needs_shipment: 'Обычный счёт выставляется по отгрузке',
       error_advance_has_no_shipment: 'Авансовый счёт не привязывается к отгрузке',
       error_correction_needs_original: 'Не указан счёт, который корректируем',
@@ -397,6 +411,22 @@ export const adminOrders = {
       add_item_modal_uncategorized: 'Без категории',
       add_item_modal_selected_title: 'Выбранные товары',
       add_item_modal_save_btn: 'Добавить ({count})',
+      offcuts_title: 'Обрезки этого товара',
+      offcuts_hint:
+        'Обрезки не попадают в автоматический подбор по партиям — кусок выбирают руками',
+      offcuts_none: 'Свободных обрезков нет',
+      offcut_col_size: 'Размер',
+      offcut_col_weight: 'Вес, кг',
+      offcut_col_batch: 'Партия',
+      offcut_col_location: 'Место хранения',
+      offcut_col_material: 'Заберёт из строки',
+      btn_create_offcut: 'Создать обрезок',
+      error_offcut_not_found: 'Обрезок не найден',
+      error_offcut_product_mismatch: 'Обрезок отрезан от другого товара',
+      error_offcut_not_available: 'Обрезок уже занят и продан быть не может',
+      error_offcut_size_not_expressible: 'Размер обрезка не выражается в единице партии',
+      error_offcuts_exceed_quantity: 'Выбранные обрезки не помещаются в количество строки',
+      error_offcuts_with_batch: 'Строка берёт либо партию целиком, либо выбранные обрезки',
 
       add_service_modal_title: 'Добавить услуги',
       add_service_modal_search: 'Поиск услуг...',
@@ -456,6 +486,8 @@ export const adminOrders = {
       return_condition_defective: 'Брак',
       return_reason_label: 'Причина возврата',
       return_reason_placeholder: 'Например: привезли не тот профиль',
+      return_need_qty: 'Укажите количество хотя бы по одной позиции',
+      return_need_reason: 'Заполните причину возврата',
       btn_confirm_return: 'Оформить возврат',
       toast_return_created: 'Возврат оформлен',
       line_returned: 'Возвращено: {qty}',
@@ -475,6 +507,10 @@ export const adminOrders = {
       error_duplicate_return_line: 'Одна позиция указана в возврате дважды',
       error_return_exceeds_shipped: 'Нельзя вернуть больше, чем было отгружено',
       error_return_batch_not_found: 'Партия, из которой уходил товар, не найдена',
+      error_return_splits_offcut:
+        'Обрезок неделим: вернуть можно либо весь кусок, либо металл из партии',
+      error_quantity_splits_offcut:
+        'Обрезок неделим: такое количество разрежет кусок. Возьмите весь кусок целиком или пересоберите строку без него',
       error_correction_exceeds_original: 'Корректировка больше, чем осталось по счёту',
       error_unknown_order_status: 'Неизвестный статус заказа',
     },
@@ -541,6 +577,8 @@ export const adminOrders = {
       field_order_number_hint: 'Number is assigned automatically when the order is created',
       field_client: 'Client',
       field_client_hint: 'Client is selected when the order is created and cannot be changed',
+      field_payment_terms_hint: 'Pulled from the client card when the order was created',
+      create_client_payment_terms: 'Payment terms: {terms}',
       field_status: 'Status',
       field_document_type: 'Document Type',
       field_notes: 'Notes',
@@ -588,7 +626,18 @@ export const adminOrders = {
         'What should stay? Keep the net price and the total moves by the tax. Keep the total and the net price rises.',
       vat_mode_keep_net: 'Keep the net price',
       vat_mode_keep_gross: 'Keep the total',
-      error_save_lines_first: 'Save the line changes first',
+      error_save_lines_first:
+        'Save the changes in the lines table first — this action works on the saved lines',
+      error_return_needs_save:
+        'A return is made against the saved lines, and the lines table has been changed. Save it and open the return again.',
+      error_shipment_needs_save:
+        'A shipment writes off the saved lines, and the lines table has been changed. Save it and open the shipment again.',
+      error_shipment_cancel_needs_save:
+        'Cancelling a shipment returns the saved lines to stock, and the lines table has been changed. Save it and try again.',
+      error_correction_needs_save:
+        'A correction is measured against the saved price of the line, and the lines table has been changed. Save it and try again.',
+      error_status_needs_save:
+        'A status change plans the holds and the write-offs from the saved lines, and the lines table has been changed. Save it and try again.',
       error_version_conflict:
         'Somebody else changed this order — your edits were not saved. What you see now is theirs; make your changes again.',
       field_vat_percent_unused: 'Not used at a zero rate',
@@ -618,11 +667,6 @@ export const adminOrders = {
       apply_defaults_skipped:
         'Lines with no cost: {count}. Their markup is left alone — they carry a stated price.',
 
-      unit_kg: 'kg',
-      unit_m: 'm',
-      unit_pcs: 'pcs',
-      unit_m2: 'm²',
-      unit_h: 'h',
       col_line: '#',
       col_product: 'Product',
       col_available: 'Available',
@@ -700,6 +744,7 @@ export const adminOrders = {
       ship_modal_explain:
         'The goods will be written off the specific batches behind these lines, and the lines will be frozen. Services do not ship.',
       ship_vehicle_placeholder: 'e.g. ABC-123',
+      ship_qty_splits_offcut: 'An offcut is one piece — this quantity would cut it in half',
       cancel_shipment_explain:
         'The goods come back by an opposite movement, and the hold on this line is restored. The shipment and its write-off stay on record — warehouse entries are never deleted.',
       status_plan_title: 'What this does to the warehouse',
@@ -771,7 +816,11 @@ export const adminOrders = {
       payment_note_placeholder: 'e.g. transfer no. 145',
       payment_invoice_label: 'Against invoice',
       payment_invoice_none: 'No invoice',
-      payment_refund_hint: 'A refund goes out negative — the outstanding balance grows again.',
+      payment_refund_hint:
+        'A refund goes out negative — the outstanding balance grows again. The invoice is required: money leaves against the document the client holds.',
+      payment_refund_needs_invoice:
+        'This order has no invoice yet, and a refund must name one. Issue an invoice first.',
+      payment_invoice_pick: 'Pick an invoice',
       advance_invoice_title: 'Advance invoice',
       advance_invoice_explain:
         'An advance invoice covers no shipment, so you state the amount. VAT follows the order.',
@@ -788,6 +837,7 @@ export const adminOrders = {
       toast_shipment_corrected: 'Correcting invoice issued, goods returned',
       error_payment_amount_required: 'Enter the amount',
       error_refund_must_be_negative: 'A refund is a negative amount',
+      error_refund_invoice_required: 'A refund must name an invoice',
       error_invoice_needs_shipment: 'A regular invoice is issued for a shipment',
       error_advance_has_no_shipment: 'An advance invoice is not tied to a shipment',
       error_correction_needs_original: 'The invoice being corrected is missing',
@@ -877,6 +927,21 @@ export const adminOrders = {
       add_item_modal_uncategorized: 'Uncategorized',
       add_item_modal_selected_title: 'Selected Items',
       add_item_modal_save_btn: 'Add ({count})',
+      offcuts_title: 'Offcuts of this product',
+      offcuts_hint: 'Offcuts are never picked by FIFO — a piece is chosen by hand',
+      offcuts_none: 'No free offcuts',
+      offcut_col_size: 'Size',
+      offcut_col_weight: 'Weight, kg',
+      offcut_col_batch: 'Batch',
+      offcut_col_location: 'Location',
+      offcut_col_material: 'Takes from the line',
+      btn_create_offcut: 'Create offcut',
+      error_offcut_not_found: 'Offcut not found',
+      error_offcut_product_mismatch: 'That offcut was cut from a different product',
+      error_offcut_not_available: 'That offcut is already taken and cannot be sold',
+      error_offcut_size_not_expressible: 'The offcut size cannot be expressed in the batch unit',
+      error_offcuts_exceed_quantity: 'The chosen offcuts do not fit into the line quantity',
+      error_offcuts_with_batch: 'A line takes either a whole batch or chosen offcuts',
 
       add_service_modal_title: 'Add Services',
       add_service_modal_search: 'Search services...',
@@ -935,6 +1000,8 @@ export const adminOrders = {
       return_condition_defective: 'Defective',
       return_reason_label: 'Reason for the return',
       return_reason_placeholder: 'For example: wrong profile delivered',
+      return_need_qty: 'Enter a quantity for at least one line',
+      return_need_reason: 'Fill in the reason for the return',
       btn_confirm_return: 'Record the return',
       toast_return_created: 'Return recorded',
       line_returned: 'Returned: {qty}',
@@ -954,6 +1021,10 @@ export const adminOrders = {
       error_duplicate_return_line: 'The same line is listed twice in this return',
       error_return_exceeds_shipped: 'More cannot come back than went out',
       error_return_batch_not_found: 'The batch the goods left from no longer exists',
+      error_return_splits_offcut:
+        'An offcut is one piece: return all of it, or return batch metal instead',
+      error_quantity_splits_offcut:
+        'An offcut is one piece: this quantity would cut it. Keep the whole piece, or rebuild the line without it',
       error_correction_exceeds_original: 'The correction is larger than the invoice has left',
       error_unknown_order_status: 'Unknown order status',
     },
@@ -1020,6 +1091,8 @@ export const adminOrders = {
       field_order_number_hint: 'Numeris priskiriamas automatiškai kuriant užsakymą',
       field_client: 'Klientas',
       field_client_hint: 'Klientas pasirenkamas kuriant užsakymą ir negali būti keičiamas',
+      field_payment_terms_hint: 'Perkelta iš kliento kortelės kuriant užsakymą',
+      create_client_payment_terms: 'Mokėjimo sąlygos: {terms}',
       field_status: 'Būsena',
       field_document_type: 'Dokumentų tipas',
       field_notes: 'Pastabos',
@@ -1067,7 +1140,18 @@ export const adminOrders = {
         'Ką išsaugoti? Kainą be PVM — bendra suma pasikeis mokesčio dydžiu. Bendrą sumą — kaina be PVM padidės.',
       vat_mode_keep_net: 'Išsaugoti kainą be PVM',
       vat_mode_keep_gross: 'Išsaugoti bendrą sumą',
-      error_save_lines_first: 'Pirma išsaugokite eilučių pakeitimus',
+      error_save_lines_first:
+        'Pirma išsaugokite eilučių lentelės pakeitimus — veiksmas atliekamas su išsaugotomis eilutėmis',
+      error_return_needs_save:
+        'Grąžinimas įforminamas pagal išsaugotas eilutes, o eilučių lentelė pakeista. Išsaugokite pakeitimus ir atidarykite grąžinimą iš naujo.',
+      error_shipment_needs_save:
+        'Išsiuntimas nurašo išsaugotas eilutes, o eilučių lentelė pakeista. Išsaugokite pakeitimus ir atidarykite išsiuntimą iš naujo.',
+      error_shipment_cancel_needs_save:
+        'Išsiuntimo atšaukimas grąžina į sandėlį išsaugotas eilutes, o eilučių lentelė pakeista. Išsaugokite pakeitimus ir bandykite dar kartą.',
+      error_correction_needs_save:
+        'Korekcija skaičiuojama nuo išsaugotos eilutės kainos, o eilučių lentelė pakeista. Išsaugokite pakeitimus ir bandykite dar kartą.',
+      error_status_needs_save:
+        'Būsenos keitimas rezervus ir nurašymus skaičiuoja pagal išsaugotas eilutes, o eilučių lentelė pakeista. Išsaugokite pakeitimus ir bandykite dar kartą.',
       error_version_conflict:
         'Užsakymą pakeitė kitas naudotojas — jūsų pakeitimai neišsaugoti. Dabar matote jų duomenis; pakeiskite iš naujo.',
       field_vat_percent_unused: 'Netaikoma esant nuliniam tarifui',
@@ -1096,11 +1180,6 @@ export const adminOrders = {
       apply_defaults_skipped:
         'Eilučių be savikainos: {count}. Jų antkainis neliečiamas — jose nurodyta kaina.',
 
-      unit_kg: 'kg',
-      unit_m: 'm',
-      unit_pcs: 'vnt',
-      unit_m2: 'm²',
-      unit_h: 'val.',
       col_line: 'Nr.',
       col_product: 'Prekė',
       col_available: 'Prieinama',
@@ -1178,6 +1257,7 @@ export const adminOrders = {
       ship_modal_explain:
         'Prekės bus nurašytos iš konkrečių partijų, o eilutės užfiksuotos. Paslaugos nesiunčiamos.',
       ship_vehicle_placeholder: 'pvz. ABC-123',
+      ship_qty_splits_offcut: 'Atraiža nedaloma — toks kiekis perpjautų gabalą',
       cancel_shipment_explain:
         'Prekės grįš atgaliniu judėjimu, o šios eilutės rezervas bus atkurtas. Pats išsiuntimas ir nurašymas lieka istorijoje — sandėlio įrašai niekada nešalinami.',
       status_plan_title: 'Kas nutiks sandėlyje',
@@ -1248,7 +1328,11 @@ export const adminOrders = {
       payment_note_placeholder: 'Pvz.: mokėjimo nurodymas Nr. 145',
       payment_invoice_label: 'Pagal sąskaitą',
       payment_invoice_none: 'Be sąskaitos',
-      payment_refund_hint: 'Grąžinimas įrašomas su minuso ženklu — likutis vėl išauga.',
+      payment_refund_hint:
+        'Grąžinimas įrašomas su minuso ženklu — likutis vėl išauga. Sąskaita privaloma: pinigai grąžinami pagal dokumentą, kurį klientas turi.',
+      payment_refund_needs_invoice:
+        'Šiam užsakymui sąskaitų dar nėra, o grąžinimas privalo nurodyti dokumentą. Pirma išrašykite sąskaitą.',
+      payment_invoice_pick: 'Pasirinkite sąskaitą',
       advance_invoice_title: 'Avansinė sąskaita',
       advance_invoice_explain:
         'Avansinė sąskaita nesiejama su išsiuntimu — sumą nurodote jūs. PVM apskaičiuojamas pagal užsakymo režimą.',
@@ -1265,6 +1349,7 @@ export const adminOrders = {
       toast_shipment_corrected: 'Išrašyta koreguojanti sąskaita, prekės grąžintos',
       error_payment_amount_required: 'Įveskite sumą',
       error_refund_must_be_negative: 'Grąžinimas yra negatyvi suma',
+      error_refund_invoice_required: 'Grąžinimas privalo nurodyti sąskaitą',
       error_invoice_needs_shipment: 'Paprasta sąskaita išrašoma pagal išsiuntimą',
       error_advance_has_no_shipment: 'Avansinė sąskaita nesiejama su išsiuntimu',
       error_correction_needs_original: 'Nenurodyta koreguojama sąskaita',
@@ -1356,6 +1441,21 @@ export const adminOrders = {
       add_item_modal_uncategorized: 'Be kategorijos',
       add_item_modal_selected_title: 'Pasirinktos prekės',
       add_item_modal_save_btn: 'Pridėti ({count})',
+      offcuts_title: 'Šios prekės atraižos',
+      offcuts_hint: 'Atraižos nepatenka į automatinį partijų parinkimą — gabalas renkamas ranka',
+      offcuts_none: 'Laisvų atraižų nėra',
+      offcut_col_size: 'Matmenys',
+      offcut_col_weight: 'Svoris, kg',
+      offcut_col_batch: 'Partija',
+      offcut_col_location: 'Saugojimo vieta',
+      offcut_col_material: 'Paims iš eilutės',
+      btn_create_offcut: 'Sukurti atraižą',
+      error_offcut_not_found: 'Atraiža nerasta',
+      error_offcut_product_mismatch: 'Ši atraiža nupjauta nuo kitos prekės',
+      error_offcut_not_available: 'Ši atraiža jau užimta ir parduoti jos negalima',
+      error_offcut_size_not_expressible: 'Atraižos dydžio negalima išreikšti partijos vienetu',
+      error_offcuts_exceed_quantity: 'Pasirinktos atraižos netelpa į eilutės kiekį',
+      error_offcuts_with_batch: 'Eilutė ima arba visą partiją, arba pasirinktas atraižas',
 
       add_service_modal_title: 'Pridėti paslaugas',
       add_service_modal_search: 'Ieškoti paslaugų...',
@@ -1415,6 +1515,8 @@ export const adminOrders = {
       return_condition_defective: 'Brokas',
       return_reason_label: 'Grąžinimo priežastis',
       return_reason_placeholder: 'Pavyzdžiui: atvežtas ne tas profilis',
+      return_need_qty: 'Nurodykite kiekį bent vienai eilutei',
+      return_need_reason: 'Užpildykite grąžinimo priežastį',
       btn_confirm_return: 'Įforminti grąžinimą',
       toast_return_created: 'Grąžinimas įformintas',
       line_returned: 'Grąžinta: {qty}',
@@ -1434,6 +1536,10 @@ export const adminOrders = {
       error_duplicate_return_line: 'Ta pati eilutė grąžinime nurodyta du kartus',
       error_return_exceeds_shipped: 'Negalima grąžinti daugiau, nei buvo išsiųsta',
       error_return_batch_not_found: 'Partija, iš kurios prekės išvyko, nerasta',
+      error_return_splits_offcut:
+        'Atraiža nedaloma: grąžinkite visą gabalą arba metalą iš partijos',
+      error_quantity_splits_offcut:
+        'Atraiža nedaloma: toks kiekis perpjautų gabalą. Palikite visą gabalą arba sudarykite eilutę iš naujo be jo',
       error_correction_exceeds_original: 'Korekcija didesnė, nei liko sąskaitoje',
       error_unknown_order_status: 'Nežinoma užsakymo būsena',
     },

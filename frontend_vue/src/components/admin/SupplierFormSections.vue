@@ -154,7 +154,6 @@ function removeNoteAt(index: number) {
         <label class="field-label">{{ t('sp.status_reason') }}</label>
         <AutoResizeTextarea
           v-model="statusReasonModel"
-          class="glass-input"
           rows="2"
           :placeholder="t('sp.status_placeholder')"
           style="font-size: 12px"
@@ -192,7 +191,6 @@ function removeNoteAt(index: number) {
         <label class="field-label">{{ t('sp.address') }}</label>
         <AutoResizeTextarea
           v-model="supplier.addresses[0].line1"
-          class="glass-input"
           rows="2"
           placeholder="Savanorių pr. 124, LT-03153 Vilnius, Lietuva"
           data-test="supplier-form-address"
@@ -318,7 +316,6 @@ function removeNoteAt(index: number) {
       <div class="notes-input-area" style="margin-bottom: 20px">
         <AutoResizeTextarea
           v-model="newNote"
-          class="glass-input"
           rows="2"
           :placeholder="t('sp.notes_placeholder')"
           style="font-size: 12px; resize: vertical"

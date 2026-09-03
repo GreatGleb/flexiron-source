@@ -326,12 +326,6 @@ const routes: RouteRecordRaw[] = [
         meta: { layout: 'admin', featureFlag: 'financeIncoming' as FeatureFlagKey },
       },
       {
-        path: 'finance/incoming/:id',
-        name: 'admin-finance-incoming-payment',
-        component: () => import('@/views/admin/finance/IncomingPaymentCardPage.vue'),
-        meta: { layout: 'admin', featureFlag: 'financeIncoming' as FeatureFlagKey },
-      },
-      {
         path: 'finance/outgoing',
         name: 'admin-finance-outgoing',
         component: () => import('@/views/admin/finance/OutgoingPaymentsPage.vue'),
@@ -388,6 +382,11 @@ const routes: RouteRecordRaw[] = [
                 path: 'order-statuses',
                 name: 'admin-settings-order-statuses',
                 component: () => import('@/views/admin/settings/OrderStatusesSettings.vue'),
+              },
+              {
+                path: 'mail',
+                name: 'admin-settings-mail',
+                component: () => import('@/views/admin/settings/MailSettings.vue'),
               },
               {
                 path: 'logs',

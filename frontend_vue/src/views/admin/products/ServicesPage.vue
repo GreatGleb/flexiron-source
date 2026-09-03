@@ -369,7 +369,6 @@ onMounted(() => {
       <InputGroup :label="t('services.field_description')" :required="false">
         <AutoResizeTextarea
           v-model="createForm.description"
-          class="glass-input"
           data-test="create-service-description"
         />
       </InputGroup>

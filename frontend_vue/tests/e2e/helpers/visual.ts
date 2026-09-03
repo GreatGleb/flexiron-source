@@ -4,6 +4,10 @@ import { waitForDataReady } from './ready'
 /**
  * Standard options for per-section visual snapshots. Disables animations and
  * hides caret to avoid pixel churn from blinking input cursor.
+ *
+ * `threshold` сюда НЕ добавлять: он живёт в `playwright.config.ts`, потому что часть
+ * эталонов (`layout.spec.ts`) снимается вообще без опций и правка здесь их не достала
+ * бы. Второй экземпляр того же правила разошёлся бы с первым молча.
  */
 export const SNAPSHOT_OPTIONS = {
   animations: 'disabled',

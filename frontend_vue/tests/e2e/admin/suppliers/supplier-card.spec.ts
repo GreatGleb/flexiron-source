@@ -1,5 +1,6 @@
 import { test, expect, testBare as base } from '../../fixtures'
 import { navigateToAdmin } from '../../helpers/admin'
+import { DATA_READY_TIMEOUT } from '../../helpers/ready'
 import { ALL_FLAGS_ENABLED } from '../../helpers/flags'
 import { freezeTime } from '../../helpers/mocks'
 import { waitForFontsReady, SNAPSHOT_OPTIONS } from '../../helpers/visual'
@@ -443,7 +444,7 @@ test.describe('supplier-card › audit log', () => {
     // auditLog reference (mockGetSupplier returns MOCK_CARD['1'] by reference), so the
     // row count strictly decreases. Assert the user-visible outcome only — at least one
     // row removed — rather than the exact delta.
-    await expect.poll(() => rows.count()).toBeLessThan(before)
+    await expect.poll(() => rows.count(), { timeout: DATA_READY_TIMEOUT }).toBeLessThan(before)
     await expect.soft(page.locator('.modal-overlay.active')).toHaveCount(0)
     await expect.soft(page.locator('.toast-container .toast.show')).toBeVisible()
   })

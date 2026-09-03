@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Flexiron</title>
+    <script>
+      ;(function () {
+        // GitHub Pages не знает маршрутов SPA: обновление страницы глубже базовой
+        // отдаётся как 404, потому что файла по такому пути нет. Запоминаем
+        // запрошенный путь и уходим на базовый index.html — его инлайновый скрипт
+        // вернёт путь через history.replaceState до инициализации роутера.
+        // BASE совпадает с `base` из vite.config.ts; файлы в public/ Vite не
+        // трансформирует, поэтому подставить его переменной нельзя.
+        var BASE = '/Flexiron-Enterprise/demo/'
+        var path = location.pathname
+        // 404 отдал сам базовый index.html — редирект превратился бы в петлю.
+        if (path === BASE || path === BASE + 'index.html') return
+        if (path.indexOf(BASE) === 0) {
+          try {
+            sessionStorage.redirect = path + location.search + location.hash
+          } catch (e) {
+            // Приватный режим: путь не сохранить, но на базовую уйти можно.
+          }
+        }
+        location.replace(BASE)
+      })()
+    </script>
+    <noscript>
+      <meta http-equiv="refresh" content="0;url=/Flexiron-Enterprise/demo/" />
+    </noscript>
+  </head>
+  <body>
+    <a href="/Flexiron-Enterprise/demo/">Flexiron Enterprise Demo</a>
+  </body>
+</html>

@@ -1,6 +1,7 @@
 import {
   MATERIAL_ERROR_CODE,
   computeCuttingConsumption,
+  isCountedBatchUnit,
   isLinearBatchUnit,
   resolveOffcutMaterial,
 } from '@/domain/cutting'
@@ -8,6 +9,7 @@ import { roundQuantity } from '@/domain/quantity'
 import type {
   WarehouseBatch,
   WarehouseOffcut,
+  OffcutStatus,
   WarehouseMovement,
   MovementListItem,
   MovementType,
@@ -15,7 +17,6 @@ import type {
   DeficitListResponse,
   StockOverviewItem,
   StockAuditEntry,
-  StockUnit,
   CuttingOperation,
   BatchStatusAggregate,
   BatchActiveSale,
@@ -26,6 +27,7 @@ import type {
   BatchCreatePayload,
   BatchPatchPayload,
   OffcutListResponse,
+  OffcutOffer,
   OffcutCreatePayload,
   OffcutPatchPayload,
   MovementListResponse,
@@ -36,6 +38,7 @@ import type { PaginatedResponse } from '@/types/api'
 import type { TranslatedString } from '@/types/i18n'
 import type { Uom, Currency } from '@/types/settings'
 import { STORE as PRODUCTS_STORE, registerProductBatchLookup } from './products'
+import { notifyBatchReceived, notifyStockDeficit } from './notifications'
 import { MOCK_SETTINGS } from './settings'
 import {
   mockBatches as mockBatchesData,
@@ -52,6 +55,8 @@ import {
   type FifoResult,
 } from '@/domain/orderPricing'
 import { reservedOn } from './reservations'
+import { offcutAllocation } from '@/services/orderLines'
+import type { OrderLineAllocation } from '@/types/order'
 import { compareDocumentNumbers } from '@/services/documentNumbers'
 import { sealAuditIds, type AuditSeeded } from '@/mocks/auditIds'
 import type { AuditSource } from '@/types/audit'
@@ -112,15 +117,35 @@ function _normalizeBatchAudit(b: WarehouseBatch): WarehouseBatch {
 /**
  * A batch does not own the product's name — the catalogue does.
  *
- * Each seeded batch carried its own, and they had drifted: prod-001 was "Steel
- * Sheet 3mm" in the catalogue, "Лист стальной 2мм" on the batch and "Stainless
- * steel sheet 2mm" on the stock row. The warehouse journal then signed a steel
- * sheet write-off as "Oxygen gas". Resolved once, here, so every screen that shows
- * a batch shows the same name as the product page.
+ * Each seeded batch used to carry its own, and they had drifted: prod-001 was
+ * "Steel Sheet 3mm" in the catalogue, "Лист стальной 2мм" on the batch and
+ * "Stainless steel sheet 2mm" on the stock row. The warehouse journal then signed a
+ * steel sheet write-off as "Oxygen gas". Until 2026-08-27 that was patched HERE, by
+ * overwriting the stored copy on load — which repaired the symptom and kept the
+ * field. Пункт 4e removed the field instead: nothing stores a product's name any
+ * more, and the screens ask the catalogue at display time (`@/domain/product`).
+ *
+ * What is left is what a server does anyway — search and sort by a name it holds in
+ * another table. Читается, не пишется.
  */
-function _resolveProductName(entity: { productId: string; productName: TranslatedString }): void {
-  const product = PRODUCTS_STORE.find((p) => p.id === entity.productId)
-  if (product?.name) entity.productName = product.name
+function _productName(productId: string): TranslatedString | null {
+  return PRODUCTS_STORE.find((p) => p.id === productId)?.name ?? null
+}
+
+/** Одна строка правила «искать по имени товара» — на партии, обрезки и движения. */
+function _matchesProductName(productId: string, query: string): boolean {
+  const name = _productName(productId)
+  if (!name) return false
+  return (
+    name.ru.toLowerCase().includes(query) ||
+    name.en.toLowerCase().includes(query) ||
+    name.lt.toLowerCase().includes(query)
+  )
+}
+
+/** И одна строка правила «сортировать по имени товара» — тем же трём спискам. */
+function _compareProductName(a: { productId: string }, b: { productId: string }): number {
+  return (_productName(a.productId)?.en ?? '').localeCompare(_productName(b.productId)?.en ?? '')
 }
 
 /** Stable 0…1 from a string — so the same batch always costs the same. */
@@ -171,14 +196,12 @@ function _resolveBatchCost(batch: WarehouseBatch): void {
 const rawBatches = sealAuditIds(mockBatchesData as unknown as AuditSeeded<WarehouseBatch>[], 'bch')
 for (const b of rawBatches) {
   _normalizeBatchAudit(b)
-  _resolveProductName(b)
   _resolveBatchCost(b)
 }
 const batchStore: WarehouseBatch[] = rawBatches
 const offcutStore: WarehouseOffcut[] = [...mockOffcutsData]
 const movementStore: WarehouseMovement[] = [...mockMovementsData]
 for (const m of movementStore) {
-  _resolveProductName(m)
   // A movement is the batch changing hands, so it is priced at what the batch
   // costs. Left alone, the journal would go on quoting the figure the batch no
   // longer carries, and the two screens showing it would disagree.
@@ -226,6 +249,7 @@ function getAggregateQty(batchId: string, targetType: string): number {
   for (const m of movements) {
     if (m.type === 'receipt' || m.type === 'transfer') continue
     if (m.type === 'correction') continue
+    if (movesOffcut(m)) continue
     if (m.type === targetType) qty += m.quantity
     else if (m.type === 'return' && m.referenceType === targetType) qty -= m.quantity
   }
@@ -254,6 +278,29 @@ const AGGREGATE_TO_STATUS: Record<string, string> = {
   offcut: 'converted_to_offcuts',
 }
 
+/**
+ * Статус КУСКА по типу движения — то же правило, что `AGGREGATE_TO_STATUS` говорит про
+ * партию, сказанное про неделимую штуку.
+ *
+ * Отдельная запись, а не производная от той: у куска нет `receipt` (он не приходит от
+ * поставщика, его отрезают) и нет `converted_to_offcuts` (кусок из куска в этой модели не
+ * режут) — зато есть `return`, которого у агрегатов партии быть не может: партия
+ * возвращённое кладёт в остаток числом, а кусок возвращается на полку целиком.
+ *
+ * `offcut` здесь не нужен намеренно: это движение самой резки, и оно рождает кусок
+ * `available` — тем же `mockCreateOffcut`, который его пишет. `movesOffcut` этот тип
+ * отсекает раньше.
+ */
+const OFFCUT_STATUS_BY_MOVEMENT: Readonly<Record<string, OffcutStatus>> = {
+  sale: 'sold',
+  'write-off': 'scrapped',
+  production: 'in_production',
+  expense: 'expensed',
+  storage: 'in_storage',
+  'return-to-supplier': 'returned_to_supplier',
+  return: 'available',
+}
+
 function computeBatchStatus(batch: WarehouseBatch): string {
   const movements = movementStore.filter((m) => m.batchId === batch.id)
   const byType: Record<string, number> = {}
@@ -261,6 +308,9 @@ function computeBatchStatus(batch: WarehouseBatch): string {
   for (const m of movements) {
     if (m.type === 'receipt' || m.type === 'transfer') continue
     if (m.type === 'correction') continue
+    // Движение по куску партию не двигает — см. `movesOffcut`. В агрегат партии оно
+    // положило бы тот же металл второй раз: он уже посчитан движением `offcut`.
+    if (movesOffcut(m)) continue
     if (m.type === 'return') {
       const reduceType = m.referenceType || ''
       if (reduceType && OUTGOING_MOVEMENT_TYPES.has(reduceType))
@@ -313,6 +363,30 @@ const OUTGOING_MOVEMENT_TYPES: ReadonlySet<string> = new Set([
 ])
 
 /**
+ * Двигает ли движение КУСОК, а не партию.
+ *
+ * Материал куска уходит с партии ровно один раз — движением `offcut`, то есть самой
+ * резкой. Всё, что случается с куском ПОСЛЕ неё — продажа, списание, возврат отменённой
+ * отгрузки, — происходит с куском: он лежит на полке отдельно от своей партии, и вычесть
+ * его из неё второй раз значило бы уничтожить металл, которого там уже нет. Партия в
+ * таком движении названа для происхождения — тем же приёмом, что у переноса куска
+ * (`transfer` в `writeMovement`): `batchId` на движении это его родитель, и родитель при
+ * этом стоит.
+ *
+ * Одна функция на все места, где журнал превращается в число партии: списание при записи,
+ * пересчёт остатка из журнала, агрегаты и статус. Разойдись они — и партия «вернула» бы
+ * себе кусок при следующей пересборке хранилища: молча и только после перезагрузки.
+ */
+function movesOffcut(m: { type: string; offcutId?: string | null }): boolean {
+  return m.offcutId != null && m.type !== 'offcut'
+}
+
+/** Уносит ли движение металл С ПАРТИИ: тип уносящий И двигает оно партию, а не кусок. */
+function takesFromBatch(m: { type: string; offcutId?: string | null }): boolean {
+  return OUTGOING_MOVEMENT_TYPES.has(m.type) && !movesOffcut(m)
+}
+
+/**
  * Приводит остатки и статусы партий в согласие с журналом движений.
  *
  * Вызывается один раз при загрузке модуля — и вызываема из тестов, потому что это
@@ -325,9 +399,9 @@ export function syncBatchQuantities() {
     const movements = movementStore.filter((m) => m.batchId === batch.id)
     let remaining = batch.quantity
     for (const m of movements) {
-      if (OUTGOING_MOVEMENT_TYPES.has(m.type)) {
+      if (takesFromBatch(m)) {
         remaining -= m.quantity
-      } else if (m.type === 'return') {
+      } else if (m.type === 'return' && !movesOffcut(m)) {
         remaining += m.quantity
       }
     }
@@ -392,7 +466,7 @@ function projectStockRow(row: StockOverviewItem): StockOverviewItem {
     // batches only — an unpriced one would otherwise drag the average towards zero.
     avgUnitPrice: costedQuantity > 0 ? round2(totalValue / costedQuantity) : 0,
     totalValue,
-    unit: (batches[0]?.unit ?? row.unit) as StockUnit,
+    uomId: batches[0]?.uomId ?? row.uomId,
     // Reserved and available are derived for the same reason: a hold belongs to an
     // order, and a number copied here would lie the moment that order shipped.
     reservedQuantity: reserved,
@@ -405,7 +479,7 @@ export async function mockGetStockOverview(
   filters: {
     search: string
     categoryIds?: string
-    unit?: string
+    uomId?: string
     showDeficitOnly?: string
     showInStockOnly?: string
     sortBy?: string
@@ -431,7 +505,7 @@ export async function mockGetStockOverview(
     const cats = filters.categoryIds.split(',').filter(Boolean)
     if (cats.length > 0) filtered = filtered.filter((s) => cats.includes(s.categoryId!))
   }
-  if (filters.unit) filtered = filtered.filter((s) => s.unit === filters.unit)
+  if (filters.uomId) filtered = filtered.filter((s) => s.uomId === filters.uomId)
   if (filters.showDeficitOnly === 'true') filtered = filtered.filter((s) => s.isDeficit)
   if (filters.showInStockOnly === 'true') filtered = filtered.filter((s) => s.availableQuantity > 0)
 
@@ -494,7 +568,7 @@ export async function mockGetBatches(
     productId?: string
     supplierId?: string
     status?: string
-    unit?: string
+    uomId?: string
     dateFrom?: string
     dateTo?: string
     sortBy?: string
@@ -506,17 +580,13 @@ export async function mockGetBatches(
   if (filters.search) {
     const q = filters.search.toLowerCase()
     filtered = filtered.filter(
-      (b) =>
-        b.productName.ru.toLowerCase().includes(q) ||
-        b.productName.en.toLowerCase().includes(q) ||
-        b.productName.lt.toLowerCase().includes(q) ||
-        b.batchNumber.toLowerCase().includes(q),
+      (b) => _matchesProductName(b.productId, q) || b.batchNumber.toLowerCase().includes(q),
     )
   }
   if (filters.productId) filtered = filtered.filter((b) => b.productId === filters.productId)
   if (filters.supplierId) filtered = filtered.filter((b) => b.supplierId === filters.supplierId)
   if (filters.status) filtered = filtered.filter((b) => b.status === filters.status)
-  if (filters.unit) filtered = filtered.filter((b) => b.unit === filters.unit)
+  if (filters.uomId) filtered = filtered.filter((b) => b.uomId === filters.uomId)
   if (filters.dateFrom) filtered = filtered.filter((b) => b.receivedAt >= filters.dateFrom!)
   if (filters.dateTo) filtered = filtered.filter((b) => b.receivedAt <= filters.dateTo!)
 
@@ -527,10 +597,10 @@ export async function mockGetBatches(
     // A batch number is a document number, and it hits the same wall an order
     // number does at the thousandth — see `compareDocumentNumbers`.
     if (sortBy === 'batchNumber') cmp = compareDocumentNumbers(a.batchNumber, b.batchNumber)
-    else if (sortBy === 'productName') cmp = a.productName.en.localeCompare(b.productName.en)
+    else if (sortBy === 'productName') cmp = _compareProductName(a, b)
     else if (sortBy === 'quantity') cmp = a.quantity - b.quantity
     else if (sortBy === 'quantityRemaining') cmp = a.quantityRemaining - b.quantityRemaining
-    else if (sortBy === 'unit') cmp = a.unit.localeCompare(b.unit)
+    else if (sortBy === 'uomId') cmp = a.uomId.localeCompare(b.uomId)
     else if (sortBy === 'unitPrice') cmp = (a.unitPrice ?? 0) - (b.unitPrice ?? 0)
     else if (sortBy === 'status') cmp = a.status.localeCompare(b.status)
     else if (sortBy === 'supplierName')
@@ -555,12 +625,11 @@ function toBatchListItem(b: WarehouseBatch): BatchListItem {
   return {
     id: b.id,
     productId: b.productId,
-    productName: b.productName,
     batchNumber: b.batchNumber,
     lotCode: b.lotCode,
     quantity: b.quantity,
     quantityRemaining: b.quantityRemaining,
-    unit: b.unit,
+    uomId: b.uomId,
     unitPrice: b.unitPrice,
     currency: b.currency,
     receivedAt: b.receivedAt,
@@ -634,7 +703,7 @@ export async function mockCreateBatch(
   // anything, put dollars on a shelf that is kept in euro. The arrow points one
   // way only: an empty purchase price stays empty.
   const receivedQuantity = data.receivedQuantity ?? data.quantity
-  const receivedUnitId = data.receivedUnitId ?? _resolveUomId(data.unit)
+  const receivedUnitId = data.receivedUnitId ?? data.uomId
   const receivedUnitPrice = data.receivedUnitPrice ?? null
   // A currency is a caption to a number; with no purchase price there is nothing
   // to caption. When a price came without one, it came in the base currency.
@@ -643,7 +712,7 @@ export async function mockCreateBatch(
     (receivedUnitPrice != null ? _resolveCurrencyId(BASE_CURRENCY) : null)
   const purchaseToWarehouseRate =
     data.purchaseToWarehouseRate ??
-    (receivedUnitId !== data.unit
+    (receivedUnitId !== data.uomId
       ? data.quantity && receivedQuantity
         ? receivedQuantity / data.quantity
         : null
@@ -686,17 +755,13 @@ export async function mockCreateBatch(
   const batch: WarehouseBatch = {
     id,
     productId: data.productId,
-    productName: (() => {
-      const product = PRODUCTS_STORE.find((p) => p.id === data.productId)
-      return product ? { ...product.name } : { ru: '', en: '', lt: '' }
-    })(),
     supplierId: data.supplierId || null,
     supplierName: null,
     batchNumber: data.batchNumber,
     lotCode: data.lotCode,
     quantity: data.quantity,
     quantityRemaining: data.quantity,
-    unit: data.unit as StockUnit,
+    uomId: data.uomId,
     unitPrice: warehouseUnitPrice,
     // No cost means no total. NaN and 0 both claim something nobody knows.
     totalCost: warehouseUnitPrice == null ? null : round2(data.quantity * warehouseUnitPrice),
@@ -721,6 +786,7 @@ export async function mockCreateBatch(
     purchaseToWarehouseRate,
   }
   batchStore.push(batch)
+  notifyBatchReceived(batch)
   return batch
 }
 
@@ -761,7 +827,7 @@ export async function mockGetOffcuts(
     search: string
     productId?: string
     status?: string
-    unit?: string
+    uomId?: string
     offcutType?: string
     categoryIds?: string
     batchNumber?: string
@@ -773,16 +839,11 @@ export async function mockGetOffcuts(
   let filtered = [...offcutStore]
   if (filters.search) {
     const q = filters.search.toLowerCase()
-    filtered = filtered.filter(
-      (o) =>
-        o.productName.ru.toLowerCase().includes(q) ||
-        o.productName.en.toLowerCase().includes(q) ||
-        o.productName.lt.toLowerCase().includes(q),
-    )
+    filtered = filtered.filter((o) => _matchesProductName(o.productId, q))
   }
   if (filters.productId) filtered = filtered.filter((o) => o.productId === filters.productId)
   if (filters.status) filtered = filtered.filter((o) => o.status === filters.status)
-  if (filters.unit) filtered = filtered.filter((o) => o.unit === filters.unit)
+  if (filters.uomId) filtered = filtered.filter((o) => o.uomId === filters.uomId)
   if (filters.offcutType) filtered = filtered.filter((o) => o.offcutType === filters.offcutType)
   if (filters.categoryIds) {
     const cats = filters.categoryIds.split(',').filter(Boolean)
@@ -798,7 +859,7 @@ export async function mockGetOffcuts(
   filtered.sort((a, b) => {
     let cmp = 0
     if (sortBy === 'createdAt') cmp = a.createdAt.localeCompare(b.createdAt)
-    else if (sortBy === 'productName') cmp = a.productName.en.localeCompare(b.productName.en)
+    else if (sortBy === 'productName') cmp = _compareProductName(a, b)
     else if (sortBy === 'quantity') cmp = a.quantity - b.quantity
     return sortDir === 'desc' ? -cmp : cmp
   })
@@ -825,15 +886,28 @@ export async function mockGetOffcut(id: string): Promise<WarehouseOffcut> {
  * 3. Количество партии уменьшает ТОЛЬКО `writeMovement`. Здесь стояло второе
  *    такое же вычитание, и обрезок в 3 забирал с партии 6.
  */
-export async function mockCreateOffcut(data: OffcutCreatePayload): Promise<WarehouseOffcut> {
+export async function mockCreateOffcut(
+  data: OffcutCreatePayload,
+  /**
+   * Сколько этот кусок забирает с партии, если это знает не он сам.
+   *
+   * Единственный законный случай — резка ШТУЧНОЙ партии: там расход принадлежит
+   * операции, а не куску (лист один, кусков из него четыре), и операция передаёт
+   * сюда ноль, списывая свой лист одним движением. Во всех остальных случаях
+   * размер куска и есть его расход, и параметра тут быть не должно: он был бы
+   * вторым путём списания, ради отсутствия которого всё это и написано.
+   */
+  options?: { batchDebit: number },
+): Promise<WarehouseOffcut> {
   const batch = batchStore.find((b) => b.id === data.batchId)
   if (!batch) throw new Error('BATCH_NOT_FOUND')
 
-  const material = resolveOffcutMaterial(data, batch.unit)
+  const material = resolveOffcutMaterial(data, batch.uomId)
   if (!material.ok) throw new Error(MATERIAL_ERROR_CODE[material.reason])
+  const debit = options?.batchDebit ?? material.material
   // Списать больше, чем лежит, и отчитаться об успехе — значит создать металл из
   // ничего: `Math.max(0, …)` ниже по стеку молча согласился бы.
-  if (material.material > batch.quantityRemaining) throw new Error('INSUFFICIENT_QUANTITY')
+  if (debit > batch.quantityRemaining) throw new Error('INSUFFICIENT_QUANTITY')
 
   const id = `offcut-${String(offcutSeq++).padStart(3, '0')}`
   const now = new Date().toISOString()
@@ -843,8 +917,10 @@ export async function mockCreateOffcut(data: OffcutCreatePayload): Promise<Wareh
     id,
     batchId: data.batchId,
     batchNumber,
-    productId: data.productId,
-    productName: batch.productName,
+    // Товар берётся у ПАРТИИ, а не у payload: обрезок режут из партии, значит другого
+    // товара у него быть не может. Отдельное поле в запросе позволяло им разойтись —
+    // и в сидах они разошлись у десяти записей из тринадцати (п. 4e).
+    productId: batch.productId,
     categoryId: data.categoryId ?? null,
     offcutType: data.offcutType ?? 'sheet',
     lengthMm: data.lengthMm ?? null,
@@ -852,7 +928,7 @@ export async function mockCreateOffcut(data: OffcutCreatePayload): Promise<Wareh
     thicknessMm: data.thicknessMm ?? null,
     weightKg: data.weightKg ?? null,
     quantity: data.quantity,
-    unit: data.unit as StockUnit,
+    uomId: data.uomId,
     location: data.location ?? null,
     status: 'available',
     notes: data.notes ?? null,
@@ -865,17 +941,161 @@ export async function mockCreateOffcut(data: OffcutCreatePayload): Promise<Wareh
   }
   offcutStore.push(offcut)
 
-  // Движение — единственный владелец количества партии: оно и списывает.
-  await mockCreateMovement({
-    type: 'offcut',
-    batchId: data.batchId,
-    offcutId: id,
-    quantity: material.material,
-    movedAt: now,
-    notes: `Offcut created from batch ${batchNumber}`,
-  })
+  // Движение — единственный владелец количества партии: оно и списывает. Нулевой
+  // расход движения не пишет: списывать нечего, а движение на ноль — запись о том,
+  // чего не было.
+  if (debit > 0) {
+    await mockCreateMovement({
+      type: 'offcut',
+      batchId: data.batchId,
+      offcutId: id,
+      quantity: debit,
+      movedAt: now,
+      notes: `Offcut created from batch ${batchNumber}`,
+    })
+  }
 
   return offcut
+}
+
+/**
+ * Кто уже стоит на куске — вопрос к ЗАКАЗАМ, потому что записан этот хват в разбивке
+ * строки, а не на складе.
+ *
+ * Регистрацией, а не импортом, и по той же причине, что `registerClientOrderLookup` и
+ * `registerProductSalesLookup`: склад спрашивает, заказы отвечают, а импорт в эту сторону
+ * был бы циклом — `orders.ts` уже импортирует этот модуль.
+ *
+ * Пока никто не зарегистрировался (склад подняли без модуля заказов), занятых кусков
+ * нет — это правда, а не заглушка: без заказов и претендентов на кусок не существует.
+ */
+let offcutClaimLookup: (() => ReadonlySet<string>) | null = null
+
+export function registerOffcutClaimLookup(lookup: () => ReadonlySet<string>): void {
+  offcutClaimLookup = lookup
+}
+
+/**
+ * Куски, которые уже кому-то обещаны и второй раз обещаны быть не могут.
+ *
+ * Обрезок — ОДИН физический кусок, и делится он только резкой: «остатка», из которого
+ * вычитают чужой хват, у него нет. Поэтому занят он не частично, а целиком — с той
+ * минуты, как его назвали в разбивке строки, и задолго до того, как кто-нибудь его
+ * зарезервирует.
+ *
+ * Спрашивается только разбивка, хотя держат кусок и резервы. Так и надо: резерв на
+ * кусок возникает единственным способом — из разбивки, которая его назвала
+ * (`mockReserveOrder`), — и разбивку переживает, потому что удаление строки снимает
+ * хват, а не наоборот. Разбивка тут шире резерва и старше его, так что второй вопрос
+ * дал бы тот же ответ и завёл бы второй источник одного правила.
+ *
+ * Ничего не хранится: занятость ВЫВОДИТСЯ из того, кто на куске стоит. Поэтому строка,
+ * которую удалили, отпускает кусок сама — отдельного «освободить кусок», который
+ * когда-нибудь забудут позвать, не нужно. Обратная сторона того же: аннулированный
+ * заказ кусок НЕ отдаёт, пока его строки живы, — ровно как аннулированный заказ не
+ * отпускает и хват на партии. Это одно поведение, и менять его надо сразу для обоих.
+ */
+function takenOffcuts(): ReadonlySet<string> {
+  return offcutClaimLookup?.() ?? new Set<string>()
+}
+
+/**
+ * Кусок, который прямо сейчас лежит на полке, — или `null`.
+ *
+ * Отгрузка спрашивает это перед тем, как списать кусок: между выбором куска в строку и
+ * приездом машины кладовщик мог отправить его в утиль или в производство, и отгрузить
+ * то, чего на полке нет, нельзя. Возвращается родительская партия, а не сам кусок:
+ * движение записывается против партии («каждое движение — и движение куска тоже —
+ * пишется против партии», см. `writeMovement`), а больше отгрузке от куска ничего не
+ * нужно.
+ *
+ * Занятость здесь НЕ спрашивается: строка, которая кусок отгружает, — это ровно та
+ * строка, которая его заняла, и `takenOffcuts` ответил бы «занят» ей самой.
+ */
+export function shelvedOffcut(offcutId: string): { id: string; batchId: string } | null {
+  const offcut = offcutStore.find((o) => o.id === offcutId)
+  if (!offcut || offcut.status !== 'available') return null
+  return { id: offcut.id, batchId: offcut.batchId }
+}
+
+/**
+ * Обрезки, которые СТРОКА ЗАКАЗА может взять по этому товару.
+ *
+ * Обрезки не участвуют в автоматическом FIFO и участвовать не будут (пункт 7 плана
+ * `review-followups.md`): кусок выбирают глазами по размеру, а не по дате поступления.
+ * Поэтому FIFO по-прежнему строится только из партий, а этот список — единственная
+ * дорога куска в заказ.
+ *
+ * Предлагается только СВОБОДНЫЙ кусок: не проданный и не списанный (`status`) и никем не
+ * занятый (`takenOffcuts`). Партии тут не пример для подражания: у партии
+ * `mockFifoAllocation` вычитает чужой хват из количества, а у куска вычитать нечего — он
+ * один и делится только резкой. Кусок, размер которого в единице партии невыразим, не
+ * предлагается вовсе — взять его в строку всё равно не получилось бы, и показать его
+ * значило бы пообещать выбор, который откажут на сохранении.
+ */
+export function mockGetOffcutOffers(productId: string): OffcutOffer[] {
+  const taken = takenOffcuts()
+  const offers: OffcutOffer[] = []
+  for (const offcut of offcutStore) {
+    if (offcut.productId !== productId || offcut.status !== 'available') continue
+    if (taken.has(offcut.id)) continue
+    const batch = batchStore.find((b) => b.id === offcut.batchId)
+    if (!batch) continue
+    const allocation = offcutAllocation(offcut, batch)
+    if (!allocation) continue
+    offers.push({
+      id: offcut.id,
+      batchId: offcut.batchId,
+      batchNumber: offcut.batchNumber,
+      productId: offcut.productId,
+      offcutType: offcut.offcutType,
+      lengthMm: offcut.lengthMm,
+      widthMm: offcut.widthMm,
+      thicknessMm: offcut.thicknessMm,
+      weightKg: offcut.weightKg,
+      quantity: offcut.quantity,
+      location: offcut.location,
+      material: allocation.quantity,
+      batchUomId: batch.uomId,
+      unitCost: allocation.unitCost,
+      currency: allocation.currency,
+    })
+  }
+  return offers
+}
+
+/**
+ * Аллокации под ВЫБРАННЫЕ куски — то, чем строка заказа начинает своё покрытие.
+ *
+ * Каждый отказ назван кодом, а не пропущен молча: кусок, которого нет, кусок чужого
+ * товара и кусок, уже отданный кому-то, — это три разные ошибки, и строка, которая
+ * тихо потеряла один из выбранных кусков, обещает клиенту металл по цене, которой
+ * никто не считал. Один и тот же id дважды — один кусок: он физически один.
+ *
+ * «Уже отданный» проверяется ТЕМ ЖЕ `takenOffcuts`, которым отбирается список
+ * предложений, — иначе отказ и предложение разошлись бы, и то, что второму заказу
+ * показали, третьему бы не сохранилось. Список отсеивает занятое заранее, а этот отказ
+ * ловит то, что заняли между показом и сохранением: список — вежливость, отказ — правило.
+ */
+export function mockOffcutAllocations(
+  productId: string,
+  offcutIds: readonly string[],
+): OrderLineAllocation[] {
+  const taken = takenOffcuts()
+  const allocations: OrderLineAllocation[] = []
+  for (const id of new Set(offcutIds)) {
+    const offcut = offcutStore.find((o) => o.id === id)
+    if (!offcut) throw new Error('OFFCUT_NOT_FOUND')
+    if (offcut.productId !== productId) throw new Error('OFFCUT_PRODUCT_MISMATCH')
+    if (offcut.status !== 'available' || taken.has(offcut.id))
+      throw new Error('OFFCUT_NOT_AVAILABLE')
+    const batch = batchStore.find((b) => b.id === offcut.batchId)
+    if (!batch) throw new Error('BATCH_NOT_FOUND')
+    const allocation = offcutAllocation(offcut, batch)
+    if (!allocation) throw new Error('OFFCUT_SIZE_NOT_EXPRESSIBLE')
+    allocations.push(allocation)
+  }
+  return allocations
 }
 
 export async function mockPatchOffcut(
@@ -905,9 +1125,8 @@ function toMovementListItem(m: WarehouseMovement): MovementListItem {
     batchNumber: m.batchNumber,
     offcutId: m.offcutId,
     productId: m.productId,
-    productName: m.productName,
     quantity: m.quantity,
-    unit: m.unit,
+    uomId: m.uomId,
     unitPrice: m.unitPrice,
     referenceId: m.referenceId,
     referenceType: m.referenceType,
@@ -922,7 +1141,7 @@ export async function mockGetMovements(
     search: string
     type?: string
     productId?: string
-    unit?: string
+    uomId?: string
     categoryIds?: string
     batchNumber?: string
     referenceId?: string
@@ -938,16 +1157,12 @@ export async function mockGetMovements(
   if (filters.search) {
     const q = filters.search.toLowerCase()
     filtered = filtered.filter(
-      (m) =>
-        m.productName.ru.toLowerCase().includes(q) ||
-        m.productName.en.toLowerCase().includes(q) ||
-        m.productName.lt.toLowerCase().includes(q) ||
-        m.batchNumber.toLowerCase().includes(q),
+      (m) => _matchesProductName(m.productId, q) || m.batchNumber.toLowerCase().includes(q),
     )
   }
   if (filters.type) filtered = filtered.filter((m) => m.type === filters.type)
   if (filters.productId) filtered = filtered.filter((m) => m.productId === filters.productId)
-  if (filters.unit) filtered = filtered.filter((m) => m.unit === filters.unit)
+  if (filters.uomId) filtered = filtered.filter((m) => m.uomId === filters.uomId)
   if (filters.batchNumber)
     filtered = filtered.filter((m) =>
       m.batchNumber.toLowerCase().includes(filters.batchNumber!.toLowerCase()),
@@ -963,10 +1178,10 @@ export async function mockGetMovements(
     let cmp = 0
     if (sortBy === 'movedAt') cmp = a.movedAt.localeCompare(b.movedAt)
     else if (sortBy === 'type') cmp = a.type.localeCompare(b.type)
-    else if (sortBy === 'productName') cmp = a.productName.en.localeCompare(b.productName.en)
+    else if (sortBy === 'productName') cmp = _compareProductName(a, b)
     else if (sortBy === 'batchNumber') cmp = a.batchNumber.localeCompare(b.batchNumber)
     else if (sortBy === 'quantity') cmp = a.quantity - b.quantity
-    else if (sortBy === 'unit') cmp = a.unit.localeCompare(b.unit)
+    else if (sortBy === 'uomId') cmp = a.uomId.localeCompare(b.uomId)
     else if (sortBy === 'unitPrice') cmp = a.unitPrice - b.unitPrice
     else if (sortBy === 'totalCost') cmp = a.quantity * a.unitPrice - b.quantity * b.unitPrice
     else if (sortBy === 'referenceId')
@@ -1016,9 +1231,8 @@ export function writeMovement(data: {
     batchNumber: batch.batchNumber,
     offcutId: data.offcutId ?? null,
     productId: batch.productId,
-    productName: batch.productName,
     quantity: data.quantity,
-    unit: batch.unit,
+    uomId: batch.uomId,
     // A movement is priced at what the batch costs; a batch with no cost moves
     // goods without moving a known amount of money.
     unitPrice: data.unitPrice ?? batch.unitPrice ?? 0,
@@ -1050,7 +1264,7 @@ export function writeMovement(data: {
   // ─── Update batch quantity remaining based on movement type ──────────
   // Тот же набор, что у пересчёта из журнала: два списка «что уносит металл» — это
   // две правды об одном правиле, и расходятся они на первом же новом типе.
-  if (OUTGOING_MOVEMENT_TYPES.has(data.type)) {
+  if (takesFromBatch(data)) {
     // Округление — здесь, у единственного владельца количества: списание 2.503 с
     // партии 102.24 иначе оставляет в хранилище 99.73700000000001.
     batch.quantityRemaining = Math.max(0, roundQuantity(batch.quantityRemaining - data.quantity))
@@ -1060,7 +1274,7 @@ export function writeMovement(data: {
     if (batch.totalCost != null && batch.unitPrice != null) {
       batch.totalCost += data.quantity * batch.unitPrice
     }
-  } else if (data.type === 'return') {
+  } else if (data.type === 'return' && !movesOffcut(data)) {
     batch.quantityRemaining = roundQuantity(batch.quantityRemaining + data.quantity)
   } else if (data.type === 'correction') {
     if (data.referenceType === 'receipt') {
@@ -1105,6 +1319,27 @@ export function writeMovement(data: {
         // — the field is left alone and the second place is written by hand.
         batch.location = destination
       }
+    }
+  }
+
+  // ─── Кусок: движение меняет его статус ──────────────────────────────────────
+  // Статус куска — это и есть его остаток: кусок неделим, «сколько его лежит» у него
+  // нет, есть только «лежит или нет». Поэтому статус переписывает сюда же, где партия
+  // теряет количество, а не отдельным вызовом рядом: забытый вызов оставил бы кусок
+  // `available`, и его предложили бы следующему заказу вторым.
+  //
+  // Правило — по ТИПУ движения, а не по перечню случаев, которые вспомнились. Пока
+  // здесь стояли только `sale` и `return`, бракованный возврат оставлял кусок свободным:
+  // возврат клал его на полку (`available`), следующий за ним акт списания уносил его в
+  // утиль — и никто не переписывал статус, потому что `write-off` в перечень не попал.
+  // У ПАРТИИ тот же сценарий сходился в ноль сам, у куска — нет: количества у него нет,
+  // весь его остаток и есть статус.
+  const offcutStatus = movesOffcut(data) ? OFFCUT_STATUS_BY_MOVEMENT[data.type] : undefined
+  if (offcutStatus) {
+    const offcut = offcutStore.find((o) => o.id === data.offcutId)
+    if (offcut) {
+      offcut.status = offcutStatus
+      offcut.updatedAt = now
     }
   }
 
@@ -1187,6 +1422,7 @@ export async function mockGetBatchAggregates(batchId: string): Promise<BatchStat
   for (const m of movements) {
     if (m.type === 'receipt' || m.type === 'transfer') continue
     if (m.type === 'correction') continue // applied in second pass
+    if (movesOffcut(m)) continue
     if (m.type === 'return') {
       const reduceType = m.referenceType || ''
       if (reduceType && OUTGOING_MOVEMENT_TYPES.has(reduceType))
@@ -1203,13 +1439,13 @@ export async function mockGetBatchAggregates(batchId: string): Promise<BatchStat
 
   const receiptQty = Math.max(0, batch.quantityRemaining)
   const result: BatchStatusAggregate[] = []
-  if (receiptQty > 0) result.push({ type: 'receipt', quantity: receiptQty, unit: batch.unit })
+  if (receiptQty > 0) result.push({ type: 'receipt', quantity: receiptQty, uomId: batch.uomId })
 
   const sorted = Object.entries(byType)
     .filter(([, q]) => q > 0)
     .sort(([, a], [, b]) => b - a)
   for (const [type, quantity] of sorted) {
-    result.push({ type: type as MovementType, quantity, unit: batch.unit })
+    result.push({ type: type as MovementType, quantity, uomId: batch.uomId })
   }
   return result
 }
@@ -1237,7 +1473,7 @@ export async function mockGetBatchActiveSales(batchId: string): Promise<BatchAct
       id: `sale-${batchId}-${String(idx).padStart(3, '0')}`,
       movementId: s.id,
       quantity: remaining,
-      unit: s.unit,
+      uomId: s.uomId,
       referenceId: s.referenceId ?? null,
       soldAt: s.movedAt,
     })
@@ -1274,16 +1510,20 @@ export async function mockExecuteCutting(
 
   const kerfMm = data.kerfMm ?? 0
   const wasteQuantity = data.wasteQuantity ?? 0
-  if (kerfMm < 0 || wasteQuantity < 0) throw new Error('CUTTING_NEGATIVE_AMOUNT')
+  // Отрицательные пропил и отход отказывает `computeCuttingConsumption` — тем же
+  // кодом `CUTTING_NEGATIVE_AMOUNT`, что стоял здесь отдельной строкой. Правило
+  // переехало в домен, потому что форма его не знала: своя копия на сервере
+  // означала, что клиент может её не иметь, и он её не имел.
   // Ширина реза в килограммах не выражается без веса погонного метра. Отказ, а не
   // молчаливый ноль: присланный пропил означает, что клиент считает его значащим.
-  if (kerfMm > 0 && !isLinearBatchUnit(batch.unit)) throw new Error('CUTTING_KERF_NOT_APPLICABLE')
+  if (kerfMm > 0 && !isLinearBatchUnit(batch.uomId)) throw new Error('CUTTING_KERF_NOT_APPLICABLE')
 
   const consumption = computeCuttingConsumption({
     offcuts: data.offcuts,
     kerfMm,
     wasteQuantity,
-    unit: batch.unit,
+    uomId: batch.uomId,
+    sourcePieces: data.sourcePieces,
   })
   if (!consumption.ok) throw new Error(MATERIAL_ERROR_CODE[consumption.reason])
   if (consumption.consumed > batch.quantityRemaining) throw new Error('INSUFFICIENT_QUANTITY')
@@ -1296,9 +1536,29 @@ export async function mockExecuteCutting(
 
   // Проверки закончились — теперь пишем. Ни одного отказа после первой записи:
   // резка одна проводка, и половина заявленного хуже, чем ничего.
+  // У штучной партии расход принадлежит ОПЕРАЦИИ, а не куску: лист один, кусков из
+  // него четыре, и списание по кускам списало бы четыре листа. Куски пишутся без
+  // движения, а ушедшие листы уходят одним движением ниже. У измеримой партии всё
+  // как было: сумма кусков и есть ушедший материал, и списывает его каждый кусок сам.
+  const counted = isCountedBatchUnit(batch.uomId)
   const offcuts: WarehouseOffcut[] = []
   for (const offcut of data.offcuts) {
-    offcuts.push(await mockCreateOffcut({ ...offcut, batchId: batch.id }))
+    offcuts.push(
+      await mockCreateOffcut(
+        { ...offcut, batchId: batch.id },
+        counted ? { batchDebit: 0 } : undefined,
+      ),
+    )
+  }
+
+  if (counted) {
+    await mockCreateMovement({
+      type: 'offcut',
+      batchId: batch.id,
+      quantity: consumption.offcutTotal,
+      referenceType: 'cutting',
+      notes: `Cutting: ${consumption.offcutTotal} pieces cut into ${consumption.cuts} offcuts`,
+    })
   }
 
   // Пропил и отход — металл, который с партии ушёл, но обрезком не стал. Одно
@@ -1337,7 +1597,7 @@ export async function mockGetDeficitList(
     search: string
     priority?: string
     status?: string
-    unit?: string
+    uomId?: string
     categoryIds?: string
     sortBy?: string
     sortDir?: string
@@ -1368,8 +1628,8 @@ export async function mockGetDeficitList(
   }
 
   // Filter by unit
-  if (filters.unit) {
-    filtered = filtered.filter((d) => d.unit === filters.unit)
+  if (filters.uomId) {
+    filtered = filtered.filter((d) => d.uomId === filters.uomId)
   }
 
   // Sort
@@ -1408,7 +1668,7 @@ export function recordShortage(data: {
   productId: string
   productName: string
   quantity: number
-  unit: string
+  uomId: string
   orderId: string
 }): WarehouseDeficit {
   const now = new Date().toISOString()
@@ -1433,7 +1693,7 @@ export function recordShortage(data: {
     currentStock: 0,
     minRequired: round2(data.quantity),
     deficitAmount: round2(data.quantity),
-    unit: data.unit,
+    uomId: data.uomId,
     priority: 'high',
     status: 'open',
     suggestedOrderQty: round2(data.quantity),
@@ -1444,6 +1704,10 @@ export function recordShortage(data: {
     auditLog: [],
   }
   deficitStore.push(deficit)
+  // Only the record that was just OPENED is an event. The branch above — the
+  // same order asking again — raises the amount on a shortage the user has
+  // already been told about, and a second note about it says nothing new.
+  notifyStockDeficit({ productId: deficit.productId, productName: deficit.productName })
   return deficit
 }
 
@@ -1479,7 +1743,7 @@ export async function mockCreateDeficitItem(data: DeficitCreatePayload): Promise
     currentStock: 0,
     minRequired: data.minRequired,
     deficitAmount: data.minRequired,
-    unit: 'pcs',
+    uomId: 'uom-pcs',
     priority: data.priority,
     status: 'open',
     suggestedOrderQty: null,

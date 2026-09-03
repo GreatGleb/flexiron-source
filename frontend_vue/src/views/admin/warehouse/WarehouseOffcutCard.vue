@@ -2,6 +2,8 @@
 import { computed, ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { useUnitLabel } from '@/composables/useUnitLabel'
+import { useProductNames } from '@/composables/useProductNames'
 import { useHead } from '@/composables/useHead'
 import { useWarehouseOffcutCard } from '@/composables/useWarehouseOffcutCard'
 import { offcutAreaM2 } from '@/domain/cutting'
@@ -38,6 +40,8 @@ const statusOptions = computed<SelectOption[]>(() =>
 )
 
 const { t } = useI18n()
+const unitLabel = useUnitLabel()
+const { productName } = useProductNames()
 const route = useRoute()
 
 const id = route.params.id as string
@@ -76,7 +80,7 @@ const pageTitle = computed(() =>
   offcut.value
     ? t('warehouse.offcut_card_title', {
         id: offcut.value.id,
-        productName: tf(offcut.value.productName),
+        productName: productName(offcut.value.productId),
       })
     : t('warehouse.header_title'),
 )
@@ -258,7 +262,7 @@ onMounted(load)
             {
               label: t('warehouse.offcut_card_title', {
                 id: offcut?.id ?? id,
-                productName: offcut ? tf(offcut.productName) : '',
+                productName: offcut ? productName(offcut.productId) : '',
               }),
             },
           ]"
@@ -268,7 +272,7 @@ onMounted(load)
             {{
               t('warehouse.offcut_card_title', {
                 id: offcut?.id ?? id,
-                productName: offcut ? tf(offcut.productName) : '',
+                productName: offcut ? productName(offcut.productId) : '',
               })
             }}
             <router-link
@@ -407,7 +411,7 @@ onMounted(load)
                     </span>
                   </label>
                   <input
-                    :value="tf(offcut.productName)"
+                    :value="productName(offcut.productId)"
                     class="glass-input"
                     type="text"
                     readonly
@@ -680,7 +684,7 @@ onMounted(load)
                     </span>
                   </label>
                   <input
-                    :value="`${offcut.quantity} ${t(`warehouse.unit_${offcut.unit}`, offcut.unit)}`"
+                    :value="`${offcut.quantity} ${unitLabel(offcut.uomId)}`"
                     class="glass-input"
                     type="text"
                     readonly
@@ -736,7 +740,7 @@ onMounted(load)
                   </label>
                   <AutoResizeTextarea
                     v-model="form.notes"
-                    class="glass-input batch-notes-input"
+                    class="batch-notes-input"
                     data-test="field-notes"
                   />
                 </div>
@@ -854,11 +858,7 @@ onMounted(load)
                   </svg>
                 </span>
               </label>
-              <AutoResizeTextarea
-                v-model="form.locationNotes"
-                class="glass-input"
-                data-test="field-location-notes"
-              />
+              <AutoResizeTextarea v-model="form.locationNotes" data-test="field-location-notes" />
             </div>
           </template>
         </GlassPanel>
@@ -892,7 +892,7 @@ onMounted(load)
                   <td>{{ t(`warehouse.movement_type_${movement.type}`) }}</td>
                   <td>
                     {{ movement.quantity }}
-                    {{ t(`warehouse.unit_${movement.unit}`, movement.unit) }}
+                    {{ unitLabel(movement.uomId) }}
                   </td>
                   <td>{{ movement.referenceId ?? '—' }}</td>
                   <td style="text-align: center">

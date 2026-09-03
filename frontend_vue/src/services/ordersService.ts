@@ -128,6 +128,12 @@ export async function addOrderItem(
     marginPercent?: number
     discountPercent?: number
     batchId?: string | null
+    /**
+     * Обрезки, выбранные руками, — куски, с которых строка начинает своё покрытие.
+     * В FIFO обрезки не попадают: их выбирают глазами по размеру (пункт 7 плана
+     * `review-followups.md`), поэтому назвать их можно только здесь.
+     */
+    offcutIds?: string[]
     /** The order version this line is being added to — contract §3. */
     version?: number
   },

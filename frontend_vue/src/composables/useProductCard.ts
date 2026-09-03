@@ -12,7 +12,7 @@ import type { Product, ProductFieldValue, LinkedSupplier } from '@/types/product
 import type { TranslatedString } from '@/types/i18n'
 import type { CategoryListItem } from '@/types/category'
 import type { Supplier } from '@/types/supplier'
-import type { UomConversion } from '@/types/settings'
+import type { ConversionFormulaType, UomConversion } from '@/types/settings'
 
 // Extended form type with all editable fields
 interface ProductForm {
@@ -26,9 +26,9 @@ interface ProductForm {
   purchaseUomId: string | null
   warehouseUomId: string | null
   saleUomId: string | null
-  purchaseToWarehouseFormulaType: string | null
+  purchaseToWarehouseFormulaType: ConversionFormulaType | null
   purchaseToWarehouseFactor: number | null
-  warehouseToSaleFormulaType: string | null
+  warehouseToSaleFormulaType: ConversionFormulaType | null
   warehouseToSaleFactor: number | null
   weightPerWarehouseUnitKg: number | null
 }
@@ -277,7 +277,10 @@ export function useProductCard(id: string) {
         const defaultFactor = findConversionFactor(pUom, wUom)
         if (defaultFactor != null) {
           form.value.purchaseToWarehouseFactor = defaultFactor
-          form.value.purchaseToWarehouseFormulaType = 'static'
+          // Подставлен коэффициент из статического правила справочника — формулы здесь
+          // нет. Раньше сюда писали 'static': это имя из ConversionType, а не из списка
+          // формул, и в поле формулы оно значило «формулы нет».
+          form.value.purchaseToWarehouseFormulaType = null
         }
       }
     },
@@ -292,7 +295,8 @@ export function useProductCard(id: string) {
         const defaultFactor = findConversionFactor(wUom, sUom)
         if (defaultFactor != null) {
           form.value.warehouseToSaleFactor = defaultFactor
-          form.value.warehouseToSaleFormulaType = 'static'
+          // См. выше: коэффициент из статического правила — это отсутствие формулы.
+          form.value.warehouseToSaleFormulaType = null
         }
       }
     },

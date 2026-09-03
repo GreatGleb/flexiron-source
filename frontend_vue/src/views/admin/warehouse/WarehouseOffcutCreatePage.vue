@@ -2,6 +2,7 @@
 import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { useUnitLabel } from '@/composables/useUnitLabel'
 import { useHead } from '@/composables/useHead'
 import { useWarehouseOffcutCreate } from '@/composables/useWarehouseOffcutCreate'
 import { offcutAreaM2 } from '@/domain/cutting'
@@ -37,6 +38,7 @@ const BATCH_STATUS_PILL: Record<BatchStatus, string> = {
 }
 
 const { t } = useI18n()
+const unitLabel = useUnitLabel()
 const router = useRouter()
 
 const {
@@ -421,8 +423,8 @@ function selectBatch(id: string) {
                     />
                   </td>
                   <td>{{ b.batchNumber }}</td>
-                  <td>{{ b.quantity }} {{ t(`warehouse.unit_${b.unit}`, b.unit) }}</td>
-                  <td>{{ b.quantityRemaining }} {{ t(`warehouse.unit_${b.unit}`, b.unit) }}</td>
+                  <td>{{ b.quantity }} {{ unitLabel(b.uomId) }}</td>
+                  <td>{{ b.quantityRemaining }} {{ unitLabel(b.uomId) }}</td>
                   <td>
                     <span class="status-pill" :class="BATCH_STATUS_PILL[b.status]">
                       {{ t(`warehouse.batch_status_${b.status}`) }}
@@ -770,7 +772,7 @@ function selectBatch(id: string) {
                 style="display: flex; align-items: center; opacity: 0.7; cursor: default"
               >
                 <span v-if="selectedBatch">
-                  {{ t(`warehouse.unit_${form.unit}`, form.unit) }}
+                  {{ unitLabel(form.uomId) }}
                 </span>
                 <span v-else style="color: var(--text-dim)">
                   {{ t('warehouse.offcut_create_unit_placeholder') }}
@@ -800,7 +802,7 @@ function selectBatch(id: string) {
               </label>
               <AutoResizeTextarea
                 v-model="form.notes"
-                class="glass-input batch-notes-input"
+                class="batch-notes-input"
                 :placeholder="t('warehouse.field_notes_placeholder')"
                 data-test="field-notes"
               />
@@ -917,11 +919,7 @@ function selectBatch(id: string) {
               </svg>
             </span>
           </label>
-          <AutoResizeTextarea
-            v-model="form.locationNotes"
-            class="glass-input"
-            data-test="field-location-notes"
-          />
+          <AutoResizeTextarea v-model="form.locationNotes" data-test="field-location-notes" />
         </div>
       </GlassPanel>
 

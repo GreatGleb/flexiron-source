@@ -2,6 +2,7 @@
 import { computed, ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { useUnitLabel } from '@/composables/useUnitLabel'
 import { useHead } from '@/composables/useHead'
 import { useWarehouseDeficitCard } from '@/composables/useWarehouseDeficitCard'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
@@ -41,6 +42,7 @@ const statusOptions = computed<SelectOption[]>(() =>
 )
 
 const { t } = useI18n()
+const unitLabel = useUnitLabel()
 const route = useRoute()
 
 const id = route.params.id as string
@@ -420,7 +422,7 @@ onMounted(load)
                     </span>
                   </label>
                   <input
-                    :value="`${deficit.currentStock} ${t(`warehouse.unit_${deficit.unit}`, deficit.unit)}`"
+                    :value="`${deficit.currentStock} ${unitLabel(deficit.uomId)}`"
                     class="glass-input"
                     type="text"
                     readonly
@@ -449,7 +451,7 @@ onMounted(load)
                     </span>
                   </label>
                   <input
-                    :value="`${deficit.deficitAmount} ${t(`warehouse.unit_${deficit.unit}`, deficit.unit)}`"
+                    :value="`${deficit.deficitAmount} ${unitLabel(deficit.uomId)}`"
                     class="glass-input text-danger"
                     type="text"
                     readonly
@@ -517,7 +519,7 @@ onMounted(load)
                   <input
                     :value="
                       deficit.suggestedOrderQty != null
-                        ? `${deficit.suggestedOrderQty} ${t(`warehouse.unit_${deficit.unit}`, deficit.unit)}`
+                        ? `${deficit.suggestedOrderQty} ${unitLabel(deficit.uomId)}`
                         : '—'
                     "
                     class="glass-input"
@@ -638,7 +640,7 @@ onMounted(load)
                   </label>
                   <AutoResizeTextarea
                     v-model="form.notes"
-                    class="glass-input batch-notes-input"
+                    class="batch-notes-input"
                     data-test="field-notes"
                   />
                 </div>

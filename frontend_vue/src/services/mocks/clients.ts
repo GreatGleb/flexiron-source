@@ -4,6 +4,7 @@ import { shiftDemoDay } from './demoClock'
 import { sealAuditIds, type AuditSeeded } from '@/mocks/auditIds'
 import type { AuditSource } from '@/types/audit'
 import { shiftAuditSeries } from './auditClock'
+import { isValidPaymentTermsDays } from '@/domain/paymentTerms'
 
 const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
   // ── Existing clients (1-9) ──
@@ -13,11 +14,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '304567890',
     vatCode: 'LT304567890',
     address: 'Vytauto g. 15, Kaunas',
+    country: 'LT',
     phone: '+37061234567',
     email: 'info@metalica.lt',
     status: 'active',
     notes: 'Main client, sheet steel orders',
     createdAt: '2025-01-10',
+    paymentTermsDays: 30,
     interactionHistory: [
       {
         date: '2025-06-01',
@@ -74,11 +77,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '40203040506',
     vatCode: 'LV40203040506',
     address: 'Brīvības iela 120, Riga',
+    country: 'LV',
     phone: '+37129123456',
     email: 'orders@steelworks.lv',
     status: 'active',
     notes: 'Export partner, pipe products',
     createdAt: '2025-02-15',
+    paymentTermsDays: 14,
     auditLog: [
       {
         timestamp: '2025-02-15 10:00',
@@ -104,11 +109,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '305678901',
     vatCode: 'LT305678901',
     address: 'Gedimino pr. 50, Vilnius',
+    country: 'LT',
     phone: '+37069876543',
     email: 'info@statyba.lt',
     status: 'active',
     notes: null,
     createdAt: '2025-03-20',
+    paymentTermsDays: 0,
     auditLog: [
       {
         timestamp: '2025-03-20 08:00',
@@ -126,12 +133,14 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '40305060708',
     vatCode: 'LV40305060708',
     address: 'Daugavgrīvas iela 68, Riga',
+    country: 'LV',
     phone: '+37127890123',
     email: 'ferrum@inbox.lv',
     status: 'inactive',
     notes: 'Temporarily suspended due to sanctions check',
     rejectionReason: 'Sanctions compliance - awaiting legal review',
     createdAt: '2025-04-05',
+    paymentTermsDays: 45,
     interactionHistory: [
       {
         date: '2025-04-10',
@@ -162,11 +171,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '306789012',
     vatCode: 'LT306789012',
     address: 'Pramonės g. 25, Šiauliai',
+    country: 'LT',
     phone: '+37061237890',
     email: 'info@plienocentras.lt',
     status: 'active',
     notes: 'Regular buyer of stainless steel coils',
     createdAt: '2025-04-18',
+    paymentTermsDays: 30,
     auditLog: [
       {
         timestamp: '2025-04-18 08:00',
@@ -192,11 +203,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '40123456789',
     vatCode: 'LV40123456789',
     address: 'Mārupes iela 15, Riga',
+    country: 'LV',
     phone: '+37125678901',
     email: 'sales@metalatirdznieciba.lv',
     status: 'active',
     notes: 'Distributor, aluminum profiles',
     createdAt: '2025-05-02',
+    paymentTermsDays: 60,
   },
   {
     id: 'CL-007',
@@ -204,11 +217,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '307890123',
     vatCode: 'LT307890123',
     address: 'Jūros g. 42, Klaipėda',
+    country: 'LT',
     phone: '+37067890123',
     email: 'logistics@krantas.lt',
     status: 'inactive',
     notes: null,
     createdAt: '2025-05-20',
+    paymentTermsDays: 7,
   },
   {
     id: 'CL-008',
@@ -216,11 +231,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '40890123456',
     vatCode: 'LV40890123456',
     address: 'Ventas iela 8, Liepāja',
+    country: 'LV',
     phone: '+37126789012',
     email: 'info@buvmateriali.lv',
     status: 'active',
     notes: 'Construction materials, quarterly contracts',
     createdAt: '2025-06-10',
+    paymentTermsDays: 30,
     auditLog: [
       {
         timestamp: '2025-06-10 08:00',
@@ -246,11 +263,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '308901234',
     vatCode: 'LT308901234',
     address: 'Žalioji g. 10, Panevėžys',
+    country: 'LT',
     phone: '+37068901234',
     email: 'recycling@ekometalas.lt',
     status: 'active',
     notes: 'Scrap metal recycling partner',
     createdAt: '2025-07-01',
+    paymentTermsDays: 14,
   },
 
   // ── Lithuanian companies (CL-010 – CL-030) ──
@@ -260,11 +279,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '301234567',
     vatCode: 'LT301234567',
     address: 'Savanorių pr. 187, Vilnius',
+    country: 'LT',
     phone: '+37062010001',
     email: 'info@infrastatyba.lt',
     status: 'active',
     notes: 'Road construction, rebar orders',
     createdAt: '2025-07-15',
+    paymentTermsDays: 0,
   },
   {
     id: 'CL-011',
@@ -272,11 +293,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '302345678',
     vatCode: 'LT302345678',
     address: 'Metalurgų g. 3, Elektrėnai',
+    country: 'LT',
     phone: '+37062010002',
     email: 'sales@plienogamyba.lt',
     status: 'active',
     notes: 'Large industrial client, monthly rolled steel allocations',
     createdAt: '2025-07-22',
+    paymentTermsDays: 90,
     auditLog: [
       {
         timestamp: '2025-07-22 08:00',
@@ -310,11 +333,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '303456789',
     vatCode: 'LT303456789',
     address: 'Miško g. 8, Alytus',
+    country: 'LT',
     phone: '+37062010003',
     email: 'info@woodmetal.lt',
     status: 'active',
     notes: null,
     createdAt: '2025-08-01',
+    paymentTermsDays: 30,
   },
   {
     id: 'CL-013',
@@ -322,11 +347,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '304567001',
     vatCode: 'LT304567001',
     address: 'Laisvės al. 45, Kaunas',
+    country: 'LT',
     phone: '+37062010004',
     email: 'centras@statyba.lt',
     status: 'inactive',
     notes: 'Public procurement entity, contract expired',
     createdAt: '2025-08-10',
+    paymentTermsDays: 30,
     auditLog: [
       {
         timestamp: '2025-08-10 08:00',
@@ -352,11 +379,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '305678112',
     vatCode: 'LT305678112',
     address: 'Respublikos g. 12, Panevėžys',
+    country: 'LT',
     phone: '+37062010005',
     email: 'siaures.metas@gmail.com',
     status: 'active',
     notes: 'Small-batch custom orders',
     createdAt: '2025-08-18',
+    paymentTermsDays: 14,
   },
   {
     id: 'CL-015',
@@ -364,11 +393,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '306789223',
     vatCode: 'LT306789223',
     address: 'Tilžės g. 30, Klaipėda',
+    country: 'LT',
     phone: '+37062010006',
     email: 'trade@jurosprekyba.lt',
     status: 'active',
     notes: 'Export-import, container flat steel',
     createdAt: '2025-08-25',
+    paymentTermsDays: 0,
   },
   {
     id: 'CL-016',
@@ -376,11 +407,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '307890334',
     vatCode: 'LT307890334',
     address: 'Vilniaus g. 22, Ukmergė',
+    country: 'LT',
     phone: '+37062010007',
     email: 'info@namuprojektai.lt',
     status: 'inactive',
     notes: 'Seasonal buyer, only spring-summer',
     createdAt: '2025-09-01',
+    paymentTermsDays: 45,
   },
   {
     id: 'CL-017',
@@ -388,11 +421,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '308901445',
     vatCode: 'LT308901445',
     address: 'Klaipėdos g. 5, Utena',
+    country: 'LT',
     phone: '+37062010008',
     email: 'aukstaitija@metalas.lt',
     status: 'active',
     notes: 'Regional distributor, wire rod products',
     createdAt: '2025-09-12',
+    paymentTermsDays: 30,
   },
   {
     id: 'CL-018',
@@ -400,11 +435,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '309012556',
     vatCode: 'LT309012556',
     address: 'Geležinkelio g. 14, Vilnius',
+    country: 'LT',
     phone: '+37062010009',
     email: 'rytai@prekyba.lt',
     status: 'active',
     notes: null,
     createdAt: '2025-09-20',
+    paymentTermsDays: 60,
   },
   {
     id: 'CL-019',
@@ -412,11 +449,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '310123667',
     vatCode: 'LT310123667',
     address: 'Taikos pr. 88, Klaipėda',
+    country: 'LT',
     phone: '+37062010010',
     email: 'engineering@statybos.lt',
     status: 'active',
     notes: 'Steel structures for commercial buildings',
     createdAt: '2025-10-01',
+    paymentTermsDays: 7,
   },
   {
     id: 'CL-020',
@@ -424,11 +463,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '311234778',
     vatCode: 'LT311234778',
     address: 'Pramonės g. 7, Marijampolė',
+    country: 'LT',
     phone: '+37062010011',
     email: 'info@autoremontas.lt',
     status: 'inactive',
     notes: null,
     createdAt: '2025-10-08',
+    paymentTermsDays: 30,
   },
   {
     id: 'CL-021',
@@ -436,11 +477,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '312345889',
     vatCode: 'LT312345889',
     address: 'Minijos g. 55, Klaipėda',
+    country: 'LT',
     phone: '+37062010012',
     email: 'logistics@vakarai.lt',
     status: 'active',
     notes: 'Warehouse and distribution, regular coil orders',
     createdAt: '2025-10-15',
+    paymentTermsDays: 14,
   },
   {
     id: 'CL-022',
@@ -448,11 +491,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '313456990',
     vatCode: 'LT313456990',
     address: 'Žalgirio g. 100, Vilnius',
+    country: 'LT',
     phone: '+37062010013',
     email: 'power@energetika.lt',
     status: 'active',
     notes: 'Wind tower component manufacturer',
     createdAt: '2025-10-22',
+    paymentTermsDays: 0,
     auditLog: [
       {
         timestamp: '2025-10-22 08:00',
@@ -478,11 +523,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '314567001',
     vatCode: 'LT314567001',
     address: 'Parko g. 3, Druskininkai',
+    country: 'LT',
     phone: '+37062010014',
     email: 'arch@mazoji.lt',
     status: 'active',
     notes: 'Landscaping and small structures',
     createdAt: '2025-11-01',
+    paymentTermsDays: 90,
   },
   {
     id: 'CL-024',
@@ -490,11 +537,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '315678112',
     vatCode: 'LT315678112',
     address: 'Lauko g. 18, Raseiniai',
+    country: 'LT',
     phone: '+37062010015',
     email: 'agri@zemestechnika.lt',
     status: 'inactive',
     notes: 'Seasonal agricultural equipment',
     createdAt: '2025-11-10',
+    paymentTermsDays: 30,
   },
   {
     id: 'CL-025',
@@ -502,11 +551,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '316789223',
     vatCode: 'LT316789223',
     address: 'Ukmergės g. 240, Vilnius',
+    country: 'LT',
     phone: '+37062010016',
     email: 'home@buitine.lt',
     status: 'active',
     notes: 'Home appliance manufacturer, sheet metal',
     createdAt: '2025-11-18',
+    paymentTermsDays: 30,
   },
   {
     id: 'CL-026',
@@ -514,11 +565,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '317890334',
     vatCode: 'LT317890334',
     address: 'Sodo g. 9, Kaišiadorys',
+    country: 'LT',
     phone: '+37062010017',
     email: 'fleet@transportoparkas.lt',
     status: 'active',
     notes: null,
     createdAt: '2025-11-25',
+    paymentTermsDays: 14,
   },
   {
     id: 'CL-027',
@@ -526,11 +579,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '318901445',
     vatCode: 'LT318901445',
     address: 'Ąžuolų g. 11, Trakai',
+    country: 'LT',
     phone: '+37062010018',
     email: 'wood@fasatai.lt',
     status: 'inactive',
     notes: 'Switched to wood-only supplier',
     createdAt: '2025-12-01',
+    paymentTermsDays: 0,
   },
   {
     id: 'CL-028',
@@ -538,11 +593,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '319012556',
     vatCode: 'LT319012556',
     address: 'Chemijos g. 4, Jonava',
+    country: 'LT',
     phone: '+37062010019',
     email: 'molds@plastikoforma.lt',
     status: 'active',
     notes: 'Injection mold steel buyer',
     createdAt: '2025-12-10',
+    paymentTermsDays: 45,
   },
   {
     id: 'CL-029',
@@ -550,11 +607,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '320123667',
     vatCode: 'LT320123667',
     address: 'Automagistralės g. 1, Kaunas',
+    country: 'LT',
     phone: '+37062010020',
     email: 'roads@keliu-tiesimas.lt',
     status: 'active',
     notes: 'Road construction, rebar and mesh',
     createdAt: '2025-12-18',
+    paymentTermsDays: 30,
   },
   {
     id: 'CL-030',
@@ -562,11 +621,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '321234778',
     vatCode: 'LT321234778',
     address: 'Šaltkalvių g. 6, Panevėžys',
+    country: 'LT',
     phone: '+37062010021',
     email: 'cold@saltasis.lt',
     status: 'inactive',
     notes: null,
     createdAt: '2026-01-05',
+    paymentTermsDays: 60,
   },
 
   // ── Latvian companies (CL-031 – CL-045) ──
@@ -576,11 +637,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '41001001001',
     vatCode: 'LV41001001001',
     address: 'Dzelzceļa iela 25, Riga',
+    country: 'LV',
     phone: '+37126000001',
     email: 'info@latvijasmetals.lv',
     status: 'active',
     notes: 'National metal distributor, LT and EE market',
     createdAt: '2026-01-12',
+    paymentTermsDays: 7,
     auditLog: [
       {
         timestamp: '2026-01-12 08:00',
@@ -606,11 +669,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '41002002002',
     vatCode: 'LV41002002002',
     address: 'Meža iela 18, Ogre',
+    country: 'LV',
     phone: '+37126000002',
     email: 'info@buvnieks.lv',
     status: 'active',
     notes: 'General construction, profile pipes',
     createdAt: '2026-01-20',
+    paymentTermsDays: 30,
   },
   {
     id: 'CL-033',
@@ -618,11 +683,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '41003003003',
     vatCode: 'LV41003003003',
     address: 'Maskavas iela 240, Riga',
+    country: 'LV',
     phone: '+37126000003',
     email: 'bridges@rigastilti.lv',
     status: 'active',
     notes: 'Bridge construction, heavy beams',
     createdAt: '2026-01-28',
+    paymentTermsDays: 14,
   },
   {
     id: 'CL-034',
@@ -630,11 +697,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '41004004004',
     vatCode: 'LV41004004004',
     address: 'Liepu iela 33, Liepāja',
+    country: 'LV',
     phone: '+37126000004',
     email: 'metal@kurzeme.lv',
     status: 'active',
     notes: 'Metalworking, custom fabrication',
     createdAt: '2026-02-05',
+    paymentTermsDays: 0,
   },
   {
     id: 'CL-035',
@@ -642,11 +711,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '41005005005',
     vatCode: 'LV41005005005',
     address: 'Jomas iela 55, Jūrmala',
+    country: 'LV',
     phone: '+37126000005',
     email: 'project@jurmala.lv',
     status: 'inactive',
     notes: null,
     createdAt: '2026-02-14',
+    paymentTermsDays: 90,
   },
   {
     id: 'CL-036',
@@ -654,11 +725,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '41006006006',
     vatCode: 'LV41006006006',
     address: 'Vienības iela 20, Daugavpils',
+    country: 'LV',
     phone: '+37126000006',
     email: 'energy@daugavpils.lv',
     status: 'active',
     notes: 'Energy sector, boiler steel',
     createdAt: '2026-02-22',
+    paymentTermsDays: 30,
   },
   {
     id: 'CL-037',
@@ -666,11 +739,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '41007007007',
     vatCode: 'LV41007007007',
     address: 'Rūpniecības iela 5, Valmiera',
+    country: 'LV',
     phone: '+37126000007',
     email: 'glass@valmiera.lv',
     status: 'inactive',
     notes: 'Temporary halt due to furnace maintenance',
     createdAt: '2026-03-01',
+    paymentTermsDays: 30,
   },
   {
     id: 'CL-038',
@@ -678,11 +753,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '41008008008',
     vatCode: 'LV41008008008',
     address: 'Rīgas iela 88, Jelgava',
+    country: 'LV',
     phone: '+37126000008',
     email: 'materials@celtnieciba.lv',
     status: 'active',
     notes: 'Building materials wholesaler',
     createdAt: '2026-03-10',
+    paymentTermsDays: 14,
   },
   {
     id: 'CL-039',
@@ -690,11 +767,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '41009009009',
     vatCode: 'LV41009009009',
     address: 'Ostas iela 12, Ventspils',
+    country: 'LV',
     phone: '+37126000009',
     email: 'port@ostaslogistika.lv',
     status: 'active',
     notes: 'Port operations, steel re-export',
     createdAt: '2026-03-18',
+    paymentTermsDays: 0,
   },
   {
     id: 'CL-040',
@@ -702,11 +781,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '41010010010',
     vatCode: 'LV41010010010',
     address: 'Mežrūpniecības iela 7, Riga',
+    country: 'LV',
     phone: '+37126000010',
     email: 'wood@koksnesgrupa.lv',
     status: 'active',
     notes: null,
     createdAt: '2026-03-25',
+    paymentTermsDays: 45,
   },
   {
     id: 'CL-041',
@@ -714,11 +795,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '41011011011',
     vatCode: 'LV41011011011',
     address: 'Šosejas iela 2, Bauska',
+    country: 'LV',
     phone: '+37126000011',
     email: 'road@autocels.lv',
     status: 'inactive',
     notes: 'Contract under renegotiation',
     createdAt: '2026-04-01',
+    paymentTermsDays: 30,
   },
   {
     id: 'CL-042',
@@ -726,11 +809,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '41012012012',
     vatCode: 'LV41012012012',
     address: 'Atbrīvošanas aleja 90, Rēzekne',
+    country: 'LV',
     phone: '+37126000012',
     email: 'machinery@rezekne.lv',
     status: 'active',
     notes: 'Machine building, cast iron and steel',
     createdAt: '2026-04-08',
+    paymentTermsDays: 60,
   },
   {
     id: 'CL-043',
@@ -738,11 +823,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '41013013013',
     vatCode: 'LV41013013013',
     address: 'Saules iela 15, Salaspils',
+    country: 'LV',
     phone: '+37126000013',
     email: 'green@zalaenergija.lv',
     status: 'active',
     notes: 'Solar panel frame manufacturer',
     createdAt: '2026-04-15',
+    paymentTermsDays: 7,
   },
   {
     id: 'CL-044',
@@ -750,11 +837,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '41014014014',
     vatCode: 'LV41014014014',
     address: 'Brīvības iela 40, Jēkabpils',
+    country: 'LV',
     phone: '+37126000014',
     email: 'saimnieks@jekabpils.lv',
     status: 'inactive',
     notes: null,
     createdAt: '2026-04-22',
+    paymentTermsDays: 30,
   },
   {
     id: 'CL-045',
@@ -762,11 +851,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '41015015015',
     vatCode: 'LV41015015015',
     address: 'Eksporta iela 10, Riga',
+    country: 'LV',
     phone: '+37126000015',
     email: 'transit@baltija.lv',
     status: 'active',
     notes: 'Transit and logistics, regular buyer',
     createdAt: '2026-05-01',
+    paymentTermsDays: 14,
   },
 
   // ── Estonian & other EU (CL-046 – CL-055) ──
@@ -776,11 +867,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '123456789',
     vatCode: 'EE123456789',
     address: 'Tööstuse tn 15, Tallinn',
+    country: 'EE',
     phone: '+3725100001',
     email: 'info@eestiteras.ee',
     status: 'active',
     notes: 'Estonian steel distributor',
     createdAt: '2026-05-08',
+    paymentTermsDays: 0,
   },
   {
     id: 'CL-047',
@@ -788,11 +881,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '234567890',
     vatCode: 'EE234567890',
     address: 'Pärnu mnt 110, Tallinn',
+    country: 'EE',
     phone: '+3725100002',
     email: 'build@pohja.ee',
     status: 'active',
     notes: 'Northern Estonian construction company',
     createdAt: '2026-05-15',
+    paymentTermsDays: 90,
   },
   {
     id: 'CL-048',
@@ -800,11 +895,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '345678901',
     vatCode: 'EE345678901',
     address: 'Riia tn 55, Tartu',
+    country: 'EE',
     phone: '+3725100003',
     email: 'metal@tartu.ee',
     status: 'inactive',
     notes: null,
     createdAt: '2026-05-20',
+    paymentTermsDays: 30,
   },
   {
     id: 'CL-049',
@@ -812,11 +909,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '456789012',
     vatCode: 'EE456789012',
     address: 'Keskväljak 3, Pärnu',
+    country: 'EE',
     phone: '+3725100004',
     email: 'west@laanerannik.ee',
     status: 'active',
     notes: 'Port city client, imported steel',
     createdAt: '2026-05-25',
+    paymentTermsDays: 30,
   },
   {
     id: 'CL-050',
@@ -824,11 +923,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '5290001010',
     vatCode: 'PL5290001010',
     address: 'ul. Hutnicza 12, Kraków',
+    country: 'PL',
     phone: '+48123456701',
     email: 'office@polstal.pl',
     status: 'active',
     notes: 'Polish partner, large volume orders',
     createdAt: '2026-06-01',
+    paymentTermsDays: 14,
     auditLog: [
       {
         timestamp: '2026-06-01 08:00',
@@ -846,11 +947,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: 'HRB245678',
     vatCode: 'DE324567890',
     address: 'Stahlstraße 45, Berlin',
+    country: 'DE',
     phone: '+49301234567',
     email: 'info@nordstahl.de',
     status: 'active',
     notes: null,
     createdAt: '2026-06-03',
+    paymentTermsDays: 0,
   },
   {
     id: 'CL-052',
@@ -858,11 +961,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '41016016016',
     vatCode: 'LV41016016016',
     address: 'Rūpnīcas iela 3, Cēsis',
+    country: 'LV',
     phone: '+37126000016',
     email: 'forest@mezsmetals.lv',
     status: 'active',
     notes: 'Forestry equipment steel parts',
     createdAt: '2026-06-05',
+    paymentTermsDays: 45,
   },
   {
     id: 'CL-053',
@@ -870,11 +975,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '322345889',
     vatCode: 'LT322345889',
     address: 'Lėktuvų g. 8, Kaunas',
+    country: 'LT',
     phone: '+37062010022',
     email: 'parts@aviacija.lt',
     status: 'active',
     notes: 'Aviation parts, specialty alloys',
     createdAt: '2026-06-07',
+    paymentTermsDays: 30,
   },
   {
     id: 'CL-054',
@@ -882,11 +989,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '323456990',
     vatCode: 'LT323456990',
     address: 'Inovacijų g. 12, Vilnius',
+    country: 'LT',
     phone: '+37062010023',
     email: 'print@3dspausdinimas.lt',
     status: 'active',
     notes: 'Additive manufacturing, metal powders',
     createdAt: '2026-06-09',
+    paymentTermsDays: 60,
   },
   {
     id: 'CL-055',
@@ -894,11 +1003,13 @@ const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
     companyCode: '41017017017',
     vatCode: 'LV41017017017',
     address: 'Skaitļošanas iela 22, Riga',
+    country: 'LV',
     phone: '+37126000017',
     email: 'digifab@inbox.lv',
     status: 'inactive',
     notes: 'Startup, paused operations',
     createdAt: '2026-06-10',
+    paymentTermsDays: 7,
   },
 ]
 
@@ -951,6 +1062,11 @@ export function mockCreateClient(data: ClientFormData): Client {
   if (!data.email || !data.email.trim()) {
     throw new Error('VALIDATION_ERROR: email is required')
   }
+  if (!isValidPaymentTermsDays(data.paymentTermsDays)) {
+    throw new Error(
+      'VALIDATION_ERROR: paymentTermsDays must be a non-negative whole number of days',
+    )
+  }
   // Проверка на duplicate companyCode
   const existing = STORE.find((c) => c.companyCode === data.companyCode.trim())
   if (existing) {
@@ -962,6 +1078,10 @@ export function mockCreateClient(data: ClientFormData): Client {
     name: data.name.trim(),
     companyCode: data.companyCode.trim(),
     email: data.email.trim(),
+    // Страна — ссылка на справочник, и «не выбрана» у неё одно значение: null.
+    // Пропущенное поле легло бы в STORE как undefined, а STORE обязан держаться
+    // того же типа, что отдаёт сервер.
+    country: data.country ?? null,
     createdAt: new Date().toISOString().slice(0, 10),
     auditLog: [],
   }
@@ -972,6 +1092,15 @@ export function mockCreateClient(data: ClientFormData): Client {
 export function mockPatchClient(id: string, delta: Partial<Client>): Client {
   const idx = STORE.findIndex((c) => c.id === id)
   if (idx === -1) throw new Error('CLIENT_NOT_FOUND')
+  // Те же границы, что на создании: `useDirtyCheck.diff()` возвращает сырое значение
+  // поля, поэтому в дельту попадает ровно то, что лежит в форме, — включая `NaN`
+  // с очищенного поля. Молча записанная отсрочка `null`/`-1` даёт срок оплаты,
+  // который никто не сможет объяснить.
+  if ('paymentTermsDays' in delta && !isValidPaymentTermsDays(delta.paymentTermsDays)) {
+    throw new Error(
+      'VALIDATION_ERROR: paymentTermsDays must be a non-negative whole number of days',
+    )
+  }
   Object.assign(STORE[idx]!, delta)
   return structuredClone(STORE[idx]!)
 }

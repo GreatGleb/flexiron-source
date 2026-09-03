@@ -48,9 +48,6 @@ export type DeficitPriority = 'critical' | 'high' | 'medium' | 'low'
 /** Deficit status */
 export type DeficitStatus = 'open' | 'in_progress' | 'ordered' | 'resolved' | 'cancelled'
 
-/** Stock unit of measure — now dynamic from settings */
-export type StockUnit = string
-
 // ─── Batch File ─────────────────────────────────────────────────────────────
 
 export interface WarehouseBatchFile {
@@ -72,9 +69,12 @@ export interface WarehouseBatch {
    * мёртвым кодом, их снимут, и первый же ответ без `files` уронит карточку.
    */
   files?: WarehouseBatchFile[]
-  /** Link to product */
+  /**
+   * Ссылка на товар. Имени товара здесь нет НАМЕРЕННО (пункт 4e): владелец имени —
+   * карточка товара, а копия в партии разошлась с ней у 92 партий из 100. Подпись
+   * собирает `productLabel` из `@/domain/product` в момент показа.
+   */
   productId: string
-  productName: TranslatedString
   /** Supplier reference */
   supplierId: string | null
   supplierName: TranslatedString | null
@@ -86,7 +86,8 @@ export interface WarehouseBatch {
   quantity: number
   /** Remaining quantity (in warehouse_uom) */
   quantityRemaining: number
-  unit: StockUnit
+  /** Единица измерения — ссылка на справочник настроек (`Uom.id`). */
+  uomId: string
   /**
    * Warehouse cost per warehouse_uom, ALWAYS in the base currency.
    *
@@ -139,12 +140,12 @@ export interface WarehouseBatch {
 export interface BatchListItem {
   id: string
   productId: string
-  productName: TranslatedString
   batchNumber: string
   lotCode: string
   quantity: number
   quantityRemaining: number
-  unit: StockUnit
+  /** Единица измерения — ссылка на справочник настроек (`Uom.id`). */
+  uomId: string
   /** `null` when nobody priced the batch — an unknown cost is not a zero one. */
   unitPrice: number | null
   currency: string
@@ -160,7 +161,8 @@ export interface BatchCreatePayload {
   batchNumber: string
   lotCode: string
   quantity: number
-  unit: StockUnit
+  /** Единица измерения — ссылка на справочник настроек (`Uom.id`). */
+  uomId: string
   /**
    * Warehouse cost in the BASE currency, named by a human.
    *
@@ -208,9 +210,14 @@ export interface WarehouseOffcut {
   /** Source batch */
   batchId: string
   batchNumber: string
-  /** Link to product */
+  /**
+   * Ссылка на товар — ВСЕГДА товар исходной партии (`batch.productId`).
+   *
+   * Обрезок режут из партии, значит другого товара у него быть не может. До пункта 4e
+   * поле заполнялось независимо от партии, и 10 обрезков из 13 висели на партии чужого
+   * товара. Имя товара, как и у партии, здесь не хранится.
+   */
   productId: string
-  productName: TranslatedString
   /** Product category ID (for filtering / display) */
   categoryId: string | null
   /** Offcut type: 'sheet' for 2D materials, 'linear' for pipes/beams/etc. */
@@ -223,7 +230,8 @@ export interface WarehouseOffcut {
   weightKg: number | null
   /** Quantity (usually 1 piece) */
   quantity: number
-  unit: StockUnit
+  /** Единица измерения — ссылка на справочник настроек (`Uom.id`). */
+  uomId: string
   /** Storage location */
   location: string | null
   status: OffcutStatus
@@ -246,23 +254,58 @@ export interface OffcutListItem {
   batchId: string
   batchNumber: string
   productId: string
-  productName: TranslatedString
   categoryId: string | null
   offcutType: 'sheet' | 'linear'
   lengthMm: number | null
   widthMm: number | null
   weightKg: number | null
   quantity: number
-  unit: StockUnit
+  /** Единица измерения — ссылка на справочник настроек (`Uom.id`). */
+  uomId: string
   location: string | null
   status: OffcutStatus
   /** Link to order if offcut is reserved for an order */
   orderId: string | null
 }
 
+/**
+ * Обрезок, ПРЕДЛОЖЕННЫЙ строке заказа: сам кусок плюс то, что о нём знает только склад.
+ *
+ * Отдельный тип, а не поля в `OffcutListItem`: складская вкладка перечисляет куски, а
+ * это ответ на другой вопрос — «что этот кусок даст строке заказа». Материал в единице
+ * ПАРТИИ и цена партии-родителя не выводятся из списочной записи (в ней нет ни толщины,
+ * ни единицы партии, ни её цены), а угадывать их на клиенте значило бы завести вторую
+ * реализацию правила из `offcutAllocation`.
+ *
+ * Пункт 7 плана `review-followups.md`: обрезки в автоматический FIFO НЕ попадают —
+ * кусок выбирают глазами по размеру, а не по дате поступления, — поэтому единственный
+ * путь обрезка в заказ проходит через этот список.
+ */
+export interface OffcutOffer {
+  id: string
+  batchId: string
+  batchNumber: string
+  productId: string
+  offcutType: 'sheet' | 'linear'
+  lengthMm: number | null
+  widthMm: number | null
+  thicknessMm: number | null
+  weightKg: number | null
+  /** Счётчик кусков — обычно 1. Не количество материала. */
+  quantity: number
+  location: string | null
+  /** Сколько материала кусок забрал с партии, в единице ПАРТИИ. */
+  material: number
+  /** Единица партии, в которой выражен `material` (`Uom.id`). */
+  batchUomId: string
+  /** Цена партии-родителя за единицу — себестоимость куска. */
+  unitCost: number
+  /** Валюта этой цены. Подпись на числе, никогда не множитель. */
+  currency: string
+}
+
 export interface OffcutCreatePayload {
   batchId: string
-  productId: string
   categoryId?: string | null
   offcutType?: 'sheet' | 'linear'
   lengthMm?: number | null
@@ -270,7 +313,8 @@ export interface OffcutCreatePayload {
   thicknessMm?: number | null
   weightKg?: number | null
   quantity: number
-  unit: StockUnit
+  /** Единица измерения — ссылка на справочник настроек (`Uom.id`). */
+  uomId: string
   location?: string | null
   notes?: string | null
   /** File IDs to attach to the offcut */
@@ -306,12 +350,12 @@ export interface WarehouseMovement {
   batchNumber: string
   /** Reference to offcut (if movement belongs to an offcut) */
   offcutId: string | null
-  /** Link to product */
+  /** Link to product — always the product of `batchId`; see `WarehouseOffcut.productId`. */
   productId: string
-  productName: TranslatedString
   /** Quantity moved */
   quantity: number
-  unit: StockUnit
+  /** Единица измерения — ссылка на справочник настроек (`Uom.id`). */
+  uomId: string
   /** Unit price at time of movement */
   unitPrice: number
   /** Total cost = quantity × unitPrice */
@@ -342,9 +386,9 @@ export interface MovementListItem {
   batchNumber: string
   offcutId: string | null
   productId: string
-  productName: TranslatedString
   quantity: number
-  unit: StockUnit
+  /** Единица измерения — ссылка на справочник настроек (`Uom.id`). */
+  uomId: string
   unitPrice: number
   referenceId: string | null
   referenceType: string | null
@@ -383,6 +427,12 @@ export interface CuttingOperation {
   offcuts: Omit<OffcutCreatePayload, 'batchId'>[]
   /** Waste / scrap quantity */
   wasteQuantity: number
+  /**
+   * Сколько ШТУК ПАРТИИ пущено в резку. Только для штучной партии: у измеримой
+   * расход выводится из размеров кусков, а у штучной выводиться не из чего —
+   * лист, распущенный на четыре куска, это один ушедший лист.
+   */
+  sourcePieces?: number
   /** Notes */
   notes?: string | null
 }
@@ -400,7 +450,8 @@ export interface WarehouseDeficit {
   minRequired: number
   /** Deficit amount = minRequired - currentStock (positive) */
   deficitAmount: number
-  unit: StockUnit
+  /** Единица измерения — ссылка на справочник настроек (`Uom.id`). */
+  uomId: string
   priority: DeficitPriority
   status: DeficitStatus
   /** Suggested order quantity */
@@ -422,7 +473,8 @@ export interface DeficitListItem {
   currentStock: number
   minRequired: number
   deficitAmount: number
-  unit: StockUnit
+  /** Единица измерения — ссылка на справочник настроек (`Uom.id`). */
+  uomId: string
   priority: DeficitPriority
   status: DeficitStatus
   /**
@@ -496,7 +548,8 @@ export type StockAuditSeed = Omit<StockAuditEntry, 'id'>
 export interface BatchStatusAggregate {
   type: MovementType
   quantity: number
-  unit: StockUnit
+  /** Единица измерения — ссылка на справочник настроек (`Uom.id`). */
+  uomId: string
 }
 
 // ─── Batch Active Sale (Активная продажа для возврата) ───────────────────────
@@ -505,7 +558,8 @@ export interface BatchActiveSale {
   id: string
   movementId: string
   quantity: number
-  unit: StockUnit
+  /** Единица измерения — ссылка на справочник настроек (`Uom.id`). */
+  uomId: string
   /** Customer / order reference */
   referenceId: string | null
   /** Sale date */
@@ -523,7 +577,8 @@ export interface StockOverviewItem {
   reservedQuantity: number
   /** Available quantity = total - reserved */
   availableQuantity: number
-  unit: StockUnit
+  /** Единица измерения — ссылка на справочник настроек (`Uom.id`). */
+  uomId: string
   /** Number of active batches */
   batchCount: number
   /** Weighted average unit price */
@@ -545,8 +600,8 @@ export interface StockOverviewItem {
 export interface StockPatchPayload {
   /** Product name (TranslatedString) */
   productName?: TranslatedString
-  /** Unit of measure */
-  unit?: StockUnit
+  /** Единица измерения — ссылка на справочник настроек (`Uom.id`). */
+  uomId?: string
   /** Weighted average unit price */
   avgUnitPrice?: number
   /** Minimum stock threshold */
@@ -585,7 +640,7 @@ export interface WarehouseFilters {
   status?: BatchStatus | OffcutStatus | DeficitStatus
   type?: MovementType
   priority?: DeficitPriority
-  unit?: string
+  uomId?: string
   offcutType?: 'sheet' | 'linear'
   categoryIds?: string[]
   batchNumber?: string
@@ -601,14 +656,14 @@ export interface WarehouseFilters {
 export interface StockFilters {
   search: string
   categoryIds: string[]
-  unit: string
+  uomId: string
   showDeficitOnly: boolean
   showInStockOnly: boolean
   sortBy:
     | 'name'
     | 'totalQuantity'
     | 'availableQuantity'
-    | 'unit'
+    | 'uomId'
     | 'avgUnitPrice'
     | 'totalValue'
     | 'minStock'

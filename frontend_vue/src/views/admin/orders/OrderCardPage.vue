@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useHead } from '@/composables/useHead'
 import { useOrderCard } from '@/composables/useOrderCard'
+import { useUnitLabel } from '@/composables/useUnitLabel'
 import { useToast } from '@/composables/useToast'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
 import Breadcrumb from '@/components/admin/Breadcrumb.vue'
@@ -28,7 +29,7 @@ import {
   type LineEditOp,
   type LineKind,
 } from '@/services/orderLineEdits'
-import { toPricingLine } from '@/services/orderLines'
+import { splitsWholePiece, toPricingLine } from '@/services/orderLines'
 import {
   applyCorrection,
   applyCostCorrection,
@@ -39,6 +40,7 @@ import {
   roundTo,
 } from '@/domain/orderPricing'
 import { ORDER_STATUSES, ORDER_STATUS_PILL } from '@/domain/orderStatus'
+import { invoiceBalances, isInvoiceWithdrawn, nextUnsettledInvoice } from '@/domain/receivable'
 import type {
   Invoice,
   OrderItem,
@@ -59,6 +61,7 @@ import '@styles/admin/orders_card.css'
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
+const unitLabel = useUnitLabel()
 const toast = useToast()
 const id = route.params.id as string
 
@@ -439,6 +442,29 @@ function confirmCostEdit() {
   costEdit.value = null
 }
 
+/**
+ * Отказ на входе, а не на подтверждении.
+ *
+ * Всё, что перечислено ниже, сервер выполняет по СВОИМ позициям заказа: он спишет
+ * со склада, вернёт на склад, посчитает корректировку и спланирует резервы по той
+ * таблице, которая у него сохранена. Пока в карточке висят несохранённые правки
+ * позиций, любое из этих действий будет отклонено — раньше отклонялось в самом
+ * конце, после заполненного диалога, и сообщением, из которого было не понять, при
+ * чём тут вообще возврат или отгрузка.
+ *
+ * Поэтому проверка стоит там, где диалог ещё не открыт: работу, которую всё равно
+ * выбросят, не дают начать, а причина названа в тот момент, когда её можно убрать
+ * одним нажатием Save. Несохранённые ПОЛЯ карточки сюда не входят — их
+ * `flushBeforeReload()` отправляет сам, и мешать они не могут.
+ *
+ * Возвращает true, когда действие не должно состояться.
+ */
+function refusedForUnsavedLines(messageKey: string): boolean {
+  if (!hasPendingChanges.value) return false
+  toast.error(t(messageKey))
+  return true
+}
+
 // ─── Correcting a frozen line ──────────────────────────────────
 // Model, sections 6 and 12. The freeze exists so a document the client is holding
 // cannot be rewritten behind their back — and this is the one door through it:
@@ -457,6 +483,7 @@ function askCorrection(line: OrderLine, kind: LineKind) {
     toast.error(t('orders.error_forbidden_correction'))
     return
   }
+  if (refusedForUnsavedLines('orders.error_correction_needs_save')) return
   correctTarget.value = { line, kind }
   correctPrice.value = cellValue(line, 'unitPrice')
   correctCost.value = cellValue(line, 'unitCost')
@@ -536,6 +563,7 @@ const shipQuantities = ref<Record<string, number>>({})
 const shipVehicle = ref('')
 
 function openShipModal() {
+  if (refusedForUnsavedLines('orders.error_shipment_needs_save')) return
   shipQuantities.value = {}
   shipVehicle.value = ''
   showShipModal.value = true
@@ -560,15 +588,33 @@ function setShipQty(line: ShippableLine, value: string) {
   shipQuantities.value[line.lineId] = Number(value)
 }
 
+/**
+ * Режет ли введённое количество обрезок.
+ *
+ * Кусок неделим: он уезжает весь или не уезжает вовсе, поэтому количество, попавшее
+ * СТРОГО внутрь куска, отгрузка отклонит. Верхнюю границу держит `max` поля, нижнюю —
+ * ноль, а эти дырки внутри диапазона ничем, кроме проверки, не выразить: `step` у
+ * `input[type=number]` умеет решётку, но не пропуски.
+ *
+ * Границы приходят с планом (`ShippableLine.wholePieces`) — вычислять их здесь значило
+ * бы завести вторую разбивку строки рядом с той, по которой отгружают.
+ */
+function shipQtySplitsPiece(line: ShippableLine): boolean {
+  return splitsWholePiece(shipQty(line), line.wholePieces)
+}
+
 const shipSelection = computed(() =>
   shippableLines.value
     .map((line) => ({ lineId: line.lineId, quantity: shipQty(line) }))
     .filter((line) => Number.isFinite(line.quantity) && line.quantity > 0),
 )
 
+/** Диалог не отправляет то, что списание отклонит, — и говорит об этом до отправки. */
+const shipSplitsPiece = computed(() => shippableLines.value.some(shipQtySplitsPiece))
+
 async function confirmShipment() {
   const lines = shipSelection.value
-  if (lines.length === 0) return
+  if (lines.length === 0 || shipSplitsPiece.value) return
   const ok = await shipLines(lines, shipVehicle.value.trim() || undefined)
   if (ok) showShipModal.value = false
 }
@@ -586,6 +632,7 @@ const RETURN_CONDITION_OPTIONS = computed(() => [
 ])
 
 function openReturnModal() {
+  if (refusedForUnsavedLines('orders.error_return_needs_save')) return
   returnQuantities.value = {}
   returnConditions.value = {}
   returnCompensated.value = {}
@@ -644,6 +691,16 @@ const returnSelection = computed(() =>
     .filter((line) => Number.isFinite(line.quantity) && line.quantity > 0),
 )
 
+/**
+ * Чего не хватает для подтверждения возврата — пустая строка означает «всё готово».
+ * Порядок веток тот же, что у `disabled` кнопки: сперва количества, потом причина.
+ */
+const returnBlockReason = computed(() => {
+  if (returnSelection.value.length === 0) return t('orders.return_need_qty')
+  if (!returnReason.value.trim()) return t('orders.return_need_reason')
+  return ''
+})
+
 async function confirmReturn() {
   const lines = returnSelection.value
   if (lines.length === 0 || !returnReason.value.trim()) return
@@ -678,6 +735,7 @@ async function confirmCancelShipment() {
  * button leads to a different dialog rather than to a refusal.
  */
 function askCancelShipment(shipmentId: string) {
+  if (refusedForUnsavedLines('orders.error_shipment_cancel_needs_save')) return
   if (isMoneyOn.value && liveInvoiceFor(shipmentId)) {
     // Withdrawing a document the client holds is the "correction" right. Said out
     // loud rather than by a missing button: the admin needs to know whom to ask.
@@ -722,27 +780,91 @@ const paymentDate = ref('')
 const paymentNote = ref('')
 const paymentInvoiceId = ref('')
 
+/**
+ * What each of the order's documents is worth today and what has come in on it —
+ * from the domain, the same call the incoming registry and the client's summary
+ * make. The dialog needs it to say WHICH document the money settles.
+ */
+const invoiceBalanceList = computed(() => invoiceBalances(invoices.value, payments.value))
+
 function openPaymentModal() {
-  // Suggested, not imposed: what is left to pay is the amount asked for nine
-  // times out of ten, and an advance is the tenth.
-  paymentAmount.value = paid.value.outstanding > 0 ? money(paid.value.outstanding) : ''
+  // The money names the document it settles — the oldest one still owed.
+  //
+  // Left unnamed (the field used to open empty), the card counted the money and
+  // the incoming registry did not: the same order showed "Paid" here and an
+  // "Overdue, 0.00 received" line there, under the very invoice just settled.
+  // Suggested, not imposed: the picker still offers every document and "no
+  // document" for money that genuinely settles none — an advance before the
+  // proforma, a payment on account. Money going the other way has no such
+  // option: a refund names the document it goes back on (пункт 14).
+  const target = nextUnsettledInvoice(invoiceBalanceList.value)
+  const owed = target ? target.outstanding : paid.value.outstanding
+  paymentAmount.value = owed > 0 ? money(owed) : ''
   paymentPurpose.value = paid.value.paidAmount > 0 ? 'balance' : 'advance'
   paymentDate.value = new Date().toISOString().slice(0, 10)
   paymentNote.value = ''
-  paymentInvoiceId.value = ''
+  paymentInvoiceId.value = target?.id ?? ''
   showPaymentModal.value = true
 }
 
+/**
+ * What one click of "fill what is left" should put in the field: the balance of
+ * the document being paid, and the order's own remainder only when the money
+ * names no document. Filling the order's remainder against a single invoice is
+ * how one document ends up overpaid while another stays open — the two views
+ * part company again, one click away from the dialog that was just taught not to.
+ */
+const paymentTargetOutstanding = computed(() => {
+  const selected = invoiceBalanceList.value.find((b) => b.id === paymentInvoiceId.value)
+  return selected ? selected.outstanding : paid.value.outstanding
+})
+
+/**
+ * Уходят ли эти деньги обратно.
+ *
+ * Тот же ответ, что даёт модель, и по тому же признаку — по ЗНАКУ суммы, а не
+ * по ярлыку назначения. Поле суммы принимает минус (`type="number"` без `min`),
+ * и «-50» при назначении «Balance» — это ушедшие деньги, названные приходом:
+ * стража, смотревшая только на назначение, пропускала их без документа, и
+ * карточка заказа снова расходилась с реестром «Входящих» на их сумму.
+ */
+const paymentGoesOut = computed(
+  () => paymentPurpose.value === 'refund' || Number(paymentAmount.value) < 0,
+)
+
+/**
+ * Документы, которые деньги могут назвать.
+ *
+ * «Без счёта» — вариант ТОЛЬКО для пришедших денег: аванс приходит раньше
+ * проформы, «на счёт» не закрывает ничей долг, и такие деньги живут отдельной
+ * строкой. У ушедших этого варианта нет (пункт 14): деньги уходят по
+ * документу, который клиент держит на руках, а безымянный возврат считался
+ * карточкой заказа и не считался реестром «Входящих» — те же два расхождения,
+ * что пункт 13 закрыл для оплаты.
+ */
 const paymentInvoiceOptions = computed(() => [
-  { value: '', label: t('orders.payment_invoice_none') },
+  ...(paymentGoesOut.value ? [] : [{ value: '', label: t('orders.payment_invoice_none') }]),
   ...invoices.value
     .filter((i) => i.kind !== 'correction')
     .map((i) => ({ value: i.id, label: `${i.number} · ${money(i.amountGross)}` })),
 ])
 
+/** Ушедшим деньгам нужен документ, и без выбранного документа их не сохранить. */
+const refundNeedsInvoice = computed(() => paymentGoesOut.value && paymentInvoiceId.value === '')
+
+// Переключились на возврат — подсказываем документ, по которому деньги пришли:
+// возвращают то, что получили. Подсказка, а не подстановка молча: список открыт,
+// «без счёта» из него убран, и человек видит, что документ назван.
+watch(paymentPurpose, (purpose) => {
+  if (purpose !== 'refund' || paymentInvoiceId.value !== '') return
+  const settled = invoiceBalanceList.value.find((b) => b.paidAmount > 0)
+  paymentInvoiceId.value = settled?.id ?? ''
+})
+
 async function confirmPayment() {
   const typed = Number(paymentAmount.value)
   if (!Number.isFinite(typed) || typed === 0) return
+  if (refundNeedsInvoice.value) return
   const ok = await addPayment({
     // The admin types what arrived; a refund is money going the other way, and
     // making them type the minus sign themselves is how it gets forgotten.
@@ -839,9 +961,7 @@ function invoiceBasis(shipmentId: string | null, kind: string): string {
  * document had been withdrawn when it had only been put right.
  */
 function isWithdrawnInvoice(invoiceId: string): boolean {
-  return invoices.value.some(
-    (i) => i.kind === 'correction' && i.correctsInvoiceId === invoiceId && i.withdrawsOriginal,
-  )
+  return isInvoiceWithdrawn(invoices.value, invoiceId)
 }
 
 /** Adjusted by a later document, and still in the client's hands. */
@@ -1124,6 +1244,12 @@ onMounted(loadShipments)
                     order.clientName
                   }}</span>
                   <span class="field-hint">{{ t('orders.field_client_hint') }}</span>
+                </InputGroup>
+                <InputGroup :label="t('clients.field_payment_terms')">
+                  <span class="glass-input-static" data-test="field-payment-terms">{{
+                    t('clients.payment_terms_days', { days: order.clientPaymentTermsDays })
+                  }}</span>
+                  <span class="field-hint">{{ t('orders.field_payment_terms_hint') }}</span>
                 </InputGroup>
                 <InputGroup :label="t('orders.field_document_type')">
                   <CustomSelect
@@ -1459,11 +1585,7 @@ onMounted(loadShipments)
             <GlassPanel :title="t('orders.field_notes')" :loading="loading" :skeleton-rows="1">
               <template v-if="order">
                 <InputGroup :label="t('orders.field_notes')">
-                  <AutoResizeTextarea
-                    v-model="form.notes"
-                    class="glass-input"
-                    data-test="field-notes"
-                  />
+                  <AutoResizeTextarea v-model="form.notes" data-test="field-notes" />
                 </InputGroup>
               </template>
             </GlassPanel>
@@ -1485,7 +1607,7 @@ onMounted(loadShipments)
           <div v-if="order && order.items.length === 0" class="empty-state-inline">
             <p>{{ t('orders.items_empty') }}</p>
           </div>
-          <div v-else-if="order" class="data-table-wrapper">
+          <div v-else-if="order" class="data-table-wrapper order-lines-wrapper">
             <table class="data-table order-lines-table">
               <thead>
                 <tr>
@@ -1513,7 +1635,7 @@ onMounted(loadShipments)
                   data-test="order-item-row"
                 >
                   <td>{{ item.lineNumber }}</td>
-                  <td>
+                  <td class="line-product">
                     {{ item.productName }}
                     <span
                       v-if="(returnedByLine[item.id] ?? 0) > 0"
@@ -1523,7 +1645,7 @@ onMounted(loadShipments)
                       {{ t('orders.line_returned', { qty: returnedByLine[item.id] }) }}
                     </span>
                   </td>
-                  <td>{{ t('orders.unit_' + item.unit, item.unit) }}</td>
+                  <td>{{ unitLabel(item.unit) }}</td>
                   <td
                     v-for="cell in LINE_CELLS"
                     :key="cell.field"
@@ -1653,7 +1775,7 @@ onMounted(loadShipments)
           <div v-if="order && order.services.length === 0" class="empty-state-inline">
             <p>{{ t('orders.services_empty') }}</p>
           </div>
-          <div v-else-if="order" class="data-table-wrapper">
+          <div v-else-if="order" class="data-table-wrapper order-lines-wrapper">
             <table class="data-table order-lines-table">
               <thead>
                 <tr>
@@ -2263,7 +2385,7 @@ onMounted(loadShipments)
             <tbody>
               <tr v-for="row in statusPlan.shortages" :key="row.lineId" data-test="status-plan-row">
                 <td>{{ row.productName }}</td>
-                <td>{{ row.missing }} {{ t('orders.unit_' + row.unit, row.unit) }}</td>
+                <td>{{ row.missing }} {{ unitLabel(row.unit) }}</td>
               </tr>
             </tbody>
           </table>
@@ -2279,7 +2401,7 @@ onMounted(loadShipments)
             <tbody>
               <tr v-for="row in statusPlan.lines" :key="row.lineId" data-test="status-plan-row">
                 <td>{{ row.productName }}</td>
-                <td>{{ row.quantity }} {{ t('orders.unit_' + row.unit, row.unit) }}</td>
+                <td>{{ row.quantity }} {{ unitLabel(row.unit) }}</td>
               </tr>
             </tbody>
           </table>
@@ -2327,16 +2449,17 @@ onMounted(loadShipments)
           <tbody>
             <tr v-for="line in shippableLines" :key="line.lineId" data-test="ship-line-row">
               <td>{{ line.productName }}</td>
-              <td>{{ line.remaining }} {{ t('orders.unit_' + line.unit, line.unit) }}</td>
+              <td>{{ line.remaining }} {{ unitLabel(line.unit) }}</td>
               <td
                 :class="{ 'margin-negative': line.shippable < line.remaining }"
                 data-test="ship-line-available"
               >
-                {{ line.shippable }} {{ t('orders.unit_' + line.unit, line.unit) }}
+                {{ line.shippable }} {{ unitLabel(line.unit) }}
               </td>
               <td>
                 <input
                   class="cell-input"
+                  :class="{ 'has-error': shipQtySplitsPiece(line) }"
                   type="number"
                   min="0"
                   :max="line.shippable"
@@ -2345,6 +2468,13 @@ onMounted(loadShipments)
                   data-test="ship-line-qty"
                   @input="setShipQty(line, ($event.target as HTMLInputElement).value)"
                 />
+                <p
+                  v-if="shipQtySplitsPiece(line)"
+                  class="field-error"
+                  data-test="ship-line-splits-offcut"
+                >
+                  {{ t('orders.ship_qty_splits_offcut') }}
+                </p>
               </td>
             </tr>
           </tbody>
@@ -2371,7 +2501,7 @@ onMounted(loadShipments)
         <button
           type="button"
           class="btn btn-primary"
-          :disabled="shipmentsLoading || shipSelection.length === 0"
+          :disabled="shipmentsLoading || shipSelection.length === 0 || shipSplitsPiece"
           data-test="ship-confirm"
           @click="confirmShipment"
         >
@@ -2386,67 +2516,95 @@ onMounted(loadShipments)
       size="medium"
       data-test="return-modal"
     >
-      <p>{{ t('orders.return_modal_explain') }}</p>
-      <div class="data-table-wrapper">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>{{ t('orders.col_product') }}</th>
-              <th>{{ t('orders.col_shipped_qty') }}</th>
-              <th>{{ t('orders.col_available_to_return') }}</th>
-              <th>{{ t('orders.col_quantity') }}</th>
-              <th>{{ t('orders.col_condition') }}</th>
-              <th>{{ t('orders.col_compensate') }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="line in returnableLines" :key="line.lineId" data-test="return-line-row">
-              <td>{{ line.productName }}</td>
-              <td>{{ line.shipped }} {{ t('orders.unit_' + line.unit, line.unit) }}</td>
-              <td data-test="return-line-available">
-                {{ line.returnable }} {{ t('orders.unit_' + line.unit, line.unit) }}
-              </td>
-              <td>
-                <input
-                  class="cell-input"
-                  type="number"
-                  min="0"
-                  :max="line.returnable"
-                  step="0.001"
-                  :value="returnQty(line)"
-                  data-test="return-line-qty"
-                  @input="setReturnQty(line, ($event.target as HTMLInputElement).value)"
-                />
-              </td>
-              <td>
-                <CustomSelect
-                  :model-value="returnCondition(line)"
-                  :options="RETURN_CONDITION_OPTIONS"
-                  data-test="return-line-condition"
-                  @update:model-value="setReturnCondition(line, $event)"
-                />
-              </td>
-              <td>
-                <input
-                  type="checkbox"
-                  :checked="returnCompensates(line)"
-                  data-test="return-line-compensate"
-                  @change="
-                    toggleReturnCompensate(line, ($event.target as HTMLInputElement).checked)
-                  "
-                />
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <!--
+        Пояснение, таблица позиций и поле причины разведены общим `.modal-form`
+        из `components/_modal.css` — тем же, что у модалок настроек и конфига
+        карточки поставщика. Глобальный сброс обнуляет margin у всего, поэтому
+        без обёртки блоки стоят впритык: своих отступов у них нет и взяться им
+        неоткуда. Строка «чего не хватает» оставлена снаружи: у неё собственный
+        margin-top, и внутри контейнера он сложился бы с gap.
+      -->
+      <div class="modal-form">
+        <p>{{ t('orders.return_modal_explain') }}</p>
+        <div class="data-table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>{{ t('orders.col_product') }}</th>
+                <th>{{ t('orders.col_shipped_qty') }}</th>
+                <th>{{ t('orders.col_available_to_return') }}</th>
+                <th>{{ t('orders.col_quantity') }}</th>
+                <th>{{ t('orders.col_condition') }}</th>
+                <th>{{ t('orders.col_compensate') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="line in returnableLines" :key="line.lineId" data-test="return-line-row">
+                <td>{{ line.productName }}</td>
+                <td>{{ line.shipped }} {{ unitLabel(line.unit) }}</td>
+                <td data-test="return-line-available">
+                  {{ line.returnable }} {{ unitLabel(line.unit) }}
+                </td>
+                <td>
+                  <input
+                    class="cell-input"
+                    type="number"
+                    min="0"
+                    :max="line.returnable"
+                    step="0.001"
+                    :value="returnQty(line)"
+                    data-test="return-line-qty"
+                    @input="setReturnQty(line, ($event.target as HTMLInputElement).value)"
+                  />
+                </td>
+                <td>
+                  <CustomSelect
+                    :model-value="returnCondition(line)"
+                    :options="RETURN_CONDITION_OPTIONS"
+                    data-test="return-line-condition"
+                    @update:model-value="setReturnCondition(line, $event)"
+                  />
+                </td>
+                <td>
+                  <input
+                    type="checkbox"
+                    :checked="returnCompensates(line)"
+                    data-test="return-line-compensate"
+                    @change="
+                      toggleReturnCompensate(line, ($event.target as HTMLInputElement).checked)
+                    "
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <InputGroup>
+          <!--
+            Метка написана здесь, а не отдана `:label` в InputGroup: звёздочку тот
+            не рисует. Разметка та же, что у обязательных полей на страницах
+            создания клиента и партии — общий `.required-star` из
+            `components/_forms.css`.
+          -->
+          <label class="field-label"
+            >{{ t('orders.return_reason_label') }} <span class="required-star">*</span></label
+          >
+          <AutoResizeTextarea
+            v-model="returnReason"
+            :placeholder="t('orders.return_reason_placeholder')"
+            data-test="return-reason"
+          />
+        </InputGroup>
       </div>
-      <InputGroup :label="t('orders.return_reason_label')">
-        <AutoResizeTextarea
-          v-model="returnReason"
-          :placeholder="t('orders.return_reason_placeholder')"
-          data-test="return-reason"
-        />
-      </InputGroup>
+      <!--
+        Кнопка подтверждения гаснет по двум причинам сразу — нет количеств и нет
+        причины, — и раньше молчала о том, какая из них сработала. Строка называет
+        недостающее и исчезает, когда всё заполнено: она и кнопка читают одно и то
+        же условие, разойтись им негде.
+      -->
+      <p v-if="returnBlockReason" class="return-block-reason" data-test="return-block-reason">
+        {{ returnBlockReason }}
+      </p>
       <template #footer>
         <button
           type="button"
@@ -2564,13 +2722,17 @@ onMounted(loadShipments)
           <span class="input-suffix static-suffix">{{ form.currency }}</span>
         </div>
         <button
-          v-if="paid.outstanding > 0"
+          v-if="paymentTargetOutstanding > 0"
           type="button"
           class="btn btn-sm btn-secondary"
           data-test="payment-fill-outstanding"
-          @click="paymentAmount = money(paid.outstanding)"
+          @click="paymentAmount = money(paymentTargetOutstanding)"
         >
-          {{ t('orders.payment_amount_fill_outstanding', { amount: money(paid.outstanding) }) }}
+          {{
+            t('orders.payment_amount_fill_outstanding', {
+              amount: money(paymentTargetOutstanding),
+            })
+          }}
         </button>
       </InputGroup>
       <InputGroup :label="t('orders.col_payment_purpose')">
@@ -2579,9 +2741,13 @@ onMounted(loadShipments)
           :options="PAYMENT_PURPOSES"
           data-test="payment-purpose"
         />
-        <span v-if="paymentPurpose === 'refund'" class="field-hint">{{
-          t('orders.payment_refund_hint')
-        }}</span>
+        <span v-if="paymentGoesOut" class="field-hint" data-test="payment-refund-hint">
+          {{
+            invoices.length === 0
+              ? t('orders.payment_refund_needs_invoice')
+              : t('orders.payment_refund_hint')
+          }}
+        </span>
       </InputGroup>
       <InputGroup :label="t('orders.payment_date_label')">
         <DatePicker v-model="paymentDate" data-test="payment-date" />
@@ -2590,6 +2756,7 @@ onMounted(loadShipments)
         <CustomSelect
           v-model="paymentInvoiceId"
           :options="paymentInvoiceOptions"
+          :placeholder="paymentGoesOut ? t('orders.payment_invoice_pick') : undefined"
           data-test="payment-invoice"
         />
       </InputGroup>
@@ -2615,7 +2782,12 @@ onMounted(loadShipments)
         <button
           type="button"
           class="btn btn-primary"
-          :disabled="paymentSaving || Number(paymentAmount) === 0 || paymentAmount === ''"
+          :disabled="
+            paymentSaving ||
+            Number(paymentAmount) === 0 ||
+            paymentAmount === '' ||
+            refundNeedsInvoice
+          "
           data-test="payment-confirm"
           @click="confirmPayment"
         >
@@ -2870,7 +3042,7 @@ onMounted(loadShipments)
               line: splitTarget.productName,
               shipped: splitTarget.shippedQuantity,
               remainder: roundTo(splitTarget.quantity - splitTarget.shippedQuantity, 6),
-              unit: t('orders.unit_' + splitTarget.unit, splitTarget.unit),
+              unit: unitLabel(splitTarget.unit),
             })
           }}
         </p>
@@ -3061,6 +3233,20 @@ onMounted(loadShipments)
   opacity: 0.75;
   margin: 0 0 10px 0;
   color: var(--text-color, rgba(255, 255, 255, 0.85));
+}
+
+/* Строка «чего не хватает» под формой возврата.
+
+   Селектор с тегом `p` — не украшение: `.modal-body p` в `components/_modal.css`
+   задаёт цвет и размер и весит больше одноклассового селектора. Без `p` строка
+   вышла бы обычным текстом модалки, а не приглушённой подсказкой. Та же причина
+   у `.modal-body p.field-error` в `components/_forms.css`. */
+.modal-body p.return-block-reason {
+  margin: 8px 0 0 0;
+  font-size: 12px;
+  /* 0.5, как у поясняющих строк в настройках. `.text-muted` этой страницы —
+     0.35: он для пустых мест, а это указание, которое надо прочитать. */
+  color: rgba(255, 255, 255, 0.5);
 }
 
 /* Section divider */

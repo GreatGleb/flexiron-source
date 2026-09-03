@@ -6,12 +6,7 @@ import { getBatches, createOffcut } from '@/services/warehouseService'
 import { useToast } from './useToast'
 import { useTranslatedField } from './useTranslatedData'
 import { resolveOffcutWeight } from '@/domain/cutting'
-import type {
-  OffcutCreatePayload,
-  WarehouseOffcut,
-  StockUnit,
-  BatchListItem,
-} from '@/types/warehouse'
+import type { OffcutCreatePayload, WarehouseOffcut, BatchListItem } from '@/types/warehouse'
 import type { Product, ProductListItem } from '@/types/product'
 
 // ─── Location compose helper (same pattern as useWarehouseBatch / useWarehouseOffcutCard) ──
@@ -43,7 +38,6 @@ export function useWarehouseOffcutCreate() {
     }
   >({
     batchId: '',
-    productId: '',
     categoryId: null,
     offcutType: undefined,
     lengthMm: null,
@@ -51,7 +45,7 @@ export function useWarehouseOffcutCreate() {
     thicknessMm: null,
     weightKg: null,
     quantity: 1,
-    unit: 'pcs' as StockUnit,
+    uomId: 'uom-pcs',
     location: null,
     notes: null,
     locationRack: '',
@@ -193,7 +187,7 @@ export function useWarehouseOffcutCreate() {
       // Auto-set unit from the first batch (all batches for a product share the same unit)
       const firstBatch = res.items[0]
       if (firstBatch) {
-        form.unit = firstBatch.unit
+        form.uomId = firstBatch.uomId
       }
     } catch {
       toast.error(t('warehouse.toast_error_save'))
@@ -224,17 +218,15 @@ export function useWarehouseOffcutCreate() {
   watch(selectedProductId, (newVal) => {
     if (newVal) {
       const product = products.value.find((p) => p.id === newVal) ?? null
-      form.productId = newVal
       form.categoryId = product?.categoryId ?? null
       form.offcutType = getOffcutTypeForProduct(product)
       form.batchId = ''
       selectedBatchId.value = null
       loadBatches(newVal)
     } else {
-      form.productId = ''
       form.categoryId = null
       form.offcutType = undefined
-      form.unit = 'pcs' as StockUnit
+      form.uomId = 'uom-pcs'
       form.batchId = ''
       batches.value = []
       selectedBatchId.value = null
@@ -285,7 +277,7 @@ export function useWarehouseOffcutCreate() {
     if (newVal) {
       const batch = batches.value.find((b) => b.id === newVal)
       if (batch) {
-        form.unit = batch.unit
+        form.uomId = batch.uomId
         batchProduct.value = await getProduct(batch.productId).catch(() => null)
       }
     }
@@ -294,7 +286,9 @@ export function useWarehouseOffcutCreate() {
   // ─── Save ─────────────────────────────────────────────────────────────────
   async function save(fileIds?: string[]): Promise<WarehouseOffcut | null> {
     // Validate required fields
-    if (!form.batchId || !form.productId) {
+    // Товар в запрос не уходит (п. 4e): его знает партия. Но выбрать его всё равно
+    // надо — партии показываются только для выбранного товара.
+    if (!form.batchId || !selectedProductId.value) {
       error.value = t('warehouse.toast_offcut_create_error')
       toast.error(t('warehouse.toast_offcut_create_error'))
       return null
@@ -330,7 +324,6 @@ export function useWarehouseOffcutCreate() {
   // ─── Reset ────────────────────────────────────────────────────────────────
   function reset() {
     form.batchId = ''
-    form.productId = ''
     form.categoryId = null
     form.offcutType = undefined
     form.lengthMm = null
@@ -338,7 +331,7 @@ export function useWarehouseOffcutCreate() {
     form.thicknessMm = null
     form.weightKg = null
     form.quantity = 1
-    form.unit = 'pcs' as StockUnit
+    form.uomId = 'uom-pcs'
     form.location = null
     form.notes = null
     form.locationRack = ''

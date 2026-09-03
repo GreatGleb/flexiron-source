@@ -243,6 +243,20 @@ export interface ShippableLine {
   unit: string
   remaining: number
   shippable: number
+  /**
+   * Куски в разбивке строки, выраженные в количестве.
+   *
+   * Обрезок неделим: количество, попавшее СТРОГО внутрь такого отрезка, режет кусок
+   * пополам, и списание его отклонит. Диалогу это нужно знать до отправки — иначе он
+   * предлагает диапазон, часть которого откажут.
+   */
+  wholePieces: WholePieceRange[]
+}
+
+/** Отрезок количества, занятый одним неделимым куском: `(from; to)` — запретная зона. */
+export interface WholePieceRange {
+  from: number
+  to: number
 }
 
 /** What the warehouse cannot cover — the numbers a confirmation dialog must show. */
@@ -430,6 +444,16 @@ export interface Order {
   clientName: string
   clientVatCode: string
   clientAddress: string
+  /**
+   * Условия оплаты клиента на момент создания заказа — отсрочка в днях от даты
+   * счёта, 0 — оплата по счёту.
+   *
+   * Снимок, а не ссылка на клиента, по той же причине, по которой рядом лежат
+   * копии кода НДС и адреса: заказ должен помнить условия, на которых он был
+   * оформлен. Клиенту потом сократят отсрочку — счета прошлых заказов от этого
+   * не станут просроченными задним числом.
+   */
+  clientPaymentTermsDays: number
   documentType: OrderDocumentType
   status: OrderStatus
   items: OrderItem[]

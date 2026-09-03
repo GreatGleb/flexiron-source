@@ -1,4 +1,4 @@
-import { ref, reactive, toRaw } from 'vue'
+import { computed, ref, reactive, toRaw } from 'vue'
 import {
   getClient,
   patchClient,
@@ -6,13 +6,21 @@ import {
   deleteClientAuditEntry,
   addClientInteraction,
   deleteClientInteraction,
+  getClientInvoiceSummary,
 } from '@/services/clientsService'
 import { useDirtyCheck } from './useDirtyCheck'
 import { useToast } from './useToast'
 import { useTranslatedField } from './useTranslatedData'
 import { useI18n } from 'vue-i18n'
 import { getOrders } from '@/services/ordersService'
-import type { Client, InteractionHistoryEntry } from '@/types/client'
+import { normalizePaymentTermsDays } from '@/domain/paymentTerms'
+import { round2 } from '@/domain/orderPricing'
+import type {
+  Client,
+  ClientInvoice,
+  ClientUnassignedPayment,
+  InteractionHistoryEntry,
+} from '@/types/client'
 import type { OrderListItem } from '@/types/order'
 import type { StockAuditEntry } from '@/types/warehouse'
 
@@ -40,6 +48,70 @@ export function useClientCard(id: string) {
   const orders = ref<OrderListItem[]>([])
   const ordersLoading = ref(false)
 
+  /**
+   * Выставленные клиенту счета — вторая половина сводки из ТЗ (CRM §54).
+   *
+   * Приходят одним запросом и уже размеченными: держит клиент документ или он
+   * отозван и какие деньги на нём — решено на стороне заказов, где эти правила
+   * и живут.
+   */
+  const invoices = ref<ClientInvoice[]>([])
+  /**
+   * Деньги клиента, не названные ни одним документом, — по заказам.
+   *
+   * Отдельным списком, потому что это не счета. Но и не «мелочь, которой можно
+   * пренебречь»: сводка без них показывала оплату 2000 евро клиенту, заплатившему
+   * 6971,72, — деньги, стоящие в заказах без ссылки на счёт, просто не доходили
+   * до колонки «оплачено».
+   */
+  const unassignedPayments = ref<ClientUnassignedPayment[]>([])
+  const invoicesLoading = ref(false)
+
+  /**
+   * Итог по колонкам — отдельно на каждую валюту.
+   *
+   * Курса в системе нет нигде, поэтому один общий итог по счетам в евро и
+   * долларах был бы не суммой, а склейкой двух разных величин.
+   *
+   * Отозванные документы в «выставлено» не входят: `amountGrossCurrent` у них
+   * ноль, потому что клиент их не держит. Деньги без ссылки на счёт, наоборот,
+   * входят в «оплачено» целиком — они клиентские, и остаток без них завышен ровно
+   * на их величину.
+   */
+  const invoiceTotals = computed(() => {
+    const byCurrency = new Map<
+      string,
+      {
+        currency: string
+        issued: number
+        paid: number
+        unassignedPaid: number
+        outstanding: number
+      }
+    >()
+    const rowFor = (currency: string) => {
+      const existing = byCurrency.get(currency)
+      if (existing) return existing
+      const fresh = { currency, issued: 0, paid: 0, unassignedPaid: 0, outstanding: 0 }
+      byCurrency.set(currency, fresh)
+      return fresh
+    }
+    for (const invoice of invoices.value) {
+      const row = rowFor(invoice.currency)
+      row.issued = round2(row.issued + invoice.amountGrossCurrent)
+      row.paid = round2(row.paid + invoice.paidAmount)
+    }
+    for (const payment of unassignedPayments.value) {
+      const row = rowFor(payment.currency)
+      row.paid = round2(row.paid + payment.amount)
+      row.unassignedPaid = round2(row.unassignedPaid + payment.amount)
+    }
+    for (const row of byCurrency.values()) {
+      row.outstanding = round2(row.issued - row.paid)
+    }
+    return [...byCurrency.values()].sort((a, b) => a.currency.localeCompare(b.currency))
+  })
+
   const newInteraction = reactive<{
     type: 'call' | 'email' | 'note' | 'meeting'
     date: string
@@ -60,6 +132,22 @@ export function useClientCard(id: string) {
   }
 
   const dirty = useDirtyCheck(client)
+
+  /**
+   * Условия оплаты правятся через переходник, а не напрямую.
+   *
+   * `v-model.number` на очищенном поле кладёт `NaN` (питфолл #25), и `diff()`
+   * отдаёт сырое значение — то есть `NaN` уехал бы в PATCH. Нормализация стоит на
+   * записи, а не в вотчере: вотчер чинит уже испорченное состояние, а карточка
+   * между его срабатыванием и сохранением успевает показать пустое поле как
+   * «условий нет».
+   */
+  const paymentTermsDays = computed<number>({
+    get: () => client.value?.paymentTermsDays ?? 0,
+    set: (value) => {
+      if (client.value) client.value.paymentTermsDays = normalizePaymentTermsDays(value)
+    },
+  })
 
   async function load() {
     loading.value = true
@@ -109,6 +197,20 @@ export function useClientCard(id: string) {
       orders.value = []
     } finally {
       ordersLoading.value = false
+    }
+  }
+
+  async function loadInvoices() {
+    invoicesLoading.value = true
+    try {
+      const summary = await getClientInvoiceSummary(id)
+      invoices.value = summary.invoices
+      unassignedPayments.value = summary.unassignedPayments
+    } catch {
+      invoices.value = []
+      unassignedPayments.value = []
+    } finally {
+      invoicesLoading.value = false
     }
   }
 
@@ -224,6 +326,7 @@ export function useClientCard(id: string) {
 
   return {
     client,
+    paymentTermsDays,
     loading,
     saving,
     error,
@@ -238,6 +341,11 @@ export function useClientCard(id: string) {
     orders,
     ordersLoading,
     loadOrders,
+    invoices,
+    unassignedPayments,
+    invoicesLoading,
+    invoiceTotals,
+    loadInvoices,
     deleteAuditEntry,
     handleDeleteInteraction,
     newInteraction,

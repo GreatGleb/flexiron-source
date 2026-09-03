@@ -8,7 +8,6 @@ import {
   mockGetOffcut,
   syncBatchQuantities,
 } from './warehouse'
-import type { StockUnit } from '@/types/warehouse'
 
 /**
  * Резка как операция, а не как подпись.
@@ -20,14 +19,14 @@ import type { StockUnit } from '@/types/warehouse'
 
 let seq = 0
 
-async function freshBatch(quantity: number, unit: StockUnit) {
+async function freshBatch(quantity: number, uomId: string) {
   seq += 1
   return mockCreateBatch({
     productId: 'prod-001',
     batchNumber: `CUT-${String(seq).padStart(3, '0')}`,
     lotCode: `LOT-CUT-${String(seq).padStart(3, '0')}`,
     quantity,
-    unit,
+    uomId,
     unitPrice: 10,
     receivedAt: '2026-01-01T00:00:00Z',
     location: 'Rack: A | Row: 01 | Cell: 01',
@@ -42,7 +41,7 @@ async function movementsOf(batchNumber: string) {
 
 describe('пример из ТЗ проходит через мок целиком', () => {
   it('купили 2500 мм — с партии в метрах ушло 2.503', async () => {
-    const batch = await freshBatch(100, 'm')
+    const batch = await freshBatch(100, 'uom-m')
 
     const result = await mockExecuteCutting({
       sourceBatchId: batch.id,
@@ -51,10 +50,9 @@ describe('пример из ТЗ проходит через мок целико
       wasteQuantity: 0,
       offcuts: [
         {
-          productId: 'prod-001',
           quantity: 1,
           lengthMm: 2500,
-          unit: 'm',
+          uomId: 'uom-m',
           offcutType: 'linear',
         },
       ],
@@ -67,14 +65,19 @@ describe('пример из ТЗ проходит через мок целико
 
   it('обрезок появляется в хранилище, а не только в ответе', async () => {
     // Заглушка возвращала пустой список: операция «проходила», а обрезка не было.
-    const batch = await freshBatch(50, 'm')
+    const batch = await freshBatch(50, 'uom-m')
     const { offcuts } = await mockExecuteCutting({
       sourceBatchId: batch.id,
       sourceQuantity: 1.503,
       kerfMm: 3,
       wasteQuantity: 0,
       offcuts: [
-        { productId: 'prod-001', quantity: 1, lengthMm: 1500, unit: 'm', offcutType: 'linear' },
+        {
+          quantity: 1,
+          lengthMm: 1500,
+          uomId: 'uom-m',
+          offcutType: 'linear',
+        },
       ],
     })
 
@@ -86,15 +89,20 @@ describe('пример из ТЗ проходит через мок целико
 
 describe('след из движений: обрезки одним типом, пропил с отходом — другим', () => {
   it('на каждый кусок движение offcut на его материал', async () => {
-    const batch = await freshBatch(100, 'm')
+    const batch = await freshBatch(100, 'uom-m')
     await mockExecuteCutting({
       sourceBatchId: batch.id,
       sourceQuantity: 4.512,
       kerfMm: 3,
       wasteQuantity: 0,
       offcuts: [
-        { productId: 'prod-001', quantity: 2, lengthMm: 1500, unit: 'm', offcutType: 'linear' },
-        { productId: 'prod-001', quantity: 2, lengthMm: 750, unit: 'm', offcutType: 'linear' },
+        {
+          quantity: 2,
+          lengthMm: 1500,
+          uomId: 'uom-m',
+          offcutType: 'linear',
+        },
+        { quantity: 2, lengthMm: 750, uomId: 'uom-m', offcutType: 'linear' },
       ],
     })
 
@@ -102,18 +110,23 @@ describe('след из движений: обрезки одним типом, 
     const offcutMovements = movements.filter((m) => m.type === 'offcut')
     expect(offcutMovements.map((m) => m.quantity).sort((a, b) => a - b)).toEqual([1.5, 3])
     // Движение меряется в единице партии — метрах, а не в кусках.
-    expect(new Set(offcutMovements.map((m) => m.unit))).toEqual(new Set(['m']))
+    expect(new Set(offcutMovements.map((m) => m.uomId))).toEqual(new Set(['uom-m']))
   })
 
   it('пропил и отход уходят одним списанием, и в примечании видны оба', async () => {
-    const batch = await freshBatch(100, 'm')
+    const batch = await freshBatch(100, 'uom-m')
     await mockExecuteCutting({
       sourceBatchId: batch.id,
       sourceQuantity: 3.512,
       kerfMm: 4,
       wasteQuantity: 0.5,
       offcuts: [
-        { productId: 'prod-001', quantity: 3, lengthMm: 1000, unit: 'm', offcutType: 'linear' },
+        {
+          quantity: 3,
+          lengthMm: 1000,
+          uomId: 'uom-m',
+          offcutType: 'linear',
+        },
       ],
     })
 
@@ -128,42 +141,142 @@ describe('след из движений: обрезки одним типом, 
   })
 
   it('нет пропила и нет отхода — нет и лишнего движения', async () => {
-    const batch = await freshBatch(20, 'pcs')
+    const batch = await freshBatch(20, 'uom-pcs')
+    await mockExecuteCutting({
+      sourceBatchId: batch.id,
+      sourceQuantity: 1,
+      kerfMm: 0,
+      wasteQuantity: 0,
+      sourcePieces: 1,
+      offcuts: [{ quantity: 2, uomId: 'uom-pcs', offcutType: 'linear' }],
+    })
+
+    const movements = await movementsOf(batch.batchNumber)
+    expect(movements.filter((m) => m.type === 'write-off')).toHaveLength(0)
+    // Один лист ушёл, два куска из него вышли: 20 − 1, а не 20 − 2.
+    expect((await mockGetBatch(batch.id)).quantityRemaining).toBe(19)
+  })
+})
+
+describe('штучная партия: списываются листы, а не куски', () => {
+  it('лист, распущенный на четыре куска, забирает с партии один лист', async () => {
+    const batch = await freshBatch(3, 'uom-pcs')
+    const { offcuts } = await mockExecuteCutting({
+      sourceBatchId: batch.id,
+      sourceQuantity: 1,
+      kerfMm: 0,
+      wasteQuantity: 0,
+      sourcePieces: 1,
+      offcuts: [
+        { quantity: 4, uomId: 'uom-pcs', offcutType: 'sheet', lengthMm: 500, widthMm: 300 },
+      ],
+    })
+    expect(offcuts).toHaveLength(1)
+    expect((await mockGetBatch(batch.id)).quantityRemaining).toBe(2)
+  })
+
+  it('партию из одного листа теперь можно разрезать — раньше это был отказ', async () => {
+    const batch = await freshBatch(1, 'uom-pcs')
+    await mockExecuteCutting({
+      sourceBatchId: batch.id,
+      sourceQuantity: 1,
+      kerfMm: 0,
+      wasteQuantity: 0,
+      sourcePieces: 1,
+      offcuts: [
+        { quantity: 2, uomId: 'uom-pcs', offcutType: 'sheet', lengthMm: 400, widthMm: 200 },
+      ],
+    })
+    expect((await mockGetBatch(batch.id)).quantityRemaining).toBe(0)
+  })
+
+  it('расход списан ОДНИМ движением операции, а не по куску на каждый', async () => {
+    const batch = await freshBatch(5, 'uom-pcs')
     await mockExecuteCutting({
       sourceBatchId: batch.id,
       sourceQuantity: 2,
       kerfMm: 0,
       wasteQuantity: 0,
-      offcuts: [{ productId: 'prod-001', quantity: 2, unit: 'pcs', offcutType: 'linear' }],
+      sourcePieces: 2,
+      offcuts: [
+        { quantity: 3, uomId: 'uom-pcs', offcutType: 'sheet', lengthMm: 500, widthMm: 300 },
+        { quantity: 2, uomId: 'uom-pcs', offcutType: 'sheet', lengthMm: 400, widthMm: 300 },
+      ],
     })
+    const offcutMoves = (await movementsOf(batch.batchNumber)).filter((m) => m.type === 'offcut')
+    expect(offcutMoves).toHaveLength(1)
+    expect(offcutMoves[0]!.quantity).toBe(2)
+    expect(offcutMoves[0]!.referenceType).toBe('cutting')
+    expect((await mockGetBatch(batch.id)).quantityRemaining).toBe(3)
+  })
 
-    const movements = await movementsOf(batch.batchNumber)
-    expect(movements.filter((m) => m.type === 'write-off')).toHaveLength(0)
-    expect((await mockGetBatch(batch.id)).quantityRemaining).toBe(18)
+  it('больше листов, чем в партии, — отказ, и ни одной записи', async () => {
+    const batch = await freshBatch(2, 'uom-pcs')
+    await expect(
+      mockExecuteCutting({
+        sourceBatchId: batch.id,
+        sourceQuantity: 3,
+        kerfMm: 0,
+        wasteQuantity: 0,
+        sourcePieces: 3,
+        offcuts: [{ quantity: 1, uomId: 'uom-pcs', offcutType: 'sheet' }],
+      }),
+    ).rejects.toThrow('INSUFFICIENT_QUANTITY')
+    expect((await mockGetBatch(batch.id)).quantityRemaining).toBe(2)
+    expect(await movementsOf(batch.batchNumber)).toHaveLength(0)
+  })
+
+  it('не сказали, сколько листов, — отказ', async () => {
+    const batch = await freshBatch(5, 'uom-pcs')
+    await expect(
+      mockExecuteCutting({
+        sourceBatchId: batch.id,
+        sourceQuantity: 1,
+        kerfMm: 0,
+        wasteQuantity: 0,
+        offcuts: [{ quantity: 2, uomId: 'uom-pcs', offcutType: 'sheet' }],
+      }),
+    ).rejects.toThrow('CUTTING_SOURCE_PIECES_INVALID')
+    expect((await mockGetBatch(batch.id)).quantityRemaining).toBe(5)
+  })
+
+  it('ручное создание обрезка не изменилось: там расход и есть счётчик кусков', async () => {
+    const batch = await freshBatch(10, 'uom-pcs')
+    await mockCreateOffcut({
+      batchId: batch.id,
+      quantity: 3,
+      uomId: 'uom-pcs',
+      offcutType: 'sheet',
+    })
+    expect((await mockGetBatch(batch.id)).quantityRemaining).toBe(7)
   })
 })
 
 describe('оба пути списывают одинаково', () => {
   it('обрезок вручную и тот же обрезок резкой забирают с партии одно и то же', async () => {
     // Резолвер размера один; если появится второй, эти два числа разъедутся.
-    const manual = await freshBatch(100, 'm')
+    const manual = await freshBatch(100, 'uom-m')
     await mockCreateOffcut({
       batchId: manual.id,
-      productId: 'prod-001',
       quantity: 2,
       lengthMm: 1250,
-      unit: 'm',
+      uomId: 'uom-m',
       offcutType: 'linear',
     })
 
-    const cut = await freshBatch(100, 'm')
+    const cut = await freshBatch(100, 'uom-m')
     await mockExecuteCutting({
       sourceBatchId: cut.id,
       sourceQuantity: 2.5,
       kerfMm: 0,
       wasteQuantity: 0,
       offcuts: [
-        { productId: 'prod-001', quantity: 2, lengthMm: 1250, unit: 'm', offcutType: 'linear' },
+        {
+          quantity: 2,
+          lengthMm: 1250,
+          uomId: 'uom-m',
+          offcutType: 'linear',
+        },
       ],
     })
 
@@ -173,26 +286,24 @@ describe('оба пути списывают одинаково', () => {
 
   it('обрезок в 3 кг забирает с партии 3, а не 6', async () => {
     // Регресс: количество партии уменьшали и `mockCreateOffcut`, и `writeMovement`.
-    const batch = await freshBatch(100, 'kg')
+    const batch = await freshBatch(100, 'uom-kg')
     await mockCreateOffcut({
       batchId: batch.id,
-      productId: 'prod-001',
       quantity: 1,
       weightKg: 3,
-      unit: 'kg',
+      uomId: 'uom-kg',
       offcutType: 'linear',
     })
     expect((await mockGetBatch(batch.id)).quantityRemaining).toBe(97)
   })
 
   it('«1 шт» из партии в метрах больше не списывает один метр', async () => {
-    const batch = await freshBatch(100, 'm')
+    const batch = await freshBatch(100, 'uom-m')
     await mockCreateOffcut({
       batchId: batch.id,
-      productId: 'prod-001',
       quantity: 1,
       lengthMm: 300,
-      unit: 'm',
+      uomId: 'uom-m',
       offcutType: 'linear',
     })
     expect((await mockGetBatch(batch.id)).quantityRemaining).toBe(99.7)
@@ -208,14 +319,19 @@ describe('отказы: ни одной записи после первого �
         kerfMm: 0,
         wasteQuantity: 0,
         offcuts: [
-          { productId: 'prod-001', quantity: 1, lengthMm: 1000, unit: 'm', offcutType: 'linear' },
+          {
+            quantity: 1,
+            lengthMm: 1000,
+            uomId: 'uom-m',
+            offcutType: 'linear',
+          },
         ],
       }),
     ).rejects.toThrow('BATCH_NOT_FOUND')
   })
 
   it('резка без кусков — это не резка', async () => {
-    const batch = await freshBatch(10, 'm')
+    const batch = await freshBatch(10, 'uom-m')
     await expect(
       mockExecuteCutting({
         sourceBatchId: batch.id,
@@ -230,7 +346,7 @@ describe('отказы: ни одной записи после первого �
 
   it('ширина реза на партии в килограммах', async () => {
     // Не ноль молча: присланный пропил значит, что клиент считает его значащим.
-    const batch = await freshBatch(100, 'kg')
+    const batch = await freshBatch(100, 'uom-kg')
     await expect(
       mockExecuteCutting({
         sourceBatchId: batch.id,
@@ -238,29 +354,65 @@ describe('отказы: ни одной записи после первого �
         kerfMm: 3,
         wasteQuantity: 0,
         offcuts: [
-          { productId: 'prod-001', quantity: 1, weightKg: 5, unit: 'kg', offcutType: 'linear' },
+          {
+            quantity: 1,
+            weightKg: 5,
+            uomId: 'uom-kg',
+            offcutType: 'linear',
+          },
         ],
       }),
     ).rejects.toThrow('CUTTING_KERF_NOT_APPLICABLE')
     expect((await mockGetBatch(batch.id)).quantityRemaining).toBe(100)
   })
 
+  it('отрицательный отход — партия не растёт от резки', async () => {
+    // Правило переехало из этой функции в `computeCuttingConsumption`, потому что
+    // у формы своей копии не было. Здесь оно проверяется на границе мока: домен
+    // может знать правило и не быть спрошенным.
+    const batch = await freshBatch(100, 'uom-m')
+    await expect(
+      mockExecuteCutting({
+        sourceBatchId: batch.id,
+        sourceQuantity: -99,
+        kerfMm: 0,
+        wasteQuantity: -100,
+        offcuts: [{ quantity: 1, lengthMm: 1000, uomId: 'uom-m', offcutType: 'linear' }],
+      }),
+    ).rejects.toThrow('CUTTING_NEGATIVE_AMOUNT')
+    expect((await mockGetBatch(batch.id)).quantityRemaining).toBe(100)
+  })
+
+  it('отрицательная ширина реза', async () => {
+    const batch = await freshBatch(100, 'uom-m')
+    await expect(
+      mockExecuteCutting({
+        sourceBatchId: batch.id,
+        sourceQuantity: 0.5,
+        kerfMm: -1000,
+        wasteQuantity: 0,
+        offcuts: [{ quantity: 1, lengthMm: 1000, uomId: 'uom-m', offcutType: 'linear' }],
+      }),
+    ).rejects.toThrow('CUTTING_NEGATIVE_AMOUNT')
+    expect((await mockGetBatch(batch.id)).quantityRemaining).toBe(100)
+  })
+
   it('нет размера под единицу партии', async () => {
-    const batch = await freshBatch(100, 'm')
+    const batch = await freshBatch(100, 'uom-m')
     await expect(
       mockExecuteCutting({
         sourceBatchId: batch.id,
         sourceQuantity: 1,
         kerfMm: 0,
         wasteQuantity: 0,
-        offcuts: [{ productId: 'prod-001', quantity: 1, unit: 'm', offcutType: 'linear' }],
+        offcuts: [{ quantity: 1, uomId: 'uom-m', offcutType: 'linear' }],
       }),
     ).rejects.toThrow('OFFCUT_DIMENSION_MISSING')
     expect((await mockGetBatch(batch.id)).quantityRemaining).toBe(100)
   })
 
   it('дробное число кусков', async () => {
-    const batch = await freshBatch(100, 'm')
+    const batch = await freshBatch(100, 'uom-m')
     await expect(
       mockExecuteCutting({
         sourceBatchId: batch.id,
@@ -268,14 +420,19 @@ describe('отказы: ни одной записи после первого �
         kerfMm: 0,
         wasteQuantity: 0,
         offcuts: [
-          { productId: 'prod-001', quantity: 2.5, lengthMm: 500, unit: 'm', offcutType: 'linear' },
+          {
+            quantity: 2.5,
+            lengthMm: 500,
+            uomId: 'uom-m',
+            offcutType: 'linear',
+          },
         ],
       }),
     ).rejects.toThrow('OFFCUT_PIECES_NOT_INTEGER')
   })
 
   it('в партии меньше, чем заявлено к резке', async () => {
-    const batch = await freshBatch(2, 'm')
+    const batch = await freshBatch(2, 'uom-m')
     await expect(
       mockExecuteCutting({
         sourceBatchId: batch.id,
@@ -283,7 +440,12 @@ describe('отказы: ни одной записи после первого �
         kerfMm: 3,
         wasteQuantity: 0,
         offcuts: [
-          { productId: 'prod-001', quantity: 1, lengthMm: 3000, unit: 'm', offcutType: 'linear' },
+          {
+            quantity: 1,
+            lengthMm: 3000,
+            uomId: 'uom-m',
+            offcutType: 'linear',
+          },
         ],
       }),
     ).rejects.toThrow('INSUFFICIENT_QUANTITY')
@@ -291,7 +453,7 @@ describe('отказы: ни одной записи после первого �
   })
 
   it('клиент посчитал расход иначе — отказ, а не доверие клиенту', async () => {
-    const batch = await freshBatch(100, 'm')
+    const batch = await freshBatch(100, 'uom-m')
     await expect(
       mockExecuteCutting({
         sourceBatchId: batch.id,
@@ -300,7 +462,12 @@ describe('отказы: ни одной записи после первого �
         kerfMm: 3,
         wasteQuantity: 0,
         offcuts: [
-          { productId: 'prod-001', quantity: 1, lengthMm: 2500, unit: 'm', offcutType: 'linear' },
+          {
+            quantity: 1,
+            lengthMm: 2500,
+            uomId: 'uom-m',
+            offcutType: 'linear',
+          },
         ],
       }),
     ).rejects.toThrow('CUTTING_QUANTITY_MISMATCH')
@@ -309,7 +476,7 @@ describe('отказы: ни одной записи после первого �
 
   it('отказ на втором куске не оставляет первый', async () => {
     // Резка — одна проводка. Списать половину заявленного хуже, чем не списать.
-    const batch = await freshBatch(100, 'm')
+    const batch = await freshBatch(100, 'uom-m')
     const before = (await movementsOf(batch.batchNumber)).length
     await expect(
       mockExecuteCutting({
@@ -318,8 +485,13 @@ describe('отказы: ни одной записи после первого �
         kerfMm: 0,
         wasteQuantity: 0,
         offcuts: [
-          { productId: 'prod-001', quantity: 1, lengthMm: 1000, unit: 'm', offcutType: 'linear' },
-          { productId: 'prod-001', quantity: 1, unit: 'm', offcutType: 'linear' },
+          {
+            quantity: 1,
+            lengthMm: 1000,
+            uomId: 'uom-m',
+            offcutType: 'linear',
+          },
+          { quantity: 1, uomId: 'uom-m', offcutType: 'linear' },
         ],
       }),
     ).rejects.toThrow('OFFCUT_DIMENSION_MISSING')
@@ -329,14 +501,13 @@ describe('отказы: ни одной записи после первого �
   })
 
   it('обрезок больше остатка партии не создаётся и вручную', async () => {
-    const batch = await freshBatch(1, 'm')
+    const batch = await freshBatch(1, 'uom-m')
     await expect(
       mockCreateOffcut({
         batchId: batch.id,
-        productId: 'prod-001',
         quantity: 1,
         lengthMm: 2000,
-        unit: 'm',
+        uomId: 'uom-m',
         offcutType: 'linear',
       }),
     ).rejects.toThrow('INSUFFICIENT_QUANTITY')
@@ -349,10 +520,9 @@ describe('отказы: ни одной записи после первого �
     await expect(
       mockCreateOffcut({
         batchId: 'whb-does-not-exist',
-        productId: 'prod-001',
         quantity: 1,
         weightKg: 1,
-        unit: 'kg',
+        uomId: 'uom-kg',
         offcutType: 'linear',
       }),
     ).rejects.toThrow('BATCH_NOT_FOUND')
@@ -366,15 +536,25 @@ describe('пересчёт из журнала даёт тот же остато
     // Тип, которого нет в списке исходящих, пересчёт «вернул» бы партии — молча и
     // только после перезагрузки. Резка пишет `offcut` на куски и `write-off` на
     // пропил с отходом; оба обязаны быть в одном и том же списке.
-    const batch = await freshBatch(100, 'm')
+    const batch = await freshBatch(100, 'uom-m')
     await mockExecuteCutting({
       sourceBatchId: batch.id,
       sourceQuantity: 5.512,
       kerfMm: 4,
       wasteQuantity: 0.5,
       offcuts: [
-        { productId: 'prod-001', quantity: 2, lengthMm: 1500, unit: 'm', offcutType: 'linear' },
-        { productId: 'prod-001', quantity: 1, lengthMm: 2000, unit: 'm', offcutType: 'linear' },
+        {
+          quantity: 2,
+          lengthMm: 1500,
+          uomId: 'uom-m',
+          offcutType: 'linear',
+        },
+        {
+          quantity: 1,
+          lengthMm: 2000,
+          uomId: 'uom-m',
+          offcutType: 'linear',
+        },
       ],
     })
 
@@ -388,13 +568,12 @@ describe('пересчёт из журнала даёт тот же остато
   })
 
   it('пересборка не возвращает и материал обрезка, созданного вручную', async () => {
-    const batch = await freshBatch(60, 'kg')
+    const batch = await freshBatch(60, 'uom-kg')
     await mockCreateOffcut({
       batchId: batch.id,
-      productId: 'prod-001',
       quantity: 2,
       weightKg: 4.5,
-      unit: 'kg',
+      uomId: 'uom-kg',
       offcutType: 'linear',
     })
 
@@ -410,15 +589,13 @@ describe('пересчёт из журнала даёт тот же остато
     // а сумма журнала в плавающей точке — 37.900999999999996. Без одного правила
     // округления на оба пути «тот же остаток» перестаёт быть тем же, и партия после
     // перезагрузки отличается от той, что была секунду назад.
-    const batch = await freshBatch(40.01, 'm')
+    const batch = await freshBatch(40.01, 'uom-m')
     await mockExecuteCutting({
       sourceBatchId: batch.id,
       sourceQuantity: 2.109,
       kerfMm: 3,
       wasteQuantity: 0,
-      offcuts: [
-        { productId: 'prod-001', quantity: 3, lengthMm: 700, unit: 'm', offcutType: 'linear' },
-      ],
+      offcuts: [{ quantity: 3, lengthMm: 700, uomId: 'uom-m', offcutType: 'linear' }],
     })
 
     expect((await mockGetBatch(batch.id)).quantityRemaining).toBe(37.901)

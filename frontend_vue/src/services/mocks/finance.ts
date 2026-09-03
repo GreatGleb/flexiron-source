@@ -3,19 +3,27 @@ import type {
   FinancePaymentListItem,
   PaymentDocument,
   FinanceDocumentArchiveItem,
-  PaymentDirection,
-  PaymentStatus,
-  ArchiveDocumentType,
+  Receivable,
+  FinanceListFilters,
 } from '@/types/finance'
+import { notifyPaymentOverdue } from './notifications'
+import { orderReceivables } from './orders'
+
+/**
+ * Финансовый модуль демо-стенда.
+ *
+ * Пункт 13 плана `review-followups.md`: у одной суммы один владелец. «Входящие» —
+ * это ПРЕДСТАВЛЕНИЕ над счетами заказов, своего хранилища у них нет; «Исходящие» —
+ * самостоятельные записи, потому что заказа поставщику в системе не существует и
+ * выводить их не из чего.
+ *
+ * Случайной генерации здесь нет ни одной. Раньше сумма, статус и дата оплаты
+ * бросались `Math.random()`, но подписывались номером НАСТОЯЩЕГО заказа — и
+ * страница показывала выдуманное число под реальным документом, не сходящееся с
+ * самим заказом. Демо-данные держатся ровно тех же правил, что приложение.
+ */
 
 // ─── Helpers ───
-function rnd(min: number, max: number): number {
-  return Math.round((Math.random() * (max - min) + min) * 100) / 100
-}
-
-function pick<T>(arr: readonly T[] | T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)]!
-}
 
 function dateStr(daysOffset: number): string {
   const d = new Date()
@@ -23,14 +31,80 @@ function dateStr(daysOffset: number): string {
   return d.toISOString()
 }
 
-// ─── Counterparties ───
-const CLIENTS = [
-  { id: 'CL-001', name: 'UAB Metalica', vatCode: 'LT304567890' },
-  { id: 'CL-002', name: 'AB Plienas', vatCode: 'LT401234567' },
-  { id: 'CL-003', name: 'UAB Konstrukcija', vatCode: 'LT509876543' },
-  { id: 'CL-004', name: 'MB Metalo Darbai', vatCode: 'LT607890123' },
-  { id: 'CL-005', name: 'UAB Vamzdynas', vatCode: 'LT708901234' },
-]
+function clone<T>(data: T): T {
+  return JSON.parse(JSON.stringify(data))
+}
+
+function paginate<T>(
+  items: T[],
+  page: number,
+  pageSize: number,
+): { items: T[]; total: number; page: number; pageSize: number; totalPages: number } {
+  const start = (page - 1) * pageSize
+  return {
+    items: items.slice(start, start + pageSize),
+    total: items.length,
+    page,
+    pageSize,
+    totalPages: Math.ceil(items.length / pageSize),
+  }
+}
+
+// ─── Реестр входящих ────────────────────────────────────────────────────────
+
+/**
+ * Счета, о просрочке которых уведомление уже написано.
+ *
+ * Просрочка — состояние, а уведомление — событие: без этой памяти один и тот же
+ * факт попадал бы в ленту при каждом открытии страницы, и колокольчик считал бы
+ * не события, а обращения (см. `notifications.ts` — «каждый эмиттер зовётся на
+ * переходе, а не на повторяющемся моменте»).
+ */
+const overdueNotified = new Set<string>()
+
+function receivables(): Receivable[] {
+  const rows = orderReceivables()
+  for (const row of rows) {
+    if (row.status !== 'overdue' || overdueNotified.has(row.id)) continue
+    overdueNotified.add(row.id)
+    notifyPaymentOverdue({
+      paymentNumber: row.invoiceNumber,
+      direction: 'incoming',
+      dueDate: row.dueDate,
+      orderId: row.orderId,
+      orderNumber: row.orderNumber,
+      counterpartyId: row.clientId,
+      counterpartyName: row.clientName,
+    })
+  }
+  return rows
+}
+
+export function mockGetReceivables(
+  params: FinanceListFilters & { page?: number; pageSize?: number },
+): { items: Receivable[]; total: number; page: number; pageSize: number; totalPages: number } {
+  let filtered = receivables()
+
+  if (params.search) {
+    const q = params.search.toLowerCase()
+    filtered = filtered.filter(
+      (r) =>
+        r.invoiceNumber.toLowerCase().includes(q) ||
+        r.clientName.toLowerCase().includes(q) ||
+        r.orderNumber.toLowerCase().includes(q),
+    )
+  }
+  if (params.status && params.status !== 'all') {
+    filtered = filtered.filter((r) => r.status === params.status)
+  }
+
+  // Ближайший срок сверху: реестр читают, чтобы узнать, чем заняться сегодня.
+  filtered.sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+
+  return paginate(filtered, params.page ?? 1, params.pageSize ?? 25)
+}
+
+// ─── Исходящие платежи ──────────────────────────────────────────────────────
 
 const SUPPLIERS = [
   { id: 'sup-001', name: 'ArcelorMittal', vatCode: 'LU12345678' },
@@ -40,144 +114,276 @@ const SUPPLIERS = [
   { id: 'sup-005', name: 'UAB Metalo Importas', vatCode: 'LT809012345' },
 ]
 
-const ORDERS = [
-  { id: 'ORD-001', number: 'ORD-2026-001' },
-  { id: 'ORD-002', number: 'ORD-2026-002' },
-  { id: 'ORD-005', number: 'ORD-2026-005' },
-  { id: 'ORD-008', number: 'ORD-2026-008' },
-  { id: 'ORD-012', number: 'ORD-2026-012' },
-]
-
-// ─── Generate PaymentDocuments ───
-function generateDocuments(count: number): PaymentDocument[] {
-  const docs: PaymentDocument[] = []
-  for (let i = 0; i < count; i++) {
-    const isInvoice = Math.random() > 0.5
-    const seq = Math.floor(Math.random() * 100)
-    docs.push({
-      id: `pdoc-${Date.now()}-${i}`,
-      name: isInvoice
-        ? `Invoice #INV-2026-${String(seq).padStart(3, '0')}`
-        : `Facture #FAC-2026-${String(seq).padStart(3, '0')}`,
-      fileId: `file-${Date.now()}-${i}`,
-      url: `#uploaded/file-${Date.now()}-${i}`,
-      size: Math.floor(Math.random() * 500000) + 50000,
-      mime: 'application/pdf',
-      uploadedAt: dateStr(-Math.floor(Math.random() * 30)),
-    })
+function supplierDoc(seq: number, name: string, daysAgo: number): PaymentDocument {
+  return {
+    id: `pdoc-${seq}`,
+    name,
+    fileId: `file-fin-${seq}`,
+    url: `#uploaded/file-fin-${seq}`,
+    size: 120_000 + seq * 15_000,
+    mime: 'application/pdf',
+    uploadedAt: dateStr(-daysAgo),
   }
-  return docs
 }
 
-// ─── Generate Payments ───
+/**
+ * Заданные вручную счета поставщиков.
+ *
+ * Даты относительные, а не календарные: фиксированная дата протухает сама по
+ * себе, и через месяц «ожидается» стоит рядом со сроком в прошлом. Статус здесь
+ * хранится — в отличие от входящих: выводить его не из чего, поступлений по
+ * счёту поставщика система не знает. Поэтому seed самосогласован руками: у
+ * оплаченных есть дата оплаты, у просроченных срок в прошлом и оплаты нет.
+ */
 const MOCK_PAYMENTS: FinancePayment[] = [
-  ...CLIENTS.slice(0, 4).map((cl, idx) => ({
-    id: `pay-in-${idx + 1}`,
-    paymentNumber: `PAY-2026-${String(idx + 1).padStart(3, '0')}`,
-    direction: 'incoming' as PaymentDirection,
-    status: pick(['pending', 'completed', 'overdue'] as PaymentStatus[]),
-    amount: rnd(500, 15000),
+  {
+    id: 'pay-out-1',
+    paymentNumber: 'PAY-2026-001',
+    direction: 'outgoing',
+    status: 'completed',
+    amount: 18450,
     currency: 'EUR',
-    counterpartyId: cl.id,
-    counterpartyName: cl.name,
-    counterpartyVatCode: cl.vatCode,
-    orderId: ORDERS[idx]!.id,
-    orderNumber: ORDERS[idx]!.number,
-    supplierInvoiceRef: null,
-    description: `Payment for order ${ORDERS[idx]!.number}`,
-    dueDate: dateStr(-idx * 3),
-    paidAt: Math.random() > 0.5 ? dateStr(-idx * 5) : null,
-    documents: generateDocuments(Math.floor(Math.random() * 3) + 1),
-    notes: Math.random() > 0.7 ? `Client confirmed payment via bank transfer.` : null,
-    createdAt: dateStr(-20),
-    updatedAt: dateStr(-1),
-  })),
-  ...SUPPLIERS.slice(0, 3).map((sp, idx) => ({
-    id: `pay-out-${idx + 1}`,
-    paymentNumber: `PAY-2026-${String(idx + 5).padStart(3, '0')}`,
-    direction: 'outgoing' as PaymentDirection,
-    status: pick(['pending', 'completed', 'overdue'] as PaymentStatus[]),
-    amount: rnd(2000, 50000),
-    currency: 'EUR',
-    counterpartyId: sp.id,
-    counterpartyName: sp.name,
-    counterpartyVatCode: sp.vatCode,
+    counterpartyId: SUPPLIERS[0]!.id,
+    counterpartyName: SUPPLIERS[0]!.name,
+    counterpartyVatCode: SUPPLIERS[0]!.vatCode,
     orderId: null,
     orderNumber: null,
-    supplierInvoiceRef: `INV-SUP-2026-${String(Math.floor(Math.random() * 100)).padStart(3, '0')}`,
-    description: `Payment to ${sp.name}`,
-    dueDate: dateStr(idx * 5),
-    paidAt: Math.random() > 0.6 ? dateStr(idx * 2) : null,
-    documents: generateDocuments(Math.floor(Math.random() * 2) + 1),
+    supplierInvoiceRef: 'INV-SUP-2026-014',
+    description: `Payment to ${SUPPLIERS[0]!.name}`,
+    dueDate: dateStr(-21),
+    paidAt: dateStr(-19),
+    documents: [
+      supplierDoc(1, 'Invoice #INV-SUP-2026-014', 24),
+      supplierDoc(2, 'CMR #CMR-2026-014', 22),
+    ],
+    notes: 'Paid by bank transfer, two days after the due date.',
+    createdAt: dateStr(-30),
+    updatedAt: dateStr(-19),
+  },
+  {
+    id: 'pay-out-2',
+    paymentNumber: 'PAY-2026-002',
+    direction: 'outgoing',
+    status: 'overdue',
+    amount: 7320.5,
+    currency: 'EUR',
+    counterpartyId: SUPPLIERS[1]!.id,
+    counterpartyName: SUPPLIERS[1]!.name,
+    counterpartyVatCode: SUPPLIERS[1]!.vatCode,
+    orderId: null,
+    orderNumber: null,
+    supplierInvoiceRef: 'INV-SUP-2026-021',
+    description: `Payment to ${SUPPLIERS[1]!.name}`,
+    dueDate: dateStr(-9),
+    paidAt: null,
+    documents: [supplierDoc(3, 'Invoice #INV-SUP-2026-021', 16)],
     notes: null,
-    createdAt: dateStr(-15),
+    createdAt: dateStr(-16),
+    updatedAt: dateStr(-9),
+  },
+  {
+    id: 'pay-out-3',
+    paymentNumber: 'PAY-2026-003',
+    direction: 'outgoing',
+    status: 'pending',
+    amount: 24800,
+    currency: 'EUR',
+    counterpartyId: SUPPLIERS[2]!.id,
+    counterpartyName: SUPPLIERS[2]!.name,
+    counterpartyVatCode: SUPPLIERS[2]!.vatCode,
+    orderId: null,
+    orderNumber: null,
+    supplierInvoiceRef: 'INV-SUP-2026-033',
+    description: `Payment to ${SUPPLIERS[2]!.name}`,
+    dueDate: dateStr(12),
+    paidAt: null,
+    documents: [supplierDoc(4, 'Invoice #INV-SUP-2026-033', 3)],
+    notes: null,
+    createdAt: dateStr(-3),
+    updatedAt: dateStr(-3),
+  },
+  {
+    id: 'pay-out-4',
+    paymentNumber: 'PAY-2026-004',
+    direction: 'outgoing',
+    status: 'pending',
+    amount: 5140.75,
+    currency: 'EUR',
+    counterpartyId: SUPPLIERS[3]!.id,
+    counterpartyName: SUPPLIERS[3]!.name,
+    counterpartyVatCode: SUPPLIERS[3]!.vatCode,
+    orderId: null,
+    orderNumber: null,
+    supplierInvoiceRef: 'INV-SUP-2026-040',
+    description: `Payment to ${SUPPLIERS[3]!.name}`,
+    dueDate: dateStr(26),
+    paidAt: null,
+    documents: [],
+    notes: null,
+    createdAt: dateStr(-1),
     updatedAt: dateStr(-1),
-  })),
+  },
+  {
+    id: 'pay-out-5',
+    paymentNumber: 'PAY-2026-005',
+    direction: 'outgoing',
+    status: 'completed',
+    amount: 2980,
+    currency: 'EUR',
+    counterpartyId: SUPPLIERS[4]!.id,
+    counterpartyName: SUPPLIERS[4]!.name,
+    counterpartyVatCode: SUPPLIERS[4]!.vatCode,
+    orderId: null,
+    orderNumber: null,
+    supplierInvoiceRef: 'INV-SUP-2026-007',
+    description: `Payment to ${SUPPLIERS[4]!.name}`,
+    dueDate: dateStr(-35),
+    paidAt: dateStr(-35),
+    documents: [supplierDoc(5, 'Invoice #INV-SUP-2026-007', 40)],
+    notes: 'Prepaid on the day the invoice arrived.',
+    createdAt: dateStr(-40),
+    updatedAt: dateStr(-35),
+  },
 ]
 
-// ─── Generate Archive Documents ───
-const ARCHIVE_TYPES: ArchiveDocumentType[] = ['invoice', 'facture', 'waybill', 'cmr']
-const RELATED_TYPES = ['order', 'payment', 'supplier', 'client'] as const
+// ─── Архив документов ───────────────────────────────────────────────────────
 
-const MOCK_ARCHIVE: FinanceDocumentArchiveItem[] = Array.from(
-  { length: 15 },
-  (_, i): FinanceDocumentArchiveItem => {
-    const type = pick(ARCHIVE_TYPES)
-    const relatedType = pick(RELATED_TYPES)
-    const seq = String(Math.floor(Math.random() * 100)).padStart(3, '0')
-    const entityNumber =
-      relatedType === 'order'
-        ? `ORD-2026-${seq}`
-        : relatedType === 'payment'
-          ? `PAY-2026-${seq}`
-          : relatedType === 'supplier'
-            ? `SUP-${seq}`
-            : `CL-${seq}`
-    return {
-      id: `arch-${i + 1}`,
-      name:
-        type === 'invoice'
-          ? `Invoice #INV-2026-${seq}`
-          : type === 'facture'
-            ? `Facture #FAC-2026-${seq}`
-            : type === 'waybill'
-              ? `Waybill #WB-2026-${seq}`
-              : `CMR #CMR-2026-${seq}`,
-      type,
-      fileId: `file-arch-${i}`,
-      url: `#uploaded/file-arch-${i}`,
-      size: Math.floor(Math.random() * 800000) + 50000,
-      mime: 'application/pdf',
-      relatedEntityType: relatedType,
-      relatedEntityId: `${relatedType}-${i}`,
-      relatedEntityNumber: entityNumber,
-      uploadedAt: dateStr(-Math.floor(Math.random() * 60)),
-      uploadedBy: pick(['Maxim V.', 'Anna K.', 'John D.', 'Laura S.']),
-    }
+/**
+ * Архив наполняется вручную (пункт 13, «не берём сейчас — 5-C»): генератора
+ * документов в системе нет, и рисовать его случайными числами — та же болезнь,
+ * от которой лечится реестр. Записи фиксированные и ссылаются на существующие
+ * сущности, а не на выдуманные номера.
+ */
+const MOCK_ARCHIVE: FinanceDocumentArchiveItem[] = [
+  {
+    id: 'arch-1',
+    name: 'Invoice #ORD-2026-100/INV-1',
+    type: 'invoice',
+    relatedEntityType: 'order',
+    relatedEntityId: 'ORD-100',
+    relatedEntityNumber: 'ORD-2026-100',
+    uploadedBy: 'Maxim V.',
+    uploadedAt: dateStr(-2),
+    fileId: 'file-arch-1',
+    url: '#uploaded/file-arch-1',
+    size: 184_000,
+    mime: 'application/pdf',
   },
-)
+  {
+    id: 'arch-2',
+    name: 'Waybill #ORD-2026-100/WB-1',
+    type: 'waybill',
+    relatedEntityType: 'order',
+    relatedEntityId: 'ORD-100',
+    relatedEntityNumber: 'ORD-2026-100',
+    uploadedBy: 'Maxim V.',
+    uploadedAt: dateStr(-2),
+    fileId: 'file-arch-2',
+    url: '#uploaded/file-arch-2',
+    size: 96_000,
+    mime: 'application/pdf',
+  },
+  {
+    id: 'arch-3',
+    name: 'CMR #ORD-2026-100/CMR-1',
+    type: 'cmr',
+    relatedEntityType: 'order',
+    relatedEntityId: 'ORD-100',
+    relatedEntityNumber: 'ORD-2026-100',
+    uploadedBy: 'Anna K.',
+    uploadedAt: dateStr(-2),
+    fileId: 'file-arch-3',
+    url: '#uploaded/file-arch-3',
+    size: 74_000,
+    mime: 'application/pdf',
+  },
+  {
+    id: 'arch-4',
+    name: 'Invoice #ORD-2026-009/INV-1',
+    type: 'invoice',
+    relatedEntityType: 'order',
+    relatedEntityId: 'ORD-009',
+    relatedEntityNumber: 'ORD-2026-009',
+    uploadedBy: 'Anna K.',
+    uploadedAt: dateStr(-120),
+    fileId: 'file-arch-4',
+    url: '#uploaded/file-arch-4',
+    size: 151_000,
+    mime: 'application/pdf',
+  },
+  {
+    id: 'arch-5',
+    name: 'Invoice #INV-SUP-2026-014',
+    type: 'invoice',
+    relatedEntityType: 'payment',
+    relatedEntityId: 'pay-out-1',
+    relatedEntityNumber: 'PAY-2026-001',
+    uploadedBy: 'John D.',
+    uploadedAt: dateStr(-24),
+    fileId: 'file-arch-5',
+    url: '#uploaded/file-arch-5',
+    size: 132_000,
+    mime: 'application/pdf',
+  },
+  {
+    id: 'arch-6',
+    name: 'CMR #CMR-2026-014',
+    type: 'cmr',
+    relatedEntityType: 'payment',
+    relatedEntityId: 'pay-out-1',
+    relatedEntityNumber: 'PAY-2026-001',
+    uploadedBy: 'John D.',
+    uploadedAt: dateStr(-22),
+    fileId: 'file-arch-6',
+    url: '#uploaded/file-arch-6',
+    size: 88_000,
+    mime: 'application/pdf',
+  },
+  {
+    id: 'arch-7',
+    name: 'Invoice #INV-SUP-2026-021',
+    type: 'invoice',
+    relatedEntityType: 'supplier',
+    relatedEntityId: 'sup-002',
+    relatedEntityNumber: 'SSAB AB',
+    uploadedBy: 'Laura S.',
+    uploadedAt: dateStr(-16),
+    fileId: 'file-arch-7',
+    url: '#uploaded/file-arch-7',
+    size: 119_000,
+    mime: 'application/pdf',
+  },
+  {
+    id: 'arch-8',
+    name: 'Facture #FAC-2026-004',
+    type: 'facture',
+    relatedEntityType: 'client',
+    relatedEntityId: 'CL-001',
+    relatedEntityNumber: 'CL-001',
+    uploadedBy: 'Laura S.',
+    uploadedAt: dateStr(-45),
+    fileId: 'file-arch-8',
+    url: '#uploaded/file-arch-8',
+    size: 102_000,
+    mime: 'application/pdf',
+  },
+]
 
 // ─── Mock Functions ───
 
-export function mockGetPayments(
-  direction: PaymentDirection | 'all',
-  params: {
-    search?: string
-    status?: string
-    counterpartyId?: string | null
-    dateFrom?: string
-    dateTo?: string
-    page?: number
-    pageSize?: number
-  },
-): {
+export function mockGetPayments(params: {
+  search?: string
+  status?: string
+  page?: number
+  pageSize?: number
+}): {
   items: FinancePaymentListItem[]
   total: number
   page: number
   pageSize: number
   totalPages: number
 } {
-  let filtered = MOCK_PAYMENTS.filter((p) => direction === 'all' || p.direction === direction)
+  let filtered = [...MOCK_PAYMENTS]
 
   if (params.search) {
     const q = params.search.toLowerCase()
@@ -185,42 +391,42 @@ export function mockGetPayments(
       (p) =>
         p.paymentNumber.toLowerCase().includes(q) ||
         p.counterpartyName.toLowerCase().includes(q) ||
-        (p.orderNumber && p.orderNumber.toLowerCase().includes(q)),
+        (p.supplierInvoiceRef !== null && p.supplierInvoiceRef.toLowerCase().includes(q)),
     )
   }
   if (params.status && params.status !== 'all') {
     filtered = filtered.filter((p) => p.status === params.status)
   }
-  if (params.counterpartyId) {
-    filtered = filtered.filter((p) => p.counterpartyId === params.counterpartyId)
+
+  const page = paginate(filtered, params.page ?? 1, params.pageSize ?? 25)
+  return {
+    ...page,
+    items: page.items.map((p) => ({
+      id: p.id,
+      paymentNumber: p.paymentNumber,
+      direction: p.direction,
+      status: p.status,
+      amount: p.amount,
+      currency: p.currency,
+      counterpartyName: p.counterpartyName,
+      orderNumber: p.orderNumber,
+      supplierInvoiceRef: p.supplierInvoiceRef,
+      dueDate: p.dueDate,
+      paidAt: p.paidAt,
+      documentCount: p.documents.length,
+    })),
   }
-
-  const total = filtered.length
-  const page = params.page ?? 1
-  const pageSize = params.pageSize ?? 25
-  const start = (page - 1) * pageSize
-  const items = filtered.slice(start, start + pageSize).map((p) => ({
-    id: p.id,
-    paymentNumber: p.paymentNumber,
-    direction: p.direction,
-    status: p.status,
-    amount: p.amount,
-    currency: p.currency,
-    counterpartyName: p.counterpartyName,
-    orderNumber: p.orderNumber,
-    supplierInvoiceRef: p.supplierInvoiceRef,
-    dueDate: p.dueDate,
-    paidAt: p.paidAt,
-    documentCount: p.documents.length,
-  }))
-
-  return { items, total, page, pageSize, totalPages: Math.ceil(total / pageSize) }
 }
 
+/**
+ * Копия, а не ссылка на запись хранилища (питфолл #13): карточка удаляет документ
+ * из массива до нажатия Save, и на прямой ссылке это удаление доезжало бы до
+ * «сервера» само, без сохранения и без возможности передумать.
+ */
 export function mockGetPayment(id: string): FinancePayment {
   const payment = MOCK_PAYMENTS.find((p) => p.id === id)
   if (!payment) throw new Error('PAYMENT_NOT_FOUND')
-  return payment
+  return clone(payment)
 }
 
 export function mockGetArchive(params: {
@@ -251,37 +457,35 @@ export function mockGetArchive(params: {
     filtered = filtered.filter((d) => d.relatedEntityType === params.relatedEntityType)
   }
 
-  const total = filtered.length
-  const page = params.page ?? 1
-  const pageSize = params.pageSize ?? 25
-  const start = (page - 1) * pageSize
-  const items = filtered.slice(start, start + pageSize)
-
-  return { items, total, page, pageSize, totalPages: Math.ceil(total / pageSize) }
+  return paginate(clone(filtered), params.page ?? 1, params.pageSize ?? 25)
 }
 
-export function mockAddPaymentDocument(
-  paymentId: string,
-  document: PaymentDocument,
+/**
+ * `resolveUpload` — метаданные загруженного файла из реестра аплоадов, который
+ * держит `mocks/index.ts` (так же, как для файлов заказа). Без него имя и размер
+ * документа пришлось бы выдумывать прямо здесь — то самое правдоподобное число
+ * вместо настоящего, от которого лечится весь этот файл.
+ */
+export function mockPatchPayment(
+  id: string,
+  data: Partial<FinancePayment>,
+  resolveUpload?: (fileId: string) => Omit<PaymentDocument, 'id' | 'fileId'> | undefined,
 ): FinancePayment {
-  const payment = MOCK_PAYMENTS.find((p) => p.id === paymentId)
-  if (!payment) throw new Error('PAYMENT_NOT_FOUND')
-  payment.documents.push(document)
-  return payment
-}
-
-export function mockRemovePaymentDocument(paymentId: string, documentId: string): FinancePayment {
-  const payment = MOCK_PAYMENTS.find((p) => p.id === paymentId)
-  if (!payment) throw new Error('PAYMENT_NOT_FOUND')
-  payment.documents = payment.documents.filter((d) => d.id !== documentId)
-  return payment
-}
-
-export function mockPatchPayment(id: string, data: Partial<FinancePayment>): FinancePayment {
   const idx = MOCK_PAYMENTS.findIndex((p) => p.id === id)
   if (idx === -1) throw new Error('PAYMENT_NOT_FOUND')
   const current = MOCK_PAYMENTS[idx]!
   const payload = data as Record<string, unknown>
+
+  // Просрочка — переход, а не свойство: платёж, который УЖЕ был просрочен, при
+  // правке заметки или документов события не порождает. Оба выхода функции
+  // проходят через `commit`, иначе правило пришлось бы записать дважды и одна
+  // из копий однажды отстала бы от другой.
+  const wasOverdue = current.status === 'overdue'
+  const commit = (updated: FinancePayment): FinancePayment => {
+    MOCK_PAYMENTS[idx] = updated
+    if (!wasOverdue && updated.status === 'overdue') notifyPaymentOverdue(updated)
+    return clone(updated)
+  }
 
   // Handle fileIds replace-semantics (common upload pattern: POST /api/uploads + PATCH with fileIds[])
   if (payload.fileIds && Array.isArray(payload.fileIds)) {
@@ -291,17 +495,20 @@ export function mockPatchPayment(id: string, data: Partial<FinancePayment>): Fin
     const kept = existingDocs.filter((d) => incomingFileIds.includes(d.fileId))
     // Create stub docs for new fileIds
     const existingFileIds = new Set(existingDocs.map((d) => d.fileId))
-    const newDocs = incomingFileIds
+    const newDocs: PaymentDocument[] = incomingFileIds
       .filter((fid) => !existingFileIds.has(fid))
-      .map((fid) => ({
-        id: `pdoc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        name: `Document #${fid.slice(-6)}`,
-        fileId: fid,
-        url: `#uploaded/${fid}`,
-        size: Math.floor(Math.random() * 500000) + 50000,
-        mime: 'application/pdf',
-        uploadedAt: new Date().toISOString(),
-      }))
+      .map((fid) => {
+        const meta = resolveUpload?.(fid)
+        return {
+          id: fid,
+          fileId: fid,
+          name: meta?.name ?? fid,
+          url: meta?.url ?? `#uploaded/${fid}`,
+          size: meta?.size ?? 0,
+          mime: meta?.mime ?? 'application/octet-stream',
+          uploadedAt: meta?.uploadedAt ?? new Date().toISOString(),
+        }
+      })
     const { fileIds: _, ...rest } = payload
     const updated: FinancePayment = {
       ...current,
@@ -309,11 +516,9 @@ export function mockPatchPayment(id: string, data: Partial<FinancePayment>): Fin
       documents: [...kept, ...newDocs],
       updatedAt: new Date().toISOString(),
     }
-    MOCK_PAYMENTS[idx] = updated
-    return updated
+    return commit(updated)
   }
 
   const updated: FinancePayment = { ...current, ...data, updatedAt: new Date().toISOString() }
-  MOCK_PAYMENTS[idx] = updated
-  return updated
+  return commit(updated)
 }

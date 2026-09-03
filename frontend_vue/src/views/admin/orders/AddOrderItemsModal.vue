@@ -2,13 +2,17 @@
 import { ref, computed, watch, watchEffect } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getProducts } from '@/services/productsService'
-import { getStockOverview, getBatchCostBreakdown } from '@/services/warehouseService'
+import {
+  getStockOverview,
+  getBatchCostBreakdown,
+  getOffcutOffers,
+} from '@/services/warehouseService'
 import { useToast } from '@/composables/useToast'
 import { useSettings } from '@/composables/useSettings'
 import { usePagination } from '@/composables/usePagination'
 import { useTranslatedField } from '@/composables/useTranslatedData'
 import type { ProductListItem } from '@/types/product'
-import type { StockOverviewItem } from '@/types/warehouse'
+import type { StockOverviewItem, OffcutOffer } from '@/types/warehouse'
 import type { SelectOption } from '@/components/admin/ui/CustomSelect.vue'
 import AppModal from '@/components/admin/ui/AppModal.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
@@ -24,11 +28,15 @@ import {
   type LineTotals,
 } from '@/domain/orderPricing'
 import { pricingSeedFor, stockCostFor } from '@/services/orderLines'
+import { orderLineUnit, uomCode } from '@/domain/uom'
+import { useUnitLabel } from '@/composables/useUnitLabel'
+import { useFeatureFlag } from '@/composables/useFeatureFlag'
 
 const { t, locale } = useI18n()
 const toast = useToast()
 const { settings } = useSettings()
 const { tf } = useTranslatedField()
+const unitLabel = useUnitLabel()
 
 const props = withDefaults(
   defineProps<{
@@ -57,6 +65,8 @@ const emit = defineEmits<{
       hasShortage?: boolean
       /** Quantity in warehouse UoM (converted from sale qty if UoMs differ) */
       warehouseQty?: number
+      /** Куски, выбранные руками. FIFO их не найдёт — он строится только из партий. */
+      offcutIds?: string[]
     }>,
     mode: AddLineMode | null,
   ]
@@ -88,15 +98,14 @@ const saving = ref(false)
 const stockMap = ref<Map<string, StockOverviewItem>>(new Map())
 const stockLoading = ref(false)
 
-/** Resolve locale-aware UoM code from settings by UoM id */
+/**
+ * Подпись единицы по её id из справочника. Правило подписи одно на проект —
+ * `uomCode` в домене (пункт 4c плана); здесь только запасной вариант, свой у
+ * каждого места показа.
+ */
 function resolveUomCode(uomId: string | null): string {
   if (!uomId) return '—'
-  const uom = settings.uoms.find((u: { id: string }) => u.id === uomId)
-  if (!uom) return uomId.slice(0, 8) + '…'
-  const currentLocale = locale.value as keyof typeof uom.code
-  return (
-    uom.code[currentLocale] || uom.code.en || uom.code.ru || uom.code.lt || uomId.slice(0, 8) + '…'
-  )
+  return uomCode(uomId, settings.uoms, locale.value) ?? uomId.slice(0, 8) + '…'
 }
 
 /**
@@ -145,18 +154,6 @@ function saleQtyToWarehouseQty(product: ProductListItem, saleQty: number): numbe
 const productSearch = ref('')
 const productCategoryFilter = ref('all')
 
-/** Derive display unit from product's saleUomId (looked up from settings) */
-function getProductUnit(product: ProductListItem): string {
-  if (product.saleUomId) {
-    const uom = settings.uoms.find((u: { id: string }) => u.id === product.saleUomId)
-    if (uom) {
-      const currentLocale = locale.value as keyof typeof uom.code
-      return uom.code[currentLocale] || uom.code.en || uom.code.ru || uom.code.lt || 'pcs'
-    }
-  }
-  return 'pcs'
-}
-
 // ─── Categories ───────────────────────────────────────────────────────────
 const categories = computed(() => {
   const map = new Map<string, string>()
@@ -199,6 +196,8 @@ interface SelectedOrderItem {
   unitPrice: number
   /** Quantity in warehouse UoM (computed from sale qty via factor) */
   warehouseQty: number
+  /** Куски, выбранные руками для этой строки. */
+  offcutIds: string[]
 }
 
 const selectedItems = ref<SelectedOrderItem[]>([])
@@ -240,11 +239,13 @@ async function toggleProduct(id: string) {
       productId: product.id,
       productName: tf(product.name),
       quantity: saleQty,
-      unit: getProductUnit(product),
+      unit: orderLineUnit(product.saleUomId),
       unitPrice: priceFor(product, selectedItemsCosts.value.get(product.id)?.unitPrice),
       warehouseQty: saleQtyToWarehouseQty(product, saleQty),
+      offcutIds: [],
     },
   ]
+  loadOffcutOffers(product.id)
 }
 
 function removeProduct(id: string) {
@@ -253,20 +254,86 @@ function removeProduct(id: string) {
 
 /** Resolve display unit for a product: use saleUomId + settings */
 function getProductDisplayUnit(product: ProductListItem): string {
-  if (product.saleUomId) {
-    const uom = settings.uoms.find((u: { id: string }) => u.id === product.saleUomId)
-    if (uom) {
-      const currentLocale = locale.value as keyof typeof uom.code
-      const code = uom.code[currentLocale] || uom.code.en || uom.code.ru || uom.code.lt
-      if (code) return code
-    }
-  }
-  return '—'
+  if (!product.saleUomId) return '—'
+  return uomCode(product.saleUomId, settings.uoms, locale.value) ?? '—'
 }
 
 // Helper to check if a product is selected (used in template)
 function isSelected(id: string): boolean {
   return selectedItems.value.some((item) => item.productId === id)
+}
+
+// ─── Обрезки выбранного товара ────────────────────────────────────────────
+//
+// Обрезки НЕ участвуют в автоматическом подборе по партиям и участвовать не будут
+// (пункт 7 плана `review-followups.md`): кусок выбирают глазами по размеру, а не по
+// дате поступления. Поэтому список спрашивается отдельно и только для тех товаров,
+// которые менеджер уже положил в заказ, — открытие диалога не должно тянуть обрезки
+// по всему каталогу.
+const offcutOffers = ref<Map<string, OffcutOffer[]>>(new Map())
+const offcutsLoading = ref(new Set<string>())
+const cuttingEnabled = useFeatureFlag('warehouseCutting')
+
+async function loadOffcutOffers(productId: string) {
+  if (offcutOffers.value.has(productId) || offcutsLoading.value.has(productId)) return
+  offcutsLoading.value = new Set(offcutsLoading.value).add(productId)
+  try {
+    const offers = await getOffcutOffers(productId)
+    offcutOffers.value = new Map(offcutOffers.value).set(productId, offers)
+  } catch {
+    // Молчание здесь намеренное: обрезки — дополнение к строке, а не условие её
+    // существования. Ошибка тоста о сохранении товара сказала бы неправду о том,
+    // что именно не получилось; пустой список честнее и ничего не обещает.
+    offcutOffers.value = new Map(offcutOffers.value).set(productId, [])
+  } finally {
+    const rest = new Set(offcutsLoading.value)
+    rest.delete(productId)
+    offcutsLoading.value = rest
+  }
+}
+
+function offersFor(productId: string): OffcutOffer[] {
+  return offcutOffers.value.get(productId) ?? []
+}
+
+/** Подпись размера куска — то, по чему его и выбирают. */
+function offcutSize(offer: OffcutOffer): string {
+  const dimensions = [offer.lengthMm, offer.widthMm, offer.thicknessMm].filter(
+    (value): value is number => typeof value === 'number' && value > 0,
+  )
+  if (dimensions.length === 0) return '—'
+  // Подпись «мм» берётся из справочника единиц, а не пишется строкой: правило подписи
+  // одно на проект (пункт 4c плана), и вторая его запись разошлась бы с первой.
+  return `${dimensions.join(' × ')} ${resolveUomCode('uom-mm')}`
+}
+
+/** Материал куска с подписью единицы ПАРТИИ — в ней он и списывается. */
+function offcutMaterial(offer: OffcutOffer): string {
+  return `${offer.material} ${resolveUomCode(offer.batchUomId)}`
+}
+
+function isOffcutChosen(item: SelectedOrderItem, offcutId: string): boolean {
+  return item.offcutIds.includes(offcutId)
+}
+
+/**
+ * Выбор куска — и подтягивание количества строки под него.
+ *
+ * Сервер отказывает строке, в которую выбранные куски не помещаются
+ * (`OFFCUTS_EXCEED_QUANTITY`): обрезок неделим, и урезать его до количества строки
+ * значило бы списать половину куска, которого в природе нет. Поэтому количество
+ * поднимается здесь, на глазах у менеджера, а не отказывается на сохранении.
+ */
+function toggleOffcut(item: SelectedOrderItem, offer: OffcutOffer) {
+  item.offcutIds = isOffcutChosen(item, offer.id)
+    ? item.offcutIds.filter((id) => id !== offer.id)
+    : [...item.offcutIds, offer.id]
+  const chosen = round2(
+    offersFor(item.productId)
+      .filter((o) => item.offcutIds.includes(o.id))
+      .reduce((sum, o) => sum + o.material, 0),
+  )
+  if (item.quantity < chosen) item.quantity = chosen
 }
 
 // ─── Pagination ───────────────────────────────────────────────────────────
@@ -353,7 +420,7 @@ async function loadProducts() {
         {
           search: '',
           categoryIds: [],
-          unit: '',
+          uomId: '',
           showDeficitOnly: false,
           showInStockOnly: false,
           sortBy: 'name',
@@ -382,6 +449,10 @@ watch(
   (open) => {
     if (open) {
       selectedItems.value = []
+      // Кэш предложений сбрасывается вместе с выбором: кусок мог уйти в другой заказ
+      // между двумя открытиями диалога, и показать его снова значило бы предложить
+      // выбор, который откажут на сохранении.
+      offcutOffers.value = new Map()
       productSearch.value = ''
       productCategoryFilter.value = 'all'
       productPage.value = 1
@@ -512,6 +583,7 @@ function onSave() {
         unitCost: answer?.unitPrice,
         hasShortage: (answer?.shortageQuantity ?? 0) > 0,
         warehouseQty: item.warehouseQty,
+        offcutIds: item.offcutIds.length > 0 ? [...item.offcutIds] : undefined,
       }
     })
   if (items.length > 0) {
@@ -663,49 +735,127 @@ function onCancel() {
               </tr>
             </thead>
             <tbody>
-              <tr
-                v-for="item in selectedItems"
-                :key="item.productId"
-                class="selected-row"
-                data-test="add-items-selected-row"
-              >
-                <td class="col-product-name">{{ item.productName }}</td>
-                <td class="col-qty-cell">
-                  <input
-                    v-model.number="item.quantity"
-                    type="number"
-                    min="0"
-                    step="1"
-                    class="glass-input qty-input"
-                    data-test="add-items-selected-qty"
-                  />
-                </td>
-                <td class="col-unit-cell">
-                  <span class="unit-label">{{ t('orders.unit_' + item.unit, item.unit) }}</span>
-                </td>
-                <td class="col-price-ro-cell">
-                  <span class="price-display" data-test="add-items-price"
-                    >{{ money(previews.get(item.productId)?.unitPrice ?? 0) }}
-                    {{ settings.constants.defaultCurrency }}</span
-                  >
-                </td>
-                <td class="col-total-cell">
-                  <span class="item-total" data-test="add-items-total"
-                    >{{ money(previews.get(item.productId)?.lineNet ?? 0) }}
-                    {{ settings.constants.defaultCurrency }}</span
-                  >
-                </td>
-                <td class="col-action-cell">
-                  <button
-                    v-tooltip="t('orders.btn_remove_item')"
-                    class="action-icon-btn action-danger"
-                    data-test="add-items-remove-btn"
-                    @click="removeProduct(item.productId)"
-                  >
-                    <SvgIcon name="trash" :width="14" :height="14" />
-                  </button>
-                </td>
-              </tr>
+              <template v-for="item in selectedItems" :key="item.productId">
+                <tr class="selected-row" data-test="add-items-selected-row">
+                  <td class="col-product-name">{{ item.productName }}</td>
+                  <td class="col-qty-cell">
+                    <input
+                      v-model.number="item.quantity"
+                      type="number"
+                      min="0"
+                      step="1"
+                      class="glass-input qty-input"
+                      data-test="add-items-selected-qty"
+                    />
+                  </td>
+                  <td class="col-unit-cell">
+                    <span class="unit-label">{{ unitLabel(item.unit) }}</span>
+                  </td>
+                  <td class="col-price-ro-cell">
+                    <span class="price-display" data-test="add-items-price"
+                      >{{ money(previews.get(item.productId)?.unitPrice ?? 0) }}
+                      {{ settings.constants.defaultCurrency }}</span
+                    >
+                  </td>
+                  <td class="col-total-cell">
+                    <span class="item-total" data-test="add-items-total"
+                      >{{ money(previews.get(item.productId)?.lineNet ?? 0) }}
+                      {{ settings.constants.defaultCurrency }}</span
+                    >
+                  </td>
+                  <td class="col-action-cell">
+                    <button
+                      v-tooltip="t('orders.btn_remove_item')"
+                      class="action-icon-btn action-danger"
+                      data-test="add-items-remove-btn"
+                      @click="removeProduct(item.productId)"
+                    >
+                      <SvgIcon name="trash" :width="14" :height="14" />
+                    </button>
+                  </td>
+                </tr>
+                <tr class="offcuts-row" data-test="add-items-offcuts-row">
+                  <td :colspan="6" class="offcuts-cell">
+                    <div class="offcuts-head">
+                      <span class="offcuts-title">{{ t('orders.offcuts_title') }}</span>
+                      <span class="offcuts-hint">{{ t('orders.offcuts_hint') }}</span>
+                      <router-link
+                        v-if="cuttingEnabled"
+                        :to="{ name: 'admin-warehouse-cutting' }"
+                        target="_blank"
+                        class="btn btn-secondary btn-create-offcut"
+                        data-test="add-items-create-offcut-link"
+                      >
+                        {{ t('orders.btn_create_offcut') }}
+                      </router-link>
+                    </div>
+                    <p
+                      v-if="
+                        !offcutsLoading.has(item.productId) &&
+                        offersFor(item.productId).length === 0
+                      "
+                      class="offcuts-empty"
+                      data-test="add-items-offcuts-empty"
+                    >
+                      {{ t('orders.offcuts_none') }}
+                    </p>
+                    <table
+                      v-else-if="offersFor(item.productId).length > 0"
+                      class="data-table offcuts-table"
+                      data-test="add-items-offcuts-table"
+                    >
+                      <thead>
+                        <tr>
+                          <th class="col-checkbox"></th>
+                          <th>{{ t('orders.offcut_col_size') }}</th>
+                          <th>{{ t('orders.offcut_col_weight') }}</th>
+                          <th>{{ t('orders.offcut_col_batch') }}</th>
+                          <th>{{ t('orders.offcut_col_location') }}</th>
+                          <th class="col-material-header">{{ t('orders.offcut_col_material') }}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr
+                          v-for="offer in offersFor(item.productId)"
+                          :key="offer.id"
+                          class="offcut-row"
+                          :class="{ 'row-selected': isOffcutChosen(item, offer.id) }"
+                          data-test="add-items-offcut-row"
+                          @click="toggleOffcut(item, offer)"
+                        >
+                          <td class="col-checkbox">
+                            <input
+                              type="checkbox"
+                              :checked="isOffcutChosen(item, offer.id)"
+                              data-test="add-items-offcut-checkbox"
+                              tabindex="-1"
+                              @click.stop
+                              @change.stop="toggleOffcut(item, offer)"
+                            />
+                          </td>
+                          <td data-test="add-items-offcut-size">{{ offcutSize(offer) }}</td>
+                          <td>{{ offer.weightKg ?? '—' }}</td>
+                          <td>
+                            <router-link
+                              :to="{ name: 'admin-warehouse-batch', params: { id: offer.batchId } }"
+                              target="_blank"
+                              class="name-link"
+                              data-test="add-items-offcut-batch"
+                              @click.stop
+                            >
+                              {{ offer.batchNumber }}
+                            </router-link>
+                          </td>
+                          <td>{{ offer.location ?? '—' }}</td>
+                          <td class="col-material-cell" data-test="add-items-offcut-material">
+                            {{ offcutMaterial(offer) }}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </td>
+                </tr>
+              </template>
             </tbody>
           </table>
         </div>
@@ -982,6 +1132,98 @@ function onCancel() {
   font-weight: 600;
   color: rgba(255, 255, 255, 0.9);
   white-space: nowrap;
+}
+
+/* ─── Обрезки выбранной строки ─────────────────────────── */
+.offcuts-row td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+.offcuts-cell {
+  padding: 4px 8px 14px 8px !important;
+}
+.offcuts-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.offcuts-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.5;
+}
+.offcuts-hint {
+  font-size: 11px;
+  opacity: 0.4;
+}
+.btn-create-offcut {
+  margin-left: auto;
+  padding: 4px 10px;
+  font-size: 12px;
+}
+.offcuts-empty {
+  margin: 0;
+  font-size: 12px;
+  opacity: 0.5;
+}
+.offcuts-table {
+  width: 100%;
+}
+.offcuts-table .col-checkbox {
+  width: 32px;
+  text-align: center;
+  vertical-align: middle;
+}
+.offcuts-table input[type='checkbox'] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--primary);
+  cursor: pointer;
+  display: block;
+  margin: 0 auto;
+}
+.offcuts-table .offcut-row {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.offcuts-table .offcut-row:hover td {
+  background: rgba(255, 255, 255, 0.05);
+}
+.offcuts-table .offcut-row.row-selected td {
+  background: rgba(24, 144, 255, 0.08);
+}
+.col-material-header,
+.col-material-cell {
+  width: 140px;
+  text-align: right;
+  white-space: nowrap;
+}
+/* `name-link` не глобальный — питфолл #63: класс из чужого файла страницы здесь не
+   работает, поэтому правило записано там же, где используется. */
+.offcuts-table .name-link {
+  color: inherit;
+  text-decoration: none;
+  transition: text-decoration-color 0.2s ease;
+  text-decoration-line: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 2px;
+}
+.offcuts-table .name-link:hover {
+  text-decoration-color: currentColor;
+}
+
+@media (max-width: 600px) {
+  .offcuts-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .btn-create-offcut {
+    margin-left: 0;
+    justify-content: center;
+  }
 }
 
 /* ─── Data table overrides for proper vertical alignment ── */

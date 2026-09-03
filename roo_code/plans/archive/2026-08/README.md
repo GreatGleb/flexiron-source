@@ -1,0 +1,97 @@
+# Архив планов — закрыты в августе 2026
+
+Сюда уезжает план, работа по которому найдена в коде целиком. Раскладка — по источнику,
+потому что источников два и они живут по разным правилам:
+
+| Каталог | Откуда | Планов |
+|---|---|---|
+| `roo_code/<домен>/` | `roo_code/plans/<домен>/` | 48 |
+| `toDo/` | `toDo/plans/` | 8 |
+| — (в корне) | `roo_code/plans/general/review-followups.md` | 1 |
+
+`review-followups.md` лежит плоско в корне месяца — так его положил коммит e54abc8,
+до того как появилась раскладка по источнику. Не трогали, чтобы не рвать ссылки на него.
+
+## На чём основан вердикт
+
+**48 планов `roo_code/`** — раздел 2 («Можно закрыть») отчёта
+[`inventory-2026-08-26.md`](roo_code/general/inventory-2026-08-26.md). Каждый вердикт там
+подкреплён сверкой с кодом, а заявки «сделано» отдельно проверял агент-скептик: 34 из них
+он опроверг, и эти планы в архив **не** попали. Доказательства по каждому — в
+`roo_code/plans/archive/2026-08/roo_code/general/inventory-parts/part-NNN.md`, номер части назван в таблице отчёта.
+
+**8 планов `toDo/`** — инвентаризация их не покрывала, сверка сделана 2026-08-29 отдельно:
+
+| План | Чем закрыт |
+|---|---|
+| `1.2-categories-plan.md` | итоговый чеклист 22/22 отмечен; питфоллы #9/#10/#13/#14 сверены с кодом |
+| `1.3-products-autotests-plan.md` | `products.spec.ts` есть; `smoke`, `navigation`, `feature-flags` дополнены — все 5 поставок на месте |
+| `4.1-suppliers-plan.md` | страницы, composables, типы, сервисы и все 5 e2e-спеков поставщиков на месте |
+| `bugs/1.1-products-bugs.md` | 49 багов, все ✅; без отметки только БАГ-44 (процессная заметка) и PAT-01/02 (паттерны, не работа) |
+| `bugs/1.2-categories-bugs.md` | 30 записей в «Итоге»; БАГ-11 (snapshot) и БАГ-12 (golden path) сверены с `categories.spec.ts` |
+| `bugs/1.3-services-bugs.md` | «Всего: 15 багов — все исправлены», статус проставлен по каждому |
+| `bugs/1.4-warehouse-bugs.md` | все 5 багов с отметкой «✅ Исправлено» |
+| `bugs/2.1-orders-bugs.md` | 6 из 7 багов сверены с кодом; про БАГ-1 см. ниже |
+
+## Оговорка к `bugs/2.1-orders-bugs.md`
+
+БАГ-1 требовал, чтобы в `<template>` заказов не было HTML-комментариев. На 2026-08-29
+такой комментарий там один — [`OrderCreatePage.vue:270`](../../../../frontend_vue/src/views/admin/orders/OrderCreatePage.vue),
+занесён позже коммитом 8f56c69 («пункт 9 — условия оплаты»). Это регресс поверх закрытого
+бага, а не невыполненный пункт: остальные 25+ инстансов убраны, шесть других багов закрыты.
+Чинить регресс — отдельная работа, план закрыт по своему объёму.
+
+## Что в архив НЕ уехало
+
+- **113 планов «частично» и «не начато»** — очередь работы:
+  [`implementation-queue.md`](../../general/implementation-queue.md).
+- **2 плана «непонятно»** — `fix-raw-i18n-keys-architectural.md`, `fix-remaining-translation-bugs.md`:
+  требуют кода, которого нет ни в проблемном, ни в решённом виде.
+- **`toDo/plans/1.1-products-plan.md`** и **`toDo/plans/1.2-categories-checkpoint0.md`** —
+  копии планов из `roo_code/plans/`, у оригиналов вердикт «частично». Checkpoint0 совпадает
+  с двойником побайтово.
+- **`toDo/plans/2-crm-analysis-plan.md`** — 27 расхождений «❌», свой список отложенных задач.
+- **`roo_code/plans/api/api-endpoints-list.txt`** — двойник `.md`-файла с вердиктом «частично».
+- **`roo_code/plans/general/implementation-queue.md`** — живой бэклог, не план.
+
+---
+
+## Второй заход — 2026-08-30
+
+Правило сформулировано владельцем как инвариант: **вне архива лежат только актуальные
+планы**, и план уезжает сюда сразу, как перестал быть актуальным. Оно записано в
+[`ROO.md`](../../../../ROO.md), раздел «Archive rule».
+
+Приведение к инварианту добрало ещё 19 файлов, которые задачами не были:
+
+| Что уехало | Почему неактуально |
+|---|---|
+| `api/api-endpoints-list.md` + `.txt` | снимок 28 эндпойнтов; живой контракт — `roo_code/roo-context/03-api-contract.md` |
+| три `*-api-contract-analysis.md` (clients, products, suppliers) | аналитические записки, сверки по ним закрыты |
+| `bugs/fix-raw-i18n-keys-architectural.md`, `bugs/fix-remaining-translation-bugs.md` | премисса исчезла: описанного кода нет ни в проблемном, ни в решённом виде |
+| `categories/02-categories-checkpoint0.md` | чекпоинт согласования, страница давно реализована |
+| `general/mvp-roadmap.md` | снимок состояния на 2026-06-09, реальностью перекрыт |
+| `general/dropdown-design-options.md` | выбор сделан, Option A в `AdminTopbar.vue`; остальное — отвергнутые альтернативы |
+| `general/convert-claude-md-to-roo-code.md`, `general/move-project-to-flexiron-enterprise.md` | разовые миграции, состоялись |
+| три `*-prompt*.md` (`phase10-clients`, `prompt-for-new-session`, `update-skills-clients`) | промпты разового употребления, отработали |
+| `warehouse/warehouse-full-inventory.md` | описательная инвентаризация |
+| `warehouse/warehouse-phase3-execution-plan.md` | по вердикту сам остаток — «файл с устаревшим списком» |
+| `toDo/1.1-products-plan.md` | копия `roo_code/plans/products/01-products-plan.md`, оригинал в очереди |
+| `toDo/2-crm-analysis-plan.md` | опирается на `toDo/admin-api-contract.md`, которого в репозитории нет |
+
+Вместе с ними уехал отчёт инвентаризации от 2026-08-26 и все 63 приложения к нему:
+прогон закрыт, доказательная база к нему тоже.
+
+## Что осталось вне архива — 83 файла
+
+- **70** — задачи [`implementation-queue.md`](../../general/implementation-queue.md);
+- **6** — бэкенд-трек (`backend/×3`, `auth/auth-secret-link-plan.md`,
+  `plans-multi-role-migration-plan.md`, `warehouse/verify-batch-card-api-readiness.md`);
+- **2** — действующие документы домена заказов (`orders-backend-contract.md`, `order-pricing-model.md`);
+- **5** — живая мета: очередь, её разбор, политика прогонов, текущий список followups,
+  свежий баг-файл.
+
+Важная оговорка: вердикты 70 задач унаследованы от инвентаризации и в основном
+не перепроверены — она ошибалась в обе стороны. Подробности и правило
+«подтверждать остаток перед взятием в работу» — в
+[`queue-retriage-2026-08-29.md`](../../general/queue-retriage-2026-08-29.md).

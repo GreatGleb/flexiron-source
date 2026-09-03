@@ -129,6 +129,7 @@ function savedOrder(): Order {
     clientName: 'Client',
     clientVatCode: '',
     clientAddress: '',
+    clientPaymentTermsDays: 0,
     documentType: 'local',
     status: 'new',
     items: [item],

@@ -15,6 +15,7 @@ import {
   mockPatchBatch,
   mockDeleteBatch,
   mockGetOffcuts,
+  mockGetOffcutOffers,
   mockGetOffcut,
   mockCreateOffcut,
   mockPatchOffcut,
@@ -143,6 +144,9 @@ import {
   mockDeleteOrderStatus,
   mockGetProfile,
   mockPatchProfile,
+  mockGetMail,
+  mockPatchMail,
+  mockSendMailTest,
   mockGetWarehouseMap,
   mockSaveWarehouseMap,
   mockDeleteWarehouseMap,
@@ -181,14 +185,20 @@ import {
   mockAddOrderPayment,
   mockDeleteOrderPayment,
   mockGetInvoices,
+  mockGetClientInvoiceSummary,
   mockCreateInvoice,
 } from './orders'
 import type { SupplierFilters, SupplierCardData } from '@/types/supplier'
 import type { ClientFormData } from '@/types/client'
 import type { PaginationParams } from '@/types/api'
 import type { OrderFilters } from '@/types/order'
-import type { FinancePaymentFilters } from '@/types/finance'
-import { mockGetPayments, mockGetPayment, mockPatchPayment, mockGetArchive } from './finance'
+import {
+  mockGetPayments,
+  mockGetPayment,
+  mockPatchPayment,
+  mockGetArchive,
+  mockGetReceivables,
+} from './finance'
 import { mockGetAuditFeed, mockGetAuditFeedUsers } from './auditFeed'
 import type { AuditFeedFilters } from '@/types/audit'
 
@@ -271,21 +281,13 @@ interface UploadedFileMeta {
 const uploadedFiles = new Map<string, UploadedFileMeta>()
 
 // ─── Finance ───
-function parseFinancePaymentsParams(params?: Record<string, string>) {
-  const direction = (params?.direction ?? 'all') as 'incoming' | 'outgoing' | 'all'
-  const filters: FinancePaymentFilters = {
+function parseFinanceListParams(params?: Record<string, string>) {
+  return {
     search: params?.search ?? '',
     status: params?.status ?? 'all',
-    counterpartyId: params?.counterpartyId ?? null,
-    dateFrom: params?.dateFrom ?? '',
-    dateTo: params?.dateTo ?? '',
-    direction,
-  }
-  const pagination = {
     page: Number(params?.page ?? 1),
     pageSize: Number(params?.pageSize ?? 25),
   }
-  return { direction, filters, pagination }
 }
 
 // ─── GET ───
@@ -384,6 +386,7 @@ async function getMockRoute<T>(path: string, params?: Record<string, string>): P
   if (path === '/api/settings/conversions') return delay(mockGetConversions() as T)
   if (path === '/api/settings/order-statuses') return delay(mockGetOrderStatuses() as T)
   if (path === '/api/settings/profile') return delay(mockGetProfile() as T)
+  if (path === '/api/settings/mail') return delay(mockGetMail() as T)
   if (path === '/api/settings/warehouse-map') return delay(mockGetWarehouseMap() as T)
 
   // The audit feed reads the nine logs where they live; it has no store of its own,
@@ -524,6 +527,14 @@ async function getMockRoute<T>(path: string, params?: Record<string, string>): P
     return delay(mockGetClientAudit(clientAuditMatch[1] as string) as T)
   }
 
+  // Documents, not orders — answered by the orders store, which is where an
+  // invoice lives, and already knowing which of them the client still holds and
+  // which of their money names no document at all.
+  const clientInvoicesMatch = path.match(/^\/api\/clients\/([^/]+)\/invoices$/)
+  if (clientInvoicesMatch) {
+    return delay(mockGetClientInvoiceSummary(clientInvoicesMatch[1] as string) as T)
+  }
+
   // ── Sales CRM ──
   // Counted over everything, by the side that holds everything.
   if (path === '/api/sales-crm/stats') {
@@ -611,7 +622,7 @@ async function getMockRoute<T>(path: string, params?: Record<string, string>): P
         {
           search: params?.search ?? '',
           categoryIds: params?.categoryIds,
-          unit: params?.unit,
+          uomId: params?.uomId,
           showDeficitOnly: params?.showDeficitOnly,
           showInStockOnly: params?.showInStockOnly,
           sortBy: params?.sortBy,
@@ -654,7 +665,7 @@ async function getMockRoute<T>(path: string, params?: Record<string, string>): P
           productId: params?.productId,
           supplierId: params?.supplierId,
           status: params?.status,
-          unit: params?.unit,
+          uomId: params?.uomId,
           dateFrom: params?.dateFrom,
           dateTo: params?.dateTo,
           sortBy: params?.sortBy,
@@ -698,7 +709,7 @@ async function getMockRoute<T>(path: string, params?: Record<string, string>): P
           search: params?.search ?? '',
           productId: params?.productId,
           status: params?.status,
-          unit: params?.unit,
+          uomId: params?.uomId,
           offcutType: params?.offcutType,
           categoryIds: params?.categoryIds,
           batchNumber: params?.batchNumber,
@@ -708,6 +719,12 @@ async function getMockRoute<T>(path: string, params?: Record<string, string>): P
         { page, pageSize },
       ) as T,
     )
+  }
+
+  // Проверяется ДО карточки обрезка: `/offcuts/offers` подходит под её шаблон
+  // `/offcuts/:id`, и обобщённое совпадение увело бы запрос в «обрезок не найден».
+  if (path === '/api/warehouse/offcuts/offers') {
+    return delay(mockGetOffcutOffers(params?.productId ?? '') as T)
   }
 
   const offcutCardMatch = path.match(/^\/api\/warehouse\/offcuts\/([^/]+)$/)
@@ -744,7 +761,7 @@ async function getMockRoute<T>(path: string, params?: Record<string, string>): P
           search: params?.search ?? '',
           type: params?.type,
           productId: params?.productId,
-          unit: params?.unit,
+          uomId: params?.uomId,
           categoryIds: params?.categoryIds,
           batchNumber: params?.batchNumber,
           referenceId: params?.referenceId,
@@ -768,7 +785,7 @@ async function getMockRoute<T>(path: string, params?: Record<string, string>): P
           search: params?.search ?? '',
           priority: params?.priority,
           status: params?.status,
-          unit: params?.unit,
+          uomId: params?.uomId,
           categoryIds: params?.categoryIds,
           sortBy: params?.sortBy,
           sortDir: params?.sortDir,
@@ -801,9 +818,14 @@ async function getMockRoute<T>(path: string, params?: Record<string, string>): P
   }
 
   // ── Finance ──
+  // Реестр входящих — представление над счетами заказов, своего хранилища у него
+  // нет; исходящие платежи — самостоятельные записи. Поэтому и роута два.
+  if (path === '/api/finance/receivables') {
+    return delay(mockGetReceivables(parseFinanceListParams(params)) as T)
+  }
+
   if (path === '/api/finance/payments') {
-    const { direction, filters, pagination } = parseFinancePaymentsParams(params)
-    return delay(mockGetPayments(direction, { ...filters, ...pagination }) as T)
+    return delay(mockGetPayments(parseFinanceListParams(params)) as T)
   }
 
   const financePaymentCardMatch = path.match(/^\/api\/finance\/payments\/([^/]+)$/)
@@ -1110,6 +1132,7 @@ async function postMockRoute<T>(
   if (path === '/api/settings/order-statuses')
     return delay(mockCreateOrderStatus(body as Parameters<typeof mockCreateOrderStatus>[0]) as T)
   if (path === '/api/settings/change-password') return delay(undefined as T) // no-op mock
+  if (path === '/api/settings/mail/test') return delay(mockSendMailTest() as T)
 
   throw new Error(`[mock] POST ${path} not found`)
 }
@@ -1325,6 +1348,10 @@ async function patchMockRoute<T>(
     const result = mockPatchProfile(body as Parameters<typeof mockPatchProfile>[0])
     return delay(result as T)
   }
+  if (path === '/api/settings/mail') {
+    const result = mockPatchMail(body as Parameters<typeof mockPatchMail>[0])
+    return delay(result as T)
+  }
 
   const currencyPatchMatch = path.match(/^\/api\/settings\/currencies\/([^/]+)$/)
   if (currencyPatchMatch) {
@@ -1375,6 +1402,7 @@ async function patchMockRoute<T>(
       mockPatchPayment(
         financePaymentPatchMatch[1] as string,
         body as Partial<import('@/types/finance').FinancePayment>,
+        (fileId) => uploadedFiles.get(fileId),
       ) as T,
     )
   }

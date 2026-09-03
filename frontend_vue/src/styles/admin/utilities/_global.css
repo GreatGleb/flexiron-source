@@ -7,23 +7,14 @@
   transition: opacity 0.2s ease-in-out;
 }
 
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 10px;
-}
-::-webkit-scrollbar-thumb {
-  background: rgba(24, 144, 255, 0.5);
-  border-radius: 10px;
-  transition: 0.3s;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(24, 144, 255, 0.7);
-}
+/* Полосы прокрутки переехали в `styles/scrollbars-webkit.css`.
+
+   Этот файл приходит через `admin-core.scss` из `AdminLayout`, то есть до
+   публичных страниц не достаёт, а правила для Firefox всегда шли из `main.ts` и
+   охватывали всё. Охват движков от этого разошёлся: на публичной странице
+   Firefox красил полосу, Chrome нет. Решение владельца 2026-08-30 — красят оба
+   и везде, поэтому webkit-правила теперь лежат рядом с firefox-правилами и
+   подключаются оттуда же. */
 
 /* Global form elements */
 textarea {

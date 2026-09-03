@@ -226,7 +226,7 @@ function submitAddSupplier() {
     id: supplier.id,
     name: supplier.company,
     price: null,
-    priceUnit: null,
+    priceUomId: null,
     leadDays: addSupplierForm.value.leadDays ?? supplier.leadTime,
     currency: supplier.currency ?? null,
   })
@@ -322,7 +322,6 @@ onMounted(() => {
           <InputGroup :label="t('categories.field_description')">
             <AutoResizeTextarea
               v-model="formDescription"
-              class="glass-input"
               rows="3"
               data-test="category-description-input"
             />

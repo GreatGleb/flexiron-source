@@ -11,6 +11,28 @@ Any new file created for Roo Code workflow, skills, plans, or process improvemen
 
 > ⚠️ **Plan creation rule:** When creating a new plan file (`.md`, `.txt`, or any other format), it MUST be placed under `roo_code/plans/<domain>/`. Creating plan files in the root directory (`./plan.md`, `./plan.txt`, etc.) is strictly forbidden. If you catch yourself about to write a plan to the root — STOP and redirect to `roo_code/plans/`.
 
+> ⚠️ **Archive rule (инвариант, не разовая уборка):** в `roo_code/plans/` вне архива лежат
+> **только актуальные планы**. План перестал быть актуальным — он **сразу** уезжает в
+> `roo_code/plans/archive/<YYYY-MM>/` по месяцу, когда закрылся. Не «когда-нибудь потом
+> разберём», а тем же действием, которым признали неактуальным.
+>
+> Раскладка внутри месяца — по источнику: `archive/<YYYY-MM>/roo_code/<домен>/` и
+> `archive/<YYYY-MM>/toDo/`. Имя файла и домен сохраняются.
+>
+> **Неактуален** — это любое из:
+> - работа плана найдена в коде целиком (выполнен);
+> - цель достигнута другим способом, а предписанные артефакты так и не появились (сделано иначе);
+> - премисса плана исчезла — описанного кода нет ни в проблемном, ни в решённом виде;
+> - это снимок/промпт/чекпоинт/записка разового употребления, который уже отработал.
+>
+> **Актуален** — план, работа по которому ещё предстоит, и живой справочный документ
+> (действующий контракт домена, политика прогонов, текущая очередь работы).
+>
+> Переносить — `git mv`, чтобы история файла не рвалась. После переноса **проверить
+> относительные ссылки резолвом по файловой системе** — и те, что внутри перенесённого
+> файла, и те, что вели на него снаружи. Правило разбора и доказательная база —
+> [`roo_code/plans/archive/2026-08/README.md`](roo_code/plans/archive/2026-08/README.md).
+
 ### 2. After `ask_followup_question` — STOP and WAIT
 Do NOT call any other tools until the user responds. No preparatory commands, no searches, no file reads, nothing. Wait for the user's answer first.
 

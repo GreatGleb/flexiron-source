@@ -14,19 +14,21 @@ import DatePicker from '@/components/admin/ui/DatePicker.vue'
 import AutoResizeTextarea from '@/components/admin/ui/AutoResizeTextarea.vue'
 
 import { ORDER_STATUS_PILL } from '@/domain/orderStatus'
+import { countryOptions, isCountryCode } from '@/domain/countries'
 
 import '@styles/admin/components/_entity-card-layout.css'
 import '@styles/admin/components/_audit-log.css'
 import '@styles/admin/components/_order-status-pill.css'
 import '@styles/admin/client_card.css'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const route = useRoute()
 const router = useRouter()
 
 const id = route.params.id as string
 const {
   client,
+  paymentTermsDays,
   loading,
   saving,
   isDirty,
@@ -40,6 +42,11 @@ const {
   loadAudit,
   orders,
   loadOrders,
+  invoices,
+  unassignedPayments,
+  invoicesLoading,
+  invoiceTotals,
+  loadInvoices,
   deleteAuditEntry,
   handleDeleteInteraction,
   newInteraction,
@@ -56,6 +63,22 @@ const pageTitle = computed(() =>
 useHead({
   title: () => `Flexiron - ${pageTitle.value}`,
   description: () => t('clients.card_title'),
+})
+
+// Справочник стран собирается заново при смене языка: названия и их порядок
+// зависят от языка, а список открывают уже после переключения.
+const COUNTRY_OPTIONS = computed(() => [
+  { value: '', label: t('clients.country_not_selected') },
+  ...countryOptions(locale.value),
+])
+
+// CustomSelect работает со строкой, а «страна не выбрана» в данных — это null
+// (питфолл #24). Переходник между ними один и живёт здесь.
+const countryStr = computed({
+  get: () => client.value?.country ?? '',
+  set: (v: string) => {
+    if (client.value) client.value.country = isCountryCode(v) ? v : null
+  },
 })
 
 const STATUS_OPTIONS = [
@@ -108,6 +131,19 @@ function formatPrice(value: number): string {
   return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+/**
+ * Валюта подписью, а не множителем: курса в системе нет, поэтому суммы разных
+ * валют стоят рядом каждая со своей подписью и в один итог не складываются.
+ */
+function formatMoney(currency: string, value: number): string {
+  return `${currency} ${formatPrice(value)}`
+}
+
+const INVOICE_KIND_LABEL: Record<string, string> = {
+  regular: t('clients.invoice_kind_regular'),
+  advance: t('clients.invoice_kind_advance'),
+}
+
 // ─── Audit log entry deletion (with confirm modal) ───
 const deleteAuditOpen = ref(false)
 const auditToDeleteId = ref<string | null>(null)
@@ -135,6 +171,7 @@ onMounted(() => {
   load()
   loadAudit()
   loadOrders()
+  loadInvoices()
 })
 </script>
 
@@ -285,13 +322,23 @@ onMounted(() => {
                   />
                 </InputGroup>
 
+                <InputGroup :label="t('clients.field_payment_terms')">
+                  <div class="input-with-suffix">
+                    <input
+                      v-model.number="paymentTermsDays"
+                      class="glass-input"
+                      type="number"
+                      min="0"
+                      step="1"
+                      data-test="field-payment-terms"
+                    />
+                    <span class="input-suffix static-suffix">{{ t('clients.unit_days') }}</span>
+                  </div>
+                  <span class="field-hint">{{ t('clients.field_payment_terms_hint') }}</span>
+                </InputGroup>
+
                 <InputGroup :label="t('clients.field_notes')">
-                  <AutoResizeTextarea
-                    v-model="client.notes"
-                    class="glass-input"
-                    rows="3"
-                    data-test="field-notes"
-                  />
+                  <AutoResizeTextarea v-model="client.notes" rows="3" data-test="field-notes" />
                 </InputGroup>
               </template>
             </GlassPanel>
@@ -312,6 +359,14 @@ onMounted(() => {
                     class="glass-input"
                     type="text"
                     data-test="field-address"
+                  />
+                </InputGroup>
+
+                <InputGroup :label="t('clients.field_country')">
+                  <CustomSelect
+                    v-model="countryStr"
+                    :options="COUNTRY_OPTIONS"
+                    data-test="field-country"
                   />
                 </InputGroup>
 
@@ -416,6 +471,160 @@ onMounted(() => {
           </GlassPanel>
         </div>
 
+        <!-- Issued invoices -->
+        <div class="audit-panel-wide" data-test="client-card-invoices">
+          <GlassPanel
+            :title="t('clients.section_invoices')"
+            :loading="invoicesLoading"
+            :skeleton-rows="3"
+          >
+            <template v-if="invoices.length > 0 || unassignedPayments.length > 0">
+              <div class="table-responsive">
+                <table class="audit-log-table" data-test="client-card-invoice-table">
+                  <thead>
+                    <tr>
+                      <th>{{ t('clients.invoice_col_number') }}</th>
+                      <th>{{ t('clients.invoice_col_date') }}</th>
+                      <th>{{ t('clients.invoice_col_order') }}</th>
+                      <th>{{ t('clients.invoice_col_amount') }}</th>
+                      <th>{{ t('clients.invoice_col_paid') }}</th>
+                      <th>{{ t('clients.invoice_col_outstanding') }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr
+                      v-for="invoice in invoices"
+                      :key="invoice.id"
+                      data-test="client-card-invoice-row"
+                      :data-withdrawn="invoice.withdrawn ? 'true' : 'false'"
+                    >
+                      <td>
+                        <span
+                          class="invoice-number"
+                          :class="{ 'is-withdrawn': invoice.withdrawn }"
+                          data-test="client-card-invoice-number"
+                        >
+                          {{ invoice.number }}
+                        </span>
+                        <span class="invoice-kind-pill">
+                          {{ INVOICE_KIND_LABEL[invoice.kind] || invoice.kind }}
+                        </span>
+                        <span
+                          v-if="invoice.withdrawn"
+                          v-tooltip="t('clients.invoice_withdrawn_hint')"
+                          class="invoice-withdrawn-pill"
+                          data-test="client-card-invoice-withdrawn"
+                        >
+                          {{ t('clients.invoice_withdrawn') }}
+                        </span>
+                      </td>
+                      <td class="audit-log-ts">{{ invoice.issuedAt.slice(0, 10) }}</td>
+                      <td>
+                        <router-link
+                          :to="{ name: 'admin-order-card', params: { id: invoice.orderId } }"
+                          class="order-link"
+                          data-test="client-card-invoice-order-link"
+                        >
+                          {{ invoice.orderNumber }}
+                        </router-link>
+                      </td>
+                      <td>
+                        <span class="order-total" data-test="client-card-invoice-amount">
+                          {{ formatMoney(invoice.currency, invoice.amountGrossCurrent) }}
+                        </span>
+                        <span
+                          v-if="invoice.amountGrossCurrent !== invoice.amountGross"
+                          class="invoice-amount-was"
+                        >
+                          {{ formatMoney(invoice.currency, invoice.amountGross) }}
+                        </span>
+                      </td>
+                      <td>
+                        <span class="order-total" data-test="client-card-invoice-paid">
+                          {{ formatMoney(invoice.currency, invoice.paidAmount) }}
+                        </span>
+                      </td>
+                      <td>
+                        <span class="order-total" data-test="client-card-invoice-outstanding">
+                          {{ formatMoney(invoice.currency, invoice.outstanding) }}
+                        </span>
+                      </td>
+                    </tr>
+                    <tr
+                      v-for="payment in unassignedPayments"
+                      :key="payment.orderId"
+                      class="invoice-unassigned-row"
+                      data-test="client-card-invoice-unassigned-row"
+                    >
+                      <td>
+                        <span
+                          v-tooltip="t('clients.invoice_unassigned_hint')"
+                          class="invoice-unassigned-label"
+                        >
+                          {{ t('clients.invoice_unassigned') }}
+                        </span>
+                      </td>
+                      <td class="audit-log-ts">{{ payment.paidAt.slice(0, 10) }}</td>
+                      <td>
+                        <router-link
+                          :to="{ name: 'admin-order-card', params: { id: payment.orderId } }"
+                          class="order-link"
+                        >
+                          {{ payment.orderNumber }}
+                        </router-link>
+                      </td>
+                      <td class="invoice-amount-none">—</td>
+                      <td>
+                        <span class="order-total" data-test="client-card-invoice-unassigned-paid">
+                          {{ formatMoney(payment.currency, payment.amount) }}
+                        </span>
+                      </td>
+                      <td>
+                        <span class="order-total">
+                          {{ formatMoney(payment.currency, -payment.amount) }}
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                  <tfoot>
+                    <tr
+                      v-for="total in invoiceTotals"
+                      :key="total.currency"
+                      class="invoice-totals-row"
+                      data-test="client-card-invoice-totals"
+                    >
+                      <td colspan="3">
+                        <span v-tooltip="t('clients.invoice_totals_hint')">
+                          {{ t('clients.invoice_totals') }}
+                        </span>
+                      </td>
+                      <td>
+                        <span class="order-total" data-test="client-card-invoice-total-issued">
+                          {{ formatMoney(total.currency, total.issued) }}
+                        </span>
+                      </td>
+                      <td>
+                        <span class="order-total" data-test="client-card-invoice-total-paid">
+                          {{ formatMoney(total.currency, total.paid) }}
+                        </span>
+                      </td>
+                      <td>
+                        <span class="order-total" data-test="client-card-invoice-total-outstanding">
+                          {{ formatMoney(total.currency, total.outstanding) }}
+                        </span>
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </template>
+            <div v-else class="audit-empty">
+              <SvgIcon name="warehouse-box" :width="32" :height="32" />
+              <p>{{ t('clients.no_invoices') }}</p>
+            </div>
+          </GlassPanel>
+        </div>
+
         <!-- Internal Notes & Interaction History -->
         <div class="audit-panel-wide" data-test="client-card-notes-history">
           <GlassPanel :title="t('clients.section_notes_history')">
@@ -449,7 +658,6 @@ onMounted(() => {
                 <InputGroup :label="t('clients.interaction_field_summary')">
                   <AutoResizeTextarea
                     v-model="newInteraction.summary"
-                    class="glass-input"
                     rows="3"
                     :placeholder="t('clients.notes_placeholder')"
                     data-test="field-interaction-summary-inline"

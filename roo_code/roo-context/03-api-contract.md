@@ -582,7 +582,7 @@ Page: `BccRequestPage.vue`. Composable `useBccRequest`.
   ```json
   { "success": true, "data": { "requestId": "req-008" } }
   ```
-- **Notes:** валидация: оба массива непустые; subject обязателен. Сервер отправляет email с BCC и одновременно создаёт N × M row'ов в history со `status: 'sent'`, `source: 'BCC Tool'`. Аттачменты предварительно загружены через `POST /api/uploads` (см. раздел «Файлы и аплоады») и переданы как `fileIds`.
+- **Notes:** валидация: оба массива непустые; subject обязателен. Сервер отправляет письмо **одной транзакцией**: один конверт, все адреса получателей в BCC и ни одного в To/Cc (спека 04.2 §4 — поставщики не должны видеть друг друга; рассылка циклом по одному письму снаружи выглядит так же и потому проверяется тестом, а не глазами: `src/services/mocks/bcc-envelope.spec.ts` на стороне мока и `backend/tests/modules/bcc/test_send_request.py` на стороне сервера — там же, где правило и реализовано: `backend/app/modules/bcc/features/send_request/`, один `send_message` на отправку, все адреса в `Bcc`, заголовок `Bcc` в передаваемые байты не попадает). Отправитель и параметры сервера берутся из `GET /api/settings/mail`, своей копии у BCC нет; ненастроенный почтовый сервер — 422 `MAIL_NOT_CONFIGURED`, а не молчаливый успех. Одновременно создаётся N × M row'ов в history со `status: 'sent'`, `source: 'BCC Tool'`. Аттачменты предварительно загружены через `POST /api/uploads` (см. раздел «Файлы и аплоады») и переданы как `fileIds`. `subject` и `body` клиент собирает сам — `src/domain/bccEmail.ts`: тема из названия компании и даты, подпись из реквизитов компании и профиля менеджера (обе секции настроек). Сервер получает готовый текст и своей константы с названием компании не держит.
 
 ### POST /api/bcc/log
 
@@ -918,7 +918,7 @@ Page: `CategoryCardPage.vue`. Composable: `useCategoryCard` + `useDirtyCheck`.
         { "id": "f-2", "name": "Тип листа", "type": "enum", "required": false, "order": 1, "options": ["Горячекатаный", "Холоднокатаный", "Оцинкованный"] }
       ],
       "linkedSuppliers": [
-        { "id": "1", "name": "Steel Plus OÜ", "price": null, "priceUnit": null, "leadDays": 7 }
+        { "id": "1", "name": "Steel Plus OÜ", "price": null, "priceUomId": null, "leadDays": 7 }
       ]
     }
   }
@@ -943,7 +943,7 @@ Page: `CategoryCardPage.vue`. Composable: `useCategoryCard` + `useDirtyCheck`.
   PATCH /api/categories/cat-2
   { "name": "Листы металла" }
   ```
-- **Notes:** Если изменился `parentId` — сервер пересчитывает `inheritedFields` (возвращает в ответе актуальную цепочку). Last-write-wins. `linkedSuppliers` — администратор вручную привязывает поставщиков к категории (default-список для товаров этой категории); `price`/`priceUnit` всегда `null` на уровне категории (цена — на уровне товара).
+- **Notes:** Если изменился `parentId` — сервер пересчитывает `inheritedFields` (возвращает в ответе актуальную цепочку). Last-write-wins. `linkedSuppliers` — администратор вручную привязывает поставщиков к категории (default-список для товаров этой категории); `price`/`priceUomId` всегда `null` на уровне категории (цена — на уровне товара).
 
 ### PUT /api/categories/:id/fields
 
@@ -1014,7 +1014,7 @@ Page: `ProductsPage.vue`. Composable: `useProducts`.
     "data": {
       "items": [
         { "id": "prod-1", "name": "Steel Sheet 3mm", "categoryId": "cat-2", "categoryName": "Sheets",
-          "sku": "SS-3-1000", "price": 120.50, "minStock": 50, "priceUnit": "EUR/vnt", "createdAt": "2025-01-15" }
+          "sku": "SS-3-1000", "price": 120.50, "minStock": 50, "createdAt": "2025-01-15" }
       ],
       "total": 10, "page": 1, "pageSize": 25, "totalPages": 1
     }
@@ -1034,7 +1034,6 @@ Page: `ProductsPage.vue`. Composable: `useProducts`.
     description?: string | null
     price?: number | null
     minStock?: number | null
-    priceUnit?: 'EUR/vnt' | 'EUR/kg' | 'EUR/m' | null
   }
   ```
 - **Response 200:** `ApiResponse<Product>` — созданный товар целиком (с `fieldValues: []`, `linkedSuppliers: []`).
@@ -1064,13 +1063,13 @@ Page: `ProductCardPage.vue`. Composable: `useProductCard` + `useDirtyCheck`.
       "name": "Steel Sheet 3mm",
       "categoryId": "cat-2", "categoryName": "Sheets",
       "sku": "SS-3-1000", "description": "Hot-rolled steel sheet", "price": 120.50, "minStock": 50,
-      "priceUnit": "EUR/vnt", "createdAt": "2025-01-15",
+      "createdAt": "2025-01-15",
       "fieldValues": [
         { "fieldId": "f-2-1", "fieldName": "Thickness (mm)", "fieldType": "number", "value": 3, "inherited": false, "options": [] },
         { "fieldId": "f-2-2", "fieldName": "Sheet type", "fieldType": "enum", "value": "Hot-rolled", "inherited": false, "options": ["Hot-rolled","Cold-rolled","Galvanized"] }
       ],
       "linkedSuppliers": [
-        { "id": "sup-1", "name": "Metinvest", "price": 115.00, "priceUnit": "EUR/vnt", "leadDays": 7 }
+        { "id": "sup-1", "name": "Metinvest", "price": 115.00, "priceUomId": "uom-pcs", "leadDays": 7 }
       ]
     }
   }
@@ -1088,13 +1087,12 @@ Page: `ProductCardPage.vue`. Composable: `useProductCard` + `useDirtyCheck`.
     description?: string | null
     price?: number | null
     minStock?: number | null
-    priceUnit?: 'EUR/vnt' | 'EUR/kg' | 'EUR/m' | null
     fieldValues?: ProductFieldValue[]       // полный массив если изменились dynamic fields
     linkedSuppliers?: LinkedSupplier[]      // полный массив если изменился список поставщиков
   }
   ```
 - **Response 200:** `ApiResponse<Product>` — обновлённый товар целиком.
-- **Notes:** Last-write-wins. Клиент пересчитывает `fieldValues` из `Record<fieldId,value>` обратно в массив перед отправкой. `linkedSuppliers` — администратор вручную добавляет/удаляет поставщиков из карточки товара; BCC requests к этому списку не относятся.
+- **Notes:** Last-write-wins. Клиент пересчитывает `fieldValues` из `Record<fieldId,value>` обратно в массив перед отправкой. `linkedSuppliers` — администратор вручную добавляет/удаляет поставщиков из карточки товара; BCC requests к этому списку не относятся. `priceUomId` в элементе списка — **ссылка на единицу из справочника** (`uom-kg`, `uom-pcs`, …), а не собранная подпись: подпись зависит от языка читателя и в хранимых данных ей делать нечего. Валюта цены поставщика лежит в `currency` того же элемента.
 
 ---
 
@@ -1103,7 +1101,7 @@ Page: `ProductCardPage.vue`. Composable: `useProductCard` + `useDirtyCheck`.
 **ProductsPage** — **quick-action**: POST и DELETE применяются немедленно. DELETE требует confirmation modal.
 
 **ProductCardPage** — **clean-slate**:
-- `useDirtyCheck` для `name`/`sku`/`description`/`price`/`minStock`/`priceUnit`
+- `useDirtyCheck` для `name`/`sku`/`description`/`price`/`minStock`
 - `fieldValues: ref<Record<fieldId,value>>` для dynamic fields + `originalFieldValues: ref<string>` (JSON.stringify baseline)
 - Save bar видна при `isAnythingDirty = isDirty || fieldValuesChanged`
 - Save = PATCH (если `isAnythingDirty`) → затем `load()` (сброс baseline)
@@ -1132,7 +1130,12 @@ Page: `ProductCardPage.vue`. Composable: `useProductCard` + `useDirtyCheck`.
 Типы из `src/types/service.ts`:
 - `Service`, `ServiceListItem`, `ServiceFilters`
 - `ServiceCreatePayload`, `ServicePatchPayload`
-- `ServicePriceUnit` = `'EUR/vnt' | 'EUR/kg' | 'EUR/m' | 'EUR/h'`
+
+Союза `ServicePriceUnit` (`'EUR/vnt' | 'EUR/kg' | 'EUR/m' | 'EUR/h'`) больше нет: валюта была
+вварена в единицу, и услуга в валюте, отличной от евро, была невыразима. Цена услуги — три
+отдельных поля: сумма (`costPrice`/`sellingPrice`), `currencyId` из справочника валют и `uomId`
+из справочника единиц (`GET /api/settings/currencies`, `GET /api/settings/uoms`). Выведенного
+поля-подписи вида `"EUR/шт"` в ответе нет — подпись собирается там, где её показывают.
 
 ### Коды ошибок (специфичные для домена)
 
@@ -1164,7 +1167,7 @@ Page: `ServicesPage.vue`. Composable: `useServices`.
     "success": true,
     "data": {
       "items": [
-        { "id": "svc-1", "name": { "ru": "Лазерная резка", "en": "Laser Cutting", "lt": "Lazerinis pjovimas" }, "costPrice": 15.00, "sellingPrice": 25.00, "priceUnit": "EUR/h" }
+        { "id": "svc-1", "name": { "ru": "Лазерная резка", "en": "Laser Cutting", "lt": "Lazerinis pjovimas" }, "costPrice": 15.00, "sellingPrice": 25.00, "currencyId": "cur-eur", "uomId": "uom-h" }
       ],
       "total": 10, "page": 1, "pageSize": 25, "totalPages": 1
     }
@@ -1181,7 +1184,8 @@ Page: `ServicesPage.vue`. Composable: `useServices`.
     name: string               // обязательное
     costPrice?: number         // default: 0
     sellingPrice?: number      // default: 0
-    priceUnit?: ServicePriceUnit   // default: 'EUR/vnt'
+    currencyId: string         // id из справочника валют, клиент шлёт 'cur-eur' по умолчанию
+    uomId: string              // id из справочника единиц, клиент шлёт 'uom-pcs' по умолчанию
     description?: string
   }
   ```
@@ -1212,7 +1216,8 @@ Page: `ServiceCardPage.vue`. Composable: `useServiceCard` + `useDirtyCheck`.
       "name": { "ru": "Лазерная резка", "en": "Laser Cutting", "lt": "Lazerinis pjovimas" },
       "costPrice": 15.00,
       "sellingPrice": 25.00,
-      "priceUnit": "EUR/h",
+      "currencyId": "cur-eur",
+      "uomId": "uom-h",
       "description": null,
       "createdAt": "2025-01-15"
     }
@@ -1229,7 +1234,8 @@ Page: `ServiceCardPage.vue`. Composable: `useServiceCard` + `useDirtyCheck`.
     name?: TranslatedString
     costPrice?: number
     sellingPrice?: number
-    priceUnit?: ServicePriceUnit
+    currencyId?: string
+    uomId?: string
     description?: TranslatedString | null
   }
   ```
@@ -1243,7 +1249,7 @@ Page: `ServiceCardPage.vue`. Composable: `useServiceCard` + `useDirtyCheck`.
 **ServicesPage** — **quick-action**: POST и DELETE применяются немедленно. DELETE требует confirmation modal.
 
 **ServiceCardPage** — **clean-slate**:
-- `useDirtyCheck` для `name`/`costPrice`/`sellingPrice`/`priceUnit`/`description`
+- `useDirtyCheck` для `name`/`costPrice`/`sellingPrice`/`currencyId`/`uomId`/`description`
 - Save bar видна при `isAnythingDirty`
 - Save = PATCH с dirty-only delta
 - Discard = сброс формы до последнего сохранённого состояния
@@ -1277,7 +1283,25 @@ Page: `ServiceCardPage.vue`. Composable: `useServiceCard` + `useDirtyCheck`.
 - `WarehouseDeficit`, `DeficitListItem`, `DeficitCreatePayload`, `DeficitPatchPayload`
 - `StockOverviewItem`, `StockPatchPayload`
 - `BatchStatusAggregate`, `BatchActiveSale`
-- `StockAuditEntry`, `StockUnit` = `'kg' | 'm' | 'pcs' | 'm2'`
+- `StockAuditEntry`
+- Единица измерения у партии, движения, обрезка, дефицита и строки остатка — поле
+  `uomId: string`, **ссылка на справочник настроек** (`Uom.id`, например `uom-kg`).
+  Типа `StockUnit` больше нет: до п. 4d плана `review-followups.md` величина хранилась
+  свободной строкой (`'kg'`, `'m2'`), которая ни с одним кодом справочника не совпадала —
+  коды переведены (`{ ru: 'шт', en: 'pcs', lt: 'vnt' }`), и сопоставление вырождалось в
+  сравнение с `code.en`. Подпись собирается на месте отображения из справочника в текущем
+  языке (`unitLabel`, `src/domain/uom.ts`).
+- Имя товара у партии, обрезка и движения **не хранится и в ответах не приходит** — есть только
+  `productId`. До п. 4e плана `review-followups.md` каждая из трёх записей несла свою копию
+  `productName`, и копии разошлись: 92 партии из 100 называли себя не тем товаром, на который
+  ссылались, а `prod-012` звался «Стальной лист S235 2мм» в каталоге, «Арматура 12мм» в партии и
+  «Труба стальная 50мм» в обрезке. Подпись собирается на месте отображения из справочника
+  товаров (`productLabel`, `src/domain/product.ts`; справочник тянет `GET /api/products/list`).
+  Поиск и сортировка по имени товара остаются серверными: это join по `productId`, а не поле.
+- `WarehouseOffcut.productId` и `WarehouseMovement.productId` **всегда** равны `productId` их
+  партии — обрезок режут из партии, движение регистрируют против партии. Поэтому `productId`
+  нет ни в `OffcutCreatePayload`, ни в `MovementCreatePayload`: сервер берёт его у партии, и
+  разойтись двум ссылкам негде.
 
 ### Коды ошибок (специфичные для домена)
 
@@ -1326,14 +1350,13 @@ Page: `WarehouseBatchCard.vue`. Composable: `useWarehouseBatch` + `useDirtyCheck
     "data": {
       "id": "whb-001",
       "productId": "prod-1",
-      "productName": { "ru": "Стальной лист 3мм", "en": "Steel Sheet 3mm", "lt": "Plieno lakštas 3mm" },
       "supplierId": "sup-1",
       "supplierName": { "ru": "Металлторг", "en": "Metalltorg", "lt": "Metalltorg" },
       "batchNumber": "INV-2026-001",
       "lotCode": "LOT-2026-001",
       "quantity": 5000,
       "quantityRemaining": 4200,
-      "unit": "kg",
+      "uomId": "uom-kg",
       "unitPrice": 1.25,
       "totalCost": 6250.00,
       "currency": "EUR",
@@ -1408,10 +1431,10 @@ Page: `WarehouseBatchCard.vue`. Composable: `useWarehouseBatch` + `useDirtyCheck
   {
     "success": true,
     "data": [
-      { "type": "receipt", "quantity": 4200, "unit": "kg" },
-      { "type": "sale", "quantity": 500, "unit": "kg" },
-      { "type": "production", "quantity": 200, "unit": "kg" },
-      { "type": "write-off", "quantity": 100, "unit": "kg" }
+      { "type": "receipt", "quantity": 4200, "uomId": "uom-kg" },
+      { "type": "sale", "quantity": 500, "uomId": "uom-kg" },
+      { "type": "production", "quantity": 200, "uomId": "uom-kg" },
+      { "type": "write-off", "quantity": 100, "uomId": "uom-kg" }
     ]
   }
   ```
@@ -1435,8 +1458,8 @@ Page: `WarehouseBatchCard.vue`. Composable: `useWarehouseBatch` + `useDirtyCheck
   {
     "success": true,
     "data": [
-      { "id": "sale-whb-001-001", "movementId": "whm-005", "quantity": 300, "unit": "kg", "referenceId": "ORD-2026-042", "soldAt": "2026-04-20T10:30:00Z" },
-      { "id": "sale-whb-001-002", "movementId": "whm-008", "quantity": 200, "unit": "kg", "referenceId": "ORD-2026-048", "soldAt": "2026-04-25T14:00:00Z" }
+      { "id": "sale-whb-001-001", "movementId": "whm-005", "quantity": 300, "uomId": "uom-kg", "referenceId": "ORD-2026-042", "soldAt": "2026-04-20T10:30:00Z" },
+      { "id": "sale-whb-001-002", "movementId": "whm-008", "quantity": 200, "uomId": "uom-kg", "referenceId": "ORD-2026-048", "soldAt": "2026-04-25T14:00:00Z" }
     ]
   }
   ```
@@ -1454,9 +1477,9 @@ Page: `WarehouseBatchCard.vue`. Composable: `useWarehouseBatch` + `useDirtyCheck
 - **Query:**
   ```ts
   {
-    search?: string         // поиск по productName / batchNumber
+    search?: string         // поиск по имени товара (join по productId) / batchNumber
     type?: string           // фильтр по MovementType
-    unit?: string
+    uomId?: string          // id единицы из справочника настроек (`uom-kg`), не код
     categoryIds?: string    // ID категорий через запятую
     batchNumber?: string    // фильтр по номеру партии (частичное совпадение, ILIKE) (основной для карточки партии)
     dateFrom?: string       // ISO
@@ -1479,9 +1502,8 @@ Page: `WarehouseBatchCard.vue`. Composable: `useWarehouseBatch` + `useDirtyCheck
           "batchId": "whb-001",
           "batchNumber": "INV-2026-001",
           "productId": "prod-1",
-          "productName": { "ru": "Стальной лист 3мм", "en": "Steel Sheet 3mm", "lt": "Plieno lakštas 3mm" },
           "quantity": 300,
-          "unit": "kg",
+          "uomId": "uom-kg",
           "unitPrice": 1.25,
           "referenceId": "ORD-2026-042",
           "referenceType": "sale",
@@ -1527,6 +1549,31 @@ Page: `WarehouseBatchCard.vue`. Composable: `useWarehouseBatch` + `useDirtyCheck
 | `correction` (receipt) | `= quantity` | `+= (new - old) remainder` | без изменений |
 | `correction` (non-receipt) | без изменений | `+= delta` | `+= delta × unitPrice` |
 | `transfer` | без изменений | без изменений | без изменений |
+
+Таблица читается по типу движения **и по тому, назван ли в нём кусок**. Движение с
+заполненным `offcutId` — кроме самого `offcut`, то есть резки, — двигает КУСОК, а не
+партию: количества партии оно не трогает ни в одну сторону и в её агрегаты не попадает.
+Материал куска ушёл с партии ровно один раз, движением `offcut`; партия в остальных
+записях названа для происхождения (у движения нет собственного номера, товара, единицы и
+цены — всё это берётся у партии). Вычесть кусок из партии второй раз значило бы уничтожить
+металл, которого там уже нет.
+
+**Это ПОСЫЛКА, и она обязана быть истинной в данных.** У каждого обрезка ровно одно движение
+`offcut`, оно списано с его собственной партии, и его количество равно материалу куска в
+единице партии. Нет такого движения — и «уже вычли» превращается в ложь: металл остаётся и
+в остатке партии, и на полке отдельным куском, а заказ продаёт его дважды. В сидах так и
+было до 2026-08-28 у десяти кусков из тринадцати; стережёт это теперь спека
+`offcut-order-pick.spec.ts`, а обе ледж-спеки проверяют посылку прежде, чем на неё
+сослаться.
+
+**Статус куска ставится по типу движения** — по тому же соответствию, по которому агрегат
+партии становится её статусом: `sale → sold`, `write-off → scrapped`, `production →
+in_production`, `expense → expensed`, `storage → in_storage`, `return-to-supplier →
+returned_to_supplier`, `return → available`. Перечнем из двух случаев (`sale`/`return`) это
+быть не может: бракованный возврат пишет `return` и следом `write-off`, и кусок, списанный в
+утиль по акту, оставался бы свободным металлом. У партии тот же сценарий сходится в ноль
+количеством, у куска количества нет — его остаток и есть статус. Руками статус по-прежнему
+ставится через `PATCH /api/warehouse/offcuts/:id`.
 
 **Логика места хранения при `transfer` (бэкенд):**
 
@@ -1583,7 +1630,7 @@ transfer с названным адресом переносит его цели
     search?: string
     productId?: string
     status?: string
-    unit?: string
+    uomId?: string           // id единицы из справочника настроек (`uom-kg`), не код
     offcutType?: string      // "sheet" | "linear"
     categoryIds?: string
     batchNumber?: string     // фильтр по номеру партии (основной для карточки партии)
@@ -1594,6 +1641,88 @@ transfer с названным адресом переносит его цели
   }
   ```
 - **Response 200:** `PaginatedResponse<OffcutListItem>`
+
+### GET /api/warehouse/offcuts/offers
+
+- **Когда:** менеджер выбрал товар в диалоге добавления позиций заказа
+  (`AddOrderItemsModal.vue`) — список кусков, которые эта строка может взять.
+- **Query:** `{ productId: string }`
+- **Response 200:** `OffcutOffer[]`
+  ```ts
+  {
+    id: string
+    batchId: string
+    batchNumber: string
+    productId: string
+    offcutType: 'sheet' | 'linear'
+    lengthMm: number | null
+    widthMm: number | null
+    thicknessMm: number | null
+    weightKg: number | null
+    quantity: number      // счётчик кусков, обычно 1 — не количество материала
+    location: string | null
+    material: number      // сколько кусок забрал с партии, в единице ПАРТИИ
+    batchUomId: string    // единица партии, в которой выражен `material`
+    unitCost: number      // цена партии-родителя за единицу — себестоимость куска
+    currency: string
+  }
+  ```
+
+Отдельный маршрут, а не фильтр над `/offcuts`: списочная запись обрезка не знает ни
+единицы партии, ни её цены, а без них кусок нельзя ни выразить в количестве строки, ни
+оценить. Считать это на клиенте значило бы завести вторую реализацию правила.
+
+Предлагается только **свободный** кусок: со статусом `available`, размером, выразимым в
+единице партии, и не названный ни в одной строке заказа. Занятость выводится из разбивок
+строк, а не хранится флагом: кусок неделим, поэтому занят он целиком с момента выбора — не
+с резервирования, — и освобождается сам, когда строку удалили. У партии так не бывает и не
+может: у неё есть количество, из которого чужой хват вычитается, а у куска вычитать нечего.
+Тот же признак стоит за отказом `OFFCUT_NOT_AVAILABLE` в `POST /api/orders/:id/items`:
+список отсеивает занятое заранее, отказ ловит занятое между показом и сохранением.
+
+**Обрезки не участвуют в автоматическом подборе по партиям (FIFO) и участвовать не будут**
+— кусок выбирают глазами по размеру, а не по дате поступления (пункт 7 плана
+`review-followups.md`). Этот список — единственная дорога обрезка в заказ; выбранные
+`offcutIds` уходят в `POST /api/orders/:id/items` и становятся аллокациями строки с пустым
+`batchId` (материал куска ушёл с партии в момент резки, и названная партия вычла бы его
+второй раз).
+
+**Отгрузка куска.** Строка, покрытая куском, отгружается как любая другая, но кусок уезжает
+ЦЕЛИКОМ: `POST /api/orders/:id/shipments` на часть такой строки отвечает
+`SHIPMENT_EXCEEDS_STOCK` — распилить кусок на погрузке нельзя. Списание пишет
+`type: 'sale'` против РОДИТЕЛЬСКОЙ партии с заполненным `offcutId`; количество партии при
+этом **не меняется** (её металл ушёл при резке), а кусок переходит в `sold`. Отмена
+отгрузки пишет обратное движение `return` и возвращает кусок в `available`. Кусок, успевший
+уйти с полки между выбором и приездом машины, показывается недостачей: `shippable` этой
+строки — 0.
+
+**План отгрузки называет и границы кусков.** Строка плана (`ship-plan`) несёт `wholePieces`
+— отрезки `{ from, to }` в количестве строки, занятые неделимыми кусками. Количество строго
+внутри такого отрезка запись отклонит, а поле ввода в диалоге умеет только минимум и
+максимум: без этих границ диалог предлагает диапазон, часть которого откажут. `shippable`
+при этом — наибольшее количество ОТ НАЧАЛА строки, которое примет само списание, и считает
+его тот же проход, что решает по каждой аллокации. Не «остаток минус недостача»: недостача
+складывается со всей разбивки, а потребляют разбивку префиксом — за недоступным куском не
+добраться и до партии, стоящей следом, и за частично занятой партией тоже. Вычитание
+называет там количество, которого списание никогда не примет; а второй проход по разбивке
+рядом с первым разошёлся бы с ним на первой же правке, поэтому число приходит из плана
+(`ShipmentPlanLine.offerable`), а не считается заново.
+
+**Правка количества — четвёртое место, где кусок обязан остаться целым.**
+`PATCH /api/orders/:id/items/:lineId` с новым `quantity` обрезает разбивку строки
+префиксом. Количество, попавшее строго внутрь отрезка, занятого куском, отклоняется →
+`QUANTITY_SPLITS_OFFCUT`; отрезки считаются по всей разбивке строки той же функцией, что
+даёт плану `wholePieces`. Отказ, а не усечение: усечённая аллокация читается всем, что
+идёт дальше, как целый кусок — план назовёт её `wholePieces`, отгрузка спишет половину, а
+кусок пометит `sold` целиком, и остаток металла исчезнет без записи. Граница отрезка
+запретом не считается; убрать кусок из строки можно, пересобрав строку — удаление строки
+возвращает кусок в продажу.
+
+**Возврат куска — тоже целиком.** Ступенька возврата, названная обрезком, берётся только
+целиком; возврат меньше куска означает, что вернули не его, а металл партии, уехавшей той
+же машиной, — такая ступенька пропускается, а остаток ложится на следующую. Положить
+остаток некуда → `RETURN_SPLITS_OFFCUT`. Бракованная строка пишет `return` и следом
+`write-off`, то есть кусок возвращается на полку и тут же уходит в утиль — `scrapped`.
 
 ---
 
@@ -1612,7 +1741,6 @@ transfer с названным адресом переносит его цели
     sourceQuantity: number        // СВЕРКА, а не ввод — см. ниже
     kerfMm: number                // ширина реза в миллиметрах
     offcuts: Array<{              // Omit<OffcutCreatePayload, 'batchId'>
-      productId: string
       categoryId?: string | null
       offcutType?: 'sheet' | 'linear'
       lengthMm?: number | null
@@ -1620,7 +1748,7 @@ transfer с названным адресом переносит его цели
       thicknessMm?: number | null
       weightKg?: number | null
       quantity: number            // СЧЁТЧИК КУСКОВ, целое ≥ 1
-      unit: StockUnit
+      uomId: string               // id единицы из справочника настроек
       location?: string | null
       notes?: string | null
     }>
@@ -1640,14 +1768,14 @@ consumed        = Σ material + cuts × kerf + waste
 
 Размер одного куска по единице партии — пять строк геометрии и две на весе:
 
-| `batch.unit` | размер куска |
+| `batch.uomId` | размер куска |
 |---|---|
-| `m` | `lengthMm / 1000` |
-| `mm` | `lengthMm` |
-| `m2` | `lengthMm × widthMm / 1 000 000` |
-| `kg` | `weightKg` |
-| `t` | `weightKg / 1000` |
-| `pcs` | 1 |
+| `uom-m` | `lengthMm / 1000` |
+| `uom-mm` | `lengthMm` |
+| `uom-m2` | `lengthMm × widthMm / 1 000 000` |
+| `uom-kg` | `weightKg` |
+| `uom-t` | `weightKg / 1000` |
+| `uom-pcs` | 1 |
 
 `quantity` обрезка — это счётчик кусков, а НЕ количество материала: единица обрезка и
 единица партии — разные величины. Пример из ТЗ (Process 2.2 §2): партия в метрах, один
@@ -1754,17 +1882,50 @@ consumed        = Σ material + cuts × kerf + waste
 
 Управление платежами (входящими/исходящими) и архивом документов.
 
-Pages: `IncomingPaymentsPage.vue`, `OutgoingPaymentsPage.vue`, `DocumentArchivePage.vue`, `IncomingPaymentCardPage.vue`, `OutgoingPaymentCardPage.vue`.
+Pages: `IncomingPaymentsPage.vue`, `OutgoingPaymentsPage.vue`, `DocumentArchivePage.vue`, `OutgoingPaymentCardPage.vue`.
 Service: [`financeService.ts`](frontend_vue/src/services/financeService.ts).
 Mock: [`mocks/finance.ts`](frontend_vue/src/services/mocks/finance.ts).
 
+## Модель: у одной суммы один владелец
+
+Раздел состоит из двух разных сущностей, и путать их нельзя (пункт 13 плана
+[`review-followups.md`](../plans/archive/2026-08/review-followups.md)):
+
+- **Входящие** — это **представление над счетами заказов**, своего хранилища у них нет.
+  Строка реестра = счёт (`Order.invoices[]`): его номер, дата и сумма. Срок оплаты выводится
+  из условий оплаты клиента (`Order.clientPaymentTermsDays`), поступления — из платежей
+  заказа (`Order.payments[]`), привязанных к этому счёту (`Payment.invoiceId`). **Статус не
+  хранится**, а вычисляется (`domain/receivable.ts`): оплат меньше суммы и срок прошёл →
+  `overdue`, сумма платежей ≥ суммы счёта → `completed`, иначе `pending`. «Срок прошёл» — это
+  конец ДНЯ срока, а не сам его момент: при нулевой отсрочке (`paymentTermsDays = 0`) срок
+  наступает в день выдачи счёта, и просроченным такой счёт становится не раньше следующего
+  дня. Частичная оплата видна двумя суммами (`paidAmount` из `amount`), отдельного статуса
+  не имеет.
+  Корректировка своей строки не заводит — она поправляет сумму исходного счёта; счёт,
+  отозванный корректировкой (`withdrawsOriginal`), в реестре не показывается вовсе.
+  Карточки у строки нет: подробности живут в карточке заказа, туда и ведёт ссылка.
+  **«Сколько выставлено и сколько по этому пришло» считает один код на все три представления** —
+  `invoiceBalances` в [`domain/receivable.ts`](frontend_vue/src/domain/receivable.ts), которым
+  пользуются реестр входящих, сводка счетов клиента (`GET /api/clients/:id/invoices`) и модалка
+  регистрации оплаты в карточке заказа. Копий было две, и они уже разошлись: деньги, названные
+  корректировкой, сводка засчитывала на исправленный документ, а реестр — нет.
+  Отсюда же требование к регистрации оплаты (`POST /api/orders/:id/payments`): деньги называют
+  документ, который закрывают, — поле счёта предзаполняется старейшим непокрытым, а его остаток
+  предлагается суммой. Пустой `invoiceId` — законное, но осознанное состояние (аванс до проформы,
+  возврат), и реестр по такому счёту честно показывает «не оплачено».
+- **Исходящие** — самостоятельные записи с ручным вводом: заказа поставщику в системе нет
+  (Purchase Orders отложены), выводить их не из чего. У них хранится и статус, и `dueDate`,
+  и заметки с документами.
+
 Типы из [`types/finance.ts`](frontend_vue/src/types/finance.ts):
 - `PaymentDirection` = `'incoming' | 'outgoing'`
-- `PaymentStatus` = `'pending' | 'completed' | 'overdue' | 'cancelled'`
+- `PaymentStatus` = `'pending' | 'completed' | 'overdue' | 'cancelled'` — статус **исходящего** платежа
 - `PaymentDocument` — файл, прикреплённый к платежу (`id`, `name`, `fileId`, `url`, `size`, `mime`, `uploadedAt`)
-- `FinancePayment` — полная карточка платежа
+- `FinancePayment` — полная карточка исходящего платежа
 - `FinancePaymentListItem` — строка списка платежей (без documents, notes)
-- `FinancePaymentFilters` — параметры фильтрации
+- `FinanceListFilters` — `{ search, status }`, общие для обеих таблиц
+- `ReceivableStatus` = `'pending' | 'overdue' | 'completed'` — вычисляемый статус счёта
+- `Receivable` — строка реестра входящих
 - `ArchiveDocumentType` = `'invoice' | 'facture' | 'waybill' | 'cmr' | 'other'`
 - `FinanceDocumentArchiveItem` — строка архива документов
 
@@ -1776,20 +1937,61 @@ Mock: [`mocks/finance.ts`](frontend_vue/src/services/mocks/finance.ts).
 
 ---
 
-## Список платежей
+## Реестр входящих
 
-### GET /api/finance/payments
+### GET /api/finance/receivables
 
-- **Когда:** загрузка `IncomingPaymentsPage` / `OutgoingPaymentsPage` (`onMounted`), изменение search/status фильтра (debounce 300 мс), смена page/pageSize.
+- **Когда:** загрузка `IncomingPaymentsPage` (`onMounted`), изменение search/status фильтра (debounce 300 мс для search), смена page/pageSize.
 - **Query:**
   ```ts
   {
-    direction: 'incoming' | 'outgoing' | 'all'
-    search?: string         // по paymentNumber, counterpartyName, orderNumber (LIKE)
+    search?: string         // по invoiceNumber, clientName, orderNumber (LIKE)
+    status?: ReceivableStatus | 'all'
+    page: string            // "1"
+    pageSize: string        // "25" | "50" | "100"
+  }
+  ```
+- **Response 200:** `PaginatedResponse<Receivable>`
+  ```json
+  {
+    "success": true,
+    "data": {
+      "items": [
+        {
+          "id": "ORD-100-INV-1",
+          "invoiceNumber": "ORD-2026-100/INV-1",
+          "issuedAt": "2026-08-11T09:12:00Z",
+          "dueDate": "2026-09-10T09:12:00Z",
+          "orderId": "ORD-100",
+          "orderNumber": "ORD-2026-100",
+          "clientId": "CL-001",
+          "clientName": "UAB Metalica",
+          "currency": "EUR",
+          "amount": 2129.57,
+          "paidAmount": 2000.00,
+          "outstandingAmount": 129.57,
+          "paidAt": null,
+          "status": "pending"
+        }
+      ],
+      "total": 3, "page": 1, "pageSize": 25, "totalPages": 1
+    }
+  }
+  ```
+- **Notes:** Read-only, мутаций нет — деньги регистрируются в карточке заказа (`POST /api/orders/:id/payments`), документы выставляются там же (`POST /api/orders/:id/invoices`). Сортировка `dueDate ASC` — ближайший срок сверху. `status` и `dueDate` **вычисляются сервером на выдаче**, в базе их нет.
+
+---
+
+## Список платежей поставщикам
+
+### GET /api/finance/payments
+
+- **Когда:** загрузка `OutgoingPaymentsPage` (`onMounted`), изменение search/status фильтра (debounce 300 мс), смена page/pageSize.
+- **Query:**
+  ```ts
+  {
+    search?: string         // по paymentNumber, counterpartyName, supplierInvoiceRef (LIKE)
     status?: PaymentStatus | 'all'
-    counterpartyId?: string
-    dateFrom?: string       // ISO
-    dateTo?: string         // ISO
     page: string            // "1"
     pageSize: string        // "25" | "50" | "100"
   }
@@ -1801,75 +2003,75 @@ Mock: [`mocks/finance.ts`](frontend_vue/src/services/mocks/finance.ts).
     "data": {
       "items": [
         {
-          "id": "pay-in-1",
+          "id": "pay-out-1",
           "paymentNumber": "PAY-2026-001",
-          "direction": "incoming",
-          "status": "pending",
-          "amount": 5000.00,
+          "direction": "outgoing",
+          "status": "completed",
+          "amount": 18450.00,
           "currency": "EUR",
-          "counterpartyName": "UAB Metalica",
-          "orderNumber": "ORD-2026-001",
-          "supplierInvoiceRef": null,
-          "dueDate": "2026-06-01T00:00:00Z",
-          "paidAt": null,
+          "counterpartyName": "ArcelorMittal",
+          "orderNumber": null,
+          "supplierInvoiceRef": "INV-SUP-2026-014",
+          "dueDate": "2026-08-07T00:00:00Z",
+          "paidAt": "2026-08-09T00:00:00Z",
           "documentCount": 2
         }
       ],
-      "total": 87, "page": 1, "pageSize": 25, "totalPages": 4
+      "total": 5, "page": 1, "pageSize": 25, "totalPages": 1
     }
   }
   ```
-- **Notes:** Сортировка фиксированная — `dueDate ASC` (ближайшие сверху) или `createdAt DESC` (на усмотрение бэкенда). Пагинация обязательна.
+- **Notes:** Только исходящие. Входящие сюда не попадают: они не записи, а представление — см. `GET /api/finance/receivables`. Сортировка фиксированная — `dueDate ASC`. Пагинация обязательна.
 
 ---
 
-## Карточка платежа
+## Карточка платежа поставщику
 
 ### GET /api/finance/payments/:id
 
-- **Когда:** `onMounted` карточки платежа (`IncomingPaymentCardPage`, `OutgoingPaymentCardPage`).
+- **Когда:** `onMounted` карточки платежа (`OutgoingPaymentCardPage`).
 - **Response 200:** `FinancePayment` (включая `documents[]`, `notes`).
   ```json
   {
     "success": true,
     "data": {
-      "id": "pay-in-1",
+      "id": "pay-out-1",
       "paymentNumber": "PAY-2026-001",
-      "direction": "incoming",
-      "status": "pending",
-      "amount": 5000.00,
+      "direction": "outgoing",
+      "status": "completed",
+      "amount": 18450.00,
       "currency": "EUR",
-      "counterpartyId": "CL-001",
-      "counterpartyName": "UAB Metalica",
-      "counterpartyVatCode": "LT304567890",
-      "orderId": "ORD-001",
-      "orderNumber": "ORD-2026-001",
-      "supplierInvoiceRef": null,
-      "description": "Payment for order ORD-2026-001",
-      "dueDate": "2026-06-01T00:00:00Z",
-      "paidAt": null,
+      "counterpartyId": "sup-001",
+      "counterpartyName": "ArcelorMittal",
+      "counterpartyVatCode": "LU12345678",
+      "orderId": null,
+      "orderNumber": null,
+      "supplierInvoiceRef": "INV-SUP-2026-014",
+      "description": "Payment to ArcelorMittal",
+      "dueDate": "2026-08-07T00:00:00Z",
+      "paidAt": "2026-08-09T00:00:00Z",
       "documents": [
         {
           "id": "pdoc-1",
-          "name": "Invoice #INV-2026-001",
-          "fileId": "file-abc123",
-          "url": "/uploads/file-abc123/preview",
-          "size": 102400,
+          "name": "Invoice #INV-SUP-2026-014",
+          "fileId": "file-fin-1",
+          "url": "/uploads/file-fin-1/preview",
+          "size": 135000,
           "mime": "application/pdf",
-          "uploadedAt": "2026-05-15T10:00:00Z"
+          "uploadedAt": "2026-08-04T00:00:00Z"
         }
       ],
-      "notes": "Client confirmed payment via bank transfer.",
-      "createdAt": "2026-04-17T08:00:00Z",
-      "updatedAt": "2026-04-17T08:00:00Z"
+      "notes": "Paid by bank transfer, two days after the due date.",
+      "createdAt": "2026-07-29T00:00:00Z",
+      "updatedAt": "2026-08-09T00:00:00Z"
     }
   }
   ```
-- **Notes:** 404 `PAYMENT_NOT_FOUND`. Поля read-only на карточке: все, кроме `notes`. Документы управляются через `fileIds` (см. Общие соглашения — «Файлы и аплоады»).
+- **Notes:** 404 `PAYMENT_NOT_FOUND`. Поля read-only на карточке: все, кроме `notes`. Документы управляются через `fileIds` (см. Общие соглашения — «Файлы и аплоады»). Эндпоинт обслуживает **только исходящие**: `direction` здесь всегда `outgoing`, `orderId`/`orderNumber` — всегда `null`, а `supplierInvoiceRef` заполнен. Входящего платежа-записи в системе нет: долг клиента — это счёт заказа, см. `GET /api/finance/receivables`.
 
 ### PATCH /api/finance/payments/:id
 
-- **Когда:** клик Save на карточке платежа (`saveChanges()`), только если `isDirty`.
+- **Когда:** клик Save на карточке платежа поставщика (`saveChanges()`), только если `isDirty`.
 - **Body:** dirty-only delta:
   ```ts
   {
@@ -1880,12 +2082,12 @@ Mock: [`mocks/finance.ts`](frontend_vue/src/services/mocks/finance.ts).
 - **Response 200:** `FinancePayment` — обновлённый объект целиком (с пересчитанными `documents`).
 - **Example:**
   ```http
-  PATCH /api/finance/payments/pay-in-1
+  PATCH /api/finance/payments/pay-out-1
   Content-Type: application/json
 
   {
-    "notes": "Updated: payment received 01.06.2026",
-    "fileIds": ["file-abc123", "file-def456"]
+    "notes": "Updated: paid by bank transfer 09.08.2026",
+    "fileIds": ["file-fin-1", "file-fin-2"]
   }
   ```
 - **Notes:**
@@ -1941,11 +2143,11 @@ Mock: [`mocks/finance.ts`](frontend_vue/src/services/mocks/finance.ts).
 
 ## Save UX — Finance
 
-**Payment list pages** (`IncomingPaymentsPage`, `OutgoingPaymentsPage`) — read-only с серверной фильтрацией (search debounce 300 мс, статус). Никаких мутаций.
+**Payment list pages** (`IncomingPaymentsPage`, `OutgoingPaymentsPage`) — read-only с серверной фильтрацией (search debounce 300 мс, статус). Никаких мутаций. У реестра входящих мутаций не может быть в принципе: своего хранилища у него нет.
 
 **Document Archive** (`DocumentArchivePage`) — read-only с серверной фильтрацией.
 
-**Payment card pages** (`IncomingPaymentCardPage`, `OutgoingPaymentCardPage`) — **clean-slate** (как SupplierCardPage, см. «Save UX / Clean-slate»):
+**Payment card page** (`OutgoingPaymentCardPage`) — **clean-slate** (как SupplierCardPage, см. «Save UX / Clean-slate»):
 
 - Локальный state: `notesDraft`, `payment.value.documents` (модифицируется in-place при add/delete)
 - Save bar при `isDirty` (notesChanged || filesChanged)
@@ -1962,15 +2164,17 @@ Mock: [`mocks/finance.ts`](frontend_vue/src/services/mocks/finance.ts).
 | Флаг | Уровень | Что скрывает |
 |------|---------|--------------|
 | `adminFinance` | page-level | мастер-флаг всего раздела |
-| `financeIncoming` | page-level | роут `/admin/finance/incoming` и `/admin/finance/incoming/:id` |
+| `financeIncoming` | page-level | роут `/admin/finance/incoming` (карточки у строки реестра нет — ссылка ведёт в заказ) |
 | `financeOutgoing` | page-level | роут `/admin/finance/outgoing` и `/admin/finance/outgoing/:id` |
 | `financeDocumentArchive` | page-level | роут `/admin/finance/archive` |
 
 → Implementation:
 - Service: `src/services/financeService.ts`
 - Mock: `src/services/mocks/finance.ts`
-- Views: `src/views/admin/finance/IncomingPaymentsPage.vue`, `src/views/admin/finance/OutgoingPaymentsPage.vue`, `src/views/admin/finance/DocumentArchivePage.vue`, `src/views/admin/finance/IncomingPaymentCardPage.vue`, `src/views/admin/finance/OutgoingPaymentCardPage.vue`
+- Domain: `src/domain/receivable.ts` (срок и статус счёта), реестр строится в `src/services/mocks/orders.ts` → `orderReceivables()`
+- Views: `src/views/admin/finance/IncomingPaymentsPage.vue`, `src/views/admin/finance/OutgoingPaymentsPage.vue`, `src/views/admin/finance/DocumentArchivePage.vue`, `src/views/admin/finance/OutgoingPaymentCardPage.vue`
 - i18n: `src/i18n/admin/finance.ts`
+- Unit: `src/domain/receivable.spec.ts`, `src/services/mocks/finance-receivables.spec.ts`
 
 ---
 
@@ -2429,6 +2633,68 @@ Page: `ProfileSettings.vue` (таб `/admin/settings/profile`).
 
 ---
 
+## Почтовый сервер (Mail)
+
+Page: [`MailSettings.vue`](frontend_vue/src/views/admin/settings/MailSettings.vue)
+(таб `/admin/settings/mail`), тип `MailServerSettings` — `src/types/settings.ts`.
+Один сервер на арендатора, поэтому единичный ресурс без `id`.
+
+**Пароль пишется и не читается.** В типе `MailServerSettings` поля `password` нет вовсе:
+GET его не возвращает никогда, а форма узнаёт о нём из булева `passwordSet`. Так секрет не
+попадает ни в стор `useSettings`, ни в его кэш в localStorage — не по дисциплине, а потому
+что положить его туда нечем.
+
+### GET /api/settings/mail
+
+- **Когда:** загрузка настроек, `useSettings.load()` (девятый запрос параллельного набора).
+- **Response 200:** `MailServerSettings`
+  ```json
+  {
+    "success": true,
+    "data": {
+      "host": "smtp.flexiron.lt",
+      "port": 587,
+      "encryption": "starttls",
+      "username": "sales@flexiron.lt",
+      "passwordSet": true,
+      "fromEmail": "sales@flexiron.lt",
+      "fromName": "Flexiron UAB"
+    }
+  }
+  ```
+- **Notes:** `encryption` — `'none' | 'ssl' | 'starttls'` (`MAIL_ENCRYPTIONS`). Пароля в
+  ответе нет ни при каких условиях.
+
+### PATCH /api/settings/mail
+
+- **Когда:** клик Save при изменениях в почтовой секции (та же кнопка, что у остальных
+  настроек — clean-slate).
+- **Body:** dirty-only поля плюс необязательный пароль:
+  ```ts
+  {
+    host?: string
+    port?: number
+    encryption?: 'none' | 'ssl' | 'starttls'
+    username?: string
+    fromEmail?: string
+    fromName?: string
+    password?: string   // только запись; пустая строка НЕ отправляется
+  }
+  ```
+- **Response 200:** `MailServerSettings` — полный объект после merge, снова без пароля.
+- **Notes:** отсутствующий `password` означает «не менять». Пустая строка сюда не попадает:
+  пустое поле формы — это «не трогать пароль», а не «стереть его».
+
+### POST /api/settings/mail/test
+
+- **Когда:** клик «Отправить тестовое письмо» — quick-action, сохранения не требует и не
+  выполняет: проверяются параметры, которые УЖЕ на сервере.
+- **Body:** пусто.
+- **Response 200:** `{ deliveredTo: string }` — адрес, на который ушло письмо (адрес
+  отправителя, сам себе).
+- **Notes:** 422 `MAIL_NOT_CONFIGURED`, если не заданы хост, адрес отправителя или пароль.
+  Молчаливый успех недонастроенного сервера запрещён — кнопка тогда проверяла бы себя.
+
 ## Логи аудита (Настройки → Логи)
 
 Страница: [`LogsSettings.vue`](frontend_vue/src/views/admin/settings/LogsSettings.vue)
@@ -2567,7 +2833,9 @@ Settings работает по **local-first** принципу (см. «Save UX
 - **Snapshot:** после каждого load/save фиксируется снепшот для diff-детекции.
 - **Dirty tracking:** каждая секция отслеживается отдельно через `dirtySections Set`.
 - **Save = granular:** на Save клиент итерирует dirty-секции и для каждой вызывает соответствующий endpoint:
-  - Простые секции (`company`, `constants`, `profile`) → PATCH с dirty-полями
+  - Простые секции (`company`, `constants`, `mail`, `profile`) → PATCH с dirty-полями
+    (у `mail` пароль уходит отдельным полем `password` и только если его ввели — см. раздел
+    «Почтовый сервер»)
   - Коллекции (`currencies`, `uoms`, `conversions`, `order-statuses`) → diff против снепшота → POST созданий + PATCH изменений + DELETE удалений
 - **Reorder статусов:** при изменении порядка (drag-and-drop) шлётся `PUT /api/settings/order-statuses/reorder` с полным `orderedIds`.
 - **Discard:** сброс локального state до последнего снепшота.
@@ -2585,7 +2853,7 @@ Settings работает по **local-first** принципу (см. «Save UX
 - Service: `src/services/settingsService.ts`
 - Mock: `src/services/mocks/settings.ts`
 - Composable: `src/composables/useSettings.ts`
-- Views: `src/views/admin/settings/SettingsLayout.vue`, `ProfileSettings.vue`, `CompanySettings.vue`, `FinanceSettings.vue`, `UnitsSettings.vue`, `OrderStatusesSettings.vue`
+- Views: `src/views/admin/settings/SettingsLayout.vue`, `ProfileSettings.vue`, `CompanySettings.vue`, `FinanceSettings.vue`, `UnitsSettings.vue`, `OrderStatusesSettings.vue`, `MailSettings.vue`
 - i18n: `src/i18n/admin/settings.ts`
 
 ---
@@ -2765,13 +3033,15 @@ interface Notification {
 | `PATCH /api/config/sections/:id` | `patchSection(id, patch, locale)` | да | — |
 | `DELETE /api/config/sections/:id` | `deleteSection()` | **нет** | ответ пустой |
 | `PATCH /api/settings/uoms/:id` | `updateUom()` | да | — |
-| `GET /api/products/list` | `getProductList()` | **нет** | ответ `Array<{ id, name: { ru, en, lt } }>` — плоский справочник для селектов |
 | `GET /api/suppliers/export.csv` | `exportSuppliersCsv(filters)` | **нет** | параметры `search`, `status`, `rating`, `categories` (через запятую); ответ — CSV строкой |
 | `POST /api/warehouse/deficit` | `createDeficitItem()` | **нет** | тело `DeficitCreatePayload`, ответ `WarehouseDeficit` |
 | `GET /api/warehouse/stock/:productId/audit` | `getStockAudit()` | **нет** | ответ `StockAuditEntry[]` |
 | `GET /api/warehouse/offcuts/:id/audit` | `getOffcutAudit()` | **нет** | ответ `StockAuditEntry[]` |
 | `GET /api/warehouse/movements/:id/audit` | `getMovementAudit()` | **нет** | ответ `StockAuditEntry[]` |
 | `GET /api/warehouse/deficit/:id/audit` | `getDeficitAudit()` | **нет** | ответ `StockAuditEntry[]` |
+
+`GET /api/products/list` из этого реестра убран 2026-08-27: с п. 4e его зовёт
+`useProductNames` — справочник, по которому склад подписывает товар в списках и карточках.
 
 Про четыре `*/audit`: парные `delete*AuditEntry` **вызываются** из карточек, а `get*Audit` — нет.
 Значит записи аудита UI получает вместе с сущностью, а отдельная загрузка осталась вторым путём к

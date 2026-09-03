@@ -165,6 +165,8 @@ export function useOrderCard(id: string) {
       unitPrice: number
       /** Decided by the add-mode, so the server cannot fall back to the default. */
       discountPercent: number
+      /** Куски, выбранные руками в диалоге. Их не знает никто, кроме этой записи. */
+      offcutIds?: string[]
     }>
   >([])
   const pendingItemDeletions = ref<string[]>([])
@@ -443,6 +445,9 @@ export function useOrderCard(id: string) {
             // Sent explicitly: the server would otherwise apply the order default,
             // and the line would change under the admin the moment it is stored.
             discountPercent: item.discountPercent,
+            // Куски, выбранные руками: FIFO их не найдёт — он строится только из
+            // партий, и назвать обрезок можно единственным способом, вот этим.
+            offcutIds: item.offcutIds,
           }),
         )
         serverWrote()
@@ -589,6 +594,15 @@ export function useOrderCard(id: string) {
 
   async function requestStatusChange(status: OrderStatus) {
     if (!order.value || status === order.value.status) return
+    // Отказ до плана, а не после него. План строит СЕРВЕР по своим позициям: с
+    // несохранёнными правками он посчитал бы резервы и списания по другой таблице,
+    // показал бы их в диалоге — и `applyStatusChange` всё равно отклонил бы переход
+    // на выходе из диалога. Селектор статуса при этом ничего не теряет: он читает
+    // `order.status`, поэтому выбор просто откатывается на месте.
+    if (hasPendingChanges.value) {
+      toast.error(t('orders.error_status_needs_save'))
+      return
+    }
     try {
       const plan = await planOrderStatus(id, status)
       // A status that touches neither the shelf nor the holds is just a status.
@@ -1140,6 +1154,7 @@ export function useOrderCard(id: string) {
           unit: string
           unitPrice: number
           unitCost?: number
+          offcutIds?: string[]
         }>
       | {
           productId: string
@@ -1148,6 +1163,7 @@ export function useOrderCard(id: string) {
           unit: string
           unitPrice: number
           unitCost?: number
+          offcutIds?: string[]
         },
     mode: AddLineMode | null = null,
   ) {

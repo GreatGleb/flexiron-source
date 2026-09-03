@@ -621,11 +621,10 @@ onBeforeUnmount(() => {
   transform: translateY(0);
 }
 
-/* Make sure the table wrapper doesn't clip upward-opening dropdowns */
-.data-table-wrapper {
-  overflow-x: auto;
-  overflow-y: visible;
-}
+/* Обёртка таблицы объявлена один раз, в `components/_tables.css` (пункт 13).
+   Здесь копии не было нужно: `overflow-y: visible` при непрозрачном `overflow-x`
+   по спецификации вычисляется в `auto`, то есть эти три строки не делали ничего,
+   а блок `<style>` тут БЕЗ `scoped` — значит копия была ещё и глобальной. */
 .data-table tfoot td {
   position: relative;
 }

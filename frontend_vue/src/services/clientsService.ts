@@ -1,5 +1,5 @@
 import { apiGet, apiPost, apiPatch, apiDelete } from './api'
-import type { Client, ClientFilters, ClientFormData } from '@/types/client'
+import type { Client, ClientFilters, ClientFormData, ClientInvoiceSummary } from '@/types/client'
 import type { PaginatedResponse } from '@/types/api'
 import type { StockAuditEntry } from '@/types/warehouse'
 
@@ -23,6 +23,18 @@ export async function patchClient(id: string, delta: Partial<Client>): Promise<C
 
 export async function deleteClient(id: string): Promise<void> {
   return apiDelete(`/api/clients/${id}`)
+}
+
+/**
+ * Счета, выставленные этому клиенту, и его деньги, не названные ни одним счётом —
+ * по всем его заказам сразу.
+ *
+ * Не «сходить за заказами и спросить счета у каждого»: это N+1 запросов и вторая
+ * копия правил «какой документ клиент ещё держит» и «куда отнести платёж» на
+ * стороне карточки.
+ */
+export async function getClientInvoiceSummary(clientId: string): Promise<ClientInvoiceSummary> {
+  return apiGet<ClientInvoiceSummary>(`/api/clients/${clientId}/invoices`)
 }
 
 export async function getClientAudit(clientId: string): Promise<StockAuditEntry[]> {

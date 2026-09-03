@@ -4,6 +4,7 @@ import { useRouter, onBeforeRouteLeave } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useHead } from '@/composables/useHead'
 import { useOrderCreate } from '@/composables/useOrderCreate'
+import { useUnitLabel } from '@/composables/useUnitLabel'
 import { useOrderPermissions } from '@/composables/useOrderPermissions'
 import { formatCents as money } from '@/domain/orderPricing'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
@@ -31,6 +32,7 @@ import '@styles/admin/orders_create.css'
 
 const router = useRouter()
 const { t } = useI18n()
+const unitLabel = useUnitLabel()
 
 useHead({
   title: () => `Flexiron — ${t('orders.create_title')}`,
@@ -265,6 +267,22 @@ onMounted(loadClients)
                 {{ t('orders.create_selected_client', { name: selectedClient.name }) }}
               </p>
 
+              <!-- ТЗ Process 2.1 §1: выбрали клиента — условия оплаты видны сразу,
+                   не после сохранения заказа. -->
+              <p
+                v-if="selectedClient"
+                class="client-selected-terms"
+                data-test="order-create-client-payment-terms"
+              >
+                {{
+                  t('orders.create_client_payment_terms', {
+                    terms: t('clients.payment_terms_days', {
+                      days: selectedClient.paymentTermsDays,
+                    }),
+                  })
+                }}
+              </p>
+
               <div data-test="order-create-client-search">
                 <SearchInput
                   v-model="clientSearch"
@@ -339,12 +357,7 @@ onMounted(loadClients)
         <div class="entity-col-center">
           <GlassPanel :title="t('orders.field_notes')" data-test="order-create-notes-panel">
             <InputGroup :label="t('orders.field_notes')">
-              <AutoResizeTextarea
-                v-model="form.notes"
-                class="glass-input"
-                rows="4"
-                data-test="order-create-notes"
-              />
+              <AutoResizeTextarea v-model="form.notes" rows="4" data-test="order-create-notes" />
             </InputGroup>
           </GlassPanel>
         </div>
@@ -403,7 +416,7 @@ onMounted(loadClients)
                 <td>{{ item.lineNumber }}</td>
                 <td>{{ item.productName }}</td>
                 <td>{{ item.quantity }}</td>
-                <td>{{ t('orders.unit_' + item.unit, item.unit) }}</td>
+                <td>{{ unitLabel(item.unit) }}</td>
                 <td>{{ money(item.unitPrice) }}</td>
                 <td>{{ money(item.totalPrice) }}</td>
                 <td>

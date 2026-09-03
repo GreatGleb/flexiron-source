@@ -232,7 +232,7 @@ interface LinkedSupplier {
   id: string
   name: string
   price: number | null
-  priceUnit: PriceUnit | null
+  priceUomId: string | null   // id единицы из справочника (`uom-kg`), а не собранная подпись `EUR/kg`
   leadDays: number | null
 }
 
@@ -243,7 +243,6 @@ interface ProductListItem {
   categoryName: string
   sku: string | null
   price: number | null
-  priceUnit: PriceUnit | null
   minStock: number | null
   createdAt: string
 }
@@ -257,7 +256,6 @@ interface Product {
   description: string | null
   price: number | null
   minStock: number | null
-  priceUnit: PriceUnit | null
   createdAt: string
   fieldValues: ProductFieldValue[]
   linkedSuppliers: LinkedSupplier[]
@@ -426,7 +424,7 @@ Category (has fields + inheritedFields + linkedSuppliers)
 
 Product (has fieldValues + linkedSuppliers)
   └── ProductFieldValue (fieldId, fieldName, fieldType, value, inherited, options)
-  └── LinkedSupplier (id, name, price, priceUnit, leadDays)
+  └── LinkedSupplier (id, name, price, priceUomId, leadDays)
 
 Supplier (base list item)
   └── SupplierCardData extends Supplier (full card with addresses, contacts, files, history, etc.)

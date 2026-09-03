@@ -1,22 +1,24 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useHead } from '@/composables/useHead'
 import { useToast } from '@/composables/useToast'
 import { createClient } from '@/services/clientsService'
+import { isValidPaymentTermsDays, normalizePaymentTermsDays } from '@/domain/paymentTerms'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
 import Breadcrumb from '@/components/admin/Breadcrumb.vue'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
 import InputGroup from '@/components/admin/ui/InputGroup.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
 import AutoResizeTextarea from '@/components/admin/ui/AutoResizeTextarea.vue'
+import { countryOptions, isCountryCode } from '@/domain/countries'
 import type { ClientFormData } from '@/types/client'
 
 import '@styles/admin/components/_entity-card-layout.css'
 import '@styles/admin/client_card.css'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const router = useRouter()
 const toast = useToast()
 
@@ -30,15 +32,52 @@ const form = ref<ClientFormData>({
   companyCode: '',
   vatCode: '',
   address: '',
+  country: null,
   phone: '',
   email: '',
   status: 'active',
+  // Ноль — это «оплата по счёту», а не «не заполнено». Поле обязательное именно
+  // поэтому: необязательное молча дало бы заказу условия, которых никто не
+  // назначал, — ровно та дыра, на которой развалился пункт 8.
+  paymentTermsDays: 0,
   notes: '',
   rejectionReason: '',
 })
 
-const errors = ref<{ name?: string; email?: string; companyCode?: string }>({})
+/**
+ * Тот же переходник, что в карточке: `v-model.number` на очищенном поле кладёт
+ * `NaN`, и без нормализации на записи он ушёл бы в POST (питфолл #25).
+ */
+const paymentTermsDays = computed<number>({
+  get: () => form.value.paymentTermsDays,
+  set: (value) => {
+    form.value.paymentTermsDays = normalizePaymentTermsDays(value)
+  },
+})
+
+const errors = ref<{
+  name?: string
+  email?: string
+  companyCode?: string
+  paymentTermsDays?: string
+}>({})
 const saving = ref(false)
+
+// Справочник стран собирается заново при смене языка: названия и их порядок
+// зависят от языка, а список открывают уже после переключения.
+const COUNTRY_OPTIONS = computed(() => [
+  { value: '', label: t('clients.country_not_selected') },
+  ...countryOptions(locale.value),
+])
+
+// CustomSelect работает со строкой, а «страна не выбрана» в данных — это null
+// (питфолл #24). Переходник между ними один и живёт здесь.
+const countryStr = computed({
+  get: () => form.value.country ?? '',
+  set: (v: string) => {
+    form.value.country = isCountryCode(v) ? v : null
+  },
+})
 
 const STATUS_OPTIONS = [
   { value: 'active', label: t('clients.status_active') },
@@ -69,10 +108,16 @@ function validate(): boolean {
     valid = false
   }
 
+  // Клиентская проверка не слабее серверной: мок отказывает по тому же правилу.
+  if (!isValidPaymentTermsDays(form.value.paymentTermsDays)) {
+    errors.value.paymentTermsDays = t('clients.validation_payment_terms')
+    valid = false
+  }
+
   return valid
 }
 
-function clearError(field: 'name' | 'email' | 'companyCode') {
+function clearError(field: 'name' | 'email' | 'companyCode' | 'paymentTermsDays') {
   if (errors.value[field]) {
     const next = { ...errors.value }
     delete next[field]
@@ -187,13 +232,31 @@ function handleCancel() {
               <input v-model="form.vatCode" class="glass-input" type="text" data-test="field-vat" />
             </InputGroup>
 
+            <div class="input-group">
+              <label class="field-label">
+                <span>{{ t('clients.field_payment_terms') }}</span>
+                <span v-if="errors.paymentTermsDays" class="field-error">{{
+                  errors.paymentTermsDays
+                }}</span>
+              </label>
+              <div class="input-with-suffix">
+                <input
+                  v-model.number="paymentTermsDays"
+                  class="glass-input"
+                  :class="{ 'has-error': errors.paymentTermsDays }"
+                  type="number"
+                  min="0"
+                  step="1"
+                  data-test="field-payment-terms"
+                  @input="clearError('paymentTermsDays')"
+                />
+                <span class="input-suffix static-suffix">{{ t('clients.unit_days') }}</span>
+              </div>
+              <span class="field-hint">{{ t('clients.field_payment_terms_hint') }}</span>
+            </div>
+
             <InputGroup :label="t('clients.field_notes')">
-              <AutoResizeTextarea
-                v-model="form.notes"
-                class="glass-input"
-                rows="3"
-                data-test="field-notes"
-              />
+              <AutoResizeTextarea v-model="form.notes" rows="3" data-test="field-notes" />
             </InputGroup>
           </GlassPanel>
         </div>
@@ -207,6 +270,14 @@ function handleCancel() {
                 class="glass-input"
                 type="text"
                 data-test="field-address"
+              />
+            </InputGroup>
+
+            <InputGroup :label="t('clients.field_country')">
+              <CustomSelect
+                v-model="countryStr"
+                :options="COUNTRY_OPTIONS"
+                data-test="field-country"
               />
             </InputGroup>
 

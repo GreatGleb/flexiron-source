@@ -1,10 +1,22 @@
 import { defineConfig } from 'vitest/config'
+import vue from '@vitejs/plugin-vue'
 import { fileURLToPath, URL } from 'node:url'
 
 export default defineConfig({
+  /*
+   * Слой компонентных тестов у нас числился поставленным с 2026-08-25 — стояли и
+   * `@vue/test-utils`, и `happy-dom`, — но `.vue` этому конфигу разобрать было
+   * нечем: без плагина любой `mount()` падает на разборе `<script setup>`, а не
+   * на проверяемом поведении. Пустой слой этого не показывал: первый же
+   * компонентный тест и показал.
+   */
+  plugins: [vue()],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
+      // Компонент импортирует свой CSS (питфолл #16) — значит алиас нужен и здесь,
+      // иначе тест падает на импорте стиля, которого он даже не проверяет.
+      '@styles': fileURLToPath(new URL('./src/styles', import.meta.url)),
     },
   },
   test: {

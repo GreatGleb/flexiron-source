@@ -200,17 +200,13 @@ const showRemoveModal = computed({
 function submitAddSupplier() {
   const s = suppliersList.value.find((s) => s.id === addSupplierForm.value.supplierId)
   if (!s) return
-  // Use product's priceUnit (reconstructed by backend) or build from currency + saleUom
-  const unit =
-    product.value?.priceUnit ||
-    (form.value.currencyId && form.value.saleUomId
-      ? `${settings.currencies.find((c: { id: string }) => c.id === form.value.currencyId)?.code ?? ''}/${settings.uoms.find((u: { id: string }) => u.id === form.value.saleUomId)?.code.en ?? ''}`
-      : null)
   const entry: LinkedSupplier = {
     id: s.id,
     name: s.company,
     price: addSupplierForm.value.price !== '' ? Number(addSupplierForm.value.price) : null,
-    priceUnit: unit,
+    // Ссылка на единицу, а не собранная подпись: подпись пришлось бы собирать на языке
+    // того, кто нажал кнопку, и она уехала бы в данные.
+    priceUomId: form.value.saleUomId || null,
     leadDays: addSupplierForm.value.leadDays !== '' ? Number(addSupplierForm.value.leadDays) : null,
     currency: s.currency ?? null,
   }
@@ -327,7 +323,6 @@ onMounted(() => {
               <InputGroup :label="t('products.field_description')" :required="false">
                 <AutoResizeTextarea
                   v-model="formDescription"
-                  class="glass-input"
                   rows="3"
                   data-test="field-description"
                 />

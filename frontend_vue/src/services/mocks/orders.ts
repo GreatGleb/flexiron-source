@@ -13,6 +13,7 @@ import type {
   InvoiceKind,
   PaymentPurpose,
   ShippableLine,
+  WholePieceRange,
   ShipmentShortage,
   ShipmentHold,
   OrderReturn,
@@ -25,6 +26,8 @@ import type {
   LineEditEnvelope,
 } from '@/types/order'
 import type { CostSource } from '@/types/order'
+import type { ClientInvoice, ClientInvoiceSummary, ClientUnassignedPayment } from '@/types/client'
+import type { Receivable } from '@/types/finance'
 import type { StockReservation } from '@/types/warehouse'
 import type { PaginatedResponse, PaginationParams } from '@/types/api'
 import {
@@ -51,6 +54,12 @@ import {
   syncLineState,
 } from '@/domain/orderPricing'
 import {
+  invoiceBalances,
+  isInvoiceWithdrawn,
+  receivableDueDate,
+  receivableStatus,
+} from '@/domain/receivable'
+import {
   baseCurrencyOf,
   buildOrderItem as buildItem,
   buildOrderService as buildService,
@@ -62,6 +71,7 @@ import {
   marginFor,
   splitAllocations,
   stockCostFor,
+  wholePieceRanges,
 } from '@/services/orderLines'
 import {
   applyLineEdit,
@@ -87,7 +97,9 @@ import {
   releaseOrder,
   reservedForLine,
   reservedForLineOnBatch,
+  reservedForLineOnOffcut,
   reservedOn,
+  reservedOnOffcut,
 } from './reservations'
 import { mockGetClients, registerClientOrderLookup } from './clients'
 import { shiftDemoDate } from './demoClock'
@@ -100,11 +112,21 @@ import {
   clearShortages,
   mockFifoAllocation,
   mockGetMovementsFor,
+  mockOffcutAllocations,
   recordShortage,
+  registerOffcutClaimLookup,
+  shelvedOffcut,
   writeMovement,
 } from './warehouse'
 import { allServices, serviceById } from './services'
+import {
+  notifyOrderStatusChanged,
+  notifyPaymentReceived,
+  notifyWarehouseReady,
+  seedQuietly,
+} from './notifications'
 import { countsAsSale, isActive, isOrderStatus } from '@/domain/orderStatus'
+import { orderLineUnit, uomIdFromOrderLineUnit } from '@/domain/uom'
 import type { AuditSource } from '@/types/audit'
 
 interface StoreOrder extends Order {
@@ -313,7 +335,7 @@ function catalogueProducts(): ProductSpec[] {
     id: p.id,
     name: p.name.en,
     // 'uom-pcs' → 'pcs'; the table and the pickers label units by this code.
-    unit: (p.saleUomId ?? p.warehouseUomId ?? 'uom-pcs').replace(/^uom-/, ''),
+    unit: orderLineUnit(p.saleUomId ?? p.warehouseUomId),
     price: p.price as number,
   }))
 }
@@ -558,6 +580,7 @@ function generateOrders(): StoreOrder[] {
       clientName: client.name,
       clientVatCode: client.vatCode,
       clientAddress: client.address,
+      clientPaymentTermsDays: client.paymentTermsDays,
       documentType: docType,
       status,
       items,
@@ -712,6 +735,35 @@ function resolvePendingScenario(order: StoreOrder): void {
   }
 
   issuePendingInvoice(order)
+}
+
+/**
+ * Даёт предоплате документ — там, где заказу предстоит документы иметь.
+ *
+ * Деньги, не названные ни на одном счёте, ничей долг не закрывают (это правило
+ * модели, а не упрощение мока), и на заказе БЕЗ документов спорить не о чем:
+ * реестру «Входящих» нечего показать, расходиться не с чем. А вот на заказе с
+ * документами такая предоплата ровно та болезнь, ради которой заведён пункт 13:
+ * ORD-2026-009 получил 22 256,26, и карточка показывала их полученными, пока
+ * реестр рядом рисовал по его же счёту красную пилюлю «Просрочен» и «оплачено
+ * 0.00». Клиент платит вперёд по проформе — она здесь и выписывается, а платёж
+ * называет её, как это сделано в собранном руками ORD-2026-100.
+ */
+function issueProformaForPrepayment(order: StoreOrder): void {
+  if (!order._pendingInvoiceForShipment) return
+  const unnamed = order.payments.filter((p) => p.invoiceId === null && p.amount > 0)
+  const amount = round2(unnamed.reduce((sum, p) => round2(sum + p.amount), 0))
+  if (amount <= 0) return
+
+  // Через тот же путь, которым проформу выписывает администратор.
+  mockCreateInvoice(order.id, { kind: 'advance', amountGross: amount })
+  const proforma = order.invoices[order.invoices.length - 1]
+  if (!proforma) return
+  // Документ старше денег: сначала счёт, потом оплата по нему.
+  proforma.issuedAt = order.createdAt
+  unnamed.forEach((p) => {
+    p.invoiceId = proforma.id
+  })
 }
 
 /**
@@ -951,7 +1003,10 @@ function createScenarioShipments(): void {
         // The shelf moved under us; this seeded truck simply does not go.
       }
     }
-    // Only now is there a shipment to invoice.
+    // Only now is there a shipment to invoice — and the prepayment that came in
+    // before it needs a document of its own, or the order's own money is money the
+    // incoming registry cannot see.
+    issueProformaForPrepayment(order)
     issuePendingInvoice(order)
     // The scenario said what the order should look like; the facts now say it.
     order.status = statusFromFacts(order)
@@ -1184,8 +1239,12 @@ function buildShowcaseOrder(): void {
     }
   }
 
+  // Держится в переменной, потому что аванс ниже платится ИМЕННО по нему: платёж
+  // без ссылки на документ не закрывает ничей долг, и реестр входящих показал бы
+  // проформу на 1500 неоплаченной рядом с пришедшими 1500.
+  let advance: Invoice | null = null
   try {
-    mockCreateInvoice(order.id, { kind: 'advance', amountGross: 1500 })
+    advance = mockCreateInvoice(order.id, { kind: 'advance', amountGross: 1500 })
   } catch {
     /* nothing to advance against */
   }
@@ -1198,11 +1257,19 @@ function buildShowcaseOrder(): void {
       /* refused — the demo does without this record */
     }
   }
-  pay(1500, 'advance', 'Advance against the proforma')
+  // Named on the document it pays, because it IS that document's money: the note
+  // says "against the proforma", the proforma is two lines up, and the client's
+  // summary asks each document what came in on it. Left unnamed, the demo showed a
+  // 1500 debt on a document paid to the cent — the client card's own first client.
+  pay(1500, 'advance', 'Advance against the proforma', advance?.id ?? undefined)
   pay(2000, 'balance', 'Part payment on the first delivery', regular?.id)
   // A refund is a negative amount, never a deleted payment: money that went back
-  // is a fact, and facts are not removed from the record.
-  pay(-120, 'refund', 'Rebate returned to the client')
+  // is a fact, and facts are not removed from the record. It names the document it
+  // goes back on — the rebate was agreed on the delivery this invoice covers, and
+  // money leaving names what it leaves against (§14). Left unnamed, this very
+  // record made the card say 3380 while the incoming registry said 3500 on the
+  // same order: the demo store broke the app's own rule on the first screen.
+  pay(-120, 'refund', 'Rebate returned to the client', regular?.id)
 
   // ── Held stock, files ─────────────────────────────────────────────────────
   try {
@@ -1255,6 +1322,32 @@ registerProductSalesLookup((productId) => {
     }
   }
   return quantity > 0 ? { quantity, net } : null
+})
+
+// "Занят ли этот кусок?" — тоже вопрос о заказах, и отвечает он тем же способом.
+// Склад обязан вычитать занятое, чтобы ответить «что свободно», но записан хват куска
+// в разбивке СТРОКИ, и знать о нём склад может только спросив.
+//
+// Кусок неделим, поэтому занят он целиком с той минуты, как его назвали в строке, — а
+// не с резервирования: между добавлением позиции и резервом заказ уже стоит на куске, и
+// показать этот кусок второму менеджеру значит продать один металл дважды. Партия так
+// себя не ведёт и вести не может: у неё есть количество, из которого чужой хват
+// вычитается, а у куска вычитать нечего.
+//
+// Статус заказа тут не спрашивается ни у кого. Кусок отпускает СТРОКА — тем, что её
+// удалили или что удалили весь заказ; аннулированный заказ со списком живых строк
+// держит свой металл дальше, ровно как держит хват на партии. Одна оговорка на два
+// случая лучше, чем правило, которое для куска и для партии звучит по-разному.
+registerOffcutClaimLookup(() => {
+  const taken = new Set<string>()
+  for (const order of STORE) {
+    for (const item of order.items) {
+      for (const allocation of item.allocations) {
+        if (allocation.offcutId) taken.add(allocation.offcutId)
+      }
+    }
+  }
+  return taken
 })
 
 let nextSeq = TOTAL_ORDERS + 1
@@ -1531,6 +1624,8 @@ export function mockCreateOrder(data: {
     clientName: client.name,
     clientVatCode: client.vatCode,
     clientAddress: client.address,
+    // Условия оплаты подтягиваются вместе с реквизитами — ТЗ Process 2.1 §1.
+    clientPaymentTermsDays: client.paymentTermsDays,
     documentType: data.documentType,
     status: 'new',
     items: [],
@@ -1651,6 +1746,24 @@ function unshippedLines(order: StoreOrder): Array<{ lineId: string; quantity: nu
     .filter((line) => line.quantity > 0)
 }
 
+/**
+ * Is every unshipped line of the order held on the shelf right now?
+ *
+ * This is what "ready at the warehouse" means for an order: nothing left to
+ * ship that is not already reserved against a batch. An order with nothing left
+ * to ship is not ready — it is shipped, which is a different fact and has its
+ * own status.
+ *
+ * The tolerance is there because both sides are sums of rounded quantities: a
+ * hold of 3.33 + 3.33 + 3.34 against a line of 10 must count as covered, and
+ * bare `>=` on binary floats occasionally says it is not.
+ */
+function fullyReserved(order: StoreOrder): boolean {
+  const lines = unshippedLines(order)
+  if (lines.length === 0) return false
+  return lines.every((line) => reservedForLine(order.id, line.lineId) >= line.quantity - 0.005)
+}
+
 export function mockPlanStatusTransition(
   orderId: string,
   status: OrderStatus,
@@ -1718,6 +1831,10 @@ export function mockPatchOrderStatus(
     oldValue: oldStatus,
     newValue: status,
   })
+  // Only a status that actually moved is an event. Re-sending the status the
+  // order already had is a write that changed nothing, and a feed that records
+  // it tells the user something happened when nothing did.
+  if (oldStatus !== status) notifyOrderStatusChanged(order, status)
   return publicOrder(order)
 }
 
@@ -1972,6 +2089,14 @@ export function mockAddOrderItem(
     marginPercent?: number
     discountPercent?: number
     batchId?: string | null
+    /**
+     * Обрезки, выбранные РУКАМИ — куски, с которых строка начинает своё покрытие.
+     *
+     * В автоматический FIFO обрезки не попадают и не попадут (пункт 7 плана
+     * `review-followups.md`): кусок выбирают глазами по размеру, а не по дате
+     * поступления. Поэтому это единственный способ назвать обрезок в строке.
+     */
+    offcutIds?: string[]
     /** The order version the caller was looking at — see `assertVersion`. */
     version?: number
   },
@@ -2011,12 +2136,26 @@ export function mockAddOrderItem(
   // under the admin the moment it is stored. A product with no batches has no
   // cost, and gets none: an invented number dressed up as a warehouse figure is
   // worse than no number at all, and two sides inventing separately is worse still.
+  // Выбранные куски — это то, ЧЕМ строка уже покрыта; остальное добирает FIFO из
+  // партий. Порядок именно такой: кусок выбрали руками, и подменять его партией,
+  // которая пришла раньше, значит отменить решение менеджера.
+  const chosen = mockOffcutAllocations(data.productId, data.offcutIds ?? [])
+  // Партия, названная целиком, и выбранные куски — два разных ответа на вопрос «чем
+  // покрыта строка», и ниже победил бы тот, что читают первым: `batchId` затирает всю
+  // разбивку. Отказ называет противоречие вместо того, чтобы разрешать его молча.
+  if (data.batchId && chosen.length > 0) throw new Error('OFFCUTS_WITH_BATCH')
+  // Кусков набрали больше, чем в строке. Отказ, а не усечение: обрезок неделим —
+  // урезать аллокацию до количества строки значит списать половину куска, которого
+  // в природе нет, а молча выбросить лишний кусок значит потерять выбор менеджера.
+  if (chosen.length > 0 && round2(chosen.reduce((sum, a) => sum + a.quantity, 0)) > data.quantity) {
+    throw new Error('OFFCUTS_EXCEED_QUANTITY')
+  }
   const covered = coverFromStock(order, {
     id: null,
     productId: data.productId,
     quantity: data.quantity,
     shippedQuantity: 0,
-    allocations: [],
+    allocations: chosen,
   })
   const { unitCost, costSource } = covered
 
@@ -2892,7 +3031,17 @@ function syncShortages(order: StoreOrder, productId: string): void {
     unit = unit || item.unit
   }
   if (missing <= 0) return
-  recordShortage({ productId, productName, quantity: missing, unit, orderId: order.id })
+  // Дефицит — складская запись, и единицу он хранит ссылкой на справочник (п. 4d).
+  // Строка заказа держит тот же id без начала, поэтому здесь одно преобразование,
+  // а не второе правило: `uomIdFromOrderLineUnit` — обратная сторона того, чем
+  // строка заказа этот код и получила.
+  recordShortage({
+    productId,
+    productName,
+    quantity: missing,
+    uomId: uomIdFromOrderLineUnit(unit),
+    orderId: order.id,
+  })
 }
 
 /**
@@ -2915,6 +3064,20 @@ export interface ShipmentPlanLine {
   unit: string
   quantity: number
   consume: OrderLineAllocation[]
+  /**
+   * Наибольшее количество ОТ НАЧАЛА запроса, которое это же списание примет.
+   *
+   * Не «остаток минус недостача»: недостача складывается со всей разбивки, а
+   * потребляют её префиксом. Партия, свободная наполовину, обрывает строку ВНУТРИ
+   * своей аллокации — за неё уже не добраться, и то, что стоит за ней, в предложение
+   * не входит, хотя в вычитание входило.
+   *
+   * Считается здесь же, в том цикле, который решает по каждой аллокации: отдельный
+   * проход по разбивке был бы вторым экземпляром того же правила и разошёлся бы с
+   * ним — а расхождение здесь означает диалог, предлагающий количество, которое
+   * списание отклонит.
+   */
+  offerable: number
 }
 
 export interface ShipmentPlan {
@@ -2964,26 +3127,77 @@ export function planShipment(
     // already consumed is skipped, so the second truck writes off the next
     // batches rather than the same ones again.
     const unshipped = splitAllocations(item.allocations, item.shippedQuantity).remainder
+    // Сколько куска осталось неотгруженным — целиком, до нарезки под эту машину.
+    // Кусок неделим: он либо уезжает весь, либо не уезжает вовсе, и «половина куска»
+    // в срезе означает, что в эту машину он не поместился, а не что его нет.
+    const wholePieces = new Map<string, number>()
+    for (const allocation of unshipped) {
+      if (!allocation.offcutId) continue
+      const already = wholePieces.get(allocation.offcutId) ?? 0
+      wholePieces.set(allocation.offcutId, round2(already + allocation.quantity))
+    }
     const consume: OrderLineAllocation[] = []
     let missing = shipLine.quantity
+    // Предложение собирается тем же проходом: `at` — сколько количества уже позади,
+    // `offerable` — последняя точка, до которой списание доходит без недостачи, а
+    // `blocked` ставится первой же аллокацией, которая прошла не целиком. Дальше неё
+    // предлагать нечего: разбивку потребляют префиксом, и всё, что стоит за пропуском,
+    // достаётся только вместе с ним.
+    let at = 0
+    let offerable = 0
+    let blocked = false
 
     for (const allocation of splitAllocations(unshipped, shipLine.quantity).shipped) {
+      const size = allocation.quantity
+      if (allocation.offcutId && !allocation.batchId) {
+        // Кусок лежит на полке отдельно от своей партии, поэтому и спрашивают о нём
+        // самого его, а не партию: партия своего куска давно не содержит.
+        //
+        // Три условия, и все три — «весь или никак». В срез поместилась только часть
+        // куска: распилить его на погрузке нельзя, эта машина уедет без него, а
+        // недостача покажет менеджеру ровно то, чего не хватило. Куска нет на полке:
+        // кладовщик успел отправить его в утиль или в производство. Кусок держит другая
+        // строка: то же правило, что у партии, — отгружают не «что лежит», а «что лежит
+        // и никому не обещано».
+        const whole = wholePieces.get(allocation.offcutId) ?? 0
+        const takeable =
+          round2(whole - size) <= 0 &&
+          shelvedOffcut(allocation.offcutId) &&
+          reservedOnOffcut(allocation.offcutId, {
+            exceptLine: { orderId: order.id, lineId: item.id },
+          }) === 0
+        if (takeable) {
+          consume.push({ ...allocation })
+          missing = round2(missing - size)
+          if (!blocked) offerable = round2(at + size)
+        } else {
+          blocked = true
+        }
+        at = round2(at + size)
+        continue
+      }
       // A line costed on a guess has no batch behind it, and goods that are on no
       // shelf cannot leave one.
       const batch = allocation.batchId ? batchById(allocation.batchId) : undefined
-      if (!batch) continue
       // Not just what is on the shelf — what is on the shelf and not promised to
       // somebody else. Shipping straight off the remainder would walk past every
       // reservation another order is holding, which is the same tonne sold twice
       // by a different route.
-      const free = computeAvailable(
-        batch.quantityRemaining,
-        reservedOn(batch.id, { exceptLine: { orderId: order.id, lineId: item.id } }),
-      )
-      const take = round2(Math.min(allocation.quantity, free))
-      if (take <= 0) continue
-      consume.push({ ...allocation, quantity: take })
-      missing = round2(missing - take)
+      const free = batch
+        ? computeAvailable(
+            batch.quantityRemaining,
+            reservedOn(batch.id, { exceptLine: { orderId: order.id, lineId: item.id } }),
+          )
+        : 0
+      const take = round2(Math.min(size, free))
+      if (take > 0) {
+        consume.push({ ...allocation, quantity: take })
+        missing = round2(missing - take)
+        if (!blocked) offerable = round2(at + take)
+      }
+      // Взяли не всё, что стояло в аллокации, — дальше по разбивке хода нет.
+      if (take < size) blocked = true
+      at = round2(at + size)
     }
 
     if (missing > 0) {
@@ -2995,6 +3209,7 @@ export function planShipment(
       unit: item.unit,
       quantity: shipLine.quantity,
       consume,
+      offerable,
     })
   }
 
@@ -3002,10 +3217,22 @@ export function planShipment(
 }
 
 /**
+ * Куски в НЕОТГРУЖЕННОЙ части строки, выраженные в количестве.
+ *
+ * Отрезки считает `wholePieceRanges` из `orderLines` — одно правило геометрии на проект;
+ * здесь только выбирается, по какой части разбивки его спросить. Ничего про доступность
+ * куска не решается: её считает `planShipment`, и второй раз она тут не повторяется.
+ */
+function unshippedPieceRanges(item: OrderItem): WholePieceRange[] {
+  return wholePieceRanges(splitAllocations(item.allocations, item.shippedQuantity).remainder)
+}
+
+/**
  * The lines a shipment could take right now, and how much of each.
  *
  * Same planner as the shipment itself, so the dialog cannot offer a quantity the
- * write-off would then refuse.
+ * write-off would then refuse — и предложенное число берётся у самого плана
+ * (`ShipmentPlanLine.offerable`), а не вычитается из остатка задним числом.
  */
 export function mockPlanOrderShipment(orderId: string): ShippableLine[] {
   const order = STORE.find((o) => o.id === orderId)
@@ -3015,13 +3242,14 @@ export function mockPlanOrderShipment(orderId: string): ShippableLine[] {
 
   const plan = planShipment(order, requested)
   return plan.lines.map((line) => {
-    const missing = plan.shortages.find((s) => s.lineId === line.lineId)?.missing ?? 0
+    const item = order.items.find((i) => i.id === line.lineId)!
     return {
       lineId: line.lineId,
       productName: line.productName,
       unit: line.unit,
       remaining: line.quantity,
-      shippable: round2(line.quantity - missing),
+      shippable: line.offerable,
+      wholePieces: unshippedPieceRanges(item),
     }
   })
 }
@@ -3047,6 +3275,25 @@ export function mockCreateShipment(
   const plan = planShipment(order, data.lines)
   if (plan.shortages.length > 0) throw new Error('SHIPMENT_EXCEEDS_STOCK')
   const planned = plan.lines
+
+  // Движение по куску пишется против его РОДИТЕЛЬСКОЙ партии: `writeMovement` без
+  // партии не пишет ничего, и номер, товар, единица и цена у движения берутся оттуда.
+  // Металл с партии при этом не уходит второй раз — она отдала его в момент резки, и
+  // `writeMovement` узнаёт этот случай по заполненному `offcutId`.
+  //
+  // Родители разрешаются здесь, ДО первой записи, по той же причине, по которой
+  // планируется вся отгрузка: половина отгрузки — не то состояние, из которого склад
+  // выбирается. `planShipment` кусок уже проверил, так что пусто тут не бывает; пусто
+  // означало бы, что план и запись разошлись, а это отказ, а не пропуск.
+  const pieceParent = new Map<string, string>()
+  for (const line of plan.lines) {
+    for (const allocation of line.consume) {
+      if (allocation.batchId || !allocation.offcutId) continue
+      const piece = shelvedOffcut(allocation.offcutId)
+      if (!piece) throw new Error('SHIPMENT_EXCEEDS_STOCK')
+      pieceParent.set(allocation.offcutId, piece.batchId)
+    }
+  }
 
   const shipment: Shipment = {
     id: `${order.id}-SHP-${order._nextShipmentSeq}`,
@@ -3090,7 +3337,7 @@ export function mockCreateShipment(
     for (const allocation of line.consume) {
       writeMovement({
         type: 'sale',
-        batchId: allocation.batchId!,
+        batchId: allocation.batchId ?? pieceParent.get(allocation.offcutId!)!,
         offcutId: allocation.offcutId,
         quantity: allocation.quantity,
         unitPrice: allocation.unitCost,
@@ -3217,6 +3464,25 @@ export function mockCancelShipment(
     let left = round2(Math.max(0, owed - reservedForLine(order.id, item.id)))
     for (const hold of shipLine.heldReleased) {
       if (left <= 0) break
+      if (!hold.batchId && hold.offcutId) {
+        // Кусок вернулся на полку возвратным движением выше, и хват на него ставится
+        // обратно по тому же правилу, что на партию: только то, что действительно
+        // свободно. Свободного КОЛИЧЕСТВА у куска нет — есть «свободен или нет», —
+        // поэтому вместо вычитания чужого хвата здесь проверка, что чужого хвата нет.
+        if (!shelvedOffcut(hold.offcutId)) continue
+        if (reservedOnOffcut(hold.offcutId) > 0) continue
+        const quantity = round2(Math.min(hold.quantity, left))
+        if (quantity <= 0) continue
+        holdOnBatch({
+          orderId: order.id,
+          lineId: item.id,
+          batchId: null,
+          offcutId: hold.offcutId,
+          quantity,
+        })
+        left = round2(left - quantity)
+        continue
+      }
       if (!hold.batchId) continue
       const batch = batchById(hold.batchId)
       if (!batch) continue
@@ -3432,16 +3698,27 @@ export function mockCreateReturn(
     const ladder = returnLadder(order, item)
     const taken: ReturnPlacement[] = []
     let left = request.quantity
+    let pieceSkipped = false
     for (const rung of ladder) {
       if (left <= 0) break
       if (!batchById(rung.batchId)) throw new Error('RETURN_BATCH_NOT_FOUND')
+      // Кусок неделим и на возврате тоже — то же правило, что на погрузке. Только
+      // отказ здесь не сразу: возврат меньше куска чаще всего означает, что вернули
+      // не кусок, а металл из партии, уехавшей той же машиной, — и такой возврат
+      // ложится на следующую ступеньку лестницы, не тронув куска. Отказ остаётся на
+      // случай, когда положить остаток больше некуда: тогда вернуть просили именно
+      // ПОЛОВИНУ куска, а половины у куска нет.
+      if (rung.offcutId && rung.quantity > left) {
+        pieceSkipped = true
+        continue
+      }
       const quantity = round2(Math.min(rung.quantity, left))
       taken.push({ ...rung, quantity })
       left = round2(left - quantity)
     }
     // The line says it shipped, and no batch will own the goods back. Something
     // upstream is inconsistent, and guessing a batch here would invent a cost.
-    if (left > 0) throw new Error('RETURN_BATCH_NOT_FOUND')
+    if (left > 0) throw new Error(pieceSkipped ? 'RETURN_SPLITS_OFFCUT' : 'RETURN_BATCH_NOT_FOUND')
     placements.set(request.lineId, taken)
   }
 
@@ -3571,6 +3848,12 @@ export function mockReserveOrder(
   if (!order) throw new Error('ORDER_NOT_FOUND')
   assertVersion(order, version)
 
+  // Taken BEFORE anything is held: "ready" is a transition, and an order that
+  // was already covered has nothing to announce. Without this, every repeated
+  // reserve — and the status transitions that call this function — would file
+  // the same "prepare the metal" note again.
+  const wasReady = fullyReserved(order)
+
   const created: StockReservation[] = []
   for (const item of order.items) {
     const unshipped = round2(item.quantity - item.shippedQuantity)
@@ -3587,6 +3870,31 @@ export function mockReserveOrder(
     let left = toReserve
     for (const allocation of item.allocations) {
       if (left <= 0) break
+      if (allocation.offcutId) {
+        // Обрезок — ОДИН физический кусок, и лежит он отдельно от своей партии: его
+        // материал ушёл с неё в момент резки. Поэтому свободен он не «сколько осталось
+        // на партии», а «пока его не держит кто-то другой», и держится он целиком.
+        if (
+          reservedOnOffcut(allocation.offcutId, {
+            exceptLine: { orderId: order.id, lineId: item.id },
+          }) > 0
+        )
+          continue
+        const mine = reservedForLineOnOffcut(order.id, item.id, allocation.offcutId)
+        const quantity = round2(Math.min(round2(allocation.quantity - mine), left))
+        if (quantity <= 0) continue
+        created.push(
+          holdOnBatch({
+            orderId: order.id,
+            lineId: item.id,
+            batchId: null,
+            offcutId: allocation.offcutId,
+            quantity,
+          }),
+        )
+        left = round2(left - quantity)
+        continue
+      }
       if (!allocation.batchId) continue
       const batch = batchById(allocation.batchId)
       if (!batch) continue
@@ -3618,6 +3926,7 @@ export function mockReserveOrder(
   }
   recalcOrder(order)
   bumpVersion(order)
+  if (!wasReady && fullyReserved(order)) notifyWarehouseReady(order)
   return created.map((r) => ({ ...r }))
 }
 
@@ -3654,8 +3963,20 @@ export function mockAddOrderPayment(
   // written with an amount of zero — the very thing the next line refuses.
   requireFiniteNumbers({ amount: data.amount })
   if (data.amount === 0) throw new Error('PAYMENT_AMOUNT_REQUIRED')
-  const purpose: PaymentPurpose = data.purpose ?? (data.amount < 0 ? 'refund' : 'balance')
-  if (purpose === 'refund' && data.amount > 0) throw new Error('REFUND_MUST_BE_NEGATIVE')
+  if (data.purpose === 'refund' && data.amount > 0) throw new Error('REFUND_MUST_BE_NEGATIVE')
+  // Возврат — это ЗНАК суммы, а не ярлык над ней. Минус — деньги, ушедшие
+  // обратно, как бы вызывающий их ни назвал: `purpose` приходит снаружи, и
+  // проверка ярлыка запирала одну дверь из двух — `{ amount: -50, purpose:
+  // 'balance' }` проходила мимо неё. Отсюда назначение выводится из знака, а
+  // переданное имя решает только среди пришедших денег.
+  const purpose: PaymentPurpose = data.amount < 0 ? 'refund' : (data.purpose ?? 'balance')
+  // Возврат обязан назвать документ (пункт 14 `review-followups.md`). Деньги
+  // ПРИШЕДШИЕ могут не называть ничего — аванс приходит раньше проформы, «на
+  // счёт» не называет ничей документ. Деньги УШЕДШИЕ так не бывают: они уходят
+  // по тому, что клиент держит на руках. Безымянный возврат попадал в
+  // `paidAmount` заказа и не попадал ни в один баланс документа, и карточка
+  // заказа расходилась с реестром «Входящих» ровно на его сумму.
+  if (purpose === 'refund' && !data.invoiceId) throw new Error('REFUND_INVOICE_REQUIRED')
   // A payment against a document nobody issued points at nothing: the panel would
   // show a dash where the invoice number belongs and never say why.
   if (data.invoiceId && !order.invoices.some((i) => i.id === data.invoiceId)) {
@@ -3675,6 +3996,9 @@ export function mockAddOrderPayment(
   order.payments.push(payment)
   recalcOrder(order)
   bumpVersion(order)
+  // Money that came IN. A refund is a payment record too, and telling the user
+  // "payment received" when the company just paid money back would be false.
+  if (payment.amount > 0) notifyPaymentReceived(order, payment.amount)
   return clone(payment)
 }
 
@@ -3700,6 +4024,94 @@ export function mockGetInvoices(orderId: string): Invoice[] {
   const order = STORE.find((o) => o.id === orderId)
   if (!order) throw new Error('ORDER_NOT_FOUND')
   return clone(order.invoices)
+}
+
+/**
+ * Everything this client was billed, and every euro of theirs the orders hold.
+ *
+ * Answered by the side that holds the orders, and not assembled in the card out
+ * of a list of orders and a request per order: "is the client still holding this
+ * document" is `isWithdrawn`, and a second copy of that rule on the client side
+ * would drift from this one the first time a correction changed meaning. The
+ * card gets rows that already know it.
+ *
+ * Corrections get no row of their own. A correction is not a document the client
+ * was billed on — it changes the amount on one they already have — so it lands in
+ * `amountGrossCurrent` and, when it takes the document back, in `withdrawn`. Money
+ * paid against a correction follows its amount into the SAME row, because a row
+ * whose amount counts corrections and whose paid figure does not is one balance
+ * computed by two rules, and the difference is money nobody can see.
+ *
+ * Money that names no document at all is not swallowed either — it comes back in
+ * `unassignedPayments`. `payment.invoiceId` is optional for money COMING IN by
+ * design (an advance arrives before the proforma; "paid on account" names
+ * nothing) — never for a refund, which must name the document it goes back on
+ * (§14). Counted, not remembered: 11 orders of the seeded 100 hold such money
+ * today, and none of it is a refund. Attaching it to some invoice would be an
+ * invention; dropping it made the card say a client who had paid 6971,72 EUR had
+ * paid 2000. So every payment lands in exactly one of the two lists, and the sum
+ * of the summary agrees with the orders' own `paidAmount` to the cent.
+ */
+export function mockGetClientInvoiceSummary(clientId: string): ClientInvoiceSummary {
+  const invoices: ClientInvoice[] = []
+  const unassignedPayments: ClientUnassignedPayment[] = []
+
+  for (const order of STORE) {
+    if (order.clientId !== clientId) continue
+
+    // Which row a payment belongs to, what a document is worth today and what
+    // came in on it — all three answered by `invoiceBalances` in the domain, the
+    // same call the incoming registry and the payment dialog make. A second copy
+    // of this arithmetic living here is what let the two views disagree.
+    const balances = invoiceBalances(order.invoices, order.payments)
+    // What a payment may name and still be counted: this order's own invoices, and
+    // corrections that have a document to correct.
+    const attachable = new Set(
+      order.invoices
+        .filter((i) => i.kind !== 'correction' || i.correctsInvoiceId !== null)
+        .map((i) => i.id),
+    )
+
+    for (const balance of balances) {
+      const invoice = order.invoices.find((i) => i.id === balance.id)!
+      invoices.push({
+        id: invoice.id,
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        number: invoice.number,
+        issuedAt: invoice.issuedAt,
+        kind: invoice.kind,
+        currency: order.currency,
+        amountGross: invoice.amountGross,
+        amountGrossCurrent: balance.amount,
+        withdrawn: balance.withdrawn,
+        paidAmount: balance.paidAmount,
+        outstanding: balance.outstanding,
+      })
+    }
+
+    // One line per order, not per payment: the card's question is how much of this
+    // client's money is standing against no document, and the order it came in on
+    // is where the individual records are read.
+    const loose = order.payments.filter((p) => !p.invoiceId || !attachable.has(p.invoiceId))
+    if (loose.length > 0) {
+      unassignedPayments.push({
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        currency: order.currency,
+        paidAt: loose.reduce(
+          (latest, p) => (p.paidAt > latest ? p.paidAt : latest),
+          loose[0]!.paidAt,
+        ),
+        amount: round2(loose.reduce((sum, p) => sum + p.amount, 0)),
+      })
+    }
+  }
+
+  // Newest first — the same order the card's history reads in.
+  invoices.sort((a, b) => b.issuedAt.localeCompare(a.issuedAt))
+  unassignedPayments.sort((a, b) => b.paidAt.localeCompare(a.paidAt))
+  return { invoices, unassignedPayments }
 }
 
 /**
@@ -3764,9 +4176,7 @@ function billableLineNet(line: OrderItem, alreadyBilled: number, quantity: numbe
  * document nobody had taken back.
  */
 function isWithdrawn(order: StoreOrder, invoiceId: string): boolean {
-  return order.invoices.some(
-    (i) => i.kind === 'correction' && i.correctsInvoiceId === invoiceId && i.withdrawsOriginal,
-  )
+  return isInvoiceWithdrawn(order.invoices, invoiceId)
 }
 
 /**
@@ -3909,7 +4319,7 @@ export function mockCreateInvoice(
     // has on it; charging MORE is not bounded by that number at all — the client
     // simply owes more than before. Bounding both directions refused a legitimate
     // price correction upwards, and the fuzzer found it inside a minute.
-    const adjustment = statedNet(order, data)
+    const adjustment = statedAmounts(order, data)?.net
     if (
       adjustment !== undefined &&
       adjustment < 0 &&
@@ -3923,16 +4333,22 @@ export function mockCreateInvoice(
 
   // Mirror amount → the document is taken back. Stated amount → it is adjusted and
   // the client goes on holding it. See `withdrawsOriginal`.
-  const stated = original ? statedNet(order, data) : undefined
+  const stated = original ? statedAmounts(order, data) : undefined
   const withdrawsOriginal = original !== undefined && stated === undefined
 
   let net: number
+  /**
+   * Брутто, НАЗВАННЫЙ вызывающим, если он был назван. Документ обязан показать
+   * именно его: пересчёт из округлённого нетто уводит сумму на копейку от набранной.
+   */
+  let statedGross: number | undefined
   if (original) {
     // Withdrawing the document means the mirror image of what the client is
     // holding — see `outstandingNetOf`. An explicit amount is still allowed — a
     // price corrected downwards is a partial correction — but the default is the
     // whole thing, because that is what a cancellation is.
-    net = stated ?? round2(-outstandingNetOf(order, original))
+    net = stated?.net ?? round2(-outstandingNetOf(order, original))
+    statedGross = stated?.gross
   } else if (data.shipmentId) {
     const shipment = order.shipments.find((s) => s.id === data.shipmentId)
     if (!shipment) throw new Error('SHIPMENT_NOT_FOUND')
@@ -3955,12 +4371,15 @@ export function mockCreateInvoice(
     // Nothing but services — the case above with no delivery under it.
     net = servicesNet(carried)
   } else {
-    const amount = statedNet(order, data)
+    const amount = statedAmounts(order, data)
     if (amount === undefined) throw new Error('INVOICE_AMOUNT_REQUIRED')
-    net = amount
+    net = amount.net
+    statedGross = amount.gross
   }
 
-  const gross = netToGross(net, order.vatMode, order.vatPercent)
+  // Заявленный брутто побеждает вычисленный: см. `statedAmounts`. Там, где его не
+  // называли (счёт по отгрузке, счёт за услуги), брутто как и раньше выводится из нетто.
+  const gross = statedGross ?? netToGross(net, order.vatMode, order.vatPercent)
   const invoice: Invoice = {
     id: `${order.id}-INV-${order._nextInvoiceSeq}`,
     orderId: order.id,
@@ -4026,17 +4445,38 @@ export function mockCreateInvoice(
   return clone(invoice)
 }
 
-/** The amount the caller stated, net — from either field, never from both. */
-function statedNet(
+/**
+ * Суммы, названные вызывающим, — из одного поля, никогда из обоих.
+ *
+ * Возвращает ОБЕ: и нетто, и брутто. Раньше возвращалось только нетто, а брутто
+ * потом выводилось из него обратно — и на этом круге терялась копейка. При НДС 21 %
+ * заявленные 15000 превращались в 12396.69 нетто (округление до копейки), а обратно
+ * давали 14999.99. Документ называл не ту сумму, которую набрал человек.
+ *
+ * Развилка решена так: если брутто ЗАЯВЛЕН, документ обязан назвать именно его, а
+ * нетто и НДС вывести из него. Второй возможный ответ — предупредить, что 15000 при
+ * 21 % недостижим (`achievableGross` в домене умеет это считать) — верен для ИТОГА
+ * ЗАКАЗА, где нетто раскладывается по строкам и обязано сойтись с их суммой. У
+ * авансового счёта строк под ним нет: сумма заявлена целиком, и терять на ней копейку
+ * не из чего.
+ *
+ * Обратное направление не меняется: заявлено нетто — брутто выводится из него, как и
+ * было.
+ */
+function statedAmounts(
   order: StoreOrder,
   data: { amountNet?: number; amountGross?: number },
-): number | undefined {
+): { net: number; gross: number } | undefined {
   if (data.amountNet !== undefined && data.amountGross !== undefined) {
     throw new Error('INVOICE_AMOUNT_AMBIGUOUS')
   }
-  if (data.amountNet !== undefined) return round2(data.amountNet)
+  if (data.amountNet !== undefined) {
+    const net = round2(data.amountNet)
+    return { net, gross: netToGross(net, order.vatMode, order.vatPercent) }
+  }
   if (data.amountGross !== undefined) {
-    return round2(grossToNet(data.amountGross, order.vatMode, order.vatPercent))
+    const gross = round2(data.amountGross)
+    return { gross, net: grossToNet(gross, order.vatMode, order.vatPercent) }
   }
   return undefined
 }
@@ -4128,7 +4568,113 @@ function buildShowcaseReturn(): void {
 // Last in the file, and it has to be: the showcase drives the real endpoints, and
 // those read counters and helpers declared further down. Called any earlier it
 // walks into the temporal dead zone of the first one it touches.
-buildShowcaseOrder()
+// The showcase pays invoices and orders goods the shelf cannot cover, and it does
+// it through the real endpoints — which emit notifications. Loading a module is
+// not an event, so the seed is built with the feed muted; see `seedQuietly` in
+// `notifications.ts`. Nothing else in this file's seed reaches an emitter today,
+// and nothing needs to be wrapped in advance: the guard against the next one is
+// the load-time check in `notification-triggers.spec.ts`, which compares the feed
+// as it stands after import against the seeded records — whatever path wrote them.
+seedQuietly(buildShowcaseOrder)
+
+/**
+ * Документы у ДОЛИ отгруженных заказов — решение владельца от 2026-08-30 (пункт 6).
+ *
+ * Было: секция «Выставленные счета» пуста у 43 клиентов из 55, а настоящие счета —
+ * ровно у одного. Дыра не в отображении: секция ВЫВОДИТСЯ из счетов заказов, своего
+ * хранилища у неё нет, а документы выписывались почти только у собранных руками.
+ *
+ * Доля, а не «всем отгруженным»: «отгружено, а счёт ещё не выписан» — законное
+ * состояние, которое модуль умеет показывать, и стереть его значило бы украсить
+ * демо-данные вместо того, чтобы их наполнить.
+ *
+ * Доля ДЕТЕРМИНИРОВАННАЯ, по остатку от деления индекса: случайная переставляла бы
+ * демо-данные от прогона к прогону, и тесты флейкали бы по причине, к коду отношения
+ * не имеющей. Три остатка — три состояния, и все три обязаны присутствовать:
+ *
+ *   index % 3 === 0 → счёт выписан и оплачен       (в реестре закрыт)
+ *   index % 3 === 1 → счёт выписан, денег нет      (в реестре долг)
+ *   index % 3 === 2 → отгружено, счёт не выписан   (в реестре его нет вовсе)
+ *
+ * Деньги НАЗЫВАЮТ свой документ. Платёж без ссылки на счёт ничей долг не закрывает —
+ * это правило модели, а не упрощение мока, и именно на нём прошлый список ловил
+ * расхождение: карточка показывала деньги полученными, а реестр рядом рисовал по
+ * тому же счёту «Просрочен» и «оплачено 0.00».
+ *
+ * Сценарные заказы и показательный ORD-100 не трогаются: они существуют, чтобы
+ * демонстрировать точные состояния, и тесты пиноют их числа документов. Ровно то же
+ * правило соблюдает `buildShowcaseReturn` ниже.
+ *
+ * Всё — через настоящие эндпоинты. Счёт, положенный объектом в обход
+ * `mockCreateInvoice`, не заморозил бы строки, которые он покрывает, и демо показало
+ * бы свободно редактируемую строку против документа, который клиент держит в руках.
+ */
+function issueSeedInvoices(): void {
+  const reserved = new Set(mockOrderScenarios().map((sc) => sc.id))
+  reserved.add(SHOWCASE_ORDER_ID)
+
+  STORE.forEach((order, index) => {
+    if (reserved.has(order.id)) return
+    if (index % 3 === 2) return
+
+    const shipment = order.shipments.find((sh) => !sh.cancelled)
+    if (!shipment) return
+    if (liveInvoicesFor(order, shipment.id).length > 0) return
+    // Деньги, не названные документом, на этом заказе уже есть — такой случай
+    // разбирает `issueProformaForPrepayment`, и второй раз его решать здесь незачем.
+    if (order.payments.some((pay) => pay.invoiceId === null && pay.amount > 0)) return
+
+    try {
+      mockCreateInvoice(order.id, { kind: 'regular', shipmentId: shipment.id })
+    } catch {
+      // Отгрузка, которую нельзя выставить (уже выставлена, отменена, пуста) —
+      // демо обойдётся без этого документа.
+      return
+    }
+
+    const issued = order.invoices[order.invoices.length - 1]
+    if (!issued) return
+    // Документ датируется отгрузкой, а не загрузкой страницы: панель сортирует по этому.
+    issued.issuedAt = shipment.shippedAt
+
+    if (index % 3 !== 0) return
+
+    try {
+      // Ровно сумма документа — до копейки, иначе реестр покажет «переплачено».
+      mockAddOrderPayment(order.id, {
+        amount: issued.amountGross,
+        purpose: 'balance',
+        note: 'Оплата по счёту',
+        invoiceId: issued.id,
+      })
+    } catch {
+      // Платёж отклонён — счёт остаётся открытым, это тоже законное состояние.
+    }
+  })
+}
+
+/*
+ * Вызывается ЗДЕСЬ, а не сразу после `createScenarioShipments()`, и это не вкусовщина:
+ * `SHOWCASE_ORDER_ID` объявлен ниже того места через `const`, и вызов оттуда попал бы в
+ * его временную мёртвую зону. Тот же порядок и по той же причине, о которой файл
+ * предупреждает у `buildShowcaseOrder`.
+ *
+ * И раньше показательного возврата: тот выбирает первый неслужебный заказ с двумя
+ * отгруженными строками, и если у заказа уже есть счёт, возврат ложится на документ
+ * корректировкой — то есть ровно так, как это происходит в жизни.
+ */
+/*
+ * Под `seedQuietly` — по той же причине, что и показательный заказ выше: проход идёт
+ * через настоящие эндпоинты, а те шлют уведомления. Загрузка модуля — не событие, и
+ * колокольчик не должен показывать десяток «выставлен счёт» при первом открытии
+ * приложения.
+ *
+ * Это не предусмотрительность: первая версия правки была без обёртки, и её поймал
+ * сторож `notification-triggers.spec.ts` — тот самый, который в комментарии к
+ * `seedQuietly(buildShowcaseOrder)` назван защитой от следующего такого случая.
+ */
+seedQuietly(issueSeedInvoices)
+
 buildShowcaseReturn()
 
 // ─── Audit source ───────────────────────────────────────────────────────────
@@ -4141,4 +4687,66 @@ export function orderAuditSources(): AuditSource[] {
     entityLabel: o.orderNumber,
     log: o.auditLog,
   }))
+}
+
+// ─── Реестр входящих: счета заказов, а не отдельные записи ──────────────────
+
+/**
+ * Счета к получению по всем заказам — то, из чего страница «Входящие» строит
+ * свои строки (пункт 13 плана `review-followups.md`).
+ *
+ * Живёт здесь по той же причине, что и `orderAuditSources`: счета принадлежат
+ * заказу. Сам расчёт «сколько выставлено и сколько по этому пришло» — не здесь,
+ * а в домене (`invoiceBalances`): тот же вопрос задают сводка счетов клиента и
+ * модалка регистрации оплаты, и три экземпляра одного расчёта разошлись бы в тот
+ * день, когда корректировки поменяются. Два из них уже разошлись.
+ *
+ * Что НЕ попадает в реестр:
+ * - корректировка сама по себе — она не самостоятельный долг, а поправка к сумме
+ *   исходного счёта, и уже учтена в ней;
+ * - счёт, отозванный корректировкой на зеркальную сумму: клиент не держит ничего,
+ *   значит и требовать по нему нечего.
+ */
+export function orderReceivables(): Receivable[] {
+  const rows: Receivable[] = []
+  for (const order of STORE) {
+    // «Сколько выставлено и сколько по этому пришло» считает домен, один раз на
+    // все три места, где этот вопрос задаётся (`invoiceBalances`). Свой экземпляр
+    // расчёта здесь и второй в сводке клиента уже разошлись на деньгах, названных
+    // корректировкой: сводка засчитывала их, реестр — нет.
+    const balances = invoiceBalances(order.invoices, order.payments)
+    for (const balance of balances) {
+      if (balance.withdrawn) continue
+      const invoice = order.invoices.find((i) => i.id === balance.id)!
+      const dueDate = receivableDueDate(invoice.issuedAt, order.clientPaymentTermsDays)
+
+      rows.push({
+        id: invoice.id,
+        invoiceNumber: invoice.number,
+        issuedAt: invoice.issuedAt,
+        dueDate,
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        clientId: order.clientId,
+        clientName: order.clientName,
+        currency: order.currency,
+        amount: balance.amount,
+        paidAmount: balance.paidAmount,
+        // НЕ зажимается нулём. Домен рядом говорит прямо: «переплату скрывать
+        // нельзя, её видно как есть» (`domain/receivable.ts`, поле `outstanding`),
+        // и карточка заказа её так и показывает — `useOrderCard` разбирает
+        // отрицательный остаток в состояние `overpaid`. Реестр, приводивший то же
+        // число к нулю, спорил с обоими и делал переплату невидимой ровно там, где
+        // деньги сводят. Решение владельца 2026-08-30: показывать как есть.
+        outstandingAmount: balance.outstanding,
+        paidAt: balance.paidAt,
+        status: receivableStatus({
+          amount: balance.amount,
+          paidAmount: balance.paidAmount,
+          dueDate,
+        }),
+      })
+    }
+  }
+  return rows
 }

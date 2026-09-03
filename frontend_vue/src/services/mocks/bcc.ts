@@ -1,6 +1,8 @@
 import type { BccCategory, BccRecipient, BccRequest } from '@/types/bcc'
 import type { TranslatedString } from '@/types/i18n'
 import { MOCK_SUPPLIERS } from './suppliers'
+import { notifySupplierResponse } from './notifications'
+import { mockGetMail, mockIsMailConfigured } from './settings'
 
 export const MOCK_BCC_CATEGORIES: BccCategory[] = [
   {
@@ -264,13 +266,71 @@ export function mockGetBccHistory(
   }
 }
 
-export function mockSendBccRequest(_payload: {
+/**
+ * Конверт отправленного письма — то, что «ушло с сервера».
+ *
+ * Раньше отправка не оставляла следа вовсе: мок принимал payload и возвращал
+ * идентификатор. Проверить главное требование спеки (04.2 §4) было нечем —
+ * рассылка циклом по одному письму снаружи выглядит точно так же, а стоит
+ * раскрытием списка поставщиков при первой же ошибке.
+ */
+export interface SentEmail {
+  /** Поле From — имя и адрес из почтовых настроек. */
+  from: string
+  /** Кому письмо адресовано в открытую. Сервер шлёт его самому себе. */
+  to: string[]
+  cc: string[]
+  /** Все получатели рассылки — и только здесь. */
+  bcc: string[]
+  subject: string
+  body: string
+  fileIds: string[]
+  sentAt: string
+}
+
+/** Журнал ушедших писем. Одна отправка — одна запись, иначе это не одна транзакция. */
+export const MOCK_SENT_EMAILS: SentEmail[] = []
+
+/** Сбросить журнал — нужен тестам, чтобы считать письма своего сценария. */
+export function mockClearSentEmails(): void {
+  MOCK_SENT_EMAILS.length = 0
+}
+
+function plainText(value: TranslatedString | string): string {
+  return typeof value === 'string' ? value : value.en || value.ru || value.lt || ''
+}
+
+/**
+ * Отправка запроса цен. Письмо уходит ОДНОЙ транзакцией: один конверт, все адреса
+ * поставщиков в BCC (спека 04.2 §4 — поставщики не должны видеть друг друга).
+ *
+ * Параметры отправителя берутся из почтовых настроек (спека 04.2 §6), и
+ * ненастроенный сервер отказывает, а не делает вид, что отправил.
+ */
+export function mockSendBccRequest(payload: {
   productIds: string[]
   recipientIds: string[]
   subject: TranslatedString | string
   body: TranslatedString | string
   fileIds?: string[]
 }): { requestId: string } {
+  if (!mockIsMailConfigured()) throw new Error('MAIL_NOT_CONFIGURED')
+  const mail = mockGetMail()
+  const bcc = payload.recipientIds
+    .map((id) => MOCK_SUPPLIERS.find((s) => s.id === id)?.email)
+    .filter((email): email is string => Boolean(email))
+
+  MOCK_SENT_EMAILS.push({
+    from: mail.fromName ? `${mail.fromName} <${mail.fromEmail}>` : mail.fromEmail,
+    to: [mail.fromEmail],
+    cc: [],
+    bcc,
+    subject: plainText(payload.subject),
+    body: plainText(payload.body),
+    fileIds: payload.fileIds ?? [],
+    sentAt: new Date().toISOString(),
+  })
+
   return { requestId: `req-${Date.now()}` }
 }
 
@@ -302,6 +362,10 @@ export function mockAcceptResponse(
     unit: payload.unit,
   }
   MOCK_BCC_HISTORY.unshift(next)
+  // The supplier answering is the event. `mockMarkNoResponse` below is the
+  // opposite fact — nobody answered — and files nothing: a feed that reports
+  // silence as news would fill up with things that did not happen.
+  notifySupplierResponse({ id: next.supplierId, name: next.supplierName })
   return next
 }
 

@@ -41,12 +41,6 @@
   letter-spacing: 0.04em;
 }
 
-/* Data Table Wrapper */
-.data-table-wrapper {
-  width: 100%;
-  overflow-x: auto;
-}
-
 /* Error & Empty States */
 .error-state {
   display: flex;

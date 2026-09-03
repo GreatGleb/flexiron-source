@@ -1,7 +1,7 @@
 import { type Page } from '@playwright/test'
 import { test, expect } from '../../fixtures'
 import { navigateToAdmin } from '../../helpers/admin'
-import { waitForDataReady } from '../../helpers/ready'
+import { DATA_READY_TIMEOUT, waitForDataReady } from '../../helpers/ready'
 
 /**
  * Резка металла: операция, а не подпись.
@@ -15,6 +15,12 @@ import { waitForDataReady } from '../../helpers/ready'
  */
 
 const METRE_BATCH = 'INV-2025-078'
+
+/**
+ * Партия INV-2025-045 (`whb-042`) меряется в ШТУКАХ — на ней проверяется то, чего
+ * из метровой не видно: с партии уходят исходные штуки, а не вышедшие из них куски.
+ */
+const PIECE_BATCH = 'INV-2025-045'
 
 /** Число из ячейки сводки — без единицы, которой подписан столбец. */
 async function amount(page: Page, testId: string): Promise<number> {
@@ -51,6 +57,168 @@ async function fillRow(
 }
 
 test.describe('Cutting operation', () => {
+  /**
+   * Пункт 7: поиск партии терял фокус на каждой букве.
+   *
+   * Механизм не в странице, а в панели: `.glass-panel.loading .panel-body`
+   * скрыт через `display: none`, а тело — это и таблица, и само поле ввода.
+   * Каждая буква перезапрашивала список, панель уходила в `loading`, поле
+   * исчезало, и браузер снимал с него фокус.
+   *
+   * Два утверждения на два разных факта. Первое операционное: слово набирается
+   * целиком, то есть буквы дошли до поля, а не в `document.body` после потери
+   * фокуса. Второе механическое: панель ни разу не ушла в скелет, пока в ней
+   * было живое содержимое. Порознь каждое слабее — первое прошло бы и при
+   * другом способе удержать фокус, второе и при поле, вынесенном из панели.
+   */
+  test('поиск партии не теряет фокус на каждой букве', async ({ page }) => {
+    await navigateToAdmin(page, '/admin/warehouse/cutting')
+    // Признак ПРИШЕДШИХ данных, а не отрисованной панели: панель видна и со скелетом.
+    await expect(page.getByTestId('warehouse-cutting-batch-row').first()).toBeVisible()
+
+    // Считаем переходы панели в скелет НАЧИНАЯ ОТСЮДА: первая загрузка уже позади,
+    // её скелет законен и к делу не относится.
+    await page.evaluate(() => {
+      const panel = document.querySelector('[data-test="warehouse-cutting-batch-panel"]')!
+      const w = window as unknown as { __panelHidden: number }
+      w.__panelHidden = 0
+      new MutationObserver(() => {
+        if (panel.classList.contains('loading')) w.__panelHidden++
+      }).observe(panel, { attributes: true, attributeFilter: ['class'] })
+    })
+
+    const search = page.getByTestId('warehouse-cutting-batch-search').locator('input')
+    await search.click()
+    await expect(search).toBeFocused()
+
+    // По букве, с паузой, которой хватает на перезапрос — как печатает человек.
+    await page.keyboard.type('INV', { delay: 120 })
+
+    // Слово набралось целиком: ни одна буква не ушла мимо поля.
+    await expect(search).toHaveValue('INV')
+    await expect(search).toBeFocused()
+
+    // И тело панели не пряталось ни разу при живом содержимом.
+    const hidden = await page.evaluate(
+      () => (window as unknown as { __panelHidden: number }).__panelHidden,
+    )
+    expect(hidden).toBe(0)
+  })
+
+  /**
+   * Пункт 2: шесть расхождений страницы резки. Здесь сторожатся четыре из них —
+   * те, что видны в DOM. Пятое (отступы классами вместо инлайнового `style=`)
+   * проверяется отдельным утверждением ниже, шестое (текстовое поле без базового
+   * класса) закрыто пунктом 8 и сторожится его компонентным тестом.
+   */
+  test('заголовок панели печатается один раз, а не дважды', async ({ page }) => {
+    await navigateToAdmin(page, '/admin/warehouse/cutting')
+    await page.getByTestId('warehouse-cutting-batch-row').first().waitFor()
+    await page.getByTestId('warehouse-cutting-batch-pick').first().click()
+    await page.getByTestId('warehouse-cutting-batch-number').waitFor()
+
+    // Панели передавали и `:title`, и слот `#header` со своим `panel-title` —
+    // GlassPanel рисует оба, и выходило «Исходная партияИсходная партия».
+    const titles = page.getByTestId('warehouse-cutting-source-panel').locator('.panel-title')
+    await expect(titles).toHaveCount(1)
+  })
+
+  test('кнопка смены партии подписана собой, а не текстом подсказки', async ({ page }) => {
+    await navigateToAdmin(page, '/admin/warehouse/cutting')
+    await page.getByTestId('warehouse-cutting-batch-row').first().waitFor()
+
+    // Подсказка на экране выбора — та строка, которой кнопка была подписана раньше.
+    const hint = (await page.locator('.cutting-hint').innerText()).trim()
+
+    await page.getByTestId('warehouse-cutting-batch-pick').first().click()
+    await page.getByTestId('warehouse-cutting-batch-number').waitFor()
+
+    const label = (await page.getByTestId('warehouse-cutting-change-batch').innerText()).trim()
+    // Своя подпись, а не чужая. Сравнение с подсказкой, а не с константой: строку
+    // могут переписать, но подписью кнопки она быть не должна в любом случае.
+    expect(label).not.toBe(hint)
+    expect(label.length).toBeGreaterThan(0)
+  })
+
+  test('строка раскроя удаляется иконкой, как везде в проекте', async ({ page }) => {
+    await navigateToAdmin(page, '/admin/warehouse/cutting')
+    await page.getByTestId('warehouse-cutting-batch-row').first().waitFor()
+    await page.getByTestId('warehouse-cutting-batch-pick').first().click()
+    await page.getByTestId('warehouse-cutting-batch-number').waitFor()
+
+    const remove = page.getByTestId('warehouse-cutting-row-remove').first()
+    await expect(remove).toHaveClass(/action-icon-btn/)
+    await expect(remove).toHaveClass(/action-danger/)
+    // Иконка есть…
+    await expect(remove.locator('svg')).toHaveCount(1)
+    // …а подписи нет: она уехала в подсказку, как у остальных таких кнопок.
+    expect((await remove.innerText()).trim()).toBe('')
+  })
+
+  test('отступы заданы классами, инлайнового style в разметке не осталось', async ({ page }) => {
+    await navigateToAdmin(page, '/admin/warehouse/cutting')
+    await page.getByTestId('warehouse-cutting-batch-row').first().waitFor()
+    await page.getByTestId('warehouse-cutting-batch-pick').first().click()
+    await page.getByTestId('warehouse-cutting-batch-number').waitFor()
+
+    const inline = await page.evaluate(() =>
+      [...document.querySelectorAll('.page-warehouse-cutting [style]')].map((el) => ({
+        tag: el.tagName.toLowerCase(),
+        style: el.getAttribute('style') ?? '',
+      })),
+    )
+
+    // Единственный законный инлайновый стиль на странице — тот, что компонент
+    // ставит себе САМ во время работы: `AutoResizeTextarea` считает свою высоту.
+    // Всё прочее — разметка, и там ему делать нечего.
+    const fromTemplate = inline.filter((e) => !(e.tag === 'textarea' && e.style.includes('height')))
+    expect(fromTemplate).toEqual([])
+  })
+
+  test('список партий листается, а не вываливается целиком', async ({ page }) => {
+    await navigateToAdmin(page, '/admin/warehouse/cutting')
+    const rows = page.getByTestId('warehouse-cutting-batch-row')
+    await rows.first().waitFor()
+
+    const perPage = await rows.count()
+    const info = page
+      .getByTestId('warehouse-cutting-batches-pagination')
+      .locator('.pagination-info')
+    const total = Number((await info.innerText()).match(/(\d+)\s*$/)?.[1] ?? '0')
+
+    // Страница не одна — иначе листать нечего и тест ничего не проверяет.
+    expect(total).toBeGreaterThan(perPage)
+
+    const firstOnPageOne = (await rows.first().innerText()).trim()
+    await page.getByTestId('warehouse-cutting-batches-next').click()
+
+    /*
+     * Признак — САМА СТРОКА, а не счётчик «11-20 из 100».
+     *
+     * Счётчик тут не годится, и это ЗАМЕРЕНО, а не предположено: `showingFrom` и
+     * `showingTo` в `usePagination` считаются из локального `page`, поэтому счётчик
+     * показывает новую страницу уже на нулевой миллисекунде после клика, а строки
+     * приходят на ~300 мс позже:
+     *
+     *   T+   0мс  счётчик «11-20 из 100»  первая строка INV-2025-046  (старая)
+     *   T+ 300мс  счётчик «11-20 из 100»  первая строка INV-2025-097  (новая)
+     *
+     * То есть ожидание по счётчику возвращается со СТАРЫМИ строками на экране —
+     * ровно ловушка #64, только замаскированная под её же решение.
+     */
+    /*
+     * Сравнение ОДИНАКОВЫМ способом с обеих сторон, и это тоже не для красоты.
+     * Первая версия писала `expect(rows.first()).not.toHaveText(firstOnPageOne)`,
+     * где `firstOnPageOne` снят через `innerText()` — с табами и переносами, а
+     * `toHaveText` нормализует пробелы. Такие строки не совпадут НИКОГДА, то есть
+     * `not.toHaveText` было истинно при любом коде: инверсия «убрать серверную
+     * пагинацию» оставляла тест зелёным. Питфолл #68, пойманный инверсией.
+     */
+    await expect
+      .poll(async () => (await rows.first().innerText()).trim(), { timeout: DATA_READY_TIMEOUT })
+      .not.toBe(firstOnPageOne)
+  })
+
   test('the offcuts tab leads to cutting, not to the manual offcut form', async ({ page }) => {
     // Кнопка «Резка» вела на форму ручной записи обрезка, то есть мимо операции.
     await navigateToAdmin(page, '/admin/warehouse/offcuts')
@@ -65,6 +233,29 @@ test.describe('Cutting operation', () => {
     // Партия уже выбрана: таблицы выбора нет, номер стоит на месте.
     await expect(page.getByTestId('warehouse-cutting-batch-number')).toHaveText(METRE_BATCH)
     await expect(page.getByTestId('warehouse-cutting-batches-table')).toHaveCount(0)
+  })
+
+  test('a batch opened by its direct link still names the product', async ({ page }) => {
+    // Имя товара берётся из справочника по `productId` в момент показа, а справочник
+    // грузится вместе с данными страницы. У резки два входа: список партий и прямая
+    // ссылка `?batchId=...`, которую строит карточка партии, — и по этой ссылке
+    // попадает всякая перезагрузка страницы и всякое открытие из истории. Вход,
+    // который справочник не принёс, показал бы прочерк, и дозагрузить его было бы
+    // некому.
+    await navigateToAdmin(page, '/admin/warehouse/batches/whb-077')
+    const link = page.getByTestId('batch-card-cutting-link')
+    const directUrl = (await link.getAttribute('href'))!
+    await link.click()
+    await expect(page.getByTestId('warehouse-cutting-batch-number')).toHaveText(METRE_BATCH)
+    const insideSpa = (await page.getByTestId('warehouse-cutting-product').textContent())!.trim()
+    // Непустота нужна отдельно: без неё равенство двух прочерков сошлось бы как успех.
+    expect(insideSpa.length).toBeGreaterThan(1)
+
+    // Тот же экран, открытый ссылкой напрямую, — это полная загрузка приложения, и
+    // список партий на этом пути не запрашивается.
+    await navigateToAdmin(page, directUrl)
+    await expect(page.getByTestId('warehouse-cutting-batch-number')).toHaveText(METRE_BATCH)
+    await expect(page.getByTestId('warehouse-cutting-product')).toHaveText(insideSpa)
   })
 
   test('the example from the spec: 2500 mm plus a 3 mm kerf is 2.503 m', async ({ page }) => {
@@ -198,5 +389,115 @@ test.describe('Cutting operation', () => {
     await expect(rows.filter({ hasText: '1234' })).toHaveCount(1)
     // Единица — партии, а не «шт»: кусок отрезан от метров, значит меряется в метрах.
     await expect(rows.filter({ hasText: '1234' })).toContainText('m')
+  })
+
+  /**
+   * Штучная партия: лист один, кусков из него много.
+   *
+   * До этой правки расход считался по вышедшим кускам, и распустить лист на два
+   * куска было нельзя вовсе: «в партии 1 шт, а к списанию выходит 2 шт». То есть
+   * резка штучных партий не работала совсем — а именно на такой партии страница и
+   * открывается из карточки листа.
+   */
+  test('a counted batch loses source pieces, not the offcuts cut out of them', async ({ page }) => {
+    await openCuttingFor(page, PIECE_BATCH)
+    await expect(page.getByTestId('warehouse-cutting-source-pieces')).toBeVisible()
+    // Пропила у штучной партии нет — 3 мм в штуки не переводятся.
+    await expect(page.getByTestId('warehouse-cutting-kerf')).toHaveCount(0)
+
+    await fillRow(page, 0, { pieces: 4 })
+    await page.getByTestId('warehouse-cutting-source-pieces').fill('1')
+
+    // Четыре куска — четыре реза, но с партии ушёл ОДИН лист.
+    expect(await amount(page, 'warehouse-cutting-cuts')).toBe(4)
+    expect(await amount(page, 'warehouse-cutting-total-pieces')).toBe(1)
+    expect(await amount(page, 'warehouse-cutting-consumed')).toBe(1)
+    await expect(page.getByTestId('warehouse-cutting-execute')).toBeEnabled()
+  })
+
+  test('the counted batch asks how many pieces went in — it cannot be derived', async ({
+    page,
+  }) => {
+    await openCuttingFor(page, PIECE_BATCH)
+    await fillRow(page, 0, { pieces: 2 })
+    await page.getByTestId('warehouse-cutting-source-pieces').fill('')
+
+    // Молчаливая единица списала бы лист за операцию, объём которой не назвали.
+    await expect(page.getByTestId('warehouse-cutting-problem')).toBeVisible()
+    await expect(page.getByTestId('warehouse-cutting-execute')).toBeDisabled()
+  })
+
+  test('a measured batch is never asked for source pieces', async ({ page }) => {
+    // У метровой партии расход выводится из размеров; второе число рядом с ним было
+    // бы второй правдой о том же.
+    await openCuttingFor(page, METRE_BATCH)
+    await expect(page.getByTestId('warehouse-cutting-source-pieces')).toHaveCount(0)
+  })
+
+  test('a counted batch takes exactly one piece off the batch when one is cut', async ({
+    page,
+  }) => {
+    await openCuttingFor(page, PIECE_BATCH)
+    const before = await amount(page, 'warehouse-cutting-remaining')
+    await fillRow(page, 0, { pieces: 3, lengthMm: 500, widthMm: 300 })
+    await page.getByTestId('warehouse-cutting-source-pieces').fill('1')
+    await page.getByTestId('warehouse-cutting-execute').click()
+    await expect(page).toHaveURL(/\/admin\/warehouse\/offcuts$/)
+
+    await page.getByTestId('warehouse-tab-batches').first().click()
+    await waitForDataReady(page)
+    await page.getByTestId('warehouse-batches-search').locator('input').fill(PIECE_BATCH)
+    const row = page.locator('[data-test="warehouse-batch-row"]', { hasText: PIECE_BATCH })
+    await expect(row).toHaveCount(1)
+    const after = Number(
+      await row
+        .getByTestId('warehouse-batch-remaining')
+        .textContent()
+        .then((v) => v!.trim()),
+    )
+    // Три куска вышли — один лист ушёл. По старому счёту здесь было бы −3.
+    expect(before - after).toBe(1)
+  })
+
+  /**
+   * Вес куска — ВЫБОР между расчётом и ручным вводом, и он виден.
+   *
+   * Пустое поле означает «считай сам», и расчёт живёт дальше на карточке куска;
+   * вписанное число глушит расчёт навсегда. Раньше на экране об этом не говорилось
+   * ничего: пустая колонка «Вес» приглашала вписать число.
+   */
+  test('the weight cell says where the weight comes from, and lets it be given back', async ({
+    page,
+  }) => {
+    await openCuttingFor(page, METRE_BATCH)
+    const row = page.getByTestId('warehouse-cutting-row').first()
+    const badge = row.getByTestId('warehouse-cutting-row-weight-source')
+    const useDerived = row.getByTestId('warehouse-cutting-row-weight-use-derived')
+
+    // Лист с размерами: вес выводится из геометрии и плотности материала партии.
+    const typeSelect = row.getByTestId('warehouse-cutting-row-type')
+    await typeSelect.locator('.custom-select-trigger').click()
+    // Второй вариант — «лист»: у него вес считается из собственных размеров куска.
+    await typeSelect.locator('.custom-select-list.open .custom-select-option').nth(1).click()
+    await fillRow(page, 0, { lengthMm: 2500, widthMm: 1000 })
+    await row.getByTestId('warehouse-cutting-row-thickness').fill('2')
+
+    const derivedBadge = (await badge.textContent())!.trim()
+    // Предлагаемое число видно ДО выбора — в самом поле, как подсказка.
+    const suggested = await row
+      .getByTestId('warehouse-cutting-row-weight')
+      .getAttribute('placeholder')
+    expect(Number(suggested)).toBeGreaterThan(0)
+    await expect(useDerived).toHaveCount(0)
+
+    // Ввод руками меняет источник и открывает дорогу назад.
+    await row.getByTestId('warehouse-cutting-row-weight').fill('99')
+    await expect(badge).not.toHaveText(derivedBadge)
+    await expect(useDerived).toHaveCount(1)
+
+    // Вернуть расчёт — это обнулить ручное, а не записать выведенное.
+    await useDerived.click()
+    await expect(row.getByTestId('warehouse-cutting-row-weight')).toHaveValue('')
+    await expect(badge).toHaveText(derivedBadge)
   })
 })

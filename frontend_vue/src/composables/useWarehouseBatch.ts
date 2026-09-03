@@ -18,11 +18,11 @@ import { useDirtyCheck } from './useDirtyCheck'
 import { useToast } from './useToast'
 import { useTranslatedField } from './useTranslatedData'
 import { useSettings } from './useSettings'
+import { ensureProductNames } from './useProductNames'
 import type {
   WarehouseBatch,
   BatchPatchPayload,
   BatchStatus,
-  StockUnit,
   MovementListItem,
   OffcutListItem,
   StockAuditEntry,
@@ -93,7 +93,7 @@ export function useWarehouseBatch(id: string) {
     batchNumber: string
     lotCode: string
     quantity: number
-    unit: StockUnit
+    uomId: string
     /**
      * Warehouse cost in the base currency, or `null` for a batch nobody priced —
      * a purchase in another currency whose base-currency sum was left empty.
@@ -114,7 +114,7 @@ export function useWarehouseBatch(id: string) {
     batchNumber: '',
     lotCode: '',
     quantity: 0,
-    unit: 'kg',
+    uomId: 'uom-kg',
     unitPrice: 0,
     marginPercent: settings.constants.defaultMargin,
     currency: 'EUR',
@@ -195,14 +195,14 @@ export function useWarehouseBatch(id: string) {
     loading.value = true
     error.value = null
     try {
-      const data = await getBatch(id)
+      const [data] = await Promise.all([getBatch(id), ensureProductNames()])
       batch.value = data
       const parsed = parseLocation(data.location)
       form.value = {
         batchNumber: data.batchNumber,
         lotCode: data.lotCode,
         quantity: data.quantity,
-        unit: data.unit,
+        uomId: data.uomId,
         unitPrice: data.unitPrice,
         marginPercent: data.marginPercent ?? settings.constants.defaultMargin,
         currency: data.currency,
@@ -280,7 +280,7 @@ export function useWarehouseBatch(id: string) {
         batchNumber: updated.batchNumber,
         lotCode: updated.lotCode,
         quantity: updated.quantity,
-        unit: updated.unit,
+        uomId: updated.uomId,
         unitPrice: updated.unitPrice,
         marginPercent: updated.marginPercent ?? settings.constants.defaultMargin,
         currency: updated.currency,
@@ -310,7 +310,7 @@ export function useWarehouseBatch(id: string) {
       batchNumber: batch.value.batchNumber,
       lotCode: batch.value.lotCode,
       quantity: batch.value.quantity,
-      unit: batch.value.unit,
+      uomId: batch.value.uomId,
       unitPrice: batch.value.unitPrice,
       marginPercent: batch.value.marginPercent ?? settings.constants.defaultMargin,
       currency: batch.value.currency,

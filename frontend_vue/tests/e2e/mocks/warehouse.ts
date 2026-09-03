@@ -42,7 +42,6 @@ const MOCK_PRODUCT_DETAIL: Record<string, Record<string, unknown>> = {
     description: 'Hot-rolled steel sheet, 1000x2000mm',
     price: 120.5,
     minStock: 50,
-    priceUnit: 'EUR/kg',
     createdAt: '2025-01-15',
     fieldValues: [],
     linkedSuppliers: [
@@ -50,7 +49,7 @@ const MOCK_PRODUCT_DETAIL: Record<string, Record<string, unknown>> = {
         id: '1',
         name: { en: 'Steel Plus OÜ', ru: 'Steel Plus OÜ', lt: 'Steel Plus OÜ' },
         price: 115.0,
-        priceUnit: 'EUR/kg',
+        priceUomId: 'uom-kg',
         leadDays: 7,
       },
     ],

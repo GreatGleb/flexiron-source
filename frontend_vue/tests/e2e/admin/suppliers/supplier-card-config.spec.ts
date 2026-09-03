@@ -1,5 +1,6 @@
 import { test, expect, testBare as base } from '../../fixtures'
 import { navigateToAdmin } from '../../helpers/admin'
+import { DATA_READY_TIMEOUT } from '../../helpers/ready'
 import { ALL_FLAGS_ENABLED } from '../../helpers/flags'
 import { freezeTime } from '../../helpers/mocks'
 import { waitForFontsReady, SNAPSHOT_OPTIONS } from '../../helpers/visual'
@@ -507,8 +508,12 @@ test.describe('supplier-card-config › drag-reorder sections', () => {
     // moveSection re-reads the indices and inserts at 2, landing sec-general AFTER
     // sec-location. Expected order: contacts, location, general, logistics, notes.
     await expect
-      .poll(() =>
-        wrappers.evaluateAll((els) => els.map((el) => (el as HTMLElement).dataset.sectionId ?? '')),
+      .poll(
+        () =>
+          wrappers.evaluateAll((els) =>
+            els.map((el) => (el as HTMLElement).dataset.sectionId ?? ''),
+          ),
+        { timeout: DATA_READY_TIMEOUT },
       )
       .toEqual(['sec-contacts', 'sec-location', 'sec-general', 'sec-logistics', 'sec-notes'])
   })
@@ -628,7 +633,9 @@ test.describe('supplier-card-config › permissions matrix', () => {
     )
     // `indeterminate` is a JS property on the input element, not an attribute.
     await expect
-      .poll(() => roleReadInput.evaluate((el: HTMLInputElement) => el.indeterminate))
+      .poll(() => roleReadInput.evaluate((el: HTMLInputElement) => el.indeterminate), {
+        timeout: DATA_READY_TIMEOUT,
+      })
       .toBe(true)
   })
 })

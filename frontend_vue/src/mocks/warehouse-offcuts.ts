@@ -1,18 +1,28 @@
 ﻿import type { WarehouseOffcut } from '@/types/warehouse'
 import { sealAuditIds, type AuditSeeded } from './auditIds'
 
+/**
+ * Статус куска согласован с его собственным журналом движений.
+ *
+ * Кусок неделим, поэтому «сколько его лежит» у него нет — есть только статус, и он же
+ * весь его остаток. Значит движение, УНОСЯЩЕЕ кусок, обязано быть видно в статусе:
+ * `write-off` → `scrapped`, `production` по наряду → `in_production`. Ровно это правило
+ * `writeMovement` применяет к живым движениям (`OFFCUT_STATUS_BY_MOVEMENT`), и сиды от
+ * него отставать не могут: до 2026-08-28 `who-011` был списан в утиль актом WR-2025-001
+ * и при этом предлагался в заказ как свободный металл, а `who-013` был израсходован по
+ * наряду WO-2025-042 и тоже числился свободным.
+ *
+ * Запись СОЗДАНИЯ куска (`referenceType: 'cutting'`) статуса не меняет: она не уносит
+ * кусок, а рождает его — тип `production` в таких сидовых записях означает «отрезан при
+ * резке», а не «израсходован в производстве».
+ */
 const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
-  // ── 1. Sheet (cat-2) ──────────────────────────────────────────────────────
+  // ── who-001 ───────────────────────────────────────────────────────────────
   {
     id: 'who-001',
     batchId: 'whb-001',
     batchNumber: 'INV-2025-001',
     productId: 'prod-001',
-    productName: {
-      ru: 'Лист нержавеющий 2мм',
-      en: 'Stainless steel sheet 2mm',
-      lt: 'Nerūdijančio plieno lakštas 2mm',
-    },
     categoryId: 'cat-2',
     offcutType: 'sheet',
     lengthMm: 500,
@@ -20,7 +30,7 @@ const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
     thicknessMm: 2,
     weightKg: 2.36,
     quantity: 1,
-    unit: 'pcs',
+    uomId: 'uom-pcs',
     location: 'Rack: A | Row: 01 | Cell: 03',
     status: 'available',
     notes: 'Остаток после раскроя заказа PROD-2025-001',
@@ -64,25 +74,20 @@ const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
       },
     ],
   },
-  // ── 2. Pipe (cat-4) ──────────────────────────────────────────────────────
+  // ── who-002 ──────────────────────────────────────────────────────────────
   {
     id: 'who-002',
     batchId: 'whb-004',
     batchNumber: 'INV-2025-004',
-    productId: 'prod-001',
-    productName: {
-      ru: 'Лист нержавеющий 2мм',
-      en: 'Stainless steel sheet 2mm',
-      lt: 'Nerūdijančio plieno lakštas 2mm',
-    },
-    categoryId: 'cat-2',
+    productId: 'prod-009',
+    categoryId: null,
     offcutType: 'sheet',
     lengthMm: 200,
     widthMm: 150,
     thicknessMm: 2,
     weightKg: 0.47,
     quantity: 1,
-    unit: 'pcs',
+    uomId: 'uom-pcs',
     location: 'Rack: A | Row: 02 | Cell: 01',
     status: 'reserved',
     notes: 'Зарезервирован под заказ ORD-2025-010',
@@ -93,28 +98,23 @@ const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
     updatedAt: '2025-06-20T09:00:00Z',
     auditLog: [],
   },
-  // ── 3. Sheet (cat-2) ──────────────────────────────────────────────────────
+  // ── who-003 ───────────────────────────────────────────────────────────────
   {
     id: 'who-003',
     batchId: 'whb-003',
     batchNumber: 'INV-2025-003',
-    productId: 'prod-003',
-    productName: {
-      ru: 'Лист алюминиевый 3мм',
-      en: 'Aluminum sheet 3mm',
-      lt: 'Aliuminio lakštas 3mm',
-    },
-    categoryId: 'cat-2',
+    productId: 'prod-009',
+    categoryId: null,
     offcutType: 'sheet',
     lengthMm: 1200,
     widthMm: 600,
     thicknessMm: 3,
     weightKg: 5.83,
     quantity: 1,
-    unit: 'pcs',
+    uomId: 'uom-pcs',
     location: 'Rack: A | Row: 03 | Cell: 02',
     status: 'available',
-    notes: 'Остаток после раскроя алюминиевого листа',
+    notes: 'Остаток после раскроя',
     qrData: 'QR-WHO-003',
     orderId: null,
     files: [],
@@ -122,25 +122,20 @@ const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
     updatedAt: '2025-03-05T09:30:00Z',
     auditLog: [],
   },
-  // ── 4. Sheet (cat-2) ──────────────────────────────────────────────────────
+  // ── who-004 ───────────────────────────────────────────────────────────────
   {
     id: 'who-004',
     batchId: 'whb-005',
     batchNumber: 'INV-2025-005',
-    productId: 'prod-004',
-    productName: {
-      ru: 'Лист нержавеющий 1мм',
-      en: 'Stainless steel sheet 1mm',
-      lt: 'Nerūdijančio plieno lakštas 1mm',
-    },
-    categoryId: 'cat-2',
+    productId: 'prod-009',
+    categoryId: null,
     offcutType: 'sheet',
     lengthMm: 400,
     widthMm: 400,
     thicknessMm: 1,
     weightKg: 1.26,
     quantity: 1,
-    unit: 'pcs',
+    uomId: 'uom-pcs',
     location: 'Rack: A | Row: 03 | Cell: 05',
     status: 'available',
     notes: 'Мелкий обрезок, подходит для небольших деталей',
@@ -151,17 +146,12 @@ const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
     updatedAt: '2025-04-01T08:00:00Z',
     auditLog: [],
   },
-  // ── 5. Sheet (cat-2) ──────────────────────────────────────────────────────
+  // ── who-005 ───────────────────────────────────────────────────────────────
   {
     id: 'who-005',
     batchId: 'whb-006',
     batchNumber: 'INV-2025-006',
-    productId: 'prod-003',
-    productName: {
-      ru: 'Лист алюминиевый 3мм',
-      en: 'Aluminum sheet 3mm',
-      lt: 'Aliuminio lakštas 3mm',
-    },
+    productId: 'prod-020',
     categoryId: 'cat-2',
     offcutType: 'sheet',
     lengthMm: 1800,
@@ -169,7 +159,7 @@ const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
     thicknessMm: 3,
     weightKg: 2.92,
     quantity: 1,
-    unit: 'pcs',
+    uomId: 'uom-pcs',
     location: 'Rack: B | Row: 01 | Cell: 04',
     status: 'in_storage',
     notes: 'Длинный узкий обрезок, переведен на хранение',
@@ -180,17 +170,17 @@ const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
     updatedAt: '2025-04-15T10:00:00Z',
     auditLog: [],
   },
-  // ── 6. Pipe (cat-4) ──────────────────────────────────────────────────────
-  // Отрезок трубы висит на партии труб, которая меряется в метрах. До этого он
-  // ссылался на whb-007 — партию листа в м², — и его размер был невыразим: у трубы
-  // нет ширины, а площадь без неё не считается. Обрезок обязан лежать на партии
-  // того же товара, что и он сам: так его создаёт приложение.
+  // ── who-006 ──────────────────────────────────────────────────────────────
+  // Линейный обрезок висит на партии того же товара (whb-077, prod-004), которая
+  // меряется в метрах. До этого он ссылался на whb-007 — партию, которая меряется
+  // в м², — и его размер был невыразим: у линейного куска нет ширины, а площадь без
+  // неё не считается. Обрезок обязан лежать на партии того же товара, что и он сам:
+  // так его создаёт приложение.
   {
     id: 'who-006',
     batchId: 'whb-077',
     batchNumber: 'INV-2025-078',
     productId: 'prod-004',
-    productName: { ru: 'Труба стальная 50мм', en: 'Steel pipe 50mm', lt: 'Plieninis vamzdis 50mm' },
     categoryId: 'cat-4',
     offcutType: 'linear',
     lengthMm: 1500,
@@ -198,10 +188,10 @@ const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
     thicknessMm: null,
     weightKg: 9.24,
     quantity: 1,
-    unit: 'pcs',
+    uomId: 'uom-pcs',
     location: 'Rack: C | Row: 02 | Cell: 01',
     status: 'available',
-    notes: 'Обрезок трубы после резки',
+    notes: 'Обрезок после резки',
     qrData: 'QR-WHO-006',
     orderId: null,
     files: [],
@@ -209,13 +199,12 @@ const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
     updatedAt: '2025-04-20T08:00:00Z',
     auditLog: [],
   },
-  // ── 7. Pipe (cat-4) ──────────────────────────────────────────────────────
+  // ── who-007 ──────────────────────────────────────────────────────────────
   {
     id: 'who-007',
     batchId: 'whb-008',
     batchNumber: 'INV-2025-008',
-    productId: 'prod-013',
-    productName: { ru: 'Труба стальная 32мм', en: 'Steel pipe 32mm', lt: 'Plieninis vamzdis 32mm' },
+    productId: 'prod-021',
     categoryId: 'cat-4',
     offcutType: 'linear',
     lengthMm: 800,
@@ -223,7 +212,7 @@ const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
     thicknessMm: null,
     weightKg: 3.15,
     quantity: 1,
-    unit: 'pcs',
+    uomId: 'uom-pcs',
     location: 'Rack: C | Row: 02 | Cell: 05',
     status: 'sold',
     notes: 'Продан по заказу ORD-2025-015',
@@ -234,24 +223,23 @@ const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
     updatedAt: '2025-05-05T09:00:00Z',
     auditLog: [],
   },
-  // ── 8. Sheet (cat-2) ──────────────────────────────────────────────────────
+  // ── who-008 ───────────────────────────────────────────────────────────────
   {
     id: 'who-008',
     batchId: 'whb-009',
     batchNumber: 'INV-2025-009',
-    productId: 'prod-007',
-    productName: { ru: 'Аргон газообразный', en: 'Argon gas', lt: 'Argono dujos' },
-    categoryId: 'cat-5',
+    productId: 'prod-021',
+    categoryId: 'cat-4',
     offcutType: 'linear',
     lengthMm: null,
     widthMm: null,
     thicknessMm: null,
     weightKg: 0.5,
     quantity: 1,
-    unit: 'pcs',
+    uomId: 'uom-pcs',
     location: 'Rack: D | Row: 01 | Cell: 02',
     status: 'expensed',
-    notes: 'Остаток газа, израсходован на тестовые работы',
+    notes: 'Остаток израсходован на тестовые работы',
     qrData: 'QR-WHO-008',
     orderId: null,
     files: [],
@@ -259,28 +247,23 @@ const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
     updatedAt: '2025-05-15T10:00:00Z',
     auditLog: [],
   },
-  // ── 9. Sheet (cat-2) ──────────────────────────────────────────────────────
+  // ── who-009 ───────────────────────────────────────────────────────────────
   {
     id: 'who-009',
     batchId: 'whb-008',
     batchNumber: 'INV-2025-008',
-    productId: 'prod-009',
-    productName: {
-      ru: 'Сварочная проволока 1.2мм',
-      en: 'Welding wire 1.2mm',
-      lt: 'Suvirinimo viela 1.2mm',
-    },
-    categoryId: 'cat-5',
+    productId: 'prod-021',
+    categoryId: 'cat-4',
     offcutType: 'linear',
     lengthMm: null,
     widthMm: null,
     thicknessMm: null,
     weightKg: 1.0,
     quantity: 1,
-    unit: 'kg',
+    uomId: 'uom-kg',
     location: 'Rack: D | Row: 02 | Cell: 03',
     status: 'available',
-    notes: 'Остаток проволоки после сварки',
+    notes: 'Остаток после сварки',
     qrData: 'QR-WHO-009',
     orderId: null,
     files: [],
@@ -288,28 +271,23 @@ const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
     updatedAt: '2025-05-20T08:00:00Z',
     auditLog: [],
   },
-  // ── 10. Sheet (cat-2) ─────────────────────────────────────────────────────
+  // ── who-010 ───────────────────────────────────────────────────────────────
   {
     id: 'who-010',
     batchId: 'whb-010',
     batchNumber: 'INV-2025-010',
-    productId: 'prod-016',
-    productName: {
-      ru: 'Электроды сварочные 3мм',
-      en: 'Welding electrodes 3mm',
-      lt: 'Suvirinimo elektrodai 3mm',
-    },
-    categoryId: 'cat-5',
+    productId: 'prod-022',
+    categoryId: 'cat-4',
     offcutType: 'linear',
     lengthMm: null,
     widthMm: null,
     thicknessMm: null,
     weightKg: 0.3,
     quantity: 1,
-    unit: 'kg',
+    uomId: 'uom-kg',
     location: 'Rack: D | Row: 03 | Cell: 01',
     status: 'scrapped',
-    notes: 'Остаток электродов, брак',
+    notes: 'Остаток списан как брак',
     qrData: 'QR-WHO-010',
     orderId: null,
     files: [],
@@ -317,17 +295,12 @@ const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
     updatedAt: '2025-06-01T08:00:00Z',
     auditLog: [],
   },
-  // ── 11. Sheet (cat-2) ─────────────────────────────────────────────────────
+  // ── who-011 ───────────────────────────────────────────────────────────────
   {
     id: 'who-011',
     batchId: 'whb-006',
     batchNumber: 'INV-2025-006',
-    productId: 'prod-003',
-    productName: {
-      ru: 'Лист алюминиевый 3мм',
-      en: 'Aluminum sheet 3mm',
-      lt: 'Aliuminio lakštas 3mm',
-    },
+    productId: 'prod-020',
     categoryId: 'cat-2',
     offcutType: 'sheet',
     lengthMm: 900,
@@ -335,10 +308,10 @@ const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
     thicknessMm: 3,
     weightKg: 3.28,
     quantity: 1,
-    unit: 'pcs',
+    uomId: 'uom-pcs',
     location: 'Rack: A | Row: 03 | Cell: 03',
-    status: 'available',
-    notes: 'Остаток алюминиевого листа после раскроя',
+    status: 'scrapped',
+    notes: 'Остаток после раскроя, годен в дело',
     qrData: 'QR-WHO-011',
     orderId: null,
     files: [],
@@ -346,13 +319,12 @@ const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
     updatedAt: '2025-04-15T10:00:00Z',
     auditLog: [],
   },
-  // ── 12. Sheet (cat-2) ─────────────────────────────────────────────────────
+  // ── who-012 ───────────────────────────────────────────────────────────────
   {
     id: 'who-012',
     batchId: 'whb-078',
     batchNumber: 'INV-2025-079',
     productId: 'prod-004',
-    productName: { ru: 'Труба стальная 50мм', en: 'Steel pipe 50mm', lt: 'Plieninis vamzdis 50mm' },
     categoryId: 'cat-4',
     offcutType: 'linear',
     lengthMm: 3000,
@@ -360,10 +332,10 @@ const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
     thicknessMm: null,
     weightKg: 18.48,
     quantity: 1,
-    unit: 'pcs',
+    uomId: 'uom-pcs',
     location: 'Rack: C | Row: 01 | Cell: 06',
     status: 'available',
-    notes: 'Половина трубы после резки',
+    notes: 'Половина остатка после резки',
     qrData: 'QR-WHO-012',
     orderId: null,
     files: [],
@@ -371,28 +343,23 @@ const mockOffcuts_SEED: AuditSeeded<WarehouseOffcut>[] = [
     updatedAt: '2025-04-20T08:00:00Z',
     auditLog: [],
   },
-  // ── 13. Sheet (cat-2) ─────────────────────────────────────────────────────
+  // ── who-013 ───────────────────────────────────────────────────────────────
   {
     id: 'who-013',
     batchId: 'whb-008',
     batchNumber: 'INV-2025-008',
-    productId: 'prod-022',
-    productName: {
-      ru: 'Проволока сварочная ESAB OK Autrod 12.64 1.2мм',
-      en: 'Welding wire ESAB OK Autrod 12.64 1.2mm',
-      lt: 'Suvirinimo viela ESAB OK Autrod 12.64 1.2mm',
-    },
-    categoryId: 'cat-5',
+    productId: 'prod-021',
+    categoryId: 'cat-4',
     offcutType: 'linear',
     lengthMm: null,
     widthMm: null,
     thicknessMm: null,
     weightKg: 2.0,
     quantity: 1,
-    unit: 'kg',
+    uomId: 'uom-kg',
     location: 'Rack: A | Row: 01 | Cell: 08',
-    status: 'available',
-    notes: 'Остаток проволоки после сварки',
+    status: 'in_production',
+    notes: 'Остаток после наплавки',
     qrData: 'QR-WHO-013',
     orderId: null,
     files: [],

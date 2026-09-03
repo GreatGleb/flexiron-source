@@ -13,15 +13,27 @@
   justify-content: center;
   opacity: 0;
   visibility: hidden;
-  /* A closed overlay must not take clicks, and `visibility` alone does not
-     promise that here: it is inside `transition: all`, so it interpolates and
-     stays `visible` for the whole 300ms fade. The overlay covers the viewport,
-     so for those 300ms a modal that has already closed swallows the next click
-     — which lands on whatever the person was reaching for after confirming.
-     It went unnoticed while the order card blanked to a skeleton on every
-     reload and tore the overlays out of the DOM with it. */
+  /* `visibility` rides the fade, and it has to. Dropping it out of the transition
+     made the overlay `hidden` on the first frame of closing while `opacity` here
+     and `transform` on `.modal` went on animating for 300ms more — an element
+     told not to paint, still animating. Chromium resolves that split down the
+     middle: the panel background goes at once, and the children the compositor
+     had already promoted (the selects, the textarea, the footer buttons) keep
+     being painted straight onto the page, shrinking as the transform runs out.
+     Measured on the return dialog of the order card — the panel gone at 2728ms,
+     its buttons still sliding at 2786ms — and it lasts as long as the main
+     thread is busy, which right after closing is exactly when the card reloads.
+
+     So the fade-out is not decoration here: it is what keeps painting and
+     hiding on the same clock. What the transition costs is honest and bounded —
+     for 0.3s a closing overlay still answers "visible", to the browser and to
+     the e2e tests that ask `toBeHidden`. Clicks are not part of that cost:
+     `pointer-events: none` lands on the first frame either way, so the overlay
+     stops swallowing the click aimed at whatever the person reached for next. */
   pointer-events: none;
-  transition: all 0.3s;
+  transition:
+    opacity 0.3s,
+    visibility 0.3s;
 }
 .modal-overlay.active {
   opacity: 1;

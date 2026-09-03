@@ -38,7 +38,7 @@ const emit = defineEmits<{
     <div class="email-template-body">
       <label class="field-label">{{ bodyLabel ?? t('bcc.body') }}</label>
       <AutoResizeTextarea
-        class="glass-input body-input"
+        class="body-input"
         data-test="email-template-body"
         rows="8"
         :placeholder="bodyPlaceholder ?? t('bcc.body_placeholder')"

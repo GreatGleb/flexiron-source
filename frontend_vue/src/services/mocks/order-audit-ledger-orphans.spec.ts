@@ -51,7 +51,7 @@ const NO_FILTER = {
   search: '',
   status: '',
   priority: '',
-  unit: '',
+  uomId: '',
   categoryIds: '',
   sortBy: undefined,
   sortDir: 'asc',
@@ -106,12 +106,50 @@ describe('LAYER 11 — the ledger as a whole', () => {
     log.length = 0
     const movements = await mockGetMovements(NO_FILTER, { page: 1, pageSize: 100000 })
     const byBatch = new Map<string, Map<string, number>>()
+    const skippedForPiece: typeof movements.items = []
     for (const m of movements.items) {
       if (!m.batchId) continue
+      // Движение, назвавшее КУСОК, партию не двигает. Материал куска уходит с партии
+      // ровно один раз — движением `offcut`, то есть самой резкой; всё, что случается с
+      // куском после неё, случается с куском, а партия в такой записи названа для
+      // происхождения. Посчитать её здесь значило бы вычесть один и тот же металл дважды.
+      if (m.offcutId && m.type !== 'offcut') {
+        skippedForPiece.push(m)
+        continue
+      }
       if (!byBatch.has(m.batchId)) byBatch.set(m.batchId, new Map())
       const per = byBatch.get(m.batchId)!
       per.set(m.type, round2((per.get(m.type) ?? 0) + m.quantity))
     }
+
+    // Посылка пропуска проверяется здесь же: «уже вычли» верно только тогда, когда
+    // движение `offcut` по этому куску действительно есть. Без этой проверки сумма
+    // сходится по построению — она просто не смотрит на то, что пропустила.
+    const cutFrom = new Map<string, string>()
+    for (const m of movements.items) {
+      if (m.type === 'offcut' && m.offcutId) cutFrom.set(m.offcutId, m.batchId)
+    }
+    // Партия сверяется, а не только наличие резки: движение говорит «эту партию я не
+    // трогаю, кусок с неё уже ушёл», и уйти он должен был именно С НЕЁ. Резка, списанная
+    // с чужой партии, оставляет названную здесь партию нетронутой навсегда — в сидах так
+    // было у двух кусков из трёх, у которых движение `offcut` вообще существовало.
+    const unexplained = skippedForPiece
+      .filter((m) => cutFrom.get(m.offcutId!) !== m.batchId)
+      .map(
+        (m) =>
+          `${m.id}: ${m.type} по куску ${m.offcutId} (партия ${m.batchId}, резка с ${cutFrom.get(m.offcutId!) ?? 'ниоткуда'})`,
+      )
+    say('skipped as an offcut           :', skippedForPiece.length)
+    say('…whose piece never left a batch:', unexplained.length)
+    unexplained.slice(0, 8).forEach((o) => say('  ' + o))
+    expect(
+      skippedForPiece.length,
+      report('LAYER 11 — nothing was skipped, so the premise below proves nothing'),
+    ).toBeGreaterThan(0)
+    expect(
+      unexplained,
+      report('LAYER 11 — a movement skipped as already-cut names a piece that never left a batch'),
+    ).toEqual([])
     say('movements in the store         :', movements.items.length)
     say('types seen                     :', [...new Set(movements.items.map((m) => m.type))])
 
@@ -266,12 +304,12 @@ describe('LAYER 12 — what a delete leaves behind', () => {
     say('  deficit records for it       :', shortAfter.length)
     say('  reservation records          :', heldAfter)
     shortAfter.forEach((d) =>
-      say(`    ${d.id} ${d.deficitAmount} ${d.unit} "${d.notes}" status=${d.status}`),
+      say(`    ${d.id} ${d.deficitAmount} ${d.uomId} "${d.notes}" status=${d.status}`),
     )
 
     expect(heldAfter, report('LAYER 12 — a deleted line kept its reservation')).toBe(0)
     expect(
-      shortAfter.map((d) => `${d.id} ${d.deficitAmount} ${d.unit} "${d.notes}"`),
+      shortAfter.map((d) => `${d.id} ${d.deficitAmount} ${d.uomId} "${d.notes}"`),
       report(
         'LAYER 12 — FINDING 22: the line is gone and its shortage is still on the buying list',
       ),
@@ -305,13 +343,13 @@ describe('LAYER 12 — what a delete leaves behind', () => {
     say('  deficit records for it       :', shortAfter.length)
     say('  reservation records          :', heldAfter)
     shortAfter.forEach((d) =>
-      say(`    ${d.id} ${d.deficitAmount} ${d.unit} "${d.notes}" status=${d.status}`),
+      say(`    ${d.id} ${d.deficitAmount} ${d.uomId} "${d.notes}" status=${d.status}`),
     )
 
     expect(mockGetOrder(order.id), report('LAYER 12 — the order did not delete')).toBeUndefined()
     expect(heldAfter, report('LAYER 12 — a deleted order kept its reservations')).toBe(0)
     expect(
-      shortAfter.map((d) => `${d.id} ${d.deficitAmount} ${d.unit} "${d.notes}"`),
+      shortAfter.map((d) => `${d.id} ${d.deficitAmount} ${d.uomId} "${d.notes}"`),
       report(
         'LAYER 12 — FINDING 22: the order is gone and its shortage still asks somebody to buy for it',
       ),
@@ -325,7 +363,7 @@ describe('LAYER 12 — what a delete leaves behind', () => {
     const named = all.filter((d) => ORDER_NOTE.test(d.notes ?? ''))
     const dangling = named
       .filter((d) => !live.has(ORDER_NOTE.exec(d.notes!)![1]!))
-      .map((d) => `${d.id} ${d.deficitAmount} ${d.unit} "${d.notes}" status=${d.status}`)
+      .map((d) => `${d.id} ${d.deficitAmount} ${d.uomId} "${d.notes}" status=${d.status}`)
     say('deficit records in the store   :', all.length)
     say('…filed by an order             :', named.length)
     say('…whose order is gone           :', dangling.length)

@@ -11,12 +11,7 @@ import { useDirtyCheck } from './useDirtyCheck'
 import { useToast } from './useToast'
 import { useTranslatedField } from './useTranslatedData'
 import { mergeLocaleValue } from '@/types/i18n'
-import type {
-  StockOverviewItem,
-  StockUnit,
-  StockAuditEntry,
-  BatchStatusAggregate,
-} from '@/types/warehouse'
+import type { StockOverviewItem, StockAuditEntry, BatchStatusAggregate } from '@/types/warehouse'
 import type { TranslatedString } from '@/types/i18n'
 
 export function useWarehouseStockCard(productId: string) {
@@ -54,9 +49,9 @@ export function useWarehouseStockCard(productId: string) {
       )
       // Load aggregates for each batch and sum them
       const byType: Record<string, number> = {}
-      let unit: StockUnit = 'kg'
+      let uomId = 'uom-kg'
       for (const batch of batchesRes.items) {
-        unit = batch.unit as StockUnit
+        uomId = batch.uomId
         const aggs = await getBatchAggregates(batch.id)
         for (const a of aggs) {
           byType[a.type] = (byType[a.type] || 0) + a.quantity
@@ -65,7 +60,11 @@ export function useWarehouseStockCard(productId: string) {
       const result: BatchStatusAggregate[] = Object.entries(byType)
         .filter(([, q]) => q > 0)
         .sort(([, a], [, b]) => b - a)
-        .map(([type, quantity]) => ({ type: type as BatchStatusAggregate['type'], quantity, unit }))
+        .map(([type, quantity]) => ({
+          type: type as BatchStatusAggregate['type'],
+          quantity,
+          uomId,
+        }))
       stockAggregates.value = result
     } catch {
       stockAggregates.value = []
@@ -80,13 +79,13 @@ export function useWarehouseStockCard(productId: string) {
 
   const form = ref<{
     productName: TranslatedString | null
-    unit: StockUnit
+    uomId: string
     avgUnitPrice: number
     minStock: number | null
     categoryName: TranslatedString | null
   }>({
     productName: null,
-    unit: 'kg',
+    uomId: 'uom-kg',
     avgUnitPrice: 0,
     minStock: null,
     categoryName: null,
@@ -125,7 +124,7 @@ export function useWarehouseStockCard(productId: string) {
       item.value = data
       form.value = {
         productName: data.productName,
-        unit: data.unit,
+        uomId: data.uomId,
         avgUnitPrice: data.avgUnitPrice,
         minStock: data.minStock,
         categoryName: data.categoryName ?? null,
@@ -151,7 +150,7 @@ export function useWarehouseStockCard(productId: string) {
       item.value = updated
       form.value = {
         productName: updated.productName,
-        unit: updated.unit,
+        uomId: updated.uomId,
         avgUnitPrice: updated.avgUnitPrice,
         minStock: updated.minStock,
         categoryName: updated.categoryName ?? null,
@@ -169,7 +168,7 @@ export function useWarehouseStockCard(productId: string) {
     if (!item.value) return
     form.value = {
       productName: item.value.productName,
-      unit: item.value.unit,
+      uomId: item.value.uomId,
       avgUnitPrice: item.value.avgUnitPrice,
       minStock: item.value.minStock,
       categoryName: item.value.categoryName ?? null,

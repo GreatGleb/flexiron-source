@@ -795,50 +795,8 @@
   }
 }
 
-/* Status Pills */
-.status-pill {
-  display: inline-block;
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-/* Status Pills - Mobile */
-@media (max-width: 600px) {
-  .status-pill {
-    padding: 3px 10px;
-    font-size: 11px;
-  }
-}
-
-@media (max-width: 400px) {
-  .status-pill {
-    padding: 2px 8px;
-    font-size: 10px;
-  }
-}
-
-.pill-success {
-  background: rgba(82, 196, 26, 0.2);
-  color: #52c41a;
-}
-.pill-info {
-  background: rgba(24, 144, 255, 0.2);
-  color: #1890ff;
-}
-.pill-mint {
-  background: rgba(0, 210, 180, 0.2);
-  color: #00d2b4;
-}
-.pill-warning {
-  background: rgba(250, 173, 20, 0.2);
-  color: #faad14;
-}
-.pill-danger {
-  background: rgba(255, 77, 79, 0.2);
-  color: #ff4d4f;
-}
+/* Пилюли статуса объявлены в `components/_status-pills.css` — единственном месте.
+   Значения этой страницы там и стоят: владелец выбрал по снимку именно их. */
 
 /* Tags */
 .tag-sm {
@@ -917,13 +875,6 @@
   display: none !important;
 }
 
-/* Table responsive */
-.data-table-wrapper {
-  width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
 /* Table wrapper - 320px */
 @media (max-width: 320px) {
   .data-table-wrapper {
@@ -982,11 +933,6 @@
 
   .hid-480 {
     display: none;
-  }
-
-  .status-pill {
-    padding: 2px 8px;
-    font-size: 10px;
   }
 
   .tag-sm {

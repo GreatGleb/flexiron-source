@@ -20,11 +20,20 @@ import {
   type LineTotals,
 } from '@/domain/orderPricing'
 import { pricingSeedFor } from '@/services/orderLines'
-import { uomKeySuffix } from '@/domain/servicePricing'
+import { useUnitLabel } from '@/composables/useUnitLabel'
 
 const { t } = useI18n()
 const toast = useToast()
 const { settings } = useSettings()
+// Единица подписывается справочником — тем же правилом, что строка товара в этой
+// же таблице и что карточка услуги. Двух систем больше нет: семейство ключей
+// `orders.unit_*` снято 2026-08-27, пункт 4c плана
+// `roo_code/plans/archive/2026-08/review-followups.md`.
+//
+// Здесь была ещё и своя, третья таблица — `{'EUR/vnt': 'pcs', …}` с запасным
+// вариантом `priceUnit.replace('EUR/', '')`: валюта отрезалась от единицы строковой
+// операцией. Это и был симптом того, что другой валюты у услуги существовать не могло.
+const unitLabel = useUnitLabel()
 const { tf } = useTranslatedField()
 
 const props = withDefaults(
@@ -74,34 +83,6 @@ const servicesLoading = ref(false)
 const saving = ref(false)
 
 const serviceSearch = ref('')
-
-// ─── Price unit display ─────────────────────────────────────────────────
-//
-// ЗДЕСЬ — ключи `orders.unit_*`, а в модуле услуг — код единицы из справочника.
-// Асимметрия намеренная, и её не надо «чинить» приведением к одному виду:
-//
-//   1. Справочник — то, КУДА мигрируют услуги: у единицы есть свой код на трёх
-//      языках (`шт` / `pcs` / `vnt`), и услуги подписываются именно им.
-//   2. Но эта строка стоит в ОДНОЙ таблице со строками товаров, а товары в модуле
-//      заказов подписаны ключами `orders.unit_*` (11 мест). Возьми здесь код
-//      справочника — и одна таблица заговорит на двух диалектах.
-//   3. Обратное «выравнивание» — перевести услуги на `orders.unit_*` — расширило бы
-//      слабую систему: ключей четыре на восемь единиц, а второй аргумент `t()` это
-//      дефолт, поэтому единица без ключа молча рисуется своим id-кодом на всех трёх
-//      языках. Ровно поэтому пришлось заводить `unit_h`. Плюс это была бы
-//      кросс-неймспейсная ссылка, запрещённая правилами страниц.
-//
-// Какая из двух систем источник — решается целиком и отдельно: пункт 4c плана
-// `roo_code/plans/general/review-followups.md`.
-//
-// Здесь была своя, третья таблица — `{'EUR/vnt': 'pcs', …}` с запасным вариантом
-// `priceUnit.replace('EUR/', '')`: валюта отрезалась от единицы строковой операцией.
-// Это и был симптом того, что другой валюты у услуги существовать не могло.
-function displayUnit(uomId: string | null): string {
-  if (!uomId) return '—'
-  const suffix = uomKeySuffix(uomId)
-  return t('orders.unit_' + suffix, suffix)
-}
 
 // ─── Filtered services ──────────────────────────────────────────────────
 const filteredServices = computed(() => {
@@ -334,7 +315,7 @@ function onCancel() {
                   />
                 </td>
                 <td class="col-service-name">{{ tf(s.name) }}</td>
-                <td class="col-unit-cell">{{ displayUnit(s.uomId) }}</td>
+                <td class="col-unit-cell">{{ unitLabel(s.uomId) }}</td>
                 <td class="col-price-cell">
                   {{
                     s.sellingPrice != null

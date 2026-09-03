@@ -24,6 +24,7 @@ import {
   toPricingLine,
 } from '@/services/orderLines'
 import { rollupOrder, type VatMode } from '@/domain/orderPricing'
+import { suggestedDocumentType } from '@/domain/countries'
 
 export function useOrderCreate() {
   const { t } = useI18n()
@@ -166,6 +167,21 @@ export function useOrderCreate() {
     form.value.clientId = client.id
     selectedClient.value = client
     clearError('clientId')
+
+    /**
+     * Тип комплекта документов система ПРЕДЛАГАЕТ по стране клиента: Литва —
+     * локальный, любая другая — экспорт (ТЗ, Process 2.1 §2).
+     *
+     * Предложение делается только здесь — в момент выбора клиента, — и потому
+     * не вотчером на `form.clientId`: менеджер вправе поменять тип, и вотчер,
+     * сработавший на любой последующей правке заказа, затёр бы его выбор.
+     *
+     * Ветки «у клиента страны нет, поэтому не трогаем» здесь нет: `documentType`
+     * уже стоит `'local'` по умолчанию (см. `form` выше), так что не подставить
+     * ничего — значит оставить локальный комплект и 21 % НДС заказу, который
+     * может быть экспортным. Правило полное, и оно всегда применяется.
+     */
+    form.value.documentType = suggestedDocumentType(client.country)
   }
 
   // ─── Validation ────────────────────────────────────────────────────────
@@ -198,6 +214,7 @@ export function useOrderCreate() {
           unitCost?: number
           /** The warehouse could not cover the whole line — the cost is an estimate. */
           hasShortage?: boolean
+          offcutIds?: string[]
         }>
       | {
           productId: string
@@ -208,6 +225,7 @@ export function useOrderCreate() {
           unitCost?: number
           /** The warehouse could not cover the whole line — the cost is an estimate. */
           hasShortage?: boolean
+          offcutIds?: string[]
         },
   ) {
     const items = Array.isArray(data) ? data : [data]
@@ -232,6 +250,11 @@ export function useOrderCreate() {
         // The caption on a warehouse cost — see `baseCurrencyOf`.
         receivedCurrency: baseCurrencyOf(settings),
       })
+    })
+
+    newItems.forEach((line, idx) => {
+      const chosen = items[idx]?.offcutIds
+      if (chosen && chosen.length > 0) offcutsByLine.value.set(line.id, chosen)
     })
 
     localOrder.value = {
@@ -368,6 +391,15 @@ export function useOrderCreate() {
   const createdOrderId = ref<string | null>(null)
   const notesSaved = ref(false)
   const savedLineIds = ref(new Set<string>())
+  /**
+   * Куски, выбранные для строки руками, по локальному id строки.
+   *
+   * Рядом с `savedLineIds` и по той же причине: `OrderItem` такого поля не имеет, а
+   * выбор менеджера обязан дожить до `addOrderItem`. Ключ — тот же локальный id, что
+   * и у таблицы на экране, поэтому две строки одного товара не путаются, а запись
+   * удалённой строки просто перестаёт спрашиваться.
+   */
+  const offcutsByLine = ref(new Map<string, string[]>())
 
   /** True once the order exists on the server — the next Save resumes it. */
   const isPartiallySaved = computed(() => createdOrderId.value !== null)
@@ -414,6 +446,8 @@ export function useOrderCreate() {
           // the new order's default discount and the price would change under
           // the admin between the table they saw and the order they got.
           discountPercent: item.discountPercent,
+          // Куски, выбранные руками: FIFO их не найдёт — он строится только из партий.
+          offcutIds: offcutsByLine.value.get(item.id),
         })
         savedLineIds.value.add(item.id)
       }

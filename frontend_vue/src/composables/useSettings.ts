@@ -7,10 +7,23 @@ import type {
   UomConversion,
   OrderStatusSetting,
   UserProfile,
+  MailServerSettings,
+  MailServerPayload,
 } from '@/types/settings'
 
 const defaultSettings: AppSettings = {
   company: { name: '', legalAddress: '', vatCode: '', bankName: '', bankAccount: '' },
+  // Пустой почтовый сервер — это «письма отправлять не через что», и BCC-инструмент
+  // читает это состояние как запрет на отправку, а не как «наверное, настроено».
+  mail: {
+    host: '',
+    port: 587,
+    encryption: 'none',
+    username: '',
+    passwordSet: false,
+    fromEmail: '',
+    fromName: '',
+  },
   constants: { vatRate: 21, defaultMargin: 15, defaultCurrency: 'EUR', defaultDiscountPercent: 0 },
   // Empty until the server answers: nobody is granted anything by a default that
   // exists only because the settings have not loaded yet.
@@ -25,13 +38,14 @@ const defaultSettings: AppSettings = {
 }
 
 // ─── localStorage cache helpers ──────────────────────────────────────────
-const CACHE_VERSION = 5 // bump when data shape changes (e.g., new fields)
+const CACHE_VERSION = 6 // bump when data shape changes (e.g., new fields)
 const CACHE_KEY = `flexiron_settings_cache_v${CACHE_VERSION}`
 const LEGACY_CACHE_KEYS = [
   'flexiron_settings_cache',
   'flexiron_settings_cache_v2',
   'flexiron_settings_cache_v3',
   'flexiron_settings_cache_v4', // до появления warehouseMap
+  'flexiron_settings_cache_v5', // до появления почтового сервера
 ] // old keys to purge
 // const CACHE_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
 
@@ -79,6 +93,14 @@ const settled = ref(false)
 const saving = ref(false)
 const error = ref<string | null>(null)
 const settings = reactive<AppSettings>({ ...defaultSettings })
+/**
+ * Введённый пароль почты, ждущий сохранения.
+ *
+ * Живёт ОТДЕЛЬНО от `settings` намеренно: всё, что попадает в стор, попадает и в
+ * снимок, и в кэш localStorage. Секрет там не нужен, а тип `MailServerSettings`
+ * поля для него не имеет вовсе — положить его туда просто нечем.
+ */
+const mailPassword = ref('')
 /** Snapshot captured after last load/save, used for dirty diffing */
 let snapshot: AppSettings | null = null
 
@@ -93,14 +115,44 @@ function markDirty(section: string) {
 //   dirtySections.clear()
 // }
 
+/**
+ * Версия снимка. Сам `snapshot` — обычная переменная, и вычислимые о его замене
+ * не узнают: сравнение с ним читается, но зависимостью не становится.
+ *
+ * Без версии ломается ровно один сценарий, и он не теоретический: после
+ * сохранения `settings.mail = saved` пересчитывает вычислимое СРАЗУ, ещё со
+ * старым снимком, оно кеширует «раздел грязный» — и `takeSnapshot()` следом
+ * сбросить его уже нечем. Адрес почты после сохранения не возвращался.
+ */
+const snapshotVersion = ref(0)
+
 function takeSnapshot() {
   snapshot = JSON.parse(JSON.stringify(settings)) as AppSettings
+  snapshotVersion.value++
 }
 
 /** Deep-diff a simple (non-array) section */
 function sectionChanged(key: keyof AppSettings): boolean {
   if (!snapshot) return false
   return JSON.stringify(settings[key]) !== JSON.stringify(snapshot[key])
+}
+
+/**
+ * Есть ли несохранённые правки в ОДНОМ разделе.
+ *
+ * То же условие, по которому `save()` решает, слать ли этот раздел на сервер, —
+ * и это не совпадение: вопрос «разошёлся ли черновик с сервером» один, и ответ
+ * на него должен быть один. Отдельно от `isDirty` понадобилось проверке почты:
+ * она обязана знать, разошлась ли ПОЧТА, а не настройки вообще, иначе правка
+ * названия компании гасит адрес в чужом разделе.
+ *
+ * Три зависимости, и все три нужны: `dirtySections` — reactive Set, `settings[key]`
+ * читается внутри `sectionChanged`, а замену снимка видно только через
+ * `snapshotVersion` — без него вычислимое застревает на «грязно» после сохранения.
+ */
+function isSectionDirty(key: keyof AppSettings): boolean {
+  void snapshotVersion.value
+  return dirtySections.has(key as string) || sectionChanged(key)
 }
 
 /** Detect added items in a collection (in current but not in original) */
@@ -165,6 +217,7 @@ export function useSettings() {
     const [
       company,
       constants,
+      mail,
       orderPermissions,
       currencies,
       uoms,
@@ -174,6 +227,7 @@ export function useSettings() {
     ] = await Promise.allSettled([
       settingsService.getCompany(),
       settingsService.getConstants(),
+      settingsService.getMailServer(),
       settingsService.getOrderPermissions(),
       settingsService.getCurrencies(),
       settingsService.getUoms(),
@@ -200,6 +254,7 @@ export function useSettings() {
 
     take('company', company)
     take('constants', constants)
+    take('mail', mail)
     take('orderPermissions', orderPermissions)
     take('currencies', currencies)
     take('uoms', uoms)
@@ -298,6 +353,24 @@ export function useSettings() {
       if (dirtySections.has('constants') || sectionChanged('constants')) {
         promises.push(settingsService.saveConstants({ ...settings.constants }))
         dirtySections.delete('constants')
+      }
+
+      // ── Mail server ──
+      //
+      // Пароль не живёт в сторе (его нет в типе) и потому не попадает ни в снимок,
+      // ни в кэш: он ждёт отправки здесь и уходит только если его действительно
+      // ввели. Пустое поле означает «не менять пароль», а не «стереть».
+      if (dirtySections.has('mail') || sectionChanged('mail')) {
+        const { passwordSet: _passwordSet, ...editable } = settings.mail
+        const payload: MailServerPayload = { ...editable }
+        if (mailPassword.value) payload.password = mailPassword.value
+        promises.push(
+          settingsService.saveMailServer(payload).then((saved) => {
+            settings.mail = saved
+          }),
+        )
+        mailPassword.value = ''
+        dirtySections.delete('mail')
       }
 
       // ── Currencies ──
@@ -465,6 +538,19 @@ export function useSettings() {
     markDirty('constants')
     isDirty.value = true
   }
+  const _updateMail = (patch: Partial<Omit<MailServerSettings, 'passwordSet'>>) => {
+    Object.assign(settings.mail, patch)
+    markDirty('mail')
+    isDirty.value = true
+  }
+  /** Ввод пароля. Он не часть стора — только payload сохранения. */
+  const _setMailPassword = (value: string) => {
+    mailPassword.value = value
+    if (value) {
+      markDirty('mail')
+      isDirty.value = true
+    }
+  }
   const _addCurrency = (data: Omit<Currency, 'id'>) => {
     const currency: Currency = { ...data, id: `cur-temp-${Date.now()}` }
     settings.currencies.push(currency)
@@ -545,6 +631,7 @@ export function useSettings() {
     if (snapshot) {
       Object.assign(settings, JSON.parse(JSON.stringify(snapshot)))
       dirtySections.clear()
+      mailPassword.value = ''
       isDirty.value = false
     }
   }
@@ -580,6 +667,7 @@ export function useSettings() {
     error.value = null
     snapshot = null
     dirtySections.clear()
+    mailPassword.value = ''
     isDirty.value = false
   }
 
@@ -590,6 +678,7 @@ export function useSettings() {
     saving,
     error,
     isDirty,
+    isSectionDirty,
     load,
     reload,
     save: _save,
@@ -597,6 +686,9 @@ export function useSettings() {
     resetState,
     updateCompany: _updateCompany,
     updateConstants: _updateConstants,
+    updateMail: _updateMail,
+    mailPassword,
+    setMailPassword: _setMailPassword,
     addCurrency: _addCurrency,
     removeCurrency: _removeCurrency,
     addUom: _addUom,

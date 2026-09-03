@@ -10,11 +10,36 @@ import type {
   WarehouseMapFile,
   SettingUser,
   UserProfile,
+  MailServerSettings,
+  MailServerPayload,
 } from '@/types/settings'
+import { isMailConfigured } from '@/types/settings'
 
 // ─── Seed data ───────────────────────────────────────────────────────────
 
+/**
+ * Почтовый сервер — сид без пароля, и это не забывчивость.
+ *
+ * Пароль лежит отдельной константой и отдельной переменной стора: тип
+ * `MailServerSettings` поля для него не имеет вовсе, потому что сервер его не
+ * отдаёт. Держать секрет там, откуда его нельзя случайно прочитать, дешевле,
+ * чем каждый раз помнить вычеркнуть его из ответа.
+ */
+const MOCK_MAIL_SEED: Omit<MailServerSettings, 'passwordSet'> = {
+  host: 'smtp.flexiron.lt',
+  port: 587,
+  encryption: 'starttls',
+  username: 'sales@flexiron.lt',
+  fromEmail: 'sales@flexiron.lt',
+  fromName: 'Flexiron UAB',
+}
+
+/** Пароль SMTP на стороне «сервера». Наружу не выходит ни одним путём. */
+const MOCK_MAIL_PASSWORD = 'seed-smtp-token'
+
 export const MOCK_SETTINGS: AppSettings = {
+  mail: { ...MOCK_MAIL_SEED, passwordSet: MOCK_MAIL_PASSWORD.length > 0 },
+
   company: {
     name: 'Flexiron UAB',
     legalAddress: 'Verkių g. 25, Vilnius, Lietuva',
@@ -332,7 +357,13 @@ export const MOCK_SETTINGS: AppSettings = {
 
 // ─── In-memory store ─────────────────────────────────────────────────────
 
-let settingsStore: AppSettings = structuredClone(MOCK_SETTINGS)
+/**
+ * Стор настроек — без почтовой секции: она живёт в `mailStore` ниже вместе со своим
+ * паролем, и второй копии у неё быть не должно (линза Л5 — один источник правила).
+ */
+let settingsStore: Omit<AppSettings, 'mail'> = structuredClone(MOCK_SETTINGS)
+const mailStore: Omit<MailServerSettings, 'passwordSet'> = { ...MOCK_MAIL_SEED }
+let mailPassword = MOCK_MAIL_PASSWORD
 let nextCurrencySeq = 10
 let nextUomSeq = 10
 let nextConvSeq = 10
@@ -359,11 +390,22 @@ function findOrderStatus(id: string): OrderStatusSetting | undefined {
 // ─── Full settings ───────────────────────────────────────────────────────
 
 export function mockGetSettings(): AppSettings {
-  return structuredClone(settingsStore)
+  return { ...structuredClone(settingsStore), mail: mockGetMail() }
 }
 
 export function mockSaveSettings(settings: AppSettings): void {
-  settingsStore = JSON.parse(JSON.stringify(settings)) as AppSettings
+  const { mail, ...rest } = JSON.parse(JSON.stringify(settings)) as AppSettings
+  settingsStore = rest
+  // Почта идёт своим путём — иначе `passwordSet` из ответа лёг бы в стор второй
+  // копией правила «пароль задан», а правда о пароле одна и живёт в `mailPassword`.
+  mockPatchMail({
+    host: mail.host,
+    port: mail.port,
+    encryption: mail.encryption,
+    username: mail.username,
+    fromEmail: mail.fromEmail,
+    fromName: mail.fromName,
+  })
 }
 
 // ─── Company ─────────────────────────────────────────────────────────────
@@ -535,6 +577,49 @@ export function mockDeleteOrderStatus(id: string): void {
   if (idx === -1) throw new Error('ORDER_STATUS_NOT_FOUND')
   settingsStore.orderStatuses.splice(idx, 1)
   settingsStore.orderStatuses.forEach((s, i) => (s.order = i))
+}
+
+// ─── Mail server ─────────────────────────────────────────────────────────
+
+/**
+ * Чтение почтовых настроек. Пароля в ответе нет — только признак, что он задан.
+ * Это не «забыли положить»: поля для него нет в типе, положить его некуда.
+ */
+export function mockGetMail(): MailServerSettings {
+  return { ...mailStore, passwordSet: mailPassword.length > 0 }
+}
+
+/**
+ * Merge-patch почтовых настроек. `password` — единственное поле, которое можно
+ * записать и нельзя прочитать; пустая строка игнорируется, потому что «оставить
+ * поле пустым» в форме означает «не менять пароль», а не «стереть его».
+ */
+export function mockPatchMail(patch: MailServerPayload): MailServerSettings {
+  const { password, ...rest } = patch
+  Object.assign(mailStore, rest)
+  if (typeof password === 'string' && password.length > 0) mailPassword = password
+  return mockGetMail()
+}
+
+/**
+ * Настроен ли сервер настолько, чтобы через него можно было отправить письмо.
+ *
+ * Правило берётся из `isMailConfigured` — того же, по которому гаснут кнопки на
+ * фронте. Своей формулировки у сервера нет: она была третьей записью одного правила
+ * и разъехалась бы с двумя другими молча.
+ */
+export function mockIsMailConfigured(): boolean {
+  return isMailConfigured(mockGetMail())
+}
+
+/**
+ * Тестовое письмо: сервер отправляет его самому себе на адрес отправителя.
+ * Недонастроенный сервер отвечает отказом, а не молчаливым успехом — иначе
+ * кнопка «проверить» проверяла бы только саму себя.
+ */
+export function mockSendMailTest(): { deliveredTo: string } {
+  if (!mockIsMailConfigured()) throw new Error('MAIL_NOT_CONFIGURED')
+  return { deliveredTo: mailStore.fromEmail }
 }
 
 // ─── Profile ─────────────────────────────────────────────────────────────

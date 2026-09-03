@@ -16,6 +16,7 @@ import {
 import { usePagination } from './usePagination'
 import { useToast } from './useToast'
 import { useTranslatedField } from './useTranslatedData'
+import { ensureProductNames } from './useProductNames'
 import type {
   StockOverviewItem,
   BatchListItem,
@@ -88,7 +89,7 @@ export function useWarehouse() {
     productId: undefined,
     status: undefined,
     supplierId: undefined,
-    unit: '',
+    uomId: '',
     dateFrom: '',
     dateTo: '',
     sortBy: undefined,
@@ -99,7 +100,7 @@ export function useWarehouse() {
   const offcutFilters = reactive<WarehouseFilters>({
     search: '',
     status: undefined,
-    unit: '',
+    uomId: '',
     offcutType: undefined,
     productId: undefined,
     categoryIds: [],
@@ -112,7 +113,7 @@ export function useWarehouse() {
   const movementFilters = reactive<WarehouseFilters>({
     search: '',
     type: undefined,
-    unit: '',
+    uomId: '',
     categoryIds: [],
     batchNumber: undefined,
     dateFrom: '',
@@ -126,7 +127,7 @@ export function useWarehouse() {
     search: '',
     status: undefined,
     priority: undefined,
-    unit: '',
+    uomId: '',
     categoryIds: [],
     sortBy: undefined,
     sortDir: 'asc',
@@ -136,7 +137,7 @@ export function useWarehouse() {
   const stockFilters = reactive<StockFilters>({
     search: '',
     categoryIds: [],
-    unit: '',
+    uomId: '',
     showDeficitOnly: false,
     showInStockOnly: false,
     sortBy: null,
@@ -208,10 +209,15 @@ export function useWarehouse() {
         sortBy: batchesSort.sortBy ?? undefined,
         sortDir: batchesSort.sortDir,
       }
-      const res = await getBatches(batchFilters, {
-        page: batchesPagination.page.value,
-        pageSize: batchesPagination.pageSize.value,
-      })
+      // Справочник товаров тянется ВМЕСТЕ со списком, а не после: имя товара рисуется
+      // в той же строке, и строка, обогнавшая справочник, показала бы прочерк (п. 4e).
+      const [res] = await Promise.all([
+        getBatches(batchFilters, {
+          page: batchesPagination.page.value,
+          pageSize: batchesPagination.pageSize.value,
+        }),
+        ensureProductNames(),
+      ])
       batches.value = res.items
       batchesPagination.total.value = res.total
       batchesInitialized.value = true
@@ -231,10 +237,13 @@ export function useWarehouse() {
         sortBy: offcutsSort.sortBy ?? undefined,
         sortDir: offcutsSort.sortDir,
       }
-      const res = await getOffcuts(offcutFiltersForApi, {
-        page: offcutsPagination.page.value,
-        pageSize: offcutsPagination.pageSize.value,
-      })
+      const [res] = await Promise.all([
+        getOffcuts(offcutFiltersForApi, {
+          page: offcutsPagination.page.value,
+          pageSize: offcutsPagination.pageSize.value,
+        }),
+        ensureProductNames(),
+      ])
       offcuts.value = res.items
       offcutsPagination.total.value = res.total
       offcutsInitialized.value = true
@@ -254,10 +263,13 @@ export function useWarehouse() {
         sortBy: movementsSort.sortBy ?? undefined,
         sortDir: movementsSort.sortDir,
       }
-      const res = await getMovements(movementFiltersForApi, {
-        page: movementsPagination.page.value,
-        pageSize: movementsPagination.pageSize.value,
-      })
+      const [res] = await Promise.all([
+        getMovements(movementFiltersForApi, {
+          page: movementsPagination.page.value,
+          pageSize: movementsPagination.pageSize.value,
+        }),
+        ensureProductNames(),
+      ])
       movements.value = res.items
       movementsPagination.total.value = res.total
       movementsInitialized.value = true

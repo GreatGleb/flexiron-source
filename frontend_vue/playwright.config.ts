@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test'
+import { REAL_API_BASE_URL, REAL_API_PORT } from './tests/e2e/helpers/realApi'
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -34,6 +35,35 @@ export default defineConfig({
     toHaveScreenshot: {
       maxDiffPixelRatio: 0.01,
       animations: 'disabled',
+
+      /*
+       * Допуск на ЦВЕТ каждого пикселя. Без него Playwright ставит 0.2, и эталон
+       * перестаёт охранять цвет: разошедшимся пиксель считается только при разнице
+       * больше допуска, а пока таких пикселей ноль, `maxDiffPixelRatio` любой
+       * строгости уже ничего не решает. Замерено 2026-08-30: смена фона, рамки и
+       * свечения у 24 пилюль страницы не покрасила НИ ОДИН эталон — ни при 0.01,
+       * ни при 0. Ужесточать надо было не долю, а порог.
+       *
+       * Ноль — по факту замера, а не по идеалу. Опасение, что он будет краснеть от
+       * сглаживания шрифта, проверено и не подтвердилось: шрифты закреплены
+       * (`helpers/webFonts.ts`), и два прогона подряд по 96 визуальным тестам дали
+       * ОДИН И ТОТ ЖЕ набор из четырёх падений с теми же числами пикселей
+       * (3786, 5119, 5235, 2190). Все четыре оказались устаревшими базовыми
+       * линиями, а не шумом:
+       *
+       *   layout-sidebar-expanded / collapsed  сняты 2026-08-08, за четыре дня до
+       *                                        закрепления шрифтов (cd952bb)
+       *   suppliers-list-table-panel           сведение размера пилюли (621db1b)
+       *   warehouse-row-movements              оживление мятного градиента (c1d5dc5)
+       *
+       * Все четыре обновлены в этом же коммите и просмотрены глазами. Остальные 186
+       * зелены при нуле дважды подряд.
+       *
+       * Порог живёт ЗДЕСЬ, а не в `SNAPSHOT_OPTIONS`: часть эталонов
+       * (`layout.spec.ts`) снимается вообще без опций, и правка в хелпере их бы не
+       * достала.
+       */
+      threshold: 0,
     },
   },
 
@@ -56,10 +86,32 @@ export default defineConfig({
 
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
 
-  webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:5173',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  webServer: [
+    {
+      command: 'npm run dev',
+      url: 'http://localhost:5173',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+    /*
+     * Второй сервер — то же приложение, поднятое БЕЗ мок-слоя.
+     *
+     * Он нужен ровно одному спеку (`ready-real-api.spec.ts`), и без него ветка
+     * `no-mock-module` в `tests/e2e/helpers/ready.ts` не исполняется ни разу за прогон:
+     * под моками `main.ts` синхронно ставит `__mockMode`, и ожидание туда не заходит
+     * никогда. Ветка при этом отвечает за то, чтобы тест против реального API не платил
+     * бюджет ожидания на каждой странице.
+     *
+     * Цена — один `vite` в режиме разработки (замер: готов за ~0.2 с). Бэкенд не
+     * поднимается: спек подменяет `/api/**` через `page.route`, что в реальном режиме
+     * возможно, а под моками нет.
+     */
+    {
+      command: `npm run dev -- --port ${REAL_API_PORT} --strictPort`,
+      env: { VITE_USE_MOCKS: 'false' },
+      url: REAL_API_BASE_URL,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+  ],
 })

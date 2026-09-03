@@ -4,6 +4,8 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useHead } from '@/composables/useHead'
 import { useSettings } from '@/composables/useSettings'
+import { useUnitLabel } from '@/composables/useUnitLabel'
+import { useProductNames } from '@/composables/useProductNames'
 import { useWarehouseBatch } from '@/composables/useWarehouseBatch'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
 import Breadcrumb from '@/components/admin/Breadcrumb.vue'
@@ -21,6 +23,8 @@ import '@styles/admin/components/_entity-card-layout.css'
 import '@styles/admin/components/_audit-log.css'
 
 const { t, locale } = useI18n()
+const unitLabel = useUnitLabel()
+const { productName } = useProductNames()
 const route = useRoute()
 const { settings } = useSettings()
 
@@ -49,15 +53,6 @@ function resolveCurrencyLabel(code: string | null): string {
   const cur = settings.currencies.find((c: { code: string }) => c.code === code)
   if (!cur) return code
   return cur.code
-}
-
-/** Resolve unit code string (e.g. 'kg', 'pcs') to locale-aware display from settings */
-function resolveUnitLabel(code: string | null): string {
-  if (!code) return '—'
-  const uom = settings.uoms.find((u: { code: { en?: string } }) => u.code.en === code)
-  if (!uom) return code
-  const currentLocale = locale.value as keyof typeof uom.code
-  return uom.code[currentLocale] || uom.code.en || uom.code.ru || uom.code.lt || code
 }
 
 /**
@@ -119,7 +114,7 @@ const pageTitle = computed(() =>
   batch.value
     ? t('warehouse.batch_card_title', { batchNumber: batch.value.batchNumber }) +
       ' — ' +
-      tf(batch.value.productName)
+      productName(batch.value.productId)
     : t('warehouse.header_title'),
 )
 
@@ -388,7 +383,7 @@ async function onMovementCreated() {
               label:
                 t('warehouse.batch_card_title', { batchNumber: batch.batchNumber }) +
                 ' — ' +
-                tf(batch.productName),
+                productName(batch.productId),
             },
           ]"
         />
@@ -396,7 +391,7 @@ async function onMovementCreated() {
           <div class="batch-card-header-left">
             <h1 class="page-title">
               {{ t('warehouse.batch_card_title', { batchNumber: batch.batchNumber }) }} —
-              {{ tf(batch.productName) }}
+              {{ productName(batch.productId) }}
               <router-link
                 v-tooltip="t('warehouse.open_product_card')"
                 :to="{ name: 'admin-product-card', params: { id: batch.productId } }"
@@ -491,7 +486,7 @@ async function onMovementCreated() {
             <div class="total-label">{{ t('warehouse.batch_summary_total') }}</div>
             <div class="total-value">
               {{ batch.quantity }}
-              <span class="total-unit">{{ resolveUnitLabel(batch.unit) }}</span>
+              <span class="total-unit">{{ unitLabel(batch.uomId) }}</span>
             </div>
           </div>
         </div>
@@ -520,7 +515,7 @@ async function onMovementCreated() {
               </div>
               <div class="agg-value">
                 {{ qty }}
-                <span class="agg-unit">{{ resolveUnitLabel(batch.unit) }}</span>
+                <span class="agg-unit">{{ unitLabel(batch.uomId) }}</span>
               </div>
             </div>
           </div>
@@ -646,7 +641,7 @@ async function onMovementCreated() {
                     <SvgIcon name="external-link" :width="14" :height="14" />
                   </router-link>
                   <input
-                    :value="tf(batch.productName)"
+                    :value="productName(batch.productId)"
                     class="glass-input"
                     type="text"
                     readonly
@@ -742,7 +737,7 @@ async function onMovementCreated() {
                     </span>
                   </label>
                   <input
-                    :value="resolveUnitLabel(form.unit)"
+                    :value="unitLabel(form.uomId)"
                     class="glass-input"
                     type="text"
                     readonly
@@ -877,7 +872,7 @@ async function onMovementCreated() {
                     :value="
                       money(
                         sellingPrice,
-                        `${resolveCurrencyLabel(form.currency)} / ${resolveUnitLabel(form.unit)}`,
+                        `${resolveCurrencyLabel(form.currency)} / ${unitLabel(form.uomId)}`,
                       )
                     "
                     class="glass-input"
@@ -1070,7 +1065,7 @@ async function onMovementCreated() {
                   </label>
                   <AutoResizeTextarea
                     v-model="form.notes"
-                    class="glass-input batch-notes-input"
+                    class="batch-notes-input"
                     data-test="field-notes"
                   />
                 </div>
@@ -1188,11 +1183,7 @@ async function onMovementCreated() {
                   </svg>
                 </span>
               </label>
-              <AutoResizeTextarea
-                v-model="form.locationNotes"
-                class="glass-input"
-                data-test="field-location-notes"
-              />
+              <AutoResizeTextarea v-model="form.locationNotes" data-test="field-location-notes" />
             </div>
           </template>
         </GlassPanel>
@@ -1304,7 +1295,7 @@ async function onMovementCreated() {
                   <td>{{ t(`warehouse.movement_type_${movement.type}`) }}</td>
                   <td>
                     {{ movement.quantity }}
-                    {{ t(`warehouse.unit_${movement.unit}`, movement.unit) }}
+                    {{ unitLabel(movement.uomId) }}
                   </td>
                   <td>{{ movement.referenceId ?? '—' }}</td>
                   <td style="text-align: center">
@@ -1330,35 +1321,36 @@ async function onMovementCreated() {
         <GlassPanel data-test="batch-card-offcuts-section">
           <template #header>
             <span class="panel-title">{{ t('warehouse.section_batch_offcuts') }}</span>
-            <router-link
-              v-if="batch"
-              v-tooltip="t('warehouse.create_offcut_for_batch')"
-              :to="{
-                name: 'admin-warehouse-offcut-create',
-                query: { batchId: batch.id, productId: batch.productId },
-              }"
-              class="btn btn-sm btn-secondary"
-              style="margin-left: auto"
-              data-test="batch-card-create-offcut-link"
-            >
-              <SvgIcon name="plus-add" :width="14" :height="14" />
-              {{ t('warehouse.btn_new_offcut') }}
-            </router-link>
-            <!--
-              Резка приходит сюда с уже известной партией: выбирать её заново на
-              странице резки не нужно. Ручное создание обрезка рядом и осталось —
-              это разные действия: там кусок просто записывают, здесь его отрезают,
-              и с партии уходит ещё и пропил.
-            -->
-            <router-link
-              v-if="batch"
-              :to="{ name: 'admin-warehouse-cutting', query: { batchId: batch.id } }"
-              class="btn btn-sm btn-primary"
-              data-test="batch-card-cutting-link"
-            >
-              <SvgIcon name="scissors" :width="14" :height="14" />
-              {{ t('warehouse.btn_cut') }}
-            </router-link>
+            <div class="panel-header-actions">
+              <router-link
+                v-if="batch"
+                v-tooltip="t('warehouse.create_offcut_for_batch')"
+                :to="{
+                  name: 'admin-warehouse-offcut-create',
+                  query: { batchId: batch.id, productId: batch.productId },
+                }"
+                class="btn btn-sm btn-secondary"
+                data-test="batch-card-create-offcut-link"
+              >
+                <SvgIcon name="plus-add" :width="14" :height="14" />
+                {{ t('warehouse.btn_new_offcut') }}
+              </router-link>
+              <!--
+                Резка приходит сюда с уже известной партией: выбирать её заново на
+                странице резки не нужно. Ручное создание обрезка рядом и осталось —
+                это разные действия: там кусок просто записывают, здесь его отрезают,
+                и с партии уходит ещё и пропил.
+              -->
+              <router-link
+                v-if="batch"
+                :to="{ name: 'admin-warehouse-cutting', query: { batchId: batch.id } }"
+                class="btn btn-sm btn-primary"
+                data-test="batch-card-cutting-link"
+              >
+                <SvgIcon name="scissors" :width="14" :height="14" />
+                {{ t('warehouse.btn_cut') }}
+              </router-link>
+            </div>
           </template>
           <div v-if="offcutsLoading" class="text-muted" style="padding: 12px 0">
             {{ t('warehouse.loading') }}...
@@ -1395,13 +1387,11 @@ async function onMovementCreated() {
                   </td>
                   <td>
                     <template v-if="offcut.weightKg != null">
-                      {{ offcut.weightKg }} {{ t('warehouse.unit_kg') }}
+                      {{ offcut.weightKg }} {{ unitLabel('uom-kg') }}
                     </template>
                     <span v-else>—</span>
                   </td>
-                  <td>
-                    {{ offcut.quantity }} {{ t(`warehouse.unit_${offcut.unit}`, offcut.unit) }}
-                  </td>
+                  <td>{{ offcut.quantity }} {{ unitLabel(offcut.uomId) }}</td>
                   <td>
                     <span
                       class="pill pill-sm"
