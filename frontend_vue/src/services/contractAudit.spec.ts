@@ -177,9 +177,16 @@ describe('скелеты аудита', () => {
       const extra = found.filter((k) => !keys.includes(k))
       if (missing.length) problems.push(`${domain}: потеряны разделы — ${missing.join(', ')}`)
       if (extra.length) problems.push(`${domain}: лишние разделы — ${extra.join(', ')}`)
-      const lostDuties = DUTIES.filter((d) => !src.includes(`- ${d}:`) && !src.includes(`- ${d}: `))
-      if (lostDuties.length && !src.includes('## Обязанности сервера')) {
+      // Раздел обязанностей и девять его граф проверяются по отдельности. Связка «нет граф И нет
+      // заголовка» была бы почти всегда ложной: удалить одну графу, оставив заголовок, — это ровно
+      // тот случай, ради которого проверка и заводилась, а он проходил зелёным. Пойман инверсией
+      // 2026-09-04: `sed -i '/^- Мультиарендность:$/d'` не покраснел ничего.
+      if (!src.includes('## Обязанности сервера')) {
         problems.push(`${domain}: нет раздела «Обязанности сервера»`)
+      }
+      const lostDuties = DUTIES.filter((d) => !src.includes(`- ${d}:`))
+      if (lostDuties.length) {
+        problems.push(`${domain}: потеряны графы обязанностей — ${lostDuties.join(' · ')}`)
       }
     }
     expect(problems, 'скелет разошёлся с инвентарём').toEqual([])
