@@ -205,11 +205,16 @@ const prep = await agent(
     '   в занятом дереве коммит на домен заберёт чужую работу, а stash спрячет её.',
     '2. Машинная приёмка ДО работы: cd frontend_vue && npm run verify.',
     '   Красная → gateGreen = false, остановись: ветка нездорова, гнать по ней нечего.',
-    '3. ВЕТКУ НЕ СОЗДАВАЙ — она задана человеком до прогона, работай на текущей. Проверь три вещи:',
-    '     git branch --show-current   — не main и не master. Это main → treeClean = false, стоп.',
+    '3. Ветка — ТА, НА КОТОРОЙ ТЫ СТОИШЬ. Не создавай, не переключай, не сравнивай её имя ни с',
+    '   каким шаблоном: у этого прогона НЕТ канонического имени ветки, и «правильного» имени в',
+    '   плане тоже нет. Рядом может лежать ветка с похожим именем и даже на том же коммите —',
+    '   переключаться на неё ЗАПРЕЩЕНО. Человек стоит в этом же рабочем дереве на этой ветке, и',
+    '   `git checkout` уводит его работу вместе с твоей. Проверено 2026-09-04: агент подготовки',
+    '   рассудил «деревья идентичны, работа не теряется» — и увёл прогон на чужую ветку.',
+    '   Проверь ровно две вещи, обе без переключений:',
+    '     git branch --show-current   — не main и не master. main → treeClean = false, стоп.',
     '     git merge-base --is-ancestor main HEAD && echo ok   — ветка ОБЯЗАНА содержать main.',
-    '       Не содержит → treeClean = false, стоп: работа уйдёт в ветку, оторванную от главной,',
-    '       и её потом придётся пересобирать (так уже случилось 2026-09-04).',
+    '       Не содержит → treeClean = false, стоп: работа уйдёт в ветку, оторванную от главной.',
     '   Верни имя текущей ветки в branch, а в baseBranch — main.',
     '4. Задача 1 плана УЖЕ ВЫПОЛНЕНА и закоммичена — генератор скелетов',
     '   frontend_vue/src/services/contractAudit.spec.ts и 17 файлов roo_code/plans/api/audit/<домен>.md',
@@ -247,8 +252,19 @@ if (!prep || !prep.treeClean || !prep.gateGreen) {
 
 log(`Ветка ${prep.branch} (содержит main). Доменов: ${domains.length}. Инвентарь: ${prep.inventory || '?'} эндпоинтов`)
 
-function auditPrompt(domain, afterCrash, attempt, lastReason, readyDeps, missingDeps) {
+function branchGuard(branch) {
   return [
+    `ПЕРВЫМ ДЕЛОМ: git branch --show-current обязана вернуть ${branch}.`,
+    'Вернула другое — НЕ переключай ветку и ничего не меняй: верни статус «провалено» с этим',
+    'текстом в notes. Ветку меняет только человек; агент, который её «поправил», уводит и свою',
+    'работу, и чужую.',
+    '',
+  ].join('\n')
+}
+
+function auditPrompt(domain, afterCrash, attempt, lastReason, readyDeps, missingDeps, branch) {
+  return [
+    branchGuard(branch),
     'АВТОНОМНЫЙ РЕЖИМ. Спрашивать некого. Неясность — НЕ догадка: строка уходит в',
     `${DECISIONS} с указанием домена и того, чего именно не хватает.`,
     '',
@@ -306,9 +322,10 @@ function auditPrompt(domain, afterCrash, attempt, lastReason, readyDeps, missing
   ].join('\n')
 }
 
-function writePrompt(domain, audit, fixReason, afterCrash, attempt, readyNeighbours) {
+function writePrompt(domain, audit, fixReason, afterCrash, attempt, readyNeighbours, branch) {
   const already = WRITTEN_ALREADY.includes(domain)
   return [
+    branchGuard(branch),
     'АВТОНОМНЫЙ РЕЖИМ. Решения «как должно быть» не принимаются: расхождение решается по',
     'старшинству источников (бэкенд → мок+клиент → замысел), спорное остаётся пробелом.',
     '',
@@ -417,7 +434,7 @@ while (auditQueue.length) {
   const readyDeps = deps.filter((d) => audits[d])
   const missingDeps = deps.filter((d) => !audits[d])
   const a = await agent(
-    auditPrompt(domain, (silentCount[domain] || 0) > 0, attempt, lastReason[domain], readyDeps, missingDeps),
+    auditPrompt(domain, (silentCount[domain] || 0) > 0, attempt, lastReason[domain], readyDeps, missingDeps, prep.branch),
     {
       schema: AUDIT,
       label: `аудит ${domain}${attempt > 1 ? ` (попытка ${attempt})` : ''}`,
@@ -598,7 +615,15 @@ while (writeQueue.length) {
 
   const writtenNeighbours = (DEPENDS_ON[domain] || []).filter((d) => written.includes(d))
   let w = await agent(
-    writePrompt(domain, audits[domain], wReason[domain] || null, (wSilent[domain] || 0) > 0, attempt, writtenNeighbours),
+    writePrompt(
+      domain,
+      audits[domain],
+      wReason[domain] || null,
+      (wSilent[domain] || 0) > 0,
+      attempt,
+      writtenNeighbours,
+      prep.branch,
+    ),
     {
       schema: WRITE,
       label: `контракт ${domain}${attempt > 1 ? ` (попытка ${attempt})` : ''}`,
