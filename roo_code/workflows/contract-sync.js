@@ -156,7 +156,12 @@ const prep = await agent(
     '   в занятом дереве коммит на домен заберёт чужую работу, а stash спрячет её.',
     '2. Машинная приёмка ДО работы: cd frontend_vue && npm run verify.',
     '   Красная → gateGreen = false, остановись: ветка нездорова, гнать по ней нечего.',
-    '3. Запомни ветку в baseBranch, узнай дату (date +%F), создай auto/contract-<дата>. Не пушь.',
+    '3. ВЕТКУ НЕ СОЗДАВАЙ — она задана человеком до прогона, работай на текущей. Проверь три вещи:',
+    '     git branch --show-current   — не main и не master. Это main → treeClean = false, стоп.',
+    '     git merge-base --is-ancestor main HEAD && echo ok   — ветка ОБЯЗАНА содержать main.',
+    '       Не содержит → treeClean = false, стоп: работа уйдёт в ветку, оторванную от главной,',
+    '       и её потом придётся пересобирать (так уже случилось 2026-09-04).',
+    '   Верни имя текущей ветки в branch, а в baseBranch — main.',
     '4. Задача 1 плана УЖЕ ВЫПОЛНЕНА и закоммичена — генератор скелетов',
     '   frontend_vue/src/services/contractAudit.spec.ts и 17 файлов roo_code/plans/api/audit/<домен>.md',
     '   существуют. НЕ переписывай их. Проверь, что они на месте, и только:',
@@ -171,7 +176,8 @@ const prep = await agent(
     '   а верни treeClean = false и остановись.',
     '',
     'Верни branch, treeClean, gateGreen, skeletons, inventory, baseBranch, commit и notes с',
-    'фактическим выводом команд.',
+    'фактическим выводом команд. Ветку не переключай ни на каком шаге: у прогона и у человека',
+    'одно рабочее дерево, и смена ветки под чужим агентом уводит его коммиты не туда.',
   ].join('\n'),
   { schema: PREP, label: 'подготовка', phase: 'Подготовка' },
 )
@@ -184,11 +190,13 @@ if (!prep || !prep.treeClean || !prep.gateGreen) {
       : !prep.treeClean
         ? 'дерево занято чужими правками'
         : 'машинная приёмка красная до работы',
+    подсказка:
+      'Ветку прогон не создаёт. Заведи её сам от main — git checkout main && git checkout -b auto/contract-<дата> — и запусти снова.',
     подготовка: prep,
   }
 }
 
-log(`Ветка ${prep.branch}. Доменов: ${domains.length}. Инвентарь: ${prep.inventory || '?'} эндпоинтов`)
+log(`Ветка ${prep.branch} (содержит main). Доменов: ${domains.length}. Инвентарь: ${prep.inventory || '?'} эндпоинтов`)
 
 function auditPrompt(domain, afterCrash, attempt, lastReason) {
   return [
