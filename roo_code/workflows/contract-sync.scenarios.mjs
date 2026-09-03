@@ -203,3 +203,55 @@ const dom = domainOf
   }, { domains: ['auth', 'uploads'] })
   console.log('13 два домена:', result.вердикт, '| написано:', result.написано.join(','))
 }
+
+
+// ── Сценарии 14–16: порядок по зависимостям и передача аудитов вперёд ──
+//
+// Порядок обхода — не косметика: аудитор домена, который опирается на чужой, обязан читать
+// готовый аудит соседа, а не выводить те же правила заново своими словами. Зависимости
+// замерены по импортам между моками; здесь проверяется, что порядок их не нарушает, что
+// соседи действительно названы в промпте и что подмножество доменов не вешает сортировку.
+{
+  const runWf = (behaviour, args = {}) => run(behaviour, () => {}, () => {}, null, null, args)
+  // Порядок аудита и то, какие соседи названы готовыми
+  const order = []
+  const promptFor = {}
+  await runWf(async (prompt, opts = {}) => {
+    const l = opts.label || '?'
+    if (l === 'подготовка') return ok({ branch: 'auto/contract-x', treeClean: true, gateGreen: true })
+    if (l.startsWith('аудит')) { const d = dom(l); order.push(d); promptFor[d] = prompt; return ok({ domain: d, endpoints: 5, emptyFields: 0 }) }
+    if (l.startsWith('соглашения')) return ok({})
+    if (l.startsWith('контракт')) return ok({ domain: dom(l), documented: 5, commit: 'c' })
+    if (l.startsWith('приёмка')) return { domain: dom(l), refuted: false, reason: '', checked: 'x' }
+    return ok({})
+  })
+
+  console.log('14 порядок аудита:\n  ' + order.join(' → '))
+
+  const DEPS = { products: ['categories'], services: ['settings'], warehouse: ['products','settings','notifications'],
+    orders: ['clients','products','services','settings','warehouse','notifications'], finance: ['orders','notifications'],
+    'audit-feed': ['orders','clients','products','suppliers','warehouse'], 'sales-crm': ['orders'], bcc: ['suppliers','settings','notifications'] }
+  const pos = Object.fromEntries(order.map((d, i) => [d, i]))
+  const broken = Object.entries(DEPS).flatMap(([d, ds]) => ds.filter((x) => pos[x] > pos[d]).map((x) => `${d} идёт раньше своей зависимости ${x}`))
+  console.log('15 нарушений порядка:', broken.length ? '\n  ' + broken.join('\n  ') : 'нет')
+
+  for (const d of ['orders', 'audit-feed', 'categories']) {
+    const m = promptFor[d].match(/ЭТОТ ДОМЕН ОПИРАЕТСЯ НА УЖЕ СВЕДЁННЫЕ[\s\S]*?\n\n/)
+    const files = m ? [...m[0].matchAll(/audit\/([a-z-]+)\.md/g)].map((x) => x[1]) : []
+    console.log(`  ${d}: назван${files.length ? 'ы аудиты ' + files.join(', ') : 'о — соседей нет'}`)
+  }
+
+  // Инверсия: подмножество доменов не должно ломаться о зависимость вне прогона
+  const order2 = []
+  await runWf(async (prompt, opts = {}) => {
+    const l = opts.label || '?'
+    if (l === 'подготовка') return ok({ branch: 'b', treeClean: true, gateGreen: true })
+    if (l.startsWith('аудит')) { const d = dom(l); order2.push(d); return ok({ domain: d, endpoints: 5, emptyFields: 0 }) }
+    if (l.startsWith('соглашения')) return ok({})
+    if (l.startsWith('контракт')) return ok({ domain: dom(l), documented: 5, commit: 'c' })
+    if (l.startsWith('приёмка')) return { domain: dom(l), refuted: false, reason: '', checked: 'x' }
+    return ok({})
+  }, { domains: ['orders', 'finance'] })
+  console.log('16 подмножество ["orders","finance"] →', order2.join(' → '), order2.length === 2 ? '(не зависло)' : '(ПРОБЛЕМА)')
+
+}

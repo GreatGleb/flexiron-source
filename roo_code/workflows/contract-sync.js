@@ -32,7 +32,56 @@ const DEFAULT_DOMAINS = [
   'categories', 'finance', 'services', 'notifications', 'audit-feed', 'analytics', 'sales-crm',
   'uploads', 'auth',
 ]
-const domains = args && Array.isArray(args.domains) && args.domains.length ? args.domains : DEFAULT_DOMAINS
+/**
+ * Кто на кого опирается. Замерено 2026-09-04 по импортам между моками доменов
+ * (`grep "from './<домен>'" src/services/mocks/*.ts`) плюс один случай владения сервисом:
+ * `sales-crm` обслуживается `ordersService.ts`, своего слоя у него нет.
+ *
+ * Смысл порядка не в красоте графа: аудитор домена, который опирается на чужой, читает **готовый
+ * аудит** соседа вместо того, чтобы выводить те же правила заново — и, что важнее, не описывает
+ * чужое правило по-своему. Это тот же Л5, только между задачами.
+ */
+const DEPENDS_ON = {
+  products: ['categories'],
+  services: ['settings'],
+  warehouse: ['products', 'settings', 'notifications'],
+  orders: ['clients', 'products', 'services', 'settings', 'warehouse', 'notifications'],
+  finance: ['orders', 'notifications'],
+  'audit-feed': ['orders', 'clients', 'products', 'suppliers', 'warehouse'],
+  'sales-crm': ['orders'],
+  bcc: ['suppliers', 'settings', 'notifications'],
+}
+
+/**
+ * Порядок обхода: зависимости раньше зависимых, при равных условиях — по убыванию гнили
+ * (исходный порядок списка). Тополо­гическая сортировка, устойчивая к неизвестным доменам:
+ * зависимость, которой нет в списке прогона, игнорируется — иначе `args.domains: ['orders']`
+ * не запустился бы вовсе.
+ */
+function orderByDependencies(list) {
+  const inRun = new Set(list)
+  const placed = new Set()
+  const out = []
+  let guard = list.length + 1
+  while (out.length < list.length && guard > 0) {
+    guard -= 1
+    for (const d of list) {
+      if (placed.has(d)) continue
+      const deps = (DEPENDS_ON[d] || []).filter((x) => inRun.has(x))
+      if (deps.every((x) => placed.has(x))) {
+        placed.add(d)
+        out.push(d)
+      }
+    }
+  }
+  // Цикла в замеренном графе нет, но если он появится — не молчим и не роняем прогон.
+  for (const d of list) if (!placed.has(d)) out.push(d)
+  return out
+}
+
+const domains = orderByDependencies(
+  args && Array.isArray(args.domains) && args.domains.length ? args.domains : DEFAULT_DOMAINS,
+)
 // auth написан до этого прогона: у него аудит постфактум и сверка с соглашениями, а не написание
 // с нуля. Список — данные, а не исключение в коде фазы.
 const WRITTEN_ALREADY = ['auth']
@@ -198,7 +247,7 @@ if (!prep || !prep.treeClean || !prep.gateGreen) {
 
 log(`Ветка ${prep.branch} (содержит main). Доменов: ${domains.length}. Инвентарь: ${prep.inventory || '?'} эндпоинтов`)
 
-function auditPrompt(domain, afterCrash, attempt, lastReason) {
+function auditPrompt(domain, afterCrash, attempt, lastReason, readyDeps, missingDeps) {
   return [
     'АВТОНОМНЫЙ РЕЖИМ. Спрашивать некого. Неясность — НЕ догадка: строка уходит в',
     `${DECISIONS} с указанием домена и того, чего именно не хватает.`,
@@ -212,6 +261,14 @@ function auditPrompt(domain, afterCrash, attempt, lastReason) {
       : '',
     attempt > 1
       ? `\nПОПЫТКА ${attempt} из ${MAX_ATTEMPTS}. Прошлая закончилась так: ${lastReason || '(причина не записана)'}\nЭто не чистый лист: часть файла уже заполнена тобой же. Не переписывай заполненное —\nдоделай названное. И не считай уже заполненное «чужим» или «устаревшим».\n`
+      : '',
+    readyDeps.length
+      ? `\nЭТОТ ДОМЕН ОПИРАЕТСЯ НА УЖЕ СВЕДЁННЫЕ. Прочитай их аудиты ПЕРЕД работой:\n${readyDeps
+          .map((d) => `  roo_code/plans/api/audit/${d}.md`)
+          .join('\n')}\nПравило соседа, уже выведенное и подтверждённое ссылками, **не выводи заново и не\nпереформулируй**: сошлись на него («см. аудит ${readyDeps[0]}, графа …»). Разошёлся с соседом —\nэто находка, а не повод написать своё: припиши расхождение в графу «Пробел контракта».\n`
+      : '',
+    missingDeps.length
+      ? `\nСоседи ${missingDeps.join(', ')}, на которых этот домен опирается, НЕ сведены (аудит провален\nили ещё не дошёл). Выводи их правила сам — и пометь в notes, что опирался на код, а не на\nготовый аудит.\n`
       : '',
     'Порядок — шаг 2 скила, и первым делом ПОИСК файлов, а не подстановка имён: шаблон',
     '<домен>Service.ts неверен для трёх доменов, mocks/<домен>.ts — для четырёх, types/<домен>.ts',
@@ -249,7 +306,7 @@ function auditPrompt(domain, afterCrash, attempt, lastReason) {
   ].join('\n')
 }
 
-function writePrompt(domain, audit, fixReason, afterCrash, attempt) {
+function writePrompt(domain, audit, fixReason, afterCrash, attempt, readyNeighbours) {
   const already = WRITTEN_ALREADY.includes(domain)
   return [
     'АВТОНОМНЫЙ РЕЖИМ. Решения «как должно быть» не принимаются: расхождение решается по',
@@ -266,6 +323,11 @@ function writePrompt(domain, audit, fixReason, afterCrash, attempt) {
       : '',
     fixReason
       ? `\nРАБОТА НАД ОШИБКАМИ — попытка ${attempt} из ${MAX_ATTEMPTS}, а не чистый лист. Предыдущая\nверсия отклонена приёмкой и ОТКАЧЕНА коммитом: файла на ветке снова нет. Разбор приёмщика\nпроверен, ему верить больше, чем своему первому впечатлению:\n\n${fixReason}\n\nЧини именно названное, остального не изобретай: подтверждённое приёмщиком воспроизведи как\nбыло — переписывание принятого само по себе основание для отказа.\n`
+      : '',
+    readyNeighbours.length
+      ? `\nКОНТРАКТЫ СОСЕДЕЙ, НА КОТОРЫХ ЭТОТ ДОМЕН ОПИРАЕТСЯ, УЖЕ НАПИСАНЫ:\n${readyNeighbours
+          .map((d) => `  roo_code/roo-context/api/${d}.md`)
+          .join('\n')}\nПравило, уже описанное там, **не переписывай своими словами** — сошлись ссылкой. Две записи\nодного правила расходятся через месяц, и это ровно то, из-за чего затевалась сверка.\n`
       : '',
     'Требования:',
     '1. По разделу на каждый эндпоинт инвентаря, формат жёсткий (шаг 3 скила): заголовок ровно',
@@ -351,11 +413,17 @@ while (auditQueue.length) {
   const domain = auditQueue.shift()
   const attempt = (attempts[domain] || 0) + 1
 
-  const a = await agent(auditPrompt(domain, (silentCount[domain] || 0) > 0, attempt, lastReason[domain]), {
-    schema: AUDIT,
-    label: `аудит ${domain}${attempt > 1 ? ` (попытка ${attempt})` : ''}`,
-    phase: 'Аудит',
-  })
+  const deps = (DEPENDS_ON[domain] || []).filter((d) => domains.includes(d))
+  const readyDeps = deps.filter((d) => audits[d])
+  const missingDeps = deps.filter((d) => !audits[d])
+  const a = await agent(
+    auditPrompt(domain, (silentCount[domain] || 0) > 0, attempt, lastReason[domain], readyDeps, missingDeps),
+    {
+      schema: AUDIT,
+      label: `аудит ${domain}${attempt > 1 ? ` (попытка ${attempt})` : ''}`,
+      phase: 'Аудит',
+    },
+  )
 
   if (!a) {
     silentCount[domain] = (silentCount[domain] || 0) + 1
@@ -521,17 +589,22 @@ resolvedInPhase = 0
 failedInPhase = 0
 failStreak = 0
 
+const written = []
 const writeQueue = [...audited]
 while (writeQueue.length) {
   const domain = writeQueue.shift()
   const attempt = (wAttempts[domain] || 0) + 1
   const commits = []
 
-  let w = await agent(writePrompt(domain, audits[domain], wReason[domain] || null, (wSilent[domain] || 0) > 0, attempt), {
-    schema: WRITE,
-    label: `контракт ${domain}${attempt > 1 ? ` (попытка ${attempt})` : ''}`,
-    phase: 'Написание',
-  })
+  const writtenNeighbours = (DEPENDS_ON[domain] || []).filter((d) => written.includes(d))
+  let w = await agent(
+    writePrompt(domain, audits[domain], wReason[domain] || null, (wSilent[domain] || 0) > 0, attempt, writtenNeighbours),
+    {
+      schema: WRITE,
+      label: `контракт ${domain}${attempt > 1 ? ` (попытка ${attempt})` : ''}`,
+      phase: 'Написание',
+    },
+  )
 
   // Молчание автора — не провал и не попытка: обрыв связи выглядит как «не справился».
   if (!w) {
@@ -579,6 +652,7 @@ while (writeQueue.length) {
       линзы: w.lenses || '',
       приёмка: judge.checked,
     })
+    written.push(domain)
     resolvedInPhase += 1
     failStreak = 0
     log(`контракт ${domain}: сделано${w.commit ? ` — ${w.commit.slice(0, 7)}` : ''}${attempt > 1 ? ` (с ${attempt}-й попытки)` : ''}`)
@@ -645,7 +719,6 @@ while (writeQueue.length) {
   }
 }
 
-const written = results.filter((r) => r.фаза === 'написание' && r.статус === 'сделано').map((r) => r.домен)
 const notWritten = domains.filter((d) => !written.includes(d))
 
 phase('Финал')
