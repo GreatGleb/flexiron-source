@@ -255,3 +255,33 @@ const dom = domainOf
   console.log('16 подмножество ["orders","finance"] →', order2.join(' → '), order2.length === 2 ? '(не зависло)' : '(ПРОБЛЕМА)')
 
 }
+
+// ── Сценарий 17: необратимые шаги финала ──
+//
+// Снос монолита, переезд ссылок и EXPECT_ALL_DOMAINS = true разрешены, только когда закрыты ВСЕ
+// домены проекта. Проверка сравнивала с числом доменов ЭТОГО прогона — и прогон на подмножестве
+// («закрыт один из одного») получал разрешение снести файл, от которого не переехали шестнадцать
+// остальных. Найдено при подготовке смоук-прогона на домене uploads, до запуска.
+{
+  const finalPromptFor = async (args) => {
+    let captured = ''
+    await run(
+      async (prompt, opts = {}) => {
+        const l = opts.label || '?'
+        if (l === 'подготовка') return ok({ branch: 'b', treeClean: true, gateGreen: true })
+        if (l.startsWith('аудит')) return ok({ domain: domainOf(l), endpoints: 5, emptyFields: 0 })
+        if (l.startsWith('соглашения')) return ok({})
+        if (l.startsWith('контракт')) return ok({ domain: domainOf(l), documented: 5, commit: 'c' })
+        if (l.startsWith('приёмка')) return { domain: domainOf(l), refuted: false, reason: '', checked: 'x' }
+        if (l === 'финал') { captured = prompt; return ok({}) }
+        return ok({})
+      },
+      () => {}, () => {}, null, null, args,
+    )
+    return captured
+  }
+  const subset = await finalPromptFor({ domains: ['uploads'] })
+  const full = await finalPromptFor({})
+  console.log('17 необратимые шаги: подмножество —', /ЗАПРЕЩЕНЫ/.test(subset) ? 'запрещены ✓' : 'РАЗРЕШЕНЫ ✗',
+    '| полный прогон —', /РАЗРЕШЕНЫ/.test(full) ? 'разрешены ✓' : 'ЗАПРЕЩЕНЫ ✗')
+}
