@@ -6,117 +6,140 @@
 Утверждение без `файл:строка` не записывается. Код не правится: место, где он выглядит
 неверным, — находка в `roo_code/plans/bugs/contract-sync-clients-bugs.md`.
 
+**Модуля бэкенда у домена нет.** `ls backend/app/modules/` даёт десять модулей — `auth`, `bcc`,
+`billing`, `finance`, `notifications`, `products`, `services`, `settings`, `suppliers`,
+`warehouse`, — среди них `clients` отсутствует; `grep -rin "client" backend/app --include=*.py -l`
+находит три файла, и ни один не про клиента домена (`auth/features/login/action.py` —
+HTTP-клиент, `bcc/features/send_request/{domain,transport}.py` — SMTP-клиент,
+`backend/app/modules/bcc/features/send_request/domain.py:72` в комментарии). Поэтому по каждому из десяти эндпоинтов источник истины —
+**мок + клиент**, второй уровень старшинства.
+
+**Раздела в старом контракте у домена нет.** `roo_code/plans/api/contract-sync-plan.md:195`:
+`| clients | 10 | **нет ни строки** |`. Проверено грепом:
+`grep -n "api/clients\|/clients" roo_code/roo-context/03-api-contract.md` даёт одну строку —
+`roo_code/roo-context/03-api-contract.md:1909`, и это проза внутри чужого раздела (диапазон finance 1881–2180),
+упоминающая `GET /api/clients/:id/invoices` как потребителя правил реестра входящих. Ни одного
+заголовка `### <МЕТОД> /api/clients…` в файле нет. Значит графа «Пробел контракта» у всех
+разделов ниже фиксирует пробелы **в коде**, а не неверные утверждения старого текста: неверных
+утверждений нет, потому что утверждений нет вовсе.
+
+**Конверт.** Мок отдаёт голое значение (`delay(client as T)`,
+`frontend_vue/src/services/mocks/index.ts:522`), а живой клиент разворачивает конверт
+`ApiResponse<T>` (`frontend_vue/src/services/api.ts:128-138`,
+`frontend_vue/src/types/api.ts:1-6`). Формы ответа ниже записаны так, как их обязан прислать
+сервер, — в конверте.
+
 ## Эндпоинты
 
 ### DELETE /api/clients/:id
 - Вызывающий: `src/services/clientsService.ts:25`
 - Бэкенд: **нет**
 - Мок: `mocks/index.ts:1522`
-- Форма запроса:
-- Форма ответа:
-- Коды ошибок:
-- Save-режим:
-- Пробел контракта:
-- Источник истины:
+- Форма запроса: тела нет — `apiDelete(`/api/clients/${id}`)` без второго аргумента (`src/services/clientsService.ts:24-26`); заголовков не шлётся (`options` не передан, `src/services/api.ts:211-221`). Идентификатор — в пути.
+- Форма ответа: `ApiResponse<void>` — мок возвращает `delay(undefined as T)` (`mocks/index.ts:1525`), сигнатура клиента `Promise<void>` (`src/services/clientsService.ts:24`). Тело ответа никто не читает: `useClients.handleDelete` идёт сразу к `load()` (`src/composables/useClients.ts:65-67`).
+- Коды ошибок: `CLIENT_NOT_FOUND` (`mocks/clients.ts:1126`) · `CONFLICT: client has orders` (`mocks/clients.ts:1133`). Второй — единственный код всего домена, который доходит до человекочитаемого сообщения: `msg.includes('CONFLICT')` → `clients.toast_error_delete_conflict` = «Нельзя удалить: у клиента есть заказы» (`src/composables/useClients.ts:70-71`, `src/i18n/admin/clients.ts:57`). `CLIENT_NOT_FOUND` своего сообщения не имеет и падает в общий `clients.toast_error_delete` (`src/composables/useClients.ts:73`, `src/i18n/admin/clients.ts:56`). Само сравнение при этом читает код из текста исключения, а не из поля `code`, — против настоящего API не сработает и оно; см. БАГ-02.
+- Save-режим: quick-action — уходит на сервер по кнопке в списке, без Save (`src/composables/useClients.ts:63-76`), после успеха список перезапрашивается целиком (`:67`).
+- Пробел контракта: (1) «у клиента есть заказы» мок узнаёт не сам — правило зарегистрировано модулем заказов через `registerClientOrderLookup` (`mocks/clients.ts:1118-1122`, регистрация — `mocks/orders.ts:1294`), и при нулевом lookup (`?? 0`, `mocks/clients.ts:1132`) удаление прошло бы молча; на сервере это должен быть запрос к заказам, а не необязательный колбэк. (2) Что делать с **историей и логом аудита** удалённого клиента, в коде не сказано нигде: `STORE.splice(idx, 1)` (`mocks/clients.ts:1135`) уносит и `auditLog`, и `interactionHistory` вместе с объектом, а лента аудита строится из того же массива (`clientAuditSources`, `mocks/clients.ts:1180-1187`) — запись просто исчезает из общей ленты. (3) Мягкого удаления в модели нет: у `Client` нет ни `deletedAt`, ни `archived` (`src/types/client.ts:15-49`).
+- Источник истины: мок + клиент (модуля бэкенда нет; раздела в старом контракте нет).
 
 ### DELETE /api/clients/:id/audit/:id
 - Вызывающий: `src/services/clientsService.ts:45`
 - Бэкенд: **нет**
 - Мок: `mocks/index.ts:1528`
-- Форма запроса:
-- Форма ответа:
-- Коды ошибок:
-- Save-режим:
-- Пробел контракта:
-- Источник истины:
+- Форма запроса: тела нет (`src/services/clientsService.ts:44-46`). Второй сегмент — `StockAuditEntry.id` (`src/types/warehouse.ts:526-534`), идентификатор записи, а не её индекс; в моке он присваивается при сборке хранилища `sealAuditIds(…, 'cl')` (`mocks/clients.ts:1029-1035`), то есть так же, как это делает генерируемая колонка на сервере.
+- Форма ответа: `ApiResponse<void>` — `delay(undefined as T)` (`mocks/index.ts:1534`), сигнатура `Promise<void>` (`src/services/clientsService.ts:44`).
+- Коды ошибок: `CLIENT_NOT_FOUND` (`mocks/clients.ts:1140`) · `AUDIT_ENTRY_NOT_FOUND` (`mocks/clients.ts:1142`). Оба до человека не доходят: оба обработчика ловят ошибку голым `catch {}` и показывают один текст `clients.toast_error_audit_delete` (`src/composables/useClientCard.ts:233-235`, `src/i18n/admin/clients.ts:129`).
+- Save-режим: quick-action — уходит сразу по кнопке, и строка убирается из локального списка вручную, без перезапроса (`src/composables/useClientCard.ts:228-236`, удаление из `auditLog.value` на `:231`). Второй вызывающий — общая лента аудита: `deleteAuditFeedEntry` маршрутизирует по `row.entityType === 'client'` в этот же эндпоинт (`src/services/auditFeedService.ts:57-64`), своего `DELETE /api/audit-feed/...` намеренно нет (`:50-56`).
+- Пробел контракта: (1) права на удаление записи аудита нигде не проверяются — ни в моке (`mocks/clients.ts:1138-1144` не смотрит на пользователя), ни во фронте; при этом сама возможность стирать историю сильнее, чем правка клиента. (2) Удаление записи аудита само следа не оставляет: `grep -c "auditLog.push" frontend_vue/src/services/mocks/clients.ts` → `0`. (3) Признака `sensitive` у записи нет: в `StockAuditEntry` семь полей и такого среди них нет (`src/types/warehouse.ts:526-534`).
+- Источник истины: мок + клиент.
 
 ### DELETE /api/clients/:id/interactions/:id
 - Вызывающий: `src/services/clientsService.ts:56`
 - Бэкенд: **нет**
 - Мок: `mocks/index.ts:1537`
-- Форма запроса:
-- Форма ответа:
-- Коды ошибок:
-- Save-режим:
-- Пробел контракта:
-- Источник истины:
+- Форма запроса: тела нет. **Второй сегмент — не идентификатор, а порядковый индекс в массиве**: сигнатура `deleteClientInteraction(clientId: string, entryIndex: number)` (`src/services/clientsService.ts:55`), путь склеивается из числа (`:56`), ветка мока принимает только цифры — `/^\/api\/clients\/([^/]+)\/interactions\/(\d+)$/` (`mocks/index.ts:1537`), и мок режет массив по этому индексу (`mocks/clients.ts:1169`). У `InteractionHistoryEntry` идентификатора нет вовсе — пять полей, и `id` среди них отсутствует (`src/types/client.ts:6-13`).
+- Форма ответа: `ApiResponse<void>` — `delay(undefined as T)` (`mocks/index.ts:1543`), сигнатура `Promise<void>` (`src/services/clientsService.ts:55`).
+- Коды ошибок: `CLIENT_NOT_FOUND` (`mocks/clients.ts:1161`) · `INTERACTION_ENTRY_NOT_FOUND` — бросается и на отсутствующую историю, и на индекс вне границ (`mocks/clients.ts:1162-1168`). До человека не доходит ни один: `save()` ловит всё одним `catch` и показывает `clients.toast_error_save` (`src/composables/useClientCard.ts:314-316`, `src/i18n/admin/clients.ts:55`).
+- Save-режим: clean-slate — кнопка «Удалить» в карточке правит только локальное состояние (`handleDeleteInteraction`, `src/composables/useClientCard.ts:257-264`), а запрос уходит из `save()` (`:297-299`). Удаления отправляются от большего индекса к меньшему — `indicesToDelete.sort((a, b) => b - a)` (`:297`), чтобы сдвиг массива на сервере не сбил следующий индекс.
+- Пробел контракта: (1) адресация индексом делает эндпоинт непригодным при двух параллельных редакторах и при любой серверной сортировке истории: индекс что-то значит только на неизменённом снимке, взятом клиентом при `load()` (`src/composables/useClientCard.ts:158-160`). (2) Что именно удалять, фронт вычисляет **сравнением JSON**: `JSON.stringify(c) === JSON.stringify(prev[i])` (`:284`), и два одинаковых по содержимому взаимодействия неразличимы — см. БАГ-01. (3) Ни повторный `Idempotency-Key`, ни версия сущности не шлются: `grep -c "Idempotency" frontend_vue/src/services/clientsService.ts` → `0`.
+- Источник истины: мок + клиент.
 
 ### GET /api/clients
 - Вызывающий: `src/services/clientsService.ts:9`
 - Бэкенд: **нет**
 - Мок: `mocks/index.ts:473`
-- Форма запроса:
-- Форма ответа:
-- Коды ошибок:
-- Save-режим:
-- Пробел контракта:
-- Источник истины:
+- Форма запроса: query-параметры из `ClientFilters & { page?: number; pageSize?: number }` (`src/services/clientsService.ts:6-9`): `search`, `status` (`'active' | 'inactive' | null`), `sortBy` (`'name' | 'email' | 'status' | 'createdAt' | null`), `sortDir` (`'asc' | 'desc'`), `page`, `pageSize` (`src/types/client.ts:51-58`). Мок читает ровно эти шесть (`mocks/index.ts:474-477`, `:505-506`), дефолты — `page` 1, `pageSize` 25 (`:505-506`). Поиск идёт по трём полям: `name`, `companyCode`, `email` (`mocks/index.ts:481-486`).
+- Форма ответа: `PaginatedResponse<Client>` — `{ items, total, page, pageSize, totalPages }` (`src/types/api.ts:8-14`), собирается в `mocks/index.ts:509-515`. `items` — **полные** объекты `Client` вместе с `auditLog` и `interactionHistory`: `mockGetClients()` отдаёт `structuredClone(STORE)` целиком (`mocks/clients.ts:1046-1048`), фильтрация и срез ничего из объекта не выкидывают (`mocks/index.ts:478-508`). См. БАГ-05.
+- Коды ошибок: **ни одного** — ветка мока не бросает ничего (`mocks/index.ts:473-516`), `mockGetClients` тоже (`mocks/clients.ts:1046-1048`). Все три вызывающих обрабатывают ошибку одинаково и безымянно: `error.value = String(e)` (`src/composables/useClients.ts:36`), `clientsError.value = String(e)` (`src/composables/useOrderCreate.ts:141`), `error.value = e instanceof Error ? e.message : String(e)` (`src/composables/useSalesCrmDashboard.ts:64`).
+- Save-режим: чтение. Три вызывающих: список клиентов (`src/composables/useClients.ts:23-40`), выбор клиента в создании заказа (`src/composables/useOrderCreate.ts:120-147`), панель «Новые клиенты» на дашборде CRM (`src/composables/useSalesCrmDashboard.ts:44-51`, `pageSize: 5`, `sortBy: 'createdAt'`, `sortDir: 'desc'`).
+- Пробел контракта: (1) `status: null` и `sortBy: null` уезжают в query как литерал `"null"` — `url.searchParams.set(k, v)` без отсева (`src/services/api.ts:154-155`), а мок это скрывает, коалесцируя `null` в `''` (`mocks/index.ts:475-476`); см. БАГ-04. (2) Сортировка по `createdAt` фронтом не предлагается: `toggleSort` знает только три колонки (`src/composables/useClients.ts:78`), а четвёртое значение существует ради дашборда (`src/types/client.ts:54-56`, `mocks/index.ts:498-501`). (3) Второй путь `/api/clients/translated` обслуживается **той же** веткой (`mocks/index.ts:473`), но не вызывается ниоткуда — `grep -rn "clients/translated" frontend_vue/src` даёт только саму ветку; это сирота из замера К2 плана (`roo_code/plans/api/contract-sync-plan.md:259`). (4) Верхней границы `pageSize` не ставит никто: `useOrderCreate` шлёт своё значение из пагинации (`src/composables/useOrderCreate.ts:135`).
+- Источник истины: мок + клиент.
 
 ### GET /api/clients/:id
 - Вызывающий: `src/services/clientsService.ts:13`
 - Бэкенд: **нет**
 - Мок: `mocks/index.ts:518`
-- Форма запроса:
-- Форма ответа:
-- Коды ошибок:
-- Save-режим:
-- Пробел контракта:
-- Источник истины:
+- Форма запроса: параметров нет — `apiGet(`/api/clients/${id}`)` без второго аргумента (`src/services/clientsService.ts:12-13`).
+- Форма ответа: `ApiResponse<Client>` — `Client` целиком (`src/types/client.ts:15-49`): `id`, `name`, `companyCode`, `vatCode`, `address`, `country` (`CountryCode | null`), `phone`, `email`, `status`, `paymentTermsDays` (обязательное число дней, ноль — законное значение, `:32-40`), `notes` (`string | null`), `rejectionReason?`, `createdAt`, `auditLog?`, `interactionHistory?`. Мок отдаёт `structuredClone` элемента хранилища (`mocks/clients.ts:1050-1052`), то есть вместе с `auditLog` и `interactionHistory`.
+- Коды ошибок: `CLIENT_NOT_FOUND` — бросается не мок-модулем, а самой веткой (`mocks/index.ts:521`). До человека не доходит: `load()` кладёт `String(e)` в `error` (`src/composables/useClientCard.ts:161-163`).
+- Save-режим: чтение — `onMounted` карточки (`src/views/admin/clients/ClientCardPage.vue:170-174`), и повторно из `discard()` (`src/composables/useClientCard.ts:322-325`). Ответ этого запроса становится снимком для грязной проверки (`dirty.capture()`, `:157`) и снимком истории взаимодействий (`:158-160`).
+- Пробел контракта: (1) карточка читает `auditLog` **не отсюда**, а отдельным запросом `GET /api/clients/:id/audit` (`src/composables/useClientCard.ts:217-226`) — то есть поле в ответе есть, а потребителя у него нет: дублирование, о котором контракт обязан сказать, чем оно разрешается. (2) Того же класса `interactionHistory`: приходит здесь, а правится тремя отдельными эндпоинтами. (3) Заказы клиента в ответ не входят и берутся у своего домена постранично до конца (`src/composables/useClientCard.ts:168-201`) — то есть карточка клиента делает четыре запроса на открытие (`ClientCardPage.vue:170-174`).
+- Источник истины: мок + клиент.
 
 ### GET /api/clients/:id/audit
 - Вызывающий: `src/services/clientsService.ts:41`
 - Бэкенд: **нет**
 - Мок: `mocks/index.ts:525`
-- Форма запроса:
-- Форма ответа:
-- Коды ошибок:
-- Save-режим:
-- Пробел контракта:
-- Источник истины:
+- Форма запроса: параметров нет (`src/services/clientsService.ts:40-41`). Пагинации, фильтра по дате и по автору у эндпоинта нет ни в клиенте, ни в моке.
+- Форма ответа: `ApiResponse<StockAuditEntry[]>` — плоский массив, **без** конверта пагинации (`src/services/clientsService.ts:40`, `mocks/clients.ts:1172-1175`). Поля записи: `id`, `timestamp`, `user: TranslatedString`, `userInitials`, `property: TranslatedString`, `oldValue`, `newValue` (`src/types/warehouse.ts:526-534`). Порядок — тот, в котором записи лежат в хранилище: ни мок, ни клиент не сортируют (`mocks/clients.ts:1174`, `src/composables/useClientCard.ts:220`).
+- Коды ошибок: **ни одного**. Несуществующий клиент отдаёт пустой массив, а не ошибку: `structuredClone(client?.auditLog ?? [])` (`mocks/clients.ts:1174`) — то есть «клиента нет» и «истории нет» неразличимы. Вызывающий тоже глушит всё: `catch { auditLog.value = [] }` (`src/composables/useClientCard.ts:222-223`).
+- Save-режим: чтение — `onMounted` карточки (`src/views/admin/clients/ClientCardPage.vue:170-174`, вызов `loadAudit()` на `:172`). Повторно после удаления записи не запрашивается: строка убирается из локального массива (`src/composables/useClientCard.ts:231`).
+- Пробел контракта: (1) **лог никогда не пополняется** — в моке домена ни одного `auditLog.push`: `grep -c "auditLog.push" frontend_vue/src/services/mocks/clients.ts` → `0`, при том что `mockPatchClient` (`mocks/clients.ts:1092-1106`) и `mockCreateClient` (`:1054-1090`) меняют клиента. Все записи, которые эндпоинт отдаёт, — посевные (`mocks/clients.ts:47, 87, 119, 181, 241, 303, 357, 501, 647, 933`), сдвинутые на демо-часы `shiftAuditSeries` (`:1038`). То есть чем именно сервер обязан наполнять этот лог, кода нет нигде. (2) Автор записи — `TranslatedString` (`src/types/warehouse.ts:529`), в посеве это буквально `{ ru: 'Система', en: 'System', lt: 'Sistema' }` (`mocks/clients.ts:50`): переводимое имя пользователя, а не ссылка на него.
+- Источник истины: мок + клиент.
 
 ### GET /api/clients/:id/invoices
 - Вызывающий: `src/services/clientsService.ts:37`
 - Бэкенд: **нет**
 - Мок: `mocks/index.ts:533`
-- Форма запроса:
-- Форма ответа:
-- Коды ошибок:
-- Save-режим:
-- Пробел контракта:
-- Источник истины:
+- Форма запроса: параметров нет (`src/services/clientsService.ts:36-37`). Фильтра по валюте, периоду и по «только неоплаченные» нет.
+- Форма ответа: `ApiResponse<ClientInvoiceSummary>` = `{ invoices: ClientInvoice[]; unassignedPayments: ClientUnassignedPayment[] }` (`src/types/client.ts:153-156`). Строка счёта: `id`, `orderId`, `orderNumber`, `number`, `issuedAt`, `kind: InvoiceKind`, `currency`, `amountGross`, `amountGrossCurrent`, `withdrawn`, `paidAmount`, `outstanding` (`src/types/client.ts:83-120`). Строка неназванных денег: `orderId`, `orderNumber`, `currency`, `paidAt`, `amount` (`:134-142`). Сортировка обоих списков — по убыванию даты (`mocks/orders.ts:4112-4113`).
+- Коды ошибок: **ни одного** — реализация просто обходит заказы и на неизвестном клиенте возвращает два пустых списка (`mocks/orders.ts:4055-4060`, `:4114`). Вызывающий глушит всё: `catch { invoices.value = []; unassignedPayments.value = [] }` (`src/composables/useClientCard.ts:209-211`).
+- Save-режим: чтение — `onMounted` карточки (`src/views/admin/clients/ClientCardPage.vue:170-174`, `loadInvoices()` на `:174`).
+- Пробел контракта: (1) **эндпоинт домена `clients`, а вся его арифметика живёт в домене `orders`** — реализация в `mocks/orders.ts:4055-4115`, поверх `invoiceBalances` (`:4066`), и клиент прямо просит не считать это на карточке (`src/services/clientsService.ts:28-35`). Контракту нужно сказать, что сервер обязан отвечать здесь теми же правилами, что в реестре входящих, а не второй копией. (2) Итог по валютам считает **фронт**: `invoiceTotals` в `useClientCard.ts:81-113`, отдельной строкой на валюту, потому что курса в системе нет (`src/types/client.ts:90-96`); сервер такой сводки не отдаёт. (3) Ответ не пагинирован при том, что растёт по всем заказам клиента за всё время.
+- Источник истины: мок + клиент (мок домена **orders**).
 
 ### PATCH /api/clients/:id
 - Вызывающий: `src/services/clientsService.ts:21`
 - Бэкенд: **нет**
 - Мок: `mocks/index.ts:1248`
-- Форма запроса:
-- Форма ответа:
-- Коды ошибок:
-- Save-режим:
-- Пробел контракта:
-- Источник истины:
+- Форма запроса: merge-patch, только изменившиеся поля — `Partial<Client>` (`src/services/clientsService.ts:20-22`, семантика — `src/services/api.ts:193`). Тело собирает `dirty.diff()` — верхнеуровневые ключи, чей JSON разошёлся со снимком (`src/composables/useDirtyCheck.ts:62-77`), из него явно вынимается `interactionHistory` (`src/composables/useClientCard.ts:271-272`), и запрос не уходит вовсе, если после этого не осталось ключей (`:273-275`).
+- Форма ответа: `ApiResponse<Client>` — клиент целиком после правки (`src/services/clientsService.ts:20`, `mocks/clients.ts:1105`). Ответ при этом **не используется**: `save()` не присваивает его в `client` (`src/composables/useClientCard.ts:274`), состояние остаётся тем, что в форме.
+- Коды ошибок: `CLIENT_NOT_FOUND` (`mocks/clients.ts:1094`) · `VALIDATION_ERROR: paymentTermsDays must be a non-negative whole number of days` (`mocks/clients.ts:1099-1103`, правило — `src/domain/paymentTerms.ts:18-20`). Ни один не доходит до своего сообщения: общий `catch` в `save()` даёт `clients.toast_error_save` (`src/composables/useClientCard.ts:314-316`).
+- Save-режим: clean-slate — правки копятся в состоянии, запрос уходит по кнопке Save (`src/composables/useClientCard.ts:266-320`), после успеха снимок перезахватывается (`:312`) и показывается `clients.toast_saved` (`:313`). Отмена — `discard()`: сброс и повторный `load()` (`:322-325`).
+- Пробел контракта: (1) **белого списка полей нет**: `Object.assign(STORE[idx]!, delta)` (`mocks/clients.ts:1104`) примет и `id`, и `createdAt`, и `auditLog` — а `diff()` отдаёт любой верхнеуровневый ключ, который изменился (`src/composables/useDirtyCheck.ts:71-75`); см. БАГ-06. (2) Проверяется ровно одно поле — `paymentTermsDays` (`mocks/clients.ts:1099`); ни `email`, ни `companyCode` на правке не валидируются, хотя на создании валидируются оба (`:1059-1073`), и уникальность `companyCode` через PATCH обходится. (3) Конкурентной защиты нет: ни `If-Match`, ни `updatedAt` в модели (`src/types/client.ts:15-49` — поля `updatedAt` нет), ни `Idempotency-Key` (`grep -c "Idempotency" frontend_vue/src/services/clientsService.ts` → `0`). (4) Правка реквизитов **не расходится** по уже созданным заказам: заказ снимает `clientName`, `clientVatCode`, `clientAddress`, `clientPaymentTermsDays` в момент создания (`mocks/orders.ts:1623-1628`, посев — `:579-583`) и больше их не сверяет.
+- Источник истины: мок + клиент.
 
 ### POST /api/clients
 - Вызывающий: `src/services/clientsService.ts:17`
 - Бэкенд: **нет**
 - Мок: `mocks/index.ts:961`
-- Форма запроса:
-- Форма ответа:
-- Коды ошибок:
-- Save-режим:
-- Пробел контракта:
-- Источник истины:
+- Форма запроса: `ClientFormData` — одиннадцать полей `Client` без `id`, `createdAt`, `auditLog`, `interactionHistory` (`src/types/client.ts:60-73`): `name`, `companyCode`, `vatCode`, `address`, `country`, `phone`, `email`, `status`, `paymentTermsDays`, `notes`, `rejectionReason`. Что реально уходит — начальное состояние формы (`src/views/admin/clients/ClientCreatePage.vue:30-45`): `status` по умолчанию `'active'`, `country` `null`, `paymentTermsDays` `0`, `notes` и `rejectionReason` пустые строки.
+- Форма ответа: `ApiResponse<Client>` — созданный клиент целиком (`src/services/clientsService.ts:16`, `mocks/clients.ts:1089`), с проставленными сервером `id` (`mocks/clients.ts:1042-1044`, формат `CL-NNN`), `createdAt` датой без времени (`:1085`) и пустым `auditLog` (`:1086`). Из ответа используется только `id` — для перехода на карточку (`ClientCreatePage.vue:139`).
+- Коды ошибок: `VALIDATION_ERROR` четырежды — `name is required` (`mocks/clients.ts:1057`), `companyCode is required` (`:1060`), `email is required` (`:1063`), `paymentTermsDays must be a non-negative whole number of days` (`:1066-1068`) · `CONFLICT: companyCode already exists` (`:1073`). До человека не доходит ни один: `catch` без разбора → `clients.toast_error_create` (`ClientCreatePage.vue:140-141`, `src/i18n/admin/clients.ts:54`); см. БАГ-03.
+- Save-режим: quick-action — форма уходит целиком по кнопке, состояние на клиенте не копится (`ClientCreatePage.vue:128-145`); повторный клик отбивается флагом `saving` (`:134`).
+- Пробел контракта: (1) `Idempotency-Key` не шлётся (`grep -c "Idempotency" frontend_vue/src/services/clientsService.ts` → `0`), и ветка мока идёт мимо `withIdempotency` (`mocks/index.ts:961-963` против `:912`, `:919`, `:1036`) — повторная отправка создаст второго клиента, и остановит её только уникальность `companyCode`. (2) Уникальность проверяется по `companyCode` и **не** по `vatCode` и не по `email` (`mocks/clients.ts:1071-1073`), при том что `inferFieldFromMessage` в клиенте уже умеет разметить ошибку по `email` (`src/services/api.ts:102-104`). (3) Формат `email` мок не проверяет — только непустоту (`mocks/clients.ts:1062-1064`); регулярка живёт лишь во фронте (`ClientCreatePage.vue:87`, `:101-103`). (4) `country` сервер обязан валидировать по ISO 3166-1 alpha-2 (249 кодов, `src/domain/countries.ts:19`, проверка `isCountryCode`, применена только во фронте — `ClientCreatePage.vue:78`); мок принимает что угодно и лишь заменяет `undefined` на `null` (`mocks/clients.ts:1081-1084`). (5) `rejectionReason` уходит пустой строкой (`ClientCreatePage.vue:44`) при типе `string | null`, и прочитать или изменить его потом нечем; см. БАГ-07.
+- Источник истины: мок + клиент.
 
 ### POST /api/clients/:id/interactions
 - Вызывающий: `src/services/clientsService.ts:52`
 - Бэкенд: **нет**
 - Мок: `mocks/index.ts:965`
-- Форма запроса:
-- Форма ответа:
-- Коды ошибок:
-- Save-режим:
-- Пробел контракта:
-- Источник истины:
+- Форма запроса: `InteractionHistoryEntry` целиком — `date`, `type` (`'call' | 'email' | 'note' | 'meeting'`), `summary`, `user`, `rejectionReason?` (`src/types/client.ts:6-13`, сигнатура — `src/services/clientsService.ts:48-53`). Собирается на клиенте: `date` из формы, `summary` обрезанный, `rejectionReason` всегда `null`, **`user` — литерал `'Current User'`** (`src/composables/useClientCard.ts:242-248`).
+- Форма ответа: `ApiResponse<InteractionHistoryEntry>` — та же запись обратно (`src/services/clientsService.ts:51`, `mocks/clients.ts:1156`). Ответ не используется: `save()` его не присваивает (`src/composables/useClientCard.ts:302-304`), локальная запись уже лежит в состоянии с момента `inlineAddInteraction` (`:253`).
+- Коды ошибок: `CLIENT_NOT_FOUND` (`mocks/clients.ts:1151`). Формат записи мок не проверяет вовсе: ни `type` по списку, ни непустоту `summary`, ни формат `date` (`mocks/clients.ts:1146-1157`); пустое `summary` отсекается только во фронте (`src/composables/useClientCard.ts:240`). Код до человека не доходит — общий `catch` в `save()` (`:314-316`).
+- Save-режим: clean-slate — добавление правит только состояние (`inlineAddInteraction`, `src/composables/useClientCard.ts:238-255`), запрос уходит из `save()` после удалений (`:302-304`), по одному на добавленную запись.
+- Пробел контракта: (1) **автора назначает клиент**, и назначает константой `'Current User'` (`src/composables/useClientCard.ts:246`) — на сервере автор обязан браться из сессии, иначе поле можно подделать телом запроса. (2) Ответ не несёт идентификатора, потому что его нет в типе (`src/types/client.ts:6-13`), — и именно поэтому удаление адресуется индексом. (3) Что записывать в `rejectionReason` взаимодействия, кода нет: UI всегда шлёт `null` (`src/composables/useClientCard.ts:247`), непустое значение существует только в посеве (`mocks/clients.ts:164`). (4) Идемпотентности нет: ветка мимо `withIdempotency` (`mocks/index.ts:965-973`), заголовок не шлётся (`grep -c "Idempotency" frontend_vue/src/services/clientsService.ts` → `0`) — при повторе `save()` запись задвоится, и различить дубль будет нечем, кроме сравнения содержимого.
+- Источник истины: мок + клиент.
 
 ## Обязанности сервера
 
@@ -124,19 +147,45 @@
 на месте серверного значения. Ответ «нигде» — это не решение, а строка в
 `00-решения-владельца.md` с указанием домена.
 
-- Значения по умолчанию и их владелец:
-- События и уведомления:
-- Запись в аудит-лог:
-- Кастомные поля:
-- Настройки, которых мок не отслеживает:
-- Мультиарендность:
-- Права — в какой функции проверяются:
-- Транзакционность и идемпотентность:
-- Производные значения (считать, не хранить):
+- Значения по умолчанию и их владелец: **страна клиента** — закрытый справочник ISO 3166-1 alpha-2 константой во фронте, 249 кодов (`src/domain/countries.ts:19`), и это осознанно: настройками он не редактируется, потому что состав задаёт ISO, а не компания (`:14-17`). **Тип комплекта документов** предлагается по стране сравнением с константой `LOCAL_DOCUMENT_COUNTRY = 'LT'` (`src/domain/countries.ts:324`, применение — `suggestedDocumentType`, `:339-341`, вызов из создания заказа `src/composables/useOrderCreate.ts:184`); собственной страны у арендатора нет нигде — в `CompanyInfo` пять полей и страны среди них нет (`src/types/settings.ts:4-11`), `grep -rin "country" backend/app/modules/settings/shared/models.py` пусто. **Статус нового клиента** — `'active'` начальным значением формы (`src/views/admin/clients/ClientCreatePage.vue:38`), мок своего дефолта не имеет (`mocks/clients.ts:1075-1087` берёт `status` из тела). **Условия оплаты** — `0` начальным значением формы (`ClientCreatePage.vue:42`), и ноль здесь означает «оплата по счёту», а не «не заполнено» (`src/domain/paymentTerms.ts:12-14`). **`pageSize` списка** — 25 в моке (`mocks/index.ts:506`), 5 у дашборда CRM (`src/composables/useSalesCrmDashboard.ts:50`). Валюты у клиента нет вовсе: в `Client` такого поля нет (`src/types/client.ts:15-49`) — валюта живёт у заказа.
+- События и уведомления: **ни одно изменение клиента не рождает уведомления**. `grep -c "notify" frontend_vue/src/services/mocks/clients.ts` → `0`; семь триггеров мока уведомлений (`mocks/notifications.ts:542`, `:566`, `:592`, `:616`, `:637`, `:657`, `:684`) — смена статуса заказа, готовность склада, поступление платежа, приёмка партии, дефицит, ответ поставщика, просрочка платежа, — и ни у одного из них поводом не является клиент. Клиент в этом файле появляется ровно один раз и **не как повод, а как адресат ссылки**: у просроченного входящего платежа уведомление ведёт на карточку клиента (`mocks/notifications.ts:722-726`, внутри `notifyPaymentOverdue`, `:684-737`) — `grep -cin "client" frontend_vue/src/services/mocks/notifications.ts` → `2`, обе строки там. То есть ни создание клиента, ни смена его статуса на `inactive`, ни правка условий оплаты никого не извещают. Строка про это — в `00-решения-владельца.md`.
+- Запись в аудит-лог: **лог у клиента есть, но его никто не пишет.** Поле `auditLog?: StockAuditEntry[]` объявлено (`src/types/client.ts:45-46`), эндпоинт чтения есть (`GET /api/clients/:id/audit`), сущность `client` входит в замкнутый перечень девяти сущностей ленты аудита (`src/types/audit.ts:5-14`, `:16-26`) и отдаётся в общую ленту через `clientAuditSources` (`mocks/clients.ts:1180-1187`). При этом `grep -c "auditLog.push" frontend_vue/src/services/mocks/clients.ts` → `0`: ни `mockCreateClient` (`:1054-1090`), ни `mockPatchClient` (`:1092-1106`), ни `mockDeleteClient` (`:1124-1136`) следа не оставляют — весь лог посевной (`:47`, `:87`, `:119`, `:181`, `:241`, `:303`, `:357`, `:501`, `:647`, `:933`). Автор записи в посеве — переводимая строка (`user: TranslatedString`, `src/types/warehouse.ts:529`; буквально `{ ru: 'Система', en: 'System', lt: 'Sistema' }`, `mocks/clients.ts:50`), а не ссылка на пользователя. Признака `sensitive` у записи нет — семь полей, такого среди них нет (`src/types/warehouse.ts:526-534`). Что именно сервер обязан писать — в `00-решения-владельца.md`.
+- Кастомные поля: **у клиента их нет и хранить их негде.** `Client` — фиксированные четырнадцать полей без `fieldValues` (`src/types/client.ts:15-49`); библиотека определений домена `config` привязана к карточке **поставщика** (`PUT /api/categories/:id/fields` — к категории, а `SectionConfig`/`FieldDefinition` конфигурируют поставщика, `src/views/admin/suppliers/SupplierCardConfigPage.vue`), клиента там нет: `grep -rn "client" frontend_vue/src/services/mocks/config.ts` даёт одну строку комментария (`mocks/config.ts:241`). Таблицы значений на бэкенде тоже нет — модуля `clients` нет вовсе. Наблюдение: домен обходится фиксированной схемой, и это отличает его от товара и поставщика.
+- Настройки, которых мок не отслеживает: (1) **собственная страна арендатора** — от неё зависит `local`/`export` у заказа, а хранится она нигде: `CompanyInfo` без страны (`src/types/settings.ts:4-11`), в моделях настроек бэкенда тоже пусто (`grep -rin "country" backend/app/modules/settings/shared/models.py` → ничего); вместо неё литерал `'LT'` (`src/domain/countries.ts:324`). (2) **Условия оплаты по умолчанию для нового клиента** — в `GlobalConstants` четыре константы (`vatRate`, `defaultMargin`, `defaultCurrency`, `defaultDiscountPercent`, `src/types/settings.ts:14-19`), отсрочки среди них нет, и форма подставляет свой ноль (`ClientCreatePage.vue:42`). (3) **Список типов взаимодействия** — четыре значения зашиты в тип (`src/types/client.ts:8`) и справочником настроек не управляются (`grep -rn "countr" frontend_vue/src/types/settings.ts` и поиск типов взаимодействия там же — пусто).
+- Мультиарендность: **во фронте домена признака арендатора нет** — `grep -c "tenant" frontend_vue/src/types/client.ts` → `0`, ни один из десяти эндпоинтов не несёт его ни в пути, ни в параметрах (`src/services/clientsService.ts:1-57`), мок хранит один плоский `STORE` (`mocks/clients.ts:1029`). Модели с `tenant_id` есть у всех десяти модулей бэкенда, но `clients` среди них нет (`ls backend/app/modules/`), поэтому чем именно ограничивается выборка клиента — не задано **нигде**: ни таблицы, ни колонки. Строка в `00-решения-владельца.md`.
+- Права — в какой функции проверяются: **ни в какой.** Во фронте доступ к трём маршрутам домена закрыт только фича-флагом `adminClients` (`src/router/index.ts:170`, `:176`, `:182`; флаг — `src/config/featureFlags.ts:22`), а это признак тарифа, а не роли. В матрице прав клиента нет: `grep -rn "client" frontend_vue/src/services/mocks/config.ts` даёт одну строку комментария (`mocks/config.ts:241`). На бэкенде общая `check_permission` возвращает `True` безусловно с комментарием «Placeholder — implement actual RBAC logic here» (`backend/app/modules/auth/internal_api/interface.py:27-38`), и модуля клиентов, который её звал бы, нет. Отдельно: удаление записи аудита (`DELETE /api/clients/:id/audit/:id`) доступно из карточки и из общей ленты (`src/services/auditFeedService.ts:57-64`) без единой проверки. Строка в `00-решения-владельца.md`.
+- Транзакционность и идемпотентность: **`Idempotency-Key` домен не шлёт ни разу** — `grep -c "Idempotency" frontend_vue/src/services/clientsService.ts` → `0`, при том что механизм в проекте есть (`newIdempotencyKey`, `src/services/api.ts:239-245`; кеш в моке — `withIdempotency`, `mocks/index.ts:262-269`), и обе POST-ветки домена идут мимо него (`mocks/index.ts:961-963`, `:965-973` против `:912`, `:919`, `:1036`). **Одна кнопка Save карточки рассыпается на 1 + N + M последовательных запросов**: PATCH клиента, затем по одному DELETE на каждое удалённое взаимодействие, затем по одному POST на каждое добавленное (`src/composables/useClientCard.ts:273-304`) — падение в середине оставляет применённой первую половину, а `load()` после ошибки не вызывается (`:314-316`), то есть состояние формы расходится с сервером молча. Конкурентной защиты нет ни у одного эндпоинта: у `Client` нет ни `updatedAt`, ни версии (`src/types/client.ts:15-49`), `If-Match` не шлётся (`src/services/clientsService.ts:1-57`).
+- Производные значения (считать, не хранить): (1) `totalPages` списка — `Math.ceil(total / pageSize)` (`mocks/index.ts:514`), считается сервером при чтении. (2) Вся сводка счетов производна целиком: `amountGrossCurrent`, `withdrawn`, `paidAmount`, `outstanding` выводятся из документов и платежей заказа через `invoiceBalances` (`mocks/orders.ts:4066`, `:4077-4090`), а `unassignedPayments` — из платежей, не названных ни одним документом (`:4096-4108`); хранить их нельзя, потому что каждая корректировка и каждый платёж их меняют. (3) Итог по валютам сводки считает **фронт**, а не сервер (`src/composables/useClientCard.ts:81-113`) — отдельной строкой на валюту, потому что курса в системе нет (`src/types/client.ts:90-96`). (4) `suggestedDocumentType` — производная от страны клиента, считается во фронте при создании заказа (`src/domain/countries.ts:339-341`, `src/composables/useOrderCreate.ts:184`). (5) **Не** производные, а снимок: `clientName`, `clientVatCode`, `clientAddress`, `clientPaymentTermsDays` заказа копируются в момент создания (`mocks/orders.ts:1623-1628`) и после правки клиента не обновляются — сервер обязан знать, что это заморозка, а не денормализация ради скорости.
 
 ## Правила домена, которых нет в контракте
 
 Самое ценное содержимое аудита: эндпоинты машина перечислит и без человека, а правило,
 живущее только в моке или доменном слое, — нет.
 
+1. **Условия оплаты — целые неотрицательные дни, и ноль законен.** Правило вынесено в доменный слой: `isValidPaymentTermsDays` (`src/domain/paymentTerms.ts:18-20`) и `normalizePaymentTermsDays` (`:30-34`). Ноль означает «оплата по счёту, без отсрочки», поэтому поле обязательное и не nullable: «не заполнено» иначе неотличимо от «платит сразу» (`src/domain/paymentTerms.ts:12-14`, `src/types/client.ts:32-40`). Проверяется в трёх местах — на создании (`mocks/clients.ts:1065-1069`), на правке (`:1099-1103`) и в форме (`ClientCreatePage.vue:112-115`).
+2. **Страна хранится кодом справочника, а не текстом.** 249 кодов ISO 3166-1 alpha-2, список закрытый и настройками не редактируется — состав задаёт ISO (`src/domain/countries.ts:3-18`). «Не выбрана» — это `null`, и переходник между `null` и пустой строкой селекта живёт ровно в одном месте на страницу (`ClientCreatePage.vue:73-80`).
+3. **По стране клиента предлагается тип комплекта документов.** `country === 'LT' → 'local'`, иначе `'export'` (`src/domain/countries.ts:339-341`), и это именно предложение: значение подставляется в форму создания заказа (`src/composables/useOrderCreate.ts:184`) и остаётся редактируемым.
+4. **Неактивный клиент заказы не блокирует.** Выбор клиента в создании заказа шлёт `status: null` намеренно: «отказывать в заказе клиенту, которого кто-то пометил неактивным, — решение правил заказа, а не выбиралки» (`src/composables/useOrderCreate.ts:129-131`). То есть `status` — метка, а не запрет.
+5. **Клиента с заказами удалять нельзя**, и знает об этом домен заказов, а не домен клиентов: правило зарегистрировано колбэком `registerClientOrderLookup` (`mocks/clients.ts:1108-1122`, регистрация — `mocks/orders.ts:1294`), чтобы не заводить цикл импортов; на сервере это тот же порядок — про заказы отвечает модуль заказов.
+6. **Реквизиты клиента, попавшие в заказ, замораживаются.** Заказ снимает `clientName`, `clientVatCode`, `clientAddress`, `clientPaymentTermsDays` при создании (`mocks/orders.ts:1623-1628`) и правку клиента не подхватывает — документ обязан говорить то, что говорил в день выписки.
+7. **Сводка счетов клиента считается на стороне заказов и одним запросом.** Не «сходить за заказами и спросить счета у каждого»: это N+1 и вторая копия правил «какой документ клиент ещё держит» и «куда отнести платёж» (`src/services/clientsService.ts:28-35`, реализация — `mocks/orders.ts:4055-4115`).
+8. **Каждый платёж попадает ровно в одно место сводки**: в строку своего счёта, в строку исправленного счёта — если платёж пришёл по корректировке, — или в `unassignedPayments`, если не назвал документа вовсе (`src/types/client.ts:144-152`, `mocks/orders.ts:4066-4108`). Поэтому сумма «оплачено» по сводке сходится с `paidAmount` заказов клиента до цента.
+9. **Отозванный документ в «выставлено» не входит**: у него `amountGrossCurrent === 0`, потому что клиент его не держит; корректировка своей строки не получает, её сумма ложится в строку исправленного счёта (`src/types/client.ts:76-82`, `:99-106`).
+10. **Суммы разных валют не складываются.** Курса в системе нет нигде, поэтому итог сводки — отдельная строка на каждую валюту (`src/types/client.ts:90-96`, `src/composables/useClientCard.ts:70-80`).
+11. **Удаление записи аудита идёт в эндпоинт своей сущности, а не в ленту.** Своего `DELETE /api/audit-feed/...` намеренно нет: второй путь к той же записи — второе правило о том, кто её вправе убрать (`src/services/auditFeedService.ts:50-56`, маршрутизация — `:57-64`). Сущностей девять, и `client` одна из них (`src/types/audit.ts:4-14`).
+12. **Сортировка списка принадлежит серверу.** «Пять самых новых клиентов» — это `sortBy: 'createdAt'` в запросе, а не выбор из первой страницы: выбирать из страницы значит выбирать из того, что на неё попало (`src/types/client.ts:54-56`, `mocks/index.ts:498-501`, потребитель — `src/composables/useSalesCrmDashboard.ts:44-51`).
+13. **Поиск по списку идёт по трём полям сразу** — имя, код компании, e-mail (`mocks/index.ts:481-486`); локальная фильтрация по двум полям уже расходилась с серверной и находила клиента на одном экране и ничего на другом (`src/composables/useOrderCreate.ts:113-117`).
+
 ## Находки про код → contract-sync-clients-bugs.md
+
+Семь находок: [`../../bugs/contract-sync-clients-bugs.md`](../../bugs/contract-sync-clients-bugs.md).
+
+| № | Файл | Суть |
+|---|---|---|
+| БАГ-01 | `src/composables/useClientCard.ts:281-299` | взаимодействия различаются по JSON-содержимому — одинаковые записи теряются молча |
+| БАГ-02 | `src/composables/useClients.ts:68-75` | код ошибки удаления читается из текста исключения, а у настоящего API он в `code` |
+| БАГ-03 | `src/views/admin/clients/ClientCreatePage.vue:136-141` | дубль кода компании и отказ валидации дают один и тот же общий тост |
+| БАГ-04 | `src/services/clientsService.ts:6-9`, `src/services/api.ts:154-155` | `status: null` и `sortBy: null` уезжают в query литералом `"null"` |
+| БАГ-05 | `mocks/clients.ts:1046-1048`, `mocks/index.ts:478-515` | список клиентов везёт `auditLog` и `interactionHistory` каждой строки |
+| БАГ-06 | `mocks/clients.ts:1104` | PATCH без белого списка полей и без проверок, стоящих на создании |
+| БАГ-07 | `src/views/admin/clients/ClientCreatePage.vue:44` | `rejectionReason` пишется при создании и не читается и не правится нигде |
