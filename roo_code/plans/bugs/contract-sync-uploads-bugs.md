@@ -1,0 +1,412 @@
+# Bugs — contract-sync / домен uploads
+
+Источник: аудит контракта домена `uploads` (скил [`api-contract.md`](../../skills/api-contract.md), линзы К1–К7).
+Область: `frontend_vue/src/services/uploadsService.ts`, `frontend_vue/src/services/api.ts`,
+`frontend_vue/src/components/admin/ui/DropZone.vue` и двенадцать её потребителей,
+`backend/app/core/uploads/*`, `backend/app/main.py`.
+Начато: 2026-09-04.
+
+Код не тронут: это перечень мест, где чтение кода расходится с тем, что делает старший источник
+истины (бэкенд), а не задача на правку. Аудит целиком: [`../api/audit/uploads.md`](../api/audit/uploads.md).
+
+---
+
+## БАГ-01 — сервер отдаёт два поля, фронт типизирует шесть
+
+**File:** `backend/app/core/uploads/action.py:143-146` против `frontend_vue/src/services/uploadsService.ts:3-10`
+**Severity:** High — против настоящего сервера ломается работа с файлами на двенадцати страницах
+**Источник:** К4 (формы запроса и ответа), К5 (источник истины)
+
+### Problem
+
+Эндпоинт возвращает ровно `{"url": ..., "fileId": ...}` (`core/uploads/action.py:145`) внутри конверта
+`ApiResponse` (`backend/app/core/schemas.py:29-35`), который `unwrap()` снимает
+(`frontend_vue/src/services/api.ts:127-138`). Клиент при этом объявляет ответ как
+`interface UploadedFile { fileId; name; size; mime; url; uploadedAt }`
+(`uploadsService.ts:3-10`) — **четырёх полей из шести сервер не отдаёт**.
+
+Фронт написан по моку, который отдаёт все шесть (`mocks/index.ts:1667-1674`), поэтому под моками
+(`VITE_USE_MOCKS`, `api.ts:4`) всё зелено. Против сервера недостающие поля станут `undefined` и
+разъедутся по сущностям: `useOrderCard.ts:1625,1628,1629`, `useOrderCreate.ts:331,334,335`,
+`OutgoingPaymentCardPage.vue:102,105,106,107`, `BccRequestPage.vue:313,314,315`,
+`ProductCardPage.vue:225`, `WarehouseBatchCreatePage.vue:142`,
+`WarehouseOffcutCreatePage.vue:182`.
+
+Три места не просто теряют значение, а падают исключением: `u.uploadedAt.slice(0, 10)` по
+`undefined` — `SupplierCardPage.vue:49`, `useWarehouseBatch.ts:181`,
+`useWarehouseOffcutCard.ts:148`.
+
+Единственный потребитель, которому серверного ответа хватает, — логотип компании:
+`handleLogoUploaded(files: { url: string }[])` (`SettingsLayout.vue:344-349`).
+
+### Fix
+
+TBD — решение чьё-то одно из двух и оно за владельцем (строка вынесена в
+`roo_code/plans/api/audit/00-решения-владельца.md`): либо сервер отдаёт все шесть полей (данные у
+него есть: `original_name`, `size`, `mime`, `uploaded_at` — `backend/app/core/uploads/models.py:22-36`),
+либо `UploadedFile` сужается до двух полей и двенадцать потребителей перестают полагаться на
+остальные. Смешанного варианта нет: сейчас тип лжёт.
+
+### Future rule
+
+Тип, названный формой ответа, у домена с реализованным бэкендом сверяется со схемой сервера, а не
+с моком. Мок при расхождении — не доказательство, а копия ошибки.
+
+---
+
+## БАГ-02 — единственная клиентская проверка типа файла падает против настоящего сервера
+
+**File:** `frontend_vue/src/composables/useWarehouseMap.ts:45`
+**Severity:** High — TypeError вместо отказа, и именно там, где проверка задумана как защита
+**Источник:** К4
+
+### Problem
+
+`if (!file.mime.startsWith('image/'))` — единственное место во всём фронте, где тип загруженного
+файла проверяется на клиенте; собственный комментарий рядом объясняет, зачем она нужна
+(`useWarehouseMap.ts:37-43`: «`accept` фильтрует диалог выбора и ничего не значит для
+перетаскивания — в дропзону можно бросить PDF»). Но `mime` сервер не возвращает (БАГ-01), значит
+против настоящего бэкенда строка выполнится на `undefined` и бросит TypeError вместо того, чтобы
+показать тост `warehouse.map_toast_not_image` (`useWarehouseMap.ts:46`).
+
+Хуже, чем просто отсутствие проверки: исключение вылетит из `onUploaded`
+(`WarehouseMapPage.vue:34-43`) и до `catch` в `DropZone.handleFiles` (`DropZone.vue:40-42`) не
+дойдёт — оно выброшено уже после `emit('uploaded', ...)` (`DropZone.vue:39`).
+
+### Fix
+
+TBD — следствие БАГ-01, чинится вместе с ним.
+
+---
+
+## БАГ-03 — событие `uploadError` не слушает ни одна из двенадцати страниц
+
+**File:** `frontend_vue/src/components/admin/ui/DropZone.vue:22,40-42`
+**Severity:** High — любой отказ загрузки не виден пользователю никак
+**Источник:** К3 (коды ошибок)
+
+### Problem
+
+`DropZone` ловит ошибку загрузки и объявляет её событием: `uploadError: [err: Error]`
+(`DropZone.vue:22`), `emit('uploadError', ...)` (`:41`). Слушателя нет ни у одного потребителя:
+
+```
+grep -rn "upload-error\|uploadError" frontend_vue/src/views frontend_vue/src/components \
+  --include=*.vue | grep -v ui/DropZone.vue
+```
+→ пусто, при двенадцати использованиях `DropZone` (`SupplierCardPage.vue:265`,
+`OutgoingPaymentCardPage.vue:295`, `BccRequestPage.vue:858`, `CompanySettings.vue:72`,
+`WarehouseOffcutCreatePage.vue:945`, `ProductCardPage.vue:597`, `OrderCardPage.vue:2176`,
+`WarehouseBatchCard.vue:1439`, `WarehouseMapPage.vue:158`, `WarehouseBatchCreatePage.vue:841`,
+`WarehouseOffcutCard.vue:933`, `OrderCreatePage.vue:561`).
+
+Сервер при этом отказывает по трём поводам: 401 `UNAUTHORIZED` (`core/uploads/action.py:39-42,45-48,56-59`),
+422 `VALIDATION_ERROR` по MIME (`core/uploads/action.py:97-103`), 413 `VALIDATION_ERROR` по размеру
+(`core/uploads/action.py:109-115`). Ни один до человека не доходит: `ApiRequestError` с разобранными
+`message`/`code` (`api.ts:117-125`) поглощается в `catch` и уходит в событие, которое никто не
+слушает. Снаружи это выглядит как «файл просто не появился в списке».
+
+### Fix
+
+TBD — либо потребители подписываются на `@upload-error` и показывают тост, либо `DropZone`
+показывает ошибку сам. Второе последовательнее: индикатор загрузки компонент уже держит у себя
+(`DropZone.vue:27,104`).
+
+### Future rule
+
+Событие ошибки, объявленное в `defineEmits` и не имеющее ни одного слушателя, — это проглоченная
+ошибка, а не задел на будущее. Проверяется грепом по имени события так же, как мёртвый экспорт.
+
+---
+
+## БАГ-04 — мок-ветка `apiUpload` теряет заголовки, и путь 401 под моками недостижим
+
+**File:** `frontend_vue/src/services/api.ts:225-228`
+**Severity:** Medium — мок слабее сервера, отказ авторизации не воспроизводится
+**Источник:** К2 (мок ↔ контракт ↔ код)
+
+### Problem
+
+`apiUpload(path, file, options)` в мок-режиме зовёт `uploadMock<T>(path, file)` — без
+`options.headers` (`api.ts:225-228`), тогда как в сетевой ветке они уходят в `fetch`
+(`api.ts:231-235`). Сигнатура мока заголовков и не принимает (`mocks/index.ts:1661`).
+
+Следствия два. Первое: `Authorization`, который `uploadsService` собирает вручную
+(`uploadsService.ts:14-15`), под моками теряется, и ветка «нет токена → 401», существующая на
+сервере (`core/uploads/action.py:38-59`), не воспроизводится ни одним сценарием. Второе: механизм
+идемпотентности у мока есть и используется другими доменами (`withIdempotency`,
+`mocks/index.ts:262-269`), но до загрузки он дойти не может даже теоретически (см. БАГ-05).
+
+### Fix
+
+TBD — прокинуть `options` в `uploadMock` и принять их в `uploadMockRoute`, как это сделано у
+`postMock`/`patchMock`.
+
+---
+
+## БАГ-05 — загрузка не идемпотентна ни с одной стороны
+
+**File:** `frontend_vue/src/services/uploadsService.ts:13-17`, `backend/app/core/uploads/action.py:79-146`
+**Severity:** Medium — повтор запроса создаёт второй файл на диске и вторую строку в БД
+**Источник:** К6 (обязанности сервера — транзакционность и идемпотентность)
+
+### Problem
+
+`POST /api/uploads` классифицирован как quick action (`roo_code/roo-context/03-api-contract.md:262`):
+файл уходит на сервер немедленно по drop (`DropZone.vue:33-38`). При этом:
+
+- клиент не шлёт ключ — `grep -c "Idempotency" frontend_vue/src/services/uploadsService.ts` → `0`,
+  хотя генератор в проекте есть (`api.ts:240-245`) и другие quick actions им пользуются;
+- сервер ключ не читает — `grep -c "Idempotency\|idempotency" backend/app/core/uploads/action.py` → `0`;
+- дедупликации по содержимому нет: имя файла — свежий `uuid4().hex` на каждый запрос
+  (`core/uploads/action.py:119`), хеша в модели нет (`backend/app/core/uploads/models.py:11-38`).
+
+Повтор после сетевого таймаута даёт второй файл на диске и вторую строку `uploaded_files` с новым
+UUID, а первый останется в системе навсегда — уборщика нет (БАГ-06).
+
+### Fix
+
+TBD — решение владельца: считать ли повторную загрузку того же файла ошибкой вовсе.
+
+---
+
+## БАГ-06 — файл пишется на диск до коммита, и осиротевший файл не убирает никто
+
+**File:** `backend/app/core/uploads/action.py:117-138`
+**Severity:** Medium — диск растёт файлами, о которых не знает БД
+**Источник:** К6 (транзакционность)
+
+### Problem
+
+Порядок в эндпоинте линейный, без `try/except` и без компенсации:
+
+1. `file_path.write_bytes(contents)` — файл на диске (`core/uploads/action.py:123`);
+2. `tenant_id = await _get_tenant_id(db, user_id)` — **может бросить 404** (`core/uploads/action.py:126`,
+   тело — `:62-76`);
+3. `store_file(...)` + `await db.commit()` (`core/uploads/action.py:128-138`).
+
+Падение на шаге 2 или на коммите оставляет файл на диске без строки в `uploaded_files`. Убрать его
+нечем: TTL-уборка описана в старом контракте (`03-api-contract.md:199`), константа заведена
+(`backend/app/core/config.py:43`, `draft_ttl_hours: int = 24`), колонка заведена
+(`core/uploads/models.py:37-39`), но `expires_at` не присваивается нигде
+(`grep -rn "expires_at" backend/app/core/uploads/` → одно попадание, само объявление), а
+планировщика в приложении нет — `lifespan` пуст (`backend/app/main.py:40-48`).
+
+### Fix
+
+TBD — порядок «сначала запись в БД, потом на диск» либо удаление файла в `except`. Нужен ли вообще
+сборщик мусора — вопрос владельца (загрузка без последующего Save оставляет живой файл и в
+штатном сценарии, см. аудит, «Правила домена», п. 1).
+
+---
+
+## БАГ-07 — `is_draft=False` в эндпоинте отменяет draft-хранилище целиком
+
+**File:** `backend/app/core/uploads/action.py:136`
+**Severity:** Medium — весь замысел «draft → привязка → постоянное хранение» не наступает
+**Источник:** К5 (источник истины), сверка со старым контрактом
+
+### Problem
+
+Значение по умолчанию `is_draft` — `True` в трёх местах: модель
+(`backend/app/core/uploads/models.py:26-28`), сигнатура сервиса
+(`backend/app/core/uploads/service.py:22`), схема БД
+(`backend/alembic/versions/133fae13afbe_phase_5_uploads.py:33`, `server_default="true"`). Эндпоинт
+единственный писатель, и он передаёт `is_draft=False` (`core/uploads/action.py:136`) — то есть черновиков в
+системе не возникает никогда, а колонка, TTL и вся вторая фаза паттерна
+(`03-api-contract.md:183-187`: «находит draft-файлы → привязывает → переносит из draft в
+постоянное») остаются мёртвыми.
+
+Отличить «файл загружен, но пользователь ушёл, не сохранив форму» от «файл привязан к сущности»
+невозможно ни по одному полю таблицы.
+
+### Fix
+
+TBD — либо `is_draft=True` и появление фазы привязки на сервере, либо осознанный отказ от
+черновиков и удаление колонки, константы и обещания из контракта. Решение владельца.
+
+---
+
+## БАГ-08 — тип `size` в модели расходится с миграцией
+
+**File:** `backend/app/core/uploads/models.py:24` против `backend/alembic/versions/133fae13afbe_phase_5_uploads.py:31`
+**Severity:** Low — расходятся два описания одной колонки
+**Источник:** К4
+
+### Problem
+
+Модель объявляет `size: Mapped[int] = mapped_column(nullable=False)` без явного типа
+(`models.py:24`) — SQLAlchemy выведет `INTEGER`. Миграция создаёт ту же колонку как
+`sa.BigInteger()` (`133fae13afbe_phase_5_uploads.py:31`). Живая схема — из миграции, но модель
+описывает её неверно; тот же разъезд повторён у соседей, которые копируют метаданные файла:
+`payment_documents.size` и `document_archive_items.size` — `sa.BigInteger()`
+(`backend/alembic/versions/b2619dfeb90f_phase_10_finance.py:55`, `:68`).
+
+### Fix
+
+TBD — привести модель к `BigInteger`.
+
+---
+
+## БАГ-09 — загруженные файлы раздаются статикой без авторизации и без арендатора
+
+**File:** `backend/app/main.py:63`
+**Severity:** High — файл любого арендатора доступен по прямой ссылке кому угодно
+**Источник:** К6 (мультиарендность)
+
+### Problem
+
+На записи арендатор проверяется: `tenant_id` берётся из пользователя токена
+(`backend/app/core/uploads/action.py:126`, `_get_tenant_id` — `:62-76`), колонка обязательна и
+индексирована (`core/uploads/models.py:16-21`).
+
+На чтении не проверяется ничего: `app.mount("/static/uploads", StaticFiles(directory=str(UPLOAD_DIR)))`
+(`backend/app/main.py:63`) отдаёт содержимое каталога всем, без сессии и без фильтра по
+арендатору. Каталог общий для всех арендаторов — один и тот же путь считается дважды и совпадает:
+`backend/app/core/uploads/action.py:22` и `backend/app/main.py:61`. Единственная защита —
+неугадываемое имя `uuid4().hex + ext` (`core/uploads/action.py:119`), а ссылка, однажды выданная в ответе
+(`core/uploads/action.py:141-142`), не отзывается ничем: эндпоинта удаления нет, `delete_file`
+(`core/uploads/service.py:51-57`) не вызывается ниоткуда.
+
+### Fix
+
+TBD — решение владельца (строка вынесена в `00-решения-владельца.md`): допустима ли раздача по
+неугадываемому URL или нужен эндпоинт чтения с проверкой арендатора.
+
+---
+
+## БАГ-10 — кастомное поле товара типа `file` хранит имя файла, а не `fileId`
+
+**File:** `frontend_vue/src/views/admin/products/ProductCardPage.vue:223-226`
+**Severity:** High — привязать файл к товару на сервере не по чему
+**Источник:** К6 (кастомные поля)
+
+### Problem
+
+`addFieldFiles` кладёт в значение поля **имя файла**: `arr.push(f.name)`
+(`ProductCardPage.vue:225`), где `arr` типизирован `string[]` (`:224`). `fileId` и `url`, которые
+вернул сервер, теряются в тот же момент. Рендер и удаление тоже работают по имени
+(`:589-595`, `removeFieldFile` — `:218-221`), ссылка на скачивание захардкожена
+`download-url="#"` (`:593`).
+
+Следствия: два файла с одинаковым именем неразличимы (`:591` — `:key="fname"`), скачать
+загруженное нельзя, а сервер, получив на Save массив имён, не сможет найти записи
+`uploaded_files` — там имя лежит в `original_name` и не уникально
+(`backend/app/core/uploads/models.py:22`).
+
+Тип `'file'` при этом легитимен: он объявлен в `CategoryFieldType`
+(`frontend_vue/src/types/category.ts:4`) и используется значениями товара
+(`frontend_vue/src/types/product.ts:12`).
+
+### Fix
+
+TBD — хранить `fileId` (и `url` для скачивания), а имя показывать. Затрагивает форму значения
+кастомного поля, то есть домены `categories` и `products`, — поэтому находка записана, но не
+чинится здесь.
+
+---
+
+## БАГ-11 — продовый код ветвится на форму мок-ответа
+
+**File:** `frontend_vue/src/views/admin/settings/SettingsLayout.vue:346`
+**Severity:** Low — мок протёк в приложение
+**Источник:** К2
+
+### Problem
+
+`if (meta?.url && !meta.url.startsWith('data:'))` — приложение отбрасывает URL, начинающийся с
+`data:`, то есть знает, что бывает мок-ответ, и обходит его. Data-URL приходит только из мока
+(`mocks/index.ts:1666`, `:1672`; комментарий там же помечает это как mock-only, `:1664-1665`);
+сервер всегда отдаёт `http(s)://…/static/uploads/…` (`backend/app/core/uploads/action.py:141-142`).
+
+Это единственное место проекта, где мок и продакшен различаются ветвлением по данным, а не флагом
+`USE_MOCKS` (`frontend_vue/src/services/api.ts:4`).
+
+### Fix
+
+TBD — различие должно жить в моке или во флаге, а не в ветке продового обработчика.
+
+---
+
+## БАГ-12 — `_resolve_user_id` скопирована в три файла; типы `store_file` не совпадают с колонками
+
+**File:** `backend/app/core/uploads/action.py:34-59`, `backend/app/core/uploads/service.py:14-23`
+**Severity:** Low — дублирование правила авторизации и разъезд типов
+**Источник:** К7 (следы реализации)
+
+### Problem
+
+Разбор сессионного токена написан трижды одинаково: `backend/app/core/uploads/action.py:34-59`,
+`backend/app/modules/settings/features/profile/action.py:41`,
+`backend/app/modules/settings/features/crud/action.py:97`. Общего места проверки сессии в проекте
+нет; сам комментарий в uploads это признаёт («same logic as settings», `core/uploads/action.py:37`). Правило
+безопасности, продублированное трижды, расходится при первой же правке одного из трёх.
+
+Рядом — разъезд типов: `store_file` объявляет `tenant_id: str` (`service.py:16`) и
+`uploaded_by: str | None` (`:21`), тогда как колонки — `UUID` (`models.py:16`, `:29`). Вызывающий
+передаёт в первый параметр `uuid.UUID` (`core/uploads/action.py:130`), а во второй — `str(user_id)`
+(`core/uploads/action.py:135`): два разных типа туда, где аннотации обещают один.
+
+### Fix
+
+TBD — вынести разбор токена в общую зависимость `app/core`; привести аннотации `store_file` к
+`uuid.UUID`.
+
+---
+
+## БАГ-13 — клиент не знает ни лимита, ни белого списка; два `accept` из двенадцати шире серверного
+
+**File:** `frontend_vue/src/views/admin/settings/CompanySettings.vue:74`, `frontend_vue/src/views/admin/warehouse/WarehouseMapPage.vue:159`
+**Severity:** Medium — предсказуемый отказ сервера, который вдобавок не показывается (БАГ-03)
+**Источник:** К6 (значения по умолчанию и их владелец)
+
+### Problem
+
+Сервер принимает пять MIME (`backend/app/core/config.py:36-42`: pdf, docx, xlsx, `image/png`,
+`image/jpeg`) и не больше 20 МБ (`config.py:35`, проверка — `core/uploads/action.py:96` и `:106-108`). Наружу
+эти значения не отдаются: эндпоинта настроек аплоада нет, в типах настроек их нет
+(`grep -in "upload" frontend_vue/src/types/settings.ts` → комментарий `:108` и поле `uploadedAt`
+`:118`).
+
+Фронт вместо этого держит два несогласованных списка, и оба шире серверного:
+
+- `CompanySettings.vue:74` — `'image/png,image/jpeg,image/svg+xml'`; `image/svg+xml` в белый список
+  не входит;
+- `WarehouseMapPage.vue:159` — `accept="image/*"`; gif, webp, svg сервер отвергнет.
+
+У остальных **десяти** дропзон атрибута нет вовсе: `grep -rn "accept=" frontend_vue/src/views
+--include=*.vue` даёт ровно две строки на двенадцать использований `DropZone`. Лимита размера нет
+нигде: `grep -rn "max_upload\|maxUpload\|MAX_FILE" frontend_vue/src` → 0.
+
+Пользователь выбирает SVG в штатном диалоге, ждёт, и не получает ничего: сервер отвечает 422, а
+показать это некому (БАГ-03).
+
+### Fix
+
+TBD — владельцу: отдаёт ли сервер свои ограничения клиенту (тогда `accept` и подсказка строятся из
+ответа) или список дублируется константой фронта осознанно и в одном месте.
+
+### Future rule
+
+Ограничение, которое проверяет сервер, во фронте либо приходит с сервера, либо лежит одной
+константой. Список, скопированный в шаблон страницы, расходится с сервером молча.
+
+---
+
+## Сводная таблица
+
+| | БАГ | Тип | Файл | Суть |
+|---|---|---|---|---|
+| | БАГ-01 | Контракт | `uploadsService.ts:3-10` | ответ сервера — 2 поля, тип обещает 6; 12 потребителей |
+| | БАГ-02 | Падение | `useWarehouseMap.ts:45` | `file.mime.startsWith` по `undefined` вместо отказа |
+| | БАГ-03 | UX | `DropZone.vue:22,40-42` | `uploadError` не слушает никто — отказ невидим |
+| | БАГ-04 | Мок | `api.ts:225-228` | мок не получает заголовков, путь 401 не воспроизводится |
+| | БАГ-05 | Контракт | `uploadsService.ts:13-17` | нет `Idempotency-Key` у quick action |
+| | БАГ-06 | Данные | `core/uploads/action.py:117-138` | диск пишется до коммита, осиротевший файл не убирается |
+| | БАГ-07 | Замысел | `core/uploads/action.py:136` | `is_draft=False` отменяет draft-хранилище и TTL |
+| | БАГ-08 | Схема | `core/uploads/models.py:24` | `size` — Integer в модели, BigInteger в миграции |
+| | БАГ-09 | Доступ | `main.py:63` | статика раздаёт файлы всех арендаторов без проверки |
+| | БАГ-10 | Данные | `ProductCardPage.vue:223-226` | кастомное поле хранит имя файла вместо `fileId` |
+| | БАГ-11 | Мок | `SettingsLayout.vue:346` | продовая ветка по `data:` — форма мока в приложении |
+| | БАГ-12 | Дублирование | `core/uploads/action.py:34-59` | разбор токена скопирован трижды; типы `store_file` |
+| | БАГ-13 | Контракт | `CompanySettings.vue:74` | `accept` шире серверного списка; лимитов фронт не знает |
