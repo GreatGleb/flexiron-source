@@ -44,8 +44,237 @@
 
 ---
 
+## БАГ-02 — у поставщика два пространства id, и `/api/suppliers/list` изготавливает второе
+
+**File:** `frontend_vue/src/services/mocks/index.ts:325-332`
+**Severity:** High — id, полученный из справочника, не принимает `GET /api/suppliers/:id`; ссылка уведомления ведёт на несуществующую карточку.
+**Источник:** К5 (источник истины), К6 (обязанность сервера, которую мок не отслеживает)
+
+### Problem
+
+Ветка `/api/suppliers/list` не отдаёт id поставщиков, а **изготавливает** их:
+
+```ts
+const suppliers = MOCK_SUPPLIERS.map((s) => ({
+  id: `sup-${String(s.id).padStart(3, '0')}`,
+  company: s.company.en,
+}))
+```
+
+Настоящий id — `'1'`…`'6'` (`frontend_vue/src/services/mocks/suppliers.ts:9`), и именно по нему
+ищет карточка: `MOCK_SUPPLIERS.find((s) => s.id === id)`
+(`frontend_vue/src/services/mocks/suppliers.ts:306`), а на промахе бросает (`:307`). Значит
+`sup-001`, полученный из справочника, в `GET /api/suppliers/:id` не годится.
+
+Второе пространство при этом не выдумано справочником — в нём живут два соседних домена:
+партии склада (`frontend_vue/src/mocks/warehouse-batches.ts:6,72,124` — `supplierId: 'sup-001'`)
+и события BCC (`frontend_vue/src/services/mocks/bcc.ts:146,157,168`). А получатели BCC — наоборот,
+в первом: `mockGetBccRecipients` берёт `s.id` из `MOCK_SUPPLIERS`
+(`frontend_vue/src/services/mocks/bcc.ts:239-240`) с комментарием «so ids/emails align with the
+suppliers list & card pages» (`:230-231`). То есть внутри одного файла мока соседствуют оба.
+
+Видимое следствие: ответ поставщика рождает уведомление
+`notifySupplierResponse({ id: next.supplierId, … })` (`frontend_vue/src/services/mocks/bcc.ts:368`),
+которое кладёт `entityId` из события BCC вместе с маршрутом карточки поставщика
+(`frontend_vue/src/services/mocks/notifications.ts:667-669`). Клик по такому уведомлению ведёт на
+`/admin/suppliers/sup-002` — карточку, которой нет.
+
+### Fix
+
+Правка кода — не первый шаг. Сначала контракт обязан назвать каноническую форму id поставщика
+(схема бэкенда даёт UUID — `UUIDMixin`, `backend/app/modules/suppliers/shared/models.py:14`), и
+только после этого сиды склада, BCC и справочник приводятся к ней одним движением. Чинить
+`padStart` в одиночку значит сломать выпадашки склада, которые сейчас с сидом партий согласованы.
+
+### Future rule
+
+Идентификатор сущности не преобразуется на границе — ни дополнением нулями, ни префиксом. Если
+двум доменам нужен разный вид одного id, это не два вида, а два разных идентификатора, и второй
+обязан быть полем. Проверка: справочник (`*/list`) отдаёт ровно тот id, который принимает карточка
+того же домена — на этом можно завести спеку.
+
+---
+
+## БАГ-03 — быстрая смена статуса не трогает кэш карточки
+
+**File:** `frontend_vue/src/services/mocks/suppliers.ts:451-454`
+**Severity:** Medium — после перетаскивания в канбане карточка поставщика показывает прежний статус.
+**Источник:** К2 (мок ↔ контракт ↔ код)
+
+### Problem
+
+`mockUpdateSupplierStatus` правит только строку списка:
+
+```ts
+export function mockUpdateSupplierStatus(id: string, status: string): void {
+  const s = MOCK_SUPPLIERS.find((sup) => sup.id === id)
+  if (s) s.status = status as Supplier['status']
+}
+```
+
+А `GET /api/suppliers/:id` с первого чтения отдаёт **кэш карточки**:
+`if (MOCK_CARD[id]) return JSON.parse(JSON.stringify(MOCK_CARD[id]))`
+(`frontend_vue/src/services/mocks/suppliers.ts:305`), который заполняется при построении (`:407`),
+а для поставщика «1» существует с самого старта — засеян копией строки списка
+(`frontend_vue/src/services/mocks/suppliers.ts:132-134`, `...supplier1`; `status` там примитив,
+скопированный по значению).
+
+Обычный `PATCH /api/suppliers/:id` так не делает — он пишет в обе структуры
+(`:426` и `:429-447`). То есть один и тот же поставщик после Save согласован, а после канбана — нет.
+
+Второе следствие того же места: промах по id молчит. `if (s)` без `else` делает несуществующего
+поставщика неотличимым от успешно обновлённого, и клиент это принимает — `patchSupplierStatus`
+объявлен `Promise<void>` и ответа не читает (`frontend_vue/src/services/suppliersService.ts:54-56`).
+
+### Fix
+
+Обновлять обе структуры, как это делает `mockPatchSupplier`, и бросать `SUPPLIER_NOT_FOUND` на
+промахе — код в этом файле уже есть (`:458`). Проверять правкой статуса в канбане с последующим
+открытием карточки; спекой — `mockUpdateSupplierStatus` затем `mockGetSupplier` на том же id.
+
+### Future rule
+
+Если у мока два представления одной записи (строка списка и карточка), то **каждая** мутация
+обязана трогать оба, иначе мок перестаёт быть reference implementation ровно в том месте, где
+сервер обязан быть консистентным. Проверка: у каждой функции `mock*` домена, которая пишет, в теле
+есть обращение и к списку, и к кэшу карточек.
+
+---
+
+## БАГ-04 — `exportSuppliersCsv` не может прочитать CSV: `apiGet` парсит только JSON
+
+**File:** `frontend_vue/src/services/suppliersService.ts:86-93`
+**Severity:** Medium — против настоящего сервера функция вернёт `null` вместо CSV. Под моками не проявляется.
+**Источник:** К4 (формы запроса и ответа)
+
+### Problem
+
+Клиент объявляет ответ строкой и берёт его обычным `apiGet`:
+
+```ts
+return apiGet<string>('/api/suppliers/export.csv', params)
+```
+
+`unwrap` в `frontend_vue/src/services/api.ts` умеет только JSON: `body = await res.json()` в `try`,
+а при провале разбора `body` остаётся `null` (`:110-115`); дальше при `res.ok` и отсутствии ключа
+`success` возвращается то, что есть — `return body as T` (`:140-141`). Настоящий сервер, отдающий
+`text/csv` (как требует `roo_code/roo-context/03-api-contract.md:386`), даст `null`, и никакой
+ошибки при этом не будет.
+
+Под моками дефект невидим: `getMock` возвращает готовую строку и `unwrap` не вызывается вовсе
+(`frontend_vue/src/services/mocks/index.ts:315-323`).
+
+Отдельно, тем же местом: у эндпоинта нет вызывающего UI
+(`roo_code/roo-context/03-api-contract.md:3036`), а кнопка «Export» на странице списка собирает
+CSV в браузере (`frontend_vue/src/views/admin/suppliers/SuppliersListPage.vue:205-225`) и делает
+это по другим колонкам, без строки заголовка, и только по текущей странице списка (`:206` —
+`suppliers.value`, то есть `res.items` одной страницы,
+`frontend_vue/src/composables/useSuppliers.ts:31`).
+
+### Fix
+
+Не правится в одиночку: сначала контракт решает, какой из двух экспортов настоящий (см. п. 8
+«Правил домена» в `roo_code/plans/api/audit/suppliers.md`). Если серверный — `api.ts` нужен путь
+для не-JSON ответа (`res.text()` по `Content-Type`), и это правка общего слоя, а не домена.
+
+### Future rule
+
+Тип возврата `apiGet<string>` — сигнал, а не мелочь: транспорт проекта разбирает только JSON, и
+любой эндпоинт, отдающий текст или файл, обязан идти отдельной функцией. Проверка:
+`grep -rn "apiGet<string>\|apiGet<Blob>" src/services` — каждое попадание либо имеет свой путь
+разбора, либо это дефект.
+
+---
+
+## БАГ-05 — условия оплаты и категории формы поставщика тоже зашиты константами
+
+**File:** `frontend_vue/src/components/admin/SupplierFormSections.vue:65-69,71-87`
+**Severity:** Medium — тот же класс, что БАГ-01, на двух других справочниках.
+**Источник:** Л5 (один источник правила), К6 (обязанность сервера)
+
+### Problem
+
+Рядом с `CURRENCY_OPTIONS` (БАГ-01) в том же компоненте лежат ещё два справочника:
+
+- `PAYMENT_OPTIONS` — три строки, `'30 Days Net'`, `'Prepayment 100%'`, `'50/50 Terms'` (`:65-69`).
+  Значением селекта служит сама строка, она же летит в `paymentTerms` и хранится колонкой
+  `payment_terms String(100)` (`backend/app/modules/suppliers/shared/models.py:53`). Справочника
+  условий оплаты нет ни в настройках фронта (`grep -c "paymentTerms\|payment_terms"
+  frontend_vue/src/types/settings.ts` → 0), ни на бэкенде (`grep -rn "payment_terms"
+  backend/app/modules/settings` → 0 строк). То есть значение свободное, а список закрытый;
+- `CATEGORY_OPTIONS` — пятнадцать категорий (`:71-87`), при том что категории это отдельный домен
+  с полным CRUD (`frontend_vue/src/services/categoriesService.ts`), а связь категорий с
+  поставщиками — включаемая фича (`categorySupplierLinks`,
+  `frontend_vue/src/config/featureFlags.ts:37`). В типе поставщика категории объявлены как
+  `categories: string[]` (`frontend_vue/src/types/supplier.ts:19`) — строки, не id домена.
+
+Третий случай того же класса рядом: тип адреса. `'Legal'` подставляется двумя местами
+(`frontend_vue/src/services/mocks/suppliers.ts:319,498`,
+`frontend_vue/src/composables/useSupplierCreate.ts:35`), а разрешённые значения существуют только
+комментарием в схеме — `# 'Legal','Postal','Shipping'`
+(`backend/app/modules/suppliers/shared/models.py:98-100`).
+
+### Fix
+
+Отдельно от БАГ-01 не чинится и раньше контракта не чинится: у каждого из трёх справочников
+сначала должен появиться владелец (настройки арендатора, домен categories или закрытый enum
+контракта). До этого замена константы на запрос — перенос догадки в другое место.
+
+### Future rule
+
+Признак не «список валют», а **любой закрытый список значений, который пользователь может захотеть
+изменить**, объявленный литералом в компоненте. Проверка шире, чем в БАГ-01: `grep -rn "const
+[A-Z_]\+_OPTIONS" src/components src/views` — каждое попадание обязано быть либо ссылкой на
+настройки/домен, либо enum'ом контракта с явной строкой «менять нельзя».
+
+---
+
+## БАГ-06 — типы фронта расходятся со схемой бэкенда в четырёх местах
+
+**File:** `frontend_vue/src/types/supplier.ts:61-70,86,94,99-105`
+**Severity:** Medium — схема уже в БД (миграция `a8dd7d7ba74b`), значит расхождение — сторона фронта.
+**Источник:** К4 (формы), К5 (источник истины: схема старше типов фронта)
+
+### Problem
+
+Роутов у модуля `suppliers` нет, но таблицы созданы и старше типов. По правилу старшинства
+источников расхождения ниже — находки про фронт:
+
+1. **Адрес.** Фронт объявляет необязательный `line2` (`frontend_vue/src/types/supplier.ts:86`),
+   в `supplier_addresses` такой колонки нет (`backend/app/modules/suppliers/shared/models.py:98-107`:
+   `address_type`, `line1`, `city`, `country`, `zip`).
+2. **Контакт.** Фронт — `role: TranslatedString` (`:94`), схема — `position: String(255)`,
+   непереводимая колонка (`backend/app/modules/suppliers/shared/models.py:130`). Разные и имя, и тип.
+3. **Файл карточки.** Фронт хранит `size` и `type` на самой записи (`:99-105`), схема ссылается на
+   `uploaded_files` через `file_id` с `ondelete="RESTRICT"` и своих `size`/`mime` не держит
+   (`backend/app/modules/suppliers/shared/models.py:157-165`).
+4. **Строка прайс-истории.** Фронт объявляет семь полей, включая `stock`, `source` и `status`
+   (`:61-70`) — именно они делают её склейкой прайс-леджера и журнала BCC-запросов (документировано
+   в `:56-60`). В `supplier_price_entries` этих трёх нет вовсе
+   (`backend/app/modules/suppliers/shared/models.py:204-234`: `product_id`, `price`, `unit`,
+   `entry_date`, `notes`), а `unit` там `String(20)` против `TranslatedString | null` во фронте.
+
+### Fix
+
+Каждое расхождение — решение, а не переименование: п. 4, например, может значить «сервер склеивает
+две таблицы при чтении», и тогда неполна не схема, а представление. Правку типов делать после того,
+как раздел контракта скажет, какая сторона права по каждому из четырёх пунктов.
+
+### Future rule
+
+У домена с моделями, но без роутов, типы фронта проверяются против **схемы**, а не против мока:
+мок писался с типов и потому всегда с ними согласен — он не свидетель. Проверка при написании
+раздела контракта: для каждого поля типа найти колонку или сказать, что поле производное.
+
+---
+
 ## Сводка
 
 | | Тип | Файл | Суть |
 |---|---|---|---|
 | | Duplicate | `SupplierFormSections.vue` | БАГ-01: список валют константой, хотя валютами владеют настройки |
+| | Consistency | `mocks/index.ts` | БАГ-02: `/api/suppliers/list` изготавливает id `sup-NNN`, которого карточка не знает |
+| | Consistency | `mocks/suppliers.ts` | БАГ-03: быстрая смена статуса не трогает кэш карточки, промах по id молчит |
+| | Contract | `suppliersService.ts` + `api.ts` | БАГ-04: `apiGet` не читает `text/csv` — против сервера вернёт `null` |
+| | Duplicate | `SupplierFormSections.vue` | БАГ-05: условия оплаты и категории — тоже константы |
+| | Contract | `types/supplier.ts` | БАГ-06: четыре расхождения со схемой бэкенда, которая старше |

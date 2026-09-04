@@ -6,95 +6,105 @@
 Утверждение без `файл:строка` не записывается. Код не правится: место, где он выглядит
 неверным, — находка в `roo_code/plans/bugs/contract-sync-suppliers-bugs.md`.
 
+> **Модуль бэкенда `suppliers` есть, роутов у него ноль.** `find backend/app/modules/suppliers -type f`
+> даёт `shared/models.py`, `shared/dependencies.py`, `internal_api/interface.py` и пустой
+> `features/__init__.py`; `grep -rn "@router\." backend/app/modules/suppliers --include=*.py` — пусто.
+> `internal_api/interface.py` — один docstring (`backend/app/modules/suppliers/internal_api/interface.py:1`),
+> `shared/dependencies.py` — тоже (`backend/app/modules/suppliers/shared/dependencies.py:1`).
+> Поэтому источник истины по **форме запроса и ответа** здесь — клиент и мок, а **схема хранения**
+> (`backend/app/modules/suppliers/shared/models.py`, миграция
+> `backend/alembic/versions/a8dd7d7ba74b_phase_6_suppliers.py:26,56,70,83,94,109` — шесть таблиц)
+> старше типов фронта там, где они расходятся: она уже в БД. Каждое такое расхождение отмечено ниже.
+
 ## Эндпоинты
 
 ### DELETE /api/suppliers/:id/audit/:id
 - Вызывающий: `src/services/suppliersService.ts:83`
 - Бэкенд: **нет**
 - Мок: `mocks/index.ts:1429`
-- Форма запроса:
-- Форма ответа:
-- Коды ошибок:
-- Save-режим:
-- Пробел контракта:
-- Источник истины:
+- Форма запроса: пути `/api/suppliers/{supplierId}/audit/{entryId}`, тела нет — `apiDelete<void>` без body (`src/services/suppliersService.ts:82-84`). Заголовков клиент не шлёт; `deleteMockRoute` читает `If-Match` (`mocks/index.ts:1428` — `ifMatchVersion(headers)`), но для этой ветки значение не используется (`:1429-1433`)
+- Форма ответа: `void`. Мок возвращает `delay(undefined as T)` (`mocks/index.ts:1432`); UI ответ не читает, а вычёркивает запись у себя: `supplier.value.auditLog = supplier.value.auditLog.filter(...)` (`src/views/admin/suppliers/SupplierCardPage.vue:74`)
+- Коды ошибок: `SUPPLIER_NOT_FOUND` (`mocks/suppliers.ts:458`), `AUDIT_ENTRY_NOT_FOUND` (`mocks/suppliers.ts:460`). До человека ни один не доходит: `catch` в карточке показывает общий `msg.status_error` (`src/views/admin/suppliers/SupplierCardPage.vue:76-78`)
+- Save-режим: quick-action — комментарий в коде говорит это прямо, «server-side delete applies immediately (no batched Save)» (`src/views/admin/suppliers/SupplierCardPage.vue:72-73`)
+- Пробел контракта: `entryId` уникален только **внутри поставщика**. Мок выдаёт всем карточкам, построенным на лету, одни и те же `sup-au-1`/`sup-au-2` (`mocks/suppliers.ts:387,396`), и те же два id стоят в засеянной карточке поставщика «1» (`mocks/suppliers.ts:237,246`). Старый контракт называет `entryId` «UUID аудит-записи, генерируется сервером» (`roo_code/roo-context/03-api-contract.md:528`) — то есть глобально уникальным; кодом это не подтверждено. Лента аудита от этого пока не страдает, потому что удаляет парой (`entityId`, `entryId`) (`src/services/auditFeedService.ts:57-61`), но контракт обязан сказать, какая из двух гарантий требуется от сервера. Второе: старый контракт требует удалять «напрямую, без мета-записи» (`:530`) — мок это выполняет (`mocks/suppliers.ts:456-462`, `auditLog.push` в файле 0 раз), но правило нигде, кроме прозы, не записано
+- Источник истины: мок + клиент. Таблица `supplier_audit_entries` на бэкенде есть (`backend/app/modules/suppliers/shared/models.py:170-201`), эндпоинта — нет
 
 ### GET /api/suppliers
 - Вызывающий: `src/services/suppliersService.ts:20`
 - Бэкенд: **нет**
 - Мок: `mocks/index.ts:334`
-- Форма запроса:
-- Форма ответа:
-- Коды ошибок:
-- Save-режим:
-- Пробел контракта:
-- Источник истины:
+- Форма запроса: query-строка, все значения строками (`src/services/suppliersService.ts:10-19`): `page`, `pageSize`, `search`, `status` (`SupplierStatus | 'all'`), `rating` (`String(filters.rating)`), и `categories` через запятую — **только если список непуст** (`:17-19`). Мок разбирает ровно эти шесть (`mocks/index.ts:335-346`), `categories` — `split(',')` (`:338`)
+- Форма ответа: `PaginatedResponse<Supplier>` — `{ items, total, page, pageSize, totalPages }` (`src/types/api.ts:8-14`), собирается в `mockGetSuppliers` (`mocks/suppliers.ts:279-293`), `totalPages = Math.ceil(total / pageSize)` (`:291`). `Supplier` — 17 полей (`src/types/supplier.ts:12-31`)
+- Коды ошибок: ни одного — мок не бросает (`mocks/suppliers.ts:279-293`). Композабл кладёт любую ошибку в строку `error` (`src/composables/useSuppliers.ts:33-35`)
+- Save-режим: чтение. Дёргается из `useSuppliers.load()` по монтированию и по любому изменению фильтров и пагинации (`src/composables/useSuppliers.ts:60-78`), а также как справочник с `pageSize: 999` из карточки товара (`src/composables/useProductCard.ts:141-144`) и карточки категории (`src/composables/useCategoryCard.ts:66-69`)
+- Пробел контракта: **(а)** `rating` мок фильтрует на **точное равенство** — `if (filters.rating > 0 && s.rating !== filters.rating) return false` (`mocks/suppliers.ts:270`), а старый контракт объявляет его минимумом: «"0" = any, "1..5" = min rating» (`roo_code/roo-context/03-api-contract.md:373`). Одно из двух неверно, и решает это владелец; **(б)** сортировку не задаёт ни клиент, ни мок — мок отдаёт порядок сида (`mocks/suppliers.ts:283-285`), а контракт требует фиксированный `updatedAt DESC` (`:380`); **(в)** `search` в моке ищет по трём локалям компании и по email (`mocks/suppliers.ts:262-266`), контракт называет ещё и `contactPerson` (`:370`); **(г)** справочный вызов с `pageSize: 999` (`useProductCard.ts:143`, `useCategoryCard.ts:68`) — тот же случай, что уже вынесен владельцу по домену categories: лёгкого списка для выпадашек у поставщиков нет, хотя `GET /api/suppliers/list` рядом существует и не используется этими двумя
+- Источник истины: мок + клиент
 
 ### GET /api/suppliers/:id
 - Вызывающий: `src/services/suppliersService.ts:24`
 - Бэкенд: **нет**
 - Мок: `mocks/index.ts:348`
-- Форма запроса:
-- Форма ответа:
-- Коды ошибок:
-- Save-режим:
-- Пробел контракта:
-- Источник истины:
+- Форма запроса: только `id` в пути, ни query, ни заголовков (`src/services/suppliersService.ts:23-25`). Ветка мока — регэксп `^\/api\/suppliers\/([^/]+)$` плюс лишняя страховка `&& !path.includes('/status')` (`mocks/index.ts:348-349`), которая недостижима: класс `[^/]` слэш в сегменте уже исключил
+- Форма ответа: `SupplierCardData` — `Supplier` плюс 13 полей карточки (`src/types/supplier.ts:40-54`): `statusReason`, `contractDate`, `vatCode`, `currency`, `paymentTerms`, `minOrder`, `bccEmails`, `addresses[]`, `contacts[]`, `files[]`, `history[]`, `priceHistory[]`, `auditLog[]`. Мок либо отдаёт засеянную карточку (`mocks/suppliers.ts:305`), либо строит её из строки списка (`:308-405`) и кэширует (`:407`)
+- Коды ошибок: кода нет — мок бросает `new Error(\`Supplier ${id} not found\`)` (`mocks/suppliers.ts:307`), то есть человекочитаемую фразу вместо машинного кода, хотя соседняя функция того же файла бросает именно код (`SUPPLIER_NOT_FOUND`, `:458`). Старый контракт обещает `404 NOT_FOUND` (`roo_code/roo-context/03-api-contract.md:444`) — ядро бэкенда такой код объявляет (`backend/app/core/exceptions.py`), но домен его не бросает нигде
+- Save-режим: чтение. `onMounted(load)` карточки (`src/views/admin/suppliers/SupplierCardPage.vue:93`, `src/composables/useSupplierCard.ts:19-30`); второй вызывающий — предвыбор получателя в BCC по `?supplier=<id>` (`src/views/admin/suppliers/BccRequestPage.vue:531`)
+- Пробел контракта: **(а)** контракт обещает вырезание полей по правам — «поля, на которые у роли нет `read`, сервер вырезает или присылает `null`» (`roo_code/roo-context/03-api-contract.md:444`); ни мок, ни фронт прав не читают вовсе (`grep -c permission src/views/admin/suppliers/SupplierCardPage.vue` → 0). Тип `SupplierCardData` при этом обязателен по всем полям (`src/types/supplier.ts:40-54`) — вырезание сломало бы его; **(б)** `history` (`SupplierHistoryItem[]`, `src/types/supplier.ts:107-112`) — второй поток событий рядом с `auditLog`, у него **нет таблицы на бэкенде** (`grep -rn '"supplier_history' backend/alembic/versions/` — пусто; шесть таблиц миграции перечислены в шапке), и мок его синтезирует из `createdAt`/`updatedAt` (`mocks/suppliers.ts:335-356`); **(в)** `priceHistory` объявлен как склейка прайс-леджера и журнала BCC-запросов (`src/types/supplier.ts:56-70`), но серверная таблица `supplier_price_entries` не знает трёх из семи полей — `stock`, `source`, `status` (`backend/app/modules/suppliers/shared/models.py:204-234`), а `unit` там `String(20)` против `TranslatedString | null` во фронте (`:227` против `src/types/supplier.ts:67`)
+- Источник истины: мок + клиент по форме ответа; схема хранения — бэкенд, и три расхождения выше это его сторона
 
 ### GET /api/suppliers/export.csv
 - Вызывающий: `src/services/suppliersService.ts:93`
 - Бэкенд: **нет**
 - Мок: `mocks/index.ts:315`
-- Форма запроса:
-- Форма ответа:
-- Коды ошибок:
-- Save-режим:
-- Пробел контракта:
-- Источник истины:
+- Форма запроса: `search`, `status`, `rating`, и `categories` через запятую при непустом списке (`src/services/suppliersService.ts:87-92`) — те же фильтры, что у `GET /api/suppliers`, но **без** `page`/`pageSize`. Мок собирает из них `SupplierFilters` (`mocks/index.ts:316-322`)
+- Форма ответа: CSV одной строкой, **без envelope**. Заголовок `id,company,email,phone,status,rating,leadTime,categories`, категории склеены `;` (`mocks/suppliers.ts:521-534`). Клиент типизирует ответ как `string` (`src/services/suppliersService.ts:93`)
+- Коды ошибок: ни одного — `mockExportSuppliersCsv` не бросает (`mocks/suppliers.ts:519-535`)
+- Save-режим: чтение, разовое действие по кнопке. **Вызывающего UI нет**: `exportSuppliersCsv` не упоминается нигде, кроме своего объявления и мока (`grep -rn exportSuppliersCsv src` даёт `suppliersService.ts:86,93` и `mocks/index.ts:315` через ветку пути). Кнопка «Export» на странице списка собирает CSV **у себя в браузере** из уже загруженной страницы (`src/views/admin/suppliers/SuppliersListPage.vue:205-225`, флаг `supplierExport` — `:33,297`). Эндпоинт числится в реестре «Клиент написан, UI нет» (`roo_code/roo-context/03-api-contract.md:3036`)
+- Пробел контракта: **(а)** `apiGet` не умеет читать не-JSON: `unwrap` делает `await res.json()`, при провале оставляет `body = null` и возвращает его как значение (`src/services/api.ts:110-115,140-141`). Против настоящего сервера, отдающего `text/csv` (как требует `roo_code/roo-context/03-api-contract.md:386`), функция вернёт `null`, а не CSV — расхождение фронта, находка БАГ-04; **(б)** два разных набора колонок на один экспорт: мок `id,company,email,phone,status,rating,leadTime,categories` (`mocks/suppliers.ts:521`) против клиентского `company,status,rating,categories,leadTime,email,phone` без строки заголовка (`SuppliersListPage.vue:206-216`); **(в)** контракт требует `Content-Disposition` и стриминг (`:386-387`) — ни того, ни другого нигде в коде нет; **(г)** контракт обещает «сервер отдаёт всё, что подпадает» под фильтры, а кнопка экспортирует только текущую страницу списка (`SuppliersListPage.vue:206` — `suppliers.value`, то есть `res.items` одной страницы, `src/composables/useSuppliers.ts:31`)
+- Источник истины: клиент + мок по форме; факт «UI нет» — реестр (`roo_code/roo-context/03-api-contract.md:3017-3036`)
 
 ### GET /api/suppliers/list
 - Вызывающий: `src/services/suppliersService.ts:98`
 - Бэкенд: **нет**
 - Мок: `mocks/index.ts:325`
-- Форма запроса:
-- Форма ответа:
-- Коды ошибок:
-- Save-режим:
-- Пробел контракта:
-- Источник истины:
+- Форма запроса: ни параметров, ни заголовков (`src/services/suppliersService.ts:97-99`)
+- Форма ответа: голый массив `Array<{ id: string; company: string }>` — **без** envelope и без пагинации (`src/services/suppliersService.ts:97-99`). `company` — плоская строка, не `TranslatedString`: мок берёт английскую локаль (`mocks/index.ts:329` — `s.company.en`)
+- Коды ошибок: ни одного — мок не бросает (`mocks/index.ts:325-332`); оба вызывающих гасят ошибку в `catch` и подставляют список из одного пункта «все» (`src/composables/useWarehouseBatchCreate.ts:302-304`, `src/views/admin/warehouse/WarehousePage.vue:525`)
+- Save-режим: чтение, справочник для выпадашек склада — фильтр на странице склада (`src/views/admin/warehouse/WarehousePage.vue:519,525`) и выбор поставщика при создании партии (`src/composables/useWarehouseBatchCreate.ts:6,297-301`)
+- Пробел контракта: **(а)** эндпоинта нет в старом контракте вовсе — подтверждено замером плана (`roo_code/plans/api/contract-sync-plan.md:229`); **(б)** мок **изготавливает** id другой формы, чем весь остальной домен: `sup-${String(s.id).padStart(3, '0')}` (`mocks/index.ts:327-330`) превращает `'1'` (`mocks/suppliers.ts:9`) в `'sup-001'`. Полученный id обратно в `GET /api/suppliers/:id` не годится — `mockGetSupplier` ищет по `MOCK_SUPPLIERS.find(s => s.id === id)` (`mocks/suppliers.ts:306`) и бросает. То есть у поставщика в проекте **два пространства id**, и склад с BCC-событиями живут во втором (`src/mocks/warehouse-batches.ts:6,72,124`, `src/services/mocks/bcc.ts:146,157,168`). Какое из них канонично — решение владельца; находка БАГ-02; **(в)** контракт обязан сказать, `company` здесь — строка или `TranslatedString`: соседние справочники домена отдают `TranslatedString` (`src/types/supplier.ts:14`), а этот — строку одной локали
+- Источник истины: мок + клиент
 
 ### PATCH /api/suppliers/:id
 - Вызывающий: `src/services/suppliersService.ts:33`
 - Бэкенд: **нет**
 - Мок: `mocks/index.ts:1193`
-- Форма запроса:
-- Форма ответа:
-- Коды ошибок:
-- Save-режим:
-- Пробел контракта:
-- Источник истины:
+- Форма запроса: merge-patch, **только грязные поля** — `Partial<SupplierCardData>`, посчитанный `useDirtyCheck.diff()` поверхностным сравнением верхнего уровня (`src/composables/useSupplierCard.ts:37-40`, `src/composables/useDirtyCheck.ts:62-77`). Массивы и вложенные объекты уходят **целиком**, если изменился любой лист (`useDirtyCheck.ts:51-55,72-73`). Клиент дополнительно нормализует три переводимых поля: `company`, `contactPerson`, `statusReason` — строка превращается в `TranslatedString` текущей локали, иначе `undefined` (`src/services/suppliersService.ts:33-48`)
+- Форма ответа: `SupplierCardData` целиком после слияния (`src/services/suppliersService.ts:33`, `mocks/suppliers.ts:411-449`). Мок сливает три переводимых поля через `mergeTranslatedString`, чтобы не потерять чужие локали (`mocks/suppliers.ts:417-423`), и заодно переписывает 15 общих полей в строке списка (`:429-447`)
+- Коды ошибок: ни одного своего. `mockPatchSupplier` вызывает `mockGetSupplier` (`mocks/suppliers.ts:412`), поэтому на несуществующем id прилетит та же фраза без кода (`:307`). Композабл кладёт сообщение в `error` (`src/composables/useSupplierCard.ts:42-44`), карточка показывает общий тост (`src/views/admin/suppliers/SupplierCardPage.vue:88-90`)
+- Save-режим: clean-slate. Уходит по кнопке Save и только при `isDirty` (`src/composables/useSupplierCard.ts:32-47`), пустая дельта запрос не отправляет (`:39`)
+- Пробел контракта: **(а)** контракт требует, чтобы сервер сам писал записи аудита по diff (`roo_code/roo-context/03-api-contract.md:463`) — мок не пишет ни одной: `grep -c "auditLog.push" src/services/mocks/suppliers.ts` → 0; **(б)** контракт требует пересчитанный `updatedAt` (`:450`) — мок его не трогает, а лишь копирует прежнее значение в строку списка (`mocks/suppliers.ts:446`); **(в)** контракт описывает файлы как `fileIds: string[]` — «полный актуальный массив» (`:449,523`) — а клиент шлёт `files: SupplierFile[]` объектами: карточка кладёт в массив весь метаобъект после аплоада (`src/views/admin/suppliers/SupplierCardPage.vue:41-52`) и вырезает по id при удалении (`:54-57`), и именно этот массив попадает в дельту. `grep -rn fileIds src` по домену suppliers не даёт ни одного попадания; **(г)** контракт описывает формат `oldValue`/`newValue` как JSON-строки с ключами изменённых полей (`:470-505`) — мок хранит там человекочитаемые куски (`'Prepayment'` → `'30 Days Net'`, `mocks/suppliers.ts:242-243`; `'1000 EUR'` → `'2500 EUR'`, `:251-252`), то есть противоположное. Ни один тест этот формат не защищает; **(д)** контракт описывает формат поля `notes` как склейку блоков с клиентским timestamp `dd.mm.yyyy hh:mm` (`:507-519`) — в коде это просто `notes: string` (`src/types/supplier.ts:24`), генератора блоков нет: `grep -rn "dd.mm.yyyy" src` пусто; **(е)** оптимистичной блокировки нет — ни `If-Match`, ни `version` клиент не шлёт (`grep -c "If-Match\|version" src/services/suppliersService.ts` → 0), контракт называет это last-write-wins «возможным расширением» (`:465`)
+- Источник истины: мок + клиент. Схема хранения — бэкенд, и она расходится с типами фронта в четырёх местах (см. «Правила домена» ниже)
 
 ### PATCH /api/suppliers/:id/status
 - Вызывающий: `src/services/suppliersService.ts:55`
 - Бэкенд: **нет**
 - Мок: `mocks/index.ts:1186`
-- Форма запроса:
-- Форма ответа:
-- Коды ошибок:
-- Save-режим:
-- Пробел контракта:
-- Источник истины:
+- Форма запроса: `{ status: string }` — единственное поле (`src/services/suppliersService.ts:54-56`). Мок читает ровно его (`mocks/index.ts:1188`). Значение — один из шести `SupplierStatus` (`src/types/supplier.ts:4-10`), колонки канбана перечисляют те же шесть (`src/views/admin/suppliers/SuppliersListPage.vue:92-99`)
+- Форма ответа: `void`. Клиент объявлен `Promise<void>` и ответ выбрасывает (`src/services/suppliersService.ts:54-56`), мок возвращает `undefined` (`mocks/index.ts:1190`). Старый контракт обещает `Supplier` (`roo_code/roo-context/03-api-contract.md:430`) — не подтверждено кодом
+- Коды ошибок: ни одного. `mockUpdateSupplierStatus` на неизвестном id молча ничего не делает — `if (s) s.status = ...` (`mocks/suppliers.ts:451-454`), то есть промах не отличим от успеха
+- Save-режим: quick-action. Уходит сразу после подтверждения перетаскивания в канбане (`src/views/admin/suppliers/SuppliersListPage.vue:193-197` → `src/composables/useSuppliers.ts:48-54`); локальное состояние меняется **до** запроса, потому что мок мутирует тот же объект и Vue иначе не перерисует (`useSuppliers.ts:49-52`)
+- Пробел контракта: **(а)** контракт объявляет любые переходы разрешёнными и операцию идемпотентной (`roo_code/roo-context/03-api-contract.md:431`) — правило есть только в прозе; в коде оно ничем не выражено, кроме отказа от no-op-дропа на ту же колонку (`SuppliersListPage.vue:183`); **(б)** контракт требует записи в `auditLog` на каждое изменение статуса (`:431`) — мок не пишет (`mocks/suppliers.ts:451-454`); **(в)** мок правит **только строку списка** и не трогает кэш карточки `MOCK_CARD` (`mocks/suppliers.ts:451-454` против `:426` у обычного PATCH), из-за чего карточка после канбана показывает прежний статус — находка БАГ-03; **(г)** `statusReason` формой карточки правится (`src/components/admin/SupplierFormSections.vue:40-43`), а быстрым переходом — нет; связывает ли сервер причину со сменой статуса, не сказано нигде
+- Источник истины: мок + клиент
 
 ### POST /api/suppliers
 - Вызывающий: `src/services/suppliersService.ts:62`
 - Бэкенд: **нет**
 - Мок: `mocks/index.ts:939`
-- Форма запроса:
-- Форма ответа:
-- Коды ошибок:
-- Save-режим:
-- Пробел контракта:
-- Источник истины:
+- Форма запроса: `Partial<SupplierCardData>` (`src/services/suppliersService.ts:58-62`) — но фактически уходит **вся форма целиком**, включая пустые `id`, `createdAt`, `updatedAt`, `auditLog: []`, `history: []`, `priceHistory: []`: композабл передаёт весь объект состояния (`src/composables/useSupplierCreate.ts:68`), а стартовое состояние — полный `SupplierCardData` из фабрики `emptyCard` (`:9-42,49`). Три переводимых поля клиент нормализует, причём `company` и `contactPerson` при отсутствии превращаются в пустой `TranslatedString`, а `statusReason` — в `undefined` (`src/services/suppliersService.ts:62-77`)
+- Форма ответа: `SupplierCardData` целиком с присвоенным `id` (`src/services/suppliersService.ts:62`, `mocks/suppliers.ts:489-516`). Возврат — JSON-roundtrip, а не `structuredClone`, потому что приходит реактивный Proxy (`mocks/suppliers.ts:513-516`). Ответ используется для редиректа на карточку (`src/composables/useSupplierCreate.ts:68-69`)
+- Коды ошибок: серверных нет — `mockCreateSupplier` не бросает (`mocks/suppliers.ts:464-517`). Валидация целиком клиентская и возвращает не коды, а ключи `company_required` / `email_required` (`src/composables/useSupplierCreate.ts:53-57`). Старый контракт обещает `422 VALIDATION_ERROR` при отсутствии company/email (`roo_code/roo-context/03-api-contract.md:424`) — на бэкенде такой код объявлен в ядре, но домен его не бросает нигде
+- Save-режим: clean-slate — вся заполненная форма одним запросом, черновиков нет (`src/composables/useSupplierCreate.ts:59-76`)
+- Пробел контракта: **(а)** id генерируется как `max(number) + 1` (`mocks/suppliers.ts:465`) — значит id по контракту числовая строка, тогда как схема бэкенда даёт UUID (`UUIDMixin`, `backend/app/modules/suppliers/shared/models.py:14`), а справочник `/list` — форму `sup-NNN` (`mocks/index.ts:328`). Три формы одного идентификатора; **(б)** дефолты, которые контракт возлагает на сервер (`roo_code/roo-context/03-api-contract.md:399-421`), в коде расставлены **дважды и по-разному**: мок ставит `paymentTerms: '30 Days Net'` и `currency: 'EUR'` (`mocks/suppliers.ts:483,494-495`), фронт — `paymentTerms: '30 Days Net'` и `currency: settings.constants.defaultCurrency` (`src/composables/useSupplierCreate.ts:31-32`); у бэкенда дефолт валюты `EUR` в колонке (`backend/app/modules/suppliers/shared/models.py:50-52`), а `payment_terms` дефолта не имеет вовсе (`:53`); **(в)** `fileIds` из контракта (`:420`) клиент не шлёт — та же дыра, что у PATCH; **(г)** контракт требует права `create` на корневую секцию (`:424`) — проверки нет ни во фронте, ни в моке
+- Источник истины: мок + клиент
 
 ## Обязанности сервера
 
@@ -102,19 +112,51 @@
 на месте серверного значения. Ответ «нигде» — это не решение, а строка в
 `00-решения-владельца.md` с указанием домена.
 
-- Значения по умолчанию и их владелец:
-- События и уведомления:
-- Запись в аудит-лог:
-- Кастомные поля:
-- Настройки, которых мок не отслеживает:
-- Мультиарендность:
-- Права — в какой функции проверяются:
-- Транзакционность и идемпотентность:
-- Производные значения (считать, не хранить):
+- Значения по умолчанию и их владелец: бэкенд владеет четырьмя — `status='new'`, `rating=0`, `lead_time=0`, `currency='EUR'` (`backend/app/modules/suppliers/shared/models.py:29-31,35-37,44-46,50-52`); `payment_terms` дефолта не имеет (`:53`). Во фронте те же значения расставлены заново и в двух местах: мок (`src/services/mocks/suppliers.ts:473,475,480,483,494-495,498`) и фабрика формы создания (`src/composables/useSupplierCreate.ts:16,18,23,31-35`). Расходятся два: `paymentTerms: '30 Days Net'` — константа обеих сторон фронта и пусто на бэкенде; `currency` — фронт создания берёт `settings.constants.defaultCurrency` (`useSupplierCreate.ts:31,49`), мок жёстко `'EUR'` (`mocks/suppliers.ts:313,483,494`). Три справочника формы поставщика — валюты, условия оплаты, категории — заданы константами в компоненте: `CURRENCY_OPTIONS` из четырёх кодов (`src/components/admin/SupplierFormSections.vue:58-63`), `PAYMENT_OPTIONS` из трёх строк (`:65-69`), `CATEGORY_OPTIONS` из пятнадцати (`:71-87`). При этом валютами владеют настройки арендатора, а категории — отдельный домен с собственным CRUD. Находка БАГ-01 (валюты) и БАГ-05 (условия оплаты и категории). Кто владелец каждого из трёх — строки владельцу
+- События и уведомления: домен не рождает ни одного — `grep -c notify src/services/mocks/suppliers.ts` → 0. Единственное уведомление **про** поставщика рождает чужой домен: `notifySupplierResponse` вызывается из мока BCC, когда поставщик ответил на запрос (`src/services/mocks/bcc.ts:368` → `src/services/mocks/notifications.ts:657-670`), и это один из семи триггеров проекта (`notifications.ts:542,566,592,616,637,657,684`). Ни создание поставщика, ни смена статуса, ни блокировка уведомления не рождают. Ссылка этого уведомления к тому же ведёт в другое пространство id (`notifications.ts:667-669`: `entityId: supplier.id` из события BCC — `'sup-002'`, `entityRouteName: 'admin-supplier-card'`), см. БАГ-02. Адресат уведомления и правило «повтор не рождает второе» не заданы нигде — строка владельцу
+- Запись в аудит-лог: сервер обязан писать сам — так говорит старый контракт (`roo_code/roo-context/03-api-contract.md:463`, `:431`), — и в коде этого нет ни в одном месте: `grep -c "auditLog.push" src/services/mocks/suppliers.ts` → 0. Записи существуют только как сид: два в засеянной карточке (`mocks/suppliers.ts:235-254`) и два синтезированных при построении карточки на лету (`:385-404`), причём с одинаковыми id `sup-au-1`/`sup-au-2` у всех поставщиков. Таблица на бэкенде готова и знает автора: `user_id` с `ondelete="SET NULL"`, `user_name_translations`, `user_initials`, `property_translations`, `old_value`, `new_value`, `timestamp` (`backend/app/modules/suppliers/shared/models.py:170-201`). Чего нет нигде: пометки `sensitive` (`grep -rn sensitive backend/app/modules/suppliers src/types/supplier.ts` — пусто), формата `oldValue`/`newValue` (контракт требует JSON-строки — `:470-505`, мок хранит человекочитаемые куски — `mocks/suppliers.ts:242-243,251-252`), и второго потока `history` (`src/types/supplier.ts:107-112`), у которого нет ни таблицы, ни правила заполнения. Три строки владельцу
+- Кастомные поля: определения полей и разделов карточки поставщика физически объявлены **внутри модуля suppliers** — `FieldDefinition` и `SectionConfig`/`SectionField` лежат в `backend/app/modules/suppliers/shared/models.py:240-326`, а таблицы создаёт миграция чужой фазы (`backend/alembic/versions/e24a3922ed01_phase_7_config.py:28,44,57`). Фронт при этом ходит за ними в домен `config` (`src/services/configService.ts:7,46,76`), редактирует их отдельной страницей (`src/views/admin/suppliers/SupplierCardConfigPage.vue:10` → `src/composables/useCardConfig.ts`), а сама карточка поставщика **этой конфигурации не читает вовсе**: `grep -rn "configService\|useCardConfig" src/views/admin/suppliers/SupplierCardPage.vue src/components/admin/SupplierFormSections.vue` — пусто, форма нарисована жёстко. Значений кастомных полей у поставщика нет ни во фронте (`grep -c fieldValues src/types/supplier.ts` → 0), ни в схеме (нет колонки в `suppliers`, `models.py:14-78`), при том что библиотека полей содержит поле, которого в типе нет вовсе — `f-certified` (`src/services/mocks/config.ts:106-108`). Куда сервер кладёт значение кастомного поля поставщика и рисуется ли карточка по конфигурации — строки владельцу
+- Настройки, которых мок не отслеживает: три справочника формы (валюты, условия оплаты, категории) — перечислены выше и в БАГ-01/БАГ-05; связь категорий с поставщиками включается фича-флагом `categorySupplierLinks` (`src/config/featureFlags.ts:37`), а сам список категорий поставщика — свободные строки (`src/types/supplier.ts:19`), не id домена categories. Плюс `PAYMENT_OPTIONS` (`SupplierFormSections.vue:65-69`) — справочника условий оплаты нет ни в `AppSettings` (`grep -rn "paymentTerms\|payment_terms" src/types/settings.ts` — пусто), ни на бэкенде (`grep -rn payment_terms backend/app/modules/settings` — пусто). Типы адреса (`'Legal'`, `mocks/suppliers.ts:319,498`, `useSupplierCreate.ts:35`; комментарий схемы `'Legal','Postal','Shipping'`, `backend/app/modules/suppliers/shared/models.py:98-100`) справочником тоже не являются — три строки в комментарии против одной константы во фронте
+- Мультиарендность: владеет ею целиком бэкенд. `tenant_id` стоит на всех шести таблицах домена и на трёх таблицах конфигурации карточки — `grep -c tenant_id backend/app/modules/suppliers/shared/models.py` → 10, все с `ForeignKey("tenants.id", ondelete="CASCADE")` и индексом (`models.py:19-24,86-91,117-122,145-150,175-180,209-214,245-250,274-279,299-304`). Фронт про арендатора не знает ничего: `grep -c tenant src/services/mocks/suppliers.ts` → 0, `grep -rn tenant src/services/suppliersService.ts src/types/supplier.ts` — пусто, заголовка арендатора клиент не шлёт. Значит выборка обязана ограничиваться сервером по сессии, и ни один параметр запроса домена этого не выражает
+- Права — в какой функции проверяются: ни в какой. Матрица прав существует и заведена **именно под карточку поставщика** — её пункты это разделы и поля этой карточки (`src/services/mocks/config.ts:13-108,117-167,193-198`; тип `PermissionMatrix` с четырьмя действиями `read/edit/create/delete` — `src/types/config.ts:35-57`), читается и пишется доменом config (`src/services/configService.ts:76,81`). Но применяет её только страница настройки самой карточки: `grep -rn permission src/views/admin/suppliers/SupplierCardPage.vue` → 0, то же по `SupplierFormSections.vue` и по обоим композаблам домена. Старый контракт при этом ссылается на права трижды: вырезание нечитаемых полей в ответе (`roo_code/roo-context/03-api-contract.md:444`), игнор недоступных на `edit` полей в PATCH (`:464`), право `create` на секцию (`:424`) и право `delete` на аудит (`:530`). Ни одно не реализовано ни во фронте, ни на бэкенде (роутов нет). Функция, которая пишет, и функция, которая проверяет, — не существуют обе; строка владельцу
+- Транзакционность и идемпотентность: `Idempotency-Key` домен не шлёт ни разу — `grep -c Idempotency src/services/suppliersService.ts` → 0, при том что генератор ключа в проекте есть (`src/services/api.ts:239-245`). Оптимистичной блокировки тоже нет: `grep -c "If-Match\|version" src/services/suppliersService.ts` → 0; `deleteMockRoute` читает `If-Match` для других доменов (`mocks/index.ts:1428`), но ветка аудита поставщика значение игнорирует (`:1429-1433`). Многозапросных операций у домена нет — Save карточки это ровно один PATCH (`src/composables/useSupplierCard.ts:40`), создание ровно один POST (`src/composables/useSupplierCreate.ts:68`). Но два действия обязаны быть атомарными на сервере, и об этом не сказано нигде: PATCH, который меняет статус, должен одной транзакцией дописать запись аудита (`03-api-contract.md:463`), а `PATCH /status` — то же самое (`:431`). Нужен ли `Idempotency-Key` POST'у создания — строка владельцу
+- Производные значения (считать, не хранить): `totalPages` мок считает при чтении (`mocks/suppliers.ts:291`) — единственное честно производное значение домена. Два других объявлены полями и **не пишутся никем**: `hasDeficit` (`src/types/supplier.ts:27`) читается списком и канбан-карточкой (`src/views/admin/suppliers/SuppliersListPage.vue:469,562`, `src/components/admin/KanbanCard.vue:11,29`), но не пересчитывается нигде — `grep -c hasDeficit src/services/mocks/warehouse.ts` → 0, при живом складском домене дефицита; `lastBccDate` (`src/types/supplier.ts:26`) показывается в списке (`SuppliersListPage.vue:490`) и участвует в построении карточки (`mocks/suppliers.ts:372`), но отправка BCC его не обновляет — `grep -c lastBccDate src/services/mocks/bcc.ts` → 0. На бэкенде оба — хранимые колонки (`backend/app/modules/suppliers/shared/models.py:58-61`). Считает ли сервер их при чтении из склада и журнала BCC или хранит и обновляет событием — строки владельцу. `rating` тоже хранится (`models.py:35-37`), правится руками из формы (`SupplierFormSections.vue`) и ниоткуда не выводится
 
 ## Правила домена, которых нет в контракте
 
 Самое ценное содержимое аудита: эндпоинты машина перечислит и без человека, а правило,
 живущее только в моке или доменном слое, — нет.
 
+1. **Три переводимых поля поставщика сливаются, а не заменяются.** `company`, `contactPerson`, `statusReason` при PATCH проходят через `mergeTranslatedString` (`src/services/mocks/suppliers.ts:417-423`), поэтому правка в одной локали не стирает две другие. Клиент со своей стороны конвертирует пришедшую из формы строку в `TranslatedString` **текущей локали** (`src/services/suppliersService.ts:33-48`) — то есть на проводе всегда объект, никогда строка. Правило обязано быть у сервера: иначе смена языка интерфейса будет молча затирать переводы.
+
+2. **Дельта Save считается по верхнему уровню, а вложенное уходит целиком.** `useDirtyCheck.diff()` сравнивает `JSON.stringify` каждого ключа первого уровня и отдаёт весь ключ, если изменился любой лист (`src/composables/useDirtyCheck.ts:62-77`, комментарий `:51-55`). Значит для сервера `addresses`, `contacts`, `files`, `bccEmails`, `categories`, `tags` — **replace-семантика**, а не дельта по элементам, и удаление элемента выражается его отсутствием в присланном массиве.
+
+3. **Карточка поставщика — единственная сущность с двумя журналами сразу.** `auditLog` (`SupplierAuditEntry = StockAuditEntry`, `src/types/supplier.ts:81`, `src/types/warehouse.ts:526-534`) — общий для семи сущностей проекта тип, и запись адресуется своим `id`; `history` (`SupplierHistoryItem`, `:107-112`) — свой, только у поставщика, без id и без эндпоинта. Удаляется только первый (`DELETE /api/suppliers/:id/audit/:id`). Кто пишет второй и зачем он нужен рядом с первым, не сказано нигде.
+
+4. **`priceHistory` — не история цен, а склейка двух источников.** Тип прямо документирует: строка `'pending'`/`'sent'` — это неотвеченный BCC-запрос без цены, `'replied'` — ответ поставщика с ценой и остатком (`src/types/supplier.ts:56-70`). Мок так и строит: одна строка `replied` с ценой и одна `sent` без (`mocks/suppliers.ts:357-384`), источник подписан текстом («BCC Инструмент», «Эл. почта» — `:368,381`, `:231`). Серверная таблица этого не выражает: `supplier_price_entries` знает `price`, `unit`, `entry_date`, `notes`, `product_id` и **не знает** `stock`, `source`, `status` (`backend/app/modules/suppliers/shared/models.py:204-234`). Значит либо склейка делается сервером при чтении из двух таблиц, либо схема неполна — решение владельца.
+
+5. **Кэш карточки в моке — это «сервер», и он расходится со списком.** `MOCK_CARD` заполняется при первом чтении (`mocks/suppliers.ts:407`) и с этого момента становится источником для всех последующих `GET` (`:305`). PATCH пишет в обе структуры (`:426,429-447`), а быстрая смена статуса — только в список (`:451-454`). Для контракта это значит одно: список и карточка обязаны отдаваться из одного состояния, и сервер, у которого «карточка» и «строка списка» — разные представления одной записи, обязан это гарантировать.
+
+6. **Схема бэкенда расходится с типами фронта в четырёх местах** — и она старше, потому что уже в БД (миграция `a8dd7d7ba74b_phase_6_suppliers.py`):
+   - `SupplierAddress` во фронте имеет необязательный `line2` (`src/types/supplier.ts:86`), в схеме такой колонки нет (`backend/app/modules/suppliers/shared/models.py:98-107`);
+   - контакт: фронт — `role: TranslatedString` (`src/types/supplier.ts:94`), схема — `position: String(255)`, непереводимый (`models.py:130`); имена полей тоже разные;
+   - файл: фронт хранит `size` и `type` прямо на записи (`src/types/supplier.ts:99-105`), схема ссылается на `uploaded_files` через `file_id` с `ondelete="RESTRICT"` и своих `size`/`mime` не держит (`models.py:157-165`);
+   - `priceHistory`: три поля из семи (см. п. 4).
+   Каждое — расхождение фронта с сервером, то есть находка про фронт по правилу старшинства; собраны в БАГ-06.
+
+7. **Статус — строка без ограничения на сервере.** Фронт знает ровно шесть значений (`src/types/supplier.ts:4-10`), канбан рисует шесть колонок (`src/views/admin/suppliers/SuppliersListPage.vue:92-99`), форма — те же шесть с пилюлями (`src/components/admin/SupplierFormSections.vue:45-52`). Схема — `String(50)` без enum и без CHECK (`backend/app/modules/suppliers/shared/models.py:29-31`). Список продублирован тремя константами во фронте, доменного модуля с одним источником у поставщика нет (в отличие от заказов, где он есть — `src/domain/orderStatus.ts`).
+
+8. **Экспорт списка существует в двух несовместимых видах** — серверный эндпоинт без вызывающего (`src/services/suppliersService.ts:86-93`) и браузерный экспорт текущей страницы по кнопке (`src/views/admin/suppliers/SuppliersListPage.vue:205-225`). Пока контракт не решит, какой из них настоящий, серверная реализация будет писаться под колонки, которых пользователь не увидит.
+
 ## Находки про код → contract-sync-suppliers-bugs.md
+
+Шесть, из них БАГ-01 заведён до этого аудита:
+
+| | Суть | Файл |
+|---|---|---|
+| БАГ-01 | список валют формы поставщика — константа, хотя валютами владеют настройки | `src/components/admin/SupplierFormSections.vue:58-63,262` |
+| БАГ-02 | два пространства id поставщика: `/api/suppliers/list` изготавливает `sup-NNN`, которого `GET /api/suppliers/:id` не знает | `src/services/mocks/index.ts:327-330` |
+| БАГ-03 | быстрая смена статуса не трогает кэш карточки — карточка после канбана показывает старый статус | `src/services/mocks/suppliers.ts:451-454` |
+| БАГ-04 | `exportSuppliersCsv` не может прочитать `text/csv`: `apiGet` парсит только JSON и вернёт `null` | `src/services/suppliersService.ts:93`, `src/services/api.ts:110-115,140-141` |
+| БАГ-05 | условия оплаты и категории формы поставщика — тоже константы, того же класса, что БАГ-01 | `src/components/admin/SupplierFormSections.vue:65-69,71-87` |
+| БАГ-06 | четыре расхождения типов фронта со схемой бэкенда, которая старше | `src/types/supplier.ts:61-70,86,94,99-105` |
