@@ -113,21 +113,10 @@ if (msg.includes('CONFLICT')) {
 с откатом на разбор сообщения ради мока — либо привести ветку мока к тому же конверту, что и
 у настоящего API.
 
-Второе свойство той же строки, найденное свипом К3 при написании контракта: сравнение идёт
-**подстрокой**, а `CONFLICT` — подстрока другого живого кода проекта,
-`ORDER_VERSION_CONFLICT` (`grep -rhoE "[A-Z][A-Z_]*CONFLICT[A-Z_]*" frontend_vue/src --include=*.ts
---include=*.vue | sort -u` даёт ровно эти два). Сегодня коллизия не срабатывает — `handleDelete`
-зовёт только `deleteClient`, а удаление клиента версию не проверяет
-(`frontend_vue/src/services/mocks/clients.ts:1124-1136`), — но правило общих соглашений «ни один
-код не является подстрока другого» (`roo_code/roo-context/api/00-conventions.md`, §2) здесь уже
-нарушено, и стоит оно ровно на этой строке. Тот же класс у пары `AUDIT_ENTRY_NOT_FOUND` /
-`ORDER_AUDIT_ENTRY_NOT_FOUND`, но подстрочного сравнения по ним в коде нет.
-
 ### Future rule
 
 `String(e).includes('CODE')` — проверка, зелёная только под моками. Машинный код ошибки читается
-из поля, в которое его кладёт `unwrap()`. И сравнение подстрокой обязано быть сравнением на
-равенство: иначе код домена ловит код соседа.
+из поля, в которое его кладёт `unwrap()`.
 
 ---
 
@@ -346,77 +335,6 @@ TBD — либо поле убирается из `ClientFormData`, либо у 
 
 ---
 
-## БАГ-08 — `totalPages` списка клиентов считается без `Math.max(1, …)`, и пустая выборка отдаёт `0`
-
-**File:** `frontend_vue/src/services/mocks/index.ts:514`
-**Severity:** Low — сегодня поле не читает никто, поэтому расхождение живёт в форме ответа, а не
-на экране; но именно эту форму бэкенд и повторит.
-**Источник:** К4 (формы ответа: производное значение считается по правилу, отличному от соседей)
-
-### Problem
-
-```ts
-return delay({
-  items,
-  total: filtered.length,
-  page,
-  pageSize,
-  totalPages: Math.ceil(filtered.length / pageSize),
-} as T)
-```
-
-(`frontend_vue/src/services/mocks/index.ts:509-515`.)
-
-Пустая выборка (поиск, который ничего не нашёл) отдаёт `totalPages: 0` при `page: 1` — то есть
-ответ утверждает, что текущей страницы не существует.
-
-Общие соглашения объявляют правилом `totalPages: Math.max(1, Math.ceil(total / pageSize))`
-(`roo_code/roo-context/api/00-conventions.md`, §13, со словами «одинаково во всех доменах»). Замер
-показывает обратное — **зажим стоит в одном месте из десяти**:
-
-```
-grep -n "totalPages: Math" frontend_vue/src/services/mocks/*.ts
-mocks/bcc.ts:265            Math.max(1, Math.ceil(total / pageSize))     ← единственный
-mocks/index.ts:514          Math.ceil(filtered.length / pageSize)        ← clients, этот баг
-mocks/suppliers.ts:291      Math.ceil(filtered.length / pagination.pageSize)
-mocks/finance.ts:49         Math.ceil(items.length / pageSize)
-mocks/notifications.ts:428  Math.ceil(filtered.length / pagination.pageSize)
-mocks/services.ts:75        Math.ceil(total / pageSize)
-mocks/warehouse.ts:428      Math.ceil(total / pageSize)
-mocks/warehouse.ts:541      Math.ceil(total / pageSize)
-mocks/orders.ts:1562        Math.ceil(filtered.length / pageSize)
-mocks/products.ts:13982     Math.ceil(total / pageSize)
-```
-
-То есть домен `clients` ведёт себя как девять из десяти, а неточна как раз формулировка §13: она
-описывает `bcc` и выдаёт его за проект. **Записано это здесь, а не как расхождение клиентов с
-соседями,** потому что первая формулировка находки была именно такой и замер её опроверг.
-
-Не проявляется потому, что **читателя у поля нет**: `useClients` берёт `totalPages` не из ответа,
-а у собственной пагинации, и та считает своё значение уже с `Math.max(1, …)`
-(`frontend_vue/src/composables/useClients.ts:19`, `:95`;
-`frontend_vue/src/composables/usePagination.ts:8`). То есть проверка «на экране всё правильно»
-здесь ничего не доказывает — правило нарушено на проводе.
-
-Класс, а не единичный случай: девять реализаций из десяти, перечислены выше. Здесь записана
-клиентская половина — остальные принадлежат своим доменам.
-
-### Fix
-
-Одно из двух, и это выбор поперёк доменов, а не правка клиентов: либо девять реализаций получают
-`Math.max(1, …)`, либо §13 общих соглашений перестаёт утверждать зажим и называет `0` законным
-ответом на пустую выборку. Контракт домена (`roo_code/roo-context/api/clients.md`,
-`GET /api/clients`) фиксирует замер и помечает вопрос строкой «осталось»: назначать одно из двух
-— не дело автора контракта.
-
-### Future rule
-
-Производное значение, которого никто не читает, всё равно часть формы ответа: по нему бэкенд
-напишет свою реализацию. «Не проявляется на экране» — не признак того, что оно верно, а признак
-того, что проверять его надо не экраном.
-
----
-
 ## Сводка
 
 | | Тип | Файл | Суть |
@@ -428,4 +346,3 @@ mocks/products.ts:13982     Math.ceil(total / pageSize)
 | | Contract | `mocks/clients.ts` | БАГ-05: список клиентов везёт `auditLog` и `interactionHistory` каждой строки |
 | | Contract | `mocks/clients.ts` | БАГ-06: PATCH без белого списка полей и без проверок, стоящих на создании |
 | | Contract | `ClientCreatePage.vue` | БАГ-07: `rejectionReason` пишется при создании и не читается нигде |
-| | Contract | `mocks/index.ts` | БАГ-08: `totalPages` списка без `Math.max(1, …)` — пустая выборка отдаёт `0` |
