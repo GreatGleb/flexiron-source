@@ -74,9 +74,9 @@ data = _serializer.loads(token)
 ```
 
 `URLSafeTimedSerializer.loads` без `max_age` подпись проверяет, а время — нет. Тот же токен
-в `auth`-модуле проверяется с ограничением: `payload = _serializer.loads(credentials.credentials, max_age=86400)`
-(`backend/app/modules/auth/features/me/action.py:52`), и просроченный там даёт `TOKEN_EXPIRED`
-(`:54-58`). То есть `/api/auth/me` скажет «сессия истекла», а `/api/settings/profile` тем же
+в `auth`-модуле проверяется с ограничением `max_age=86400` (`backend/app/modules/auth/features/me/action.py:52`),
+и просроченный там даёт `TOKEN_EXPIRED`
+(`backend/app/modules/auth/features/me/action.py:54-58`). То есть `/api/auth/me` скажет «сессия истекла», а `/api/settings/profile` тем же
 токеном ответит данными.
 
 ### Fix
@@ -246,11 +246,11 @@ from_uom_id: … ForeignKey("uoms.id", ondelete="CASCADE")   # models.py:117
 to_uom_id:   … ForeignKey("uoms.id", ondelete="CASCADE")   # models.py:122
 ```
 
-`remove_uom_item` проверяет только товары (`crud/domain.py:338-342`, счёт через
-`count_products_by_uom`) и, не найдя их, удаляет единицу. Правила пересчёта, где эта единица
+`remove_uom_item` (`crud/domain.py:333-344`) проверяет только товары — счёт идёт через
+`count_products_by_uom` (`crud/domain.py:339-340`) — и, не найдя их, удаляет единицу. Правила пересчёта, где эта единица
 стоит с любой стороны, исчезнут вместе с ней. Старый контракт обещал ровно обратное — «409
 если UOM используется в товарах, правилах пересчёта или заказах»
-(`roo_code/roo-context/03-api-contract.md:2434-2440`).
+(старый раздел `DELETE /api/settings/uoms/:id`).
 
 ### Fix
 
@@ -267,10 +267,10 @@ to_uom_id:   … ForeignKey("uoms.id", ondelete="CASCADE")   # models.py:122
 
 ### Problem
 
-`remove_currency_item` проверяет одно: используется ли валюта товарами
-(`crud/domain.py:262-266`). Ни флаг `is_default` самой записи, ни код в
-`global_constants.default_currency` не проверяются — в функции нет ни одного обращения ни к
-тому, ни к другому. Инвариант держит **только атрибут `disabled` на кнопке**:
+`remove_currency_item` проверяет одно: используется ли валюта товарами — счёт через
+`count_products_by_currency` (`crud/domain.py:262-266`).
+Ни флаг `is_default` самой записи, ни код в `global_constants.default_currency` не проверяются —
+в функции нет ни одного обращения ни к тому, ни к другому. Инвариант держит **только атрибут `disabled` на кнопке**:
 
 ```vue
 :class="{ 'action-danger': !cur.isDefault, 'action-disabled': cur.isDefault }"
@@ -344,7 +344,7 @@ PATCH констант (`:353-356`), и все они уходят одним `P
 Домен исправно бросает `NotFoundError` из пяти функций — `update_currency_item`
 (`crud/domain.py:226`), `update_uom_item` (`:308`), `update_conversion_item` (`:404`),
 `remove_conversion_item` (`:438`), `update_order_status_item` (`:490`). Роуты, которые их
-вызывают, `try/except` не имеют: сравните `delete_currency_route` (`crud/action.py:272-284`,
+вызывают, `try/except` не имеют: сравните `delete_currency_route` (`crud/action.py:266-284`,
 ловит `NotFoundError` и `ConflictError`) с `patch_currency_route` (`:252-263`, не ловит
 ничего). `AppError` — обычное `Exception` (`backend/app/core/exceptions.py:4-10`), глобального
 обработчика для него в `backend/app/main.py` нет, значит FastAPI отдаст 500.
@@ -368,7 +368,7 @@ PATCH констант (`:353-356`), и все они уходят одним `P
 нигде**: `grep -rn password_change_rate_limit_per_min backend/app` даёт единственное
 попадание — саму строку объявления. То же у `login_rate_limit_per_min`
 (`backend/app/core/config.py:30`). Старый контракт обещает «Rate-limit: 3 попытки/min/IP»
-(`roo_code/roo-context/03-api-contract.md:2616-2634`).
+(старый раздел `POST /api/settings/change-password`).
 
 ### Fix
 
@@ -385,8 +385,8 @@ PATCH констант (`:353-356`), и все они уходят одним `P
 
 ### Problem
 
-Клиент шлёт профиль целиком: `settingsService.saveProfile({ ...settings.profile })`
-(`useSettings.ts:514`) — то есть вместе с `role` и `secretLink`
+Клиент шлёт профиль целиком — `saveProfile` со спредом всей секции (`useSettings.ts:514`), то
+есть вместе с `role` и `secretLink`
 (`frontend_vue/src/types/settings.ts:205-212`). Серверная схема принимает только четыре поля
 (`profile/schemas.py:27-35`) и лишние отбрасывает. Мок же кладёт всё:
 
@@ -492,8 +492,8 @@ const code = e instanceof Error ? e.message : ''
 toast.error(code === 'MAIL_NOT_CONFIGURED' ? t('settingsMail.test_not_configured') : t('settingsMail.test_failed'))
 ```
 
-Под моками совпадает случайно: мок бросает `new Error('MAIL_NOT_CONFIGURED')`
-(`frontend_vue/src/services/mocks/settings.ts:621`), то есть кладёт код в `message`.
+Под моками совпадает случайно: мок бросает `new Error('MAIL_NOT_CONFIGURED')` — код уходит в
+текст исключения (`frontend_vue/src/services/mocks/settings.ts:621`), а не в поле кода.
 `unwrap()` собирает `ApiRequestError`, у которого `message` — человеческий текст сервера, а
 код лежит в поле `code` (`frontend_vue/src/services/api.ts:118-124`).
 
@@ -524,13 +524,14 @@ reader.onload = (e) => { updateCompany({ logoUrl: e.target?.result as string }) 
 reader.readAsDataURL(file)
 ```
 
-Настоящий URL приходит позже, событием `@uploaded` (`SettingsLayout.vue:344-349`), и
+Настоящий URL приходит позже, обработчиком загрузки — `handleLogoUploaded`
+(`SettingsLayout.vue:344-349`), и
 подменяет превью. Но `updateCompany` помечает секцию грязной (`useSettings.ts:531-535`), и
 Save, нажатый в промежутке, отправит PATCH с base64. Колонка это примет: `logo_url` — `Text`
 (`backend/app/modules/settings/shared/models.py:29`, расширена миграцией
 `backend/alembic/versions/15f2c7d4e9b0_enlarge_logo_url_to_text.py`). Старый контракт
 утверждает обратное — «Клиент **не** шлёт base64»
-(`roo_code/roo-context/03-api-contract.md:2255-2272`).
+(старый раздел `PATCH /api/settings/company`).
 
 ### Fix
 
@@ -598,7 +599,8 @@ factor=float(c.factor) if c.factor else None
 ### Problem
 
 `ConversionPatchInput` принимает `fromUomId` и `toUomId` (`crud/schemas.py:165-166`), а
-`update_conversion_item` их просто перекладывает (`crud/domain.py:407-410`). Обе проверки,
+`update_conversion_item` их просто перекладывает: обе единицы уходят в
+`updates` без единой проверки (`crud/domain.py:407-410`). Обе проверки,
 написанные для создания (`crud/domain.py:373-374` и `:377-379`), здесь не вызываются. Тем же
 путём нельзя обнулить `factor` или `formula_type`: `None` означает «не менять»
 (`:413-416`), поэтому правило, переключённое со `static` на `dynamic`, сохранит старый
@@ -620,7 +622,7 @@ factor=float(c.factor) if c.factor else None
   «Производные значения».
 - **`AppSettings.users` не заполняется ничем.** Поле есть в типе
   (`frontend_vue/src/types/settings.ts:245`) и в сиде мока (`mocks/settings.ts:187-206`), но
-  эндпоинта нет и в `fetchAllSections` его нет (`useSettings.ts:217-237`). Это не дефект кода,
+  эндпоинта нет и в `fetchAllSections` его нет (`useSettings.ts:213-237`). Это не дефект кода,
   а отсутствующая функциональность — вопрос владельцу, не правка.
 - **`sort_order` статусов не нормализуется после удаления.** Сервер оставляет дыры в
   нумерации (`crud/domain.py:522-534`), мок перенумеровывает (`mocks/settings.ts:579`).
