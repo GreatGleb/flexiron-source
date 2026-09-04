@@ -285,3 +285,94 @@ const dom = domainOf
   console.log('17 необратимые шаги: подмножество —', /ЗАПРЕЩЕНЫ/.test(subset) ? 'запрещены ✓' : 'РАЗРЕШЕНЫ ✗',
     '| полный прогон —', /РАЗРЕШЕНЫ/.test(full) ? 'разрешены ✓' : 'ЗАПРЕЩЕНЫ ✗')
 }
+
+// ── 18. skipAudit: фаза аудита не запускается, аудиты берутся с диска
+{
+  const { result, calls } = await harness((label) => {
+    if (label === 'подготовка') return ok({ branch: 'b', treeClean: true, gateGreen: true, skeletons: 17, inventory: 175, baseBranch: 'main' })
+    if (label.startsWith('skipAudit')) {
+      return { ready: ['settings', 'config', 'clients', 'suppliers', 'categories', 'services', 'notifications', 'analytics', 'uploads', 'auth', 'products', 'bcc', 'warehouse', 'orders', 'finance', 'audit-feed', 'sales-crm'].map((d) => ({ domain: d, endpoints: 5 })), notReady: [], notes: 'вывод grep по каждому' }
+    }
+    if (label.startsWith('аудит')) return ok({ domain: domainOf(label), endpoints: 5, emptyFields: 0, commit: 'a' })
+    if (label.startsWith('соглашения')) return ok({ commit: 'c' })
+    if (label.startsWith('контракт')) return ok({ domain: domainOf(label), documented: 5, commit: 'b' })
+    if (label.startsWith('приёмка')) return { domain: domainOf(label), refuted: false, reason: '', checked: 'x' }
+    if (label === 'финал') return ok({})
+    throw new Error('неизвестная метка ' + label)
+  }, { skipAudit: true })
+  const auditAgents = calls.filter((c) => c.startsWith('аудит ')).length
+  console.log('18 skipAudit:', result.вердикт, '| агентов аудита', auditAgents, '(ждём 0)',
+    '| аудитов', result.аудитов.length, '| написано', result.написано.length)
+}
+
+// ── 19. skipAudit РАЗЛИЧАЕТ годный аудит и негодный: с пустыми графами домен переделывается
+{
+  const { result, calls } = await harness((label) => {
+    if (label === 'подготовка') return ok({ branch: 'b', treeClean: true, gateGreen: true, skeletons: 17, inventory: 175, baseBranch: 'main' })
+    if (label.startsWith('skipAudit')) {
+      return {
+        ready: ['settings', 'config', 'clients', 'suppliers', 'categories', 'services', 'notifications', 'analytics', 'uploads', 'auth', 'products', 'bcc', 'orders', 'finance', 'audit-feed', 'sales-crm'].map((d) => ({ domain: d, endpoints: 5 })),
+        notReady: [{ domain: 'warehouse', reason: 'пустых граф 231' }],
+        notes: 'вывод grep',
+      }
+    }
+    if (label.startsWith('аудит')) return ok({ domain: domainOf(label), endpoints: 37, emptyFields: 0, commit: 'a' })
+    if (label.startsWith('соглашения')) return ok({ commit: 'c' })
+    if (label.startsWith('контракт')) return ok({ domain: domainOf(label), documented: 5, commit: 'b' })
+    if (label.startsWith('приёмка')) return { domain: domainOf(label), refuted: false, reason: '', checked: 'x' }
+    if (label === 'финал') return ok({})
+    throw new Error('неизвестная метка ' + label)
+  }, { skipAudit: true })
+  const audited = calls.filter((c) => c.startsWith('аудит '))
+  console.log('19 skipAudit различает:', result.вердикт, '| переделан аудит:', audited.join(',') || '(никто) ✗',
+    '| написано', result.написано.length)
+}
+
+// ── 20. Черновик переживает откат: откатчику назван путь, второй попытке — тоже
+{
+  let revertPrompt = ''
+  let secondTry = ''
+  await harness((label, prompt) => {
+    if (label === 'подготовка') return ok({ branch: 'b', treeClean: true, gateGreen: true, skeletons: 1, inventory: 1, baseBranch: 'main' })
+    if (label.startsWith('аудит')) return ok({ domain: domainOf(label), endpoints: 1, emptyFields: 0 })
+    if (label.startsWith('соглашения')) return ok({})
+    if (label.startsWith('контракт')) {
+      if (/попытка 2/.test(label)) secondTry = prompt
+      return ok({ domain: domainOf(label), documented: 1, commit: 'deadbee' })
+    }
+    if (label.startsWith('приёмка')) {
+      return { domain: domainOf(label), refuted: !/попытка 2/.test(label), reason: 'ссылка не резолвится', checked: 'x' }
+    }
+    if (label.startsWith('откат')) { revertPrompt = prompt; return ok({}) }
+    if (label === 'финал') return ok({})
+    throw new Error('неизвестная метка ' + label)
+  }, { domains: ['uploads'] })
+  const saves = /cp roo_code\/roo-context\/api\/uploads\.md/.test(revertPrompt)
+  const restores = /cp \/tmp\/contract-drafts\/uploads\.md/.test(secondTry)
+  const forbidsRewrite = /Писать домен заново запрещено/.test(secondTry)
+  console.log('20 черновик:', 'откатчик сохраняет —', saves ? '✓' : '✗',
+    '| вторая попытка восстанавливает —', restores ? '✓' : '✗',
+    '| переписывание запрещено —', forbidsRewrite ? '✓' : '✗')
+}
+
+// ── 21. Резолвер ссылок и запрет номеров монолита названы всем трём: аудит, автор, приёмщик
+{
+  const seen = {}
+  await harness((label, prompt) => {
+    if (label === 'подготовка') return ok({ branch: 'b', treeClean: true, gateGreen: true, skeletons: 1, inventory: 1, baseBranch: 'main' })
+    if (label.startsWith('аудит')) { seen.audit = prompt; return ok({ domain: domainOf(label), endpoints: 1, emptyFields: 0 }) }
+    if (label.startsWith('соглашения')) return ok({})
+    if (label.startsWith('контракт')) { seen.write = prompt; return ok({ domain: domainOf(label), documented: 1, commit: 'c' }) }
+    if (label.startsWith('приёмка')) { seen.judge = prompt; return { domain: domainOf(label), refuted: false, reason: '', checked: 'x' } }
+    if (label === 'финал') return ok({})
+    throw new Error('неизвестная метка ' + label)
+  }, { domains: ['uploads'] })
+  const resolver = ['audit', 'write', 'judge'].filter((k) => /contractRefs\.spec\.ts/.test(seen[k] || ''))
+  const banned = ['audit', 'write', 'judge'].filter((k) => /03-api-contract\.md/.test(seen[k] || '') && /ЗАПРЕЩЕН/i.test(seen[k] || ''))
+  const noWordOnly = ['write', 'judge'].filter((k) =>
+    /без\s+вывода\s+не\s+принимается|вывода\s+резолвера\s+в\s+его\s+ответе\s+нет/.test(seen[k] || ''),
+  )
+  console.log('21 резолвер: назван —', resolver.join(',') || '(никому) ✗',
+    '| номера монолита запрещены —', banned.join(',') || '(никому) ✗',
+    '| «провалов 0» без вывода не принято —', noWordOnly.join(',') || '(нигде) ✗')
+}
