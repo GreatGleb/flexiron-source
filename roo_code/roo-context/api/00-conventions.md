@@ -32,9 +32,9 @@
    **успехи** всех 31 реализованного роута: `ApiResponse(success=True, data=…)`
    (например `backend/app/modules/auth/features/login/action.py:36-40`,
    `backend/app/core/uploads/action.py:143-146`).
-2. **Голое тело** — если ключа `success` нет, ответ возвращается как есть (`services/api.ts:140-141`,
-   комментарий там же). Это не мёртвая ветка: мок отдаёт данные без обёртки повсеместно, и вся
-   мок-разработка идёт по этому пути.
+2. **Голое тело** — тело без ключа `success` возвращается как есть: «doesn't have the
+   `ApiResponse` envelope, return as-is» (`services/api.ts:140-141`). Это не мёртвая ветка: мок
+   отдаёт данные без обёртки повсеместно, и вся мок-разработка идёт по этому пути.
 3. **Ошибка FastAPI `detail`** — при `res.ok === false` тело разбирает `parseErrorBody`
    (`services/api.ts:19-84`) и понимает две подформы: `detail` — объект `{ message, code }` (наш
    `AppError`) и `detail` — массив pydantic-ошибок `[{ loc, msg, type }]`, из которого собирается
@@ -184,7 +184,8 @@ HttpOnly-cookie в коде отсутствуют.
 
 **Механизм 2 — три права заказа (домен `settings`).** `seeCost`, `manualCost`, `correction`, по
 списку ролей на каждое; отдаёт `GET /api/settings/order-permissions` (`mocks/settings.ts:62-66`,
-`:433-442`), применяет домен `orders`: `composables/useOrderPermissions.ts:23-32` во фронте и
+`:433-442`). Применяет их домен orders — три computed во фронте,
+`canSeeCost`, `canSetManualCost`, `canCorrect` (`composables/useOrderPermissions.ts:23-32`), и
 `requireRight`/`maySeeCost` на «сервере» мока (`mocks/orders.ts:1855-1860`, `:1390-1393`). Модель
 описана в [`orders-backend-contract.md`](../../plans/orders/orders-backend-contract.md), §5.
 Отдельным эндпоинтом это сделано намеренно: сервер обязан иметь ответ, даже когда экран настроек
@@ -204,8 +205,8 @@ it» (`composables/useOrderPermissions.ts:6-10`).
   implement actual RBAC logic here. Returns True for now (permissive default)»
   (`backend/app/modules/auth/internal_api/interface.py:27-38`); вызывающих у неё нет.
   `backend/app/modules/auth/shared/dependencies.py` — четыре строки докстринга и ноль кода.
-  Модели `PermissionItem`, `RolePermission`, `UserPermission` существуют
-  (`backend/app/modules/auth/shared/models.py:145-236`) и не читаются ни одним `select()`.
+  Модели прав существуют и не читаются ни одним `select()`: `PermissionItem`,
+  `RolePermission`, `UserPermission` (`backend/app/modules/auth/shared/models.py:145-236`).
 - **Матрицу не применяет и фронт.** Единственный её потребитель — сама страница-редактор
   (`grep -rn "PermissionMatrix\|rolePermissions" frontend_vue/src` даёт четыре файла домена
   `config` плюс `SupplierCardConfigPage.vue`), а настоящая карточка поставщика конфигурацию не
@@ -223,13 +224,14 @@ it» (`composables/useOrderPermissions.ts:6-10`).
   каждом аудите.
 - **Сокрытие себестоимости в интерфейсе — занавеска, а не право.** Сервер не имеет права отдавать
   `cost`/`margin` пользователю без `seeCost`; поскольку карточка пересчитывает цены из
-  себестоимости, сервер, вырезавший её, обязан прислать посчитанную цену
-  (`composables/useOrderPermissions.ts:16-21`). Сегодня `seeCost` применяется только к истории
-  заказа (`mocks/orders.ts:1384-1386`), а та же величина открыта всем в услугах
+  себестоимости, сервер, вырезавший её, обязан прислать посчитанную цену — «hiding the cost in the
+  UI is a `curtain`, not a right» (`composables/useOrderPermissions.ts:17-21`). Сегодня `seeCost`
+  применяется только к истории заказа (`mocks/orders.ts:1384-1386`), а та же величина открыта
+  всем в услугах
   (`views/admin/products/ServicesPage.vue:274`), на складе и в аналитике.
 - **Право `seeCost` обходится через ленту аудита.** Признак `sensitive: 'cost' | null` есть только
   у записи заказа (`types/order.ts:591-606`), строка ленты его не несёт (`types/audit.ts:63-74`) и
-  `toRows` его не копирует (`mocks/auditFeed.ts:47-60`) — `contract-sync-audit-feed-bugs.md`, БАГ-01.
+  `toRows` его не копирует (`mocks/auditFeed.ts:43-60`) — `contract-sync-audit-feed-bugs.md`, БАГ-01.
 
 Кто чем вправе распоряжаться — **решение владельца**: строки «Права — в какой функции
 проверяются» стоят в
@@ -295,8 +297,9 @@ comm -23 /tmp/fe_keys.txt /tmp/be_keys.txt   # шесть; обратная ра
   (`backend/app/modules/products/shared/models.py:203-208`), уникальность — `(product_id, field_id)`
   (`:210-214`).
 - **Валидирует значения никто.** Ни `required`, ни тип при записи товара не проверяются
-  (`mocks/products.ts:14117-14218` — ни одной проверки; клиент нормализует только NaN,
-  `useProductCard.ts:247`); на схеме значение — свободный `Text`.
+  (`mocks/products.ts:14117-14218` — ни одной проверки); клиент нормализует только
+  `Number.isNaN` (`useProductCard.ts:247`), а на схеме значение — свободный `Text`
+  (`backend/app/modules/products/shared/models.py:203-208`).
 - **Перечень типов поля закрыт во фронте и открыт на схеме.** Колонка `field_type` — `String(50)`
   без `CHECK`, допустимые значения живут комментарием рядом и их пять, а не семь
   (`backend/app/modules/products/shared/models.py:77-79`). Тот же класс у формул пересчёта:
@@ -325,8 +328,8 @@ comm -23 /tmp/fe_keys.txt /tmp/be_keys.txt   # шесть; обратная ра
 **Запись адресуется своим `id`, а не позицией**, и удаление идёт в эндпоинт своей сущности:
 `DELETE` на путь `<сущность>/:id/audit/:entryId` — девять функций клиента
 (`productsService.ts:125`, `clientsService.ts:45`, `suppliersService.ts:83`, `ordersService.ts:195`
-и пять складских `warehouseService.ts:333-373`). Своего `DELETE` у ленты нет намеренно: второй
-путь к той же записи — второе правило о том, кто её вправе убрать
+и пять складских `apiDelete` — `warehouseService.ts:333-373`). Своего `DELETE` у ленты нет
+намеренно: второй путь к той же записи — второе правило о том, кто её вправе убрать
 (`services/auditFeedService.ts:49-77`). Строка ленты ключуется тройкой `entityType + entityId +
 entryId` одной функцией `auditRowKey` (`types/audit.ts:86-92`).
 
@@ -356,8 +359,8 @@ entryId` одной функцией `auditRowKey` (`types/audit.ts:86-92`).
   `backend/app/modules/suppliers/shared/models.py:170-201`).
 - **Таблиц журнала на схеме две, а журналов девять.** Есть `stock_audit_entries`, привязанная к
   партии `nullable=False` (`warehouse/shared/models.py:229-258`), и журнал поставщика
-  (`suppliers/shared/models.py:170-201`). Под остальные семь таблиц нет. Признака `sensitive` нет
-  ни у одной.
+  `SupplierAuditEntry` (`suppliers/shared/models.py:170-201`). Под остальные семь таблиц нет.
+  Признака `sensitive` нет ни у одной.
 
 Что именно сервер обязан писать, кто автор и есть ли след у удаления записи — строки владельцу у
 восьми доменов.
@@ -500,9 +503,10 @@ interface PaginationParams { page: number; pageSize: number }     // types/api.t
   `createdAt DESC` умолчанием (`mocks/orders.ts:1548-1549`), товары отдают порядок хранилища
   (`mocks/products.ts:13965-13974`), список платежей и архив не сортируются вовсе
   (`contract-sync-finance-bugs.md`, БАГ-05). Контракт обязан назвать умолчание по каждому списку.
-- **Пустая строка фильтра доезжает до сервера буквально.** `apiGet` ставит параметр всегда
-  (`services/api.ts:153-156`), поэтому «все» — это `entityType=`, а не отсутствие параметра;
-  сервер обязан читать пустую строку как «без фильтра» (`mocks/index.ts:396-401`). Обратная сторона
+- **Пустая строка фильтра доезжает до сервера буквально.** `apiGet` кладёт каждый параметр в
+  `url.searchParams` без проверки на пустоту (`services/api.ts:153-156`), поэтому «все» — это
+  `entityType=`, а не отсутствие параметра; сервер обязан читать пустую строку как «без фильтра»
+  (`mocks/index.ts:396-401`). Обратная сторона
   — известная находка: `null` уезжает в query литералом `"null"`
   (`contract-sync-orders-bugs.md` БАГ-04, `contract-sync-clients-bugs.md` БАГ-04).
 
@@ -618,8 +622,9 @@ save-режим.
   обе шире серверного списка. Правило, которое стоит помнить: `accept` фильтрует диалог выбора и
   ничего не значит для перетаскивания (`useWarehouseMap.ts:37-43`) — проверять тип обязан сервер.
 - **`url` — производное, а не колонка.** Сервер собирает его на каждый ответ из базы текущего
-  запроса (`core/uploads/action.py:141-142`); в таблице лежит только `storage_path`. При этом ровно
-  это производное три чужие таблицы сохраняют как данные (`payment_documents.url`,
+  запроса — `base_url` плюс путь файла (`core/uploads/action.py:141-142`); в таблице лежит только
+  `storage_path`. При этом ровно это производное три чужие таблицы сохраняют как данные
+  (`payment_documents.url`,
   `document_archive_items.url` плюс `size` и `mime`), и фронт делает то же. Что здесь источник
   истины — строка владельцу.
 - **Черновиков фактически нет:** модель и миграция говорят `is_draft=True`, эндпоинт передаёт
@@ -659,20 +664,20 @@ save-режим.
 истины. Но он **не эталон** в четырёх повторяющихся местах, и это часть контракта:
 
 - **Мок слабее сервера.** Отправка BCC: сервер снимает дубли адресов и отвергает пустой список
-  кодом `NO_RECIPIENTS` (`backend/app/modules/bcc/features/send_request/domain.py:95-99`, сам код
-  объявлен `:34-38`), мок не
-  делает ни того, ни другого. Magic-link: сервер отвергает просроченный токен, мок принимает любой
-  непустой. Загрузка: сервер проверяет MIME и размер, мок — нет. Значит **пути ошибки под моками не
+  ошибкой `NoRecipientsError` (`backend/app/modules/bcc/features/send_request/domain.py:95-99`);
+  её код — `NO_RECIPIENTS` (`backend/app/modules/bcc/features/send_request/domain.py:34-38`). Мок
+  не делает ни того, ни другого. Magic-link: сервер отвергает просроченный токен, мок принимает
+  любой непустой. Загрузка: сервер проверяет MIME и размер, мок — нет. Значит **пути ошибки под моками не
   воспроизводятся вовсе**, и демо не доказывает их существования.
 - **Мок строже будущего сервера.** Услуги: `assertKnownPricing` проверяет `currencyId`/`uomId` по
   справочнику (`services/mocks/services.ts:86-93`), а на схеме этих колонок нет вовсе — внешнего ключа,
   который держал бы то же правило, на сервере не существует.
 - **Мок отдаёт ссылки, а не копии.** Где отдаётся копия — это записано причиной: карточка платежа
-  удаляет документ до Save, и на прямой ссылке удаление доехало бы до «сервера» само
-  (`mocks/finance.ts:421-425`); лента аудита копирует `user` и `property` объектами
-  (`mocks/auditFeed.ts:53-59`). Где отдаётся ссылка — это находка: `mockGetProduct` возвращает
-  запись стора (`mocks/products.ts:13985-13989`), и карточка правит стор напрямую. Для сервера
-  разницы нет — правило записано, чтобы её не перенесли в контракт.
+  удаляет документ до Save, и на прямой ссылке удаление доехало бы до «сервера» само, поэтому
+  `mockGetPayment` отдаёт `clone` (`mocks/finance.ts:421-429`); лента аудита копирует `user` и
+  `property` объектами (`mocks/auditFeed.ts:53-59`). Где отдаётся ссылка — это находка:
+  `mockGetProduct` возвращает запись стора (`mocks/products.ts:13985-13989`), и карточка правит
+  стор напрямую. Для сервера разницы нет — правило записано, чтобы её не перенесли в контракт.
 - **Порядок веток разбора мока — часть контракта.** Вложенный путь обязан разбираться раньше
   голого `:id`: восемь путей заказа перед `/api/orders/:id` (`mocks/index.ts:563-611`),
   `/api/products/list` перед `/api/products/:id` (`:440` перед `:449`), `/stock/:id/cost` перед
@@ -743,7 +748,7 @@ save-режим.
 | «`PUT` оставлен только на `/api/config/sections` и `/api/config/permissions`» | `PUT` в коде шесть вызовов, включая `/api/config/fields`, `/api/categories/:id/fields`, `/api/settings/order-statuses/reorder`, `/api/settings/warehouse-map` (§3) |
 | перечисление путей PATCH и PUT | заменено правилом плюс машинным инвентарём: перечень устаревал на каждой новой странице (§3) |
 | «Бэкенд выдаёт HttpOnly Secure cookie `session`, fetch ходит с `credentials: 'include'`» | токен приходит в теле, лежит в `localStorage`/`sessionStorage` и шлётся `Authorization: Bearer`; `credentials` в `api.ts` нет (§5) |
-| «клиент читает cookie `csrf_token`» | CSRF-токен приходит в теле входа и берётся из хранилища (`useAuth.ts:101-108`); сервер его не проверяет нигде |
+| «клиент читает cookie `csrf_token`» | CSRF-токен приходит в теле входа, а в заголовок его кладёт `getStoredCsrf` (`useAuth.ts:101-108`); сервер его не проверяет нигде |
 | «Все `/api/admin/**` требуют валидной сессии» | пространства `/api/admin` не существует: все 175 путей начинаются с `/api/<домен>` |
 | «бэкенд должен проверять `PermissionMatrix`… отказ — `403 { code: 'FORBIDDEN' }`» | проверка — заглушка `return True`; матрица не применяется ни на сервере, ни во фронте; единственный работающий отказ по праву несёт код `FORBIDDEN_<ПРАВО>` (§6) |
 | «Virus-scan синхронный, 422 `INFECTED`» | ни `virus`, ни `scan`, ни `INFECTED` в коде нет |
