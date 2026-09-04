@@ -291,6 +291,76 @@ fields: fields.map((f) => ({
 
 ---
 
+## БАГ-09 — ORM-отношение `children` объявлено с каскадом на внешнем ключе, который стоит `RESTRICT`
+
+**File:** `backend/app/modules/products/shared/models.py:44-47`
+**Severity:** High — на самом консеквентном пути домена (удаление категории) два объявления
+одной и той же модели требуют противоположного; ошибка проявится первым же слайсом `DELETE`.
+**Источник:** К5 (источник истины), аудит `roo_code/plans/api/audit/categories.md:116`
+
+### Problem
+
+`categories.parent_id` объявлен `ondelete="RESTRICT"` (`models.py:28`, внутри объявления колонки
+`:26-31`):
+
+```py
+# backend/app/modules/products/shared/models.py:26-31
+parent_id: Mapped[uuid.UUID | None] = mapped_column(
+    UUID(as_uuid=True),
+    ForeignKey("categories.id", ondelete="RESTRICT"),
+    nullable=True,
+    index=True,
+)
+```
+
+То же в миграции: `sa.ForeignKey("categories.id", ondelete="RESTRICT")`
+(`backend/alembic/versions/25245d4bf874_phase_3_categories_products.py:32`). То есть база обязана
+**отказать** в удалении категории, у которой есть потомки.
+
+Отношение того же ключа объявлено наоборот:
+
+```py
+# backend/app/modules/products/shared/models.py:44-47
+children: Mapped[list["Category"]] = relationship(
+    "Category", back_populates="parent",
+    cascade="all, delete-orphan",
+)
+```
+
+`delete-orphan` велит SQLAlchemy при `session.delete(category)` **удалить** потомков — и этот
+`DELETE` упрётся в `RESTRICT` того же FK. Оба объявления одновременно верны быть не могут.
+
+У соседнего отношения противоречия нет: `fields` (`models.py:53-56`) тоже несёт
+`cascade="all, delete-orphan"`, но `category_fields.category_id` объявлен `ondelete="CASCADE"`
+(`models.py:72`, миграция `:46`) — там ORM и схема согласны.
+
+Мок реализует версию схемы: удаление категории с потомками отвергается кодом
+`CATEGORY_HAS_CHILDREN` (`frontend_vue/src/services/mocks/categories.ts:1481`). Но мок — вторая
+ступень старшинства, а спорят здесь два бэкендовских артефакта, и порядок «бэкенд → мок+клиент →
+замысел» такой спор не разрешает.
+
+### Fix
+
+Решение владельца, а не автора контракта: либо снять `cascade="all, delete-orphan"` с `children`
+(если верна схема и категория с потомками не удаляется), либо сменить `ondelete` на `CASCADE`
+(если верен каскад). До решения — пробел, помечен «осталось» в
+[`roo_code/roo-context/api/categories.md`](../../roo-context/api/categories.md), правило §12 и
+раздел `DELETE /api/categories/:id`; строки в
+[`00-решения-владельца.md`](../api/audit/00-решения-владельца.md) на это ещё нет.
+
+### Future rule
+
+**Каскад ORM и `ondelete` внешнего ключа — два разных механизма, и их согласованность надо
+проверять парой.** SQLAlchemy применяет `cascade` в сессии, база — `ondelete` в момент
+`DELETE`; расходятся они молча, до первой реальной операции удаления. Проверять грепом по каждой
+модели: у каждого `cascade="all, delete-orphan"` найти `ondelete` того же FK.
+
+Побочно: аудит домена в правиле 13 ссылается на «находку 8», а находка 8 — про стирание
+переводов. Наблюдение про каскад в баг-файл не попало вовсе и чуть не потерялось целиком.
+Ссылка «см. находку N» из аудита обязана проверяться резолвом в баг-файл, а не на память.
+
+---
+
 ## Сводка
 
 | | Тип | Файл | Суть |
@@ -303,3 +373,4 @@ fields: fields.map((f) => ({
 | | Runtime | `CategoryCardPage.vue` | БАГ-06: родителем можно назначить потомка — цикл, зависание `getLevel` |
 | | Contract | `categoriesService.ts` | БАГ-07: лишний ключ `fieldName` в теле `PUT /:id/fields` |
 | | i18n | `CategoryCardPage.vue` | БАГ-08: правка поля стирает переводы двух других языков |
+| | Contract | `products/shared/models.py` | БАГ-09: ORM-каскад `children` против `ondelete=RESTRICT` того же FK |
