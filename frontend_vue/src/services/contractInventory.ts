@@ -38,8 +38,14 @@ function frontendRoot(): string {
   return process.cwd()
 }
 
-/** Каталог доменных файлов контракта. Экспортируется задачей 20 — генератору карты. */
-function contractDir(): string {
+/**
+ * Каталог доменных файлов контракта.
+ *
+ * Экспортирован задачей 38: его зовёт генератор карты `contractReadme.spec.ts`. До неё экспорта
+ * не было намеренно — `npm run deadcode` получил бы неиспользуемый экспорт. Второй копии этого
+ * пути в проекте быть не должно: разойдутся молча (Л5).
+ */
+export function contractDir(): string {
   return resolve(frontendRoot(), '../roo_code/roo-context/api')
 }
 
