@@ -194,6 +194,254 @@ invalid» — сработает ветка `company code` и подсветит
 
 ---
 
+## БАГ-08 — сессии пишутся в БД и не читаются никогда
+
+**File:** `backend/app/modules/auth/features/login/repository.py:26-45`, `backend/app/modules/auth/features/me/action.py:52`, `backend/app/modules/auth/shared/models.py:111-139`
+**Severity:** High — отозвать сессию нечем: выданный токен действителен до истечения подписи, что бы ни делал пользователь и что бы ни делал администратор.
+**Источник:** аудит домена 2026-09-04, К6 (обязанности сервера), К5
+
+### Problem
+
+Таблица `sessions` создаётся и заполняется — `create_session` кладёт `token_hash`, `csrf_token`,
+`expires_at`, `remember` (`login/repository.py:35-44`), то же делает регистрация
+(`register/domain.py:145-151`). Читается она **ни разу**: все пять попаданий `token_hash` в
+`backend/app` — записи (`models.py:121`, `login/repository.py:29,37`, `login/domain.py:72,84`,
+`register/domain.py:137,148`), ни одного `select(Session)`.
+
+Проверка подлинности — только разбор подписи `URLSafeTimedSerializer` (`me/action.py:25-28,52`).
+Отсюда:
+
+- **`logout` не может работать в принципе** — даже когда роут появится, инвалидировать нечего;
+- `expires_at`, который сервер отдаёт клиенту (`login/schemas.py:34`), не тот срок, по которому
+  сервер принимает токен: тот задан `max_age` в другом месте;
+- `csrf_token` хранится, но сравнивать его не с чем — сервер заголовок не читает (БАГ-10);
+- единственный способ разлогинить всех — сменить `secret_key` (`app/core/config.py:16`).
+
+### Fix
+
+Задача бэкенда: проверять токен по строке в `sessions` (хеш → строка → `expires_at` → активность
+пользователя), а `logout` помечать её мёртвой. До этого контракт обязан говорить прямо, что
+сессия не отзывается — сейчас он говорит про `logout` как про инвалидацию
+(`roo_code/roo-context/api/auth.md:166-167`).
+
+### Future rule
+
+Таблица, в которую только пишут, — это не реализованное правило, а его декорация. Модель без
+единого чтения обязана попадать в аудит домена отдельной строкой: `grep` на имя модели, где все
+попадания — запись, ловит такой случай за одну команду.
+
+---
+
+## БАГ-09 — срок жизни сессии задан ТРЕМЯ разными способами, настройка игнорируется
+
+**File:** `backend/app/core/config.py:17`, `backend/app/modules/auth/features/login/domain.py:78`, `backend/app/modules/auth/features/register/domain.py:144`, `backend/app/modules/auth/features/me/action.py:52`
+**Severity:** Medium — пользователь, зарегистрировавшийся только что, получает `expires_at` через 8 часов, вошедший — через 24, а принимается токен 24 часа в обоих случаях. Расширяет БАГ-07, где мест было названо два.
+**Источник:** аудит домена 2026-09-04, К6 (значения по умолчанию и их владелец), Л5
+
+### Problem
+
+Три числа на одно правило:
+
+- `login/domain.py:78` — `expires_at = now + timedelta(hours=24)`, литерал;
+- `register/domain.py:144` — `expires_at = now + timedelta(hours=settings.session_ttl_hours)`, а
+  `session_ttl_hours = 8` (`app/core/config.py:17`);
+- `me/action.py:52` — `max_age=86400`, то есть 24 часа, для обоих случаев.
+
+То есть **вход настройку `session_ttl_hours` не читает вовсе**, регистрация читает, а проверка не
+читает ни того, ни другого. Заодно не читается `remember_ttl_days = 30` (`config.py:18`): колонка
+`sessions.remember` всегда `False`, потому что вход не передаёт этот аргумент
+(`login/domain.py:81-87`, дефолт `login/repository.py:32`). Обещание старого контракта
+«`remember=true` продлевает TTL до 30 дней» (`roo_code/roo-context/03-api-contract.md:310`)
+не выполняется ничем.
+
+### Fix
+
+Один источник срока — настройка, и она же в `max_age`. Задача бэкенда; контракт домена уже
+называет 24 часа (`roo_code/roo-context/api/auth.md:217-221`) и после починки обязан назвать
+настройку, а не число.
+
+---
+
+## БАГ-10 — CSRF-токен генерируется, хранится и отдаётся, но не проверяется нигде
+
+**File:** `frontend_vue/src/composables/useAuth.ts:106`, `backend/app/modules/auth/features/login/domain.py:44-46,75`, `backend/app/modules/auth/shared/models.py:124`
+**Severity:** Medium — защита существует только в виде церемонии: клиент шлёт заголовок, сервер его не смотрит.
+**Источник:** аудит домена 2026-09-04, К6 (транзакционность и идемпотентность)
+
+### Problem
+
+Клиент кладёт `X-CSRF-Token` в каждый защищённый запрос (`useAuth.ts:101-108`). На сервере все
+попадания `csrf` — генерация (`login/domain.py:44-46,75`, `register/domain.py:57-59,143`), запись
+в модель (`models.py:124`) и поля схем (`login/schemas.py:33`, `register/schemas.py:25`). Ни одна
+строка не читает заголовок и не сравнивает его с сохранённым значением
+(`grep -rn "csrf" backend/app` — тринадцать попаданий, ни одного чтения запроса).
+
+Сравнивать сейчас и не с чем: строка сессии не читается вовсе (БАГ-08).
+
+### Fix
+
+Задача бэкенда, и она вторая после БАГ-08: сначала проверка сессии по БД, потом сверка
+`X-CSRF-Token` с `sessions.csrf_token` на небезопасных методах. До этого контракт обязан говорить,
+что заголовок отправляется, но не проверяется, — иначе читатель решит, что защита есть.
+
+---
+
+## БАГ-11 — три декодера токена вне auth не проверяют срок
+
+**File:** `backend/app/modules/settings/features/crud/action.py:119`, `backend/app/modules/settings/features/profile/action.py:63`, `backend/app/core/uploads/action.py:50`
+**Severity:** High — сессия, которую `GET /api/auth/me` уже отвергает как просроченную, продолжает работать на всех 24 роутах настроек и на загрузке файлов.
+**Источник:** аудит домена 2026-09-04, К5 (источник истины), Л5
+
+### Problem
+
+Тот же токен разбирают четыре места, и `max_age` передан ровно в одном:
+
+- `me/action.py:52` — `_serializer.loads(credentials.credentials, max_age=86400)`;
+- `settings/features/crud/action.py:119` — `_serializer.loads(token)`, без срока;
+- `settings/features/profile/action.py:63` — `_serializer.loads(token)`, без срока;
+- `core/uploads/action.py:50` — `_serializer.loads(token)`, без срока.
+
+`URLSafeTimedSerializer.loads` без `max_age` подпись по времени не проверяет вовсе. Практический
+результат: фронт получает `401` от `/api/auth/me`, чистит сессию (`useAuth.ts:207-209`) — но токен
+из чужой вкладки или из скрипта продолжает открывать настройки арендатора.
+
+Тексты ошибок при этом тоже разошлись: `/me` различает три случая
+(`MISSING_TOKEN`/`TOKEN_EXPIRED`/`INVALID_TOKEN`, `me/action.py:47,57,62`), настройки отвечают
+одним `UNAUTHORIZED` на все (`settings/crud/action.py:108,113,124`).
+
+### Fix
+
+Одна зависимость на весь бэкенд. Место для неё существует и пусто: `backend/app/modules/auth/shared/dependencies.py`
+— четыре строки докстринга, обещающие «get_current_user, permission checkers, tenant isolation», и
+ноль кода. Задача бэкенда.
+
+### Future rule
+
+Дубль правила безопасности не виден линзой контракта: каждый эндпоинт по отдельности выглядит
+верным. Ловится только запросом «сколько мест делают одно и то же» — `grep -n "loads("` по всему
+`backend/app` даёт четыре ответа и три из них неполные.
+
+---
+
+## БАГ-12 — роль пишется в двух регистрах в одной функции
+
+**File:** `backend/app/modules/auth/features/register/repository.py:90,97`, `frontend_vue/src/components/admin/AdminTopbar.vue:26-27`, `frontend_vue/src/services/mocks/index.ts:888`
+**Severity:** Medium — сравнение ролей строкой начнёт врать, как только кто-то прочитает мультиролевую таблицу; уже сейчас мок и сервер выдают разные значения одного поля.
+**Источник:** аудит домена 2026-09-04, К4 (формы и значения)
+
+### Problem
+
+`create_user` записывает роль дважды и по-разному: legacy-колонка получает `role="owner"`
+(`register/repository.py:90`), мультиролевая таблица — `UserRole(role_name="Owner")` (`:97`).
+
+Наружу отдаётся только legacy-колонка (`me/domain.py:33`,
+`settings/features/profile/domain.py:61`), помеченная в модели `⚠️ DEPRECATED`
+(`auth/shared/models.py:60-63`). Фронт переводит её ключом `settingsUsers.role_<role>`
+(`AdminTopbar.vue:26-27`), а ключи объявлены нижним регистром: `role_owner`, `role_admin`, …
+(`frontend_vue/src/i18n/admin/settings.ts:231-237`). То есть `"Owner"` из второй таблицы дал бы
+ненайденный ключ.
+
+Мок при этом отдаёт `role: 'admin'` (`mocks/index.ts:888`), хотя сервер новому пользователю всегда
+ставит `owner`: демо показывает роль, которой у зарегистрировавшегося не бывает.
+
+### Fix
+
+Один регистр и один источник. Решение о том, какая из двух систем ролей главная, — владельца
+(строка внесена в `00-решения-владельца.md`); механическая часть — привести мок к серверному
+значению.
+
+---
+
+## БАГ-13 — email уникален по паре с арендатором, а код обращается с ним как с глобально уникальным
+
+**File:** `backend/alembic/versions/3a0b5d31bde7_phase_1_tenants_auth_users_sessions.py:54`, `backend/app/modules/auth/shared/models.py:50-52`, `backend/app/modules/auth/features/login/repository.py:20-23`, `backend/app/modules/auth/features/register/repository.py:40-42`
+**Severity:** Medium — сейчас не проявляется, потому что пользователь появляется только регистрацией; появится приглашение в существующего арендатора — вход начнёт падать 500-й.
+**Источник:** аудит домена 2026-09-04, К6 (мультиарендность)
+
+### Problem
+
+В БД уникальна **пара**: `op.create_index("ix_users_tenant_id_email", "users", ["tenant_id", "email"], unique=True)`
+(миграция `:54`); сама колонка объявлена только `index=True`, без `unique`
+(`auth/shared/models.py:50-52`).
+
+Код обращается с email как с глобально уникальным:
+
+- регистрация проверяет занятость по всей таблице, без арендатора (`register/repository.py:40-42`)
+  — то есть запрещает то, что схема разрешает;
+- вход ищет так же и берёт результат через `scalar_one_or_none()` (`login/repository.py:20-23`) —
+  на двух строках с одним email это `MultipleResultsFound`, то есть 500 вместо 401.
+
+Второй строки сейчас взяться неоткуда: `User(...)` конструируется в одном месте на весь бэкенд
+(`register/repository.py:80`), и регистрация всегда создаёт нового арендатора
+(`register/domain.py:98-103`). Дыра открывается первым же эндпоинтом, добавляющим пользователя в
+существующего арендатора, — а список пользователей во фронте уже есть
+(`frontend_vue/src/services/mocks/settings.ts:188-205`).
+
+### Fix
+
+Решение владельца: email глобально уникален или уникален внутри арендатора. Первое — снять
+составной индекс и объявить колонку `unique`. Второе — искать пользователя с арендатором и
+разбирать неоднозначность на входе. Строка внесена в `00-решения-владельца.md`.
+
+---
+
+## БАГ-14 — под моками ни один путь отказа домена не воспроизводится
+
+**File:** `frontend_vue/src/services/mocks/index.ts:298,305,878,880`, `frontend_vue/src/composables/useAuth.ts:207`, `frontend_vue/src/router/index.ts:423-425`
+**Severity:** Medium — код обработки протухшей сессии и ошибок формы не исполняется в демо ни разу, а мок-режим включён по умолчанию.
+**Источник:** аудит домена 2026-09-04, К3 (коды ошибок), К2
+
+### Problem
+
+Мок бросает голый `Error`, а не `ApiRequestError`: `new Error('Not authenticated')`
+(`mocks/index.ts:298`), `new Error('MISSING_TOKEN')` (`:305`),
+`new Error('Email and password are required')` (`:878`). У такого исключения нет ни `status`, ни
+`code`, ни `fieldErrors` (`frontend_vue/src/types/api.ts:25-47`), поэтому:
+
+- ветка `err instanceof ApiRequestError && (err.status === 401 || err.status === 404)` в `fetchMe`
+  (`useAuth.ts:207`) под моками недостижима — сессия не чистится никогда;
+- раскладка ошибок по полям формы регистрации (`RegisterPage.vue:353-361`) не срабатывает — да и
+  ветки регистрации в моке нет вовсе (БАГ-01).
+
+Сверх того мок не проверяет пароль (`mocks/index.ts:880`) и принимает любой непустой токен ссылки
+(`:306-307`), а сторож роутера в мок-режиме выходит первой строкой (`router/index.ts:423-425`).
+То есть демо не воспроизводит ни один путь отказа домена auth.
+
+### Fix
+
+Мок обязан бросать `ApiRequestError` с тем же `status` и `code`, что и сервер, — тогда клиентские
+ветки становятся исполняемыми. Коды брать из бэкенда: `MISSING_TOKEN`, `TOKEN_EXPIRED`,
+`INVALID_TOKEN` (`me/action.py:47,57,62`), `UNAUTHORIZED` (`core/exceptions.py:34`),
+`VALIDATION_ERROR`, `CONFLICT` (`:27,48`).
+
+### Future rule
+
+«Мок = reference implementation» касается не только успешного пути. Ветка мока, которая бросает
+`new Error(<строка>)` там, где сервер отдаёт `detail: { message, code }`, — это не упрощение, а
+другой контракт: клиентский разбор ошибок на ней не работает.
+
+---
+
+## БАГ-15 — мёртвая функция `_ensure_unique_slug` в регистрации
+
+**File:** `backend/app/modules/auth/features/register/domain.py:46-54`
+**Severity:** Low — читателя ведёт по ложному следу: имя обещает подбор уникального slug, тело возвращает аргумент как есть.
+**Источник:** аудит домена 2026-09-04, Л5
+
+### Problem
+
+Функция объявлена, принимает `db` и `base_slug`, заводит счётчик и возвращает `slug` без единого
+изменения; комментарий внутри признаётся прямо: «We'll check in the domain function itself — this
+is a sync helper» (`:53`). Вызывающего у неё нет (`grep -n "_ensure_unique_slug" backend/app` —
+одно попадание, само объявление). Настоящий подбор написан отдельно на месте
+(`register/domain.py:90-95`).
+
+### Fix
+
+Удалить объявление. Задача бэкенда, к контракту отношения не имеет.
+
+---
+
 ## Сводка
 
 | | Тип | Файл | Суть |
@@ -205,3 +453,11 @@ invalid» — сработает ветка `company code` и подсветит
 | | Contract | `types/auth.ts` | БАГ-05: `secret_link` из `MeResponse` не описан во фронте |
 | | Contract | `services/api.ts` | БАГ-06: поле формы выводится из текста серверного сообщения |
 | | Duplicate | `backend/.../auth` | БАГ-07: срок жизни сессии записан в двух местах (24 ч и 86400) |
+| | Backend | `backend/.../auth` | БАГ-08: сессии пишутся в БД и не читаются — отозвать нечего |
+| | Backend | `backend/.../auth` | БАГ-09: срок сессии задан тремя способами, `session_ttl_hours` игнорируется входом |
+| | Security | `backend/.../auth` | БАГ-10: `X-CSRF-Token` шлётся, но не проверяется нигде |
+| | Security | `backend/.../settings`, `core/uploads` | БАГ-11: три декодера токена без `max_age` — просроченный токен принимается |
+| | Contract | `backend/.../register` | БАГ-12: роль пишется как `owner` и `Owner` в одной функции |
+| | Backend | `backend/.../auth` | БАГ-13: email уникален по паре `(tenant_id, email)`, код считает его глобальным |
+| | Mock | `mocks/index.ts` | БАГ-14: под моками ни один путь отказа не воспроизводится — голый `Error` вместо `ApiRequestError` |
+| | Dead code | `backend/.../register` | БАГ-15: `_ensure_unique_slug` объявлена и не вызывается |

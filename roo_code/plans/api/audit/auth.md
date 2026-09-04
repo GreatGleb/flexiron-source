@@ -6,62 +6,85 @@
 Утверждение без `файл:строка` не записывается. Код не правится: место, где он выглядит
 неверным, — находка в `roo_code/plans/bugs/contract-sync-auth-bugs.md`.
 
+> **Аудит идёт постфактум.** Контракт домена уже написан — `roo_code/roo-context/api/auth.md`, —
+> и эта работа его не переписывает, а проверяет по коду и добирает то, чего в нём нет. Все
+> проверенные утверждения контракта отмечены ниже словом «подтверждено» с той же ссылкой; всё,
+> чего в контракте нет, — в графе «Пробел контракта» и в разделе «Правила домена».
+
+> **Четыре роута зарегистрированы, пятого нет.** `backend/app/main.py:68,71,72,73` включают
+> `auth_me_router`, `auth_login_router`, `auth_register_router`, `auth_magic_link_router`. Роута
+> `logout` нет ни в `main.py`, ни в `backend/app/modules/auth/features/` (каталоги: `login`,
+> `magic_link`, `me`, `register`). По К5 старшинство «бэкенд» наступило у четырёх эндпоинтов из
+> пяти, у `logout` источник — клиент и мок.
+
+> **Сессия не в cookie.** `src/services/api.ts:144-224` — ни одного `credentials:` во всех шести
+> хелперах (`grep -n "credentials\|HttpOnly\|X-CSRF" src/services/api.ts` — пусто). Токен и CSRF
+> приходят **в теле** (`login/schemas.py:29-34`) и уходят обратно заголовками
+> `Authorization: Bearer` + `X-CSRF-Token` из `useAuth.authHeaders()`
+> (`src/composables/useAuth.ts:101-108`). Утверждение старого контракта «ставит HttpOnly-cookie
+> `session` и `csrf_token`» (`03-api-contract.md:310`) кодом опровергнуто.
+
+> **Регистр полей — `snake_case`**, потому что это форма ответа FastAPI:
+> `first_name`/`last_name`/`csrf_token`/`expires_at`/`tenant_id`/`is_active`
+> (`backend/app/modules/auth/features/login/schemas.py:15-34`), и `src/types/auth.ts:3-19`
+> повторяет её буквально.
+
 ## Эндпоинты
 
 ### GET /api/auth/link
 - Вызывающий: `src/views/public/AuthLinkHandler.vue:129`
 - Бэкенд: `backend/app/modules/auth/features/magic_link/action.py:21`
 - Мок: `mocks/index.ts:303`
-- Форма запроса:
-- Форма ответа:
-- Коды ошибок:
-- Save-режим:
-- Пробел контракта:
-- Источник истины:
+- Форма запроса: один query-параметр `token`, обязательный — `token: str = Query(...)`, `backend/app/modules/auth/features/magic_link/action.py:23`. Клиент шлёт его вторым аргументом `apiGet('/api/auth/link', { token })` (`src/views/public/AuthLinkHandler.vue:129`), значение берётся из `route.query.token` и приводится к строке или `null` (`:115-116`); при `null` запроса нет вовсе — редирект на `/404` (`:119-122`). Тела нет: `apiGet` кладёт параметры в `URLSearchParams` (`src/services/api.ts:153-156`). Заголовков нет — `apiGet` вызван без третьего аргумента, то есть **без** `authHeaders()`: эндпоинт публичный. Схема `MagicLinkInput { token }` (`magic_link/schemas.py:6-9`) объявлена, но роутом не используется — токен принимается как `Query`, а не телом.
+- Форма ответа: `MagicLinkVerifyResponse { email: str }` — `backend/app/modules/auth/features/magic_link/schemas.py:12-19`, собирается в `magic_link/domain.py:40-42`. На проводе — конверт `ApiResponse { success, data, message }` (`app/core/schemas.py:29-35`), `message = "Link verified successfully"` (`magic_link/action.py:40`); `unwrap()` снимает конверт и отдаёт `data` (`src/services/api.ts:128-137`). Клиент типизирует ответ как `unknown` и достаёт email функцией `extractEmail`, которая принимает **две** формы: `{ email }` и `{ user: { email } }` (`AuthLinkHandler.vue:100-112`) — вторая ветка недостижима, сервер такой формы не отдаёт. Мок отдаёт первую форму (`mocks/index.ts:307`). Значение уходит в `sessionStorage['prefilled_email']` (`AuthLinkHandler.vue:141`) и читается один раз формой входа (`src/views/public/LoginPage.vue:132-143`, ключ `PREFILLED_EMAIL_KEY` — `:128`).
+- Коды ошибок: у бэкенда один — `UNAUTHORIZED` (`app/core/exceptions.py:30-34`), HTTP 401 (`magic_link/action.py:42-46`), с двумя разными сообщениями: `Invalid or expired secret link` (`magic_link/domain.py:34`) и `Account is deactivated` (`:37`). Ни то, ни другое клиент не разбирает: любая ошибка гасится одним текстом `t('authLink.invalidLink')` (`AuthLinkHandler.vue:146-149`), код и статус не читаются. Мок ведёт себя иначе и слабее: пустой токен — `throw new Error('MISSING_TOKEN')` (`mocks/index.ts:305`), любой непустой принимается (`:307`). То есть код `MISSING_TOKEN` в этом месте — выдумка мока: бэкенд на отсутствующий `token` отвечает штатной 422 от FastAPI (обязательный `Query(...)`), а не `MISSING_TOKEN`. Ни один код домена не является подстрокой другого (`UNAUTHORIZED`, `MISSING_TOKEN`, `TOKEN_EXPIRED`, `INVALID_TOKEN`, `NOT_FOUND`, `VALIDATION_ERROR`, `CONFLICT`).
+- Save-режим: не применим — это не форма. Quick-action по монтированию страницы: `onMounted` шлёт запрос сразу (`AuthLinkHandler.vue:114-151`), и единственный исход успеха — `router.replace('/login')` (`:145`).
+- Пробел контракта: старого раздела нет вовсе — в блоке `03-api-contract.md:294-353` пять подзаголовков (`:296`, `:312`, `:330`, `:337`, `:347`), и `GET /api/auth/link` среди них отсутствует. Действующий контракт (`roo-context/api/auth.md:228-247`) описывает эндпоинт верно, но называет его «проверка magic-link **из письма**» (`:230`) — письма нет: отправки почты в модуле auth и в ядре нет ни строки (`grep -rn "mail\|Mail" app/modules/auth app/core` даёт только слово `email` в именах полей), а единственный SMTP в проекте лежит в чужом домене — `app/modules/bcc/features/send_request/transport.py:11,21,46`. Ссылка доходит до человека **только** двумя способами: полем `secret_link` ответа регистрации (`register/domain.py:154,172`, показ — `RegisterPage.vue:203-218`) и тем же полем в `GET /api/auth/me` (`me/domain.py:22-24`). Второй пробел: сообщение сервера обещает срок («Invalid or **expired** secret link», `magic_link/domain.py:34`), а срока нет — `secret_link_token` живёт в колонке без даты и не ротируется (`auth/shared/models.py:57-59`), выдаётся один раз при регистрации (`register/domain.py:115,125`) и больше не меняется нигде (`grep -rn "secret_link_token" backend/app` — четыре места: модель, репозиторий записи, поиск, чтение).
+- Источник истины: бэкенд (`magic_link/action.py:21`, схемы `magic_link/schemas.py:12-19`). Мок — не источник: он не проверяет токен вовсе и всегда отвечает одним адресом `director@metalltorg.com` (`mocks/index.ts:307`), то есть путь «просроченная/неизвестная ссылка» под моками не воспроизводится.
 
 ### GET /api/auth/me
 - Вызывающий: `src/composables/useAuth.ts:200`
 - Бэкенд: `backend/app/modules/auth/features/me/action.py:34`
 - Мок: `mocks/index.ts:296`
-- Форма запроса:
-- Форма ответа:
-- Коды ошибок:
-- Save-режим:
-- Пробел контракта:
-- Источник истины:
+- Форма запроса: тела и query нет — `apiGet<UserInfo>('/api/auth/me', undefined, { headers: authHeaders() })` (`src/composables/useAuth.ts:200-202`). Обязателен заголовок `Authorization: Bearer <token>`: сервер читает его через `HTTPBearer(auto_error=False)` (`me/action.py:31,36`) и без него отвечает 401 `MISSING_TOKEN` (`:44-48`). `X-CSRF-Token` клиент шлёт тем же `authHeaders()` (`useAuth.ts:106`), сервер его не читает — см. «Транзакционность». Запрос вообще не уходит, если токена нет в хранилищах (`useAuth.ts:189-193`).
+- Форма ответа: `MeResponse` — `id: UUID`, `email`, `first_name`, `last_name`, `phone: str|None`, `locale`, `role`, `tenant_id: UUID|None`, `is_active`, `secret_link: str|None = None` (`backend/app/modules/auth/features/me/schemas.py:7-19`), собирается в `me/domain.py:26-37`. Конверт `ApiResponse` без `message` (`me/action.py:67`). Фронт типизирует ответ как `UserInfo` (`src/types/auth.ts:3-13`) — то есть на одно поле меньше, `secret_link` молча отбрасывается (БАГ-05). Результат кладётся в `localStorage['auth_user_cache']` (`useAuth.ts:63-65,203`) и в реактивный синглтон `currentUser` (`:23,204`). Потребитель ровно один — шапка админки: имя из `first_name`+`last_name` (`src/components/admin/AdminTopbar.vue:18-21`) и роль через ключ `settingsUsers.role_<role>` (`:26-27`). Мок отдаёт то, что положил вход, — объект из `localStorage['mock_auth_user']` (`mocks/index.ts:296-300`, ключ `:849`, запись `:860-862`), без `secret_link`.
+- Коды ошибок: четыре ветки отказа, все объявлены в самом роуте или в ядре. `401 MISSING_TOKEN` — заголовка нет (`me/action.py:44-48`); `401 TOKEN_EXPIRED` — `SignatureExpired` при `max_age=86400` (`:52,54-58`); `401 INVALID_TOKEN` — `BadSignature | KeyError | ValueError`, то есть битая подпись, отсутствующий `user_id` или неразбираемый UUID (`:59-63`); `404 NOT_FOUND` — токен валиден, пользователя нет (`me/domain.py:18-19`, код из `app/core/exceptions.py:13-20`). Формат — `detail: { message, code }`, его разбирает `parseErrorBody` веткой 1b (`src/services/api.ts:54-63`). Клиент различает ровно два исхода: `401` или `404` → `clearSession()` (`useAuth.ts:207-209`), любая другая ошибка → сессия и кэш сохраняются (`:210`). Ни одного из трёх кодов роута мок не знает: его единственный отказ — `throw new Error('Not authenticated')` (`mocks/index.ts:298`), голый `Error` без `status`, поэтому под моками ветка `err instanceof ApiRequestError` (`useAuth.ts:207`) не срабатывает никогда и сессия не чистится.
+- Save-режим: чтение, quick-action на старте приложения. Единственный триггер — `onMounted(() => { fetchMe() })` в корне (`src/App.vue:20-22`), без `await` и без обработки промиса. До ответа сервера в `currentUser` подставляется кэш из `localStorage` (`useAuth.ts:196`), то есть шапка успевает показать прошлого пользователя. Ручного обновления, обещанного старым контрактом (`03-api-contract.md:339`), нет: второго вызывающего у `fetchMe` в `src/` нет (`grep -rn "fetchMe" src` — объявление `:188`, экспорт `:252`, вызов `App.vue:18,21`).
+- Пробел контракта: старый раздел `03-api-contract.md:337-345` неверен в трёх местах и неполон в двух. Неверно: (а) форма ответа `{ id, email, name, role, locale }` (`:343`) — поля `name` нет, есть `first_name`+`last_name`, и нет `phone`, `tenant_id`, `is_active`, `secret_link` (`me/schemas.py:10-19`); (б) `locale: 'ru'|'en'|'lt'` (`:343`) — на сервере это свободная строка `String(10)` без ограничения (`auth/shared/models.py:64-66`, схема `me/schemas.py:15` — `str`); (в) «Клиент редиректит на `/login`» (`:345`) — `fetchMe` не редиректит вовсе, он только чистит сессию (`useAuth.ts:208`); уводит на `/login` отдельный сторож роутера по наличию токена в хранилище (`src/router/index.ts:422-441`, проверка `hasAuthToken()` — `:33-35`), и в мок-режиме он выключен целиком (`:424-425`). Неполно: не сказано про `secret_link` в ответе и про то, что `404` для клиента равен `401`. Действующий контракт (`roo-context/api/auth.md:183-224`) всё это описывает верно — таблица кодов (`:200-205`) сверена с `me/action.py:44-72` построчно и совпадает.
+- Источник истины: бэкенд (`me/action.py:34`, схема `me/schemas.py:7-19`). Мок здесь беднее сервера на поле `secret_link` и на все три кода отказа.
 
 ### POST /api/auth/login
 - Вызывающий: `src/composables/useAuth.ts:119`
 - Бэкенд: `backend/app/modules/auth/features/login/action.py:22`
 - Мок: `mocks/index.ts:875`
-- Форма запроса:
-- Форма ответа:
-- Коды ошибок:
-- Save-режим:
-- Пробел контракта:
-- Источник истины:
+- Форма запроса: серверная схема `LoginInput { email: str; password: str }` — `backend/app/modules/auth/features/login/schemas.py:8-12`, ровно два поля, ни одного необязательного. Фронтовый `LoginInput` объявляет третье — `rememberMe?: boolean` (`src/types/auth.ts:21-26`), и форма его всегда шлёт (`src/views/public/LoginPage.vue:169-173`, значение по умолчанию `true` — `:125`), потому что `useAuth.login` передаёт `input` целиком (`useAuth.ts:119`). Pydantic лишнее поле отбрасывает: `LoginInput` — обычная `BaseModel` без `extra` (`login/schemas.py:8`), а `model_config = {"extra": "allow"}` в проекте стоит только у `TranslatedString` (`app/core/schemas.py:13`). То есть `rememberMe` — параметр клиента, а не контракта: он решает лишь, `localStorage` или `sessionStorage` (`useAuth.ts:81-90`, выбор хранилища `:32-37`). Заголовков нет: `apiPost` ставит только `Content-Type` (`src/services/api.ts:174`), `authHeaders()` здесь не передаётся — эндпоинт публичный.
+- Форма ответа: `LoginResponse { user: UserInfo; session: SessionInfo }` (`login/schemas.py:37-43`), где `UserInfo` — девять полей (`:15-26`), `SessionInfo` — `token`, `csrf_token`, `expires_at: datetime` (`:29-34`). Конверт `ApiResponse` с `message = "Login successful"` (`login/action.py:35-39`). `src/types/auth.ts:39-42` и `:3-19` повторяют форму поле в поле — расхождений нет. Клиент кладёт токен и CSRF в выбранное хранилище (`useAuth.ts:120`, реализация `:81-90` — сначала чистит **оба** хранилища, потом пишет в одно), кэширует пользователя (`:121`), сбрасывает кэш настроек (`:124-125`, `useSettings.resetState` — `src/composables/useSettings.ts:651`) и уходит на `/admin/analytics/dashboard` (`:126`). `expires_at` клиент **не хранит и не читает нигде** (`grep -rn "expires_at" src` — только типы `:18,54` и присвоения в моке): истечение обнаруживается только отказом `GET /api/auth/me`.
+- Коды ошибок: у бэкенда один — `UNAUTHORIZED` (`app/core/exceptions.py:30-34`), HTTP 401 (`login/action.py:40-44`), с одним и тем же сообщением `Invalid email or password` и для неизвестного адреса, и для неверного пароля (`login/domain.py:64,68`) — существование адреса не выдаётся. Клиент код не разбирает: показывается `err.message` (`LoginPage.vue:175-176`, `useAuth.ts:127-130`). Кода `INVALID_CREDENTIALS`, обещанного старым контрактом (`03-api-contract.md:310`), в коде нет нигде (`grep -rn "INVALID_CREDENTIALS" backend/app frontend_vue/src` — пусто). Мок бросает не код, а текст `Email and password are required` при пустом поле (`mocks/index.ts:877-879`) и **не проверяет пароль вовсе** (`:880`).
+- Save-режим: quick-action. Уходит по submit формы (`LoginPage.vue:155-178`), до отправки — только две проверки на непустоту (`:158-166`); формата email клиент не проверяет, и сервер тоже (`login/schemas.py:11` — `str`, не `EmailStr`). Save bar не участвует.
+- Пробел контракта: старый раздел `03-api-contract.md:296-310` неверен в пяти местах. (а) Тело `{ email, password, remember? }` (`:301`) — поле называется `rememberMe` и до сервера не доходит (`types/auth.ts:25`, `login/schemas.py:8-12`). (б) Ответ `{ user: {id,email,name,role}, expiresAt }` (`:305`) — нет ни `name`, ни `expiresAt`: сессия приходит вложенным объектом `session { token, csrf_token, expires_at }` (`login/schemas.py:29-34`), а у пользователя девять полей. (в) «ставит HttpOnly-cookie `session` и `csrf_token`» (`:310`) — cookie не ставится, оба значения в теле (`login/domain.py:90-106`), клиент кладёт их в хранилище браузера (`useAuth.ts:81-90`). (г) «Rate-limit 5/min/IP» (`:310`) — ограничителя нет: константа `login_rate_limit_per_min = 5` в `backend/app/core/config.py:30` не читается ни одной строкой кода (`grep -rn "rate_limit" backend/app` даёт только три объявления в `config.py:30-32`). (д) «`remember=true` продлевает TTL до 30 дней» (`:310`) — не продлевает: срок жёстко 24 часа независимо ни от чего (`login/domain.py:78`), колонка `sessions.remember` пишется дефолтом `False` (`login/repository.py:32,40`), и вход её не передаёт (`login/domain.py:81-87` — аргумента `remember` нет), а `remember_ttl_days = 30` (`config.py:18`) не читается нигде. Действующий контракт (`roo-context/api/auth.md:34-81`) описывает всё это верно; чего в нём нет — что `expires_at` фронтом не используется и что вход игнорирует настройку `session_ttl_hours`, которой пользуется регистрация (см. «Правила домена»).
+- Источник истины: бэкенд (`login/action.py:22`, схемы `login/schemas.py:8-43`). Мок — только для демо: он принимает любую непустую пару и собирает пользователя-заглушку (`mocks/index.ts:881-891`, русские значения — БАГ-02, `role: 'admin'` против серверного `owner` — БАГ-12).
 
 ### POST /api/auth/logout
 - Вызывающий: `src/composables/useAuth.ts:232`
 - Бэкенд: **нет**
 - Мок: `mocks/index.ts:905`
-- Форма запроса:
-- Форма ответа:
-- Коды ошибок:
-- Save-режим:
-- Пробел контракта:
-- Источник истины:
+- Форма запроса: пустой объект телом и заголовки сессии — `apiPost('/api/auth/logout', {}, { headers: authHeaders() })` (`src/composables/useAuth.ts:232`). Дженерик не указан, то есть ответ типизирован как `unknown` и не читается. В мок-режиме запрос **не отправляется вовсе**: `USE_MOCKS = import.meta.env.VITE_USE_MOCKS !== 'false'` (`:223`) и ранний выход с одним редиректом (`:225-229`).
+- Форма ответа: не читается ничем — результат `apiPost` не присваивается (`useAuth.ts:232`), а вызов обёрнут в `try/catch` с пустым телом (`:233-235`). Мок возвращает `delay(undefined as T)` (`mocks/index.ts:907`), то есть на проводе `ApiResponse<null>` по общему конверту (`src/services/api.ts:128-137`). Обещанного старым контрактом `{ success: true }` (`03-api-contract.md:334`) клиент не проверяет.
+- Коды ошибок: ни одного. Любая ошибка проглатывается пустым `catch` (`useAuth.ts:233-235`), после чего сессия чистится локально в любом случае (`:237`) и происходит переход на `redirectTo` (`:238`, по умолчанию `/` — `:222`). Мок не бросает (`mocks/index.ts:905-908`). У сервера бросать нечему: реализации нет.
+- Save-режим: quick-action. Единственный вызывающий — пункт меню шапки: `handleLogout` → `await authLogout('/')` (`src/components/admin/AdminTopbar.vue:60`, кнопка `:111-113`).
+- Пробел контракта: старый раздел `03-api-contract.md:330-335` описывает поведение, которого нет ни на одной стороне: «инвалидирует сессию, чистит cookie» (`:335`) — cookie нет (см. шапку), инвалидации нет, потому что и роута нет (`grep -rn "logout" backend/app` — пусто; в `app/main.py:66-74` девять `include_router`, среди них ни одного logout). «Идемпотентно» (`:335`) — не наблюдение, а требование к несуществующему коду. Главный пробел, которого нет и в действующем контракте (`roo-context/api/auth.md:164-179`): **инвалидировать нечего**. Токен проверяется только по подписи (`me/action.py:52`), таблица `sessions` пишется (`login/repository.py:26-45`, `register/domain.py:145-151`) и не читается ни разу (`grep -rn "token_hash" backend/app` — пять попаданий, все на запись: `models.py:121`, `login/repository.py:29,37`, `login/domain.py:72,84`, `register/domain.py:137,148`). То есть до появления серверной проверки по `sessions` любой `logout` останется формальностью: выданный токен действителен до `max_age` независимо от того, что сделал пользователь (БАГ-08).
+- Источник истины: клиент + мок (бэкенда нет). **Метка `Статус: спроектировано` здесь была бы неверна** — она про отсутствие кода вообще, а клиент и мок эндпоинт имеют; правильная форма — строка `Бэкенд: не реализован`, и она в контракте стоит (`roo-context/api/auth.md:175`).
 
 ### POST /api/auth/register
 - Вызывающий: `src/composables/useAuth.ts:146`
 - Бэкенд: `backend/app/modules/auth/features/register/action.py:22`
 - Мок: **НЕТ ВЕТКИ** — находка про код
-- Форма запроса:
-- Форма ответа:
-- Коды ошибок:
-- Save-режим:
-- Пробел контракта:
-- Источник истины:
+- Форма запроса: серверная схема `RegisterInput` — `email`, `password`, `company_name`, `vat_code`, `first_name`, `last_name` обязательны; `locale: str = "ru"` и `phone: str | None = None` необязательны (`backend/app/modules/auth/features/register/schemas.py:8-18`). Фронтовый тип слабее: `first_name?`, `last_name?`, `locale?`, `phone?` (`src/types/auth.ts:28-37`) — БАГ-04. Форма шлёт все шесть обязательных плюс `phone` (пустой → `undefined`) и `locale: 'ru'` литералом (`src/views/public/RegisterPage.vue:340-350`), поэтому расхождение типов сейчас не проявляется: клиентская валидация требует те же шесть полей (`:312-336`). Заголовков нет — `apiPost` без третьего аргумента (`useAuth.ts:146`), эндпоинт публичный. Формат `vat_code` проверяет только сервер: `^[A-Z]{2}[A-Z0-9]{2,12}$` после `strip().upper()` (`register/domain.py:37-43`); во фронте проверки формата нет (`RegisterPage.vue:332-335` — только непустота), то есть клиентская валидация здесь **слабее** серверной.
+- Форма ответа: `RegisterResponse` — девять полей `UserInfo` **россыпью**, а не вложенным объектом, плюс `session: RegisterSessionInfo { token, csrf_token, expires_at }` и `secret_link: str` (`register/schemas.py:21-44`), собирается в `register/domain.py:157-173`. HTTP-статус — `201 Created` (`register/action.py:22`). `src/types/auth.ts:44-56` повторяет форму точно. Клиент разбирает её вручную: ставит сессию с `rememberMe = true` **жёстко** (`useAuth.ts:148` — у регистрации галочки «запомнить» нет), пересобирает `UserInfo` из плоских полей (`:149-159`), кэширует (`:160`), сбрасывает кэш настроек (`:163-164`) и **возвращает `secret_link` строкой** (`:165`) — страница показывает её во всплывающем окне (`RegisterPage.vue:351`, разметка `:203-218`, копирование `:373-383`). Редиректа после регистрации нет: пользователь остаётся на странице с ссылкой, хотя сессия уже установлена.
+- Коды ошибок: два, оба из ядра. `422 VALIDATION_ERROR` — неверный формат VAT (`register/domain.py:37-43`, код `app/core/exceptions.py:23-27`, ответ `register/action.py:39-43`); `409 CONFLICT` — email занят (`register/domain.py:85-87`, код `core/exceptions.py:44-48`, ответ `register/action.py:44-48`). Третий путь — штатная 422 Pydantic за пропущенное обязательное поле, её клиент разбирает отдельной веткой по `loc` (`src/services/api.ts:34-51`). Кода `EMAIL_TAKEN`, обещанного старым контрактом (`03-api-contract.md:328`), нет нигде (`grep -rn "EMAIL_TAKEN" backend/app frontend_vue/src` — пусто). Поле формы клиент выводит **из текста сообщения**, а не из данных ответа (`src/services/api.ts:86-106`) — БАГ-06; две живые пары сходятся: `Invalid VAT code format…` → `vat_code`, `A user with this email already exists` → `email`. Мока нет вовсе, поэтому ни один путь ошибки под моками не воспроизводится: запрос доходит до `throw new Error('[mock] POST ${path} not found')` (`mocks/index.ts:1137`) — БАГ-01.
+- Save-режим: quick-action. Submit формы (`RegisterPage.vue:302-371`): сначала чистятся прошлые ошибки полей (`:307-309`), затем шесть проверок на непустоту (`:312-336`), при любой — выход без запроса (`:338`). Ответ сервера раскладывается по полям из `err.fieldErrors` (`:353-361`), общий текст показывается только если ни одно поле не подсветилось (`:363-366`).
+- Пробел контракта: старый раздел `03-api-contract.md:312-328` неверен целиком в теле запроса и в ответе. Тело `{ fullName, email, phone, password, company, vatCode, country }` (`:317-325`) — из семи полей совпадают два: `email` и `password`; `fullName` разбит на `first_name`/`last_name`, `company` → `company_name`, `vatCode` → `vat_code`, а поля `country` нет ни в схеме (`register/schemas.py:8-18`), ни в форме (`RegisterPage.vue:340-350`), ни в модели пользователя (`auth/shared/models.py:39-81`) — зато нет и `locale`, который есть. Ответ «тот же `{ user, expiresAt }`, что и `/login`» (`:327`) — неверен дважды: форма плоская, а не вложенная, и в ней есть `secret_link`, которого у входа нет. «Триал на 14 дней» (`:328`) — в коде нет ни одного следа (`grep -rni "trial" backend/app frontend_vue/src` — пусто), тарифы живут отдельной моделью без единого роута (`backend/app/modules/billing/shared/models.py`, роутов у модуля ноль). «Rate-limit 3/h/IP» (`:328`) — не реализовано, как и у входа (`config.py:31` не читается никем). Чего нет и в действующем контракте (`roo-context/api/auth.md:85-160`): регистрация **всегда создаёт нового арендатора** и делает автора владельцем (`register/domain.py:98-103,119-129`, роль `owner` — `register/repository.py:90`), то есть способа завести пользователя внутри существующего арендатора на сервере нет ни одного (`grep -rn "User(" backend/app` — единственное создание в `register/repository.py:80`).
+- Источник истины: бэкенд (`register/action.py:22`, схемы `register/schemas.py:8-44`). Мока нет, поэтому второй источник отсутствует физически — и это само по себе находка (БАГ-01), а не выбор.
 
 ## Обязанности сервера
 
@@ -69,19 +92,87 @@
 на месте серверного значения. Ответ «нигде» — это не решение, а строка в
 `00-решения-владельца.md` с указанием домена.
 
-- Значения по умолчанию и их владелец:
-- События и уведомления:
-- Запись в аудит-лог:
-- Кастомные поля:
-- Настройки, которых мок не отслеживает:
-- Мультиарендность:
-- Права — в какой функции проверяются:
-- Транзакционность и идемпотентность:
-- Производные значения (считать, не хранить):
+- Значения по умолчанию и их владелец: **владелец — код бэкенда, не настройки арендатора, и три значения из шести противоречат друг другу.** (1) Срок сессии: вход ставит `now + timedelta(hours=24)` литералом (`login/domain.py:78`), регистрация — `now + timedelta(hours=settings.session_ttl_hours)` (`register/domain.py:144`), а настройка равна **8** (`app/core/config.py:17`); проверка подписи при этом идёт с `max_age=86400`, то есть 24 ч (`me/action.py:52`). Три числа на одно правило — БАГ-09 (расширяет БАГ-07, где их было названо два). (2) `remember_ttl_days = 30` (`config.py:18`) не читается ни одной строкой; колонка `sessions.remember` пишется дефолтом `False` (`login/repository.py:32,40`). (3) Роль первого пользователя — `owner` в legacy-колонке (`register/repository.py:90`, дефолт модели `auth/shared/models.py:61-62`) и `Owner` с заглавной в мультиролевой таблице (`register/repository.py:97`) — разный регистр в одной функции, БАГ-12. (4) Локаль: дефолт `"ru"` и в схеме (`register/schemas.py:15`), и в модели (`models.py:64-66`), а фронт шлёт `'ru'` литералом вместо текущей локали интерфейса (`RegisterPage.vue:348`) — БАГ-03. (5) `rememberMe` по умолчанию `true` — константа фронта в двух местах: `useAuth.ts:120` (`input.rememberMe ?? true`) и `LoginPage.vue:125` (`ref(true)`); у регистрации это `true` жёстко (`useAuth.ts:148`). (6) Куда уходит пользователь после входа — `/admin/analytics/dashboard` константой во фронте (`useAuth.ts:126`); сервер об этом не знает. Валюта, НДС и маржа домену auth не принадлежат: они лежат в `settings` (`src/composables/useSettings.ts:27`).
+- События и уведомления: **ни одного, ни на одной стороне.** В моке уведомлений семь триггеров (`grep -c "^export function notify" src/services/mocks/notifications.ts` → 7, строки `:542,566,592,616,637,657,684`), и ни один не касается пользователя, входа или сессии (`grep -rni "login\|auth\|session" src/services/mocks/notifications.ts` даёт два попадания, оба — слово «session» в комментарии `:502` и `order` в `:566`). На бэкенде отправки почты в auth нет (`grep -rn "mail\|Mail" backend/app/modules/auth backend/app/core` — только имена полей `email`), SMTP есть только у `bcc` (`app/modules/bcc/features/send_request/transport.py:11`). Практическое следствие: `secret_link` — единственный способ восстановить доступ — никому не отправляется, он показывается один раз в попапе (`RegisterPage.vue:203-218`) и потом доступен только через `GET /api/auth/me` (`me/domain.py:22-24`). Вход с нового устройства, смена пароля, деактивация — не рождают ничего.
+- Запись в аудит-лог: **нигде.** У auth нет ни одной записи: `grep -rn "auditLog" src/services/mocks/index.ts` — пусто, в моках домена (ветки `:296,303,875,905`) обращений к журналу нет. На бэкенде таблицы журнала нет вовсе (`grep -rln "audit_log" backend/app` — пусто); история существует только у заказа (`src/types/order.ts:577-596`, домен `orders`) и отдельным доменом `audit-feed` (`src/types/audit.ts`), и оба про сущности, а не про сессии. То есть кто и когда входил, откуда, чем закончилось — не хранится нигде. Строка вынесена в `00-решения-владельца.md`.
+- Кастомные поля: **домену не принадлежат и в нём отсутствуют.** Ни в одной из пяти форм ответа нет ни `fieldValues`, ни ссылки на определения (`login/schemas.py:15-43`, `register/schemas.py:29-44`, `me/schemas.py:7-19`, `magic_link/schemas.py:12-19`). Определения живут в `config` (`FieldDefinition`, `/api/config/fields`), значения — у товаров; профиль пользователя расширяемых полей не имеет ни на одной стороне (`auth/shared/models.py:39-81` — фиксированные девять колонок плюс служебные).
+- Настройки, которых мок не отслеживает: мок не проверяет **пароль** (`mocks/index.ts:880` — «Accept any non-empty email+password»), не проверяет **токен ссылки** (`:306-307` — любой непустой принимается), не знает **срока сессии** (кладёт `+86400000` мс безотносительно `expires_at`, `:898`), не умеет **регистрацию** вовсе (ветки нет — БАГ-01), не отдаёт `secret_link` в `/me` (`:296-300` возвращает сохранённый `UserInfo`, у которого поля нет — `src/types/auth.ts:3-13`), не знает ни одного из трёх кодов роута `/me` (`MISSING_TOKEN`, `TOKEN_EXPIRED`, `INVALID_TOKEN` — `me/action.py:47,57,62`) и бросает голый `Error` вместо `ApiRequestError` (`mocks/index.ts:298,878`), из-за чего ветка `err.status === 401` в `useAuth.ts:207` под моками недостижима. Плюс мок-`logout` чистит пользователя (`:906`), а клиент до него не доходит (`useAuth.ts:225-229`) — то есть ветка мока мертва.
+- Мультиарендность: арендатор рождается **только регистрацией** — `create_tenant` вызывается в одном месте (`register/domain.py:98-103`, репозиторий `register/repository.py:46-61`), slug выводится из названия компании с числовым суффиксом при коллизии (`register/domain.py:90-95`, `_slugify` — `register/repository.py:15-21`). Сразу после этого создаётся синглтон карточки компании через чужой internal API (`register/domain.py:106-112` → `app.modules.settings.internal_api.interface.init_company_info`) — то есть регистрация auth пишет в домен `settings`. Ограничение выборки по арендатору в самом auth **отсутствует**: `get_user_by_email` ищет по всей таблице без `tenant_id` (`login/repository.py:20-23`, `register/repository.py:40-42`), `get_user_by_secret_link` — тоже (`magic_link/repository.py:14-16`). При этом уникальность email в БД **составная**: `ix_users_tenant_id_email` на паре `(tenant_id, email)` (`alembic/versions/3a0b5d31bde7_phase_1_tenants_auth_users_sessions.py:54`), а колонка `email` объявлена только `index=True`, без `unique` (`auth/shared/models.py:50-52`) — БАГ-13. Остальные модули берут арендатора из пользователя токена: `get_tenant_id_for_user` (`app/modules/settings/features/crud/action.py:131-139`), а не из тела запроса. `tenant_id` у пользователя nullable — «NULL = superadmin» по комментарию модели (`models.py:40,44-49`); ни одного места, где эта роль что-то даёт, в коде нет. Фронт `tenant_id` не использует нигде, кроме переноса из ответа в кэш (`useAuth.ts:157`, тип `types/auth.ts:11,52`, мок `mocks/index.ts:889`).
+- Права — в какой функции проверяются: **в auth — нигде.** Единственная функция, которая должна была это делать, — `check_permission` в `app/modules/auth/internal_api/interface.py:27-38` — заглушка: тело `return True` с комментарием «Placeholder — implement actual RBAC logic here». Ни один вызывающий у неё не найден. Модели прав существуют и пусты по употреблению: `PermissionItem`, `RolePermission`, `UserPermission` (`auth/shared/models.py:145-236`) — ни одного `select()` по ним в `backend/app` (`grep -rn "RolePermission\|UserPermission\|PermissionItem" backend/app` — только определения). `auth/shared/dependencies.py` — четыре строки докстринга, обещающие «get_current_user, permission checkers, tenant isolation», и ни одной строки кода. Мультиролевая таблица `user_roles` пишется при регистрации (`register/repository.py:96-99`) и не читается ни разу; наружу отдаётся только legacy-колонка `role`, помеченная в модели `⚠️ DEPRECATED` (`models.py:60-63`) — её же отдают `GET /api/auth/me` (`me/domain.py:33`) и `GET /api/settings/profile` (`app/modules/settings/features/profile/domain.py:61`). Во фронте роль из auth используется ровно в одном месте и только как подпись (`AdminTopbar.vue:26-27`); права заказов берут роль **из другого источника** — профиля настроек (`src/services/mocks/orders.ts:1847-1859`, `actingUser()` читает `mockGetSettings().profile.role`), а матрица прав живёт в домене `config`. То есть «кто я» существует двумя экземплярами, и связаны они только тем, что обе стороны читают ту же колонку `users.role`.
+- Транзакционность и идемпотентность: одна транзакция на запрос обеспечивается зависимостью `get_db` — `commit()` после выхода из обработчика, `rollback()` на любом исключении (`app/core/database.py:22-30`). Для регистрации это существенно: она делает пять записей — арендатор, карточка компании через чужой модуль, пользователь, роль, сессия (`register/domain.py:98-151`), и все они откатываются вместе. **Идемпотентности нет ни у одного эндпоинта домена:** `Idempotency-Key` в auth не читается и не шлётся (`grep -rn "Idempotency" backend/app` — пусто; во фронте механизм есть, но применён к другим доменам — `withIdempotency` в `mocks/index.ts:910-925` вызывается для `bcc`), повторный `POST /api/auth/login` создаёт **вторую строку** в `sessions` (`login/repository.py:35-44` — безусловный `db.add`), и старые записи не удаляются никогда (`grep -rn "delete(Session)\|Session)" backend/app` — ни одного удаления). Про `logout` идемпотентность старого контракта (`03-api-contract.md:335`) проверить не на чем — реализации нет. **CSRF-токен генерируется, отдаётся и хранится, но не проверяется ни разу**: все попадания `csrf` в `backend/app` — генерация (`login/domain.py:44-46,75`, `register/domain.py:57-59,143`), запись в модель (`models.py:124`) и поля схем (`login/schemas.py:33`, `register/schemas.py:25`); ни одного чтения заголовка `X-CSRF-Token`, который клиент шлёт на каждом защищённом запросе (`useAuth.ts:106`) — БАГ-10.
+- Производные значения (считать, не хранить): `secret_link` сервер **собирает при чтении** и не хранит — в БД лежит только `secret_link_token` (`auth/shared/models.py:57-59`), а полный URL склеивается из `settings.frontend_url` в двух местах: `register/domain.py:154` и `me/domain.py:22-24`; значение `frontend_url` — константа конфига (`app/core/config.py:27`, по умолчанию `http://localhost:5173`), то есть в проде ссылка зависит от переменной окружения, а не от `Origin` запроса. `token_hash` — производная от токена (SHA-256, `login/domain.py:39-41,72`), хранится вместо самого токена. Отображаемое имя пользователя сервер **не считает**: `name` в ответах нет, шапка склеивает `first_name`+`last_name` на клиенте с тремя запасными ветками (`AdminTopbar.vue:17-23`). `isAuthenticated` — производная фронта от наличия `currentUser` (`useAuth.ts:75`), а сторож роутера считает её иначе — по наличию ключа в хранилище (`src/router/index.ts:33-35,429`); два разных ответа на один вопрос. `expires_at` сервер считает и отдаёт, но никто не читает (см. раздел login).
 
 ## Правила домена, которых нет в контракте
 
 Самое ценное содержимое аудита: эндпоинты машина перечислит и без человека, а правило,
 живущее только в моке или доменном слое, — нет.
 
+1. **Токен самодостаточен, таблица `sessions` — балласт.** Проверка сводится к разбору подписи
+   `URLSafeTimedSerializer(secret_key, salt="session")` (`me/action.py:25-28,52`); ни `token_hash`,
+   ни `expires_at`, ни `csrf_token` из БД не читаются никогда (`grep -rn "token_hash" backend/app` —
+   только записи). Отсюда три следствия, ни одно из которых в контракте не названо: отозвать
+   сессию нечем, `expires_at` в ответе — не то, чем сервер руководствуется, а смена
+   `secret_key` разлогинивает всех разом. Это же делает бессмысленным `logout` (БАГ-08).
+2. **Срок жизни токена проверяется только в `/me`.** Четыре места разбирают тот же токен, и
+   `max_age` передан ровно в одном: `me/action.py:52` (86400). Остальные три —
+   `app/modules/settings/features/crud/action.py:119`, `app/modules/settings/features/profile/action.py:63`,
+   `app/core/uploads/action.py:50` — зовут `_serializer.loads(token)` без срока, то есть принимают
+   токен любого возраста. Практически: сессия, которую `GET /api/auth/me` уже отвергает как
+   протухшую, продолжает работать на всех 25 эндпоинтах настроек и загрузок (БАГ-11).
+3. **Разбор токена продублирован четыре раза.** Каждый из четырёх файлов заводит свой
+   `URLSafeTimedSerializer` (`login/domain.py:33-36`, `register/domain.py:132-135`,
+   `me/action.py:25-28`, `settings/crud/action.py:91-94`, `settings/profile/action.py:35`,
+   `core/uploads/action.py:28`) и свой текст ошибки: `/me` отдаёт три разных кода
+   (`MISSING_TOKEN`/`TOKEN_EXPIRED`/`INVALID_TOKEN`, `:47,57,62`), настройки — один `UNAUTHORIZED`
+   на все случаи (`settings/crud/action.py:108,113,124`). Место, куда это следовало положить,
+   существует и пусто: `auth/shared/dependencies.py` — один докстринг, ноль кода.
+4. **Регистрация — единственный способ появления пользователя, и она всегда создаёт арендатора.**
+   `User(...)` конструируется в одном месте на весь бэкенд (`register/repository.py:80`), внутри
+   той же функции, что назначает роль `Owner` (`:97`). Пригласить второго человека в существующего
+   арендатора сервером нельзя: среди 24 роутов `settings` есть профиль, пароль и справочники
+   (`settings/features/profile/action.py:75,98,127`, `settings/features/crud/action.py:146-482`) и
+   нет управления пользователями, хотя во фронте список пользователей есть
+   (`src/services/mocks/settings.ts:188-205` — шесть ролей).
+5. **Пароль меняет чужой домен.** `POST /api/settings/change-password`
+   (`settings/features/profile/action.py:127`) пишет в `users.password_hash` — колонку модуля auth
+   (`auth/shared/models.py:53`). Хеширование при этом настроено дважды своим `CryptContext`:
+   `login/domain.py:30` и `register/domain.py:34`. Контракт auth про смену пароля не говорит
+   ничего, а инвалидировать сессии после неё нечем (см. пункт 1).
+6. **`secret_link` не истекает и приходит вместе с профилем.** Токен выдаётся один раз при
+   регистрации (`register/domain.py:115`), не ротируется и не удаляется нигде, а `GET /api/auth/me`
+   отдаёт собранную из него ссылку **на каждый запрос профиля** (`me/domain.py:22-24,36`). При этом
+   сообщение об отказе обещает срок («Invalid or **expired** secret link»,
+   `magic_link/domain.py:34`), которого не существует.
+7. **Ссылка не даёт входа, она подставляет email.** `verify_secret_link` сессии не создаёт
+   (`magic_link/domain.py:39-42`, докстринг `:29`), фронт кладёт адрес в `sessionStorage` и уводит
+   на форму входа (`AuthLinkHandler.vue:141-145`), где он подставляется **один раз** и ключ
+   стирается (`LoginPage.vue:132-143`). Пароль всё равно нужен.
+8. **Мок-режим отключает авторизацию целиком, а не подменяет её.** Сторож роутера выходит первой
+   строкой (`src/router/index.ts:423-425`), `logout` не шлёт запроса и не чистит сессию
+   (`useAuth.ts:225-229`), а ошибки моков — голый `Error` без `status`, из-за чего ветка
+   «протухший токен» в `fetchMe` (`useAuth.ts:207`) под моками недостижима. Демо поэтому не
+   воспроизводит ни одного пути отказа домена — БАГ-14.
+9. **Мёртвый код в регистрации.** `_ensure_unique_slug` (`register/domain.py:46-54`) объявлена,
+   возвращает аргумент без изменений и не вызывается ни разу; настоящий подбор slug написан
+   отдельно на месте (`:90-95`). Комментарий внутри признаётся в этом прямо (`:53`).
+
 ## Находки про код → contract-sync-auth-bugs.md
+
+Семь находок было до аудита (БАГ-01…БАГ-07, файл заведён 2026-09-03), аудит добавил восемь:
+
+| | суть | где |
+|---|---|---|
+| БАГ-08 | сессии пишутся в БД и не читаются никогда — отзывать нечем | `login/repository.py:26-45`, `me/action.py:52` |
+| БАГ-09 | срок сессии задан тремя способами, `session_ttl_hours` игнорируется входом | `config.py:17`, `login/domain.py:78`, `register/domain.py:144`, `me/action.py:52` |
+| БАГ-10 | `X-CSRF-Token` шлётся клиентом и не проверяется сервером нигде | `useAuth.ts:106`, `login/domain.py:44-46,75` |
+| БАГ-11 | три декодера токена вне auth зовут `loads()` без `max_age` | `settings/crud/action.py:119`, `settings/profile/action.py:63`, `core/uploads/action.py:50` |
+| БАГ-12 | роль пишется как `owner` и `Owner` в одной функции, мок отдаёт третье значение | `register/repository.py:90,97`, `mocks/index.ts:888` |
+| БАГ-13 | email уникален по паре `(tenant_id, email)`, а код считает его глобальным | миграция `3a0b5d31bde7…py:54`, `login/repository.py:20-23` |
+| БАГ-14 | под моками ни один путь отказа не воспроизводится — голый `Error` вместо `ApiRequestError` | `mocks/index.ts:298,305,878`, `useAuth.ts:207` |
+| БАГ-15 | `_ensure_unique_slug` объявлена и не вызывается | `register/domain.py:46-54` |
+
+Десять строк, у которых ответ «нигде» или «решает владелец», вынесены в
+[`00-решения-владельца.md`](00-решения-владельца.md), раздел «auth — аудит 2026-09-04»:
+аудит-лог, доставка секретной ссылки, срок сессии, две системы ролей, глобальность email,
+второй пользователь в арендаторе, отзыв сессии и CSRF, судьба поля `secret_link`, явное имя
+поля в ошибке, роль первого пользователя.
