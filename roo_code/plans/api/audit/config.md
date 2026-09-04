@@ -6,139 +6,151 @@
 Утверждение без `файл:строка` не записывается. Код не правится: место, где он выглядит
 неверным, — находка в `roo_code/plans/bugs/contract-sync-config-bugs.md`.
 
+> **Отдельно про «Бэкенд: нет».** Модуля `config` в `backend/app/modules/` нет
+> (`ls backend/app/modules/` → `auth bcc billing finance notifications products services settings suppliers warehouse`),
+> роутов у домена ноль (в `backend/app/main.py:66-74` зарегистрированы девять роутеров, ни одного
+> config-овского). **Но таблицы и модели есть, и лежат они в двух чужих модулях:**
+> `field_definitions`, `section_configs`, `section_fields` — в `suppliers`
+> (`backend/app/modules/suppliers/shared/models.py:240`, `:269`, `:294`), а `permission_items`,
+> `role_permissions`, `user_permissions` — в `auth`
+> (`backend/app/modules/auth/shared/models.py:145`, `:169`, `:202`). Все шесть заведены одной
+> миграцией `backend/alembic/versions/e24a3922ed01_phase_7_config.py:27-109`.
+> По К5 старшинство «бэкенд» здесь **не наступило** (реализации эндпоинта нет ни одной), но схема
+> хранения зафиксирована — и расходится с формами фронта по шести пунктам, см. «Правила домена».
+
 ## Эндпоинты
 
 ### DELETE /api/config/fields/:id
 - Вызывающий: `src/services/configService.ts:41`
 - Бэкенд: **нет**
 - Мок: `mocks/index.ts:1476`
-- Форма запроса:
-- Форма ответа:
-- Коды ошибок:
-- Save-режим:
-- Пробел контракта:
-- Источник истины:
+- Форма запроса: тела нет — `apiDelete<void>(\`/api/config/fields/${id}\`)`, `src/services/configService.ts:41`. Ни query, ни заголовков клиент не шлёт (`apiDelete` — `src/services/api.ts:211-221`). `id` берётся из `FieldDefinition.id` (`src/types/config.ts:6`) — в моке это строка вида `f-company` (`mocks/config.ts:13`) или `f-custom-<Date.now()>` (`mocks/config.ts:274`), на схеме — UUID (`backend/app/core/base.py:15-22`, миграция `:29`).
+- Форма ответа: `Promise<void>` в подписи `src/services/configService.ts:40`; мок возвращает `delay(undefined as T)` (`mocks/index.ts:1479`). На проводе — общий конверт `ApiResponse<null>`, который снимает `unwrap()` (`src/services/api.ts:128-137`).
+- Коды ошибок: **ни одного**. `grep -c "throw" frontend_vue/src/services/mocks/config.ts` → `0`; `mockDeleteField` при отсутствующем id просто ничего не делает (`mocks/config.ts:299-300`). Непойманный путь даёт общий текст `[mock] DELETE ${path} not found` (`mocks/index.ts:1657`), а не код домена.
+- Save-режим: **вызывающего нет вовсе** — `grep -rn "\bdeleteField\b" frontend_vue/src --include=*.ts --include=*.vue` даёт только объявление в `configService.ts:40` и одноимённую **локальную** функцию чужого домена (`src/composables/useCategoryCard.ts:142`, `src/views/admin/products/CategoryCardPage.vue:46,545`). UI удаляет поле локально и уносит результат общим Save: `confirmDeleteField` правит `fieldLibrary` и `sections` в памяти (`src/views/admin/suppliers/SupplierCardConfigPage.vue:350-361`), а на сервер уходит `PUT /api/config/fields` из батча (`src/composables/useCardConfig.ts:52`). То есть по факту — clean-slate, а эндпоинт числится в реестре «клиент написан, UI нет» (`roo_code/roo-context/03-api-contract.md:3031`).
+- Пробел контракта: старый раздел (`roo_code/roo-context/03-api-contract.md:646-650`) утверждает три вещи, которых в коде нет. (1) «Когда: `confirmDeleteField`» — `confirmDeleteField` этот эндпоинт **не зовёт** (`SupplierCardConfigPage.vue:350-361`). (2) «Встроенные поля — 403 `IMMUTABLE`»: кода `IMMUTABLE` нет нигде (`grep -rn "IMMUTABLE" frontend_vue/src backend/app` — пусто), мок удаляет любое поле, а признак встроенности на схеме есть и он другой — колонка `is_builtin` (`backend/app/modules/suppliers/shared/models.py:256-258`), тогда как фронт определяет встроенность префиксом id (`SupplierCardConfigPage.vue:303-305`). (3) «Каскадное удаление данных у поставщиков» — хранилища значений полей у поставщика не существует ни во фронте (`src/types/supplier.ts:12-31` — фиксированный набор колонок, никакого `fieldValues`), ни на схеме (`grep -rn "field_value" backend/app` → только `product_field_values` в `products`, `backend/app/modules/products/shared/models.py:189`, и его FK ведёт на `category_fields`, `:203-207`, а не на `field_definitions`). Каскадить нечего.
+- Источник истины: **мок + клиент** (реализации нет). Форма при этом обязана считаться со схемой `field_definitions` (`backend/app/modules/suppliers/shared/models.py:240-266`): удаление определения каскадом снимает его со всех секций — `section_fields.field_id` объявлен `ondelete="CASCADE"` (`:311-315`, миграция `:61`), ровно то же делает мок (`mocks/config.ts:301-303`). А вот строку в `permission_items` не снимает никто: FK у `item_id` нет, это `String(100)` (`backend/app/modules/auth/shared/models.py:156`, миграция `:72`).
 
 ### DELETE /api/config/sections/:id
 - Вызывающий: `src/services/configService.ts:71`
 - Бэкенд: **нет**
 - Мок: `mocks/index.ts:1482`
-- Форма запроса:
-- Форма ответа:
-- Коды ошибок:
-- Save-режим:
-- Пробел контракта:
-- Источник истины:
+- Форма запроса: тела нет — `apiDelete<void>(\`/api/config/sections/${id}\`)`, `src/services/configService.ts:71`. Заголовков и query клиент не добавляет (`src/services/api.ts:211-221`).
+- Форма ответа: `Promise<void>` (`src/services/configService.ts:70`); мок — `delay(undefined as T)` (`mocks/index.ts:1485`); на проводе `ApiResponse<null>` (`src/services/api.ts:128-137`).
+- Коды ошибок: **ни одного**. `mockDeleteSection` не бросает и молча выходит на несуществующем id (`mocks/config.ts:334-336`). Системную секцию он удаляет так же охотно, как любую: поля `system` он не смотрит вовсе (`mocks/config.ts:334-337`), запрет живёт только в вёрстке (кнопка удаления системной секции задизейблена — e2e `frontend_vue/tests/e2e/admin/suppliers/supplier-card-config.spec.ts:260-266`).
+- Save-режим: **вызывающего нет** — `grep -rn "\bdeleteSection\b" frontend_vue/src` даёт только объявление (`configService.ts:70`). UI удаляет секцию из массива в памяти (`SupplierCardConfigPage.vue:334-341`), результат уходит батчем `PUT /api/config/sections` (`src/composables/useCardConfig.ts:53`). Реестр «клиент написан, UI нет»: `roo_code/roo-context/03-api-contract.md:3034`.
+- Пробел контракта: **раздела нет вовсе** — в блоке 618-693 старого контракта заголовка `### DELETE /api/config/sections/:id` нет (`grep -n "api/config" roo_code/roo-context/03-api-contract.md` — попадания только на 622, 631, 638, 646, 652, 661, 668, 676, 685). Эндпоинт упомянут единственной строкой реестра (`:3034` — «ответ пустой»). Не описано ничего: ни судьба полей внутри удаляемой секции, ни судьба её строк в матрице прав, ни запрет на системную секцию. Схема отвечает только на первый вопрос: `section_fields.section_id` — `ondelete="CASCADE"` (`backend/app/modules/suppliers/shared/models.py:305-310`, миграция `:60`), плюс ORM-каскад `cascade="all, delete-orphan"` (`:289-291`). Колонки `system` на схеме нет (`grep -c '"system"' backend/alembic/versions/e24a3922ed01_phase_7_config.py` → `0`).
+- Источник истины: **мок + клиент**.
 
 ### GET /api/config/fields
 - Вызывающий: `src/services/configService.ts:7`
 - Бэкенд: **нет**
 - Мок: `mocks/index.ts:411`
-- Форма запроса:
-- Форма ответа:
-- Коды ошибок:
-- Save-режим:
-- Пробел контракта:
-- Источник истины:
+- Форма запроса: параметров нет — `apiGet<FieldDefinition[]>('/api/config/fields')` без второго аргумента (`src/services/configService.ts:7`), то есть `params` в `apiGet` не передаются (`src/services/api.ts:144-160`). Ни пагинации, ни фильтра, ни поиска: поиск по библиотеке идёт целиком на клиенте (`SupplierCardConfigPage.vue:48-52`).
+- Форма ответа: `FieldDefinition[]` (`src/types/config.ts:5-14`) в общем конверте (`src/services/api.ts:128-137`). Поля: `id: string`, `name: TranslatedString` (`:7`, тип — `src/types/i18n.ts:6-10`, ровно три ключа `ru/en/lt`), `type: FieldType` — замкнутый список из шести значений `enum|number|text|date|boolean|tags` (`src/types/config.ts:3`), `required: boolean`, `usageCount: number`, необязательные `hidden?: boolean` (`:12`) и `options?: TranslatedString[]` (`:13`). Мок отдаёт клон массива из **12** записей (`mocks/config.ts:234-238`, стор `:11-112`), `options` заполнены у двух — `f-status` (`:25-32`, шесть вариантов) и `f-country` (`:68-75`, шесть вариантов).
+- Коды ошибок: **ни одного** (`grep -c "throw" frontend_vue/src/services/mocks/config.ts` → `0`).
+- Save-режим: чтение. Зовётся один раз при монтировании — `onMounted(load)` (`SupplierCardConfigPage.vue:497`), внутри `Promise.all` с `/sections` и `/permissions` (`src/composables/useCardConfig.ts:30-34`). Повторного чтения после Save нет: `saveConfig` `load()` не вызывает (`useCardConfig.ts:45-61`).
+- Пробел контракта: старый раздел (`03-api-contract.md:622-629`) неверен в трёх местах. (1) Пример ответа даёт `"name": "Company"` строкой — в коде это `TranslatedString` (`src/types/config.ts:7`), и мок хранит все три языка (`mocks/config.ts:14`). (2) «`usageCount` — сколько супплайеров реально заполнили это поле»: считать нечем, у поставщика нет ни хранилища значений (`src/types/supplier.ts:12-31`), ни таблицы под него (`grep -rn "field_value" backend/app` — только `products`); в моке это статические числа (`mocks/config.ts:17,24,39,46,53,60,67,82,89,96,103,110`), а во фронте новое поле получает `0` (`SupplierCardConfigPage.vue:320`) или `1` (`:416`) вручную. (3) «Только Admin» — проверки прав нет ни в одной функции (см. графу «Права»). Не описаны вовсе поля `hidden` (`src/types/config.ts:12`) и трёхъязычность `options` (`:13`).
+- Источник истины: **мок + клиент**. Схема `field_definitions` (`backend/app/modules/suppliers/shared/models.py:240-266`) расходится с этой формой по четырём пунктам — `name` там `String(255)`, а не переводы; `field_type` вместо `type`; есть `is_builtin`, которого нет во фронте; нет `hidden`. Подробно — «Правила домена», пункты 1 и 2.
 
 ### GET /api/config/permissions
 - Вызывающий: `src/services/configService.ts:76`
 - Бэкенд: **нет**
 - Мок: `mocks/index.ts:413`
-- Форма запроса:
-- Форма ответа:
-- Коды ошибок:
-- Save-режим:
-- Пробел контракта:
-- Источник истины:
+- Форма запроса: параметров нет — `apiGet<PermissionMatrix>('/api/config/permissions')` (`src/services/configService.ts:76`).
+- Форма ответа: `PermissionMatrix` (`src/types/config.ts:37-57`) — пять полей одним объектом: `roles: string[]` (`:38`), `users: Record<string, string[]>` — **список email по роли** (`:40`, мок `:179-184`), `rolePermissions: Record<itemId, Record<role, Record<PermissionAction, boolean>>>` (`:45`), `userPermissions: Record<itemId, Record<role, Record<userEmail, Partial<Record<PermissionAction, boolean>>>>>` — частичный, отсутствующее действие падает на роль (`:46-54`), `items: PermissionItem[]` (`:56`, тип `:59-65`: `itemId`, `name: TranslatedString`, `type: 'section' | 'field'`, `parentId?`). `PermissionAction` — четыре значения `read|edit|create|delete` (`:35`). Мок собирает матрицу из секций и их полей в порядке рендера (`mocks/config.ts:189-230`): 5 секций + 11 их полей = 16 items (`MOCK_SECTIONS` `:114-177`, поля `:122-127`, `:136-139`, `:148-151`, `:160-163`, `:172-175`); роли — четыре константой (`:186`); дефолт — Admin всё `true`, остальные всё `false` (`:210-218`); `userPermissions` пуст (`:227`).
+- Коды ошибок: **ни одного** (`grep -c "throw" frontend_vue/src/services/mocks/config.ts` → `0`).
+- Save-режим: чтение, третьим в `Promise.all` при монтировании (`src/composables/useCardConfig.ts:33`, `SupplierCardConfigPage.vue:497`).
+- Пробел контракта: старый раздел (`03-api-contract.md:676-683`) в примере даёт `"name": "Status"` строкой (в коде — `TranslatedString`, `src/types/config.ts:61`) и не упоминает, что `users` — это **email**, а не идентификаторы. Его же единственное правило — «Сервер обязан добавлять item, когда создаётся section / field» (`:683`) — мок не исполняет: `MOCK_PERMISSIONS` строится один раз на загрузке модуля (`mocks/config.ts:232`, `grep -n "buildMockPermissions" frontend_vue/src/services/mocks/config.ts` → только `:189` объявление и `:232` вызов) и после создания поля или секции не пересобирается. Не описано вовсе: откуда берутся `roles` и `users` (на сервере это `user_roles.role_name`, `backend/app/modules/auth/shared/models.py:98`, и таблица `users`, `:42`), и чем задаётся порядок `items` — колонки под порядок в `permission_items` нет (миграция `:68-77`).
+- Источник истины: **мок + клиент**. Схема (`backend/app/modules/auth/shared/models.py:145-236`) расходится по трём пунктам: `user_permissions.user_id` — UUID-FK на `users.id` (`:214-218`), а не email; четыре булевых колонки `can_read/can_edit/can_create/can_delete` объявлены `nullable=False` с дефолтами (`:219-230`), то есть «действие не задано, наследуй у роли» строкой не выражается; дефолт `can_read` — `true` (`:182-184`, миграция `:86`) против `false` у всех неадминских ролей в моке (`mocks/config.ts:210-215`). Подробно — «Правила домена», пункты 3 и 4.
 
 ### GET /api/config/sections
 - Вызывающий: `src/services/configService.ts:46`
 - Бэкенд: **нет**
 - Мок: `mocks/index.ts:412`
-- Форма запроса:
-- Форма ответа:
-- Коды ошибок:
-- Save-режим:
-- Пробел контракта:
-- Источник истины:
+- Форма запроса: параметров нет — `apiGet<SectionConfig[]>('/api/config/sections')` (`src/services/configService.ts:46`).
+- Форма ответа: `SectionConfig[]` (`src/types/config.ts:16-27`): `id`, `name: TranslatedString` (`:17`), `order: number` (`:18`), `collapsed: boolean` — помечен как UI-only флаг билдера (`:20-21`), `visible: boolean` (`:22-23`), `system?: boolean` — «системную секцию нельзя удалить» (`:24-25`), `fields: SectionField[]` (`:26`, тип `:29-33`: `fieldId`, `order`, `visible`). Мок отдаёт клон пяти секций (`mocks/config.ts:250-252`, стор `:114-177`), у всех пяти `system: true` (`:121`, `:147`, `:158`, `:171` и `:135`), одно поле скрыто — `f-certified` с `visible: false` (`:174`).
+- Коды ошибок: **ни одного** (`grep -c "throw" frontend_vue/src/services/mocks/config.ts` → `0`).
+- Save-режим: чтение, вторым в `Promise.all` при монтировании (`src/composables/useCardConfig.ts:32`).
+- Пробел контракта: старый раздел (`03-api-contract.md:652-659`) обещает «`SectionConfig[]`, отсортированный по `order`» — сортировки нет нигде: `mockGetSections` возвращает массив как лежит (`mocks/config.ts:251`), а `mockSaveSections` кладёт присланный массив как есть (`:256-258`); совпадение порядка с `order` держится только тем, что клиент перенумеровывает `order` по индексу при перетаскивании (`src/composables/useCardConfig.ts:71`). Пример в контракте снова даёт `"name": "Status"` строкой. Поле `system` не описано ни словом, хотя от него зависит, можно ли удалить секцию (`SupplierCardConfigPage.vue:334-341` и вёрстка кнопки).
+- Источник истины: **мок + клиент**. Схема `section_configs` (`backend/app/modules/suppliers/shared/models.py:269-291`) здесь **ближе** к фронту, чем у полей: имя переводимо (`name_translations` JSONB, `:280`), есть `collapsed` и `visible` (`:282-287`). Расходятся два имени (`sort_order` против `order`, `:281`) и отсутствует `system` (миграция `:43-53`).
 
 ### PATCH /api/config/fields/:id
 - Вызывающий: `src/services/configService.ts:37`
 - Бэкенд: **нет**
 - Мок: `mocks/index.ts:1229`
-- Форма запроса:
-- Форма ответа:
-- Коды ошибок:
-- Save-режим:
-- Пробел контракта:
-- Источник истины:
+- Форма запроса: `Partial<FieldDefinition>` merge-patch (`src/services/configService.ts:30`, `:37`; семантика RFC 7396 — `src/services/api.ts:193`). Клиент перед отправкой пытается завернуть имя: `if (patch.name && typeof patch.name === 'string')` (`configService.ts:34-36`) — **ветка мёртвая**, потому что `FieldDefinition['name']` объявлен как `TranslatedString` (`src/types/config.ts:7`), а не строка (находка БАГ-03). Третий аргумент `locale` (`configService.ts:31`) в живом коде поэтому не используется.
+- Форма ответа: `FieldDefinition` целиком после merge (`src/services/configService.ts:32`), мок — `mockUpdateField` (`mocks/config.ts:284-296`): сливает переводы имени через `mergeTranslatedString`, чтобы не потерять другие локали (`:291-293`, помощник — `src/types/i18n.ts:36-46`), затем `Object.assign` (`:294`). На несуществующем id возвращает `null` (`:289`) — то есть форма ответа расходится с подписью `Promise<FieldDefinition>` (находка БАГ-08).
+- Коды ошибок: **ни одного** (`grep -c "throw" frontend_vue/src/services/mocks/config.ts` → `0`). Отсутствие поля кодом не выражено — см. выше.
+- Save-режим: **вызывающего нет** — `grep -rn "\bpatchField\b" frontend_vue/src` даёт только объявление (`configService.ts:28`). Реестр «клиент написан, UI нет»: `03-api-contract.md:3030`.
+- Пробел контракта: старый раздел (`03-api-contract.md:638-644`) сам называет себя «будущий UI — inline rename» и объявляет `Quick action`, но никакого quick-action-пути в коде нет. Его правила не поддержаны ничем: «`type` менять нельзя (422 `VALIDATION_ERROR`)» — мок меняет любое поле через `Object.assign` (`mocks/config.ts:294`); «409 `DUPLICATE` по имени per-tenant» — кода `DUPLICATE` в домене нет (`grep -rn "DUPLICATE" frontend_vue/src/services/mocks/config.ts` — пусто), при том что **на схеме это правило есть**: `UniqueConstraint("tenant_id", "name")` (`backend/app/modules/suppliers/shared/models.py:264-266`, миграция `:40`); «403 `IMMUTABLE` для встроенных» — кода нет нигде, а серверный признак другой (`is_builtin`, `:256-258`). Пример в разделе (`:643`) снова с именем-строкой.
+- Источник истины: **мок + клиент**; уникальность имени внутри арендатора — единственное правило раздела, подтверждённое схемой.
 
 ### PATCH /api/config/sections/:id
 - Вызывающий: `src/services/configService.ts:67`
 - Бэкенд: **нет**
 - Мок: `mocks/index.ts:1220`
-- Форма запроса:
-- Форма ответа:
-- Коды ошибок:
-- Save-режим:
-- Пробел контракта:
-- Источник истины:
+- Форма запроса: `Partial<SectionConfig>` merge-patch (`src/services/configService.ts:60`, `:67`). Та же мёртвая ветка перевода имени, что у полей: `typeof patch.name === 'string'` при типе `TranslatedString` (`configService.ts:64-66` против `src/types/config.ts:17`) — находка БАГ-03.
+- Форма ответа: `SectionConfig` целиком после merge (`src/services/configService.ts:62`), мок — `mockUpdateSection` (`mocks/config.ts:323-332`): `mergeTranslatedString` для имени (`:327-329`), `Object.assign` (`:330`), `null` на несуществующем id (`:325`).
+- Коды ошибок: **ни одного** (`grep -c "throw" frontend_vue/src/services/mocks/config.ts` → `0`).
+- Save-режим: **вызывающего нет** — `grep -rn "\bpatchSection\b" frontend_vue/src` даёт только объявление (`configService.ts:58`). Переименование секции в UI идёт локально: `confirmEditSection` → `renameSection` правит `sections.value` через `mergeLocaleValue` (`SupplierCardConfigPage.vue:380-389`, `src/composables/useCardConfig.ts:84-87`), на сервер уходит батчем `PUT /api/config/sections` (`useCardConfig.ts:53`). Реестр: `03-api-contract.md:3033`.
+- Пробел контракта: старый раздел (`03-api-contract.md:668-674`) честно пишет «сейчас не используется» (`:674`) — это единственное его утверждение, которое код подтверждает. Остальные не поддержаны: «поле `fields` в PATCH не принимаем» (`:671`) — мок принимает через `Object.assign` (`mocks/config.ts:330`); «404 `NOT_FOUND`, если section не существует» (`:674`) — мок возвращает `null` и не бросает (`:325`); пример ответа (`:673`) снова с именем-строкой.
+- Источник истины: **мок + клиент**.
 
 ### POST /api/config/fields
 - Вызывающий: `src/services/configService.ts:22`
 - Бэкенд: **нет**
 - Мок: `mocks/index.ts:943`
-- Форма запроса:
-- Форма ответа:
-- Коды ошибок:
-- Save-режим:
-- Пробел контракта:
-- Источник истины:
+- Форма запроса: `{ name: TranslatedString; type: FieldType }` — клиент принимает `name` строкой и заворачивает её в переводы текущей локали перед отправкой: `toTranslatedString(payload.name, locale)` (`src/services/configService.ts:16-25`, помощник — `src/types/i18n.ts:19-25`, остальные две локали получают пустую строку). `required` и `options` клиент не шлёт вовсе (`configService.ts:16-19`), хотя оба есть в типе (`src/types/config.ts:9`, `:13`). Заголовка `Idempotency-Key` нет: `grep -c "Idempotency" frontend_vue/src/services/configService.ts` → `0`, и ветка мока его тоже не читает (`mocks/index.ts:943-945` — без `withIdempotency`, в отличие от `:912`, `:919`, `:1036`, `:1043`, `:1052`).
+- Форма ответа: `FieldDefinition` целиком (`src/services/configService.ts:21`); мок собирает его сам (`mocks/config.ts:269-282`): `id: \`f-custom-${Date.now()}\`` (`:274`), `required: false` (`:277`), `usageCount: 0` (`:278`), `hidden` и `options` не выставляются. То есть присланные клиентом `required`/`options` были бы проигнорированы.
+- Коды ошибок: **ни одного** (`grep -c "throw" frontend_vue/src/services/mocks/config.ts` → `0`).
+- Save-режим: **вызывающего нет** — `grep -rn "\bcreateField\b" frontend_vue/src` находит только объявление (`configService.ts:15`) и **одноимённую локальную** функцию страницы (`SupplierCardConfigPage.vue:309`), которая на сервер не ходит: она пушит объект в `fieldLibrary.value` (`:315-321`) и полагается на батч. Режим объявлен комментарием прямо там: «Clean-slate: создание/удаление НЕ уходит на сервер… применяются батчем при клике Save» (`:307-308`). Реестр: `03-api-contract.md:3029`.
+- Пробел контракта: старый раздел (`03-api-contract.md:631-636`) описывает тело как `{ name: string; type; required?; options?: string[] }` — в коде `name` уходит объектом переводов (`configService.ts:24`), `options` в типе тоже переводимы (`src/types/config.ts:13`), а `required`/`options` клиент не шлёт. Правило «сервер переопределяет клиентский `id`» (`:633`) — наблюдение верное по смыслу, но повод другой: клиент вообще не шлёт `id` (`configService.ts:22-25`); `f-custom-<ts>` рождается либо в моке (`mocks/config.ts:274`), либо локально на странице (`SupplierCardConfigPage.vue:316`, `:410`). Правило «409 `DUPLICATE` по имени per-tenant» кода не имеет, но схемой подтверждено (`backend/app/modules/suppliers/shared/models.py:264-266`). Правило «`type: 'enum'` требует `options`» не проверяет ни мок, ни клиент, ни схема (`options` nullable — `:262`).
+- Источник истины: **мок + клиент**.
 
 ### POST /api/config/sections
 - Вызывающий: `src/services/configService.ts:55`
 - Бэкенд: **нет**
 - Мок: `mocks/index.ts:946`
-- Форма запроса:
-- Форма ответа:
-- Коды ошибок:
-- Save-режим:
-- Пробел контракта:
-- Источник истины:
+- Форма запроса: `{ name: string }` — **строкой, без перевода** (`src/services/configService.ts:54-55`), в отличие от парного `createField`, который заворачивает имя в `TranslatedString` (`:22-25`). Мок это компенсирует, размножая строку на все три локали (`mocks/config.ts:307-310`), то есть новая секция получает один и тот же текст в `ru`, `en` и `lt` — находка БАГ-04. `Idempotency-Key` не шлётся (`grep -c "Idempotency" frontend_vue/src/services/configService.ts` → `0`).
+- Форма ответа: `SectionConfig` целиком (`src/services/configService.ts:54`); мок собирает: `id: \`sec-new-${Date.now()}\`` (`mocks/config.ts:312`), `order: MOCK_SECTIONS.length` (`:314`), `collapsed: false` (`:315`), `visible: true` (`:316`), `fields: []` (`:317`). Поле `system` не выставляется вовсе — приходит `undefined`, и UI трактует это как «удалять можно» (`SupplierCardConfigPage.vue:334-341`; e2e проверяет ровно это — `frontend_vue/tests/e2e/admin/suppliers/supplier-card-config.spec.ts:331-349`).
+- Коды ошибок: **ни одного** (`grep -c "throw" frontend_vue/src/services/mocks/config.ts` → `0`).
+- Save-режим: **вызывающего нет** — `grep -rn "\bcreateSection\b" frontend_vue/src` даёт только объявление (`configService.ts:54`). UI создаёт секцию локально (`SupplierCardConfigPage.vue:451-472`), сам придумывая `id: \`sec-new-${Date.now()}\`` (`:458`) и явный `system: false` (`:463`), и уносит её батчем `PUT /api/config/sections` (`src/composables/useCardConfig.ts:53`). Комментарий над функцией при этом обещает POST — «open modal → POST → scroll to it» (`:442`), которого в теле нет (находка БАГ-14). Реестр: `03-api-contract.md:3032`.
+- Пробел контракта: **раздела нет** — в блоке 618-693 заголовка `### POST /api/config/sections` не существует (`grep -n "api/config" roo_code/roo-context/03-api-contract.md`: 622, 631, 638, 646, 652, 661, 668, 676, 685). Эндпоинт живёт одной строкой реестра (`:3032` — «тело `{ name: string }`, ответ `SectionConfig`»). Не описано: кто выдаёт `order` новой секции, чему равен `system`, заводятся ли под неё строки `permission_items`.
+- Источник истины: **мок + клиент**.
 
 ### PUT /api/config/fields
 - Вызывающий: `src/services/configService.ts:12`
 - Бэкенд: **нет**
 - Мок: `mocks/index.ts:1162`
-- Форма запроса:
-- Форма ответа:
-- Коды ошибок:
-- Save-режим:
-- Пробел контракта:
-- Источник истины:
+- Форма запроса: **весь массив библиотеки целиком** — `apiPut<void>('/api/config/fields', fields)`, `fields: FieldDefinition[]` (`src/services/configService.ts:11-13`). Тело — плоский массив, не объект-обёртка. Ключей, которых нет в типе, клиент не добавляет: уходит ровно `fieldLibrary.value` (`src/composables/useCardConfig.ts:52`), а он наполняется либо ответом GET (`:35`), либо объектами, собранными страницей по тому же типу (`SupplierCardConfigPage.vue:315-321`, `:411-417`).
+- Форма ответа: `Promise<void>` (`src/services/configService.ts:11`); мок ничего не возвращает — `mockSaveFieldLibrary` пишет в стор и ветка отдаёт `delay(undefined as T)` (`mocks/index.ts:1162-1165`, `mocks/config.ts:240-248`). Клиент верит своему локальному состоянию: `load()` после Save не вызывается (`src/composables/useCardConfig.ts:45-61`).
+- Коды ошибок: **ни одного** (`grep -c "throw" frontend_vue/src/services/mocks/config.ts` → `0`).
+- Save-режим: **clean-slate**, ядро домена. Уходит по кнопке Save страницы: `save()` → `saveConfig()` (`SupplierCardConfigPage.vue:474-477`), где три PUT'а летят одним `Promise.all` (`src/composables/useCardConfig.ts:51-55`). Именно этот эндпоинт несёт все локальные правки библиотеки: создание поля (`SupplierCardConfigPage.vue:309-325`, `:403-424`), удаление (`:350-361`), скрытие (`src/composables/useCardConfig.ts:95-98`).
+- Пробел контракта: **раздела нет** — в старом контракте `PUT /api/config/fields` не упомянут ни заголовком, ни строкой реестра. Более того, раздел «Update pattern» прямо говорит, что PUT «оставлен только на `PUT /api/config/sections` и `PUT /api/config/permissions`» (`03-api-contract.md:32`), а сводка Save-режимов перечисляет по кнопке Save два запроса вместо трёх (`:267`). Код шлёт три (`src/composables/useCardConfig.ts:51-55`). То есть старый контракт не просто молчит — он утверждает обратное.
+- Источник истины: **мок + клиент**.
 
 ### PUT /api/config/permissions
 - Вызывающий: `src/services/configService.ts:81`
 - Бэкенд: **нет**
 - Мок: `mocks/index.ts:1166`
-- Форма запроса:
-- Форма ответа:
-- Коды ошибок:
-- Save-режим:
-- Пробел контракта:
-- Источник истины:
+- Форма запроса: `PermissionMatrix` целиком (`src/services/configService.ts:80-81`) — все пять полей, включая `items` и `roles`, которые пользователь на странице не правит. Клиент шлёт ровно то, что прочитал и локально изменил (`src/composables/useCardConfig.ts:54`).
+- Форма ответа: `Promise<void>` (`src/services/configService.ts:80`); мок отдаёт `delay(undefined as T)` (`mocks/index.ts:1166-1169`), а сам `mockSavePermissions` — **пустая функция**, помеченная `// no-op in mock` (`mocks/config.ts:265-267`): матрица не сохраняется нигде, и перезагрузка страницы возвращает исходную (находка БАГ-06).
+- Коды ошибок: **ни одного** (`grep -c "throw" frontend_vue/src/services/mocks/config.ts` → `0`).
+- Save-режим: **clean-slate**, третий запрос того же `Promise.all` (`src/composables/useCardConfig.ts:54`). Перед отправкой `saveConfig` выходит, если матрица не загрузилась: `if (!permissions.value) return` (`:46`) — то есть при упавшем `load()` Save не шлёт **ни одного** из трёх запросов (находка БАГ-02). Правки матрицы копятся локально пятью правилами страницы (`SupplierCardConfigPage.vue:196-207`, `:209-223`, `:225-238`, `:241-259`, `:261-284`) и живут только в `permissions.value`.
+- Пробел контракта: старый раздел (`03-api-contract.md:685-690`) верен по механике (bulk replace, сервер не проверяет согласованность, все правила на фронте) и это подтверждается кодом: `mockSavePermissions` действительно ничего не валидирует (`mocks/config.ts:265-267`), а каскады живут на странице (`SupplierCardConfigPage.vue:196-284`). Не описано: что делать с `items` и `roles`, присланными клиентом, — они на сервере производные (собираются из секций/полей и из `user_roles`, `backend/app/modules/auth/shared/models.py:98`), а клиент отдаёт их обратно как данные.
+- Источник истины: **мок + клиент**. Схема на этот раз богаче фронта и по одному пункту с ним несовместима: `user_permissions.user_id` — UUID-FK (`backend/app/modules/auth/shared/models.py:214-218`), а матрица во фронте адресует пользователя по email (`src/types/config.ts:51-54`, `mocks/config.ts:180-183`).
 
 ### PUT /api/config/sections
 - Вызывающий: `src/services/configService.ts:51`
 - Бэкенд: **нет**
 - Мок: `mocks/index.ts:1158`
-- Форма запроса:
-- Форма ответа:
-- Коды ошибок:
-- Save-режим:
-- Пробел контракта:
-- Источник истины:
+- Форма запроса: **весь массив секций целиком** — `apiPut<void>('/api/config/sections', sections)`, `sections: SectionConfig[]` (`src/services/configService.ts:50-51`). Внутрь входит и `collapsed`, помеченный в типе как чисто UI-шный флаг билдера (`src/types/config.ts:20-21`), и `fields` с их `order`/`visible` (`:26`, `:29-33`).
+- Форма ответа: `Promise<void>` (`src/services/configService.ts:50`); мок — `delay(undefined as T)` (`mocks/index.ts:1158-1161`), запись через `mockSaveSections` JSON-раундтрипом, потому что клиент передаёт Vue-прокси (`mocks/config.ts:254-259`).
+- Коды ошибок: **ни одного** (`grep -c "throw" frontend_vue/src/services/mocks/config.ts` → `0`).
+- Save-режим: **clean-slate**, первый из трёх PUT'ов батча (`src/composables/useCardConfig.ts:53`). Несёт все локальные правки секций: перетаскивание с перенумерацией `order` (`useCardConfig.ts:63-72`), сворачивание (`:74-77`), скрытие секции (`:79-82`) и поля (`:89-93`), переименование (`:84-87`), создание (`SupplierCardConfigPage.vue:451-472`), удаление (`:334-341`), добавление и снятие поля (`:403-424`, `:433-440`).
+- Пробел контракта: старый раздел (`03-api-contract.md:661-666`) верен: bulk replace, ответ `void`, PUT выбран из-за одновременной перенумерации `order` при drag-drop — код это подтверждает (`src/composables/useCardConfig.ts:63-72`, `SupplierCardConfigPage.vue:481-495`). Не описано: что `collapsed` уезжает на сервер, хотя объявлен UI-only (`src/types/config.ts:20-21`); что `system` тоже уезжает и сервер обязан его защитить; и что PUT'ов на самом деле три, а не два (`:267`, см. `PUT /api/config/fields`).
+- Источник истины: **мок + клиент**.
 
 ## Обязанности сервера
 
@@ -146,19 +158,49 @@
 на месте серверного значения. Ответ «нигде» — это не решение, а строка в
 `00-решения-владельца.md` с указанием домена.
 
-- Значения по умолчанию и их владелец:
-- События и уведомления:
-- Запись в аудит-лог:
-- Кастомные поля:
-- Настройки, которых мок не отслеживает:
-- Мультиарендность:
-- Права — в какой функции проверяются:
-- Транзакционность и идемпотентность:
-- Производные значения (считать, не хранить):
+- Значения по умолчанию и их владелец: настройками арендатора у домена не владеет **ничто** — `grep -rn "settings\." frontend_vue/src/services/configService.ts frontend_vue/src/composables/useCardConfig.ts frontend_vue/src/services/mocks/config.ts` пусто. Что стоит константой во фронте: перечень типов поля — дважды, типом `FieldType` (`src/types/config.ts:3`) и массивом `FIELD_TYPE_OPTIONS` на странице (`src/views/admin/suppliers/SupplierCardConfigPage.vue:64-71`); перечень действий — тоже дважды, типом `PermissionAction` (`src/types/config.ts:35`) и массивом `PERMISSION_ACTIONS` (`SupplierCardConfigPage.vue:76`), плюс третьей копией в моке (`mocks/config.ts:187`); подписи действий `R/E/C/D` (`SupplierCardConfigPage.vue:77-82`); тип нового поля по умолчанию `'text'` (`:61`, `:396`, `:400`). Список ролей — константа мока `PERMISSION_ROLES` (`mocks/config.ts:186`) и он же приезжает клиенту полем `roles` (`:224`); на сервере роли живут строками в `user_roles.role_name` (`backend/app/modules/auth/shared/models.py:98`) плюс устаревшее поле `users.role`, помеченное «DEPRECATED — kept as fallback until frontend migrates to multi-role» (`:60-61`). Дефолт прав нового элемента: Admin всё `true`, остальные всё `false` (`mocks/config.ts:210-218`) — на схеме дефолт другой, `can_read` объявлен `server_default="true"` для всех (`backend/app/modules/auth/shared/models.py:182-184`, миграция `:86`). Кто владеет перечнем типов поля, перечнем ролей и дефолтом прав нового элемента на сервере — **нигде**, вынесено в `00-решения-владельца.md`.
+- События и уведомления: **нигде**. `grep -rn "notify" frontend_vue/src/services/mocks/config.ts frontend_vue/src/composables/useCardConfig.ts frontend_vue/src/views/admin/suppliers/SupplierCardConfigPage.vue` — пусто; ни один из семи триггеров уведомлений (`frontend_vue/src/services/mocks/notifications.ts:542,566,592,616,637,657,684`) домена не касается — `grep -cin "config\|section\|fieldDefinition" frontend_vue/src/services/mocks/notifications.ts` → `0`. При этом операция домена меняет права **всех** пользователей арендатора (`PUT /api/config/permissions`, `src/services/configService.ts:81`), и никто об этом не узнаёт. У модуля `notifications` роутов ноль (`backend/app/main.py:66-74`). Вынесено в `00-решения-владельца.md`.
+- Запись в аудит-лог: **нигде**. `grep -rn "auditLog" frontend_vue/src/services/mocks/config.ts frontend_vue/src/composables/useCardConfig.ts frontend_vue/src/views/admin/suppliers/SupplierCardConfigPage.vue` — пусто. В замкнутом перечне сущностей ленты аудита девять значений и `config` среди них нет: `product|order|client|supplier|batch|stock|offcut|movement|deficit` (`src/types/audit.ts:5-14`, тот же список константой `:16-26`). То есть смена матрицы прав — единственная операция проекта, меняющая доступ, — следа не оставляет нигде. Ни одна из шести таблиц домена не имеет колонки автора: `created_at`/`updated_at` есть (`backend/app/core/base.py:25-37`), `created_by` — нет (`grep -c "created_by" backend/alembic/versions/e24a3922ed01_phase_7_config.py` → `0`). Вынесено в `00-решения-владельца.md`.
+- Кастомные поля: **это и есть предмет домена — определения. Хранилища значений под них не существует нигде.** Определения: `FieldDefinition` (`src/types/config.ts:5-14`), CRUD `/api/config/fields` (`src/services/configService.ts:6-42`), на схеме `field_definitions` (`backend/app/modules/suppliers/shared/models.py:240-266`). Потребитель у них ровно один — конфигуратор карточки поставщика (`SupplierCardConfigPage.vue`), и **сама карточка поставщика их не читает**: `SupplierFormSections.vue` рисует пять жёстко зашитых панелей с i18n-заголовками `sp.status_title`, `sp.requisites`, `sp.contact`, `sp.procurement`, `sp.notes_title` (`frontend_vue/src/components/admin/SupplierFormSections.vue:127,169,201,238,315`), а `SupplierCardPage.vue` `useCardConfig` не импортирует (`grep -rn "useCardConfig\|/api/config" frontend_vue/src/views/admin/suppliers/*.vue` — попадания только в `SupplierCardConfigPage.vue:10,43`). Тип поставщика — фиксированный набор колонок без `fieldValues` (`src/types/supplier.ts:12-31`), таблица `suppliers` — тоже (`backend/app/modules/suppliers/shared/models.py:17-62`), и таблицы `supplier_field_values` не существует (`grep -n "__tablename__" backend/app/modules/suppliers/shared/models.py` → шесть supplier-таблиц плюс три config-овских, такой нет). Пересечения с кастомными полями товара нет: `grep -c "f-company\|f-status\|f-rating" frontend_vue/src/services/mocks/products.ts frontend_vue/src/services/mocks/suppliers.ts` → `0` и `0`, а `product_field_values.field_id` ссылается на `category_fields`, а не на `field_definitions` (`backend/app/modules/products/shared/models.py:203-207`). Отсюда: `f-certified` (`mocks/config.ts:105-111`) — определение поля, которому негде хранить значение (`grep -c "certified" frontend_vue/src/types/supplier.ts backend/app/modules/suppliers/shared/models.py` → `0` и `0`). Кто хранит значения и что делать со значением при удалении определения — **нигде**, вынесено в `00-решения-владельца.md` (расширяет засеянный пункт 2 случаем поставщика, которого там нет).
+- Настройки, которых мок не отслеживает: четыре, каждая — прямое наблюдение. (1) **Матрица прав не сохраняется вовсе**: `mockSavePermissions` — пустое тело с комментарием `// no-op in mock` (`mocks/config.ts:265-267`), тогда как парные `mockSaveFieldLibrary` (`:240-248`) и `mockSaveSections` (`:254-259`) пишут в стор. (2) **Состав матрицы не пересобирается**: `MOCK_PERMISSIONS` — константа, вычисленная один раз при загрузке модуля (`:232`; `grep -n "buildMockPermissions" frontend_vue/src/services/mocks/config.ts` → только `:189` и `:232`), поэтому созданное поле или секция в `items` не появляются, а удалённые из неё не исчезают. (3) **Локали жёстко трёхъязычны**: `TranslatedString` — ровно `{ ru, en, lt }` (`src/types/i18n.ts:6-10`), список языков арендатора на это не влияет, а `toTranslatedString` кладёт текст в одну локаль и пустые строки в две другие (`:19-25`). (4) **`usageCount` не пересчитывается ничем**: в сторе это статические числа (`mocks/config.ts:17,24,39,46,53,60,67,82,89,96,103,110`), новое поле получает `0` (`SupplierCardConfigPage.vue:320`) или `1` (`:416`) вручную, а снятие поля с секции счётчик не трогает (`:433-440`).
+- Мультиарендность: во фронте не выражена нигде — `grep -c "tenant" frontend_vue/src/services/configService.ts` → `0`, ни поля, ни заголовка. На сервере выражена схемой у всех шести таблиц домена: `tenant_id` объявлен `nullable=False, index=True` с FK на `tenants.id` и `ondelete="CASCADE"` — `field_definitions` (`backend/app/modules/suppliers/shared/models.py:245-250`), `section_configs` (`:274-279`), `section_fields` (`:299-304`), `permission_items` (`backend/app/modules/auth/shared/models.py:150-155`), `role_permissions` (`:174-179`), `user_permissions` (`:207-212`); в миграции те же шесть (`backend/alembic/versions/e24a3922ed01_phase_7_config.py:30,46,59,71,83,99`). Два уникальных индекса домена тоже начинаются с арендатора: `uq_field_definitions_tenant_name` (`:40`) и `uq_role_permission` на `(tenant_id, item_id, role)` (`:93`), `uq_user_permission` на `(tenant_id, item_id, user_id)` (`:109`). Выборка обязана ограничиваться `tenant_id`, и это единственная обязанность домена, источник которой — бэкенд.
+- Права — в какой функции проверяются: **ни в какой, и это домен, который правами и занимается.** На сервере функция-заглушка: `check_permission` в `backend/app/modules/auth/internal_api/interface.py:27-38` возвращает `True` безусловно, с комментарием «Placeholder — implement actual RBAC logic here. Returns True for now (permissive default)». Модуль, который должен её применять, — пустой: `backend/app/modules/auth/shared/dependencies.py` состоит из четырёх строк докстринга («Includes: get_current_user, permission checkers, tenant isolation») и не содержит ни одной функции. Во фронте доступ гейтится **только фича-флагами**: роут `suppliers/config` несёт `meta.featureFlag: 'supplierCardConfig'` (`frontend_vue/src/router/index.ts:192-197`), редактор прав прячется флагом `permissionsEditor` (`SupplierCardConfigPage.vue:21`); оба объявлены `true` (`frontend_vue/src/config/featureFlags.ts:17`, `:35`). Сама матрица во фронте **никем не применяется**: `grep -rn "PermissionMatrix\|rolePermissions" frontend_vue/src --include=*.ts --include=*.vue | grep -v '\.spec\.'` даёт только четыре файла домена — `types/config.ts`, `services/configService.ts`, `services/mocks/config.ts`, `composables/useCardConfig.ts` — плюс страницу-редактор; ни одного потребителя вне редактора нет. Вынесено в `00-решения-владельца.md`.
+- Транзакционность и идемпотентность: `Idempotency-Key` в домене не используется — `grep -c "Idempotency" frontend_vue/src/services/configService.ts` → `0`, и обе POST-ветки мока идут мимо `withIdempotency` (`mocks/index.ts:943`, `:946` против `:912`, `:919`, `:1036`, `:1043`, `:1052`), при том что механизм в проекте есть (`src/services/api.ts:239-245`, кэш — `mocks/index.ts:262-269`). По атомарности наблюдение прямое: Save шлёт **три независимых запроса параллельно** одним `Promise.all([saveFieldLibrary, saveSections, savePermissions])` (`src/composables/useCardConfig.ts:51-55`) — общей транзакции у них нет, порядок не задан, и при падении любого остальные остаются применёнными; `load()` после ошибки не вызывается (`:56-58`), экран остаётся с несохранёнными данными поверх частично сохранённых. Внутри каждого PUT мок атомарен: массив перезаписывается целиком (`mocks/config.ts:246-247`, `:257-258`). Повторное создание того же поля/секции даёт дубликат: id выдаётся `Date.now()` (`mocks/config.ts:274`, `:312`; на странице — `SupplierCardConfigPage.vue:316`, `:410`, `:458`), проверки уникальности имени нет ни в моке, ни на странице — только на схеме, у полей (`backend/app/modules/suppliers/shared/models.py:264-266`); у секций уникальности нет и там (миграция `:43-53`).
+- Производные значения (считать, не хранить): три. (1) `PermissionMatrix.items` — производная от секций и их полей: мок собирает список обходом `MOCK_SECTIONS` и подстановкой имени из библиотеки (`mocks/config.ts:191-203`), и он же уходит обратно на сервер телом PUT (`src/services/configService.ts:81`); на схеме `permission_items` — **хранимая** таблица со своим `name_translations` (`backend/app/modules/auth/shared/models.py:157-159`), то есть имя дублируется и может разойтись с `section_configs.name_translations` (`backend/app/modules/suppliers/shared/models.py:280`). (2) `usageCount` — по замыслу старого контракта производная («сколько супплайеров реально заполнили это поле», `03-api-contract.md:629`), на схеме — хранимая колонка `usage_count` с `server_default="0"` (`backend/app/modules/suppliers/shared/models.py:259-261`), а считать её не из чего (см. графу «Кастомные поля»). (3) `order` секции: клиент считает его позицией в массиве и перенумеровывает при перетаскивании (`src/composables/useCardConfig.ts:71`), мок при чтении не сортирует (`mocks/config.ts:251`), схема хранит `sort_order` колонкой (`backend/app/modules/suppliers/shared/models.py:281`). Отдельно: `PermissionMatrix.roles` и `.users` на сервере тоже производные — от `user_roles.role_name` (`backend/app/modules/auth/shared/models.py:98`) и от таблицы `users` (`:42`), — но клиент присылает их обратно телом PUT как данные (`src/services/configService.ts:80-81`).
 
 ## Правила домена, которых нет в контракте
 
-Самое ценное содержимое аудита: эндпоинты машина перечислит и без человека, а правило,
-живущее только в моке или доменном слое, — нет.
+1. **Имя поля во фронте трёхъязычно, а на схеме — одна строка; у секции наоборот, совпадает.** `FieldDefinition.name: TranslatedString` и `options?: TranslatedString[]` (`src/types/config.ts:7`, `:13`) против `name: Mapped[str] = mapped_column(String(255))` и `options: JSON` (`backend/app/modules/suppliers/shared/models.py:251`, `:262`; миграция `:31`, `:36`). При этом `SectionConfig.name` и `PermissionItem.name` на схеме **переводимы** — `name_translations` JSONB (`backend/app/modules/suppliers/shared/models.py:280`; `backend/app/modules/auth/shared/models.py:157-159`). То есть асимметрия внутри одной миграции: два имени из трёх переводимы, третье нет. Хранить `{ru,en,lt}` в `String(255)` нечем.
+2. **Встроенность поля на схеме — колонка, во фронте — префикс строки id.** `is_builtin: Mapped[bool]` (`backend/app/modules/suppliers/shared/models.py:256-258`, миграция `:34`) против `fieldId.startsWith('f-custom-')` (`SupplierCardConfigPage.vue:303-305`, комментарий над ним — `:301-302`). Из этого следует, что серверные id обязаны нести префикс `f-custom-`, иначе UI перестанет отличать встроенные поля от пользовательских — а на схеме id это `gen_random_uuid()` (миграция `:29`). Зеркальный случай у секций: во фронте есть `system?: boolean` (`src/types/config.ts:24-25`), на схеме колонки нет (`grep -c '"system"' backend/alembic/versions/e24a3922ed01_phase_7_config.py` → `0`).
+3. **Пользователь в матрице адресуется email-ом, а на схеме — UUID.** `users: Record<string, string[]>` со значениями вида `admin@flexiron.com` (`src/types/config.ts:39-40`, `mocks/config.ts:179-184`) и `userPermissions[itemId][role][userEmail]` (`src/types/config.ts:51-54`, чтение — `SupplierCardConfigPage.vue:166`, запись — `:233-237`). На схеме — `user_permissions.user_id`, UUID-FK на `users.id` с `ondelete="CASCADE"` (`backend/app/modules/auth/shared/models.py:214-218`, миграция `:101`). Сервер обязан переводить одно в другое, и ключ уникальности у него другой: `(tenant_id, item_id, user_id)` (`:232-236`).
+4. **«Действие не задано — наследуй у роли» выразимо во фронте и невыразимо на схеме.** Тип хранит переопределения как `Partial<Record<PermissionAction, boolean>>` (`src/types/config.ts:51-54`), и вся семантика построена на `undefined`: `getUserPerm` возвращает роль, если сохранённого значения нет (`SupplierCardConfigPage.vue:166-169`); `clearUserOverrides` именно **удаляет** ключ (`:190-192`); `collapseIfAligned` схлопывает переопределения, когда все пользователи роли сошлись (`:241-259`). На схеме же `can_read/can_edit/can_create/can_delete` — четыре `nullable=False` булевых колонки с дефолтами (`backend/app/modules/auth/shared/models.py:219-230`, миграция `:102-105`): «не задано» на уровне действия хранить негде, различима только строка целиком.
+5. **Матрица прав никем не применяется — она только редактируется.** Ни одного потребителя вне редактора: `grep -rn "PermissionMatrix\|rolePermissions\|userPermissions" frontend_vue/src --include=*.ts --include=*.vue | grep -v '\.spec\.'` даёт `types/config.ts`, `services/configService.ts`, `services/mocks/config.ts`, `composables/useCardConfig.ts` и `SupplierCardConfigPage.vue` — и всё. На сервере — заглушка, возвращающая `True` (`backend/app/modules/auth/internal_api/interface.py:27-38`). Права заказов при этом живут отдельным механизмом в другом домене (`GET /api/settings/order-permissions`, потребитель `frontend_vue/src/composables/useOrderPermissions.ts`) и с этой матрицей не связаны ничем.
+6. **Конфигурация карточки поставщика никем не читается — домен пишет в пустоту.** Единственный потребитель `/api/config/sections` и `/api/config/fields` — сам конфигуратор (`grep -rn "useCardConfig" frontend_vue/src` → объявление `frontend_vue/src/composables/useCardConfig.ts:15` и два импорта в `SupplierCardConfigPage.vue:10`, `:43`, больше ничего). Настоящая карточка рисует пять жёстко зашитых панелей (`frontend_vue/src/components/admin/SupplierFormSections.vue:127,169,201,238,315`), и их заголовки — `sp.status_title`, `sp.requisites`, `sp.contact`, `sp.procurement`, `sp.notes_title` — не совпадают даже по составу с пятью секциями конфигуратора: `General Info`, `Contacts`, `Location`, `Logistics`, `Notes & Docs` (`mocks/config.ts:117,131,143,155,167`). Флаги `visible` секции и поля (`src/types/config.ts:22-23`, `:31`) ни на что не влияют.
+7. **Шесть клиентских функций из двенадцати не вызываются ниоткуда: домен целиком работает clean-slate-батчем.** Без вызывающего — `createField`, `patchField`, `deleteField`, `createSection`, `patchSection`, `deleteSection` (объявления `src/services/configService.ts:15,28,40,54,58,70`; попадания вне файла — только одноимённые локальные функции чужих экранов, `SupplierCardConfigPage.vue:309`, `src/composables/useCategoryCard.ts:142`). Всё, что делает пользователь, копится в `fieldLibrary`/`sections`/`permissions` и уходит тремя PUT'ами по кнопке Save (`src/composables/useCardConfig.ts:51-55`), как и написано комментарием на странице (`SupplierCardConfigPage.vue:307-308`). Пять из шести числятся в реестре «клиент написан, UI нет» (`03-api-contract.md:3029-3034`).
+8. **Пять правил каскада матрицы живут только на клиенте и пронумерованы прямо в коде.** Правило 1 — секция каскадит на свои поля (`SupplierCardConfigPage.vue:196-207`, вызов `:215`); правило 2 — чекбокс пользователя в строке секции каскадит на пользовательские чекбоксы всех её полей (`:273-280`); правило 4 — смена роли стирает пользовательские переопределения по этому действию (`:186-194`, вызовы `:205`, `:222`); правило 5 — если все пользователи роли сошлись, переопределения схлопываются и значение поднимается на роль (`:241-259`, вызовы `:278`, `:283`); правило 6 — бейдж «отличается от секции» (`:287-299`). Состояние чекбокса секции — производное от полей и считается рекурсивно (`:133-158`). Старый контракт называет их числом («все 5 правил… на стороне фронта», `03-api-contract.md:690`), но не описывает ни одного.
+9. **Секция без полей ведёт себя как лист, а не как контейнер.** `rolePermState` для секции с пустым `fields` уходит в `leafRoleState` (`SupplierCardConfigPage.vue:141-143`), то есть её собственное значение перестаёт быть производным. Именно так выглядит только что созданная секция (`fields: []` — `mocks/config.ts:317`, `SupplierCardConfigPage.vue:464`).
+10. **Собственное значение секции пишется, хотя читается как производное.** `onRoleToggle` для секции сначала каскадит на поля, а потом всё равно ставит значение самой секции — «for consistency» (`SupplierCardConfigPage.vue:213-217`), тогда как читается оно пересчётом по полям (`:141-154`). На схеме `role_permissions` хранит строку для любого `item_id` без различения секции и поля (`backend/app/modules/auth/shared/models.py:180-181`), так что сервер обязан хранить обе.
+11. **`collapsed` объявлен UI-only, но уезжает на сервер и хранится колонкой.** Комментарий в типе — «UI-only: collapsed inside the config builder (not persisted to the rendered supplier card)» (`src/types/config.ts:20-21`), при этом флаг входит в тело `PUT /api/config/sections` (`src/services/configService.ts:51`), мок его сохраняет (`mocks/config.ts:257-258`), и на схеме под него есть колонка (`backend/app/modules/suppliers/shared/models.py:282-284`, миграция `:49`). То есть «UI-only» здесь значит «не влияет на карточку», а не «не хранится».
+12. **Удаление определения поля каскадом снимает его со всех секций — и мок, и схема согласны.** Мок фильтрует `sec.fields` во всех секциях (`mocks/config.ts:301-303`), схема даёт то же через `section_fields.field_id ondelete="CASCADE"` (`backend/app/modules/suppliers/shared/models.py:311-315`, миграция `:61`). А вот строку в `permission_items` не снимает никто: связи с `field_definitions` у неё нет, `item_id` — просто `String(100)` (`backend/app/modules/auth/shared/models.py:156`, миграция `:72`), и `role_permissions`/`user_permissions` ссылаются на ту же строку (`:180`, `:213`). Осиротевшие права — состояние, которое схема допускает.
+13. **Порядок элементов матрицы — «секции и их поля в порядке рендера» — на схеме не хранится.** Требование объявлено в типе (`src/types/config.ts:55-56`) и исполняется моком обходом секций (`mocks/config.ts:191-203`); в `permission_items` колонки порядка нет вовсе (миграция `:68-77`). Значит сервер обязан выводить порядок из `section_configs.sort_order` и `section_fields.sort_order` (`backend/app/modules/suppliers/shared/models.py:281`, `:316`) при каждом чтении.
+14. **Имя новой секции размножается на три языка, имя нового поля — нет.** `createSection` шлёт `{ name: string }` (`src/services/configService.ts:54-55`), и мок ставит одну и ту же строку в `ru`, `en`, `lt` (`mocks/config.ts:307-310`); `createField` шлёт `toTranslatedString(name, locale)` (`configService.ts:24`), где две другие локали пустые (`src/types/i18n.ts:19-25`). Локальный путь страницы использует второй вариант для обоих (`SupplierCardConfigPage.vue:317`, `:413`, `:459`). Три разных поведения на одну операцию «назвать сущность».
+15. **Правки имён на странице сделаны двумя разными помощниками, и один из них теряет переводы.** Переименование секции идёт через `mergeLocaleValue`, который сохраняет остальные локали (`src/composables/useCardConfig.ts:86`, помощник — `src/types/i18n.ts:53-63`); создание — через `toTranslatedString`, который их обнуляет (`SupplierCardConfigPage.vue:317`, `:413`, `:459`). Для создания это верно, для правки было бы нет — правило держится на том, что путь правки в домене ровно один.
 
 ## Находки про код → contract-sync-config-bugs.md
+
+Четырнадцать, все записаны в `roo_code/plans/bugs/contract-sync-config-bugs.md`, код не тронут:
+
+1. `save()` показывает тост «сохранено» даже когда `saveConfig()` упал: ошибка гасится в `error.value` и не пробрасывается (`SupplierCardConfigPage.vue:474-477`, `src/composables/useCardConfig.ts:56-58`).
+2. `saveConfig()` молча не шлёт **ни одного** из трёх запросов, если матрица не загрузилась — `if (!permissions.value) return` (`src/composables/useCardConfig.ts:46`).
+3. Мёртвая ветка перевода имени в `patchField` и `patchSection`: `typeof patch.name === 'string'` при типе `TranslatedString` (`src/services/configService.ts:34-36`, `:64-66`).
+4. `createSection` шлёт имя строкой, а не `TranslatedString`, в отличие от `createField` (`src/services/configService.ts:54-55` против `:22-25`), и мок размножает её на все три локали (`mocks/config.ts:307-310`).
+5. Шесть из двенадцати клиентских функций домена не вызываются ниоткуда (`src/services/configService.ts:15,28,40,54,58,70`).
+6. `mockSavePermissions` — пустая функция: `PUT /api/config/permissions` ничего не сохраняет, перезагрузка теряет правки прав (`mocks/config.ts:265-267`).
+7. `MOCK_PERMISSIONS` строится один раз при загрузке модуля и не пересобирается — созданные поля и секции в матрицу не попадают (`mocks/config.ts:232`).
+8. `mockUpdateField` и `mockUpdateSection` возвращают `null` вместо ошибки для несуществующего id, при подписи `Promise<FieldDefinition>` / `Promise<SectionConfig>` (`mocks/config.ts:289`, `:325`; `src/services/configService.ts:32`, `:62`).
+9. `mockUpdateField` и `mockUpdateSection` мутируют объект патча вызывающего (`mocks/config.ts:292`, `:328`).
+10. `mockDeleteSection` удаляет системную секцию, а `mockDeleteField` — встроенное поле: запрет живёт только в вёрстке (`mocks/config.ts:334-337`, `:298-304`).
+11. `toggleFieldLibraryHidden` не вызывается ниоткуда — `FieldDefinition.hidden` не выставляется никогда (`src/composables/useCardConfig.ts:95-98`, `src/types/config.ts:11-12`).
+12. `usageCount` не пересчитывается ничем: `0` при создании, `1` при добавлении в секцию, снятие поля счётчик не трогает (`SupplierCardConfigPage.vue:320`, `:416`, `:433-440`).
+13. Комментарий «open modal → POST → scroll to it» описывает POST, которого в теле функции нет (`SupplierCardConfigPage.vue:442`, `:451-472`).
+14. `id` новых сущностей — `Date.now()`: два объекта, созданных в одну миллисекунду, получают одинаковый id (`SupplierCardConfigPage.vue:316`, `:410`, `:458`; `mocks/config.ts:274`, `:312`).
