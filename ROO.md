@@ -124,13 +124,23 @@ Explore agent gives structural overview — it does not replace targeted verific
   вертикальных слайсов (auth ×4, products ×2, settings ×2). То есть схема заложена, а
   эндпоинтов почти нет. Модуля `orders` нет вовсе: `billing` — это тарифы SaaS (plans,
   tenant_plans, feature_definitions), а не заказы клиентов.
-- **API-контракт:** переводится в `roo_code/roo-context/api/<домен>.md` — по файлу на домен,
-  плюс `00-conventions.md`. Сверка с кодом машинная: `contract-conformance.spec.ts` внутри
-  `npm run test:unit`, состояние печатается строкой `[контракт] сведено доменов: …`. План работы
-  и порядок фаз — [`roo_code/plans/api/contract-sync-plan.md`](roo_code/plans/api/contract-sync-plan.md).
-  Пока сверка не закончена, `roo_code/roo-context/03-api-contract.md` остаётся на месте как
-  источник для переноса — но он устарел, и читать его без сверки с кодом нельзя.
-  Файла `toDo/admin-api-contract.md`, на который тут ссылались раньше, в репозитории нет.
+- **API-контракт:** живёт в `roo_code/roo-context/api/<домен>.md` — по файлу на домен, плюс
+  `00-conventions.md` со сквозными правилами. **Сведение закончено 2026-09-07: 17 доменов,
+  175 эндпоинтов из 175.** Сверка с кодом машинная: `contract-conformance.spec.ts` внутри
+  `npm run test:unit`, состояние печатается строкой `[контракт] сведено доменов: …` — она же
+  краснеет, если во фронте появился эндпоинт, которого нет в контракте.
+  Ссылки `файл:строка` внутри контракта проверяет резолвер
+  [`contractRefs.ts`](frontend_vue/src/services/contractRefs.ts):
+  `cd frontend_vue && CONTRACT_REFS=roo_code/roo-context/api/<домен>.md npx vitest run src/services/contractRefs.spec.ts`.
+  Как писать раздел — скил [`api-contract.md`](roo_code/skills/api-contract.md); история сведения
+  и правила, которые оно дало, — [`repair-after-run-2026-09-04.md`](roo_code/plans/api/repair-after-run-2026-09-04.md).
+
+  Два исключения из «файл на домен». **`orders`** держит вторую половину своего контракта в
+  [`roo_code/plans/orders/orders-backend-contract.md`](roo_code/plans/orders/orders-backend-contract.md):
+  там деньги, округление, валюта и **каталог кодов ошибок §6, который читает спека**
+  (`order-audit-contract-conformance.spec.ts`), — переносить его в `api/orders.md` нельзя.
+  **`03-api-contract.md`** — прежний монолит, целиком заменённый и подлежащий удалению; читать
+  его как источник больше не нужно ни по какому домену.
 
 ### Key Directories
 - `frontend_vue/src/` — main source code
