@@ -1,0 +1,566 @@
+# Services
+
+Прайс-лист работ (услуг, сервисов), которые добавляются в заказ отдельной строкой. Пять
+эндпоинтов: список, создание, карточка, правка, удаление. Общие соглашения — [`00-conventions.md`](00-conventions.md)
+в этом каталоге; правило, верное для двух и более доменов, здесь не повторяется, а берётся
+оттуда со ссылкой на параграф.
+
+Аудит по коду, из которого собран этот файл: [`plans/api/audit/services.md`](../../plans/api/audit/services.md).
+Места, где неверным выглядит сам код, — [`contract-sync-services-bugs.md`](../../plans/bugs/contract-sync-services-bugs.md)
+(восемь находок, код не тронут).
+
+**Источник истины этого домена — мок и клиент, а не бэкенд.** Модуль
+`backend/app/modules/services/` существует, но состоит из модели и двух файлов-заглушек:
+роутов ноль (`grep -rn "@router\." backend/app/modules/services --include=*.py` — пусто),
+слайсов ноль (`backend/app/modules/services/features/` содержит только `__init__.py`), и в
+`backend/app/main.py:66-74` подключены девять роутеров, ни одного из `services`. Поэтому у
+каждого раздела ниже стоит `Бэкенд: не реализован` — метка `Статус: спроектировано` здесь была
+бы **неверна**: код есть, отсутствует именно серверная половина уже работающего эндпоинта.
+
+Потребители: [`composables/useServices.ts`](../../../frontend_vue/src/composables/useServices.ts)
+(список, удаление), [`composables/useServiceCard.ts`](../../../frontend_vue/src/composables/useServiceCard.ts)
+(карточка, правка), [`views/admin/products/ServicesPage.vue`](../../../frontend_vue/src/views/admin/products/ServicesPage.vue)
+(список и создание), [`views/admin/products/ServiceCardPage.vue`](../../../frontend_vue/src/views/admin/products/ServiceCardPage.vue)
+(карточка) и [`views/admin/orders/AddOrderServicesModal.vue`](../../../frontend_vue/src/views/admin/orders/AddOrderServicesModal.vue)
+(выбор услуги для заказа — пятый потребитель, читающий тот же `GET /api/services`).
+Маршруты домена — `products/services` и `products/services/:id`
+(`frontend_vue/src/router/index.ts:241`, `:247`), а не `/admin/services`, как обещал прежний
+контракт.
+
+**Ни один из пяти вызовов не шлёт ни одного заголовка.** Третьего аргумента у `apiGet` и второго
+у остальных нет нигде (`frontend_vue/src/services/servicesService.ts:23`, `:27`, `:40`, `:72`,
+`:76`), `grep -c "Idempotency\|Authorization\|authHeaders" frontend_vue/src/services/servicesService.ts`
+→ 0. Против сервера, который потребует токен, весь домен ответит 401 — это расхождение с
+соседним `settings`, где `authHeaders()` стоит у всех 31 вызова, и оно записано находкой
+(БАГ-05; общий разбор — [§5 соглашений](00-conventions.md#5-авторизация-и-заголовки)).
+Контракт фиксирует то, что обязан требовать сервер: **все пять эндпоинтов защищённые**,
+арендатор берётся из токена ([§4](00-conventions.md#4-мультиарендность--одно-правило-на-все-домены)).
+
+**Конверта сегодня нет ни на одном из пяти ответов**: всё приходит из мока голым значением
+(`frontend_vue/src/services/mocks/index.ts:464`, `:469`, `:958`, `:1240`, `:1519`). Клиент готов
+к обоим видам — `unwrap` принимает и `ApiResponse`, и голое тело
+(`frontend_vue/src/services/api.ts:128-141`). Сервер обязан отвечать обёрткой, как все 31
+реализованный роут ([§1](00-conventions.md#1-конверт-ответа-три-формы-а-не-одна)).
+
+**Цена услуги — три поля, а не строка.** `costPrice`/`sellingPrice` плюс `currencyId` из
+справочника валют и `uomId` из справочника единиц
+([`types/service.ts:19-31`](../../../frontend_vue/src/types/service.ts)). Союза
+`'EUR/vnt' | 'EUR/kg' | 'EUR/m' | 'EUR/h'` больше нет, и причина записана в самом типе
+(`types/service.ts:3-18`): валюта была вварена в единицу, и услуга в валюте, отличной от евро,
+была невыразима. Отсюда зависимость домена от `settings`: **оба id проверяются по справочникам
+этого соседа** (`frontend_vue/src/services/mocks/services.ts:86-93`).
+
+> **Модель бэкенда осталась в мире сваренной строки, и это первое, что придётся починить.**
+> `backend/app/modules/services/shared/models.py:28-30` держит `price_unit: String(20)` со
+> значением по умолчанию `"EUR/vnt"`; колонок `currency_id`/`uom_id` в модели нет
+> (`grep -c "currency_id\|uom_id" backend/app/modules/services/shared/models.py` → 0), и
+> миграции, которая их добавила бы, нет — `services` создана один раз
+> (`backend/alembic/versions/d730d0aa32ef_phase_4_services.py:26-36`, `price_unit` в строке
+> `:32`) и с тех пор не менялась, тогда как `products` ту же миграцию прошли дважды
+> (`backend/alembic/versions/bbd27a3881a5_phase_14_add_currency_uom_fk_to_products.py:3-4`,
+> `backend/alembic/versions/a1b2c3d4e5f6_phase_15_product_uom_restructure.py:98-99` — там
+> `price_unit` удалён явной строкой). Это БАГ-01: **писать слайсы по услугам до этой миграции
+> нельзя** — они закрепят снятую форму в API.
+
+**Переводимые поля на схеме уже переводимы**, и в этом домен — счастливое исключение из
+[§12](00-conventions.md#12-translatedstring): `name_translations` и `description_translations`
+объявлены `JSONB` (`backend/app/modules/services/shared/models.py:21`, `:31`), а не `String(255)`.
+Имена колонок при этом `snake_case` и с суффиксом `_translations`, тогда как на проводе поля
+называются `name` и `description` — сопоставление обязан делать слайс, форма провода не меняется.
+
+**`id` на проводе — непрозрачная строка** ([§19](00-conventions.md#19-форма-идентификатора)).
+Мок раздаёт читаемые `svc-001`…`svc-005` и выводит следующий из длины стора
+(`frontend_vue/src/services/mocks/services.ts:118` — БАГ-02: после удаления рождается дубль),
+схема же даёт UUID (`UUIDMixin`, `backend/app/core/base.py:15-22`). Расхождение — известный
+класс §19, а не правило домена: сервер выдаёт id сам, клиент его не разбирает и нигде не
+выводит из позиции.
+
+---
+
+### GET /api/services
+
+Список услуг с поиском, сортировкой и серверной пагинацией. Чтение.
+
+Query — **пять параметров, и клиент шлёт все пять всегда**, даже пустыми
+(`servicesService.ts:16-23`); пустая строка означает «без фильтра»
+([§13](00-conventions.md#13-пагинация-и-списки)), и сервер не имеет права требовать отсутствия
+параметра:
+
+```ts
+{
+  search: string       // подстрока; ищется во всех трёх переводах имени
+  sortBy: 'name' | 'costPrice' | 'sellingPrice' | 'createdAt'
+  sortDir: 'asc' | 'desc'
+  page: string         // "1"
+  pageSize: string     // "25"
+}
+```
+
+Умолчания, если параметра нет: `search=''`, `sortBy='name'`, `sortDir='asc'`, `page=1`,
+`pageSize=25` (`mocks/index.ts:455-463`).
+
+Ответ: `PaginatedResponse<Service>` — `{ items, total, page, pageSize, totalPages }`
+(`types/api.ts:8-14`), элемент — `Service` целиком, девять полей:
+
+```ts
+interface Service {
+  id: string
+  name: TranslatedString
+  costPrice: number
+  sellingPrice: number
+  currencyId: string        // id из справочника валют settings
+  uomId: string             // id единицы из справочника settings
+  description?: TranslatedString    // поле необязательное, а не обнуляемое
+  createdAt: string         // ISO-момент
+  updatedAt: string
+}
+```
+
+Облегчённой формы списка у домена **нет**: `ServiceListItem` — псевдоним `Service`, помеченный
+`@deprecated` (`types/service.ts:33-34`), и `toListItem` перечисляет ровно те же девять полей
+(`mocks/services.ts:26-38`).
+
+Три правила сортировки и счёта, каждое сервер обязан повторить:
+
+- **сортировка по имени идёт по английскому варианту при любом языке интерфейса** —
+  `a.name.en.localeCompare(b.name.en)` (`mocks/services.ts:61`), а **поиск смотрит во все три**
+  перевода (`:51-53`);
+- **непонятный `sortBy` — не ошибка, а «не сортировать»**: три `else if` без ветки по умолчанию
+  оставляют `cmp = 0` (`mocks/services.ts:61-64`);
+- `total` — длина **отфильтрованного**, `totalPages` — `Math.ceil(total / pageSize)`, считается
+  при чтении (`mocks/services.ts:69-75`); `page` за концом списка даёт пустой `items`, а не 404
+  (`:72-73`).
+
+**Верхняя граница `pageSize` задана вторым потребителем, а не страницей списка.** Список
+пагинирует по 25 (`useServices.ts:18`), а модалка добавления услуг в заказ тянет весь каталог
+одним запросом `pageSize: 1000` и пагинирует его у себя
+(`AddOrderServicesModal.vue:210-213`, локальный срез `:201-204`), причём запрос уходит при
+каждом открытии модалки (`:222-233`). Сервер обязан такое значение разрешать.
+
+Ошибки: **ни одной** — в `mockGetServices` нет ни одного `throw`
+(`mocks/services.ts:40-76`). Текст любой сетевой ошибки клиент кладёт в `error` и показывает как
+есть (`useServices.ts:33-35`).
+
+Бэкенд: **не реализован** (роутов у модуля ноль)
+Реализация: `services/servicesService.ts:12-24` (`getServices`) · мок `mocks/index.ts:454`
+(`mockGetServices`, `mocks/services.ts:40`) · потребители `useServices.ts:22-38` и
+`AddOrderServicesModal.vue:210-213`
+
+---
+
+### POST /api/services
+
+Создание услуги. Quick-action: модалка «создать услугу» на странице списка, POST уходит по
+submit, после успеха форма сбрасывается к дефолтам и список перезапрашивается
+(`ServicesPage.vue:82-108`, `:96-104`).
+
+Тело — шесть полей; `name` и `description` уходят **уже как `TranslatedString`**, собранные
+клиентом из строки формы по языку текущего сеанса (`servicesService.ts:31-39`, преобразование
+`types/i18n.ts:19-25`):
+
+```ts
+{
+  name: TranslatedString
+  costPrice: number
+  sellingPrice: number
+  currencyId: string
+  uomId: string
+  description?: TranslatedString   // ключа нет вовсе, если описания нет
+}
+```
+
+**Услуга рождается переведённой на один язык, два других пусты** — это следствие
+`toTranslatedString` на пути создания ([§12](00-conventions.md#12-translatedstring): для
+создания это правильный помощник). Что с этим делать, домену ещё не назначено — см.
+«Что осталось нерешённым», п. 7.
+
+Ответ: `Service` целиком с серверными `id`, `createdAt`, `updatedAt`
+(`mocks/services.ts:117-127`).
+
+Обязательность полей: тип требует пять из шести (`types/service.ts:42-49`), но **на проводе не
+проверяется ничто** — мок `name` читает, но не проверяет: приводит к `TranslatedString` и
+кладёт как есть (`mocks/services.ts:106-107`), пустую строку принимая наравне с непустой;
+единственная
+проверка живёт в форме: `if (!createForm.name.trim()) return` (`ServicesPage.vue:83`).
+Отрицательную цену не отвергает никто. Обещанного прежним контрактом 422 `VALIDATION_ERROR` без
+`name` в коде нет — см. «Что осталось нерешённым», п. 6.
+
+Ошибки: `SERVICE_CURRENCY_NOT_FOUND`, `SERVICE_UOM_NOT_FOUND` — проверка валюты и единицы по
+справочникам `settings` до записи (`mocks/services.ts:86-93`, вызов `:115`).
+
+Бэкенд: **не реализован**
+Реализация: `services/servicesService.ts:30-41` (`createService`) · мок `mocks/index.ts:957`
+(`mockCreateService`, `mocks/services.ts:95`) · потребитель `ServicesPage.vue:82-108`
+
+---
+
+### GET /api/services/:id
+
+Карточка услуги. Чтение, `onMounted → load()` (`ServiceCardPage.vue:52-55`). Рядом вторым
+запросом идёт `loadSettings()` (`:54`): карточке нужны справочники валют и единиц, чтобы
+построить селекты (`:47-50`) — то есть форма услуги не открывается без ответа чужого домена.
+
+Ни query, ни тела: `apiGet<Service>(`/api/services/${id}`)` (`servicesService.ts:27`); id берётся
+из маршрута `products/services/:id` (`router/index.ts:247`).
+
+Ответ: `Service` целиком, те же девять полей, что в списке. `description` **отсутствует**, когда
+его нет, а не приходит `null`: тип объявляет поле необязательным (`types/service.ts:28`), мок
+кладёт `undefined` (`mocks/services.ts:113`).
+
+Ошибки: `CATALOG_SERVICE_NOT_FOUND` (`mocks/services.ts:134`).
+
+**Клиент сегодня не различает «услуги нет» и «сеть упала»**, и это ограничение фронта, а не
+разрешение серверу: `load` кладёт `e.message` в `error` (`useServiceCard.ts:57-59`), а страница
+на любую непустую `error` рисует «сущность не найдена» (`ServiceCardPage.vue:62-78`). Сервер
+обязан отвечать 404 с кодом, а не 500 (`§2` соглашений).
+
+Бэкенд: **не реализован**
+Реализация: `services/servicesService.ts:26-28` (`getService`) · мок `mocks/index.ts:467`
+(`mockGetService`, `mocks/services.ts:132`) · потребитель `useServiceCard.ts:42-62`
+
+---
+
+### PATCH /api/services/:id
+
+Правка услуги. Save-режим: **clean-slate**. Правки живут в `form`, `useDirtyCheck` считает грязь
+и выдаёт дельту (`useServiceCard.ts:38`, `:68`), кнопка Save активна только при
+`isAnythingDirty` (`ServiceCardPage.vue:100-108`), пустая дельта запроса не порождает
+(`useServiceCard.ts:69`), Discard возвращает форму к последнему ответу сервера (`:93-104`).
+Один Save — ровно один PATCH (`:70-74`), и это один из трёх доменов, где так
+([§15](00-conventions.md#15-save-ux-clean-slate-против-quick-action)).
+
+Тело — merge-patch, только грязные поля ([§3](00-conventions.md#3-patch-против-put)):
+
+```ts
+{
+  name?: TranslatedString
+  costPrice?: number
+  sellingPrice?: number
+  currencyId?: string
+  uomId?: string
+  description?: TranslatedString
+}
+```
+
+Два свойства провода, которые видно только в клиенте:
+
+- **`null` до сервера не доходит никогда.** Карточка умеет обнулять `name` и `description`
+  (`ServiceCardPage.vue:30`, `:37`), дельта честно несёт `{ description: null }`, но
+  `toPayloadValue` возвращает на `null` и `undefined` одно и то же — `undefined`
+  (`servicesService.ts:47`), — а `undefined` в тело не кладётся (`:62`, `:71`). Уходит `{}`, мок
+  ничего не меняет, карточка показывает «сохранено» (`useServiceCard.ts:85`). Это БАГ-06;
+  сегодняшняя форма провода — «стереть поле нельзя», и семантика стирания домену не назначена
+  (см. «Что осталось нерешённым», п. 8);
+- **`currencyId` и `uomId` проверяются на истинность, а не на `!== undefined`**
+  (`servicesService.ts:65-66`), поэтому пустая строка молча не отправится.
+
+Ответ: `Service` целиком, обновлённый (`servicesService.ts:59`, мок `mocks/services.ts:163`).
+`updatedAt` пересчитывает сервер и только он (`mocks/services.ts:162`).
+
+Ошибки: `CATALOG_SERVICE_NOT_FOUND` (`mocks/services.ts:151`), `SERVICE_CURRENCY_NOT_FOUND` и
+`SERVICE_UOM_NOT_FOUND` (`:88`, `:91`). **Проверяется итоговая пара, а не присланное поле**:
+`assertKnownPricing(data.currencyId ?? svc.currencyId, data.uomId ?? svc.uomId)`
+(`mocks/services.ts:157`) — то есть смена одной половины пары валидируется вместе с уже
+хранимой второй. Спека закрепляет два кода из трёх — оба на пути правки
+(`frontend_vue/src/domain/servicePricing.spec.ts:102-107`); `CATALOG_SERVICE_NOT_FOUND` в спеках
+домена не проверяется ничем (`grep -c CATALOG_SERVICE_NOT_FOUND frontend_vue/src/domain/servicePricing.spec.ts`
+→ 0), его держит только мок.
+
+Версии нет: ни `If-Match`, ни поля `version` (`mocks/services.ts:153-161` — ни того, ни
+другого). Поведение — last-write-wins, как в шестнадцати доменах из семнадцати; исключение
+только у заказов ([§11](00-conventions.md#11-идемпотентность-и-оптимистичная-блокировка)).
+
+Бэкенд: **не реализован**
+Реализация: `services/servicesService.ts:52-73` (`patchService`) · мок `mocks/index.ts:1238`
+(`mockPatchService`, `mocks/services.ts:138`) · потребитель `useServiceCard.ts:64-91`
+
+---
+
+### DELETE /api/services/:id
+
+Удаление услуги из каталога. Quick-action: `confirmDelete` открывает модалку подтверждения
+(`ServicesPage.vue:110-113`), `handleDelete` шлёт запрос сразу (`:115-120`), после успеха список
+перезапрашивается (`useServices.ts:44`).
+
+Ни тела, ни заголовков — `apiDelete(`/api/services/${id}`)` (`servicesService.ts:76`). Мок
+принимает любую непустую строку id: `/^\/api\/services\/([^/]+)$/` (`mocks/index.ts:1511`),
+проверки формата нет ни в клиенте, ни в моке.
+
+Ответ: **тела успеха нет** — ни счёта, ни id удалённого. Подпись клиента `Promise<void>`
+(`servicesService.ts:75`), мок отдаёт `delay(undefined as T)` (`mocks/index.ts:1519`).
+
+Ошибки: `CATALOG_SERVICE_NOT_FOUND` — и бросает его **ветка мока, а не функция**:
+`mockDeleteService` возвращает `false` (`mocks/services.ts:168`), а `throw` стоит в
+`mocks/index.ts:1518`.
+
+**DELETE идемпотентным не является**: удаление несуществующей услуги — отказ, а не молчаливый
+успех. Правило стоило отдельной починки — проверка `if (!deleted)` не срабатывала никогда, пока
+перед `mockDeleteService` не появился `await`: промис всегда истинен, и причина записана прямо
+там (`mocks/index.ts:1513-1518`).
+
+**Проверки «услуга используется в заказах» нет нигде**: `mockDeleteService` смотрит только на
+существование (`mocks/services.ts:166-171`). Заказ переживает удаление, потому что строка заказа
+хранит снимок имени и себестоимости на момент добавления
+(`frontend_vue/src/services/mocks/orders.ts:2415-2422`), — но `serviceId` в ней остаётся ссылкой
+в никуда, а **добавить** удалённую услугу в заказ уже нельзя: `serviceEntry` бросает
+`CATALOG_SERVICE_NOT_FOUND` (`mocks/orders.ts:372-376`). Обещанного прежним контрактом 409
+`SERVICE_IN_USE` в коде нет: `grep -rn "SERVICE_IN_USE" backend/app frontend_vue/src` → пусто
+(БАГ-07). Что сервер обязан делать — см. «Что осталось нерешённым», п. 5.
+
+Бэкенд: **не реализован**
+Реализация: `services/servicesService.ts:75-77` (`deleteService`) · мок `mocks/index.ts:1511`
+(`mockDeleteService`, `mocks/services.ts:166`) · потребитель `useServices.ts:40-48`
+
+---
+
+## Каталог кодов ошибок домена
+
+Три кода, ни один не подстрока другого ([§2](00-conventions.md#2-каталог-кодов-ошибок)).
+
+| код | статус | когда | где бросается |
+|---|---|---|---|
+| `CATALOG_SERVICE_NOT_FOUND` | 404 | услуги с таким id нет — на чтении карточки, правке и удалении | `mocks/services.ts:134`, `:151`; удаление — `mocks/index.ts:1518` |
+| `SERVICE_CURRENCY_NOT_FOUND` | 422 | `currencyId` не найден в справочнике валют `settings` | `mocks/services.ts:88` |
+| `SERVICE_UOM_NOT_FOUND` | 422 | `uomId` не найден в справочнике единиц `settings` | `mocks/services.ts:91` |
+
+Имя `CATALOG_SERVICE_NOT_FOUND` выбрано так, чтобы **не быть подстрокой**
+`ORDER_SERVICE_NOT_FOUND` («в этом заказе нет такой строки услуги»): фронт местами сравнивает
+коды подстрокой, и два разных отказа читались бы как один — причина записана прямо в коде
+(`frontend_vue/src/services/mocks/orders.ts:373-375`).
+
+**Внутри самого домена ни один код до человека не доходит.** Все три потребителя ловят любую
+ошибку и показывают один тост: `services.toast_error_delete` (`useServices.ts:45-47`),
+`services.toast_error_save` (`useServiceCard.ts:86-88`), `services.toast_error`
+(`ServicesPage.vue:105-107`). Единственное место, где код домена превращается в сообщение, —
+словарь **заказов**: `CATALOG_SERVICE_NOT_FOUND` → `orders.error_catalog_service_not_found`
+(`frontend_vue/src/services/orderLineEdits.ts:361`). Класс «мок бросает голый `Error('текст')`, и
+текст доходит вместо перевода» — общий, разобран в
+[§2](00-conventions.md#2-каталог-кодов-ошибок).
+
+---
+
+## Правила домена
+
+То, что живёт только в моке и доменном слое и не выводится из перечня эндпоинтов.
+
+1. **Каталог услуг ровно один, и заказы читают его живым.** `serviceById`/`allServices`
+   экспортируются именно для этого (`mocks/services.ts:10-24`), а модуль заказов держит на них
+   ссылку вместо копии (`mocks/orders.ts:121`, `:346-352`). Цена копии записана там же: услуга,
+   созданная позже, уходила в заказ под именем и себестоимостью первой из пяти, а исправленная
+   себестоимость не доходила до заказа никогда. Сервер обязан держать то же — один прайс,
+   читаемый заказом по ссылке.
+2. **Валюта и единица — ссылки на справочник, а не строка, и проверяются, а не приводятся
+   типом.** `assertKnownPricing` отвергает неизвестный id при создании и при правке
+   (`mocks/services.ts:86-93`); на месте проверки раньше стоял непроверенный каст, через который
+   старое значение `'EUR/kg'` пролезло бы молча (`mocks/services.ts:78-85`). Оба пути и обе
+   стороны держит спека (`frontend_vue/src/domain/servicePricing.spec.ts:70-108`).
+3. **Подпись цены собирается там, где её показывают, и сервер её не присылает.** Поля-подписи в
+   типе намеренно нет (`types/service.ts:13-17`), подпись — функция
+   (`frontend_vue/src/domain/servicePricing.ts:16-27`). У товара такое поле было, жило ради
+   одного места и собирало подпись всегда по-английски — удалено вместе с ним. `"EUR/шт"` в
+   ответе — вторая правда об одной величине.
+4. **Код единицы берётся в языке читателя, а не каталога.** `serviceUnitLabel` спрашивает
+   `uomCode(uomId, uoms, locale)` (`frontend_vue/src/domain/servicePricing.ts:24`), и литовская
+   подпись обязана остаться `EUR/vnt`, а не стать `EUR/pcs`
+   (`servicePricing.spec.ts:17-23`).
+5. **Имя каталога, наоборот, в языке каталога, а не читателя.** Снимок имени, попадающий в
+   заказ, обязан быть одним, а не тем, на каком языке сидел вводивший:
+   `CATALOGUE_LANGUAGE = 'en'` (`mocks/orders.ts:369`), обоснование — `:353-368`. Это код,
+   который сервер физически может исполнить, в отличие от чтения языка из браузера.
+6. **Неизвестный id справочника даёт прочерк, а не выдуманную подпись.** `serviceUnitLabel`
+   возвращает `—`, если валюта или единица не нашлись
+   (`frontend_vue/src/domain/servicePricing.ts:25`, спека `servicePricing.spec.ts:29-32`). Это и
+   есть поведение при удалённом справочнике.
+7. **У часа нет правил пересчёта, и это решение, а не пробел.** Категория `time` заведена ради
+   услуг, и пустая строка в матрице честнее выдуманного коэффициента; со стороны услуг это
+   доказано спекой (`servicePricing.spec.ts:44-51`).
+8. **Код «услуги нет в каталоге» не имеет права быть подстрокой кода «в заказе нет такой
+   строки»** — отсюда `CATALOG_SERVICE_NOT_FOUND` вместо `SERVICE_NOT_FOUND`
+   (`mocks/orders.ts:373-375`). См. каталог кодов выше.
+9. **Демо-каталог держится тех же правил, что приложение.** Все пять сеяных услуг ссылаются на
+   существующие валюту и единицу, и ни у одной не осталось сваренной строки — это не
+   договорённость, а спека (`servicePricing.spec.ts:55-68`).
+10. **Мок в этом домене строже будущего сервера.** Он проверяет `currencyId`/`uomId` по
+    справочнику (`mocks/services.ts:86-93`), тогда как в схеме бэкенда этих колонок нет вовсе
+    (БАГ-01), то есть внешнего ключа, который держал бы то же правило, на сервере не
+    существует. Общий разбор класса —
+    [§18](00-conventions.md#18-чем-мок-отличается-от-обязанностей-сервера).
+
+---
+
+## Обязанности сервера
+
+Девять граф из аудита. Наблюдения, а не назначения: где ответа нет нигде, стоит ссылка на
+[`00-решения-владельца.md`](../../plans/api/audit/00-решения-владельца.md) и пункт раздела
+«Что осталось нерешённым».
+
+- **Значения по умолчанию и их владелец.** Их два, и оба стоят **константой во фронте**: новая
+  услуга рождается с `currencyId: 'cur-eur'` и `uomId: 'uom-pcs'`, зашитыми в форму создания
+  дважды — при объявлении и при сбросе (`ServicesPage.vue:59-60`, `:100-101`), — хотя валютами и
+  единицами владеет `settings`. Карточка при этом дефолт сознательно **не** подставляет: пустая
+  строка, и почему — записано там же (`useServiceCard.ts:31-35`): подставленное значение стало
+  бы записанным при первом же Save. То есть две страницы одного домена ведут себя по-разному.
+  Цены по умолчанию — нули, и они совпадают в трёх местах: форма (`ServicesPage.vue:57-58`),
+  карточка до загрузки (`useServiceCard.ts:29-30`) и модель бэкенда
+  (`backend/app/modules/services/shared/models.py:22-27`, `server_default="0"`). Общий класс
+  «справочник принадлежит серверу, копии во фронте быть не должно» —
+  [§14](00-conventions.md#14-даты-деньги-единицы-валюта). Владелец дефолтной валюты и единицы —
+  п. 1 ниже.
+- **События и уведомления.** Нет нигде: `grep -c "notify" frontend_vue/src/services/mocks/services.ts`
+  → 0, ни один из семи триггеров (`frontend_vue/src/services/mocks/notifications.ts`) услуг не
+  касается — `grep -in "service" frontend_vue/src/services/mocks/notifications.ts` → пусто; на
+  бэкенде роутов у модуля `notifications` ноль. При этом событие, о котором есть что сообщать, у
+  домена очевидно есть: изменение цены услуги, уже стоящей в незакрытых заказах, — строка заказа
+  держит снимок себестоимости (`mocks/orders.ts:2415-2422`), и после правки прайса каталог и
+  документ расходятся молча. Правило «событие — это переход» —
+  [§10](00-conventions.md#10-уведомления-событие--это-переход). Пункт 2 ниже.
+- **Запись в аудит-лог.** Нет нигде: `grep -c "auditLog" frontend_vue/src/services/mocks/services.ts`
+  → 0, `grep -n "service" frontend_vue/src/services/mocks/auditFeed.ts` → пусто, и в замкнутом
+  перечне девяти сущностей ленты услуг нет (`frontend_vue/src/types/audit.ts:4-14`,
+  [§9](00-conventions.md#9-аудит-лог-девять-сущностей-адресация-по-id)). Между тем правка
+  `costPrice` — это правка себестоимости, то есть ровно тот класс, который у заказов помечается
+  `sensitive` и прячется правом `seeCost` (`mocks/orders.ts:1902-1903`). Пункт 3 ниже.
+- **Кастомные поля.** У домена их нет:
+  `grep -rn "fieldValues\|fieldDefinition\|customField" frontend_vue/src/types/service.ts frontend_vue/src/services/mocks/services.ts backend/app/modules/services`
+  → пусто. Определениями владеет `config`, значениями — товары
+  ([§8](00-conventions.md#8-кастомные-поля--определения-в-двух-местах-значения-в-одном-жизненного-цикла-нет-нигде));
+  услуга не участвует ни там, ни там. Единственная точка соприкосновения со справочниками —
+  `currencyId`/`uomId`, и она в графе «Транзакционность».
+- **Настройки, которых мок не отслеживает.** Три. **Арендатора** мок не знает вовсе — `STORE`
+  один на процесс (`mocks/services.ts:8`), тогда как у модели бэкенда `tenant_id` есть.
+  **Языка каталога** мок не фиксирует: имя пишется в языке того сеанса, в котором сидел админ
+  (`servicesService.ts:32`, `types/i18n.ts:19-25` заполняет один ключ из трёх), а заказы читают
+  каталог жёстко по-английски (`mocks/orders.ts:369`); значит услуга, созданная в русском
+  сеансе, придёт в заказ **пустым именем**. Пункт 7 ниже. И обратное: мок **строже** будущего
+  сервера — правило домена 10.
+- **Мультиарендность.** `tenant_id` у модели есть — `ForeignKey("tenants.id", ondelete="CASCADE")`,
+  `nullable=False`, `index=True` (`backend/app/modules/services/shared/models.py:15-20`), и в
+  миграции так же (`backend/alembic/versions/d730d0aa32ef_phase_4_services.py:28`). Чем
+  ограничена выборка — проверить не на чем: запросов нет, роутов нет, репозитория у модуля нет;
+  мок арендатора не моделирует (`mocks/services.ts:8`). Правило домену назначать не нужно, оно
+  общее и обязательное: фильтр по арендатору в каждом запросе, арендатор — из токена
+  ([§4](00-conventions.md#4-мультиарендность--одно-правило-на-все-домены)). Появится вместе с
+  первым слайсом.
+- **Права — в какой функции проверяются.** Нигде. На сервере проверять нечему — роутов ноль. Во
+  фронте домен закрыт одним фича-флагом на оба маршрута — `adminServices`
+  (`frontend_vue/src/router/index.ts:244`, `:250`, значение
+  `frontend_vue/src/config/featureFlags.ts:21`), а флаг — это тариф, а не право
+  ([§7](00-conventions.md#7-фичи-и-тарифы--обе-стороны-реализованы-и-не-знают-друг-о-друге)).
+  Роль не спрашивается ни разу:
+  `grep -rn "seeCost\|role" frontend_vue/src/composables/useServices.ts frontend_vue/src/composables/useServiceCard.ts frontend_vue/src/views/admin/products/ServicesPage.vue`
+  → пусто. Следствие видно рядом: себестоимость услуги показана **всем**, у кого включён флаг —
+  колонкой в таблице (`ServicesPage.vue:274`) и полем в карточке (`ServiceCardPage.vue:131`), —
+  тогда как в заказах ровно та же величина закрыта правом `seeCost`
+  (`frontend_vue/src/composables/useOrderPermissions.ts:28`, «сервер» мока —
+  `mocks/orders.ts:1390-1393`), и правило сформулировано как обязанность сервера, а не
+  интерфейса (`useOrderPermissions.ts:17-21`). Пункт 4 ниже.
+- **Транзакционность и идемпотентность.** `Idempotency-Key` не шлётся ни на одном из пяти
+  вызовов (`grep -c "Idempotency" frontend_vue/src/services/servicesService.ts` → 0), поэтому
+  повторный POST по таймауту создаст вторую услугу — уникальности имени не проверяет никто
+  (`mocks/services.ts:95-130`). Правило «необратимый POST требует ключа» —
+  [§11](00-conventions.md#11-идемпотентность-и-оптимистичная-блокировка); создание записи
+  каталога к необратимым сегодня не отнесено. Внутри домена откатывать нечего: каждая операция —
+  один запрос, многозапросного Save нет (`useServiceCard.ts:70-74`). А вот **связность с
+  соседями не держит никто**: удаление услуги не смотрит на заказы (`mocks/services.ts:166-171`),
+  а удаление валюты или единицы из справочника не смотрит на услуги — `remove_currency_item`
+  считает только товары (`backend/app/modules/settings/features/crud/domain.py:262-266`),
+  `remove_uom_item` тоже (`:338-342`). То есть услуга может остаться с `currencyId`, которого
+  больше нет, и подпись цены станет прочерком
+  (`frontend_vue/src/domain/servicePricing.ts:25`). Пункт 5 ниже.
+- **Производные значения (считать, не хранить).** Три. **Подпись цены** — функция, а не поле
+  (правило домена 3). **`totalPages`** считается при чтении из `total` и `pageSize`
+  (`mocks/services.ts:75`). **`createdAt`/`updatedAt`** ставит сервер и только он: мок — при
+  создании и при каждой правке (`mocks/services.ts:125-126`, `:162`), модель бэкенда —
+  `server_default=func.now()` и `onupdate=func.now()` (`backend/app/core/base.py:28-37`).
+  Наоборот, **хранится то, что могло бы считаться**: имя и себестоимость услуги дублируются в
+  строку заказа снимком (`mocks/orders.ts:2415-2422`) — это не денормализация, а заморозка
+  документа ([§17](00-conventions.md#17-производные-значения-сервер-считает-а-не-хранит)), и
+  сервер обязан знать, что решение принято намеренно.
+
+---
+
+## Чего в домене нет
+
+Ничего не вычеркнуто молча: каждое снятое утверждение прежнего
+[`03-api-contract.md`](../03-api-contract.md) (раздел «Admin — Services (1.3)», строки 1126–1270)
+названо здесь вместе с тем, чем оно опровергнуто.
+
+| было в прежнем тексте | чем опровергнуто |
+|---|---|
+| код `SERVICE_NOT_FOUND` — 404 (`:1142`, повторён в `:1199`, `:1226`) | такого кода не бросает **никто**: `grep -rn "'SERVICE_NOT_FOUND'" frontend_vue/src backend/app` даёт одно попадание, и это `toContain` в спеке заказов (`frontend_vue/src/services/mocks/order-audit-authority-2.spec.ts:280`), а не `throw`. В услугах во всех трёх местах — `CATALOG_SERVICE_NOT_FOUND` (`mocks/services.ts:134`, `:151`, `mocks/index.ts:1518`), и имя выбрано осознанно, чтобы не быть подстрокой `ORDER_SERVICE_NOT_FOUND` (`mocks/orders.ts:373-375`) |
+| код `VALIDATION_ERROR` — 422 «отсутствует обязательное поле (напр. `name`)» (`:1143`, `:1193`) | снято не существование кода, а **доменная проверка, которая его бросала бы**: сам код — код ядра ([§2](00-conventions.md#2-каталог-кодов-ошибок), `backend/app/core/exceptions.py:27`), а в услугах его нет ни в одной строке (`grep -rn VALIDATION_ERROR frontend_vue/src/services/mocks/services.ts frontend_vue/src/services/servicesService.ts backend/app/modules/services` → пусто), в моке нет ни одного `throw` про `name` (`mocks/services.ts:95-130`), на сервере роутов ноль, и единственная защита — `if (!createForm.name.trim()) return` в форме (`ServicesPage.vue:83`). Что обязан требовать сервер — п. 6 ниже |
+| 409 `SERVICE_IN_USE` — «сервер отклоняет удаление, если услуга используется в активных заказах» (`:1199`) | кода нет нигде: `grep -rn "SERVICE_IN_USE" backend/app frontend_vue/src` → пусто; удаление используемой заказами услуги проходит (`mocks/services.ts:166-171`, БАГ-07). Заказ переживает его снимком (`mocks/orders.ts:2415-2422`) — но это другое поведение, а не обещанное. Решение — п. 5 ниже |
+| `sortBy` — три значения `"name" \| "costPrice" \| "sellingPrice"` (`:1158`) | их четыре: добавлен `createdAt` (`types/service.ts:38`, сортировка `mocks/services.ts:64`) |
+| `search?`, `sortBy?`, `sortDir?` — необязательные параметры (`:1157-1159`) | клиент шлёт все пять всегда, даже пустыми (`servicesService.ts:16-23`); сервер не имеет права требовать отсутствия параметра |
+| «Сортировка по `name ASC` (дефолт)» без указания языка (`:1176`) | сортировка идёт по **английскому** варианту при любом языке интерфейса (`mocks/services.ts:61`), а поиск смотрит во все три перевода (`:51-53`) |
+| элемент списка без `createdAt`/`updatedAt` (`:1170`) | тип требует оба (`types/service.ts:29-30`), и `toListItem` их отдаёт (`mocks/services.ts:35-36`) |
+| `PaginatedResponse<ServiceListItem>` как отдельная облегчённая форма (`:1164`) | `ServiceListItem` — псевдоним `Service`, помеченный `@deprecated` (`types/service.ts:33-34`); форм две только на бумаге |
+| `POST` с `name: string`, `costPrice?`/`sellingPrice?` с «default: 0», `description?: string` (`:1183-1189`) | на проводе `name` и `description` — уже `TranslatedString`, собранные клиентом (`servicesService.ts:31-39`); цены шлются всегда (`:33-34`), а дефолт 0 живёт в форме (`ServicesPage.vue:57-58`) и в модели (`backend/app/modules/services/shared/models.py:22-27`), то есть это не «необязательное поле» |
+| «клиент шлёт `'cur-eur'`/`'uom-pcs'` по умолчанию» без указания, откуда (`:1187-1188`) | это константы во фронте на месте настройки арендатора (`ServicesPage.vue:59-60`, `:100-101`) — графа «Значения по умолчанию» и п. 1 ниже |
+| `description?: TranslatedString \| null` в теле PATCH (`:1239`) | `null` до провода не доходит никогда: `toPayloadValue` превращает его в `undefined` (`servicesService.ts:47`), а `undefined` в тело не кладётся (`:71`) — БАГ-06. Обнуление задумано и не работает; п. 8 ниже |
+| `"description": null` в примере ответа карточки (`:1221`) | тип объявляет поле необязательным, а не обнуляемым (`types/service.ts:28`), и мок кладёт `undefined` (`mocks/services.ts:113`) |
+| `"createdAt": "2025-01-15"` — дата без времени (`:1222`) | сервер ставит ISO-момент: `new Date().toISOString()` (`mocks/services.ts:125-126`), `updatedAt` в примере отсутствовал вовсе |
+| «Last-write-wins» как отсутствие правила (`:1243`) | верно, и это общее поведение шестнадцати доменов ([§11](00-conventions.md#11-идемпотентность-и-оптимистичная-блокировка)); у заказов версия есть (`mocks/orders.ts:2403`, проверка `:1938`), у услуг — нет намеренно |
+| роуты `/admin/services` и `/admin/services/:id` (`:1116`, `:1261`) | маршруты домена — `products/services` и `products/services/:id` (`frontend_vue/src/router/index.ts:241`, `:247`) |
+| `ApiResponse<void>` у DELETE (`:1198`) | тела успеха нет вовсе: `Promise<void>` в клиенте (`servicesService.ts:75`), `delay(undefined as T)` в моке (`mocks/index.ts:1519`) |
+| «Каскадного удаления из заказов нет» (`:1199`) | верно и подтверждено, но недосказано: **добавить** удалённую услугу в заказ нельзя (`mocks/orders.ts:372-376`), а уже добавленная живёт снимком (`:2415-2422`) |
+
+Разделы прежнего текста «Save UX — Services» (`:1247-1256`) и «Feature Flags — Services»
+(`:1257-1261`) не удалены, а разнесены: save-режим стоит строкой в каждом разделе эндпоинта,
+флаг `adminServices` — в графе «Права». Список файлов реализации (`:1263-1268`) заменён строками
+`Реализация:`; перечисленные там спеки существуют
+(`frontend_vue/tests/e2e/admin/products/services.spec.ts`, `service-card.spec.ts`).
+
+**Ни один эндпоинт из прежнего контракта не исчез, и ни один новый не появился**: пять описаний
+там, пять вызовов в коде.
+
+---
+
+## Клиент написан, UI нет
+
+Реестр пуст: у всех пяти эндпоинтов есть экран-потребитель — `ServicesPage.vue` (список,
+создание, удаление), `ServiceCardPage.vue` (карточка, правка) и вторым читателем списка
+`AddOrderServicesModal.vue`. Проверка:
+`grep -rln "servicesService" frontend_vue/src/views frontend_vue/src/composables` → **четыре**
+файла: `composables/useServices.ts`, `composables/useServiceCard.ts`,
+`views/admin/products/ServicesPage.vue` (импортирует `createService` напрямую, `:6`) и
+`views/admin/orders/AddOrderServicesModal.vue`. Пятый экран, `ServiceCardPage.vue`, ходит в
+клиент через `useServiceCard.ts` и в выводе грепа поэтому не стоит. Каждый из пяти экспортов
+клиента имеет вызывающего.
+
+---
+
+## Что осталось нерешённым
+
+Восемь строк. Первые семь — решения владельца, уже стоящие в
+[`00-решения-владельца.md`](../../plans/api/audit/00-решения-владельца.md) (строки 181–187);
+восьмая — форма провода, зависящая от починки БАГ-06. Контракт их **не назначает**.
+
+1. **осталось** — кто владеет валютой и единицей новой услуги: сегодня `'cur-eur'`/`'uom-pcs'`
+   зашиты в форму создания (`ServicesPage.vue:59-60`, `:100-101`), а дефолтом владеет `settings`
+   и выражает его двумя способами (флаг `Currency.isDefault` и код `constants.defaultCurrency`),
+   причём карточка не подставляет ничего намеренно (`useServiceCard.ts:31-35`).
+2. **осталось** — рождает ли событие изменение цены услуги, уже стоящей в незакрытых заказах, и
+   кому оно адресовано.
+3. **осталось** — пишется ли правка `costPrice` в аудит-лог, кто её автор и помечается ли она
+   `sensitive`; десятой сущности у ленты сегодня нет (`frontend_vue/src/types/audit.ts:4-14`).
+4. **осталось** — какое право нужно, чтобы видеть себестоимость прайс-листа и чтобы его править:
+   сегодня её видит каждый, кого пустил флаг `adminServices` — а он стоит меткой маршрута
+   (`frontend_vue/src/router/index.ts:244`, `:250`), не на странице: в самих экранах
+   себестоимость просто напечатана (`ServicesPage.vue:274`, `ServiceCardPage.vue:131`) без
+   единой проверки права. В заказах та же величина закрыта `seeCost`.
+5. **осталось** — что сервер обязан делать при удалении услуги, стоящей в заказах, и при
+   удалении валюты или единицы, на которую услуга ссылается (БАГ-07; обещанного 409
+   `SERVICE_IN_USE` в коде нет, а `remove_currency_item`/`remove_uom_item` услуг не считают —
+   `backend/app/modules/settings/features/crud/domain.py:262-266`, `:338-342`).
+6. **осталось** — какие поля `POST /api/services` обязательны на сервере и что делать с
+   отрицательной ценой: тип требует пять (`types/service.ts:42-49`), провод не проверяет ничего
+   (`mocks/services.ts:95-130`, `ServicesPage.vue:83`).
+7. **осталось** — на каком языке сервер обязан хранить имя услуги: клиент пишет язык своего
+   сеанса (`servicesService.ts:32`), а заказы читают каталог только по-английски
+   (`mocks/orders.ts:369`), поэтому услуга, созданная в русском сеансе, придёт в заказ пустым
+   именем.
+8. **осталось** — как на проводе выражается стирание `name` и `description`: сегодня `null`
+   превращается в `undefined` и не отправляется вовсе (`servicesService.ts:47`), то есть поле
+   стереть нельзя, а карточка при этом говорит «сохранено» (БАГ-06). Пока БАГ-06 не закрыт,
+   форма тела PATCH — «только непустые значения», и сервер `null` в этом домене не получает.
