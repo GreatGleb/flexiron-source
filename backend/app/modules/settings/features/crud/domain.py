@@ -219,9 +219,9 @@ async def create_currency_item(
 
 
 async def update_currency_item(
-    db: AsyncSession, currency_id: UUID, input_data: CurrencyPatchInput
+    db: AsyncSession, currency_id: UUID, tenant_id: UUID, input_data: CurrencyPatchInput
 ) -> CurrencyResponse:
-    existing = await get_currency(db, currency_id)
+    existing = await get_currency(db, currency_id, tenant_id)
     if existing is None:
         raise NotFoundError(entity="Currency", entity_id=str(currency_id))
 
@@ -238,7 +238,7 @@ async def update_currency_item(
         updates["is_default"] = input_data.is_default
 
     if updates:
-        obj = await patch_currency_repo(db, currency_id, updates)
+        obj = await patch_currency_repo(db, currency_id, tenant_id, updates)
         if obj is None:
             raise NotFoundError(entity="Currency", entity_id=str(currency_id))
     else:
@@ -254,8 +254,8 @@ async def update_currency_item(
     )
 
 
-async def remove_currency_item(db: AsyncSession, currency_id: UUID) -> None:
-    existing = await get_currency(db, currency_id)
+async def remove_currency_item(db: AsyncSession, currency_id: UUID, tenant_id: UUID) -> None:
+    existing = await get_currency(db, currency_id, tenant_id)
     if existing is None:
         raise NotFoundError(entity="Currency", entity_id=str(currency_id))
 
@@ -265,7 +265,7 @@ async def remove_currency_item(db: AsyncSession, currency_id: UUID) -> None:
     if product_count > 0:
         raise ConflictError(f"Cannot delete currency: used by {product_count} product(s)")
 
-    await delete_currency(db, currency_id)
+    await delete_currency(db, currency_id, tenant_id)
 
 
 # ─── UOMs ─────────────────────────────────────────────────────────────────
@@ -301,9 +301,9 @@ async def create_uom_item(
 
 
 async def update_uom_item(
-    db: AsyncSession, uom_id: UUID, input_data: UomPatchInput
+    db: AsyncSession, uom_id: UUID, tenant_id: UUID, input_data: UomPatchInput
 ) -> UomResponse:
-    existing = await get_uom(db, uom_id)
+    existing = await get_uom(db, uom_id, tenant_id)
     if existing is None:
         raise NotFoundError(entity="UOM", entity_id=str(uom_id))
 
@@ -316,7 +316,7 @@ async def update_uom_item(
         updates["category"] = input_data.category
 
     if updates:
-        obj = await patch_uom_repo(db, uom_id, updates)
+        obj = await patch_uom_repo(db, uom_id, tenant_id, updates)
         if obj is None:
             raise NotFoundError(entity="UOM", entity_id=str(uom_id))
     else:
@@ -330,8 +330,8 @@ async def update_uom_item(
     )
 
 
-async def remove_uom_item(db: AsyncSession, uom_id: UUID) -> None:
-    existing = await get_uom(db, uom_id)
+async def remove_uom_item(db: AsyncSession, uom_id: UUID, tenant_id: UUID) -> None:
+    existing = await get_uom(db, uom_id, tenant_id)
     if existing is None:
         raise NotFoundError(entity="UOM", entity_id=str(uom_id))
 
@@ -341,7 +341,7 @@ async def remove_uom_item(db: AsyncSession, uom_id: UUID) -> None:
     if product_count > 0:
         raise ConflictError(f"Cannot delete UOM: used by {product_count} product(s)")
 
-    await delete_uom(db, uom_id)
+    await delete_uom(db, uom_id, tenant_id)
 
 
 # ─── Conversions ──────────────────────────────────────────────────────────
@@ -397,9 +397,9 @@ async def create_conversion_item(
 
 
 async def update_conversion_item(
-    db: AsyncSession, conv_id: UUID, input_data: ConversionPatchInput
+    db: AsyncSession, conv_id: UUID, tenant_id: UUID, input_data: ConversionPatchInput
 ) -> ConversionResponse:
-    existing = await get_conversion(db, conv_id)
+    existing = await get_conversion(db, conv_id, tenant_id)
     if existing is None:
         raise NotFoundError(entity="Conversion", entity_id=str(conv_id))
 
@@ -416,7 +416,7 @@ async def update_conversion_item(
         updates["formula_type"] = input_data.formula_type
 
     if updates:
-        obj = await patch_conversion_repo(db, conv_id, updates)
+        obj = await patch_conversion_repo(db, conv_id, tenant_id, updates)
         if obj is None:
             raise NotFoundError(entity="Conversion", entity_id=str(conv_id))
     else:
@@ -432,11 +432,11 @@ async def update_conversion_item(
     )
 
 
-async def remove_conversion_item(db: AsyncSession, conv_id: UUID) -> None:
-    existing = await get_conversion(db, conv_id)
+async def remove_conversion_item(db: AsyncSession, conv_id: UUID, tenant_id: UUID) -> None:
+    existing = await get_conversion(db, conv_id, tenant_id)
     if existing is None:
         raise NotFoundError(entity="Conversion", entity_id=str(conv_id))
-    await delete_conversion(db, conv_id)
+    await delete_conversion(db, conv_id, tenant_id)
 
 
 # ─── Order Statuses ───────────────────────────────────────────────────────
@@ -483,9 +483,9 @@ async def create_order_status_item(
 
 
 async def update_order_status_item(
-    db: AsyncSession, status_id: UUID, input_data: OrderStatusPatchInput
+    db: AsyncSession, status_id: UUID, tenant_id: UUID, input_data: OrderStatusPatchInput
 ) -> OrderStatusResponse:
-    existing = await get_order_status(db, status_id)
+    existing = await get_order_status(db, status_id, tenant_id)
     if existing is None:
         raise NotFoundError(entity="OrderStatus", entity_id=str(status_id))
 
@@ -502,7 +502,7 @@ async def update_order_status_item(
         updates["write_off_on_transition"] = input_data.write_off_on_transition
 
     if updates:
-        obj = await patch_order_status_repo(db, status_id, updates)
+        obj = await patch_order_status_repo(db, status_id, tenant_id, updates)
         if obj is None:
             raise NotFoundError(entity="OrderStatus", entity_id=str(status_id))
     else:
@@ -519,8 +519,8 @@ async def update_order_status_item(
     )
 
 
-async def remove_order_status_item(db: AsyncSession, status_id: UUID) -> None:
-    existing = await get_order_status(db, status_id)
+async def remove_order_status_item(db: AsyncSession, status_id: UUID, tenant_id: UUID) -> None:
+    existing = await get_order_status(db, status_id, tenant_id)
     if existing is None:
         raise NotFoundError(entity="OrderStatus", entity_id=str(status_id))
 
@@ -531,7 +531,7 @@ async def remove_order_status_item(db: AsyncSession, status_id: UUID) -> None:
     # Gap 5: 409 if status is used in orders — skip check, Order model not yet implemented
     # TODO: Add check when Order module exists
 
-    await delete_order_status(db, status_id)
+    await delete_order_status(db, status_id, tenant_id)
 
 
 async def reorder_statuses(

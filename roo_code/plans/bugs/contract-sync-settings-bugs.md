@@ -628,3 +628,53 @@ factor=float(c.factor) if c.factor else None
   нумерации (`crud/domain.py:522-534`), мок перенумеровывает (`mocks/settings.ts:579`).
   Порядок при чтении задаётся сортировкой (`crud/repository.py:257`), поэтому дыры не видны;
   расхождение записано в аудит, но багом не считается.
+
+---
+
+## БАГ-22 — зависимости аутентификации нет в одном месте: три копии и четвёртый механизм
+
+**File:** `backend/app/modules/auth/shared/dependencies.py`, `backend/app/modules/settings/features/crud/action.py:97`, `backend/app/modules/settings/features/profile/action.py:41`, `backend/app/core/uploads/action.py:34`, `backend/app/modules/auth/features/me/action.py:31`
+**Severity:** High — это корень БАГ-01: восемь роутов забыли аутентификацию потому, что тянуться было не к чему.
+**Источник:** починка БАГ-01 2026-09-07, линза Л5 (второй экземпляр правила)
+
+### Problem
+
+Требовать вошедшего пользователя бэкенд умеет **четырьмя разными кусками кода**, и ни один из
+них не общий:
+
+1. `_resolve_user_id` в `settings/features/crud/action.py:97`;
+2. **его же копия** в `settings/features/profile/action.py:41`;
+3. **третья копия** в `core/uploads/action.py:34` — она даже признаётся в докстринге:
+   «Extract user_id from the Bearer session token (same logic as settings)»;
+4. `HTTPBearer(auto_error=False)` плюс ручная проверка `credentials is None` в
+   `auth/features/me/action.py:31,45-49` — единственное место, где отказ несёт код
+   `MISSING_TOKEN`, а не `UNAUTHORIZED`.
+
+Канонического места при этом **не существует**: `auth/shared/dependencies.py` состоит из одного
+докстринга — «Includes: get_current_user, permission checkers, tenant isolation» — и не содержит
+ни строки кода. `grep -c "def " backend/app/modules/auth/shared/dependencies.py` → `0`.
+
+Цена измерима, и она уже заплачена: восемь роутов настроек не объявляли аутентификацию
+(БАГ-01), потому что зависимость в каждом модуле своя и «забыть» её — значит просто не написать
+ещё одну функцию. Второй экземпляр правила расходится с первым молча, и расхождение уже началось: три копии
+совпадают по кодам и текстам отказа (все три — `UNAUTHORIZED` с тремя одинаковыми сообщениями),
+но уже разошлись по типу параметра — `Optional[str]` в обеих настройках против `str | None` в
+загрузке. Четвёртый механизм разошёлся сильнее: `auth/features/me` отвечает `MISSING_TOKEN`,
+`TOKEN_EXPIRED` и `INVALID_TOKEN` там, где остальные три отвечают одним `UNAUTHORIZED`.
+
+### Fix
+
+Перенести `_resolve_user_id` в `auth/shared/dependencies.py` — в то место, которое его
+докстринг и обещает, — и импортировать оттуда во всех трёх модулях. `auth/features/me` привести
+к той же зависимости, сохранив его код `MISSING_TOKEN` (он назван в контракте `auth`, раздел
+`GET /api/auth/me`, и фронт его знает). После сведения `AUTH_DEPENDENCIES` в
+`backend/tests/test_route_auth.py` станет из одного имени, а не из двух, — это и будет признаком,
+что починка закончена.
+
+### Future rule
+
+Сторож `backend/tests/test_route_auth.py` требует у каждого роута зависимость аутентификации, но
+**не** требует, чтобы она была одна на проект. Пока их четыре, он вынужден знать все четыре
+имени — и каждое новое имя придётся ему дописывать. Список зависимостей в сторожe длиной больше
+единицы — сам по себе признак, что правило живёт в нескольких экземплярах.
+

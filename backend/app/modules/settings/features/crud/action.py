@@ -254,9 +254,11 @@ async def patch_currency_route(
     currency_id: uuid.UUID,
     input_data: CurrencyPatchInput,
     db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(_resolve_user_id),
 ):
     """Update a currency."""
-    result = await update_currency_item(db, currency_id, input_data)
+    tenant_id = await _get_tenant(db, user_id)
+    result = await update_currency_item(db, currency_id, tenant_id, input_data)
     return ApiResponse(
         success=True,
         data=result.model_dump(mode="json", by_alias=True),
@@ -267,10 +269,12 @@ async def patch_currency_route(
 async def delete_currency_route(
     currency_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(_resolve_user_id),
 ):
     """Delete a currency."""
     try:
-        await remove_currency_item(db, currency_id)
+        tenant_id = await _get_tenant(db, user_id)
+        await remove_currency_item(db, currency_id, tenant_id)
         return ApiResponse(success=True, message="Currency deleted")
     except NotFoundError as e:
         raise HTTPException(
@@ -322,9 +326,11 @@ async def patch_uom_route(
     uom_id: uuid.UUID,
     input_data: UomPatchInput,
     db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(_resolve_user_id),
 ):
     """Update a unit of measure."""
-    result = await update_uom_item(db, uom_id, input_data)
+    tenant_id = await _get_tenant(db, user_id)
+    result = await update_uom_item(db, uom_id, tenant_id, input_data)
     return ApiResponse(
         success=True,
         data=result.model_dump(mode="json", by_alias=True),
@@ -335,10 +341,12 @@ async def patch_uom_route(
 async def delete_uom_route(
     uom_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(_resolve_user_id),
 ):
     """Delete a unit of measure."""
     try:
-        await remove_uom_item(db, uom_id)
+        tenant_id = await _get_tenant(db, user_id)
+        await remove_uom_item(db, uom_id, tenant_id)
         return ApiResponse(success=True, message="UOM deleted")
     except NotFoundError as e:
         raise HTTPException(
@@ -401,9 +409,11 @@ async def patch_conversion_route(
     conv_id: uuid.UUID,
     input_data: ConversionPatchInput,
     db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(_resolve_user_id),
 ):
     """Update a conversion rule."""
-    result = await update_conversion_item(db, conv_id, input_data)
+    tenant_id = await _get_tenant(db, user_id)
+    result = await update_conversion_item(db, conv_id, tenant_id, input_data)
     return ApiResponse(
         success=True,
         data=result.model_dump(mode="json", by_alias=True),
@@ -414,9 +424,11 @@ async def patch_conversion_route(
 async def delete_conversion_route(
     conv_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(_resolve_user_id),
 ):
     """Delete a conversion rule."""
-    await remove_conversion_item(db, conv_id)
+    tenant_id = await _get_tenant(db, user_id)
+    await remove_conversion_item(db, conv_id, tenant_id)
     return ApiResponse(success=True, message="Conversion deleted")
 
 
@@ -470,9 +482,11 @@ async def patch_order_status_route(
     status_id: uuid.UUID,
     input_data: OrderStatusPatchInput,
     db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(_resolve_user_id),
 ):
     """Update an order status."""
-    result = await update_order_status_item(db, status_id, input_data)
+    tenant_id = await _get_tenant(db, user_id)
+    result = await update_order_status_item(db, status_id, tenant_id, input_data)
     return ApiResponse(
         success=True,
         data=result.model_dump(mode="json", by_alias=True),
@@ -483,10 +497,12 @@ async def patch_order_status_route(
 async def delete_order_status_route(
     status_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(_resolve_user_id),
 ):
     """Delete an order status."""
     try:
-        await remove_order_status_item(db, status_id)
+        tenant_id = await _get_tenant(db, user_id)
+        await remove_order_status_item(db, status_id, tenant_id)
         return ApiResponse(success=True, message="Order status deleted")
     except NotFoundError as e:
         raise HTTPException(

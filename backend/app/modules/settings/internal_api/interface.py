@@ -28,17 +28,22 @@ async def get_currency_by_code(
 
 
 async def get_currency_by_id(
-    db: AsyncSession, currency_id: UUID
+    db: AsyncSession, currency_id: UUID, tenant_id: UUID
 ) -> Currency | None:
-    """Get currency ORM object by ID. Returns None if not found."""
-    return await _get_currency(db, currency_id)
+    """Get currency ORM object by ID, scoped to the tenant.
+
+    `tenant_id` is required, not optional: a getter that can be called without
+    it is one forgotten argument away from reading another tenant's row, and the
+    caller always knows its tenant.
+    """
+    return await _get_currency(db, currency_id, tenant_id)
 
 
 async def get_uom_by_id(
-    db: AsyncSession, uom_id: UUID
+    db: AsyncSession, uom_id: UUID, tenant_id: UUID
 ) -> Uom | None:
-    """Get UOM ORM object by ID. Returns None if not found."""
-    return await _get_uom(db, uom_id)
+    """Get UOM ORM object by ID, scoped to the tenant."""
+    return await _get_uom(db, uom_id, tenant_id)
 
 
 async def get_default_currency(

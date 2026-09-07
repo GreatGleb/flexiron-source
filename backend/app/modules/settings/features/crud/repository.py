@@ -91,9 +91,15 @@ async def get_currencies(db: AsyncSession, tenant_id: UUID) -> list[CurrencyMode
     return list(result.scalars().all())
 
 
-async def get_currency(db: AsyncSession, currency_id: UUID) -> CurrencyModel | None:
+async def get_currency(
+    db: AsyncSession, currency_id: UUID, tenant_id: UUID
+) -> CurrencyModel | None:
+    """Get a currency owned by this tenant. Foreign rows read as absent."""
     result = await db.execute(
-        select(CurrencyModel).where(CurrencyModel.id == currency_id)
+        select(CurrencyModel).where(
+            CurrencyModel.id == currency_id,
+            CurrencyModel.tenant_id == tenant_id,
+        )
     )
     return result.scalar_one_or_none()
 
@@ -119,10 +125,15 @@ async def create_currency(db: AsyncSession, tenant_id: UUID, data: dict) -> Curr
     return obj
 
 
-async def patch_currency(db: AsyncSession, currency_id: UUID, data: dict) -> CurrencyModel | None:
+async def patch_currency(
+    db: AsyncSession, currency_id: UUID, tenant_id: UUID, data: dict
+) -> CurrencyModel | None:
     stmt = (
         update(CurrencyModel)
-        .where(CurrencyModel.id == currency_id)
+        .where(
+            CurrencyModel.id == currency_id,
+            CurrencyModel.tenant_id == tenant_id,
+        )
         .values(**data)
         .returning(CurrencyModel)
     )
@@ -131,8 +142,13 @@ async def patch_currency(db: AsyncSession, currency_id: UUID, data: dict) -> Cur
     return result.scalar_one_or_none()
 
 
-async def delete_currency(db: AsyncSession, currency_id: UUID) -> None:
-    await db.execute(delete(CurrencyModel).where(CurrencyModel.id == currency_id))
+async def delete_currency(db: AsyncSession, currency_id: UUID, tenant_id: UUID) -> None:
+    await db.execute(
+        delete(CurrencyModel).where(
+            CurrencyModel.id == currency_id,
+            CurrencyModel.tenant_id == tenant_id,
+        )
+    )
     await db.commit()
 
 
@@ -145,8 +161,14 @@ async def get_uoms(db: AsyncSession, tenant_id: UUID) -> list[UomModel]:
     return list(result.scalars().all())
 
 
-async def get_uom(db: AsyncSession, uom_id: UUID) -> UomModel | None:
-    result = await db.execute(select(UomModel).where(UomModel.id == uom_id))
+async def get_uom(db: AsyncSession, uom_id: UUID, tenant_id: UUID) -> UomModel | None:
+    """Get a UOM owned by this tenant. Foreign rows read as absent."""
+    result = await db.execute(
+        select(UomModel).where(
+            UomModel.id == uom_id,
+            UomModel.tenant_id == tenant_id,
+        )
+    )
     return result.scalar_one_or_none()
 
 
@@ -176,10 +198,15 @@ async def create_uom(db: AsyncSession, tenant_id: UUID, data: dict) -> UomModel:
     return obj
 
 
-async def patch_uom(db: AsyncSession, uom_id: UUID, data: dict) -> UomModel | None:
+async def patch_uom(
+    db: AsyncSession, uom_id: UUID, tenant_id: UUID, data: dict
+) -> UomModel | None:
     stmt = (
         update(UomModel)
-        .where(UomModel.id == uom_id)
+        .where(
+            UomModel.id == uom_id,
+            UomModel.tenant_id == tenant_id,
+        )
         .values(**data)
         .returning(UomModel)
     )
@@ -188,8 +215,13 @@ async def patch_uom(db: AsyncSession, uom_id: UUID, data: dict) -> UomModel | No
     return result.scalar_one_or_none()
 
 
-async def delete_uom(db: AsyncSession, uom_id: UUID) -> None:
-    await db.execute(delete(UomModel).where(UomModel.id == uom_id))
+async def delete_uom(db: AsyncSession, uom_id: UUID, tenant_id: UUID) -> None:
+    await db.execute(
+        delete(UomModel).where(
+            UomModel.id == uom_id,
+            UomModel.tenant_id == tenant_id,
+        )
+    )
     await db.commit()
 
 
@@ -202,9 +234,15 @@ async def get_conversions(db: AsyncSession, tenant_id: UUID) -> list[UomConversi
     return list(result.scalars().all())
 
 
-async def get_conversion(db: AsyncSession, conv_id: UUID) -> UomConversionModel | None:
+async def get_conversion(
+    db: AsyncSession, conv_id: UUID, tenant_id: UUID
+) -> UomConversionModel | None:
+    """Get a conversion rule owned by this tenant. Foreign rows read as absent."""
     result = await db.execute(
-        select(UomConversionModel).where(UomConversionModel.id == conv_id)
+        select(UomConversionModel).where(
+            UomConversionModel.id == conv_id,
+            UomConversionModel.tenant_id == tenant_id,
+        )
     )
     return result.scalar_one_or_none()
 
@@ -231,10 +269,15 @@ async def create_conversion(db: AsyncSession, tenant_id: UUID, data: dict) -> Uo
     return obj
 
 
-async def patch_conversion(db: AsyncSession, conv_id: UUID, data: dict) -> UomConversionModel | None:
+async def patch_conversion(
+    db: AsyncSession, conv_id: UUID, tenant_id: UUID, data: dict
+) -> UomConversionModel | None:
     stmt = (
         update(UomConversionModel)
-        .where(UomConversionModel.id == conv_id)
+        .where(
+            UomConversionModel.id == conv_id,
+            UomConversionModel.tenant_id == tenant_id,
+        )
         .values(**data)
         .returning(UomConversionModel)
     )
@@ -243,8 +286,13 @@ async def patch_conversion(db: AsyncSession, conv_id: UUID, data: dict) -> UomCo
     return result.scalar_one_or_none()
 
 
-async def delete_conversion(db: AsyncSession, conv_id: UUID) -> None:
-    await db.execute(delete(UomConversionModel).where(UomConversionModel.id == conv_id))
+async def delete_conversion(db: AsyncSession, conv_id: UUID, tenant_id: UUID) -> None:
+    await db.execute(
+        delete(UomConversionModel).where(
+            UomConversionModel.id == conv_id,
+            UomConversionModel.tenant_id == tenant_id,
+        )
+    )
     await db.commit()
 
 
@@ -259,9 +307,15 @@ async def get_order_statuses(db: AsyncSession, tenant_id: UUID) -> list[OrderSta
     return list(result.scalars().all())
 
 
-async def get_order_status(db: AsyncSession, status_id: UUID) -> OrderStatusModel | None:
+async def get_order_status(
+    db: AsyncSession, status_id: UUID, tenant_id: UUID
+) -> OrderStatusModel | None:
+    """Get an order status owned by this tenant. Foreign rows read as absent."""
     result = await db.execute(
-        select(OrderStatusModel).where(OrderStatusModel.id == status_id)
+        select(OrderStatusModel).where(
+            OrderStatusModel.id == status_id,
+            OrderStatusModel.tenant_id == tenant_id,
+        )
     )
     return result.scalar_one_or_none()
 
@@ -274,10 +328,15 @@ async def create_order_status(db: AsyncSession, tenant_id: UUID, data: dict) -> 
     return obj
 
 
-async def patch_order_status(db: AsyncSession, status_id: UUID, data: dict) -> OrderStatusModel | None:
+async def patch_order_status(
+    db: AsyncSession, status_id: UUID, tenant_id: UUID, data: dict
+) -> OrderStatusModel | None:
     stmt = (
         update(OrderStatusModel)
-        .where(OrderStatusModel.id == status_id)
+        .where(
+            OrderStatusModel.id == status_id,
+            OrderStatusModel.tenant_id == tenant_id,
+        )
         .values(**data)
         .returning(OrderStatusModel)
     )
@@ -286,8 +345,13 @@ async def patch_order_status(db: AsyncSession, status_id: UUID, data: dict) -> O
     return result.scalar_one_or_none()
 
 
-async def delete_order_status(db: AsyncSession, status_id: UUID) -> None:
-    await db.execute(delete(OrderStatusModel).where(OrderStatusModel.id == status_id))
+async def delete_order_status(db: AsyncSession, status_id: UUID, tenant_id: UUID) -> None:
+    await db.execute(
+        delete(OrderStatusModel).where(
+            OrderStatusModel.id == status_id,
+            OrderStatusModel.tenant_id == tenant_id,
+        )
+    )
     await db.commit()
 
 

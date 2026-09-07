@@ -29,8 +29,8 @@ async def _reconstruct_price_unit(
     """Reconstruct legacy 'EUR/kg' style price_unit from FK references."""
     if not currency_id or not uom_id:
         return None
-    currency = await get_currency_by_id(db, currency_id)
-    uom = await get_uom_by_id(db, uom_id)
+    currency = await get_currency_by_id(db, currency_id, tenant_id)
+    uom = await get_uom_by_id(db, uom_id, tenant_id)
     if not currency or not uom:
         return None
     # Get the code from the first available language
