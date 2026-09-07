@@ -50,21 +50,44 @@
 была невыразима. Отсюда зависимость домена от `settings`: **оба id проверяются по справочникам
 этого соседа** (`frontend_vue/src/services/mocks/services.ts:86-93`).
 
-> **Модель бэкенда осталась в мире сваренной строки, и это первое, что придётся починить.**
-> `backend/app/modules/services/shared/models.py:28-30` держит `price_unit: String(20)` со
-> значением по умолчанию `"EUR/vnt"`; колонок `currency_id`/`uom_id` в модели нет
-> (`grep -c "currency_id\|uom_id" backend/app/modules/services/shared/models.py` → 0), и
-> миграции, которая их добавила бы, нет — `services` создана один раз
-> (`backend/alembic/versions/d730d0aa32ef_phase_4_services.py:26-36`, `price_unit` в строке
-> `:32`) и с тех пор не менялась, тогда как `products` ту же миграцию прошли дважды
-> (`backend/alembic/versions/bbd27a3881a5_phase_14_add_currency_uom_fk_to_products.py:3-4`,
-> `backend/alembic/versions/a1b2c3d4e5f6_phase_15_product_uom_restructure.py:98-99` — там
-> `price_unit` удалён явной строкой). Это БАГ-01: **писать слайсы по услугам до этой миграции
-> нельзя** — они закрепят снятую форму в API.
+> **Модель бэкенда переведена на справочники 2026-09-07** (БАГ-01 домена, закрыт). Было:
+> `price_unit: String(20)` со значением по умолчанию `"EUR/vnt"` и ни одной колонки под
+> справочники. Стало — две ссылки, обе `nullable`, обе `ondelete="RESTRICT"`, обе под
+> индексом, как у товаров:
+> `currency_id` → `currencies.id` (`backend/app/modules/services/shared/models.py:31-36`),
+> `uom_id` → `uoms.id` (`:38-43`). Объявления `price_unit` больше нет:
+> `grep -c "price_unit.*mapped_column" backend/app/modules/services/shared/models.py` → 0.
+> Само слово в файле встречается один раз — в комментарии `:29`, который объясняет, что тут
+> стояло; `grep -c "price_unit"` поэтому даёт 1, а не 0.
+>
+> Миграция — `backend/alembic/versions/7fff8d1e5810_phase_16_service_currency_uom.py`, по
+> образцу товарных `bbd27a3881a5` (добавила FK) и `a1b2c3d4e5f6:98-99` (удалила `price_unit`).
+> Перенос значений разбирает `"<код валюты>/<код единицы>"`: валюта — по `currencies.code`
+> **того же арендатора**, единица — по `uoms.code_translations` в любой из трёх локалей, потому
+> что колонки `code` у `uoms` нет вовсе. Правило «в любой локали» не выдумано здесь, оно уже
+> записано в `backend/app/modules/settings/features/crud/repository.py:174-190`
+> (`get_uom_by_code`); без него литовское `'vnt'` не нашлось бы.
+>
+> **Прогнано на живой базе, а не только написано:** `alembic upgrade head` с нуля проходит все
+> 19 ревизий, `alembic downgrade -1` возвращает `price_unit`. Перенос проверен на данных двух
+> арендаторов, у которых обоих есть `EUR` и `vnt`: каждая услуга получила ссылки **своего**
+> арендатора, а услуги с неизвестным кодом и услуга арендатора без справочников остались с
+> `NULL` и ничего не уронили. Обратный проход лоссовый и это записано в самой ревизии:
+> `'EUR/vnt'` возвращается как `'EUR/pcs'`, потому что код единицы собирается по en → ru → lt —
+> тем же правилом, что `_reconstruct_price_unit`
+> (`backend/app/modules/products/features/get_product_detail/domain.py:26-44`).
+>
+> **Слайсы по услугам писать теперь можно** — форма, которую они закрепят, совпадает с той, что
+> просит фронт. Остаётся расхождение по `nullable`: на проводе `currencyId`/`uomId`
+> обязательные — `currencyId: string`, `uomId: string`
+> ([`types/service.ts:25-30`](../../../frontend_vue/src/types/service.ts)), — а в колонке NULL
+> допустим, как у
+> `products.currency_id`. NOT NULL на существующих строках не гарантируется (у арендатора может
+> не оказаться валюты под свой же `price_unit`), поэтому обязательность обязан держать слайс.
 
 **Переводимые поля на схеме уже переводимы**, и в этом домен — счастливое исключение из
 [§12](00-conventions.md#12-translatedstring): `name_translations` и `description_translations`
-объявлены `JSONB` (`backend/app/modules/services/shared/models.py:21`, `:31`), а не `String(255)`.
+объявлены `JSONB` (`backend/app/modules/services/shared/models.py:21`, `:44`), а не `String(255)`.
 Имена колонок при этом `snake_case` и с суффиксом `_translations`, тогда как на проводе поля
 называются `name` и `description` — сопоставление обязан делать слайс, форма провода не меняется.
 
