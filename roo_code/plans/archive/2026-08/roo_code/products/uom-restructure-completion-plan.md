@@ -1,7 +1,7 @@
 # UoM Restructure Completion Plan
 
 ## Overview
-Complete the UoM (Unit of Measure) restructure for the Flexiron ERP. Based on the [session-summary-and-next-prompt.md](../../../../../../session-summary-and-next-prompt.md), this plan covers 5 steps to finish the remaining work.
+Complete the UoM (Unit of Measure) restructure for the Flexiron ERP. Based on the [session-summary-and-next-prompt.md](../../../2026-09/root/session-summary-and-next-prompt.md), this plan covers 5 steps to finish the remaining work.
 
 ## Architecture Diagram
 
