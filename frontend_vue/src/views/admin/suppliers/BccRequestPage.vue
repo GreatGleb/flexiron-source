@@ -16,7 +16,6 @@ import Pagination from '@/components/admin/ui/Pagination.vue'
 import type { BccEventStatus, BccRequest } from '@/types/bcc'
 import { useBccRequest } from '@/composables/useBccRequest'
 import { acceptBccResponse, markBccNoResponse, logBccRequest } from '@/services/bccService'
-import { MOCK_BCC_HISTORY } from '@/services/mocks/bcc'
 import { mergeLocaleValue } from '@/types/i18n'
 import type { TranslatedString } from '@/types/i18n'
 import { useToast } from '@/composables/useToast'
@@ -261,19 +260,6 @@ function deselectAllRecipients() {
   selectedRecipientIds.value = []
 }
 
-function nextRequestId(): string {
-  // Find max existing req-NNN and increment
-  let max = 0
-  for (const evt of history.value) {
-    const m = evt.requestId.match(/^req-(\d+)$/)
-    if (m) {
-      const n = Number(m[1])
-      if (n > max) max = n
-    }
-  }
-  return `req-${String(max + 1).padStart(3, '0')}`
-}
-
 async function sendRequest() {
   if (!validateSelection()) return
   const currentLocale = locale.value as keyof TranslatedString
@@ -288,9 +274,10 @@ async function sendRequest() {
   })
   try {
     await send()
-    const rows = createEventRows('BCC Tool')
-    history.value = [...rows, ...history.value]
-    MOCK_BCC_HISTORY.unshift(...rows)
+    // Строки события создал сервер в той же транзакции, что и отправку, —
+    // клиент их только перечитывает. Раньше здесь страница сочиняла их сама и
+    // дописывала в мок-стор напрямую.
+    await loadHistory()
     showToast(t('msg.bcc_sent'))
 
     // Reset products; keep preselected recipient (via email) checked for the next batch
@@ -341,10 +328,6 @@ function openResponseModal(evt: BccRequest) {
   modalOpen.value = true
 }
 
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10)
-}
-
 async function savePrice() {
   if (!responsePrice.value || Number.isNaN(Number(responsePrice.value))) {
     showToast(t('msg.enter_price'), 'error')
@@ -378,39 +361,7 @@ const SOURCE_OPTIONS = ['BCC Tool', 'Email', 'Phone', 'Messenger', 'Other'] as c
 type LogSource = (typeof SOURCE_OPTIONS)[number]
 const logSource = ref<LogSource>('Email')
 
-const SOURCE_TRANSLATIONS: Record<string, TranslatedString> = {
-  'BCC Tool': { ru: 'BCC Инструмент', en: 'BCC Tool', lt: 'BCC įrankis' },
-  Email: { ru: 'Email', en: 'Email', lt: 'El. paštas' },
-  Phone: { ru: 'Телефон', en: 'Phone', lt: 'Telefonas' },
-  Messenger: { ru: 'Мессенджер', en: 'Messenger', lt: 'Messenger' },
-  Other: { ru: 'Другое', en: 'Other', lt: 'Kita' },
-}
 const logDropdownOpen = ref(false)
-
-function createEventRows(source: string): BccRequest[] {
-  const requestId = nextRequestId()
-  const today = todayIso()
-  const rows: BccRequest[] = []
-  for (const recipientId of selectedRecipientIds.value) {
-    const r = recipients.value.find((x) => x.id === recipientId)
-    if (!r) continue
-    for (const productId of selectedProductIds.value) {
-      const p = productOptions.value.find((po) => po.value === productId)
-      rows.push({
-        id: `evt-${Date.now()}-${recipientId}-${productId}`,
-        requestId,
-        date: today,
-        supplierId: r.id,
-        supplierName: r.company,
-        productId,
-        productName: p?.name ?? { ru: productId, en: productId, lt: productId },
-        source: SOURCE_TRANSLATIONS[source] ?? mergeLocaleValue(undefined, source, locale.value),
-        status: 'sent',
-      })
-    }
-  }
-  return rows
-}
 
 function validateSelection(): boolean {
   if (selectedProductIds.value.length === 0) {
@@ -435,9 +386,8 @@ async function logRequest(source: string) {
       },
       locale.value,
     )
-    const rows = createEventRows(source)
-    history.value = [...rows, ...history.value]
-    MOCK_BCC_HISTORY.unshift(...rows)
+    // Как и при отправке: строки завёл сервер, клиент их перечитывает.
+    await loadHistory()
     showToast(t('msg.bcc_logged'))
 
     // Reset products; keep preselected recipient if any

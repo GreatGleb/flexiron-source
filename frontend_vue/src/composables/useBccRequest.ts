@@ -139,8 +139,11 @@ export function useBccRequest() {
         },
         locale.value,
       )
-      // NOTE: history reloading is intentionally skipped — callers manage history locally
-      // (event-sourcing new rows per product × recipient) and a reload would wipe those events.
+      // Ленту здесь не перечитываем намеренно: строки события создаёт сервер, а
+      // перечитывает их вызывающий — ему же решать, когда (страница делает это
+      // сразу после успешной отправки). Раньше на этом месте стояло обратное
+      // объяснение: «вызывающие ведут ленту локально, и перезагрузка стёрла бы
+      // их события», — то есть комментарий закреплял БАГ-01.
       return requestId
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to send BCC request'

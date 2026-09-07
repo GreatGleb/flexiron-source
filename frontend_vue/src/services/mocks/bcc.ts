@@ -258,7 +258,10 @@ export function mockGetBccHistory(
   const total = MOCK_BCC_HISTORY.length
   const start = (page - 1) * pageSize
   return {
-    items: MOCK_BCC_HISTORY.slice(start, start + pageSize),
+    // Копия, а не срез ссылок: между настоящим сервером и клиентом стоит
+    // сериализация, и мок обязан быть не слабее неё. Тот же приём у соседа —
+    // `mocks/notifications.ts:424`.
+    items: structuredClone(MOCK_BCC_HISTORY.slice(start, start + pageSize)),
     total,
     page,
     pageSize,
@@ -301,6 +304,119 @@ function plainText(value: TranslatedString | string): string {
 }
 
 /**
+ * Каталог источников запроса. Подпись строки ленты принадлежит серверу.
+ *
+ * Раньше каталог лежал константой страницы (`BccRequestPage.vue`,
+ * `SOURCE_TRANSLATIONS`), и это работало только потому, что строки ленты
+ * сочиняла та же страница. На проводе `source` приходит `TranslatedString`,
+ * заполненный в ОДНОЙ локали (`bccService.ts` → `toTranslatedString`), поэтому
+ * положить его в ленту как есть нельзя: в остальных двух локалях строка
+ * отрисовалась бы пустой — питфолл #38. Отсюда сопоставление с каталогом по
+ * любой из локалей.
+ */
+const SOURCE_LABELS: Record<string, TranslatedString> = {
+  'BCC Tool': { ru: 'BCC Инструмент', en: 'BCC Tool', lt: 'BCC įrankis' },
+  Email: { ru: 'Email', en: 'Email', lt: 'El. paštas' },
+  Phone: { ru: 'Телефон', en: 'Phone', lt: 'Telefonas' },
+  Messenger: { ru: 'Мессенджер', en: 'Messenger', lt: 'Messenger' },
+  Other: { ru: 'Другое', en: 'Other', lt: 'Kita' },
+}
+
+function resolveSource(incoming: TranslatedString | string): TranslatedString {
+  const value = plainText(incoming)
+  const known = Object.values(SOURCE_LABELS).find(
+    (label) => label.en === value || label.ru === value || label.lt === value,
+  )
+  if (known) return { ...known }
+  // Отдельной проверки по КЛЮЧУ каталога здесь нет намеренно: у всех пяти
+  // записей ключ совпадает со своим `en`, то есть поиск выше её уже покрывает.
+  // Вторая такая же проверка была бы недостижимой ветвью.
+  //
+  // Источника нет в каталоге — сохраняем как пришло, но во всех трёх локалях,
+  // иначе строка ленты будет пустой в двух из них.
+  return { ru: value, en: value, lt: value }
+}
+
+/**
+ * Счётчики монотонные: они не выводятся из длины массива и не уменьшаются от
+ * удаления — тот же приём, что `nextSeq`/`nextId` в `mocks/orders.ts:1353-1357`.
+ * Начальное значение снимается с сидов один раз при загрузке модуля, чтобы не
+ * держать рядом с ними вторую копию их же последнего номера.
+ */
+function maxSeq(prefix: string, values: string[]): number {
+  let max = 0
+  for (const value of values) {
+    const m = new RegExp(`^${prefix}-(\\d+)$`).exec(value)
+    if (m) max = Math.max(max, Number(m[1]))
+  }
+  return max
+}
+
+let nextRequestSeq =
+  maxSeq(
+    'req',
+    MOCK_BCC_HISTORY.map((e) => e.requestId),
+  ) + 1
+let nextEventSeq =
+  maxSeq(
+    'evt',
+    MOCK_BCC_HISTORY.map((e) => e.id),
+  ) + 1
+
+function findProductName(productId: string): TranslatedString {
+  for (const root of MOCK_BCC_CATEGORIES) {
+    if (root.id === productId) return { ...root.name }
+    for (const leaf of root.children ?? []) {
+      if (leaf.id === productId) return { ...leaf.name }
+    }
+  }
+  return { ru: productId, en: productId, lt: productId }
+}
+
+/**
+ * Строки события — обязанность сервера, и создаются они в той же транзакции, что
+ * и отправка.
+ *
+ * Раньше их сочинял браузер: `BccRequestPage.vue` импортировала
+ * `MOCK_BCC_HISTORY` напрямую и дописывала в него результат своих действий. Это
+ * была единственная не-спека проекта, которая импортировала мок в `src/views`.
+ * Против настоящего сервера письмо бы ушло, а истории не осталось ни у кого —
+ * включая самого отправителя после перезагрузки.
+ *
+ * Одна строка на пару «получатель × позиция»: `requestId` общий, `id` у каждой
+ * свой, и оба присваивает сервер — клиенту их считать больше не по чем.
+ */
+function createEventRows(
+  productIds: string[],
+  recipientIds: string[],
+  source: TranslatedString | string,
+): { requestId: string; events: BccRequest[] } {
+  const requestId = `req-${String(nextRequestSeq++).padStart(3, '0')}`
+  const date = new Date().toISOString().slice(0, 10)
+  const label = resolveSource(source)
+  const events: BccRequest[] = []
+  for (const recipientId of recipientIds) {
+    const supplier = MOCK_SUPPLIERS.find((s) => s.id === recipientId)
+    if (!supplier) continue
+    for (const productId of productIds) {
+      events.push({
+        id: `evt-${String(nextEventSeq++).padStart(3, '0')}`,
+        requestId,
+        date,
+        supplierId: supplier.id,
+        supplierName: { ...supplier.company },
+        productId,
+        productName: findProductName(productId),
+        source: { ...label },
+        status: 'sent',
+      })
+    }
+  }
+  MOCK_BCC_HISTORY.unshift(...events)
+  return { requestId, events: structuredClone(events) }
+}
+
+/**
  * Отправка запроса цен. Письмо уходит ОДНОЙ транзакцией: один конверт, все адреса
  * поставщиков в BCC (спека 04.2 §4 — поставщики не должны видеть друг друга).
  *
@@ -331,15 +447,26 @@ export function mockSendBccRequest(payload: {
     sentAt: new Date().toISOString(),
   })
 
-  return { requestId: `req-${Date.now()}` }
+  // Строки события — в той же транзакции, что и конверт. Гейт
+  // `MAIL_NOT_CONFIGURED` стоит выше, поэтому отказ не оставляет ни письма,
+  // ни строк.
+  const { requestId } = createEventRows(payload.productIds, payload.recipientIds, 'BCC Tool')
+  return { requestId }
 }
 
-export function mockLogBccRequest(_payload: {
+/**
+ * Запрос, пришедший не через инструмент (телефон, письмо, мессенджер), — тот же
+ * набор строк, только без конверта и с другим `source`. Раньше эта ветка
+ * игнорировала payload целиком и возвращала один идентификатор, то есть не
+ * делала того, ради чего эндпоинт существует.
+ */
+export function mockLogBccRequest(payload: {
   productIds: string[]
   recipientIds: string[]
   source: TranslatedString | string
 }): { requestId: string } {
-  return { requestId: `req-${Date.now()}` }
+  const { requestId } = createEventRows(payload.productIds, payload.recipientIds, payload.source)
+  return { requestId }
 }
 
 export function mockAcceptResponse(
