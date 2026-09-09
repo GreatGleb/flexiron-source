@@ -1658,7 +1658,14 @@ async function deleteMockRoute<T>(path: string, headers?: Record<string, string>
 }
 
 // ─── UPLOAD ───
-async function uploadMockRoute<T>(path: string, file: File): Promise<T> {
+// `_headers` принимается по тому же правилу, что у PUT и PATCH: заголовки запроса не
+// теряются на границе мока. Своего поведения у них здесь пока нет — идемпотентность
+// загрузки ждёт решения владельца, — но путь 401 без этого параметра недостижим вовсе.
+async function uploadMockRoute<T>(
+  path: string,
+  file: File,
+  _headers?: Record<string, string>,
+): Promise<T> {
   if (path === '/api/uploads') {
     const fileId = `file-${uploadSeq++}-${Date.now()}`
     // Convert file to data URL so the URL survives localStorage cache across page reloads.
@@ -1723,6 +1730,10 @@ export async function deleteMock<T>(path: string, headers?: Record<string, strin
   return dispatch(() => deleteMockRoute<T>(path, headers))
 }
 
-export async function uploadMock<T>(path: string, file: File): Promise<T> {
-  return dispatch(() => uploadMockRoute<T>(path, file))
+export async function uploadMock<T>(
+  path: string,
+  file: File,
+  headers?: Record<string, string>,
+): Promise<T> {
+  return dispatch(() => uploadMockRoute<T>(path, file, headers))
 }

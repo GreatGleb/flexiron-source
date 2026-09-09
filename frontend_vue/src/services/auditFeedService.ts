@@ -1,4 +1,5 @@
 import { apiGet } from './api'
+import { authHeaders } from './authToken'
 import { deleteProductAuditEntry } from './productsService'
 import { deleteClientAuditEntry } from './clientsService'
 import { deleteAuditEntry as deleteSupplierAuditEntry } from './suppliersService'
@@ -16,12 +17,6 @@ import type {
   AuditFeedRow,
   AuditFeedUser,
 } from '@/types/audit'
-
-function authHeaders(): Record<string, string> | undefined {
-  const token = localStorage.getItem('auth_token')
-  if (!token) return undefined
-  return { Authorization: `Bearer ${token}` }
-}
 
 export async function getAuditFeed(
   filters: AuditFeedFilters,

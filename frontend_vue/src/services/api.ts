@@ -1,11 +1,28 @@
 import type { ApiResponse } from '@/types/api'
 import { ApiRequestError } from '@/types/api'
+import { authHeaders } from './authToken'
 
 const USE_MOCKS = import.meta.env.VITE_USE_MOCKS !== 'false'
 
 export interface RequestOptions {
   /** Extra headers for this request (e.g. Idempotency-Key). */
   headers?: Record<string, string>
+}
+
+/**
+ * Заголовки запроса: авторизация плюс то, что запрос принёс с собой.
+ *
+ * Подписывание перестало быть решением каждого вызова: до этого заголовки ставили шесть
+ * файлов сервисного слоя из двадцати семи, а остальные ходили без них при том, что их
+ * таблицы объявлены `tenant_id NOT NULL`. Свои заголовки запроса идут вторыми и потому
+ * сильнее: `Idempotency-Key` и `If-Match` перебивают что угодно.
+ */
+function buildHeaders(
+  options: RequestOptions | undefined,
+  base?: Record<string, string>,
+): Record<string, string> | undefined {
+  const merged = { ...base, ...authHeaders(), ...options?.headers }
+  return Object.keys(merged).length > 0 ? merged : undefined
 }
 
 /**
@@ -155,7 +172,7 @@ export async function apiGet<T>(
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v))
   }
   const res = await fetch(url.toString(), {
-    headers: options?.headers,
+    headers: buildHeaders(options),
   })
   return unwrap<T>(res, 'GET', path)
 }
@@ -171,7 +188,7 @@ export async function apiPost<T>(
   }
   const res = await fetch(path, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...(options?.headers ?? {}) },
+    headers: buildHeaders(options, { 'Content-Type': 'application/json' }),
     body: JSON.stringify(body),
   })
   return unwrap<T>(res, 'POST', path)
@@ -184,7 +201,7 @@ export async function apiPut<T>(path: string, body: unknown, options?: RequestOp
   }
   const res = await fetch(path, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json', ...(options?.headers ?? {}) },
+    headers: buildHeaders(options, { 'Content-Type': 'application/json' }),
     body: JSON.stringify(body),
   })
   return unwrap<T>(res, 'PUT', path)
@@ -202,7 +219,7 @@ export async function apiPatch<T>(
   }
   const res = await fetch(path, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...(options?.headers ?? {}) },
+    headers: buildHeaders(options, { 'Content-Type': 'application/json' }),
     body: JSON.stringify(body),
   })
   return unwrap<T>(res, 'PATCH', path)
@@ -215,7 +232,7 @@ export async function apiDelete<T = void>(path: string, options?: RequestOptions
   }
   const res = await fetch(path, {
     method: 'DELETE',
-    headers: options?.headers ?? {},
+    headers: buildHeaders(options),
   })
   return unwrap<T>(res, 'DELETE', path)
 }
@@ -224,14 +241,15 @@ export async function apiDelete<T = void>(path: string, options?: RequestOptions
 export async function apiUpload<T>(path: string, file: File, options?: RequestOptions): Promise<T> {
   if (USE_MOCKS) {
     const { uploadMock } = await import('./mocks/index')
-    return uploadMock<T>(path, file)
+    return uploadMock<T>(path, file, options?.headers)
   }
   const form = new FormData()
   form.append('file', file)
+  // Content-Type не ставим: его вместе с boundary выставляет FormData.
   const res = await fetch(path, {
     method: 'POST',
     body: form,
-    headers: options?.headers,
+    headers: buildHeaders(options),
   })
   return unwrap<T>(res, 'UPLOAD', path)
 }

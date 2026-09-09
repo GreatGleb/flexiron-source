@@ -11,6 +11,7 @@ import AuthLinkHandler from '@/views/public/AuthLinkHandler.vue'
 import SupportPage from '@/views/public/SupportPage.vue'
 import TermsPage from '@/views/public/TermsPage.vue'
 import ScreensPage from '@/views/public/ScreensPage.vue'
+import { getStoredToken } from '@/services/authToken'
 
 /** List of route names that are publicly accessible without auth. */
 const PUBLIC_ROUTES = new Set<string>([
@@ -26,12 +27,12 @@ const PUBLIC_ROUTES = new Set<string>([
 ])
 
 /**
- * Check if an auth token exists in either localStorage or sessionStorage.
- * This is a synchronous check used by the router guard (avoids importing
- * useAuth which depends on useRouter context).
+ * Check if an auth token exists in either storage.
+ * Synchronous check used by the router guard — `services/authToken` не тянет за собой
+ * ни vue, ни `useRouter`, поэтому импортируется здесь без оговорок.
  */
 function hasAuthToken(): boolean {
-  return !!(localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token'))
+  return getStoredToken() !== null
 }
 
 const routes: RouteRecordRaw[] = [

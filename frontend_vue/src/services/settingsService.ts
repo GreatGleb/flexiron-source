@@ -1,4 +1,5 @@
 import { apiGet, apiPut, apiPost, apiPatch, apiDelete } from './api'
+import { authHeaders } from './authToken'
 import type {
   CompanyInfo,
   GlobalConstants,
@@ -12,14 +13,6 @@ import type {
   MailServerSettings,
   MailServerPayload,
 } from '@/types/settings'
-
-// ─── Auth headers helper ─────────────────────────────────────────────────
-
-function authHeaders(): Record<string, string> | undefined {
-  const token = localStorage.getItem('auth_token')
-  if (!token) return undefined
-  return { Authorization: `Bearer ${token}` }
-}
 
 // ─── Company ─────────────────────────────────────────────────────────────
 

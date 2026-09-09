@@ -9,6 +9,7 @@
 import { ref, computed, readonly } from 'vue'
 import { useRouter } from 'vue-router'
 import { apiPost, apiGet } from '@/services/api'
+import { TOKEN_KEY, CSRF_KEY, getStoredToken, authHeaders } from '@/services/authToken'
 import { ApiRequestError } from '@/types/api'
 import { useSettings } from '@/composables/useSettings'
 import type {
@@ -24,8 +25,6 @@ const currentUser = ref<UserInfo | null>(null)
 const isLoading = ref(false)
 const error = ref<string | null>(null)
 
-const TOKEN_KEY = 'auth_token'
-const CSRF_KEY = 'csrf_token'
 const USER_CACHE_KEY = 'auth_user_cache'
 
 /** Which storage to use — set on login, used by getters. */
@@ -34,14 +33,6 @@ let _useLocalStorage = true
 /** Resolve the correct Storage based on the remember-me flag. */
 function storage(): Storage {
   return _useLocalStorage ? localStorage : sessionStorage
-}
-
-function getStoredToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY) ?? sessionStorage.getItem(TOKEN_KEY) ?? null
-}
-
-function getStoredCsrf(): string | null {
-  return localStorage.getItem(CSRF_KEY) ?? sessionStorage.getItem(CSRF_KEY) ?? null
 }
 
 function removeFromBothStorages(key: string): void {
@@ -95,16 +86,6 @@ export function useAuth() {
     removeFromBothStorages(CSRF_KEY)
     clearCachedUser()
     currentUser.value = null
-  }
-
-  /** Build headers with auth token for API calls. */
-  function authHeaders(): Record<string, string> | undefined {
-    const token = getStoredToken()
-    if (!token) return undefined
-    return {
-      Authorization: `Bearer ${token}`,
-      'X-CSRF-Token': getStoredCsrf() ?? '',
-    }
   }
 
   /**
