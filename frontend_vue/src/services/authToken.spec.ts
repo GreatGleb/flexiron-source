@@ -229,3 +229,57 @@ describe('хранилища может не быть вовсе', () => {
     expect(getStoredCsrf()).toBeNull()
   })
 })
+
+// Вторая половина uploads/БАГ-04: «путь 401 под моками недостижим». Достижимой её делает
+// крючок test_mock_require_auth — флаг-состояние по образцу питфолла #65, единственного
+// такого крючка в проекте (mocks/notifications.ts). По умолчанию выключен: под моками
+// админка доступна без входа намеренно, и отказ по умолчанию снёс бы демо целиком.
+describe('путь 401 под моками достижим', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    sessionStorage.clear()
+    vi.stubEnv('VITE_USE_MOCKS', 'true')
+    vi.resetModules()
+  })
+
+  afterEach(() => {
+    localStorage.removeItem('test_mock_require_auth')
+    vi.unstubAllEnvs()
+  })
+
+  it('крючок выключен — неподписанный запрос проходит, демо не сломано', async () => {
+    const { apiGet } = await import('./api')
+    await expect(apiGet('/api/analytics/dashboard')).resolves.toBeDefined()
+  })
+
+  it('крючок включён, токена нет — 401 с кодом UNAUTHORIZED', async () => {
+    localStorage.setItem('test_mock_require_auth', 'true')
+    const { apiGet } = await import('./api')
+    await expect(apiGet('/api/analytics/dashboard')).rejects.toMatchObject({
+      status: 401,
+      code: 'UNAUTHORIZED',
+    })
+  })
+
+  it('крючок включён, токен есть — запрос проходит', async () => {
+    localStorage.setItem('test_mock_require_auth', 'true')
+    localStorage.setItem(TOKEN_KEY, 'tok-signed')
+    const { apiGet } = await import('./api')
+    await expect(apiGet('/api/analytics/dashboard')).resolves.toBeDefined()
+  })
+
+  it('флаг залипает: второй запрос отвергается так же, как первый (#65)', async () => {
+    localStorage.setItem('test_mock_require_auth', 'true')
+    const { apiGet } = await import('./api')
+    await expect(apiGet('/api/analytics/dashboard')).rejects.toMatchObject({ status: 401 })
+    await expect(apiGet('/api/analytics/dashboard')).rejects.toMatchObject({ status: 401 })
+  })
+
+  it('загрузка файла закрыта тем же крючком — это и был uploads/БАГ-04', async () => {
+    localStorage.setItem('test_mock_require_auth', 'true')
+    const { apiUpload } = await import('./api')
+    await expect(
+      apiUpload('/api/uploads', new File(['x'], 'x.pdf', { type: 'application/pdf' })),
+    ).rejects.toMatchObject({ status: 401, code: 'UNAUTHORIZED' })
+  })
+})

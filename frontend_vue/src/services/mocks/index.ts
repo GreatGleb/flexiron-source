@@ -201,6 +201,7 @@ import {
 } from './finance'
 import { mockGetAuditFeed, mockGetAuditFeedUsers } from './auditFeed'
 import type { AuditFeedFilters } from '@/types/audit'
+import { ApiRequestError } from '@/types/api'
 
 /**
  * How many mock answers are still on their way.
@@ -240,6 +241,37 @@ publishPending()
  * ожидания не существовал вовсе — страница, спросившая и получившая отказ, выглядела
  * как страница, которая ничего не спрашивала.
  */
+/**
+ * Крючок «сервер требует подпись» — им и становится достижимой ветка 401 под моками.
+ *
+ * Почему флагом, а не по умолчанию: под моками админка доступна БЕЗ входа намеренно —
+ * охранник роутера выходит первой строкой (`router/index.ts`, `if (USE_MOCKS) return`),
+ * и отказывай мок неподписанным запросам всегда, демо перестало бы работать целиком,
+ * а с ним и весь браузерный набор.
+ *
+ * Почему флаг залипающий, а не одноразовый: питфолл #65 — сбой в моке это СОСТОЯНИЕ, а не
+ * мгновение. Композаблы уровня модуля синглтоны, колокольчик спрашивает моки на каждой
+ * админской странице, и одноразовый флаг достался бы тому, кто дошёл первым, — а кто
+ * дойдёт первым, тест назвать не может. Снимает флаг тест, сам он не стирается.
+ *
+ * Почему `ApiRequestError`, а не голый `Error`: мок обязан быть неотличим от сервера
+ * (линза Л4). Настоящий 401 приходит с кодом `UNAUTHORIZED` (`core/exceptions.py:30-34`),
+ * и клиент читает его из `code`, а не из текста.
+ *
+ * Заголовки сюда доходят с тех пор, как `api.ts` собирает подпись и для мок-ветки тоже.
+ * До этого проверять было нечего — отсюда и «путь 401 под моками недостижим».
+ */
+function assertAuthorized(headers?: Record<string, string>): void {
+  if (typeof localStorage === 'undefined') return
+  if (localStorage.getItem('test_mock_require_auth') !== 'true') return
+  if (headers?.Authorization) return
+  throw new ApiRequestError({
+    status: 401,
+    message: 'Mock: request is not signed',
+    code: 'UNAUTHORIZED',
+  })
+}
+
 async function dispatch<T>(run: () => Promise<T>): Promise<T> {
   pendingMockRequests += 1
   totalMockRequests += 1
@@ -1663,8 +1695,9 @@ async function deleteMockRoute<T>(path: string, headers?: Record<string, string>
 
 // ─── UPLOAD ───
 // `_headers` принимается по тому же правилу, что у PUT и PATCH: заголовки запроса не
-// теряются на границе мока. Своего поведения у них здесь пока нет — идемпотентность
-// загрузки ждёт решения владельца, — но путь 401 без этого параметра недостижим вовсе.
+// теряются на границе мока. Подпись проверяет `assertAuthorized` выше по вызову; сама
+// маршрутизация загрузки заголовков не читает. Идемпотентность загрузки решена П50 —
+// отсев повторов делает клиент, сервер о них не знает.
 async function uploadMockRoute<T>(
   path: string,
   file: File,
@@ -1707,6 +1740,7 @@ export async function getMock<T>(
   params?: Record<string, string>,
   headers?: Record<string, string>,
 ): Promise<T> {
+  assertAuthorized(headers)
   return dispatch(() => getMockRoute<T>(path, params, headers))
 }
 
@@ -1715,6 +1749,7 @@ export async function postMock<T>(
   body: unknown,
   headers?: Record<string, string>,
 ): Promise<T> {
+  assertAuthorized(headers)
   return dispatch(() => postMockRoute<T>(path, body, headers))
 }
 
@@ -1723,6 +1758,7 @@ export async function putMock<T>(
   body: unknown,
   headers?: Record<string, string>,
 ): Promise<T> {
+  assertAuthorized(headers)
   return dispatch(() => putMockRoute<T>(path, body, headers))
 }
 
@@ -1731,10 +1767,12 @@ export async function patchMock<T>(
   body: unknown,
   headers?: Record<string, string>,
 ): Promise<T> {
+  assertAuthorized(headers)
   return dispatch(() => patchMockRoute<T>(path, body, headers))
 }
 
 export async function deleteMock<T>(path: string, headers?: Record<string, string>): Promise<T> {
+  assertAuthorized(headers)
   return dispatch(() => deleteMockRoute<T>(path, headers))
 }
 
@@ -1743,5 +1781,6 @@ export async function uploadMock<T>(
   file: File,
   headers?: Record<string, string>,
 ): Promise<T> {
+  assertAuthorized(headers)
   return dispatch(() => uploadMockRoute<T>(path, file, headers))
 }
