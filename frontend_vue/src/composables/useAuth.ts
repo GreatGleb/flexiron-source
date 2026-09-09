@@ -9,7 +9,7 @@
 import { ref, computed, readonly } from 'vue'
 import { useRouter } from 'vue-router'
 import { apiPost, apiGet } from '@/services/api'
-import { TOKEN_KEY, CSRF_KEY, getStoredToken, authHeaders } from '@/services/authToken'
+import { TOKEN_KEY, CSRF_KEY, getStoredToken } from '@/services/authToken'
 import { ApiRequestError } from '@/types/api'
 import { useSettings } from '@/composables/useSettings'
 import type {
@@ -178,9 +178,7 @@ export function useAuth() {
 
     isLoading.value = true
     try {
-      const result = await apiGet<UserInfo>('/api/auth/me', undefined, {
-        headers: authHeaders(),
-      })
+      const result = await apiGet<UserInfo>('/api/auth/me')
       saveCachedUser(result)
       currentUser.value = result
     } catch (err: unknown) {
@@ -210,7 +208,7 @@ export function useAuth() {
     }
 
     try {
-      await apiPost('/api/auth/logout', {}, { headers: authHeaders() })
+      await apiPost('/api/auth/logout', {})
     } catch {
       // Silently ignore — session will be cleared locally anyway
     }
@@ -232,7 +230,6 @@ export function useAuth() {
     register,
     fetchMe,
     logout,
-    authHeaders,
     clearSession,
     setSession,
   }

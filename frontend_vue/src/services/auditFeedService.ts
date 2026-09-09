@@ -1,5 +1,4 @@
 import { apiGet } from './api'
-import { authHeaders } from './authToken'
 import { deleteProductAuditEntry } from './productsService'
 import { deleteClientAuditEntry } from './clientsService'
 import { deleteAuditEntry as deleteSupplierAuditEntry } from './suppliersService'
@@ -22,23 +21,19 @@ export async function getAuditFeed(
   filters: AuditFeedFilters,
   pagination: { page: number; pageSize: number },
 ): Promise<AuditFeedResponse> {
-  return apiGet<AuditFeedResponse>(
-    '/api/audit-feed',
-    {
-      entityType: filters.entityType,
-      user: filters.user,
-      dateFrom: filters.dateFrom,
-      dateTo: filters.dateTo,
-      search: filters.search,
-      page: String(pagination.page),
-      pageSize: String(pagination.pageSize),
-    },
-    { headers: authHeaders() },
-  )
+  return apiGet<AuditFeedResponse>('/api/audit-feed', {
+    entityType: filters.entityType,
+    user: filters.user,
+    dateFrom: filters.dateFrom,
+    dateTo: filters.dateTo,
+    search: filters.search,
+    page: String(pagination.page),
+    pageSize: String(pagination.pageSize),
+  })
 }
 
 export async function getAuditFeedUsers(): Promise<AuditFeedUser[]> {
-  return apiGet<AuditFeedUser[]>('/api/audit-feed/users', undefined, { headers: authHeaders() })
+  return apiGet<AuditFeedUser[]>('/api/audit-feed/users')
 }
 
 /**

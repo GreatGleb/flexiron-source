@@ -1,5 +1,4 @@
 import { apiGet, apiPut, apiPost, apiPatch, apiDelete } from './api'
-import { authHeaders } from './authToken'
 import type {
   CompanyInfo,
   GlobalConstants,
@@ -17,116 +16,106 @@ import type {
 // ─── Company ─────────────────────────────────────────────────────────────
 
 export async function getCompany(): Promise<CompanyInfo> {
-  return apiGet<CompanyInfo>('/api/settings/company', undefined, { headers: authHeaders() })
+  return apiGet<CompanyInfo>('/api/settings/company')
 }
 
 export async function saveCompany(data: Partial<CompanyInfo>): Promise<CompanyInfo> {
-  return apiPatch<CompanyInfo>('/api/settings/company', data, { headers: authHeaders() })
+  return apiPatch<CompanyInfo>('/api/settings/company', data)
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────
 
 export async function getOrderPermissions(): Promise<OrderPermissions> {
-  return apiGet<OrderPermissions>('/api/settings/order-permissions', undefined, {
-    headers: authHeaders(),
-  })
+  return apiGet<OrderPermissions>('/api/settings/order-permissions')
 }
 
 export async function getConstants(): Promise<GlobalConstants> {
-  return apiGet<GlobalConstants>('/api/settings/constants', undefined, { headers: authHeaders() })
+  return apiGet<GlobalConstants>('/api/settings/constants')
 }
 
 export async function saveConstants(data: Partial<GlobalConstants>): Promise<GlobalConstants> {
-  return apiPatch<GlobalConstants>('/api/settings/constants', data, { headers: authHeaders() })
+  return apiPatch<GlobalConstants>('/api/settings/constants', data)
 }
 
 // ─── Currencies ──────────────────────────────────────────────────────────
 
 export async function getCurrencies(): Promise<Currency[]> {
-  return apiGet<Currency[]>('/api/settings/currencies', undefined, { headers: authHeaders() })
+  return apiGet<Currency[]>('/api/settings/currencies')
 }
 
 export async function createCurrency(data: Omit<Currency, 'id'>): Promise<Currency> {
-  return apiPost<Currency>('/api/settings/currencies', data, { headers: authHeaders() })
+  return apiPost<Currency>('/api/settings/currencies', data)
 }
 
 export async function updateCurrency(id: string, data: Partial<Currency>): Promise<void> {
-  await apiPatch<void>(`/api/settings/currencies/${id}`, data, { headers: authHeaders() })
+  await apiPatch<void>(`/api/settings/currencies/${id}`, data)
 }
 
 export async function deleteCurrency(id: string): Promise<void> {
-  await apiDelete<void>(`/api/settings/currencies/${id}`, { headers: authHeaders() })
+  await apiDelete<void>(`/api/settings/currencies/${id}`)
 }
 
 // ─── Units of Measure ────────────────────────────────────────────────────
 
 export async function getUoms(): Promise<Uom[]> {
-  return apiGet<Uom[]>('/api/settings/uoms', undefined, { headers: authHeaders() })
+  return apiGet<Uom[]>('/api/settings/uoms')
 }
 
 export async function createUom(data: Omit<Uom, 'id'>): Promise<Uom> {
-  return apiPost<Uom>('/api/settings/uoms', data, { headers: authHeaders() })
+  return apiPost<Uom>('/api/settings/uoms', data)
 }
 
 export async function updateUom(id: string, data: Partial<Uom>): Promise<void> {
-  await apiPatch<void>(`/api/settings/uoms/${id}`, data, { headers: authHeaders() })
+  await apiPatch<void>(`/api/settings/uoms/${id}`, data)
 }
 
 export async function deleteUom(id: string): Promise<void> {
-  await apiDelete<void>(`/api/settings/uoms/${id}`, { headers: authHeaders() })
+  await apiDelete<void>(`/api/settings/uoms/${id}`)
 }
 
 // ─── Conversion Rules ────────────────────────────────────────────────────
 
 export async function getConversions(): Promise<UomConversion[]> {
-  return apiGet<UomConversion[]>('/api/settings/conversions', undefined, { headers: authHeaders() })
+  return apiGet<UomConversion[]>('/api/settings/conversions')
 }
 
 export async function createConversion(data: Omit<UomConversion, 'id'>): Promise<UomConversion> {
-  return apiPost<UomConversion>('/api/settings/conversions', data, { headers: authHeaders() })
+  return apiPost<UomConversion>('/api/settings/conversions', data)
 }
 
 export async function updateConversion(id: string, data: Partial<UomConversion>): Promise<void> {
-  await apiPatch<void>(`/api/settings/conversions/${id}`, data, { headers: authHeaders() })
+  await apiPatch<void>(`/api/settings/conversions/${id}`, data)
 }
 
 export async function deleteConversion(id: string): Promise<void> {
-  await apiDelete<void>(`/api/settings/conversions/${id}`, { headers: authHeaders() })
+  await apiDelete<void>(`/api/settings/conversions/${id}`)
 }
 
 // ─── Order Statuses ──────────────────────────────────────────────────────
 
 export async function getOrderStatuses(): Promise<OrderStatusSetting[]> {
-  return apiGet<OrderStatusSetting[]>('/api/settings/order-statuses', undefined, {
-    headers: authHeaders(),
-  })
+  return apiGet<OrderStatusSetting[]>('/api/settings/order-statuses')
 }
 
 export async function createOrderStatus(
   data: Omit<OrderStatusSetting, 'id'>,
 ): Promise<OrderStatusSetting> {
-  return apiPost<OrderStatusSetting>('/api/settings/order-statuses', data, {
-    headers: authHeaders(),
-  })
+  return apiPost<OrderStatusSetting>('/api/settings/order-statuses', data)
 }
 
 export async function updateOrderStatus(
   id: string,
   data: Partial<OrderStatusSetting>,
 ): Promise<void> {
-  await apiPatch<void>(`/api/settings/order-statuses/${id}`, data, { headers: authHeaders() })
+  await apiPatch<void>(`/api/settings/order-statuses/${id}`, data)
 }
 
 export async function moveOrderStatus(orderedIds: string[]): Promise<void> {
-  await apiPut<void>(
-    '/api/settings/order-statuses/reorder',
-    { orderedIds },
-    { headers: authHeaders() },
-  )
+  await apiPut<void>('/api/settings/order-statuses/reorder', { orderedIds })
 }
 
 export async function deleteOrderStatus(id: string): Promise<void> {
-  await apiDelete<void>(`/api/settings/order-statuses/${id}`, { headers: authHeaders() })
+  await apiDelete<void>(`/api/settings/order-statuses/${id}`)
 }
 
 // ─── Warehouse map ───────────────────────────────────────────────────────
@@ -136,17 +125,15 @@ export async function deleteOrderStatus(id: string): Promise<void> {
 // приходит уже его метаданные — бинарник в JSON не отправляется никогда.
 
 export async function getWarehouseMap(): Promise<WarehouseMapFile | null> {
-  return apiGet<WarehouseMapFile | null>('/api/settings/warehouse-map', undefined, {
-    headers: authHeaders(),
-  })
+  return apiGet<WarehouseMapFile | null>('/api/settings/warehouse-map')
 }
 
 export async function saveWarehouseMap(data: WarehouseMapFile): Promise<WarehouseMapFile> {
-  return apiPut<WarehouseMapFile>('/api/settings/warehouse-map', data, { headers: authHeaders() })
+  return apiPut<WarehouseMapFile>('/api/settings/warehouse-map', data)
 }
 
 export async function deleteWarehouseMap(): Promise<void> {
-  await apiDelete<void>('/api/settings/warehouse-map', { headers: authHeaders() })
+  await apiDelete<void>('/api/settings/warehouse-map')
 }
 
 // ─── Mail server ─────────────────────────────────────────────────────────
@@ -156,11 +143,11 @@ export async function deleteWarehouseMap(): Promise<void> {
 // сообщает лишь `passwordSet` (пункт 12 плана review-followups).
 
 export async function getMailServer(): Promise<MailServerSettings> {
-  return apiGet<MailServerSettings>('/api/settings/mail', undefined, { headers: authHeaders() })
+  return apiGet<MailServerSettings>('/api/settings/mail')
 }
 
 export async function saveMailServer(data: MailServerPayload): Promise<MailServerSettings> {
-  return apiPatch<MailServerSettings>('/api/settings/mail', data, { headers: authHeaders() })
+  return apiPatch<MailServerSettings>('/api/settings/mail', data)
 }
 
 /**
@@ -169,17 +156,17 @@ export async function saveMailServer(data: MailServerPayload): Promise<MailServe
  * требует — но и не сохраняет: проверяются те параметры, что уже на сервере.
  */
 export async function sendMailServerTest(): Promise<{ deliveredTo: string }> {
-  return apiPost<{ deliveredTo: string }>('/api/settings/mail/test', {}, { headers: authHeaders() })
+  return apiPost<{ deliveredTo: string }>('/api/settings/mail/test', {})
 }
 
 // ─── Profile ─────────────────────────────────────────────────────────────
 
 export async function getProfile(): Promise<UserProfile> {
-  return apiGet<UserProfile>('/api/settings/profile', undefined, { headers: authHeaders() })
+  return apiGet<UserProfile>('/api/settings/profile')
 }
 
 export async function saveProfile(data: Partial<UserProfile>): Promise<UserProfile> {
-  return apiPatch<UserProfile>('/api/settings/profile', data, { headers: authHeaders() })
+  return apiPatch<UserProfile>('/api/settings/profile', data)
 }
 
 export async function changePassword(data: {
@@ -187,5 +174,5 @@ export async function changePassword(data: {
   newPassword: string
   confirmPassword: string
 }): Promise<void> {
-  await apiPost<void>('/api/settings/change-password', data, { headers: authHeaders() })
+  await apiPost<void>('/api/settings/change-password', data)
 }
