@@ -147,7 +147,30 @@ function fileIndex(): Map<string, string[]> {
  * в файле 6 строк» — 193 таких «дефекта» на одном orders.md. Утверждение доказано, если его
  * подтверждает ХОТЬ ОДИН файл, которому написанный путь подходит.
  */
+/**
+ * Кэши разбора: ссылок в документах 14992, а целей у них — десятки. Без кэшей одна и та же
+ * `mocks/orders.ts` читалась и разбивалась на строки тысячи раз за прогон, и спека упиралась
+ * в умолчание vitest: замер 3.44–3.76 с в покое и 5.70 с под нагрузкой при потолке 5000 мс.
+ * То есть гейт краснел от собственной медлительности, а не от найденного дефекта.
+ *
+ * Кэш живёт на модуль и за прогон не сбрасывается. Это законно: оба потребителя —
+ * спека и запуск через `CONTRACT_REFS` — разовые проходы, файлы во время прохода не меняются.
+ */
+const candidateCache = new Map<string, string[]>()
+const lineCache = new Map<string, string[]>()
+
+/** Строки файла с диска, прочитанные один раз за прогон. */
+function linesOf(disk: string): string[] {
+  const hit = lineCache.get(disk)
+  if (hit) return hit
+  const lines = readFileSync(disk, 'utf8').split('\n')
+  lineCache.set(disk, lines)
+  return lines
+}
+
 export function resolveCandidates(path: string): string[] {
+  const cached = candidateCache.get(path)
+  if (cached) return cached
   const root = repoRoot()
   const out: string[] = []
   const add = (p: string): void => {
@@ -160,6 +183,7 @@ export function resolveCandidates(path: string): string[] {
   for (const hit of fileIndex().get(basename(path)) || []) {
     if (hit.endsWith(tail) || !tail.includes('/')) add(hit)
   }
+  candidateCache.set(path, out)
   return out
 }
 
@@ -287,7 +311,7 @@ export function resolveRef(ref: Ref): Verdict {
   let inBounds = 0
   let bestBounds = ''
   for (const disk of candidates) {
-    const lines = readFileSync(disk, 'utf8').split('\n')
+    const lines = linesOf(disk)
     if (ref.from < 1 || ref.to > lines.length) {
       if (!bestBounds) bestBounds = `в ${disk.slice(repoRoot().length + 1)} ${lines.length} строк`
       continue
