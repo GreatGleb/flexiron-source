@@ -141,3 +141,91 @@ describe('api.ts подписывает запрос сам — сервисы �
     expect(headersOf()['Authorization']).toBeUndefined()
   })
 })
+
+// Проводка подписи в мок-ветку. Заведено после разбора скептика: до этого мок-ветки
+// получали только заголовки самого вызова, то есть подписи не видели никогда, и снятие
+// всей проводки не роняло ни одного теста из 801 — изменение было ненаблюдаемым.
+describe('мок видит тот же запрос, что увидел бы сервер', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    sessionStorage.clear()
+    vi.stubEnv('VITE_USE_MOCKS', 'true')
+    vi.resetModules()
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.doUnmock('./mocks/index')
+  })
+
+  /** Подменяем мок-слой целиком и запоминаем, с какими заголовками его позвали. */
+  async function callThrough(
+    verb: 'get' | 'post' | 'delete' | 'upload',
+  ): Promise<Record<string, string> | undefined> {
+    let seen: Record<string, string> | undefined
+    vi.doMock('./mocks/index', () => ({
+      getMock: (_p: string, _q: unknown, h?: Record<string, string>) => {
+        seen = h
+        return Promise.resolve({})
+      },
+      postMock: (_p: string, _b: unknown, h?: Record<string, string>) => {
+        seen = h
+        return Promise.resolve({})
+      },
+      deleteMock: (_p: string, h?: Record<string, string>) => {
+        seen = h
+        return Promise.resolve({})
+      },
+      uploadMock: (_p: string, _f: File, h?: Record<string, string>) => {
+        seen = h
+        return Promise.resolve({})
+      },
+    }))
+    const api = await import('./api')
+    if (verb === 'get') await api.apiGet('/api/analytics/dashboard')
+    if (verb === 'post') await api.apiPost('/api/bcc/send', {})
+    if (verb === 'delete') await api.apiDelete('/api/products/p-1')
+    if (verb === 'upload') await api.apiUpload('/api/uploads', new File(['x'], 'x.pdf'))
+    return seen
+  }
+
+  it.each(['get', 'post', 'delete', 'upload'] as const)(
+    'мок-ветка %s получает Authorization',
+    async (verb) => {
+      localStorage.setItem(TOKEN_KEY, 'tok-mock')
+      expect((await callThrough(verb))?.['Authorization']).toBe('Bearer tok-mock')
+    },
+  )
+
+  it('без токена мок получает undefined, а не пустой объект', async () => {
+    expect(await callThrough('get')).toBeUndefined()
+  })
+})
+
+// Регресс: подпись собирается и для мок-ветки, а юнит-спеки идут в окружении `node`, где
+// localStorage не объявлен вовсе. Отсутствие хранилища обязано читаться как «токена нет».
+describe('хранилища может не быть вовсе', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('нет localStorage — токена нет, а не падение', () => {
+    vi.stubGlobal('localStorage', undefined)
+    vi.stubGlobal('sessionStorage', undefined)
+    expect(() => getStoredToken()).not.toThrow()
+    expect(getStoredToken()).toBeNull()
+    expect(authHeaders()).toBeUndefined()
+  })
+
+  it('хранилище бросает на обращении — токена нет, а не падение', () => {
+    const throwing = {
+      getItem() {
+        throw new DOMException('The operation is insecure.', 'SecurityError')
+      },
+    }
+    vi.stubGlobal('localStorage', throwing)
+    vi.stubGlobal('sessionStorage', throwing)
+    expect(getStoredToken()).toBeNull()
+    expect(getStoredCsrf()).toBeNull()
+  })
+})

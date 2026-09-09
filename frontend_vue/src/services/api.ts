@@ -12,6 +12,11 @@ export interface RequestOptions {
 /**
  * Заголовки запроса: авторизация плюс то, что запрос принёс с собой.
  *
+ * Собираются и для мок-ветки тоже, а не только перед `fetch`. Мок держится того же
+ * правила, что приложение (линза Л4): он обязан видеть тот же запрос, который увидел бы
+ * сервер. До этого мок-ветки получали только заголовки самого вызова, то есть подписи не
+ * видели никогда — и стоять на такой опоре не может ни проверка отказа, ни что-либо ещё.
+ *
  * Подписывание перестало быть решением каждого вызова: до этого заголовки ставили шесть
  * файлов сервисного слоя из двадцати семи, а остальные ходили без них при том, что их
  * таблицы объявлены `tenant_id NOT NULL`. Свои заголовки запроса идут вторыми и потому
@@ -165,7 +170,7 @@ export async function apiGet<T>(
 ): Promise<T> {
   if (USE_MOCKS) {
     const { getMock } = await import('./mocks/index')
-    return getMock<T>(path, params)
+    return getMock<T>(path, params, buildHeaders(options))
   }
   const url = new URL(path, window.location.origin)
   if (params) {
@@ -184,7 +189,7 @@ export async function apiPost<T>(
 ): Promise<T> {
   if (USE_MOCKS) {
     const { postMock } = await import('./mocks/index')
-    return postMock<T>(path, body, options?.headers)
+    return postMock<T>(path, body, buildHeaders(options))
   }
   const res = await fetch(path, {
     method: 'POST',
@@ -197,7 +202,7 @@ export async function apiPost<T>(
 export async function apiPut<T>(path: string, body: unknown, options?: RequestOptions): Promise<T> {
   if (USE_MOCKS) {
     const { putMock } = await import('./mocks/index')
-    return putMock<T>(path, body, options?.headers)
+    return putMock<T>(path, body, buildHeaders(options))
   }
   const res = await fetch(path, {
     method: 'PUT',
@@ -215,7 +220,7 @@ export async function apiPatch<T>(
 ): Promise<T> {
   if (USE_MOCKS) {
     const { patchMock } = await import('./mocks/index')
-    return patchMock<T>(path, body, options?.headers)
+    return patchMock<T>(path, body, buildHeaders(options))
   }
   const res = await fetch(path, {
     method: 'PATCH',
@@ -228,7 +233,7 @@ export async function apiPatch<T>(
 export async function apiDelete<T = void>(path: string, options?: RequestOptions): Promise<T> {
   if (USE_MOCKS) {
     const { deleteMock } = await import('./mocks/index')
-    return deleteMock<T>(path, options?.headers)
+    return deleteMock<T>(path, buildHeaders(options))
   }
   const res = await fetch(path, {
     method: 'DELETE',
@@ -241,7 +246,7 @@ export async function apiDelete<T = void>(path: string, options?: RequestOptions
 export async function apiUpload<T>(path: string, file: File, options?: RequestOptions): Promise<T> {
   if (USE_MOCKS) {
     const { uploadMock } = await import('./mocks/index')
-    return uploadMock<T>(path, file, options?.headers)
+    return uploadMock<T>(path, file, buildHeaders(options))
   }
   const form = new FormData()
   form.append('file', file)

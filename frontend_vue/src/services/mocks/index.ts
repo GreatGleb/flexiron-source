@@ -291,7 +291,11 @@ function parseFinanceListParams(params?: Record<string, string>) {
 }
 
 // ─── GET ───
-async function getMockRoute<T>(path: string, params?: Record<string, string>): Promise<T> {
+async function getMockRoute<T>(
+  path: string,
+  params?: Record<string, string>,
+  _headers?: Record<string, string>,
+): Promise<T> {
   // ── Auth: get current user (validate session) ──
   if (path === '/api/auth/me') {
     const user = getStoredMockUser()
@@ -1698,8 +1702,12 @@ function fileToDataUrl(file: File): Promise<string> {
 // ─── Точки входа: один счётчик на все шесть ─────────────────────────────────
 // Имена и подписи те же, что были: `services/api.ts` их и вызывает.
 
-export async function getMock<T>(path: string, params?: Record<string, string>): Promise<T> {
-  return dispatch(() => getMockRoute<T>(path, params))
+export async function getMock<T>(
+  path: string,
+  params?: Record<string, string>,
+  headers?: Record<string, string>,
+): Promise<T> {
+  return dispatch(() => getMockRoute<T>(path, params, headers))
 }
 
 export async function postMock<T>(

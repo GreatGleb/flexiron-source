@@ -323,7 +323,7 @@ async function handleSave() {
 /**
  * Handle file drop for logo — local preview only.
  * The actual upload is handled by DropZone's internal @uploaded event
- * (via uploadsService.uploadFile which now passes auth headers).
+ * (via uploadsService.uploadFile; заголовки ставит api.ts, а не вызывающий).
  */
 function handleLogoDrop(files: File[]) {
   const file = files[0]

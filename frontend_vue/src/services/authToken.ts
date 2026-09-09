@@ -23,17 +23,36 @@ export const CSRF_KEY = 'csrf_token'
  * недосмотра: пустая строка в одном хранилище заслоняла живой токен в другом.
  */
 export function getStoredToken(): string | null {
-  return readToken(localStorage) ?? readToken(sessionStorage)
+  return readValue(() => localStorage, TOKEN_KEY) ?? readValue(() => sessionStorage, TOKEN_KEY)
 }
 
-function readToken(store: Storage): string | null {
-  const raw = store.getItem(TOKEN_KEY)
-  return raw !== null && raw !== '' ? raw : null
+/**
+ * Значение из хранилища; пустая строка — то же самое, что отсутствие.
+ *
+ * Хранилища может не быть вовсе, и это не теория: юнит-спеки идут в окружении `node`, где
+ * `localStorage` не объявлен, а браузер умеет бросать на обращении к нему в приватном режиме
+ * и при запрещённых данных сайта. Раньше эта ветка не всплывала, потому что подпись
+ * собиралась только перед `fetch`; теперь она собирается и для мок-ветки, и отсутствие
+ * хранилища обязано читаться как «токена нет», а не как падение.
+ */
+function readValue(read: () => Storage, key: string): string | null {
+  try {
+    const raw = read().getItem(key)
+    return raw !== null && raw !== '' ? raw : null
+  } catch {
+    return null
+  }
 }
 
-/** CSRF-токен из любого из двух хранилищ. */
+/**
+ * CSRF-токен из любого из двух хранилищ.
+ *
+ * Пустая строка отсекается так же, как у токена. Сегодня это инертно — сервер CSRF не
+ * проверяет нигде, — но правило в файле-единственном-источнике обязано быть одним для обоих
+ * значений, иначе следующий потребитель напорется на ту же несимметричность.
+ */
 export function getStoredCsrf(): string | null {
-  return localStorage.getItem(CSRF_KEY) ?? sessionStorage.getItem(CSRF_KEY) ?? null
+  return readValue(() => localStorage, CSRF_KEY) ?? readValue(() => sessionStorage, CSRF_KEY)
 }
 
 /**
