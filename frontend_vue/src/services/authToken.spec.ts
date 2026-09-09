@@ -34,6 +34,30 @@ describe('authToken — где лежит токен и как он едет н�
     })
   })
 
+  // Регресс охранника роутера: `??` отсекает только null и undefined, поэтому пустая
+  // строка доезжала как «токен есть», и сравнение с null пускало в админку невошедшего.
+  it('пустая строка в localStorage — это не токен', () => {
+    localStorage.setItem(TOKEN_KEY, '')
+    expect(getStoredToken()).toBeNull()
+    expect(authHeaders()).toBeUndefined()
+  })
+
+  it('пустая строка в sessionStorage — это не токен', () => {
+    sessionStorage.setItem(TOKEN_KEY, '')
+    expect(getStoredToken()).toBeNull()
+    expect(authHeaders()).toBeUndefined()
+  })
+
+  // Дефект СТАРШЕ правки: так вёл себя и прежний getStoredToken в useAuth.ts. Пустая
+  // строка в localStorage возвращалась через `??` как значение и заслоняла настоящий
+  // токен в sessionStorage — человек с живой сессией не получал заголовков вовсе.
+  it('пустая строка в localStorage не заслоняет настоящий токен в sessionStorage', () => {
+    localStorage.setItem(TOKEN_KEY, '')
+    sessionStorage.setItem(TOKEN_KEY, 'tok-session')
+    expect(getStoredToken()).toBe('tok-session')
+    expect(authHeaders()?.['Authorization']).toBe('Bearer tok-session')
+  })
+
   it('localStorage сильнее sessionStorage, когда лежат оба', () => {
     localStorage.setItem(TOKEN_KEY, 'tok-local')
     sessionStorage.setItem(TOKEN_KEY, 'tok-session')

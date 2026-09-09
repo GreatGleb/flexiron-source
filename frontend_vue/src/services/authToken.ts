@@ -14,9 +14,21 @@
 export const TOKEN_KEY = 'auth_token'
 export const CSRF_KEY = 'csrf_token'
 
-/** Токен сессии из любого из двух хранилищ. */
+/**
+ * Токен сессии из любого из двух хранилищ.
+ *
+ * Пустая строка — не токен, и отсекается здесь, в источнике. `??` её не отсекает: он
+ * срабатывает только на `null` и `undefined`. Потребитель, сравнивающий результат с
+ * `null`, на пустой строке решил бы, что человек вошёл. Второе следствие того же
+ * недосмотра: пустая строка в одном хранилище заслоняла живой токен в другом.
+ */
 export function getStoredToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY) ?? sessionStorage.getItem(TOKEN_KEY) ?? null
+  return readToken(localStorage) ?? readToken(sessionStorage)
+}
+
+function readToken(store: Storage): string | null {
+  const raw = store.getItem(TOKEN_KEY)
+  return raw !== null && raw !== '' ? raw : null
 }
 
 /** CSRF-токен из любого из двух хранилищ. */
