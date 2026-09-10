@@ -38,8 +38,8 @@ function frontendRoot(): string {
   return process.cwd()
 }
 
-/** Каталог доменных файлов контракта. Экспортируется задачей 20 — генератору карты. */
-function contractDir(): string {
+/** Каталог доменных файлов контракта. Экспортирован задачей 20 — его зовёт генератор карты. */
+export function contractDir(): string {
   return resolve(frontendRoot(), '../roo_code/roo-context/api')
 }
 
