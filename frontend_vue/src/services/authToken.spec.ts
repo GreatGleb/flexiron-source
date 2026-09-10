@@ -283,3 +283,64 @@ describe('путь 401 под моками достижим', () => {
     ).rejects.toMatchObject({ status: 401, code: 'UNAUTHORIZED' })
   })
 })
+
+// Единственное столкновение ключей, которое здесь вообще возможно.
+//
+// Прежний комментарий у buildHeaders обещал, что Idempotency-Key и If-Match «перебивают что
+// угодно». Обещание было пустым: подпись даёт только Authorization и X-CSRF-Token, и с этими
+// ключами она столкнуться не может — разные имена. Скептик доказал пустоту инверсией: вывернул
+// порядок подписи против опций и получил 827 из 827 зелёных.
+//
+// Настоящее старшинство одно: опции идут ПОСЛЕ base, поэтому вызывающий перебивает
+// Content-Type. Инверсия, которая это ломает, — поставить base последним; выворачивание
+// подписи против опций, как предлагалось, оставило бы тест зелёным, потому что подпись
+// Content-Type не несёт.
+describe('порядок слияния заголовков', () => {
+  const calls: Array<{ init?: RequestInit }> = []
+
+  beforeEach(() => {
+    localStorage.clear()
+    sessionStorage.clear()
+    calls.length = 0
+    vi.stubEnv('VITE_USE_MOCKS', 'false')
+    vi.stubGlobal('fetch', (_u: unknown, init?: RequestInit) => {
+      calls.push({ init })
+      return Promise.resolve(
+        new Response(JSON.stringify({ success: true, data: {} }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+    })
+    vi.resetModules()
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.unstubAllGlobals()
+  })
+
+  it('вызывающий перебивает Content-Type, потому что опции идут последними', async () => {
+    const { apiPost } = await import('./api')
+    await apiPost('/api/settings/mail/test', {}, { headers: { 'Content-Type': 'text/plain' } })
+    const headers = (calls[0]?.init?.headers ?? {}) as Record<string, string>
+    expect(headers['Content-Type']).toBe('text/plain')
+  })
+
+  it('без своего Content-Type остаётся серверный по умолчанию', async () => {
+    const { apiPost } = await import('./api')
+    await apiPost('/api/settings/mail/test', {})
+    const headers = (calls[0]?.init?.headers ?? {}) as Record<string, string>
+    expect(headers['Content-Type']).toBe('application/json')
+  })
+
+  it('подпись и Idempotency-Key сосуществуют, а не спорят — ключи разные', async () => {
+    localStorage.setItem(TOKEN_KEY, 'tok-order')
+    const { apiPost } = await import('./api')
+    await apiPost('/api/bcc/send', {}, { headers: { 'Idempotency-Key': 'key-7' } })
+    const headers = (calls[0]?.init?.headers ?? {}) as Record<string, string>
+    expect(headers['Authorization']).toBe('Bearer tok-order')
+    expect(headers['Idempotency-Key']).toBe('key-7')
+    expect(headers['Content-Type']).toBe('application/json')
+  })
+})
