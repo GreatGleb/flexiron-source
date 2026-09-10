@@ -1,6 +1,25 @@
 import { defineConfig, devices } from '@playwright/test'
 import { REAL_API_BASE_URL, REAL_API_PORT } from './tests/e2e/helpers/realApi'
 
+/**
+ * Порт основного dev-сервера. Переопределяется `PW_PORT`, и это не удобство, а защита от
+ * ложной зелени.
+ *
+ * `reuseExistingServer: !process.env.CI` ниже означает, что прогон ПОДХВАТИТ уже поднятый
+ * vite на этом порту — чей бы он ни был. Порт был захардкожен, поэтому прогон из второго
+ * рабочего дерева (worktree) переиспользовал сервер ПЕРВОГО и молча проверял чужой код,
+ * возвращая зелёное. На это независимо напоролись двое, каждый обошёл по-своему, и ни одно
+ * решение в проекте не осталось.
+ *
+ * Параллельный прогон из другого дерева: `PW_PORT=5273 CI=1 npx playwright test`.
+ * `CI=1` выключает переиспользование, `PW_PORT` уводит порт — по отдельности ни то, ни
+ * другое не работает: без порта Playwright пытается занять занятый 5173, без `CI` подхватит
+ * чужой сервер.
+ *
+ * Второй сервер (режим без моков) выведен отсюда же — `helpers/realApi.ts`, `PW_PORT + 1`.
+ */
+const PORT = Number(process.env.PW_PORT ?? 5173)
+
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
@@ -68,7 +87,7 @@ export default defineConfig({
   },
 
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: `http://localhost:${PORT}`,
     /*
      * Локально повторов нет (`retries: 0` выше), значит «первого повтора» не бывает
      * и `on-first-retry` не снимал trace НИКОГДА — настройка выглядела диагностикой
@@ -88,8 +107,8 @@ export default defineConfig({
 
   webServer: [
     {
-      command: 'npm run dev',
-      url: 'http://localhost:5173',
+      command: `npm run dev -- --port ${PORT} --strictPort`,
+      url: `http://localhost:${PORT}`,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
     },
