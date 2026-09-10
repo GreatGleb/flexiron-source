@@ -58,6 +58,23 @@ describe('authToken — где лежит токен и как он едет н�
     expect(authHeaders()?.['Authorization']).toBe('Bearer tok-session')
   })
 
+  // Н4 скептика: симметрию getStoredCsrf он подтвердил по коду и отдельно отметил, что
+  // правило не утверждено ни одним тестом. Первое утверждение проверяет само правило,
+  // второе — его единственное НАБЛЮДАЕМОЕ следствие: на голом `??` пустая строка вернулась
+  // бы как значение и заслонила живой CSRF в другом хранилище.
+  it('пустая строка в CSRF — это не значение', () => {
+    localStorage.setItem(CSRF_KEY, '')
+    expect(getStoredCsrf()).toBeNull()
+  })
+
+  it('пустой CSRF в localStorage не заслоняет живой в sessionStorage', () => {
+    sessionStorage.setItem(TOKEN_KEY, 'tok-session')
+    localStorage.setItem(CSRF_KEY, '')
+    sessionStorage.setItem(CSRF_KEY, 'csrf-real')
+    expect(getStoredCsrf()).toBe('csrf-real')
+    expect(authHeaders()?.['X-CSRF-Token']).toBe('csrf-real')
+  })
+
   it('localStorage сильнее sessionStorage, когда лежат оба', () => {
     localStorage.setItem(TOKEN_KEY, 'tok-local')
     sessionStorage.setItem(TOKEN_KEY, 'tok-session')
