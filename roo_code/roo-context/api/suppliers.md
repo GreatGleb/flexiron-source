@@ -113,6 +113,22 @@ backend/app/modules/suppliers --include=*.py` не даёт ни одного п
 хранения** от него не зависит: таблицы уже созданы миграцией. Там, где тип фронта расходится со
 схемой, расхождение — на стороне фронта, и все четыре собраны в БАГ-06.
 
+**Решено 2026-09-10 (П67): страна поставщика становится кодом.** Свободного текста в поле страны
+не остаётся нигде — правило общее для компании, клиента и поставщика ([§14](00-conventions.md)).
+Полей у поставщика **два**: `Supplier.country` (`String(100)`, nullable,
+`backend/app/modules/suppliers/shared/models.py:38`; во фронте `types/supplier.ts:21`) и
+`SupplierAddress.country` (`String(100)`, `NOT NULL`,
+`backend/app/modules/suppliers/shared/models.py:103`; во фронте
+`types/supplier.ts:88`). Оба хранят код ISO 3166-1 alpha-2 из закрытого списка
+(`domain/countries.ts`), сервер обязан проверять его предикатом, а выбор в интерфейсе — быть с
+поиском по названиям на всех языках и по коду. Своей вёрстки у поля нет: страна приходит через
+библиотеку полей карточки, `f-country` (`services/mocks/config.ts:63`), то есть меняется тип поля.
+
+Перенос посева показывает, зачем правило: сегодня там `'Estonia'`, `'Lithuania'`, `'Sweden'`,
+`'Latvia'`, `'Germany'` и `'UK'` (`services/mocks/suppliers.ts:17`, `:117`) — английские названия
+вперемешку с сокращением, и **`UK` кодом ISO не является**: Великобритания это `GB`
+(`domain/countries.ts:96`). Строка, которая выглядит кодом, им не была.
+
 | фронт | схема | что это значит серверу |
 |---|---|---|
 | `SupplierAddress.line2?: string` (`frontend_vue/src/types/supplier.ts:83-90`) | колонки нет (`backend/app/modules/suppliers/shared/models.py:98-107`) | второй строки адреса хранить негде |
