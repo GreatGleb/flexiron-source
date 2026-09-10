@@ -292,6 +292,29 @@ describe('путь 401 под моками достижим', () => {
     await expect(apiGet('/api/analytics/dashboard')).rejects.toMatchObject({ status: 401 })
   })
 
+  // Остаток, названный скептиком: настоящий эндпоинт отвергает по трём поводам
+  // (core/uploads/action.py:38-59), а крючок воспроизводил один. Теперь два; третий
+  // (негодный или просроченный токен) моку недоступен — расшифровать его нечем.
+  it.each([
+    ['Basic dXNlcjpwYXNz', 'не тот scheme'],
+    ['Bearer ', 'пустой токен после Bearer'],
+    ['tok-without-scheme', 'вовсе без scheme'],
+  ])('крючок отвергает негодный заголовок: %s (%s)', async (value) => {
+    localStorage.setItem('test_mock_require_auth', 'true')
+    const { getMock } = await import('./mocks/index')
+    await expect(
+      getMock('/api/analytics/dashboard', undefined, { Authorization: value }),
+    ).rejects.toMatchObject({ status: 401, code: 'UNAUTHORIZED' })
+  })
+
+  it('годный Bearer с непустым токеном проходит', async () => {
+    localStorage.setItem('test_mock_require_auth', 'true')
+    const { getMock } = await import('./mocks/index')
+    await expect(
+      getMock('/api/analytics/dashboard', undefined, { Authorization: 'Bearer tok-ok' }),
+    ).resolves.toBeDefined()
+  })
+
   it('загрузка файла закрыта тем же крючком — это и был uploads/БАГ-04', async () => {
     localStorage.setItem('test_mock_require_auth', 'true')
     const { apiUpload } = await import('./api')

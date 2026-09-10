@@ -261,15 +261,44 @@ publishPending()
  * Заголовки сюда доходят с тех пор, как `api.ts` собирает подпись и для мок-ветки тоже.
  * До этого проверять было нечего — отсюда и «путь 401 под моками недостижим».
  */
+function authRequiredByFlag(): boolean {
+  try {
+    return localStorage.getItem('test_mock_require_auth') === 'true'
+  } catch {
+    return false
+  }
+}
+
 function assertAuthorized(headers?: Record<string, string>): void {
-  if (typeof localStorage === 'undefined') return
-  if (localStorage.getItem('test_mock_require_auth') !== 'true') return
-  if (headers?.Authorization) return
-  throw new ApiRequestError({
-    status: 401,
-    message: 'Mock: request is not signed',
-    code: 'UNAUTHORIZED',
-  })
+  // Сторож как у `readValue` в `services/authToken.ts` — `try/catch` вокруг самого обращения,
+  // а не только проверка на `undefined`: браузер умеет БРОСАТЬ на localStorage в приватном
+  // режиме и при запрещённых данных сайта, и тогда проверка на `undefined` упала бы сама.
+  // Найдено скептиком как несимметричность; за ней тот же недосмотр, что был у getStoredCsrf.
+  if (!authRequiredByFlag()) return
+
+  // Настоящий эндпоинт отвергает по ТРЁМ поводам (`backend/app/core/uploads/action.py:38-59`):
+  // нет заголовка; не тот scheme или пустой токен; токен негодный или просроченный. Мок
+  // воспроизводит первые два. Третий ему недоступен по построению: чтобы отличить негодный
+  // токен от годного, нужно его расшифровать, а подписывателя и хранилища сессий у мока нет.
+  // Это названная граница, а не недоделка: заводить их значило бы писать в моке половину
+  // сервера.
+  const raw = headers?.Authorization
+  if (!raw) {
+    throw new ApiRequestError({
+      status: 401,
+      message: 'Mock: missing Authorization header',
+      code: 'UNAUTHORIZED',
+    })
+  }
+  const scheme = raw.slice(0, raw.indexOf(' ') === -1 ? raw.length : raw.indexOf(' '))
+  const token = raw.slice(scheme.length + 1)
+  if (scheme.toLowerCase() !== 'bearer' || token === '') {
+    throw new ApiRequestError({
+      status: 401,
+      message: 'Mock: invalid Authorization header',
+      code: 'UNAUTHORIZED',
+    })
+  }
 }
 
 async function dispatch<T>(run: () => Promise<T>): Promise<T> {
