@@ -80,6 +80,33 @@ const SAMPLES: Array<[string, string, boolean]> = [
     true,
   ],
   ['литерал слева', `try{f()}catch (e) { if ('SOME_CODE' === e.message) g() }`, true],
+  // Формы ЛИТЕРАЛА и ОПЕРАЦИИ — их пропускала четвёртая версия: разбор по смыслу был
+  // применён к одной стороне сравнения из трёх.
+  ['равенство ==', `try{f()}catch(e){ if (e.message == 'SOME_CODE') g() }`, true],
+  ['код в константе', `const C = 'SOME_CODE'\ntry{f()}catch(e){ if (e.message === C) g() }`, true],
+  ['шаблонная строка', 'try{f()}catch(e){ if (e.message === `SOME_CODE`) g() }', true],
+  [
+    'именованный массив кодов',
+    `const CODES = ['SOME_CODE']\ntry{f()}catch(e){ if (CODES.includes(e.message)) g() }`,
+    true,
+  ],
+  ['indexOf', `try{f()}catch(e){ if (e.message.indexOf('SOME_CODE') > -1) g() }`, true],
+  [
+    'регулярка в константе',
+    `const R = /SOME_CODE/\ntry{f()}catch(e){ if (R.test(e.message)) g() }`,
+    true,
+  ],
+  ['trim перед сравнением', `try{f()}catch(e){ if (e.message.trim() === 'SOME_CODE') g() }`, true],
+  [
+    'словарь по тексту',
+    `const MAP: Record<string,string> = { SOME_CODE: 'k' }\ntry{f()}catch(e){ use(MAP[e.message]) }`,
+    true,
+  ],
+  [
+    'перебор набора кодов',
+    `try{f()}catch(e){ if (['SOME_CODE'].some(c => e.message === c)) g() }`,
+    true,
+  ],
   // Разрешённые записи — сторож обязан молчать.
   ['через errorCode', `try{f()}catch (e) { if (errorCode(e) === 'SOME_CODE') g() }`, false],
   [
@@ -89,6 +116,13 @@ const SAMPLES: Array<[string, string, boolean]> = [
   ],
   ['чужой литерал', `if (r.method === 'UPLOAD') g()`, false],
   ['код у поля не-ошибки', `if (row.status === 'IN_PROGRESS') g()`, false],
+  // Область видимости: параметр `code` разбора тела ответа — НЕ чей-то `const code =
+  // e.message` из соседней функции. Версия 4 их сливала и обвиняла `services/api.ts`.
+  [
+    'одноимённый параметр в другой функции',
+    `function helper(e: Error) { const code = e.message; return code }\nfunction infer(code: string | null) { if (code === 'VALIDATION_ERROR') return 'email'\n return null }`,
+    false,
+  ],
 ]
 
 function sourceFiles(dir: string): string[] {
@@ -133,7 +167,8 @@ describe('код отказа читается из поля, а не из те�
   })
 
   it('обход дерева жив — файлы прочитаны', () => {
-    // Замер 2026-09-11: 341. Порог сильно ниже факта: это проверка «обход не сломался»,
+    // Замер 2026-09-11: 216 (счёт тем же обходом, а не на глаз — прежние «341» я
+    // выдумал, и заход 2 это поймал). Порог ниже факта: это проверка «обход не сломался»,
     // а не храповик по числу файлов.
     expect(scanned).toBeGreaterThanOrEqual(150)
   })
