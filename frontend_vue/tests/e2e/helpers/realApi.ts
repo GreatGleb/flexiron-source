@@ -9,8 +9,13 @@ import type { Page, Route } from '@playwright/test'
  * сборке с `VITE_USE_MOCKS=false` — отсюда второй dev-сервер в `playwright.config.ts`.
  *
  * Порт и команда живут здесь, а не в конфиге: одно место на оба употребления.
+ *
+ * Порт ВЫВЕДЕН из основного (`PW_PORT`), а не задан своим знобом. Причина: два независимых
+ * рычага дали бы ту же ловушку, от которой `PW_PORT` и заведён, — параллельный прогон из
+ * другого рабочего дерева занял бы 5174 и молча проверил чужой код. Один рычаг двигает оба
+ * порта. Умолчание прежнее: 5173 → 5174.
  */
-export const REAL_API_PORT = 5174
+export const REAL_API_PORT = Number(process.env.PW_PORT ?? 5173) + 1
 export const REAL_API_BASE_URL = `http://localhost:${REAL_API_PORT}`
 
 /**
