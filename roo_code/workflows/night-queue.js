@@ -16,7 +16,7 @@ export const meta = {
 }
 
 // План прогона: roo_code/plans/general/night-run-queue-plan.md
-// Очередь задач: roo_code/fix-run-2026-09-09/очередь-работ.md
+// Очередь задач: roo_code/plans/general/очередь-работ.md
 // Политика автономных прогонов: roo_code/plans/general/autonomous-run-policy-plan.md
 // Режим автономный: вопросов не задают. Неясность — не догадка, а строка в журнале прогона.
 //
@@ -30,7 +30,7 @@ export const meta = {
 // ради этого — плата, которой не надо платить: файлы задач не пересекаются.
 
 const RUN = 'roo_code/fix-run-2026-09-09'
-const QUEUE = `${RUN}/очередь-работ.md`
+const QUEUE = 'roo_code/plans/general/очередь-работ.md'
 const PLAN_DOC = 'roo_code/plans/general/night-run-queue-plan.md'
 const JOURNAL = `${RUN}/журнал-ночного-прогона.md`
 const DECISIONS = 'roo_code/plans/api/audit/00-решения-владельца.md'
