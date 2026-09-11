@@ -38,6 +38,7 @@ import {
   type LineEditOp,
   type LineKind,
 } from '@/services/orderLineEdits'
+import { errorCode } from '@/services/apiErrorCode'
 import {
   round2,
   rollupOrder,
@@ -538,7 +539,7 @@ export function useOrderCard(id: string) {
       // the version existed: "saved", and one of the two numbers gone. Said out
       // loud, and the card is put back on what the server actually holds, so the
       // admin can see what they are typing over and decide again.
-      if (String(e).includes('ORDER_VERSION_CONFLICT')) {
+      if (errorCode(e).includes('ORDER_VERSION_CONFLICT')) {
         toast.error(t('orders.error_version_conflict'))
         clearPending()
         await load()
@@ -1694,7 +1695,10 @@ export function useOrderCard(id: string) {
       return null
     } catch (e) {
       allocationPreview.value = null
-      const code = String(e)
+      // `allocateTotal` — своя функция, а не сервер, и код у неё в тексте. Через тот же
+      // `errorCode`, потому что спрашивать «какой это код» в проекте нужно одним способом:
+      // вторая форма вопроса и есть то, из-за чего сервер не читался семью местами.
+      const code = errorCode(e)
       if (code.includes('BELOW_FROZEN_MINIMUM')) return 'orders.error_total_below_shipped'
       if (code.includes('NO_EDITABLE_LINES')) return 'orders.error_no_editable_lines'
       return 'orders.error_total_not_possible'

@@ -11,6 +11,7 @@
  * the manual price, price-then-margin clears the lock and reprices.
  */
 import type { OrderItem, OrderService } from '@/types/order'
+import { errorMessageKey } from './apiErrorCode'
 import {
   applyCostChange,
   applyDiscountEdit,
@@ -411,11 +412,13 @@ const ERROR_KEYS: Array<[string, string]> = [
 /**
  * `fallback` is for callers whose failure is not a save: "could not save" on a
  * refused deletion is a message about the wrong operation.
+ *
+ * Правило «код берётся из поля, а не из текста» живёт в
+ * [`apiErrorCode.ts`](apiErrorCode.ts) и здесь только применяется: до 2026-09-11 эта
+ * функция читала `error.message` сама, то есть против настоящего сервера не находила
+ * ни одного из 46 кодов и все 25 её вызовов отдавали общий `fallback`. Таблица остаётся
+ * здесь — коды доменные, а орders-специфичному имени не место в шести чужих доменах.
  */
 export function lineEditErrorKey(error: unknown, fallback = 'orders.toast_error_save'): string {
-  const message = error instanceof Error ? error.message : String(error)
-  for (const [code, key] of ERROR_KEYS) {
-    if (message.includes(code)) return key
-  }
-  return fallback
+  return errorMessageKey(error, ERROR_KEYS, fallback)
 }

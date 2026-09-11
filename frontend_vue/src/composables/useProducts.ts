@@ -1,6 +1,7 @@
 import { ref, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getProducts, deleteProduct as deleteProductApi } from '@/services/productsService'
+import { errorCode } from '@/services/apiErrorCode'
 import { usePagination } from './usePagination'
 import { useToast } from './useToast'
 import { useTranslatedField } from './useTranslatedData'
@@ -48,7 +49,7 @@ export function useProducts() {
       toast.success(t('products.toast_deleted'))
       await load()
     } catch (e) {
-      const code = e instanceof Error ? e.message : ''
+      const code = errorCode(e)
       if (code === 'PRODUCT_IN_USE') {
         toast.error(t('products.toast_error_delete_in_use'))
       } else {

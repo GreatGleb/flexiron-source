@@ -11,6 +11,7 @@ import {
   getBatch,
 } from '@/services/warehouseService'
 import { getProduct } from '@/services/productsService'
+import { errorCode } from '@/services/apiErrorCode'
 import { resolveOffcutWeight } from '@/domain/cutting'
 import { useDirtyCheck } from './useDirtyCheck'
 import { useToast } from './useToast'
@@ -382,7 +383,7 @@ export function useWarehouseOffcutCard(id: string) {
       toast.success(t('warehouse.toast_offcut_deleted'))
       router.push({ name: 'admin-warehouse', params: { tab: 'offcuts' } })
     } catch (e) {
-      if (e instanceof Error && e.message === 'OFFCUT_LINKED_TO_ORDER') {
+      if (errorCode(e) === 'OFFCUT_LINKED_TO_ORDER') {
         deleteBlockedByOrder.value = true
       } else {
         toast.error(t('warehouse.toast_error_save'))

@@ -1,5 +1,6 @@
 import { ref, watch } from 'vue'
 import { getClients, deleteClient } from '@/services/clientsService'
+import { errorCode } from '@/services/apiErrorCode'
 import { usePagination } from './usePagination'
 import { useToast } from './useToast'
 import { useTranslatedField } from './useTranslatedData'
@@ -66,8 +67,9 @@ export function useClients() {
       toast.success(t('clients.toast_deleted'))
       await load()
     } catch (e) {
-      const msg = String(e)
-      if (msg.includes('CONFLICT')) {
+      // Подстрокой, а не равенством: мок кладёт код внутрь текста —
+      // `CONFLICT: client has orders` (`mocks/clients.ts:1133`).
+      if (errorCode(e).includes('CONFLICT')) {
         toast.error(t('clients.toast_error_delete_conflict'))
       } else {
         toast.error(t('clients.toast_error_delete'))

@@ -9,6 +9,7 @@ import FileItem from '@/components/admin/FileItem.vue'
 import DropZone from '@/components/admin/ui/DropZone.vue'
 import AutoResizeTextarea from '@/components/admin/ui/AutoResizeTextarea.vue'
 import { getPayment, patchPayment } from '@/services/financeService'
+import { errorCode } from '@/services/apiErrorCode'
 import type { UploadedFile } from '@/services/uploadsService'
 import { useHead } from '@/composables/useHead'
 import type { FinancePayment, PaymentDocument } from '@/types/finance'
@@ -22,7 +23,13 @@ const route = useRoute()
 const payment = ref<FinancePayment | null>(null)
 const loading = ref(true)
 const saving = ref(false)
-const error = ref(false)
+/**
+ * Отказ различается по коду, а не сводится к одному экрану: «нет такого платежа» и
+ * «сеть упала» — разные события, и кнопка «повторить» помогает только во втором.
+ * Сервер называет первое кодом `PAYMENT_NOT_FOUND` (мок — `mocks/finance.ts:428`,
+ * `:475`), и до 2026-09-11 этот код не читал никто.
+ */
+const errorKind = ref<'not_found' | 'generic' | null>(null)
 const notesDraft = ref('')
 
 useHead({
@@ -55,14 +62,14 @@ const documentFileIds = computed(() => payment.value?.documents.map((d) => d.fil
 
 function load() {
   loading.value = true
-  error.value = false
+  errorKind.value = null
   getPayment(route.params.id as string)
     .then((res) => {
       payment.value = res
       notesDraft.value = res.notes ?? ''
     })
-    .catch(() => {
-      error.value = true
+    .catch((e) => {
+      errorKind.value = errorCode(e) === 'PAYMENT_NOT_FOUND' ? 'not_found' : 'generic'
     })
     .finally(() => {
       loading.value = false
@@ -131,12 +138,22 @@ onMounted(() => load())
   <FinanceSubNav />
 
   <!-- ─── Error State ─── -->
-  <template v-if="error">
+  <template v-if="errorKind">
     <div class="entity-not-found" data-test="payment-card-error">
       <SvgIcon name="alert-triangle" :width="48" :height="48" />
-      <h2>{{ t('common.error_title') }}</h2>
-      <p>{{ t('common.error_description') }}</p>
-      <button class="btn btn-primary" @click="load">
+      <h2>
+        {{
+          errorKind === 'not_found' ? t('financePayment.not_found_title') : t('common.error_title')
+        }}
+      </h2>
+      <p>
+        {{
+          errorKind === 'not_found'
+            ? t('financePayment.not_found_description')
+            : t('common.error_description')
+        }}
+      </p>
+      <button v-if="errorKind === 'generic'" class="btn btn-primary" @click="load">
         {{ t('common.error_btn') }}
       </button>
     </div>
