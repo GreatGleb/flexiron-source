@@ -94,7 +94,18 @@ function inSetup<T>(factory: () => T): T {
   return result
 }
 
-const t = (key: string) => i18n.global.t(key)
+/**
+ * Перевод, а не ключ. `i18n.global.t('нет.такого.ключа')` возвращает САМ КЛЮЧ, и
+ * компонент при отсутствии перевода рисует его же — значит `toBe(t(key))` сравнивает
+ * ключ с ключом и остаётся зелёным, даже если перевода нет ни в одной локали. Скептик
+ * это и показал: удаление `financePayment.not_found_title` из `en` не покрасило ни
+ * одного из 863 тестов. Питфолл #68 — утверждение, которое устраивает бездействие.
+ */
+function t(key: string): string {
+  const value = i18n.global.t(key)
+  if (value === key) throw new Error(`перевода нет: ${key}`)
+  return value
+}
 
 /** Заглушка-обёртка: чужая вёрстка не проверяется, но слот должен доехать до DOM. */
 const PASSTHROUGH = { template: '<div><slot /></div>' }
