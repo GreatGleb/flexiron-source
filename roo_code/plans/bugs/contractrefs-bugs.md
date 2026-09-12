@@ -24,7 +24,7 @@ const REF = /([A-Za-z0-9_./-]*[A-Za-z0-9_-]\.(?:ts|tsx|vue|py|md|json|mjs))?:(\d
 ```
 $ cat /tmp/ref-test.md
 Ссылка на латиницу: `frontend_vue/src/services/api.ts:1-5`
-Ссылка на кириллицу: `roo_code/fix-run-2026-09-09/триаж.md:79`
+Ссылка на кириллицу: `roo_code/plans/bugs/contract-sync-bugs-triage-2026-09-09.md:79`
 
 $ cd frontend_vue && CONTRACT_REFS=/tmp/ref-test.md npx vitest run src/services/contractRefs.spec.ts
 [ссылки] документов 1 · ссылок 1 · битых 0
