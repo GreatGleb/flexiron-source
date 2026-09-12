@@ -171,18 +171,49 @@ async function unwrap<T>(res: Response, method: string, path: string): Promise<T
   return body as T
 }
 
+/**
+ * Значения query-параметров такими, какими их отдают сервисы.
+ *
+ * Фильтры экранов объявлены nullable (`status: 'active' | null`, `sortBy: … | null`),
+ * и `null` там означает «фильтра нет». Раньше тип был `Record<string, string>`, а
+ * сервисы дотягивались до него приведением — и `URLSearchParams.set` превращал
+ * `null` в строку `"null"`, то есть в фильтр по несуществующему значению.
+ * Тип честный, а отсев пустых — в `toQueryStrings`.
+ */
+export type QueryParams = Record<string, string | number | boolean | null | undefined>
+
+/**
+ * `null`/`undefined` — не значение, а отсутствие параметра: такой ключ в query не едет.
+ * Всё остальное приводится строкой здесь, а не у вызывающего.
+ *
+ * Пустая строка — значение: `search=` это осознанно пустой поиск, и сервер вправе
+ * отличать его от отсутствия ключа.
+ */
+function toQueryStrings(params?: QueryParams): Record<string, string> | undefined {
+  if (!params) return undefined
+  const out: Record<string, string> = {}
+  for (const [key, value] of Object.entries(params)) {
+    if (value === null || value === undefined) continue
+    out[key] = String(value)
+  }
+  return out
+}
+
 export async function apiGet<T>(
   path: string,
-  params?: Record<string, string>,
+  params?: QueryParams,
   options?: RequestOptions,
 ): Promise<T> {
+  // Моки получают ровно то же, что уехало бы в query: иначе дефект вида «null стал
+  // строкой» живёт до настоящего сервера и под моками не виден.
+  const query = toQueryStrings(params)
   if (USE_MOCKS) {
     const { getMock } = await import('./mocks/index')
-    return getMock<T>(path, params, buildHeaders(options))
+    return getMock<T>(path, query, buildHeaders(options))
   }
   const url = new URL(path, window.location.origin)
-  if (params) {
-    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v))
+  if (query) {
+    Object.entries(query).forEach(([k, v]) => url.searchParams.set(k, v))
   }
   const res = await fetch(url.toString(), {
     headers: buildHeaders(options),

@@ -58,11 +58,14 @@ export async function getOrders(
   filters: OrderFilters,
   pagination: PaginationParams,
 ): Promise<PaginatedResponse<OrderListItem>> {
+  // Без приведения к `Record<string, string>`: `clientId` и `sortBy` объявлены nullable,
+  // и приведение врало о типе, а `null` уезжал в query строкой `"null"`.
+  // Отсев пустых и приведение к строке — в `apiGet`.
   return apiGet('/api/orders', {
     ...filters,
-    page: String(pagination.page),
-    pageSize: String(pagination.pageSize),
-  } as Record<string, string>)
+    page: pagination.page,
+    pageSize: pagination.pageSize,
+  })
 }
 
 export async function getOrder(id: string): Promise<Order> {
