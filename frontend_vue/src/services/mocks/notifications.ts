@@ -435,9 +435,12 @@ export function mockGetUnreadCount(): number {
 
 export function mockMarkAsRead(id: string): void {
   const notification = notifications.find((n) => n.id === id)
-  if (notification) {
-    notification.isRead = true
-  }
+  // The branch that used to be missing. Marking a record nobody knows did
+  // nothing and said "fine", so the error path of this endpoint could not be
+  // reproduced under mocks at all — and the client dropped its unread counter
+  // for a record that was never marked.
+  if (!notification) throw new Error('NOTIFICATION_NOT_FOUND')
+  notification.isRead = true
 }
 
 export function mockMarkAllAsRead(): void {

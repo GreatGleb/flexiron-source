@@ -196,6 +196,11 @@ describe('every order endpoint is reachable through the service layer', () => {
     // The endpoint itself works — on an order that has nothing outstanding.
     const spare = await createOrder({ clientId: client.id, documentType: 'local' })
     await deleteOrder(spare.id)
-    await expect(getOrder(spare.id)).resolves.toBeUndefined()
+    // Gone means refused, not `undefined`: reading an order nobody knows answers
+    // the domain code, like every other read of this domain.
+    await expect(getOrder(spare.id)).rejects.toThrow('ORDER_NOT_FOUND')
+    // And a second delete of the same id is refused too, instead of reporting a
+    // success it did not perform.
+    await expect(deleteOrder(spare.id)).rejects.toThrow('ORDER_NOT_FOUND')
   })
 })

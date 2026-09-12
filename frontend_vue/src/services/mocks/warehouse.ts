@@ -1414,7 +1414,11 @@ export async function mockDeleteMovement(id: string): Promise<void> {
 
 export async function mockGetBatchAggregates(batchId: string): Promise<BatchStatusAggregate[]> {
   const batch = batchStore.find((b) => b.id === batchId)
-  if (!batch) return []
+  // One rule for the five logs and both aggregates of this domain: a batch that
+  // does not exist is BATCH_NOT_FOUND, exactly as its deletions already answer.
+  // An empty answer used to mean both "no such batch" and "nothing moved yet",
+  // so the card drew an empty table where it should have shown the refusal.
+  if (!batch) throw new Error('BATCH_NOT_FOUND')
 
   const movements = movementStore.filter((m) => m.batchId === batchId)
   const byType: Record<string, number> = {}
@@ -1452,7 +1456,8 @@ export async function mockGetBatchAggregates(batchId: string): Promise<BatchStat
 
 export async function mockGetBatchActiveSales(batchId: string): Promise<BatchActiveSale[]> {
   const batch = batchStore.find((b) => b.id === batchId)
-  if (!batch) return []
+  // Same rule as the aggregate above.
+  if (!batch) throw new Error('BATCH_NOT_FOUND')
 
   const returnQtyByRef: Record<string, number> = {}
   for (const m of movementStore) {
@@ -1583,7 +1588,13 @@ export async function mockExecuteCutting(
 function getOrCreateMovementAudit(movementId: string): StockAuditEntry[] {
   if (!movementAuditStore[movementId]) {
     const movement = movementStore.find((m) => m.id === movementId)
-    movementAuditStore[movementId] = movement?.auditLog ? structuredClone(movement.auditLog) : []
+    // The asymmetry was worst here: an unknown movement got an empty log made
+    // for it on the spot, so the read answered `[]` and the paired deletion
+    // blamed the ENTRY (AUDIT_ENTRY_NOT_FOUND) for a movement that does not
+    // exist. MOVEMENT_NOT_FOUND is the domain's own code — mockDeleteMovement
+    // already refuses with it.
+    if (!movement) throw new Error('MOVEMENT_NOT_FOUND')
+    movementAuditStore[movementId] = movement.auditLog ? structuredClone(movement.auditLog) : []
   }
   return movementAuditStore[movementId]
 }
@@ -1858,12 +1869,20 @@ export async function mockExportWarehouseCsv(_tab: string): Promise<string> {
 
 export async function mockGetStockAudit(productId: string): Promise<StockAuditEntry[]> {
   const item = stockStore.find((s) => s.productId === productId)
-  return item?.auditLog ? structuredClone(item.auditLog) : []
+  // "No such stock record" and "the log is empty" are two different answers, and
+  // the deletion below has always told them apart. The read answered `[]` to
+  // both, so the page drew an empty journal instead of the refusal.
+  if (!item) throw new Error('STOCK_NOT_FOUND')
+  return item.auditLog ? structuredClone(item.auditLog) : []
 }
 
 export async function mockDeleteStockAuditEntry(productId: string, entryId: string): Promise<void> {
   const item = stockStore.find((s) => s.productId === productId)
-  if (!item?.auditLog) throw new Error('STOCK_NOT_FOUND')
+  // The missing ENTITY is STOCK_NOT_FOUND; a record that exists with no log yet
+  // is an entry nobody can find — the same answer the read gives by handing back
+  // an empty journal. The old condition merged the two and called both "no stock".
+  if (!item) throw new Error('STOCK_NOT_FOUND')
+  if (!item.auditLog) throw new Error('AUDIT_ENTRY_NOT_FOUND')
   const idx = item.auditLog.findIndex((entry) => entry.id === entryId)
   if (idx === -1) throw new Error('AUDIT_ENTRY_NOT_FOUND')
   item.auditLog.splice(idx, 1)
@@ -1871,16 +1890,19 @@ export async function mockDeleteStockAuditEntry(productId: string, entryId: stri
 
 export async function mockGetBatchAudit(batchId: string): Promise<StockAuditEntry[]> {
   const batch = batchStore.find((b) => b.id === batchId)
+  // Unknown batch — the same code its deletion answers.
+  if (!batch) throw new Error('BATCH_NOT_FOUND')
   // A read hands out a copy, like every other read here: returning the live array
   // let a caller edit the store by editing what it had merely asked to look at,
   // and made a deletion look as though it had not happened — the caller's own
   // array had already changed underneath it.
-  return batch?.auditLog ? structuredClone(batch.auditLog) : []
+  return batch.auditLog ? structuredClone(batch.auditLog) : []
 }
 
 export async function mockDeleteBatchAuditEntry(batchId: string, entryId: string): Promise<void> {
   const batch = batchStore.find((b) => b.id === batchId)
-  if (!batch?.auditLog) throw new Error('BATCH_NOT_FOUND')
+  if (!batch) throw new Error('BATCH_NOT_FOUND')
+  if (!batch.auditLog) throw new Error('AUDIT_ENTRY_NOT_FOUND')
   const idx = batch.auditLog.findIndex((entry) => entry.id === entryId)
   if (idx === -1) throw new Error('AUDIT_ENTRY_NOT_FOUND')
   batch.auditLog.splice(idx, 1)
@@ -1888,12 +1910,15 @@ export async function mockDeleteBatchAuditEntry(batchId: string, entryId: string
 
 export async function mockGetOffcutAudit(offcutId: string): Promise<StockAuditEntry[]> {
   const offcut = offcutStore.find((o) => o.id === offcutId)
-  return offcut?.auditLog ? structuredClone(offcut.auditLog) : []
+  // Unknown offcut — the same code its deletion answers.
+  if (!offcut) throw new Error('OFFCUT_NOT_FOUND')
+  return offcut.auditLog ? structuredClone(offcut.auditLog) : []
 }
 
 export async function mockDeleteOffcutAuditEntry(offcutId: string, entryId: string): Promise<void> {
   const offcut = offcutStore.find((o) => o.id === offcutId)
-  if (!offcut?.auditLog) throw new Error('OFFCUT_NOT_FOUND')
+  if (!offcut) throw new Error('OFFCUT_NOT_FOUND')
+  if (!offcut.auditLog) throw new Error('AUDIT_ENTRY_NOT_FOUND')
   const idx = offcut.auditLog.findIndex((entry) => entry.id === entryId)
   if (idx === -1) throw new Error('AUDIT_ENTRY_NOT_FOUND')
   offcut.auditLog.splice(idx, 1)
@@ -1915,7 +1940,9 @@ export async function mockDeleteMovementAuditEntry(
 
 export async function mockGetDeficitAudit(deficitId: string): Promise<StockAuditEntry[]> {
   const deficit = deficitStore.find((d) => d.id === deficitId)
-  return deficit?.auditLog ? structuredClone(deficit.auditLog) : []
+  // Unknown deficit — the same code its deletion answers.
+  if (!deficit) throw new Error('DEFICIT_NOT_FOUND')
+  return deficit.auditLog ? structuredClone(deficit.auditLog) : []
 }
 
 export async function mockDeleteDeficitAuditEntry(
@@ -1923,7 +1950,8 @@ export async function mockDeleteDeficitAuditEntry(
   entryId: string,
 ): Promise<void> {
   const deficit = deficitStore.find((d) => d.id === deficitId)
-  if (!deficit?.auditLog) throw new Error('DEFICIT_NOT_FOUND')
+  if (!deficit) throw new Error('DEFICIT_NOT_FOUND')
+  if (!deficit.auditLog) throw new Error('AUDIT_ENTRY_NOT_FOUND')
   const idx = deficit.auditLog.findIndex((entry) => entry.id === entryId)
   if (idx === -1) throw new Error('AUDIT_ENTRY_NOT_FOUND')
   deficit.auditLog.splice(idx, 1)

@@ -1596,9 +1596,16 @@ export function mockGetSalesCrmStats(): SalesCrmStats {
 
 // ─── Single ───
 
-export function mockGetOrder(id: string): Order | undefined {
+// An id nobody knows is refused, like every other read of this domain — the
+// status plan, the shipments, the ship plan, the returns, the return plan, the
+// payments and the invoices all answer ORDER_NOT_FOUND. This one answered
+// `undefined`, and the caller was typed on `Order` (ordersService.getOrder) and
+// dereferenced it straight away, so a stale link produced a TypeError that no
+// error catalogue could name instead of the domain code that says what happened.
+export function mockGetOrder(id: string): Order {
   const order = STORE.find((o) => o.id === id)
-  return order ? publicOrder(order) : undefined
+  if (!order) throw new Error('ORDER_NOT_FOUND')
+  return publicOrder(order)
 }
 
 // ─── Create ───
@@ -2055,7 +2062,12 @@ export function mockDeleteOrder(
   version?: number,
 ): void {
   const idx = STORE.findIndex((o) => o.id === id)
-  if (idx === -1) return
+  // A delete that deleted nothing is not a delete — the line, the service, the
+  // history entry and the file deletions all stopped answering "fine" to a
+  // request they had not carried out. Here the silence sat BEFORE the version
+  // check, so a stale request against an order somebody else had already removed
+  // was told "done" instead of being refused.
+  if (idx === -1) throw new Error('ORDER_NOT_FOUND')
   const order = STORE[idx]!
   assertVersion(order, version)
   if (order.invoices.some((i) => i.kind !== 'correction' && !isWithdrawn(order, i.id))) {

@@ -14140,9 +14140,13 @@ export async function mockPatchProduct(
     // them — see the note above the two lookups.
   }>,
   locale: string = 'en',
-): Promise<Product | null> {
+): Promise<Product> {
   const idx = STORE.findIndex((p) => p.id === id)
-  if (idx === -1) return null
+  // The code already exists in this domain — mockDeleteProduct answers
+  // PRODUCT_NOT_FOUND for exactly this case. Returning `null` instead made the
+  // mock router hand the caller a successful empty response, so a PATCH against
+  // a product that is gone showed the "changes saved" toast.
+  if (idx === -1) throw new Error('PRODUCT_NOT_FOUND')
   const existing: Product = STORE[idx]!
   // Normalise string fields to TranslatedString before merging
   const patchName: TranslatedString | undefined = data.name

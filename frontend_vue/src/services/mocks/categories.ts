@@ -1453,9 +1453,13 @@ export function mockPatchCategory(
   delta: Partial<Pick<Category, 'name' | 'parentId' | 'description'>> & {
     linkedSuppliers?: LinkedSupplier[]
   },
-): Category | undefined {
+): Category {
   const cat = STORE.find((c) => c.id === id)
-  if (!cat) return undefined
+  // The same situation as in mockDeleteCategory below, and it gets the same
+  // code. It used to answer `undefined`, which the mock router handed back as a
+  // SUCCESSFUL response — so saving a category somebody had already deleted in
+  // another tab showed "saved" and lost the edit without a word.
+  if (!cat) throw new Error('CATEGORY_NOT_FOUND')
   if (delta.name !== undefined)
     cat.name = mergeTranslatedString(cat.name as TranslatedString, delta.name as TranslatedString)
   if (delta.description !== undefined)
@@ -1484,12 +1488,11 @@ export function mockDeleteCategory(id: string): { ok: boolean; code?: string } {
   return { ok: true }
 }
 
-export function mockPutCategoryFields(
-  id: string,
-  fields: CategoryField[],
-): CategoryField[] | undefined {
+export function mockPutCategoryFields(id: string, fields: CategoryField[]): CategoryField[] {
   const cat = STORE.find((c) => c.id === id)
-  if (!cat) return undefined
+  // Same refusal as its PATCH neighbour: a category that is gone cannot take
+  // fields, and the caller has to hear so instead of a silent success.
+  if (!cat) throw new Error('CATEGORY_NOT_FOUND')
   // ВАЖНО: JSON.parse/stringify чтобы избежать DataCloneError на reactive данных
   // tmp-* id заменяются постоянными (имитирует поведение сервера)
   cat.fields = JSON.parse(JSON.stringify(fields)).map((f: CategoryField, i: number) => ({

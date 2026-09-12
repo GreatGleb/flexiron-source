@@ -56,8 +56,13 @@ async function markAsRead(id: string) {
       notification.isRead = true
     }
     unreadCount.value = Math.max(0, unreadCount.value - 1)
-  } catch {
-    // ignore
+  } catch (e) {
+    // A refusal used to be swallowed here without a trace, so the only visible
+    // outcome of a failed mark was the badge disagreeing with the server until
+    // the next poll. The local state is already left untouched — the two
+    // assignments above sit after the await — and now the refusal is reported
+    // too, through the same `error` the list load uses.
+    error.value = (e as Error).message
   }
 }
 

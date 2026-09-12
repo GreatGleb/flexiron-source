@@ -472,9 +472,14 @@ export function mockLogBccRequest(payload: {
 export function mockAcceptResponse(
   eventId: string,
   payload: { price: number; unit: string },
-): BccRequest | null {
+): BccRequest {
   const src = MOCK_BCC_HISTORY.find((e) => e.id === eventId)
-  if (!src) return null
+  // An event nobody knows is refused by code, like `MAIL_NOT_CONFIGURED` above.
+  // The `null` it used to return was handed to the page as a value of type
+  // `BccRequest` and pushed straight into the feed, so a miss was indistinguishable
+  // from a success until the row failed to render. The domain had no code for this
+  // case at all — this is it, and it is not a substring of either existing code.
+  if (!src) throw new Error('BCC_EVENT_NOT_FOUND')
   const next: BccRequest = {
     id: `evt-${Date.now()}`,
     requestId: src.requestId,
@@ -496,9 +501,10 @@ export function mockAcceptResponse(
   return next
 }
 
-export function mockMarkNoResponse(eventId: string): BccRequest | null {
+export function mockMarkNoResponse(eventId: string): BccRequest {
   const src = MOCK_BCC_HISTORY.find((e) => e.id === eventId)
-  if (!src) return null
+  // Same refusal as its neighbour above, and for the same reason.
+  if (!src) throw new Error('BCC_EVENT_NOT_FOUND')
   const next: BccRequest = {
     id: `evt-${Date.now()}`,
     requestId: src.requestId,

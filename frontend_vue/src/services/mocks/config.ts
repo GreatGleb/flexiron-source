@@ -281,12 +281,13 @@ export function mockCreateField(payload: {
   return field
 }
 
-export function mockUpdateField(
-  id: string,
-  patch: Partial<FieldDefinition>,
-): FieldDefinition | null {
+export function mockUpdateField(id: string, patch: Partial<FieldDefinition>): FieldDefinition {
   const field = MOCK_FIELD_LIBRARY.find((f) => f.id === id)
-  if (!field) return null
+  // A field nobody knows is refused by code, the way every neighbouring domain
+  // refuses it. Returning `null` made the mock router answer PATCH with a
+  // successful empty body, while the caller's signature promised a
+  // FieldDefinition — see configService.updateField.
+  if (!field) throw new Error('FIELD_NOT_FOUND')
   // Merge TranslatedString fields to preserve existing locales
   if (patch.name) {
     patch.name = mergeTranslatedString(field.name, patch.name)
@@ -320,9 +321,10 @@ export function mockCreateSection(payload: { name: TranslatedString | string }):
   return section
 }
 
-export function mockUpdateSection(id: string, patch: Partial<SectionConfig>): SectionConfig | null {
+export function mockUpdateSection(id: string, patch: Partial<SectionConfig>): SectionConfig {
   const section = MOCK_SECTIONS.find((s) => s.id === id)
-  if (!section) return null
+  // Same refusal as mockUpdateField above, and for the same reason.
+  if (!section) throw new Error('SECTION_NOT_FOUND')
   // Merge TranslatedString fields to preserve existing locales
   if (patch.name) {
     patch.name = mergeTranslatedString(section.name, patch.name)

@@ -1411,7 +1411,7 @@ describe('details that only show up on real data', () => {
     mockDeleteOrderPayment(order.id, payment.id)
 
     mockDeleteOrder(order.id)
-    expect(mockGetOrder(order.id)).toBeUndefined()
+    expect(() => mockGetOrder(order.id)).toThrow('ORDER_NOT_FOUND')
   })
 
   it('does not leak the store’s own bookkeeping to the caller', () => {
