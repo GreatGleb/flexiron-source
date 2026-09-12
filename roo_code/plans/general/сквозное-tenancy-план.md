@@ -118,9 +118,12 @@ permission checkers, tenant isolation» и не содержит ни строк
 НЕ фильтруют:           15
 ```
 
-Пятнадцать несуженных разбираются на три разные вещи, и смешивать их нельзя.
+Пятнадцать несуженных разбираются на три разные вещи, и смешивать их нельзя. **Арифметика
+сходится нацело и проверяется глазом: 7 (а) + 1 (б) + 7 (в) = 15.** Это не украшение: список
+несуженных, который не сходится с разбором, означает, что одну функцию забыли отнести
+куда-нибудь, и она тихо живёт вне обоих списков сторожа.
 
-**(а) Шесть законно несуженных — это резолверы личности, то есть запросы, чья работа и есть
+**(а) Семь законно несуженных — это резолверы личности, то есть запросы, чья работа и есть
 «узнать арендатора». Сузить их нечем: арендатор ещё не известен.**
 
 | место | функция | почему законно |
@@ -131,6 +134,12 @@ permission checkers, tenant isolation» и не содержит ни строк
 | [`backend/app/modules/settings/features/profile/repository.py:11`](../../../backend/app/modules/settings/features/profile/repository.py) | `get_user_by_id` | `user_id` взят из токена |
 | [`backend/app/modules/auth/features/magic_link/repository.py:9`](../../../backend/app/modules/auth/features/magic_link/repository.py) | `get_user_by_secret_link` | секрет глобально уникален |
 | [`backend/app/modules/auth/features/register/repository.py:24`](../../../backend/app/modules/auth/features/register/repository.py) | `get_tenant_by_slug` | до арендатора |
+| [`backend/app/modules/auth/features/login/repository.py:15`](../../../backend/app/modules/auth/features/login/repository.py) | `get_user_by_email` | вход: арендатора ещё нет по построению — **но какую из двух записей эта функция вернёт после П58, не определено; см. §6, пункт 4** |
+
+Последняя строка таблицы — единственная, которая законна по механизму и при этом
+недоопределена по решению: Т4 её покрывает, П58 её ломает. В `TENANTLESS` сторожа она входит,
+но причиной у неё стоит не «резолвер», а ссылка на открытый вопрос — чтобы починка §6 п.4 не
+прошла мимо неё.
 
 **(б) Одна несужена по форме, а не по сути:** `get_company_info`
 ([`backend/app/modules/settings/features/crud/domain.py:64`](../../../backend/app/modules/settings/features/crud/domain.py))
@@ -192,7 +201,9 @@ data» и **ре-экспортирует ровно те две функции 
 Бриф утверждал: «Ни в одном типе, ни в одном сервисе нет ни `tenantId`, ни заголовка
 арендатора». **Это неверно, проверено грепом.**
 `grep -rn 'tenantId\|tenant_id\|X-Tenant' frontend_vue/src --include=*.ts --include=*.vue` →
-6 вхождений, из них три — не комментарии:
+6 вхождений в 5 файлах, из них **четыре строки кода в трёх файлах**, остальные два — текст
+комментариев ([`frontend_vue/src/services/contractRefs.ts:92`](../../../frontend_vue/src/services/contractRefs.ts)
+и [`frontend_vue/src/services/api.ts:23`](../../../frontend_vue/src/services/api.ts)):
 
 - [`frontend_vue/src/types/auth.ts:11`](../../../frontend_vue/src/types/auth.ts) и `:52` — поле `tenant_id` в `UserInfo` и в ответе регистрации;
 - [`frontend_vue/src/composables/useAuth.ts:138`](../../../frontend_vue/src/composables/useAuth.ts) — оно же переписывается в кэш пользователя;
@@ -350,7 +361,9 @@ SQLAlchemy в этом окружении не установлены.
 
 **Три списка, все закрытые, все с причиной строкой:**
 
-- `TENANTLESS` — исключения по Т4. Стартовый состав — шесть строк §2.3(а).
+- `TENANTLESS` — исключения по Т4. Стартовый состав — **семь** строк §2.3(а), причём у седьмой
+  (вход, `login/repository.py:15`) причиной стоит ссылка на открытый вопрос §6 п.4, а не слово
+  «резолвер».
 - `KNOWN_GAPS` — измеренные дыры с номером бага. Стартовый состав — семь строк §2.3(в).
 - `TENANT_TABLES_EXEMPT` — функции, читающие нетенантские таблицы (`plans`, `plan_features`,
   `feature_definitions`, `sessions`, `user_roles`). Заводится, только когда первая такая
