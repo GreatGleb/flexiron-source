@@ -315,7 +315,7 @@
   `payment_documents.url` (`b2619dfeb90f_phase_10_finance.py:57`),
   `document_archive_items.url` (`:70`), плюс `size` и `mime` там же (`:55-56`, `:68-69`) — то есть
   копия метаданных файла, снятая в момент привязки. Фронт делает то же самое: кладёт `url`, `size`,
-  `mime`, `uploadedAt` в сущность (`OutgoingPaymentCardPage.vue:102-107`,
+  `mime`, `uploadedAt` в сущность (`OutgoingPaymentCardPage.vue:113-114`,
   `useWarehouseMap.ts:51-58`, тип `WarehouseMapFile` — `src/types/settings.ts:111-119`).
   Что здесь источник истины — `uploaded_files` или копия в сущности — не решено нигде → владельцу.
 

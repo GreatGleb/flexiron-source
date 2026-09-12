@@ -45,7 +45,7 @@
 > ещё пять приходят из доменного слоя резки через `MATERIAL_ERROR_CODE`
 > (`frontend_vue/src/domain/cutting.ts:52-58`). До человека отдельным сообщением доходят **два**:
 > `BATCH_LINKED_TO_ORDER` (`frontend_vue/src/composables/useWarehouseBatch.ts:341`) и
-> `OFFCUT_LINKED_TO_ORDER` (`frontend_vue/src/composables/useWarehouseOffcutCard.ts:385`).
+> `OFFCUT_LINKED_TO_ORDER` (`frontend_vue/src/composables/useWarehouseOffcutCard.ts:386`).
 > Остальные двадцать гасятся `catch` без параметра.
 >
 > **Правило соседа не выводится заново.** Про регистр форм у домена с бэкендом, про

@@ -125,7 +125,7 @@
 
 Девять, все записаны в `roo_code/plans/bugs/contract-sync-categories-bugs.md`, код не тронут:
 
-1. `useCategories.deleteCategory` читает код ошибки из `e.message` (`src/composables/useCategories.ts:43`) — против настоящего API код лежит в `ApiRequestError.code`.
+1. ~~`useCategories.deleteCategory` читает код ошибки из `e.message`~~ — **закрыто:** сегодня код читается через `errorCode(e)` (`src/composables/useCategories.ts:44`), то есть из `ApiRequestError.code`, как и требует настоящее API. Находка оставлена для истории; пометка `✅` в баг-файле ставится решением владельца.
 2. `productCount` в сторе мока — статическое число, разошедшееся с товарами: `cat-5` и `cat-6` объявлены с `productCount: 0` (`mocks/categories.ts:405`, `:459`), а товаров у них 22 и 21.
 3. Селект родителя и селект категории товара берут только первую страницу списка — `getCategories({ search: '' })` без пагинации (`src/views/admin/products/CategoryCardPage.vue:63`).
 4. `GET /api/categories/:id` не имеет кода ошибки: мок бросает текст `Category ${id} not found` (`mocks/categories.ts:1419`), и он же показывается пользователю.

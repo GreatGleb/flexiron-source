@@ -576,7 +576,7 @@ entryId` одной функцией `auditRowKey` (`types/audit.ts:86-92`).
 **Неизвестный `entryId` — отказ, а не тихий no-op**: `AUDIT_ENTRY_NOT_FOUND` бросают пять
 складских удалений (`services/mocks/warehouse.ts:1868`, `:1885`, `:1898`, `:1912`, `:1928`), поставщик
 (`mocks/suppliers.ts:460`) и клиент (`mocks/clients.ts:1142`); у заказа код свой —
-`ORDER_AUDIT_ENTRY_NOT_FOUND` (`services/orderLineEdits.ts:354`). Молчание неотличимо от успеха, и
+`ORDER_AUDIT_ENTRY_NOT_FOUND` (`services/orderLineEdits.ts:360`). Молчание неотличимо от успеха, и
 клиент сотрёт у себя строку, которая на сервере осталась.
 
 Три наблюдения, каждое видно только поперёк доменов:

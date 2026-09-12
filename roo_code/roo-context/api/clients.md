@@ -315,7 +315,7 @@ interface Client {
 Запрос: тела нет (`services/clientsService.ts:24-26`), идентификатор — в пути.
 
 Ответ: `ApiResponse<void>` — мок отдаёт `undefined` (`mocks/index.ts:1525`), сигнатура клиента
-`Promise<void>`. Тело никто не читает: `handleDelete` идёт сразу к `load()` (`useClients.ts:65-67`).
+`Promise<void>`. Тело никто не читает: `handleDelete` идёт сразу к `load()` (`useClients.ts:64-66`).
 
 Ошибки: `CLIENT_NOT_FOUND` (`mocks/clients.ts:1126`) · `CONFLICT` — у клиента есть заказы
 (`mocks/clients.ts:1133`). Второй — **единственный код всего домена, доходящий до человека**:

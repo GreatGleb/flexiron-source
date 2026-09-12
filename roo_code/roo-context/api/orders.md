@@ -413,7 +413,7 @@ Save-режим: clean-slate, **шаг 2** — новые строки уход�
 Ошибки: `ORDER_NOT_FOUND` (`mocks/orders.ts:2223`), `ORDER_VERSION_CONFLICT` (`:2224`),
 `ORDER_ITEM_NOT_FOUND` (`:2226`), `NUMBER_NOT_FINITE` по девяти полям (`validateLineEdit`,
 `:2019-2038`), `ALLOCATIONS_NOT_ACCEPTED` (`:2037`), `FORBIDDEN_MANUALCOST` (`requireRight`,
-`:2237` → `:1858`), `MANUAL_COST_REASON_REQUIRED` (`services/orderLineEdits.ts:96`),
+`:2237` → `:1858`), `MANUAL_COST_REASON_REQUIRED` (`services/orderLineEdits.ts:97`),
 `RESET_COST_NOT_SUPPORTED` (`:112`), `COST_FROZEN_BY_SHIPMENT` (`:114`), `NO_STOCK_COST` (`:119`),
 `QUANTITY_SPLITS_OFFCUT` (`:159`), плюс отказы арифметики из `domain/orderPricing.ts` —
 `PRICE_FROZEN_BY_SHIPMENT` (`:216`), `LINE_FULLY_SHIPPED` (`:379`), `BELOW_SHIPPED_QUANTITY`
@@ -478,7 +478,7 @@ Save-режим: clean-slate, **шаг 4**, последний из правок
 `INVALID_SPLIT_QUANTITY` из арифметики (`domain/orderPricing.ts`, вызов `mocks/orders.ts:2780`).
 
 **Разделение не спрашивает про неделимый кусок**, в отличие от правки количества
-(`QUANTITY_SPLITS_OFFCUT`, `services/orderLineEdits.ts:159`): `splitAllocations` режет разбивку по
+(`QUANTITY_SPLITS_OFFCUT`, `services/orderLineEdits.ts:160`): `splitAllocations` режет разбивку по
 количеству (`mocks/orders.ts:2782`). §6 контракта домена сам называет четыре места, где
 неделимость обязана стоять, — добавление, правка количества, отгрузка, возврат
 (`orders-backend-contract.md:414`), — а разделение среди них не названо — БАГ-08.

@@ -513,7 +513,7 @@ Save-режим: clean-slate. Признак грязи собран из трё
 Запрос: объявлено **10 ключей** `BatchPatchPayload` — `batchNumber?`, `lotCode?`, `quantity?`,
 `unitPrice?`, `currency?`, `location?`, `certificateRef?`, `status?`, `notes?`, `fileIds?`
 (`frontend_vue/src/types/warehouse.ts:190-204`). **Уезжает больше.** Дельту собирает
-`useDirtyCheck.diff()` по форме карточки (`useWarehouseBatch.ts:240`), а в форме живут `uomId`,
+`useDirtyCheck.diff()` по форме карточки (`useWarehouseBatch.ts:241`), а в форме живут `uomId`,
 `marginPercent` и четыре части адреса — `locationRack`, `locationRow`, `locationCell`,
 `locationNotes` (`:92-128`); `diff()` возвращает любой изменившийся ключ верхнего уровня
 (`frontend_vue/src/composables/useDirtyCheck.ts:62-77`), после чего к дельте добавляется склеенный
@@ -1527,7 +1527,7 @@ Save-режим: quick-action по кнопке. Один вызывающий �
 `grep -c "usePagination(25)" frontend_vue/src/composables/useWarehouse.ts` → `5`) и дефолтами пяти
 веток мока (`frontend_vue/src/services/mocks/index.ts:619`, `:660`, `:705`, `:757`, `:781`); перечень размеров
 `10/25/50/100` — константа компонента (`views/admin/warehouse/WarehousePage.vue:174-179`); единица по
-умолчанию — `'uom-kg'` в **четырёх** местах (`useWarehouseBatch.ts:117`,
+умолчанию — `'uom-kg'` в **четырёх** местах (`useWarehouseBatch.ts:118`,
 `useWarehouseBatchCreate.ts:40`, `useWarehouseStockCard.ts:52` и `:88`) и `'uom-pcs'` ещё в
 **четырёх** (`useWarehouseOffcutCreate.ts:48`, `:229`, `:334`, и в моке ручного создания нехватки
 `frontend_vue/src/services/mocks/warehouse.ts:1746`); разницы между `:229` и `:334` нет — обе

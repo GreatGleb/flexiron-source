@@ -142,7 +142,7 @@ interface SalesCrmStats {
    (`useSalesCrmDashboard.ts:63-64`), а страница печатает это сырым — `<p>{{ error }}</p>`
    ([`views/admin/sales-crm/SalesCrmPage.vue:106`](../../../frontend_vue/src/views/admin/sales-crm/SalesCrmPage.vue)).
    Таблица перевода кодов в фразы в проекте есть и рядом используется
-   (`ERROR_KEYS` — [`services/orderLineEdits.ts:300`](../../../frontend_vue/src/services/orderLineEdits.ts),
+   (`ERROR_KEYS` — [`services/orderLineEdits.ts:308`](../../../frontend_vue/src/services/orderLineEdits.ts),
    читает её `lineEditErrorKey` — `:415-421`; вызов на чтении карточки заказа —
    [`composables/useOrderCard.ts:412`](../../../frontend_vue/src/composables/useOrderCard.ts) с
    причиной рядом: «A key, not the exception's own words», `:409-411`) — этот домен её не зовёт:

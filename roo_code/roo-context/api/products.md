@@ -96,7 +96,7 @@ camelCase (`services/productsService.ts:49-58`, `:86-111`, тип — `types/pro
   `services/api.ts:53-62`, `:117-124`) — БАГ-01.
 - **До человека доходит один код из пяти.** `PRODUCT_IN_USE` → `products.toast_error_delete_in_use`
   (`i18n/admin/products.ts:63`, en `:327`, lt `:590`); остальные падают в общие тексты
-  `products.toast_error_delete` (`composables/useProducts.ts:55`), `products.toast_error`
+  `products.toast_error_delete` (`composables/useProducts.ts:56`), `products.toast_error`
   (`composables/useProductCard.ts:260`), `msg.status_error`
   (`views/admin/products/ProductCardPage.vue:73`) и `auditLog.toast_error_delete`
   (`composables/useAuditFeed.ts:103`).
