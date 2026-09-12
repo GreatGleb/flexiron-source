@@ -101,7 +101,24 @@ const FALLBACK_CEILING = args && args.tokenCeiling ? args.tokenCeiling : 4100000
  *     хвост доменов останется на вторую ночь. Это ожидаемый исход, а не сбой.
  * Ради этого домены и отсортированы по убыванию объёма: обрежется хвост из самых мелких.
  */
-const SESSION_WINDOW_TOKENS = 15000000
+const SESSION_WINDOW_TOKENS = args && args.sessionLimit ? args.sessionLimit : 16250000
+/**
+ * ЗАМЕР 2026-09-12, первый настоящий: окно, открытое в 08:32 UTC, набрало 16 594 957
+ * оплачиваемых токенов, и ровно в нём прогон получил «You've hit your session limit».
+ * До удара было съедено 16 252 774 — отсюда и константа выше. Прежние 15 млн были
+ * догадкой из одной точки «Session 16 %»; она оказалась близка, но это была догадка.
+ *
+ * Доля окна, которую ночи разрешено съесть. Смысл запаса не в осторожности, а в том,
+ * что окно общее: человек работает в том же аккаунте, и прогон, выевший окно досуха,
+ * оставляет владельца без инструмента до сброса. 2026-09-12 это случилось буквально —
+ * 82,8 % окна забрали агенты прогона.
+ *
+ * Порог жёстче недельного: недельный потолок можно проехать на несколько процентов и
+ * доделать волну, а окно кончается мгновенно и убивает всех агентов в полёте. Поэтому
+ * здесь нет лестницы — есть одна черта, и за ней новые задачи не стартуют.
+ */
+const SESSION_SHARE = args && args.sessionShare !== undefined ? args.sessionShare : 0.6
+const SESSION_BUDGET = Math.floor(SESSION_WINDOW_TOKENS * SESSION_SHARE)
 const CEILING = WEEKLY_LIMIT ? Math.floor(WEEKLY_LIMIT * NIGHT_SHARE) : FALLBACK_CEILING
 /**
  * Чтение кэша в потолок НЕ ВХОДИТ по умолчанию, и это осознанный выбор, а не недосмотр.
@@ -314,6 +331,29 @@ const COMMIT = {
   additionalProperties: false,
 }
 
+/**
+ * Схема ТОЛЬКО для замерщика. Отдельная, а не расширенный COMMIT: COMMIT читают все
+ * рабочие агенты, и лишнее поле в нём заставило бы каждого из них объяснять число,
+ * которого он не мерил.
+ */
+const SPEND = {
+  type: 'object',
+  properties: {
+    tokensTotal: { type: 'number', description: 'Первая строка расход.py: оплачиваемых токенов во всех транскриптах СЕЙЧАС' },
+    cacheReadTotal: { type: 'number', description: 'Вторая строка расход.py: cache_read во всех транскриптах' },
+    windowSpent: {
+      type: 'number',
+      description:
+        'Первая строка окно.py: расход в ТЕКУЩЕМ пятичасовом окне сессии. ' +
+        'Файла нет или он упал — верни -1, не выдумывай и не считай сам: слепые ворота честнее ложных.',
+    },
+    windowStart: { type: 'string', description: 'Третья строка окно.py — начало окна, как напечатано. Не смог — пустая строка.' },
+    notes: { type: 'string' },
+  },
+  required: ['tokensTotal', 'windowSpent', 'notes'],
+  additionalProperties: false,
+}
+
 const STEP = {
   type: 'object',
   properties: {
@@ -511,7 +551,9 @@ if (!prep || !prep.treeClean || !prep.gateGreen) {
 const BRANCH = prep.branch
 log(`Ветка ${BRANCH}. Моков с throw: ${prep.mockThrows || '?'}, решений владельца: ${prep.decisionCount || '?'}`)
 
-const BASELINE = prep.tokensBaseline || 0
+// Базовую отметку можно передать снаружи: при возобновлении подготовка может перезапуститься,
+// и новая отметка стёрла бы то, что уже потрачено этой ночью. args.baseline это чинит.
+const BASELINE = (args && args.baseline) || prep.tokensBaseline || 0
 const CACHE_BASELINE = prep.cacheReadBaseline || 0
 if (!BASELINE) {
   // Без нулевой отметки правило владельца не работает вовсе: расход не с чем сравнить.
@@ -533,19 +575,37 @@ log(
 // отдельного агента-измерителя нет, чтобы сам контроль расхода не стоил денег.
 let spent = 0
 let spentCacheRead = 0
+// Расход в текущем пятичасовом окне. -1 значит «не измерен»: ворота окна тогда
+// не запирают, но каждая фаза печатает, что идёт вслепую.
+let windowSpent = -1
+let windowStart = ''
 
 function share() {
   return spent / CEILING
 }
 
-/** Можно ли начинать новую задачу. Ниже порога T_NO_NEW — да. */
-function canStart() {
-  return share() < T_NO_NEW
+/** Доля разрешённой части окна сессии. Больше 1 — черта пройдена. */
+function windowShare() {
+  return windowSpent < 0 ? 0 : windowSpent / SESSION_BUDGET
 }
 
-/** Осталась ли вторая попытка на провал. */
+/** Черта окна сессии пройдена — новую работу не начинаем. */
+function windowOver() {
+  return windowSpent >= 0 && windowSpent >= SESSION_BUDGET
+}
+
+/** Можно ли начинать новую задачу. Ниже порога T_NO_NEW и внутри окна — да. */
+function canStart() {
+  return share() < T_NO_NEW && !windowOver()
+}
+
+/**
+ * Осталась ли вторая попытка на провал. У окна порог ниже, чем у остановки:
+ * вторая попытка это удвоенная цена задачи, и тратить на неё последнюю пятую часть
+ * разрешённого окна значит гарантированно не доделать начатое.
+ */
 function canRetry() {
-  return share() < T_NO_RETRY
+  return share() < T_NO_RETRY && windowShare() < 0.8
 }
 
 /** Пора ли сворачиваться в финал. */
@@ -559,12 +619,36 @@ function budgetLine() {
   return `расход ${spent.toLocaleString('ru')} из ${CEILING.toLocaleString('ru')} — ${pct} %${extra}`
 }
 
+function windowLine() {
+  if (windowSpent < 0) return 'окно сессии НЕ ИЗМЕРЕНО — ворота окна открыты вслепую'
+  const pct = Math.round(windowShare() * 100)
+  return (
+    `окно сессии ${windowSpent.toLocaleString('ru')} из ${SESSION_BUDGET.toLocaleString('ru')} разрешённых — ${pct} % ` +
+    `(потолок окна ${SESSION_WINDOW_TOKENS.toLocaleString('ru')}, ночи отдано ${Math.round(SESSION_SHARE * 100)} %` +
+    (windowStart ? `, окно открыто ${windowStart}` : '') +
+    ')'
+  )
+}
+
 /** Причина, по которой фаза не запускается. null — запускается. */
 function phaseBlocked(name) {
   if (SKIP.has(name)) return 'пропущена по args.skip'
   if (mustStop()) return `потолок расхода: ${budgetLine()}`
+  if (windowOver()) return `порог пятичасового окна: ${windowLine()}`
   if (!canStart()) return `расход у порога новых задач: ${budgetLine()}`
   return null
+}
+
+/**
+ * Ворота перед фазой: сначала мерим окно, потом решаем. Замер отдельным дешёвым агентом,
+ * а не внутри фиксатора, — иначе правка промпта фиксатора при возобновлении заставила бы
+ * его коммитить заново.
+ */
+async function phaseGate(name) {
+  if (SKIP.has(name)) return 'пропущена по args.skip'
+  await measureWindow(name)
+  log(`${name}: ${windowLine()}`)
+  return phaseBlocked(name)
 }
 
 phase('Раскрой')
@@ -1134,6 +1218,63 @@ async function commitWave(title, results, phaseName) {
  * Замер расхода без коммита — для волн, которые ничего не произвели.
  * Отдельный дешёвый агент: одна команда, минимум рассуждения.
  */
+/**
+ * Замер окна сессии. Отдельный дешёвый агент на одну команду — намеренно не часть
+ * фиксатора: правка промпта фиксатора при возобновлении заставила бы его пройти
+ * коммиты заново. Здесь же новый вызов просто добавляется, ничего не ломая.
+ */
+async function measureWindow(title) {
+  const m = await tryAgent(
+    [
+      `Шаг 1. Если файла ${BRIEFS}/окно.py НЕТ — создай его. Содержимое ровно это, менять нельзя:`,
+      '  import json, glob, os, datetime as dt',
+      '  W=dt.timedelta(hours=5)',
+      '  rows=[]',
+      "  for f in glob.glob(os.path.expanduser('~/.claude/projects/**/*.jsonl'), recursive=True):",
+      '    try:',
+      "      for line in open(f, encoding='utf-8', errors='ignore'):",
+      '        if \'"usage"\' not in line: continue',
+      '        try: o=json.loads(line)',
+      '        except: continue',
+      "        u=(o.get('message') or {}).get('usage') or o.get('usage')",
+      "        ts=o.get('timestamp')",
+      '        if not isinstance(u, dict) or not ts: continue',
+      "        try: t=dt.datetime.fromisoformat(ts.replace('Z','+00:00'))",
+      '        except: continue',
+      "        rows.append((t, u.get('input_tokens',0)+u.get('cache_creation_input_tokens',0)+u.get('output_tokens',0), u.get('cache_read_input_tokens',0)))",
+      '    except: pass',
+      '  rows.sort(key=lambda r: r[0])',
+      '  start=None; a=b=0',
+      '  for t,v,c in rows:',
+      '    if start is None or t>=start+W: start,a,b=t,0,0',
+      '    a+=v; b+=c',
+      '  if start is not None and dt.datetime.now(dt.timezone.utc)>=start+W: start,a,b=None,0,0',
+      "  print(a); print(b); print(start.isoformat() if start else 'окно пусто')",
+      '',
+      'Почему именно так, а не «всё за последние 5 часов»: окно сессии не привязано к часам',
+      'суток — оно открывается первым сообщением и живёт пять часов. Хвостовой замер сразу',
+      'после сброса тянет расход прошлого окна и завышает втрое (2026-09-12: 15,7 млн против',
+      'фактических 2,4 млн). Поэтому границы восстанавливаются по истории.',
+      '',
+      `Шаг 2. Одна команда: python3 ${BRIEFS}/окно.py`,
+      'Три строки вывода: первая → windowSpent, вторая игнорируется, третья → windowStart.',
+      'Питон упал или вывод не число — верни windowSpent = -1 и скажи почему в notes.',
+      'НЕ считай окно сам и не подставляй правдоподобное число: слепые ворота честнее ложных.',
+      'Ничего не читай, не меняй, не коммить.',
+    ].join('\n'),
+    { schema: SPEND, label: `замер окна: ${title}`, phase: title, effort: 'low' },
+    1,
+  )
+  if (!m || typeof m.windowSpent !== 'number') {
+    windowSpent = -1
+    log(`замер окна перед «${title}» не удался — ворота окна открыты вслепую`)
+    return -1
+  }
+  windowSpent = m.windowSpent
+  windowStart = m.windowStart || ''
+  return windowSpent
+}
+
 async function measureSpend(title, phaseName) {
   const m = await tryAgent(
     [
@@ -1178,7 +1319,7 @@ phase('Мок-долг')
  * Обоснование — в комментарии к MOCK_BY_DOMAIN выше.
  */
 let mockResults = []
-const mockBlocked = phaseBlocked('Мок-долг')
+const mockBlocked = await phaseGate('Мок-долг')
 if (mockBlocked) {
   log(`Мок-долг НЕ ЗАПУЩЕН: ${mockBlocked}`)
 } else {
@@ -1301,7 +1442,7 @@ if (mockBlocked) {
 phase('Учёт')
 
 let ledgerResults = []
-const ledgerBlocked = phaseBlocked('Учёт')
+const ledgerBlocked = await phaseGate('Учёт')
 if (ledgerBlocked) {
   log(`Учёт НЕ ЗАПУЩЕН: ${ledgerBlocked}`)
 } else {
@@ -1430,7 +1571,7 @@ if (ledgerBlocked) {
 phase('Контракт')
 
 let contractResults = []
-const contractBlocked = phaseBlocked('Контракт')
+const contractBlocked = await phaseGate('Контракт')
 if (contractBlocked) {
   log(`Контракт НЕ ЗАПУЩЕН: ${contractBlocked}`)
 } else {
@@ -1549,7 +1690,7 @@ phase('Сквозное')
 
 let crossResults = []
 let digestOk = false
-const crossBlocked = phaseBlocked('Сквозное')
+const crossBlocked = await phaseGate('Сквозное')
 if (crossBlocked) {
   log(`Сквозное НЕ ЗАПУЩЕНО: ${crossBlocked} — доменные планы пойдут БЕЗ сводки, каждый изобретёт своё`)
 } else {
@@ -1657,7 +1798,7 @@ phase('Домены')
 const domainList = ONLY_DOMAINS || DOMAINS
 let domainResults = []
 const skippedByBudget = []
-const domainBlocked = phaseBlocked('Домены')
+const domainBlocked = await phaseGate('Домены')
 if (domainBlocked) {
   log(`Домены НЕ ЗАПУЩЕНЫ: ${domainBlocked}`)
 } else {
@@ -1788,12 +1929,18 @@ if (domainBlocked) {
 
   // pipeline, а не parallel: домен, прошедший скептика, коммитится и освобождает слот, пока
   // соседи ещё пишут. Барьер тут дал бы простой на самых быстрых доменах.
+  let domainsSeen = 0
   domainResults = (await pipeline(
     domainList,
-    (domain) => {
+    async (domain) => {
       // Проверка на входе КАЖДОГО домена, а не один раз на фазу: семнадцать доменов идут
       // часами, и потолок может быть пройден на пятом. Начатые доделываются — бросать
       // работу, за которую уже заплачено, дороже, чем её закончить.
+      //
+      // Окно сессии перемеряем прямо здесь, раз в четыре домена. Замер на входе в фазу
+      // для этой фазы бесполезен: она одна идёт дольше, чем всё окно целиком, и число,
+      // снятое на старте, к пятому домену врёт сильнее, чем его отсутствие.
+      if (domainsSeen++ % 4 === 0) await measureWindow('Домены')
       if (!canStart()) {
         skippedByBudget.push(domain)
         return null
@@ -1848,7 +1995,7 @@ phase('Сквозное: закрытие')
  */
 const blocked = crossResults.filter((w) => w && w.blockedByDomains && w.blockedByDomains.trim())
 let closeResults = []
-const closeBlockedReason = phaseBlocked('Сквозное: закрытие')
+const closeBlockedReason = await phaseGate('Сквозное: закрытие')
 if (!blocked.length) {
   log('Сквозное: закрытие — ни один сквозной план не объявил зависимости от доменов, закрывать нечего')
 } else if (closeBlockedReason) {
@@ -1919,6 +2066,10 @@ const spendReport = {
   потолок: CEILING,
   недельныйЛимит: WEEKLY_LIMIT,
   доляОтНедельного: NIGHT_SHARE,
+  окноСессии: SESSION_WINDOW_TOKENS,
+  разрешеноОтОкна: SESSION_SHARE,
+  потраченоВОкне: windowSpent,
+  окноОткрыто: windowStart,
   потраченоЗаНочь: spent,
   процентПотолка: Math.round(share() * 100),
   cacheReadЗаНочь: spentCacheRead,
