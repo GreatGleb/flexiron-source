@@ -226,7 +226,17 @@ function buildScopes(source: ts.SourceFile): Map<ts.Node, Scope> {
         }
       }
     }
-    if (ts.isFunctionDeclaration(node) && node.name) push(functions, node.name.text, node)
+    if (ts.isFunctionDeclaration(node) && node.name) {
+      push(functions, node.name.text, node)
+      // Объявленная функция — такое же происхождение имени, как `const txt = (e) => …`.
+      // Без этой строки `function textOf(e){ return e.message }` была невидима В СВОЁМ
+      // файле, хотя её межфайловый двойник (факт `returnsErrorText`) ловился. Дыра
+      // нашлась пробой соседних форм уже ПОСЛЕ того, как четыре названные закрылись:
+      // закрывать надо мысль, а не список записей, иначе шестая версия слепа так же,
+      // как пять предыдущих. Имя кладётся в ОБЪЕМЛЮЩУЮ область: сама функция — своя
+      // область, и `scopeOf` вернул бы её внутренность.
+      push(scopeAt(enclosing(node)).vars, node.name.text, node)
+    }
     ts.forEachChild(node, declare)
   }
   declare(source)

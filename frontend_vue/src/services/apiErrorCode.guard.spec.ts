@@ -136,9 +136,13 @@ const SAMPLES: Array<[string, string, boolean]> = [
     `const h = (m: string) => m === 'SOME_CODE'\ntry{f()}catch(e){ if (h(e.message)) g() }`,
     true,
   ],
-  // `error.value = e.message` — 35 таких мест во фронте на 2026-09-12, и ни одного
-  // сравнения с кодом поверх них. То есть это была ЛОВУШКА, а не живой отказ: сырьё
-  // лежало, сторож бы промолчал. Проба стоит здесь, чтобы ловушка не сработала позже.
+  // `error.value = e.message` — **36** таких мест во фронте на 2026-09-12 (замер:
+  // `grep -rnE "\.value\s*=[^=].*\.message" src` без спек и моков; в прошлой редакции
+  // этого комментария стояло «35» — число было взято на глаз и оказалось неверным).
+  // Сравнений с кодом поверх них — ноль (`grep -rnE "\.value(\.(includes|startsWith|
+  // indexOf|match))?\s*(===|==|\()\s*'[A-Z][A-Z0-9_]{3,}'"`). То есть это была
+  // ЛОВУШКА, а не живой отказ: сырьё лежало, сторож бы промолчал. Проба стоит здесь,
+  // чтобы ловушка не сработала позже.
   [
     'через .value рефа',
     `const error = ref<string|null>(null)\nfunction fail(e: Error){ error.value = e.message }\nfunction show(){ if (error.value === 'SOME_CODE') g() }`,
@@ -154,6 +158,39 @@ const SAMPLES: Array<[string, string, boolean]> = [
     `try{f()}catch(e){ const r = ref(e.message); if (r.value === 'SOME_CODE') g() }`,
     true,
   ],
+  // Пятая форма хранения — ВОЗВРАТ ОБЪЯВЛЕННОЙ ФУНКЦИИ. Её не было в списке скептика:
+  // она нашлась пробой соседних форм уже после того, как четыре названные закрылись.
+  // Стыд именно в том, что межфайловый двойник (`returnsErrorText` ниже) ловился, а
+  // тот же помощник В СВОЁМ файле — нет: `const txt = (e) => e.message` числился
+  // происхождением имени, а `function txt(e){ return e.message }` — нет.
+  [
+    'через возврат объявленной функции',
+    `function textOf(e: Error){ return e.message }\ntry{f()}catch(e){ if (textOf(e) === 'SOME_CODE') g() }`,
+    true,
+  ],
+  [
+    'возврат объявленной функции, подстрокой',
+    `function textOf(e: Error){ return e.message }\ntry{f()}catch(e){ if (textOf(e).includes('SOME_CODE')) g() }`,
+    true,
+  ],
+  [
+    'контроль: объявленная функция возвращает код',
+    `function codeOf(e: unknown){ return errorCode(e) }\ntry{f()}catch(e){ if (codeOf(e) === 'SOME_CODE') g() }`,
+    false,
+  ],
+  [
+    'контроль: объявленная функция возвращает не-текст',
+    `function statusOf(r: Row){ return r.status }\nif (statusOf(row) === 'IN_PROGRESS') g()`,
+    false,
+  ],
+  // ИЗВЕСТНЫЕ ПРЕДЕЛЫ v6 — записаны как есть, потому что молчание сторожа на них
+  // означает «не проверено», а не «чисто». Обе формы промерены на живом дереве и
+  // сегодня не встречаются НИ РАЗУ, поэтому закрыты не были:
+  //   1) через элемент массива — `arr.push(e.message)`, затем `arr[0] === 'КОД'`.
+  //      Замер 2026-09-12: `grep -rnE "\.(push|unshift)\([^)]*\.message" src` — 0 мест.
+  //   2) через rest-параметр — `function h(...a){ a[0] === 'КОД' }`, вызванная `h(e.message)`.
+  //      Связка аргумент→параметр в `buildScopes` идёт по индексу и rest не раскрывает.
+  // Появится живое место такой формы — это находка, а не «сторож зелёный».
   // Разрешённые записи — сторож обязан молчать.
   ['через errorCode', `try{f()}catch (e) { if (errorCode(e) === 'SOME_CODE') g() }`, false],
   [
