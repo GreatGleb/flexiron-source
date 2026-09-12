@@ -539,7 +539,7 @@ export function useOrderCard(id: string) {
       // the version existed: "saved", and one of the two numbers gone. Said out
       // loud, and the card is put back on what the server actually holds, so the
       // admin can see what they are typing over and decide again.
-      if (errorCode(e).includes('ORDER_VERSION_CONFLICT')) {
+      if (errorCode(e) === 'ORDER_VERSION_CONFLICT') {
         toast.error(t('orders.error_version_conflict'))
         clearPending()
         await load()
@@ -1699,8 +1699,8 @@ export function useOrderCard(id: string) {
       // `errorCode`, потому что спрашивать «какой это код» в проекте нужно одним способом:
       // вторая форма вопроса и есть то, из-за чего сервер не читался семью местами.
       const code = errorCode(e)
-      if (code.includes('BELOW_FROZEN_MINIMUM')) return 'orders.error_total_below_shipped'
-      if (code.includes('NO_EDITABLE_LINES')) return 'orders.error_no_editable_lines'
+      if (code === 'BELOW_FROZEN_MINIMUM') return 'orders.error_total_below_shipped'
+      if (code === 'NO_EDITABLE_LINES') return 'orders.error_no_editable_lines'
       return 'orders.error_total_not_possible'
     }
   }

@@ -296,7 +296,14 @@ export function canDeleteLine(line: PricingLine): boolean {
 
 /**
  * Every refusal the model can produce, as a message the admin can act on.
- * Matched by substring so a thrown Error, a rejected promise and a string all work.
+ *
+ * Сопоставление — равенством (`errorMessageKey`, `apiErrorCode.ts`). До 2026-09-12 оно
+ * шло подстрокой, и тогда ПОРЯДОК строк был частью правильности: код, содержащийся в
+ * другом, обязан был идти вторым, иначе короткий перехватывал длинный. Дисциплина эта
+ * была ручной, ничем не проверялась и опиралась на требование §2 соглашений «ни один код
+ * не является подстрокой другого» — уже нарушенное массово (находка заведена в баг-файл
+ * соглашений). Теперь порядок строк — вопрос читаемости и только: группы ниже стоят так,
+ * чтобы родственные отказы были рядом.
  */
 const ERROR_KEYS: Array<[string, string]> = [
   ['PRICE_FROZEN_BY_SHIPMENT', 'orders.error_line_price_frozen'],
@@ -320,9 +327,7 @@ const ERROR_KEYS: Array<[string, string]> = [
   ['SHIPMENT_ALREADY_CANCELLED', 'orders.error_shipment_already_cancelled'],
   ['SPLIT_MUST_MATCH_SHIPPED', 'orders.error_split_not_possible'],
   ['INVALID_SPLIT_QUANTITY', 'orders.error_split_not_possible'],
-  // Money. `SHIPMENT_CANCELLED` sits after the shipment codes above on purpose:
-  // the match is by substring, so a code that is contained in another has to come
-  // second — here they only look alike, but the next one added may not.
+  // Money.
   ['PAYMENT_AMOUNT_REQUIRED', 'orders.error_payment_amount_required'],
   ['PAYMENT_NOT_FOUND', 'orders.error_payment_not_found'],
   ['PAYMENT_INVOICE_NOT_FOUND', 'orders.error_original_invoice_not_found'],
@@ -374,8 +379,9 @@ const ERROR_KEYS: Array<[string, string]> = [
   ['INVALID_PAGE', 'orders.error_invalid_page'],
   ['INVALID_DATE_FILTER', 'orders.error_invalid_date_filter'],
   // Spreading a total by hand. `BELOW_FROZEN_MINIMUM` and `NO_EDITABLE_LINES` are
-  // also matched by substring in the card's total preview, so the backend has to
-  // return these exact strings — §6 says so now.
+  // also matched, now by equality, in the card's total preview
+  // (`useOrderCard.ts:1702-1703`), so the backend has to return these exact strings —
+  // §6 says so, and equality makes «exact» mean exactly that.
   ['BELOW_FROZEN_MINIMUM', 'orders.error_below_frozen_minimum'],
   ['NO_EDITABLE_LINES', 'orders.error_no_editable_lines'],
   ['ZERO_BASE_TOTAL', 'orders.error_zero_base_total'],

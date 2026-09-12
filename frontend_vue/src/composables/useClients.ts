@@ -67,9 +67,10 @@ export function useClients() {
       toast.success(t('clients.toast_deleted'))
       await load()
     } catch (e) {
-      // Подстрокой, а не равенством: мок кладёт код внутрь текста —
-      // `CONFLICT: client has orders` (`mocks/clients.ts:1133`).
-      if (errorCode(e).includes('CONFLICT')) {
+      // Равенством: форму `CONFLICT: client has orders`, которой мок отвечает
+      // (`mocks/clients.ts:1133`), разбирает `errorCode` — подробность там уже
+      // отрезана от кода.
+      if (errorCode(e) === 'CONFLICT') {
         toast.error(t('clients.toast_error_delete_conflict'))
       } else {
         toast.error(t('clients.toast_error_delete'))

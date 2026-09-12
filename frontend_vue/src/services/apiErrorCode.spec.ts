@@ -35,6 +35,26 @@ describe('errorCode', () => {
     expect(errorCode('CONFLICT')).toBe('CONFLICT')
     expect(errorCode(null)).toBe('null')
   })
+
+  it('отрезает подробность от кода, когда мок кладёт код внутрь текста', () => {
+    // Ровно та форма, из-за которой три места сравнивали подстрокой: `mocks/clients.ts:1133`
+    // и одиннадцать похожих на 113 форм мока.
+    expect(errorCode(new Error('CONFLICT: client has orders'))).toBe('CONFLICT')
+    expect(errorCode(new Error('UNKNOWN_SORT_KEY: createdAt'))).toBe('UNKNOWN_SORT_KEY')
+    expect(errorCode(new Error('INVALID_PAGE: page=0'))).toBe('INVALID_PAGE')
+  })
+
+  it('человеческую фразу не режет — резать в ней нечего', () => {
+    // Отрезание срабатывает только на коде в НАЧАЛЕ и только через двоеточие. Фраза,
+    // начинающаяся заглавным словом, кодом не становится: иначе `VALIDATION failed here`
+    // превратилось бы в код `VALIDATION`, которого никто не бросал.
+    expect(errorCode(new Error('Request failed (500)'))).toBe('Request failed (500)')
+    expect(errorCode(new Error('Not authenticated'))).toBe('Not authenticated')
+    expect(errorCode(new Error('VALIDATION failed here'))).toBe('VALIDATION failed here')
+    expect(errorCode(new Error('[mock] GET /clients not found'))).toBe(
+      '[mock] GET /clients not found',
+    )
+  })
 })
 
 describe('errorMessageKey', () => {
@@ -58,6 +78,25 @@ describe('errorMessageKey', () => {
     expect(
       errorMessageKey(new Error('CONFLICT: client has orders'), [['CONFLICT', 'x']], 'fb'),
     ).toBe('x')
+  })
+
+  it('вложенный код не перехватывает длинный, в каком бы порядке ни стояла таблица', () => {
+    // До 2026-09-12 сопоставление шло подстрокой, и этот порядок строк давал 'short':
+    // правильность держалась ручной дисциплиной «код, содержащийся в другом, идёт вторым».
+    // Вложенность среди настоящих кодов не гипотетическая — 51 пара, находка заведена
+    // в баг-файл соглашений; `BATCH_NOT_FOUND` ⊂ `RETURN_BATCH_NOT_FOUND` — одна из них.
+    const NESTED = [
+      ['BATCH_NOT_FOUND', 'short'],
+      ['RETURN_BATCH_NOT_FOUND', 'long'],
+    ] as const
+    expect(errorMessageKey(new Error('RETURN_BATCH_NOT_FOUND'), NESTED, 'fb')).toBe('long')
+    expect(errorMessageKey(new Error('BATCH_NOT_FOUND'), NESTED, 'fb')).toBe('short')
+    const fromServer = new ApiRequestError({
+      status: 404,
+      message: 'Партия возврата не найдена',
+      code: 'RETURN_BATCH_NOT_FOUND',
+    })
+    expect(errorMessageKey(fromServer, NESTED, 'fb')).toBe('long')
   })
 
   it('возвращает запасной ключ, когда код не из таблицы', () => {
