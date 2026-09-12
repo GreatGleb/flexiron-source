@@ -360,14 +360,30 @@ async function getMockRoute<T>(
   // ── Auth: get current user (validate session) ──
   if (path === '/api/auth/me') {
     const user = getStoredMockUser()
-    if (!user) throw new Error('Not authenticated')
+    // 401 `UNAUTHORIZED` — код ядра (`backend/app/core/exceptions.py:30-34`, §2 соглашений).
+    // Текст сохранён дословно: ветки, читающие `e.message`, продолжают работать.
+    if (!user) {
+      throw new ApiRequestError({
+        status: 401,
+        message: 'Not authenticated',
+        code: 'UNAUTHORIZED',
+      })
+    }
     return delay(user as T)
   }
 
   // ── Auth: magic link verification (returns email) ──
   if (path === '/api/auth/link') {
     const token = params?.token
-    if (!token) throw new Error('MISSING_TOKEN')
+    // `MISSING_TOKEN` объявлен не ядром, а самим эндпоинтом, и отдаётся с 401
+    // (`backend/app/modules/auth/features/me/action.py:44-47`; `api/auth.md:46`).
+    if (!token) {
+      throw new ApiRequestError({
+        status: 401,
+        message: 'MISSING_TOKEN',
+        code: 'MISSING_TOKEN',
+      })
+    }
     // Accept any non-empty token in mock mode — return MagicLinkVerifyResponse format
     return delay({ email: 'director@metalltorg.com' } as T)
   }
@@ -583,7 +599,13 @@ async function getMockRoute<T>(
   const clientCardMatch = path.match(/^\/api\/clients\/([^/]+)$/)
   if (clientCardMatch) {
     const client = mockGetClient(clientCardMatch[1] as string)
-    if (!client) throw new Error('CLIENT_NOT_FOUND')
+    if (!client) {
+      throw new ApiRequestError({
+        status: 404,
+        message: 'CLIENT_NOT_FOUND',
+        code: 'CLIENT_NOT_FOUND',
+      })
+    }
     return delay(client as T)
   }
 
@@ -907,7 +929,14 @@ async function getMockRoute<T>(
     return delay(mockGetArchive({ search, type, relatedEntityType, page, pageSize }) as T)
   }
 
-  throw new Error(`[mock] GET ${path} not found`)
+  // Промах маршрутизации — это тот же 404, которым настоящий сервер отвечает на
+  // неизвестный путь (`NOT_FOUND`, `backend/app/core/exceptions.py:13-20`). Текст оставлен
+  // дословно: по нему опознаёт промах `services/ordersService.spec.ts:4`.
+  throw new ApiRequestError({
+    status: 404,
+    message: `[mock] GET ${path} not found`,
+    code: 'NOT_FOUND',
+  })
 }
 
 // ─── Auth mock user storage ───
@@ -940,7 +969,12 @@ async function postMockRoute<T>(
   if (path === '/api/auth/login') {
     const { email, password } = body as { email: string; password: string }
     if (!email || !password) {
-      throw new Error('Email and password are required')
+      // 422 `VALIDATION_ERROR` — код ядра (`backend/app/core/exceptions.py:23-27`, §2 соглашений).
+      throw new ApiRequestError({
+        status: 422,
+        message: 'Email and password are required',
+        code: 'VALIDATION_ERROR',
+      })
     }
     // Accept any non-empty email+password in mock mode
     const mockUser: import('@/types/auth').UserInfo = {
@@ -1199,7 +1233,14 @@ async function postMockRoute<T>(
   if (path === '/api/settings/change-password') return delay(undefined as T) // no-op mock
   if (path === '/api/settings/mail/test') return delay(mockSendMailTest() as T)
 
-  throw new Error(`[mock] POST ${path} not found`)
+  // Промах маршрутизации — это тот же 404, которым настоящий сервер отвечает на
+  // неизвестный путь (`NOT_FOUND`, `backend/app/core/exceptions.py:13-20`). Текст оставлен
+  // дословно: по нему опознаёт промах `services/ordersService.spec.ts:4`.
+  throw new ApiRequestError({
+    status: 404,
+    message: `[mock] POST ${path} not found`,
+    code: 'NOT_FOUND',
+  })
 }
 
 // ─── PUT (bulk replace) ───
@@ -1239,7 +1280,14 @@ async function putMockRoute<T>(
     return delay(mockPutCategoryFields(categoryFieldsMatch[1] as string, fields) as T)
   }
 
-  throw new Error(`[mock] PUT ${path} not found`)
+  // Промах маршрутизации — это тот же 404, которым настоящий сервер отвечает на
+  // неизвестный путь (`NOT_FOUND`, `backend/app/core/exceptions.py:13-20`). Текст оставлен
+  // дословно: по нему опознаёт промах `services/ordersService.spec.ts:4`.
+  throw new ApiRequestError({
+    status: 404,
+    message: `[mock] PUT ${path} not found`,
+    code: 'NOT_FOUND',
+  })
 }
 
 // ─── PATCH (merge) ───
@@ -1472,7 +1520,14 @@ async function patchMockRoute<T>(
     )
   }
 
-  throw new Error(`[mock] PATCH ${path} not found`)
+  // Промах маршрутизации — это тот же 404, которым настоящий сервер отвечает на
+  // неизвестный путь (`NOT_FOUND`, `backend/app/core/exceptions.py:13-20`). Текст оставлен
+  // дословно: по нему опознаёт промах `services/ordersService.spec.ts:4`.
+  throw new ApiRequestError({
+    status: 404,
+    message: `[mock] PATCH ${path} not found`,
+    code: 'NOT_FOUND',
+  })
 }
 
 // ─── DELETE ───
@@ -1553,7 +1608,18 @@ async function deleteMockRoute<T>(path: string, headers?: Record<string, string>
   const categoryDeleteMatch = path.match(/^\/api\/categories\/([^/]+)$/)
   if (categoryDeleteMatch) {
     const result = mockDeleteCategory(categoryDeleteMatch[1] as string)
-    if (!result.ok) throw new Error(result.code)
+    if (!result.ok) {
+      // Статусы — унаследованный замысел прежнего контракта, совпадающий с классами ядра:
+      // 404 у `CATEGORY_NOT_FOUND`, 409 у `CATEGORY_HAS_PRODUCTS` и `CATEGORY_HAS_CHILDREN`
+      // (`api/categories.md:68-73`). Запасное значение недостижимо: каждая ветка отказа
+      // в `mockDeleteCategory` кладёт код (`mocks/categories.ts:1479-1481`).
+      const code = result.code ?? 'CATEGORY_NOT_FOUND'
+      throw new ApiRequestError({
+        status: code === 'CATEGORY_NOT_FOUND' ? 404 : 409,
+        message: code,
+        code,
+      })
+    }
     return delay(undefined as T)
   }
 
@@ -1569,7 +1635,16 @@ async function deleteMockRoute<T>(path: string, headers?: Record<string, string>
   const productDeleteMatch = path.match(/^\/api\/products\/([^/]+)$/)
   if (productDeleteMatch) {
     const result = await mockDeleteProduct(productDeleteMatch[1] as string)
-    if (!result.ok) throw new Error(result.code ?? 'PRODUCT_NOT_FOUND')
+    if (!result.ok) {
+      // 404 у `PRODUCT_NOT_FOUND`, 409 у `PRODUCT_IN_USE` (`api/products.md:877`) — то же
+      // мапирование на классы ядра. Запасное значение сохранено дословно из прежней строки.
+      const code = result.code ?? 'PRODUCT_NOT_FOUND'
+      throw new ApiRequestError({
+        status: code === 'PRODUCT_NOT_FOUND' ? 404 : 409,
+        message: code,
+        code,
+      })
+    }
     return delay(undefined as T)
   }
 
@@ -1580,7 +1655,13 @@ async function deleteMockRoute<T>(path: string, headers?: Record<string, string>
     // услуги молча возвращало успех вместо ошибки. Нашло правило
     // no-unnecessary-condition, включённое 2026-08-26.
     const deleted = await mockDeleteService(serviceDeleteMatch[1] as string)
-    if (!deleted) throw new Error('CATALOG_SERVICE_NOT_FOUND')
+    if (!deleted) {
+      throw new ApiRequestError({
+        status: 404,
+        message: 'CATALOG_SERVICE_NOT_FOUND',
+        code: 'CATALOG_SERVICE_NOT_FOUND',
+      })
+    }
     return delay(undefined as T)
   }
 
@@ -1719,7 +1800,14 @@ async function deleteMockRoute<T>(path: string, headers?: Record<string, string>
     return delay(undefined as T)
   }
 
-  throw new Error(`[mock] DELETE ${path} not found`)
+  // Промах маршрутизации — это тот же 404, которым настоящий сервер отвечает на
+  // неизвестный путь (`NOT_FOUND`, `backend/app/core/exceptions.py:13-20`). Текст оставлен
+  // дословно: по нему опознаёт промах `services/ordersService.spec.ts:4`.
+  throw new ApiRequestError({
+    status: 404,
+    message: `[mock] DELETE ${path} not found`,
+    code: 'NOT_FOUND',
+  })
 }
 
 // ─── UPLOAD ───
@@ -1748,7 +1836,14 @@ async function uploadMockRoute<T>(
     uploadedFiles.set(fileId, meta)
     return delay(meta as T)
   }
-  throw new Error(`[mock] UPLOAD ${path} not found`)
+  // Промах маршрутизации — это тот же 404, которым настоящий сервер отвечает на
+  // неизвестный путь (`NOT_FOUND`, `backend/app/core/exceptions.py:13-20`). Текст оставлен
+  // дословно: по нему опознаёт промах `services/ordersService.spec.ts:4`.
+  throw new ApiRequestError({
+    status: 404,
+    message: `[mock] UPLOAD ${path} not found`,
+    code: 'NOT_FOUND',
+  })
 }
 
 /** Helper: read a File as a base64 data URL */
