@@ -1827,8 +1827,28 @@ phase('Домены')
 const domainList = ONLY_DOMAINS || DOMAINS
 let domainResults = []
 const skippedByBudget = []
-const domainBlocked = await phaseGate('Домены')
-if (domainBlocked) {
+/**
+ * ПРИНЯТЫЕ ВЛАДЕЛЬЦЕМ ДОМЕНЫ. Фаза закрытия сквозного смотрит на статусы в памяти скрипта,
+ * а не на файлы на диске, — и после решения владельца 2026-09-13 («планы уходят в историю
+ * с описью открытых находок») это стало ложной блокировкой: шестнадцать планов закоммичены,
+ * а скрипт считает, что готовых нет, и закрывать не по чему.
+ *
+ * args.acceptDomains перечисляет домены, чьи планы владелец принял. Фаза не перезапускается,
+ * статус проставляется как принятый — с честной пометкой, что принят он владельцем, а не
+ * скептиком. Выдумкой это не является: планы лежат в git, и агенты закрытия читают их с диска.
+ */
+const ACCEPTED_DOMAINS = (args && args.acceptDomains) || null
+const domainBlocked = ACCEPTED_DOMAINS ? null : await phaseGate('Домены')
+if (ACCEPTED_DOMAINS) {
+  domainResults = ACCEPTED_DOMAINS.map((d) => ({
+    task: `план: ${d}`,
+    domain: d,
+    status: 'сделано',
+    notes: 'принят ВЛАДЕЛЬЦЕМ с описью открытых находок (не скептиком)',
+    files: [`${PLANS}/${d}/${d}-backend-plan.md`],
+  }))
+  log(`Домены НЕ ПЕРЕЗАПУСКАЮТСЯ: владелец принял ${ACCEPTED_DOMAINS.length} планов — ${ACCEPTED_DOMAINS.join(', ')}`)
+} else if (domainBlocked) {
   log(`Домены НЕ ЗАПУЩЕНЫ: ${domainBlocked}`)
 } else {
   const digestRef = digestOk
