@@ -1529,7 +1529,9 @@ Save-режим: quick-action по кнопке. Один вызывающий �
   `POST /api/warehouse/cutting` при этом не меняется — [`settings.md`](settings.md), раздел
   «Ширина реза по умолчанию».
 
-**Константами во фронте стоят, и владельца у них нет:** размер страницы `25` — **десять**
+**Константами во фронте стоят; владельца нет у трёх — перечня размеров, приоритета со
+статусом нехватки и шага количества, — а у размера страницы и единицы по умолчанию он назван
+абзацем ниже:** размер страницы `25` — **десять**
 экземпляров, пятью `usePagination(25)` (`useWarehouse.ts:172-176`; замер —
 `grep -c "usePagination(25)" frontend_vue/src/composables/useWarehouse.ts` → `5`) и дефолтами пяти
 веток мока (`frontend_vue/src/services/mocks/index.ts:619`, `:660`, `:705`, `:757`, `:781`); перечень размеров
@@ -1538,7 +1540,8 @@ Save-режим: quick-action по кнопке. Один вызывающий �
 `useWarehouseBatchCreate.ts:40`, `useWarehouseStockCard.ts:52` и `:88`) и `'uom-pcs'` ещё в
 **четырёх** (`useWarehouseOffcutCreate.ts:48`, `:229`, `:334`, и в моке ручного создания нехватки
 `frontend_vue/src/services/mocks/warehouse.ts:1746`); разницы между `:229` и `:334` нет — обе
-строки `form.uomId = 'uom-pcs'`, как и между `:52` и `:88` — обе дефолт формы; приоритет `'high'` и статус `'open'` у нехватки, заведённой заказом
+строки `form.uomId = 'uom-pcs'`, как и между `:52` и `:88` — обе дефолт формы; приоритет
+`'high'` и статус `'open'` у нехватки, заведённой заказом
 (`frontend_vue/src/services/mocks/warehouse.ts:1697-1698`); шаг количества — `1` для штучной единицы
 и `0.01` для прочих, трижды (`useWarehouseBatchCreate.ts:160`,
 `views/admin/warehouse/WarehouseStockCard.vue:111`,
