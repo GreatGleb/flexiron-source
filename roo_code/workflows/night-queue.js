@@ -1204,7 +1204,13 @@ async function commitWave(title, results, phaseName) {
     { schema: COMMIT, label: `фиксатор: ${title}`, phase: phaseName, effort: 'low' },
   )
   if (c) {
-    if (c.tokensTotal) {
+    // Замер МЕНЬШЕ базовой отметки — это ответ из кэша возобновления, снятый до того, как
+    // отметку сдвинули. Ночь 2026-09-13 отчиталась «потрачено −12 672 586», то есть минус
+    // тринадцать миллионов. Счётчик монотонный, отрицательного расхода не бывает: такой
+    // ответ не «ноль», а «не знаю», и трогать им spent нельзя.
+    if (c.tokensTotal && c.tokensTotal < BASELINE) {
+      log(`фиксатор ${title}: замер ${c.tokensTotal} меньше базовой отметки ${BASELINE} — ответ из кэша, расход не обновляю`)
+    } else if (c.tokensTotal) {
       spent = c.tokensTotal - BASELINE
       spentCacheRead = (c.cacheReadTotal || 0) - CACHE_BASELINE
       if (CACHE_READ_WEIGHT) spent += Math.round(spentCacheRead * CACHE_READ_WEIGHT)
@@ -1292,7 +1298,9 @@ async function measureSpend(title, phaseName) {
     { schema: COMMIT, label: `замер расхода: ${title}`, phase: phaseName, effort: 'low' },
     1,
   )
-  if (m && m.tokensTotal) {
+  if (m && m.tokensTotal && m.tokensTotal < BASELINE) {
+    log(`замер после «${title}»: ${m.tokensTotal} меньше базовой отметки ${BASELINE} — ответ из кэша, расход не обновляю`)
+  } else if (m && m.tokensTotal) {
     spent = m.tokensTotal - BASELINE
     spentCacheRead = (m.cacheReadTotal || 0) - CACHE_BASELINE
     if (CACHE_READ_WEIGHT) spent += Math.round(spentCacheRead * CACHE_READ_WEIGHT)
@@ -1310,7 +1318,15 @@ async function judged(w, what, phaseName, judgePrompt) {
     return { ...w, status: 'провалено', notes: `гейт красный: ${w.gate || w.notes}` }
   }
   const j = await tryAgent(judgePrompt(w), { schema: JUDGE, label: `скептик: ${what}`, phase: phaseName, effort: 'high' })
-  if (!j) return w
+  // Умерший скептик — НЕ одобрение. Раньше здесь стояло `return w`, и в ночь 2026-09-13
+  // это дало ложное «сделано» двум планам (auth, notifications): их скептиков убил лимит
+  // сессии, а работа уехала в фиксатор как принятая. Правило прогонов гласит, что починку
+  // подтверждает отдельный агент-скептик; нет скептика — нет подтверждения. Отличаем от
+  // настоящего отказа словами, чтобы отчёт не выдавал несудимое за отклонённое.
+  if (!j) {
+    log(`${what}: СКЕПТИК НЕ ОТРАБОТАЛ — задача не подтверждена, в коммит не идёт`)
+    return { ...w, status: 'провалено', notes: `СКЕПТИК НЕ ОТРАБОТАЛ (не отказ, а отсутствие суда): ${w.notes || ''}`, files: w.files }
+  }
   if (j.refuted) {
     log(`${what}: скептик отклонил — ${j.reason}`)
     return { ...w, status: 'провалено', notes: `скептик: ${j.reason}`, files: w.files }
