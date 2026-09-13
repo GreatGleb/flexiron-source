@@ -582,7 +582,7 @@ cd frontend_vue && npm run test:unit
 
 ---
 
-## 6. Что здесь нельзя решить до доменных планов
+## 6. Что здесь нельзя решить до доменных планов — разобрано 2026-09-13, закрыто не всё
 
 Тема делится надвое чисто. **Механизм** — разделы 3 и 4 — написан целиком и доменов не ждёт: срок
 ключа, область действия, транспорт, поведение на повторе, коды отказа, политика версии, перечень
@@ -592,7 +592,14 @@ cd frontend_vue && npm run test:unit
 **Перечни и сводки** — не написаны и до доменных планов не существуют. Их четыре, и выдумать их
 здесь значило бы подменить работу семнадцати агентов догадкой одного.
 
-### Б1. Какие из 40 `POST` необратимы
+> **Состояние на 2026-09-13.** Доменные планы написаны у **шестнадцати** доменов из семнадцати
+> (нет `sales-crm`), и собранное из них лежит в разделе **6а**. Итог: Б4 закрыт, Б1 закрыт на
+> 29 блоков из 40, Б2 — на 5 обоснований из 14, Б3 — на один домен из шестнадцати, Б5 остаётся
+> открытым целиком. Что именно не закрылось и почему — в 6а, по пункту на каждый Б; перечень
+> **не полон и называет себя неполным**, потому что перечень, дописанный по памяти, выглядит
+> готовым и этим хуже названной дыры.
+
+### Б1. Какие из 40 `POST` необратимы — ЗАКРЫТ ЧАСТИЧНО (29 из 40, раздел 6а.1)
 
 Тест дан (3.1) и решает однозначно, но применять его надо к семантике каждого эндпоинта: что
 именно операция делает, есть ли у неё `DELETE` или отмена, кому она видна. Сегодня помечено кодом
@@ -600,26 +607,26 @@ cd frontend_vue && npm run test:unit
 Перечень «эндпоинт → обязателен/не требуется» появляется только из семнадцати проходов и
 собирается обратно гейтом Г1, а не этим планом.
 
-### Б2. Цена повтора у каждого необратимого эндпоинта
+### Б2. Цена повтора у каждого необратимого эндпоинта — ЗАКРЫТ ЧАСТИЧНО (5 из 14, раздел 6а.2)
 
 Обоснование Д2 — это `файл:строка` на место, где видно, что повтор создаёт вторую сущность. Для
 отгрузки и платежа оно уже написано в контракте заказов; для остальных его нет, и взять его
 неоткуда, кроме чтения мока и бэкенда своего домена.
 
-### Б3. Перечень ответов, недостаточных для разморозки
+### Б3. Перечень ответов, недостаточных для разморозки — ЗАКРЫТ ЧАСТИЧНО (один домен из 16, раздел 6а.3)
 
 Серверная половина П47 (3.6) — правило; список эндпоинтов, которые ему сегодня не удовлетворяют, —
 сводка по 176 блокам ответа. Ни один общий замер её не даёт: «достаточно ли ответа» зависит от
 того, что показывает экран после этой операции, а это знает только домен.
 
-### Б4. Новые доменные коды отказа, если они понадобятся
+### Б4. Новые доменные коды отказа, если они понадобятся — ЗАКРЫТ (не понадобились, раздел 6а.4)
 
 Тема своих кодов не вводит: ключа хватает `VALIDATION_ERROR` и `CONFLICT` из ядра (Р2, Р3), версии
 — `ORDER_VERSION_CONFLICT`, уже существующего. Но если домен, применив 3.1, найдёт необратимую
 операцию, у которой отказ сегодня назвать нечем, код придётся завести — и какие это будут коды,
 до Б1 неизвестно.
 
-### Б5. Форма единого Save-запроса у заказа и склада
+### Б5. Форма единого Save-запроса у заказа и склада — ОТКРЫТ (раздел 6а.5)
 
 П43 требует, чтобы Save у `orders` и `warehouse` приходил **одним запросом**. Что в этом запросе
 лежит — какие поля, позиции, услуги, файлы, движения и в каком виде — описывается в контракте этих
@@ -637,6 +644,196 @@ cd frontend_vue && npm run test:unit
 - **Кнопки П47 во фронте.** Работа отложена владельцем целиком; она не ждёт доменных планов, она
   ждёт решения «пора».
 - **Отсев файла П50.** Одно место на весь проект (`DropZone.vue`), доменам делать нечего.
+
+---
+
+## 6а. Собрано по доменным планам
+
+Раздел собран **2026-09-13** и только из доменных планов. У каждой строки есть `файл:строка` на
+тот план, который вердикт вынес; строки без источника здесь нет ни одной — перечень, дописанный
+по памяти, выглядит готовым и этим хуже честно названной дыры.
+
+**Источник неполон, и вот чем именно.** Планов **шестнадцать из семнадцати**: нет `sales-crm`.
+По раскладке раздела 4 у него **ноль** `POST`, поэтому перечень Б1 он не пополняет ни одной
+строкой — счёт «из 40» остаётся верным. Но строки Д3 и Д4 он должен как всякий доменный файл, и
+здесь их нет: **Д3/Д4 собраны 16 из 17**.
+
+### 6а.1 (Б1). Эндпоинт → обязателен / не требуется — 29 блоков из 40
+
+| эндпоинт | вердикт плана | на чём | источник |
+|---|---|---|---|
+| `POST /api/warehouse/batches` | обязателен | двигает склад (признак 1) | `roo_code/plans/warehouse/warehouse-backend-plan.md:199` |
+| `POST /api/warehouse/movements` | обязателен | двигает склад | `roo_code/plans/warehouse/warehouse-backend-plan.md:199` |
+| `POST /api/warehouse/cutting` | обязателен | двигает склад | `roo_code/plans/warehouse/warehouse-backend-plan.md:199` |
+| `POST /api/warehouse/offcuts` | обязателен | двигает склад | `roo_code/plans/warehouse/warehouse-backend-plan.md:199` |
+| `POST /api/warehouse/deficit` | обязателен | двигает склад | `roo_code/plans/warehouse/warehouse-backend-plan.md:200` |
+| `POST /api/bcc/send` | обязателен | шлёт наружу неотзываемое (признак 3) | `roo_code/plans/bcc/bcc-backend-plan.md:282` |
+| `POST /api/bcc/log` | обязателен | создаёт запись, неудаляемую из интерфейса (признак 4, П61) | `roo_code/plans/bcc/bcc-backend-plan.md:282` |
+| `POST /api/bcc/events/:eventId/response` | обязателен | то же, признак 4 | `roo_code/plans/bcc/bcc-backend-plan.md:282` |
+| `POST /api/bcc/events/:eventId/no-response` | обязателен | то же, признак 4 | `roo_code/plans/bcc/bcc-backend-plan.md:282` |
+| `POST /api/auth/register` | обязателен | создаёт арендатора, пользователя, роль, сессию и карточку компании, а удаления арендатора из интерфейса нет (признак 4) | `roo_code/plans/auth/auth-backend-plan.md:187` |
+| `POST /api/auth/login` | не требуется | обратима выходом | `roo_code/plans/auth/auth-backend-plan.md:189` |
+| `POST /api/auth/logout` | не требуется | повтор на отозванной сессии состояния не меняет | `roo_code/plans/auth/auth-backend-plan.md:190` |
+| `POST /api/orders/:id/shipments` | обязателен | движение склада | `roo_code/plans/orders/orders-backend-plan.md:420`, `:520` |
+| `POST /api/orders/:id/shipments/:id/cancel` | обязателен — **впервые**, сегодня ключа нет (БАГ-09) | отмена идёт обратными движениями, то есть тоже двигает склад | `roo_code/plans/orders/orders-backend-plan.md:222`, `:476` |
+| `POST /api/orders/:id/payments` | обязателен | деньги | `roo_code/plans/orders/orders-backend-plan.md:420` |
+| `POST /api/orders/:id/returns` | обязателен | товар на полку и корректировка счёта | `roo_code/plans/orders/orders-backend-plan.md:420` |
+| `POST /api/clients` | не требуется | обратима из интерфейса, `DELETE /api/clients/:id` | `roo_code/plans/clients/clients-backend-plan.md:655` |
+| `POST /api/clients/:id/interactions` | не требуется | обратима, `DELETE /api/clients/:id/interactions/:entryIndex` | `roo_code/plans/clients/clients-backend-plan.md:658` |
+| `POST /api/config/fields` | не требуется | повтор даёт лишнюю строку библиотеки, а не лишнюю отгрузку | `roo_code/plans/config/config-backend-plan.md:402`, `:254` |
+| `POST /api/config/sections` | не требуется | то же | `roo_code/plans/config/config-backend-plan.md:429`, `:254` |
+| `POST /api/settings/currencies` | не требуется | создал валюту — удалил | `roo_code/plans/settings/settings-backend-plan.md:381` |
+| `POST /api/settings/uoms` | не требуется | создал единицу — удалил | `roo_code/plans/settings/settings-backend-plan.md:381` |
+| `POST /api/settings/conversions` | не требуется | создал правило — удалил | `roo_code/plans/settings/settings-backend-plan.md:381` |
+| `POST /api/settings/order-statuses` | не требуется | создал статус — удалил | `roo_code/plans/settings/settings-backend-plan.md:381` |
+| `POST /api/categories` | не требуется | созданную категорию удаляет `DELETE` | `roo_code/plans/categories/categories-backend-plan.md:158` |
+| `POST /api/products` | не требуется | правка карточки и `DELETE /api/products/:id`, который под П44 архивирует | `roo_code/plans/products/products-backend-plan.md:356` |
+| `POST /api/services` | не требуется — **условно** | прямая цитата 3.1 про справочник; станет «обязателен», если владелец ответит «пути обратно из архива нет» (вопрос 6 раздела 8 того плана) | `roo_code/plans/services/services-backend-plan.md:271`, `:282` |
+| `POST /api/suppliers` | не требуется | созданный поставщик удаляется из интерфейса | `roo_code/plans/suppliers/suppliers-backend-plan.md:219` |
+| `POST /api/uploads` | не требуется | П50; строка закрывает БАГ-05 | `roo_code/plans/uploads/uploads-backend-plan.md:183` |
+
+**Одиннадцать блоков вердикта не получили — они и есть остаток Б1.**
+
+| блок | что сказал план | чего не хватает |
+|---|---|---|
+| `POST /api/settings/change-password` | накрыт общим «каждый `POST` домена получает строку „не требуется“» (`roo_code/plans/settings/settings-backend-plan.md:381`), но в скобках разобраны только четыре справочника | своего разбора нет: смена пароля справочником не является, и признак 4 к ней надо применить отдельно |
+| `POST /api/settings/mail/test` | тот же общий оборот | признак 3 теста 3.1 (шлёт наружу письмо) на него ложится прямо, а план его поимённо не разбирал — см. 6а.6, пункт 2 |
+| `POST /api/orders` | план перечисляет «обязателен» четырьмя эндпоинтами (`roo_code/plans/orders/orders-backend-plan.md:420`); остальные девять в перечне отсутствуют | вердикта «не требуется» с обоснованием план не пишет ни одному из девяти |
+| `POST /api/orders/:id/items` | то же | то же |
+| `POST /api/orders/:id/items/:id/split` | то же | то же |
+| `POST /api/orders/:id/items/:id/correct` | то же | корректировка замороженной строки живёт в слайсе счетов (`roo_code/plans/orders/orders-backend-plan.md:478`) — то есть рядом с деньгами, и признак 2 к ней надо применять явно |
+| `POST /api/orders/:id/allocate-total` | то же | то же |
+| `POST /api/orders/:id/services` | то же | то же |
+| `POST /api/orders/:id/reserve` | то же | резерв двигает удержание на партии (`roo_code/plans/orders/orders-backend-plan.md:128`) — признак 1 требует явного разбора |
+| `POST /api/orders/:id/invoices` | то же | признак 2 называет **счёт** дословно — см. 6а.6, пункт 2 |
+| `POST /api/orders/:id/files` | то же | то же |
+
+Итог Б1: **29 из 40**. Оставшиеся 11 — два блока `settings` и девять блоков `orders`.
+
+### 6а.2 (Б2). Цена повтора у «обязателен» — 5 обоснований из 14
+
+«Обязателен» стоит у **14** эндпоинтов (5 склада, 4 BCC, 1 auth, 4 заказа). Обоснование Д2 —
+`файл:строка` на место, где видно вторую сущность, — план прислал у пяти.
+
+| эндпоинт | что создаёт повтор | источник обоснования |
+|---|---|---|
+| `POST /api/orders/:id/shipments` | две отгрузки, 6 единиц с полки на запрос о 3, два движения `sale`, `shippedQuantity` 6 | `roo_code/plans/orders/orders-backend-contract.md:93` |
+| `POST /api/orders/:id/payments` | два платежа по 500 дают `paid 1000` | `roo_code/plans/orders/orders-backend-contract.md:93` |
+| `POST /api/orders/:id/returns` | товар возвращается на полку дважды и выписываются две корректировки | `roo_code/plans/orders/orders-backend-contract.md:248` |
+| `POST /api/warehouse/batches` | вторая партия: уникальности номера нет ни в моке, ни на схеме (`backend/app/modules/warehouse/shared/models.py:33` — просто `String(100)`) | `roo_code/plans/warehouse/warehouse-backend-plan.md:93` |
+| `POST /api/auth/register` | второй арендатор с пользователем, ролью, сессией и карточкой компании (`backend/app/modules/auth/features/register/domain.py:97-151`), а удаления арендатора из интерфейса нет | `roo_code/plans/auth/auth-backend-plan.md:187` |
+
+Без `файл:строка` остались девять: `POST /api/orders/:id/shipments/:id/cancel` (план называет
+механику — обратные движения, `roo_code/plans/orders/orders-backend-plan.md:476` — но не место, где
+видна вторая пара); `POST /api/warehouse/movements`, `/cutting`, `/offcuts`, `/deficit` (общий довод
+«двигают склад» на пятерых, `roo_code/plans/warehouse/warehouse-backend-plan.md:198-200`); четыре `POST`
+BCC (у отправки цена названа словами — «второе письмо живому поставщику»,
+`roo_code/plans/bcc/bcc-backend-plan.md:252` — но без ссылки; у трёх остальных не названа вовсе).
+
+### 6а.3 (Б3). Ответы, недостаточные для разморозки — разметку прислал один домен из шестнадцати
+
+Дословные строки Д5 есть только у `products`
+(`roo_code/plans/products/products-backend-plan.md:387-389`):
+
+| отправка | чего не хватает | чем клиент добирает сегодня |
+|---|---|---|
+| `POST /api/products` | `201` несёт четыре поля против пятнадцати принимаемых (`backend/app/modules/products/features/create_product/schemas.py:33-38`) | переходом в карточку и полным `GET /api/products/:id` (`frontend_vue/src/views/admin/products/ProductsPage.vue:216`) |
+| `PATCH /api/products/:id` | журнал в ответе прежний: записи, которые породил сам `PATCH` (П36), в него не попадают (`frontend_vue/src/services/mocks/products.ts:14217`) | полным перезапросом карточки (`frontend_vue/src/composables/useProductCard.ts:256-258`) |
+| `DELETE /api/products/:id` | ответ пуст (`frontend_vue/src/services/productsService.ts:120-122`) | перезапросом всего списка (`frontend_vue/src/composables/useProducts.ts:48-50`) |
+
+Четыре домена объявили свои ответы **достаточными** — это тоже результат Д5, и записывать в
+контракт по правилу нечего:
+
+- `clients` — `POST` отдаёт созданного клиента целиком, `PATCH` — клиента после правки (`roo_code/plans/clients/clients-backend-plan.md:208`);
+- `bcc` — все четыре операции достаточны после переворота порядка П48 (`roo_code/plans/bcc/bcc-backend-plan.md:437`);
+- `finance` — `PATCH` отдаёт запись целиком (`roo_code/plans/finance/finance-backend-plan.md:506-508`);
+- `suppliers` — `PATCH /status` отвечает `void`, и П47 этим **не** нарушен: канбан знает новое значение до запроса (`roo_code/plans/suppliers/suppliers-backend-plan.md:494`).
+
+Наблюдение `warehouse`, которое строкой Д5 не является и на неё не переводится: у пяти `POST`
+домена и Save обеих карточек правило признано применимым, и «пять из пяти вызывающих
+`POST /movements` ответа не читают вовсе» (`roo_code/plans/warehouse/warehouse-backend-plan.md:258`).
+Это про клиента, а не про недостаточность ответа, и вердикта Д5 не заменяет.
+
+Молчат одиннадцать доменов: `orders`, `settings`, `config`, `categories`, `services`, `auth`,
+`uploads`, `notifications`, `analytics`, `audit-feed` и `warehouse` (наблюдение выше вердиктом не
+является). Б3 закрыт **на один домен из шестнадцати**.
+
+### 6а.4 (Б4). Новых кодов отказа ключу не понадобилось ни в одном из шестнадцати планов
+
+Ответ отрицательный, и он подтверждён поимённо, а не молчанием:
+
+- `config` — «чего в этом списке намеренно нет: `CONFLICT` 409 по `Idempotency-Key`» (`roo_code/plans/config/config-backend-plan.md:254`);
+- `finance` — `CONFLICT` не заводит никто в домене, `POST` нет ни одного (`roo_code/plans/finance/finance-backend-plan.md:180`);
+- `audit-feed` — то же, необратимых операций нет (`roo_code/plans/audit-feed/audit-feed-backend-plan.md:143`);
+- `notifications` — «кода, которого здесь намеренно нет: `CONFLICT` 409» (`roo_code/plans/notifications/notifications-backend-plan.md:207`);
+- `warehouse` — пять необратимых `POST` обходятся `VALIDATION_ERROR` и `CONFLICT` **ядра**, своих не заводит (`roo_code/plans/warehouse/warehouse-backend-plan.md:88`).
+
+Один новый код рядом с темой всё же появился, и он **не про отсутствие ключа**:
+`REQUEST_ALREADY_SENT`, 409, слайс `retry_send` домена BCC — повтор допустим только для записи,
+помеченной неотправленной, а повтор успешной отправки есть второе письмо живому поставщику
+(`roo_code/plans/bcc/bcc-backend-plan.md:252`). Он закрывает повторную **отправку**, тогда как
+ключ закрывает повторный **запрос**; в §3.3 он ничего не меняет.
+
+Соседний код, который темой ошибочно считать нельзя: `BATCH_NUMBER_DUPLICATE` склада —
+идемпотентностью он **не** закрывается, это вопрос владельца об уникальности номера партии
+(`roo_code/plans/warehouse/warehouse-backend-plan.md:317`).
+
+Б4 **закрыт**: новых доменных кодов тема не вводит.
+
+### 6а.5 (Б5). Форма единого Save — не собрана ни у одного из двух доменов
+
+- `warehouse` объявил, что Save карточки партии применяется одной транзакцией, и назвал
+  сегодняшнюю россыпь — `patchBatch()` и следом `createMovement()` двумя запросами без общей
+  границы, с заглушённым провалом второго
+  (`roo_code/plans/warehouse/warehouse-backend-plan.md:201`, `:469`). **Состава тела нет**: какие
+  поля партии, какое движение и в каком виде едут одним запросом, план не пишет.
+- `orders` держит это слайсом С11 — «одно изменение — один запрос, одна транзакция, один шаг
+  версии» (`roo_code/plans/orders/orders-backend-plan.md:480`, `:223`). **Состава тела тоже нет**, и
+  сверх того сам план держит открытым вопрос владельцу **В-3**: распространяется ли П43 на
+  страницу создания заказа, где сегодня та же цепочка `1 + N + M`
+  (`roo_code/plans/orders/orders-backend-plan.md:759`).
+
+Б5 **остаётся открытым**. Причина названа планами, а не выведена здесь: оба домена решили
+**границу** транзакции и не решили **тело** запроса, а у заказа тело зависит ещё и от неотвеченного
+В-3.
+
+### 6а.6 Что доменные планы прислали сверх Б1–Б5
+
+Это не перечни темы, но оно приехало из тех же шестнадцати планов и молчанием не закрывается.
+
+**1. Дословные строки Д1–Д4 несут три плана из шестнадцати.** Замер:
+`grep -rc '\*\*Атомарность Save:\*\*' roo_code/plans/*/[a-z]*-backend-plan.md` даёт ненулевое
+только у `config`, `clients` и `products`; по `**Версия записи:**` — те же три. Остальные тринадцать
+пересказывают смысл своими словами, а гейты Г2 и Г3 грепают **маркер**, а не смысл. Четыре
+пересказа уже разошлись с обеими формами Д3:
+
+- `suppliers` — «один `PATCH`, и он же пишет записи аудита одной транзакцией» (`roo_code/plans/suppliers/suppliers-backend-plan.md:219`);
+- `services` — «Save атомарен: один Save — ровно один вызов `patchService`» (`roo_code/plans/services/services-backend-plan.md:275-276`);
+- `bcc` — «не применимо: у домена нет режима Save» (`roo_code/plans/bcc/bcc-backend-plan.md:282`); третью форму — вторую форму Д3 с припиской «Save-формы в домене нет» — раздел 4 отдаёт трём другим доменам, и BCC среди них нет;
+- `finance` — «атомарность Save **не заводится**» (`roo_code/plans/finance/finance-backend-plan.md:503`).
+
+Два плана строки не назвали вовсе: `auth` — про атомарность Save
+(`grep -c 'Атомарность\|атомарн' roo_code/plans/auth/auth-backend-plan.md` → `0`), `uploads` — про
+версию записи (`grep -n 'Версия записи\|last-write-wins' roo_code/plans/uploads/uploads-backend-plan.md`
+— пусто). Работа отсюда доменная: строку пишет домен в свой файл контракта, и гейты Г2/Г3 её ловят.
+
+**2. Два места, где тест 3.1 и вердикт домена расходятся.** Ни одно из них не решается здесь —
+оба уходят обратно в свой домен:
+
+- `POST /api/settings/mail/test` — признак 3 («шлёт наружу то, что не отзывается») ложится прямо,
+  а план накрыл его общим «каждый `POST` … не требуется», разобрав в скобках четыре справочника
+  (`roo_code/plans/settings/settings-backend-plan.md:381`). Пометка 3.1 «сомнение решается в пользу
+  „необратима“» велит домену разобрать его отдельно, а не оставить под общим оборотом.
+- `POST /api/orders/:id/invoices` — признак 2 называет **счёт** дословно, а перечень «обязателен»
+  плана заказов его не содержит (`roo_code/plans/orders/orders-backend-plan.md:420`). Рядом та же
+  развилка у `POST /api/orders/:id/items/:id/correct` — корректировка замороженной строки живёт в
+  денежном слайсе С9 (`roo_code/plans/orders/orders-backend-plan.md:478`).
+
+**3. Один вердикт условен.** `POST /api/services` помечен «не требуется» при сегодняшнем ответе на
+вопрос 6 раздела 8 плана услуг; ответ «пути обратно из архива нет» делает его необратимым, и тогда
+мок-хранилище ключа к этому не готово — `Map` на процесс без срока и без привязки к пути
+(`frontend_vue/src/services/mocks/index.ts:259-269`), то есть оба параметра П46 в нём отсутствуют
+(`roo_code/plans/services/services-backend-plan.md:283`).
 
 ---
 
@@ -658,3 +855,13 @@ cd frontend_vue && npm run test:unit
 - `roo_code/plans/bugs/contract-sync-orders-bugs.md`, `roo_code/plans/bugs/contract-sync-bcc-bugs.md` —
   два известных нарушения.
 - Замеры 2026-09-12: `/tmp/proof-idem-now.txt`, `/tmp/proof-idem-blocks.txt`.
+- Шестнадцать доменных планов, из которых собран раздел 6а (нет `sales-crm`):
+  `roo_code/plans/warehouse/warehouse-backend-plan.md`, `roo_code/plans/orders/orders-backend-plan.md`,
+  `roo_code/plans/settings/settings-backend-plan.md`, `roo_code/plans/config/config-backend-plan.md`,
+  `roo_code/plans/clients/clients-backend-plan.md`, `roo_code/plans/suppliers/suppliers-backend-plan.md`,
+  `roo_code/plans/products/products-backend-plan.md`, `roo_code/plans/bcc/bcc-backend-plan.md`,
+  `roo_code/plans/categories/categories-backend-plan.md`, `roo_code/plans/services/services-backend-plan.md`,
+  `roo_code/plans/finance/finance-backend-plan.md`, `roo_code/plans/auth/auth-backend-plan.md`,
+  `roo_code/plans/notifications/notifications-backend-plan.md`, `roo_code/plans/audit-feed/audit-feed-backend-plan.md`,
+  `roo_code/plans/analytics/analytics-backend-plan.md`, `roo_code/plans/uploads/uploads-backend-plan.md`.
+- Замер сбора 2026-09-13: `/tmp/proof-idem-domains.txt`, `/tmp/proof-razmoroz.txt`.
