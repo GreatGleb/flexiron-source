@@ -653,6 +653,15 @@ cd frontend_vue && CONTRACT_REFS=roo_code/plans/general/сквозное-rights-
 
 ## 6. Что здесь нельзя решить до доменных планов
 
+> **Статус после доменной фазы (16 планов из 17): закрыт частично, разбор — [раздел 8](#8-собрано-по-доменным-планам).**
+> Закрыты пункты **3** (знаменатель 90 %) и **5** (вырезаемое и замыкание, с тремя дырами).
+> Закрыты частично пункты **1**, **2**, **4**, **7** — счёт собранного и счёт недостающего
+> в 8.8. Пункт **6** (нужна ли кладовщику себестоимость партии) **не закрыт**: домен
+> `warehouse` вернул его владельцу дословно
+> (`roo_code/plans/warehouse/warehouse-backend-plan.md:665`) — он переезжает в список
+> «ждёт владельца» ниже. Сводка Р-3 собрана по одиннадцати доменам, давшим элементы, и
+> подлежит пересбору, когда перечни напишут остальные шесть.
+
 Зависимость у этой темы **двусторонняя**, и это не оговорка: механизм решён целиком и записан
 выше, а содержание матрицы физически не существует, пока не пройдены семнадцать доменов.
 Основание — не рассуждение, а два места контракта: §6.2 требует «перечень элементов обязан
@@ -689,6 +698,12 @@ cd frontend_vue && CONTRACT_REFS=roo_code/plans/general/сквозное-rights-
 
 **Ждёт владельца, а не доменов** (сюда же — чтобы не искали ответ в доменных планах):
 
+- **Пункт 6 выше, вернувшийся из доменной фазы: нужна ли кладовщику себестоимость партии.**
+  Домен `warehouse` выбора не сделал и назвал это решением владельца
+  (`roo_code/plans/warehouse/warehouse-backend-plan.md:665`). Косвенный довод, которого у
+  домена не было: сосед уже отказал роли `warehouse` в средней себестоимости товара
+  (`roo_code/plans/products/products-backend-plan.md:276`) — разойтись эти две клетки могут,
+  но тогда осознанно.
 - Строка куста «права», оставшаяся без ответа: **config — какой признак «этого удалять нельзя»
   настоящий, колонка на схеме или префикс идентификатора.** Она стояла в графе «Права», но
   относится к защищённым объектам, а не к ролям; ни один следующий куст её не подобрал.
@@ -750,3 +765,267 @@ cd frontend_vue && CONTRACT_REFS=roo_code/plans/general/сквозное-rights-
 до 17.
 
 Приёмка: `npm run verify` с включённым флагом → 0 ошибок.
+
+---
+
+## 8. Собрано по доменным планам
+
+**Что это.** Раздел 6 назвал семь вещей, которых не решить до доменных планов, и сводку Р-3,
+которой до них не существует. Здесь собрано то, что доменные планы уже написали, — **из них, а
+не из головы**: у каждой строки источником стоит доменный план с номером строки, и строка без
+источника сюда не попала. Перечень собран из шестнадцати планов; выдумывать недостающее было бы
+хуже дыры, потому что выдуманное выглядит готовым.
+
+**Перечень неполон, и вот чем именно.**
+
+- **Домена `sales-crm` в нём нет вовсе: плана нет.** В контракте у него один эндпоинт
+  (`grep -cE '^#{2,4} (GET|POST|PATCH|PUT|DELETE) ' roo_code/roo-context/api/sales-crm.md` → `1`),
+  элементов — ноль, и взять их неоткуда.
+- **Пять доменов из шестнадцати не назвали ни одного идентификатора элемента**: `orders`,
+  `settings`, `config`, `suppliers`, `uploads`. Что они сказали вместо перечня — таблица 8.1б.
+- Значит, элементы есть у **11 доменов из 17**, и всё, что считается ниже (знаменатель 90 %,
+  покрытие эндпоинтов, покрытие роутов), считается **по этой одиннадцати**, а не по семнадцати.
+
+### 8.1. Перечень элементов — 30 идентификаторов из 11 доменов
+
+Таблица 8.1а. `Тип` заполнен там, где его назвал сам доменный план; `не назван` — там, где план
+дал имя элемента, но типа не написал, и выдумывать его здесь нельзя (Д2 требует тип от домена).
+
+| Элемент | Тип по плану домена | Что закрывает (по плану домена) | Источник |
+|---|---|---|---|
+| `warehouse.batch` | `entity` | партия | `roo_code/plans/warehouse/warehouse-backend-plan.md:115` |
+| `warehouse.movement` | `entity` | движение | `roo_code/plans/warehouse/warehouse-backend-plan.md:115` |
+| `warehouse.offcut` | `entity` | обрезок | `roo_code/plans/warehouse/warehouse-backend-plan.md:116` |
+| `warehouse.deficit` | `entity` | нехватка | `roo_code/plans/warehouse/warehouse-backend-plan.md:116` |
+| `warehouse.stock` | `entity` | остаток | `roo_code/plans/warehouse/warehouse-backend-plan.md:116` |
+| `products.entity` | `entity` | список, карточка, создание, правка, архивирование | `roo_code/plans/products/products-backend-plan.md:219` |
+| `products.cost` | `field` | средняя себестоимость `avgCostPrice` | `roo_code/plans/products/products-backend-plan.md:220` |
+| `products.supplier-links` | `section` | связи с поставщиками и закупочная цена на связи | `roo_code/plans/products/products-backend-plan.md:221` |
+| `products.audit` | `section` | журнал товара | `roo_code/plans/products/products-backend-plan.md:222` |
+| `finance.payment` | `entity` | запись счёта поставщика целиком | `roo_code/plans/finance/finance-backend-plan.md:212` |
+| `finance.payment-document` | `entity` | вложения платежа | `roo_code/plans/finance/finance-backend-plan.md:213` |
+| `finance.archive` | `entity` | запись архива документов | `roo_code/plans/finance/finance-backend-plan.md:214` |
+| `finance.receivable` | `entity` | реестр дебиторки — **элемент выручки** (П16) | `roo_code/plans/finance/finance-backend-plan.md:215` |
+| `analytics.dashboard` | не назван | страница дашборда | `roo_code/plans/analytics/analytics-backend-plan.md:226` |
+| `analytics.warehouse` | не назван | страница склада | `roo_code/plans/analytics/analytics-backend-plan.md:226` |
+| `analytics.sales` | не назван | страница продаж | `roo_code/plans/analytics/analytics-backend-plan.md:226` |
+| `analytics.staff` | не назван | страница персонала | `roo_code/plans/analytics/analytics-backend-plan.md:227` |
+| `analytics.pl-report` | не назван | отчёт P&L | `roo_code/plans/analytics/analytics-backend-plan.md:227` |
+| `analytics.deficit` | не назван | страница нехваток | `roo_code/plans/analytics/analytics-backend-plan.md:227` |
+| `bcc.request` | `entity` | запрос цен | `roo_code/plans/bcc/bcc-backend-plan.md:278` |
+| `bcc.event` | `entity` | событие ленты BCC | `roo_code/plans/bcc/bcc-backend-plan.md:278` |
+| `categories.tree` | сущность (тип не назван) | дерево категорий | `roo_code/plans/categories/categories-backend-plan.md:154` |
+| `categories.fields` | набор полей (тип не назван) | набор полей категории, П73 | `roo_code/plans/categories/categories-backend-plan.md:154` |
+| `notifications.feed` | `entity` | лента уведомлений | `roo_code/plans/notifications/notifications-backend-plan.md:223` |
+| `notifications.subscriptions` | `entity` | подписки пользователя | `roo_code/plans/notifications/notifications-backend-plan.md:224` |
+| `auth.user` | не назван | пользователь | `roo_code/plans/auth/auth-backend-plan.md:111` |
+| `auth.permission_matrix` | не назван | матрица прав — **имя нарушает Р2**, см. 8.7 | `roo_code/plans/auth/auth-backend-plan.md:111` |
+| `audit-feed.feed` | `entity` | лента журнала, только `read` | `roo_code/plans/audit-feed/audit-feed-backend-plan.md:159` |
+| `clients.entity` | не назван | клиент | `roo_code/plans/clients/clients-backend-plan.md:141` |
+| `services.entity` | не назван | услуга | `roo_code/plans/services/services-backend-plan.md:194` |
+
+Таблица 8.1б. Домены, у которых элементы **названы словами, а не идентификаторами** — их в
+перечень записать нельзя, иначе идентификатор придумаю я, а не домен.
+
+| Домен | Что сказано вместо перечня | Источник |
+|---|---|---|
+| `orders` | «элементы — заказ, строка, услуга, отгрузка, возврат, счёт, платёж, файл, запись журнала» — девять вещей прозой, ни одного идентификатора | `roo_code/plans/orders/orders-backend-plan.md:416` |
+| `settings` | «заводит право на поле — код подтверждения П73»; элемент не назван | `roo_code/plans/settings/settings-backend-plan.md:377` |
+| `config` | «три таблицы… пишется в контракт домена в С6»; сам перечень отложен до слайса | `roo_code/plans/config/config-backend-plan.md:267` |
+| `suppliers` | «элементы уже существуют и заведены именно под эту карточку» — отсылка к библиотеке полей мока, не перечень | `roo_code/plans/suppliers/suppliers-backend-plan.md:215` |
+| `uploads` | «элемент и действие для `POST /api/uploads` упираются в то, что эндпоинт не знает сущности… блок пишется слайсом С9, а не раньше» | `roo_code/plans/uploads/uploads-backend-plan.md:170` |
+| `clients` | сверх `clients.entity` обещаны «элементы на журнал и на историю взаимодействий» — без имён | `roo_code/plans/clients/clients-backend-plan.md:141` |
+| `services` | сверх `services.entity` обещан «полевой элемент на себестоимость» — без имени | `roo_code/plans/services/services-backend-plan.md:194-197` |
+| `analytics` | сверх шести страниц обещана выручка «отдельным правом» — элемент без имени | `roo_code/plans/analytics/analytics-backend-plan.md:230` |
+| `products` | условный пятый `products.revenue` — только если владелец числит `avgSalePrice` выручкой | `roo_code/plans/products/products-backend-plan.md:800` |
+
+### 8.2. Дефолт по ролям — две таблицы из семнадцати
+
+| Домен | Состояние таблицы 3 | Источник |
+|---|---|---|
+| `products` | **есть целиком**, четыре строки на семь ролей, под каждой непустой клеткой фраза «зачем» | `roo_code/plans/products/products-backend-plan.md:275-278` |
+| `finance` | **есть целиком**, четыре строки; строку `finance.receivable` заполнил не домен, а П16 | `roo_code/plans/finance/finance-backend-plan.md:283-286` |
+| `notifications` | прозой, но полно и однозначно: `feed:read` — всем семи, `feed:edit` — всем семи | `roo_code/plans/notifications/notifications-backend-plan.md:229-230` |
+| `categories` | частично: снятие поля из набора (П73) — «только админ и владелец»; остальное не решено | `roo_code/plans/categories/categories-backend-plan.md:822` |
+| `config` | частично: `PUT /api/config/permissions` — владелец и админ (П12) | `roo_code/plans/config/config-backend-plan.md:267` |
+| `audit-feed` | **явно открыто**: «Дефолт по семи ролям — вопрос В3» | `roo_code/plans/audit-feed/audit-feed-backend-plan.md:159` |
+| остальные 10 планов | обещают таблицу 3, но не пишут её | таблицы 8.1а и 8.1б |
+
+Итог пункта 2 раздела 6: **закрыт на двух доменах из семнадцати**, и это не оценка, а счёт
+строк с ролями.
+
+### 8.3. Знаменатель правила 90 % — порог вырожден во всех шестнадцати
+
+Считать стало чем (пункт 3 раздела 6), и первый же счёт даёт вывод, которого до доменной фазы
+не было видно.
+
+Порог Р5 — `k * 10 >= N * 9`, целыми. Значит:
+
+| `N` (элементов домена до нового) | минимальное `k`, дающее выдачу | что это на словах |
+|---|---|---|
+| 1 | 1 | на всех |
+| 2 | 2 | на всех |
+| 3 | 3 | на всех |
+| 4 | 4 | на всех |
+| 5 | 5 | на всех |
+| 6 | 6 | на всех |
+| 7 | 7 | на всех |
+| 8 | 8 | на всех |
+| 9 | 9 | на всех |
+| **10** | **9** | **впервые не на всех** |
+
+Наибольший домен собранного перечня — `analytics`, шесть элементов. Наименьший — `audit-feed`,
+один. **Ни один из одиннадцати не дотягивает до десяти**, поэтому правило «не меньше 90 %» на
+сегодняшнем перечне тождественно правилу «на всех до единого», и порог в нём не работает ни
+разу. Это не повод менять формулу: перечень неполон (8.1б), и десять элементов домен наберёт,
+как только `orders` выпишет свои девять. Но пока это так, **инверсия сторожа на правило 90 %
+обязана строиться на выдуманном домене с десятью элементами** — на настоящих данных ветка
+«выдать при 9 из 10» не исполнится ни разу и будет зелёной от того, что мертва.
+
+### 8.4. Эндпоинт → элемент и действие — 17 строк из 175
+
+Таблица 2 построчно написана тремя доменами:
+
+| Домен | Строк | Источник |
+|---|---|---|
+| `products` | 8 | `roo_code/plans/products/products-backend-plan.md:239-246` |
+| `finance` | 5 | `roo_code/plans/finance/finance-backend-plan.md:252-256` |
+| `notifications` | 4 плюс строка подписок (`—`, `не требуется`, причина `собственные данные`) | `roo_code/plans/notifications/notifications-backend-plan.md:224-228` |
+
+Ещё три домена назвали **правило и счёт**, но не строки:
+
+- `warehouse` — «на все 37 путей ровно по разу», резка и загрузка файла суть `edit`:
+  `roo_code/plans/warehouse/warehouse-backend-plan.md:117-118`
+- тот же домен про действие резки и файла:
+  `roo_code/plans/warehouse/warehouse-backend-plan.md:137-140`
+- `bcc` — десять путей, отправка письма `create`, приём цены и отметка молчания `edit`:
+  `roo_code/plans/bcc/bcc-backend-plan.md:278`
+- `categories` — все семь роутов, шесть сегодняшних плюс `GET /api/categories/list`:
+  `roo_code/plans/categories/categories-backend-plan.md:154`
+
+Знаменатель — счёт эндпоинтов контракта; `grep -cE '^#{2,4} (GET|POST|PATCH|PUT|DELETE) '` по
+семнадцати доменным файлам даёт 176 при 175, названных в `ROO.md`; расхождение в одну строку
+здесь не разбиралось и на вывод не влияет. **Пункт 4 раздела 6 закрыт примерно на десятую
+часть.**
+
+### 8.5. Вырезаемое и арифметическое замыкание — самый закрытый из семи пунктов
+
+| Домен | Что вырезается и чем замкнуто | Источник |
+|---|---|---|
+| `warehouse` | `unitPrice`, `totalCost`, `marginPercent`; `sellingPrice` заводится в ответе посчитанным | `roo_code/plans/warehouse/warehouse-backend-plan.md:127` |
+| `warehouse` | сверх карточки — два своих пути утечки той же цены: журналы домена (цену форматирует в `oldValue`/`newValue` сервер) и FIFO-стоимость аналитики | `roo_code/plans/warehouse/warehouse-backend-plan.md:145-149` |
+| `products` | `avgCostPrice`; замыкание пусто — клиент из неё ничего не считает, слать взамен нечего | `roo_code/plans/products/products-backend-plan.md:299-303` |
+| `services` | `costPrice`; восстановить не из чего — ни наценки, ни цепочки пересчёта у услуги нет | `roo_code/plans/services/services-backend-plan.md:141` |
+| `finance` | строка реестра целиком: `amount`, `paidAmount`, `outstandingAmount` — любые два дают третий; себестоимости у домена нет, и доказано это по полям, а не по словарю | `roo_code/plans/finance/finance-backend-plan.md:316-338` |
+| `orders` | записи журнала с `sensitive: 'cost'`; карточка остаётся занавеской (П5) | `roo_code/plans/orders/orders-backend-plan.md:416` |
+| `audit-feed` | записи `sensitive: 'cost'`, а `total` и страницы считаются **после** вырезания — иначе дырки в нумерации сообщают, сколько скрыто | `roo_code/plans/audit-feed/audit-feed-backend-plan.md:159` |
+| `analytics` | себестоимость и P&L; выручка — отдельным правом с составом П16 | `roo_code/plans/analytics/analytics-backend-plan.md:229-231` |
+| `settings` | код подтверждения П73 и `secretLink` профиля | `roo_code/plans/settings/settings-backend-plan.md:377` |
+| `notifications` | «вырезать нечего, потому что величина не доезжает»: сумма лежит внутри готового предложения `message_translations`, а адресность решают права | `roo_code/plans/notifications/notifications-backend-plan.md:231-234` |
+| `categories` | «вырезать нечего», дословно | `roo_code/plans/categories/categories-backend-plan.md:154` |
+| `clients` | «вырезать из ответа клиента нечего» | `roo_code/plans/clients/clients-backend-plan.md:144` |
+| `config` | «вырезать в ответах домена нечего» | `roo_code/plans/config/config-backend-plan.md:267` |
+| `bcc` | «вырезаемых без права величин нет» | `roo_code/plans/bcc/bcc-backend-plan.md:278` |
+| `suppliers` | обещано вырезание нечитаемых полей карточки и игнор недоступных на правку в `PATCH` — **пофамильного перечня полей нет** | `roo_code/plans/suppliers/suppliers-backend-plan.md:215` |
+| `auth`, `uploads` | про вырезаемое не сказано ничего — ни перечня, ни строки «вырезать нечего» | 8.1б |
+
+Четыре места, названные владельцем, покрыты все: история — `audit-feed` и `orders`, аналитика —
+`analytics`, прайс-лист услуг — `services`, карточка партии — `warehouse`. Сверх них домены
+нашли ещё три величины (`products.cost`, реестр дебиторки, код подтверждения настроек).
+**Пункт 5 раздела 6 закрыт, кроме трёх дыр:** `auth`, `uploads` (молчание) и `suppliers`
+(обещание без перечня полей).
+
+### 8.6. Роут → элемент — 8 роутов из 43
+
+| Домен | Роуты | Источник |
+|---|---|---|
+| `finance` | 4: `admin-finance-incoming` → `finance.receivable`; `admin-finance-outgoing` и `admin-finance-outgoing-payment` → `finance.payment`; `admin-finance-archive` → `finance.archive` | `roo_code/plans/finance/finance-backend-plan.md:385-392` |
+| `products` | 2: `admin-products` и `admin-product-card` → `products.entity`, строкой рядом с `featureFlag: 'adminProducts'` | `roo_code/plans/products/products-backend-plan.md:331-333` |
+| `bcc` | 1: `admin-bcc-request` → `read` на `bcc.event`, рядом с `featureFlag: 'bccRequest'`, а не вместо него | `roo_code/plans/bcc/bcc-backend-plan.md:278` |
+| `notifications` | 1: `/admin/notifications` → `notifications.feed`; колокольчик — тот же элемент | `roo_code/plans/notifications/notifications-backend-plan.md:235-236` |
+| `analytics` | правило вместо перечня: «сегмент `:page` и есть имя элемента» — шесть элементов на одном роуте | `roo_code/plans/analytics/analytics-backend-plan.md:232` |
+
+Знаменатель: раздел 6 называет 43 роута; сегодняшний замер даёт 58 именованных роутов и 45
+строк с `featureFlag` (`grep -c "^\s*name: '" frontend_vue/src/router/index.ts` → `58`,
+`grep -c featureFlag frontend_vue/src/router/index.ts` → `45`). Расхождение не разбиралось;
+при любом из трёх знаменателей **пункт 7 раздела 6 закрыт меньше чем на пятую часть.**
+
+### 8.7. Расхождения между доменами — то, ради чего собиралась сводка Р-3
+
+Шесть штук, и каждое видно только при сведении, а не изнутри домена.
+
+1. **Две школы именования элемента-сущности.** `products.entity`, `clients.entity`,
+   `services.entity` — против `warehouse.batch`, `finance.payment`, `bcc.event`,
+   `notifications.feed`. Р2 допускает обе, но по идентификатору больше не понять, где главная
+   сущность домена, а где одна из нескольких. Развилка не доменная: её надо либо закрыть
+   правилом в Р2, либо признать безразличной — молча она разойдётся ещё четырежды, по числу
+   доменов из 8.1б.
+2. **`auth.permission_matrix` — единственное имя, ломающее Р2.** Подчёркивание не проходит
+   `^[a-z][a-z0-9-]*$`, и утверждение П-3 покрасит его на первом же прогоне сторожа. Домену
+   `auth` имя чинить дефисом (`roo_code/plans/auth/auth-backend-plan.md:111`).
+3. **У матрицы два хозяина.** Элемент на неё заводит `auth`:
+   `roo_code/plans/auth/auth-backend-plan.md:111`.
+   Хранилищем матрицы называет себя `config`, и он же держит `GET`/`PUT /api/config/permissions`:
+   `roo_code/plans/config/config-backend-plan.md:267`. По Р2 элемент принадлежит ровно одному
+   домену, а по Д3 эндпоинт описан в файле своего домена: значит элемент матрицы — `config`, а
+   `auth` оставляет себе только `auth.user` и раздел `GET /api/auth/me/permissions` (Р-Д4).
+   Развилка названа здесь, а не решена: её цена — одна строка в двух планах.
+4. **Себестоимость: одна величина, три состояния.** Роли на среднюю себестоимость товара уже
+   проставлены, и складская роль её не видит:
+   `roo_code/plans/products/products-backend-plan.md:275-278`.
+   Тот же вопрос про партию домен склада вернул владельцу:
+   `roo_code/plans/warehouse/warehouse-backend-plan.md:665`.
+   Отдельного полевого элемента требует и услуга, но имени ему не дала:
+   `roo_code/plans/services/services-backend-plan.md:194-197`. Сведение показывает то, чего домен
+   не видит: **ответ на вопрос 6 раздела 6 уже частично дан соседом** — в каталоге товаров роль
+   `warehouse` себестоимости не получает.
+5. **Нехватка описана дважды.** `warehouse.deficit` и `analytics.deficit` стоят за одними и теми
+   же строками (`warehouse_deficits` — аналитика читает чужую таблицу,
+   `roo_code/plans/analytics/analytics-backend-plan.md:235-236`). Дублирование законно — читающая
+   проекция по Д2 объявляет свой `entity`, — но дефолтов нет ни у одного, и разойтись они смогут
+   молча. Тот же узел у пары `analytics.warehouse` ↔ складские элементы.
+6. **Журнал смоделирован тремя способами.** Секцией под сущностью — `products.audit`
+   (`roo_code/plans/products/products-backend-plan.md:222`); отдельной лентой на весь проект —
+   `audit-feed.feed`, у которого нет ни `create`, ни `edit`, ни `delete`:
+   `roo_code/plans/audit-feed/audit-feed-backend-plan.md:159`.
+   Безымянными элементами — у клиентов: `roo_code/plans/clients/clients-backend-plan.md:141`
+   и у заказов: `roo_code/plans/orders/orders-backend-plan.md:416`. Р9 фиксирует только **удаление** записи
+   (владелец), а чтение журнала при трёх моделях будет спрашиваться у трёх разных элементов.
+
+Выручка, в отличие от перечисленного, **не разошлась**. Строку `finance.receivable` заполнил
+состав П16: `roo_code/plans/finance/finance-backend-plan.md:283-286`.
+Тот же состав — «владелец, админ, бухгалтер» — называет аналитика:
+`roo_code/plans/analytics/analytics-backend-plan.md:230`.
+А каталог товаров без слова владельца элемента выручки не заводит вовсе:
+`roo_code/plans/products/products-backend-plan.md:795-800`. Единственная клетка,
+которую домен не решает сам, и есть единственная, где домены не разошлись, — это в пользу
+правила, а не совпадение.
+
+### 8.8. Что из раздела 6 закрыто, а что нет
+
+| Пункт раздела 6 | Состояние | Чем закрыт / чего не хватает |
+|---|---|---|
+| 1. Перечень элементов | **частично** | 30 элементов из 11 доменов (8.1а); шесть доменов дали ноль (8.1б), из них `sales-crm` — без плана вовсе |
+| 2. Дефолт по ролям | **частично** | целиком у `products` и `finance`, прозой у `notifications`, частично у `categories` и `config`, явно открыт у `audit-feed` (8.2) |
+| 3. Знаменатель 90 % | **закрыт** | считать есть чем, и счёт дал вывод: при `N < 10` порог тождествен «на всех», а таких доменов сегодня все одиннадцать (8.3) |
+| 4. Эндпоинт → элемент | **частично** | 17 строк из 175; ещё три домена дали правило и счёт без строк (8.4) |
+| 5. Вырезаемое и замыкание | **закрыт с тремя дырами** | все четыре места владельца покрыты плюс три новые величины; молчат `auth` и `uploads`, у `suppliers` обещание без перечня полей (8.5) |
+| 6. Себестоимость кладовщику | **НЕ закрыт** | `warehouse` вернул вопрос владельцу дословно (`roo_code/plans/warehouse/warehouse-backend-plan.md:665`): П18 решил форму ответа, а нужность — нет. Переезжает в список «ждёт владельца» раздела 6. Косвенный довод из соседа — в 8.7, пункт 4 |
+| 7. Роут → элемент | **частично** | 8 роутов плюс одно правило для `analytics`; знаменатель сам спорен — 43 по разделу 6 против 58 по замеру (8.6) |
+| Сводка Р-3 | **собрана на собранном** | число элементов — 30; домены, где порог вырожден, — все одиннадцать; расхождения — шесть штук в 8.7. Пересобрать после того, как шесть недостающих доменов напишут свои перечни |
+
+**Раздел 6 закрытым не помечается.** Закрыты два пункта из семи (3 и 5), ещё четыре закрыты
+частично, один (6) не закрыт вовсе и уходит к владельцу. Перечислять здесь ещё раз то, чего
+домены не написали, незачем: дыра названа в каждой строке таблицы и в 8.1б, а список доменов,
+которым осталось написать раздел `## Права домена` с тремя таблицами, — это `orders`,
+`settings`, `config`, `suppliers`, `uploads`, `sales-crm` плюс таблицы 2 и 3 у тех девяти, кто
+дал только элементы.
+
+**Приёмка этого раздела:** резолвер ссылок по своему файлу —
+
+```bash
+cd frontend_vue && CONTRACT_REFS=roo_code/plans/general/сквозное-rights-план.md \
+  npx vitest run src/services/contractRefs.spec.ts
+```
+
+в отчёте строка `[ссылки] документов 1 · ссылок … · битых 0`.
