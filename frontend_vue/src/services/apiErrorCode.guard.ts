@@ -15,6 +15,7 @@ import ts from 'typescript'
  * | 3 | операнд, регулярками | 6 форм операнда из 9 |
  * | 4 | операнд по дереву | 10 форм ЛИТЕРАЛА и ОПЕРАЦИИ из 10 |
  * | 5 | все три стороны сравнения по смыслу | поток ЧЕРЕЗ ХРАНИЛИЩЕ: поле объекта, `.value` рефа, параметр функции, чужой файл |
+ * | 6 | место, где значение полежало | поток ЧЕРЕЗ ОПЕРАЦИЮ: `e.message ?? ''`, шаблон, склейка, `String(текста)`, тара |
  *
  * Шестая версия существует потому, что пятая разбирала по смыслу выражение, но не
  * **место, где значение полежало**. Текст исключения, положенный в `error.value`, в поле
@@ -35,14 +36,27 @@ import ts from 'typescript'
  * трёх сортов хранятся раздельно: объявления (`vars`), аргументы вызовов (`args`) и
  * «объявлен, происхождение неизвестно» (`params`) — и первое побеждает второе.
  *
+ * Седьмая версия закрывает то, что шестая пропускала НЕ по месту, а по ОПЕРАЦИИ. Она
+ * знала, что значение положили в `error.value`, но `e.message ?? ''` для неё текстом
+ * исключения уже не было: обёртка отмывала его. Отсюда три правила, каждое — про мысль, а
+ * не про запись:
+ * - **операции передачи** (`??`, `||`, `&&`, `+`, запятая, шаблонная подстановка) несут
+ *   значение дальше: результат заражён, если заражён хоть один операнд;
+ * - **стрингификация** — одна мысль в трёх записях: `String(x)`, `JSON.stringify(x)`,
+ *   `x.toString()`. Раньше правило знало только первую;
+ * - **тара** (массив, `Map`, `Set`, rest-параметр) хранит происхождения под своим путём:
+ *   `arr.push(t)`/`map.set(k, t)` — это присваивание в путь тары, `arr[i]`/`map.get(k)` —
+ *   чтение оттуда. Элементы между собой не различаются: огрублённость названа нарочно.
+ *
  * **Чего сторож не умеет** (названо, чтобы зелёное не читалось как доказательство
  * отсутствия — питфолл #66):
  * - **межфайловый поток без фактов**: если вызывающий не подал `FactsLookup`, чужой
  *   модуль для сторожа пуст. Факты снимаются на один шаг — помощник помощника не виден;
- * - значение, собранное во время работы (`new RegExp(переменная)`, склейка из кусков);
+ * - значение, собранное во время работы (`new RegExp(переменная)`);
  * - блочная область видимости огрублена до функции: два `const` с одним именем в разных
  *   блоках одной функции сливаются;
- * - поток через элемент массива или `Map`: `box[i]`, `map.get(k)` не моделируются;
+ * - тара, наполненная в конструкторе (`new Map([['k', текст]])`), и обход тары чужой
+ *   функцией (`Object.values(box)`, `box.map(x => x)[0]`) — промерены 2026-09-13, молчат;
  * - анализ нечувствителен к порядку: функция, вызванная где угодно с текстом исключения,
  *   считается получающей его во всех своих сравнениях.
  */
@@ -50,22 +64,81 @@ import ts from 'typescript'
 /** Литерал кода отказа: `CONFLICT`, `ORDER_NOT_FOUND`. Подчёркивание не обязательно. */
 const CODE_LITERAL = /^[A-Z][A-Z0-9_]{4,}$/
 
-/** Методы, которыми код ищут в строке. */
-const STRING_PROBES = new Set(['includes', 'startsWith', 'endsWith', 'match', 'search', 'indexOf'])
+/** Методы, которыми код ищут в носителе: в строке, в массиве, в `Set`. */
+const STRING_PROBES = new Set([
+  'includes',
+  'startsWith',
+  'endsWith',
+  'match',
+  'search',
+  'indexOf',
+  'has',
+])
 
-/** Методы, возвращающие ту же строку: текст исключения остаётся текстом исключения. */
+/**
+ * Методы, возвращающие тот же текст: он остаётся текстом исключения. `split` и `join` тут
+ * же — они меняют ТАРУ, а не содержимое: `e.message.split(':')[0]` — по-прежнему кусок
+ * текста исключения, и сравнивать его с кодом так же нельзя.
+ */
 const STRING_TRANSFORMS = new Set([
   'trim',
+  'trimStart',
+  'trimEnd',
   'toLowerCase',
   'toUpperCase',
+  'toLocaleLowerCase',
+  'toLocaleUpperCase',
+  'toString',
+  'valueOf',
   'slice',
-  'replace',
   'substring',
+  'substr',
+  'replace',
+  'replaceAll',
   'normalize',
+  'padStart',
+  'padEnd',
+  'repeat',
+  'concat',
+  'at',
+  'split',
+  'join',
 ])
 
 /** Перебор массива с обратным вызовом: параметр связывается с элементами. */
-const ARRAY_PROBES = new Set(['some', 'every', 'find', 'findIndex', 'filter', 'includes'])
+const ARRAY_PROBES = new Set(['some', 'every', 'find', 'findIndex', 'filter', 'includes', 'has'])
+
+/**
+ * Операции, которые ПЕРЕДАЮТ значение дальше, а не вычисляют новое: `a ?? b`, `a || b`,
+ * `a && b`, склейка `a + b`, запятая. Результат несёт текст исключения, если его несёт
+ * хоть один операнд, — поэтому `e.message ?? ''` не отмывает текст.
+ */
+const VALUE_PASSING = new Set([
+  ts.SyntaxKind.QuestionQuestionToken,
+  ts.SyntaxKind.BarBarToken,
+  ts.SyntaxKind.AmpersandAmpersandToken,
+  ts.SyntaxKind.PlusToken,
+  ts.SyntaxKind.CommaToken,
+])
+
+/** Вызовы, превращающие любое значение в строку: содержимое переживает превращение. */
+const STRINGIFIERS = new Set(['String'])
+
+/**
+ * Запись в тару: имя метода → индекс первого аргумента-значения. `arr.push(x)`,
+ * `set.add(x)` кладут значение с нулевого, `map.set(k, v)` — с первого. Тара хранит
+ * происхождения под своим путём: элементы по отдельности не различаются (питфолл #66 —
+ * это названный предел, а не точность).
+ */
+const CONTAINER_WRITES = new Map([
+  ['push', 0],
+  ['unshift', 0],
+  ['add', 0],
+  ['set', 1],
+])
+
+/** Чтение из тары: значение приходит из неё целиком. */
+const CONTAINER_READS = new Set(['get', 'at', 'pop', 'shift', 'find', 'values', 'flat'])
 
 /** Вызовы, дающие законный ответ на вопрос «какой это код». */
 const SOURCES_OF_TRUTH = new Set(['errorCode', 'errorMessageKey'])
@@ -242,10 +315,21 @@ function buildScopes(source: ts.SourceFile): Map<ts.Node, Scope> {
   declare(source)
 
   // Проход 2: присваивания. Значение кладётся в ПУТЬ и в область, где живёт корень пути.
+  // Запись в тару (`arr.push(x)`, `map.set(k, x)`) — такое же присваивание: значение
+  // ложится под путь самой тары. Без этого `arr.push(e.message)` был для сторожа ничем.
   const assign = (node: ts.Node): void => {
     if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
       const path = pathOf(node.left)
       if (path) push(scopeAt(ownerOf(path, node)).vars, path, node.right)
+    }
+    if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)) {
+      const from = CONTAINER_WRITES.get(node.expression.name.text)
+      const path = from === undefined ? null : pathOf(node.expression.expression)
+      if (path && from !== undefined) {
+        for (const argument of node.arguments.slice(from)) {
+          push(scopeAt(ownerOf(path, node)).vars, path, argument)
+        }
+      }
     }
     ts.forEachChild(node, assign)
   }
@@ -259,10 +343,13 @@ function buildScopes(source: ts.SourceFile): Map<ts.Node, Scope> {
       if (ts.isIdentifier(callee)) {
         for (const fn of functions.get(callee.text) ?? []) {
           fn.parameters.forEach((parameter, index) => {
-            const argument = node.arguments[index]
-            if (argument && ts.isIdentifier(parameter.name)) {
-              push(scopeAt(fn).args, parameter.name.text, argument)
-            }
+            if (!ts.isIdentifier(parameter.name)) return
+            // Rest-параметр — тара: под его именем лежат ВСЕ аргументы с этого места.
+            // Связка по индексу его не раскрывала, и `h(...a)` была дырой.
+            const taken = parameter.dotDotDotToken
+              ? node.arguments.slice(index)
+              : node.arguments.slice(index, index + 1)
+            for (const argument of taken) push(scopeAt(fn).args, parameter.name.text, argument)
           })
         }
       }
@@ -370,6 +457,21 @@ const errorText: Taint = (node) => {
       const arg = node.arguments[0]
       return arg !== undefined && ts.isIdentifier(arg)
     }
+    // `JSON.stringify(e)` и `e.toString()` — та же стрингификация целого значения, просто
+    // другой записью. Пока их не было, `String(e)` ловился, а два его синонима — нет:
+    // закрывать надо мысль, а не одну её запись.
+    if (ts.isPropertyAccessExpression(callee)) {
+      const receiver = unwrap(callee.expression)
+      if (
+        callee.name.text === 'stringify' &&
+        ts.isIdentifier(receiver) &&
+        receiver.text === 'JSON'
+      ) {
+        const arg = node.arguments[0]
+        return arg !== undefined && ts.isIdentifier(arg)
+      }
+      if (callee.name.text === 'toString' && ts.isIdentifier(receiver)) return true
+    }
   }
   return false
 }
@@ -397,18 +499,43 @@ function flows(raw: ts.Node, ctx: Ctx, taint: Taint, seen = new Set<ts.Node>()):
 
   if (taint(node, ctx)) return true
 
+  // Операции, передающие значение дальше: `e.message ?? ''`, `'' + e.message`,
+  // `` `${e.message}` ``. Значение остаётся тем же — обёртка его не отмывает.
+  if (ts.isBinaryExpression(node) && VALUE_PASSING.has(node.operatorToken.kind))
+    return flows(node.left, ctx, taint, seen) || flows(node.right, ctx, taint, seen)
+  if (ts.isTemplateExpression(node))
+    return node.templateSpans.some((span) => flows(span.expression, ctx, taint, seen))
+  // Литерал тары: читают из неё элемент — читают то, что в неё положили.
+  if (ts.isArrayLiteralExpression(node))
+    return node.elements.some((element) => flows(element, ctx, taint, seen))
+  if (ts.isSpreadElement(node)) return flows(node.expression, ctx, taint, seen)
+
   if (ts.isCallExpression(node)) {
     const callee = unwrap(node.expression)
     if (ts.isIdentifier(callee)) {
       if (SOURCES_OF_TRUTH.has(callee.text)) return false
+      // `String(x)` — превращение в строку, содержимое переживает его целиком.
+      if (STRINGIFIERS.has(callee.text))
+        return node.arguments.some((argument) => flows(argument, ctx, taint, seen))
       const imported = ctx.imports.get(callee.text)
       if (imported && ctx.facts?.(imported.specifier)?.returnsErrorText.has(imported.exported))
         return true
       return originsOfExpression(callee, ctx).some((o) => flows(o, ctx, taint, seen))
     }
-    // `текст.trim()` остаётся текстом.
-    if (ts.isPropertyAccessExpression(callee) && STRING_TRANSFORMS.has(callee.name.text))
-      return flows(callee.expression, ctx, taint, seen)
+    if (ts.isPropertyAccessExpression(callee)) {
+      // `текст.trim()` остаётся текстом; `map.get(k)` отдаёт то, что в таре.
+      if (STRING_TRANSFORMS.has(callee.name.text) || CONTAINER_READS.has(callee.name.text))
+        return flows(callee.expression, ctx, taint, seen)
+      // `JSON.stringify(e)` — та же стрингификация целого значения, что и `String(e)`.
+      const receiver = unwrap(callee.expression)
+      if (
+        callee.name.text === 'stringify' &&
+        ts.isIdentifier(receiver) &&
+        receiver.text === 'JSON'
+      ) {
+        return node.arguments.some((argument) => flows(argument, ctx, taint, seen))
+      }
+    }
     return false
   }
   if (isFunctionLike(node)) return node.body ? flows(node.body, ctx, taint, seen) : false
@@ -428,7 +555,13 @@ function flows(raw: ts.Node, ctx: Ctx, taint: Taint, seen = new Set<ts.Node>()):
     ts.isElementAccessExpression(node) ||
     ts.isBindingElement(node)
   ) {
-    return originsOfExpression(node, ctx).some((o) => flows(o, ctx, taint, seen))
+    if (originsOfExpression(node, ctx).some((o) => flows(o, ctx, taint, seen))) return true
+    // `box[0]`, `box[i]`, `parts[n]` — чтение элемента тары. Поле по имени сюда не
+    // попадает: у него своё происхождение (`memberOrigins`), и подменять его тарой значит
+    // сливать `box.text` с `box.status`.
+    if (ts.isElementAccessExpression(node) && fieldName(node) === null)
+      return flows(node.expression, ctx, taint, seen)
+    return false
   }
   return false
 }

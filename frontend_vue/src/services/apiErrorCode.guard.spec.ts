@@ -183,13 +183,110 @@ const SAMPLES: Array<[string, string, boolean]> = [
     `function statusOf(r: Row){ return r.status }\nif (statusOf(row) === 'IN_PROGRESS') g()`,
     false,
   ],
-  // ИЗВЕСТНЫЕ ПРЕДЕЛЫ v6 — записаны как есть, потому что молчание сторожа на них
-  // означает «не проверено», а не «чисто». Обе формы промерены на живом дереве и
-  // сегодня не встречаются НИ РАЗУ, поэтому закрыты не были:
-  //   1) через элемент массива — `arr.push(e.message)`, затем `arr[0] === 'КОД'`.
-  //      Замер 2026-09-12: `grep -rnE "\.(push|unshift)\([^)]*\.message" src` — 0 мест.
-  //   2) через rest-параметр — `function h(...a){ a[0] === 'КОД' }`, вызванная `h(e.message)`.
-  //      Связка аргумент→параметр в `buildScopes` идёт по индексу и rest не раскрывает.
+  // ФОРМЫ ОБЁРТКИ — v7. Версия 6 разбирала МЕСТО, где значение полежало, но не ОПЕРАЦИЮ,
+  // через которую оно прошло: `e.message ?? ''` для неё было не текстом исключения, и
+  // каждая из записей ниже проходила насквозь. Как это перепроверить руками: выложить
+  // прежний сторож рядом (`git show <коммит>:…/apiErrorCode.guard.ts > …/__guardold.ts`),
+  // подменить в копии этой спеки импорт на него и прогнать. Замер 2026-09-13: на прежнем
+  // стороже 17 проб ниже красные, все четыре контроля зелёные; на нынешнем зелено всё.
+  //
+  // Живых мест ни одной из этих форм во фронте нет — свип по дереву ниже зелёный. Сырьё
+  // есть: `grep -rnE "\.message\s*(\?\?|\|\|)" src` без моков, спек и комментариев самого
+  // сторожа — 3 места (`services/api.ts` 85, 105, 163), сравнений с кодом поверх них —
+  // ноль. То есть это, как и `.value` у шестой версии, ЛОВУШКА: сырьё лежит, а сторож
+  // молчал бы.
+  [
+    'запасная строка через ??',
+    `try{f()}catch(e){ const m = e.message ?? ''; if (m === 'SOME_CODE') g() }`,
+    true,
+  ],
+  [
+    'запасная строка через ||',
+    `try{f()}catch(e){ const m = e.message || ''; if (m === 'SOME_CODE') g() }`,
+    true,
+  ],
+  [
+    'шаблонная подстановка',
+    "try{f()}catch(e){ const m = `${e.message}`; if (m === 'SOME_CODE') g() }",
+    true,
+  ],
+  [
+    'склейка строк',
+    `try{f()}catch(e){ const m = '' + e.message; if (m === 'SOME_CODE') g() }`,
+    true,
+  ],
+  // `String(e)` ловился и раньше, `String(e.message)` — нет: правило знало ОДНУ запись
+  // стрингификации. Теперь их три, и все три — одна мысль «значение стало строкой».
+  ['String поверх текста', `try{f()}catch(e){ if (String(e.message) === 'SOME_CODE') g() }`, true],
+  ['toString значения', `try{f()}catch(e){ if (e.toString() === 'SOME_CODE') g() }`, true],
+  [
+    'JSON.stringify значения',
+    `try{f()}catch(e){ if (JSON.stringify(e).includes('SOME_CODE')) g() }`,
+    true,
+  ],
+  ['concat к тексту', `try{f()}catch(e){ if (e.message.concat('x') === 'SOME_CODE') g() }`, true],
+  ['padEnd к тексту', `try{f()}catch(e){ if (e.message.padEnd(3) === 'SOME_CODE') g() }`, true],
+  // ТАРА — второй предел v6, названный в её же комментарии как «сегодня не встречается».
+  // Закрыт вместе с обёртками: тара хранит происхождения под своим путём, чтение элемента
+  // читает их все. Элементы между собой не различаются — это названная огрублённость.
+  [
+    'элемент массива',
+    `const box: string[] = []\ntry{f()}catch(e){ box.push(e.message) }\nif (box[0] === 'SOME_CODE') g()`,
+    true,
+  ],
+  [
+    'литерал массива',
+    `try{f()}catch(e){ const box = [e.message]; if (box[0] === 'SOME_CODE') g() }`,
+    true,
+  ],
+  ['includes по массиву', `try{f()}catch(e){ if ([e.message].includes('SOME_CODE')) g() }`, true],
+  ['кусок split', `try{f()}catch(e){ if (e.message.split(':')[0] === 'SOME_CODE') g() }`, true],
+  [
+    'join тары',
+    `const box: string[] = []\ntry{f()}catch(e){ box.push(e.message) }\nif (box.join(' ').includes('SOME_CODE')) g()`,
+    true,
+  ],
+  [
+    'через Map',
+    `const m = new Map<string,string>()\ntry{f()}catch(e){ m.set('k', e.message) }\nif (m.get('k') === 'SOME_CODE') g()`,
+    true,
+  ],
+  [
+    'через Set',
+    `const s = new Set<string>()\ntry{f()}catch(e){ s.add(e.message) }\nif (s.has('SOME_CODE')) g()`,
+    true,
+  ],
+  // Rest-параметр — вторая половина того же предела v6: связка аргумент→параметр шла по
+  // индексу и `...a` не раскрывала.
+  [
+    'через rest-параметр',
+    `function h(...a: string[]){ if (a[0] === 'SOME_CODE') g() }\ntry{f()}catch(e){ h(e.message) }`,
+    true,
+  ],
+  // Контроли к формам обёртки и тары. Ложное обвинение хуже пропуска: оно заставляет
+  // следующего автора отключить сторож. Поэтому у каждой связки — парная проба с законным
+  // источником. Все четыре молчат и на старом стороже, и на новом.
+  ['контроль: статус через ??', `const m = row.status ?? ''\nif (m === 'IN_PROGRESS') g()`, false],
+  [
+    'контроль: код через ??',
+    `try{f()}catch(e){ const c = errorCode(e) ?? ''; if (c === 'SOME_CODE') g() }`,
+    false,
+  ],
+  [
+    'контроль: массив статусов',
+    `const box = [row.status]\nif (box[0] === 'IN_PROGRESS') g()`,
+    false,
+  ],
+  [
+    'контроль: Map статусов',
+    `const m = new Map<string,string>()\nm.set('k', row.status)\nif (m.get('k') === 'IN_PROGRESS') g()`,
+    false,
+  ],
+  // ИЗВЕСТНЫЕ ПРЕДЕЛЫ v7 — записаны как есть, потому что молчание сторожа на них означает
+  // «не проверено», а не «чисто». Каждая промерена пробой 2026-09-13 и молчит:
+  //   1) тара, наполненная в конструкторе: `new Map([['k', e.message]])`, затем `get('k')`;
+  //   2) обход тары чужой функцией: `Object.values(box).includes('КОД')`, `box.map(x => x)[0]`;
+  //   3) межфайловый поток без фактов — вызывающий не подал `FactsLookup`.
   // Появится живое место такой формы — это находка, а не «сторож зелёный».
   // Разрешённые записи — сторож обязан молчать.
   ['через errorCode', `try{f()}catch (e) { if (errorCode(e) === 'SOME_CODE') g() }`, false],
