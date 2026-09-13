@@ -527,10 +527,10 @@ saleUomId: data.saleUomId ?? null,
 
 ---
 
-## БАГ-14 — `get_product_by_id` выбирает товар без фильтра по арендатору
+## БАГ-14 — `get_product_by_id` и `get_category_by_id` выбирают без фильтра по арендатору
 
-**File:** `backend/app/modules/products/features/get_product_detail/repository.py:13-22`, `backend/app/modules/products/features/get_product_detail/domain.py:47-53`
-**Severity:** High — чтение товара чужого арендатора по угаданному id ничем не ограничено.
+**File:** `backend/app/modules/products/features/get_product_detail/repository.py:13-22` и `:25-31`, `backend/app/modules/products/features/get_product_detail/domain.py:47-53` и `:56-64`
+**Severity:** High — чтение товара и категории чужого арендатора по угаданному id ничем не ограничено.
 **Источник:** К6 (мультиарендность)
 
 ### Problem
@@ -556,10 +556,22 @@ result = await db.execute(
 Тот же репозиторий переиспользуется межмодульным интерфейсом
 (`backend/app/modules/products/internal_api/interface.py:21-30`), то есть дыра наследуется всеми, кто спросит товар у модуля.
 
+**Вторая функция того же файла — та же дыра.** `get_category_by_id`
+(`backend/app/modules/products/features/get_product_detail/repository.py:25-31`) делает
+`select(Category).where(Category.id == category_id)` — без арендатора, хотя `categories.tenant_id`
+объявлен `nullable=False` (`backend/app/modules/products/shared/models.py:17-24`). Карточка
+собирает вложенную категорию именно ею (`backend/app/modules/products/features/get_product_detail/domain.py:56-64`),
+то есть в ответе может оказаться имя категории чужого арендатора. Сквозной план мультиарендности
+уже записал обе функции под этим номером
+(`roo_code/plans/general/сквозное-tenancy-план.md:154-155`), и обе ре-экспортируются наружу
+межмодульным входом (`backend/app/modules/products/internal_api/interface.py:21`, `:33`).
+
 ### Fix
 
-Добавить `Product.tenant_id == tenant_id` в `where`, и брать арендатора из контекста
-аутентификации, а не из заглушки `00000000-…-0001` (`backend/app/modules/products/features/get_product_detail/action.py:34-35`).
+Добавить `Product.tenant_id == tenant_id` в `where` первой функции и `Category.tenant_id == tenant_id`
+во `where` второй; обе обёртки `internal_api` (`:21`, `:33`) принимают `tenant_id` и передают его
+дальше. Арендатора брать из контекста аутентификации, а не из заглушки `00000000-…-0001`
+(`backend/app/modules/products/features/get_product_detail/action.py:34-35`).
 
 ### Future rule
 
