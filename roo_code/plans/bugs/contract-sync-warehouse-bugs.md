@@ -619,7 +619,13 @@ return paginate(filtered, pagination.page, pagination.pageSize)     // :1651 д�
 
 ---
 
-## БАГ-18 — `OFFCUT_LINKED_TO_ORDER` читается только из `message`
+## ✅ БАГ-18 — `OFFCUT_LINKED_TO_ORDER` читается только из `message` — ПОЧИНЕН
+
+**Закрыто 2026-09-13:** карточка обрезка читает код через `errorCode(e)`
+(`frontend_vue/src/composables/useWarehouseOffcutCard.ts:386`), то есть из
+`ApiRequestError.code`; парная проверка партии — так же
+(`frontend_vue/src/composables/useWarehouseBatch.ts:341`). Описание ниже оставлено как история
+находки.
 
 **File:** `frontend_vue/src/composables/useWarehouseOffcutCard.ts:385`
 **Severity:** Medium — против настоящего API код придёт в `ApiRequestError.code`, и карточка покажет общий тост вместо объяснения, почему кусок нельзя удалить.

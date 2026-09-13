@@ -16,7 +16,11 @@
 
 ---
 
-## БАГ-01 — код ошибки удаления читается из `message`, а настоящий API кладёт его в `code`
+## ✅ БАГ-01 — код ошибки удаления читается из `message`, а настоящий API кладёт его в `code` — ПОЧИНЕН
+
+**Закрыто 2026-09-13:** `deleteCategory` читает код через `errorCode(e)`
+(`frontend_vue/src/composables/useCategories.ts:44`), то есть из `ApiRequestError.code`.
+Описание ниже оставлено как история находки.
 
 **File:** `frontend_vue/src/composables/useCategories.ts:43-47`, `frontend_vue/src/services/mocks/index.ts:1491`
 **Severity:** High — против настоящего бэкенда оба осмысленных сообщения об ошибке удаления пропадут, останется общий «что-то пошло не так».
