@@ -20,6 +20,8 @@ assert 'П1–П129' in prompt
 mode = os.environ.get('NIGHT_TEST_MODE', '')
 work = args[args.index('--sandbox') + 1] == 'workspace-write'
 if work:
+    if mode == 'must-not-repeat-author':
+        sys.exit(55)
     pathlib.Path('plan.md').write_text('prepared\n')
     if mode == 'outside':
         pathlib.Path('unrelated.md').write_text('outside\n')
@@ -85,10 +87,12 @@ class PilotTest(unittest.TestCase):
         return subprocess.check_output(["git", "-C", str(self.root), *args], text=True,
                                        stderr=subprocess.DEVNULL).strip()
 
-    def invoke(self, mode="", run=True, minutes="1"):
+    def invoke(self, mode="", run=True, minutes="1", previous=None):
         command = [sys.executable, str(RUNNER), "--workspace", str(self.root), "--queue", str(self.queue)]
         if run:
             command += ["--run", "--run-dir", str(self.logs), "--minutes", minutes, "--max-tasks", "1"]
+        if previous:
+            command += ["--retry-review", str(previous)]
         return subprocess.run(command, env={**self.env, "NIGHT_TEST_MODE": mode},
                               capture_output=True, text=True, timeout=15)
 
@@ -167,6 +171,36 @@ class PilotTest(unittest.TestCase):
         self.assertEqual(result.returncode, 1, result.stderr)
         self.assertEqual(self.state()["completed"], [])
         self.assertIn("hook", self.state()["reason"])
+
+    def test_retry_rechecks_saved_work_without_repeating_author(self):
+        self.assertEqual(self.invoke("reject").returncode, 1)
+        previous = self.logs
+        old_journal = (previous / "journal.jsonl").read_bytes()
+        (self.root / "plan.md").write_text("corrected after review\n")
+        self.logs = self.base / "retry"
+        result = self.invoke("must-not-repeat-author", previous=previous)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.state()["status"], "completed")
+        self.assertEqual((previous / "journal.jsonl").read_bytes(), old_journal)
+        self.assertEqual((self.root / "plan.md").read_text(), "corrected after review\n")
+        self.assertTrue((self.logs / "plan-check-verify.stdout.log").is_file())
+        self.assertFalse((self.logs / "plan-work.prompt.txt").exists())
+
+    def test_retry_rejects_unrelated_changes(self):
+        self.assertEqual(self.invoke("reject").returncode, 1)
+        previous = self.logs
+        (self.root / "unrelated.txt").write_text("another session\n")
+        self.logs = self.base / "retry"
+        self.assertEqual(self.invoke(previous=previous).returncode, 2)
+        self.assertFalse(self.logs.exists())
+
+    def test_retry_rejects_changed_head(self):
+        self.assertEqual(self.invoke("reject").returncode, 1)
+        previous = self.logs
+        self.git("commit", "--allow-empty", "-m", "unrelated commit")
+        self.logs = self.base / "retry"
+        self.assertEqual(self.invoke(previous=previous).returncode, 2)
+        self.assertFalse(self.logs.exists())
 
 
 if __name__ == "__main__":
