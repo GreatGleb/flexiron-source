@@ -3,8 +3,10 @@
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
+import tarfile
 import tempfile
 import unittest
 
@@ -16,14 +18,31 @@ args = sys.argv[1:]
 assert args[:3] == ['-a', 'never', 'exec']
 assert '--json' in args and '--output-schema' in args
 prompt = sys.stdin.read()
-assert 'П1–П129' in prompt
+assert 'Актуальные решения владельца из реестра' in prompt
 mode = os.environ.get('NIGHT_TEST_MODE', '')
+task = json.loads(prompt.split('\nЗадание (JSON):\n', 1)[1])
+if mode.startswith('{'):
+    mode = json.loads(mode).get(task['id'], '')
 work = args[args.index('--sandbox') + 1] == 'workspace-write'
+with pathlib.Path(os.environ['NIGHT_TEST_CALLS']).open('a') as calls:
+    calls.write(task['id'] + (':work' if work else ':review') + '\n')
 if work:
     if mode == 'must-not-repeat-author':
         sys.exit(55)
-    pathlib.Path('plan.md').write_text('prepared\n')
-    if mode == 'outside':
+    if mode not in ('no-edit-blocked', 'no-edit-done'):
+        for name in task['outputs']:
+            path = pathlib.Path(name)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text('prepared\n')
+    if mode == 'delete-source':
+        pathlib.Path('plan.md').unlink()
+    if mode == 'mixed-blocked':
+        pathlib.Path('plan.md').unlink()
+        pathlib.Path('new.bin').write_bytes(b'\x00\xff\x01')
+        pathlib.Path('script.sh').chmod(0o755)
+        pathlib.Path('link').unlink()
+        pathlib.Path('link').symlink_to('new.bin')
+    if mode in ('outside', 'outside-blocked'):
         pathlib.Path('unrelated.md').write_text('outside\n')
     if mode == 'timeout':
         time.sleep(30)
@@ -31,25 +50,30 @@ if work:
         subprocess.check_call(['git', 'add', 'plan.md'])
     if mode == 'branch':
         subprocess.check_call(['git', 'switch', '-c', 'auto/unexpected'])
-if not work and mode == 'review-writes':
+if not work and mode in ('review-writes', 'review-writes-blocked'):
     pathlib.Path('plan.md').write_text('tampered\n')
-if mode == 'cli-error':
+if mode == 'cli-error' or (not work and mode == 'review-cli-error'):
     sys.exit(12)
-result = {'status': 'blocked' if not work and mode == 'reject' else 'done',
+blocked = (work and mode in ('work-blocked', 'no-edit-blocked', 'mixed-blocked', 'outside-blocked')) or (
+    not work and mode in ('reject', 'review-writes-blocked'))
+result = {'status': 'blocked' if blocked else 'done',
           'summary': 'test result', 'evidence': ['read plan.md']}
 pathlib.Path(args[args.index('--output-last-message') + 1]).write_text(json.dumps(result))
 print(json.dumps({'type': 'turn.completed', 'usage': {'input_tokens': 1}}))
 '''
 FAKE_NPM = r'''#!/usr/bin/env python3
-import os, pathlib, sys
+import json, os, pathlib, sys
 assert sys.argv[1:] == ['run', 'verify']
 assert pathlib.Path.cwd().name == 'frontend_vue'
 mode = os.environ.get('NIGHT_TEST_MODE', '')
+if mode.startswith('{'):
+    mode = json.loads(mode).get('_npm', '')
 countfile = pathlib.Path(os.environ['NIGHT_TEST_COUNT'])
 count = int(countfile.read_text()) if countfile.exists() else 0
 countfile.write_text(str(count + 1))
 print('fake verification', count)
-sys.exit(1 if mode == 'baseline-red' or (mode == 'verify-red' and count > 0) else 0)
+sys.exit(1 if mode == 'baseline-red' or (mode == 'verify-red' and count > 0)
+         or (mode == 'first-check-red' and count == 1) else 0)
 '''
 
 
@@ -81,19 +105,20 @@ class PilotTest(unittest.TestCase):
                                                    "outputs": ["plan.md"], "task": "prepare"}]}))
         self.logs = self.base / "results"
         self.env = {**os.environ, "PATH": str(self.bin) + os.pathsep + os.environ["PATH"],
-                    "NIGHT_TEST_COUNT": str(self.base / "npm-count")}
+                    "NIGHT_TEST_COUNT": str(self.base / "npm-count"),
+                    "NIGHT_TEST_CALLS": str(self.base / "calls")}
 
     def git(self, *args):
         return subprocess.check_output(["git", "-C", str(self.root), *args], text=True,
                                        stderr=subprocess.DEVNULL).strip()
 
-    def invoke(self, mode="", run=True, minutes="1", previous=None):
+    def invoke(self, mode="", run=True, minutes="1", previous=None, max_tasks=1):
         command = [sys.executable, str(RUNNER), "--workspace", str(self.root), "--queue", str(self.queue)]
         if run:
-            command += ["--run", "--run-dir", str(self.logs), "--minutes", minutes, "--max-tasks", "1"]
+            command += ["--run", "--run-dir", str(self.logs), "--minutes", minutes, "--max-tasks", str(max_tasks)]
         if previous:
             command += ["--retry-review", str(previous)]
-        return subprocess.run(command, env={**self.env, "NIGHT_TEST_MODE": mode},
+        return subprocess.run(command, env={**self.env, "NIGHT_TEST_MODE": json.dumps(mode) if isinstance(mode, dict) else mode},
                               capture_output=True, text=True, timeout=15)
 
     def state(self):
@@ -140,7 +165,7 @@ class PilotTest(unittest.TestCase):
 
     def test_rejected_or_failed_work_is_not_committed_and_is_preserved(self):
         # Each subcase receives a fresh fixture and log directory.
-        for mode in ("reject", "cli-error", "outside", "review-writes", "verify-red", "timeout", "stage", "branch"):
+        for mode in ("cli-error", "outside", "outside-blocked", "review-writes", "review-writes-blocked", "timeout", "stage", "branch"):
             with self.subTest(mode=mode):
                 case = PilotTest()
                 case.setUp()
@@ -173,7 +198,7 @@ class PilotTest(unittest.TestCase):
         self.assertIn("hook", self.state()["reason"])
 
     def test_retry_rechecks_saved_work_without_repeating_author(self):
-        self.assertEqual(self.invoke("reject").returncode, 1)
+        self.assertEqual(self.invoke("review-cli-error").returncode, 1)
         previous = self.logs
         old_journal = (previous / "journal.jsonl").read_bytes()
         (self.root / "plan.md").write_text("corrected after review\n")
@@ -187,7 +212,7 @@ class PilotTest(unittest.TestCase):
         self.assertFalse((self.logs / "plan-work.prompt.txt").exists())
 
     def test_retry_rejects_unrelated_changes(self):
-        self.assertEqual(self.invoke("reject").returncode, 1)
+        self.assertEqual(self.invoke("review-cli-error").returncode, 1)
         previous = self.logs
         (self.root / "unrelated.txt").write_text("another session\n")
         self.logs = self.base / "retry"
@@ -195,12 +220,213 @@ class PilotTest(unittest.TestCase):
         self.assertFalse(self.logs.exists())
 
     def test_retry_rejects_changed_head(self):
-        self.assertEqual(self.invoke("reject").returncode, 1)
+        self.assertEqual(self.invoke("review-cli-error").returncode, 1)
         previous = self.logs
         self.git("commit", "--allow-empty", "-m", "unrelated commit")
         self.logs = self.base / "retry"
         self.assertEqual(self.invoke(previous=previous).returncode, 2)
         self.assertFalse(self.logs.exists())
+
+    def tasks(self, *specs):
+        tasks = [{"id": name, "sources": [], "outputs": [name + ".md"], "task": "prepare",
+                  **extra} for name, extra in specs]
+        self.queue.write_text(json.dumps({"tasks": tasks}))
+
+    def test_blocked_task_is_archived_and_independent_task_committed(self):
+        for mode, phase in (("work-blocked", "work"), ("reject", "review"),
+                            ("verify-red", "checks"), ("no-edit-blocked", "work"), ("no-edit-done", "work")):
+            with self.subTest(mode=mode):
+                case = PilotTest()
+                case.setUp()
+                try:
+                    case.tasks(("plan", {}), ("independent", {}))
+                    modes = {"plan": mode} if mode != "verify-red" else {"_npm": "first-check-red"}
+                    result = case.invoke(modes, max_tasks=2)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    state = case.state()
+                    self.assertEqual(state["status"], "completed-with-blockers")
+                    self.assertEqual([x["task"] for x in state["completed"]], ["independent"])
+                    self.assertEqual(state["blocked"][0]["phase"], phase)
+                    self.assertEqual(state["pending"], [])
+                    self.assertFalse(case.git("status", "--porcelain"))
+                    self.assertEqual(case.git("diff", "--name-only", case.baseline, "HEAD"), "independent.md")
+                    item = state["blocked"][0]
+                    expected_reason = ("без изменений" if mode == "no-edit-done" else
+                                       "кодом 1" if phase == "checks" else "test result")
+                    self.assertIn(expected_reason,
+                                  (case.logs / "report.md").read_text())
+                    if mode in ("no-edit-blocked", "no-edit-done"):
+                        self.assertIsNone(item["stash"])
+                    else:
+                        case.git("stash", "apply", item["stash"])
+                        self.assertEqual((case.root / "plan.md").read_text(), "prepared\n")
+                finally:
+                    case.doCleanups()
+
+    def test_dependencies_wait_transitively_and_do_not_consume_attempts(self):
+        self.tasks(("plan", {}), ("dependent", {"depends_on": ["plan"]}),
+                   ("reader", {"sources": ["dependent.md"]}),
+                   ("same-output", {"outputs": ["plan.md"]}), ("independent", {}))
+        result = self.invoke({"plan": "work-blocked"}, max_tasks=2)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual([x["task"] for x in self.state()["waiting"]],
+                         ["dependent", "reader", "same-output"])
+        self.assertEqual((self.base / "calls").read_text().splitlines(),
+                         ["plan:work", "independent:work", "independent:review"])
+        self.assertEqual(self.state()["status"], "completed-with-blockers")
+
+    def test_two_consecutive_blockers_do_not_stop_third_task(self):
+        self.tasks(("plan", {}), ("second", {}), ("third", {}))
+        result = self.invoke({"plan": "work-blocked", "second": "reject"}, max_tasks=3)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        state = self.state()
+        self.assertEqual([x["task"] for x in state["blocked"]], ["plan", "second"])
+        self.assertEqual([x["task"] for x in state["completed"]], ["third"])
+        self.assertNotEqual(state["blocked"][0]["stash"], state["blocked"][1]["stash"])
+        self.assertEqual(self.git("diff", "--name-only", self.baseline, "HEAD"), "third.md")
+
+    def test_archive_preserves_deletion_binary_mode_and_symlink(self):
+        self.tasks(("plan", {"outputs": ["plan.md", "new.bin", "script.sh", "link"]}),
+                   ("independent", {}))
+        result = self.invoke({"plan": "mixed-blocked"}, max_tasks=2)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        item = self.state()["blocked"][0]
+        archive = Path(item["archive"])
+        self.assertEqual(json.loads((archive / "manifest.json").read_text())["plan.md"], "deleted")
+        with tarfile.open(archive / "files.tar") as tar:
+            self.assertEqual(tar.extractfile("new.bin").read(), b"\x00\xff\x01")
+            self.assertEqual(tar.getmember("script.sh").mode, 0o755)
+            self.assertTrue(tar.getmember("link").issym())
+            self.assertEqual(tar.getmember("link").linkname, "new.bin")
+        self.git("stash", "apply", item["stash"])
+        self.assertFalse((self.root / "plan.md").exists())
+        self.assertEqual((self.root / "new.bin").read_bytes(), b"\x00\xff\x01")
+        self.assertTrue((self.root / "link").is_symlink())
+
+    def test_task_limit_retains_pending_after_blocker(self):
+        self.tasks(("plan", {}), ("dependent", {"depends_on": ["plan"]}), ("next", {}))
+        result = self.invoke({"plan": "work-blocked"}, max_tasks=1)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.state()["status"], "task-limit")
+        self.assertEqual(self.state()["pending"], ["next"])
+        self.assertEqual([x["task"] for x in self.state()["waiting"]], ["dependent"])
+
+    def test_invalid_dependencies_rejected_before_model(self):
+        for deps in (["missing"], ["plan"], "other"):
+            with self.subTest(deps=deps):
+                self.tasks(("plan", {"depends_on": deps}))
+                self.assertEqual(self.invoke().returncode, 2)
+                self.assertFalse(self.logs.exists())
+        self.tasks(("plan", {"depends_on": ["second"]}), ("second", {"depends_on": ["plan"]}))
+        self.assertEqual(self.invoke().returncode, 2)
+        self.assertFalse(self.logs.exists())
+
+    def test_forward_dependency_is_run_before_consumer(self):
+        self.tasks(("consumer", {"depends_on": ["producer"], "sources": ["producer.md"]}),
+                   ("producer", {}))
+        result = self.invoke(max_tasks=2)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual([x["task"] for x in self.state()["completed"]], ["producer", "consumer"])
+
+    def test_retry_after_earlier_blocker_keeps_archive_and_skips_author(self):
+        self.tasks(("plan", {}), ("second", {}), ("third", {}))
+        self.assertEqual(self.invoke({"plan": "work-blocked", "second": "review-cli-error"},
+                                     max_tasks=3).returncode, 1)
+        previous = self.logs
+        old_journal = (previous / "journal.jsonl").read_bytes()
+        archive = self.state()["blocked"][0]["archive"]
+        self.logs = self.base / "retry"
+        result = self.invoke({"second": "must-not-repeat-author"}, previous=previous, max_tasks=3)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.state()["status"], "completed-with-blockers")
+        self.assertEqual([x["task"] for x in self.state()["completed"]], ["second", "third"])
+        self.assertEqual(self.state()["blocked"][0]["archive"], archive)
+        self.assertEqual((previous / "journal.jsonl").read_bytes(), old_journal)
+
+    def test_failed_isolation_stops_before_next_task_and_keeps_archive(self):
+        self.tasks(("plan", {}), ("independent", {}))
+        git_wrapper = self.bin / "git"
+        real_git = shutil.which("git")
+        git_wrapper.write_text("#!/usr/bin/env python3\nimport os, sys\n"
+                               "if sys.argv[1:3] == ['stash', 'push']: sys.exit(72)\n"
+                               f"os.execv({real_git!r}, [{real_git!r}, *sys.argv[1:]])\n")
+        git_wrapper.chmod(0o755)
+        result = self.invoke({"plan": "work-blocked"}, max_tasks=2)
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertEqual(self.state()["status"], "stopped")
+        self.assertEqual((self.base / "calls").read_text(), "plan:work\n")
+        self.assertEqual((self.root / "plan.md").read_text(), "prepared\n")
+        archive = Path(self.state()["blocked"][0]["archive"])
+        with tarfile.open(archive / "files.tar") as tar:
+            self.assertEqual(tar.extractfile("plan.md").read(), b"prepared\n")
+
+    def test_all_blocked_finishes_truthfully_without_commits(self):
+        self.tasks(("plan", {}), ("second", {}))
+        result = self.invoke({"plan": "work-blocked", "second": "reject"}, max_tasks=2)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.state()["status"], "completed-with-blockers")
+        self.assertEqual(self.state()["completed"], [])
+        self.assertEqual(self.state()["pending"], [])
+        self.assertEqual(self.git("rev-parse", "HEAD"), self.baseline)
+        self.assertFalse(self.git("status", "--porcelain"))
+
+    def test_removed_source_blocks_consumer_without_calling_model(self):
+        self.tasks(("plan", {}), ("reader", {"sources": ["plan.md"]}), ("independent", {}))
+        result = self.invoke({"plan": "delete-source"}, max_tasks=3)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.state()["blocked"][0]["task"], "reader")
+        self.assertEqual(self.state()["blocked"][0]["phase"], "sources")
+        self.assertNotIn("reader", (self.base / "calls").read_text())
+        self.assertEqual([x["task"] for x in self.state()["completed"]], ["plan", "independent"])
+
+    def test_additional_checks_run_before_review(self):
+        queue = json.loads(self.queue.read_text())
+        marker = self.base / "extra-check"
+        queue["tasks"][0]["checks"] = [{"cwd": ".", "argv": [sys.executable, "-c",
+            "from pathlib import Path; assert Path('plan.md').read_text() == 'prepared\\n'; "
+            f"assert not Path({str(self.logs / 'plan-review.json')!r}).exists(); "
+            f"Path({str(marker)!r}).write_text('checked')"]}]
+        self.queue.write_text(json.dumps(queue))
+        result = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(marker.read_text(), "checked")
+        self.assertTrue((self.logs / "plan-check-extra-0.stdout.log").exists())
+
+    def test_failed_additional_check_blocks_only_its_task(self):
+        self.tasks(("plan", {"checks": [{"cwd": ".", "argv": [sys.executable, "-c", "raise SystemExit(7)"]}]}),
+                   ("independent", {}))
+        result = self.invoke(max_tasks=2)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.state()["blocked"][0]["phase"], "checks")
+        self.assertEqual([x["task"] for x in self.state()["completed"]], ["independent"])
+        self.assertFalse((self.logs / "plan-review.json").exists())
+
+    def test_failed_extra_baseline_stops_before_author(self):
+        queue = json.loads(self.queue.read_text())
+        queue["baseline_checks"] = [{"cwd": ".", "argv": [sys.executable, "-c", "raise SystemExit(4)"]}]
+        self.queue.write_text(json.dumps(queue))
+        self.assertEqual(self.invoke().returncode, 1)
+        self.assertFalse((self.base / "calls").exists())
+
+    def test_backend_without_checks_and_invalid_check_rejected(self):
+        self.tasks(("plan", {"outputs": ["backend/app/example.py"]}))
+        self.assertEqual(self.invoke().returncode, 2)
+        for check in ({"cwd": "..", "argv": [sys.executable]},
+                      {"cwd": ".", "argv": "python3"},
+                      {"cwd": ".", "argv": ["missing-command-for-test"]}):
+            with self.subTest(check=check):
+                self.tasks(("plan", {"checks": [check]}))
+                self.assertEqual(self.invoke().returncode, 2)
+                self.assertFalse(self.logs.exists())
+
+    def test_check_mutation_stops_instead_of_archiving(self):
+        self.tasks(("plan", {"checks": [{"cwd": ".", "argv": [sys.executable, "-c",
+            "from pathlib import Path; Path('plan.md').write_text('tampered'); raise SystemExit(1)"]}]}),
+                   ("independent", {}))
+        self.assertEqual(self.invoke(max_tasks=2).returncode, 1)
+        self.assertEqual(self.state()["blocked"], [])
+        self.assertIn("изменила", self.state()["reason"])
+        self.assertEqual((self.base / "calls").read_text(), "plan:work\n")
 
 
 if __name__ == "__main__":
