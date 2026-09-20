@@ -550,3 +550,23 @@ cd frontend_vue && CONTRACT_REFS=roo_code/plans/suppliers/suppliers-backend-plan
 | T12 | `cd frontend_vue && npx vitest run src/services/mocks/suppliers-notes.spec.ts` и `cd backend && python3 -m unittest discover -s tests -t .` | заметка с пустой строкой внутри переживает запись и чтение целой; удаление одной не трогает остальные; `grep -c "split(/\\n\\n+/)" frontend_vue/src/components/admin/SupplierFormSections.vue` → 0 |
 | T0 (правило 6) | `grep -c "Кастомных полей у домена нет." roo_code/roo-context/api/suppliers.md` и `grep -c "Кастомные поля: да." roo_code/roo-context/api/suppliers.md`, затем `cd frontend_vue && npx vitest run src/services/custom-fields-conformance.spec.ts` | первый греп → **1** (сегодня 0), второй → **0**: домен определился, и определился в ту сторону, которую назначил сквозной план. Спека сквозного плана зелена по её проверкам 1 и 2 (проверка 3 адресована объявившим «да» и домена не касается): объявление есть, и оно **не врёт** (`grep -c "fieldValues\|FieldDefinition\|ProductFieldValue\|CategoryField" frontend_vue/src/types/supplier.ts frontend_vue/src/services/mocks/suppliers.ts frontend_vue/src/services/suppliersService.ts` → 0 по каждому файлу, замер 2026-09-13), ссылка на сквозной план в разделе стоит — этого требует не спека, а сам сквозной план (строки 439-441). Обратное ожидание — тоже строка приёмки: `grep -c "SupplierFieldValue" backend/app/modules/suppliers/shared/models.py` → **0**, домен хранилища значений не завёл |
 | каждая | `cd frontend_vue && CONTRACT_REFS=roo_code/roo-context/api/suppliers.md npx vitest run src/services/contractRefs.spec.ts` | после правки раздела контракта — `битых 0`. Замер на 2026-09-12: 275 ссылок, 25 битых, и это чинится тем же движением, которым слайс правит свой раздел |
+
+
+---
+
+## Актуализация вопросов владельца — 2026-09-17
+
+Владелец заполнил все 53 вопроса [единого опросника](../general/вопросы-владельцу-после-сверки-2026-09-17.md).
+Исходный раздел «Требует решения владельца» выше сохранён как история постановки;
+по нему нельзя повторно задавать уже отвеченные вопросы или считать их блокерами.
+Для каждого из 10 исходных пунктов действителен результат сверки
+в таблице опросника: прежнее решение, техническая задача, полученный ответ либо отсрочка П65.
+Ни эта сверка, ни ответы не означают выполнения слайсов или закрытия открытых технических находок.
+
+| Исходный пункт | Полученные решения |
+|---|---|
+| suppliers:1 | [П96](../api/audit/00-решения-владельца.md#p-96) |
+| suppliers:2 | [П127](../api/audit/00-решения-владельца.md#p-127) |
+| suppliers:5 | [П97](../api/audit/00-решения-владельца.md#p-97) |
+| suppliers:7 | [П98](../api/audit/00-решения-владельца.md#p-98) |
+| suppliers:8 | [П99](../api/audit/00-решения-владельца.md#p-99) |

@@ -1,0 +1,196 @@
+{
+  "description": "Подготовленный остаток после приёмки auth/uploads и П130. Первый backend-слайс и независимая подготовка CRM; не команда запуска.",
+  "baseline_checks": [
+    {
+      "cwd": "backend",
+      "argv": [
+        ".venv/bin/python",
+        "-B",
+        "../roo_code/workflows/backend-smoke.py"
+      ]
+    },
+    {
+      "cwd": "backend",
+      "argv": [
+        ".venv/bin/python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-t",
+        "."
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "auth-c0",
+      "depends_on": [],
+      "sources": [
+        "roo_code/plans/api/audit/00-решения-владельца.md",
+        "roo_code/plans/general/вопросы-владельцу-после-сверки-2026-09-17.md",
+        "roo_code/roo-context/api/00-conventions.md",
+        "roo_code/plans/auth/auth-backend-plan.md",
+        "roo_code/plans/general/сквозное-tenancy-план.md",
+        "roo_code/roo-context/api/auth.md",
+        "backend/tests/test_route_auth.py",
+        "roo_code/workflows/backend-smoke.py"
+      ],
+      "outputs": [
+        "backend/app/modules/auth/shared/session_tokens.py",
+        "backend/app/modules/auth/shared/dependencies.py",
+        "backend/app/modules/auth/internal_api/interface.py",
+        "backend/app/modules/auth/features/me/action.py",
+        "backend/app/modules/auth/features/me/domain.py",
+        "backend/app/modules/auth/features/me/repository.py",
+        "backend/app/modules/auth/features/login/domain.py",
+        "backend/app/modules/auth/features/register/domain.py",
+        "backend/app/modules/settings/features/crud/action.py",
+        "backend/app/modules/settings/features/crud/domain.py",
+        "backend/app/modules/settings/features/crud/repository.py",
+        "backend/app/modules/settings/features/profile/action.py",
+        "backend/app/modules/settings/features/profile/domain.py",
+        "backend/app/modules/settings/features/profile/repository.py",
+        "backend/app/core/uploads/action.py",
+        "backend/tests/test_route_auth.py",
+        "backend/tests/modules/auth/__init__.py",
+        "backend/tests/modules/auth/test_current_user.py",
+        "backend/tests/modules/auth/test_auth_consumers.py",
+        "roo_code/roo-context/api/auth.md",
+        "roo_code/roo-context/api/settings.md",
+        "roo_code/roo-context/api/uploads.md",
+        "roo_code/roo-context/verify-runs/auth-c0-implementation.md"
+      ],
+      "checks": [
+        {
+          "cwd": "backend",
+          "argv": [
+            ".venv/bin/python",
+            "-B",
+            "-m",
+            "unittest",
+            "tests.modules.auth.test_current_user",
+            "-v"
+          ]
+        },
+        {
+          "cwd": "backend",
+          "argv": [
+            ".venv/bin/python",
+            "-B",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-t",
+            "."
+          ]
+        },
+        {
+          "cwd": "backend",
+          "argv": [
+            ".venv/bin/python",
+            "-B",
+            "../roo_code/workflows/backend-smoke.py"
+          ]
+        }
+      ],
+      "task": "Реализовать только С0 принятого auth-плана (§7): единый разбор и выпуск существующего Bearer, CurrentUser и перевод всех четырёх действующих потребителей. Начать с повторного инвентаря. Подготовленная среда backend/.venv; SQL-тесты используют отдельную временную SQLite с реальными записями A/B либо отдельную тестовую PostgreSQL, никогда .env БД. Для SQLite JSONB допускать только тестовый адаптер типа, не менять производственные модели ради тестов. Не устанавливать пакеты и не менять зависимости. Состояние сеансов, migrations, новый login flow и П77/П79 — следующий С1, не расширять этот слайс. Записать реальные проверки и инверсии в разрешённый журнал.",
+      "acceptance": [
+        "Все требования и отрицательные случаи таблицы С0 подтверждены поведенческими HTTP/SQL-тестами. Проверены четыре потребителя: /me, settings CRUD, profile и uploads. Dependency не подменена фиктивной успешной личностью; реальная подпись, сроки и запросы БД работают.",
+        "Единый helper с переходным max_age=86400; SignatureExpired до BadSignature; неверные payload/UUID дают 401, не 500; inactive/удалённый/без компании не допускается. Переходный предел не назван выполнением 30 минут/remember/отзыва.",
+        "Контекст получает tenant_id из пользователя; подмена клиента игнорируется. PATCH/DELETE чужой валюты даёт 404 и не изменяет строку B; upload с подставленной компанией не пишет файл до отказа. Два пользователя одного email в разных компаниях проверены на данных.",
+        "Сторож проверяет происхождение get_current_user, старые обходы не разрешены, исключения products не расширены. Нет новых импортов чужих моделей из consumer-модулей, нет повторного запроса пользователя для /me.",
+        "Контракты auth/settings/uploads актуализированы только для фактически выполненного С0; ответы владельца и сроки не переписаны. unittest, smoke, frontend verify и строгие ссылки проходят. Инверсии max_age, is_active, tenant-фильтра и dependency доказанно проваливают тесты; после восстановления проверки зелёные."
+      ]
+    },
+    {
+      "id": "crm-plan-acceptance",
+      "depends_on": [],
+      "sources": [
+        "roo_code/plans/api/audit/00-решения-владельца.md",
+        "roo_code/plans/general/вопросы-владельцу-после-сверки-2026-09-17.md",
+        "roo_code/roo-context/api/00-conventions.md",
+        "roo_code/plans/sales-crm/sales-crm-backend-plan.md",
+        "roo_code/roo-context/api/sales-crm.md",
+        "roo_code/plans/general/сквозное-сводка.md"
+      ],
+      "outputs": [
+        "roo_code/plans/sales-crm/sales-crm-backend-plan.md",
+        "roo_code/roo-context/verify-runs/sales-crm-plan-acceptance.md"
+      ],
+      "task": "Завершить проверку существующего CRM-плана после П130. Сопоставить один маршрут с текущим кодом, все обязательства — с решениями и сквозными планами. Исправить только доказанные ошибки плана, записать фактический журнал даже если правки самого плана не понадобились. Не переписывать исторические журналы. Автор не объявляет независимую приёмку до вердикта отдельного reviewer контроллера.",
+      "acceptance": [
+        "П130 применён к периоду исходной отгрузки и всем слайсам/тестам: сентябрь 400→300 после октябрьского возврата, октябрь 0. Вопрос владельцу повторно не открывается.",
+        "С0 содержит конкретные входы и критерии технического уточнения форм, прав и согласованного среза; незавершённый С0 явно блокирует соответствующую реализацию, а не весь auth. Нет заявлений о готовом сервере или полной wire-форме.",
+        "С0–С6 имеют зависимости и отрицательные критерии; нет новых продуктовых возможностей. Все реальные ссылки разрешаются, будущие файлы явно помечены. Журнал содержит доказательства проверки требований, а не только число ссылок."
+      ]
+    },
+    {
+      "id": "crm-c0-contract",
+      "depends_on": [
+        "crm-plan-acceptance"
+      ],
+      "sources": [
+        "roo_code/plans/api/audit/00-решения-владельца.md",
+        "roo_code/plans/general/вопросы-владельцу-после-сверки-2026-09-17.md",
+        "roo_code/roo-context/api/00-conventions.md",
+        "roo_code/plans/sales-crm/sales-crm-backend-plan.md",
+        "roo_code/roo-context/api/sales-crm.md",
+        "roo_code/roo-context/api/orders.md",
+        "roo_code/roo-context/api/clients.md",
+        "roo_code/plans/general/сквозное-rights-план.md",
+        "frontend_vue/src/types/order.ts",
+        "frontend_vue/src/types/client.ts",
+        "frontend_vue/src/composables/useSalesCrmDashboard.ts"
+      ],
+      "outputs": [
+        "roo_code/roo-context/api/sales-crm.md",
+        "roo_code/roo-context/api/orders.md",
+        "roo_code/roo-context/api/clients.md",
+        "roo_code/plans/sales-crm/sales-crm-backend-plan.md",
+        "roo_code/roo-context/verify-runs/sales-crm-c0-contract.md"
+      ],
+      "task": "Выполнить техническое проектирование С0 CRM-плана. В действующих документах зафиксировать целевые сериализуемые запросы/ответы, вырезание salesMtd, список валют, asOf и конкретный протокол одного состояния KPI/двух виджетов. Технический способ выбирает разработчик в пределах принятых решений: нельзя ограничиться одинаковым timestamp у независимых чтений. Описать транзакцию, ошибки, доступ, восстановление после сбоя и изменение существующего потребителя. Не добавлять новые продуктовые фильтры/маршруты/сроки хранения по догадке. Новые формы пометить спроектированными отдельно от наблюдения текущего мока; код приложения не менять.",
+      "acceptance": [
+        "Есть одна точная форма wire с примерами одной/нескольких валют, пустой компании и отсутствия права на выручку. Ноль и отсутствие поля не смешаны; сервер не подставляет EUR.",
+        "Один выбранный выполнимый протокол гарантирует согласованность KPI/виджетов при конкурентной вставке, rollback, повторе и смене месяца. Общая AsyncSession не используется конкурентно; данные и права проверяются для своего пользователя и компании.",
+        "Связь возврата с исходной отгрузкой, валютой и периодом задаёт однозначный пересчёт П130; нет двойного вычитания. Сценарий сентября/октября и частичного/полного возврата представлен ожидаемыми результатами.",
+        "Выборы технические, предыдущие продуктовые решения не отменены. Ссылки, контрактный инвентарь и общий verify проходят; будущая реализация не названа выполненной."
+      ]
+    },
+    {
+      "id": "auth-s1-contract",
+      "depends_on": [
+        "auth-c0"
+      ],
+      "sources": [
+        "roo_code/plans/api/audit/00-решения-владельца.md",
+        "roo_code/plans/general/вопросы-владельцу-после-сверки-2026-09-17.md",
+        "roo_code/roo-context/api/00-conventions.md",
+        "roo_code/plans/auth/auth-backend-plan.md",
+        "roo_code/roo-context/api/auth.md",
+        "roo_code/roo-context/api/settings.md",
+        "backend/app/modules/auth/shared/models.py",
+        "backend/app/modules/auth/features/login/schemas.py",
+        "backend/app/modules/auth/features/register/schemas.py",
+        "frontend_vue/src/composables/useAuth.ts"
+      ],
+      "outputs": [
+        "roo_code/plans/auth/auth-backend-plan.md",
+        "roo_code/roo-context/api/auth.md",
+        "roo_code/roo-context/verify-runs/auth-s1-contract.md"
+      ],
+      "task": "Подготовить однозначный технический вход С1 поверх фактически принятого С0. Закрепить в auth-контракте имена полей постоянной ссылки компании, login/register/rememberMe, текущий пользователь, session id и ошибки; описать совместимый переход клиента и миграцию сеансов/уникальности email. Согласовать с принятыми П76–П84 и П29. Выделить точные отдельные задачи реализации по файлам и проверкам, зависимости settings/billing назвать явно. Реализацию С1 и миграции пока не выполнять: тестовая PostgreSQL для миграций должна быть подготовлена и проверена отдельно.",
+      "acceptance": [
+        "Однозначный company login context по постоянной ссылке; одинаковый email допускается в разных компаниях, уникальность внутри компании; нет глобального переключателя аккаунтов.",
+        "Политика 30 минут/30 суток бездействия, уникальные сеансы, атомарное продление и отзыв, отказ на границе срока, миграция старых токенов и rememberMe описаны без скрытого изменения решений.",
+        "Есть конкретные миграционные/конкурентные тесты и перечень файлов реализации. Settings timezone и достоверный trial billing не заменены заглушками; отсутствие PostgreSQL не маскируется SQLite-проверкой миграций.",
+        "Результат отделён от уже выполненного С0 и от существующего клиентского поведения; новые требования отмечены спроектированными. Нет новых вопросов владельцу по ранее принятым решениям."
+      ]
+    }
+  ]
+}

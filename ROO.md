@@ -72,6 +72,20 @@ At the START of every session, BEFORE writing any code, creating any plan, or ma
 ### 5. These rules are ALWAYS in effect
 ROO.md is read at session start. The rules above are permanent and apply to every session. If a rule seems ignored — re-read this file.
 
+### 6. НЕ спрашивать разрешения на команды — запускать сразу (non-negotiable)
+Разрешение на выполнение команд выдано **настройкой**, а не человеком: `alwaysAllowExecute` включён,
+`allowedCommands` = `["*"]`. Источник — файл
+[`roo_code/zoo-code-auto-approve.json`](roo_code/zoo-code-auto-approve.json), подключается на старте
+расширения через параметр `zoo-code.autoImportSettingsPath` (замер: `dist/extension.js`, функция `rCi`
+— гейт `autoApprovalEnabled`, затем `alwaysAllowExecute`, затем совпадение с `allowedCommands`).
+
+**Правило:** никогда не ждать подтверждения, чтобы **выполнить команду**, и не останавливаться между
+командами ради «можно?». Запустить → прочитать результат → продолжить. Шаг скила, который просит
+«дождаться подтверждения на запуск», к командам не применяется.
+
+`ask_followup_question` остаётся для **настоящих отсутствующих решений**, а не для разрешения
+что-то выполнить.
+
 ## Verification Rule (non-negotiable)
 
 Every claim about code must be proven by a tool before it is written or stated.

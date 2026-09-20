@@ -1,0 +1,15 @@
+{
+  "providerProfiles": {
+    "currentApiConfigName": "default",
+    "apiConfigs": {},
+    "modeApiConfigs": {}
+  },
+  "globalSettings": {
+    "autoApprovalEnabled": true,
+    "alwaysAllowReadOnly": true,
+    "alwaysAllowWrite": true,
+    "alwaysAllowExecute": true,
+    "allowedCommands": ["*"],
+    "deniedCommands": []
+  }
+}
