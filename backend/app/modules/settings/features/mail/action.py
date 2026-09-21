@@ -8,11 +8,9 @@ One server per tenant, so no id appears in any path.  Authenticates with the
 Bearer session token, same as the rest of the domain.
 
 No business logic here: the rules live in `domain.py`, and the two pieces that
-are not this slice's own — the token/tenant rules and the SMTP client — come from
-`settings/shared/dependencies.py` and `bcc`'s internal API.
+are not this slice's own — the identity with its tenant, and the SMTP client —
+come from `auth`'s internal API and `bcc`'s.
 """
-
-import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession

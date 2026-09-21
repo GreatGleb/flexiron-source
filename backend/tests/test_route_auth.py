@@ -148,6 +148,32 @@ class RouteAuthTest(unittest.TestCase):
                 if isinstance(node, ast.Name):
                     self.assertNotIn(node.id, ("_bearer", "URLSafeTimedSerializer"), str(path))
 
+    def test_token_reader_lives_in_one_place(self) -> None:
+        """Читатель сессионного токена во всём бэкенде ровно один.
+
+        Прошлый сторож смотрел только `*/action.py`, и этого не хватило: 2026-09-21
+        вторая копия правила завелась в `settings/shared/dependencies.py` — не в
+        файле роутов, поэтому проверка её не видела. Дубль прожил бы ровно до
+        следующей фичи, которая импортировала бы его четвёртым вызовом.
+        """
+        home = APP / "modules" / "auth" / "shared" / "session_tokens.py"
+        self.assertTrue(home.is_file(), "канонический читатель токена исчез")
+
+        elsewhere = [
+            _rel(path)
+            for path in sorted(APP.rglob("*.py"))
+            if path != home
+            and any(
+                isinstance(node, ast.Name) and node.id == "URLSafeTimedSerializer"
+                for node in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
+            )
+        ]
+        self.assertEqual(
+            [],
+            elsewhere,
+            "второй читатель сессионного токена: " + ", ".join(elsewhere),
+        )
+
     def test_dependency_origin_guard(self) -> None:
         for declaration, expected in (
             ("from app.modules.auth.shared.dependencies import get_current_user", True),
