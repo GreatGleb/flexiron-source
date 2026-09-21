@@ -307,7 +307,15 @@ function loadBatchesView() {
       dateFrom?: string
       dateTo?: string
     }
-    if (typeof prefs.search === 'string') batchesFilters.search = prefs.search
+    if (typeof prefs.search === 'string') {
+      batchesFilters.search = prefs.search
+      // У партий поле поиска — отдельный `batchesSearchDisplay`, а не сам фильтр
+      // (в него кладётся productId из query). Без этой строки восстановленный поиск
+      // сужает список, а поле остаётся пустым: человек видит полную с виду выдачу,
+      // которая на деле отфильтрована, и первый же введённый символ молча заменяет
+      // фильтр, которого он не видел. Query-параметр ниже по-прежнему старше вида.
+      batchesSearchDisplay.value = prefs.search
+    }
     if (typeof prefs.status === 'string') {
       if (prefs.status === '') {
         batchesFilters.status = undefined
