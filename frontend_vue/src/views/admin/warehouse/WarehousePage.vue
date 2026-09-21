@@ -16,6 +16,7 @@ import type {
   OffcutStatus,
   MovementType,
   DeficitStatus,
+  DeficitPriority,
   StockFilters,
   WarehouseFilters,
 } from '@/types/warehouse'
@@ -235,6 +236,8 @@ function saveView() {
     showInStockOnly: stockFilters.showInStockOnly,
     stockUnitFilter: stockFilters.uomId,
     stockCategoryIds: [...stockFilters.categoryIds],
+    stockSortBy: stockFilters.sortBy,
+    stockSortDir: stockFilters.sortDir,
   }
   localStorage.setItem(PREFS_KEY, JSON.stringify(prefs))
   toast.show(t('msg.prefs_saved'))
@@ -292,6 +295,196 @@ function saveDeficitView() {
   toast.show(t('msg.prefs_saved'))
 }
 
+function loadBatchesView() {
+  try {
+    const raw = localStorage.getItem(BATCH_PREFS_KEY)
+    if (!raw) return
+    const prefs = JSON.parse(raw) as {
+      search?: string
+      status?: string
+      supplierId?: string
+      uomId?: string
+      dateFrom?: string
+      dateTo?: string
+    }
+    if (typeof prefs.search === 'string') batchesFilters.search = prefs.search
+    if (typeof prefs.status === 'string') {
+      if (prefs.status === '') {
+        batchesFilters.status = undefined
+      } else {
+        const status = prefs.status as BatchStatus
+        if (
+          status === 'available' ||
+          status === 'in_storage' ||
+          status === 'in_production' ||
+          status === 'sold' ||
+          status === 'scrapped' ||
+          status === 'expensed' ||
+          status === 'returned_to_supplier' ||
+          status === 'partial' ||
+          status === 'depleted' ||
+          status === 'reserved' ||
+          status === 'converted_to_offcuts'
+        ) {
+          batchesFilters.status = status
+        }
+      }
+    }
+    if (typeof prefs.supplierId === 'string') batchesFilters.supplierId = prefs.supplierId
+    if (typeof prefs.uomId === 'string') batchesFilters.uomId = prefs.uomId
+    if (typeof prefs.dateFrom === 'string') batchesFilters.dateFrom = prefs.dateFrom
+    if (typeof prefs.dateTo === 'string') batchesFilters.dateTo = prefs.dateTo
+  } catch {
+    /* ignore malformed prefs */
+  }
+}
+
+function loadOffcutsView() {
+  try {
+    const raw = localStorage.getItem(OFFCUT_PREFS_KEY)
+    if (!raw) return
+    const prefs = JSON.parse(raw) as {
+      search?: string
+      status?: string
+      uomId?: string
+      offcutType?: string
+      categoryIds?: string[]
+      batchNumber?: string
+    }
+    if (typeof prefs.search === 'string') offcutFilters.search = prefs.search
+    if (typeof prefs.status === 'string') {
+      if (prefs.status === '') {
+        offcutFilters.status = undefined
+      } else {
+        const status = prefs.status as OffcutStatus
+        if (
+          status === 'available' ||
+          status === 'reserved' ||
+          status === 'in_production' ||
+          status === 'sold' ||
+          status === 'scrapped' ||
+          status === 'expensed' ||
+          status === 'returned_to_supplier' ||
+          status === 'in_storage'
+        ) {
+          offcutFilters.status = status
+        }
+      }
+    }
+    if (typeof prefs.uomId === 'string') offcutFilters.uomId = prefs.uomId
+    if (typeof prefs.offcutType === 'string') {
+      if (prefs.offcutType === '') {
+        offcutFilters.offcutType = undefined
+      } else {
+        const offcutType = prefs.offcutType
+        if (offcutType === 'sheet' || offcutType === 'linear') {
+          offcutFilters.offcutType = offcutType as 'sheet' | 'linear'
+        }
+      }
+    }
+    if (Array.isArray(prefs.categoryIds)) offcutFilters.categoryIds = prefs.categoryIds
+    if (typeof prefs.batchNumber === 'string') offcutFilters.batchNumber = prefs.batchNumber
+  } catch {
+    /* ignore malformed prefs */
+  }
+}
+
+function loadMovementsView() {
+  try {
+    const raw = localStorage.getItem(MOVEMENT_PREFS_KEY)
+    if (!raw) return
+    const prefs = JSON.parse(raw) as {
+      search?: string
+      type?: string
+      uomId?: string
+      categoryIds?: string[]
+      batchNumber?: string
+      dateFrom?: string
+      dateTo?: string
+    }
+    if (typeof prefs.search === 'string') movementFilters.search = prefs.search
+    if (typeof prefs.type === 'string') {
+      if (prefs.type === '') {
+        movementFilters.type = undefined
+      } else {
+        const type = prefs.type as MovementType
+        if (
+          type === 'receipt' ||
+          type === 'expense' ||
+          type === 'transfer' ||
+          type === 'write-off' ||
+          type === 'return' ||
+          type === 'return-to-supplier' ||
+          type === 'correction' ||
+          type === 'production' ||
+          type === 'sale' ||
+          type === 'storage' ||
+          type === 'offcut'
+        ) {
+          movementFilters.type = type
+        }
+      }
+    }
+    if (typeof prefs.uomId === 'string') movementFilters.uomId = prefs.uomId
+    if (Array.isArray(prefs.categoryIds)) movementFilters.categoryIds = prefs.categoryIds
+    if (typeof prefs.batchNumber === 'string') movementFilters.batchNumber = prefs.batchNumber
+    if (typeof prefs.dateFrom === 'string') movementFilters.dateFrom = prefs.dateFrom
+    if (typeof prefs.dateTo === 'string') movementFilters.dateTo = prefs.dateTo
+  } catch {
+    /* ignore malformed prefs */
+  }
+}
+
+function loadDeficitView() {
+  try {
+    const raw = localStorage.getItem(DEFICIT_PREFS_KEY)
+    if (!raw) return
+    const prefs = JSON.parse(raw) as {
+      search?: string
+      status?: string
+      priority?: string
+      uomId?: string
+      categoryIds?: string[]
+    }
+    if (typeof prefs.search === 'string') deficitFilters.search = prefs.search
+    if (typeof prefs.status === 'string') {
+      if (prefs.status === '') {
+        deficitFilters.status = undefined
+      } else {
+        const status = prefs.status as DeficitStatus
+        if (
+          status === 'open' ||
+          status === 'in_progress' ||
+          status === 'ordered' ||
+          status === 'resolved' ||
+          status === 'cancelled'
+        ) {
+          deficitFilters.status = status
+        }
+      }
+    }
+    if (typeof prefs.priority === 'string') {
+      if (prefs.priority === '') {
+        deficitFilters.priority = undefined
+      } else {
+        const priority = prefs.priority as DeficitPriority
+        if (
+          priority === 'critical' ||
+          priority === 'high' ||
+          priority === 'medium' ||
+          priority === 'low'
+        ) {
+          deficitFilters.priority = priority
+        }
+      }
+    }
+    if (typeof prefs.uomId === 'string') deficitFilters.uomId = prefs.uomId
+    if (Array.isArray(prefs.categoryIds)) deficitFilters.categoryIds = prefs.categoryIds
+  } catch {
+    /* ignore malformed prefs */
+  }
+}
+
 // ─── Export current tab data as CSV ──────────────────────────────────────────
 async function exportCurrentTab() {
   try {
@@ -346,20 +539,22 @@ function loadPrefs() {
       showInStockOnly?: boolean
       stockUnitFilter?: string
       stockCategoryIds?: string[]
+      stockSortBy?: string
+      stockSortDir?: 'asc' | 'desc'
     }
     if (typeof prefs.stockSearch === 'string') stockFilters.search = prefs.stockSearch
     if (typeof prefs.showDeficitOnly === 'boolean')
       stockFilters.showDeficitOnly = prefs.showDeficitOnly
     if (typeof prefs.showInStockOnly === 'boolean')
       stockFilters.showInStockOnly = prefs.showInStockOnly
-    // Сохранённый до п. 4d фильтр держал КОД единицы (`kg`), а не ссылку на справочник.
-    // Такое значение не совпадёт теперь ни с одной строкой, и пользователь получил бы
-    // пустую таблицу без всякой причины — поэтому принимается только ссылка либо пустая
-    // строка «все единицы».
     const savedUnit = prefs.stockUnitFilter
     if (typeof savedUnit === 'string' && (savedUnit === '' || savedUnit.startsWith('uom-')))
       stockFilters.uomId = savedUnit
     if (Array.isArray(prefs.stockCategoryIds)) stockFilters.categoryIds = prefs.stockCategoryIds
+    if (typeof prefs.stockSortBy === 'string')
+      stockFilters.sortBy = prefs.stockSortBy as StockFilters['sortBy']
+    if (typeof prefs.stockSortDir === 'string')
+      stockFilters.sortDir = prefs.stockSortDir as StockFilters['sortDir']
   } catch {
     /* ignore malformed prefs */
   }
@@ -701,6 +896,10 @@ function syncTableRowHeights(): Promise<void> {
 
 onMounted(() => {
   loadPrefs()
+  loadBatchesView()
+  loadOffcutsView()
+  loadMovementsView()
+  loadDeficitView()
 
   // ─── Read productId from query param for batches tab ──────────────────
   const productId = route.query.productId as string | undefined
