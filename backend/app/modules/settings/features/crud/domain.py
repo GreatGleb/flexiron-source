@@ -253,11 +253,15 @@ async def remove_currency_item(db: AsyncSession, currency_id: UUID, tenant_id: U
     if existing is None:
         raise NotFoundError(entity="Currency", entity_id=str(currency_id))
 
+    # Gap 4: 409 if this is the tenant default — checked BEFORE the reference count
+    if existing.is_default:
+        raise ConflictError("Cannot delete the default currency", code="CURRENCY_IS_DEFAULT")
+
     # Gap 3: 409 if currency is used in products
     from app.modules.products.internal_api.interface import count_products_by_currency
     product_count = await count_products_by_currency(db, existing.tenant_id, currency_id)
     if product_count > 0:
-        raise ConflictError(f"Cannot delete currency: used by {product_count} product(s)")
+        raise ConflictError(f"Cannot delete currency: used by {product_count} product(s)", code="CURRENCY_IN_USE")
 
     await delete_currency(db, currency_id, tenant_id)
 
@@ -333,7 +337,7 @@ async def remove_uom_item(db: AsyncSession, uom_id: UUID, tenant_id: UUID) -> No
     from app.modules.products.internal_api.interface import count_products_by_uom
     product_count = await count_products_by_uom(db, existing.tenant_id, uom_id)
     if product_count > 0:
-        raise ConflictError(f"Cannot delete UOM: used by {product_count} product(s)")
+        raise ConflictError(f"Cannot delete UOM: used by {product_count} product(s)", code="UOM_IN_USE")
 
     await delete_uom(db, uom_id, tenant_id)
 

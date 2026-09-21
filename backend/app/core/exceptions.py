@@ -44,5 +44,5 @@ class ForbiddenError(AppError):
 class ConflictError(AppError):
     """Raised when a conflict occurs (e.g., duplicate entry)."""
 
-    def __init__(self, message: str) -> None:
-        super().__init__(message, code="CONFLICT")
+    def __init__(self, message: str, code: str | None = None) -> None:
+        super().__init__(message, code=code or "CONFLICT")

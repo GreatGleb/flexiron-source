@@ -1,10 +1,19 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
+from app.core.exceptions import (
+    AppError,
+    ConflictError,
+    ForbiddenError,
+    NotFoundError,
+    UnauthorizedError,
+    ValidationError,
+)
 from app.core.middleware.cors import setup_cors
 
 # ── Route imports from module features ──
@@ -56,6 +65,34 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+
+# ── Domain refusals answer with their own status, never a 500 (BAG-11) ──
+# The machine code travels in `detail.code` and is read by the frontend
+# (`errorCode()`, `services/apiErrorCode.ts`); the status is a property of the
+# exception class, so a domain code raised as one of these five is answered
+# correctly without touching this table. Registered on the base class: Starlette
+# matches handlers by the exception's MRO.
+_APP_ERROR_STATUS: tuple[tuple[type[AppError], int], ...] = (
+    (NotFoundError, 404),
+    (ValidationError, 422),
+    (UnauthorizedError, 401),
+    (ForbiddenError, 403),
+    (ConflictError, 409),
+)
+
+
+@app.exception_handler(AppError)
+async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
+    """Turn a raised `AppError` into an HTTP answer carrying its domain code."""
+    status_code = next(
+        (code for kind, code in _APP_ERROR_STATUS if isinstance(exc, kind)), 500
+    )
+    return JSONResponse(
+        status_code=status_code,
+        content={"detail": {"message": exc.message, "code": exc.code}},
+    )
+
 
 # CORS
 setup_cors(app)

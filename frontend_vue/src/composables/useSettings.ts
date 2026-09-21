@@ -1,5 +1,7 @@
 import { ref, reactive } from 'vue'
+import { useI18n } from 'vue-i18n'
 import * as settingsService from '@/services/settingsService'
+import { errorMessageKey } from '@/services/apiErrorCode'
 import type {
   AppSettings,
   Currency,
@@ -10,6 +12,20 @@ import type {
   MailServerSettings,
   MailServerPayload,
 } from '@/types/settings'
+
+/**
+ * Коды отказа справочников, у которых есть своя фраза (слайс С4).
+ *
+ * Код берётся из ПОЛЯ `code` (`errorCode`/`errorMessageKey`), а не из текста исключения:
+ * так его кладёт сервер (§2 общих соглашений). Таблица одна на обе вкладки — единицы и
+ * валюты сохраняются одним Save (`save()` ниже), и второй такой же разбор на каждой
+ * вкладке был бы вторым источником того же правила (Л5).
+ */
+const SAVE_ERROR_KEYS: ReadonlyArray<readonly [string, string]> = [
+  ['UOM_IN_USE', 'settingsUom.error_uom_in_use'],
+  ['CURRENCY_IN_USE', 'settingsFinance.error_currency_in_use'],
+  ['CURRENCY_IS_DEFAULT', 'settingsFinance.error_currency_is_default'],
+]
 
 const defaultSettings: AppSettings = {
   company: { name: '', legalAddress: '', vatCode: '', bankName: '', bankAccount: '' },
@@ -198,6 +214,8 @@ function findUpdated<T extends { id: string }>(
 }
 
 export function useSettings() {
+  const { t } = useI18n()
+
   /**
    * Тянет все восемь разделов настроек и раскладывает их по стору, каждый СО СВОИМ типом.
    * Возвращает имена упавших разделов.
@@ -519,7 +537,10 @@ export function useSettings() {
       saveToCache({ ...settings })
       takeSnapshot()
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to save settings'
+      // Названный отказ справочника (единица/валюта занята или валюта — валюта
+      // по умолчанию) показывается своей фразой, а не общей ошибкой сохранения.
+      const key = errorMessageKey(e, SAVE_ERROR_KEYS, '')
+      error.value = key ? t(key) : e instanceof Error ? e.message : 'Failed to save settings'
     } finally {
       saving.value = false
     }

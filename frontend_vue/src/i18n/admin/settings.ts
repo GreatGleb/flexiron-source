@@ -143,6 +143,8 @@ export const adminSettings = {
       confirm_currency_change_warning:
         '⚠ Существующие товары и партии сохранят свою исходную валюту. Новая валюта будет применяться только для новых товаров.',
       confirm_currency_change_confirm: 'Изменить валюту',
+      error_currency_in_use: 'На валюту ссылаются товары — удалить нельзя',
+      error_currency_is_default: 'Валюта по умолчанию — удалить нельзя',
     },
     settingsUom: {
       uoms: 'Единицы измерения',
@@ -192,6 +194,7 @@ export const adminSettings = {
       formula_pcs_to_weight: 'Штуки → Вес (шт × кг/шт)',
       factor_disabled_hint: 'Рассчитывается по формуле сортамента',
       no_conversions: 'Нет правил пересчёта',
+      error_uom_in_use: 'На единицу ссылаются товары — удалить нельзя',
     },
     settingsStatuses: {
       title: 'Статусы заказов',
@@ -396,6 +399,8 @@ export const adminSettings = {
       confirm_currency_change_warning:
         '⚠ Existing products and batches will keep their original currency. The new currency will only apply to new products.',
       confirm_currency_change_confirm: 'Change Currency',
+      error_currency_in_use: 'Products reference this currency — it cannot be deleted',
+      error_currency_is_default: 'This is the default currency — it cannot be deleted',
     },
     settingsUom: {
       uoms: 'Units of Measure',
@@ -445,6 +450,7 @@ export const adminSettings = {
       formula_pcs_to_weight: 'Pieces → Weight (pcs × kg/pcs)',
       factor_disabled_hint: 'Calculated from product formula',
       no_conversions: 'No conversion rules',
+      error_uom_in_use: 'Products reference this unit — it cannot be deleted',
     },
     settingsStatuses: {
       title: 'Order Statuses',
@@ -649,6 +655,8 @@ export const adminSettings = {
       confirm_currency_change_warning:
         '⚠ Esamos prekės ir partijos išlaikys savo pradinę valiutą. Nauja valiuta bus taikoma tik naujoms prekėms.',
       confirm_currency_change_confirm: 'Keisti valiutą',
+      error_currency_in_use: 'Prekės naudoja šią valiutą — jos ištrinti negalima',
+      error_currency_is_default: 'Tai numatytoji valiuta — jos ištrinti negalima',
     },
     settingsUom: {
       uoms: 'Matavimo vienetai',
@@ -698,6 +706,7 @@ export const adminSettings = {
       formula_pcs_to_weight: 'Vnt → Svoris (vnt × kg/vnt)',
       factor_disabled_hint: 'Skaičiuojama pagal prekės formulę',
       no_conversions: 'Nėra perskaičiavimo taisyklių',
+      error_uom_in_use: 'Prekės naudoja šį vienetą — jo ištrinti negalima',
     },
     settingsStatuses: {
       title: 'Užsakymų būsenos',
