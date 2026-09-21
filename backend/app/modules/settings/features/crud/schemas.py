@@ -179,7 +179,7 @@ class OrderStatusResponse(BaseModel):
     id: str
     name: TranslatedString
     color: str
-    order: int
+    sort_order: int = Field(alias="order")
     system: bool = False
     reserve_on_transition: bool = Field(alias="reserveOnTransition", default=False)
     write_off_on_transition: bool = Field(alias="writeOffOnTransition", default=False)
@@ -192,7 +192,7 @@ class OrderStatusCreateInput(BaseModel):
 
     name: TranslatedString
     color: str
-    order: int
+    sort_order: int = Field(alias="order")
     reserve_on_transition: bool = Field(alias="reserveOnTransition", default=False)
     write_off_on_transition: bool = Field(alias="writeOffOnTransition", default=False)
 
@@ -204,7 +204,6 @@ class OrderStatusPatchInput(BaseModel):
 
     name: TranslatedString | None = None
     color: str | None = None
-    order: int | None = None
     reserve_on_transition: bool | None = Field(alias="reserveOnTransition", default=None)
     write_off_on_transition: bool | None = Field(alias="writeOffOnTransition", default=None)
 
@@ -214,6 +213,11 @@ class OrderStatusPatchInput(BaseModel):
 class OrderStatusReorderInput(BaseModel):
     """Reorder input — list of status IDs in new order."""
 
-    ordered_ids: list[str] = Field(alias="orderedIds")
+    ids: list[str] = Field(alias="orderedIds")
+
+    @property
+    def ordered_ids(self) -> list[str]:
+        """The route reads `.ordered_ids`; the wire name stays `orderedIds`."""
+        return self.ids
 
     model_config = {"populate_by_name": True}

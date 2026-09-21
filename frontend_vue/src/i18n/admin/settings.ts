@@ -98,6 +98,8 @@ export const adminSettings = {
       bankAccount: 'Расчётный счёт',
       logo: 'Логотип компании',
       upload_logo: 'Загрузить логотип',
+      error_logo_not_a_url:
+        'Логотип должен быть ссылкой на загруженный файл, а не встроенным изображением',
     },
     settingsMail: {
       server: 'Почтовый сервер',
@@ -145,6 +147,8 @@ export const adminSettings = {
       confirm_currency_change_confirm: 'Изменить валюту',
       error_currency_in_use: 'На валюту ссылаются товары — удалить нельзя',
       error_currency_is_default: 'Валюта по умолчанию — удалить нельзя',
+      error_currency_code_taken: 'Валюта с таким кодом уже существует',
+      error_default_currency_unknown: 'Такой валюты нет в списке валют компании',
     },
     settingsUom: {
       uoms: 'Единицы измерения',
@@ -195,6 +199,10 @@ export const adminSettings = {
       factor_disabled_hint: 'Рассчитывается по формуле сортамента',
       no_conversions: 'Нет правил пересчёта',
       error_uom_in_use: 'На единицу ссылаются товары — удалить нельзя',
+      error_uom_category_unknown: 'Неизвестная категория единицы измерения',
+      error_conversion_factor_required: 'Для правила с коэффициентом нужен коэффициент',
+      error_conversion_formula_required: 'Для правила по формуле нужен тип формулы',
+      error_conversion_pair_taken: 'Правило для этой пары единиц уже существует',
     },
     settingsStatuses: {
       title: 'Статусы заказов',
@@ -215,6 +223,8 @@ export const adminSettings = {
       col_write_off: 'СПИСАНИЕ',
       col_reserve_hint: 'Резервировать остаток при переходе в статус',
       col_write_off_hint: 'Списывать остаток при переходе в статус',
+      error_reorder_incomplete:
+        'Не удалось сохранить порядок статусов — список изменился, попробуйте ещё раз',
     },
     settingsWarehouse: {
       title: 'Секторы склада',
@@ -353,6 +363,7 @@ export const adminSettings = {
       bankAccount: 'Bank Account',
       logo: 'Company Logo',
       upload_logo: 'Upload Logo',
+      error_logo_not_a_url: 'The logo must be a link to an uploaded file, not embedded image data',
     },
     settingsMail: {
       server: 'Mail server',
@@ -401,6 +412,8 @@ export const adminSettings = {
       confirm_currency_change_confirm: 'Change Currency',
       error_currency_in_use: 'Products reference this currency — it cannot be deleted',
       error_currency_is_default: 'This is the default currency — it cannot be deleted',
+      error_currency_code_taken: 'A currency with this code already exists',
+      error_default_currency_unknown: 'No such currency in the company currency list',
     },
     settingsUom: {
       uoms: 'Units of Measure',
@@ -451,6 +464,10 @@ export const adminSettings = {
       factor_disabled_hint: 'Calculated from product formula',
       no_conversions: 'No conversion rules',
       error_uom_in_use: 'Products reference this unit — it cannot be deleted',
+      error_uom_category_unknown: 'Unknown unit of measure category',
+      error_conversion_factor_required: 'A factor rule requires a factor',
+      error_conversion_formula_required: 'A dynamic rule requires a formula type',
+      error_conversion_pair_taken: 'A rule for this unit pair already exists',
     },
     settingsStatuses: {
       title: 'Order Statuses',
@@ -471,6 +488,8 @@ export const adminSettings = {
       col_write_off: 'WRITE-OFF',
       col_reserve_hint: 'Reserve stock on transition',
       col_write_off_hint: 'Write off stock on transition',
+      error_reorder_incomplete:
+        'Could not save the status order — the list has changed, please try again',
     },
     settingsWarehouse: {
       title: 'Warehouse Sectors',
@@ -609,6 +628,8 @@ export const adminSettings = {
       bankAccount: 'Banko sąskaita',
       logo: 'Įmonės logotipas',
       upload_logo: 'Įkelti logotipą',
+      error_logo_not_a_url:
+        'Logotipas turi būti įkelto failo nuoroda, o ne įterpti vaizdo duomenys',
     },
     settingsMail: {
       server: 'Pašto serveris',
@@ -657,6 +678,8 @@ export const adminSettings = {
       confirm_currency_change_confirm: 'Keisti valiutą',
       error_currency_in_use: 'Prekės naudoja šią valiutą — jos ištrinti negalima',
       error_currency_is_default: 'Tai numatytoji valiuta — jos ištrinti negalima',
+      error_currency_code_taken: 'Valiuta su tokiu kodu jau egzistuoja',
+      error_default_currency_unknown: 'Tokios valiutos nėra įmonės valiutų sąraše',
     },
     settingsUom: {
       uoms: 'Matavimo vienetai',
@@ -707,6 +730,10 @@ export const adminSettings = {
       factor_disabled_hint: 'Skaičiuojama pagal prekės formulę',
       no_conversions: 'Nėra perskaičiavimo taisyklių',
       error_uom_in_use: 'Prekės naudoja šį vienetą — jo ištrinti negalima',
+      error_uom_category_unknown: 'Nežinoma matavimo vieneto kategorija',
+      error_conversion_factor_required: 'Taisyklei su koeficientu reikia koeficiento',
+      error_conversion_formula_required: 'Dinaminei taisyklei reikia formulės tipo',
+      error_conversion_pair_taken: 'Šios vienetų poros taisyklė jau egzistuoja',
     },
     settingsStatuses: {
       title: 'Užsakymų būsenos',
@@ -727,6 +754,8 @@ export const adminSettings = {
       col_write_off: 'NURAŠYMAS',
       col_reserve_hint: 'Rezervuoti likutį pereinant į būseną',
       col_write_off_hint: 'Nurašyti likutį pereinant į būseną',
+      error_reorder_incomplete:
+        'Nepavyko išsaugoti būsenų eilės — sąrašas pasikeitė, bandykite dar kartą',
     },
     settingsWarehouse: {
       title: 'Sandėlio sektoriai',

@@ -1,5 +1,9 @@
 """Domain use cases for Settings CRUD operations."""
-from app.core.exceptions import ValidationError, ConflictError, ForbiddenError
+from app.core.exceptions import (
+    ValidationError as CoreValidationError,
+    ConflictError,
+    ForbiddenError,
+)
 
 from uuid import UUID
 
@@ -58,6 +62,49 @@ from app.modules.settings.features.crud.repository import (
 from app.modules.auth.internal_api.interface import get_tenant_registration_data
 
 
+# C5: each body check answers with its OWN code, not the shared `VALIDATION_ERROR`.
+# The core `ValidationError` hardcodes the shared code and takes no `code` argument,
+# and `app/core/` is outside this slice — so the domain extends it here. The global
+# `AppError` handler in `app/main.py` matches by MRO, so this still answers 422.
+class ValidationError(CoreValidationError):
+    """422 carrying a code of its own."""
+
+    def __init__(self, message: str, code: str | None = None) -> None:
+        super().__init__(message)
+        if code is not None:
+            self.code = code
+
+
+# Категорий восемь, и перечень закрыт (contract §Единицы измерения): девятая
+# категория отвергается, а не принимается любой строкой.
+UOM_CATEGORIES: frozenset[str] = frozenset(
+    {"weight", "length", "area", "volume", "quantity", "density", "thickness", "time"}
+)
+
+
+def _validate_conversion_binding(
+    conv_type: str | None, factor: float | None, formula_type: str | None
+) -> None:
+    """A `static` rule needs a factor, a `dynamic` one needs a formula — БАГ-20."""
+    if conv_type == "static" and factor is None:
+        raise ValidationError(
+            "A static conversion rule requires a factor", code="CONVERSION_FACTOR_REQUIRED"
+        )
+    if conv_type == "dynamic" and not formula_type:
+        raise ValidationError(
+            "A dynamic conversion rule requires a formula type",
+            code="CONVERSION_FORMULA_REQUIRED",
+        )
+
+
+_UPLOAD_URL_PREFIXES: tuple[str, ...] = ("http://", "https://", "/")
+
+
+def _is_upload_url(value: str) -> bool:
+    """A link from `POST /api/uploads`, never an inlined base64 preview (БАГ-18)."""
+    return value.startswith(_UPLOAD_URL_PREFIXES)
+
+
 # ─── Company ──────────────────────────────────────────────────────────────
 
 async def get_company_info(
@@ -84,6 +131,13 @@ async def patch_company_info(
     company = await get_company(db, tenant_id)
     if company is None:
         company = await create_company(db, tenant_id, {})
+
+    if input_data.logo_url is not None and input_data.logo_url.strip():
+        if not _is_upload_url(input_data.logo_url.strip()):
+            raise ValidationError(
+                "logoUrl must be a link from POST /api/uploads, not embedded base64",
+                code="LOGO_URL_NOT_A_URL",
+            )
 
     updates: dict = {}
     field_map = {
@@ -137,6 +191,14 @@ async def patch_global_constants(
     obj = await get_constants(db, tenant_id)
     if obj is None:
         obj = await create_constants(db, tenant_id, {})
+
+    if input_data.default_currency is not None:
+        codes = {c.code for c in await get_currencies(db, tenant_id)}
+        if input_data.default_currency not in codes:
+            raise ValidationError(
+                f"Unknown currency code: {input_data.default_currency}",
+                code="DEFAULT_CURRENCY_UNKNOWN",
+            )
 
     updates: dict = {}
     field_map = {
@@ -193,7 +255,10 @@ async def create_currency_item(
     # Gap 6: check for duplicate code within tenant
     existing = await get_currency_by_code(db, tenant_id, input_data.code.strip())
     if existing is not None:
-        raise ConflictError(f"Currency with code '{input_data.code}' already exists")
+        raise ConflictError(
+            f"Currency with code '{input_data.code}' already exists",
+            code="CURRENCY_CODE_TAKEN",
+        )
 
     data = {
         "code": input_data.code.strip().upper(),
@@ -221,7 +286,15 @@ async def update_currency_item(
 
     updates: dict = {}
     if input_data.code is not None:
-        updates["code"] = input_data.code
+        new_code = input_data.code.strip().upper()
+        if new_code != existing.code:
+            duplicate = await get_currency_by_code(db, tenant_id, new_code)
+            if duplicate is not None:
+                raise ConflictError(
+                    f"Currency with code '{new_code}' already exists",
+                    code="CURRENCY_CODE_TAKEN",
+                )
+        updates["code"] = new_code
     if input_data.name is not None:
         updates["name_translations"] = (
             input_data.name.model_dump() if hasattr(input_data.name, "model_dump") else input_data.name
@@ -284,6 +357,11 @@ async def list_uoms(db: AsyncSession, tenant_id: UUID) -> list[UomResponse]:
 async def create_uom_item(
     db: AsyncSession, tenant_id: UUID, input_data: UomCreateInput
 ) -> UomResponse:
+    if input_data.category not in UOM_CATEGORIES:
+        raise ValidationError(
+            f"Unknown unit category: {input_data.category}", code="UOM_CATEGORY_UNKNOWN"
+        )
+
     data = {
         "code_translations": input_data.code.model_dump() if hasattr(input_data.code, "model_dump") else input_data.code,
         "name_translations": input_data.name.model_dump() if hasattr(input_data.name, "model_dump") else input_data.name,
@@ -304,6 +382,11 @@ async def update_uom_item(
     existing = await get_uom(db, uom_id, tenant_id)
     if existing is None:
         raise NotFoundError(entity="UOM", entity_id=str(uom_id))
+
+    if input_data.category is not None and input_data.category not in UOM_CATEGORIES:
+        raise ValidationError(
+            f"Unknown unit category: {input_data.category}", code="UOM_CATEGORY_UNKNOWN"
+        )
 
     updates: dict = {}
     if input_data.code is not None:
@@ -371,10 +454,16 @@ async def create_conversion_item(
     if from_uom_id == to_uom_id:
         raise ValidationError("Cannot create a conversion rule between the same unit of measure")
 
+    # C5/БАГ-20: `static` needs a factor, `dynamic` needs a formula.
+    _validate_conversion_binding(input_data.type, input_data.factor, input_data.formula_type)
+
     # Gap 2: 409 if duplicate conversion exists
     existing = await get_conversion_by_uom_pair(db, tenant_id, from_uom_id, to_uom_id)
     if existing is not None:
-        raise ConflictError("A conversion rule between these units already exists")
+        raise ConflictError(
+            "A conversion rule between these units already exists",
+            code="CONVERSION_PAIR_TAKEN",
+        )
 
     data = {
         "from_uom_id": from_uom_id,
@@ -400,6 +489,14 @@ async def update_conversion_item(
     existing = await get_conversion(db, conv_id, tenant_id)
     if existing is None:
         raise NotFoundError(entity="Conversion", entity_id=str(conv_id))
+
+    # C5/БАГ-20: the binding is checked on the MERGED rule, not only on the delta.
+    effective_type = input_data.type if input_data.type is not None else existing.type
+    effective_factor = input_data.factor if input_data.factor is not None else existing.factor
+    effective_formula = (
+        input_data.formula_type if input_data.formula_type is not None else existing.formula_type
+    )
+    _validate_conversion_binding(effective_type, effective_factor, effective_formula)
 
     updates: dict = {}
     if input_data.from_uom_id is not None:
@@ -448,7 +545,7 @@ async def list_order_statuses(
             id=str(s.id),
             name=s.name_translations,
             color=s.color,
-            order=s.sort_order,
+            sort_order=s.sort_order,
             system=s.is_system,
             reserve_on_transition=s.reserve_on_transition,
             write_off_on_transition=s.write_off_on_transition,
@@ -463,7 +560,7 @@ async def create_order_status_item(
     data = {
         "name_translations": input_data.name.model_dump() if hasattr(input_data.name, "model_dump") else input_data.name,
         "color": input_data.color,
-        "sort_order": input_data.order,
+        "sort_order": input_data.sort_order,
         "is_system": False,
         "reserve_on_transition": input_data.reserve_on_transition,
         "write_off_on_transition": input_data.write_off_on_transition,
@@ -473,7 +570,7 @@ async def create_order_status_item(
         id=str(obj.id),
         name=obj.name_translations,
         color=obj.color,
-        order=obj.sort_order,
+        sort_order=obj.sort_order,
         system=obj.is_system,
         reserve_on_transition=obj.reserve_on_transition,
         write_off_on_transition=obj.write_off_on_transition,
@@ -492,8 +589,6 @@ async def update_order_status_item(
         updates["name_translations"] = input_data.name.model_dump() if hasattr(input_data.name, "model_dump") else input_data.name
     if input_data.color is not None:
         updates["color"] = input_data.color
-    if input_data.order is not None:
-        updates["sort_order"] = input_data.order
     if input_data.reserve_on_transition is not None:
         updates["reserve_on_transition"] = input_data.reserve_on_transition
     if input_data.write_off_on_transition is not None:
@@ -510,7 +605,7 @@ async def update_order_status_item(
         id=str(obj.id),
         name=obj.name_translations,
         color=obj.color,
-        order=obj.sort_order,
+        sort_order=obj.sort_order,
         system=obj.is_system,
         reserve_on_transition=obj.reserve_on_transition,
         write_off_on_transition=obj.write_off_on_transition,
@@ -535,4 +630,20 @@ async def remove_order_status_item(db: AsyncSession, status_id: UUID, tenant_id:
 async def reorder_statuses(
     db: AsyncSession, tenant_id: UUID, ordered_ids: list[str]
 ) -> None:
+    """Reorder the tenant's statuses — or refuse, leaving the old order intact.
+
+    The write below is a loop of `UPDATE`s with a single `commit`; on a partial or
+    foreign list it silently left part of the statuses with their old `sort_order`,
+    so two rows could end up with the same number. `PUT` carries the whole set by
+    definition (§3 conventions), so anything else is refused rather than
+    half-applied — that refusal is where the atomicity comes from (Н12).
+    """
+    existing = await get_order_statuses(db, tenant_id)
+    known = {str(s.id) for s in existing}
+    given = [str(i) for i in ordered_ids]
+    if len(set(given)) != len(given) or set(given) != known:
+        raise ValidationError(
+            "The reorder list must list every status of the tenant exactly once",
+            code="ORDER_STATUS_REORDER_INCOMPLETE",
+        )
     await reorder_order_statuses(db, tenant_id, ordered_ids)
