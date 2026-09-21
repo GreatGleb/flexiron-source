@@ -118,8 +118,6 @@ import {
   mockDeleteSection,
 } from './config'
 import {
-  mockGetSettings,
-  mockSaveSettings,
   mockGetCompany,
   mockPatchCompany,
   mockGetConstants,
@@ -351,6 +349,19 @@ function parseFinanceListParams(params?: Record<string, string>) {
   }
 }
 
+// ─── Demo user password (settings → profile) ───
+/**
+ * Пароль демо-пользователя, который «сервер» мока помнит между запросами.
+ *
+ * Демо-вход пароль не проверяет вовсе, поэтому значения у него не было ни
+ * одного, а смена пароля отвечала `delay(undefined)` и тела не смотрела — ни
+ * один из трёх путей отказа (С7) в мок-режиме не воспроизводился. Значение
+ * объявлено, чтобы демо-пользователь мог его знать: сменить пароль можно,
+ * только отправив текущий.
+ */
+const MOCK_DEMO_PASSWORD = 'demo-password'
+let demoUserPassword = MOCK_DEMO_PASSWORD
+
 // ─── GET ───
 async function getMockRoute<T>(
   path: string,
@@ -488,7 +499,6 @@ async function getMockRoute<T>(
       }) as T,
     )
   }
-  if (path === '/api/settings') return delay(mockGetSettings() as T)
   if (path === '/api/config/fields') return delay(mockGetFieldLibrary() as T)
   if (path === '/api/config/sections') return delay(mockGetSections() as T)
   if (path === '/api/config/permissions') return delay(mockGetPermissions() as T)
@@ -1230,7 +1240,42 @@ async function postMockRoute<T>(
     return delay(mockCreateConversion(body as Parameters<typeof mockCreateConversion>[0]) as T)
   if (path === '/api/settings/order-statuses')
     return delay(mockCreateOrderStatus(body as Parameters<typeof mockCreateOrderStatus>[0]) as T)
-  if (path === '/api/settings/change-password') return delay(undefined as T) // no-op mock
+  if (path === '/api/settings/change-password') {
+    const { currentPassword, newPassword, confirmPassword } = (body ?? {}) as {
+      currentPassword?: string
+      newPassword?: string
+      confirmPassword?: string
+    }
+    const current = currentPassword ?? ''
+    const next = newPassword ?? ''
+    // Порядок проверок — как на сервере (С7, `profile/domain.py:127-139`):
+    // текущий, длина, подтверждение. Клиент проверяет длину и совпадение до
+    // отправки, но клиент — не место для серверного инварианта: под моками
+    // отказ обязан приходить тем же кодом, что и с сервера.
+    if (current !== demoUserPassword) {
+      throw new ApiRequestError({
+        status: 401,
+        message: 'Current password is incorrect',
+        code: 'PASSWORD_WRONG_CURRENT',
+      })
+    }
+    if (next.length < 6) {
+      throw new ApiRequestError({
+        status: 422,
+        message: 'New password must be at least 6 characters',
+        code: 'PASSWORD_TOO_SHORT',
+      })
+    }
+    if (next !== (confirmPassword ?? '')) {
+      throw new ApiRequestError({
+        status: 422,
+        message: 'Passwords do not match',
+        code: 'PASSWORD_CONFIRM_MISMATCH',
+      })
+    }
+    demoUserPassword = next
+    return delay(undefined as T)
+  }
   if (path === '/api/settings/mail/test') return delay(mockSendMailTest() as T)
 
   // Промах маршрутизации — это тот же 404, которым настоящий сервер отвечает на
@@ -1252,10 +1297,6 @@ async function putMockRoute<T>(
   // ── Settings PUT ──
   if (path === '/api/settings/order-statuses/reorder') {
     mockMoveOrderStatus((body as { orderedIds: string[] }).orderedIds)
-    return delay(undefined as T)
-  }
-  if (path === '/api/settings') {
-    mockSaveSettings(body as Parameters<typeof mockSaveSettings>[0])
     return delay(undefined as T)
   }
   if (path === '/api/settings/warehouse-map') {

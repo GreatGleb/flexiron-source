@@ -6,6 +6,7 @@ import {
   mockIsMailConfigured,
   mockSendMailTest,
 } from './settings'
+import { errorCode } from '@/services/apiErrorCode'
 
 /**
  * Пароль от почты пишется и не читается.
@@ -67,7 +68,16 @@ describe('mail server settings', () => {
     mockPatchMail({ host: '' })
 
     expect(mockIsMailConfigured()).toBe(false)
-    expect(() => mockSendMailTest()).toThrow('MAIL_NOT_CONFIGURED')
+    // Отказ утверждается по ПОЛЮ `code`, а не по тексту: мок бросает
+    // `ApiRequestError` ровно как настоящий сервер, и различающий код у обоих
+    // лежит в одном месте — читается через `errorCode`, как в приложении.
+    let code = ''
+    try {
+      mockSendMailTest()
+    } catch (e) {
+      code = errorCode(e)
+    }
+    expect(code).toBe('MAIL_NOT_CONFIGURED')
   })
 
   it('sends the test email to the sender address itself', () => {
@@ -108,7 +118,13 @@ describe('mail server settings', () => {
       if (configured) {
         expect(mockSendMailTest()).toEqual({ deliveredTo: patch.fromEmail })
       } else {
-        expect(() => mockSendMailTest()).toThrow('MAIL_NOT_CONFIGURED')
+        let code = ''
+        try {
+          mockSendMailTest()
+        } catch (e) {
+          code = errorCode(e)
+        }
+        expect(code).toBe('MAIL_NOT_CONFIGURED')
       }
     }
   })

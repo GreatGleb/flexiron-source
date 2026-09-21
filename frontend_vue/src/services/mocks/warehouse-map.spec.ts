@@ -6,6 +6,7 @@ import {
   mockGetSettings,
 } from './settings'
 import type { WarehouseMapFile } from '@/types/settings'
+import { errorCode } from '@/services/apiErrorCode'
 
 /**
  * Карта склада живёт в одном месте.
@@ -69,9 +70,16 @@ describe('warehouse map storage', () => {
   })
 
   it('refuses a file that is not an image', () => {
-    expect(() => mockSaveWarehouseMap(mapFile({ mime: 'application/pdf' }))).toThrow(
-      'MAP_NOT_AN_IMAGE',
-    )
+    // Отказ утверждается по ПОЛЮ `code`, а не по тексту: мок бросает
+    // `ApiRequestError` ровно как настоящий сервер, и код у обоих лежит в
+    // одном месте — читается через `errorCode`, как в приложении.
+    let code = ''
+    try {
+      mockSaveWarehouseMap(mapFile({ mime: 'application/pdf' }))
+    } catch (e) {
+      code = errorCode(e)
+    }
+    expect(code).toBe('MAP_NOT_AN_IMAGE')
     expect(mockGetWarehouseMap()).toBeNull()
   })
 

@@ -14,6 +14,7 @@ import type {
   MailServerPayload,
 } from '@/types/settings'
 import { isMailConfigured } from '@/types/settings'
+import { ApiRequestError } from '@/types/api'
 
 // ─── Seed data ───────────────────────────────────────────────────────────
 
@@ -387,6 +388,21 @@ function findOrderStatus(id: string): OrderStatusSetting | undefined {
   return settingsStore.orderStatuses.find((s) => s.id === id)
 }
 
+/**
+ * Отказ мока в форме настоящего сервера: код в поле `code`, статус — из раздела 3
+ * плана домена.
+ *
+ * Голый `Error('CODE')` держал код в `message`, и до читателя он доходил откатом
+ * в `errorCode()`, а не полем. Сервер так не отвечает (§2 соглашений): настоящий
+ * `ApiRequestError` кладёт код в `code` (`types/api.ts:29`), и слайсы С3–С7
+ * проверить в мок-режиме было нечем — их ветки отказа смотрят на поле, которого
+ * у мока не было. Форма сообщения при этом человеческая: в `code` идёт только
+ * строка из заглавных.
+ */
+function mockRefusal(status: number, code: string, message: string): ApiRequestError {
+  return new ApiRequestError({ status, message, code })
+}
+
 // ─── Full settings ───────────────────────────────────────────────────────
 
 export function mockGetSettings(): AppSettings {
@@ -468,13 +484,13 @@ export function mockCreateCurrency(data: Omit<Currency, 'id'>): Currency {
 
 export function mockUpdateCurrency(id: string, data: Partial<Currency>): void {
   const cur = findCurrency(id)
-  if (!cur) throw new Error('CURRENCY_NOT_FOUND')
+  if (!cur) throw mockRefusal(404, 'CURRENCY_NOT_FOUND', 'Currency not found')
   Object.assign(cur, data)
 }
 
 export function mockDeleteCurrency(id: string): void {
   const idx = settingsStore.currencies.findIndex((c) => c.id === id)
-  if (idx === -1) throw new Error('CURRENCY_NOT_FOUND')
+  if (idx === -1) throw mockRefusal(404, 'CURRENCY_NOT_FOUND', 'Currency not found')
   settingsStore.currencies.splice(idx, 1)
 }
 
@@ -495,13 +511,13 @@ export function mockCreateUom(data: Omit<Uom, 'id'>): Uom {
 
 export function mockUpdateUom(id: string, data: Partial<Uom>): void {
   const uom = findUom(id)
-  if (!uom) throw new Error('UOM_NOT_FOUND')
+  if (!uom) throw mockRefusal(404, 'UOM_NOT_FOUND', 'Unit of measure not found')
   Object.assign(uom, data)
 }
 
 export function mockDeleteUom(id: string): void {
   const idx = settingsStore.uoms.findIndex((u) => u.id === id)
-  if (idx === -1) throw new Error('UOM_NOT_FOUND')
+  if (idx === -1) throw mockRefusal(404, 'UOM_NOT_FOUND', 'Unit of measure not found')
   settingsStore.uoms.splice(idx, 1)
 }
 
@@ -512,6 +528,20 @@ export function mockGetConversions(): UomConversion[] {
 }
 
 export function mockCreateConversion(data: Omit<UomConversion, 'id'>): UomConversion {
+  // Сервер отвергает уже описанную пару единиц — 409 `CONVERSION_PAIR_TAKEN`
+  // (раздел 3 плана). Мок клал дубль в стор без единой проверки, и демо
+  // расходилось с сервером молча: правило пересчёта переставало быть матрицей
+  // «из единицы в единицу» и превращалось в список, где одну пару читают дважды.
+  const taken = settingsStore.conversions.some(
+    (c) => c.fromUomId === data.fromUomId && c.toUomId === data.toUomId,
+  )
+  if (taken) {
+    throw mockRefusal(
+      409,
+      'CONVERSION_PAIR_TAKEN',
+      'A conversion rule for this unit pair already exists',
+    )
+  }
   const created: UomConversion = {
     ...data,
     id: `conv-${nextConvSeq++}`,
@@ -522,13 +552,13 @@ export function mockCreateConversion(data: Omit<UomConversion, 'id'>): UomConver
 
 export function mockUpdateConversion(id: string, data: Partial<UomConversion>): void {
   const conv = findConversion(id)
-  if (!conv) throw new Error('CONVERSION_NOT_FOUND')
+  if (!conv) throw mockRefusal(404, 'CONVERSION_NOT_FOUND', 'Conversion rule not found')
   Object.assign(conv, data)
 }
 
 export function mockDeleteConversion(id: string): void {
   const idx = settingsStore.conversions.findIndex((c) => c.id === id)
-  if (idx === -1) throw new Error('CONVERSION_NOT_FOUND')
+  if (idx === -1) throw mockRefusal(404, 'CONVERSION_NOT_FOUND', 'Conversion rule not found')
   settingsStore.conversions.splice(idx, 1)
 }
 
@@ -550,7 +580,7 @@ export function mockCreateOrderStatus(data: Omit<OrderStatusSetting, 'id'>): Ord
 
 export function mockUpdateOrderStatus(id: string, data: Partial<OrderStatusSetting>): void {
   const st = findOrderStatus(id)
-  if (!st) throw new Error('ORDER_STATUS_NOT_FOUND')
+  if (!st) throw mockRefusal(404, 'ORDER_STATUS_NOT_FOUND', 'Order status not found')
   Object.assign(st, data)
 }
 
@@ -573,8 +603,16 @@ export function mockMoveOrderStatus(orderedIds: string[]): void {
 }
 
 export function mockDeleteOrderStatus(id: string): void {
-  const idx = settingsStore.orderStatuses.findIndex((s) => s.id === id)
-  if (idx === -1) throw new Error('ORDER_STATUS_NOT_FOUND')
+  const st = findOrderStatus(id)
+  if (!st) throw mockRefusal(404, 'ORDER_STATUS_NOT_FOUND', 'Order status not found')
+  // Системный статус удалить нельзя — сервер отвечает 403 ядровым `FORBIDDEN`
+  // (`crud/domain.py:523`, единственное место в бэкенде, где поднимается
+  // `ForbiddenError`). Мок системность не проверял вовсе (БАГ-14), то есть под
+  // моками удалялось то, что сервер запрещает.
+  if (st.system) {
+    throw mockRefusal(403, 'FORBIDDEN', 'A system order status cannot be deleted')
+  }
+  const idx = settingsStore.orderStatuses.indexOf(st)
   settingsStore.orderStatuses.splice(idx, 1)
   settingsStore.orderStatuses.forEach((s, i) => (s.order = i))
 }
@@ -618,7 +656,9 @@ export function mockIsMailConfigured(): boolean {
  * кнопка «проверить» проверяла бы только саму себя.
  */
 export function mockSendMailTest(): { deliveredTo: string } {
-  if (!mockIsMailConfigured()) throw new Error('MAIL_NOT_CONFIGURED')
+  if (!mockIsMailConfigured()) {
+    throw mockRefusal(409, 'MAIL_NOT_CONFIGURED', 'The mail server is not configured')
+  }
   return { deliveredTo: mailStore.fromEmail }
 }
 
@@ -651,7 +691,9 @@ export function mockGetWarehouseMap(): WarehouseMapFile | null {
 export function mockSaveWarehouseMap(data: WarehouseMapFile): WarehouseMapFile {
   // Карта — это картинка. Сервер не верит клиенту на слово о типе файла, потому что
   // страница показывает её через <img> и открывает как изображение.
-  if (!data.mime.startsWith('image/')) throw new Error('MAP_NOT_AN_IMAGE')
+  if (!data.mime.startsWith('image/')) {
+    throw mockRefusal(415, 'MAP_NOT_AN_IMAGE', 'The warehouse map must be an image')
+  }
   settingsStore.warehouseMap = structuredClone(data)
   return structuredClone(settingsStore.warehouseMap)
 }
