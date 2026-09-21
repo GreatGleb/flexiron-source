@@ -319,7 +319,7 @@ invalid» — сработает ветка `company code` и подсветит
 
 Тексты ошибок при этом тоже разошлись: `/me` различает три случая
 (`MISSING_TOKEN`/`TOKEN_EXPIRED`/`INVALID_TOKEN`, `me/action.py:47,57,62`), настройки отвечают
-одним `UNAUTHORIZED` на все (`settings/crud/action.py:108,113,124`).
+одним `UNAUTHORIZED` на все (`settings/features/crud/action.py:108,113,124`).
 
 ### Fix
 

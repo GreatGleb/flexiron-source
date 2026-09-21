@@ -121,10 +121,10 @@
    протухшую, продолжает работать на всех 25 эндпоинтах настроек и загрузок (БАГ-11).
 3. **Разбор токена продублирован четыре раза.** Каждый из четырёх файлов заводит свой
    `URLSafeTimedSerializer` (`login/domain.py:33-36`, `register/domain.py:132-135`,
-   `me/action.py:25-28`, `settings/crud/action.py:91-94`, `settings/profile/action.py:35`,
+   `me/action.py:25-28`, `settings/features/crud/action.py:91-94`, `settings/features/profile/action.py:35`,
    `core/uploads/action.py:28`) и свой текст ошибки: `/me` отдаёт три разных кода
    (`MISSING_TOKEN`/`TOKEN_EXPIRED`/`INVALID_TOKEN`, `:47,57,62`), настройки — один `UNAUTHORIZED`
-   на все случаи (`settings/crud/action.py:108,113,124`). Место, куда это следовало положить,
+   на все случаи (`settings/features/crud/action.py:108,113,124`). Место, куда это следовало положить,
    существует и пусто: `auth/shared/dependencies.py` — один докстринг, ноль кода.
 4. **Регистрация — единственный способ появления пользователя, и она всегда создаёт арендатора.**
    `User(...)` конструируется в одном месте на весь бэкенд (`register/repository.py:80`), внутри
@@ -165,7 +165,7 @@
 | БАГ-08 | сессии пишутся в БД и не читаются никогда — отзывать нечем | `login/repository.py:26-45`, `me/action.py:52` |
 | БАГ-09 | срок сессии задан тремя способами, `session_ttl_hours` игнорируется входом | `config.py:17`, `login/domain.py:78`, `register/domain.py:144`, `me/action.py:52` |
 | БАГ-10 | `X-CSRF-Token` шлётся клиентом и не проверяется сервером нигде | `useAuth.ts:106`, `login/domain.py:44-46,75` |
-| БАГ-11 | три декодера токена вне auth зовут `loads()` без `max_age` | `settings/crud/action.py:119`, `settings/profile/action.py:63`, `core/uploads/action.py:50` |
+| БАГ-11 | три декодера токена вне auth зовут `loads()` без `max_age` | `settings/features/crud/action.py:119`, `settings/features/profile/action.py:63`, `core/uploads/action.py:50` |
 | БАГ-12 | роль пишется как `owner` и `Owner` в одной функции, мок отдаёт третье значение | `register/repository.py:90,97`, `mocks/index.ts:888` |
 | БАГ-13 | email уникален по паре `(tenant_id, email)`, а код считает его глобальным | миграция `3a0b5d31bde7…py:54`, `login/repository.py:20-23` |
 | БАГ-14 | под моками ни один путь отказа не воспроизводится — голый `Error` вместо `ApiRequestError` | `mocks/index.ts:298,305,878`, `useAuth.ts:207` |
