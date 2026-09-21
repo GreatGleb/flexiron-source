@@ -28,6 +28,7 @@ from app.modules.settings.features.profile.domain import (
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
+
 @router.get("/profile", response_model=ApiResponse)
 async def get_profile(
     db: AsyncSession = Depends(get_db),

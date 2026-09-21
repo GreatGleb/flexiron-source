@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 
 import sqlalchemy as sa
-from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -155,4 +155,48 @@ class OrderStatusSetting(UUIDMixin, TimestampMixin, Base):
     )
     write_off_on_transition: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
+    )
+
+
+class MailSettings(UUIDMixin, TimestampMixin, Base):
+    """Mail server parameters — singleton per tenant.
+
+    The form behind these columns is the `Почта` tab
+    (`views/admin/settings/MailSettings.vue`); the fields are exactly the ones
+    the already-written SMTP transport in `bcc` expects to be handed.
+
+    `password_encrypted` is the one field the frontend type does not have: by
+    П59 the password is written and never read back, and it is stored
+    **encrypted** rather than as-is — anybody with database access would
+    otherwise read the company's mail password. Encryption lives in
+    `app/core/crypto.py`.
+    """
+
+    __tablename__ = "mail_settings"
+
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,  # singleton: one row per tenant
+        index=True,
+    )
+    host: Mapped[str] = mapped_column(
+        String(255), nullable=False, default="", server_default=""
+    )
+    port: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=587, server_default="587"
+    )
+    encryption: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="starttls", server_default="starttls"
+    )
+    username: Mapped[str] = mapped_column(
+        String(255), nullable=False, default="", server_default=""
+    )
+    password_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
+    from_email: Mapped[str] = mapped_column(
+        String(255), nullable=False, default="", server_default=""
+    )
+    from_name: Mapped[str] = mapped_column(
+        String(255), nullable=False, default="", server_default=""
     )
