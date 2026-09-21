@@ -3,7 +3,6 @@ from app.core.exceptions import ValidationError, ConflictError, ForbiddenError
 
 from uuid import UUID
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
@@ -56,7 +55,7 @@ from app.modules.settings.features.crud.repository import (
     delete_order_status,
     reorder_order_statuses,
 )
-from app.modules.auth.shared.models import Tenant
+from app.modules.auth.internal_api.interface import get_tenant_registration_data
 
 
 # ─── Company ──────────────────────────────────────────────────────────────
@@ -67,12 +66,7 @@ async def get_company_info(
     company = await get_company(db, tenant_id)
     if company is None:
         # Auto-create singleton if missing — pull tenant name + vat_code
-        result = await db.execute(select(Tenant).where(Tenant.id == tenant_id))
-        tenant = result.scalar_one_or_none()
-        init_data = {}
-        if tenant:
-            init_data["name"] = tenant.name or ""
-            init_data["vat_code"] = tenant.vat_code or ""
+        init_data = await get_tenant_registration_data(db, tenant_id)
         company = await create_company(db, tenant_id, init_data)
     return CompanyInfoResponse(
         name=company.name,

@@ -12,7 +12,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from passlib.context import CryptContext
-from itsdangerous import URLSafeTimedSerializer
+from app.modules.auth.shared.session_tokens import issue_session_token
 
 from app.core.config import settings
 from app.core.exceptions import ValidationError, ConflictError
@@ -129,11 +129,7 @@ async def register(
     )
 
     # 6. Auto-login: generate session token
-    serializer = URLSafeTimedSerializer(
-        secret_key=settings.secret_key,
-        salt="session",
-    )
-    session_token = serializer.dumps({"user_id": str(user.id)})
+    session_token = issue_session_token(user.id)
     token_hash = _hash_token(session_token)
 
     # Store session (side-effect: auto-login after registration)

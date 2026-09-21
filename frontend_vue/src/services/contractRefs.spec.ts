@@ -33,6 +33,7 @@ function ref(over: Partial<Ref> = {}): Ref {
     to: 1,
     docLine: 1,
     tokens: [],
+    negatedTokens: [],
     sole: true,
     ...over,
   }
@@ -69,7 +70,9 @@ describe('инверсии — по одной на класс дефекта', 
   const real = 'backend/app/modules/products/shared/models.py'
 
   it('верный диапазон с утверждаемым токеном проходит', () => {
-    const v = resolveRef(ref({ path: real, from: 26, to: 31, tokens: ['ondelete="RESTRICT"'] }))
+    const v = resolveRef(
+      ref({ path: real, from: 26, to: 31, tokens: ['ondelete="RESTRICT"'], negatedTokens: [] }),
+    )
     expect(v.ok).toBe(true)
   })
 

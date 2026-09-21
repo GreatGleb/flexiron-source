@@ -69,8 +69,9 @@ GET /api/sales-crm/stats
 ```
 
 Клиент — три строки целиком: `apiGet('/api/sales-crm/stats')` без второго и третьего аргументов
-(`services/ordersService.ts:53-55`), то есть без `params` и без `options.headers`, а
+(`services/ordersService.ts:53-55`), то есть без `¬params` и без `¬options.headers`, а
 `options?.headers` — единственный источник заголовков у `GET`
+=======>
 ([`services/api.ts:157-159`](../../../frontend_vue/src/services/api.ts)). Заголовков в домене нет
 ни одного, включая `Authorization`
 (`grep -c "Authorization\|authHeaders" frontend_vue/src/services/ordersService.ts` → `0`), при том
@@ -251,8 +252,9 @@ the rules the API is held to»).
 принадлежит этому домену:
 
 - в домене про арендатора нет ничего: `grep -ci "tenant"` по `useSalesCrmDashboard.ts` и
-  `SalesCrmPage.vue` → `0` у обоих, вызов идёт без `options` (`services/ordersService.ts:54` против
+  `SalesCrmPage.vue` → `0` у обоих, вызов идёт без `¬options` (`services/ordersService.ts:54` против
   `services/api.ts:157-159`);
+=======>
 - **сводка читает два хранилища сразу** — заказы напрямую (`mocks/orders.ts:1590`, `:1591`,
   `:1585`) и клиентов через `mockGetClients()` (`:1593`, определение
   [`services/mocks/clients.ts:1046-1048`](../../../frontend_vue/src/services/mocks/clients.ts)),
@@ -393,8 +395,8 @@ the rules the API is held to»).
    подпись напечатает сырой ключ** `orders.status_<что пришло>` (`SalesCrmPage.vue:210`). Правило
    кросс-доменное; строка владельца 8.
 10. **Дашборд — единственный потребитель, и он один на три домена.** `useSalesCrmDashboard`
-    зовётся ровно из одного места (`SalesCrmPage.vue:28`) и читает три домена одним `Promise.all`
-    (`useSalesCrmDashboard.ts:30-52`): `sales-crm`, `orders`, `clients`. Отказ любого из трёх
+    зовётся ровно из одного места (`SalesCrmPage.vue:28`) и читает три домена одним
+    `Promise.all` (`useSalesCrmDashboard.ts:30-52`): `sales-crm`, `orders`, `clients`. Отказ любого из трёх
     обнуляет страницу целиком, а сводка, которая сама не бросает ничего, показывает чужой код
     ошибки. БАГ-07.
 
@@ -415,7 +417,8 @@ the rules the API is held to»).
 Кроме этого в домене **нет и никогда не было описано**:
 
 - **параметров запроса** — ни периода, ни арендатора, ни валюты: путь литеральный, вызов без
-  `params` и без `headers` (`services/ordersService.ts:54`);
+  `¬params` и без `¬headers` (`services/ordersService.ts:54`);
+=======>
 - **второго эндпоинта** — ни разрезов сводки, ни ленты активности, ни воронки: во всём коде
   ровно два файла упоминают префикс домена, и оба показаны выше;
 - **любой записи** — домен read-only по составу (`grep -c "apiPost\|apiPut\|apiPatch\|apiDelete"`
@@ -441,9 +444,9 @@ the rules the API is held to»).
    у списков).
    **Решено 2026-09-07.** Валюта: сервер отдаёт **список чисел, по одному на валюту**, а не одно
    число, и интерфейс показывает их списком (П24) — приём в проекте уже есть, итоги по клиенту
-   устроены так же (`types/client.ts:90-96`). Форма `SalesCrmStats` из-за этого меняется: сегодня
-   это четыре голых числа без поля валюты (`types/order.ts:48-57`), а мок складывает `totalAmount`
-   без группировки (`mocks/orders.ts:1587`). Окно: текущий месяц с 1-го числа по сейчас, считает
+   устроены так же (`types/client.ts:90-96`). Форма из-за этого меняется: сегодня
+   `SalesCrmStats` — четыре голых числа без поля валюты (`types/order.ts:48-57`), а мок складывает
+   `totalAmount` без группировки (`mocks/orders.ts:1587`). Окно: текущий месяц с 1-го числа по сейчас, считает
    сервер (П27). Глубина виджетов принадлежит коду (П20).
 2. Нужно ли оставлять след в аудит-логе о просмотре месячного оборота, который сейчас виден любой
    роли, открывшей страницу. **осталось**

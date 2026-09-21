@@ -7,73 +7,20 @@ storage, creates an UploadedFile record, and returns the public URL.
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Header, status
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings as app_settings
 from app.core.database import get_db
 from app.core.schemas import ApiResponse
-from app.core.uploads.models import UploadedFile
 from app.core.uploads.service import store_file
 
 router = APIRouter(prefix="/api/uploads", tags=["uploads"])
 
 # ─── Upload directory ──────────────────────────────────────────────────────
 UPLOAD_DIR = Path(__file__).resolve().parents[3] / "uploads"
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-# ─── Session token serializer (same as settings/auth) ───────────────────────
-from itsdangerous import URLSafeTimedSerializer
-
-_serializer = URLSafeTimedSerializer(
-    secret_key=app_settings.secret_key,
-    salt="session",
-)
-
-
-async def _resolve_user_id(
-    authorization: str | None = Header(None),
-) -> uuid.UUID:
-    """Extract user_id from the Bearer session token (same logic as settings)."""
-    if not authorization:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={"message": "Missing Authorization header", "code": "UNAUTHORIZED"},
-        )
-    scheme, _, token = authorization.partition(" ")
-    if scheme.lower() != "bearer" or not token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={"message": "Invalid Authorization header", "code": "UNAUTHORIZED"},
-        )
-    try:
-        data = _serializer.loads(token)
-        user_id_str = data.get("user_id")
-        if not user_id_str:
-            raise ValueError("Missing user_id in token")
-        return uuid.UUID(user_id_str)
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={"message": "Invalid or expired session token", "code": "UNAUTHORIZED"},
-        )
-
-
-async def _get_tenant_id(
-    db: AsyncSession, user_id: uuid.UUID
-) -> uuid.UUID:
-    """Resolve tenant ID for the authenticated user."""
-    from sqlalchemy import select
-    from app.modules.auth.shared.models import User
-
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    if user is None or user.tenant_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"message": "User has no tenant", "code": "NOT_FOUND"},
-        )
-    return user.tenant_id
+from app.modules.auth.internal_api.interface import CurrentUser, get_current_user
 
 
 @router.post("", response_model=ApiResponse)
@@ -81,7 +28,7 @@ async def upload_file(
     request: Request,
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
-    user_id: uuid.UUID = Depends(_resolve_user_id),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """Upload a file and return its public URL.
 
@@ -120,19 +67,19 @@ async def upload_file(
     file_path = UPLOAD_DIR / unique_name
 
     # ── Write to disk ───────────────────────────────────────────────────
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     file_path.write_bytes(contents)
 
     # ── Create DB record ────────────────────────────────────────────────
-    tenant_id = await _get_tenant_id(db, user_id)
     storage_path = str(file_path)
     uploaded = await store_file(
         db=db,
-        tenant_id=tenant_id,
+        tenant_id=current_user.tenant_id,
         original_name=file.filename or "upload",
         storage_path=storage_path,
         size=len(contents),
         mime=file.content_type or "application/octet-stream",
-        uploaded_by=str(user_id),
+        uploaded_by=current_user.user_id,
         is_draft=False,
     )
     await db.commit()

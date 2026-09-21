@@ -13,18 +13,9 @@ from app.modules.settings.shared.models import (
     UomConversion as UomConversionModel,
     OrderStatusSetting as OrderStatusModel,
 )
-from app.modules.auth.shared.models import User
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────
-
-async def get_tenant_id_for_user(db: AsyncSession, user_id: UUID) -> UUID | None:
-    """Get the tenant ID for a given user."""
-    result = await db.execute(select(User.tenant_id).where(User.id == user_id))
-    return result.scalar_one_or_none()
-
-
-# ─── Company ──────────────────────────────────────────────────────────────
 
 async def get_company(db: AsyncSession, tenant_id: UUID) -> CompanyInfoModel | None:
     result = await db.execute(

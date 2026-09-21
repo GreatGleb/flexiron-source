@@ -41,6 +41,8 @@ export interface Ref {
   docLine: number
   /** Утверждаемые токены: код в бэктиках на той же строке документа. */
   tokens: string[]
+  /** Отрицательные утверждения: токен НЕ должен лежать в диапазоне. Пишутся как `¬params`. */
+  negatedTokens: string[]
   /**
    * Ссылка на строке одна — значит токен рядом относится к ней, а не к соседке. Только у
    * таких проверка содержимого доказательна; у остальных привязка догадка, и промах токена
@@ -49,7 +51,11 @@ export interface Ref {
   sole: boolean
 }
 
-export type Problem = 'нет файла' | 'вне границ' | 'нет токена в диапазоне'
+export type Problem =
+  | 'нет файла'
+  | 'вне границ'
+  | 'нет токена в диапазоне'
+  | 'токен присутствует, но должен отсутствовать'
 
 export interface Verdict {
   ref: Ref
@@ -99,6 +105,8 @@ function isGreppable(span: string): boolean {
   if (/^[\w./@-]+\.(?:ts|tsx|vue|py|md|json|mjs|js|css)$/.test(s)) return false
   if (/^[\w.-]*\/[\w./-]*$/.test(s)) return false
   if (/[а-яА-ЯёЁ]/.test(s)) return false
+  if (/^st-(?:\d+|<[^>]+>)$/i.test(s)) return false
+  if (/^(?:\d{4}|YYYY)-(?:\d{2}|MM)-(?:\d{2}|DD)$/.test(s)) return false
   return true
 }
 
@@ -214,9 +222,13 @@ export function extractRefs(markdown: string): Ref[] {
     if (inFence || line.trim() === '') return
 
     // Токены строки со своими позициями — привязка к ссылке по близости, см. ниже.
-    const spans: { text: string; at: number }[] = []
+    const spans: { text: string; at: number; negated: boolean }[] = []
     for (const m of line.matchAll(BACKTICKED)) {
-      if (m[1] && isGreppable(m[1])) spans.push({ text: m[1], at: m.index + 1 })
+      const raw = m[1]
+      if (!raw) continue
+      const negated = raw.startsWith('¬')
+      const token = negated ? raw.slice(1) : raw
+      if (token && isGreppable(token)) spans.push({ text: token, at: m.index + 1, negated })
     }
 
     // Путь наследуется ТОЛЬКО от ссылки левее на этой же строке. Наследование через строки
@@ -242,6 +254,7 @@ export function extractRefs(markdown: string): Ref[] {
         to,
         docLine: i + 1,
         tokens: [],
+        negatedTokens: [],
         // Пересчитывается ниже, когда известно, сколько ссылок на строке.
         sole: false,
         at: m.index,
@@ -268,7 +281,13 @@ export function extractRefs(markdown: string): Ref[] {
           best = r
         }
       }
-      if (best && !best.raw.includes(sp.text)) best.tokens.push(sp.text)
+      if (best && !best.raw.includes(sp.text)) {
+        if (sp.negated) {
+          best.negatedTokens.push(sp.text)
+        } else {
+          best.tokens.push(sp.text)
+        }
+      }
     }
 
     for (const r of onLine) {
@@ -317,8 +336,29 @@ export function resolveRef(ref: Ref): Verdict {
       continue
     }
     inBounds += 1
-    if (ref.tokens.length === 0) continue
+    if (ref.tokens.length === 0 && ref.negatedTokens.length === 0) continue
     const range = lines.slice(ref.from - 1, ref.to).join('\n')
+    // Сначала проверяем отрицательные утверждения: токен НЕ должен быть в диапазоне
+    if (ref.negatedTokens.length > 0) {
+      const negPass = ref.negatedTokens.every((nt) => {
+        return !needlesOf(nt).some((n) => range.includes(n))
+      })
+      if (!negPass) {
+        // Найден токен, который должен отсутствовать — ссылка битая
+        const detail = `в ${ref.from}-${ref.to} есть токен, который должен отсутствовать: ${ref.negatedTokens.map((t) => `«${t}»`).join(', ')}`
+        if (!ref.sole) return { ref, ok: true, needsEye: true, detail }
+        return { ref, ok: false, problem: 'токен присутствует, но должен отсутствовать', detail }
+      }
+      // Все отрицательные токены отсутствуют — это пройдено для негации
+      // Но нужно проверить, что положительные токены тоже есть (если они есть)
+      if (ref.tokens.length > 0) {
+        if (ref.tokens.some((t) => needlesOf(t).some((n) => range.includes(n))))
+          return { ref, ok: true }
+      } else {
+        return { ref, ok: true }
+      }
+    }
+    if (ref.tokens.length === 0) continue
     if (ref.tokens.some((t) => needlesOf(t).some((n) => range.includes(n))))
       return { ref, ok: true }
   }
@@ -333,7 +373,9 @@ export function resolveRef(ref: Ref): Verdict {
   }
   // В границах, но токена не нашлось ни в одном подходящем файле. Токенов нет вовсе —
   // проверить содержимое нечем: границы сошлись, и это всё, что доказано.
-  if (ref.tokens.length === 0) return { ref, ok: true, unchecked: true }
+  if (ref.tokens.length === 0 && ref.negatedTokens.length === 0)
+    return { ref, ok: true, unchecked: true }
+  if (ref.negatedTokens.length > 0 && ref.tokens.length === 0) return { ref, ok: true }
   const detail = `в ${ref.from}-${ref.to} нет ни одного из: ${ref.tokens.map((t) => `«${t}»`).join(', ')}`
   // Ссылок на строке несколько или путь унаследован — какой токен относится к какой ссылке,
   // машина не знает. Промах здесь означает «проверь глазами», и выдавать его за битую ссылку

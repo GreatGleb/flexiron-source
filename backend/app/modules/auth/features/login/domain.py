@@ -11,7 +11,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from passlib.context import CryptContext
-from itsdangerous import URLSafeTimedSerializer
+from app.modules.auth.shared.session_tokens import issue_session_token
 
 from app.core.config import settings
 from app.core.exceptions import UnauthorizedError
@@ -28,13 +28,6 @@ from app.modules.auth.features.login.schemas import (
 
 # ── Password context (bcrypt, auto-migration support) ──
 _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-# ── Session token serializer ──
-_serializer = URLSafeTimedSerializer(
-    secret_key=settings.secret_key,
-    salt="session",
-)
-
 
 def _hash_token(token: str) -> str:
     """Hash a session token for DB storage (SHA-256)."""
@@ -68,7 +61,7 @@ async def login(
         raise UnauthorizedError("Invalid email or password")
 
     # 3. Generate session token (signed)
-    session_token = _serializer.dumps({"user_id": str(user.id)})
+    session_token = issue_session_token(user.id)
     token_hash = _hash_token(session_token)
 
     # 4. Generate CSRF token
