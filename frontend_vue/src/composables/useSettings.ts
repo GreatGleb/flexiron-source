@@ -22,8 +22,8 @@ import type {
  * вкладке был бы вторым источником того же правила (Л5).
  *
  * С5 добавил сюда коды проверок тела запроса (категория единицы, связка
- * коэффициент/формула, дубль пары, занятый код и неизвестная валюта, логотип не-URL и
- * неполный reorder): вкладки те же, разбор тот же — второй таблицы рядом не заводится.
+ * коэффициент/формула, дубль пары, занятый код, неизвестная валюта, логотип, reorder),
+ * а С15 — границы финансовых констант: вкладки те же, второй таблицы рядом не заводится.
  */
 const SAVE_ERROR_KEYS: ReadonlyArray<readonly [string, string]> = [
   ['UOM_IN_USE', 'settingsUom.error_uom_in_use'],
@@ -35,6 +35,7 @@ const SAVE_ERROR_KEYS: ReadonlyArray<readonly [string, string]> = [
   ['CONVERSION_PAIR_TAKEN', 'settingsUom.error_conversion_pair_taken'],
   ['CURRENCY_CODE_TAKEN', 'settingsFinance.error_currency_code_taken'],
   ['DEFAULT_CURRENCY_UNKNOWN', 'settingsFinance.error_default_currency_unknown'],
+  ['CONSTANT_OUT_OF_RANGE', 'settingsFinance.error_constant_out_of_range'],
   ['LOGO_URL_NOT_A_URL', 'settingsCompany.error_logo_not_a_url'],
   ['ORDER_STATUS_REORDER_INCOMPLETE', 'settingsStatuses.error_reorder_incomplete'],
 ]

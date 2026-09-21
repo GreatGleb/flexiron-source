@@ -192,6 +192,7 @@ async def patch_global_constants(
     if obj is None:
         obj = await create_constants(db, tenant_id, {})
 
+    _validate_constant_bounds(input_data)  # C15 — границы, см. CONSTANT_BOUNDS ниже
     if input_data.default_currency is not None:
         codes = {c.code for c in await get_currencies(db, tenant_id)}
         if input_data.default_currency not in codes:
@@ -647,3 +648,37 @@ async def reorder_statuses(
             code="ORDER_STATUS_REORDER_INCOMPLETE",
         )
     await reorder_order_statuses(db, tenant_id, ordered_ids)
+
+
+# ─── Constants: owner-assigned bounds (C15) ───────────────────────────────
+#
+# Границы назначены владельцем (П108–П110) и лежат здесь ОДНИМ словарём, а не тремя
+# отдельными проверками: второй экземпляр того же правила рядом с первым — корень трёх
+# аудитов подряд (линза Л5). Пара — включительные пределы; `None` на месте предела
+# значит «предела нет»: у наценки делового верхнего предела не существует (П109), и
+# подгонять её под «0…100» двух соседей нельзя.
+CONSTANT_BOUNDS: dict[str, tuple[float | None, float | None]] = {
+    "vat_rate": (0.0, 100.0),  # П108
+    "default_margin": (-100.0, None),  # П109 — верхнего делового предела нет
+    "default_discount_percent": (0.0, 100.0),  # П110
+}
+
+
+def _validate_constant_bounds(input_data: ConstantsPatchInput) -> None:
+    """Reject a constant outside its owner-assigned range — `CONSTANT_OUT_OF_RANGE`.
+
+    The refusal names the offending field in `message`, so the caller can tell which of
+    the numbers was rejected.
+    """
+    for field, (low, high) in CONSTANT_BOUNDS.items():
+        value = getattr(input_data, field)
+        if value is None:
+            continue
+        if low is not None and value < low:
+            raise ValidationError(
+                f"{field} must be at least {low}", code="CONSTANT_OUT_OF_RANGE"
+            )
+        if high is not None and value > high:
+            raise ValidationError(
+                f"{field} must be at most {high}", code="CONSTANT_OUT_OF_RANGE"
+            )

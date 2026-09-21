@@ -149,6 +149,7 @@ export const adminSettings = {
       error_currency_is_default: 'Валюта по умолчанию — удалить нельзя',
       error_currency_code_taken: 'Валюта с таким кодом уже существует',
       error_default_currency_unknown: 'Такой валюты нет в списке валют компании',
+      error_constant_out_of_range: 'Значение финансовой константы вне допустимого диапазона',
     },
     settingsUom: {
       uoms: 'Единицы измерения',
@@ -414,6 +415,7 @@ export const adminSettings = {
       error_currency_is_default: 'This is the default currency — it cannot be deleted',
       error_currency_code_taken: 'A currency with this code already exists',
       error_default_currency_unknown: 'No such currency in the company currency list',
+      error_constant_out_of_range: 'Financial constant is outside the allowed range',
     },
     settingsUom: {
       uoms: 'Units of Measure',
@@ -680,6 +682,7 @@ export const adminSettings = {
       error_currency_is_default: 'Tai numatytoji valiuta — jos ištrinti negalima',
       error_currency_code_taken: 'Valiuta su tokiu kodu jau egzistuoja',
       error_default_currency_unknown: 'Tokios valiutos nėra įmonės valiutų sąraše',
+      error_constant_out_of_range: 'Finansinė konstanta už leistino diapazono ribų',
     },
     settingsUom: {
       uoms: 'Matavimo vienetai',
