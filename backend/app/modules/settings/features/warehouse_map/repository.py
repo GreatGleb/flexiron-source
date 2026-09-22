@@ -15,10 +15,16 @@ Two tables are touched:
   lifting the draft mark.
 
 The file record is queried here rather than through
-`app/core/uploads/service.py`, and the reason is scope: that helper looks a file
-up by `id` alone, without `tenant_id`, so it would hand one tenant the file of
-another.  Making it tenant-aware belongs to `app/core/uploads`, which this slice
-does not edit; it is recorded as a finding in the report.
+`app/core/uploads/service.py`.  That was once a safety reason — the helper
+looked a file up by `id` alone and would have handed one tenant the file of
+another — but it stopped being one in `6f4a8bf`: `get_file_by_id` now takes a
+required `tenant_id` and carries it in the `WHERE`.  So `get_uploaded_file`
+below is no longer a workaround, it is a **duplicate** of that helper, and the
+only thing keeping it is the cost of removing it: the acceptance harness pins
+the tenant predicate of the read at this address
+(`roo_code/night-2026-09-21/самопроверка-приёмки.sh`, mutation M9), so
+consolidating means moving that mutation too.  Do not copy this local read into
+a new slice — call the helper.
 """
 
 from __future__ import annotations
