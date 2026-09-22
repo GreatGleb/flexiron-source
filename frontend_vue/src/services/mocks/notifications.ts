@@ -4,6 +4,28 @@ import type { TranslatedString } from '@/types/i18n'
 import type { OrderStatus } from '@/domain/orderStatus'
 import type { FinancePayment } from '@/types/finance'
 import { adminOrders } from '@/i18n/admin/orders'
+import { ApiRequestError } from '@/types/api'
+
+/** Коды отказа этого мока — заглавная строка, как требует §2 общих соглашений. */
+const NOTIFICATIONS_REFUSAL_CODES = {
+  simulatedMockError: 'SIMULATED_MOCK_ERROR',
+  notificationNotFound: 'NOTIFICATION_NOT_FOUND',
+} as const
+
+type NotificationsRefusalCode =
+  (typeof NOTIFICATIONS_REFUSAL_CODES)[keyof typeof NOTIFICATIONS_REFUSAL_CODES]
+
+/**
+ * Отказ в форме настоящего сервера: код в поле `code`, а не в тексте — см.
+ * `mocks/settings.ts:419-432`, тот же приём.
+ */
+function mockRefusal(
+  status: number,
+  code: NotificationsRefusalCode,
+  message: string,
+): ApiRequestError {
+  return new ApiRequestError({ status, message, code })
+}
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
 
@@ -415,7 +437,10 @@ export function mockGetNotifications(
     typeof localStorage !== 'undefined' &&
     localStorage.getItem('test_mock_force_error') === 'true'
   ) {
-    throw new Error('SIMULATED_MOCK_ERROR')
+    // 500, а не 404/422: это не код домена (`notifications.md` — «домен не бросает ни
+    // одного кода», единственное исключение — этот же флаг), а нарочный отказ мока
+    // для проверки экрана ошибки, ближайший смысловой аналог — server error.
+    throw mockRefusal(500, NOTIFICATIONS_REFUSAL_CODES.simulatedMockError, 'SIMULATED_MOCK_ERROR')
   }
   const filtered = applyFilters(notifications, filters)
   const start = (pagination.page - 1) * pagination.pageSize
@@ -439,7 +464,12 @@ export function mockMarkAsRead(id: string): void {
   // nothing and said "fine", so the error path of this endpoint could not be
   // reproduced under mocks at all — and the client dropped its unread counter
   // for a record that was never marked.
-  if (!notification) throw new Error('NOTIFICATION_NOT_FOUND')
+  if (!notification)
+    throw mockRefusal(
+      404,
+      NOTIFICATIONS_REFUSAL_CODES.notificationNotFound,
+      'NOTIFICATION_NOT_FOUND',
+    )
   notification.isRead = true
 }
 
