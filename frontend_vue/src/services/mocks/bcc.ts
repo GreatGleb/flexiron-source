@@ -1,8 +1,19 @@
 import type { BccCategory, BccRecipient, BccRequest } from '@/types/bcc'
 import type { TranslatedString } from '@/types/i18n'
+import { ApiRequestError } from '@/types/api'
 import { MOCK_SUPPLIERS } from './suppliers'
 import { notifySupplierResponse } from './notifications'
 import { mockGetMail, mockIsMailConfigured } from './settings'
+
+/**
+ * Отказ мока в форме настоящего сервера: код в поле `code`, а не в тексте —
+ * тот же приём, что `mockRefusal` в `mocks/settings.ts:430-432` (§2 соглашений
+ * «отказ несёт код, а не текст»). Текст сообщения остаётся прежней заглавной
+ * строкой кода — только его адрес меняется с `message` на `code`.
+ */
+function bccRefusal(status: number, code: string, message: string): ApiRequestError {
+  return new ApiRequestError({ status, message, code })
+}
 
 export const MOCK_BCC_CATEGORIES: BccCategory[] = [
   {
@@ -430,7 +441,9 @@ export function mockSendBccRequest(payload: {
   body: TranslatedString | string
   fileIds?: string[]
 }): { requestId: string } {
-  if (!mockIsMailConfigured()) throw new Error('MAIL_NOT_CONFIGURED')
+  // Статус 422 — контракт домена называет его явно для этого кода
+  // (`roo_code/roo-context/api/bcc.md`, «Каталог кодов ошибок домена»).
+  if (!mockIsMailConfigured()) throw bccRefusal(422, 'MAIL_NOT_CONFIGURED', 'MAIL_NOT_CONFIGURED')
   const mail = mockGetMail()
   const bcc = payload.recipientIds
     .map((id) => MOCK_SUPPLIERS.find((s) => s.id === id)?.email)
@@ -479,7 +492,9 @@ export function mockAcceptResponse(
   // `BccRequest` and pushed straight into the feed, so a miss was indistinguishable
   // from a success until the row failed to render. The domain had no code for this
   // case at all — this is it, and it is not a substring of either existing code.
-  if (!src) throw new Error('BCC_EVENT_NOT_FOUND')
+  // Статус 404 — контракт домена не называет его для этого кода, поэтому по
+  // семейству §2 соглашений (`00-conventions.md:62-68`): `*_NOT_FOUND` → 404.
+  if (!src) throw bccRefusal(404, 'BCC_EVENT_NOT_FOUND', 'BCC_EVENT_NOT_FOUND')
   const next: BccRequest = {
     id: `evt-${Date.now()}`,
     requestId: src.requestId,
@@ -503,8 +518,10 @@ export function mockAcceptResponse(
 
 export function mockMarkNoResponse(eventId: string): BccRequest {
   const src = MOCK_BCC_HISTORY.find((e) => e.id === eventId)
-  // Same refusal as its neighbour above, and for the same reason.
-  if (!src) throw new Error('BCC_EVENT_NOT_FOUND')
+  // Same refusal as its neighbour above, and for the same reason — status 404
+  // by the `*_NOT_FOUND` family rule (`00-conventions.md:62-68`), since the
+  // domain contract does not name a status for this code.
+  if (!src) throw bccRefusal(404, 'BCC_EVENT_NOT_FOUND', 'BCC_EVENT_NOT_FOUND')
   const next: BccRequest = {
     id: `evt-${Date.now()}`,
     requestId: src.requestId,
