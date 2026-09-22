@@ -310,7 +310,7 @@ use it» (`composables/useOrderPermissions.ts:6-10`). Тарифная стор�
 
 Состояние кода: `ForbiddenError` во всём бэкенде поднимается ровно один раз, и не матрицей, а
 запретом удалять системный статус заказа
-(`backend/app/modules/settings/features/crud/domain.py:608-610`, отдача `403` —
+(`backend/app/modules/settings/features/crud/domain.py:672-674`, отдача `403` —
 `crud/action.py:512-516`).
 Единственный работающий отказ по праву — в моке заказов, и код у него другой: `FORBIDDEN_`
 плюс имя права заглавными, то есть `FORBIDDEN_MANUALCOST`, `FORBIDDEN_CORRECTION`
@@ -571,7 +571,7 @@ comm -23 /tmp/fe_keys.txt /tmp/be_keys.txt   # шесть; обратная ра
 **Потерянный код сервер генерирует заново.** Снесли из базы, не создали миграцией — чтение
 настроек всё равно возвращает код, а не пустоту. Приём в проекте уже есть: строку компании сервер
 тоже создаёт сам, и 404 «компании нет» недостижим по построению
-(`backend/app/modules/settings/features/crud/domain.py:67-76`).
+(`backend/app/modules/settings/features/crud/domain.py:70-79`).
 
 Замер: механизма подтверждения кодом в проекте нет ни в каком виде, а удаление поля подтверждается
 обычной модалкой (`views/admin/products/CategoryCardPage.vue:189-197`).
@@ -1070,8 +1070,8 @@ interface PaginationParams { page: number; pageSize: number }     // types/api.t
   конвертацию и строку владельца про многовалютную сумму.
 - **Валютой, единицами, правилами пересчёта, статусами заказа и четырьмя финансовыми константами
   владеет домен `settings`** (`vat_rate=21`, `default_margin=15`, `default_currency='EUR'`,
-  `default_discount_percent=0` — `backend/app/modules/settings/shared/models.py:44-55`, автосоздание
-  `settings/features/crud/domain.py:129-131`). Сквозная беда: **эти значения продублированы
+  `default_discount_percent=0` — `backend/app/modules/settings/shared/models.py:49-69`, автосоздание
+  `settings/features/crud/domain.py:194-196`). Сквозная беда: **эти значения продублированы
   константами во фронте почти в каждом домене** — заказ пишет литералами скидку, НДС и валюту
   (`mocks/orders.ts:1634-1638`), партия — `'EUR'` (`useWarehouseBatch.ts:120`), услуга —
   `'cur-eur'`/`'uom-pcs'` (`ServicesPage.vue:59-60`), поставщик — список `EUR/USD/PLN/GBP`
@@ -1439,7 +1439,7 @@ save-режим.
 справочников зеркальная непоследовательность: `RESTRICT` у товаров и услуг
 (`modules/products/shared/models.py:127,142,149,156`, `modules/services/shared/models.py:33,40`),
 у складской партии `ondelete` стоит `SET NULL` (`modules/warehouse/shared/models.py:72,80`), а у
-правил пересчёта — `RESTRICT` (`modules/settings/shared/models.py:111,116`): каскад снят слайсом C1
+правил пересчёта — `RESTRICT` (`modules/settings/shared/models.py:125,116`): каскад снят слайсом C1
 (ревизия `7c4d1e9a3b58`), и правило молча больше не уносит.
 Под П44 всё, что ссылается на справочник, обязано стать `RESTRICT`, а под товаром
 и услугой политика перестаёт срабатывать вовсе: строка не удаляется.

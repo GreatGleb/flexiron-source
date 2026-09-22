@@ -1,4 +1,7 @@
 """Domain use cases for Settings CRUD operations."""
+import secrets
+from decimal import Decimal
+
 from app.core.exceptions import (
     ValidationError as CoreValidationError,
     ConflictError,
@@ -97,15 +100,83 @@ def _validate_conversion_binding(
         )
 
 
-_UPLOAD_URL_PREFIXES: tuple[str, ...] = ("http://", "https://", "/")
+# Ссылку собирает `POST /api/uploads` как `<base>/static/uploads/<имя файла>`
+# (`app/core/uploads/action.py:89`). Значит «свой файл» опознаётся по этому пути,
+# а не по одной лишь схеме: строка вида `http://…/что-угодно` загрузкой не является
+# и идентификатора не несёт.
+_UPLOAD_PATH_MARKER = "/static/uploads/"
 
 
-def _is_upload_url(value: str) -> bool:
-    """A link from `POST /api/uploads`, never an inlined base64 preview (БАГ-18)."""
-    return value.startswith(_UPLOAD_URL_PREFIXES)
+def _logo_file_id(value: str) -> str | None:
+    """Идентификатор файла из ссылки `POST /api/uploads`; `None` — файл не опознан.
+
+    Превью-строка base64 сюда не попадает по построению (БАГ-18): в ней нет пути
+    загрузчика. Ссылка, собранная этим же доменом при чтении, опознаётся повторно —
+    PATCH целой секции (клиент шлёт её целиком) не портит логотип.
+    """
+    path = value.split("?", 1)[0].split("#", 1)[0]
+    marker_at = path.rfind(_UPLOAD_PATH_MARKER)
+    if marker_at == -1:
+        return None
+    name = path[marker_at + len(_UPLOAD_PATH_MARKER):].strip("/")
+    return name or None
+
+
+def _logo_link(file_id: str | None) -> str | None:
+    """Ссылка собирается при чтении — колонка хранит идентификатор файла (П11).
+
+    Форма пути та же, что у ссылки загрузчика: иначе значение, вернувшееся на PATCH
+    целой секции, не опозналось бы. Подписанная ссылка со сроком жизни — механизм
+    `backend/app/core/uploads`, общий для всех доменов; эта задача его не строит, и
+    здесь стоит путь к файлу как он есть.
+    """
+    return f"{_UPLOAD_PATH_MARKER}{file_id}" if file_id else None
 
 
 # ─── Company ──────────────────────────────────────────────────────────────
+
+# Поля карточки, которые пишутся «как есть»: `None` в теле означает «не менять».
+# Логотипа здесь нет — у него своя обработка (П11): на проводе ссылка, в колонке
+# идентификатор файла. Кода подтверждения здесь тоже нет: П73 называет его
+# постоянным и не перевыпускаемым, поэтому телом запроса он не меняется — как
+# `system` у статусов заказа, поле не описывается там, где сервер обязан его
+# игнорировать.
+_COMPANY_FIELDS: dict[str, str] = {
+    "name": "name",
+    "legal_address": "legal_address",
+    "vat_code": "vat_code",
+    "bank_name": "bank_name",
+    "bank_account": "bank_account",
+    "time_zone": "time_zone",
+    "country_code": "country_code",
+}
+
+
+def _company_response(company, confirmation_code: str) -> CompanyInfoResponse:
+    """Ответ карточки; ссылка на логотип собирается здесь, а не хранится (П11)."""
+    return CompanyInfoResponse(
+        name=company.name,
+        legal_address=company.legal_address or "",
+        vat_code=company.vat_code or "",
+        bank_name=company.bank_name or "",
+        bank_account=company.bank_account or "",
+        time_zone=company.time_zone or "",
+        country_code=company.country_code or "",
+        confirmation_code=confirmation_code,
+        logo_link=_logo_link(company.logo_file_id),
+    )
+
+
+async def _issue_confirmation_code(db: AsyncSession, tenant_id: UUID) -> str:
+    """Четыре цифры, код постоянный (П73); потерянный — генерируется заново.
+
+    Приём тот же, каким достраивается отсутствующая строка компании: чтение не
+    отдаёт пустое значение. Дальше код не перевыпускается — он лежит в колонке.
+    """
+    code = f"{secrets.randbelow(10_000):04d}"
+    await patch_company(db, tenant_id, {"confirmation_code": code})
+    return code
+
 
 async def get_company_info(
     db: AsyncSession, tenant_id: UUID
@@ -115,14 +186,8 @@ async def get_company_info(
         # Auto-create singleton if missing — pull tenant name + vat_code
         init_data = await get_tenant_registration_data(db, tenant_id)
         company = await create_company(db, tenant_id, init_data)
-    return CompanyInfoResponse(
-        name=company.name,
-        legal_address=company.legal_address or "",
-        vat_code=company.vat_code or "",
-        bank_name=company.bank_name or "",
-        bank_account=company.bank_account or "",
-        logo_url=company.logo_url,
-    )
+    confirmation_code = company.confirmation_code or await _issue_confirmation_code(db, tenant_id)
+    return _company_response(company, confirmation_code)
 
 
 async def patch_company_info(
@@ -132,23 +197,22 @@ async def patch_company_info(
     if company is None:
         company = await create_company(db, tenant_id, {})
 
-    if input_data.logo_url is not None and input_data.logo_url.strip():
-        if not _is_upload_url(input_data.logo_url.strip()):
-            raise ValidationError(
-                "logoUrl must be a link from POST /api/uploads, not embedded base64",
-                code="LOGO_URL_NOT_A_URL",
-            )
-
     updates: dict = {}
-    field_map = {
-        "name": "name",
-        "legal_address": "legal_address",
-        "vat_code": "vat_code",
-        "bank_name": "bank_name",
-        "bank_account": "bank_account",
-        "logo_url": "logo_url",
-    }
-    for py_field, db_field in field_map.items():
+    if input_data.logo_link is not None:
+        # П11: пустая строка стирает логотип, `None` — «не менять».
+        raw = input_data.logo_link.strip()
+        if raw:
+            file_id = _logo_file_id(raw)
+            if file_id is None:
+                raise ValidationError(
+                    "logoUrl must be a link from POST /api/uploads, not embedded base64",
+                    code="LOGO_URL_NOT_A_URL",
+                )
+            updates["logo_file_id"] = file_id
+        else:
+            updates["logo_file_id"] = None
+
+    for py_field, db_field in _COMPANY_FIELDS.items():
         val = getattr(input_data, py_field, None)
         if val is not None:
             updates[db_field] = val
@@ -159,17 +223,30 @@ async def patch_company_info(
             raise NotFoundError(entity="Company")
         company = updated
 
-    return CompanyInfoResponse(
-        name=company.name,
-        legal_address=company.legal_address or "",
-        vat_code=company.vat_code or "",
-        bank_name=company.bank_name or "",
-        bank_account=company.bank_account or "",
-        logo_url=company.logo_url,
-    )
+    confirmation_code = company.confirmation_code or await _issue_confirmation_code(db, tenant_id)
+    return _company_response(company, confirmation_code)
 
 
 # ─── Constants ────────────────────────────────────────────────────────────
+
+# Перечень полей ответа и записи берётся из схемы, а не переписывается здесь списком
+# имён: список был бы вторым экземпляром того же перечня рядом со схемой, и каждое
+# новое поле пришлось бы вписывать в оба места. Колонки модели названы так же, как
+# поля схемы, поэтому имя поля сразу и имя колонки.
+#
+# Границы ниже относятся к трём финансовым величинам (П108–П110) и на прочие
+# скаляры ресурса не распространяются: владелец назначил границы только им, а
+# назначать их самому — не работа исполнителя.
+
+
+def _constants_response(obj) -> ConstantsResponse:
+    """Собрать ответ по полям схемы; `Numeric` приводится к `float`, как и раньше."""
+    values: dict = {}
+    for name in ConstantsResponse.model_fields:
+        value = getattr(obj, name)
+        values[name] = float(value) if isinstance(value, Decimal) else value
+    return ConstantsResponse(**values)
+
 
 async def get_global_constants(
     db: AsyncSession, tenant_id: UUID
@@ -177,11 +254,7 @@ async def get_global_constants(
     obj = await get_constants(db, tenant_id)
     if obj is None:
         obj = await create_constants(db, tenant_id, {})
-    return ConstantsResponse(
-        vat_rate=float(obj.vat_rate),
-        default_margin=float(obj.default_margin),
-        default_discount_percent=float(obj.default_discount_percent),
-    )
+    return _constants_response(obj)
 
 
 async def patch_global_constants(
@@ -197,15 +270,10 @@ async def patch_global_constants(
     # валют арендатора (C5, `DEFAULT_CURRENCY_UNKNOWN`). Колонка снята по П22 + П68, поля
     # в схеме больше нет — проверять нечего, пришедшее поле тело игнорирует.
     updates: dict = {}
-    field_map = {
-        "vat_rate": "vat_rate",
-        "default_margin": "default_margin",
-        "default_discount_percent": "default_discount_percent",
-    }
-    for py_field, db_field in field_map.items():
-        val = getattr(input_data, py_field, None)
-        if val is not None:
-            updates[db_field] = val
+    for name in ConstantsPatchInput.model_fields:
+        value = getattr(input_data, name)
+        if value is not None:
+            updates[name] = value
 
     if updates:
         updated = await patch_constants(db, tenant_id, updates)
@@ -213,11 +281,7 @@ async def patch_global_constants(
             raise NotFoundError(entity="Constants")
         obj = updated
 
-    return ConstantsResponse(
-        vat_rate=float(obj.vat_rate),
-        default_margin=float(obj.default_margin),
-        default_discount_percent=float(obj.default_discount_percent),
-    )
+    return _constants_response(obj)
 
 
 # ─── Currencies ───────────────────────────────────────────────────────────
