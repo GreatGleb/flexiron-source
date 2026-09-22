@@ -1,6 +1,7 @@
 import type { Category, CategoryField, CategoryListItem, CategoryFilters } from '@/types/category'
 import type { LinkedSupplier } from '@/types/product'
 import type { PaginatedResponse } from '@/types/api'
+import { ApiRequestError } from '@/types/api'
 import type { TranslatedString } from '@/types/i18n'
 import { mergeTranslatedString } from '@/types/i18n'
 
@@ -1416,7 +1417,12 @@ export function mockGetCategories(
 
 export function mockGetCategory(id: string): Category {
   const cat = STORE.find((c) => c.id === id)
-  if (!cat) throw new Error(`Category ${id} not found`)
+  if (!cat)
+    throw new ApiRequestError({
+      status: 404,
+      message: `Category ${id} not found`,
+      code: 'CATEGORY_NOT_FOUND',
+    })
   return JSON.parse(JSON.stringify(cat))
 }
 
@@ -1459,7 +1465,12 @@ export function mockPatchCategory(
   // code. It used to answer `undefined`, which the mock router handed back as a
   // SUCCESSFUL response — so saving a category somebody had already deleted in
   // another tab showed "saved" and lost the edit without a word.
-  if (!cat) throw new Error('CATEGORY_NOT_FOUND')
+  if (!cat)
+    throw new ApiRequestError({
+      status: 404,
+      message: 'CATEGORY_NOT_FOUND',
+      code: 'CATEGORY_NOT_FOUND',
+    })
   if (delta.name !== undefined)
     cat.name = mergeTranslatedString(cat.name as TranslatedString, delta.name as TranslatedString)
   if (delta.description !== undefined)
@@ -1492,7 +1503,12 @@ export function mockPutCategoryFields(id: string, fields: CategoryField[]): Cate
   const cat = STORE.find((c) => c.id === id)
   // Same refusal as its PATCH neighbour: a category that is gone cannot take
   // fields, and the caller has to hear so instead of a silent success.
-  if (!cat) throw new Error('CATEGORY_NOT_FOUND')
+  if (!cat)
+    throw new ApiRequestError({
+      status: 404,
+      message: 'CATEGORY_NOT_FOUND',
+      code: 'CATEGORY_NOT_FOUND',
+    })
   // ВАЖНО: JSON.parse/stringify чтобы избежать DataCloneError на reactive данных
   // tmp-* id заменяются постоянными (имитирует поведение сервера)
   cat.fields = JSON.parse(JSON.stringify(fields)).map((f: CategoryField, i: number) => ({
