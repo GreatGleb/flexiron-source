@@ -31,19 +31,20 @@ class AuthConsumersTest(AuthDatabaseCase):
                 row = await db.get(Currency, self.currency_b)
                 self.assertIsNotNone(row)
                 self.assertEqual(self.tenant_b, row.tenant_id)
-                self.assertEqual(1, row.exchange_rate)
+                self.assertEqual({"en": "B dollar"}, row.name_translations)
                 self.assertEqual({"en": "B dollar"}, row.name_translations)
 
     async def test_own_currency_and_profile_patch_ignore_body_tenant(self):
         headers = {"Authorization": "Bearer " + self.token, "X-Tenant-ID": str(self.tenant_b)}
         response = await self.client.patch(f"/api/settings/currencies/{self.currency_a}", headers=headers,
-            json={"exchangeRate": 2, "tenant_id": str(self.tenant_b)})
+            json={"name": {"en": "A changed"}, "tenant_id": str(self.tenant_b)})
         self.assertEqual(200, response.status_code, response.text)
         response = await self.client.patch("/api/settings/profile", headers=headers,
             json={"firstName": "Changed A", "tenant_id": str(self.tenant_b), "user_id": str(self.user_b)})
         self.assertEqual(200, response.status_code, response.text)
         async with self.sessions() as db:
-            self.assertEqual(2, (await db.get(Currency, self.currency_a)).exchange_rate)
+            self.assertEqual({"ru": "", "en": "A changed", "lt": ""},
+                             (await db.get(Currency, self.currency_a)).name_translations)
             self.assertEqual(self.tenant_a, (await db.get(Currency, self.currency_a)).tenant_id)
             self.assertEqual("Changed A", (await db.get(User, self.user_a)).first_name)
             self.assertEqual("B", (await db.get(User, self.user_b)).first_name)
@@ -65,10 +66,10 @@ class AuthConsumersTest(AuthDatabaseCase):
     async def test_currency_writers_scope_their_own_sql(self):
         from app.modules.settings.features.crud.repository import patch_currency, delete_currency
         async with self.sessions() as db:
-            self.assertIsNone(await patch_currency(db, self.currency_b, self.tenant_a, {"exchange_rate": 9}))
+            self.assertIsNone(await patch_currency(db, self.currency_b, self.tenant_a, {"name_translations": {"en": "hacked"}}))
             await delete_currency(db, self.currency_b, self.tenant_a)
         async with self.sessions() as db:
             foreign = await db.get(Currency, self.currency_b)
             self.assertIsNotNone(foreign)
-            self.assertEqual(1, foreign.exchange_rate)
+            self.assertEqual({"en": "B dollar"}, foreign.name_translations)
             self.assertEqual(self.tenant_b, foreign.tenant_id)

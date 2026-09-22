@@ -237,7 +237,7 @@ the rules the API is held to»).
 - **часовой пояс арендатора.** Нет нигде
   (`grep -ci "timezone" frontend_vue/src/types/settings.ts` → `0`; на бэкенде единственное
   попадание — свойство типа колонки `DateTime(timezone=True)`,
-  `backend/app/modules/settings/shared/models.py:57`), а граница месяца режется местной полуночью
+  `backend/app/modules/settings/shared/models.py:54`), а граница месяца режется местной полуночью
   процесса (`mocks/orders.ts:1578-1580`) — БАГ-04;
 - **статус клиента.** `newClientsThisMonth` считает всех, чей `createdAt` в этом месяце
   (`mocks/orders.ts:1593`), не глядя на `status: 'active' | 'inactive'`

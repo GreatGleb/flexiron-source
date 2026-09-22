@@ -180,7 +180,6 @@ async def get_global_constants(
     return ConstantsResponse(
         vat_rate=float(obj.vat_rate),
         default_margin=float(obj.default_margin),
-        default_currency=obj.default_currency,
         default_discount_percent=float(obj.default_discount_percent),
     )
 
@@ -193,19 +192,14 @@ async def patch_global_constants(
         obj = await create_constants(db, tenant_id, {})
 
     _validate_constant_bounds(input_data)  # C15 — границы, см. CONSTANT_BOUNDS ниже
-    if input_data.default_currency is not None:
-        codes = {c.code for c in await get_currencies(db, tenant_id)}
-        if input_data.default_currency not in codes:
-            raise ValidationError(
-                f"Unknown currency code: {input_data.default_currency}",
-                code="DEFAULT_CURRENCY_UNKNOWN",
-            )
 
+    # C1: до ревизии `7c4d1e9a3b58` здесь сверялся `defaultCurrency` со списком кодов
+    # валют арендатора (C5, `DEFAULT_CURRENCY_UNKNOWN`). Колонка снята по П22 + П68, поля
+    # в схеме больше нет — проверять нечего, пришедшее поле тело игнорирует.
     updates: dict = {}
     field_map = {
         "vat_rate": "vat_rate",
         "default_margin": "default_margin",
-        "default_currency": "default_currency",
         "default_discount_percent": "default_discount_percent",
     }
     for py_field, db_field in field_map.items():
@@ -222,7 +216,6 @@ async def patch_global_constants(
     return ConstantsResponse(
         vat_rate=float(obj.vat_rate),
         default_margin=float(obj.default_margin),
-        default_currency=obj.default_currency,
         default_discount_percent=float(obj.default_discount_percent),
     )
 
@@ -238,7 +231,6 @@ async def list_currencies(
             id=str(c.id),
             code=c.code,
             name=c.name_translations,
-            exchange_rate=float(c.exchange_rate),
             is_default=c.is_default,
             updated_at=c.updated_at.isoformat() if c.updated_at else None,
         )
@@ -264,7 +256,6 @@ async def create_currency_item(
     data = {
         "code": input_data.code.strip().upper(),
         "name_translations": input_data.name.model_dump() if hasattr(input_data.name, "model_dump") else input_data.name,
-        "exchange_rate": input_data.exchange_rate,
         "is_default": input_data.is_default,
     }
     obj = await create_currency_repo(db, tenant_id, data)
@@ -272,7 +263,6 @@ async def create_currency_item(
         id=str(obj.id),
         code=obj.code,
         name=obj.name_translations,
-        exchange_rate=float(obj.exchange_rate),
         is_default=obj.is_default,
         updated_at=obj.updated_at.isoformat() if obj.updated_at else None,
     )
@@ -300,8 +290,6 @@ async def update_currency_item(
         updates["name_translations"] = (
             input_data.name.model_dump() if hasattr(input_data.name, "model_dump") else input_data.name
         )
-    if input_data.exchange_rate is not None:
-        updates["exchange_rate"] = input_data.exchange_rate
     if input_data.is_default is not None:
         updates["is_default"] = input_data.is_default
 
@@ -316,7 +304,6 @@ async def update_currency_item(
         id=str(obj.id),
         code=obj.code,
         name=obj.name_translations,
-        exchange_rate=float(obj.exchange_rate),
         is_default=obj.is_default,
         updated_at=obj.updated_at.isoformat() if obj.updated_at else None,
     )

@@ -219,7 +219,7 @@
   создания за настройками не следует — правило соседа, см. аудит orders, та же графа, п. 4.
   (3) **Часовой пояс арендатора.** Нет нигде: `grep -ci "timezone"
   frontend_vue/src/types/settings.ts` → `0`; на бэкенде единственное совпадение — `DateTime(timezone=True)`
-  у служебных колонок (`backend/app/modules/settings/shared/models.py:57`), то есть свойство типа
+  у служебных колонок (`backend/app/modules/settings/shared/models.py:54`), то есть свойство типа
   колонки, а не настройка. Граница месяца при этом режется местной полуночью процесса
   (`mocks/orders.ts:1578-1580`) — БАГ-04. (4) **Статус клиента.** `newClientsThisMonth` считает
   всех, чей `createdAt` в этом месяце (`mocks/orders.ts:1593`), не глядя на

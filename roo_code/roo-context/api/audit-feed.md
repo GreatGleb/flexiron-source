@@ -210,7 +210,7 @@ Save-режим: чтение, один раз на монтировании (`L
 (`LogsSettings.vue:96-106`); пояса арендатора нет нигде —
 `grep -rin "timezone" frontend_vue/src/types/settings.ts` пусто, у настроек на схеме
 `timezone=True` встречается только у служебных `DateTime`
-(`backend/app/modules/settings/shared/models.py:57`) — БАГ-03. (2) **Срок хранения записи
+(`backend/app/modules/settings/shared/models.py:54`) — БАГ-03. (2) **Срок хранения записи
 истории**: ни в моке, ни на схеме — у обеих таблиц журнала нет ни `retention`, ни `purge`, а лента
 показывает всё без нижней границы даты (`mocks/auditFeed.ts:70`). (3) **Верхняя граница
 `pageSize`** — только снизу (`mocks/auditFeed.ts:96`). (4) **Зависимость перечня видов от тарифа**:

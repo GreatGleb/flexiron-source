@@ -71,9 +71,9 @@
 | `ORDER_STATUS_NOT_FOUND` | — | только мок (`mocks/settings.ts:553`, `:577`) | PATCH/DELETE статуса |
 | `MAIL_NOT_CONFIGURED` | — | только мок (`mocks/settings.ts:621`); кросс-доменный — тот же код бросает BCC-инструмент (`mocks/bcc.ts:317`) | POST почтового теста |
 | `MAP_NOT_AN_IMAGE` | — | только мок (`mocks/settings.ts:695`) | PUT карты склада |
-| `UOM_IN_USE` | 409 | **назначен контрактом 2026-09-10 (§2, П44), реализован слайсом С4** — единица со ссылками не удаляется (`crud/domain.py:424`) | DELETE единицы |
-| `CURRENCY_IN_USE` | 409 | **назначен контрактом 2026-09-10 (§2, П44), реализован слайсом С4** — валюта со ссылками не удаляется (`crud/domain.py:338`) | DELETE валюты |
-| `CURRENCY_IS_DEFAULT` | 409 | **назначен контрактом 2026-09-10 (§2), реализован слайсом С4** — валюту по умолчанию удалить нельзя (`crud/domain.py:331-332`); прежде инвариант держал только `disabled` на кнопке (БАГ-08) | DELETE валюты |
+| `UOM_IN_USE` | 409 | **назначен контрактом 2026-09-10 (§2, П44), реализован слайсом С4** — единица со ссылками не удаляется (`crud/domain.py:411`) | DELETE единицы |
+| `CURRENCY_IN_USE` | 409 | **назначен контрактом 2026-09-10 (§2, П44), реализован слайсом С4** — валюта со ссылками не удаляется (`crud/domain.py:325`) | DELETE валюты |
+| `CURRENCY_IS_DEFAULT` | 409 | **назначен контрактом 2026-09-10 (§2), реализован слайсом С4** — валюту по умолчанию удалить нельзя (`crud/domain.py:317-319`); прежде инвариант держал только `disabled` на кнопке (БАГ-08) | DELETE валюты |
 | `PASSWORD_WRONG_CURRENT` | 401 | **назначен контрактом 2026-09-10 (§2)** — неверный текущий пароль | смена пароля |
 | `PASSWORD_TOO_SHORT` | 422 | **назначен контрактом 2026-09-10 (§2)** — новый пароль короче минимума; имя поля в `fieldErrors` | смена пароля |
 | `PASSWORD_CONFIRM_MISMATCH` | 422 | **назначен контрактом 2026-09-10 (§2)** — подтверждение не совпало; имя поля в `fieldErrors` | смена пароля |
@@ -199,37 +199,42 @@ base64-превью и любой другой текст отвергаются
 `views/admin/settings/FinanceSettings.vue`.
 
 Пятую величину — ширину реза по умолчанию — этому же ресурсу назначил контракт, и в коде её ещё
-нет: раздел «Ширина реза по умолчанию» ниже. Ниже по тексту «четыре» значит «четыре сегодня».
+нет: раздел «Ширина реза по умолчанию» ниже. Числа «четыре» и «пятая» ниже — счёт плана: слайс C1
+снял одну из четырёх (колонку `default_currency`, П22 + П68), хранимых величин теперь три, а три
+новые этому ресурсу добавляет C2.
 
 ### GET /api/settings/constants
 
 Чтение четырёх констант. Ни query, ни тела. Save-режим: чтение, запрос №2 из девяти
 (`useSettings.ts:260`).
 
-Ответ — `GlobalConstants`:
+Ответ — `GlobalConstants`, и валюты по умолчанию среди них больше нет:
 
 ```ts
 {
   vatRate: number                  // проценты, не доля
   defaultMargin: number            // проценты
-  defaultCurrency: string          // КОД валюты ('EUR'), а не её id
   defaultDiscountPercent: number
 }
 ```
 
-Схема сервера — `crud/schemas.py:43-51`, тип фронта — `types/settings.ts:14-19`. Числа приводятся
-из `Numeric` во `float` при чтении (`crud/domain.py:180-185`). `defaultCurrency` — колонка
-`String(10)` с кодом валюты (`backend/app/modules/settings/shared/models.py:50-52`), не ссылка на
-запись.
+Схема сервера — `crud/schemas.py:43-56`, тип фронта — `types/settings.ts:14-19`. Числа приводятся
+из `Numeric` во `float` при чтении (`crud/domain.py:180-183`).
+
+**Валютой по умолчанию владеет флаг валюты, а не константа (П22 + П68).** Колонка
+`default_currency` удалена ревизией `7c4d1e9a3b58`: значение производно от `Currency.isDefault`, а
+хранимых колонок под производные домен не заводит. Инвариант «ровно одна валюта с флагом» и
+выработку значения ставит слайс C6 — здесь колонка только снята, второго источника значения не
+заводится.
 
 **Строка констант создаётся при первом чтении, и значения назначает сервер:** `vat_rate=21`,
-`default_margin=15`, `default_currency='EUR'`, `default_discount_percent=0`
-(`crud/domain.py:177-179`, дефолты колонок — `models.py:44-55`). То есть у нового арендатора эти
-четыре числа появляются без единого действия человека, и «EUR» выбирает не он.
+`default_margin=15`, `default_discount_percent=0`
+(`crud/domain.py:174-179`, дефолты колонок — `models.py:44-52`). То есть у нового арендатора эти
+три числа появляются без единого действия человека.
 
 Ошибки: коды ядра; своих нет, мок не бросает ничего.
 
-Бэкенд: `settings/features/crud/action.py:98-108` — `get_constants_route` · схемы `crud/schemas.py:43-51`
+Бэкенд: `settings/features/crud/action.py:98-108` — `get_constants_route` · схемы `crud/schemas.py:43-56`
 Реализация: `services/settingsService.ts:42` — `getConstants` · мок `mocks/index.ts:382` →
 `mocks/settings.ts:445` — `mockGetConstants`
 
@@ -240,32 +245,36 @@ base64-превью и любой другой текст отвергаются
 Правка констант. Save-режим: clean-slate — `updateConstants` правит стор
 (`useSettings.ts:570-574`), запрос по Save (`useSettings.ts:384-387`).
 
-Запрос — **вся секция целиком**, а не dirty-поля (`useSettings.ts:385`); схема принимает четыре
-необязательных поля с camelCase-алиасами (`crud/schemas.py:54-62`), `None` = «не менять»
-(`crud/domain.py:211-214`).
+Запрос — **вся секция целиком**, а не dirty-поля (`useSettings.ts:385`); схема принимает три
+необязательных поля с camelCase-алиасами (`crud/schemas.py:59-71`), `None` = «не менять»
+(`crud/domain.py:205-208`) — цикл по `field_map` пишет только непустые поля.
+**`defaultCurrency` в схеме больше нет** (П22 + П68): клиент его в теле по-прежнему присылает, и
+сервер это поле игнорирует — валюта по умолчанию живёт флагом валюты, а не константой.
 
 Ответ: `GlobalConstants` целиком после merge, тем же `model_dump` с алиасами
 (`crud/action.py:112-123`).
 
-Ошибки: коды ядра. **Ни одна из четырёх величин не проверяется ничем:** проценты могут быть
-отрицательными или больше ста, а `defaultCurrency` не сверяется со списком валют арендатора — в
-`patch_global_constants` нет ни одного обращения к валютам (`crud/domain.py:188-226`). Старый
-контракт обещал обратное («должен соответствовать одной из валют») — правила нет нигде, строка
-осталась владельцу.
+Ошибки: коды ядра и доменный `CONSTANT_OUT_OF_RANGE` (422) ниже; **обращений к валютам в
+`patch_global_constants` не осталось ни одного** (`crud/domain.py:187-220`). Старый контракт
+обещал проверку «должен соответствовать одной из валют» — правило снято вместе с полем, а не
+отложено: `defaultCurrency` в схеме больше нет (П22 + П68).
 
-**Слайс С5 закрывает строку кодом `DEFAULT_CURRENCY_UNKNOWN` (422).** `patch_global_constants`
-сверяет `defaultCurrency` со списком кодов валют арендатора и отвергает неизвестный код, а не
-пишет его в колонку вслепую.
+**Слайс С5 завёл сверку валюты кодом `DEFAULT_CURRENCY_UNKNOWN` (422) — и слайс С1 её снял.**
+`patch_global_constants` сверял `defaultCurrency` со списком кодов валют арендатора и отвергал
+неизвестный код, а не писал его в колонку вслепую. Хранимой колонки у значения не стало (ревизия
+`7c4d1e9a3b58`), поле ушло из схемы — проверять стало нечего, и в дереве она осталась бы мёртвой.
+Тем, чем валюта по умолчанию станет **отдаваться**, занимается слайс C6: выработка значения
+принадлежит ему.
 
 **Слайс С15 проверяет границы трёх числовых констант и называет отказ `CONSTANT_OUT_OF_RANGE`
 (422).** Границы назначены владельцем и стоят числами **в одном месте** — словарём
-`CONSTANT_BOUNDS` (`crud/domain.py:660-664`): `vatRate` — от 0 до 100 включительно
+`CONSTANT_BOUNDS` (`crud/domain.py:647-651`): `vatRate` — от 0 до 100 включительно
 ([П108](../../plans/api/audit/00-решения-владельца.md#p-108)); `defaultMargin` — от −100 включительно,
 верхнего делового предела нет ([П109](../../plans/api/audit/00-решения-владельца.md#p-109)) —
 отрицательная наценка законна, и подгонять её под «0…100» соседей нельзя; `defaultDiscountPercent` —
 от 0 до 100 включительно, отрицательная скидка не разрешается
-([П110](../../plans/api/audit/00-решения-владельца.md#p-110)). Проверка стоит в
-`patch_global_constants` **до** сверки валюты, на легальных значениях не срабатывает и имя
+([П110](../../plans/api/audit/00-решения-владельца.md#p-110)). Проверка идёт первой в
+`patch_global_constants` (`crud/domain.py:187-194`), на легальных значениях не срабатывает и имя
 отвергнутой величины называет в тексте отказа.
 
 **Поля в `fieldErrors` у этого отказа нет, и это названо, а не умолчано.** Обработчик `AppError`
@@ -275,11 +284,12 @@ base64-превью и любой другой текст отвергаются
 
 **Смена валюты по умолчанию — операция из двух и более запросов, и общей транзакции у них нет.**
 Клиент снимает флаг `isDefault` у всех валют и ставит его одной (`SettingsLayout.vue:436-446`),
-а затем Save шлёт PATCH каждой изменившейся валюты (`useSettings.ts:434-436`) плюс этот PATCH
-констант (`:353-356`). Инвариант «валюта по умолчанию ровно одна» держит только клиент (БАГ-09), а
-какой из двух источников главный — флаг записи или код в константах — строка владельцу.
+а затем Save шлёт PATCH каждой изменившейся валюты (`useSettings.ts:434-436`). **Источник главный
+назван решением:** это флаг `Currency.isDefault` (П22), а не код в константах, которого больше нет,
+— но инвариант «валюта по умолчанию ровно одна» до слайса C6 держит по-прежнему клиент (БАГ-09),
+потому что сервер, записывая `is_default`, других валют не касается.
 
-Бэкенд: `settings/features/crud/action.py:112-123` — `patch_constants_route` · схемы `crud/schemas.py:54-62`
+Бэкенд: `settings/features/crud/action.py:112-123` — `patch_constants_route` · схемы `crud/schemas.py:59-71`
 Реализация: `services/settingsService.ts:46` — `saveConstants` · мок `mocks/index.ts:1343` →
 `mocks/settings.ts:465` — `mockPatchConstants`
 
@@ -304,15 +314,15 @@ base64-превью и любой другой текст отвергаются
 frontend_vue/src/composables/useSettings.ts` → по нулю в каждом, `grep -rci kerf
 backend/app/modules/settings` → ноль, и во всём `backend/app` ноль тоже.
 
-**Чем переносится — пятым полем финансовых констант, а не своим ресурсом.** `defaultKerfMm` в
+**Чем переносится — новым полем финансовых констант, а не своим ресурсом.** `defaultKerfMm` в
 `GlobalConstants` (`frontend_vue/src/types/settings.ts:14-19`), колонка `default_kerf_mm` рядом с
-четырьмя существующими (`backend/app/modules/settings/shared/models.py:44-55`), и те же два
+тремя хранимыми сегодня (`backend/app/modules/settings/shared/models.py:44-52`), и те же два
 эндпоинта `GET /api/settings/constants` и `PATCH /api/settings/constants`. **Это чтение контракта, а
 не слово владельца:** владелец назвал владельца значения, переносчика он не называл. Основание
 выбора — три факта, каждый проверяемый:
 
 - ресурс констант и есть единственный синглтон скалярных значений арендатора в домене: остальные
-  шесть моделей — коллекции (`models.py:17`, `:37`, `:66`, `:91`, `:109`, `:141`, `unique=True`
+  шесть моделей — коллекции (`models.py:17`, `:37`, `:63`, `:85`, `:103`, `:135`, `unique=True`
   только у двух синглтонов — `:21`, `:41`);
 - отдельный эндпоинт стоил бы десятого параллельного чтения ради одного числа: сегодня стартовых
   чтений девять, одним `Promise.allSettled` (`composables/useSettings.ts:248-268`);
@@ -333,8 +343,9 @@ backend/app/modules/settings` → ноль, и во всём `backend/app` но�
 
 Обязанности сервера по этому значению — три:
 
-1. **Проверять его при записи, потому что сегодня не проверяется ничто.** `patch_global_constants`
-   не валидирует ни одну из четырёх величин (`crud/domain.py:188-226`), и отрицательная ширина реза
+1. **Проверять его при записи, потому что сегодня не проверяется.** `patch_global_constants`
+   валидирует границы трёх числовых констант (С15) и ничего сверх того, а ширины реза среди них нет
+   (`crud/domain.py:187-220`), и отрицательная ширина реза
    разошлась бы дефолтом по всем формам резки арендатора. Отказ при резке её поймает поздно и чужим
    кодом — `CUTTING_NEGATIVE_AMOUNT` (`frontend_vue/src/domain/cutting.ts:51-57`).
 2. **Не подставлять её нелинейной партии.** Пропил есть только у линейных единиц, иначе отказ
@@ -342,10 +353,10 @@ backend/app/modules/settings` → ноль, и во всём `backend/app` но�
    это уже делает сам — `effectiveKerfMm` обнуляет значение при нелинейной единице
    (`composables/useWarehouseCutting.ts:204`), и поле формы при ней не показывается (`:195`).
    Правило клиента правилом сервера не является: HTTP-вызывающий тот же дефолт пришлёт как есть.
-3. **Назначать значение новому арендатору вместе с остальными четырьмя.** Строка констант
-   создаётся при первом чтении, и числа в ней ставит сервер (`crud/domain.py:177-179`, дефолты
-   колонок — `models.py:44-55`); пятое поле обязано попасть в тот же набор, иначе у нового
-   арендатора оно приедет нулём и резка перестанет считать пропил.
+3. **Назначать значение новому арендатору вместе с остальными.** Строка констант создаётся при
+   первом чтении, и числа в ней ставит сервер (`crud/domain.py:177-179`, дефолты колонок —
+   `models.py:44-52`); это поле обязано попасть в тот же набор, иначе у нового арендатора оно
+   приедет нулём и резка перестанет считать пропил.
 
 Мок настроек этого значения не отслеживает и после переноса не будет: раздел «Обязанности сервера»,
 графа 1.
@@ -363,15 +374,16 @@ backend/app/modules/settings` → ноль, и во всём `backend/app` но�
 у этого справочника одно и записано находкой: жёсткий список `EUR/USD/PLN/GBP` в карточке
 поставщика (`components/admin/SupplierFormSections.vue:58-63`).
 
-**Конвертации валют в проекте нет нигде** (§14), но у сервера есть колонка курса, а у фронта её
-нет: расхождение проходит через все четыре раздела ниже и остаётся строкой владельцу.
+**Конвертации валют в проекте нет нигде** (§14), и колонки курса у сервера больше нет: она удалена
+ревизией `7c4d1e9a3b58` по П23. Курса не несёт ни один из четырёх разделов ниже, и БАГ-05 закрыт
+вместе с полем.
 
 ### GET /api/settings/currencies
 
 Список валют. Ни query, ни тела, **пагинации нет**. Save-режим: чтение, запрос №5 из девяти
 (`useSettings.ts:263`).
 
-Ответ — `Currency[]`; у сервера на одно поле больше, чем у фронта:
+Ответ — `Currency[]`, и поля сторон совпадают:
 
 ```ts
 {
@@ -379,15 +391,13 @@ backend/app/modules/settings` → ноль, и во всём `backend/app` но�
   code: string                  // 'EUR'
   name: TranslatedString
   isDefault: boolean
-  exchangeRate: number          // ОТДАЁТ СЕРВЕР; в типе фронта поля нет
   updatedAt?: string            // ISO-строка колонки, у обеих сторон необязательна
 }
 ```
 
-Тип фронта — `types/settings.ts:22-28`; серверная схема — `crud/schemas.py:64-77`. Курс объявлен
-полем схемы (`crud/schemas.py:73`) и заполняется из колонки (`crud/domain.py:241`), а во фронте не
-читается ничем: типа для него нет, конвертации в проекте нет (§14 соглашений). Время правки сервер
-отдаёт (`crud/domain.py:243`), фронт его тоже не читает.
+Тип фронта — `types/settings.ts:22-28`; серверная схема — `crud/schemas.py:76-85`. Время правки
+сервер отдаёт (`crud/domain.py:234-235`), фронт его тоже не читает. **Курса у валюты нет ни на
+одной стороне** (П23): ни колонки, ни поля схемы — конвертации в проекте нет (§14 соглашений).
 
 **Порядок выдачи не задан:** выборка идёт без сортировки (`crud/repository.py:78-82`). Сервер
 обязан назвать умолчание — §13 соглашений требует этого от каждого списка.
@@ -397,7 +407,7 @@ backend/app/modules/settings` → ноль, и во всём `backend/app` но�
 
 Ошибки: коды ядра; своих нет, мок не бросает ничего.
 
-Бэкенд: `settings/features/crud/action.py:131-141` — `get_currencies_route` · схемы `crud/schemas.py:64-77`
+Бэкенд: `settings/features/crud/action.py:131-141` — `get_currencies_route` · схемы `crud/schemas.py:76-85`
 Реализация: `services/settingsService.ts:52` — `getCurrencies` · мок `mocks/index.ts:384` →
 `mocks/settings.ts:472` — `mockGetCurrencies`
 
@@ -408,16 +418,15 @@ backend/app/modules/settings` → ноль, и во всём `backend/app` но�
 Создание валюты. Save-режим: clean-slate — `_addCurrency` кладёт строку с временным id
 `cur-temp-<ts>` (`useSettings.ts:588-593`), запрос уходит по Save (`useSettings.ts:417-430`).
 
-Запрос по схеме сервера `CurrencyCreateInput` (`crud/schemas.py:80-88`):
+Запрос по схеме сервера `CurrencyCreateInput` (`crud/schemas.py:88-99`):
 
 ```ts
-{ code: string; name: TranslatedString; exchangeRate: number; isDefault?: boolean }
+{ code: string; name: TranslatedString; isDefault?: boolean }
 ```
 
-**Обязательных полей четыре, и форма шлёт три** — `code` в верхнем регистре, `name` во всех трёх
-локалях и `isDefault: false` (`SettingsLayout.vue:355-359`). У курса значения по умолчанию в
-схеме нет, поэтому против настоящего сервера создание валюты кончается 422 Pydantic (БАГ-05).
-Остаётся ли курс в модели — строка владельцу; до решения этот эндпоинт работает только под моками.
+**Обязательных полей два**, и форма шлёт их оба плюс `isDefault: false`: `code` в верхнем регистре
+и `name` во всех трёх локалях (`SettingsLayout.vue:355-359`). Курса в схеме нет (П23), и **БАГ-05
+закрыт вместе с колонкой**: против настоящего сервера создание валюты больше не кончается 422.
 
 Ответ: `Currency` с серверным `id`, конверт собирает `model_dump` (`crud/action.py:145-167`). **Формат идентификатора контракт
 не обещает** (§19 соглашений): сервер выдаёт UUID, мок — читаемый `cur-{N}`.
@@ -426,12 +435,12 @@ backend/app/modules/settings` → ноль, и во всём `backend/app` но�
 обязан вернуть тот же `code`, что получил, — иначе временный id останется в сторе.
 
 Ошибки: `VALIDATION_ERROR` (422) на пустой код — перехват `ValidationError` (`crud/action.py:145-167`), источник
-`crud/domain.py:254`) и `CONFLICT` (409) на код, уже занятый у арендатора (`crud/action.py:145-167`,
-источник `crud/domain.py:259`); тот же запрет стоит в БД составным ограничением
-(`models.py:81-83`). **Мок не бросает ни того, ни другого** (`mocks/settings.ts:460-467`), и форма
+`crud/domain.py:245-246`) и `CONFLICT` (409) на код, уже занятый у арендатора (`crud/action.py:145-167`,
+источник `crud/domain.py:251-254`); тот же запрет стоит в БД составным ограничением
+(`models.py:75-77`). **Мок не бросает ни того, ни другого** (`mocks/settings.ts:460-467`), и форма
 дублей не ловит — `isCurrencyFormValid` проверяет только непустоту (`SettingsLayout.vue:354`).
 
-Бэкенд: `settings/features/crud/action.py:145-167` — `create_currency_route` · схемы `crud/schemas.py:80-88`
+Бэкенд: `settings/features/crud/action.py:145-167` — `create_currency_route` · схемы `crud/schemas.py:88-99`
 Реализация: `services/settingsService.ts:56` — `createCurrency` · мок `mocks/index.ts:1126` →
 `mocks/settings.ts:476` — `mockCreateCurrency`
 
@@ -444,10 +453,10 @@ backend/app/modules/settings` → ноль, и во всём `backend/app` но�
 локально снимает флаг у всех и потому порождает столько PATCH, сколько валют изменилось
 (`useSettings.ts:434-436`).
 
-Запрос по схеме `CurrencyPatchInput` (`crud/schemas.py:91-99`) — четыре необязательных поля:
+Запрос по схеме `CurrencyPatchInput` (`crud/schemas.py:102-109`) — три необязательных поля:
 
 ```ts
-{ code?: string; name?: TranslatedString; exchangeRate?: number; isDefault?: boolean }
+{ code?: string; name?: TranslatedString; isDefault?: boolean }
 ```
 
 Дельта собирается пофайловым сравнением со снимком — `findUpdated` (`useSettings.ts:205-227`,
@@ -456,7 +465,7 @@ backend/app/modules/settings` → ноль, и во всём `backend/app` но�
 Ответ: сервер отдаёт `CurrencyResponse` целиком, через `model_dump` (`crud/action.py:171-186`); клиент ответ не
 читает — подпись `Promise<void>` (`settingsService.ts:50-52`), мок возвращает `undefined`.
 
-Ошибки: `NOT_FOUND` домен бросает как `NotFoundError` (`crud/domain.py:286`), роут С0 возвращает 404. Мок — `CURRENCY_NOT_FOUND`. **Уникальность кода на PATCH не проверяется** (на POST
+Ошибки: `NOT_FOUND` домен бросает как `NotFoundError` (`crud/domain.py:271-276`), роут С0 возвращает 404. Мок — `CURRENCY_NOT_FOUND`. **Уникальность кода на PATCH не проверяется** (на POST
 проверяется), поэтому занятый код упрётся в ограничение БД и вылетит ошибкой драйвера, а не
 `CONFLICT` (БАГ-10). Роут требует общий get_current_user (С0).
 
@@ -465,10 +474,10 @@ backend/app/modules/settings` → ноль, и во всём `backend/app` но�
 код отвечает своим кодом, а не доходит до ограничения БД пятисотой.
 
 **Инвариант «валюта по умолчанию ровно одна» сервер не держит:** `update_currency_item` пишет
-присланный флаг и других валют не касается (`crud/domain.py:281-322`). Правило живёт только в
+присланный флаг и других валют не касается (`crud/domain.py:271-309`). Правило живёт только в
 клиенте (БАГ-09); для сервера это задача — снимать флаг у остальных в той же транзакции.
 
-Бэкенд: `settings/features/crud/action.py:171-186` — `patch_currency_route` · схемы `crud/schemas.py:91-99`
+Бэкенд: `settings/features/crud/action.py:171-186` — `patch_currency_route` · схемы `crud/schemas.py:102-109`
 Реализация: `services/settingsService.ts:60` — `updateCurrency` · мок `mocks/index.ts:1356` →
 `mocks/settings.ts:485` — `mockUpdateCurrency`
 
@@ -482,10 +491,10 @@ backend/app/modules/settings` → ноль, и во всём `backend/app` но�
 Ответ: `ApiResponse` без `data` (`crud/action.py:190-209`), после снятия конверта клиент получает
 `undefined`.
 
-Ошибки: `NOT_FOUND` (404, `crud/action.py:190-209`, источник `crud/domain.py:328`); `CURRENCY_IS_DEFAULT`
-(409, `crud/domain.py:331-332`) — валюту по умолчанию удалить нельзя, и это проверяется **до** счёта
-ссылок; и `CURRENCY_IN_USE` (409, `crud/domain.py:338`) — «валюта используется N товарами», счёт идёт
-межмодульным вызовом `count_products_by_currency` (`crud/domain.py:335-336`). Мок знает
+Ошибки: `NOT_FOUND` (404, `crud/action.py:190-209`, источник `crud/domain.py:312-315`); `CURRENCY_IS_DEFAULT`
+(409, `crud/domain.py:317-319`) — валюту по умолчанию удалить нельзя, и это проверяется **до** счёта
+ссылок; и `CURRENCY_IN_USE` (409, `crud/domain.py:325`) — «валюта используется N товарами», счёт идёт
+межмодульным вызовом `count_products_by_currency` (`crud/domain.py:322-323`). Мок знает
 только `CURRENCY_NOT_FOUND` и проверки использования не делает вовсе.
 
 **Слайс С4 дал этим отказам имена.** Оба запрета сервер делал и раньше, но безымянно; теперь код
@@ -503,8 +512,8 @@ backend/app/modules/settings` → ноль, и во всём `backend/app` но�
 
 Код каталога §2 назван — `CURRENCY_IN_USE`. Общее правило — [§22](00-conventions.md).
 
-Бэкенд: `settings/features/crud/action.py:190-209` — `delete_currency_route` · домен `crud/domain.py:325-340`
-(отказ `CURRENCY_IS_DEFAULT` — `:257-258`, отказ `CURRENCY_IN_USE` — `:264`)
+Бэкенд: `settings/features/crud/action.py:190-209` — `delete_currency_route` · домен `crud/domain.py:312-327`
+(отказ `CURRENCY_IS_DEFAULT` — `:317-319`, отказ `CURRENCY_IN_USE` — `:325`)
 Реализация: `services/settingsService.ts:63` — `deleteCurrency` · мок `mocks/index.ts:1632` →
 `mocks/settings.ts:491` — `mockDeleteCurrency`
 
@@ -517,7 +526,7 @@ backend/app/modules/settings` → ноль, и во всём `backend/app` но�
 **Категорий восемь, и список закрыт типом фронта:** `weight`, `length`, `area`, `volume`,
 `quantity`, `density`, `thickness` плюс `time`, добавленная ради услуг (`types/settings.ts:31-40`).
 На сервере это `String(20)` без ограничения, а комментарий рядом с колонкой перечисляет прежние
-семь (`models.py:99-101`) — то есть сервер примет любую строку. Кто владеет перечнем — контракт
+семь (`models.py:93-95`) — то есть сервер примет любую строку. Кто владеет перечнем — контракт
 называет фронт: тип замкнут, и добавленная категория обязана появиться в нём.
 
 ### GET /api/settings/uoms
@@ -531,9 +540,9 @@ backend/app/modules/settings` → ноль, и во всём `backend/app` но�
 { id: string; code: TranslatedString; name: TranslatedString; category: UomCategory }
 ```
 
-Тип фронта — `types/settings.ts:70-75`; схема сервера — `crud/schemas.py:104-112`, где `code`
+Тип фронта — `types/settings.ts:70-75`; схема сервера — `crud/schemas.py:114-122`, где `code`
 собирается из колонки `code_translations`, а `name` — из `name_translations`
-(`crud/domain.py:348-353`). **Код единицы переводимый, а не строка** — это одно из немногих мест,
+(`crud/domain.py:335-340`). **Код единицы переводимый, а не строка** — это одно из немногих мест,
 где схема и тип сходятся (§12 соглашений).
 
 Порядок выдачи не задан (`crud/repository.py:132-136`). Список уходит в поле конверта типа
@@ -541,7 +550,7 @@ list[dict] в SettingsListResponse (С0).
 
 Ошибки: коды ядра; своих нет, мок не бросает ничего.
 
-Бэкенд: `settings/features/crud/action.py:217-227` — `get_uoms_route` · схемы `crud/schemas.py:104-112`
+Бэкенд: `settings/features/crud/action.py:217-227` — `get_uoms_route` · схемы `crud/schemas.py:114-122`
 Реализация: `services/settingsService.ts:70` — `getUoms` · мок `mocks/index.ts:385` →
 `mocks/settings.ts:499` — `mockGetUoms`
 
@@ -552,7 +561,7 @@ list[dict] в SettingsListResponse (С0).
 Создание единицы. Save-режим: clean-slate — `_addUom` кладёт строку с временным id
 `uom-temp-<ts>` (`useSettings.ts:600-605`), запрос по Save (`useSettings.ts:448-459`).
 
-Запрос по схеме `UomCreateInput` (`crud/schemas.py:115-122`) — все три поля обязательны:
+Запрос по схеме `UomCreateInput` (`crud/schemas.py:125-132`) — все три поля обязательны:
 
 ```ts
 { code: TranslatedString; name: TranslatedString; category: UomCategory }
@@ -570,7 +579,7 @@ list[dict] в SettingsListResponse (С0).
 Дубль ловит вычислимое формы — `isUomCodeDuplicate` (`SettingsLayout.vue:365`, объявление `:190`).
 Кому принадлежит это правило — вопрос сервера: у валют оно на сервере есть, у единиц нет.
 
-Ошибки: ни одного специфичного — ни домен (`crud/domain.py:358-377`), ни мок не бросают.
+Ошибки: ни одного специфичного — ни домен (`crud/domain.py:345-364`), ни мок не бросают.
 
 **Слайс С5 заводит отказ `UOM_CATEGORY_UNKNOWN` (422):** категория вне восьми значений отвергается,
 а не пишется свободным текстом.
@@ -579,7 +588,7 @@ list[dict] в SettingsListResponse (С0).
 сравнение работает только потому, что в память попала та же ссылка (БАГ-16). Для сервера это
 значит: ответ обязан нести тот же `code`, но полагаться на порядок сопоставления в клиенте нельзя.
 
-Бэкенд: `settings/features/crud/action.py:231-242` — `create_uom_route` · схемы `crud/schemas.py:115-122`
+Бэкенд: `settings/features/crud/action.py:231-242` — `create_uom_route` · схемы `crud/schemas.py:125-132`
 Реализация: `services/settingsService.ts:74` — `createUom` · мок `mocks/index.ts:1128` →
 `mocks/settings.ts:503` — `mockCreateUom`
 
@@ -592,7 +601,7 @@ list[dict] в SettingsListResponse (С0).
 в отличие от валют, правил и статусов, там нет, и мутатора `updateUom` композабл не экспортирует
 (`useSettings.ts:708-738`). То есть эндпоинт существует, а вызвать его сегодня нечем.
 
-Запрос по схеме `UomPatchInput` (`crud/schemas.py:125-132`) — три необязательных поля:
+Запрос по схеме `UomPatchInput` (`crud/schemas.py:135-142`) — три необязательных поля:
 
 ```ts
 { code?: TranslatedString; name?: TranslatedString; category?: UomCategory }
@@ -601,9 +610,9 @@ list[dict] в SettingsListResponse (С0).
 Ответ: сервер отдаёт `UomResponse` целиком, через `model_dump` (`crud/action.py:246-261`); подпись клиента —
 `Promise<void>`.
 
-Ошибки: `NOT_FOUND` домен бросает как `NotFoundError` (`crud/domain.py:385`), роут С0 переводит в 404
+Ошибки: `NOT_FOUND` домен бросает как `NotFoundError` (`crud/domain.py:372`), роут С0 переводит в 404
 (БАГ-11). Мок — `UOM_NOT_FOUND`. Роут требует общий get_current_user (С0). **До С5 значение
-категории не сверялось со списком ни на одной стороне** (`crud/domain.py:397-398`).
+категории не сверялось со списком ни на одной стороне** (`crud/domain.py:384-385`).
 
 **Смена категории у единицы, на которую ссылаются правила пересчёта и товары, не проверяется
 ничем.** Старый контракт разрешал её «с осторожностью», но правила, ограничивающего эту
@@ -613,7 +622,7 @@ list[dict] в SettingsListResponse (С0).
 **Слайс С5 сверяет категорию и на правке — тем же кодом `UOM_CATEGORY_UNKNOWN` (422).** Проверка
 стоит до записи, так что девятая категория не попадает в колонку ни через создание, ни через PATCH.
 
-Бэкенд: `settings/features/crud/action.py:246-261` — `patch_uom_route` · схемы `crud/schemas.py:125-132`
+Бэкенд: `settings/features/crud/action.py:246-261` — `patch_uom_route` · схемы `crud/schemas.py:135-142`
 Реализация: `services/settingsService.ts:68-70` — `updateUom` (вызывающего нет) · мок
 `mocks/index.ts:1372` → `mocks/settings.ts:502-505` — `mockUpdateUom`
 
@@ -627,24 +636,28 @@ list[dict] в SettingsListResponse (С0).
 
 Ответ: `ApiResponse` без `data` (`crud/action.py:265-284`).
 
-Ошибки: `NOT_FOUND` (404, `crud/action.py:265-284`) и `UOM_IN_USE` (409, `crud/domain.py:424`) —
-единица используется товарами, счёт межмодульным `count_products_by_uom` (`crud/domain.py:421-422`).
+Ошибки: `NOT_FOUND` (404, `crud/action.py:265-284`) и `UOM_IN_USE` (409, `crud/domain.py:411`) —
+единица используется товарами, счёт межмодульным `count_products_by_uom` (`crud/domain.py:408-409`).
 Код лежит в поле `detail.code` (слайс С4), фронт читает его через `errorMessageKey`
 (`useSettings.ts:555-556`) и показывает фразу ключа
 `settingsUom.error_uom_in_use` (`useSettings.ts:28-40`) вместо общей ошибки сохранения. Мок — `UOM_NOT_FOUND`.
 
-**Правила пересчёта при удалении единицы не проверяет никто, и схема сносит их молча:** обе
-стороны связи объявлены каскадом (`models.py:117`, `:122`) — БАГ-07. Из трёх пунктов, обещанных
-старым контрактом («товары, правила пересчёта, заказы»), реализован один, по второму поведение
-противоположно обещанному, а заказов на бэкенде нет вовсе.
+**Правила пересчёта при удалении единицы schema больше не сносит: обе ссылки переведены на
+`RESTRICT`** (`models.py:109-118`, ревизия `7c4d1e9a3b58`, П44). До неё политика была `CASCADE`, и
+единица уносила правило молча — БАГ-07. Каскад снят, но **отказом это ещё не стало**:
+`remove_uom_item` проверяет только товары (`crud/domain.py:402-413`), а правило пересчёта, на
+которое ссылаются, упрётся в ограничение БД, а не в доменный отказ с кодом. Из трёх пунктов,
+обещанных старым контрактом («товары, правила пересчёта, заказы»), реализован по-прежнему один, а
+заказов на бэкенде нет вовсе.
 
 **Решено 2026-09-09 (П44): верен `CONFLICT`, а не каскад.** Справочник — та половина правила, где
 удаление **запрещается** при живой ссылке, а мягкое удаление оставлено товарам и услугам. Значит
 считать обязаны не только товары: правила пересчёта, услуги и всё прочее, что ссылается на
-единицу, тоже, а каскад в `models.py:117`, `:122` меняется на `RESTRICT`. Код каталога §2 назван —
+единицу, тоже. Политику ссылок поставил слайс C1 (`RESTRICT` вместо `CASCADE`, `models.py:109-118`,
+ревизия `7c4d1e9a3b58`); доменного счёта ссылок по-прежнему нет. Код каталога §2 назван —
 `UOM_IN_USE`. Общее правило — [§22](00-conventions.md).
 
-Бэкенд: `settings/features/crud/action.py:265-284` — `delete_uom_route` · домен `crud/domain.py:415-426`
+Бэкенд: `settings/features/crud/action.py:265-284` — `delete_uom_route` · домен `crud/domain.py:402-413`
 Реализация: `services/settingsService.ts:76` — `deleteUom` · мок `mocks/index.ts:1637` →
 `mocks/settings.ts:518` — `mockDeleteUom`
 
@@ -658,7 +671,7 @@ list[dict] в SettingsListResponse (С0).
 значения (`types/settings.ts:43`); формул три, и тип выведен из массива —
 `CONVERSION_FORMULA_TYPES` (`types/settings.ts:55-59`), из него же собираются опции селекта и
 подписи. На сервере это свободные строки: `String(20)` у типа и `String(50)` у формулы
-(`models.py:125-133`). Сервер не обязан соблюдать замкнутость сам,
+(`models.py:119-127`). Сервер не обязан соблюдать замкнутость сам,
 но контракт называет её правилом домена.
 
 ### GET /api/settings/conversions
@@ -679,18 +692,18 @@ list[dict] в SettingsListResponse (С0).
 }
 ```
 
-Тип фронта — `types/settings.ts:78-85`; схема сервера — `crud/schemas.py:137-147`, сборка ответа
-`crud/domain.py:435-445`. Порядок выдачи не задан (`crud/repository.py:189-193`). Список уходит в
+Тип фронта — `types/settings.ts:78-85`; схема сервера — `crud/schemas.py:147-157`, сборка ответа
+`crud/domain.py:422-432`. Порядок выдачи не задан (`crud/repository.py:189-193`). Список уходит в
 поле конверта типа list[dict] в SettingsListResponse (С0).
 
 **Коэффициент, равный нулю, до клиента не доезжает:** сборка пишет `float(c.factor) if c.factor
-else None`, а ноль в Python ложен (`crud/domain.py:441`, тот же приём `:477` и `:521`) — БАГ-19.
+else None`, а ноль в Python ложен (`crud/domain.py:428`, тот же приём `:464` и `:508`) — БАГ-19.
 Ноль как коэффициент бессмысленен, но записать его сегодня можно: запрета нет ни в домене, ни в
 форме.
 
 Ошибки: коды ядра; своих нет, мок не бросает ничего.
 
-Бэкенд: `settings/features/crud/action.py:292-302` — `get_conversions_route` · схемы `crud/schemas.py:137-147`
+Бэкенд: `settings/features/crud/action.py:292-302` — `get_conversions_route` · схемы `crud/schemas.py:147-157`
 Реализация: `services/settingsService.ts:88` — `getConversions` · мок `mocks/index.ts:386` →
 `mocks/settings.ts:526` — `mockGetConversions`
 
@@ -701,7 +714,7 @@ else None`, а ноль в Python ложен (`crud/domain.py:441`, тот же 
 Создание правила. Save-режим: clean-slate — `_addConversion` кладёт строку с временным id
 `conv-temp-<ts>` (`useSettings.ts:612-617`), запрос по Save (`useSettings.ts:475-487`).
 
-Запрос по схеме `ConversionCreateInput` (`crud/schemas.py:150-159`):
+Запрос по схеме `ConversionCreateInput` (`crud/schemas.py:160-169`):
 
 ```ts
 {
@@ -724,15 +737,15 @@ else None`, а ноль в Python ложен (`crud/domain.py:441`, тот же 
 получил.
 
 Ошибки: `VALIDATION_ERROR` (422) на одну и ту же единицу с обеих сторон — перехват
-`ValidationError` (`crud/action.py:306-328`), источник `crud/domain.py:456`; и `CONFLICT` (409) на
-уже описанную пару (`crud/action.py:306-328`, источник `crud/domain.py:464`). **Мок не бросает ни того, ни другого** (`mocks/settings.ts:508-515`)
+`ValidationError` (`crud/action.py:306-328`), источник `crud/domain.py:443`; и `CONFLICT` (409) на
+уже описанную пару (`crud/action.py:306-328`, источник `crud/domain.py:451`). **Мок не бросает ни того, ни другого** (`mocks/settings.ts:508-515`)
 — под моками дубль пары создаётся молча, и путь ошибки в демо не воспроизводится.
 
 **Слайс С5 даёт этим отказам имена:** `CONVERSION_FACTOR_REQUIRED` (422) — `static` без `factor`;
 `CONVERSION_FORMULA_REQUIRED` (422) — `dynamic` без формулы; `CONVERSION_PAIR_TAKEN` (409) — пара
 уже описана.
 
-Бэкенд: `settings/features/crud/action.py:306-328` — `create_conversion_route` · схемы `crud/schemas.py:150-159`
+Бэкенд: `settings/features/crud/action.py:306-328` — `create_conversion_route` · схемы `crud/schemas.py:160-169`
 Реализация: `services/settingsService.ts:92` — `createConversion` · мок `mocks/index.ts:1130` →
 `mocks/settings.ts:530` — `mockCreateConversion`
 
@@ -745,7 +758,7 @@ else None`, а ноль в Python ложен (`crud/domain.py:441`, тот же 
 (`useSettings.ts:624-629`), запрос по Save (`useSettings.ts:491-493`); дельта — от `findUpdated`
 (`useSettings.ts:469`).
 
-Запрос по схеме `ConversionPatchInput` (`crud/schemas.py:162-171`) — пять необязательных полей,
+Запрос по схеме `ConversionPatchInput` (`crud/schemas.py:172-181`) — пять необязательных полей,
 включая **обе единицы**:
 
 ```ts
@@ -753,7 +766,7 @@ else None`, а ноль в Python ложен (`crud/domain.py:441`, тот же 
 ```
 
 **Обнулить `factor` или `formulaType` этим эндпоинтом нельзя:** `None` означает «не менять»
-— обе ветки записи стоят под `is not None` (`crud/domain.py:509-512`), поэтому правило,
+— обе ветки записи стоят под `is not None` (`crud/domain.py:496-499`), поэтому правило,
 переключённое со static на dynamic, сохранит старый коэффициент (БАГ-21). Для сервера это задача: явный `null` обязан значить «стереть».
 
 **Ни совпадение единиц, ни дубль пары на PATCH не проверяются**, хотя обе проверки написаны для
@@ -768,10 +781,10 @@ else None`, а ноль в Python ложен (`crud/domain.py:441`, тот же 
 подпись клиента —
 `Promise<void>`.
 
-Ошибки: `NOT_FOUND` домен бросает как `NotFoundError` (`crud/domain.py:492`), роут С0 переводит в 404
+Ошибки: `NOT_FOUND` домен бросает как `NotFoundError` (`crud/domain.py:479`), роут С0 переводит в 404
 (БАГ-11). Мок — `CONVERSION_NOT_FOUND`. Роут требует общий get_current_user (С0).
 
-Бэкенд: `settings/features/crud/action.py:332-347` — `patch_conversion_route` · схемы `crud/schemas.py:162-171`
+Бэкенд: `settings/features/crud/action.py:332-347` — `patch_conversion_route` · схемы `crud/schemas.py:172-181`
 Реализация: `services/settingsService.ts:96` — `updateConversion` · мок `mocks/index.ts:1364` →
 `mocks/settings.ts:553` — `mockUpdateConversion`
 
@@ -785,15 +798,15 @@ else None`, а ноль в Python ложен (`crud/domain.py:441`, тот же 
 
 Ответ: `ApiResponse` без `data` (`crud/action.py:351-362`).
 
-Ошибки: `NOT_FOUND` домен бросает как `NotFoundError` (`crud/domain.py:534`), роут С0 возвращает 404. Мок — `CONVERSION_NOT_FOUND` (`mocks/settings.ts:525`).
+Ошибки: `NOT_FOUND` домен бросает как `NotFoundError` (`crud/domain.py:521`), роут С0 возвращает 404. Мок — `CONVERSION_NOT_FOUND` (`mocks/settings.ts:525`).
 Роут требует общий get_current_user (С0).
 
 **Удаление правила ничего не проверяет ни на одной стороне:** используется ли оно кем-нибудь, не
-смотрит ни мок, ни домен — там только проверка существования (`crud/domain.py:531-535`). Правило
+смотрит ни мок, ни домен — там только проверка существования (`crud/domain.py:518-522`). Правило
 пересчёта читают склад и карточка товара, поэтому это не безобидно; правила отказа в домене нет —
 строка владельцу.
 
-Бэкенд: `settings/features/crud/action.py:351-362` — `delete_conversion_route` · домен `crud/domain.py:531-535`
+Бэкенд: `settings/features/crud/action.py:351-362` — `delete_conversion_route` · домен `crud/domain.py:518-522`
 Реализация: `services/settingsService.ts:94` — `deleteConversion` · мок `mocks/index.ts:1642` →
 `mocks/settings.ts:559` — `mockDeleteConversion`
 
@@ -805,10 +818,10 @@ else None`, а ноль в Python ложен (`crud/domain.py:441`, тот же 
 заказов. Экран — вкладка `views/admin/settings/OrderStatusesSettings.vue`.
 
 **Два поля на проводе — переименование колонок, и сервер обязан держать это соответствие:**
-`order` это `sort_order`, `system` это `is_system` (`crud/domain.py:549-550`).
+`order` это `sort_order`, `system` это `is_system` (`crud/domain.py:536-537`).
 
 **Системные статусы не создаёт никто.** Создание жёстко пишет `is_system=False`
-(`crud/domain.py:565`), схема PATCH поля `system` не принимает, сидов в миграциях нет — а весь
+(`crud/domain.py:552`), схема PATCH поля `system` не принимает, сидов в миграциях нет — а весь
 фронт заказов опирается на замкнутый список (`frontend_vue/src/domain/orderStatus.ts`), и все
 пятнадцать сидовых статусов мока помечены системными (`mocks/settings.ts:204-339`). Откуда они
 берутся у нового арендатора — строка владельцу, и она же первая по важности в этом домене.
@@ -832,14 +845,14 @@ else None`, а ноль в Python ложен (`crud/domain.py:441`, тот же 
 }
 ```
 
-Тип фронта — `types/settings.ts:88-98`; схема сервера — `crud/schemas.py:176-187`.
+Тип фронта — `types/settings.ts:88-98`; схема сервера — `crud/schemas.py:186-197`.
 
 **Порядок задан, и это единственный список домена, у которого он задан:** выборка сортируется по
 `sort_order` (`crud/repository.py:292-298`). Список уходит в data конверта SettingsListResponse (С0); прежняя несовместимость конверта БАГ-04 устранена.
 
 Ошибки: коды ядра; своих нет, мок не бросает ничего.
 
-Бэкенд: `settings/features/crud/action.py:370-380` — `get_order_statuses_route` · схемы `crud/schemas.py:176-187`
+Бэкенд: `settings/features/crud/action.py:370-380` — `get_order_statuses_route` · схемы `crud/schemas.py:186-197`
 Реализация: `services/settingsService.ts:106` — `getOrderStatuses` · мок `mocks/index.ts:387` →
 `mocks/settings.ts:567` — `mockGetOrderStatuses`
 
@@ -850,7 +863,7 @@ else None`, а ноль в Python ложен (`crud/domain.py:441`, тот же 
 Создание статуса. Save-режим: clean-slate — `_addOrderStatus` кладёт строку с временным id
 `st-temp-<ts>` (`useSettings.ts:630-635`), запрос по Save (`useSettings.ts:519-533`).
 
-Запрос по схеме `OrderStatusCreateInput` (`crud/schemas.py:190-199`):
+Запрос по схеме `OrderStatusCreateInput` (`crud/schemas.py:200-209`):
 
 ```ts
 {
@@ -867,10 +880,10 @@ else None`, а ноль в Python ложен (`crud/domain.py:441`, тот же 
 
 Ответ: `OrderStatusSetting` с серверным `id`, тем же `model_dump` (`crud/action.py:384-395`);
 формат id контракт не обещает. **Мок и сервер расходятся по одному полю:** мок переписывает присланный порядок на индекс
-в конце списка (`mocks/settings.ts:547`), сервер сохраняет присланный (`crud/domain.py:564`).
+в конце списка (`mocks/settings.ts:547`), сервер сохраняет присланный (`crud/domain.py:551`).
 Источник истины — сервер.
 
-Ошибки: ни одного специфичного — ни домен (`crud/domain.py:558-578`), ни мок не бросают.
+Ошибки: ни одного специфичного — ни домен (`crud/domain.py:545-565`), ни мок не бросают.
 **Уникальность имени, формат цвета и коллизия порядка не проверяются нигде.**
 
 **Подмена временного id ищет строку «первую, которой нет в снимке»** (`useSettings.ts:519-533`) —
@@ -878,7 +891,7 @@ else None`, а ноль в Python ложен (`crud/domain.py:441`, тот же 
 статусах оба ответа перезапишут одну строку (БАГ-15). Сервер обязан вернуть созданную запись
 целиком; сопоставление — задача клиента.
 
-Бэкенд: `settings/features/crud/action.py:384-395` — `create_order_status_route` · схемы `crud/schemas.py:190-199`
+Бэкенд: `settings/features/crud/action.py:384-395` — `create_order_status_route` · схемы `crud/schemas.py:200-209`
 Реализация: `services/settingsService.ts:112` — `createOrderStatus` · мок `mocks/index.ts:1132` →
 `mocks/settings.ts:571` — `mockCreateOrderStatus`
 
@@ -891,7 +904,7 @@ else None`, а ноль в Python ложен (`crud/domain.py:441`, тот же 
 `views/admin/settings/OrderStatusesSettings.vue:15`), запрос по Save (`useSettings.ts:537-539`);
 дельта — от `findUpdated` (`useSettings.ts:500`).
 
-Запрос по схеме `OrderStatusPatchInput` (`crud/schemas.py:202-210`):
+Запрос по схеме `OrderStatusPatchInput` (`crud/schemas.py:212-220`):
 
 ```ts
 {
@@ -907,19 +920,19 @@ else None`, а ноль в Python ложен (`crud/domain.py:441`, тот же 
 отвергает: лишнее поле pydantic отбросит молча.
 
 **Слайс С5 уводит `order` из схемы PATCH: порядок правится только `PUT …/reorder`.** Схема
-`OrderStatusPatchInput` поля `order` больше не принимает (`crud/schemas.py:202-210`), а дельта его
+`OrderStatusPatchInput` поля `order` больше не принимает (`crud/schemas.py:212-220`), а дельта его
 и не шлёт; прежде два пути к одному полю давали две разные нумерации (Н9).
 
 Ответ: сервер отдаёт `OrderStatusResponse` целиком, через `model_dump` (`crud/action.py:411-426`);
 подпись клиента —
 `Promise<void>`.
 
-Ошибки: `NOT_FOUND` домен бросает как `NotFoundError` (`crud/domain.py:586`), роут С0 переводит в 404
+Ошибки: `NOT_FOUND` домен бросает как `NotFoundError` (`crud/domain.py:573`), роут С0 переводит в 404
 (БАГ-11). Мок — `ORDER_STATUS_NOT_FOUND`. Роут требует общий get_current_user (С0). **Формат цвета не проверяет никто:**
-колонка `String(7)` (`models.py:148`), проверки `#RRGGBB` нет ни в домене
-(`crud/domain.py:592-593`), ни в моке.
+колонка `String(7)` (`models.py:142`), проверки `#RRGGBB` нет ни в домене
+(`crud/domain.py:579-580`), ни в моке.
 
-Бэкенд: `settings/features/crud/action.py:411-426` — `patch_order_status_route` · схемы `crud/schemas.py:202-210`
+Бэкенд: `settings/features/crud/action.py:411-426` — `patch_order_status_route` · схемы `crud/schemas.py:212-220`
 Реализация: `services/settingsService.ts:120` — `updateOrderStatus` · мок `mocks/index.ts:1378` →
 `mocks/settings.ts:581` — `mockUpdateOrderStatus`
 
@@ -939,7 +952,7 @@ else None`, а ноль в Python ложен (`crud/domain.py:441`, тот же 
 ```
 
 Подпись клиента — `settingsService.ts:127-133`; схема сервера с тем же алиасом —
-`crud/schemas.py:213-223`.
+`crud/schemas.py:223-233`.
 
 Ответ: `ApiResponse` без `data` (`crud/action.py:399-407`).
 
@@ -980,19 +993,19 @@ else None`, а ноль в Python ложен (`crud/domain.py:441`, тот же 
 Ответ: `ApiResponse` без `data` (`crud/action.py:430-449`).
 
 Ошибки: `NOT_FOUND` (404, `crud/action.py:430-449`) и `FORBIDDEN` (403, `crud/action.py:430-449`,
-источник `crud/domain.py:623`) — на системный статус. Это **единственное место во всём бэкенде,
+источник `crud/domain.py:610`) — на системный статус. Это **единственное место во всём бэкенде,
 где поднимается `ForbiddenError`** (§6 соглашений). Мок знает только `ORDER_STATUS_NOT_FOUND` и
 **системность не проверяет вовсе** (БАГ-14), то есть под моками удаляется то, что сервер запретит.
 
 **Проверки «статус используется в заказах» нет нигде** — она оставлена комментарием-TODO
-(`crud/domain.py:625-626`), а обещал её старый контракт. Заказов на бэкенде нет вовсе, так что для
+(`crud/domain.py:612-613`), а обещал её старый контракт. Заказов на бэкенде нет вовсе, так что для
 сервера это будущая работа, а не восстановление существующего.
 
-**Дыры в нумерации после удаления сервер не заделывает** (`crud/domain.py:616-628`), а мок
+**Дыры в нумерации после удаления сервер не заделывает** (`crud/domain.py:603-615`), а мок
 перенумеровывает (`mocks/settings.ts:579`). При чтении дыры не видны, потому что порядок задаётся
 сортировкой; обязан ли сервер нормализовать — строка владельцу.
 
-Бэкенд: `settings/features/crud/action.py:430-449` — `delete_order_status_route` · домен `crud/domain.py:616-628`
+Бэкенд: `settings/features/crud/action.py:430-449` — `delete_order_status_route` · домен `crud/domain.py:603-615`
 Реализация: `services/settingsService.ts:129` — `deleteOrderStatus` · мок `mocks/index.ts:1647` →
 `mocks/settings.ts:605` — `mockDeleteOrderStatus`
 
@@ -1370,7 +1383,7 @@ URL — находка домена `auth`.
 (`composables/useOrderPermissions.ts:16-21`).
 
 Бэкенд: **не реализован** — модели прав в модуле нет: шесть классов моделей
-(`backend/app/modules/settings/shared/models.py:12`, `:32`, `:61`, `:86`, `:104`, `:136`), прав
+(`backend/app/modules/settings/shared/models.py:12`, `:32`, `:58`, `:80`, `:98`, `:130`), прав
 среди них нет.
 Реализация: `services/settingsService.ts:36` — `getOrderPermissions` · мок `mocks/index.ts:383` →
 `mocks/settings.ts:456` — `mockGetOrderPermissions`
@@ -1390,14 +1403,14 @@ URL — находка домена `auth`.
 
 | значение | кто задаёт | состояние |
 |---|---|---|
-| `vat_rate=21`, `default_margin=15`, `default_currency='EUR'`, `default_discount_percent=0` | колонки сервера (`models.py:44-55`), строка создаётся при первом чтении (`crud/domain.py:177-179`) | продублированы дефолтом состояния фронта (`useSettings.ts:55`) и сидом мока (`mocks/settings.ts:51-56`) |
+| `vat_rate=21`, `default_margin=15`, `default_discount_percent=0` | колонки сервера (`models.py:44-52`), строка создаётся при первом чтении (`crud/domain.py:174-179`) | продублированы дефолтом состояния фронта (`useSettings.ts:55`) и сидом мока (`mocks/settings.ts:51-56`) |
 | валюта, НДС и маржа новой строки заказа | читаются из стора настроек (`composables/useOrderCard.ts:139-142`) | правильно: копии нет |
 | маржа партии, валюта поставщика | стор настроек (`composables/useWarehouseBatch.ts:113`, `composables/useSupplierCreate.ts:48`) | правильно |
 | список валют карточки поставщика | **константа во фронте** — `EUR/USD/PLN/GBP` (`components/admin/SupplierFormSections.vue:57-62`) | находка: справочник принадлежит серверу (§14) |
-| валюта по умолчанию | выражена дважды — флагом записи (`types/settings.ts:25`) и кодом в константах (`:16`); читаются подряд одним выражением (`services/orderLines.ts:154`) | какой источник главный — строка владельцу |
+| валюта по умолчанию | флаг записи `Currency.isDefault` (`types/settings.ts:25`) — главный источник по П22 | на сервере одна: колонка констант снята ревизией `7c4d1e9a3b58`; второй источник во фронте (`types/settings.ts:16`) снимает слайс C6, а инвариант «ровно одна валюта с флагом» ставит он же |
 | карточка компании нового арендатора | сервер, при регистрации (`backend/app/modules/settings/internal_api/interface.py:67-79`) | работает |
 | валюты, единицы, правила пересчёта, статусы заказов нового арендатора | **никто**: регистрация создаёт только арендатора (`backend/app/modules/auth/features/register/repository.py:46-61`), сидов в миграциях нет | строка владельцу, первая по важности |
-| системность статуса заказа | **никто**: создание пишет `is_system=False` (`crud/domain.py:565`), схема PATCH поля не принимает | строка владельцу |
+| системность статуса заказа | **никто**: создание пишет `is_system=False` (`crud/domain.py:552`), схема PATCH поля не принимает | строка владельцу |
 | ширина реза по умолчанию | **этот домен по П34**, но поля нет ни во фронте, ни на сервере (`grep -rci kerf frontend_vue/src/types/settings.ts backend/app` → ноль) | сегодня литерал `3` мм в складском композабле (`useWarehouseCutting.ts:166`); куда переносится — раздел «Ширина реза по умолчанию» |
 
 **2. События и уведомления — ни одного, ни на одной стороне.** Мок настроек не рождает ни одной
@@ -1429,8 +1442,6 @@ frontend_vue/src/services/mocks/settings.ts backend/app/modules/settings` → п
   заказа — семь эндпоинтов из 31 (см. их разделы);
 - **пароль мок не хранит и не проверяет**: смена пароля у него no-op (`mocks/index.ts:1134`), и
   ни один из трёх путей отказа в демо не воспроизводится;
-- **курса валюты мок не знает**, а сервер требует его при создании (`crud/schemas.py:85`) —
-  БАГ-05;
 - **системности статуса мок не проверяет** (БАГ-14), а сервер отвечает 403;
 - **дубль пары единиц мок не ловит** (`mocks/settings.ts:514-521`), а сервер отвечает 409;
 - **список пользователей не приходит ниоткуда**: поле в типе есть (`types/settings.ts:245`) и сид
@@ -1476,7 +1487,7 @@ Profile передаёт user_id/tenant_id через internal API auth, без 
   (`profile/domain.py:38-41`), причём отсутствующий токен тут же генерируется и записывается
   (`profile/domain.py:31-33`);
 - **`order` и `system` статуса** — переименование колонок `sort_order` и `is_system`
-  (`crud/domain.py:549-550`);
+  (`crud/domain.py:536-537`);
 - **`passwordSet` почты** — выводится из наличия пароля и полем не хранится
   (`mocks/settings.ts:589`); самого пароля в типе нет вовсе (`types/settings.ts:140-141`);
 - **пустые строки вместо `null`** у компании и телефона профиля: `legal_address`
@@ -1485,8 +1496,10 @@ Profile передаёт user_id/tenant_id через internal API auth, без 
 
 Обратный случай — **хранится то, что могло бы считаться, и не нормализуется то, что должно**:
 порядок статусов сервер после удаления не перенумеровывает — `remove_order_status_item`
-(`crud/domain.py:616-628`), а мок перенумеровывает (`mocks/settings.ts:579`): строка владельцу.
-И `exchange_rate` (`models.py:74-76`) хранится при том, что конвертации в проекте нет нигде.
+(`crud/domain.py:603-615`), а мок перенумеровывает (`mocks/settings.ts:579`): строка владельцу.
+Там же стояли две хранимые производные, и обе сняты ревизией `7c4d1e9a3b58`: `exchange_rate`
+валюты (П23 — конвертации в проекте нет нигде) и `default_currency` констант (П22 + П68 —
+производное от флага валюты).
 
 ---
 
@@ -1546,17 +1559,17 @@ Profile передаёт user_id/tenant_id через internal API auth, без 
 | «Rate-limit: 3 попытки/min/IP» у смены пароля | ограничителя нет: настройка объявлена в конфиге (`backend/app/core/config.py:32`) и не читается ни одной строкой — БАГ-12 |
 | «Body: dirty-only поля» у компании, констант, почты и профиля | клиент шлёт **секцию целиком** во всех четырёх: `useSettings.ts:379`, `:366`, `:376-377`, `:526`. Dirty-поля шлют только коллекции — через `findUpdated` (`useSettings.ts:205-227`) |
 | «Клиент **не** шлёт base64» у логотипа | шлёт, если Save нажать до конца загрузки: data-URL кладётся в стор для превью (`SettingsLayout.vue:328-338`) — БАГ-18 |
-| «422 если попытка удалить валюту, установленную как `defaultCurrency`» | закрыто слайсом С4: статус не 422, а 409 `CURRENCY_IS_DEFAULT` (`crud/domain.py:331-332`) — конфликт состояния, а не формы тела; отдельно существует 409 `CURRENCY_IN_USE` «используется товарами» (`crud/domain.py:338`) |
-| «409 если UOM используется в товарах, правилах пересчёта или заказах» | из трёх реализован один — товары, с С4 названный `UOM_IN_USE` (`crud/domain.py:424`); правила пересчёта по-прежнему удаляются **каскадом** (`models.py:117`, `:122`) — БАГ-07, ждёт С1; заказов на бэкенде нет вовсе |
-| «`factor` required if `type === 'static'`» (и формула у динамического) | правила нет ни на сервере, ни в моке: схема объявляет оба поля необязательными (`crud/schemas.py:156-157`), домен связку не проверяет (`crud/domain.py:448-484`) — БАГ-20 |
-| «`order` изменяется только через reorder» | схема PATCH `order` принимает (`crud/schemas.py:207`), и дельта его отправляет (`useSettings.ts:216-221`) — два пути к одному полю |
-| поле `system?: boolean` в теле создания статуса | схема такого поля не принимает (`crud/schemas.py:190-199`), сервер жёстко пишет `is_system=False` (`crud/domain.py:565`). Описывать поле, которое сервер обязан игнорировать, — приглашение его прислать |
-| «409 если статус используется в заказах» у удаления | проверки нет нигде, она оставлена комментарием-TODO (`crud/domain.py:625-626`) |
+| «422 если попытка удалить валюту, установленную как `defaultCurrency`» | закрыто слайсом С4: статус не 422, а 409 `CURRENCY_IS_DEFAULT` (`crud/domain.py:317-319`) — конфликт состояния, а не формы тела; отдельно существует 409 `CURRENCY_IN_USE` «используется товарами» (`crud/domain.py:325`) |
+| «409 если UOM используется в товарах, правилах пересчёта или заказах» | из трёх реализован один — товары, с С4 названный `UOM_IN_USE` (`crud/domain.py:411`); правила пересчёта каскадом больше не удаляются — ревизия `7c4d1e9a3b58` перевела обе ссылки на `RESTRICT` (`models.py:109-118`), но доменного отказа по ним нет, БАГ-07 наполовину; заказов на бэкенде нет вовсе |
+| «`factor` required if `type === 'static'`» (и формула у динамического) | правила нет ни на сервере, ни в моке: схема объявляет оба поля необязательными (`crud/schemas.py:166-167`), домен связку не проверяет (`crud/domain.py:435-471`) — БАГ-20 |
+| «`order` изменяется только через reorder» | схема PATCH `order` принимает (`crud/schemas.py:217`), и дельта его отправляет (`useSettings.ts:216-221`) — два пути к одному полю |
+| поле `system?: boolean` в теле создания статуса | схема такого поля не принимает (`crud/schemas.py:200-209`), сервер жёстко пишет `is_system=False` (`crud/domain.py:552`). Описывать поле, которое сервер обязан игнорировать, — приглашение его прислать |
+| «409 если статус используется в заказах» у удаления | проверки нет нигде, она оставлена комментарием-TODO (`crud/domain.py:612-613`) |
 | «Атомарная перезапись порядка» у reorder | это цикл из N отдельных `UPDATE` с одним `commit` в конце (`crud/repository.py:287-297`); неполный список даёт неконсистентную нумерацию |
 | форматы идентификаторов `cur-{N}`, `uom-{N}`, `st-11` в примерах ответов | свойство мока (`mocks/settings.ts:463`, `:490`, `:544`); сервер выдаёт UUID (`backend/app/core/base.py:18-22`), и контракт не вправе обещать формат `id` (§19 соглашений) |
-| семь категорий единиц (`weight … thickness`) | их восемь: добавлена `time` для услуг (`types/settings.ts:31-40`); тот же устаревший список повторяет комментарий колонки (`models.py:99-101`) |
-| «`exchangeRate` есть в типе `Currency`» | в типе фронта его нет (`types/settings.ts:22-28`); поле существует только на сервере, и из-за этого не работает создание валюты — БАГ-05 |
-| «`defaultCurrency` должен соответствовать одной из валют» | проверки нет: `patch_global_constants` к валютам не обращается ни разу (`crud/domain.py:188-226`) |
+| семь категорий единиц (`weight … thickness`) | их восемь: добавлена `time` для услуг (`types/settings.ts:31-40`); тот же устаревший список повторяет комментарий колонки (`models.py:93-95`) |
+| «`exchangeRate` есть в типе `Currency`» | снято вместе с полем (П23, ревизия `7c4d1e9a3b58`): его нет ни в типе фронта (`types/settings.ts:22-28`), ни в схеме сервера, ни в колонке — БАГ-05 закрыт |
+| «`defaultCurrency` должен соответствовать одной из валют» | правило снято вместе с полем: `patch_global_constants` к валютам не обращается ни разу (`crud/domain.py:187-220`), и обращаться ему больше не к чему (П22 + П68) |
 | статус 415 у `MAP_NOT_AN_IMAGE` | статуса в коде нет: мок бросает голый `Error` без статуса (`mocks/settings.ts:695`), а форма ошибки на проводе — `detail` с кодом (§1 соглашений) |
 | «Сервер НЕ возвращает данные пользователя» у смены пароля | верно и подтверждено: ответ несёт только сообщение (`profile/action.py:96`) |
 | общие правила: конверт ответа, коды ядра, `PATCH` против `PUT`, мультиарендность, форма `id`, `TranslatedString`, clean-slate | перенесены в [`00-conventions.md`](00-conventions.md) (§1, §2, §3, §4, §19, §12, §15) — правило двух и более доменов в доменном файле не дублируется |
@@ -1576,9 +1589,9 @@ Profile передаёт user_id/tenant_id через internal API auth, без 
 |---|---|
 | «Body: dirty-only поля» неверно у четырёх секций | разделы PATCH компании, констант, почты и профиля; строка в «Чего в домене нет» |
 | старый контракт не называл, что строка компании и строка констант создаются сервером сами | разделы `GET /api/settings/company` и `GET /api/settings/constants` |
-| `defaultCurrency` — код, а не id; правило «должен соответствовать валюте» не реализовано | раздел `GET /api/settings/constants`; строка в «Чего в домене нет» |
+| `defaultCurrency` — код, а не id; правило «должен соответствовать валюте» не реализовано | снято вместе с полем: разделы `GET` и `PATCH /api/settings/constants`, П22 + П68 |
 | смена валюты по умолчанию — операция из двух и более запросов | раздел `PATCH /api/settings/constants`; графа 8 обязанностей |
-| `exchangeRate` есть у сервера и нет у фронта; создание валюты не работает | разделы `GET`/`POST /api/settings/currencies`, БАГ-05 |
+| `exchangeRate` есть у сервера и нет у фронта; создание валюты не работает | снято вместе с полем (П23): разделы `GET`/`POST`/`PATCH /api/settings/currencies`, БАГ-05 закрыт |
 | порядок выдачи не задан у трёх списков из четырёх | разделы `GET` валют, единиц и правил; §13 соглашений требует умолчания |
 | список в поле конверта, объявленном как `dict` | четыре раздела `GET` коллекций, БАГ-04 |
 | удаление валюты по умолчанию ничем не запрещено; 409 по товарам прежде не описан | закрыто слайсом С4 — раздел `DELETE /api/settings/currencies/:id` называет `CURRENCY_IS_DEFAULT` и `CURRENCY_IN_USE`, БАГ-08 |
@@ -1587,7 +1600,7 @@ Profile передаёт user_id/tenant_id через internal API auth, без 
 | категорий единиц восемь, а не семь; сервер примет любую строку | вводный абзац раздела «Единицы измерения» |
 | уникальность кода единицы держит только форма | раздел `POST /api/settings/uoms` |
 | у `PATCH /api/settings/uoms/:id` нет вызывающего | раздел эндпоинта плюс реестр «клиент написан, UI нет» во вводной части |
-| удаление единицы сносит правила пересчёта каскадом | раздел `DELETE /api/settings/uoms/:id`, БАГ-07 |
+| удаление единицы сносит правила пересчёта каскадом | снято: `RESTRICT` вместо `CASCADE` (П44, ревизия `7c4d1e9a3b58`), раздел `DELETE /api/settings/uoms/:id` |
 | `factor = 0` не доезжает до клиента | раздел `GET /api/settings/conversions`, БАГ-19 |
 | правило можно создать без коэффициента и без формулы | раздел `POST /api/settings/conversions`, БАГ-20 |
 | PATCH правила не проверяет ни совпадение единиц, ни дубль пары; `factor` не обнулить | раздел `PATCH /api/settings/conversions/:id`, БАГ-21 |
@@ -1614,11 +1627,11 @@ Profile передаёт user_id/tenant_id через internal API auth, без 
 | код домена не доходит до человека как код | каталог кодов, следствия 1 и 2; БАГ-17 |
 | десять правил домена, которых нет в контракте | раздел «Правила домена», пункты 1–10 один к одному |
 | девять граф «Обязанностей сервера» | раздел «Обязанности сервера», графы 1–9 |
-| **решено 2026-09-07 (П25)** · всё четыре создаются **миграцией** — это то, без чего работать нельзя с первого дня. Статусы заказа при этом системные: их заводит система, удалить их нельзя. Сегодня не сеется ничто (`op.bulk_insert` во всех миграциях один, и это фичи тарифов), а системный статус сервер завести не может вовсе — создание пишет `is_system=False` (`crud/domain.py:565`), PATCH поля `system` не принимает (`crud/schemas.py:202-210`). Эталон состава — 15 статусов мока (`mocks/settings.ts:210-345`) | графа 1 |
+| **решено 2026-09-07 (П25)** · всё четыре создаются **миграцией** — это то, без чего работать нельзя с первого дня. Статусы заказа при этом системные: их заводит система, удалить их нельзя. Сегодня не сеется ничто (`op.bulk_insert` во всех миграциях один, и это фичи тарифов), а системный статус сервер завести не может вовсе — создание пишет `is_system=False` (`crud/domain.py:552`), PATCH поля `system` не принимает (`crud/schemas.py:202-210`). Эталон состава — 15 статусов мока (`mocks/settings.ts:210-345`) | графа 1 |
 | **осталось** · кто создаёт системные статусы заказа и что делает их системными | графа 1 и вводный абзац статусов; решение владельца |
-| **решено 2026-09-07 (П23)** · не остаётся — поле **удаляется**: от конверсии валют пока отказались, возможно вернутся позже. Сегодня сервер требует его обязательным (`crud/schemas.py:85`, колонка `settings/shared/models.py:74-76`), и из-за этого `POST /api/settings/currencies` против настоящего сервера не работает; удаление снимает и БАГ-05. Колонка `exchange_rate` складской партии — та же судьба | разделы валют; [§14](00-conventions.md) |
+| **решено 2026-09-07 (П23)** · не остаётся — поле **удаляется**: от конверсии валют пока отказались, возможно вернутся позже. Сервер требовал его обязательным, и из-за этого `POST /api/settings/currencies` против настоящего сервера не работал. **Сделано 2026-09-21 слайсом C1** (ревизия `7c4d1e9a3b58`): колонки и поля схемы больше нет, БАГ-05 закрыт. Колонка `exchange_rate` складской партии — та же судьба | разделы валют; [§14](00-conventions.md) |
 | **решено 2026-09-07 (П19)** · настройками. Жёсткий `EUR/USD/PLN/GBP` в `components/admin/SupplierFormSections.vue:58-63` — дефект: справочник принадлежит серверу, копии во фронте быть не должно | графа 1; [§14](00-conventions.md) |
-| **решено 2026-09-07 (П22)** · главный — флаг `Currency.isDefault`: именно его правит вкладка `/admin/settings/finance` (`FinanceSettings.vue:90-113`), поля `constants.defaultCurrency` на ней нет. Константа производна, и сервер обязан держать исключительность флага и выводить код сам — сегодня и то и другое делает браузер (`SettingsLayout.vue:436-446`), а сервер при записи `is_default` других валют не касается (`crud/domain.py:281-322`) | графа 1 и раздел `PATCH /api/settings/constants`; [§14](00-conventions.md) |
+| **решено 2026-09-07 (П22)** · главный — флаг `Currency.isDefault`: именно его правит вкладка `/admin/settings/finance` (`FinanceSettings.vue:90-113`), поля `constants.defaultCurrency` на ней нет. Константа производна, и сервер обязан держать исключительность флага и выводить код сам — сегодня и то и другое делает браузер (`SettingsLayout.vue:436-446`), а сервер при записи `is_default` других валют не касается (`crud/domain.py:271-309`). **Начато 2026-09-21 слайсом C1** (ревизия `7c4d1e9a3b58`): хранимая колонка `default_currency` снята, поле ушло из схем; исключительность флага и вывод кода — слайс C6 | графа 1 и раздел `PATCH /api/settings/constants`; [§14](00-conventions.md) |
 | **решено 2026-09-09 (П51)** · не рождает: ни смена НДС, ни валюты по умолчанию, ни набора статусов в перечень нужных типов не вошли, след у них журнальный (П36). Домен при этом получает **две новые вкладки**: `Уведомления` — таблица «тип × канал» с подписками на пользователя (П54), и хранилище почты под уже готовую вкладку `Почта` (П53) | графа 2; [§10.1](00-conventions.md), [§10.2](00-conventions.md), [§24](00-conventions.md) |
 | **решено 2026-09-08 частично (П36)** · правило записи общее: любое изменение любого свойства, автор — `user_id` плюс снимок имени. **Решено 2026-09-08 (П42):** да — `settings` становится **десятым видом сущности ленты**. У события есть всё, что нужно строке: свойство, старое значение, новое, автор. После П38 это новое значение `entity_type`, а не новая таблица; замкнутый перечень `AuditEntityType` (`types/audit.ts:5-13`) расширяется до десяти. Логируются финансовые константы, валюта по умолчанию, матрица прав и почтовые настройки | графа 3; [§9](00-conventions.md) |
 | **решено 2026-09-07 (П2, П7)** · править настройки — обычное право матрицы; одно ли оно на все семь вкладок, решается повкладочно по надобности роли, а не сквозным правилом | графа 7; [§6.6](00-conventions.md) |
@@ -1628,10 +1641,10 @@ Profile передаёт user_id/tenant_id через internal API auth, без 
 | **решено 2026-09-09 (П53)** · в своей таблице, которой сегодня нет: место ввода готово (вкладка `Почта`, три эндпоинта, мок), а на бэкенде ни колонки `smtp`/`mail_`, ни маршрута. Работа названа поимённо — хранилище под уже описанные поля, три эндпоинта к нему и вызов написанного транспорта из BCC | графа 5 и раздел почты; [§24](00-conventions.md). **Сделано 2026-09-21 слайсом С8** — таблица `mail_settings`, три роута, вызов транспорта через `internal_api` |
 | **решено 2026-09-10 наполовину (П65 а)** · карта — **просто картинка**, у каждого арендатора своя; форму хранения контракт не назначает, лишь бы сервер отдавал её тремя описанными эндпоинтами. **Осталось:** кто удаляет файл заменённой карты | графа 5 и разделы карты; решение владельца |
 | **решено 2026-09-10 (П58)** · список наполняется **приглашениями**: владелец пишет имя, выбирает роль и получает ссылку, которую передаёт как хочет; приглашённый ставит пароль сам. Запись существует до первого входа, в состоянии «приглашён». Эндпоинты управления пользователями — новая работа | графа 5; [§4.1](00-conventions.md) |
-| **решено 2026-09-09 наполовину (П44)** · **что делать** — решено: справочник с живыми ссылками не удаляется, сервер отвечает отказом, и всё, что ссылается на единицу или валюту, обязано стать `RESTRICT` (сегодня правило пересчёта уносится `CASCADE`, `settings/shared/models.py:117,122`). **Осталось:** каким именно кодом каталога §2 | разделы `DELETE` единиц и валют; [§22](00-conventions.md) (БАГ-07, БАГ-08) |
+| **решено 2026-09-09 наполовину (П44)** · **что делать** — решено: справочник с живыми ссылками не удаляется, сервер отвечает отказом, и всё, что ссылается на единицу или валюту, обязано стать `RESTRICT` (каскад правил пересчёта снят слайсом C1 — ревизия `7c4d1e9a3b58`, `settings/shared/models.py:109-118`). **Осталось:** каким именно кодом каталога §2 | разделы `DELETE` единиц и валют; [§22](00-conventions.md) (БАГ-07, БАГ-08) |
 | **снято 2026-09-10 (§2)** · разделять: отказ несёт код, а не текст — `PASSWORD_WRONG_CURRENT` (401), `PASSWORD_TOO_SHORT` и `PASSWORD_CONFIRM_MISMATCH` (422, имя поля в `fieldErrors`); иначе человек не узнает, что именно поправить | раздел смены пароля; [§2](00-conventions.md) |
 | **снято 2026-09-10 (форма `reorder`)** · не обязан: клиент присылает `orderedIds` целиком, то есть порядок задаётся списком, а не приращением; дыры в номерах законны и клиенту не видны | графа 9 и раздел `DELETE` статуса |
-| **осталось** · проверяет ли сервер границы четырёх констант и `defaultCurrency` по списку валют | раздел `PATCH /api/settings/constants`. Своей строки в файле решений у этого пункта нет — он примыкает к строке про два источника валюты по умолчанию; отдельной строкой его вносит владелец, контракт правила не назначает |
+| **осталось** · проверяет ли сервер границы констант | раздел `PATCH /api/settings/constants`; границы трёх числовых величин отвечены П108–П110 и закрыты слайсом C15. Сверка `defaultCurrency` по списку валют снята вместе с полем (П22 + П68) |
 
 Находки про код домена — [`contract-sync-settings-bugs.md`](../../plans/bugs/contract-sync-settings-bugs.md),
 БАГ-01…БАГ-21. Код этой работой не тронут.

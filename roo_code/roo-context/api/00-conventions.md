@@ -310,7 +310,7 @@ use it» (`composables/useOrderPermissions.ts:6-10`). Тарифная стор�
 
 Состояние кода: `ForbiddenError` во всём бэкенде поднимается ровно один раз, и не матрицей, а
 запретом удалять системный статус заказа
-(`backend/app/modules/settings/features/crud/domain.py:621`, отдача `403` —
+(`backend/app/modules/settings/features/crud/domain.py:608-610`, отдача `403` —
 `crud/action.py:512-516`).
 Единственный работающий отказ по праву — в моке заказов, и код у него другой: `FORBIDDEN_`
 плюс имя права заглавными, то есть `FORBIDDEN_MANUALCOST`, `FORBIDDEN_CORRECTION`
@@ -1439,8 +1439,9 @@ save-режим.
 справочников зеркальная непоследовательность: `RESTRICT` у товаров и услуг
 (`modules/products/shared/models.py:127,142,149,156`, `modules/services/shared/models.py:33,40`),
 у складской партии `ondelete` стоит `SET NULL` (`modules/warehouse/shared/models.py:72,80`), а у
-правил пересчёта — `CASCADE` (`modules/settings/shared/models.py:117,122`) — удаление единицы измерения сегодня молча
-уносит правило. Под П44 всё, что ссылается на справочник, обязано стать `RESTRICT`, а под товаром
+правил пересчёта — `RESTRICT` (`modules/settings/shared/models.py:111,116`): каскад снят слайсом C1
+(ревизия `7c4d1e9a3b58`), и правило молча больше не уносит.
+Под П44 всё, что ссылается на справочник, обязано стать `RESTRICT`, а под товаром
 и услугой политика перестаёт срабатывать вовсе: строка не удаляется.
 
 ## 23. Отчёт считается на одну отметку времени

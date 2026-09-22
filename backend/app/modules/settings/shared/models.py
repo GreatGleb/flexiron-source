@@ -47,9 +47,6 @@ class GlobalConstants(UUIDMixin, Base):
     default_margin: Mapped[float] = mapped_column(
         Numeric(5, 2), nullable=False, default=15, server_default="15"
     )
-    default_currency: Mapped[str] = mapped_column(
-        String(10), nullable=False, default="EUR", server_default="EUR"
-    )
     default_discount_percent: Mapped[float] = mapped_column(
         Numeric(5, 2), nullable=False, default=0, server_default="0"
     )
@@ -71,9 +68,6 @@ class Currency(UUIDMixin, TimestampMixin, Base):
     )
     code: Mapped[str] = mapped_column(String(10), nullable=False)
     name_translations: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
-    exchange_rate: Mapped[float] = mapped_column(
-        Numeric(12, 6), nullable=False, default=1, server_default="1"
-    )
     is_default: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
     )
@@ -114,12 +108,12 @@ class UomConversion(UUIDMixin, TimestampMixin, Base):
     )
     from_uom_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("uoms.id", ondelete="CASCADE"),
+        ForeignKey("uoms.id", ondelete="RESTRICT"),
         nullable=False,
     )
     to_uom_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("uoms.id", ondelete="CASCADE"),
+        ForeignKey("uoms.id", ondelete="RESTRICT"),
         nullable=False,
     )
     type: Mapped[str] = mapped_column(

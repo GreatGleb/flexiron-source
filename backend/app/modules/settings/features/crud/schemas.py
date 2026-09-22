@@ -41,22 +41,31 @@ class CompanyPatchInput(BaseModel):
 # ─── Constants ────────────────────────────────────────────────────────────
 
 class ConstantsResponse(BaseModel):
-    """Global financial constants — matches frontend GlobalConstants type."""
+    """Global financial constants — matches frontend GlobalConstants type.
+
+    The default currency is not one of them: it is not a constant but a
+    projection of the currency flag `Currency.is_default` (П22 + П68), so the
+    stored column is gone and the value leaves this response with it — deriving
+    it is slice C6, which also owns the "exactly one flag" invariant.
+    """
 
     vat_rate: float = Field(alias="vatRate")
     default_margin: float = Field(alias="defaultMargin")
-    default_currency: str = Field(alias="defaultCurrency")
     default_discount_percent: float = Field(alias="defaultDiscountPercent")
 
     model_config = {"populate_by_name": True, "from_attributes": True}
 
 
 class ConstantsPatchInput(BaseModel):
-    """Partial update for global constants."""
+    """Partial update for global constants.
+
+    No `defaultCurrency`: the stored column is gone (П22 + П68), so there is
+    nothing for this body to write — a client that still sends the field has it
+    ignored.
+    """
 
     vat_rate: float | None = Field(alias="vatRate", default=None)
     default_margin: float | None = Field(alias="defaultMargin", default=None)
-    default_currency: str | None = Field(alias="defaultCurrency", default=None)
     default_discount_percent: float | None = Field(alias="defaultDiscountPercent", default=None)
 
     model_config = {"populate_by_name": True}
@@ -70,7 +79,6 @@ class CurrencyResponse(BaseModel):
     id: str
     code: str
     name: TranslatedString
-    exchange_rate: float = Field(alias="exchangeRate")
     is_default: bool = Field(alias="isDefault")
     updated_at: str | None = Field(alias="updatedAt", default=None)
 
@@ -78,11 +86,14 @@ class CurrencyResponse(BaseModel):
 
 
 class CurrencyCreateInput(BaseModel):
-    """Input for creating a new currency."""
+    """Input for creating a new currency.
+
+    No rate field: conversion between currencies was dropped from the project
+    altogether (П23), so there is no rate to store and none to send.
+    """
 
     code: str
     name: TranslatedString
-    exchange_rate: float = Field(alias="exchangeRate")
     is_default: bool = Field(alias="isDefault", default=False)
 
     model_config = {"populate_by_name": True}
@@ -93,7 +104,6 @@ class CurrencyPatchInput(BaseModel):
 
     code: str | None = None
     name: TranslatedString | None = None
-    exchange_rate: float | None = Field(alias="exchangeRate", default=None)
     is_default: bool | None = Field(alias="isDefault", default=None)
 
     model_config = {"populate_by_name": True}

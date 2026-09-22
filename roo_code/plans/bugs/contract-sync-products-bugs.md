@@ -283,7 +283,7 @@ linkedSuppliers.value = JSON.parse(JSON.stringify(data.linkedSuppliers)) as Link
 
 Работа по коду: `backend/app/modules/products/features/create_product/schemas.py:8-31` и
 `get_product_detail/schemas.py:25-54` получают `Field(alias=…)` и отдачу `by_alias=True`, как
-`settings/features/crud/schemas.py:145,157,169`. Ветка «слой преобразования на фронте» закрыта.
+`settings/features/crud/schemas.py:155,157,169`. Ветка «слой преобразования на фронте» закрыта.
 Отдельно от этого `JSON.parse(JSON.stringify(x))` на поле, которого может не быть, — небезопасный
 способ скопировать массив.
 
@@ -413,7 +413,7 @@ const payload = { ...data, name: toTranslatedString(data.name, locale), descript
 
 Как это решается в проекте, показано рядом: модуль `settings` объявляет
 `Field(alias="formulaType")` и его соседей
-(`backend/app/modules/settings/features/crud/schemas.py:145`, `:157`, `:169`).
+(`backend/app/modules/settings/features/crud/schemas.py:155`, `:167`, `:179`).
 
 ### Fix
 

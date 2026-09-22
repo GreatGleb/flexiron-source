@@ -38,7 +38,7 @@ clean-slate против quick-action — §15; производные знач�
 `backend/app/modules/products/features/create_product/schemas.py:8-31` и
 `backend/app/modules/products/features/get_product_detail/schemas.py:25-54`; клиент шлёт и читает
 camelCase (`services/productsService.ts:49-58`, `:86-111`, тип — `types/product.ts:56-109`).
-Соседний модуль ту же задачу решил алиасами (`backend/app/modules/settings/features/crud/schemas.py:145`,
+Соседний модуль ту же задачу решил алиасами (`backend/app/modules/settings/features/crud/schemas.py:155`,
 `:157`, `:169` — `Field(alias="formulaType")`), products — нет. Следствий два, и оба тихие: тело
 `POST` теряет все camelCase-ключи как `extra` (модель без `extra="forbid"`, БАГ-11), а карточка
 против живого сервера не открывается вовсе (БАГ-07). Чем это закрывать — алиасами на бэкенде или

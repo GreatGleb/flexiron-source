@@ -192,7 +192,7 @@
 - Отказ по праву на бэкенде не поднимается ни разу. `ForbiddenError` объявлен
   (`backend/app/core/exceptions.py:37-41`) и поднимается ровно один раз, и не матрицей, а
   запретом удалять системный статус заказа
-  (`backend/app/modules/settings/features/crud/domain.py:529`).
+  (`backend/app/modules/settings/features/crud/domain.py:516`).
 
 ### 2.2. Клиент матрицу знает, но не применяет
 
