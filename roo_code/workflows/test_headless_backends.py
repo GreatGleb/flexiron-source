@@ -35,12 +35,15 @@ role = 'review' if '--restricted' in args else 'work'
 assert (role == 'review') == ('--restricted' in args)
 with pathlib.Path(os.environ['NIGHT_TEST_CALLS']).open('a') as calls:
     calls.write(f"{task['id']}:{role}:claude\n")
+mode = os.environ.get('NIGHT_TEST_MODE', '')
 if role == 'work':
+    body = {'links-keep-broken': 'БИТАЯ ссылка досталась по наследству\nновый вердикт\n',
+            'links-add-broken': 'БИТАЯ ссылка досталась по наследству\nи БИТАЯ своя\n',
+            'links-no-report': 'новый вердикт\n'}.get(mode, 'prepared\n')
     for name in task['outputs']:
         path = pathlib.Path(name)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text('prepared\n')
-mode = os.environ.get('NIGHT_TEST_MODE', '')
+        path.write_text(body)
 if mode == 'claude-prose':
     body = 'Вот результат:\n```json\n{"status": "done", "summary": "ок", "evidence": ["читал plan.md"]}\n```\n'
 elif mode == 'claude-error':
@@ -131,6 +134,82 @@ class CommandTest(unittest.TestCase):
             "work", Path("/repo"), Path("/run"), Path("/run/r.json"))
         self.assertEqual(argv[argv.index("--result") + 1], "/run/r.json")
         self.assertEqual(json.loads(argv[argv.index("--config") + 1]), {"apiProvider": "deepseek"})
+
+
+# Считает битые ссылки так же, как настоящий резолвер печатает их в отчёте:
+# одна строка «[ссылки] … битых N». Битой считается пометка в самом документе,
+# поэтому тест управляет счётом содержимым файла, а не подсказкой снаружи.
+FAKE_VITEST = r'''#!/usr/bin/env python3
+import os, pathlib
+if os.environ.get('NIGHT_TEST_MODE') == 'links-no-report':
+    print('прогон без отчёта')
+    raise SystemExit(0)
+doc = pathlib.Path('..') / os.environ['CONTRACT_REFS']
+broken = doc.read_text().count('БИТАЯ')
+print(f'[ссылки] документов 1 · ссылок 5 · битых {broken}')
+'''
+
+
+class LinkGateTest(unittest.TestCase):
+    """Проверка ссылок судит разницу, а не весь файл.
+
+    Живой прогон 2026-09-22 заблокировал честную работу за ссылку, которая была
+    битой до автора: строгая проверка судила документ целиком. Правильный критерий —
+    «битых не стало больше».
+    """
+
+    def setUp(self):
+        _pilot.PilotTest.setUp(self)
+        claude = self.bin / "claude"
+        claude.write_text(FAKE_CLAUDE)
+        claude.chmod(0o755)
+        resolver = self.root / "frontend_vue/src/services/contractRefs.spec.ts"
+        resolver.parent.mkdir(parents=True, exist_ok=True)
+        resolver.write_text("// резолвер ссылок\n")
+        vitest = self.root / "frontend_vue/node_modules/.bin/vitest"
+        vitest.parent.mkdir(parents=True, exist_ok=True)
+        vitest.write_text(FAKE_VITEST)
+        vitest.chmod(0o755)
+        # В документе уже есть одна битая ссылка — чужая, до всякой задачи.
+        (self.root / "plan.md").write_text("БИТАЯ ссылка досталась по наследству\n")
+        self.git("add", "-A")
+        self.git("commit", "-m", "документ с унаследованной битой ссылкой")
+        self.baseline = self.git("rev-parse", "HEAD")
+        self.routing = self.base / "routing.json"
+        self.routing.write_text(json.dumps({"work": {"backend": "claude", "binary": str(claude)},
+                                            "review": {"backend": "codex", "binary": str(self.bin / "codex")}}))
+
+    git = _pilot.PilotTest.git
+    state = _pilot.PilotTest.state
+
+    def invoke(self, mode):
+        command = [sys.executable, str(RUNNER), "--workspace", str(self.root), "--queue", str(self.queue),
+                   "--routing", str(self.routing), "--run", "--run-dir", str(self.logs),
+                   "--minutes", "1", "--max-tasks", "1"]
+        return subprocess.run(command, env={**self.env, "NIGHT_TEST_MODE": mode},
+                              capture_output=True, text=True, timeout=30)
+
+    def test_inherited_broken_link_does_not_block_the_task(self):
+        result = self.invoke("links-keep-broken")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.state()["status"], "completed")
+        self.assertNotEqual(self.git("rev-parse", "HEAD"), self.baseline)
+        self.assertEqual((self.root / "plan.md").read_text().count("БИТАЯ"), 1)
+
+    def test_new_broken_link_blocks_the_task(self):
+        result = self.invoke("links-add-broken")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        blocked = self.state()["blocked"]
+        self.assertEqual(len(blocked), 1)
+        self.assertIn("битых ссылок стало больше", blocked[0]["reason"])
+        self.assertIn("было 1, стало 2", blocked[0]["reason"])
+        self.assertEqual(self.git("rev-parse", "HEAD"), self.baseline)
+        self.assertFalse(self.git("status", "--porcelain"))
+
+    def test_missing_link_report_stops_the_run_without_commit(self):
+        result = self.invoke("links-no-report")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.git("rev-parse", "HEAD"), self.baseline)
 
 
 class MixedRunTest(unittest.TestCase):

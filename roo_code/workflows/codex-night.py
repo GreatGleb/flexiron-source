@@ -11,6 +11,7 @@ import json
 import math
 import os
 from pathlib import Path
+import re
 import shutil
 import signal
 import stat
@@ -121,6 +122,29 @@ def execute_checks(root, checks, prefix, deadline):
     for number, check in enumerate(checks):
         execute(check["argv"], root / check["cwd"],
                 prefix.with_name(f"{prefix.name}-{number}"), deadline)
+
+
+def link_report(root, doc, prefix, deadline):
+    """Сколько ссылок документа не резолвится. Отсутствующий документ — ноль битых.
+
+    Считается ДО и ПОСЛЕ правки, потому что судить автора по всему файлу нельзя:
+    планы этого проекта копили битые ссылки годами, и первая же задача, тронувшая
+    такой файл, блокировалась за чужую гниль. Критерий — «не стало больше».
+    Проверка идёт без CONTRACT_REFS_STRICT: нужен счёт, а не падение спека.
+    """
+    if not (root / doc).is_file():
+        return 0
+    execute(["env", f"CONTRACT_REFS={doc}", "./node_modules/.bin/vitest", "run",
+             "src/services/contractRefs.spec.ts"], root / "frontend_vue", prefix, deadline)
+    report = prefix.with_suffix(".stdout.log").read_text(errors="replace")
+    found = re.findall(r"\[ссылки\][^\n]*битых (\d+)", report)
+    if not found:
+        raise CommandFailed(f"Проверка ссылок не дала отчёта по {doc}; см. {prefix.name}")
+    return int(found[-1])
+
+
+def link_documents(task):
+    return [name for name in task["outputs"] if name.endswith(".md")]
 
 
 def preflight(root, queue, backends, retry=None):
@@ -288,8 +312,10 @@ def ask_agent_once(root, backends, task, role, run_dir, deadline, attempt=1):
         instruction += (
             "Ты исполнитель. Подготовь результат и тесты в разрешённых файлах. "
             "Твой done означает готовность кандидата к приёмке, а не успешное прохождение тестов. "
-            "Контроллер сам выполнит npm run verify, task.checks и строгие проверки ссылок "
+            "Контроллер сам выполнит npm run verify, task.checks и проверку ссылок "
             "после твоего ответа, затем передаст фактические логи независимому проверяющему. "
+            "Ссылки считаются разницей: битых ссылок в документе не должно стать больше, "
+            "чем было до твоей правки; чужую старую битую ссылку чинить не обязан. "
             "Недоступность этих команд именно в sandbox исполнителя не требует blocked: "
             "честно укажи, что они ожидают контроллера; не называй их пройденными.\n"
         )
@@ -457,6 +483,10 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
             state["current"] = task["id"]
             save("task-start")
             expected_git = git_state(root)
+            links_before = {}
+            if (root / "frontend_vue/src/services/contractRefs.spec.ts").is_file():
+                for n, doc in enumerate(link_documents(task)):
+                    links_before[doc] = link_report(root, doc, run_dir / f'{task["id"]}-links-before-{n}', deadline)
             missing = [name for name in task["sources"] if not (root / name).is_file()]
             if missing:
                 block(task, "sources", {"summary": "Нет необходимых источников", "evidence": missing}, expected_git)
@@ -482,12 +512,14 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
             try:
                 execute(["npm", "run", "verify"], root / "frontend_vue", run_dir / f'{task["id"]}-check-verify', deadline)
                 execute_checks(root, task.get("checks", []), run_dir / f'{task["id"]}-check-extra', deadline)
-                if (root / "frontend_vue/src/services/contractRefs.spec.ts").is_file():
-                    for n, doc in enumerate(task["outputs"]):
-                        if doc.endswith(".md"):
-                            execute(["env", f"CONTRACT_REFS={doc}", "CONTRACT_REFS_STRICT=1",
-                                     "./node_modules/.bin/vitest", "run", "src/services/contractRefs.spec.ts"],
-                                    root / "frontend_vue", run_dir / f'{task["id"]}-check-links-{n}', deadline)
+                for n, doc in enumerate(link_documents(task)):
+                    if doc not in links_before:
+                        continue
+                    after = link_report(root, doc, run_dir / f'{task["id"]}-check-links-{n}', deadline)
+                    if after > links_before[doc]:
+                        raise CommandFailed(f"{doc}: битых ссылок стало больше — было "
+                                            f"{links_before[doc]}, стало {after}; см. "
+                                            f'{task["id"]}-check-links-{n}')
             except CommandFailed as exc:
                 check_failure = {"summary": str(exc), "evidence": [str(p) for p in
                                  sorted(run_dir.glob(f'{task["id"]}-check*.log'))]}
