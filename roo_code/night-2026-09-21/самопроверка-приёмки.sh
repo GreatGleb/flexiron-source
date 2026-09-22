@@ -321,6 +321,218 @@ printf '%s\n' "$OUT" | grep -qF "$REAL_PY" \
   && ok "M10: в выводе гейта виден РЕАЛЬНЫЙ интерпретатор ($REAL_PY)" \
   || bad "M10: в выводе гейта нет строки с реальным интерпретатором ($REAL_PY)"
 
+# ── M11: снят код UOM_IN_USE → красный ТОЛЬКО отказ по единице ────────────────
+# Заход 2a конвертировал серверные половины c4/c5/c15 из grep по файлам в запросы.
+# M11..M17 доказывают, что новый критерий ломается ИМЕННО тем, о чём он, и что
+# сосед — нет. Ориентир владельца: снять code="UOM_IN_USE" → красный только UOM-тест.
+echo "── M11: снят code=\"UOM_IN_USE\" → красный UOM-отказ, валютные зелёные ─────"
+подготовить
+python3 - "$COPY/app/modules/settings/features/crud/domain.py" <<'PY'
+import sys
+path = sys.argv[1]
+text = open(path, encoding="utf-8").read()
+anchor = ', code="UOM_IN_USE"'
+assert text.count(anchor) == 1, "якорь M11 не единственен"
+open(path, "w", encoding="utf-8").write(text.replace(anchor, "", 1))
+PY
+OUT=$(прогон c4 c5 c15); rc=$?
+if красный 'С4: отказы UOM/валют отвечают кодом (тест)' "$OUT"; then
+  ok "M11: критерий С4 покраснел (код UOM_IN_USE снят)"
+else bad "M11: критерий С4 остался зелёным"; printf '%s\n' "$OUT" | tail -20; fi
+зелёный 'С5: дубль пары пересчёта отвергнут (тест)' "$OUT" && ok "M11: сосед С5 (пересчёт) не тронут" || bad "M11: покраснело лишнее в С5"
+зелёный 'С15: границы финансовых констант (тест)' "$OUT" && ok "M11: сосед С15 не тронут" || bad "M11: покраснело лишнее в С15"
+[ "$rc" -ne 0 ] && ok "M11: выход приёмки ненулевой (rc=$rc)" || bad "M11: приёмка вернула 0"
+# специфичность: красный ИМЕННО UOM-тест, валютные — зелёные
+( cd "$COPY" && python3 -m pytest tests/modules/settings/test_settings_refusals.py -q -k uom_in_use >/dev/null 2>&1 ); m11_uom=$?
+( cd "$COPY" && python3 -m pytest tests/modules/settings/test_settings_refusals.py -q -k "currency_in_use or currency_default" >/dev/null 2>&1 ); m11_cur=$?
+[ "$m11_uom" -ne 0 ] && ok "M11: UOM-тест красный (rc=$m11_uom)" || bad "M11: UOM-тест остался зелёным"
+[ "$m11_cur" -eq 0 ] && ok "M11: валютные тесты зелёные" || bad "M11: валютные тесты покраснели (rc=$m11_cur)"
+
+# ── M12: из reorder убрано сравнение множеств → 200 вместо 422 ────────────────
+echo "── M12: reorder без сравнения множеств → неполный список проходит ─────────"
+подготовить
+python3 - "$COPY/app/modules/settings/features/crud/domain.py" <<'PY'
+import sys
+path = sys.argv[1]
+text = open(path, encoding="utf-8").read()
+anchor = "if len(set(given)) != len(given) or set(given) != known:"
+assert text.count(anchor) == 1, "якорь M12 не единственен"
+open(path, "w", encoding="utf-8").write(
+    text.replace(anchor, "if len(set(given)) != len(given):", 1)
+)
+PY
+OUT=$(прогон c4 c5 c15); rc=$?
+if красный 'С5: неполный reorder отвергнут кодом (тест)' "$OUT"; then
+  ok "M12: критерий С5 (reorder) покраснел — неполный список дал 200"
+else bad "M12: критерий С5 (reorder) остался зелёным"; printf '%s\n' "$OUT" | tail -20; fi
+зелёный 'С5: дубль пары пересчёта отвергнут (тест)' "$OUT" && ok "M12: сосед С5 (пересчёт) не тронут" || bad "M12: покраснело лишнее в С5"
+зелёный 'С15: границы финансовых констант (тест)' "$OUT" && ok "M12: сосед С15 не тронут" || bad "M12: покраснело лишнее в С15"
+[ "$rc" -ne 0 ] && ok "M12: выход приёмки ненулевой (rc=$rc)" || bad "M12: приёмка вернула 0"
+
+# ── M13: верхняя граница vat_rate снята → 101 проходит, граничный 100 зелёный ──
+echo "── M13: vat_rate (0.0, 100.0) → (0.0, None) → 101 проходит ────────────────"
+подготовить
+python3 - "$COPY/app/modules/settings/features/crud/domain.py" <<'PY'
+import sys
+path = sys.argv[1]
+text = open(path, encoding="utf-8").read()
+anchor = '"vat_rate": (0.0, 100.0),  # П108'
+assert text.count(anchor) == 1, "якорь M13 не единственен"
+open(path, "w", encoding="utf-8").write(
+    text.replace(anchor, '"vat_rate": (0.0, None),  # П108 (мутация M13)', 1)
+)
+PY
+OUT=$(прогон c4 c5 c15); rc=$?
+if красный 'С15: границы финансовых констант (тест)' "$OUT"; then
+  ok "M13: критерий С15 покраснел (101 больше не отвергается)"
+else bad "M13: критерий С15 остался зелёным"; printf '%s\n' "$OUT" | tail -20; fi
+зелёный 'С4: отказы UOM/валют отвечают кодом (тест)' "$OUT" && ok "M13: сосед С4 не тронут" || bad "M13: покраснело лишнее в С4"
+[ "$rc" -ne 0 ] && ok "M13: выход приёмки ненулевой (rc=$rc)" || bad "M13: приёмка вернула 0"
+# «граница работает»: за границей — красный, САМА граница (100/0) остаётся зелёной
+( cd "$COPY" && python3 -m pytest tests/modules/settings/test_settings_refusals.py -q -k out_of_range >/dev/null 2>&1 ); m13_range=$?
+( cd "$COPY" && python3 -m pytest tests/modules/settings/test_settings_refusals.py -q -k constant_bounds_are_inclusive >/dev/null 2>&1 ); m13_edge=$?
+[ "$m13_range" -ne 0 ] && ok "M13: тест «за границей» красный (rc=$m13_range)" || bad "M13: тест «за границей» остался зелёным"
+[ "$m13_edge" -eq 0 ] && ok "M13: тест граничных значений (100) зелёный" || bad "M13: граничный тест покраснел (rc=$m13_edge)"
+
+# ── M14: снят блок дубля пары → второй POST даёт 200 ─────────────────────────
+echo "── M14: снят CONVERSION_PAIR_TAKEN → второй POST той же пары даёт 200 ─────"
+подготовить
+python3 - "$COPY/app/modules/settings/features/crud/domain.py" <<'PY'
+import sys
+path = sys.argv[1]
+text = open(path, encoding="utf-8").read()
+anchor = (
+    "    # Gap 2: 409 if duplicate conversion exists\n"
+    "    existing = await get_conversion_by_uom_pair(db, tenant_id, from_uom_id, to_uom_id)\n"
+    "    if existing is not None:\n"
+    "        raise ConflictError(\n"
+    "            \"A conversion rule between these units already exists\",\n"
+    "            code=\"CONVERSION_PAIR_TAKEN\",\n"
+    "        )\n"
+)
+assert text.count(anchor) == 1, "якорь M14 не единственен"
+open(path, "w", encoding="utf-8").write(
+    text.replace(anchor, "    # Gap 2 снят мутацией M14: дубль пары не отвергается.\n", 1)
+)
+PY
+OUT=$(прогон c4 c5 c15); rc=$?
+if красный 'С5: дубль пары пересчёта отвергнут (тест)' "$OUT"; then
+  ok "M14: критерий С5 (пересчёт) покраснел — второй POST дал 200"
+else bad "M14: критерий С5 (пересчёт) остался зелёным"; printf '%s\n' "$OUT" | tail -20; fi
+зелёный 'С5: неполный reorder отвергнут кодом (тест)' "$OUT" && ok "M14: сосед reorder не тронут" || bad "M14: покраснело лишнее в reorder"
+зелёный 'С4: отказы UOM/валют отвечают кодом (тест)' "$OUT" && ok "M14: сосед С4 не тронут" || bad "M14: покраснело лишнее в С4"
+[ "$rc" -ne 0 ] && ok "M14: выход приёмки ненулевой (rc=$rc)" || bad "M14: приёмка вернула 0"
+
+# ── M15: снята регистрация обработчика AppError → красная проба 282 ───────────
+# НАХОДКА захода 2a (2026-09-22). Ориентир владельца ждал от этой мутации ещё и
+# «500 в reorder/constants-тестах». Под скопированным харнессом это НЕ
+# воспроизводится: тест собирает СВОЙ FastAPI() и регистрирует app_error_handler
+# сам (как велено — приём из test_warehouse_map_draft.py:108), поэтому снятие
+# декоратора в main.py на путь этих запросов не влияет. Проба 282 смотрит на
+# ПРОДУКТ и краснеет; тесты обязаны остаться зелёными — это ожидание зафиксировано
+# ниже, а не подогнано. Что отказ ДЕЙСТВИТЕЛЬНО едет на обработчике, доказывает
+# M15b: тело обработчика сломано — и reorder/constants краснеют.
+echo "── M15: снят @app.exception_handler(AppError) → красная проба 282 ──────────"
+подготовить
+python3 - "$COPY/app/main.py" <<'PY'
+import sys
+path = sys.argv[1]
+text = open(path, encoding="utf-8").read()
+anchor = "@app.exception_handler(AppError)\n"
+assert text.count(anchor) == 1, "якорь M15 не единственен"
+open(path, "w", encoding="utf-8").write(text.replace(anchor, "", 1))
+PY
+OUT=$(прогон c4 c5 c15); rc=$?
+if красный 'AppError зарегистрирован в приложении' "$OUT"; then
+  ok "M15: проба регистрации обработчика покраснела (смотрит на продукт)"
+else bad "M15: проба регистрации обработчика осталась зелёной"; printf '%s\n' "$OUT" | tail -20; fi
+зелёный 'С5: неполный reorder отвергнут кодом (тест)' "$OUT" && ok "M15: reorder-тест ЗЕЛЁНЫЙ — декоратор вне пути теста (находка)" || bad "M15: reorder-тест покраснел вопреки ожиданию"
+зелёный 'С15: границы финансовых констант (тест)' "$OUT" && ok "M15: constants-тест ЗЕЛЁНЫЙ — декоратор вне пути теста (находка)" || bad "M15: constants-тест покраснел вопреки ожиданию"
+зелёный 'С4: отказы UOM/валют отвечают кодом (тест)' "$OUT" && ok "M15: сосед С4 (HTTPException) не тронут" || bad "M15: покраснело лишнее в С4"
+[ "$rc" -ne 0 ] && ok "M15: выход приёмки ненулевой (rc=$rc)" || bad "M15: приёмка вернула 0"
+
+# ── M15b: тело обработчика AppError сломано → 500 в reorder/constants ────────
+# Это и есть та половина ориентира, которую не даёт снятие декоратора: отказ
+# reorder/constants проходит через app_error_handler, и если он не мапит класс на
+# статус, тесты получают 500 (raise_app_exceptions=False в харнессе показывает это
+# как ответ, а не как трейсбек).
+echo "── M15b: обработчик AppError всегда 500 → reorder/constants краснеют ───────"
+подготовить
+python3 - "$COPY/app/main.py" <<'PY'
+import sys
+path = sys.argv[1]
+text = open(path, encoding="utf-8").read()
+anchor = (
+    "    status_code = next(\n"
+    "        (code for kind, code in _APP_ERROR_STATUS if isinstance(exc, kind)), 500\n"
+    "    )\n"
+)
+assert text.count(anchor) == 1, "якорь M15b не единственен"
+open(path, "w", encoding="utf-8").write(
+    text.replace(anchor, "    status_code = 500  # мутация M15b\n", 1)
+)
+PY
+OUT=$(прогон c4 c5 c15); rc=$?
+if красный 'С5: неполный reorder отвергнут кодом (тест)' "$OUT"; then
+  ok "M15b: reorder-тест покраснел (обработчик вернул 500)"
+else bad "M15b: reorder-тест остался зелёным"; printf '%s\n' "$OUT" | tail -20; fi
+if красный 'С15: границы финансовых констант (тест)' "$OUT"; then
+  ok "M15b: constants-тест покраснел (обработчик вернул 500)"
+else bad "M15b: constants-тест остался зелёным"; printf '%s\n' "$OUT" | tail -20; fi
+зелёный 'AppError зарегистрирован в приложении' "$OUT" && ok "M15b: проба регистрации зелёная (декоратор на месте)" || bad "M15b: проба регистрации покраснела"
+зелёный 'С4: отказы UOM/валют отвечают кодом (тест)' "$OUT" && ok "M15b: сосед С4 (HTTPException) не тронут" || bad "M15b: покраснело лишнее в С4"
+[ "$rc" -ne 0 ] && ok "M15b: выход приёмки ненулевой (rc=$rc)" || bad "M15b: приёмка вернула 0"
+
+# ── M16: возвращён alias="order" → красная проба 294 ─────────────────────────
+echo "── M16: sort_order с alias=\"order\" → проба схемы PATCH статуса красная ─────"
+подготовить
+python3 - "$COPY/app/modules/settings/features/crud/schemas.py" <<'PY'
+import sys
+path = sys.argv[1]
+text = open(path, encoding="utf-8").read()
+anchor = (
+    "class OrderStatusPatchInput(BaseModel):\n"
+    "    \"\"\"Partial update for an order status.\"\"\"\n"
+    "\n"
+    "    name: TranslatedString | None = None\n"
+)
+assert text.count(anchor) == 1, "якорь M16 не единственен"
+addition = anchor + "    sort_order: int | None = Field(alias=\"order\", default=None)  # M16\n"
+open(path, "w", encoding="utf-8").write(text.replace(anchor, addition, 1))
+PY
+OUT=$(прогон c4 c5 c15); rc=$?
+if красный 'order ушёл из схемы PATCH статуса' "$OUT"; then
+  ok "M16: проба схемы покраснела (alias=\"order\" вернулся)"
+else bad "M16: проба схемы осталась зелёной"; printf '%s\n' "$OUT" | tail -20; fi
+зелёный 'С4: отказы UOM/валют отвечают кодом (тест)' "$OUT" && ok "M16: сосед С4 не тронут" || bad "M16: покраснело лишнее в С4"
+[ "$rc" -ne 0 ] && ok "M16: выход приёмки ненулевой (rc=$rc)" || bad "M16: приёмка вернула 0"
+
+# ── M17: имя константы C2 вписано в CONSTANT_BOUNDS → красная проба 361 ──────
+echo "── M17: default_kerf_mm в CONSTANT_BOUNDS → проба границ C2 красная ────────"
+подготовить
+python3 - "$COPY/app/modules/settings/features/crud/domain.py" <<'PY'
+import sys
+path = sys.argv[1]
+text = open(path, encoding="utf-8").read()
+anchor = (
+    "CONSTANT_BOUNDS: dict[str, tuple[float | None, float | None]] = {\n"
+    "    \"vat_rate\": (0.0, 100.0),  # П108\n"
+)
+assert text.count(anchor) == 1, "якорь M17 не единственен"
+addition = (
+    "CONSTANT_BOUNDS: dict[str, tuple[float | None, float | None]] = {\n"
+    "    \"default_kerf_mm\": (0.0, None),  # мутация M17\n"
+    "    \"vat_rate\": (0.0, 100.0),  # П108\n"
+)
+open(path, "w", encoding="utf-8").write(text.replace(anchor, addition, 1))
+PY
+OUT=$(прогон c4 c5 c15); rc=$?
+if красный 'границы констант C2 не назначены' "$OUT"; then
+  ok "M17: проба границ C2 покраснела (имя константы C2 вписано)"
+else bad "M17: проба границ C2 осталась зелёной"; printf '%s\n' "$OUT" | tail -20; fi
+зелёный 'С15: границы финансовых констант (тест)' "$OUT" && ok "M17: сосед С15 (границы работают) не тронут" || bad "M17: покраснело лишнее в С15"
+[ "$rc" -ne 0 ] && ok "M17: выход приёмки ненулевой (rc=$rc)" || bad "M17: приёмка вернула 0"
+
 echo
 echo "══════════════════════════════════════════════════════════════════════"
 if [ "$fails" = 0 ]; then

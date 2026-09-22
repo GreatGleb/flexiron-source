@@ -118,14 +118,16 @@ printf '  локаль проб: %s; PYTHONPATH/PYTHONHOME/HOME сняты\n' "$
 printf '  npm (видимость; НЕ санируется): %s\n' "$(command -v npm 2>/dev/null || printf 'не найден')"
 
 # TESTS_BASELINE — ПОЛ числа собранных тестов, а не доказательство роста за слайс.
-# Замер 2026-09-21 до работы дал 43; после правки редакции 2026-09-22 (новый тест
-# П31) собрано 45, пол поднят до 45. Поднимать вручную и только ПОСЛЕ того, как новый
-# тест уехал в коммит, — за каждый принятый слайс; иначе слайс, снявший настоящий тест
-# и добавивший тривиальный, снова позеленеет. Чего пол НЕ умеет: он не отличает
-# настоящий тест от `assert True` и не запрещает слайсу не добавить ни одного теста,
-# пока пол не поднят. Это признанная граница — перечень долга ниже, под заголовком
-# «известный долг». Снять критерий роста — удалить блок в гейте() вместе с этой строкой.
-TESTS_BASELINE=45
+# Замер 2026-09-21 до работы дал 43; после правки редакции 2026-09-22 (тест П31)
+# собрано 45; заход 2a (2026-09-22) добавил 11 тестов отказов
+# (test_settings_refusals.py) — собрано 56, пол поднят до 56. Поднимать вручную и
+# только ПОСЛЕ того, как новый тест уехал в коммит, — за каждый принятый слайс; иначе
+# слайс, снявший настоящий тест и добавивший тривиальный, снова позеленеет. Чего пол
+# НЕ умеет: он не отличает настоящий тест от `assert True` и не запрещает слайсу не
+# добавить ни одного теста, пока пол не поднят. Это признанная граница — перечень
+# долга ниже, под заголовком «известный долг». Снять критерий роста — удалить блок в
+# гейте() вместе с этой строкой.
+TESTS_BASELINE=56
 
 ok=0; bad=0
 
@@ -187,17 +189,23 @@ ok=0; bad=0
 # это отдельная работа, а не молчаливое исключение. При следующем проходе начинать
 # с них; ссылки — на строки редакции до правки 2026-09-22 (критерии, перечисленные в
 # задаче как non-goal, не тронуты):
-#   c0, строки 49-58     — фронт-моки: вхождения в mocks/*.ts и в спеках. Проба тут —
+#   c0, функция c0()     — фронт-моки: вхождения в mocks/*.ts и в спеках. Проба тут —
 #                          прогон vitest, он уже стоит в общем гейте.
-#   c1, строки 65-68     — снятие полей по файлу; доказуемо составом колонок, как это
+#   c1, функция c1()     — снятие полей по файлу; доказуемо составом колонок, как это
 #                          сделано для C2/C9 ниже.
-#   c2, строки 77-78     — сторож пагинации (grep -ric по каталогу) и поиск 'logo_url'
+#   c2, функция c2()     — сторож пагинации (grep -ric по каталогу) и поиск 'logo_url'
 #                          по файлам backend/app.
-#   c2, строка 80        — сторож 'logo_url|logoUrl' в схемах: текст вместо поля схемы.
-#   c4, строки 85-90     — коды отказов по дереву; поведение — запрос в тесте.
-#   c5, строки 95-100    — те же коды и 'raise ValidationError' по файлу.
-#   c15, строки 114-118  — CONSTANT_OUT_OF_RANGE по дереву и в контракте.
-#   гейт, строки 133-134 — метка «не реализован» в settings.md: проза по существу.
+#   c2, строка с logoUrl — сторож 'logo_url|logoUrl' в схемах: текст вместо поля схемы.
+#   c4, строка 286       — «код UOM_IN_USE/CURRENCY_* во фронте»: файлов > 0 во
+#                          frontend_vue/src. Фронтовая половина — отдельный vitest-спек.
+#   c5, строка 293       — «ORDER_STATUS_REORDER_INCOMPLETE фронт»: тот же класс.
+#   c15, строка 358      — «CONSTANT_OUT_OF_RANGE во фронте»: тот же класс.
+#   гейт, метка          — «не реализован» в settings.md: проза по существу.
+#
+# Заход 2a (2026-09-22) снял из этого перечня то, что конвертировано в поведение:
+# серверные половины c4 (коды по дереву), c5 ('raise ValidationError' по файлу),
+# c15 (CONSTANT_OUT_OF_RANGE по дереву) и пробы-строки 282/294/361. Оставшийся текст
+# перечислен выше с адресами; «известный долг» без адреса здесь не держится.
 #
 # Границы, признанные 2026-09-22 (это не текстовый долг, а слабость критерия):
 #   • рост тестов в гейте — ПОЛ, а не доказательство роста за слайс: он ловит снятие
@@ -279,22 +287,51 @@ print(1 if "logo_file_id" in {c.name for c in CompanyInfo.__table__.columns} els
 
 c4() {
   echo "── С4 · отказы доходят как коды ──────────────────────────────────────"
-  проверить "глобальный обработчик AppError"  '>0' "$(вхождений 'exception_handler' backend/app/main.py)"
+  # Было: вхождений 'exception_handler' в main.py > 0 — эту строку набирал и
+  # комментарий. Проба смотрит на РЕГИСТРАЦИЮ: app.exception_handlers — карта, по
+  # которой Starlette реально матчит исключение, а не текст в файле.
+  проба "AppError зарегистрирован в приложении" '>0' '
+from app.core.exceptions import AppError
+from app.main import app
+print(1 if AppError in app.exception_handlers else 0)
+'
+  # Было: файлов "UOM_IN_USE" (или валютного кода) backend/app > 0 — код в
+  # комментарии или докстринге удовлетворял это так же, как настоящий отказ. Теперь
+  # это запросы: DELETE получает 409 и свой код в теле (test_settings_refusals.py),
+  # включая тенант-скоуп (чужой объект читается как отсутствующий). Ненулевой выход
+  # pytest (в том числе «не запустился») — ПЛОХО, как и у пробы.
+  echo "  backend: pytest -k отказы UOM/валют  [$PY]"
+  ( cd "$BEND" && env_probe "$PY" -B -m pytest tests/modules/settings/test_settings_refusals.py -q -k "uom_in_use or currency_default or currency_in_use or another_tenant" >/tmp/приёмка-c4.txt 2>&1 )
+  проверить "С4: отказы UOM/валют отвечают кодом (тест)" 0 "$?"
   local code
   for code in UOM_IN_USE CURRENCY_IN_USE CURRENCY_IS_DEFAULT; do
-    проверить "код $code на сервере"          '>0' "$(файлов "$code" backend/app)"
     проверить "код $code во фронте"           '>0' "$(файлов "$code" frontend_vue/src)"
   done
 }
 
 c5() {
   echo "── С5 · валидация тел ────────────────────────────────────────────────"
-  проверить "ORDER_STATUS_REORDER_INCOMPLETE сервер" '>0' "$(файлов ORDER_STATUS_REORDER_INCOMPLETE backend/app)"
+  # Было: файлов ORDER_STATUS_REORDER_INCOMPLETE backend/app > 0. Теперь PUT reorder
+  # с неполным (или чужим) списком получает 422 и код из тела, а полный список —
+  # 200: это отделяет «отказ» от «reorder сломан целиком».
+  echo "  backend: pytest -k reorder  [$PY]"
+  ( cd "$BEND" && env_probe "$PY" -B -m pytest tests/modules/settings/test_settings_refusals.py -q -k reorder >/tmp/приёмка-c5-reorder.txt 2>&1 )
+  проверить "С5: неполный reorder отвергнут кодом (тест)" 0 "$?"
   проверить "ORDER_STATUS_REORDER_INCOMPLETE фронт"  '>0' "$(файлов ORDER_STATUS_REORDER_INCOMPLETE frontend_vue/src)"
-  проверить "order ушёл из схемы PATCH статуса"      0   "$(вхождений '    order' backend/app/modules/settings/features/crud/schemas.py)"
-  # было две — значит критерий требует РОСТА, а не просто наличия
-  local n; n=$(вхождений 'raise ValidationError' backend/app/modules/settings/features/crud/domain.py)
-  проверить "проверок стало больше прежних двух"     '>0' "$(( n > 2 ? 1 : 0 ))"
+  # Было: вхождений строки '    order' в schemas.py = 0 — любой другой отступ или
+  # упоминание в прозе двигали счётчик. Проба смотрит на СХЕМУ: ни имя поля, ни
+  # алиас 'order' у OrderStatusPatchInput не заведены.
+  проба "order ушёл из схемы PATCH статуса" 0 '
+from app.modules.settings.features.crud.schemas import OrderStatusPatchInput
+names = set(OrderStatusPatchInput.model_fields)
+aliases = {f.alias for f in OrderStatusPatchInput.model_fields.values() if f.alias}
+print(1 if "order" in (names | aliases) else 0)
+'
+  # Было: вхождений 'raise ValidationError' > 2 — счётчик СТРОК файла, а не поведение.
+  # Теперь второй POST той же упорядоченной пары отвечает CONVERSION_PAIR_TAKEN.
+  echo "  backend: pytest -k conversion  [$PY]"
+  ( cd "$BEND" && env_probe "$PY" -B -m pytest tests/modules/settings/test_settings_refusals.py -q -k conversion >/tmp/приёмка-c5-conversion.txt 2>&1 )
+  проверить "С5: дубль пары пересчёта отвергнут (тест)" 0 "$?"
 }
 
 c9() {
@@ -354,11 +391,24 @@ print(sum(1 for method, path in want if path in paths and method in paths[path])
 
 c15() {
   echo "── С15 · границы финансовых констант (объём сужен) ───────────────────"
-  проверить "CONSTANT_OUT_OF_RANGE на сервере"  '>0' "$(файлов CONSTANT_OUT_OF_RANGE backend/app)"
+  # Было: файлов "CONSTANT_OUT_OF_RANGE" backend/app > 0 — строка в комментарии
+  # проходила так же, как работающая граница. Теперь PATCH за границей отвечает 422
+  # с кодом, ГРАНИЧНЫЕ значения (по CONSTANT_BOUNDS) проходят, а скаляр без границы
+  # не отвергается: это и есть разница между «код есть» и «граница работает».
+  # Ненулевой выход pytest (в том числе «не запустился») — ПЛОХО.
+  echo "  backend: pytest -k constant  [$PY]"
+  ( cd "$BEND" && env_probe "$PY" -B -m pytest tests/modules/settings/test_settings_refusals.py -q -k constant >/tmp/приёмка-c15.txt 2>&1 )
+  проверить "С15: границы финансовых констант (тест)" 0 "$?"
   проверить "CONSTANT_OUT_OF_RANGE во фронте"   '>0' "$(файлов CONSTANT_OUT_OF_RANGE frontend_vue/src)"
   проверить "…и в контракте, с числами"         '>0' "$(вхождений 'CONSTANT_OUT_OF_RANGE' roo_code/roo-context/api/settings.md)"
-  # границы трёх констант C2 владелец НЕ назначал — назначить их самому запрещено
-  сторож "границы констант C2 не назначены"      0   "$(вхождений 'default_kerf_mm\|payment_deferral_days\|reservation_hold_days' backend/app/modules/settings/features/crud/domain.py)"
+  # границы трёх констант C2 владелец НЕ назначал — назначить их самому запрещено.
+  # Было: вхождений имён по domain.py = 0 — имя в комментарии рядом со словарём
+  # набирало счётчик. Проба смотрит на КЛЮЧИ самого CONSTANT_BOUNDS.
+  проба "границы констант C2 не назначены" 0 '
+from app.modules.settings.features.crud.domain import CONSTANT_BOUNDS
+c2 = {"default_kerf_mm", "payment_deferral_days", "reservation_hold_days"}
+print(len(set(CONSTANT_BOUNDS) & c2))
+'
 }
 
 гейт() {
