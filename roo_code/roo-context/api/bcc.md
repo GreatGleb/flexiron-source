@@ -70,7 +70,7 @@ clean-slate против quick-action — §15; файлы и общий `POST /
 Каталог из двух кодов, и оба принадлежат отправке. Ни один не является подстрокой другого
 (правило §2 соглашений; проверка попарная: `MAIL_NOT_CONFIGURED` не входит в `NO_RECIPIENTS` и
 наоборот). `MAIL_NOT_CONFIGURED` — код **кросс-доменный**: тем же кодом отказывает проверка почты
-в настройках (`services/mocks/settings.ts:621`), и условие у обоих общее — `isMailConfigured`
+в настройках (`services/mocks/settings.ts:16`), и условие у обоих общее — `isMailConfigured`
 (`src/types/settings.ts:167-171`, мок-обёртка `services/mocks/settings.ts:611-613`).
 
 **Остальные пять эндпоинтов не бросают ничего, и у двух из них это хуже нуля.**
@@ -513,7 +513,7 @@ Quick-action в модалке — открывается кнопкой «пр�
 Запрос: путь плюс **пустой объект телом** — `apiPost<BccRequest>(…, {})`
 (`services/bccService.ts:76-78`). Тело сериализуется всегда (`services/api.ts:175`), то есть на
 провод уходит `{}` с `Content-Type: application/json` (`:174`); ветка мока тело не читает вовсе
-(`services/mocks/index.ts:933-937`). Заголовков нет: **`Idempotency-Key` не шлётся**, хотя вызов
+(`services/mocks/index.ts:318`). Заголовков нет: **`Idempotency-Key` не шлётся**, хотя вызов
 создаёт строку — БАГ-03. Операция **не идемпотентна**: два клика — две строки.
 
 Ответ: `BccRequest` — новая строка. Копируются `requestId`, `supplierId`, `supplierName`,

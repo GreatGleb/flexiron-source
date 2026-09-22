@@ -60,7 +60,7 @@
 | `CATEGORY_HAS_CHILDREN` | у категории есть потомки (`:1481`) | `categories.toast_error_delete_has_children` (`i18n/admin/categories.ts:62`, en `:126`, lt `:190`) |
 
 **Код обязан приходить в `code`, а не в тексте.** Мок бросает `throw new Error(result.code)`
-(`mocks/index.ts:1491`), то есть кладёт код в `message`, и клиент сравнивает именно `e.message`
+(`mocks/index.ts:287`), то есть кладёт код в `message`, и клиент сравнивает именно `e.message`
 (`useCategories.ts:43-47`) — против настоящего API, где код лежит в `ApiRequestError.code`
 (`types/api.ts:29`), обе ветки не сработают (БАГ-01, класс описан в §2 соглашений). Форма ошибки
 на проводе — `detail: { message, code }` (§1 соглашений).

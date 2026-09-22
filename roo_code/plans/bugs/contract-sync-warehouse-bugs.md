@@ -50,7 +50,7 @@
 ### Actual
 
 Заголовков нет ни на одном. `Idempotency-Key` (`frontend_vue/src/services/api.ts:239-245`) и
-`If-Match` (ветка мока умеет его читать — `frontend_vue/src/services/mocks/index.ts:1420`,
+`If-Match` (ветка мока умеет его читать — `frontend_vue/src/services/mocks/index.ts:1577`,
 `:1428`) тоже не используются.
 
 ---

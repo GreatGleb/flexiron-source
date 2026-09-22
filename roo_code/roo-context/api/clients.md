@@ -58,13 +58,13 @@
 ```
 
 Мок читает ровно эти шесть (`mocks/index.ts:474-477`, дефолты `:505-506`). **Поиск идёт по трём
-полям сразу** — `name`, `companyCode`, `email` (`mocks/index.ts:481-486`); сервер обязан искать по
+полям сразу** — `name`, `companyCode`, `email` (`mocks/index.ts:334`); сервер обязан искать по
 тем же трём, иначе один экран находит клиента, а другой — нет (это уже расходилось:
 `useOrderCreate.ts:113-117` фильтрует локально по двум).
 
 Ответ: `ApiResponse<PaginatedResponse<Client>>` — `{ items, total, page, pageSize, totalPages }`
 (`types/api.ts:8-14`, сборка `mocks/index.ts:509-515`). `total` — длина отфильтрованного,
-`totalPages` — производное: `Math.ceil(filtered.length / pageSize)` (`mocks/index.ts:514`), то
+`totalPages` — производное: `Math.ceil(filtered.length / pageSize)` (`mocks/index.ts:605`), то
 есть **пустая выборка отдаёт `0` при `page: 1`**. Общие соглашения объявляют правилом зажим
 `Math.max(1, …)` (§13), но замер показывает, что зажим стоит в одном месте из десяти —
 `mocks/bcc.ts:265`, — а девять, включая это, считают без него
@@ -72,7 +72,7 @@
 считает своё значение сама и уже с зажимом (`composables/usePagination.ts:8`,
 `composables/useClients.ts:19`). БАГ-08.
 
-Ошибки: **ни одной.** Ветка не бросает ничего (`mocks/index.ts:473-516`), `mockGetClients` тоже
+Ошибки: **ни одной.** Ветка не бросает ничего (`mocks/index.ts:87`), `mockGetClients` тоже
 (`mocks/clients.ts:1046-1048`). Все три вызывающих кладут в состояние `String(e)` без разбора кода
 (`useClients.ts:36`, `useOrderCreate.ts:141`, `useSalesCrmDashboard.ts:64`).
 
@@ -146,7 +146,7 @@ interface Client {
 Мок отдаёт `structuredClone` элемента хранилища (`mocks/clients.ts:1050-1052`), то есть вместе с
 `auditLog` и `interactionHistory`.
 
-Ошибки: `CLIENT_NOT_FOUND` — бросает сама ветка, а не мок-модуль (`mocks/index.ts:521`). До
+Ошибки: `CLIENT_NOT_FOUND` — бросает сама ветка, а не мок-модуль (`mocks/index.ts:615`). До
 человека код не доходит: `load()` кладёт `String(e)` в `error` (`useClientCard.ts:161-163`).
 
 Ответ этого запроса становится **снимком** для грязной проверки (`dirty.capture()`,
@@ -480,7 +480,7 @@ interface StockAuditEntry {
 - **снято 2026-09-09 наполовину:** ключ домену не нужен — создание взаимодействия обратимо, а
   правило §11 требует ключ только у необратимых `POST`. От повторной отправки защищает другое:
   кнопка заморожена до ответа сервера (П47, [§15](00-conventions.md)). Ветка при этом идёт мимо
-  `withIdempotency` (`mocks/index.ts:965-973`), заголовок не шлётся, и при повторе `save()` запись
+  `withIdempotency` (`mocks/index.ts:321`), заголовок не шлётся, и при повторе `save()` запись
   задвоится. Атомарность самого Save — **решено 2026-09-09 (П49)**: как есть, без общей
   транзакции.
 
@@ -498,7 +498,7 @@ interface StockAuditEntry {
 Запрос: тела нет. **Второй сегмент — не идентификатор, а порядковый индекс в массиве.** Сигнатура
 `deleteClientInteraction(clientId: string, entryIndex: number)` (`services/clientsService.ts:55`),
 путь склеивается из числа (`:56`), ветка мока принимает **только цифры** —
-`/^\/api\/clients\/([^/]+)\/interactions\/(\d+)$/` (`mocks/index.ts:1537`), и мок режет массив по
+`/^\/api\/clients\/([^/]+)\/interactions\/(\d+)$/` (`mocks/index.ts:1724`), и мок режет массив по
 этому индексу (`mocks/clients.ts:1169`). У `InteractionHistoryEntry` идентификатора нет вовсе — пять
 полей, и `id` среди них отсутствует (`types/client.ts:6-13`).
 
@@ -620,7 +620,7 @@ interface ClientUnassignedPayment {
 *Условия оплаты* — `0` начальным значением формы (`ClientCreatePage.vue:42`), и ноль означает
 «оплата по счёту», а не «не заполнено» (`domain/paymentTerms.ts:12-14`). Отсрочки по умолчанию в
 `GlobalConstants` нет — там четыре константы (`types/settings.ts:14-19`) — строка владельцу.
-*`pageSize` списка* — 25 в моке (`mocks/index.ts:506`), 5 у дашборда CRM
+*`pageSize` списка* — 25 в моке (`mocks/index.ts:452`), 5 у дашборда CRM
 (`useSalesCrmDashboard.ts:50`).
 *Валюты у клиента нет вовсе* — такого поля в `Client` нет (`types/client.ts:15-49`): валюта живёт у
 заказа, и это правильно.
@@ -702,7 +702,7 @@ RBAC logic here» (`backend/app/modules/auth/internal_api/interface.py:27-38`), 
 (`types/client.ts:15-49`), `If-Match` не шлётся.
 
 **9. Производные значения — считать, а не хранить.**
-(1) `totalPages` списка — `Math.ceil(filtered.length / pageSize)` (`mocks/index.ts:514`),
+(1) `totalPages` списка — `Math.ceil(filtered.length / pageSize)` (`mocks/index.ts:605`),
 считается при чтении и не хранится. Про зажим, которого здесь нет, — БАГ-08 и строка «осталось» у
 `GET /api/clients`.
 (2) **Вся сводка счетов производна целиком:** `amountGrossCurrent`, `withdrawn`, `paidAmount`,

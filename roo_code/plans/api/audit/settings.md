@@ -43,7 +43,7 @@
 > попадания, и все четыре — здесь) → находка 21.
 >
 > **Коды ошибок ядра.** `NOT_FOUND`, `VALIDATION_ERROR`, `CONFLICT`, `FORBIDDEN`, `UNAUTHORIZED`
-> объявлены в `backend/app/core/exceptions.py:20,27,34,41,48`; `UNAUTHORIZED` домен бросает
+> объявлены в `backend/app/core/exceptions.py:34,27,34,41,48`; `UNAUTHORIZED` домен бросает
 > напрямую из `_resolve_user_id` (`crud/action.py:108,115,127`).
 
 ## Эндпоинты
@@ -153,7 +153,7 @@
 - Мок: `mocks/index.ts:389`
 - Форма запроса: ни query, ни тела (`settingsService.ts:166`).
 - Форма ответа: `MailServerSettings` — `host`, `port`, `encryption`, `username`, `passwordSet`, `fromEmail`, `fromName` (`src/types/settings.ts:140-152`). Пароля нет и быть не может: поля для него нет в типе (`:146-147`), мок собирает ответ из `mailStore` плюс вычисляемый `passwordSet` (`mocks/settings.ts:588-590`). Доказано спекой на обоих путях чтения — `mocks/mail-settings.spec.ts:25-33`.
-- Коды ошибок: ни одного — в `mockGetMail` (`mocks/settings.ts:588-590`) нет `throw`.
+- Коды ошибок: ни одного — в `mockGetMail` (`mocks/settings.ts:626`) нет `throw`.
 - Save-режим: чтение, запрос №3 из девяти (`useSettings.ts:230`).
 - Пробел контракта: старый раздел (`03-api-contract.md:2647-2666`) описывает поведение верно. Не сказано, что **хранилища почтовых настроек на бэкенде нет вовсе**: модели нет (`grep -rn "smtp\|MailServer" backend/app/modules/settings` → пусто), а единственный серверный тип этой формы — `MailServerConfig` внутри чужого модуля (`backend/app/modules/bcc/features/send_request/domain.py:42-55`), и он **не конструируется нигде** (`grep -rn "MailServerConfig(" backend/app` → пусто).
 - Источник истины: мок + клиент (бэкенда нет).
@@ -164,7 +164,7 @@
 - Мок: `mocks/index.ts:383`
 - Форма запроса: ни query, ни тела (`settingsService.ts:37-39`).
 - Форма ответа: `OrderPermissions` — три массива имён ролей: `seeCost`, `manualCost`, `correction` (`src/types/settings.ts:224-231`); мок отдаёт копию среза настроек (`mocks/settings.ts:440-442`), сид — `['owner','admin','accounting']` / `['owner','admin']` / `['owner','admin']` (`mocks/settings.ts:62-66`).
-- Коды ошибок: ни одного — `mockGetOrderPermissions` (`mocks/settings.ts:440-442`) не бросает.
+- Коды ошибок: ни одного — `mockGetOrderPermissions` (`mocks/settings.ts:456`) не бросает.
 - Save-режим: чтение, запрос №4 из девяти (`useSettings.ts:231`). Записи нет: эндпоинта на запись не существует, и в `save()` (`useSettings.ts:340-526`) раздела `orderPermissions` нет — то есть матрица прав читается и не редактируется.
 - Пробел контракта: раздела нет вовсе — `grep -n "order-permissions\|orderPermissions" roo_code/roo-context/03-api-contract.md` не даёт ни одного попадания. При этом эндпоинт обслуживает три права модели ценообразования и читается как гейт кнопок и колонок (`src/composables/useOrderPermissions.ts:28-30`), а мок применяет те же права на «сервере» (`mocks/orders.ts:1857`, `:1393`).
 - Источник истины: мок + клиент (бэкенда нет). Модели прав в `backend/app/modules/settings/shared/models.py` нет — файл содержит шесть классов (`:12`, `:32`, `:61`, `:86`, `:104`, `:136`), прав среди них нет.
@@ -263,7 +263,7 @@
 - Мок: `mocks/index.ts:1351`
 - Форма запроса: `MailServerPayload` — `Partial<Omit<MailServerSettings,'passwordSet'>> & { password?: string }` (`src/types/settings.ts:179-182`). По факту клиент шлёт секцию целиком плюс пароль, если его ввели: `const { passwordSet: _passwordSet, ...editable } = settings.mail` и `payload.password = mailPassword.value` только при непустом значении (`useSettings.ts:363-374`).
 - Форма ответа: `MailServerSettings` целиком после merge, снова без пароля (`settingsService.ts:169`; мок — `mockPatchMail` возвращает `mockGetMail()`, `mocks/settings.ts:597-602`). Ответ кладётся прямо в стор (`useSettings.ts:368-370`).
-- Коды ошибок: ни одного — в `mockPatchMail` (`mocks/settings.ts:597-602`) нет `throw`. Валидации `host`/`fromEmail`/`port` нет ни на одной стороне.
+- Коды ошибок: ни одного — в `mockPatchMail` (`mocks/settings.ts:635`) нет `throw`. Валидации `host`/`fromEmail`/`port` нет ни на одной стороне.
 - Save-режим: clean-slate, та же кнопка Save (`useSettings.ts:363-374`). Пароль живёт вне стора и вне снимка (`useSettings.ts:96-103`) и обнуляется сразу после постановки запроса в очередь (`:372`) — **до** того, как запрос выполнился.
 - Пробел контракта: старый раздел (`03-api-contract.md:2668-2686`) описывает правило «пустая строка не отправляется» верно (`useSettings.ts:366`, мок `mocks/settings.ts:600`) и подтверждено спекой `mocks/mail-settings.spec.ts:41-49`. Не сказано: (а) что стереть пароль этим эндпоинтом нельзя вовсе — отдельного действия «убрать пароль» нет ни в UI, ни в моке; (б) что клиент шлёт секцию целиком, а не dirty-поля (`useSettings.ts:364-365`).
 - Источник истины: мок + клиент (бэкенда нет).
@@ -438,7 +438,7 @@
    константы», а потому, что сервер обязан иметь ответ, даже когда настройки на экране не
    открыты (`mocks/settings.ts:433-442`). Пустой дефолт `{ seeCost: [], manualCost: [],
    correction: [] }` (`useSettings.ts:30`) — тоже правило: до ответа сервера не разрешено
-   ничего, а флаг `settled` (`useSettings.ts:92`) отличает «сервер сказал нет» от «сервер
+   ничего, а флаг `settled` (`useSettings.ts:121`) отличает «сервер сказал нет» от «сервер
    ещё не отвечал».
 7. **Сокрытие себестоимости в интерфейсе — занавеска, а не право.** Сервер не имеет права
    отдавать `cost`/`margin` пользователю без `seeCost`; поскольку карточка пересчитывает цены

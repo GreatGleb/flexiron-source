@@ -70,7 +70,7 @@
 | `CONVERSION_NOT_FOUND` | — | только мок (`mocks/settings.ts:525`, `:531`) | PATCH/DELETE правила |
 | `ORDER_STATUS_NOT_FOUND` | — | только мок (`mocks/settings.ts:553`, `:577`) | PATCH/DELETE статуса |
 | `MAIL_NOT_CONFIGURED` | — | только мок (`mocks/settings.ts:621`); кросс-доменный — тот же код бросает BCC-инструмент (`mocks/bcc.ts:317`) | POST почтового теста |
-| `MAP_NOT_AN_IMAGE` | — | только мок (`mocks/settings.ts:654`) | PUT карты склада |
+| `MAP_NOT_AN_IMAGE` | — | только мок (`mocks/settings.ts:695`) | PUT карты склада |
 | `UOM_IN_USE` | 409 | **назначен контрактом 2026-09-10 (§2, П44), реализован слайсом С4** — единица со ссылками не удаляется (`crud/domain.py:424`) | DELETE единицы |
 | `CURRENCY_IN_USE` | 409 | **назначен контрактом 2026-09-10 (§2, П44), реализован слайсом С4** — валюта со ссылками не удаляется (`crud/domain.py:338`) | DELETE валюты |
 | `CURRENCY_IS_DEFAULT` | 409 | **назначен контрактом 2026-09-10 (§2), реализован слайсом С4** — валюту по умолчанию удалить нельзя (`crud/domain.py:331-332`); прежде инвариант держал только `disabled` на кнопке (БАГ-08) | DELETE валюты |
@@ -153,7 +153,7 @@
 
 Бэкенд: `settings/features/crud/action.py:65-75` — `get_company_route` · схемы `crud/schemas.py:15-25`
 Реализация: `services/settingsService.ts:26` — `getCompany` · мок `mocks/index.ts:381` →
-`mocks/settings.ts:413` — `mockGetCompany`
+`mocks/settings.ts:429` — `mockGetCompany`
 
 ---
 
@@ -188,7 +188,7 @@ base64-превью и любой другой текст отвергаются
 
 Бэкенд: `settings/features/crud/action.py:79-90` — `patch_company_route` · схемы `crud/schemas.py:28-38`
 Реализация: `services/settingsService.ts:30` — `saveCompany` · мок `mocks/index.ts:1339` →
-`mocks/settings.ts:422` — `mockPatchCompany`
+`mocks/settings.ts:438` — `mockPatchCompany`
 
 ---
 
@@ -231,7 +231,7 @@ base64-превью и любой другой текст отвергаются
 
 Бэкенд: `settings/features/crud/action.py:98-108` — `get_constants_route` · схемы `crud/schemas.py:43-51`
 Реализация: `services/settingsService.ts:42` — `getConstants` · мок `mocks/index.ts:382` →
-`mocks/settings.ts:429` — `mockGetConstants`
+`mocks/settings.ts:445` — `mockGetConstants`
 
 ---
 
@@ -281,7 +281,7 @@ base64-превью и любой другой текст отвергаются
 
 Бэкенд: `settings/features/crud/action.py:112-123` — `patch_constants_route` · схемы `crud/schemas.py:54-62`
 Реализация: `services/settingsService.ts:46` — `saveConstants` · мок `mocks/index.ts:1343` →
-`mocks/settings.ts:449` — `mockPatchConstants`
+`mocks/settings.ts:465` — `mockPatchConstants`
 
 ---
 
@@ -399,7 +399,7 @@ backend/app/modules/settings` → ноль, и во всём `backend/app` но�
 
 Бэкенд: `settings/features/crud/action.py:131-141` — `get_currencies_route` · схемы `crud/schemas.py:64-77`
 Реализация: `services/settingsService.ts:52` — `getCurrencies` · мок `mocks/index.ts:384` →
-`mocks/settings.ts:456` — `mockGetCurrencies`
+`mocks/settings.ts:472` — `mockGetCurrencies`
 
 ---
 
@@ -433,7 +433,7 @@ backend/app/modules/settings` → ноль, и во всём `backend/app` но�
 
 Бэкенд: `settings/features/crud/action.py:145-167` — `create_currency_route` · схемы `crud/schemas.py:80-88`
 Реализация: `services/settingsService.ts:56` — `createCurrency` · мок `mocks/index.ts:1126` →
-`mocks/settings.ts:460` — `mockCreateCurrency`
+`mocks/settings.ts:476` — `mockCreateCurrency`
 
 ---
 
@@ -470,7 +470,7 @@ backend/app/modules/settings` → ноль, и во всём `backend/app` но�
 
 Бэкенд: `settings/features/crud/action.py:171-186` — `patch_currency_route` · схемы `crud/schemas.py:91-99`
 Реализация: `services/settingsService.ts:60` — `updateCurrency` · мок `mocks/index.ts:1356` →
-`mocks/settings.ts:469-473` — `mockUpdateCurrency`
+`mocks/settings.ts:485` — `mockUpdateCurrency`
 
 ---
 
@@ -506,7 +506,7 @@ backend/app/modules/settings` → ноль, и во всём `backend/app` но�
 Бэкенд: `settings/features/crud/action.py:190-209` — `delete_currency_route` · домен `crud/domain.py:325-340`
 (отказ `CURRENCY_IS_DEFAULT` — `:257-258`, отказ `CURRENCY_IN_USE` — `:264`)
 Реализация: `services/settingsService.ts:63` — `deleteCurrency` · мок `mocks/index.ts:1632` →
-`mocks/settings.ts:475-478` — `mockDeleteCurrency`
+`mocks/settings.ts:491` — `mockDeleteCurrency`
 
 ---
 
@@ -543,7 +543,7 @@ list[dict] в SettingsListResponse (С0).
 
 Бэкенд: `settings/features/crud/action.py:217-227` — `get_uoms_route` · схемы `crud/schemas.py:104-112`
 Реализация: `services/settingsService.ts:70` — `getUoms` · мок `mocks/index.ts:385` →
-`mocks/settings.ts:483` — `mockGetUoms`
+`mocks/settings.ts:499` — `mockGetUoms`
 
 ---
 
@@ -581,7 +581,7 @@ list[dict] в SettingsListResponse (С0).
 
 Бэкенд: `settings/features/crud/action.py:231-242` — `create_uom_route` · схемы `crud/schemas.py:115-122`
 Реализация: `services/settingsService.ts:74` — `createUom` · мок `mocks/index.ts:1128` →
-`mocks/settings.ts:487` — `mockCreateUom`
+`mocks/settings.ts:503` — `mockCreateUom`
 
 ---
 
@@ -646,7 +646,7 @@ list[dict] в SettingsListResponse (С0).
 
 Бэкенд: `settings/features/crud/action.py:265-284` — `delete_uom_route` · домен `crud/domain.py:415-426`
 Реализация: `services/settingsService.ts:76` — `deleteUom` · мок `mocks/index.ts:1637` →
-`mocks/settings.ts:502-505` — `mockDeleteUom`
+`mocks/settings.ts:518` — `mockDeleteUom`
 
 ---
 
@@ -692,7 +692,7 @@ else None`, а ноль в Python ложен (`crud/domain.py:441`, тот же 
 
 Бэкенд: `settings/features/crud/action.py:292-302` — `get_conversions_route` · схемы `crud/schemas.py:137-147`
 Реализация: `services/settingsService.ts:88` — `getConversions` · мок `mocks/index.ts:386` →
-`mocks/settings.ts:510` — `mockGetConversions`
+`mocks/settings.ts:526` — `mockGetConversions`
 
 ---
 
@@ -734,7 +734,7 @@ else None`, а ноль в Python ложен (`crud/domain.py:441`, тот же 
 
 Бэкенд: `settings/features/crud/action.py:306-328` — `create_conversion_route` · схемы `crud/schemas.py:150-159`
 Реализация: `services/settingsService.ts:92` — `createConversion` · мок `mocks/index.ts:1130` →
-`mocks/settings.ts:514` — `mockCreateConversion`
+`mocks/settings.ts:530` — `mockCreateConversion`
 
 ---
 
@@ -773,7 +773,7 @@ else None`, а ноль в Python ложен (`crud/domain.py:441`, тот же 
 
 Бэкенд: `settings/features/crud/action.py:332-347` — `patch_conversion_route` · схемы `crud/schemas.py:162-171`
 Реализация: `services/settingsService.ts:96` — `updateConversion` · мок `mocks/index.ts:1364` →
-`mocks/settings.ts:523-527` — `mockUpdateConversion`
+`mocks/settings.ts:553` — `mockUpdateConversion`
 
 ---
 
@@ -795,7 +795,7 @@ else None`, а ноль в Python ложен (`crud/domain.py:441`, тот же 
 
 Бэкенд: `settings/features/crud/action.py:351-362` — `delete_conversion_route` · домен `crud/domain.py:531-535`
 Реализация: `services/settingsService.ts:94` — `deleteConversion` · мок `mocks/index.ts:1642` →
-`mocks/settings.ts:529-532` — `mockDeleteConversion`
+`mocks/settings.ts:559` — `mockDeleteConversion`
 
 ---
 
@@ -841,7 +841,7 @@ else None`, а ноль в Python ложен (`crud/domain.py:441`, тот же 
 
 Бэкенд: `settings/features/crud/action.py:370-380` — `get_order_statuses_route` · схемы `crud/schemas.py:176-187`
 Реализация: `services/settingsService.ts:106` — `getOrderStatuses` · мок `mocks/index.ts:387` →
-`mocks/settings.ts:537` — `mockGetOrderStatuses`
+`mocks/settings.ts:567` — `mockGetOrderStatuses`
 
 ---
 
@@ -880,7 +880,7 @@ else None`, а ноль в Python ложен (`crud/domain.py:441`, тот же 
 
 Бэкенд: `settings/features/crud/action.py:384-395` — `create_order_status_route` · схемы `crud/schemas.py:190-199`
 Реализация: `services/settingsService.ts:112` — `createOrderStatus` · мок `mocks/index.ts:1132` →
-`mocks/settings.ts:541` — `mockCreateOrderStatus`
+`mocks/settings.ts:571` — `mockCreateOrderStatus`
 
 ---
 
@@ -921,7 +921,7 @@ else None`, а ноль в Python ложен (`crud/domain.py:441`, тот же 
 
 Бэкенд: `settings/features/crud/action.py:411-426` — `patch_order_status_route` · схемы `crud/schemas.py:202-210`
 Реализация: `services/settingsService.ts:120` — `updateOrderStatus` · мок `mocks/index.ts:1378` →
-`mocks/settings.ts:551` — `mockUpdateOrderStatus`
+`mocks/settings.ts:581` — `mockUpdateOrderStatus`
 
 ---
 
@@ -966,7 +966,7 @@ else None`, а ноль в Python ложен (`crud/domain.py:441`, тот же 
 
 Бэкенд: `settings/features/crud/action.py:399-407` — `reorder_order_statuses_route` · репозиторий `crud/repository.py:285-297`
 Реализация: `services/settingsService.ts:118` — `moveOrderStatus` · мок `mocks/index.ts:1147` →
-`mocks/settings.ts:557` — `mockMoveOrderStatus`
+`mocks/settings.ts:587` — `mockMoveOrderStatus`
 
 ---
 
@@ -994,7 +994,7 @@ else None`, а ноль в Python ложен (`crud/domain.py:441`, тот же 
 
 Бэкенд: `settings/features/crud/action.py:430-449` — `delete_order_status_route` · домен `crud/domain.py:616-628`
 Реализация: `services/settingsService.ts:129` — `deleteOrderStatus` · мок `mocks/index.ts:1647` →
-`mocks/settings.ts:575` — `mockDeleteOrderStatus`
+`mocks/settings.ts:605` — `mockDeleteOrderStatus`
 
 ---
 
@@ -1038,7 +1038,7 @@ URL — находка домена `auth`.
 
 Бэкенд: `settings/features/profile/action.py:32-51` — `get_profile` · схемы `profile/schemas.py:10-24`
 Реализация: `services/settingsService.ts:164-166` — `getProfile` · мок `mocks/index.ts:388` →
-`mocks/settings.ts:627` — `mockGetProfile`
+`mocks/settings.ts:667` — `mockGetProfile`
 
 ---
 
@@ -1071,7 +1071,7 @@ URL — находка домена `auth`.
 
 Бэкенд: `settings/features/profile/action.py:55-80` — `patch_profile` · схемы `profile/schemas.py:27-35`
 Реализация: `services/settingsService.ts:168-170` — `saveProfile` · мок `mocks/index.ts:1347` →
-`mocks/settings.ts:636` — `mockPatchProfile`
+`mocks/settings.ts:676` — `mockPatchProfile`
 
 ---
 
@@ -1162,7 +1162,7 @@ URL — находка домена `auth`.
 **пустую форму**, а не отказ: `to_response(None)` (`domain.py:58`) отдаёт умолчания и
 `passwordSet: false` — вкладка открывается у всех.
 Реализация: `services/settingsService.ts:165` — `getMailServer` · мок `mocks/index.ts:389` →
-`mocks/settings.ts:588` — `mockGetMail`
+`mocks/settings.ts:626` — `mockGetMail`
 
 ---
 
@@ -1198,7 +1198,7 @@ URL — находка домена `auth`.
 Пароль шифруется при непустом значении (`core/crypto.py:46`); отсутствующий и пустой `password`
 означают одно и то же — «не менять», и стереть пароль этим эндпоинтом нельзя.
 Реализация: `services/settingsService.ts:169` — `saveMailServer` · мок `mocks/index.ts:1351` →
-`mocks/settings.ts:597` — `mockPatchMail`
+`mocks/settings.ts:635` — `mockPatchMail`
 
 ---
 
@@ -1217,7 +1217,7 @@ URL — находка домена `auth`.
 ```
 
 Письмо уходит **на адрес отправителя**, то есть сервер обязан уметь принять собственную почту;
-мок отдаёт `fromEmail` из своего хранилища (`mocks/settings.ts:620-623`), доказано спекой
+мок отдаёт `fromEmail` из своего хранилища (`mocks/settings.ts:34`), доказано спекой
 `mocks/mail-settings.spec.ts:73-75`.
 
 Ошибки: один код — `MAIL_NOT_CONFIGURED`, если не заданы хост, адрес отправителя или пароль.
@@ -1238,7 +1238,7 @@ URL — находка домена `auth`.
 ему и место: `settings` берёт его через `bcc/internal_api/interface.py` — `send_smtp_message`.
 Проверка — `backend/tests/modules/settings/test_mail_settings.py`.
 Реализация: `services/settingsService.ts:178` — `sendMailServerTest` · мок `mocks/index.ts:1135` →
-`mocks/settings.ts:620` — `mockSendMailTest`
+`mocks/settings.ts:658` — `mockSendMailTest`
 
 ---
 
@@ -1273,7 +1273,7 @@ URL — находка домена `auth`.
 
 Бэкенд: **не реализован** (`grep -c warehouse_map backend/app/modules/settings/shared/models.py` → 0).
 Реализация: `services/settingsService.ts:127-129` — `getWarehouseMap` · мок `mocks/index.ts:390` →
-`mocks/settings.ts:647` — `mockGetWarehouseMap`
+`mocks/settings.ts:687` — `mockGetWarehouseMap`
 
 ---
 
@@ -1286,7 +1286,7 @@ URL — находка домена `auth`.
 Запрос — `WarehouseMapFile` целиком, собранный строго из ответа загрузки, без пересборки полей
 (`useWarehouseMap.ts:51-58`).
 
-Ответ: `WarehouseMapFile` — сохранённая карта (`mocks/settings.ts:651-657`).
+Ответ: `WarehouseMapFile` — сохранённая карта (`mocks/settings.ts:10`).
 
 Ошибки: один код — `MAP_NOT_AN_IMAGE`, если `mime` не начинается с `image/`
 (`mocks/settings.ts:654`), доказано спекой `mocks/warehouse-map.spec.ts:73`. **Проверка обязана
@@ -1304,7 +1304,7 @@ URL — находка домена `auth`.
 
 Бэкенд: **не реализован**.
 Реализация: `services/settingsService.ts:151` — `saveWarehouseMap` · мок `mocks/index.ts:1155` →
-`mocks/settings.ts:651` — `mockSaveWarehouseMap`
+`mocks/settings.ts:691` — `mockSaveWarehouseMap`
 
 ---
 
@@ -1327,7 +1327,7 @@ URL — находка домена `auth`.
 
 Бэкенд: **не реализован**.
 Реализация: `services/settingsService.ts:155` — `deleteWarehouseMap` · мок `mocks/index.ts:1652` →
-`mocks/settings.ts:659` — `mockDeleteWarehouseMap`
+`mocks/settings.ts:701` — `mockDeleteWarehouseMap`
 
 ---
 
@@ -1373,7 +1373,7 @@ URL — находка домена `auth`.
 (`backend/app/modules/settings/shared/models.py:12`, `:32`, `:61`, `:86`, `:104`, `:136`), прав
 среди них нет.
 Реализация: `services/settingsService.ts:36` — `getOrderPermissions` · мок `mocks/index.ts:383` →
-`mocks/settings.ts:440` — `mockGetOrderPermissions`
+`mocks/settings.ts:456` — `mockGetOrderPermissions`
 
 ---
 
@@ -1557,7 +1557,7 @@ Profile передаёт user_id/tenant_id через internal API auth, без 
 | семь категорий единиц (`weight … thickness`) | их восемь: добавлена `time` для услуг (`types/settings.ts:31-40`); тот же устаревший список повторяет комментарий колонки (`models.py:99-101`) |
 | «`exchangeRate` есть в типе `Currency`» | в типе фронта его нет (`types/settings.ts:22-28`); поле существует только на сервере, и из-за этого не работает создание валюты — БАГ-05 |
 | «`defaultCurrency` должен соответствовать одной из валют» | проверки нет: `patch_global_constants` к валютам не обращается ни разу (`crud/domain.py:188-226`) |
-| статус 415 у `MAP_NOT_AN_IMAGE` | статуса в коде нет: мок бросает голый `Error` без статуса (`mocks/settings.ts:654`), а форма ошибки на проводе — `detail` с кодом (§1 соглашений) |
+| статус 415 у `MAP_NOT_AN_IMAGE` | статуса в коде нет: мок бросает голый `Error` без статуса (`mocks/settings.ts:695`), а форма ошибки на проводе — `detail` с кодом (§1 соглашений) |
 | «Сервер НЕ возвращает данные пользователя» у смены пароля | верно и подтверждено: ответ несёт только сообщение (`profile/action.py:96`) |
 | общие правила: конверт ответа, коды ядра, `PATCH` против `PUT`, мультиарендность, форма `id`, `TranslatedString`, clean-slate | перенесены в [`00-conventions.md`](00-conventions.md) (§1, §2, §3, §4, §19, §12, §15) — правило двух и более доменов в доменном файле не дублируется |
 | — (не было в прежнем тексте) | `GET /api/settings/order-permissions` описания не имел вовсе: `grep -n "order-permissions\|orderPermissions" roo_code/roo-context/03-api-contract.md` → ни одного попадания. Теперь описан своим разделом |

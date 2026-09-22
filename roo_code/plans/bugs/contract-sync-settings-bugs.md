@@ -246,8 +246,8 @@ from_uom_id: … ForeignKey("uoms.id", ondelete="CASCADE")   # models.py:117
 to_uom_id:   … ForeignKey("uoms.id", ondelete="CASCADE")   # models.py:122
 ```
 
-`remove_uom_item` (`crud/domain.py:333-344`) проверяет только товары — счёт идёт через
-`count_products_by_uom` (`crud/domain.py:339-340`) — и, не найдя их, удаляет единицу. Правила пересчёта, где эта единица
+`remove_uom_item` (`crud/domain.py:415`) проверяет только товары — счёт идёт через
+`count_products_by_uom` (`crud/domain.py:421`) — и, не найдя их, удаляет единицу. Правила пересчёта, где эта единица
 стоит с любой стороны, исчезнут вместе с ней. Старый контракт обещал ровно обратное — «409
 если UOM используется в товарах, правилах пересчёта или заказах»
 (старый раздел `DELETE /api/settings/uoms/:id`).
@@ -268,7 +268,7 @@ to_uom_id:   … ForeignKey("uoms.id", ondelete="CASCADE")   # models.py:122
 ### Problem
 
 `remove_currency_item` проверяет одно: используется ли валюта товарами — счёт через
-`count_products_by_currency` (`crud/domain.py:262-266`).
+`count_products_by_currency` (`crud/domain.py:335`).
 Ни флаг `is_default` самой записи, ни код в `global_constants.default_currency` не проверяются —
 в функции нет ни одного обращения ни к тому, ни к другому. Инвариант держит **только атрибут `disabled` на кнопке**:
 
@@ -322,7 +322,7 @@ PATCH констант (`:353-356`), и все они уходят одним `P
 
 ### Problem
 
-`create_currency_item` дубли ловит (`crud/domain.py:200-202` → `ConflictError`).
+`create_currency_item` дубли ловит (`crud/domain.py:249` → `ConflictError`).
 `update_currency_item` — нет: код переписывается без всякой проверки
 (`crud/domain.py:229-230`), а в схеме стоит `UniqueConstraint("tenant_id", "code", name="uq_currencies_tenant_code")`.
 Ответ клиенту в этом случае будет не `CONFLICT`, а 500.
@@ -385,7 +385,7 @@ PATCH констант (`:353-356`), и все они уходят одним `P
 
 ### Problem
 
-Клиент шлёт профиль целиком — `saveProfile` со спредом всей секции (`useSettings.ts:514`), то
+Клиент шлёт профиль целиком — `saveProfile` со спредом всей секции (`useSettings.ts:545`), то
 есть вместе с `role` и `secretLink`
 (`frontend_vue/src/types/settings.ts:205-212`). Серверная схема принимает только четыре поля
 (`profile/schemas.py:27-35`) и лишние отбрасывает. Мок же кладёт всё:
@@ -526,7 +526,7 @@ reader.readAsDataURL(file)
 
 Настоящий URL приходит позже, обработчиком загрузки — `handleLogoUploaded`
 (`SettingsLayout.vue:344-349`), и
-подменяет превью. Но `updateCompany` помечает секцию грязной (`useSettings.ts:531-535`), и
+подменяет превью. Но `updateCompany` помечает секцию грязной (`useSettings.ts:565`), и
 Save, нажатый в промежутке, отправит PATCH с base64. Колонка это примет: `logo_url` — `Text`
 (`backend/app/modules/settings/shared/models.py:29`, расширена миграцией
 `backend/alembic/versions/15f2c7d4e9b0_enlarge_logo_url_to_text.py`). Старый контракт
@@ -600,7 +600,7 @@ factor=float(c.factor) if c.factor else None
 
 `ConversionPatchInput` принимает `fromUomId` и `toUomId` (`crud/schemas.py:165-166`), а
 `update_conversion_item` их просто перекладывает: обе единицы уходят в
-`updates` без единой проверки (`crud/domain.py:407-410`). Обе проверки,
+`updates` без единой проверки (`crud/domain.py:142`). Обе проверки,
 написанные для создания (`crud/domain.py:373-374` и `:377-379`), здесь не вызываются. Тем же
 путём нельзя обнулить `factor` или `formula_type`: `None` означает «не менять»
 (`:413-416`), поэтому правило, переключённое со `static` на `dynamic`, сохранит старый
@@ -622,7 +622,7 @@ factor=float(c.factor) if c.factor else None
   «Производные значения».
 - **`AppSettings.users` не заполняется ничем.** Поле есть в типе
   (`frontend_vue/src/types/settings.ts:245`) и в сиде мока (`mocks/settings.ts:187-206`), но
-  эндпоинта нет и в `fetchAllSections` его нет (`useSettings.ts:213-237`). Это не дефект кода,
+  эндпоинта нет и в `fetchAllSections` его нет (`useSettings.ts:244`). Это не дефект кода,
   а отсутствующая функциональность — вопрос владельцу, не правка.
 - **`sort_order` статусов не нормализуется после удаления.** Сервер оставляет дыры в
   нумерации (`crud/domain.py:522-534`), мок перенумеровывает (`mocks/settings.ts:579`).

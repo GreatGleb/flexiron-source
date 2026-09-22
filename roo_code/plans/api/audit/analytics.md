@@ -41,7 +41,7 @@
   (`SupplyPage.vue:8`), `'staff'` (`StaffPage.vue:8`), `'logistics'` (`LogisticsPage.vue:8`),
   `'pl-report'` (`PlReportPage.vue:10`), `'deficit'` (`DeficitPage.vue:8`). Мок принимает
   `page: string` без сужения (`mocks/analytics.ts:1018`), а его ветка ловит регуляркой
-  `/^\/api\/analytics\/(.+)$/` (`mocks/index.ts:310`) — то есть любой хвост, включая слэши
+  `/^\/api\/analytics\/(.+)$/` (`mocks/index.ts:402`) — то есть любой хвост, включая слэши
   (см. БАГ-07).
 - Форма ответа: `ApiResponse<DashboardData>` — конверт снимает `unwrap()`, возвращая `json.data`
   (`src/services/api.ts:127-138`), тип объявлен `src/types/analytics.ts:216-251`.
@@ -223,7 +223,7 @@
 - Права — в какой функции проверяются: **нигде, ни во фронте, ни на сервере.** Восемь маршрутов
   закрыты только фича-флагами — `adminDashboard`, `adminWarehouse`, `adminSales`, `adminSupply`,
   `adminStaff`, `adminLogistics`, `adminPlReport`, `adminDeficit`
-  (`frontend_vue/src/router/index.ts:92,98,104,110,116,122,128,134`; значения — константы `true`,
+  (`frontend_vue/src/router/index.ts:264,98,104,110,116,122,128,134`; значения — константы `true`,
   `frontend_vue/src/config/featureFlags.ts:6-13`), а внутри дашборда ещё две секции гейтятся
   флагами `dashboardAlerts`/`dashboardCharts` (`DashboardPage.vue:9-10`,
   `featureFlags.ts:30-31`). Флаг — это тариф, а не роль: в матрице прав

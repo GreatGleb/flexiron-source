@@ -345,7 +345,7 @@ Save-режим: clean-slate, первый из трёх `PUT`-ов батча (
 (строка владельцу); что обязан сделать сервер при **любой** из них — сохранить присланное как
 `name_translations` и не додумывать переводы.
 
-`Idempotency-Key` не шлётся; ветка мока идёт мимо `withIdempotency` (`mocks/index.ts:946-948`).
+`Idempotency-Key` не шлётся; ветка мока идёт мимо `withIdempotency` (`mocks/index.ts:318`).
 
 Ответ: `SectionConfig` целиком (`configService.ts:54`). Мок собирает:
 `id: sec-new-${Date.now()}` (`mocks/config.ts:312`), `order: MOCK_SECTIONS.length` (`:314`),

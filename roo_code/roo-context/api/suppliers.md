@@ -429,7 +429,7 @@ History» (`views/admin/suppliers/SupplierCardPage.vue:275`); `SupplierHistoryIt
 (ветка `^/api/suppliers/([^/]+)$`) → `mocks/suppliers.ts:305` (`mockGetSupplier`)
 
 > Страховка `&& !path.includes('/status')` в ветке мока
-> (`frontend_vue/src/services/mocks/index.ts:349`) недостижима: класс `[^/]` слэш в сегменте уже
+> (`frontend_vue/src/services/mocks/index.ts:440`) недостижима: класс `[^/]` слэш в сегменте уже
 > исключил. Порядок разбора веток мока — часть контракта (§18 соглашений), и у сервера с одним
 > маршрутом `/{id}` он обратный по построению: `/api/suppliers/list` и
 > `/api/suppliers/export.csv` обязаны быть объявлены **до** `/{supplier_id}`, иначе попадут в него
@@ -656,11 +656,11 @@ last-write-wins, как в остальных шестнадцати домен�
 
 Запрос: тела нет — `apiDelete<void>` без body
 (`frontend_vue/src/services/suppliersService.ts:82-84`). Заголовков клиент не шлёт; `deleteMockRoute`
-читает `If-Match` для других доменов (`frontend_vue/src/services/mocks/index.ts:1428`), но эта
+читает `If-Match` для других доменов (`frontend_vue/src/services/mocks/index.ts:1577`), но эта
 ветка значение игнорирует (`frontend_vue/src/services/mocks/index.ts:1429-1433`) — то есть
 удаление записи аудита от проверки версии освобождено, как и в общей ленте (§11 соглашений).
 
-Ответ: `void` (`frontend_vue/src/services/mocks/index.ts:1432`). UI ответ не читает, а вычёркивает
+Ответ: `void` (`frontend_vue/src/services/mocks/index.ts:270`). UI ответ не читает, а вычёркивает
 запись у себя (`frontend_vue/src/views/admin/suppliers/SupplierCardPage.vue:74`).
 
 Ошибки — единственные два кода домена: `SUPPLIER_NOT_FOUND` и `AUDIT_ENTRY_NOT_FOUND`

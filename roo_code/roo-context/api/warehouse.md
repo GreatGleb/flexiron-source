@@ -1261,7 +1261,7 @@ Save-режим: чтение. Один вызывающий — вкладка 
 
 Запрос — query: всегда `search`, `page`, `pageSize`; условно `priority`, `status`, `uomId`,
 `categoryIds`, `sortBy`, `sortDir` (`frontend_vue/src/services/warehouseService.ts:226-238`). Мок
-читает те же девять (`frontend_vue/src/services/mocks/index.ts:785-791`), но `categoryIds`
+читает те же девять (`frontend_vue/src/services/mocks/index.ts:520`), но `categoryIds`
 **принимает и не применяет** (`frontend_vue/src/services/mocks/warehouse.ts:1596-1651` — фильтра по
 нему в теле нет), БАГ-20. Дефолты сортировки — `deficitAmount`/`desc` (`:1636-1637`); поддержаны
 пять ключей — `productName`, `currentStock`, `minRequired`, `deficitAmount`, `priority` (`:1639-1648`),

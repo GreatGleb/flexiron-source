@@ -54,7 +54,7 @@
 
 **Идемпотентность есть ровно у трёх POST** — отгрузка, платёж, возврат
 (`frontend_vue/src/services/ordersService.ts:294-296`, `:385-387`, `:351-353`), и мок их кеширует
-по ключу (`withIdempotency`, `frontend_vue/src/services/mocks/index.ts:261-269`, применение
+по ключу (`withIdempotency`, `frontend_vue/src/services/mocks/index.ts:321`, применение
 `:1030-1057`). Остальные тридцать заголовка не шлют:
 `grep -c "Idempotency" frontend_vue/src/services/ordersService.ts` → `4` (импорт + три вызова).
 

@@ -121,7 +121,7 @@ camelCase (`services/productsService.ts:49-58`, `:86-111`, тип — `types/pro
 ```
 
 Мок читает ровно эти пять параметров с дефолтами `page=1`, `pageSize=25`, `sortDir='asc'`
-(`services/mocks/index.ts:427-436`). **У `sortBy` дефолта нет ни на одной стороне** — правило
+(`services/mocks/index.ts:567`). **У `sortBy` дефолта нет ни на одной стороне** — правило
 домена 7.
 
 Ответ: `PaginatedResponse<ProductListItem>` (конверт — §13 соглашений; сбор страницы —

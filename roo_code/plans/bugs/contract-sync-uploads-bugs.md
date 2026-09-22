@@ -294,7 +294,7 @@ for (const u of uploaded) {
 (`backend/app/core/config.py:43`, `draft_ttl_hours: int = 24`), колонка заведена
 (`core/uploads/models.py:37-39`), но `expires_at` не присваивается нигде
 (`grep -rn "expires_at" backend/app/core/uploads/` → одно попадание, само объявление), а
-планировщика в приложении нет — `lifespan` пуст (`backend/app/main.py:40-48`).
+планировщика в приложении нет — `lifespan` пуст (`backend/app/main.py:53`).
 
 ### Fix
 

@@ -213,7 +213,7 @@ return apiPost(`/api/orders/${orderId}/shipments`, data, {
 Значит сценарий, ради которого §11 назначила кэшу срок в сутки — «этого хватает на повтор после
 обрыва связи», — недостижим со стороны клиента. Человек видит ошибку сети, нажимает «Отгрузить»
 второй раз, `createShipment` вызывается заново, ключ ДРУГОЙ, и любой сервер — как и мок
-(`withIdempotency`, `frontend_vue/src/services/mocks/index.ts:323-330`) — обязан счесть это новым
+(`withIdempotency`, `frontend_vue/src/services/mocks/index.ts:321`) — обязан счесть это новым
 намерением. Грузовик выезжает второй раз, то есть ровно то, что обещает предотвратить комментарий
 над самим вызовом: «A retry — a slow answer, a double click, a reconnect — must not put a second
 truck on the road» (`ordersService.ts:292-296`).

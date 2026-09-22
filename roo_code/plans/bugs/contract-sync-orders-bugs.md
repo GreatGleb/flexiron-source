@@ -316,7 +316,7 @@ apiPost(`/api/orders/${orderId}/shipments/${shipmentId}/cancel`, data)          
 запись понадобится.
 
 Вторая половина: `fileId` не проверяется ничем. Ветка мока достаёт имя из реестра загрузок
-(`frontend_vue/src/services/mocks/index.ts:1098`), а `mockAddOrderFile` подставляет заглушку,
+(`frontend_vue/src/services/mocks/index.ts:169`), а `mockAddOrderFile` подставляет заглушку,
 если имени нет:
 
 ```ts

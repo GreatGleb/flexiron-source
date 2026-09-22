@@ -202,7 +202,7 @@ Save-режим — **чтение**. Строка ведёт в карточк�
   (`types/finance.ts:3`) плюс `all` (`views/admin/finance/OutgoingPaymentsPage.vue:34-40`). Значение
   `cancelled` **недостижимо**: его не носит ни один сид и не ставит ни одна операция — «Правила
   домена», п. 9, БАГ-09;
-- `page`, `pageSize` — как у реестра, общий разборщик мока (`mocks/index.ts:284-291`).
+- `page`, `pageSize` — как у реестра, общий разборщик мока (`mocks/index.ts:451`).
 
 Заголовков нет (`services/financeService.ts:33`) — БАГ-01.
 
@@ -395,7 +395,7 @@ Save-режим — **чтение**. Триггеров пять, и пятый
 - `relatedEntityType` — `order | payment | supplier | client | all`
   (`types/finance.ts:74`, фильтр `views/admin/finance/DocumentArchivePage.vue:34-40`);
 - `page`, `pageSize` — строками. Эта ветка мока разбирает параметры **своим** кодом: пять
-  `params?.<ключ> ?? …` прямо в ветке (`mocks/index.ts:836-843`), и общего `parseFinanceListParams`
+  `params?.<ключ> ?? …` прямо в ветке (`mocks/index.ts:343`), и общего `parseFinanceListParams`
   в этих строках нет (`grep -c parseFinanceListParams` по диапазону → 0, против 2 у веток списков,
   `mocks/index.ts:823-829`). Дефолты те же, но экземпляров разбора два.
 
