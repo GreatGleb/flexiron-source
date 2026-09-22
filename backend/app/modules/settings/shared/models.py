@@ -208,3 +208,45 @@ class MailSettings(UUIDMixin, TimestampMixin, Base):
     from_name: Mapped[str] = mapped_column(
         String(255), nullable=False, default="", server_default=""
     )
+
+
+class WarehouseMap(UUIDMixin, TimestampMixin, Base):
+    """Warehouse map — one image per tenant, no version history (П65 а).
+
+    The owner's decision leaves the storage form to the server ("просто картинка,
+    хранить как удобно") and binds it to two things that are not columns:
+
+    * **П11 — the column keeps a file identifier, never a link.** The reference is
+      derived, signed and short-lived (~15 minutes), and it is assembled on read;
+      a stored link would be a stored derived value, which this domain does not
+      keep (П68). The column below is therefore named for the identifier, and no
+      column holds the link at all — it is built in `domain.py`, on every read.
+    * **П31 — the `PUT` that writes this row *is* the `Save` that lifts the draft
+      mark.** The mark is not a column here: it lives on
+      `uploaded_files.is_draft`, and this table only names the file. A map
+      uploaded and never confirmed therefore stays a draft and leaves by TTL.
+
+    The four metadata fields travel as a JSON document rather than four columns:
+    П65 leaves the shape to the server, and name, mime, size and uploadedAt are
+    the `WarehouseMapFile` the frontend already holds as one object
+    (`types/settings.ts:111-119`). The attribute is **not** named `metadata` —
+    that name belongs to `Base.metadata` on every declarative class.
+
+    Who deletes the binary of a map that was attached and then orphaned by a
+    replacement or a deletion is owner question **В4** and it is open: neither
+    this table nor its endpoints decide it.
+    """
+
+    __tablename__ = "warehouse_map"
+
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,  # singleton: one map per tenant
+        index=True,
+    )
+    map_file_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    file_metadata: Mapped[dict] = mapped_column(
+        JSONB, nullable=False, default=dict, server_default="{}"
+    )

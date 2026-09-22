@@ -9,7 +9,7 @@
 > **Главное о старшинстве в этом домене.** Модуль бэкенда есть, и у него ровно два роута:
 > `@router.get("/{product_id}")` (`backend/app/modules/products/features/get_product_detail/action.py:28`)
 > и `@router.post("")` (`backend/app/modules/products/features/create_product/action.py:23`), оба
-> подключены в `backend/app/main.py:66-67`. Значит по этим двум эндпоинтам источник истины —
+> подключены в `backend/app/main.py:69-70`. Значит по этим двум эндпоинтам источник истины —
 > сервер, и **формы у него snake_case без единого алиаса**
 > (`backend/app/modules/products/features/create_product/schemas.py:8-40`, `backend/app/modules/products/features/get_product_detail/schemas.py:9-54`), тогда как клиент шлёт
 > и читает camelCase (`frontend_vue/src/services/productsService.ts:49-58`, `:86-111`;

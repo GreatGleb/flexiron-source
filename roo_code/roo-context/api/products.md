@@ -17,7 +17,7 @@ clean-slate против quick-action — §15; производные знач�
 **Источник истины — по эндпоинту, а не по домену.** Модуль бэкенда есть, и у него ровно два
 роута: `@router.post("", …)` (`backend/app/modules/products/features/create_product/action.py:23`) и
 `@router.get("/{product_id}", …)` (`backend/app/modules/products/features/get_product_detail/action.py:28`),
-оба подключены в `backend/app/main.py:66-67`. Значит формы `POST /api/products` и
+оба подключены в `backend/app/main.py:69-70`. Значит формы `POST /api/products` и
 `GET /api/products/:id` ниже сняты **со схем сервера**, а расхождение фронта с ними названо
 находкой; остальные пять описаны по клиенту и моку. Строка `Бэкенд:` стоит у каждого раздела —
 файл со строкой или слово «не реализован». Метки `Статус: спроектировано` в домене нет ни

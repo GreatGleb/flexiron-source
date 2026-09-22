@@ -44,6 +44,9 @@ from app.modules.settings.features.crud.action import (
 from app.modules.settings.features.mail.action import (
     router as settings_mail_router,
 )
+from app.modules.settings.features.warehouse_map.action import (
+    router as settings_warehouse_map_router,
+)
 from app.core.uploads.action import (
     router as uploads_router,
 )
@@ -109,6 +112,7 @@ app.include_router(auth_me_router)
 app.include_router(settings_profile_router)
 app.include_router(settings_crud_router)
 app.include_router(settings_mail_router)
+app.include_router(settings_warehouse_map_router)
 app.include_router(auth_login_router)
 app.include_router(auth_register_router)
 app.include_router(auth_magic_link_router)

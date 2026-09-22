@@ -16,7 +16,7 @@
 > **Бэкенд здесь есть, и по К5 он старший.** `backend/app/core/uploads/action.py:79` — это
 > единственный роут вне `app/modules/`: uploads объявлен инфраструктурой, а не бизнес-модулем
 > (`backend/app/core/uploads/service.py:1-5` — «It is NOT a business module — it's infrastructure»).
-> Роут подключён (`backend/app/main.py:74`), таблица создана миграцией
+> Роут подключён (`backend/app/main.py:77`), таблица создана миграцией
 > (`backend/alembic/versions/133fae13afbe_phase_5_uploads.py:25-37`), и на неё ссылаются три чужие
 > таблицы с `ondelete="RESTRICT"`: `supplier_files.file_id`
 > (`backend/alembic/versions/a8dd7d7ba74b_phase_6_suppliers.py:88`), `payment_documents.file_id` и
@@ -153,7 +153,7 @@
      `app/core/schemas.py:29-35`), и в нём два поля из шести. Ближе всех к правде оказался не
      контракт, а мок (`mocks/index.ts:1667-1674`), по которому и написан фронт;
   3. «url — временный URL для preview» (`:172`) — **неверно**: сервер строит постоянную ссылку на
-     статику (`core/uploads/action.py:141-142`), файл смонтирован навсегда (`backend/app/main.py:63`).
+     статику (`core/uploads/action.py:141-142`), файл смонтирован навсегда (`backend/app/main.py:66`).
      Временный тут как раз мок: data-URL живёт в памяти вкладки (`mocks/index.ts:1666`);
   4. «Файл попадает в draft-хранилище (не привязан ни к какой сущности)» (`:177`) — **неверно**:
      эндпоинт передаёт `is_draft=False` (`core/uploads/action.py:136`) при значении по умолчанию `True` и в
@@ -180,7 +180,7 @@
      `grep -rn "draft_ttl_hours" backend/app` → одно попадание, само объявление; `expires_at` в
      uploads не присваивается нигде (`grep -rn "expires_at" backend/app/core/uploads/` → только
      объявление колонки). Планировщика в проекте нет вовсе: `lifespan` пуст
-     (`backend/app/main.py:40-48`);
+     (`backend/app/main.py:40-51`);
   9. «Привязка: сервер находит draft-файлы, привязывает, переносит из draft в постоянное»
      (`:183-187`) — серверной части не существует (см. «Save-режим»: ни один роут не принимает
      `fileIds`). Мок эту фазу отыгрывает: `mockAddOrderFile` берёт имя из реестра загрузок
@@ -198,7 +198,7 @@
   (`OutgoingPaymentCardPage.vue:104`, `useWarehouseMap.ts:56`), потому что переспросить его не у
   кого.
 - Источник истины: **бэкенд** — реализация есть и подключена (`backend/app/core/uploads/action.py:79`,
-  `backend/app/main.py:74`), значит по К5 форма ответа и каталог ошибок берутся с него, а не с
+  `backend/app/main.py:77`), значит по К5 форма ответа и каталог ошибок берутся с него, а не с
   мока и не с `types`. Практическое следствие: `interface UploadedFile`
   (`src/services/uploadsService.ts:3-10`) — **не** спецификация ответа, а желаемая форма, под
   которую написан мок; расхождение записано как находка про фронт (БАГ-01), а не как требование
@@ -276,7 +276,7 @@
   индексирована (`core/uploads/models.py:16-21`, `133fae13afbe:28`), FK на `tenants` с
   `ondelete="CASCADE"` — удаление арендатора уносит его файлы из таблицы.
   Чтение: файлы раздаёт статикой `app.mount("/static/uploads", StaticFiles(directory=UPLOAD_DIR))`
-  (`backend/app/main.py:63`) — **без авторизации, без арендатора и без единой проверки**, все
+  (`backend/app/main.py:66`) — **без авторизации, без арендатора и без единой проверки**, все
   файлы всех арендаторов лежат в одном каталоге (`core/uploads/action.py:22-23`, `main.py:61-62` — один и тот
   же путь `backend/uploads`). Единственная защита — неугадываемое имя `uuid4().hex + ext`
   (`core/uploads/action.py:119`); отозвать выданную ссылку нечем (БАГ-09). Строки с `storage_path`
