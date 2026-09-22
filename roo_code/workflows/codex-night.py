@@ -21,6 +21,9 @@ import time
 
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+from headless_backends import ROLES, load_routing  # noqa: E402  (нужен HERE в sys.path)
+
 SCHEMA = {
     "type": "object",
     "properties": {
@@ -120,15 +123,15 @@ def execute_checks(root, checks, prefix, deadline):
                 prefix.with_name(f"{prefix.name}-{number}"), deadline)
 
 
-def preflight(root, queue, codex, retry=None):
+def preflight(root, queue, backends, retry=None):
     if Path(git(root, "rev-parse", "--show-toplevel").strip()).resolve() != root:
         raise ValueError("--workspace должен указывать на корень checkout")
     if not git(root, "branch", "--show-current").strip().startswith("auto/"):
         raise ValueError("Нужен отдельный checkout на ветке auto/*")
     if not retry and git(root, "status", "--porcelain").strip():
         raise ValueError("Checkout содержит несохранённые изменения; ничего не спрятано и не удалено")
-    if not shutil.which(codex):
-        raise ValueError("Codex CLI не найден")
+    for role in ROLES:
+        backends[role].check()
     for key in ("user.name", "user.email"):
         if not git(root, "config", "--get", key).strip():
             raise ValueError(f"Не задан git {key}")
@@ -251,7 +254,7 @@ def service_error_kind(log):
     return None
 
 
-def ask_agent_once(root, codex, task, role, run_dir, deadline, attempt=1):
+def ask_agent_once(root, backends, task, role, run_dir, deadline, attempt=1):
     suffix = "" if attempt == 1 else f"-retry-{attempt}"
     prefix = run_dir / f'{task["id"]}-{role}{suffix}'
     result_path = prefix.with_suffix(".json")
@@ -290,13 +293,12 @@ def ask_agent_once(root, codex, task, role, run_dir, deadline, attempt=1):
             "Недоступность этих команд именно в sandbox исполнителя не требует blocked: "
             "честно укажи, что они ожидают контроллера; не называй их пройденными.\n"
         )
+    backend = backends[role]
+    instruction += backend.result_instruction(result_path)
     prompt = instruction + "\nЗадание (JSON):\n" + json.dumps(task, ensure_ascii=False, indent=2)
     prefix.with_suffix(".prompt.txt").write_text(prompt)
-    command = [codex, "-a", "never", "exec", "--sandbox",
-               "read-only" if role == "review" else "workspace-write", "--json",
-               "--output-schema", str(run_dir / "schema.json"),
-               "--output-last-message", str(result_path), "-"]
-    execute(command, root, prefix, deadline, prompt)
+    execute(backend.build(role, root, run_dir, result_path), root, prefix, deadline, prompt)
+    backend.finalize(role, prefix, result_path)
     result = json.loads(result_path.read_text())
     if (set(result) != {"status", "summary", "evidence"}
             or result["status"] not in ("done", "blocked")
@@ -308,13 +310,13 @@ def ask_agent_once(root, codex, task, role, run_dir, deadline, attempt=1):
     return result
 
 
-def ask_agent(root, codex, task, role, run_dir, deadline):
+def ask_agent(root, backends, task, role, run_dir, deadline):
     # A review has no write effects and can safely start a fresh session after
     # a recognized service failure. Never replay the author or alter access settings.
     before_git, before_files = git_state(root), file_snapshot(root)
     for attempt in (1, 2):
         try:
-            result = ask_agent_once(root, codex, task, role, run_dir, deadline, attempt)
+            result = ask_agent_once(root, backends, task, role, run_dir, deadline, attempt)
             if attempt == 2:
                 first_result = run_dir / f'{task["id"]}-{role}.json'
                 if first_result.exists():
@@ -325,7 +327,8 @@ def ask_agent(root, codex, task, role, run_dir, deadline):
         except CommandFailed:
             suffix = "" if attempt == 1 else "-retry-2"
             prefix = run_dir / f'{task["id"]}-{role}{suffix}'
-            kind = service_error_kind(prefix.with_suffix(".stdout.log"))
+            kind = (service_error_kind(prefix.with_suffix(".stdout.log"))
+                    if backends[role].supports_service_retry else None)
             if role != "review" or not kind:
                 raise
             if git_state(root) != before_git or file_snapshot(root) != before_files:
@@ -349,12 +352,16 @@ def ask_agent(root, codex, task, role, run_dir, deadline):
             time.sleep(2)
 
 
-def run(root, queue, codex, run_dir, minutes, max_tasks, retry=None, previous=None):
+def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous=None):
     if run_dir.is_relative_to(root):
         raise ValueError("Каталог результатов должен находиться вне checkout")
     # Never reuse a directory: even a stopped run remains intact.
     run_dir.mkdir(parents=True, exist_ok=False)
     shutil.copyfile(Path(__file__).resolve(), run_dir / "controller.py")
+    shutil.copyfile(HERE / "headless_backends.py", run_dir / "headless_backends.py")
+    (run_dir / "backends.json").write_text(json.dumps(
+        {role: {"backend": backends[role].name, **backends[role].options} for role in ROLES},
+        ensure_ascii=False, indent=2))
     (run_dir / "schema.json").write_text(json.dumps(SCHEMA))
     (run_dir / "queue.json").write_text(json.dumps(queue, ensure_ascii=False, indent=2))
     state = {"status": "running", "baseline": git(root, "rev-parse", "HEAD").strip(),
@@ -457,7 +464,7 @@ def run(root, queue, codex, run_dir, minutes, max_tasks, retry=None, previous=No
                 continue
             work = {"status": "done"}
             if not retry or task["id"] != retry["current"]:
-                work = ask_agent(root, codex, task, "work", run_dir, deadline)
+                work = ask_agent(root, backends, task, "work", run_dir, deadline)
             if git_state(root) != expected_git or changed(root) - set(task["outputs"]):
                 raise RuntimeError("Исполнитель изменил Git или файлы вне задачи")
             if work["status"] == "blocked":
@@ -490,7 +497,7 @@ def run(root, queue, codex, run_dir, minutes, max_tasks, retry=None, previous=No
                 block(task, "checks", check_failure, expected_git)
                 state["current"] = None
                 continue
-            review = ask_agent(root, codex, task, "review", run_dir, deadline)
+            review = ask_agent(root, backends, task, "review", run_dir, deadline)
             if (git_state(root) != expected_git or git(root, "diff", "HEAD") != before_review
                     or file_snapshot(root) != files_before):
                 raise RuntimeError("Проверяющий изменил checkout")
@@ -527,7 +534,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--workspace", type=Path, default=Path.cwd())
     parser.add_argument("--queue", type=Path, default=HERE / "codex-night-queue.json")
-    parser.add_argument("--codex", default="codex")
+    parser.add_argument("--codex", default="codex", help="Бинарь Codex, если маршрутизация не задана")
+    parser.add_argument("--routing", type=Path, help="Файл маршрутизации ролей по бэкендам")
     parser.add_argument("--run", action="store_true", help="Без флага — только preflight, без вызова модели")
     parser.add_argument("--run-dir", type=Path)
     parser.add_argument("--minutes", type=float)
@@ -536,6 +544,7 @@ def main():
     args = parser.parse_args()
     root = args.workspace.resolve()
     queue = json.loads(args.queue.read_text())
+    backends = load_routing(args.routing, args.codex)
     if args.run and (args.run_dir is None or args.minutes is None or not math.isfinite(args.minutes)
                      or args.minutes <= 0 or args.max_tasks is None or args.max_tasks <= 0):
         parser.error("Для --run обязательны --run-dir, положительные --minutes и --max-tasks")
@@ -544,15 +553,16 @@ def main():
     common = (root / common).resolve()
     if not args.run:
         retry = retry_checkpoint(root, queue, args.retry_review.resolve()) if args.retry_review else None
-        preflight(root, queue, args.codex, retry)
-        print(f"Preflight пройден: {len(queue['tasks'])} задач. Модель не запускалась.")
+        preflight(root, queue, backends, retry)
+        routed = ", ".join(f"{role}={backends[role].name}" for role in ROLES)
+        print(f"Preflight пройден: {len(queue['tasks'])} задач, {routed}. Модель не запускалась.")
         return 0
     with (common / "codex-night.lock").open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         previous = args.retry_review.resolve() if args.retry_review else None
         retry = retry_checkpoint(root, queue, previous) if previous else None
-        preflight(root, queue, args.codex, retry)
-        return run(root, queue, args.codex, args.run_dir.resolve(), args.minutes, args.max_tasks, retry, previous)
+        preflight(root, queue, backends, retry)
+        return run(root, queue, backends, args.run_dir.resolve(), args.minutes, args.max_tasks, retry, previous)
 
 
 if __name__ == "__main__":

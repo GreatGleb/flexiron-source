@@ -1,0 +1,18 @@
+{
+  "_комментарий": "Кто какую роль играет в автономном прогоне. Смена связки = правка этого файла; код не трогается. Бэкенды: codex, claude, zoo.",
+  "operator": {
+    "backend": "claude",
+    "model": "claude-opus-5",
+    "_роль": "нарезает очередь задач из планов; ядром прогона пока не вызывается"
+  },
+  "work": {
+    "backend": "zoo",
+    "socket": "/tmp/zoo-code.sock",
+    "timeout_seconds": 3600,
+    "configuration": {}
+  },
+  "review": {
+    "backend": "claude",
+    "model": "claude-sonnet-5"
+  }
+}

@@ -1,6 +1,6 @@
 """One-shot recovery guard for an already running, older controller.
 
-Run from a frozen directory beside controller.py and queue.json. It waits for
+Run from a frozen directory beside controller.py, headless_backends.py and queue.json. It waits for
 the specified systemd service, never restarts a user pause, and hands off at most
 once to the updated controller within the original deadline.
 """
@@ -35,6 +35,7 @@ def main():
     parser.add_argument("--unit", required=True)
     parser.add_argument("--watch-unit", required=True)
     parser.add_argument("--codex", required=True)
+    parser.add_argument("--routing", type=Path, help="Файл маршрутизации ролей; без него обе роли на Codex")
     args = parser.parse_args()
     here = Path(__file__).resolve().parent
     metadata = json.loads(args.pointer.read_text())
@@ -66,7 +67,8 @@ def main():
         root = Path(metadata["workspace"]).resolve()
         data = json.loads(queue.read_text())
         checkpoint = controller.retry_checkpoint(root, data, previous)
-        controller.preflight(root, data, args.codex, checkpoint)
+        backends = controller.load_routing(args.routing, args.codex)
+        controller.preflight(root, data, backends, checkpoint)
         remaining = deadline - time.time()
         if remaining <= 5:
             return 0
@@ -85,6 +87,7 @@ def main():
                    "--who=Flexiron backend", "--why=Authorized backend queue", sys.executable,
                    str(here / "controller.py"), "--workspace", str(root), "--queue", str(queue),
                    "--codex", args.codex, "--run", "--run-dir", str(run_dir),
+                   *(["--routing", str(args.routing)] if args.routing else []),
                    "--retry-review", str(previous), "--minutes", str(remaining / 60),
                    "--max-tasks", str(metadata["max_tasks"])]
         print("Восстановление проверки в прежнем временном окне", flush=True)
