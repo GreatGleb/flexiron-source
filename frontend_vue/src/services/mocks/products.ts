@@ -6,6 +6,7 @@ import type {
   LinkedSupplier,
 } from '@/types/product'
 import type { PaginatedResponse, PaginationParams } from '@/types/api'
+import { ApiRequestError } from '@/types/api'
 import type { ConversionFormulaType } from '@/types/settings'
 import type { TranslatedString } from '@/types/i18n'
 import { mergeTranslatedString, toTranslatedString } from '@/types/i18n'
@@ -13984,7 +13985,12 @@ export async function mockGetProducts(
 
 export async function mockGetProduct(id: string): Promise<Product> {
   const found = STORE.find((p) => p.id === id)
-  if (!found) throw new Error(`Product ${id} not found`)
+  if (!found)
+    throw new ApiRequestError({
+      status: 404,
+      message: `Product ${id} not found`,
+      code: 'PRODUCT_NOT_FOUND',
+    })
   return found
 }
 
@@ -14146,7 +14152,12 @@ export async function mockPatchProduct(
   // PRODUCT_NOT_FOUND for exactly this case. Returning `null` instead made the
   // mock router hand the caller a successful empty response, so a PATCH against
   // a product that is gone showed the "changes saved" toast.
-  if (idx === -1) throw new Error('PRODUCT_NOT_FOUND')
+  if (idx === -1)
+    throw new ApiRequestError({
+      status: 404,
+      message: 'PRODUCT_NOT_FOUND',
+      code: 'PRODUCT_NOT_FOUND',
+    })
   const existing: Product = STORE[idx]!
   // Normalise string fields to TranslatedString before merging
   const patchName: TranslatedString | undefined = data.name
@@ -14233,9 +14244,19 @@ export async function mockDeleteProduct(id: string): Promise<{ ok: boolean; code
 
 export function mockDeleteProductAuditEntry(productId: string, entryId: string): void {
   const product = STORE.find((p) => p.id === productId)
-  if (!product) throw new Error('PRODUCT_NOT_FOUND')
+  if (!product)
+    throw new ApiRequestError({
+      status: 404,
+      message: 'PRODUCT_NOT_FOUND',
+      code: 'PRODUCT_NOT_FOUND',
+    })
   const idx = product.auditLog.findIndex((entry) => entry.id === entryId)
-  if (idx === -1) throw new Error('AUDIT_ENTRY_NOT_FOUND')
+  if (idx === -1)
+    throw new ApiRequestError({
+      status: 404,
+      message: 'AUDIT_ENTRY_NOT_FOUND',
+      code: 'AUDIT_ENTRY_NOT_FOUND',
+    })
   product.auditLog.splice(idx, 1)
 }
 
