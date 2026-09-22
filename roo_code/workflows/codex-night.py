@@ -143,6 +143,20 @@ def link_report(root, doc, prefix, deadline):
     return int(found[-1])
 
 
+def spent_tokens(backends, run_dir):
+    """Сколько токенов потрачено прогоном на бэкенды, идущие в счёт потолка.
+
+    Считается по логам вызовов, а не накапливается в памяти: остановленный и
+    возобновлённый прогон видит тот же расход, что и непрерывный.
+    """
+    total = 0
+    for path in sorted(run_dir.glob("*.stdout.log")):
+        role = next((r for r in ROLES if f"-{r}" in path.name), None)
+        if role and backends[role].metered:
+            total += backends[role].tokens(Path(str(path)[: -len(".stdout.log")]))
+    return total
+
+
 def link_documents(task):
     return [name for name in task["outputs"] if name.endswith(".md")]
 
@@ -378,7 +392,7 @@ def ask_agent(root, backends, task, role, run_dir, deadline):
             time.sleep(2)
 
 
-def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous=None):
+def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous=None, token_budget=None):
     if run_dir.is_relative_to(root):
         raise ValueError("Каталог результатов должен находиться вне checkout")
     # Never reuse a directory: even a stopped run remains intact.
@@ -390,13 +404,15 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
         ensure_ascii=False, indent=2))
     (run_dir / "schema.json").write_text(json.dumps(SCHEMA))
     (run_dir / "queue.json").write_text(json.dumps(queue, ensure_ascii=False, indent=2))
-    state = {"status": "running", "baseline": git(root, "rev-parse", "HEAD").strip(),
+    state = {"status": "running", "tokens": 0, "token_budget": token_budget,
+             "baseline": git(root, "rev-parse", "HEAD").strip(),
              "workspace": str(root), "completed": list(retry["completed"]) if retry else [],
              "blocked": list(retry.get("blocked", [])) if retry else [],
              "waiting": list(retry.get("waiting", [])) if retry else [],
              "current": None, "reason": "", "retried_from": str(previous) if previous else None}
     deps = dependencies(queue)
     tasks = ordered_tasks(queue, deps)
+    exhausted = False
     if retry:
         # Preserve the author's checkpoint so another failed review can be retried.
         task_id = retry["current"]
@@ -479,6 +495,15 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
                 continue
             if attempts >= max_tasks:
                 continue
+            # Потолок проверяется между задачами: внутри задачи прерывать нечего —
+            # брошенный на середине автор оставит правки без приёмки. Значит прогон
+            # может превысить потолок не больше чем на одну задачу, и это записано.
+            state["tokens"] = spent_tokens(backends, run_dir)
+            if token_budget is not None and state["tokens"] >= token_budget:
+                state["reason"] = f"Потолок токенов исчерпан: {state['tokens']} из {token_budget}"
+                exhausted = True
+                save("token-budget")
+                break
             attempts += 1
             state["current"] = task["id"]
             save("task-start")
@@ -551,7 +576,8 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
                 raise RuntimeError("После коммита осталось изменённое дерево")
         state["current"] = None
         resolved_count = sum(len(state[key]) for key in ("completed", "blocked", "waiting"))
-        state["status"] = ("task-limit" if resolved_count < len(tasks) else
+        state["status"] = ("token-budget" if exhausted else
+                           "task-limit" if resolved_count < len(tasks) else
                            "completed-with-blockers" if state["blocked"] else "completed")
         save("finish")
         return 0
@@ -568,6 +594,7 @@ def main():
     parser.add_argument("--queue", type=Path, default=HERE / "codex-night-queue.json")
     parser.add_argument("--codex", default="codex", help="Бинарь Codex, если маршрутизация не задана")
     parser.add_argument("--routing", type=Path, help="Файл маршрутизации ролей по бэкендам")
+    parser.add_argument("--token-budget", type=int, help="Потолок расхода токенов на прогон")
     parser.add_argument("--run", action="store_true", help="Без флага — только preflight, без вызова модели")
     parser.add_argument("--run-dir", type=Path)
     parser.add_argument("--minutes", type=float)
@@ -594,7 +621,8 @@ def main():
         previous = args.retry_review.resolve() if args.retry_review else None
         retry = retry_checkpoint(root, queue, previous) if previous else None
         preflight(root, queue, backends, retry)
-        return run(root, queue, backends, args.run_dir.resolve(), args.minutes, args.max_tasks, retry, previous)
+        return run(root, queue, backends, args.run_dir.resolve(), args.minutes, args.max_tasks,
+                   retry, previous, args.token_budget)
 
 
 if __name__ == "__main__":

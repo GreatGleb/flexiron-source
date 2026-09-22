@@ -40,6 +40,10 @@ class Backend:
     # Только Codex печатает распознаваемые события сбоя сервиса, по которым ядро
     # повторяет приёмку. Для остальных повтор запрещён: причина сбоя неизвестна.
     supports_service_retry = False
+    # Считается ли расход этого бэкенда в потолок прогона. Потолок защищает
+    # недельный лимит Claude; Codex и DeepSeek оплачиваются отдельно и своими
+    # лимитами, поэтому в общий счёт не идут.
+    metered = False
 
     def __init__(self, options=None):
         self.options = dict(options or {})
@@ -58,6 +62,10 @@ class Backend:
     def finalize(self, role, prefix, result_path):
         """Зовётся после команды: превратить вывод в файл результата, если нужно."""
         return None
+
+    def tokens(self, prefix):
+        """Сколько токенов стоил вызов. Неизвестно — ноль, и бэкенд не metered."""
+        return 0
 
 
 class CodexBackend(Backend):
@@ -90,6 +98,7 @@ class ClaudeBackend(Backend):
     """
 
     name = "claude"
+    metered = True
     DEFAULT_BINARY = str(Path.home() / ".vscode/extensions/anthropic.claude-code-2.1.278-linux-x64"
                                         "/resources/native-binary/claude")
 
@@ -116,6 +125,22 @@ class ClaudeBackend(Backend):
         else:
             argv += ["--permission-mode", self.options.get("permission_mode", "bypassPermissions")]
         return argv
+
+    def tokens(self, prefix):
+        """Всё, что засчитает недельный лимит: вход, выход и обе стороны кэша.
+
+        Чтение кэша здесь не «бесплатное»: на замеренной задаче оно давало 85–90%
+        всего расхода. Потолок, считающий только вход и выход, не защитил бы ни от чего.
+        Молча вернуть ноль нельзя: потолок, который не срабатывает, хуже отсутствующего.
+        """
+        printed = json.loads(prefix.with_suffix(".stdout.log").read_text())
+        usage = printed.get("modelUsage")
+        if not isinstance(usage, dict) or not usage:
+            raise RuntimeError(f"В выводе {prefix.name} нет учёта токенов (modelUsage)")
+        return sum(int(model.get("inputTokens", 0)) + int(model.get("outputTokens", 0))
+                   + int(model.get("cacheCreationInputTokens", 0))
+                   + int(model.get("cacheReadInputTokens", 0))
+                   for model in usage.values())
 
     def finalize(self, role, prefix, result_path):
         printed = json.loads(prefix.with_suffix(".stdout.log").read_text())
