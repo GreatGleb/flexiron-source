@@ -349,6 +349,21 @@ function parseFinanceListParams(params?: Record<string, string>) {
   }
 }
 
+/**
+ * Три кода отказа смены пароля — один источник и для мока, и для пробы.
+ *
+ * Коды жили литералами в двух местах: здесь (в ветках отказа) и в
+ * `settings-refusals.spec.ts`. Дрейф между копиями ловился поведением, но «взят из
+ * продукта» про спеку было неправдой — она держала свою копию. Теперь коды бросаются
+ * отсюда, отсюда же импортируются в пробу, и та сверяет множество ключей этой таблицы
+ * с драйверами — тем же приёмом, что и `SETTINGS_REFUSAL_CODES` в `mocks/settings.ts`.
+ */
+export const MOCK_PASSWORD_CODES = {
+  wrongCurrent: 'PASSWORD_WRONG_CURRENT',
+  tooShort: 'PASSWORD_TOO_SHORT',
+  confirmMismatch: 'PASSWORD_CONFIRM_MISMATCH',
+} as const
+
 // ─── Demo user password (settings → profile) ───
 /**
  * Пароль демо-пользователя, который «сервер» мока помнит между запросами.
@@ -1256,21 +1271,21 @@ async function postMockRoute<T>(
       throw new ApiRequestError({
         status: 401,
         message: 'Current password is incorrect',
-        code: 'PASSWORD_WRONG_CURRENT',
+        code: MOCK_PASSWORD_CODES.wrongCurrent,
       })
     }
     if (next.length < 6) {
       throw new ApiRequestError({
         status: 422,
         message: 'New password must be at least 6 characters',
-        code: 'PASSWORD_TOO_SHORT',
+        code: MOCK_PASSWORD_CODES.tooShort,
       })
     }
     if (next !== (confirmPassword ?? '')) {
       throw new ApiRequestError({
         status: 422,
         message: 'Passwords do not match',
-        code: 'PASSWORD_CONFIRM_MISMATCH',
+        code: MOCK_PASSWORD_CODES.confirmMismatch,
       })
     }
     demoUserPassword = next

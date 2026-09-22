@@ -389,6 +389,34 @@ function findOrderStatus(id: string): OrderStatusSetting | undefined {
 }
 
 /**
+ * Перечень отказов домена настроек — ЕДИНСТВЕННЫЙ источник истины.
+ *
+ * «Сценарий → код на проводе»: ключ называет сценарий, значение — код, которым мок
+ * (и сервер) отвечает. Отсюда же бросаются сами отказы (`mockRefusal` ниже), и отсюда
+ * же перечень берёт проба `settings-refusals.spec.ts`: она ИТЕРИРУЕТСЯ по драйверам и
+ * СВЕРЯЕТ МНОЖЕСТВО с этой таблицей. Поэтому новый отказ достаточно завести здесь (и
+ * добавить маршрут, который его бросает) — проба покраснеет САМА, без правки спека.
+ *
+ * Так перечень перестал быть снимком: до этого в спеке лежал написанный руками список
+ * из двенадцати сценариев, и новый или переименованный отказ в моке проходил мимо него,
+ * пока кто-нибудь не допишет строку.
+ */
+export const SETTINGS_REFUSAL_CODES = {
+  currencyNotFound: 'CURRENCY_NOT_FOUND',
+  uomNotFound: 'UOM_NOT_FOUND',
+  conversionPairTaken: 'CONVERSION_PAIR_TAKEN',
+  conversionNotFound: 'CONVERSION_NOT_FOUND',
+  orderStatusNotFound: 'ORDER_STATUS_NOT_FOUND',
+  orderStatusSystemForbidden: 'FORBIDDEN',
+  mailNotConfigured: 'MAIL_NOT_CONFIGURED',
+  warehouseMapNotAnImage: 'MAP_NOT_AN_IMAGE',
+} as const
+
+/** Код отказа домена настроек — значение из таблицы выше, а не любая строка. */
+export type SettingsRefusalCode =
+  (typeof SETTINGS_REFUSAL_CODES)[keyof typeof SETTINGS_REFUSAL_CODES]
+
+/**
  * Отказ мока в форме настоящего сервера: код в поле `code`, статус — из раздела 3
  * плана домена.
  *
@@ -399,7 +427,7 @@ function findOrderStatus(id: string): OrderStatusSetting | undefined {
  * у мока не было. Форма сообщения при этом человеческая: в `code` идёт только
  * строка из заглавных.
  */
-function mockRefusal(status: number, code: string, message: string): ApiRequestError {
+function mockRefusal(status: number, code: SettingsRefusalCode, message: string): ApiRequestError {
   return new ApiRequestError({ status, message, code })
 }
 
@@ -484,13 +512,14 @@ export function mockCreateCurrency(data: Omit<Currency, 'id'>): Currency {
 
 export function mockUpdateCurrency(id: string, data: Partial<Currency>): void {
   const cur = findCurrency(id)
-  if (!cur) throw mockRefusal(404, 'CURRENCY_NOT_FOUND', 'Currency not found')
+  if (!cur) throw mockRefusal(404, SETTINGS_REFUSAL_CODES.currencyNotFound, 'Currency not found')
   Object.assign(cur, data)
 }
 
 export function mockDeleteCurrency(id: string): void {
   const idx = settingsStore.currencies.findIndex((c) => c.id === id)
-  if (idx === -1) throw mockRefusal(404, 'CURRENCY_NOT_FOUND', 'Currency not found')
+  if (idx === -1)
+    throw mockRefusal(404, SETTINGS_REFUSAL_CODES.currencyNotFound, 'Currency not found')
   settingsStore.currencies.splice(idx, 1)
 }
 
@@ -511,13 +540,14 @@ export function mockCreateUom(data: Omit<Uom, 'id'>): Uom {
 
 export function mockUpdateUom(id: string, data: Partial<Uom>): void {
   const uom = findUom(id)
-  if (!uom) throw mockRefusal(404, 'UOM_NOT_FOUND', 'Unit of measure not found')
+  if (!uom) throw mockRefusal(404, SETTINGS_REFUSAL_CODES.uomNotFound, 'Unit of measure not found')
   Object.assign(uom, data)
 }
 
 export function mockDeleteUom(id: string): void {
   const idx = settingsStore.uoms.findIndex((u) => u.id === id)
-  if (idx === -1) throw mockRefusal(404, 'UOM_NOT_FOUND', 'Unit of measure not found')
+  if (idx === -1)
+    throw mockRefusal(404, SETTINGS_REFUSAL_CODES.uomNotFound, 'Unit of measure not found')
   settingsStore.uoms.splice(idx, 1)
 }
 
@@ -538,7 +568,7 @@ export function mockCreateConversion(data: Omit<UomConversion, 'id'>): UomConver
   if (taken) {
     throw mockRefusal(
       409,
-      'CONVERSION_PAIR_TAKEN',
+      SETTINGS_REFUSAL_CODES.conversionPairTaken,
       'A conversion rule for this unit pair already exists',
     )
   }
@@ -552,13 +582,15 @@ export function mockCreateConversion(data: Omit<UomConversion, 'id'>): UomConver
 
 export function mockUpdateConversion(id: string, data: Partial<UomConversion>): void {
   const conv = findConversion(id)
-  if (!conv) throw mockRefusal(404, 'CONVERSION_NOT_FOUND', 'Conversion rule not found')
+  if (!conv)
+    throw mockRefusal(404, SETTINGS_REFUSAL_CODES.conversionNotFound, 'Conversion rule not found')
   Object.assign(conv, data)
 }
 
 export function mockDeleteConversion(id: string): void {
   const idx = settingsStore.conversions.findIndex((c) => c.id === id)
-  if (idx === -1) throw mockRefusal(404, 'CONVERSION_NOT_FOUND', 'Conversion rule not found')
+  if (idx === -1)
+    throw mockRefusal(404, SETTINGS_REFUSAL_CODES.conversionNotFound, 'Conversion rule not found')
   settingsStore.conversions.splice(idx, 1)
 }
 
@@ -580,7 +612,8 @@ export function mockCreateOrderStatus(data: Omit<OrderStatusSetting, 'id'>): Ord
 
 export function mockUpdateOrderStatus(id: string, data: Partial<OrderStatusSetting>): void {
   const st = findOrderStatus(id)
-  if (!st) throw mockRefusal(404, 'ORDER_STATUS_NOT_FOUND', 'Order status not found')
+  if (!st)
+    throw mockRefusal(404, SETTINGS_REFUSAL_CODES.orderStatusNotFound, 'Order status not found')
   Object.assign(st, data)
 }
 
@@ -604,13 +637,18 @@ export function mockMoveOrderStatus(orderedIds: string[]): void {
 
 export function mockDeleteOrderStatus(id: string): void {
   const st = findOrderStatus(id)
-  if (!st) throw mockRefusal(404, 'ORDER_STATUS_NOT_FOUND', 'Order status not found')
+  if (!st)
+    throw mockRefusal(404, SETTINGS_REFUSAL_CODES.orderStatusNotFound, 'Order status not found')
   // Системный статус удалить нельзя — сервер отвечает 403 ядровым `FORBIDDEN`
   // (`crud/domain.py:523`, единственное место в бэкенде, где поднимается
   // `ForbiddenError`). Мок системность не проверял вовсе (БАГ-14), то есть под
   // моками удалялось то, что сервер запрещает.
   if (st.system) {
-    throw mockRefusal(403, 'FORBIDDEN', 'A system order status cannot be deleted')
+    throw mockRefusal(
+      403,
+      SETTINGS_REFUSAL_CODES.orderStatusSystemForbidden,
+      'A system order status cannot be deleted',
+    )
   }
   const idx = settingsStore.orderStatuses.indexOf(st)
   settingsStore.orderStatuses.splice(idx, 1)
@@ -657,7 +695,11 @@ export function mockIsMailConfigured(): boolean {
  */
 export function mockSendMailTest(): { deliveredTo: string } {
   if (!mockIsMailConfigured()) {
-    throw mockRefusal(409, 'MAIL_NOT_CONFIGURED', 'The mail server is not configured')
+    throw mockRefusal(
+      409,
+      SETTINGS_REFUSAL_CODES.mailNotConfigured,
+      'The mail server is not configured',
+    )
   }
   return { deliveredTo: mailStore.fromEmail }
 }
@@ -692,7 +734,11 @@ export function mockSaveWarehouseMap(data: WarehouseMapFile): WarehouseMapFile {
   // Карта — это картинка. Сервер не верит клиенту на слово о типе файла, потому что
   // страница показывает её через <img> и открывает как изображение.
   if (!data.mime.startsWith('image/')) {
-    throw mockRefusal(415, 'MAP_NOT_AN_IMAGE', 'The warehouse map must be an image')
+    throw mockRefusal(
+      415,
+      SETTINGS_REFUSAL_CODES.warehouseMapNotAnImage,
+      'The warehouse map must be an image',
+    )
   }
   settingsStore.warehouseMap = structuredClone(data)
   return structuredClone(settingsStore.warehouseMap)
