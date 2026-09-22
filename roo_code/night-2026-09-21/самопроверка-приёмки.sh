@@ -850,6 +850,187 @@ old=$(grep -c 'logo_url\|logoUrl' "$COPY/app/modules/settings/features/crud/sche
 [ "$old" -gt 0 ] && ok "M27: СТАРАЯ строка осталась зелёной (вхождений прозы: $old) — потому и заменена" \
   || bad "M27: проза в докстринге потерялась"
 
+# ── M28..M33: c0 доказан прогоном спеков (заход 2c) ───────────────────────────
+# Каждая мутация ломает РОВНО одну из трёх проб C0, две другие пробы C0 и соседи
+# (c1/c2/c4/c5/c15/c9) обязаны остаться зелёными. Строки-цели — из вывода гейта.
+C0_PROBES=(
+  'фронт C0: спека почты исполняет утверждение о поле (спек)'
+  'фронт C0: спека карты исполняет утверждение о поле (спек)'
+  'фронт C0: мок отказывает кодом в поле (спек)'
+)
+C0_NEIGHBORS=(
+  "${PROBES_C1C2[@]}"
+  'С4: отказы UOM/валют отвечают кодом (тест)'
+  'С5: неполный reorder отвергнут кодом (тест)'
+  'С5: дубль пары пересчёта отвергнут (тест)'
+  'С15: границы финансовых констант (тест)'
+  'П11: ссылка не хранится'
+  'таблица карты заведена'
+  'фронт C4/C5/C15: отказ становится переводом'
+)
+мутация_c0_проверка() {
+  local out=$1 target=$2 s
+  for s in "${C0_PROBES[@]}"; do
+    if [ "$s" = "$target" ]; then
+      красный "$s" "$out" && ok "    красная (цель): $s" || bad "    цель осталась зелёной: $s"
+    else
+      зелёный "$s" "$out" && ok "    зелёная: $s" || bad "    покраснела соседняя проба C0: $s"
+    fi
+  done
+  for s in "${C0_NEIGHBORS[@]}"; do
+    зелёный "$s" "$out" && ok "    сосед зелёный: $s" || bad "    сосед покраснел: $s"
+  done
+}
+
+# ── M28: код уведён в ТЕКСТ (throw new Error) → проба C0 «кодом в поле» красная ─
+# Ориентир владельца «вернуть throw new Error('CONVERSION_PAIR_TAKEN') вместо кода»:
+# `errorCode()` вернул бы тот же текст откатом, поэтому краснит именно утверждение о
+# ПОЛЕ (`instanceof ApiRequestError`), а не сравнение кода.
+echo "── M28: код отката ушёл в текст → проба C0 «кодом в поле» красная ──────────"
+подготовить
+подготовить_фронт
+python3 - "$FAKE/frontend_vue/src/services/mocks/settings.ts" <<'PY'
+import sys
+path = sys.argv[1]
+text = open(path, encoding="utf-8").read()
+old = """    throw mockRefusal(
+      409,
+      'CONVERSION_PAIR_TAKEN',
+      'A conversion rule for this unit pair already exists',
+    )
+"""
+assert old in text, "якорь M28 не найден"
+open(path, "w", encoding="utf-8").write(
+    text.replace(old, "    throw new Error('CONVERSION_PAIR_TAKEN')\n"))
+PY
+OUT=$(прогон c0 c1 c2 c4 c5 c9 c15); rc=$?
+мутация_c0_проверка "$OUT" 'фронт C0: мок отказывает кодом в поле (спек)'
+[ "$rc" -ne 0 ] && ok "M28: выход приёмки ненулевой (rc=$rc)" || bad "M28: приёмка вернула 0"
+
+# ── M29: мёртвые ветки /api/settings возвращены → проба C0 красная ─────────────
+echo "── M29: ветки GET/PUT /api/settings вернулись → проба C0 красная ──────────"
+подготовить
+подготовить_фронт
+python3 - "$FAKE/frontend_vue/src/services/mocks/index.ts" <<'PY'
+import sys
+path = sys.argv[1]
+text = open(path, encoding="utf-8").read()
+get_anchor = "  // ── Settings granular routes ──\n"
+assert get_anchor in text, "якорь M29 (GET) не найден"
+text = text.replace(
+    get_anchor,
+    get_anchor + "  if (path === '/api/settings') return delay(mockGetCompany() as T)\n",
+    1)
+put_anchor = "  // ── Settings PUT ──\n"
+assert put_anchor in text, "якорь M29 (PUT) не найден"
+text = text.replace(
+    put_anchor,
+    put_anchor
+    + "  if (path === '/api/settings') {\n"
+    + "    mockPatchCompany(body as Parameters<typeof mockPatchCompany>[0])\n"
+    + "    return delay(undefined as T)\n"
+    + "  }\n",
+    1)
+open(path, "w", encoding="utf-8").write(text)
+PY
+OUT=$(прогон c0 c1 c2 c4 c5 c9 c15); rc=$?
+мутация_c0_проверка "$OUT" 'фронт C0: мок отказывает кодом в поле (спек)'
+[ "$rc" -ne 0 ] && ok "M29: выход приёмки ненулевой (rc=$rc)" || bad "M29: приёмка вернула 0"
+
+# ── M30: смена пароля снова no-op → проба C0 красная ───────────────────────────
+echo "── M30: смена пароля снова no-op → проба C0 красная ───────────────────────"
+подготовить
+подготовить_фронт
+python3 - "$FAKE/frontend_vue/src/services/mocks/index.ts" <<'PY'
+import sys
+path = sys.argv[1]
+text = open(path, encoding="utf-8").read()
+old = "    demoUserPassword = next\n    return delay(undefined as T)\n"
+assert old in text, "якорь M30 не найден"
+open(path, "w", encoding="utf-8").write(
+    text.replace(old, "    return delay(undefined as T)\n"))
+PY
+OUT=$(прогон c0 c1 c2 c4 c5 c9 c15); rc=$?
+мутация_c0_проверка "$OUT" 'фронт C0: мок отказывает кодом в поле (спек)'
+[ "$rc" -ne 0 ] && ok "M30: выход приёмки ненулевой (rc=$rc)" || bad "M30: приёмка вернула 0"
+
+# ── M31: из нового спека снят ОДИН кейс → проба C0 красная по полу (7 < 8) ──────
+echo "── M31: снят кейс settings-refusals → красная по числу (7 < 8) ─────────────"
+подготовить
+подготовить_фронт
+python3 - "$FAKE/frontend_vue/src/services/mocks/settings-refusals.spec.ts" <<'PY'
+import sys
+path = sys.argv[1]
+text = open(path, encoding="utf-8").read()
+old = """  it('PUT /api/settings снят: маршрут промахивается и отказывает 404', async () => {
+    const e = await refusalOf(() => putMock(SETTINGS_PATH, {}))
+
+    expect(e.status).toBe(404)
+    expect(errorCode(e)).toBe('NOT_FOUND')
+  })
+"""
+assert old in text, "якорь M31 не найден"
+open(path, "w", encoding="utf-8").write(text.replace(old, "", 1))
+PY
+OUT=$(прогон c0 c1 c2 c4 c5 c9 c15); rc=$?
+мутация_c0_проверка "$OUT" 'фронт C0: мок отказывает кодом в поле (спек)'
+printf '%s\n' "$OUT" | grep -F 'выполнено 7, пол 8' | grep -q 'ПЛОХО' \
+  && ok "M31: красная именно по числу выполненных (7 < 8), а не по падению спека" \
+  || bad "M31: пол не сработал (спека упала или счёт не тот)"
+[ "$rc" -ne 0 ] && ok "M31: выход приёмки ненулевой (rc=$rc)" || bad "M31: приёмка вернула 0"
+
+# ── M32: из спеки почты снят ОДИН кейс → проба C0 почты красная по полу (7 < 8) ─
+echo "── M32: снят кейс mail-settings → красная по числу (7 < 8) ─────────────────"
+подготовить
+подготовить_фронт
+python3 - "$FAKE/frontend_vue/src/services/mocks/mail-settings.spec.ts" <<'PY'
+import sys
+path = sys.argv[1]
+text = open(path, encoding="utf-8").read()
+old = """  it('reports that a password is set without revealing it', () => {
+    mockPatchMail({ password: 'another-secret' })
+
+    expect(mockGetMail().passwordSet).toBe(true)
+  })
+
+"""
+assert old in text, "якорь M32 не найден"
+open(path, "w", encoding="utf-8").write(text.replace(old, "", 1))
+PY
+OUT=$(прогон c0 c1 c2 c4 c5 c9 c15); rc=$?
+мутация_c0_проверка "$OUT" 'фронт C0: спека почты исполняет утверждение о поле (спек)'
+printf '%s\n' "$OUT" | grep -F 'выполнено 7, пол 8' | grep -q 'ПЛОХО' \
+  && ok "M32: красная именно по числу выполненных (7 < 8), а не по падению спека" \
+  || bad "M32: пол не сработал (спека упала или счёт не тот)"
+[ "$rc" -ne 0 ] && ok "M32: выход приёмки ненулевой (rc=$rc)" || bad "M32: приёмка вернула 0"
+
+# ── M33: из спеки карты снят ОДИН кейс → проба C0 карты красная по полу (6 < 7) ─
+echo "── M33: снят кейс warehouse-map → красная по числу (6 < 7) ─────────────────"
+подготовить
+подготовить_фронт
+python3 - "$FAKE/frontend_vue/src/services/mocks/warehouse-map.spec.ts" <<'PY'
+import sys
+path = sys.argv[1]
+text = open(path, encoding="utf-8").read()
+old = """  it('removes the map on delete', () => {
+    mockSaveWarehouseMap(mapFile())
+    mockDeleteWarehouseMap()
+
+    expect(mockGetWarehouseMap()).toBeNull()
+    expect(mockGetSettings().warehouseMap).toBeNull()
+  })
+
+"""
+assert old in text, "якорь M33 не найден"
+open(path, "w", encoding="utf-8").write(text.replace(old, "", 1))
+PY
+OUT=$(прогон c0 c1 c2 c4 c5 c9 c15); rc=$?
+мутация_c0_проверка "$OUT" 'фронт C0: спека карты исполняет утверждение о поле (спек)'
+printf '%s\n' "$OUT" | grep -F 'выполнено 6, пол 7' | grep -q 'ПЛОХО' \
+  && ok "M33: красная именно по числу выполненных (6 < 7), а не по падению спека" \
+  || bad "M33: пол не сработал (спека упала или счёт не тот)"
+[ "$rc" -ne 0 ] && ok "M33: выход приёмки ненулевой (rc=$rc)" || bad "M33: приёмка вернула 0"
+
 echo
 echo "══════════════════════════════════════════════════════════════════════"
 if [ "$fails" = 0 ]; then
