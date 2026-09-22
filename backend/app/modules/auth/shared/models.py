@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -68,6 +68,11 @@ class User(UUIDMixin, TimestampMixin, Base):
         Boolean, nullable=False, default=True, server_default="true"
     )
 
+    __table_args__ = (
+        Index("ix_users_tenant_id_email", "tenant_id", "email", unique=True),
+        Index("ix_users_updated_at", "updated_at"),
+    )
+
     # Relationships
     tenant: Mapped["Tenant | None"] = relationship(
         "Tenant", back_populates="users"
@@ -117,13 +122,14 @@ class Session(UUIDMixin, Base):
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
+        index=True,
     )
     token_hash: Mapped[str] = mapped_column(
         String(255), unique=True, nullable=False
     )
     csrf_token: Mapped[str] = mapped_column(String(255), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
+        DateTime(timezone=True), nullable=False, index=True
     )
     remember: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
@@ -193,8 +199,10 @@ class RolePermission(UUIDMixin, TimestampMixin, Base):
     )
 
     __table_args__ = (
-        UniqueConstraint(
-            "tenant_id", "item_id", "role", name="uq_role_permission"
+        Index(
+            "uq_role_permission",
+            "tenant_id", "item_id", "role",
+            unique=True,
         ),
     )
 
@@ -230,7 +238,9 @@ class UserPermission(UUIDMixin, TimestampMixin, Base):
     )
 
     __table_args__ = (
-        UniqueConstraint(
-            "tenant_id", "item_id", "user_id", name="uq_user_permission"
+        Index(
+            "uq_user_permission",
+            "tenant_id", "item_id", "user_id",
+            unique=True,
         ),
     )

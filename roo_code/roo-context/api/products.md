@@ -402,9 +402,10 @@ query, ни заголовков. Сервер типизирует сегмен
 есть `try/finally` и нет `catch` (`views/admin/products/ProductsPage.vue:197-220`) — БАГ-12.
 
 Повторный `POST` с тем же телом создаёт второй товар: `Idempotency-Key` домен не шлёт (§11
-соглашений), уникальности имени или `sku` нет ни на схеме — единственный `UniqueConstraint` модуля
-это `uq_product_field_value` на `(product_id, field_id)`
-(`backend/app/modules/products/shared/models.py:210-214`), — ни в моке
+соглашений), уникальности имени или `sku` нет ни на схеме — единственный уникальный **индекс**
+модуля это `ix_product_field_values_product_field` на `(product_id, field_id)`
+(`backend/app/modules/products/shared/models.py:210-214` — `Index(..., unique=True)`; в базе —
+`UNIQUE INDEX` того же имени), — ни в моке
 (`services/mocks/products.ts:13991-14115`).
 
 Бэкенд: `backend/app/modules/products/features/create_product/action.py:23` (`create_product`) ·

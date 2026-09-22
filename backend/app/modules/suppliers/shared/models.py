@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import JSON, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -262,7 +262,7 @@ class FieldDefinition(UUIDMixin, TimestampMixin, Base):
     options: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     __table_args__ = (
-        UniqueConstraint("tenant_id", "name", name="uq_field_definitions_tenant_name"),
+        Index("uq_field_definitions_tenant_name", "tenant_id", "name", unique=True),
     )
 
 

@@ -180,9 +180,10 @@ Save-режим: clean-slate. Именно этот эндпоинт несёт 
 (`configService.ts:22-25`).
 
 Ошибки: **ни одной** в коде. Уникальность имени внутри арендатора — единственное правило раздела,
-подтверждённое схемой: `UniqueConstraint("tenant_id", "name", name="uq_field_definitions_tenant_name")`
-(`backend/app/modules/suppliers/shared/models.py:264-266`, миграция
-`e24a3922ed01_phase_7_config.py:40`). Кода под этот отказ в проекте нет — строка владельцу.
+подтверждённое схемой: уникальный **индекс** `uq_field_definitions_tenant_name` по `(tenant_id, name)`
+(`backend/app/modules/suppliers/shared/models.py:264-266` — `Index(..., unique=True)`, миграция
+`e24a3922ed01_phase_7_config.py:40`; в базе это `UNIQUE INDEX` того же имени). Кода под этот отказ в
+проекте нет — строка владельцу.
 
 Бэкенд: **не реализован**.
 Реализация: `services/configService.ts:22` (`createField`) · мок `mocks/index.ts:943` →

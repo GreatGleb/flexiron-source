@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 
 import sqlalchemy as sa
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -87,7 +87,7 @@ class Currency(UUIDMixin, TimestampMixin, Base):
     )
 
     __table_args__ = (
-        UniqueConstraint("tenant_id", "code", name="uq_currencies_tenant_code"),
+        Index("ix_currencies_tenant_code", "tenant_id", "code", unique=True),
     )
 
 

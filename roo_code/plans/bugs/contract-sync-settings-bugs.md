@@ -324,7 +324,10 @@ PATCH констант (`:353-356`), и все они уходят одним `P
 
 `create_currency_item` дубли ловит (`crud/domain.py:305` → `ConflictError`).
 `update_currency_item` — нет: код переписывается без всякой проверки
-(`crud/domain.py:286-287`), а в схеме стоит `UniqueConstraint("tenant_id", "code", name="uq_currencies_tenant_code")`.
+(`crud/domain.py:286-287`), а уникальность кода держит `UNIQUE INDEX`: на дату записи модель
+объявляла его как `UniqueConstraint("tenant_id", "code", name="uq_currencies_tenant_code")`
+(**2026-09-22:** модель приведена к базе и зовёт его `ix_currencies_tenant_code` — правка только
+модельная, см. [`db-5433-and-bug02-close-2026-09-22.md`](../../roo-context/verify-runs/db-5433-and-bug02-close-2026-09-22.md)).
 Ответ клиенту в этом случае будет не `CONFLICT`, а 500.
 
 ### Fix

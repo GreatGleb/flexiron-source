@@ -229,9 +229,15 @@ data» и **ре-экспортирует ровно те две функции 
 ### 2.6. Уникальность: парой — уже норма, два исключения — находки
 
 Тенантских таблиц с уникальностью одиннадцать. Парой с арендатором сделаны, например:
-[`backend/app/modules/settings/shared/models.py:76`](../../../backend/app/modules/settings/shared/models.py) — `uq_currencies_tenant_code`,
+[`backend/app/modules/settings/shared/models.py:76`](../../../backend/app/modules/settings/shared/models.py) — `ix_currencies_tenant_code`,
 [`backend/app/modules/suppliers/shared/models.py:265`](../../../backend/app/modules/suppliers/shared/models.py) — `uq_field_definitions_tenant_name`,
 [`backend/alembic/versions/3a0b5d31bde7_phase_1_tenants_auth_users_sessions.py:54`](../../../backend/alembic/versions/3a0b5d31bde7_phase_1_tenants_auth_users_sessions.py) — `ix_users_tenant_id_email`.
+
+> **2026-09-22.** Два первых имени уточнены по факту: и в модели, и в базе это уникальные **индексы**,
+> не `UniqueConstraint`. У валюты имя — `ix_currencies_tenant_code` (модель до правки звала его
+> `uq_currencies_tenant_code`), у определений полей — `uq_field_definitions_tenant_name` (имя не
+> менялось). Правка только модельная, DDL не было:
+> [`db-5433-and-bug02-close-2026-09-22.md`](../../roo-context/verify-runs/db-5433-and-bug02-close-2026-09-22.md).
 
 Нарушение ровно одно:
 

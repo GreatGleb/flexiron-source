@@ -50,3 +50,6 @@ backend/uploads/
 # Generated typecheck
 frontend_vue/typecheck_result.txt
 typecheck_errors.txt
+
+# Local environment (machine-specific; see backend/.env.example)
+backend/.env

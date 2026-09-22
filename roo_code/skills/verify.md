@@ -379,6 +379,7 @@ cd backend && python3 -m pytest tests -q                   # то же само�
 cd backend && python3 -c "from app.main import app; print('приложение импортируется')"
 cd backend && python3 -c "from app.modules.<модуль>.features.<фича>.action import router; print('слайс импортируется')"
 cd backend && alembic upgrade head      # миграции применяются
+cd backend && python3 -m alembic check  # модель ↔ схема: обязан молчать (см. Б2)
 ```
 
 **Две ловушки, обе стоили времени 2026-09-21.**
@@ -420,6 +421,22 @@ cd backend && alembic upgrade head      # миграции применяютс�
 Поля, `nullable`, `server_default` совпадают во всех трёх местах; JSONB-переводы с суффиксом
 `_translations`; новая модель зарегистрирована в `alembic/_alembic_imports.py`; ревизия создана и
 применяется на чистой базе.
+
+**Машинная часть — `alembic check`, и она обязательна для всякой правки моделей или ревизий.**
+Правка, тронувшая SQLAlchemy-модели либо файл в `backend/alembic/versions/`, обязана прогнать
+`cd backend && python3 -m alembic check` на **локальной базе порта 5433** (изолированный контейнер;
+`.env` для этого смотрит на 5433) и увидеть `No new upgrade operations detected.` — иначе модель и
+схема разошлись, и линза не пройдена. На 5432 эту команду не гонять: там чужая база, и запись в неё
+недопустима.
+
+**В CI этот шаг не ставится.** В CI нет сервиса Postgres, и шаг превратился бы в молча
+пропущенную проверку — тот же класс, что `python -m pyright app/ 2>/dev/null || echo "skipping"`
+выше. Шаг локальный, как и сама база.
+
+Введён 2026-09-22 — **зелёным**: к этому дню расхождение (8 таблиц / 15 операций) было разобрано
+правкой моделей, и `check` печатает `No new upgrade operations detected.` с exit 0. Правило «шаг
+гейта вводится только зелёным» соблюдено; замеры и разбор —
+[`../roo-context/verify-runs/db-5433-and-bug02-close-2026-09-22.md`](../roo-context/verify-runs/db-5433-and-bug02-close-2026-09-22.md).
 
 ### Б3. Мультиарендность
 `tenant_id` есть в моделях всех десяти модулей — значит фильтр по нему обязателен в **каждом**

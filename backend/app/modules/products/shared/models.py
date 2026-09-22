@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import JSON, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -208,9 +208,10 @@ class ProductFieldValue(UUIDMixin, TimestampMixin, Base):
     value: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     __table_args__ = (
-        UniqueConstraint(
+        Index(
+            "ix_product_field_values_product_field",
             "product_id", "field_id",
-            name="uq_product_field_value",
+            unique=True,
         ),
     )
 
