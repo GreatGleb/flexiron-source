@@ -66,6 +66,44 @@ bad() { printf '  \033[31mПЛОХО\033[0m %s\n' "$1"; fails=$((fails+1)); }
 красный() { printf '%s\n' "$2" | grep -F -- "$1" | grep -q 'ПЛОХО'; }
 зелёный() { printf '%s\n' "$2" | grep -F -- "$1" | grep -q 'OK'; }
 
+# Наборы строк для мутаций захода 2b: все десять проб c1/c2 и уже конвертированные
+# соседи. Мутация обязана краснить РОВНО свою пробу, а остальные — нет.
+PROBES_C1C2=(
+  'exchange_rate снят из модели'
+  'exchange_rate снят из схем'
+  'RESTRICT у правил пересчёта'
+  'default_currency не хранится'
+  'три новые константы'
+  'часовой пояс, страна, код подтв. + колонки timezone нет'
+  'пагинация настройкой НЕ стала'
+  'логотип хранит id, не ссылку'
+  '…а logo_file_id заведён'
+  'поле logoUrl в схемах осталось'
+)
+NEIGHBORS=(
+  'П11: ссылка не хранится'
+  'С4: отказы UOM/валют отвечают кодом (тест)'
+  'С5: неполный reorder отвергнут кодом (тест)'
+  'С15: границы финансовых констант (тест)'
+)
+
+# мутация_проверка <вывод гейта> <цель> — цель обязана быть ПЛОХО, каждая другая
+# проба c1/c2 и каждый общий сосед — OK. Это и отличает «краснеет ровно то, о чём
+# критерий» от «покраснело всё».
+мутация_проверка() {
+  local out=$1 target=$2 s
+  for s in "${PROBES_C1C2[@]}"; do
+    if [ "$s" = "$target" ]; then
+      красный "$s" "$out" && ok "    красная (цель): $s" || bad "    цель осталась зелёной: $s"
+    else
+      зелёный "$s" "$out" && ok "    зелёная: $s" || bad "    покраснела соседняя проба: $s"
+    fi
+  done
+  for s in "${NEIGHBORS[@]}"; do
+    зелёный "$s" "$out" && ok "    сосед зелёный: $s" || bad "    сосед покраснел: $s"
+  done
+}
+
 trap 'rm -rf "$FAKE"' EXIT
 
 # ── M1: настоящая колонка map_url ────────────────────────────────────────────
@@ -644,6 +682,173 @@ else bad "M20: пол не сработал"; printf '%s\n' "$OUT" | tail -25; f
 зелёный 'С15: границы финансовых констант (тест)' "$OUT" && ok "M20: сосед С15 зелёный" || bad "M20: покраснело лишнее в С15"
 зелёный 'П11: ссылка не хранится' "$OUT" && ok "M20: сосед C9 зелёный" || bad "M20: покраснело лишнее в C9"
 [ "$rc" -ne 0 ] && ok "M20: выход приёмки ненулевой (rc=$rc)" || bad "M20: приёмка вернула 0"
+
+# ── M21: Currency.exchange_rate колонкой → красная проба «снят из модели» (c1) ─
+echo "── M21: Currency.exchange_rate колонкой → проба модели (c1) красная ───────"
+подготовить
+подготовить_фронт
+python3 - "$COPY/app/modules/settings/shared/models.py" <<'PY'
+import sys
+path = sys.argv[1]
+text = open(path, encoding="utf-8").read()
+anchor = ('    __table_args__ = (\n'
+          '        Index("ix_currencies_tenant_code", "tenant_id", "code", unique=True),\n'
+          '    )\n')
+assert text.count(anchor) == 1, "якорь M21 не единственен"
+open(path, "w", encoding="utf-8").write(text.replace(
+    anchor,
+    '    exchange_rate: Mapped[float | None] = mapped_column(Numeric(20, 10), nullable=True)  # M21\n' + anchor,
+    1,
+))
+PY
+OUT=$(прогон c1 c2 c9 c4 c5 c15); rc=$?
+мутация_проверка "$OUT" 'exchange_rate снят из модели'
+[ "$rc" -ne 0 ] && ok "M21: выход приёмки ненулевой (rc=$rc)" || bad "M21: приёмка вернула 0"
+old=$(grep -c 'exchange_rate' "$COPY/app/modules/settings/shared/models.py")
+[ "$old" -gt 0 ] && ok "M21: старая редакция тоже была бы красной (вхождений: $old)" \
+  || bad "M21: старое совпадение потерялось"
+
+# ── M22: поле exchange_rate в схеме валюты → красная проба «снят из схем» (c1) ─
+echo "── M22: CurrencyPatchInput.exchange_rate → проба схем (c1) красная ────────"
+подготовить
+подготовить_фронт
+python3 - "$COPY/app/modules/settings/features/crud/schemas.py" <<'PY'
+import sys
+path = sys.argv[1]
+text = open(path, encoding="utf-8").read()
+anchor = ('class CurrencyPatchInput(BaseModel):\n'
+          '    """Partial update for a currency."""\n'
+          '\n'
+          '    code: str | None = None\n')
+assert text.count(anchor) == 1, "якорь M22 не единственен"
+open(path, "w", encoding="utf-8").write(text.replace(
+    anchor,
+    anchor + '    exchange_rate: float | None = None  # мутация M22\n',
+    1,
+))
+PY
+OUT=$(прогон c1 c2 c9 c4 c5 c15); rc=$?
+мутация_проверка "$OUT" 'exchange_rate снят из схем'
+[ "$rc" -ne 0 ] && ok "M22: выход приёмки ненулевой (rc=$rc)" || bad "M22: приёмка вернула 0"
+old=$(grep -c 'exchange_rate' "$COPY/app/modules/settings/features/crud/schemas.py")
+[ "$old" -gt 0 ] && ok "M22: старая редакция тоже была бы красной (вхождений: $old)" \
+  || bad "M22: старое совпадение потерялось"
+
+# ── M23: RESTRICT→CASCADE в одной из двух ссылок → красная проба RESTRICT ──────
+echo "── M23: одна ссылка uoms.id на CASCADE → проба RESTRICT (c1) красная ──────"
+подготовить
+подготовить_фронт
+python3 - "$COPY/app/modules/settings/shared/models.py" <<'PY'
+import sys
+path = sys.argv[1]
+text = open(path, encoding="utf-8").read()
+old = 'ForeignKey("uoms.id", ondelete="RESTRICT")'
+assert text.count(old) == 2, "якорь M23 не равен двум"
+open(path, "w", encoding="utf-8").write(
+    text.replace(old, 'ForeignKey("uoms.id", ondelete="CASCADE")', 1))
+PY
+OUT=$(прогон c1 c2 c9 c4 c5 c15); rc=$?
+мутация_проверка "$OUT" 'RESTRICT у правил пересчёта'
+[ "$rc" -ne 0 ] && ok "M23: выход приёмки ненулевой (rc=$rc)" || bad "M23: приёмка вернула 0"
+old=$(grep -c 'ForeignKey("uoms.id", ondelete="RESTRICT")' "$COPY/app/modules/settings/shared/models.py")
+[ "$old" = 1 ] && ok "M23: правка адресная — вторая ссылка осталась RESTRICT'ом" \
+  || bad "M23: ожидали 1 RESTRICT, нашли $old"
+
+# ── M24: default_currency колонкой → красная проба «не хранится» (c1) ──────────
+echo "── M24: GlobalConstants.default_currency → проба (c1) красная ─────────────"
+подготовить
+подготовить_фронт
+python3 - "$COPY/app/modules/settings/shared/models.py" <<'PY'
+import sys
+path = sys.argv[1]
+text = open(path, encoding="utf-8").read()
+anchor = ('    reservation_hold_days: Mapped[int] = mapped_column(\n'
+          '        Integer, nullable=False, default=3, server_default="3"\n'
+          '    )\n')
+assert text.count(anchor) == 1, "якорь M24 не единственен"
+open(path, "w", encoding="utf-8").write(text.replace(
+    anchor,
+    anchor + '    default_currency: Mapped[str | None] = mapped_column(String(10), nullable=True)  # M24\n',
+    1,
+))
+PY
+OUT=$(прогон c1 c2 c9 c4 c5 c15); rc=$?
+мутация_проверка "$OUT" 'default_currency не хранится'
+[ "$rc" -ne 0 ] && ok "M24: выход приёмки ненулевой (rc=$rc)" || bad "M24: приёмка вернула 0"
+old=$(grep -c 'default_currency' "$COPY/app/modules/settings/shared/models.py")
+[ "$old" -gt 0 ] && ok "M24: старая редакция тоже была бы красной (вхождений: $old)" \
+  || bad "M24: старое совпадение потерялось"
+
+# ── M25: page_size колонкой → красный сторож пагинации (c2) ────────────────────
+echo "── M25: GlobalConstants.page_size → сторож пагинации (c2) красный ─────────"
+подготовить
+подготовить_фронт
+python3 - "$COPY/app/modules/settings/shared/models.py" <<'PY'
+import sys
+path = sys.argv[1]
+text = open(path, encoding="utf-8").read()
+anchor = ('    payment_deferral_days: Mapped[int] = mapped_column(\n'
+          '        Integer, nullable=False, default=0, server_default="0"\n'
+          '    )\n')
+assert text.count(anchor) == 1, "якорь M25 не единственен"
+open(path, "w", encoding="utf-8").write(text.replace(
+    anchor,
+    anchor + '    page_size: Mapped[int] = mapped_column(Integer, nullable=False, default=20, server_default="20")  # M25\n',
+    1,
+))
+PY
+OUT=$(прогон c1 c2 c9 c4 c5 c15); rc=$?
+мутация_проверка "$OUT" 'пагинация настройкой НЕ стала'
+[ "$rc" -ne 0 ] && ok "M25: выход приёмки ненулевой (rc=$rc)" || bad "M25: приёмка вернула 0"
+old=$(cd "$COPY" && grep -rl 'page_size' app 2>/dev/null | wc -l | tr -d ' ')
+[ "$old" -gt 0 ] && ok "M25: старая редакция тоже была бы красной (файлов: $old)" \
+  || bad "M25: старое совпадение потерялось"
+
+# ── M26: logo_url колонкой → красная проба «логотип хранит id, не ссылку» (c2) ─
+echo "── M26: CompanyInfo.logo_url колонкой → проба логотипа (c2) красная ───────"
+подготовить
+подготовить_фронт
+python3 - "$COPY/app/modules/settings/shared/models.py" <<'PY'
+import sys
+path = sys.argv[1]
+text = open(path, encoding="utf-8").read()
+anchor = '    logo_file_id: Mapped[str | None] = mapped_column(String(255), nullable=True)\n'
+assert text.count(anchor) == 1, "якорь M26 не единственен"
+open(path, "w", encoding="utf-8").write(text.replace(
+    anchor,
+    anchor + '    logo_url: Mapped[str | None] = mapped_column(Text, nullable=True)  # мутация M26\n',
+    1,
+))
+PY
+OUT=$(прогон c1 c2 c9 c4 c5 c15); rc=$?
+мутация_проверка "$OUT" 'логотип хранит id, не ссылку'
+[ "$rc" -ne 0 ] && ok "M26: выход приёмки ненулевой (rc=$rc)" || bad "M26: приёмка вернула 0"
+old=$(cd "$COPY" && grep -rl 'logo_url' app 2>/dev/null | wc -l | tr -d ' ')
+[ "$old" -gt 0 ] && ok "M26: старая редакция тоже была бы красной (файлов: $old)" \
+  || bad "M26: старое совпадение потерялось"
+
+# ── M27: снят alias="logoUrl" с ОБЕИХ схем компании → проба logoUrl красная ────
+# Находка направления: СТАРАЯ текстовая строка (вхождений 'logo_url|logoUrl' в
+# crud/schemas.py > 0) осталась бы ЗЕЛЁНОЙ даже после снятия поля — те же слова
+# стоят в докстрингах схем. Это ровно тот обход, ради которого строка и заменена.
+echo "── M27: снят alias=logoUrl → проба «поле logoUrl осталось» (c2) красная ───"
+подготовить
+подготовить_фронт
+python3 - "$COPY/app/modules/settings/features/crud/schemas.py" <<'PY'
+import sys
+path = sys.argv[1]
+text = open(path, encoding="utf-8").read()
+old = '    logo_link: str | None = Field(alias="logoUrl", default=None)\n'
+assert text.count(old) == 2, "якорь M27 не равен двум"
+open(path, "w", encoding="utf-8").write(text.replace(
+    old, '    logo_link: str | None = None  # мутация M27: поля logoUrl на проводе нет\n'))
+PY
+OUT=$(прогон c1 c2 c9 c4 c5 c15); rc=$?
+мутация_проверка "$OUT" 'поле logoUrl в схемах осталось'
+[ "$rc" -ne 0 ] && ok "M27: выход приёмки ненулевой (rc=$rc)" || bad "M27: приёмка вернула 0"
+old=$(grep -c 'logo_url\|logoUrl' "$COPY/app/modules/settings/features/crud/schemas.py")
+[ "$old" -gt 0 ] && ok "M27: СТАРАЯ строка осталась зелёной (вхождений прозы: $old) — потому и заменена" \
+  || bad "M27: проза в докстринге потерялась"
 
 echo
 echo "══════════════════════════════════════════════════════════════════════"

@@ -224,10 +224,69 @@ FRONT_DONE=0
     src/composables/useSettings.saveErrors.spec.ts
 }
 
-# число файлов, где встречается образец (grep -rl | wc -l — не grep -rc:
-# последний печатает строку на каждый просмотренный файл и покраснеть не может)
-файлов() { grep -rl "$1" "${@:2}" 2>/dev/null | wc -l | tr -d ' '; }
+# число СТРОК файла, где встречается образец. Осталось у c0 и у строки метки
+# контракта в гейте. Прежний помощник «число ФАЙЛОВ с образцом» (файлов, grep -rl)
+# удалён заходом 2b вместе со своей последней пользовательницей — строкой c2 про
+# logo_url, которая стала пробой.
 вхождений() { local n; n=$(grep -c "$1" "$2" 2>/dev/null | head -1); echo "${n:-0}"; }
+
+# ── Общие читатели для проб c1/c2: код токенами, а не строки файла ───────────
+# Заход 2b (2026-09-22) конвертировал оставшийся текст c1/c2 и НЕ сузил объём:
+# каждая проба читает не меньше, чем читала её строка.
+#   • файл или каталог читается токенами кода (AST) — надмножество состава колонок
+#     и полей схемы: в счёт входят имя колонки/поля, тип, Index, строковый алиас и
+#     любое другое упоминание в коде;
+#   • схемы — все `*/schemas.py` фич settings, а не одна (`crud/`);
+#   • каталог — целиком, как в исходной строке: `settings` для пагинации,
+#     `backend/app` (то есть `app`) для ссылки логотипа.
+# Проза (докстринг/комментарий) в поток токенов не попадает — это не сужение, а
+# причина правки редакции: строку, которую зеленит докстринг, критерием считать
+# нельзя. Регистр повторяет исходную строку: у пагинации был `grep -i`, у
+# 'logo_url' — `grep` без -i (потому LOGO_URL_NOT_A_URL совпадением не является).
+READ_CODE='
+import ast as _ast, pathlib as _pl
+
+def _токены(node):
+    out = []
+    for ch in _ast.iter_child_nodes(node):
+        if isinstance(ch, _ast.Expr) and isinstance(ch.value, _ast.Constant) and isinstance(ch.value.value, str):
+            continue  # докстринг — проза, а не код
+        if isinstance(ch, _ast.Name):
+            out.append(ch.id)
+        elif isinstance(ch, _ast.Attribute):
+            out.append(ch.attr)
+        elif isinstance(ch, _ast.keyword) and ch.arg:
+            out.append(ch.arg)
+        elif isinstance(ch, _ast.Constant) and isinstance(ch.value, str):
+            out.append(ch.value)
+        out += _токены(ch)
+    return out
+
+def код_вхождений(путь, образцы, маска="*.py", без_регистра=False):
+    база = _pl.Path(путь)
+    файлы = [база] if база.is_file() else sorted(база.rglob(маска))
+    n = 0
+    for ф in файлы:
+        for т in _токены(_ast.parse(ф.read_text(encoding="utf-8"))):
+            цель = т.lower() if без_регистра else т
+            if any((о.lower() if без_регистра else о) in цель for о in образцы):
+                n += 1
+    return n
+'
+
+# Все mapped-классы модуля settings (КЛАССЫ — по __module__: чужие модели, затянутые
+# транзитивным импортом, в счёт не входят) и их внешние ключи — для пробы RESTRICT.
+READ_MODELS='
+import app.modules.settings.shared.models  # noqa: F401 — регистрирует мапперы модуля
+from app.core.base import Base as _Base
+
+def _подклассы(класс):
+    for _п in класс.__subclasses__():
+        yield _п
+        yield from _подклассы(_п)
+
+КЛАССЫ = [c for c in _подклассы(_Base) if c.__module__.startswith("app.modules.settings.")]
+'
 
 # ── Известный долг: критерии на ТЕКСТЕ и признанные границы приёмки ───────────
 # Довод владельца (2026-09-22), по которому они здесь названы, а не удалены: для
@@ -237,11 +296,6 @@ FRONT_DONE=0
 # задаче как non-goal, не тронуты):
 #   c0, функция c0()     — фронт-моки: вхождения в mocks/*.ts и в спеках. Проба тут —
 #                          прогон vitest, он уже стоит в общем гейте.
-#   c1, функция c1()     — снятие полей по файлу; доказуемо составом колонок, как это
-#                          сделано для C2/C9 ниже.
-#   c2, функция c2()     — сторож пагинации (grep -ric по каталогу) и поиск 'logo_url'
-#                          по файлам backend/app.
-#   c2, строка с logoUrl — сторож 'logo_url|logoUrl' в схемах: текст вместо поля схемы.
 #   гейт, метка          — «не реализован» в settings.md: проза по существу.
 #
 # Заход 2a (2026-09-22) снял из этого перечня то, что конвертировано в поведение:
@@ -251,6 +305,14 @@ FRONT_DONE=0
 #     «файлов с кодом во frontend_vue/src > 0» заменено прогоном спека
 #     useSettings.saveErrors (шесть кодов, свой перевод вместо текста сервера) —
 #     см. фронт_половины(); прогон один на все три слайса.
+#
+# Заход 2b (2026-09-22) снял из перечня остаток c1 и c2 — пробами в c1()/c2(), с
+# доводами об объёме у самих проб (читка токенами кода, все схемы фич, каталог
+# целиком); молчаливого сужения нет:
+#   • c1: 'exchange_rate' по файлу модели и по файлу схем; 2 вхождения СТРОКИ
+#     ForeignKey(...RESTRICT) по файлу модели; 'default_currency' по файлу модели;
+#   • c2: сторож пагинации (grep -ric по каталогу settings); 'logo_url' по файлам
+#     backend/app; сторож 'logo_url|logoUrl' в crud/schemas.py.
 # Оставшийся текст перечислен выше с адресами; «известный долг» без адреса здесь не
 # держится.
 #
@@ -297,10 +359,30 @@ c0() {
 
 c1() {
   echo "── С1 · схема: снятие лишнего ────────────────────────────────────────"
-  проверить "exchange_rate снят из модели"    0 "$(вхождений 'exchange_rate' backend/app/modules/settings/shared/models.py)"
-  проверить "exchange_rate снят из схем"      0 "$(вхождений 'exchange_rate' backend/app/modules/settings/features/crud/schemas.py)"
-  проверить "RESTRICT у правил пересчёта"     2 "$(вхождений 'ForeignKey("uoms.id", ondelete="RESTRICT")' backend/app/modules/settings/shared/models.py)"
-  проверить "default_currency не хранится"    0 "$(вхождений 'default_currency' backend/app/modules/settings/shared/models.py)"
+  # Было: вхождений 'exchange_rate' в ФАЙЛЕ models.py == 0. Проба читает тот же файл
+  # ТОКЕНАМИ кода целиком — колонка, аннотация, Index и любое другое упоминание в
+  # коде (проза не в счёт). Файл тот же, а состав колонок — его подмножество.
+  проба "exchange_rate снят из модели" 0 "$READ_CODE
+print(код_вхождений('app/modules/settings/shared/models.py', ('exchange_rate',)))"
+  # Было: вхождений 'exchange_rate' в ФАЙЛЕ crud/schemas.py == 0. Проба ШИРЕ файла:
+  # все */schemas.py фич settings (имя поля и его алиас — токены кода, не проза).
+  проба "exchange_rate снят из схем" 0 "$READ_CODE
+print(код_вхождений('app/modules/settings', ('exchange_rate',), 'schemas.py'))"
+  # Было: ровно 2 вхождения СТРОКИ ForeignKey(...ondelete="RESTRICT") по файлу.
+  # Проба смотрит на РЕАЛЬНЫЕ внешние ключи всех mapped-классов модуля и сверяет
+  # НАБОР, а не счёт: два RESTRICT на uoms.id обязаны быть ровно ссылками правила
+  # пересчёта (from_uom_id и to_uom_id). ondelete нормализуется (регистр/пробелы) —
+  # строковый критерий этого не умел, поэтому проба не уже.
+  проба "RESTRICT у правил пересчёта" 2 "$READ_MODELS
+найдено = {(c.__name__, col.name) for c in КЛАССЫ for col in c.__table__.columns
+           for fk in col.foreign_keys
+           if fk.target_fullname == 'uoms.id'
+           and (fk.ondelete or '').strip().upper() == 'RESTRICT'}
+print(2 if найдено == {('UomConversion', 'from_uom_id'), ('UomConversion', 'to_uom_id')} else 0)"
+  # Было: вхождений 'default_currency' в ФАЙЛЕ models.py == 0. Проба читает файл
+  # токенами кода — надмножество колонок GlobalConstants (и любого другого класса).
+  проба "default_currency не хранится" 0 "$READ_CODE
+print(код_вхождений('app/modules/settings/shared/models.py', ('default_currency',)))"
 }
 
 c2() {
@@ -323,13 +405,25 @@ cols = {c.name for c in CompanyInfo.__table__.columns}
 print(sum(n in cols for n in ("time_zone", "country_code", "confirmation_code"))
       + (0 if "timezone" in cols else 1))
 '
-  сторож "пагинация настройкой НЕ стала"    0 "$(grep -ric 'page_size\|pagesize\|per_page' backend/app/modules/settings 2>/dev/null | awk -F: '{s+=$2} END{print s+0}')"
-  проверить "логотип хранит id, не ссылку"    0 "$(файлов 'logo_url' backend/app)"
+  # Было: сторож grep -ric 'page_size|pagesize|per_page' по КАТАЛОГУ settings — все
+  # файлы модуля, включая прозу. Проба читает ИСХОДНИКИ модуля целиком токенами кода
+  # (models, schemas, domain, action, internal_api — каждый .py), а проза нерелевантна.
+  # Регистр сохранён как у строки: grep -i.
+  проба_сторож "пагинация настройкой НЕ стала" 0 "$READ_CODE
+print(код_вхождений('app/modules/settings', ('page_size', 'pagesize', 'per_page'), без_регистра=True))"
+  # Было: файлов с 'logo_url' во всём backend/app == 0. Проба того же объёма — весь
+  # `app` (== backend/app) токенами кода; регистр сохранён (grep без -i), поэтому
+  # LOGO_URL_NOT_A_URL совпадением не является.
+  проба "логотип хранит id, не ссылку" 0 "$READ_CODE
+print(код_вхождений('app', ('logo_url',)))"
   проба "…а logo_file_id заведён" 1 '
 from app.modules.settings.shared.models import CompanyInfo
 print(1 if "logo_file_id" in {c.name for c in CompanyInfo.__table__.columns} else 0)
 '
-  сторож "поле logoUrl в схемах осталось"   '>0' "$(вхождений 'logo_url\|logoUrl' backend/app/modules/settings/features/crud/schemas.py)"
+  # Было: вхождений 'logo_url|logoUrl' в ФАЙЛЕ crud/schemas.py > 0. Проба ШИРЕ файла:
+  # все */schemas.py фич settings; поле на проводе — logoUrl (имя поля-алиаса).
+  проба_сторож "поле logoUrl в схемах осталось" '>0' "$READ_CODE
+print(код_вхождений('app/modules/settings', ('logoUrl', 'logo_url'), 'schemas.py'))"
 }
 
 c4() {
