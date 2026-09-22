@@ -50,11 +50,15 @@ bad() { printf '  \033[31mПЛОХО\033[0m %s\n' "$1"; fails=$((fails+1)); }
 # лежит гейт. node_modules НЕ копируется (сотни мегабайт), а линкуется: пакеты — не то,
 # что мутируется. Копируются только те файлы, без которых vitest не соберёт спек:
 # src целиком, package.json ("type": "module") и vitest.config.ts (алиасы '@'/'@styles').
+# С захода 3 копируется и доменный КОНТРАКТ: спека c0 сверяет имена кодов с
+# `../roo_code/roo-context/api` (F-3), и в поддельном корне он обязан быть — иначе
+# каждый прогон фронта падал бы на отсутствующем каталоге, а не на мутации.
 подготовить_фронт() {
-  mkdir -p "$FAKE/frontend_vue"
+  mkdir -p "$FAKE/frontend_vue" "$FAKE/roo_code"
   cp -r "$ROOT/frontend_vue/src" "$FAKE/frontend_vue/src"
   cp "$ROOT/frontend_vue/package.json" "$ROOT/frontend_vue/vitest.config.ts" \
     "$FAKE/frontend_vue/"
+  cp -r "$ROOT/roo_code/roo-context" "$FAKE/roo_code/roo-context"
   ln -s "$ROOT/frontend_vue/node_modules" "$FAKE/frontend_vue/node_modules"
 }
 
@@ -850,13 +854,13 @@ old=$(grep -c 'logo_url\|logoUrl' "$COPY/app/modules/settings/features/crud/sche
 [ "$old" -gt 0 ] && ok "M27: СТАРАЯ строка осталась зелёной (вхождений прозы: $old) — потому и заменена" \
   || bad "M27: проза в докстринге потерялась"
 
-# ── M28..M33: c0 доказан прогоном спеков (заход 2c) ───────────────────────────
+# ── M28..M35: c0 доказан прогоном спеков (заход 2c) + вывод перечня (заход 3) ──
 # Каждая мутация ломает РОВНО одну из трёх проб C0, две другие пробы C0 и соседи
 # (c1/c2/c4/c5/c15/c9) обязаны остаться зелёными. Строки-цели — из вывода гейта.
 C0_PROBES=(
   'фронт C0: спека почты исполняет утверждение о поле (спек)'
   'фронт C0: спека карты исполняет утверждение о поле (спек)'
-  'фронт C0: мок отказывает кодом в поле (спек)'
+  'фронт C0: перечень отказов выведен из мока и сверен (спек)'
 )
 C0_NEIGHBORS=(
   "${PROBES_C1C2[@]}"
@@ -895,7 +899,7 @@ path = sys.argv[1]
 text = open(path, encoding="utf-8").read()
 old = """    throw mockRefusal(
       409,
-      'CONVERSION_PAIR_TAKEN',
+      SETTINGS_REFUSAL_CODES.conversionPairTaken,
       'A conversion rule for this unit pair already exists',
     )
 """
@@ -904,7 +908,7 @@ open(path, "w", encoding="utf-8").write(
     text.replace(old, "    throw new Error('CONVERSION_PAIR_TAKEN')\n"))
 PY
 OUT=$(прогон c0 c1 c2 c4 c5 c9 c15); rc=$?
-мутация_c0_проверка "$OUT" 'фронт C0: мок отказывает кодом в поле (спек)'
+мутация_c0_проверка "$OUT" 'фронт C0: перечень отказов выведен из мока и сверен (спек)'
 [ "$rc" -ne 0 ] && ok "M28: выход приёмки ненулевой (rc=$rc)" || bad "M28: приёмка вернула 0"
 
 # ── M29: мёртвые ветки /api/settings возвращены → проба C0 красная ─────────────
@@ -934,7 +938,7 @@ text = text.replace(
 open(path, "w", encoding="utf-8").write(text)
 PY
 OUT=$(прогон c0 c1 c2 c4 c5 c9 c15); rc=$?
-мутация_c0_проверка "$OUT" 'фронт C0: мок отказывает кодом в поле (спек)'
+мутация_c0_проверка "$OUT" 'фронт C0: перечень отказов выведен из мока и сверен (спек)'
 [ "$rc" -ne 0 ] && ok "M29: выход приёмки ненулевой (rc=$rc)" || bad "M29: приёмка вернула 0"
 
 # ── M30: смена пароля снова no-op → проба C0 красная ───────────────────────────
@@ -951,7 +955,7 @@ open(path, "w", encoding="utf-8").write(
     text.replace(old, "    return delay(undefined as T)\n"))
 PY
 OUT=$(прогон c0 c1 c2 c4 c5 c9 c15); rc=$?
-мутация_c0_проверка "$OUT" 'фронт C0: мок отказывает кодом в поле (спек)'
+мутация_c0_проверка "$OUT" 'фронт C0: перечень отказов выведен из мока и сверен (спек)'
 [ "$rc" -ne 0 ] && ok "M30: выход приёмки ненулевой (rc=$rc)" || bad "M30: приёмка вернула 0"
 
 # ── M31: из нового спека снят ОДИН кейс → проба C0 красная по полу (7 < 8) ──────
@@ -973,7 +977,7 @@ assert old in text, "якорь M31 не найден"
 open(path, "w", encoding="utf-8").write(text.replace(old, "", 1))
 PY
 OUT=$(прогон c0 c1 c2 c4 c5 c9 c15); rc=$?
-мутация_c0_проверка "$OUT" 'фронт C0: мок отказывает кодом в поле (спек)'
+мутация_c0_проверка "$OUT" 'фронт C0: перечень отказов выведен из мока и сверен (спек)'
 printf '%s\n' "$OUT" | grep -F 'выполнено 7, пол 8' | grep -q 'ПЛОХО' \
   && ok "M31: красная именно по числу выполненных (7 < 8), а не по падению спека" \
   || bad "M31: пол не сработал (спека упала или счёт не тот)"
@@ -1030,6 +1034,80 @@ printf '%s\n' "$OUT" | grep -F 'выполнено 6, пол 7' | grep -q 'ПЛ�
   && ok "M33: красная именно по числу выполненных (6 < 7), а не по падению спека" \
   || bad "M33: пол не сработал (спека упала или счёт не тот)"
 [ "$rc" -ne 0 ] && ok "M33: выход приёмки ненулевой (rc=$rc)" || bad "M33: приёмка вернула 0"
+
+# ── M34: в мок добавлен НОВЫЙ отказ (F-1, заход 3) → проба C0 красная САМА ─────
+# Проверяет не поведение одного отказа, а ВЫВОД перечня: новый код и маршрут, который
+# его бросает, добавлены ТОЛЬКО в мок. Спек не тронут ни одной строкой — если проба
+# покраснела, перечень в спеке действительно выводится из продукта, а не переписан.
+echo "── M34: в мок добавлен новый отказ → перечень в спеке краснеет сам ───────"
+подготовить
+подготовить_фронт
+python3 - "$FAKE/frontend_vue/src/services/mocks/settings.ts" <<'PY'
+import sys
+path = sys.argv[1]
+text = open(path, encoding="utf-8").read()
+old = "  warehouseMapNotAnImage: 'MAP_NOT_AN_IMAGE',\n} as const\n"
+assert old in text, "якорь M34 (таблица кодов) не найден"
+open(path, "w", encoding="utf-8").write(text.replace(
+    old,
+    "  warehouseMapNotAnImage: 'MAP_NOT_AN_IMAGE',\n"
+    "  leftoverBatches: 'SETTINGS_LEFTOVER_BATCHES',\n"
+    "} as const\n",
+    1))
+PY
+python3 - "$FAKE/frontend_vue/src/services/mocks/index.ts" <<'PY'
+import sys
+path = sys.argv[1]
+text = open(path, encoding="utf-8").read()
+old = "  if (path === '/api/settings/mail/test') return delay(mockSendMailTest() as T)\n"
+assert old in text, "якорь M34 (маршрут отказа) не найден"
+new = old + (
+    "  if (path === '/api/settings/leftover-batches')\n"
+    "    throw new ApiRequestError({\n"
+    "      status: 409,\n"
+    "      message: 'Leftover batches exist',\n"
+    "      code: 'SETTINGS_LEFTOVER_BATCHES',\n"
+    "    })\n"
+)
+open(path, "w", encoding="utf-8").write(text.replace(old, new, 1))
+PY
+OUT=$(прогон c0 c1 c2 c4 c5 c9 c15); rc=$?
+мутация_c0_проверка "$OUT" 'фронт C0: перечень отказов выведен из мока и сверен (спек)'
+# Спека падает в НУЛЕВОЙ exit — поэтому пол шума не даёт и добирается ПРЯМЫМ
+# прогоном: в отчёте vitest обязана быть названа недостающая запись таблицы
+# (`leftoverBatches`) — то есть красный именно вывод перечня, а не сборка спека.
+OUT_SPEC=$(cd "$FAKE/frontend_vue" && ./node_modules/.bin/vitest run \
+  src/services/mocks/settings-refusals.spec.ts 2>&1)
+printf '%s\n' "$OUT_SPEC" | grep -q 'leftoverBatches' \
+  && ok "M34: красная именно на сверке множества (в отчёте назван leftoverBatches)" \
+  || bad "M34: сверка множества не сработала (нет leftoverBatches в отчёте спека)"
+[ "$rc" -ne 0 ] && ok "M34: выход приёмки ненулевой (rc=$rc)" || bad "M34: приёмка вернула 0"
+
+# ── M35: код ПЕРЕИМЕНОВАН в моке (F-3, заход 3) → проба C0 красная ────────────
+# Ожидание и бросок берутся из одной таблицы, поэтому дрейфа «копия против копии»
+# больше нет; но имя на проводе обязано быть названо КОНТРАКТОМ. Мутация переименовывает
+# код в моке и НЕ трогает контракт: проба обязана это увидеть — иначе F-3 закрыт только
+# на бумаге, а переименование разошлось бы с сервером молча.
+echo "── M35: код переименован в моке → имя вне контракта → проба C0 красная ────"
+подготовить
+подготовить_фронт
+python3 - "$FAKE/frontend_vue/src/services/mocks/index.ts" <<'PY'
+import sys
+path = sys.argv[1]
+text = open(path, encoding="utf-8").read()
+old = "  wrongCurrent: 'PASSWORD_WRONG_CURRENT',\n"
+assert old in text, "якорь M35 не найден"
+open(path, "w", encoding="utf-8").write(
+    text.replace(old, "  wrongCurrent: 'PASSWORD_BAD_CURRENT',\n", 1))
+PY
+OUT=$(прогон c0 c1 c2 c4 c5 c9 c15); rc=$?
+мутация_c0_проверка "$OUT" 'фронт C0: перечень отказов выведен из мока и сверен (спек)'
+OUT_SPEC=$(cd "$FAKE/frontend_vue" && ./node_modules/.bin/vitest run \
+  src/services/mocks/settings-refusals.spec.ts 2>&1)
+printf '%s\n' "$OUT_SPEC" | grep -q 'PASSWORD_BAD_CURRENT' \
+  && ok "M35: красная именно на контракте (в отчёте назван PASSWORD_BAD_CURRENT)" \
+  || bad "M35: контрактная сверка не сработала (нет PASSWORD_BAD_CURRENT в отчёте)"
+[ "$rc" -ne 0 ] && ok "M35: выход приёмки ненулевой (rc=$rc)" || bad "M35: приёмка вернула 0"
 
 echo
 echo "══════════════════════════════════════════════════════════════════════"
