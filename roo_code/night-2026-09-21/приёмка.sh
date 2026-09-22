@@ -71,7 +71,9 @@ c1() {
 c2() {
   echo "── С2 · схема: новые поля ────────────────────────────────────────────"
   проверить "три новые константы"             3 "$(вхождений 'default_kerf_mm\|payment_deferral_days\|reservation_hold_days' backend/app/modules/settings/shared/models.py)"
-  проверить "часовой пояс, страна, код подтв." 3 "$(вхождений 'timezone\|country_code\|confirmation_code' backend/app/modules/settings/shared/models.py)"
+  # 'timezone' ловил ещё и DateTime(timezone=True) — то есть колонку часового пояса
+  # критерий не проверял вовсе, а три совпадения набирал чужой строкой. Имя колонки time_zone.
+  проверить "часовой пояс, страна, код подтв." 3 "$(вхождений '^    \(time_zone\|country_code\|confirmation_code\):' backend/app/modules/settings/shared/models.py)"
   сторож "пагинация настройкой НЕ стала"    0 "$(grep -ric 'page_size\|pagesize\|per_page' backend/app/modules/settings 2>/dev/null | awk -F: '{s+=$2} END{print s+0}')"
   проверить "логотип хранит id, не ссылку"    0 "$(файлов 'logo_url' backend/app)"
   проверить "…а logo_file_id заведён"         '>0' "$(вхождений 'logo_file_id' backend/app/modules/settings/shared/models.py)"

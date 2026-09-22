@@ -43,7 +43,7 @@
 > попадания, и все четыре — здесь) → находка 21.
 >
 > **Коды ошибок ядра.** `NOT_FOUND`, `VALIDATION_ERROR`, `CONFLICT`, `FORBIDDEN`, `UNAUTHORIZED`
-> объявлены в `backend/app/core/exceptions.py:34,27,34,41,48`; `UNAUTHORIZED` домен бросает
+> объявлены в `backend/app/core/exceptions.py:13,23,30,37,44`; `UNAUTHORIZED` домен бросает
 > напрямую из `_resolve_user_id` (`crud/action.py:108,115,127`).
 
 ## Эндпоинты

@@ -233,7 +233,7 @@ function authHeaders(): Record<string, string> | undefined {
 
 ## БАГ-07 — удаление единицы измерения молча сносит правила пересчёта
 
-**File:** `backend/app/modules/settings/shared/models.py:131,122`, `backend/app/modules/settings/features/crud/domain.py:384-395`
+**File:** `backend/app/modules/settings/shared/models.py:125,130`, `backend/app/modules/settings/features/crud/domain.py:384-395`
 **Severity:** High — матрица пересчёта теряет строки без предупреждения и без следа.
 **Источник:** К5
 
@@ -542,7 +542,7 @@ Save, нажатый в промежутке, отправит PATCH с base64. 
 
 ## БАГ-19 — `factor` со значением 0 не доезжает до клиента
 
-**File:** `backend/app/modules/settings/features/crud/domain.py:410,394,430`
+**File:** `backend/app/modules/settings/features/crud/domain.py:492,533,577`
 **Severity:** Low — коэффициент 0 читается как «коэффициента нет».
 **Источник:** К4
 

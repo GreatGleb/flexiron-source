@@ -223,7 +223,7 @@
 - Права — в какой функции проверяются: **нигде, ни во фронте, ни на сервере.** Восемь маршрутов
   закрыты только фича-флагами — `adminDashboard`, `adminWarehouse`, `adminSales`, `adminSupply`,
   `adminStaff`, `adminLogistics`, `adminPlReport`, `adminDeficit`
-  (`frontend_vue/src/router/index.ts:264,98,104,110,116,122,128,134`; значения — константы `true`,
+  (`frontend_vue/src/router/index.ts:92,98,104,110,116,122,128,134`; значения — константы `true`,
   `frontend_vue/src/config/featureFlags.ts:6-13`), а внутри дашборда ещё две секции гейтятся
   флагами `dashboardAlerts`/`dashboardCharts` (`DashboardPage.vue:9-10`,
   `featureFlags.ts:30-31`). Флаг — это тариф, а не роль: в матрице прав

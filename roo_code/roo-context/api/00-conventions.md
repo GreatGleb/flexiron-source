@@ -1439,7 +1439,7 @@ save-режим.
 справочников зеркальная непоследовательность: `RESTRICT` у товаров и услуг
 (`modules/products/shared/models.py:127,142,149,156`, `modules/services/shared/models.py:33,40`),
 у складской партии `ondelete` стоит `SET NULL` (`modules/warehouse/shared/models.py:72,80`), а у
-правил пересчёта — `RESTRICT` (`modules/settings/shared/models.py:125,116`): каскад снят слайсом C1
+правил пересчёта — `RESTRICT` (`modules/settings/shared/models.py:125,130`): каскад снят слайсом C1
 (ревизия `7c4d1e9a3b58`), и правило молча больше не уносит.
 Под П44 всё, что ссылается на справочник, обязано стать `RESTRICT`, а под товаром
 и услугой политика перестаёт срабатывать вовсе: строка не удаляется.
