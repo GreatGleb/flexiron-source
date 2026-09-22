@@ -51,7 +51,12 @@ elif mode == 'claude-error':
     raise SystemExit(0)
 else:
     body = json.dumps({'status': 'done', 'summary': 'ок', 'evidence': ['читал plan.md']}, ensure_ascii=False)
-print(json.dumps({'type': 'result', 'is_error': False, 'result': body, 'total_cost_usd': 0.01}))
+printed = {'type': 'result', 'is_error': False, 'result': body, 'total_cost_usd': 0.01}
+if mode != 'no-usage':
+    per_call = int(os.environ.get('NIGHT_TEST_TOKENS', '1000'))
+    printed['modelUsage'] = {'claude-test': {'inputTokens': per_call, 'outputTokens': 0,
+                                             'cacheCreationInputTokens': 0, 'cacheReadInputTokens': 0}}
+print(json.dumps(printed))
 '''
 
 
@@ -210,6 +215,78 @@ class LinkGateTest(unittest.TestCase):
         result = self.invoke("links-no-report")
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(self.git("rev-parse", "HEAD"), self.baseline)
+
+
+class BudgetTest(unittest.TestCase):
+    """Потолок токенов: он защищает недельный лимит, поэтому обязан срабатывать.
+
+    Считается расход только тех бэкендов, что идут в счёт (claude): Codex и DeepSeek
+    оплачиваются отдельно. Проверка между задачами, значит превышение возможно не
+    больше чем на одну задачу — это поведение и закреплено тестом.
+    """
+
+    def setUp(self):
+        _pilot.PilotTest.setUp(self)
+        claude = self.bin / "claude"
+        claude.write_text(FAKE_CLAUDE)
+        claude.chmod(0o755)
+        self.queue.write_text(json.dumps({"tasks": [
+            {"id": "one", "sources": ["plan.md"], "outputs": ["plan.md"], "task": "первая"},
+            {"id": "two", "sources": ["plan.md"], "outputs": ["plan2.md"], "task": "вторая"}]}))
+        self.routing = self.base / "routing.json"
+        self.routing.write_text(json.dumps({"work": {"backend": "claude", "binary": str(claude)},
+                                            "review": {"backend": "codex", "binary": str(self.bin / "codex")}}))
+
+    git = _pilot.PilotTest.git
+    state = _pilot.PilotTest.state
+
+    def invoke(self, budget=None, tokens="1000", mode=""):
+        command = [sys.executable, str(RUNNER), "--workspace", str(self.root), "--queue", str(self.queue),
+                   "--routing", str(self.routing), "--run", "--run-dir", str(self.logs),
+                   "--minutes", "1", "--max-tasks", "2"]
+        if budget is not None:
+            command += ["--token-budget", str(budget)]
+        return subprocess.run(command, env={**self.env, "NIGHT_TEST_TOKENS": tokens, "NIGHT_TEST_MODE": mode},
+                              capture_output=True, text=True, timeout=30)
+
+    def test_budget_room_lets_both_tasks_through(self):
+        result = self.invoke(budget=100000)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.state()["status"], "completed")
+        self.assertEqual(len(self.state()["completed"]), 2)
+
+    def test_exhausted_budget_stops_before_the_next_task(self):
+        result = self.invoke(budget=1000, tokens="1000")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        state = self.state()
+        self.assertEqual(state["status"], "token-budget")
+        self.assertEqual(len(state["completed"]), 1)
+        self.assertEqual(state["tokens"], 1000)
+        self.assertIn("Потолок токенов исчерпан: 1000 из 1000", state["reason"])
+        # Работа первой задачи принята и осталась — потолок не откатывает сделанное.
+        self.assertNotEqual(self.git("rev-parse", "HEAD"), self.baseline)
+        self.assertFalse(self.git("status", "--porcelain"))
+
+    def test_run_without_budget_ignores_tokens(self):
+        result = self.invoke(budget=None, tokens="999999")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.state()["status"], "completed")
+
+    def test_output_without_token_accounting_stops_the_run(self):
+        # Ноль вместо неизвестного расхода — это потолок, который никогда не сработает.
+        result = self.invoke(budget=1000, mode="no-usage")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.state()["status"], "stopped")
+        self.assertIn("нет учёта токенов", self.state()["reason"])
+
+    def test_unmetered_backend_does_not_fill_the_budget(self):
+        self.routing.write_text(json.dumps({"work": {"backend": "codex", "binary": str(self.bin / "codex")},
+                                            "review": {"backend": "claude", "binary": str(self.bin / "claude")}}))
+        result = self.invoke(budget=1500, tokens="1000")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        # Автор на Codex в счёт не идёт; потолок набирают только приёмки на Claude.
+        self.assertEqual(self.state()["tokens"], 1000)
+        self.assertEqual(len(self.state()["completed"]), 2)
 
 
 class MixedRunTest(unittest.TestCase):
