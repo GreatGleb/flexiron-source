@@ -29,7 +29,7 @@ import type { CostSource } from '@/types/order'
 import type { ClientInvoice, ClientInvoiceSummary, ClientUnassignedPayment } from '@/types/client'
 import type { Receivable } from '@/types/finance'
 import type { StockReservation } from '@/types/warehouse'
-import type { PaginatedResponse, PaginationParams } from '@/types/api'
+import { ApiRequestError, type PaginatedResponse, type PaginationParams } from '@/types/api'
 import {
   type PricingLine,
   calcLine,
@@ -188,7 +188,7 @@ function recalcOrder(order: StoreOrder): void {
   // would quietly send money or goods to the wrong place.
   const ids = new Set<string>()
   for (const line of lines) {
-    if (ids.has(line.id)) throw new Error(`DUPLICATE_LINE_ID: ${line.id}`)
+    if (ids.has(line.id)) throw refuse(`DUPLICATE_LINE_ID: ${line.id}`)
     ids.add(line.id)
   }
 
@@ -197,7 +197,7 @@ function recalcOrder(order: StoreOrder): void {
   for (const item of order.items) {
     const allocated = round2(item.allocations.reduce((sum, a) => sum + a.quantity, 0))
     if (allocated > item.quantity) {
-      throw new Error(`ALLOCATION_EXCEEDS_QUANTITY: ${item.id}`)
+      throw refuse(`ALLOCATION_EXCEEDS_QUANTITY: ${item.id}`)
     }
   }
 
@@ -373,7 +373,7 @@ function serviceEntry(id: string): { name: string; cost: number; price: number }
   // Named so it is not a substring of `ORDER_SERVICE_NOT_FOUND`: the frontend
   // matches error codes by substring (§6), so "the service is not in the
   // catalogue" and "this order has no such service line" would read as one.
-  if (!svc) throw new Error('CATALOG_SERVICE_NOT_FOUND')
+  if (!svc) throw refuse('CATALOG_SERVICE_NOT_FOUND')
   return {
     name: svc.name[CATALOGUE_LANGUAGE],
     cost: svc.costPrice,
@@ -1441,16 +1441,16 @@ function validateListRequest(
   if (filters.sortBy && !ORDER_SORT_KEYS.includes(filters.sortBy as OrderSortKey)) {
     // The key is named in the refusal: "sorting failed" without it sends whoever
     // reads the log looking through eight columns for the one that was asked for.
-    throw new Error(`UNKNOWN_SORT_KEY: ${filters.sortBy}`)
+    throw refuse(`UNKNOWN_SORT_KEY: ${filters.sortBy}`)
   }
   const dir = filters.sortDir || 'asc'
-  if (dir !== 'asc' && dir !== 'desc') throw new Error(`UNKNOWN_SORT_DIRECTION: ${filters.sortDir}`)
+  if (dir !== 'asc' && dir !== 'desc') throw refuse(`UNKNOWN_SORT_DIRECTION: ${filters.sortDir}`)
 
   for (const [name, value] of [
     ['dateFrom', filters.dateFrom],
     ['dateTo', filters.dateTo],
   ] as const) {
-    if (value && !isCalendarDay(value)) throw new Error(`INVALID_DATE_FILTER: ${name}=${value}`)
+    if (value && !isCalendarDay(value)) throw refuse(`INVALID_DATE_FILTER: ${name}=${value}`)
   }
 
   // `page = -1` became `slice(-14, -7)` and handed back the tail of the list: a
@@ -1462,7 +1462,7 @@ function validateListRequest(
     ['page', pagination.page],
     ['pageSize', pagination.pageSize],
   ] as const) {
-    if (!Number.isInteger(value) || value < 1) throw new Error(`INVALID_PAGE: ${name}=${value}`)
+    if (!Number.isInteger(value) || value < 1) throw refuse(`INVALID_PAGE: ${name}=${value}`)
   }
 
   return { sortBy: (filters.sortBy as OrderSortKey | null) || null, descending: dir === 'desc' }
@@ -1604,7 +1604,7 @@ export function mockGetSalesCrmStats(): SalesCrmStats {
 // error catalogue could name instead of the domain code that says what happened.
 export function mockGetOrder(id: string): Order {
   const order = STORE.find((o) => o.id === id)
-  if (!order) throw new Error('ORDER_NOT_FOUND')
+  if (!order) throw refuse('ORDER_NOT_FOUND')
   return publicOrder(order)
 }
 
@@ -1617,7 +1617,7 @@ export function mockCreateOrder(data: {
 }): Order {
   const clients = mockGetClients()
   const client = clients.find((c) => c.id === data.clientId)
-  if (!client) throw new Error('CLIENT_NOT_FOUND')
+  if (!client) throw refuse('CLIENT_NOT_FOUND')
 
   // Derived from the same counter as the id: taking it from STORE.length would
   // repeat a number after a deletion, and waybill and invoice numbers are built
@@ -1702,7 +1702,7 @@ export function mockPatchOrder(
   delta: Partial<Order> & { marginPercent?: number; orderDiscount?: number },
 ): Order {
   const order = STORE.find((o) => o.id === id)
-  if (!order) throw new Error('ORDER_NOT_FOUND')
+  if (!order) throw refuse('ORDER_NOT_FOUND')
   assertVersion(order, delta.version)
   requireFiniteNumbers({
     vatPercent: delta.vatPercent,
@@ -1776,7 +1776,7 @@ export function mockPlanStatusTransition(
   status: OrderStatus,
 ): StatusTransitionPlan {
   const order = STORE.find((o) => o.id === orderId)
-  if (!order) throw new Error('ORDER_NOT_FOUND')
+  if (!order) throw refuse('ORDER_NOT_FOUND')
   const rules = statusRules(status)
 
   const requested = rules.writesOff ? unshippedLines(order) : []
@@ -1804,13 +1804,13 @@ export function mockPatchOrderStatus(
   version?: number,
 ): Order {
   const order = STORE.find((o) => o.id === id)
-  if (!order) throw new Error('ORDER_NOT_FOUND')
+  if (!order) throw refuse('ORDER_NOT_FOUND')
   // Before the version, because a status nobody recognises is not a write worth
   // arbitrating. This used to record whatever string arrived: `statusRules` then
   // failed to find `st-<typo>` in the settings and quietly answered "reserves
   // nothing, writes off nothing", leaving an order in a state no list, no filter
   // and no pill knows — without an error (§4.5).
-  if (!isOrderStatus(status)) throw new Error('UNKNOWN_ORDER_STATUS')
+  if (!isOrderStatus(status)) throw refuse('UNKNOWN_ORDER_STATUS')
   assertVersion(order, version)
   const oldStatus = order.status
   const rules = statusRules(status)
@@ -1823,7 +1823,7 @@ export function mockPatchOrderStatus(
       const plan = planShipment(order, requested)
       // Written down to the last unit or not at all — nobody may ship what is not
       // on the shelf, in any scenario.
-      if (plan.shortages.length > 0) throw new Error('STATUS_BLOCKED_BY_STOCK')
+      if (plan.shortages.length > 0) throw refuse('STATUS_BLOCKED_BY_STOCK')
       mockCreateShipment(id, { lines: requested })
     }
   }
@@ -1862,7 +1862,7 @@ function actingUser(): { role: string; name: string; initials: string } {
 function requireRight(right: 'manualCost' | 'correction'): { name: string; initials: string } {
   const user = actingUser()
   const allowed = mockGetSettings().orderPermissions[right]
-  if (!allowed.includes(user.role)) throw new Error('FORBIDDEN_' + right.toUpperCase())
+  if (!allowed.includes(user.role)) throw refuse('FORBIDDEN_' + right.toUpperCase())
   return user
 }
 
@@ -1944,7 +1944,7 @@ function recordInHistory(
  */
 function assertVersion(order: StoreOrder, sent: number | undefined): void {
   if (sent === undefined) return
-  if (sent !== order.version) throw new Error('ORDER_VERSION_CONFLICT')
+  if (sent !== order.version) throw refuse('ORDER_VERSION_CONFLICT')
 }
 
 /**
@@ -1982,7 +1982,7 @@ function requireFiniteNumbers(fields: Record<string, unknown>): void {
   for (const [field, value] of Object.entries(fields)) {
     if (value === undefined || value === null) continue
     if (typeof value !== 'number' || !Number.isFinite(value)) {
-      throw new Error(`NUMBER_NOT_FINITE: ${field}`)
+      throw refuse(`NUMBER_NOT_FINITE: ${field}`)
     }
   }
 }
@@ -2003,7 +2003,7 @@ function requireFiniteNumbers(fields: Record<string, unknown>): void {
 function refuseStatedCost(stated: number | undefined): void {
   if (stated === undefined) return
   requireRight('manualCost')
-  throw new Error('MANUAL_COST_REASON_REQUIRED')
+  throw refuse('MANUAL_COST_REASON_REQUIRED')
 }
 
 /**
@@ -2041,7 +2041,7 @@ function validateLineEdit(delta: LineEditPayload): void {
   // has: the line stored, and then could never ship — the planner skips an
   // unknown batch — with nothing anywhere saying why.
   const { allocations: stated } = delta
-  if (stated !== undefined) throw new Error('ALLOCATIONS_NOT_ACCEPTED')
+  if (stated !== undefined) throw refuse('ALLOCATIONS_NOT_ACCEPTED')
 }
 
 // ─── Delete ───
@@ -2067,14 +2067,14 @@ export function mockDeleteOrder(
   // request they had not carried out. Here the silence sat BEFORE the version
   // check, so a stale request against an order somebody else had already removed
   // was told "done" instead of being refused.
-  if (idx === -1) throw new Error('ORDER_NOT_FOUND')
+  if (idx === -1) throw refuse('ORDER_NOT_FOUND')
   const order = STORE[idx]!
   assertVersion(order, version)
   if (order.invoices.some((i) => i.kind !== 'correction' && !isWithdrawn(order, i.id))) {
-    throw new Error('ORDER_HAS_INVOICE')
+    throw refuse('ORDER_HAS_INVOICE')
   }
-  if (order.shipments.some((s) => !s.cancelled)) throw new Error('ORDER_HAS_SHIPMENT')
-  if (order.payments.length > 0) throw new Error('ORDER_HAS_PAYMENT')
+  if (order.shipments.some((s) => !s.cancelled)) throw refuse('ORDER_HAS_SHIPMENT')
+  if (order.payments.length > 0) throw refuse('ORDER_HAS_PAYMENT')
   STORE.splice(idx, 1)
   // Everything this order was holding goes back on the shelf. Left behind, the
   // holds would belong to an order nobody can open, and nothing could ever
@@ -2114,7 +2114,7 @@ export function mockAddOrderItem(
   },
 ): OrderItem {
   const order = STORE.find((o) => o.id === orderId)
-  if (!order) throw new Error('ORDER_NOT_FOUND')
+  if (!order) throw refuse('ORDER_NOT_FOUND')
   assertVersion(order, data.version)
   // Checked before a single figure is read — §1, rule 6. Nothing below writes
   // anything until every one of these has passed.
@@ -2127,7 +2127,7 @@ export function mockAddOrderItem(
   // A line for nothing is not a line. The domain has always known this refusal —
   // it just was never asked for here, so the one endpoint that creates lines was
   // the one place it did not apply.
-  if (data.quantity === 0) throw new Error('ZERO_QUANTITY')
+  if (data.quantity === 0) throw refuse('ZERO_QUANTITY')
   // Whatever cost came with the request is not a cost — see `refuseStatedCost`.
   const { unitCost: statedCost } = data
   refuseStatedCost(statedCost)
@@ -2137,7 +2137,7 @@ export function mockAddOrderItem(
   // while an unknown service was refused: one rule, written for services and
   // forgotten next door (§1, rule 6).
   const fullProduct = PRODUCTS_STORE.find((p) => p.id === data.productId)
-  if (!fullProduct) throw new Error('CATALOG_PRODUCT_NOT_FOUND')
+  if (!fullProduct) throw refuse('CATALOG_PRODUCT_NOT_FOUND')
   let productName = fullProduct.name[CATALOGUE_LANGUAGE]
   if (!productName) productName = data.productId
   // The caller hands over a selling price; cost and margin are what the model
@@ -2155,12 +2155,12 @@ export function mockAddOrderItem(
   // Партия, названная целиком, и выбранные куски — два разных ответа на вопрос «чем
   // покрыта строка», и ниже победил бы тот, что читают первым: `batchId` затирает всю
   // разбивку. Отказ называет противоречие вместо того, чтобы разрешать его молча.
-  if (data.batchId && chosen.length > 0) throw new Error('OFFCUTS_WITH_BATCH')
+  if (data.batchId && chosen.length > 0) throw refuse('OFFCUTS_WITH_BATCH')
   // Кусков набрали больше, чем в строке. Отказ, а не усечение: обрезок неделим —
   // урезать аллокацию до количества строки значит списать половину куска, которого
   // в природе нет, а молча выбросить лишний кусок значит потерять выбор менеджера.
   if (chosen.length > 0 && round2(chosen.reduce((sum, a) => sum + a.quantity, 0)) > data.quantity) {
-    throw new Error('OFFCUTS_EXCEED_QUANTITY')
+    throw refuse('OFFCUTS_EXCEED_QUANTITY')
   }
   const covered = coverFromStock(order, {
     id: null,
@@ -2232,10 +2232,10 @@ export function mockUpdateOrderItem(
   delta: LineEditPayload,
 ): OrderItem {
   const order = STORE.find((o) => o.id === orderId)
-  if (!order) throw new Error('ORDER_NOT_FOUND')
+  if (!order) throw refuse('ORDER_NOT_FOUND')
   assertVersion(order, delta.version)
   const idx = order.items.findIndex((i) => i.id === lineId)
-  if (idx === -1) throw new Error('ORDER_ITEM_NOT_FOUND')
+  if (idx === -1) throw refuse('ORDER_ITEM_NOT_FOUND')
 
   // Everything the body claims, checked before anything acts on it — §1, rule 6.
   validateLineEdit(delta)
@@ -2297,10 +2297,10 @@ export function mockUpdateOrderService(
   delta: LineEditPayload,
 ): OrderService {
   const order = STORE.find((o) => o.id === orderId)
-  if (!order) throw new Error('ORDER_NOT_FOUND')
+  if (!order) throw refuse('ORDER_NOT_FOUND')
   assertVersion(order, delta.version)
   const idx = order.services.findIndex((s) => s.id === serviceLineId)
-  if (idx === -1) throw new Error('ORDER_SERVICE_NOT_FOUND')
+  if (idx === -1) throw refuse('ORDER_SERVICE_NOT_FOUND')
 
   // The same validator as goods: one rule written twice is how the last six of
   // these were missed.
@@ -2362,10 +2362,10 @@ export function mockDeleteOrderItem(
   version?: number,
 ): void {
   const order = STORE.find((o) => o.id === orderId)
-  if (!order) throw new Error('ORDER_NOT_FOUND')
+  if (!order) throw refuse('ORDER_NOT_FOUND')
   assertVersion(order, version)
   const idx = order.items.findIndex((i) => i.id === lineId)
-  if (idx === -1) throw new Error('ORDER_ITEM_NOT_FOUND')
+  if (idx === -1) throw refuse('ORDER_ITEM_NOT_FOUND')
   const removed = order.items[idx]!
   assertDeletable(removed)
   order.items.splice(idx, 1)
@@ -2394,7 +2394,7 @@ function assertDeletable(line: OrderItem | OrderService): void {
   if (canDeleteLine(pricing)) return
   // One predicate decides it — the card reads the same one. This only picks
   // which of the two obstacles to name.
-  throw new Error(pricing.shippedQuantity > 0 ? 'LINE_HAS_SHIPMENT' : 'LINE_ON_INVOICE')
+  throw refuse(pricing.shippedQuantity > 0 ? 'LINE_HAS_SHIPMENT' : 'LINE_ON_INVOICE')
 }
 
 // ─── Services ───
@@ -2411,7 +2411,7 @@ export function mockAddOrderService(
   },
 ): OrderService {
   const order = STORE.find((o) => o.id === orderId)
-  if (!order) throw new Error('ORDER_NOT_FOUND')
+  if (!order) throw refuse('ORDER_NOT_FOUND')
   assertVersion(order, data.version)
   requireFiniteNumbers({
     quantity: data.quantity,
@@ -2421,7 +2421,7 @@ export function mockAddOrderService(
   // Same refusal as `mockAddOrderItem`. A rule written for one entity and
   // forgotten next door is the commonest defect in this module (contract §1,
   // rule 6) — and `validateLine` does not catch it: it tests `quantity < 0`.
-  if (data.quantity === 0) throw new Error('ZERO_QUANTITY')
+  if (data.quantity === 0) throw refuse('ZERO_QUANTITY')
   // From the catalogue, and refused if it is not in it: falling back to some
   // other service stored the line under a name nobody picked.
   const svcEntry = serviceEntry(data.serviceId)
@@ -2452,10 +2452,10 @@ export function mockDeleteOrderService(
   version?: number,
 ): void {
   const order = STORE.find((o) => o.id === orderId)
-  if (!order) throw new Error('ORDER_NOT_FOUND')
+  if (!order) throw refuse('ORDER_NOT_FOUND')
   assertVersion(order, version)
   const idx = order.services.findIndex((s) => s.id === serviceId)
-  if (idx === -1) throw new Error('ORDER_SERVICE_NOT_FOUND')
+  if (idx === -1) throw refuse('ORDER_SERVICE_NOT_FOUND')
   assertDeletable(order.services[idx]!)
   order.services.splice(idx, 1)
   recalcOrder(order)
@@ -2485,10 +2485,10 @@ export function mockDeleteOrderAuditEntry(
   version?: number,
 ): void {
   const order = STORE.find((o) => o.id === orderId)
-  if (!order) throw new Error('ORDER_NOT_FOUND')
+  if (!order) throw refuse('ORDER_NOT_FOUND')
   assertVersion(order, version)
   const idx = order.auditLog.findIndex((entry) => entry.id === entryId)
-  if (idx === -1) throw new Error('ORDER_AUDIT_ENTRY_NOT_FOUND')
+  if (idx === -1) throw refuse('ORDER_AUDIT_ENTRY_NOT_FOUND')
   order.auditLog.splice(idx, 1)
   bumpVersion(order)
 }
@@ -2505,7 +2505,7 @@ export function mockAddOrderFile(
   version?: number,
 ): OrderFile {
   const order = STORE.find((o) => o.id === orderId)
-  if (!order) throw new Error('ORDER_NOT_FOUND')
+  if (!order) throw refuse('ORDER_NOT_FOUND')
   assertVersion(order, version)
   const file: OrderFile = {
     id: `ord-file-${fileSeq++}`,
@@ -2528,7 +2528,7 @@ export function mockRemoveOrderFile(
   version?: number,
 ): void {
   const order = STORE.find((o) => o.id === orderId)
-  if (!order) throw new Error('ORDER_NOT_FOUND')
+  if (!order) throw refuse('ORDER_NOT_FOUND')
   assertVersion(order, version)
   const idx = order.files.findIndex((f) => f.fileId === fileId)
   // An id nobody knows is refused, like its two neighbours — the line deletion
@@ -2539,7 +2539,7 @@ export function mockRemoveOrderFile(
   // regardless. From then on the card was a version ahead of the server, and
   // every later request of that save was refused as a conflict that never
   // happened.
-  if (idx === -1) throw new Error('ORDER_FILE_NOT_FOUND')
+  if (idx === -1) throw refuse('ORDER_FILE_NOT_FOUND')
   order.files.splice(idx, 1)
   bumpVersion(order)
 }
@@ -2566,7 +2566,7 @@ export function mockAllocateOrderTotal(
   rows: Array<{ lineId: string; before: number; after: number }>
 } {
   const order = STORE.find((o) => o.id === orderId)
-  if (!order) throw new Error('ORDER_NOT_FOUND')
+  if (!order) throw refuse('ORDER_NOT_FOUND')
   assertVersion(order, version)
   requireFiniteNumbers({ targetGross })
 
@@ -2584,7 +2584,7 @@ export function mockAllocateOrderTotal(
   )
   result.lines.forEach((pricing) => {
     const target = byId.get(pricing.id)
-    if (!target) throw new Error('ALLOCATION_LINE_NOT_FOUND')
+    if (!target) throw refuse('ALLOCATION_LINE_NOT_FOUND')
     applyPricing(target, pricing)
   })
 
@@ -2626,19 +2626,19 @@ export function mockCorrectOrderLine(
   data: { unitPrice?: number; unitCost?: number; reason?: string; version?: number },
 ): OrderItem | OrderService {
   const order = STORE.find((o) => o.id === orderId)
-  if (!order) throw new Error('ORDER_NOT_FOUND')
+  if (!order) throw refuse('ORDER_NOT_FOUND')
   assertVersion(order, data.version)
   const item = order.items.find((i) => i.id === lineId)
   const service = item ? undefined : order.services.find((s) => s.id === lineId)
   const line = item ?? service
-  if (!line) throw new Error('ORDER_ITEM_NOT_FOUND')
+  if (!line) throw refuse('ORDER_ITEM_NOT_FOUND')
   requireFiniteNumbers({ unitPrice: data.unitPrice, unitCost: data.unitCost })
 
   const reason = data.reason?.trim() ?? ''
   // Checked before the right, so a user without it still learns what else is wrong.
-  if (!reason) throw new Error('CORRECTION_REASON_REQUIRED')
+  if (!reason) throw refuse('CORRECTION_REASON_REQUIRED')
   if (data.unitPrice === undefined && data.unitCost === undefined) {
-    throw new Error('CORRECTION_NEEDS_CHANGE')
+    throw refuse('CORRECTION_NEEDS_CHANGE')
   }
   const actor = requireRight('correction')
 
@@ -2646,7 +2646,7 @@ export function mockCorrectOrderLine(
   // An open line is edited the ordinary way. Letting this path touch one would put
   // a correcting document against a delivery that never happened, and skip every
   // check an ordinary edit makes on the way.
-  if (canEditPrice(before) && !isCostFrozen(before)) throw new Error('LINE_NOT_FROZEN')
+  if (canEditPrice(before) && !isCostFrozen(before)) throw refuse('LINE_NOT_FROZEN')
 
   // ── The plan ───────────────────────────────────────────────────────────────
   // Everything this operation would do is worked out before any of it is done —
@@ -2695,7 +2695,7 @@ export function mockCorrectOrderLine(
   // One document is adjusted once (§4.6). Asked here, where the answer still
   // costs nothing — this is the refusal that used to arrive after the write.
   for (const { invoice } of corrections) {
-    if (hasCorrection(order, invoice.id)) throw new Error('INVOICE_ALREADY_CORRECTED')
+    if (hasCorrection(order, invoice.id)) throw refuse('INVOICE_ALREADY_CORRECTED')
   }
 
   // ── Everything is checked; from here on it only writes. ────────────────────
@@ -2782,10 +2782,10 @@ export function mockSplitOrderItem(
   version?: number,
 ): { shipped: OrderItem; remainder: OrderItem } {
   const order = STORE.find((o) => o.id === orderId)
-  if (!order) throw new Error('ORDER_NOT_FOUND')
+  if (!order) throw refuse('ORDER_NOT_FOUND')
   assertVersion(order, version)
   const idx = order.items.findIndex((i) => i.id === lineId)
-  if (idx === -1) throw new Error('ORDER_ITEM_NOT_FOUND')
+  if (idx === -1) throw refuse('ORDER_ITEM_NOT_FOUND')
   requireFiniteNumbers({ shippedQuantity })
   const item = order.items[idx]!
 
@@ -2822,7 +2822,7 @@ export function mockSplitOrderItem(
 
 export function mockGetShipments(orderId: string): Shipment[] {
   const order = STORE.find((o) => o.id === orderId)
-  if (!order) throw new Error('ORDER_NOT_FOUND')
+  if (!order) throw refuse('ORDER_NOT_FOUND')
   return clone(order.shipments)
 }
 
@@ -3118,22 +3118,22 @@ export function planShipment(
 
   for (const shipLine of requested) {
     const item = order.items.find((i) => i.id === shipLine.lineId)
-    if (!item) throw new Error('ORDER_ITEM_NOT_FOUND')
+    if (!item) throw refuse('ORDER_ITEM_NOT_FOUND')
     // The same line twice in one shipment reads its remaining quantity twice from
     // the same starting point, so two 3s pass a check for 5 — and each takes the
     // same slice of the breakdown, writing the same units off the shelf twice.
     // Caught here, before the movements; the line validation at the end of the
     // operation would catch it only after the goods were gone.
-    if (seen.has(shipLine.lineId)) throw new Error('DUPLICATE_SHIPMENT_LINE')
+    if (seen.has(shipLine.lineId)) throw refuse('DUPLICATE_SHIPMENT_LINE')
     seen.add(shipLine.lineId)
     // Before the comparison, because `NaN <= 0` is false and `Infinity <= 0` is
     // false: the quantity that is not a number is exactly the one the positive
     // check waves through. Planning happens before anything moves, so a refusal
     // here leaves the warehouse and the order untouched.
     requireFiniteNumbers({ quantity: shipLine.quantity })
-    if (shipLine.quantity <= 0) throw new Error('SHIPMENT_QUANTITY_MUST_BE_POSITIVE')
+    if (shipLine.quantity <= 0) throw refuse('SHIPMENT_QUANTITY_MUST_BE_POSITIVE')
     const remaining = round2(item.quantity - item.shippedQuantity)
-    if (shipLine.quantity > remaining) throw new Error('SHIPMENT_EXCEEDS_REMAINING')
+    if (shipLine.quantity > remaining) throw refuse('SHIPMENT_EXCEEDS_REMAINING')
 
     // The part of the breakdown this shipment takes: whatever earlier shipments
     // already consumed is skipped, so the second truck writes off the next
@@ -3248,7 +3248,7 @@ function unshippedPieceRanges(item: OrderItem): WholePieceRange[] {
  */
 export function mockPlanOrderShipment(orderId: string): ShippableLine[] {
   const order = STORE.find((o) => o.id === orderId)
-  if (!order) throw new Error('ORDER_NOT_FOUND')
+  if (!order) throw refuse('ORDER_NOT_FOUND')
   const requested = unshippedLines(order)
   if (requested.length === 0) return []
 
@@ -3279,13 +3279,13 @@ export function mockCreateShipment(
   },
 ): Shipment {
   const order = STORE.find((o) => o.id === orderId)
-  if (!order) throw new Error('ORDER_NOT_FOUND')
+  if (!order) throw refuse('ORDER_NOT_FOUND')
   assertVersion(order, data.version)
-  if (!data.lines.length) throw new Error('SHIPMENT_HAS_NO_LINES')
+  if (!data.lines.length) throw refuse('SHIPMENT_HAS_NO_LINES')
 
   // Everything is checked before anything moves — see `planShipment`.
   const plan = planShipment(order, data.lines)
-  if (plan.shortages.length > 0) throw new Error('SHIPMENT_EXCEEDS_STOCK')
+  if (plan.shortages.length > 0) throw refuse('SHIPMENT_EXCEEDS_STOCK')
   const planned = plan.lines
 
   // Движение по куску пишется против его РОДИТЕЛЬСКОЙ партии: `writeMovement` без
@@ -3302,7 +3302,7 @@ export function mockCreateShipment(
     for (const allocation of line.consume) {
       if (allocation.batchId || !allocation.offcutId) continue
       const piece = shelvedOffcut(allocation.offcutId)
-      if (!piece) throw new Error('SHIPMENT_EXCEEDS_STOCK')
+      if (!piece) throw refuse('SHIPMENT_EXCEEDS_STOCK')
       pieceParent.set(allocation.offcutId, piece.batchId)
     }
   }
@@ -3384,18 +3384,18 @@ export function mockCancelShipment(
   opts?: { correctionReason?: string | null; version?: number },
 ): Shipment {
   const order = STORE.find((o) => o.id === orderId)
-  if (!order) throw new Error('ORDER_NOT_FOUND')
+  if (!order) throw refuse('ORDER_NOT_FOUND')
   assertVersion(order, opts?.version)
   const shipment = order.shipments.find((s) => s.id === shipmentId)
-  if (!shipment) throw new Error('SHIPMENT_NOT_FOUND')
-  if (shipment.cancelled) throw new Error('SHIPMENT_ALREADY_CANCELLED')
+  if (!shipment) throw refuse('SHIPMENT_NOT_FOUND')
+  if (shipment.cancelled) throw refuse('SHIPMENT_ALREADY_CANCELLED')
   // An invoice for this delivery is already in the client's hands. Undoing the
   // delivery behind it would leave them holding a document for goods the system
   // says never left — and the model is explicit that an issued document is
   // corrected by a correcting one, never silently withdrawn.
   const live = liveInvoicesFor(order, shipment.id)
   const reason = opts?.correctionReason?.trim() ?? ''
-  if (live.length > 0 && !reason) throw new Error('SHIPMENT_ALREADY_INVOICED')
+  if (live.length > 0 && !reason) throw refuse('SHIPMENT_ALREADY_INVOICED')
   // Withdrawing a document the client holds is the "correction" of model section
   // 12, and it is behind a right. An ordinary cancellation of an uninvoiced truck
   // is not — nobody outside the warehouse has been told about it yet.
@@ -3412,7 +3412,7 @@ export function mockCancelShipment(
     (m) => m.type === 'sale',
   )
   for (const movement of returns) {
-    if (!batchById(movement.batchId)) throw new Error('SHIPMENT_BATCH_NOT_FOUND')
+    if (!batchById(movement.batchId)) throw refuse('SHIPMENT_BATCH_NOT_FOUND')
   }
 
   // Everything is checked; from here on it only writes — and it really does now.
@@ -3637,7 +3637,7 @@ function planCorrections(
 
 export function mockGetReturns(orderId: string): OrderReturn[] {
   const order = STORE.find((o) => o.id === orderId)
-  if (!order) throw new Error('ORDER_NOT_FOUND')
+  if (!order) throw refuse('ORDER_NOT_FOUND')
   return clone(order.returns)
 }
 
@@ -3646,7 +3646,7 @@ export function mockGetReturns(orderId: string): OrderReturn[] {
  */
 export function mockPlanReturn(orderId: string): ReturnableLine[] {
   const order = STORE.find((o) => o.id === orderId)
-  if (!order) throw new Error('ORDER_NOT_FOUND')
+  if (!order) throw refuse('ORDER_NOT_FOUND')
   return order.items
     .map((item) => ({
       lineId: item.id,
@@ -3682,30 +3682,30 @@ export function mockCreateReturn(
   },
 ): OrderReturn {
   const order = STORE.find((o) => o.id === orderId)
-  if (!order) throw new Error('ORDER_NOT_FOUND')
+  if (!order) throw refuse('ORDER_NOT_FOUND')
   assertVersion(order, data.version)
 
   const reason = data.reason.trim()
-  if (!reason) throw new Error('RETURN_REASON_REQUIRED')
-  if (!data.lines.length) throw new Error('RETURN_HAS_NO_LINES')
+  if (!reason) throw refuse('RETURN_REASON_REQUIRED')
+  if (!data.lines.length) throw refuse('RETURN_HAS_NO_LINES')
 
   const seen = new Set<string>()
   for (const line of data.lines) {
-    if (seen.has(line.lineId)) throw new Error('DUPLICATE_RETURN_LINE')
+    if (seen.has(line.lineId)) throw refuse('DUPLICATE_RETURN_LINE')
     seen.add(line.lineId)
     // Compared, not merely bounded: `NaN < 0` is false, so a bare comparison
     // waves it through and the quantity reaches the ledger (§1, rule 6).
     requireFiniteNumbers({ quantity: line.quantity })
-    if (line.quantity <= 0) throw new Error('RETURN_QUANTITY_MUST_BE_POSITIVE')
+    if (line.quantity <= 0) throw refuse('RETURN_QUANTITY_MUST_BE_POSITIVE')
   }
 
   // ── Plan the shelf ──
   const placements = new Map<string, ReturnPlacement[]>()
   for (const request of data.lines) {
     const item = order.items.find((i) => i.id === request.lineId)
-    if (!item) throw new Error('ORDER_ITEM_NOT_FOUND')
+    if (!item) throw refuse('ORDER_ITEM_NOT_FOUND')
     const returnable = round2(item.shippedQuantity - returnedQuantityOf(item))
-    if (request.quantity > returnable) throw new Error('RETURN_EXCEEDS_SHIPPED')
+    if (request.quantity > returnable) throw refuse('RETURN_EXCEEDS_SHIPPED')
 
     const ladder = returnLadder(order, item)
     const taken: ReturnPlacement[] = []
@@ -3713,7 +3713,7 @@ export function mockCreateReturn(
     let pieceSkipped = false
     for (const rung of ladder) {
       if (left <= 0) break
-      if (!batchById(rung.batchId)) throw new Error('RETURN_BATCH_NOT_FOUND')
+      if (!batchById(rung.batchId)) throw refuse('RETURN_BATCH_NOT_FOUND')
       // Кусок неделим и на возврате тоже — то же правило, что на погрузке. Только
       // отказ здесь не сразу: возврат меньше куска чаще всего означает, что вернули
       // не кусок, а металл из партии, уехавшей той же машиной, — и такой возврат
@@ -3730,7 +3730,7 @@ export function mockCreateReturn(
     }
     // The line says it shipped, and no batch will own the goods back. Something
     // upstream is inconsistent, and guessing a batch here would invent a cost.
-    if (left > 0) throw new Error(pieceSkipped ? 'RETURN_SPLITS_OFFCUT' : 'RETURN_BATCH_NOT_FOUND')
+    if (left > 0) throw refuse(pieceSkipped ? 'RETURN_SPLITS_OFFCUT' : 'RETURN_BATCH_NOT_FOUND')
     placements.set(request.lineId, taken)
   }
 
@@ -3857,7 +3857,7 @@ export function mockReserveOrder(
   version?: number,
 ): StockReservation[] {
   const order = STORE.find((o) => o.id === orderId)
-  if (!order) throw new Error('ORDER_NOT_FOUND')
+  if (!order) throw refuse('ORDER_NOT_FOUND')
   assertVersion(order, version)
 
   // Taken BEFORE anything is held: "ready" is a transition, and an order that
@@ -3950,7 +3950,7 @@ export function mockReleaseOrderReservations(orderId: string): void {
 
 export function mockGetOrderPayments(orderId: string): Payment[] {
   const order = STORE.find((o) => o.id === orderId)
-  if (!order) throw new Error('ORDER_NOT_FOUND')
+  if (!order) throw refuse('ORDER_NOT_FOUND')
   return clone(order.payments)
 }
 
@@ -3968,14 +3968,14 @@ export function mockAddOrderPayment(
   },
 ): Payment {
   const order = STORE.find((o) => o.id === orderId)
-  if (!order) throw new Error('ORDER_NOT_FOUND')
+  if (!order) throw refuse('ORDER_NOT_FOUND')
   assertVersion(order, data.version)
   // Before the zero check, because the zero check is where this used to be got
   // around: `round2(NaN)` is NaN, `NaN === 0` is false, and the payment was
   // written with an amount of zero — the very thing the next line refuses.
   requireFiniteNumbers({ amount: data.amount })
-  if (data.amount === 0) throw new Error('PAYMENT_AMOUNT_REQUIRED')
-  if (data.purpose === 'refund' && data.amount > 0) throw new Error('REFUND_MUST_BE_NEGATIVE')
+  if (data.amount === 0) throw refuse('PAYMENT_AMOUNT_REQUIRED')
+  if (data.purpose === 'refund' && data.amount > 0) throw refuse('REFUND_MUST_BE_NEGATIVE')
   // Возврат — это ЗНАК суммы, а не ярлык над ней. Минус — деньги, ушедшие
   // обратно, как бы вызывающий их ни назвал: `purpose` приходит снаружи, и
   // проверка ярлыка запирала одну дверь из двух — `{ amount: -50, purpose:
@@ -3988,11 +3988,11 @@ export function mockAddOrderPayment(
   // по тому, что клиент держит на руках. Безымянный возврат попадал в
   // `paidAmount` заказа и не попадал ни в один баланс документа, и карточка
   // заказа расходилась с реестром «Входящих» ровно на его сумму.
-  if (purpose === 'refund' && !data.invoiceId) throw new Error('REFUND_INVOICE_REQUIRED')
+  if (purpose === 'refund' && !data.invoiceId) throw refuse('REFUND_INVOICE_REQUIRED')
   // A payment against a document nobody issued points at nothing: the panel would
   // show a dash where the invoice number belongs and never say why.
   if (data.invoiceId && !order.invoices.some((i) => i.id === data.invoiceId)) {
-    throw new Error('PAYMENT_INVOICE_NOT_FOUND')
+    throw refuse('PAYMENT_INVOICE_NOT_FOUND')
   }
 
   const payment: Payment = {
@@ -4021,10 +4021,10 @@ export function mockDeleteOrderPayment(
   version?: number,
 ): void {
   const order = STORE.find((o) => o.id === orderId)
-  if (!order) throw new Error('ORDER_NOT_FOUND')
+  if (!order) throw refuse('ORDER_NOT_FOUND')
   assertVersion(order, version)
   const idx = order.payments.findIndex((p) => p.id === paymentId)
-  if (idx === -1) throw new Error('PAYMENT_NOT_FOUND')
+  if (idx === -1) throw refuse('PAYMENT_NOT_FOUND')
   order.payments.splice(idx, 1)
   recalcOrder(order)
   bumpVersion(order)
@@ -4034,7 +4034,7 @@ export function mockDeleteOrderPayment(
 
 export function mockGetInvoices(orderId: string): Invoice[] {
   const order = STORE.find((o) => o.id === orderId)
-  if (!order) throw new Error('ORDER_NOT_FOUND')
+  if (!order) throw refuse('ORDER_NOT_FOUND')
   return clone(order.invoices)
 }
 
@@ -4278,7 +4278,7 @@ export function mockCreateInvoice(
   },
 ): Invoice {
   const order = STORE.find((o) => o.id === orderId)
-  if (!order) throw new Error('ORDER_NOT_FOUND')
+  if (!order) throw refuse('ORDER_NOT_FOUND')
   assertVersion(order, data.version)
   const kind: InvoiceKind = data.kind ?? 'regular'
   const reason = data.reason?.trim() ?? ''
@@ -4301,25 +4301,25 @@ export function mockCreateInvoice(
   // from them. It is still an ordinary invoice and not an advance — an advance is
   // a promise to pay ahead, and this is work done and presented.
   if (kind === 'regular' && !data.shipmentId && carried.length === 0) {
-    throw new Error('INVOICE_NEEDS_SHIPMENT')
+    throw refuse('INVOICE_NEEDS_SHIPMENT')
   }
   // An advance is paid before anything ships — a shipment of its own would make
   // it an ordinary invoice, and the delivery would then be billed twice.
-  if (kind === 'advance' && data.shipmentId) throw new Error('ADVANCE_HAS_NO_SHIPMENT')
+  if (kind === 'advance' && data.shipmentId) throw refuse('ADVANCE_HAS_NO_SHIPMENT')
 
   let original: Invoice | undefined
   if (kind === 'correction') {
-    if (!data.correctsInvoiceId) throw new Error('CORRECTION_NEEDS_ORIGINAL')
+    if (!data.correctsInvoiceId) throw refuse('CORRECTION_NEEDS_ORIGINAL')
     // The reason travels to the client's accountant with the document. "The
     // amount changed" is not something they can file, so it is mandatory.
-    if (!reason) throw new Error('CORRECTION_REASON_REQUIRED')
+    if (!reason) throw refuse('CORRECTION_REASON_REQUIRED')
     original = order.invoices.find((i) => i.id === data.correctsInvoiceId)
-    if (!original) throw new Error('ORIGINAL_INVOICE_NOT_FOUND')
+    if (!original) throw refuse('ORIGINAL_INVOICE_NOT_FOUND')
     // A correction corrects an issued document, not another correction.
-    if (original.kind === 'correction') throw new Error('CANNOT_CORRECT_A_CORRECTION')
+    if (original.kind === 'correction') throw refuse('CANNOT_CORRECT_A_CORRECTION')
     // Taken back once: a second withdrawal would reverse the same document twice
     // over, and there is nothing left of it to take back anyway.
-    if (isWithdrawn(order, original.id)) throw new Error('INVOICE_ALREADY_CORRECTED')
+    if (isWithdrawn(order, original.id)) throw refuse('INVOICE_ALREADY_CORRECTED')
     // A stated amount ADJUSTS the document, and adjustments are limited by the
     // amount, not by their number. "One document is adjusted once" was a proxy
     // for the invariant that actually matters — corrections must not add up past
@@ -4337,10 +4337,10 @@ export function mockCreateInvoice(
       adjustment < 0 &&
       round2(-adjustment) > round2(outstandingNetOf(order, original))
     ) {
-      throw new Error('CORRECTION_EXCEEDS_ORIGINAL')
+      throw refuse('CORRECTION_EXCEEDS_ORIGINAL')
     }
   } else if (data.correctsInvoiceId) {
-    throw new Error('CORRECTION_NEEDS_KIND')
+    throw refuse('CORRECTION_NEEDS_KIND')
   }
 
   // Mirror amount → the document is taken back. Stated amount → it is adjusted and
@@ -4363,13 +4363,13 @@ export function mockCreateInvoice(
     statedGross = stated?.gross
   } else if (data.shipmentId) {
     const shipment = order.shipments.find((s) => s.id === data.shipmentId)
-    if (!shipment) throw new Error('SHIPMENT_NOT_FOUND')
+    if (!shipment) throw refuse('SHIPMENT_NOT_FOUND')
     // Goods that came back cannot be billed.
-    if (shipment.cancelled) throw new Error('SHIPMENT_CANCELLED')
+    if (shipment.cancelled) throw refuse('SHIPMENT_CANCELLED')
     // One delivery, one invoice — a second one would bill the client twice. A
     // corrected one no longer counts: the client is not holding it any more.
     if (liveInvoicesFor(order, shipment.id).length > 0) {
-      throw new Error('SHIPMENT_ALREADY_INVOICED')
+      throw refuse('SHIPMENT_ALREADY_INVOICED')
     }
     // The amount comes from the delivery, not from the caller: an invoice that
     // disagrees with its own waybill is the thing this whole model avoids.
@@ -4384,7 +4384,7 @@ export function mockCreateInvoice(
     net = servicesNet(carried)
   } else {
     const amount = statedAmounts(order, data)
-    if (amount === undefined) throw new Error('INVOICE_AMOUNT_REQUIRED')
+    if (amount === undefined) throw refuse('INVOICE_AMOUNT_REQUIRED')
     net = amount.net
     statedGross = amount.gross
   }
@@ -4480,7 +4480,7 @@ function statedAmounts(
   data: { amountNet?: number; amountGross?: number },
 ): { net: number; gross: number } | undefined {
   if (data.amountNet !== undefined && data.amountGross !== undefined) {
-    throw new Error('INVOICE_AMOUNT_AMBIGUOUS')
+    throw refuse('INVOICE_AMOUNT_AMBIGUOUS')
   }
   if (data.amountNet !== undefined) {
     const net = round2(data.amountNet)
@@ -4761,4 +4761,96 @@ export function orderReceivables(): Receivable[] {
     }
   }
   return rows
+}
+
+/**
+ * Каталог «код → статус» — источник правды для `refuse()`, один на весь домен заказов (Л5).
+ * Распределение по классам — таблица §3.2 `orders-backend-plan.md`: `*_NOT_FOUND` → 404,
+ * состояние записи мешает операции → 409, негодный вход → 422. Права `FORBIDDEN_*` собираются
+ * динамически (`refuse()` распознаёт их по префиксу, не по этому каталогу) и внутренние
+ * инварианты (`DUPLICATE_LINE_ID`, `ALLOCATION_EXCEEDS_QUANTITY`) остаются 500 — §6 контракта
+ * домена запрещает выставлять их наружу как часть протокола.
+ */
+const ORDERS_REFUSAL_STATUS: Record<string, number> = {
+  // Не найдено — 404
+  ORDER_NOT_FOUND: 404,
+  CLIENT_NOT_FOUND: 404,
+  CATALOG_PRODUCT_NOT_FOUND: 404,
+  CATALOG_SERVICE_NOT_FOUND: 404,
+  ORDER_ITEM_NOT_FOUND: 404,
+  ORDER_SERVICE_NOT_FOUND: 404,
+  ORDER_AUDIT_ENTRY_NOT_FOUND: 404,
+  ORDER_FILE_NOT_FOUND: 404,
+  ALLOCATION_LINE_NOT_FOUND: 404,
+  SHIPMENT_NOT_FOUND: 404,
+  SHIPMENT_BATCH_NOT_FOUND: 404,
+  RETURN_BATCH_NOT_FOUND: 404,
+  PAYMENT_NOT_FOUND: 404,
+  PAYMENT_INVOICE_NOT_FOUND: 404,
+  ORIGINAL_INVOICE_NOT_FOUND: 404,
+  // Состояние записи мешает операции — 409
+  ORDER_VERSION_CONFLICT: 409,
+  ORDER_HAS_INVOICE: 409,
+  ORDER_HAS_SHIPMENT: 409,
+  ORDER_HAS_PAYMENT: 409,
+  LINE_HAS_SHIPMENT: 409,
+  LINE_ON_INVOICE: 409,
+  LINE_NOT_FROZEN: 409,
+  INVOICE_ALREADY_CORRECTED: 409,
+  SHIPMENT_ALREADY_CANCELLED: 409,
+  SHIPMENT_ALREADY_INVOICED: 409,
+  SHIPMENT_CANCELLED: 409,
+  CANNOT_CORRECT_A_CORRECTION: 409,
+  STATUS_BLOCKED_BY_STOCK: 409,
+  // Негодный вход — 422
+  UNKNOWN_SORT_KEY: 422,
+  UNKNOWN_SORT_DIRECTION: 422,
+  INVALID_DATE_FILTER: 422,
+  INVALID_PAGE: 422,
+  UNKNOWN_ORDER_STATUS: 422,
+  NUMBER_NOT_FINITE: 422,
+  MANUAL_COST_REASON_REQUIRED: 422,
+  ALLOCATIONS_NOT_ACCEPTED: 422,
+  ZERO_QUANTITY: 422,
+  OFFCUTS_WITH_BATCH: 422,
+  OFFCUTS_EXCEED_QUANTITY: 422,
+  CORRECTION_REASON_REQUIRED: 422,
+  CORRECTION_NEEDS_CHANGE: 422,
+  DUPLICATE_SHIPMENT_LINE: 422,
+  SHIPMENT_QUANTITY_MUST_BE_POSITIVE: 422,
+  SHIPMENT_EXCEEDS_REMAINING: 422,
+  SHIPMENT_HAS_NO_LINES: 422,
+  SHIPMENT_EXCEEDS_STOCK: 422,
+  RETURN_REASON_REQUIRED: 422,
+  RETURN_HAS_NO_LINES: 422,
+  DUPLICATE_RETURN_LINE: 422,
+  RETURN_QUANTITY_MUST_BE_POSITIVE: 422,
+  RETURN_EXCEEDS_SHIPPED: 422,
+  RETURN_SPLITS_OFFCUT: 422,
+  PAYMENT_AMOUNT_REQUIRED: 422,
+  REFUND_MUST_BE_NEGATIVE: 422,
+  REFUND_INVOICE_REQUIRED: 422,
+  INVOICE_NEEDS_SHIPMENT: 422,
+  ADVANCE_HAS_NO_SHIPMENT: 422,
+  CORRECTION_NEEDS_ORIGINAL: 422,
+  CORRECTION_NEEDS_KIND: 422,
+  CORRECTION_EXCEEDS_ORIGINAL: 422,
+  INVOICE_AMOUNT_REQUIRED: 422,
+  INVOICE_AMOUNT_AMBIGUOUS: 422,
+  // Внутренние инварианты — 500, наружу не выставляются (§6 контракта)
+  DUPLICATE_LINE_ID: 500,
+  ALLOCATION_EXCEEDS_QUANTITY: 500,
+}
+
+/**
+ * Отказ мока в форме настоящего сервера: код в поле `code`, статус — из каталога выше, а не
+ * в тексте (`00-conventions.md` §2). `message` остаётся прежним текстом целиком — на него
+ * смотрят уже написанные спеки домена; `code` — эта же строка целиком, либо, для сообщений
+ * вида `CODE: подробности`, приставка до первого `: `.
+ */
+function refuse(message: string, fieldErrors?: Record<string, string>): ApiRequestError {
+  const sep = message.indexOf(': ')
+  const code = sep === -1 ? message : message.slice(0, sep)
+  const status = code.startsWith('FORBIDDEN_') ? 403 : (ORDERS_REFUSAL_STATUS[code] ?? 500)
+  return new ApiRequestError({ status, message, code, fieldErrors })
 }
