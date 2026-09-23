@@ -267,6 +267,17 @@ class BudgetTest(unittest.TestCase):
         self.assertNotEqual(self.git("rev-parse", "HEAD"), self.baseline)
         self.assertFalse(self.git("status", "--porcelain"))
 
+    def test_budget_left_smaller_than_a_seen_task_stops_early(self):
+        # Ночь 2026-09-23 перебрала потолок на 20%: остаток был положительный, но
+        # задача стоила впятеро больше остатка. Теперь такой задачи не начинают.
+        result = self.invoke(budget=1500, tokens="1000")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        state = self.state()
+        self.assertEqual(state["status"], "token-budget")
+        self.assertEqual(state["tokens"], 1000)
+        self.assertEqual(len(state["completed"]), 1)
+        self.assertIn("Остатка не хватит на задачу: 500 из 1500", state["reason"])
+
     def test_run_without_budget_ignores_tokens(self):
         result = self.invoke(budget=None, tokens="999999")
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -282,9 +293,10 @@ class BudgetTest(unittest.TestCase):
     def test_unmetered_backend_does_not_fill_the_budget(self):
         self.routing.write_text(json.dumps({"work": {"backend": "codex", "binary": str(self.bin / "codex")},
                                             "review": {"backend": "claude", "binary": str(self.bin / "claude")}}))
-        result = self.invoke(budget=1500, tokens="1000")
+        # Потолок с запасом: смысл теста — что автор на Codex в счёт не идёт,
+        # а не то, как потолок смотрит вперёд (это проверяет соседний тест).
+        result = self.invoke(budget=5000, tokens="1000")
         self.assertEqual(result.returncode, 0, result.stderr)
-        # Автор на Codex в счёт не идёт; потолок набирают только приёмки на Claude.
         self.assertEqual(self.state()["tokens"], 1000)
         self.assertEqual(len(self.state()["completed"]), 2)
 

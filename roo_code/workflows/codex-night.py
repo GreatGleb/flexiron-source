@@ -413,6 +413,11 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
     deps = dependencies(queue)
     tasks = ordered_tasks(queue, deps)
     exhausted = False
+    # Цена задачи в этом проекте гуляет втрое (замер ночи 2026-09-23: от 2.5 до 7.4 млн
+    # токенов). Поэтому следующая задача начинается, только если остатка хватит на
+    # САМУЮ дорогую из уже виденных: иначе потолок узнаёт о превышении постфактум.
+    task_costs = []
+    spent = 0
     if retry:
         # Preserve the author's checkpoint so another failed review can be retried.
         task_id = retry["current"]
@@ -498,12 +503,22 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
             # Потолок проверяется между задачами: внутри задачи прерывать нечего —
             # брошенный на середине автор оставит правки без приёмки. Значит прогон
             # может превысить потолок не больше чем на одну задачу, и это записано.
-            state["tokens"] = spent_tokens(backends, run_dir)
-            if token_budget is not None and state["tokens"] >= token_budget:
-                state["reason"] = f"Потолок токенов исчерпан: {state['tokens']} из {token_budget}"
-                exhausted = True
-                save("token-budget")
-                break
+            measured = spent_tokens(backends, run_dir)
+            if measured > spent:
+                task_costs.append(measured - spent)
+            spent = state["tokens"] = measured
+            if token_budget is not None:
+                remaining = token_budget - spent
+                need = max(task_costs, default=0)
+                if remaining <= 0:
+                    state["reason"] = f"Потолок токенов исчерпан: {spent} из {token_budget}"
+                elif remaining < need:
+                    state["reason"] = (f"Остатка не хватит на задачу: {remaining} из {token_budget}, "
+                                       f"самая дорогая виденная задача — {need}")
+                if state["reason"]:
+                    exhausted = True
+                    save("token-budget")
+                    break
             attempts += 1
             state["current"] = task["id"]
             save("task-start")
