@@ -8,7 +8,7 @@ The save button overlaps `.info-hint` tooltips because of a structural stacking 
 
 In [`ProductCardPage.vue`](frontend_vue/src/views/admin/products/ProductCardPage.vue:148), `<GlassPanel>` components are **inside** grid columns (`.entity-col-left > GlassPanel`, `.entity-col-center > GlassPanel`). The header with buttons is completely separate from GlassPanel's stacking context.
 
-In [`WarehouseStockCard.vue`](frontend_vue/src/views/admin/warehouse/WarehouseStockCard.vue:71), a single `<GlassPanel>` **wraps the entire grid**. GlassPanel has `position: relative` ([`_glass-panel.css:4`](frontend_vue/src/styles/admin/components/_glass-panel.css:4)) which creates a CSS stacking context. The `.info-hint` tooltips (`::after` with `position: absolute`) extend upward from inside this stacking context, while the save buttons in the header are in the root stacking context. Even with `z-index: 1002`, the tooltip is painted within GlassPanel's context and the button (in root context) renders on top.
+In [`WarehouseStockCard.vue`](frontend_vue/src/views/admin/warehouse/WarehouseStockCard.vue:73), a single `<GlassPanel>` **wraps the entire grid**. GlassPanel has `position: relative` ([`_glass-panel.css:4`](frontend_vue/src/styles/admin/components/_glass-panel.css:4)) which creates a CSS stacking context. The `.info-hint` tooltips (`::after` with `position: absolute`) extend upward from inside this stacking context, while the save buttons in the header are in the root stacking context. Even with `z-index: 1002`, the tooltip is painted within GlassPanel's context and the button (in root context) renders on top.
 
 ## Solution
 

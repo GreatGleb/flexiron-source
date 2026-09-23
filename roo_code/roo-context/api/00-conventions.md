@@ -435,7 +435,7 @@ use it» (`composables/useOrderPermissions.ts:6-10`). Тарифная стор�
 
 Что вырезание на складе значит по полям (замер по `types/warehouse.ts`): `sellingPrice` на
 проводе **не существует** — сегодня это клиентский `computed`
-(`views/admin/warehouse/WarehouseBatchCard.vue:64-68`), и его нужно завести в ответе. Вырезать
+(`views/admin/warehouse/WarehouseBatchCard.vue:66-70`), и его нужно завести в ответе. Вырезать
 придётся три поля: `unitPrice` (`:99`), `totalCost` (`:100-101`, это `quantity × unitPrice`) и
 `marginPercent` (`:120`) — последнее по правилу полноты из 6.7: зная цену продажи и наценку,
 себестоимость получают делением. `totalSellingValue` заводить не нужно, он выводится из
@@ -931,7 +931,7 @@ interface TranslatedString { ru: string; en: string; lt: string }   // types/i18
 `value[currentLocale] || value.en || value.ru || value.lt` написана руками **12 раз в 8 файлах**
 (`views/admin/products/ProductsPage.vue:138`, `:164`,
 `views/admin/products/ProductCardPage.vue:129`, `:141`, `:153`, `:165`,
-`views/admin/warehouse/WarehouseBatchCard.vue:38`, `views/admin/warehouse/WarehousePage.vue:434`
+`views/admin/warehouse/WarehouseBatchCard.vue:40`, `views/admin/warehouse/WarehousePage.vue:434`
 и далее); общего помощника **на чтение нет** — все три помощника `types/i18n.ts` про запись.
 
 **И там, где цепочки нет, правило нарушено.** Каталог в заказах читается одной константой:

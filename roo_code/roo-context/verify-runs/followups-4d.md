@@ -41,7 +41,7 @@ $ git show HEAD:frontend_vue/src/mocks/warehouse-batches.ts | grep -o "unit: '[^
 $ git grep -n "u.code.en === code\|code.en === code" HEAD -- frontend_vue/src
 useWarehouseBatchCreate.ts:398   resolveUnitLabel — подпись по code.en
 services/mocks/warehouse.ts:77   _resolveUomId — код → id по code.en/ru/lt
-WarehouseBatchCard.vue:57        resolveUnitLabel — вторая копия той же подписи
+WarehouseBatchCard.vue:59        resolveUnitLabel — вторая копия той же подписи
 ```
 
 Плюс два места, где **английский код уезжал в данные или в фильтр**:

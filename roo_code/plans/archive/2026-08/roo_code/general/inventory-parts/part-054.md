@@ -103,9 +103,9 @@ useWarehouseOffcutCard.ts:409:    deleteBlockedByOrder,
 ```
 
 Шаг 9 — модалки: у обеих карточек и «заблокировано заказом», и каскадные предупреждения
-(`WarehouseBatchCard.vue:1543-1597` — `cascade-warnings` с `delete_batch_cascade_offcuts` /
+(`WarehouseBatchCard.vue:1485-1539` — `cascade-warnings` с `delete_batch_cascade_offcuts` /
 `delete_batch_cascade_movements` и отдельная модалка `batch-card-delete-blocked-modal`;
-`WarehouseOffcutCard.vue:1011-1060` — то же с `delete_offcut_cascade_warning`).
+`WarehouseOffcutCard.vue:953-1002` — то же с `delete_offcut_cascade_warning`).
 
 Шаг 10 — ключи есть, но под другими именами (18 совпадений на 6 ключей × 3 локали):
 `delete_batch_cascade_offcuts`, `delete_batch_cascade_movements`,

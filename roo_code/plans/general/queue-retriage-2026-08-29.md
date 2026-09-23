@@ -18,7 +18,7 @@
 
 | План | Заявленный остаток | Что в коде на самом деле |
 |---|---|---|
-| `warehouse/add-batch-status-tooltip.md` | нет обёртки `span.batch-status-wrapper` с `data-test` и ещё одного требования плана | `batch-status-wrapper` есть: `WarehouseBatchCard.vue:404`, `WarehouseMovementCard.vue:182`, правило в `warehouse_list.css:555` |
+| `warehouse/add-batch-status-tooltip.md` | нет обёртки `span.batch-status-wrapper` с `data-test` и ещё одного требования плана | `batch-status-wrapper` есть: `WarehouseBatchCard.vue:346`, `WarehouseMovementCard.vue:124`, правило в `warehouse_list.css:555` |
 | `warehouse/add-batches-tab-tooltips.md` | ключи и подсказки у восьми колонок из девяти | 42 различных ключа `col_*_hint` в `i18n/admin/warehouse.ts`, а не «восемь колонок из девяти» |
 | `warehouse/add-movements-filters.md` | есть всё, кроме фильтра по категории в моке | фильтр по категории есть и в UI (`warehouse-movements-category-filter`), и в моке (`categoryId`, 11 вхождений) |
 | `warehouse/add-offcuts-remaining-filters.md` | из трёх фильтров в UI два; категория множественная вместо одиночной | в UI пять фильтров обрезков (status, unit, type, category, batch), а не «два из трёх» — `WarehousePage.vue:1081–1120` |

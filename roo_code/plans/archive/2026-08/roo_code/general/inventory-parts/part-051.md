@@ -34,7 +34,7 @@ $ grep -n "test.describe" frontend_vue/tests/e2e/admin/warehouse/warehouse.spec.
 - Шаг 4 (нет кнопки создания движения) — сделан: `expect(getByTestId('warehouse-new-movement-btn')).toHaveCount(0)`.
 - Утверждение плана про Task 1 («движение создаётся только через WarehousePage, модалка DEPRECATED»)
   верно наполовину: `CreateMovementModal.vue` жив и импортируется карточкой партии
-  (`WarehouseBatchCard.vue:18`, рендер 1532, кнопка `batch-card-add-movement-btn`).
+  (`WarehouseBatchCard.vue:19`, рендер 1532, кнопка `batch-card-add-movement-btn`).
   Сам компонент это и признаёт в шапке: «ЖИВОЙ КОМПОНЕНТ». Требуемая планом проверка
   касалась только тулбара движений — она сделана.
 
@@ -214,7 +214,7 @@ movement_offcut_sold: 3
   Есть страница `src/views/admin/warehouse/WarehouseCuttingPage.vue`, композабл
   `useWarehouseCutting.ts`, маршрут `warehouse/cutting` → `admin-warehouse-cutting`
   (`router/index.ts:291-292`) и ссылка с карточки партии
-  (`WarehouseBatchCard.vue:1355,1357`, data-test `batch-card-cutting-link`).
+  (`WarehouseBatchCard.vue:1297,1357`, data-test `batch-card-cutting-link`).
   Плюс e2e `tests/e2e/admin/warehouse/cutting.spec.ts`.
 - **1.3** Расходное движение резки с `referenceType: 'cutting'` — ЧАСТИЧНО.
   `mockExecuteCutting` (`mocks/warehouse.ts:1266-1319`) пишет `referenceType: 'cutting'`
@@ -237,9 +237,9 @@ movement_offcut_sold: 3
   через таблицу в композабле; мок не тронут.
 - **4.2** i18n для списания — СДЕЛАНО: `movement_offcut_scrapped` в ru/en/lt (3 вхождения).
 - **5.1** `'sold'` в `OffcutStatus` — СДЕЛАНО (`types/warehouse.ts:38`).
-- **5.2** `'sold'` в `OFFCUT_STATUSES` — СДЕЛАНО (`WarehouseOffcutCard.vue:26`, массив из 8).
+- **5.2** `'sold'` в `OFFCUT_STATUSES` — СДЕЛАНО (`WarehouseOffcutCard.vue:27`, массив из 8).
 - **5.3** `'sold'` в `OFFCUT_STATUS_PILL` — СДЕЛАНО: `sold: 'pill-mint'`
-  (`WarehouseOffcutCard.vue:88`), класс определён в
+  (`WarehouseOffcutCard.vue:90`), класс определён в
   `src/styles/admin/components/_status-pills.css:39`.
 - **5.4** Расход при `sold` — ЧАСТИЧНО. Движение создаётся, но типа `sale`
   (не `expense` с `referenceType: 'sale'`) и из композабла.

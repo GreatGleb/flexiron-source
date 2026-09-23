@@ -80,7 +80,7 @@
 > самом `.panel-header`) объявлена в
 > [`_glass-panel.css:44-50`](../../../frontend_vue/src/styles/admin/components/_glass-panel.css#L44-L50).
 > Использована в обоих названных местах: карточка партии склада, секция «Обрезки из этой
-> партии» — [`WarehouseBatchCard.vue:1324-1350`](../../../frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue#L1324-L1350)
+> партии» — [`WarehouseBatchCard.vue:1266-1292`](../../../frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue#L1324-L1350)
 > (кнопки «Резка» и «Новый обрезок» внутри одной обёртки), и
 > [`SupplierCardConfigPage.vue:552`](../../../frontend_vue/src/views/admin/suppliers/SupplierCardConfigPage.vue#L552).
 

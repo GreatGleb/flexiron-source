@@ -1037,7 +1037,7 @@ isDeficit: row.minStock !== null && totalQuantity < row.minStock,
 
 **Карточка товара о дефиците не знает вовсе.** `grep -rn isDeficit` по
 `views/admin/products/` и `composables/useProductCard.ts` → пусто; признак читают только склад
-(`WarehousePage.vue:1387`, `:1737`, `:1756`) и карточка остатка (`WarehouseStockCard.vue:267`). То
+(`WarehousePage.vue:1387`, `:1737`, `:1756`) и карточка остатка (`WarehouseStockCard.vue:209`). То
 есть на экране, где порог задают, последствия его правки не видны.
 
 ### Fix

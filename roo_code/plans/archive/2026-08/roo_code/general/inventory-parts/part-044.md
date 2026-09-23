@@ -64,7 +64,7 @@ src/views/admin/warehouse/CreateMovementModal.vue:255:      e.quantity = t('ware
 Есть (пункты 1-2 и «Steps» 1,2,4, плюс размер модалки):
 
 - `size="large"` — CreateMovementModal.vue:552.
-- Пропсы `batch`, `movements`, `aggregates`, `activeSales` — строки 37-43; родитель их передаёт: WarehouseBatchCard.vue:1532-1540 (`:batch`, `:movements`, `:aggregates`, `:active-sales`).
+- Пропсы `batch`, `movements`, `aggregates`, `activeSales` — строки 37-43; родитель их передаёт: WarehouseBatchCard.vue:1474-1482 (`:batch`, `:movements`, `:aggregates`, `:active-sales`).
 - Секция сводки — `class="batch-summary-section"` (562), `batch-total-stat` с `batch.quantity` + единица (564-577), инструкция (578-581).
 - Агрегатные карточки — `aggregate-cards` / `aggregate-card` (583-628), фильтр `a.quantity > 0`, карты типов, цвета через классы `agg-card-*` (строки 93-105), скрыты `return` и `transfer` (`HIDDEN_AGGREGATE_TYPES`, 107).
 - i18n-ключи `batch_summary_*` во всех трёх локалях: warehouse.ts:630-650 (ru), 1310-1330 (en), 1987-2007 (lt) — включая `select_all`, `deselect_all`, `no_movements`.
@@ -143,7 +143,7 @@ with notes: 55
 `useWarehouseBatch.ts:34-38` — регэкспы `LOCATION_RACK_RE/ROW_RE/CELL_RE/NOTES_RE`;
 `parseLocation` (40-66) с fallback на легаси; `composeLocation` (68-77) собирает
 `Rack: ... | Row: ... | Cell: ...` + `\nNotes: ...`, вызывается при сохранении (242-248).
-Карточка рендерит все четыре поля: WarehouseBatchCard.vue:1091, 1118, 1145, 1173
+Карточка рендерит все четыре поля: WarehouseBatchCard.vue:1033, 1118, 1145, 1173
 (`field_location_rack/row/cell/notes`).
 
 Осталось: ничего. Единственная непроверенная строка плана — ручной осмотр UI (пункт «Verification»), который машинно не воспроизводится; данные и код под ним соответствуют.

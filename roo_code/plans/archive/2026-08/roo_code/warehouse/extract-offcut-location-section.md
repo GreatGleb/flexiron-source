@@ -4,7 +4,7 @@
 
 Currently, the offcut card has a single [`form.location`](frontend_vue/src/composables/useWarehouseOffcutCard.ts:24) field (type `text`, `v-model="form.location"`) placed in the right column of the entity card grid. It's just one input among many, with no special treatment.
 
-The user wants to replace this single field with a dedicated **Location section** (similar to what exists in the batch card at [`WarehouseBatchCard.vue:602-679`](frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:602)), containing structured sub-fields: rack, row, cell, and notes.
+The user wants to replace this single field with a dedicated **Location section** (similar to what exists in the batch card at [`WarehouseBatchCard.vue:544-621`](frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:544)), containing structured sub-fields: rack, row, cell, and notes.
 
 ## Current Implementation
 
@@ -113,7 +113,7 @@ The `location` field will be **removed** from the form state (it will be compose
 
 #### 1. Remove old location input from right column
 
-Remove the entire `<div class="input-group">` block for location (lines 438-455 in [`WarehouseOffcutCard.vue`](frontend_vue/src/views/admin/warehouse/WarehouseOffcutCard.vue:438)).
+Remove the entire `<div class="input-group">` block for location (lines 438-455 in [`WarehouseOffcutCard.vue`](frontend_vue/src/views/admin/warehouse/WarehouseOffcutCard.vue:380)).
 
 #### 2. Add new Location section between entity-card-grid and Audit section
 

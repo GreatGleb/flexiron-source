@@ -36,7 +36,7 @@ Kerf понадобится, когда появится функциональ�
 
 ### 5. Фото/чертежи для обрезка
 
-**У партии** — `WarehouseBatch.files: WarehouseBatchFile[]` ✅ — есть DropZone в [`WarehouseBatchCard.vue`](frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:935).
+**У партии** — `WarehouseBatch.files: WarehouseBatchFile[]` ✅ — есть DropZone в [`WarehouseBatchCard.vue`](frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:877).
 
 **У обрезка** — в типе [`WarehouseOffcut`](frontend_vue/src/types/warehouse.ts:145) **нет поля `files`** ❌. Нельзя прикрепить фото к обрезку. В карточке обрезка тоже нет DropZone.
 

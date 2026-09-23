@@ -303,7 +303,7 @@ settings диапазон разорван: брать его целиком з�
    валюты: `composables/useSettings.ts:27` держит `defaultCurrency: 'EUR'` дефолтом состояния, а
    `components/admin/SupplierFormSections.vue:58-63` — жёсткий список `EUR/USD/PLN/GBP`, хотя
    валютами владеют настройки и пять других мест строят селект из `settings.currencies`
-   (`ServiceCardPage.vue:48`, `WarehouseBatchCard.vue:231`, `ProductsPage.vue:144`). Записано как
+   (`ServiceCardPage.vue:48`, `WarehouseBatchCard.vue:233`, `ProductsPage.vue:144`). Записано как
    [БАГ-01 домена suppliers](../bugs/contract-sync-suppliers-bugs.md).
 3. **Нигде** — чистый замысел. Раздел получает `**Статус:** спроектировано`, а решение принимает
    человек: «список валют берётся из настроек» — это решение, а не наблюдение.

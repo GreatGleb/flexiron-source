@@ -4,7 +4,7 @@
 
 The user reports two design bugs in the "Add Movement" window on the batch card page (`/admin/warehouse/batches/whb-001`):
 
-1. **`CustomSelect` is not used (or used incorrectly)** — In [`WarehouseBatchCard.vue`](frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:940), the movement type selector uses `CustomSelect` but passes a `:placeholder` prop that **doesn't exist** on the `CustomSelect` component. The prop is silently ignored by Vue, so no placeholder text is displayed.
+1. **`CustomSelect` is not used (or used incorrectly)** — In [`WarehouseBatchCard.vue`](frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:882), the movement type selector uses `CustomSelect` but passes a `:placeholder` prop that **doesn't exist** on the `CustomSelect` component. The prop is silently ignored by Vue, so no placeholder text is displayed.
 
 2. **Placeholder text appears below the list instead of inside** — Since the `:placeholder` prop is not supported by [`CustomSelect.vue`](frontend_vue/src/components/admin/ui/CustomSelect.vue), the placeholder translation key `movement_modal_type_placeholder` (e.g., "Выберите тип операции") is never rendered. The user may be seeing the placeholder text rendered elsewhere (e.g., as a `<span>` below the select), which is incorrect.
 
@@ -22,7 +22,7 @@ const props = defineProps<{
 }>()
 ```
 
-There is **no `placeholder` prop**. When [`WarehouseBatchCard.vue`](frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:944) passes `:placeholder="t('warehouse.movement_modal_type_placeholder')"`, Vue ignores it because it's not declared.
+There is **no `placeholder` prop**. When [`WarehouseBatchCard.vue`](frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:886) passes `:placeholder="t('warehouse.movement_modal_type_placeholder')"`, Vue ignores it because it's not declared.
 
 ### Issue 2: No placeholder rendering logic in the template
 
@@ -36,7 +36,7 @@ The [`CustomSelect` template](frontend_vue/src/components/admin/ui/CustomSelect.
 </div>
 ```
 
-When `modelValue` is empty string `''` (as initialized in [`WarehouseBatchCard.vue`](frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:169): `const movementType = ref<string>('')`), `selectedLabel` returns `''` because no option matches. The trigger shows an empty value — no placeholder text appears.
+When `modelValue` is empty string `''` (as initialized in [`WarehouseBatchCard.vue`](frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:171): `const movementType = ref<string>('')`), `selectedLabel` returns `''` because no option matches. The trigger shows an empty value — no placeholder text appears.
 
 ### Issue 3: The `CreateMovementModal` has a similar but different approach
 

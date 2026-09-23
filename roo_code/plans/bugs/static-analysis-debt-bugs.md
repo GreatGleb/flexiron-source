@@ -222,7 +222,7 @@ vatPercent: order.value.vatPercent ?? settings.constants.vatRate
 
 ## БАГ-07 — Площадь обрезка уходит в разметку без округления — ПОЧИНЕН ✅
 
-**File:** `src/views/admin/warehouse/WarehouseOffcutCreatePage.vue:83-86`, `src/views/admin/warehouse/WarehouseOffcutCard.vue:209-213`, корень — `src/domain/cutting.ts:143` (`resolvePieceSize` возвращает `formula(offcut)` без `roundQuantity`)
+**File:** `src/views/admin/warehouse/WarehouseOffcutCreatePage.vue:83-86`, `src/views/admin/warehouse/WarehouseOffcutCard.vue:151-155`, корень — `src/domain/cutting.ts:143` (`resolvePieceSize` возвращает `formula(offcut)` без `roundQuantity`)
 **Severity:** Medium — видно пользователю, в фиче, добавленной 63e6987.
 **Источник:** разбор БАГ-05 (находка вне его области)
 

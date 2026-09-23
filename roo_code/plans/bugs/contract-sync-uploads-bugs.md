@@ -108,8 +108,8 @@ grep -rn "upload-error\|uploadError" frontend_vue/src/views frontend_vue/src/com
 → пусто, при двенадцати использованиях `DropZone` (`SupplierCardPage.vue:265`,
 `OutgoingPaymentCardPage.vue:301`, `BccRequestPage.vue:858`, `CompanySettings.vue:72`,
 `WarehouseOffcutCreatePage.vue:945`, `ProductCardPage.vue:597`, `OrderCardPage.vue:2176`,
-`WarehouseBatchCard.vue:1439`, `WarehouseMapPage.vue:158`, `WarehouseBatchCreatePage.vue:841`,
-`WarehouseOffcutCard.vue:933`, `OrderCreatePage.vue:561`).
+`WarehouseBatchCard.vue:1381`, `WarehouseMapPage.vue:158`, `WarehouseBatchCreatePage.vue:841`,
+`WarehouseOffcutCard.vue:875`, `OrderCreatePage.vue:561`).
 
 Сервер при этом отказывает по трём поводам: 401 `UNAUTHORIZED` (`core/uploads/action.py:39-42,45-48,56-59`),
 422 `VALIDATION_ERROR` по MIME (`core/uploads/action.py:97-103`), 413 `VALIDATION_ERROR` по размеру

@@ -2,7 +2,7 @@
 
 ## Problem
 
-When a user changes any field in the "Location" section (Rack, Row, Cell, Location Notes) of the offcut card ([`WarehouseOffcutCard.vue`](frontend_vue/src/views/admin/warehouse/WarehouseOffcutCard.vue:480-556)), a transfer movement should be **automatically registered** — just like it already works for the batch card.
+When a user changes any field in the "Location" section (Rack, Row, Cell, Location Notes) of the offcut card ([`WarehouseOffcutCard.vue`](frontend_vue/src/views/admin/warehouse/WarehouseOffcutCard.vue:422-498)), a transfer movement should be **automatically registered** — just like it already works for the batch card.
 
 Currently, the offcut card's [`useWarehouseOffcutCard.save()`](frontend_vue/src/composables/useWarehouseOffcutCard.ts:120-150) does NOT detect location changes and does NOT create a movement. The mock service [`mockPatchOffcut()`](frontend_vue/src/services/mocks/warehouse.ts:581-608) also does NOT auto-create a movement.
 

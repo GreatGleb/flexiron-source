@@ -24,7 +24,7 @@ Analyse and implement all warehouse movements related to offcuts (обрезки
 | `used` | Использован |
 | `scrap` | В утиль |
 
-Note: `sold` status exists in i18n keys (`offcut_status_sold`) and in [`AUDIT_ENUM_MAP`](frontend_vue/src/views/admin/warehouse/WarehouseOffcutCard.vue:106) but is **NOT** in the [`OffcutStatus`](frontend_vue/src/types/warehouse.ts:13) type definition.
+Note: `sold` status exists in i18n keys (`offcut_status_sold`) and in [`AUDIT_ENUM_MAP`](frontend_vue/src/views/admin/warehouse/WarehouseOffcutCard.vue:108) but is **NOT** in the [`OffcutStatus`](frontend_vue/src/types/warehouse.ts:13) type definition.
 
 ### Movement Model Limitation
 
@@ -173,7 +173,7 @@ if (data.status === 'scrap' && offcut.status !== 'scrap') {
 export type OffcutStatus = 'available' | 'reserved' | 'used' | 'scrap' | 'sold'
 ```
 
-**5b. Add `sold` to [`OFFCUT_STATUSES`](frontend_vue/src/views/admin/warehouse/WarehouseOffcutCard.vue:18-23)**
+**5b. Add `sold` to [`OFFCUT_STATUSES`](frontend_vue/src/views/admin/warehouse/WarehouseOffcutCard.vue:19-24)**
 
 ```typescript
 const OFFCUT_STATUSES: Array<OffcutStatus> = [
@@ -185,7 +185,7 @@ const OFFCUT_STATUSES: Array<OffcutStatus> = [
 ]
 ```
 
-**5c. Add `sold` to [`OFFCUT_STATUS_PILL`](frontend_vue/src/views/admin/warehouse/WarehouseOffcutCard.vue:56-61)**
+**5c. Add `sold` to [`OFFCUT_STATUS_PILL`](frontend_vue/src/views/admin/warehouse/WarehouseOffcutCard.vue:58-63)**
 
 ```typescript
 const OFFCUT_STATUS_PILL: Record<string, string> = {
@@ -234,8 +234,8 @@ if (data.status === 'sold' && offcut.status !== 'sold') {
 
 ### Actions:
 - [ ] **5.1** — Add `'sold'` to [`OffcutStatus`](frontend_vue/src/types/warehouse.ts:13)
-- [ ] **5.2** — Add `'sold'` to [`OFFCUT_STATUSES`](frontend_vue/src/views/admin/warehouse/WarehouseOffcutCard.vue:18-23)
-- [ ] **5.3** — Add `'sold'` to [`OFFCUT_STATUS_PILL`](frontend_vue/src/views/admin/warehouse/WarehouseOffcutCard.vue:56-61)
+- [ ] **5.2** — Add `'sold'` to [`OFFCUT_STATUSES`](frontend_vue/src/views/admin/warehouse/WarehouseOffcutCard.vue:19-24)
+- [ ] **5.3** — Add `'sold'` to [`OFFCUT_STATUS_PILL`](frontend_vue/src/views/admin/warehouse/WarehouseOffcutCard.vue:58-63)
 - [ ] **5.4** — Add expense movement creation in [`mockPatchOffcut()`](frontend_vue/src/services/mocks/warehouse.ts) when status changes to `sold`
 - [ ] **5.5** — Verify/add i18n keys for `offcut_status_sold` and `offcut_status_hint_sold`
 
@@ -289,8 +289,8 @@ function createOffcutMovement(
 | # | File | Change |
 |---|------|--------|
 | 1 | [`frontend_vue/src/types/warehouse.ts`](frontend_vue/src/types/warehouse.ts:13) | Add `'sold'` to `OffcutStatus` |
-| 2 | [`frontend_vue/src/views/admin/warehouse/WarehouseOffcutCard.vue`](frontend_vue/src/views/admin/warehouse/WarehouseOffcutCard.vue:18-23) | Add `'sold'` to `OFFCUT_STATUSES` array |
-| 3 | [`frontend_vue/src/views/admin/warehouse/WarehouseOffcutCard.vue`](frontend_vue/src/views/admin/warehouse/WarehouseOffcutCard.vue:56-61) | Add `'sold'` to `OFFCUT_STATUS_PILL` |
+| 2 | [`frontend_vue/src/views/admin/warehouse/WarehouseOffcutCard.vue`](frontend_vue/src/views/admin/warehouse/WarehouseOffcutCard.vue:19-24) | Add `'sold'` to `OFFCUT_STATUSES` array |
+| 3 | [`frontend_vue/src/views/admin/warehouse/WarehouseOffcutCard.vue`](frontend_vue/src/views/admin/warehouse/WarehouseOffcutCard.vue:58-63) | Add `'sold'` to `OFFCUT_STATUS_PILL` |
 | 4 | [`frontend_vue/src/services/mocks/warehouse.ts`](frontend_vue/src/services/mocks/warehouse.ts:581-638) | Add movement creation for `used`, `scrap`, `sold` status changes; extract helper |
 | 5 | [`frontend_vue/src/i18n/admin/warehouse.ts`](frontend_vue/src/i18n/admin/warehouse.ts) | Add any missing i18n keys for movement notes |
 

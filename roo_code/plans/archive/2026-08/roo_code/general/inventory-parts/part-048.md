@@ -216,9 +216,9 @@ $ grep -rn "stock_card_title" src/
 src/i18n/admin/warehouse.ts:587:      stock_card_title: 'Остаток {id} — {productName}',
 src/i18n/admin/warehouse.ts:1267:      stock_card_title: 'Stock {id} — {productName}',
 src/i18n/admin/warehouse.ts:1944:      stock_card_title: 'Likutis {id} — {productName}',
-src/views/admin/warehouse/WarehouseStockCard.vue:113:  (pageTitle)
-src/views/admin/warehouse/WarehouseStockCard.vue:244:  (breadcrumb)
-src/views/admin/warehouse/WarehouseStockCard.vue:254:  (h1)
+src/views/admin/warehouse/WarehouseStockCard.vue:115:  (pageTitle)
+src/views/admin/warehouse/WarehouseStockCard.vue:186:  (breadcrumb)
+src/views/admin/warehouse/WarehouseStockCard.vue:196:  (h1)
 ```
 `pageTitle` (111-115) — `t('warehouse.stock_card_title', { id: productId, productName: tf(...) })`,
 иначе `warehouse.header_title`; `useHead` (117-120) даёт `Flexiron — ${pageTitle}`;

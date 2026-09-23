@@ -10,7 +10,7 @@ Add a readonly field "Ед. изм." (Unit of Measurement) to the batch card pag
 
 1. **Type** [`WarehouseBatch`](frontend_vue/src/types/warehouse.ts:36) already has `unit: StockUnit` field (line 53).
 2. **Composable** [`useWarehouseBatch`](frontend_vue/src/composables/useWarehouseBatch.ts:23) — the `form` ref does **NOT** include `unit`. It only tracks: `batchNumber, lotCode, quantity, unitPrice, currency, location, certificateRef, status, notes`.
-3. **Template** [`WarehouseBatchCard.vue`](frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:423) — `unit` is only used inline in the `quantityRemaining` readonly display: `` `${batch.quantityRemaining} ${t(`warehouse.unit_${batch.unit}`)}` ``.
+3. **Template** [`WarehouseBatchCard.vue`](frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:365) — `unit` is only used inline in the `quantityRemaining` readonly display: `` `${batch.quantityRemaining} ${t(`warehouse.unit_${batch.unit}`)}` ``.
 4. **Patch type** [`BatchPatchPayload`](frontend_vue/src/types/warehouse.ts:110) does **NOT** include `unit` — it's a readonly field derived from the product, not editable on the batch.
 5. **Stock card reference** [`WarehouseStockCard.vue`](frontend_vue/src/views/admin/warehouse/WarehouseStockCard.vue:182-201) — has a dedicated readonly `unit` field with label `t('warehouse.col_unit')` and tooltip `t('warehouse.col_unit_hint')`.
 6. **i18n keys** `col_unit` and `col_unit_hint` already exist in all 3 locales (ru, en, lt) in [`warehouse.ts`](frontend_vue/src/i18n/admin/warehouse.ts).

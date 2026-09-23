@@ -79,13 +79,13 @@ $ grep -n "currency" src/composables/useWarehouseBatch.ts
 316:      currency: batch.value.currency, # discard()
 $ grep -c "currency: 'EUR'" src/mocks/warehouse-batches.ts   -> 100
 $ grep -c "^    id: 'whb-" src/mocks/warehouse-batches.ts    -> 100
-# карточка: WarehouseBatchCard.vue:774-790 — input-with-suffix custom-select-wrap + <SuffixSelect v-model="form.currency" :options="CURRENCY_OPTIONS">
+# карточка: WarehouseBatchCard.vue:716-732 — input-with-suffix custom-select-wrap + <SuffixSelect v-model="form.currency" :options="CURRENCY_OPTIONS">
 # totalCost: :813 :value="money(batch.totalCost, resolveCurrencyLabel(form.currency))" — жёсткого «€» нет
 # патч: src/services/mocks/warehouse.ts:727 mockPatchBatch, :735 if (delta.currency != null && delta.currency !== BASE_CURRENCY) -> throw
 ```
 
 ### Чего нет / отклонение
-Список валют не многовариантный. `WarehouseBatchCard.vue:235-243`:
+Список валют не многовариантный. `WarehouseBatchCard.vue:237-245`:
 ```
 const CURRENCY_OPTIONS = computed<string[]>(() => {
   const currencies = settings.currencies ?? []
@@ -119,9 +119,9 @@ $ grep -n 'data-test="field-' src/views/admin/warehouse/WarehouseBatchCard.vue  
 ```
 $ grep -n "create_offcut_for_batch" -r src
 src/i18n/admin/warehouse.ts:627 (ru) :1307 (en) :1984 (lt)
-src/views/admin/warehouse/WarehouseBatchCard.vue:1335
+src/views/admin/warehouse/WarehouseBatchCard.vue:1277
 
-# WarehouseBatchCard.vue:1330-1361 — GlassPanel без :title, #header слот:
+# WarehouseBatchCard.vue:1272-1303 — GlassPanel без :title, #header слот:
 #   <span class="panel-title">{{ t('warehouse.section_batch_offcuts') }}</span>
 #   <router-link data-test="batch-card-create-offcut-link" v-tooltip="create_offcut_for_batch"
 #     :to="{ name: 'admin-warehouse-offcut-create', query: { batchId: batch.id, productId: batch.productId } }"

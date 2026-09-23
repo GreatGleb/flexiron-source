@@ -2,7 +2,7 @@
 
 ## Problem
 
-When a user changes any field in the "Location" section (Rack, Row, Cell, Location Notes) of the batch card ([`WarehouseBatchCard.vue`](frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:603-679)), a transfer movement should be **automatically registered** — not just when the user explicitly clicks "Save" on the batch card.
+When a user changes any field in the "Location" section (Rack, Row, Cell, Location Notes) of the batch card ([`WarehouseBatchCard.vue`](frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:545-621)), a transfer movement should be **automatically registered** — not just when the user explicitly clicks "Save" on the batch card.
 
 Currently, location changes are only persisted when the user clicks the "Save" button, which calls [`patchBatch()`](frontend_vue/src/services/warehouseService.ts:88-90) via [`useWarehouseBatch.save()`](frontend_vue/src/composables/useWarehouseBatch.ts:184-228). There is no automatic movement creation.
 

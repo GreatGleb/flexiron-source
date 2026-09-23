@@ -85,10 +85,10 @@ $ grep -rn "marginPercent\|sellingPrice" src/types/warehouse.ts src/views/admin/
 src/types/warehouse.ts:118: /** Profit margin percent (editable, default from settings.constants.defaultMargin) */
 src/types/warehouse.ts:119:  marginPercent: number | null
 src/composables/useWarehouseBatch.ts:104,119,207,285,315   — форма + дефолт settings.constants.defaultMargin
-src/views/admin/warehouse/WarehouseBatchCard.vue:69: const sellingPrice = computed(...unitPrice * (1 + margin / 100))
-src/views/admin/warehouse/WarehouseBatchCard.vue:76: const totalSellingValue = ...
-src/views/admin/warehouse/WarehouseBatchCard.vue:845: v-model.number="form.marginPercent"
-src/views/admin/warehouse/WarehouseBatchCard.vue:879: sellingPrice (readonly-поле)
+src/views/admin/warehouse/WarehouseBatchCard.vue:71: const sellingPrice = computed(...unitPrice * (1 + margin / 100))
+src/views/admin/warehouse/WarehouseBatchCard.vue:78: const totalSellingValue = ...
+src/views/admin/warehouse/WarehouseBatchCard.vue:787: v-model.number="form.marginPercent"
+src/views/admin/warehouse/WarehouseBatchCard.vue:821: sellingPrice (readonly-поле)
 ```
 Есть: `marginPercent` в типе, редактируемое поле маржи (`data-test="field-margin-percent"`),
 `sellingPrice` за складскую UoM (`field-selling-price`), `field-total-cost`,
