@@ -68,13 +68,13 @@ class SupervisorTest(unittest.TestCase):
 
     git = _pilot.PilotTest.git
 
-    def run_supervisor(self, queues, batches=3, budget=10_000_000, mode=""):
+    def run_supervisor(self, queues, batches=3, budget=10_000_000, mode="", parallel=1):
         self.queues.write_text(json.dumps(queues))
         command = [sys.executable, str(SUPERVISOR), "--workspace", str(self.root),
                    "--routing", str(self.routing), "--operator-prompt", str(self.prompt),
                    "--out", str(self.out), "--hours", "0.5", "--token-budget", str(budget),
                    "--operator-binary", str(self.bin / "claude"), "--max-tasks", "1",
-                   "--max-batches", str(batches)]
+                   "--parallel", str(parallel), "--max-batches", str(batches)]
         return subprocess.run(command, env={**self.env, "NIGHT_TEST_QUEUES": str(self.queues),
                                             "NIGHT_TEST_MODE": mode},
                               capture_output=True, text=True, timeout=120)
@@ -91,6 +91,19 @@ class SupervisorTest(unittest.TestCase):
         # Обе задачи приняты и закоммичены — ночь не кончилась вместе с первой очередью.
         self.assertEqual(self.git("log", "--format=%s", f"{self.baseline}..HEAD").split("\n"),
                          ["night: beta", "night: alpha"])
+
+    def test_parallel_setting_reaches_the_core(self):
+        # Без этого супервизор гонял бы ядро по одной задаче, как до параллельности.
+        # Признак, что флаг дошёл: ядро пишет пачку в журнал только при параллели.
+        self.run_supervisor([queue_json("alpha")], batches=1, parallel=4)
+        journal = (self.out / "run-1" / "journal.jsonl").read_text().splitlines()
+        batches = [json.loads(x)["batch"] for x in journal if json.loads(x)["event"] == "batch"]
+        self.assertEqual(batches, [["alpha"]])
+
+    def test_without_parallel_the_core_forms_no_batches(self):
+        self.run_supervisor([queue_json("alpha")], batches=1, parallel=1)
+        journal = (self.out / "run-1" / "journal.jsonl").read_text().splitlines()
+        self.assertEqual([x for x in journal if json.loads(x)["event"] == "batch"], [])
 
     def test_operator_is_told_what_is_already_done(self):
         self.run_supervisor([queue_json("alpha"), queue_json("beta", ["plan2.md"])], batches=2)
