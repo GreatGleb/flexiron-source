@@ -217,6 +217,33 @@ class LinkGateTest(unittest.TestCase):
         self.assertEqual(self.git("rev-parse", "HEAD"), self.baseline)
 
 
+class TokenCountTest(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(prefix="tokens-test-")
+        self.addCleanup(self.temp.cleanup)
+        self.prefix = Path(self.temp.name) / "call"
+
+    def write(self, usage):
+        self.prefix.with_suffix(".stdout.log").write_text(json.dumps({"modelUsage": usage}))
+        return backends.ClaudeBackend({}).tokens(self.prefix)
+
+    def test_cache_reads_are_not_counted(self):
+        # Замер 2026-09-23: 33.8 млн чтения кэша сдвинули недельный лимит на 0.
+        counted = self.write({"m": {"inputTokens": 10, "outputTokens": 3,
+                                    "cacheCreationInputTokens": 7, "cacheReadInputTokens": 1_000_000}})
+        self.assertEqual(counted, 20)
+
+    def test_several_models_add_up(self):
+        self.assertEqual(self.write({"a": {"inputTokens": 5, "outputTokens": 1,
+                                           "cacheCreationInputTokens": 0, "cacheReadInputTokens": 9},
+                                     "b": {"inputTokens": 2, "outputTokens": 2,
+                                           "cacheCreationInputTokens": 1, "cacheReadInputTokens": 9}}), 11)
+
+    def test_output_without_accounting_is_refused(self):
+        with self.assertRaises(RuntimeError):
+            self.write({})
+
+
 class BudgetTest(unittest.TestCase):
     """Потолок токенов: он защищает недельный лимит, поэтому обязан срабатывать.
 
