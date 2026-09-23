@@ -10,6 +10,7 @@
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 import time
@@ -40,6 +41,26 @@ def call_operator(root, prompt, model, binary, out_dir, index, done_ids):
     path = out_dir / f"queue-{index}.json"
     path.write_text(json.dumps(queue, ensure_ascii=False, indent=2))
     return path, queue, spent
+
+
+def measure(out_dir):
+    """Фактический расход всей ночи по логам: вызовы оператора плюс вызовы ядра.
+
+    Первый прогон показал, чем плоха вера в чужое число: ядро писало в state расход,
+    снятый ПЕРЕД задачей, и супервизор начинал лишнюю порцию сверх потолка владельца.
+    """
+    total = 0
+    for path in sorted(out_dir.rglob("*.stdout.log")):
+        if not re.fullmatch(r".*-(?:work|review)(?:-retry-\d+)?\.stdout\.log|operator-\d+\.stdout\.log",
+                            path.name):
+            continue
+        try:
+            usage = json.loads(path.read_text()).get("modelUsage") or {}
+        except (OSError, json.JSONDecodeError):
+            continue
+        total += sum(int(m.get("inputTokens", 0)) + int(m.get("outputTokens", 0))
+                     + int(m.get("cacheCreationInputTokens", 0)) for m in usage.values())
+    return total
 
 
 def runner(args_list):
@@ -73,6 +94,7 @@ def main():
 
     def finish(reason):
         report["stopped"] = reason
+        report["tokens"] = spent
         (args.out / "supervisor.json").write_text(json.dumps(report, ensure_ascii=False, indent=2))
         print(f"Ночь закончена: {reason}. Порций: {len(report['batches'])}, "
               f"задач принято: {sum(b['completed'] for b in report['batches'])}, токенов: {spent}")
@@ -92,7 +114,7 @@ def main():
         # очередь, заканчивает ночь отчётом, а не трассировкой в лог.
         except (subprocess.CalledProcessError, ValueError, RuntimeError, json.JSONDecodeError) as error:
             return finish(f"оператор не дал очередь: {error}")
-        spent += operator_spent
+        spent = measure(args.out)
 
         run_dir = args.out / f"run-{index}"
         checked = runner(["--workspace", str(root), "--queue", str(queue_path), "--routing", str(args.routing)])
@@ -109,7 +131,7 @@ def main():
                          "--max-tasks", str(args.max_tasks), "--parallel", str(args.parallel),
                          "--token-budget", str(args.token_budget - spent)])
         state = json.loads((run_dir / "state.json").read_text())
-        spent += state.get("tokens", 0)
+        spent = measure(args.out)
         completed = [c["task"] for c in state["completed"]]
         done_ids.update(completed)
         done_ids.update(b["task"] for b in state.get("blocked", []))

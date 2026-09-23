@@ -120,6 +120,14 @@ class SupervisorTest(unittest.TestCase):
         self.assertEqual(len(report["batches"]), 3)
         self.assertEqual(self.git("rev-parse", "HEAD"), self.baseline)
 
+    def test_report_counts_operator_calls_too(self):
+        # Вызовы оператора — такой же расход лимита, как работа авторов; ночь, где
+        # их не считают, выходит за потолок владельца.
+        self.run_supervisor([queue_json("alpha"), queue_json("beta", ["plan2.md"])], batches=2)
+        report = self.report()
+        # 2 оператора + 2 автора по 110 токенов (чтение кэша в лимит не идёт).
+        self.assertEqual(report["tokens"], 440)
+
     def test_operator_without_a_queue_stops_the_night(self):
         result = self.run_supervisor(["не JSON вовсе"])
         self.assertEqual(result.returncode, 0, result.stderr)

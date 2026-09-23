@@ -692,6 +692,7 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
             if changed(root):
                 raise RuntimeError("После коммита осталось изменённое дерево")
         state["current"] = None
+        state["tokens"] = spent_tokens(backends, run_dir)
         resolved_count = sum(len(state[key]) for key in ("completed", "blocked", "waiting"))
         state["status"] = ("token-budget" if exhausted else
                            "task-limit" if resolved_count < len(tasks) else
@@ -701,6 +702,10 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
         return 0
     except (Exception, KeyboardInterrupt) as exc:
         drop_worktrees(root, run_dir)
+        try:
+            state["tokens"] = spent_tokens(backends, run_dir)
+        except Exception:  # учёт не должен мешать сохранить причину остановки
+            pass
         state["status"] = "stopped"
         state["reason"] = str(exc) or type(exc).__name__
         save("stop")
