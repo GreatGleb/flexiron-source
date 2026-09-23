@@ -22,6 +22,10 @@ import time
 
 
 HERE = Path(__file__).resolve().parent
+# Промпт проверяющего несёт дифф и хвосты логов; обрезка — чтобы одна огромная правка
+# не вытеснила из контекста саму задачу.
+DIFF_LIMIT = 120_000
+LOG_TAIL_LIMIT = 2_000
 sys.path.insert(0, str(HERE))
 from headless_backends import ROLES, load_routing  # noqa: E402  (нужен HERE в sys.path)
 
@@ -321,7 +325,19 @@ def ask_agent_once(root, backends, task, role, run_dir, deadline, attempt=1):
             "Не запускай npm/Vitest и другие проверки, создающие кэш: твой sandbox read-only. "
             "Самостоятельно проверь содержание и ссылки чтением исходников.\n"
         )
-        instruction += "Логи контроллера: " + ", ".join(str(p) for p in sorted(run_dir.glob(f'{task["id"]}-check*.log'))) + "\n"
+        # Дифф и хвосты проверок кладутся в промпт целиком: у проверяющего уходило
+        # 27-42 хода, и половина из них — поиск того, что уже лежало у контроллера.
+        diff = git(root, "diff", "HEAD")
+        if len(diff) > DIFF_LIMIT:
+            diff = diff[:DIFF_LIMIT] + f"\n… дифф обрезан на {DIFF_LIMIT} символах, полностью — git diff HEAD\n"
+        instruction += "\n=== Дифф работы (git diff HEAD) ===\n" + diff + "\n"
+        logs = sorted(run_dir.glob(f'{task["id"]}-check*.stdout.log'))
+        instruction += "\n=== Хвосты машинных проверок ===\n"
+        for log in logs:
+            tail = log.read_text(errors="replace")[-LOG_TAIL_LIMIT:]
+            instruction += f"--- {log.name} ---\n{tail}\n"
+        full = sorted(run_dir.glob(f'{task["id"]}-check*.log'))
+        instruction += "Полные логи (включая stderr): " + ", ".join(str(p) for p in full) + "\n"
     else:
         instruction += (
             "Ты исполнитель. Подготовь результат и тесты в разрешённых файлах. "
