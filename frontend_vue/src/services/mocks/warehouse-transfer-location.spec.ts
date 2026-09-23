@@ -301,7 +301,7 @@ describe('transfer movement and offcut.location', () => {
         quantity: offcut.quantity,
         toLocation: SHELF_C,
       }),
-    ).rejects.toThrow('BATCH_NOT_FOUND')
+    ).rejects.toMatchObject({ code: 'BATCH_NOT_FOUND', status: 404 })
 
     expect((await mockGetOffcut(offcut.id)).location).toBe(SHELF_B)
   })

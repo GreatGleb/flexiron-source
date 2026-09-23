@@ -221,7 +221,7 @@ describe('штучная партия: списываются листы, а н�
         sourcePieces: 3,
         offcuts: [{ quantity: 1, uomId: 'uom-pcs', offcutType: 'sheet' }],
       }),
-    ).rejects.toThrow('INSUFFICIENT_QUANTITY')
+    ).rejects.toMatchObject({ code: 'INSUFFICIENT_QUANTITY', status: 422 })
     expect((await mockGetBatch(batch.id)).quantityRemaining).toBe(2)
     expect(await movementsOf(batch.batchNumber)).toHaveLength(0)
   })
@@ -236,7 +236,7 @@ describe('штучная партия: списываются листы, а н�
         wasteQuantity: 0,
         offcuts: [{ quantity: 2, uomId: 'uom-pcs', offcutType: 'sheet' }],
       }),
-    ).rejects.toThrow('CUTTING_SOURCE_PIECES_INVALID')
+    ).rejects.toMatchObject({ code: 'CUTTING_SOURCE_PIECES_INVALID', status: 422 })
     expect((await mockGetBatch(batch.id)).quantityRemaining).toBe(5)
   })
 
@@ -327,7 +327,7 @@ describe('отказы: ни одной записи после первого �
           },
         ],
       }),
-    ).rejects.toThrow('BATCH_NOT_FOUND')
+    ).rejects.toMatchObject({ code: 'BATCH_NOT_FOUND', status: 404 })
   })
 
   it('резка без кусков — это не резка', async () => {
@@ -340,7 +340,7 @@ describe('отказы: ни одной записи после первого �
         wasteQuantity: 0,
         offcuts: [],
       }),
-    ).rejects.toThrow('CUTTING_NO_OFFCUTS')
+    ).rejects.toMatchObject({ code: 'CUTTING_NO_OFFCUTS', status: 422 })
     expect((await mockGetBatch(batch.id)).quantityRemaining).toBe(10)
   })
 
@@ -362,7 +362,7 @@ describe('отказы: ни одной записи после первого �
           },
         ],
       }),
-    ).rejects.toThrow('CUTTING_KERF_NOT_APPLICABLE')
+    ).rejects.toMatchObject({ code: 'CUTTING_KERF_NOT_APPLICABLE', status: 422 })
     expect((await mockGetBatch(batch.id)).quantityRemaining).toBe(100)
   })
 
@@ -379,7 +379,7 @@ describe('отказы: ни одной записи после первого �
         wasteQuantity: -100,
         offcuts: [{ quantity: 1, lengthMm: 1000, uomId: 'uom-m', offcutType: 'linear' }],
       }),
-    ).rejects.toThrow('CUTTING_NEGATIVE_AMOUNT')
+    ).rejects.toMatchObject({ code: 'CUTTING_NEGATIVE_AMOUNT', status: 422 })
     expect((await mockGetBatch(batch.id)).quantityRemaining).toBe(100)
   })
 
@@ -393,7 +393,7 @@ describe('отказы: ни одной записи после первого �
         wasteQuantity: 0,
         offcuts: [{ quantity: 1, lengthMm: 1000, uomId: 'uom-m', offcutType: 'linear' }],
       }),
-    ).rejects.toThrow('CUTTING_NEGATIVE_AMOUNT')
+    ).rejects.toMatchObject({ code: 'CUTTING_NEGATIVE_AMOUNT', status: 422 })
     expect((await mockGetBatch(batch.id)).quantityRemaining).toBe(100)
   })
 
@@ -407,7 +407,7 @@ describe('отказы: ни одной записи после первого �
         wasteQuantity: 0,
         offcuts: [{ quantity: 1, uomId: 'uom-m', offcutType: 'linear' }],
       }),
-    ).rejects.toThrow('OFFCUT_DIMENSION_MISSING')
+    ).rejects.toMatchObject({ code: 'OFFCUT_DIMENSION_MISSING', status: 422 })
     expect((await mockGetBatch(batch.id)).quantityRemaining).toBe(100)
   })
 
@@ -428,7 +428,7 @@ describe('отказы: ни одной записи после первого �
           },
         ],
       }),
-    ).rejects.toThrow('OFFCUT_PIECES_NOT_INTEGER')
+    ).rejects.toMatchObject({ code: 'OFFCUT_PIECES_NOT_INTEGER', status: 422 })
   })
 
   it('в партии меньше, чем заявлено к резке', async () => {
@@ -448,7 +448,7 @@ describe('отказы: ни одной записи после первого �
           },
         ],
       }),
-    ).rejects.toThrow('INSUFFICIENT_QUANTITY')
+    ).rejects.toMatchObject({ code: 'INSUFFICIENT_QUANTITY', status: 422 })
     expect((await mockGetBatch(batch.id)).quantityRemaining).toBe(2)
   })
 
@@ -470,7 +470,7 @@ describe('отказы: ни одной записи после первого �
           },
         ],
       }),
-    ).rejects.toThrow('CUTTING_QUANTITY_MISMATCH')
+    ).rejects.toMatchObject({ code: 'CUTTING_QUANTITY_MISMATCH', status: 422 })
     expect((await mockGetBatch(batch.id)).quantityRemaining).toBe(100)
   })
 
@@ -494,7 +494,7 @@ describe('отказы: ни одной записи после первого �
           { quantity: 1, uomId: 'uom-m', offcutType: 'linear' },
         ],
       }),
-    ).rejects.toThrow('OFFCUT_DIMENSION_MISSING')
+    ).rejects.toMatchObject({ code: 'OFFCUT_DIMENSION_MISSING', status: 422 })
 
     expect((await mockGetBatch(batch.id)).quantityRemaining).toBe(100)
     expect((await movementsOf(batch.batchNumber)).length).toBe(before)
@@ -510,7 +510,7 @@ describe('отказы: ни одной записи после первого �
         uomId: 'uom-m',
         offcutType: 'linear',
       }),
-    ).rejects.toThrow('INSUFFICIENT_QUANTITY')
+    ).rejects.toMatchObject({ code: 'INSUFFICIENT_QUANTITY', status: 422 })
     expect((await mockGetBatch(batch.id)).quantityRemaining).toBe(1)
   })
 
@@ -525,7 +525,7 @@ describe('отказы: ни одной записи после первого �
         uomId: 'uom-kg',
         offcutType: 'linear',
       }),
-    ).rejects.toThrow('BATCH_NOT_FOUND')
+    ).rejects.toMatchObject({ code: 'BATCH_NOT_FOUND', status: 404 })
   })
 })
 

@@ -34,7 +34,7 @@ import type {
   DeficitCreatePayload,
   DeficitPatchPayload,
 } from '@/types/warehouse'
-import type { PaginatedResponse } from '@/types/api'
+import { ApiRequestError, type PaginatedResponse } from '@/types/api'
 import type { TranslatedString } from '@/types/i18n'
 import type { Uom, Currency } from '@/types/settings'
 import { STORE as PRODUCTS_STORE, registerProductBatchLookup } from './products'
@@ -544,7 +544,7 @@ function paginateStock(
 
 export async function mockGetStockItem(productId: string): Promise<StockOverviewItem> {
   const item = stockStore.find((s) => s.productId === productId)
-  if (!item) throw new Error('STOCK_ITEM_NOT_FOUND')
+  if (!item) throw deny(404, 'STOCK_ITEM_NOT_FOUND')
   // Through the same projection as the list: the card and the list disagreeing
   // about the same shelf is how neither gets believed.
   return projectStockRow(item)
@@ -555,7 +555,7 @@ export async function mockPatchStockItem(
   delta: StockPatchPayload,
 ): Promise<StockOverviewItem> {
   const item = stockStore.find((s) => s.productId === productId)
-  if (!item) throw new Error('STOCK_ITEM_NOT_FOUND')
+  if (!item) throw deny(404, 'STOCK_ITEM_NOT_FOUND')
   Object.assign(item, delta)
   return { ...item }
 }
@@ -640,7 +640,7 @@ function toBatchListItem(b: WarehouseBatch): BatchListItem {
 
 export async function mockGetBatch(id: string): Promise<WarehouseBatch> {
   const batch = batchStore.find((b) => b.id === id)
-  if (!batch) throw new Error('BATCH_NOT_FOUND')
+  if (!batch) throw deny(404, 'BATCH_NOT_FOUND')
   return { ...batch }
 }
 
@@ -722,7 +722,7 @@ export async function mockCreateBatch(
   // in a foreign currency cannot be stored — and must not be quietly relabelled:
   // 250 USD is not 250 EUR, and nothing in this system may say it is.
   if (data.currency != null && data.currency !== BASE_CURRENCY) {
-    throw new Error('BATCH_CURRENCY_NOT_BASE')
+    throw deny(422, 'BATCH_CURRENCY_NOT_BASE')
   }
 
   const purchaseCurrencyCode =
@@ -795,11 +795,11 @@ export async function mockPatchBatch(
   delta: BatchPatchPayload,
 ): Promise<WarehouseBatch> {
   const batch = batchStore.find((b) => b.id === id)
-  if (!batch) throw new Error('BATCH_NOT_FOUND')
+  if (!batch) throw deny(404, 'BATCH_NOT_FOUND')
   // The same border as on creation: a batch cannot be re-labelled into a currency
   // the warehouse layer does not speak, on the way in or later.
   if (delta.currency != null && delta.currency !== BASE_CURRENCY) {
-    throw new Error('BATCH_CURRENCY_NOT_BASE')
+    throw deny(422, 'BATCH_CURRENCY_NOT_BASE')
   }
   Object.assign(batch, delta, { updatedAt: new Date().toISOString() })
   // The total follows the cost it is a total of.
@@ -815,8 +815,8 @@ export async function mockPatchBatch(
 
 export async function mockDeleteBatch(id: string): Promise<void> {
   const batch = batchStore.find((b) => b.id === id)
-  if (!batch) throw new Error('BATCH_NOT_FOUND')
-  if (batch.orderId) throw new Error('BATCH_LINKED_TO_ORDER')
+  if (!batch) throw deny(404, 'BATCH_NOT_FOUND')
+  if (batch.orderId) throw deny(409, 'BATCH_LINKED_TO_ORDER')
   batchStore.splice(batchStore.indexOf(batch), 1)
 }
 
@@ -868,7 +868,7 @@ export async function mockGetOffcuts(
 
 export async function mockGetOffcut(id: string): Promise<WarehouseOffcut> {
   const offcut = offcutStore.find((o) => o.id === id)
-  if (!offcut) throw new Error('OFFCUT_NOT_FOUND')
+  if (!offcut) throw deny(404, 'OFFCUT_NOT_FOUND')
   return { ...offcut }
 }
 
@@ -900,14 +900,14 @@ export async function mockCreateOffcut(
   options?: { batchDebit: number },
 ): Promise<WarehouseOffcut> {
   const batch = batchStore.find((b) => b.id === data.batchId)
-  if (!batch) throw new Error('BATCH_NOT_FOUND')
+  if (!batch) throw deny(404, 'BATCH_NOT_FOUND')
 
   const material = resolveOffcutMaterial(data, batch.uomId)
-  if (!material.ok) throw new Error(MATERIAL_ERROR_CODE[material.reason])
+  if (!material.ok) throw deny(422, MATERIAL_ERROR_CODE[material.reason])
   const debit = options?.batchDebit ?? material.material
   // Списать больше, чем лежит, и отчитаться об успехе — значит создать металл из
   // ничего: `Math.max(0, …)` ниже по стеку молча согласился бы.
-  if (debit > batch.quantityRemaining) throw new Error('INSUFFICIENT_QUANTITY')
+  if (debit > batch.quantityRemaining) throw deny(422, 'INSUFFICIENT_QUANTITY')
 
   const id = `offcut-${String(offcutSeq++).padStart(3, '0')}`
   const now = new Date().toISOString()
@@ -1085,14 +1085,14 @@ export function mockOffcutAllocations(
   const allocations: OrderLineAllocation[] = []
   for (const id of new Set(offcutIds)) {
     const offcut = offcutStore.find((o) => o.id === id)
-    if (!offcut) throw new Error('OFFCUT_NOT_FOUND')
-    if (offcut.productId !== productId) throw new Error('OFFCUT_PRODUCT_MISMATCH')
+    if (!offcut) throw deny(404, 'OFFCUT_NOT_FOUND')
+    if (offcut.productId !== productId) throw deny(422, 'OFFCUT_PRODUCT_MISMATCH')
     if (offcut.status !== 'available' || taken.has(offcut.id))
-      throw new Error('OFFCUT_NOT_AVAILABLE')
+      throw deny(422, 'OFFCUT_NOT_AVAILABLE')
     const batch = batchStore.find((b) => b.id === offcut.batchId)
-    if (!batch) throw new Error('BATCH_NOT_FOUND')
+    if (!batch) throw deny(404, 'BATCH_NOT_FOUND')
     const allocation = offcutAllocation(offcut, batch)
-    if (!allocation) throw new Error('OFFCUT_SIZE_NOT_EXPRESSIBLE')
+    if (!allocation) throw deny(422, 'OFFCUT_SIZE_NOT_EXPRESSIBLE')
     allocations.push(allocation)
   }
   return allocations
@@ -1103,15 +1103,15 @@ export async function mockPatchOffcut(
   data: OffcutPatchPayload,
 ): Promise<WarehouseOffcut> {
   const offcut = offcutStore.find((o) => o.id === id)
-  if (!offcut) throw new Error('OFFCUT_NOT_FOUND')
+  if (!offcut) throw deny(404, 'OFFCUT_NOT_FOUND')
   Object.assign(offcut, data, { updatedAt: new Date().toISOString() })
   return { ...offcut }
 }
 
 export async function mockDeleteOffcut(id: string): Promise<void> {
   const offcut = offcutStore.find((o) => o.id === id)
-  if (!offcut) throw new Error('OFFCUT_NOT_FOUND')
-  if (offcut.orderId) throw new Error('OFFCUT_LINKED_TO_ORDER')
+  if (!offcut) throw deny(404, 'OFFCUT_NOT_FOUND')
+  if (offcut.orderId) throw deny(409, 'OFFCUT_LINKED_TO_ORDER')
   offcutStore.splice(offcutStore.indexOf(offcut), 1)
 }
 
@@ -1220,7 +1220,7 @@ export function writeMovement(data: {
   // unrepresentable; an unknown one fails here, BEFORE anything is written, and in
   // particular before any location is moved. Nothing is left half-done.
   const batch = batchStore.find((b) => b.id === data.batchId)
-  if (!batch) throw new Error('BATCH_NOT_FOUND')
+  if (!batch) throw deny(404, 'BATCH_NOT_FOUND')
 
   const id = `whm-${String(movementSeq++).padStart(3, '0')}`
   const now = new Date().toISOString()
@@ -1399,14 +1399,14 @@ export function batchById(batchId: string): WarehouseBatch | undefined {
 
 export async function mockGetMovement(id: string): Promise<WarehouseMovement> {
   const movement = movementStore.find((m) => m.id === id)
-  if (!movement) throw new Error('MOVEMENT_NOT_FOUND')
+  if (!movement) throw deny(404, 'MOVEMENT_NOT_FOUND')
   const audit = preExistingMovementIds.has(id) ? [...getOrCreateMovementAudit(id)] : []
   return { ...movement, auditLog: audit }
 }
 
 export async function mockDeleteMovement(id: string): Promise<void> {
   const idx = movementStore.findIndex((m) => m.id === id)
-  if (idx === -1) throw new Error('MOVEMENT_NOT_FOUND')
+  if (idx === -1) throw deny(404, 'MOVEMENT_NOT_FOUND')
   movementStore.splice(idx, 1)
 }
 
@@ -1418,7 +1418,7 @@ export async function mockGetBatchAggregates(batchId: string): Promise<BatchStat
   // does not exist is BATCH_NOT_FOUND, exactly as its deletions already answer.
   // An empty answer used to mean both "no such batch" and "nothing moved yet",
   // so the card drew an empty table where it should have shown the refusal.
-  if (!batch) throw new Error('BATCH_NOT_FOUND')
+  if (!batch) throw deny(404, 'BATCH_NOT_FOUND')
 
   const movements = movementStore.filter((m) => m.batchId === batchId)
   const byType: Record<string, number> = {}
@@ -1457,7 +1457,7 @@ export async function mockGetBatchAggregates(batchId: string): Promise<BatchStat
 export async function mockGetBatchActiveSales(batchId: string): Promise<BatchActiveSale[]> {
   const batch = batchStore.find((b) => b.id === batchId)
   // Same rule as the aggregate above.
-  if (!batch) throw new Error('BATCH_NOT_FOUND')
+  if (!batch) throw deny(404, 'BATCH_NOT_FOUND')
 
   const returnQtyByRef: Record<string, number> = {}
   for (const m of movementStore) {
@@ -1508,9 +1508,9 @@ export async function mockExecuteCutting(
   data: CuttingOperation,
 ): Promise<{ offcuts: WarehouseOffcut[]; wasteQuantity: number }> {
   const batch = batchStore.find((b) => b.id === data.sourceBatchId)
-  if (!batch) throw new Error('BATCH_NOT_FOUND')
+  if (!batch) throw deny(404, 'BATCH_NOT_FOUND')
   if (!Array.isArray(data.offcuts) || data.offcuts.length === 0) {
-    throw new Error('CUTTING_NO_OFFCUTS')
+    throw deny(422, 'CUTTING_NO_OFFCUTS')
   }
 
   const kerfMm = data.kerfMm ?? 0
@@ -1521,7 +1521,7 @@ export async function mockExecuteCutting(
   // означала, что клиент может её не иметь, и он её не имел.
   // Ширина реза в килограммах не выражается без веса погонного метра. Отказ, а не
   // молчаливый ноль: присланный пропил означает, что клиент считает его значащим.
-  if (kerfMm > 0 && !isLinearBatchUnit(batch.uomId)) throw new Error('CUTTING_KERF_NOT_APPLICABLE')
+  if (kerfMm > 0 && !isLinearBatchUnit(batch.uomId)) throw deny(422, 'CUTTING_KERF_NOT_APPLICABLE')
 
   const consumption = computeCuttingConsumption({
     offcuts: data.offcuts,
@@ -1530,13 +1530,13 @@ export async function mockExecuteCutting(
     uomId: batch.uomId,
     sourcePieces: data.sourcePieces,
   })
-  if (!consumption.ok) throw new Error(MATERIAL_ERROR_CODE[consumption.reason])
-  if (consumption.consumed > batch.quantityRemaining) throw new Error('INSUFFICIENT_QUANTITY')
+  if (!consumption.ok) throw deny(422, MATERIAL_ERROR_CODE[consumption.reason])
+  if (consumption.consumed > batch.quantityRemaining) throw deny(422, 'INSUFFICIENT_QUANTITY')
   if (
     typeof data.sourceQuantity === 'number' &&
     Math.abs(data.sourceQuantity - consumption.consumed) > 1e-6
   ) {
-    throw new Error('CUTTING_QUANTITY_MISMATCH')
+    throw deny(422, 'CUTTING_QUANTITY_MISMATCH')
   }
 
   // Проверки закончились — теперь пишем. Ни одного отказа после первой записи:
@@ -1593,7 +1593,7 @@ function getOrCreateMovementAudit(movementId: string): StockAuditEntry[] {
     // blamed the ENTRY (AUDIT_ENTRY_NOT_FOUND) for a movement that does not
     // exist. MOVEMENT_NOT_FOUND is the domain's own code — mockDeleteMovement
     // already refuses with it.
-    if (!movement) throw new Error('MOVEMENT_NOT_FOUND')
+    if (!movement) throw deny(404, 'MOVEMENT_NOT_FOUND')
     movementAuditStore[movementId] = movement.auditLog ? structuredClone(movement.auditLog) : []
   }
   return movementAuditStore[movementId]
@@ -1664,7 +1664,7 @@ export async function mockGetDeficitList(
 
 export async function mockGetDeficitItem(id: string): Promise<WarehouseDeficit> {
   const deficit = deficitStore.find((d) => d.id === id)
-  if (!deficit) throw new Error('DEFICIT_NOT_FOUND')
+  if (!deficit) throw deny(404, 'DEFICIT_NOT_FOUND')
   return { ...deficit }
 }
 
@@ -1773,14 +1773,14 @@ export async function mockPatchDeficitItem(
   delta: DeficitPatchPayload,
 ): Promise<WarehouseDeficit> {
   const deficit = deficitStore.find((d) => d.id === id)
-  if (!deficit) throw new Error('DEFICIT_NOT_FOUND')
+  if (!deficit) throw deny(404, 'DEFICIT_NOT_FOUND')
   Object.assign(deficit, delta, { updatedAt: new Date().toISOString() })
   return { ...deficit }
 }
 
 export async function mockDeleteDeficitItem(id: string): Promise<void> {
   const idx = deficitStore.findIndex((d) => d.id === id)
-  if (idx === -1) throw new Error('DEFICIT_NOT_FOUND')
+  if (idx === -1) throw deny(404, 'DEFICIT_NOT_FOUND')
   deficitStore.splice(idx, 1)
 }
 
@@ -1872,7 +1872,7 @@ export async function mockGetStockAudit(productId: string): Promise<StockAuditEn
   // "No such stock record" and "the log is empty" are two different answers, and
   // the deletion below has always told them apart. The read answered `[]` to
   // both, so the page drew an empty journal instead of the refusal.
-  if (!item) throw new Error('STOCK_NOT_FOUND')
+  if (!item) throw deny(404, 'STOCK_NOT_FOUND')
   return item.auditLog ? structuredClone(item.auditLog) : []
 }
 
@@ -1881,17 +1881,17 @@ export async function mockDeleteStockAuditEntry(productId: string, entryId: stri
   // The missing ENTITY is STOCK_NOT_FOUND; a record that exists with no log yet
   // is an entry nobody can find — the same answer the read gives by handing back
   // an empty journal. The old condition merged the two and called both "no stock".
-  if (!item) throw new Error('STOCK_NOT_FOUND')
-  if (!item.auditLog) throw new Error('AUDIT_ENTRY_NOT_FOUND')
+  if (!item) throw deny(404, 'STOCK_NOT_FOUND')
+  if (!item.auditLog) throw deny(404, 'AUDIT_ENTRY_NOT_FOUND')
   const idx = item.auditLog.findIndex((entry) => entry.id === entryId)
-  if (idx === -1) throw new Error('AUDIT_ENTRY_NOT_FOUND')
+  if (idx === -1) throw deny(404, 'AUDIT_ENTRY_NOT_FOUND')
   item.auditLog.splice(idx, 1)
 }
 
 export async function mockGetBatchAudit(batchId: string): Promise<StockAuditEntry[]> {
   const batch = batchStore.find((b) => b.id === batchId)
   // Unknown batch — the same code its deletion answers.
-  if (!batch) throw new Error('BATCH_NOT_FOUND')
+  if (!batch) throw deny(404, 'BATCH_NOT_FOUND')
   // A read hands out a copy, like every other read here: returning the live array
   // let a caller edit the store by editing what it had merely asked to look at,
   // and made a deletion look as though it had not happened — the caller's own
@@ -1901,26 +1901,26 @@ export async function mockGetBatchAudit(batchId: string): Promise<StockAuditEntr
 
 export async function mockDeleteBatchAuditEntry(batchId: string, entryId: string): Promise<void> {
   const batch = batchStore.find((b) => b.id === batchId)
-  if (!batch) throw new Error('BATCH_NOT_FOUND')
-  if (!batch.auditLog) throw new Error('AUDIT_ENTRY_NOT_FOUND')
+  if (!batch) throw deny(404, 'BATCH_NOT_FOUND')
+  if (!batch.auditLog) throw deny(404, 'AUDIT_ENTRY_NOT_FOUND')
   const idx = batch.auditLog.findIndex((entry) => entry.id === entryId)
-  if (idx === -1) throw new Error('AUDIT_ENTRY_NOT_FOUND')
+  if (idx === -1) throw deny(404, 'AUDIT_ENTRY_NOT_FOUND')
   batch.auditLog.splice(idx, 1)
 }
 
 export async function mockGetOffcutAudit(offcutId: string): Promise<StockAuditEntry[]> {
   const offcut = offcutStore.find((o) => o.id === offcutId)
   // Unknown offcut — the same code its deletion answers.
-  if (!offcut) throw new Error('OFFCUT_NOT_FOUND')
+  if (!offcut) throw deny(404, 'OFFCUT_NOT_FOUND')
   return offcut.auditLog ? structuredClone(offcut.auditLog) : []
 }
 
 export async function mockDeleteOffcutAuditEntry(offcutId: string, entryId: string): Promise<void> {
   const offcut = offcutStore.find((o) => o.id === offcutId)
-  if (!offcut) throw new Error('OFFCUT_NOT_FOUND')
-  if (!offcut.auditLog) throw new Error('AUDIT_ENTRY_NOT_FOUND')
+  if (!offcut) throw deny(404, 'OFFCUT_NOT_FOUND')
+  if (!offcut.auditLog) throw deny(404, 'AUDIT_ENTRY_NOT_FOUND')
   const idx = offcut.auditLog.findIndex((entry) => entry.id === entryId)
-  if (idx === -1) throw new Error('AUDIT_ENTRY_NOT_FOUND')
+  if (idx === -1) throw deny(404, 'AUDIT_ENTRY_NOT_FOUND')
   offcut.auditLog.splice(idx, 1)
 }
 
@@ -1934,14 +1934,14 @@ export async function mockDeleteMovementAuditEntry(
 ): Promise<void> {
   const audit = getOrCreateMovementAudit(movementId)
   const idx = audit.findIndex((entry) => entry.id === entryId)
-  if (idx === -1) throw new Error('AUDIT_ENTRY_NOT_FOUND')
+  if (idx === -1) throw deny(404, 'AUDIT_ENTRY_NOT_FOUND')
   audit.splice(idx, 1)
 }
 
 export async function mockGetDeficitAudit(deficitId: string): Promise<StockAuditEntry[]> {
   const deficit = deficitStore.find((d) => d.id === deficitId)
   // Unknown deficit — the same code its deletion answers.
-  if (!deficit) throw new Error('DEFICIT_NOT_FOUND')
+  if (!deficit) throw deny(404, 'DEFICIT_NOT_FOUND')
   return deficit.auditLog ? structuredClone(deficit.auditLog) : []
 }
 
@@ -1950,10 +1950,10 @@ export async function mockDeleteDeficitAuditEntry(
   entryId: string,
 ): Promise<void> {
   const deficit = deficitStore.find((d) => d.id === deficitId)
-  if (!deficit) throw new Error('DEFICIT_NOT_FOUND')
-  if (!deficit.auditLog) throw new Error('AUDIT_ENTRY_NOT_FOUND')
+  if (!deficit) throw deny(404, 'DEFICIT_NOT_FOUND')
+  if (!deficit.auditLog) throw deny(404, 'AUDIT_ENTRY_NOT_FOUND')
   const idx = deficit.auditLog.findIndex((entry) => entry.id === entryId)
-  if (idx === -1) throw new Error('AUDIT_ENTRY_NOT_FOUND')
+  if (idx === -1) throw deny(404, 'AUDIT_ENTRY_NOT_FOUND')
   deficit.auditLog.splice(idx, 1)
 }
 
@@ -2026,4 +2026,56 @@ export function warehouseAuditSources(): AuditSource[] {
   }
 
   return sources
+}
+
+// ─── Refusals ───────────────────────────────────────────────────────────────
+
+/**
+ * Коды, бросаемые литералом в этом файле, — 17 из 22 домена. Остальные пять
+ * (`BATCH_UNIT_NOT_SUPPORTED`, `OFFCUT_DIMENSION_MISSING`, `OFFCUT_PIECES_NOT_INTEGER`,
+ * `CUTTING_NEGATIVE_AMOUNT`, `CUTTING_SOURCE_PIECES_INVALID`) приходят из
+ * `MATERIAL_ERROR_CODE` в `domain/cutting.ts`, куда эта задача не заходит — там
+ * они типизированы как `string`, а не как литералы, поэтому у `deny()` ниже
+ * этот тип в объединении со `string`: сузить принимаемый тип до одних
+ * литералов значило бы править чужой модуль ради типа, а не ради поведения.
+ * Полный каталог всех 22 кодов с эндпоинтами — в
+ * `roo_code/roo-context/api/warehouse.md`.
+ */
+type WarehouseRefusalCode =
+  | 'STOCK_ITEM_NOT_FOUND'
+  | 'BATCH_NOT_FOUND'
+  | 'BATCH_CURRENCY_NOT_BASE'
+  | 'BATCH_LINKED_TO_ORDER'
+  | 'OFFCUT_NOT_FOUND'
+  | 'OFFCUT_PRODUCT_MISMATCH'
+  | 'OFFCUT_NOT_AVAILABLE'
+  | 'OFFCUT_SIZE_NOT_EXPRESSIBLE'
+  | 'OFFCUT_LINKED_TO_ORDER'
+  | 'INSUFFICIENT_QUANTITY'
+  | 'MOVEMENT_NOT_FOUND'
+  | 'DEFICIT_NOT_FOUND'
+  | 'STOCK_NOT_FOUND'
+  | 'AUDIT_ENTRY_NOT_FOUND'
+  | 'CUTTING_NO_OFFCUTS'
+  | 'CUTTING_KERF_NOT_APPLICABLE'
+  | 'CUTTING_QUANTITY_MISMATCH'
+
+/**
+ * Отказ мока в форме настоящего сервера: код в поле `code`, статус — по таблице
+ * §2 общих соглашений (`roo_code/roo-context/api/00-conventions.md:62-68`):
+ * `*_NOT_FOUND` → 404, `BATCH_LINKED_TO_ORDER` и `OFFCUT_LINKED_TO_ORDER` → 409
+ * (обе — конфликт состояния, а не отсутствие сущности), остальное → 422.
+ *
+ * Голый `Error(<код>)` держал код в `message` — сервер так не отвечает (§2).
+ * `message` при этом остаётся прежним текстом целиком: на него смотрят уже
+ * написанные спеки, которых эта задача не переписывает.
+ *
+ * Блок стоит в конце файла, а не в начале, как в `mocks/settings.ts` и
+ * `mocks/clients.ts`: на `mocks/warehouse.ts:<строка>` ссылаются 144 места в
+ * документах контракта, и вставка блока в начало сдвинула бы их все разом.
+ * Объявление `function` поднимается (hoisting), поэтому вызовы этого
+ * помощника выше его собственного объявления — законны.
+ */
+function deny(status: number, code: WarehouseRefusalCode | string): ApiRequestError {
+  return new ApiRequestError({ status, message: code, code })
 }

@@ -181,15 +181,19 @@ describe('обрезок в строке заказа', () => {
     })
 
     const second = freshOrder()
-    expect(() =>
+    let error: unknown
+    try {
       mockAddOrderItem(second, {
         productId: offer.productId,
         quantity,
         unit: 'pcs',
         unitPrice: 100,
         offcutIds: [offer.id],
-      }),
-    ).toThrow('OFFCUT_NOT_AVAILABLE')
+      })
+    } catch (e) {
+      error = e
+    }
+    expect(error).toMatchObject({ code: 'OFFCUT_NOT_AVAILABLE', status: 422 })
     // Отказ ничего не оставил после себя: строки, покрытой чужим куском, нет.
     expect(mockGetOrder(second)!.items).toEqual([])
   })

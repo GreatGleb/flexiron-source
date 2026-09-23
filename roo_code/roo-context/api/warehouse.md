@@ -57,10 +57,15 @@
 
 **Конверт под моками не строится.** `getMock`/`postMock` вызываются вместо `fetch`
 (`frontend_vue/src/services/api.ts:149-151`, `:168-170`) и возвращают голое значение через `delay()`;
-`unwrap()` пропускает его, потому что ключа `success` в нём нет (§1). Отказ мока — голый
-`Error(<код>)`, то есть код лежит в `message`, а не в `ApiRequestError.code`
-(`frontend_vue/src/types/api.ts:26-31`). Против настоящего сервера это уже даёт живой дефект:
-`OFFCUT_LINKED_TO_ORDER` читается только из `message` (БАГ-18).
+`unwrap()` пропускает его, потому что ключа `success` в нём нет (§1). Отказ мока — `ApiRequestError`:
+код лежит в поле `code`, статус — по таблице §2 общих соглашений (`*_NOT_FOUND` → 404,
+`BATCH_LINKED_TO_ORDER`/`OFFCUT_LINKED_TO_ORDER` → 409, остальное → 422), а `message` остаётся тем же
+текстом, что раньше нёс голый `Error` (`frontend_vue/src/types/api.ts:25-48`, помощник `deny()` —
+`frontend_vue/src/services/mocks/warehouse.ts:2079-2081`). До 2026-09-23 здесь стоял голый
+`Error(<код>)`, державший код в `message`, а не в `ApiRequestError.code` — и против настоящего сервера
+это было живым дефектом: `OFFCUT_LINKED_TO_ORDER` читался бы только из `message` (БАГ-18). Мок
+переведён на `ApiRequestError`, и дефект снят: `errorCode()` находит `error.code` первым же условием
+(`frontend_vue/src/services/apiErrorCode.ts:41-45`) и до отката на текст не доходит.
 
 **Правило соседа не выводится заново.** Про то, что имя товара — ссылка, а не поле, и про регистр
 форм: аудит [`products`](../../plans/api/audit/products.md). Про то, что уведомление — это переход:
@@ -910,10 +915,12 @@ Save-режим: чтение. Один вызывающий — диалог д
 
 Ответ: `Promise<void>`.
 
-Ошибки: `OFFCUT_NOT_FOUND` (`frontend_vue/src/services/mocks/warehouse.ts:1113`) и
-`OFFCUT_LINKED_TO_ORDER` (`:1114`). Второй читается **только из `message`**
-(`useWarehouseOffcutCard.ts:385`), тогда как парная проверка у партии смотрит на оба поля
-(`useWarehouseBatch.ts:341`) — БАГ-18.
+Ошибки: `OFFCUT_NOT_FOUND` (`frontend_vue/src/services/mocks/warehouse.ts:1113`, статус 404) и
+`OFFCUT_LINKED_TO_ORDER` (`:1114`, статус 409). БАГ-18 — карточка сравнивала текст ошибки с кодом вместо чтения `ApiRequestError.code` — закрыт 2026-09-13 переводом карточки на `errorCode(e)` (`useWarehouseOffcutCard.ts:386`), тем же путём, что уже читает партия (`useWarehouseBatch.ts:341`).
+До 2026-09-23 это было верно только против настоящего API: в мок-режиме мок бросал голый `Error`,
+поле `code` оставалось пустым, и `errorCode()` откатывалась на текст — здесь текст исключения
+совпадал с кодом дословно, так что откат срабатывал по совпадению символов, а не по контракту.
+Мок теперь кладёт код в `code`, и обе проверки читают одно и то же поле не по случайности.
 
 Обязанности сервера, три, и все три сегодня не исполнены:
 
