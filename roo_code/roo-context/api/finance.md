@@ -61,15 +61,15 @@
   (`services/orderLineEdits.ts:326` — `'orders.error_payment_not_found'`); в финансах эта таблица
   не используется вовсе (`grep -rn "orderLineEdits" frontend_vue/src/views/admin/finance/` —
   пусто).
-- **До человека код не доходит.** Все четыре страницы домена сводят любую ошибку к булеву флагу и
-  печатают общий текст (`views/admin/finance/IncomingPaymentsPage.vue:62-64`,
-  `views/admin/finance/OutgoingPaymentsPage.vue:55-57`,
-  `views/admin/finance/DocumentArchivePage.vue:68-70`,
-  `views/admin/finance/OutgoingPaymentCardPage.vue:64-66`); разбора `ApiRequestError.code`
-  (`types/api.ts:25-47`) в домене нет ни одного места. Находка — БАГ-06.
-- **Под моками это даже не `ApiRequestError`.** Мок вызывается до `unwrap()` и бросает голый
-  `Error('PAYMENT_NOT_FOUND')` (`services/api.ts:149-152`), то есть код лежит в `message`, а
-  против настоящего сервера будет лежать в `code` — общий класс §2 соглашений.
+- **До человека код доходит в одной точке из четырёх.** Три страницы домена всё ещё сводят
+  любую ошибку к булеву флагу и печатают общий текст (`views/admin/finance/IncomingPaymentsPage.vue:62-64`,
+  `views/admin/finance/OutgoingPaymentsPage.vue:55-57`, `views/admin/finance/DocumentArchivePage.vue:68-70`).
+  Разбора `ApiRequestError.code` (`types/api.ts:25-47`) там по-прежнему нет (БАГ-06). С 2026-09-11 карточка
+  исходящего платежа — исключение: она читает `errorCode(e) === 'PAYMENT_NOT_FOUND'`
+  (`OutgoingPaymentCardPage.vue:72`).
+- **Под моками это уже `ApiRequestError`, не голый `Error`.** `unwrap()` (`services/api.ts:138-154`)
+  по-прежнему не вызывается — мок отвечает раньше `fetch` (`services/api.ts:260-264`), — но сам
+  мок с 2026-09-11 строит отказ своим хелпером (`mockRefusal`, `mocks/finance.ts:25-27`).
 
 Кодов ядра (`NOT_FOUND`, `VALIDATION_ERROR`, `UNAUTHORIZED`, `FORBIDDEN`, `CONFLICT` —
 `backend/app/core/exceptions.py:13-48`) домен **не бросает ни разу**: бросать их негде, роутов у
@@ -789,7 +789,7 @@ Save-режим — **чтение**. Триггеров пять, и пятый
 | порядок веток разбора значим | правило домена 21 |
 | смена размера страницы даёт два запроса | правило домена 18; раздел `GET /api/finance/archive` |
 | ошибка сводится к булеву флагу | «Каталог кодов ошибок домена»; правило домена 19 (БАГ-06) |
-| под моками ошибка домена — голый `Error`, а не `ApiRequestError` | «Каталог кодов ошибок домена», третий факт |
+| под моками ошибка домена было `Error`, стало `ApiRequestError` — когда и почему | «Каталог кодов ошибок домена», третий факт |
 | правила домена 1–20 аудита | раздел «Правила домена», пункты 1–21 (порядок иной: наблюдение о модели вынесено выше эндпоинтов, а расхождение с соседним аудитом закрыто ниже) |
 | девять граф «Обязанностей сервера» | раздел «Обязанности сервера», графы 1–9 |
 | аудит соседа (notifications) завышает эталон заголовков: приписывает `settingsService.ts` пару `Authorization` + `X-CSRF-Token` | закрыто наблюдением: `authHeaders()` возвращает **один** ключ (`services/settingsService.ts:18-22`), а `X-CSRF-Token` во всём `frontend_vue/src` встречается однажды и не в сервисе (`composables/useAuth.ts:106`) — как и записано в §5 соглашений. Для финансов вывод тот же: заголовков нет вовсе (БАГ-01). Правка чужого аудита в разрешённые этой задачей файлы не входит |
