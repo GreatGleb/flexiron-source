@@ -383,6 +383,14 @@ class MixedRunTest(unittest.TestCase):
         self.assertIn("fake verification", prompt)
         self.assertIn("Полные логи (включая stderr):", prompt)
 
+    def test_author_is_told_how_a_reference_proves_anything(self):
+        # Четыре задачи из восьми за 2026-09-23 забракованы за ссылки, которые ничего
+        # не доказывают. Правило ушло автору, а не только в голову скептику.
+        self.assertEqual(self.invoke().returncode, 0)
+        prompt = (self.logs / "plan-work.prompt.txt").read_text()
+        self.assertIn("обязана нести в том же предложении токен в бэктиках", prompt)
+        self.assertIn("опровергнутое твоим же диффом", prompt)
+
     def test_author_prompt_carries_no_diff(self):
         # Автору дифф не нужен: он его и создаёт.
         self.assertEqual(self.invoke().returncode, 0)
