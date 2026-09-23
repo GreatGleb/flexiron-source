@@ -390,6 +390,9 @@ class MixedRunTest(unittest.TestCase):
         prompt = (self.logs / "plan-work.prompt.txt").read_text()
         self.assertIn("обязана нести в том же предложении токен в бэктиках", prompt)
         self.assertIn("опровергнутое твоим же диффом", prompt)
+        # Новые ссылки с номерами — единственная оставшаяся причина брака после того,
+        # как перенумерацию забрал контроллер.
+        self.assertIn("НОВЫХ ссылок с номерами строк не вводи", prompt)
 
     def test_author_prompt_carries_no_diff(self):
         # Автору дифф не нужен: он его и создаёт.
