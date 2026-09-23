@@ -17,7 +17,7 @@ import type {
   DeficitStatus,
   StockAuditEntry,
 } from '@/types/warehouse'
-
+import { errorMessageKey } from '@/services/apiErrorCode'
 export function useWarehouseDeficitCard(id: string) {
   const { t } = useI18n()
   const router = useRouter()
@@ -71,7 +71,12 @@ export function useWarehouseDeficitCard(id: string) {
       dirty.capture()
       auditLog.value = data.auditLog
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to load deficit item'
+      const key = errorMessageKey(
+        e,
+        [['DEFICIT_NOT_FOUND', 'warehouse.deficit_not_found']],
+        'warehouse.toast_error_load',
+      )
+      error.value = t(key)
     } finally {
       loading.value = false
     }

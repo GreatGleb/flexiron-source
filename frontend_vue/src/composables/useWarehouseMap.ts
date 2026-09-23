@@ -27,8 +27,8 @@ export function useWarehouseMap() {
     error.value = null
     try {
       map.value = await getWarehouseMap()
-    } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to load warehouse map'
+    } catch {
+      error.value = t('warehouse.toast_error_load')
     } finally {
       loading.value = false
     }

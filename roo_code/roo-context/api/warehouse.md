@@ -116,15 +116,23 @@
 22 (0 пар), проверка проинвертирована на подставленной паре `BATCH_NOT` ⊂ `BATCH_NOT_FOUND` и её
 поймала.
 
-**До человека отдельным сообщением доходят два кода из двадцати двух.** `BATCH_LINKED_TO_ORDER`
-(`frontend_vue/src/composables/useWarehouseBatch.ts:341`) и `OFFCUT_LINKED_TO_ORDER`
-(`frontend_vue/src/composables/useWarehouseOffcutCard.ts:385`) поднимают флаг
+**До человека отдельным сообщением доходят два кода из двадцати двух через флаг, шесть — переводом.**
+`BATCH_LINKED_TO_ORDER` (`frontend_vue/src/composables/useWarehouseBatch.ts:346`) и
+`OFFCUT_LINKED_TO_ORDER` (`frontend_vue/src/composables/useWarehouseOffcutCard.ts:391`) поднимают флаг
 `deleteBlockedByOrder`, за которым стоит переведённый модал на всех трёх локалях
-(`frontend_vue/src/i18n/admin/warehouse.ts:422-423`). Ещё пять доезжают до экрана **сырой строкой
-кода**: пять карточек кладут `e.message` в состояние ошибки — партия
-(`useWarehouseBatch.ts:230`), обрезок (`useWarehouseOffcutCard.ts:219`), движение
-(`useWarehouseMovementCard.ts:40`), нехватка (`useWarehouseDeficitCard.ts:74`), остаток
-(`useWarehouseStockCard.ts:137`), плюс страница создания обрезка (`useWarehouseOffcutCreate.ts:315`).
+(`frontend_vue/src/i18n/admin/warehouse.ts:422-423`). Шесть композаблов, что до 2026-09-23 клали
+`e.message` в видимое человеку значение сырой строкой, переведены на `errorMessageKey()` + `t()`
+(`frontend_vue/src/services/apiErrorCode.ts`): партия (`useWarehouseBatch.ts:231-236`, код
+`BATCH_NOT_FOUND` → ключ `warehouse.batch_card_not_found`), обрезок
+(`useWarehouseOffcutCard.ts:220-225`, `OFFCUT_NOT_FOUND` → `warehouse.offcut_not_found`), движение
+(`useWarehouseMovementCard.ts:40-45`, `MOVEMENT_NOT_FOUND` → `warehouse.movement_not_found`), нехватка
+(`useWarehouseDeficitCard.ts:74-79`, `DEFICIT_NOT_FOUND` → `warehouse.deficit_not_found`), остаток
+(`useWarehouseStockCard.ts:137-142`, `STOCK_ITEM_NOT_FOUND` → `warehouse.stock_card_not_found`) — все
+пять ключей уже лежали в локали неиспользуемыми, только дождались разбора кода. Страница создания
+обрезка (`useWarehouseOffcutCreate.ts:315-317`) кода не разбирает — среди её пяти кодов ни один не
+назван «ровно про это событие», и держится общего `warehouse.toast_offcut_create_error`. Незнакомый
+код везде откатывается на `warehouse.toast_error_load`; тест —
+`frontend_vue/src/composables/warehouse-refusals-are-translated.spec.ts`.
 Остальные пятнадцать схлопываются в общий тост. Крайний случай — резка: **все десять её отказов дают
 один текст** (`useWarehouseCutting.ts:329-331`), это БАГ-14.
 
@@ -202,8 +210,10 @@ Save-режим: чтение.
 (`frontend_vue/src/services/mocks/warehouse.ts:550`, причина названа в коде `:548-549`): карточка и
 список не имеют права разойтись об одной полке.
 
-Ошибки: `STOCK_ITEM_NOT_FOUND` (`frontend_vue/src/services/mocks/warehouse.ts:547`) — доходит до
-человека сырой строкой кода (`useWarehouseStockCard.ts:137`). Соседний эндпоинт того же ресурса
+Ошибки: `STOCK_ITEM_NOT_FOUND` (`frontend_vue/src/services/mocks/warehouse.ts:547`) — до 2026-09-23
+доходил до человека сырой строкой кода; теперь `errorMessageKey()` переводит его в
+`warehouse.stock_card_not_found` (`useWarehouseStockCard.ts:137-142`), а незнакомый код — в
+`warehouse.toast_error_load`. Соседний эндпоинт того же ресурса
 бросает на то же условие **другой** код, `STOCK_NOT_FOUND` (БАГ-04); серверу выбирать один.
 
 Обязанности сервера: неизвестный товар — отказ, а не пустая строка; `NOT_FOUND` ядра тут не
@@ -228,7 +238,7 @@ Save и только при непустой дельте (`:147-149`), Discard 
 Ответ: `StockOverviewItem`.
 
 Ошибки: `STOCK_ITEM_NOT_FOUND` (`frontend_vue/src/services/mocks/warehouse.ts:558`); до человека не
-доходит — `catch { toast.error(...) }` без параметра (`useWarehouseStockCard.ts:160-162`).
+доходит — `catch { toast.error(...) }` без параметра (`useWarehouseStockCard.ts:165-167`).
 
 **Четыре правимых поля из пяти принадлежат не этой строке**, и сервер обязан это знать:
 `productName` и `categoryName` — каталогу товаров (`frontend_vue/src/types/product.ts:39-41`),
@@ -248,7 +258,7 @@ Save и только при непустой дельте (`:147-149`), Discard 
 
 Обязанности сервера: ответ обязан проходить **ту же проекцию**, что GET. Мок отдаёт `{ ...item }`
 без проекции (`frontend_vue/src/services/mocks/warehouse.ts:560`), и карточка кладёт этот ответ
-прямо в состояние (`useWarehouseStockCard.ts:150`) — сразу после Save на экране висят засеянные
+прямо в состояние (`useWarehouseStockCard.ts:155`) — сразу после Save на экране висят засеянные
 числа вместо посчитанных (БАГ-05).
 
 Бэкенд: не реализован — под четыре из пяти полей колонок в `stock_items` нет
@@ -346,7 +356,7 @@ Save-режим: чтение.
 ### DELETE /api/warehouse/stock/:productId/audit/:entryId
 
 Удаление одной записи журнала строки остатка. Два вызывающих, и второй — чужого домена: карточка
-остатка по подтверждению модала (`useWarehouseStockCard.ts:179-187`) и общая лента аудита, которая
+остатка по подтверждению модала (`useWarehouseStockCard.ts:184-192`) и общая лента аудита, которая
 роутит сюда по `entityType` (`frontend_vue/src/services/auditFeedService.ts:67-68`). Второго пути к
 записи нет — своего `DELETE` у ленты нет намеренно (§9 соглашений).
 Save-режим: quick-action.
@@ -354,11 +364,11 @@ Save-режим: quick-action.
 Запрос: тела нет, два сегмента пути (`frontend_vue/src/services/warehouseService.ts:332-334`).
 
 Ответ: `Promise<void>`; на проводе — `ApiResponse<null>`. Тела не читает ни один вызывающий:
-карточка правит список у себя (`useWarehouseStockCard.ts:182`), лента — своей функцией.
+карточка правит список у себя (`useWarehouseStockCard.ts:187`), лента — своей функцией.
 
 Ошибки: `STOCK_NOT_FOUND` (`frontend_vue/src/services/mocks/warehouse.ts:1866`) и
 `AUDIT_ENTRY_NOT_FOUND` (`:1868`). До человека не доходит ни один — карточка показывает общий тост
-(`useWarehouseStockCard.ts:185`).
+(`useWarehouseStockCard.ts:190`).
 
 Обязанности сервера: **неизвестный `entryId` — отказ, а не тихий no-op** (§9 соглашений): молчание
 неотличимо от успеха, и клиент сотрёт у себя строку, которая на сервере осталась. Адресация — по
@@ -470,7 +480,7 @@ String(20)` (`backend/app/modules/warehouse/shared/models.py:39`), а фронт
 
 Карточка партии. Save-режим: чтение. Вызывающих четверо: карточка партии
 (`useWarehouseBatch.ts:198`, вместе со справочником имён), карточка обрезка — ради товара **партии**,
-а не обрезка (`useWarehouseOffcutCard.ts:233-241`, причина `:225-230`), страница резки
+а не обрезка (`useWarehouseOffcutCard.ts:238-246`, причина `:230-235`), страница резки
 (`useWarehouseCutting.ts`) и сама вьюха карточки (`views/admin/warehouse/WarehouseBatchCard.vue`).
 
 Запрос: только путь (`frontend_vue/src/services/warehouseService.ts:102-104`).
@@ -488,8 +498,9 @@ String(20)` (`backend/app/modules/warehouse/shared/models.py:39`), а фронт
 `BatchStatus` — **11 значений** (`frontend_vue/src/types/warehouse.ts:21-32`), и статус **не
 хранится, а выводится** из журнала движений (см. графу «Производные значения»).
 
-Ошибки: `BATCH_NOT_FOUND` (`frontend_vue/src/services/mocks/warehouse.ts:643`) — доходит до человека
-сырой строкой (`useWarehouseBatch.ts:230`).
+Ошибки: `BATCH_NOT_FOUND` (`frontend_vue/src/services/mocks/warehouse.ts:643`) — до 2026-09-23 доходил
+до человека сырой строкой; теперь `errorMessageKey()` переводит его в `warehouse.batch_card_not_found`
+(`useWarehouseBatch.ts:231-236`), а незнакомый код — в `warehouse.toast_error_load`.
 
 Ветка мока ловит путь регуляркой `([^/]+)$`, и внутри неё стоит **недостижимая** проверка
 `path.endsWith('/audit')` (`frontend_vue/src/services/mocks/index.ts:682-684`): класс `[^/]` слэша
@@ -513,16 +524,16 @@ String(20)` (`backend/app/modules/warehouse/shared/models.py:39`), а фронт
 Правка партии из карточки. Тело — дельта, ответ — партия целиком.
 Save-режим: clean-slate. Признак грязи собран из трёх: `dirty.isDirty`, непустой список ожидающих
 файлов и удаление ранее приложенного файла (`useWarehouseBatch.ts:135-152`). Discard возвращает
-форму и восстанавливает удалённые файлы из снимка (`:306-329`).
+форму и восстанавливает удалённые файлы из снимка (`:311-334`).
 
 Запрос: объявлено **10 ключей** `BatchPatchPayload` — `batchNumber?`, `lotCode?`, `quantity?`,
 `unitPrice?`, `currency?`, `location?`, `certificateRef?`, `status?`, `notes?`, `fileIds?`
 (`frontend_vue/src/types/warehouse.ts:190-204`). **Уезжает больше.** Дельту собирает
-`useDirtyCheck.diff()` по форме карточки (`useWarehouseBatch.ts:241`), а в форме живут `uomId`,
+`useDirtyCheck.diff()` по форме карточки (`useWarehouseBatch.ts:246`), а в форме живут `uomId`,
 `marginPercent` и четыре части адреса — `locationRack`, `locationRow`, `locationCell`,
 `locationNotes` (`:92-128`); `diff()` возвращает любой изменившийся ключ верхнего уровня
 (`frontend_vue/src/composables/useDirtyCheck.ts:62-77`), после чего к дельте добавляется склеенный
-`location` (`useWarehouseBatch.ts:242-248`) и, если есть, `fileIds` (`:252-254`). Итого шесть
+`location` (`useWarehouseBatch.ts:247-253`) и, если есть, `fileIds` (`:257-259`). Итого шесть
 необъявленных ключей на проводе, и мок кладёт их в запись через `Object.assign`
 (`frontend_vue/src/services/mocks/warehouse.ts:804`) — БАГ-10. **Серверу принимать их нельзя**:
 контракт тела — те десять ключей, а `marginPercent` и `uomId` требуют отдельного решения.
@@ -532,7 +543,7 @@ Save-режим: clean-slate. Признак грязи собран из трё
 Ошибки: `BATCH_NOT_FOUND` (`frontend_vue/src/services/mocks/warehouse.ts:798`) и
 `BATCH_CURRENCY_NOT_BASE` (`:802`) — граница валюты та же, что при создании, и держится «и на
 входе, и потом» (`:799-800`). До человека не доходит ни один
-(`useWarehouseBatch.ts:299-301`).
+(`useWarehouseBatch.ts:304-306`).
 
 Обязанности сервера:
 
@@ -543,7 +554,7 @@ Save-режим: clean-slate. Признак грязи собран из трё
    либо отвергать `status` в дельте, либо признать его подсказкой, которую пересчёт перекроет.
 3. **Смена адреса — это второй HTTP-запрос без общей транзакции.** Save шлёт один PATCH и следом,
    если `location` изменился, `POST /api/warehouse/movements` с `type: 'transfer'`
-   (`useWarehouseBatch.ts:260-276`); неудача второго только показывает info-тост (`:272-274`), то
+   (`useWarehouseBatch.ts:265-281`); неудача второго только показывает info-тост (`:277-279`), то
    есть партия остаётся с новым адресом и без записи о переносе. **Решено 2026-09-09 (П43):**
    склад назван атомарным поимённо — PATCH и движение обязаны применяться одной транзакцией,
    целиком либо никак ([§15](00-conventions.md)).
@@ -557,7 +568,7 @@ Save-режим: clean-slate. Признак грязи собран из трё
 ### DELETE /api/warehouse/batches/:batchId
 
 Удаление партии. Save-режим: quick-action по подтверждению модала. Трое вызывающих: карточка партии
-с переходом на вкладку партий (`useWarehouseBatch.ts:331-349`), список с перезагрузкой
+с переходом на вкладку партий (`useWarehouseBatch.ts:336-354`), список с перезагрузкой
 (`useWarehouse.ts:320`) и вьюха списка (`views/admin/warehouse/WarehousePage.vue`).
 
 Запрос: тела нет (`frontend_vue/src/services/warehouseService.ts:114-116`); `If-Match` не шлётся,
@@ -568,7 +579,7 @@ Save-режим: clean-slate. Признак грязи собран из трё
 Ошибки: `BATCH_NOT_FOUND` (`frontend_vue/src/services/mocks/warehouse.ts:818`) и
 `BATCH_LINKED_TO_ORDER` (`:819`). Второй — **единственный код домена, который читается правильно с
 обеих сторон**: `err?.code === 'BATCH_LINKED_TO_ORDER' || err?.message === …`
-(`useWarehouseBatch.ts:341`). Тот же вызов со списка кода не читает вовсе
+(`useWarehouseBatch.ts:346`). Тот же вызов со списка кода не читает вовсе
 (`useWarehouse.ts:318-326`).
 
 Обязанности сервера — **каскад, и он не описан ни одним источником одинаково.** Мок вырезает одну
@@ -590,7 +601,7 @@ Save-режим: clean-slate. Признак грязи собран из трё
 ### GET /api/warehouse/batches/:batchId/aggregates
 
 Распределение металла партии по статусам: сколько лежит, сколько продано, сколько списано.
-Save-режим: чтение. Двое вызывающих: карточка партии (`useWarehouseBatch.ts:367-377`) и карточка
+Save-режим: чтение. Двое вызывающих: карточка партии (`useWarehouseBatch.ts:372-382`) и карточка
 остатка, которая зовёт его **в цикле по всем партиям товара** и складывает результаты сама
 (`useWarehouseStockCard.ts:42-74`, вызов `:55`) — N+1 запрос на открытие экрана (БАГ-12).
 
@@ -626,7 +637,7 @@ Save-режим: чтение. Двое вызывающих: карточка �
 
 Продажи партии, которые ещё можно вернуть: результат передаётся в модал создания движения, где
 выбирается продажа для возврата (`views/admin/warehouse/CreateMovementModal.vue:511-514`).
-Save-режим: чтение. Один вызывающий — карточка партии (`useWarehouseBatch.ts:379-389`).
+Save-режим: чтение. Один вызывающий — карточка партии (`useWarehouseBatch.ts:384-394`).
 
 Запрос: только путь (`frontend_vue/src/services/warehouseService.ts:208-210`).
 
@@ -655,8 +666,8 @@ Save-режим: чтение. Один вызывающий — карточк�
 ### GET /api/warehouse/batches/:batchId/audit
 
 Журнал изменений партии. **Единственный из пяти складских журналов, у которого есть свой
-вызывающий**: `loadAudit()` карточки партии (`useWarehouseBatch.ts:439-450`), внутри `Promise.all`
-при загрузке (`:222-228`); ошибку глотает, оставляя пустой лог (`:445-448`).
+вызывающий**: `loadAudit()` карточки партии (`useWarehouseBatch.ts:444-455`), внутри `Promise.all`
+при загрузке (`:222-228`); ошибку глотает, оставляя пустой лог (`:450-453`).
 Save-режим: чтение.
 
 Запрос: только путь (`frontend_vue/src/services/warehouseService.ts:338-340`).
@@ -683,7 +694,7 @@ Save-режим: чтение.
 ### DELETE /api/warehouse/batches/:batchId/audit/:entryId
 
 Удаление записи журнала партии. Два вызывающих: карточка партии с локальной правкой списка
-(`useWarehouseBatch.ts:452-461`) и общая лента аудита
+(`useWarehouseBatch.ts:457-466`) и общая лента аудита
 (`frontend_vue/src/services/auditFeedService.ts:70`).
 Save-режим: quick-action по подтверждению модала.
 
@@ -717,7 +728,7 @@ Save-режим: quick-action по подтверждению модала.
 Список обрезков — вкладка «Обрезки», а также свои обрезки на карточке партии.
 Save-режим: чтение. Двое вызывающих: вкладка вместе со справочником имён
 (`useWarehouse.ts:231-255`) и карточка партии, которая просит свои обрезки **по номеру партии**
-(`useWarehouseBatch.ts:423-437`) — БАГ-21, см. `GET /api/warehouse/movements`.
+(`useWarehouseBatch.ts:428-442`) — БАГ-21, см. `GET /api/warehouse/movements`.
 
 Запрос — query: всегда `search`, `page`, `pageSize`; условно `productId`, `status`, `uomId`,
 `offcutType`, `categoryIds` (склейка через запятую), `batchNumber`, `sortBy`, `sortDir`
@@ -840,16 +851,18 @@ Save-режим: чтение. Один вызывающий — диалог д
 ### GET /api/warehouse/offcuts/:offcutId
 
 Карточка обрезка. Save-режим: чтение. Один вызывающий — `load()`
-(`useWarehouseOffcutCard.ts:195-223`), который следом тянет движения куска (`:216`) и товар
-**партии** ради плотности материала (`:217`, причина `:225-230`).
+(`useWarehouseOffcutCard.ts:195-228`), который следом тянет движения куска (`:216`) и товар
+**партии** ради плотности материала (`:217`, причина `:230-235`).
 
 Запрос: только путь (`frontend_vue/src/services/warehouseService.ts:152-154`).
 
 Ответ: `WarehouseOffcut` целиком, копией — **21 поле**
 (`frontend_vue/src/types/warehouse.ts:208-250`).
 
-Ошибки: `OFFCUT_NOT_FOUND` (`frontend_vue/src/services/mocks/warehouse.ts:871`) — доходит до
-человека сырой строкой (`useWarehouseOffcutCard.ts:219`).
+Ошибки: `OFFCUT_NOT_FOUND` (`frontend_vue/src/services/mocks/warehouse.ts:871`) — до 2026-09-23
+доходил до человека сырой строкой; теперь `errorMessageKey()` переводит его в
+`warehouse.offcut_not_found` (`useWarehouseOffcutCard.ts:220-225`), а незнакомый код — в
+`warehouse.toast_error_load`.
 
 Обязанности сервера, три:
 
@@ -857,7 +870,7 @@ Save-режим: чтение. Один вызывающий — диалог д
    (`frontend_vue/src/types/warehouse.ts:213-219`).
 2. **`weightKg` — ручной ввод, а не вывод**: `null` означает «пусть отвечает расчёт», и хранить
    выведенное значение запрещено (`frontend_vue/src/types/warehouse.ts:328-337`, потребитель
-   `useWarehouseOffcutCard.ts:243-269`).
+   `useWarehouseOffcutCard.ts:248-274`).
 3. **`files?` необязательно сознательно** (`frontend_vue/src/types/warehouse.ts:242`), как у партии.
 
 Отдельно: `WarehouseOffcut.auditLog` объявлен **обязательным** (`:249`), в отличие от
@@ -876,7 +889,7 @@ Save-режим: чтение. Один вызывающий — диалог д
 Запрос: объявлено **пять ключей** `OffcutPatchPayload` — `status?`, `notes?`, `location?`,
 `weightKg?`, `fileIds?` (`frontend_vue/src/types/warehouse.ts:324-341`). Фактически из карточки
 уезжает больше: дельту собирает `useDirtyCheck.diff()` по форме, где живут четыре части адреса
-(`useWarehouseOffcutCard.ts:275`, форма `:99-117`), после чего добавляется склеенный `location`
+(`useWarehouseOffcutCard.ts:280`, форма `:99-117`), после чего добавляется склеенный `location`
 (`:281-287`) — БАГ-10. Второй вызывающий, вкладка обрезков, шлёт только `{ status }`
 (`useWarehouse.ts:364`).
 
@@ -891,7 +904,7 @@ Save-режим: чтение. Один вызывающий — диалог д
 
 1. **Смена статуса из интерфейса — это два независимых запроса.** Карточка шлёт PATCH и следом
    **до двух** `POST /api/warehouse/movements` — `transfer` при смене адреса и движение по типу
-   нового статуса (`useWarehouseOffcutCard.ts:294-333`), оба с `.catch(() => {})`, то есть их провал
+   нового статуса (`useWarehouseOffcutCard.ts:299-338`), оба с `.catch(() => {})`, то есть их провал
    не виден нигде. Список делает то же одним движением, чей провал заглушен комментарием «Movement
    creation is secondary» (`useWarehouse.ts:362-383`). Кусок остаётся в статусе без движения.
 2. **При записи движения сервер ставит статус куска сам, по типу движения**
@@ -908,7 +921,7 @@ Save-режим: чтение. Один вызывающий — диалог д
 ### DELETE /api/warehouse/offcuts/:offcutId
 
 Удаление обрезка. Save-режим: quick-action по подтверждению модала. Трое вызывающих: карточка
-(`useWarehouseOffcutCard.ts:385`), список (`useWarehouse.ts:328-336`) и вьюха списка
+(`useWarehouseOffcutCard.ts:391`), список (`useWarehouse.ts:328-336`) и вьюха списка
 (`views/admin/warehouse/WarehousePage.vue`).
 
 Запрос: тела нет (`frontend_vue/src/services/warehouseService.ts:164-166`).
@@ -916,7 +929,7 @@ Save-режим: чтение. Один вызывающий — диалог д
 Ответ: `Promise<void>`.
 
 Ошибки: `OFFCUT_NOT_FOUND` (`frontend_vue/src/services/mocks/warehouse.ts:1113`, статус 404) и
-`OFFCUT_LINKED_TO_ORDER` (`:1114`, статус 409). БАГ-18 — карточка сравнивала текст ошибки с кодом вместо чтения `ApiRequestError.code` — закрыт 2026-09-13 переводом карточки на `errorCode(e)` (`useWarehouseOffcutCard.ts:386`), тем же путём, что уже читает партия (`useWarehouseBatch.ts:341`).
+`OFFCUT_LINKED_TO_ORDER` (`:1114`, статус 409). БАГ-18 — карточка сравнивала текст ошибки с кодом вместо чтения `ApiRequestError.code` — закрыт 2026-09-13 переводом карточки на `errorCode(e)` (`useWarehouseOffcutCard.ts:391`), тем же путём, что уже читает партия (`useWarehouseBatch.ts:346`).
 До 2026-09-23 это было верно только против настоящего API: в мок-режиме мок бросал голый `Error`,
 поле `code` оставалось пустым, и `errorCode()` откатывалась на текст — здесь текст исключения
 совпадал с кодом дословно, так что откат срабатывал по совпадению символов, а не по контракту.
@@ -962,7 +975,7 @@ Save-режим: чтение.
 
 ### DELETE /api/warehouse/offcuts/:offcutId/audit/:entryId
 
-Удаление записи журнала обрезка. Два вызывающих: карточка (`useWarehouseOffcutCard.ts:185-193`) и
+Удаление записи журнала обрезка. Два вызывающих: карточка (`useWarehouseOffcutCard.ts:190-198`) и
 общая лента (`frontend_vue/src/services/auditFeedService.ts:72`).
 Save-режим: quick-action.
 
@@ -972,7 +985,7 @@ Save-режим: quick-action.
 
 Ошибки: `OFFCUT_NOT_FOUND` (`frontend_vue/src/services/mocks/warehouse.ts:1896`) и
 `AUDIT_ENTRY_NOT_FOUND` (`:1898`); до человека не доходит ни один
-(`useWarehouseOffcutCard.ts:191`).
+(`useWarehouseOffcutCard.ts:196`).
 
 Обязанности сервера: те же, что у четырёх остальных удалений записи журнала. **Правила у всех пяти
 складских журналов одинаковы, и сказать это стоит один раз**, а не разойтись пятью формулировками:
@@ -996,8 +1009,8 @@ Save-режим: quick-action.
 
 Список движений — вкладка «Движения», журнал карточки партии и журнал карточки обрезка.
 Save-режим: чтение. Трое вызывающих: вкладка (`useWarehouse.ts:257-281`), карточка партии по
-`batchNumber` (`useWarehouseBatch.ts:351-365`) и карточка обрезка по `offcutId`
-(`useWarehouseOffcutCard.ts:165-179`).
+`batchNumber` (`useWarehouseBatch.ts:356-370`) и карточка обрезка по `offcutId`
+(`useWarehouseOffcutCard.ts:170-184`).
 
 Запрос — query: всегда `search`, `page`, `pageSize`; условно `type`, `productId`, `uomId`,
 `categoryIds`, `batchNumber`, `referenceId`, `offcutId`, `dateFrom`, `dateTo`, `sortBy`, `sortDir`
@@ -1021,7 +1034,7 @@ Save-режим: чтение. Трое вызывающих: вкладка (`u
 неизвестная цена уже превращена в нуль, и сервер обязан либо это узаконить, либо расширить тип.
 
 **Карточка партии фильтрует свои движения по номеру партии, а не по её id**
-(`useWarehouseBatch.ts:356`), то есть две партии с одинаковым номером покажут друг другу чужой
+(`useWarehouseBatch.ts:361`), то есть две партии с одинаковым номером покажут друг другу чужой
 журнал: уникальности `batch_number` нет ни в моке, ни на схеме
 (`backend/app/modules/warehouse/shared/models.py:33` — просто `String(100)`). БАГ-21. Серверу нужен
 либо фильтр по `batchId`, либо уникальность номера.
@@ -1035,8 +1048,8 @@ Save-режим: чтение. Трое вызывающих: вкладка (`u
 Проводка движения — приход, продажа, списание, перенос, возврат, коррекция, резка.
 Save-режим: quick-action, пятеро вызывающих: модал создания движения на карточке партии
 (`views/admin/warehouse/CreateMovementModal.vue:532`), автосоздание `transfer` при смене адреса
-партии (`useWarehouseBatch.ts:262`), кнопки движений карточки партии (`:406`), два автосоздания при
-сохранении карточки обрезка (`useWarehouseOffcutCard.ts:299`, `:316`) и смена статуса обрезка из
+партии (`useWarehouseBatch.ts:267`), кнопки движений карточки партии (`:411`), два автосоздания при
+сохранении карточки обрезка (`useWarehouseOffcutCard.ts:304`, `:321`) и смена статуса обрезка из
 списка (`useWarehouse.ts:367`). Ответа не читает ни один из пяти.
 
 Запрос: `MovementCreatePayload` — **13 ключей**: `type`, `batchId`, `offcutId?`, `quantity`,
@@ -1101,7 +1114,7 @@ Save-режим: quick-action, пятеро вызывающих: модал с�
 
 Карточка движения — **read-only**: `useWarehouseMovementCard` не имеет ни формы, ни `save`, ни
 `discard`, только `load` и удаление записи журнала
-(`frontend_vue/src/composables/useWarehouseMovementCard.ts:9-56`).
+(`frontend_vue/src/composables/useWarehouseMovementCard.ts:9-61`).
 Save-режим: чтение. Загрузка идёт вместе со справочником имён товаров (`:36`).
 
 Запрос: только путь (`frontend_vue/src/services/warehouseService.ts:198-200`).
@@ -1109,8 +1122,9 @@ Save-режим: чтение. Загрузка идёт вместе со сп�
 Ответ: `WarehouseMovement` целиком, копией, но с журналом из отдельного хранилища:
 `{ ...movement, auditLog: audit }` (`frontend_vue/src/services/mocks/warehouse.ts:1400-1405`).
 
-Ошибки: `MOVEMENT_NOT_FOUND` (`:1402`) — доходит до человека сырой строкой
-(`useWarehouseMovementCard.ts:40`).
+Ошибки: `MOVEMENT_NOT_FOUND` (`:1402`) — до 2026-09-23 доходил до человека сырой строкой; теперь
+`errorMessageKey()` переводит его в `warehouse.movement_not_found`
+(`useWarehouseMovementCard.ts:40-45`), а незнакомый код — в `warehouse.toast_error_load`.
 
 Обязанности сервера: журнал движения обязан приходить **и полем записи, и своим эндпоинтом** — и это
 единственное место домена, где мок держит журнал не в записи, а в отдельном хранилище, куда копирует
@@ -1335,7 +1349,7 @@ Save-режим: quick-action (по замыслу).
 ### GET /api/warehouse/deficit/:deficitId
 
 Карточка нехватки. Save-режим: чтение. Один вызывающий — `load()`
-(`useWarehouseDeficitCard.ts:60-78`), он же берёт журнал полем ответа (`:72`).
+(`useWarehouseDeficitCard.ts:60-83`), он же берёт журнал полем ответа (`:72`).
 
 Запрос: только путь (`frontend_vue/src/services/warehouseService.ts:241-243`).
 
@@ -1343,8 +1357,10 @@ Save-режим: quick-action (по замыслу).
 (`frontend_vue/src/services/mocks/warehouse.ts:1654-1658`) — 15 полей
 (`frontend_vue/src/types/warehouse.ts:442-467`).
 
-Ошибки: `DEFICIT_NOT_FOUND` (`frontend_vue/src/services/mocks/warehouse.ts:1656`) — доходит до
-человека сырой строкой (`useWarehouseDeficitCard.ts:74`).
+Ошибки: `DEFICIT_NOT_FOUND` (`frontend_vue/src/services/mocks/warehouse.ts:1656`) — до 2026-09-23
+доходил до человека сырой строкой; теперь `errorMessageKey()` переводит его в
+`warehouse.deficit_not_found` (`useWarehouseDeficitCard.ts:74-79`), а незнакомый код — в
+`warehouse.toast_error_load`.
 
 Обязанности сервера: те же две копии, что у списка — `productName`, `currentStock`, `deficitAmount`.
 
@@ -1354,14 +1370,14 @@ Save-режим: quick-action (по замыслу).
 
 ### PATCH /api/warehouse/deficit/:deficitId
 
-Правка нехватки. Save-режим: clean-slate в карточке (`useWarehouseDeficitCard.ts:80-99`, Discard
+Правка нехватки. Save-режим: clean-slate в карточке (`useWarehouseDeficitCard.ts:85-104`, Discard
 `:101-109`) и quick-action в списке — инлайновые селекты приоритета и статуса с перезагрузкой после
 (`useWarehouse.ts:385-403`).
 
 Запрос: `DeficitPatchPayload` — шесть ключей: `minRequired?`, `priority?`, `status?`,
 `suggestedOrderQty?`, `purchaseOrderId?`, `notes?`
 (`frontend_vue/src/types/warehouse.ts:499-506`). Карточка шлёт дельту из трёх правимых полей
-(`useWarehouseDeficitCard.ts:84`, форма `:32-40`) — здесь, в отличие от карточек партии и обрезка,
+(`useWarehouseDeficitCard.ts:89`, форма `:32-40`) — здесь, в отличие от карточек партии и обрезка,
 форма совпадает с payload и лишних ключей не уезжает. Список шлёт одиночные `{priority}` и
 `{status}` (`useWarehouse.ts:387`, `:397`).
 
@@ -1390,7 +1406,7 @@ Save-режим: quick-action (по замыслу).
 ### DELETE /api/warehouse/deficit/:deficitId
 
 Удаление нехватки. Save-режим: quick-action по подтверждению. Двое вызывающих: список
-(`useWarehouse.ts:338-346`) и карточка с переходом на вкладку (`useWarehouseDeficitCard.ts:111-123`).
+(`useWarehouse.ts:338-346`) и карточка с переходом на вкладку (`useWarehouseDeficitCard.ts:116-128`).
 
 Запрос: тела нет (`frontend_vue/src/services/warehouseService.ts:256-258`).
 
@@ -1398,7 +1414,7 @@ Save-режим: quick-action (по замыслу).
 
 Ошибки: `DEFICIT_NOT_FOUND` (`frontend_vue/src/services/mocks/warehouse.ts:1772`). До человека не
 доходит: оба вызывающих ловят `catch` без параметра (`useWarehouse.ts:343`,
-`useWarehouseDeficitCard.ts:118`).
+`useWarehouseDeficitCard.ts:123`).
 
 Обязанности сервера, две:
 
@@ -1526,7 +1542,7 @@ Save-режим: quick-action по кнопке. Один вызывающий �
   должно» — §14 соглашений.
 - **Маржа.** `constants.defaultMargin` подставляется засеянной партии без маржи
   (`frontend_vue/src/services/mocks/warehouse.ts:110-113`) и новой партии (`:779`), а форма карточки
-  берёт её из стора настроек (`useWarehouseBatch.ts:119`, `:207`, `:285`, `:315`). При этом
+  берёт её из стора настроек (`useWarehouseBatch.ts:119`, `:207`, `:290`, `:320`). При этом
   `marginPercent` в `BatchPatchPayload` не объявлен
   (`frontend_vue/src/types/warehouse.ts:190-204`) и колонки под него на схеме нет.
 - **Ширина реза.** Владелец — настройки арендатора (**П34**): у разного оборудования она разная.
@@ -1713,8 +1729,8 @@ index=True`, FK на `tenants.id` с `ondelete="CASCADE"` у `warehouse_batches`
 
 **А между запросами транзакции нет ни одной, и клиент рвёт операции на части в трёх местах:** Save
 карточки партии — PATCH плюс `POST /movements` при смене адреса, провал второго только показывает
-info-тост (`useWarehouseBatch.ts:255-276`); Save карточки обрезка — PATCH плюс до двух движений, оба
-с `.catch(() => {})` (`useWarehouseOffcutCard.ts:288-323`); смена статуса обрезка из списка — PATCH
+info-тост (`useWarehouseBatch.ts:260-281`); Save карточки обрезка — PATCH плюс до двух движений, оба
+с `.catch(() => {})` (`useWarehouseOffcutCard.ts:293-328`); смена статуса обрезка из списка — PATCH
 плюс движение, чей провал заглушен комментарием «Movement creation is secondary»
 (`useWarehouse.ts:362-383`). Плюс четвёртое место того же класса, но без записи: карточка остатка
 тянет агрегаты циклом по всем партиям товара (`useWarehouseStockCard.ts:53-59`, БАГ-12).
@@ -1726,7 +1742,7 @@ info-тост (`useWarehouseBatch.ts:255-276`); Save карточки обрез
 
 **Что обязано быть атомарным — решено 2026-09-09 (П43):** склад входит в число атомарных вместе с
 заказом. Save карточки партии применяется целиком либо не применяется вовсе, и разрыв операции на
-два-три запроса без общей границы (`useWarehouseBatch.ts:255`, `:262`) перестаёт быть допустимым
+два-три запроса без общей границы (`useWarehouseBatch.ts:260`, `:267`) перестаёт быть допустимым
 (§15 соглашений).
 
 ### 9. Производные значения: сервер считает, а не хранит
@@ -1824,7 +1840,7 @@ FIFO-стоимость (`:1801-1849`), `total` и `totalPages` пагинаци
     об одном журнале (`:228-233`, аккумулятор `:1583-1591`). Тоже свойство мока.
 13. **Адрес хранения — составная строка, и её формат продублирован в трёх местах.**
     `"Rack: X | Row: Y | Cell: Z\nNotes: …"`: четыре регулярки и разбор в моке (`:649-678`), вторая
-    реализация в карточке партии (сборка `useWarehouseBatch.ts:242-248`), третья — на странице
+    реализация в карточке партии (сборка `useWarehouseBatch.ts:247-253`), третья — на странице
     создания обрезка (`useWarehouseOffcutCreate.ts:13`, `:301-306`). Справочника секторов нет.
 14. **Идентификаторы домена — строки с префиксом, и у обрезка их два.** Партия `whb-NNN`
     (`frontend_vue/src/services/mocks/warehouse.ts:683`), движение `whm-NNN` (`:1225`), нехватка
@@ -1953,7 +1969,7 @@ FIFO-стоимость (`:1801-1849`), `total` и `totalPages` пагинаци
 | **снято 2026-09-10 (П23)** · незачем: колонка удаляется вместе с отказом от конверсии валют — курса в системе нет нигде | графа 5, пункт 3; [§14](00-conventions.md) |
 | **решено 2026-09-10 (П26, П65 а)** · правилами пересчёта владеет код, сервер их валидирует; карта склада — просто картинка, значит адрес хранения партии с ней структурно не связан и сверять адрес по карте сервер не обязан (вторая половина — чтение контракта, не слово владельца) | графа 5, пункты 2 и 4; [§25](00-conventions.md), [§14](00-conventions.md) |
 | **решено 2026-09-07** · права на создание партии, резку и движение — обычные элементы CRUD-матрицы по надобности роли (П2, П7); удаление записи журнала — **только владелец** (П8). **Решено 2026-09-07 (П18)** · себестоимость партии сервер **вырезает и присылает цену продажи посчитанной**. Причина выбора: неизвестно, нужна ли кладовщику себестоимость и надо ли её от него прятать, поэтому форма ответа обязана выдержать оба случая. По полям это значит: `sellingPrice` завести в ответе — сегодня его на проводе нет, это клиентский `computed` (`views/admin/warehouse/WarehouseBatchCard.vue:64-68`); вырезать три поля — `unitPrice` (`types/warehouse.ts:99`), `totalCost` (`:100-101`, это `quantity × unitPrice`) и `marginPercent` (`:120`), последнее по правилу полноты вырезания, иначе себестоимость получают делением; `totalSellingValue` не заводить — он выводится из `sellingPrice` и `quantity`. Экран это не ломает: случай «цены нет» уже предусмотрен, поле показывает прочерк (`WarehouseBatchCard.vue:62`, `:65`). Страница при этом обязана не рисовать колонок себестоимости такому пользователю ([§6.7](00-conventions.md)) | графа 7; [§6.6](00-conventions.md), [§6.10](00-conventions.md) |
-| **решено 2026-09-09 (П43)** · склад назван атомарным поимённо: Save карточки партии применяется целиком либо не применяется вовсе. Сегодня это `patchBatch()` и следом `createMovement()` двумя запросами без общей границы (`useWarehouseBatch.ts:255`, `:262`), а провал второго заглушён | графа 8; [§15](00-conventions.md) |
+| **решено 2026-09-09 (П43)** · склад назван атомарным поимённо: Save карточки партии применяется целиком либо не применяется вовсе. Сегодня это `patchBatch()` и следом `createMovement()` двумя запросами без общей границы (`useWarehouseBatch.ts:260`, `:267`), а провал второго заглушён | графа 8; [§15](00-conventions.md) |
 | **осталось** · какие колонки в каждой из пяти выгрузок | раздел `GET /api/warehouse/export/:tab`, обязанность 4; ответа нет ни в моке, ни на сервере |
 | **осталось** · что делать с `purchaseOrderId`, который правится, но задаётся негде | раздел `PATCH /api/warehouse/deficit/:deficitId`, обязанность 1; модуля закупочных заказов в проекте нет |
 | **осталось** · как выразить на проводе `exceptLine` и `claimed`, которых HTTP-вызывающий передать не может | раздел `GET /api/warehouse/stock/:productId/cost`, обязанность 2 |
