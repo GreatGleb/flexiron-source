@@ -110,7 +110,6 @@
     {
       "id": "conventions-sections-2-and-11-tell-the-truth",
       "depends_on": [
-        "mock-refusals-categories",
         "mock-idempotency-scope"
       ],
       "sources": [
