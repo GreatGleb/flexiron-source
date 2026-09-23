@@ -315,15 +315,20 @@ function delay<T>(data: T, ms = 300): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(data), ms))
 }
 
-// ─── Idempotency cache (Idempotency-Key → cached response) ───
-const idempotencyCache = new Map<string, unknown>()
+// ─── Idempotency cache: (path + Idempotency-Key) → cached response, 24h (П46) ───
+const idempotencyCache = new Map<string, { result: unknown; storedAt: number }>()
 
-function withIdempotency<T>(headers: Record<string, string> | undefined, fn: () => T): T {
+function withIdempotency<T>(
+  path: string,
+  headers: Record<string, string> | undefined,
+  fn: () => T,
+): T {
   const key = headers?.['Idempotency-Key'] ?? headers?.['idempotency-key']
   if (!key) return fn()
-  if (idempotencyCache.has(key)) return idempotencyCache.get(key) as T
+  const cached = idempotencyCache.get(`${path}\u0000${key}`)
+  if (cached && Date.now() - cached.storedAt < 86400000) return cached.result as T // 24h
   const result = fn()
-  idempotencyCache.set(key, result)
+  idempotencyCache.set(`${path}\u0000${key}`, { result, storedAt: Date.now() })
   return result
 }
 
@@ -1033,14 +1038,14 @@ async function postMockRoute<T>(
 
   if (path === '/api/bcc/send') {
     return delay(
-      withIdempotency(headers, () =>
+      withIdempotency(path, headers, () =>
         mockSendBccRequest(body as Parameters<typeof mockSendBccRequest>[0]),
       ) as T,
     )
   }
   if (path === '/api/bcc/log') {
     return delay(
-      withIdempotency(headers, () =>
+      withIdempotency(path, headers, () =>
         mockLogBccRequest(body as Parameters<typeof mockLogBccRequest>[0]),
       ) as T,
     )
@@ -1157,14 +1162,14 @@ async function postMockRoute<T>(
     const orderSubpath = `${orderRouteMatch[1]}:id${orderRouteMatch[3]}`
     if (orderSubpath === '/api/orders/:id/shipments') {
       return delay(
-        withIdempotency(headers, () =>
+        withIdempotency(path, headers, () =>
           mockCreateShipment(orderId, body as Parameters<typeof mockCreateShipment>[1]),
         ) as T,
       )
     }
     if (orderSubpath === '/api/orders/:id/payments') {
       return delay(
-        withIdempotency(headers, () =>
+        withIdempotency(path, headers, () =>
           mockAddOrderPayment(orderId, body as Parameters<typeof mockAddOrderPayment>[1]),
         ) as T,
       )
@@ -1173,7 +1178,7 @@ async function postMockRoute<T>(
     // it is the third operation that may not happen twice on one intent.
     if (orderSubpath === '/api/orders/:id/returns') {
       return delay(
-        withIdempotency(headers, () =>
+        withIdempotency(path, headers, () =>
           mockCreateReturn(orderId, body as Parameters<typeof mockCreateReturn>[1]),
         ) as T,
       )
