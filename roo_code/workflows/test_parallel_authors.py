@@ -28,6 +28,16 @@ calls = pathlib.Path(os.environ['NIGHT_TEST_CALLS'])
 mode = os.environ.get('NIGHT_TEST_MODE', '')
 with calls.open('a') as stream:
     stream.write(f"start {task['id']} {time.time()}\n")
+barrier = int(os.environ.get('NIGHT_TEST_BARRIER', '0'))
+if barrier:
+    # Ждём, пока стартуют все авторы пачки. Идут по очереди — не дождёмся и упадём.
+    deadline = time.time() + 20
+    while time.time() < deadline:
+        if calls.read_text().count('start ') >= barrier:
+            break
+        time.sleep(0.05)
+    else:
+        sys.exit(3)
 time.sleep(0.7)
 names = list(task['outputs'])
 if mode == 'outside' and task['id'] == 'beta':
@@ -84,11 +94,12 @@ class ParallelRunTest(unittest.TestCase):
     git = _pilot.PilotTest.git
     state = _pilot.PilotTest.state
 
-    def invoke(self, parallel, mode=""):
+    def invoke(self, parallel, mode="", barrier=0):
         command = [sys.executable, str(RUNNER), "--workspace", str(self.root), "--queue", str(self.queue),
                    "--routing", str(self.routing), "--run", "--run-dir", str(self.logs),
                    "--minutes", "2", "--max-tasks", "2", "--parallel", str(parallel)]
-        return subprocess.run(command, env={**self.env, "NIGHT_TEST_MODE": mode},
+        return subprocess.run(command, env={**self.env, "NIGHT_TEST_MODE": mode,
+                                            "NIGHT_TEST_BARRIER": str(barrier)},
                               capture_output=True, text=True, timeout=120)
 
     def spans(self):
@@ -102,14 +113,12 @@ class ParallelRunTest(unittest.TestCase):
         return spans
 
     def test_two_authors_write_at_the_same_time(self):
-        result = self.invoke(parallel=2)
+        # Каждый автор ждёт старта второго. Пойди они по очереди — первый не дождётся
+        # и упадёт, прогон остановится. Успех и есть доказательство одновременности.
+        result = self.invoke(parallel=2, barrier=2)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.state()["status"], "completed")
         self.assertEqual(len(self.state()["completed"]), 2)
-        spans = self.spans()
-        # Ради этого всё и делалось: второй начал раньше, чем первый закончил.
-        self.assertLess(max(s["start"] for s in spans.values()),
-                        min(s["end"] for s in spans.values()))
 
     def test_sequential_run_keeps_authors_apart(self):
         result = self.invoke(parallel=1)
