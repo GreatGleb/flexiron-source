@@ -369,6 +369,22 @@ class MixedRunTest(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(self.git("rev-parse", "HEAD"), self.baseline)
 
+    def test_reviewer_gets_the_diff_and_check_logs_in_the_prompt(self):
+        # У проверяющего уходило 27-42 хода, половина — поиск того, что уже лежит
+        # у контроллера. Дифф и хвосты проверок теперь приходят вместе с заданием.
+        self.assertEqual(self.invoke().returncode, 0)
+        prompt = (self.logs / "plan-review.prompt.txt").read_text()
+        self.assertIn("=== Дифф работы (git diff HEAD) ===", prompt)
+        self.assertIn("+prepared", prompt)
+        self.assertIn("=== Хвосты машинных проверок ===", prompt)
+        self.assertIn("fake verification", prompt)
+        self.assertIn("Полные логи (включая stderr):", prompt)
+
+    def test_author_prompt_carries_no_diff(self):
+        # Автору дифф не нужен: он его и создаёт.
+        self.assertEqual(self.invoke().returncode, 0)
+        self.assertNotIn("=== Дифф работы", (self.logs / "plan-work.prompt.txt").read_text())
+
     def test_preflight_names_both_backends(self):
         result = self.invoke(run=False)
         self.assertEqual(result.returncode, 0, result.stderr)
