@@ -16,6 +16,7 @@ import ts from 'typescript'
  * | 4 | операнд по дереву | 10 форм ЛИТЕРАЛА и ОПЕРАЦИИ из 10 |
  * | 5 | все три стороны сравнения по смыслу | поток ЧЕРЕЗ ХРАНИЛИЩЕ: поле объекта, `.value` рефа, параметр функции, чужой файл |
  * | 6 | место, где значение полежало | поток ЧЕРЕЗ ОПЕРАЦИЮ: `e.message ?? ''`, шаблон, склейка, `String(текста)`, тара |
+ * | 7 | операция, через которую значение прошло | тара, наполненная конструктором (`new Map/Set`), и обход тары чужой функцией (`Object.values`, `map`, …) |
  *
  * Шестая версия существует потому, что пятая разбирала по смыслу выражение, но не
  * **место, где значение полежало**. Текст исключения, положенный в `error.value`, в поле
@@ -48,6 +49,21 @@ import ts from 'typescript'
  *   `arr.push(t)`/`map.set(k, t)` — это присваивание в путь тары, `arr[i]`/`map.get(k)` —
  *   чтение оттуда. Элементы между собой не различаются: огрублённость названа нарочно.
  *
+ * Восьмая версия закрывает то, что седьмая знала как названный предел, а не проверяла:
+ * тару можно наполнить и прочитать, не тронув ни одной из уже разобранных записей.
+ * - **значение, положенное в тару её же СОЗДАНИЕМ**, читается оттуда как то же значение:
+ *   `new Map([['k', e.message]])`, `new Set([e.message])` для седьмой версии были пустым
+ *   местом — разбор выражений заходил в литерал массива и в запись методом, но не в
+ *   `new` вовсе. Теперь первый аргумент `new Map(...)`/`new Set(...)` разбирается тем же
+ *   способом, что литерал тары: значение, лежащее внутри, — то же самое значение;
+ * - **обход тары, возвращающий её же элементы, несёт их дальше**, кто бы этот обход ни
+ *   делал. `CONTAINER_READS` знала свои методы (`get`, `at`, `find`, …), но `Object.values(x)`
+ *   и `Object.entries(x)` читают не получателя вызова, а свой аргумент `x` — для разбора
+ *   по имени метода они выглядели как чтение `Object`, то есть ничего; `map`, `filter`,
+ *   `flatMap`, `slice`, `concat`, `reverse`, `sort` вообще не значились чтением, хотя
+ *   отдают те же элементы новым массивом. `Object.keys(x)` в этот список не входит
+ *   нарочно: ключи — имена полей, а не значения, и текстом исключения не считаются.
+ *
  * **Чего сторож не умеет** (названо, чтобы зелёное не читалось как доказательство
  * отсутствия — питфолл #66):
  * - **межфайловый поток без фактов**: если вызывающий не подал `FactsLookup`, чужой
@@ -55,8 +71,6 @@ import ts from 'typescript'
  * - значение, собранное во время работы (`new RegExp(переменная)`);
  * - блочная область видимости огрублена до функции: два `const` с одним именем в разных
  *   блоках одной функции сливаются;
- * - тара, наполненная в конструкторе (`new Map([['k', текст]])`), и обход тары чужой
- *   функцией (`Object.values(box)`, `box.map(x => x)[0]`) — промерены 2026-09-13, молчат;
  * - анализ нечувствителен к порядку: функция, вызванная где угодно с текстом исключения,
  *   считается получающей его во всех своих сравнениях.
  */
@@ -137,8 +151,27 @@ const CONTAINER_WRITES = new Map([
   ['set', 1],
 ])
 
-/** Чтение из тары: значение приходит из неё целиком. */
-const CONTAINER_READS = new Set(['get', 'at', 'pop', 'shift', 'find', 'values', 'flat'])
+/**
+ * Чтение из тары: значение приходит из неё целиком. `map`/`filter`/`flatMap`/`slice`/
+ * `concat`/`reverse`/`sort` сюда же — те же элементы, только новым массивом вместо одного;
+ * элементы между собой по-прежнему не различаются (та же огрублённость, что у `get`).
+ */
+const CONTAINER_READS = new Set([
+  'get',
+  'at',
+  'pop',
+  'shift',
+  'find',
+  'values',
+  'flat',
+  'map',
+  'filter',
+  'flatMap',
+  'slice',
+  'concat',
+  'reverse',
+  'sort',
+])
 
 /** Вызовы, дающие законный ответ на вопрос «какой это код». */
 const SOURCES_OF_TRUTH = new Set(['errorCode', 'errorMessageKey'])
@@ -509,6 +542,28 @@ function flows(raw: ts.Node, ctx: Ctx, taint: Taint, seen = new Set<ts.Node>()):
   if (ts.isArrayLiteralExpression(node))
     return node.elements.some((element) => flows(element, ctx, taint, seen))
   if (ts.isSpreadElement(node)) return flows(node.expression, ctx, taint, seen)
+  // Литерал объекта, прочитанный целиком (`Object.values`/`Object.entries` ниже): любое из
+  // значений заражает результат. Имена полей тут не участвуют — эта ветка про значения, а
+  // не про то, под каким ключом они лежат.
+  if (ts.isObjectLiteralExpression(node)) {
+    return node.properties.some((property) => {
+      if (ts.isPropertyAssignment(property)) return flows(property.initializer, ctx, taint, seen)
+      if (ts.isShorthandPropertyAssignment(property)) return flows(property.name, ctx, taint, seen)
+      if (ts.isSpreadAssignment(property)) return flows(property.expression, ctx, taint, seen)
+      return false
+    })
+  }
+  // Тара, наполненная в конструкторе: `new Map([['k', e.message]])`, `new Set([e.message])`.
+  // Первый аргумент — то же место, что литерал тары: значение, положенное туда при
+  // создании, читается оттуда как то же значение.
+  if (ts.isNewExpression(node)) {
+    const callee = unwrap(node.expression)
+    if (ts.isIdentifier(callee) && (callee.text === 'Map' || callee.text === 'Set')) {
+      const arg = node.arguments?.[0]
+      return arg !== undefined && flows(arg, ctx, taint, seen)
+    }
+    return false
+  }
 
   if (ts.isCallExpression(node)) {
     const callee = unwrap(node.expression)
@@ -523,11 +578,23 @@ function flows(raw: ts.Node, ctx: Ctx, taint: Taint, seen = new Set<ts.Node>()):
       return originsOfExpression(callee, ctx).some((o) => flows(o, ctx, taint, seen))
     }
     if (ts.isPropertyAccessExpression(callee)) {
-      // `текст.trim()` остаётся текстом; `map.get(k)` отдаёт то, что в таре.
+      const receiver = unwrap(callee.expression)
+      // `Object.values(x)`/`Object.entries(x)` отдают то, что лежит в `x` — тара здесь не
+      // получатель вызова, а аргумент, и разбор по имени метода её не находил.
+      // `Object.keys(x)` сюда не входит нарочно: ключи — имена полей, а не значения.
+      if (
+        ts.isIdentifier(receiver) &&
+        receiver.text === 'Object' &&
+        (callee.name.text === 'values' || callee.name.text === 'entries')
+      ) {
+        const arg = node.arguments[0]
+        return arg !== undefined && flows(arg, ctx, taint, seen)
+      }
+      // `текст.trim()` остаётся текстом; `map.get(k)` отдаёт то, что в таре; `box.map(…)`,
+      // `box.filter(…)` и подобные — то же чтение тары, просто новым массивом.
       if (STRING_TRANSFORMS.has(callee.name.text) || CONTAINER_READS.has(callee.name.text))
         return flows(callee.expression, ctx, taint, seen)
       // `JSON.stringify(e)` — та же стрингификация целого значения, что и `String(e)`.
-      const receiver = unwrap(callee.expression)
       if (
         callee.name.text === 'stringify' &&
         ts.isIdentifier(receiver) &&
