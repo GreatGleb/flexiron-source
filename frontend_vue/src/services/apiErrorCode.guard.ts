@@ -17,6 +17,7 @@ import ts from 'typescript'
  * | 5 | все три стороны сравнения по смыслу | поток ЧЕРЕЗ ХРАНИЛИЩЕ: поле объекта, `.value` рефа, параметр функции, чужой файл |
  * | 6 | место, где значение полежало | поток ЧЕРЕЗ ОПЕРАЦИЮ: `e.message ?? ''`, шаблон, склейка, `String(текста)`, тара |
  * | 7 | операция, через которую значение прошло | тара, наполненная конструктором (`new Map/Set`), и обход тары чужой функцией (`Object.values`, `map`, …) |
+ * | 8 | тара конструктором и обход тары чужой функцией | код, собранный `new RegExp(...)`: регулярка-литерал разрешался, конструктор — нет; чтение через `exec` не разбиралось наравне с `test` |
  *
  * Шестая версия существует потому, что пятая разбирала по смыслу выражение, но не
  * **место, где значение полежало**. Текст исключения, положенный в `error.value`, в поле
@@ -68,7 +69,6 @@ import ts from 'typescript'
  * отсутствия — питфолл #66):
  * - **межфайловый поток без фактов**: если вызывающий не подал `FactsLookup`, чужой
  *   модуль для сторожа пуст. Факты снимаются на один шаг — помощник помощника не виден;
- * - значение, собранное во время работы (`new RegExp(переменная)`);
  * - блочная область видимости огрублена до функции: два `const` с одним именем в разных
  *   блоках одной функции сливаются;
  * - анализ нечувствителен к порядку: функция, вызванная где угодно с текстом исключения,
@@ -654,6 +654,16 @@ function codeOf(
     const body = node.text.replace(/^\//, '').replace(/\/[a-z]*$/, '')
     return CODE_LITERAL.test(body) ? body : null
   }
+  // `new RegExp(<источник>)` сводится к коду ровно тогда, когда сам `<источник>` уже
+  // сводится к коду теми же средствами — рекурсия проверяет тот же порог `CODE_LITERAL`.
+  if (ts.isNewExpression(node)) {
+    const callee = unwrap(node.expression)
+    if (ts.isIdentifier(callee) && callee.text === 'RegExp') {
+      const arg = node.arguments?.[0]
+      return arg !== undefined ? codeOf(arg, ctx, bindings, seen) : null
+    }
+    return null
+  }
   if (ts.isArrayLiteralExpression(node)) {
     for (const element of node.elements) {
       const code = codeOf(element, ctx, bindings, seen)
@@ -727,7 +737,9 @@ function scanComparisons(
       const arg = node.arguments[0]
 
       if (arg && STRING_PROBES.has(method)) check(receiver, arg)
-      if (arg && method === 'test') check(arg, receiver)
+      // `exec` читает регулярку тем же способом, что `test`: операнд — аргумент, получатель
+      // — источник кода.
+      if (arg && (method === 'test' || method === 'exec')) check(arg, receiver)
 
       // Перебор набора кодов: параметр обратного вызова — это элементы набора.
       if (arg && ARRAY_PROBES.has(method)) {
