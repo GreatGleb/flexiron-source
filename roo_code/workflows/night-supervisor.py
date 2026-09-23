@@ -57,6 +57,8 @@ def main():
     parser.add_argument("--operator-model", default="claude-opus-5")
     parser.add_argument("--operator-binary")
     parser.add_argument("--max-tasks", type=int, default=8, help="Задач в одной порции")
+    parser.add_argument("--parallel", type=int, default=1,
+                        help="Сколько авторов писать одновременно внутри порции")
     parser.add_argument("--max-batches", type=int, default=20)
     args = parser.parse_args()
 
@@ -104,7 +106,7 @@ def main():
 
         result = runner(["--workspace", str(root), "--queue", str(queue_path), "--routing", str(args.routing),
                          "--run", "--run-dir", str(run_dir), "--minutes", f"{minutes_left - 5:.1f}",
-                         "--max-tasks", str(args.max_tasks),
+                         "--max-tasks", str(args.max_tasks), "--parallel", str(args.parallel),
                          "--token-budget", str(args.token_budget - spent)])
         state = json.loads((run_dir / "state.json").read_text())
         spent += state.get("tokens", 0)
