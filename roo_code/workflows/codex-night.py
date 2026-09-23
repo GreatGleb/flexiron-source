@@ -6,6 +6,7 @@ The controller owns logs, checks, and commits; agents only edit task files.
 """
 
 import argparse
+import concurrent.futures
 import fcntl
 import json
 import math
@@ -147,6 +148,64 @@ def link_report(root, doc, prefix, deadline):
     return int(found[-1])
 
 
+def disjoint_batch(candidates, size):
+    """Сколько задач можно писать одновременно: те, что не делят ни одного файла.
+
+    Владение файлом — единственный критерий. Два автора в одном файле затрут друг
+    друга молча, и ни одна из проверок ядра этого не увидит: каждая правка сама по
+    себе выглядит законной.
+    """
+    batch, owned = [], set()
+    for task in candidates:
+        files = set(task["outputs"])
+        if files & owned:
+            continue
+        batch.append(task)
+        owned |= files
+        if len(batch) >= size:
+            break
+    return batch
+
+
+def write_author(root, backends, task, run_dir, deadline):
+    """Автор работает в своём worktree, а не в общем дереве.
+
+    Возвращает (результат, патч). Патч применяется в checkout позже и по одному:
+    параллелен здесь только автор, всё остальное — проверки, приёмка, коммит —
+    остаётся последовательным, иначе `npm run verify` погонит чужую недописанную
+    работу и упадёт не по своей причине.
+    """
+    worktree = run_dir / f'wt-{task["id"]}'
+    git(root, "worktree", "add", "--detach", str(worktree), "HEAD")
+    modules = root / "frontend_vue/node_modules"
+    if modules.is_dir():
+        # Без него автор потратит ходы на попытки запустить проверки, которые
+        # всё равно выполняет контроллер.
+        (worktree / "frontend_vue/node_modules").symlink_to(modules)
+    before = git_state(worktree)
+    result = ask_agent(worktree, backends, task, "work", run_dir, deadline)
+    if git_state(worktree) != before:
+        raise RuntimeError(f'{task["id"]}: исполнитель изменил Git в своём worktree')
+    outside = changed(worktree) - set(task["outputs"])
+    if outside:
+        raise RuntimeError(f'{task["id"]}: исполнитель изменил файлы вне задачи: {sorted(outside)}')
+    touched = sorted(changed(worktree))
+    patch = None
+    if touched:
+        # add нужен, чтобы в патч попали новые файлы: git diff их не видит.
+        execute(["git", "add", "--", *touched], worktree, run_dir / f'{task["id"]}-stage-wt', deadline)
+        patch = run_dir / f'{task["id"]}.patch'
+        patch.write_bytes(subprocess.check_output(["git", "-C", str(worktree), "diff", "--cached", "--binary"]))
+    return result, patch
+
+
+def drop_worktrees(root, run_dir):
+    for worktree in sorted(run_dir.glob("wt-*")):
+        subprocess.run(["git", "-C", str(root), "worktree", "remove", "--force", str(worktree)],
+                       capture_output=True)
+    subprocess.run(["git", "-C", str(root), "worktree", "prune"], capture_output=True)
+
+
 def spent_tokens(backends, run_dir):
     """Сколько токенов потрачено прогоном на бэкенды, идущие в счёт потолка.
 
@@ -155,7 +214,8 @@ def spent_tokens(backends, run_dir):
     """
     total = 0
     for path in sorted(run_dir.glob("*.stdout.log")):
-        role = next((r for r in ROLES if f"-{r}" in path.name), None)
+        match = re.fullmatch(r".*-(work|review)(?:-retry-\d+)?\.stdout\.log", path.name)
+        role = match.group(1) if match else None
         if role and backends[role].metered:
             total += backends[role].tokens(Path(str(path)[: -len(".stdout.log")]))
     return total
@@ -408,7 +468,8 @@ def ask_agent(root, backends, task, role, run_dir, deadline):
             time.sleep(2)
 
 
-def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous=None, token_budget=None):
+def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous=None,
+        token_budget=None, parallel=1):
     if run_dir.is_relative_to(root):
         raise ValueError("Каталог результатов должен находиться вне checkout")
     # Never reuse a directory: even a stopped run remains intact.
@@ -505,6 +566,7 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
             if changed(root) or git_state(root) != baseline_git:
                 raise RuntimeError("Baseline-проверка изменила checkout")
         attempts = 0
+        prepared = {}
         for task in tasks:
             resolved = {x["task"] for key in ("completed", "blocked", "waiting") for x in state[key]}
             if task["id"] in resolved:
@@ -549,8 +611,32 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
                 state["current"] = None
                 continue
             work = {"status": "done"}
-            if not retry or task["id"] != retry["current"]:
+            if retry and task["id"] == retry["current"]:
+                pass
+            elif parallel <= 1:
                 work = ask_agent(root, backends, task, "work", run_dir, deadline)
+            else:
+                if task["id"] not in prepared:
+                    # Пачка — только задачи, не делящие файлов, и только те, что уже
+                    # можно начинать: зависимости и потолок проверены выше по циклу.
+                    resolved_now = {x["task"] for key in ("completed", "blocked", "waiting")
+                                    for x in state[key]}
+                    candidates = [t for t in tasks
+                                  if t["id"] not in resolved_now and t["id"] not in prepared
+                                  and not (deps[t["id"]] - resolved_now)]
+                    batch = disjoint_batch(candidates, min(parallel, max_tasks - attempts + 1))
+                    state["batch"] = [t["id"] for t in batch]
+                    save("batch")
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=len(batch)) as pool:
+                        futures = {pool.submit(write_author, root, backends, t, run_dir, deadline): t
+                                   for t in batch}
+                        for future in concurrent.futures.as_completed(futures):
+                            prepared[futures[future]["id"]] = future.result()
+                    drop_worktrees(root, run_dir)
+                work, patch = prepared.pop(task["id"])
+                if patch is not None and work["status"] != "blocked":
+                    execute(["git", "apply", "--binary", str(patch)], root,
+                            run_dir / f'{task["id"]}-apply', deadline)
             if git_state(root) != expected_git or changed(root) - set(task["outputs"]):
                 raise RuntimeError("Исполнитель изменил Git или файлы вне задачи")
             if work["status"] == "blocked":
@@ -610,9 +696,11 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
         state["status"] = ("token-budget" if exhausted else
                            "task-limit" if resolved_count < len(tasks) else
                            "completed-with-blockers" if state["blocked"] else "completed")
+        drop_worktrees(root, run_dir)
         save("finish")
         return 0
     except (Exception, KeyboardInterrupt) as exc:
+        drop_worktrees(root, run_dir)
         state["status"] = "stopped"
         state["reason"] = str(exc) or type(exc).__name__
         save("stop")
@@ -626,6 +714,8 @@ def main():
     parser.add_argument("--codex", default="codex", help="Бинарь Codex, если маршрутизация не задана")
     parser.add_argument("--routing", type=Path, help="Файл маршрутизации ролей по бэкендам")
     parser.add_argument("--token-budget", type=int, help="Потолок расхода токенов на прогон")
+    parser.add_argument("--parallel", type=int, default=1,
+                        help="Сколько авторов писать одновременно (каждый в своём worktree)")
     parser.add_argument("--run", action="store_true", help="Без флага — только preflight, без вызова модели")
     parser.add_argument("--run-dir", type=Path)
     parser.add_argument("--minutes", type=float)
@@ -653,7 +743,7 @@ def main():
         retry = retry_checkpoint(root, queue, previous) if previous else None
         preflight(root, queue, backends, retry)
         return run(root, queue, backends, args.run_dir.resolve(), args.minutes, args.max_tasks,
-                   retry, previous, args.token_budget)
+                   retry, previous, args.token_budget, args.parallel)
 
 
 if __name__ == "__main__":
