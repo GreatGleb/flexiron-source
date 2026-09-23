@@ -236,8 +236,8 @@ interface RegisterResponse {
 `register/schemas.py:8-42`
 Реализация: `composables/useAuth.ts:146` · **мока нет** — БАГ-01: ветки `/api/auth/register` в
 `mocks/index.ts` не существует (`grep -n "auth/register" src/services/mocks/index.ts` пуст), запрос
-доходит до `throw new Error('[mock] POST … not found')` (`mocks/index.ts:1137`). Под моками
-регистрация падает целиком, против настоящего сервера работает
+доходит до `ApiRequestError` с кодом `NOT_FOUND` и текстом «[mock] POST … not found»
+(`mocks/index.ts:1304-1308`). Под моками регистрация падает целиком, против настоящего сервера работает
 
 ---
 
@@ -323,9 +323,9 @@ settings CRUD, profile и uploads. Оба издателя используют 
 Целевые 30 минут/30 суток бездействия реализуются в С1.
 
 Бэкенд: `auth/features/me/action.py:12-15` · схемы `me/schemas.py:7-19`
-Реализация: `composables/useAuth.ts:200` · мок `mocks/index.ts:296` (отдаёт объект, положенный
-входом, — без `secret_link` и без единого кода отказа: `throw new Error('Not authenticated')`,
-`:298`)
+Реализация: `composables/useAuth.ts:200` · мок `mocks/index.ts:392-403` (отдаёт объект, положенный
+входом, — без `secret_link`; отказ есть и с кодом: `ApiRequestError({ status: 401, code:
+'UNAUTHORIZED', ... })`, текст «Not authenticated» (`:397-401`))
 
 ---
 

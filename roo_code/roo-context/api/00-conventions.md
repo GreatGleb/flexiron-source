@@ -77,17 +77,17 @@
 - **Ни один код не является подстрокой другого.** Фронт местами сравнивает код подстрокой
   (`services/orderLineEdits.ts:343-354`), поэтому «услуги нет в каталоге» называется
   `CATALOG_SERVICE_NOT_FOUND`, а не `SERVICE_NOT_FOUND` (`mocks/orders.ts:373-376`).
-- **Отказ несёт код, а не текст.** Голый `Error('текст')` мок ещё бросает в двух местах —
-  `mocks/orders.ts` и `mocks/warehouse.ts`, 105 и 52 раза
-  (`grep -c "throw new Error(" frontend_vue/src/services/mocks/orders.ts` → 105, то же для
-  `warehouse.ts` → 52). Остальные четыре мока, где раньше стоял тот же приём, уже переведены на
-  `ApiRequestError`: клиенты и уведомления — через свой `mockRefusal` (`mocks/clients.ts:29`,
-  `mocks/notifications.ts:22`), товары и категории — прямым throw (`mocks/products.ts:13989`,
-  `mocks/categories.ts:1421`). Там, где голый `Error` ещё остался, текст доходит до человека
-  вместо перевода: заказы (`useOrderCreate.ts:479`), склад (`useWarehouseOffcutCard.ts:220`).
-  Против настоящего API код лежит в `ApiRequestError.code` (`types/api.ts:29`), а не в `message`,
-  — то есть ветки, читающие `e.message`, на сервере не сработают. Класс записан в баг-файлах пяти
-  доменов.
+- **Отказ несёт код, а не текст.** Голого `throw new Error(` в моках больше нет — во всех
+  18 модулях `services/mocks/*.ts` (кроме `*.spec.ts`) отказы кладут код в `ApiRequestError.code`
+  (`rg -c "throw new Error\(" frontend_vue/src/services/mocks/*.ts` не даёт ни одного
+  совпадения вне спек). Числа 105 и 52 у `orders.ts` и `warehouse.ts` не исчезли, а сменили
+  форму: файлы бросают те же отказы через свой хелпер — `refuse(...)` (`mocks/orders.ts:4851`,
+  `grep -c "throw refuse(" .../orders.ts` → 105) и `deny(...)` (`mocks/warehouse.ts:2079`, тот
+  же `grep -c` с `deny(` → 52), оба возвращают `ApiRequestError`. Текст всё ещё доходит до
+  человека вместо перевода в заказах (`useOrderCreate.ts:479`, `error.value = String(e)`);
+  склад починен — `useWarehouseOffcutCard.ts:220` уже читает код через `errorMessageKey`.
+  Против настоящего API код лежит в `.code` (`types/api.ts:29`), а не в `message` — класс
+  записан в баг-файлах пяти доменов.
 
 ## 3. PATCH против PUT
 
