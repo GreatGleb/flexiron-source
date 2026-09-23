@@ -29,6 +29,7 @@ DIFF_LIMIT = 120_000
 LOG_TAIL_LIMIT = 2_000
 sys.path.insert(0, str(HERE))
 from headless_backends import ROLES, load_routing  # noqa: E402  (нужен HERE в sys.path)
+import refs_shift  # noqa: E402
 
 SCHEMA = {
     "type": "object",
@@ -398,6 +399,17 @@ def ask_agent_once(root, backends, task, role, run_dir, deadline, attempt=1):
             instruction += f"--- {log.name} ---\n{tail}\n"
         full = sorted(run_dir.glob(f'{task["id"]}-check*.log'))
         instruction += "Полные логи (включая stderr): " + ", ".join(str(p) for p in full) + "\n"
+        refs_path = run_dir / f'{task["id"]}-refs.json'
+        if refs_path.is_file():
+            refs = json.loads(refs_path.read_text())
+            instruction += (f"\nСсылки документов: контроллер сам перенумеровал "
+                            f"{len(refs['перенумеровано'])} ссылок, чьи строки переехали дословно — "
+                            "это механика, придираться к ней не нужно.\n")
+            if refs["требуют_глаз"]:
+                instruction += ("Эти ссылки контроллер НЕ трогал, потому что строка изменилась, "
+                                "а не переехала — проверь, не стали ли они ложью:\n")
+                for item in refs["требуют_глаз"]:
+                    instruction += f"  {item['документ']}:{item['строка']} — {item['было']}\n"
     else:
         instruction += (
             "Ты исполнитель. Подготовь результат и тесты в разрешённых файлах. "
@@ -488,6 +500,7 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
     run_dir.mkdir(parents=True, exist_ok=False)
     shutil.copyfile(Path(__file__).resolve(), run_dir / "controller.py")
     shutil.copyfile(HERE / "headless_backends.py", run_dir / "headless_backends.py")
+    shutil.copyfile(HERE / "refs_shift.py", run_dir / "refs_shift.py")
     (run_dir / "backends.json").write_text(json.dumps(
         {role: {"backend": backends[role].name, **backends[role].options} for role in ROLES},
         ensure_ascii=False, indent=2))
@@ -660,6 +673,17 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
                                      "evidence": work.get("evidence", [])}, expected_git)
                 state["current"] = None
                 continue
+            # Ссылки документов на сдвинутые строки чинит контроллер: автор не имеет
+            # права трогать чужие документы, а держать в голове тысячи ссылок не может
+            # никто. Молча правятся только дословно переехавшие строки; изменившиеся
+            # уходят списком проверяющему — они могли стать ложью по существу.
+            renumbered, eyes = refs_shift.renumber(root)
+            if renumbered or eyes:
+                (run_dir / f'{task["id"]}-refs.json').write_text(json.dumps(
+                    {"перенумеровано": renumbered, "требуют_глаз": eyes}, ensure_ascii=False, indent=2))
+            touched = set(task["outputs"]) | {item["документ"] for item in renumbered}
+            if changed(root) - touched:
+                raise RuntimeError("Перенумерация ссылок вышла за пределы задачи и своих правок")
             before_review = git(root, "diff", "HEAD")
             files_before = file_snapshot(root)
             check_failure = None
