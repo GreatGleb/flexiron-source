@@ -346,7 +346,7 @@ bar не участвует.
 6. **Счёт поставщика без заказа ведёт к контрагенту, а не в пустую карточку заказа.** Развилка
    `entityType`/`entityRouteName` по наличию `orderId` и направлению платежа
    (`mocks/notifications.ts:699-726`), закреплено спекой
-   (`mocks/notification-triggers.spec.ts:348-360`).
+   (`mocks/notification-triggers.spec.ts:360-372`).
 7. **`entityId` — идентификатор, а не номер документа, хотя у заказа они похожи** (§19). Эмиттер
    кладёт `order.id` (`mocks/notifications.ts:560`), а в текст пишет `order.orderNumber`
    (`:555-557`); сиды используют именно `id` (`:34` — `ORD-001`), поэтому переход по ним работает.

@@ -10,7 +10,7 @@ import {
   mockReserveOrder,
 } from './orders'
 import { mockCreateBatch, recordShortage } from './warehouse'
-import { mockAcceptResponse, mockGetBccHistory } from './bcc'
+import { mockAcceptResponse, mockGetBccHistory, MOCK_BCC_HISTORY } from './bcc'
 import { mockGetClients } from './clients'
 import { mockGetPayment, mockGetReceivables, mockPatchPayment } from './finance'
 import type { Notification, NotificationType } from '@/types/notifications'
@@ -212,6 +212,18 @@ describe('ответ поставщика', () => {
     expect(after[0]!.message.en).toContain(accepted.supplierName.en)
     expect(after[0]!.entityId).toBe(accepted.supplierId)
     expect(after[0]!.entityRouteName).toBe('admin-supplier-card')
+  })
+
+  it('правка уже принятой цены — второго уведомления о том же ответе нет', () => {
+    const event = MOCK_BCC_HISTORY.find((e) => e.status === 'sent')!
+    const accepted = mockAcceptResponse(event.id, { price: 12.5, unit: 'kg' })!
+    const after = feed('supplier_response').length
+
+    // Кнопка "править" в таблице истории открывает ту же модалку и шлёт тот же
+    // вызов — по строке, которая уже `responded`, а не по свежей `sent`.
+    mockAcceptResponse(accepted.id, { price: 13, unit: 'kg' })
+
+    expect(feed('supplier_response').length).toBe(after)
   })
 })
 

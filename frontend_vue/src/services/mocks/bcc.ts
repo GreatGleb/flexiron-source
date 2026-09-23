@@ -486,7 +486,7 @@ export function mockAcceptResponse(
   eventId: string,
   payload: { price: number; unit: string },
 ): BccRequest {
-  const src = MOCK_BCC_HISTORY.find((e) => e.id === eventId)
+  const s = MOCK_BCC_HISTORY.find((e) => e.id === eventId)
   // An event nobody knows is refused by code, like `MAIL_NOT_CONFIGURED` above.
   // The `null` it used to return was handed to the page as a value of type
   // `BccRequest` and pushed straight into the feed, so a miss was indistinguishable
@@ -494,25 +494,25 @@ export function mockAcceptResponse(
   // case at all — this is it, and it is not a substring of either existing code.
   // Статус 404 — контракт домена не называет его для этого кода, поэтому по
   // семейству §2 соглашений (`00-conventions.md:62-68`): `*_NOT_FOUND` → 404.
-  if (!src) throw bccRefusal(404, 'BCC_EVENT_NOT_FOUND', 'BCC_EVENT_NOT_FOUND')
+  if (!s) throw bccRefusal(404, 'BCC_EVENT_NOT_FOUND', 'BCC_EVENT_NOT_FOUND')
   const next: BccRequest = {
     id: `evt-${Date.now()}`,
-    requestId: src.requestId,
+    requestId: s.requestId,
     date: new Date().toISOString().slice(0, 10),
-    supplierId: src.supplierId,
-    supplierName: src.supplierName,
-    productId: src.productId,
-    productName: src.productName,
-    source: src.source,
+    supplierId: s.supplierId,
+    supplierName: s.supplierName,
+    productId: s.productId,
+    productName: s.productName,
+    source: s.source,
     status: 'responded',
     price: payload.price,
     unit: payload.unit,
   }
   MOCK_BCC_HISTORY.unshift(next)
-  // The supplier answering is the event. `mockMarkNoResponse` below is the
-  // opposite fact — nobody answered — and files nothing: a feed that reports
-  // silence as news would fill up with things that did not happen.
-  notifySupplierResponse({ id: next.supplierId, name: next.supplierName })
+  // The event is the transition into `responded`, not the row: the history table's
+  // "edit" button on an already-responded row calls this same function again, and
+  // firing the notice a second time would report one answer as two.
+  if (s.status !== 'responded') notifySupplierResponse({ id: s.supplierId, name: s.supplierName })
   return next
 }
 
