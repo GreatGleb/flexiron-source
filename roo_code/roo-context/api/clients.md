@@ -73,7 +73,7 @@
 `composables/useClients.ts:19`). БАГ-08.
 
 Ошибки: **ни одной.** Ветка не бросает ничего (`mocks/index.ts:87`), `mockGetClients` тоже
-(`mocks/clients.ts:1046-1048`). Все три вызывающих кладут в состояние `String(e)` без разбора кода
+(`mocks/clients.ts:1075-1077`). Все три вызывающих кладут в состояние `String(e)` без разбора кода
 (`useClients.ts:36`, `useOrderCreate.ts:141`, `useSalesCrmDashboard.ts:64`).
 
 Три вызывающих, и у каждого своя глубина: список клиентов (`useClients.ts:23-40`), выбиралка
@@ -85,7 +85,7 @@
 (`useClients.ts:78`).
 
 Строка списка везёт **полный** объект `Client` вместе с `auditLog` и `interactionHistory`:
-`mockGetClients()` отдаёт `structuredClone(STORE)` целиком (`mocks/clients.ts:1046-1048`), а ветка
+`mockGetClients()` отдаёт `structuredClone(STORE)` целиком (`mocks/clients.ts:1075-1077`), а ветка
 списка ничего не вычёркивает (`mocks/index.ts:478-508`). Читателей у этих двух полей в списке нет
 ни одного — БАГ-05.
 
@@ -143,7 +143,7 @@ interface Client {
 }
 ```
 
-Мок отдаёт `structuredClone` элемента хранилища (`mocks/clients.ts:1050-1052`), то есть вместе с
+Мок отдаёт `structuredClone` элемента хранилища (`mocks/clients.ts:1079-1081`), то есть вместе с
 `auditLog` и `interactionHistory`.
 
 Ошибки: `CLIENT_NOT_FOUND` — бросает сама ветка, а не мок-модуль (`mocks/index.ts:615`). До
@@ -203,20 +203,20 @@ interface Client {
 `'active'`, `country` — `null`, `paymentTermsDays` — `0`, `notes` и `rejectionReason` — пустые
 строки.
 
-Ответ: `ApiResponse<Client>` — созданный клиент целиком (`mocks/clients.ts:1089`). Сервер
-проставляет `id` (в моке формат `CL-NNN`, `mocks/clients.ts:1042-1044`; на проводе — непрозрачная
-строка, соглашения §19), `createdAt` датой без времени (`:1085`) и пустой `auditLog` (`:1086`). Из
+Ответ: `ApiResponse<Client>` — созданный клиент целиком (`mocks/clients.ts:1141`). Сервер
+проставляет `id` (в моке формат `CL-NNN`, `mocks/clients.ts:1071-1073`; на проводе — непрозрачная
+строка, соглашения §19), `createdAt` датой без времени (`:1137`) и пустой `auditLog` (`:1138`). Из
 ответа используется только `id` — для перехода на карточку (`ClientCreatePage.vue:139`).
 
 Ошибки:
 
 | код | когда | где |
 |---|---|---|
-| `VALIDATION_ERROR` | `name is required` | `mocks/clients.ts:1057` |
-| `VALIDATION_ERROR` | `companyCode is required` | `:1060` |
-| `VALIDATION_ERROR` | `email is required` | `:1063` |
-| `VALIDATION_ERROR` | `paymentTermsDays must be a non-negative whole number of days` | `:1066-1068` |
-| `CONFLICT` | `companyCode already exists` | `:1071-1073` |
+| `VALIDATION_ERROR` | `name is required` | `mocks/clients.ts:1086-1094` |
+| `VALIDATION_ERROR` | `companyCode is required` | `:1096-1102` |
+| `VALIDATION_ERROR` | `email is required` | `:1104-1110` |
+| `VALIDATION_ERROR` | `paymentTermsDays must be a non-negative whole number of days` | `:1112-1121` |
+| `CONFLICT` | `companyCode already exists` | `:1123-1125` |
 
 Ни один до человека не доходит: `catch` без разбора даёт общий `clients.toast_error_create`
 (`ClientCreatePage.vue:140-141`, `i18n/admin/clients.ts:54`) — БАГ-03.
@@ -224,7 +224,7 @@ interface Client {
 Пробелы аудита:
 - закрыто: **формат `email` сервер обязан проверять** — правило существует, но только во фронте:
   регулярка `ClientCreatePage.vue:87`, применение `:101-103`. Мок проверяет одну непустоту
-  (`mocks/clients.ts:1062-1064`), то есть путь «адрес не похож на адрес» под моками не
+  (`mocks/clients.ts:1103-1110`), то есть путь «адрес не похож на адрес» под моками не
   воспроизводится (соглашения §18);
 - закрыто и подтверждено владельцем (**П66, П67**): **`country` сервер обязан проверять по
   справочнику**, и правило это общее — компания, клиент и поставщик хранят страну кодом, а выбор
@@ -233,12 +233,12 @@ interface Client {
   Закрытый список ISO 3166-1
   alpha-2, 249 кодов, и предикат к нему готов: `isCountryCode` (`domain/countries.ts:275`, сам список — `:19-269`,
   249 кодов; применение только во фронте — `ClientCreatePage.vue:78`). Мок принимает что угодно и лишь
-  заменяет `undefined` на `null` (`mocks/clients.ts:1081-1084`);
+  заменяет `undefined` на `null` (`mocks/clients.ts:1133-1136`);
 - **снято 2026-09-10 (§2, §4):** отвергать обязан, и коды назначены контрактом —
   `CLIENT_COMPANY_CODE_TAKEN`, `CLIENT_VAT_CODE_TAKEN`, `CLIENT_EMAIL_TAKEN`, все 409 с именем
   поля в `fieldErrors`; уникальность считается парой с арендатором (§4), а разметку ошибки по полю
   клиент уже умеет. Сегодняшнее состояние: уникальность проверяется по `companyCode` и **не** по `vatCode` и не по `email`
-  (`mocks/clients.ts:1071-1073`), при том что разметку ошибки по полю `email` клиент уже умеет
+  (`mocks/clients.ts:1123-1125`), при том что разметку ошибки по полю `email` клиент уже умеет
   (`services/api.ts:102-104`). Каким кодом сервер отвергает повтор двух других и обязан ли вообще —
   строка владельцу;
 - **осталось:** `Idempotency-Key` не шлётся, и ветка мока идёт мимо `withIdempotency`
@@ -253,7 +253,7 @@ interface Client {
   `string | null`
   (`ClientCreatePage.vue:44`), а прочитать или изменить его потом нечем — поля под него нет ни в
   форме создания, ни в карточке; единственное непустое значение на весь проект лежит в посеве
-  (`mocks/clients.ts:141`). БАГ-07, строка владельцу.
+  (`mocks/clients.ts:170`). БАГ-07, строка владельцу.
 
 Бэкенд: не реализован
 Реализация: `services/clientsService.ts:createClient` · мок `mocks/index.ts:961` → `mocks/clients.ts:mockCreateClient`
@@ -272,12 +272,12 @@ interface Client {
 (`useClientCard.ts:271-272`), потому что история правится своими эндпоинтами, и запрос не уходит
 вовсе, если после этого не осталось ключей (`:273-275`).
 
-Ответ: `ApiResponse<Client>` — клиент целиком после правки (`mocks/clients.ts:1105`). **Ответ не
+Ответ: `ApiResponse<Client>` — клиент целиком после правки (`mocks/clients.ts:1163`). **Ответ не
 используется:** `save()` его не присваивает (`useClientCard.ts:274`), состояние остаётся тем, что
 в форме.
 
-Ошибки: `CLIENT_NOT_FOUND` (`mocks/clients.ts:1094`) · `VALIDATION_ERROR` —
-`paymentTermsDays must be a non-negative whole number of days` (`mocks/clients.ts:1099-1103`,
+Ошибки: `CLIENT_NOT_FOUND` (`mocks/clients.ts:1146`) · `VALIDATION_ERROR` —
+`paymentTermsDays must be a non-negative whole number of days` (`mocks/clients.ts:1151-1161`,
 правило — `domain/paymentTerms.ts:18-20`). Ни один не доходит до своего сообщения: общий `catch` в
 `save()` даёт `clients.toast_error_save` (`useClientCard.ts:314-316`).
 
@@ -288,10 +288,10 @@ interface Client {
   `:309`, `:318`, `:328`, `:341`, `:358`, `:367`, `:375`, `:384`, `:405`), то есть
   `ClientFormData` без `rejectionReason`. Сервер обязан принимать
   этот набор и отвергать остальное: у мока белого списка нет — `Object.assign(STORE[idx]!, delta)`
-  (`mocks/clients.ts:1104`) примет и `id`, и `createdAt`, и `auditLog`, а `diff()` отдаёт любой
+  (`mocks/clients.ts:1162`) примет и `id`, и `createdAt`, и `auditLog`, а `diff()` отдаёт любой
   верхнеуровневый ключ, который изменился (БАГ-06);
-- **осталось:** на правке проверяется ровно одно поле — `paymentTermsDays` (`mocks/clients.ts:1099`);
-  ни `email`, ни `companyCode` не валидируются, хотя на создании валидируются оба (`:1059-1073`), и
+- **осталось:** на правке проверяется ровно одно поле — `paymentTermsDays` (`mocks/clients.ts:1151`);
+  ни `email`, ни `companyCode` не валидируются, хотя на создании валидируются оба (`:1095-1126`), и
   уникальность `companyCode` через `PATCH` обходится. Это та же строка владельцу, что у `POST`
   («каким кодом сервер отвергает повтор»);
 - закрыто: конкурентной защиты нет — ни `If-Match`, ни `updatedAt` в модели
@@ -317,8 +317,8 @@ interface Client {
 Ответ: `ApiResponse<void>` — мок отдаёт `undefined` (`mocks/index.ts:1525`), сигнатура клиента
 `Promise<void>`. Тело никто не читает: `handleDelete` идёт сразу к `load()` (`useClients.ts:64-66`).
 
-Ошибки: `CLIENT_NOT_FOUND` (`mocks/clients.ts:1126`) · `CONFLICT` — у клиента есть заказы
-(`mocks/clients.ts:1133`). Второй — **единственный код всего домена, доходящий до человека**:
+Ошибки: `CLIENT_NOT_FOUND` (`mocks/clients.ts:1184`) · `CONFLICT` — у клиента есть заказы
+(`mocks/clients.ts:1191`). Второй — **единственный код всего домена, доходящий до человека**:
 `msg.includes('CONFLICT')` → `clients.toast_error_delete_conflict` = «Нельзя удалить: у клиента есть
 заказы» (`useClients.ts:70-71`, `i18n/admin/clients.ts:57`). `CLIENT_NOT_FOUND` своего сообщения не
 имеет и падает в общий `clients.toast_error_delete` (`useClients.ts:73`). Само сравнение читает код
@@ -328,16 +328,16 @@ interface Client {
 Пробелы аудита:
 - закрыто: **про заказы отвечает домен заказов, а не домен клиентов.** Правило «клиента с заказами
   удалять нельзя» знает не мок клиентов: заказы регистрируют колбэк
-  `registerClientOrderLookup` (`mocks/clients.ts:1108-1122`, регистрация — `mocks/orders.ts:1294`),
+  `registerClientOrderLookup` (`mocks/clients.ts:1166-1180`, регистрация — `mocks/orders.ts:1294`),
   чтобы не заводить цикл импортов. На сервере тот же порядок: проверка — запрос к заказам, а не
-  необязательный колбэк; ветка `?? 0` (`mocks/clients.ts:1132`), при которой незарегистрированный
+  необязательный колбэк; ветка `?? 0` (`mocks/clients.ts:1190`), при которой незарегистрированный
   lookup пропустил бы удаление молча, серверного двойника не имеет;
 - закрыто как факт: **мягкого удаления нет** — у `Client` ни `deletedAt`, ни `archived`
   (`types/client.ts:15-49`), мок физически вырезает элемент `STORE.splice(idx, 1)`
-  (`mocks/clients.ts:1135`);
+  (`mocks/clients.ts:1193`);
 - **решено 2026-09-07 (П28):** удаляются вместе с клиентом, и это намеренно — мягкого удаления не заводится.
   `splice` уносит `auditLog` и `interactionHistory` вместе с объектом, а общая лента аудита
-  строится из того же массива (`clientAuditSources`, `mocks/clients.ts:1180-1187`) — запись просто
+  строится из того же массива (`clientAuditSources`, `mocks/clients.ts:1244-1251`) — запись просто
   исчезает из ленты. Строка владельцу.
 
 Бэкенд: не реализован
@@ -354,7 +354,7 @@ interface Client {
 у эндпоинта нет ни в клиенте, ни в моке.
 
 Ответ: `ApiResponse<StockAuditEntry[]>` — **плоский массив, без конверта пагинации**
-(`mocks/clients.ts:1172-1175`). Форма записи (`types/warehouse.ts:526-534`):
+(`mocks/clients.ts:1236-1239`). Форма записи (`types/warehouse.ts:526-534`):
 
 ```ts
 interface StockAuditEntry {
@@ -368,26 +368,26 @@ interface StockAuditEntry {
 }
 ```
 
-Порядок — тот, в котором записи лежат в хранилище: не сортирует ни мок (`mocks/clients.ts:1174`),
+Порядок — тот, в котором записи лежат в хранилище: не сортирует ни мок (`mocks/clients.ts:1238`),
 ни клиент (`useClientCard.ts:220`). Сервер обязан назвать умолчание сортировки сам (соглашения §13).
 
 Ошибки: **ни одной.** Несуществующий клиент отдаёт пустой массив, а не отказ:
-`structuredClone(client?.auditLog ?? [])` (`mocks/clients.ts:1174`) — то есть «клиента нет» и
+`structuredClone(client?.auditLog ?? [])` (`mocks/clients.ts:1238`) — то есть «клиента нет» и
 «истории нет» неразличимы. Вызывающий глушит и это: `catch { auditLog.value = [] }`
 (`useClientCard.ts:222-223`).
 
 Пробелы аудита:
 - **осталось:** **лог никогда не пополняется.** `grep -c "auditLog.push" frontend_vue/src/services/mocks/clients.ts`
-  → `0`, при том что `mockCreateClient` (`mocks/clients.ts:1054-1090`) и `mockPatchClient`
-  (`:1092-1106`) клиента меняют. Все записи, которые эндпоинт отдаёт, — посевные (`:47`, `:87`,
-  `:119`, `:181`, `:241`, `:303`, `:357`, `:501`, `:647`, `:933`), сдвинутые на демо-часы
-  `shiftAuditSeries` (`:1038`). Чем сервер обязан наполнять лог — строка владельцу;
+  → `0`, при том что `mockCreateClient` (`mocks/clients.ts:1083-1142`) и `mockPatchClient`
+  (`:1144-1164`) клиента меняют. Все записи, которые эндпоинт отдаёт, — посевные (`:76`, `:116`,
+  `:148`, `:210`, `:270`, `:332`, `:386`, `:530`, `:676`, `:962`), сдвинутые на демо-часы
+  `shiftAuditSeries` (`:1067`). Чем сервер обязан наполнять лог — строка владельцу;
 - **решено 2026-09-08:** автор — пара «ссылка плюс снимок»: `user_id` с `ondelete="SET NULL"`
   для поиска и замороженные `user_name_translations` с `user_initials` для правдивого показа
   задним числом. Схема это **уже умеет** (`warehouse/shared/models.py:246-252`, дословно то же в
   `suppliers/shared/models.py:187-193`) — открытым вопросом это не было. Остаётся дефект провода:
   `StockAuditEntry` несёт только переводимое имя (`types/warehouse.ts:526-534`), в посеве
-  буквально `{ ru: 'Система', en: 'System', lt: 'Sistema' }` (`mocks/clients.ts:50`), а `user_id`
+  буквально `{ ru: 'Система', en: 'System', lt: 'Sistema' }` (`mocks/clients.ts:79`), а `user_id`
   на проводе нет. Признак `sensitive` заводится всем девяти видам единообразно ([§9](00-conventions.md)).
 
 Бэкенд: не реализован
@@ -403,13 +403,13 @@ interface StockAuditEntry {
 
 Запрос: тела нет (`services/clientsService.ts:44-46`). **Второй сегмент — `StockAuditEntry.id`,
 идентификатор записи, а не её индекс**: в моке он присваивается при сборке хранилища
-`sealAuditIds(…, 'cl')` (`mocks/clients.ts:1029-1035`). Почему не позиция — соглашения §9:
+`sealAuditIds(…, 'cl')` (`mocks/clients.ts:1058-1064`). Почему не позиция — соглашения §9:
 устаревший индекс удаляет не ту запись, и молча.
 
 Ответ: `ApiResponse<void>` (`mocks/index.ts:1534`).
 
-Ошибки: `CLIENT_NOT_FOUND` (`mocks/clients.ts:1140`) · `AUDIT_ENTRY_NOT_FOUND`
-(`mocks/clients.ts:1142`). Оба до человека не доходят: голый `catch {}` и один текст
+Ошибки: `CLIENT_NOT_FOUND` (`mocks/clients.ts:1198`) · `AUDIT_ENTRY_NOT_FOUND`
+(`mocks/clients.ts:1201`). Оба до человека не доходят: голый `catch {}` и один текст
 `clients.toast_error_audit_delete` (`useClientCard.ts:233-235`, `i18n/admin/clients.ts:129`).
 Неизвестный `entryId` — отказ, а не тихий no-op (соглашения §9).
 
@@ -419,7 +419,7 @@ interface StockAuditEntry {
 
 Пробелы аудита:
 - **решено 2026-09-07 (П8):** удалять запись журнала вправе **только владелец**. Сегодня право не
-  проверяется нигде — ни в моке (`mocks/clients.ts:1138-1144` не смотрит на пользователя), ни во
+  проверяется нигде — ни в моке (`mocks/clients.ts:1196-1204` не смотрит на пользователя), ни во
   фронте, при том что стирать историю сильнее, чем править клиента, и достижимо это из двух мест
   (карточка и лента). Прочие права клиента — обычные элементы CRUD-матрицы, назначаемые по
   надобности роли (П2, П7, [§6.6](00-conventions.md));
@@ -455,13 +455,13 @@ interface StockAuditEntry {
 Собирается на клиенте (`useClientCard.ts:242-248`): `date` из формы, `summary` обрезанный,
 `rejectionReason` всегда `null`, **`user` — литерал `'Current User'`** (`:246`).
 
-Ответ: `ApiResponse<InteractionHistoryEntry>` — та же запись обратно (`mocks/clients.ts:1156`).
+Ответ: `ApiResponse<InteractionHistoryEntry>` — та же запись обратно (`mocks/clients.ts:1216`).
 Ответ не используется: `save()` его не присваивает, локальная запись уже лежит в состоянии с
 момента `inlineAddInteraction` (`useClientCard.ts:253`).
 
-Ошибки: `CLIENT_NOT_FOUND` (`mocks/clients.ts:1151`) — и больше ничего: формат записи мок не
+Ошибки: `CLIENT_NOT_FOUND` (`mocks/clients.ts:1211`) — и больше ничего: формат записи мок не
 проверяет вовсе, ни `type` по списку, ни непустоту `summary`, ни формат `date`
-(`mocks/clients.ts:1146-1157`). Пустое `summary` отсекается только во фронте
+(`mocks/clients.ts:1206-1217`). Пустое `summary` отсекается только во фронте
 (`useClientCard.ts:240`) — то есть сервер обязан проверять и то, и другое сам (соглашения §18).
 Код до человека не доходит: общий `catch` в `save()` (`:314-316`).
 
@@ -475,8 +475,8 @@ interface StockAuditEntry {
   — и именно поэтому удаление адресуется индексом. Строка владельцу: получает ли взаимодействие
   `id`;
 - **осталось:** что записывать в `rejectionReason` взаимодействия — UI всегда шлёт `null`
-  (`useClientCard.ts:247`), непустое значение существует только в посеве (`mocks/clients.ts:164`).
-  Отдельно от одноимённого поля самого клиента (`:141`), у которого своя строка владельцу;
+  (`useClientCard.ts:247`), непустое значение существует только в посеве (`mocks/clients.ts:193`).
+  Отдельно от одноимённого поля самого клиента (`:170`), у которого своя строка владельцу;
 - **снято 2026-09-09 наполовину:** ключ домену не нужен — создание взаимодействия обратимо, а
   правило §11 требует ключ только у необратимых `POST`. От повторной отправки защищает другое:
   кнопка заморожена до ответа сервера (П47, [§15](00-conventions.md)). Ветка при этом идёт мимо
@@ -499,7 +499,7 @@ interface StockAuditEntry {
 `deleteClientInteraction(clientId: string, entryIndex: number)` (`services/clientsService.ts:55`),
 путь склеивается из числа (`:56`), ветка мока принимает **только цифры** —
 `/^\/api\/clients\/([^/]+)\/interactions\/(\d+)$/` (`mocks/index.ts:1724`), и мок режет массив по
-этому индексу (`mocks/clients.ts:1169`). У `InteractionHistoryEntry` идентификатора нет вовсе — пять
+этому индексу (`mocks/clients.ts:1233`). У `InteractionHistoryEntry` идентификатора нет вовсе — пять
 полей, и `id` среди них отсутствует (`types/client.ts:6-13`).
 
 **Удаления отправляются от большего индекса к меньшему** — `indicesToDelete.sort((a, b) => b - a)`
@@ -508,8 +508,8 @@ interface StockAuditEntry {
 
 Ответ: `ApiResponse<void>` (`mocks/index.ts:1543`).
 
-Ошибки: `CLIENT_NOT_FOUND` (`mocks/clients.ts:1161`) · `INTERACTION_ENTRY_NOT_FOUND` — бросается и
-на отсутствующую историю, и на индекс вне границ (`mocks/clients.ts:1162-1168`). До человека не
+Ошибки: `CLIENT_NOT_FOUND` (`mocks/clients.ts:1221`) · `INTERACTION_ENTRY_NOT_FOUND` — бросается и
+на отсутствующую историю, и на индекс вне границ (`mocks/clients.ts:1222-1232`). До человека не
 доходит ни один: `save()` ловит всё одним `catch` (`useClientCard.ts:314-316`).
 
 Пробелы аудита:
@@ -615,8 +615,8 @@ interface ClientUnassignedPayment {
 `logoUrl?` — и страны среди них нет (`types/settings.ts:4-11`),
 `grep -rin "country" backend/app/modules/settings/shared/models.py` пусто — строка владельцу.
 *Статус нового клиента* — `'active'` начальным значением формы (`ClientCreatePage.vue:38`); своего
-дефолта у мока нет: `status` приходит в объект спредом `...data` (`mocks/clients.ts:1077`) и
-отдельной строки не получает — в отличие от `country`, у которого дефолт `null` есть (`:1084`).
+дефолта у мока нет: `status` приходит в объект спредом `...data` (`mocks/clients.ts:1129`) и
+отдельной строки не получает — в отличие от `country`, у которого дефолт `null` есть (`:1136`).
 *Условия оплаты* — `0` начальным значением формы (`ClientCreatePage.vue:42`), и ноль означает
 «оплата по счёту», а не «не заполнено» (`domain/paymentTerms.ts:12-14`). Отсрочки по умолчанию в
 `GlobalConstants` нет — там четыре константы (`types/settings.ts:14-19`) — строка владельцу.
@@ -639,10 +639,10 @@ interface ClientUnassignedPayment {
 **3. Запись в аудит-лог.** **Лог у клиента есть, и его никто не пишет.** Поле объявлено
 (`types/client.ts:45-46`), эндпоинт чтения есть, сущность `client` входит в замкнутый перечень
 девяти сущностей ленты (`types/audit.ts:5-14`) и отдаётся туда через `clientAuditSources`
-(`mocks/clients.ts:1180-1187`). При этом `grep -c "auditLog.push" frontend_vue/src/services/mocks/clients.ts`
-→ `0`: ни создание (`:1054-1090`), ни правка (`:1092-1106`), ни удаление (`:1124-1136`) следа не
-оставляют — весь лог посевной (`:47`, `:87`, `:119`, `:181`, `:241`, `:303`, `:357`, `:501`, `:647`,
-`:933`). Автор в посеве — переводимая строка `{ ru: 'Система', en: 'System', lt: 'Sistema' }` (`:50`)
+(`mocks/clients.ts:1244-1251`). При этом `grep -c "auditLog.push" frontend_vue/src/services/mocks/clients.ts`
+→ `0`: ни создание (`:1083-1142`), ни правка (`:1144-1164`), ни удаление (`:1182-1194`) следа не
+оставляют — весь лог посевной (`:76`, `:116`, `:148`, `:210`, `:270`, `:332`, `:386`, `:530`, `:676`,
+`:962`). Автор в посеве — переводимая строка `{ ru: 'Система', en: 'System', lt: 'Sistema' }` (`:79`)
 при типе `user: TranslatedString` (`types/warehouse.ts:529`), а не ссылка на пользователя; признака
 `sensitive` у записи нет (`:526-534`). Что писать, кто автор и что помечать — строка владельцу.
 
@@ -669,7 +669,7 @@ ISO из закрытого списка, рядом с часовым пояс�
 **6. Мультиарендность.** **Во фронте домена признака арендатора нет** —
 `grep -c "tenant" frontend_vue/src/types/client.ts` → `0`; ни один из десяти эндпоинтов не несёт
 его ни в пути, ни в параметрах, ни в заголовках (`services/clientsService.ts:1-57` — `options` не
-передаётся ни разу), мок хранит один плоский `STORE` (`mocks/clients.ts:1029`). Общее правило —
+передаётся ни разу), мок хранит один плоский `STORE` (`mocks/clients.ts:1058`). Общее правило —
 арендатор берётся из токена и только из него (соглашения §4), но у домена нет ни таблицы, ни
 колонки: модуля `clients` на бэкенде нет, и `tenant_id`, объявленный в моделях всех десяти
 существующих модулей, к клиенту не относится. Чем ограничивается выборка — строка владельцу.
@@ -729,8 +729,8 @@ RBAC logic here» (`backend/app/modules/auth/internal_api/interface.py:27-38`), 
    слой: `isValidPaymentTermsDays` (`domain/paymentTerms.ts:18-20`), `normalizePaymentTermsDays`
    (`:30-34`). Ноль означает «оплата по счёту, без отсрочки», поэтому поле обязательное и не
    nullable: «не заполнено» иначе неотличимо от «платит сразу» (`domain/paymentTerms.ts:12-14`,
-   `types/client.ts:32-40`). Проверяется в трёх местах — на создании (`mocks/clients.ts:1065-1069`),
-   на правке (`:1099-1103`) и в форме (`ClientCreatePage.vue:112-115`).
+   `types/client.ts:32-40`). Проверяется в трёх местах — на создании (`mocks/clients.ts:1111-1121`),
+   на правке (`:1151-1161`) и в форме (`ClientCreatePage.vue:112-115`).
 2. **Страна хранится кодом справочника, а не текстом.** 249 кодов ISO 3166-1 alpha-2, список
    закрытый и настройками не редактируется (`domain/countries.ts:3-18`). «Не выбрана» — это `null`,
    и переходник между `null` и пустой строкой селекта живёт ровно в одном месте на страницу
@@ -744,7 +744,7 @@ RBAC logic here» (`backend/app/modules/auth/internal_api/interface.py:27-38`), 
    решение правил заказа, а не выбиралки (`useOrderCreate.ts:129-131`). То есть `status` — метка, а
    не запрет.
 5. **Клиента с заказами удалять нельзя**, и знает об этом домен заказов, а не домен клиентов:
-   правило зарегистрировано колбэком `registerClientOrderLookup` (`mocks/clients.ts:1108-1122`,
+   правило зарегистрировано колбэком `registerClientOrderLookup` (`mocks/clients.ts:1166-1180`,
    регистрация — `mocks/orders.ts:1294`), чтобы не заводить цикл импортов. На сервере тот же
    порядок: про заказы отвечает модуль заказов.
 6. **Реквизиты клиента, попавшие в заказ, замораживаются.** Заказ снимает `clientName`,
@@ -801,7 +801,7 @@ RBAC logic here» (`backend/app/modules/auth/internal_api/interface.py:27-38`), 
 
 **Мягкого удаления нет.** Ни `deletedAt`, ни `archived`, ни `isArchived` у `Client`
 (`types/client.ts:15-49`); `DELETE /api/clients/:id` — физическое удаление
-(`mocks/clients.ts:1135`). Восстановление удалённого клиента не описано нигде и новой работой не
+(`mocks/clients.ts:1193`). Восстановление удалённого клиента не описано нигде и новой работой не
 считается только потому, что его никто не обещал.
 
 ## Клиент написан, UI нет
