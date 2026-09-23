@@ -7,6 +7,26 @@ import type {
 } from '@/types/config'
 import type { TranslatedString } from '@/types/i18n'
 import { mergeTranslatedString } from '@/types/i18n'
+import { ApiRequestError } from '@/types/api'
+
+/** Коды отказа этого мока — заглавная строка, как требует §2 общих соглашений. */
+const CONFIG_REFUSAL_CODES = {
+  fieldNotFound: 'FIELD_NOT_FOUND',
+  sectionNotFound: 'SECTION_NOT_FOUND',
+} as const
+
+type ConfigRefusalCode = (typeof CONFIG_REFUSAL_CODES)[keyof typeof CONFIG_REFUSAL_CODES]
+
+/**
+ * Отказ в форме настоящего сервера: код в поле `code`, а не в тексте — см.
+ * `mocks/settings.ts:419-432`, тот же приём. `status` для обоих кодов этого файла —
+ * 404 по общему правилу §2 («`*_NOT_FOUND` — 404»): `config.md` не называет для
+ * `FIELD_NOT_FOUND`/`SECTION_NOT_FOUND` отдельного статуса, оба случая — неизвестный
+ * `id` в PATCH.
+ */
+function mockRefusal(status: number, code: ConfigRefusalCode, message: string): ApiRequestError {
+  return new ApiRequestError({ status, message, code })
+}
 
 export const MOCK_FIELD_LIBRARY: FieldDefinition[] = [
   {
@@ -287,7 +307,7 @@ export function mockUpdateField(id: string, patch: Partial<FieldDefinition>): Fi
   // refuses it. Returning `null` made the mock router answer PATCH with a
   // successful empty body, while the caller's signature promised a
   // FieldDefinition — see configService.updateField.
-  if (!field) throw new Error('FIELD_NOT_FOUND')
+  if (!field) throw mockRefusal(404, CONFIG_REFUSAL_CODES.fieldNotFound, 'FIELD_NOT_FOUND')
   // Merge TranslatedString fields to preserve existing locales
   if (patch.name) {
     patch.name = mergeTranslatedString(field.name, patch.name)
@@ -324,7 +344,7 @@ export function mockCreateSection(payload: { name: TranslatedString | string }):
 export function mockUpdateSection(id: string, patch: Partial<SectionConfig>): SectionConfig {
   const section = MOCK_SECTIONS.find((s) => s.id === id)
   // Same refusal as mockUpdateField above, and for the same reason.
-  if (!section) throw new Error('SECTION_NOT_FOUND')
+  if (!section) throw mockRefusal(404, CONFIG_REFUSAL_CODES.sectionNotFound, 'SECTION_NOT_FOUND')
   // Merge TranslatedString fields to preserve existing locales
   if (patch.name) {
     patch.name = mergeTranslatedString(section.name, patch.name)

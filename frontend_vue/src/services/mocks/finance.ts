@@ -8,6 +8,23 @@ import type {
 } from '@/types/finance'
 import { notifyPaymentOverdue } from './notifications'
 import { orderReceivables } from './orders'
+import { ApiRequestError } from '@/types/api'
+
+/** Код отказа этого мока — заглавная строка, как требует §2 общих соглашений. */
+const FINANCE_REFUSAL_CODES = {
+  paymentNotFound: 'PAYMENT_NOT_FOUND',
+} as const
+
+type FinanceRefusalCode = (typeof FINANCE_REFUSAL_CODES)[keyof typeof FINANCE_REFUSAL_CODES]
+
+/**
+ * Отказ в форме настоящего сервера: код в поле `code`, а не в тексте — см.
+ * `mocks/settings.ts:419-432`, тот же приём. `status` — 404 по §2 (`*_NOT_FOUND`) и
+ * подтверждён `finance.md:291`, `:356`.
+ */
+function mockRefusal(status: number, code: FinanceRefusalCode, message: string): ApiRequestError {
+  return new ApiRequestError({ status, message, code })
+}
 
 /**
  * Финансовый модуль демо-стенда.
@@ -425,7 +442,7 @@ export function mockGetPayments(params: {
  */
 export function mockGetPayment(id: string): FinancePayment {
   const payment = MOCK_PAYMENTS.find((p) => p.id === id)
-  if (!payment) throw new Error('PAYMENT_NOT_FOUND')
+  if (!payment) throw mockRefusal(404, FINANCE_REFUSAL_CODES.paymentNotFound, 'PAYMENT_NOT_FOUND')
   return clone(payment)
 }
 
@@ -472,7 +489,7 @@ export function mockPatchPayment(
   resolveUpload?: (fileId: string) => Omit<PaymentDocument, 'id' | 'fileId'> | undefined,
 ): FinancePayment {
   const idx = MOCK_PAYMENTS.findIndex((p) => p.id === id)
-  if (idx === -1) throw new Error('PAYMENT_NOT_FOUND')
+  if (idx === -1) throw mockRefusal(404, FINANCE_REFUSAL_CODES.paymentNotFound, 'PAYMENT_NOT_FOUND')
   const current = MOCK_PAYMENTS[idx]!
   const payload = data as Record<string, unknown>
 

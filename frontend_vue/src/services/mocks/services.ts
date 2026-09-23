@@ -1,5 +1,6 @@
 import type { Service, ServiceListItem } from '@/types/service'
 import type { PaginatedResponse, PaginationParams } from '@/types/api'
+import { ApiRequestError } from '@/types/api'
 import type { TranslatedString } from '@/types/i18n'
 import { toTranslatedString } from '@/types/i18n'
 import { mockServices as mockServicesData } from '@/mocks/services'
@@ -76,6 +77,18 @@ export async function mockGetServices(
 }
 
 /**
+ * Отказ мока в форме настоящего сервера: код в поле `code`, статус — из каталога
+ * кодов домена (`roo_code/roo-context/api/services.md`), а не голый `Error` (§2 соглашений).
+ */
+function mockRefusal(
+  status: number,
+  code: 'SERVICE_CURRENCY_NOT_FOUND' | 'SERVICE_UOM_NOT_FOUND' | 'CATALOG_SERVICE_NOT_FOUND',
+  message: string,
+): ApiRequestError {
+  return new ApiRequestError({ status, message, code })
+}
+
+/**
  * Валюта и единица проверяются по справочнику, а не приводятся типом.
  *
  * Раньше здесь стояло `data.priceUnit as Service['priceUnit']` — непроверенный каст,
@@ -85,10 +98,10 @@ export async function mockGetServices(
  */
 function assertKnownPricing(currencyId: string, uomId: string): void {
   if (!MOCK_SETTINGS.currencies.some((c) => c.id === currencyId)) {
-    throw new Error('SERVICE_CURRENCY_NOT_FOUND')
+    throw mockRefusal(422, 'SERVICE_CURRENCY_NOT_FOUND', 'SERVICE_CURRENCY_NOT_FOUND')
   }
   if (!MOCK_SETTINGS.uoms.some((u) => u.id === uomId)) {
-    throw new Error('SERVICE_UOM_NOT_FOUND')
+    throw mockRefusal(422, 'SERVICE_UOM_NOT_FOUND', 'SERVICE_UOM_NOT_FOUND')
   }
 }
 
@@ -131,7 +144,7 @@ export async function mockCreateService(
 
 export async function mockGetService(id: string): Promise<Service> {
   const svc = STORE.find((s) => s.id === id)
-  if (!svc) throw new Error('CATALOG_SERVICE_NOT_FOUND')
+  if (!svc) throw mockRefusal(404, 'CATALOG_SERVICE_NOT_FOUND', 'CATALOG_SERVICE_NOT_FOUND')
   return { ...svc }
 }
 
@@ -148,7 +161,7 @@ export async function mockPatchService(
   _locale?: string,
 ): Promise<Service> {
   const idx = STORE.findIndex((s) => s.id === id)
-  if (idx === -1) throw new Error('CATALOG_SERVICE_NOT_FOUND')
+  if (idx === -1) throw mockRefusal(404, 'CATALOG_SERVICE_NOT_FOUND', 'CATALOG_SERVICE_NOT_FOUND')
   const svc = STORE[idx]!
   if (data.name !== undefined) svc.name = data.name
   if (data.costPrice !== undefined) svc.costPrice = data.costPrice

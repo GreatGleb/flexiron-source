@@ -1,0 +1,445 @@
+{
+  "description": "Ночь 2026-09-23: мок-долг по отказам (шесть задач), область идемпотентности и правда в соглашениях. Очередь нарезана оператором, утверждения проверены грепом.",
+  "baseline_checks": [],
+  "tasks": [
+    {
+      "id": "mock-refusals-clients",
+      "depends_on": [],
+      "sources": [
+        "roo_code/roo-context/api/00-conventions.md",
+        "roo_code/roo-context/api/clients.md",
+        "frontend_vue/src/types/api.ts",
+        "frontend_vue/src/services/mocks/settings.ts",
+        "frontend_vue/src/services/mocks/clients.ts",
+        "frontend_vue/src/services/mocks/audit-entry-identity.spec.ts"
+      ],
+      "outputs": [
+        "frontend_vue/src/services/mocks/clients.ts",
+        "frontend_vue/src/services/mocks/clients-refusals.spec.ts"
+      ],
+      "checks": [
+        {
+          "cwd": "frontend_vue",
+          "argv": [
+            "npx",
+            "vitest",
+            "run",
+            "src/services/mocks/clients-refusals.spec.ts"
+          ]
+        },
+        {
+          "cwd": "frontend_vue",
+          "argv": [
+            "npm",
+            "run",
+            "test:audit"
+          ]
+        },
+        {
+          "cwd": "frontend_vue",
+          "argv": [
+            "npm",
+            "run",
+            "verify"
+          ]
+        }
+      ],
+      "task": "В frontend_vue/src/services/mocks/clients.ts четырнадцать отказов брошены голым `Error`, и машинный код лежит у них в тексте: строки 1057, 1060, 1063, 1066, 1073, 1094, 1100, 1126, 1133, 1140, 1142, 1151, 1161, 1167. Настоящий сервер кладёт код в поле `code` (`frontend_vue/src/types/api.ts:25-47`, класс `ApiRequestError`), а не в `message` — это §2 соглашений «Отказ несёт код, а не текст». Переведи каждый из этих четырнадцати отказов на `throw new ApiRequestError({ status, message, code })`. Образец устройства — `frontend_vue/src/services/mocks/settings.ts:420-432` (функция `mockRefusal`); заведи в clients.ts такой же локальный помощник, чтобы четырнадцать мест не повторяли конструктор. ЧТО БРАТЬ ЗА `code`: заглавную строку, которая сегодня стоит в тексте (`CLIENT_NOT_FOUND`, `AUDIT_ENTRY_NOT_FOUND`, `INTERACTION_ENTRY_NOT_FOUND`), а у сообщений вида `'VALIDATION_ERROR: name is required'` и `'CONFLICT: companyCode already exists'` — приставку до двоеточия (`VALIDATION_ERROR`, `CONFLICT`). ЧТО БРАТЬ ЗА `status`: таблицу §2 соглашений (`roo_code/roo-context/api/00-conventions.md:62-68`) — `NOT_FOUND`-семейство 404, `CONFLICT` 409, `VALIDATION_ERROR` 422; если контракт домена (`roo_code/roo-context/api/clients.md`) называет для кода другой статус, верен контракт домена. ТЕКСТ СООБЩЕНИЯ НЕ МЕНЯТЬ: `message` обязан остаться посимвольно тем же, что стоит в аргументе `Error` сегодня, включая подстановки `${...}` — на текст опираются существующие спеки, и переписывать их эта задача не должна. У отказов `VALIDATION_ERROR` дополнительно заполни `fieldErrors` именем поля, о котором говорит сообщение. Заведи новый файл frontend_vue/src/services/mocks/clients-refusals.spec.ts, который ловит каждое из этих исключений и проверяет `e.code` и `e.status` — именно поля, а не подстроку в тексте. Больше в clients.ts ничего не трогай.",
+      "acceptance": [
+        "Каждый из четырнадцати перечисленных отказов clients.ts — экземпляр ApiRequestError: у пойманного исключения `code` равен тому коду, который прежде стоял в тексте, а `status` — тот, что назначает этому коду контракт",
+        "`message` каждого из этих отказов совпадает с прежним посимвольно, поэтому ни одна существующая спека не переписана",
+        "Новая спека clients-refusals.spec.ts судит по полям `code`/`status` пойманного исключения; если вернуть на место `throw new Error(<тот же текст>)`, она краснеет — то есть проверяет наличие поля, а не текста",
+        "В clients.ts нет изменений вне четырнадцати мест отказа и добавленного помощника",
+        "`npm run verify` и `npm run test:audit` в frontend_vue завершаются кодом 0"
+      ],
+      "почему_не_сделано": "rg -n 'throw new Error\\(' frontend_vue/src/services/mocks/clients.ts → 14 строк (1057, 1060, 1063, 1066, 1073, 1094, 1100, 1126, 1133, 1140, 1142, 1151, 1161, 1167), среди них `throw new Error('CLIENT_NOT_FOUND')` и `throw new Error('VALIDATION_ERROR: name is required')`. rg -c 'ApiRequestError' frontend_vue/src — clients.ts в выдаче отсутствует вовсе (17 файлов-попаданий, clients.ts не среди них), то есть поле `code` мок клиентов не заполняет нигде."
+    },
+    {
+      "id": "mock-refusals-products-suppliers",
+      "depends_on": [],
+      "sources": [
+        "roo_code/roo-context/api/00-conventions.md",
+        "roo_code/roo-context/api/products.md",
+        "roo_code/roo-context/api/suppliers.md",
+        "frontend_vue/src/types/api.ts",
+        "frontend_vue/src/services/mocks/settings.ts",
+        "frontend_vue/src/services/mocks/unknown-id-is-refused.spec.ts"
+      ],
+      "outputs": [
+        "frontend_vue/src/services/mocks/products.ts",
+        "frontend_vue/src/services/mocks/suppliers.ts",
+        "frontend_vue/src/services/mocks/products-suppliers-refusals.spec.ts"
+      ],
+      "checks": [
+        {
+          "cwd": "frontend_vue",
+          "argv": [
+            "npx",
+            "vitest",
+            "run",
+            "src/services/mocks/products-suppliers-refusals.spec.ts"
+          ]
+        },
+        {
+          "cwd": "frontend_vue",
+          "argv": [
+            "npx",
+            "vitest",
+            "run",
+            "src/services/mocks/unknown-id-is-refused.spec.ts"
+          ]
+        },
+        {
+          "cwd": "frontend_vue",
+          "argv": [
+            "npm",
+            "run",
+            "test:audit"
+          ]
+        },
+        {
+          "cwd": "frontend_vue",
+          "argv": [
+            "npm",
+            "run",
+            "verify"
+          ]
+        }
+      ],
+      "task": "Семь отказов в двух мок-файлах брошены голым `Error`: frontend_vue/src/services/mocks/products.ts строки 13987, 14149, 14236, 14238 и frontend_vue/src/services/mocks/suppliers.ts строки 307, 458, 460. Настоящий сервер кладёт машинный код в поле `code` (`frontend_vue/src/types/api.ts:25-47`, `ApiRequestError`), а не в текст — §2 соглашений «Отказ несёт код, а не текст». Переведи все семь на `throw new ApiRequestError({ status, message, code })`; образец устройства — `frontend_vue/src/services/mocks/settings.ts:420-432`. Код берётся из текста там, где он в нём стоит (`PRODUCT_NOT_FOUND`, `AUDIT_ENTRY_NOT_FOUND`, `SUPPLIER_NOT_FOUND`). Два отказа кода в тексте не несут вовсе — `products.ts:13987` (`Product ${id} not found`) и `suppliers.ts:307` (`Supplier ${id} not found`); им кодом становится `PRODUCT_NOT_FOUND` и `SUPPLIER_NOT_FOUND` соответственно, тот же, которым их домен уже отказывает в соседних местах. Статус берётся из таблицы §2 (`roo_code/roo-context/api/00-conventions.md:62-68`): `*_NOT_FOUND` — 404; если контракт домена называет другой, верен контракт домена. ТЕКСТ СООБЩЕНИЯ НЕ МЕНЯТЬ — `message` остаётся посимвольно тем же, включая подстановки `${id}`: на него опираются `unknown-id-is-refused.spec.ts` и `audit-entry-identity.spec.ts`, и переписывать их эта задача не должна. Заведи frontend_vue/src/services/mocks/products-suppliers-refusals.spec.ts, который ловит каждое из семи исключений и проверяет `code` и `status` полями. Больше в обоих файлах ничего не трогай.",
+      "acceptance": [
+        "Все семь перечисленных отказов — экземпляры ApiRequestError с `code`, равным коду домена, и `status`, который контракт этому коду назначает",
+        "У `products.ts:13987` и `suppliers.ts:307` код появился там, где его раньше не было ни в каком виде: `e.code` равен `PRODUCT_NOT_FOUND` и `SUPPLIER_NOT_FOUND`, а текст сообщения остался прежним",
+        "unknown-id-is-refused.spec.ts и audit-entry-identity.spec.ts не изменены и остались зелёными",
+        "Новая спека судит по полям `code`/`status`; при возврате `throw new Error(<тот же текст>)` она краснеет",
+        "`npm run verify` и `npm run test:audit` в frontend_vue завершаются кодом 0"
+      ],
+      "почему_не_сделано": "rg -n 'throw new Error\\(' по этим двум файлам даёт products.ts:13987 `throw new Error(\\`Product ${id} not found\\`)`, :14149 и :14236 `PRODUCT_NOT_FOUND`, :14238 `AUDIT_ENTRY_NOT_FOUND`; suppliers.ts:307 `\\`Supplier ${id} not found\\``, :458 `SUPPLIER_NOT_FOUND`, :460 `AUDIT_ENTRY_NOT_FOUND`. В выдаче rg -c 'ApiRequestError' frontend_vue/src ни products.ts, ни suppliers.ts не числятся."
+    },
+    {
+      "id": "mock-refusals-services",
+      "depends_on": [],
+      "sources": [
+        "roo_code/roo-context/api/00-conventions.md",
+        "roo_code/roo-context/api/services.md",
+        "frontend_vue/src/types/api.ts",
+        "frontend_vue/src/services/mocks/settings.ts",
+        "frontend_vue/src/domain/servicePricing.spec.ts"
+      ],
+      "outputs": [
+        "frontend_vue/src/services/mocks/services.ts",
+        "frontend_vue/src/services/mocks/services-refusals.spec.ts"
+      ],
+      "checks": [
+        {
+          "cwd": "frontend_vue",
+          "argv": [
+            "npx",
+            "vitest",
+            "run",
+            "src/services/mocks/services-refusals.spec.ts"
+          ]
+        },
+        {
+          "cwd": "frontend_vue",
+          "argv": [
+            "npx",
+            "vitest",
+            "run",
+            "src/domain/servicePricing.spec.ts"
+          ]
+        },
+        {
+          "cwd": "frontend_vue",
+          "argv": [
+            "npm",
+            "run",
+            "test:audit"
+          ]
+        },
+        {
+          "cwd": "frontend_vue",
+          "argv": [
+            "npm",
+            "run",
+            "verify"
+          ]
+        }
+      ],
+      "task": "В frontend_vue/src/services/mocks/services.ts четыре отказа брошены голым `Error`: строки 88 (`SERVICE_CURRENCY_NOT_FOUND`), 91 (`SERVICE_UOM_NOT_FOUND`), 134 и 151 (`CATALOG_SERVICE_NOT_FOUND`). Настоящий сервер кладёт машинный код в поле `code` (`frontend_vue/src/types/api.ts:25-47`, `ApiRequestError`), а не в текст — §2 соглашений «Отказ несёт код, а не текст». Переведи все четыре на `throw new ApiRequestError({ status, message, code })`, заведя локальный помощник по образцу `frontend_vue/src/services/mocks/settings.ts:420-432`. Код — та же заглавная строка, что стоит сегодня. Статус — по таблице §2 (`roo_code/roo-context/api/00-conventions.md:62-68`), `*_NOT_FOUND` — 404; если контракт домена (`roo_code/roo-context/api/services.md`) называет другой, верен контракт домена. ТЕКСТ СООБЩЕНИЯ НЕ МЕНЯТЬ: `frontend_vue/src/domain/servicePricing.spec.ts:81,91,103,106` ловит эти отказы по тексту, и спека обязана остаться зелёной без правки. Обрати внимание, что `mockPatchService`/`mockCreateService` асинхронны — исключение приходит отказом промиса, и новая спека должна ловить его через `rejects`. Заведи frontend_vue/src/services/mocks/services-refusals.spec.ts, проверяющий у каждого из четырёх отказов поля `code` и `status`. Больше в services.ts ничего не трогай.",
+      "acceptance": [
+        "Все четыре отказа services.ts — экземпляры ApiRequestError с `code`, равным прежней заглавной строке, и `status` по контракту",
+        "`message` каждого отказа совпадает с прежним посимвольно, servicePricing.spec.ts не изменён и зелёный",
+        "Новая спека services-refusals.spec.ts читает `code` и `status` полями пойманного отказа; при возврате `throw new Error(<тот же текст>)` она краснеет",
+        "В services.ts нет изменений вне четырёх мест отказа и добавленного помощника",
+        "`npm run verify` и `npm run test:audit` в frontend_vue завершаются кодом 0"
+      ],
+      "почему_не_сделано": "rg -n 'throw new Error\\(' frontend_vue/src/services/mocks/services.ts → 4 строки: 88 `SERVICE_CURRENCY_NOT_FOUND`, 91 `SERVICE_UOM_NOT_FOUND`, 134 и 151 `CATALOG_SERVICE_NOT_FOUND`. В выдаче rg -c 'ApiRequestError' frontend_vue/src файла services.ts нет; единственное, что сегодня проверяет эти отказы, — servicePricing.spec.ts, и он судит по тексту (`rejects.toThrow('SERVICE_UOM_NOT_FOUND')`)."
+    },
+    {
+      "id": "mock-refusals-categories",
+      "depends_on": [],
+      "sources": [
+        "roo_code/roo-context/api/00-conventions.md",
+        "roo_code/roo-context/api/categories.md",
+        "roo_code/plans/bugs/contract-sync-categories-bugs.md",
+        "frontend_vue/src/types/api.ts",
+        "frontend_vue/src/services/mocks/settings.ts",
+        "frontend_vue/src/services/mocks/unknown-id-is-refused.spec.ts"
+      ],
+      "outputs": [
+        "frontend_vue/src/services/mocks/categories.ts",
+        "frontend_vue/src/services/mocks/categories-refusals.spec.ts"
+      ],
+      "checks": [
+        {
+          "cwd": "frontend_vue",
+          "argv": [
+            "npx",
+            "vitest",
+            "run",
+            "src/services/mocks/categories-refusals.spec.ts"
+          ]
+        },
+        {
+          "cwd": "frontend_vue",
+          "argv": [
+            "npx",
+            "vitest",
+            "run",
+            "src/services/mocks/unknown-id-is-refused.spec.ts"
+          ]
+        },
+        {
+          "cwd": "frontend_vue",
+          "argv": [
+            "npm",
+            "run",
+            "verify"
+          ]
+        }
+      ],
+      "task": "В frontend_vue/src/services/mocks/categories.ts три отказа брошены голым `Error`: строка 1419 (`Category ${id} not found` — кода в тексте нет вовсе) и строки 1462 и 1495 (`CATEGORY_NOT_FOUND`). Контракт домена прямо записывает первый из них как дефект: `roo_code/roo-context/api/categories.md:534` — «мок бросает текст (`mocks/categories.ts:1419`, БАГ-04)», и там же сказано, что сервер обязан отвечать `CATEGORY_NOT_FOUND`. Переведи все три на `throw new ApiRequestError({ status, message, code })` по образцу `frontend_vue/src/services/mocks/settings.ts:420-432`; кодом всем трём служит `CATEGORY_NOT_FOUND`, статусом — 404 (`roo_code/roo-context/api/categories.md:71` называет его прямо). ТЕКСТ СООБЩЕНИЯ НЕ МЕНЯТЬ: у 1462 и 1495 на него опирается `frontend_vue/src/services/mocks/unknown-id-is-refused.spec.ts:46-47`, и спека обязана остаться зелёной без правки; у 1419 текст `Category ${id} not found` тоже сохраняется дословно — меняется только то, что рядом с ним появляется поле `code`. Заведи frontend_vue/src/services/mocks/categories-refusals.spec.ts, который ловит все три отказа и судит по полям `code` и `status`. Больше в categories.ts ничего не трогай.",
+      "acceptance": [
+        "У отказа `mockGetCategory` (строка 1419) пойманное исключение несёт `code === 'CATEGORY_NOT_FOUND'` и `status === 404` — то есть БАГ-04 из categories.md:534 («мок бросает текст») на этом месте перестал быть правдой",
+        "Оба отказа PATCH и PUT (строки 1462, 1495) тоже несут `code` и `status` полями",
+        "Текст сообщения всех трёх отказов совпадает с прежним посимвольно, unknown-id-is-refused.spec.ts не изменён и зелёный",
+        "Новая спека categories-refusals.spec.ts читает `code`/`status` полями; при возврате `throw new Error(<тот же текст>)` она краснеет",
+        "`npm run verify` в frontend_vue завершается кодом 0"
+      ],
+      "почему_не_сделано": "rg -n 'throw new Error\\(' frontend_vue/src/services/mocks/categories.ts → 3 строки: 1419 `\\`Category ${id} not found\\``, 1462 и 1495 `'CATEGORY_NOT_FOUND'`. Контракт домена на 2026-09-23 всё ещё числит это открытым: categories.md:534 — «мок бросает текст (`mocks/categories.ts:1419`, БАГ-04)». В выдаче rg -c 'ApiRequestError' frontend_vue/src файла categories.ts нет."
+    },
+    {
+      "id": "mock-refusals-bcc",
+      "depends_on": [],
+      "sources": [
+        "roo_code/roo-context/api/00-conventions.md",
+        "roo_code/roo-context/api/bcc.md",
+        "frontend_vue/src/types/api.ts",
+        "frontend_vue/src/services/mocks/settings.ts",
+        "frontend_vue/src/services/mocks/unknown-id-is-refused.spec.ts",
+        "frontend_vue/src/services/mocks/bcc-envelope.spec.ts",
+        "frontend_vue/src/services/mocks/bcc-history-rows.spec.ts"
+      ],
+      "outputs": [
+        "frontend_vue/src/services/mocks/bcc.ts",
+        "frontend_vue/src/services/mocks/bcc-refusals.spec.ts"
+      ],
+      "checks": [
+        {
+          "cwd": "frontend_vue",
+          "argv": [
+            "npx",
+            "vitest",
+            "run",
+            "src/services/mocks/bcc-refusals.spec.ts"
+          ]
+        },
+        {
+          "cwd": "frontend_vue",
+          "argv": [
+            "npx",
+            "vitest",
+            "run",
+            "src/services/mocks/unknown-id-is-refused.spec.ts",
+            "src/services/mocks/bcc-envelope.spec.ts",
+            "src/services/mocks/bcc-history-rows.spec.ts"
+          ]
+        },
+        {
+          "cwd": "frontend_vue",
+          "argv": [
+            "npm",
+            "run",
+            "verify"
+          ]
+        }
+      ],
+      "task": "В frontend_vue/src/services/mocks/bcc.ts три отказа брошены голым `Error`: строка 433 (`MAIL_NOT_CONFIGURED`), строки 482 и 507 (`BCC_EVENT_NOT_FOUND`). Настоящий сервер кладёт машинный код в поле `code` (`frontend_vue/src/types/api.ts:25-47`, `ApiRequestError`), а не в текст — §2 соглашений «Отказ несёт код, а не текст». Переведи все три на `throw new ApiRequestError({ status, message, code })`, заведя локальный помощник по образцу `frontend_vue/src/services/mocks/settings.ts:420-432`. Код — та же заглавная строка, что стоит сегодня. Статус — по контракту домена (`roo_code/roo-context/api/bcc.md`), а если он для кода статуса не называет, то по семейству из таблицы §2 (`roo_code/roo-context/api/00-conventions.md:62-68`): `*_NOT_FOUND` — 404, конфликт состояния — 409; выбранное основание напиши комментарием рядом с помощником. ТЕКСТ СООБЩЕНИЯ НЕ МЕНЯТЬ: на него опираются `unknown-id-is-refused.spec.ts:64-67`, `bcc-envelope.spec.ts` и `bcc-history-rows.spec.ts`, и все три обязаны остаться зелёными без правки. Заведи frontend_vue/src/services/mocks/bcc-refusals.spec.ts, который ловит каждый из трёх отказов и судит по полям `code` и `status`. Больше в bcc.ts ничего не трогай.",
+      "acceptance": [
+        "Все три отказа bcc.ts — экземпляры ApiRequestError с `code`, равным прежней заглавной строке, и `status`, основание которого названо комментарием в коде",
+        "Текст сообщения всех трёх совпадает с прежним посимвольно; unknown-id-is-refused.spec.ts, bcc-envelope.spec.ts и bcc-history-rows.spec.ts не изменены и зелёные",
+        "Новая спека bcc-refusals.spec.ts читает `code`/`status` полями; при возврате `throw new Error(<тот же текст>)` она краснеет",
+        "В bcc.ts нет изменений вне трёх мест отказа и добавленного помощника",
+        "`npm run verify` в frontend_vue завершается кодом 0"
+      ],
+      "почему_не_сделано": "rg -n 'throw new Error\\(' frontend_vue/src/services/mocks/bcc.ts → 3 строки: 433 `'MAIL_NOT_CONFIGURED'`, 482 и 507 `'BCC_EVENT_NOT_FOUND'`. В выдаче rg -c 'ApiRequestError' frontend_vue/src файла bcc.ts нет — поле `code` мок BCC не заполняет нигде."
+    },
+    {
+      "id": "mock-refusals-config-notifications-finance",
+      "depends_on": [],
+      "sources": [
+        "roo_code/roo-context/api/00-conventions.md",
+        "roo_code/roo-context/api/config.md",
+        "roo_code/roo-context/api/notifications.md",
+        "roo_code/roo-context/api/finance.md",
+        "frontend_vue/src/types/api.ts",
+        "frontend_vue/src/services/mocks/settings.ts",
+        "frontend_vue/src/services/mocks/unknown-id-is-refused.spec.ts",
+        "frontend_vue/src/views/admin/finance/OutgoingPaymentCardPage.vue"
+      ],
+      "outputs": [
+        "frontend_vue/src/services/mocks/config.ts",
+        "frontend_vue/src/services/mocks/notifications.ts",
+        "frontend_vue/src/services/mocks/finance.ts",
+        "frontend_vue/src/services/mocks/config-notifications-finance-refusals.spec.ts"
+      ],
+      "checks": [
+        {
+          "cwd": "frontend_vue",
+          "argv": [
+            "npx",
+            "vitest",
+            "run",
+            "src/services/mocks/config-notifications-finance-refusals.spec.ts"
+          ]
+        },
+        {
+          "cwd": "frontend_vue",
+          "argv": [
+            "npx",
+            "vitest",
+            "run",
+            "src/services/mocks/unknown-id-is-refused.spec.ts",
+            "src/services/mocks/notification-triggers.spec.ts",
+            "src/services/mocks/finance-receivables.spec.ts"
+          ]
+        },
+        {
+          "cwd": "frontend_vue",
+          "argv": [
+            "npm",
+            "run",
+            "verify"
+          ]
+        }
+      ],
+      "task": "Шесть отказов в трёх мок-файлах брошены голым `Error`: frontend_vue/src/services/mocks/config.ts строки 290 (`FIELD_NOT_FOUND`) и 327 (`SECTION_NOT_FOUND`); frontend_vue/src/services/mocks/notifications.ts строки 418 (`SIMULATED_MOCK_ERROR`) и 442 (`NOTIFICATION_NOT_FOUND`); frontend_vue/src/services/mocks/finance.ts строки 428 и 475 (`PAYMENT_NOT_FOUND`). Настоящий сервер кладёт машинный код в поле `code` (`frontend_vue/src/types/api.ts:25-47`, `ApiRequestError`), а не в текст — §2 соглашений «Отказ несёт код, а не текст». Переведи все шесть на `throw new ApiRequestError({ status, message, code })`; в каждом из трёх файлов заведи свой локальный помощник по образцу `frontend_vue/src/services/mocks/settings.ts:420-432`. Код — та же заглавная строка, что стоит сегодня. Статус — по таблице §2 (`roo_code/roo-context/api/00-conventions.md:62-68`): `*_NOT_FOUND` — 404; у `SIMULATED_MOCK_ERROR` (это нарочный отказ мока для проверки экрана, а не код домена) возьми 500 и напиши комментарием, почему именно он. Если контракт домена называет для кода другой статус, верен контракт домена. ТЕКСТ СООБЩЕНИЯ НЕ МЕНЯТЬ: на него опирается `unknown-id-is-refused.spec.ts:54-56,70-72`, и спека обязана остаться зелёной без правки. Отдельно проверь `frontend_vue/src/views/admin/finance/OutgoingPaymentCardPage.vue:72` — эта ветка читает `errorCode(e) === 'PAYMENT_NOT_FOUND'`; после правки она обязана срабатывать по-прежнему, но уже по полю `code`, а не откатом на текст. Заведи frontend_vue/src/services/mocks/config-notifications-finance-refusals.spec.ts, который ловит все шесть отказов и судит по полям `code` и `status`. Больше в этих трёх файлах ничего не трогай.",
+      "acceptance": [
+        "Все шесть перечисленных отказов — экземпляры ApiRequestError с `code`, равным прежней заглавной строке, и `status` по контракту (у `SIMULATED_MOCK_ERROR` основание статуса названо комментарием)",
+        "Ветка OutgoingPaymentCardPage.vue:72 узнаёт отказ `PAYMENT_NOT_FOUND` по полю `code` пойманного исключения, а не откатом на текст — и это показано отдельным утверждением новой спеки",
+        "Текст сообщения всех шести совпадает с прежним посимвольно; unknown-id-is-refused.spec.ts, notification-triggers.spec.ts и finance-receivables.spec.ts не изменены и зелёные",
+        "Новая спека читает `code`/`status` полями; при возврате `throw new Error(<тот же текст>)` она краснеет",
+        "`npm run verify` в frontend_vue завершается кодом 0"
+      ],
+      "почему_не_сделано": "rg -n 'throw new Error\\(' по трём файлам: config.ts:290 `'FIELD_NOT_FOUND'`, :327 `'SECTION_NOT_FOUND'`; notifications.ts:418 `'SIMULATED_MOCK_ERROR'`, :442 `'NOTIFICATION_NOT_FOUND'`; finance.ts:428 и :475 `'PAYMENT_NOT_FOUND'`. В выдаче rg -c 'ApiRequestError' frontend_vue/src ни одного из этих трёх файлов нет."
+    },
+    {
+      "id": "mock-idempotency-scope",
+      "depends_on": [],
+      "sources": [
+        "roo_code/roo-context/api/00-conventions.md",
+        "roo_code/plans/general/сквозное-idempotency-план.md",
+        "frontend_vue/src/services/api.ts",
+        "frontend_vue/src/services/mocks/index.ts"
+      ],
+      "outputs": [
+        "frontend_vue/src/services/mocks/index.ts",
+        "frontend_vue/src/services/mocks/idempotency-scope.spec.ts"
+      ],
+      "checks": [
+        {
+          "cwd": "frontend_vue",
+          "argv": [
+            "npx",
+            "vitest",
+            "run",
+            "src/services/mocks/idempotency-scope.spec.ts"
+          ]
+        },
+        {
+          "cwd": "frontend_vue",
+          "argv": [
+            "npm",
+            "run",
+            "test:audit"
+          ]
+        },
+        {
+          "cwd": "frontend_vue",
+          "argv": [
+            "npm",
+            "run",
+            "verify"
+          ]
+        }
+      ],
+      "task": "Кэш идемпотентности мока расходится с решением владельца П46, записанным в §11 соглашений (`roo_code/roo-context/api/00-conventions.md:867-876`): «ключ живёт сутки, область действия — ключ + операция… один и тот же ключ на отгрузке и на платеже — два разных случая, а не один, и второй запрос выполняется, а не получает чужой ответ». Сегодня в frontend_vue/src/services/mocks/index.ts:318-328 лежит `const idempotencyCache = new Map<string, unknown>()`, а `withIdempotency(headers, fn)` кладёт ответ под голым значением заголовка `Idempotency-Key` — без срока и без привязки к пути. Приведи мок к П46: ключом записи становится пара «путь запроса + значение заголовка», у записи появляется отметка времени, и запись старше 24 часов не используется (а заодно выбрасывается, чтобы `Map` не росла вечно). Путь до `withIdempotency` уже есть в том же файле — он приходит в диспетчер как `path`; передай его параметром во все пять мест вызова: `/api/bcc/send`, `/api/bcc/log`, `/api/orders/:id/shipments`, `/api/orders/:id/payments`, `/api/orders/:id/returns`. Для заказов ключом обязан быть путь С подставленным идентификатором заказа — отгрузка по двум разным заказам это две разные операции. Часы бери через `Date.now()`, чтобы спека могла их подменить. Заведи frontend_vue/src/services/mocks/idempotency-scope.spec.ts, который доказывает три вещи поведением, а не чтением кода: один ключ на двух разных путях выполняет обе операции; тот же ключ на том же пути второй раз операцию не повторяет; запись старше суток не переиспользуется (`vi.useFakeTimers()`/`vi.setSystemTime`). Контракт (файл `00-conventions.md`) в этой задаче не трогай — его правит отдельная задача.",
+      "acceptance": [
+        "Один и тот же `Idempotency-Key`, посланный на два разных пути, выполняет обе операции: вторая получает собственный ответ, а не ответ первой",
+        "Тот же ключ на том же пути второй раз возвращает прежний ответ и саму операцию не повторяет — состояние мока после второго запроса такое же, как после первого",
+        "Запись кэша старше 24 часов не переиспользуется: после сдвига системного времени на сутки с минутой тот же ключ на том же пути выполняет операцию заново",
+        "Все пять вызовов withIdempotency получают путь, и у двух заказных путей в ключ входит идентификатор заказа — отгрузка по разным заказам не склеивается",
+        "Если вернуть кэш к прежнему виду (ключ без пути, без срока), новая спека краснеет; при этом `npm run verify` и `npm run test:audit` на исправленном дереве завершаются кодом 0"
+      ],
+      "почему_не_сделано": "rg -n 'idempotencyCache|withIdempotency' frontend_vue/src/services/mocks/index.ts → строки 318-328: `const idempotencyCache = new Map<string, unknown>()`, внутри `withIdempotency` ключ берётся только из заголовка (`headers?.['Idempotency-Key'] ?? headers?.['idempotency-key']`), ни пути, ни отметки времени в записи нет; сам §11 контракта на 2026-09-23 это и констатирует (00-conventions.md:872-874 — «его кэш живёт в `Map` на процесс — без срока и без привязки к пути»)."
+    },
+    {
+      "id": "conventions-sections-2-and-11-tell-the-truth",
+      "depends_on": [
+        "mock-refusals-categories",
+        "mock-idempotency-scope"
+      ],
+      "sources": [
+        "roo_code/roo-context/api/00-conventions.md",
+        "frontend_vue/src/services/mocks/index.ts",
+        "frontend_vue/src/services/mocks/categories.ts",
+        "frontend_vue/src/services/api.ts",
+        "frontend_vue/src/services/bccService.ts",
+        "frontend_vue/src/services/ordersService.ts",
+        "frontend_vue/src/services/contractRefs.ts"
+      ],
+      "outputs": [
+        "roo_code/roo-context/api/00-conventions.md"
+      ],
+      "checks": [
+        {
+          "cwd": "frontend_vue",
+          "argv": [
+            "npx",
+            "vitest",
+            "run",
+            "src/services/contractRefs.spec.ts"
+          ]
+        },
+        {
+          "cwd": "frontend_vue",
+          "argv": [
+            "npm",
+            "run",
+            "verify"
+          ]
+        }
+      ],
+      "task": "Два места файла roo_code/roo-context/api/00-conventions.md описывают код, которого там уже нет, и ссылаются на строки, где названного ими нет. Первое — пункт «Отказ несёт код, а не текст» в §2 (строки 80-85). Второе — §11 целиком до подраздела про `If-Match` (строки 854-879). Пройди по каждой ссылке вида `файл:строка` и по каждому утверждению о коде в этих двух местах, открой названный файл и сверь. Известно наверняка про две: §11 дважды называет адрес `withIdempotency` — `mocks/index.ts:259-269` (строка 859) и `mocks/index.ts:148` (строка 873), — а функция лежит в другом месте файла; и оба адреса между собой не сходятся, то есть хотя бы один был неверен уже при записи. Остальные проверь сам, не полагаясь на этот перечень. Правило правки: правь текст так, чтобы предложение говорило правду о сегодняшнем коде, а не так, чтобы замолчала машинная проверка. Если абзац описывает поведение, которого в коде больше нет (например, §11 утверждает, что кэш мока живёт «без срока и без привязки к пути»), — перепиши абзац по факту, сохранив мысль, ради которой он написан, и не выбрасывая решение владельца П46, которое в нём записано: решение остаётся, меняется описание того, что под него уже сделано. Если перечень в §2 называет мок-файлы, которые голый `Error` больше не бросают, — исключи их из перечня и скажи, на что они переведены. Число и состав решений владельца не меняй, новых утверждений о коде без проверки не добавляй. Ничего, кроме этих двух мест, в файле не трогай. Проверить себя по ссылкам: cd frontend_vue && CONTRACT_REFS=roo_code/roo-context/api/00-conventions.md ./node_modules/.bin/vitest run src/services/contractRefs.spec.ts — битых не должно стать больше, чем было до правки; правила резолвера — в frontend_vue/src/services/contractRefs.ts.",
+      "acceptance": [
+        "Каждая ссылка вида `файл:строки` в пункте §2 «Отказ несёт код, а не текст» и в §11 указывает на строки, где действительно лежит то, о чём говорит предложение рядом с ней",
+        "Оба адреса `withIdempotency` в §11 ведут на одно и то же настоящее место в mocks/index.ts",
+        "Утверждение §11 о кэше мока описывает то, что в mocks/index.ts есть на самом деле на момент правки; решение владельца П46 из абзаца не пропало и не переформулировано по смыслу",
+        "Перечень мок-файлов в §2, про которые сказано «бросает голый Error», содержит только те, где голый `Error` действительно остался",
+        "Вне пункта §2 и §11 ни один абзац файла не изменён; число битых ссылок по этому документу не выросло относительно состояния до правки"
+      ],
+      "почему_не_сделано": "rg -n 'mocks/index.ts:259-269|mocks/index.ts:148' roo_code/roo-context/api/00-conventions.md → строка 859 («`withIdempotency` (`mocks/index.ts:259-269`)») и строка 873 («`mocks/index.ts:148`»). rg -n 'idempotencyCache|withIdempotency' frontend_vue/src/services/mocks/index.ts → 318-328: функция и кэш лежат там, а не на 148 и не на 259-269, то есть оба адреса ведут не туда и между собой не сходятся."
+    }
+  ]
+}
