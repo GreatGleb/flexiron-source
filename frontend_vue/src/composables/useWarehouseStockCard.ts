@@ -13,7 +13,7 @@ import { useTranslatedField } from './useTranslatedData'
 import { mergeLocaleValue } from '@/types/i18n'
 import type { StockOverviewItem, StockAuditEntry, BatchStatusAggregate } from '@/types/warehouse'
 import type { TranslatedString } from '@/types/i18n'
-
+import { errorMessageKey } from '@/services/apiErrorCode'
 export function useWarehouseStockCard(productId: string) {
   const { t, locale } = useI18n()
   const toast = useToast()
@@ -134,7 +134,12 @@ export function useWarehouseStockCard(productId: string) {
       // Also load aggregates across all batches for this product
       await loadStockAggregates()
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to load stock item'
+      const key = errorMessageKey(
+        e,
+        [['STOCK_ITEM_NOT_FOUND', 'warehouse.stock_card_not_found']],
+        'warehouse.toast_error_load',
+      )
+      error.value = t(key)
     } finally {
       loading.value = false
     }

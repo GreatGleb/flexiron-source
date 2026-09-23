@@ -5,7 +5,7 @@ import { useToast } from './useToast'
 import { useTranslatedField } from './useTranslatedData'
 import { ensureProductNames } from './useProductNames'
 import type { WarehouseMovement, StockAuditEntry } from '@/types/warehouse'
-
+import { errorMessageKey } from '@/services/apiErrorCode'
 export function useWarehouseMovementCard(id: string) {
   const { t } = useI18n()
   const toast = useToast()
@@ -37,7 +37,12 @@ export function useWarehouseMovementCard(id: string) {
       movement.value = data
       auditLog.value = data.auditLog
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to load movement'
+      const key = errorMessageKey(
+        e,
+        [['MOVEMENT_NOT_FOUND', 'warehouse.movement_not_found']],
+        'warehouse.toast_error_load',
+      )
+      error.value = t(key)
     } finally {
       loading.value = false
     }

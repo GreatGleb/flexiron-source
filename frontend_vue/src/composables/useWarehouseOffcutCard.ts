@@ -11,7 +11,7 @@ import {
   getBatch,
 } from '@/services/warehouseService'
 import { getProduct } from '@/services/productsService'
-import { errorCode } from '@/services/apiErrorCode'
+import { errorCode, errorMessageKey } from '@/services/apiErrorCode'
 import { resolveOffcutWeight } from '@/domain/cutting'
 import { useDirtyCheck } from './useDirtyCheck'
 import { useToast } from './useToast'
@@ -217,7 +217,12 @@ export function useWarehouseOffcutCard(id: string) {
       await loadMovements()
       await loadBatchProduct(data.batchId)
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to load offcut'
+      const key = errorMessageKey(
+        e,
+        [['OFFCUT_NOT_FOUND', 'warehouse.offcut_not_found']],
+        'warehouse.toast_error_load',
+      )
+      error.value = t(key)
     } finally {
       loading.value = false
     }

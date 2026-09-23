@@ -107,7 +107,10 @@ describe('audit entries are addressed by id, not by position', () => {
   it('a numeric position is not an id — it deletes nothing', async () => {
     const before = await mockGetBatchAudit('whb-077')
     if (before.length === 0) return
-    await expect(mockDeleteBatchAuditEntry('whb-077', '0')).rejects.toThrow('AUDIT_ENTRY_NOT_FOUND')
+    await expect(mockDeleteBatchAuditEntry('whb-077', '0')).rejects.toMatchObject({
+      code: 'AUDIT_ENTRY_NOT_FOUND',
+      status: 404,
+    })
     expect((await mockGetBatchAudit('whb-077')).length).toBe(before.length)
   })
 })

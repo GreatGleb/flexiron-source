@@ -72,14 +72,35 @@ describe('an unknown id is refused, not answered with emptiness', () => {
   })
 
   it('warehouse: the five logs and both aggregates refuse what their deletes refuse', async () => {
-    await expect(mockGetStockAudit(UNKNOWN)).rejects.toThrow('STOCK_NOT_FOUND')
-    await expect(mockGetBatchAudit(UNKNOWN)).rejects.toThrow('BATCH_NOT_FOUND')
-    await expect(mockGetOffcutAudit(UNKNOWN)).rejects.toThrow('OFFCUT_NOT_FOUND')
-    await expect(mockGetDeficitAudit(UNKNOWN)).rejects.toThrow('DEFICIT_NOT_FOUND')
+    await expect(mockGetStockAudit(UNKNOWN)).rejects.toMatchObject({
+      code: 'STOCK_NOT_FOUND',
+      status: 404,
+    })
+    await expect(mockGetBatchAudit(UNKNOWN)).rejects.toMatchObject({
+      code: 'BATCH_NOT_FOUND',
+      status: 404,
+    })
+    await expect(mockGetOffcutAudit(UNKNOWN)).rejects.toMatchObject({
+      code: 'OFFCUT_NOT_FOUND',
+      status: 404,
+    })
+    await expect(mockGetDeficitAudit(UNKNOWN)).rejects.toMatchObject({
+      code: 'DEFICIT_NOT_FOUND',
+      status: 404,
+    })
     // The movement log had no "no such movement" code at all: an unknown id got an
     // empty log invented for it, and the paired delete then blamed the entry.
-    await expect(mockGetMovementAudit(UNKNOWN)).rejects.toThrow('MOVEMENT_NOT_FOUND')
-    await expect(mockGetBatchAggregates(UNKNOWN)).rejects.toThrow('BATCH_NOT_FOUND')
-    await expect(mockGetBatchActiveSales(UNKNOWN)).rejects.toThrow('BATCH_NOT_FOUND')
+    await expect(mockGetMovementAudit(UNKNOWN)).rejects.toMatchObject({
+      code: 'MOVEMENT_NOT_FOUND',
+      status: 404,
+    })
+    await expect(mockGetBatchAggregates(UNKNOWN)).rejects.toMatchObject({
+      code: 'BATCH_NOT_FOUND',
+      status: 404,
+    })
+    await expect(mockGetBatchActiveSales(UNKNOWN)).rejects.toMatchObject({
+      code: 'BATCH_NOT_FOUND',
+      status: 404,
+    })
   })
 })
