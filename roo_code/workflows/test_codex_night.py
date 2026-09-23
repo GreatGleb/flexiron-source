@@ -290,6 +290,7 @@ class PilotTest(unittest.TestCase):
         guard.mkdir()
         shutil.copyfile(RUNNER, guard / 'controller.py')
         shutil.copyfile(RUNNER.with_name('headless_backends.py'), guard / 'headless_backends.py')
+        shutil.copyfile(RUNNER.with_name('refs_shift.py'), guard / 'refs_shift.py')
         shutil.copyfile(RUNNER.with_name('codex-night-watch.py'), guard / 'watch.py')
         shutil.copyfile(self.queue, guard / 'queue.json')
         pointer = self.base / 'active.json'
