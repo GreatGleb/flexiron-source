@@ -1,0 +1,16 @@
+[Unit]
+Description=Flexiron: ночной автономный прогон
+# Без сети оператор не ответит, а исполнители не запустятся вовсе.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/PycharmProjects/flexiron-source/roo_code/workflows/night-run.sh
+TimeoutStartSec=8h
+# Прогон не перезапускается сам: упал — значит причина в дереве или в очереди,
+# и повтор без человека повторит ту же ошибку до утра.
+Restart=no
+
+[Install]
+WantedBy=default.target
