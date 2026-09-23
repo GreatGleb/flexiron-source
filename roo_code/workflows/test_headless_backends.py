@@ -324,7 +324,10 @@ class BudgetTest(unittest.TestCase):
         # а не то, как потолок смотрит вперёд (это проверяет соседний тест).
         result = self.invoke(budget=5000, tokens="1000")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(self.state()["tokens"], 1000)
+        # Две приёмки на Claude по 1000; авторы на Codex не в счёт. Число снято
+        # ПОСЛЕ последней задачи: раньше оно отставало на задачу, и супервизор по
+        # нему начинал лишнюю порцию сверх потолка.
+        self.assertEqual(self.state()["tokens"], 2000)
         self.assertEqual(len(self.state()["completed"]), 2)
 
 
