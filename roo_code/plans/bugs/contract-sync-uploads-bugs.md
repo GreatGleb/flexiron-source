@@ -28,7 +28,7 @@
 Фронт написан по моку, который отдаёт все шесть (`mocks/index.ts:1667-1674`), поэтому под моками
 (`VITE_USE_MOCKS`, `api.ts:4`) всё зелено. Против сервера недостающие поля станут `undefined` и
 разъедутся по сущностям: `useOrderCard.ts:1625,1628,1629`, `useOrderCreate.ts:331,334,335`,
-`OutgoingPaymentCardPage.vue:102,105,106,107`, `BccRequestPage.vue:313,314,315`,
+`OutgoingPaymentCardPage.vue:108,105,106,107`, `BccRequestPage.vue:313,314,315`,
 `ProductCardPage.vue:225`, `WarehouseBatchCreatePage.vue:142`,
 `WarehouseOffcutCreatePage.vue:182`.
 
@@ -77,8 +77,8 @@
 показать тост `warehouse.map_toast_not_image` (`useWarehouseMap.ts:46`).
 
 Хуже, чем просто отсутствие проверки: исключение вылетит из `onUploaded`
-(`WarehouseMapPage.vue:34-43`) и до `catch` в `DropZone.handleFiles` (`DropZone.vue:40-42`) не
-дойдёт — оно выброшено уже после `emit('uploaded', ...)` (`DropZone.vue:39`).
+(`WarehouseMapPage.vue:34-43`) и до `catch` в `DropZone.handleFiles` (`DropZone.vue:58-60`) не
+дойдёт — оно выброшено уже после `emit('uploaded', ...)` (`DropZone.vue:57`).
 
 ### Fix
 
@@ -106,7 +106,7 @@ grep -rn "upload-error\|uploadError" frontend_vue/src/views frontend_vue/src/com
   --include=*.vue | grep -v ui/DropZone.vue
 ```
 → пусто, при двенадцати использованиях `DropZone` (`SupplierCardPage.vue:265`,
-`OutgoingPaymentCardPage.vue:295`, `BccRequestPage.vue:858`, `CompanySettings.vue:72`,
+`OutgoingPaymentCardPage.vue:301`, `BccRequestPage.vue:858`, `CompanySettings.vue:72`,
 `WarehouseOffcutCreatePage.vue:945`, `ProductCardPage.vue:597`, `OrderCardPage.vue:2176`,
 `WarehouseBatchCard.vue:1439`, `WarehouseMapPage.vue:158`, `WarehouseBatchCreatePage.vue:841`,
 `WarehouseOffcutCard.vue:933`, `OrderCreatePage.vue:561`).
@@ -192,7 +192,7 @@ UUID, а первый останется в системе навсегда — 
   чтения содержимого. Файл с тем же содержимым под другим именем отсев не ловит, и это осознанно;
 - **граница действия — одна форма, один сеанс**: после перезагрузки страницы выбранные файлы
   исчезают вместе со state, защищать нечего;
-- **место правки одно на весь проект** — `frontend_vue/src/components/admin/ui/DropZone.vue:33-41`,
+- **место правки одно на весь проект** — `frontend_vue/src/components/admin/ui/DropZone.vue:44-59`,
   её потребителей десять.
 
 Поэтому «второй файл на диске и вторая строка `uploaded_files`», описанные выше, перестают быть
@@ -206,7 +206,7 @@ UUID, а первый останется в системе навсегда — 
 ### Дополнение 2026-09-12 — сторона `DropZone`: клиент сам гарантирует повтор
 
 Решением владельца назван дефект «`DropZone` грузит дубликаты без отсева»
-(`components/admin/ui/DropZone.vue:33-45`) — это он и есть, отдельной находки заводить не нужно.
+(`components/admin/ui/DropZone.vue:44-63`) — это он и есть, отдельной находки заводить не нужно.
 Что к сказанному выше добавляет клиентская сторона:
 
 ```ts
@@ -240,7 +240,7 @@ drop — тоже нет).
 состояние — `fileInput`, `dragging`, `uploading`
 (`frontend_vue/src/components/admin/ui/DropZone.vue:25-27`), и больше ничего. Потребитель кладёт
 пришедшее в свой список без единой проверки — например
-(`frontend_vue/src/views/admin/finance/OutgoingPaymentCardPage.vue:104-118`):
+(`frontend_vue/src/views/admin/finance/OutgoingPaymentCardPage.vue:110-124`):
 
 ```ts
 for (const u of uploaded) {
@@ -252,7 +252,7 @@ for (const u of uploaded) {
 Имя файла на сервере — свежий `uuid4().hex` на каждый запрос
 (`backend/app/core/uploads/action.py:119`), поэтому один и тот же файл, перетащенный дважды,
 даёт **два разных `fileId`**, две строки в списке документов и оба `fileId` в теле сохранения
-(`OutgoingPaymentCardPage.vue:86`). Ни отказа, ни предупреждения человек не видит: с точки зрения
+(`OutgoingPaymentCardPage.vue:88`). Ни отказа, ни предупреждения человек не видит: с точки зрения
 кода это два разных файла.
 
 **Тройки из П50 в коде нет вовсе.** `grep -rn "lastModified" frontend_vue/src | wc -l` → `0`:
@@ -268,7 +268,7 @@ for (const u of uploaded) {
 
 **Замеры поправлены.** Выше сказано «её потребителей десять» — на 2026-09-13
 `grep -rn "<DropZone" frontend_vue/src --include=*.vue | wc -l` → `12`, и столько же обработчиков
-`@uploaded=`. Адрес самой `handleFiles` — `DropZone.vue:33-45` (`:33` — заголовок функции, `:45` —
+`@uploaded=`. Адрес самой `handleFiles` — `DropZone.vue:44-63` (`:33` — заголовок функции, `:45` —
 её закрывающая скобка), а не `:33-41`: диапазон выше обрывается на середине функции. Замеры
 проверены сегодня, вывод команд — `/tmp/proof-пункт8-uploads.txt`.
 

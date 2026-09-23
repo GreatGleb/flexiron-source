@@ -1131,7 +1131,7 @@ save-режим.
 | services | один PATCH | `useServiceCard.ts:70-74` |
 | categories | **два** параллельных запроса | `useCategoryCard.ts:102-112` |
 | config | **три** параллельных PUT | `useCardConfig.ts:51-55` |
-| finance | PATCH плюс независимый аплоад до Save | `OutgoingPaymentCardPage.vue:72-87` |
+| finance | PATCH плюс независимый аплоад до Save | `OutgoingPaymentCardPage.vue:74-89` |
 | warehouse | PATCH плюс до двух движений, провал заглушён | `useWarehouseBatch.ts:255-276`, `useWarehouseOffcutCard.ts:288-323` |
 | clients | **1 + N + M** последовательных запросов | `useClientCard.ts:273-304` |
 | settings | **до десятка** параллельных запросов | `useSettings.ts:518` |
@@ -1170,7 +1170,7 @@ save-режим.
 экран, не перечитывая ресурс отдельным запросом.
 
 И обратная крайность, тоже общая: **`catch { load() }` разрушает несохранённое.** Так сделано в
-карточке исходящего платежа (`OutgoingPaymentCardPage.vue:83-85`), и у карточки заказа это
+карточке исходящего платежа (`OutgoingPaymentCardPage.vue:85-87`), и у карточки заказа это
 поведение уже было признано разрушительным.
 
 ## 16. Файлы
@@ -1189,7 +1189,7 @@ save-режим.
   осознанно — лишний файл виден в списке и удаляется руками. Граница действия — одна форма, один
   сеанс: после перезагрузки выбранные файлы исчезают вместе со state. Место правки одно на весь
   проект, `DropZone.vue`, и сегодня отсева нет вовсе: `handleFiles` грузит всё, что дали, одним
-  `Promise.all(files.map(uploadFile))` (`components/admin/ui/DropZone.vue:33-41`) — это работа, а
+  `Promise.all(files.map(uploadFile))` (`components/admin/ui/DropZone.vue:44-59`) — это работа, а
   не только строка контракта.
 - **Удаление файла из карточки — удаление ссылки, а не файла.** Все `removeFile` работают с
   массивом в памяти, ни один не зовёт сервер; отдельного `DELETE` для файла нет. На стороне БД

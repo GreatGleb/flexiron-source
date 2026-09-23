@@ -94,7 +94,7 @@ schemas → repository → domain → action, миграции в `backend/alemb
 разбирает только откатом, и обратный порядок назван безопасным в его собственном комментарии
 (`frontend_vue/src/services/apiErrorCode.ts:41` — сама функция, довод — `:26`). Единственный
 потребитель кода в домене уже написан под равенство:
-`frontend_vue/src/views/admin/finance/OutgoingPaymentCardPage.vue:72` сравнивает результат
+`frontend_vue/src/views/admin/finance/OutgoingPaymentCardPage.vue:74` сравнивает результат
 `errorCode` с `'PAYMENT_NOT_FOUND'` — до правки код приходит из текста, после правки из поля, и
 ветка не меняется ни разу.
 
@@ -172,8 +172,8 @@ schemas → repository → domain → action, миграции в `backend/alemb
 
 | код | статус | бросает | читает сегодня | что нужно |
 |---|---|---|---|---|
-| `PAYMENT_NOT_FOUND` | 404 | `get_payment`, `patch_payment` — id не найден или принадлежит чужому арендатору | `frontend_vue/src/views/admin/finance/OutgoingPaymentCardPage.vue:72` — единственный разбор кода в домене | код уже читается; после Ф0 он приходит полем, а не текстом. Слить «нет такого платежа» и «чужой арендатор» в один 404 обязательно: раздельные ответы выдают существование чужой записи |
-| `VALIDATION_ERROR` | 422 | `patch_payment` — поле вне белого списка, неизвестное значение `status`, `fileIds` не массив строк | **никто**, и правило домена 19 контракта в этой части устарело: булевым флагом отказ сводят **три** списочные страницы (`frontend_vue/src/views/admin/finance/IncomingPaymentsPage.vue:35`, `frontend_vue/src/views/admin/finance/OutgoingPaymentsPage.vue:28`, `frontend_vue/src/views/admin/finance/DocumentArchivePage.vue:49` — у всех трёх `error = ref(false)`), а карточка платежа с 2026-09-11 держит `errorKind` и различает по коду (`frontend_vue/src/views/admin/finance/OutgoingPaymentCardPage.vue:32`) — но только один код, `PAYMENT_NOT_FOUND` | ветка в карточке платежа рядом с существующей — Ф7. Сегодня тела не проверяет никто: слияние `...current` с телом применяет что дали (`frontend_vue/src/services/mocks/finance.ts:522`), БАГ-02 |
+| `PAYMENT_NOT_FOUND` | 404 | `get_payment`, `patch_payment` — id не найден или принадлежит чужому арендатору | `frontend_vue/src/views/admin/finance/OutgoingPaymentCardPage.vue:74` — единственный разбор кода в домене | код уже читается; после Ф0 он приходит полем, а не текстом. Слить «нет такого платежа» и «чужой арендатор» в один 404 обязательно: раздельные ответы выдают существование чужой записи |
+| `VALIDATION_ERROR` | 422 | `patch_payment` — поле вне белого списка, неизвестное значение `status`, `fileIds` не массив строк | **никто**, и правило домена 19 контракта в этой части устарело: булевым флагом отказ сводят **три** списочные страницы (`frontend_vue/src/views/admin/finance/IncomingPaymentsPage.vue:35`, `frontend_vue/src/views/admin/finance/OutgoingPaymentsPage.vue:28`, `frontend_vue/src/views/admin/finance/DocumentArchivePage.vue:49` — у всех трёх `error = ref(false)`), а карточка платежа с 2026-09-11 держит `errorKind` и различает по коду (`frontend_vue/src/views/admin/finance/OutgoingPaymentCardPage.vue:34`) — но только один код, `PAYMENT_NOT_FOUND` | ветка в карточке платежа рядом с существующей — Ф7. Сегодня тела не проверяет никто: слияние `...current` с телом применяет что дали (`frontend_vue/src/services/mocks/finance.ts:522`), БАГ-02 |
 | `FORBIDDEN` | 403 | все пять роутов — проверка права перед работой | никто | сквозной план прав; домен даёт элементы и отображение (раздел 5.1) |
 | `UNAUTHORIZED` | 401 | все пять роутов — нет токена | никто; клиент не шлёт ни одного заголовка (`frontend_vue/src/services/financeService.ts:20`, и то же на `:33`, `:42`, `:49`, `:63`) | Ф7: подпись запроса в сервисе домена, иначе все пять путей против настоящего сервера отвечают 401 |
 | `NOT_FOUND` | 404 | ядро, на неизвестном пути | — | **не заводить** финансовых кодов, содержащих `NOT_FOUND` как подстроку, сверх уже существующего. §2 нарушен уже сейчас: ядровый `NOT_FOUND` — подстрока `PAYMENT_NOT_FOUND` (БАГ-12). Острота снята правкой шима: код сравнивается с `candidate` равенством (`frontend_vue/src/services/apiErrorCode.ts:71`), но формальное требование §2 остаётся — вопрос 9 раздела 8 |
@@ -368,15 +368,15 @@ schemas → repository → domain → action, миграции в `backend/alemb
    целиком из `getPayments`) и пункт подменю «Исходящие»
    (`frontend_vue/src/views/admin/finance/FinanceSubNav.vue:16-21`).
 3. **`finance.payment` · `edit` отказан** → исчезает кнопка сохранения карточки
-   (`frontend_vue/src/views/admin/finance/OutgoingPaymentCardPage.vue:165-174`). Именно
+   (`frontend_vue/src/views/admin/finance/OutgoingPaymentCardPage.vue:171-180`). Именно
    исчезает: `:disabled` там уже занят состоянием «нечего сохранять», и отказ по праву,
    надетый поверх, читался бы как «нет изменений».
 4. **`finance.payment-document` · `edit` отказан** → исчезают зона загрузки
-   (`frontend_vue/src/views/admin/finance/OutgoingPaymentCardPage.vue:312-320`) и крестик
+   (`frontend_vue/src/views/admin/finance/OutgoingPaymentCardPage.vue:318-326`) и крестик
    удаления у каждого вложения (`:303-310`, обработчик
-   `frontend_vue/src/views/admin/finance/OutgoingPaymentCardPage.vue:97-101`). При отказе
+   `frontend_vue/src/views/admin/finance/OutgoingPaymentCardPage.vue:103-107`). При отказе
    `read` на том же элементе исчезает и панель документов целиком
-   (`frontend_vue/src/views/admin/finance/OutgoingPaymentCardPage.vue:294-297`), а не остаётся
+   (`frontend_vue/src/views/admin/finance/OutgoingPaymentCardPage.vue:300-303`), а не остаётся
    пустой — пустая панель читается как «вложений нет».
 5. **`finance.archive` · `read` отказан** → исчезает страница архива
    (`frontend_vue/src/views/admin/finance/DocumentArchivePage.vue:56-60`) и пункт подменю
@@ -552,7 +552,7 @@ schemas → repository → domain → action, миграции в `backend/alemb
 | П46 | ключ идемпотентности живёт сутки, область «ключ + операция» | `POST` нет ни одного — ключ не требуется ни на одном из пяти путей | 5.5 |
 | П47 | двойная отправка гасится и на клиенте: кнопка заморожена до ответа | ответ `PATCH` обязан быть достаточным, чтобы клиент разморозил кнопку и обновил экран без второго запроса; ответ отдаёт запись целиком — условие выполнено и слайсом не нарушается | 5.5 |
 | П49 | карточка клиента и финансовая запись атомарными не становятся — «как есть» | прямое назначение домену: общей транзакции вокруг Save **не заводится**. Сам `PATCH` атомарен и так; неатомарна связка «аплоад плюс запись», и её закрывает П31 | 5.5 |
-| П50 | повтор файла отсеивает фронт, сервер о нём не знает — ни хеша, ни проверки дубля, ни нового кода | **обе половины касаются домена, и обе — ответ, а не пропуск.** Сервер: Ф4 **не заводит** отсева по содержимому и по имени и не бросает под это кода — два одинаковых файла дают два документа, и это верно по решению. Единственное, что Ф4 всё же схлопывает, — один и тот же `fileId`, поданный в массиве дважды: это не «тот же файл», а тот же документ. Фронт: карточка платежа — потребитель `DropZone` (`frontend_vue/src/views/admin/finance/OutgoingPaymentCardPage.vue:9`, `:312`), где отсева сегодня нет вовсе (`frontend_vue/src/components/admin/ui/DropZone.vue:33-41` — `Promise.all` по всему, что дали). Чинит это **не finance**: место правки одно на весь проект, потребителей `DropZone` тринадцать файлов (`grep -rl "DropZone" frontend_vue/src --include=*.vue \| wc -l` → 13, и сам `DropZone.vue` в эти тринадцать не входит — он `.vue`, но своего имени не содержит; бриф называл десять, расхождение замера, не решения), и тринадцать доменных планов, правящих один компонент, передерутся за него | Ф4 п. 2; Ф7 п. 4 |
+| П50 | повтор файла отсеивает фронт, сервер о нём не знает — ни хеша, ни проверки дубля, ни нового кода | **обе половины касаются домена, и обе — ответ, а не пропуск.** Сервер: Ф4 **не заводит** отсева по содержимому и по имени и не бросает под это кода — два одинаковых файла дают два документа, и это верно по решению. Единственное, что Ф4 всё же схлопывает, — один и тот же `fileId`, поданный в массиве дважды: это не «тот же файл», а тот же документ. Фронт: карточка платежа — потребитель `DropZone` (`frontend_vue/src/views/admin/finance/OutgoingPaymentCardPage.vue:9`, `:312`), где отсева сегодня нет вовсе (`frontend_vue/src/components/admin/ui/DropZone.vue:44-59` — `Promise.all` по всему, что дали). Чинит это **не finance**: место правки одно на весь проект, потребителей `DropZone` тринадцать файлов (`grep -rl "DropZone" frontend_vue/src --include=*.vue \| wc -l` → 13, и сам `DropZone.vue` в эти тринадцать не входит — он `.vue`, но своего имени не содержит; бриф называл десять, расхождение замера, не решения), и тринадцать доменных планов, правящих один компонент, передерутся за него | Ф4 п. 2; Ф7 п. 4 |
 | П51 | типов уведомлений пятнадцать | `payment_overdue` был среди восьми и остаётся; ни один из семи новых домену не принадлежит | 5.4 |
 | П53 | почта написана транспортом, хранилища настроек нет | **не касается напрямую**: доставку письмом держат уведомления и настройки, finance отдаёт событие и на транспорт не смотрит | 5.4 |
 | П55 | тревоги дашборда — помеченные уведомления, а не свой механизм | `payment_overdue` — один из трёх кодов с флагом тревоги; домен флага **не отбирает**, своей чистки тревог не заводит и мимо эмиттера не пишет | 5.4 |
@@ -700,14 +700,14 @@ query и ниоткуда больше: сервер размер страниц
 1. Подпись запроса на всех пяти вызовах — сегодня заголовков нет ни одного (БАГ-01), и против
    настоящего сервера все пять путей отвечают 401.
 2. Ветка `VALIDATION_ERROR` в карточке рядом с существующей веткой `PAYMENT_NOT_FOUND`
-   (`frontend_vue/src/views/admin/finance/OutgoingPaymentCardPage.vue:72`).
+   (`frontend_vue/src/views/admin/finance/OutgoingPaymentCardPage.vue:74`).
 3. Подпись `patchPayment` сужается с `Partial<FinancePayment>` до `{ notes?, fileIds? }`
    (`frontend_vue/src/services/financeService.ts:45-50`) — чтобы белый список сервера был виден в
    типах клиента, а не только в отказе.
 4. **Отсев повтора файла (П50) — в этот план не берётся, и вот почему.** Карточка платежа —
    потребитель `DropZone` (`frontend_vue/src/views/admin/finance/OutgoingPaymentCardPage.vue:9`,
    `:312`), а отсева там нет вовсе: `handleFiles` грузит всё, что дали, одним `Promise.all`
-   (`frontend_vue/src/components/admin/ui/DropZone.vue:33-41`). Место правки одно на весь проект, и
+   (`frontend_vue/src/components/admin/ui/DropZone.vue:44-59`). Место правки одно на весь проект, и
    потребителей у компонента тринадцать (`grep -rl "DropZone" frontend_vue/src --include=*.vue | wc -l`
    → 13; бриф П50 называл десять, и это расхождение замера, а не решения — само решение от числа не
    зависит). Правка общего компонента из доменного плана — это тринадцать планов, правящих один файл;

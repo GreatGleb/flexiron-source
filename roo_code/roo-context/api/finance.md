@@ -66,7 +66,7 @@
   `views/admin/finance/OutgoingPaymentsPage.vue:55-57`, `views/admin/finance/DocumentArchivePage.vue:68-70`).
   Разбора `ApiRequestError.code` (`types/api.ts:25-47`) там по-прежнему нет (БАГ-06). С 2026-09-11 карточка
   исходящего платежа — исключение: она читает `errorCode(e) === 'PAYMENT_NOT_FOUND'`
-  (`OutgoingPaymentCardPage.vue:72`).
+  (`OutgoingPaymentCardPage.vue:74`).
 - **Под моками это уже `ApiRequestError`, не голый `Error`.** `unwrap()` (`services/api.ts:138-154`)
   по-прежнему не вызывается — мок отвечает раньше `fetch` (`services/api.ts:260-264`), — но сам
   мок с 2026-09-11 строит отказ своим хелпером (`mockRefusal`, `mocks/finance.ts:25-27`).
@@ -284,9 +284,9 @@ Save-режим — **чтение**. Строка ведёт в карточк�
 
 Save-режим — **чтение и вход в clean-slate карточку** (§15 соглашений). Ответ раскладывается на два
 места: сам `payment` и черновик заметки `notesDraft`
-(`views/admin/finance/OutgoingPaymentCardPage.vue:60-62`), из чего и считается `isDirty` (`:40-51`).
-Тот же `load()` — путь откáта: при ошибке Save он вызывается из `catch` (`:83-85`), то есть
-несохранённое теряется целиком — «Правила домена», п. 17.
+(`views/admin/finance/OutgoingPaymentCardPage.vue:62-64`), из чего и считается `isDirty` (`:40-51`).
+Отказ Save `load()` больше не зовёт: несохранённые `notesDraft` и документы остаются как есть,
+отказ доходит до человека тостом — «Правила домена», п. 17.
 
 Ошибки: `PAYMENT_NOT_FOUND` — 404, когда записи с таким `id` нет (`mocks/finance.ts:427-428`).
 
@@ -305,7 +305,7 @@ Save-режим — **чтение и вход в clean-slate карточку**
 соглашений).
 
 Save-режим — **clean-slate, один запрос на нажатие**. Правки живут в состоянии карточки:
-`notesDraft` (`views/admin/finance/OutgoingPaymentCardPage.vue:26`, `:62`) и
+`notesDraft` (`views/admin/finance/OutgoingPaymentCardPage.vue:28`, `:62`) и
 `payment.value.documents`, который меняется на месте — удаление `splice` (`:90-95`), добавление
 `push` после аплоада (`:97-111`). `isDirty` сравнивает заметку и **отсортированные** списки
 `fileId` (`:40-51`), Save уходит одним PATCH и раскладывает ответ обратно (`:72-88`).
@@ -322,7 +322,7 @@ Save-режим — **clean-slate, один запрос на нажатие**. 
 ```
 
 Карточка шлёт ровно эти два ключа: `{ notes: notesDraft || null, fileIds: documents.map(d => d.fileId) }`
-(`views/admin/finance/OutgoingPaymentCardPage.vue:77-80`). **Но подпись клиента шире тела:**
+(`views/admin/finance/OutgoingPaymentCardPage.vue:79-82`). **Но подпись клиента шире тела:**
 `Partial<FinancePayment> & { fileIds?: string[] }` (`services/financeService.ts:45-50`), и мок
 применяет что дали — `{ ...current, ...data }` без белого списка и без валидации
 (`mocks/finance.ts:522`). Прежний контракт называл `notes` единственным редактируемым полем; это
@@ -477,7 +477,7 @@ Save-режим — **чтение**. Триггеров пять, и пятый
 Карта статуса в пилюлю — тоже три, и они **не совпадают**: без `cancelled`
 (`views/admin/finance/IncomingPaymentsPage.vue:88-92`) и с ним
 (`views/admin/finance/OutgoingPaymentsPage.vue:82-87`,
-`views/admin/finance/OutgoingPaymentCardPage.vue:33-38`), при том что у статусов заказа единый
+`views/admin/finance/OutgoingPaymentCardPage.vue:35-40`), при том что у статусов заказа единый
 источник заведён отдельным модулем. Кому принадлежат валюта платежа, размер страницы и перечень
 размеров — **нигде**, решение владельца (`00-решения-владельца.md:325`).
 
@@ -666,7 +666,7 @@ Save-режим — **чтение**. Триггеров пять, и пятый
    разницы нет — правило записано, чтобы его не приняли за требование (§18 соглашений).
 9. **Значение `cancelled` объявлено и недостижимо.** Оно есть в типе (`types/finance.ts:3`), в
    фильтре (`views/admin/finance/OutgoingPaymentsPage.vue:39`) и в двух картах пилюль
-   (`:86`, `views/admin/finance/OutgoingPaymentCardPage.vue:37`), но
+   (`:86`, `views/admin/finance/OutgoingPaymentCardPage.vue:39`), но
    `grep -c "status: 'cancelled'" frontend_vue/src/services/mocks/finance.ts` → 0, и ни одна
    операция его не ставит: единственный путь смены статуса — PATCH без валидации
    (`mocks/finance.ts:522`). Кто и по какому событию отменяет платёж — решение владельца; находка —
@@ -700,14 +700,16 @@ Save-режим — **чтение**. Триггеров пять, и пятый
     `:69`, `:89`, `:109` — `'1'…'6'`), и уведомление о просрочке ведёт в пустую карточку. Находка —
     БАГ-03.
 16. **`fileIds` — replace-семантика, и её разбирает сервер, а не клиент.** Клиент шлёт полный
-    актуальный массив (`views/admin/finance/OutgoingPaymentCardPage.vue:79`), «сервер» оставляет
+    актуальный массив (`views/admin/finance/OutgoingPaymentCardPage.vue:81`), «сервер» оставляет
     пришедшие, создаёт заготовки на новые и молча забывает остальные (`mocks/finance.ts:491-519`);
     метаданные тянутся из реестра аплоадов, чтобы имя и размер не выдумывались на месте (`:463-468`,
     прокидывание `mocks/index.ts:1405`). Общая модель двух фаз — §16 соглашений.
-17. **Ошибка Save откатывает карточку чтением, а не сохранённым снимком.** `catch { load() }`
-    (`views/admin/finance/OutgoingPaymentCardPage.vue:83-85`), то есть несохранённые правки при
-    неудаче теряются целиком. Поведение уже признано разрушительным у карточки заказа и названо
-    прямо в §15 соглашений.
+17. **Ошибка Save не перечитывает карточку — черновик остаётся тем, что оставил человек.**
+    `saveChanges` больше не зовёт `load()` из `catch`: несохранённые `notesDraft` и список
+    документов не трогаются, а отказ доходит до человека тостом
+    (`financePayment.toast_error_save`) через `useToast`. Раньше здесь стоял `catch { load() }`,
+    и это поведение было признано разрушительным у карточки заказа и названо прямо в §15
+    соглашений — тем же правилом, по которому починка и сделана.
 18. **Смена размера страницы отправляет два запроса.** Сеттер `pageSizeStr` сам зовёт `load()`
     после `reset()` (`views/admin/finance/IncomingPaymentsPage.vue:100-107`,
     `views/admin/finance/OutgoingPaymentsPage.vue:99-106`,
@@ -720,7 +722,7 @@ Save-режим — **чтение**. Триггеров пять, и пятый
     `error = ref(false)` и печатают общий текст (`views/admin/finance/IncomingPaymentsPage.vue:35`,
     `:149-152`; `views/admin/finance/OutgoingPaymentsPage.vue:28`;
     `views/admin/finance/DocumentArchivePage.vue:49`;
-    `views/admin/finance/OutgoingPaymentCardPage.vue:25`), то есть единственный код домена до
+    `views/admin/finance/OutgoingPaymentCardPage.vue:27`), то есть единственный код домена до
     человека не доходит — БАГ-06. Различить «нет такого платежа» и «сеть упала» нельзя.
 20. **Скачивание документа идёт мимо API.** `<a :href="doc.url" download>` в архиве
     (`views/admin/finance/DocumentArchivePage.vue:203-207`), `FileItem` на карточке платежа

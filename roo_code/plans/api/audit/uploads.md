@@ -71,7 +71,7 @@
   `image/png`, `image/jpeg`) и размер (`core/uploads/action.py:106-108`, лимит `max_upload_size_mb: int = 20`,
   `config.py:35`). Клиент не проверяет ни того, ни другого: `uploadFile` — четыре строки без
   единой проверки (`uploadsService.ts:13-17`), `DropZone.handleFiles` шлёт всё, что бросили
-  (`DropZone.vue:33-45`). Атрибут `accept` есть у 2 дропзон из 12 и обе допускают типы вне
+  (`DropZone.vue:44-63`). Атрибут `accept` есть у 2 дропзон из 12 и обе допускают типы вне
   белого списка (см. графу «Значения по умолчанию», БАГ-13).
 - Форма ответа: **сервер отдаёт объект из двух полей, клиент типизирует шесть.**
   Сервер: `ApiResponse(success=True, data={"url": public_url, "fileId": str(uploaded.id)})`
@@ -91,7 +91,7 @@
   **Кто именно читает недостающие поля** (по одному вызову на потребителя, все через
   `@uploaded` у `DropZone`):
   `useOrderCard.ts:1625,1628,1629` (`name`, `size`, `mime`); `useOrderCreate.ts:331,334,335`;
-  `OutgoingPaymentCardPage.vue:102,105,106` плюс `uploadedAt` (`:107` — в объект `PaymentDocument`);
+  `OutgoingPaymentCardPage.vue:108,105,106` плюс `uploadedAt` (`:107` — в объект `PaymentDocument`);
   `BccRequestPage.vue:313,314,315`; `ProductCardPage.vue:225` (`f.name`);
   `WarehouseBatchCreatePage.vue:142` и `WarehouseOffcutCreatePage.vue:182` (`f.name`, `f.size`).
   **Четыре потребителя падают исключением, а не просто теряют поле:**
@@ -123,7 +123,7 @@
   недостижимы, и это факт для контракта, а не придирка.
   **До человека не доходит ни один код.** `apiUpload` бросает `ApiRequestError` с разобранными
   `message`/`code` (`src/services/api.ts:117-125`, разбор — `:19-84`), `DropZone` ловит и
-  превращает в событие `uploadError` (`DropZone.vue:40-42`) — а слушателя у события нет ни у
+  превращает в событие `uploadError` (`DropZone.vue:58-60`) — а слушателя у события нет ни у
   одной из двенадцати страниц: `grep -rn "upload-error\|uploadError" src/views src/components
   --include=*.vue | grep -v ui/DropZone.vue` → пусто. Отказ загрузки виден только тем, что файл
   не появился в списке (БАГ-03).
@@ -189,13 +189,13 @@
   10. «Endpoints, принимающие `fileIds`: `PATCH /api/suppliers/:id`, `POST /api/bcc/send`,
       `POST /api/bcc/log`» (`:189-191`) — список **устарел по составу**: `fileIds` копят ещё
       склад (`useWarehouseBatch.ts:170`, `useWarehouseOffcutCard.ts:149`), заказы
-      (`useOrderCard.ts:184`, наполняется `:1617`), финансы (`OutgoingPaymentCardPage.vue:98-109`) и товары
+      (`useOrderCard.ts:184`, наполняется `:1617`), финансы (`OutgoingPaymentCardPage.vue:104-115`) и товары
       (`ProductCardPage.vue:223-226`). Это чужие домены — здесь только фиксируем, что перечень
       неполон.
   **Чего нет ни в контракте, ни в коде** (и потому уходит владельцу, а не в контракт):
   эндпоинта чтения метаданных файла (`GET /api/uploads/:id`) нет — ни клиента, ни роута;
   эндпоинта удаления нет; повторной выдачи ссылки нет. Фронт хранит `url` у себя в сущности
-  (`OutgoingPaymentCardPage.vue:104`, `useWarehouseMap.ts:56`), потому что переспросить его не у
+  (`OutgoingPaymentCardPage.vue:110`, `useWarehouseMap.ts:56`), потому что переспросить его не у
   кого.
 - Источник истины: **бэкенд** — реализация есть и подключена (`backend/app/core/uploads/action.py:79`,
   `backend/app/main.py:77`), значит по К5 форма ответа и каталог ошибок берутся с него, а не с
@@ -315,7 +315,7 @@
   `payment_documents.url` (`b2619dfeb90f_phase_10_finance.py:57`),
   `document_archive_items.url` (`:70`), плюс `size` и `mime` там же (`:55-56`, `:68-69`) — то есть
   копия метаданных файла, снятая в момент привязки. Фронт делает то же самое: кладёт `url`, `size`,
-  `mime`, `uploadedAt` в сущность (`OutgoingPaymentCardPage.vue:113-114`,
+  `mime`, `uploadedAt` в сущность (`OutgoingPaymentCardPage.vue:119-120`,
   `useWarehouseMap.ts:51-58`, тип `WarehouseMapFile` — `src/types/settings.ts:111-119`).
   Что здесь источник истины — `uploaded_files` или копия в сущности — не решено нигде → владельцу.
 

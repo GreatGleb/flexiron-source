@@ -12,6 +12,7 @@ import { getPayment, patchPayment } from '@/services/financeService'
 import { errorCode } from '@/services/apiErrorCode'
 import type { UploadedFile } from '@/services/uploadsService'
 import { useHead } from '@/composables/useHead'
+import { useToast } from '@/composables/useToast'
 import type { FinancePayment, PaymentDocument } from '@/types/finance'
 
 import '@styles/admin/components/_entity-card-layout.css'
@@ -19,6 +20,7 @@ import '@styles/admin/components/_status-pills.css'
 
 const { t } = useI18n()
 const route = useRoute()
+const toast = useToast()
 
 const payment = ref<FinancePayment | null>(null)
 const loading = ref(true)
@@ -88,7 +90,11 @@ async function saveChanges() {
     payment.value = updated
     notesDraft.value = updated.notes ?? ''
   } catch {
-    load() // Reload to get consistent server state
+    // Clean-slate: отказ Save не перечитывает карточку и не стирает несохранённое
+    // (§15 соглашений — «catch { load() } разрушает несохранённое»). Черновик
+    // заметок и список документов остаются такими, какими их оставил человек;
+    // повторный клик Save отправит тот же PATCH.
+    toast.error(t('financePayment.toast_error_save'))
   } finally {
     saving.value = false
   }
