@@ -69,8 +69,41 @@ watch(
  */
 let visibility: IntersectionObserver | null = null
 
+/**
+ * The same thing for the web font, which is the other reason the first
+ * measurement can be wrong — and unlike the hidden box, nothing reveals it.
+ *
+ * `scrollHeight` is only as good as the font in use at the moment it is read,
+ * and at mount that is still the fallback: the browser starts fetching a web
+ * font when text that needs it is laid out, which is the very layout this
+ * function forces. The number gets written into `style.height` and stays there,
+ * so the box keeps the size the fallback had — the browser reflows the text
+ * when Inter arrives, but an inline height is not a reflow, it is a decision.
+ *
+ * Measured 2026-09-24 on `/admin/clients/new`: the notes box locks at 68px and
+ * re-measuring the same box after the font has landed gives 71px. Three
+ * missing pixels per three-row box, and the panel around it comes out 3px
+ * short. It is not new — with the stylesheet link in `index.html` the font
+ * usually won this race, so it showed up as an occasional visual diff rather
+ * than a constant one (the BCC email template panel, `1181 px`, ratio 0.02).
+ * Moving the fonts into the bundle made the race deterministic and lost it
+ * every time, which is how it finally became visible.
+ */
+function onFontsLoaded() {
+  resize()
+}
+
 onMounted(() => {
   resize()
+
+  // `ready` covers the font already in flight — the one this mount just asked
+  // for; `loadingdone` covers a face that starts loading later, when data fills
+  // a bolder or wider variant in. Both call the same idempotent resize.
+  if (typeof document !== 'undefined' && document.fonts) {
+    void document.fonts.ready.then(onFontsLoaded)
+    document.fonts.addEventListener('loadingdone', onFontsLoaded)
+  }
+
   if (!el.value || typeof IntersectionObserver === 'undefined') return
   visibility = new IntersectionObserver((entries) => {
     if (entries.some((entry) => entry.isIntersecting)) resize()
@@ -78,7 +111,12 @@ onMounted(() => {
   visibility.observe(el.value)
 })
 
-onBeforeUnmount(() => visibility?.disconnect())
+onBeforeUnmount(() => {
+  visibility?.disconnect()
+  if (typeof document !== 'undefined' && document.fonts) {
+    document.fonts.removeEventListener('loadingdone', onFontsLoaded)
+  }
+})
 
 defineExpose({ resize })
 </script>
