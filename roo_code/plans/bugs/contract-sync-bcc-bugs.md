@@ -350,7 +350,7 @@ const UNIT_OPTIONS = ['kg', 'm', 'piece', 'ton']   // :333
 (`backend/app/modules/bcc/shared/models.py:75`).
 
 Единицами владеет домен `settings`: `AppSettings.uoms` (`frontend_vue/src/types/settings.ts:240`),
-сид — `uom-t`, `uom-kg`, … (`frontend_vue/src/services/mocks/settings.ts:89-101`), подпись
+сид — `uom-t`, `uom-kg`, … (`frontend_vue/src/services/mocks/settings.ts:91-103`), подпись
 собирается единственной функцией `uomCode` (`frontend_vue/src/domain/uom.ts:27-32`). Склад свой
 список строит именно из справочника (`frontend_vue/src/views/admin/warehouse/WarehousePage.vue:423-437`,
 потребители `:440-444`).

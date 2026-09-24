@@ -92,7 +92,7 @@ src/views/admin/warehouse/WarehouseBatchCard.vue:821: sellingPrice (readonly-п�
 ```
 Есть: `marginPercent` в типе, редактируемое поле маржи (`data-test="field-margin-percent"`),
 `sellingPrice` за складскую UoM (`field-selling-price`), `field-total-cost`,
-`field-total-selling-value`, дефолт из настроек (`src/services/mocks/settings.ts:29:
+`field-total-selling-value`, дефолт из настроек (`src/services/mocks/settings.ts:31:
 defaultMargin: 15`). Сохранение работает: `marginPercent` в форме под dirty-трекингом,
 `delta = dirty.diff()` уходит в `patchBatch`, мок делает `Object.assign(batch, delta)`
 (`src/services/mocks/warehouse.ts:738`) — но в `BatchPatchPayload`

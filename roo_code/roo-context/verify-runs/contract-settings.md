@@ -7,7 +7,7 @@
 **Причина отклонения — один подтверждённый дефект ссылки**, того самого класса,
 про который автор заявил «261 из 261, вне границ 0».
 
-`roo_code/roo-context/api/settings.md:434` (раздел `GET /api/settings/conversions`):
+`roo_code/roo-context/api/settings.md:438` (раздел `GET /api/settings/conversions`):
 
 > «**`type` и `formulaType` во фронте — замкнутые списки** (`types/settings.ts:41`, `:55-59`)»
 

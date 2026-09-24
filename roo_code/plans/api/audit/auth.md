@@ -132,7 +132,7 @@
    арендатора сервером нельзя: среди 24 роутов `settings` есть профиль, пароль и справочники
    (`settings/features/profile/action.py:75,98,127`, `settings/features/crud/action.py:146-482`) и
    нет управления пользователями, хотя во фронте список пользователей есть
-   (`src/services/mocks/settings.ts:188-205` — шесть ролей).
+   (`src/services/mocks/settings.ts:190-207` — шесть ролей).
 5. **Пароль меняет чужой домен.** `POST /api/settings/change-password`
    (`settings/features/profile/action.py:127`) пишет в `users.password_hash` — колонку модуля auth
    (`auth/shared/models.py:53`). Хеширование при этом настроено дважды своим `CryptContext`:

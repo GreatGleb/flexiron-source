@@ -224,7 +224,7 @@
 - Пустой дефолт до ответа сервера — `orderPermissions`
   (`frontend_vue/src/composables/useSettings.ts:30`).
 - Флаг «сервер ответил» — `settled` (`frontend_vue/src/composables/useSettings.ts:92`).
-- Сид ролей на три права — `seeCost` (`frontend_vue/src/services/mocks/settings.ts:62-66`).
+- Сид ролей на три права — `seeCost` (`frontend_vue/src/services/mocks/settings.ts:64-68`).
 - Мок отказывает своими кодами: `FORBIDDEN_MANUALCOST`
   (`frontend_vue/src/services/orderLineEdits.ts:349`), собираются конкатенацией
   (`frontend_vue/src/services/mocks/orders.ts:1865`).
@@ -243,7 +243,7 @@
 
 - Редактор матрицы: `roo_code/roo-context/api/config.md:433` и PUT там же
   (`roo_code/roo-context/api/config.md:506`).
-- Переходная матрица трёх прав заказа: `roo_code/roo-context/api/settings.md:1270`.
+- Переходная матрица трёх прав заказа: `roo_code/roo-context/api/settings.md:1275`.
 - Раздела «Права домена» нет **ни в одном** из семнадцати доменных файлов:
   `grep -c "^## Права домена" roo_code/roo-context/api/*.md` → 0 везде.
 
@@ -402,7 +402,7 @@ N  = число элементов домена D, существовавших 
   Домен, отдающий выручку, заводит на неё свой элемент и вырезает её по тем же правилам. Состав
   ролей у этого элемента назван владельцем и домену не принадлежит: `owner`, `admin`,
   `accounting` (П16). Это **единственная** клетка таблицы 3, которую домен не решает сам.
-  Сегодняшнее совпадение состава с `seeCost` (`frontend_vue/src/services/mocks/settings.ts:63`)
+  Сегодняшнее совпадение состава с `seeCost` (`frontend_vue/src/services/mocks/settings.ts:65`)
   не делает права одним: разойтись они должны уметь.
 - Сервер, вырезавший слагаемое, обязан прислать взамен **посчитанный результат**, если клиент
   считал результат сам. На складе это цена продажи, которой на проводе сегодня нет вовсе —

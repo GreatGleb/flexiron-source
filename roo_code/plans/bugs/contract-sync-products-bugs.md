@@ -529,7 +529,7 @@ saleUomId: data.saleUomId ?? null,
 (`frontend_vue/src/views/admin/products/ProductsPage.vue:118-127`), то есть под моками
 регулярно рождается товар без валюты и без единиц, а против сервера тот же товар получил бы
 валюту арендатора (`cur-eur` помечен `isDefault: true` —
-`frontend_vue/src/services/mocks/settings.ts:70-73`) и три одинаковые единицы.
+`frontend_vue/src/services/mocks/settings.ts:72-75`) и три одинаковые единицы.
 
 ### Fix
 

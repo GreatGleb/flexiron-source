@@ -96,7 +96,7 @@ $ npx vite build              → ✓ built in 8.38s (только warning пр�
 `Breadcrumb.vue` (`items: { label: string }[]`), `TagInput.vue` (`{ value: string; label: string }`),
 `FinanceSubNav.vue` (`tab.label`), `DocumentArchivePage.vue` (`finance.ts:65 name: string`),
 `ClientsListPage.vue` / `SalesCrmPage.vue` / `OrderCreatePage.vue` (`client.ts:15 name: string`),
-`WarehouseMapPage.vue` (`settings.ts:92 WarehouseMapFile.name: string`),
+`WarehouseMapPage.vue` (`settings.ts:94 WarehouseMapFile.name: string`),
 `WarehouseBatchCreatePage.vue:279`, `AddOrderItemsModal.vue:574`,
 `WarehouseOffcutCreatePage.vue:309` — во всех трёх `group.categoryName: string`,
 собирается через `tf(p.categoryName)` в computed.

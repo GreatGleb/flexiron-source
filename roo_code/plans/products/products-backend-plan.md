@@ -285,7 +285,7 @@ ApiRequestError`, `e.code === 'PRODUCT_NOT_FOUND'`. Той же задачей �
   прямо из заказа. `delete` у него нет: архивирование убирает товар из **всех** выборов (П44), и
   это решение каталога, а не одной продажи.
 - `products.cost` `read` у `owner`, `admin`, `accounting` — тот же состав, что у сегодняшнего
-  `seeCost` (`frontend_vue/src/services/mocks/settings.ts:63`): бухгалтерия себестоимость сверяет.
+  `seeCost` (`frontend_vue/src/services/mocks/settings.ts:65`): бухгалтерия себестоимость сверяет.
   Совпадение состава не делает права одним — разойтись они должны уметь (Р7).
 - `products.supplier-links`: полные права у `owner` и `admin`, потому что связь несёт закупочную
   цену — ту же породу величины, что и себестоимость; `read` у `accounting` по той же причине, что

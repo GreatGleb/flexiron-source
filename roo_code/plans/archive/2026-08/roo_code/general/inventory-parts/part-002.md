@@ -47,7 +47,7 @@ backend/app/modules/settings/features/profile/domain.py:22:async def _ensure_sec
 backend/app/modules/settings/features/profile/domain.py:31:    if not user.secret_link_token:
 backend/app/modules/settings/features/profile/domain.py:33:        updated = await update_user(db, user_id, {"secret_link_token": token})
 frontend_vue/src/views/public/LoginPage.vue:97:          <p class="secret-link-msg">{{ t('login.secretLinkMsg') }}</p>
-frontend_vue/src/services/mocks/settings.ts:329:    secretLink: 'http://localhost:5173/auth/link?token=mock-secret-token-abc123',
+frontend_vue/src/services/mocks/settings.ts:331:    secretLink: 'http://localhost:5173/auth/link?token=mock-secret-token-abc123',
 frontend_vue/src/i18n/admin/settings.ts:83:      secretLink: 'Секретная ссылка для входа',
 
 $ ls backend/app/modules/auth/features/

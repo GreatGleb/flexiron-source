@@ -387,7 +387,7 @@ invalid» — сработает ветка `company code` и подсветит
 (`register/repository.py:80`), и регистрация всегда создаёт нового арендатора
 (`register/domain.py:98-103`). Дыра открывается первым же эндпоинтом, добавляющим пользователя в
 существующего арендатора, — а список пользователей во фронте уже есть
-(`frontend_vue/src/services/mocks/settings.ts:188-205`).
+(`frontend_vue/src/services/mocks/settings.ts:190-207`).
 
 ### Fix
 

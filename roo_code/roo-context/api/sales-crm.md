@@ -171,7 +171,7 @@ interface SalesCrmStats {
 - **валюта** — знак `€` вшит в форматтер страницы: `` return `€ ${value.toFixed(2)}` ``
   (`SalesCrmPage.vue:43-45`, применение `:149`), тогда как валютой владеют настройки
   (`constants.defaultCurrency`, [`types/settings.ts:15-18`](../../../frontend_vue/src/types/settings.ts),
-  справочник [`services/mocks/settings.ts:68-85`](../../../frontend_vue/src/services/mocks/settings.ts)),
+  справочник [`services/mocks/settings.ts:70-87`](../../../frontend_vue/src/services/mocks/settings.ts)),
   и заказ её у настроек уже спрашивает
   ([`composables/useOrderCreate.ts:43`](../../../frontend_vue/src/composables/useOrderCreate.ts),
   применение `mocks/orders.ts:1638`). Общее правило — §14 соглашений («справочник принадлежит
@@ -225,9 +225,9 @@ the rules the API is held to»).
 чисел:
 
 - **справочник статусов заказа.** Настройки хранят пятнадцать записей `st-<имя>`
-  (`services/mocks/settings.ts:208-346`), фронт — те же пятнадцать имён константой
+  (`services/mocks/settings.ts:210-348`), фронт — те же пятнадцать имён константой
   (`domain/orderStatus.ts:15-31`); статус, заведённый через настройки, получает id `st-<N>`
-  (`services/mocks/settings.ts:544`), которого в перечислении нет. Прямое следствие для сводки:
+  (`services/mocks/settings.ts:620`), которого в перечислении нет. Прямое следствие для сводки:
   **новый статус попадает в `activeOrders` автоматически** (он «не терминальный»), **в `salesMtd`
   тоже** (он «не new, не отмена, не returned»), **а в `pendingOrders` — никогда**, потому что там
   список (`mocks/orders.ts:1591`);
@@ -288,7 +288,7 @@ the rules the API is held to»).
 
 **Следствие измеримо:** месячный оборот компании видит любая роль, открывшая страницу, — тогда как
 три права заказов существуют ровно про видимость денег (`seeCost`, `manualCost`, `correction` —
-`services/mocks/settings.ts:62-66`, потребитель
+`services/mocks/settings.ts:64-68`, потребитель
 [`composables/useOrderPermissions.ts:28-30`](../../../frontend_vue/src/composables/useOrderPermissions.ts)),
 и `seeCost` применяется только к истории заказа (`mocks/orders.ts:1390-1393`, применение
 `:1384-1386`). Себестоимость и выручка — разные вещи, и права на вторую нет нигде: строка

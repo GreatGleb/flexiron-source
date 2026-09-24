@@ -183,7 +183,7 @@ addCurrency({ code: newCurrency.value.code.toUpperCase(),
 
 Поля нет и в типе: `Currency` — это `{ id, code, name, isDefault, updatedAt? }`
 (`frontend_vue/src/types/settings.ts:22-28`), курса во фронте нет нигде. Под моками
-создание работает (`mocks/settings.ts:460-467` кладёт что дали), против сервера — 422 Pydantic.
+создание работает (`mocks/settings.ts:500-507` кладёт что дали), против сервера — 422 Pydantic.
 
 ### Fix
 
@@ -277,12 +277,22 @@ to_uom_id:   … ForeignKey("uoms.id", ondelete="CASCADE")   # models.py:136
 :disabled="cur.isDefault"
 ```
 
-Мок не проверяет и этого (`mocks/settings.ts:475-479`).
+Мок не проверяет и этого (`mocks/settings.ts:515-519`).
 
 ### Fix
 
 Проверка в домене с `CONFLICT`. Что именно запрещать — только `is_default` или ещё и
 совпадение кода с константами — решение владельца.
+
+### Фронтовая половина закрыта 2026-09-24
+
+Мок больше не пропускает удаление молча: `mockDeleteCurrency` проверяет `isDefault` записи
+и отказывает `CURRENCY_IS_DEFAULT` (409) прежде счёта ссылок, тем же кодом, который назвал
+контракт (см. `roo_code/roo-context/api/settings.md`, каталог кодов домена). Кнопка
+`FinanceSettings.vue` не тронута — атрибут `disabled` остаётся первой линией защиты в UI,
+мок стал второй. Половина, адресованная серверу (проверка в `crud/domain.py`, вопрос «только
+`is_default` или ещё и код констант» из Fix выше), решением владельца не закрыта и этой
+правкой не тронута.
 
 ---
 
@@ -382,7 +392,7 @@ PATCH констант (`:353-356`), и все они уходят одним `P
 
 ## БАГ-13 — мок профиля принимает `role`, сервер её игнорирует
 
-**File:** `frontend_vue/src/services/mocks/settings.ts:636-639`, `frontend_vue/src/composables/useSettings.ts:514`
+**File:** `frontend_vue/src/services/mocks/settings.ts:718-721`, `frontend_vue/src/composables/useSettings.ts:514`
 **Severity:** Medium — под моками сохранение профиля способно переписать собственную роль пользователя; против сервера — нет.
 **Источник:** К2
 
@@ -412,7 +422,7 @@ export function mockPatchProfile(patch: Partial<UserProfile>): UserProfile {
 
 ## БАГ-14 — мок статусов не знает про системные, сервер знает
 
-**File:** `frontend_vue/src/services/mocks/settings.ts:575-580`, `backend/app/modules/settings/features/crud/domain.py:578-580`
+**File:** `frontend_vue/src/services/mocks/settings.ts:657-662`, `backend/app/modules/settings/features/crud/domain.py:578-580`
 **Severity:** Medium — под моками удаляется то, что сервер запретит 403-м.
 **Источник:** К2
 
@@ -420,9 +430,9 @@ export function mockPatchProfile(patch: Partial<UserProfile>): UserProfile {
 
 Сервер отказывает: `if existing.is_system: raise ForbiddenError("Cannot delete a system-defined order status")`
 (`crud/domain.py:579-580`), роут отображает это в 403 (`crud/action.py:496-500`). Мок
-удаляет что угодно (`mocks/settings.ts:575-580` — единственная проверка это существование),
+удаляет что угодно (`mocks/settings.ts:657-662` — единственная проверка это существование),
 при том что все 15 сидовых статусов помечены `system: true`
-(`mocks/settings.ts:210-345`). Кнопка удаления в UI системные статусы не различает
+(`mocks/settings.ts:212-347`). Кнопка удаления в UI системные статусы не различает
 (`frontend_vue/src/views/admin/settings/OrderStatusesSettings.vue:13`).
 
 ### Fix
@@ -496,7 +506,7 @@ toast.error(code === 'MAIL_NOT_CONFIGURED' ? t('settingsMail.test_not_configured
 ```
 
 Под моками совпадает случайно: мок бросает `new Error('MAIL_NOT_CONFIGURED')` — код уходит в
-текст исключения (`frontend_vue/src/services/mocks/settings.ts:621`), а не в поле кода.
+текст исключения (`frontend_vue/src/services/mocks/settings.ts:703`), а не в поле кода.
 `unwrap()` собирает `ApiRequestError`, у которого `message` — человеческий текст сервера, а
 код лежит в поле `code` (`frontend_vue/src/services/api.ts:118-124`).
 
@@ -624,11 +634,11 @@ factor=float(c.factor) if c.factor else None
   показа страницы. Не баг, а необъявленная обязанность сервера; ушло в аудит, графа
   «Производные значения».
 - **`AppSettings.users` не заполняется ничем.** Поле есть в типе
-  (`frontend_vue/src/types/settings.ts:245`) и в сиде мока (`mocks/settings.ts:187-206`), но
+  (`frontend_vue/src/types/settings.ts:245`) и в сиде мока (`mocks/settings.ts:189-208`), но
   эндпоинта нет и в `fetchAllSections` его нет (`useSettings.ts:244`). Это не дефект кода,
   а отсутствующая функциональность — вопрос владельцу, не правка.
 - **`sort_order` статусов не нормализуется после удаления.** Сервер оставляет дыры в
-  нумерации (`crud/domain.py:573-585`), мок перенумеровывает (`mocks/settings.ts:579`).
+  нумерации (`crud/domain.py:573-585`), мок перенумеровывает (`mocks/settings.ts:661`).
   Порядок при чтении задаётся сортировкой (`crud/repository.py:257`), поэтому дыры не видны;
   расхождение записано в аудит, но багом не считается.
 

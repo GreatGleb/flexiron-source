@@ -535,7 +535,7 @@ frontend_vue/src/services/mocks/orders.ts:3344   referenceType: 'order-shipment'
 (`frontend_vue/src/domain/cutting.ts:71-76`, `:81-86`).
 
 Справочник настроек содержит девять: те же шесть плюс `uom-m3`, `uom-kg-m3`, `uom-h`
-(`frontend_vue/src/services/mocks/settings.ts:91-146`).
+(`frontend_vue/src/services/mocks/settings.ts:93-148`).
 `sed -n '71,86p' frontend_vue/src/domain/cutting.ts | grep -c 'uom-m3'` → 0.
 
 Партия в `uom-m3` даёт `BATCH_UNIT_NOT_SUPPORTED` (`frontend_vue/src/domain/cutting.ts:52-53`) и на резке

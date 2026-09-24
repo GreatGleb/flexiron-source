@@ -40,7 +40,7 @@ $ grep -n "order-status-pill" tests/e2e/admin/clients/clients.spec.ts
 
 Типы: `ReturnCondition` (order.ts:295), `OrderReturnLine` с `restored: ShipmentHold[] | null` (297–313), `OrderReturn` с `correctionInvoiceIds` (324), `ReturnableLine` (343), `OrderItem.returnedQuantity` (125), `Order.returns` (466).
 
-Мок настроек: семь новых статусов `st-completed`, `st-return_requested`, `st-return_processing`, `st-returned`, `st-rejected`, `st-cancelled_by_customer`, `st-refused` (settings.ts:248–313).
+Мок настроек: семь новых статусов `st-completed`, `st-return_requested`, `st-return_processing`, `st-returned`, `st-rejected`, `st-cancelled_by_customer`, `st-refused` (settings.ts:250–313).
 
 Мок возвратов: `mockCreateReturn` (orders.ts:3391), `mockPlanReturn`, `mockGetReturns`; `_nextReturnSeq` (тип 120, инициализация 597 и 1579, инкремент 3487); все восемь кодов бросаются (3411, 3412, 3416, 3421, 3430, 3437, 3444, 1693 `UNKNOWN_ORDER_STATUS` до `assertVersion`, 3918 `CORRECTION_EXCEEDS_ORIGINAL`); демо-возврат создаётся через настоящий эндпоинт (`mockCreateReturn(candidate.id, …)` на 4103); `registerProductSalesLookup` фильтрует `countsAsSale` и вычитает `item.returnedQuantity` (1244–1256); `mockGetSalesCrmStats` — `countsAsSale` (1493) и `isActive` (1497); `publicOrder` вырезает только `_`-ключи, значит `returns`/`returnedQuantity` уходят наружу.
 

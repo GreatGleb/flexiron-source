@@ -70,7 +70,7 @@ const SAVABLE_FIELDS = [
 
 Этап 7 — деньги. `data-test="order-payments"` (1896) и `order-invoices"` (1962) под `isMoneyOn`; модалки `payment-modal`, `advance-invoice-modal`, `cancel-shipment-modal`, `correction-modal` на месте. Осознанное ограничение этапа 7 («заказ с выставленным счётом всё ещё удаляется») **закрыто позже**: `src/services/mocks/orders.ts:1945` — `throw new Error('ORDER_HAS_INVOICE')` в `mockDeleteOrder`.
 
-Этап 8 — права. `src/composables/useOrderPermissions.ts` существует, `AppSettings.orderPermissions` (`src/types/settings.ts:152`), сеяные значения и эндпоинт в `src/services/mocks/settings.ts:37, 399`, отказы сервера кодами `FORBIDDEN_MANUALCOST` / `FORBIDDEN_CORRECTION` (`src/services/orderLineEdits.ts:322-323`, `mocks/orders.spec.ts:2347, 2422`).
+Этап 8 — права. `src/composables/useOrderPermissions.ts` существует, `AppSettings.orderPermissions` (`src/types/settings.ts:152`), сеяные значения и эндпоинт в `src/services/mocks/settings.ts:39, 399`, отказы сервера кодами `FORBIDDEN_MANUALCOST` / `FORBIDDEN_CORRECTION` (`src/services/orderLineEdits.ts:322-323`, `mocks/orders.spec.ts:2347, 2422`).
 
 Этап 9 — уборка. Колонки списка заказов есть: `OrdersListPage.vue:406` `{{ money(item.paidPercent) }}%` и `:408` `data-test="orders-row-shipped"`, ключи `orders.col_paid_percent` / `col_shipped_percent` на всех трёх языках (`src/i18n/admin/orders.ts:13-14, 493-494, 972-973`). Раздел 2 в `pricing-section-rework-plan.md` помечен устаревшим (строки 4 и 177: «**устарели** и заменены переработкой ценообразования заказа»).
 

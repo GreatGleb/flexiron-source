@@ -132,7 +132,7 @@ function formatCurrency(value: number): string {
    (`data.currency ?? 'EUR'`, `frontend_vue/src/services/mocks/orders.ts:1638`; форма подставляет
    `settings.constants.defaultCurrency`, `frontend_vue/src/composables/useOrderCreate.ts:43`), а
    справочник настроек содержит не одну запись (`EUR`, `USD`, `GBP`, …,
-   `frontend_vue/src/services/mocks/settings.ts:68-85`). Курса в проекте нет нигде, то есть
+   `frontend_vue/src/services/mocks/settings.ts:70-87`). Курса в проекте нет нигде, то есть
    сложить их и нельзя — валюта у суммы это подпись, а не множитель.
 3. **Та же страница восемью десятками строк ниже делает правильно.** Строка таблицы печатает
    `{{ order.currency }} {{ money(order.totalWithVat) }}`
@@ -182,7 +182,7 @@ list of `confirmed | shipped | delivered`, which quietly left out `paid`» (`:11
 new or confirmed» (`frontend_vue/src/types/order.ts:51-52`).
 
 Последствие измеримо на существующем механизме: статусы принадлежат настройкам — пятнадцать
-записей `st-<имя>` в сиде (`frontend_vue/src/services/mocks/settings.ts:208-346`), новый заводится
+записей `st-<имя>` в сиде (`frontend_vue/src/services/mocks/settings.ts:210-348`), новый заводится
 с id `st-<N>` (`:544`). Такой статус будет «не терминальным», то есть попадёт в `activeOrders`, и
 «не new, не отмена, не returned», то есть попадёт в `salesMtd`, — а в `pendingOrders` не попадёт
 ни при каких условиях.

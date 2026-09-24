@@ -625,7 +625,7 @@ query, ни заголовков: `apiDelete` кладёт только `options
 
 | значение | где задано | состояние |
 |---|---|---|
-| валюта нового товара | `backend/app/modules/products/features/create_product/domain.py:33-36` (валюта арендатора), реализация — `backend/app/modules/settings/internal_api/interface.py:44-56`; в моке настроек `cur-eur` помечен `isDefault: true` (`services/mocks/settings.ts:70-73`) | сервер подставляет, мок пишет `data.currencyId ?? null` (`services/mocks/products.ts:14085`) — БАГ-13 |
+| валюта нового товара | `backend/app/modules/products/features/create_product/domain.py:33-36` (валюта арендатора), реализация — `backend/app/modules/settings/internal_api/interface.py:44-56`; в моке настроек `cur-eur` помечен `isDefault: true` (`services/mocks/settings.ts:72-75`) | сервер подставляет, мок пишет `data.currencyId ?? null` (`services/mocks/products.ts:14085`) — БАГ-13 |
 | единицы нового товара | `backend/app/modules/products/features/create_product/domain.py:38-41` (каскад `warehouse ← sale`, `purchase ← warehouse`) | сервер каскадирует, мок пишет каждую как пришла (`services/mocks/products.ts:14087-14089`) — БАГ-13 |
 | `priceQuantity` | три экземпляра: `backend/app/modules/products/features/create_product/schemas.py:20`, `backend/app/modules/products/shared/models.py:132-134`, мок `services/mocks/products.ts:14084`, форма карточки `composables/useProductCard.ts:193` | значение одно (`1`), владельца нет |
 | размер страницы | `usePagination(25)` (`composables/useProducts.ts:23`) и дефолт ветки мока (`services/mocks/index.ts:435`) | константа фронта в двух местах, §13 соглашений |

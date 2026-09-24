@@ -143,7 +143,7 @@ return apiGet('/api/orders', {
 
 ## БАГ-05 — ни один статус в настройках не резервирует и не списывает, и весь путь §4.5 мёртв
 
-**File:** `frontend_vue/src/services/mocks/settings.ts:208-346`
+**File:** `frontend_vue/src/services/mocks/settings.ts:210-348`
 **Severity:** High — «смена статуса — это рабочий процесс отгрузки» под моками не воспроизводится ни разу, то есть главный сценарий домена не проверен ничем.
 **Источник:** К6 (обязанности), К2 (мок ↔ контракт)
 
@@ -165,7 +165,7 @@ grep -c "reserveOnTransition: false" frontend_vue/src/services/mocks/settings.ts
 а `STATUS_BLOCKED_BY_STOCK` (`mocks/orders.ts:1819`) недостижим.
 
 Рядом — вторая половина того же: статус, заведённый через настройки, получает id `st-<N>`
-(`frontend_vue/src/services/mocks/settings.ts:544`), которого нет в перечислении
+(`frontend_vue/src/services/mocks/settings.ts:620`), которого нет в перечислении
 (`frontend_vue/src/domain/orderStatus.ts:15-31`), — то есть соглашение об имени `st-*` не
 проверяется ни на одном входе.
 
@@ -227,7 +227,7 @@ currency: data.currency ?? 'EUR',                                  // :1638 — 
 
 Настройки владеют всеми четырьмя величинами: `vatRate`, `defaultMargin`, `defaultCurrency`,
 `defaultDiscountPercent` (`frontend_vue/src/types/settings.ts:15-18`, сид
-`frontend_vue/src/services/mocks/settings.ts:53-56`). Расхождение измеримо на месте: страница
+`frontend_vue/src/services/mocks/settings.ts:55-58`). Расхождение измеримо на месте: страница
 создания считает превью итога по `settings.constants.vatRate`
 (`frontend_vue/src/composables/useOrderCreate.ts:364`), а сервер запишет 21 — при ставке
 арендатора, отличной от 21, показанный и сохранённый итог разойдутся. И валюта: форма

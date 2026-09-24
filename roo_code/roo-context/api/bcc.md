@@ -71,7 +71,7 @@ clean-slate против quick-action — §15; файлы и общий `POST /
 (правило §2 соглашений; проверка попарная: `MAIL_NOT_CONFIGURED` не входит в `NO_RECIPIENTS` и
 наоборот). `MAIL_NOT_CONFIGURED` — код **кросс-доменный**: тем же кодом отказывает проверка почты
 в настройках (`services/mocks/settings.ts:16`), и условие у обоих общее — `isMailConfigured`
-(`src/types/settings.ts:167-171`, мок-обёртка `services/mocks/settings.ts:611-613`).
+(`src/types/settings.ts:167-171`, мок-обёртка `services/mocks/settings.ts:693-695`).
 
 **Остальные пять эндпоинтов не бросают ничего, и у двух из них это хуже нуля.**
 `mockGetBccCategories` (`services/mocks/bcc.ts:225-227`), `mockGetBccRecipients` (`:229-246`),
@@ -469,7 +469,7 @@ Quick-action в модалке — открывается кнопкой «пр�
 `UNIT_OPTIONS = ['kg', 'm', 'piece', 'ton']` (`BccRequestPage.vue:333`, дефолт `'kg'` `:331`,
 `:340`, подстановка в модалке `:1049`) — это **не** идентификаторы справочника единиц, которым
 владеют настройки (`AppSettings.uoms`, `types/settings.ts:240`; сид `uom-t`, `uom-kg`, … —
-`services/mocks/settings.ts:89-101`), и из которого строит свой список склад
+`services/mocks/settings.ts:91-103`), и из которого строит свой список склад
 (`views/admin/warehouse/WarehousePage.vue:423-437`) — БАГ-07, нарушение правила §14 соглашений
 «справочник принадлежит серверу».
 

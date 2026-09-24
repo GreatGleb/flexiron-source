@@ -52,9 +52,9 @@ if (!maySeeCost()) {
   `property` его не опознать — ровно то, о чём предупреждает комментарий типа
   (`frontend_vue/src/types/order.ts:600-602`).
 
-Почему не видно в демо: профиль по умолчанию — `owner` (`frontend_vue/src/services/mocks/settings.ts:61`),
-а `seeCost` разрешён `owner`, `admin`, `accounting` (`frontend_vue/src/services/mocks/settings.ts:62-66`). Достаточно профиля с ролью
-`manager` или `warehouse` (`frontend_vue/src/services/mocks/settings.ts:190`, `:195`), чтобы
+Почему не видно в демо: профиль по умолчанию — `owner` (`role: 'owner'` в блоке `profile` файла `frontend_vue/src/services/mocks/settings.ts`),
+а `seeCost` разрешён `owner`, `admin`, `accounting` (`frontend_vue/src/services/mocks/settings.ts:64-68`). Достаточно профиля с ролью
+`manager` или `warehouse` (`frontend_vue/src/services/mocks/settings.ts:192`, `:195`), чтобы
 карточка заказа скрыла запись, а страница «Настройки → Логи» показала её же.
 
 ### Fix

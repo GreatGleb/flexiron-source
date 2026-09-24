@@ -156,7 +156,7 @@ Save-режим: только чтение, четыре вызывающих �
 настроек арендатора (`mocks/orders.ts:1633`), а скидка (`:1634`), ставка НДС (`:1637`) и валюта
 (`:1638`) стоят литералами `0`, `21` и `'EUR'` — при том что настройки владеют всеми тремя
 (`defaultDiscountPercent`, `vatRate`, `defaultCurrency`, `types/settings.ts:15-18`, сид
-`mocks/settings.ts:53-56`), а функция «взять базовую валюту» в домене уже есть и здесь не зовётся
+`mocks/settings.ts:55-58`), а функция «взять базовую валюту» в домене уже есть и здесь не зовётся
 (`baseCurrencyOf`, `services/orderLines.ts:153-161`). Цена расхождения измерима на месте: страница
 создания считает превью итога по `settings.constants.vatRate`
 (`composables/useOrderCreate.ts:364`) и подставляет `settings.constants.defaultCurrency` в форму
@@ -327,10 +327,10 @@ shortages[] }` (`types/order.ts:278-285`, сборка — `mocks/orders.ts:1778
 вернёт «не резервирует, не списывает» (`:1736-1739`). Сервер обязан отвергать его и здесь.
 
 **Мост между перечислением статусов и справочником держится на имени и на входе не проверяется.**
-Настройки хранят пятнадцать записей `st-<имя>` (`mocks/settings.ts:208-346`), фронт хранит те же
+Настройки хранят пятнадцать записей `st-<имя>` (`mocks/settings.ts:210-348`), фронт хранит те же
 пятнадцать имён константой (`domain/orderStatus.ts:15-31`), а `statusRules` соединяет их
 конкатенацией `` `st-${status}` `` (`mocks/orders.ts:1735`). Статус, заведённый через настройки,
-получает id `st-<N>` (`mocks/settings.ts:544`) — такого имени в перечислении нет, `isOrderStatus`
+получает id `st-<N>` (`mocks/settings.ts:620`) — такого имени в перечислении нет, `isOrderStatus`
 его отвергнет, а `statusRules` не найдёт никогда.
 
 **Под моком весь этот путь мёртв:** `grep -c "reserveOnTransition: true" frontend_vue/src/services/mocks/settings.ts`
@@ -1146,7 +1146,7 @@ Save-режим: quick-action из двух мест — карточка зак
 одну.** Маржа приходит из справочника арендатора (`mockGetSettings().constants.defaultMargin`,
 `mocks/orders.ts:1633`), а скидка, ставка НДС и валюта стоят литералами `0`, `21` и `'EUR'`
 (`:1634`, `:1637`, `:1638`) — при том что настройки владеют всеми тремя
-(`types/settings.ts:15-18`, сид `mocks/settings.ts:53-56`). Разобрано в `POST /api/orders`; сервер
+(`types/settings.ts:15-18`, сид `mocks/settings.ts:55-58`). Разобрано в `POST /api/orders`; сервер
 обязан брать все четыре из настроек. `vatMode` выводится из `documentType` **дважды** — на сервере
 (`mocks/orders.ts:1636`) и вторым экземпляром в форме создания
 (`composables/useOrderCreate.ts:358-359`). Базовая валюта себестоимости строки берётся правильно,
@@ -1217,10 +1217,10 @@ Save-режим: quick-action из двух мест — карточка зак
    существование `st-<status>` на входе, либо хранить статус ссылкой на справочник, а не строкой;
 2. **оба флага перехода в сиде выключены у всех пятнадцати статусов** —
    `grep -c "reserveOnTransition: true" frontend_vue/src/services/mocks/settings.ts` → `0`,
-   `writeOffOnTransition: true` → `0` (`mocks/settings.ts:208-346`): под моками смена статуса склад
+   `writeOffOnTransition: true` → `0` (`mocks/settings.ts:210-348`): под моками смена статуса склад
    не двигает никогда, и весь путь §4.5 контракта домена ничем не проверяется — БАГ-05;
 3. **права заказа живут в чужом домене** — `orderPermissions` в настройках
-   (`mocks/settings.ts:660`), а не в матрице прав `config`:
+   (`mocks/settings.ts:742`), а не в матрице прав `config`:
    `grep -ci "seeCost\|manualCost\|correction" frontend_vue/src/services/mocks/config.ts` → `0`;
 4. **округление и точность денег** заданы кодом домена (§7 контракта домена), а не настройкой:
    справочника под них нет ни в настройках, ни на схеме.
