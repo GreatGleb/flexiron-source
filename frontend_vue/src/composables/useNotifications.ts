@@ -71,8 +71,11 @@ async function markAllAsRead() {
     await notificationsService.markAllAsRead()
     items.value = items.value.map((n) => ({ ...n, isRead: true }))
     unreadCount.value = 0
-  } catch {
-    // ignore
+  } catch (e) {
+    // Same rule as markAsRead above: local state is only touched after the
+    // await succeeds, and a refusal is reported through the shared `error`
+    // field instead of being swallowed.
+    error.value = (e as Error).message
   }
 }
 
