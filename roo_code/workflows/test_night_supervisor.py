@@ -68,13 +68,16 @@ class SupervisorTest(unittest.TestCase):
 
     git = _pilot.PilotTest.git
 
-    def run_supervisor(self, queues, batches=3, budget=10_000_000, mode="", parallel=1):
+    def run_supervisor(self, queues, batches=3, budget=10_000_000, mode="", parallel=1,
+                       idle_limit=None):
         self.queues.write_text(json.dumps(queues))
         command = [sys.executable, str(SUPERVISOR), "--workspace", str(self.root),
                    "--routing", str(self.routing), "--operator-prompt", str(self.prompt),
                    "--out", str(self.out), "--hours", "0.5", "--token-budget", str(budget),
                    "--operator-binary", str(self.bin / "claude"), "--max-tasks", "1",
                    "--parallel", str(parallel), "--max-batches", str(batches)]
+        if idle_limit is not None:
+            command += ["--idle-limit", str(idle_limit)]
         return subprocess.run(command, env={**self.env, "NIGHT_TEST_QUEUES": str(self.queues),
                                             "NIGHT_TEST_MODE": mode},
                               capture_output=True, text=True, timeout=120)
@@ -116,9 +119,34 @@ class SupervisorTest(unittest.TestCase):
         result = self.run_supervisor([queue_json("alpha")], batches=9, mode="no-edit")
         self.assertEqual(result.returncode, 0, result.stderr)
         report = self.report()
-        self.assertEqual(report["stopped"], "три порции подряд без принятых задач")
+        self.assertEqual(report["stopped"], "порций подряд без принятых задач: 3")
         self.assertEqual(len(report["batches"]), 3)
         self.assertEqual(self.git("rev-parse", "HEAD"), self.baseline)
+
+    def test_idle_limit_zero_lets_the_night_run_to_the_end(self):
+        """Ночь длиннее запаса работы: владелец вправе отменить раннюю остановку.
+
+        Правило «три порции подряд» бережёт токены там, где работа кончилась, — но на
+        длинной ночи оно же обрывает прогон, у которого просто неудачная полоса порций.
+        Ноль означает «не заканчивать вовсе»; ограничителями остаются часы, порции и
+        потолок токенов.
+        """
+        result = self.run_supervisor([queue_json("alpha")], batches=5, mode="no-edit", idle_limit=0)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = self.report()
+        # Дошли до конца отпущенных порций, а не остановились на третьей.
+        self.assertEqual(report["stopped"], "порции кончились")
+        self.assertEqual(len(report["batches"]), 5)
+        self.assertTrue(all(b["completed"] == 0 for b in report["batches"]), report["batches"])
+        self.assertEqual(self.git("rev-parse", "HEAD"), self.baseline)
+
+    def test_idle_limit_is_honoured_as_given(self):
+        """Число берётся из флага, а не зашито: двойка заканчивает ночь на второй порции."""
+        result = self.run_supervisor([queue_json("alpha")], batches=9, mode="no-edit", idle_limit=2)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = self.report()
+        self.assertEqual(report["stopped"], "порций подряд без принятых задач: 2")
+        self.assertEqual(len(report["batches"]), 2)
 
     def test_report_counts_operator_calls_too(self):
         # Вызовы оператора — такой же расход лимита, как работа авторов; ночь, где

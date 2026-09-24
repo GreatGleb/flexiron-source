@@ -31,7 +31,8 @@ python3 "$repo/roo_code/workflows/night-supervisor.py" \
     --token-budget "${FLEXIRON_TOKENS:-26000000}" \
     --max-tasks "${FLEXIRON_BATCH:-5}" \
     --parallel "${FLEXIRON_PARALLEL:-4}" \
-    --max-batches "${FLEXIRON_MAX_BATCHES:-8}" || status=$?
+    --max-batches "${FLEXIRON_MAX_BATCHES:-8}" \
+    --idle-limit "${FLEXIRON_IDLE_LIMIT:-3}" || status=$?
 
 # Сводка пишется при любом исходе: оборванную ночь утром тоже надо читать.
 python3 "$repo/roo_code/workflows/night-report.py" --out "$out" --repo "$repo" \

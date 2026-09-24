@@ -81,6 +81,9 @@ def main():
     parser.add_argument("--parallel", type=int, default=1,
                         help="Сколько авторов писать одновременно внутри порции")
     parser.add_argument("--max-batches", type=int, default=20)
+    parser.add_argument("--idle-limit", type=int, default=3,
+                        help="Сколько порций подряд без принятых задач заканчивают ночь; 0 — не "
+                             "заканчивать вовсе")
     args = parser.parse_args()
 
     root = args.workspace.resolve()
@@ -122,8 +125,8 @@ def main():
             # Негодная очередь не стоит ночи: следующая порция может быть годной.
             report["batches"].append({"batch": index, "completed": 0, "preflight": checked.stderr.strip()[:400]})
             idle_batches += 1
-            if idle_batches >= 3:
-                return finish("три порции подряд без принятых задач")
+            if args.idle_limit and idle_batches >= args.idle_limit:
+                return finish(f"порций подряд без принятых задач: {idle_batches}")
             continue
 
         result = runner(["--workspace", str(root), "--queue", str(queue_path), "--routing", str(args.routing),
@@ -139,8 +142,8 @@ def main():
                                   "blocked": [b["task"] for b in state.get("blocked", [])],
                                   "status": state["status"], "tokens": state.get("tokens", 0)})
         idle_batches = 0 if completed else idle_batches + 1
-        if idle_batches >= 3:
-            return finish("три порции подряд без принятых задач")
+        if args.idle_limit and idle_batches >= args.idle_limit:
+            return finish(f"порций подряд без принятых задач: {idle_batches}")
         if result.returncode:
             return finish(f"ядро остановилось: {state.get('reason', '')[:200]}")
     return finish("порции кончились")
