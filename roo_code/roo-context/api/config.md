@@ -17,7 +17,7 @@ clean-slate Save, форма идентификатора, права как с�
 повторяются**: второй экземпляр правила расходится с первым.
 
 Аудит по коду, из которого собран этот файл: [`plans/api/audit/config.md`](../../plans/api/audit/config.md).
-Находки про код — четырнадцать, пять закрыты (БАГ-01, БАГ-06, БАГ-09, БАГ-10 частично, БАГ-14):
+Находки про код — четырнадцать, шесть закрыты (БАГ-01, БАГ-06, БАГ-08, БАГ-09, БАГ-14 и БАГ-10 частично):
 [`contract-sync-config-bugs.md`](../../plans/bugs/contract-sync-config-bugs.md).
 Строки, оставленные владельцу — четырнадцать: раздел `config` в
 [`00-решения-владельца.md`](../../plans/api/audit/00-решения-владельца.md).
@@ -209,8 +209,9 @@ Save-режим: clean-slate. Именно этот эндпоинт несёт 
 **Сервер обязан сливать имя, а не заменять его.** `mergeTranslatedString` перезаписывает только
 определённые ключи (§12 соглашений); замена целиком стёрла бы переводы двух других локалей.
 
-Ошибки: **ни одной**. Несуществующий `id` мок возвращает как `null` (`mocks/config.ts:300`) при
-подписи `Promise<FieldDefinition>` — БАГ-08. Каким кодом сервер обязан отвечать на неизвестный
+Ошибки: неизвестный `id` — `FIELD_NOT_FOUND`, 404 (`mockUpdateField` в `mocks/config.ts`);
+**БАГ-08 в этой части закрыта 2026-09-24.** Прежде мок возвращал `null` при подписи
+`Promise<FieldDefinition>`, и роутер отвечал на PATCH успешным пустым телом. Каким кодом сервер обязан отвечать на неизвестный
 `id`, на дубль имени и на правку встроенного поля — строка владельцу.
 
 Бэкенд: **не реализован**.
@@ -386,8 +387,9 @@ Save-режим: clean-slate, первый из трёх `PUT`-ов батча (
 `mergeTranslatedString` (`mocks/config.ts:343-345`) и делает `Object.assign` (`:330`) — то есть
 **принимает и `fields`**, вопреки обещанию прежнего контракта их не принимать.
 
-Ошибки: **ни одной**. Несуществующий `id` мок возвращает как `null` (`mocks/config.ts:341`) при
-подписи `Promise<SectionConfig>` — БАГ-08.
+Ошибки: неизвестный `id` — `SECTION_NOT_FOUND`, 404 (`mockUpdateSection` в `mocks/config.ts`);
+**БАГ-08 в этой части закрыта 2026-09-24.** Прежде мок возвращал `null` при подписи
+`Promise<SectionConfig>`.
 
 Бэкенд: **не реализован**.
 Реализация: `services/configService.ts:67` (`patchSection`) · мок `mocks/index.ts:1221` →
@@ -853,7 +855,7 @@ clean-slate-батчем из трёх `PUT`-ов. Проверено по ка�
 | `403 IMMUTABLE` на встроенное поле — в `PATCH` и в `DELETE` (`03-api-contract.md:644`, `:650`) | кода `IMMUTABLE` нет нигде: `grep -rn "IMMUTABLE" frontend_vue/src backend/app` пусто; мок удаляет и правит любое поле (`mocks/config.ts:294`, `:298-304`); серверный признак другой — `is_builtin` (`backend/app/modules/suppliers/shared/models.py:256-258`) |
 | `409 DUPLICATE` по имени поля per-tenant (`:636`, `:644`) | кода `DUPLICATE` в домене нет; правило при этом **есть на схеме** — `uq_field_definitions_tenant_name` (`suppliers/shared/models.py:264-266`), поэтому снят код, а не требование |
 | «`type` менять нельзя — `422 VALIDATION_ERROR`» (`:641`) | мок меняет любое поле через `Object.assign` (`mocks/config.ts:294`); проверки нет ни в клиенте, ни на схеме |
-| «`404 NOT_FOUND`, если section не существует» (`:674`) | мок возвращает `null` и не бросает (`mocks/config.ts:341`), тот же случай у поля (`:289`) — БАГ-08 |
+| «`404 NOT_FOUND`, если section не существует» (`:674`) | **сходится с 2026-09-24:** `mockUpdateSection` бросает `SECTION_NOT_FOUND` 404, то же у поля — БАГ-08 закрыта |
 | «поле `fields` в `PATCH` не принимаем» (`:671`) | мок принимает через `Object.assign` (`mocks/config.ts:346`) |
 | «каскадное удаление данных у поставщиков» при `DELETE` поля (`:650`) | каскадить нечего: у `Supplier` нет `fieldValues` (`frontend_vue/src/types/supplier.ts:12-31`), таблицы `supplier_field_values` не существует, а `product_field_values.field_id` ведёт на `category_fields` (`backend/app/modules/products/shared/models.py:203-207`) |
 | «`usageCount` — сколько поставщиков реально заполнили это поле» (`:629`) | считать не из чего (та же причина); в моке это статические числа (`mocks/config.ts:17`, `:24`, `:60`, `:67`), во фронте новое поле получает `0` или `1` вручную (`SupplierCardConfigPage.vue:329`, `:416`) |
