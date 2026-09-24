@@ -123,7 +123,7 @@
 
 - **Определение удаляется насовсем, молча и без счёта затронутых.** `mockDeleteField` вырезает
   строку из библиотеки и снимает её со всех секций
-  ([`mocks/config.ts:299-305`](../../../frontend_vue/src/services/mocks/config.ts)). Ни архива, ни
+  ([`mocks/config.ts:310-316`](../../../frontend_vue/src/services/mocks/config.ts)). Ни архива, ни
   предупреждения, ни числа.
 - **Поле снимается с набора категории локально, до Save.** `deleteField`
   ([`useCategoryCard.ts:142`](../../../frontend_vue/src/composables/useCategoryCard.ts)), на сервер
@@ -169,9 +169,9 @@
 - `CATEGORY_FIELDS_IN_USE` — «поле убрано из набора, а значения у товаров заполнены», назначен
   2026-09-10, и прямо помечен как зависящий от решения, которым стал П73
   ([`categories.md:59`](../../roo-context/api/categories.md)).
-- `FIELD_IS_BUILTIN` ([`config.md:568`](../../roo-context/api/config.md)) и `FIELD_NAME_TAKEN` —
+- `FIELD_IS_BUILTIN` ([`config.md:572`](../../roo-context/api/config.md)) и `FIELD_NAME_TAKEN` —
   про правку библиотеки, к жизненному циклу значения отношения не имеют.
-- `usageCount` «считать не из чего» ([`config.md:849`](../../roo-context/api/config.md)) — под П68
+- `usageCount` «считать не из чего» ([`config.md:858`](../../roo-context/api/config.md)) — под П68
   колонка удаляется и число считается при чтении.
 - Конверт отказа клиент разбирает `parseErrorBody`
   ([`services/api.ts:49-84`](../../../frontend_vue/src/services/api.ts)), и до вызывающего доезжают

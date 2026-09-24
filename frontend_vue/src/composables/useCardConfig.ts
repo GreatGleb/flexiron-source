@@ -42,8 +42,8 @@ export function useCardConfig() {
     }
   }
 
-  async function saveConfig() {
-    if (!permissions.value) return
+  async function saveConfig(): Promise<boolean> {
+    if (!permissions.value) return false
     saving.value = true
     error.value = null
     try {
@@ -53,8 +53,10 @@ export function useCardConfig() {
         saveSections(sections.value),
         savePermissions(permissions.value),
       ])
+      return true
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to save config'
+      return false
     } finally {
       saving.value = false
     }

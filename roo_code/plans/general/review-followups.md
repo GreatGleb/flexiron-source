@@ -82,7 +82,7 @@
 > Использована в обоих названных местах: карточка партии склада, секция «Обрезки из этой
 > партии» — [`WarehouseBatchCard.vue:1266-1292`](../../../frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue#L1324-L1350)
 > (кнопки «Резка» и «Новый обрезок» внутри одной обёртки), и
-> [`SupplierCardConfigPage.vue:552`](../../../frontend_vue/src/views/admin/suppliers/SupplierCardConfigPage.vue#L552).
+> [`SupplierCardConfigPage.vue:565`](../../../frontend_vue/src/views/admin/suppliers/SupplierCardConfigPage.vue#L552).
 
 **Где видно:** `/admin/warehouse/batches/whb-100`, шапка секции «Обрезки из этой партии».
 
@@ -91,7 +91,7 @@
 вплотную — между ними ноль пикселей.
 
 **То же самое есть ещё в одном месте:**
-[`SupplierCardConfigPage.vue:551`](../../../frontend_vue/src/views/admin/suppliers/SupplierCardConfigPage.vue#L551).
+[`SupplierCardConfigPage.vue:564`](../../../frontend_vue/src/views/admin/suppliers/SupplierCardConfigPage.vue#L551).
 Проверено разбором всех слотов `#header` с двумя и более кнопками — таких мест ровно два.
 
 **Как чинить.** В карточке заказа кнопки в шапке обёрнуты в `.doc-gen-actions.in-header`

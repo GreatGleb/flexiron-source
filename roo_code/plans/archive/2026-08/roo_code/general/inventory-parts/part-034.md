@@ -246,7 +246,7 @@ createSection/patchSection` — конфиг накапливается лока
 `saveFieldLibrary/saveSections/savePermissions` (PUT). Проверено:
 ```
 $ grep -rn "createSection\|createField(\|patchSection\|patchField(" src/ --include=*.ts --include=*.vue | grep -v "export"
-src/views/admin/suppliers/SupplierCardConfigPage.vue:309:function createField()   // локальная функция вьюхи, не сервис
+src/views/admin/suppliers/SupplierCardConfigPage.vue:318:function createField()   // локальная функция вьюхи, не сервис
 ```
 То есть четыре сервисные функции из плана — мёртвый код, а живой путь (батч-PUT) уже
 пишет одну локаль. Остаётся: привести `createSection` + `mockCreateSection` к правилу

@@ -59,8 +59,8 @@ BCC: `bccService.ts` — `sendBccRequest(..., locale)` 39–40 (subject/body), `
 `useBccRequest.ts:95,120` передаёт locale. Моки `mockSendBccRequest`/`mockLogBccRequest` (bcc.ts:267,277) принимают payload как есть — как план и требовал (4.3).
 
 Config: `configService.ts` — `createField(..., locale)` 24, `patchField(..., locale)` 35, `patchSection(..., locale)` 65.
-`mocks/config.ts:292,328` — `mergeTranslatedString` в `mockUpdateField`/`mockUpdateSection`.
-`useCardConfig.ts:86` — `mergeLocaleValue`. `SupplierCardConfigPage.vue:317,413,459` — `toTranslatedString`.
+`mocks/config.ts:303,328` — `mergeTranslatedString` в `mockUpdateField`/`mockUpdateSection`.
+`useCardConfig.ts:88` — `mergeLocaleValue`. `SupplierCardConfigPage.vue:326,413,459` — `toTranslatedString`.
 Пункт 5.6 (убрать `translated: true`) закрыт.
 
 Analytics (домен 6): `analyticsService.ts` — единственная `getAnalyticsPage`, эндпоинт один (`/api/analytics/${page}`);
@@ -79,7 +79,7 @@ Analytics (домен 6): `analyticsService.ts` — единственная `ge
    ни `toTranslatedString`. (Функция при этом мёртвая: `grep -rn "createSection" src tests` вне сервиса и мока
    даёт только регистрацию маршрута в `mocks/index.ts:115,925`.)
 2. **Пункт 5.4, половина про `mockCreateSection`** — не сделан и содержит ровно тот антипаттерн, против которого написан план.
-   `frontend_vue/src/services/mocks/config.ts:306-309`:
+   `frontend_vue/src/services/mocks/config.ts:317-320`:
    ```ts
    const name: TranslatedString =
      typeof payload.name === 'string'

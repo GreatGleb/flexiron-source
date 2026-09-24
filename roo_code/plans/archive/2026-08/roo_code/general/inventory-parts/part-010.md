@@ -109,7 +109,7 @@ $ npx vite build              → ✓ built in 8.38s (только warning пр�
 ### Наблюдение вне плана (не требование)
 Хардкод `{ ru: X, en: X, lt: X }` остался в местах, которые план не перечислял:
 `BccRequestPage.vue:308,401`, `SettingsLayout.vue:329,340,341,386`,
-`SupplierCardConfigPage.vue:671`. Отдельная задача, если это вообще дефект.
+`SupplierCardConfigPage.vue:684`. Отдельная задача, если это вообще дефект.
 
 ---
 

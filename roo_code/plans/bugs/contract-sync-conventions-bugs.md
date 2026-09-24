@@ -109,7 +109,7 @@ def add(c, src): codes.setdefault(c, set()).add(src)
 CODE = re.compile(r'^[A-Z][A-Z0-9_]{4,}$')
 # Не коды: подставная пара из проверки warehouse.md:111, обрубок шаблона
 # `FORBIDDEN_${right}` (mocks/orders.ts:1865), два слова из прозы —
-# про DUPLICATE контракт прямо пишет «кода в домене нет» (config.md:834).
+# про DUPLICATE контракт прямо пишет «кода в домене нет» (config.md:843).
 NOISE = {'BATCH_NOT', 'FORBIDDEN_', 'COUNT', 'DUPLICATE'}
 api = root / 'roo_code/roo-context/api'
 for f in sorted(api.glob('*.md')):
