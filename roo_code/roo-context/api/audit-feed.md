@@ -100,9 +100,9 @@
 порядок вторым ключом — правило домена 7.
 
 Ошибки: **ни одной своей.** `grep -c "throw" frontend_vue/src/services/mocks/auditFeed.ts` → `0`,
-ветка мока не бросает (`mocks/index.ts:395-409`). Отказ доходит до человека одним текстом без
-кода: `error.value = e.message` (`composables/useAuditFeed.ts:70-72`), показ — блок с кнопкой
-«повторить» (`LogsSettings.vue:170-173`). У сервера каталог будет не пуст: `UNAUTHORIZED` без
+ветка мока не бросает (`mocks/index.ts:395-409`). Отказ доходит до человека переводом, а не
+текстом исключения: `error.value = t('auditLog.error_load')` в `composables/useAuditFeed.ts`,
+показ — блок с кнопкой «повторить» (`LogsSettings.vue:170-173`). У сервера каталог будет не пуст: `UNAUTHORIZED` без
 токена и `VALIDATION_ERROR` на неизвестный `entityType` и на `pageSize` сверх потолка — оба кода
 из ядра (§2 соглашений), своих у домена нет.
 
@@ -142,9 +142,10 @@ Save-режим: чтение. Зовётся на монтировании (`Lo
 запись, то есть **два разных человека с одинаковым `user.en` сольются в одну строку фильтра**.
 Что с этим делать серверу — не решено, строка владельца 5.
 
-Ошибки: **ни одной своей**, и до человека отказ не доходит **никак**:
-`catch { users.value = [] }` (`composables/useAuditFeed.ts:80-82`), упавший запрос выглядит как
-«авторов нет» — БАГ-05. У сервера тот же `UNAUTHORIZED` из ядра.
+Ошибки: **ни одной своей.** До человека отказ доходит тостом с переводом
+(`error.value` списка при этом не портит — свой `error` есть только у самой ленты), а
+прежний список авторов в `users` не подменяется: `catch { toast.error(t('auditLog.error_users_load')) }`
+в `composables/useAuditFeed.ts` — БАГ-05 закрыт. У сервера тот же `UNAUTHORIZED` из ядра.
 
 Save-режим: чтение, один раз на монтировании (`LogsSettings.vue:110`); на смену фильтров и страниц
 не перезапрашивается (`composables/useAuditFeed.ts:116-128` зовут только `load`).
@@ -273,7 +274,9 @@ actual RBAC logic here» (`backend/app/modules/auth/internal_api/interface.py:27
 (`mocks/warehouse.ts:1949`), и ссылка строки ведёт на карточку остатка по нему
 (`LogsSettings.vue:206-219`, маршрут `warehouse/stock/:id`, `router/index.ts:255-256`).
 (4) `total`, `page` и `totalPages` считаются при чтении, `page` при этом **зажимается в границы**
-(`mocks/auditFeed.ts:95-99`), и клиент принимает зажатое значение (`useAuditFeed.ts:68`) — БАГ-04.
+(`mocks/auditFeed.ts:95-99`), и клиент принимает зажатое значение под флагом-пропуском
+(`skipNextPageWatch` в `composables/useAuditFeed.ts`), чтобы это присваивание не читалось
+наблюдателем `watch(page, load)` как новый запрос страницы — БАГ-04 закрыт.
 (5) Список авторов производен от логов целиком (`mocks/auditFeed.ts:111-122`). (6) Порядок — по
 моменту времени, а не по строке (`mocks/auditFeed.ts:93`, парсер — `mocks/auditClock.ts:31-36`).
 

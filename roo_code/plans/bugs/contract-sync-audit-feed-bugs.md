@@ -75,7 +75,7 @@ TBD — правка затрагивает и форму ответа, и ме�
 
 ---
 
-## БАГ-02 — `switch` без `default`: неизвестный `entityType` отвечает «удалено» и не удаляет ничего
+## БАГ-02 — `switch` без `default`: неизвестный `entityType` отвечает «удалено» и не удаляет ничего — ПОЧИНЕНО
 
 **File:** `frontend_vue/src/services/auditFeedService.ts:57-77`, `frontend_vue/src/composables/useAuditFeed.ts:93-108`
 **Severity:** Medium — человек видит «Запись аудита удалена», запись остаётся; расхождение живёт до следующей перезагрузки страницы.
@@ -118,6 +118,12 @@ export async function deleteAuditFeedEntry(row: AuditFeedRow): Promise<void> {
 (`frontend_vue/src/composables/useAuditFeed.ts:102-104`), где уже есть тост отказа. Ветка
 `default` с `throw` в `switch` по union заодно перестанет компилироваться, если к девяти видам
 добавят десятый и забудут про этот файл.
+
+**Сделано.** `default` в `switch` присваивает `row.entityType` переменной типа `never` и бросает
+(`deleteAuditFeedEntry` в `frontend_vue/src/services/auditFeedService.ts`) — неизвестный вид
+отклоняет промис, а не разрешает его успешно, и добавление десятого вида в `AuditEntityType` без
+своей ветки здесь ломает typecheck. Доказано инверсией:
+`frontend_vue/src/composables/audit-feed-refusals.spec.ts` (описание «БАГ-02»).
 
 ### Future rule
 
@@ -186,7 +192,7 @@ function auditDay(timestamp: string): string {
 
 ---
 
-## БАГ-04 — зажатая сервером страница вызывает второй одинаковый запрос
+## БАГ-04 — зажатая сервером страница вызывает второй одинаковый запрос — ПОЧИНЕНО
 
 **File:** `frontend_vue/src/composables/useAuditFeed.ts:66-68`, `:124`
 **Severity:** Low — лишний сетевой запрос и лишняя перерисовка; данных не портит.
@@ -222,6 +228,13 @@ page.value = result.page
 (`frontend_vue/src/composables/usePagination.ts:40-54`) — правка либо локальная здесь, либо в
 нём, и тогда её увидят все страницы со списками.
 
+**Сделано локально.** `useAuditFeed.ts` сравнивает `result.page` с текущим `page.value` и
+присваивает только при расхождении, выставляя перед этим флаг `skipNextPageWatch` — тот же приём,
+что уже стоит в `useServices.ts` для похожего случая. `watch(page, ...)` при выставленном флаге
+пропускает вызов `load()` один раз и сбрасывает флаг. Доказано инверсией:
+`frontend_vue/src/composables/audit-feed-refusals.spec.ts` (описание «БАГ-04») — зажатая до
+меньшего номера страница вызывает ровно один `getAuditFeed`.
+
 ### Future rule
 
 Присваивание в `ref`, за которым следит `watch`, внутри функции, которую этот же `watch` и
@@ -230,7 +243,7 @@ page.value = result.page
 
 ---
 
-## БАГ-05 — упавший список авторов выглядит как «авторов нет»
+## БАГ-05 — упавший список авторов выглядит как «авторов нет» — ПОЧИНЕНО
 
 **File:** `frontend_vue/src/composables/useAuditFeed.ts:77-83`
 **Severity:** Low — фильтр по пользователю молча становится пустым; человек считает, что записей от людей нет.
@@ -260,6 +273,12 @@ async function loadUsers() {
 
 Различать «список пуст» и «список не пришёл»: сохранить причину и показать её в самом селекте
 или тостом. Блокировать страницу не нужно — фильтр не обязателен для работы.
+
+**Сделано.** `catch` в `loadUsers` (`useAuditFeed.ts`) больше не присваивает `users.value = []`:
+прежний список остаётся нетронутым, а отказ показывается тостом с переводом
+`auditLog.error_users_load`. Доказано инверсией:
+`frontend_vue/src/composables/audit-feed-refusals.spec.ts` (описание «БАГ-05») — авторы,
+загруженные первым успешным ответом, переживают следующий упавший.
 
 ### Future rule
 
@@ -312,11 +331,17 @@ const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.v
 
 ## Сводка
 
-| БАГ-NN | Тип | Файл | Суть |
-|---|---|---|---|
-| БАГ-01 | Права | `mocks/auditFeed.ts:43-60`, `types/audit.ts:63-74` | право `seeCost` обходится через ленту: записи `sensitive: 'cost'` попадают в неё целиком |
-| БАГ-02 | Корректность | `services/auditFeedService.ts:57-77` | `switch` без `default` — неизвестный `entityType` тихо «успешно удалён» |
-| БАГ-03 | Корректность | `mocks/auditFeed.ts:39-41` | фильтр по датам режет UTC-день, а таблица печатает местный |
-| БАГ-04 | Реактивность | `composables/useAuditFeed.ts:66-68`, `:124` | зажатая сервером страница вызывает второй одинаковый запрос |
-| БАГ-05 | UX ошибок | `composables/useAuditFeed.ts:77-83` | упавший список авторов выглядит как «авторов нет» |
-| БАГ-06 | Контракт | `composables/useAuditFeed.ts:66-68`, `composables/usePagination.ts:8` | `pageSize` и `totalPages` из ответа не читает никто |
+| БАГ-NN | Тип | Файл | Суть | Статус |
+|---|---|---|---|---|
+| БАГ-01 | Права | `mocks/auditFeed.ts:43-60`, `types/audit.ts:63-74` | право `seeCost` обходится через ленту: записи `sensitive: 'cost'` попадают в неё целиком | открыт — ждёт решения владельца (строка 5) |
+| БАГ-02 | Корректность | `services/auditFeedService.ts:57-77` | `switch` без `default` — неизвестный `entityType` тихо «успешно удалён» | **ПОЧИНЕНО** — `default` бросает, проверено инверсией в `audit-feed-refusals.spec.ts` |
+| БАГ-03 | Корректность | `mocks/auditFeed.ts:39-41` | фильтр по датам режет UTC-день, а таблица печатает местный | открыт — решение владельца принято (П62), правка кода не сделана |
+| БАГ-04 | Реактивность | `composables/useAuditFeed.ts:66-68`, `:124` | зажатая сервером страница вызывает второй одинаковый запрос | **ПОЧИНЕНО** — флаг `skipNextPageWatch`, проверено инверсией в `audit-feed-refusals.spec.ts` |
+| БАГ-05 | UX ошибок | `composables/useAuditFeed.ts:77-83` | упавший список авторов выглядит как «авторов нет» | **ПОЧИНЕНО** — прежний список сохраняется, отказ идёт тостом, проверено инверсией в `audit-feed-refusals.spec.ts` |
+| БАГ-06 | Контракт | `composables/useAuditFeed.ts:66-68`, `composables/usePagination.ts:8` | `pageSize` и `totalPages` из ответа не читает никто | открыт — правка общего композабла, вне объёма этой задачи |
+
+Заодно, вне нумерованных БАГ-NN: `load()` клал в `error` текст исключения
+(`e instanceof Error ? e.message : 'Failed to load the audit feed'`) вместо перевода — не был
+заведён отдельной находкой в этом файле, описан только в `roo-context/api/audit-feed.md`.
+**ПОЧИНЕНО** — `error.value` теперь несёт `t('auditLog.error_load')`, проверено инверсией в
+`audit-feed-refusals.spec.ts` (локаль `ru` отличает перевод от старого английского хардкода).
