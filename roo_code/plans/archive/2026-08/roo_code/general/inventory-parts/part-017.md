@@ -119,7 +119,7 @@ allocate-total, split, correct, files, audit). Не зарегистрирова
 |---|---|---|---|
 | 1 | #9: no comments inside `<template>` | сделано | `awk '/<template>/,/<\/template>/' … \| grep -c "<!--"` → 0 для всех трёх страниц |
 | 2 | #10: route names verified | сделано | router/index.ts:148,154,160 — admin-orders / admin-order-create / admin-order-card |
-| 3 | #13: mock returns structuredClone | сделано | mocks/orders.ts:1266 `clone()` = JSON.parse(JSON.stringify), 1275 `publicOrder()`; mockGetOrders → `clone(items)` |
+| 3 | #13: mock returns structuredClone | сделано | mocks/orders.ts:1269 `clone()` = JSON.parse(JSON.stringify), 1275 `publicOrder()`; mockGetOrders → `clone(items)` |
 | 4 | #18: save bar btn_discard_changes, modals btn_discard | сделано | OrderCardPage.vue:1078 vs OrdersListPage.vue:475 |
 | 5 | #19: filters inside GlassPanel | частично | OrdersListPage.vue:150 `.filters-bar` до GlassPanel (187) — как в ClientsListPage.vue:232 |
 | 6 | #20: initialized flag in composable | сделано | useOrders.ts:27,30,36 |
@@ -132,7 +132,7 @@ allocate-total, split, correct, files, audit). Не зарегистрирова
 |---|---|---|---|
 | 1 | toDo/admin-api-contract.md — Orders section | частично | файла нет; секция в toDo/archive-admin-api-contract.md:332 |
 | 2 | src/types/order.ts | сделано | 23373 байта, 28 экспортов; формы разошлись с планом осознанно |
-| 3 | mocks/orders.ts — 8+ orders | сделано | TOTAL_ORDERS = 100 (orders.ts:363) |
+| 3 | mocks/orders.ts — 8+ orders | сделано | TOTAL_ORDERS = 100 (orders.ts:366) |
 | 4 | mocks/index.ts — все маршруты | частично | 12 из 13 есть; `/api/orders/:id/translated` нет |
 | 5 | src/services/ordersService.ts | сделано | все 11 функций плана + 26 сверх него |
 | 6 | useOrders.ts — initialized + delete | сделано | :27 initialized, :44 handleDelete |

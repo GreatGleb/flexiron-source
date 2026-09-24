@@ -19,7 +19,7 @@
 
 ## БАГ-01 — право `seeCost` обходится через общую ленту: записи истории с ценой видны тому, кому цена закрыта
 
-**File:** `frontend_vue/src/services/mocks/auditFeed.ts:43-60`, `frontend_vue/src/types/audit.ts:63-74`, `frontend_vue/src/services/mocks/orders.ts:4683-4690`
+**File:** `frontend_vue/src/services/mocks/auditFeed.ts:43-60`, `frontend_vue/src/types/audit.ts:63-74`, `frontend_vue/src/services/mocks/orders.ts:4686-4693`
 **Severity:** High — то же право, обойдённое другой дорогой: карточка заказа его соблюдает, а лента отдаёт те же записи целиком.
 **Источник:** К6 (обязанности сервера: права), К4 (форма ответа теряет поле)
 
@@ -37,11 +37,11 @@ if (!maySeeCost()) {
 }
 ```
 
-(`frontend_vue/src/services/mocks/orders.ts:1384-1386`, право — `:1391-1394`; карточка вешает
+(`frontend_vue/src/services/mocks/orders.ts:1387-1389`, право — `:1391-1394`; карточка вешает
 вторую, признанную вторичной, занавеску — `frontend_vue/src/views/admin/orders/OrderCardPage.vue:311-313`.)
 
 Общая лента идёт мимо этой функции. `orderAuditSources()` отдаёт `o.auditLog` из хранилища как
-есть (`frontend_vue/src/services/mocks/orders.ts:4683-4690`), `toRows` собирает строку из девяти
+есть (`frontend_vue/src/services/mocks/orders.ts:4686-4693`), `toRows` собирает строку из девяти
 полей и `sensitive` среди них нет (`frontend_vue/src/services/mocks/auditFeed.ts:47-60`), а
 `AuditFeedRow` такого поля не объявляет вовсе (`frontend_vue/src/types/audit.ts:63-74`). То есть:
 
@@ -155,14 +155,14 @@ function auditDay(timestamp: string): string {
 без пояса) и полный ISO с `Z` (`frontend_vue/src/services/mocks/auditClock.ts:26-29`; сиды —
 `frontend_vue/src/mocks/warehouse-stock.ts:26`, `frontend_vue/src/services/mocks/clients.ts:49`).
 Записи, созданные во время работы, пишутся строго в UTC:
-`timestamp: new Date().toISOString()` (`frontend_vue/src/services/mocks/orders.ts:1880`).
+`timestamp: new Date().toISOString()` (`frontend_vue/src/services/mocks/orders.ts:1883`).
 
 Таблица при этом печатает **местное** время: `parsed.toLocaleString(...)` без указания зоны
 (`frontend_vue/src/views/admin/settings/LogsSettings.vue:96-106`), и для ISO-штампа с `Z`
 `Date` переводит его в зону браузера.
 
 Отсюда расхождение на границе суток. Пользователь в зоне UTC+3 меняет статус заказа в 23:30
-местного времени — запись получает штамп `…T20:30:00Z` (`frontend_vue/src/services/mocks/orders.ts:1880`),
+местного времени — запись получает штамп `…T20:30:00Z` (`frontend_vue/src/services/mocks/orders.ts:1883`),
 таблица показывает её сегодняшним числом, а фильтр «от сегодня» её не находит: `slice(0, 10)`
 даёт сегодняшнюю UTC-дату только до 21:00 местного времени. Правило общее: смещение зоны на N
 часов делает неверными последние N часов суток при положительном смещении и первые |N| — при

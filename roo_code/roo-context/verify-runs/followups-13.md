@@ -18,8 +18,8 @@
 
 - `OrderCardPage.vue:734` — `paymentInvoiceId.value = ''` при открытии модалки регистрации оплаты
 - `OrderCardPage.vue:755` — `invoiceId: paymentInvoiceId.value || null`
-- `orders.ts:3775` — `invoiceId: data.invoiceId ?? null`, никакой подстановки открытого счёта
-- реестр (`orders.ts:4299`) считает оплаченным только `p.invoiceId === invoice.id`
+- `orders.ts:3778` — `invoiceId: data.invoiceId ?? null`, никакой подстановки открытого счёта
+- реестр (`orders.ts:4302`) считает оплаченным только `p.invoiceId === invoice.id`
 
 Зонд на настоящем коде HEAD (один заказ, счёт на 500, оплата на 500, разница только в `invoiceId`):
 

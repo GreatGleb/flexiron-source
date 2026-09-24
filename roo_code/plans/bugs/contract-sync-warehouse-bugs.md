@@ -270,7 +270,7 @@ resolvable: 0 of 15
 
 Рядом то же с заказами: `orderId: 'ord-001'` у партии и у трёх обрезков
 (`frontend_vue/src/mocks/warehouse-offcuts.ts`), тогда как мок заказов выдаёт `ORD-001`
-(`frontend_vue/src/services/mocks/orders.ts:662`).
+(`frontend_vue/src/services/mocks/orders.ts:665`).
 
 ### Expected
 
@@ -433,7 +433,7 @@ N+1 на каждое открытие карточки.
 
 ## БАГ-13 — возврат, записанный заказами, не уменьшает агрегат продажи и не гасит активную продажу
 
-**File:** `frontend_vue/src/services/mocks/orders.ts:3435`
+**File:** `frontend_vue/src/services/mocks/orders.ts:3438`
 **Severity:** High — после отмены отгрузки или возврата клиента партия продолжает показывать проданным то, что вернулось; остаток при этом увеличивается, то есть два экрана об одной партии говорят разное.
 **Источник:** К2 (кросс-доменное), К6
 
@@ -456,7 +456,7 @@ if (m.type === 'return') {
 Домен заказов пишет туда другое:
 
 ```
-frontend_vue/src/services/mocks/orders.ts:3344   referenceType: 'order-shipment'
+frontend_vue/src/services/mocks/orders.ts:3347   referenceType: 'order-shipment'
 :3435   referenceType: 'order-shipment-cancelled'
 :3780   referenceType: 'order-return'
 :3792   referenceType: 'order-return-writeoff'
@@ -466,8 +466,8 @@ frontend_vue/src/services/mocks/orders.ts:3344   referenceType: 'order-shipment'
 
 Второе следствие — активные продажи. `mockGetBatchActiveSales` сопоставляет возвраты продажам по
 `referenceId` (`frontend_vue/src/services/mocks/warehouse.ts:1457-1468`). У отмены отгрузки
-`referenceId = shipment.id` совпадает с продажей (`frontend_vue/src/services/mocks/orders.ts:3345`, `:3436`) — здесь совпадение
-случайно верное. У возврата клиента `referenceId = orderReturn.id` (`frontend_vue/src/services/mocks/orders.ts:3781`), и он не
+`referenceId = shipment.id` совпадает с продажей (`frontend_vue/src/services/mocks/orders.ts:3348`, `:3436`) — здесь совпадение
+случайно верное. У возврата клиента `referenceId = orderReturn.id` (`frontend_vue/src/services/mocks/orders.ts:3784`), и он не
 совпадает ни с одной продажей: возвращённое остаётся «активной продажей» навсегда.
 
 Старый контракт называет ещё третий словарь: `"sale" | "purchase_order" | "work_order" |

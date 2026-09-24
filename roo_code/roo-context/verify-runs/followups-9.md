@@ -15,7 +15,7 @@ $ grep -rn "paymentTerms" src/ tests/
 src/components/admin/SupplierFormSections.vue:271:            v-model="supplier.paymentTerms"
 src/services/mocks/suppliers.ts:143:    paymentTerms: '30 Days Net',
 src/services/mocks/suppliers.ts:314:    paymentTerms: '30 Days Net',
-src/services/mocks/suppliers.ts:495:    paymentTerms: payload.paymentTerms ?? '30 Days Net',
+src/services/mocks/suppliers.ts:501:    paymentTerms: payload.paymentTerms ?? '30 Days Net',
 src/composables/useSupplierCreate.ts:32:    paymentTerms: '30 Days Net',
 src/types/supplier.ts:45:  paymentTerms: string
 tests/e2e/admin/suppliers/supplier-create.spec.ts:46: *     paymentTerms='30 Days Net', …
@@ -380,7 +380,7 @@ $ node -e "…разбор src/services/mocks/clients.ts, сортировка �
 | 1 | `OrderCreatePage.vue:280`: `selectedClient.paymentTermsDays` → `0` | `-g "payment terms\|picked with"` | **2 failed** — `expect(new Set(shown.values()).size).toBeGreaterThan(1)` (2110) и `expect(days).toBeGreaterThan(0)` (2141). До правки этот же слом давал `1 passed` |
 | 2 | там же: → `clients[0]!.paymentTermsDays` (чужие условия вместо условий выбранного) | `-g "own payment terms"` | **1 failed** — 2110: все клиенты получили одно число |
 | 3 | `OrderCardPage.vue`: `InputGroup` с условиями удалён целиком (строки 1130–1135) | `-g "picked with"` | **1 failed** — `element(s) not found` на `[data-test="field-payment-terms"]` (2146) |
-| 4 | `mocks/orders.ts:1545`: `clientPaymentTermsDays: client.paymentTermsDays` → `0` (снимок при создании) | `-g "picked with"` | **1 failed** — `Expected: "30 days"`, `Received: "0 days"` (2146) |
+| 4 | `mocks/orders.ts:1548`: `clientPaymentTermsDays: client.paymentTermsDays` → `0` (снимок при создании) | `-g "picked with"` | **1 failed** — `Expected: "30 days"`, `Received: "0 days"` (2146) |
 
 После каждой инверсии файл восстанавливался из копии, снятой до слома;
 `git status --short` после серии показал единственный изменённый файл — спеку.

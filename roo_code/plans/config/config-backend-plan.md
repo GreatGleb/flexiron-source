@@ -220,7 +220,7 @@ awk 'NR>=843 && NR<=858 && /^\| /' roo_code/roo-context/api/config.md | wc -l   
 правка `a563fba` этой же ветки научила мок отказывать на неизвестный `id` —
 `mockUpdateField` бросает `FIELD_NOT_FOUND`, `mockUpdateSection` — `SECTION_NOT_FOUND`
 (`frontend_vue/src/services/mocks/config.ts:301`, `frontend_vue/src/services/mocks/config.ts:343`,
-спека — `frontend_vue/src/services/mocks/unknown-id-is-refused.spec.ts:55-56`). Остальные десять
+спека — `frontend_vue/src/services/mocks/unknown-id-is-refused.spec.ts:59-60`). Остальные десять
 ветвей по-прежнему не отказывают, и удаление отсутствующего — по-прежнему молчаливый no-op
 (`frontend_vue/src/services/mocks/config.ts:310-316`, `frontend_vue/src/services/mocks/config.ts:352-355`).
 

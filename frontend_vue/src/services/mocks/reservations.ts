@@ -28,9 +28,9 @@ export function findReservations(filter?: {
 }): StockReservation[] {
   return RESERVATIONS.filter(
     (r) =>
-      (!filter?.orderId || r.orderId === filter.orderId) &&
-      (!filter?.batchId || r.batchId === filter.batchId) &&
-      (!filter?.lineId || r.lineId === filter.lineId),
+      (filter?.orderId === undefined || r.orderId === filter.orderId) &&
+      (filter?.batchId === undefined || r.batchId === filter.batchId) &&
+      (filter?.lineId === undefined || r.lineId === filter.lineId),
   )
 }
 

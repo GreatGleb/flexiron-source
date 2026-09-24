@@ -20,7 +20,7 @@
 
 ## БАГ-01 — `GET /api/orders/:id` на неизвестный заказ отвечает `undefined`, и карточка падает
 
-**File:** `frontend_vue/src/services/mocks/orders.ts:1599-1602`
+**File:** `frontend_vue/src/services/mocks/orders.ts:1602-1605`
 **Severity:** High — открытие заказа по устаревшей ссылке даёт не «заказ не найден», а необъяснимую ошибку загрузки.
 **Источник:** К3 (коды ошибок), К5 (источник истины)
 
@@ -35,7 +35,7 @@ export function mockGetOrder(id: string): Order | undefined {
 }
 ```
 
-Семь остальных чтений бросают `ORDER_NOT_FOUND`: `mocks/orders.ts:1772` (status-plan), `:2813`
+Семь остальных чтений бросают `ORDER_NOT_FOUND`: `mocks/orders.ts:1775` (status-plan), `:2813`
 (shipments), `:3239` (ship-plan), `:3628` (returns), `:3637` (return-plan), `:3941` (payments),
 `:4025` (invoices). Клиент при этом объявляет `Promise<Order>` без `undefined`
 (`frontend_vue/src/services/ordersService.ts:68`), и карточка сразу разыменовывает ответ:
@@ -57,7 +57,7 @@ orderVersion.value = order.value.version ?? null       // :384
 
 ## БАГ-02 — `DELETE /api/orders/:id` на неизвестный id отвечает успехом
 
-**File:** `frontend_vue/src/services/mocks/orders.ts:2057-2058`
+**File:** `frontend_vue/src/services/mocks/orders.ts:2060-2061`
 **Severity:** Medium — удаление, ничего не удалившее, неотличимо от удаления состоявшегося.
 **Источник:** К3, К5
 
@@ -69,7 +69,7 @@ if (idx === -1) return
 ```
 
 Четыре соседних удаления того же домена этот путь закрыли и объяснили, почему: строка
-(`mocks/orders.ts:2356`), услуга (`:2446`), запись истории (`:2479`) и файл (`:2530`) бросают
+(`mocks/orders.ts:2359`), услуга (`:2446`), запись истории (`:2479`) и файл (`:2530`) бросают
 `*_NOT_FOUND`, а у файла причина расписана прямо — молчаливый успех выводил карточку из фазы
 версии (`:2522-2529`). Здесь тот же путь остался открытым, причём **до** проверки версии
 (`:2060`): устаревший запрос по уже удалённому заказу получит «готово» вместо конфликта.
@@ -157,12 +157,12 @@ grep -c "writeOffOnTransition: true" frontend_vue/src/services/mocks/settings.ts
 grep -c "reserveOnTransition: false" frontend_vue/src/services/mocks/settings.ts  → 15
 ```
 
-`statusRules` читает их по имени `st-<status>` (`frontend_vue/src/services/mocks/orders.ts:1735-1739`),
+`statusRules` читает их по имени `st-<status>` (`frontend_vue/src/services/mocks/orders.ts:1738-1742`),
 поэтому `mockPatchOrderStatus` никогда не заходит ни в ветку списания
 (`:1813-1822`), ни в ветку резерва (`:1823`), а `mockPlanStatusTransition` всегда отвечает
 `reserves: false, writesOff: false` (`:1780`, `:1782`). Между тем §4.5 контракта домена называет
 этот путь основным для обычного заказа (`roo_code/plans/orders/orders-backend-contract.md:234`),
-а `STATUS_BLOCKED_BY_STOCK` (`mocks/orders.ts:1819`) недостижим.
+а `STATUS_BLOCKED_BY_STOCK` (`mocks/orders.ts:1822`) недостижим.
 
 Рядом — вторая половина того же: статус, заведённый через настройки, получает id `st-<N>`
 (`frontend_vue/src/services/mocks/settings.ts:620`), которого нет в перечислении
@@ -177,7 +177,7 @@ grep -c "reserveOnTransition: false" frontend_vue/src/services/mocks/settings.ts
 
 ## БАГ-06 — пять мутаций поднимают версию заказа больше одного раза
 
-**File:** `frontend_vue/src/services/mocks/orders.ts:1820-1826`
+**File:** `frontend_vue/src/services/mocks/orders.ts:1823-1829`
 **Severity:** Medium — клиент, считающий шаги версии сам, получает конфликт, которого не было.
 **Источник:** К5, К6 (транзакционность)
 
@@ -186,12 +186,12 @@ grep -c "reserveOnTransition: false" frontend_vue/src/services/mocks/settings.ts
 §3 контракта домена формулирует правило дословно: «Одна принятая запись — один шаг, и ни шага на
 отказ» (`roo_code/plans/orders/orders-backend-contract.md:101`), и `bumpVersion` снабжён
 комментарием «called exactly once at the end of each endpoint»
-(`frontend_vue/src/services/mocks/orders.ts:1945-1955`). Фактически пять операций шагают
+(`frontend_vue/src/services/mocks/orders.ts:1948-1958`). Фактически пять операций шагают
 многократно, потому что зовут другие эндпоинты внутри себя:
 
 | операция | вложенные шаги | свой шаг |
 |---|---|---|
-| `PATCH /status` | `mockCreateShipment` (`mocks/orders.ts:1820` → `:3356`), `mockReserveOrder` (`:1823` → `:3928`) | `:1826` |
+| `PATCH /status` | `mockCreateShipment` (`mocks/orders.ts:1823` → `:3356`), `mockReserveOrder` (`:1823` → `:3928`) | `:1826` |
 | `POST /items/:id/correct` | `mockCreateInvoice` на каждый документ (`:2723` → `:4444`) | `:2733` |
 | `POST /returns` | `mockCreateInvoice` на каждую корректировку (`:3807` → `:4444`) | `:3836` |
 | `POST /shipments/:id/cancel` | `mockCreateInvoice` на каждый живой счёт (`:3413` → `:4444`) | `:3504` |
@@ -211,7 +211,7 @@ grep -c "reserveOnTransition: false" frontend_vue/src/services/mocks/settings.ts
 
 ## БАГ-07 — три из четырёх умолчаний нового заказа стоят литералами, хотя настройки ими владеют
 
-**File:** `frontend_vue/src/services/mocks/orders.ts:1634-1638`
+**File:** `frontend_vue/src/services/mocks/orders.ts:1637-1641`
 **Severity:** High — превью итога на странице создания считается по настройкам арендатора, а сохраняется заказ с НДС 21 и валютой EUR.
 **Источник:** К6 (значения по умолчанию)
 
@@ -234,7 +234,7 @@ currency: data.currency ?? 'EUR',                                  // :1638 — 
 подставляет `settings.constants.defaultCurrency` (`:43`), но если поле уедет пустым, сервер
 подставит `'EUR'`, тогда как функция «взять базовую валюту арендатора» в проекте уже есть и
 здесь не вызывается (`baseCurrencyOf`, `frontend_vue/src/services/orderLines.ts:153-161`; в этом
-же файле она используется для подписи себестоимости — `mocks/orders.ts:2186`).
+же файле она используется для подписи себестоимости — `mocks/orders.ts:2189`).
 
 ### Expected
 
@@ -244,7 +244,7 @@ currency: data.currency ?? 'EUR',                                  // :1638 — 
 
 ## БАГ-08 — разделение строки не спрашивает про неделимый кусок
 
-**File:** `frontend_vue/src/services/mocks/orders.ts:2782`
+**File:** `frontend_vue/src/services/mocks/orders.ts:2785`
 **Severity:** Medium — разделение может оставить в заказе половину обрезка, которой на полке нет.
 **Источник:** К6, К3
 
@@ -288,10 +288,10 @@ apiPost(`/api/orders/${orderId}/shipments/${shipmentId}/cancel`, data)          
 ```
 
 Отмена делает ровно то же, чем обоснован ключ у первых двух: пишет обратные движения по складу
-(`frontend_vue/src/services/mocks/orders.ts:3429-3439`) и выпускает корректирующий счёт по каждому
+(`frontend_vue/src/services/mocks/orders.ts:3432-3442`) и выпускает корректирующий счёт по каждому
 живому документу (`:3413`). Единственная защита сегодня — флаг занятости в карточке
 (`frontend_vue/src/composables/useOrderCard.ts:750`), то есть ровно то, что тот же §3 называет
-«не защита». Повтор от второго `SHIPMENT_ALREADY_CANCELLED` (`mocks/orders.ts:3379`) спасает
+«не защита». Повтор от второго `SHIPMENT_ALREADY_CANCELLED` (`mocks/orders.ts:3382`) спасает
 только при том условии, что первый запрос дошёл; при таймауте после записи клиент получит отказ
 на операцию, которая удалась.
 
@@ -321,14 +321,14 @@ apiPost(`/api/orders/${orderId}/shipments/${shipmentId}/cancel`, data)          
 
 ## БАГ-10 — `POST /api/orders/:id/files` объявлен `void`, возвращает запись, и не проверяет `fileId`
 
-**File:** `frontend_vue/src/services/ordersService.ts:198-204`, `frontend_vue/src/services/mocks/orders.ts:2488-2510`
+**File:** `frontend_vue/src/services/ordersService.ts:198-204`, `frontend_vue/src/services/mocks/orders.ts:2491-2513`
 **Severity:** Low — форма ответа в клиенте не совпадает с реализацией, а неизвестная загрузка становится файлом с именем-заглушкой.
 **Источник:** К4, К3
 
 ### Problem
 
 Клиент объявляет `Promise<void>` (`frontend_vue/src/services/ordersService.ts:202`), мок
-возвращает `OrderFile` целиком (`frontend_vue/src/services/mocks/orders.ts:2509`). Карточка
+возвращает `OrderFile` целиком (`frontend_vue/src/services/mocks/orders.ts:2512`). Карточка
 ответ выбрасывает (`frontend_vue/src/composables/useOrderCard.ts:520`) и рисует строку из
 своих данных (`:1621-1631`), поэтому расхождение не видно — до первого потребителя, которому
 запись понадобится.
@@ -341,9 +341,9 @@ apiPost(`/api/orders/${orderId}/shipments/${shipmentId}/cancel`, data)          
 name: originalName ?? `File ${fileSeq - 1}`,   // :2500
 ```
 
-Плюс `url`, `size` и `mime` заполняются заглушками (`frontend_vue/src/services/mocks/orders.ts:2502-2504`), то есть заказ получает
+Плюс `url`, `size` и `mime` заполняются заглушками (`frontend_vue/src/services/mocks/orders.ts:2505-2507`), то есть заказ получает
 файл, за которым ничего не стоит. Парный `DELETE` при этом на неизвестный id отказывает
-(`frontend_vue/src/services/mocks/orders.ts:2530`) — две половины одной операции ведут себя по-разному.
+(`frontend_vue/src/services/mocks/orders.ts:2533`) — две половины одной операции ведут себя по-разному.
 
 ### Expected
 
@@ -378,7 +378,7 @@ name: originalName ?? `File ${fileSeq - 1}`,   // :2500
 (`frontend_vue/src/composables/useOrderCard.ts:409-412`). Список — единственное место домена,
 где этого не сделали, и именно он умеет получить четыре отказа разбора параметров
 (`UNKNOWN_SORT_KEY`, `UNKNOWN_SORT_DIRECTION`, `INVALID_DATE_FILTER`, `INVALID_PAGE` —
-`frontend_vue/src/services/mocks/orders.ts:1444`, `:1447`, `:1453`, `:1465`).
+`frontend_vue/src/services/mocks/orders.ts:1447`, `:1447`, `:1453`, `:1465`).
 
 ### Expected
 

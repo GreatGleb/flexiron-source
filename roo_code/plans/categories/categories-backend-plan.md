@@ -325,7 +325,7 @@ jscpd, prettier, vitest). Где ниже сказано «гейт», имее�
 1. три броска → `throw new ApiRequestError({ status: 404, message: 'CATEGORY_NOT_FOUND', code: 'CATEGORY_NOT_FOUND' })`;
    `ApiRequestError` импортируется из `@/types/api` — тем же способом, каким его уже импортирует
    роутер мока;
-2. спека `frontend_vue/src/services/mocks/unknown-id-is-refused.spec.ts:46-47` утверждает отказ
+2. спека `frontend_vue/src/services/mocks/unknown-id-is-refused.spec.ts:50-51` утверждает отказ
    **по тексту** — `toThrow('CATEGORY_NOT_FOUND')`; переписать на утверждение о поле:
    отказ ловится, проверяется `errorCode(e)` либо `e.code`, а не подстрока сообщения;
 3. `useCategoryCard.ts:92` и `:116` читают `e.message` (`:115` — это `toast.success`, не чтение отказа; проверено `grep -n "e.message" frontend_vue/src/composables/useCategoryCard.ts` → `92`, `116`) — перевести на `errorCode` из

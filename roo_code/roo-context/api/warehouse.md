@@ -1099,7 +1099,7 @@ Save-режим: quick-action, пятеро вызывающих: модал с�
 Отдельно про `referenceType`: прежний контракт перечисляет пять значений
 (`roo_code/roo-context/03-api-contract.md:1531`), а домен заказов пишет туда четыре других —
 `order-shipment`, `order-shipment-cancelled`, `order-return`, `order-return-writeoff`
-(`frontend_vue/src/services/mocks/orders.ts:3344`, `:3435`, `:3780`, `:3792`), и ни одно из четырёх
+(`frontend_vue/src/services/mocks/orders.ts:3347`, `:3435`, `:3780`, `:3792`), и ни одно из четырёх
 не уменьшает агрегат продажи (БАГ-13). Перечень **открыт** и на схеме (`reference_type` —
 `String(50)` без ограничения, `backend/app/modules/warehouse/shared/models.py:118`); кто им владеет
 — **решение владельца**.

@@ -332,7 +332,7 @@ supplier. Grouped by requestId» (`:20`). Конверт собирает `mockG
 
 `requestId` и `id` каждой строки присваивает сервер монотонными счётчиками
 (`services/mocks/bcc.ts:355-364`, начальное значение снимается с сидов через `maxSeq`, `:346-353`
-— тот же приём, что `nextSeq` в `mocks/orders.ts:1353-1357`). Клиент их больше не считает: после
+— тот же приём, что `nextSeq` в `mocks/orders.ts:1356-1360`). Клиент их больше не считает: после
 успешной отправки страница **перечитывает ленту** (`BccRequestPage.vue`, `await loadHistory()` в
 `sendRequest`), а `nextRequestId`/`createEventRows` из неё удалены — это и было БАГ-02 в
 клиентской половине. Формат поля на схеме — `String(50)`

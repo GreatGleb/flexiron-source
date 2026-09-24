@@ -150,7 +150,7 @@ backend/app/modules/suppliers --include=*.py` не даёт ни одного п
 | код | когда | где |
 |---|---|---|
 | `SUPPLIER_NOT_FOUND` | карточки поставщика нет в состоянии | `frontend_vue/src/services/mocks/suppliers.ts:458` |
-| `AUDIT_ENTRY_NOT_FOUND` | запись с таким `entryId` не найдена | `frontend_vue/src/services/mocks/suppliers.ts:460` |
+| `AUDIT_ENTRY_NOT_FOUND` | запись с таким `entryId` не найдена | `frontend_vue/src/services/mocks/suppliers.ts:466` |
 
 Ни один не подстрока другого, и ни один **не доходит до человека**: карточка ловит любую ошибку и
 показывает общий тост `msg.status_error`
@@ -307,8 +307,8 @@ Save-режим: чтение. Вызывающие — фильтр стран�
 
 Ответ — **CSV текстом, без конверта**. Мок отдаёт строку с заголовком
 `id,company,email,phone,status,rating,leadTime,categories`, категории склеены `;`
-(`frontend_vue/src/services/mocks/suppliers.ts:519-535`,
-`frontend_vue/src/services/mocks/suppliers.ts:521`); в колонку `company` попадает русская локаль.
+(`frontend_vue/src/services/mocks/suppliers.ts:525-541`,
+`frontend_vue/src/services/mocks/suppliers.ts:527`); в колонку `company` попадает русская локаль.
 Клиент типизирует ответ как `string` (`frontend_vue/src/services/suppliersService.ts:93`).
 
 **Клиент прочитать этот ответ не может.** `apiGet` делает `await res.json()`, при провале
@@ -320,7 +320,7 @@ Save-режим: чтение. Вызывающие — фильтр стран�
 фронт, а не развилка контракта.
 
 Ошибки: ни одной — `mockExportSuppliersCsv` не бросает
-(`frontend_vue/src/services/mocks/suppliers.ts:519-535`).
+(`frontend_vue/src/services/mocks/suppliers.ts:525-541`).
 
 Save-режим: чтение, разовое действие.
 
@@ -341,7 +341,7 @@ frontend_vue/src` даёт только объявление (`frontend_vue/src/
 
 Бэкенд: **не реализован**.
 Реализация: `services/suppliersService.ts:93` (`exportSuppliersCsv`) · мок `mocks/index.ts:315`
-(ветка `/api/suppliers/export.csv`) → `mocks/suppliers.ts:519` (`mockExportSuppliersCsv`)
+(ветка `/api/suppliers/export.csv`) → `mocks/suppliers.ts:525` (`mockExportSuppliersCsv`)
 
 ---
 
@@ -458,21 +458,21 @@ History» (`views/admin/suppliers/SupplierCardPage.vue:275`); `SupplierHistoryIt
 (`frontend_vue/src/services/suppliersService.ts:62-79`).
 
 Ответ — `SupplierCardData` целиком с присвоенным `id`
-(`frontend_vue/src/services/mocks/suppliers.ts:464-517`); клиент по нему редиректит на карточку
+(`frontend_vue/src/services/mocks/suppliers.ts:470-523`); клиент по нему редиректит на карточку
 (`frontend_vue/src/composables/useSupplierCreate.ts:68-69`). Возврат — JSON-roundtrip, а не
 `structuredClone`, потому что приходит реактивный Proxy
-(`frontend_vue/src/services/mocks/suppliers.ts:513-516`); для сервера это свойство мока, не
+(`frontend_vue/src/services/mocks/suppliers.ts:519-522`); для сервера это свойство мока, не
 правило.
 
 Ошибки: серверных нет — `mockCreateSupplier` не бросает
-(`frontend_vue/src/services/mocks/suppliers.ts:464-517`). Валидация целиком клиентская и
+(`frontend_vue/src/services/mocks/suppliers.ts:470-523`). Валидация целиком клиентская и
 возвращает не коды, а ключи `company_required` / `email_required`
 (`frontend_vue/src/composables/useSupplierCreate.ts:53-57`). Сервер обязан отвечать
 `422 VALIDATION_ERROR` (`backend/app/core/exceptions.py:23-27`) при отсутствии `company` или
 `email`, и — чтобы форма подсветила поле — присылать код, а не только текст (§1, §2 соглашений).
 
 **Осталось (пробел аудита, а):** форма id. Мок продолжает числовой ряд — `max(number) + 1`
-(`frontend_vue/src/services/mocks/suppliers.ts:465`), справочник изготавливает `sup-NNN`, схема
+(`frontend_vue/src/services/mocks/suppliers.ts:471`), справочник изготавливает `sup-NNN`, схема
 даёт UUID (`UUIDMixin`, `backend/app/modules/suppliers/shared/models.py:14`). Три формы одного
 идентификатора; строка владельцу `suppliers · Источник истины (форма id)`, БАГ-02.
 
@@ -483,8 +483,8 @@ History» (`views/admin/suppliers/SupplierCardPage.vue:275`); `SupplierHistoryIt
 `backend/app/modules/suppliers/shared/models.py:44-46`,
 `backend/app/modules/suppliers/shared/models.py:50-52`), у `payment_terms` дефолта нет вовсе
 (`backend/app/modules/suppliers/shared/models.py:53`). Во фронте те же значения расставлены заново
-и в двух местах: мок (`frontend_vue/src/services/mocks/suppliers.ts:483`,
-`frontend_vue/src/services/mocks/suppliers.ts:494-495`) и фабрика формы
+и в двух местах: мок (`frontend_vue/src/services/mocks/suppliers.ts:489`,
+`frontend_vue/src/services/mocks/suppliers.ts:500-501`) и фабрика формы
 (`frontend_vue/src/composables/useSupplierCreate.ts:31-32`), причём валюту фабрика берёт из
 настроек, а мок зашивает `'EUR'`. Строки владельцу
 `suppliers · Значения по умолчанию и их владелец` (четыре строки).
@@ -503,7 +503,7 @@ History» (`views/admin/suppliers/SupplierCardPage.vue:275`); `SupplierHistoryIt
 
 Бэкенд: **не реализован**.
 Реализация: `services/suppliersService.ts:62` (`createSupplier`) · мок `mocks/index.ts:939`
-(ветка `/api/suppliers`) → `mocks/suppliers.ts:464` (`mockCreateSupplier`)
+(ветка `/api/suppliers`) → `mocks/suppliers.ts:470` (`mockCreateSupplier`)
 
 ---
 
@@ -707,8 +707,8 @@ frontend_vue/src/services/mocks/suppliers.ts` → 0. Пробел аудита (
 `backend/app/modules/suppliers/shared/models.py:44-46`,
 `backend/app/modules/suppliers/shared/models.py:50-52`); у `payment_terms` дефолта нет
 (`backend/app/modules/suppliers/shared/models.py:53`). Во фронте те же значения расставлены заново
-и дважды — мок (`frontend_vue/src/services/mocks/suppliers.ts:483`,
-`frontend_vue/src/services/mocks/suppliers.ts:494-495`) и фабрика формы создания
+и дважды — мок (`frontend_vue/src/services/mocks/suppliers.ts:489`,
+`frontend_vue/src/services/mocks/suppliers.ts:500-501`) и фабрика формы создания
 (`frontend_vue/src/composables/useSupplierCreate.ts:31-32`), — и два из них расходятся:
 `paymentTerms: '30 Days Net'` есть у обеих сторон фронта и отсутствует на сервере, а валюту фабрика
 берёт из настроек арендатора, мок зашивает литералом. Плюс три справочника формы константами в
@@ -867,8 +867,8 @@ frontend_vue/src/types/supplier.ts` — пусто, заголовка арен�
 | `search` ищет ещё и по `contactPerson` | мок ищет по трём локалям названия компании и email, и только (`frontend_vue/src/services/mocks/suppliers.ts:262-266`) |
 | `PATCH /api/suppliers/:id/status` отвечает обновлённым `Supplier`, «клиент сверяется с server-state» | клиент объявлен `Promise<void>` и ответ выбрасывает (`frontend_vue/src/services/suppliersService.ts:54-56`), мок возвращает `undefined` (`frontend_vue/src/services/mocks/index.ts:1192`); сверки с ответом нет ни строки |
 | опциональный `?sort=` как «будущее расширение» списка | параметра нет ни у клиента (`frontend_vue/src/services/suppliersService.ts:10-19`), ни в разборе мока (`frontend_vue/src/services/mocks/index.ts:334-346`) |
-| пример ответа с `"id": "s-1"` — форма id `s-N` | такой формы нет нигде: мок даёт `'1'`…`'6'` и `max(number)+1` (`frontend_vue/src/services/mocks/suppliers.ts:465`), справочник — `sup-NNN` (`frontend_vue/src/services/mocks/index.ts:327-330`), схема — UUID (`backend/app/modules/suppliers/shared/models.py:14`). Какая из трёх канонична — **осталось** |
-| «Колонки: все основные поля `Supplier` + флаги» у экспорта | в коде два конкретных и **разных** набора колонок (`frontend_vue/src/services/mocks/suppliers.ts:521` и `frontend_vue/src/views/admin/suppliers/SuppliersListPage.vue:205-225`); «все поля + флаги» не соответствует ни одному |
+| пример ответа с `"id": "s-1"` — форма id `s-N` | такой формы нет нигде: мок даёт `'1'`…`'6'` и `max(number)+1` (`frontend_vue/src/services/mocks/suppliers.ts:471`), справочник — `sup-NNN` (`frontend_vue/src/services/mocks/index.ts:327-330`), схема — UUID (`backend/app/modules/suppliers/shared/models.py:14`). Какая из трёх канонична — **осталось** |
+| «Колонки: все основные поля `Supplier` + флаги» у экспорта | в коде два конкретных и **разных** набора колонок (`frontend_vue/src/services/mocks/suppliers.ts:527` и `frontend_vue/src/views/admin/suppliers/SuppliersListPage.vue:205-225`); «все поля + флаги» не соответствует ни одному |
 
 
 ---

@@ -175,7 +175,7 @@
 | 10 | эмиттер | отметки «уже уведомили» нет; память живёт в процессе | П56: помнит база | **контракт/П56** | перезапуск сервера = пачка повторов. Новая колонка `event_key` с уникальностью `(tenant_id, event_key)`; уникальность и есть механизм — вторая вставка падает, а не проверяется чтением |
 | 11 | выдача ленты | таблицы подписок нет | П54: «пользователь × тип × канал» | **контракт/П54** | новая таблица. Живёт в модуле `notifications`, а не в `settings`: её читает выдача ленты, а прямой импорт между модулями запрещён — вкладка настроек ходит через `internal_api` домена |
 | 12 | выдача ленты | флага тревоги нет | П55: флаг «требует действия сейчас», три кода | **контракт/П55** | новая колонка `requires_action`. Домен её **ставит** и **отдаёт**, но не отбирает — отбор у `analytics` |
-| 13 | `PATCH /:id/read` | — | «каталог кодов домена пуст, домен не бросает ни одного кода» | **код** | контракт написан до правки мока: `NOTIFICATION_NOT_FOUND` брошен и закреплён спекой ([`frontend_vue/src/services/mocks/unknown-id-is-refused.spec.ts:71`](../../../frontend_vue/src/services/mocks/unknown-id-is-refused.spec.ts)). Каталог домена **не пуст**, и контракт перестраивается |
+| 13 | `PATCH /:id/read` | — | «каталог кодов домена пуст, домен не бросает ни одного кода» | **код** | контракт написан до правки мока: `NOTIFICATION_NOT_FOUND` брошен и закреплён спекой ([`frontend_vue/src/services/mocks/unknown-id-is-refused.spec.ts:75`](../../../frontend_vue/src/services/mocks/unknown-id-is-refused.spec.ts)). Каталог домена **не пуст**, и контракт перестраивается |
 | 14 | весь файл контракта | — | 226 ссылок `файл:строка` | **код** | 21 битая: мок съехал на +3, композабл на +5. Правит контракт, не код. Слайс 11 |
 | 15 | `GET /api/notifications` | индекс по `created_at` есть, второго ключа нет | «порядок при равном `createdAt` не определён ничем; сервер обязан добавить второй ключ» | **контракт** | строковое `localeCompare` ISO-строк ([`frontend_vue/src/services/mocks/notifications.ts:387-397`](../../../frontend_vue/src/services/mocks/notifications.ts)) на равных значениях даёт произвольный порядок, и пагинация теряет и дублирует строки на границе. Второй ключ — `id`; при UUIDv7 (П38) он совпадает с временем и не стоит ничего |
 | 16 | `GET /api/notifications` | — | `sortBy` принимает два значения | **ни тот, ни другой** | неизвестный `sortBy` мок **молча не сортирует**: две ветки `if`/`else if` без `else`. Это необъявленный код отказа. Сервер отвечает `UNKNOWN_SORT_KEY` 422 (§3) |
@@ -315,7 +315,7 @@
    ([`frontend_vue/src/services/mocks/index.ts:366-370`](../../../frontend_vue/src/services/mocks/index.ts)).
 3. **Спека, утверждающая отказ по тексту.** Одна строка в общем файле:
    `expect(() => mockMarkAsRead(UNKNOWN)).toThrow('NOTIFICATION_NOT_FOUND')`
-   ([`frontend_vue/src/services/mocks/unknown-id-is-refused.spec.ts:71`](../../../frontend_vue/src/services/mocks/unknown-id-is-refused.spec.ts))
+   ([`frontend_vue/src/services/mocks/unknown-id-is-refused.spec.ts:75`](../../../frontend_vue/src/services/mocks/unknown-id-is-refused.spec.ts))
    переписывается на утверждение о **поле**, а не о тексте:
    ```ts
    expect(() => mockMarkAsRead(UNKNOWN)).toThrow(

@@ -31,7 +31,7 @@ $ grep -n "export function mock" frontend_vue/src/services/mocks/clients.ts
   exists`; в коде даже стоит комментарий «Валидация required полей (БАГ-10)».
 - **БАГ-11 (CONFLICT при удалении) — СДЕЛАНО, но не по буквe плана.** `mockDeleteClient`
   (995-1007) спрашивает заказы у модуля заказов через `registerClientOrderLookup`
-  (`src/services/mocks/orders.ts:1227`), а не считает по `orderHistory`:
+  (`src/services/mocks/orders.ts:1230`), а не считает по `orderHistory`:
   `throw new Error('CONFLICT: client has orders')`.
 - **БАГ-12 (мёртвый роут audit delete) — СДЕЛАНО.** `mockDeleteClientAuditEntry`
   существует (clients.ts:1009), экспортирован (`mocks/index.ts:92`) и вызывается роутером

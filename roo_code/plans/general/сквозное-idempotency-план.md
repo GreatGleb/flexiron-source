@@ -155,7 +155,7 @@ middleware, ни чтения заголовка. То же и с оптимис
   удалений заказа — `:116`, `:168`, `:190`, `:198`, `:214`, `:398`.
 - Мок читает заголовок в `ifMatchVersion` (`frontend_vue/src/services/mocks/index.ts:1542-1547`) и
   подставляет его в разбор `DELETE` (`:1548`); **нет заголовка — проверки нет**.
-- Отказ один: `ORDER_VERSION_CONFLICT` — бросает мок (`frontend_vue/src/services/mocks/orders.ts:1947`),
+- Отказ один: `ORDER_VERSION_CONFLICT` — бросает мок (`frontend_vue/src/services/mocks/orders.ts:1950`),
   переводит `frontend_vue/src/services/orderLineEdits.ts:374`, обрабатывает карточка
   (`frontend_vue/src/composables/useOrderCard.ts:542`): тост, сброс очереди, перезагрузка.
 - **У одного из шести удалений версия не шлётся, и это не дефект.** Удаление записи истории

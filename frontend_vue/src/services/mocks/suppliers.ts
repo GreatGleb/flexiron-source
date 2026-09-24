@@ -456,7 +456,13 @@ export function mockPatchSupplier(id: string, patch: Partial<SupplierCardData>):
 
 export function mockUpdateSupplierStatus(id: string, status: string): void {
   const s = MOCK_SUPPLIERS.find((sup) => sup.id === id)
-  if (s) s.status = status as Supplier['status']
+  if (!s)
+    throw new ApiRequestError({
+      status: 404,
+      message: `Supplier ${id} not found`,
+      code: 'SUPPLIER_NOT_FOUND',
+    })
+  s.status = status as Supplier['status']
 }
 
 export function mockDeleteAuditEntry(supplierId: string, entryId: string): void {

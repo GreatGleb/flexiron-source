@@ -167,7 +167,7 @@
 | `VALIDATION_ERROR` + `fieldErrors.name` | 422 | `POST`: имя обязательно и непусто хотя бы на одном языке | форма создания: разметка по полю через `fieldErrors` (`frontend_vue/src/types/api.ts:33`) | не проверяет никто на проводе; единственная защита — `if (!createForm.name.trim()) return` в форме |
 | `VALIDATION_ERROR` + `fieldErrors.costPrice` | 422 | `POST` и `PATCH`: отрицательная цена | форма и карточка | знак не проверяет никто ни на одной стороне |
 | `VALIDATION_ERROR` + `fieldErrors.sellingPrice` | 422 | там же | там же | то же |
-| `SERVICE_ARCHIVED` | 409 | `PATCH` архивной услуги и её выбор в заказе: архивная из выборов пропадает (§22) | карточка (объясняет, почему поля закрыты) и модалка добавления услуг в заказ | состояния архива нет вовсе; сегодня добавление удалённой услуги в заказ отвечает `CATALOG_SERVICE_NOT_FOUND` (`frontend_vue/src/services/mocks/orders.ts:376`), а после П44 услуга существует, и «не найдено» станет ложью |
+| `SERVICE_ARCHIVED` | 409 | `PATCH` архивной услуги и её выбор в заказе: архивная из выборов пропадает (§22) | карточка (объясняет, почему поля закрыты) и модалка добавления услуг в заказ | состояния архива нет вовсе; сегодня добавление удалённой услуги в заказ отвечает `CATALOG_SERVICE_NOT_FOUND` (`frontend_vue/src/services/mocks/orders.ts:379`), а после П44 услуга существует, и «не найдено» станет ложью |
 | `CURRENCY_HAS_SERVICES` | 409 | `DELETE /api/settings/currencies/:id` — бросает `settings`, счёт даёт `services` | страница справочника валют | `ConflictError` даёт код `CONFLICT` всегда (`backend/app/core/exceptions.py:44-48`), а подробность лежит в тексте (`backend/app/modules/settings/features/crud/domain.py:258`) — то есть код не отличает «валюту держит товар» от «валюту держит услуга» |
 | `UOM_HAS_SERVICES` | 409 | `DELETE /api/settings/uoms/:id`, там же | страница справочника единиц | то же: один `ConflictError` на оба случая (`backend/app/modules/settings/features/crud/domain.py:342`) |
 | `FORBIDDEN` | 403 | право на действие домена; отдельно — чтение и правка `costPrice` (П18, П2) | список и карточка: колонка и поле не рисуются вовсе (П17) | не проверяет никто: во фронте один фича-флаг на оба маршрута, роль не спрашивается ни разу |
@@ -598,7 +598,7 @@ cd frontend_vue && npx vitest run src/domain/servicePricing.spec.ts
    себестоимости, но `serviceId` в нём остаётся живой ссылкой;
 3. **Добавить архивную услугу в заказ нельзя** — и отвечать на это `CATALOG_SERVICE_NOT_FOUND`
    больше нельзя, услуга существует. Отказ переезжает на `SERVICE_ARCHIVED`, а место отказа
-   лежит в чужом моке (`frontend_vue/src/services/mocks/orders.ts:376`) — правка согласуется с
+   лежит в чужом моке (`frontend_vue/src/services/mocks/orders.ts:379`) — правка согласуется с
    доменом заказов, см. раздел 9, пункт 4.
 
 Повторный `DELETE` уже архивной услуги — раздел 8, вопрос 5: молчаливый успех и отказ здесь
@@ -811,7 +811,7 @@ cd backend && python3 -m unittest discover -s tests -t .
 | вид сущности | `frontend_vue/src/types/notifications.ts:13` | добавить `'service'` в `NotificationEntityType` — сегодняшних пяти значений не хватает |
 | эмиттер домена | `frontend_vue/src/services/mocks/notifications.ts:660` | по образцу соседней `notifySupplierResponse` завести обёртку домена — единственное место, где для этого типа зовётся `emit` |
 | ответ на вопрос «есть ли незакрытый заказ» | объявление — `frontend_vue/src/services/mocks/services.ts`, регистрация — `frontend_vue/src/services/mocks/orders.ts` | регистрацией, а не импортом: абзац «Откуда мок услуг знает про незакрытый заказ» ниже |
-| вызов из перехода | `frontend_vue/src/services/mocks/services.ts:140` | в `mockPatchService` снять прежние цены в `prevSellingPrice`/`prevCostPrice` **до** присваивания (имена названы здесь, потому что их проверяет гейт слайса): на `frontend_vue/src/services/mocks/services.ts:154` берётся `const svc = STORE[idx]!`, и присваивания на `frontend_vue/src/services/mocks/services.ts:156-157` правят тот же объект стора — после них прежней цены не существует. Образец снятия до правки — `frontend_vue/src/services/mocks/orders.ts:1844` (`if (oldStatus !== status)`). Обёртка зовётся, только когда снимок разошёлся с новым значением **и** лукап вернул незакрытый заказ |
+| вызов из перехода | `frontend_vue/src/services/mocks/services.ts:140` | в `mockPatchService` снять прежние цены в `prevSellingPrice`/`prevCostPrice` **до** присваивания (имена названы здесь, потому что их проверяет гейт слайса): на `frontend_vue/src/services/mocks/services.ts:154` берётся `const svc = STORE[idx]!`, и присваивания на `frontend_vue/src/services/mocks/services.ts:156-157` правят тот же объект стора — после них прежней цены не существует. Образец снятия до правки — `frontend_vue/src/services/mocks/orders.ts:1847` (`if (oldStatus !== status)`). Обёртка зовётся, только когда снимок разошёлся с новым значением **и** лукап вернул незакрытый заказ |
 
 **Откуда мок услуг знает про незакрытый заказ.** Прямого импорта быть не может: стрелка идёт в
 обратную сторону — `frontend_vue/src/services/mocks/orders.ts:121` импортирует `allServices` и
@@ -822,7 +822,7 @@ cd backend && python3 -m unittest discover -s tests -t .
 его у себя — `registerClientOrderLookup` (`frontend_vue/src/services/mocks/clients.ts:1120`),
 `registerProductSalesLookup` (`frontend_vue/src/services/mocks/products.ts:13860`),
 `registerOffcutClaimLookup` (`frontend_vue/src/services/mocks/warehouse.ts:974`); все три
-регистрируются из блока в `frontend_vue/src/services/mocks/orders.ts:1294` … `:1341`. Домен услуг
+регистрируются из блока в `frontend_vue/src/services/mocks/orders.ts:1297` … `:1341`. Домен услуг
 заводит четвёртый такой же: `registerServiceOpenOrderLookup` объявлен в
 `frontend_vue/src/services/mocks/services.ts`, отвечает на него модуль заказов — числом незакрытых
 заказов, в которых стоит эта услуга (число нужно шаблону текста: `{openOrders}`). Пока никто не
@@ -834,7 +834,7 @@ cd backend && python3 -m unittest discover -s tests -t .
 отличие от двух других чужих правок (раздел 9, пункт 4) она **назначается этому слайсу**: без неё
 переход, которым домен владеет, не существует вовсе, и гейт С8 не позеленеет. Риск затирания
 параллельной правкой здесь мал по устройству: строка дописывается в конец блока регистраций
-(`frontend_vue/src/services/mocks/orders.ts:1341`), существующих строк не трогая, — в отличие от
+(`frontend_vue/src/services/mocks/orders.ts:1344`), существующих строк не трогая, — в отличие от
 тех двух, которые правят живую логику заказов.
 
 **Незакрытый заказ — это не активный заказ.** Условие берёт отрицание терминального статуса —
@@ -915,7 +915,7 @@ cd frontend_vue && npx vitest run src/services/notification-events-conformance.s
 | БАГ-08: мок отдаёт ссылки в собственный стор | `frontend_vue/src/services/mocks/services.ts:26-38` | копия на выходе всех четырёх функций |
 | П19: `'cur-eur'`/`'uom-pcs'` зашиты в форму создания | `frontend_vue/src/views/admin/products/ServicesPage.vue:59-60` | умолчание читается из настроек; карточка дефолт не подставляет и дальше (`frontend_vue/src/composables/useServiceCard.ts:31-35`) |
 | П64: помощник чтения переводимого значения | 12 цепочек в 8 файлах, общего помощника нет | работа сквозная, домен ею пользуется, а не заводит свою |
-| П64: имя каталога читается константой `en` | `frontend_vue/src/services/mocks/orders.ts:369` | снятие константы — работа домена заказов, см. раздел 9, пункт 4 |
+| П64: имя каталога читается константой `en` | `frontend_vue/src/services/mocks/orders.ts:372` | снятие константы — работа домена заказов, см. раздел 9, пункт 4 |
 | П47: кнопка не заморожена до ответа сервера | форма создания и Save карточки | правило записано в контракт; детальный план откладывается владельцем, домен отдаёт свои две кнопки в общий список |
 
 Приёмка:
@@ -1067,7 +1067,7 @@ grep -c "service_price_changed" frontend_vue/src/services/mocks/notification-tri
    параллельные правки одного места затирают друг друга, и обе обязаны попасть в план заказов
    ссылкой отсюда. **Назначается себе третья:** строка регистрации
    `registerServiceOpenOrderLookup` в блоке регистраций
-   (`frontend_vue/src/services/mocks/orders.ts:1294` … `:1341`) — без неё перехода, которым домен
+   (`frontend_vue/src/services/mocks/orders.ts:1297` … `:1341`) — без неё перехода, которым домен
    владеет, не существует, а дописывание строки в конец блока существующих не трогает. Разбор —
    С8, абзац «Откуда мок услуг знает про незакрытый заказ».
 5. **Ссылки контракта на маршрутизатор мока сдвинулись.** Контракт называет ветку удаления

@@ -76,12 +76,12 @@
 
 - **Ни один код не является подстрокой другого.** Фронт местами сравнивает код подстрокой
   (`services/orderLineEdits.ts:343-354`), поэтому «услуги нет в каталоге» называется
-  `CATALOG_SERVICE_NOT_FOUND`, а не `SERVICE_NOT_FOUND` (`mocks/orders.ts:373-376`).
+  `CATALOG_SERVICE_NOT_FOUND`, а не `SERVICE_NOT_FOUND` (`mocks/orders.ts:376-379`).
 - **Отказ несёт код, а не текст.** Голого `throw new Error(` в моках больше нет — во всех
   18 модулях `services/mocks/*.ts` (кроме `*.spec.ts`) отказы кладут код в `ApiRequestError.code`
   (`rg -c "throw new Error\(" frontend_vue/src/services/mocks/*.ts` не даёт ни одного
   совпадения вне спек). Числа 105 и 52 у `orders.ts` и `warehouse.ts` не исчезли, а сменили
-  форму: файлы бросают те же отказы через свой хелпер — `refuse(...)` (`mocks/orders.ts:4851`,
+  форму: файлы бросают те же отказы через свой хелпер — `refuse(...)` (`mocks/orders.ts:4854`,
   `grep -c "throw refuse(" .../orders.ts` → 105) и `deny(...)` (`mocks/warehouse.ts:2079`, тот
   же `grep -c` с `deny(` → 52), оба возвращают `ApiRequestError`. Текст всё ещё доходит до
   человека вместо перевода в заказах (`useOrderCreate.ts:479`, `error.value = String(e)`);
@@ -135,8 +135,8 @@ notifications 1, products 4, services 1, settings 7, suppliers 10, warehouse 6),
 
 - **Ответ, сшитый из нескольких источников, обязан фильтровать каждый.** Лента аудита собирается
   из девяти логов (`services/auditFeedService.ts`, `mocks/auditFeed.ts:15-31`), сводка CRM читает
-  два хранилища (`mocks/orders.ts:1585-1593`), реестр входящих и сводка счетов клиента считаются
-  по заказам (`mocks/orders.ts:4055-4124`, `:4710-4752`). Один пропущенный фильтр течёт именно
+  два хранилища (`mocks/orders.ts:1588-1596`), реестр входящих и сводка счетов клиента считаются
+  по заказам (`mocks/orders.ts:4058-4127`, `:4710-4752`). Один пропущенный фильтр течёт именно
   туда, где это заметно меньше всего.
 - **Фронт про арендатора не знает ничего.** Ни в одном типе, ни в одном сервисе нет ни `tenantId`,
   ни заголовка арендатора — проверено грепом в каждом из семнадцати аудитов. Это правильно и
@@ -319,7 +319,7 @@ use it» (`composables/useOrderPermissions.ts:6-10`). Тарифная стор�
 `crud/action.py:512-516`).
 Единственный работающий отказ по праву — в моке заказов, и код у него другой: `FORBIDDEN_`
 плюс имя права заглавными, то есть `FORBIDDEN_MANUALCOST`, `FORBIDDEN_CORRECTION`
-(`mocks/orders.ts:1858`, словарь сообщений — `services/orderLineEdits.ts:343-344`). Приведение
+(`mocks/orders.ts:1861`, словарь сообщений — `services/orderLineEdits.ts:343-344`). Приведение
 к единому `403` — работа, а не описание.
 
 ### 6.6. Кто что получает — решается доменом, а не общим правилом
@@ -369,7 +369,7 @@ use it» (`composables/useOrderPermissions.ts:6-10`). Тарифная стор�
   разойтись они должны уметь.
 
 Состояние кода: `seeCost` применяется ровно к записям истории заказа с `sensitive: 'cost'`
-(`mocks/orders.ts:1384-1386`); `unitCost`, `costSource`, `allocations` и `marginPercent`
+(`mocks/orders.ts:1387-1389`); `unitCost`, `costSource`, `allocations` и `marginPercent`
 отдаются всем. Та же величина открыта всем в услугах (`views/admin/products/ServicesPage.vue:274`,
 `ServiceCardPage.vue:131`), на складе и в восьми страницах аналитики. Признак
 `sensitive: 'cost' | null` есть только у записи заказа (`types/order.ts:591-606`), строка общей
@@ -383,7 +383,7 @@ use it» (`composables/useOrderPermissions.ts:6-10`). Тарифная стор�
 `GET /api/settings/order-permissions` (`mocks/settings.ts:64-68`, `:433-442`). Применяет их
 домен orders: `canSeeCost`, `canSetManualCost`, `canCorrect`
 (`composables/useOrderPermissions.ts:23-32`) и `requireRight`/`maySeeCost` на «сервере» мока
-(`mocks/orders.ts:1855-1860`, `:1390-1393`).
+(`mocks/orders.ts:1858-1863`, `:1390-1393`).
 
 Отдельным эндпоинтом это сделано намеренно: сервер обязан иметь ответ, даже когда экран
 настроек не открыт (`mocks/settings.ts:473-482`), а пустой дефолт
@@ -627,14 +627,14 @@ entryId` одной функцией `auditRowKey` (`types/audit.ts:86-92`).
 
 **Неизвестный `entryId` — отказ, а не тихий no-op**: `AUDIT_ENTRY_NOT_FOUND` бросают пять
 складских удалений (`services/mocks/warehouse.ts:1868`, `:1885`, `:1898`, `:1912`, `:1928`), поставщик
-(`mocks/suppliers.ts:460`) и клиент (`mocks/clients.ts:1142`); у заказа код свой —
+(`mocks/suppliers.ts:466`) и клиент (`mocks/clients.ts:1142`); у заказа код свой —
 `ORDER_AUDIT_ENTRY_NOT_FOUND` (`services/orderLineEdits.ts:360`). Молчание неотличимо от успеха, и
 клиент сотрёт у себя строку, которая на сервере осталась.
 
 Три наблюдения, каждое видно только поперёк доменов:
 
 - **Свой журнал пишет ровно один домен из девяти.** Заказы — через единственный `appendHistory`
-  (`mocks/orders.ts:1874-1893`), шесть вызывающих. У остальных лог **засеян и не пополняется**:
+  (`mocks/orders.ts:1877-1896`), шесть вызывающих. У остальных лог **засеян и не пополняется**:
   товары (`mocks/products.ts` — ни одного `push`), клиенты, поставщики, и все пять складских
   журналов (`mocks/warehouse.ts` — ни одного `push`). То есть удалить запись можно, а появиться ей
   неоткуда.
@@ -723,7 +723,7 @@ entryId` одной функцией `auditRowKey` (`types/audit.ts:86-92`).
 который и присваивает `id`, `isRead: false` и `createdAt`.
 
 Вызывающие — четыре домена, и **каждый вызов защищён условием перехода**:
-`orders` (`mocks/orders.ts:1837` при `oldStatus !== status`, `:3929` при `!wasReady && fullyReserved`,
+`orders` (`mocks/orders.ts:1840` при `oldStatus !== status`, `:3929` при `!wasReady && fullyReserved`,
 `:4001` при `payment.amount > 0` — возврат денег не «поступление оплаты»),
 `warehouse` (`services/mocks/warehouse.ts:789` создание партии, `:1710` только **вновь открытая** нехватка),
 `finance` (`mocks/finance.ts:70` первое обнаружение просрочки, `:486` при `!wasOverdue && …`),
@@ -753,7 +753,7 @@ entryId` одной функцией `auditRowKey` (`types/audit.ts:86-92`).
   есть запись принадлежит пользователю, а не арендатору; мок этого не знает — лента у него одна на
   всех.
 - **Сборка сида событий не рождает** — `seedQuietly` плюс флаг `seeding`, который `emit` проверяет
-  первой строкой (`mocks/notifications.ts:504-515`, зовётся из `mocks/orders.ts:4578`, `:4676`).
+  первой строкой (`mocks/notifications.ts:504-515`, зовётся из `mocks/orders.ts:4581`, `:4676`).
 - **Канал доставки сегодня один — лента в интерфейсе.** С почтовыми настройками уведомления не
   связаны ничем, поля «отправлено письмом» в модели нет. Модуль `notifications` роутов не имеет.
   Под П54 каналов становится два.
@@ -945,7 +945,7 @@ interface TranslatedString { ru: string; en: string; lt: string }   // types/i18
 и далее); общего помощника **на чтение нет** — все три помощника `types/i18n.ts` про запись.
 
 **И там, где цепочки нет, правило нарушено.** Каталог в заказах читается одной константой:
-`const CATALOGUE_LANGUAGE = 'en'` (`services/mocks/orders.ts:369`), и по ней берутся имя товара
+`const CATALOGUE_LANGUAGE = 'en'` (`services/mocks/orders.ts:372`), и по ней берутся имя товара
 (`:336`, `:462`) и имя услуги (`:378`). Услуга, названная только по-литовски, попадает в заказ
 пустой строкой — ровно случай, который правило запрещает. Работа отсюда состоит из двух частей:
 помощник чтения на все места и снятие константы каталога.
@@ -998,7 +998,7 @@ interface PaginationParams { page: number; pageSize: number }     // types/api.t
   По той же причине счёт по странице — не счёт, и для сводки CRM заведён отдельный эндпоинт
   (`types/order.ts:44-47`, `services/ordersService.ts:50-51`).
 - **Поведение без `sortBy` разное у соседей, и это два разных API.** Заказы сортируют по
-  `createdAt DESC` умолчанием (`mocks/orders.ts:1548-1549`), товары отдают порядок хранилища
+  `createdAt DESC` умолчанием (`mocks/orders.ts:1551-1552`), товары отдают порядок хранилища
   (`mocks/products.ts:13965-13974`), список платежей и архив не сортируются вовсе
   (`contract-sync-finance-bugs.md`, БАГ-05). Контракт обязан назвать умолчание по каждому списку.
 - **Пустая строка фильтра доезжает до сервера буквально.** `apiGet` кладёт каждый параметр в
@@ -1091,7 +1091,7 @@ interface PaginationParams { page: number; pageSize: number }     // types/api.t
   `default_discount_percent=0` — `backend/app/modules/settings/shared/models.py:49-69`, автосоздание
   `settings/features/crud/domain.py:194-196`). Сквозная беда: **эти значения продублированы
   константами во фронте почти в каждом домене** — заказ пишет литералами скидку, НДС и валюту
-  (`mocks/orders.ts:1634-1638`), партия — `'EUR'` (`useWarehouseBatch.ts:120`), услуга —
+  (`mocks/orders.ts:1637-1641`), партия — `'EUR'` (`useWarehouseBatch.ts:120`), услуга —
   `'cur-eur'`/`'uom-pcs'` (`ServicesPage.vue:59-60`), поставщик — список `EUR/USD/PLN/GBP`
   (`components/admin/SupplierFormSections.vue:58-63`), BCC — четыре единицы
   (`BccRequestPage.vue:333`), CRM — знак `€` в форматтере (`SalesCrmPage.vue:43-45`), аналитика —
@@ -1265,7 +1265,7 @@ save-режим.
   «бэкенд сделает ровно этот пересчёт при старте с сохранённого журнала»
   (`services/mocks/warehouse.ts:389-416`).
 - **Осознанные снимки — не денормализация, а заморозка.** Реквизиты клиента, попавшие в заказ
-  (`clientName`, `clientVatCode`, `clientAddress`, `clientPaymentTermsDays` — `mocks/orders.ts:1623-1628`),
+  (`clientName`, `clientVatCode`, `clientAddress`, `clientPaymentTermsDays` — `mocks/orders.ts:1626-1631`),
   имя и себестоимость услуги в строке заказа (`:2415-2422`), тексты уведомлений, имя автора в записи
   аудита. Документ обязан говорить то, что говорил в день выписки; сервер обязан знать, что это
   решение, а не оптимизация.
@@ -1302,7 +1302,7 @@ save-режим.
 
 - **`avgCostPrice` и `avgSalePrice` товара** — выводятся из партий склада и строк заказов, то есть
   из **двух** чужих модулей сразу (`services/mocks/products.ts:13905-13918`; регистрация извне —
-  `services/mocks/warehouse.ts:1377`, `services/mocks/orders.ts:1311`);
+  `services/mocks/warehouse.ts:1377`, `services/mocks/orders.ts:1314`);
 - **`priceHistory` поставщика** — склеивается из прайс-леджера и журнала BCC
   (`services/mocks/suppliers.ts:357-384`); трём полям типа (`stock`, `source`, `status`) в схеме
   нужно место, которого сегодня нет.
@@ -1373,14 +1373,14 @@ save-режим.
 - **Идентификатор, выведенный из длины массива, столкнётся с существующим после удаления**:
   товары (`mocks/products.ts:14077`), обрезки и счётчики склада (`services/mocks/warehouse.ts:240-243`).
   Заказы от этого защищены отдельным счётчиком, и причина записана: из id собираются номера
-  накладных и счетов (`mocks/orders.ts:1355-1357`, `:1615-1617`).
+  накладных и счетов (`mocks/orders.ts:1358-1360`, `:1615-1617`).
 - **`Date.now()` в качестве id даёт коллизию у двух объектов одной миллисекунды**
   (`SupplierCardConfigPage.vue:316`, `:410`, `:458`; `mocks/config.ts:274`, `:312`). Временный id
   клиента — это `tmp-<…>`, и постоянный обязан выдать сервер (`mocks/categories.ts:1507`).
 - **Два пространства id в одном домене — известный класс дефекта**: поставщик (`sup-001` против
   `'1'…'6'`), обрезок (`who-NNN` против `offcut-NNN`), документ платежа (`pdoc-N` против `fileId`).
 - **`entityId` — идентификатор, а не номер документа**, хотя у заказа они похожи: `id` = `ORD-1`,
-  `orderNumber` = `ORD-2026-1` (`mocks/orders.ts:577-578`), и переход строится по первому.
+  `orderNumber` = `ORD-2026-1` (`mocks/orders.ts:580-581`), и переход строится по первому.
 - **`entryId` уникален глобально** — решено 2026-09-08 (П38): журнал стал одной таблицей, ключ
   UUIDv7. Прежнее правило «уникален внутри своего лога» отменено вместе с раздельными таблицами.
   Выбор ключа следует общему правилу: **читает человек — счётчик, читает только машина — UUID.**

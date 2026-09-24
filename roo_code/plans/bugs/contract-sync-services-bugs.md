@@ -158,7 +158,7 @@ id: `svc-${String(STORE.length + 1).padStart(3, '0')}`,
 читает через `serviceById` (`:19`) чужую цену и чужое имя.
 
 Рядом, в моке заказов, та же задача решена правильно — монотонным счётчиком, который не
-уменьшается при удалении: `frontend_vue/src/services/mocks/orders.ts:1353-1357`
+уменьшается при удалении: `frontend_vue/src/services/mocks/orders.ts:1356-1360`
 (`let nextSeq = TOTAL_ORDERS + 1` и `nextId()`).
 
 ### Fix
@@ -352,10 +352,10 @@ export async function mockDeleteService(id: string): Promise<boolean> {
 ```
 
 Проверки использования нет. Заказы читают каталог живым — `serviceById`
-(`frontend_vue/src/services/mocks/orders.ts:372`), — и после удаления добавить эту услугу в
+(`frontend_vue/src/services/mocks/orders.ts:375`), — и после удаления добавить эту услугу в
 заказ уже нельзя: `serviceEntry` бросает `CATALOG_SERVICE_NOT_FOUND`
-(`mocks/orders.ts:373-376`). Уже проданное не рушится, потому что строка заказа держит снимок
-имени и себестоимости (`mocks/orders.ts:2415-2422`), — но `serviceId` в ней остаётся ссылкой в
+(`mocks/orders.ts:376-379`). Уже проданное не рушится, потому что строка заказа держит снимок
+имени и себестоимости (`mocks/orders.ts:2418-2425`), — но `serviceId` в ней остаётся ссылкой в
 никуда.
 
 Старый контракт обещает обратное: «сервер отклоняет удаление если услуга используется в
@@ -382,7 +382,7 @@ export async function mockDeleteService(id: string): Promise<boolean> {
   запись из `STORE` и вместо этого ставит признак архивной;
 - услуга с этим признаком **не предлагается ни в одном выборе** — ни в заказе, ни в запросе
   поставщику, ни в таблице услуг, — но **по ссылке из старого заказа открывается**. Сегодняшнее
-  `CATALOG_SERVICE_NOT_FOUND` из `mocks/orders.ts:373-376` на архивную услугу бросаться не должно
+  `CATALOG_SERVICE_NOT_FOUND` из `mocks/orders.ts:376-379` на архивную услугу бросаться не должно
   при чтении: оно про добавление новой строки, а не про чтение существующей;
 - `serviceId` в строке заказа перестаёт быть ссылкой в никуда — ровно ради этого П44 и принят:
   «заказ двухлетней давности обязан читаться как был»;
@@ -419,7 +419,7 @@ export async function mockDeleteService(id: string): Promise<boolean> {
 
 Настоящий сервер отдаёт копию всегда: между ним и клиентом стоит сериализация. Мок, отдающий
 ссылку, разрешает то, чего сервер разрешить не может. Соседний мок это уже учитывает — в
-`frontend_vue/src/services/mocks/orders.ts:1359-1361` заведён `clone()` через
+`frontend_vue/src/services/mocks/orders.ts:1362-1364` заведён `clone()` через
 `JSON.parse(JSON.stringify(...))`, и наружу уходит он.
 
 ### Fix
@@ -439,7 +439,7 @@ export async function mockDeleteService(id: string): Promise<boolean> {
 `toListItem` (используется `mockGetServices`), `mockCreateService`, `mockGetService` и
 `mockPatchService` — последние два раньше отдавали поверхностный `{ ...svc }`, из-за чего
 вложенные `TranslatedString` оставались общими со `STORE`, теперь отдают глубокую копию.
-Ссылка `mocks/orders.ts:1359-1361` на чужой `clone()` из этого бага не пошла в дело:
+Ссылка `mocks/orders.ts:1362-1364` на чужой `clone()` из этого бага не пошла в дело:
 `orders.ts` не хранит результат `serviceById`/`allServices` — читает его один раз функцией
 `serviceEntry()` и сразу забирает примитивы (`name`, `costPrice`, `sellingPrice`), так что
 копия на выходе каталога его не задевает.

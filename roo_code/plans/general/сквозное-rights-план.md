@@ -227,7 +227,7 @@
 - Сид ролей на три права — `seeCost` (`frontend_vue/src/services/mocks/settings.ts:64-68`).
 - Мок отказывает своими кодами: `FORBIDDEN_MANUALCOST`
   (`frontend_vue/src/services/orderLineEdits.ts:349`), собираются конкатенацией
-  (`frontend_vue/src/services/mocks/orders.ts:1865`).
+  (`frontend_vue/src/services/mocks/orders.ts:1868`).
 - Код отказа вырезается из ответа один раз, общей функцией: `errorCode`
   (`frontend_vue/src/services/apiErrorCode.ts:41-48`), и все вызывающие сравнивают его
   равенством, а не подстрокой, с 2026-09-12 — сама таблица сопоставления ниже в том же файле

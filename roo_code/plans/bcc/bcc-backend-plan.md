@@ -37,7 +37,7 @@
 | названных дыр | 31 | 9 граф «Обязанности сервера» + 22 строки «Чего в домене нет» |
 | пунктов раздела «Правила домена» | 12 | `awk '/^## Правила домена/{f=1;next} /^## Чего в домене нет/{f=0} f' roo_code/roo-context/api/bcc.md \| grep -cE "^[0-9]+\. \*\*"` — **третий источник дыр контракта**, пройден поимённо в §2б |
 | мест `throw new Error` в моке домена | 3 | `grep -c "throw new Error(" frontend_vue/src/services/mocks/bcc.ts` |
-| спек, утверждающих отказ по тексту | 3 | `grep -rc "toThrow(" frontend_vue/src/services/mocks/bcc-envelope.spec.ts frontend_vue/src/services/mocks/bcc-history-rows.spec.ts` — по одной в каждой, плюс третья в общей `unknown-id-is-refused.spec.ts:64-67` (`grep -n "BCC_EVENT_NOT_FOUND" frontend_vue/src/services/mocks/unknown-id-is-refused.spec.ts`). Прошлая редакция считала две и общую спеку не видела |
+| спек, утверждающих отказ по тексту | 3 | `grep -rc "toThrow(" frontend_vue/src/services/mocks/bcc-envelope.spec.ts frontend_vue/src/services/mocks/bcc-history-rows.spec.ts` — по одной в каждой, плюс третья в общей `unknown-id-is-refused.spec.ts:68-71` (`grep -n "BCC_EVENT_NOT_FOUND" frontend_vue/src/services/mocks/unknown-id-is-refused.spec.ts`). Прошлая редакция считала две и общую спеку не видела |
 | разделов в баг-файле | 12 | `grep -c "^## " roo_code/plans/bugs/contract-sync-bcc-bugs.md` |
 | из них фактически открыто | 10 | помечен закрытым один (БАГ-01), ещё один закрыт в коде без пометки (БАГ-04); БАГ-11 закрыт **наполовину** и потому считается открытым — см. поправки и таблицу ниже |
 
@@ -235,7 +235,7 @@ awk '/^## Чего в домене нет/{f=1;next} /^## Пробелы ауд�
 
 Ниже — коды, которых нет **на бэкенде**. Про фронт формулировка прошлой редакции была неверна и снята:
 `BCC_EVENT_NOT_FOUND` в моке **уже есть** (`frontend_vue/src/services/mocks/bcc.ts:482`, `:507`) и
-утверждается спекой (`frontend_vue/src/services/mocks/unknown-id-is-refused.spec.ts:64-67`) — это же
+утверждается спекой (`frontend_vue/src/services/mocks/unknown-id-is-refused.spec.ts:68-71`) — это же
 сказано графой «статус» его строки; двух остальных нет нигде. Проверено попарно (§2 соглашений):
 ни один из перечисленных не является подстрокой другого и ни один не является подстрокой двух уже
 существующих.
@@ -489,7 +489,7 @@ awk '/^## Чего в домене нет/{f=1;next} /^## Пробелы ауд�
 
 | # | слайс | что входит | зависит от |
 |---|---|---|---|
-| С0 | мок-долг и разбор кодов (фронтенд) | три `throw new Error` → `ApiRequestError` с кодом; три спеки с `toThrow` по тексту → утверждение о поле (третья — общая `unknown-id-is-refused.spec.ts:64-67`, правится только её bcc-блок); `mockGetBccCategories` отдаёт `structuredClone`, а не сам массив (правило домена 11 контракта, §18 соглашений, §2б строка 11); страница и композабл читают `errorCode` и переводят по таблице домена (БАГ-08, БАГ-12); **мок приводится к написанному серверу: снимает дубли адресов и отвергает пустой список кодом `NO_RECIPIENTS`** | — |
+| С0 | мок-долг и разбор кодов (фронтенд) | три `throw new Error` → `ApiRequestError` с кодом; три спеки с `toThrow` по тексту → утверждение о поле (третья — общая `unknown-id-is-refused.spec.ts:68-71`, правится только её bcc-блок); `mockGetBccCategories` отдаёт `structuredClone`, а не сам массив (правило домена 11 контракта, §18 соглашений, §2б строка 11); страница и композабл читают `errorCode` и переводят по таблице домена (БАГ-08, БАГ-12); **мок приводится к написанному серверу: снимает дубли адресов и отвергает пустой список кодом `NO_RECIPIENTS`** | — |
 | С1 | контракт: разделы под сквозные правила | `## Права домена` с картой «роут → элемент» (Д10), `## События домена (§10)`, строка про кастомные поля, строка идемпотентности у каждого `POST`, три текста аудит-лога — форма строки ссылкой на §9 соглашений, `GET /api/bcc/events/:eventId/audit` со страницами и умолчанием сортировки, `DELETE /api/bcc/events/:eventId/audit/:entryId` с правом владельца (§4а, пункт 11) | С0 |
 | С2 | миграция данных: одно пространство id | **предусловие остальной миграции, и его нельзя пропустить.** Сиды ленты (`frontend_vue/src/services/mocks/bcc.ts:146` и далее), `MOCK_SUPPLIERS` (`frontend_vue/src/services/mocks/suppliers.ts:9` и далее) и `/api/suppliers/list` приводятся к канонической форме схемы одним движением (БАГ-05, §19); листья дерева заменяются настоящими `products.id` (БАГ-06, П75). Пока это не сделано, `supplier_id` нельзя включить как FK, а `product_id` — перевести в `RESTRICT`: обе правки лягут на значения, которых в целевых таблицах нет | С1, домен `suppliers` |
 | С2б | миграция схемы: каталог и ссылки | удаление `bcc_categories` (П75); `product_id` → `RESTRICT` (П44); `unit` → ссылка на `uoms` с `RESTRICT` (П19, П44); колонка валюты цены; четвёртое состояние `status`; уникальность `(tenant_id, request_id)`; счётчик номера на арендатора (П21) | С2 |
@@ -583,7 +583,7 @@ typecheck.
 **Часть 2 — спеки.** Отказ по тексту утверждают **три** места, а не два, как считала прошлая
 редакция: `frontend_vue/src/services/mocks/bcc-envelope.spec.ts:71` и
 `frontend_vue/src/services/mocks/bcc-history-rows.spec.ts:114` (обе про `MAIL_NOT_CONFIGURED`), плюс
-общая `frontend_vue/src/services/mocks/unknown-id-is-refused.spec.ts:64-67` — два `toThrow('BCC_EVENT_NOT_FOUND')`
+общая `frontend_vue/src/services/mocks/unknown-id-is-refused.spec.ts:68-71` — два `toThrow('BCC_EVENT_NOT_FOUND')`
 в блоке `it('bcc: an unknown event is refused…')`. Третью нашла не своя папка, а поиск по коду:
 `grep -rn "BCC_EVENT_NOT_FOUND" frontend_vue/src --include=*.spec.ts`. Правится в ней **только
 блок bcc** — соседние блоки принадлежат чужим доменам и их мок-долгу.

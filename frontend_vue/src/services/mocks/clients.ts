@@ -1235,7 +1235,8 @@ export function mockDeleteClientInteraction(clientId: string, entryIndex: number
 
 export function mockGetClientAudit(clientId: string): StockAuditEntry[] {
   const client = STORE.find((c) => c.id === clientId)
-  return structuredClone(client?.auditLog ?? [])
+  if (!client) throw mockRefusal(404, CLIENTS_REFUSAL_CODES.clientNotFound, 'CLIENT_NOT_FOUND')
+  return structuredClone(client.auditLog ?? [])
 }
 
 // ─── Audit source ───────────────────────────────────────────────────────────

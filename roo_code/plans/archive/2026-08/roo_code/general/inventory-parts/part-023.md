@@ -87,13 +87,13 @@ $ npx vitest run --config vitest.audit.config.ts src/services/mocks/order-audit-
 
 - `POST /items` не принимает себестоимость: `mockAddOrderItem` вызывает
   `refuseStatedCost(statedCost)` и `if (data.quantity === 0) throw ZERO_QUANTITY`,
-  `requireFiniteNumbers({...})` до первой записи (orders.ts:1962–2000);
+  `requireFiniteNumbers({...})` до первой записи (orders.ts:1965–2000);
 - неизвестный товар отклоняется так же, как услуга: `CATALOG_PRODUCT_NOT_FOUND`
-  (orders.ts:2002);
+  (orders.ts:2005);
 - `localStorage` внутри серверной функции больше нет — единственное упоминание
-  в orders.ts:342 это комментарий «код, который бэкенд запустить не сможет»,
+  в orders.ts:345 это комментарий «код, который бэкенд запустить не сможет»,
   имя пишется из `CATALOGUE_LANGUAGE`;
-- дефициты убираются вместе со строкой и заказом (orders.ts:992, 1955, 2222);
+- дефициты убираются вместе со строкой и заказом (orders.ts:995, 1955, 2222);
 - `resetPrice` едет с числом: `LineEditEnvelope.defaultDiscountPercent`
   (`src/types/order.ts:533–549`), и `deltaToOps` применяет операции в
   документированном порядке.

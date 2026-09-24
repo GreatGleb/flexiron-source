@@ -248,6 +248,9 @@ export function mockGetReservations(filter?: {
   batchId?: string
   lineId?: string
 }): StockReservation[] {
+  if (filter?.orderId !== undefined && !STORE.some((o) => o.id === filter.orderId)) {
+    throw refuse('ORDER_NOT_FOUND')
+  }
   return findReservations(filter).map((r) => ({ ...r }))
 }
 
