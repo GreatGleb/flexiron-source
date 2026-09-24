@@ -275,7 +275,7 @@ awk 'NR>=1360 && NR<1380' roo_code/roo-context/api/orders.md | grep -cE "^\| [^-
    источников спеки §6: `SERVICE_UOM_NOT_FOUND` ×2 и `SERVICE_CURRENCY_NOT_FOUND` ×2
    (`frontend_vue/src/domain/servicePricing.spec.ts:81`, `:91`, `:103`, `:106` — файл входит в 33
    спеки домена по карте кода). Бросает их **шестой источник**, которого в этом плане нет нигде
-   больше: мок чужого домена `frontend_vue/src/services/mocks/services.ts:88` и `:91`. В §6
+   больше: мок чужого домена `frontend_vue/src/services/mocks/services.ts:90` и `:91`. В §6
    контракта этих кодов нет вовсе (`grep -c "SERVICE_UOM_NOT_FOUND\|SERVICE_CURRENCY_NOT_FOUND"
    roo_code/plans/orders/orders-backend-contract.md` → `0`).
 
@@ -815,7 +815,7 @@ print(sum(len(p.findall(open(f,encoding='utf8').read())) for f in sys.argv[1:]))
   **Передача, которую этот план обязан назвать вслух:** четыре утверждения спек **заказа** висят
   на кодах чужого мока — `SERVICE_UOM_NOT_FOUND` и `SERVICE_CURRENCY_NOT_FOUND`
   (`frontend_vue/src/domain/servicePricing.spec.ts:81`, `:91`, `:103`, `:106`; бросок —
-  `frontend_vue/src/services/mocks/services.ts:88` и `:91`). Тот, кто переводит мок `services` на
+  `frontend_vue/src/services/mocks/services.ts:90` и `:91`). Тот, кто переводит мок `services` на
   `refuse`, переписывает и эти четыре — в том же шаге, иначе они молча станут вакуумными: со
   стороны заказа их не поймает ни один гейт, кроме справочного Г-С0-6, а со стороны `services`
   спеки заказа никто не читает.

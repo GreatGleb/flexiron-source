@@ -51,7 +51,7 @@ price_unit: Mapped[str] = mapped_column(
 
 Следствие не только в форме ответа. Мок сегодня **строже** будущего сервера: он отвергает
 неизвестные `currencyId`/`uomId` по справочнику настроек
-(`frontend_vue/src/services/mocks/services.ts:86-93`), а в схеме бэкенда внешнего ключа,
+(`frontend_vue/src/services/mocks/services.ts:88-95`), а в схеме бэкенда внешнего ключа,
 который держал бы то же правило, попросту нет.
 
 ### Fix
@@ -134,7 +134,7 @@ price_unit: Mapped[str] = mapped_column(
 
 ## БАГ-02 — мок выдаёт id по длине списка, поэтому после удаления рождаются дубли
 
-**File:** `frontend_vue/src/services/mocks/services.ts:118`
+**File:** `frontend_vue/src/services/mocks/services.ts:120`
 **Severity:** High — две записи с одним id: правка и удаление попадают не в ту услугу, и заказ ссылается на неоднозначный id.
 **Источник:** К2 (мок ↔ код)
 
@@ -148,12 +148,12 @@ id: `svc-${String(STORE.length + 1).padStart(3, '0')}`,
 (`frontend_vue/src/mocks/services.ts:5,20,35,50,65`, загрузка `mocks/services.ts:8`).
 Воспроизведение в три шага:
 
-1. удалить `svc-002` — `STORE.splice` (`mocks/services.ts:169`), длина 4;
+1. удалить `svc-002` — `STORE.splice` (`mocks/services.ts:171`), длина 4;
 2. создать любую услугу — id считается как `4 + 1` → `svc-005`;
 3. в сторе теперь **две** записи `svc-005`.
 
 Дальше всё адресование домена ломается тихо: `mockGetService` берёт `STORE.find`
-(`mocks/services.ts:133`) и всегда возвращает первую, `mockPatchService` — `findIndex`
+(`mocks/services.ts:135`) и всегда возвращает первую, `mockPatchService` — `findIndex`
 (`:150`) и правит первую, `mockDeleteService` — тоже первую (`:167`). Заказ, добавивший вторую,
 читает через `serviceById` (`:19`) чужую цену и чужое имя.
 
@@ -313,7 +313,7 @@ if (desc !== undefined) payload.description = desc              // :71
 ```
 
 То есть на провод уходит `PATCH /api/services/:id` с телом `{}`. Мок ничего не меняет
-(`frontend_vue/src/services/mocks/services.ts:153-161` — все присваивания под
+(`frontend_vue/src/services/mocks/services.ts:155-163` — все присваивания под
 `!== undefined`), возвращает запись как была, а карточка на успешный ответ показывает
 `services.toast_saved` (`useServiceCard.ts:85`). То же самое с именем.
 
@@ -336,7 +336,7 @@ if (desc !== undefined) payload.description = desc              // :71
 
 ## БАГ-07 — удаление услуги не смотрит, стоит ли она в заказах
 
-**File:** `frontend_vue/src/services/mocks/services.ts:166-171`
+**File:** `frontend_vue/src/services/mocks/services.ts:168-173`
 **Severity:** Medium — каталог и документы расходятся молча; старый контракт обещает 409, которого нет.
 **Источник:** К3 (коды ошибок), графа «Транзакционность»
 
@@ -378,7 +378,7 @@ export async function mockDeleteService(id: string): Promise<boolean> {
 
 Что П44 назначает по коду:
 
-- `mockDeleteService` (`frontend_vue/src/services/mocks/services.ts:166-171`) перестаёт вырезать
+- `mockDeleteService` (`frontend_vue/src/services/mocks/services.ts:168-173`) перестаёт вырезать
   запись из `STORE` и вместо этого ставит признак архивной;
 - услуга с этим признаком **не предлагается ни в одном выборе** — ни в заказе, ни в запросе
   поставщику, ни в таблице услуг, — но **по ссылке из старого заказа открывается**. Сегодняшнее
@@ -405,7 +405,7 @@ export async function mockDeleteService(id: string): Promise<boolean> {
 
 ---
 
-## БАГ-08 — мок отдаёт наружу ссылки в собственный стор
+## ✅ БАГ-08 — мок отдаёт наружу ссылки в собственный стор
 
 **File:** `frontend_vue/src/services/mocks/services.ts:26-38`
 **Severity:** Low — сегодня никто не мутирует полученное, но правка любого потребителя на месте молча изменит «серверные» данные.
@@ -432,3 +432,19 @@ export async function mockDeleteService(id: string): Promise<boolean> {
 Мок обязан быть не слабее сериализации: всё, что уходит наружу, проходит через копирование.
 Проверяется одной спекой — получить объект, изменить у него вложенное поле, перечитать через
 мок и убедиться, что изменения нет.
+
+### Сделано 2026-09-23
+
+`structuredClone` заведён на выходе всех перечисленных мест: `serviceById`, `allServices`,
+`toListItem` (используется `mockGetServices`), `mockCreateService`, `mockGetService` и
+`mockPatchService` — последние два раньше отдавали поверхностный `{ ...svc }`, из-за чего
+вложенные `TranslatedString` оставались общими со `STORE`, теперь отдают глубокую копию.
+Ссылка `mocks/orders.ts:1359-1361` на чужой `clone()` из этого бага не пошла в дело:
+`orders.ts` не хранит результат `serviceById`/`allServices` — читает его один раз функцией
+`serviceEntry()` и сразу забирает примитивы (`name`, `costPrice`, `sellingPrice`), так что
+копия на выходе каталога его не задевает.
+
+Доказано новой спекой `frontend_vue/src/services/mocks/store-copies.spec.ts`: получить услугу
+(чтение, создание, патч, списочная запись, а также `serviceById`/`allServices` напрямую),
+испортить у копии поле и вложенный `TranslatedString` имени, перечитать мок и убедиться, что
+порча не долетела.

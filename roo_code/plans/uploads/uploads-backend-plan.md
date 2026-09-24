@@ -26,7 +26,7 @@
 - `backend/app/core/uploads/models.py:16-21` — `tenant_id` принадлежит файлу, а не отдельной его связи.
 - `backend/app/core/config.py:35-43` — 20 МБ, пять MIME и 24 часа для черновика.
 - `backend/app/main.py:63` — `StaticFiles`, сейчас обходящий проверку прав скачивания.
-- `frontend_vue/src/services/api.ts:285-289` — `apiUpload` передаёт `buildHeaders(options)` моку.
+- `frontend_vue/src/services/api.ts:304-308` — `apiUpload` передаёт `buildHeaders(options)` моку.
 - `frontend_vue/src/services/mocks/index.ts:1903-1909` — `uploadMock` вызывает `assertAuthorized`.
 - `frontend_vue/src/services/mocks/index.ts:1818-1837` — мок сохраняет метаданные без проверки MIME и размера.
 - `frontend_vue/src/services/uploadsService.ts:3-10` — клиентская форма из шести полей.

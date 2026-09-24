@@ -71,16 +71,16 @@
 | Эндпоинт | Схема | Контракт | Кто прав | Почему |
 |---|---|---|---|---|
 | все пять | `currency_id` и `uom_id` объявлены `nullable=True` (`backend/app/modules/services/shared/models.py:31-43`) | на проводе оба обязательны: `currencyId: string`, `uomId: string` (`frontend_vue/src/types/service.ts:24-27`) | оба, по разные стороны | колонка обязана остаться `nullable`: миграция 16-й фазы оставляет `NULL` у строк, чей код валюты не нашёлся у арендатора, и `NOT NULL` на них не встанет. Обязательность держит слайс — схема Pydantic на входе; на выходе строка с `NULL` отдаёт пустую строку, и это не выдумка плана, а действующее правило домена 6: неизвестный id даёт прочерк (`frontend_vue/src/domain/servicePricing.ts:25`) |
-| все пять | `id` — UUID из `UUIDMixin` (`backend/app/core/base.py:15-23`) | мок раздаёт читаемые `svc-001` и выводит следующий из длины стора (`frontend_vue/src/services/mocks/services.ts:118`) | схема | §19: `id` домена человеку не показывается и из позиции не выводится. Правится мок (БАГ-02: после удаления рождается дубль), сервер остаётся с UUID |
-| `POST`, `PATCH` | `cost_price` и `selling_price` — `Numeric(12, 2)` без `CHECK` (`backend/app/modules/services/shared/models.py:22-27`) | отрицательная цена отвергается кодом, а не текстом (решение 6 раздела «Что осталось нерешённым») | контракт | деньги неотрицательны; сегодня знак не проверяет никто — ни мок (`frontend_vue/src/services/mocks/services.ts:95-130`), ни форма (`frontend_vue/src/views/admin/products/ServicesPage.vue:83` смотрит только на имя). Слайс проверяет и ставит `CHECK` в миграции — без ограничения запись пролезет мимо API |
-| `GET /api/services/:id`, `POST`, `PATCH` | `description_translations` имеет `server_default="{}"` (`backend/app/modules/services/shared/models.py:44`) | поле **отсутствует**, когда описания нет, а не приходит пустым (`frontend_vue/src/types/service.ts:28`) | контракт | `{}` на проводе — третье состояние помимо «есть» и «нет», и клиент к нему не готов: тип объявляет поле необязательным, мок кладёт `undefined` (`frontend_vue/src/services/mocks/services.ts:113`). Слайс не отдаёт ключ, когда словарь пуст |
+| все пять | `id` — UUID из `UUIDMixin` (`backend/app/core/base.py:15-23`) | мок раздаёт читаемые `svc-001` и выводит следующий из длины стора (`frontend_vue/src/services/mocks/services.ts:120`) | схема | §19: `id` домена человеку не показывается и из позиции не выводится. Правится мок (БАГ-02: после удаления рождается дубль), сервер остаётся с UUID |
+| `POST`, `PATCH` | `cost_price` и `selling_price` — `Numeric(12, 2)` без `CHECK` (`backend/app/modules/services/shared/models.py:22-27`) | отрицательная цена отвергается кодом, а не текстом (решение 6 раздела «Что осталось нерешённым») | контракт | деньги неотрицательны; сегодня знак не проверяет никто — ни мок (`frontend_vue/src/services/mocks/services.ts:97-132`), ни форма (`frontend_vue/src/views/admin/products/ServicesPage.vue:83` смотрит только на имя). Слайс проверяет и ставит `CHECK` в миграции — без ограничения запись пролезет мимо API |
+| `GET /api/services/:id`, `POST`, `PATCH` | `description_translations` имеет `server_default="{}"` (`backend/app/modules/services/shared/models.py:44`) | поле **отсутствует**, когда описания нет, а не приходит пустым (`frontend_vue/src/types/service.ts:28`) | контракт | `{}` на проводе — третье состояние помимо «есть» и «нет», и клиент к нему не готов: тип объявляет поле необязательным, мок кладёт `undefined` (`frontend_vue/src/services/mocks/services.ts:115`). Слайс не отдаёт ключ, когда словарь пуст |
 | все пять | `name_translations` и `description_translations` — `JSONB` со `snake_case` и суффиксом (`backend/app/modules/services/shared/models.py:21`) | на проводе `name` и `description` (`frontend_vue/src/types/service.ts:21-28`) | оба | домен — счастливое исключение из §12: переводимое поле уже переводимо на схеме. Сопоставление имён делает слайс, форма провода не меняется |
 | `DELETE /api/services/:id` | колонки архива нет вовсе: у модели десять колонок и ни одной про состояние — семь объявлены в самом файле (`grep -c "mapped_column(" backend/app/modules/services/shared/models.py` → 7) и три приходят миксинами `UUIDMixin`/`TimestampMixin` (`backend/app/core/base.py:18`, `:28`, `:33`) | П44 требует мягкого удаления, а `GET /api/services/:id` — признака архива (§22) | владелец | это не конфликт форм, а отсутствующая половина. Слайс С4 заводит колонку и признак на проводе; `DELETE` перестаёт быть удалением |
 | `DELETE /api/settings/currencies/:id`, `.../uoms/:id` | `ondelete="RESTRICT"` у обеих ссылок (`backend/app/modules/services/shared/models.py:33`, `:40`) | удаление справочника считает только товары (`backend/app/modules/settings/features/crud/domain.py:256`, `:340`) | схема | база уже запрещает то, чего домен `settings` не проверяет, — значит сегодня отказ приходит не кодом, а `IntegrityError` из драйвера. Считать услуги обязан `settings`, а функцию счёта даёт `services` (слайс С5) |
 | все пять | `tenant_id` `NOT NULL` с `CASCADE` на арендатора (`backend/app/modules/services/shared/models.py:15-20`) | мок арендатора не моделирует вовсе: `STORE` один на процесс (`frontend_vue/src/services/mocks/services.ts:8`) | схема и §4 | у мока арендатора нет, поэтому расхождение не видно; на сервере запрос без сужения отдаст чужой прайс. Мок это не чинит — названная граница, а не дефект (§18) |
-| `GET /api/services` | — | `totalPages` = `Math.ceil(total / pageSize)` (`frontend_vue/src/services/mocks/services.ts:75`), то есть `0` на пустой выборке | §13 | «страница 1 из 0» — не состояние, а дефект; формула на сервере берётся с зажимом `Math.max(1, …)`. Работа по коду, в моке тоже |
-| `GET /api/services` | — | сортировка по имени идёт по английскому варианту при любом языке (`frontend_vue/src/services/mocks/services.ts:61`) | ни тот, ни другой | П64 назначил чтение «текущий язык, а если пусто — любой сохранённый», и сортировка по невидимому значению этому противоречит. Домен сам решить не вправе — раздел 8, вопрос 1 |
-| `GET /api/services` | — | `sortBy` вне перечня — не ошибка, а «не сортировать» (`frontend_vue/src/services/mocks/services.ts:58-67`) | контракт | сервер обязан повторить: клиент шлёт значение всегда, и 422 на опечатке сломал бы список вместо того, чтобы его показать |
+| `GET /api/services` | — | `totalPages` = `Math.ceil(total / pageSize)` (`frontend_vue/src/services/mocks/services.ts:77`), то есть `0` на пустой выборке | §13 | «страница 1 из 0» — не состояние, а дефект; формула на сервере берётся с зажимом `Math.max(1, …)`. Работа по коду, в моке тоже |
+| `GET /api/services` | — | сортировка по имени идёт по английскому варианту при любом языке (`frontend_vue/src/services/mocks/services.ts:63`) | ни тот, ни другой | П64 назначил чтение «текущий язык, а если пусто — любой сохранённый», и сортировка по невидимому значению этому противоречит. Домен сам решить не вправе — раздел 8, вопрос 1 |
+| `GET /api/services` | — | `sortBy` вне перечня — не ошибка, а «не сортировать» (`frontend_vue/src/services/mocks/services.ts:60-69`) | контракт | сервер обязан повторить: клиент шлёт значение всегда, и 422 на опечатке сломал бы список вместо того, чтобы его показать |
 | `PATCH /api/services/:id` | — | `null` до сервера не доходит никогда: `toPayloadValue` превращает его в `undefined` (`frontend_vue/src/services/servicesService.ts:47`) | контракт, до починки БАГ-06 | форма тела — «только непустые значения»; сервер `null` в этом домене не получает и семантику стирания не назначает. Как выражается стирание — раздел 8, вопрос 2 |
 
 ---
@@ -161,9 +161,9 @@
 
 | Код | Статус | Кто бросает (после плана) | Кто читает (после плана) | Сегодня |
 |---|---|---|---|---|
-| `CATALOG_SERVICE_NOT_FOUND` | 404 | `GET /api/services/:id`, `PATCH`, `DELETE` | карточка отличает «услуги нет» от «сеть упала»; таблица кодов домена рядом с `errorMessageKey` (`frontend_vue/src/services/apiErrorCode.ts:64`) | бросает мок (`frontend_vue/src/services/mocks/services.ts:134`, `:151`) и ветка удаления (`frontend_vue/src/services/mocks/index.ts:1661`), читает **чужой** домен — словарь заказов (`frontend_vue/src/services/orderLineEdits.ts:361`); в спеках услуг не проверяется ничем |
-| `SERVICE_CURRENCY_NOT_FOUND` | 422 | `POST` и `PATCH`: `currencyId` не найден в справочнике арендатора | форма создания и карточка — подсветка селекта валюты | бросает мок (`frontend_vue/src/services/mocks/services.ts:88`), читателя нет: общий тост |
-| `SERVICE_UOM_NOT_FOUND` | 422 | там же, по единице | там же | бросает мок (`frontend_vue/src/services/mocks/services.ts:91`), читателя нет |
+| `CATALOG_SERVICE_NOT_FOUND` | 404 | `GET /api/services/:id`, `PATCH`, `DELETE` | карточка отличает «услуги нет» от «сеть упала»; таблица кодов домена рядом с `errorMessageKey` (`frontend_vue/src/services/apiErrorCode.ts:64`) | бросает мок (`frontend_vue/src/services/mocks/services.ts:136`, `:151`) и ветка удаления (`frontend_vue/src/services/mocks/index.ts:1661`), читает **чужой** домен — словарь заказов (`frontend_vue/src/services/orderLineEdits.ts:361`); в спеках услуг не проверяется ничем |
+| `SERVICE_CURRENCY_NOT_FOUND` | 422 | `POST` и `PATCH`: `currencyId` не найден в справочнике арендатора | форма создания и карточка — подсветка селекта валюты | бросает мок (`frontend_vue/src/services/mocks/services.ts:90`), читателя нет: общий тост |
+| `SERVICE_UOM_NOT_FOUND` | 422 | там же, по единице | там же | бросает мок (`frontend_vue/src/services/mocks/services.ts:93`), читателя нет |
 | `VALIDATION_ERROR` + `fieldErrors.name` | 422 | `POST`: имя обязательно и непусто хотя бы на одном языке | форма создания: разметка по полю через `fieldErrors` (`frontend_vue/src/types/api.ts:33`) | не проверяет никто на проводе; единственная защита — `if (!createForm.name.trim()) return` в форме |
 | `VALIDATION_ERROR` + `fieldErrors.costPrice` | 422 | `POST` и `PATCH`: отрицательная цена | форма и карточка | знак не проверяет никто ни на одной стороне |
 | `VALIDATION_ERROR` + `fieldErrors.sellingPrice` | 422 | там же | там же | то же |
@@ -239,13 +239,13 @@
    изменилась, а услуга стоит в незакрытых заказах». Код типа домен не изобретает — но и не ждёт:
    сквозной план **уже назначил его этому домену поимённо**, `service_price_changed`
    (`roo_code/plans/general/сквозное-notifications-план.md`, строка 204), владение переходом привязал к
-   `frontend_vue/src/services/mocks/services.ts:138`
+   `frontend_vue/src/services/mocks/services.ts:140`
    (`roo_code/plans/general/сквозное-notifications-план.md`, строка 213), а доменную обязанность записал
    как «только при наличии незакрытых заказов с этой услугой»
    (`roo_code/plans/general/сквозное-notifications-план.md`, строка 404). Поэтому все **пять** граф,
    которых требует сводка, домен заполняет сегодня, а не после сквозного плана: код —
    `service_price_changed`; переход — `PATCH /api/services/:id`, у которого изменилась
-   `sellingPrice` или `costPrice` (присваивания — `frontend_vue/src/services/mocks/services.ts:154-155`); условие —
+   `sellingPrice` или `costPrice` (присваивания — `frontend_vue/src/services/mocks/services.ts:156-157`); условие —
    существует незакрытый заказ со строкой на эту услугу; дискриминатор повтора — пара «услуга +
    новая цена», потому что помнить обязана база, а не память процесса (П56); флаг тревоги —
    **нет**: его несут ровно три кода, `payment_overdue`, `stock_deficit` и `batch_expired`
@@ -389,10 +389,10 @@
 
 | Место | Сегодня | Становится |
 |---|---|---|
-| `frontend_vue/src/services/mocks/services.ts:88` | `throw new Error('SERVICE_CURRENCY_NOT_FOUND')` | тот же код в поле, `status: 422` |
-| `frontend_vue/src/services/mocks/services.ts:91` | `throw new Error('SERVICE_UOM_NOT_FOUND')` | тот же код в поле, `status: 422` |
-| `frontend_vue/src/services/mocks/services.ts:134` | `throw new Error('CATALOG_SERVICE_NOT_FOUND')` | тот же код в поле, `status: 404` |
-| `frontend_vue/src/services/mocks/services.ts:151` | то же на пути правки | то же, `status: 404` |
+| `frontend_vue/src/services/mocks/services.ts:90` | `throw new Error('SERVICE_CURRENCY_NOT_FOUND')` | тот же код в поле, `status: 422` |
+| `frontend_vue/src/services/mocks/services.ts:93` | `throw new Error('SERVICE_UOM_NOT_FOUND')` | тот же код в поле, `status: 422` |
+| `frontend_vue/src/services/mocks/services.ts:136` | `throw new Error('CATALOG_SERVICE_NOT_FOUND')` | тот же код в поле, `status: 404` |
+| `frontend_vue/src/services/mocks/services.ts:153` | то же на пути правки | то же, `status: 404` |
 
 Сторожей посева с человеческим текстом в этом файле **нет**: все четыре строки — голый код
 `ЗАГЛАВНЫМИ_С_ПОДЧЁРКИВАНИЯМИ` без пробелов, и это замерено, а не предположено (раздел 1).
@@ -476,10 +476,10 @@ cd backend && alembic upgrade head && alembic downgrade -1 && alembic upgrade he
   константа на случай запроса не от этого клиента, а не решение сервера о размере страницы: им
   сервер по П20 не распоряжается, граница разобрана в разделе 4;
 - **поиск смотрит во все три перевода имени**, сортировка по имени — по одному
-  (`frontend_vue/src/services/mocks/services.ts:51-53`); какому именно — раздел 8, вопрос 1, и
+  (`frontend_vue/src/services/mocks/services.ts:53-55`); какому именно — раздел 8, вопрос 1, и
   до ответа слайс повторяет сегодняшнее поведение мока;
 - **непонятный `sortBy` — не ошибка, а «не сортировать»**
-  (`frontend_vue/src/services/mocks/services.ts:58-67`);
+  (`frontend_vue/src/services/mocks/services.ts:60-69`);
 - **`pageSize: 1000` законен**: модалка добавления услуг в заказ тянет весь каталог одним
   запросом (`frontend_vue/src/views/admin/orders/AddOrderServicesModal.vue:212`), и верхняя
   граница задана этим потребителем, а не страницей списка;
@@ -532,7 +532,7 @@ cd frontend_vue && npx vitest run src/services/contract-conformance.spec.ts
 - `costPrice`/`sellingPrice` неотрицательны → `VALIDATION_ERROR` с именем поля, 422;
 - `currencyId` и `uomId` существуют **в справочниках этого арендатора** →
   `SERVICE_CURRENCY_NOT_FOUND` / `SERVICE_UOM_NOT_FOUND`, 422. Проверка не приводится типом, а
-  делается запросом: ровно то, что уже делает мок (`frontend_vue/src/services/mocks/services.ts:86-93`);
+  делается запросом: ровно то, что уже делает мок (`frontend_vue/src/services/mocks/services.ts:88-95`);
 - `id`, `createdAt`, `updatedAt` сервер ставит сам и из тела не читает.
 
 Умолчаний сервер **не подставляет**: П19 отдал валюту и единицу настройкам, а не серверу услуг,
@@ -542,7 +542,7 @@ cd frontend_vue && npx vitest run src/services/contract-conformance.spec.ts
 `PATCH` — merge-patch, только грязные поля (§3). Особенности, которые сервер обязан повторить:
 
 - **проверяется итоговая пара, а не присланное поле**: смена одной половины пары валидируется
-  вместе с уже хранимой второй (`frontend_vue/src/services/mocks/services.ts:157`);
+  вместе с уже хранимой второй (`frontend_vue/src/services/mocks/services.ts:159`);
 - **`null` до сервера не доходит** (`frontend_vue/src/services/servicesService.ts:47`), и пока
   БАГ-06 не закрыт, форма тела — «только непустые значения»; семантику стирания слайс не
   назначает (раздел 8, вопрос 2);
@@ -556,7 +556,7 @@ cd frontend_vue && npx vitest run src/services/contract-conformance.spec.ts
 - **правка архивной услуги отвергается** — `SERVICE_ARCHIVED`, 409: из выборов она пропала, и
   менять цену у того, чего нельзя выбрать, значит менять историю задним числом;
 - версии записи у домена нет: last-write-wins, ни `If-Match`, ни поля `version`
-  (`frontend_vue/src/services/mocks/services.ts:153-161`);
+  (`frontend_vue/src/services/mocks/services.ts:155-163`);
 - `Idempotency-Key` не требуется — операция обратима (раздел 4, правило 5).
 
 Приёмка:
@@ -730,7 +730,7 @@ cd backend && python3 -m unittest discover -s tests -t .
 
 | Код | Переход | Условие | Дискриминатор `eventKey` | Флаг тревоги |
 |---|---|---|---|---|
-| `service_price_changed` | `PATCH /api/services/:id`, у которого изменились `sellingPrice` или `costPrice` (`frontend_vue/src/services/mocks/services.ts:154-155`) | существует незакрытый заказ со строкой на эту услугу | пара «услуга + новая цена», хранится колонкой `event_key` в базе, а не в памяти процесса (П56) | **нет** — флаг несут ровно три кода, и наш не из них (`roo_code/plans/general/сквозное-notifications-план.md`, строки 305–307) |
+| `service_price_changed` | `PATCH /api/services/:id`, у которого изменились `sellingPrice` или `costPrice` (`frontend_vue/src/services/mocks/services.ts:156-157`) | существует незакрытый заказ со строкой на эту услугу | пара «услуга + новая цена», хранится колонкой `event_key` в базе, а не в памяти процесса (П56) | **нет** — флаг несут ровно три кода, и наш не из них (`roo_code/plans/general/сквозное-notifications-план.md`, строки 305–307) |
 
 **`entityType` и роут (Н14).** Сегодняшних пяти значений не хватает: `order`, `product`, `batch`,
 `client`, `supplier` (`frontend_vue/src/types/notifications.ts:13`). Домен заводит шестое —
@@ -784,8 +784,8 @@ cd backend && python3 -m unittest discover -s tests -t .
 6. **Эмиттер зовётся из условия перехода, а не из чтения** (Н3) — **пункт непустой, и сегодня
    вызова нет вовсе**: `grep -c "notify\|notification" frontend_vue/src/services/mocks/services.ts`
    → `0`. Единственная точка вызова — ветка внутри `mockPatchService`
-   (`frontend_vue/src/services/mocks/services.ts:138`), где цена фактически изменилась и нашёлся
-   незакрытый заказ. Чтение (`mockGetService`, `frontend_vue/src/services/mocks/services.ts:132`)
+   (`frontend_vue/src/services/mocks/services.ts:140`), где цена фактически изменилась и нашёлся
+   незакрытый заказ. Чтение (`mockGetService`, `frontend_vue/src/services/mocks/services.ts:134`)
    не зовёт ничего. Безусловный вызов на каждой правке — тот самый дефект, что уже записан по
    домену `bcc` (`contract-sync-bcc-bugs.md`, БАГ-10).
 7. **Не писать в ленту напрямую** (Н11) — ни одной записи мимо эмиттера: мок зовёт именованную
@@ -811,7 +811,7 @@ cd backend && python3 -m unittest discover -s tests -t .
 | вид сущности | `frontend_vue/src/types/notifications.ts:13` | добавить `'service'` в `NotificationEntityType` — сегодняшних пяти значений не хватает |
 | эмиттер домена | `frontend_vue/src/services/mocks/notifications.ts:660` | по образцу соседней `notifySupplierResponse` завести обёртку домена — единственное место, где для этого типа зовётся `emit` |
 | ответ на вопрос «есть ли незакрытый заказ» | объявление — `frontend_vue/src/services/mocks/services.ts`, регистрация — `frontend_vue/src/services/mocks/orders.ts` | регистрацией, а не импортом: абзац «Откуда мок услуг знает про незакрытый заказ» ниже |
-| вызов из перехода | `frontend_vue/src/services/mocks/services.ts:138` | в `mockPatchService` снять прежние цены в `prevSellingPrice`/`prevCostPrice` **до** присваивания (имена названы здесь, потому что их проверяет гейт слайса): на `frontend_vue/src/services/mocks/services.ts:152` берётся `const svc = STORE[idx]!`, и присваивания на `frontend_vue/src/services/mocks/services.ts:154-155` правят тот же объект стора — после них прежней цены не существует. Образец снятия до правки — `frontend_vue/src/services/mocks/orders.ts:1844` (`if (oldStatus !== status)`). Обёртка зовётся, только когда снимок разошёлся с новым значением **и** лукап вернул незакрытый заказ |
+| вызов из перехода | `frontend_vue/src/services/mocks/services.ts:140` | в `mockPatchService` снять прежние цены в `prevSellingPrice`/`prevCostPrice` **до** присваивания (имена названы здесь, потому что их проверяет гейт слайса): на `frontend_vue/src/services/mocks/services.ts:154` берётся `const svc = STORE[idx]!`, и присваивания на `frontend_vue/src/services/mocks/services.ts:156-157` правят тот же объект стора — после них прежней цены не существует. Образец снятия до правки — `frontend_vue/src/services/mocks/orders.ts:1844` (`if (oldStatus !== status)`). Обёртка зовётся, только когда снимок разошёлся с новым значением **и** лукап вернул незакрытый заказ |
 
 **Откуда мок услуг знает про незакрытый заказ.** Прямого импорта быть не может: стрелка идёт в
 обратную сторону — `frontend_vue/src/services/mocks/orders.ts:121` импортирует `allServices` и
@@ -907,7 +907,7 @@ cd frontend_vue && npx vitest run src/services/notification-events-conformance.s
 
 | Долг | Где | Что сделать |
 |---|---|---|
-| БАГ-02: id из длины стора, после удаления рождается дубль | `frontend_vue/src/services/mocks/services.ts:118` | счётчик, не длина; форма id непрозрачная (§19) |
+| БАГ-02: id из длины стора, после удаления рождается дубль | `frontend_vue/src/services/mocks/services.ts:120` | счётчик, не длина; форма id непрозрачная (§19) |
 | БАГ-03: список печатает `€` при любой валюте услуги | `frontend_vue/src/views/admin/products/ServicesPage.vue:274-275` | подпись собирает `serviceUnitLabel` (`frontend_vue/src/domain/servicePricing.ts:16-27`), а не литерал |
 | БАГ-04: модалка заказа подписывает цену валютой по умолчанию | `frontend_vue/src/views/admin/orders/AddOrderServicesModal.vue:212` | подпись из валюты самой услуги |
 | БАГ-05: премисса неверна, замерено при написании плана — подпись ставит общий сборщик заголовков (`frontend_vue/src/services/api.ts:37`), и её получают все шесть глаголов | вызовы домена своих заголовков действительно не передают (`frontend_vue/src/services/servicesService.ts:23`) | ничего не делать по заголовкам; закрыть БАГ-05 как снятый замером — раздел 9, пункт 7 |
@@ -983,7 +983,7 @@ grep -c "service_price_changed" frontend_vue/src/services/mocks/notification-tri
 ## 8. Требует решения владельца
 
 1. **На каком языке сервер сортирует список по имени.** Сегодня мок сортирует по английскому
-   варианту при любом языке интерфейса (`frontend_vue/src/services/mocks/services.ts:61`), а
+   варианту при любом языке интерфейса (`frontend_vue/src/services/mocks/services.ts:63`), а
    П64 назначил чтение «текущий язык, а если пусто — любой сохранённый». Услуга, названная
    только по-литовски, попадёт в сортировке на место пустой строки — то есть список
    упорядочивается по значению, которого человек не видит. П64 про показ, про сортировку он
@@ -996,7 +996,7 @@ grep -c "service_price_changed" frontend_vue/src/services/mocks/notification-tri
    `TranslatedString` означает стирание; стирание запрещено, и кнопка очистки убирается из
    карточки.
 3. **Уникально ли имя услуги внутри арендатора.** Сегодня не проверяет никто —
-   ни мок (`frontend_vue/src/services/mocks/services.ts:95-130`), ни схема, ни контракт. Повтор
+   ни мок (`frontend_vue/src/services/mocks/services.ts:97-132`), ни схема, ни контракт. Повтор
    `POST` по таймауту создаст вторую услугу с тем же именем, и это же делает `POST` обратимым в
    глазах §11. Заводить ли уникальность парой с арендатором — и по какому языку имени её
    считать, если имя переводимое?
@@ -1093,9 +1093,9 @@ grep -c "service_price_changed" frontend_vue/src/services/mocks/notification-tri
    правку его формулировки эта задача себе не назначает.
 8. **§13 соглашений приводит этот домен примером правила, которое он нарушает.** Общий раздел о
    постраничной выдаче говорит «`totalPages` — `Math.max(1, Math.ceil(total / pageSize))`» и
-   ссылается на `services/mocks/services.ts:75` как на один из примеров, где так и сделано
+   ссылается на `services/mocks/services.ts:77` как на один из примеров, где так и сделано
    (`roo_code/roo-context/api/00-conventions.md:960-963`). По этой строке стоит голый
-   `Math.ceil(total / pageSize)` без зажима (`frontend_vue/src/services/mocks/services.ts:75`),
+   `Math.ceil(total / pageSize)` без зажима (`frontend_vue/src/services/mocks/services.ts:77`),
    то есть пустой список даёт `totalPages: 0`. Поведение план чинит в С2, а вот саму ссылку в
    соглашениях правит не он: это чужой файл и сквозная задача. Отметка нужна, чтобы правку §13 не
    потеряли после того, как С2 закроет расхождение по коду, — иначе пример останется верным

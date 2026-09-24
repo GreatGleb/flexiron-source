@@ -187,7 +187,7 @@
 |---|---|---|
 | `PUT /api/categories/:id/fields` | объект-обёртка `{ fields }` | [`categoriesService.ts:60-66`](../../../frontend_vue/src/services/categoriesService.ts) |
 | `PUT /api/config/fields` | **голый массив** `FieldDefinition[]` | [`configService.ts:11-13`](../../../frontend_vue/src/services/configService.ts), и контракт называет это прямо: «Тело — плоский массив, не объект-обёртка» ([`config.md:134-135`](../../roo-context/api/config.md)) |
-| `DELETE /api/config/fields/:id` | **тела нет вовсе** | `apiDelete` тела не принимает — у него только `path` и `options` ([`api.ts:272`](../../../frontend_vue/src/services/api.ts)) |
+| `DELETE /api/config/fields/:id` | **тела нет вовсе** | `apiDelete` тела не принимает — у него только `path` и `options` ([`api.ts:291`](../../../frontend_vue/src/services/api.ts)) |
 
 Поле рядом с данными есть только у первой формы. **Заголовок есть у всех трёх:** `RequestOptions`
 несёт произвольные заголовки ([`api.ts:7-10`](../../../frontend_vue/src/services/api.ts)), и
@@ -290,7 +290,7 @@
 поле уходит из набора, три, и тело у них трёх разных форм (2.7): объект-обёртка, голый массив,
 отсутствие тела. Поле рядом с данными кладётся только в первую; во вторую его класть некуда, не
 переписав форму тела, а в третью — некуда физически, потому что `apiDelete` тела не принимает
-([`api.ts:272`](../../../frontend_vue/src/services/api.ts)). Домен, оставленный с этим один на один,
+([`api.ts:291`](../../../frontend_vue/src/services/api.ts)). Домен, оставленный с этим один на один,
 выберет своё — и три пути получат три разных способа подтверждения одной и той же операции.
 Поэтому транспорт назван здесь и один: **заголовок, на всех путях, у всех доменов**. Он доступен
 любому глаголу ([`api.ts:7-10`](../../../frontend_vue/src/services/api.ts)), доезжает и до мока

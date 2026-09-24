@@ -690,7 +690,7 @@ RBAC logic here» (`backend/app/modules/auth/internal_api/interface.py:27-38`), 
 
 **8. Транзакционность и идемпотентность.** **`Idempotency-Key` домен не шлёт ни разу** —
 `grep -c "Idempotency" frontend_vue/src/services/clientsService.ts` → `0`, при том что механизм в
-проекте есть (`services/api.ts:239-245`, кеш мока — `mocks/index.ts:262-269`), и обе `POST`-ветки
+проекте есть (`services/api.ts:258-264`, кеш мока — `mocks/index.ts:262-269`), и обе `POST`-ветки
 домена идут мимо него (`mocks/index.ts:961-963`, `:965-973` против `:912`, `:919`, `:1036`).
 **Одна кнопка Save карточки рассыпается на `1 + N + M` последовательных запросов**: `PATCH`
 клиента, затем по одному `DELETE` на каждое удалённое взаимодействие (по убыванию индекса), затем

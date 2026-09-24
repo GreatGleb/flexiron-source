@@ -17,15 +17,16 @@ const STORE: Service[] = [...mockServicesData]
  * cost, and a cost corrected here never reached an order at all.
  */
 export function serviceById(id: string): Service | undefined {
-  return STORE.find((s) => s.id === id)
+  const found = STORE.find((s) => s.id === id)
+  return found ? structuredClone(found) : undefined
 }
 
 export function allServices(): Service[] {
-  return [...STORE]
+  return structuredClone(STORE)
 }
 
 function toListItem(svc: Service): ServiceListItem {
-  return {
+  return structuredClone({
     id: svc.id,
     name: svc.name,
     costPrice: svc.costPrice,
@@ -35,7 +36,7 @@ function toListItem(svc: Service): ServiceListItem {
     description: svc.description,
     createdAt: svc.createdAt,
     updatedAt: svc.updatedAt,
-  }
+  })
 }
 
 export async function mockGetServices(
@@ -139,13 +140,13 @@ export async function mockCreateService(
     updatedAt: new Date().toISOString(),
   }
   STORE.push(service)
-  return service
+  return structuredClone(service)
 }
 
 export async function mockGetService(id: string): Promise<Service> {
   const svc = STORE.find((s) => s.id === id)
   if (!svc) throw mockRefusal(404, 'CATALOG_SERVICE_NOT_FOUND', 'CATALOG_SERVICE_NOT_FOUND')
-  return { ...svc }
+  return structuredClone(svc)
 }
 
 export async function mockPatchService(
@@ -173,7 +174,7 @@ export async function mockPatchService(
   }
   if (data.description !== undefined) svc.description = data.description
   svc.updatedAt = new Date().toISOString()
-  return { ...svc } as Service
+  return structuredClone(svc)
 }
 
 export async function mockDeleteService(id: string): Promise<boolean> {

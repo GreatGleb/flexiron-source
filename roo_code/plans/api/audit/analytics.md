@@ -250,7 +250,7 @@
   одной записи: `grep -c "apiPost\|apiPut\|apiPatch\|apiDelete\|apiUpload"
   frontend_vue/src/services/analyticsService.ts` → `0`; `Idempotency-Key` не шлётся
   (`grep -c "Idempotency" frontend_vue/src/services/analyticsService.ts` → `0`) при том, что
-  механизм в проекте есть (`frontend_vue/src/services/api.ts:240-245`). Единственное требование
+  механизм в проекте есть (`frontend_vue/src/services/api.ts:259-264`). Единственное требование
   этого класса, которое к чтению всё-таки относится, — **согласованность среза**: восемь страниц
   это восемь независимых запросов (`useAnalytics.ts:16`, по вызову на страницу), между которыми
   данные могут измениться, и одна страница может показать цифры двух разных моментов. Обязан ли

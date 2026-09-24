@@ -217,7 +217,7 @@
 `frontend_vue/src/domain/orderStatus.ts:20` (`shipped` — значение статуса заказа),
 `frontend_vue/src/services/mocks/suppliers.ts:451` (смена статуса поставщика),
 `frontend_vue/src/types/supplier.ts:10` (`blocked`),
-`frontend_vue/src/services/mocks/services.ts:138` (правка услуги),
+`frontend_vue/src/services/mocks/services.ts:140` (правка услуги),
 `frontend_vue/src/services/mocks/config.ts:189-201` (матрица).
 
 **Шестнадцатого типа не бывает.** Правило отбора П51 — «человек обязан узнать сразу, а не найти

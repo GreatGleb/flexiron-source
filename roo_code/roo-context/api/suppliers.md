@@ -498,7 +498,7 @@ History» (`views/admin/suppliers/SupplierCardPage.vue:275`); `SupplierHistoryIt
 
 Идемпотентность: `Idempotency-Key` клиент не шлёт
 (`grep -c Idempotency frontend_vue/src/services/suppliersService.ts` → 0), при том что генератор
-ключа в проекте есть (`frontend_vue/src/services/api.ts:239-245`). Нужен ли он созданию — строка
+ключа в проекте есть (`frontend_vue/src/services/api.ts:258-264`). Нужен ли он созданию — строка
 владельцу; правило «необратимый POST требует ключ» — §11 соглашений.
 
 Бэкенд: **не реализован**.

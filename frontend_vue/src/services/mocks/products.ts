@@ -13921,7 +13921,7 @@ function defineDerivedAverages(product: Product): void {
 for (const product of STORE) defineDerivedAverages(product)
 
 function toListItem(p: Product): ProductListItem {
-  return {
+  return structuredClone({
     id: p.id,
     name: p.name,
     categoryId: p.categoryId,
@@ -13937,7 +13937,7 @@ function toListItem(p: Product): ProductListItem {
     saleUomId: p.saleUomId,
     warehouseUomId: p.warehouseUomId,
     warehouseToSaleFactor: p.warehouseToSaleFactor,
-  }
+  })
 }
 
 export async function mockGetProducts(
@@ -13991,7 +13991,7 @@ export async function mockGetProduct(id: string): Promise<Product> {
       message: `Product ${id} not found`,
       code: 'PRODUCT_NOT_FOUND',
     })
-  return found
+  return structuredClone(found)
 }
 
 export async function mockCreateProduct(
@@ -14117,7 +14117,7 @@ export async function mockCreateProduct(
   }
   defineDerivedAverages(product)
   STORE.push(product)
-  return product
+  return structuredClone(product)
 }
 
 export async function mockPatchProduct(
@@ -14229,7 +14229,7 @@ export async function mockPatchProduct(
   }
   defineDerivedAverages(patched)
   STORE[idx] = patched
-  return patched
+  return structuredClone(patched)
 }
 
 export async function mockDeleteProduct(id: string): Promise<{ ok: boolean; code?: string }> {

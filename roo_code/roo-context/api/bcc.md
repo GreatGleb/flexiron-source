@@ -318,7 +318,7 @@ supplier. Grouped by requestId» (`:20`). Конверт собирает `mockG
 (§16 соглашений): страница кладёт `u.fileId` из ответа `DropZone`
 (`BccRequestPage.vue:309-318`, `components/admin/ui/DropZone.vue:4`), композабл собирает их из
 вложений шаблона (`composables/useBccRequest.ts:131`). Ключ идемпотентности генерируется на каждый
-вызов (`services/bccService.ts:43` → `services/api.ts:239-245`), «сервер» мока его чтит и
+вызов (`services/bccService.ts:43` → `services/api.ts:258-264`), «сервер» мока его чтит и
 возвращает закэшированный результат (`services/mocks/index.ts:262-269`, применение `:910-916`).
 
 Ответ: `{ requestId: string }` и больше ничего (`services/bccService.ts:34`). **Строки истории
@@ -652,7 +652,7 @@ frontend_vue/src/services/mocks/bcc.ts backend/app/modules/bcc` → 0 попад
 
 **8. Транзакционность и идемпотентность — разделено пополам, и обе половины неполны.**
 `Idempotency-Key` шлют два вызова из семи (`services/bccService.ts:43`, `:64`), генератор общий
-(`services/api.ts:239-245`), мок ключ чтит (`services/mocks/index.ts:262-269`). Не шлют его
+(`services/api.ts:258-264`), мок ключ чтит (`services/mocks/index.ts:262-269`). Не шлют его
 `POST /api/bcc/events/:eventId/response` (`services/bccService.ts:73`) и `.../no-response` (`:77`)
 — при том, что каждый создаёт новую строку (`services/mocks/bcc.ts:491`, `:513`) — БАГ-03.
 Оптимистичной блокировки нет: `grep -c "If-Match\|version" frontend_vue/src/services/bccService.ts`

@@ -75,7 +75,7 @@
 - `data` ответа: `{"url": public_url, "fileId": str(uploaded.id)}` — токены `"url"` и `"fileId"`
   найдены в `core/uploads/action.py:143-146` (по 1 каждый);
 - один файл, не массив: `sed -n '82p'` → `file: UploadFile = File(...)`;
-- клиент: `form.append('file', file)` (`api.ts:229-230`), `apiUpload(path, file: File, …)`;
+- клиент: `form.append('file', file)` (`api.ts:248-249`), `apiUpload(path, file: File, …)`;
 - клиентский тип шести полей прочитан целиком (`uploadsService.ts:3-10`) и в контракте назван
   **не** спецификацией ответа, а желаемой формой; данные для четырёх недостающих у сервера есть —
   `grep -cE "original_name|size|mime|uploaded_at"` по `models.py:22-36` → **4**.

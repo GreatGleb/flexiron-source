@@ -174,7 +174,7 @@ field_values = [
 
 ---
 
-## БАГ-05 — `mockGetProduct` отдаёт запись стора по ссылке, и карточка правит стор напрямую
+## ✅ БАГ-05 — `mockGetProduct` отдаёт запись стора по ссылке, и карточка правит стор напрямую
 
 **File:** `frontend_vue/src/services/mocks/products.ts:13985-13989`, `frontend_vue/src/views/admin/products/ProductCardPage.vue:70`
 **Severity:** High — мок перестаёт быть сервером: клиент меняет «серверные» данные, не отправив запроса.
@@ -211,6 +211,22 @@ product.value.auditLog = product.value.auditLog.filter((entry) => entry.id !== e
 
 Мок, отдающий ссылку на своё хранилище, превращает любую мутацию во фронте в тихую запись в
 базу. Ответ мока обязан быть копией.
+
+### Сделано 2026-09-23
+
+`mockGetProduct` отдаёт `structuredClone(found)` вместо самого элемента `STORE`. Заодно
+закрыты соседние выдачи того же файла, которые делили ссылку тем же способом: `mockCreateProduct`
+и `mockPatchProduct` теперь тоже отдают `structuredClone` созданного/патченного объекта, а
+`toListItem` — `structuredClone` собранной записи, так что списочные `name`/`categoryName`
+больше не делят `TranslatedString` со `STORE`. Одно исключение оставлено как есть и подтверждено
+намеренно: `productAuditSources` по-прежнему отдаёт `log: p.auditLog` по ссылке — комментарий
+над функцией объясняет, что лента и карточка обязаны видеть одно и то же удаление.
+
+Доказано новой спекой `frontend_vue/src/services/mocks/store-copies.spec.ts`: получить товар
+(чтение, создание, патч, списочная запись), испортить у копии поле и вложенный `TranslatedString`
+имени, перечитать мок и убедиться, что порча не долетела. Инверсия проверена вручную: временный
+возврат `mockGetProduct` к `return found` красит тест `чтение — правка полученного товара не
+меняет запись на «сервере»` (`AssertionError: expected 'MUTATED' to be 'Steel Sheet 3mm'`).
 
 ---
 

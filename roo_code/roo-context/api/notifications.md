@@ -231,7 +231,7 @@ bar не участвует.
 
 `Idempotency-Key` не шлётся (§11: ключ шлют пять вызовов из 175, и это не они) —
 `grep -rn "Idempotency" frontend_vue/src/services/notificationsService.ts frontend_vue/src/composables/useNotifications.ts`
-пусто, при том что генератор в проекте есть (`services/api.ts:239-245`). Ключ здесь и не нужен:
+пусто, при том что генератор в проекте есть (`services/api.ts:258-264`). Ключ здесь и не нужен:
 операция идемпотентна **по построению**, `isRead = true` ставится без разбора прежнего значения
 (`mocks/notifications.ts:436-441`).
 

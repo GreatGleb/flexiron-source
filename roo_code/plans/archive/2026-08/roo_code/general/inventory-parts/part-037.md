@@ -162,7 +162,7 @@ computed-getter — значение пересчитывается при см�
 
 Сверх плана: имя услуги в колонке тоже стало ссылкой на карточку (строка 267).
 
-**6. Моки GET/PATCH** — `mockGetService` (services.ts:132), `mockPatchService` (services.ts:138);
+**6. Моки GET/PATCH** — `mockGetService` (services.ts:134), `mockPatchService` (services.ts:140);
 роутинг в `frontend_vue/src/services/mocks/index.ts`: импорты 69/71, GET-матч на
 строке 466 (`serviceCardMatch[1]`), PATCH-вызов на 1218–1220.
 

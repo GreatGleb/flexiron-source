@@ -132,14 +132,14 @@ TBD — либо потребители подписываются на `@upload
 
 ## БАГ-04 — мок-ветка `apiUpload` теряет заголовки, и путь 401 под моками недостижим
 
-**File:** `frontend_vue/src/services/api.ts:225-228`
+**File:** `frontend_vue/src/services/api.ts:244-247`
 **Severity:** Medium — мок слабее сервера, отказ авторизации не воспроизводится
 **Источник:** К2 (мок ↔ контракт ↔ код)
 
 ### Problem
 
 `apiUpload(path, file, options)` в мок-режиме зовёт `uploadMock<T>(path, file)` — без
-`options.headers` (`api.ts:225-228`), тогда как в сетевой ветке они уходят в `fetch`
+`options.headers` (`api.ts:244-247`), тогда как в сетевой ветке они уходят в `fetch`
 (`api.ts:231-235`). Сигнатура мока заголовков и не принимает (`mocks/index.ts:1661`).
 
 Следствия два. Первое: `Authorization`, который `uploadsService` собирает вручную
@@ -167,7 +167,7 @@ TBD — прокинуть `options` в `uploadMock` и принять их в `
 файл уходит на сервер немедленно по drop (`DropZone.vue:33-38`). При этом:
 
 - клиент не шлёт ключ — `grep -c "Idempotency" frontend_vue/src/services/uploadsService.ts` → `0`,
-  хотя генератор в проекте есть (`api.ts:240-245`) и другие quick actions им пользуются;
+  хотя генератор в проекте есть (`api.ts:259-264`) и другие quick actions им пользуются;
 - сервер ключ не читает — `grep -c "Idempotency\|idempotency" backend/app/core/uploads/action.py` → `0`;
 - дедупликации по содержимому нет: имя файла — свежий `uuid4().hex` на каждый запрос
   (`core/uploads/action.py:119`), хеша в модели нет (`backend/app/core/uploads/models.py:11-38`).
@@ -511,7 +511,7 @@ TBD — владельцу: отдаёт ли сервер свои ограни
 | | БАГ-01 | Контракт | `uploadsService.ts:3-10` | ответ сервера — 2 поля, тип обещает 6; 12 потребителей |
 | | БАГ-02 | Падение | `useWarehouseMap.ts:45` | `file.mime.startsWith` по `undefined` вместо отказа |
 | | БАГ-03 | UX | `DropZone.vue:22,40-42` | `uploadError` не слушает никто — отказ невидим |
-| | БАГ-04 | Мок | `api.ts:225-228` | мок не получает заголовков, путь 401 не воспроизводится |
+| | БАГ-04 | Мок | `api.ts:244-247` | мок не получает заголовков, путь 401 не воспроизводится |
 | | БАГ-05 | Контракт | `uploadsService.ts:13-17` | нет `Idempotency-Key` у quick action |
 | | БАГ-06 | Данные | `core/uploads/action.py:117-138` | диск пишется до коммита, осиротевший файл не убирается |
 | | БАГ-07 | Замысел | `core/uploads/action.py:136` | `is_draft=False` отменяет draft-хранилище и TTL |

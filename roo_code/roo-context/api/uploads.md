@@ -55,7 +55,7 @@ file: <один файл>
 Сервер объявляет один обязательный файл — `file: UploadFile = File(...)`
 (`core/uploads/action.py:29`), а не `list[UploadFile]`: второй файл в том же запросе он не примет.
 Клиент собирает форму так же — `form.append('file', file)` с одним `File`
-(`services/api.ts:229-230`), и `apiUpload` принимает `file: File`, а не массив (`:224`). Несколько
+(`services/api.ts:248-249`), и `apiUpload` принимает `file: File`, а не массив (`:224`). Несколько
 файлов — несколько запросов: `Promise.all(files.map((f) => uploadFile(f)))` (`DropZone.vue:23`).
 
 Заголовки клиент получает через общий authToken в api.ts; uploadFile не читает хранилище
@@ -138,7 +138,7 @@ Idempotency-Key по-прежнему не обрабатывается загр
 (`mocks/index.ts:1662-1677`); единственный `throw` — `[mock] UPLOAD ${path} not found` (`:1678`),
 то есть для неизвестного пути, которого у домена из одного пути не бывает. Ни размер, ни MIME, ни
 авторизацию мок не проверяет: мок-ветка `apiUpload` зовёт `uploadMock<T>(path, file)` без третьего
-аргумента (`services/api.ts:225-228`), а сигнатура мока заголовков и не имеет (`mocks/index.ts:1726`).
+аргумента (`services/api.ts:244-247`), а сигнатура мока заголовков и не имеет (`mocks/index.ts:1726`).
 Под моками **все** пути ошибок недостижимы (БАГ-04) — демо не доказывает их существования.
 
 **И ни один код не доходит до человека.** `apiUpload` бросает `ApiRequestError` с разобранными
@@ -151,7 +151,7 @@ Idempotency-Key по-прежнему не обрабатывается загр
 `core/uploads/service.py:14-36` (`store_file`) · модель `core/uploads/models.py:11-39` ·
 подключение `backend/app/main.py:77`
 Реализация: `services/uploadsService.ts:18-20` (`uploadFile`) · транспорт
-`services/api.ts:224-237` (`apiUpload`) · потребитель `components/admin/ui/DropZone.vue:44-63` ·
+`services/api.ts:243-256` (`apiUpload`) · потребитель `components/admin/ui/DropZone.vue:44-63` ·
 мок `mocks/index.ts:1726` (`uploadMock` → `uploadMockRoute`, `:1661-1679`)
 
 ---
@@ -296,8 +296,8 @@ header/query/form tenant_id игнорируются; загрузка акти�
 уход со страницы до Save оставляет тот же осиротевший файл (БАГ-06).
 Идемпотентности нет ни с одной стороны: клиент ключ не шлёт (`uploadsService.ts:13-17` — ни
 `newIdempotencyKey()`, ни заголовка) при том, что генератор в проекте есть
-(`services/api.ts:239-245`), сервер ключа не читает (`core/uploads/action.py:26-93`), а мок бы его
-и не увидел (`services/api.ts:225-228`).
+(`services/api.ts:258-264`), сервер ключа не читает (`core/uploads/action.py:26-93`), а мок бы его
+и не увидел (`services/api.ts:244-247`).
 
 Механизм `withIdempotency` у мока есть и другими
 доменами используется (`mocks/index.ts:262-269`). Повтор запроса — второй файл на диске и вторая
@@ -381,7 +381,7 @@ header/query/form tenant_id игнорируются; загрузка акти�
 
 | было описано | чем доказано отсутствие / несоответствие |
 |---|---|
-| «поле `file` — один или несколько файлов» (`03-api-contract.md:164`) | сервер принимает один: `file: UploadFile = File(...)` (`core/uploads/action.py:29`), клиент шлёт один (`services/api.ts:229-230`); несколько файлов = несколько запросов (`DropZone.vue:23`) |
+| «поле `file` — один или несколько файлов» (`03-api-contract.md:164`) | сервер принимает один: `file: UploadFile = File(...)` (`core/uploads/action.py:29`), клиент шлёт один (`services/api.ts:248-249`); несколько файлов = несколько запросов (`DropZone.vue:23`) |
 | «Response 200: `Array<{fileId,name,size,mime,url,uploadedAt}>`» (`03-api-contract.md:165-175`) | ответ не массив, а объект в обёртке (`core/uploads/action.py:90-93`, `core/schemas.py:29-35`), и в нём два поля из шести |
 | «`url` — временный URL для preview» (`03-api-contract.md:172`) | сервер строит постоянную ссылку на статику (`core/uploads/action.py:88-89`), каталог смонтирован навсегда (`backend/app/main.py:66`). Временный тут как раз мок: data-URL живёт в памяти вкладки (`mocks/index.ts:1664-1666`) |
 | «файл попадает в draft-хранилище, не привязанный ни к какой сущности» (`03-api-contract.md:177`) | эндпоинт передаёт `is_draft=False` (`core/uploads/action.py:83`) при значении по умолчанию `True` в модели (`core/uploads/models.py:26-28`), сервисе (`core/uploads/service.py:22`) и схеме (`133fae13afbe_phase_5_uploads.py:33`) — черновиков не возникает вовсе (БАГ-07) |

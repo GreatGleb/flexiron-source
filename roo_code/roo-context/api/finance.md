@@ -68,7 +68,7 @@
   исходящего платежа — исключение: она читает `errorCode(e) === 'PAYMENT_NOT_FOUND'`
   (`OutgoingPaymentCardPage.vue:74`).
 - **Под моками это уже `ApiRequestError`, не голый `Error`.** `unwrap()` (`services/api.ts:138-154`)
-  по-прежнему не вызывается — мок отвечает раньше `fetch` (`services/api.ts:260-264`), — но сам
+  по-прежнему не вызывается — мок отвечает раньше `fetch` (`services/api.ts:279-283`), — но сам
   мок с 2026-09-11 строит отказ своим хелпером (`mockRefusal`, `mocks/finance.ts:25-27`).
 
 Кодов ядра (`NOT_FOUND`, `VALIDATION_ERROR`, `UNAUTHORIZED`, `FORBIDDEN`, `CONFLICT` —
@@ -578,7 +578,7 @@ Save-режим — **чтение**. Триггеров пять, и пятый
 **8. Транзакционность и идемпотентность.** **Ключа нет, версии нет, а Save всё же рвётся на два
 запроса.** `Idempotency-Key` не шлётся ни на одном из пяти путей
 (`grep -c "Idempotency" frontend_vue/src/services/financeService.ts` → 0) при существующем
-генераторе (`services/api.ts:239-245`); правило «необратимый `POST` требует ключ» домена не
+генераторе (`services/api.ts:258-264`); правило «необратимый `POST` требует ключ» домена не
 касается — `POST` у него нет (§11 соглашений). Версии у записи нет ни во фронте, ни на схеме:
 `{ ...current, ...data }` без сравнения (`mocks/finance.ts:522`) — last-write-wins. Внутри PATCH
 атомарность полная (`mocks/finance.ts:484-488`), а **сохранение карточки атомарно не целиком**:

@@ -197,7 +197,7 @@ apiPost<BccRequest>(`/api/bcc/events/${eventId}/no-response`, {})               
 домена — event-sourcing (`frontend_vue/src/types/bcc.ts:20`) — означает, что повтор не
 «перезапишет то же самое», а добавит второе событие. Механизм в проекте есть и работает:
 `withIdempotency` кэширует результат по ключу (`mocks/index.ts:262-269`, применение `:912`,
-`:919`), генератор — `newIdempotencyKey` (`frontend_vue/src/services/api.ts:240-245`).
+`:919`), генератор — `newIdempotencyKey` (`frontend_vue/src/services/api.ts:259-264`).
 
 ### Expected
 

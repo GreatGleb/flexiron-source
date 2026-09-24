@@ -679,7 +679,7 @@ logic here. Returns True for now (permissive default)»
 **Транзакционность и идемпотентность.** `Idempotency-Key` домен не шлёт —
 `grep -c "Idempotency" frontend_vue/src/services/configService.ts` → `0`, и обе `POST`-ветки мока
 идут мимо `withIdempotency` (`mocks/index.ts:943`, `:946` против `:912`, `:919`, `:1036`), при том
-что механизм в проекте есть (`frontend_vue/src/services/api.ts:239-245`). По §11 соглашений это
+что механизм в проекте есть (`frontend_vue/src/services/api.ts:258-264`). По §11 соглашений это
 законно: необратимых операций у домена нет. По атомарности наблюдение прямое: Save шлёт **три
 независимых запроса параллельно** одним `Promise.all([saveFieldLibrary, saveSections,
 savePermissions])` (`useCardConfig.ts:51-55`) — общей транзакции нет, порядок не задан, и при

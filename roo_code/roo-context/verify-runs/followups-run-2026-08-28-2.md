@@ -162,7 +162,7 @@ git diff 654da1a^ 8f3ed83   →  пусто   (п. 7)
 
 Чем проверено мной: `grep -rn "ServicePriceUnit\|priceUnit" frontend_vue/src/ roo_code/roo-context/03-api-contract.md`
 → семь попаданий, и **ни одного живого**: пять — комментарии и докстринги, объясняющие, чего
-здесь больше нет (`types/service.ts:11,16`, `mocks/services.ts:81`, `AddOrderServicesModal.vue:34`),
+здесь больше нет (`types/service.ts:11,16`, `mocks/services.ts:83`, `AddOrderServicesModal.vue:34`),
 одно — утверждение стражи `servicePricing.spec.ts:59` `expect(service).not.toHaveProperty('priceUnit')`,
 одно — строка контракта `03-api-contract.md:1134`, где сказано, что союза больше нет.
 

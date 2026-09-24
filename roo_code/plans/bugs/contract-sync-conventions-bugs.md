@@ -201,7 +201,7 @@ return apiPost(`/api/orders/${orderId}/shipments`, data, {
 (`ordersService.ts:297-299`; так же устроены возврат `:354-356`, платёж `:388-390` и оба вызова
 `bccService.ts:41-45`, `:62-66`.)
 
-`newIdempotencyKey()` — это `crypto.randomUUID()` (`frontend_vue/src/services/api.ts:301-307`), и
+`newIdempotencyKey()` — это `crypto.randomUUID()` (`frontend_vue/src/services/api.ts:320-326`), и
 вычисляется он на КАЖДОМ вызове. Ключа, который пережил бы неудачную попытку, в проекте нет:
 
 - `grep -rc "newIdempotencyKey" frontend_vue/src --include=*.vue` → ни одного файла: страница ключ
