@@ -17,6 +17,9 @@ from app.core.exceptions import (
 from app.core.middleware.cors import setup_cors
 
 # ── Route imports from module features ──
+from app.modules.products.features.list_products.action import (
+    router as products_list_router,
+)
 from app.modules.products.features.get_product_detail.action import (
     router as products_get_detail_router,
 )
@@ -106,6 +109,9 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/static/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 # ── Include feature routers ──
+# `list_products` MUST be registered before `get_product_detail`: the latter's
+# `/{product_id}` segment is typed UUID and would otherwise capture `/list`.
+app.include_router(products_list_router)
 app.include_router(products_get_detail_router)
 app.include_router(products_create_router)
 app.include_router(auth_me_router)

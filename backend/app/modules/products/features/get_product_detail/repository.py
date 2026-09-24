@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.modules.products.shared.models import Product, ProductFieldValue
-from app.modules.products.shared.models import Category
+from app.modules.products.shared.models import Category, CategoryField
 
 
 async def get_product_by_id(
@@ -32,3 +32,17 @@ async def get_category_by_id(
         )
     )
     return result.scalar_one_or_none()
+
+
+async def get_category_fields_by_ids(
+    db: AsyncSession, field_ids: list[UUID], tenant_id: UUID
+) -> dict[UUID, CategoryField]:
+    """Fetch field definitions for the given ids in one query, scoped to tenant."""
+    if not field_ids:
+        return {}
+    result = await db.execute(
+        select(CategoryField).where(
+            CategoryField.id.in_(field_ids), CategoryField.tenant_id == tenant_id
+        )
+    )
+    return {field.id: field for field in result.scalars().all()}

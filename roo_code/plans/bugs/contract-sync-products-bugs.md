@@ -138,7 +138,7 @@ await apiDelete<void>(`/api/products/${productId}/audit/${entryId}`)
 
 ## БАГ-04 — сервер отдаёт имя кастомного поля заглушкой вместо имени
 
-**File:** `backend/app/modules/products/features/get_product_detail/domain.py:67-74`
+**File:** `backend/app/modules/products/features/get_product_detail/domain.py:70-77`
 **Severity:** High — единственный реализованный ответ по товару содержит заведомо неверные данные.
 **Источник:** К4 (формы ответа), К5 (бэкенд — источник истины)
 
@@ -243,7 +243,7 @@ product.value.auditLog = product.value.auditLog.filter((entry) => entry.id !== e
 Пользователь видит английскую строку из мока при любой локали.
 
 Настоящий сервер этот случай оформляет как надо — `NotFoundError(entity="Product", …)` с кодом
-`NOT_FOUND` (`backend/app/modules/products/features/get_product_detail/domain.py:53`,
+`NOT_FOUND` (`backend/app/modules/products/features/get_product_detail/domain.py:54`,
 `backend/app/core/exceptions.py:13-20`), отдаёт 404 с телом `{"detail": {"message", "code"}}`
 (`backend/app/modules/products/features/get_product_detail/action.py:42-46`). То есть мок **слабее** сервера, и путь ошибки под
 моками воспроизводится не тот, что будет в проде.
@@ -545,7 +545,7 @@ saleUomId: data.saleUomId ?? null,
 
 ## ✅ БАГ-14 — `get_product_by_id` и `get_category_by_id` выбирают без фильтра по арендатору
 
-**File:** `backend/app/modules/products/features/get_product_detail/repository.py:13-22` и `:25-31`, `backend/app/modules/products/features/get_product_detail/domain.py:47-53` и `:56-64`
+**File:** `backend/app/modules/products/features/get_product_detail/repository.py:13-22` и `:25-31`, `backend/app/modules/products/features/get_product_detail/domain.py:48-54` и `:56-64`
 **Severity:** High — чтение товара и категории чужого арендатора по угаданному id ничем не ограничено.
 **Источник:** К6 (мультиарендность)
 
@@ -560,7 +560,7 @@ result = await db.execute(
 ```
 
 `tenant_id` в запросе нет: `sed -n '17,22p' … | grep -c tenant` → 0, и по файлу целиком тоже 0.
-При этом домен `tenant_id` получает (`backend/app/modules/products/features/get_product_detail/domain.py:47-49`) и использует его
+При этом домен `tenant_id` получает (`backend/app/modules/products/features/get_product_detail/domain.py:48-50`) и использует его
 только для сборки легаси-подписи `price_unit` (`:77-79`), а не для выборки. Схема
 мультиарендность требует: `Product.tenant_id` — `nullable=False, index=True`, FK на `tenants.id`
 (`backend/app/modules/products/shared/models.py:101-106`).
@@ -576,7 +576,7 @@ result = await db.execute(
 (`backend/app/modules/products/features/get_product_detail/repository.py:25-31`) делает
 `select(Category).where(Category.id == category_id)` — без арендатора, хотя `categories.tenant_id`
 объявлен `nullable=False` (`backend/app/modules/products/shared/models.py:17-24`). Карточка
-собирает вложенную категорию именно ею (`backend/app/modules/products/features/get_product_detail/domain.py:56-64`),
+собирает вложенную категорию именно ею (`backend/app/modules/products/features/get_product_detail/domain.py:57-65`),
 то есть в ответе может оказаться имя категории чужого арендатора. Сквозной план мультиарендности
 уже записал обе функции под этим номером
 (`roo_code/plans/general/сквозное-tenancy-план.md:154-155`), и обе ре-экспортируются наружу

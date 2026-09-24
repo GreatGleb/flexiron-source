@@ -151,7 +151,7 @@ $ grep -rn "products" backend/app/main.py
 Шаг 10 (чистка) — ЧАСТИЧНО. Хардкод-юнионы убраны, моки перестроены
 (`grep -c "saleUomId" src/services/mocks/products.ts` → 119, `priceQuantity` → 118, `purchaseUomId` → 118),
 но `priceUnit` жив сознательно как legacy: `src/types/product.ts:21,34,59` и 135 значений в моках,
-на бэкенде `get_product_detail/domain.py:26` `_reconstruct_price_unit` собирает его из FK.
+на бэкенде `get_product_detail/domain.py:27` `_reconstruct_price_unit` собирает его из FK.
 Хардкод-единицы остались вне склада: `src/views/admin/suppliers/BccRequestPage.vue:328`
 `const UNIT_OPTIONS = ['kg','m','piece','ton']`.
 

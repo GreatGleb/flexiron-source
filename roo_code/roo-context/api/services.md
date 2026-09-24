@@ -13,7 +13,7 @@
 `backend/app/modules/services/` существует, но состоит из модели и двух файлов-заглушек:
 роутов ноль (`grep -rn "@router\." backend/app/modules/services --include=*.py` — пусто),
 слайсов ноль (`backend/app/modules/services/features/` содержит только `__init__.py`), и в
-`backend/app/main.py:69-77` подключены девять роутеров, ни одного из `services`. Поэтому у
+`backend/app/main.py:72-80` подключены девять роутеров, ни одного из `services`. Поэтому у
 каждого раздела ниже стоит `Бэкенд: не реализован` — метка `Статус: спроектировано` здесь была
 бы **неверна**: код есть, отсутствует именно серверная половина уже работающего эндпоинта.
 
@@ -75,7 +75,7 @@
 > `NULL` и ничего не уронили. Обратный проход лоссовый и это записано в самой ревизии:
 > `'EUR/vnt'` возвращается как `'EUR/pcs'`, потому что код единицы собирается по en → ru → lt —
 > тем же правилом, что `_reconstruct_price_unit`
-> (`backend/app/modules/products/features/get_product_detail/domain.py:26-44`).
+> (`backend/app/modules/products/features/get_product_detail/domain.py:27-45`).
 >
 > **Слайсы по услугам писать теперь можно** — форма, которую они закрепят, совпадает с той, что
 > просит фронт. Остаётся расхождение по `nullable`: на проводе `currencyId`/`uomId`

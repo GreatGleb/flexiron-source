@@ -34,7 +34,7 @@
 |---|---|---|
 | эндпоинтов домена | **7** | `grep -c "^### " roo_code/roo-context/api/products.md` |
 | из них без бэкенда | **5** | `grep -cE "Бэкенд: (\*\*)?не реализован" roo_code/roo-context/api/products.md` |
-| реализовано на бэкенде | **2** | `POST /api/products` и `GET /api/products/{product_id}`, оба подключены в `backend/app/main.py:66-67` |
+| реализовано на бэкенде | **2** | `POST /api/products` и `GET /api/products/{product_id}`, оба подключены в `backend/app/main.py:69-70` |
 | решений владельца в брифе | **34** | `grep -c "^### П" /tmp/night-queue-briefs/решения-products.md` |
 | из них контракт не упоминает | **24** | `for p in 2 8 10 11 19 20 21 23 24 26 32 34 36 37 38 40 41 42 44 46 47 51 53 55 56 57 58 64 65 68 69 72 73 75; do grep -q "П$p\b" roo_code/roo-context/api/products.md \|\| echo П$p; done \| wc -l` |
 | граф «Обязанности сервера» | **9** | `awk 'NR>=614 && NR<=771 && /^\*\*[0-9]\./' roo_code/roo-context/api/products.md \| wc -l` |
@@ -108,7 +108,7 @@ ApiRequestError`, `e.code === 'PRODUCT_NOT_FOUND'`. Той же задачей �
 | `POST`, `GET /:id` | `name: Mapped[str]` `String(255)` (`backend/app/modules/products/shared/models.py:107`), вход `name: str` (`backend/app/modules/products/features/create_product/schemas.py:8-31`) | `name: TranslatedString` (`frontend_vue/src/types/product.ts:58`) | **контракт** | три языка в одной `String(255)` хранить нечем, а П64 объявлен универсальным. Колонка становится `name_translations` JSONB — правило проекта для переводимого поля |
 | `PATCH`, `GET /:id` | `description: Mapped[str \| None]` `Text` (`backend/app/modules/products/shared/models.py:115`) | `description: TranslatedString \| null` (`frontend_vue/src/types/product.ts:61`) | **контракт** | то же правило; описание в поиск не входит, значит индексировать его не нужно, и цена JSONB нулевая |
 | `POST` | схемы `snake_case`, `extra` не запрещён (`backend/app/modules/products/features/create_product/schemas.py:8-31`) | клиент шлёт `camelCase` (`frontend_vue/src/services/productsService.ts:28-59`) | **контракт** | прецедент `settings`: сервер уже отдаёт camelCase через `by_alias` и алиасы на входе (`backend/app/modules/settings/features/crud/schemas.py:155`); второго правила в проекте быть не должно. Плюс `extra="forbid"`, иначе опечатка ключа уезжает в тишину (БАГ-11) |
-| `GET /:id` | `price_unit` собирается при каждом чтении (`backend/app/modules/products/features/get_product_detail/domain.py:26-44`) | поля нет | **схема** | колонку удалила миграция (`backend/alembic/versions/a1b2c3d4e5f6_phase_15_product_uom_restructure.py:99`), а подпись собирается на чужом языке. Поле уходит из ответа |
+| `GET /:id` | `price_unit` собирается при каждом чтении (`backend/app/modules/products/features/get_product_detail/domain.py:27-45`) | поля нет | **схема** | колонку удалила миграция (`backend/alembic/versions/a1b2c3d4e5f6_phase_15_product_uom_restructure.py:99`), а подпись собирается на чужом языке. Поле уходит из ответа |
 | `GET /:id` | вложенный `category` с `level` (`backend/app/modules/products/features/get_product_detail/schemas.py:17-22`) | плоские `categoryId` + `categoryName` | **оба, по эндпоинту** | карточка рисует ссылку — ей вложенный объект; список рисует колонку — ему два плоских поля, и такой список уже собран (`frontend_vue/src/types/product.ts:37-54`). `level` из ответа товара уходит: он производное категории (П68), и фронт товара его не читает |
 | `GET /:id` | `field_values` из трёх полей, `field_name` — заглушка `str(fv.field_id)` (`backend/app/modules/products/features/get_product_detail/domain.py:70`) | шесть полей, имя `TranslatedString` (`frontend_vue/src/types/product.ts:9-16`) | **контракт по ответу, схема по хранению** | нарисовать поле без имени и типа нельзя, а хранить их у значения незачем: §8 велит серверу читать из значения только `fieldId` и `value`. Сервер собирает четыре справочных поля из определения категории, а присланные — игнорирует (БАГ-04) |
 | `GET /:id` | `updated_at` отдаётся (`backend/app/modules/products/features/get_product_detail/schemas.py:25-54`) | поля нет | **схема** | отметка есть у всех таблиц через `TimestampMixin` (`backend/app/core/base.py:25`), и прятать её дороже, чем показать. Версией записи она при этом не становится: §11 оставляет версию только заказам |
@@ -125,7 +125,7 @@ ApiRequestError`, `e.code === 'PRODUCT_NOT_FOUND'`. Той же задачей �
 ## 4. Коды отказа, которых сегодня нет ни у кого
 
 Сегодня каталог домена — пять кодов, и пересечения между сервером и моком нет ни одного
-(`roo_code/roo-context/api/products.md:70-104`). Ниже — то, чем домен обязан отказывать, кто
+(`roo_code/roo-context/api/products.md:72-106`). Ниже — то, чем домен обязан отказывать, кто
 бросает и кто читает. Столбец «читает» назван поимённо: код, который никто не разбирает, до
 человека не доходит, и сегодня из пяти доходит **один**.
 
@@ -148,7 +148,7 @@ ApiRequestError`, `e.code === 'PRODUCT_NOT_FOUND'`. Той же задачей �
 идентификаторов, ничем не связанное с заказами (`services/mocks/products.ts:14229`).
 
 **Врезка: один код на «товара нет», а не два.** Сервер сегодня бросает `NOT_FOUND`
-(`backend/app/modules/products/features/get_product_detail/domain.py:53`), мок на том же пути —
+(`backend/app/modules/products/features/get_product_detail/domain.py:54`), мок на том же пути —
 английскую фразу, а на удалении — `PRODUCT_NOT_FOUND`. Домен выбирает **`PRODUCT_NOT_FOUND`
 везде**, и вот почему: (1) путь `DELETE /:id/audit/:id` несёт два идентификатора и обязан
 различать два отказа, а различать их можно только именами; (2) два имени у одного события — это
@@ -186,7 +186,7 @@ ApiRequestError`, `e.code === 'PRODUCT_NOT_FOUND'`. Той же задачей �
 |---|---|---|
 | `create_product` ([`backend/app/modules/products/features/create_product/repository.py:10-13`](../../../backend/app/modules/products/features/create_product/repository.py)) | да — писатель, `tenant_id` в параметрах и в самой строке | в порядке; `TENANTLESS` не нужен |
 | `get_product_by_id` ([`backend/app/modules/products/features/get_product_detail/repository.py:13`](../../../backend/app/modules/products/features/get_product_detail/repository.py)) | **нет** — `where(Product.id == product_id)` и всё | дефект: БАГ-14 баг-файла ([`contract-sync-products-bugs.md`](../bugs/contract-sync-products-bugs.md)), строка `KNOWN_GAPS` сторожа, починка — С4 |
-| `get_category_by_id` ([`backend/app/modules/products/features/get_product_detail/repository.py:25`](../../../backend/app/modules/products/features/get_product_detail/repository.py)) | **нет** — `where(Category.id == category_id)`, а `categories.tenant_id` — `nullable=False` (`backend/app/modules/products/shared/models.py:17-24`) | дефект: тот же БАГ-14 — так эту функцию уже записал [`сквозное-tenancy-план.md`](../general/сквозное-tenancy-план.md) §2.3(в), строка `KNOWN_GAPS` та же, починка — С4. Течёт через карточку: вложенную категорию ответ собирает именно ею (`backend/app/modules/products/features/get_product_detail/domain.py:56-64`) |
+| `get_category_by_id` ([`backend/app/modules/products/features/get_product_detail/repository.py:25`](../../../backend/app/modules/products/features/get_product_detail/repository.py)) | **нет** — `where(Category.id == category_id)`, а `categories.tenant_id` — `nullable=False` (`backend/app/modules/products/shared/models.py:17-24`) | дефект: тот же БАГ-14 — так эту функцию уже записал [`сквозное-tenancy-план.md`](../general/сквозное-tenancy-план.md) §2.3(в), строка `KNOWN_GAPS` та же, починка — С4. Течёт через карточку: вложенную категорию ответ собирает именно ею (`backend/app/modules/products/features/get_product_detail/domain.py:57-65`) |
 | `internal_api.get_product_by_id` ([`backend/app/modules/products/internal_api/interface.py:21`](../../../backend/app/modules/products/internal_api/interface.py)) | своего запроса нет — ре-экспорт несужённой | наследует БАГ-14 и раздаёт его всем модулям, которые спросят товар (§2.5 того же плана); чинится тем же С4 — обёртка принимает `tenant_id` и передаёт его дальше |
 | `internal_api.get_category_by_id` ([`backend/app/modules/products/internal_api/interface.py:33`](../../../backend/app/modules/products/internal_api/interface.py)) | своего запроса нет — ре-экспорт несужённой | то же самое, тот же С4 |
 | `count_products_by_currency` ([`backend/app/modules/products/internal_api/interface.py:43`](../../../backend/app/modules/products/internal_api/interface.py)) | да — `Product.tenant_id == tenant_id` в `where` (`:50`) | в порядке; показывает, что модуль это умеет, и потому две несужённые — упущение, а не отсутствие механизма |
@@ -622,7 +622,7 @@ ApiRequestError`, `e.code === 'PRODUCT_NOT_FOUND'`. Той же задачей �
 
 ### Двадцать строк «Чего в домене нет» — куда легла каждая
 
-Раздел контракта `roo_code/roo-context/api/products.md:874-908` перечисляет то, что прежний текст
+Раздел контракта `roo_code/roo-context/api/products.md:891-925` перечисляет то, что прежний текст
 описывал, а в коде этого нет. Для плана это не архив, а список мест, где сервер придётся строить
 не по прежнему описанию. Двадцать строк — `awk 'NR>=861 && NR<=895 && /^\| /' … | wc -l` минус шапка.
 
@@ -733,7 +733,7 @@ grep -cE '^\| `products\.[a-z][a-z0-9-]*` \| `(entity|section|field)` \|' roo_co
 **Греп по всему файлу здесь не годится, и в прошлой редакции плана стоял именно он.**
 `grep -c "products\.[a-z0-9-]*_" roo_code/roo-context/api/products.md` сегодня даёт **5**, и ни одно
 совпадение не идентификатор элемента: `products.toast_error_delete_in_use`
-([`roo_code/roo-context/api/products.md:97`](../../roo-context/api/products.md)),
+([`roo_code/roo-context/api/products.md:99`](../../roo-context/api/products.md)),
 `products.toast_error_delete` ([`:99`](../../roo-context/api/products.md)), `products.toast_error`
 ([`:479`](../../roo-context/api/products.md)), `products.toast_deleted`
 ([`:502`](../../roo-context/api/products.md)) — ключи i18n, `products.category_id`
