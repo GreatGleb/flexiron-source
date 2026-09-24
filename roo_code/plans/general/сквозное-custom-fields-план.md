@@ -197,7 +197,7 @@
 
 Прецедент в проекте уже есть, и он того же класса — «условие выполнения, а не полезная нагрузка»:
 `Idempotency-Key` у пяти необратимых `POST` и `If-Match` у шести удалений заказа
-([`00-conventions.md:852-890`](../../roo-context/api/00-conventions.md)).
+([`00-conventions.md:863-901`](../../roo-context/api/00-conventions.md)).
 Тем же способом ездит подпись сессии — `X-CSRF-Token`
 ([`00-conventions.md:174-178`](../../roo-context/api/00-conventions.md)). Отсюда КП-5.
 
