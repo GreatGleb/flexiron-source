@@ -20,7 +20,7 @@
 их создаёт, правит и удаляет через `/api/settings/currencies`, а остальные страницы строят
 селекты из `settings.currencies` — `ServiceCardPage.vue:48`
 (`settings.currencies.map((c) => ({ value: c.id, label: c.code }))`),
-`WarehouseBatchCard.vue:231`, `ProductsPage.vue:144`.
+`WarehouseBatchCard.vue:233`, `ProductsPage.vue:144`.
 
 То есть «какие валюты существуют» записано в проекте дважды, и вторая запись не знает о первой.
 В мок-режиме расхождение незаметно: сид настроек содержит те же валюты, и список не меняется от

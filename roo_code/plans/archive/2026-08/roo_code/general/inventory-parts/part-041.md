@@ -138,13 +138,13 @@ $ sed -n '1822,1830p' frontend_vue/src/views/admin/warehouse/WarehousePage.vue
 ```
 
 Ни `div.th-content`, ни `span.info-hint`. Ключ `col_product_hint` в локалях есть,
-но на этой странице не используется — только в WarehouseDeficitCard.vue:339 и
-WarehouseOffcutCard.vue:392:
+но на этой странице не используется — только в WarehouseDeficitCard.vue:281 и
+WarehouseOffcutCard.vue:334:
 
 ```
 $ grep -rn "col_product_hint" frontend_vue/src/views frontend_vue/src/components
-src/views/admin/warehouse/WarehouseDeficitCard.vue:339
-src/views/admin/warehouse/WarehouseOffcutCard.vue:392
+src/views/admin/warehouse/WarehouseDeficitCard.vue:281
+src/views/admin/warehouse/WarehouseOffcutCard.vue:334
 ```
 
 Осталось: обернуть заголовок `col_product` таба партий в `div.th-content` и добавить

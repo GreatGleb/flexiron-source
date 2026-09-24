@@ -46,7 +46,7 @@ $ grep -n "DatePicker\|payment-date" src/views/admin/orders/OrderCardPage.vue
 ```
 $ ls src/components/admin/ui/SuffixSelect.vue   → есть (3630 байт)
 $ grep -rn "SuffixSelect" src/ --include=*.vue | grep -v ui/SuffixSelect.vue
-BccRequestPage.vue:1042, OrderCardPage.vue:1280, WarehouseBatchCard.vue:782,
+BccRequestPage.vue:1042, OrderCardPage.vue:1280, WarehouseBatchCard.vue:724,
 WarehouseBatchCreatePage.vue:572          → ровно 4 места из плана
 $ grep -rn "currencyOpen\|custom-select-wrap'" (те же 4 файла)
 (пусто — самодельное состояние и клик-аутсайд снесены)

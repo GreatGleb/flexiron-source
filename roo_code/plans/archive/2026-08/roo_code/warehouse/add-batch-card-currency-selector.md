@@ -2,7 +2,7 @@
 
 ## Problem
 
-1. In [`WarehouseBatchCard.vue`](frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:379-417), the **Цена за ед.** (unitPrice) field is a plain `<input type="number">` without any currency indicator — the user doesn't know what currency the price is in.
+1. In [`WarehouseBatchCard.vue`](frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:321-359), the **Цена за ед.** (unitPrice) field is a plain `<input type="number">` without any currency indicator — the user doesn't know what currency the price is in.
 2. The **Общая стоимость** (totalCost) field at line 411 hardcodes `€` (euro): `` `${batch.totalCost.toFixed(2)} €` `` — but the currency should be dynamic.
 3. There is no `currency` field on the [`WarehouseBatch`](frontend_vue/src/types/warehouse.ts:36-71) type, nor in [`BatchPatchPayload`](frontend_vue/src/types/warehouse.ts:102-113).
 

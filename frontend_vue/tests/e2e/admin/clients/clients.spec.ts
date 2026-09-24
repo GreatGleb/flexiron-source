@@ -390,6 +390,43 @@ test.describe('client-create › structure & validation', () => {
     ).toBeVisible()
   })
 
+  /**
+   * `AutoResizeTextarea` меряет себя один раз и записывает результат в
+   * `style.height`. Это число ровно настолько верно, насколько верен шрифт в
+   * момент замера, — а в момент монтирования это ещё запасной шрифт: браузер
+   * начинает тянуть веб-шрифт при раскладке текста, то есть при той самой
+   * раскладке, которую замер и вызывает. Перерисовку текста после прихода Inter
+   * браузер делает сам, а вписанную высоту — нет: это не поток, это решение.
+   *
+   * Замер 2026-09-24 до починки: коробка заметок вставала на 68px, а тот же
+   * замер после прихода шрифта давал 71px — три пикселя на трёхстрочном поле, и
+   * панель вокруг выходила на 3px короче эталона. Утверждение проверяет не
+   * число (оно зависит от шрифта и вьюпорта), а само правило: высота коробки
+   * равна той, которую она сейчас себе и посчитала бы.
+   *
+   * Бездействие его не устраивает (питфолл #68): без вписанной высоты поле
+   * стоит на `min-height: 50px`, и это не 71.
+   */
+  test('notes box is sized under the font actually in use, not the fallback', async ({ page }) => {
+    await waitForFontsReady(page)
+
+    // Предусловие: мерять высоту «под настоящим шрифтом» имеет смысл только
+    // если настоящий шрифт в самом деле пришёл.
+    expect(await page.evaluate(() => document.fonts.check('14px Inter'))).toBe(true)
+
+    const box = await page.locator('[data-test="field-notes"]').evaluate((node) => {
+      const ta = node as HTMLTextAreaElement
+      const locked = ta.offsetHeight
+      const keep = ta.style.height
+      ta.style.height = 'auto'
+      const needed = ta.scrollHeight
+      ta.style.height = keep
+      return { locked, needed }
+    })
+
+    expect(box.locked).toBe(box.needed)
+  })
+
   test('all form fields are present', async ({ page }) => {
     await expect.soft(page.locator('[data-test="field-name"]')).toBeVisible()
     await expect.soft(page.locator('[data-test="field-company-code"]')).toBeVisible()

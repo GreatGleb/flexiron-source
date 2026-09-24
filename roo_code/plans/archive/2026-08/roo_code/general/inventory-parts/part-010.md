@@ -96,7 +96,7 @@ $ npx vite build              → ✓ built in 8.38s (только warning пр�
 `Breadcrumb.vue` (`items: { label: string }[]`), `TagInput.vue` (`{ value: string; label: string }`),
 `FinanceSubNav.vue` (`tab.label`), `DocumentArchivePage.vue` (`finance.ts:65 name: string`),
 `ClientsListPage.vue` / `SalesCrmPage.vue` / `OrderCreatePage.vue` (`client.ts:15 name: string`),
-`WarehouseMapPage.vue` (`settings.ts:92 WarehouseMapFile.name: string`),
+`WarehouseMapPage.vue` (`settings.ts:94 WarehouseMapFile.name: string`),
 `WarehouseBatchCreatePage.vue:279`, `AddOrderItemsModal.vue:574`,
 `WarehouseOffcutCreatePage.vue:309` — во всех трёх `group.categoryName: string`,
 собирается через `tf(p.categoryName)` в computed.
@@ -109,7 +109,7 @@ $ npx vite build              → ✓ built in 8.38s (только warning пр�
 ### Наблюдение вне плана (не требование)
 Хардкод `{ ru: X, en: X, lt: X }` остался в местах, которые план не перечислял:
 `BccRequestPage.vue:308,401`, `SettingsLayout.vue:329,340,341,386`,
-`SupplierCardConfigPage.vue:671`. Отдельная задача, если это вообще дефект.
+`SupplierCardConfigPage.vue:684`. Отдельная задача, если это вообще дефект.
 
 ---
 

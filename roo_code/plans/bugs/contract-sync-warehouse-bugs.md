@@ -49,8 +49,8 @@
 
 ### Actual
 
-Заголовков нет ни на одном. `Idempotency-Key` (`frontend_vue/src/services/api.ts:239-245`) и
-`If-Match` (ветка мока умеет его читать — `frontend_vue/src/services/mocks/index.ts:1577`,
+Заголовков нет ни на одном. `Idempotency-Key` (`frontend_vue/src/services/api.ts:258-264`) и
+`If-Match` (ветка мока умеет его читать — `frontend_vue/src/services/mocks/index.ts:1578`,
 `:1428`) тоже не используются.
 
 ---
@@ -270,7 +270,7 @@ resolvable: 0 of 15
 
 Рядом то же с заказами: `orderId: 'ord-001'` у партии и у трёх обрезков
 (`frontend_vue/src/mocks/warehouse-offcuts.ts`), тогда как мок заказов выдаёт `ORD-001`
-(`frontend_vue/src/services/mocks/orders.ts:662`).
+(`frontend_vue/src/services/mocks/orders.ts:665`).
 
 ### Expected
 
@@ -433,7 +433,7 @@ N+1 на каждое открытие карточки.
 
 ## БАГ-13 — возврат, записанный заказами, не уменьшает агрегат продажи и не гасит активную продажу
 
-**File:** `frontend_vue/src/services/mocks/orders.ts:3435`
+**File:** `frontend_vue/src/services/mocks/orders.ts:3438`
 **Severity:** High — после отмены отгрузки или возврата клиента партия продолжает показывать проданным то, что вернулось; остаток при этом увеличивается, то есть два экрана об одной партии говорят разное.
 **Источник:** К2 (кросс-доменное), К6
 
@@ -456,7 +456,7 @@ if (m.type === 'return') {
 Домен заказов пишет туда другое:
 
 ```
-frontend_vue/src/services/mocks/orders.ts:3344   referenceType: 'order-shipment'
+frontend_vue/src/services/mocks/orders.ts:3347   referenceType: 'order-shipment'
 :3435   referenceType: 'order-shipment-cancelled'
 :3780   referenceType: 'order-return'
 :3792   referenceType: 'order-return-writeoff'
@@ -466,8 +466,8 @@ frontend_vue/src/services/mocks/orders.ts:3344   referenceType: 'order-shipment'
 
 Второе следствие — активные продажи. `mockGetBatchActiveSales` сопоставляет возвраты продажам по
 `referenceId` (`frontend_vue/src/services/mocks/warehouse.ts:1457-1468`). У отмены отгрузки
-`referenceId = shipment.id` совпадает с продажей (`frontend_vue/src/services/mocks/orders.ts:3345`, `:3436`) — здесь совпадение
-случайно верное. У возврата клиента `referenceId = orderReturn.id` (`frontend_vue/src/services/mocks/orders.ts:3781`), и он не
+`referenceId = shipment.id` совпадает с продажей (`frontend_vue/src/services/mocks/orders.ts:3348`, `:3436`) — здесь совпадение
+случайно верное. У возврата клиента `referenceId = orderReturn.id` (`frontend_vue/src/services/mocks/orders.ts:3784`), и он не
 совпадает ни с одной продажей: возвращённое остаётся «активной продажей» навсегда.
 
 Старый контракт называет ещё третий словарь: `"sale" | "purchase_order" | "work_order" |
@@ -535,7 +535,7 @@ frontend_vue/src/services/mocks/orders.ts:3344   referenceType: 'order-shipment'
 (`frontend_vue/src/domain/cutting.ts:71-76`, `:81-86`).
 
 Справочник настроек содержит девять: те же шесть плюс `uom-m3`, `uom-kg-m3`, `uom-h`
-(`frontend_vue/src/services/mocks/settings.ts:91-146`).
+(`frontend_vue/src/services/mocks/settings.ts:93-148`).
 `sed -n '71,86p' frontend_vue/src/domain/cutting.ts | grep -c 'uom-m3'` → 0.
 
 Партия в `uom-m3` даёт `BATCH_UNIT_NOT_SUPPORTED` (`frontend_vue/src/domain/cutting.ts:52-53`) и на резке
@@ -1012,7 +1012,7 @@ product_id: Mapped[uuid.UUID] = mapped_column(
 дельтой в единственный PATCH товара (`useProductCard.ts:233-256`) и ложится в стор товаров
 (`mocks/products.ts:14184`, запись — `:14220`). У склада порог — собственное поле строки остатка, засеянное отдельно
 (`frontend_vue/src/mocks/warehouse-stock.ts`, `grep -c minStock` → 72) и правимое собственным
-маршрутом `PATCH` остатка (`mocks/index.ts:1437` → `mocks/warehouse.ts:553-561`, `Object.assign(item, delta)`).
+маршрутом `PATCH` остатка (`mocks/index.ts:1439` → `mocks/warehouse.ts:553-561`, `Object.assign(item, delta)`).
 Комментарий типа обещает вывод из товара — «Minimum stock threshold (**from product**)»
 (`types/warehouse.ts:588-589`), но вывода нет: `grep -n minStock frontend_vue/src/services/mocks/warehouse.ts`
 даёт ровно две строки, `:474` и `:522`, и обе читают `row.minStock`, то есть собственную копию.
@@ -1037,7 +1037,7 @@ isDeficit: row.minStock !== null && totalQuantity < row.minStock,
 
 **Карточка товара о дефиците не знает вовсе.** `grep -rn isDeficit` по
 `views/admin/products/` и `composables/useProductCard.ts` → пусто; признак читают только склад
-(`WarehousePage.vue:1387`, `:1737`, `:1756`) и карточка остатка (`WarehouseStockCard.vue:267`). То
+(`WarehousePage.vue:1387`, `:1737`, `:1756`) и карточка остатка (`WarehouseStockCard.vue:209`). То
 есть на экране, где порог задают, последствия его правки не видны.
 
 ### Fix

@@ -67,14 +67,16 @@
 code }`) с кодами ядра — 401 `UNAUTHORIZED` без токена, 404 `NOT_FOUND` на чужой или несуществующий
 `id`, 403 `FORBIDDEN` на чужую ленту.
 
-**Путь ошибки в интерфейсе есть только у одного эндпоинта из четырёх.** Чтение ленты кладёт в
+**Путь ошибки в интерфейсе есть у трёх эндпоинтов из четырёх.** Чтение ленты кладёт в
 `error` **текст** исключения — `error.value = (e as Error).message`
 (`composables/useNotifications.ts:37`), — и страница печатает его человеку как есть
 (`NotificationsPage.vue:168`); `ApiRequestError.code` (`types/api.ts:28-31`) домен не читает нигде.
-Остальные три глотают ошибку молча: счётчик — `catch { /* silently fail on count polling */ }`
-(`useNotifications.ts:46-48`), обе мутации — `:59-61` и `:69-71`. То есть код, который сервер
-пришлёт на этих трёх путях, до человека не дойдёт вовсе — это класс §2 «Отказ несёт код, а не
-текст» и БАГ-04.
+Тем же способом теперь отвечают и обе мутации: код `markAsRead` и код `markAllAsRead`
+(`composables/useNotifications.ts`) кладут причину в `error` после `await`, а не глотают её.
+Молчит только опрос счётчика — `catch { /* silently fail on count polling */ }`
+(`useNotifications.ts:46-48`) — осознанное исключение (см. БАГ-03 про сам опрос), а не пропуск. То
+есть код, который сервер пришлёт на этом одном пути, до человека не дойдёт вовсе — единственный
+оставшийся случай класса §2 «Отказ несёт код, а не текст».
 
 ---
 
@@ -158,12 +160,14 @@ interface Notification {
 `NotificationsPage.vue:168`).
 
 Триггеры запроса — четыре: `onMounted(() => load())` страницы (`NotificationsPage.vue:118-120`);
-`watch(filters, …, { deep: true })` со сбросом на первую страницу (`useNotifications.ts:77-85`);
+`watch(filters, …, { deep: true })` со сбросом на первую страницу (`useNotifications.ts:83-91`);
 `watch([page, pageSize])` (`:87-93`), причём флаг `skipNextPageWatch` (`:75`, `:80`, `:88-91`)
 гасит второй запрос, когда смена фильтра одновременно сбрасывает страницу; и колокольчик —
-`loadDropdownItems()` зовёт **тот же** `load()` синглтона и берёт первые пять из общих `items`
-(`NotificationDropdown.vue:19-24`), из-за чего «пять свежих» на самом деле «пять из текущей
-отфильтрованной страницы» — БАГ-02. Поиск дебаунсится 300 мс в компоненте, а не в композабле
+`loadDropdownItems()` зовёт `notificationsService.getNotifications` напрямую, своим отдельным
+запросом первой страницы из пяти без фильтров (`NotificationDropdown.vue`, функция
+`loadDropdownItems`), независимо от `filters` и `page` синглтона, которыми живёт страница списка.
+БАГ-02 («пять свежих» на деле были «пять из текущей отфильтрованной страницы») закрыт этим
+отдельным запросом. Поиск дебаунсится 300 мс в компоненте, а не в композабле
 (`NotificationsPage.vue:63-71`).
 
 Бэкенд: **не реализован** — роутов у модуля `notifications` ноль
@@ -171,7 +175,8 @@ interface Notification {
 `backend/app/modules/notifications/shared/models.py:11-42`.
 Реализация: `services/notificationsService.ts:5-18` (`getNotifications`) · потребитель
 `composables/useNotifications.ts:29-32` · мок `mocks/index.ts:364` →
-`mocks/notifications.ts:404-430` (`mockGetNotifications`)
+`mocks/notifications.ts:404-430` (`mockGetNotifications`). Второй вызывающий — дропдаун, функция
+`loadDropdownItems` в `components/admin/NotificationDropdown.vue`, своим отдельным запросом.
 
 ---
 
@@ -201,10 +206,10 @@ interface Notification {
 серверу: счётчик обязан быть дешёвым (`COUNT` по индексу `(user_id, is_read)`), потому что его
 дёргают раз в 30 с у каждого открытого клиента.
 
-Опрос: первый вызов на загрузке модуля (`useNotifications.ts:111`), дальше
+Опрос: первый вызов на загрузке модуля (`useNotifications.ts:117`), дальше
 `setInterval(loadUnreadCount, 30_000)` там же (`:112`). Второй раз тот же счётчик читается при
-монтировании колокольчика (`NotificationDropdown.vue:76`). Экспортированные `startPolling` /
-`stopPolling` (`useNotifications.ts:95-106`, экспорт `:129-130`) не вызываются ниоткуда — БАГ-03:
+монтировании колокольчика (`NotificationDropdown.vue:96`). Экспортированные `startPolling` /
+`stopPolling` (`useNotifications.ts:101-112`, экспорт `:129-130`) не вызываются ниоткуда — БАГ-03:
 опрос стартует на уровне модуля и не останавливается никогда.
 
 Ошибки: ни одной своей; клиент глотает любую молча
@@ -213,7 +218,7 @@ interface Notification {
 Бэкенд: **не реализован** — роутов у модуля ноль; колонки под счётчик на схеме нет, он производный
 (`backend/app/modules/notifications/shared/models.py:33-36` — только `is_read`).
 Реализация: `services/notificationsService.ts:20-22` (`getUnreadCount`) · потребители
-`composables/useNotifications.ts:42-49`, `components/admin/NotificationDropdown.vue:76` · мок
+`composables/useNotifications.ts:42-49`, `components/admin/NotificationDropdown.vue:96` · мок
 `mocks/index.ts:378` → `mocks/notifications.ts:432-434` (`mockGetUnreadCount`)
 
 ---
@@ -226,23 +231,23 @@ bar не участвует.
 Запрос: путь плюс **пустой объект телом** — ``apiPatch<void>(`/api/notifications/${id}/read`, {})``
 (`services/notificationsService.ts:25`). Тело сериализуется всегда (`services/api.ts:206`), то есть
 на провод уходит `{}` с `Content-Type: application/json` (`:205`). Мок ловит путь регуляркой
-`/^\/api\/notifications\/([^/]+)\/read$/` (`mocks/index.ts:1392`) и тело не читает
+`/^\/api\/notifications\/([^/]+)\/read$/` (`mocks/index.ts:1394`) и тело не читает
 вовсе (`:1394`).
 
 `Idempotency-Key` не шлётся (§11: ключ шлют пять вызовов из 175, и это не они) —
 `grep -rn "Idempotency" frontend_vue/src/services/notificationsService.ts frontend_vue/src/composables/useNotifications.ts`
-пусто, при том что генератор в проекте есть (`services/api.ts:239-245`). Ключ здесь и не нужен:
+пусто, при том что генератор в проекте есть (`services/api.ts:258-264`). Ключ здесь и не нужен:
 операция идемпотентна **по построению**, `isRead = true` ставится без разбора прежнего значения
 (`mocks/notifications.ts:436-441`).
 
 Ответ: `Promise<void>` (`services/notificationsService.ts:24`); мок — `delay(undefined as T)`
-(`mocks/index.ts:1395`). На проводе `ApiResponse<null>` (§1). Обновлённую запись сервер не отдаёт,
+(`mocks/index.ts:1397`). На проводе `ApiResponse<null>` (§1). Обновлённую запись сервер не отдаёт,
 и клиент её не ждёт — он правит свою копию сам (`useNotifications.ts:54-58`).
 
 **Ответа никто не дожидается.** Оба вызывающих сначала смотрят на локальный флаг и сразу уходят на
 карточку сущности: строка таблицы — `if (!notification.isRead) markAsRead(notification.id)` и
 следом `router.push` (`NotificationsPage.vue:93-98`); строка дропдауна — то же
-(`NotificationDropdown.vue:44-50`). `markAsRead` не `await`-ится ни там, ни там.
+(`NotificationDropdown.vue:56-66`). `markAsRead` не `await`-ится ни там, ни там.
 
 Ошибки: **ни одной, и это расхождение с обещанным.** `mockMarkAsRead` для неизвестного `id`
 не делает ничего и не бросает: `const notification = notifications.find(…); if (notification) { … }`
@@ -261,7 +266,7 @@ bar не участвует.
 (`backend/app/modules/notifications/shared/models.py:33-36`) и **нет** `read_at`, то есть «когда
 прочитано» не хранится нигде.
 Реализация: `services/notificationsService.ts:24-26` (`markAsRead`) · потребитель
-`composables/useNotifications.ts:53-62` · мок `mocks/index.ts:1392-1396` →
+`composables/useNotifications.ts:53-62` · мок `mocks/index.ts:1394-1398` →
 `mocks/notifications.ts:436-441` (`mockMarkAsRead`)
 
 ---
@@ -274,7 +279,7 @@ bar не участвует.
 (`services/notificationsService.ts:29`). **Ни фильтров, ни списка `id`:** операция всегда «все», и
 это часть контракта — «прочитать всё» на отфильтрованной странице отметит и то, чего пользователь
 не видел. Мок сравнивает путь строкой и ставит эту ветку до регулярки одиночной отметки
-(`mocks/index.ts:1388` против `:1392`); порядок безопасен и без того — `read-all` под
+(`mocks/index.ts:1390` против `:1392`); порядок безопасен и без того — `read-all` под
 `([^/]+)/read` не подходит, — но правило §18 «вложенный путь раньше голого `:id`» соблюдено.
 Тело мок не читает (`:1389`).
 
@@ -282,31 +287,30 @@ bar не участвует.
 весь массив одним выражением (`mocks/notifications.ts:443-445`).
 
 Ответ: `Promise<void>` (`services/notificationsService.ts:28`), мок — `delay(undefined as T)`
-(`mocks/index.ts:1390`). На проводе `ApiResponse<null>`. **Ни числа затронутых записей, ни нового
+(`mocks/index.ts:1392`). На проводе `ApiResponse<null>`. **Ни числа затронутых записей, ни нового
 счётчика сервер не возвращает** — поэтому клиент обнуляет счётчик у себя
 (`useNotifications.ts:68`). Если сервер начнёт отдавать `{ affected, unreadCount }`, клиенту
 не придётся угадывать; сегодня контракт этого не требует, потому что код не читает.
 
-Ошибки: ни одной своей. Клиент глотает ошибку молча (`useNotifications.ts:69-71`), то есть
-неудавшаяся отметка внешне неотличима от удавшейся: счётчик и строки перекрашиваются оптимистично
-(`:67-68`).
+Ошибки: ни одной своей. Отказ кладёт причину в `error` тем же способом, что и одиночная отметка —
+`error.value = (e as Error).message` после `await` (`composables/useNotifications.ts`, функция
+`markAllAsRead`); счётчик и записи правятся только **после** успешного ответа, а не до него.
 
-Два вызывающих ведут себя **по-разному**, и это уже дефект. Страница: `handleMarkAllRead` →
-`await markAllAsRead()` и затем `load()` (`NotificationsPage.vue:100-103`), кнопка `:134-137`.
-Дропдаун: `onMarkAllRead` → `markAllAsRead()` **без перезагрузки**
-(`NotificationDropdown.vue:52-54`, кнопка `:131-134`), а `markAllAsRead` заменяет `items.value`
-новыми объектами (`useNotifications.ts:67`), тогда как `dropdownItems` держит прежние ссылки
-— `dropdownItems` это локальный ref (`NotificationDropdown.vue:16`), заполняемый копией
-`items.value.slice(0, 5)` (`:23`), шаблон рисует именно его (`:103`), а признак непрочитанности
-берёт из прежнего объекта (`:106`), — строки остаются нарисованными непрочитанными.
-Это БАГ-05, и он опирается ровно на то, что мок **заменяет массив целиком** новыми объектами
-(`mocks/notifications.ts:444`), а не правит поля на месте.
+Оба вызывающих ведут себя одинаково: ждут `markAllAsRead()`, затем перечитывают свою выборку.
+Страница: `handleMarkAllRead` → `await markAllAsRead()` и затем `load()`
+(`NotificationsPage.vue:100-103`), кнопка `:134-137`. Дропдаун: `onMarkAllRead` → `await
+markAllAsRead()` и затем `await loadDropdownItems()` (`NotificationDropdown.vue`, функция
+`onMarkAllRead`) — своим отдельным запросом, а не через общие `items`. БАГ-05 опирался на то, что
+мок `mockMarkAllAsRead` заменяет весь массив целиком новыми объектами (раздел эндпоинта выше), а
+`dropdownItems` дропдауна держал прежние ссылки, снятые раньше срезом общих `items`, и не
+перекрашивался. Закрыт этим перечитыванием: дропдаун больше не хранит срез чужого состояния,
+который мог устареть у него на руках.
 
 Бэкенд: **не реализован** — роутов у модуля ноль; на схеме отметка выражена только колонкой
 `is_read` (`backend/app/modules/notifications/shared/models.py:33-36`), следа массовой операции нет.
 Реализация: `services/notificationsService.ts:28-30` (`markAllAsRead`) · потребители
 `composables/useNotifications.ts:65-72`, `views/admin/notifications/NotificationsPage.vue:100-103`,
-`components/admin/NotificationDropdown.vue:52-54` · мок `mocks/index.ts:1388-1391` →
+`components/admin/NotificationDropdown.vue:52-54` · мок `mocks/index.ts:1390-1393` →
 `mocks/notifications.ts:443-445` (`mockMarkAllAsRead`)
 
 ---
@@ -346,17 +350,19 @@ bar не участвует.
 6. **Счёт поставщика без заказа ведёт к контрагенту, а не в пустую карточку заказа.** Развилка
    `entityType`/`entityRouteName` по наличию `orderId` и направлению платежа
    (`mocks/notifications.ts:699-726`), закреплено спекой
-   (`mocks/notification-triggers.spec.ts:348-360`).
+   (`mocks/notification-triggers.spec.ts:360-372`).
 7. **`entityId` — идентификатор, а не номер документа, хотя у заказа они похожи** (§19). Эмиттер
    кладёт `order.id` (`mocks/notifications.ts:560`), а в текст пишет `order.orderNumber`
    (`:555-557`); сиды используют именно `id` (`:34` — `ORD-001`), поэтому переход по ним работает.
 8. **Счётчик колокольчика и список на странице показывают разные множества — это правило, а не
    дефект.** Счётчик считается по всему стору (`mocks/notifications.ts:433`), список — по фильтрам
    (`:420`). Бейдж обязан быть глобальным.
-9. **Путь ошибки есть у одного эндпоинта из четырёх.** Чтение ленты печатает текст исключения
-   (`useNotifications.ts:37`, `NotificationsPage.vue:168`); счётчик и обе мутации молчат
-   (`useNotifications.ts:46-48`, `:59-61`, `:69-71`). Сервер обязан отдавать коды по §1–§2, но
-   сегодня три из четырёх путей их не покажут.
+9. **Путь ошибки есть у трёх эндпоинтов из четырёх — молчит только опрос счётчика.** Функции
+   `load`, `markAsRead` и `markAllAsRead` печатают текст исключения человеку одним и тем же
+   способом — лента показывает его на странице
+   (`NotificationsPage.vue:168`). Опрос счётчика молчит по конструкции
+   (`useNotifications.ts:46-48`). Сервер обязан отдавать
+   коды по §1–§2, но сегодня один путь из четырёх их не покажет.
 
 ## Обязанности сервера
 
@@ -369,9 +375,10 @@ bar не участвует.
 `usePagination(25)` (`useNotifications.ts:19`) и дефолт мока (`mocks/index.ts:374`); перечень
 размеров `10/25/50/100` — константа `PAGE_SIZE_OPTIONS` в компоненте
 (`NotificationsPage.vue:74-79`), справочника под неё нет ни в настройках, ни на схеме (§13).
-Интервал опроса `30_000` записан дважды в одном файле (`useNotifications.ts:95` дефолтом параметра
+Интервал опроса `30_000` записан дважды в одном файле (`useNotifications.ts:101` дефолтом параметра
 `startPolling`, `:112` литералом модульного `setInterval`), дебаунс поиска `300` мс — в странице (`NotificationsPage.vue:70`), глубина
-выдачи колокольчика `5` — `items.value.slice(0, 5)` (`NotificationDropdown.vue:23`). Иконка типа —
+выдачи колокольчика `5` — константа `DROPDOWN_PAGE_SIZE` рядом с `loadDropdownItems`
+(`NotificationDropdown.vue`). Иконка типа —
 константа в типах `NOTIFICATION_TYPE_ICONS` (`types/notifications.ts:35-44`), а не поле записи:
 сервер её не отдаёт и отдавать не должен. Новая запись рождается с `isRead: false` и
 `createdAt: new Date().toISOString()` (`mocks/notifications.ts:519-520`) — на схеме те же умолчания
@@ -379,7 +386,8 @@ bar не участвует.
 `server_default=func.now()` (`:37-42`), `title_translations`/`message_translations` —
 `server_default="{}"` (`:29-30`). Кому принадлежат интервал опроса и глубина ленты — **решено 2026-09-07 (П20)**: коду. Сервер не
 решает, сколько строк показывает интерфейс и как часто он спрашивает; ни интервал `30_000`
-(`composables/useNotifications.ts:95`, `:112`), ни глубина `5` (`NotificationDropdown.vue:23`), ни
+(`composables/useNotifications.ts:101`, `:112`), ни глубина `5` (`NotificationDropdown.vue`,
+константа `DROPDOWN_PAGE_SIZE`), ни
 дебаунс `300` мс (`NotificationsPage.vue:70`) настройкой арендатора не становятся. Приведение
 дублей к одному источнику в коде — работа ([§13](00-conventions.md)).
 
@@ -458,7 +466,7 @@ bar не участвует.
 уведомлений нет
 (`grep -rn -i "notif" frontend_vue/src/services/mocks/config.ts frontend_vue/src/types/config.ts` —
 пусто). Колокольчик не закрыт даже флагом — рисуется без проверки
-(`NotificationDropdown.vue:84-89`). Функции, проверяющей право на чтение чужой ленты или на отметку
+(`NotificationDropdown.vue:104-109`). Функции, проверяющей право на чтение чужой ленты или на отметку
 чужой записи, нет ни одной; мок ищет запись по `id` во всём сторе (`mocks/notifications.ts:437`).
 Правило §6 «право проверяет та же функция, что пишет» здесь не выполнено ни в одном месте. Строка
 владельцу.
@@ -470,7 +478,7 @@ bar не участвует.
 (`mocks/notifications.ts:436-441`); `mockMarkAllAsRead` переписывает весь массив (`:443-445`).
 Внутри мока обе операции синхронны и однооперационны, то есть атомарны. **Атомарность между
 доменами не выражена нигде, и это главное наблюдение графы:** уведомление пишется в том же вызове,
-что и породившее его изменение (`mocks/orders.ts:1837`, `services/mocks/warehouse.ts:789`,
+что и породившее его изменение (`mocks/orders.ts:1840`, `services/mocks/warehouse.ts:789`,
 `mocks/finance.ts:486`), но без транзакции — `emit` уже добавил запись в ленту
 (`mocks/notifications.ts:516`) к моменту, когда вызывающий может ещё упасть. Дедупликация повторного
 события держится на памяти процесса (`mocks/finance.ts:63`) и на сравнении «до/после» у
@@ -483,13 +491,13 @@ bar не участвует.
 (3) `total` — длина **отфильтрованного**, а не всего (`:425`).
 (4) `entityRouteName` — **производное, которое сервер сейчас обязан хранить**: поле обязательно в
 типе (`types/notifications.ts:22`), клиент подставляет его в `router.push` без всякого маппинга
-(`NotificationsPage.vue:97`, `NotificationDropdown.vue:49`), а колонки под него на схеме нет
+(`NotificationsPage.vue:97`, `NotificationDropdown.vue:65`), а колонки под него на схеме нет
 (`models.py:31-32`). Значение выводимо из `entityType` однозначно — пять типов, пять имён роутов:
 `admin-order-card` (`router/index.ts:160`), `admin-client-card` (`:180`), `admin-supplier-card`
 (`:212`), `admin-product-card` (`:224`), `admin-warehouse-batch` (`:262`); мок именно так их и
 расставляет. Хранит сервер или выводит при чтении — строка владельцу.
 (5) Относительное время («2 часа назад») считается на клиенте из `createdAt`
-(`NotificationDropdown.vue:56-68`) и сервером не отдаётся.
+(`NotificationDropdown.vue:76-88`) и сервером не отдаётся.
 
 ## Пробелы аудита — где закрыты
 
@@ -531,10 +539,12 @@ bar не участвует.
 
 У всех четырёх эндпоинтов есть экран-потребитель: страница ленты
 (`views/admin/notifications/NotificationsPage.vue:118-120`, `:93-98`, `:100-103`) и колокольчик
-(`components/admin/NotificationDropdown.vue:19-24`, `:44-50`, `:52-54`, `:76`). Ни одной функции
-`notificationsService.ts` без вызывающего нет: файл экспортирует четыре функции
-(`:5`, `:20`, `:24`, `:28`), и каждая зовётся из `composables/useNotifications.ts` (`:29-32`,
-`:42-49`, `:53-62`, `:65-72`).
+(`components/admin/NotificationDropdown.vue`, функции `loadDropdownItems`, `onNotificationClick`,
+`onMarkAllRead`, `onMounted`). Ни одной функции `notificationsService.ts` без вызывающего нет: файл
+экспортирует четыре функции (`:5`, `:20`, `:24`, `:28`); `getUnreadCount`, `markAsRead` и
+`markAllAsRead` зовутся только из `composables/useNotifications.ts` (`:42-49`, `:53-62`,
+`:65-72`), а у `getNotifications` (`:5`) два вызывающих — тот же композабл (`:29-32`) и
+`NotificationDropdown.vue` напрямую, функция `loadDropdownItems`.
 
 Обратной стороны — ветки мока без вызывающего — у домена тоже нет: четыре ветки
 (`mocks/index.ts:364`, `:378`, `:1388`, `:1392`) против четырёх вызовов. Домен не участвует ни в
@@ -555,12 +565,12 @@ bar не участвует.
 |---|---|
 | код `NOTIFICATION_NOT_FOUND` — «404, уведомление не найдено», и «404 если `id` не существует» у одиночной отметки | в репозитории такого кода нет нигде: `grep -rn "NOTIFICATION_NOT_FOUND" frontend_vue/src backend` — пусто. Мок для неизвестного `id` не бросает и не делает ничего (`mocks/notifications.ts:436-441`), клиент любую ошибку глотает (`useNotifications.ts:59-61`). Требование к серверу сохранено в разделе эндпоинта и в каталоге кодов, но **как задание с кодами ядра** (§2), а не как этот код: своего каталога у домена нет. БАГ-04 |
 | «`entityRouteName` … генерируется фронтом» и «сервер его не хранит (или хранит как опциональное поле)» | прежний текст противоречит сам себе, и оба варианта неверны: поле **обязательно** в типе (`types/notifications.ts:22`), лежит в каждой сид-записи и проставляется каждым эмиттером (`mocks/notifications.ts:561`, `:581`, `:611`, `:632`, `:652`, `:669`, `:715`, `:720`, `:725`), а клиент подставляет его в `router.push` без маппинга (`NotificationsPage.vue:97`). Никакого «маппинга на клиенте» в коде нет. Хранить или выводить — решение владельца |
-| «`NotificationDropdown.vue` — дропдаун в хедере — топ-5 уведомлений» | пять берутся не из свежих, а из **текущей отфильтрованной страницы** синглтона: `loadDropdownItems` зовёт общий `load()` (`NotificationDropdown.vue:19-24`), который использует общие `filters` и `page` (`useNotifications.ts:29-32`). Обещание не описывает код — БАГ-02 |
+| «`NotificationDropdown.vue` — дропдаун в хедере — топ-5 уведомлений» | было опровергнуто на момент сведения: пять брались не из свежих, а из текущей отфильтрованной страницы синглтона — БАГ-02. **Закрыто:** `loadDropdownItems` запрашивает свою первую страницу из пяти без фильтров напрямую через `notificationsService.getNotifications`, независимо от `filters`/`page` страницы (`NotificationDropdown.vue`, функция `loadDropdownItems`) — прежний текст снова описывает код верно |
 | пример ответа с `"total": 18` | сидов в моке двадцать: `grep -c "    id: 'notif-" frontend_vue/src/services/mocks/notifications.ts` → 20. Пример убран целиком: форма задаётся типом `PaginatedResponse<Notification>` (§13), а число сидов — свойство демо-данных, которому в контракте места нет |
 | «Response 200: `number` (без `ApiResponse`-обёртки? Формат уточнить)» | вопрос снят кодом: `unwrap()` снимает конверт для любого тела с ключом `success`, особого случая для этого пути нет (§1, `services/api.ts:128-137`). На проводе `ApiResponse<number>` |
 | «Возвращает количество непрочитанных уведомлений **для текущего пользователя**» и «Отмечает все уведомления **текущего пользователя**» | понятия пользователя в реализации нет: мок считает по всему стору (`mocks/notifications.ts:433`) и переписывает весь массив (`:444`), клиент не шлёт ни идентификатора, ни заголовка (`services/notificationsService.ts:21`, `:29`). Требование остаётся верным по схеме (`models.py:22-27`), но как **строка владельцу** и БАГ-01, а не как описание существующего |
 | «Клиент после успеха декрементирует локальный `unreadCount`» | делает это **безусловно**, а не после успеха: `Math.max(0, unreadCount.value - 1)` (`useNotifications.ts:58`) выполняется и когда сервер ничего не изменил, потому что ошибка проглочена (`:59-61`) |
-| «Polling: `unreadCount` опрашивается каждые 30 секунд (module-level interval в `useNotifications`)» | верно и подтверждено (`useNotifications.ts:112`), но прежний текст умалчивал, что остановки нет: `startPolling`/`stopPolling` (`:95-106`) не вызываются ниоткуда — БАГ-03 |
+| «Polling: `unreadCount` опрашивается каждые 30 секунд (module-level interval в `useNotifications`)» | верно и подтверждено (`useNotifications.ts:118`), но прежний текст умалчивал, что остановки нет: `startPolling`/`stopPolling` (`:95-106`) не вызываются ниоткуда — БАГ-03 |
 | «Уведомления генерируются сервером при событиях (… истечение резерва …)» | семь событий из восьми верны и описаны в §10; **истечения резерва среди них нет** — у типа `reserve_expiring` триггера не существует, и причина записана в коде (`mocks/notifications.ts:739-748`). Тип сохранён, потому что он есть в фильтре и в сидах, — но как «Правила домена», пункт 2, а не как реализованное событие |
 | «Никаких форм редактирования, clean-slate не применим» (раздел Save UX) | остаётся в силе и подтверждено: у всех четырёх эндпоинтов save-режим — чтение или quick-action (§15), Save bar в домене не участвует ни в одном месте |
 

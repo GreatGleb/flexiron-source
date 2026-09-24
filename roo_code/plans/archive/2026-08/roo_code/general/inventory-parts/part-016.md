@@ -130,7 +130,7 @@ $ grep -n "admin-settings-profile" frontend_vue/src/components/admin/AdminSideba
   `FinanceSettings.vue`, `UnitsSettings.vue`, `OrderStatusesSettings.vue`, `LogsSettings.vue`.
   Табов шесть, и набор другой (появился Profile и Logs).
 - **Таб «Пользователи» отсутствует.** Тип `SettingUser` есть, данные в моке есть
-  (`mocks/settings.ts:162: users: [`), но в `settingsService.ts` нет ни одной функции по
+  (`mocks/settings.ts:164: users: [`), но в `settingsService.ts` нет ни одной функции по
   пользователям (`grep -rn "users" settingsService.ts` — пусто) и UI-страницы нет.
 - **Таб «Карта склада» (секторы) отсутствует.** `grep -rn -i "sector" types/settings.ts
   settingsService.ts` — пусто; вместо `WarehouseSector[]` в `AppSettings` лежит

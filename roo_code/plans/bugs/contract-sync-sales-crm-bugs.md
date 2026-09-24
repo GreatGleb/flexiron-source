@@ -5,11 +5,11 @@
 линзы К2–К4, К6. Аудит: [`roo_code/plans/api/audit/sales-crm.md`](../api/audit/sales-crm.md).
 Область: `frontend_vue/src/services/ordersService.ts:53-55` (клиент домена),
 ветка sales-crm в `frontend_vue/src/services/mocks/index.ts:538-542`,
-`mockGetSalesCrmStats` в `frontend_vue/src/services/mocks/orders.ts:1577-1595`,
+`mockGetSalesCrmStats` в `frontend_vue/src/services/mocks/orders.ts:1580-1598`,
 `SalesCrmStats` в `frontend_vue/src/types/order.ts:44-57`,
 `frontend_vue/src/composables/useSalesCrmDashboard.ts`,
 `frontend_vue/src/views/admin/sales-crm/SalesCrmPage.vue`,
-`frontend_vue/src/services/mocks/orders.spec.ts:2972-3017`,
+`frontend_vue/src/services/mocks/orders.spec.ts:2980-3025`,
 `frontend_vue/tests/e2e/admin/sales-crm/sales-crm.spec.ts`.
 Начато: 2026-09-04.
 
@@ -27,8 +27,8 @@
 
 ## БАГ-01 — `salesMtd` считает заказанное, включая возвращённое, тогда как то же правило в том же файле считает отгруженное минус возвращённое
 
-**File:** `frontend_vue/src/services/mocks/orders.ts:1585-1587` против
-`frontend_vue/src/services/mocks/orders.ts:1312-1324`
+**File:** `frontend_vue/src/services/mocks/orders.ts:1588-1590` против
+`frontend_vue/src/services/mocks/orders.ts:1315-1327`
 **Severity:** High — месячный оборот компании завышен на всё, что клиент вернул, и завышение не
 исчезает никогда: возврат не двигает ни статус, ни сумму заказа.
 **Источник:** К4 (формы и смысл полей), К6 (производные значения)
@@ -40,7 +40,7 @@
 ```ts
 const salesMtd = STORE.filter(
   (o) => countsAsSale(o.status) && new Date(o.createdAt) >= monthStart,
-).reduce((sum, o) => round2(sum + o.totalAmount), 0)   // orders.ts:1585-1587
+).reduce((sum, o) => round2(sum + o.totalAmount), 0)   // orders.ts:1588-1590
 ```
 
 Двумя с половиной сотнями строк выше, в **том же файле**, под **тем же** предикатом
@@ -53,21 +53,21 @@ for (const item of order.items) {
   const sold = round2(item.shippedQuantity - item.returnedQuantity)
   if (sold <= 0) continue
   net = round2(net + calcLine({ ...toPricingLine(item), quantity: sold }).lineNet)
-}                                                       // orders.ts:1312-1324
+}                                                       // orders.ts:1315-1327
 ```
 
 и причина записана там же прямым текстом: «Goods returned were not sold, and leaving them in names
 an average price for something nobody ended up buying (§7.2)»
-(`frontend_vue/src/services/mocks/orders.ts:1307-1310`).
+(`frontend_vue/src/services/mocks/orders.ts:1310-1313`).
 
 Расхождение не гипотетическое, потому что **возврат ничего из того, что читает `salesMtd`, не
 меняет**:
 
 - статус остаётся тем, что был: `mockCreateReturn` его не присваивает, и `returned` достижим
-  только явным `PATCH /status` (`frontend_vue/src/services/mocks/orders.ts:3795-3836`);
+  только явным `PATCH /status` (`frontend_vue/src/services/mocks/orders.ts:3798-3839`);
 - `totalAmount` остаётся тем, что был: возврат только увеличивает счётчик
   (`item.returnedQuantity = round2(item.returnedQuantity + request.quantity)`,
-  `frontend_vue/src/services/mocks/orders.ts:3802`, с комментарием «Counted beside what shipped,
+  `frontend_vue/src/services/mocks/orders.ts:3805`, с комментарием «Counted beside what shipped,
   never subtracted from it», `:3800-3801`), а в расчёт суммы уходит **заказанное** количество
   (`toPricingLine` отдаёт `line.quantity`, `frontend_vue/src/services/orderLines.ts:40`;
   `recalcOrder` пишет `order.totalAmount = totals.totalNet`,
@@ -75,7 +75,7 @@ an average price for something nobody ended up buying (§7.2)»
 
 То есть заказ на 10 000, из которого клиент вернул девять десятых и получил корректировочные
 счета (`mockCreateInvoice(..., kind: 'correction')`,
-`frontend_vue/src/services/mocks/orders.ts:3806-3812`), даёт в `salesMtd` те же 10 000. Третье
+`frontend_vue/src/services/mocks/orders.ts:3809-3815`), даёт в `salesMtd` те же 10 000. Третье
 определение той же выручки — по выставленным и закрытым документам — живёт в
 `frontend_vue/src/domain/receivable.ts` (`invoiceBalances`), и с первыми двумя тоже не совпадает.
 
@@ -102,7 +102,7 @@ an average price for something nobody ended up buying (§7.2)»
 ## БАГ-02 — KPI подписан знаком `€` константой, валюты в ответе нет, а заказы разных валют складываются в одно число
 
 **File:** `frontend_vue/src/views/admin/sales-crm/SalesCrmPage.vue:43-45`, `:149`;
-`frontend_vue/src/types/order.ts:48-57`; `frontend_vue/src/services/mocks/orders.ts:1585-1587`
+`frontend_vue/src/types/order.ts:48-57`; `frontend_vue/src/services/mocks/orders.ts:1588-1590`
 **Severity:** High — число на дашборде подписано валютой, которой у него нет, и при нескольких
 валютах в хранилище подпись прямо неверна.
 **Источник:** К4, К6 (значения по умолчанию и их владелец)
@@ -127,12 +127,12 @@ function formatCurrency(value: number): string {
    (`OrderListItem.currency`, `frontend_vue/src/types/order.ts:31`) и у заказа тоже
    (`Order.currency`, `frontend_vue/src/types/order.ts:468`).
 2. **Мок складывает валюты не глядя.** `reduce((sum, o) => round2(sum + o.totalAmount), 0)`
-   (`frontend_vue/src/services/mocks/orders.ts:1587`) — ни группировки, ни фильтра по
+   (`frontend_vue/src/services/mocks/orders.ts:1590`) — ни группировки, ни фильтра по
    `o.currency`. Валюта заказа берётся у настроек при создании
-   (`data.currency ?? 'EUR'`, `frontend_vue/src/services/mocks/orders.ts:1638`; форма подставляет
+   (`data.currency ?? 'EUR'`, `frontend_vue/src/services/mocks/orders.ts:1641`; форма подставляет
    `settings.constants.defaultCurrency`, `frontend_vue/src/composables/useOrderCreate.ts:43`), а
    справочник настроек содержит не одну запись (`EUR`, `USD`, `GBP`, …,
-   `frontend_vue/src/services/mocks/settings.ts:68-85`). Курса в проекте нет нигде, то есть
+   `frontend_vue/src/services/mocks/settings.ts:70-87`). Курса в проекте нет нигде, то есть
    сложить их и нельзя — валюта у суммы это подпись, а не множитель.
 3. **Та же страница восемью десятками строк ниже делает правильно.** Строка таблицы печатает
    `{{ order.currency }} {{ money(order.totalWithVat) }}`
@@ -157,7 +157,7 @@ function formatCurrency(value: number): string {
 
 ## БАГ-03 — `pendingOrders` — единственное из четырёх чисел, посчитанное перечислением статусов
 
-**File:** `frontend_vue/src/services/mocks/orders.ts:1591`
+**File:** `frontend_vue/src/services/mocks/orders.ts:1594`
 **Severity:** Medium — статус, добавленный через настройки, автоматически попадёт в два числа из
 трёх статусных и не попадёт в это никогда.
 **Источник:** К6 (производные значения)
@@ -178,11 +178,11 @@ list of `confirmed | shipped | delivered`, which quietly left out `paid`» (`:11
 
 `pendingOrders` — тот самый список, от которого домен отказался. Функции `isPending` в модуле нет
 (`grep -c "isPending" frontend_vue/src/domain/orderStatus.ts` → `0`), поэтому правило существует в
-двух экземплярах: выражением в моке (`frontend_vue/src/services/mocks/orders.ts:1591`) и фразой в комментарии типа — «Waiting on somebody:
+двух экземплярах: выражением в моке (`frontend_vue/src/services/mocks/orders.ts:1594`) и фразой в комментарии типа — «Waiting on somebody:
 new or confirmed» (`frontend_vue/src/types/order.ts:51-52`).
 
 Последствие измеримо на существующем механизме: статусы принадлежат настройкам — пятнадцать
-записей `st-<имя>` в сиде (`frontend_vue/src/services/mocks/settings.ts:208-346`), новый заводится
+записей `st-<имя>` в сиде (`frontend_vue/src/services/mocks/settings.ts:210-348`), новый заводится
 с id `st-<N>` (`:544`). Такой статус будет «не терминальным», то есть попадёт в `activeOrders`, и
 «не new, не отмена, не returned», то есть попадёт в `salesMtd`, — а в `pendingOrders` не попадёт
 ни при каких условиях.
@@ -209,7 +209,7 @@ new or confirmed» (`frontend_vue/src/types/order.ts:51-52`).
 
 ## БАГ-04 — дата клиента без времени разбирается как UTC и сравнивается с местной полуночью
 
-**File:** `frontend_vue/src/services/mocks/orders.ts:1593` (сравнение),
+**File:** `frontend_vue/src/services/mocks/orders.ts:1596` (сравнение),
 `frontend_vue/src/services/mocks/clients.ts:1085` (формат даты),
 `frontend_vue/src/services/mocks/demoClock.ts:55-61` (тот же формат у сида)
 **Severity:** Medium — клиент, зарегистрированный первого числа, не попадает в счёт «новых за
@@ -223,13 +223,13 @@ new or confirmed» (`frontend_vue/src/types/order.ts:51-52`).
 ```ts
 const monthStart = new Date()
 monthStart.setDate(1)
-monthStart.setHours(0, 0, 0, 0)      // orders.ts:1578-1580
+monthStart.setHours(0, 0, 0, 0)      // orders.ts:1581-1583
 ```
 
 С ним сравниваются **две даты разной точности**:
 
 - заказ несёт полный инстант — `orderDate.toISOString()`
-  (`frontend_vue/src/services/mocks/orders.ts:513`), при создании то же
+  (`frontend_vue/src/services/mocks/orders.ts:516`), при создании то же
   (`new Date().toISOString()`, `:1668`);
 - клиент несёт день без времени — `new Date().toISOString().slice(0, 10)`
   (`frontend_vue/src/services/mocks/clients.ts:1085`), сид тот же формат
@@ -243,7 +243,7 @@ monthStart.setHours(0, 0, 0, 0)      // orders.ts:1578-1580
 Что делает находку доказанной, а не теоретической: **сам проект уже знает эту ловушку и обходит
 её в другом файле**. `shiftDemoDay` разбирает ту же строку с явным местным временем —
 `new Date(day + 'T00:00:00')` (`frontend_vue/src/services/mocks/demoClock.ts:56`), — а сводка
-разбирает её голым `new Date(c.createdAt)` (`frontend_vue/src/services/mocks/orders.ts:1593`).
+разбирает её голым `new Date(c.createdAt)` (`frontend_vue/src/services/mocks/orders.ts:1596`).
 
 Пояса арендатора при этом нет нигде: `grep -ci "timezone" frontend_vue/src/types/settings.ts` →
 `0`; на бэкенде единственное совпадение — свойство колонки `DateTime(timezone=True)`
@@ -255,7 +255,7 @@ monthStart.setHours(0, 0, 0, 0)      // orders.ts:1578-1580
 Разбирать день так же, как это делает `demoClock` — с явным `'T00:00:00'`, — либо сравнивать
 строками (`c.createdAt >= monthStartDay`), как это уже делает фильтр списка заказов
 (`o.createdAt.slice(0, 10) >= filters.dateFrom`,
-`frontend_vue/src/services/mocks/orders.ts:1523`). Выбор пояса, в котором сервер режет месяц, —
+`frontend_vue/src/services/mocks/orders.ts:1526`). Выбор пояса, в котором сервер режет месяц, —
 решение владельца.
 
 ### Future rule
@@ -267,7 +267,7 @@ monthStart.setHours(0, 0, 0, 0)      // orders.ts:1578-1580
 
 ## БАГ-05 — юнит-спека сводит `activeOrders` руками по более слабому предикату и зелена только из-за сида
 
-**File:** `frontend_vue/src/services/mocks/orders.spec.ts:2989-2998`
+**File:** `frontend_vue/src/services/mocks/orders.spec.ts:2997-3006`
 **Severity:** Medium — тест утверждает не то правило, что код, и не заметит возврата к правилу,
 от которого домен отказался.
 **Источник:** К3/К4 (доказательная база правила)
@@ -280,7 +280,7 @@ it('agrees with counting the orders by hand', () => {
   const orders = allOrders()
   expect(stats.activeOrders).toBe(
     orders.filter((o) => o.status !== 'delivered' && o.status !== 'cancelled').length,
-  )                                                    // orders.spec.ts:2992-2994
+  )                                                    // orders.spec.ts:3000-3002
 ```
 
 Код считает иначе: `isActive` — это «не `delivered` и не терминальный»
@@ -291,9 +291,9 @@ it('agrees with counting the orders by hand', () => {
 
 Спека зелёная только потому, что ни один из этих пяти в хранилище не встречается:
 `generateOrders` раздаёт восемь статусов и среди них нет ни одного из пяти
-(`frontend_vue/src/services/mocks/orders.ts:390-399`), а единственная функция, которая статус
+(`frontend_vue/src/services/mocks/orders.ts:393-402`), а единственная функция, которая статус
 пересчитывает, умеет вернуть лишь `cancelled | paid | confirmed | new | shipped | delivered`
-(`statusFromFacts`, `frontend_vue/src/services/mocks/orders.ts:713-725`).
+(`statusFromFacts`, `frontend_vue/src/services/mocks/orders.ts:716-728`).
 
 Инверсия, доказывающая, что проверка не работает: заведи в сиде один заказ в `completed` — и два
 предиката разойдутся, причём покраснеет спека, а не код.
@@ -315,7 +315,7 @@ it('agrees with counting the orders by hand', () => {
 
 ## БАГ-06 — спека `salesMtd` и `newClientsThisMonth` дословно повторяет выражение продакшена, а e2e утверждает два числа из четырёх
 
-**File:** `frontend_vue/src/services/mocks/orders.spec.ts:3000-3016`,
+**File:** `frontend_vue/src/services/mocks/orders.spec.ts:3008-3024`,
 `frontend_vue/tests/e2e/admin/sales-crm/sales-crm.spec.ts:43-46`
 **Severity:** Medium — два из четырёх чисел домена не проверены ничем, что сломалось бы от
 неверного правила.
@@ -328,7 +328,7 @@ it('agrees with counting the orders by hand', () => {
 ```ts
 const expectedSales = allOrders()
   .filter((o) => countsAsSale(o.status) && new Date(o.createdAt) >= monthStart)
-  .reduce((sum, o) => round2(sum + o.totalAmount), 0)     // orders.spec.ts:3010-3011
+  .reduce((sum, o) => round2(sum + o.totalAmount), 0)     // orders.spec.ts:3018-3019
 expect(stats.salesMtd).toBe(expectedSales)
 expect(stats.newClientsThisMonth).toBe(
   mockGetClients().filter((c) => new Date(c.createdAt) >= monthStart).length,
@@ -340,9 +340,9 @@ expect(stats.newClientsThisMonth).toBe(
 ```ts
 const salesMtd = STORE.filter(
   (o) => countsAsSale(o.status) && new Date(o.createdAt) >= monthStart,
-).reduce((sum, o) => round2(sum + o.totalAmount), 0)       // orders.ts:1585-1587
+).reduce((sum, o) => round2(sum + o.totalAmount), 0)       // orders.ts:1588-1590
 newClientsThisMonth: mockGetClients().filter((c) => new Date(c.createdAt) >= monthStart).length,
-                                                            // orders.ts:1593
+                                                            // orders.ts:1596
 ```
 
 Такой тест доказывает только то, что `STORE` и `allOrders()` — одно и то же множество. Оба дефекта,
@@ -397,10 +397,10 @@ const [stats, ordersResult, clientsResult] = await Promise.all([
 ```
 
 Две части. Первая: сам домен не бросает ничего (`mockGetSalesCrmStats` без единого `throw`,
-`frontend_vue/src/services/mocks/orders.ts:1577-1595`), но в это поле попадает код **чужого**
+`frontend_vue/src/services/mocks/orders.ts:1580-1598`), но в это поле попадает код **чужого**
 домена — список заказов умеет отказать четырьмя (`UNKNOWN_SORT_KEY`,
 `UNKNOWN_SORT_DIRECTION`, `INVALID_DATE_FILTER`, `INVALID_PAGE` —
-`frontend_vue/src/services/mocks/orders.ts:1444`, `:1447`, `:1453`, `:1465`). Таблица перевода
+`frontend_vue/src/services/mocks/orders.ts:1447`, `:1447`, `:1453`, `:1465`). Таблица перевода
 кодов в фразы в проекте есть и в соседних файлах вызывается с объяснением, зачем
 (`frontend_vue/src/composables/useOrderCard.ts:409-412`, таблица `ERROR_KEYS` в
 `frontend_vue/src/services/orderLineEdits.ts`); этот композабл её не зовёт. Тот же дефект у списка

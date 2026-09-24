@@ -25,10 +25,10 @@
 `interface UploadedFile { fileId; name; size; mime; url; uploadedAt }`
 (`uploadsService.ts:3-10`) — **четырёх полей из шести сервер не отдаёт**.
 
-Фронт написан по моку, который отдаёт все шесть (`mocks/index.ts:1667-1674`), поэтому под моками
+Фронт написан по моку, который отдаёт все шесть (`mocks/index.ts:1669-1676`), поэтому под моками
 (`VITE_USE_MOCKS`, `api.ts:4`) всё зелено. Против сервера недостающие поля станут `undefined` и
 разъедутся по сущностям: `useOrderCard.ts:1625,1628,1629`, `useOrderCreate.ts:331,334,335`,
-`OutgoingPaymentCardPage.vue:102,105,106,107`, `BccRequestPage.vue:313,314,315`,
+`OutgoingPaymentCardPage.vue:108,105,106,107`, `BccRequestPage.vue:313,314,315`,
 `ProductCardPage.vue:225`, `WarehouseBatchCreatePage.vue:142`,
 `WarehouseOffcutCreatePage.vue:182`.
 
@@ -77,8 +77,8 @@
 показать тост `warehouse.map_toast_not_image` (`useWarehouseMap.ts:46`).
 
 Хуже, чем просто отсутствие проверки: исключение вылетит из `onUploaded`
-(`WarehouseMapPage.vue:34-43`) и до `catch` в `DropZone.handleFiles` (`DropZone.vue:40-42`) не
-дойдёт — оно выброшено уже после `emit('uploaded', ...)` (`DropZone.vue:39`).
+(`WarehouseMapPage.vue:34-43`) и до `catch` в `DropZone.handleFiles` (`DropZone.vue:58-60`) не
+дойдёт — оно выброшено уже после `emit('uploaded', ...)` (`DropZone.vue:57`).
 
 ### Fix
 
@@ -106,10 +106,10 @@ grep -rn "upload-error\|uploadError" frontend_vue/src/views frontend_vue/src/com
   --include=*.vue | grep -v ui/DropZone.vue
 ```
 → пусто, при двенадцати использованиях `DropZone` (`SupplierCardPage.vue:265`,
-`OutgoingPaymentCardPage.vue:295`, `BccRequestPage.vue:858`, `CompanySettings.vue:72`,
+`OutgoingPaymentCardPage.vue:301`, `BccRequestPage.vue:858`, `CompanySettings.vue:72`,
 `WarehouseOffcutCreatePage.vue:945`, `ProductCardPage.vue:597`, `OrderCardPage.vue:2176`,
-`WarehouseBatchCard.vue:1439`, `WarehouseMapPage.vue:158`, `WarehouseBatchCreatePage.vue:841`,
-`WarehouseOffcutCard.vue:933`, `OrderCreatePage.vue:561`).
+`WarehouseBatchCard.vue:1381`, `WarehouseMapPage.vue:158`, `WarehouseBatchCreatePage.vue:841`,
+`WarehouseOffcutCard.vue:875`, `OrderCreatePage.vue:561`).
 
 Сервер при этом отказывает по трём поводам: 401 `UNAUTHORIZED` (`core/uploads/action.py:39-42,45-48,56-59`),
 422 `VALIDATION_ERROR` по MIME (`core/uploads/action.py:97-103`), 413 `VALIDATION_ERROR` по размеру
@@ -132,15 +132,15 @@ TBD — либо потребители подписываются на `@upload
 
 ## БАГ-04 — мок-ветка `apiUpload` теряет заголовки, и путь 401 под моками недостижим
 
-**File:** `frontend_vue/src/services/api.ts:225-228`
+**File:** `frontend_vue/src/services/api.ts:244-247`
 **Severity:** Medium — мок слабее сервера, отказ авторизации не воспроизводится
 **Источник:** К2 (мок ↔ контракт ↔ код)
 
 ### Problem
 
 `apiUpload(path, file, options)` в мок-режиме зовёт `uploadMock<T>(path, file)` — без
-`options.headers` (`api.ts:225-228`), тогда как в сетевой ветке они уходят в `fetch`
-(`api.ts:231-235`). Сигнатура мока заголовков и не принимает (`mocks/index.ts:1661`).
+`options.headers` (`api.ts:244-247`), тогда как в сетевой ветке они уходят в `fetch`
+(`api.ts:231-235`). Сигнатура мока заголовков и не принимает (`mocks/index.ts:1662`).
 
 Следствия два. Первое: `Authorization`, который `uploadsService` собирает вручную
 (`uploadsService.ts:14-15`), под моками теряется, и ветка «нет токена → 401», существующая на
@@ -167,7 +167,7 @@ TBD — прокинуть `options` в `uploadMock` и принять их в `
 файл уходит на сервер немедленно по drop (`DropZone.vue:33-38`). При этом:
 
 - клиент не шлёт ключ — `grep -c "Idempotency" frontend_vue/src/services/uploadsService.ts` → `0`,
-  хотя генератор в проекте есть (`api.ts:240-245`) и другие quick actions им пользуются;
+  хотя генератор в проекте есть (`api.ts:259-264`) и другие quick actions им пользуются;
 - сервер ключ не читает — `grep -c "Idempotency\|idempotency" backend/app/core/uploads/action.py` → `0`;
 - дедупликации по содержимому нет: имя файла — свежий `uuid4().hex` на каждый запрос
   (`core/uploads/action.py:119`), хеша в модели нет (`backend/app/core/uploads/models.py:11-38`).
@@ -192,7 +192,7 @@ UUID, а первый останется в системе навсегда — 
   чтения содержимого. Файл с тем же содержимым под другим именем отсев не ловит, и это осознанно;
 - **граница действия — одна форма, один сеанс**: после перезагрузки страницы выбранные файлы
   исчезают вместе со state, защищать нечего;
-- **место правки одно на весь проект** — `frontend_vue/src/components/admin/ui/DropZone.vue:33-41`,
+- **место правки одно на весь проект** — `frontend_vue/src/components/admin/ui/DropZone.vue:44-59`,
   её потребителей десять.
 
 Поэтому «второй файл на диске и вторая строка `uploaded_files`», описанные выше, перестают быть
@@ -206,7 +206,7 @@ UUID, а первый останется в системе навсегда — 
 ### Дополнение 2026-09-12 — сторона `DropZone`: клиент сам гарантирует повтор
 
 Решением владельца назван дефект «`DropZone` грузит дубликаты без отсева»
-(`components/admin/ui/DropZone.vue:33-45`) — это он и есть, отдельной находки заводить не нужно.
+(`components/admin/ui/DropZone.vue:44-63`) — это он и есть, отдельной находки заводить не нужно.
 Что к сказанному выше добавляет клиентская сторона:
 
 ```ts
@@ -240,7 +240,7 @@ drop — тоже нет).
 состояние — `fileInput`, `dragging`, `uploading`
 (`frontend_vue/src/components/admin/ui/DropZone.vue:25-27`), и больше ничего. Потребитель кладёт
 пришедшее в свой список без единой проверки — например
-(`frontend_vue/src/views/admin/finance/OutgoingPaymentCardPage.vue:104-118`):
+(`frontend_vue/src/views/admin/finance/OutgoingPaymentCardPage.vue:110-124`):
 
 ```ts
 for (const u of uploaded) {
@@ -252,7 +252,7 @@ for (const u of uploaded) {
 Имя файла на сервере — свежий `uuid4().hex` на каждый запрос
 (`backend/app/core/uploads/action.py:119`), поэтому один и тот же файл, перетащенный дважды,
 даёт **два разных `fileId`**, две строки в списке документов и оба `fileId` в теле сохранения
-(`OutgoingPaymentCardPage.vue:86`). Ни отказа, ни предупреждения человек не видит: с точки зрения
+(`OutgoingPaymentCardPage.vue:88`). Ни отказа, ни предупреждения человек не видит: с точки зрения
 кода это два разных файла.
 
 **Тройки из П50 в коде нет вовсе.** `grep -rn "lastModified" frontend_vue/src | wc -l` → `0`:
@@ -268,7 +268,7 @@ for (const u of uploaded) {
 
 **Замеры поправлены.** Выше сказано «её потребителей десять» — на 2026-09-13
 `grep -rn "<DropZone" frontend_vue/src --include=*.vue | wc -l` → `12`, и столько же обработчиков
-`@uploaded=`. Адрес самой `handleFiles` — `DropZone.vue:33-45` (`:33` — заголовок функции, `:45` —
+`@uploaded=`. Адрес самой `handleFiles` — `DropZone.vue:44-63` (`:33` — заголовок функции, `:45` —
 её закрывающая скобка), а не `:33-41`: диапазон выше обрывается на середине функции. Замеры
 проверены сегодня, вывод команд — `/tmp/proof-пункт8-uploads.txt`.
 
@@ -427,7 +427,7 @@ TBD — решение владельца (строка вынесена в `00-
 
 `if (meta?.url && !meta.url.startsWith('data:'))` — приложение отбрасывает URL, начинающийся с
 `data:`, то есть знает, что бывает мок-ответ, и обходит его. Data-URL приходит только из мока
-(`mocks/index.ts:1666`, `:1672`; комментарий там же помечает это как mock-only, `:1664-1665`);
+(`mocks/index.ts:1668`, `:1672`; комментарий там же помечает это как mock-only, `:1664-1665`);
 сервер всегда отдаёт `http(s)://…/static/uploads/…` (`backend/app/core/uploads/action.py:141-142`).
 
 Это единственное место проекта, где мок и продакшен различаются ветвлением по данным, а не флагом
@@ -511,7 +511,7 @@ TBD — владельцу: отдаёт ли сервер свои ограни
 | | БАГ-01 | Контракт | `uploadsService.ts:3-10` | ответ сервера — 2 поля, тип обещает 6; 12 потребителей |
 | | БАГ-02 | Падение | `useWarehouseMap.ts:45` | `file.mime.startsWith` по `undefined` вместо отказа |
 | | БАГ-03 | UX | `DropZone.vue:22,40-42` | `uploadError` не слушает никто — отказ невидим |
-| | БАГ-04 | Мок | `api.ts:225-228` | мок не получает заголовков, путь 401 не воспроизводится |
+| | БАГ-04 | Мок | `api.ts:244-247` | мок не получает заголовков, путь 401 не воспроизводится |
 | | БАГ-05 | Контракт | `uploadsService.ts:13-17` | нет `Idempotency-Key` у quick action |
 | | БАГ-06 | Данные | `core/uploads/action.py:117-138` | диск пишется до коммита, осиротевший файл не убирается |
 | | БАГ-07 | Замысел | `core/uploads/action.py:136` | `is_draft=False` отменяет draft-хранилище и TTL |

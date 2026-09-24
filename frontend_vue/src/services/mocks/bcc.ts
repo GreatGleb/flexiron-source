@@ -509,10 +509,11 @@ export function mockAcceptResponse(
     unit: payload.unit,
   }
   MOCK_BCC_HISTORY.unshift(next)
-  // The supplier answering is the event. `mockMarkNoResponse` below is the
-  // opposite fact — nobody answered — and files nothing: a feed that reports
-  // silence as news would fill up with things that did not happen.
-  notifySupplierResponse({ id: next.supplierId, name: next.supplierName })
+  // The event is the transition into `responded`, not the row: the history table's
+  // "edit" button on an already-responded row calls this same function again, and
+  // firing the notice a second time would report one answer as two.
+  if (src.status !== 'responded')
+    notifySupplierResponse({ id: src.supplierId, name: src.supplierName })
   return next
 }
 

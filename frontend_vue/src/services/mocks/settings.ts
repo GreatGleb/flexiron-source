@@ -15,6 +15,7 @@ import type {
 } from '@/types/settings'
 import { isMailConfigured } from '@/types/settings'
 import { ApiRequestError } from '@/types/api'
+import { STORE as PRODUCTS_STORE } from './products'
 
 // ─── Seed data ───────────────────────────────────────────────────────────
 
@@ -389,6 +390,22 @@ function findOrderStatus(id: string): OrderStatusSetting | undefined {
 }
 
 /**
+ * «Используется» — ровно то определение, которое реализовал сервер (§2, П44), и не шире:
+ * товары держат ссылки на справочники идентификаторами, а правила пересчёта, строки заказов,
+ * партии склада и услуги в счёт не входят (их судьба при удалении справочника не решена
+ * владельцем). Источник данных — сам мок товаров (`./products`), а не вторая копия сидов.
+ */
+function currencyIsUsedByProduct(id: string): boolean {
+  return PRODUCTS_STORE.some((p) => p.currencyId === id)
+}
+
+function uomIsUsedByProduct(id: string): boolean {
+  return PRODUCTS_STORE.some(
+    (p) => p.purchaseUomId === id || p.warehouseUomId === id || p.saleUomId === id,
+  )
+}
+
+/**
  * Перечень отказов домена настроек — ЕДИНСТВЕННЫЙ источник истины.
  *
  * «Сценарий → код на проводе»: ключ называет сценарий, значение — код, которым мок
@@ -410,6 +427,9 @@ export const SETTINGS_REFUSAL_CODES = {
   orderStatusSystemForbidden: 'FORBIDDEN',
   mailNotConfigured: 'MAIL_NOT_CONFIGURED',
   warehouseMapNotAnImage: 'MAP_NOT_AN_IMAGE',
+  currencyIsDefault: 'CURRENCY_IS_DEFAULT',
+  currencyInUse: 'CURRENCY_IN_USE',
+  uomInUse: 'UOM_IN_USE',
 } as const
 
 /** Код отказа домена настроек — значение из таблицы выше, а не любая строка. */
@@ -520,6 +540,21 @@ export function mockDeleteCurrency(id: string): void {
   const idx = settingsStore.currencies.findIndex((c) => c.id === id)
   if (idx === -1)
     throw mockRefusal(404, SETTINGS_REFUSAL_CODES.currencyNotFound, 'Currency not found')
+  // Порядок — тот же, что на сервере (§2, П44): сначала «не найдено», потом умолчание,
+  // и только потом использование. Валюта, которая и по умолчанию, и стоит у товара,
+  // отказывает кодом про умолчание — она не может быть удалена ни при каком порядке
+  // проверок, но человек должен узнать причину, которую он может исправить первой.
+  const currency = settingsStore.currencies[idx]!
+  if (currency.isDefault) {
+    throw mockRefusal(
+      409,
+      SETTINGS_REFUSAL_CODES.currencyIsDefault,
+      'The default currency cannot be deleted',
+    )
+  }
+  if (currencyIsUsedByProduct(id)) {
+    throw mockRefusal(409, SETTINGS_REFUSAL_CODES.currencyInUse, 'Currency is used by a product')
+  }
   settingsStore.currencies.splice(idx, 1)
 }
 
@@ -548,6 +583,12 @@ export function mockDeleteUom(id: string): void {
   const idx = settingsStore.uoms.findIndex((u) => u.id === id)
   if (idx === -1)
     throw mockRefusal(404, SETTINGS_REFUSAL_CODES.uomNotFound, 'Unit of measure not found')
+  // Единица используется, если товар ссылается на неё любым из трёх своих полей единиц —
+  // закупочной, складской или продажной (§2, П44). Правила пересчёта в счёт не входят: их
+  // судьба при удалении единицы решением владельца не закрыта (БАГ-07).
+  if (uomIsUsedByProduct(id)) {
+    throw mockRefusal(409, SETTINGS_REFUSAL_CODES.uomInUse, 'Unit of measure is used by a product')
+  }
   settingsStore.uoms.splice(idx, 1)
 }
 

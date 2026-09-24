@@ -26,16 +26,34 @@ const fileInput = ref<HTMLInputElement | null>(null)
 const dragging = ref(false)
 const uploading = ref(false)
 
+/**
+ * П50: тот же файл, поданный в форму дважды, второй раз в отправку не идёт — сервер о повторе
+ * не знает и знать не обязан. Сравнить можно только то, что даёт `File`: имя, размер, lastModified.
+ * Живёт в экземпляре компонента — одна форма, один сеанс (roo_code/roo-context/api/00-conventions.md §16).
+ */
+const acceptedFileSignatures = new Set<string>()
+
+function fileSignature(f: File): string {
+  return `${f.name}::${f.size}::${f.lastModified}`
+}
+
 function openPicker() {
   fileInput.value?.click()
 }
 
 async function handleFiles(files: File[]) {
   if (files.length === 0) return
-  emit('files', files) // raw notification for any legacy consumer
+  const newFiles = files.filter((f) => {
+    const signature = fileSignature(f)
+    if (acceptedFileSignatures.has(signature)) return false
+    acceptedFileSignatures.add(signature)
+    return true
+  })
+  if (newFiles.length === 0) return
+  emit('files', newFiles) // raw notification for any legacy consumer
   uploading.value = true
   try {
-    const results = await Promise.all(files.map((f) => uploadFile(f)))
+    const results = await Promise.all(newFiles.map((f) => uploadFile(f)))
     emit('uploaded', results)
   } catch (err) {
     emit('uploadError', err instanceof Error ? err : new Error('Upload failed'))

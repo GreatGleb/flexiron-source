@@ -55,6 +55,15 @@ function fieldById(fieldId: string): FieldDefinition | undefined {
   return fieldLibrary.value.find((f) => f.id === fieldId)
 }
 
+/**
+ * Temporary ids for entities created locally before Save — a module counter,
+ * not `Date.now()`: two creates in the same millisecond used to collide on the
+ * same id (БАГ-14). The real server assigns the permanent id once the batch
+ * Save sends these to `PUT /api/config/fields` / `/sections`.
+ */
+let fieldIdSeq = 0
+let sectionIdSeq = 0
+
 const newFieldOpen = ref(false)
 const newField = ref<{ name: string; type: FieldDefinition['type'] }>({
   name: '',
@@ -313,7 +322,7 @@ function createField() {
   }
   const nameStr = newField.value.name.trim()
   fieldLibrary.value.push({
-    id: `f-custom-${Date.now()}`,
+    id: `f-custom-${++fieldIdSeq}`,
     name: toTranslatedString(nameStr, locale.value),
     type: newField.value.type,
     required: false,
@@ -407,7 +416,7 @@ function confirmAddField() {
     return
   }
   const nameStr = addField.value.name.trim()
-  const newId = `f-custom-${Date.now()}`
+  const newId = `f-custom-${++fieldIdSeq}`
   fieldLibrary.value.push({
     id: newId,
     name: toTranslatedString(nameStr, locale.value),
@@ -455,7 +464,7 @@ async function confirmAddSection() {
     return
   }
   const newSection = {
-    id: `sec-new-${Date.now()}`,
+    id: `sec-new-${++sectionIdSeq}`,
     name: toTranslatedString(name, locale.value),
     order: sections.value.length,
     collapsed: false,
@@ -472,8 +481,12 @@ async function confirmAddSection() {
 }
 
 async function save() {
-  await saveConfig()
-  toast.show(t('notification.config_saved'))
+  const success = await saveConfig()
+  if (success) {
+    toast.show(t('notification.config_saved'))
+  } else {
+    toast.show(t('notification.config_save_failed'), 'error')
+  }
 }
 
 let draggingSectionId: string | null = null

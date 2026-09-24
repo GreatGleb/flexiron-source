@@ -221,6 +221,25 @@ export async function apiGet<T>(
   return unwrap<T>(res, 'GET', path)
 }
 
+/**
+ * The body as the wire would deliver it.
+ *
+ * The real transport below hands every body to `JSON.stringify`, so a mock that
+ * receives the caller's own object is not simulating a server — it is simulating
+ * a shared memory. Two consequences, both of which bit us: a mock that stores the
+ * body keeps a live reference into the caller's state, and a mock that copies it
+ * with `structuredClone` throws `DataCloneError` the moment a Vue reactive proxy
+ * arrives (pitfall #36) — which is exactly what the product card sends when it
+ * builds `delta.fieldValues` from a deep `ref`.
+ *
+ * Serialising here rather than in each mock or each composable keeps one source of
+ * the rule, and it cannot lose anything: whatever does not survive this round trip
+ * would not have survived `JSON.stringify` on the real path either.
+ */
+function overTheWire(body: unknown): unknown {
+  return body === undefined ? undefined : JSON.parse(JSON.stringify(body))
+}
+
 export async function apiPost<T>(
   path: string,
   body: unknown,
@@ -228,7 +247,7 @@ export async function apiPost<T>(
 ): Promise<T> {
   if (USE_MOCKS) {
     const { postMock } = await import('./mocks/index')
-    return postMock<T>(path, body, buildHeaders(options))
+    return postMock<T>(path, overTheWire(body), buildHeaders(options))
   }
   const res = await fetch(path, {
     method: 'POST',
@@ -241,7 +260,7 @@ export async function apiPost<T>(
 export async function apiPut<T>(path: string, body: unknown, options?: RequestOptions): Promise<T> {
   if (USE_MOCKS) {
     const { putMock } = await import('./mocks/index')
-    return putMock<T>(path, body, buildHeaders(options))
+    return putMock<T>(path, overTheWire(body), buildHeaders(options))
   }
   const res = await fetch(path, {
     method: 'PUT',
@@ -259,7 +278,7 @@ export async function apiPatch<T>(
 ): Promise<T> {
   if (USE_MOCKS) {
     const { patchMock } = await import('./mocks/index')
-    return patchMock<T>(path, body, buildHeaders(options))
+    return patchMock<T>(path, overTheWire(body), buildHeaders(options))
   }
   const res = await fetch(path, {
     method: 'PATCH',

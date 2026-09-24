@@ -46,7 +46,7 @@ cd frontend_vue && CONTRACT_REFS=roo_code/roo-context/api/00-conventions.md \
 | §21 | `useAuth.ts:101-108` | `getStoredCsrf` вместо `csrf_token` (в коде заголовок `X-CSRF-Token`) |
 
 Пять «глазами» проверены чтением и оставлены как есть — во всех пяти ссылка верна, а токен на
-строке принадлежит соседнему утверждению: `mocks/orders.ts:1858`
+строке принадлежит соседнему утверждению: `mocks/orders.ts:1861`
 (`'FORBIDDEN_' + right.toUpperCase()` — кода `FORBIDDEN_CORRECTION` дословно в файле нет),
 `router/index.ts:258-318` (восемь попаданий `adminWarehouse`), `types/config.ts:3`
 (`FieldType` из шести значений), `useAuditFeed.ts:68` (`page.value = result.page`),
@@ -71,7 +71,7 @@ cd frontend_vue && CONTRACT_REFS=roo_code/roo-context/api/00-conventions.md \
   `:53-61` — совпадает с §12;
 - **аудит по id**: девять сущностей замкнуты типом `types/audit.ts:4-14`;
 - **`Idempotency-Key`**: пять вызовов (`bccService.ts:43`, `:64`, `ordersService.ts:295`,
-  `:352`, `:386`), генератор `api.ts:240`;
+  `:352`, `:386`), генератор `api.ts:259`;
 - **фича-флаги**: 52 во фронте против 46 в миграции — пересчитано;
 - **мультиарендность**: `tenant_id` во всех десяти модулях, счётчики §4 совпали;
 - **уведомления**: семь `notify*`;

@@ -621,10 +621,10 @@ cd frontend_vue && CONTRACT_REFS=roo_code/plans/general/сквозное-tenancy
 
 | справочник | состав | эталон замерен планом в | источник |
 |---|---|---|---|
-| валюты | три, ровно одна по умолчанию (EUR) | frontend_vue/src/services/mocks/settings.ts:68-87 | roo_code/plans/settings/settings-backend-plan.md:397 |
-| единицы измерения | девять | frontend_vue/src/services/mocks/settings.ts:89-151 | roo_code/plans/settings/settings-backend-plan.md:397 |
-| правила пересчёта | пять | frontend_vue/src/services/mocks/settings.ts:153-180 | roo_code/plans/settings/settings-backend-plan.md:397 |
-| статусы заказа | пятнадцать, все системные | frontend_vue/src/services/mocks/settings.ts:208-345 | roo_code/plans/settings/settings-backend-plan.md:397 |
+| валюты | три, ровно одна по умолчанию (EUR) | frontend_vue/src/services/mocks/settings.ts:70-89 | roo_code/plans/settings/settings-backend-plan.md:397 |
+| единицы измерения | девять | frontend_vue/src/services/mocks/settings.ts:91-153 | roo_code/plans/settings/settings-backend-plan.md:397 |
+| правила пересчёта | пять | frontend_vue/src/services/mocks/settings.ts:155-182 | roo_code/plans/settings/settings-backend-plan.md:397 |
+| статусы заказа | пятнадцать, все системные | frontend_vue/src/services/mocks/settings.ts:210-347 | roo_code/plans/settings/settings-backend-plan.md:397 |
 
 Приёмка сева написана числами, а не «больше нуля»: после `alembic upgrade head` на пустой базе
 сверяются четыре счёта — пятнадцать системных статусов, три валюты (ровно одна с `is_default`),

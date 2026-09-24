@@ -263,7 +263,7 @@ Save и только при непустой дельте (`:147-149`), Discard 
 
 Бэкенд: не реализован — под четыре из пяти полей колонок в `stock_items` нет
 (`backend/app/modules/warehouse/shared/models.py:220-223`).
-Реализация: `services/warehouseService.ts:patchStockItem` · мок `mocks/index.ts:1321` →
+Реализация: `services/warehouseService.ts:patchStockItem` · мок `mocks/index.ts:1323` →
 `services/mocks/warehouse.ts:mockPatchStockItem`
 
 ### GET /api/warehouse/stock/:productId/cost
@@ -376,7 +376,7 @@ Save-режим: quick-action.
 изменения не гейтится сегодня ни правом, ни фича-флагом.
 
 Бэкенд: не реализован.
-Реализация: `services/warehouseService.ts:deleteStockAuditEntry` · мок `mocks/index.ts:1435` →
+Реализация: `services/warehouseService.ts:deleteStockAuditEntry` · мок `mocks/index.ts:1437` →
 `services/mocks/warehouse.ts:mockDeleteStockAuditEntry`
 
 ---
@@ -473,7 +473,7 @@ String(20)` (`backend/app/modules/warehouse/shared/models.py:39`), а фронт
 Бэкенд: не реализован — схема покрывает все объявленные поля, кроме `margin_percent`
 (`backend/app/modules/warehouse/shared/models.py:11-88`); `file_ids` там `JSON` (`:62`), то есть
 массив идентификаторов, а не материализованный список.
-Реализация: `services/warehouseService.ts:createBatch` · мок `mocks/index.ts:1105` →
+Реализация: `services/warehouseService.ts:createBatch` · мок `mocks/index.ts:1103` →
 `services/mocks/warehouse.ts:mockCreateBatch`
 
 ### GET /api/warehouse/batches/:batchId
@@ -562,7 +562,7 @@ Save-режим: clean-slate. Признак грязи собран из трё
    `WarehouseBatch` нет (§11 соглашений).
 
 Бэкенд: не реализован.
-Реализация: `services/warehouseService.ts:patchBatch` · мок `mocks/index.ts:1301` →
+Реализация: `services/warehouseService.ts:patchBatch` · мок `mocks/index.ts:1303` →
 `services/mocks/warehouse.ts:mockPatchBatch`
 
 ### DELETE /api/warehouse/batches/:batchId
@@ -572,7 +572,7 @@ Save-режим: clean-slate. Признак грязи собран из трё
 (`useWarehouse.ts:320`) и вьюха списка (`views/admin/warehouse/WarehousePage.vue`).
 
 Запрос: тела нет (`frontend_vue/src/services/warehouseService.ts:114-116`); `If-Match` не шлётся,
-хотя ветка удаления мока читать его умеет (`frontend_vue/src/services/mocks/index.ts:1428`).
+хотя ветка удаления мока читать его умеет (`frontend_vue/src/services/mocks/index.ts:1430`).
 
 Ответ: `Promise<void>`; на проводе `ApiResponse<null>`.
 
@@ -595,7 +595,7 @@ Save-режим: clean-slate. Признак грязи собран из трё
 которой в коде нет; см. «Чего в домене нет».
 
 Бэкенд: не реализован.
-Реализация: `services/warehouseService.ts:deleteBatch` · мок `mocks/index.ts:1607` →
+Реализация: `services/warehouseService.ts:deleteBatch` · мок `mocks/index.ts:1609` →
 `services/mocks/warehouse.ts:mockDeleteBatch`
 
 ### GET /api/warehouse/batches/:batchId/aggregates
@@ -711,7 +711,7 @@ Save-режим: quick-action по подтверждению модала.
 **только этот**, и описывал верно.
 
 Бэкенд: не реализован.
-Реализация: `services/warehouseService.ts:deleteBatchAuditEntry` · мок `mocks/index.ts:1441` →
+Реализация: `services/warehouseService.ts:deleteBatchAuditEntry` · мок `mocks/index.ts:1443` →
 `services/mocks/warehouse.ts:mockDeleteBatchAuditEntry`
 
 ---
@@ -795,7 +795,7 @@ locationNotes }` (`useWarehouseOffcutCreate.ts:32-54`), то есть на пр�
 `who-NNN` в сидах: два пространства id в одном домене (§19 соглашений).
 
 Бэкенд: не реализован.
-Реализация: `services/warehouseService.ts:createOffcut` · мок `mocks/index.ts:1109` →
+Реализация: `services/warehouseService.ts:createOffcut` · мок `mocks/index.ts:1107` →
 `services/mocks/warehouse.ts:mockCreateOffcut`
 
 ### GET /api/warehouse/offcuts/offers
@@ -915,7 +915,7 @@ Save-режим: чтение. Один вызывающий — диалог д
    (`frontend_vue/src/types/warehouse.ts:328-337`).
 
 Бэкенд: не реализован.
-Реализация: `services/warehouseService.ts:patchOffcut` · мок `mocks/index.ts:1328` →
+Реализация: `services/warehouseService.ts:patchOffcut` · мок `mocks/index.ts:1330` →
 `services/mocks/warehouse.ts:mockPatchOffcut`
 
 ### DELETE /api/warehouse/offcuts/:offcutId
@@ -947,7 +947,7 @@ Save-режим: чтение. Один вызывающий — диалог д
    вовсе (БАГ-23), так что политику придётся вводить вместе с колонкой.
 
 Бэкенд: не реализован.
-Реализация: `services/warehouseService.ts:deleteOffcut` · мок `mocks/index.ts:1613` →
+Реализация: `services/warehouseService.ts:deleteOffcut` · мок `mocks/index.ts:1615` →
 `services/mocks/warehouse.ts:mockDeleteOffcut`
 
 ### GET /api/warehouse/offcuts/:offcutId/audit
@@ -992,7 +992,7 @@ Save-режим: quick-action.
 отказ вместо no-op, адресация по `id` записи, единственный путь к записи (§9 соглашений).
 
 Бэкенд: не реализован.
-Реализация: `services/warehouseService.ts:deleteOffcutAuditEntry` · мок `mocks/index.ts:1447` →
+Реализация: `services/warehouseService.ts:deleteOffcutAuditEntry` · мок `mocks/index.ts:1449` →
 `services/mocks/warehouse.ts:mockDeleteOffcutAuditEntry`
 
 ---
@@ -1099,7 +1099,7 @@ Save-режим: quick-action, пятеро вызывающих: модал с�
 Отдельно про `referenceType`: прежний контракт перечисляет пять значений
 (`roo_code/roo-context/03-api-contract.md:1531`), а домен заказов пишет туда четыре других —
 `order-shipment`, `order-shipment-cancelled`, `order-return`, `order-return-writeoff`
-(`frontend_vue/src/services/mocks/orders.ts:3344`, `:3435`, `:3780`, `:3792`), и ни одно из четырёх
+(`frontend_vue/src/services/mocks/orders.ts:3347`, `:3435`, `:3780`, `:3792`), и ни одно из четырёх
 не уменьшает агрегат продажи (БАГ-13). Перечень **открыт** и на схеме (`reference_type` —
 `String(50)` без ограничения, `backend/app/modules/warehouse/shared/models.py:118`); кто им владеет
 — **решение владельца**.
@@ -1107,7 +1107,7 @@ Save-режим: quick-action, пятеро вызывающих: модал с�
 Бэкенд: не реализован — и главное расхождение схемы здесь: у `warehouse_movements` **нет колонки
 `offcut_id`** (`backend/app/modules/warehouse/shared/models.py:91-128`), а на этом поле держится вся
 модель обрезка — и списание, и статус, и журнал куска (БАГ-23).
-Реализация: `services/warehouseService.ts:createMovement` · мок `mocks/index.ts:1113` →
+Реализация: `services/warehouseService.ts:createMovement` · мок `mocks/index.ts:1111` →
 `services/mocks/warehouse.ts:mockCreateMovement` → `writeMovement`
 
 ### GET /api/warehouse/movements/:movementId
@@ -1186,7 +1186,7 @@ Save-режим: quick-action.
 поэтому (`:1934-1941`, `:1975-1988`) — свойство мока.
 
 Бэкенд: не реализован.
-Реализация: `services/warehouseService.ts:deleteMovementAuditEntry` · мок `mocks/index.ts:1456` →
+Реализация: `services/warehouseService.ts:deleteMovementAuditEntry` · мок `mocks/index.ts:1458` →
 `services/mocks/warehouse.ts:mockDeleteMovementAuditEntry`
 
 ---
@@ -1245,7 +1245,7 @@ Save-режим: quick-action. Один вызывающий — `submit()` ст
 2. **Перечень единиц, для которых размер куска выразим, закрыт шестью значениями** — `uom-m`,
    `uom-mm`, `uom-m2`, `uom-kg`, `uom-t`, `uom-pcs` (`frontend_vue/src/domain/cutting.ts:71-86`,
    экспорт `SUPPORTED_BATCH_UNITS` `:90`), тогда как справочник настроек знает девять
-   (`frontend_vue/src/services/mocks/settings.ts:91-146`): партия в `uom-m3`, `uom-kg-m3` или
+   (`frontend_vue/src/services/mocks/settings.ts:93-148`): партия в `uom-m3`, `uom-kg-m3` или
    `uom-h` не режется никогда — `BATCH_UNIT_NOT_SUPPORTED` (БАГ-15). Кто владеет этим перечнем —
    **решение владельца**.
 3. **Пропил только у линейных единиц**: `kerfMm > 0` у нелинейной партии — отказ, а не молчаливый
@@ -1261,7 +1261,7 @@ Save-режим: quick-action. Один вызывающий — `submit()` ст
    кускам списало бы четыре листа вместо одного.
 
 Бэкенд: не реализован.
-Реализация: `services/warehouseService.ts:executeCutting` · мок `mocks/index.ts:1117` →
+Реализация: `services/warehouseService.ts:executeCutting` · мок `mocks/index.ts:1115` →
 `services/mocks/warehouse.ts:mockExecuteCutting`
 
 ---
@@ -1343,7 +1343,7 @@ Save-режим: quick-action (по замыслу).
    заказа второй раз заводить нельзя — величина поднимается на существующей записи.
 
 Бэкенд: не реализован.
-Реализация: `services/warehouseService.ts:createDeficitItem` · мок `mocks/index.ts:1121` →
+Реализация: `services/warehouseService.ts:createDeficitItem` · мок `mocks/index.ts:1119` →
 `services/mocks/warehouse.ts:mockCreateDeficitItem`
 
 ### GET /api/warehouse/deficit/:deficitId
@@ -1400,7 +1400,7 @@ Save-режим: quick-action (по замыслу).
    (`backend/app/modules/warehouse/shared/models.py:196-198`).
 
 Бэкенд: не реализован.
-Реализация: `services/warehouseService.ts:patchDeficitItem` · мок `mocks/index.ts:1311` →
+Реализация: `services/warehouseService.ts:patchDeficitItem` · мок `mocks/index.ts:1313` →
 `services/mocks/warehouse.ts:mockPatchDeficitItem`
 
 ### DELETE /api/warehouse/deficit/:deficitId
@@ -1427,7 +1427,7 @@ Save-режим: quick-action (по замыслу).
    раза».
 
 Бэкенд: не реализован.
-Реализация: `services/warehouseService.ts:deleteDeficitItem` · мок `mocks/index.ts:1625` →
+Реализация: `services/warehouseService.ts:deleteDeficitItem` · мок `mocks/index.ts:1627` →
 `services/mocks/warehouse.ts:mockDeleteDeficitItem`
 
 ### GET /api/warehouse/deficit/:deficitId/audit
@@ -1466,7 +1466,7 @@ Save-режим: quick-action.
 Обязанности сервера: те же, что у остальных четырёх удалений записи журнала.
 
 Бэкенд: не реализован.
-Реализация: `services/warehouseService.ts:deleteDeficitAuditEntry` · мок `mocks/index.ts:1467` →
+Реализация: `services/warehouseService.ts:deleteDeficitAuditEntry` · мок `mocks/index.ts:1469` →
 `services/mocks/warehouse.ts:mockDeleteDeficitAuditEntry`
 
 ---
@@ -1567,7 +1567,7 @@ Save-режим: quick-action по кнопке. Один вызывающий �
 `'high'` и статус `'open'` у нехватки, заведённой заказом
 (`frontend_vue/src/services/mocks/warehouse.ts:1697-1698`); шаг количества — `1` для штучной единицы
 и `0.01` для прочих, трижды (`useWarehouseBatchCreate.ts:160`,
-`views/admin/warehouse/WarehouseStockCard.vue:111`,
+`views/admin/warehouse/WarehouseStockCard.vue:113`,
 `views/admin/warehouse/CreateMovementModal.vue:250`).
 
 **Владелец назван у всех четырёх величин — «нигде» здесь больше не стоит.** Размер страницы
@@ -1656,7 +1656,7 @@ Save-режим: quick-action по кнопке. Один вызывающий �
 Четыре, каждая — прямое наблюдение.
 
 1. **Справочник единиц открыт, а арифметика склада закрыта.** `settings.uoms` знает девять единиц
-   (`frontend_vue/src/services/mocks/settings.ts:91-146`), а таблица размеров куска — шесть
+   (`frontend_vue/src/services/mocks/settings.ts:93-148`), а таблица размеров куска — шесть
    (`frontend_vue/src/domain/cutting.ts:71-86`). Партия в `uom-m3`, `uom-kg-m3` или `uom-h` не
    режется и обрезка не даёт никогда, и добавленная арендатором единица попадёт в тот же отказ
    (БАГ-15). Кто владеет перечнем пригодных для склада единиц — **нигде** (решение владельца).
@@ -1862,9 +1862,9 @@ FIFO-стоимость (`:1801-1849`), `total` и `totalPages` пагинаци
     `useWarehouse` три пометки `DEPRECATED` про модал создания движения (`useWarehouse.ts:44`,
     `:47`, `:659`) и одна в странице (`views/admin/warehouse/WarehousePage.vue:32`), а сам
     `CreateMovementModal.vue` жив и подключён к карточке партии
-    (`views/admin/warehouse/WarehouseBatchCard.vue:20`, `:1522`).
+    (`views/admin/warehouse/WarehouseBatchCard.vue:21`, `:1522`).
 18. **`DELETE /api/warehouse/movements/:movementId` существует в моке и не существует в клиенте.**
-    Ветка есть (`frontend_vue/src/services/mocks/index.ts:1619-1623`, функция
+    Ветка есть (`frontend_vue/src/services/mocks/index.ts:1621-1625`, функция
     `frontend_vue/src/services/mocks/warehouse.ts:1407-1411`), а в `warehouseService.ts` такой
     функции нет — то есть в инвентарь эндпоинтов домена этот путь не попал и раздела выше у него
     нет. Он одна из пяти «сирот» замера К2 (см.
@@ -1922,7 +1922,7 @@ FIFO-стоимость (`:1801-1849`), `total` и `totalPages` пагинаци
 | `unitPrice` и `totalCost` числами в примере (`03-api-contract.md:1360-1361`) | оба `number \| null` (`types/warehouse.ts:99`, `:101`), и `null` значит «никто не назвал цену» (§14 соглашений) |
 | «Last-write-wins» у PATCH партии (`03-api-contract.md:1404`) | кодом не выражено ничем: ни `If-Match`, ни версии в `WarehouseBatch` нет, и клиент домена не шлёт ни одного заголовка (§11 соглашений). Утверждение верно как описание последствия и неверно как описание механизма |
 | «сервер удаляет все движения и обрезки, привязанные к партии» (`03-api-contract.md:1410`) | мок не удаляет ничего, кроме самой партии (`services/mocks/warehouse.ts:820`, БАГ-11) — но схема каскад **требует** четырьмя FK (`warehouse/shared/models.py:102-107`, `:142-147`, `:153-157`, `:240-245`), поэтому утверждение не снято, а перенесено в обязанности сервера раздела `DELETE /api/warehouse/batches/:batchId` со ссылкой на схему как на старший источник |
-| «Клиент показывает предупреждение о количестве удаляемых связанных записей» (`03-api-contract.md:1410`) | **подтверждено, не снято**: модал печатает оба числа (`views/admin/warehouse/WarehouseBatchCard.vue:1542`, `:1545`, ключи `i18n/admin/warehouse.ts:424-426`). Аудит домена утверждал обратное — поправка внесена здесь |
+| «Клиент показывает предупреждение о количестве удаляемых связанных записей» (`03-api-contract.md:1410`) | **подтверждено, не снято**: модал печатает оба числа (`views/admin/warehouse/WarehouseBatchCard.vue:1484`, `:1545`, ключи `i18n/admin/warehouse.ts:424-426`). Аудит домена утверждал обратное — поправка внесена здесь |
 | пример записи аудита без поля `id` (`03-api-contract.md:1836-1842`) | `id` обязателен (`types/warehouse.ts:527`) и адресация по нему единственная (§9 соглашений); без него парный `DELETE` не работает |
 | `timestamp` записи аудита — локальный формат `dd.mm.yyyy hh:mm` (`03-api-contract.md:1847`) | в типе и в сидах ISO-строка (`types/warehouse.ts:528`, сиды `frontend_vue/src/mocks/warehouse-stock.ts`); формат вывода принадлежит клиенту (§14 соглашений) |
 | перечень `referenceType` из пяти значений (`03-api-contract.md:1531`) | домен заказов пишет туда четыре других значения, и ни одно из них склад не узнаёт (БАГ-13); на схеме перечень открыт (`warehouse/shared/models.py:118`) |
@@ -1968,7 +1968,7 @@ FIFO-стоимость (`:1801-1849`), `total` и `totalPages` пагинаци
 | **решено 2026-09-07 (П26)** · перечень остаётся в коде, но **одним источником** вместо копий: сегодня единица по умолчанию задана `'uom-kg'` в четырёх местах и `'uom-pcs'` в четырёх других. Сведение копий — работа по коду | графа 5, пункт 1 (БАГ-15) |
 | **снято 2026-09-10 (П23)** · незачем: колонка удаляется вместе с отказом от конверсии валют — курса в системе нет нигде | графа 5, пункт 3; [§14](00-conventions.md) |
 | **решено 2026-09-10 (П26, П65 а)** · правилами пересчёта владеет код, сервер их валидирует; карта склада — просто картинка, значит адрес хранения партии с ней структурно не связан и сверять адрес по карте сервер не обязан (вторая половина — чтение контракта, не слово владельца) | графа 5, пункты 2 и 4; [§25](00-conventions.md), [§14](00-conventions.md) |
-| **решено 2026-09-07** · права на создание партии, резку и движение — обычные элементы CRUD-матрицы по надобности роли (П2, П7); удаление записи журнала — **только владелец** (П8). **Решено 2026-09-07 (П18)** · себестоимость партии сервер **вырезает и присылает цену продажи посчитанной**. Причина выбора: неизвестно, нужна ли кладовщику себестоимость и надо ли её от него прятать, поэтому форма ответа обязана выдержать оба случая. По полям это значит: `sellingPrice` завести в ответе — сегодня его на проводе нет, это клиентский `computed` (`views/admin/warehouse/WarehouseBatchCard.vue:64-68`); вырезать три поля — `unitPrice` (`types/warehouse.ts:99`), `totalCost` (`:100-101`, это `quantity × unitPrice`) и `marginPercent` (`:120`), последнее по правилу полноты вырезания, иначе себестоимость получают делением; `totalSellingValue` не заводить — он выводится из `sellingPrice` и `quantity`. Экран это не ломает: случай «цены нет» уже предусмотрен, поле показывает прочерк (`WarehouseBatchCard.vue:62`, `:65`). Страница при этом обязана не рисовать колонок себестоимости такому пользователю ([§6.7](00-conventions.md)) | графа 7; [§6.6](00-conventions.md), [§6.10](00-conventions.md) |
+| **решено 2026-09-07** · права на создание партии, резку и движение — обычные элементы CRUD-матрицы по надобности роли (П2, П7); удаление записи журнала — **только владелец** (П8). **Решено 2026-09-07 (П18)** · себестоимость партии сервер **вырезает и присылает цену продажи посчитанной**. Причина выбора: неизвестно, нужна ли кладовщику себестоимость и надо ли её от него прятать, поэтому форма ответа обязана выдержать оба случая. По полям это значит: `sellingPrice` завести в ответе — сегодня его на проводе нет, это клиентский `computed` (`views/admin/warehouse/WarehouseBatchCard.vue:66-70`); вырезать три поля — `unitPrice` (`types/warehouse.ts:99`), `totalCost` (`:100-101`, это `quantity × unitPrice`) и `marginPercent` (`:120`), последнее по правилу полноты вырезания, иначе себестоимость получают делением; `totalSellingValue` не заводить — он выводится из `sellingPrice` и `quantity`. Экран это не ломает: случай «цены нет» уже предусмотрен, поле показывает прочерк (`WarehouseBatchCard.vue:64`, `:65`). Страница при этом обязана не рисовать колонок себестоимости такому пользователю ([§6.7](00-conventions.md)) | графа 7; [§6.6](00-conventions.md), [§6.10](00-conventions.md) |
 | **решено 2026-09-09 (П43)** · склад назван атомарным поимённо: Save карточки партии применяется целиком либо не применяется вовсе. Сегодня это `patchBatch()` и следом `createMovement()` двумя запросами без общей границы (`useWarehouseBatch.ts:260`, `:267`), а провал второго заглушён | графа 8; [§15](00-conventions.md) |
 | **осталось** · какие колонки в каждой из пяти выгрузок | раздел `GET /api/warehouse/export/:tab`, обязанность 4; ответа нет ни в моке, ни на сервере |
 | **осталось** · что делать с `purchaseOrderId`, который правится, но задаётся негде | раздел `PATCH /api/warehouse/deficit/:deficitId`, обязанность 1; модуля закупочных заказов в проекте нет |

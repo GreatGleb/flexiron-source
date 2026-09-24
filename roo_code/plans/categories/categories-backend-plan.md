@@ -318,14 +318,14 @@ jscpd, prettier, vitest). Где ниже сказано «гейт», имее�
 - сторожей сидов с человеческим текстом в этом файле **нет** — ни одна из трёх строк не
   является проверкой посева, все три отвечают на запрос;
 - `DELETE` уже переведён: роутер мока бросает `ApiRequestError` со статусом
-  (`frontend_vue/src/services/mocks/index.ts:1617`), и трогать его не нужно.
+  (`frontend_vue/src/services/mocks/index.ts:1619`), и трогать его не нужно.
 
 Работа:
 
 1. три броска → `throw new ApiRequestError({ status: 404, message: 'CATEGORY_NOT_FOUND', code: 'CATEGORY_NOT_FOUND' })`;
    `ApiRequestError` импортируется из `@/types/api` — тем же способом, каким его уже импортирует
    роутер мока;
-2. спека `frontend_vue/src/services/mocks/unknown-id-is-refused.spec.ts:46-47` утверждает отказ
+2. спека `frontend_vue/src/services/mocks/unknown-id-is-refused.spec.ts:50-51` утверждает отказ
    **по тексту** — `toThrow('CATEGORY_NOT_FOUND')`; переписать на утверждение о поле:
    отказ ловится, проверяется `errorCode(e)` либо `e.code`, а не подстрока сообщения;
 3. `useCategoryCard.ts:92` и `:116` читают `e.message` (`:115` — это `toast.success`, не чтение отказа; проверено `grep -n "e.message" frontend_vue/src/composables/useCategoryCard.ts` → `92`, `116`) — перевести на `errorCode` из
@@ -472,7 +472,7 @@ CONTRACT_REFS=roo_code/roo-context/api/categories.md CONTRACT_REFS_STRICT=1 \
 адреса до починки БАГ-05, сдвиг на четыре строки; сегодня коды лежат на 1483-1485. Резолвер молчит:
 строка 51 диапазонная, а на 56, 57 и 60 ссылок больше одной, и промах токена там помечается
 «глазами». Та же протухшая ссылка продублирована в коде — комментарий
-`frontend_vue/src/services/mocks/index.ts:1615` пишет «`mocks/categories.ts:1479-1481`». Z1 правит
+`frontend_vue/src/services/mocks/index.ts:1617` пишет «`mocks/categories.ts:1479-1481`». Z1 правит
 все пять мест, пересчитав номера `grep`-ом **после Z0**, а не переписав сегодняшние 1483-1485: Z0
 добавляет строки выше этого места и сдвинет их ещё раз. Правка комментария строк не двигает.
 
@@ -571,7 +571,7 @@ npx vitest run src/services/contract-conformance.spec.ts
 `GET /api/categories/:id` обязан отдать `linkedSuppliers`, а `LinkedSupplier.name` — это
 `TranslatedString` ([`frontend_vue/src/types/product.ts:20`](../../../frontend_vue/src/types/product.ts)),
 куда карточка кладёт название компании поставщика
-([`frontend_vue/src/views/admin/products/CategoryCardPage.vue:227`](../../../frontend_vue/src/views/admin/products/CategoryCardPage.vue)
+([`frontend_vue/src/views/admin/products/CategoryCardPage.vue:235`](../../../frontend_vue/src/views/admin/products/CategoryCardPage.vue)
 — `name: supplier.company`), а рядом кладёт его валюту (`:231`). Ни имени, ни валюты в
 `category_suppliers` (M3) колонкой нет и быть не должно — имя живёт в `company_translations`
 ([`backend/app/modules/suppliers/shared/models.py:25`](../../../backend/app/modules/suppliers/shared/models.py)),
@@ -792,7 +792,7 @@ curl -s "http://localhost:8000/api/categories?search=&page=1&pageSize=25" ; kill
   Проверяет код сервер. Порядок проверки: сперва право, потом код.
 
 Фронтовая половина П73 — предупреждение с числом затронутых записей и поле ввода кода — заменяет
-нынешнюю обычную модалку (`CategoryCardPage.vue:190` — `const fieldToDelete`).
+нынешнюю обычную модалку (`CategoryCardPage.vue:198` — `const fieldToDelete`).
 
 **Вторая половина П73 — «вернули поле в набор, значения видны снова» — сегодня не выразима на
 проводе, и слайс обязан это решить, а не обойти.** Снятие поля у клиента — простое исчезновение из

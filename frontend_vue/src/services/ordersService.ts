@@ -310,7 +310,12 @@ export async function cancelOrderShipment(
   shipmentId: string,
   data: { correctionReason?: string | null; version?: number } = {},
 ): Promise<Shipment> {
-  return apiPost(`/api/orders/${orderId}/shipments/${shipmentId}/cancel`, data)
+  // Same deal as the shipment and return above: a repeat — a slow answer, a double
+  // click, a reconnect — must not reverse the same delivery twice and issue two
+  // correcting invoices for one shipment.
+  return apiPost(`/api/orders/${orderId}/shipments/${shipmentId}/cancel`, data, {
+    headers: { 'Idempotency-Key': newIdempotencyKey() },
+  })
 }
 
 // ─── Returns ────────────────────────────────────────────────────────────────

@@ -2,7 +2,7 @@
 
 ## Context
 
-The batch card location section was extracted into a dedicated [`GlassPanel`](frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:601) with four fields:
+The batch card location section was extracted into a dedicated [`GlassPanel`](frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:543) with four fields:
 
 | Field | i18n key | Type |
 |-------|----------|------|

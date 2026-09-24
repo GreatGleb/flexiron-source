@@ -299,11 +299,11 @@ interface Client {
   last-write-wins, как в шестнадцати доменах из семнадцати (соглашения §11);
 - закрыто: правка реквизитов **не расходится** по уже созданным заказам — заказ снимает
   `clientName`, `clientVatCode`, `clientAddress`, `clientPaymentTermsDays` в момент создания
-  (`mocks/orders.ts:1623-1628`) и больше их не сверяет. Это заморозка документа, а не
+  (`mocks/orders.ts:1626-1631`) и больше их не сверяет. Это заморозка документа, а не
   денормализация (соглашения §17, правило 6 ниже).
 
 Бэкенд: не реализован
-Реализация: `services/clientsService.ts:patchClient` · мок `mocks/index.ts:1248` → `mocks/clients.ts:mockPatchClient`
+Реализация: `services/clientsService.ts:patchClient` · мок `mocks/index.ts:1250` → `mocks/clients.ts:mockPatchClient`
 
 ---
 
@@ -314,7 +314,7 @@ interface Client {
 
 Запрос: тела нет (`services/clientsService.ts:24-26`), идентификатор — в пути.
 
-Ответ: `ApiResponse<void>` — мок отдаёт `undefined` (`mocks/index.ts:1525`), сигнатура клиента
+Ответ: `ApiResponse<void>` — мок отдаёт `undefined` (`mocks/index.ts:1527`), сигнатура клиента
 `Promise<void>`. Тело никто не читает: `handleDelete` идёт сразу к `load()` (`useClients.ts:64-66`).
 
 Ошибки: `CLIENT_NOT_FOUND` (`mocks/clients.ts:1184`) · `CONFLICT` — у клиента есть заказы
@@ -328,7 +328,7 @@ interface Client {
 Пробелы аудита:
 - закрыто: **про заказы отвечает домен заказов, а не домен клиентов.** Правило «клиента с заказами
   удалять нельзя» знает не мок клиентов: заказы регистрируют колбэк
-  `registerClientOrderLookup` (`mocks/clients.ts:1166-1180`, регистрация — `mocks/orders.ts:1294`),
+  `registerClientOrderLookup` (`mocks/clients.ts:1166-1180`, регистрация — `mocks/orders.ts:1297`),
   чтобы не заводить цикл импортов. На сервере тот же порядок: проверка — запрос к заказам, а не
   необязательный колбэк; ветка `?? 0` (`mocks/clients.ts:1190`), при которой незарегистрированный
   lookup пропустил бы удаление молча, серверного двойника не имеет;
@@ -337,11 +337,11 @@ interface Client {
   (`mocks/clients.ts:1193`);
 - **решено 2026-09-07 (П28):** удаляются вместе с клиентом, и это намеренно — мягкого удаления не заводится.
   `splice` уносит `auditLog` и `interactionHistory` вместе с объектом, а общая лента аудита
-  строится из того же массива (`clientAuditSources`, `mocks/clients.ts:1244-1251`) — запись просто
+  строится из того же массива (`clientAuditSources`, `mocks/clients.ts:1245-1252`) — запись просто
   исчезает из ленты. Строка владельцу.
 
 Бэкенд: не реализован
-Реализация: `services/clientsService.ts:deleteClient` · мок `mocks/index.ts:1522` → `mocks/clients.ts:mockDeleteClient`
+Реализация: `services/clientsService.ts:deleteClient` · мок `mocks/index.ts:1524` → `mocks/clients.ts:mockDeleteClient`
 
 ---
 
@@ -406,7 +406,7 @@ interface StockAuditEntry {
 `sealAuditIds(…, 'cl')` (`mocks/clients.ts:1058-1064`). Почему не позиция — соглашения §9:
 устаревший индекс удаляет не ту запись, и молча.
 
-Ответ: `ApiResponse<void>` (`mocks/index.ts:1534`).
+Ответ: `ApiResponse<void>` (`mocks/index.ts:1536`).
 
 Ошибки: `CLIENT_NOT_FOUND` (`mocks/clients.ts:1198`) · `AUDIT_ENTRY_NOT_FOUND`
 (`mocks/clients.ts:1201`). Оба до человека не доходят: голый `catch {}` и один текст
@@ -430,7 +430,7 @@ interface StockAuditEntry {
   ничто (`grep -c "auditLog.push" mocks/clients.ts` → `0`).
 
 Бэкенд: не реализован
-Реализация: `services/clientsService.ts:deleteClientAuditEntry` · мок `mocks/index.ts:1528` → `mocks/clients.ts:mockDeleteClientAuditEntry`
+Реализация: `services/clientsService.ts:deleteClientAuditEntry` · мок `mocks/index.ts:1530` → `mocks/clients.ts:mockDeleteClientAuditEntry`
 
 ---
 
@@ -498,7 +498,7 @@ interface StockAuditEntry {
 Запрос: тела нет. **Второй сегмент — не идентификатор, а порядковый индекс в массиве.** Сигнатура
 `deleteClientInteraction(clientId: string, entryIndex: number)` (`services/clientsService.ts:55`),
 путь склеивается из числа (`:56`), ветка мока принимает **только цифры** —
-`/^\/api\/clients\/([^/]+)\/interactions\/(\d+)$/` (`mocks/index.ts:1724`), и мок режет массив по
+`/^\/api\/clients\/([^/]+)\/interactions\/(\d+)$/` (`mocks/index.ts:1726`), и мок режет массив по
 этому индексу (`mocks/clients.ts:1233`). У `InteractionHistoryEntry` идентификатора нет вовсе — пять
 полей, и `id` среди них отсутствует (`types/client.ts:6-13`).
 
@@ -506,7 +506,7 @@ interface StockAuditEntry {
 (`useClientCard.ts:297`), чтобы сдвиг массива на сервере не сбил следующий индекс. Для сервера это
 часть контракта: индексы в серии `DELETE` идут по убыванию и относятся к состоянию **до** серии.
 
-Ответ: `ApiResponse<void>` (`mocks/index.ts:1543`).
+Ответ: `ApiResponse<void>` (`mocks/index.ts:1545`).
 
 Ошибки: `CLIENT_NOT_FOUND` (`mocks/clients.ts:1221`) · `INTERACTION_ENTRY_NOT_FOUND` — бросается и
 на отсутствующую историю, и на индекс вне границ (`mocks/clients.ts:1222-1232`). До человека не
@@ -530,7 +530,7 @@ interface StockAuditEntry {
   вызывается (`useClientCard.ts:314-316`), и экран молча расходится с базой.
 
 Бэкенд: не реализован
-Реализация: `services/clientsService.ts:deleteClientInteraction` · мок `mocks/index.ts:1537` → `mocks/clients.ts:mockDeleteClientInteraction`
+Реализация: `services/clientsService.ts:deleteClientInteraction` · мок `mocks/index.ts:1539` → `mocks/clients.ts:mockDeleteClientInteraction`
 
 ---
 
@@ -572,15 +572,15 @@ interface ClientUnassignedPayment {
 }
 ```
 
-Оба списка отсортированы по убыванию даты (`mocks/orders.ts:4112-4113`).
+Оба списка отсортированы по убыванию даты (`mocks/orders.ts:4115-4116`).
 
 Ошибки: **ни одной** — реализация обходит заказы и на неизвестном клиенте возвращает два пустых
-списка (`mocks/orders.ts:4055-4060`, `:4114`). Вызывающий глушит всё:
+списка (`mocks/orders.ts:4058-4063`, `:4114`). Вызывающий глушит всё:
 `catch { invoices.value = []; unassignedPayments.value = [] }` (`useClientCard.ts:209-211`).
 
 Пробелы аудита:
 - закрыто: **эндпоинт принадлежит домену `clients`, а вся его арифметика — домену `orders`.**
-  Реализация — `mocks/orders.ts:4055-4115` поверх `invoiceBalances` (`:4066`), и причина записана в
+  Реализация — `mocks/orders.ts:4058-4118` поверх `invoiceBalances` (`:4066`), и причина записана в
   самом клиенте: не «сходить за заказами и спросить счета у каждого», потому что это N+1 и вторая
   копия правил «какой документ клиент ещё держит» и «куда отнести платёж»
   (`services/clientsService.ts:28-35`). Для сервера это значит: отвечать здесь обязан тот же код,
@@ -589,7 +589,7 @@ interface ClientUnassignedPayment {
   (`useClientCard.ts:70-113`), потому что курса в системе нет (соглашения §14). Сервер такой сводки
   не отдаёт, и добавлять её в ответ незачем: она производна от `invoices` целиком;
 - **осталось:** ответ не пагинирован, при том что растёт по всем заказам клиента за всё время
-  (`mocks/orders.ts:4055-4060` обходит все заказы клиента). Ни клиент, ни мок границы не знают;
+  (`mocks/orders.ts:4058-4063` обходит все заказы клиента). Ни клиент, ни мок границы не знают;
   строки владельцу под это нет — контракт предела не назначает.
 
 Бэкенд: не реализован
@@ -639,7 +639,7 @@ interface ClientUnassignedPayment {
 **3. Запись в аудит-лог.** **Лог у клиента есть, и его никто не пишет.** Поле объявлено
 (`types/client.ts:45-46`), эндпоинт чтения есть, сущность `client` входит в замкнутый перечень
 девяти сущностей ленты (`types/audit.ts:5-14`) и отдаётся туда через `clientAuditSources`
-(`mocks/clients.ts:1244-1251`). При этом `grep -c "auditLog.push" frontend_vue/src/services/mocks/clients.ts`
+(`mocks/clients.ts:1245-1252`). При этом `grep -c "auditLog.push" frontend_vue/src/services/mocks/clients.ts`
 → `0`: ни создание (`:1083-1142`), ни правка (`:1144-1164`), ни удаление (`:1182-1194`) следа не
 оставляют — весь лог посевной (`:76`, `:116`, `:148`, `:210`, `:270`, `:332`, `:386`, `:530`, `:676`,
 `:962`). Автор в посеве — переводимая строка `{ ru: 'Система', en: 'System', lt: 'Sistema' }` (`:79`)
@@ -674,7 +674,7 @@ ISO из закрытого списка, рядом с часовым пояс�
 колонки: модуля `clients` на бэкенде нет, и `tenant_id`, объявленный в моделях всех десяти
 существующих модулей, к клиенту не относится. Чем ограничивается выборка — строка владельцу.
 Отдельно то, что видно только здесь: **`GET /api/clients/:id/invoices` читает два хранилища** —
-заказы и платежи домена `orders` (`mocks/orders.ts:4055-4115`), — и фильтр обязан стоять на каждом
+заказы и платежи домена `orders` (`mocks/orders.ts:4058-4118`), — и фильтр обязан стоять на каждом
 (соглашения §4).
 
 **7. Права — в какой функции проверяются.** **Ни в какой.** Во фронте доступ к трём маршрутам
@@ -690,7 +690,7 @@ RBAC logic here» (`backend/app/modules/auth/internal_api/interface.py:27-38`), 
 
 **8. Транзакционность и идемпотентность.** **`Idempotency-Key` домен не шлёт ни разу** —
 `grep -c "Idempotency" frontend_vue/src/services/clientsService.ts` → `0`, при том что механизм в
-проекте есть (`services/api.ts:239-245`, кеш мока — `mocks/index.ts:262-269`), и обе `POST`-ветки
+проекте есть (`services/api.ts:258-264`, кеш мока — `mocks/index.ts:262-269`), и обе `POST`-ветки
 домена идут мимо него (`mocks/index.ts:961-963`, `:965-973` против `:912`, `:919`, `:1036`).
 **Одна кнопка Save карточки рассыпается на `1 + N + M` последовательных запросов**: `PATCH`
 клиента, затем по одному `DELETE` на каждое удалённое взаимодействие (по убыванию индекса), затем
@@ -707,14 +707,14 @@ RBAC logic here» (`backend/app/modules/auth/internal_api/interface.py:27-38`), 
 `GET /api/clients`.
 (2) **Вся сводка счетов производна целиком:** `amountGrossCurrent`, `withdrawn`, `paidAmount`,
 `outstanding` выводятся из документов и платежей заказа через `invoiceBalances`
-(`mocks/orders.ts:4066`, `:4077-4090`), а `unassignedPayments` — из платежей, не названных ни одним
+(`mocks/orders.ts:4069`, `:4077-4090`), а `unassignedPayments` — из платежей, не названных ни одним
 документом (`:4096-4108`). Хранить их нельзя: каждая корректировка и каждый платёж их меняют.
 (3) Итог по валютам сводки считает **фронт** (`useClientCard.ts:70-113`) — отдельной строкой на
 валюту, потому что курса нет нигде.
 (4) `suggestedDocumentType` — производная от страны клиента, считается во фронте при создании
 заказа (`domain/countries.ts:339-341`, `useOrderCreate.ts:184`).
 (5) **Не** производные, а снимок: `clientName`, `clientVatCode`, `clientAddress`,
-`clientPaymentTermsDays` заказа копируются в момент создания (`mocks/orders.ts:1623-1628`) и после
+`clientPaymentTermsDays` заказа копируются в момент создания (`mocks/orders.ts:1626-1631`) и после
 правки клиента не обновляются. Сервер обязан знать, что это заморозка документа, а не
 денормализация ради скорости (соглашения §17).
 
@@ -745,18 +745,18 @@ RBAC logic here» (`backend/app/modules/auth/internal_api/interface.py:27-38`), 
    не запрет.
 5. **Клиента с заказами удалять нельзя**, и знает об этом домен заказов, а не домен клиентов:
    правило зарегистрировано колбэком `registerClientOrderLookup` (`mocks/clients.ts:1166-1180`,
-   регистрация — `mocks/orders.ts:1294`), чтобы не заводить цикл импортов. На сервере тот же
+   регистрация — `mocks/orders.ts:1297`), чтобы не заводить цикл импортов. На сервере тот же
    порядок: про заказы отвечает модуль заказов.
 6. **Реквизиты клиента, попавшие в заказ, замораживаются.** Заказ снимает `clientName`,
    `clientVatCode`, `clientAddress`, `clientPaymentTermsDays` при создании
-   (`mocks/orders.ts:1623-1628`) и правку клиента не подхватывает: документ обязан говорить то, что
+   (`mocks/orders.ts:1626-1631`) и правку клиента не подхватывает: документ обязан говорить то, что
    говорил в день выписки.
 7. **Сводка счетов считается на стороне заказов и одним запросом.** Не «сходить за заказами и
    спросить счета у каждого»: это N+1 и вторая копия правил «какой документ клиент ещё держит» и
-   «куда отнести платёж» (`services/clientsService.ts:28-35`, реализация — `mocks/orders.ts:4055-4115`).
+   «куда отнести платёж» (`services/clientsService.ts:28-35`, реализация — `mocks/orders.ts:4058-4118`).
 8. **Каждый платёж попадает ровно в одно место сводки**: в строку своего счёта, в строку
    исправленного счёта — если платёж пришёл по корректировке, — или в `unassignedPayments`, если не
-   назвал документа вовсе (`types/client.ts:144-152`, `mocks/orders.ts:4066-4108`). Поэтому сумма
+   назвал документа вовсе (`types/client.ts:144-152`, `mocks/orders.ts:4069-4111`). Поэтому сумма
    «оплачено» по сводке сходится с `paidAmount` заказов клиента до цента.
 9. **Отозванный документ в «выставлено» не входит**: у него `amountGrossCurrent === 0`, потому что
    клиент его не держит. Корректировка своей строки не получает — её сумма ложится в строку

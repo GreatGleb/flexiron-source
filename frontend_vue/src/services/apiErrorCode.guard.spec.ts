@@ -282,12 +282,99 @@ const SAMPLES: Array<[string, string, boolean]> = [
     `const m = new Map<string,string>()\nm.set('k', row.status)\nif (m.get('k') === 'IN_PROGRESS') g()`,
     false,
   ],
-  // ИЗВЕСТНЫЕ ПРЕДЕЛЫ v7 — записаны как есть, потому что молчание сторожа на них означает
-  // «не проверено», а не «чисто». Каждая промерена пробой 2026-09-13 и молчит:
-  //   1) тара, наполненная в конструкторе: `new Map([['k', e.message]])`, затем `get('k')`;
-  //   2) обход тары чужой функцией: `Object.values(box).includes('КОД')`, `box.map(x => x)[0]`;
-  //   3) межфайловый поток без фактов — вызывающий не подал `FactsLookup`.
-  // Появится живое место такой формы — это находка, а не «сторож зелёный».
+  // ТАРА, НАПОЛНЕННАЯ КОНСТРУКТОРОМ — v8, первый из двух пределов, названных v7. Разбор
+  // выражений заходил в литерал массива и в запись методом (`push`, `set`, `add`), но не в
+  // `new` вовсе: `new Map([['k', e.message]])` и `new Set([e.message])` были для сторожа
+  // пустым местом. Замер до правки 2026-09-13: обе пробы ниже молчат на v7, ловятся на v8.
+  [
+    'тара, наполненная в конструкторе Map',
+    `try{f()}catch(e){ const m = new Map([['k', e.message]]); if (m.get('k') === 'SOME_CODE') g() }`,
+    true,
+  ],
+  [
+    'тара, наполненная в конструкторе Set',
+    `try{f()}catch(e){ const s = new Set([e.message]); if (s.has('SOME_CODE')) g() }`,
+    true,
+  ],
+  [
+    'тара в конструкторе через Object.entries',
+    `try{f()}catch(e){ const m = new Map(Object.entries({ k: e.message })); if (m.get('k') === 'SOME_CODE') g() }`,
+    true,
+  ],
+  [
+    'контроль: Map в конструкторе получает код, а не текст',
+    `try{f()}catch(e){ const m = new Map([['k', errorCode(e)]]); if (m.get('k') === 'SOME_CODE') g() }`,
+    false,
+  ],
+  [
+    'контроль: Set в конструкторе получает статус, а не текст',
+    `const s = new Set([row.status])\nif (s.has('IN_PROGRESS')) g()`,
+    false,
+  ],
+  // ОБХОД ТАРЫ ЧУЖОЙ ФУНКЦИЕЙ — v8, второй из пределов v7. `CONTAINER_READS` знала свои
+  // методы, но `Object.values(box)` совпадало по ИМЕНИ метода (`values`) и разбиралось как
+  // чтение получателя `Object`, то есть ничего; `map`/`filter`/`flatMap`/`slice`/`concat`/
+  // `reverse`/`sort` вообще не значились чтением. Замер до правки 2026-09-13: обе пробы
+  // ниже молчат на v7, ловятся на v8.
+  [
+    'обход тары через Object.values',
+    `try{f()}catch(e){ const box = { text: e.message }; if (Object.values(box).includes('SOME_CODE')) g() }`,
+    true,
+  ],
+  [
+    'обход тары через map',
+    `const box: string[] = []\ntry{f()}catch(e){ box.push(e.message) }\nif (box.map(x => x)[0] === 'SOME_CODE') g()`,
+    true,
+  ],
+  [
+    'контроль: Object.values читает код, а не текст',
+    `try{f()}catch(e){ const box = { text: errorCode(e) }; if (Object.values(box).includes('SOME_CODE')) g() }`,
+    false,
+  ],
+  [
+    'контроль: map читает статус, а не текст',
+    `const box = [row.status]\nif (box.map(x => x)[0] === 'IN_PROGRESS') g()`,
+    false,
+  ],
+  [
+    'контроль: Object.keys — имена полей, не значения',
+    `try{f()}catch(e){ const box = { SOME_CODE: e.message }; if (Object.keys(box).includes('SOME_CODE')) g() }`,
+    false,
+  ],
+  // РЕГУЛЯРКА, СОБРАННАЯ ВО ВРЕМЯ ИСПОЛНЕНИЯ — предел v8. Сторож разбирал регулярку-литерал
+  // (`/SOME_CODE/`), но не видел ту же регулярку, собранную конструктором: `codeOf` не
+  // заходил в `NewExpression` вовсе. Форма чтения тоже была одна — `test`; `exec` — то же
+  // сравнение, записанное другим методом, — не разбирался.
+  [
+    'регулярка через конструктор',
+    `try{f()}catch(e){ if (new RegExp('SOME_CODE').test(e.message)) g() }`,
+    true,
+  ],
+  [
+    'регулярка через конструктор в имени',
+    `const R = new RegExp('SOME_CODE')\ntry{f()}catch(e){ if (R.test(e.message)) g() }`,
+    true,
+  ],
+  ['exec регулярки-литерала', `try{f()}catch(e){ if (/SOME_CODE/.exec(e.message)) g() }`, true],
+  [
+    'exec регулярки из конструктора',
+    `try{f()}catch(e){ if (new RegExp('SOME_CODE').exec(e.message)) g() }`,
+    true,
+  ],
+  [
+    'контроль: регулярка из значения без кода',
+    `if (new RegExp(row.status).test(e.message)) g()`,
+    false,
+  ],
+  // ИЗВЕСТНЫЕ ПРЕДЕЛЫ — записаны как есть, потому что молчание сторожа на них означает
+  // «не проверено», а не «чисто». Пределы v7 (тара конструктором и обход тары чужой
+  // функцией) и предел v8 (регулярка, собранная `new RegExp(...)`, и чтение через `exec`)
+  // закрыты пробами выше — они больше не предел, а проверенное поведение. Что осталось, как
+  // в шапке `apiErrorCode.guard.ts`:
+  //   1) межфайловый поток без фактов — вызывающий не подал `FactsLookup`;
+  //   2) блочная область видимости огрублена до функции;
+  //   3) анализ нечувствителен к порядку вызовов.
+  // Появится живое место любой из этих форм — это находка, а не «сторож зелёный».
   // Разрешённые записи — сторож обязан молчать.
   ['через errorCode', `try{f()}catch (e) { if (errorCode(e) === 'SOME_CODE') g() }`, false],
   [

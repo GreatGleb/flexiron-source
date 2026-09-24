@@ -62,7 +62,7 @@
 |---|---|---|
 | `mockGetSupplier`, промах по id (`frontend_vue/src/services/mocks/suppliers.ts:304-307`) | человеческая фраза вместо машинного кода | `ApiRequestError` 404 (`frontend_vue/src/types/api.ts:25`), `code` со значением `SUPPLIER_NOT_FOUND` |
 | `mockDeleteAuditEntry`, карточки нет (`frontend_vue/src/services/mocks/suppliers.ts:458`) | голый `Error` с кодом в тексте | `ApiRequestError` 404, тот же код в поле |
-| `mockDeleteAuditEntry`, записи нет (`frontend_vue/src/services/mocks/suppliers.ts:460`) | голый `Error` с кодом в тексте | `ApiRequestError` 404, `code: 'AUDIT_ENTRY_NOT_FOUND'` |
+| `mockDeleteAuditEntry`, записи нет (`frontend_vue/src/services/mocks/suppliers.ts:466`) | голый `Error` с кодом в тексте | `ApiRequestError` 404, `code: 'AUDIT_ENTRY_NOT_FOUND'` |
 
 Почему фраза на `:307` получает код, а не остаётся фразой: это не сторож сида, а настоящая
 ветка отказа — контракт прямо требует от сервера `404 NOT_FOUND` в этом месте, и соседняя
@@ -246,7 +246,7 @@ cd frontend_vue && npx vitest run src/services/apiErrorCode.guard.spec.ts
 | П10 | нет | уведомление о блокировке — одна строка на событие плюс таблица прочтений; домен адресатов не выбирает |
 | П11 | нет | файлы карточки отдаются подписанными ссылками ~15 минут, а не статикой; `SupplierFile` хранит ссылку, а не путь |
 | П15 | нет | загрузка файла в карточку — действие `edit`, не отдельное право; отдельного списка именованных прав у домена не будет |
-| П19 | нет | валюта нового поставщика берётся из настроек в момент создания и **копируется в запись**; литерал `'EUR'` в моке (`frontend_vue/src/services/mocks/suppliers.ts:483`) — дефект |
+| П19 | нет | валюта нового поставщика берётся из настроек в момент создания и **копируется в запись**; литерал `'EUR'` в моке (`frontend_vue/src/services/mocks/suppliers.ts:489`) — дефект |
 | П20 | нет | размер страницы списка и перечень размеров остаются константами кода; сервер их не отдаёт и не настраивает |
 | П21 | нет | прямого следствия нет: номера у поставщика не бывает. Правило «читает человек — счётчик, читает только машина — UUID» применяется к `entryId` (см. П38) |
 | П23 | нет | прямого следствия нет: курса у поставщика нет ни в одном поле |
@@ -411,7 +411,7 @@ T9 и T11 зависят от [`сквозное-audit-log-план.md`](../gene
 2. **Набор колонок серверного экспорта и заголовок ответа.** П65 (в) назначил настоящей серверную
    выгрузку, но состав колонок не назвал, а в коде их два и они **разные**: у мока
    `id,company,email,phone,status,rating,leadTime,categories`
-   (`frontend_vue/src/services/mocks/suppliers.ts:521`), у кнопки — свой набор без строки
+   (`frontend_vue/src/services/mocks/suppliers.ts:527`), у кнопки — свой набор без строки
    заголовка (`frontend_vue/src/views/admin/suppliers/SuppliersListPage.vue:207-215`). Плюс:
    обязателен ли `Content-Disposition` и нужна ли потоковая отдача — в коде нет ни того, ни
    другого нигде.

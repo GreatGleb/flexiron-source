@@ -64,5 +64,11 @@ export async function deleteAuditFeedEntry(row: AuditFeedRow): Promise<void> {
       return deleteMovementAuditEntry(row.entityId, row.entryId)
     case 'deficit':
       return deleteDeficitAuditEntry(row.entityId, row.entryId)
+    default: {
+      // Assigning to `never` also makes this a compile-time exhaustiveness check:
+      // adding a tenth entity type to `AuditEntityType` without a case here breaks the build.
+      const exhaustive: never = row.entityType
+      throw new Error(`Unknown audit feed entity type: ${exhaustive}`)
+    }
   }
 }

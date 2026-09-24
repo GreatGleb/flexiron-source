@@ -1053,15 +1053,14 @@ async function postMockRoute<T>(
 
   const acceptMatch = path.match(/^\/api\/bcc\/events\/([^/]+)\/response$/)
   if (acceptMatch) {
-    const evt = mockAcceptResponse(
-      acceptMatch[1] as string,
-      body as { price: number; unit: string },
+    const evt = withIdempotency(path, headers, () =>
+      mockAcceptResponse(acceptMatch[1] as string, body as { price: number; unit: string }),
     )
     return delay(evt as T)
   }
   const noRespMatch = path.match(/^\/api\/bcc\/events\/([^/]+)\/no-response$/)
   if (noRespMatch) {
-    const evt = mockMarkNoResponse(noRespMatch[1] as string)
+    const evt = withIdempotency(path, headers, () => mockMarkNoResponse(noRespMatch[1] as string))
     return delay(evt as T)
   }
 
@@ -1141,10 +1140,12 @@ async function postMockRoute<T>(
   const shipmentCancelMatch = path.match(/^\/api\/orders\/([^/]+)\/shipments\/([^/]+)\/cancel$/)
   if (shipmentCancelMatch) {
     return delay(
-      mockCancelShipment(
-        shipmentCancelMatch[1] as string,
-        shipmentCancelMatch[2] as string,
-        body as Parameters<typeof mockCancelShipment>[2],
+      withIdempotency(path, headers, () =>
+        mockCancelShipment(
+          shipmentCancelMatch[1] as string,
+          shipmentCancelMatch[2] as string,
+          body as Parameters<typeof mockCancelShipment>[2],
+        ),
       ) as T,
     )
   }

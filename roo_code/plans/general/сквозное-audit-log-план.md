@@ -151,7 +151,7 @@
 
 ### 2.3. Фронт: пишет ровно один домен из девяти
 
-- Заказы пишут через `appendHistory` (`frontend_vue/src/services/mocks/orders.ts:1881`), единственный
+- Заказы пишут через `appendHistory` (`frontend_vue/src/services/mocks/orders.ts:1884`), единственный
   `push` в журнал — `order.auditLog.push(stored)` (`:1893`). Мест вызова семь: прямой у смены
   статуса (`:1834`) и шесть через `recordInHistory` (`:1903`) — `:2268`, `:2331`, `:2707`, `:2722`,
   `:3454`, `:3829`. Замер владельца в П36: мутирующих операций у заказа **24**, след оставляют
@@ -159,11 +159,11 @@
 - У остальных восьми видов писателя нет вовсе. Проверено счётом:
   `grep -n "auditLog\.push\|auditLog\.unshift" src/services/mocks/{products,clients,suppliers,warehouse}.ts`
   → ни одного совпадения. Все попадания `auditLog.` в этих файлах — **удаления**:
-  `mocks/products.ts:14239`, `mocks/suppliers.ts:461`, `mocks/warehouse.ts:1888`, `:1908`,
+  `mocks/products.ts:14239`, `mocks/suppliers.ts:467`, `mocks/warehouse.ts:1888`, `:1908`,
   `:1924`, `:1957`. То есть запись удалить можно, а появиться ей неоткуда.
 - Журналы этих доменов **засеяны** и отдаются в ленту как источники: пять функций
-  `*AuditSources` — `mocks/products.ts:14251`, `mocks/orders.ts:4695`, `mocks/clients.ts:1180`,
-  `mocks/suppliers.ts:546`, `mocks/warehouse.ts:1970`; сшивает их `allSources`
+  `*AuditSources` — `mocks/products.ts:14251`, `mocks/orders.ts:4698`, `mocks/clients.ts:1180`,
+  `mocks/suppliers.ts:552`, `mocks/warehouse.ts:1970`; сшивает их `allSources`
   (`frontend_vue/src/services/mocks/auditFeed.ts:23-31`).
 
 ### 2.4. Фронт: удаление устроено правильно, право не проверяется
@@ -180,9 +180,9 @@
   канонический перечень ролей `UserRole` (`frontend_vue/src/types/settings.ts:184-191`) содержит
   `'owner'`, но в удалении журнала он не упоминается.
 - Неизвестный `entryId` — отказ, а не тихий no-op, и это уже сделано. **Но кодов два:**
-  `AUDIT_ENTRY_NOT_FOUND` у восьми видов (`mocks/clients.ts:1142`, `mocks/suppliers.ts:460`,
+  `AUDIT_ENTRY_NOT_FOUND` у восьми видов (`mocks/clients.ts:1142`, `mocks/suppliers.ts:466`,
   `mocks/products.ts:14238`, `mocks/warehouse.ts:1885`, `:1887`, `:1905`, `:1907`, `:1921`,
-  `:1923`, `:1937`) и свой у заказа — `ORDER_AUDIT_ENTRY_NOT_FOUND` (`mocks/orders.ts:2491`,
+  `:1923`, `:1937`) и свой у заказа — `ORDER_AUDIT_ENTRY_NOT_FOUND` (`mocks/orders.ts:2494`,
   словарь `services/orderLineEdits.ts:360`, каталог §6 контракта заказов —
   `roo_code/plans/orders/orders-backend-contract.md:422`).
 
@@ -291,7 +291,7 @@
    равенством, `errorMessageKey` (`frontend_vue/src/services/apiErrorCode.ts:64-74`), сравнение
    `candidate` (`:71`). То есть живой опасности нет; запрет держится как записанное правило,
    а решает первый довод — один код на одно условие.
-   Снятие кода трогает три места: `frontend_vue/src/services/mocks/orders.ts:2491`,
+   Снятие кода трогает три места: `frontend_vue/src/services/mocks/orders.ts:2494`,
    `frontend_vue/src/services/orderLineEdits.ts:360` и каталог §6 контракта заказов
    (`roo_code/plans/orders/orders-backend-contract.md:422`), который **читает спека**
    `order-audit-contract-conformance.spec.ts`, — значит правится одной задачей, вместе.
@@ -380,7 +380,7 @@
       свойства чувствительны, какой путь удаления. Ссылка на этот файл вместо копии правила.
 
 Дополнительно **только для `orders`:** снять `ORDER_AUDIT_ENTRY_NOT_FOUND` в трёх местах
-разом — `mocks/orders.ts:2491`, `services/orderLineEdits.ts:360`,
+разом — `mocks/orders.ts:2494`, `services/orderLineEdits.ts:360`,
 `roo_code/plans/orders/orders-backend-contract.md:422` — и поправить i18n-ключ, на который
 словарь ссылается. Замер отставания: мутирующих операций 24, пишут 6 (П36).
 
@@ -514,10 +514,10 @@ cd frontend_vue && CONTRACT_REFS=roo_code/plans/<домен>/<план>.md \
    Исключение допускается только строкой в списке **с причиной**; пустая причина — красный тест.
 3. **Ни одной операции класса E в журнале нет.**
 4. **Ни один `push` в `auditLog` не идёт мимо общего писателя** — у каждого домена ровно одна
-   функция-писатель, как `appendHistory` у заказов (`frontend_vue/src/services/mocks/orders.ts:1881`).
+   функция-писатель, как `appendHistory` у заказов (`frontend_vue/src/services/mocks/orders.ts:1884`).
 
 Стартовый замер, от которого спека вводится зелёной: пишет один домен из девяти, записей-писателей
-один (`frontend_vue/src/services/mocks/orders.ts:1893`). Порог поднимается каждой доменной задачей —
+один (`frontend_vue/src/services/mocks/orders.ts:1896`). Порог поднимается каждой доменной задачей —
 назад он не откатывается.
 
 ### 5.3. Форма записи и перечень видов
@@ -549,7 +549,7 @@ grep -rn "AUDIT_ENTRY_NOT_FOUND" frontend_vue/src --include=*.ts | wc -l      # 
 ```
 
 Сегодняшний замер: `ORDER_AUDIT_ENTRY_NOT_FOUND` — три места
-(`frontend_vue/src/services/mocks/orders.ts:2491`, `frontend_vue/src/services/orderLineEdits.ts:360`,
+(`frontend_vue/src/services/mocks/orders.ts:2494`, `frontend_vue/src/services/orderLineEdits.ts:360`,
 `roo_code/plans/orders/orders-backend-contract.md:422`). Третье читает спека
 `order-audit-contract-conformance.spec.ts`, поэтому все три правятся одной задачей.
 

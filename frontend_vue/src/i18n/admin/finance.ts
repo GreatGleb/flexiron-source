@@ -67,6 +67,7 @@ export const adminFinance = {
       btn_cancel: 'Отмена',
       not_found_title: 'Платёж не найден',
       not_found_description: 'Платёж удалён или ссылка неверна.',
+      toast_error_save: 'Ошибка при сохранении платежа',
     },
     financeArchive: {
       header_title: 'Архив документов',
@@ -160,6 +161,7 @@ export const adminFinance = {
       btn_cancel: 'Cancel',
       not_found_title: 'Payment not found',
       not_found_description: 'The payment was deleted, or the link is wrong.',
+      toast_error_save: 'Error saving payment',
     },
     financeArchive: {
       header_title: 'Document Archive',
@@ -253,6 +255,7 @@ export const adminFinance = {
       btn_cancel: 'Atšaukti',
       not_found_title: 'Mokėjimas nerastas',
       not_found_description: 'Mokėjimas ištrintas arba nuoroda neteisinga.',
+      toast_error_save: 'Klaida išsaugant mokėjimą',
     },
     financeArchive: {
       header_title: 'Dokumentų archyvas',

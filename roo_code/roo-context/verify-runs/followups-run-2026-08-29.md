@@ -184,9 +184,9 @@ bugs-файле, завести должен тот, кому позволено
 
 | Требование пункта | Чем проверено | Итог |
 |---|---|---|
-| правило существует в модели, а не только в UI | `src/services/mocks/orders.ts:3966-3979` — `REFUND_MUST_BE_NEGATIVE` на переданном ярлыке, назначение выводится строкой `data.amount < 0 ? 'refund' : (data.purpose ?? 'balance')`, отказ `REFUND_INVOICE_REQUIRED` по ВЫВЕДЕННОМУ назначению | есть |
+| правило существует в модели, а не только в UI | `src/services/mocks/orders.ts:3969-3982` — `REFUND_MUST_BE_NEGATIVE` на переданном ярлыке, назначение выводится строкой `data.amount < 0 ? 'refund' : (data.purpose ?? 'balance')`, отказ `REFUND_INVOICE_REQUIRED` по ВЫВЕДЕННОМУ назначению | есть |
 | возврат опознаётся по знаку, а не по подписи | `orders.spec.ts:841` — `{amount:-50, purpose:'balance'}` и `{amount:-50, purpose:'advance'}` бросают `REFUND_INVOICE_REQUIRED`, хранилище остаётся пустым, а с документом запись сохраняется с `purpose === 'refund'` | есть |
-| карточка заказа и «Входящие» называют одну сумму | `orders.spec.ts:3489` — после отказа `after.payments.length` не вырос и `after.paidAmount === Σ invoiceBalances(...).paidAmount`; плюс инвариант сида `orders.spec.ts:148` «holds no refund that names no document» | есть |
+| карточка заказа и «Входящие» называют одну сумму | `orders.spec.ts:3497` — после отказа `after.payments.length` не вырос и `after.paidAmount === Σ invoiceBalances(...).paidAmount`; плюс инвариант сида `orders.spec.ts:148` «holds no refund that names no document» | есть |
 | проверка краснеет, если возврат снова разрешить без счёта | инверсии в журнале §10 (два юнит-теста и два разных e2e-утверждения краснеют поимённо) — прочитаны, утверждения именные, на бездействии не проходят | есть |
 | путь руками закрыт | e2e `orders.spec.ts:1741` «a refund names its document…» — в полном прогоне **✓ passed (10.8s)** | есть |
 

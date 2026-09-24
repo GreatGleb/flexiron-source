@@ -349,7 +349,7 @@ tests/e2e/helpers/flags.ts` пуст.
   Sheet S355 6mm) — `'Oxygen cylinder 40L. 2 cylinders consumed.'`, whb-082 (Angle Grinder
   125mm) — `'Argon cylinder 40L, full.'`, whb-088 — `'Rebar A500C…'`, whb-084 (Steel Sheet
   S355 5mm) — `'I-beam 200mm…'`, и так далее. Это не комментарий: `notes` рисуется на карточке
-  партии (`WarehouseBatchCard.vue:1067`, `data-test="field-notes"`), то есть ровно тот эффект,
+  партии (`WarehouseBatchCard.vue:1009`, `data-test="field-notes"`), то есть ровно тот эффект,
   которым пункт мотивирован — «расхождение читается как разные товары» — остался на экране: в
   шапке лист, в примечании кислородный баллон. Комментарий автора в `src/domain/product.ts`
   как раз хвалится, что журнал больше не подписывает списание листа «Oxygen gas» — а сид всё
@@ -743,8 +743,8 @@ $ grep -rn "await page.waitForLoadState" tests/
 1. **Лечение применено к одному сиду из трёх.** «Хранимые `productName` в партиях,
    обрезках и движениях — убрать» — вторая копия имени свободным текстом убрана только из
    `warehouse-batches.ts`. В обрезках и движениях она осталась и рисуется тем же полем:
-   `WarehouseOffcutCard.vue:742` и `WarehouseMovementCard.vue:666` — оба
-   `data-test="field-notes"`, ровно как `WarehouseBatchCard.vue:1067`, на который ссылался
+   `WarehouseOffcutCard.vue:684` и `WarehouseMovementCard.vue:608` — оба
+   `data-test="field-notes"`, ровно как `WarehouseBatchCard.vue:1009`, на который ссылался
    первый отказ. Названные приёмщиком случаи: `who-011`, `who-008`, `who-010`, `who-009`,
    `who-013`, `whm-071`, `whm-060`, `whm-048`, `whm-036`.
 2. **Отвод в §4 не проходит.** Причина «словарь сверяет точные словоформы, а „листа“ ≠

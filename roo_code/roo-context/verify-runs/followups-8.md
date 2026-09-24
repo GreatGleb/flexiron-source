@@ -253,7 +253,7 @@ null-guard `suggestedDocumentType(null)` возвращает `'export'` (null �
 
 ## 8. Рассмотрено и отклонено
 
-- **Сиды заказов не выводят тип комплекта из страны клиента** (`mocks/orders.ts:392` —
+- **Сиды заказов не выводят тип комплекта из страны клиента** (`mocks/orders.ts:395` —
   `i % 2 === 0 ? 'local' : 'export'`). Не находка: система тип **предлагает**, менеджер вправе
   его поменять, поэтому заказ литовского клиента с экспортным комплектом — законные данные, а
   не украшенные. Плюс `documentType` определяет `vatMode`, то есть пересбор сидов сдвинул бы
@@ -540,7 +540,7 @@ to backup`), а не «на глаз».
 | Л2 | скрипт-сверка ключей по трём локалям `src/i18n/admin/clients.ts` | `ru 122 · en 122 · lt 122`, разностей нет; `field_country` и `country_not_selected` есть во всех трёх; `@` в новых строках нет | чисто |
 | Л3 | `grep -n "/api/clients" 03-api-contract.md` → пусто; сверка вызовов `clientsService.ts` с роутами `mocks/index.ts` | новых эндпоинтов нет, поле едет в существующих `POST /api/clients` и `PATCH /api/clients/:id`; у каждого вызванного пути мок есть | чисто; отсутствие раздела о клиентах в контракте — прежняя находка вне области (см. §8 захода 1) |
 | Л4 | python-сверка страны с префиксом VAT по 55 сидам | `parsed 55 · mismatch [] · LT 28, LV 21, EE 4, PL 1, DE 1` | чисто |
-| Л5 | `grep -rn "documentType = \|documentType:"` по `src/`; `grep -rn "'LT'"` вне справочника | правило существует ровно в одном месте — `suggestedDocumentType`; `useOrderCard` клиента не выбирает (`grep -n "clientId"` пусто), `mocks/orders.ts:847` — рукописный сид ORD-008, а не правило; литералов `'LT'` вне справочника нет | чисто |
+| Л5 | `grep -rn "documentType = \|documentType:"` по `src/`; `grep -rn "'LT'"` вне справочника | правило существует ровно в одном месте — `suggestedDocumentType`; `useOrderCard` клиента не выбирает (`grep -n "clientId"` пусто), `mocks/orders.ts:850` — рукописный сид ORD-008, а не правило; литералов `'LT'` вне справочника нет | чисто |
 | Л6 | `grep -n "<select"` по страницам клиента; два перерисованных снимка | нативных `<select>` нет, везде `CustomSelect`; панели читаются | чисто |
 | Л7 | `git diff HEAD --stat -- src/router src/config/featureFlags.ts` | пусто | роутов и флагов правка не касается |
 | Л8 | чтение `useClientCard.save()` и сеттера `countryStr` | сохраняется дельтой `dirty.diff()`; «не выбрана» нормализуется в `null`, а не в пустую строку (питфолл #50); `mockCreateClient` кладёт `data.country ?? null` | чисто |

@@ -71,7 +71,7 @@ clean-slate против quick-action — §15; файлы и общий `POST /
 (правило §2 соглашений; проверка попарная: `MAIL_NOT_CONFIGURED` не входит в `NO_RECIPIENTS` и
 наоборот). `MAIL_NOT_CONFIGURED` — код **кросс-доменный**: тем же кодом отказывает проверка почты
 в настройках (`services/mocks/settings.ts:16`), и условие у обоих общее — `isMailConfigured`
-(`src/types/settings.ts:167-171`, мок-обёртка `services/mocks/settings.ts:611-613`).
+(`src/types/settings.ts:167-171`, мок-обёртка `services/mocks/settings.ts:693-695`).
 
 **Остальные пять эндпоинтов не бросают ничего, и у двух из них это хуже нуля.**
 `mockGetBccCategories` (`services/mocks/bcc.ts:225-227`), `mockGetBccRecipients` (`:229-246`),
@@ -318,7 +318,7 @@ supplier. Grouped by requestId» (`:20`). Конверт собирает `mockG
 (§16 соглашений): страница кладёт `u.fileId` из ответа `DropZone`
 (`BccRequestPage.vue:309-318`, `components/admin/ui/DropZone.vue:4`), композабл собирает их из
 вложений шаблона (`composables/useBccRequest.ts:131`). Ключ идемпотентности генерируется на каждый
-вызов (`services/bccService.ts:43` → `services/api.ts:239-245`), «сервер» мока его чтит и
+вызов (`services/bccService.ts:43` → `services/api.ts:258-264`), «сервер» мока его чтит и
 возвращает закэшированный результат (`services/mocks/index.ts:262-269`, применение `:910-916`).
 
 Ответ: `{ requestId: string }` и больше ничего (`services/bccService.ts:34`). **Строки истории
@@ -332,7 +332,7 @@ supplier. Grouped by requestId» (`:20`). Конверт собирает `mockG
 
 `requestId` и `id` каждой строки присваивает сервер монотонными счётчиками
 (`services/mocks/bcc.ts:355-364`, начальное значение снимается с сидов через `maxSeq`, `:346-353`
-— тот же приём, что `nextSeq` в `mocks/orders.ts:1353-1357`). Клиент их больше не считает: после
+— тот же приём, что `nextSeq` в `mocks/orders.ts:1356-1360`). Клиент их больше не считает: после
 успешной отправки страница **перечитывает ленту** (`BccRequestPage.vue`, `await loadHistory()` в
 `sendRequest`), а `nextRequestId`/`createEventRows` из неё удалены — это и было БАГ-02 в
 клиентской половине. Формат поля на схеме — `String(50)`
@@ -460,16 +460,16 @@ Quick-action в модалке — открывается кнопкой «пр�
 { price: number; unit: string }
 ```
 
-`services/bccService.ts:69-74`. Заголовков нет ни одного: **`Idempotency-Key` не шлётся**, хотя
-вызов создаёт новую строку (`:73` против `:43` и `:64` у `send`/`log`) — БАГ-03, то есть два клика
-дают две записи. `price` клиент приводит `Number()` и проверяет только на `NaN`
+`services/bccService.ts:69-74`. **`Idempotency-Key` шлётся** — как у `send`/`log` (`:43`, `:64`),
+вызов создаёт новую строку, и повтор с тем же ключом не добавляет вторую — БАГ-03 закрыт. `price`
+клиент приводит `Number()` и проверяет только на `NaN`
 (`BccRequestPage.vue:349`); ноль и отрицательное не отсекает никто, а на схеме это
 `Numeric(12, 2)` nullable (`backend/app/modules/bcc/shared/models.py:74`) — точность цены на
 сервере два знака, а клиент шлёт любое `Number`. `unit` приходит из константы страницы
 `UNIT_OPTIONS = ['kg', 'm', 'piece', 'ton']` (`BccRequestPage.vue:333`, дефолт `'kg'` `:331`,
 `:340`, подстановка в модалке `:1049`) — это **не** идентификаторы справочника единиц, которым
 владеют настройки (`AppSettings.uoms`, `types/settings.ts:240`; сид `uom-t`, `uom-kg`, … —
-`services/mocks/settings.ts:89-101`), и из которого строит свой список склад
+`services/mocks/settings.ts:91-103`), и из которого строит свой список склад
 (`views/admin/warehouse/WarehousePage.vue:423-437`) — БАГ-07, нарушение правила §14 соглашений
 «справочник принадлежит серверу».
 
@@ -511,10 +511,10 @@ Quick-action в модалке — открывается кнопкой «пр�
 `:eventId` — тот же непрозрачный `id` строки ленты, что и у `.../response`.
 
 Запрос: путь плюс **пустой объект телом** — `apiPost<BccRequest>(…, {})`
-(`services/bccService.ts:76-78`). Тело сериализуется всегда (`services/api.ts:175`), то есть на
-провод уходит `{}` с `Content-Type: application/json` (`:174`); ветка мока тело не читает вовсе
-(`services/mocks/index.ts:318`). Заголовков нет: **`Idempotency-Key` не шлётся**, хотя вызов
-создаёт строку — БАГ-03. Операция **не идемпотентна**: два клика — две строки.
+(`services/bccService.ts:78-86`). Тело сериализуется всегда (`services/api.ts:175`), то есть на
+провод уходит `{}` с `Content-Type: application/json` (`:174`); ветка мока тело не читает, но
+заголовок читает — `withIdempotency` оборачивает вызов. **`Idempotency-Key` шлётся** — БАГ-03
+закрыт. Операция **идемпотентна**: тот же ключ на повторном клике не добавляет вторую строку.
 
 Ответ: `BccRequest` — новая строка. Копируются `requestId`, `supplierId`, `supplierName`,
 `productId`, `productName` и `source`; `id` — `evt-${Date.now()}`, `date` — сегодняшняя, `price` и
@@ -541,7 +541,7 @@ N дней» в проекте нет: `grep -rn "no_response" frontend_vue/src 
 
 Бэкенд: **не реализован** — роутов ноль; на схеме `status` и `source` — `String(50)` без enum
 (`backend/app/modules/bcc/shared/models.py:68-73`)
-Реализация: `services/bccService.ts:76-78` (`markBccNoResponse`) · потребитель
+Реализация: `services/bccService.ts:78-86` (`markBccNoResponse`) · потребитель
 `BccRequestPage.vue:367-374` (`markNoResponse`), кнопка `:949` · мок
 `services/mocks/index.ts:933-937` → `services/mocks/bcc.ts:372-388`
 
@@ -625,10 +625,12 @@ frontend_vue/src/services/mocks/bcc.ts backend/app/modules/bcc` → 0 попад
 
 **6. Мультиарендность — во фронте не выражена никак, на схеме выражена дважды.**
 `grep -in "tenant\|userId\|user_id" frontend_vue/src/services/mocks/bcc.ts` пусто, а
-`services/bccService.ts` (78 строк) ставит заголовки только у двух вызовов из семи —
-`Idempotency-Key` у `send` (`:43`) и у `log` (`:64`); остальные пять идут без `options` вовсе
-(`:7`, `:11`, `:21`, `:73`, `:77`), то есть без единого заголовка (`options?.headers` — их
-единственный источник, `services/api.ts:144-158`, `:163-175`) — БАГ-09. На сервере правило
+`services/bccService.ts` (86 строк) ставит `Idempotency-Key` у всех четырёх мутирующих вызовов —
+`sendBccRequest`, `logBccRequest`, `acceptBccResponse` и `markBccNoResponse`. `Authorization` не
+несёт ни один из семи: три чтения идут вовсе без `options` (`getBccCategories`,
+`getBccRecipients`, `getBccHistory`), а у мутирующих
+`options?.headers` содержит только идемпотентность (`options?.headers` — их единственный источник,
+`services/api.ts:144-158`, `:163-175`) — БАГ-09. На сервере правило
 выражено на обеих таблицах: `bcc_categories.tenant_id` — FK на `tenants.id`, `ondelete="CASCADE"`,
 `nullable=False, index=True` (`backend/app/modules/bcc/shared/models.py:16-21`) и
 `bcc_events.tenant_id` теми же условиями (`:48-53`); миграция
@@ -650,11 +652,12 @@ frontend_vue/src/services/mocks/bcc.ts backend/app/modules/bcc` → 0 попад
 лица компании или принять цену поставщика, нет ни одной — ни во фронте, ни в моке, ни на сервере.
 Строка владельцу.
 
-**8. Транзакционность и идемпотентность — разделено пополам, и обе половины неполны.**
-`Idempotency-Key` шлют два вызова из семи (`services/bccService.ts:43`, `:64`), генератор общий
-(`services/api.ts:239-245`), мок ключ чтит (`services/mocks/index.ts:262-269`). Не шлют его
-`POST /api/bcc/events/:eventId/response` (`services/bccService.ts:73`) и `.../no-response` (`:77`)
-— при том, что каждый создаёт новую строку (`services/mocks/bcc.ts:491`, `:513`) — БАГ-03.
+**8. Идемпотентность закрыта; оптимистичной блокировки в домене по-прежнему нет.**
+`Idempotency-Key` шлют **все четыре** мутирующих вызова из семи — `sendBccRequest`,
+`logBccRequest`, `acceptBccResponse` и `markBccNoResponse` в `services/bccService.ts`, генератор общий (`newIdempotencyKey` в `services/api.ts`), мок ключ чтит и
+хранит ответ по паре «путь + ключ» (`services/mocks/index.ts:262-269`) — обёртка теперь
+применяется и на `POST /api/bcc/events/:eventId/response`, и на `.../no-response`, каждый из
+которых создаёт новую строку (`services/mocks/bcc.ts:491`, `:513`) — БАГ-03 закрыт.
 Оптимистичной блокировки нет: `grep -c "If-Match\|version" frontend_vue/src/services/bccService.ts`
 → 0 (общее правило — §11 соглашений). **Атомарность письма гарантирована и доказана с обеих
 сторон:** один `send_message` на отправку
@@ -858,7 +861,7 @@ len(SUPPLIERS) messages here» — `backend/tests/modules/bcc/test_send_request.
 | приём ответа: `priceHistory` карточки поставщика не обновляется | «Чего в домене нет», строка 19 |
 | приём ответа: рождает единственное уведомление домена, и правка рождает второе | раздел `POST /api/bcc/events/:eventId/response`, абзац об уведомлении; «Обязанности сервера», графа 2 (БАГ-10) |
 | отметка молчания: кто и когда отмечает — только человек, автоматики нет | раздел `POST /api/bcc/events/:eventId/no-response`, абзац «Кто и когда отмечает молчание» |
-| отметка молчания: операция не идемпотентна, ключ не шлётся | тот же раздел, форма запроса; «Обязанности сервера», графа 8 (БАГ-03) |
+| отметка молчания: операция была не идемпотентна, ключ не шёл — **шлётся с 2026-09-24** | тот же раздел, форма запроса; «Обязанности сервера», графа 8 (БАГ-03, закрыт) |
 | отметка молчания: уведомления не рождает, и так задумано | тот же раздел, абзац об уведомлениях |
 | отметка молчания: новая строка наследует `source` исходной | тот же раздел, абзац о наследовании |
 | правила домена 1–12 аудита | раздел «Правила домена», пункты 1–12 один к одному |

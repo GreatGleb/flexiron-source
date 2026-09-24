@@ -55,6 +55,11 @@ export function useAuditFeed() {
   // skeleton on every keystroke would hide the field and take the focus with it.
   let initialized = false
 
+  // Set right before `load()` assigns a server-clamped `page` back into the same
+  // ref that `watch(page, load)` observes below — without it, that assignment
+  // reads as a new page request and fires a second, identical `getAuditFeed`.
+  let skipNextPageWatch = false
+
   async function load() {
     if (!initialized) loading.value = true
     error.value = null
@@ -65,10 +70,13 @@ export function useAuditFeed() {
       })
       rows.value = result.items
       total.value = result.total
-      page.value = result.page
+      if (result.page !== page.value) {
+        skipNextPageWatch = true
+        page.value = result.page
+      }
       initialized = true
-    } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to load the audit feed'
+    } catch {
+      error.value = t('auditLog.error_load')
     } finally {
       loading.value = false
     }
@@ -78,7 +86,7 @@ export function useAuditFeed() {
     try {
       users.value = await getAuditFeedUsers()
     } catch {
-      users.value = []
+      toast.error(t('auditLog.error_users_load'))
     }
   }
 
@@ -121,7 +129,13 @@ export function useAuditFeed() {
     },
     { deep: true },
   )
-  watch(page, load)
+  watch(page, () => {
+    if (skipNextPageWatch) {
+      skipNextPageWatch = false
+      return
+    }
+    load()
+  })
   watch(pageSize, () => {
     page.value = 1
     load()

@@ -129,9 +129,9 @@
 
 | Вызов | Условие |
 |---|---|
-| `frontend_vue/src/services/mocks/orders.ts:1844` | `oldStatus !== status` |
-| `frontend_vue/src/services/mocks/orders.ts:3941` | `wasReady` был ложью, заказ стал целиком под резерв |
-| `frontend_vue/src/services/mocks/orders.ts:4013` | `payment` положительный — возврат денег не «поступление» |
+| `frontend_vue/src/services/mocks/orders.ts:1847` | `oldStatus !== status` |
+| `frontend_vue/src/services/mocks/orders.ts:3944` | `wasReady` был ложью, заказ стал целиком под резерв |
+| `frontend_vue/src/services/mocks/orders.ts:4016` | `payment` положительный — возврат денег не «поступление» |
 | `frontend_vue/src/services/mocks/warehouse.ts:789` | создание партии |
 | `frontend_vue/src/services/mocks/warehouse.ts:1721` | только вновь открытая нехватка |
 | `frontend_vue/src/services/mocks/finance.ts:70` | первое обнаружение просрочки |
@@ -140,7 +140,7 @@
 
 **Ловушка для доменной фазы: адреса вызывающих в §10 соглашений устарели.** §10
 `roo_code/roo-context/api/00-conventions.md` называет те же восемь вызовов по состоянию до
-последних правок моков — `mocks/orders.ts:1837`, `:3929`, `:4001`, `mocks/warehouse.ts:1710`,
+последних правок моков — `mocks/orders.ts:1840`, `:3929`, `:4001`, `mocks/warehouse.ts:1710`,
 `mocks/bcc.ts:368`. Верны адреса таблицы выше (замер 2026-09-13). Домен, скопировавший адрес из
 §10 вместо собственного замера, получит у резолвера «нет токена в диапазоне» — **адреса берутся
 командой `grep -n "notify" frontend_vue/src/services/mocks/<домен>.ts`, а не копированием.**
@@ -212,12 +212,12 @@
 | `permissions_changed` | правка матрицы прав | config |
 
 Владение событием назначено по тому, где в коде лежит переход:
-`frontend_vue/src/services/mocks/orders.ts:4266` (создание счёта),
-`frontend_vue/src/services/ordersService.ts:318-319` (возвраты),
+`frontend_vue/src/services/mocks/orders.ts:4269` (создание счёта),
+`frontend_vue/src/services/ordersService.ts:328-329` (возвраты),
 `frontend_vue/src/domain/orderStatus.ts:20` (`shipped` — значение статуса заказа),
 `frontend_vue/src/services/mocks/suppliers.ts:451` (смена статуса поставщика),
 `frontend_vue/src/types/supplier.ts:10` (`blocked`),
-`frontend_vue/src/services/mocks/services.ts:138` (правка услуги),
+`frontend_vue/src/services/mocks/services.ts:140` (правка услуги),
 `frontend_vue/src/services/mocks/config.ts:189-201` (матрица).
 
 **Шестнадцатого типа не бывает.** Правило отбора П51 — «человек обязан узнать сразу, а не найти

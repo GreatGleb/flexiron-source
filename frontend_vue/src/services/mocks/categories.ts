@@ -1511,21 +1511,27 @@ export function mockPutCategoryFields(id: string, fields: CategoryField[]): Cate
     })
   // ВАЖНО: JSON.parse/stringify чтобы избежать DataCloneError на reactive данных
   // tmp-* id заменяются постоянными (имитирует поведение сервера)
-  cat.fields = JSON.parse(JSON.stringify(fields)).map((f: CategoryField, i: number) => ({
-    ...f,
-    name: mergeTranslatedString(
-      (cat.fields[i]?.name ?? { ru: '', en: '', lt: '' }) as TranslatedString,
-      f.name as TranslatedString,
-    ),
-    options: f.options.map((o: TranslatedString, oi: number) =>
-      mergeTranslatedString(
-        (cat.fields[i]?.options?.[oi] ?? { ru: '', en: '', lt: '' }) as TranslatedString,
-        o as unknown as TranslatedString,
+  const previousFields = cat.fields
+  cat.fields = JSON.parse(JSON.stringify(fields)).map((f: CategoryField, i: number) => {
+    // Слияние ищет прежнее поле по id, а не по позиции: после перестановки или
+    // удаления поля из середины индекс i указывает на чужую запись.
+    const prev = f.id.startsWith('tmp-') ? undefined : previousFields.find((pf) => pf.id === f.id)
+    return {
+      ...f,
+      name: mergeTranslatedString(
+        (prev?.name ?? { ru: '', en: '', lt: '' }) as TranslatedString,
+        f.name as TranslatedString,
       ),
-    ),
-    id: f.id.startsWith('tmp-') ? `f-perm-${++fieldSeq}` : f.id,
-    order: i,
-  }))
+      options: f.options.map((o: TranslatedString, oi: number) =>
+        mergeTranslatedString(
+          (prev?.options?.[oi] ?? { ru: '', en: '', lt: '' }) as TranslatedString,
+          o as unknown as TranslatedString,
+        ),
+      ),
+      id: f.id.startsWith('tmp-') ? `f-perm-${++fieldSeq}` : f.id,
+      order: i,
+    }
+  })
   cat.fieldCount = cat.fields.length
   // каскадируем изменение полей на всех потомков
   cascadeInheritedFields(id)

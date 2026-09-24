@@ -184,7 +184,7 @@ Option (b) is simpler but note that `deficit_status_*` and `batch_status_*` woul
 
 ## 18. i18n: Missing `warehouse.col_total_cost` key (MEDIUM)
 
-**File:** [`WarehouseBatchCard.vue:101`](../frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:101)
+**File:** [`WarehouseBatchCard.vue:103`](../frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:103)
 
 **Problem:** Template uses `t('warehouse.col_total_cost')` but the translation file has `warehouse.field_total_cost` (under batch card section).
 
@@ -194,7 +194,7 @@ Option (b) is simpler but note that `deficit_status_*` and `batch_status_*` woul
 
 ## 19. i18n: Missing `warehouse.col_expires` key (MEDIUM)
 
-**File:** [`WarehouseBatchCard.vue:111`](../frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:111)
+**File:** [`WarehouseBatchCard.vue:113`](../frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:113)
 
 **Problem:** Template uses `t('warehouse.col_expires')` but the translation file has `warehouse.field_expires_at`.
 
@@ -204,7 +204,7 @@ Option (b) is simpler but note that `deficit_status_*` and `batch_status_*` woul
 
 ## 20. i18n: Missing `warehouse.col_certificate` key (MEDIUM)
 
-**File:** [`WarehouseBatchCard.vue:113`](../frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:113)
+**File:** [`WarehouseBatchCard.vue:115`](../frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:115)
 
 **Problem:** Template uses `t('warehouse.col_certificate')` but the translation file has `warehouse.field_certificate`.
 
@@ -214,7 +214,7 @@ Option (b) is simpler but note that `deficit_status_*` and `batch_status_*` woul
 
 ## 21. i18n: Missing `warehouse.col_supplier` key in batch card (MEDIUM)
 
-**File:** [`WarehouseBatchCard.vue:83`](../frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:83)
+**File:** [`WarehouseBatchCard.vue:85`](../frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:85)
 
 **Problem:** Template uses `t('warehouse.col_supplier')` but the translation file has `warehouse.field_supplier` (under batch card section) and `warehouse.col_supplier` (under column headers). Actually `col_supplier` exists in translations (line 44 ru, line 170 en, line 296 lt) — this is OK.
 
@@ -222,7 +222,7 @@ Option (b) is simpler but note that `deficit_status_*` and `batch_status_*` woul
 
 ## 22. i18n: Missing `warehouse.col_location` in batch card (MEDIUM)
 
-**File:** [`WarehouseBatchCard.vue:85`](../frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:85)
+**File:** [`WarehouseBatchCard.vue:87`](../frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:87)
 
 **Problem:** Template uses `t('warehouse.col_location')` but the translation file has `warehouse.field_location` (under batch card section). `col_location` exists in column headers though — so this is OK.
 
@@ -250,7 +250,7 @@ Option (b) is simpler but note that `deficit_status_*` and `batch_status_*` woul
 
 ## 25. i18n: Missing `warehouse.batch_section_general` key (MEDIUM)
 
-**File:** [`WarehouseBatchCard.vue:77`](../frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:77)
+**File:** [`WarehouseBatchCard.vue:79`](../frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:79)
 
 **Problem:** Template uses `t('warehouse.batch_section_general')` but the translation file has `warehouse.section_batch_info`.
 
@@ -260,7 +260,7 @@ Option (b) is simpler but note that `deficit_status_*` and `batch_status_*` woul
 
 ## 26. i18n: Missing `warehouse.batch_section_quantities` key (MEDIUM)
 
-**File:** [`WarehouseBatchCard.vue:91`](../frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:91)
+**File:** [`WarehouseBatchCard.vue:93`](../frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:93)
 
 **Problem:** Template uses `t('warehouse.batch_section_quantities')` but this key does not exist in translations.
 
@@ -270,7 +270,7 @@ Option (b) is simpler but note that `deficit_status_*` and `batch_status_*` woul
 
 ## 27. i18n: Missing `warehouse.batch_section_dates` key (MEDIUM)
 
-**File:** [`WarehouseBatchCard.vue:107`](../frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:107)
+**File:** [`WarehouseBatchCard.vue:109`](../frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:109)
 
 **Problem:** Template uses `t('warehouse.batch_section_dates')` but this key does not exist in translations.
 
@@ -280,7 +280,7 @@ Option (b) is simpler but note that `deficit_status_*` and `batch_status_*` woul
 
 ## 28. i18n: Missing `warehouse.batch_section_notes` key (MEDIUM)
 
-**File:** [`WarehouseBatchCard.vue:119`](../frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:119)
+**File:** [`WarehouseBatchCard.vue:121`](../frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:121)
 
 **Problem:** Template uses `t('warehouse.batch_section_notes')` but the translation file has `warehouse.field_notes`.
 
@@ -290,7 +290,7 @@ Option (b) is simpler but note that `deficit_status_*` and `batch_status_*` woul
 
 ## 29. i18n: Missing `warehouse.batch_card_title` — uses `{batchNumber}` interpolation but template doesn't pass it (LOW)
 
-**File:** [`WarehouseBatchCard.vue:44`](../frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:44)
+**File:** [`WarehouseBatchCard.vue:46`](../frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:46)
 
 **Problem:** The translation key `warehouse.batch_card_title` has value `'Batch {batchNumber}'` / `'Партия {batchNumber}'` / `'Partija {batchNumber}'` expecting a `batchNumber` parameter, but the template calls `t('warehouse.batch_card_title')` without passing `{ batchNumber: batch.value?.batchNumber }`. The title will show literally "Batch {batchNumber}".
 

@@ -26,7 +26,7 @@
 `grep -rn "auth/register" src/`: единственное вхождение по всему `src/` это сам вызов.
 
 Значит запрос доходит до финального `throw new Error('[mock] POST ${path} not found')`
-(`mocks/index.ts:1137`), и `RegisterPage.vue:340` получает исключение вместо `secret_link`.
+(`mocks/index.ts:1135`), и `RegisterPage.vue:340` получает исключение вместо `secret_link`.
 Пользователь видит ошибку регистрации на пустом месте.
 
 ### Fix
@@ -387,7 +387,7 @@ invalid» — сработает ветка `company code` и подсветит
 (`register/repository.py:80`), и регистрация всегда создаёт нового арендатора
 (`register/domain.py:98-103`). Дыра открывается первым же эндпоинтом, добавляющим пользователя в
 существующего арендатора, — а список пользователей во фронте уже есть
-(`frontend_vue/src/services/mocks/settings.ts:188-205`).
+(`frontend_vue/src/services/mocks/settings.ts:190-207`).
 
 ### Fix
 

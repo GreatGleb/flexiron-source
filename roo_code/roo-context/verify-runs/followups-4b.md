@@ -31,7 +31,7 @@ $ grep -rn "\.priceUnit" frontend_vue/src frontend_vue/tests
 src/views/admin/products/ProductCardPage.vue:205:    product.value?.priceUnit ||
 src/domain/servicePricing.spec.ts:76:   # комментарий про услуги
 src/views/admin/orders/AddOrderServicesModal.vue:98:  # комментарий про услуги
-src/services/mocks/services.ts:81:      # комментарий про услуги
+src/services/mocks/services.ts:83:      # комментарий про услуги
 src/types/service.ts:16:               # комментарий про услуги
 ```
 

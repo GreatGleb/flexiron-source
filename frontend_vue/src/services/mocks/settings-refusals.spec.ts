@@ -18,10 +18,13 @@ import {
   mockUpdateUom,
 } from './settings'
 import { MOCK_PASSWORD_CODES, getMock, postMock, putMock } from './index'
+import { mockGetProduct, mockPatchProduct } from './products'
+import { STORE as PRODUCTS_STORE } from './products'
 import { errorCode } from '@/services/apiErrorCode'
 import { contractDir } from '@/services/contractInventory'
 import { ApiRequestError } from '@/types/api'
 import type { UomConversion } from '@/types/settings'
+import type { Product } from '@/types/product'
 
 /**
  * Отказ мока — `ApiRequestError` с кодом в ПОЛЕ `code`, как у настоящего сервера.
@@ -113,6 +116,50 @@ const NOT_AN_IMAGE = {
   uploadedAt: '2026-09-22T00:00:00Z',
 }
 
+/**
+ * Товар-однодневка для проб «используется»/«не используется».
+ *
+ * Хранилище товаров (`STORE` из `./products`) — тот же источник, из которого мок настроек
+ * читает использование справочников (F-2 плана задачи): вторая копия сидов здесь не
+ * заводится. Поля, которых проба не касается, — минимальный валидный `Product`.
+ */
+function makeTempProduct(patch: Partial<Product>): Product {
+  return {
+    id: 'prod-temp-refusal-probe',
+    name: { ru: 'Тест', en: 'Refusal probe product', lt: 'Test' },
+    categoryId: null,
+    categoryName: null,
+    sku: null,
+    description: null,
+    price: null,
+    priceQuantity: 1,
+    currencyId: null,
+    minStock: null,
+    avgCostPrice: null,
+    avgSalePrice: null,
+    purchaseUomId: null,
+    warehouseUomId: null,
+    saleUomId: null,
+    purchaseToWarehouseFormulaType: null,
+    purchaseToWarehouseFactor: null,
+    warehouseToSaleFormulaType: null,
+    warehouseToSaleFactor: null,
+    weightPerWarehouseUnitKg: null,
+    createdAt: '2026-01-01',
+    fieldValues: [],
+    linkedSuppliers: [],
+    auditLog: [],
+    ...patch,
+  }
+}
+
+/** Сидовая валюта, не используемая ни одним товаром — только для позитивного пути. */
+const UNUSED_CURRENCY_ID = 'cur-gbp'
+/** Сидовая единица, не используемая ни одним товаром — только для позитивного пути. */
+const UNUSED_UOM_ID = 'uom-h'
+/** Сидовая единица, стоящая ТОЛЬКО в правиле пересчёта `conv-m-mm` — товары её не знают. */
+const CONVERSION_ONLY_UOM_ID = 'uom-mm'
+
 const changePasswordWrongCurrent = () =>
   postMock(CHANGE_PASSWORD, {
     currentPassword: 'not-the-password',
@@ -137,8 +184,27 @@ const changePasswordConfirmMismatch = () =>
 const DRIVERS: ReadonlyArray<readonly [RefusalKey, () => unknown]> = [
   ['currencyNotFound', () => mockUpdateCurrency(MISSING, {})],
   ['currencyNotFound', () => mockDeleteCurrency(MISSING)],
+  // cur-eur сида — валюта по умолчанию, и её же currencyId несёт каждый сидовый товар:
+  // отказ обязан назвать умолчание, а не использование (проверено отдельно, ниже).
+  ['currencyIsDefault', () => mockDeleteCurrency('cur-eur')],
+  [
+    'currencyInUse',
+    () => {
+      const product = makeTempProduct({ id: 'prod-temp-currency-in-use', currencyId: 'cur-usd' })
+      PRODUCTS_STORE.push(product)
+      try {
+        return mockDeleteCurrency('cur-usd')
+      } finally {
+        const idx = PRODUCTS_STORE.indexOf(product)
+        if (idx !== -1) PRODUCTS_STORE.splice(idx, 1)
+      }
+    },
+  ],
   ['uomNotFound', () => mockUpdateUom(MISSING, {})],
   ['uomNotFound', () => mockDeleteUom(MISSING)],
+  // uom-t сида: warehouseUomId как минимум одного товара — использование настоящими данными,
+  // без временных сидов.
+  ['uomInUse', () => mockDeleteUom('uom-t')],
   [
     'conversionPairTaken',
     () =>
@@ -172,6 +238,63 @@ describe('дубль пары единиц', () => {
     expect(e.code).toBe(code)
     expect(errorCode(e)).toBe(code)
     expect(e.status).toBe(409)
+  })
+})
+
+describe('валюта по умолчанию, используемая товаром — порядок проверок', () => {
+  it('отказывает кодом про умолчание, а не про использование', async () => {
+    // cur-eur сида — валюта по умолчанию, и currencyId каждого сидового товара указывает
+    // на неё же: обе причины отказа верны одновременно, а порядок мока обязан совпадать с
+    // сервером (§2, П44) — сначала умолчание. Если бы мок считал использование раньше,
+    // код здесь оказался бы CURRENCY_IN_USE.
+    const e = await refusalOf(() => mockDeleteCurrency('cur-eur'))
+    expect(e.code).toBe(SETTINGS_REFUSAL_CODES.currencyIsDefault)
+    expect(e.code).not.toBe(SETTINGS_REFUSAL_CODES.currencyInUse)
+    expect(e.status).toBe(409)
+  })
+})
+
+describe('справочники без ссылок товаров — удаление проходит', () => {
+  it('валюта, на которую не ссылается ни один товар, удаляется без отказа', () => {
+    expect(() => mockDeleteCurrency(UNUSED_CURRENCY_ID)).not.toThrow()
+  })
+
+  it('единица, на которую не ссылается ни один товар, удаляется без отказа', () => {
+    expect(() => mockDeleteUom(UNUSED_UOM_ID)).not.toThrow()
+  })
+
+  it('единица, стоящая только в правиле пересчёта, использованием товаром не считается', () => {
+    // conv-m-mm держит uom-mm как toUomId, а ни один товар на неё не ссылается ни одним из
+    // трёх полей единиц. Определение «используется» ограничено товарами (задача) —
+    // правило пересчёта отказом не становится.
+    expect(() => mockDeleteUom(CONVERSION_ONLY_UOM_ID)).not.toThrow()
+  })
+})
+
+describe('справочник, на который ссылается товар — удаление отказывает', () => {
+  // Без этих двух проверок второй критерий задачи держался на одном мета-тесте о
+  // достижимости кодов, а он краснеет и от недостижимого кода, и от сломанного
+  // поведения одинаково — то есть не отличает их (питфолл #68). Замер: со снятым
+  // перебором товаров в mockDeleteUom краснел только мета-тест.
+  it('единица, стоящая у товара складской, не удаляется — UOM_IN_USE', async () => {
+    // uom-kg стоит warehouseUomId у тринадцати сидовых товаров.
+    const e = await refusalOf(() => mockDeleteUom('uom-kg'))
+    expect(e.code).toBe(SETTINGS_REFUSAL_CODES.uomInUse)
+    expect(e.status).toBe(409)
+  })
+
+  it('валюта, не являющаяся умолчанием, но стоящая у товара, не удаляется — CURRENCY_IN_USE', async () => {
+    // Сидом все товары стоят на валюте по умолчанию, поэтому отказ про использование
+    // в чистом виде недостижим: переключаем один товар публичным вызовом мока.
+    const before = (await mockGetProduct('prod-001')).currencyId
+    await mockPatchProduct('prod-001', { currencyId: 'cur-usd' })
+    try {
+      const e = await refusalOf(() => mockDeleteCurrency('cur-usd'))
+      expect(e.code).toBe(SETTINGS_REFUSAL_CODES.currencyInUse)
+      expect(e.status).toBe(409)
+    } finally {
+      await mockPatchProduct('prod-001', { currencyId: before })
+    }
   })
 })
 

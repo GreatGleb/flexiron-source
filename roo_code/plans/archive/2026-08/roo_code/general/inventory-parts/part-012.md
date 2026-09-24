@@ -95,7 +95,7 @@ $ grep -n "isDirty\|fieldsChanged\|useDirtyCheck\|Promise.all\|localFields" fron
 112:      await Promise.all(calls)
 ```
 
-Drag-and-drop полей есть (`frontend_vue/src/views/admin/products/CategoryCardPage.vue:381-385`
+Drag-and-drop полей есть (`frontend_vue/src/views/admin/products/CategoryCardPage.vue:389-393`
 — `:draggable`, `@dragstart`, `@drop` → `reorderFields`).
 
 Секции из таблиц плана — по `data-test`:
@@ -108,7 +108,7 @@ Drag-and-drop полей есть (`frontend_vue/src/views/admin/products/Catego
 | `categories-empty` | `categories-empty` (:131) |
 | `category-create-modal` | **`modal-create-category`** (:217) |
 | `category-delete-modal` | **`modal-delete-category`** (:256) |
-| `category-header` | **`category-card-header`** (CategoryCardPage.vue:266) |
+| `category-header` | **`category-card-header`** (CategoryCardPage.vue:274) |
 | `category-info` | **`category-card-info`** (:305) |
 | `category-inherited-fields` | `category-inherited-fields` (:336) |
 | `category-own-fields` | `category-own-fields` (:363) |

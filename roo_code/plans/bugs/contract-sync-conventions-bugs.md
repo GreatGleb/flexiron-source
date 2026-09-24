@@ -27,7 +27,7 @@
 
 > **Ни один код не является подстрокой другого.** Фронт местами сравнивает код подстрокой
 > (`services/orderLineEdits.ts:343-354`), поэтому «услуги нет в каталоге» называется
-> `CATALOG_SERVICE_NOT_FOUND`, а не `SERVICE_NOT_FOUND` (`mocks/orders.ts:373-376`).
+> `CATALOG_SERVICE_NOT_FOUND`, а не `SERVICE_NOT_FOUND` (`mocks/orders.ts:376-379`).
 
 Требование **уже нарушено массово**. Пересчёт по каталогам контракта, по тому, что бросает мок,
 и по ядру бэкенда даёт **172 настоящих кода и 50 пар вложенности** — то есть в 50 случаях один
@@ -108,8 +108,8 @@ root = pathlib.Path('.'); codes = {}
 def add(c, src): codes.setdefault(c, set()).add(src)
 CODE = re.compile(r'^[A-Z][A-Z0-9_]{4,}$')
 # Не коды: подставная пара из проверки warehouse.md:111, обрубок шаблона
-# `FORBIDDEN_${right}` (mocks/orders.ts:1865), два слова из прозы —
-# про DUPLICATE контракт прямо пишет «кода в домене нет» (config.md:834).
+# `FORBIDDEN_${right}` (mocks/orders.ts:1868), два слова из прозы —
+# про DUPLICATE контракт прямо пишет «кода в домене нет» (config.md:843).
 NOISE = {'BATCH_NOT', 'FORBIDDEN_', 'COUNT', 'DUPLICATE'}
 api = root / 'roo_code/roo-context/api'
 for f in sorted(api.glob('*.md')):
@@ -201,7 +201,7 @@ return apiPost(`/api/orders/${orderId}/shipments`, data, {
 (`ordersService.ts:297-299`; так же устроены возврат `:354-356`, платёж `:388-390` и оба вызова
 `bccService.ts:41-45`, `:62-66`.)
 
-`newIdempotencyKey()` — это `crypto.randomUUID()` (`frontend_vue/src/services/api.ts:301-307`), и
+`newIdempotencyKey()` — это `crypto.randomUUID()` (`frontend_vue/src/services/api.ts:320-326`), и
 вычисляется он на КАЖДОМ вызове. Ключа, который пережил бы неудачную попытку, в проекте нет:
 
 - `grep -rc "newIdempotencyKey" frontend_vue/src --include=*.vue` → ни одного файла: страница ключ

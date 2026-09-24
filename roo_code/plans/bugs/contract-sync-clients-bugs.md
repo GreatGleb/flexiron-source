@@ -99,7 +99,7 @@ if (msg.includes('CONFLICT')) {
 Под моками это работает случайно: `mockDeleteClient` бросает голый
 `new Error('CONFLICT: client has orders')`
 (`frontend_vue/src/services/mocks/clients.ts:1133`), то есть кладёт код прямо в текст, и ветка
-мока его никак не перепаковывает (`frontend_vue/src/services/mocks/index.ts:1522-1526`).
+мока его никак не перепаковывает (`frontend_vue/src/services/mocks/index.ts:1524-1528`).
 
 Настоящий клиент так не делает: `unwrap()` собирает `ApiRequestError`, у которого `message` —
 человеческий текст сервера, а машинный код лежит отдельным полем `code`

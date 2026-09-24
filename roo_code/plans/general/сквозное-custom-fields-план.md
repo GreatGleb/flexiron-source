@@ -123,14 +123,14 @@
 
 - **Определение удаляется насовсем, молча и без счёта затронутых.** `mockDeleteField` вырезает
   строку из библиотеки и снимает её со всех секций
-  ([`mocks/config.ts:299-305`](../../../frontend_vue/src/services/mocks/config.ts)). Ни архива, ни
+  ([`mocks/config.ts:310-316`](../../../frontend_vue/src/services/mocks/config.ts)). Ни архива, ни
   предупреждения, ни числа.
 - **Поле снимается с набора категории локально, до Save.** `deleteField`
   ([`useCategoryCard.ts:142`](../../../frontend_vue/src/composables/useCategoryCard.ts)), на сервер
   уходит целый набор при `fieldsChanged`
   ([`useCategoryCard.ts:111`](../../../frontend_vue/src/composables/useCategoryCard.ts)).
   Подтверждение — обычная модалка: `fieldToDelete`
-  ([`CategoryCardPage.vue:189-197`](../../../frontend_vue/src/views/admin/products/CategoryCardPage.vue)).
+  ([`CategoryCardPage.vue:197-205`](../../../frontend_vue/src/views/admin/products/CategoryCardPage.vue)).
 - **Значения при этом не трогаются ничем.** Мок товара кладёт присланный массив как есть:
   `existing.fieldValues`
   ([`mocks/products.ts:14210`](../../../frontend_vue/src/services/mocks/products.ts)); сборка
@@ -169,9 +169,9 @@
 - `CATEGORY_FIELDS_IN_USE` — «поле убрано из набора, а значения у товаров заполнены», назначен
   2026-09-10, и прямо помечен как зависящий от решения, которым стал П73
   ([`categories.md:59`](../../roo-context/api/categories.md)).
-- `FIELD_IS_BUILTIN` ([`config.md:568`](../../roo-context/api/config.md)) и `FIELD_NAME_TAKEN` —
+- `FIELD_IS_BUILTIN` ([`config.md:572`](../../roo-context/api/config.md)) и `FIELD_NAME_TAKEN` —
   про правку библиотеки, к жизненному циклу значения отношения не имеют.
-- `usageCount` «считать не из чего» ([`config.md:849`](../../roo-context/api/config.md)) — под П68
+- `usageCount` «считать не из чего» ([`config.md:858`](../../roo-context/api/config.md)) — под П68
   колонка удаляется и число считается при чтении.
 - Конверт отказа клиент разбирает `parseErrorBody`
   ([`services/api.ts:49-84`](../../../frontend_vue/src/services/api.ts)), и до вызывающего доезжают
@@ -187,7 +187,7 @@
 |---|---|---|
 | `PUT /api/categories/:id/fields` | объект-обёртка `{ fields }` | [`categoriesService.ts:60-66`](../../../frontend_vue/src/services/categoriesService.ts) |
 | `PUT /api/config/fields` | **голый массив** `FieldDefinition[]` | [`configService.ts:11-13`](../../../frontend_vue/src/services/configService.ts), и контракт называет это прямо: «Тело — плоский массив, не объект-обёртка» ([`config.md:134-135`](../../roo-context/api/config.md)) |
-| `DELETE /api/config/fields/:id` | **тела нет вовсе** | `apiDelete` тела не принимает — у него только `path` и `options` ([`api.ts:272`](../../../frontend_vue/src/services/api.ts)) |
+| `DELETE /api/config/fields/:id` | **тела нет вовсе** | `apiDelete` тела не принимает — у него только `path` и `options` ([`api.ts:291`](../../../frontend_vue/src/services/api.ts)) |
 
 Поле рядом с данными есть только у первой формы. **Заголовок есть у всех трёх:** `RequestOptions`
 несёт произвольные заголовки ([`api.ts:7-10`](../../../frontend_vue/src/services/api.ts)), и
@@ -197,7 +197,7 @@
 
 Прецедент в проекте уже есть, и он того же класса — «условие выполнения, а не полезная нагрузка»:
 `Idempotency-Key` у пяти необратимых `POST` и `If-Match` у шести удалений заказа
-([`00-conventions.md:852-890`](../../roo-context/api/00-conventions.md)).
+([`00-conventions.md:863-901`](../../roo-context/api/00-conventions.md)).
 Тем же способом ездит подпись сессии — `X-CSRF-Token`
 ([`00-conventions.md:174-178`](../../roo-context/api/00-conventions.md)). Отсюда КП-5.
 
@@ -290,7 +290,7 @@
 поле уходит из набора, три, и тело у них трёх разных форм (2.7): объект-обёртка, голый массив,
 отсутствие тела. Поле рядом с данными кладётся только в первую; во вторую его класть некуда, не
 переписав форму тела, а в третью — некуда физически, потому что `apiDelete` тела не принимает
-([`api.ts:272`](../../../frontend_vue/src/services/api.ts)). Домен, оставленный с этим один на один,
+([`api.ts:291`](../../../frontend_vue/src/services/api.ts)). Домен, оставленный с этим один на один,
 выберет своё — и три пути получат три разных способа подтверждения одной и той же операции.
 Поэтому транспорт назван здесь и один: **заголовок, на всех путях, у всех доменов**. Он доступен
 любому глаголу ([`api.ts:7-10`](../../../frontend_vue/src/services/api.ts)), доезжает и до мока
@@ -410,7 +410,7 @@
    `mock`, `service` из карты кода → ноль в каждом.
    **Общий барьер маршрутов из замера исключается.** `frontend_vue/src/services/mocks/index.ts`
    принадлежит не домену, а всем сразу, и несёт маршрут набора полей категории — `mockPutCategoryFields`
-   ([`mocks/index.ts:1279-1280`](../../../frontend_vue/src/services/mocks/index.ts)).
+   ([`mocks/index.ts:1281-1282`](../../../frontend_vue/src/services/mocks/index.ts)).
    Карта кода подставляет этот файл как «мок» тем доменам, у кого своего нет (`auth`, `uploads`), и
    замер по нему даёт **4** у домена, кастомных полей не имеющего (замер 2026-09-12). Домен без
    своего файла типов (`uploads`) замеряет два оставшихся файла.

@@ -13,8 +13,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { getMock, postMock } from './index'
 import { mockGetClients } from './clients'
-import { MOCK_SENT_EMAILS } from './bcc'
+import { MOCK_SENT_EMAILS, MOCK_BCC_HISTORY } from './bcc'
+import { cancelOrderShipment } from '../ordersService'
+import { acceptBccResponse, markBccNoResponse } from '../bccService'
 import type { Order, Payment, Shipment } from '@/types/order'
+import type { BccRequest } from '@/types/bcc'
 
 async function newOrder(): Promise<Order> {
   const client = mockGetClients()[0]!
@@ -145,5 +148,134 @@ describe('idempotency scope (П46)', () => {
     const paymentsB = await getMock<Payment[]>(`/api/orders/${orderB.id}/payments`)
     expect(paymentsA.length).toBe(1)
     expect(paymentsB.length).toBe(1)
+  })
+
+  it('the same key on the same order path does not repeat a shipment cancellation', async () => {
+    const order = await newOrder()
+    await postMock<{ id: string }>(`/api/orders/${order.id}/items`, {
+      productId: 'prod-001',
+      quantity: 10,
+      unit: 'pcs',
+      unitPrice: 120,
+    })
+    const withItem = await getMock<Order>(`/api/orders/${order.id}`)
+    const lineId = withItem.items[0]!.id
+    const shipment = await postMock<Shipment>(`/api/orders/${order.id}/shipments`, {
+      lines: [{ lineId, quantity: 5 }],
+    })
+    const key = KEY_HEADER('idem-cancel-shipment')
+
+    // Without the guard the second call would hit `SHIPMENT_ALREADY_CANCELLED` —
+    // the shipment is already cancelled by the first call. A cached answer means
+    // no second attempt was made at all.
+    const first = await postMock<Shipment>(
+      `/api/orders/${order.id}/shipments/${shipment.id}/cancel`,
+      {},
+      key,
+    )
+    const second = await postMock<Shipment>(
+      `/api/orders/${order.id}/shipments/${shipment.id}/cancel`,
+      {},
+      key,
+    )
+    expect(second).toEqual(first)
+    expect(second.cancelled).toBe(true)
+  })
+
+  it('the same key on accept-response does not add a second row to the event feed', async () => {
+    const key = KEY_HEADER('idem-accept-response')
+    const before = MOCK_BCC_HISTORY.length
+
+    const first = await postMock<BccRequest>(
+      '/api/bcc/events/evt-001/response',
+      { price: 100, unit: 'ton' },
+      key,
+    )
+    const second = await postMock<BccRequest>(
+      '/api/bcc/events/evt-001/response',
+      { price: 100, unit: 'ton' },
+      key,
+    )
+    expect(second.id).toBe(first.id)
+    expect(MOCK_BCC_HISTORY.length).toBe(before + 1)
+  })
+
+  it('the same key on no-response does not add a second row to the event feed', async () => {
+    const key = KEY_HEADER('idem-no-response')
+    const before = MOCK_BCC_HISTORY.length
+
+    const first = await postMock<BccRequest>('/api/bcc/events/evt-006/no-response', {}, key)
+    const second = await postMock<BccRequest>('/api/bcc/events/evt-006/no-response', {}, key)
+    expect(second.id).toBe(first.id)
+    expect(MOCK_BCC_HISTORY.length).toBe(before + 1)
+  })
+
+  /**
+   * The three client functions never let a test hand them a key — they mint one
+   * themselves with `newIdempotencyKey()`. So proving the header actually leaves
+   * the service layer means pinning that generator to one value across two calls
+   * and watching the mock behave the way it only can when it saw the same key
+   * twice: no second cancellation, no second feed row. Remove the header from
+   * the service function and the second call stops being a repeat — it becomes
+   * a fresh request the mock executes for real, and these assertions redden.
+   */
+  describe('the client functions actually deliver the header, not just the mock', () => {
+    it('cancelOrderShipment', async () => {
+      const order = await newOrder()
+      await postMock<{ id: string }>(`/api/orders/${order.id}/items`, {
+        productId: 'prod-001',
+        quantity: 10,
+        unit: 'pcs',
+        unitPrice: 120,
+      })
+      const withItem = await getMock<Order>(`/api/orders/${order.id}`)
+      const lineId = withItem.items[0]!.id
+      const shipment = await postMock<Shipment>(`/api/orders/${order.id}/shipments`, {
+        lines: [{ lineId, quantity: 5 }],
+      })
+
+      const spy = vi
+        .spyOn(crypto, 'randomUUID')
+        .mockReturnValue('fixed-client-key-cancel' as ReturnType<typeof crypto.randomUUID>)
+      try {
+        // Without a real header this throws SHIPMENT_ALREADY_CANCELLED on the
+        // second call, exactly like the dispatcher-level test above.
+        const first = await cancelOrderShipment(order.id, shipment.id)
+        const second = await cancelOrderShipment(order.id, shipment.id)
+        expect(second).toEqual(first)
+      } finally {
+        spy.mockRestore()
+      }
+    })
+
+    it('acceptBccResponse', async () => {
+      const spy = vi
+        .spyOn(crypto, 'randomUUID')
+        .mockReturnValue('fixed-client-key-accept' as ReturnType<typeof crypto.randomUUID>)
+      try {
+        const before = MOCK_BCC_HISTORY.length
+        const first = await acceptBccResponse('evt-002', { price: 100, unit: 'ton' })
+        const second = await acceptBccResponse('evt-002', { price: 100, unit: 'ton' })
+        expect(second.id).toBe(first.id)
+        expect(MOCK_BCC_HISTORY.length).toBe(before + 1)
+      } finally {
+        spy.mockRestore()
+      }
+    })
+
+    it('markBccNoResponse', async () => {
+      const spy = vi
+        .spyOn(crypto, 'randomUUID')
+        .mockReturnValue('fixed-client-key-no-response' as ReturnType<typeof crypto.randomUUID>)
+      try {
+        const before = MOCK_BCC_HISTORY.length
+        const first = await markBccNoResponse('evt-007')
+        const second = await markBccNoResponse('evt-007')
+        expect(second.id).toBe(first.id)
+        expect(MOCK_BCC_HISTORY.length).toBe(before + 1)
+      } finally {
+        spy.mockRestore()
+      }
+    })
   })
 })

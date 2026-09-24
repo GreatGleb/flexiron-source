@@ -31,7 +31,7 @@ WarehousePage.vue: `OFFCUT_STATUS_OPTIONS` (455–465) — 8 статусов + 
 
 `offcut_status_:` в AUDIT_ENUM_MAP обновлён во всех 5 файлах — WarehouseMovementCard.vue:60, WarehouseDeficitCard.vue:123, WarehouseStockCard.vue:132, WarehouseBatchCard.vue:268, WarehouseOffcutCard.vue:138 — везде идентичный массив из 8 новых кодов.
 
-WarehouseOffcutCard.vue:22–31 — `OFFCUT_STATUSES` из 8 значений, отдаётся в `statusOptions` для CustomSelect.
+WarehouseOffcutCard.vue:23–31 — `OFFCUT_STATUSES` из 8 значений, отдаётся в `statusOptions` для CustomSelect.
 
 Моки: `grep "status: '" src/mocks/warehouse-offcuts.ts | sort | uniq -c` → 8 available, 1 expensed, 1 in_storage, 1 reserved, 1 scrapped, 1 sold. Ни `used`, ни `scrap`. (План описывает записи who-019/who-028 — их в файле нет вообще, всего 13 записей who-001…who-013; описание «текущего состояния» в плане устарело.)
 
@@ -68,7 +68,7 @@ src/views/admin/warehouse/WarehouseOffcutCard.vue:166,167
 | `npx vue-tsc --noEmit` — 0 errors | сделано | пустой вывод |
 | `npm run lint` — 0 errors | сделано | пустой вывод |
 | Offcut filter dropdown показывает все 8 статусов | сделано | WarehousePage.vue:455-465 |
-| Карточка обрезка позволяет выбрать все 8 статусов через CustomSelect | сделано | WarehouseOffcutCard.vue:22-38 |
+| Карточка обрезка позволяет выбрать все 8 статусов через CustomSelect | сделано | WarehouseOffcutCard.vue:23-39 |
 | Offcut pill цвета корректно отображаются | сделано | OFFCUT_STATUS_PILL 557-566 + _status-pills.css 9-57; подписи через `status_*`, все 8 ключей есть (i18n 147-157) |
 | Старый статус `used` больше нигде не используется | частично | нет в OffcutStatus/i18n/моках, но остался в `status_:` AUDIT_ENUM_MAP ×5 файлов и в ключе `btn_mark_used` |
 | Старый статус `scrap` больше нигде не используется | частично | то же: `status_:` ×5 файлов, `btn_mark_scrap`, `data-test="offcut-mark-scrap-btn"` |

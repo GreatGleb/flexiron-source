@@ -65,7 +65,7 @@ $ grep -n "useOrderPermissions|canSeeCost|rightsReady|col_cost|col_margin" src/v
 $ grep -n "baseCurrencyOf|receivedCurrency" src/composables/useOrderCreate.ts src/composables/useOrderCard.ts src/services/mocks/orders.ts
 useOrderCreate.ts:233:  receivedCurrency: baseCurrencyOf(settings),
 useOrderCard.ts:1199:  receivedCurrency: baseCurrencyOf(settings),
-mocks/orders.ts:457,2047:  receivedCurrency: baseCurrencyOf(mockGetSettings()),
+mocks/orders.ts:460,2047:  receivedCurrency: baseCurrencyOf(mockGetSettings()),
   (функция объявлена в src/services/orderLines.ts:146)
 
 $ grep -n "vatMode|rollupOrder|recalcLocalTotals" src/composables/useOrderCreate.ts
@@ -106,7 +106,7 @@ $ grep -n "конфликт номеров/исторический" roo_code/pl
 $ grep -n "ZERO_QUANTITY" src/services/mocks/orders.ts src/domain/orderPricing.ts
 orderPricing.ts:323: if (line.quantity <= 0) throw new Error('ZERO_QUANTITY')
 orderPricing.ts:387: if (quantity === 0) throw new Error('ZERO_QUANTITY')
-mocks/orders.ts:1993, 2273  (позиции и услуги — обе)
+mocks/orders.ts:1996, 2273  (позиции и услуги — обе)
 
 $ sed -n '270,320p' src/views/admin/orders/OrderCreatePage.vue
 276: v-if="clientsError" … create_clients_error + кнопка create_btn_retry

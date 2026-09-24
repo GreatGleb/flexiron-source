@@ -48,6 +48,8 @@ export const adminSettings = {
         'Запись будет удалена и в карточке объекта — источник данных один. Восстановить её нельзя.',
       toast_deleted: 'Запись аудита удалена',
       toast_error_delete: 'Не удалось удалить запись',
+      error_load: 'Не удалось загрузить ленту аудита',
+      error_users_load: 'Не удалось загрузить список пользователей',
     },
     settingsTabs: {
       profile: 'Профиль',
@@ -314,6 +316,8 @@ export const adminSettings = {
         'It will be deleted from the object card as well — there is one source of data. It cannot be restored.',
       toast_deleted: 'Audit record deleted',
       toast_error_delete: 'Could not delete the record',
+      error_load: 'Failed to load the audit feed',
+      error_users_load: 'Failed to load the list of users',
     },
     settingsTabs: {
       profile: 'Profile',
@@ -580,6 +584,8 @@ export const adminSettings = {
         'Įrašas bus ištrintas ir objekto kortelėje — duomenų šaltinis yra vienas. Atkurti nepavyks.',
       toast_deleted: 'Audito įrašas ištrintas',
       toast_error_delete: 'Nepavyko ištrinti įrašo',
+      error_load: 'Nepavyko įkelti audito žurnalo',
+      error_users_load: 'Nepavyko įkelti naudotojų sąrašo',
     },
     settingsTabs: {
       profile: 'Profilis',

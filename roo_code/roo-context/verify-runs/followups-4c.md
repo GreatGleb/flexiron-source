@@ -170,9 +170,9 @@ $ grep -rn "uoms.find" src/views/admin/orders/   → ни одного
 зовёт то же `uomCode`, а не повторяет выборку локали.
 
 **Припарковано, вне области пункта:** та же выборка руками живёт ещё в пяти местах вне
-заказов — `ProductCardPage.vue:126`, `ProductsPage.vue:161`, `WarehouseBatchCard.vue:30`
+заказов — `ProductCardPage.vue:126`, `ProductsPage.vue:161`, `WarehouseBatchCard.vue:32`
 и `:57`, `useWarehouseBatchCreate.ts:129/245/246/398`, `UnitsSettings.vue:22`. Две из них
-(`WarehouseBatchCard.vue:57`, `useWarehouseBatchCreate.ts:398`) сравнивают строку с
+(`WarehouseBatchCard.vue:59`, `useWarehouseBatchCreate.ts:398`) сравнивают строку с
 `code.en` — это ровно дефект, описанный в п. 4d плана, и туда же он относится по тексту:
 «`batch.unit` — свободная строка». Молча не чинил и в область 4c не тянул. **Пройдена.**
 

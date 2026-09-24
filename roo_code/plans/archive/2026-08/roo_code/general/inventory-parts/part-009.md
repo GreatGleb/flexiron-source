@@ -297,11 +297,11 @@ src/views/admin/suppliers/BccRequestPage.vue:402  source: SOURCE_TRANSLATIONS[so
 src/components/admin/SupplierFormSections.vue:22  setTranslatedField → mergeLocaleValue(existing, value, locale)             # P0 (план: стр. 20)
 src/views/admin/products/CategoryCardPage.vue:70,84   name/description                                                       # P1 (план: 69, 83)
 src/views/admin/products/ProductCardPage.vue:83,90    name/description                                                       # P1 (план: 43, 50)
-src/composables/useCardConfig.ts:86              if (sec) sec.name = mergeLocaleValue(sec.name, name, locale.value)         # P1 (план: стр. 86)
+src/composables/useCardConfig.ts:88              if (sec) sec.name = mergeLocaleValue(sec.name, name, locale.value)         # P1 (план: стр. 86)
 # сверх плана той же правкой закрыты: useWarehouseStockCard.ts:105,116; ServiceCardPage.vue:30,37; SupplierCardPage.vue:46
 
 $ grep -rn "toTranslatedString(" src/ | grep -v "src/types/i18n.ts" | grep -v "src/services/"
-src/views/admin/suppliers/SupplierCardConfigPage.vue:317,413,459    # «потенциально нормально» по плану — создание новых секций/полей
+src/views/admin/suppliers/SupplierCardConfigPage.vue:326,413,459    # «потенциально нормально» по плану — создание новых секций/полей
 src/views/admin/products/CategoryCardPage.vue:147,152               # то же — новые custom fields
 src/composables/useProductCard.ts:178                               # НЕ в списке плана: description при создании поля
 ```

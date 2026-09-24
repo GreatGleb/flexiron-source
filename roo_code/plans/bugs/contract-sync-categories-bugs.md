@@ -22,7 +22,7 @@
 (`frontend_vue/src/composables/useCategories.ts:44`), то есть из `ApiRequestError.code`.
 Описание ниже оставлено как история находки.
 
-**File:** `frontend_vue/src/composables/useCategories.ts:43-47`, `frontend_vue/src/services/mocks/index.ts:1491`
+**File:** `frontend_vue/src/composables/useCategories.ts:43-47`, `frontend_vue/src/services/mocks/index.ts:1493`
 **Severity:** High — против настоящего бэкенда оба осмысленных сообщения об ошибке удаления пропадут, останется общий «что-то пошло не так».
 **Источник:** К3 (каждый код доходит до человекочитаемого сообщения)
 
@@ -35,7 +35,7 @@ const code = e instanceof Error ? e.message : ''
 if (code === 'CATEGORY_HAS_PRODUCTS') { … } else if (code === 'CATEGORY_HAS_CHILDREN') { … }
 ```
 
-Под моками это работает случайно: `mocks/index.ts:1491` бросает `new Error(result.code)`, то
+Под моками это работает случайно: `mocks/index.ts:1493` бросает `new Error(result.code)`, то
 есть кладёт код именно в `message`. Настоящий клиент так не делает — `unwrap()` собирает
 `ApiRequestError`, у которого `message` это человеческий текст сервера, а машинный код лежит
 в отдельном поле `code` (`frontend_vue/src/types/api.ts:28-31`, заполнение —
@@ -168,7 +168,7 @@ $ grep -o "categoryId: 'cat-[0-9]*'" src/services/mocks/products.ts | sort | uni
 
 `mockPatchCategory` объявлен как `Category | undefined` и на несуществующем id возвращает
 `undefined` (`:1456-1458`); `mockPutCategoryFields` — то же (`:1490-1492`). Ветка
-`mocks/index.ts:1201-1207` (PATCH) и `:1172-1175` (PUT) отдают это значение как **успешный**
+`mocks/index.ts:1203-1209` (PATCH) и `:1172-1175` (PUT) отдают это значение как **успешный**
 ответ. Клиент результата не проверяет: `useCategoryCard.save()` кладёт оба промиса в
 `Promise.all` и на успехе показывает `categories.toast_saved`
 (`frontend_vue/src/composables/useCategoryCard.ts:112-114`).
@@ -229,7 +229,11 @@ $ grep -o "categoryId: 'cat-[0-9]*'" src/services/mocks/products.ts | sort | uni
 
 ---
 
-## БАГ-07 — `putCategoryFields` шлёт ключ `fieldName`, которого нет ни в типе, ни в разборе мока
+## ✅ БАГ-07 — `putCategoryFields` шлёт ключ `fieldName`, которого нет ни в типе, ни в разборе мока — ПОЧИНЕН
+
+**Закрыто 2026-09-24:** `fieldName` убран из тела запроса, `name` остался единственным ключом
+имени поля на проводе (`frontend_vue/src/services/categoriesService.ts:putCategoryFields`).
+Описание ниже оставлено как история находки.
 
 **File:** `frontend_vue/src/services/categoriesService.ts:65-71`
 **Severity:** Low — лишнее поле на проводе; вредно тем, что описывает бэкенду несуществующий договор.
@@ -251,7 +255,9 @@ fields: fields.map((f) => ({
 из товаров, где `ProductFieldValue.fieldName` существует (`frontend_vue/src/types/product.ts`).
 
 Тернарник при этом мёртв: из карточки `f.name` всегда `TranslatedString`, строкой оно не
-приходит никогда (`CategoryCardPage.vue:147`, `useCategoryCard.ts:139`).
+приходит никогда: `submitFieldModal` в `CategoryCardPage.vue` кладёт в `payload.name`
+результат `mergeLocaleValue` либо `toTranslatedString`, а
+`updateField` в `useCategoryCard.ts` только разливает готовую дельту поверх прежнего поля.
 
 ### Fix
 
@@ -260,7 +266,15 @@ fields: fields.map((f) => ({
 
 ---
 
-## БАГ-08 — правка поля категории стирает его переводы на двух других языках
+## ✅ БАГ-08 — правка поля категории стирает его переводы на двух других языках — ПОЧИНЕН
+
+**Закрыто 2026-09-24, обе половины:** `openEditField`/`submitFieldModal`
+(`frontend_vue/src/views/admin/products/CategoryCardPage.vue`) сливают правку через
+`mergeLocaleValue` поверх исходных `field.name`/`field.options`, как имя и описание самой
+категории; `mockPutCategoryFields` (`frontend_vue/src/services/mocks/categories.ts`) ищет
+прежнее поле по `id` (`previousFields.find`), а не по позиции `cat.fields[i]`. Проверки —
+`frontend_vue/src/services/mocks/category-fields-keep-locales.spec.ts`. Описание ниже оставлено
+как история находки.
 
 **File:** `frontend_vue/src/views/admin/products/CategoryCardPage.vue:132-157`
 **Severity:** High — необратимая потеря данных при обычном редактировании; ловится только сменой языка.

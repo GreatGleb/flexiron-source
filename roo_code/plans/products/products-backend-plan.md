@@ -82,11 +82,11 @@
 
 Образец уже стоит в этом же домене и переписывать его не нужно: ветка удаления товара в роутере
 мока бросает `ApiRequestError` с кодом в поле и статусом по классу ядра
-(`services/mocks/index.ts:1637-1647`), а `mockDeleteProduct` кодов не бросает вовсе — возвращает
+(`services/mocks/index.ts:1639-1649`), а `mockDeleteProduct` кодов не бросает вовсе — возвращает
 `{ ok: false, code }` (`services/mocks/products.ts:14224-14232`).
 
 **Спеки, утверждающие отказ по тексту, — одна на домен:**
-`services/mocks/unknown-id-is-refused.spec.ts:51` утверждает `rejects.toThrow('PRODUCT_NOT_FOUND')`,
+`services/mocks/unknown-id-is-refused.spec.ts:55` утверждает `rejects.toThrow('PRODUCT_NOT_FOUND')`,
 то есть сравнивает **текст**. Переписывается на утверждение о поле: перехват, `instanceof
 ApiRequestError`, `e.code === 'PRODUCT_NOT_FOUND'`. Той же задачей заводится спека на два броска
 журнала (`services/mocks/products.ts:14236`, `:14238`), которых сегодня не проверяет ни одна:
@@ -285,7 +285,7 @@ ApiRequestError`, `e.code === 'PRODUCT_NOT_FOUND'`. Той же задачей �
   прямо из заказа. `delete` у него нет: архивирование убирает товар из **всех** выборов (П44), и
   это решение каталога, а не одной продажи.
 - `products.cost` `read` у `owner`, `admin`, `accounting` — тот же состав, что у сегодняшнего
-  `seeCost` (`frontend_vue/src/services/mocks/settings.ts:63`): бухгалтерия себестоимость сверяет.
+  `seeCost` (`frontend_vue/src/services/mocks/settings.ts:65`): бухгалтерия себестоимость сверяет.
   Совпадение состава не делает права одним — разойтись они должны уметь (Р7).
 - `products.supplier-links`: полные права у `owner` и `admin`, потому что связь несёт закупочную
   цену — ту же породу величины, что и себестоимость; `read` у `accounting` по той же причине, что
@@ -587,7 +587,7 @@ ApiRequestError`, `e.code === 'PRODUCT_NOT_FOUND'`. Той же задачей �
 (`frontend_vue/src/services/mocks/products.ts:13874-13882`, выборка —
 `registerProductBatchLookup` (`frontend_vue/src/services/mocks/warehouse.ts:1377-1383`)), `avgSalePrice` — из отгруженного нетто
 строк заказов, что засчитываются продажей
-(`frontend_vue/src/services/mocks/orders.ts:1311-1325`). Значит копию двигает **каждое** место,
+(`frontend_vue/src/services/mocks/orders.ts:1314-1328`). Значит копию двигает **каждое** место,
 меняющее слагаемое, а не только четыре очевидных.
 
 | № | событие | где записано сегодня | что двигает |
@@ -600,16 +600,16 @@ ApiRequestError`, `e.code === 'PRODUCT_NOT_FOUND'`. Той же задачей �
 | 6 | движение `return`, не двигающее обрезок | `frontend_vue/src/services/mocks/warehouse.ts:1277-1279` | `avgCostPrice` |
 | 7 | коррекция прихода (`correction` с `referenceType === 'receipt'`) — выставляет остаток **напрямую** | `frontend_vue/src/services/mocks/warehouse.ts:1280-1284` | `avgCostPrice` |
 | 8 | пересчёт остатков из журнала (`syncBatchQuantities`) | `frontend_vue/src/services/mocks/warehouse.ts:397-410` | `avgCostPrice` — на бэкенде это старт с сохранённого журнала, и копия обязана пережить его так же |
-| 9 | отгрузка строки заказа | `shippedQuantity` — `frontend_vue/src/services/mocks/orders.ts:3330` | `avgSalePrice` |
-| 10 | **отмена отгрузки** | `frontend_vue/src/services/mocks/orders.ts:3436` | `avgSalePrice` — `shippedQuantity` уменьшается, возврата при этом нет |
-| 11 | возврат строки заказа | `returnedQuantity` — `frontend_vue/src/services/mocks/orders.ts:3814` | `avgSalePrice` |
-| 12 | смена статуса заказа через границу `countsAsSale` — подтверждение черновика, аннулирование, полный возврат и обратный переход | предикат `frontend_vue/src/domain/orderStatus.ts:121-123`, отсечка `frontend_vue/src/services/mocks/orders.ts:1315` | `avgSalePrice` — ни отгрузки, ни возврата строки при этом не происходит |
-| 13 | правка ценообразования строки (`unitCost`, `costSource`, `marginPercent`, `discountPercent`, `manualUnitPrice`/`namedUnitPrice`) | `frontend_vue/src/services/mocks/orders.ts:2229`, состав слагаемого — `frontend_vue/src/services/orderLines.ts:36-51` | `avgSalePrice` — количество то же, нетто другое |
-| 14 | коррекция строки после документа (`unitPrice`/`unitCost`) | `frontend_vue/src/services/mocks/orders.ts:2623-2640` | `avgSalePrice` |
-| 15 | добавление строки с этим товаром | `mockAddOrderItem` — `frontend_vue/src/services/mocks/orders.ts:2091` | `avgSalePrice` |
-| 16 | удаление строки заказа | `mockDeleteOrderItem` — `frontend_vue/src/services/mocks/orders.ts:2358-2371` | `avgSalePrice` |
-| 17 | деление строки при частичной отгрузке | `frontend_vue/src/services/mocks/orders.ts:2777`, `:2809` | `avgSalePrice` — сумма слагаемых сохраняется, но строк становится две; обработчик обязан **пересчитать заново**, а не подвинуть дельтой |
-| 18 | удаление заказа целиком | `frontend_vue/src/services/mocks/orders.ts:2059`, `:2078` | `avgSalePrice` — все его строки перестают быть слагаемыми |
+| 9 | отгрузка строки заказа | `shippedQuantity` — `frontend_vue/src/services/mocks/orders.ts:3333` | `avgSalePrice` |
+| 10 | **отмена отгрузки** | `frontend_vue/src/services/mocks/orders.ts:3439` | `avgSalePrice` — `shippedQuantity` уменьшается, возврата при этом нет |
+| 11 | возврат строки заказа | `returnedQuantity` — `frontend_vue/src/services/mocks/orders.ts:3817` | `avgSalePrice` |
+| 12 | смена статуса заказа через границу `countsAsSale` — подтверждение черновика, аннулирование, полный возврат и обратный переход | предикат `frontend_vue/src/domain/orderStatus.ts:121-123`, отсечка `frontend_vue/src/services/mocks/orders.ts:1318` | `avgSalePrice` — ни отгрузки, ни возврата строки при этом не происходит |
+| 13 | правка ценообразования строки (`unitCost`, `costSource`, `marginPercent`, `discountPercent`, `manualUnitPrice`/`namedUnitPrice`) | `frontend_vue/src/services/mocks/orders.ts:2232`, состав слагаемого — `frontend_vue/src/services/orderLines.ts:36-51` | `avgSalePrice` — количество то же, нетто другое |
+| 14 | коррекция строки после документа (`unitPrice`/`unitCost`) | `frontend_vue/src/services/mocks/orders.ts:2626-2643` | `avgSalePrice` |
+| 15 | добавление строки с этим товаром | `mockAddOrderItem` — `frontend_vue/src/services/mocks/orders.ts:2094` | `avgSalePrice` |
+| 16 | удаление строки заказа | `mockDeleteOrderItem` — `frontend_vue/src/services/mocks/orders.ts:2361-2374` | `avgSalePrice` |
+| 17 | деление строки при частичной отгрузке | `frontend_vue/src/services/mocks/orders.ts:2780`, `:2809` | `avgSalePrice` — сумма слагаемых сохраняется, но строк становится две; обработчик обязан **пересчитать заново**, а не подвинуть дельтой |
+| 18 | удаление заказа целиком | `frontend_vue/src/services/mocks/orders.ts:2062`, `:2078` | `avgSalePrice` — все его строки перестают быть слагаемыми |
 
 **Что из этого следует для С11.** Обработчик копии не складывает дельты: событий, выставляющих
 величину напрямую (7) и пересобирающих состав слагаемых (17, 18), достаточно, чтобы дельтовый
@@ -622,7 +622,7 @@ ApiRequestError`, `e.code === 'PRODUCT_NOT_FOUND'`. Той же задачей �
 
 ### Двадцать строк «Чего в домене нет» — куда легла каждая
 
-Раздел контракта `roo_code/roo-context/api/products.md:861-895` перечисляет то, что прежний текст
+Раздел контракта `roo_code/roo-context/api/products.md:865-899` перечисляет то, что прежний текст
 описывал, а в коде этого нет. Для плана это не архив, а список мест, где сервер придётся строить
 не по прежнему описанию. Двадцать строк — `awk 'NR>=861 && NR<=895 && /^\| /' … | wc -l` минус шапка.
 

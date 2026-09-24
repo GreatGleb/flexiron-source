@@ -72,7 +72,7 @@
 полем (`roo_code/roo-context/03-api-contract.md:2093-2095`) — то есть код разрешает больше, чем
 задание.
 
-Карточка сегодня шлёт только `notes` и `fileIds` (`frontend_vue/src/views/admin/finance/OutgoingPaymentCardPage.vue:85-86`),
+Карточка сегодня шлёт только `notes` и `fileIds` (`frontend_vue/src/views/admin/finance/OutgoingPaymentCardPage.vue:87-88`),
 поэтому наружу дефект не виден — но схема, снятая с такого «сервера», получит эндпоинт, правящий что угодно.
 
 ### Fix
@@ -212,7 +212,7 @@ PATCH-мок пишется через явный список принимае�
 
 ## БАГ-06 — единственный код ошибки домена не доходит до человека
 
-**File:** `frontend_vue/src/views/admin/finance/OutgoingPaymentCardPage.vue:64-66,134-140`
+**File:** `frontend_vue/src/views/admin/finance/OutgoingPaymentCardPage.vue:66-68,134-140`
 **Severity:** Medium — «нет такого платежа» и «сеть упала» показываются одним экраном
 **Источник:** К3 (коды ошибок)
 
@@ -309,7 +309,7 @@ PATCH-мок пишется через явный список принимае�
 
 `PaymentStatus` объявляет четыре значения, включая `cancelled` (`:3`). Значение стоит в фильтре
 страницы (`frontend_vue/src/views/admin/finance/OutgoingPaymentsPage.vue:39`) и в двух картах пилюль
-(`:86`, `frontend_vue/src/views/admin/finance/OutgoingPaymentCardPage.vue:37`).
+(`:86`, `frontend_vue/src/views/admin/finance/OutgoingPaymentCardPage.vue:39`).
 
 Носителей нет: `grep -c "status: 'cancelled'" frontend_vue/src/services/mocks/finance.ts` → `0`
 (пять сидов — `completed`, `overdue`, `pending`, `pending`, `completed`:
@@ -386,12 +386,12 @@ TBD — решение владельца: у сервера просрочка 
 Засеянные документы получают `id: \`pdoc-${seq}\`` при `fileId: \`file-fin-${seq}\``
 (`:119`, `:121`). Документ, созданный через PATCH, получает `id: fid` — то есть свой `id` равным
 `fileId` (`:503-504`), а `fileId` аплоада выглядит как `file-<seq>-<timestamp>`
-(`frontend_vue/src/services/mocks/index.ts:1663`).
+(`frontend_vue/src/services/mocks/index.ts:1665`).
 
 На схеме это два разных поля: `id` — UUID из `UUIDMixin`, `file_id` — FK на `uploaded_files`
 (`backend/app/modules/finance/shared/models.py:58-79`). Тип во фронте тоже держит оба
 (`frontend_vue/src/types/finance.ts:5-13`). Совпадение их значений — свойство мока, и карточка на
-него уже опирается по-разному: удаление ищет по `id` (`frontend_vue/src/views/admin/finance/OutgoingPaymentCardPage.vue:90-95`),
+него уже опирается по-разному: удаление ищет по `id` (`frontend_vue/src/views/admin/finance/OutgoingPaymentCardPage.vue:92-101`),
 а отслеживание правок — по `fileId` (`:40-51`).
 
 ### Fix
@@ -408,7 +408,7 @@ TBD — решение владельца: у сервера просрочка 
 
 ## БАГ-12 — `catch { load() }` стирает несохранённое: заметки и правки списка документов
 
-**File:** `frontend_vue/src/views/admin/finance/OutgoingPaymentCardPage.vue:79-94` (обработчик отказа — `:90-91`)
+**File:** `frontend_vue/src/views/admin/finance/OutgoingPaymentCardPage.vue:81-100` (обработчик отказа — `:90-91`)
 **Severity:** High — набранный текст заметки пропадает при отказе сохранения, восстановить его неоткуда
 **Источник:** решение владельца П49 (§15 соглашений), Л8 (Save UX)
 
@@ -441,7 +441,7 @@ TBD — решение владельца: у сервера просрочка 
 блокировку кнопки в тот же тик, когда перезагрузка ещё в полёте, и кнопка на мгновение снова активна
 поверх старых данных — при том что П47 требует размораживать её только после ответа сервера.
 
-Адрес в соглашениях устарел: §15 ссылается на `OutgoingPaymentCardPage.vue:83-85`, после правок
+Адрес в соглашениях устарел: §15 ссылается на `OutgoingPaymentCardPage.vue:85-87`, после правок
 класса 2 это `:90-91`.
 
 ### Fix

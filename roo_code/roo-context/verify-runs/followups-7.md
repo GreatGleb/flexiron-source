@@ -297,7 +297,7 @@ exit=0
 
 **1. Строка, покрытая куском ЦЕЛИКОМ (`quantity = material`), имеет `shippable = 0`
 навсегда.** Покрытая куском аллокация имеет `batchId = null`, а `planShipment`
-(`orders.ts:3036`) пропускает любую аллокацию без партии — «goods that are on no shelf
+(`orders.ts:3039`) пропускает любую аллокацию без партии — «goods that are on no shelf
 cannot leave one» — и записывает её в `shortage`. Ни одного движения `'sale'` по куску не
 пишется, статус куска остаётся `'available'`, в предложениях его больше нет: кусок заперт
 вне рынка, а заказ по этой строке не завершается никогда. То есть требование ТЗ, ради
@@ -307,9 +307,9 @@ cannot leave one» — и записывает её в `shortage`. Ни одно
 **2. Хуже: СМЕШАННАЯ строка (кусок 2 + партия 5 из FIFO, `quantity` 7) не отгружает
 ВООБЩЕ НИЧЕГО**, хотя партийная половина на полке лежит. `mockPlanOrderShipment` обещает
 `shippable = 5`, а `mockCreateShipment` на этих же 5 бросает `SHIPMENT_EXCEEDS_STOCK`
-(`orders.ts:3111`): `splitAllocations` (`orderLines.ts:191`) отдаёт первыми 2 куска — их
+(`orders.ts:3114`): `splitAllocations` (`orderLines.ts:191`) отдаёт первыми 2 куска — их
 пропускают — плюс 3 партии, `missing = 2`. Сломан заявленный в докблоке `planShipment`
-(`orders.ts:3070-3071`) инвариант «Same planner as the shipment itself, so the dialog cannot
+(`orders.ts:3073-3074`) инвариант «Same planner as the shipment itself, so the dialog cannot
 offer a quantity the write-off would then refuse». Путь пользовательский:
 `OrderCardPage.vue:557` подставляет в поле именно `line.shippable` и ограничивает
 `:max` им же (`:2344`) — менеджеру предлагают то количество, которое запись гарантированно
@@ -345,7 +345,7 @@ offer a quantity the write-off would then refuse». Путь пользоват�
 
 ### Причина отклонения: регрессия в ОБЫЧНОЙ отгрузке
 
-Новая `offerableQuantity` (`src/services/mocks/orders.ts:3182-3197`) перестала считать
+Новая `offerableQuantity` (`src/services/mocks/orders.ts:3185-3200`) перестала считать
 `остаток − недостача` и вместо этого перебирает только ГРАНИЦЫ АЛЛОКАЦИЙ — накопительные
 суммы `quantity` по разбивке. Если ни одна граница не принята планировщиком, функция отдаёт 0.
 Но настоящий максимум почти никогда не лежит на границе: частично занятая партия обрезает его
@@ -676,7 +676,7 @@ i18n: `orders.error_quantity_splits_offcut` в трёх локалях. Карт
 | Л10 | `npm run verify`, `npx vite build` | exit 0 / exit 0 | чисто |
 
 Отдельно рассмотрено и ОТКЛОНЕНО как ложное срабатывание Л5: карта `wholePieces` внутри
-`planShipment` (orders.ts:3134) — это не вторая копия геометрии, а другой вопрос
+`planShipment` (orders.ts:3137) — это не вторая копия геометрии, а другой вопрос
 («сколько куска осталось неотгруженным»), заданный по срезу, а не по количеству. Приёмщик
 подтвердил её как верную; трогать запрещено.
 

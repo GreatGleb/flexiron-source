@@ -49,7 +49,11 @@ for name in names:
 with calls.open('a') as stream:
     stream.write(f"end {task['id']} {time.time()}\n")
 result = {'status': 'done', 'summary': 'ок', 'evidence': ['читал plan.md']}
-print(json.dumps({'is_error': False, 'result': json.dumps(result),
+printed = json.dumps(result)
+if mode == 'prose' and task['id'] == 'beta':
+    # Ровно то, чем кончилась ночь 2026-09-23-2241: проза вместо объекта результата.
+    printed = 'All done. Summary of the change:\n\n- plan2.md: переписал раздел'
+print(json.dumps({'is_error': False, 'result': printed,
                   'modelUsage': {'m': {'inputTokens': 10, 'outputTokens': 1,
                                        'cacheCreationInputTokens': 0, 'cacheReadInputTokens': 0}}}))
 '''
@@ -156,6 +160,28 @@ class ParallelRunTest(unittest.TestCase):
         batches = [json.loads(x)["batch"] for x in (self.logs / "journal.jsonl").read_text().splitlines()
                    if json.loads(x)["event"] == "batch"]
         self.assertEqual(batches, [["alpha", "beta"]])
+
+    def test_unusable_answer_blocks_its_task_and_lets_the_rest_finish(self):
+        # Автор beta возвращает прозу вместо JSON. Это брак одной задачи: прогон обязан
+        # довести alpha до коммита и закончиться нормально, а не упасть на разборе ответа.
+        result = self.invoke(parallel=2, mode="prose")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        state = self.state()
+        self.assertEqual([item["task"] for item in state["completed"]], ["alpha"])
+        self.assertEqual([item["task"] for item in state["blocked"]], ["beta"])
+        self.assertIn("непригоден", state["blocked"][0]["reason"])
+        self.assertEqual(self.git("log", "--format=%s", f"{self.baseline}..HEAD"), "night: alpha")
+
+    def test_unusable_answer_keeps_the_patch_it_produced(self):
+        # Работа автора пережила блокировку: патч лежит в каталоге прогона и назван
+        # в доказательствах — иначе его пришлось бы искать по каталогу руками.
+        self.invoke(parallel=2, mode="prose")
+        patch = self.logs / "beta.patch"
+        self.assertTrue(patch.is_file())
+        self.assertIn("prepared by beta", patch.read_text())
+        self.assertIn(str(patch), self.state()["blocked"][0]["evidence"])
+        # В checkout он при этом не применён: непринятую работу никто не коммитил.
+        self.assertFalse((self.root / "plan2.md").exists())
 
     def test_author_touching_a_foreign_file_stops_the_run(self):
         result = self.invoke(parallel=2, mode="outside")

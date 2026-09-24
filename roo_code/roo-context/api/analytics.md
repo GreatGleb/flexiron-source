@@ -418,7 +418,7 @@ CRUD-матрицы по надобности роли (П2, П7). Выручк�
 одной записи: `grep -c "apiPost\|apiPut\|apiPatch\|apiDelete\|apiUpload"
 src/services/analyticsService.ts` → `0`; `Idempotency-Key` не шлётся
 (`grep -c "Idempotency" src/services/analyticsService.ts` → `0`) при том, что механизм в проекте
-есть (`services/api.ts:239-245`), и `If-Match` тоже нет (правила обоих — `00-conventions.md`, §11).
+есть (`services/api.ts:258-264`), и `If-Match` тоже нет (правила обоих — `00-conventions.md`, §11).
 Единственное требование этого класса, которое к чтению всё-таки относится, — **согласованность
 среза**: восемь страниц это восемь независимых запросов (`useAnalytics.ts:16`, по вызову на
 страницу), между которыми данные могут измениться, и одна страница способна показать цифры двух

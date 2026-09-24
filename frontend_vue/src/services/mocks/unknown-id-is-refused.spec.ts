@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { mockGetOrder, mockDeleteOrder } from './orders'
+import { mockGetOrder, mockDeleteOrder, mockReserveOrder, mockGetReservations } from './orders'
 import { mockPatchCategory, mockPutCategoryFields } from './categories'
 import { mockPatchProduct } from './products'
 import { mockUpdateField, mockUpdateSection } from './config'
@@ -14,6 +14,10 @@ import {
   mockGetBatchAggregates,
   mockGetBatchActiveSales,
 } from './warehouse'
+import { mockGetClientAudit } from './clients'
+import { mockUpdateSupplierStatus, MOCK_SUPPLIERS } from './suppliers'
+import { findReservations } from './reservations'
+import type { ApiRequestError } from '@/types/api'
 
 /**
  * An id nobody knows is a refusal — in every domain, on reads as well as writes.
@@ -26,9 +30,9 @@ import {
  *
  * The point of this file is that the error path exists at all. A branch with no
  * `throw` is a branch no test can reach: green meant "there was no error", not
- * "the error was handled". The SHAPE of the refusal (bare `Error` today,
- * `ApiRequestError` once the mock moves to the common envelope) is a separate
- * job — these assertions name the code, which survives that move.
+ * "the error was handled". The SHAPE of the refusal is `ApiRequestError`
+ * everywhere in the mocks now — these assertions name the code, which is what
+ * would survive a future change to the envelope.
  */
 
 const UNKNOWN = 'no-such-id-ever'
@@ -102,5 +106,55 @@ describe('an unknown id is refused, not answered with emptiness', () => {
       code: 'BATCH_NOT_FOUND',
       status: 404,
     })
+  })
+
+  it('orders: reservations refuse an unknown order the same way reserving one does', () => {
+    let reserveRefusal: ApiRequestError | undefined
+    try {
+      mockReserveOrder(UNKNOWN)
+    } catch (e) {
+      reserveRefusal = e as ApiRequestError
+    }
+    expect(reserveRefusal?.code).toBe('ORDER_NOT_FOUND')
+
+    let reservationsRefusal: ApiRequestError | undefined
+    try {
+      mockGetReservations({ orderId: UNKNOWN })
+    } catch (e) {
+      reservationsRefusal = e as ApiRequestError
+    }
+    expect(reservationsRefusal?.code).toBe(reserveRefusal?.code)
+    expect(reservationsRefusal?.status).toBe(reserveRefusal?.status)
+
+    // Filtering by batchId only — no orderId given — is not a lookup of an order
+    // and must keep working.
+    expect(() => mockGetReservations({ batchId: 'no-such-batch' })).not.toThrow()
+  })
+
+  it('clients: the audit log of an unknown client is refused, not returned empty', () => {
+    expect(() => mockGetClientAudit(UNKNOWN)).toThrow('CLIENT_NOT_FOUND')
+    // A known client's log still comes back.
+    expect(mockGetClientAudit('CL-001').length).toBeGreaterThan(0)
+  })
+
+  it('suppliers: a status change on an unknown supplier is refused, not a silent no-op', () => {
+    let refusal: ApiRequestError | undefined
+    try {
+      mockUpdateSupplierStatus(UNKNOWN, 'active')
+    } catch (e) {
+      refusal = e as ApiRequestError
+    }
+    expect(refusal?.code).toBe('SUPPLIER_NOT_FOUND')
+    // A known supplier's status still changes.
+    mockUpdateSupplierStatus('2', 'active')
+    expect(MOCK_SUPPLIERS.find((s) => s.id === '2')?.status).toBe('active')
+  })
+
+  it('reservations: an empty string in a filter field means "this id", not "no filter"', () => {
+    const all = findReservations()
+    expect(all.length).toBeGreaterThan(0)
+    expect(findReservations({ orderId: '' })).toEqual([])
+    expect(findReservations({ batchId: '' })).toEqual([])
+    expect(findReservations({ lineId: '' })).toEqual([])
   })
 })

@@ -23,7 +23,7 @@
 
 ## БАГ-01 — код ошибки удаления товара читается из `message`, а настоящий API кладёт его в `code`
 
-**File:** `frontend_vue/src/composables/useProducts.ts:51-52`, `frontend_vue/src/services/mocks/index.ts:1507`
+**File:** `frontend_vue/src/composables/useProducts.ts:51-52`, `frontend_vue/src/services/mocks/index.ts:1509`
 **Severity:** High — против настоящего бэкенда единственное осмысленное сообщение об ошибке удаления пропадёт.
 **Источник:** К3 (каждый код доходит до человекочитаемого сообщения)
 
@@ -36,7 +36,7 @@ const code = e instanceof Error ? e.message : ''
 if (code === 'PRODUCT_IN_USE') { … } else { … }
 ```
 
-Под моками это работает случайно: `mocks/index.ts:1507` бросает
+Под моками это работает случайно: `mocks/index.ts:1509` бросает
 `new Error(result.code ?? 'PRODUCT_NOT_FOUND')`, то есть кладёт код именно в `message`.
 Настоящий клиент так не делает — `unwrap()` собирает `ApiRequestError`, у которого `message` это
 человеческий текст сервера, а машинный код лежит в отдельном поле `code`
@@ -174,7 +174,7 @@ field_values = [
 
 ---
 
-## БАГ-05 — `mockGetProduct` отдаёт запись стора по ссылке, и карточка правит стор напрямую
+## ✅ БАГ-05 — `mockGetProduct` отдаёт запись стора по ссылке, и карточка правит стор напрямую
 
 **File:** `frontend_vue/src/services/mocks/products.ts:13985-13989`, `frontend_vue/src/views/admin/products/ProductCardPage.vue:70`
 **Severity:** High — мок перестаёт быть сервером: клиент меняет «серверные» данные, не отправив запроса.
@@ -211,6 +211,22 @@ product.value.auditLog = product.value.auditLog.filter((entry) => entry.id !== e
 
 Мок, отдающий ссылку на своё хранилище, превращает любую мутацию во фронте в тихую запись в
 базу. Ответ мока обязан быть копией.
+
+### Сделано 2026-09-23
+
+`mockGetProduct` отдаёт `structuredClone(found)` вместо самого элемента `STORE`. Заодно
+закрыты соседние выдачи того же файла, которые делили ссылку тем же способом: `mockCreateProduct`
+и `mockPatchProduct` теперь тоже отдают `structuredClone` созданного/патченного объекта, а
+`toListItem` — `structuredClone` собранной записи, так что списочные `name`/`categoryName`
+больше не делят `TranslatedString` со `STORE`. Одно исключение оставлено как есть и подтверждено
+намеренно: `productAuditSources` по-прежнему отдаёт `log: p.auditLog` по ссылке — комментарий
+над функцией объясняет, что лента и карточка обязаны видеть одно и то же удаление.
+
+Доказано новой спекой `frontend_vue/src/services/mocks/store-copies.spec.ts`: получить товар
+(чтение, создание, патч, списочная запись), испортить у копии поле и вложенный `TranslatedString`
+имени, перечитать мок и убедиться, что порча не долетела. Инверсия проверена вручную: временный
+возврат `mockGetProduct` к `return found` красит тест `чтение — правка полученного товара не
+меняет запись на «сервере»` (`AssertionError: expected 'MUTATED' to be 'Steel Sheet 3mm'`).
 
 ---
 
@@ -367,7 +383,7 @@ linkedSuppliers.value = JSON.parse(JSON.stringify(data.linkedSuppliers)) as Link
   if (idx === -1) return null
 ```
 
-Ветка мока результат не проверяет (`frontend_vue/src/services/mocks/index.ts:1210-1218`), и
+Ветка мока результат не проверяет (`frontend_vue/src/services/mocks/index.ts:1212-1220`), и
 `null` доезжает до клиента как успешный ответ. `useProductCard.save()` показывает тост
 «Изменения сохранены» (`frontend_vue/src/composables/useProductCard.ts:257`) и зовёт `load()`
 (`:258`), который упадёт уже по другой причине.
@@ -513,7 +529,7 @@ saleUomId: data.saleUomId ?? null,
 (`frontend_vue/src/views/admin/products/ProductsPage.vue:118-127`), то есть под моками
 регулярно рождается товар без валюты и без единиц, а против сервера тот же товар получил бы
 валюту арендатора (`cur-eur` помечен `isDefault: true` —
-`frontend_vue/src/services/mocks/settings.ts:70-73`) и три одинаковые единицы.
+`frontend_vue/src/services/mocks/settings.ts:72-75`) и три одинаковые единицы.
 
 ### Fix
 
