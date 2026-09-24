@@ -48,14 +48,14 @@ async def get_product_detail(
     db: AsyncSession, tenant_id: UUID, product_id: UUID
 ) -> ProductDetailResponse:
     """Execute the get product detail use case."""
-    product = await get_product_by_id(db, product_id)
+    product = await get_product_by_id(db, product_id, tenant_id)
     if product is None:
         raise NotFoundError(entity="Product", entity_id=str(product_id))
 
     # Fetch category if present
     category: CategoryBriefResponse | None = None
     if product.category_id:
-        cat = await get_category_by_id(db, product.category_id)
+        cat = await get_category_by_id(db, product.category_id, tenant_id)
         if cat:
             category = CategoryBriefResponse(
                 id=cat.id,

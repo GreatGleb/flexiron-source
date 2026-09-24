@@ -108,8 +108,8 @@ useWarehouseBatch.ts` → пусто; в i18n ключей `field_product_price`
 
 ```
 $ grep -rn "api/products" backend/app --include=*.py | grep prefix
-backend/app/modules/products/features/get_product_detail/action.py:25:router = APIRouter(prefix="/api/products", ...)
-backend/app/modules/products/features/create_product/action.py:20:router = APIRouter(prefix="/api/products", ...)
+backend/app/modules/products/features/get_product_detail/action.py:26:router = APIRouter(prefix="/api/products", ...)
+backend/app/modules/products/features/create_product/action.py:21:router = APIRouter(prefix="/api/products", ...)
 $ ls backend/app/modules/products/features/
 create_product  get_product_detail  __init__.py
 ```

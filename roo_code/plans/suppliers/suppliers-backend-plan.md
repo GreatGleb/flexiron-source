@@ -167,7 +167,7 @@ cd frontend_vue && npx vitest run src/services/apiErrorCode.guard.spec.ts
 `grep -c "exception_handler" backend/app/main.py` → 0. Образец, как домен заводит свой код,
 уже есть: `MailNotConfiguredError` в BCC (`backend/app/modules/bcc/features/send_request/domain.py:23-32`),
 а действие переводит его в ответ вида `detail` с полями `message` и `code`
-(`backend/app/modules/products/features/create_product/action.py:43-47`), который клиент уже
+(`backend/app/modules/products/features/create_product/action.py:38-42`), который клиент уже
 разбирает (`frontend_vue/src/services/api.ts:59-62`).
 
 | код | HTTP | кто бросает | кто читает | есть ли сегодня |

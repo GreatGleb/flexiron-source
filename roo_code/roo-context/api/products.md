@@ -15,8 +15,8 @@ clean-slate против quick-action — §15; производные знач�
 обязанностей сервера — §18; форма `id` — §19. Ниже — только то, что живёт в этом домене.
 
 **Источник истины — по эндпоинту, а не по домену.** Модуль бэкенда есть, и у него ровно два
-роута: `@router.post("", …)` (`backend/app/modules/products/features/create_product/action.py:23`) и
-`@router.get("/{product_id}", …)` (`backend/app/modules/products/features/get_product_detail/action.py:28`),
+роута: `@router.post("", …)` (`backend/app/modules/products/features/create_product/action.py:24`) и
+`@router.get("/{product_id}", …)` (`backend/app/modules/products/features/get_product_detail/action.py:29`),
 оба подключены в `backend/app/main.py:69-70`. Значит формы `POST /api/products` и
 `GET /api/products/:id` ниже сняты **со схем сервера**, а расхождение фронта с ними названо
 находкой; остальные пять описаны по клиенту и моку. Строка `Бэкенд:` стоит у каждого раздела —
@@ -174,7 +174,7 @@ interface ProductListItem {
 кладёт текст исключения в состояние (`composables/useProducts.ts:39`).
 
 Бэкенд: **не реализован** — у модуля два роута, и `GET` среди них только по `/{product_id}`
-(`backend/app/modules/products/features/get_product_detail/action.py:28`). Против живого сервера
+(`backend/app/modules/products/features/get_product_detail/action.py:29`). Против живого сервера
 этот путь даёт 404.
 
 Реализация: `services/productsService.ts:7-22` (`getProducts`) · мок `services/mocks/index.ts:426`
@@ -207,7 +207,7 @@ Array<{ id: string; name: TranslatedString }>
   `path === '/api/products'` (`services/mocks/index.ts:426`), затем `'/api/products/list'` (`:440`),
   затем регулярка карточки (`:449`). У сервера с единственным маршрутом `/{product_id}` порядок
   обратный по построению, и это уже даёт живой дефект: сегмент типизирован `UUID`
-  (`backend/app/modules/products/features/get_product_detail/action.py:30`), поэтому ответом будет
+  (`backend/app/modules/products/features/get_product_detail/action.py:31`), поэтому ответом будет
   **422 о неразобранном UUID**, а не 404 — БАГ-08. Общее правило — §18 соглашений;
 - **справочник живёт синглтоном на сессию и не инвалидируется ничем.** Модульные `products` и
   `inflight` (`composables/useProductNames.ts:12-13`), запрос ровно один за сессию (`:25-36`),
@@ -224,7 +224,7 @@ Array<{ id: string; name: TranslatedString }>
 глотает и снимает обещание, чтобы попробовать снова (`composables/useProductNames.ts:31-33`).
 
 Бэкенд: **не реализован** — и хуже, чем «нет»: путь перехватит
-`GET /api/products/{product_id}` (`backend/app/modules/products/features/get_product_detail/action.py:28-30`).
+`GET /api/products/{product_id}` (`backend/app/modules/products/features/get_product_detail/action.py:29-31`).
 
 Реализация: `services/productsService.ts:114-118` (`getProductList`) · мок
 `services/mocks/index.ts:440`
@@ -238,7 +238,7 @@ Array<{ id: string; name: TranslatedString }>
 
 Запрос: только путь — `apiGet(\`/api/products/${id}\`)` (`services/productsService.ts:24-26`), ни
 query, ни заголовков. Сервер типизирует сегмент как `product_id: UUID`
-(`backend/app/modules/products/features/get_product_detail/action.py:30`), то есть демо-идентификатор
+(`backend/app/modules/products/features/get_product_detail/action.py:31`), то есть демо-идентификатор
 вида `prod-001` (`services/mocks/products.ts:31`) он отвергнет валидацией пути, не дойдя до
 обработчика — правило домена 2. Мок ловит путь регуляркой `/^\/api\/products\/([^/]+)$/`
 (`services/mocks/index.ts:449`).
@@ -318,9 +318,10 @@ query, ни заголовков. Сервер типизирует сегмен
 `composables/useWarehouseBatchCreate.ts:145`, `composables/useWarehouseOffcutCreate.ts:281`,
 `composables/useWarehouseOffcutCard.ts:237`, `composables/useWarehouseCutting.ts:148`.
 
-Бэкенд: `backend/app/modules/products/features/get_product_detail/action.py:28`
+Бэкенд: `backend/app/modules/products/features/get_product_detail/action.py:29`
 (`get_product_detail`) · схемы `backend/app/modules/products/features/get_product_detail/schemas.py:9-54` · выборка
-`backend/app/modules/products/features/get_product_detail/repository.py:13-22` (**без фильтра по арендатору** — БАГ-14)
+`backend/app/modules/products/features/get_product_detail/repository.py:13-22`
+(`get_product_by_id`, теперь фильтрует по `tenant_id` в `where` — БАГ-14 закрыт)
 
 Реализация: `services/productsService.ts:24-26` (`getProduct`) · мок
 `services/mocks/index.ts:449` → `services/mocks/products.ts:13985` (`mockGetProduct`)
@@ -386,7 +387,7 @@ query, ни заголовков. Сервер типизирует сегмен
 ```
 
 `backend/app/modules/products/features/create_product/schemas.py:34-40`, сборка
-`backend/app/modules/products/features/create_product/domain.py:63-67`, конверт и статус — `backend/app/modules/products/features/create_product/action.py:23`, `:38-42`.
+`backend/app/modules/products/features/create_product/domain.py:63-67`, конверт и статус — `backend/app/modules/products/features/create_product/action.py:24`, `:38-42`.
 Клиент типизирует ответ как `Promise<Product>` (`services/productsService.ts:48`), мок отдаёт
 созданный `Product` целиком (`services/mocks/products.ts:14076-14114`). Сегодня расхождение
 безвредно — вызывающий читает единственное поле `created.id` для перехода в карточку
@@ -396,7 +397,7 @@ query, ни заголовков. Сервер типизирует сегмен
 Ошибки: **одна у сервера, ни одной у мока.** Сервер бросает
 `ValidationError("Product name is required")` на пустом имени
 (`backend/app/modules/products/features/create_product/domain.py:30-31`) и отдаёт 422 с телом `{"detail": {"message", "code"}}`
-(`backend/app/modules/products/features/create_product/action.py:43-47`). Мок не бросает ничего
+(`backend/app/modules/products/features/create_product/action.py:33-37`). Мок не бросает ничего
 (`services/mocks/products.ts:13991-14115`); вместо серверной проверки стоит клиентская —
 `if (!newProduct.value.name.trim()) return` (`views/admin/products/ProductsPage.vue:198`) плюс
 `:disabled` на кнопке (`:540`). **Ошибку создания фронт не показывает вовсе:** у `handleCreate`
@@ -409,7 +410,7 @@ query, ни заголовков. Сервер типизирует сегмен
 `UNIQUE INDEX` того же имени), — ни в моке
 (`services/mocks/products.ts:13991-14115`).
 
-Бэкенд: `backend/app/modules/products/features/create_product/action.py:23` (`create_product`) ·
+Бэкенд: `backend/app/modules/products/features/create_product/action.py:24` (`create_product`) ·
 схемы `backend/app/modules/products/features/create_product/schemas.py:8-40` · запись `backend/app/modules/products/features/create_product/repository.py:48-50`
 (`flush`, без своего коммита)
 
@@ -703,26 +704,34 @@ id пользователя (`types/warehouse.ts:526-534`); понятия `sens
    схеме под имя стоит одна `String(255)` (`backend/app/modules/products/shared/models.py:107`) —
    расхождение схемы с типом описано в §12 соглашений.
 
-**6. Мультиарендность — на схеме выражена, в единственном реализованном чтении нет.**
+**6. Мультиарендность — на схеме выражена и с БАГ-14 (закрыт 2026-09-24) выражена в чтении тоже.**
 `Product.tenant_id` и `ProductFieldValue.tenant_id` объявлены `nullable=False, index=True`, FK на
 `tenants.id` с `ondelete="CASCADE"` (`backend/app/modules/products/shared/models.py:101-106`,
 `:191-196`; миграция `backend/alembic/versions/25245d4bf874_phase_3_categories_products.py:60`,
-`:76`). Но `get_product_by_id` выбирает товар **только по id**
-(`backend/app/modules/products/features/get_product_detail/repository.py:13-22`), а домен, который
-`tenant_id` получает, использует его лишь для сборки легаси-подписи
-(`backend/app/modules/products/features/get_product_detail/domain.py:47-53`, `:77-79`) — БАГ-14. Что модуль это умеет, видно рядом:
+`:76`). `get_product_by_id` и `get_category_by_id`
+(`backend/app/modules/products/features/get_product_detail/repository.py`) принимают `tenant_id`
+и сравнивают его в `where` рядом с `id`; домен передаёт им арендатора из запроса, а не только в
+сборку легаси-подписи `price_unit`
+(`backend/app/modules/products/features/get_product_detail/domain.py`). Арендатор в обоих роутах
+берётся из `current_user.tenant_id` — зависимости `Depends(get_current_user)`
+(`backend/app/modules/products/features/create_product/action.py`,
+`backend/app/modules/products/features/get_product_detail/action.py`), заглушки
+`00000000-0000-0000-0000-000000000001` в коде больше нет. Что модуль умел и раньше, видно рядом:
 `count_products_by_currency` и `count_products_by_uom` фильтруют по арендатору
-(`backend/app/modules/products/internal_api/interface.py:49-53`, `:63-70`). Сам арендатор в обоих
-роутах захардкожен заглушкой `00000000-0000-0000-0000-000000000001`
-(`backend/app/modules/products/features/create_product/action.py:33-34`, `backend/app/modules/products/features/get_product_detail/action.py:34-35`). Во фронте
+(`backend/app/modules/products/internal_api/interface.py:49-53`, `:63-70`). Во фронте
 мультиарендность не выражена никак — и так и должно быть (§4 соглашений).
 
-**7. Права — не проверяются нигде.** У роутов бэкенда нет ни одной зависимости аутентификации:
-единственный `Depends` в обоих — `get_db` (`backend/app/modules/products/features/create_product/action.py:26`,
-`backend/app/modules/products/features/get_product_detail/action.py:31`), тогда как соседний `GET /api/auth/me` требует Bearer
-(`backend/app/modules/auth/features/me/action.py:36`). Клиент заголовков не шлёт тоже
-(`services/productsService.ts` — 126 строк, ни одного `headers`), что для домена с
-`tenant_id NOT NULL` само по себе находка (§5 соглашений). Во фронте доступ гейтится только
+**7. Права — с БАГ-14 (закрыт 2026-09-24) авторизация есть, разрешения — нет.** Оба роута
+объявляют `Depends(get_current_user)` из `app.modules.auth.internal_api.interface`
+(`backend/app/modules/products/features/create_product/action.py`,
+`backend/app/modules/products/features/get_product_detail/action.py`), как и соседний
+`GET /api/auth/me` (`backend/app/modules/auth/features/me/action.py:36`) — запрос без `Bearer`
+теперь отвечает 401. Проверки конкретного разрешения (право на чтение/правку товара) за этим не
+стоит — `check_permission` в `app.modules.auth.internal_api.interface` остаётся заглушкой,
+разрешающей всё (§6 соглашений), и это тот же класс «нет права», что и раньше, только на
+следующем уровне. Клиент заголовков не шлёт (`services/productsService.ts` — 126 строк, ни одного
+`headers`) — фронт эту авторизацию ещё не использует, и до его правки живой сервер отвечает 401 на
+каждый запрос домена. Во фронте доступ гейтится только
 фича-флагами: роуты `products` и `products/:id` несут `meta.featureFlag: 'adminProducts'`
 (`router/index.ts:220`, `:226`), секция поставщиков — `productSupplierLinks`
 (`views/admin/products/ProductCardPage.vue:35`); оба объявлены `true`
@@ -778,7 +787,7 @@ id пользователя (`types/warehouse.ts:526-534`); понятия `sens
 1. **Формы бэкенда и формы фронта — два разных языка, и мост между ними не написан.** Врезка в
    начале файла; следствия — БАГ-07 и БАГ-11, решение — владельцу.
 2. **Товар идентифицируется UUID'ом на сервере и строкой `prod-NNN` в моке.** Сегмент пути
-   типизирован `product_id: UUID` (`backend/app/modules/products/features/get_product_detail/action.py:30`), схема — `UUIDMixin`
+   типизирован `product_id: UUID` (`backend/app/modules/products/features/get_product_detail/action.py:31`), схема — `UUIDMixin`
    (`backend/app/modules/products/shared/models.py:96`); мок сеет `id: 'prod-001'` … `'prod-114'`
    (`services/mocks/products.ts:31`). Все чужие ссылки на товар — строки того же вида: 72
    различных id в складских сидах (раздел `DELETE /api/products/:id`). Общее правило
@@ -875,7 +884,7 @@ id пользователя (`types/warehouse.ts:526-534`); понятия `sens
 | `name`, `categoryName`, `description`, `fieldName`, `options` строками (`03-api-contract.md:1016`, `03-api-contract.md:1063`, `03-api-contract.md:1069-1070`) | все пять — `TranslatedString` (`types/product.ts:39-41`, `:58`, `:62`, `:11`, `:15`); сборка списка — `services/mocks/products.ts:13925`, `:13927`. Механика — §12 соглашений |
 | пример ответа списка без `avgCostPrice`, `avgSalePrice`, `saleUomId`, `warehouseUomId`, `warehouseToSaleFactor` (`03-api-contract.md:1013-1017`) | пять полей есть в типе (`types/product.ts:45-53`) и в сборке (`services/mocks/products.ts:13922-13940`); две первых — производные (графа 9) |
 | `POST /api/products`: тело из шести полей (`03-api-contract.md:1030-1037`) | у сервера пятнадцать (`backend/app/modules/products/features/create_product/schemas.py:8-31`), у клиента те же пятнадцать в camelCase (`services/productsService.ts:29-46`); нет ни `priceQuantity`, ни `currencyId`, ни трёх UoM, ни четырёх полей пересчёта |
-| «Response 200: `ApiResponse<Product>` — созданный товар целиком (с `fieldValues: []`, `linkedSuppliers: []`)» (`03-api-contract.md:1039`) | сервер отдаёт четыре поля — `{id, name, sku, message}` — и статус **201** (`backend/app/modules/products/features/create_product/schemas.py:34-40`, `backend/app/modules/products/features/create_product/action.py:23`) |
+| «Response 200: `ApiResponse<Product>` — созданный товар целиком (с `fieldValues: []`, `linkedSuppliers: []`)» (`03-api-contract.md:1039`) | сервер отдаёт четыре поля — `{id, name, sku, message}` — и статус **201** (`backend/app/modules/products/features/create_product/schemas.py:34-40`, `backend/app/modules/products/features/create_product/action.py:24`) |
 | «Клиент после успеха перезапрашивает список (`load()`)» (`03-api-contract.md:1040`) | не перезапрашивает: модал закрывается и происходит переход в карточку созданного товара (`views/admin/products/ProductsPage.vue:214-216`) |
 | «409 `PRODUCT_IN_USE` если товар используется в активных заказах» (`03-api-contract.md:1046`) | код есть, но с заказами не связан ничем: правило мока — множество трёх id (`services/mocks/products.ts:14224`), заказы этот файл не импортирует (`:1-18`). Статус 409 не подтверждён ничем: мок бросает голый `Error` без статуса (`services/mocks/index.ts:1509`), а `ApiRequestError.status` заполняется только из настоящего HTTP-ответа (`types/api.ts:26-27`, `services/api.ts:117-124`) |
 | `DELETE /api/products/:id` без `PRODUCT_NOT_FOUND` (`03-api-contract.md:1042-1046` — только `PRODUCT_IN_USE`) | второй код мок бросает (`services/mocks/products.ts:14222`), и до человека он не доходит (`composables/useProducts.ts:51-55`) — БАГ-01 |

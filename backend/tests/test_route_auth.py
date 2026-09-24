@@ -44,13 +44,7 @@ PUBLIC_ROUTES = {
 # Роуты, где аутентификации нет и это ЗАПИСАННАЯ находка, а не новость. Пока находка не
 # закрыта, сторож про неё молчит, но список не даёт о ней забыть. Закрыл находку —
 # убери строку, и сторож начнёт её охранять.
-KNOWN_GAPS = {
-    # products БАГ-14: арендатор в обоих роутах захардкожен заглушкой
-    # 00000000-0000-0000-0000-000000000001 с комментарием «until auth middleware
-    # provides the current tenant context» — то есть слайс сознательно недоделан.
-    "app/modules/products/features/create_product/action.py": "products БАГ-14",
-    "app/modules/products/features/get_product_detail/action.py": "products БАГ-14",
-}
+KNOWN_GAPS = {}
 
 
 def _action_files() -> list[Path]:

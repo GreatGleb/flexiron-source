@@ -32,8 +32,8 @@
 (`mocks/categories.ts`, 1514 строк). Модуля `categories` в `backend/app/modules/` нет вовсе —
 модулей там десять (`auth`, `bcc`, `billing`, `finance`, `notifications`, `products`, `services`,
 `settings`, `suppliers`, `warehouse`), и у `products` роутов два, оба про товар
-(`backend/app/modules/products/features/get_product_detail/action.py:28`,
-`backend/app/modules/products/features/create_product/action.py:23`). А модели категории живут
+(`backend/app/modules/products/features/get_product_detail/action.py:29`,
+`backend/app/modules/products/features/create_product/action.py:24`). А модели категории живут
 как раз в модуле `products`:
 
 | таблица | модель | миграция |
