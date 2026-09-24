@@ -23,10 +23,10 @@
 ### DELETE /api/config/fields/:id
 - Вызывающий: `src/services/configService.ts:41`
 - Бэкенд: **нет**
-- Мок: `mocks/index.ts:1476`
+- Мок: `mocks/index.ts:1478`
 - Форма запроса: тела нет — `apiDelete<void>(\`/api/config/fields/${id}\`)`, `src/services/configService.ts:41`. Ни query, ни заголовков клиент не шлёт (`apiDelete` — `src/services/api.ts:211-221`). `id` берётся из `FieldDefinition.id` (`src/types/config.ts:6`) — в моке это строка вида `f-company` (`mocks/config.ts:13`) или `f-custom-<Date.now()>` (`mocks/config.ts:274`), на схеме — UUID (`backend/app/core/base.py:15-22`, миграция `:29`).
-- Форма ответа: `Promise<void>` в подписи `src/services/configService.ts:40`; мок возвращает `delay(undefined as T)` (`mocks/index.ts:1479`). На проводе — общий конверт `ApiResponse<null>`, который снимает `unwrap()` (`src/services/api.ts:128-137`).
-- Коды ошибок: **ни одного**. `grep -c "throw" frontend_vue/src/services/mocks/config.ts` → `0`; `mockDeleteField` при отсутствующем id просто ничего не делает (`mocks/config.ts:310-311`). Непойманный путь даёт общий текст `[mock] DELETE ${path} not found` (`mocks/index.ts:1657`), а не код домена.
+- Форма ответа: `Promise<void>` в подписи `src/services/configService.ts:40`; мок возвращает `delay(undefined as T)` (`mocks/index.ts:1480`). На проводе — общий конверт `ApiResponse<null>`, который снимает `unwrap()` (`src/services/api.ts:128-137`).
+- Коды ошибок: **ни одного**. `grep -c "throw" frontend_vue/src/services/mocks/config.ts` → `0`; `mockDeleteField` при отсутствующем id просто ничего не делает (`mocks/config.ts:310-311`). Непойманный путь даёт общий текст `[mock] DELETE ${path} not found` (`mocks/index.ts:1658`), а не код домена.
 - Save-режим: **вызывающего нет вовсе** — `grep -rn "\bdeleteField\b" frontend_vue/src --include=*.ts --include=*.vue` даёт только объявление в `configService.ts:40` и одноимённую **локальную** функцию чужого домена (`src/composables/useCategoryCard.ts:142`, `src/views/admin/products/CategoryCardPage.vue:46,545`). UI удаляет поле локально и уносит результат общим Save: `confirmDeleteField` правит `fieldLibrary` и `sections` в памяти (`src/views/admin/suppliers/SupplierCardConfigPage.vue:359-370`), а на сервер уходит `PUT /api/config/fields` из батча (`src/composables/useCardConfig.ts:52`). То есть по факту — clean-slate, а эндпоинт числится в реестре «клиент написан, UI нет» (`roo_code/roo-context/03-api-contract.md:3031`).
 - Пробел контракта: старый раздел (`roo_code/roo-context/03-api-contract.md:646-650`) утверждает три вещи, которых в коде нет. (1) «Когда: `confirmDeleteField`» — `confirmDeleteField` этот эндпоинт **не зовёт** (`SupplierCardConfigPage.vue:359-370`). (2) «Встроенные поля — 403 `IMMUTABLE`»: кода `IMMUTABLE` нет нигде (`grep -rn "IMMUTABLE" frontend_vue/src backend/app` — пусто), мок удаляет любое поле, а признак встроенности на схеме есть и он другой — колонка `is_builtin` (`backend/app/modules/suppliers/shared/models.py:256-258`), тогда как фронт определяет встроенность префиксом id (`SupplierCardConfigPage.vue:312-314`). (3) «Каскадное удаление данных у поставщиков» — хранилища значений полей у поставщика не существует ни во фронте (`src/types/supplier.ts:12-31` — фиксированный набор колонок, никакого `fieldValues`), ни на схеме (`grep -rn "field_value" backend/app` → только `product_field_values` в `products`, `backend/app/modules/products/shared/models.py:189`, и его FK ведёт на `category_fields`, `:203-207`, а не на `field_definitions`). Каскадить нечего.
 - Источник истины: **мок + клиент** (реализации нет). Форма при этом обязана считаться со схемой `field_definitions` (`backend/app/modules/suppliers/shared/models.py:240-266`): удаление определения каскадом снимает его со всех секций — `section_fields.field_id` объявлен `ondelete="CASCADE"` (`:311-315`, миграция `:61`), ровно то же делает мок (`mocks/config.ts:301-303`). А вот строку в `permission_items` не снимает никто: FK у `item_id` нет, это `String(100)` (`backend/app/modules/auth/shared/models.py:156`, миграция `:72`).
@@ -34,9 +34,9 @@
 ### DELETE /api/config/sections/:id
 - Вызывающий: `src/services/configService.ts:71`
 - Бэкенд: **нет**
-- Мок: `mocks/index.ts:1482`
+- Мок: `mocks/index.ts:1484`
 - Форма запроса: тела нет — `apiDelete<void>(\`/api/config/sections/${id}\`)`, `src/services/configService.ts:71`. Заголовков и query клиент не добавляет (`src/services/api.ts:211-221`).
-- Форма ответа: `Promise<void>` (`src/services/configService.ts:70`); мок — `delay(undefined as T)` (`mocks/index.ts:1485`); на проводе `ApiResponse<null>` (`src/services/api.ts:128-137`).
+- Форма ответа: `Promise<void>` (`src/services/configService.ts:70`); мок — `delay(undefined as T)` (`mocks/index.ts:1486`); на проводе `ApiResponse<null>` (`src/services/api.ts:128-137`).
 - Коды ошибок: **ни одного**. `mockDeleteSection` не бросает и молча выходит на несуществующем id (`mocks/config.ts:350-352`). Системную секцию он удаляет так же охотно, как любую: поля `system` он не смотрит вовсе (`mocks/config.ts:350-353`), запрет живёт только в вёрстке (кнопка удаления системной секции задизейблена — e2e `frontend_vue/tests/e2e/admin/suppliers/supplier-card-config.spec.ts:260-266`).
 - Save-режим: **вызывающего нет** — `grep -rn "\bdeleteSection\b" frontend_vue/src` даёт только объявление (`configService.ts:70`). UI удаляет секцию из массива в памяти (`SupplierCardConfigPage.vue:343-350`), результат уходит батчем `PUT /api/config/sections` (`src/composables/useCardConfig.ts:53`). Реестр «клиент написан, UI нет»: `roo_code/roo-context/03-api-contract.md:3034`.
 - Пробел контракта: **раздела нет вовсе** — в блоке 618-693 старого контракта заголовка `### DELETE /api/config/sections/:id` нет (`grep -n "api/config" roo_code/roo-context/03-api-contract.md` — попадания только на 622, 631, 638, 646, 652, 661, 668, 676, 685). Эндпоинт упомянут единственной строкой реестра (`:3034` — «ответ пустой»). Не описано ничего: ни судьба полей внутри удаляемой секции, ни судьба её строк в матрице прав, ни запрет на системную секцию. Схема отвечает только на первый вопрос: `section_fields.section_id` — `ondelete="CASCADE"` (`backend/app/modules/suppliers/shared/models.py:305-310`, миграция `:60`), плюс ORM-каскад `cascade="all, delete-orphan"` (`:289-291`). Колонки `system` на схеме нет (`grep -c '"system"' backend/alembic/versions/e24a3922ed01_phase_7_config.py` → `0`).
@@ -78,7 +78,7 @@
 ### PATCH /api/config/fields/:id
 - Вызывающий: `src/services/configService.ts:37`
 - Бэкенд: **нет**
-- Мок: `mocks/index.ts:1229`
+- Мок: `mocks/index.ts:1231`
 - Форма запроса: `Partial<FieldDefinition>` merge-patch (`src/services/configService.ts:30`, `:37`; семантика RFC 7396 — `src/services/api.ts:193`). Клиент перед отправкой пытается завернуть имя: `if (patch.name && typeof patch.name === 'string')` (`configService.ts:34-36`) — **ветка мёртвая**, потому что `FieldDefinition['name']` объявлен как `TranslatedString` (`src/types/config.ts:7`), а не строка (находка БАГ-03). Третий аргумент `locale` (`configService.ts:31`) в живом коде поэтому не используется.
 - Форма ответа: `FieldDefinition` целиком после merge (`src/services/configService.ts:32`), мок — `mockUpdateField` (`mocks/config.ts:284-296`): сливает переводы имени через `mergeTranslatedString`, чтобы не потерять другие локали (`:291-293`, помощник — `src/types/i18n.ts:36-46`), затем `Object.assign` (`:294`). На несуществующем id возвращает `null` (`:289`) — то есть форма ответа расходится с подписью `Promise<FieldDefinition>` (находка БАГ-08).
 - Коды ошибок: **ни одного** (`grep -c "throw" frontend_vue/src/services/mocks/config.ts` → `0`). Отсутствие поля кодом не выражено — см. выше.
@@ -89,7 +89,7 @@
 ### PATCH /api/config/sections/:id
 - Вызывающий: `src/services/configService.ts:67`
 - Бэкенд: **нет**
-- Мок: `mocks/index.ts:1220`
+- Мок: `mocks/index.ts:1222`
 - Форма запроса: `Partial<SectionConfig>` merge-patch (`src/services/configService.ts:60`, `:67`). Та же мёртвая ветка перевода имени, что у полей: `typeof patch.name === 'string'` при типе `TranslatedString` (`configService.ts:64-66` против `src/types/config.ts:17`) — находка БАГ-03.
 - Форма ответа: `SectionConfig` целиком после merge (`src/services/configService.ts:62`), мок — `mockUpdateSection` (`mocks/config.ts:339-348`): `mergeTranslatedString` для имени (`:327-329`), `Object.assign` (`:330`), `null` на несуществующем id (`:325`).
 - Коды ошибок: **ни одного** (`grep -c "throw" frontend_vue/src/services/mocks/config.ts` → `0`).
@@ -122,9 +122,9 @@
 ### PUT /api/config/fields
 - Вызывающий: `src/services/configService.ts:12`
 - Бэкенд: **нет**
-- Мок: `mocks/index.ts:1162`
+- Мок: `mocks/index.ts:1163`
 - Форма запроса: **весь массив библиотеки целиком** — `apiPut<void>('/api/config/fields', fields)`, `fields: FieldDefinition[]` (`src/services/configService.ts:11-13`). Тело — плоский массив, не объект-обёртка. Ключей, которых нет в типе, клиент не добавляет: уходит ровно `fieldLibrary.value` (`src/composables/useCardConfig.ts:52`), а он наполняется либо ответом GET (`:35`), либо объектами, собранными страницей по тому же типу (`SupplierCardConfigPage.vue:324-330`, `:411-417`).
-- Форма ответа: `Promise<void>` (`src/services/configService.ts:11`); мок ничего не возвращает — `mockSaveFieldLibrary` пишет в стор и ветка отдаёт `delay(undefined as T)` (`mocks/index.ts:1162-1165`, `mocks/config.ts:240-248`). Клиент верит своему локальному состоянию: `load()` после Save не вызывается (`src/composables/useCardConfig.ts:45-61`).
+- Форма ответа: `Promise<void>` (`src/services/configService.ts:11`); мок ничего не возвращает — `mockSaveFieldLibrary` пишет в стор и ветка отдаёт `delay(undefined as T)` (`mocks/index.ts:1163-1166`, `mocks/config.ts:240-248`). Клиент верит своему локальному состоянию: `load()` после Save не вызывается (`src/composables/useCardConfig.ts:45-61`).
 - Коды ошибок: **ни одного** (`grep -c "throw" frontend_vue/src/services/mocks/config.ts` → `0`).
 - Save-режим: **clean-slate**, ядро домена. Уходит по кнопке Save страницы: `save()` → `saveConfig()` (`SupplierCardConfigPage.vue:483-490`), где три PUT'а летят одним `Promise.all` (`src/composables/useCardConfig.ts:51-55`). Именно этот эндпоинт несёт все локальные правки библиотеки: создание поля (`SupplierCardConfigPage.vue:318-334`, `:403-424`), удаление (`:350-361`), скрытие (`src/composables/useCardConfig.ts:97-100`).
 - Пробел контракта: **раздела нет** — в старом контракте `PUT /api/config/fields` не упомянут ни заголовком, ни строкой реестра. Более того, раздел «Update pattern» прямо говорит, что PUT «оставлен только на `PUT /api/config/sections` и `PUT /api/config/permissions`» (`03-api-contract.md:32`), а сводка Save-режимов перечисляет по кнопке Save два запроса вместо трёх (`:267`). Код шлёт три (`src/composables/useCardConfig.ts:51-55`). То есть старый контракт не просто молчит — он утверждает обратное.
@@ -133,9 +133,9 @@
 ### PUT /api/config/permissions
 - Вызывающий: `src/services/configService.ts:81`
 - Бэкенд: **нет**
-- Мок: `mocks/index.ts:1166`
+- Мок: `mocks/index.ts:1168`
 - Форма запроса: `PermissionMatrix` целиком (`src/services/configService.ts:80-81`) — все пять полей, включая `items` и `roles`, которые пользователь на странице не правит. Клиент шлёт ровно то, что прочитал и локально изменил (`src/composables/useCardConfig.ts:54`).
-- Форма ответа: `Promise<void>` (`src/services/configService.ts:80`); мок отдаёт `delay(undefined as T)` (`mocks/index.ts:1166-1169`), а сам `mockSavePermissions` — **пустая функция**, помеченная `// no-op in mock` (`mocks/config.ts:265-267`): матрица не сохраняется нигде, и перезагрузка страницы возвращает исходную (находка БАГ-06).
+- Форма ответа: `Promise<void>` (`src/services/configService.ts:80`); мок отдаёт `delay(undefined as T)` (`mocks/index.ts:1168-1171`), а сам `mockSavePermissions` — **пустая функция**, помеченная `// no-op in mock` (`mocks/config.ts:265-267`): матрица не сохраняется нигде, и перезагрузка страницы возвращает исходную (находка БАГ-06).
 - Коды ошибок: **ни одного** (`grep -c "throw" frontend_vue/src/services/mocks/config.ts` → `0`).
 - Save-режим: **clean-slate**, третий запрос того же `Promise.all` (`src/composables/useCardConfig.ts:54`). Перед отправкой `saveConfig` выходит, если матрица не загрузилась: `if (!permissions.value) return` (`:46`) — то есть при упавшем `load()` Save не шлёт **ни одного** из трёх запросов (находка БАГ-02). Правки матрицы копятся локально пятью правилами страницы (`SupplierCardConfigPage.vue:205-216`, `:209-223`, `:225-238`, `:241-259`, `:261-284`) и живут только в `permissions.value`.
 - Пробел контракта: старый раздел (`03-api-contract.md:685-690`) верен по механике (bulk replace, сервер не проверяет согласованность, все правила на фронте) и это подтверждается кодом: `mockSavePermissions` действительно ничего не валидирует (`mocks/config.ts:265-267`), а каскады живут на странице (`SupplierCardConfigPage.vue:205-293`). Не описано: что делать с `items` и `roles`, присланными клиентом, — они на сервере производные (собираются из секций/полей и из `user_roles`, `backend/app/modules/auth/shared/models.py:98`), а клиент отдаёт их обратно как данные.
@@ -144,9 +144,9 @@
 ### PUT /api/config/sections
 - Вызывающий: `src/services/configService.ts:51`
 - Бэкенд: **нет**
-- Мок: `mocks/index.ts:1158`
+- Мок: `mocks/index.ts:1160`
 - Форма запроса: **весь массив секций целиком** — `apiPut<void>('/api/config/sections', sections)`, `sections: SectionConfig[]` (`src/services/configService.ts:50-51`). Внутрь входит и `collapsed`, помеченный в типе как чисто UI-шный флаг билдера (`src/types/config.ts:20-21`), и `fields` с их `order`/`visible` (`:26`, `:29-33`).
-- Форма ответа: `Promise<void>` (`src/services/configService.ts:50`); мок — `delay(undefined as T)` (`mocks/index.ts:1158-1161`), запись через `mockSaveSections` JSON-раундтрипом, потому что клиент передаёт Vue-прокси (`mocks/config.ts:254-259`).
+- Форма ответа: `Promise<void>` (`src/services/configService.ts:50`); мок — `delay(undefined as T)` (`mocks/index.ts:1160-1163`), запись через `mockSaveSections` JSON-раундтрипом, потому что клиент передаёт Vue-прокси (`mocks/config.ts:254-259`).
 - Коды ошибок: **ни одного** (`grep -c "throw" frontend_vue/src/services/mocks/config.ts` → `0`).
 - Save-режим: **clean-slate**, первый из трёх PUT'ов батча (`src/composables/useCardConfig.ts:53`). Несёт все локальные правки секций: перетаскивание с перенумерацией `order` (`useCardConfig.ts:65-74`), сворачивание (`:74-77`), скрытие секции (`:79-82`) и поля (`:89-93`), переименование (`:84-87`), создание (`SupplierCardConfigPage.vue:460-481`), удаление (`:334-341`), добавление и снятие поля (`:403-424`, `:433-440`).
 - Пробел контракта: старый раздел (`03-api-contract.md:661-666`) верен: bulk replace, ответ `void`, PUT выбран из-за одновременной перенумерации `order` при drag-drop — код это подтверждает (`src/composables/useCardConfig.ts:65-74`, `SupplierCardConfigPage.vue:494-508`). Не описано: что `collapsed` уезжает на сервер, хотя объявлен UI-only (`src/types/config.ts:20-21`); что `system` тоже уезжает и сервер обязан его защитить; и что PUT'ов на самом деле три, а не два (`:267`, см. `PUT /api/config/fields`).

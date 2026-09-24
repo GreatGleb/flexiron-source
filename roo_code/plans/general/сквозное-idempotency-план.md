@@ -124,8 +124,8 @@
 | отправка письма BCC | `frontend_vue/src/services/bccService.ts:43` |
 | запись письма в историю BCC | `frontend_vue/src/services/bccService.ts:64` |
 | создание отгрузки | `frontend_vue/src/services/ordersService.ts:298` |
-| создание платежа | `frontend_vue/src/services/ordersService.ts:355` |
-| возврат по заказу | `frontend_vue/src/services/ordersService.ts:389` |
+| создание платежа | `frontend_vue/src/services/ordersService.ts:365` |
+| возврат по заказу | `frontend_vue/src/services/ordersService.ts:399` |
 
 Команда замера и её вывод — `/tmp/proof-idem-now.txt`, строка «вызовов с ключом: 5».
 
@@ -153,7 +153,7 @@ middleware, ни чтения заголовка. То же и с оптимис
   отсутствие означает «клиент версии не видел», а не «версия ноль».
 - Заголовок ставит `ifMatch` (`frontend_vue/src/services/ordersService.ts:41-43`); шлют его шесть
   удалений заказа — `:116`, `:168`, `:190`, `:198`, `:214`, `:398`.
-- Мок читает заголовок в `ifMatchVersion` (`frontend_vue/src/services/mocks/index.ts:1540-1545`) и
+- Мок читает заголовок в `ifMatchVersion` (`frontend_vue/src/services/mocks/index.ts:1542-1547`) и
   подставляет его в разбор `DELETE` (`:1548`); **нет заголовка — проверки нет**.
 - Отказ один: `ORDER_VERSION_CONFLICT` — бросает мок (`frontend_vue/src/services/mocks/orders.ts:1947`),
   переводит `frontend_vue/src/services/orderLineEdits.ts:374`, обрабатывает карточка
@@ -164,7 +164,7 @@ middleware, ни чтения заголовка. То же и с оптимис
   (`frontend_vue/src/services/auditFeedService.ts:52`, та же функция двумя аргументами против
   трёх у объявления `frontend_vue/src/services/ordersService.ts:193-199`). §11 соглашений называет
   это правилом, а не упущением: «удаление записи истории из общей ленты от проверки версии
-  освобождено» (`roo_code/roo-context/api/00-conventions.md:896-897`) — тот, кто заказа не
+  освобождено» (`roo_code/roo-context/api/00-conventions.md:899-900`) — тот, кто заказа не
   открывал, версии заявить не может.
 
 В остальных шестнадцати доменах версии нет ни во фронте, ни в схеме — поведение last-write-wins.
@@ -264,8 +264,8 @@ middleware, ни чтения заголовка. То же и с оптимис
 | `POST /api/bcc/send` | 3 — письмо не отзывается | ключ шлётся (`frontend_vue/src/services/bccService.ts:43`) | да |
 | `POST /api/bcc/log` | 4 — разделов удаления в bcc.md ноль | ключ шлётся (`frontend_vue/src/services/bccService.ts:64`) | да |
 | `POST /api/orders/:id/shipments` | 1 — движение склада | ключ шлётся (`frontend_vue/src/services/ordersService.ts:298`) | да |
-| `POST /api/orders/:id/payments` | 2 — деньги | ключ шлётся (`frontend_vue/src/services/ordersService.ts:355`) | да |
-| `POST /api/orders/:id/returns` | 1 и 2 | ключ шлётся (`frontend_vue/src/services/ordersService.ts:389`) | да |
+| `POST /api/orders/:id/payments` | 2 — деньги | ключ шлётся (`frontend_vue/src/services/ordersService.ts:365`) | да |
+| `POST /api/orders/:id/returns` | 1 и 2 | ключ шлётся (`frontend_vue/src/services/ordersService.ts:399`) | да |
 | `POST /api/orders/:id/shipments/:id/cancel` | 1 — двигает склад | БАГ-09: ключа нет, это нарушение | да |
 | `POST /api/bcc/events/:eventId/response` и `.../no-response` | 4 — удалить строку нечем | БАГ-03: ключа нет, это нарушение | да |
 
@@ -309,7 +309,7 @@ middleware, ни чтения заголовка. То же и с оптимис
   у запроса с телом — поле `version` в теле; у `DELETE` тела нет, и версия едет в `If-Match`
   (`frontend_vue/src/services/ordersService.ts:41-43`).
   Отсутствие того и другого означает «клиент версии не читал» и проверку **не включает**
-  — так читает заголовок `ifMatchVersion` (`frontend_vue/src/services/mocks/index.ts:1540-1545`).
+  — так читает заголовок `ifMatchVersion` (`frontend_vue/src/services/mocks/index.ts:1542-1547`).
   Несовпадение версий → `ORDER_VERSION_CONFLICT`, 409, и **не пишется ничего**.
 - **Единственное исключение, и оно уже названо §11: общая лента истории.**
   `DELETE /api/orders/:id/audit/:entryId`, вызванный из общей ленты, версии не несёт
@@ -318,7 +318,7 @@ middleware, ни чтения заголовка. То же и с оптимис
   предусловие, которое заявляет тот, кто заказ читал. Домен `audit-feed` пишет строку Д4 в форме
   «не ведётся» и добавляет к ней эту фразу; домен `orders` называет исключение в блоке этого
   эндпоинта. Расширять исключение на другие вызовы нельзя: список закрыт одной строкой §11
-  (`roo_code/roo-context/api/00-conventions.md:896-897`).
+  (`roo_code/roo-context/api/00-conventions.md:899-900`).
 - **Остальные шестнадцать.** Версии нет, `If-Match` не шлётся и сервером не читается, поведение —
   last-write-wins, и доменный файл называет это **прямо**, а не умалчивает.
 - Домен **не заводит** себе версию по своей инициативе. Нашёл место, где потеря правки стоит

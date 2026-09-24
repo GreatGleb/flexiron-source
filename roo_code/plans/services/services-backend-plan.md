@@ -161,7 +161,7 @@
 
 | Код | Статус | Кто бросает (после плана) | Кто читает (после плана) | Сегодня |
 |---|---|---|---|---|
-| `CATALOG_SERVICE_NOT_FOUND` | 404 | `GET /api/services/:id`, `PATCH`, `DELETE` | карточка отличает «услуги нет» от «сеть упала»; таблица кодов домена рядом с `errorMessageKey` (`frontend_vue/src/services/apiErrorCode.ts:64`) | бросает мок (`frontend_vue/src/services/mocks/services.ts:136`, `:151`) и ветка удаления (`frontend_vue/src/services/mocks/index.ts:1661`), читает **чужой** домен — словарь заказов (`frontend_vue/src/services/orderLineEdits.ts:361`); в спеках услуг не проверяется ничем |
+| `CATALOG_SERVICE_NOT_FOUND` | 404 | `GET /api/services/:id`, `PATCH`, `DELETE` | карточка отличает «услуги нет» от «сеть упала»; таблица кодов домена рядом с `errorMessageKey` (`frontend_vue/src/services/apiErrorCode.ts:64`) | бросает мок (`frontend_vue/src/services/mocks/services.ts:136`, `:151`) и ветка удаления (`frontend_vue/src/services/mocks/index.ts:1662`), читает **чужой** домен — словарь заказов (`frontend_vue/src/services/orderLineEdits.ts:361`); в спеках услуг не проверяется ничем |
 | `SERVICE_CURRENCY_NOT_FOUND` | 422 | `POST` и `PATCH`: `currencyId` не найден в справочнике арендатора | форма создания и карточка — подсветка селекта валюты | бросает мок (`frontend_vue/src/services/mocks/services.ts:90`), читателя нет: общий тост |
 | `SERVICE_UOM_NOT_FOUND` | 422 | там же, по единице | там же | бросает мок (`frontend_vue/src/services/mocks/services.ts:93`), читателя нет |
 | `VALIDATION_ERROR` + `fieldErrors.name` | 422 | `POST`: имя обязательно и непусто хотя бы на одном языке | форма создания: разметка по полю через `fieldErrors` (`frontend_vue/src/types/api.ts:33`) | не проверяет никто на проводе; единственная защита — `if (!createForm.name.trim()) return` в форме |
@@ -400,7 +400,7 @@
 
 Пятое место отказа домена лежит не здесь, а в маршрутизаторе, и **оно уже переведено**: ветка
 удаления бросает `ApiRequestError` с кодом и статусом
-(`frontend_vue/src/services/mocks/index.ts:1659-1663`). Трогать её не нужно — этот слайс
+(`frontend_vue/src/services/mocks/index.ts:1661-1665`). Трогать её не нужно — этот слайс
 доводит файл домена до её уровня, а не наоборот.
 
 Спеки, утверждающие отказ по тексту, переписать на утверждение о поле. Их четыре, все в одном
@@ -579,7 +579,7 @@ cd frontend_vue && npx vitest run src/domain/servicePricing.spec.ts
 (`frontend_vue/src/services/servicesService.ts:75-77`), и заводить тело значило бы менять форму
 провода ради того, чего никто не читает. Неизвестный id по-прежнему отвечает
 `CATALOG_SERVICE_NOT_FOUND`: DELETE идемпотентным не является, и это правило стоило отдельной
-починки (`frontend_vue/src/services/mocks/index.ts:1653-1657`).
+починки (`frontend_vue/src/services/mocks/index.ts:1655-1659`).
 
 Что меняется на проводе: `Service` получает признак архива. Форма — поле `archivedAt` того же
 вида, что `createdAt`/`updatedAt`: строка ISO или отсутствие ключа. Булев `isArchived` не
@@ -1072,7 +1072,7 @@ grep -c "service_price_changed" frontend_vue/src/services/mocks/notification-tri
    С8, абзац «Откуда мок услуг знает про незакрытый заказ».
 5. **Ссылки контракта на маршрутизатор мока сдвинулись.** Контракт называет ветку удаления
    услуги строками 1511–1519, сегодня она лежит на
-   `frontend_vue/src/services/mocks/index.ts:1651-1666`. План пользуется замеренными номерами, а
+   `frontend_vue/src/services/mocks/index.ts:1653-1668`. План пользуется замеренными номерами, а
    не унаследованными.
 6. **Комментарий перечня видов журнала устарел.** `frontend_vue/src/types/audit.ts:4` говорит
    «девять, десятого нет», а П42 десятый уже назначил. Правка — работа сквозного плана
@@ -1094,7 +1094,7 @@ grep -c "service_price_changed" frontend_vue/src/services/mocks/notification-tri
 8. **§13 соглашений приводит этот домен примером правила, которое он нарушает.** Общий раздел о
    постраничной выдаче говорит «`totalPages` — `Math.max(1, Math.ceil(total / pageSize))`» и
    ссылается на `services/mocks/services.ts:77` как на один из примеров, где так и сделано
-   (`roo_code/roo-context/api/00-conventions.md:967-970`). По этой строке стоит голый
+   (`roo_code/roo-context/api/00-conventions.md:970-973`). По этой строке стоит голый
    `Math.ceil(total / pageSize)` без зажима (`frontend_vue/src/services/mocks/services.ts:77`),
    то есть пустой список даёт `totalPages: 0`. Поведение план чинит в С2, а вот саму ссылку в
    соглашениях правит не он: это чужой файл и сквозная задача. Отметка нужна, чтобы правку §13 не

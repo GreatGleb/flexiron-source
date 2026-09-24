@@ -226,7 +226,7 @@ bar не участвует.
 Запрос: путь плюс **пустой объект телом** — ``apiPatch<void>(`/api/notifications/${id}/read`, {})``
 (`services/notificationsService.ts:25`). Тело сериализуется всегда (`services/api.ts:206`), то есть
 на провод уходит `{}` с `Content-Type: application/json` (`:205`). Мок ловит путь регуляркой
-`/^\/api\/notifications\/([^/]+)\/read$/` (`mocks/index.ts:1392`) и тело не читает
+`/^\/api\/notifications\/([^/]+)\/read$/` (`mocks/index.ts:1394`) и тело не читает
 вовсе (`:1394`).
 
 `Idempotency-Key` не шлётся (§11: ключ шлют пять вызовов из 175, и это не они) —
@@ -236,7 +236,7 @@ bar не участвует.
 (`mocks/notifications.ts:436-441`).
 
 Ответ: `Promise<void>` (`services/notificationsService.ts:24`); мок — `delay(undefined as T)`
-(`mocks/index.ts:1395`). На проводе `ApiResponse<null>` (§1). Обновлённую запись сервер не отдаёт,
+(`mocks/index.ts:1397`). На проводе `ApiResponse<null>` (§1). Обновлённую запись сервер не отдаёт,
 и клиент её не ждёт — он правит свою копию сам (`useNotifications.ts:54-58`).
 
 **Ответа никто не дожидается.** Оба вызывающих сначала смотрят на локальный флаг и сразу уходят на
@@ -261,7 +261,7 @@ bar не участвует.
 (`backend/app/modules/notifications/shared/models.py:33-36`) и **нет** `read_at`, то есть «когда
 прочитано» не хранится нигде.
 Реализация: `services/notificationsService.ts:24-26` (`markAsRead`) · потребитель
-`composables/useNotifications.ts:53-62` · мок `mocks/index.ts:1392-1396` →
+`composables/useNotifications.ts:53-62` · мок `mocks/index.ts:1394-1398` →
 `mocks/notifications.ts:436-441` (`mockMarkAsRead`)
 
 ---
@@ -274,7 +274,7 @@ bar не участвует.
 (`services/notificationsService.ts:29`). **Ни фильтров, ни списка `id`:** операция всегда «все», и
 это часть контракта — «прочитать всё» на отфильтрованной странице отметит и то, чего пользователь
 не видел. Мок сравнивает путь строкой и ставит эту ветку до регулярки одиночной отметки
-(`mocks/index.ts:1388` против `:1392`); порядок безопасен и без того — `read-all` под
+(`mocks/index.ts:1390` против `:1392`); порядок безопасен и без того — `read-all` под
 `([^/]+)/read` не подходит, — но правило §18 «вложенный путь раньше голого `:id`» соблюдено.
 Тело мок не читает (`:1389`).
 
@@ -282,7 +282,7 @@ bar не участвует.
 весь массив одним выражением (`mocks/notifications.ts:443-445`).
 
 Ответ: `Promise<void>` (`services/notificationsService.ts:28`), мок — `delay(undefined as T)`
-(`mocks/index.ts:1390`). На проводе `ApiResponse<null>`. **Ни числа затронутых записей, ни нового
+(`mocks/index.ts:1392`). На проводе `ApiResponse<null>`. **Ни числа затронутых записей, ни нового
 счётчика сервер не возвращает** — поэтому клиент обнуляет счётчик у себя
 (`useNotifications.ts:68`). Если сервер начнёт отдавать `{ affected, unreadCount }`, клиенту
 не придётся угадывать; сегодня контракт этого не требует, потому что код не читает.
@@ -306,7 +306,7 @@ bar не участвует.
 `is_read` (`backend/app/modules/notifications/shared/models.py:33-36`), следа массовой операции нет.
 Реализация: `services/notificationsService.ts:28-30` (`markAllAsRead`) · потребители
 `composables/useNotifications.ts:65-72`, `views/admin/notifications/NotificationsPage.vue:100-103`,
-`components/admin/NotificationDropdown.vue:52-54` · мок `mocks/index.ts:1388-1391` →
+`components/admin/NotificationDropdown.vue:52-54` · мок `mocks/index.ts:1390-1393` →
 `mocks/notifications.ts:443-445` (`mockMarkAllAsRead`)
 
 ---

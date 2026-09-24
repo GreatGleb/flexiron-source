@@ -23,7 +23,7 @@
 
 ## БАГ-01 — код ошибки удаления товара читается из `message`, а настоящий API кладёт его в `code`
 
-**File:** `frontend_vue/src/composables/useProducts.ts:51-52`, `frontend_vue/src/services/mocks/index.ts:1507`
+**File:** `frontend_vue/src/composables/useProducts.ts:51-52`, `frontend_vue/src/services/mocks/index.ts:1509`
 **Severity:** High — против настоящего бэкенда единственное осмысленное сообщение об ошибке удаления пропадёт.
 **Источник:** К3 (каждый код доходит до человекочитаемого сообщения)
 
@@ -36,7 +36,7 @@ const code = e instanceof Error ? e.message : ''
 if (code === 'PRODUCT_IN_USE') { … } else { … }
 ```
 
-Под моками это работает случайно: `mocks/index.ts:1507` бросает
+Под моками это работает случайно: `mocks/index.ts:1509` бросает
 `new Error(result.code ?? 'PRODUCT_NOT_FOUND')`, то есть кладёт код именно в `message`.
 Настоящий клиент так не делает — `unwrap()` собирает `ApiRequestError`, у которого `message` это
 человеческий текст сервера, а машинный код лежит в отдельном поле `code`
@@ -383,7 +383,7 @@ linkedSuppliers.value = JSON.parse(JSON.stringify(data.linkedSuppliers)) as Link
   if (idx === -1) return null
 ```
 
-Ветка мока результат не проверяет (`frontend_vue/src/services/mocks/index.ts:1210-1218`), и
+Ветка мока результат не проверяет (`frontend_vue/src/services/mocks/index.ts:1212-1220`), и
 `null` доезжает до клиента как успешный ответ. `useProductCard.save()` показывает тост
 «Изменения сохранены» (`frontend_vue/src/composables/useProductCard.ts:257`) и зовёт `load()`
 (`:258`), который упадёт уже по другой причине.

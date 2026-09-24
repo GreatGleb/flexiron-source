@@ -91,7 +91,7 @@ camelCase (`services/productsService.ts:49-58`, `:86-111`, тип — `types/pro
   самом домене сравнение идёт по равенству (`composables/useProducts.ts:51-52`), поэтому сегодня
   это ловушка для следующего вызывающего, а не живой отказ — БАГ-15.
 - **Мок кладёт код в `message`, а не в `code`.** `throw new Error(result.code ?? 'PRODUCT_NOT_FOUND')`
-  (`services/mocks/index.ts:1507`), и клиент читает `e.message` (`composables/useProducts.ts:51-52`);
+  (`services/mocks/index.ts:1509`), и клиент читает `e.message` (`composables/useProducts.ts:51-52`);
   у настоящего `ApiRequestError` код лежит в поле `code` (`types/api.ts:28-31`, заполнение —
   `services/api.ts:53-62`, `:117-124`) — БАГ-01.
 - **До человека доходит один код из пяти.** `PRODUCT_IN_USE` → `products.toast_error_delete_in_use`
@@ -493,7 +493,7 @@ Partial<{
 — пусто).
 
 Реализация: `services/productsService.ts:61-112` (`patchProduct`) · мок
-`services/mocks/index.ts:1210` → `services/mocks/products.ts:14117` (`mockPatchProduct`)
+`services/mocks/index.ts:1212` → `services/mocks/products.ts:14117` (`mockPatchProduct`)
 
 ---
 
@@ -509,7 +509,7 @@ query, ни заголовков: `apiDelete` кладёт только `options
 (`services/api.ts:211-221`).
 
 Ответ: `Promise<void>` в подписи (`services/productsService.ts:120`); мок возвращает
-`delay(undefined as T)` (`services/mocks/index.ts:1508`). На проводе — общий конверт с пустыми
+`delay(undefined as T)` (`services/mocks/index.ts:1510`). На проводе — общий конверт с пустыми
 данными, `ApiResponse<null>` (`services/api.ts:128-141`, тип — `types/api.ts:1-6`).
 
 Ошибки: `PRODUCT_NOT_FOUND` и `PRODUCT_IN_USE` (`services/mocks/products.ts:14222`, `:14225`), и
@@ -555,7 +555,7 @@ query, ни заголовков: `apiDelete` кладёт только `options
 Бэкенд: **не реализован.**
 
 Реализация: `services/productsService.ts:120-122` (`deleteProduct`) · мок
-`services/mocks/index.ts:1504` → `services/mocks/products.ts:14220` (`mockDeleteProduct`)
+`services/mocks/index.ts:1506` → `services/mocks/products.ts:14220` (`mockDeleteProduct`)
 
 ---
 
@@ -576,14 +576,14 @@ query, ни заголовков: `apiDelete` кладёт только `options
 (`services/auditFeedService.ts:57-60`), а собственные чтения ленты при этом несут `Authorization`
 (`:20-24`, `:41`, `:46`) — БАГ-02.
 
-Ответ: `Promise<void>`; мок возвращает `delay(undefined as T)` (`services/mocks/index.ts:1501`), на
+Ответ: `Promise<void>`; мок возвращает `delay(undefined as T)` (`services/mocks/index.ts:1503`), на
 проводе `ApiResponse<null>`. **Тела ответа не читает ни один вызывающий:** карточка правит список
 локально (`views/admin/products/ProductCardPage.vue:70`), лента — своей функцией `withoutRow`
 (`composables/useAuditFeed.ts:97`).
 
 Ошибки: `PRODUCT_NOT_FOUND` и `AUDIT_ENTRY_NOT_FOUND`, и здесь мок бросает их **правильно** — из
 самой функции, кодом, а не текстом (`services/mocks/products.ts:14232`, `:14234`), и ветка
-`services/mocks/index.ts:1495-1502` их не перехватывает. До человека, впрочем, не доходит ни один:
+`services/mocks/index.ts:1497-1504` их не перехватывает. До человека, впрочем, не доходит ни один:
 карточка показывает общий `msg.status_error` (`views/admin/products/ProductCardPage.vue:73`), лента —
 общий `auditLog.toast_error_delete` (`composables/useAuditFeed.ts:103`). Неизвестный `entryId` —
 отказ, а не тихий no-op: правило §9 соглашений здесь соблюдено.
@@ -608,7 +608,7 @@ query, ни заголовков: `apiDelete` кладёт только `options
 (`backend/app/modules/suppliers/shared/models.py:173`).
 
 Реализация: `services/productsService.ts:124-126` (`deleteProductAuditEntry`) · мок
-`services/mocks/index.ts:1495` → `services/mocks/products.ts:14230`
+`services/mocks/index.ts:1497` → `services/mocks/products.ts:14230`
 (`mockDeleteProductAuditEntry`)
 
 ---
@@ -877,7 +877,7 @@ id пользователя (`types/warehouse.ts:526-534`); понятия `sens
 | `POST /api/products`: тело из шести полей (`03-api-contract.md:1030-1037`) | у сервера пятнадцать (`backend/app/modules/products/features/create_product/schemas.py:8-31`), у клиента те же пятнадцать в camelCase (`services/productsService.ts:29-46`); нет ни `priceQuantity`, ни `currencyId`, ни трёх UoM, ни четырёх полей пересчёта |
 | «Response 200: `ApiResponse<Product>` — созданный товар целиком (с `fieldValues: []`, `linkedSuppliers: []`)» (`03-api-contract.md:1039`) | сервер отдаёт четыре поля — `{id, name, sku, message}` — и статус **201** (`backend/app/modules/products/features/create_product/schemas.py:34-40`, `backend/app/modules/products/features/create_product/action.py:23`) |
 | «Клиент после успеха перезапрашивает список (`load()`)» (`03-api-contract.md:1040`) | не перезапрашивает: модал закрывается и происходит переход в карточку созданного товара (`views/admin/products/ProductsPage.vue:214-216`) |
-| «409 `PRODUCT_IN_USE` если товар используется в активных заказах» (`03-api-contract.md:1046`) | код есть, но с заказами не связан ничем: правило мока — множество трёх id (`services/mocks/products.ts:14224`), заказы этот файл не импортирует (`:1-18`). Статус 409 не подтверждён ничем: мок бросает голый `Error` без статуса (`services/mocks/index.ts:1507`), а `ApiRequestError.status` заполняется только из настоящего HTTP-ответа (`types/api.ts:26-27`, `services/api.ts:117-124`) |
+| «409 `PRODUCT_IN_USE` если товар используется в активных заказах» (`03-api-contract.md:1046`) | код есть, но с заказами не связан ничем: правило мока — множество трёх id (`services/mocks/products.ts:14224`), заказы этот файл не импортирует (`:1-18`). Статус 409 не подтверждён ничем: мок бросает голый `Error` без статуса (`services/mocks/index.ts:1509`), а `ApiRequestError.status` заполняется только из настоящего HTTP-ответа (`types/api.ts:26-27`, `services/api.ts:117-124`) |
 | `DELETE /api/products/:id` без `PRODUCT_NOT_FOUND` (`03-api-contract.md:1042-1046` — только `PRODUCT_IN_USE`) | второй код мок бросает (`services/mocks/products.ts:14222`), и до человека он не доходит (`composables/useProducts.ts:51-55`) — БАГ-01 |
 | `GET /api/products/:id`: «404 `PRODUCT_NOT_FOUND`» (`03-api-contract.md:1077`) | такого кода на этом пути нет ни у сервера, ни у мока: сервер отдаёт `NOT_FOUND` (`backend/app/modules/products/features/get_product_detail/domain.py:53`), мок — текст `Product ${id} not found` (`services/mocks/products.ts:13987`). `grep -rn "PRODUCT_NOT_FOUND" frontend_vue/src backend/app` даёт только ветку удаления — БАГ-06 |
 | пример `linkedSuppliers` без поля `currency` (`03-api-contract.md:1072`) | поле есть в типе и заполняется снимком валюты поставщика (`types/product.ts:34`, запись — `views/admin/products/ProductCardPage.vue:211`) |

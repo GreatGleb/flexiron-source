@@ -47,7 +47,7 @@
 `ORDER_VERSION_CONFLICT`, `:1940`). У запроса с телом версия едет полем (`withVersion`,
 `frontend_vue/src/composables/useOrderCard.ts:227-229`), у `DELETE` — заголовком `If-Match`
 (`frontend_vue/src/services/ordersService.ts:41-43`), который мок разбирает
-(`ifMatchVersion`, `frontend_vue/src/services/mocks/index.ts:1420-1425`, применение `:1428`).
+(`ifMatchVersion`, `frontend_vue/src/services/mocks/index.ts:1422-1427`, применение `:1428`).
 `undefined` означает «клиент версии не читал» и проверку **не включает** (`frontend_vue/src/services/mocks/orders.ts:1939`). Ниже это
 не повторяется в каждой графе: где написано «версия — полем `version`» или «версия — `If-Match`»,
 имеется в виду ровно этот механизм.
@@ -63,9 +63,9 @@
 ### DELETE /api/orders/:id
 - Вызывающий: `src/services/ordersService.ts:113`
 - Бэкенд: **нет**
-- Мок: `mocks/index.ts:1577`
+- Мок: `mocks/index.ts:1579`
 - Форма запроса: тела нет; версия — заголовком `If-Match` (`src/services/ordersService.ts:112-113`, сборка заголовка — `ifMatch`, `:41-43`).
-- Форма ответа: `ApiResponse<void>` — клиент объявляет `Promise<void>` (`src/services/ordersService.ts:112`), мок отдаёт `undefined` (`mocks/index.ts:1580`).
+- Форма ответа: `ApiResponse<void>` — клиент объявляет `Promise<void>` (`src/services/ordersService.ts:112`), мок отдаёт `undefined` (`mocks/index.ts:1582`).
 - Коды ошибок: `ORDER_HAS_INVOICE` (`mocks/orders.ts:2062`), `ORDER_HAS_SHIPMENT` (`:2064`), `ORDER_HAS_PAYMENT` (`:2065`), `ORDER_VERSION_CONFLICT` (`assertVersion`, `:2060`). `ORDER_NOT_FOUND` **не бросается**: неизвестный id — молчаливый выход (`:2058`).
 - Save-режим: quick-action, два вызывающих — список (`src/composables/useOrders.ts:46`, **без версии**) и карточка (`src/composables/useOrderCard.ts:575`, `atVersion()`).
 - Пробел контракта: (1) удаление уносит за собой резервы (`releaseOrder`, `mocks/orders.ts:2070`) и записи дефицита (`clearShortages`, `:2074`) — этих эффектов нет в таблице §4.1 контракта домена (`roo_code/plans/orders/orders-backend-contract.md:117`), они названы только прозой §4.2 (`:179`); (2) неизвестный id отвечает успехом, тогда как соседние удаления домена бросают `*_NOT_FOUND` (`mocks/orders.ts:2356`, `:2446`, `:2479`, `:2530`) → находка 2; (3) удаление из списка версии не шлёт (`useOrders.ts:46`), при том что §3 требует её «на каждой мутации» (`orders-backend-contract.md:97`) → находка 3.
@@ -74,9 +74,9 @@
 ### DELETE /api/orders/:id/audit/:id
 - Вызывающий: `src/services/ordersService.ts:195`
 - Бэкенд: **нет**
-- Мок: `mocks/index.ts:1586`
+- Мок: `mocks/index.ts:1588`
 - Форма запроса: тела нет; второй сегмент — **`id` записи**, а не её позиция (`src/services/ordersService.ts:190-196`; `id` живёт на `StockAuditEntry`, `src/types/warehouse.ts:526-534`, и наследуется `OrderAuditEntry`, `src/types/order.ts:591`); версия — `If-Match` (`ordersService.ts:195`).
-- Форма ответа: `ApiResponse<void>` (`src/services/ordersService.ts:194`; мок `mocks/index.ts:1593`).
+- Форма ответа: `ApiResponse<void>` (`src/services/ordersService.ts:194`; мок `mocks/index.ts:1595`).
 - Коды ошибок: `ORDER_NOT_FOUND` (`mocks/orders.ts:2476`), `ORDER_AUDIT_ENTRY_NOT_FOUND` (`:2479`), `ORDER_VERSION_CONFLICT` (`assertVersion`, `:2477`).
 - Save-режим: quick-action из двух мест — карточка заказа (`src/composables/useOrderCard.ts:341`) и общая лента аудита, маршрутизирующая удаление в эндпоинт своей сущности (`src/services/auditFeedService.ts:62`). Правило маршрутизации не переизобретается: см. аудит clients, «Правила домена…», п. 11.
 - Пробел контракта: (1) объявленный ответ расходится с реализацией — таблица §4.1 контракта домена называет `Order` (`roo_code/plans/orders/orders-backend-contract.md:118`), клиент и мок дают `void`; (2) лента аудита свои **чтения** подписывает заголовками (`src/services/auditFeedService.ts:20`, `:41`), а это удаление уходит без них (`:62` → `ordersService.ts:195`) — тот же разрыв, что у соседа (см. аудит products, находка 2).
@@ -85,9 +85,9 @@
 ### DELETE /api/orders/:id/files/:id
 - Вызывающий: `src/services/ordersService.ts:211`
 - Бэкенд: **нет**
-- Мок: `mocks/index.ts:1596`
+- Мок: `mocks/index.ts:1598`
 - Форма запроса: тела нет; второй сегмент — **`fileId` загрузки**, а не `OrderFile.id`: клиент шлёт `fileId` (`src/services/ordersService.ts:206-211`, источник значения — `src/composables/useOrderCard.ts:1638`), мок ищет по `f.fileId` (`mocks/orders.ts:2521`); версия — `If-Match`.
-- Форма ответа: `ApiResponse<void>` (`src/services/ordersService.ts:210`; мок `mocks/index.ts:1603`).
+- Форма ответа: `ApiResponse<void>` (`src/services/ordersService.ts:210`; мок `mocks/index.ts:1605`).
 - Коды ошибок: `ORDER_NOT_FOUND` (`mocks/orders.ts:2519`), `ORDER_FILE_NOT_FOUND` (`:2530`), `ORDER_VERSION_CONFLICT` (`assertVersion`, `:2520`).
 - Save-режим: clean-slate — снятие копится в `pendingFileRemoves` (`src/composables/useOrderCard.ts:185`, наполнение `:1638`) и уходит шагом 5 сохранения (`:524-527`).
 - Пробел контракта: в таблице эндпоинтов §4.1 контракта домена файлов нет вовсе (`roo_code/plans/orders/orders-backend-contract.md:111-118`); оба файловых эндпоинта названы там только прозой §3 про шаг версии (`:101`), а форму `OrderFile` (`src/types/order.ts:608-616`) контракт не описывает нигде.
@@ -96,20 +96,20 @@
 ### DELETE /api/orders/:id/items/:id
 - Вызывающий: `src/services/ordersService.ts:165`
 - Бэкенд: **нет**
-- Мок: `mocks/index.ts:1547`
+- Мок: `mocks/index.ts:1549`
 - Форма запроса: тела нет; версия — `If-Match` (`src/services/ordersService.ts:160-165`).
-- Форма ответа: `ApiResponse<void>` (`src/services/ordersService.ts:164`; мок `mocks/index.ts:1554`).
+- Форма ответа: `ApiResponse<void>` (`src/services/ordersService.ts:164`; мок `mocks/index.ts:1556`).
 - Коды ошибок: `ORDER_NOT_FOUND` (`mocks/orders.ts:2353`), `ORDER_ITEM_NOT_FOUND` (`:2356`), `LINE_HAS_SHIPMENT` / `LINE_ON_INVOICE` (`assertDeletable`, `:2358` → `:2385`), `ORDER_VERSION_CONFLICT` (`:2354`).
 - Save-режим: clean-slate — копится в `pendingItemDeletions` и уходит шагом 4, последним из правок строк (`src/composables/useOrderCard.ts:505-509`); адресуется через `serverLineId`, потому что строку мог создать предыдущий сорвавшийся Save (`:246-250`, `:507`).
 - Пробел контракта: удаление снимает резерв (`releaseLine`, `mocks/orders.ts:2364`) и пересобирает дефицит (`syncShortages`, `:2367`) — §4.2 контракта домена называет оба эффекта прозой (`roo_code/plans/orders/orders-backend-contract.md:179`), а в таблице эндпоинтов (`:140`) их нет.
 - Источник истины: мок + клиент.
 
 ### DELETE /api/orders/:id/payments/:id
-- Вызывающий: `src/services/ordersService.ts:395`
+- Вызывающий: `src/services/ordersService.ts:405`
 - Бэкенд: **нет**
-- Мок: `mocks/index.ts:1557`
-- Форма запроса: тела нет; версия — `If-Match` (`src/services/ordersService.ts:390-395`).
-- Форма ответа: `ApiResponse<void>` (`src/services/ordersService.ts:394`; мок `mocks/index.ts:1564`).
+- Мок: `mocks/index.ts:1559`
+- Форма запроса: тела нет; версия — `If-Match` (`src/services/ordersService.ts:400-405`).
+- Форма ответа: `ApiResponse<void>` (`src/services/ordersService.ts:404`; мок `mocks/index.ts:1566`).
 - Коды ошибок: `ORDER_NOT_FOUND` (`mocks/orders.ts:4012`), `PAYMENT_NOT_FOUND` (`:4015`), `ORDER_VERSION_CONFLICT` (`:4013`).
 - Save-режим: quick-action из карточки (`src/composables/useOrderCard.ts:1032`).
 - Пробел контракта: удаление платежа — единственный законный путь назад для отказа `ORDER_HAS_PAYMENT` (`roo_code/plans/orders/orders-backend-contract.md:130`), но ни одной проверки связности здесь нет (`mocks/orders.ts:4005-4020`): платёж удаляется и тогда, когда он назвал счёт, и тогда, когда это возврат, обязанный назвать документ (`:3979`). Что делать с уже выпущенной корректировкой, оплаченной этим платежом, не сказано ни в моке, ни в контракте.
@@ -118,9 +118,9 @@
 ### DELETE /api/orders/:id/services/:id
 - Вызывающий: `src/services/ordersService.ts:187`
 - Бэкенд: **нет**
-- Мок: `mocks/index.ts:1567`
+- Мок: `mocks/index.ts:1569`
 - Форма запроса: тела нет; второй сегмент — id **строки услуги** (`os-N`, выдаётся при добавлении, `mocks/orders.ts:2418`), а не id услуги в каталоге: мок ищет `order.services.findIndex((s) => s.id === serviceId)` (`:2445`). Версия — `If-Match` (`src/services/ordersService.ts:182-187`).
-- Форма ответа: `ApiResponse<void>` (`src/services/ordersService.ts:186`; мок `mocks/index.ts:1574`).
+- Форма ответа: `ApiResponse<void>` (`src/services/ordersService.ts:186`; мок `mocks/index.ts:1576`).
 - Коды ошибок: `ORDER_NOT_FOUND` (`mocks/orders.ts:2443`), `ORDER_SERVICE_NOT_FOUND` (`:2446`), `LINE_ON_INVOICE` (`assertDeletable`, `:2447` → `:2385`), `ORDER_VERSION_CONFLICT` (`:2444`).
 - Save-режим: clean-slate — `pendingServiceDeletions`, шаг 4 сохранения (`src/composables/useOrderCard.ts:511-515`).
 - Пробел контракта: параметр клиента назван `serviceId` (`src/services/ordersService.ts:184`), а значение — id строки; §4.2 контракта домена пишет тот же сегмент как `:lineId` (`roo_code/plans/orders/orders-backend-contract.md:143`) — два имени одного сегмента. Второй код `assertDeletable`, `LINE_HAS_SHIPMENT`, здесь недостижим по построению: у услуги `shippedQuantity` всегда 0 (`src/types/order.ts:179`, причина — `:158-160`), а ветку выбирает именно он (`mocks/orders.ts:2385`).
@@ -149,21 +149,21 @@
 - Источник истины: мок + клиент.
 
 ### GET /api/orders/:id/invoices
-- Вызывающий: `src/services/ordersService.ts:399`
+- Вызывающий: `src/services/ordersService.ts:409`
 - Бэкенд: **нет**
 - Мок: `mocks/index.ts:601`
-- Форма запроса: только сегмент пути (`src/services/ordersService.ts:398-400`).
+- Форма запроса: только сегмент пути (`src/services/ordersService.ts:408-410`).
 - Форма ответа: `ApiResponse<Invoice[]>` (`src/types/order.ts:371-415`), глубокая копия (`mocks/orders.ts:4026`). Те же счета уже приходят внутри `Order.invoices` (`src/types/order.ts:491`), и карточка читает именно их (`src/composables/useOrderCard.ts:915`), а не этот эндпоинт.
 - Коды ошибок: `ORDER_NOT_FOUND` (`mocks/orders.ts:4025`).
-- Save-режим: только чтение. **Вызывающего в интерфейсе нет**: `grep -rn "getOrderInvoices" frontend_vue/src` даёт объявление (`src/services/ordersService.ts:398`) и спеку (`src/services/ordersService.spec.ts`) — экрана, который его зовёт, нет ни одного.
+- Save-режим: только чтение. **Вызывающего в интерфейсе нет**: `grep -rn "getOrderInvoices" frontend_vue/src` даёт объявление (`src/services/ordersService.ts:408`) и спеку (`src/services/ordersService.spec.ts`) — экрана, который его зовёт, нет ни одного.
 - Пробел контракта: клиент написан, потребителя нет — тот же класс, что у пяти эндпоинтов соседа (см. аудит warehouse, «Правила домена…», п. 19). §4.6 контракта домена перечисляет `GET/POST /invoices` одной строкой (`roo_code/plans/orders/orders-backend-contract.md:270`) и не говорит, зачем нужен отдельный GET, если список едет в заказе.
 - Источник истины: мок + клиент.
 
 ### GET /api/orders/:id/payments
-- Вызывающий: `src/services/ordersService.ts:368`
+- Вызывающий: `src/services/ordersService.ts:378`
 - Бэкенд: **нет**
 - Мок: `mocks/index.ts:596`
-- Форма запроса: только сегмент пути (`src/services/ordersService.ts:367-369`).
+- Форма запроса: только сегмент пути (`src/services/ordersService.ts:377-379`).
 - Форма ответа: `ApiResponse<Payment[]>` (`src/types/order.ts:419-428`), глубокая копия (`mocks/orders.ts:3942`). Дубль того, что уже лежит в `Order.payments` (`src/types/order.ts:492`); карточка считает оплату по нему (`src/composables/useOrderCard.ts:914`, свод — `:917`).
 - Коды ошибок: `ORDER_NOT_FOUND` (`mocks/orders.ts:3941`).
 - Save-режим: только чтение. Вызывающего в интерфейсе нет: `grep -rn "getOrderPayments" frontend_vue/src` даёт объявление и спеку.
@@ -171,21 +171,21 @@
 - Источник истины: мок + клиент.
 
 ### GET /api/orders/:id/reservations
-- Вызывающий: `src/services/ordersService.ts:364`
+- Вызывающий: `src/services/ordersService.ts:374`
 - Бэкенд: **нет**
 - Мок: `mocks/index.ts:606`
-- Форма запроса: только сегмент пути (`src/services/ordersService.ts:363-365`).
+- Форма запроса: только сегмент пути (`src/services/ordersService.ts:373-375`).
 - Форма ответа: `ApiResponse<StockReservation[]>` — тип **складской**, а не заказный (`src/types/warehouse.ts:625-634`, импорт — `src/services/ordersService.ts:44`). Хранилище резервов лежит третьим модулем, до которого дотягиваются обе стороны (`src/services/mocks/reservations.ts:1-18`, причина — `:1-14`).
 - Коды ошибок: **ни одного** — ветка мока зовёт `mockGetReservations({ orderId })` (`mocks/index.ts:608`), а тот просто фильтрует хранилище (`mocks/orders.ts:246-252` → `findReservations`, `mocks/reservations.ts:24-34`): неизвестный заказ отвечает пустым массивом, а не `ORDER_NOT_FOUND`.
-- Save-режим: только чтение. Вызывающего в интерфейсе нет: `grep -rn "getOrderReservations" frontend_vue/src` даёт объявление (`src/services/ordersService.ts:363`) и четыре спеки.
+- Save-режим: только чтение. Вызывающего в интерфейсе нет: `grep -rn "getOrderReservations" frontend_vue/src` даёт объявление (`src/services/ordersService.ts:373`) и четыре спеки.
 - Пробел контракта: (1) пустой массив вместо отказа — тот же класс, что у соседа (см. аудит warehouse, находка 6); (2) §4.4 контракта домена называет эндпоинт «резервы заказа» (`roo_code/plans/orders/orders-backend-contract.md:207`) и не говорит, что резерв ограничивается **по строке**, а не по заказу, — это сказано абзацем ниже (`:209`) и реализовано `exceptLine` (`mocks/reservations.ts:47-60`).
 - Источник истины: мок + клиент.
 
 ### GET /api/orders/:id/return-plan
-- Вызывающий: `src/services/ordersService.ts:321`
+- Вызывающий: `src/services/ordersService.ts:331`
 - Бэкенд: **нет**
 - Мок: `mocks/index.ts:586`
-- Форма запроса: только сегмент пути (`src/services/ordersService.ts:320-322`).
+- Форма запроса: только сегмент пути (`src/services/ordersService.ts:330-332`).
 - Форма ответа: `ApiResponse<ReturnableLine[]>` — `{ lineId, productName, unit, shipped, alreadyReturned, returnable }` (`src/types/order.ts:357-365`), считается при чтении (`mocks/orders.ts:3635-3648`) и отдаёт только строки с `returnable > 0` (`:3647`). Услуг здесь не бывает по построению: они не отгружаются, и выборка идёт по `order.items` (`:3638`).
 - Коды ошибок: `ORDER_NOT_FOUND` (`mocks/orders.ts:3637`).
 - Save-режим: только чтение; карточка перечитывает его после каждой записи, меняющей отгруженное (`src/composables/useOrderCard.ts:791`, вызов из `load()` — `:406`).
@@ -193,10 +193,10 @@
 - Источник истины: мок + клиент.
 
 ### GET /api/orders/:id/returns
-- Вызывающий: `src/services/ordersService.ts:316`
+- Вызывающий: `src/services/ordersService.ts:326`
 - Бэкенд: **нет**
 - Мок: `mocks/index.ts:591`
-- Форма запроса: только сегмент пути (`src/services/ordersService.ts:315-317`).
+- Форма запроса: только сегмент пути (`src/services/ordersService.ts:325-327`).
 - Форма ответа: `ApiResponse<OrderReturn[]>` (`src/types/order.ts:338-352`), глубокая копия (`mocks/orders.ts:3629`). На строке возврата — две независимые оси (`condition`, `compensated`) и `restored`, присутствующий **всегда**, со значением `null`, когда никуда не легло (`src/types/order.ts:311-327`, реализация `mocks/orders.ts:3752`).
 - Коды ошибок: `ORDER_NOT_FOUND` (`mocks/orders.ts:3628`).
 - Save-режим: только чтение; карточка держит собственный список (`src/composables/useOrderCard.ts:783`) и перечитывает его из `load()` (`:405`).
@@ -239,7 +239,7 @@
 ### PATCH /api/orders/:id
 - Вызывающий: `src/services/ordersService.ts:81`
 - Бэкенд: **нет**
-- Мок: `mocks/index.ts:1290`
+- Мок: `mocks/index.ts:1292`
 - Форма запроса: merge-patch, только поля, которыми владеет админ, плюс `version`. Клиент шлёт восемь: `notes`, `documentType`, `currency`, `vatMode`, `vatPercent`, `defaultMarginPercent`, `defaultDiscountPercent`, `totalWeight` (`SAVABLE_FIELDS`, `src/composables/useOrderCard.ts:118-128`, сборка тела `:301-305`). Мок принимает те же восемь по белому списку (`mocks/orders.ts:1709-1719`) плюс два легаси-алиаса `marginPercent` и `orderDiscount` (`:1695`, `:1721-1722`). Подпись клиента при этом `Partial<Order>` (`src/services/ordersService.ts:80`) — то есть типом разрешено прислать что угодно из заказа, а сервер обязан всё лишнее отбросить.
 - Форма ответа: `ApiResponse<Order>` целиком, включая пересчитанные производные (`mocks/orders.ts:1728-1730`, пересчёт — `recalcOrder`, `:179-226`).
 - Коды ошибок: `ORDER_NOT_FOUND` (`mocks/orders.ts:1698`), `ORDER_VERSION_CONFLICT` (`:1699`), `NUMBER_NOT_FINITE` по шести числовым полям (`:1700-1707` → `:1978`), плюс инварианты пересчёта `INVALID_LINE`, `DUPLICATE_LINE_ID` (`:191`), `ALLOCATION_EXCEEDS_QUANTITY` (`:200`), `INVALID_VAT_RATE` — их §6 контракта домена помечает внутренними, наружу выставлять нельзя (`roo_code/plans/orders/orders-backend-contract.md:432`).
@@ -250,7 +250,7 @@
 ### PATCH /api/orders/:id/items/:id
 - Вызывающий: `src/services/ordersService.ts:157`
 - Бэкенд: **нет**
-- Мок: `mocks/index.ts:1279`
+- Мок: `mocks/index.ts:1281`
 - Форма запроса: `LineEditPayload` = `LineEditDelta & LineEditEnvelope` (`src/services/ordersService.ts:32`, `src/services/orderLineEdits.ts:60-63`, `src/types/order.ts:557-574`). **Одна правка за раз**, и порядок правок решает результат — карточка шлёт по запросу на правку в том порядке, в каком их сделал человек (`src/composables/useOrderCard.ts:476-491`). Тело строится только через `lineEditDelta` (`src/services/orderLineEdits.ts:193-214`), обратный разбор — `deltaToOps` (`:223-257`) в фиксированном порядке «количество → сброс цены → наценка → скидка → ручная цена → сумма строки → себестоимость». `resetPrice` обязан нести `defaultDiscountPercent` — число момента нажатия, а не момента чтения (`src/types/order.ts:557-571`, отправка `src/composables/useOrderCard.ts:486`, применение `mocks/orders.ts:2014-2015`).
 - Форма ответа: `ApiResponse<OrderItem>` — строка целиком (`src/types/order.ts:83-154`; `mocks/orders.ts:2278`).
 - Коды ошибок: `ORDER_NOT_FOUND` (`mocks/orders.ts:2223`), `ORDER_VERSION_CONFLICT` (`:2224`), `ORDER_ITEM_NOT_FOUND` (`:2226`), `NUMBER_NOT_FINITE` по девяти полям (`validateLineEdit`, `:2019-2038`), `ALLOCATIONS_NOT_ACCEPTED` (`:2037`), `FORBIDDEN_MANUALCOST` (`requireRight`, `:2237` → `:1858`), `MANUAL_COST_REASON_REQUIRED` (`src/services/orderLineEdits.ts:96`), `RESET_COST_NOT_SUPPORTED` (`:112`), `COST_FROZEN_BY_SHIPMENT` (`:114`), `NO_STOCK_COST` (`:119`), `QUANTITY_SPLITS_OFFCUT` (`:159`) плюс отказы арифметики из `domain/orderPricing.ts` — `PRICE_FROZEN_BY_SHIPMENT` (`src/domain/orderPricing.ts:216`), `LINE_FULLY_SHIPPED` (`:379`), `BELOW_SHIPPED_QUANTITY` (`:388`), а также `DISCOUNT_OUT_OF_RANGE`, `MARGIN_OUT_OF_RANGE`, `NEGATIVE_PRICE`, `NEGATIVE_COST`, `NEGATIVE_QUANTITY`, `ZERO_QUANTITY`, `NO_COST_TO_MARK_UP` из того же файла.
@@ -261,7 +261,7 @@
 ### PATCH /api/orders/:id/services/:id
 - Вызывающий: `src/services/ordersService.ts:221`
 - Бэкенд: **нет**
-- Мок: `mocks/index.ts:1268`
+- Мок: `mocks/index.ts:1270`
 - Форма запроса: тот же `LineEditPayload`, но с двумя отличиями, и оба — правила домена: себестоимость услуги приходит полем `unitCost`, а не `manualUnitCost` (`src/services/orderLineEdits.ts:207-210`, разбор `:253`), и **причина не требуется**, потому что перекрывать нечего — складской себестоимости у услуги нет (`:80-86`, реализация `:94`, где ветка услуги выходит до проверки причины `:96`).
 - Форма ответа: `ApiResponse<OrderService>` — строка целиком (`src/types/order.ts:161-191`; `mocks/orders.ts:2334`).
 - Коды ошибок: `ORDER_NOT_FOUND` (`mocks/orders.ts:2288`), `ORDER_VERSION_CONFLICT` (`:2289`), `ORDER_SERVICE_NOT_FOUND` (`:2291`), `NUMBER_NOT_FINITE` и `ALLOCATIONS_NOT_ACCEPTED` (`validateLineEdit`, `:2294`), `FORBIDDEN_MANUALCOST` (`:2307`), плюс те же отказы арифметики.
@@ -272,8 +272,8 @@
 ### PATCH /api/orders/:id/status
 - Вызывающий: `src/services/ordersService.ts:104`
 - Бэкенд: **нет**
-- Мок: `mocks/index.ts:1259`
-- Форма запроса: `{ status, version }` (`src/services/ordersService.ts:99-105`, разбор `mocks/index.ts:1260-1265`). Допустимых значений пятнадцать (`ORDER_STATUSES`, `src/domain/orderStatus.ts:15-31`).
+- Мок: `mocks/index.ts:1261`
+- Форма запроса: `{ status, version }` (`src/services/ordersService.ts:99-105`, разбор `mocks/index.ts:1262-1267`). Допустимых значений пятнадцать (`ORDER_STATUSES`, `src/domain/orderStatus.ts:15-31`).
 - Форма ответа: `ApiResponse<Order>` целиком (`mocks/orders.ts:1838`).
 - Коды ошибок: `UNKNOWN_ORDER_STATUS` — **до** проверки версии, потому что нераспознанный статус не стоит арбитража (`mocks/orders.ts:1806`, объяснение `:1799-1805`), `ORDER_NOT_FOUND` (`:1800`), `ORDER_VERSION_CONFLICT` (`:1807`), `STATUS_BLOCKED_BY_STOCK` (`:1819`), плюс всё, что может бросить вложенная отгрузка (`:1820`).
 - Save-режим: quick-action, но двухшаговый: сначала `GET /status-plan` показывает, что смена сделает со складом, и лишь потом запись (`src/composables/useOrderCard.ts:607`, применение `:665`); перед этим карточка обязана сбросить несохранённое (`flushBeforeReload`, `:662`).
@@ -305,8 +305,8 @@
 ### POST /api/orders/:id/files
 - Вызывающий: `src/services/ordersService.ts:203`
 - Бэкенд: **нет**
-- Мок: `mocks/index.ts:1095`
-- Форма запроса: `{ fileId, version }` (`src/services/ordersService.ts:198-203`); `fileId` выдаёт загрузка домена `uploads`, и ветка мока достаёт по нему исходное имя из реестра загрузок (`mocks/index.ts:1097-1098`).
+- Мок: `mocks/index.ts:1093`
+- Форма запроса: `{ fileId, version }` (`src/services/ordersService.ts:198-203`); `fileId` выдаёт загрузка домена `uploads`, и ветка мока достаёт по нему исходное имя из реестра загрузок (`mocks/index.ts:1095-1096`).
 - Форма ответа: **расходится**. Клиент объявляет `Promise<void>` (`src/services/ordersService.ts:202`), мок возвращает `OrderFile` целиком (`mocks/orders.ts:2509`, тип — `src/types/order.ts:608-616`). Карточка ответ выбрасывает (`src/composables/useOrderCard.ts:520`) и рисует строку из своих данных (`:1621-1631`).
 - Коды ошибок: `ORDER_NOT_FOUND` (`mocks/orders.ts:2496`), `ORDER_VERSION_CONFLICT` (`:2497`). Несуществующий `fileId` **не отвергается**: имя просто оказывается `undefined` и подменяется заглушкой `File N` (`:2500`).
 - Save-режим: clean-slate — `pendingFileAdds`, шаг 5 сохранения (`src/composables/useOrderCard.ts:519-522`).
@@ -314,10 +314,10 @@
 - Источник истины: мок + клиент.
 
 ### POST /api/orders/:id/invoices
-- Вызывающий: `src/services/ordersService.ts:416`
+- Вызывающий: `src/services/ordersService.ts:421`
 - Бэкенд: **нет**
-- Мок: `mocks/index.ts:1065`
-- Форма запроса: `{ kind?, shipmentId?, correctsInvoiceId?, amountNet? | amountGross?, reason?, version? }` (`src/services/ordersService.ts:402-416`). Обе суммы сразу — отказ (`statedAmounts`, `mocks/orders.ts:4466-4489`, проверка `:4471`); заявленный брутто побеждает вычисленный, чтобы документ назвал ровно набранную сумму (`:4448-4465`, применение `:4382`).
+- Мок: `mocks/index.ts:1064`
+- Форма запроса: `{ kind?, shipmentId?, correctsInvoiceId?, amountNet? | amountGross?, reason?, version? }` (`src/services/ordersService.ts:407-421`). Обе суммы сразу — отказ (`statedAmounts`, `mocks/orders.ts:4466-4489`, проверка `:4471`); заявленный брутто побеждает вычисленный, чтобы документ назвал ровно набранную сумму (`:4448-4465`, применение `:4382`).
 - Форма ответа: `ApiResponse<Invoice>` (`src/types/order.ts:371-415`; `mocks/orders.ts:4445`). `withdrawsOriginal` ставит **сервер** — зеркальная сумма отзывает документ, названная только поправляет (`:4393`, вычисление — `:4337`, смысл — `src/types/order.ts:380-390`); `coveredServiceIds` решается один раз при выпуске и едет с документом (`mocks/orders.ts:4395`, отбор — `unbilledServices`, `:4219-4223`).
 - Коды ошибок: `ORDER_NOT_FOUND` (`mocks/orders.ts:4269`), `ORDER_VERSION_CONFLICT` (`:4270`), `INVOICE_NEEDS_SHIPMENT` (`:4292`), `ADVANCE_HAS_NO_SHIPMENT` (`:4296`), `CORRECTION_NEEDS_ORIGINAL` (`:4300`), `CORRECTION_REASON_REQUIRED` (`:4303`), `ORIGINAL_INVOICE_NOT_FOUND` (`:4305`), `CANNOT_CORRECT_A_CORRECTION` (`:4307`), `INVOICE_ALREADY_CORRECTED` (`:4310`), `CORRECTION_EXCEEDS_ORIGINAL` (`:4328`), `CORRECTION_NEEDS_KIND` (`:4331`), `SHIPMENT_NOT_FOUND` (`:4354`), `SHIPMENT_CANCELLED` (`:4356`), `SHIPMENT_ALREADY_INVOICED` (`:4360`), `INVOICE_AMOUNT_REQUIRED` (`:4375`), `INVOICE_AMOUNT_AMBIGUOUS` (`:4471`).
 - Save-режим: quick-action карточки, три разных вызова — счёт по отгрузке (`src/composables/useOrderCard.ts:1060`), счёт только за услуги без отгрузки (`:1110`) и авансовый (`:1131`).
@@ -327,7 +327,7 @@
 ### POST /api/orders/:id/items
 - Вызывающий: `src/services/ordersService.ts:141`
 - Бэкенд: **нет**
-- Мок: `mocks/index.ts:1075`
+- Мок: `mocks/index.ts:1073`
 - Форма запроса: `{ productId, quantity, unit, unitPrice, marginPercent?, discountPercent?, batchId?, offcutIds?, version? }` (`src/services/ordersService.ts:121-141`). **Себестоимости в теле нет и быть не может**: её читает сервер со склада (`coverFromStock`, `mocks/orders.ts:2153`), а присланная отвергается вместе с проверкой права (`refuseStatedCost`, `:1996-2000`, вызов `:2121`). `offcutIds` — единственный способ назвать обрезок: в автоматический FIFO куски не попадают (`src/services/ordersService.ts:131-136`, разбор `mocks/orders.ts:2142`).
 - Форма ответа: `ApiResponse<OrderItem>` — строка целиком с раскладкой по партиям (`mocks/orders.ts:2205`).
 - Коды ошибок: `ORDER_NOT_FOUND` (`mocks/orders.ts:2105`), `ORDER_VERSION_CONFLICT` (`:2106`), `NUMBER_NOT_FINITE` (`:2109-2114`), `ZERO_QUANTITY` (`:2118`), `FORBIDDEN_MANUALCOST` и `MANUAL_COST_REASON_REQUIRED` (`:1998-1999`), `CATALOG_PRODUCT_NOT_FOUND` (`:2128`), `OFFCUTS_WITH_BATCH` (`:2146`), `OFFCUTS_EXCEED_QUANTITY` (`:2151`), плюс четыре кода **чужого домена**, которые бросает разбор выбранных кусков: `OFFCUT_NOT_FOUND`, `OFFCUT_PRODUCT_MISMATCH`, `OFFCUT_NOT_AVAILABLE`, `OFFCUT_SIZE_NOT_EXPRESSIBLE` (`src/services/mocks/warehouse.ts:1088-1095`, вход — `mockOffcutAllocations`).
@@ -358,10 +358,10 @@
 - Источник истины: мок + клиент.
 
 ### POST /api/orders/:id/payments
-- Вызывающий: `src/services/ordersService.ts:385`
+- Вызывающий: `src/services/ordersService.ts:395`
 - Бэкенд: **нет**
 - Мок: `mocks/index.ts:1041`
-- Форма запроса: `{ amount, purpose?, paidAt?, invoiceId?, note?, version? }` (`src/services/ordersService.ts:371-387`), с обязательным `Idempotency-Key` (`:386`).
+- Форма запроса: `{ amount, purpose?, paidAt?, invoiceId?, note?, version? }` (`src/services/ordersService.ts:381-397`), с обязательным `Idempotency-Key` (`:386`).
 - Форма ответа: `ApiResponse<Payment>` (`src/types/order.ts:419-428`; `mocks/orders.ts:4002`). `purpose` **выводится из знака суммы**, а не берётся из ярлыка: минус всегда `refund` (`:3972`, причина `:3967-3971`).
 - Коды ошибок: `ORDER_NOT_FOUND` (`mocks/orders.ts:3959`), `ORDER_VERSION_CONFLICT` (`:3960`), `NUMBER_NOT_FINITE` (`:3964`), `PAYMENT_AMOUNT_REQUIRED` (`:3965`), `REFUND_MUST_BE_NEGATIVE` (`:3966`), `REFUND_INVOICE_REQUIRED` (`:3979`), `PAYMENT_INVOICE_NOT_FOUND` (`:3983`).
 - Save-режим: quick-action карточки (`src/composables/useOrderCard.ts:1015`), с полным перечитыванием после.
@@ -369,10 +369,10 @@
 - Источник истины: мок + клиент.
 
 ### POST /api/orders/:id/reserve
-- Вызывающий: `src/services/ordersService.ts:360`
+- Вызывающий: `src/services/ordersService.ts:370`
 - Бэкенд: **нет**
-- Мок: `mocks/index.ts:1059`
-- Форма запроса: `{ version }` и больше ничего (`src/services/ordersService.ts:356-360`, разбор `mocks/index.ts:1061`) — «зарезервировать весь неотгруженный остаток».
+- Мок: `mocks/index.ts:1058`
+- Форма запроса: `{ version }` и больше ничего (`src/services/ordersService.ts:366-370`, разбор `mocks/index.ts:1059`) — «зарезервировать весь неотгруженный остаток».
 - Форма ответа: `ApiResponse<StockReservation[]>` — **только вновь созданные** удержания (`mocks/orders.ts:3930`), а не все резервы заказа; повторный вызов на полностью зарезервированном заказе вернёт пустой массив, и карточка именно так и различает два случая в тосте (`src/composables/useOrderCard.ts:900-902`).
 - Коды ошибок: `ORDER_NOT_FOUND` (`mocks/orders.ts:3848`), `ORDER_VERSION_CONFLICT` (`:3849`). Нехватка отказом **не является**: держится только то, что действительно свободно (`computeAvailable`, `:3904`), остальное молча не держится.
 - Save-режим: quick-action карточки со сбросом несохранённого перед вызовом (`src/composables/useOrderCard.ts:897-899`).
@@ -380,10 +380,10 @@
 - Источник истины: мок + клиент.
 
 ### POST /api/orders/:id/returns
-- Вызывающий: `src/services/ordersService.ts:351`
+- Вызывающий: `src/services/ordersService.ts:361`
 - Бэкенд: **нет**
 - Мок: `mocks/index.ts:1050`
-- Форма запроса: `{ lines: [{ lineId, quantity, condition, compensated }], reason, returnedAt?, version? }` (`src/services/ordersService.ts:333-353`), с обязательным `Idempotency-Key` (`:352`). Две оси строки независимы: состояние товара и возврат денег — разные вопросы (`src/types/order.ts:302-316`).
+- Форма запроса: `{ lines: [{ lineId, quantity, condition, compensated }], reason, returnedAt?, version? }` (`src/services/ordersService.ts:343-363`), с обязательным `Idempotency-Key` (`:352`). Две оси строки независимы: состояние товара и возврат денег — разные вопросы (`src/types/order.ts:302-316`).
 - Форма ответа: `ApiResponse<OrderReturn>` (`src/types/order.ts:338-352`; `mocks/orders.ts:3837`), с `restored` на каждой строке и с идентификаторами выпущенных корректировок (`:3752`, `:3813`).
 - Коды ошибок: `ORDER_NOT_FOUND` (`mocks/orders.ts:3673`), `ORDER_VERSION_CONFLICT` (`:3674`), `RETURN_REASON_REQUIRED` (`:3677`), `RETURN_HAS_NO_LINES` (`:3678`), `DUPLICATE_RETURN_LINE` (`:3682`), `NUMBER_NOT_FINITE` (`:3686`), `RETURN_QUANTITY_MUST_BE_POSITIVE` (`:3687`), `ORDER_ITEM_NOT_FOUND` (`:3694`), `RETURN_EXCEEDS_SHIPPED` (`:3696`), `RETURN_BATCH_NOT_FOUND` (`:3704`, `:3721`), `RETURN_SPLITS_OFFCUT` (`:3721`).
 - Save-режим: quick-action карточки (`src/composables/useOrderCard.ts:814`).
@@ -393,7 +393,7 @@
 ### POST /api/orders/:id/services
 - Вызывающий: `src/services/ordersService.ts:179`
 - Бэкенд: **нет**
-- Мок: `mocks/index.ts:1085`
+- Мок: `mocks/index.ts:1083`
 - Форма запроса: `{ serviceId, quantity, price?, discountPercent?, version? }` (`src/services/ordersService.ts:168-179`). Себестоимость и имя берутся **из каталога услуг**, а не от клиента (`serviceEntry`, `mocks/orders.ts:371-382`, вызов `:2415`), имя — на языке каталога (`:378`).
 - Форма ответа: `ApiResponse<OrderService>` (`src/types/order.ts:161-191`; `mocks/orders.ts:2431`).
 - Коды ошибок: `ORDER_NOT_FOUND` (`mocks/orders.ts:2402`), `ORDER_VERSION_CONFLICT` (`:2403`), `NUMBER_NOT_FINITE` (`:2404-2408`), `ZERO_QUANTITY` (`:2412`), `CATALOG_SERVICE_NOT_FOUND` (`:376`) — имя кода выбрано так, чтобы не быть подстрокой `ORDER_SERVICE_NOT_FOUND` (`:373-375`), см. аудит services, «Правила домена…», п. 8.

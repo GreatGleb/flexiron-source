@@ -150,7 +150,7 @@ Save-режим: clean-slate. Именно этот эндпоинт несёт 
 Ошибки: **ни одной**.
 
 Бэкенд: **не реализован**.
-Реализация: `services/configService.ts:12` (`saveFieldLibrary`) · мок `mocks/index.ts:1162` →
+Реализация: `services/configService.ts:12` (`saveFieldLibrary`) · мок `mocks/index.ts:1164` →
 `mocks/config.ts:240-248`
 
 ### POST /api/config/fields
@@ -214,7 +214,7 @@ Save-режим: clean-slate. Именно этот эндпоинт несёт 
 `id`, на дубль имени и на правку встроенного поля — строка владельцу.
 
 Бэкенд: **не реализован**.
-Реализация: `services/configService.ts:37` (`patchField`) · мок `mocks/index.ts:1229` →
+Реализация: `services/configService.ts:37` (`patchField`) · мок `mocks/index.ts:1231` →
 `mocks/config.ts:284`
 
 ### DELETE /api/config/fields/:id
@@ -247,7 +247,7 @@ Save-режим: clean-slate. Именно этот эндпоинт несёт 
 части остаётся; признак встроенности на схеме есть и он **другой**, чем во фронте (правило 2 ниже).
 
 Бэкенд: **не реализован**.
-Реализация: `services/configService.ts:41` (`deleteField`) · мок `mocks/index.ts:1476` →
+Реализация: `services/configService.ts:41` (`deleteField`) · мок `mocks/index.ts:1477` →
 `mocks/config.ts:309`
 
 ---
@@ -323,7 +323,7 @@ Save-режим: clean-slate, первый из трёх `PUT`-ов батча (
 Ошибки: **ни одной**.
 
 Бэкенд: **не реализован**.
-Реализация: `services/configService.ts:51` (`saveSections`) · мок `mocks/index.ts:1158` →
+Реализация: `services/configService.ts:51` (`saveSections`) · мок `mocks/index.ts:1160` →
 `mocks/config.ts:254`
 
 ### POST /api/config/sections
@@ -390,7 +390,7 @@ Save-режим: clean-slate, первый из трёх `PUT`-ов батча (
 подписи `Promise<SectionConfig>` — БАГ-08.
 
 Бэкенд: **не реализован**.
-Реализация: `services/configService.ts:67` (`patchSection`) · мок `mocks/index.ts:1220` →
+Реализация: `services/configService.ts:67` (`patchSection`) · мок `mocks/index.ts:1221` →
 `mocks/config.ts:339`
 
 ### DELETE /api/config/sections/:id
@@ -424,7 +424,7 @@ Save-режим: clean-slate, первый из трёх `PUT`-ов батча (
 каким кодом сервер обязан отвергнуть удаление системной секции — строка владельцу.
 
 Бэкенд: **не реализован**.
-Реализация: `services/configService.ts:71` (`deleteSection`) · мок `mocks/index.ts:1482` →
+Реализация: `services/configService.ts:71` (`deleteSection`) · мок `mocks/index.ts:1483` →
 `mocks/config.ts:350`
 
 ---
@@ -546,7 +546,7 @@ Save-режим: clean-slate, третий запрос того же `Promise.a
   кнопку Save, включая секции и библиотеку (БАГ-02).
 
 Бэкенд: **не реализован**.
-Реализация: `services/configService.ts:81` (`savePermissions`) · мок `mocks/index.ts:1166` →
+Реализация: `services/configService.ts:81` (`savePermissions`) · мок `mocks/index.ts:1168` →
 `mocks/config.ts:265`
 
 ---
@@ -559,7 +559,7 @@ Save-режим: clean-slate, третий запрос того же `Promise.a
 `SECTION_NOT_FOUND`, 404 — один и тот же код у соседних операций, как и требовалось. Восемь
 остальных веток по-прежнему ничего не бросают: удаление встроенного поля и системной секции мок
 принимает без возражений (см. разделы `DELETE` выше), матрица прав не проверяет ничего. Непойманный
-путь даёт общий текст `[mock] DELETE ${path} not found` (`mocks/index.ts:1657`) — не код домена.
+путь даёт общий текст `[mock] DELETE ${path} not found` (`mocks/index.ts:1658`) — не код домена.
 
 Отсюда следствие для бэкенда: **путь «неизвестный `id`» под моками теперь доказан кодом
 `FIELD_NOT_FOUND`/`SECTION_NOT_FOUND`; остальные три отказа домена под моками по-прежнему не

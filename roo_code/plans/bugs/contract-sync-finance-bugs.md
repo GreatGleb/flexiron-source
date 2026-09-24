@@ -386,7 +386,7 @@ TBD — решение владельца: у сервера просрочка 
 Засеянные документы получают `id: \`pdoc-${seq}\`` при `fileId: \`file-fin-${seq}\``
 (`:119`, `:121`). Документ, созданный через PATCH, получает `id: fid` — то есть свой `id` равным
 `fileId` (`:503-504`), а `fileId` аплоада выглядит как `file-<seq>-<timestamp>`
-(`frontend_vue/src/services/mocks/index.ts:1663`).
+(`frontend_vue/src/services/mocks/index.ts:1665`).
 
 На схеме это два разных поля: `id` — UUID из `UUIDMixin`, `file_id` — FK на `uploaded_files`
 (`backend/app/modules/finance/shared/models.py:58-79`). Тип во фронте тоже держит оба

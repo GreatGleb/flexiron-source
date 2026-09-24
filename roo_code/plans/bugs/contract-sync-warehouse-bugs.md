@@ -50,7 +50,7 @@
 ### Actual
 
 Заголовков нет ни на одном. `Idempotency-Key` (`frontend_vue/src/services/api.ts:258-264`) и
-`If-Match` (ветка мока умеет его читать — `frontend_vue/src/services/mocks/index.ts:1577`,
+`If-Match` (ветка мока умеет его читать — `frontend_vue/src/services/mocks/index.ts:1578`,
 `:1428`) тоже не используются.
 
 ---
@@ -1012,7 +1012,7 @@ product_id: Mapped[uuid.UUID] = mapped_column(
 дельтой в единственный PATCH товара (`useProductCard.ts:233-256`) и ложится в стор товаров
 (`mocks/products.ts:14184`, запись — `:14220`). У склада порог — собственное поле строки остатка, засеянное отдельно
 (`frontend_vue/src/mocks/warehouse-stock.ts`, `grep -c minStock` → 72) и правимое собственным
-маршрутом `PATCH` остатка (`mocks/index.ts:1437` → `mocks/warehouse.ts:553-561`, `Object.assign(item, delta)`).
+маршрутом `PATCH` остатка (`mocks/index.ts:1439` → `mocks/warehouse.ts:553-561`, `Object.assign(item, delta)`).
 Комментарий типа обещает вывод из товара — «Minimum stock threshold (**from product**)»
 (`types/warehouse.ts:588-589`), но вывода нет: `grep -n minStock frontend_vue/src/services/mocks/warehouse.ts`
 даёт ровно две строки, `:474` и `:522`, и обе читают `row.minStock`, то есть собственную копию.

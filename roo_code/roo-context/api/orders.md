@@ -68,15 +68,15 @@
 `ORDER_VERSION_CONFLICT`, `:1940`). У запроса с телом версия едет **полем** `version`
 (`withVersion`, `composables/useOrderCard.ts:227-229`), у `DELETE` — **заголовком** `If-Match`
 (`services/ordersService.ts:41-43`), который мок разбирает (`ifMatchVersion`,
-`mocks/index.ts:1420-1425`, применение `:1428`). `undefined` означает «клиент версии не читал» и
+`mocks/index.ts:1422-1427`, применение `:1428`). `undefined` означает «клиент версии не читал» и
 проверку **не включает** (`mocks/orders.ts:1939`). Ниже это не повторяется: где написано «версия —
 полем» или «версия — `If-Match`», имеется в виду ровно этот механизм.
 
-**Идемпотентность.** `Idempotency-Key` шлют **три** POST — отгрузка, платёж, возврат
-(`services/ordersService.ts:295`, `:352`, `:386`); мок кеширует ответ по ключу (`withIdempotency`,
-`mocks/index.ts:261-269`, применение `:1030-1057`). Остальные тридцать заголовка не шлют:
-`grep -c "Idempotency" frontend_vue/src/services/ordersService.ts` → `4` (импорт плюс три вызова).
-Одно исключение — отмена отгрузки — обсуждается в её разделе.
+**Идемпотентность.** `Idempotency-Key` шлют **четыре** POST — отгрузка, платёж, возврат
+(`services/ordersService.ts:295`, `:352`, `:386`) и отмена отгрузки (`cancelOrderShipment`); мок
+кеширует ответ по ключу (`withIdempotency`, `mocks/index.ts:261-269`, применение `:1030-1057`).
+Остальные заголовка не шлют:
+`grep -c "Idempotency" frontend_vue/src/services/ordersService.ts` → `5` (импорт плюс четыре вызова).
 
 **Конверт.** Мок отдаёт голое значение (`delay(...)`, `mocks/index.ts:255-257`), живой клиент
 разворачивает `ApiResponse<T>` (`services/api.ts:128-138`). Формы ответа ниже записаны так, как их
@@ -212,7 +212,7 @@ Save-режим: только чтение; перечитывается пос�
 
 Правка полей заказа. Merge-patch по белому списку.
 
-Реализация: `services/ordersService.ts:80` (`patchOrder`) · мок `mocks/index.ts:1290` →
+Реализация: `services/ordersService.ts:80` (`patchOrder`) · мок `mocks/index.ts:1292` →
 `mocks/orders.ts:1691` (`mockPatchOrder`)
 Бэкенд: **не реализован**.
 
@@ -248,13 +248,13 @@ Save-режим: clean-slate, **шаг 1** сохранения карточки
 
 ### DELETE /api/orders/:id
 
-Реализация: `services/ordersService.ts:112` (`deleteOrder`) · мок `mocks/index.ts:1577` →
+Реализация: `services/ordersService.ts:112` (`deleteOrder`) · мок `mocks/index.ts:1579` →
 `mocks/orders.ts:2052` (`mockDeleteOrder`)
 Бэкенд: **не реализован**.
 
 **Запрос** — тела нет; версия — заголовком `If-Match` (`services/ordersService.ts:112-113`).
 
-**Ответ** — `ApiResponse<void>` (`services/ordersService.ts:112`, мок `mocks/index.ts:1580`).
+**Ответ** — `ApiResponse<void>` (`services/ordersService.ts:112`, мок `mocks/index.ts:1582`).
 
 Ошибки: `ORDER_HAS_INVOICE` (`mocks/orders.ts:2062`), `ORDER_HAS_SHIPMENT` (`:2064`),
 `ORDER_HAS_PAYMENT` (`:2065`), `ORDER_VERSION_CONFLICT` (`:2060`). `ORDER_NOT_FOUND`
@@ -277,12 +277,12 @@ Save-режим: quick-action, два вызывающих — список (`co
 Смена статуса. Записывающая половина двухшаговой операции: сначала читается план (`GET
 /status-plan`), потом пишется статус.
 
-Реализация: `services/ordersService.ts:99` (`patchOrderStatus`) · мок `mocks/index.ts:1259` →
+Реализация: `services/ordersService.ts:99` (`patchOrderStatus`) · мок `mocks/index.ts:1261` →
 `mocks/orders.ts:1793` (`mockPatchOrderStatus`)
 Бэкенд: **не реализован**.
 
 **Запрос** — `{ status, version }` (`services/ordersService.ts:99-105`, разбор
-`mocks/index.ts:1260-1265`). Допустимых значений пятнадцать (`ORDER_STATUSES`,
+`mocks/index.ts:1262-1267`). Допустимых значений пятнадцать (`ORDER_STATUSES`,
 `domain/orderStatus.ts:15-31`).
 
 **Ответ** — `ApiResponse<Order>` целиком (`mocks/orders.ts:1838`).
@@ -347,7 +347,7 @@ Save-режим: только чтение, но читается **перед**
 
 ### POST /api/orders/:id/items
 
-Реализация: `services/ordersService.ts:121` (`addOrderItem`) · мок `mocks/index.ts:1075` →
+Реализация: `services/ordersService.ts:121` (`addOrderItem`) · мок `mocks/index.ts:1073` →
 `mocks/orders.ts:2079` (`mockAddOrderItem`)
 Бэкенд: **не реализован**.
 
@@ -392,7 +392,7 @@ Save-режим: clean-slate, **шаг 2** — новые строки уход�
 
 Правка одной строки. **Одна правка за раз**, и порядок правок решает результат.
 
-Реализация: `services/ordersService.ts:152` (`updateOrderItem`) · мок `mocks/index.ts:1279` →
+Реализация: `services/ordersService.ts:152` (`updateOrderItem`) · мок `mocks/index.ts:1281` →
 `mocks/orders.ts:2217` (`mockUpdateOrderItem`)
 Бэкенд: **не реализован**.
 
@@ -437,13 +437,13 @@ Save-режим: clean-slate, **шаг 3** (`composables/useOrderCard.ts:476-491
 
 ### DELETE /api/orders/:id/items/:id
 
-Реализация: `services/ordersService.ts:160` (`deleteOrderItem`) · мок `mocks/index.ts:1547` →
+Реализация: `services/ordersService.ts:160` (`deleteOrderItem`) · мок `mocks/index.ts:1549` →
 `mocks/orders.ts:2346` (`mockDeleteOrderItem`)
 Бэкенд: **не реализован**.
 
 **Запрос** — тела нет; версия — `If-Match`.
 
-**Ответ** — `ApiResponse<void>` (`services/ordersService.ts:164`; мок `mocks/index.ts:1554`).
+**Ответ** — `ApiResponse<void>` (`services/ordersService.ts:164`; мок `mocks/index.ts:1556`).
 
 Ошибки: `ORDER_NOT_FOUND` (`mocks/orders.ts:2353`), `ORDER_ITEM_NOT_FOUND` (`:2356`),
 `LINE_HAS_SHIPMENT` / `LINE_ON_INVOICE` (`assertDeletable`, `:2358` → `:2385`),
@@ -558,7 +558,7 @@ Save-режим: quick-action; перед записью — превью тем
 
 ### POST /api/orders/:id/services
 
-Реализация: `services/ordersService.ts:168` (`addOrderService`) · мок `mocks/index.ts:1085` →
+Реализация: `services/ordersService.ts:168` (`addOrderService`) · мок `mocks/index.ts:1083` →
 `mocks/orders.ts:2390` (`mockAddOrderService`)
 Бэкенд: **не реализован**.
 
@@ -587,7 +587,7 @@ Save-режим: clean-slate, **шаг 2**, сразу после товарны
 
 Тот же `LineEditPayload`, что у товарной строки, **с тремя отличиями** — и все три правила домена.
 
-Реализация: `services/ordersService.ts:216` (`updateOrderService`) · мок `mocks/index.ts:1268` →
+Реализация: `services/ordersService.ts:216` (`updateOrderService`) · мок `mocks/index.ts:1270` →
 `mocks/orders.ts:2282` (`mockUpdateOrderService`)
 Бэкенд: **не реализован**.
 
@@ -615,7 +615,7 @@ Save-режим: clean-slate, тот же **шаг 3**, ветка `kind === 'se
 
 ### DELETE /api/orders/:id/services/:id
 
-Реализация: `services/ordersService.ts:182` (`deleteOrderService`) · мок `mocks/index.ts:1567` →
+Реализация: `services/ordersService.ts:182` (`deleteOrderService`) · мок `mocks/index.ts:1569` →
 `mocks/orders.ts:2436` (`mockDeleteOrderService`)
 Бэкенд: **не реализован**.
 
@@ -625,7 +625,7 @@ Save-режим: clean-slate, тот же **шаг 3**, ветка `kind === 'se
 `serviceId` (`services/ordersService.ts:184`), а §4.2 контракта домена пишет тот же сегмент как
 `:lineId` (`orders-backend-contract.md:143`) — **два имени одного сегмента**.
 
-**Ответ** — `ApiResponse<void>` (`services/ordersService.ts:186`; мок `mocks/index.ts:1574`).
+**Ответ** — `ApiResponse<void>` (`services/ordersService.ts:186`; мок `mocks/index.ts:1576`).
 
 Ошибки: `ORDER_NOT_FOUND` (`mocks/orders.ts:2443`), `ORDER_SERVICE_NOT_FOUND` (`:2446`),
 `LINE_ON_INVOICE` (`assertDeletable`, `:2447` → `:2385`), `ORDER_VERSION_CONFLICT` (`:2444`).
@@ -644,7 +644,7 @@ Save-режим: clean-slate, `pendingServiceDeletions`, **шаг 4**
 
 Зарезервировать весь неотгруженный остаток.
 
-Реализация: `services/ordersService.ts:356` (`reserveOrderStock`) · мок `mocks/index.ts:1059` →
+Реализация: `services/ordersService.ts:366` (`reserveOrderStock`) · мок `mocks/index.ts:1058` →
 `mocks/orders.ts:3842` (`mockReserveOrder`)
 Бэкенд: **не реализован**.
 
@@ -674,7 +674,7 @@ Save-режим: quick-action со сбросом несохранённого �
 
 ### GET /api/orders/:id/reservations
 
-Реализация: `services/ordersService.ts:363` (`getOrderReservations`) · мок
+Реализация: `services/ordersService.ts:373` (`getOrderReservations`) · мок
 `mocks/index.ts:606` → `mocks/orders.ts:246` (`mockGetReservations`)
 Бэкенд: **не реализован**.
 
@@ -798,9 +798,9 @@ Save-режим: только чтение, отдельная панель со
 Бэкенд: **не реализован**.
 
 **Запрос** — `{ correctionReason?, version? }`, тело со значением по умолчанию `{}`
-(`services/ordersService.ts:305-310`). **`Idempotency-Key` здесь не шлётся**, в отличие от трёх
-соседних POST, — хотя операция двигает склад и выпускает документы, ровно те две причины, по
-которым §3 требует ключ у отгрузки и возврата (`orders-backend-contract.md:93`) — БАГ-09.
+(`services/ordersService.ts:305-310`). **`Idempotency-Key` шлётся**, как у трёх соседних POST, —
+операция двигает склад и выпускает документы, ровно те две причины, по которым §3 требует ключ у
+отгрузки и возврата (`orders-backend-contract.md:93`). БАГ-09 закрыт.
 
 **Ответ** — `ApiResponse<Shipment>`: отгрузка с `cancelled: true` (`mocks/orders.ts:3420`,
 `:3505`).
@@ -827,7 +827,7 @@ Save-режим: quick-action со сбросом несохранённого (
 
 ### GET /api/orders/:id/return-plan
 
-Реализация: `services/ordersService.ts:320` (`planOrderReturn`) · мок `mocks/index.ts:586` →
+Реализация: `services/ordersService.ts:330` (`planOrderReturn`) · мок `mocks/index.ts:586` →
 `mocks/orders.ts:3635` (`mockPlanReturn`)
 Бэкенд: **не реализован**.
 
@@ -850,12 +850,12 @@ Save-режим: только чтение; карточка перечитыв�
 
 ### POST /api/orders/:id/returns
 
-Реализация: `services/ordersService.ts:333` (`createOrderReturn`) · мок `mocks/index.ts:1050` →
+Реализация: `services/ordersService.ts:343` (`createOrderReturn`) · мок `mocks/index.ts:1050` →
 `mocks/orders.ts:3657` (`mockCreateReturn`)
 Бэкенд: **не реализован**.
 
 **Запрос** — `{ lines: [{ lineId, quantity, condition, compensated }], reason, returnedAt?,
-version? }` (`services/ordersService.ts:333-353`), с обязательным `Idempotency-Key` (`:352`).
+version? }` (`services/ordersService.ts:343-363`), с обязательным `Idempotency-Key` (`:352`).
 **Две оси строки независимы:** состояние товара и возврат денег — разные вопросы
 (`types/order.ts:302-316`).
 
@@ -887,7 +887,7 @@ Save-режим: quick-action (`composables/useOrderCard.ts:814`).
 
 ### GET /api/orders/:id/returns
 
-Реализация: `services/ordersService.ts:315` (`getOrderReturns`) · мок `mocks/index.ts:591` →
+Реализация: `services/ordersService.ts:325` (`getOrderReturns`) · мок `mocks/index.ts:591` →
 `mocks/orders.ts:3626` (`mockGetReturns`)
 Бэкенд: **не реализован**.
 
@@ -914,12 +914,12 @@ Save-режим: только чтение; карточка держит соб
 Самый сложный эндпоинт домена: шестнадцать кодов отказа, из них четырнадцать не встречаются
 больше нигде.
 
-Реализация: `services/ordersService.ts:402` (`createOrderInvoice`) · мок `mocks/index.ts:1065` →
+Реализация: `services/ordersService.ts:412` (`createOrderInvoice`) · мок `mocks/index.ts:1064` →
 `mocks/orders.ts:4254` (`mockCreateInvoice`)
 Бэкенд: **не реализован**.
 
 **Запрос** — `{ kind?, shipmentId?, correctsInvoiceId?, amountNet? | amountGross?, reason?,
-version? }` (`services/ordersService.ts:402-416`). **Обе суммы сразу — отказ** (`statedAmounts`,
+version? }` (`services/ordersService.ts:407-421`). **Обе суммы сразу — отказ** (`statedAmounts`,
 `mocks/orders.ts:4466-4489`, проверка `:4471`); заявленный брутто побеждает вычисленный, чтобы
 документ назвал ровно набранную сумму (`:4448-4465`, применение `:4382`).
 
@@ -956,7 +956,7 @@ Save-режим: quick-action, три разных вызова — счёт п�
 
 ### GET /api/orders/:id/invoices
 
-Реализация: `services/ordersService.ts:398` (`getOrderInvoices`) · мок `mocks/index.ts:601` →
+Реализация: `services/ordersService.ts:408` (`getOrderInvoices`) · мок `mocks/index.ts:601` →
 `mocks/orders.ts:4023` (`mockGetInvoices`)
 Бэкенд: **не реализован**.
 
@@ -979,12 +979,12 @@ Save-режим: только чтение.
 
 ### POST /api/orders/:id/payments
 
-Реализация: `services/ordersService.ts:371` (`addOrderPayment`) · мок `mocks/index.ts:1041` →
+Реализация: `services/ordersService.ts:381` (`addOrderPayment`) · мок `mocks/index.ts:1041` →
 `mocks/orders.ts:3946` (`mockAddOrderPayment`)
 Бэкенд: **не реализован**.
 
 **Запрос** — `{ amount, purpose?, paidAt?, invoiceId?, note?, version? }`
-(`services/ordersService.ts:371-387`), с обязательным `Idempotency-Key` (`:386`).
+(`services/ordersService.ts:381-397`), с обязательным `Idempotency-Key` (`:386`).
 
 **Ответ** — `ApiResponse<Payment>` (`types/order.ts:419-428`; `mocks/orders.ts:4002`).
 **`purpose` выводится из знака суммы**, а не берётся из ярлыка: минус всегда `refund` (`:3972`,
@@ -1009,7 +1009,7 @@ Save-режим: quick-action, с полным перечитыванием по
 
 ### GET /api/orders/:id/payments
 
-Реализация: `services/ordersService.ts:367` (`getOrderPayments`) · мок `mocks/index.ts:596` →
+Реализация: `services/ordersService.ts:377` (`getOrderPayments`) · мок `mocks/index.ts:596` →
 `mocks/orders.ts:3939` (`mockGetOrderPayments`)
 Бэкенд: **не реализован**.
 
@@ -1029,12 +1029,12 @@ Save-режим: только чтение.
 
 ### DELETE /api/orders/:id/payments/:id
 
-Реализация: `services/ordersService.ts:390` (`deleteOrderPayment`) · мок `mocks/index.ts:1557` →
+Реализация: `services/ordersService.ts:400` (`deleteOrderPayment`) · мок `mocks/index.ts:1559` →
 `mocks/orders.ts:4005` (`mockDeleteOrderPayment`)
 Бэкенд: **не реализован**.
 
 **Запрос** — тела нет; версия — `If-Match`.
-**Ответ** — `ApiResponse<void>` (`services/ordersService.ts:394`; мок `mocks/index.ts:1564`).
+**Ответ** — `ApiResponse<void>` (`services/ordersService.ts:404`; мок `mocks/index.ts:1566`).
 
 Ошибки: `ORDER_NOT_FOUND` (`mocks/orders.ts:4012`), `PAYMENT_NOT_FOUND` (`:4015`),
 `ORDER_VERSION_CONFLICT` (`:4013`).
@@ -1054,13 +1054,13 @@ Save-режим: quick-action (`composables/useOrderCard.ts:1032`).
 
 ### POST /api/orders/:id/files
 
-Реализация: `services/ordersService.ts:198` (`addOrderFile`) · мок `mocks/index.ts:1095` →
+Реализация: `services/ordersService.ts:198` (`addOrderFile`) · мок `mocks/index.ts:1093` →
 `mocks/orders.ts:2488` (`mockAddOrderFile`)
 Бэкенд: **не реализован**.
 
 **Запрос** — `{ fileId, version }` (`services/ordersService.ts:198-203`); `fileId` выдаёт загрузка
 домена `uploads` (§16 соглашений), и ветка мока достаёт по нему исходное имя из реестра загрузок
-(`mocks/index.ts:1097-1098`).
+(`mocks/index.ts:1095-1096`).
 
 **Ответ расходится с объявлением.** Клиент объявляет `Promise<void>`
 (`services/ordersService.ts:202`), мок возвращает `OrderFile` целиком (`mocks/orders.ts:2509`,
@@ -1084,7 +1084,7 @@ Save-режим: clean-slate, `pendingFileAdds`, **шаг 5** (`composables/useO
 
 ### DELETE /api/orders/:id/files/:id
 
-Реализация: `services/ordersService.ts:206` (`removeOrderFile`) · мок `mocks/index.ts:1596` →
+Реализация: `services/ordersService.ts:206` (`removeOrderFile`) · мок `mocks/index.ts:1598` →
 `mocks/orders.ts:2512` (`mockRemoveOrderFile`)
 Бэкенд: **не реализован**.
 
@@ -1092,7 +1092,7 @@ Save-режим: clean-slate, `pendingFileAdds`, **шаг 5** (`composables/useO
 `OrderFile.id`: клиент шлёт `fileId` (`services/ordersService.ts:206-211`, источник значения —
 `composables/useOrderCard.ts:1638`), мок ищет по `f.fileId` (`mocks/orders.ts:2521`).
 
-**Ответ** — `ApiResponse<void>` (`services/ordersService.ts:210`; мок `mocks/index.ts:1603`).
+**Ответ** — `ApiResponse<void>` (`services/ordersService.ts:210`; мок `mocks/index.ts:1605`).
 
 Ошибки: `ORDER_NOT_FOUND` (`mocks/orders.ts:2519`), `ORDER_FILE_NOT_FOUND` (`:2530`),
 `ORDER_VERSION_CONFLICT` (`:2520`).
@@ -1111,7 +1111,7 @@ Save-режим: clean-slate — снятие копится в `pendingFileRemo
 Удаление записи истории. Второй вызывающий у него — общая лента аудита.
 
 Реализация: `services/ordersService.ts:190` (`deleteOrderAuditEntry`) · мок
-`mocks/index.ts:1586` → `mocks/orders.ts:2469` (`mockDeleteOrderAuditEntry`)
+`mocks/index.ts:1588` → `mocks/orders.ts:2469` (`mockDeleteOrderAuditEntry`)
 Бэкенд: **не реализован**.
 
 **Запрос** — тела нет; **второй сегмент — `id` записи, а не её позиция**
@@ -1122,7 +1122,7 @@ Save-режим: clean-slate — снятие копится в `pendingFileRemo
 читал, версии заявить не может (`:1919-1927`). **Удаление из ленты от проверки версии
 освобождено** — это правило, а не упущение.
 
-**Ответ** — `ApiResponse<void>` (`services/ordersService.ts:194`; мок `mocks/index.ts:1593`).
+**Ответ** — `ApiResponse<void>` (`services/ordersService.ts:194`; мок `mocks/index.ts:1595`).
 Таблица §4.1 контракта домена называет здесь `Order` (`orders-backend-contract.md:118`) — это
 расхождение, см. «Чего в домене нет».
 
@@ -1253,15 +1253,15 @@ Save-режим: quick-action из двух мест — карточка зак
 
 **Транзакционность и идемпотентность.**
 
-`Idempotency-Key` шлют **три** POST — отгрузка, платёж, возврат (`services/ordersService.ts:295`,
-`:352`, `:386`); мок кеширует ответ по ключу (`withIdempotency`, `mocks/index.ts:321`,
-применение `:1030-1057`). **У кеша нет ни срока, ни привязки к пути** — это `Map` на процесс
-(`mocks/index.ts:260`), то есть один и тот же ключ, посланный на отгрузку и на платёж, вернул бы
-первый ответ на оба. §3 контракта домена требует только «сервер запоминает ключ вместе с ответом»
-(`orders-backend-contract.md:93`) и области действия ключа не задаёт: **сервер обязан привязывать
-ключ к паре «путь + заказ» и держать его ограниченное время**.
+`Idempotency-Key` шлют **четыре** POST — отгрузка, платёж, возврат (`services/ordersService.ts:295`,
+`:352`, `:386`) и отмена отгрузки (`cancelOrderShipment`); мок кеширует ответ по паре «путь + ключ»
+(`withIdempotency`, `mocks/index.ts:321`, применение `:1030-1057`). **Кеш привязан к пути и живёт
+24 часа** (`mocks/index.ts:318-333`) — один и тот же ключ, посланный на отгрузку и на платёж,
+выполняет обе операции, а не возвращает чужой ответ. §3 контракта домена требует именно это
+(`orders-backend-contract.md:93`). **Незакрытым остаётся одно:** повтор с тем же ключом и другим
+телом получает первый ответ, а не отказ, — отпечатка тела в кеше нет.
 
-**Отмена отгрузки ключа не шлёт**, хотя двигает склад и выпускает документы — БАГ-09.
+**Отмена отгрузки шлёт ключ**, как и три соседних POST, — БАГ-09 закрыт.
 
 **Одно нажатие Save рассыпается на `1 + N + M + K + L` последовательных запросов**
 (`composables/useOrderCard.ts:418-533`), и падение в середине оставляет первую половину
@@ -1352,8 +1352,10 @@ Save-режим: quick-action из двух мест — карточка зак
    витрина `ORD-100` и сценарные заказы **зарезервированы**: на них ничего не досеивается, потому
    что их состояние пришпилено тестами (`:4527-4531`, `:4613`). **Серверу ничего из этого делать
    не нужно** — правило записано, чтобы его не перенесли в контракт по ошибке.
-8. **Ключ идемпотентности живёт в `Map` на процесс, без срока и без привязки к пути**
-   (`mocks/index.ts:260-269`) — разобрано в графе «Транзакционность».
+8. **Ключ идемпотентности привязан к паре «путь + ключ» и живёт сутки**
+   (`mocks/index.ts:318-333`) — разобрано в графе «Транзакционность». Незакрытым остаётся
+   отсутствие отпечатка тела: повтор с тем же ключом и другим телом получает первый ответ, а не
+   отказ.
 
 ---
 
@@ -1368,7 +1370,7 @@ Save-режим: quick-action из двух мест — карточка зак
 | было в контракте домена | чем опровергнуто |
 |---|---|
 | §3: версию спрашивают «все **двадцать**» мутаций (`orders-backend-contract.md:97`) | мутаций, спрашивающих версию, **двадцать две**: `grep -c "assertVersion(order" frontend_vue/src/services/mocks/orders.ts` → `23` минус определение (`mocks/orders.ts:1938`). Не спрашивает только `POST /api/orders`, у которого версии ещё нет |
-| §4.1: у `DELETE /api/orders/:id/audit/:id` ответ **`Order`** (`orders-backend-contract.md:118`) | и клиент, и мок дают `void` (`services/ordersService.ts:194`, `mocks/index.ts:1593`). Возвращать заказ целиком после удаления строки истории не нужно: карточка перечитывает его сама |
+| §4.1: у `DELETE /api/orders/:id/audit/:id` ответ **`Order`** (`orders-backend-contract.md:118`) | и клиент, и мок дают `void` (`services/ordersService.ts:194`, `mocks/index.ts:1595`). Возвращать заказ целиком после удаления строки истории не нужно: карточка перечитывает его сама |
 | §6: `SHIPMENT_ALREADY_INVOICED` отнесён к разделу склада (`orders-backend-contract.md:416`) | код принадлежит **двум** операциям: его бросает и отмена отгрузки (`mocks/orders.ts:3386`), и выпуск счёта (`:4360`) |
 
 Плюс **два поля ответа, которых контракт домена не знает вовсе** — `costTopUp` и
@@ -1419,9 +1421,10 @@ Save-режим: quick-action из двух мест — карточка зак
    оставляет первую половину применённой — под П43 это меняется: изменение уходит одним запросом
    и применяется одной транзакцией. Область действия ключа идемпотентности задана там же: ключ
    живёт **сутки**, а «тем же самым» считается пара **«ключ + операция»** — один ключ на отгрузке
-   и на платеже это два разных случая, а не один. Сегодня ключ лежит в `Map` на процесс, без срока
-   и без привязки к пути (`mocks/index.ts:260-269`). См. [§15](00-conventions.md),
-   [§11](00-conventions.md).
+   и на платеже это два разных случая, а не один. **Сделано:** ключ лежит в `Map` на процесс,
+   привязанной к паре «путь + ключ», с суточным сроком (`mocks/index.ts:318-333`). **Не сделано:**
+   отпечатка тела в кеше нет — повтор с тем же ключом и другим телом получает первый ответ вместо
+   отказа. См. [§15](00-conventions.md), [§11](00-conventions.md).
 
 **Сверх этих шести — один вопрос, поднятый самим сведением и в файл решений ещё не занесённый:**
 что делать с уже выпущенной корректировкой, оплаченной платежом, который удаляют.

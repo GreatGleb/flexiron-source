@@ -589,7 +589,7 @@ last-write-wins, как в остальных шестнадцати домен�
 `suppliers · Транзакционность и идемпотентность`.
 
 Бэкенд: **не реализован**.
-Реализация: `services/suppliersService.ts:33` (`patchSupplier`) · мок `mocks/index.ts:1193`
+Реализация: `services/suppliersService.ts:33` (`patchSupplier`) · мок `mocks/index.ts:1195`
 (ветка `^/api/suppliers/([^/]+)$`) → `mocks/suppliers.ts:411` (`mockPatchSupplier`)
 
 ---
@@ -610,11 +610,11 @@ last-write-wins, как в остальных шестнадцати домен�
 ```
 
 Значение — один из шести статусов (правило домена 1); мок читает ровно его
-(`frontend_vue/src/services/mocks/index.ts:1186-1191`).
+(`frontend_vue/src/services/mocks/index.ts:1188-1193`).
 
 Ответ: **`void`**. Клиент объявлен `Promise<void>` и ответ выбрасывает
 (`frontend_vue/src/services/suppliersService.ts:54-56`), мок возвращает `undefined`
-(`frontend_vue/src/services/mocks/index.ts:1190`). Прежний контракт обещал здесь обновлённый
+(`frontend_vue/src/services/mocks/index.ts:1192`). Прежний контракт обещал здесь обновлённый
 `Supplier` — не подтверждено кодом, см. «Чего в домене нет».
 
 Правило переходов — **из прежнего контракта, кодом не выражено**: разрешены любые переходы
@@ -642,7 +642,7 @@ last-write-wins, как в остальных шестнадцати домен�
 нигде.
 
 Бэкенд: **не реализован**.
-Реализация: `services/suppliersService.ts:55` (`patchSupplierStatus`) · мок `mocks/index.ts:1186`
+Реализация: `services/suppliersService.ts:55` (`patchSupplierStatus`) · мок `mocks/index.ts:1188`
 (ветка `^/api/suppliers/([^/]+)/status$`) → `mocks/suppliers.ts:451`
 (`mockUpdateSupplierStatus`)
 
@@ -656,8 +656,8 @@ last-write-wins, как в остальных шестнадцати домен�
 
 Запрос: тела нет — `apiDelete<void>` без body
 (`frontend_vue/src/services/suppliersService.ts:82-84`). Заголовков клиент не шлёт; `deleteMockRoute`
-читает `If-Match` для других доменов (`frontend_vue/src/services/mocks/index.ts:1577`), но эта
-ветка значение игнорирует (`frontend_vue/src/services/mocks/index.ts:1429-1433`) — то есть
+читает `If-Match` для других доменов (`ifMatchVersion` в `frontend_vue/src/services/mocks/index.ts`), но эта
+ветка значение игнорирует (`frontend_vue/src/services/mocks/index.ts:1431-1435`) — то есть
 удаление записи аудита от проверки версии освобождено, как и в общей ленте (§11 соглашений).
 
 Ответ: `void` (`frontend_vue/src/services/mocks/index.ts:270`). UI ответ не читает, а вычёркивает
@@ -689,7 +689,7 @@ frontend_vue/src/services/mocks/suppliers.ts` → 0. Пробел аудита (
 
 Бэкенд: **не реализован** — таблица `supplier_audit_entries` есть
 (`backend/app/modules/suppliers/shared/models.py:170-201`), эндпоинта нет.
-Реализация: `services/suppliersService.ts:83` (`deleteAuditEntry`) · мок `mocks/index.ts:1429`
+Реализация: `services/suppliersService.ts:83` (`deleteAuditEntry`) · мок `mocks/index.ts:1431`
 (ветка `^/api/suppliers/([^/]+)/audit/([^/]+)$`) → `mocks/suppliers.ts:456`
 (`mockDeleteAuditEntry`)
 
@@ -865,7 +865,7 @@ frontend_vue/src/types/supplier.ts` — пусто, заголовка арен�
 | отдельные эндпоинты `/notes` | там же: ни вызова, ни ветки мока; заметки уезжают полем `notes` в общем PATCH (`frontend_vue/src/types/supplier.ts:24`) |
 | формат поля `notes` — блоки, разделённые `\n\n`, каждый с клиентским timestamp `dd.mm.yyyy hh:mm` | генератора таких блоков нет: `grep -rn "dd.mm.yyyy" frontend_vue/src` — пусто; в коде это свободная строка (`frontend_vue/src/types/supplier.ts:24`) |
 | `search` ищет ещё и по `contactPerson` | мок ищет по трём локалям названия компании и email, и только (`frontend_vue/src/services/mocks/suppliers.ts:262-266`) |
-| `PATCH /api/suppliers/:id/status` отвечает обновлённым `Supplier`, «клиент сверяется с server-state» | клиент объявлен `Promise<void>` и ответ выбрасывает (`frontend_vue/src/services/suppliersService.ts:54-56`), мок возвращает `undefined` (`frontend_vue/src/services/mocks/index.ts:1190`); сверки с ответом нет ни строки |
+| `PATCH /api/suppliers/:id/status` отвечает обновлённым `Supplier`, «клиент сверяется с server-state» | клиент объявлен `Promise<void>` и ответ выбрасывает (`frontend_vue/src/services/suppliersService.ts:54-56`), мок возвращает `undefined` (`frontend_vue/src/services/mocks/index.ts:1192`); сверки с ответом нет ни строки |
 | опциональный `?sort=` как «будущее расширение» списка | параметра нет ни у клиента (`frontend_vue/src/services/suppliersService.ts:10-19`), ни в разборе мока (`frontend_vue/src/services/mocks/index.ts:334-346`) |
 | пример ответа с `"id": "s-1"` — форма id `s-N` | такой формы нет нигде: мок даёт `'1'`…`'6'` и `max(number)+1` (`frontend_vue/src/services/mocks/suppliers.ts:465`), справочник — `sup-NNN` (`frontend_vue/src/services/mocks/index.ts:327-330`), схема — UUID (`backend/app/modules/suppliers/shared/models.py:14`). Какая из трёх канонична — **осталось** |
 | «Колонки: все основные поля `Supplier` + флаги» у экспорта | в коде два конкретных и **разных** набора колонок (`frontend_vue/src/services/mocks/suppliers.ts:521` и `frontend_vue/src/views/admin/suppliers/SuppliersListPage.vue:205-225`); «все поля + флаги» не соответствует ни одному |

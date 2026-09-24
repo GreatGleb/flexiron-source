@@ -269,13 +269,13 @@ const allocations = splitAllocations(item.allocations, shippedQuantity)
 
 ---
 
-## БАГ-09 — отмена отгрузки не шлёт `Idempotency-Key`
+## ✅ БАГ-09 — отмена отгрузки не шлёт `Idempotency-Key` — ПОЧИНЕНО
 
-**File:** `frontend_vue/src/services/ordersService.ts:305-311`
-**Severity:** Medium — повтор запроса выпустит второй корректирующий счёт и второй набор обратных движений.
+**File:** `frontend_vue/src/services/ordersService.ts` (`cancelOrderShipment`)
+**Severity:** Было Medium — повтор запроса выпустил бы второй корректирующий счёт и второй набор обратных движений.
 **Источник:** К4, К6 (идемпотентность)
 
-### Problem
+### Problem (до починки)
 
 Три POST домена ключ шлют, и §3 объясняет, почему: повтор не должен ни отправить вторую машину,
 ни зачесть деньги дважды (`roo_code/plans/orders/orders-backend-contract.md:93`).
@@ -284,7 +284,7 @@ const allocations = splitAllocations(item.allocations, shippedQuantity)
 apiPost(`/api/orders/${orderId}/shipments`, data, { headers: { 'Idempotency-Key': … } })  // :294-296
 apiPost(`/api/orders/${orderId}/returns`,  data, { headers: { 'Idempotency-Key': … } })   // :351-353
 apiPost(`/api/orders/${orderId}/payments`, data, { headers: { 'Idempotency-Key': … } })   // :385-387
-apiPost(`/api/orders/${orderId}/shipments/${shipmentId}/cancel`, data)                    // :310 — без ключа
+apiPost(`/api/orders/${orderId}/shipments/${shipmentId}/cancel`, data)                    // — без ключа
 ```
 
 Отмена делает ровно то же, чем обоснован ключ у первых двух: пишет обратные движения по складу
@@ -298,6 +298,24 @@ apiPost(`/api/orders/${orderId}/shipments/${shipmentId}/cancel`, data)          
 ### Expected
 
 `Idempotency-Key` на отмене отгрузки, как у трёх соседних POST.
+
+### Сделано 2026-09-24
+
+`cancelOrderShipment` шлёт `Idempotency-Key` через тот же `newIdempotencyKey()`, что и три
+соседних POST (`frontend_vue/src/services/ordersService.ts`). Ветка мока `.../cancel` в
+`frontend_vue/src/services/mocks/index.ts` обёрнута в `withIdempotency`, как соседние ветки
+отгрузки, платежа и возврата.
+
+**Проверено:**
+
+| Проверка | Результат |
+|---|---|
+| `cd frontend_vue && npm run verify` | typecheck · lint · dupes · format · unit — exit 0 |
+| `npm run test:audit` (§3 соблюдение — `order-audit-contract-conformance.spec.ts`) | 22 файла, 97 тестов, exit 0 |
+| новая проба `mocks/idempotency-scope.spec.ts` — повтор отмены с тем же ключом не производит вторую отмену | зелёная |
+| новая проба — `cancelOrderShipment` доходит до мока с непустым `Idempotency-Key` | зелёная |
+| инверсия: `withIdempotency` снят с ветки `.../cancel` в моке | обе пробы выше краснеют (`SHIPMENT_ALREADY_CANCELLED` на повторе) |
+| инверсия: заголовок убран из `cancelOrderShipment` | проба на доставку заголовка краснеет тем же отказом, проба уровня мока остаётся зелёной |
 
 ---
 
@@ -368,55 +386,52 @@ name: originalName ?? `File ${fileSeq - 1}`,   // :2500
 
 ---
 
-## БАГ-12 — кэш идемпотентности мока: `Map` на процесс, без срока и без привязки к операции
+## БАГ-12 — кэш идемпотентности мока: отпечатка тела нет, повтор с другим телом получает первый ответ
 
-**File:** `frontend_vue/src/services/mocks/index.ts:320-330`
-**Severity:** Medium — один ключ, посланный на две разные операции, возвращает чужой ответ; кэш не истекает никогда
+**File:** `frontend_vue/src/services/mocks/index.ts` (`withIdempotency`)
+**Severity:** Low (было Medium) — привязка к пути и срок закрыты; открыт только один сценарий: тот же ключ с другим телом
 **Источник:** решение владельца П46 (§3 контракта заказов, §11 соглашений)
 
-### Problem
+### Сегодняшний код (привязка к пути и суточный срок сделаны)
 
 ```ts
-const idempotencyCache = new Map<string, unknown>()
+const idempotencyCache = new Map<string, { result: unknown; storedAt: number }>()
 
-function withIdempotency<T>(headers: Record<string, string> | undefined, fn: () => T): T {
+function withIdempotency<T>(
+  path: string,
+  headers: Record<string, string> | undefined,
+  fn: () => T,
+): T {
   const key = headers?.['Idempotency-Key'] ?? headers?.['idempotency-key']
   if (!key) return fn()
-  if (idempotencyCache.has(key)) return idempotencyCache.get(key) as T
+  const cached = idempotencyCache.get(`${path}\u0000${key}`)
+  if (cached && Date.now() - cached.storedAt < 86400000) return cached.result as T // 24h
   const result = fn()
-  idempotencyCache.set(key, result)
+  idempotencyCache.set(`${path}\u0000${key}`, { result, storedAt: Date.now() })
   return result
 }
 ```
-(`:320-330`)
 
-Ключ кэша — **голая строка ключа**. Ни пути, ни метода, ни отпечатка тела в нём нет. Обёртка стоит на
-пяти маршрутах: `POST /api/bcc/send` (`:1011`), `POST /api/bcc/log` (`:1018`), отгрузка заказа (`:1135`),
-платёж (`:1142`), возврат (`:1151`). Значит один и тот же ключ,
-посланный на отгрузку и на платёж, отдаёт второму вызову ответ первого — приведённый `as T`, то есть
-без единой проверки: карточка получит `Shipment` там, где ждёт `Payment`.
+Ключ кэша — пара «путь + `Idempotency-Key`» (`` `${path}\u0000${key}` ``), а не голая строка ключа.
+Обёртка стоит на восьми маршрутах: `POST /api/bcc/send`, `POST /api/bcc/log`,
+`POST /api/bcc/events/:id/response`, `POST /api/bcc/events/:id/no-response`, отгрузка, платёж,
+возврат и отмена отгрузки заказа. Один и тот же ключ, посланный на отгрузку и на платёж, теперь
+выполняет обе операции — каждая под своим путём в кэше — а не отдаёт второму вызову ответ первого.
+Запись живёт 24 часа (`Date.now() - cached.storedAt < 86400000`), после чего перестаёт
+переиспользоваться. Обе дыры, которые описывала прежняя версия этой находки, закрыты — проверено
+поведением диспетчера в `frontend_vue/src/services/mocks/idempotency-scope.spec.ts` (П46).
 
-Срока у кэша тоже нет: `grep -c "idempotencyCache.delete\|idempotencyCache.clear"` → 0, очистки не
-делает ни один тест, ни один маршрут. `Map` растёт всё время жизни страницы, и ключ годен вечно.
+### Осталось — отпечатка тела в кэше нет
 
-Обе дыры закрыты решением владельца, и решение записано в контракте, а не только в переписке:
-**П46 (2026-09-09) — кэш ключа живёт сутки, а «тем же самым» считается пара «ключ + операция»**
-(`roo_code/plans/orders/orders-backend-contract.md`, §3; общее правило —
-`roo_code/roo-context/api/00-conventions.md`, §11). Там же измерено и названо сегодняшнее поведение
-мока: «его кэш живёт в `Map` на процесс — без срока и без привязки к пути». Находки в баг-файлах у
-этого не было ни у одного домена — при том что два соседних бага ссылаются на `withIdempotency` как на
-работающий механизм (`contract-sync-bcc-bugs.md`, БАГ-03; `contract-sync-uploads-bugs.md`, БАГ-04).
-
-### Fix
-
-TBD. По П46: ключом кэша становится пара «операция + ключ» (метод и путь-шаблон, а не конкретный id
-в нём — иначе отгрузка двух разных заказов с одним ключом разъедется), запись живёт 24 часа,
-повтор с тем же ключом и **другим телом** — отказ, а не чужой ответ.
+`withIdempotency` кэширует по паре «путь + ключ» и **не смотрит на тело запроса**. Значит тот же
+`Idempotency-Key`, посланный на тот же путь с **другим** телом (пользователь поправил количество и
+переотправил под тем же ключом — например, если клиент когда-нибудь начнёт переиспользовать ключ
+между попытками), получит **первый** ответ, а не отказ: расхождение между тем, что попросили, и
+тем, что вернули, не видно ничем. По П46 (`roo_code/plans/orders/orders-backend-contract.md`, §3)
+это отдельно не решено — способ починки (отпечаток тела в ключе кэша, отказ при несовпадении)
+здесь не выбирается, это работа отдельной задачи.
 
 ### Expected
 
-`withIdempotency` получает операцию (метод и путь) и хранит её вместе с ключом; у записи есть срок.
-
-### Actual
-
-`Map<ключ, ответ>` на модуль, вечная, общая на все пять маршрутов.
+`withIdempotency` хранит вместе с ответом отпечаток тела запроса; повтор с тем же ключом на том же
+пути, но с другим телом, — отказ, а не чужой ответ.

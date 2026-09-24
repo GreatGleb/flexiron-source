@@ -40,7 +40,7 @@ frontend_vue/src/services/mocks/warehouse-map.spec.ts
    **Снять `toThrow` и не поставить взамен утверждения о поле — это не выполненная задача,
    а ослеплённая спека** (Л9). Приёмка проверяет обе половины.
 
-3. **Смена пароля перестаёт быть no-op.** `mocks/index.ts:1233` отвечает `delay(undefined)`
+3. **Смена пароля перестаёт быть no-op.** `mocks/index.ts:1235` отвечает `delay(undefined)`
    и тела не смотрит вовсе. Завести хранение пароля демо-пользователя и бросать
    `PASSWORD_WRONG_CURRENT`, `PASSWORD_TOO_SHORT`, `PASSWORD_CONFIRM_MISMATCH` — те же три
    кода, что вводит C7. Без этого приёмка C7 сойдётся на пустом месте.

@@ -51,9 +51,9 @@
 ### DELETE /api/settings/conversions/:id
 - Вызывающий: `src/services/settingsService.ts:101`
 - Бэкенд: `backend/app/modules/settings/features/crud/action.py:413`
-- Мок: `mocks/index.ts:1642`
-- Форма запроса: тела нет — `apiDelete(\`/api/settings/conversions/${id}\`, { headers: authHeaders() })`, `src/services/settingsService.ts:101`. Бэкенд принимает `conv_id: uuid.UUID` из пути (`crud/action.py:415`) — нечисловой/не-UUID идентификатор отвергается самим FastAPI как 422 Pydantic, а мок принимает любую строку (`mocks/index.ts:1643`).
-- Форма ответа: `Promise<void>` в подписи (`settingsService.ts:100`). Бэкенд отдаёт `ApiResponse(success=True, message="Conversion deleted")` без `data` (`crud/action.py:420`) — то есть после `unwrap` клиент получает `undefined`. Мок возвращает `delay(undefined as T)` (`mocks/index.ts:1646`).
+- Мок: `mocks/index.ts:1643`
+- Форма запроса: тела нет — `apiDelete(\`/api/settings/conversions/${id}\`, { headers: authHeaders() })`, `src/services/settingsService.ts:101`. Бэкенд принимает `conv_id: uuid.UUID` из пути (`crud/action.py:415`) — нечисловой/не-UUID идентификатор отвергается самим FastAPI как 422 Pydantic, а мок принимает любую строку (`mocks/index.ts:1644`).
+- Форма ответа: `Promise<void>` в подписи (`settingsService.ts:100`). Бэкенд отдаёт `ApiResponse(success=True, message="Conversion deleted")` без `data` (`crud/action.py:420`) — то есть после `unwrap` клиент получает `undefined`. Мок возвращает `delay(undefined as T)` (`mocks/index.ts:1647`).
 - Коды ошибок: бэкенд — `NOT_FOUND` из `remove_conversion_item` (`crud/domain.py:425`), но **обработчика у него в роуте нет**: `crud/action.py:413-420` не ловит `NotFoundError`, в отличие от соседних DELETE валют (`:275-279`) и UOM (`:343-347`) → находка 4. Мок — `CONVERSION_NOT_FOUND` (`mocks/settings.ts:607`). До человека ни один код не доходит: клиент показывает общую ошибку сохранения `e.message` (`src/composables/useSettings.ts:522`).
 - Save-режим: clean-slate. Удаление правки в стор — `_removeConversion` (`useSettings.ts:584-589`), кнопка `removeConversion` в таблице (`src/views/admin/settings/UnitsSettings.vue:14`); запрос уходит только по Save, из ветки diff-а коллекции (`useSettings.ts:457-459`).
 - Пробел контракта: старый раздел (`roo_code/roo-context/03-api-contract.md:2489-2494`) не называет ни одного кода ошибки и не говорит, что удаление правила ничего не проверяет: ни мок, ни бэкенд не смотрят, пользуется ли кто-то этим правилом (`crud/domain.py:422-426` — только проверка существования). Не сказано и что 404 на этом пути не оформлен (находка 4).
@@ -62,9 +62,9 @@
 ### DELETE /api/settings/currencies/:id
 - Вызывающий: `src/services/settingsService.ts:65`
 - Бэкенд: `backend/app/modules/settings/features/crud/action.py:266`
-- Мок: `mocks/index.ts:1632`
+- Мок: `mocks/index.ts:1634`
 - Форма запроса: тела нет — `apiDelete(\`/api/settings/currencies/${id}\`, …)`, `settingsService.ts:65`. Бэкенд: `currency_id: uuid.UUID` из пути (`crud/action.py:268`), токена **не требует** (`:266-270`, см. находку 3).
-- Форма ответа: `Promise<void>` (`settingsService.ts:64`); бэкенд — `ApiResponse(success=True, message="Currency deleted")` (`crud/action.py:274`); мок — `delay(undefined as T)` (`mocks/index.ts:1635`).
+- Форма ответа: `Promise<void>` (`settingsService.ts:64`); бэкенд — `ApiResponse(success=True, message="Currency deleted")` (`crud/action.py:274`); мок — `delay(undefined as T)` (`mocks/index.ts:1636`).
 - Коды ошибок: бэкенд — `NOT_FOUND` (404, `crud/action.py:275-279`, источник `crud/domain.py:252`) и `CONFLICT` (409, `:280-284`, источник `crud/domain.py:258` — «валюта используется N товарами», счёт через `products.internal_api.interface.count_products_by_currency`, `crud/domain.py:263-264`). Мок — `CURRENCY_NOT_FOUND` (`mocks/settings.ts:517`), проверки использования у него нет вовсе. **Ни бэкенд, ни мок не запрещают удалить валюту по умолчанию** — ни ту, у которой `is_default`, ни ту, чей код записан в `global_constants.default_currency`: в `remove_currency_item` (`crud/domain.py:257-268`) такой проверки нет → находка 5. Ни один код не подстрока другого.
 - Save-режим: clean-slate. `_removeCurrency` правит стор (`useSettings.ts:560-565`), запрос уходит по Save (`useSettings.ts:400-402`). В UI кнопка удаления заблокирована у валюты по умолчанию (`src/views/admin/settings/FinanceSettings.vue:111-114`) — то есть правило существует **только как атрибут `disabled`**.
 - Пробел контракта: старый раздел (`03-api-contract.md:2369-2375`) обещает «422 если попытка удалить валюту, установленную как `defaultCurrency` в константах» — такой проверки нет ни на бэкенде, ни в моке (находка 5); и не упоминает реально существующий 409 по товарам (`crud/domain.py:254-258`).
@@ -73,9 +73,9 @@
 ### DELETE /api/settings/order-statuses/:id
 - Вызывающий: `src/services/settingsService.ts:136`
 - Бэкенд: `backend/app/modules/settings/features/crud/action.py:482`
-- Мок: `mocks/index.ts:1647`
+- Мок: `mocks/index.ts:1649`
 - Форма запроса: тела нет (`settingsService.ts:136`); бэкенд — `status_id: uuid.UUID` из пути (`crud/action.py:484`), без токена (находка 3).
-- Форма ответа: `Promise<void>` (`settingsService.ts:135`); бэкенд — `ApiResponse(success=True, message="Order status deleted")` (`crud/action.py:490`); мок — `delay(undefined as T)` (`mocks/index.ts:1650`).
+- Форма ответа: `Promise<void>` (`settingsService.ts:135`); бэкенд — `ApiResponse(success=True, message="Order status deleted")` (`crud/action.py:490`); мок — `delay(undefined as T)` (`mocks/index.ts:1651`).
 - Коды ошибок: бэкенд — `NOT_FOUND` (404, `crud/action.py:491-495`) и `FORBIDDEN` (403 на системный статус, `:496-500`, источник `crud/domain.py:516`). Мок — только `ORDER_STATUS_NOT_FOUND` (`mocks/settings.ts:659`); **системность мок не проверяет вовсе**, хотя все 15 сидовых статусов помечены `system: true` (`mocks/settings.ts:212-347`), то есть под моками удаляется то, что сервер запретит → расхождение мок↔бэкенд, находка 6. Проверки «статус используется в заказах» нет нигде: она оставлена комментарием-TODO (`crud/domain.py:518-519`).
 - Save-режим: clean-slate. `_removeOrderStatus` (`useSettings.ts:602-607`), запрос по Save (`useSettings.ts:503-505`). Важно: при удалении Save дополнительно шлёт `PUT …/reorder` (`useSettings.ts:482-486`), то есть два запроса без общей транзакции.
 - Пробел контракта: старый раздел (`03-api-contract.md:2573-2579`) обещает 403 на системный (есть) и 409 на использование в заказах (**нет нигде**, `crud/domain.py:518-519`). Не сказано, кто ставит `system: true` — на бэкенде его не ставит никто (`crud/domain.py:469` жёстко пишет `False` при создании, а сидов системных статусов в миграциях нет), см. «Значения по умолчанию».
@@ -84,9 +84,9 @@
 ### DELETE /api/settings/uoms/:id
 - Вызывающий: `src/services/settingsService.ts:83`
 - Бэкенд: `backend/app/modules/settings/features/crud/action.py:334`
-- Мок: `mocks/index.ts:1637`
+- Мок: `mocks/index.ts:1639`
 - Форма запроса: тела нет (`settingsService.ts:83`); бэкенд — `uom_id: uuid.UUID` (`crud/action.py:336`), без токена (находка 3).
-- Форма ответа: `Promise<void>` (`settingsService.ts:82`); бэкенд — `ApiResponse(success=True, message="UOM deleted")` (`crud/action.py:342`); мок — `delay(undefined as T)` (`mocks/index.ts:1640`).
+- Форма ответа: `Promise<void>` (`settingsService.ts:82`); бэкенд — `ApiResponse(success=True, message="UOM deleted")` (`crud/action.py:342`); мок — `delay(undefined as T)` (`mocks/index.ts:1641`).
 - Коды ошибок: бэкенд — `NOT_FOUND` (`crud/action.py:343-347`) и `CONFLICT` при использовании в товарах (`:348-352`, источник `crud/domain.py:329`, счёт `count_products_by_uom`, `:339-340`). Мок — `UOM_NOT_FOUND` (`mocks/settings.ts:559`). **Правила пересчёта при этом не проверяет никто**, и схема удаляет их молча: `uom_conversions.from_uom_id`/`to_uom_id` объявлены `ondelete="CASCADE"` (`backend/app/modules/settings/shared/models.py:117`, `:122`) → находка 7.
 - Save-режим: clean-slate. `_removeUom` (`useSettings.ts:572-577`), запрос по Save (`useSettings.ts:429-431`), кнопка — `src/views/admin/settings/UnitsSettings.vue:79`.
 - Пробел контракта: старый раздел (`03-api-contract.md:2434-2440`) обещает «409 если UOM используется в товарах, правилах пересчёта или заказах» — из трёх реализован только первый пункт (`crud/domain.py:325-329`); по правилам пересчёта поведение противоположно обещанному (каскадное удаление, находка 7), а заказов на бэкенде нет вовсе.
@@ -95,9 +95,9 @@
 ### DELETE /api/settings/warehouse-map
 - Вызывающий: `src/services/settingsService.ts:156`
 - Бэкенд: **нет**
-- Мок: `mocks/index.ts:1652`
+- Мок: `mocks/index.ts:1654`
 - Форма запроса: тела нет, единичный ресурс без id — `apiDelete('/api/settings/warehouse-map', { headers: authHeaders() })`, `settingsService.ts:156`.
-- Форма ответа: `Promise<void>` (`settingsService.ts:155`); мок — `delay(undefined as T)` (`mocks/index.ts:1655`), сам сброс — `mockDeleteWarehouseMap` (`mocks/settings.ts:741-743`), который кладёт `settingsStore.warehouseMap = null`.
+- Форма ответа: `Promise<void>` (`settingsService.ts:155`); мок — `delay(undefined as T)` (`mocks/index.ts:1656`), сам сброс — `mockDeleteWarehouseMap` (`mocks/settings.ts:741-743`), который кладёт `settingsStore.warehouseMap = null`.
 - Коды ошибок: ни одного — в `mockDeleteWarehouseMap` (`mocks/settings.ts:741-743`) нет ни одного `throw`; удаление несуществующей карты — успех. Клиент код и не читает: ловит любую ошибку и показывает один тост `warehouse.map_toast_error_delete` (`src/composables/useWarehouseMap.ts:76-78`).
 - Save-режим: quick-action. `remove()` уходит на сервер сразу после подтверждения (`src/composables/useWarehouseMap.ts:69-82`), Save bar настроек не участвует — карта не входит в набор `fetchAllSections` (`useSettings.ts:217-237`, девять запросов, карты среди них нет).
 - Пробел контракта: старый раздел (`03-api-contract.md:2819-2826`) описывает поведение верно, но не говорит: (а) что удаление идемпотентно (повтор на пустой карте — тоже успех, `mocks/settings.ts:741-743`); (б) что сам файл при этом никуда не девается — `POST /api/uploads` его уже сохранил, и обязанности удалить бинарник контракт не назначает никому.
@@ -216,7 +216,7 @@
 ### PATCH /api/settings/company
 - Вызывающий: `src/services/settingsService.ts:31`
 - Бэкенд: `backend/app/modules/settings/features/crud/action.py:160`
-- Мок: `mocks/index.ts:1339`
+- Мок: `mocks/index.ts:1341`
 - Форма запроса: по подписи — `Partial<CompanyInfo>` (`settingsService.ts:30`), по факту вызова — **вся секция целиком**: `saveCompany({ ...settings.company })` (`useSettings.ts:348`). Бэкенд принимает `CompanyPatchInput` — шесть необязательных полей с camelCase-алиасами (`crud/schemas.py:28-38`); `None` означает «не менять» (`crud/domain.py:103-106`), то есть **обнулить поле в `null` через этот эндпоинт нельзя**, пустая строка при этом проходит.
 - Форма ответа: `CompanyInfo` целиком после merge (`settingsService.ts:30`; бэкенд — `crud/action.py:168-172`; мок — `mockPatchCompany` возвращает копию секции, `mocks/settings.ts:462-465`).
 - Коды ошибок: `UNAUTHORIZED`/`NOT_FOUND` общие; своих нет. Мок не бросает ничего (`mocks/settings.ts:462-465`). Валидации полей нет ни на одной стороне: ни ИНН/НДС, ни IBAN не проверяются (`crud/domain.py:94-112` — только перекладывание значений).
@@ -227,7 +227,7 @@
 ### PATCH /api/settings/constants
 - Вызывающий: `src/services/settingsService.ts:47`
 - Бэкенд: `backend/app/modules/settings/features/crud/action.py:193`
-- Мок: `mocks/index.ts:1343`
+- Мок: `mocks/index.ts:1345`
 - Форма запроса: по подписи `Partial<GlobalConstants>` (`settingsService.ts:46`), по факту — секция целиком: `saveConstants({ ...settings.constants })` (`useSettings.ts:354`). Бэкенд — `ConstantsPatchInput`, четыре необязательных поля с camelCase-алиасами (`crud/schemas.py:54-62`), `None` = «не менять» (`crud/domain.py:154-157`).
 - Форма ответа: `GlobalConstants` целиком после merge (`settingsService.ts:46`; бэкенд — `crud/action.py:201-205`; мок — `mocks/settings.ts:489-492`).
 - Коды ошибок: общие; своих нет. **Ни одна из четырёх величин не проверяется**: `vatRate` и проценты могут быть отрицательными или больше 100 (`crud/domain.py:147-157` — только перекладывание), `defaultCurrency` не сверяется со списком валют арендатора (в `patch_global_constants` нет ни одного обращения к валютам, `crud/domain.py:140-170`) → находка 9.
@@ -238,9 +238,9 @@
 ### PATCH /api/settings/conversions/:id
 - Вызывающий: `src/services/settingsService.ts:97`
 - Бэкенд: `backend/app/modules/settings/features/crud/action.py:399`
-- Мок: `mocks/index.ts:1364`
+- Мок: `mocks/index.ts:1366`
 - Форма запроса: `Partial<UomConversion>` (`settingsService.ts:96`), собирается пофайловым diff-ом `findUpdated` — только изменившиеся ключи (`useSettings.ts:176-198`, вызов `:438`). Бэкенд — `ConversionPatchInput`: пять необязательных полей (`crud/schemas.py:172-181`); `None` = «не менять», поэтому **сбросить `factor` или `formulaType` в `null` невозможно** (`crud/domain.py:413-416`) — правило, переключённое со `static` на `dynamic`, сохранит старый `factor` → находка 10.
-- Форма ответа: `Promise<void>` (`settingsService.ts:96`), но бэкенд отдаёт полный `ConversionResponse` (`crud/action.py:406-410`), а мок — `undefined` (`mocks/index.ts:1370`). Клиент ответ не читает.
+- Форма ответа: `Promise<void>` (`settingsService.ts:96`), но бэкенд отдаёт полный `ConversionResponse` (`crud/action.py:406-410`), а мок — `undefined` (`mocks/index.ts:1371`). Клиент ответ не читает.
 - Коды ошибок: бэкенд — `NOT_FOUND` из `update_conversion_item` (`crud/domain.py:404`, `:408`), но **обработчика в роуте нет** (`crud/action.py:399-410`), как и у DELETE конверсий (находка 4). Мок — `CONVERSION_NOT_FOUND` (`mocks/settings.ts:601`). Проверки `fromUomId != toUomId` и дубля пары на PATCH **нет**, хотя на POST она есть (`crud/domain.py:359-366`) → находка 11.
 - Save-режим: clean-slate. Инлайновая правка `factor` в таблице (`src/views/admin/settings/UnitsSettings.vue:43`) идёт в стор через `updateConversion` (`useSettings.ts:590-595`), запрос уходит по Save (`useSettings.ts:460-462`).
 - Пробел контракта: старый раздел (`03-api-contract.md:2476-2487`) перечисляет только `factor`/`type`/`formulaType`, тогда как схема принимает ещё и `fromUomId`/`toUomId` (`crud/schemas.py:175-176`), то есть правило можно перевесить на другую пару единиц без всякой проверки (находка 11). Про невозможность обнулить `factor` (находка 10) не сказано ничего.
@@ -249,9 +249,9 @@
 ### PATCH /api/settings/currencies/:id
 - Вызывающий: `src/services/settingsService.ts:61`
 - Бэкенд: `backend/app/modules/settings/features/crud/action.py:252`
-- Мок: `mocks/index.ts:1356`
+- Мок: `mocks/index.ts:1358`
 - Форма запроса: `Partial<Currency>` (`settingsService.ts:60`), дельта от `findUpdated` (`useSettings.ts:379`). Бэкенд — `CurrencyPatchInput`: `code`, `name`, `exchangeRate`, `isDefault`, все необязательные (`crud/schemas.py:91-99`). Токена роут **не требует** (`crud/action.py:252-257`, находка 3).
-- Форма ответа: `Promise<void>` (`settingsService.ts:60`); бэкенд отдаёт полный `CurrencyResponse` (`crud/action.py:259-263`), мок — `undefined` (`mocks/index.ts:1362`).
+- Форма ответа: `Promise<void>` (`settingsService.ts:60`); бэкенд отдаёт полный `CurrencyResponse` (`crud/action.py:259-263`), мок — `undefined` (`mocks/index.ts:1363`).
 - Коды ошибок: бэкенд — `NOT_FOUND` из `update_currency_item` (`crud/domain.py:226`, `:235`), обработчика в роуте нет (`crud/action.py:252-263`) → тот же класс, что находка 4. Мок — `CURRENCY_NOT_FOUND` (`mocks/settings.ts:511`). Проверки уникальности `code` на PATCH нет (на POST есть — `crud/domain.py:200-202`), при том что в БД стоит `UniqueConstraint("tenant_id","code")` (`models.py:75-77`) → нарушение вылезет как необработанная ошибка драйвера, а не как `CONFLICT` → находка 12.
 - Save-режим: clean-slate. Единственный путь правки — переключение валюты по умолчанию (`src/views/admin/settings/FinanceSettings.vue:102` → `SettingsLayout.vue:430-446`), которое ставит `isDefault` **всем** валютам локально (`SettingsLayout.vue:439-441`) и потому порождает столько PATCH, сколько валют изменилось (`useSettings.ts:403-405`).
 - Пробел контракта: старый раздел (`03-api-contract.md:2356-2367`) описывает тело как `{ exchangeRate?, isDefault? }` и говорит, что «другие автоматически сбрасываются на клиенте». Именно так и происходит — и это единственное место, где хранится инвариант «валюта по умолчанию ровно одна»: сервер его не держит (`crud/domain.py:221-254` — ни одного обращения к другим валютам) → находка 13.
@@ -260,7 +260,7 @@
 ### PATCH /api/settings/mail
 - Вызывающий: `src/services/settingsService.ts:170`
 - Бэкенд: **нет**
-- Мок: `mocks/index.ts:1351`
+- Мок: `mocks/index.ts:1353`
 - Форма запроса: `MailServerPayload` — `Partial<Omit<MailServerSettings,'passwordSet'>> & { password?: string }` (`src/types/settings.ts:179-182`). По факту клиент шлёт секцию целиком плюс пароль, если его ввели: `const { passwordSet: _passwordSet, ...editable } = settings.mail` и `payload.password = mailPassword.value` только при непустом значении (`useSettings.ts:363-374`).
 - Форма ответа: `MailServerSettings` целиком после merge, снова без пароля (`settingsService.ts:169`; мок — `mockPatchMail` возвращает `mockGetMail()`, `mocks/settings.ts:679-684`). Ответ кладётся прямо в стор (`useSettings.ts:368-370`).
 - Коды ошибок: ни одного — в `mockPatchMail` (`mocks/settings.ts:717`) нет `throw`. Валидации `host`/`fromEmail`/`port` нет ни на одной стороне.
@@ -271,9 +271,9 @@
 ### PATCH /api/settings/order-statuses/:id
 - Вызывающий: `src/services/settingsService.ts:124`
 - Бэкенд: `backend/app/modules/settings/features/crud/action.py:468`
-- Мок: `mocks/index.ts:1378`
+- Мок: `mocks/index.ts:1380`
 - Форма запроса: `Partial<OrderStatusSetting>` (`settingsService.ts:120-123`), дельта от `findUpdated` (`useSettings.ts:469`). Бэкенд — `OrderStatusPatchInput`: `name`, `color`, `order`, `reserveOnTransition`, `writeOffOnTransition` (`crud/schemas.py:212-221`); поля `system` в схеме нет, то есть системность через PATCH не меняется. Токена роут не требует (`crud/action.py:468-473`, находка 3).
-- Форма ответа: `Promise<void>` (`settingsService.ts:120`); бэкенд отдаёт полный `OrderStatusResponse` (`crud/action.py:475-479`), мок — `undefined` (`mocks/index.ts:1384`).
+- Форма ответа: `Promise<void>` (`settingsService.ts:120`); бэкенд отдаёт полный `OrderStatusResponse` (`crud/action.py:475-479`), мок — `undefined` (`mocks/index.ts:1385`).
 - Коды ошибок: бэкенд — `NOT_FOUND` из `update_order_status_item` (`crud/domain.py:490`, `:494`), обработчика в роуте нет (`crud/action.py:468-479`) → класс находки 4. Мок — `ORDER_STATUS_NOT_FOUND` (`mocks/settings.ts:635`). Формат цвета не проверяет никто: колонка `String(7)` (`models.py:142`), но проверки `#RRGGBB` нет ни в `crud/domain.py:496-497`, ни в моке.
 - Save-режим: clean-slate. Правки цвета и флагов идут в стор через `updateOrderStatus` (`useSettings.ts:608-613`; вызовы — `SettingsLayout.vue:455` и `src/views/admin/settings/OrderStatusesSettings.vue:15`), запрос по Save (`useSettings.ts:506-508`).
 - Пробел контракта: старый раздел (`03-api-contract.md:2546-2559`) говорит «`order` изменяется через reorder» — но схема PATCH `order` **принимает** (`crud/schemas.py:217`), а `findUpdated` положит его в дельту, если он изменился (`useSettings.ts:187-192`), так что тот же порядок правится двумя путями сразу. Не сказано и что `system` иммутабельно потому, что поля просто нет в схеме, а не потому, что сервер его отвергает.
@@ -282,7 +282,7 @@
 ### PATCH /api/settings/profile
 - Вызывающий: `src/services/settingsService.ts:189`
 - Бэкенд: `backend/app/modules/settings/features/profile/action.py:98`
-- Мок: `mocks/index.ts:1347`
+- Мок: `mocks/index.ts:1348`
 - Форма запроса: по подписи `Partial<UserProfile>` (`settingsService.ts:188`), по факту — весь профиль: `saveProfile({ ...settings.profile })` (`useSettings.ts:514`), то есть вместе с `role` и `secretLink`. Бэкенд принимает только четыре поля — `firstName`, `lastName`, `email`, `phone` (`profile/schemas.py:27-35`), лишние молча игнорирует (модель без `extra`). **Мок же принимает всё** — `Object.assign(settingsStore.profile, patch)` (`mocks/settings.ts:718-721`), включая `role` → расхождение мок↔бэкенд, находка 14.
 - Форма ответа: `UserProfile` целиком после merge (`settingsService.ts:188`; бэкенд — `profile/action.py:111-114`, снова с пересозданием `secretLink` при его отсутствии, `profile/domain.py:99`; мок — `mocks/settings.ts:718-721`).
 - Коды ошибок: `UNAUTHORIZED` (`profile/action.py:51,58,70`), `NOT_FOUND` (404, `:115-119`), `CONFLICT` (409, `:120-124`, источник `profile/domain.py:86` — почта уже занята). Мок не бросает ничего. Формат почты и телефона не проверяется ни на одной стороне (`profile/domain.py:82-89` — только проверка занятости).
@@ -293,9 +293,9 @@
 ### PATCH /api/settings/uoms/:id
 - Вызывающий: `src/services/settingsService.ts:79`
 - Бэкенд: `backend/app/modules/settings/features/crud/action.py:320`
-- Мок: `mocks/index.ts:1372`
+- Мок: `mocks/index.ts:1374`
 - Форма запроса: `Partial<Uom>` (`settingsService.ts:78`). Бэкенд — `UomPatchInput`: `code`, `name`, `category`, все необязательные (`crud/schemas.py:135-142`). Токена роут не требует (`crud/action.py:320-325`, находка 3).
-- Форма ответа: `Promise<void>` (`settingsService.ts:78`); бэкенд — полный `UomResponse` (`crud/action.py:327-331`); мок — `undefined` (`mocks/index.ts:1378` — ветка на `:1374-1377`).
+- Форма ответа: `Promise<void>` (`settingsService.ts:78`); бэкенд — полный `UomResponse` (`crud/action.py:327-331`); мок — `undefined` (`mocks/index.ts:1379` — ветка на `:1374-1377`).
 - Коды ошибок: бэкенд — `NOT_FOUND` из `update_uom_item` (`crud/domain.py:308`, `:308`), обработчика в роуте нет (`crud/action.py:320-331`) → класс находки 4. Мок — `UOM_NOT_FOUND` (`mocks/settings.ts:538`). Значение `category` не проверяется по списку ни на одной стороне (`crud/domain.py:303-304`; колонка `String(20)`, `models.py:93-95`).
 - Save-режим: **вызывающего нет.** `useSettings.save()` для UOM считает только добавленные и удалённые (`useSettings.ts:410-433`) — ветки `findUpdated` у `uoms`, в отличие от валют, конверсий и статусов, там нет, и мутатора `updateUom` композабл не экспортирует (`useSettings.ts:674-704` — в возвращаемом объекте его нет). То есть клиент написан, UI нет → находка 15.
 - Пробел контракта: старый раздел (`03-api-contract.md:2420-2432`) честно помечает это «будущий UI — inline rename», но говорит «`category` менять можно (с осторожностью)» — правила, ограничивающего эту осторожность, нет нигде: смена категории у единицы, на которую ссылаются правила пересчёта и товары, ничем не проверяется.
@@ -304,18 +304,18 @@
 ### POST /api/settings/change-password
 - Вызывающий: `src/services/settingsService.ts:197`
 - Бэкенд: `backend/app/modules/settings/features/profile/action.py:127`
-- Мок: `mocks/index.ts:1134`
+- Мок: `mocks/index.ts:1132`
 - Форма запроса: `{ currentPassword, newPassword, confirmPassword }`, все три обязательны (`settingsService.ts:192-196`); бэкенд — `ChangePasswordInput` с теми же тремя camelCase-алиасами (`profile/schemas.py:38-45`).
-- Форма ответа: `Promise<void>` (`settingsService.ts:196`); бэкенд — `ApiResponse(success=True, message="Password changed")`, данных нет (`profile/action.py:140`); мок — `delay(undefined as T)`, **no-op** (`mocks/index.ts:1134`): пароля мок не хранит и ничего не проверяет.
+- Форма ответа: `Promise<void>` (`settingsService.ts:196`); бэкенд — `ApiResponse(success=True, message="Password changed")`, данных нет (`profile/action.py:140`); мок — `delay(undefined as T)`, **no-op** (`mocks/index.ts:1132`): пароля мок не хранит и ничего не проверяет.
 - Коды ошибок: бэкенд — `UNAUTHORIZED`, `NOT_FOUND` (404, `profile/action.py:141-145`) и `VALIDATION_ERROR` (422, `:146-150`) на три разных случая: неверный текущий пароль (`profile/domain.py:127`), короткий новый (`:131-133`), несовпадение подтверждения (`:137`). Все три идут **одним кодом** — различает их только текст сообщения. Обещанного старым контрактом `INVALID_PASSWORD` нет нигде (`grep -rn INVALID_PASSWORD backend/app frontend_vue/src` → пусто). Клиент показывает `e.message` как есть (`src/views/admin/settings/ProfileSettings.vue:66`).
 - Save-режим: quick-action. Отдельная форма и отдельная кнопка, Save bar настроек не участвует (`ProfileSettings.vue:39-70`); клиент повторяет обе проверки локально до отправки (`:45-52`).
-- Пробел контракта: старый раздел (`03-api-contract.md:2616-2634`) обещает `INVALID_PASSWORD` (кода нет) и «Rate-limit: 3 попытки/min/IP» — ограничение объявлено настройкой `password_change_rate_limit_per_min` (`backend/app/core/config.py:32`) и **не используется ни в одной строке кода** (`grep -rn password_change_rate_limit_per_min backend/app` даёт единственное попадание — само объявление) → находка 16. Не сказано и что мок этот эндпоинт не реализует вовсе: под моками смена пароля всегда «успешна» (`mocks/index.ts:1134`).
+- Пробел контракта: старый раздел (`03-api-contract.md:2616-2634`) обещает `INVALID_PASSWORD` (кода нет) и «Rate-limit: 3 попытки/min/IP» — ограничение объявлено настройкой `password_change_rate_limit_per_min` (`backend/app/core/config.py:32`) и **не используется ни в одной строке кода** (`grep -rn password_change_rate_limit_per_min backend/app` даёт единственное попадание — само объявление) → находка 16. Не сказано и что мок этот эндпоинт не реализует вовсе: под моками смена пароля всегда «успешна» (`mocks/index.ts:1132`).
 - Источник истины: бэкенд.
 
 ### POST /api/settings/conversions
 - Вызывающий: `src/services/settingsService.ts:93`
 - Бэкенд: `backend/app/modules/settings/features/crud/action.py:373`
-- Мок: `mocks/index.ts:1130`
+- Мок: `mocks/index.ts:1128`
 - Форма запроса: `Omit<UomConversion,'id'>` (`settingsService.ts:92`); фактически клиент шлёт либо `{fromUomId, toUomId, type:'static', factor}`, либо `{fromUomId, toUomId, type:'dynamic', formulaType}` (`src/views/admin/settings/SettingsLayout.vue:380-394`). Бэкенд — `ConversionCreateInput`: `fromUomId`, `toUomId`, `type` обязательны; `factor` и `formulaType` — нет (`crud/schemas.py:160-169`), то есть **правило без коэффициента и без формулы сервер примет** (в `create_conversion_item` таких проверок нет, `crud/domain.py:366-396`) → находка 17.
 - Форма ответа: `UomConversion` с серверным `id` (`settingsService.ts:92`; бэкенд — `crud/action.py:382-386`; мок — `mockCreateConversion` с id вида `conv-{N}`, `mocks/settings.ts:569-576`). Клиент подменяет временный локальный id ответом, находя строку по паре `fromUomId+toUomId` (`useSettings.ts:445-454`).
 - Коды ошибок: бэкенд — `VALIDATION_ERROR` (422, `crud/action.py:387-391`, источник `crud/domain.py:361` — «одна и та же единица с обеих сторон») и `CONFLICT` (409, `:392-396`, источник `crud/domain.py:366` — пара уже описана). Мок **не бросает ни того, ни другого** (`mocks/settings.ts:569-576` — ни одного `throw`), то есть под моками дубль пары создаётся молча → расхождение мок↔бэкенд.
@@ -326,7 +326,7 @@
 ### POST /api/settings/currencies
 - Вызывающий: `src/services/settingsService.ts:57`
 - Бэкенд: `backend/app/modules/settings/features/crud/action.py:226`
-- Мок: `mocks/index.ts:1126`
+- Мок: `mocks/index.ts:1124`
 - Форма запроса: по подписи `Omit<Currency,'id'>` — `{ code, name, isDefault, updatedAt? }` (`settingsService.ts:56` + `src/types/settings.ts:22-28`); фактически форма шлёт три поля: `code` (в верхнем регистре), `name` во всех трёх локалях и `isDefault: false` (`SettingsLayout.vue:355-359`). Бэкенд требует **четыре**, и `exchangeRate` среди них обязателен — у поля нет значения по умолчанию (`crud/schemas.py:80-88`, `:85`) → клиент физически не может создать валюту против настоящего сервера, ответ будет 422 Pydantic → находка 18.
 - Форма ответа: `Currency` с серверным `id` (`settingsService.ts:56`; бэкенд — `crud/action.py:236-239`, включая `exchangeRate`; мок — `cur-{N}`, `mocks/settings.ts:500-507`). Клиент подменяет временный id, находя строку по `code` (`useSettings.ts:387-396`).
 - Коды ошибок: бэкенд — `VALIDATION_ERROR` (422, `crud/action.py:240-244`, источник `crud/domain.py:197` — пустой код) и `CONFLICT` (409, `:245-249`, источник `crud/domain.py:202` — код занят у арендатора; в БД тот же запрет как `UniqueConstraint`, `models.py:75-77`). Мок не бросает ничего (`mocks/settings.ts:500-507`). Клиент дублей тоже не ловит: `isCurrencyFormValid` проверяет только непустоту (`SettingsLayout.vue:354`).
@@ -337,7 +337,7 @@
 ### POST /api/settings/mail/test
 - Вызывающий: `src/services/settingsService.ts:179`
 - Бэкенд: **нет**
-- Мок: `mocks/index.ts:1135`
+- Мок: `mocks/index.ts:1133`
 - Форма запроса: пустой объект — `apiPost('/api/settings/mail/test', {}, { headers: authHeaders() })` (`settingsService.ts:179`). Параметры не передаются намеренно: проверяются те, что уже на сервере (комментарий `settingsService.ts:173-177`).
 - Форма ответа: `{ deliveredTo: string }` — адрес, на который ушло письмо (`settingsService.ts:178`); мок отдаёт `mailStore.fromEmail` (`mocks/settings.ts:702-705`), доказано спекой `mocks/mail-settings.spec.ts:73-75`.
 - Коды ошибок: один — `MAIL_NOT_CONFIGURED` (`mocks/settings.ts:703`), условие берётся из общего для проекта `isMailConfigured` (`src/types/settings.ts:167-171`, вызов `mocks/settings.ts:693-695`). Это единственный код домена, который **доходит до человека отдельным сообщением** (`src/views/admin/settings/MailSettings.vue:79-84`), — но читается он из `e.message` (`:79`), а у настоящего `ApiRequestError` код лежит в поле `code`, а `message` — человеческий текст (`src/types/api.ts`, заполнение `src/services/api.ts:118-124`) → против сервера ветка не сработает, находка 19. Тот же код бросает и BCC-инструмент (`mocks/bcc.ts:317`), то есть код кросс-доменный.
@@ -348,7 +348,7 @@
 ### POST /api/settings/order-statuses
 - Вызывающий: `src/services/settingsService.ts:115`
 - Бэкенд: `backend/app/modules/settings/features/crud/action.py:441`
-- Мок: `mocks/index.ts:1132`
+- Мок: `mocks/index.ts:1130`
 - Форма запроса: `Omit<OrderStatusSetting,'id'>` (`settingsService.ts:112-114`); форма шлёт `name` во всех трёх локалях, `color`, `order` (равный текущей длине списка) и два флага (`SettingsLayout.vue:413-419`). Бэкенд — `OrderStatusCreateInput`: `name`, `color`, `order` обязательны, флаги по умолчанию `False` (`crud/schemas.py:200-209`); поля `system` в схеме нет, сервер жёстко ставит `is_system=False` (`crud/domain.py:469`).
 - Форма ответа: `OrderStatusSetting` с серверным `id` (`settingsService.ts:112-118`; бэкенд — `crud/action.py:450-453`; мок — `st-{N}`, `mocks/settings.ts:617-625`). **Мок переписывает присланный `order`** на индекс в конце списка (`mocks/settings.ts:623`), бэкенд — сохраняет присланный (`crud/domain.py:455`) → расхождение мок↔бэкенд по одному полю.
 - Коды ошибок: ни одного специфичного — ни `create_order_status_item` (`crud/domain.py:449-469`), ни мок (`mocks/settings.ts:617-625`) не бросают. Уникальность имени, формат цвета и коллизия `order` не проверяются нигде.
@@ -359,7 +359,7 @@
 ### POST /api/settings/uoms
 - Вызывающий: `src/services/settingsService.ts:75`
 - Бэкенд: `backend/app/modules/settings/features/crud/action.py:305`
-- Мок: `mocks/index.ts:1128`
+- Мок: `mocks/index.ts:1126`
 - Форма запроса: `Omit<Uom,'id'>` — `{ code: TranslatedString, name: TranslatedString, category }` (`settingsService.ts:74`); форма кладёт одну и ту же строку во все три локали (`SettingsLayout.vue:367-371`). Бэкенд — `UomCreateInput`, все три поля обязательны (`crud/schemas.py:125-132`).
 - Форма ответа: `Uom` с серверным `id` (`settingsService.ts:74`; бэкенд — `crud/action.py:314-317`; мок — `uom-{N}`, `mocks/settings.ts:527-534`). Клиент подменяет временный id, находя строку по паре `category` + **объект** `code` (`useSettings.ts:419-421`) — сравнение `u.code === item.code` работает только потому, что это один и тот же объект в памяти; после ответа сервера такая же строка уже не нашлась бы.
 - Коды ошибок: ни одного — ни `create_uom_item` (`crud/domain.py:276-290`), ни мок (`mocks/settings.ts:527-534`) не бросают. Уникальность кода на сервере не проверяется (в отличие от валют), хотя функция поиска по коду в репозитории есть (`crud/repository.py:153-168`) и используется только межмодульным API (`internal_api/interface.py:59-64`). Дубль ловит **только форма**: `isUomCodeDuplicate` (`SettingsLayout.vue:365`, вычислимое — `:190`).
@@ -372,7 +372,7 @@
 - Бэкенд: `backend/app/modules/settings/features/crud/action.py:456`
 - Мок: `mocks/index.ts:1147`
 - Форма запроса: `{ orderedIds: string[] }` — полный упорядоченный список (`settingsService.ts:127-133`); бэкенд — `OrderStatusReorderInput` с алиасом `orderedIds` (`crud/schemas.py:224-229`).
-- Форма ответа: `Promise<void>` (`settingsService.ts:127`); бэкенд — `ApiResponse(success=True, message="Statuses reordered")` (`crud/action.py:465`); мок — `undefined` (`mocks/index.ts:1150`).
+- Форма ответа: `Promise<void>` (`settingsService.ts:127`); бэкенд — `ApiResponse(success=True, message="Statuses reordered")` (`crud/action.py:465`); мок — `undefined` (`mocks/index.ts:1151`).
 - Коды ошибок: ни одного. Бэкенд перебирает id и пишет `sort_order=idx` по паре `(id, tenant_id)` (`crud/repository.py:294-306`); **несуществующий или чужой id молча не даёт эффекта** — `update` без совпадения строк не ошибка. Неполный список тоже не ошибка: статусы, которых в нём нет, сохранят прежний `sort_order` и могут столкнуться с новыми. Мок ведёт себя иначе: недостающие статусы он дописывает в конец и перенумеровывает все (`mocks/settings.ts:639-655`) → расхождение мок↔бэкенд по полноте списка.
 - Save-режим: clean-slate. Перестановка drag-and-drop правит стор (`SettingsLayout.vue:464-471` → `useSettings.ts:614-622`), запрос уходит по Save — и только если что-то удалено или порядок действительно изменился (`useSettings.ts:477-486`).
 - Пробел контракта: старый раздел (`03-api-contract.md:2561-2571`) обещает «атомарную перезапись порядка» — на сервере это **цикл из N отдельных `UPDATE`** с одним `commit` в конце (`crud/repository.py:296-306`), то есть атомарность держится на транзакции сессии, но частичный список приводит к неконсистентной нумерации, и контракт этого не оговаривает.
@@ -381,7 +381,7 @@
 ### PUT /api/settings/warehouse-map
 - Вызывающий: `src/services/settingsService.ts:152`
 - Бэкенд: **нет**
-- Мок: `mocks/index.ts:1155`
+- Мок: `mocks/index.ts:1157`
 - Форма запроса: `WarehouseMapFile` целиком — `{ fileId, name, mime, size, url, uploadedAt }` (`settingsService.ts:151`, тип `src/types/settings.ts:111-119`). Клиент собирает его строго из ответа `POST /api/uploads`, ничего не пересобирая (`src/composables/useWarehouseMap.ts:51-58`). Бинарник в теле не ходит никогда (комментарий `settingsService.ts:141-143`).
 - Форма ответа: `WarehouseMapFile` — сохранённая карта (`settingsService.ts:151`; мок — копия записанного, `mocks/settings.ts:733-739`).
 - Коды ошибок: один — `MAP_NOT_AN_IMAGE`, если `mime` не начинается с `image/` (`mocks/settings.ts:736`), доказано спекой `mocks/warehouse-map.spec.ts:73`. Клиент проверяет то же самое до отправки (`useWarehouseMap.ts:45-48`), но код ответа не читает: любая ошибка становится одним тостом `warehouse.map_toast_error_save` (`useWarehouseMap.ts:61-63`).
@@ -399,7 +399,7 @@
 - События и уведомления: **мок не рождает ни одного** — `grep -c "notify" frontend_vue/src/services/mocks/settings.ts` → 0. Семь триггеров уведомлений (`frontend_vue/src/services/mocks/notifications.ts:542,566,592,616,637,657,684`) не касаются настроек ни одним: `grep -in "settings\|currenc\|uom" frontend_vue/src/services/mocks/notifications.ts` даёт только статусы заказов. На бэкенде уведомлений нет вовсе — у модуля `notifications` ноль роутов. Кому и о чём сообщать при смене валюты по умолчанию, ставки НДС или набора статусов заказа — вынесено владельцу.
 - Запись в аудит-лог: **нет нигде.** `grep -c "auditLog" frontend_vue/src/services/mocks/settings.ts` → 0; в перечне сущностей ленты аудита (`roo_code/roo-context/03-api-contract.md:2717-2718` — `product|order|client|supplier|batch|stock|offcut|movement|deficit`) настроек нет. При этом сама страница логов живёт вкладкой **внутри** настроек (`frontend_vue/src/router/index.ts:391-396`), то есть домен показывает чужой аудит и не пишет свой. Вынесено владельцу.
 - Кастомные поля: **у домена их нет и быть не должно** — определения полей владеет `config` (`FieldDefinition`, `/api/config/fields`), значения живут у товаров. В `settings` нет ни одного упоминания: `grep -rn "fieldDefinition\|fieldValues\|customField" frontend_vue/src/types/settings.ts frontend_vue/src/services/mocks/settings.ts backend/app/modules/settings` → пусто. Единственная точка соприкосновения — справочники этого домена (валюты, единицы) как источник значений для полей товара; правило их удаления описано в графе «Транзакционность» и в находках 5 и 7.
-- Настройки, которых мок не отслеживает: три подраздела мок держит, а бэкенд не знает вовсе — **почта** (модели нет: `grep -rn "smtp\|MailServer" backend/app/modules/settings` → пусто; серверный тип формы лежит в чужом модуле и не конструируется — `backend/app/modules/bcc/features/send_request/domain.py:42-55`), **карта склада** (`grep -c warehouse_map backend/app/modules/settings/shared/models.py` → 0) и **матрица прав заказа** (шесть классов моделей — `models.py:12,32,61,86,104,136` — прав среди них нет). Обратно: мок **не отслеживает пароль смены** — `POST /api/settings/change-password` в нём no-op (`frontend_vue/src/services/mocks/index.ts:1134`), и путь ошибки под моками не воспроизводится. Мок также не хранит `exchangeRate` у валюты, который есть у сервера (`backend/app/modules/settings/features/crud/schemas.py:73`). И отдельно: `AppSettings.users` (`frontend_vue/src/types/settings.ts:245`) с сидом на шесть человек (`mocks/settings.ts:189-208`) **не заполняется ни одним эндпоинтом** — в `fetchAllSections` его нет (`useSettings.ts:217-237`), список пользователей ниоткуда не приходит.
+- Настройки, которых мок не отслеживает: три подраздела мок держит, а бэкенд не знает вовсе — **почта** (модели нет: `grep -rn "smtp\|MailServer" backend/app/modules/settings` → пусто; серверный тип формы лежит в чужом модуле и не конструируется — `backend/app/modules/bcc/features/send_request/domain.py:42-55`), **карта склада** (`grep -c warehouse_map backend/app/modules/settings/shared/models.py` → 0) и **матрица прав заказа** (шесть классов моделей — `models.py:12,32,61,86,104,136` — прав среди них нет). Обратно: мок **не отслеживает пароль смены** — `POST /api/settings/change-password` в нём no-op (`frontend_vue/src/services/mocks/index.ts:1133`), и путь ошибки под моками не воспроизводится. Мок также не хранит `exchangeRate` у валюты, который есть у сервера (`backend/app/modules/settings/features/crud/schemas.py:73`). И отдельно: `AppSettings.users` (`frontend_vue/src/types/settings.ts:245`) с сидом на шесть человек (`mocks/settings.ts:189-208`) **не заполняется ни одним эндпоинтом** — в `fetchAllSections` его нет (`useSettings.ts:217-237`), список пользователей ниоткуда не приходит.
 - Мультиарендность: `tenant_id` есть у всех шести моделей домена (`backend/app/modules/settings/shared/models.py:17`, `:37`, `:63`, `:85`, `:103`, `:135`), у синглтонов — с `unique=True` (`:21`, `:41`). Выборка списков ограничена арендатором (`crud/repository.py:89`, `:143`, `:200`, `:256`). **Но восемь операций над отдельными записями арендатором не ограничены вовсе**: `get_currency`, `get_uom`, `get_conversion`, `get_order_status` ищут по одному только `id` (`crud/repository.py:94-98`, `:148-150`, `:205-209`, `:262-266`), и роуты PATCH/DELETE этих коллекций не требуют даже токена (`crud/action.py:252,266,320,334,399,413,468,482`) — см. находку 3. Исключение — `reorder`, он пишет по паре `(id, tenant_id)` (`crud/repository.py:299-302`).
 - Права — в какой функции проверяются: **нигде на сервере.** В модуле нет ни одной проверки роли: `grep -rn "role" backend/app/modules/settings --include=*.py` даёт только чтение и отдачу `user.role` в профиле (`profile/domain.py:61`, `:106`). Во фронте домен закрыт одним фича-флагом на весь раздел — `adminSettings` (`frontend_vue/src/router/index.ts:355`), у вкладки логов свой флаг `settingsAuditLog` (`:395`); прав, различающих роли внутри настроек, нет. Сам домен при этом **владеет** тремя правами чужого домена и отдаёт их `GET /api/settings/order-permissions` (`mocks/settings.ts:64-68`), а применяет их `orders` (`frontend_vue/src/composables/useOrderPermissions.ts:28-30`, «сервер» мока — `mocks/orders.ts:1857`). Кто и каким правом может править сами настройки — вынесено владельцу.
 - Транзакционность и идемпотентность: `Idempotency-Key` не шлётся ни на одном из 31 эндпоинта (`grep -c Idempotency frontend_vue/src/services/settingsService.ts` → 0). Одна кнопка Save порождает **до десятка независимых запросов** — восемь секций плюс по запросу на каждый добавленный/изменённый/удалённый элемент коллекций, — и все они летят одним `Promise.all` (`frontend_vue/src/composables/useSettings.ts:518`): падение любого оставляет остальные применёнными, а `takeSnapshot()` (`:520`) до `catch` (`:521`) не доходит, то есть снимок не сдвигается и следующий Save шлёт всё заново. Смена валюты по умолчанию — это N+1 запрос без общей транзакции (`SettingsLayout.vue:436-446` → PATCH каждой изменившейся валюты + PATCH констант), и инвариант «валюта по умолчанию ровно одна» держит **только клиент** (`SettingsLayout.vue:439-441`), сервер его не проверяет (`crud/domain.py:221-254`). Удаление статуса — два запроса: DELETE плюс reorder (`useSettings.ts:482-486`, `:503-505`). На стороне сервера каждый репозиторный вызов делает свой `commit` (`crud/repository.py:44`, `:51`, `:117`, `:130`, `:136` и далее), то есть в пределах одного запроса транзакция одна, между запросами — ни одной. Что обязано быть атомарным — вынесено владельцу.

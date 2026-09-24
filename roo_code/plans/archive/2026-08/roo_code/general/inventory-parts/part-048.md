@@ -121,7 +121,7 @@ $ grep -n "export async function patchOffcut" -A2 src/services/warehouseService.
 $ grep -n "mockPatchOffcut" src/services/mocks/warehouse.ts src/services/mocks/index.ts
 warehouse.ts:881:export async function mockPatchOffcut(
 index.ts:20:  mockPatchOffcut,
-index.ts:1308:      mockPatchOffcut(
+index.ts:1310:      mockPatchOffcut(
 $ grep -n "offcutPatchMatch" src/services/mocks/index.ts
 1305:  const offcutPatchMatch = path.match(/^\/api\/warehouse\/offcuts\/([^/]+)$/)
 $ grep -n "patchOffcut as patchOffcutApi|OffcutStatus" src/composables/useWarehouse.ts
@@ -139,7 +139,7 @@ $ grep -n "patchOffcut as patchOffcutApi|OffcutStatus" src/composables/useWareho
 2. `patchOffcut` в warehouseService — **сделано** (:148).
 3. `mockPatchOffcut` в mocks/warehouse — **сделано** (:881, через `Object.assign`, не по полям).
 4. импорт `mockPatchOffcut` в mocks/index — **сделано** (:20).
-5. PATCH-роут `/api/warehouse/offcuts/:id` — **сделано** (index.ts:1305-1311).
+5. PATCH-роут `/api/warehouse/offcuts/:id` — **сделано** (index.ts:1307-1313).
 6. `patchOffcutApi` импортирован в useWarehouse — **сделано** (:13).
 7. `updateOffcutStatus` зовёт `patchOffcutApi` — **сделано** (:352).
 8. `OffcutStatus` импортирован в useWarehouse — **сделано** (:29).

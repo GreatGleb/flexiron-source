@@ -176,13 +176,13 @@ function nextRequestId(): string {          // :264-275
 
 ---
 
-## БАГ-03 — `response` и `no-response` создают строки без `Idempotency-Key`
+## ✅ БАГ-03 — `response` и `no-response` создавали строки без `Idempotency-Key` — ПОЧИНЕНО
 
-**File:** `frontend_vue/src/services/bccService.ts:73,77`
-**Severity:** Medium — двойной клик по «принять ответ» или по крестику создаёт две записи события; отменить их нечем, `DELETE` в домене нет.
+**File:** `frontend_vue/src/services/bccService.ts` (`acceptBccResponse`, `markBccNoResponse`)
+**Severity:** Было Medium — двойной клик по «принять ответ» или по крестику создавал две записи события; отменить их нечем, `DELETE` в домене нет.
 **Источник:** К6 (транзакционность и идемпотентность)
 
-### Problem
+### Problem (до починки)
 
 Два вызова домена ключ шлют, два — нет, при том что записи создают все четыре:
 
@@ -202,6 +202,23 @@ apiPost<BccRequest>(`/api/bcc/events/${eventId}/no-response`, {})               
 ### Expected
 
 Ключ идемпотентности шлют все четыре мутации домена.
+
+### Сделано 2026-09-24
+
+`acceptBccResponse` и `markBccNoResponse` шлют `Idempotency-Key` через тот же
+`newIdempotencyKey()`, что и `sendBccRequest`/`logBccRequest`
+(`frontend_vue/src/services/bccService.ts`). Обе ветки `/response` и `/no-response` в
+`frontend_vue/src/services/mocks/index.ts` обёрнуты в `withIdempotency`, как ветки `send`/`log`.
+
+**Проверено:**
+
+| Проверка | Результат |
+|---|---|
+| `cd frontend_vue && npm run verify` | typecheck · lint · dupes · format · unit — exit 0 |
+| новая проба `mocks/idempotency-scope.spec.ts` — повтор `response`/`no-response` с тем же ключом не добавляет вторую строку в ленту | зелёная (обе операции) |
+| новая проба — `acceptBccResponse`/`markBccNoResponse` доходят до мока с непустым `Idempotency-Key` | зелёная |
+| инверсия: `withIdempotency` снят с веток `/response`/`/no-response` в моке | пробы выше краснеют (длина ленты растёт на 2 вместо 1) |
+| инверсия: заголовок убран из клиентских функций | проба на доставку заголовка краснеет тем же способом, проба уровня мока остаётся зелёной |
 
 ---
 
@@ -403,24 +420,27 @@ settings (аудит settings, находка 19), и против настоя�
 
 ---
 
-## БАГ-09 — пять вызовов из семи идут без единого заголовка
+## БАГ-09 — `Authorization` не несёт ни один из семи вызовов
 
-**File:** `frontend_vue/src/services/bccService.ts:7,11,21,73,77`
+**File:** `frontend_vue/src/services/bccService.ts` — все семь вызовов
 **Severity:** High — обе таблицы домена требуют `tenant_id`, у события есть ещё и автор, а сервер не получит ни того, ни другого.
 **Источник:** К6 (мультиарендность), К4 (формы запроса)
 
 ### Problem
 
-Заголовки в домене шлют только два вызова, и только `Idempotency-Key` (`:43`, `:64`).
-Остальные пять вызываются без третьего аргумента:
+Обновлено 2026-09-24: половина находки закрыта задачей об идемпотентности. Заголовки
+теперь шлют **четыре** мутирующих вызова — `sendBccRequest`, `logBccRequest`,
+`acceptBccResponse`, `markBccNoResponse`, — но только `Idempotency-Key`. Без третьего
+аргумента вовсе остаются три чтения:
 
 ```ts
-apiGet<BccCategory[]>('/api/bcc/categories')                                   // :7
-apiGet<BccRecipient[]>('/api/bcc/recipients', { products: … })                 // :11
-apiGet<PaginatedResponse<BccRequest>>('/api/bcc/history', params)              // :21
-apiPost<BccRequest>(`/api/bcc/events/${eventId}/response`, payload)            // :73
-apiPost<BccRequest>(`/api/bcc/events/${eventId}/no-response`, {})              // :77
+apiGet<BccCategory[]>('/api/bcc/categories')                                   // getBccCategories
+apiGet<BccRecipient[]>('/api/bcc/recipients', { products: … })                 // getBccRecipients
+apiGet<PaginatedResponse<BccRequest>>('/api/bcc/history', params)              // getBccHistory
 ```
+
+`Authorization` при этом не несёт **ни один из семи**: у мутирующих в `options.headers`
+лежит только идемпотентность. Именно это и осталось незакрытым.
 
 `options?.headers` — единственный источник заголовков у `apiGet` и `apiPost`
 (`frontend_vue/src/services/api.ts:144-158`, `:163-175`).

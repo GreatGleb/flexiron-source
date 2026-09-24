@@ -209,7 +209,7 @@ export function mockSavePermissions(_matrix: PermissionMatrix): void {
 ```
 
 Парные `mockSaveFieldLibrary` (`:240-248`) и `mockSaveSections` (`:254-259`) в стор пишут, а этот —
-нет. Ветка PUT при этом отвечает успехом (`mocks/index.ts:1166-1169`), клиент верит своему
+нет. Ветка PUT при этом отвечает успехом (`mocks/index.ts:1168-1171`), клиент верит своему
 локальному состоянию и `load()` после Save не делает
 (`frontend_vue/src/composables/useCardConfig.ts:45-61`) — поэтому на экране всё выглядит
 сохранённым до первой перезагрузки. E2E этого тоже не ловит: в
@@ -274,7 +274,7 @@ const field = MOCK_FIELD_LIBRARY.find((f) => f.id === id)
 if (!field) return null
 ```
 
-Ветка мока отдаёт это как успешный ответ (`mocks/index.ts:1229-1236`, `:1220-1227`), а подписи
+Ветка мока отдаёт это как успешный ответ (`mocks/index.ts:1231-1238`, `:1220-1227`), а подписи
 клиента обещают сущность: `Promise<FieldDefinition>` (`frontend_vue/src/services/configService.ts:32`)
 и `Promise<SectionConfig>` (`:62`). Старый контракт для секции обещает `404 NOT_FOUND`
 (`roo_code/roo-context/03-api-contract.md:674`), но такого кода в домене нет:

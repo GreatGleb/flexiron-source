@@ -35,7 +35,7 @@ $ grep -n "export function mock" frontend_vue/src/services/mocks/clients.ts
   `throw new Error('CONFLICT: client has orders')`.
 - **БАГ-12 (мёртвый роут audit delete) — СДЕЛАНО.** `mockDeleteClientAuditEntry`
   существует (clients.ts:1009), экспортирован (`mocks/index.ts:92`) и вызывается роутером
-  (`mocks/index.ts:1502`); есть спека `src/services/mocks/audit-entry-identity.spec.ts:65`.
+  (`mocks/index.ts:1504`); есть спека `src/services/mocks/audit-entry-identity.spec.ts:65`.
 - **БАГ-9 (`orderHistory` в типе Client и моках) — НЕ сделан буквально и сделан по смыслу.**
   `grep -rn "orderHistory" src/` даёт только три комментария, объясняющих, что засеянный
   `orderHistory` был выдуманным и удалён осознанно (clients.ts:1000,

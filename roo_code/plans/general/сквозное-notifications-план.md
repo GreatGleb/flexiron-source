@@ -213,7 +213,7 @@
 
 Владение событием назначено по тому, где в коде лежит переход:
 `frontend_vue/src/services/mocks/orders.ts:4266` (создание счёта),
-`frontend_vue/src/services/ordersService.ts:318-319` (возвраты),
+`frontend_vue/src/services/ordersService.ts:328-329` (возвраты),
 `frontend_vue/src/domain/orderStatus.ts:20` (`shipped` — значение статуса заказа),
 `frontend_vue/src/services/mocks/suppliers.ts:451` (смена статуса поставщика),
 `frontend_vue/src/types/supplier.ts:10` (`blocked`),

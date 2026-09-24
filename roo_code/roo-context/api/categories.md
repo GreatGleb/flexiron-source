@@ -295,7 +295,7 @@ Partial<{ name: TranslatedString; parentId: string | null; description: Translat
 
 Бэкенд: **не реализован**. `linkedSuppliers` этот запрос принимает, а таблицы под связь на схеме
 нет (осталось, строка 9).
-Реализация: `services/categoriesService.ts:patchCategory` · мок `mocks/index.ts:1200` →
+Реализация: `services/categoriesService.ts:patchCategory` · мок `mocks/index.ts:1202` →
 `mocks/categories.ts:mockPatchCategory`
 
 ---
@@ -309,7 +309,7 @@ Partial<{ name: TranslatedString; parentId: string | null; description: Translat
 Запрос: тела нет (`services/categoriesService.ts:57`), заголовков клиент не ставит
 (`services/api.ts:211`; общий класс — §5 соглашений). Ответ: на проводе `ApiResponse<null>` —
 подпись клиента `Promise<void>` (`services/categoriesService.ts:56`), мок отдаёт `undefined`
-(`mocks/index.ts:1492`), конверт снимает `unwrap` (`services/api.ts:128-139`).
+(`mocks/index.ts:1494`), конверт снимает `unwrap` (`services/api.ts:128-139`).
 
 Ошибки — три кода каталога выше. Оба запрета уже выражены схемой: `categories.parent_id`
 (`backend/alembic/versions/25245d4bf874_phase_3_categories_products.py:32`) и
@@ -330,7 +330,7 @@ Partial<{ name: TranslatedString; parentId: string | null; description: Translat
 (осталось, строка 7).
 
 Бэкенд: **не реализован**.
-Реализация: `services/categoriesService.ts:deleteCategory` · мок `mocks/index.ts:1488` →
+Реализация: `services/categoriesService.ts:deleteCategory` · мок `mocks/index.ts:1490` →
 `mocks/categories.ts:mockDeleteCategory`
 
 ---
@@ -394,7 +394,7 @@ Partial<{ name: TranslatedString; parentId: string | null; description: Translat
 (`backend/app/modules/products/shared/models.py:59-62`), и её колонки расходятся с типом фронта:
 `field_type` против `type`, `sort_order` против `order` (`models.py:77-85`), `name` —
 `String(255)` (`:76`).
-Реализация: `services/categoriesService.ts:putCategoryFields` · мок `mocks/index.ts:1171` →
+Реализация: `services/categoriesService.ts:putCategoryFields` · мок `mocks/index.ts:1173` →
 `mocks/categories.ts:mockPutCategoryFields`
 
 ---
@@ -543,7 +543,7 @@ Partial<{ name: TranslatedString; parentId: string | null; description: Translat
 | было описано | чем доказано отсутствие |
 |---|---|
 | код `DUPLICATE_FIELD_NAME` (409, «поле с таким именем уже есть в категории») — `03-api-contract.md:837` | `grep -rn "DUPLICATE_FIELD_NAME" frontend_vue/src backend` — пусто; уникальности имени поля не требует ни мок (`mocks/categories.ts:1487-1514` — ни одного `throw`), ни схема (`backend/app/modules/products/shared/models.py:59-90` — без `UniqueConstraint`) |
-| тело `PUT /api/categories/:id/fields` — массив `CategoryField[]` — `03-api-contract.md:951` | на проводе объект-обёртка `{ fields: [...] }` (`services/categoriesService.ts:65-71`), мок разбирает `const { fields } = body` (`mocks/index.ts:1173`) |
+| тело `PUT /api/categories/:id/fields` — массив `CategoryField[]` — `03-api-contract.md:951` | на проводе объект-обёртка `{ fields: [...] }` (`services/categoriesService.ts:65-71`), мок разбирает `const { fields } = body` (`mocks/index.ts:1175`) |
 | `name`, `description` и `options` как `string` во всех четырёх примерах — `03-api-contract.md:863-865`, `:917-918`, `:955-956` | и тип, и мок дают `TranslatedString` (`types/category.ts:17`, `:19`, `:12`; посев `mocks/categories.ts:12`) |
 | `linkedSuppliers` без поля `currency` — `03-api-contract.md:920-921` | поле есть в типе (`types/product.ts:34`) и заполняется снимком валюты поставщика (`CategoryCardPage.vue:239`) |
 | «Удалённые поля сервер удаляет каскадом» — `03-api-contract.md:960` | каскада нет: мок товары не трогает вовсе, а схема удаление значения запрещает — `product_field_values.field_id` объявлен `ondelete="RESTRICT"` (миграция `25245d4bf874_phase_3_categories_products.py:78`) |

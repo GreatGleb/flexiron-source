@@ -263,7 +263,7 @@ Save и только при непустой дельте (`:147-149`), Discard 
 
 Бэкенд: не реализован — под четыре из пяти полей колонок в `stock_items` нет
 (`backend/app/modules/warehouse/shared/models.py:220-223`).
-Реализация: `services/warehouseService.ts:patchStockItem` · мок `mocks/index.ts:1321` →
+Реализация: `services/warehouseService.ts:patchStockItem` · мок `mocks/index.ts:1323` →
 `services/mocks/warehouse.ts:mockPatchStockItem`
 
 ### GET /api/warehouse/stock/:productId/cost
@@ -376,7 +376,7 @@ Save-режим: quick-action.
 изменения не гейтится сегодня ни правом, ни фича-флагом.
 
 Бэкенд: не реализован.
-Реализация: `services/warehouseService.ts:deleteStockAuditEntry` · мок `mocks/index.ts:1435` →
+Реализация: `services/warehouseService.ts:deleteStockAuditEntry` · мок `mocks/index.ts:1437` →
 `services/mocks/warehouse.ts:mockDeleteStockAuditEntry`
 
 ---
@@ -473,7 +473,7 @@ String(20)` (`backend/app/modules/warehouse/shared/models.py:39`), а фронт
 Бэкенд: не реализован — схема покрывает все объявленные поля, кроме `margin_percent`
 (`backend/app/modules/warehouse/shared/models.py:11-88`); `file_ids` там `JSON` (`:62`), то есть
 массив идентификаторов, а не материализованный список.
-Реализация: `services/warehouseService.ts:createBatch` · мок `mocks/index.ts:1105` →
+Реализация: `services/warehouseService.ts:createBatch` · мок `mocks/index.ts:1103` →
 `services/mocks/warehouse.ts:mockCreateBatch`
 
 ### GET /api/warehouse/batches/:batchId
@@ -562,7 +562,7 @@ Save-режим: clean-slate. Признак грязи собран из трё
    `WarehouseBatch` нет (§11 соглашений).
 
 Бэкенд: не реализован.
-Реализация: `services/warehouseService.ts:patchBatch` · мок `mocks/index.ts:1301` →
+Реализация: `services/warehouseService.ts:patchBatch` · мок `mocks/index.ts:1303` →
 `services/mocks/warehouse.ts:mockPatchBatch`
 
 ### DELETE /api/warehouse/batches/:batchId
@@ -572,7 +572,7 @@ Save-режим: clean-slate. Признак грязи собран из трё
 (`useWarehouse.ts:320`) и вьюха списка (`views/admin/warehouse/WarehousePage.vue`).
 
 Запрос: тела нет (`frontend_vue/src/services/warehouseService.ts:114-116`); `If-Match` не шлётся,
-хотя ветка удаления мока читать его умеет (`frontend_vue/src/services/mocks/index.ts:1428`).
+хотя ветка удаления мока читать его умеет (`frontend_vue/src/services/mocks/index.ts:1430`).
 
 Ответ: `Promise<void>`; на проводе `ApiResponse<null>`.
 
@@ -595,7 +595,7 @@ Save-режим: clean-slate. Признак грязи собран из трё
 которой в коде нет; см. «Чего в домене нет».
 
 Бэкенд: не реализован.
-Реализация: `services/warehouseService.ts:deleteBatch` · мок `mocks/index.ts:1607` →
+Реализация: `services/warehouseService.ts:deleteBatch` · мок `mocks/index.ts:1609` →
 `services/mocks/warehouse.ts:mockDeleteBatch`
 
 ### GET /api/warehouse/batches/:batchId/aggregates
@@ -711,7 +711,7 @@ Save-режим: quick-action по подтверждению модала.
 **только этот**, и описывал верно.
 
 Бэкенд: не реализован.
-Реализация: `services/warehouseService.ts:deleteBatchAuditEntry` · мок `mocks/index.ts:1441` →
+Реализация: `services/warehouseService.ts:deleteBatchAuditEntry` · мок `mocks/index.ts:1443` →
 `services/mocks/warehouse.ts:mockDeleteBatchAuditEntry`
 
 ---
@@ -795,7 +795,7 @@ locationNotes }` (`useWarehouseOffcutCreate.ts:32-54`), то есть на пр�
 `who-NNN` в сидах: два пространства id в одном домене (§19 соглашений).
 
 Бэкенд: не реализован.
-Реализация: `services/warehouseService.ts:createOffcut` · мок `mocks/index.ts:1109` →
+Реализация: `services/warehouseService.ts:createOffcut` · мок `mocks/index.ts:1107` →
 `services/mocks/warehouse.ts:mockCreateOffcut`
 
 ### GET /api/warehouse/offcuts/offers
@@ -915,7 +915,7 @@ Save-режим: чтение. Один вызывающий — диалог д
    (`frontend_vue/src/types/warehouse.ts:328-337`).
 
 Бэкенд: не реализован.
-Реализация: `services/warehouseService.ts:patchOffcut` · мок `mocks/index.ts:1328` →
+Реализация: `services/warehouseService.ts:patchOffcut` · мок `mocks/index.ts:1330` →
 `services/mocks/warehouse.ts:mockPatchOffcut`
 
 ### DELETE /api/warehouse/offcuts/:offcutId
@@ -947,7 +947,7 @@ Save-режим: чтение. Один вызывающий — диалог д
    вовсе (БАГ-23), так что политику придётся вводить вместе с колонкой.
 
 Бэкенд: не реализован.
-Реализация: `services/warehouseService.ts:deleteOffcut` · мок `mocks/index.ts:1613` →
+Реализация: `services/warehouseService.ts:deleteOffcut` · мок `mocks/index.ts:1615` →
 `services/mocks/warehouse.ts:mockDeleteOffcut`
 
 ### GET /api/warehouse/offcuts/:offcutId/audit
@@ -992,7 +992,7 @@ Save-режим: quick-action.
 отказ вместо no-op, адресация по `id` записи, единственный путь к записи (§9 соглашений).
 
 Бэкенд: не реализован.
-Реализация: `services/warehouseService.ts:deleteOffcutAuditEntry` · мок `mocks/index.ts:1447` →
+Реализация: `services/warehouseService.ts:deleteOffcutAuditEntry` · мок `mocks/index.ts:1449` →
 `services/mocks/warehouse.ts:mockDeleteOffcutAuditEntry`
 
 ---
@@ -1107,7 +1107,7 @@ Save-режим: quick-action, пятеро вызывающих: модал с�
 Бэкенд: не реализован — и главное расхождение схемы здесь: у `warehouse_movements` **нет колонки
 `offcut_id`** (`backend/app/modules/warehouse/shared/models.py:91-128`), а на этом поле держится вся
 модель обрезка — и списание, и статус, и журнал куска (БАГ-23).
-Реализация: `services/warehouseService.ts:createMovement` · мок `mocks/index.ts:1113` →
+Реализация: `services/warehouseService.ts:createMovement` · мок `mocks/index.ts:1111` →
 `services/mocks/warehouse.ts:mockCreateMovement` → `writeMovement`
 
 ### GET /api/warehouse/movements/:movementId
@@ -1186,7 +1186,7 @@ Save-режим: quick-action.
 поэтому (`:1934-1941`, `:1975-1988`) — свойство мока.
 
 Бэкенд: не реализован.
-Реализация: `services/warehouseService.ts:deleteMovementAuditEntry` · мок `mocks/index.ts:1456` →
+Реализация: `services/warehouseService.ts:deleteMovementAuditEntry` · мок `mocks/index.ts:1458` →
 `services/mocks/warehouse.ts:mockDeleteMovementAuditEntry`
 
 ---
@@ -1261,7 +1261,7 @@ Save-режим: quick-action. Один вызывающий — `submit()` ст
    кускам списало бы четыре листа вместо одного.
 
 Бэкенд: не реализован.
-Реализация: `services/warehouseService.ts:executeCutting` · мок `mocks/index.ts:1117` →
+Реализация: `services/warehouseService.ts:executeCutting` · мок `mocks/index.ts:1115` →
 `services/mocks/warehouse.ts:mockExecuteCutting`
 
 ---
@@ -1343,7 +1343,7 @@ Save-режим: quick-action (по замыслу).
    заказа второй раз заводить нельзя — величина поднимается на существующей записи.
 
 Бэкенд: не реализован.
-Реализация: `services/warehouseService.ts:createDeficitItem` · мок `mocks/index.ts:1121` →
+Реализация: `services/warehouseService.ts:createDeficitItem` · мок `mocks/index.ts:1119` →
 `services/mocks/warehouse.ts:mockCreateDeficitItem`
 
 ### GET /api/warehouse/deficit/:deficitId
@@ -1400,7 +1400,7 @@ Save-режим: quick-action (по замыслу).
    (`backend/app/modules/warehouse/shared/models.py:196-198`).
 
 Бэкенд: не реализован.
-Реализация: `services/warehouseService.ts:patchDeficitItem` · мок `mocks/index.ts:1311` →
+Реализация: `services/warehouseService.ts:patchDeficitItem` · мок `mocks/index.ts:1313` →
 `services/mocks/warehouse.ts:mockPatchDeficitItem`
 
 ### DELETE /api/warehouse/deficit/:deficitId
@@ -1427,7 +1427,7 @@ Save-режим: quick-action (по замыслу).
    раза».
 
 Бэкенд: не реализован.
-Реализация: `services/warehouseService.ts:deleteDeficitItem` · мок `mocks/index.ts:1625` →
+Реализация: `services/warehouseService.ts:deleteDeficitItem` · мок `mocks/index.ts:1627` →
 `services/mocks/warehouse.ts:mockDeleteDeficitItem`
 
 ### GET /api/warehouse/deficit/:deficitId/audit
@@ -1466,7 +1466,7 @@ Save-режим: quick-action.
 Обязанности сервера: те же, что у остальных четырёх удалений записи журнала.
 
 Бэкенд: не реализован.
-Реализация: `services/warehouseService.ts:deleteDeficitAuditEntry` · мок `mocks/index.ts:1467` →
+Реализация: `services/warehouseService.ts:deleteDeficitAuditEntry` · мок `mocks/index.ts:1469` →
 `services/mocks/warehouse.ts:mockDeleteDeficitAuditEntry`
 
 ---
@@ -1864,7 +1864,7 @@ FIFO-стоимость (`:1801-1849`), `total` и `totalPages` пагинаци
     `CreateMovementModal.vue` жив и подключён к карточке партии
     (`views/admin/warehouse/WarehouseBatchCard.vue:21`, `:1522`).
 18. **`DELETE /api/warehouse/movements/:movementId` существует в моке и не существует в клиенте.**
-    Ветка есть (`frontend_vue/src/services/mocks/index.ts:1619-1623`, функция
+    Ветка есть (`frontend_vue/src/services/mocks/index.ts:1621-1625`, функция
     `frontend_vue/src/services/mocks/warehouse.ts:1407-1411`), а в `warehouseService.ts` такой
     функции нет — то есть в инвентарь эндпоинтов домена этот путь не попал и раздела выше у него
     нет. Он одна из пяти «сирот» замера К2 (см.

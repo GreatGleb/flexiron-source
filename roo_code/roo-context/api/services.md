@@ -294,7 +294,7 @@ submit, после успеха форма сбрасывается к дефо�
 только у заказов ([§11](00-conventions.md#11-идемпотентность-и-оптимистичная-блокировка)).
 
 Бэкенд: **не реализован**
-Реализация: `services/servicesService.ts:52-73` (`patchService`) · мок `mocks/index.ts:1238`
+Реализация: `services/servicesService.ts:52-73` (`patchService`) · мок `mocks/index.ts:1239`
 (`mockPatchService`, `mocks/services.ts:140`) · потребитель `useServiceCard.ts:64-91`
 
 ---
@@ -310,16 +310,16 @@ submit, после успеха форма сбрасывается к дефо�
 проверки формата нет ни в клиенте, ни в моке.
 
 Ответ: **тела успеха нет** — ни счёта, ни id удалённого. Подпись клиента `Promise<void>`
-(`servicesService.ts:75`), мок отдаёт `delay(undefined as T)` (`mocks/index.ts:1519`).
+(`servicesService.ts:75`), мок отдаёт `delay(undefined as T)` (`mocks/index.ts:1521`).
 
 Ошибки: `CATALOG_SERVICE_NOT_FOUND` — и бросает его **ветка мока, а не функция**:
 `mockDeleteService` возвращает `false` (`mocks/services.ts:170`), а `throw` стоит в
-`mocks/index.ts:1518`.
+`mocks/index.ts:1519`.
 
 **DELETE идемпотентным не является**: удаление несуществующей услуги — отказ, а не молчаливый
 успех. Правило стоило отдельной починки — проверка `if (!deleted)` не срабатывала никогда, пока
 перед `mockDeleteService` не появился `await`: промис всегда истинен, и причина записана прямо
-там (`mocks/index.ts:1513-1518`).
+там (`mocks/index.ts:1515-1520`).
 
 **Проверки «услуга используется в заказах» нет нигде**: `mockDeleteService` смотрит только на
 существование (`mocks/services.ts:168-173`). Заказ переживает удаление, потому что строка заказа
@@ -336,7 +336,7 @@ submit, после успеха форма сбрасывается к дефо�
 исчезает. Общее правило — [§22](00-conventions.md).
 
 Бэкенд: **не реализован**
-Реализация: `services/servicesService.ts:75-77` (`deleteService`) · мок `mocks/index.ts:1511`
+Реализация: `services/servicesService.ts:75-77` (`deleteService`) · мок `mocks/index.ts:1512`
 (`mockDeleteService`, `mocks/services.ts:168`) · потребитель `useServices.ts:40-48`
 
 ---
@@ -347,7 +347,7 @@ submit, после успеха форма сбрасывается к дефо�
 
 | код | статус | когда | где бросается |
 |---|---|---|---|
-| `CATALOG_SERVICE_NOT_FOUND` | 404 | услуги с таким id нет — на чтении карточки, правке и удалении | `mocks/services.ts:136`, `:151`; удаление — `mocks/index.ts:1518` |
+| `CATALOG_SERVICE_NOT_FOUND` | 404 | услуги с таким id нет — на чтении карточки, правке и удалении | `mocks/services.ts:136`, `:151`; удаление — `mocks/index.ts:1519` |
 | `SERVICE_CURRENCY_NOT_FOUND` | 422 | `currencyId` не найден в справочнике валют `settings` | `mocks/services.ts:90` |
 | `SERVICE_UOM_NOT_FOUND` | 422 | `uomId` не найден в справочнике единиц `settings` | `mocks/services.ts:93` |
 
@@ -515,7 +515,7 @@ submit, после успеха форма сбрасывается к дефо�
 
 | было в прежнем тексте | чем опровергнуто |
 |---|---|
-| код `SERVICE_NOT_FOUND` — 404 (`:1142`, повторён в `:1199`, `:1226`) | такого кода не бросает **никто**: `grep -rn "'SERVICE_NOT_FOUND'" frontend_vue/src backend/app` даёт одно попадание, и это `toContain` в спеке заказов (`frontend_vue/src/services/mocks/order-audit-authority-2.spec.ts:280`), а не `throw`. В услугах во всех трёх местах — `CATALOG_SERVICE_NOT_FOUND` (`mocks/services.ts:136`, `:151`, `mocks/index.ts:1518`), и имя выбрано осознанно, чтобы не быть подстрокой `ORDER_SERVICE_NOT_FOUND` (`mocks/orders.ts:373-375`) |
+| код `SERVICE_NOT_FOUND` — 404 (`:1142`, повторён в `:1199`, `:1226`) | такого кода не бросает **никто**: `grep -rn "'SERVICE_NOT_FOUND'" frontend_vue/src backend/app` даёт одно попадание, и это `toContain` в спеке заказов (`frontend_vue/src/services/mocks/order-audit-authority-2.spec.ts:280`), а не `throw`. В услугах во всех трёх местах — `CATALOG_SERVICE_NOT_FOUND` (`mocks/services.ts:136`, `:151`, `mocks/index.ts:1519`), и имя выбрано осознанно, чтобы не быть подстрокой `ORDER_SERVICE_NOT_FOUND` (`mocks/orders.ts:373-375`) |
 | код `VALIDATION_ERROR` — 422 «отсутствует обязательное поле (напр. `name`)» (`:1143`, `:1193`) | снято не существование кода, а **доменная проверка, которая его бросала бы**: сам код — код ядра ([§2](00-conventions.md#2-каталог-кодов-ошибок), `backend/app/core/exceptions.py:27`), а в услугах его нет ни в одной строке (`grep -rn VALIDATION_ERROR frontend_vue/src/services/mocks/services.ts frontend_vue/src/services/servicesService.ts backend/app/modules/services` → пусто), в моке нет ни одного `throw` про `name` (`mocks/services.ts:97-132`), на сервере роутов ноль, и единственная защита — `if (!createForm.name.trim()) return` в форме (`ServicesPage.vue:83`). Что обязан требовать сервер — п. 6 ниже |
 | 409 `SERVICE_IN_USE` — «сервер отклоняет удаление, если услуга используется в активных заказах» (`:1199`) | кода нет нигде: `grep -rn "SERVICE_IN_USE" backend/app frontend_vue/src` → пусто; удаление используемой заказами услуги проходит (`mocks/services.ts:168-173`, БАГ-07). Заказ переживает его снимком (`mocks/orders.ts:2415-2422`) — но это другое поведение, а не обещанное. **Снято 2026-09-09 (П44):** кода не будет — услуга уходит в архив, а не удаляется, и отказывать не в чем ([§22](00-conventions.md)) |
 | `sortBy` — три значения `"name" \| "costPrice" \| "sellingPrice"` (`:1158`) | их четыре: добавлен `createdAt` (`types/service.ts:38`, сортировка `mocks/services.ts:66`) |
@@ -530,7 +530,7 @@ submit, после успеха форма сбрасывается к дефо�
 | `"createdAt": "2025-01-15"` — дата без времени (`:1222`) | сервер ставит ISO-момент: `new Date().toISOString()` (`mocks/services.ts:127-128`), `updatedAt` в примере отсутствовал вовсе |
 | «Last-write-wins» как отсутствие правила (`:1243`) | верно, и это общее поведение шестнадцати доменов ([§11](00-conventions.md#11-идемпотентность-и-оптимистичная-блокировка)); у заказов версия есть (`mocks/orders.ts:2403`, проверка `:1938`), у услуг — нет намеренно |
 | роуты `/admin/services` и `/admin/services/:id` (`:1116`, `:1261`) | маршруты домена — `products/services` и `products/services/:id` (`frontend_vue/src/router/index.ts:241`, `:247`) |
-| `ApiResponse<void>` у DELETE (`:1198`) | тела успеха нет вовсе: `Promise<void>` в клиенте (`servicesService.ts:75`), `delay(undefined as T)` в моке (`mocks/index.ts:1519`) |
+| `ApiResponse<void>` у DELETE (`:1198`) | тела успеха нет вовсе: `Promise<void>` в клиенте (`servicesService.ts:75`), `delay(undefined as T)` в моке (`mocks/index.ts:1521`) |
 | «Каскадного удаления из заказов нет» (`:1199`) | верно и подтверждено, но недосказано: **добавить** удалённую услугу в заказ нельзя (`mocks/orders.ts:372-376`), а уже добавленная живёт снимком (`:2415-2422`) |
 
 Разделы прежнего текста «Save UX — Services» (`:1247-1256`) и «Feature Flags — Services»

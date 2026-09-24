@@ -132,7 +132,7 @@ grep -rn "@router\." backend/app/modules/<модуль> --include=*.py
 | audit-feed | `auditFeedService.ts` | `mocks/auditFeed.ts`, `mocks/auditClock.ts` | `types/audit.ts` | нет модуля |
 | analytics | `analyticsService.ts` | `mocks/analytics.ts` | `types/analytics.ts` | нет модуля |
 | sales-crm | `ordersService.ts` — **своего сервиса нет** | ветка `mocks/index.ts:540`, файла нет | своих типов нет | нет модуля |
-| uploads | `uploadsService.ts` | ветка `mocks/index.ts:1662`, файла нет | `UploadedFile` в `types/settings.ts` | `core/uploads` — 1 роут |
+| uploads | `uploadsService.ts` | ветка `mocks/index.ts:1664`, файла нет | `UploadedFile` в `types/settings.ts` | `core/uploads` — 1 роут |
 | auth | `composables/useAuth.ts`, `views/public/AuthLinkHandler.vue` — **сервиса нет** | четыре ветки `mocks/index.ts`, файла нет | `types/auth.ts` | `auth` — 4 роута |
 
 Модуль `billing` в этой таблице не появляется вовсе: это тарифы SaaS (plans, tenant_plans,

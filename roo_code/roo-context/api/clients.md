@@ -303,7 +303,7 @@ interface Client {
   денормализация (соглашения §17, правило 6 ниже).
 
 Бэкенд: не реализован
-Реализация: `services/clientsService.ts:patchClient` · мок `mocks/index.ts:1248` → `mocks/clients.ts:mockPatchClient`
+Реализация: `services/clientsService.ts:patchClient` · мок `mocks/index.ts:1250` → `mocks/clients.ts:mockPatchClient`
 
 ---
 
@@ -314,7 +314,7 @@ interface Client {
 
 Запрос: тела нет (`services/clientsService.ts:24-26`), идентификатор — в пути.
 
-Ответ: `ApiResponse<void>` — мок отдаёт `undefined` (`mocks/index.ts:1525`), сигнатура клиента
+Ответ: `ApiResponse<void>` — мок отдаёт `undefined` (`mocks/index.ts:1527`), сигнатура клиента
 `Promise<void>`. Тело никто не читает: `handleDelete` идёт сразу к `load()` (`useClients.ts:64-66`).
 
 Ошибки: `CLIENT_NOT_FOUND` (`mocks/clients.ts:1184`) · `CONFLICT` — у клиента есть заказы
@@ -341,7 +341,7 @@ interface Client {
   исчезает из ленты. Строка владельцу.
 
 Бэкенд: не реализован
-Реализация: `services/clientsService.ts:deleteClient` · мок `mocks/index.ts:1522` → `mocks/clients.ts:mockDeleteClient`
+Реализация: `services/clientsService.ts:deleteClient` · мок `mocks/index.ts:1524` → `mocks/clients.ts:mockDeleteClient`
 
 ---
 
@@ -406,7 +406,7 @@ interface StockAuditEntry {
 `sealAuditIds(…, 'cl')` (`mocks/clients.ts:1058-1064`). Почему не позиция — соглашения §9:
 устаревший индекс удаляет не ту запись, и молча.
 
-Ответ: `ApiResponse<void>` (`mocks/index.ts:1534`).
+Ответ: `ApiResponse<void>` (`mocks/index.ts:1536`).
 
 Ошибки: `CLIENT_NOT_FOUND` (`mocks/clients.ts:1198`) · `AUDIT_ENTRY_NOT_FOUND`
 (`mocks/clients.ts:1201`). Оба до человека не доходят: голый `catch {}` и один текст
@@ -430,7 +430,7 @@ interface StockAuditEntry {
   ничто (`grep -c "auditLog.push" mocks/clients.ts` → `0`).
 
 Бэкенд: не реализован
-Реализация: `services/clientsService.ts:deleteClientAuditEntry` · мок `mocks/index.ts:1528` → `mocks/clients.ts:mockDeleteClientAuditEntry`
+Реализация: `services/clientsService.ts:deleteClientAuditEntry` · мок `mocks/index.ts:1530` → `mocks/clients.ts:mockDeleteClientAuditEntry`
 
 ---
 
@@ -498,7 +498,7 @@ interface StockAuditEntry {
 Запрос: тела нет. **Второй сегмент — не идентификатор, а порядковый индекс в массиве.** Сигнатура
 `deleteClientInteraction(clientId: string, entryIndex: number)` (`services/clientsService.ts:55`),
 путь склеивается из числа (`:56`), ветка мока принимает **только цифры** —
-`/^\/api\/clients\/([^/]+)\/interactions\/(\d+)$/` (`mocks/index.ts:1724`), и мок режет массив по
+`/^\/api\/clients\/([^/]+)\/interactions\/(\d+)$/` (`mocks/index.ts:1726`), и мок режет массив по
 этому индексу (`mocks/clients.ts:1233`). У `InteractionHistoryEntry` идентификатора нет вовсе — пять
 полей, и `id` среди них отсутствует (`types/client.ts:6-13`).
 
@@ -506,7 +506,7 @@ interface StockAuditEntry {
 (`useClientCard.ts:297`), чтобы сдвиг массива на сервере не сбил следующий индекс. Для сервера это
 часть контракта: индексы в серии `DELETE` идут по убыванию и относятся к состоянию **до** серии.
 
-Ответ: `ApiResponse<void>` (`mocks/index.ts:1543`).
+Ответ: `ApiResponse<void>` (`mocks/index.ts:1545`).
 
 Ошибки: `CLIENT_NOT_FOUND` (`mocks/clients.ts:1221`) · `INTERACTION_ENTRY_NOT_FOUND` — бросается и
 на отсутствующую историю, и на индекс вне границ (`mocks/clients.ts:1222-1232`). До человека не
@@ -530,7 +530,7 @@ interface StockAuditEntry {
   вызывается (`useClientCard.ts:314-316`), и экран молча расходится с базой.
 
 Бэкенд: не реализован
-Реализация: `services/clientsService.ts:deleteClientInteraction` · мок `mocks/index.ts:1537` → `mocks/clients.ts:mockDeleteClientInteraction`
+Реализация: `services/clientsService.ts:deleteClientInteraction` · мок `mocks/index.ts:1539` → `mocks/clients.ts:mockDeleteClientInteraction`
 
 ---
 

@@ -237,7 +237,7 @@ interface RegisterResponse {
 Реализация: `composables/useAuth.ts:146` · **мока нет** — БАГ-01: ветки `/api/auth/register` в
 `mocks/index.ts` не существует (`grep -n "auth/register" src/services/mocks/index.ts` пуст), запрос
 доходит до `ApiRequestError` с кодом `NOT_FOUND` и текстом «[mock] POST … not found»
-(`mocks/index.ts:1304-1308`). Под моками регистрация падает целиком, против настоящего сервера работает
+(`mocks/index.ts:1306-1310`). Под моками регистрация падает целиком, против настоящего сервера работает
 
 ---
 

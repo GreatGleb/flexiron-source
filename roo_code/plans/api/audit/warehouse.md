@@ -30,7 +30,7 @@
 > → 0 на 374 строки. Значит нет ни `Authorization`, ни `X-CSRF-Token`, ни `Idempotency-Key`, ни
 > `If-Match` — при том, что все четыре механизма в проекте есть
 > (`frontend_vue/src/composables/useAuth.ts:101-108`, `frontend_vue/src/services/api.ts:258-264`,
-> `frontend_vue/src/services/mocks/index.ts:1420-1421`) и соседние домены ими пользуются
+> `frontend_vue/src/services/mocks/index.ts:1421-1422`) и соседние домены ими пользуются
 > (`frontend_vue/src/services/settingsService.ts:18`, `frontend_vue/src/services/auditFeedService.ts:20`).
 > Это находка 1, и она общая для всех 37 путей.
 >
@@ -61,9 +61,9 @@
 ### DELETE /api/warehouse/batches/:id
 - Вызывающий: `src/services/warehouseService.ts:115`
 - Бэкенд: **нет**
-- Мок: `services/mocks/index.ts:1607`
-- Форма запроса: тела нет — `apiDelete(\`/api/warehouse/batches/${id}\`)` (`src/services/warehouseService.ts:114-116`); ни query, ни заголовков, в том числе ни `If-Match`, который ветка удаления мока читать умеет (`services/mocks/index.ts:1428`).
-- Форма ответа: `Promise<void>`; мок отдаёт `delay(undefined as T)` (`services/mocks/index.ts:1610`), на проводе `ApiResponse<null>`.
+- Мок: `services/mocks/index.ts:1609`
+- Форма запроса: тела нет — `apiDelete(\`/api/warehouse/batches/${id}\`)` (`src/services/warehouseService.ts:114-116`); ни query, ни заголовков, в том числе ни `If-Match`, который ветка удаления мока читать умеет (`services/mocks/index.ts:1430`).
+- Форма ответа: `Promise<void>`; мок отдаёт `delay(undefined as T)` (`services/mocks/index.ts:1612`), на проводе `ApiResponse<null>`.
 - Коды ошибок: два — `BATCH_NOT_FOUND` (`services/mocks/warehouse.ts:818`) и `BATCH_LINKED_TO_ORDER` (`:819`). Второй — единственный код домена, который **доходит до человека отдельным сообщением**, и единственный, который читается правильно с обеих сторон: `err?.code === 'BATCH_LINKED_TO_ORDER' || err?.message === …` (`src/composables/useWarehouseBatch.ts:341`). Тот же вызов со списка кода не читает вовсе (`src/composables/useWarehouse.ts:318-326`).
 - Save-режим: quick-action. Трое вызывающих: карточка партии по подтверждению модала (`src/composables/useWarehouseBatch.ts:331-349`) с переходом на вкладку партий, список (`src/composables/useWarehouse.ts:320`) с перезагрузкой, и сама вьюха списка (`src/views/admin/warehouse/WarehousePage.vue`).
 - Пробел контракта: старый раздел (`roo_code/roo-context/03-api-contract.md:1400-1405`) обещает **каскадное удаление движений и обрезков** сервером и предупреждение клиента о числе связанных записей. Кодом не подтверждено ничто из этого: `mockDeleteBatch` вырезает одну запись (`services/mocks/warehouse.ts:820`) и не трогает ни `movementStore`, ни `offcutStore`, оставляя их висеть на несуществующей партии. На схеме политика другая и обязательная: `warehouse_movements.batch_id` и `warehouse_offcuts.batch_id` — `ondelete="CASCADE"` (`backend/app/modules/warehouse/shared/models.py:102-107`, `:142-147`), `warehouse_deficits.batch_id` — `SET NULL` (`:185-189`), `stock_audit_entries.batch_id` — `CASCADE` (`:240-245`), `warehouse_offcuts.parent_batch_id` — `SET NULL` (`:153-157`) → находка 11.
@@ -72,9 +72,9 @@
 ### DELETE /api/warehouse/batches/:id/audit/:id
 - Вызывающий: `src/services/warehouseService.ts:343`
 - Бэкенд: **нет**
-- Мок: `services/mocks/index.ts:1441`
+- Мок: `services/mocks/index.ts:1443`
 - Форма запроса: тела нет, два сегмента пути (`src/services/warehouseService.ts:342-344`); заголовков нет, включая вызов из ленты аудита (`src/services/auditFeedService.ts:70`).
-- Форма ответа: `Promise<void>`; мок — `delay(undefined as T)` (`services/mocks/index.ts:1445`).
+- Форма ответа: `Promise<void>`; мок — `delay(undefined as T)` (`services/mocks/index.ts:1447`).
 - Коды ошибок: два — `BATCH_NOT_FOUND` (`services/mocks/warehouse.ts:1883`) и `AUDIT_ENTRY_NOT_FOUND` (`:1885`). Ни один не подстрока другого. До человека не доходит ни один: карточка показывает общий `warehouse.toast_error` (`src/composables/useWarehouseBatch.ts:459`).
 - Save-режим: quick-action, по подтверждению модала. Из карточки — `deleteAuditEntry` c локальной правкой списка (`src/composables/useWarehouseBatch.ts:452-461`), из ленты — `deleteAuditFeedEntry` (`src/services/auditFeedService.ts:70`).
 - Пробел контракта: старый раздел (`roo_code/roo-context/03-api-contract.md:1407-1414`) единственный из шести таких эндпоинтов домена описан — и описан верно, включая правило «неизвестный id — ошибка, а не тихий no-op» (`:1412-1413`) и адресацию по `entryId`, а не по позиции (`:1414`). Не описано: (а) что тем же эндпоинтом пользуется общая лента аудита и второго пути к записи нет (`src/services/auditFeedService.ts:70`); (б) кому это разрешено.
@@ -83,9 +83,9 @@
 ### DELETE /api/warehouse/deficit/:id
 - Вызывающий: `src/services/warehouseService.ts:257`
 - Бэкенд: **нет**
-- Мок: `services/mocks/index.ts:1625`
+- Мок: `services/mocks/index.ts:1627`
 - Форма запроса: тела нет (`src/services/warehouseService.ts:256-258`), заголовков нет.
-- Форма ответа: `Promise<void>`; мок — `delay(undefined as T)` (`services/mocks/index.ts:1629`).
+- Форма ответа: `Promise<void>`; мок — `delay(undefined as T)` (`services/mocks/index.ts:1631`).
 - Коды ошибок: один — `DEFICIT_NOT_FOUND` (`services/mocks/warehouse.ts:1772`). До человека не доходит: оба вызывающих ловят `catch` без параметра (`src/composables/useWarehouse.ts:343`, `src/composables/useWarehouseDeficitCard.ts:118`).
 - Save-режим: quick-action по подтверждению. Двое вызывающих: список (`src/composables/useWarehouse.ts:338-346`) и карточка с переходом на вкладку (`src/composables/useWarehouseDeficitCard.ts:111-123`).
 - Пробел контракта: эндпоинта в старом тексте нет. Не описано: (а) что запись, заведённую заказом, удаляет ещё и `clearShortages` — без HTTP и без следа (`services/mocks/warehouse.ts:1726-1734`); (б) что ручное удаление нехватки заказа снимет её насовсем, а следующий пересчёт строки заведёт заново (`:1678-1687`).
@@ -94,9 +94,9 @@
 ### DELETE /api/warehouse/deficit/:id/audit/:id
 - Вызывающий: `src/services/warehouseService.ts:373`
 - Бэкенд: **нет**
-- Мок: `services/mocks/index.ts:1467`
+- Мок: `services/mocks/index.ts:1469`
 - Форма запроса: тела нет, два сегмента пути (`src/services/warehouseService.ts:372-374`); заголовков нет, в том числе из ленты (`src/services/auditFeedService.ts:76`).
-- Форма ответа: `Promise<void>`; мок — `delay(undefined as T)` (`services/mocks/index.ts:1475`).
+- Форма ответа: `Promise<void>`; мок — `delay(undefined as T)` (`services/mocks/index.ts:1477`).
 - Коды ошибок: два — `DEFICIT_NOT_FOUND` (`services/mocks/warehouse.ts:1926`) и `AUDIT_ENTRY_NOT_FOUND` (`:1928`); до человека не доходит ни один (`src/composables/useWarehouseDeficitCard.ts:56`).
 - Save-режим: quick-action. Двое вызывающих: карточка дефицита (`src/composables/useWarehouseDeficitCard.ts:50-58`) и лента аудита (`src/services/auditFeedService.ts:76`).
 - Пробел контракта: эндпоинта в старом тексте нет.
@@ -105,9 +105,9 @@
 ### DELETE /api/warehouse/movements/:id/audit/:id
 - Вызывающий: `src/services/warehouseService.ts:363`
 - Бэкенд: **нет**
-- Мок: `services/mocks/index.ts:1456`
+- Мок: `services/mocks/index.ts:1458`
 - Форма запроса: тела нет, два сегмента пути (`src/services/warehouseService.ts:362-364`); заголовков нет, в том числе из ленты (`src/services/auditFeedService.ts:74`).
-- Форма ответа: `Promise<void>`; мок — `delay(undefined as T)` (`services/mocks/index.ts:1466`).
+- Форма ответа: `Promise<void>`; мок — `delay(undefined as T)` (`services/mocks/index.ts:1468`).
 - Коды ошибок: один — `AUDIT_ENTRY_NOT_FOUND` (`services/mocks/warehouse.ts:1912`). Кода «движения нет» здесь **не бросается вовсе**: для неизвестного id `getOrCreateMovementAudit` вернёт пустой массив, и ошибкой станет отсутствие записи в нём (`:1906-1913`) — единственный из пяти журналов, где отказ «нет сущности» не отличим от «нет записи».
 - Save-режим: quick-action. Двое вызывающих: карточка движения (`src/composables/useWarehouseMovementCard.ts:22-30`) и лента аудита (`src/services/auditFeedService.ts:74`).
 - Пробел контракта: эндпоинта в старом тексте нет. Не описано, что удаление правит **копию** журнала, а не сид, и что лента читает ту же копию именно поэтому (`services/mocks/warehouse.ts:1934-1941`, `:1975-1988`).
@@ -116,9 +116,9 @@
 ### DELETE /api/warehouse/offcuts/:id
 - Вызывающий: `src/services/warehouseService.ts:165`
 - Бэкенд: **нет**
-- Мок: `services/mocks/index.ts:1613`
+- Мок: `services/mocks/index.ts:1615`
 - Форма запроса: тела нет (`src/services/warehouseService.ts:164-166`), заголовков нет.
-- Форма ответа: `Promise<void>`; мок — `delay(undefined as T)` (`services/mocks/index.ts:1616`).
+- Форма ответа: `Promise<void>`; мок — `delay(undefined as T)` (`services/mocks/index.ts:1618`).
 - Коды ошибок: два — `OFFCUT_NOT_FOUND` (`services/mocks/warehouse.ts:1113`) и `OFFCUT_LINKED_TO_ORDER` (`:1114`). Второй читался **только из `message`** — ~~находка 18~~, **закрыто 2026-09-13:** сегодня код берётся через `errorCode(e)` (`src/composables/useWarehouseOffcutCard.ts:386`), то есть из `ApiRequestError.code` (`src/types/api.ts:26-31`), как и парная проверка у партии (`src/composables/useWarehouseBatch.ts:341`). Пометка `✅` стоит в баг-файле.
 - Save-режим: quick-action по подтверждению модала. Трое вызывающих: карточка обрезка (`src/composables/useWarehouseOffcutCard.ts:385`), список (`src/composables/useWarehouse.ts:328-336`) и вьюха списка (`src/views/admin/warehouse/WarehousePage.vue`).
 - Пробел контракта: эндпоинта в старом тексте нет. Не описано: (а) что удаление куска **не возвращает материал партии** — движение `offcut`, списавшее его, остаётся в журнале, а `syncBatchQuantities` пересчитает остаток по этому же журналу (`services/mocks/warehouse.ts:397-413`), то есть металл исчезает из обоих мест; (б) что `orderId` куска — единственный сторож удаления, а хват строки заказа, по которому кусок и считается занятым, здесь не спрашивается вовсе (`:1111-1116` против `takenOffcuts` `:998-1000`) → находка 19; (в) что движения куска остаются висеть на удалённом `offcutId`.
@@ -127,9 +127,9 @@
 ### DELETE /api/warehouse/offcuts/:id/audit/:id
 - Вызывающий: `src/services/warehouseService.ts:353`
 - Бэкенд: **нет**
-- Мок: `services/mocks/index.ts:1447`
+- Мок: `services/mocks/index.ts:1449`
 - Форма запроса: тела нет, два сегмента пути (`src/services/warehouseService.ts:352-354`); заголовков нет, в том числе из ленты (`src/services/auditFeedService.ts:72`).
-- Форма ответа: `Promise<void>`; мок — `delay(undefined as T)` (`services/mocks/index.ts:1457`).
+- Форма ответа: `Promise<void>`; мок — `delay(undefined as T)` (`services/mocks/index.ts:1459`).
 - Коды ошибок: два — `OFFCUT_NOT_FOUND` (`services/mocks/warehouse.ts:1896`) и `AUDIT_ENTRY_NOT_FOUND` (`:1898`); до человека не доходит ни один (`src/composables/useWarehouseOffcutCard.ts:191`).
 - Save-режим: quick-action. Двое вызывающих: карточка обрезка (`src/composables/useWarehouseOffcutCard.ts:185-193`) и лента аудита (`src/services/auditFeedService.ts:72`).
 - Пробел контракта: эндпоинта в старом тексте нет; описан только аналог у партии (`roo_code/roo-context/03-api-contract.md:1407-1414`). Правила у пяти складских журналов одинаковы, и это стоит сказать один раз, а не разойтись пятью формулировками.
@@ -138,13 +138,13 @@
 ### DELETE /api/warehouse/stock/:id/audit/:id
 - Вызывающий: `src/services/warehouseService.ts:333`
 - Бэкенд: **нет**
-- Мок: `services/mocks/index.ts:1435`
+- Мок: `services/mocks/index.ts:1437`
 - Форма запроса: тела нет, два сегмента пути — `apiDelete<void>(\`/api/warehouse/stock/${productId}/audit/${entryId}\`)` (`src/services/warehouseService.ts:332-334`). Заголовков нет **даже когда зовёт лента аудита**: `deleteAuditFeedEntry` роутит сюда по `entityType` (`src/services/auditFeedService.ts:66-68`), а собственные чтения ленты подписаны `Authorization` (`:20-24`, `:41`) → находка 1.
-- Форма ответа: `Promise<void>`; мок возвращает `delay(undefined as T)` (`services/mocks/index.ts:1439`). На проводе — общий конверт, то есть `ApiResponse<null>` (`src/services/api.ts:128-137`). Тела не читает ни один вызывающий: карточка правит список у себя (`src/composables/useWarehouseStockCard.ts:182`), лента — своей `withoutRow` (`src/composables/useAuditFeed.ts`).
+- Форма ответа: `Promise<void>`; мок возвращает `delay(undefined as T)` (`services/mocks/index.ts:1441`). На проводе — общий конверт, то есть `ApiResponse<null>` (`src/services/api.ts:128-137`). Тела не читает ни один вызывающий: карточка правит список у себя (`src/composables/useWarehouseStockCard.ts:182`), лента — своей `withoutRow` (`src/composables/useAuditFeed.ts`).
 - Коды ошибок: два — `STOCK_NOT_FOUND` (`services/mocks/warehouse.ts:1866`) и `AUDIT_ENTRY_NOT_FOUND` (`:1868`). Ни один не подстрока другого. До человека не доходит ни один: карточка показывает общий `warehouse.toast_error` (`src/composables/useWarehouseStockCard.ts:185`).
 - Save-режим: quick-action. Из карточки — по подтверждению модала (`src/composables/useWarehouseStockCard.ts:179-187`), список правится локально без перезагрузки (`:182`). Из ленты — `deleteAuditFeedEntry` (`src/services/auditFeedService.ts:66-68`).
 - Пробел контракта: эндпоинта в старом тексте нет. Не описано: (а) что удаление адресуется `entryId`, а не позицией в списке — правило записано в типе и распространено на все девять журналов (`src/types/warehouse.ts:510-525`); (б) что запись лога удаляется из двух мест одним эндпоинтом и второго пути к ней нет; (в) кому это разрешено — удаление следа изменения не гейтится ни правом, ни фича-флагом (в матрице прав склада нет ни строки, см. графу «Права»).
-- Источник истины: мок + клиент. Форма — `services/mocks/warehouse.ts:1864-1870`, ветка — `services/mocks/index.ts:1435-1440`.
+- Источник истины: мок + клиент. Форма — `services/mocks/warehouse.ts:1864-1870`, ветка — `services/mocks/index.ts:1437-1442`.
 
 ### GET /api/warehouse/batches
 - Вызывающий: `src/services/warehouseService.ts:99`
@@ -369,7 +369,7 @@
 ### PATCH /api/warehouse/batches/:id
 - Вызывающий: `src/services/warehouseService.ts:111`
 - Бэкенд: **нет**
-- Мок: `services/mocks/index.ts:1301`
+- Мок: `services/mocks/index.ts:1303`
 - Форма запроса: объявлено десять ключей `BatchPatchPayload` (`src/types/warehouse.ts:190-204`), **уезжает больше**. Дельту собирает `useDirtyCheck.diff()` по форме карточки (`src/composables/useWarehouseBatch.ts:240`), а в форме есть `uomId`, `marginPercent` и четыре части адреса — `locationRack`, `locationRow`, `locationCell`, `locationNotes` (`:92-128`); `diff()` возвращает любой изменившийся ключ верхнего уровня (`src/composables/useDirtyCheck.ts:62-77`), после чего к дельте добавляется склеенный `location` (`frontend_vue/src/composables/useWarehouseBatch.ts:242-248`) и, если есть, `fileIds` (`:252-254`). То есть шесть необъявленных ключей на проводе, и мок кладёт их в запись `Object.assign(batch, delta, …)` (`services/mocks/warehouse.ts:804`) → находка 10.
 - Форма ответа: `WarehouseBatch` целиком, копией — `{ ...batch }` (`services/mocks/warehouse.ts:813`). `totalCost` пересчитывается сервером, если пришли `unitPrice` или `quantity` (`:805-808`), и остаётся `null`, пока цены нет.
 - Коды ошибок: два — `BATCH_NOT_FOUND` (`services/mocks/warehouse.ts:798`) и `BATCH_CURRENCY_NOT_BASE` (`:802`); граница валюты та же, что при создании, и держится «и на входе, и потом» (`:799-800`). До человека не доходит ни один: `catch { toast.error(t('warehouse.toast_error_save')) }` (`src/composables/useWarehouseBatch.ts:299-301`).
@@ -380,7 +380,7 @@
 ### PATCH /api/warehouse/deficit/:id
 - Вызывающий: `src/services/warehouseService.ts:253`
 - Бэкенд: **нет**
-- Мок: `services/mocks/index.ts:1311`
+- Мок: `services/mocks/index.ts:1313`
 - Форма запроса: `DeficitPatchPayload` — шесть ключей (`src/types/warehouse.ts:499-506`). Карточка шлёт дельту из трёх правимых полей (`src/composables/useWarehouseDeficitCard.ts:84`, форма `:32-40`) — здесь, в отличие от карточек партии и обрезка, форма совпадает с payload и лишних ключей не уезжает. Список шлёт одиночные `{priority}` и `{status}` (`src/composables/useWarehouse.ts:387`, `:397`).
 - Форма ответа: `WarehouseDeficit` целиком, копией; `updatedAt` ставит сервер (`services/mocks/warehouse.ts:1766-1767`).
 - Коды ошибок: один — `DEFICIT_NOT_FOUND` (`services/mocks/warehouse.ts:1765`). Валидации нет: `Object.assign(deficit, delta, …)` примет любой `status` и любой `priority` (`:1766`).
@@ -391,7 +391,7 @@
 ### PATCH /api/warehouse/offcuts/:id
 - Вызывающий: `src/services/warehouseService.ts:161`
 - Бэкенд: **нет**
-- Мок: `services/mocks/index.ts:1328`
+- Мок: `services/mocks/index.ts:1330`
 - Форма запроса: объявлено четыре ключа `OffcutPatchPayload` — `status?`, `notes?`, `location?`, `weightKg?`, плюс `fileIds?` (`src/types/warehouse.ts:324-341`). Фактически уезжает больше: дельту собирает `useDirtyCheck.diff()` по форме, где живут четыре части адреса (`src/composables/useWarehouseOffcutCard.ts:275`, форма `:99-117`), после чего добавляется склеенный `location` (`:281-287`) → находка 10. Второй вызывающий — вкладка обрезков — шлёт только `{ status }` (`src/composables/useWarehouse.ts:364`).
 - Форма ответа: `WarehouseOffcut` целиком, копией (`services/mocks/warehouse.ts:1108`). `updatedAt` сервер ставит сам (`:1107`).
 - Коды ошибок: один — `OFFCUT_NOT_FOUND` (`services/mocks/warehouse.ts:1106`). Проверок содержимого нет ни одной: `Object.assign(offcut, data, …)` принимает любой `status` и любой вес (`:1107`).
@@ -402,8 +402,8 @@
 ### PATCH /api/warehouse/stock/:id
 - Вызывающий: `src/services/warehouseService.ts:61`
 - Бэкенд: **нет**
-- Мок: `services/mocks/index.ts:1321`
-- Форма запроса: дельта `StockPatchPayload` по пяти ключам — `productName?`, `uomId?`, `avgUnitPrice?`, `minStock?`, `categoryName?` (`src/types/warehouse.ts:600-611`), собирается `useDirtyCheck.diff()` только из изменившихся ключей верхнего уровня (`src/composables/useWarehouseStockCard.ts:147`, реализация `src/composables/useDirtyCheck.ts:62-77`). Мок типизирует тело как `{ minStock?: number | null }` (`services/mocks/index.ts:1323`), то есть **уже` третьей формой**, и всё равно применяет `Object.assign(item, delta)` (`services/mocks/warehouse.ts:559`).
+- Мок: `services/mocks/index.ts:1323`
+- Форма запроса: дельта `StockPatchPayload` по пяти ключам — `productName?`, `uomId?`, `avgUnitPrice?`, `minStock?`, `categoryName?` (`src/types/warehouse.ts:600-611`), собирается `useDirtyCheck.diff()` только из изменившихся ключей верхнего уровня (`src/composables/useWarehouseStockCard.ts:147`, реализация `src/composables/useDirtyCheck.ts:62-77`). Мок типизирует тело как `{ minStock?: number | null }` (`services/mocks/index.ts:1325`), то есть **уже` третьей формой**, и всё равно применяет `Object.assign(item, delta)` (`services/mocks/warehouse.ts:559`).
 - Форма ответа: `StockOverviewItem` (`src/services/warehouseService.ts:60`), но мок отдаёт `{ ...item }` **без проекции** (`services/mocks/warehouse.ts:560`), в отличие от GET списка и GET карточки (`:490`, `:550`). Карточка кладёт этот ответ прямо в `item.value` (`src/composables/useWarehouseStockCard.ts:150`), то есть сразу после Save на экране висят засеянные числа вместо посчитанных → находка 5.
 - Коды ошибок: один — `STOCK_ITEM_NOT_FOUND` (`services/mocks/warehouse.ts:558`). До человека не доходит: `catch { toast.error(t('warehouse.toast_error_save')) }` без параметра (`src/composables/useWarehouseStockCard.ts:160-162`).
 - Save-режим: clean-slate. Правки живут в `form` (`src/composables/useWarehouseStockCard.ts:80-92`), уходят по кнопке Save и только при непустой дельте (`:147-149`), Discard возвращает форму к последнему ответу сервера (`:167-177`). Признак грязи — один `useDirtyCheck` без ручных добавок (`:94-95`).
@@ -413,7 +413,7 @@
 ### POST /api/warehouse/batches
 - Вызывающий: `src/services/warehouseService.ts:107`
 - Бэкенд: **нет**
-- Мок: `services/mocks/index.ts:1105`
+- Мок: `services/mocks/index.ts:1103`
 - Форма запроса: `BatchCreatePayload` — 16 объявленных ключей (`src/types/warehouse.ts:158-188`), плюс **семнадцатый необъявленный**: `fileIds`, добавленный пересечением типа прямо в месте вызова (`src/composables/useWarehouseBatchCreate.ts:357`, отправка `:387-389`). `unitPrice` необязателен намеренно: пустое остаётся пустым, а не нулём (`:166-172`, комментарий вызывающего `src/composables/useWarehouseBatchCreate.ts:366-368`). `currency` обязан быть базовой валютой, если прислан вообще (`src/types/warehouse.ts:174-175`).
 - Форма ответа: `WarehouseBatch` целиком — созданная запись **по ссылке на стор**, без копии: `return batch` после `batchStore.push(batch)` (`services/mocks/warehouse.ts:788-790`), в отличие от `mockGetBatch`, который отдаёт копию (`:644`).
 - Коды ошибок: один — `BATCH_CURRENCY_NOT_BASE` (`services/mocks/warehouse.ts:725`), и он ставит границу домена: складской слой говорит на одной валюте, курса в системе нет, переклеить подпись нельзя (`:721-723`, определение базовой — `:65-76`). До человека не доходит: страница создания ловит `catch` без разбора кода. Ни `PRODUCT_NOT_FOUND`, ни проверки существования товара, поставщика и единицы здесь нет вовсе — `mockCreateBatch` не заглядывает ни в один справочник (`:680-791`).
@@ -424,7 +424,7 @@
 ### POST /api/warehouse/cutting
 - Вызывающий: `src/services/warehouseService.ts:217`
 - Бэкенд: **нет**
-- Мок: `services/mocks/index.ts:1117`
+- Мок: `services/mocks/index.ts:1115`
 - Форма запроса: `CuttingOperation` — `{sourceBatchId, sourceQuantity, kerfMm, offcuts: Omit<OffcutCreatePayload,'batchId'>[], wasteQuantity, sourcePieces?, notes?}` (`src/types/warehouse.ts:419-438`). `sourceQuantity` — **сверка, а не ввод**: сервер считает расход заново и отказывает при расхождении (`services/mocks/warehouse.ts:1497-1500`, проверка `:1530-1535`). `sourcePieces` спрашивается только у штучной партии (`src/types/warehouse.ts:430-435`, подстановка `src/composables/useWarehouseCutting.ts:207`). Клиент кладёт в каждый кусок ещё и `productId` (`src/composables/useWarehouseCutting.ts:306`), которого в `OffcutCreatePayload` нет (`src/types/warehouse.ts:307-322`) и который мок игнорирует, беря товар у партии (`services/mocks/warehouse.ts:923`).
 - Форма ответа: `{ offcuts: WarehouseOffcut[]; wasteQuantity: number }` (`src/services/warehouseService.ts:214-218`, сборка `services/mocks/warehouse.ts:1578`). `wasteQuantity` в ответе — **пересчитанный** отход, а не присланный (`:1578`).
 - Коды ошибок: девять, и все — до первой записи: `BATCH_NOT_FOUND` (`services/mocks/warehouse.ts:1506`), `CUTTING_NO_OFFCUTS` (`:1508`), `CUTTING_KERF_NOT_APPLICABLE` (`:1519`), `INSUFFICIENT_QUANTITY` (`:1529`), `CUTTING_QUANTITY_MISMATCH` (`:1534`) плюс пять из домена через `MATERIAL_ERROR_CODE` — `BATCH_UNIT_NOT_SUPPORTED`, `OFFCUT_DIMENSION_MISSING`, `OFFCUT_PIECES_NOT_INTEGER`, `CUTTING_NEGATIVE_AMOUNT`, `CUTTING_SOURCE_PIECES_INVALID` (`frontend_vue/src/domain/cutting.ts:52-58`, бросок `services/mocks/warehouse.ts:1528`). До человека не доходит **ни один из десяти**: `catch { toast.error(t('warehouse.cutting_toast_error')) }` (`src/composables/useWarehouseCutting.ts:329-331`) → находка 14.
@@ -435,18 +435,18 @@
 ### POST /api/warehouse/deficit
 - Вызывающий: `src/services/warehouseService.ts:246`
 - Бэкенд: **нет**
-- Мок: `services/mocks/index.ts:1121`
+- Мок: `services/mocks/index.ts:1119`
 - Форма запроса: `DeficitCreatePayload` — четыре ключа: `productId`, `minRequired`, `priority`, `notes?` (`src/types/warehouse.ts:492-497`).
 - Форма ответа: `WarehouseDeficit` целиком — по ссылке на стор (`services/mocks/warehouse.ts:1756-1757`). Пять полей мок ставит константами: `productName: {ru:'',en:'',lt:''}`, `currentStock: 0`, `deficitAmount = minRequired`, `uomId: 'uom-pcs'`, `status: 'open'`, `suggestedOrderQty: null` (`:1742-1749`) → находка 26.
 - Коды ошибок: ни одного: `mockCreateDeficitItem` не бросает и не проверяет существование товара (`services/mocks/warehouse.ts:1736-1758`).
-- Save-режим: **вызывающего нет.** `createDeficitItem` объявлен (`src/services/warehouseService.ts:245-247`), ветка мока есть (`services/mocks/index.ts:1121`), и ни один экран его не зовёт: `grep -rn 'createDeficitItem' frontend_vue/src --include=*.ts --include=*.vue` даёт только объявление и ветку мока. Записи дефицита рождает **не эндпоинт**, а `recordShortage`, вызываемая доменом заказов внутри процесса (`services/mocks/warehouse.ts:1667-1712`).
+- Save-режим: **вызывающего нет.** `createDeficitItem` объявлен (`src/services/warehouseService.ts:245-247`), ветка мока есть (`services/mocks/index.ts:1119`), и ни один экран его не зовёт: `grep -rn 'createDeficitItem' frontend_vue/src --include=*.ts --include=*.vue` даёт только объявление и ветку мока. Записи дефицита рождает **не эндпоинт**, а `recordShortage`, вызываемая доменом заказов внутри процесса (`services/mocks/warehouse.ts:1667-1712`).
 - Пробел контракта: эндпоинта в старом тексте нет. Не описано главное: (а) что у дефицита **два пути рождения** — этот эндпоинт (без UI) и внутрипроцессная `recordShortage`, и они кладут разные значения в те же поля: `priority: 'high'`, `suggestedOrderQty = quantity`, `productName` из заказа, `notes = "Order <id>"` (`services/mocks/warehouse.ts:1689-1705`) против шести констант ручного создания (`:1742-1749`); (б) что «та же нехватка того же заказа» узнаётся **по полному совпадению примечания**, а не по подстроке, и причина названа в коде: «Order ORD-1» содержится в «Order ORD-10» (`:1675-1687`); (c) что нехватка снимается вместе с породившей её строкой — `clearShortages` (`:1726-1734`), и трогает только записи с примечанием заказа (`:1723-1724`).
 - Источник истины: мок + клиент.
 
 ### POST /api/warehouse/movements
 - Вызывающий: `src/services/warehouseService.ts:195`
 - Бэкенд: **нет**
-- Мок: `services/mocks/index.ts:1113`
+- Мок: `services/mocks/index.ts:1111`
 - Форма запроса: `MovementCreatePayload` — 12 ключей (`src/types/warehouse.ts:400-415`). Два из них не шлёт никто: `unitPrice` и `currency` (`grep -rn 'createMovement(' frontend_vue/src --include=*.ts --include=*.vue` — пять вызовов, ни одного с этими ключами), причём `currency` мок **игнорирует по построению**: движение всегда получает валюту партии (`services/mocks/warehouse.ts:1249`) → находка 22. `batchId` обязателен и у движения куска тоже — движение всегда пишется против партии (`:1216-1221`).
 - Форма ответа: `WarehouseMovement` целиком — созданная запись **по ссылке на стор** (`services/mocks/warehouse.ts:1262`, `:1350`), 19 полей (`src/types/warehouse.ts:345-380`). Ответа не читает ни один вызывающий.
 - Коды ошибок: один — `BATCH_NOT_FOUND`, и он бросается **до любой записи**, в том числе до переноса адреса (`services/mocks/warehouse.ts:1222-1223`, причина `:1216-1221`). Проверки типа движения нет: `data.type` приводится к типу приведением (`:1229`), то есть любая строка станет движением.
@@ -457,7 +457,7 @@
 ### POST /api/warehouse/offcuts
 - Вызывающий: `src/services/warehouseService.ts:157`
 - Бэкенд: **нет**
-- Мок: `services/mocks/index.ts:1109`
+- Мок: `services/mocks/index.ts:1107`
 - Форма запроса: `OffcutCreatePayload` — 10 ключей (`src/types/warehouse.ts:307-322`). Вызывающий шлёт **реактивную форму целиком**, а в ней есть четыре части адреса: `createOffcut(form)` при `form: OffcutCreatePayload & { locationRack; locationRow; locationCell; locationNotes }` (`src/composables/useWarehouseOffcutCreate.ts:32-54`, отправка — единственный вызов `createOffcut`), то есть на проводе 14 ключей вместо 10 → находка 10.
 - Форма ответа: `WarehouseOffcut` целиком, **по ссылке на стор**: `return offcut` после `offcutStore.push(offcut)` (`services/mocks/warehouse.ts:942`, `:958`).
 - Коды ошибок: три плюс домен: `BATCH_NOT_FOUND` (`services/mocks/warehouse.ts:903`), `INSUFFICIENT_QUANTITY` (`:910`) и коды `MATERIAL_ERROR_CODE` из `resolveOffcutMaterial` — `BATCH_UNIT_NOT_SUPPORTED`, `OFFCUT_DIMENSION_MISSING`, `OFFCUT_PIECES_NOT_INTEGER` (`:905-906`, `frontend_vue/src/domain/cutting.ts:52-58`). До человека не доходит ни один: страница создания показывает общий тост.
@@ -584,7 +584,7 @@
     `CreateMovementModal.vue` жив и подключён к карточке партии
     (`frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:21`, `:1522`).
 18. **`DELETE /api/warehouse/movements/:id` существует в моке и не существует в клиенте.** Ветка
-    есть (`frontend_vue/src/services/mocks/index.ts:1619-1623`, функция
+    есть (`frontend_vue/src/services/mocks/index.ts:1621-1625`, функция
     `frontend_vue/src/services/mocks/warehouse.ts:1407-1411`), в `warehouseService.ts` такой
     функции нет, и в инвентарь эндпоинтов домена этот путь не попал — он одна из пяти «сирот»
     замера К2 (см. `roo_code/plans/api/contract-sync-plan.md:259`). Удаление движения — это
