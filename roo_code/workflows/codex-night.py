@@ -184,7 +184,24 @@ def write_author(root, backends, task, run_dir, deadline):
         # всё равно выполняет контроллер.
         (worktree / "frontend_vue/node_modules").symlink_to(modules)
     before = git_state(worktree)
-    result = ask_agent(worktree, backends, task, "work", run_dir, deadline)
+    try:
+        result = ask_agent(worktree, backends, task, "work", run_dir, deadline)
+    except CommandFailed:
+        # Процесс исполнителя не запустился или упал — это не «ответ», а отказ среды.
+        # Он остаётся поводом остановить прогон: если CLI лёг, ляжет и на следующей задаче.
+        raise
+    except (RuntimeError, ValueError) as error:
+        # Ответ пришёл, но пользоваться им нельзя: не JSON, не по схеме, `is_error`.
+        # Это брак ОДНОЙ задачи, а не всей ночи. Ночь 2026-09-23-2241 кончилась в 01:51
+        # из 05:40 ровно так: один автор из четырёх вернул прозу «All done. Summary of
+        # the change: …», исключение вылетело из пачки — и три готовых патча соседей
+        # остались в run-4 непросмотренными. Схему держит только Codex (--output-schema),
+        # у claude и zoo её нечем навязать, значит случай штатный и обязан обрабатываться.
+        result = {"status": "blocked",
+                  "summary": f'Ответ автора непригоден: {error}'[:500],
+                  "evidence": [str(run_dir / f'{task["id"]}-work.stdout.log')]}
+    # Границы задачи проверяются и после непригодного ответа: автор, вышедший за них,
+    # останавливает прогон в любом случае — это строже, чем блокировка одной задачи.
     if git_state(worktree) != before:
         raise RuntimeError(f'{task["id"]}: исполнитель изменил Git в своём worktree')
     outside = changed(worktree) - set(task["outputs"])
@@ -197,6 +214,10 @@ def write_author(root, backends, task, run_dir, deadline):
         execute(["git", "add", "--", *touched], worktree, run_dir / f'{task["id"]}-stage-wt', deadline)
         patch = run_dir / f'{task["id"]}.patch'
         patch.write_bytes(subprocess.check_output(["git", "-C", str(worktree), "diff", "--cached", "--binary"]))
+        # Патч заблокированной задачи не применяется, но и не пропадает: без этой строки
+        # работу автора пришлось бы искать по каталогу прогона руками.
+        if result["status"] == "blocked":
+            result["evidence"].append(str(patch))
     return result, patch
 
 
