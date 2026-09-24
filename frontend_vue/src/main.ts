@@ -4,6 +4,37 @@ import { router } from './router'
 import { i18n } from './i18n'
 import { vTooltip } from './composables/useTooltip'
 
+/*
+ * Шрифты — локально, а не с `fonts.googleapis.com`.
+ *
+ * Приложение в браузере больше не зависит от чужого хоста: ссылка в `index.html`
+ * означала, что при недоступном CDN страница рисуется запасным начертанием, а
+ * `<link>` на внешний домен к тому же блокирует первую отрисовку до ответа сети.
+ *
+ * Чего эта правка НЕ делает — и это важнее, чем то, что делает. Она не чинит
+ * визуальные флейки: в e2e внешнего запроса не было НИКОГДА. `tests/e2e/fixtures.ts`
+ * зовёт `pinWebFonts`, а тот перехватывает `fonts.googleapis.com` и
+ * `fonts.gstatic.com` и отвечает файлами из `tests/e2e/fixtures/fonts/`. Флейк
+ * «bcc-request › visual @1440 › email template panel» к шрифтам отношения не имел
+ * вовсе: там побеждал порядок впрыска CSS (питфолл #73), и чинится он в
+ * `styles/admin/bcc_request.css`.
+ *
+ * Следствие, о котором надо знать: фикстуры отдают Inter v20 ровно теми байтами,
+ * что раздаёт Google (сверено md5), а `@fontsource` — другая сборка того же
+ * начертания. Растеризация расходится на единицы из 255 на пикселях глифов, и три
+ * самых строгих эталона проекта (`PILL_SNAPSHOT_OPTIONS`, `maxDiffPixelRatio: 0`)
+ * это увидели. Их линии пересняты в том же коммите.
+ *
+ * Начертания ровно те, что были в `index.html`: Inter 400–800, JetBrains Mono 400–500.
+ */
+import '@fontsource/inter/400.css'
+import '@fontsource/inter/500.css'
+import '@fontsource/inter/600.css'
+import '@fontsource/inter/700.css'
+import '@fontsource/inter/800.css'
+import '@fontsource/jetbrains-mono/400.css'
+import '@fontsource/jetbrains-mono/500.css'
+
 /* Existing shared styles from demo */
 import '@styles/erp-base.css'
 import '@styles/public/public.css'
