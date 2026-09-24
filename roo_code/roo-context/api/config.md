@@ -36,7 +36,7 @@ clean-slate Save, форма идентификатора, права как с�
 
 **Но таблицы и модели домена существуют, и лежат они в двух чужих модулях.**
 `field_definitions`, `section_configs`, `section_fields` — в `suppliers`
-([`suppliers/shared/models.py:240`](../../../backend/app/modules/suppliers/shared/models.py), `:269`,
+([`suppliers/shared/models.py:242`](../../../backend/app/modules/suppliers/shared/models.py), `:269`,
 `:294`); `permission_items`, `role_permissions`, `user_permissions` — в `auth`
 ([`auth/shared/models.py:145`](../../../backend/app/modules/auth/shared/models.py), `:169`, `:202`).
 Все шесть заведены одной миграцией
@@ -124,7 +124,7 @@ interface FieldDefinition {
 Ошибки: **ни одной** — см. «Каталог кодов ошибок» ниже.
 
 Бэкенд: **не реализован** — модуля нет; таблица под ответ есть, `field_definitions`
-(`backend/app/modules/suppliers/shared/models.py:240-266`), и расходится с этой формой по четырём
+(`backend/app/modules/suppliers/shared/models.py:242-268`), и расходится с этой формой по четырём
 пунктам (правила 1 и 2 ниже).
 Реализация: `services/configService.ts:7` (`getFieldLibrary`) · мок `mocks/index.ts:411` →
 `mocks/config.ts:234`
@@ -181,7 +181,7 @@ Save-режим: clean-slate. Именно этот эндпоинт несёт 
 
 Ошибки: **ни одной** в коде. Уникальность имени внутри арендатора — единственное правило раздела,
 подтверждённое схемой: уникальный **индекс** `uq_field_definitions_tenant_name` по `(tenant_id, name)`
-(`backend/app/modules/suppliers/shared/models.py:264-266` — `Index(..., unique=True)`, миграция
+(`backend/app/modules/suppliers/shared/models.py:266-268` — `Index(..., unique=True)`, миграция
 `e24a3922ed01_phase_7_config.py:40`; в базе это `UNIQUE INDEX` того же имени). Кода под этот отказ в
 проекте нет — строка владельцу.
 
@@ -233,7 +233,7 @@ Save-режим: clean-slate. Именно этот эндпоинт несёт 
 **Удаление определения каскадом снимает его со всех секций — и мок, и схема согласны.** Мок
 фильтрует `sec.fields` во всех секциях (`mocks/config.ts:301-303`), схема даёт то же через
 `section_fields.field_id` с `ondelete="CASCADE"`
-(`backend/app/modules/suppliers/shared/models.py:311-315`, миграция
+(`backend/app/modules/suppliers/shared/models.py:313-317`, миграция
 `e24a3922ed01_phase_7_config.py:61`). Это единственное место домена, где две стороны совпали, — и
 контракт его закрепляет.
 
@@ -284,7 +284,7 @@ interface SectionField { fieldId: string; order: number; visible: boolean }   //
 есть (`:254-259`); совпадение держится только тем, что клиент перенумеровывает `order` по индексу
 при перетаскивании (`useCardConfig.ts:73`). **Сервер обязан отдавать секции упорядоченными по
 `sort_order`** — колонка под это на схеме есть
-(`backend/app/modules/suppliers/shared/models.py:281`), и клиент, читающий массив по порядку
+(`backend/app/modules/suppliers/shared/models.py:283`), и клиент, читающий массив по порядку
 (`SupplierCardConfigPage.vue:48-52` и вёрстка списка), другого способа получить порядок не имеет.
 
 Мок отдаёт клон пяти секций (`mocks/config.ts:250-252`, стор `:114-177`); у всех пяти
@@ -294,7 +294,7 @@ interface SectionField { fieldId: string; order: number; visible: boolean }   //
 Ошибки: **ни одной**.
 
 Бэкенд: **не реализован** — таблица `section_configs`
-(`backend/app/modules/suppliers/shared/models.py:269-291`) здесь **ближе** к фронту, чем у полей:
+(`backend/app/modules/suppliers/shared/models.py:271-293`) здесь **ближе** к фронту, чем у полей:
 имя переводимо (`name_translations` JSONB, `:280`), есть `collapsed` и `visible` (`:282-287`).
 Расходятся имя порядка (`sort_order` против `order`, `:281`) и отсутствует `system` — колонки под
 него нет (`grep -c '"system"' backend/alembic/versions/e24a3922ed01_phase_7_config.py` → `0`).
@@ -360,7 +360,7 @@ Save-режим: clean-slate, первый из трёх `PUT`-ов батча (
 
 **Кто выдаёт `order` новой секции — сервер.** Мок ставит `MOCK_SECTIONS.length` (`:314`), схема
 объявляет `sort_order` как `nullable=False` без дефолта
-(`backend/app/modules/suppliers/shared/models.py:281`), то есть значение обязано родиться на
+(`backend/app/modules/suppliers/shared/models.py:283`), то есть значение обязано родиться на
 сервере, а не приехать пустым.
 
 Ошибки: **ни одной**. Уникальности имени секции нет ни в моке, ни на схеме — в отличие от полей
@@ -408,9 +408,9 @@ Save-режим: clean-slate, первый из трёх `PUT`-ов батча (
 
 **Судьба полей внутри удаляемой секции: снимаются ссылки, определения остаются.** Схема отвечает на
 это однозначно — `section_fields.section_id` с `ondelete="CASCADE"`
-(`backend/app/modules/suppliers/shared/models.py:305-310`, миграция
+(`backend/app/modules/suppliers/shared/models.py:307-312`, миграция
 `e24a3922ed01_phase_7_config.py:60`) плюс ORM-каскад `cascade="all, delete-orphan"`
-(`backend/app/modules/suppliers/shared/models.py:289-291`);
+(`backend/app/modules/suppliers/shared/models.py:291-293`);
 `field_definitions` при этом не трогаются, потому что каскад идёт от секции к связке, а не к
 определению. Мок этого не делает вовсе: `mockDeleteSection` вынимает секцию из массива и всё
 (`mocks/config.ts:350-353`) — связка у него живёт внутри самой секции, поэтому расхождения нет.
@@ -519,11 +519,11 @@ Save-режим: clean-slate, третий запрос того же `Promise.a
 **`items`, `roles` и `users` сервер обязан считать производными и игнорировать в теле.** На сервере
 `roles` выводятся из `user_roles.role_name` (`backend/app/modules/auth/shared/models.py:98`),
 `users` — из таблицы `users` (`:42`), а порядок `items` — из `section_configs.sort_order` и
-`section_fields.sort_order` (`backend/app/modules/suppliers/shared/models.py:281`, `:316`). Принять
+`section_fields.sort_order` (`backend/app/modules/suppliers/shared/models.py:283`, `:316`). Принять
 их как данные значит позволить клиенту переписать состав ролей арендатора запросом о правах.
 Оговорка: `permission_items` — таблица **хранимая**, со своим `name_translations`
 (`auth/shared/models.py:157-159`), поэтому имя элемента у сервера дублирует
-`section_configs.name_translations` (`suppliers/shared/models.py:280`) и может с ним разойтись;
+`section_configs.name_translations` (`suppliers/shared/models.py:282`) и может с ним разойтись;
 какой из двух источник истины — строка владельцу.
 
 **Сервер не проверяет согласованность матрицы.** Все правила каскада живут на клиенте
@@ -571,7 +571,7 @@ Save-режим: clean-slate, третий запрос того же `Promise.a
 
 | отказ | чем требование доказано | код |
 |---|---|---|
-| дубль имени поля внутри арендатора | `uq_field_definitions_tenant_name` (`backend/app/modules/suppliers/shared/models.py:264-266`) | `FIELD_NAME_TAKEN`, 409, имя поля в `fieldErrors` |
+| дубль имени поля внутри арендатора | `uq_field_definitions_tenant_name` (`backend/app/modules/suppliers/shared/models.py:266-268`) | `FIELD_NAME_TAKEN`, 409, имя поля в `fieldErrors` |
 | удаление или правка встроенного поля | `is_builtin` (`:256-258`), кнопка задизейблена в вёрстке | `FIELD_IS_BUILTIN`, 409 |
 | удаление системной секции | `SectionConfig.system` (`types/config.ts:24-25`), e2e `supplier-card-config.spec.ts:260-266` | `SECTION_IS_SYSTEM`, 409 |
 
@@ -599,7 +599,7 @@ Save-режим: clean-slate, третий запрос того же `Promise.a
 `PERMISSION_ACTIONS` (`SupplierCardConfigPage.vue:85`) и его копией в моке (`mocks/config.ts:187`);
 подписи `R/E/C/D` (`SupplierCardConfigPage.vue:86-91`); тип нового поля по умолчанию `'text'`
 (`:61`, `:396`, `:400`). Справочника типов поля в настройках нет, а на схеме это свободная строка
-`field_type: String(50)` без `CHECK` (`backend/app/modules/suppliers/shared/models.py:252`) — то
+`field_type: String(50)` без `CHECK` (`backend/app/modules/suppliers/shared/models.py:254`) — то
 есть перечень закрыт во фронте и открыт на сервере (§8 соглашений, тот же класс). Кто владеет
 перечнем типов поля, перечнем ролей и дефолтом прав нового элемента — сегодня в коде **нигде**.
 Строками владельцу они больше не числятся, все три решены: перечень типов поля остаётся в коде,
@@ -629,7 +629,7 @@ Save-режим: clean-slate, третий запрос того же `Promise.a
 **Кастомные поля: это и есть предмет домена — определения; хранилища значений не существует
 нигде.** Определения: `FieldDefinition` (`types/config.ts:5-14`), CRUD `/api/config/fields`
 (`configService.ts:6-42`), на схеме `field_definitions`
-(`backend/app/modules/suppliers/shared/models.py:240-266`). У поставщика фиксированный набор колонок
+(`backend/app/modules/suppliers/shared/models.py:242-268`). У поставщика фиксированный набор колонок
 без `fieldValues` (`frontend_vue/src/types/supplier.ts:12-31`), таблица `suppliers` — тоже
 (`backend/app/modules/suppliers/shared/models.py:17-62`), и таблицы `supplier_field_values` не
 существует. Пересечения с кастомными полями товара нет: `product_field_values.field_id` ссылается
@@ -655,7 +655,7 @@ Save-режим: clean-slate, третий запрос того же `Promise.a
 выражена нигде: `grep -c "tenant" frontend_vue/src/services/configService.ts` → `0`, ни поля, ни
 заголовка. На схеме выражена у всех шести таблиц: `tenant_id` как `ForeignKey("tenants.id",
 ondelete="CASCADE")`, `nullable=False`, `index=True` — `field_definitions`
-(`backend/app/modules/suppliers/shared/models.py:245-250`), `section_configs` (`:274-279`),
+(`backend/app/modules/suppliers/shared/models.py:247-252`), `section_configs` (`:274-279`),
 `section_fields` (`:299-304`), `permission_items`
 (`backend/app/modules/auth/shared/models.py:150-155`), `role_permissions` (`:174-179`),
 `user_permissions` (`:207-212`); в миграции те же шесть
@@ -699,7 +699,7 @@ savePermissions])` (`useCardConfig.ts:51-55`) — общей транзакци�
 выдаёт модульный счётчик, а не `Date.now()`, и в моке (`mocks/config.ts:274`, `:312`), и на
 странице (`SupplierCardConfigPage.vue:316`, `:410`, `:458`); проверки уникальности имени
 по-прежнему нет ни в моке, ни на странице, только на схеме и только у
-полей (`backend/app/modules/suppliers/shared/models.py:264-266`). Обязаны ли три `PUT`-а применяться
+полей (`backend/app/modules/suppliers/shared/models.py:266-268`). Обязаны ли три `PUT`-а применяться
 одной транзакцией и в каком порядке — **решено 2026-09-09 (П43)**: не обязаны. Атомарны заказ и
 склад; конфигурация — те же настройки, и контракт прямо говорит, что порядок не задан, а частичное
 сохранение возможно ([§15](00-conventions.md)).
@@ -709,13 +709,13 @@ savePermissions])` (`useCardConfig.ts:51-55`) — общей транзакци�
 `MOCK_SECTIONS` (`mocks/config.ts:191-203`), а на схеме `permission_items` — хранимая таблица со
 своим `name_translations` (`backend/app/modules/auth/shared/models.py:157-159`), которое может
 разойтись с `section_configs.name_translations`
-(`backend/app/modules/suppliers/shared/models.py:280`). (2) `usageCount` по замыслу производна
+(`backend/app/modules/suppliers/shared/models.py:282`). (2) `usageCount` по замыслу производна
 («сколько поставщиков заполнили это поле»), на схеме — колонка `usage_count` с `server_default="0"`
-(`backend/app/modules/suppliers/shared/models.py:259-261`), а считать её **не из чего**: хранилища
+(`backend/app/modules/suppliers/shared/models.py:261-263`), а считать её **не из чего**: хранилища
 значений нет (графа «Кастомные поля»). (3) `order` секции клиент считает позицией в массиве и
 перенумеровывает при перетаскивании (`useCardConfig.ts:73`), мок при чтении не сортирует
 (`mocks/config.ts:250-252`), схема хранит `sort_order`
-(`backend/app/modules/suppliers/shared/models.py:281`). Плюс `roles` и `users` матрицы — производные
+(`backend/app/modules/suppliers/shared/models.py:283`). Плюс `roles` и `users` матрицы — производные
 от `user_roles.role_name` (`backend/app/modules/auth/shared/models.py:98`) и таблицы `users`
 (`:42`), которые клиент присылает обратно телом `PUT` как данные (`configService.ts:80-81`). Что из
 этого сервер считает при чтении, а что хранит — строка владельцу.
@@ -730,14 +730,14 @@ savePermissions])` (`useCardConfig.ts:51-55`) — общей транзакци�
 1. **Имя поля во фронте трёхъязычно, а на схеме — одна строка; у секции и элемента матрицы
    наоборот, совпадает.** `FieldDefinition.name: TranslatedString` и `options?: TranslatedString[]`
    (`types/config.ts:7`, `:13`) против `name: String(255)` и `options: JSON`
-   (`backend/app/modules/suppliers/shared/models.py:251`, `:262`; миграция
+   (`backend/app/modules/suppliers/shared/models.py:253`, `:262`; миграция
    `e24a3922ed01_phase_7_config.py:31`, `:36`). При этом `section_configs.name_translations` и
-   `permission_items.name_translations` — JSONB (`suppliers/shared/models.py:280`;
+   `permission_items.name_translations` — JSONB (`suppliers/shared/models.py:282`;
    `backend/app/modules/auth/shared/models.py:157-159`). Асимметрия внутри одной миграции: два имени
    из трёх переводимы, третье нет, а хранить `{ru,en,lt}` в `String(255)` нечем (§12 соглашений —
    тот же класс, самое крупное расхождение проекта).
 2. **Встроенность поля на схеме — колонка, во фронте — префикс строки id.** `is_builtin`
-   (`backend/app/modules/suppliers/shared/models.py:256-258`, миграция
+   (`backend/app/modules/suppliers/shared/models.py:258-260`, миграция
    `e24a3922ed01_phase_7_config.py:34`) против `fieldId.startsWith('f-custom-')`
    (`SupplierCardConfigPage.vue:312-314`, комментарий `:301-302`). Следствие жёсткое: пока
    встроенность определяется префиксом, серверные `id` **обязаны** нести `f-custom-`, иначе UI
@@ -774,7 +774,7 @@ savePermissions])` (`useCardConfig.ts:51-55`) — общей транзакци�
    (`mocks/config.ts:191-203`); в `permission_items` колонки порядка нет вовсе (миграция
    `e24a3922ed01_phase_7_config.py:68-77`). Значит сервер обязан выводить порядок из
    `section_configs.sort_order` и `section_fields.sort_order`
-   (`backend/app/modules/suppliers/shared/models.py:281`, `:316`) при каждом чтении.
+   (`backend/app/modules/suppliers/shared/models.py:283`, `:316`) при каждом чтении.
 7. **Пять правил каскада матрицы живут только на клиенте и пронумерованы прямо в коде.** Правило 1 —
    секция каскадит на свои поля (`SupplierCardConfigPage.vue:205-216`, вызов `:215`); правило 2 —
    чекбокс пользователя в строке секции каскадит на пользовательские чекбоксы всех её полей
@@ -798,7 +798,7 @@ savePermissions])` (`useCardConfig.ts:51-55`) — общей транзакци�
     «UI-only: collapsed inside the config builder (not persisted to the rendered supplier card)»
     (`types/config.ts:20-21`), при этом флаг входит в тело `PUT /api/config/sections`
     (`configService.ts:51`), мок его сохраняет (`mocks/config.ts:254-259`), и на схеме под него есть
-    колонка (`backend/app/modules/suppliers/shared/models.py:282-284`, миграция
+    колонка (`backend/app/modules/suppliers/shared/models.py:284-286`, миграция
     `e24a3922ed01_phase_7_config.py:49`). «UI-only» здесь значит «не влияет на карточку», а не «не
     хранится», — и сервер обязан его хранить.
 11. **Имя новой секции размножается на три языка, имя нового поля — нет, а страница делает третье.**
@@ -852,8 +852,8 @@ clean-slate-батчем из трёх `PUT`-ов. Проверено по ка�
 
 | было в прежнем тексте | чем опровергнуто |
 |---|---|
-| `403 IMMUTABLE` на встроенное поле — в `PATCH` и в `DELETE` (`03-api-contract.md:644`, `:650`) | кода `IMMUTABLE` нет нигде: `grep -rn "IMMUTABLE" frontend_vue/src backend/app` пусто; мок удаляет и правит любое поле (`mocks/config.ts:294`, `:298-304`); серверный признак другой — `is_builtin` (`backend/app/modules/suppliers/shared/models.py:256-258`) |
-| `409 DUPLICATE` по имени поля per-tenant (`:636`, `:644`) | кода `DUPLICATE` в домене нет; правило при этом **есть на схеме** — `uq_field_definitions_tenant_name` (`suppliers/shared/models.py:264-266`), поэтому снят код, а не требование |
+| `403 IMMUTABLE` на встроенное поле — в `PATCH` и в `DELETE` (`03-api-contract.md:644`, `:650`) | кода `IMMUTABLE` нет нигде: `grep -rn "IMMUTABLE" frontend_vue/src backend/app` пусто; мок удаляет и правит любое поле (`mocks/config.ts:294`, `:298-304`); серверный признак другой — `is_builtin` (`backend/app/modules/suppliers/shared/models.py:258-260`) |
+| `409 DUPLICATE` по имени поля per-tenant (`:636`, `:644`) | кода `DUPLICATE` в домене нет; правило при этом **есть на схеме** — `uq_field_definitions_tenant_name` (`suppliers/shared/models.py:266-268`), поэтому снят код, а не требование |
 | «`type` менять нельзя — `422 VALIDATION_ERROR`» (`:641`) | мок меняет любое поле через `Object.assign` (`mocks/config.ts:294`); проверки нет ни в клиенте, ни на схеме |
 | «`404 NOT_FOUND`, если section не существует» (`:674`) | **сходится с 2026-09-24:** `mockUpdateSection` бросает `SECTION_NOT_FOUND` 404, то же у поля — БАГ-08 закрыта |
 | «поле `fields` в `PATCH` не принимаем» (`:671`) | мок принимает через `Object.assign` (`mocks/config.ts:346`) |
@@ -864,7 +864,7 @@ clean-slate-батчем из трёх `PUT`-ов. Проверено по ка�
 | «`confirmDeleteField` зовёт `DELETE /api/config/fields/:id`» (`:648`) | не зовёт: правит `fieldLibrary` и `sections` в памяти (`SupplierCardConfigPage.vue:359-370`) |
 | «`PATCH /api/config/fields/:id` — quick action» (`:640`) | quick-action-пути в коде нет ни одного; домен целиком clean-slate (`SupplierCardConfigPage.vue:316-317`) |
 | «сервер переопределяет клиентский `id`» при `POST` (`:633`) | по смыслу верно, повод другой: клиент `id` не шлёт вовсе (`configService.ts:22-25`), а `f-custom-<ts>` рождается в моке (`mocks/config.ts:274`) или локально на странице (`SupplierCardConfigPage.vue:316`) |
-| «`type: 'enum'` требует `options`» (`:636`) | не проверяет ни мок, ни клиент, ни схема (`options` nullable — `suppliers/shared/models.py:262`) |
+| «`type: 'enum'` требует `options`» (`:636`) | не проверяет ни мок, ни клиент, ни схема (`options` nullable — `suppliers/shared/models.py:264`) |
 | примеры с `"name": "Company"` / `"Status"` строкой (`:627`, `:643`, `:657`, `:673`, `:681`) | во фронте это `TranslatedString` во всех четырёх типах (`types/config.ts:7`, `:18`, `:61`) |
 | «Сервер обязан добавлять item, когда создаётся section / field» (`:683`) | требование к серверу оставлено (правило 6 выше), снято как **описание существующего**: мок его не исполняет — `MOCK_PERMISSIONS` строится один раз при загрузке модуля (`mocks/config.ts:232`) и не пересобирается (БАГ-07) |
 | «`PUT` оставлен только на `/api/config/sections` и `/api/config/permissions`» (`:32`, повтор в чейнджлоге `:813-815`), и по кнопке Save уходит два запроса (`:267`) | `PUT`-ов три: библиотека полей тоже уходит целиком (`configService.ts:12`, `useCardConfig.ts:51-55`) — прежний текст не молчал, а утверждал обратное |

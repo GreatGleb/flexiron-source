@@ -337,7 +337,7 @@ if (patch.name) {
 `IMMUTABLE` в проекте нет: `grep -rn "IMMUTABLE" frontend_vue/src backend/app` — пусто.
 
 На схеме признак встроенности **есть и он другой** — колонка `is_builtin`
-(`backend/app/modules/suppliers/shared/models.py:256-258`), которой нет ни в типе фронта, ни в
+(`backend/app/modules/suppliers/shared/models.py:258-260`), которой нет ни в типе фронта, ни в
 моке; колонки `system` у секции на схеме нет вовсе
 (`grep -c '"system"' backend/alembic/versions/e24a3922ed01_phase_7_config.py` → `0`).
 

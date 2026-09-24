@@ -76,10 +76,10 @@
 |---|---|---|---|---|
 | все шесть | `categories.name` — `String(255)` (`models.py:25`) | `name: TranslatedString` (`types/category.ts:17`) | контракт | §12 соглашений и П64: имя вводится на одном языке и читается на том, который есть; в одну строку три языка не лягут. Миграция M1 |
 | все шесть | `categories.description` — `Text` (`models.py:32`) | `description: TranslatedString \| null` | контракт | то же основание; миграция M1 |
-| `PUT /fields` | `category_fields.name` — `String(255)` (`models.py:76`) | `CategoryField.name: TranslatedString` | контракт | то же; миграция M1 |
-| `PUT /fields` | `options` — `Mapped[dict \| None]` (`models.py:86`) | `options: TranslatedString[]` — массив | контракт | колонка `JSON` вмещает массив, врёт аннотация типа; правка модели без миграции |
-| `PUT /fields` | `field_type` — `String(50)`, комментарий на пять значений (`models.py:77-79`) | семь значений `CategoryFieldType` (`types/category.ts:4`) | контракт | П26: перечень остаётся в коде одним источником, сервер валидирует по нему; `email` и `file` доходят до селекта (`CategoryCardPage.vue:97`) |
-| `PUT /fields` | имена колонок `field_type`, `sort_order` (`models.py:77`, `:83`) | имена на проводе `type`, `order` | оба | колонка и провод — разные имена по определению; переименования нет, отображение делает слой схем слайса |
+| `PUT /fields` | `category_fields.name` — `String(255)` (`models.py:72`) | `CategoryField.name: TranslatedString` | контракт | то же; миграция M1 |
+| `PUT /fields` | `options` — `Mapped[dict \| None]` (`models.py:88`) | `options: TranslatedString[]` — массив | контракт | колонка `JSON` вмещает массив, врёт аннотация типа; правка модели без миграции |
+| `PUT /fields` | `field_type` — `String(50)`, комментарий на пять значений (`models.py:73-81`) | семь значений `CategoryFieldType` (`types/category.ts:4`) | контракт | П26: перечень остаётся в коде одним источником, сервер валидирует по нему; `email` и `file` доходят до селекта (`CategoryCardPage.vue:97`) |
+| `PUT /fields` | имена колонок `field_type`, `sort_order` (`models.py:73`, `:83`) | имена на проводе `type`, `order` | оба | колонка и провод — разные имена по определению; переименования нет, отображение делает слой схем слайса |
 | `GET /api/categories` | `level` хранится колонкой (`models.py:39`) | «считается при чтении, поднимаясь по `parentId`» | контракт + **П68** | П68 называет `level`/`field_count`/`product_count` категории поимённо и удаляет колонки; §17 соглашений. Миграция M2 |
 | `GET /api/categories` | `field_count` колонкой (`models.py:33`) | `fieldCount` — только собственные поля, пересчёт при записи | контракт + **П68** | там же |
 | `GET`, `DELETE` | `product_count` колонкой (`models.py:36`) | «не считается нигде», статическое число в сторе (БАГ-02) | контракт + **П68** | хранимое число уже разошлось с товарами; на нём стоит отказ `CATEGORY_HAS_PRODUCTS`, то есть врущая колонка пускает удаление |
@@ -535,7 +535,7 @@ npx vitest run src/services/contract-conformance.spec.ts
 
 Сегодня перечень объявлен дважды: типом (`frontend_vue/src/types/category.ts:4`) и массивом
 (`frontend_vue/src/views/admin/products/CategoryCardPage.vue:97` — `const FIELD_TYPES`). Третий
-экземпляр — комментарий схемы, знающий пять значений из семи (`models.py:79`).
+экземпляр — комментарий схемы, знающий пять значений из семи (`models.py:81`).
 
 Работа: массив `FIELD_TYPES` выводится из типа и экспортируется из `types/category.ts`; компонент
 импортирует, а не объявляет; комментарий схемы приводится к семи значениям той же задачей, что

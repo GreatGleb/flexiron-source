@@ -30,7 +30,7 @@ class Supplier(UUIDMixin, TimestampMixin, Base):
         String(50), nullable=False, default="new", server_default="new"
     )
     categories: Mapped[dict] = mapped_column(
-        JSON, nullable=False, default=list, server_default="[]"
+        JSONB, nullable=False, default=list, server_default="[]"
     )
     rating: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"
@@ -38,7 +38,7 @@ class Supplier(UUIDMixin, TimestampMixin, Base):
     country: Mapped[str | None] = mapped_column(String(100), nullable=True)
     city: Mapped[str | None] = mapped_column(String(100), nullable=True)
     tags: Mapped[dict] = mapped_column(
-        JSON, nullable=False, default=list, server_default="[]"
+        JSONB, nullable=False, default=list, server_default="[]"
     )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     lead_time: Mapped[int] = mapped_column(
@@ -53,12 +53,8 @@ class Supplier(UUIDMixin, TimestampMixin, Base):
     payment_terms: Mapped[str | None] = mapped_column(String(100), nullable=True)
     min_order: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
     bcc_emails: Mapped[dict] = mapped_column(
-        JSON, nullable=False, default=list, server_default="[]"
+        JSONB, nullable=False, default=list, server_default="[]"
     )
-    has_deficit: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False, server_default="false"
-    )
-    last_bcc_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     # Relationships
     addresses: Mapped[list["SupplierAddress"]] = relationship(
@@ -75,6 +71,12 @@ class Supplier(UUIDMixin, TimestampMixin, Base):
     )
     price_entries: Mapped[list["SupplierPriceEntry"]] = relationship(
         "SupplierPriceEntry", back_populates="supplier", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (
+        Index("ix_suppliers_categories_gin", "categories", postgresql_using="gin"),
+        Index("ix_suppliers_tags_gin", "tags", postgresql_using="gin"),
+        Index("ix_suppliers_bcc_emails_gin", "bcc_emails", postgresql_using="gin"),
     )
 
 
@@ -127,7 +129,7 @@ class SupplierContact(UUIDMixin, Base):
         index=True,
     )
     name_translations: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
-    position: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    position_translations: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(100), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
@@ -223,7 +225,7 @@ class SupplierPriceEntry(UUIDMixin, Base):
         ForeignKey("products.id", ondelete="SET NULL"),
         nullable=True,
     )
-    price: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    price: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
     unit: Mapped[str | None] = mapped_column(String(20), nullable=True)
     entry_date: Mapped[date] = mapped_column(Date, nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)

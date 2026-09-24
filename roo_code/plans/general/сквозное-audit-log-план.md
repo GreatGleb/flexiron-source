@@ -58,7 +58,7 @@
 локаль запросившего. Основание — соседнее поле уже устроено так:
 
 > `property_translations` это JSONB на три языка (`warehouse/shared/models.py:253`,
-> `suppliers/shared/models.py:194`), то есть подпись сервер и так готовит по локали.
+> `suppliers/shared/models.py:196`), то есть подпись сервер и так готовит по локали.
 
 **П37 и П8 — кто удаляет.**
 
@@ -122,17 +122,17 @@
 
 | Утверждение | Доказательство |
 |---|---|
-| Таблицы `audit_entries` нет | `grep -rn "audit_entries" backend/` даёт только два **других** имени и одно имя связи: `stock_audit_entries` (`backend/app/modules/warehouse/shared/models.py:232`), `supplier_audit_entries` (`backend/app/modules/suppliers/shared/models.py:173`), и атрибут `audit_entries` у поставщика (`suppliers/shared/models.py:73-75`) |
+| Таблицы `audit_entries` нет | `grep -rn "audit_entries" backend/` даёт только два **других** имени и одно имя связи: `stock_audit_entries` (`backend/app/modules/warehouse/shared/models.py:232`), `supplier_audit_entries` (`backend/app/modules/suppliers/shared/models.py:175`), и атрибут `audit_entries` у поставщика (`suppliers/shared/models.py:69-71`) |
 | Колонки `entity_type` в журнале нет | `grep -rn "entity_type" backend/app --include=*.py` → две строки, обе не журнальные: `related_entity_type` у финансов (`backend/app/modules/finance/shared/models.py:116`) и `entity_type` у уведомлений (`backend/app/modules/notifications/shared/models.py:31`) |
 | Ключ — не UUIDv7 | обе таблицы наследуют `UUIDMixin`, а он даёт `default=uuid.uuid4` (`backend/app/core/base.py:18-22`); `grep -rn "uuid7\|uuid_v7\|UUIDv7"` по `backend/` и `frontend_vue/src` — ни одного совпадения |
 | Эндпоинтов журнала на бэкенде нет | ни одного вертикального слайса: `ls backend/app/modules/*/features/` даёт `auth` (login, magic_link, me, register), `bcc/send_request`, `products` (create_product, get_product_detail), `settings` (crud, profile) — и всё; `grep -rn "audit" backend/app/main.py` пуст |
-| Признака `sensitive` нет ни у одной из двух таблиц | `warehouse/shared/models.py:229-258` и `suppliers/shared/models.py:170-201` — колонок восемь, `sensitive` среди них нет |
+| Признака `sensitive` нет ни у одной из двух таблиц | `warehouse/shared/models.py:229-258` и `suppliers/shared/models.py:172-203` — колонок восемь, `sensitive` среди них нет |
 
 Обе существующие таблицы совпадают колонка в колонку, кроме имени внешнего ключа:
-`batch_id` (`warehouse/shared/models.py:240`) против `supplier_id` (`suppliers/shared/models.py:181`).
+`batch_id` (`warehouse/shared/models.py:240`) против `supplier_id` (`suppliers/shared/models.py:183`).
 Общие колонки обеих: `tenant_id`, `user_id` с `ondelete="SET NULL"`, `user_name_translations`,
 `user_initials`, `property_translations`, `old_value`, `new_value`, `timestamp` —
-`warehouse/shared/models.py:246-258`, дословно то же в `suppliers/shared/models.py:187-199`.
+`warehouse/shared/models.py:246-258`, дословно то же в `suppliers/shared/models.py:189-201`.
 
 **Вывод:** П38 на бэкенде — работа с нуля плюс слияние двух таблиц, а не правка одной.
 
@@ -466,7 +466,7 @@
 
 - [ ] **S1. Миграция бэкенда:** одна таблица `audit_entries`, ключ UUIDv7, колонки по правилу Б;
       `stock_audit_entries` и `supplier_audit_entries` сливаются в неё и исчезают
-      (`backend/app/modules/warehouse/shared/models.py:229`, `backend/app/modules/suppliers/shared/models.py:170`),
+      (`backend/app/modules/warehouse/shared/models.py:229`, `backend/app/modules/suppliers/shared/models.py:172`),
       реестр моделей обновляется (`backend/alembic/_alembic_imports.py:27`, `:33`).
 - [ ] **S2. Слайс журнала на бэкенде** по порядку слоёв из
       [`create-api-feature.md`](../../skills/create-api-feature.md): `schemas.py` → `repository.py` →

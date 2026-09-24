@@ -37,7 +37,7 @@ cd frontend_vue && CONTRACT_REFS=roo_code/roo-context/api/00-conventions.md \
 | §6 | `mocks/auditFeed.ts:47-60` → `:43-60` | `toRows` объявлен на `:43`, ссылка начиналась после объявления |
 | §8 | `useProductCard.ts:247` | `Number.isNaN`; отдельная ссылка на `Text` — `products/shared/models.py:203-208` |
 | §9 | `warehouseService.ts:333-373` | `apiDelete` вместо `DELETE` (в коде регистр другой) |
-| §9 | `suppliers/shared/models.py:170-201` | `SupplierAuditEntry` вместо отсутствующего `sensitive` |
+| §9 | `suppliers/shared/models.py:172-203` | `SupplierAuditEntry` вместо отсутствующего `sensitive` |
 | §13 | `services/api.ts:153-156` | `url.searchParams` вместо `entityType=` |
 | §16 | `core/uploads/action.py:141-142` | `base_url` вместо `storage_path` |
 | §18 | `bcc/.../domain.py:95-99` | `NoRecipientsError`; код `NO_RECIPIENTS` — своей ссылкой на `:34-38` |

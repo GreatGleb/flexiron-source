@@ -584,7 +584,7 @@ comm -23 /tmp/fe_keys.txt /tmp/be_keys.txt   # шесть; обратная ра
 **Остальное в жизненном цикле — кто валидирует тип при записи (сервер, §18) и что делать при смене
 типа определения.** В `mocks/config.ts` об этом ни строки, схема же выражает три разные политики на
 близких связях: `section_fields.field_id` —
-`CASCADE` (`suppliers/shared/models.py:311-315`), `category_fields.category_id` — `CASCADE`,
+`CASCADE` (`suppliers/shared/models.py:313-317`), `category_fields.category_id` — `CASCADE`,
 `product_field_values.field_id` — `RESTRICT`
 (`backend/alembic/versions/25245d4bf874_phase_3_categories_products.py:46`, `:78`), а строку в
 `permission_items` не снимает никто — `item_id` там просто `String(100)` без связи
@@ -600,7 +600,7 @@ comm -23 /tmp/fe_keys.txt /tmp/be_keys.txt   # шесть; обратная ра
 
 Основание: из девяти таблиц существовали **две**, и они совпадали колонка в колонку, кроме имени
 внешнего ключа — `stock_audit_entries.batch_id` против `supplier_audit_entries.supplier_id`
-(`warehouse/shared/models.py:232-258`, `suppliers/shared/models.py:173-201`). Сводная лента и так
+(`warehouse/shared/models.py:232-258`, `suppliers/shared/models.py:175-203`). Сводная лента и так
 объединяет все девять и своего хранилища не имеет; при одной таблице это индекс, а не сшивка
 девяти запросов. Цена принята сознательно: внешним ключом на девять разных таблиц не сослаться,
 поэтому каскадного удаления записей вместе с сущностью не будет — это делается кодом.
@@ -644,10 +644,10 @@ entryId` одной функцией `auditRowKey` (`types/audit.ts:86-92`).
   `{ru:'Система',en:'System',lt:'Sistema'}` (`mocks/clients.ts:50`). На схеме предусмотрена пара:
   `user_id` с `ondelete="SET NULL"` плюс замороженные переводы имени и инициалы
   (`backend/app/modules/warehouse/shared/models.py:246-252`,
-  `backend/app/modules/suppliers/shared/models.py:170-201`).
+  `backend/app/modules/suppliers/shared/models.py:172-203`).
 - **Таблиц журнала на схеме две, и обе подлежат слиянию** (П38). Есть `stock_audit_entries`,
   привязанная к партии `nullable=False` (`warehouse/shared/models.py:229-258`), и журнал
-  поставщика `SupplierAuditEntry` (`suppliers/shared/models.py:170-201`); под остальные семь
+  поставщика `SupplierAuditEntry` (`suppliers/shared/models.py:172-203`); под остальные семь
   таблиц нет. Обе совпадают колонка в колонку, кроме имени внешнего ключа — что и было доводом за
   одну общую таблицу. Признака `sensitive` нет ни у одной, и он тоже заводится на общей.
 
@@ -667,7 +667,7 @@ entryId` одной функцией `auditRowKey` (`types/audit.ts:86-92`).
 - **Автор записи — пара «ссылка плюс снимок», и схема это уже умеет:** `user_id` с
   `ondelete="SET NULL"` для поиска и замороженные `user_name_translations` с `user_initials` для
   правдивого показа задним числом (`warehouse/shared/models.py:246-252`, дословно то же в
-  `suppliers/shared/models.py:187-193`). На проводе id пока нет — `StockAuditEntry` несёт только
+  `suppliers/shared/models.py:189-195`). На проводе id пока нет — `StockAuditEntry` несёт только
   имя (`types/warehouse.ts:526-534`); это дефект провода, а не открытый вопрос.
 - **Записи журнала удаляет владелец, и только он** (П8). Требование ТЗ «логи не могут быть
   удалены или изменены пользователями» (`toDo/Flexiron_ERP_CRM.md:187`) владелец объявил
@@ -961,7 +961,7 @@ interface TranslatedString { ru: string; en: string; lt: string }   // types/i18
 **Схема расходится с типом систематически, и это самое крупное расхождение проекта.** Переводимое
 имя во фронте против одной строки на схеме: `categories.name` и `category_fields.name` —
 `String(255)` (`backend/app/modules/products/shared/models.py:25`, `:76`), `field_definitions.name`
-— тоже (`suppliers/shared/models.py:251`), `bcc_events.source` — `String(50)`
+— тоже (`suppliers/shared/models.py:253`), `bcc_events.source` — `String(50)`
 (`bcc/shared/models.py:71-73`), контакт поставщика `position` — `String(255)`
 (`suppliers/shared/models.py:130`). Хранить `{ru,en,lt}` в `String(255)` нечем. Наоборот,
 переводимость **есть** у `section_configs.name_translations`, `permission_items.name_translations`,
@@ -1047,7 +1047,7 @@ interface PaginationParams { page: number; pageSize: number }     // types/api.t
   новое для него только поиск в выборе. Поставщик — работа, и полей у него **два**:
   `Supplier.country` (`String(100)`, nullable,
   `backend/app/modules/suppliers/shared/models.py:38`) и `SupplierAddress.country` (`String(100)`,
-  `NOT NULL`, `backend/app/modules/suppliers/shared/models.py:103`); во фронте им отвечают `types/supplier.ts:21` и `:88`. В
+  `NOT NULL`, `backend/app/modules/suppliers/shared/models.py:105`); во фронте им отвечают `types/supplier.ts:21` и `:88`. В
   интерфейсе страна поставщика приходит через библиотеку полей карточки — `f-country`
   (`services/mocks/config.ts:63`), то есть меняется тип поля, а не вёрстка страницы.
   Перенос данных мока показывает, зачем правило: там `'Estonia'`, `'Lithuania'`, `'Sweden'`,
@@ -1272,7 +1272,7 @@ save-режим.
 - **Расхождения «фронт считает — схема хранит» разрешены 2026-09-11 (П68): колонок нет,
   считается при чтении.** Удаляются `level`, `field_count` и `product_count` категории
   (`products/shared/models.py:33-41`),
-  `usage_count` определения поля (`suppliers/shared/models.py:259-261`),
+  `usage_count` определения поля (`suppliers/shared/models.py:261-263`),
   `document_count` платежа (`finance/shared/models.py:49-51`),
   `has_deficit` и `last_bcc_date` поставщика (`suppliers/shared/models.py:58-61`),
   `quantity_remaining`/`status`/`total_cost` партии. В каждом случае одно и то же число у фронта

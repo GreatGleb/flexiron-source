@@ -560,7 +560,7 @@ query, ни заголовков: `apiDelete` кладёт только `options
 | `warehouse_offcuts.product_id` | `SET NULL` | `backend/app/modules/warehouse/shared/models.py:148-152` |
 | `warehouse_deficits.product_id` | `CASCADE` | `backend/app/modules/warehouse/shared/models.py:179-183` |
 | `stock_items.product_id` | `CASCADE` + `unique` | `backend/app/modules/warehouse/shared/models.py:213-218` |
-| `supplier_price_entries.product_id` | `SET NULL` | `backend/app/modules/suppliers/shared/models.py:223` |
+| `supplier_price_entries.product_id` | `SET NULL` | `backend/app/modules/suppliers/shared/models.py:225` |
 | `bcc_events.product_id` | `SET NULL` | `backend/app/modules/bcc/shared/models.py:65` |
 | `product_field_values.product_id` | `CASCADE` | `backend/app/modules/products/shared/models.py:199` |
 
@@ -623,7 +623,7 @@ query, ни заголовков: `apiDelete` кладёт только `options
 таблицы (`backend/app/modules/products/shared/models.py:17`, `:62`, `:99`, `:189`), а единственные
 существующие таблицы журналов — `stock_audit_entries`
 (`backend/app/modules/warehouse/shared/models.py:232`) и журнал поставщика
-(`backend/app/modules/suppliers/shared/models.py:173`).
+(`backend/app/modules/suppliers/shared/models.py:175`).
 
 Реализация: `services/productsService.ts:124-126` (`deleteProductAuditEntry`) · мок
 `services/mocks/index.ts:1497` → `services/mocks/products.ts:14230`

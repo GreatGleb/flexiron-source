@@ -392,7 +392,7 @@ Partial<{ name: TranslatedString; parentId: string | null; description: Translat
 
 Бэкенд: **не реализован**. Целевая таблица — `category_fields`
 (`backend/app/modules/products/shared/models.py:59-62`), и её колонки расходятся с типом фронта:
-`field_type` против `type`, `sort_order` против `order` (`models.py:77-85`), `name` —
+`field_type` против `type`, `sort_order` против `order` (`models.py:73-87`), `name` —
 `String(255)` (`:76`).
 Реализация: `services/categoriesService.ts:putCategoryFields` · мок `mocks/index.ts:1173` →
 `mocks/categories.ts:mockPutCategoryFields`

@@ -97,9 +97,9 @@
 поля: `grep -cE "fieldValues|CategoryField|FieldDefinition|ProductFieldValue"` по
 `types/supplier.ts` → `0`, и таблицы `supplier_field_values` в схеме нет. Библиотека поставщика
 при этом полноценна: определения (`field_definitions`,
-[`suppliers/shared/models.py:240`](../../../backend/app/modules/suppliers/shared/models.py)),
+[`suppliers/shared/models.py:242`](../../../backend/app/modules/suppliers/shared/models.py)),
 раскладка по секциям (`section_fields`,
-[`suppliers/shared/models.py:294-315`](../../../backend/app/modules/suppliers/shared/models.py)) —
+[`suppliers/shared/models.py:296-317`](../../../backend/app/modules/suppliers/shared/models.py)) —
 всё, кроме места под значение.
 
 ### 2.2. Значения — одно место, и это товар

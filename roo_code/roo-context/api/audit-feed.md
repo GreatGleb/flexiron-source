@@ -20,7 +20,7 @@
 ноль. Из девяти логов, которые лента сливает, на схеме существуют **два**:
 `stock_audit_entries` — журнал **партии**, а не остатка
 (`backend/app/modules/warehouse/shared/models.py:232`, `:240-245`) и `supplier_audit_entries`
-(`backend/app/modules/suppliers/shared/models.py:173`, `:181-186`). Под остальные семь видов —
+(`backend/app/modules/suppliers/shared/models.py:175`, `:181-186`). Под остальные семь видов —
 `product`, `order`, `client`, `stock`, `offcut`, `movement`, `deficit` — таблицы нет ни одной.
 
 **Метка `Статус: спроектировано` домену не подходит:** оба эндпоинта зовёт живой клиент.
@@ -190,7 +190,7 @@ Save-режим: чтение, один раз на монтировании (`L
    (`types/order.ts:591-606`), строка ленты его не несёт (`types/audit.ts:63-74`), и `toRows` его
    не копирует (`mocks/auditFeed.ts:47-60`) — БАГ-01. На схеме такой колонки нет ни у одной из
    двух существующих таблиц журнала (`backend/app/modules/warehouse/shared/models.py:229-258`,
-   `backend/app/modules/suppliers/shared/models.py:170-201`).
+   `backend/app/modules/suppliers/shared/models.py:172-203`).
 3. **Автор записи на схеме — пара:** необязательная ссылка `user_id` с `ondelete="SET NULL"` плюс
    **замороженные** переводы имени и инициалы
    (`backend/app/modules/warehouse/shared/models.py:246-252`). Во фронте видна только вторая
@@ -226,7 +226,7 @@ Save-режим: чтение, один раз на монтировании (`L
 (`services/auditFeedService.ts:20-24`, `:41`, `:46`), хранилища мока — плоские массивы на процесс
 (`mocks/auditFeed.ts:23-31`). У двух существующих таблиц журнала `tenant_id` объявлен
 `nullable=False, index=True` (`backend/app/modules/warehouse/shared/models.py:234-239`,
-`backend/app/modules/suppliers/shared/models.py:175-180`). **Обязанность именно этого домена:**
+`backend/app/modules/suppliers/shared/models.py:177-182`). **Обязанность именно этого домена:**
 ответ сшивается из девяти источников, и фильтр арендатора обязан стоять на каждом — один
 пропущенный источник течёт в общую ленту, где это заметно меньше всего. Строка владельца 4.
 
