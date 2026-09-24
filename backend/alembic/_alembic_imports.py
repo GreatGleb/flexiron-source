@@ -60,3 +60,8 @@ from app.modules.services.shared.models import Service  # noqa: F401, E402
 
 # Notifications module
 from app.modules.notifications.shared.models import Notification  # noqa: F401, E402
+
+# Clients module
+from app.modules.clients.shared.models import (  # noqa: F401, E402
+    Client, ClientInteraction,
+)
