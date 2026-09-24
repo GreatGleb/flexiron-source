@@ -65,7 +65,7 @@ export async function putCategoryFields(
   return apiPut(`/api/categories/${id}/fields`, {
     fields: fields.map((f) => ({
       ...f,
-      fieldName: typeof f.name === 'string' ? toTranslatedString(f.name, locale) : f.name,
+      name: typeof f.name === 'string' ? toTranslatedString(f.name, locale) : f.name,
       options: f.options.map((o) => (typeof o === 'string' ? toTranslatedString(o, locale) : o)),
     })),
   })

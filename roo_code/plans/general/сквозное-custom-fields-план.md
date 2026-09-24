@@ -130,7 +130,7 @@
   уходит целый набор при `fieldsChanged`
   ([`useCategoryCard.ts:111`](../../../frontend_vue/src/composables/useCategoryCard.ts)).
   Подтверждение — обычная модалка: `fieldToDelete`
-  ([`CategoryCardPage.vue:189-197`](../../../frontend_vue/src/views/admin/products/CategoryCardPage.vue)).
+  ([`CategoryCardPage.vue:197-205`](../../../frontend_vue/src/views/admin/products/CategoryCardPage.vue)).
 - **Значения при этом не трогаются ничем.** Мок товара кладёт присланный массив как есть:
   `existing.fieldValues`
   ([`mocks/products.ts:14210`](../../../frontend_vue/src/services/mocks/products.ts)); сборка

@@ -571,7 +571,7 @@ npx vitest run src/services/contract-conformance.spec.ts
 `GET /api/categories/:id` обязан отдать `linkedSuppliers`, а `LinkedSupplier.name` — это
 `TranslatedString` ([`frontend_vue/src/types/product.ts:20`](../../../frontend_vue/src/types/product.ts)),
 куда карточка кладёт название компании поставщика
-([`frontend_vue/src/views/admin/products/CategoryCardPage.vue:227`](../../../frontend_vue/src/views/admin/products/CategoryCardPage.vue)
+([`frontend_vue/src/views/admin/products/CategoryCardPage.vue:235`](../../../frontend_vue/src/views/admin/products/CategoryCardPage.vue)
 — `name: supplier.company`), а рядом кладёт его валюту (`:231`). Ни имени, ни валюты в
 `category_suppliers` (M3) колонкой нет и быть не должно — имя живёт в `company_translations`
 ([`backend/app/modules/suppliers/shared/models.py:25`](../../../backend/app/modules/suppliers/shared/models.py)),
@@ -792,7 +792,7 @@ curl -s "http://localhost:8000/api/categories?search=&page=1&pageSize=25" ; kill
   Проверяет код сервер. Порядок проверки: сперва право, потом код.
 
 Фронтовая половина П73 — предупреждение с числом затронутых записей и поле ввода кода — заменяет
-нынешнюю обычную модалку (`CategoryCardPage.vue:190` — `const fieldToDelete`).
+нынешнюю обычную модалку (`CategoryCardPage.vue:198` — `const fieldToDelete`).
 
 **Вторая половина П73 — «вернули поле в набор, значения видны снова» — сегодня не выразима на
 проводе, и слайс обязан это решить, а не обойти.** Снятие поля у клиента — простое исчезновение из

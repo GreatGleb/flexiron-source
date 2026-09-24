@@ -579,7 +579,7 @@ comm -23 /tmp/fe_keys.txt /tmp/be_keys.txt   # шесть; обратная ра
 (`backend/app/modules/settings/features/crud/domain.py:70-79`).
 
 Замер: механизма подтверждения кодом в проекте нет ни в каком виде, а удаление поля подтверждается
-обычной модалкой (`views/admin/products/CategoryCardPage.vue:189-197`).
+обычной модалкой (`views/admin/products/CategoryCardPage.vue:197-205`).
 
 **Остальное в жизненном цикле — кто валидирует тип при записи (сервер, §18) и что делать при смене
 типа определения.** В `mocks/config.ts` об этом ни строки, схема же выражает три разные политики на

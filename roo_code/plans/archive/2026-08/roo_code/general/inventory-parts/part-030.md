@@ -111,7 +111,7 @@ Analytics (домен 6): `analyticsService.ts` — единственная `ge
 2. `CategoriesPage.vue` — вызов идёт через `createCategory({ name, parentId, description }, locale.value)` (строки 74–82),
    строкой в plain-виде ничего не отправляется.
 3. `BccRequestPage.vue` — `showToast(t('bcc.preselected', { company: tf(supplier.company) }))` (строка 548). `tf()` на месте.
-4. `CategoryCardPage.vue:219` — `.map((s) => ({ value: s.id, label: tf(s.company) }))`. `tf()` на месте.
+4. `CategoryCardPage.vue:227` — `.map((s) => ({ value: s.id, label: tf(s.company) }))`. `tf()` на месте.
 5. `SupplierCardConfigPage.vue` — `v-model="editSectionNameModel"` (строка 997), где `editSectionNameModel` —
    `computed` со строковым get/set (строки 367–372). Объект `TranslatedString` во `v-model` не попадает.
 6. `ProductCardPage.vue` — `name: s.company` передаётся объектом (строка 211), а подпись обёрнута:

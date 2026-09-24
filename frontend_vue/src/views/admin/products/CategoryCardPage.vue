@@ -143,13 +143,21 @@ function openEditField(field: CategoryField) {
 function submitFieldModal() {
   const name = fieldDraft.value.name.trim()
   if (!name) return
+  const original = editingField.value
   const payload = {
-    name: toTranslatedString(name, locale.value),
+    name: original
+      ? mergeLocaleValue(original.name, name, locale.value)
+      : toTranslatedString(name, locale.value),
     type: fieldDraftType.value as CategoryFieldType,
     required: fieldDraft.value.required,
     options:
       fieldDraftType.value === 'enum'
-        ? fieldDraft.value.options.map((o) => toTranslatedString(o, locale.value))
+        ? fieldDraft.value.options.map((o, i) => {
+            const originalOption = original?.options[i]
+            return originalOption
+              ? mergeLocaleValue(originalOption, o, locale.value)
+              : toTranslatedString(o, locale.value)
+          })
         : [],
   }
   if (editingField.value) {
