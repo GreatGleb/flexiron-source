@@ -138,7 +138,7 @@
 | 1 | заказ отгружен | `order_shipped` | `order` | сущность — заказ; роут `admin-order-card` лента уже употребляет ([`frontend_vue/src/services/mocks/notifications.ts:35`](../../../frontend_vue/src/services/mocks/notifications.ts)) |
 | 2 | счёт выставлен | `invoice_issued` | `order` | **укладывается, и это замер, а не сходство слов:** своей сущности у счёта нет — строка реестра входящих говорит дословно «Идентификатор счёта заказа — своего `id` у строки реестра нет» и несёт `orderId` ([`frontend_vue/src/types/finance.ts:99-105`](../../../frontend_vue/src/types/finance.ts)). Переход ведёт на карточку заказа |
 | 3 | возврат товара | `order_returned` | `order` | то же основание: `OrderReturn` несёт `orderId` ([`frontend_vue/src/types/order.ts:338-340`](../../../frontend_vue/src/types/order.ts)), а отдельного роута карточки возврата в роутере нет |
-| 4 | матрица прав изменена | `rights_matrix_changed` | **никакой** | сущности нет вовсе: правится матрица, а не запись. `entity_type` и `entity_id` обе `NOT NULL` ([`backend/app/modules/notifications/shared/models.py:31-32`](../../../backend/app/modules/notifications/shared/models.py)) — невыразимо. Строка владельцу §7.1 |
+| 4 | матрица прав изменена | `rights_matrix_changed` | **никакой** | сущности нет вовсе: правится матрица, а не запись. `entity_type` и `entity_id` обе `NOT NULL` ([`backend/app/modules/notifications/shared/models.py:33-34`](../../../backend/app/modules/notifications/shared/models.py)) — невыразимо. Строка владельцу §7.1 |
 | 5 | цена услуги изменилась при незакрытых заказах | `service_price_changed` | **шестое значение `service`** | карточка услуги существует ([`frontend_vue/src/router/index.ts:249`](../../../frontend_vue/src/router/index.ts) — `admin-service-card`), а значения `service` среди пяти нет. Выразимо, но перечень надо расширять. Строка владельцу §7.1 |
 | 6 | поставщик заблокирован | `supplier_blocked` | `supplier` | значение в перечне есть, роут `admin-supplier-card` лента употребляет ([`frontend_vue/src/services/mocks/notifications.ts:156`](../../../frontend_vue/src/services/mocks/notifications.ts)) |
 | 7 | партия просрочена | `batch_expired` | `batch` | значение в перечне есть; «просрочена» — про `Batch.expiresAt`, годность металла, и П52 разводит это с бронью прямо |
@@ -541,7 +541,7 @@ cd frontend_vue && npm run test:unit                      # строка «[ко
 
 1. **Чем адресуются уведомления, у которых нет сущности.** П51 добавляет тип «матрица прав
    изменена»; `entity_type` и `entity_id` на схеме обе `NOT NULL`
-   ([`backend/app/modules/notifications/shared/models.py:31-32`](../../../backend/app/modules/notifications/shared/models.py)),
+   ([`backend/app/modules/notifications/shared/models.py:33-34`](../../../backend/app/modules/notifications/shared/models.py)),
    а у правки матрицы нет ни сущности, ни её `id`. Тип «цена услуги изменена» требует шестого
    значения `NotificationEntityType` — `service`, — и это выразимо; первый не выразим вовсе.
    **Вопрос:** сделать обе колонки `nullable` (и тогда `entityRouteName` у части уведомлений

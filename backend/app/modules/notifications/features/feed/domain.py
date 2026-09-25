@@ -63,7 +63,13 @@ def _normalize_sort_dir(sort_dir: str | None) -> str:
     return sort_dir if sort_dir in ("asc", "desc") else "desc"
 
 
-def _to_list_item(entity) -> NotificationListItem:
+def _to_list_item(entity, is_read: bool) -> NotificationListItem:
+    """Строка ленты плюс прочитанность ЭТОГО читателя.
+
+    `is_read` приходит вторым аргументом, а не из `entity`: по П10 строка общая для
+    всех адресатов события, и флага «прочитано» на ней не существует — он живёт в
+    `notification_reads` и у каждого человека свой.
+    """
     return NotificationListItem(
         id=entity.id,
         type=entity.type,
@@ -72,7 +78,7 @@ def _to_list_item(entity) -> NotificationListItem:
         entityType=entity.entity_type,
         entityId=entity.entity_id,
         entityRouteName=ENTITY_ROUTE_NAMES.get(entity.entity_type, ""),
-        isRead=entity.is_read,
+        isRead=is_read,
         createdAt=entity.created_at,
     )
 
@@ -102,7 +108,7 @@ async def list_notifications(
     total = await count_notifications(
         db, tenant_id, user_id, search=search, type_=type_, is_read=is_read_value
     )
-    entities = await list_notifications_repo(
+    rows = await list_notifications_repo(
         db,
         tenant_id,
         user_id,
@@ -116,7 +122,7 @@ async def list_notifications(
     )
 
     return NotificationListResponse(
-        items=[_to_list_item(entity) for entity in entities],
+        items=[_to_list_item(entity, is_read) for entity, is_read in rows],
         total=total,
         page=page,
         pageSize=page_size,
@@ -134,14 +140,18 @@ async def mark_notification_read(
 ) -> NotificationListItem:
     """Execute the mark-one-read use case.
 
-    Scoped by `(user_id, tenant_id)`: an unknown or foreign id is simply not
-    found by the repository query, so both cases raise the same refusal.
+    Сужение — по арендатору. «Чужого» уведомления внутри арендатора по П10 не
+    бывает: строка общая, и отмечается не она, а собственная прочитанность
+    читателя. Неизвестный id по-прежнему даёт тот же отказ.
     """
-    entity = await get_notification_by_id(db, notification_id, tenant_id, user_id)
-    if entity is None:
+    found = await get_notification_by_id(db, notification_id, tenant_id, user_id)
+    if found is None:
         raise NotFoundError(entity="Notification", entity_id=str(notification_id))
-    entity = await mark_read_repo(db, entity)
-    return _to_list_item(entity)
+    entity, _ = found
+    await mark_read_repo(db, tenant_id, user_id, notification_id)
+    # Ответ отдаётся уже прочитанным: отметка только что поставлена, и повторное
+    # чтение из базы ничего бы не добавило, кроме запроса.
+    return _to_list_item(entity, True)
 
 
 async def mark_all_read(db: AsyncSession, tenant_id: UUID, user_id: UUID) -> None:

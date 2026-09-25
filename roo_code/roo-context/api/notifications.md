@@ -27,18 +27,28 @@
 мока [`services/mocks/notifications.ts`](../../../frontend_vue/src/services/mocks/notifications.ts)
 и типов [`types/notifications.ts`](../../../frontend_vue/src/types/notifications.ts).
 
-**Но таблица и миграция есть, и это ограничение, а не форма ответа:**
-`backend/app/modules/notifications/shared/models.py:11-42` (`class Notification`,
-`__tablename__ = "notifications"` на `:14`), миграция
-`backend/alembic/versions/7bf1730620f0_phase_11_notifications.py:24-36`. Схема расходится с формой
-записи фронта по трём полям сразу, и разрешать это расхождение придётся бэкенду:
+**Схема несёт форму хранения из П10, и это ограничение, а не форма ответа.**
+Модели — `class Notification`, `class NotificationRead`, `class NotificationSubscription` в
+`backend/app/modules/notifications/shared/models.py`; исходная миграция
+`backend/alembic/versions/7bf1730620f0_phase_11_notifications.py:24-36` плюс ревизия слайса 1
+`backend/alembic/versions/e7a2c5b41d09_notifications_slice1_addressing.py`.
+
+**Строка ленты больше не адресат.** Ревизия слайса 1 сняла с `notifications` колонки `user_id` и
+`is_read`: одна строка на СОБЫТИЕ арендатора, а не по копии снимка текста на каждого адресата.
+Взамен заведены `event_key` (уникальный в паре с арендатором — механизм «уже уведомили», П56),
+`requires_action` (П55) и `email_sent_at`, а личная половина переехала в `notification_reads`
+(кто и когда прочитал, уникальность по тройке `tenant_id`/`notification_id`/`user_id`) и
+`notification_subscriptions` (подписки П54).
+
+Схема расходится с формой записи фронта по трём полям, и разрешать это расхождение по-прежнему
+бэкенду:
 
 | фронт | схема |
 |---|---|
-| `title` / `message` — `TranslatedString` `{ru,en,lt}` (`types/notifications.ts:21-22`) | `title_translations` / `message_translations` — `JSONB` без ключей, `server_default="{}"` (`models.py:29-30`) |
-| `entityRouteName: string`, обязателен (`types/notifications.ts:25`) | колонки **нет вовсе**: только `entity_type: String(50)` и `entity_id: String(100)` (`models.py:31-32`) |
-| `id: string` вида `notif-001` / `notif-ev-001` (`mocks/notifications.ts:21`, `:518`) | `id` — `UUID` из `UUIDMixin` (`models.py:11`, миграция `:26`) |
-| полей владельца нет ни в типе, ни в моке | `tenant_id` и `user_id` — FK, `ondelete="CASCADE"`, `nullable=False, index=True` (`models.py:16-27`) |
+| `title` / `message` — `TranslatedString` `{ru,en,lt}` (`types/notifications.ts:21-22`) | `title_translations` / `message_translations` — `JSONB` без ключей, `server_default="{}"` |
+| `entityRouteName: string`, обязателен (`types/notifications.ts:25`) | колонки **нет вовсе**: только `entity_type: String(50)` и `entity_id: String(100)` |
+| `id: string` вида `notif-001` / `notif-ev-001` (`mocks/notifications.ts:21`, `:518`) | `id` — `UUID` из `UUIDMixin` |
+| полей владельца нет ни в типе, ни в моке | `tenant_id` — FK на `tenants.id`, `ondelete="CASCADE"`, `nullable=False, index=True`; адресата у строки нет вовсе (П10) |
 
 Расхождение `title`/`message` — часть общего перекоса схемы и типа (§12 «Схема расходится с типом
 систематически»); `id` — часть §19. Оба здесь названы, потому что у этого домена они уже наступили,
@@ -170,7 +180,7 @@ interface Notification {
 отдельным запросом. Поиск дебаунсится 300 мс в компоненте, а не в композабле
 (`NotificationsPage.vue:59-67`).
 
-Бэкенд: `backend/app/modules/notifications/features/feed/action.py:23` (`list_notifications`) — постраничный список, адресован арендатору И пользователю
+Бэкенд: `backend/app/modules/notifications/features/feed/action.py:24` (`list_notifications`) — постраничный список, сужен арендатором; личное в нём только прочитанность, и она считается по таблице отметок для того, кто спросил (П10)
 (`grep -rn "@router\." backend/app/modules/notifications --include=*.py` пуст); таблица есть,
 `backend/app/modules/notifications/shared/models.py:11-42`.
 Реализация: `services/notificationsService.ts:5-18` (`getNotifications`) · потребитель
@@ -203,8 +213,9 @@ interface Notification {
 **Между опросами клиент показывает своё число, а не серверное.** После отметки одного —
 `unreadCount.value = Math.max(0, unreadCount.value - 1)` (`useNotifications.ts:58`), после «прочитать
 всё» — `= 0` (`:68`). Расхождение с сервером живёт до следующего опроса. Отсюда требование к
-серверу: счётчик обязан быть дешёвым (`COUNT` по индексу `(user_id, is_read)`), потому что его
-дёргают раз в 30 с у каждого открытого клиента.
+серверу: счётчик обязан быть дешёвым — `COUNT` по индексу `ix_notifications_tenant_created_at_id`
+с `LEFT JOIN notification_reads … WHERE read_at IS NULL` (форма из `NotificationRead`, слайс 1;
+сам запрос — слайс 4), потому что его дёргают раз в 30 с у каждого открытого клиента.
 
 Опрос: первый вызов на загрузке модуля (`useNotifications.ts:117`), дальше
 `setInterval(loadUnreadCount, 30_000)` там же (`:112`). Второй раз тот же счётчик читается при
@@ -262,7 +273,7 @@ bar не участвует.
 `FORBIDDEN`), а не тихий no-op. Молчание неотличимо от успеха — тот же класс, что §9
 «Неизвестный `entryId` — отказ, а не тихий no-op».
 
-Бэкенд: `backend/app/modules/notifications/features/feed/action.py:71` (`mark_read`) — отметка выражена колонкой `is_read` со `server_default="false"`
+Бэкенд: `backend/app/modules/notifications/features/feed/action.py:71` (`mark_read`) — отметка вставляет строку в `notification_reads`, а не пишет флаг: флага на разделяемой строке не существует (П10). Повторная отметка не ошибка — `ON CONFLICT DO NOTHING` по тройке уникальности
 (`backend/app/modules/notifications/shared/models.py:33-36`) и **нет** `read_at`, то есть «когда
 прочитано» не хранится нигде.
 Реализация: `services/notificationsService.ts:24-26` (`markAsRead`) · потребитель
@@ -306,7 +317,7 @@ markAllAsRead()` и затем `await loadDropdownItems()` (`NotificationDropdow
 перекрашивался. Закрыт этим перечитыванием: дропдаун больше не хранит срез чужого состояния,
 который мог устареть у него на руках.
 
-Бэкенд: `backend/app/modules/notifications/features/feed/action.py:61` (`mark_all_read`) — один `UPDATE` по всем своим уведомлениям
+Бэкенд: `backend/app/modules/notifications/features/feed/action.py:61` (`mark_all_read`) — один `INSERT ... SELECT`: по строке в `notification_reads` на каждое ещё не прочитанное уведомление арендатора. Отметка личная, соседа она не трогает
 `is_read` (`backend/app/modules/notifications/shared/models.py:33-36`), следа массовой операции нет.
 Реализация: `services/notificationsService.ts:28-30` (`markAllAsRead`) · потребители
 `composables/useNotifications.ts:65-72`, `views/admin/notifications/NotificationsPage.vue:96-99`,
@@ -401,22 +412,29 @@ markAllAsRead()` и затем `await loadDropdownItems()` (`NotificationDropdow
 (`mocks/notifications.ts:504-512`) с флагом `seeding`, который `emit` проверяет первой строкой
 (`:515`), причина записана рядом (`:478-492`), проверено
 (`mocks/notification-triggers.spec.ts:71-88`). **Чем сервер отличит новое событие от повтора после
-перезапуска — нигде:** память просрочки живёт в процессе (`mocks/finance.ts:63`), колонки под неё
-на схеме нет (`models.py:11-42`). Строка владельцу.
+перезапуска** — сегодня в моке ничем, память просрочки живёт в процессе (`mocks/finance.ts:63`);
+**решено 2026-09-09 (П56) и заведено на схеме 2026-09-24 (слайс 1):** колонка `event_key` плюс
+уникальность `(tenant_id, event_key)` (`backend/app/modules/notifications/shared/models.py:35`,
+`:47-48`) — вторая вставка того же события падает на ограничении, а не требует отдельной проверки.
+Эмиттер и сам перенос правила из мока в код — по-прежнему работа слайса 2, роутов ещё нет.
 
 **3. Запись в аудит-лог — нигде.** `grep -n "auditLog" frontend_vue/src/services/mocks/notifications.ts`
 пусто: ни рождение уведомления, ни отметка о прочтении, ни «прочитать всё» следа не оставляют.
 В домене `audit-feed` уведомлений тоже нет — девять логов лежат на сущностях (§9,
-`mocks/index.ts:7`), и `notifications` среди них не значится. На схеме у таблицы нет ни
-`updated_at`, ни `read_at`, ни автора отметки (`models.py:11-42`; миграция
-`7bf1730620f0_phase_11_notifications.py:24-36`), то есть «кто и когда прочитал» не хранится.
-Строка владельцу.
+`mocks/index.ts:7`), и `notifications` среди них не значится. «Кто и когда прочитал» с 2026-09-24
+(слайс 1) хранится — `read_at` на `NotificationRead`
+(`backend/app/modules/notifications/shared/models.py:56-94`), это не аудит-лог, а состояние
+читателя (§9 сводки: отметка о прочтении — не действие, которое логируется). Открытым остаётся
+другое: у самого `notifications` по-прежнему нет ни `updated_at`, ни автора записи — уведомление
+рождается системой, у события нет автора-человека. Становится ли `notification` одиннадцатым видом
+`entity_type` в общем аудит-логе — строка владельцу.
 
 **4. Кастомные поля — домен их не имеет ни в каком виде**, ни определений, ни значений:
 `grep -rn "fieldValues\|FieldDefinition\|fieldId" frontend_vue/src/types/notifications.ts frontend_vue/src/services/mocks/notifications.ts frontend_vue/src/services/notificationsService.ts`
-пусто; в схеме десять колонок и ни одной ссылки на определения полей (`models.py:11-42`).
+пусто; в схеме одиннадцать колонок на `notifications` и ни одной ссылки на определения полей
+(`models.py:11-53`).
 Ближайшее к «произвольным данным» — `title_translations`/`message_translations` типа `JSONB`
-(`models.py:29-30`), но это переводы фиксированных текстов, а не пользовательские поля. Библиотека
+(`models.py:31-32`), но это переводы фиксированных текстов, а не пользовательские поля. Библиотека
 `/api/config/fields` (§8) к уведомлениям не привязана ничем
 (`grep -rn -i "notif" frontend_vue/src/services/mocks/config.ts frontend_vue/src/types/config.ts` —
 пусто). **Графа закрыта отрицательно, и это ответ, а не пробел.**
@@ -427,10 +445,13 @@ markAllAsRead()` и затем `await loadDropdownItems()` (`NotificationDropdow
 языков арендатора на это не влияет; подпись статуса заказа берётся из **фронтового** словаря
 `adminOrders` (`:532-538`), то есть у сервера обязан появиться свой экземпляр тех же переводов.
 (2) **Почта.** Настройки SMTP есть (`/api/settings/mail`, признак готовности `isMailConfigured` —
-`types/settings.ts:167-171`), но с уведомлениями не связаны ничем
+`types/settings.ts:167-171`), но с уведомлениями во фронте по-прежнему не связаны ничем
 (`grep -rn -i "notif" frontend_vue/src/types/settings.ts frontend_vue/src/services/mocks/settings.ts` —
-пусто); канал доставки один — лента в интерфейсе, поля «отправлено письмом» и таблицы подписок на
-схеме нет (`models.py:11-42`).
+пусто); канал доставки в интерфейсе один — лента. На схеме с 2026-09-24 (слайс 1) уже заведены обе
+половины П54: поле «отправлено письмом» — `email_sent_at`
+(`backend/app/modules/notifications/shared/models.py:42`) — и таблица подписок
+`NotificationSubscription` (`:97-125`, «пользователь × тип × канал»). Второй канал остаётся
+неподключённым до слайсов 0.1 и 9: хранилище есть, отправки и вкладки настроек — нет.
 (3) **Срок жизни записи.** Ни удаления, ни архивации в домене нет: `DELETE` среди четырёх
 эндпоинтов отсутствует, удаляющей функции в моке нет ни одной
 (`mocks/notifications.ts:404-456` — чтение, две отметки и сброс демо); лента растёт неограниченно.
@@ -443,13 +464,16 @@ markAllAsRead()` и затем `await loadDropdownItems()` (`NotificationDropdow
 строк с четырьмя вызовами без единого `options` (`:9`, `:21`, `:25`, `:29`); в моке понятия
 пользователя нет вовсе
 (`grep -n -i "tenant\|userId\|user_id" frontend_vue/src/services/mocks/notifications.ts` — пусто),
-лента у него один общий массив на всех (`mocks/notifications.ts:353`). На схеме выражена **вдвойне**:
-`tenant_id` — FK на `tenants.id`, `ondelete="CASCADE"`, `nullable=False, index=True`
-(`models.py:16-21`) и `user_id` — FK на `users.id`, теми же условиями (`:22-27`); миграция
-`7bf1730620f0_phase_11_notifications.py:27-28`. То есть **уведомление адресное — принадлежит
-пользователю, а не арендатору**, и выборка ленты, счётчика и обеих отметок обязана ограничиваться
-обоими полями. Как сервер об этом узнаёт — из токена и только из него (§4, §5), и сервер это уже
-умеет: `user_id` достаётся из токена, тенант — по пользователю
+лента у него один общий массив на всех (`mocks/notifications.ts:353`). На схеме с 2026-09-24
+(слайс 1) `notifications` больше не адресная строка — П10 снял с неё `user_id`: остался только
+`tenant_id` (FK на `tenants.id`, `ondelete="CASCADE"`, `nullable=False, index=True`,
+`backend/app/modules/notifications/shared/models.py:24-29`). Адресность выражена теперь **правами
+на роли и пользователей**, а не колонкой на самой ленте (§10 плана домена): владелец и админ видят
+всё, у кого нет права — тот не адресат такого типа; технически «кто получает и кто прочитал»
+опирается на `NotificationRead.user_id` (`models.py:77-81`, FK на `users.id`, `ondelete="CASCADE"`)
+и на `NotificationSubscription.user_id` (`:108-112`), а не на адресность самой строки события. Как
+сервер узнаёт пользователя и арендатора — из токена и только из него (§4, §5), и сервер это уже
+умеет: тенант достаётся по пользователю
 (`backend/app/modules/settings/features/crud/action.py:97-128`, `:131-139`). Заголовки при этом шлёт
 не всякий домен: канонический `useAuth.authHeaders()` отдаёт `Authorization: Bearer` и
 `X-CSRF-Token` (`composables/useAuth.ts:101-108`), а копии в настройках и ленте аудита читают только
@@ -518,8 +542,9 @@ markAllAsRead()` и затем `await loadDropdownItems()` (`NotificationDropdow
 | `PATCH /api/notifications/:id/read` (а) обещанный `NOTIFICATION_NOT_FOUND` не поддержан ничем | закрыт — «Каталог кодов», раздел эндпоинта, «Чего в домене нет»; БАГ-04 |
 | (б) право отметить чужое уведомление нигде не проверяется | **решено 2026-09-07 (П10)** — вопрос снят формой хранения: прочитанность принадлежит человеку, а не уведомлению (одна строка на событие плюс `notification_reads`), общего флага не существует и отмечать чужое нечего. Кто какие уведомления получает — права на роли и пользователей; владелец и админ по умолчанию получают всё. См. [§10](00-conventions.md) |
 | (в) декремент счётчика безусловен | закрыт — раздел эндпоинта; БАГ-04 |
-| (г) отметка о прочтении не имеет времени: `read_at` на схеме нет | **осталось** — решение владельца, строка «Запись в аудит-лог»; наблюдение в графе 3 и в строке `Бэкенд:` эндпоинта |
-| `PATCH /api/notifications/read-all` (а) «все уведомления текущего пользователя» кодом не подтверждено | **осталось** — решение владельца, строка «Мультиарендность»; графа 6 |
+| (г) отметка о прочтении не имеет времени: `read_at` на схеме нет | **закрыто 2026-09-24 (слайс 1, П10)** — `read_at` заведён на `NotificationRead`
+(`backend/app/modules/notifications/shared/models.py:56-94`); маршрута, который бы им пользовался, всё ещё нет |
+| `PATCH /api/notifications/read-all` (а) «все уведомления текущего пользователя» кодом не подтверждено | **решено (П10)**, схема заведена слайсом 1 — «Обязанности сервера», графа 6; кодом (маршрутом) по-прежнему не подтверждено, роутов у домена ноль |
 | (б) операция не ограничена текущим фильтром | закрыт — раздел эндпоинта, первый абзац запроса |
 | (в) ответ не несёт ни числа затронутых записей, ни нового счётчика | закрыт — раздел эндпоинта, абзац ответа |
 | (г) мок заменяет массив целиком новыми объектами | закрыт — раздел эндпоинта, последний абзац; БАГ-05 |
@@ -568,7 +593,7 @@ markAllAsRead()` и затем `await loadDropdownItems()` (`NotificationDropdow
 | «`NotificationDropdown.vue` — дропдаун в хедере — топ-5 уведомлений» | было опровергнуто на момент сведения: пять брались не из свежих, а из текущей отфильтрованной страницы синглтона — БАГ-02. **Закрыто:** `loadDropdownItems` запрашивает свою первую страницу из пяти без фильтров напрямую через `notificationsService.getNotifications`, независимо от `filters`/`page` страницы (`NotificationDropdown.vue`, функция `loadDropdownItems`) — прежний текст снова описывает код верно |
 | пример ответа с `"total": 18` | сидов в моке двадцать: `grep -c "    id: 'notif-" frontend_vue/src/services/mocks/notifications.ts` → 20. Пример убран целиком: форма задаётся типом `PaginatedResponse<Notification>` (§13), а число сидов — свойство демо-данных, которому в контракте места нет |
 | «Response 200: `number` (без `ApiResponse`-обёртки? Формат уточнить)» | вопрос снят кодом: `unwrap()` снимает конверт для любого тела с ключом `success`, особого случая для этого пути нет (§1, `services/api.ts:128-137`). На проводе `ApiResponse<number>` |
-| «Возвращает количество непрочитанных уведомлений **для текущего пользователя**» и «Отмечает все уведомления **текущего пользователя**» | понятия пользователя в реализации нет: мок считает по всему стору (`mocks/notifications.ts:433`) и переписывает весь массив (`:444`), клиент не шлёт ни идентификатора, ни заголовка (`services/notificationsService.ts:21`, `:29`). Требование остаётся верным по схеме (`models.py:22-27`), но как **строка владельцу** и БАГ-01, а не как описание существующего |
+| «Возвращает количество непрочитанных уведомлений **для текущего пользователя**» и «Отмечает все уведомления **текущего пользователя**» | понятия пользователя в реализации мока нет: он считает по всему стору (`mocks/notifications.ts:433`) и переписывает весь массив (`:444`), клиент не шлёт ни идентификатора, ни заголовка (`services/notificationsService.ts:21`, `:29`) — БАГ-01. Требование остаётся верным, но по-другому, чем раньше: с 2026-09-24 (слайс 1) `notifications` вообще не несёт `user_id` (П10), «для текущего пользователя» выражается через `NotificationRead.user_id`/`NotificationSubscription.user_id` (`backend/app/modules/notifications/shared/models.py:77-81`, `:108-112`) и права, а не адресностью самой строки |
 | «Клиент после успеха декрементирует локальный `unreadCount`» | делает это **безусловно**, а не после успеха: `Math.max(0, unreadCount.value - 1)` (`useNotifications.ts:58`) выполняется и когда сервер ничего не изменил, потому что ошибка проглочена (`:59-61`) |
 | «Polling: `unreadCount` опрашивается каждые 30 секунд (module-level interval в `useNotifications`)» | верно и подтверждено (`useNotifications.ts:118`), но прежний текст умалчивал, что остановки нет: `startPolling`/`stopPolling` (`:95-106`) не вызываются ниоткуда — БАГ-03 |
 | «Уведомления генерируются сервером при событиях (… истечение резерва …)» | семь событий из восьми верны и описаны в §10; **истечения резерва среди них нет** — у типа `reserve_expiring` триггера не существует, и причина записана в коде (`mocks/notifications.ts:739-748`). Тип сохранён, потому что он есть в фильтре и в сидах, — но как «Правила домена», пункт 2, а не как реализованное событие |

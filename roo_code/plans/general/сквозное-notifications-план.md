@@ -123,7 +123,7 @@
 | Сид событий не рождает — `seedQuietly` | `frontend_vue/src/services/mocks/notifications.ts:507-515` |
 | Четыре читающих эндпоинта клиента | `frontend_vue/src/services/notificationsService.ts:5-30` |
 | Таблица `notifications` на бэкенде | `backend/alembic/versions/7bf1730620f0_phase_11_notifications.py:24-35` |
-| Тексты — снимок, `title_translations` | `backend/app/modules/notifications/shared/models.py:29-30` |
+| Тексты — снимок, `title_translations` | `backend/app/modules/notifications/shared/models.py:31-32` |
 
 Вызывающие — четыре домена, каждый вызов защищён условием перехода:
 
@@ -326,7 +326,7 @@ eventKey = "<тип>:<entityType>:<entityId>:<дискриминатор>"
 
 Заголовок и сообщение собираются **сервером из серверного шаблона сразу на трёх языках** и
 кладутся в `title_translations` / `message_translations`
-(`backend/app/modules/notifications/shared/models.py:29-30`). Клиент их не переводит и не может:
+(`backend/app/modules/notifications/shared/models.py:31-32`). Клиент их не переводит и не может:
 события рождаются без него. Ссылки на словарь в строке не хранится — переименование статуса
 задним числом ленту не переписывает.
 

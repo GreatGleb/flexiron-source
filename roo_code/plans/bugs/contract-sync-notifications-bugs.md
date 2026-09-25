@@ -42,7 +42,7 @@ apiPatch<void>('/api/notifications/read-all', {})                       // :29
 `:131-139`).
 
 Уведомление при этом адресное: `notifications.user_id` и `notifications.tenant_id` объявлены
-`nullable=False` с индексами (`backend/app/modules/notifications/shared/models.py:16-27`,
+`nullable=False` с индексами (`backend/app/modules/notifications/shared/models.py:24-29`,
 миграция `backend/alembic/versions/7bf1730620f0_phase_11_notifications.py:27-28`). То есть
 запрос без заголовка не сможет ответить ни на «чья лента», ни на «чей счётчик», ни на «имеет ли
 этот пользователь право отметить эту запись». Под моками дефект невидим: понятия пользователя у

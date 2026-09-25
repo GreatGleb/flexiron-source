@@ -24,7 +24,7 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 from sqlalchemy.sql import operators as sa_operators
-from sqlalchemy.sql.dml import Update
+from sqlalchemy.sql.dml import Insert
 
 with patch.dict(
     os.environ,
@@ -64,16 +64,23 @@ with patch.dict(
 
 
 def make_notification(**overrides) -> Notification:
+    """Строка ленты — СОБЫТИЕ арендатора, без адресата и без флага прочитанности.
+
+    `user_id` и `is_read` сняты с таблицы по П10: одна строка на событие, а «кто
+    прочитал» лежит в `notification_reads`. Тест, которому нужен прочитанный вид,
+    передаёт пару `(notification, user)` в `FakeSession(reads=...)`, а не ставит
+    флаг на строке.
+    """
     values = {
         "id": uuid.uuid4(),
         "tenant_id": uuid.uuid4(),
-        "user_id": uuid.uuid4(),
         "type": "order_status",
         "title_translations": {"ru": "Заказ обновлён", "en": "Order updated", "lt": "Užsakymas atnaujintas"},
         "message_translations": {"ru": "Текст сообщения", "en": "Message text", "lt": "Pranešimo tekstas"},
         "entity_type": "order",
         "entity_id": "ORD-001",
-        "is_read": False,
+        "event_key": "order_status:" + str(uuid.uuid4()),
+        "requires_action": False,
         "created_at": datetime(2026, 1, 1, tzinfo=timezone.utc),
     }
     values.update(overrides)
@@ -99,6 +106,9 @@ class _FakeResult:
     def scalars(self):
         return self
 
+    def first(self):
+        return self._rows[0] if self._rows else None
+
     def all(self):
         return self._rows
 
@@ -113,13 +123,38 @@ def _bool_literal(node):
     return None
 
 
-def _eval_clause(clause, row) -> bool:
+def _exists_user(clause):
+    """Из `EXISTS (SELECT … FROM notification_reads WHERE …)` достать, ЧЕЙ это читатель.
+
+    Подзапрос собирается в `repository._read_marker` и сравнивает три вещи:
+    арендатора, читателя и `notification_id` с колонкой внешней строки. Заглушке
+    нужен второй — по нему она и отвечает, читал ли ЭТОТ человек ЭТУ строку.
+
+    Разбирается настоящий statement, а не заранее условленный признак: сняв
+    фильтр по `user_id` из `_read_marker`, мы получим здесь `None` и падение, а не
+    молча прежний ответ.
+    """
+    where = clause.element.whereclause
+    for part in getattr(where, "clauses", [where]):
+        if type(part).__name__ != "BinaryExpression":
+            continue
+        left, right = part.left, part.right
+        if getattr(left, "name", None) == "user_id" and hasattr(right, "value"):
+            return right.value
+    raise AssertionError("в подзапросе EXISTS не нашлось сравнения по user_id")
+
+
+def _eval_clause(clause, row, reads) -> bool:
     name = type(clause).__name__
     if name == "Grouping":
-        return _eval_clause(clause.element, row)
+        return _eval_clause(clause.element, row, reads)
     if name == "BooleanClauseList":
-        parts = [_eval_clause(c, row) for c in clause.clauses]
+        parts = [_eval_clause(c, row, reads) for c in clause.clauses]
         return any(parts) if clause.operator is py_operator.or_ else all(parts)
+    if name == "Exists":
+        return (row.id, _exists_user(clause)) in reads
+    if name == "UnaryExpression" and clause.operator is sa_operators.inv:
+        return not _eval_clause(clause.element, row, reads)
     if name == "BinaryExpression":
         if clause.operator is py_operator.eq:
             literal = _bool_literal(clause.right)
@@ -157,6 +192,20 @@ def _is_count_statement(stmt) -> bool:
     return len(columns) == 1 and str(columns[0]) == "count(*)"
 
 
+
+def _read_marker_column(stmt):
+    """Колонка-признак прочитанности, если выборка её просит, иначе `None`.
+
+    Смотреть надо на `column_descriptions`, а не на `selected_columns`: у выборки
+    сущности второй раскрывается во все двенадцать колонок таблицы, и признак в
+    ней не вторым, а тринадцатым.
+    """
+    descriptions = stmt.column_descriptions
+    if len(descriptions) == 2 and descriptions[1]["name"] == "is_read":
+        return descriptions[1]["expr"]
+    return None
+
+
 def _order_spec(stmt):
     spec = []
     clause = getattr(stmt, "_order_by_clause", None)
@@ -165,28 +214,38 @@ def _order_spec(stmt):
     return spec
 
 
-def _update_values(stmt) -> dict:
-    return {column.name: bind.value for column, bind in stmt._values.items()}
-
-
 class FakeSession:
-    """A fixed table of ORM-like rows; `execute()` interprets the real statement."""
+    """A fixed table of ORM-like rows; `execute()` interprets the real statement.
 
-    def __init__(self, rows):
+    `reads` — множество пар `(notification_id, user_id)`: та самая таблица
+    `notification_reads`, ради которой П10 и снял флаг со строки ленты. Заглушка
+    держит её отдельно, как держит её база, а не подмешивает обратно в строку.
+    """
+
+    def __init__(self, rows, reads=()):
         self.rows = list(rows)
+        self.reads = set(reads)
         self.statements = []
 
     async def execute(self, stmt):
         self.statements.append(stmt)
-        where = _effective_whereclause(stmt)
-        matching = [row for row in self.rows if where is None or _eval_clause(where, row)]
 
-        if isinstance(stmt, Update):
-            values = _update_values(stmt)
-            for row in matching:
-                for key, value in values.items():
-                    setattr(row, key, value)
-            return _FakeResult(rows=matching)
+        if isinstance(stmt, Insert):
+            # `INSERT ... VALUES` отмечает одну строку, `INSERT ... SELECT` — все
+            # непрочитанные. Обе формы кладут пары в то же множество `reads`.
+            if stmt.select is not None:
+                where = _effective_whereclause(stmt.select)
+                user_id = _exists_user_of_insert(stmt.select)
+                for row in self.rows:
+                    if where is None or _eval_clause(where, row, self.reads):
+                        self.reads.add((row.id, user_id))
+            else:
+                values = {c.name: b.value for c, b in stmt._values.items()}
+                self.reads.add((values["notification_id"], values["user_id"]))
+            return _FakeResult()
+
+        where = _effective_whereclause(stmt)
+        matching = [row for row in self.rows if where is None or _eval_clause(where, row, self.reads)]
 
         if _is_count_statement(stmt):
             return _FakeResult(scalar_value=len(matching))
@@ -199,6 +258,11 @@ class FakeSession:
             limit = stmt._limit
             matching = matching[offset : offset + limit] if limit is not None else matching[offset:]
 
+        marker = _read_marker_column(stmt)
+        if marker is not None:
+            user_id = _exists_user(marker.element if hasattr(marker, "element") else marker)
+            return _FakeResult(rows=[(row, (row.id, user_id) in self.reads) for row in matching])
+
         return _FakeResult(rows=matching)
 
     async def commit(self):
@@ -209,8 +273,13 @@ class FakeSession:
         # (сторож `tests/test_transaction_boundary.py`). Заглушка обязана знать оба.
         pass
 
-    async def refresh(self, obj):
-        pass
+
+def _exists_user_of_insert(select_stmt):
+    """Чей читатель отмечается в `INSERT ... SELECT` — из колонки `user_id` выборки."""
+    for column in select_stmt.selected_columns:
+        if column.name == "user_id":
+            return uuid.UUID(column.element.value) if hasattr(column, "element") else column.value
+    raise AssertionError("в INSERT ... SELECT не нашлось колонки user_id")
 
 
 TENANT_A = uuid.uuid4()
@@ -219,73 +288,115 @@ USER_1 = uuid.uuid4()
 USER_2 = uuid.uuid4()
 
 
-# ── Repository — tenant + user scoping, search, ordering, pagination ───────────────
+# ── Repository — tenant scoping, per-reader read flag, search, ordering ───────────
 
 
 class ListNotificationsScopingTests(unittest.IsolatedAsyncioTestCase):
-    """Mutation target (acceptance criterion 7): drop `Notification.user_id ==
-    user_id` from `_filtered_query`, keeping only the tenant filter. That mutation
-    must redden `test_a_different_users_notification_in_the_same_tenant_is_absent`."""
+    """Сужает ЛЕНТУ арендатор, а не читатель (П10).
+
+    Мутационная цель: снять `Notification.tenant_id == tenant_id` из
+    `_filtered_query` — покраснеет
+    `test_a_foreign_tenants_notification_is_absent_from_the_list`.
+
+    Второй мутационной цели — «снять фильтр по `user_id`» — здесь больше нет и быть
+    не может: строка ленты общая для всех читателей арендатора, и фильтра по
+    читателю в выборке не существует. Личное в ней ровно одно — прочитанность, и её
+    стережёт `PerReaderReadFlagTests` ниже.
+    """
 
     async def test_a_foreign_tenants_notification_is_absent_from_the_list(self):
-        mine = make_notification(tenant_id=TENANT_A, user_id=USER_1)
-        foreign = make_notification(tenant_id=TENANT_B, user_id=USER_2)
+        mine = make_notification(tenant_id=TENANT_A)
+        foreign = make_notification(tenant_id=TENANT_B)
         session = FakeSession([mine, foreign])
 
         items = await list_notifications_repo(session, TENANT_A, USER_1)
 
-        self.assertEqual([mine.id], [item.id for item in items])
+        self.assertEqual([mine.id], [entity.id for entity, _ in items])
 
-    async def test_a_different_users_notification_in_the_same_tenant_is_absent(self):
-        mine = make_notification(tenant_id=TENANT_A, user_id=USER_1)
-        colleagues = make_notification(tenant_id=TENANT_A, user_id=USER_2)
+    async def test_a_colleagues_notification_in_the_same_tenant_is_visible(self):
+        """Прямое следствие П10, и раньше здесь утверждалось обратное.
+
+        До 2026-09-25 лента сужалась по `user_id`, и пять адресатов одного события
+        означали бы пять копий снимка текста. Решение владельца — одна строка на
+        событие; значит коллега по арендатору видит ту же строку, а не свою копию.
+        """
+        mine = make_notification(tenant_id=TENANT_A)
+        colleagues = make_notification(tenant_id=TENANT_A)
         session = FakeSession([mine, colleagues])
 
         items = await list_notifications_repo(session, TENANT_A, USER_1)
 
-        self.assertEqual([mine.id], [item.id for item in items])
+        self.assertEqual({mine.id, colleagues.id}, {entity.id for entity, _ in items})
 
-    async def test_count_is_scoped_to_tenant_and_user_too(self):
+    async def test_count_is_scoped_to_the_tenant(self):
         session = FakeSession(
             [
-                make_notification(tenant_id=TENANT_A, user_id=USER_1),
-                make_notification(tenant_id=TENANT_A, user_id=USER_2),
-                make_notification(tenant_id=TENANT_B, user_id=USER_1),
+                make_notification(tenant_id=TENANT_A),
+                make_notification(tenant_id=TENANT_A),
+                make_notification(tenant_id=TENANT_B),
             ]
         )
 
         total = await count_notifications(session, TENANT_A, USER_1)
 
-        self.assertEqual(1, total)
+        self.assertEqual(2, total)
+
+
+class PerReaderReadFlagTests(unittest.IsolatedAsyncioTestCase):
+    """Личное в общей строке — только прочитанность, и она у каждого своя.
+
+    Мутационная цель: сделать `_read_marker` не зависящим от `user_id` — покраснеет
+    `test_the_same_row_is_read_for_one_reader_and_unread_for_another`.
+    """
+
+    async def test_the_same_row_is_read_for_one_reader_and_unread_for_another(self):
+        shared = make_notification(tenant_id=TENANT_A)
+        session = FakeSession([shared], reads=[(shared.id, USER_1)])
+
+        for_first = await list_notifications_repo(session, TENANT_A, USER_1)
+        for_second = await list_notifications_repo(session, TENANT_A, USER_2)
+
+        self.assertEqual([(shared.id, True)], [(e.id, flag) for e, flag in for_first])
+        self.assertEqual([(shared.id, False)], [(e.id, flag) for e, flag in for_second])
 
 
 class GetNotificationByIdScopingTests(unittest.IsolatedAsyncioTestCase):
     async def test_a_foreign_tenants_notification_reads_as_absent(self):
-        foreign = make_notification(tenant_id=TENANT_B, user_id=USER_1)
+        foreign = make_notification(tenant_id=TENANT_B)
         session = FakeSession([foreign])
 
         result = await get_notification_by_id(session, foreign.id, TENANT_A, USER_1)
 
         self.assertIsNone(result)
 
-    async def test_a_colleagues_notification_reads_as_absent(self):
-        colleague = make_notification(tenant_id=TENANT_A, user_id=USER_2)
-        session = FakeSession([colleague])
+    async def test_a_colleagues_notification_is_found_and_reads_as_unread(self):
+        """П10 снял сам вопрос о праве отметить чужое: строка общая, чужой нет.
+
+        Отмечается не строка, а собственная прочитанность, поэтому находится она у
+        любого читателя арендатора — и находится непрочитанной, пока он её не
+        отметил.
+        """
+        colleague = make_notification(tenant_id=TENANT_A)
+        session = FakeSession([colleague], reads=[(colleague.id, USER_2)])
 
         result = await get_notification_by_id(session, colleague.id, TENANT_A, USER_1)
 
-        self.assertIsNone(result)
+        self.assertIsNotNone(result)
+        entity, is_read = result
+        self.assertEqual(colleague.id, entity.id)
+        self.assertFalse(is_read)
 
-    async def test_the_callers_own_notification_is_found(self):
-        mine = make_notification(tenant_id=TENANT_A, user_id=USER_1)
+    async def test_a_row_of_this_tenant_is_found(self):
+        mine = make_notification(tenant_id=TENANT_A)
         session = FakeSession([mine])
 
         result = await get_notification_by_id(session, mine.id, TENANT_A, USER_1)
 
-        self.assertEqual(mine.id, result.id)
+        self.assertIsNotNone(result)
+        self.assertEqual(mine.id, result[0].id)
 
     async def test_an_unknown_id_reads_as_absent(self):
-        session = FakeSession([make_notification(tenant_id=TENANT_A, user_id=USER_1)])
+        session = FakeSession([make_notification(tenant_id=TENANT_A)])
 
         result = await get_notification_by_id(session, uuid.uuid4(), TENANT_A, USER_1)
 
@@ -296,13 +407,13 @@ class SearchAcrossSixKeysTests(unittest.IsolatedAsyncioTestCase):
     async def _assert_matches(self, field: str, locale: str, needle: str):
         translations = {"ru": "неважно", "en": "irrelevant", "lt": "nesvarbu"}
         translations[locale] = "Baltic Steel Order"
-        target = make_notification(tenant_id=TENANT_A, user_id=USER_1, **{field: translations})
-        other = make_notification(tenant_id=TENANT_A, user_id=USER_1)
+        target = make_notification(tenant_id=TENANT_A, **{field: translations})
+        other = make_notification(tenant_id=TENANT_A)
         session = FakeSession([target, other])
 
         items = await list_notifications_repo(session, TENANT_A, USER_1, search=needle)
 
-        self.assertEqual([target.id], [item.id for item in items])
+        self.assertEqual([target.id], [entity.id for entity, _ in items])
 
     async def test_matches_title_ru(self):
         await self._assert_matches("title_translations", "ru", "baltic steel")
@@ -323,7 +434,7 @@ class SearchAcrossSixKeysTests(unittest.IsolatedAsyncioTestCase):
         await self._assert_matches("message_translations", "lt", "STEEL")
 
     async def test_a_notification_with_no_matching_key_is_excluded(self):
-        session = FakeSession([make_notification(tenant_id=TENANT_A, user_id=USER_1)])
+        session = FakeSession([make_notification(tenant_id=TENANT_A)])
 
         items = await list_notifications_repo(
             session, TENANT_A, USER_1, search="does-not-match-anything"
@@ -333,60 +444,76 @@ class SearchAcrossSixKeysTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_missing_locale_key_does_not_crash_the_search(self):
         sparse = make_notification(
-            tenant_id=TENANT_A, user_id=USER_1, title_translations={"en": "Only English"}
+            tenant_id=TENANT_A, title_translations={"en": "Only English"}
         )
         session = FakeSession([sparse])
 
         items = await list_notifications_repo(session, TENANT_A, USER_1, search="only english")
 
-        self.assertEqual([sparse.id], [item.id for item in items])
+        self.assertEqual([sparse.id], [entity.id for entity, _ in items])
 
 
 class TypeAndReadFilterTests(unittest.IsolatedAsyncioTestCase):
     async def test_a_given_type_narrows_the_list(self):
-        status = make_notification(tenant_id=TENANT_A, user_id=USER_1, type="order_status")
-        deficit = make_notification(tenant_id=TENANT_A, user_id=USER_1, type="stock_deficit")
+        status = make_notification(tenant_id=TENANT_A, type="order_status")
+        deficit = make_notification(tenant_id=TENANT_A, type="stock_deficit")
         session = FakeSession([status, deficit])
 
         items = await list_notifications_repo(session, TENANT_A, USER_1, type_="stock_deficit")
 
-        self.assertEqual([deficit.id], [item.id for item in items])
+        self.assertEqual([deficit.id], [entity.id for entity, _ in items])
 
     async def test_no_type_returns_every_type(self):
-        status = make_notification(tenant_id=TENANT_A, user_id=USER_1, type="order_status")
-        deficit = make_notification(tenant_id=TENANT_A, user_id=USER_1, type="stock_deficit")
+        status = make_notification(tenant_id=TENANT_A, type="order_status")
+        deficit = make_notification(tenant_id=TENANT_A, type="stock_deficit")
         session = FakeSession([status, deficit])
 
         items = await list_notifications_repo(session, TENANT_A, USER_1, type_=None)
 
-        self.assertEqual({status.id, deficit.id}, {item.id for item in items})
+        self.assertEqual({status.id, deficit.id}, {entity.id for entity, _ in items})
 
-    async def test_is_read_true_returns_only_read(self):
-        read = make_notification(tenant_id=TENANT_A, user_id=USER_1, is_read=True)
-        unread = make_notification(tenant_id=TENANT_A, user_id=USER_1, is_read=False)
-        session = FakeSession([read, unread])
+    async def test_is_read_true_returns_only_what_this_reader_has_read(self):
+        read = make_notification(tenant_id=TENANT_A)
+        unread = make_notification(tenant_id=TENANT_A)
+        session = FakeSession([read, unread], reads=[(read.id, USER_1)])
 
         items = await list_notifications_repo(session, TENANT_A, USER_1, is_read=True)
 
-        self.assertEqual([read.id], [item.id for item in items])
+        self.assertEqual([read.id], [entity.id for entity, _ in items])
 
-    async def test_is_read_false_returns_only_unread(self):
-        read = make_notification(tenant_id=TENANT_A, user_id=USER_1, is_read=True)
-        unread = make_notification(tenant_id=TENANT_A, user_id=USER_1, is_read=False)
-        session = FakeSession([read, unread])
+    async def test_is_read_false_returns_only_what_this_reader_has_not_read(self):
+        read = make_notification(tenant_id=TENANT_A)
+        unread = make_notification(tenant_id=TENANT_A)
+        session = FakeSession([read, unread], reads=[(read.id, USER_1)])
 
         items = await list_notifications_repo(session, TENANT_A, USER_1, is_read=False)
 
-        self.assertEqual([unread.id], [item.id for item in items])
+        self.assertEqual([unread.id], [entity.id for entity, _ in items])
+
+    async def test_the_filter_follows_the_reader_not_the_row(self):
+        """Та же строка отбирается фильтром по-разному у двух читателей.
+
+        Фильтр, который сравнивал бы колонку строки, дал бы обоим один ответ. Здесь
+        он обязан дать разные — иначе прочитанность снова принадлежит строке, а не
+        человеку, и П10 не выполнен.
+        """
+        shared = make_notification(tenant_id=TENANT_A)
+        session = FakeSession([shared], reads=[(shared.id, USER_1)])
+
+        for_first = await list_notifications_repo(session, TENANT_A, USER_1, is_read=True)
+        for_second = await list_notifications_repo(session, TENANT_A, USER_2, is_read=True)
+
+        self.assertEqual([shared.id], [entity.id for entity, _ in for_first])
+        self.assertEqual([], for_second)
 
     async def test_is_read_absent_returns_both(self):
-        read = make_notification(tenant_id=TENANT_A, user_id=USER_1, is_read=True)
-        unread = make_notification(tenant_id=TENANT_A, user_id=USER_1, is_read=False)
-        session = FakeSession([read, unread])
+        read = make_notification(tenant_id=TENANT_A)
+        unread = make_notification(tenant_id=TENANT_A)
+        session = FakeSession([read, unread], reads=[(read.id, USER_1)])
 
         items = await list_notifications_repo(session, TENANT_A, USER_1, is_read=None)
 
-        self.assertEqual({read.id, unread.id}, {item.id for item in items})
+        self.assertEqual({read.id, unread.id}, {entity.id for entity, _ in items})
 
 
 class OrderingTests(unittest.IsolatedAsyncioTestCase):
@@ -394,38 +521,40 @@ class OrderingTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_newest_created_at_comes_first_by_default(self):
         older = make_notification(
-            tenant_id=TENANT_A, user_id=USER_1, created_at=datetime(2026, 1, 1, tzinfo=timezone.utc)
+            tenant_id=TENANT_A, created_at=datetime(2026, 1, 1, tzinfo=timezone.utc)
         )
         newer = make_notification(
-            tenant_id=TENANT_A, user_id=USER_1, created_at=datetime(2026, 6, 1, tzinfo=timezone.utc)
+            tenant_id=TENANT_A, created_at=datetime(2026, 6, 1, tzinfo=timezone.utc)
         )
         session = FakeSession([older, newer])
 
         items = await list_notifications_repo(session, TENANT_A, USER_1)
 
-        self.assertEqual([newer.id, older.id], [item.id for item in items])
+        self.assertEqual([newer.id, older.id], [entity.id for entity, _ in items])
 
     async def test_equal_created_at_breaks_the_tie_by_id_ascending_and_stays_stable(self):
         same_moment = datetime(2026, 3, 1, tzinfo=timezone.utc)
         low_id, high_id = sorted([uuid.uuid4(), uuid.uuid4()])
-        first = make_notification(tenant_id=TENANT_A, user_id=USER_1, id=low_id, created_at=same_moment)
-        second = make_notification(tenant_id=TENANT_A, user_id=USER_1, id=high_id, created_at=same_moment)
+        first = make_notification(tenant_id=TENANT_A, id=low_id, created_at=same_moment)
+        second = make_notification(tenant_id=TENANT_A, id=high_id, created_at=same_moment)
         session = FakeSession([second, first])
 
         run_one = await list_notifications_repo(session, TENANT_A, USER_1)
         run_two = await list_notifications_repo(session, TENANT_A, USER_1)
 
-        self.assertEqual([low_id, high_id], [item.id for item in run_one])
-        self.assertEqual([item.id for item in run_one], [item.id for item in run_two])
+        self.assertEqual([low_id, high_id], [entity.id for entity, _ in run_one])
+        self.assertEqual(
+            [entity.id for entity, _ in run_one], [entity.id for entity, _ in run_two]
+        )
 
     async def test_sort_by_type_is_accepted(self):
-        b_type = make_notification(tenant_id=TENANT_A, user_id=USER_1, type="stock_deficit")
-        a_type = make_notification(tenant_id=TENANT_A, user_id=USER_1, type="batch_received")
+        b_type = make_notification(tenant_id=TENANT_A, type="stock_deficit")
+        a_type = make_notification(tenant_id=TENANT_A, type="batch_received")
         session = FakeSession([b_type, a_type])
 
         items = await list_notifications_repo(session, TENANT_A, USER_1, sort_by="type", sort_dir="asc")
 
-        self.assertEqual([a_type.id, b_type.id], [item.id for item in items])
+        self.assertEqual([a_type.id, b_type.id], [entity.id for entity, _ in items])
 
 
 class PaginationTests(unittest.IsolatedAsyncioTestCase):
@@ -433,7 +562,6 @@ class PaginationTests(unittest.IsolatedAsyncioTestCase):
         rows = [
             make_notification(
                 tenant_id=TENANT_A,
-                user_id=USER_1,
                 created_at=datetime(2026, 1, 1, tzinfo=timezone.utc) - timedelta(days=i),
             )
             for i in range(5)
@@ -445,43 +573,63 @@ class PaginationTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(2, len(page_one))
         self.assertEqual(2, len(page_two))
-        self.assertFalse({r.id for r in page_one} & {r.id for r in page_two})
+        self.assertFalse(
+            {entity.id for entity, _ in page_one} & {entity.id for entity, _ in page_two}
+        )
 
 
 class UnreadCountRepositoryTests(unittest.IsolatedAsyncioTestCase):
-    async def test_counts_only_unread_scoped_to_tenant_and_user(self):
+    async def test_counts_what_this_reader_has_not_read_in_this_tenant(self):
+        read_by_me = make_notification(tenant_id=TENANT_A)
+        read_by_colleague = make_notification(tenant_id=TENANT_A)
+        unread = make_notification(tenant_id=TENANT_A)
+        foreign = make_notification(tenant_id=TENANT_B)
         session = FakeSession(
-            [
-                make_notification(tenant_id=TENANT_A, user_id=USER_1, is_read=False),
-                make_notification(tenant_id=TENANT_A, user_id=USER_1, is_read=True),
-                make_notification(tenant_id=TENANT_A, user_id=USER_2, is_read=False),
-                make_notification(tenant_id=TENANT_B, user_id=USER_1, is_read=False),
-            ]
+            [read_by_me, read_by_colleague, unread, foreign],
+            reads=[(read_by_me.id, USER_1), (read_by_colleague.id, USER_2)],
         )
 
         total = await count_unread(session, TENANT_A, USER_1)
 
-        self.assertEqual(1, total)
+        # Прочитанное КОЛЛЕГОЙ у меня непрочитано — иначе счётчик считает чужое.
+        self.assertEqual(2, total)
 
 
 class MarkAllReadRepositoryTests(unittest.IsolatedAsyncioTestCase):
-    async def test_updates_only_the_callers_own_rows(self):
-        mine_unread = make_notification(tenant_id=TENANT_A, user_id=USER_1, is_read=False)
-        colleagues_unread = make_notification(tenant_id=TENANT_A, user_id=USER_2, is_read=False)
-        session = FakeSession([mine_unread, colleagues_unread])
+    async def test_records_this_reader_as_having_read_every_row_of_the_tenant(self):
+        first = make_notification(tenant_id=TENANT_A)
+        second = make_notification(tenant_id=TENANT_A)
+        foreign = make_notification(tenant_id=TENANT_B)
+        session = FakeSession([first, second, foreign])
 
         await mark_all_read_repo(session, TENANT_A, USER_1)
 
-        self.assertTrue(mine_unread.is_read)
-        self.assertFalse(colleagues_unread.is_read)
+        self.assertIn((first.id, USER_1), session.reads)
+        self.assertIn((second.id, USER_1), session.reads)
+        self.assertNotIn((foreign.id, USER_1), session.reads)
 
-    async def test_is_a_single_update_statement(self):
-        session = FakeSession([make_notification(tenant_id=TENANT_A, user_id=USER_1)])
+    async def test_it_does_not_mark_the_rows_read_for_anybody_else(self):
+        """Отметка личная: «прочитать всё» за одного не трогает соседа.
+
+        Прежняя реализация писала `is_read=True` в саму строку, то есть отмечала
+        её за всех сразу. На разделяемой строке (П10) это было бы ровно той бедой,
+        ради которой флаг с неё и сняли.
+        """
+        shared = make_notification(tenant_id=TENANT_A)
+        session = FakeSession([shared])
+
+        await mark_all_read_repo(session, TENANT_A, USER_1)
+
+        self.assertIn((shared.id, USER_1), session.reads)
+        self.assertNotIn((shared.id, USER_2), session.reads)
+
+    async def test_is_a_single_insert_statement(self):
+        session = FakeSession([make_notification(tenant_id=TENANT_A)])
 
         await mark_all_read_repo(session, TENANT_A, USER_1)
 
         self.assertEqual(1, len(session.statements))
-        self.assertIsInstance(session.statements[0], Update)
+        self.assertIsInstance(session.statements[0], Insert)
 
 
 # ── Domain — defaults, cap, entityRouteName mapping, refusal ───────────────────────
@@ -489,7 +637,7 @@ class MarkAllReadRepositoryTests(unittest.IsolatedAsyncioTestCase):
 
 class ListNotificationsDomainTests(unittest.IsolatedAsyncioTestCase):
     async def test_defaults_are_page_one_and_page_size_twenty_five(self):
-        session = FakeSession([make_notification(tenant_id=TENANT_A, user_id=USER_1)])
+        session = FakeSession([make_notification(tenant_id=TENANT_A)])
 
         result = await list_notifications(
             session, TENANT_A, USER_1,
@@ -503,7 +651,7 @@ class ListNotificationsDomainTests(unittest.IsolatedAsyncioTestCase):
     async def test_page_size_is_capped_at_one_hundred(self):
         """Mutation target: remove `min(page_size, MAX_PAGE_SIZE)` in
         `domain.list_notifications`."""
-        rows = [make_notification(tenant_id=TENANT_A, user_id=USER_1) for _ in range(150)]
+        rows = [make_notification(tenant_id=TENANT_A) for _ in range(150)]
         session = FakeSession(rows)
 
         result = await list_notifications(
@@ -516,9 +664,9 @@ class ListNotificationsDomainTests(unittest.IsolatedAsyncioTestCase):
         self.assertLessEqual(len(result.items), MAX_PAGE_SIZE)
 
     async def test_empty_search_and_type_all_and_absent_is_read_mean_no_filter(self):
-        status = make_notification(tenant_id=TENANT_A, user_id=USER_1, type="order_status", is_read=True)
-        deficit = make_notification(tenant_id=TENANT_A, user_id=USER_1, type="stock_deficit", is_read=False)
-        session = FakeSession([status, deficit])
+        status = make_notification(tenant_id=TENANT_A, type="order_status")
+        deficit = make_notification(tenant_id=TENANT_A, type="stock_deficit")
+        session = FakeSession([status, deficit], reads=[(status.id, USER_1)])
 
         result = await list_notifications(
             session, TENANT_A, USER_1,
@@ -531,9 +679,9 @@ class ListNotificationsDomainTests(unittest.IsolatedAsyncioTestCase):
     async def test_a_blank_is_read_string_also_means_no_filter(self):
         """The client always sends `isRead`, and blank means "all" the same as absent
         (`notificationsService.ts` sends `''` for the null tri-state)."""
-        status = make_notification(tenant_id=TENANT_A, user_id=USER_1, is_read=True)
-        deficit = make_notification(tenant_id=TENANT_A, user_id=USER_1, is_read=False)
-        session = FakeSession([status, deficit])
+        status = make_notification(tenant_id=TENANT_A)
+        deficit = make_notification(tenant_id=TENANT_A)
+        session = FakeSession([status, deficit], reads=[(status.id, USER_1)])
 
         result = await list_notifications(
             session, TENANT_A, USER_1,
@@ -544,7 +692,7 @@ class ListNotificationsDomainTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual({status.id, deficit.id}, {item.id for item in result.items})
 
     async def test_an_unknown_sort_by_falls_back_to_created_at(self):
-        session = FakeSession([make_notification(tenant_id=TENANT_A, user_id=USER_1)])
+        session = FakeSession([make_notification(tenant_id=TENANT_A)])
 
         result = await list_notifications(
             session, TENANT_A, USER_1,
@@ -565,7 +713,7 @@ class ListNotificationsDomainTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(pairs, ENTITY_ROUTE_NAMES)
 
         rows = [
-            make_notification(tenant_id=TENANT_A, user_id=USER_1, entity_type=entity_type)
+            make_notification(tenant_id=TENANT_A, entity_type=entity_type)
             for entity_type in pairs
         ]
         session = FakeSession(rows)
@@ -580,7 +728,7 @@ class ListNotificationsDomainTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(pairs, by_entity_type)
 
     async def test_list_item_carries_exactly_the_nine_contract_fields(self):
-        session = FakeSession([make_notification(tenant_id=TENANT_A, user_id=USER_1)])
+        session = FakeSession([make_notification(tenant_id=TENANT_A)])
 
         result = await list_notifications(
             session, TENANT_A, USER_1,
@@ -601,12 +749,14 @@ class UnreadCountDomainTests(unittest.IsolatedAsyncioTestCase):
     async def test_ignores_every_list_filter(self):
         """The count is global to the caller: it does not accept `search`/`type`/
         `isRead` at all, unlike `list_notifications` (contract, "Правила домена", п.8)."""
+        read = make_notification(tenant_id=TENANT_A, type="order_status")
         session = FakeSession(
             [
-                make_notification(tenant_id=TENANT_A, user_id=USER_1, type="order_status", is_read=False),
-                make_notification(tenant_id=TENANT_A, user_id=USER_1, type="stock_deficit", is_read=False),
-                make_notification(tenant_id=TENANT_A, user_id=USER_1, type="order_status", is_read=True),
-            ]
+                read,
+                make_notification(tenant_id=TENANT_A, type="stock_deficit"),
+                make_notification(tenant_id=TENANT_A, type="order_status"),
+            ],
+            reads=[(read.id, USER_1)],
         )
 
         total = await get_unread_count(session, TENANT_A, USER_1)
@@ -625,41 +775,47 @@ class MarkNotificationReadDomainTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(ctx.exception, AppError)
 
     async def test_a_foreign_tenants_notification_also_raises_not_found(self):
-        foreign = make_notification(tenant_id=TENANT_B, user_id=USER_1)
+        foreign = make_notification(tenant_id=TENANT_B)
         session = FakeSession([foreign])
 
         with self.assertRaises(NotFoundError):
             await mark_notification_read(session, TENANT_A, USER_1, foreign.id)
 
-    async def test_a_colleagues_notification_also_raises_not_found_and_stays_unread(self):
-        colleagues = make_notification(tenant_id=TENANT_A, user_id=USER_2, is_read=False)
-        session = FakeSession([colleagues])
+    async def test_a_row_read_by_a_colleague_is_still_markable_and_stays_his_read(self):
+        """П10: отмечается собственная прочитанность, а не строка.
 
-        with self.assertRaises(NotFoundError):
-            await mark_notification_read(session, TENANT_A, USER_1, colleagues.id)
+        Раньше здесь ожидался 404 «чужое уведомление». Чужих внутри арендатора
+        больше нет — строка общая. Проверять надо, что отметка ЛИЧНАЯ: она
+        появляется у меня и не трогает запись коллеги.
+        """
+        shared = make_notification(tenant_id=TENANT_A)
+        session = FakeSession([shared], reads=[(shared.id, USER_2)])
 
-        self.assertFalse(colleagues.is_read)
+        result = await mark_notification_read(session, TENANT_A, USER_1, shared.id)
 
-    async def test_the_callers_own_notification_becomes_read(self):
-        mine = make_notification(tenant_id=TENANT_A, user_id=USER_1, is_read=False)
+        self.assertTrue(result.isRead)
+        self.assertIn((shared.id, USER_1), session.reads)
+        self.assertIn((shared.id, USER_2), session.reads)
+
+    async def test_marking_read_records_this_reader_and_nobody_else(self):
+        mine = make_notification(tenant_id=TENANT_A)
         session = FakeSession([mine])
 
         result = await mark_notification_read(session, TENANT_A, USER_1, mine.id)
 
         self.assertTrue(result.isRead)
-        self.assertTrue(mine.is_read)
+        self.assertEqual({(mine.id, USER_1)}, session.reads)
 
 
 class MarkAllReadDomainTests(unittest.IsolatedAsyncioTestCase):
-    async def test_marks_only_the_callers_own_rows(self):
-        mine = make_notification(tenant_id=TENANT_A, user_id=USER_1, is_read=False)
-        colleagues = make_notification(tenant_id=TENANT_A, user_id=USER_2, is_read=False)
-        session = FakeSession([mine, colleagues])
+    async def test_marks_every_row_of_the_tenant_for_this_reader_only(self):
+        first = make_notification(tenant_id=TENANT_A)
+        second = make_notification(tenant_id=TENANT_A)
+        session = FakeSession([first, second])
 
         await mark_all_read(session, TENANT_A, USER_1)
 
-        self.assertTrue(mine.is_read)
-        self.assertFalse(colleagues.is_read)
+        self.assertEqual({(first.id, USER_1), (second.id, USER_1)}, session.reads)
 
 
 # ── Action — auth, tenant+user scoping over HTTP, envelope, route order ────────────
@@ -717,7 +873,7 @@ class NotificationsHttpTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(401, response.status_code, response.text)
 
     async def test_list_envelope_carries_pagination_keys(self):
-        session = FakeSession([make_notification(tenant_id=TENANT_A, user_id=USER_1)])
+        session = FakeSession([make_notification(tenant_id=TENANT_A)])
         app = self._build_app(session)
         client = await self._client(app)
 
@@ -730,10 +886,13 @@ class NotificationsHttpTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(1, payload["total"])
 
-    async def test_a_colleagues_notification_is_invisible_in_list_and_count_over_http(self):
-        colleagues = make_notification(tenant_id=TENANT_A, user_id=USER_2)
-        session = FakeSession([colleagues])
-        app = self._build_app(session, tenant_id=TENANT_A, user_id=USER_1)
+    async def test_a_foreign_tenants_notification_is_invisible_in_list_and_count_over_http(self):
+        """Сужает арендатор. Раньше здесь проверялся коллега — по П10 он видит ту же
+        строку, и «невидимость коллеги» стала бы утверждением о несуществующем правиле.
+        """
+        foreign = make_notification(tenant_id=TENANT_B)
+        session = FakeSession([foreign])
+        app = self._build_app(session, tenant_id=TENANT_A)
         client = await self._client(app)
 
         list_response = await client.get("/api/notifications")
@@ -742,9 +901,24 @@ class NotificationsHttpTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([], list_response.json()["data"]["items"])
         self.assertEqual(0, count_response.json()["data"])
 
+    async def test_a_colleagues_row_is_visible_but_unread_for_this_reader_over_http(self):
+        """Общая строка доходит до коллеги, и доходит непрочитанной."""
+        shared = make_notification(tenant_id=TENANT_A)
+        session = FakeSession([shared], reads=[(shared.id, USER_2)])
+        app = self._build_app(session, tenant_id=TENANT_A, user_id=USER_1)
+        client = await self._client(app)
+
+        list_response = await client.get("/api/notifications")
+        count_response = await client.get("/api/notifications/unread-count")
+
+        items = list_response.json()["data"]["items"]
+        self.assertEqual([str(shared.id)], [item["id"] for item in items])
+        self.assertFalse(items[0]["isRead"])
+        self.assertEqual(1, count_response.json()["data"])
+
     async def test_unread_count_response_is_a_bare_number_in_the_envelope(self):
         session = FakeSession(
-            [make_notification(tenant_id=TENANT_A, user_id=USER_1, is_read=False)]
+            [make_notification(tenant_id=TENANT_A)]
         )
         app = self._build_app(session)
         client = await self._client(app)
@@ -759,8 +933,8 @@ class NotificationsHttpTests(unittest.IsolatedAsyncioTestCase):
     async def test_unread_count_ignores_list_query_filters(self):
         session = FakeSession(
             [
-                make_notification(tenant_id=TENANT_A, user_id=USER_1, type="order_status", is_read=False),
-                make_notification(tenant_id=TENANT_A, user_id=USER_1, type="stock_deficit", is_read=False),
+                make_notification(tenant_id=TENANT_A, type="order_status"),
+                make_notification(tenant_id=TENANT_A, type="stock_deficit"),
             ]
         )
         app = self._build_app(session)
@@ -782,19 +956,20 @@ class NotificationsHttpTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(404, response.status_code, response.text)
         self.assertTrue(response.json()["detail"]["code"])
 
-    async def test_mark_one_read_on_a_colleagues_id_is_404_and_leaves_it_unread(self):
-        colleagues = make_notification(tenant_id=TENANT_A, user_id=USER_2, is_read=False)
-        session = FakeSession([colleagues])
-        app = self._build_app(session, tenant_id=TENANT_A, user_id=USER_1)
+    async def test_mark_one_read_on_a_foreign_tenants_id_is_404_and_records_nothing(self):
+        """404 остаётся у ЧУЖОГО АРЕНДАТОРА. Внутри своего чужих строк нет (П10)."""
+        foreign = make_notification(tenant_id=TENANT_B)
+        session = FakeSession([foreign])
+        app = self._build_app(session, tenant_id=TENANT_A)
         client = await self._client(app)
 
-        response = await client.patch(f"/api/notifications/{colleagues.id}/read")
+        response = await client.patch(f"/api/notifications/{foreign.id}/read")
 
         self.assertEqual(404, response.status_code, response.text)
-        self.assertFalse(colleagues.is_read)
+        self.assertEqual(set(), session.reads)
 
     async def test_mark_one_read_on_the_callers_own_id_succeeds(self):
-        mine = make_notification(tenant_id=TENANT_A, user_id=USER_1, is_read=False)
+        mine = make_notification(tenant_id=TENANT_A)
         session = FakeSession([mine])
         app = self._build_app(session)
         client = await self._client(app)
@@ -807,18 +982,18 @@ class NotificationsHttpTests(unittest.IsolatedAsyncioTestCase):
     async def test_read_all_route_resolves_and_does_not_fall_through_to_the_id_route(self):
         """`read-all` is registered ahead of `/{notification_id}/read`; hitting it must
         never be swallowed by the UUID-typed path and answer 422/404 instead."""
-        mine_unread = make_notification(tenant_id=TENANT_A, user_id=USER_1, is_read=False)
-        colleagues_unread = make_notification(tenant_id=TENANT_A, user_id=USER_2, is_read=False)
-        session = FakeSession([mine_unread, colleagues_unread])
-        app = self._build_app(session)
+        first = make_notification(tenant_id=TENANT_A)
+        second = make_notification(tenant_id=TENANT_A)
+        session = FakeSession([first, second])
+        app = self._build_app(session, user_id=USER_1)
         client = await self._client(app)
 
         response = await client.patch("/api/notifications/read-all")
 
         self.assertEqual(200, response.status_code, response.text)
         self.assertIsNone(response.json().get("data"))
-        self.assertTrue(mine_unread.is_read)
-        self.assertFalse(colleagues_unread.is_read)
+        # Обе строки арендатора отмечены прочитанными ЭТИМ читателем и только им.
+        self.assertEqual({(first.id, USER_1), (second.id, USER_1)}, session.reads)
 
 
 if __name__ == "__main__":

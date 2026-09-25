@@ -123,7 +123,7 @@
 | Утверждение | Доказательство |
 |---|---|
 | Таблицы `audit_entries` нет | `grep -rn "audit_entries" backend/` даёт только два **других** имени и одно имя связи: `stock_audit_entries` (`backend/app/modules/warehouse/shared/models.py:289`), `supplier_audit_entries` (`backend/app/modules/suppliers/shared/models.py:174`), и атрибут `audit_entries` у поставщика (`suppliers/shared/models.py:68-70`) |
-| Колонки `entity_type` в журнале нет | `grep -rn "entity_type" backend/app --include=*.py` → две строки, обе не журнальные: `related_entity_type` у финансов (`backend/app/modules/finance/shared/models.py:111`) и `entity_type` у уведомлений (`backend/app/modules/notifications/shared/models.py:31`) |
+| Колонки `entity_type` в журнале нет | `grep -rn "entity_type" backend/app --include=*.py` → две строки, обе не журнальные: `related_entity_type` у финансов (`backend/app/modules/finance/shared/models.py:111`) и `entity_type` у уведомлений (`backend/app/modules/notifications/shared/models.py:33`) |
 | Ключ — не UUIDv7 | обе таблицы наследуют `UUIDMixin`, а он даёт `default=uuid.uuid4` (`backend/app/core/base.py:18-22`); `grep -rn "uuid7\|uuid_v7\|UUIDv7"` по `backend/` и `frontend_vue/src` — ни одного совпадения |
 | Эндпоинтов журнала на бэкенде нет | ни одного вертикального слайса: `ls backend/app/modules/*/features/` даёт `auth` (login, magic_link, me, register), `bcc/send_request`, `products` (create_product, get_product_detail), `settings` (crud, profile) — и всё; `grep -rn "audit" backend/app/main.py` пуст |
 | Признака `sensitive` нет ни у одной из двух таблиц | `warehouse/shared/models.py:286-315` и `suppliers/shared/models.py:171-202` — колонок восемь, `sensitive` среди них нет |
@@ -344,7 +344,7 @@
 - **История взаимодействий клиента** `InteractionHistoryEntry`
   (`frontend_vue/src/types/client.ts:5-13`) — то же самое: человеческая запись, не машинный след.
 - **Уведомления** — у них своя таблица со своим `entity_type`
-  (`backend/app/modules/notifications/shared/models.py:31`), §10 соглашений; событие уведомления
+  (`backend/app/modules/notifications/shared/models.py:33`), §10 соглашений; событие уведомления
   и запись журнала порождаются одной мутацией, но живут в разных таблицах и по разным правилам.
 
 ---
@@ -455,7 +455,7 @@
       `frontend_vue/src/types/order.ts`) — задачи по журналу заказов принадлежат `orders`;
       `sales-crm` их не дублирует, иначе две задачи правят один файл.
 - [ ] **E4. `notifications`** — своя таблица со своим `entity_type`
-      (`backend/app/modules/notifications/shared/models.py:31`) остаётся отдельной от журнала
+      (`backend/app/modules/notifications/shared/models.py:33`) остаётся отдельной от журнала
       (правило Ж).
 - [ ] **E5. `analytics`** — просмотр отчёта следа не оставляет (решение 2026-09-08); не заводить.
 

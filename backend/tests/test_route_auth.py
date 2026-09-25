@@ -209,11 +209,19 @@ def _repository_files() -> list[Path]:
     return sorted(APP.rglob("repository.py"))
 
 
-def _functions_with_tenant_id(tree: ast.Module) -> dict[str, ast.AsyncFunctionDef]:
+#: И `async def`, и обычный `def`. Сторож смотрел только на первый — и не видел
+#: ни синхронного помощника, который фильтрует (тогда вызывающая его функция
+#: считалась нарушителем), ни синхронного, который НЕ фильтрует (тогда настоящее
+#: нарушение проходило молча). Расширено 2026-09-25, когда `_filtered_query` ленты
+#: уведомлений перестал быть корутиной: собирать запрос — не повод быть async.
+_FUNCTION_NODES = (ast.FunctionDef, ast.AsyncFunctionDef)
+
+
+def _functions_with_tenant_id(tree: ast.Module) -> dict[str, ast.AST]:
     return {
         n.name: n
         for n in ast.walk(tree)
-        if isinstance(n, ast.AsyncFunctionDef)
+        if isinstance(n, _FUNCTION_NODES)
         and "tenant_id" in [a.arg for a in n.args.args]
     }
 

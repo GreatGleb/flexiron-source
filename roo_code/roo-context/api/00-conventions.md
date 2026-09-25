@@ -746,7 +746,7 @@ entryId` одной функцией `auditRowKey` (`types/audit.ts:86-92`).
 
 - **Тексты — снимок на момент события, а не ссылка на словарь** (`mocks/notifications.ts:532-538`);
   на схеме им соответствуют `title_translations`/`message_translations` типа `JSONB`
-  (`backend/app/modules/notifications/shared/models.py:29-30`).
+  (`backend/app/modules/notifications/shared/models.py:31-32`).
 - **Сумма пишется в валюте, в которой пришла, и не конвертируется** — курсов в системе нет нигде
   (`mocks/notifications.ts:588-596`).
 - **Уведомление адресное**: `user_id` объявлен `nullable=False` с индексом (`backend/app/modules/notifications/shared/models.py:22-27`), то
