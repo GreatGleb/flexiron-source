@@ -1173,9 +1173,19 @@ Save-режим: чтение. Загрузка идёт вместе со сп�
 иначе лента и карточка показали бы два разных журнала (`:1934-1941`). Свойство мока, не сервера:
 движению, созданному после старта, журнала не достаётся никогда (`:1403`).
 
-Бэкенд: не реализован — таблицы под журнал движения на схеме нет.
+Бэкенд: реализован — дописан в уже существующий слайс `warehouse.features.list_movements`
+(`backend/app/modules/warehouse/features/list_movements/{schemas,repository,domain,action}.py`), тот
+же роутер, что и у списка. Карточка не заводит вторую проекцию движения: `get_movement_card`
+(`domain.py`) берёт ту же строку и ту же `_to_list_item`, что список, и добавляет только
+`auditLog` — **решение владельца** сузило «целиком» до проекции списка, а не всех двадцати полей
+`WarehouseMovement`. Журнал читается через `audit.internal_api.interface.read_audit_entries_for_entity`
+по виду сущности `movement` из закрытого перечня модуля аудита (`AUDIT_ENTITY_TYPES`), а не отдельной
+таблицей на схеме склада — прямого импорта моделей `audit` в `warehouse` нет. Неизвестный или чужой
+`movementId` отвечает доменным исключением `MovementNotFoundError`, код `MOVEMENT_NOT_FOUND`, а не
+пустым телом.
 Реализация: `services/warehouseService.ts:getMovement` · мок `mocks/index.ts:750` →
-`services/mocks/warehouse.ts:mockGetMovement`
+`services/mocks/warehouse.ts:mockGetMovement` · бэкенд —
+`backend/app/modules/warehouse/features/list_movements/action.py`.
 
 **Порядок разбора важен**: ветка карточки стоит **после** ветки аудита
 (`frontend_vue/src/services/mocks/index.ts:750` против `:745`, порядок объяснён комментарием
@@ -1201,9 +1211,14 @@ Save-режим: чтение.
 обращение материализует копию сида (`:1583-1589`); это свойство мока, и переносить его в сервер
 нельзя.
 
-Бэкенд: не реализован.
+Бэкенд: реализован — тот же слайс, `get_movement_audit` в `domain.py`: читает
+`audit.internal_api.interface.read_audit_entries_for_entity` по виду `movement`, ровно тем же кодом,
+что кладёт журнал в поле `auditLog` карточки, — второй копии нет ни на чтении, ни на маппинге в
+`MovementAuditEntry`. Неизвестный `movementId` отвечает пустым массивом и не пишет строку в
+`audit_entries`: правило «чтение не создаёт» выполнено, а не только продекларировано.
 Реализация: `services/warehouseService.ts:getMovementAudit` · мок `mocks/index.ts:745` →
-`services/mocks/warehouse.ts:mockGetMovementAudit`
+`services/mocks/warehouse.ts:mockGetMovementAudit` · бэкенд —
+`backend/app/modules/warehouse/features/list_movements/action.py`.
 
 ### DELETE /api/warehouse/movements/:movementId/audit/:entryId
 

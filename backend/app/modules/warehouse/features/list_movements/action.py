@@ -64,3 +64,44 @@ async def list_movements(
         sort_dir=sort_dir,
     )
     return ApiResponse(success=True, data=result.model_dump(mode="json"))
+
+
+# Appended below rather than merged into the top-of-file import block, so the
+# addition doesn't shift the line numbers the contract already cites.
+from .domain import get_movement_audit as get_movement_audit_usecase  # noqa: E402
+from .domain import get_movement_card as get_movement_card_usecase  # noqa: E402
+
+
+@router.get("/{movement_id}", response_model=ApiResponse)
+async def get_movement_card(
+    movement_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """Movement card — read-only, tenant-scoped, built off the same list
+    projection `list_movements` uses plus the journal field.
+
+    An unknown or foreign `movement_id` raises `MovementNotFoundError` from
+    the domain layer, which propagates to `app.main`'s `AppError` handler and
+    answers 404 with `code=MOVEMENT_NOT_FOUND` — no `HTTPException` raised
+    here (mirrors `warehouse.list_batches.get_batch_aggregates`).
+    """
+    result = await get_movement_card_usecase(db, current_user.tenant_id, movement_id)
+    return ApiResponse(success=True, data=result.model_dump(mode="json"))
+
+
+@router.get("/{movement_id}/audit", response_model=ApiResponse)
+async def get_movement_audit(
+    movement_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """Movement's journal alone, tenant-scoped — the same rows the card's
+    `auditLog` field carries. Unknown `movement_id` answers an empty list,
+    not a refusal: the contract names no error for this path, and reading
+    never creates anything.
+    """
+    result = await get_movement_audit_usecase(db, current_user.tenant_id, movement_id)
+    return ApiResponse(
+        success=True, data=[item.model_dump(mode="json") for item in result]
+    )

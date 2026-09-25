@@ -110,3 +110,87 @@ async def list_movements(
         pageSize=page_size,
         totalPages=max(1, -(-total // page_size)),
     )
+
+
+# Appended below rather than merged into the top-of-file import block, so the
+# addition doesn't shift the line numbers the contract already cites.
+from app.core.exceptions import AppError, NotFoundError  # noqa: E402
+from app.core.schemas import TranslatedString  # noqa: E402
+from app.modules.audit.internal_api.interface import (  # noqa: E402
+    read_audit_entries_for_entity,
+)
+
+from .repository import get_movement_by_id  # noqa: E402
+from .schemas import MovementAuditEntry, MovementCard  # noqa: E402
+
+#: Fixed entity kind this slice reads the shared journal under — one of the
+#: closed set `AUDIT_ENTITY_TYPES` the audit module owns
+#: (`app.modules.audit.shared.models`). `warehouse` never imports that models
+#: module directly; only the string travels across the boundary.
+AUDIT_ENTITY_TYPE = "movement"
+
+
+class MovementNotFoundError(NotFoundError):
+    """Unknown or foreign `movement_id` — the domain's own refusal code.
+
+    Mirrors `BatchNotFoundError` (`list_batches.domain`): bypasses
+    `NotFoundError.__init__`'s hardcoded `code="NOT_FOUND"` and calls
+    `AppError.__init__` directly with the contract's own `MOVEMENT_NOT_FOUND`
+    (`roo_code/roo-context/api/warehouse.md`,
+    "GET /api/warehouse/movements/:movementId"). `isinstance(exc,
+    NotFoundError)` still holds, so `app.main`'s `AppError` handler answers
+    404 without any change to `app/core/exceptions.py`.
+    """
+
+    def __init__(self, movement_id: UUID) -> None:
+        AppError.__init__(
+            self, f"Movement not found: {movement_id}", code="MOVEMENT_NOT_FOUND"
+        )
+
+
+def _to_audit_entry(entry) -> MovementAuditEntry:
+    return MovementAuditEntry(
+        id=entry.id,
+        timestamp=entry.timestamp,
+        user=TranslatedString(**entry.user_name_translations),
+        userInitials=entry.user_initials,
+        property=TranslatedString(**entry.property_translations),
+        oldValue=entry.old_value,
+        newValue=entry.new_value,
+    )
+
+
+async def get_movement_audit(
+    db: AsyncSession,
+    tenant_id: UUID,
+    movement_id: UUID,
+) -> list[MovementAuditEntry]:
+    """The movement's journal alone — same rows the card's `auditLog` field
+    carries, read through the audit module's own internal API rather than a
+    direct import of its models. Read-only: an unknown `movement_id` answers
+    an empty list, never creates one (the mock's lazily-materialized copy is
+    a mock property, not a server one)."""
+    entries = await read_audit_entries_for_entity(
+        db,
+        tenant_id=tenant_id,
+        entity_type=AUDIT_ENTITY_TYPE,
+        entity_id=movement_id,
+    )
+    return [_to_audit_entry(entry) for entry in entries]
+
+
+async def get_movement_card(
+    db: AsyncSession,
+    tenant_id: UUID,
+    movement_id: UUID,
+) -> MovementCard:
+    """The movement card — the same list projection `list_movements` builds
+    for one row, plus its journal. Unknown or foreign `movement_id` raises
+    `MovementNotFoundError` rather than answering an empty body."""
+    row = await get_movement_by_id(db, tenant_id, movement_id)
+    if row is None:
+        raise MovementNotFoundError(movement_id)
+
+    list_item = _to_list_item(row)
+    audit_log = await get_movement_audit(db, tenant_id, movement_id)
+    return MovementCard(**list_item.model_dump(), auditLog=audit_log)

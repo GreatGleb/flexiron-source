@@ -186,3 +186,16 @@ async def list_movements(
     query = query.offset((page - 1) * page_size).limit(page_size)
     result = await db.execute(query)
     return list(result.all())
+
+
+async def get_movement_by_id(
+    db: AsyncSession,
+    tenant_id: UUID,
+    movement_id: UUID,
+) -> Row | None:
+    """One movement row, same shape and same join as `list_movements` — the
+    card is built off this, not a second projection."""
+    query = await _base_query(tenant_id)
+    query = query.where(WarehouseMovement.id == movement_id)
+    result = await db.execute(query)
+    return result.first()

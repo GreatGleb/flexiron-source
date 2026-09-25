@@ -10,6 +10,8 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from app.core.schemas import TranslatedString
+
 
 class MovementListItem(BaseModel):
     """Row of `GET /api/warehouse/movements` — the fourteen contract fields.
@@ -38,3 +40,27 @@ class MovementListItem(BaseModel):
     notes: str | None
     movedAt: datetime
     currency: str
+
+
+class MovementAuditEntry(BaseModel):
+    """One row of a movement's journal — the seven fields the contract names
+    for `GET /api/warehouse/movements/:movementId/audit`
+    (`roo_code/roo-context/api/warehouse.md`), same shape as the audit
+    module's own `AuditEntry`, translated to the wire's camelCase names."""
+
+    id: UUID
+    timestamp: datetime
+    user: TranslatedString
+    userInitials: str
+    property: TranslatedString
+    oldValue: str
+    newValue: str
+
+
+class MovementCard(MovementListItem):
+    """`GET /api/warehouse/movements/:movementId` — the list projection this
+    slice already builds, plus the journal field. No second, parallel
+    projection of the movement is built for the card; `auditLog` is the same
+    rows the sibling `/audit` endpoint returns on its own."""
+
+    auditLog: list[MovementAuditEntry]
