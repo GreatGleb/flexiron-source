@@ -291,7 +291,7 @@ Save-режим: чтение. Вызывающие — фильтр стран�
 Пробел аудита (а) закрыт фактом: в прежнем контракте этого эндпоинта не было вовсе, раздел
 написан впервые.
 
-Бэкенд: **не реализован**.
+Бэкенд: `backend/app/modules/suppliers/features/supplier_reference/action.py:25` (`list_suppliers_reference`) — справочник сужен по арендатору, название приходит `TranslatedString`, а не плоской строкой одной локали.
 Реализация: `services/suppliersService.ts:98` (`getSupplierList`) · мок `mocks/index.ts:325`
 (ветка `/api/suppliers/list`, отдаёт `MOCK_SUPPLIERS.map`)
 

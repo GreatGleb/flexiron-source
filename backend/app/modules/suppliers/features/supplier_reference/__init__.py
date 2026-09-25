@@ -1,1 +1,1 @@
-"""Feature package: suppliers.supplier_reference."""
+"""Supplier reference feature slice — lightweight id+company catalog."""

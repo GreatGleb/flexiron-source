@@ -68,6 +68,9 @@ from app.modules.clients.features.read_clients.action import (
 from app.modules.notifications.features.feed.action import (
     router as notifications_feed_router,
 )
+from app.modules.suppliers.features.supplier_reference.action import (
+    router as suppliers_reference_router,
+)
 from app.core.uploads.action import (
     router as uploads_router,
 )
@@ -146,6 +149,10 @@ app.include_router(settings_mail_router)
 app.include_router(settings_warehouse_map_router)
 app.include_router(finance_payments_router)
 app.include_router(notifications_feed_router)
+# `supplier_reference` (`/list`) регистрируется раньше любого будущего
+# `/{supplier_id}`: UUID-типизированный роут карточки иначе перехватил бы сегмент
+# `/list` — то же правило, что у `products_list_router`.
+app.include_router(suppliers_reference_router)
 app.include_router(warehouse_list_batches_router)
 app.include_router(warehouse_list_movements_router)
 app.include_router(clients_read_router)
