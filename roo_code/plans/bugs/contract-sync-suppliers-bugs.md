@@ -210,7 +210,7 @@ CSV в браузере (`frontend_vue/src/views/admin/suppliers/SuppliersListPa
 
 - `PAYMENT_OPTIONS` — три строки, `'30 Days Net'`, `'Prepayment 100%'`, `'50/50 Terms'` (`:65-69`).
   Значением селекта служит сама строка, она же летит в `paymentTerms` и хранится колонкой
-  `payment_terms String(100)` (`backend/app/modules/suppliers/shared/models.py:53`). Справочника
+  `payment_terms String(100)` (`backend/app/modules/suppliers/shared/models.py:52`). Справочника
   условий оплаты нет ни в настройках фронта (`grep -c "paymentTerms\|payment_terms"
   frontend_vue/src/types/settings.ts` → 0), ни на бэкенде (`grep -rn "payment_terms"
   backend/app/modules/settings` → 0 строк). То есть значение свободное, а список закрытый;
@@ -224,7 +224,7 @@ CSV в браузере (`frontend_vue/src/views/admin/suppliers/SuppliersListPa
 (`frontend_vue/src/services/mocks/suppliers.ts:319,498`,
 `frontend_vue/src/composables/useSupplierCreate.ts:35`), а разрешённые значения существуют только
 комментарием в схеме — `# 'Legal','Postal','Shipping'`
-(`backend/app/modules/suppliers/shared/models.py:100-102`).
+(`backend/app/modules/suppliers/shared/models.py:99-101`).
 
 ### Fix
 
@@ -253,17 +253,17 @@ CSV в браузере (`frontend_vue/src/views/admin/suppliers/SuppliersListPa
 источников расхождения ниже — находки про фронт:
 
 1. **Адрес.** Фронт объявляет необязательный `line2` (`frontend_vue/src/types/supplier.ts:86`),
-   в `supplier_addresses` такой колонки нет (`backend/app/modules/suppliers/shared/models.py:100-109`:
+   в `supplier_addresses` такой колонки нет (`backend/app/modules/suppliers/shared/models.py:99-108`:
    `address_type`, `line1`, `city`, `country`, `zip`).
 2. **Контакт.** Фронт — `role: TranslatedString` (`:94`), схема — `position: String(255)`,
-   непереводимая колонка (`backend/app/modules/suppliers/shared/models.py:130`). Разные и имя, и тип.
+   непереводимая колонка (`backend/app/modules/suppliers/shared/models.py:129`). Разные и имя, и тип.
 3. **Файл карточки.** Фронт хранит `size` и `type` на самой записи (`:99-105`), схема ссылается на
    `uploaded_files` через `file_id` с `ondelete="RESTRICT"` и своих `size`/`mime` не держит
-   (`backend/app/modules/suppliers/shared/models.py:159-167`).
+   (`backend/app/modules/suppliers/shared/models.py:158-166`).
 4. **Строка прайс-истории.** Фронт объявляет семь полей, включая `stock`, `source` и `status`
    (`:61-70`) — именно они делают её склейкой прайс-леджера и журнала BCC-запросов (документировано
    в `:56-60`). В `supplier_price_entries` этих трёх нет вовсе
-   (`backend/app/modules/suppliers/shared/models.py:206-236`: `product_id`, `price`, `unit`,
+   (`backend/app/modules/suppliers/shared/models.py:205-235`: `product_id`, `price`, `unit`,
    `entry_date`, `notes`), а `unit` там `String(20)` против `TranslatedString | null` во фронте.
 
 ### Fix

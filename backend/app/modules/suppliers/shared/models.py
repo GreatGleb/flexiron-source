@@ -35,12 +35,11 @@ class Supplier(UUIDMixin, TimestampMixin, Base):
     rating: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"
     )
-    country: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    country: Mapped[str | None] = mapped_column(String(2), nullable=True)
     city: Mapped[str | None] = mapped_column(String(100), nullable=True)
     tags: Mapped[dict] = mapped_column(
         JSONB, nullable=False, default=list, server_default="[]"
     )
-    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     lead_time: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"
     )
@@ -102,7 +101,7 @@ class SupplierAddress(UUIDMixin, Base):
     )  # 'Legal','Postal','Shipping'
     line1: Mapped[str] = mapped_column(String(255), nullable=False)
     city: Mapped[str] = mapped_column(String(100), nullable=False)
-    country: Mapped[str] = mapped_column(String(100), nullable=False)
+    country: Mapped[str] = mapped_column(String(2), nullable=False)
     zip: Mapped[str] = mapped_column(String(20), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

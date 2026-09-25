@@ -55,7 +55,7 @@
 | правил домена | 12 | `sed -n '282,342p' roo_code/roo-context/api/audit-feed.md \| grep -cE "^[0-9]+\. \*\*"` |
 | бросков без кода в моке домена | **0** | `grep -c "throw new Error(" frontend_vue/src/services/mocks/auditFeed.ts` — мок-долга у домена нет, и это правда: ветка мока не бросает вовсе |
 | известных дефектов кода | 6 | `grep -c "^## БАГ-" roo_code/plans/bugs/contract-sync-audit-feed-bugs.md` |
-| таблиц домена на схеме | **0 своих**, 2 чужих журнала | `stock_audit_entries` (`backend/app/modules/warehouse/shared/models.py:272`) и `supplier_audit_entries` (`backend/app/modules/suppliers/shared/models.py:172`) |
+| таблиц домена на схеме | **0 своих**, 2 чужих журнала | `stock_audit_entries` (`backend/app/modules/warehouse/shared/models.py:272`) и `supplier_audit_entries` (`backend/app/modules/suppliers/shared/models.py:171`) |
 | роутов домена на бэкенде | 0 | `grep -rc "audit-feed" backend/` — ни одного вхождения во всём каталоге |
 | битых ссылок в самом контракте | **14 из 186** | `cd frontend_vue && CONTRACT_REFS=roo_code/roo-context/api/audit-feed.md npx vitest run src/services/contractRefs.spec.ts` |
 
@@ -81,7 +81,7 @@
 
 | эндпоинт | схема | контракт | кто прав | почему |
 |---|---|---|---|---|
-| оба | журналов на схеме **два**: `stock_audit_entries` с `batch_id` (`backend/app/modules/warehouse/shared/models.py:283`) и `supplier_audit_entries` с `supplier_id` (`backend/app/modules/suppliers/shared/models.py:183`) | лента девяти видов, где семи видов на схеме нет | **ни тот ни другой — П38** | журнал становится одной таблицей `audit_entries` с `entity_type`/`entity_id`; обе существующие сливаются и удаляются миграцией. Задача M1 |
+| оба | журналов на схеме **два**: `stock_audit_entries` с `batch_id` (`backend/app/modules/warehouse/shared/models.py:283`) и `supplier_audit_entries` с `supplier_id` (`backend/app/modules/suppliers/shared/models.py:182`) | лента девяти видов, где семи видов на схеме нет | **ни тот ни другой — П38** | журнал становится одной таблицей `audit_entries` с `entity_type`/`entity_id`; обе существующие сливаются и удаляются миграцией. Задача M1 |
 | оба | ключ — `UUIDMixin`, то есть `default=uuid.uuid4` (`backend/app/core/base.py:18-22`) | `entryId` — строка, форма не назначена | **П38: UUIDv7** | v4 разбрасывает вставки по индексу, v7 ложится в конец. Генератора v7 в проекте нет: `grep -rn "uuid7" backend/` пусто, в `backend/requirements.txt` пакета под него нет — это работа, а не переключение флага. Задача M1 |
 | оба | `old_value`, `new_value` — `Text`, `nullable=False` (`backend/app/modules/warehouse/shared/models.py:297`, `:255`) | `oldValue`/`newValue` — готовые строки на проводе | **П39 + АЛ-5**: хранится исходное, форматируется при чтении | одна колонка `Text` обслуживает одну локаль: запись, сделанная при русском интерфейсе, останется русской английскому читателю. **Форму колонки под «исходное значение» не назначил никто** — ни П39, ни АЛ-5; это блокирующий вопрос сквозной дорожки, В7 |
 | оба | `property_translations` — JSONB (`backend/app/modules/warehouse/shared/models.py:296`) | `property` — `TranslatedString` (`frontend_vue/src/types/audit.ts:71`) | **оба** | редкое место, где схема и фронт согласны; переносится в общую таблицу как есть |

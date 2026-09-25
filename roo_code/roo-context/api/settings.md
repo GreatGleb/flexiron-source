@@ -699,7 +699,7 @@ list[dict] в SettingsListResponse (С0).
 (`purchaseUomId`, `warehouseUomId`, `saleUomId`) — без счётчика N и без учёта услуг.
 
 **Правила пересчёта при удалении единицы schema больше не сносит: обе ссылки переведены на
-`RESTRICT`** (`models.py:148-157`, ревизия `7c4d1e9a3b58`, П44). До неё политика была `CASCADE`, и
+`RESTRICT`** (`models.py:147-156`, ревизия `7c4d1e9a3b58`, П44). До неё политика была `CASCADE`, и
 единица уносила правило молча — БАГ-07. Каскад снят, и теперь это ещё и отказ: `remove_uom_item`
 считает товары (`count_products_by_uom`), услуги (`count_services_by_uom`) и правила пересчёта
 (`count_conversions_by_uom` — обе ссылки, `from_uom_id` и `to_uom_id`, в пределах арендатора).
@@ -712,7 +712,7 @@ list[dict] в SettingsListResponse (С0).
 удаление **запрещается** при живой ссылке, а мягкое удаление оставлено товарам и услугам. Значит
 считать обязаны не только товары: правила пересчёта, услуги и всё прочее, что ссылается на
 единицу, тоже. Сделано: товары, услуги и правила пересчёта посчитаны доменом. Политику ссылок
-поставил слайс C1 (`RESTRICT` вместо `CASCADE`, `models.py:148-157`, ревизия `7c4d1e9a3b58`). Код
+поставил слайс C1 (`RESTRICT` вместо `CASCADE`, `models.py:147-156`, ревизия `7c4d1e9a3b58`). Код
 каталога §2 назван — `UOM_IN_USE`. Общее правило — [§22](00-conventions.md).
 
 Бэкенд: `settings/features/crud/action.py:265-284` — `delete_uom_route` · домен `crud/domain.py:488-515`
@@ -1230,7 +1230,7 @@ else None`, а ноль в Python ложен (`crud/domain.py:530`, тот же 
 
 Бэкенд: `settings/features/mail/action.py:38` — `get_mail_settings`; домен
 `settings/features/mail/domain.py:77` — `get_mail_settings`. Арендатор без строки получает
-**пустую форму**, а не отказ: `to_response(None)` (`domain.py:65`) отдаёт умолчания и
+**пустую форму**, а не отказ: `to_response(None)` (`domain.py:63`) отдаёт умолчания и
 `passwordSet: false` — вкладка открывается у всех.
 Реализация: `services/settingsService.ts:165` — `getMailServer` · мок `mocks/index.ts:389` →
 `mocks/settings.ts:708` — `mockGetMail`

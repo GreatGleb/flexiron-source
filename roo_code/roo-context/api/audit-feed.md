@@ -24,7 +24,7 @@
 и без единой строки записи от девяти доменов-писателей. Из девяти логов, которые лента сливает, на
 схеме существуют **два прежних плюс новая общая, пустая**: `stock_audit_entries` — журнал
 **партии**, а не остатка (`backend/app/modules/warehouse/shared/models.py:275`, `:240-245`),
-`supplier_audit_entries` (`backend/app/modules/suppliers/shared/models.py:175`, `:181-186`) и
+`supplier_audit_entries` (`backend/app/modules/suppliers/shared/models.py:174`, `:181-186`) и
 `audit_entries` — ни строки в ней нет, перенос двух прежних и запись от остальных семи видов в неё
 не сделаны этой задачей. Под остальные семь видов — `product`, `order`, `client`, `stock`,
 `offcut`, `movement`, `deficit` — своей таблицы по-прежнему нет ни одной; общая `audit_entries` их
@@ -199,7 +199,7 @@ Save-режим: чтение, один раз на монтировании (`L
    (`types/order.ts:591-606`), строка ленты его не несёт (`types/audit.ts:63-74`), и `toRows` его
    не копирует (`mocks/auditFeed.ts:47-60`) — БАГ-01. На схеме такой колонки нет ни у одной из
    двух существующих таблиц журнала (`backend/app/modules/warehouse/shared/models.py:272-301`,
-   `backend/app/modules/suppliers/shared/models.py:172-203`).
+   `backend/app/modules/suppliers/shared/models.py:171-202`).
 3. **Автор записи на схеме — пара:** необязательная ссылка `user_id` с `ondelete="SET NULL"` плюс
    **замороженные** переводы имени и инициалы
    (`backend/app/modules/warehouse/shared/models.py:289-295`). Во фронте видна только вторая
@@ -235,7 +235,7 @@ Save-режим: чтение, один раз на монтировании (`L
 (`services/auditFeedService.ts:20-24`, `:41`, `:46`), хранилища мока — плоские массивы на процесс
 (`mocks/auditFeed.ts:23-31`). У двух существующих таблиц журнала `tenant_id` объявлен
 `nullable=False, index=True` (`backend/app/modules/warehouse/shared/models.py:277-282`,
-`backend/app/modules/suppliers/shared/models.py:177-182`). **Обязанность именно этого домена:**
+`backend/app/modules/suppliers/shared/models.py:176-181`). **Обязанность именно этого домена:**
 ответ сшивается из девяти источников, и фильтр арендатора обязан стоять на каждом — один
 пропущенный источник течёт в общую ленту, где это заметно меньше всего. Строка владельца 4.
 

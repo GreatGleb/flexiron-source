@@ -21,7 +21,12 @@ HUNK = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+\d+(?:,(\d+))? @@")
 
 
 def git_text(root, *args):
-    return subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True)
+    # `core.quotePath=false` — не косметика: с умолчанием git ЭКРАНИРУЕТ кириллицу в
+    # заголовках `+++ b/...`, имя перестаёт совпадать с тем, что отдаёт `ls-files -z`,
+    # и сдвиги такого файла просто не находятся. В этом проекте кириллицей названы
+    # документы планов, то есть ссылки НА них после правки молча остаются старыми.
+    return subprocess.run(["git", "-C", str(root), "-c", "core.quotePath=false", *args],
+                          capture_output=True, text=True)
 
 
 def shifts(root, base):
@@ -63,6 +68,27 @@ def matches(changed, referenced):
     return changed == referenced or changed.endswith("/" + referenced)
 
 
+def tracked_files(root):
+    result = git_text(root, "ls-files", "-z")
+    return [name for name in result.stdout.split("\0") if name]
+
+
+def ambiguous(referenced, files):
+    """Показывает ли ссылка больше чем на один файл дерева.
+
+    Резолвер контракта (`contractRefs.ts`, `resolveCandidates`) считает годным ЛЮБОЙ
+    файл, чей путь кончается этим хвостом, и ссылка проходит, если хоть один из них
+    её подтверждает. Значит `models.py:98-103` — это четырнадцать разных файлов, а не
+    один, и сдвиг ОДНОГО из них ничего про неё не говорит.
+
+    Найдено 2026-09-25: правка `suppliers/shared/models.py` молча перенумеровала
+    `models.py:98-103` в `bcc.md` — строка там совпала дословно, проверка `verbatim`
+    прошла, и ссылка на модель BCC уехала на две строки в никуда. Неоднозначная
+    ссылка уходит глазам, а не механике.
+    """
+    return sum(1 for name in files if matches(name, referenced)) > 1
+
+
 def verbatim(old_lines, new_lines, old_number, new_number):
     """Переехала ли строка дословно. Нет — номер молча править нельзя."""
     if old_lines is None or new_lines is None:
@@ -78,6 +104,7 @@ def survey(root, base="HEAD", docs="roo_code"):
     if not moved:
         return [], []
     cache, safe, unsafe = {}, [], []
+    files = tracked_files(root)
     for doc in sorted((root / docs).rglob("*.md")):
         try:
             lines = doc.read_text(errors="replace").splitlines()
@@ -98,8 +125,9 @@ def survey(root, base="HEAD", docs="roo_code"):
                 if target not in cache:
                     cache[target] = versions(root, base, target)
                 old_lines, new_lines = cache[target]
-                ok = verbatim(old_lines, new_lines, start, new_start) and (
-                    end is None or verbatim(old_lines, new_lines, int(end), new_end))
+                ok = (not ambiguous(path, files)
+                      and verbatim(old_lines, new_lines, start, new_start)
+                      and (end is None or verbatim(old_lines, new_lines, int(end), new_end)))
                 item = {"документ": str(doc.relative_to(root)), "строка": number,
                         "было": ref.group(0),
                         "стало": f"{path}:{new_start}" + (f"-{new_end}" if end else "")}

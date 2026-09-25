@@ -98,6 +98,55 @@ class ShiftTest(unittest.TestCase):
         safe, _ = refs_shift.renumber(self.root)
         self.assertEqual([i["стало"] for i in safe], ["code.ts:4"])
 
+    def test_bare_filename_pointing_at_many_files_is_left_for_human_eyes(self):
+        """`models.py:98` — это все `models.py` дерева, а не тот, что изменился.
+
+        Резолвер контракта (`contractRefs.ts`, `resolveCandidates`) считает годным
+        ЛЮБОЙ файл, чей путь кончается этим хвостом. Значит сдвиг ОДНОГО из них не
+        говорит про такую ссылку ничего. Найдено 2026-09-25: правка
+        `suppliers/shared/models.py` молча перенумеровала `models.py:98-103` в
+        `bcc.md` — строка совпала дословно, `verbatim` прошла, ссылка на модель BCC
+        уехала в никуда. По всему дереву так уехала 101 ссылка в 18 документах.
+        """
+        first, second = self.root / "один", self.root / "два"
+        for folder in (first, second):
+            folder.mkdir()
+            (folder / "models.py").write_text("альфа\nбета\nгамма\n")
+        self.commit("Ссылка на `гамма` — models.py:3\n")
+        (first / "models.py").write_text("ноль\nальфа\nбета\nгамма\n")
+
+        safe, unsafe = refs_shift.renumber(self.root)
+
+        self.assertEqual(safe, [])
+        self.assertEqual(len(unsafe), 1, unsafe)
+        self.assertIn("models.py:3", self.doc.read_text())
+
+    def test_unique_path_with_a_directory_is_still_renumbered(self):
+        """Сужение не должно превратить механику в бездействие."""
+        folder = self.root / "only-here"
+        folder.mkdir()
+        (folder / "uniq.py").write_text("альфа\nбета\nгамма\n")
+        self.commit("Ссылка на `гамма` — only-here/uniq.py:3\n")
+        (folder / "uniq.py").write_text("ноль\nальфа\nбета\nгамма\n")
+
+        safe, _ = refs_shift.renumber(self.root)
+
+        self.assertEqual([i["стало"] for i in safe], ["only-here/uniq.py:4"])
+
+    def test_shifts_see_a_file_whose_name_is_not_latin(self):
+        """Git ЭКРАНИРУЕТ кириллицу в `+++ b/...`, если не сказать обратного.
+
+        Имя в заголовке диффа тогда не совпадает ни с чем, сдвиги такого файла не
+        находятся вовсе, и ссылки на него молча остаются старыми. В этом проекте
+        кириллицей названы документы планов, то есть случай не гипотетический.
+        """
+        code = self.root / "документ.py"
+        code.write_text("альфа\nбета\n")
+        self.commit("неважно\n")
+        code.write_text("ноль\nальфа\nбета\n")
+
+        self.assertEqual(refs_shift.shifts(self.root, "HEAD"), {"документ.py": [(0, 1)]})
+
     def test_only_named_document_tree_is_touched(self):
         self.commit("Ссылка на `три` — code.ts:3\n")
         outside = self.root / "чужой.md"

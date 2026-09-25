@@ -710,13 +710,13 @@ len(SUPPLIERS) messages here» — `backend/tests/modules/bcc/test_send_request.
    обязательных полей — `backend/tests/modules/bcc/test_send_request.py:143-153`), и в моке
    (`services/mocks/bcc.ts:317`, спека `services/mocks/bcc-envelope.spec.ts:68-73`). Условие —
    общий `isMailConfigured`, сужённый до трёх полей нарочно; бэкенд повторяет его теми же тремя
-   (`domain.py:65-78`) и явно разрешает пустые логин и имя отправителя
+   (`domain.py:63-76`) и явно разрешает пустые логин и имя отправителя
    (`test_send_request.py:155-159`).
 3. **Сервер сильнее мока на два правила отправки.** Дубли адресов снимаются с сохранением порядка
    — «тот же поставщик дважды получил бы запрос дважды из одной отправки»
    (`backend/app/modules/bcc/features/send_request/domain.py:95-97`, тест
    `backend/tests/modules/bcc/test_send_request.py:93-103`); пустой список отвергается кодом
-   `NO_RECIPIENTS` (`domain.py:104-105`, объявление `:34-38`, тест `test_send_request.py:161-165`).
+   `NO_RECIPIENTS` (`domain.py:102-103`, объявление `:34-38`, тест `test_send_request.py:161-165`).
    Мок не делает ни того, ни другого (`services/mocks/bcc.ts:435-437`), а кода `NO_RECIPIENTS`
    фронт не знает вовсе. Значит два пути ошибки под моками не воспроизводятся — и первый из них не
    «ошибка интерфейса», а двойное письмо живому поставщику.
@@ -818,7 +818,7 @@ len(SUPPLIERS) messages here» — `backend/tests/modules/bcc/test_send_request.
 | ответ `log` = `{ requestId: string; events: BccRequest[] }`, «массив созданных строк, чтобы клиент сразу подложил в `history`» (`03-api-contract.md:600`) | ответ несёт только `requestId` (`services/bccService.ts:56`); строки создаёт сервер, но наружу их не отдаёт — клиент берёт их перечитыванием ленты. **Возвращать ли массив — по-прежнему строка владельцу**, и она сознательно не решена правкой БАГ-01 |
 | «`{ price: number; unit: 'kg'\|'m` …» — перечисление единиц, оборванное и склеенное со следующим пунктом (`03-api-contract.md:606`) | допустимого набора старый текст не называет вовсе; в коде это константа страницы из четырёх строк (`BccRequestPage.vue:333`) мимо справочника `AppSettings.uoms` (`types/settings.ts:240`) — БАГ-07 |
 | «422, если `price <= 0`» (`03-api-contract.md:607`) | не реализовано нигде: `mockAcceptResponse` цену не проверяет (`services/mocks/bcc.ts:472-497`), клиент проверяет только `NaN` (`BccRequestPage.vue:349`); `VALIDATION_ERROR` ядро объявляет (`backend/app/core/exceptions.py:23-27`), домен его не бросает — роутов нет |
-| «Также обновляет `priceHistory` карточки соответствующего супплайера» (`03-api-contract.md:607`) | `grep -c "priceHistory" frontend_vue/src/services/mocks/bcc.ts` → 0, `grep -c "lastBccDate"` там же → 0; на бэкенде оба поля поставщика — хранимые колонки (`backend/app/modules/suppliers/shared/models.py:58-61`). Строка владельцу |
+| «Также обновляет `priceHistory` карточки соответствующего супплайера» (`03-api-contract.md:607`) | `grep -c "priceHistory" frontend_vue/src/services/mocks/bcc.ts` → 0, `grep -c "lastBccDate"` там же → 0; на бэкенде оба поля поставщика — хранимые колонки (`backend/app/modules/suppliers/shared/models.py:57-60`). Строка владельцу |
 | «permission `delete` на аудит», «сервер удаляет запись напрямую» и прочие правила соседних разделов, попавшие в BCC по смежности | у BCC своего журнала нет вовсе (`grep -c "auditLog" frontend_vue/src/services/mocks/bcc.ts` → 0) и `DELETE` в домене нет ни одного — правила девяти логов живут в §9 соглашений |
 | общие правила: конверт ответа, коды ядра, мультиарендность, `TranslatedString`, конверт пагинации, идемпотентность, файлы, форма `id` | перенесены в [`00-conventions.md`](00-conventions.md) (§1, §2, §4, §12, §13, §11, §16, §19) — правило двух и более доменов в доменном файле не дублируется |
 | «Секция "Add manual entry" не используется — её заменил `POST /api/bcc/log`»; «отдельного `POST /api/bcc/attachments` нет» (`03-api-contract.md:616`) | **верно и подтверждено**: `grep -rn "api/bcc" frontend_vue/src --include=*.ts --include=*.vue | grep -v spec` даёт двенадцать строк на семь различных путей (семь вызовов клиента плюс пять ветвей мока), и ни одного `attachments` — `grep -rn "api/bcc/attachments" frontend_vue/src backend` → 0; вложения уходят общим `POST /api/uploads` (§16 соглашений) |
