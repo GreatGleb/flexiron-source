@@ -65,7 +65,7 @@
 > Перенос значений разбирает `"<код валюты>/<код единицы>"`: валюта — по `currencies.code`
 > **того же арендатора**, единица — по `uoms.code_translations` в любой из трёх локалей, потому
 > что колонки `code` у `uoms` нет вовсе. Правило «в любой локали» не выдумано здесь, оно уже
-> записано в `backend/app/modules/settings/features/crud/repository.py:174-190`
+> записано в `backend/app/modules/settings/features/crud/repository.py:171-187`
 > (`get_uom_by_code`); без него литовское `'vnt'` не нашлось бы.
 >
 > **Прогнано на живой базе, а не только написано:** `alembic upgrade head` с нуля проходит все

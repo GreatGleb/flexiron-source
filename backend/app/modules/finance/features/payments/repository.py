@@ -169,6 +169,6 @@ async def sync_payment_documents(
 
 async def save_payment(db: AsyncSession, payment: FinancePayment) -> FinancePayment:
     """Persist the pending attribute/relationship changes on `payment`."""
-    await db.commit()
+    await db.flush()
     await db.refresh(payment)
     return payment

@@ -82,7 +82,6 @@ async def upload_file(
         uploaded_by=current_user.user_id,
         is_draft=False,
     )
-    await db.commit()
 
     # ── Build full public URL from request base ─────────────────────────
     base_url = str(request.base_url).rstrip("/")

@@ -7,8 +7,8 @@ engine. It walks the *real* `sqlalchemy.select(...)` statements that
 `uploaded_files` (the upload registry `_build_document` reads through
 `app.core.uploads.service.get_file_by_id`) — and evaluates each against a
 fixed table of transient ORM objects, dispatching by the statement's own
-table name. `commit()`/`refresh()`/relationship assignment are no-ops or plain
-Python attribute mutation: nothing here is flushed to a real engine, so what
+table name. `commit()`/`flush()`/`refresh()`/relationship assignment are no-ops
+or plain Python attribute mutation: nothing here reaches a real engine, so what
 changed is read back off the same in-memory object the domain mutated.
 
     cd backend && python3 -m pytest tests/modules/finance/test_finance_payments_patch.py -q
@@ -175,10 +175,10 @@ class FakeSession:
     """Two fixed tables (`finance_payments`, `uploaded_files`); `execute()`
     interprets the real statement and dispatches by the table it names.
 
-    Writes never touch a real engine: `commit()`/`refresh()` are no-ops, and
-    the domain's own attribute/relationship mutations on the transient
-    `FinancePayment` it fetched earlier are already the "persisted" state —
-    the same object is read back afterwards.
+    Writes never touch a real engine: `commit()`/`flush()`/`refresh()` are
+    no-ops, and the domain's own attribute/relationship mutations on the
+    transient `FinancePayment` it fetched earlier are already the "persisted"
+    state — the same object is read back afterwards.
     """
 
     def __init__(self, payments=(), uploads=()):
@@ -201,6 +201,9 @@ class FakeSession:
 
     async def commit(self):
         self.committed = True
+
+    async def flush(self):
+        return None
 
     async def refresh(self, obj):
         return None

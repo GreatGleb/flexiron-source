@@ -33,6 +33,6 @@ async def upsert_mail_settings(
     else:
         for key, value in data.items():
             setattr(row, key, value)
-    await db.commit()
+    await db.flush()
     await db.refresh(row)
     return row

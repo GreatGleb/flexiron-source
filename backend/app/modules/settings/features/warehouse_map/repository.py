@@ -104,7 +104,7 @@ async def upsert_map(
     else:
         row.map_file_id = map_file_id
         row.file_metadata = metadata
-    await db.commit()
+    await db.flush()
     await db.refresh(row)
     return row
 
@@ -119,4 +119,4 @@ async def delete_map(db: AsyncSession, tenant_id: UUID) -> None:
     row = await get_map(db, tenant_id)
     if row is not None:
         await db.delete(row)
-        await db.commit()
+        await db.flush()

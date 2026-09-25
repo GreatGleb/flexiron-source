@@ -40,7 +40,7 @@ async def patch_currency_route(currency_id: uuid.UUID, input_data: CurrencyPatch
 
 Вторая половина той же дыры — репозиторий. `get_currency`, `get_uom`, `get_conversion`,
 `get_order_status` ищут запись **по одному `id`**, без `tenant_id`
-(`crud/repository.py:94-98`, `:148-150`, `:205-209`, `:262-266`), поэтому даже если токен
+(`crud/repository.py:92-96`, `:148-150`, `:205-209`, `:262-266`), поэтому даже если токен
 вернуть, арендатор всё равно не проверяется: зная UUID чужой валюты, её можно переименовать
 или удалить. Ограничение по арендатору есть только у списков (`:89`, `:143`, `:200`, `:256`)
 и у `reorder`, который пишет по паре `(id, tenant_id)` (`:299-302`).
@@ -49,7 +49,7 @@ async def patch_currency_route(currency_id: uuid.UUID, input_data: CurrencyPatch
 
 Добавить `Depends(_resolve_user_id)` восьми роутам и провести `tenant_id` до репозитория —
 `get_*` по id обязаны принимать `tenant_id` и фильтровать по нему, как это уже сделано в
-`reorder_order_statuses` (`crud/repository.py:294-306`).
+`reorder_order_statuses` (`crud/repository.py:289-301`).
 
 ### Future rule
 
@@ -342,7 +342,7 @@ PATCH констант (`:353-356`), и все они уходят одним `P
 
 ### Fix
 
-Та же проверка через `get_currency_by_code` (`crud/repository.py:101-111`) в ветке PATCH.
+Та же проверка через `get_currency_by_code` (`crud/repository.py:99-109`) в ветке PATCH.
 
 ---
 
@@ -639,7 +639,7 @@ factor=float(c.factor) if c.factor else None
   а отсутствующая функциональность — вопрос владельцу, не правка.
 - **`sort_order` статусов не нормализуется после удаления.** Сервер оставляет дыры в
   нумерации (`crud/domain.py:591-603`), мок перенумеровывает (`mocks/settings.ts:661`).
-  Порядок при чтении задаётся сортировкой (`crud/repository.py:257`), поэтому дыры не видны;
+  Порядок при чтении задаётся сортировкой (`crud/repository.py:253`), поэтому дыры не видны;
   расхождение записано в аудит, но багом не считается.
 
 ---

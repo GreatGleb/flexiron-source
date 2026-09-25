@@ -85,13 +85,13 @@ Idempotency-Key по-прежнему не обрабатывается загр
 ```
 
 `ApiResponse(success=True, data={"url": public_url, "fileId": str(uploaded.id)})`
-(`core/uploads/action.py:90-93`), `response_model=ApiResponse` (`:26`), конверт —
+(`core/uploads/action.py:89-92`), `response_model=ApiResponse` (`:26`), конверт —
 `backend/app/core/schemas.py:29-35`. `unwrap()` снимает обёртку и отдаёт `json.data`
 (`services/api.ts:128-137`), то есть фронту приходит именно эта пара и **ничего больше**.
 
-- `fileId` — UUID записи (`str(uploaded.id)`, `core/uploads/action.py:92`); непрозрачная строка
+- `fileId` — UUID записи (`str(uploaded.id)`, `core/uploads/action.py:91`); непрозрачная строка
   (§19 соглашений);
-- `url` — `http(s)://<host>/static/uploads/<uuid4hex><ext>` (`core/uploads/action.py:88-89`, имя
+- `url` — `http(s)://<host>/static/uploads/<uuid4hex><ext>` (`core/uploads/action.py:87-88`, имя
   файла — `:66`). Значение **производное**, в таблице его нет: см. «Обязанности сервера», графу о
   производных значениях.
 
@@ -307,7 +307,7 @@ header/query/form tenant_id игнорируются; загрузка акти�
 **Производные значения.** Одно, и оно считается: `url`. В таблице его нет
 (`core/uploads/models.py:11-39` — есть `storage_path`, `:23`); ответ собирает ссылку на каждый
 запрос из базы **текущего** запроса: `base_url = str(request.base_url).rstrip("/")`
-(`core/uploads/action.py:88`) плюс `/static/uploads/<имя>` (`:89`). Следствие для сервера: смена
+(`core/uploads/action.py:87`) плюс `/static/uploads/<имя>` (`:89`). Следствие для сервера: смена
 хоста или схемы меняет ссылку, а копии прежних остаются битыми. А копии есть: из трёх таблиц,
 ссылающихся на `uploaded_files`, **две** сохраняют `url`, `size` и `mime` как собственные данные —
 `payment_documents` (`b2619dfeb90f_phase_10_finance.py:55-57`) и `document_archive_items` (`:68-70`);
@@ -358,7 +358,7 @@ header/query/form tenant_id игнорируются; загрузка акти�
    (`services/api.ts:4`).
 6. **`fileId` мока не непрозрачен, а серверный — непрозрачен.** Формат `file-<seq>-<Date.now()>`
    (`mocks/index.ts:1665`, счётчик `:272`) растёт монотонно в пределах вкладки и сортируется по
-   времени; UUID сервера (`core/uploads/action.py:92`) не даёт ни того, ни другого. Код, который
+   времени; UUID сервера (`core/uploads/action.py:91`) не даёт ни того, ни другого. Код, который
    начнёт полагаться на порядок `fileId`, будет зелёным под моками и сломается на сервере (§19
    соглашений).
 7. **Домен не покрыт ни одной юнит-спекой** — ни во фронте, ни на бэкенде. Единственная проверка
@@ -382,8 +382,8 @@ header/query/form tenant_id игнорируются; загрузка акти�
 | было описано | чем доказано отсутствие / несоответствие |
 |---|---|
 | «поле `file` — один или несколько файлов» (`03-api-contract.md:164`) | сервер принимает один: `file: UploadFile = File(...)` (`core/uploads/action.py:29`), клиент шлёт один (`services/api.ts:248-249`); несколько файлов = несколько запросов (`DropZone.vue:23`) |
-| «Response 200: `Array<{fileId,name,size,mime,url,uploadedAt}>`» (`03-api-contract.md:165-175`) | ответ не массив, а объект в обёртке (`core/uploads/action.py:90-93`, `core/schemas.py:29-35`), и в нём два поля из шести |
-| «`url` — временный URL для preview» (`03-api-contract.md:172`) | сервер строит постоянную ссылку на статику (`core/uploads/action.py:88-89`), каталог смонтирован навсегда (`backend/app/main.py:84`). Временный тут как раз мок: data-URL живёт в памяти вкладки (`mocks/index.ts:1666-1668`) |
+| «Response 200: `Array<{fileId,name,size,mime,url,uploadedAt}>`» (`03-api-contract.md:165-175`) | ответ не массив, а объект в обёртке (`core/uploads/action.py:89-92`, `core/schemas.py:29-35`), и в нём два поля из шести |
+| «`url` — временный URL для preview» (`03-api-contract.md:172`) | сервер строит постоянную ссылку на статику (`core/uploads/action.py:87-88`), каталог смонтирован навсегда (`backend/app/main.py:84`). Временный тут как раз мок: data-URL живёт в памяти вкладки (`mocks/index.ts:1666-1668`) |
 | «файл попадает в draft-хранилище, не привязанный ни к какой сущности» (`03-api-contract.md:177`) | эндпоинт передаёт `is_draft=False` (`core/uploads/action.py:83`) при значении по умолчанию `True` в модели (`core/uploads/models.py:26-28`), сервисе (`core/uploads/service.py:22`) и схеме (`133fae13afbe_phase_5_uploads.py:33`) — черновиков не возникает вовсе (БАГ-07) |
 | «привязка: сервер находит draft-файлы, привязывает, переносит из draft в постоянное» (`03-api-contract.md:183-187`) | серверной части не существует: ни один роут не принимает `fileIds` (правило домена 2). Фазу отыгрывает только мок |
 | «endpoints, принимающие `fileIds`: `PATCH /api/suppliers/:id`, `POST /api/bcc/send`, `POST /api/bcc/log`» (`03-api-contract.md:189-191`) | перечень неполон **и неверен по форме**. Массив `fileIds` шлют ещё склад (`useWarehouseBatchCreate.ts:357`, `:386`; `useWarehouseOffcutCard.ts:277-278`) и финансы (`OutgoingPaymentCardPage.vue:81` — собирается из `documents`, `:100-108`). У заказа форма другая: файл добавляется по одному, `POST /api/orders/:id/files` с телом `{ fileId, version }` (`services/ordersService.ts:198-204`), удаляется своим `DELETE` (`:206-212`). Поставщик шлёт не идентификаторы, а объекты `files` (`SupplierCardPage.vue:44-50`) — расхождение своего домена. У товара `fileIds` нет вовсе: в значение кастомного поля кладётся имя файла (`ProductCardPage.vue:225`) — БАГ-10. Это чужие домены; здесь фиксируется только то, что единого перечня не существует |
