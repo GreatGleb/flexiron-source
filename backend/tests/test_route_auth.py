@@ -1,13 +1,10 @@
 """Каждый роут объявляет аутентификацию, а каждый геттер по id — арендатора.
 
-Почему статикой, а не через `router.routes`. Правильный способ — собрать приложение
-и перебрать `route.dependant`, но FastAPI и SQLAlchemy в этом окружении не установлены
-(`python3 -c "import fastapi"` → ModuleNotFoundError), а проверка, которую нельзя
-запустить, — это не проверка. Тот же довод записан в соседнем тесте
-`tests/modules/bcc/test_send_request.py`. Поэтому разбор идёт по AST: он ловит ровно
-тот дефект, который прогон сверки нашёл руками, и запускается везде.
+AST-сторож проверяет декларацию Depends и происхождение get_current_user без
+запуска приложения. Поведение настоящей dependency и SQL отдельно проверяют
+tests.modules.auth.test_current_user и tests.modules.auth.test_auth_consumers.
 
-    cd backend && python3 -m unittest discover -s tests -t .
+    cd backend && .venv/bin/python -B -m unittest discover -s tests -t .
 
 Что произошло 2026-09-04 и почему сторож появился. В модуле `settings` из 21 роута
 восемь — PATCH и DELETE у всех четырёх коллекций — не объявляли зависимость
@@ -28,20 +25,12 @@ from pathlib import Path
 BACKEND = Path(__file__).resolve().parent.parent
 APP = BACKEND / "app"
 
-# Имена зависимостей, каждая из которых означает «этот роут требует вошедшего».
-#
-# Их две, и это само по себе находка. `_resolve_user_id` — три ОТДЕЛЬНЫЕ копии одной
-# функции (`settings/features/crud/action.py`, `settings/features/profile/action.py`,
-# `core/uploads/action.py`, причём третья прямо пишет в докстринге «same logic as
-# settings»). `_bearer` — четвёртый механизм: `HTTPBearer(auto_error=False)` плюс ручная
-# проверка `credentials is None` в `auth/features/me/action.py`. Канонического места нет:
-# `auth/shared/dependencies.py` обещает докстрингом «get_current_user, permission
-# checkers, tenant isolation» и не содержит ни строки кода.
-#
-# Это и есть корень дыры 2026-09-04: восемь роутов забыли зависимость потому, что тянуться
-# было не к чему — каждый модуль писал свою. Сведение зависимостей в одно место записано
-# находкой `contract-sync-settings-bugs.md`, БАГ-22.
-AUTH_DEPENDENCIES = ("_resolve_user_id", "_bearer")
+# Only the shared dependency or its public re-export can authenticate a route.
+AUTH_DEPENDENCIES = ("get_current_user",)
+AUTH_ORIGINS = {
+    "app.modules.auth.shared.dependencies",
+    "app.modules.auth.internal_api.interface",
+}
 
 # Роуты, которым вошедший не нужен ПО СМЫСЛУ, а не по недосмотру. Список закрытый:
 # новый публичный роут придётся внести сюда руками, и это правильно — пусть решение
@@ -49,19 +38,13 @@ AUTH_DEPENDENCIES = ("_resolve_user_id", "_bearer")
 PUBLIC_ROUTES = {
     "app/modules/auth/features/login/action.py",       # вход — до входа
     "app/modules/auth/features/register/action.py",    # регистрация — до входа
-    "app/modules/auth/features/magic_link/action.py",  # вход по ссылке из письма
+    "app/modules/auth/features/magic_link/action.py",  # разбор ссылки; сам по себе не аутентифицирует
 }
 
 # Роуты, где аутентификации нет и это ЗАПИСАННАЯ находка, а не новость. Пока находка не
 # закрыта, сторож про неё молчит, но список не даёт о ней забыть. Закрыл находку —
 # убери строку, и сторож начнёт её охранять.
-KNOWN_GAPS = {
-    # products БАГ-14: арендатор в обоих роутах захардкожен заглушкой
-    # 00000000-0000-0000-0000-000000000001 с комментарием «until auth middleware
-    # provides the current tenant context» — то есть слайс сознательно недоделан.
-    "app/modules/products/features/create_product/action.py": "products БАГ-14",
-    "app/modules/products/features/get_product_detail/action.py": "products БАГ-14",
-}
+KNOWN_GAPS = {}
 
 
 def _action_files() -> list[Path]:
@@ -90,7 +73,29 @@ def _route_handlers(tree: ast.Module) -> list[ast.AsyncFunctionDef]:
     return out
 
 
-def _declares_auth(fn: ast.AsyncFunctionDef) -> bool:
+def _auth_names(tree: ast.Module) -> set[str]:
+    names = set()
+    for node in tree.body:
+        if isinstance(node, ast.ImportFrom) and node.module in AUTH_ORIGINS:
+            for alias in node.names:
+                if alias.name in AUTH_DEPENDENCIES:
+                    names.add(alias.asname or alias.name)
+    # A local function/assignment/import with the same name is not authentication.
+    for name in list(names):
+        bindings = 0
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and node.name == name:
+                bindings += 1
+            if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store) and node.id == name:
+                bindings += 1
+            if isinstance(node, ast.alias) and (node.asname or node.name) == name:
+                bindings += 1
+        if bindings != 1:
+            names.remove(name)
+    return names
+
+
+def _declares_auth(fn: ast.AsyncFunctionDef, tree: ast.Module) -> bool:
     """Есть ли среди значений по умолчанию Depends(<одна из зависимостей входа>)."""
     for default in list(fn.args.defaults) + list(fn.args.kw_defaults):
         if not isinstance(default, ast.Call):
@@ -99,7 +104,7 @@ def _declares_auth(fn: ast.AsyncFunctionDef) -> bool:
         if not (isinstance(callee, ast.Name) and callee.id == "Depends"):
             continue
         for arg in default.args:
-            if isinstance(arg, ast.Name) and arg.id in AUTH_DEPENDENCIES:
+            if isinstance(arg, ast.Name) and arg.id in _auth_names(tree):
                 return True
     return False
 
@@ -115,7 +120,7 @@ class RouteAuthTest(unittest.TestCase):
             tree = ast.parse(path.read_text(encoding="utf-8"))
             for fn in _route_handlers(tree):
                 counted += 1
-                if not _declares_auth(fn):
+                if not _declares_auth(fn, tree):
                     unguarded.append(f"{rel}:{fn.lineno} {fn.name}")
 
         # Пол проверки. Экстрактор, который перестал находить роуты, выдаёт зелёный
@@ -127,6 +132,53 @@ class RouteAuthTest(unittest.TestCase):
         self.assertEqual(
             [], unguarded, "роуты без зависимости аутентификации: " + ", ".join(unguarded)
         )
+
+    def test_legacy_decoders_are_not_reintroduced(self) -> None:
+        for path in _action_files():
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    self.assertNotEqual("_resolve_user_id", node.name, str(path))
+                if isinstance(node, ast.Name):
+                    self.assertNotIn(node.id, ("_bearer", "URLSafeTimedSerializer"), str(path))
+
+    def test_token_reader_lives_in_one_place(self) -> None:
+        """Читатель сессионного токена во всём бэкенде ровно один.
+
+        Прошлый сторож смотрел только `*/action.py`, и этого не хватило: 2026-09-21
+        вторая копия правила завелась в `settings/shared/dependencies.py` — не в
+        файле роутов, поэтому проверка её не видела. Дубль прожил бы ровно до
+        следующей фичи, которая импортировала бы его четвёртым вызовом.
+        """
+        home = APP / "modules" / "auth" / "shared" / "session_tokens.py"
+        self.assertTrue(home.is_file(), "канонический читатель токена исчез")
+
+        elsewhere = [
+            _rel(path)
+            for path in sorted(APP.rglob("*.py"))
+            if path != home
+            and any(
+                isinstance(node, ast.Name) and node.id == "URLSafeTimedSerializer"
+                for node in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
+            )
+        ]
+        self.assertEqual(
+            [],
+            elsewhere,
+            "второй читатель сессионного токена: " + ", ".join(elsewhere),
+        )
+
+    def test_dependency_origin_guard(self) -> None:
+        for declaration, expected in (
+            ("from app.modules.auth.shared.dependencies import get_current_user", True),
+            ("from app.modules.auth.internal_api.interface import get_current_user", True),
+            ("from fake import get_current_user", False),
+            ("async def get_current_user(): pass", False),
+            ("from app.modules.auth.internal_api.interface import get_current_user\nget_current_user = lambda: None", False),
+            ("from fake import _resolve_user_id as get_current_user", False),
+        ):
+            tree = ast.parse(declaration + "\n@router.get('/')\nasync def route(user=Depends(get_current_user)): pass")
+            self.assertEqual(expected, _declares_auth(_route_handlers(tree)[0], tree), declaration)
 
     def test_public_and_known_gap_lists_are_not_stale(self) -> None:
         """Список исключений обязан описывать существующие файлы.
@@ -148,9 +200,82 @@ class RouteAuthTest(unittest.TestCase):
             handlers = _route_handlers(tree)
             self.assertTrue(handlers, f"{rel}: роутов не найдено, исключение бессмысленно")
             self.assertFalse(
-                all(_declares_auth(fn) for fn in handlers),
+                all(_declares_auth(fn, tree) for fn in handlers),
                 f"{rel} уже требует аутентификацию — убери строку из KNOWN_GAPS ({bug})",
             )
+
+
+def _repository_files() -> list[Path]:
+    return sorted(APP.rglob("repository.py"))
+
+
+#: И `async def`, и обычный `def`. Сторож смотрел только на первый — и не видел
+#: ни синхронного помощника, который фильтрует (тогда вызывающая его функция
+#: считалась нарушителем), ни синхронного, который НЕ фильтрует (тогда настоящее
+#: нарушение проходило молча). Расширено 2026-09-25, когда `_filtered_query` ленты
+#: уведомлений перестал быть корутиной: собирать запрос — не повод быть async.
+_FUNCTION_NODES = (ast.FunctionDef, ast.AsyncFunctionDef)
+
+
+def _functions_with_tenant_id(tree: ast.Module) -> dict[str, ast.AST]:
+    return {
+        n.name: n
+        for n in ast.walk(tree)
+        if isinstance(n, _FUNCTION_NODES)
+        and "tenant_id" in [a.arg for a in n.args.args]
+    }
+
+
+def _builds_query(fn: ast.AsyncFunctionDef) -> bool:
+    """True when the function itself constructs a SELECT/UPDATE/DELETE.
+
+    A function that never does — a pure INSERT, tagging its new row with
+    `tenant_id=tenant_id` — has no existing row to leak and is out of scope
+    for the filter requirement below, by construction rather than exception.
+    """
+    src = ast.unparse(fn)
+    return any(token in src for token in ("select(", "update(", "delete("))
+
+
+def _filters_by_tenant(fn: ast.AsyncFunctionDef) -> bool:
+    return "tenant_id ==" in ast.unparse(fn)
+
+
+def _local_calls(fn: ast.AsyncFunctionDef, names: set[str]) -> set[str]:
+    return {
+        node.func.id
+        for node in ast.walk(fn)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id in names
+        and node.func.id != fn.name
+    }
+
+
+def _needs_scoping(
+    name: str, functions: dict[str, ast.AsyncFunctionDef], seen: set[str] | None = None
+) -> bool:
+    seen = seen if seen is not None else set()
+    if name in seen:
+        return False
+    seen.add(name)
+    fn = functions[name]
+    if _builds_query(fn):
+        return True
+    return any(_needs_scoping(c, functions, seen) for c in _local_calls(fn, set(functions)))
+
+
+def _is_tenant_scoped(
+    name: str, functions: dict[str, ast.AsyncFunctionDef], seen: set[str] | None = None
+) -> bool:
+    seen = seen if seen is not None else set()
+    if name in seen:
+        return False
+    seen.add(name)
+    fn = functions[name]
+    if _filters_by_tenant(fn):
+        return True
+    return any(_is_tenant_scoped(c, functions, seen) for c in _local_calls(fn, set(functions)))
 
 
 class TenantScopedGetterTest(unittest.TestCase):
@@ -198,6 +323,8 @@ class TenantScopedGetterTest(unittest.TestCase):
         )
 
     def test_getters_are_tenant_scoped(self) -> None:
+        # Именной якорь регрессии — эти восемь имён не должны молча пропасть
+        # из проверки, даже когда общий сторож ниже накроет весь репозиторий.
         for name in self.GETTERS:
             with self.subTest(getter=name):
                 self._assert_scoped(name)
@@ -212,6 +339,43 @@ class TenantScopedGetterTest(unittest.TestCase):
         for name in self.WRITERS:
             with self.subTest(writer=name):
                 self._assert_scoped(name)
+
+    def test_tenant_id_functions_are_scoped_across_all_repositories(self) -> None:
+        """Тот же вопрос, но не по одному файлу, а по каждому `repository.py` под `app/`.
+
+        Функция, принявшая `tenant_id`, обязана либо отфильтровать по нему сама, либо
+        передать его соседней функции того же файла, которая фильтрует —
+        `upsert_mail_settings` делает именно так через `get_mail_settings`, и это
+        принимается, а не считается находкой. Функция без единого
+        SELECT/UPDATE/DELETE (чистый INSERT вроде `create_product`) вне области
+        правила — ей нечего фильтровать, она размечает свою же новую строку.
+        """
+        files = _repository_files()
+        self.assertGreaterEqual(
+            len(files), 8, "разбор перестал находить repository.py — сломан обход, а не код"
+        )
+
+        total_checked = 0
+        violations: list[str] = []
+        for path in files:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            functions = _functions_with_tenant_id(tree)
+            total_checked += len(functions)
+            for name, fn in functions.items():
+                if _needs_scoping(name, functions) and not _is_tenant_scoped(name, functions):
+                    violations.append(f"{_rel(path)}:{fn.lineno} {name}")
+
+        self.assertGreaterEqual(
+            total_checked,
+            30,
+            "разбор перестал находить функции с tenant_id — сломан экстрактор, а не код",
+        )
+        self.assertEqual(
+            [],
+            violations,
+            "функция принимает tenant_id и не фильтрует по нему (ни сама, ни через "
+            "соседку того же файла): " + ", ".join(violations),
+        )
 
 
 if __name__ == "__main__":

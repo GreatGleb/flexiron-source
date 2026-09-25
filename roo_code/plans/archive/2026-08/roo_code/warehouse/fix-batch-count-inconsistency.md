@@ -11,7 +11,7 @@ On the stock card page at `/admin/warehouse/stock/prod-003`, the field "коли
 The data flow:
 1. [`mockGetStockItem('prod-003')`](../../../../../../frontend_vue/src/services/mocks/warehouse.ts:132-139) returns the item from `stockStore` as-is — it does **not** call `recalculateStockForProduct()`.
 2. [`recalculateStockForProduct()`](../../../../../../frontend_vue/src/services/mocks/warehouse.ts:168-202) correctly computes `stockItem.batchCount = productBatches.length`, but is only invoked when batches are created/patched/deleted — not on stock item load.
-3. The router-link in [`WarehouseStockCard.vue:321-328`](../../../../../../frontend_vue/src/views/admin/warehouse/WarehouseStockCard.vue:321) navigates to the batches tab with `?productId=prod-003`.
+3. The router-link in [`WarehouseStockCard.vue:263-270`](../../../../../../frontend_vue/src/views/admin/warehouse/WarehouseStockCard.vue:263) navigates to the batches tab with `?productId=prod-003`.
 4. [`mockGetBatches()`](../../../../../../frontend_vue/src/services/mocks/warehouse.ts:224-240) filters by `productId` and finds nothing.
 
 ## Fix

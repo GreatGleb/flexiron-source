@@ -34,7 +34,7 @@ $ grep -n "offcutId" src/services/mocks/warehouse.ts
 - 2.4 маппинг статус→тип есть дважды: `useWarehouseOffcutCard.ts:29 OFFCUT_STATUS_TO_MOVEMENT_TYPE` и `useWarehouse.ts:337` (копия, не общий модуль).
 - 2.5 резка пишет движения: `mockExecuteCutting` (warehouse.ts:1266) → `mockCreateOffcut` → движение типа `offcut` + отдельный `write-off` на пропил/отход.
 - 2.6 `loadMovements()` фильтрует по `offcutId`, не по `referenceId`.
-- 2.7 ссылка на обрезок в `WarehouseMovementCard.vue:264-300` (`v-if="movement.offcutId"`, router-link, `data-test="field-offcut-link"`).
+- 2.7 ссылка на обрезок в `WarehouseMovementCard.vue:206-242` (`v-if="movement.offcutId"`, router-link, `data-test="field-offcut-link"`).
 - 2.8 мок принимает и фильтрует `offcutId` (строки выше).
 - i18n `col_offcut` есть во всех трёх локалях (warehouse.ts:41, 723, 1417).
 
@@ -82,11 +82,11 @@ $ grep -n "offcutFilters" src/views/admin/warehouse/WarehousePage.vue
 
 1. Остаток партии уменьшается при создании обрезка — `mockCreateOffcut` (mocks/warehouse.ts:828-880): `if (material.material > batch.quantityRemaining) throw new Error('INSUFFICIENT_QUANTITY')`, и комментарий над функцией: «Количество партии уменьшает ТОЛЬКО `writeMovement`». То есть списание идёт через движение — ровно вариант, который записка называла правильным.
 2. Движение при создании обрезка создаётся: `await mockCreateMovement({ type: 'offcut', batchId: data.batchId, offcutId: id, quantity: material.material, … })` (warehouse.ts:869-877).
-3. `files` у обрезка есть — `types/warehouse.ts:235 files?: WarehouseBatchFile[]` в `WarehouseOffcut`; DropZone в карточке — `WarehouseOffcutCard.vue:14` (импорт) и `:933` (использование); загрузка/удаление в `useWarehouseOffcutCard.ts` (`onFilesUploaded`, `removeFile`, `fileIdsToAttach`).
-4. UI резки есть: `src/views/admin/warehouse/WarehouseCuttingPage.vue` + `src/composables/useWarehouseCutting.ts` + маршрут `admin-warehouse-cutting` (`src/router/index.ts:292`) + вход из карточки партии (`WarehouseBatchCard.vue:1355`, `data-test="batch-card-cutting-link"`).
+3. `files` у обрезка есть — `types/warehouse.ts:235 files?: WarehouseBatchFile[]` в `WarehouseOffcut`; DropZone в карточке — `WarehouseOffcutCard.vue:15` (импорт) и `:933` (использование); загрузка/удаление в `useWarehouseOffcutCard.ts` (`onFilesUploaded`, `removeFile`, `fileIdsToAttach`).
+4. UI резки есть: `src/views/admin/warehouse/WarehouseCuttingPage.vue` + `src/composables/useWarehouseCutting.ts` + маршрут `admin-warehouse-cutting` (`src/router/index.ts:292`) + вход из карточки партии (`WarehouseBatchCard.vue:1297`, `data-test="batch-card-cutting-link"`).
 5. `mockExecuteCutting` (mocks/warehouse.ts:1266-1319) больше не заглушка: проверяет партию, пустой список, отрицательные kerf/waste, применимость пропила к линейной единице, считает `computeCuttingConsumption`, отказывает при нехватке и рассогласовании `sourceQuantity`, создаёт обрезки через `mockCreateOffcut` и списывает пропил+отход одним `write-off`.
 
-Пункты записки, помеченные в ней как незапланированные («умный подбор обрезков при раскрое»), к исполнению не требовались; авто-вес по плотности при этом появился — `src/domain/cutting.ts::resolveOffcutWeight`, используется в `useWarehouseOffcutCard.ts:14` и `WarehouseOffcutCard.vue:7`.
+Пункты записки, помеченные в ней как незапланированные («умный подбор обрезков при раскрое»), к исполнению не требовались; авто-вес по плотности при этом появился — `src/domain/cutting.ts::resolveOffcutWeight`, используется в `useWarehouseOffcutCard.ts:14` и `WarehouseOffcutCard.vue:8`.
 
 Файлы плана: frontend_vue/src/services/mocks/warehouse.ts, frontend_vue/src/services/mocks/index.ts, frontend_vue/src/types/warehouse.ts, frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue, WarehouseOffcutCard.vue
 

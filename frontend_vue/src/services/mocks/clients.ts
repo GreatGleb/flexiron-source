@@ -5,6 +5,35 @@ import { sealAuditIds, type AuditSeeded } from '@/mocks/auditIds'
 import type { AuditSource } from '@/types/audit'
 import { shiftAuditSeries } from './auditClock'
 import { isValidPaymentTermsDays } from '@/domain/paymentTerms'
+import { ApiRequestError } from '@/types/api'
+
+const CLIENTS_REFUSAL_CODES = {
+  clientNotFound: 'CLIENT_NOT_FOUND',
+  auditEntryNotFound: 'AUDIT_ENTRY_NOT_FOUND',
+  interactionEntryNotFound: 'INTERACTION_ENTRY_NOT_FOUND',
+  validationError: 'VALIDATION_ERROR',
+  conflict: 'CONFLICT',
+} as const
+
+/** Код отказа домена клиентов — значение из таблицы выше, а не любая строка. */
+type ClientsRefusalCode = (typeof CLIENTS_REFUSAL_CODES)[keyof typeof CLIENTS_REFUSAL_CODES]
+
+/**
+ * Отказ мока в форме настоящего сервера: код в поле `code`, статус — из таблицы
+ * §2 общих соглашений (`roo_code/roo-context/api/00-conventions.md:62-68`).
+ *
+ * Голый `Error('CODE: текст')` держал код в `message`, откуда его читали подстрокой
+ * (`useClients.ts`), а не полем — сервер так не отвечает. `message` при этом остаётся
+ * прежним текстом целиком: на него смотрят уже написанные спеки.
+ */
+function mockRefusal(
+  status: number,
+  code: ClientsRefusalCode,
+  message: string,
+  fieldErrors?: Record<string, string>,
+): ApiRequestError {
+  return new ApiRequestError({ status, message, code, fieldErrors })
+}
 
 const SEEDED_CLIENTS: AuditSeeded<Client>[] = [
   // ── Existing clients (1-9) ──
@@ -1054,23 +1083,46 @@ export function mockGetClient(id: string): Client | undefined {
 export function mockCreateClient(data: ClientFormData): Client {
   // Валидация required полей (БАГ-10)
   if (!data.name || !data.name.trim()) {
-    throw new Error('VALIDATION_ERROR: name is required')
+    throw mockRefusal(
+      422,
+      CLIENTS_REFUSAL_CODES.validationError,
+      'VALIDATION_ERROR: name is required',
+      {
+        name: 'VALIDATION_ERROR: name is required',
+      },
+    )
   }
   if (!data.companyCode || !data.companyCode.trim()) {
-    throw new Error('VALIDATION_ERROR: companyCode is required')
+    throw mockRefusal(
+      422,
+      CLIENTS_REFUSAL_CODES.validationError,
+      'VALIDATION_ERROR: companyCode is required',
+      { companyCode: 'VALIDATION_ERROR: companyCode is required' },
+    )
   }
   if (!data.email || !data.email.trim()) {
-    throw new Error('VALIDATION_ERROR: email is required')
+    throw mockRefusal(
+      422,
+      CLIENTS_REFUSAL_CODES.validationError,
+      'VALIDATION_ERROR: email is required',
+      { email: 'VALIDATION_ERROR: email is required' },
+    )
   }
   if (!isValidPaymentTermsDays(data.paymentTermsDays)) {
-    throw new Error(
+    throw mockRefusal(
+      422,
+      CLIENTS_REFUSAL_CODES.validationError,
       'VALIDATION_ERROR: paymentTermsDays must be a non-negative whole number of days',
+      {
+        paymentTermsDays:
+          'VALIDATION_ERROR: paymentTermsDays must be a non-negative whole number of days',
+      },
     )
   }
   // Проверка на duplicate companyCode
   const existing = STORE.find((c) => c.companyCode === data.companyCode.trim())
   if (existing) {
-    throw new Error('CONFLICT: companyCode already exists')
+    throw mockRefusal(409, CLIENTS_REFUSAL_CODES.conflict, 'CONFLICT: companyCode already exists')
   }
   const client: Client = {
     id: nextId(),
@@ -1091,14 +1143,20 @@ export function mockCreateClient(data: ClientFormData): Client {
 
 export function mockPatchClient(id: string, delta: Partial<Client>): Client {
   const idx = STORE.findIndex((c) => c.id === id)
-  if (idx === -1) throw new Error('CLIENT_NOT_FOUND')
+  if (idx === -1) throw mockRefusal(404, CLIENTS_REFUSAL_CODES.clientNotFound, 'CLIENT_NOT_FOUND')
   // Те же границы, что на создании: `useDirtyCheck.diff()` возвращает сырое значение
   // поля, поэтому в дельту попадает ровно то, что лежит в форме, — включая `NaN`
   // с очищенного поля. Молча записанная отсрочка `null`/`-1` даёт срок оплаты,
   // который никто не сможет объяснить.
   if ('paymentTermsDays' in delta && !isValidPaymentTermsDays(delta.paymentTermsDays)) {
-    throw new Error(
+    throw mockRefusal(
+      422,
+      CLIENTS_REFUSAL_CODES.validationError,
       'VALIDATION_ERROR: paymentTermsDays must be a non-negative whole number of days',
+      {
+        paymentTermsDays:
+          'VALIDATION_ERROR: paymentTermsDays must be a non-negative whole number of days',
+      },
     )
   }
   Object.assign(STORE[idx]!, delta)
@@ -1123,23 +1181,25 @@ export function registerClientOrderLookup(lookup: (clientId: string) => Array<{ 
 
 export function mockDeleteClient(id: string): void {
   const idx = STORE.findIndex((c) => c.id === id)
-  if (idx === -1) throw new Error('CLIENT_NOT_FOUND')
+  if (idx === -1) throw mockRefusal(404, CLIENTS_REFUSAL_CODES.clientNotFound, 'CLIENT_NOT_FOUND')
   // An order carries its client's id and name. Deleting the client leaves those
   // orders pointing at nobody, and no screen can explain them afterwards. The
   // check used to run on a seeded `orderHistory` of invented orders with statuses
   // the model does not have ('processing', 'pending'), so it refused the wrong
   // clients in both directions.
   if ((clientOrderLookup?.(id).length ?? 0) > 0) {
-    throw new Error('CONFLICT: client has orders')
+    throw mockRefusal(409, CLIENTS_REFUSAL_CODES.conflict, 'CONFLICT: client has orders')
   }
   STORE.splice(idx, 1)
 }
 
 export function mockDeleteClientAuditEntry(clientId: string, entryId: string): void {
   const client = STORE.find((c) => c.id === clientId)
-  if (!client) throw new Error('CLIENT_NOT_FOUND')
+  if (!client) throw mockRefusal(404, CLIENTS_REFUSAL_CODES.clientNotFound, 'CLIENT_NOT_FOUND')
   const idx = client.auditLog?.findIndex((entry) => entry.id === entryId) ?? -1
-  if (idx === -1) throw new Error('AUDIT_ENTRY_NOT_FOUND')
+  if (idx === -1) {
+    throw mockRefusal(404, CLIENTS_REFUSAL_CODES.auditEntryNotFound, 'AUDIT_ENTRY_NOT_FOUND')
+  }
   client.auditLog!.splice(idx, 1)
 }
 
@@ -1148,7 +1208,7 @@ export function mockAddClientInteraction(
   entry: import('@/types/client').InteractionHistoryEntry,
 ): import('@/types/client').InteractionHistoryEntry {
   const client = STORE.find((c) => c.id === clientId)
-  if (!client) throw new Error('CLIENT_NOT_FOUND')
+  if (!client) throw mockRefusal(404, CLIENTS_REFUSAL_CODES.clientNotFound, 'CLIENT_NOT_FOUND')
   if (!client.interactionHistory) {
     client.interactionHistory = []
   }
@@ -1158,20 +1218,25 @@ export function mockAddClientInteraction(
 
 export function mockDeleteClientInteraction(clientId: string, entryIndex: number): void {
   const client = STORE.find((c) => c.id === clientId)
-  if (!client) throw new Error('CLIENT_NOT_FOUND')
+  if (!client) throw mockRefusal(404, CLIENTS_REFUSAL_CODES.clientNotFound, 'CLIENT_NOT_FOUND')
   if (
     !client.interactionHistory ||
     entryIndex < 0 ||
     entryIndex >= client.interactionHistory.length
   ) {
-    throw new Error('INTERACTION_ENTRY_NOT_FOUND')
+    throw mockRefusal(
+      404,
+      CLIENTS_REFUSAL_CODES.interactionEntryNotFound,
+      'INTERACTION_ENTRY_NOT_FOUND',
+    )
   }
   client.interactionHistory.splice(entryIndex, 1)
 }
 
 export function mockGetClientAudit(clientId: string): StockAuditEntry[] {
   const client = STORE.find((c) => c.id === clientId)
-  return structuredClone(client?.auditLog ?? [])
+  if (!client) throw mockRefusal(404, CLIENTS_REFUSAL_CODES.clientNotFound, 'CLIENT_NOT_FOUND')
+  return structuredClone(client.auditLog ?? [])
 }
 
 // ─── Audit source ───────────────────────────────────────────────────────────

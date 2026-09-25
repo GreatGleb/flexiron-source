@@ -16,9 +16,9 @@
 
 ---
 
-## БАГ-01 — тост «сохранено» показывается и когда сохранение упало
+## БАГ-01 — тост «сохранено» показывается и когда сохранение упало — ПОЧИНЕНО
 
-**File:** `frontend_vue/src/views/admin/suppliers/SupplierCardConfigPage.vue:474-477`, `frontend_vue/src/composables/useCardConfig.ts:56-58`
+**File:** `frontend_vue/src/views/admin/suppliers/SupplierCardConfigPage.vue:483-490`, `frontend_vue/src/composables/useCardConfig.ts:57-60`
 **Severity:** High — пользователь уходит со страницы уверенным, что конфигурация сохранена, а её нет.
 **Источник:** К2 (мок ↔ контракт ↔ код)
 
@@ -43,7 +43,7 @@ async function save() {
 ```
 
 Хуже того, `error.value` управляет **всей** разметкой страницы: ветка `v-else-if="error"` рисует
-голую строку ошибки вместо конфигуратора (`SupplierCardConfigPage.vue:535-537`, при `loading === false`
+голую строку ошибки вместо конфигуратора (`SupplierCardConfigPage.vue:548-550`, при `loading === false`
 после успешной загрузки — `:532-538`). Значит на упавшем Save пользователь одновременно получает
 тост «конфигурация сохранена» и пустой экран с текстом ошибки вместо своей несохранённой работы —
 локальное состояние `fieldLibrary`/`sections`/`permissions` живо в памяти, но показать его больше
@@ -51,8 +51,12 @@ async function save() {
 
 ### Fix
 
-TBD — либо `saveConfig()` пробрасывает ошибку и `save()` показывает тост только на успехе, либо
-`saveConfig()` возвращает признак результата.
+Починено: `saveConfig()` возвращает признак результата (`Promise<boolean>`) — `true` на успех,
+`false` на пойманную ошибку. `save()` в `SupplierCardConfigPage.vue` показывает тост
+`notification.config_saved` только по `true`, а на `false` — тост неудачи по новому ключу
+`notification.config_save_failed` (`i18n/admin/cardConfig.ts`, ru/en/lt). Новый тест
+`config-store-is-a-server.spec.ts` мутационно проверяет обе стороны: откат `save()` на безусловный
+тост успеха красит тест «a failed PUT shows the failure toast».
 
 ### Future rule
 
@@ -121,7 +125,7 @@ TBD — либо ветка убирается вместе с параметр�
 
 ## БАГ-04 — `createSection` шлёт имя строкой, и мок размножает её на три языка
 
-**File:** `frontend_vue/src/services/configService.ts:54-55`, `frontend_vue/src/services/mocks/config.ts:306-310`
+**File:** `frontend_vue/src/services/configService.ts:54-55`, `frontend_vue/src/services/mocks/config.ts:317-321`
 **Severity:** Medium — новая секция получает один и тот же текст в `ru`, `en` и `lt`.
 **Источник:** К4
 
@@ -145,10 +149,10 @@ export async function createSection(payload: { name: string }): Promise<SectionC
 ```
 
 Мок это компенсирует по-своему, копируя строку во все три локали
-(`mocks/config.ts:307-310`), тогда как `toTranslatedString` оставил бы две пустыми
+(`mocks/config.ts:318-321`), тогда как `toTranslatedString` оставил бы две пустыми
 (`frontend_vue/src/types/i18n.ts:19-25`). Получаются три разных поведения на одну операцию
 «назвать сущность»: поле через сервис, секция через сервис, и локальный путь страницы
-(`SupplierCardConfigPage.vue:459`), который использует `toTranslatedString`.
+(`SupplierCardConfigPage.vue:468`), который использует `toTranslatedString`.
 
 ### Fix
 
@@ -166,11 +170,11 @@ TBD — выбрать одно поведение для новых имён и
 
 `grep -rn "\bcreateField\b\|\bpatchField\b\|\bdeleteField\b\|\bcreateSection\b\|\bpatchSection\b\|\bdeleteSection\b" frontend_vue/src --include=*.ts --include=*.vue`
 вне `configService.ts` находит только **одноимённые локальные** функции чужой логики:
-`createField` страницы конфигуратора (`SupplierCardConfigPage.vue:309`, правит массив в памяти) и
-`deleteField` карточки категории (`frontend_vue/src/composables/useCategoryCard.ts:142` — другой
+`createField` страницы конфигуратора (`SupplierCardConfigPage.vue:318`, правит массив в памяти) и
+`deleteField` карточки категории (`frontend_vue/src/composables/useCategoryCard.ts:147` — другой
 домен). Ни один из шести эндпоинтов не вызывается: всё, что делает пользователь, копится локально
 и уходит тремя PUT'ами по кнопке Save (`frontend_vue/src/composables/useCardConfig.ts:51-55`), как
-и написано комментарием на странице (`SupplierCardConfigPage.vue:307-308`).
+и написано комментарием на странице (`SupplierCardConfigPage.vue:316-317`).
 
 Ветки в моке при этом существуют (`mocks/index.ts:943`, `:946`, `:1220`, `:1229`, `:1476`, `:1482`)
 и поддерживаются, а пять из шести эндпоинтов числятся в реестре «Клиент написан, UI нет»
@@ -179,12 +183,18 @@ TBD — выбрать одно поведение для новых имён и
 
 ### Fix
 
-TBD — решение владельца: подключить точечные операции или снять их вместе с ветками мока. Пока
-строка стоит в реестре, экспорт мёртвым не считается.
+**Разблокировано — П65 (б).** [`../api/audit/00-решения-владельца.md`](../api/audit/00-решения-владельца.md), строка 1549:
 
----
+> **решено 2026-09-10:** пока не читает и читать не начнёт: замысел «у каждой сущности своя
+> конфигурация карточки» откладывается, раздел выключается фича-флагом `supplierCardConfig`, а в
+> мок-режиме остаётся → П65 (б)
 
-## БАГ-06 — `PUT /api/config/permissions` под моками не сохраняет ничего
+Работа по коду: раздел конфигуратора уходит под фича-флаг `supplierCardConfig`; шесть точечных
+функций (`configService.ts:15,28,40,54,58,70`) и их ветки мока (`mocks/index.ts:943,946,1220,1229,1476,1482`)
+остаются вместе с разделом, а не подключаются и не снимаются — это следствие «в мок-режиме
+остаётся как было», а не отдельное решение.
+
+## БАГ-06 — `PUT /api/config/permissions` под моками не сохраняет ничего — ПОЧИНЕНО
 
 **File:** `frontend_vue/src/services/mocks/config.ts:265-267`
 **Severity:** High — правки матрицы прав теряются при перезагрузке, и это не видно ниоткуда.
@@ -199,7 +209,7 @@ export function mockSavePermissions(_matrix: PermissionMatrix): void {
 ```
 
 Парные `mockSaveFieldLibrary` (`:240-248`) и `mockSaveSections` (`:254-259`) в стор пишут, а этот —
-нет. Ветка PUT при этом отвечает успехом (`mocks/index.ts:1166-1169`), клиент верит своему
+нет. Ветка PUT при этом отвечает успехом (`mocks/index.ts:1168-1171`), клиент верит своему
 локальному состоянию и `load()` после Save не делает
 (`frontend_vue/src/composables/useCardConfig.ts:45-61`) — поэтому на экране всё выглядит
 сохранённым до первой перезагрузки. E2E этого тоже не ловит: в
@@ -208,8 +218,11 @@ export function mockSavePermissions(_matrix: PermissionMatrix): void {
 
 ### Fix
 
-TBD — либо мок сохраняет матрицу, как две другие сущности, либо `no-op` объясняется в комментарии
-как намеренный и покрывается тестом.
+Починено: мок сохраняет матрицу, как две другие сущности — JSON-раундтрип в `MOCK_PERMISSIONS`
+(тот же приём, что `mockSaveFieldLibrary`/`mockSaveSections`: не `structuredClone`, потому что стор
+получает Vue-реактивный Proxy). Новый тест `config-store-is-a-server.spec.ts` мутационно проверяет
+это: откат `mockSavePermissions` на пустое тело красит тест «the next read returns exactly what was
+sent».
 
 ### Future rule
 
@@ -248,9 +261,14 @@ TBD — пересобирать матрицу при каждом измене
 
 ---
 
-## БАГ-08 — `mockUpdateField` и `mockUpdateSection` возвращают `null` вместо ошибки
+## ✅ БАГ-08 — `mockUpdateField` и `mockUpdateSection` возвращают `null` вместо ошибки
 
-**File:** `frontend_vue/src/services/mocks/config.ts:289`, `:325`
+**Закрыто 2026-09-24** (коммит `67a2ebf`, разбор ночи 2026-09-23-2241). Оба обработчика
+бросают отказ кодом своего домена — `FIELD_NOT_FOUND` и `SECTION_NOT_FOUND`, статус 404, —
+тем же способом, каким отказывают их соседи по файлу. Проверено спекой
+`frontend_vue/src/services/mocks/config-store-is-a-server.spec.ts`.
+
+**File:** `frontend_vue/src/services/mocks/config.ts:300`, `:325`
 **Severity:** Medium — PATCH несуществующего id отвечает успехом с пустым телом.
 **Источник:** К3 (коды ошибок)
 
@@ -261,7 +279,7 @@ const field = MOCK_FIELD_LIBRARY.find((f) => f.id === id)
 if (!field) return null
 ```
 
-Ветка мока отдаёт это как успешный ответ (`mocks/index.ts:1229-1236`, `:1220-1227`), а подписи
+Ветка мока отдаёт это как успешный ответ (`mocks/index.ts:1231-1238`, `:1220-1227`), а подписи
 клиента обещают сущность: `Promise<FieldDefinition>` (`frontend_vue/src/services/configService.ts:32`)
 и `Promise<SectionConfig>` (`:62`). Старый контракт для секции обещает `404 NOT_FOUND`
 (`roo_code/roo-context/03-api-contract.md:674`), но такого кода в домене нет:
@@ -274,9 +292,9 @@ TBD — завести коды домена (`FIELD_NOT_FOUND`, `SECTION_NOT_FO
 
 ---
 
-## БАГ-09 — `mockUpdateField` и `mockUpdateSection` мутируют объект патча вызывающего
+## БАГ-09 — `mockUpdateField` и `mockUpdateSection` мутируют объект патча вызывающего — ПОЧИНЕНО
 
-**File:** `frontend_vue/src/services/mocks/config.ts:291-293`, `:327-329`
+**File:** `frontend_vue/src/services/mocks/config.ts:302-304`, `:327-329`
 **Severity:** Low — побочный эффект на объекте, который принадлежит вызывающему.
 **Источник:** К2
 
@@ -294,13 +312,17 @@ if (patch.name) {
 
 ### Fix
 
-Слить в локальную переменную, аргумент не трогать.
+Починено: `mockUpdateField`/`mockUpdateSection` сливают в локальную копию патча (`{ ...patch }`),
+аргумент не трогают, и обе функции возвращают `structuredClone` сохранённой записи, а не живой
+объект стора. `mockCreateField`/`mockCreateSection` теперь тоже возвращают `structuredClone`
+только что созданной записи, а не сам объект, положенный в массив. Новый тест
+`config-store-is-a-server.spec.ts` мутационно проверяет и патч, и копию на выходе.
 
 ---
 
-## БАГ-10 — мок удаляет системную секцию и встроенное поле без возражений
+## БАГ-10 — мок удаляет системную секцию и встроенное поле без возражений — ЧАСТИЧНО ПОЧИНЕНО
 
-**File:** `frontend_vue/src/services/mocks/config.ts:334-337`, `:298-304`
+**File:** `frontend_vue/src/services/mocks/config.ts:350-353`, `:298-304`
 **Severity:** Medium — единственный запрет живёт в вёрстке и не переживёт прямой вызов API.
 **Источник:** К3
 
@@ -308,27 +330,47 @@ if (patch.name) {
 
 `mockDeleteSection` не смотрит на `section.system` (`frontend_vue/src/types/config.ts:24-25`), а
 `mockDeleteField` — ни на какой признак встроенности. Во фронте встроенность определяется
-префиксом id (`SupplierCardConfigPage.vue:303-305`), и защита сводится к тому, что у системной
+префиксом id (`SupplierCardConfigPage.vue:312-314`), и защита сводится к тому, что у системной
 секции кнопка удаления задизейблена (проверено e2e —
 `frontend_vue/tests/e2e/admin/suppliers/supplier-card-config.spec.ts:260-266`). Старый контракт
 обещает `403 IMMUTABLE` (`roo_code/roo-context/03-api-contract.md:644`, `:650`), но кода
 `IMMUTABLE` в проекте нет: `grep -rn "IMMUTABLE" frontend_vue/src backend/app` — пусто.
 
 На схеме признак встроенности **есть и он другой** — колонка `is_builtin`
-(`backend/app/modules/suppliers/shared/models.py:256-258`), которой нет ни в типе фронта, ни в
+(`backend/app/modules/suppliers/shared/models.py:257-259`), которой нет ни в типе фронта, ни в
 моке; колонки `system` у секции на схеме нет вовсе
 (`grep -c '"system"' backend/alembic/versions/e24a3922ed01_phase_7_config.py` → `0`).
 
 ### Fix
 
-TBD — вопрос владельца: какой из двух признаков считается настоящим (`is_builtin` на схеме или
-префикс `f-custom-` во фронте). Вынесено в `roo_code/plans/api/audit/00-решения-владельца.md`.
+**Часть про молчаливый no-op на неизвестном `id` — починена.** `mockDeleteField` и
+`mockDeleteSection` на неизвестном идентификаторе теперь отказывают, а не молча ничего не делают:
+тот же код и статус, что уже бросают `mockUpdateField`/`mockUpdateSection` на том же `id` —
+`FIELD_NOT_FOUND`/`SECTION_NOT_FOUND`, 404. Новый тест `config-store-is-a-server.spec.ts`
+проверяет, что delete и update на неизвестном `id` отвечают одинаково.
 
----
+**Часть про удаление встроенного поля и системной секции — остаётся.** Ни `mockDeleteField`, ни
+`mockDeleteSection` по-прежнему не смотрят на признак встроенности/системности при удалении
+СУЩЕСТВУЮЩЕГО элемента — это отдельная работа (устойчивый признак вместо префикса id, колонка
+`is_builtin`/новая колонка `system` на схеме), которую эта задача не делала.
+
+**Разблокировано 2026-09-22 — вопрос признан инженерным.** Опросник 17.09, `config:1`: «Запрет
+удаления встроенного поля выражать **устойчивым признаком**; способ распознавания — инженерное
+согласование» ([`вопросы-владельцу-после-сверки-2026-09-17.md`](../general/вопросы-владельцу-после-сверки-2026-09-17.md), раздел `config`).
+Переставлять строку 1539 из графы «Права» в графу «Источник истины» больше не нужно: владелец
+ответил, что выбор признака — не его решение.
+
+Работа по коду: признаком служит **колонка схемы**, а не префикс `f-custom-` во фронте — префикс
+это соглашение об именовании, которое любой сид нарушит молча, и старшинство схемы в проекте уже
+прецедент. У поля колонка есть (`is_builtin`), у секции её нет вовсе — значит её надо завести, а
+не выводить признак из имени. Коды отказа уже назначены §2: `SECTION_IS_SYSTEM` и
+`FIELD_IS_BUILTIN`, оба 409 ([`00-решения-владельца.md`](../api/audit/00-решения-владельца.md), строка 1552).
+Правило 2 контракта (`roo_code/roo-context/api/config.md:737-745`) трогать не нужно: оно описывает
+сегодняшнее расхождение, а не объявляет вопрос нерешённым, и остаётся верным до правки кода.
 
 ## БАГ-11 — `toggleFieldLibraryHidden` не вызывается, и `hidden` не выставляется никогда
 
-**File:** `frontend_vue/src/composables/useCardConfig.ts:95-98`, `:114`, `frontend_vue/src/types/config.ts:11-12`
+**File:** `frontend_vue/src/composables/useCardConfig.ts:97-100`, `:114`, `frontend_vue/src/types/config.ts:11-12`
 **Severity:** Low — поле типа, которого не бывает в данных.
 **Источник:** К4
 
@@ -350,7 +392,7 @@ TBD — подключить кнопку скрытия поля в библи�
 
 ## БАГ-12 — `usageCount` не пересчитывается ничем
 
-**File:** `frontend_vue/src/views/admin/suppliers/SupplierCardConfigPage.vue:320`, `:416`, `:433-440`
+**File:** `frontend_vue/src/views/admin/suppliers/SupplierCardConfigPage.vue:329`, `:416`, `:433-440`
 **Severity:** Medium — число на бейдже поля не связано с реальностью.
 **Источник:** К2
 
@@ -381,7 +423,7 @@ TBD — определить, что именно считает `usageCount` (�
 
 ## БАГ-13 — комментарий обещает POST, которого в функции нет
 
-**File:** `frontend_vue/src/views/admin/suppliers/SupplierCardConfigPage.vue:442`, `:451-472`
+**File:** `frontend_vue/src/views/admin/suppliers/SupplierCardConfigPage.vue:451`, `:451-472`
 **Severity:** Low — комментарий-ложь рядом с местом, где такой запрос ожидался бы.
 **Источник:** К2
 
@@ -401,7 +443,7 @@ TBD — определить, что именно считает `usageCount` (�
 
 ---
 
-## БАГ-14 — идентификаторы новых сущностей выдаются `Date.now()`
+## БАГ-14 — идентификаторы новых сущностей выдаются `Date.now()` — ПОЧИНЕНО
 
 **File:** `frontend_vue/src/views/admin/suppliers/SupplierCardConfigPage.vue:316`, `:410`, `:458`, `frontend_vue/src/services/mocks/config.ts:274`, `:312`
 **Severity:** Medium — два объекта, созданных в одну миллисекунду, получают одинаковый id.
@@ -419,9 +461,13 @@ TBD — определить, что именно считает `usageCount` (�
 
 ### Fix
 
-TBD — выдавать временный id счётчиком, как в моке категорий; постоянный всё равно назначает
-сервер (на схеме это `gen_random_uuid()`,
-`backend/alembic/versions/e24a3922ed01_phase_7_config.py:29`).
+Починено: все пять мест выдают временный id модульным счётчиком (`f-custom-${++fieldIdSeq}`,
+`sec-new-${++sectionIdSeq}`) — по одному счётчику на поля и секции в `mocks/config.ts` и ещё по
+одному в `SupplierCardConfigPage.vue`, приставки `f-custom-`/`sec-new-` сохранены. Постоянный id
+всё равно назначает сервер (на схеме это `gen_random_uuid()`,
+`backend/alembic/versions/e24a3922ed01_phase_7_config.py:29`). Новый тест
+`config-store-is-a-server.spec.ts` мутационно проверяет мок-счётчик при замороженных часах
+(`Date.now()` замокан на константу, два подряд созданных поля/секции получают разные id).
 
 ---
 
@@ -429,17 +475,17 @@ TBD — выдавать временный id счётчиком, как в м�
 
 | Статус | Тип | Файл | Суть |
 |---|---|---|---|
-| | Save UX | `SupplierCardConfigPage.vue` | БАГ-01 — тост «сохранено» при упавшем сохранении |
+| ПОЧИНЕНО | Save UX | `SupplierCardConfigPage.vue` | БАГ-01 — тост «сохранено» при упавшем сохранении |
 | | Save UX | `useCardConfig.ts` | БАГ-02 — Save молча не шлёт ничего без матрицы прав |
 | | Типы | `configService.ts` | БАГ-03 — мёртвая ветка перевода имени в двух PATCH-функциях |
 | | Контракт | `configService.ts` | БАГ-04 — `createSection` шлёт имя строкой, мок копирует её на три языка |
 | | Мёртвый код | `configService.ts` | БАГ-05 — шесть из двенадцати клиентских функций без вызывающего |
-| | Мок | `mocks/config.ts` | БАГ-06 — `PUT /permissions` не сохраняет ничего |
+| ПОЧИНЕНО | Мок | `mocks/config.ts` | БАГ-06 — `PUT /permissions` не сохраняет ничего |
 | | Мок | `mocks/config.ts` | БАГ-07 — матрица прав строится один раз и не знает о новых элементах |
-| | Коды ошибок | `mocks/config.ts` | БАГ-08 — PATCH несуществующего id отвечает `null`, а не ошибкой |
-| | Мок | `mocks/config.ts` | БАГ-09 — обновление мутирует объект патча вызывающего |
-| | Права | `mocks/config.ts` | БАГ-10 — удаляются системная секция и встроенное поле |
+| | Коды ошибок | `mocks/config.ts` | ✅ БАГ-08 — PATCH несуществующего id отвечает `null`, а не ошибкой |
+| ПОЧИНЕНО | Мок | `mocks/config.ts` | БАГ-09 — обновление мутирует объект патча вызывающего |
+| ЧАСТИЧНО | Права | `mocks/config.ts` | БАГ-10 — удаляются системная секция и встроенное поле (неизвестный `id` теперь отказывает; встроенное/системное всё ещё удаляется без возражений) |
 | | Мёртвый код | `useCardConfig.ts` | БАГ-11 — `hidden` не выставляется никогда |
 | | Данные | `SupplierCardConfigPage.vue` | БАГ-12 — `usageCount` не пересчитывается ничем |
 | | Комментарий | `SupplierCardConfigPage.vue` | БАГ-13 — комментарий обещает POST, которого нет |
-| | Идентификаторы | `SupplierCardConfigPage.vue` | БАГ-14 — id из `Date.now()`, коллизия в одну миллисекунду |
+| ПОЧИНЕНО | Идентификаторы | `SupplierCardConfigPage.vue` | БАГ-14 — id из `Date.now()`, коллизия в одну миллисекунду |

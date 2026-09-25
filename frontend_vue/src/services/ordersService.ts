@@ -58,11 +58,14 @@ export async function getOrders(
   filters: OrderFilters,
   pagination: PaginationParams,
 ): Promise<PaginatedResponse<OrderListItem>> {
+  // Без приведения к `Record<string, string>`: `clientId` и `sortBy` объявлены nullable,
+  // и приведение врало о типе, а `null` уезжал в query строкой `"null"`.
+  // Отсев пустых и приведение к строке — в `apiGet`.
   return apiGet('/api/orders', {
     ...filters,
-    page: String(pagination.page),
-    pageSize: String(pagination.pageSize),
-  } as Record<string, string>)
+    page: pagination.page,
+    pageSize: pagination.pageSize,
+  })
 }
 
 export async function getOrder(id: string): Promise<Order> {
@@ -307,7 +310,12 @@ export async function cancelOrderShipment(
   shipmentId: string,
   data: { correctionReason?: string | null; version?: number } = {},
 ): Promise<Shipment> {
-  return apiPost(`/api/orders/${orderId}/shipments/${shipmentId}/cancel`, data)
+  // Same deal as the shipment and return above: a repeat — a slow answer, a double
+  // click, a reconnect — must not reverse the same delivery twice and issue two
+  // correcting invoices for one shipment.
+  return apiPost(`/api/orders/${orderId}/shipments/${shipmentId}/cancel`, data, {
+    headers: { 'Idempotency-Key': newIdempotencyKey() },
+  })
 }
 
 // ─── Returns ────────────────────────────────────────────────────────────────

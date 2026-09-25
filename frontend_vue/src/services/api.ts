@@ -1,11 +1,41 @@
 import type { ApiResponse } from '@/types/api'
 import { ApiRequestError } from '@/types/api'
+import { authHeaders } from './authToken'
 
 const USE_MOCKS = import.meta.env.VITE_USE_MOCKS !== 'false'
 
 export interface RequestOptions {
   /** Extra headers for this request (e.g. Idempotency-Key). */
   headers?: Record<string, string>
+}
+
+/**
+ * Заголовки запроса: авторизация плюс то, что запрос принёс с собой.
+ *
+ * Собираются и для мок-ветки тоже, а не только перед `fetch`. Мок держится того же
+ * правила, что приложение (линза Л4): он обязан видеть тот же запрос, который увидел бы
+ * сервер. До этого мок-ветки получали только заголовки самого вызова, то есть подписи не
+ * видели никогда — и стоять на такой опоре не может ни проверка отказа, ни что-либо ещё.
+ *
+ * Подписывание перестало быть решением каждого вызова: до правки подпись ставили **три**
+ * файла из пятнадцати, ходящих в этот модуль (`settingsService`, `auditFeedService`,
+ * `uploadsService`), а остальные двенадцать шли без неё при том, что их таблицы объявлены
+ * `tenant_id NOT NULL`.
+ *
+ * **Порядок слияния: опции идут последними, поэтому вызывающий может перебить любой ключ** —
+ * в том числе `Content-Type`, и это единственное столкновение, которое здесь вообще бывает.
+ * С `Idempotency-Key` и `If-Match` никакого старшинства нет: подпись даёт только
+ * `Authorization` и `X-CSRF-Token`, столкнуться с ними эти ключи не могут — разные имена.
+ * Прежняя формулировка обещала им защиту от конфликта, которого не бывает; охранять там было
+ * нечего, и инверсия порядка это подтверждала зелёным прогоном. Утверждается тестом на
+ * `Content-Type` в `authToken.spec.ts`.
+ */
+function buildHeaders(
+  options: RequestOptions | undefined,
+  base?: Record<string, string>,
+): Record<string, string> | undefined {
+  const merged = { ...base, ...authHeaders(), ...options?.headers }
+  return Object.keys(merged).length > 0 ? merged : undefined
 }
 
 /**
@@ -141,23 +171,73 @@ async function unwrap<T>(res: Response, method: string, path: string): Promise<T
   return body as T
 }
 
+/**
+ * Значения query-параметров такими, какими их отдают сервисы.
+ *
+ * Фильтры экранов объявлены nullable (`status: 'active' | null`, `sortBy: … | null`),
+ * и `null` там означает «фильтра нет». Раньше тип был `Record<string, string>`, а
+ * сервисы дотягивались до него приведением — и `URLSearchParams.set` превращал
+ * `null` в строку `"null"`, то есть в фильтр по несуществующему значению.
+ * Тип честный, а отсев пустых — в `toQueryStrings`.
+ */
+export type QueryParams = Record<string, string | number | boolean | null | undefined>
+
+/**
+ * `null`/`undefined` — не значение, а отсутствие параметра: такой ключ в query не едет.
+ * Всё остальное приводится строкой здесь, а не у вызывающего.
+ *
+ * Пустая строка — значение: `search=` это осознанно пустой поиск, и сервер вправе
+ * отличать его от отсутствия ключа.
+ */
+function toQueryStrings(params?: QueryParams): Record<string, string> | undefined {
+  if (!params) return undefined
+  const out: Record<string, string> = {}
+  for (const [key, value] of Object.entries(params)) {
+    if (value === null || value === undefined) continue
+    out[key] = String(value)
+  }
+  return out
+}
+
 export async function apiGet<T>(
   path: string,
-  params?: Record<string, string>,
+  params?: QueryParams,
   options?: RequestOptions,
 ): Promise<T> {
+  // Моки получают ровно то же, что уехало бы в query: иначе дефект вида «null стал
+  // строкой» живёт до настоящего сервера и под моками не виден.
+  const query = toQueryStrings(params)
   if (USE_MOCKS) {
     const { getMock } = await import('./mocks/index')
-    return getMock<T>(path, params)
+    return getMock<T>(path, query, buildHeaders(options))
   }
   const url = new URL(path, window.location.origin)
-  if (params) {
-    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v))
+  if (query) {
+    Object.entries(query).forEach(([k, v]) => url.searchParams.set(k, v))
   }
   const res = await fetch(url.toString(), {
-    headers: options?.headers,
+    headers: buildHeaders(options),
   })
   return unwrap<T>(res, 'GET', path)
+}
+
+/**
+ * The body as the wire would deliver it.
+ *
+ * The real transport below hands every body to `JSON.stringify`, so a mock that
+ * receives the caller's own object is not simulating a server — it is simulating
+ * a shared memory. Two consequences, both of which bit us: a mock that stores the
+ * body keeps a live reference into the caller's state, and a mock that copies it
+ * with `structuredClone` throws `DataCloneError` the moment a Vue reactive proxy
+ * arrives (pitfall #36) — which is exactly what the product card sends when it
+ * builds `delta.fieldValues` from a deep `ref`.
+ *
+ * Serialising here rather than in each mock or each composable keeps one source of
+ * the rule, and it cannot lose anything: whatever does not survive this round trip
+ * would not have survived `JSON.stringify` on the real path either.
+ */
+function overTheWire(body: unknown): unknown {
+  return body === undefined ? undefined : JSON.parse(JSON.stringify(body))
 }
 
 export async function apiPost<T>(
@@ -167,11 +247,11 @@ export async function apiPost<T>(
 ): Promise<T> {
   if (USE_MOCKS) {
     const { postMock } = await import('./mocks/index')
-    return postMock<T>(path, body, options?.headers)
+    return postMock<T>(path, overTheWire(body), buildHeaders(options))
   }
   const res = await fetch(path, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...(options?.headers ?? {}) },
+    headers: buildHeaders(options, { 'Content-Type': 'application/json' }),
     body: JSON.stringify(body),
   })
   return unwrap<T>(res, 'POST', path)
@@ -180,11 +260,11 @@ export async function apiPost<T>(
 export async function apiPut<T>(path: string, body: unknown, options?: RequestOptions): Promise<T> {
   if (USE_MOCKS) {
     const { putMock } = await import('./mocks/index')
-    return putMock<T>(path, body, options?.headers)
+    return putMock<T>(path, overTheWire(body), buildHeaders(options))
   }
   const res = await fetch(path, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json', ...(options?.headers ?? {}) },
+    headers: buildHeaders(options, { 'Content-Type': 'application/json' }),
     body: JSON.stringify(body),
   })
   return unwrap<T>(res, 'PUT', path)
@@ -198,11 +278,11 @@ export async function apiPatch<T>(
 ): Promise<T> {
   if (USE_MOCKS) {
     const { patchMock } = await import('./mocks/index')
-    return patchMock<T>(path, body, options?.headers)
+    return patchMock<T>(path, overTheWire(body), buildHeaders(options))
   }
   const res = await fetch(path, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...(options?.headers ?? {}) },
+    headers: buildHeaders(options, { 'Content-Type': 'application/json' }),
     body: JSON.stringify(body),
   })
   return unwrap<T>(res, 'PATCH', path)
@@ -211,11 +291,11 @@ export async function apiPatch<T>(
 export async function apiDelete<T = void>(path: string, options?: RequestOptions): Promise<T> {
   if (USE_MOCKS) {
     const { deleteMock } = await import('./mocks/index')
-    return deleteMock<T>(path, options?.headers)
+    return deleteMock<T>(path, buildHeaders(options))
   }
   const res = await fetch(path, {
     method: 'DELETE',
-    headers: options?.headers ?? {},
+    headers: buildHeaders(options),
   })
   return unwrap<T>(res, 'DELETE', path)
 }
@@ -224,14 +304,15 @@ export async function apiDelete<T = void>(path: string, options?: RequestOptions
 export async function apiUpload<T>(path: string, file: File, options?: RequestOptions): Promise<T> {
   if (USE_MOCKS) {
     const { uploadMock } = await import('./mocks/index')
-    return uploadMock<T>(path, file)
+    return uploadMock<T>(path, file, buildHeaders(options))
   }
   const form = new FormData()
   form.append('file', file)
+  // Content-Type не ставим: его вместе с boundary выставляет FormData.
   const res = await fetch(path, {
     method: 'POST',
     body: form,
-    headers: options?.headers,
+    headers: buildHeaders(options),
   })
   return unwrap<T>(res, 'UPLOAD', path)
 }

@@ -1,0 +1,10 @@
+[Unit]
+Description=Flexiron: запуск ночного прогона
+
+[Timer]
+OnCalendar=*-*-* 01:30:00
+# Машина спала в час ночи — прогон начнётся при пробуждении, а не пропадёт.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

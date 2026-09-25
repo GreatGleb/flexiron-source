@@ -11,7 +11,7 @@ The project uses **two different CSS classes** for form field grouping:
 ### 1. `.input-group` (has spacing — works correctly)
 - Defined in [`_forms.css`](frontend_vue/src/styles/admin/components/_forms.css:2) and [`main.css`](frontend_vue/src/styles/admin/main.css:411)
 - Has `margin-bottom: 20px` (desktop), `16px` (tablet), `14px` (mobile), `12px` (small mobile)
-- Used in **entity card pages**: [`WarehouseBatchCard.vue`](frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:289), [`WarehouseStockCard.vue`](frontend_vue/src/views/admin/warehouse/WarehouseStockCard.vue:160), [`WarehouseOffcutCard.vue`](frontend_vue/src/views/admin/warehouse/WarehouseOffcutCard.vue:257), [`ProductCardPage.vue`](frontend_vue/src/views/admin/products/ProductCardPage.vue), [`CategoryCardPage.vue`](frontend_vue/src/views/admin/products/CategoryCardPage.vue), [`SupplierCardPage.vue`](frontend_vue/src/views/admin/suppliers/SupplierCardPage.vue)
+- Used in **entity card pages**: [`WarehouseBatchCard.vue`](frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:289), [`WarehouseStockCard.vue`](frontend_vue/src/views/admin/warehouse/WarehouseStockCard.vue:160), [`WarehouseOffcutCard.vue`](frontend_vue/src/views/admin/warehouse/WarehouseOffcutCard.vue:199), [`ProductCardPage.vue`](frontend_vue/src/views/admin/products/ProductCardPage.vue), [`CategoryCardPage.vue`](frontend_vue/src/views/admin/products/CategoryCardPage.vue), [`SupplierCardPage.vue`](frontend_vue/src/views/admin/suppliers/SupplierCardPage.vue)
 
 ### 2. `.form-group` (NO spacing — the bug)
 - **No CSS definition exists** for `.form-group` in any stylesheet

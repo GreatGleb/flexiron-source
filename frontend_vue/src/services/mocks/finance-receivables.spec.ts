@@ -76,8 +76,13 @@ function seededOrders() {
   for (let i = 1; i <= 100; i++) {
     const id = `ORD-${String(i).padStart(3, '0')}`
     if (reserved.has(id)) continue
-    const order = mockGetOrder(id)
-    if (order) out.push(order)
+    // An id nobody knows is a refusal now, not `undefined`: this sweep walks a
+    // numbering range, so the misses are expected and skipped by catching.
+    try {
+      out.push(mockGetOrder(id))
+    } catch {
+      continue
+    }
   }
   return out
 }

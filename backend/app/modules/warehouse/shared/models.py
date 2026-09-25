@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSON, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -36,7 +36,19 @@ class WarehouseBatch(UUIDMixin, TimestampMixin, Base):
     quantity_remaining: Mapped[float] = mapped_column(
         Numeric(12, 2), nullable=False
     )
+    # Kept as-is: this column's fate (replaced by `uom_id`, kept alongside it,
+    # or something else) is not decided by the task that added `uom_id` below —
+    # it neither renames nor drops `unit`.
     unit: Mapped[str] = mapped_column(String(20), nullable=False)
+    # Reference counterpart of `unit` above, added by the same technique as
+    # `received_uom_id` further down: nullable FK to the settings UOM catalog,
+    # `SET NULL` on delete. Closes the schema/form gap the warehouse contract
+    # named for `GET /api/warehouse/batches` (`BatchListItem.uomId`).
+    uom_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("uoms.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     unit_price: Mapped[float | None] = mapped_column(
         Numeric(12, 4), nullable=True
     )
@@ -116,6 +128,17 @@ class WarehouseMovement(UUIDMixin, Base):
     )
     reference_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     reference_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    # `SET NULL`, not `RESTRICT`: the contract fixes that a movement outlives
+    # the offcut it moved ("движения куска остаются висеть на удалённом
+    # offcutId") — the journal entry is not allowed to block the offcut's
+    # deletion. What happens to the parent batch's quantity on that deletion
+    # is a separate, owner-decided question this column does not answer.
+    offcut_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("warehouse_offcuts.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     from_location: Mapped[str | None] = mapped_column(Text, nullable=True)
     to_location: Mapped[str | None] = mapped_column(Text, nullable=True)
     performed_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -155,7 +178,16 @@ class WarehouseOffcut(UUIDMixin, TimestampMixin, Base):
         ForeignKey("warehouse_batches.id", ondelete="SET NULL"),
         nullable=True,
     )
+    category_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("categories.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     offcut_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    length_mm: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
+    width_mm: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
+    thickness_mm: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
+    weight_kg: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
     quantity: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
     unit: Mapped[str] = mapped_column(String(20), nullable=False)
     status: Mapped[str] = mapped_column(
@@ -163,6 +195,8 @@ class WarehouseOffcut(UUIDMixin, TimestampMixin, Base):
     )
     location: Mapped[str | None] = mapped_column(Text, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    qr_data: Mapped[str | None] = mapped_column(Text, nullable=True)
+    order_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
 
 class WarehouseDeficit(UUIDMixin, TimestampMixin, Base):
@@ -193,10 +227,30 @@ class WarehouseDeficit(UUIDMixin, TimestampMixin, Base):
     min_required: Mapped[float] = mapped_column(
         Numeric(12, 2), nullable=False
     )
+    # Default is `open` (`DeficitStatus`), the value a record is born with per
+    # contract — `critical` belongs to the separate `DeficitPriority` list and
+    # was a copy-paste of the wrong enum.
     status: Mapped[str] = mapped_column(
-        String(20), nullable=False, default="critical", server_default="critical"
+        String(20), nullable=False, default="open", server_default="open"
+    )
+    # No `server_default`/`default`: the owner has not decided what a record
+    # without an explicit priority defaults to, so the column stays required
+    # without silently picking `low` on their behalf.
+    priority: Mapped[str] = mapped_column(String(20), nullable=False)
+    suggested_order_qty: Mapped[float | None] = mapped_column(
+        Numeric(12, 2), nullable=True
+    )
+    purchase_order_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    uom_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("uoms.id", ondelete="RESTRICT"),
+        nullable=True,
     )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # `product_name` and `deficit_amount` are deliberately NOT added: whether
+    # the client's copy/derived fields become a stored snapshot or a join is
+    # still owner-undecided (contract: "снимок это или join — решение
+    # владельца"), and inventing a shape now would have to be undone either way.
 
 
 class StockItem(UUIDMixin, Base):
@@ -214,7 +268,6 @@ class StockItem(UUIDMixin, Base):
         UUID(as_uuid=True),
         ForeignKey("products.id", ondelete="CASCADE"),
         nullable=False,
-        unique=True,
         index=True,
     )
     total_quantity: Mapped[float] = mapped_column(
@@ -223,6 +276,10 @@ class StockItem(UUIDMixin, Base):
     unit: Mapped[str] = mapped_column(String(20), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "product_id", name="uq_stock_items_tenant_product"),
     )
 
 

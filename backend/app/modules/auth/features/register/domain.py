@@ -12,7 +12,8 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from passlib.context import CryptContext
-from itsdangerous import URLSafeTimedSerializer
+from app.modules.auth.shared.session_tokens import issue_session_token
+from app.modules.auth.shared.secret_link import build_secret_link, issue_secret_link_token
 
 from app.core.config import settings
 from app.core.exceptions import ValidationError, ConflictError
@@ -24,7 +25,6 @@ from app.modules.auth.features.register.repository import (
     _slugify,
 )
 
-_SECRET_LINK_BYTES = 48
 from app.modules.auth.features.register.schemas import (
     RegisterInput,
     RegisterResponse,
@@ -112,7 +112,7 @@ async def register(
     )
 
     # 5. Generate unique secret link token
-    secret_link_token = secrets.token_urlsafe(_SECRET_LINK_BYTES)
+    secret_link_token = issue_secret_link_token()
 
     # 6. Hash password and create user
     password_hash = _pwd_context.hash(input_data.password)
@@ -129,11 +129,7 @@ async def register(
     )
 
     # 6. Auto-login: generate session token
-    serializer = URLSafeTimedSerializer(
-        secret_key=settings.secret_key,
-        salt="session",
-    )
-    session_token = serializer.dumps({"user_id": str(user.id)})
+    session_token = issue_session_token(user.id)
     token_hash = _hash_token(session_token)
 
     # Store session (side-effect: auto-login after registration)
@@ -151,7 +147,7 @@ async def register(
     )
 
     # 8. Build secret link URL
-    secret_link = f"{settings.frontend_url}/auth/link?token={secret_link_token}"
+    secret_link = build_secret_link(secret_link_token)
 
     # 9. Return user info + session + secret link
     return RegisterResponse(

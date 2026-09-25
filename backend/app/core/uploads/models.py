@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, func
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -21,7 +21,7 @@ class UploadedFile(UUIDMixin, Base):
     )
     original_name: Mapped[str] = mapped_column(String(255), nullable=False)
     storage_path: Mapped[str] = mapped_column(String(500), nullable=False)
-    size: Mapped[int] = mapped_column(nullable=False)
+    size: Mapped[int] = mapped_column(BigInteger, nullable=False)
     mime: Mapped[str] = mapped_column(String(100), nullable=False)
     is_draft: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default="true"

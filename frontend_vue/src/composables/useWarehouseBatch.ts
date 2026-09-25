@@ -14,6 +14,7 @@ import {
   getBatchActiveSales,
 } from '@/services/warehouseService'
 import type { UploadedFile } from '@/services/uploadsService'
+import { errorCode, errorMessageKey } from '@/services/apiErrorCode'
 import { useDirtyCheck } from './useDirtyCheck'
 import { useToast } from './useToast'
 import { useTranslatedField } from './useTranslatedData'
@@ -227,7 +228,12 @@ export function useWarehouseBatch(id: string) {
         loadBatchActiveSales(),
       ])
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to load batch'
+      const key = errorMessageKey(
+        e,
+        [['BATCH_NOT_FOUND', 'warehouse.batch_card_not_found']],
+        'warehouse.toast_error_load',
+      )
+      error.value = t(key)
     } finally {
       loading.value = false
     }
@@ -337,8 +343,7 @@ export function useWarehouseBatch(id: string) {
       toast.success(t('warehouse.toast_batch_deleted'))
       router.push({ name: 'admin-warehouse', params: { tab: 'batches' } })
     } catch (e) {
-      const err = e as (Error & { code?: string }) | undefined
-      if (err?.code === 'BATCH_LINKED_TO_ORDER' || err?.message === 'BATCH_LINKED_TO_ORDER') {
+      if (errorCode(e) === 'BATCH_LINKED_TO_ORDER') {
         deleteBlockedByOrder.value = true
       } else {
         toast.error(t('warehouse.toast_error_save'))

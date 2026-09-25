@@ -92,7 +92,7 @@ $ grep -n "^class" backend/app/modules/finance/shared/models.py
 $ grep -rn "Deficit" frontend_vue/src/services/mocks/orders.ts
 263: * deficit report exists for it. …   (только комментарий)
 $ grep -rn "mockCreateDeficitItem" frontend_vue/src/services/mocks/*.ts | grep -v spec
-index.ts:1100 (роут), warehouse.ts:1472 (реализация)  — из заказа не вызывается
+index.ts:1098 (роут), warehouse.ts:1472 (реализация)  — из заказа не вызывается
 ```
 
 ## Что сделано

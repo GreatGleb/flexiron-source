@@ -1,6 +1,7 @@
 import { mergeTranslatedString } from '@/types/i18n'
 import type { Supplier, SupplierCardData, SupplierFilters } from '@/types/supplier'
 import type { PaginatedResponse, PaginationParams } from '@/types/api'
+import { ApiRequestError } from '@/types/api'
 import type { AuditSource } from '@/types/audit'
 import { shiftAuditSeries } from './auditClock'
 
@@ -304,7 +305,12 @@ function buildInitials(name: string): string {
 export function mockGetSupplier(id: string): SupplierCardData {
   if (MOCK_CARD[id]) return JSON.parse(JSON.stringify(MOCK_CARD[id])) as SupplierCardData
   const base = MOCK_SUPPLIERS.find((s) => s.id === id)
-  if (!base) throw new Error(`Supplier ${id} not found`)
+  if (!base)
+    throw new ApiRequestError({
+      status: 404,
+      message: `Supplier ${id} not found`,
+      code: 'SUPPLIER_NOT_FOUND',
+    })
   const card: SupplierCardData = {
     ...base,
     statusReason: { ru: '', en: '', lt: '' },
@@ -450,14 +456,30 @@ export function mockPatchSupplier(id: string, patch: Partial<SupplierCardData>):
 
 export function mockUpdateSupplierStatus(id: string, status: string): void {
   const s = MOCK_SUPPLIERS.find((sup) => sup.id === id)
-  if (s) s.status = status as Supplier['status']
+  if (!s)
+    throw new ApiRequestError({
+      status: 404,
+      message: `Supplier ${id} not found`,
+      code: 'SUPPLIER_NOT_FOUND',
+    })
+  s.status = status as Supplier['status']
 }
 
 export function mockDeleteAuditEntry(supplierId: string, entryId: string): void {
   const card = MOCK_CARD[supplierId]
-  if (!card) throw new Error('SUPPLIER_NOT_FOUND')
+  if (!card)
+    throw new ApiRequestError({
+      status: 404,
+      message: 'SUPPLIER_NOT_FOUND',
+      code: 'SUPPLIER_NOT_FOUND',
+    })
   const idx = card.auditLog.findIndex((entry) => entry.id === entryId)
-  if (idx === -1) throw new Error('AUDIT_ENTRY_NOT_FOUND')
+  if (idx === -1)
+    throw new ApiRequestError({
+      status: 404,
+      message: 'AUDIT_ENTRY_NOT_FOUND',
+      code: 'AUDIT_ENTRY_NOT_FOUND',
+    })
   card.auditLog.splice(idx, 1)
 }
 

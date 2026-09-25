@@ -8,7 +8,7 @@ import { useTranslatedField } from './useTranslatedData'
 import { resolveOffcutWeight } from '@/domain/cutting'
 import type { OffcutCreatePayload, WarehouseOffcut, BatchListItem } from '@/types/warehouse'
 import type { Product, ProductListItem } from '@/types/product'
-
+import { errorMessageKey } from '@/services/apiErrorCode'
 // ─── Location compose helper (same pattern as useWarehouseBatch / useWarehouseOffcutCard) ──
 function composeLocation(rack: string, row: string, cell: string, notes: string): string | null {
   const parts: string[] = []
@@ -312,8 +312,8 @@ export function useWarehouseOffcutCreate() {
       toast.success(t('warehouse.toast_offcut_created'))
       return offcut
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to create offcut'
-      error.value = msg
+      const key = errorMessageKey(e, [], 'warehouse.toast_offcut_create_error')
+      error.value = t(key)
       toast.error(t('warehouse.toast_offcut_create_error'))
       return null
     } finally {

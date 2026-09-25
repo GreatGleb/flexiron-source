@@ -23,14 +23,14 @@
 «есть, но без роутов», как у `warehouse` или `suppliers`, а нет каталога (`ls backend/app/modules/`
 → `auth bcc billing finance notifications products services settings suppliers warehouse`), нет
 модели и нет таблицы. Значит форма ответа и правила счёта сняты с мока
-(`mocks/orders.ts:1577-1595`), а не назначены здесь.
+(`mocks/orders.ts:1580-1598`), а не назначены здесь.
 
 **Своего слоя у домена тоже нет** — единственный случай среди семнадцати: ни своего сервиса, ни
 своего мока, ни своих типов. Ближе всех к нему `auth` — у него тоже нет ни `authService.ts`, ни
 `mocks/auth.ts`, но свои типы есть (`frontend_vue/src/types/auth.ts`), и модуль бэкенда тоже.
 Клиент живёт в [`services/ordersService.ts:53-55`](../../../frontend_vue/src/services/ordersService.ts),
 тип — в `types/order.ts:48-57`, «сервер» — в
-[`services/mocks/orders.ts:1577-1595`](../../../frontend_vue/src/services/mocks/orders.ts). Файлов
+[`services/mocks/orders.ts:1580-1598`](../../../frontend_vue/src/services/mocks/orders.ts). Файлов
 `salesCrmService.ts`, `mocks/salesCrm.ts`, `types/salesCrm.ts` не существует. Поэтому все ссылки
 `Реализация:` ниже указывают в файлы заказов, и это не ошибка оформления.
 
@@ -50,7 +50,7 @@
 отдельным эндпоинтом потому, что счёт по странице списка — не счёт (см. правило домена 1).
 
 Реализация: `services/ordersService.ts:53-55` → `getSalesCrmStats` · мок
-`services/mocks/orders.ts:1577` → `mockGetSalesCrmStats`, ветка `services/mocks/index.ts:540`
+`services/mocks/orders.ts:1580` → `mockGetSalesCrmStats`, ветка `services/mocks/index.ts:540`
 
 Бэкенд: **модуля нет** — ни каталога `backend/app/modules/sales*`, ни модели, ни роута; ближайшее
 попадание слова во всём `backend/app` не про этот домен
@@ -69,8 +69,9 @@ GET /api/sales-crm/stats
 ```
 
 Клиент — три строки целиком: `apiGet('/api/sales-crm/stats')` без второго и третьего аргументов
-(`services/ordersService.ts:53-55`), то есть без `params` и без `options.headers`, а
+(`services/ordersService.ts:53-55`), то есть без `¬params` и без `¬options.headers`, а
 `options?.headers` — единственный источник заголовков у `GET`
+=======>
 ([`services/api.ts:157-159`](../../../frontend_vue/src/services/api.ts)). Заголовков в домене нет
 ни одного, включая `Authorization`
 (`grep -c "Authorization\|authHeaders" frontend_vue/src/services/ordersService.ts` → `0`), при том
@@ -84,7 +85,7 @@ GET /api/sales-crm/stats
 («из токена, и только из него») плюс строка владельца 4 ниже.
 
 **Периода в запросе нет.** «Этот месяц» вычисляется на стороне сервера из его собственных часов
-(`mocks/orders.ts:1578-1580`), поэтому другое окно спросить нечем — строка владельца 1.
+(`mocks/orders.ts:1581-1583`), поэтому другое окно спросить нечем — строка владельца 1.
 
 Ответ — `ApiResponse<SalesCrmStats>` (конверт — §1 соглашений, снимает `unwrap`,
 `services/api.ts:127-141`):
@@ -100,17 +101,17 @@ interface SalesCrmStats {
 
 Все четыре поля **обязательны**, все `number`, порядок в объекте значения не имеет. Полей рядом с
 ними нет: ни `currency`, ни `asOf`/`generatedAt`, ни границ периода, ни разбивки по валютам и
-статусам. Мок отдаёт объектный литерал ровно из этих четырёх ключей (`mocks/orders.ts:1589-1594`).
+статусам. Мок отдаёт объектный литерал ровно из этих четырёх ключей (`mocks/orders.ts:1592-1597`).
 
 **Правило счёта каждого числа — часть контракта, а не деталь реализации.** Сервер обязан считать
 по правилу, а не по перечню статусов (правило домена 2):
 
 | поле | правило | где сегодня записано |
 |---|---|---|
-| `activeOrders` | заказ **не** `delivered` и **не** терминален; терминальны `completed`, `returned` и любая отмена | предикат `isActive` — [`domain/orderStatus.ts:103-105`](../../../frontend_vue/src/domain/orderStatus.ts), `isTerminal` — `:92-94`; счёт — `mocks/orders.ts:1590` |
-| `pendingOrders` | заказ ждёт чьего-то действия | **перечислением двух статусов**: `o.status === 'new' \|\| o.status === 'confirmed'` (`mocks/orders.ts:1591`) — единственное из четырёх, посчитанное списком: БАГ-03, строка владельца 3 |
-| `salesMtd` | сумма `totalAmount` (нетто, до НДС) заказов, у которых `countsAsSale(status)` и `createdAt >= начало месяца`; НДС выручкой не является | предикат `countsAsSale` — `domain/orderStatus.ts:121-123`; счёт — `mocks/orders.ts:1585-1587` |
-| `newClientsThisMonth` | клиенты, чей `createdAt >= начало месяца`, **без** оглядки на `status` клиента | `mocks/orders.ts:1593`; статус клиента — `types/client.ts:31` |
+| `activeOrders` | заказ **не** `delivered` и **не** терминален; терминальны `completed`, `returned` и любая отмена | предикат `isActive` — [`domain/orderStatus.ts:103-105`](../../../frontend_vue/src/domain/orderStatus.ts), `isTerminal` — `:92-94`; счёт — `mocks/orders.ts:1593` |
+| `pendingOrders` | заказ ждёт чьего-то действия | **перечислением двух статусов**: `o.status === 'new' \|\| o.status === 'confirmed'` (`mocks/orders.ts:1594`) — единственное из четырёх, посчитанное списком: БАГ-03, строка владельца 3 |
+| `salesMtd` | сумма `totalAmount` (нетто, до НДС) заказов, у которых `countsAsSale(status)` и `createdAt >= начало месяца`; НДС выручкой не является | предикат `countsAsSale` — `domain/orderStatus.ts:121-123`; счёт — `mocks/orders.ts:1588-1590` |
+| `newClientsThisMonth` | клиенты, чей `createdAt >= начало месяца`, **без** оглядки на `status` клиента | `mocks/orders.ts:1596`; статус клиента — `types/client.ts:31` |
 
 Три уточнения, каждое из которых меняет число:
 
@@ -118,7 +119,7 @@ interface SalesCrmStats {
 - **`salesMtd` считает заказанное, включая возвращённое**, тогда как то же слово «выручка» в том же
   файле мока считается иначе — БАГ-01, строка владельца 7. Контракт фиксирует наблюдаемое
   поведение и **не** выбирает между тремя определениями: это решение владельца;
-- **граница месяца режется местной полуночью процесса** (`mocks/orders.ts:1578-1580`), а даты
+- **граница месяца режется местной полуночью процесса** (`mocks/orders.ts:1581-1583`), а даты
   заказа и клиента приходят разной точности — правило домена 7, БАГ-04, строка владельца 3.
 
 Ошибки: **каталог домена пуст.** Путь чтения не бросает ничего
@@ -142,7 +143,7 @@ interface SalesCrmStats {
    (`useSalesCrmDashboard.ts:63-64`), а страница печатает это сырым — `<p>{{ error }}</p>`
    ([`views/admin/sales-crm/SalesCrmPage.vue:106`](../../../frontend_vue/src/views/admin/sales-crm/SalesCrmPage.vue)).
    Таблица перевода кодов в фразы в проекте есть и рядом используется
-   (`ERROR_KEYS` — [`services/orderLineEdits.ts:300`](../../../frontend_vue/src/services/orderLineEdits.ts),
+   (`ERROR_KEYS` — [`services/orderLineEdits.ts:308`](../../../frontend_vue/src/services/orderLineEdits.ts),
    читает её `lineEditErrorKey` — `:415-421`; вызов на чтении карточки заказа —
    [`composables/useOrderCard.ts:412`](../../../frontend_vue/src/composables/useOrderCard.ts) с
    причиной рядом: «A key, not the exception's own words», `:409-411`) — этот домен её не зовёт:
@@ -152,7 +153,7 @@ interface SalesCrmStats {
    любого из трёх обнуляет страницу целиком (`SalesCrmPage.vue:106`, ветка `v-else-if="error"`
    вместо всего содержимого). Список заказов умеет отказать четырьмя кодами
    (`UNKNOWN_SORT_KEY`, `UNKNOWN_SORT_DIRECTION`, `INVALID_DATE_FILTER`, `INVALID_PAGE` —
-   `mocks/orders.ts:1444`, `:1447`, `:1453`, `:1465`), и в поле ошибки сводки читатель увидит
+   `mocks/orders.ts:1447`, `:1447`, `:1453`, `:1465`), и в поле ошибки сводки читатель увидит
    именно их. Каталог этих кодов принадлежит домену `orders`, а не этому.
 
 ---
@@ -170,13 +171,13 @@ interface SalesCrmStats {
 - **валюта** — знак `€` вшит в форматтер страницы: `` return `€ ${value.toFixed(2)}` ``
   (`SalesCrmPage.vue:43-45`, применение `:149`), тогда как валютой владеют настройки
   (`constants.defaultCurrency`, [`types/settings.ts:15-18`](../../../frontend_vue/src/types/settings.ts),
-  справочник [`services/mocks/settings.ts:68-85`](../../../frontend_vue/src/services/mocks/settings.ts)),
+  справочник [`services/mocks/settings.ts:70-87`](../../../frontend_vue/src/services/mocks/settings.ts)),
   и заказ её у настроек уже спрашивает
   ([`composables/useOrderCreate.ts:43`](../../../frontend_vue/src/composables/useOrderCreate.ts),
-  применение `mocks/orders.ts:1638`). Общее правило — §14 соглашений («справочник принадлежит
+  применение `mocks/orders.ts:1641`). Общее правило — §14 соглашений («справочник принадлежит
   серверу, во фронте его копии быть не должно»); здесь это БАГ-02;
 - **окно периода** — «этот месяц» жёстко: `setDate(1)` плюс `setHours(0,0,0,0)` от текущей даты
-  сервера (`mocks/orders.ts:1578-1580`);
+  сервера (`mocks/orders.ts:1581-1583`);
 - **глубина двух виджетов** — `pageSize: 5` дважды константой в потребителе
   (`useSalesCrmDashboard.ts:42`, `:50`) против 25 у обоих списков (§13 соглашений). Справочника под
   неё нет;
@@ -192,7 +193,7 @@ interface SalesCrmStats {
 (`grep -cin "sales\|crm" frontend_vue/src/services/mocks/notifications.ts` → `0`).
 
 Обратная сторона важнее: **домен показывает результат чужих событий, не подписываясь ни на одно.**
-Три события заказов — смена статуса, готовность склада, поступление оплаты (`mocks/orders.ts:1837`,
+Три события заказов — смена статуса, готовность склада, поступление оплаты (`mocks/orders.ts:1840`,
 `:3929`, `:4001`) — двигают ровно те статусы, из которых считаются `activeOrders`, `pendingOrders`
 и `salesMtd`, а дашборд узнаёт об этом только при следующем `onMounted`
 (`useSalesCrmDashboard.ts:70`). Обновления после чужой записи у домена нет: кеша нет, состояние
@@ -203,11 +204,11 @@ interface SalesCrmStats {
 `sed -n '1577,1595p' … | grep -c "appendHistory\|auditLog"` → `0`; замкнутый перечень девяти
 сущностей ленты (§9 соглашений, [`types/audit.ts:16-26`](../../../frontend_vue/src/types/audit.ts))
 сводки не содержит — все девять чужие. Путей записи в файле-хозяине **два**, и сводку не
-задевает ни один: помощник `appendHistory` (`mocks/orders.ts:1874-1893`) с двумя вызывающими
+задевает ни один: помощник `appendHistory` (`mocks/orders.ts:1877-1896`) с двумя вызывающими
 (`grep -n "appendHistory(" frontend_vue/src/services/mocks/orders.ts` → `1827`, `1874`
-определение, `1905`) и прямой `auditLog.push` в сиде (`mocks/orders.ts:546`), который пишет мимо
+определение, `1905`) и прямой `auditLog.push` в сиде (`mocks/orders.ts:549`), который пишет мимо
 помощника. Сид — тоже путь записи, а не оформление: комментарий над ним
-(`mocks/orders.ts:530-532`) прямо обязывает его к правилам эндпоинтов («the demo store is held to
+(`mocks/orders.ts:533-535`) прямо обязывает его к правилам эндпоинтов («the demo store is held to
 the rules the API is held to»).
 
 Нужно ли писать след о самом просмотре месячного оборота — **нигде**: строка владельца 2.
@@ -224,22 +225,22 @@ the rules the API is held to»).
 чисел:
 
 - **справочник статусов заказа.** Настройки хранят пятнадцать записей `st-<имя>`
-  (`services/mocks/settings.ts:208-346`), фронт — те же пятнадцать имён константой
+  (`services/mocks/settings.ts:210-348`), фронт — те же пятнадцать имён константой
   (`domain/orderStatus.ts:15-31`); статус, заведённый через настройки, получает id `st-<N>`
-  (`services/mocks/settings.ts:544`), которого в перечислении нет. Прямое следствие для сводки:
+  (`services/mocks/settings.ts:620`), которого в перечислении нет. Прямое следствие для сводки:
   **новый статус попадает в `activeOrders` автоматически** (он «не терминальный»), **в `salesMtd`
   тоже** (он «не new, не отмена, не returned»), **а в `pendingOrders` — никогда**, потому что там
-  список (`mocks/orders.ts:1591`);
+  список (`mocks/orders.ts:1594`);
 - **ставка НДС.** `salesMtd` объявлен нетто («VAT is not revenue», `types/order.ts:53-54`) и берёт
   `totalAmount`, то есть сумму до налога; ставка лежит на самом заказе (`vatPercent`,
   `types/order.ts:467`) и после создания за настройками не следует;
 - **часовой пояс арендатора.** Нет нигде
   (`grep -ci "timezone" frontend_vue/src/types/settings.ts` → `0`; на бэкенде единственное
   попадание — свойство типа колонки `DateTime(timezone=True)`,
-  `backend/app/modules/settings/shared/models.py:57`), а граница месяца режется местной полуночью
-  процесса (`mocks/orders.ts:1578-1580`) — БАГ-04;
+  `backend/app/modules/settings/shared/models.py:54`), а граница месяца режется местной полуночью
+  процесса (`mocks/orders.ts:1581-1583`) — БАГ-04;
 - **статус клиента.** `newClientsThisMonth` считает всех, чей `createdAt` в этом месяце
-  (`mocks/orders.ts:1593`), не глядя на `status: 'active' | 'inactive'`
+  (`mocks/orders.ts:1596`), не глядя на `status: 'active' | 'inactive'`
   ([`types/client.ts:31`](../../../frontend_vue/src/types/client.ts)). Комментарий типа говорит
   «registered», то есть считать всех — намерение, а не промах (`types/order.ts:55`), но записано
   это только комментарием.
@@ -251,9 +252,10 @@ the rules the API is held to»).
 принадлежит этому домену:
 
 - в домене про арендатора нет ничего: `grep -ci "tenant"` по `useSalesCrmDashboard.ts` и
-  `SalesCrmPage.vue` → `0` у обоих, вызов идёт без `options` (`services/ordersService.ts:54` против
+  `SalesCrmPage.vue` → `0` у обоих, вызов идёт без `¬options` (`services/ordersService.ts:54` против
   `services/api.ts:157-159`);
-- **сводка читает два хранилища сразу** — заказы напрямую (`mocks/orders.ts:1590`, `:1591`,
+=======>
+- **сводка читает два хранилища сразу** — заказы напрямую (`mocks/orders.ts:1593`, `:1591`,
   `:1585`) и клиентов через `mockGetClients()` (`:1593`, определение
   [`services/mocks/clients.ts:1046-1048`](../../../frontend_vue/src/services/mocks/clients.ts)),
   оба плоские на процесс. **Фильтр арендатора обязан стоять на обеих выборках**, и пропущенный на
@@ -286,9 +288,9 @@ the rules the API is held to»).
 
 **Следствие измеримо:** месячный оборот компании видит любая роль, открывшая страницу, — тогда как
 три права заказов существуют ровно про видимость денег (`seeCost`, `manualCost`, `correction` —
-`services/mocks/settings.ts:62-66`, потребитель
+`services/mocks/settings.ts:64-68`, потребитель
 [`composables/useOrderPermissions.ts:28-30`](../../../frontend_vue/src/composables/useOrderPermissions.ts)),
-и `seeCost` применяется только к истории заказа (`mocks/orders.ts:1390-1393`, применение
+и `seeCost` применяется только к истории заказа (`mocks/orders.ts:1393-1396`, применение
 `:1384-1386`). Себестоимость и выручка — разные вещи, и права на вторую нет нигде: строка
 владельца 5.
 
@@ -309,13 +311,13 @@ the rules the API is held to»).
 **весь ответ целиком производный, своих таблиц у него нет** (модуля в `backend/app/modules/` нет,
 миграции нет). Все четыре считаются при каждом чтении, ни одно не хранится:
 
-- `activeOrders` — `STORE.filter((o) => isActive(o.status)).length` (`mocks/orders.ts:1590`);
-- `pendingOrders` — `o.status === 'new' || o.status === 'confirmed'` (`mocks/orders.ts:1591`);
+- `activeOrders` — `STORE.filter((o) => isActive(o.status)).length` (`mocks/orders.ts:1593`);
+- `pendingOrders` — `o.status === 'new' || o.status === 'confirmed'` (`mocks/orders.ts:1594`);
 - `salesMtd` — `filter(countsAsSale && createdAt >= monthStart).reduce(round2(sum + totalAmount))`
-  (`mocks/orders.ts:1585-1587`); нетто по построению, потому что `totalAmount` сам производный —
+  (`mocks/orders.ts:1588-1590`); нетто по построению, потому что `totalAmount` сам производный —
   его пишет `recalcOrder` (`mocks/orders.ts:179`, сама запись — `:206`);
 - `newClientsThisMonth` — счёт по **чужому** домену:
-  `mockGetClients().filter(createdAt >= monthStart).length` (`mocks/orders.ts:1593`), причём
+  `mockGetClients().filter(createdAt >= monthStart).length` (`mocks/orders.ts:1596`), причём
   `mockGetClients()` копирует всё хранилище клиентов целиком (`structuredClone(STORE)`,
   `services/mocks/clients.ts:1046-1048`) — вместе с журналом и историей контактов, — чтобы
   получить одно число. На сервере это `count(*)` с фильтром арендатора, а не выборка сущностей.
@@ -338,7 +340,7 @@ the rules the API is held to»).
    page of the list made them stop moving as soon as the store outgrew the page — silently, which
    is the worst way for a number to be wrong» (`useSalesCrmDashboard.ts:23-28`). Дефект был живым:
    «the store holds 100 orders and the dashboard used to read exactly 100»
-   ([`services/mocks/orders.spec.ts:2975-2977`](../../../frontend_vue/src/services/mocks/orders.spec.ts)),
+   ([`services/mocks/orders.spec.ts:2983-2985`](../../../frontend_vue/src/services/mocks/orders.spec.ts)),
    и e2e назван по нему
    ([`tests/e2e/admin/sales-crm/sales-crm.spec.ts:24`](../../../frontend_vue/tests/e2e/admin/sales-crm/sales-crm.spec.ts)).
    **Для сервера отсюда запрет: сводка не собирается из ответа списка, у неё своя выборка по всему
@@ -351,11 +353,11 @@ the rules the API is held to»).
    (`:117-119`). **Сервер обязан хранить правило, а не перечень:** пятнадцать статусов (`:15-31`)
    будут расти. Третье число, `pendingOrders`, этому правилу не следует — БАГ-03.
 3. **`salesMtd` привязан к дате создания заказа, а не к дате продажи.** Фильтр —
-   `new Date(o.createdAt) >= monthStart` (`mocks/orders.ts:1586`), где `createdAt` ставится при
+   `new Date(o.createdAt) >= monthStart` (`mocks/orders.ts:1589`), где `createdAt` ставится при
    создании и не двигается никогда (`:1668`). Заказ, созданный 30-го и оплаченный 2-го, попадает в
    оборот прошлого месяца; заказ, созданный в этом месяце и оплаченный через полгода, — в оборот
    этого. Даты отгрузки, счёта и платежа фильтр не касается ни одной, хотя все три у заказа есть
-   (`shippedAt`, `issuedAt`, `paidAt` — `mocks/orders.ts:939`, `:763`, `:839`).
+   (`shippedAt`, `issuedAt`, `paidAt` — `mocks/orders.ts:942`, `:763`, `:839`).
 4. **Единственная «сортировка» домена — не его: две панели просят у сервера пять новейших, а не
    выбирают пять из полученного.** `sortBy: 'createdAt'`, `sortDir: 'desc'`, `pageSize: 5` уходят в
    оба запроса (`useSalesCrmDashboard.ts:39-51`). Общее правило — §13 соглашений.
@@ -377,9 +379,9 @@ the rules the API is held to»).
    часов — свойство мока; серверу его делать не нужно** (§18 соглашений).
 7. **Дата у клиента и дата у заказа — разной точности, и сводка сравнивает их с одним порогом.**
    Клиент несёт день без времени (`YYYY-MM-DD`: создание `services/mocks/clients.ts:1085`, сдвиг
-   `demoClock.ts:55-61`), заказ — полный ISO-инстант (`mocks/orders.ts:513`, `:1668`). `demoClock`
+   `demoClock.ts:55-61`), заказ — полный ISO-инстант (`mocks/orders.ts:516`, `:1668`). `demoClock`
    разбирает день **как местный**, дописывая `'T00:00:00'` (`:56`), а сводка разбирает ту же строку
-   голым `new Date(...)` (`mocks/orders.ts:1593`), то есть как UTC. **Для схемы бэкенда это два
+   голым `new Date(...)` (`mocks/orders.ts:1596`), то есть как UTC. **Для схемы бэкенда это два
    разных типа колонки — `date` против `timestamptz`, и контракт обязан их различать.** БАГ-04.
 8. **Ответ не несёт ни валюты, ни периода, ни отметки среза — только четыре числа**, поэтому всё,
    что о них известно, живёт в комментариях типа (`types/order.ts:49-56`). Для сервера это значит:
@@ -393,8 +395,8 @@ the rules the API is held to»).
    подпись напечатает сырой ключ** `orders.status_<что пришло>` (`SalesCrmPage.vue:210`). Правило
    кросс-доменное; строка владельца 8.
 10. **Дашборд — единственный потребитель, и он один на три домена.** `useSalesCrmDashboard`
-    зовётся ровно из одного места (`SalesCrmPage.vue:28`) и читает три домена одним `Promise.all`
-    (`useSalesCrmDashboard.ts:30-52`): `sales-crm`, `orders`, `clients`. Отказ любого из трёх
+    зовётся ровно из одного места (`SalesCrmPage.vue:28`) и читает три домена одним
+    `Promise.all` (`useSalesCrmDashboard.ts:30-52`): `sales-crm`, `orders`, `clients`. Отказ любого из трёх
     обнуляет страницу целиком, а сводка, которая сама не бросает ничего, показывает чужой код
     ошибки. БАГ-07.
 
@@ -415,7 +417,8 @@ the rules the API is held to»).
 Кроме этого в домене **нет и никогда не было описано**:
 
 - **параметров запроса** — ни периода, ни арендатора, ни валюты: путь литеральный, вызов без
-  `params` и без `headers` (`services/ordersService.ts:54`);
+  `¬params` и без `¬headers` (`services/ordersService.ts:54`);
+=======>
 - **второго эндпоинта** — ни разрезов сводки, ни ленты активности, ни воронки: во всём коде
   ровно два файла упоминают префикс домена, и оба показаны выше;
 - **любой записи** — домен read-only по составу (`grep -c "apiPost\|apiPut\|apiPatch\|apiDelete"`
@@ -441,9 +444,9 @@ the rules the API is held to»).
    у списков).
    **Решено 2026-09-07.** Валюта: сервер отдаёт **список чисел, по одному на валюту**, а не одно
    число, и интерфейс показывает их списком (П24) — приём в проекте уже есть, итоги по клиенту
-   устроены так же (`types/client.ts:90-96`). Форма `SalesCrmStats` из-за этого меняется: сегодня
-   это четыре голых числа без поля валюты (`types/order.ts:48-57`), а мок складывает `totalAmount`
-   без группировки (`mocks/orders.ts:1587`). Окно: текущий месяц с 1-го числа по сейчас, считает
+   устроены так же (`types/client.ts:90-96`). Форма из-за этого меняется: сегодня
+   `SalesCrmStats` — четыре голых числа без поля валюты (`types/order.ts:48-57`), а мок складывает
+   `totalAmount` без группировки (`mocks/orders.ts:1590`). Окно: текущий месяц с 1-го числа по сейчас, считает
    сервер (П27). Глубина виджетов принадлежит коду (П20).
 2. Нужно ли оставлять след в аудит-логе о просмотре месячного оборота, который сейчас виден любой
    роли, открывшей страницу. **осталось**
@@ -469,7 +472,7 @@ the rules the API is held to»).
    так считает мок. **Решено 2026-09-11 (П69): выручка — отгруженное минус возвращённое**, по
    факту движения товара; заказанное и выставленное в счетах выручкой не считаются. Описание
    контракта меняется вслед за решением: `salesMtd` перестаёт брать `o.totalAmount` целиком
-   (`mocks/orders.ts:1585-1587`) и считается тем же нетто, что и средняя цена продажи товара
+   (`mocks/orders.ts:1588-1590`) и считается тем же нетто, что и средняя цена продажи товара
    (`:1318`) — предикат `countsAsSale` у обоих уже общий. Три экрана обязаны сходиться.
 8. Как сервер обязан отвечать на статус, которого фронт не знает — **снято 2026-09-10 (следует из
    П19 и П63)**: сервер отдаёт статус как есть, с его id и подписью из настроек арендатора.
@@ -507,3 +510,36 @@ the rules the API is held to»).
    в описании, а в проверках кода, и правка кода этому файлу запрещена. Записано находками в
    [`contract-sync-sales-crm-bugs.md`](../../plans/bugs/contract-sync-sales-crm-bugs.md):
    **осталось**.
+
+
+---
+
+## Согласованные правила после опросника 2026-09-17
+
+**Статус:** спроектировано — перенос подтверждённых требований владельца, не отчёт о реализации.
+Для будущей реализации правила ниже имеют приоритет над прежними вариантами «осталось» и
+противоречащим демонстрационным поведением этого файла. Описания существующих запросов выше
+остаются снимком реализации; изменение форм, миграций и клиентских действий выполняется отдельной
+задачей по этим решениям. Новые маршруты в этом дополнении не выдумываются.
+
+Источник: [заполненный опросник](../../plans/general/вопросы-владельцу-после-сверки-2026-09-17.md) и
+[решения П76–П129](../../plans/api/audit/00-решения-владельца.md#p-76).
+
+| Решение | Обязанность домена и зависимых операций |
+|---|---|
+| [П80](../../plans/api/audit/00-решения-владельца.md#p-80) | При единственном часовом поясе страны компании он выбирается автоматически; при нескольких пользователь уточняет пояс. Выбранный пояс всегда можно изменить в настройках компании. Интерфейс обязан объяснять его влияние на границы суток и месяцев, фильтры по датам, отчётные периоды и зависимые сроки. Пояс компании не следует за поездками сотрудника; сезонные переходы обрабатываются правилами выбранного пояса, а не фиксированным смещением. |
+
+## Возвраты между месяцами — решение 2026-09-18
+
+**Статус: спроектировано.** [П130](../../plans/api/audit/00-решения-владельца.md#p-130)
+уточняет П69/П123: возврат уменьшает выручку месяца исходной отгрузки. При отгрузке
+в сентябре и возврате в октябре пересчитывается сентябрь; октябрьская выручка этим
+возвратом не уменьшается. Дата создания заказа не заменяет дату отгрузки.
+Границы периода остаются в часовом поясе компании по П62/П80.
+
+Для реализации нужны связь возврата с исходной отгрузкой и согласованный пересчёт
+периода у потребителей выручки. Приёмка: 4 единицы по 100 отгружены в сентябре,
+1 возвращена в октябре — сентябрь меняется с 400 на 300, вклад в октябрь остаётся 0;
+полный возврат обнуляет вклад этой отгрузки в сентябрь. Даты денежных платежей
+и возвратов денег этим решением не переопределяются. Старое наблюдение о расчёте
+по createdAt заказа не является требованием будущей реализации.

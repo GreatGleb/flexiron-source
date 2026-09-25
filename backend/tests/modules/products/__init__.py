@@ -1,0 +1,1 @@
+"""Products module tests."""

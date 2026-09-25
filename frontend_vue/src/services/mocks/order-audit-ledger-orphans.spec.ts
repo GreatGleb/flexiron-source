@@ -83,6 +83,16 @@ function allOrderIds(): string[] {
     { page: 1, pageSize: 5000 },
   ).items.map((o) => o.id)
 }
+// Reading an order that is gone is a refusal, not `undefined` — so "is it still
+// there?" is asked by catching the refusal, not by comparing to `undefined`.
+function orderStillReadable(id: string): boolean {
+  try {
+    mockGetOrder(id)
+    return true
+  } catch {
+    return false
+  }
+}
 function stocked(min: number): string {
   const ids = new Set<string>()
   for (const id of allOrderIds()) for (const i of mockGetOrder(id)!.items) ids.add(i.productId)
@@ -339,14 +349,14 @@ describe('LAYER 12 — what a delete leaves behind', () => {
     const heldAfter = mockGetReservations({ orderId: order.id }).length
     const shortAfter = await deficitsFor(order.id)
     say('after DELETE the whole order   :', order.id)
-    say('  order still readable?        :', mockGetOrder(order.id) !== undefined)
+    say('  order still readable?        :', orderStillReadable(order.id))
     say('  deficit records for it       :', shortAfter.length)
     say('  reservation records          :', heldAfter)
     shortAfter.forEach((d) =>
       say(`    ${d.id} ${d.deficitAmount} ${d.uomId} "${d.notes}" status=${d.status}`),
     )
 
-    expect(mockGetOrder(order.id), report('LAYER 12 — the order did not delete')).toBeUndefined()
+    expect(orderStillReadable(order.id), report('LAYER 12 — the order did not delete')).toBe(false)
     expect(heldAfter, report('LAYER 12 — a deleted order kept its reservations')).toBe(0)
     expect(
       shortAfter.map((d) => `${d.id} ${d.deficitAmount} ${d.uomId} "${d.notes}"`),

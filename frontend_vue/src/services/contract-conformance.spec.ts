@@ -15,7 +15,7 @@
  * План: `roo_code/plans/api/contract-sync-plan.md`.
  */
 import { describe, expect, it } from 'vitest'
-import { domainOf, scanCode, scanContract, syncedDomains } from './contractInventory'
+import { domainOf, scanBackend, scanCode, scanContract, syncedDomains } from './contractInventory'
 
 /**
  * Пол инвентаря — замер 2026-09-03: 175 эндпоинтов в 17 доменах.
@@ -40,6 +40,7 @@ const byText = (a: string, b: string): number => a.localeCompare(b)
 const code = scanCode()
 const documented = scanContract()
 const synced = syncedDomains()
+const backend = scanBackend()
 
 describe('инвентарь эндпоинтов извлекается, а не выглядит извлечённым', () => {
   it('находит не меньше замеренного минимума', () => {
@@ -130,6 +131,40 @@ describe('контракт описывает то, что код зовёт', (
       .map(([key, ref]) => `${key}  → api/${ref.file}, ожидался api/${domainOf(key)}.md`)
       .sort(byText)
     expect(misplaced, 'раздел лежит не в файле своего домена').toEqual([])
+  })
+})
+
+describe('строка `Бэкенд:` не расходится с инвентарём роутов', () => {
+  /*
+   * Пока писала ночь, эта строка не проверялась ничем: раздел мог продолжать утверждать
+   * «не реализован» про роут, который уже появился в бэкенде, и наоборот. `scanBackend()` уже
+   * знает и то, и то — сравнение по каждому эндпоинту отдельно.
+   */
+  it('у эндпоинта с роутом бэкенда строка `Бэкенд:` есть и не объявляет отсутствие', () => {
+    const stale = [...documented]
+      .filter(([key]) => backend.has(key))
+      .filter(([, ref]) => ref.backend !== 'present')
+      .map(
+        ([key, ref]) =>
+          `${key}  (api/${ref.file}:${ref.line}) — ` +
+          (ref.backend === null
+            ? 'строки `Бэкенд:` нет, а роут есть'
+            : 'строка `Бэкенд:` объявляет отсутствие, а роут есть'),
+      )
+      .sort(byText)
+    expect(stale, 'роут появился в коде — обновить строку `Бэкенд:` раздела').toEqual([])
+  })
+
+  it('у эндпоинта без роута бэкенда строка `Бэкенд:` не объявляет наличие', () => {
+    const wrong = [...documented]
+      .filter(([key]) => !backend.has(key))
+      .filter(([, ref]) => ref.backend === 'present')
+      .map(
+        ([key, ref]) =>
+          `${key}  (api/${ref.file}:${ref.line}) — строка \`Бэкенд:\` объявляет наличие, роута нет`,
+      )
+      .sort(byText)
+    expect(wrong, 'строка `Бэкенд:` заявляет роут, которого нет в бэкенде').toEqual([])
   })
 })
 

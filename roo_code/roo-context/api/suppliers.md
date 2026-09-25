@@ -44,7 +44,7 @@ backend/app/modules/suppliers --include=*.py` не даёт ни одного п
 (список и канбан), [`composables/useSupplierCard.ts`](../../../frontend_vue/src/composables/useSupplierCard.ts)
 (карточка), [`composables/useSupplierCreate.ts`](../../../frontend_vue/src/composables/useSupplierCreate.ts)
 (создание), плюс четыре чужих экрана, зовущих домен как справочник:
-`composables/useProductCard.ts:141-144`, `composables/useCategoryCard.ts:66-69`,
+`composables/useProductCard.ts:141-144`, `composables/useCategoryCard.ts:71-74`,
 `views/admin/warehouse/WarehousePage.vue:525`, `composables/useWarehouseBatchCreate.ts:297`.
 
 ## Правила домена
@@ -113,23 +113,28 @@ backend/app/modules/suppliers --include=*.py` не даёт ни одного п
 хранения** от него не зависит: таблицы уже созданы миграцией. Там, где тип фронта расходится со
 схемой, расхождение — на стороне фронта, и все четыре собраны в БАГ-06.
 
-**Решено 2026-09-11 (П68, П72): две колонки удаляются, третья остаётся с обязанностью.**
-`has_deficit` и `last_bcc_date` (`backend/app/modules/suppliers/shared/models.py:58-61`) удаляются —
-оба значения выводятся при чтении, и сегодня их не пишет никто. `priceHistory`, наоборот,
+**Решено 2026-09-11 (П68, П72), выполнено T1: две колонки удалены, третья остаётся с
+обязанностью.** `has_deficit` и `last_bcc_date` удалены из `Supplier` ревизией
+`backend/alembic/versions/b8f3d0c62a71_suppliers_t1_derived_and_types.py` — оба значения
+выводятся при чтении, и до удаления их не писал никто. `priceHistory`, наоборот,
 **хранится** и обновляется **событием**: она склеена из прайс-леджера и журнала BCC, то есть из
 чужого модуля, и это названное исключение ([§17.1](00-conventions.md)). Контракт обязан
 перечислить все события, двигающие её: запись прайса и приём ответа BCC.
 
-**Решено 2026-09-10 (П67): страна поставщика становится кодом.** Свободного текста в поле страны
-не остаётся нигде — правило общее для компании, клиента и поставщика ([§14](00-conventions.md)).
-Полей у поставщика **два**: `Supplier.country` (`String(100)`, nullable,
-`backend/app/modules/suppliers/shared/models.py:38`; во фронте `types/supplier.ts:21`) и
-`SupplierAddress.country` (`String(100)`, `NOT NULL`,
-`backend/app/modules/suppliers/shared/models.py:103`; во фронте
-`types/supplier.ts:88`). Оба хранят код ISO 3166-1 alpha-2 из закрытого списка
-(`domain/countries.ts`), сервер обязан проверять его предикатом, а выбор в интерфейсе — быть с
-поиском по названиям на всех языках и по коду. Своей вёрстки у поля нет: страна приходит через
-библиотеку полей карточки, `f-country` (`services/mocks/config.ts:63`), то есть меняется тип поля.
+**Решено 2026-09-10 (П67), выполнено T2: страна поставщика — код.** Свободного текста в поле
+страны не остаётся нигде — правило общее для компании, клиента и поставщика
+([§14](00-conventions.md)). Полей у поставщика **два**, и схема их уже сузила ревизией
+`backend/alembic/versions/d41f6a7c02b9_suppliers_t2_notes_and_country.py`:
+`Supplier.country` (`String(2)`, nullable,
+`backend/app/modules/suppliers/shared/models.py`; во фронте `types/supplier.ts:21`) и
+`SupplierAddress.country` (`String(2)`, `NOT NULL`,
+`backend/app/modules/suppliers/shared/models.py`; во фронте
+`types/supplier.ts:88`). Оба обязаны хранить код ISO 3166-1 alpha-2 из закрытого списка
+(`domain/countries.ts`); предиката проверки на этих двух колонках схема сегодня не накладывает —
+писать в них сегодня некому, у модуля нет ни одного роута, — а выбор в интерфейсе будущего
+эндпоинта обязан быть с поиском по названиям на всех языках и по коду. Своей вёрстки у поля нет:
+страна приходит через библиотеку полей карточки, `f-country` (`services/mocks/config.ts:63`), то
+есть меняется тип поля.
 
 Перенос посева показывает, зачем правило: сегодня там `'Estonia'`, `'Lithuania'`, `'Sweden'`,
 `'Latvia'`, `'Germany'` и `'UK'` (`services/mocks/suppliers.ts:17`, `:117`) — английские названия
@@ -138,10 +143,10 @@ backend/app/modules/suppliers --include=*.py` не даёт ни одного п
 
 | фронт | схема | что это значит серверу |
 |---|---|---|
-| `SupplierAddress.line2?: string` (`frontend_vue/src/types/supplier.ts:83-90`) | колонки нет (`backend/app/modules/suppliers/shared/models.py:98-107`) | второй строки адреса хранить негде |
-| контакт: `role: TranslatedString` (`frontend_vue/src/types/supplier.ts:92-97`) | `position: String(255)`, непереводимый (`backend/app/modules/suppliers/shared/models.py:130`) | и имя поля, и переводимость разные |
-| файл: `size`, `type` на записи (`frontend_vue/src/types/supplier.ts:99-105`) | ссылка `file_id` → `uploaded_files` с `ondelete="RESTRICT"`, своих `size`/`mime` нет (`backend/app/modules/suppliers/shared/models.py:157-165`) | размер и тип — производные от файла, а не поля карточки |
-| `SupplierPriceEntry` — семь полей, включая `stock`, `source`, `status` (`frontend_vue/src/types/supplier.ts:56-70`) | `supplier_price_entries` знает `price`, `unit`, `entry_date`, `notes`, `product_id`; трёх полей нет, а `unit` — `String(20)` против `TranslatedString \| null` (`backend/app/modules/suppliers/shared/models.py:204-234`, `backend/app/modules/suppliers/shared/models.py:227`) | либо склейку делает сервер при чтении из двух таблиц, либо схема неполна — **осталось** |
+| `SupplierAddress.line2?: string` (`frontend_vue/src/types/supplier.ts:83-90`) | колонки нет (`backend/app/modules/suppliers/shared/models.py:99-108`) | второй строки адреса хранить негде |
+| контакт: `role: TranslatedString` (`frontend_vue/src/types/supplier.ts:92-97`) | position_translations, JSONB (T1) | переводимость сошлась, расходится только имя поля |
+| файл: `size`, `type` на записи (`frontend_vue/src/types/supplier.ts:99-105`) | ссылка `file_id` → `uploaded_files` с `ondelete="RESTRICT"`, своих `size`/`mime` нет (`backend/app/modules/suppliers/shared/models.py:158-166`) | размер и тип — производные от файла, а не поля карточки |
+| `SupplierPriceEntry` — семь полей, включая `stock`, `source`, `status` (`frontend_vue/src/types/supplier.ts:56-70`) | `supplier_price_entries` знает `price`, `unit`, `entry_date`, `notes`, `product_id`; трёх полей нет, а `unit` — `String(20)` против `TranslatedString \| null` (`backend/app/modules/suppliers/shared/models.py:205-235`, `backend/app/modules/suppliers/shared/models.py:228`) | либо склейку делает сервер при чтении из двух таблиц, либо схема неполна — **осталось** |
 
 ## Каталог кодов ошибок домена
 
@@ -150,7 +155,7 @@ backend/app/modules/suppliers --include=*.py` не даёт ни одного п
 | код | когда | где |
 |---|---|---|
 | `SUPPLIER_NOT_FOUND` | карточки поставщика нет в состоянии | `frontend_vue/src/services/mocks/suppliers.ts:458` |
-| `AUDIT_ENTRY_NOT_FOUND` | запись с таким `entryId` не найдена | `frontend_vue/src/services/mocks/suppliers.ts:460` |
+| `AUDIT_ENTRY_NOT_FOUND` | запись с таким `entryId` не найдена | `frontend_vue/src/services/mocks/suppliers.ts:466` |
 
 Ни один не подстрока другого, и ни один **не доходит до человека**: карточка ловит любую ошибку и
 показывает общий тост `msg.status_error`
@@ -180,7 +185,7 @@ backend/app/modules/suppliers --include=*.py` не даёт ни одного п
 Страница списка и канбан. Чтение: `onMounted → load()`, любое изменение фильтров и пагинации
 (`frontend_vue/src/composables/useSuppliers.ts:60-78`). Тот же эндпоинт зовут как справочник с
 `pageSize: 999` карточка товара (`frontend_vue/src/composables/useProductCard.ts:141-144`) и
-карточка категории (`frontend_vue/src/composables/useCategoryCard.ts:66-69`).
+карточка категории (`frontend_vue/src/composables/useCategoryCard.ts:71-74`).
 
 Запрос — query-строка, все значения строками
 (`frontend_vue/src/services/suppliersService.ts:10-19`):
@@ -290,7 +295,7 @@ Save-режим: чтение. Вызывающие — фильтр стран�
 Пробел аудита (а) закрыт фактом: в прежнем контракте этого эндпоинта не было вовсе, раздел
 написан впервые.
 
-Бэкенд: **не реализован**.
+Бэкенд: `backend/app/modules/suppliers/features/supplier_reference/action.py:25` (`list_suppliers_reference`) — справочник сужен по арендатору, название приходит `TranslatedString`, а не плоской строкой одной локали.
 Реализация: `services/suppliersService.ts:98` (`getSupplierList`) · мок `mocks/index.ts:325`
 (ветка `/api/suppliers/list`, отдаёт `MOCK_SUPPLIERS.map`)
 
@@ -307,8 +312,8 @@ Save-режим: чтение. Вызывающие — фильтр стран�
 
 Ответ — **CSV текстом, без конверта**. Мок отдаёт строку с заголовком
 `id,company,email,phone,status,rating,leadTime,categories`, категории склеены `;`
-(`frontend_vue/src/services/mocks/suppliers.ts:519-535`,
-`frontend_vue/src/services/mocks/suppliers.ts:521`); в колонку `company` попадает русская локаль.
+(`frontend_vue/src/services/mocks/suppliers.ts:525-541`,
+`frontend_vue/src/services/mocks/suppliers.ts:527`); в колонку `company` попадает русская локаль.
 Клиент типизирует ответ как `string` (`frontend_vue/src/services/suppliersService.ts:93`).
 
 **Клиент прочитать этот ответ не может.** `apiGet` делает `await res.json()`, при провале
@@ -320,7 +325,7 @@ Save-режим: чтение. Вызывающие — фильтр стран�
 фронт, а не развилка контракта.
 
 Ошибки: ни одной — `mockExportSuppliersCsv` не бросает
-(`frontend_vue/src/services/mocks/suppliers.ts:519-535`).
+(`frontend_vue/src/services/mocks/suppliers.ts:525-541`).
 
 Save-режим: чтение, разовое действие.
 
@@ -341,7 +346,7 @@ frontend_vue/src` даёт только объявление (`frontend_vue/src/
 
 Бэкенд: **не реализован**.
 Реализация: `services/suppliersService.ts:93` (`exportSuppliersCsv`) · мок `mocks/index.ts:315`
-(ветка `/api/suppliers/export.csv`) → `mocks/suppliers.ts:519` (`mockExportSuppliersCsv`)
+(ветка `/api/suppliers/export.csv`) → `mocks/suppliers.ts:525` (`mockExportSuppliersCsv`)
 
 ---
 
@@ -399,16 +404,25 @@ Save-режим: чтение. `onMounted(load)` карточки
 History» (`views/admin/suppliers/SupplierCardPage.vue:275`); `SupplierHistoryItem`
 (`types/supplier.ts:107-112`) её дублирует и потому уходит.
 
-Заметка: **свободный текст, у каждой дата и автор, число не ограничено.** То есть поле
-`notes: string` (`types/supplier.ts:24`) становится списком записей, и сервер обязан хранить их
-записями, а не одной строкой.
+Заметка: **свободный текст, у каждой дата и автор, число не ограничено.** Схема эту обязанность
+уже несёт: таблица `supplier_notes` (модель `SupplierNote` в
+`backend/app/modules/suppliers/shared/models.py`) хранит записи по одной на заметку, с `created_at`
+и автором в **двух** полях — ссылкой `author_id` (`ondelete="SET NULL"`) и снимком имени
+`author_name` (`NOT NULL`). Две формы здесь не дубль: ссылка переживает удаление пользователя как
+`NULL`, а снимок остаётся читаемым и после него. Таблицу завела ревизия
+`backend/alembic/versions/e7a3c81b04f6_supplier_notes_records.py`, а ревизия T2
+`backend/alembic/versions/d41f6a7c02b9_suppliers_t2_notes_and_country.py` убрала прежнюю колонку
+`Supplier.notes` (`Text`), которую эта таблица заменила. `relationship` между `Supplier` и
+`SupplierNote` нет намеренно: каскад держит внешний ключ `supplier_id`.
 
-Сегодня они лежат в одной строке, склеенные пустой строкой, с датой первой строчкой блока, и
-разбираются регуляркой обратно (`components/admin/SupplierFormSections.vue:95-121`:
+Фронт при этом расходится со схемой и пока остаётся прежним: поле `notes: string`
+(`types/supplier.ts:24`) на клиенте лежит одной строкой, склеенной пустой строкой, с датой первой
+строчкой блока, и разбирается регуляркой обратно (`components/admin/SupplierFormSections.vue:95-121`:
 запись — `:100-102`, чтение — `split(/\n\n+/)` `:108`, удаление — `:117-121`). Отсюда четыре
 следствия, каждое проверяемо: **автора нет вовсе** (`addNote` пишет только дату и текст),
 заметка с пустой строкой внутри разваливается на две, удаление одной переписывает всё поле
-целиком, и ни отфильтровать, ни разбить на страницы нельзя.
+целиком, и ни отфильтровать, ни разбить на страницы нельзя. Клиент обязан перейти на список
+записей — работа фронта, не схемы.
 
 Форма берётся у клиента — там та же потребность уже решена записями с автором:
 `InteractionHistoryEntry { date, type, summary, user }` (`types/client.ts:5-13`). Держать в
@@ -420,16 +434,16 @@ History» (`views/admin/suppliers/SupplierCardPage.vue:275`); `SupplierHistoryIt
 `suppliers · Производные значения · склеивает ли сервер`.
 
 Бэкенд: **не реализован** — таблицы карточки есть (адреса, контакты, файлы, аудит, цены:
-`backend/app/modules/suppliers/shared/models.py:81`,
-`backend/app/modules/suppliers/shared/models.py:112`,
-`backend/app/modules/suppliers/shared/models.py:140`,
-`backend/app/modules/suppliers/shared/models.py:170`,
-`backend/app/modules/suppliers/shared/models.py:204`), эндпоинта нет.
+`backend/app/modules/suppliers/shared/models.py:82`,
+`backend/app/modules/suppliers/shared/models.py:113`,
+`backend/app/modules/suppliers/shared/models.py:141`,
+`backend/app/modules/suppliers/shared/models.py:171`,
+`backend/app/modules/suppliers/shared/models.py:205`), эндпоинта нет.
 Реализация: `services/suppliersService.ts:24` (`getSupplier`) · мок `mocks/index.ts:348`
 (ветка `^/api/suppliers/([^/]+)$`) → `mocks/suppliers.ts:305` (`mockGetSupplier`)
 
 > Страховка `&& !path.includes('/status')` в ветке мока
-> (`frontend_vue/src/services/mocks/index.ts:349`) недостижима: класс `[^/]` слэш в сегменте уже
+> (`frontend_vue/src/services/mocks/index.ts:440`) недостижима: класс `[^/]` слэш в сегменте уже
 > исключил. Порядок разбора веток мока — часть контракта (§18 соглашений), и у сервера с одним
 > маршрутом `/{id}` он обратный по построению: `/api/suppliers/list` и
 > `/api/suppliers/export.csv` обязаны быть объявлены **до** `/{supplier_id}`, иначе попадут в него
@@ -458,21 +472,21 @@ History» (`views/admin/suppliers/SupplierCardPage.vue:275`); `SupplierHistoryIt
 (`frontend_vue/src/services/suppliersService.ts:62-79`).
 
 Ответ — `SupplierCardData` целиком с присвоенным `id`
-(`frontend_vue/src/services/mocks/suppliers.ts:464-517`); клиент по нему редиректит на карточку
+(`frontend_vue/src/services/mocks/suppliers.ts:470-523`); клиент по нему редиректит на карточку
 (`frontend_vue/src/composables/useSupplierCreate.ts:68-69`). Возврат — JSON-roundtrip, а не
 `structuredClone`, потому что приходит реактивный Proxy
-(`frontend_vue/src/services/mocks/suppliers.ts:513-516`); для сервера это свойство мока, не
+(`frontend_vue/src/services/mocks/suppliers.ts:519-522`); для сервера это свойство мока, не
 правило.
 
 Ошибки: серверных нет — `mockCreateSupplier` не бросает
-(`frontend_vue/src/services/mocks/suppliers.ts:464-517`). Валидация целиком клиентская и
+(`frontend_vue/src/services/mocks/suppliers.ts:470-523`). Валидация целиком клиентская и
 возвращает не коды, а ключи `company_required` / `email_required`
 (`frontend_vue/src/composables/useSupplierCreate.ts:53-57`). Сервер обязан отвечать
 `422 VALIDATION_ERROR` (`backend/app/core/exceptions.py:23-27`) при отсутствии `company` или
 `email`, и — чтобы форма подсветила поле — присылать код, а не только текст (§1, §2 соглашений).
 
 **Осталось (пробел аудита, а):** форма id. Мок продолжает числовой ряд — `max(number) + 1`
-(`frontend_vue/src/services/mocks/suppliers.ts:465`), справочник изготавливает `sup-NNN`, схема
+(`frontend_vue/src/services/mocks/suppliers.ts:471`), справочник изготавливает `sup-NNN`, схема
 даёт UUID (`UUIDMixin`, `backend/app/modules/suppliers/shared/models.py:14`). Три формы одного
 идентификатора; строка владельцу `suppliers · Источник истины (форма id)`, БАГ-02.
 
@@ -480,11 +494,11 @@ History» (`views/admin/suppliers/SupplierCardPage.vue:275`); `SupplierHistoryIt
 (`status='new'`, `rating=0`, `lead_time=0`, `currency='EUR'` —
 `backend/app/modules/suppliers/shared/models.py:29-31`,
 `backend/app/modules/suppliers/shared/models.py:35-37`,
-`backend/app/modules/suppliers/shared/models.py:44-46`,
-`backend/app/modules/suppliers/shared/models.py:50-52`), у `payment_terms` дефолта нет вовсе
-(`backend/app/modules/suppliers/shared/models.py:53`). Во фронте те же значения расставлены заново
-и в двух местах: мок (`frontend_vue/src/services/mocks/suppliers.ts:483`,
-`frontend_vue/src/services/mocks/suppliers.ts:494-495`) и фабрика формы
+`backend/app/modules/suppliers/shared/models.py:43-45`,
+`backend/app/modules/suppliers/shared/models.py:49-51`), у `payment_terms` дефолта нет вовсе
+(`backend/app/modules/suppliers/shared/models.py:52`). Во фронте те же значения расставлены заново
+и в двух местах: мок (`frontend_vue/src/services/mocks/suppliers.ts:489`,
+`frontend_vue/src/services/mocks/suppliers.ts:500-501`) и фабрика формы
 (`frontend_vue/src/composables/useSupplierCreate.ts:31-32`), причём валюту фабрика берёт из
 настроек, а мок зашивает `'EUR'`. Строки владельцу
 `suppliers · Значения по умолчанию и их владелец` (четыре строки).
@@ -498,12 +512,12 @@ History» (`views/admin/suppliers/SupplierCardPage.vue:275`); `SupplierHistoryIt
 
 Идемпотентность: `Idempotency-Key` клиент не шлёт
 (`grep -c Idempotency frontend_vue/src/services/suppliersService.ts` → 0), при том что генератор
-ключа в проекте есть (`frontend_vue/src/services/api.ts:239-245`). Нужен ли он созданию — строка
+ключа в проекте есть (`frontend_vue/src/services/api.ts:258-264`). Нужен ли он созданию — строка
 владельцу; правило «необратимый POST требует ключ» — §11 соглашений.
 
 Бэкенд: **не реализован**.
 Реализация: `services/suppliersService.ts:62` (`createSupplier`) · мок `mocks/index.ts:939`
-(ветка `/api/suppliers`) → `mocks/suppliers.ts:464` (`mockCreateSupplier`)
+(ветка `/api/suppliers`) → `mocks/suppliers.ts:470` (`mockCreateSupplier`)
 
 ---
 
@@ -559,7 +573,7 @@ last-write-wins, как в остальных шестнадцати домен�
 **Осталось (пробел аудита а):** пишет ли сервер записи аудита по diff. Прежний контракт этого
 требовал; в коде нет ни одной записи —
 `grep -c "auditLog.push" frontend_vue/src/services/mocks/suppliers.ts` → 0, а таблица на бэкенде
-готова (`backend/app/modules/suppliers/shared/models.py:170-201`). Строки владельцу
+готова (`backend/app/modules/suppliers/shared/models.py:171-202`). Строки владельцу
 `suppliers · Запись в аудит-лог`.
 
 **Осталось (в):** как карточка передаёт файлы. Прежний контракт требовал `fileIds: string[]` —
@@ -568,7 +582,7 @@ last-write-wins, как в остальных шестнадцати домен�
 (`frontend_vue/src/views/admin/suppliers/SupplierCardPage.vue:41-52`) и вырезает по id при удалении
 (`frontend_vue/src/views/admin/suppliers/SupplierCardPage.vue:54-57`), и именно этот массив попадает
 в дельту; `fileIds` в домене не встречается ни разу. Схема при этом хранит ссылку `file_id`
-(`backend/app/modules/suppliers/shared/models.py:157-165`), то есть клиент и схема расходятся, и
+(`backend/app/modules/suppliers/shared/models.py:158-166`), то есть клиент и схема расходятся, и
 схема старше. Строка владельцу `suppliers · Форма запроса · как карточка передаёт файлы`. Общее
 правило двух фаз (загрузка и привязка) — §16 соглашений.
 
@@ -580,7 +594,7 @@ last-write-wins, как в остальных шестнадцати домен�
 `'Prepayment'` → `'30 Days Net'` (`frontend_vue/src/services/mocks/suppliers.ts:242-243`),
 `'1000 EUR'` → `'2500 EUR'` (`frontend_vue/src/services/mocks/suppliers.ts:251-252`), то есть
 противоположное; на схеме это `Text` без формата
-(`backend/app/modules/suppliers/shared/models.py:195-196`). Ни один тест формат не защищает. Строка
+(`backend/app/modules/suppliers/shared/models.py:196-197`). Ни один тест формат не защищает. Строка
 владельцу `suppliers · Запись в аудит-лог · в каком формате сервер пишет`.
 
 Транзакционность: PATCH, меняющий поле, обязан одной транзакцией дописать запись аудита — иначе
@@ -589,7 +603,7 @@ last-write-wins, как в остальных шестнадцати домен�
 `suppliers · Транзакционность и идемпотентность`.
 
 Бэкенд: **не реализован**.
-Реализация: `services/suppliersService.ts:33` (`patchSupplier`) · мок `mocks/index.ts:1193`
+Реализация: `services/suppliersService.ts:33` (`patchSupplier`) · мок `mocks/index.ts:1195`
 (ветка `^/api/suppliers/([^/]+)$`) → `mocks/suppliers.ts:411` (`mockPatchSupplier`)
 
 ---
@@ -610,11 +624,11 @@ last-write-wins, как в остальных шестнадцати домен�
 ```
 
 Значение — один из шести статусов (правило домена 1); мок читает ровно его
-(`frontend_vue/src/services/mocks/index.ts:1186-1191`).
+(`frontend_vue/src/services/mocks/index.ts:1188-1193`).
 
 Ответ: **`void`**. Клиент объявлен `Promise<void>` и ответ выбрасывает
 (`frontend_vue/src/services/suppliersService.ts:54-56`), мок возвращает `undefined`
-(`frontend_vue/src/services/mocks/index.ts:1190`). Прежний контракт обещал здесь обновлённый
+(`frontend_vue/src/services/mocks/index.ts:1192`). Прежний контракт обещал здесь обновлённый
 `Supplier` — не подтверждено кодом, см. «Чего в домене нет».
 
 Правило переходов — **из прежнего контракта, кодом не выражено**: разрешены любые переходы
@@ -642,7 +656,7 @@ last-write-wins, как в остальных шестнадцати домен�
 нигде.
 
 Бэкенд: **не реализован**.
-Реализация: `services/suppliersService.ts:55` (`patchSupplierStatus`) · мок `mocks/index.ts:1186`
+Реализация: `services/suppliersService.ts:55` (`patchSupplierStatus`) · мок `mocks/index.ts:1188`
 (ветка `^/api/suppliers/([^/]+)/status$`) → `mocks/suppliers.ts:451`
 (`mockUpdateSupplierStatus`)
 
@@ -656,11 +670,11 @@ last-write-wins, как в остальных шестнадцати домен�
 
 Запрос: тела нет — `apiDelete<void>` без body
 (`frontend_vue/src/services/suppliersService.ts:82-84`). Заголовков клиент не шлёт; `deleteMockRoute`
-читает `If-Match` для других доменов (`frontend_vue/src/services/mocks/index.ts:1428`), но эта
-ветка значение игнорирует (`frontend_vue/src/services/mocks/index.ts:1429-1433`) — то есть
+читает `If-Match` для других доменов (`ifMatchVersion` в `frontend_vue/src/services/mocks/index.ts`), но эта
+ветка значение игнорирует (`frontend_vue/src/services/mocks/index.ts:1431-1435`) — то есть
 удаление записи аудита от проверки версии освобождено, как и в общей ленте (§11 соглашений).
 
-Ответ: `void` (`frontend_vue/src/services/mocks/index.ts:1432`). UI ответ не читает, а вычёркивает
+Ответ: `void` (`frontend_vue/src/services/mocks/index.ts:270`). UI ответ не читает, а вычёркивает
 запись у себя (`frontend_vue/src/views/admin/suppliers/SupplierCardPage.vue:74`).
 
 Ошибки — единственные два кода домена: `SUPPLIER_NOT_FOUND` и `AUDIT_ENTRY_NOT_FOUND`
@@ -688,8 +702,8 @@ frontend_vue/src/services/mocks/suppliers.ts` → 0. Пробел аудита (
 графа «Права».
 
 Бэкенд: **не реализован** — таблица `supplier_audit_entries` есть
-(`backend/app/modules/suppliers/shared/models.py:170-201`), эндпоинта нет.
-Реализация: `services/suppliersService.ts:83` (`deleteAuditEntry`) · мок `mocks/index.ts:1429`
+(`backend/app/modules/suppliers/shared/models.py:171-202`), эндпоинта нет.
+Реализация: `services/suppliersService.ts:83` (`deleteAuditEntry`) · мок `mocks/index.ts:1431`
 (ветка `^/api/suppliers/([^/]+)/audit/([^/]+)$`) → `mocks/suppliers.ts:456`
 (`mockDeleteAuditEntry`)
 
@@ -704,11 +718,11 @@ frontend_vue/src/services/mocks/suppliers.ts` → 0. Пробел аудита (
 **1. Значения по умолчанию и их владелец.** Бэкенд владеет четырьмя: `status='new'`, `rating=0`,
 `lead_time=0`, `currency='EUR'` (`backend/app/modules/suppliers/shared/models.py:29-31`,
 `backend/app/modules/suppliers/shared/models.py:35-37`,
-`backend/app/modules/suppliers/shared/models.py:44-46`,
-`backend/app/modules/suppliers/shared/models.py:50-52`); у `payment_terms` дефолта нет
-(`backend/app/modules/suppliers/shared/models.py:53`). Во фронте те же значения расставлены заново
-и дважды — мок (`frontend_vue/src/services/mocks/suppliers.ts:483`,
-`frontend_vue/src/services/mocks/suppliers.ts:494-495`) и фабрика формы создания
+`backend/app/modules/suppliers/shared/models.py:43-45`,
+`backend/app/modules/suppliers/shared/models.py:49-51`); у `payment_terms` дефолта нет
+(`backend/app/modules/suppliers/shared/models.py:52`). Во фронте те же значения расставлены заново
+и дважды — мок (`frontend_vue/src/services/mocks/suppliers.ts:489`,
+`frontend_vue/src/services/mocks/suppliers.ts:500-501`) и фабрика формы создания
 (`frontend_vue/src/composables/useSupplierCreate.ts:31-32`), — и два из них расходятся:
 `paymentTerms: '30 Days Net'` есть у обеих сторон фронта и отсутствует на сервере, а валюту фабрика
 берёт из настроек арендатора, мок зашивает литералом. Плюс три справочника формы константами в
@@ -736,7 +750,7 @@ frontend_vue/src/services/mocks/suppliers.ts` → 0. Пробел аудита (
 карточки на лету (`frontend_vue/src/services/mocks/suppliers.ts:385-404`), причём с одинаковыми id
 у всех поставщиков. Таблица на бэкенде готова и знает автора: `user_id` с `ondelete="SET NULL"`,
 замороженные переводы имени, инициалы, переводимое имя свойства, `old_value`, `new_value`,
-`timestamp` (`backend/app/modules/suppliers/shared/models.py:170-201`) — то есть автор хранится как
+`timestamp` (`backend/app/modules/suppliers/shared/models.py:171-202`) — то есть автор хранится как
 снимок, а не только ссылкой (§9 соглашений). Формат записи — `StockAuditEntry`
 (`frontend_vue/src/types/warehouse.ts:526-534`). Признака `sensitive` нет ни у типа, ни у схемы
 (`grep -rn sensitive backend/app/modules/suppliers frontend_vue/src/types/supplier.ts` — пусто).
@@ -748,7 +762,7 @@ frontend_vue/src/services/mocks/suppliers.ts` → 0. Пробел аудита (
 
 **4. Кастомные поля.** Определения полей и разделов карточки поставщика физически объявлены
 **внутри модуля suppliers** — `FieldDefinition`, `SectionConfig`, `SectionField`
-(`backend/app/modules/suppliers/shared/models.py:240-326`), а таблицы создаёт миграция чужой фазы
+(`backend/app/modules/suppliers/shared/models.py:241-327`), а таблицы создаёт миграция чужой фазы
 (`backend/alembic/versions/e24a3922ed01_phase_7_config.py:28,44,57`). Фронт ходит за ними в домен
 `config` (`frontend_vue/src/services/configService.ts:7`,
 `frontend_vue/src/services/configService.ts:46`,
@@ -777,7 +791,7 @@ frontend_vue/src/components/admin/SupplierFormSections.vue` — пусто, фо
 тоже не являются: `'Legal'` подставляется двумя местами фронта
 (`frontend_vue/src/services/mocks/suppliers.ts:319`,
 `frontend_vue/src/composables/useSupplierCreate.ts:35`), а три разрешённых значения существуют
-только комментарием схемы (`backend/app/modules/suppliers/shared/models.py:98-100`).
+только комментарием схемы (`backend/app/modules/suppliers/shared/models.py:99-101`).
 **Решено 2026-09-07 (П26).** Типы адреса и категории поставщика остаются **в коде**, одним
 источником вместо копий, и сервер их валидирует; список типов адреса замкнутый — три значения,
 существующие сегодня только комментарием схемы, становятся проверкой. **Условия оплаты
@@ -793,7 +807,7 @@ frontend_vue/src/components/admin/SupplierFormSections.vue` — пусто, фо
 backend/app/modules/suppliers/shared/models.py` → 10, все с
 `ForeignKey("tenants.id", ondelete="CASCADE")`, `nullable=False`, `index=True` (например
 `backend/app/modules/suppliers/shared/models.py:19-24`,
-`backend/app/modules/suppliers/shared/models.py:209-214`). Фронт про арендатора не знает ничего:
+`backend/app/modules/suppliers/shared/models.py:210-215`). Фронт про арендатора не знает ничего:
 `grep -rn tenant frontend_vue/src/services/suppliersService.ts
 frontend_vue/src/types/supplier.ts` — пусто, заголовка арендатора клиент не шлёт. Значит выборка
 обязана ограничиваться сервером по сессии, и ни один параметр запроса домена этого не выражает.
@@ -839,13 +853,14 @@ frontend_vue/src/types/supplier.ts` — пусто, заголовка арен�
 дефицита; `lastBccDate` (`frontend_vue/src/types/supplier.ts:26`) показывается в списке
 (`frontend_vue/src/views/admin/suppliers/SuppliersListPage.vue:490`) и участвует в построении
 карточки (`frontend_vue/src/services/mocks/suppliers.ts:372`), но отправка BCC его не обновляет —
-`grep -c lastBccDate frontend_vue/src/services/mocks/bcc.ts` → 0. На бэкенде оба — **хранимые
-колонки** (`backend/app/modules/suppliers/shared/models.py:58-61`). `rating` тоже хранится
-(`backend/app/modules/suppliers/shared/models.py:35-37`), правится руками из формы и ниоткуда не
-выводится — это состояние, а не производное. **Осталось:** считает ли сервер `hasDeficit` и
-`lastBccDate` при чтении или хранит и обновляет событием, и склеивает ли `priceHistory` — три
-строки владельцу `suppliers · Производные значения`; общее правило («сервер считает, а не хранит»)
-и перечень таких расхождений — §17 соглашений.
+`grep -c lastBccDate frontend_vue/src/services/mocks/bcc.ts` → 0. На бэкенде обе колонки были
+хранимыми и T1 их удалил (см. «Схема старше типов» выше, П68): значение теперь обязан
+вычислять сервер при чтении, самого вычисления в коде пока нет ни у одного эндпоинта. `rating`
+тоже хранится (`backend/app/modules/suppliers/shared/models.py:35-37`), правится руками из формы
+и ниоткуда не выводится — это состояние, а не производное. **Осталось:** как именно сервер
+считает `hasDeficit` и `lastBccDate` при чтении, и склеивает ли `priceHistory` — строки владельцу
+`suppliers · Производные значения`; общее правило («сервер считает, а не хранит») и перечень таких
+расхождений — §17 соглашений.
 
 ## Клиент написан, UI нет
 
@@ -865,7 +880,34 @@ frontend_vue/src/types/supplier.ts` — пусто, заголовка арен�
 | отдельные эндпоинты `/notes` | там же: ни вызова, ни ветки мока; заметки уезжают полем `notes` в общем PATCH (`frontend_vue/src/types/supplier.ts:24`) |
 | формат поля `notes` — блоки, разделённые `\n\n`, каждый с клиентским timestamp `dd.mm.yyyy hh:mm` | генератора таких блоков нет: `grep -rn "dd.mm.yyyy" frontend_vue/src` — пусто; в коде это свободная строка (`frontend_vue/src/types/supplier.ts:24`) |
 | `search` ищет ещё и по `contactPerson` | мок ищет по трём локалям названия компании и email, и только (`frontend_vue/src/services/mocks/suppliers.ts:262-266`) |
-| `PATCH /api/suppliers/:id/status` отвечает обновлённым `Supplier`, «клиент сверяется с server-state» | клиент объявлен `Promise<void>` и ответ выбрасывает (`frontend_vue/src/services/suppliersService.ts:54-56`), мок возвращает `undefined` (`frontend_vue/src/services/mocks/index.ts:1190`); сверки с ответом нет ни строки |
+| `PATCH /api/suppliers/:id/status` отвечает обновлённым `Supplier`, «клиент сверяется с server-state» | клиент объявлен `Promise<void>` и ответ выбрасывает (`frontend_vue/src/services/suppliersService.ts:54-56`), мок возвращает `undefined` (`frontend_vue/src/services/mocks/index.ts:1192`); сверки с ответом нет ни строки |
 | опциональный `?sort=` как «будущее расширение» списка | параметра нет ни у клиента (`frontend_vue/src/services/suppliersService.ts:10-19`), ни в разборе мока (`frontend_vue/src/services/mocks/index.ts:334-346`) |
-| пример ответа с `"id": "s-1"` — форма id `s-N` | такой формы нет нигде: мок даёт `'1'`…`'6'` и `max(number)+1` (`frontend_vue/src/services/mocks/suppliers.ts:465`), справочник — `sup-NNN` (`frontend_vue/src/services/mocks/index.ts:327-330`), схема — UUID (`backend/app/modules/suppliers/shared/models.py:14`). Какая из трёх канонична — **осталось** |
-| «Колонки: все основные поля `Supplier` + флаги» у экспорта | в коде два конкретных и **разных** набора колонок (`frontend_vue/src/services/mocks/suppliers.ts:521` и `frontend_vue/src/views/admin/suppliers/SuppliersListPage.vue:205-225`); «все поля + флаги» не соответствует ни одному |
+| пример ответа с `"id": "s-1"` — форма id `s-N` | такой формы нет нигде: мок даёт `'1'`…`'6'` и `max(number)+1` (`frontend_vue/src/services/mocks/suppliers.ts:471`), справочник — `sup-NNN` (`frontend_vue/src/services/mocks/index.ts:327-330`), схема — UUID (`backend/app/modules/suppliers/shared/models.py:14`). Какая из трёх канонична — **осталось** |
+| «Колонки: все основные поля `Supplier` + флаги» у экспорта | в коде два конкретных и **разных** набора колонок (`frontend_vue/src/services/mocks/suppliers.ts:527` и `frontend_vue/src/views/admin/suppliers/SuppliersListPage.vue:205-225`); «все поля + флаги» не соответствует ни одному |
+
+
+---
+
+## Согласованные правила после опросника 2026-09-17
+
+**Статус:** спроектировано — перенос подтверждённых требований владельца, не отчёт о реализации.
+Для будущей реализации правила ниже имеют приоритет над прежними вариантами «осталось» и
+противоречащим демонстрационным поведением этого файла. Описания существующих запросов выше
+остаются снимком реализации; изменение форм, миграций и клиентских действий выполняется отдельной
+задачей по этим решениям. Новые маршруты в этом дополнении не выдумываются.
+
+Источник: [заполненный опросник](../../plans/general/вопросы-владельцу-после-сверки-2026-09-17.md) и
+[решения П76–П129](../../plans/api/audit/00-решения-владельца.md#p-76).
+
+| Решение | Обязанность домена и зависимых операций |
+|---|---|
+| [П95](../../plans/api/audit/00-решения-владельца.md#p-95) | Поставщика с запросами цен, партиями или счетами архивируют: он исчезает из выбора для новых операций, но карточка, имя, реквизиты и исторические связи остаются читаемыми по правам. История запросов цен, происхождение партий и финансовые связи не удаляются каскадом. |
+| [П96](../../plans/api/audit/00-решения-владельца.md#p-96) | Поставщик получает признак возможности закрыть нехватку только при наличии связи с конкретным товаром в нехватке. Принадлежности к категории или старого предложения цены самой по себе недостаточно. Это правило отметки и фильтра поставщиков; подбор получателей BCC по категориям из ТЗ 04.2 остаётся отдельным правилом. |
+| [П97](../../plans/api/audit/00-решения-владельца.md#p-97) | Страна поставщика определяется страной юридического адреса. Адреса складов и отгрузки могут находиться в других странах. Правило закрытого списка стран по П67 сохраняется. |
+| [П98](../../plans/api/audit/00-решения-владельца.md#p-98) | Причина обязательна для обоих состояний: заблокирован и приостановлен. Правило одинаково при изменении карточки и быстрой смене статуса; без причины переход не выполняется. |
+| [П99](../../plans/api/audit/00-решения-владельца.md#p-99) | Запрещается повтор непустого номера НДС поставщика в одной стране внутри компании. Совпадение имени или email вызывает предупреждение, но не запрет. Пустой номер НДС не является общим ключом для всех поставщиков без номера. |
+| [П100](../../plans/api/audit/00-решения-владельца.md#p-100) | Компания может редактировать список условий оплаты поставщиков и значение для новой карточки. Новое значение по умолчанию применяется к новым поставщикам, существующие карточки автоматически не переписываются. Возможность, ранее лишь упомянутая в П26, теперь принята. |
+| [П101](../../plans/api/audit/00-решения-владельца.md#p-101) | В форме принятия ответа рядом с ценой показывается валюта поставщика как начальное значение, её можно изменить. Сохраняется фактическая валюта предложения; поздняя смена валюты поставщика не переписывает историческую цену. |
+| [П127](../../plans/api/audit/00-решения-владельца.md#p-127) | Выгрузки поставщиков и пяти складских списков используют фиксированный полный набор колонок соответствующего списка, независимо от скрытия колонок на экране. Состав и порядок — таблица варианта А в В051. Выгружаются все подходящие строки, а не одна страница; недоступные поля исключаются, единицы и валюты указываются, разные валюты не суммируются. |
+
+Прямую связь с товаром для признака нехватки согласовать с существующей привязкой поставщиков в карточке товара; принадлежность категории не заменяет эту связь.

@@ -7,6 +7,26 @@ import type {
 } from '@/types/config'
 import type { TranslatedString } from '@/types/i18n'
 import { mergeTranslatedString } from '@/types/i18n'
+import { ApiRequestError } from '@/types/api'
+
+/** Коды отказа этого мока — заглавная строка, как требует §2 общих соглашений. */
+const CONFIG_REFUSAL_CODES = {
+  fieldNotFound: 'FIELD_NOT_FOUND',
+  sectionNotFound: 'SECTION_NOT_FOUND',
+} as const
+
+type ConfigRefusalCode = (typeof CONFIG_REFUSAL_CODES)[keyof typeof CONFIG_REFUSAL_CODES]
+
+/**
+ * Отказ в форме настоящего сервера: код в поле `code`, а не в тексте — см.
+ * `mocks/settings.ts:419-432`, тот же приём. `status` для обоих кодов этого файла —
+ * 404 по общему правилу §2 («`*_NOT_FOUND` — 404»): `config.md` не называет для
+ * `FIELD_NOT_FOUND`/`SECTION_NOT_FOUND` отдельного статуса, оба случая — неизвестный
+ * `id` в PATCH и DELETE.
+ */
+function mockRefusal(status: number, code: ConfigRefusalCode, message: string): ApiRequestError {
+  return new ApiRequestError({ status, message, code })
+}
 
 export const MOCK_FIELD_LIBRARY: FieldDefinition[] = [
   {
@@ -262,42 +282,59 @@ export function mockGetPermissions(): PermissionMatrix {
   return structuredClone(MOCK_PERMISSIONS)
 }
 
-export function mockSavePermissions(_matrix: PermissionMatrix): void {
-  // no-op in mock
+export function mockSavePermissions(matrix: PermissionMatrix): void {
+  // JSON roundtrip — see mockSaveFieldLibrary for the rationale.
+  const snapshot = JSON.parse(JSON.stringify(matrix)) as PermissionMatrix
+  Object.assign(MOCK_PERMISSIONS, snapshot)
 }
+
+/**
+ * Temporary ids for entities the client creates locally. A module counter, not
+ * `Date.now()` — two creates in the same millisecond used to collide on the same
+ * id (БАГ-14). The real server assigns the permanent id (`gen_random_uuid()` on
+ * the schema); this one only has to be unique for the current mock session.
+ */
+let fieldIdSeq = 0
+let sectionIdSeq = 0
 
 export function mockCreateField(payload: {
   name: TranslatedString
   type: FieldDefinition['type']
 }): FieldDefinition {
   const field: FieldDefinition = {
-    id: `f-custom-${Date.now()}`,
+    id: `f-custom-${++fieldIdSeq}`,
     name: payload.name,
     type: payload.type,
     required: false,
     usageCount: 0,
   }
   MOCK_FIELD_LIBRARY.push(field)
-  return field
+  return structuredClone(field)
 }
 
-export function mockUpdateField(
-  id: string,
-  patch: Partial<FieldDefinition>,
-): FieldDefinition | null {
+export function mockUpdateField(id: string, patch: Partial<FieldDefinition>): FieldDefinition {
   const field = MOCK_FIELD_LIBRARY.find((f) => f.id === id)
-  if (!field) return null
-  // Merge TranslatedString fields to preserve existing locales
-  if (patch.name) {
-    patch.name = mergeTranslatedString(field.name, patch.name)
+  // A field nobody knows is refused by code, the way every neighbouring domain
+  // refuses it. Returning `null` made the mock router answer PATCH with a
+  // successful empty body, while the caller's signature promised a
+  // FieldDefinition — see configService.updateField.
+  if (!field) throw mockRefusal(404, CONFIG_REFUSAL_CODES.fieldNotFound, 'FIELD_NOT_FOUND')
+  // Merge into a local copy — the caller's patch object is not ours to mutate,
+  // and a real server never writes back into the request body it received.
+  const merged: Partial<FieldDefinition> = { ...patch }
+  if (merged.name) {
+    merged.name = mergeTranslatedString(field.name, merged.name)
   }
-  Object.assign(field, patch)
-  return field
+  Object.assign(field, merged)
+  return structuredClone(field)
 }
 
 export function mockDeleteField(id: string): void {
   const idx = MOCK_FIELD_LIBRARY.findIndex((f) => f.id === id)
-  if (idx !== -1) MOCK_FIELD_LIBRARY.splice(idx, 1)
+  // Same refusal as mockUpdateField above: a field nobody knows is an error, not
+  // a successful no-op — its neighbour already treats it that way.
+  if (idx === -1) throw mockRefusal(404, CONFIG_REFUSAL_CODES.fieldNotFound, 'FIELD_NOT_FOUND')
+  MOCK_FIELD_LIBRARY.splice(idx, 1)
   for (const sec of MOCK_SECTIONS) {
     sec.fields = sec.fields.filter((f) => f.fieldId !== id)
   }
@@ -309,7 +346,7 @@ export function mockCreateSection(payload: { name: TranslatedString | string }):
       ? { ru: payload.name, en: payload.name, lt: payload.name }
       : payload.name
   const section: SectionConfig = {
-    id: `sec-new-${Date.now()}`,
+    id: `sec-new-${++sectionIdSeq}`,
     name,
     order: MOCK_SECTIONS.length,
     collapsed: false,
@@ -317,21 +354,25 @@ export function mockCreateSection(payload: { name: TranslatedString | string }):
     fields: [],
   }
   MOCK_SECTIONS.push(section)
-  return section
+  return structuredClone(section)
 }
 
-export function mockUpdateSection(id: string, patch: Partial<SectionConfig>): SectionConfig | null {
+export function mockUpdateSection(id: string, patch: Partial<SectionConfig>): SectionConfig {
   const section = MOCK_SECTIONS.find((s) => s.id === id)
-  if (!section) return null
-  // Merge TranslatedString fields to preserve existing locales
-  if (patch.name) {
-    patch.name = mergeTranslatedString(section.name, patch.name)
+  // Same refusal as mockUpdateField above, and for the same reason.
+  if (!section) throw mockRefusal(404, CONFIG_REFUSAL_CODES.sectionNotFound, 'SECTION_NOT_FOUND')
+  // Merge into a local copy — same reasoning as mockUpdateField.
+  const merged: Partial<SectionConfig> = { ...patch }
+  if (merged.name) {
+    merged.name = mergeTranslatedString(section.name, merged.name)
   }
-  Object.assign(section, patch)
-  return section
+  Object.assign(section, merged)
+  return structuredClone(section)
 }
 
 export function mockDeleteSection(id: string): void {
   const idx = MOCK_SECTIONS.findIndex((s) => s.id === id)
-  if (idx !== -1) MOCK_SECTIONS.splice(idx, 1)
+  // Same refusal as mockDeleteField above.
+  if (idx === -1) throw mockRefusal(404, CONFIG_REFUSAL_CODES.sectionNotFound, 'SECTION_NOT_FOUND')
+  MOCK_SECTIONS.splice(idx, 1)
 }

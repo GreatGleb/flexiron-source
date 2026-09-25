@@ -16,9 +16,13 @@
 
 ---
 
-## БАГ-01 — код ошибки удаления читается из `message`, а настоящий API кладёт его в `code`
+## ✅ БАГ-01 — код ошибки удаления читается из `message`, а настоящий API кладёт его в `code` — ПОЧИНЕН
 
-**File:** `frontend_vue/src/composables/useCategories.ts:43-47`, `frontend_vue/src/services/mocks/index.ts:1491`
+**Закрыто 2026-09-13:** `deleteCategory` читает код через `errorCode(e)`
+(`frontend_vue/src/composables/useCategories.ts:44`), то есть из `ApiRequestError.code`.
+Описание ниже оставлено как история находки.
+
+**File:** `frontend_vue/src/composables/useCategories.ts:43-47`, `frontend_vue/src/services/mocks/index.ts:1493`
 **Severity:** High — против настоящего бэкенда оба осмысленных сообщения об ошибке удаления пропадут, останется общий «что-то пошло не так».
 **Источник:** К3 (каждый код доходит до человекочитаемого сообщения)
 
@@ -31,14 +35,14 @@ const code = e instanceof Error ? e.message : ''
 if (code === 'CATEGORY_HAS_PRODUCTS') { … } else if (code === 'CATEGORY_HAS_CHILDREN') { … }
 ```
 
-Под моками это работает случайно: `mocks/index.ts:1491` бросает `new Error(result.code)`, то
+Под моками это работает случайно: `mocks/index.ts:1493` бросает `new Error(result.code)`, то
 есть кладёт код именно в `message`. Настоящий клиент так не делает — `unwrap()` собирает
 `ApiRequestError`, у которого `message` это человеческий текст сервера, а машинный код лежит
 в отдельном поле `code` (`frontend_vue/src/types/api.ts:28-31`, заполнение —
 `frontend_vue/src/services/api.ts:71-79`). Значит при живом бэкенде обе ветки не сработают
 никогда, и пользователь на попытку удалить непустую категорию получит общий
 `categories.toast_error` вместо «Нельзя удалить — в категории есть товары»
-(`frontend_vue/src/i18n/admin/categories.ts:61-62`).
+(`frontend_vue/src/i18n/admin/categories.ts:62-63`).
 
 ### Fix
 
@@ -96,7 +100,7 @@ $ grep -o "categoryId: 'cat-[0-9]*'" src/services/mocks/products.ts | sort | uni
 
 ## БАГ-03 — селект родителя видит только первые 25 категорий
 
-**File:** `frontend_vue/src/views/admin/products/CategoryCardPage.vue:62-65,88-93`
+**File:** `frontend_vue/src/views/admin/products/CategoryCardPage.vue:63-66,88-93`
 **Severity:** Medium — сегодня в моке 13 категорий, порог не достигнут; у арендатора с 26 категориями 26-ю нельзя выбрать родителем.
 **Источник:** К4 (форма запроса), Contract
 
@@ -106,7 +110,7 @@ $ grep -o "categoryId: 'cat-[0-9]*'" src/services/mocks/products.ts | sort | uni
 а у подписи стоят дефолты `page = 1, pageSize = 25`
 (`frontend_vue/src/services/categoriesService.ts:9-10`). Результат кладётся в `allCategories`
 и напрямую становится списком вариантов родителя
-(`CategoryCardPage.vue:88-93`). Ни признака «есть ещё», ни второй страницы код не запрашивает:
+(`CategoryCardPage.vue:89-94`). Ни признака «есть ещё», ни второй страницы код не запрашивает:
 `res.total` не читается вовсе.
 
 Второй потребитель того же справочника обходит это вручную: `useProductCard.ts:132` зовёт
@@ -115,12 +119,19 @@ $ grep -o "categoryId: 'cat-[0-9]*'" src/services/mocks/products.ts | sort | uni
 
 ### Fix
 
-Либо завести отдельный лёгкий ответ для селектов (весь список без пагинации), либо явно
-запрашивать `pageSize` достаточного размера и проверять `res.total` — тихо обрезанный
-справочник хуже ошибки. Решение о форме — владельцу, оно записано в
-`roo_code/plans/api/audit/00-решения-владельца.md`.
+**Разблокировано.** [`../api/audit/00-решения-владельца.md`](../api/audit/00-решения-владельца.md), строка 1473:
 
----
+> **снято 2026-09-10 (прецедент домена + §13):** отдельным лёгким эндпоинтом, как
+> `GET /api/products/list` у товаров. Явный большой `pageSize` противоречит §13: пагинация
+> принадлежит коду, и справочник не должен притворяться страницей
+
+Номера П у этого вердикта нет: он вынесен прецедентом домена `products` и §13 «Пагинация и
+списки» общих соглашений ([`00-conventions.md`](../../roo-context/api/00-conventions.md)); само правило «пагинация принадлежит коду»
+помечено там П20.
+
+Работа по коду: заводится `GET /api/categories/list`, на него переходят оба потребителя —
+`CategoryCardPage.vue:64` (сейчас дефолтные 25) и `useProductCard.ts:132` (сейчас `pageSize=999`).
+Ветка «явный большой `pageSize`» закрыта.
 
 ## БАГ-04 — «категория не найдена» приходит текстом, а не кодом, и текст показывается пользователю
 
@@ -157,10 +168,10 @@ $ grep -o "categoryId: 'cat-[0-9]*'" src/services/mocks/products.ts | sort | uni
 
 `mockPatchCategory` объявлен как `Category | undefined` и на несуществующем id возвращает
 `undefined` (`:1456-1458`); `mockPutCategoryFields` — то же (`:1490-1492`). Ветка
-`mocks/index.ts:1201-1207` (PATCH) и `:1172-1175` (PUT) отдают это значение как **успешный**
+`mocks/index.ts:1203-1209` (PATCH) и `:1172-1175` (PUT) отдают это значение как **успешный**
 ответ. Клиент результата не проверяет: `useCategoryCard.save()` кладёт оба промиса в
 `Promise.all` и на успехе показывает `categories.toast_saved`
-(`frontend_vue/src/composables/useCategoryCard.ts:112-114`).
+(`frontend_vue/src/composables/useCategoryCard.ts:117-119`).
 
 Сравнить с соседом по тому же файлу: `mockDeleteCategory` для того же случая возвращает
 `{ ok: false, code: 'CATEGORY_NOT_FOUND' }` (`:1479`) — то есть в одном моке два разных
@@ -180,7 +191,7 @@ $ grep -o "categoryId: 'cat-[0-9]*'" src/services/mocks/products.ts | sort | uni
 
 ## БАГ-06 — родителем можно назначить собственного потомка; на цикле мок зависает
 
-**File:** `frontend_vue/src/views/admin/products/CategoryCardPage.vue:88-93`, `frontend_vue/src/services/mocks/categories.ts:1468-1473,1328-1336,1374-1381`
+**File:** `frontend_vue/src/views/admin/products/CategoryCardPage.vue:89-94`, `frontend_vue/src/services/mocks/categories.ts:1468-1473,1328-1336,1374-1381`
 **Severity:** High — воспроизводимое зависание вкладки, а на сервере — недостижимое поддерево.
 **Источник:** К2 (правило живёт только в моке), Runtime
 
@@ -189,7 +200,7 @@ $ grep -o "categoryId: 'cat-[0-9]*'" src/services/mocks/products.ts | sort | uni
 Селект родителя исключает только саму категорию:
 
 ```ts
-...allCategories.value.filter((c) => c.id !== id).map(…)   // CategoryCardPage.vue:91
+...allCategories.value.filter((c) => c.id !== id).map(…)   // CategoryCardPage.vue:92
 ```
 
 Потомки в списке остаются. `mockPatchCategory` принимает любой `parentId` без проверки
@@ -218,7 +229,11 @@ $ grep -o "categoryId: 'cat-[0-9]*'" src/services/mocks/products.ts | sort | uni
 
 ---
 
-## БАГ-07 — `putCategoryFields` шлёт ключ `fieldName`, которого нет ни в типе, ни в разборе мока
+## ✅ БАГ-07 — `putCategoryFields` шлёт ключ `fieldName`, которого нет ни в типе, ни в разборе мока — ПОЧИНЕН
+
+**Закрыто 2026-09-24:** `fieldName` убран из тела запроса, `name` остался единственным ключом
+имени поля на проводе (`frontend_vue/src/services/categoriesService.ts:putCategoryFields`).
+Описание ниже оставлено как история находки.
 
 **File:** `frontend_vue/src/services/categoriesService.ts:65-71`
 **Severity:** Low — лишнее поле на проводе; вредно тем, что описывает бэкенду несуществующий договор.
@@ -235,12 +250,14 @@ fields: fields.map((f) => ({
 ```
 
 `...f` уже кладёт `name`, а `fieldName` добавляется рядом как дубликат. В типе `CategoryField`
-поля `fieldName` нет (`frontend_vue/src/types/category.ts:6-13`), и мок его не читает:
+поля `fieldName` нет (`frontend_vue/src/types/category.ts:16-23`), и мок его не читает:
 `mockPutCategoryFields` работает с `f.name` (`mocks/categories.ts:1497`). Похоже на перенос
 из товаров, где `ProductFieldValue.fieldName` существует (`frontend_vue/src/types/product.ts`).
 
 Тернарник при этом мёртв: из карточки `f.name` всегда `TranslatedString`, строкой оно не
-приходит никогда (`CategoryCardPage.vue:147`, `useCategoryCard.ts:139`).
+приходит никогда: `submitFieldModal` в `CategoryCardPage.vue` кладёт в `payload.name`
+результат `mergeLocaleValue` либо `toTranslatedString`, а
+`updateField` в `useCategoryCard.ts` только разливает готовую дельту поверх прежнего поля.
 
 ### Fix
 
@@ -249,9 +266,17 @@ fields: fields.map((f) => ({
 
 ---
 
-## БАГ-08 — правка поля категории стирает его переводы на двух других языках
+## ✅ БАГ-08 — правка поля категории стирает его переводы на двух других языках — ПОЧИНЕН
 
-**File:** `frontend_vue/src/views/admin/products/CategoryCardPage.vue:132-157`
+**Закрыто 2026-09-24, обе половины:** `openEditField`/`submitFieldModal`
+(`frontend_vue/src/views/admin/products/CategoryCardPage.vue`) сливают правку через
+`mergeLocaleValue` поверх исходных `field.name`/`field.options`, как имя и описание самой
+категории; `mockPutCategoryFields` (`frontend_vue/src/services/mocks/categories.ts`) ищет
+прежнее поле по `id` (`previousFields.find`), а не по позиции `cat.fields[i]`. Проверки —
+`frontend_vue/src/services/mocks/category-fields-keep-locales.spec.ts`. Описание ниже оставлено
+как история находки.
+
+**File:** `frontend_vue/src/views/admin/products/CategoryCardPage.vue:124-149`
 **Severity:** High — необратимая потеря данных при обычном редактировании; ловится только сменой языка.
 **Источник:** К4, i18n
 
@@ -269,7 +294,7 @@ fields: fields.map((f) => ({
 (`frontend_vue/src/types/i18n.ts:43`) — пустая строка проходит и затирает.
 
 Соседний код в том же файле делает правильно: имя и описание самой категории редактируются
-через `mergeLocaleValue`, который сохраняет остальные языки (`CategoryCardPage.vue:70`, `:84`;
+через `mergeLocaleValue`, который сохраняет остальные языки (`CategoryCardPage.vue:71`, `:84`;
 `frontend_vue/src/types/i18n.ts:52-60`). То есть в одном компоненте два разных обращения с
 `TranslatedString`.
 
@@ -315,7 +340,7 @@ const parentOptions = computed(() => [
 `filters.search` — только совпавшие с поиском, потому что тот же `items` пересобирается
 фильтром (`useCategories.ts:57-65`).
 
-Это **не** БАГ-03: там речь про карточку категории (`CategoryCardPage.vue:63`), где
+Это **не** БАГ-03: там речь про карточку категории (`CategoryCardPage.vue:64`), где
 справочник берётся отдельным вызовом с дефолтным `pageSize = 25` и от фильтра не зависит.
 Здесь источник другой и зависимость хуже — набор вариантов меняется при каждом наборе букв
 в строке поиска.

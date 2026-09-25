@@ -14,6 +14,8 @@ import type {
   MailServerPayload,
 } from '@/types/settings'
 import { isMailConfigured } from '@/types/settings'
+import { ApiRequestError } from '@/types/api'
+import { STORE as PRODUCTS_STORE } from './products'
 
 // ─── Seed data ───────────────────────────────────────────────────────────
 
@@ -387,6 +389,68 @@ function findOrderStatus(id: string): OrderStatusSetting | undefined {
   return settingsStore.orderStatuses.find((s) => s.id === id)
 }
 
+/**
+ * «Используется» — ровно то определение, которое реализовал сервер (§2, П44), и не шире:
+ * товары держат ссылки на справочники идентификаторами, а правила пересчёта, строки заказов,
+ * партии склада и услуги в счёт не входят (их судьба при удалении справочника не решена
+ * владельцем). Источник данных — сам мок товаров (`./products`), а не вторая копия сидов.
+ */
+function currencyIsUsedByProduct(id: string): boolean {
+  return PRODUCTS_STORE.some((p) => p.currencyId === id)
+}
+
+function uomIsUsedByProduct(id: string): boolean {
+  return PRODUCTS_STORE.some(
+    (p) => p.purchaseUomId === id || p.warehouseUomId === id || p.saleUomId === id,
+  )
+}
+
+/**
+ * Перечень отказов домена настроек — ЕДИНСТВЕННЫЙ источник истины.
+ *
+ * «Сценарий → код на проводе»: ключ называет сценарий, значение — код, которым мок
+ * (и сервер) отвечает. Отсюда же бросаются сами отказы (`mockRefusal` ниже), и отсюда
+ * же перечень берёт проба `settings-refusals.spec.ts`: она ИТЕРИРУЕТСЯ по драйверам и
+ * СВЕРЯЕТ МНОЖЕСТВО с этой таблицей. Поэтому новый отказ достаточно завести здесь (и
+ * добавить маршрут, который его бросает) — проба покраснеет САМА, без правки спека.
+ *
+ * Так перечень перестал быть снимком: до этого в спеке лежал написанный руками список
+ * из двенадцати сценариев, и новый или переименованный отказ в моке проходил мимо него,
+ * пока кто-нибудь не допишет строку.
+ */
+export const SETTINGS_REFUSAL_CODES = {
+  currencyNotFound: 'CURRENCY_NOT_FOUND',
+  uomNotFound: 'UOM_NOT_FOUND',
+  conversionPairTaken: 'CONVERSION_PAIR_TAKEN',
+  conversionNotFound: 'CONVERSION_NOT_FOUND',
+  orderStatusNotFound: 'ORDER_STATUS_NOT_FOUND',
+  orderStatusSystemForbidden: 'FORBIDDEN',
+  mailNotConfigured: 'MAIL_NOT_CONFIGURED',
+  warehouseMapNotAnImage: 'MAP_NOT_AN_IMAGE',
+  currencyIsDefault: 'CURRENCY_IS_DEFAULT',
+  currencyInUse: 'CURRENCY_IN_USE',
+  uomInUse: 'UOM_IN_USE',
+} as const
+
+/** Код отказа домена настроек — значение из таблицы выше, а не любая строка. */
+export type SettingsRefusalCode =
+  (typeof SETTINGS_REFUSAL_CODES)[keyof typeof SETTINGS_REFUSAL_CODES]
+
+/**
+ * Отказ мока в форме настоящего сервера: код в поле `code`, статус — из раздела 3
+ * плана домена.
+ *
+ * Голый `Error('CODE')` держал код в `message`, и до читателя он доходил откатом
+ * в `errorCode()`, а не полем. Сервер так не отвечает (§2 соглашений): настоящий
+ * `ApiRequestError` кладёт код в `code` (`types/api.ts:29`), и слайсы С3–С7
+ * проверить в мок-режиме было нечем — их ветки отказа смотрят на поле, которого
+ * у мока не было. Форма сообщения при этом человеческая: в `code` идёт только
+ * строка из заглавных.
+ */
+function mockRefusal(status: number, code: SettingsRefusalCode, message: string): ApiRequestError {
+  return new ApiRequestError({ status, message, code })
+}
+
 // ─── Full settings ───────────────────────────────────────────────────────
 
 export function mockGetSettings(): AppSettings {
@@ -468,13 +532,29 @@ export function mockCreateCurrency(data: Omit<Currency, 'id'>): Currency {
 
 export function mockUpdateCurrency(id: string, data: Partial<Currency>): void {
   const cur = findCurrency(id)
-  if (!cur) throw new Error('CURRENCY_NOT_FOUND')
+  if (!cur) throw mockRefusal(404, SETTINGS_REFUSAL_CODES.currencyNotFound, 'Currency not found')
   Object.assign(cur, data)
 }
 
 export function mockDeleteCurrency(id: string): void {
   const idx = settingsStore.currencies.findIndex((c) => c.id === id)
-  if (idx === -1) throw new Error('CURRENCY_NOT_FOUND')
+  if (idx === -1)
+    throw mockRefusal(404, SETTINGS_REFUSAL_CODES.currencyNotFound, 'Currency not found')
+  // Порядок — тот же, что на сервере (§2, П44): сначала «не найдено», потом умолчание,
+  // и только потом использование. Валюта, которая и по умолчанию, и стоит у товара,
+  // отказывает кодом про умолчание — она не может быть удалена ни при каком порядке
+  // проверок, но человек должен узнать причину, которую он может исправить первой.
+  const currency = settingsStore.currencies[idx]!
+  if (currency.isDefault) {
+    throw mockRefusal(
+      409,
+      SETTINGS_REFUSAL_CODES.currencyIsDefault,
+      'The default currency cannot be deleted',
+    )
+  }
+  if (currencyIsUsedByProduct(id)) {
+    throw mockRefusal(409, SETTINGS_REFUSAL_CODES.currencyInUse, 'Currency is used by a product')
+  }
   settingsStore.currencies.splice(idx, 1)
 }
 
@@ -495,13 +575,20 @@ export function mockCreateUom(data: Omit<Uom, 'id'>): Uom {
 
 export function mockUpdateUom(id: string, data: Partial<Uom>): void {
   const uom = findUom(id)
-  if (!uom) throw new Error('UOM_NOT_FOUND')
+  if (!uom) throw mockRefusal(404, SETTINGS_REFUSAL_CODES.uomNotFound, 'Unit of measure not found')
   Object.assign(uom, data)
 }
 
 export function mockDeleteUom(id: string): void {
   const idx = settingsStore.uoms.findIndex((u) => u.id === id)
-  if (idx === -1) throw new Error('UOM_NOT_FOUND')
+  if (idx === -1)
+    throw mockRefusal(404, SETTINGS_REFUSAL_CODES.uomNotFound, 'Unit of measure not found')
+  // Единица используется, если товар ссылается на неё любым из трёх своих полей единиц —
+  // закупочной, складской или продажной (§2, П44). Правила пересчёта в счёт не входят: их
+  // судьба при удалении единицы решением владельца не закрыта (БАГ-07).
+  if (uomIsUsedByProduct(id)) {
+    throw mockRefusal(409, SETTINGS_REFUSAL_CODES.uomInUse, 'Unit of measure is used by a product')
+  }
   settingsStore.uoms.splice(idx, 1)
 }
 
@@ -512,6 +599,20 @@ export function mockGetConversions(): UomConversion[] {
 }
 
 export function mockCreateConversion(data: Omit<UomConversion, 'id'>): UomConversion {
+  // Сервер отвергает уже описанную пару единиц — 409 `CONVERSION_PAIR_TAKEN`
+  // (раздел 3 плана). Мок клал дубль в стор без единой проверки, и демо
+  // расходилось с сервером молча: правило пересчёта переставало быть матрицей
+  // «из единицы в единицу» и превращалось в список, где одну пару читают дважды.
+  const taken = settingsStore.conversions.some(
+    (c) => c.fromUomId === data.fromUomId && c.toUomId === data.toUomId,
+  )
+  if (taken) {
+    throw mockRefusal(
+      409,
+      SETTINGS_REFUSAL_CODES.conversionPairTaken,
+      'A conversion rule for this unit pair already exists',
+    )
+  }
   const created: UomConversion = {
     ...data,
     id: `conv-${nextConvSeq++}`,
@@ -522,13 +623,15 @@ export function mockCreateConversion(data: Omit<UomConversion, 'id'>): UomConver
 
 export function mockUpdateConversion(id: string, data: Partial<UomConversion>): void {
   const conv = findConversion(id)
-  if (!conv) throw new Error('CONVERSION_NOT_FOUND')
+  if (!conv)
+    throw mockRefusal(404, SETTINGS_REFUSAL_CODES.conversionNotFound, 'Conversion rule not found')
   Object.assign(conv, data)
 }
 
 export function mockDeleteConversion(id: string): void {
   const idx = settingsStore.conversions.findIndex((c) => c.id === id)
-  if (idx === -1) throw new Error('CONVERSION_NOT_FOUND')
+  if (idx === -1)
+    throw mockRefusal(404, SETTINGS_REFUSAL_CODES.conversionNotFound, 'Conversion rule not found')
   settingsStore.conversions.splice(idx, 1)
 }
 
@@ -550,7 +653,8 @@ export function mockCreateOrderStatus(data: Omit<OrderStatusSetting, 'id'>): Ord
 
 export function mockUpdateOrderStatus(id: string, data: Partial<OrderStatusSetting>): void {
   const st = findOrderStatus(id)
-  if (!st) throw new Error('ORDER_STATUS_NOT_FOUND')
+  if (!st)
+    throw mockRefusal(404, SETTINGS_REFUSAL_CODES.orderStatusNotFound, 'Order status not found')
   Object.assign(st, data)
 }
 
@@ -573,8 +677,21 @@ export function mockMoveOrderStatus(orderedIds: string[]): void {
 }
 
 export function mockDeleteOrderStatus(id: string): void {
-  const idx = settingsStore.orderStatuses.findIndex((s) => s.id === id)
-  if (idx === -1) throw new Error('ORDER_STATUS_NOT_FOUND')
+  const st = findOrderStatus(id)
+  if (!st)
+    throw mockRefusal(404, SETTINGS_REFUSAL_CODES.orderStatusNotFound, 'Order status not found')
+  // Системный статус удалить нельзя — сервер отвечает 403 ядровым `FORBIDDEN`
+  // (`crud/domain.py:523`, единственное место в бэкенде, где поднимается
+  // `ForbiddenError`). Мок системность не проверял вовсе (БАГ-14), то есть под
+  // моками удалялось то, что сервер запрещает.
+  if (st.system) {
+    throw mockRefusal(
+      403,
+      SETTINGS_REFUSAL_CODES.orderStatusSystemForbidden,
+      'A system order status cannot be deleted',
+    )
+  }
+  const idx = settingsStore.orderStatuses.indexOf(st)
   settingsStore.orderStatuses.splice(idx, 1)
   settingsStore.orderStatuses.forEach((s, i) => (s.order = i))
 }
@@ -618,7 +735,13 @@ export function mockIsMailConfigured(): boolean {
  * кнопка «проверить» проверяла бы только саму себя.
  */
 export function mockSendMailTest(): { deliveredTo: string } {
-  if (!mockIsMailConfigured()) throw new Error('MAIL_NOT_CONFIGURED')
+  if (!mockIsMailConfigured()) {
+    throw mockRefusal(
+      409,
+      SETTINGS_REFUSAL_CODES.mailNotConfigured,
+      'The mail server is not configured',
+    )
+  }
   return { deliveredTo: mailStore.fromEmail }
 }
 
@@ -651,7 +774,13 @@ export function mockGetWarehouseMap(): WarehouseMapFile | null {
 export function mockSaveWarehouseMap(data: WarehouseMapFile): WarehouseMapFile {
   // Карта — это картинка. Сервер не верит клиенту на слово о типе файла, потому что
   // страница показывает её через <img> и открывает как изображение.
-  if (!data.mime.startsWith('image/')) throw new Error('MAP_NOT_AN_IMAGE')
+  if (!data.mime.startsWith('image/')) {
+    throw mockRefusal(
+      415,
+      SETTINGS_REFUSAL_CODES.warehouseMapNotAnImage,
+      'The warehouse map must be an image',
+    )
+  }
   settingsStore.warehouseMap = structuredClone(data)
   return structuredClone(settingsStore.warehouseMap)
 }

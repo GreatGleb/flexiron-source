@@ -41,7 +41,7 @@
   (`SupplyPage.vue:8`), `'staff'` (`StaffPage.vue:8`), `'logistics'` (`LogisticsPage.vue:8`),
   `'pl-report'` (`PlReportPage.vue:10`), `'deficit'` (`DeficitPage.vue:8`). Мок принимает
   `page: string` без сужения (`mocks/analytics.ts:1018`), а его ветка ловит регуляркой
-  `/^\/api\/analytics\/(.+)$/` (`mocks/index.ts:310`) — то есть любой хвост, включая слэши
+  `/^\/api\/analytics\/(.+)$/` (`mocks/index.ts:402`) — то есть любой хвост, включая слэши
   (см. БАГ-07).
 - Форма ответа: `ApiResponse<DashboardData>` — конверт снимает `unwrap()`, возвращая `json.data`
   (`src/services/api.ts:127-138`), тип объявлен `src/types/analytics.ts:216-251`.
@@ -230,7 +230,7 @@
   (`frontend_vue/src/services/mocks/config.ts`) аналитики нет —
   `grep -cin "analytic\|dashboard\|report" frontend_vue/src/services/mocks/config.ts` → `0`, а
   серверная проверка прав вообще заглушка, возвращающая `True`
-  (`backend/app/modules/auth/internal_api/interface.py:27-38`). **Но словарь этих десяти флагов у
+  (`backend/app/modules/auth/internal_api/interface.py:33-44`). **Но словарь этих десяти флагов у
   сервера есть**, и он тот же: все десять ключей засеяны в `feature_definitions` миграцией —
   восемь страничных (`backend/alembic/versions/8cf3bfa380dd_phase_12_plans_multi_role.py:27-50`,
   `level="page"`) и два секционных `dashboardAlerts`/`dashboardCharts` (`:89-94`,
@@ -250,7 +250,7 @@
   одной записи: `grep -c "apiPost\|apiPut\|apiPatch\|apiDelete\|apiUpload"
   frontend_vue/src/services/analyticsService.ts` → `0`; `Idempotency-Key` не шлётся
   (`grep -c "Idempotency" frontend_vue/src/services/analyticsService.ts` → `0`) при том, что
-  механизм в проекте есть (`frontend_vue/src/services/api.ts:240-245`). Единственное требование
+  механизм в проекте есть (`frontend_vue/src/services/api.ts:259-264`). Единственное требование
   этого класса, которое к чтению всё-таки относится, — **согласованность среза**: восемь страниц
   это восемь независимых запросов (`useAnalytics.ts:16`, по вызову на страницу), между которыми
   данные могут измениться, и одна страница может показать цифры двух разных моментов. Обязан ли
@@ -272,7 +272,7 @@
   (`backend/app/modules/finance/shared/models.py:14` `finance_payments`, роутов 0);
   `managers`/`workers` (`:589-647`) — пользователи (`backend/app/modules/auth/shared/models.py`);
   `deficitItems`/`refusalVolumes` (`:931-1006`) — складской дефицит
-  (`warehouse_deficits`, `backend/app/modules/warehouse/shared/models.py:171`);
+  (`warehouse_deficits`, `backend/app/modules/warehouse/shared/models.py:205`);
   `routes`/`loads` (`:725-794`) — **источника нет ни одного**: домена логистики не существует ни во
   фронте, ни на бэкенде (`grep -rln -i "logistic" frontend_vue/src backend/app` вне аналитики даёт
   только совпадения в чужих строках — название секции карточки `sec-logistics`

@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n'
 import { useHead } from '@/composables/useHead'
 import { useSettings } from '@/composables/useSettings'
 import { useUnitLabel } from '@/composables/useUnitLabel'
+import { useAuditValueLabel } from '@/composables/useAuditValueLabel'
 import { useProductNames } from '@/composables/useProductNames'
 import { useWarehouseBatch } from '@/composables/useWarehouseBatch'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
@@ -24,6 +25,7 @@ import '@styles/admin/components/_audit-log.css'
 
 const { t, locale } = useI18n()
 const unitLabel = useUnitLabel()
+const translateAuditValue = useAuditValueLabel()
 const { productName } = useProductNames()
 const route = useRoute()
 const { settings } = useSettings()
@@ -248,66 +250,6 @@ function onDeleteConfirm() {
 
 function onDeleteBlockedOk() {
   resetDeleteBlocked()
-}
-
-/**
- * Known enum-like codes that may appear in audit oldValue/newValue.
- * Each entry maps a code prefix to the set of known values for that prefix.
- * The function tries each prefix; if the value is found in the set, it
- * returns the translated label via t(`warehouse.${prefix}${value}`).
- * If no prefix matches, the raw value is returned unchanged.
- */
-const AUDIT_ENUM_MAP: Record<string, string[]> = {
-  deficit_status_: ['open', 'in_progress', 'ordered', 'resolved', 'cancelled'],
-  deficit_priority_: ['low', 'medium', 'high', 'critical'],
-  offcut_status_: [
-    'available',
-    'reserved',
-    'in_production',
-    'sold',
-    'scrapped',
-    'expensed',
-    'returned_to_supplier',
-    'in_storage',
-  ],
-  movement_type_: ['receipt', 'expense', 'transfer', 'write_off', 'return', 'inbound', 'outbound'],
-  batch_status_: [
-    'active',
-    'completed',
-    'expired',
-    'archived',
-    'partial',
-    'available',
-    'reserved',
-    'depleted',
-    'quarantine',
-  ],
-  status_: [
-    'available',
-    'reserved',
-    'partial',
-    'depleted',
-    'quarantine',
-    'used',
-    'scrap',
-    'open',
-    'in_progress',
-    'ordered',
-    'resolved',
-    'cancelled',
-  ],
-}
-
-function translateAuditValue(value: string): string {
-  for (const [prefix, codes] of Object.entries(AUDIT_ENUM_MAP)) {
-    if (codes.includes(value)) {
-      const translated = t(`warehouse.${prefix}${value}`)
-      if (translated && translated !== `warehouse.${prefix}${value}`) {
-        return translated
-      }
-    }
-  }
-  return value
 }
 
 useHead({

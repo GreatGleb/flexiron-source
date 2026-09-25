@@ -72,6 +72,20 @@ At the START of every session, BEFORE writing any code, creating any plan, or ma
 ### 5. These rules are ALWAYS in effect
 ROO.md is read at session start. The rules above are permanent and apply to every session. If a rule seems ignored — re-read this file.
 
+### 6. НЕ спрашивать разрешения на команды — запускать сразу (non-negotiable)
+Разрешение на выполнение команд выдано **настройкой**, а не человеком: `alwaysAllowExecute` включён,
+`allowedCommands` = `["*"]`. Источник — файл
+[`roo_code/zoo-code-auto-approve.json`](roo_code/zoo-code-auto-approve.json), подключается на старте
+расширения через параметр `zoo-code.autoImportSettingsPath` (замер: `dist/extension.js`, функция `rCi`
+— гейт `autoApprovalEnabled`, затем `alwaysAllowExecute`, затем совпадение с `allowedCommands`).
+
+**Правило:** никогда не ждать подтверждения, чтобы **выполнить команду**, и не останавливаться между
+командами ради «можно?». Запустить → прочитать результат → продолжить. Шаг скила, который просит
+«дождаться подтверждения на запуск», к командам не применяется.
+
+`ask_followup_question` остаётся для **настоящих отсутствующих решений**, а не для разрешения
+что-то выполнить.
+
 ## Verification Rule (non-negotiable)
 
 Every claim about code must be proven by a tool before it is written or stated.
@@ -120,10 +134,20 @@ Explore agent gives structural overview — it does not replace targeted verific
 - **i18n:** Custom i18n system (`src/i18n/`)
 - **Testing:** Playwright for e2e tests
 - **Backend:** `backend/` — FastAPI, Modular Monolith + Vertical Slice (see `/create-api-feature`).
-  Состояние на 2026-08-22: десять модулей, модели у девяти, 17 миграций — и всего восемь
-  вертикальных слайсов (auth ×4, products ×2, settings ×2). То есть схема заложена, а
-  эндпоинтов почти нет. Модуля `orders` нет вовсе: `billing` — это тарифы SaaS (plans,
-  tenant_plans, feature_definitions), а не заказы клиентов.
+  Состояние на 2026-09-25 (замер, а не память): **15 модулей, модели у всех 15, 45 миграций,
+  23 вертикальных слайса** — products ×6, auth ×4, settings ×4, finance ×2, warehouse ×2,
+  audit, clients, notifications, services, suppliers по одному. Наружу это 48 путей и 67 пар
+  «метод + путь» (`app.openapi()['paths']`, а не `app.routes` — там лежат ленивые
+  `_IncludedRouter` с `path = None`).
+
+  Роутов нет у четырёх модулей: `bcc` (слайс `send_request` есть, но он транспортный — HTTP
+  наружу не отдаёт), `billing`, `idempotency`, `orders`. Модуль `orders` **появился** — у него
+  есть модели и миграция; эндпоинтов у него по-прежнему нет. `billing` — это тарифы SaaS
+  (plans, tenant_plans, feature_definitions), а не заказы клиентов.
+
+  Числа здесь устаревают молча, поэтому пересчитывать их надо командой, а не глазами:
+  `ls -d backend/app/modules/*/ | wc -l`, `find backend/app/modules -name action.py | wc -l`,
+  `ls backend/alembic/versions/*.py | wc -l`.
 - **API-контракт:** живёт в `roo_code/roo-context/api/<домен>.md` — по файлу на домен, плюс
   `00-conventions.md` со сквозными правилами. **Сведение закончено 2026-09-07: 17 доменов,
   175 эндпоинтов из 175.** Сверка с кодом машинная: `contract-conformance.spec.ts` внутри
@@ -266,6 +290,7 @@ When user mentions a page, bugs, work stage, section, or task continuation — *
 | [`implement-followups.js`](roo_code/workflows/implement-followups.js) | пункты `review-followups.md`: реализация → скептик → коммит |
 | [`inventory-plans.js`](roo_code/workflows/inventory-plans.js) | инвентаризация планов: что из них уже в коде |
 | [`contract-sync.js`](roo_code/workflows/contract-sync.js) | сверка API-контракта: аудит доменов → соглашения → написание → финал. Скил задачи — [`api-contract.md`](roo_code/skills/api-contract.md), план — [`contract-sync-plan.md`](roo_code/plans/api/contract-sync-plan.md) |
+| [`night-queue.js`](roo_code/workflows/night-queue.js) | очередь работ после класса 2: раскрой общего контекста → мок-долг → учёт → контракт → сквозные планы → доменные → закрытие сквозного. Потолок расхода на ночь, план — [`night-run-queue-plan.md`](roo_code/plans/general/night-run-queue-plan.md) |
 
 ## MCP Servers
 

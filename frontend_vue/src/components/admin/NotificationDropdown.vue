@@ -3,6 +3,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useNotifications } from '@/composables/useNotifications'
+import * as notificationsService from '@/services/notificationsService'
 import SvgIcon from './SvgIcon.vue'
 import { NOTIFICATION_TYPE_ICONS } from '@/types/notifications'
 import type { Notification, NotificationType } from '@/types/notifications'
@@ -10,17 +11,22 @@ import type { Notification, NotificationType } from '@/types/notifications'
 const { t, locale } = useI18n()
 const router = useRouter()
 
-const { unreadCount, markAsRead, markAllAsRead, loadUnreadCount } = useNotifications()
+const { unreadCount, markAsRead, markAllAsRead, startPolling, stopPolling } = useNotifications()
 
 const isOpen = ref(false)
 const dropdownItems = ref<Notification[]>([])
 
-// Load top 5 notifications for dropdown — into LOCAL ref, not shared items
+const DROPDOWN_PAGE_SIZE = 5
+
+// Own request, independent of the shared singleton's `filters`/`page` — those
+// belong to the notifications page, and the bell must show the same five
+// records regardless of what the page is currently filtered or paged to.
 async function loadDropdownItems() {
-  const { load, items } = useNotifications()
-  await load()
-  // Keep only top 5 for the dropdown — local copy, avoids mutating shared items
-  dropdownItems.value = items.value.slice(0, 5)
+  const result = await notificationsService.getNotifications(
+    { type: 'all', isRead: null, search: '', sortBy: 'createdAt', sortDir: 'desc' },
+    { page: 1, pageSize: DROPDOWN_PAGE_SIZE },
+  )
+  dropdownItems.value = result.items
 }
 
 function toggle() {
@@ -49,8 +55,12 @@ function onNotificationClick(notification: Notification) {
   router.push({ name: notification.entityRouteName, params: { id: notification.entityId } })
 }
 
-function onMarkAllRead() {
-  markAllAsRead()
+async function onMarkAllRead() {
+  await markAllAsRead()
+  // Re-read the dropdown's own selection — it holds a snapshot taken before
+  // the mark-all call, not a reference into the shared `items`, so it does
+  // not repaint on its own.
+  await loadDropdownItems()
 }
 
 function formatTime(dateStr: string): string {
@@ -73,11 +83,12 @@ function notificationIcon(type: NotificationType): string {
 
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
-  loadUnreadCount()
+  startPolling()
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
+  stopPolling()
 })
 </script>
 

@@ -1411,7 +1411,7 @@ describe('details that only show up on real data', () => {
     mockDeleteOrderPayment(order.id, payment.id)
 
     mockDeleteOrder(order.id)
-    expect(mockGetOrder(order.id)).toBeUndefined()
+    expect(() => mockGetOrder(order.id)).toThrow('ORDER_NOT_FOUND')
   })
 
   it('does not leak the store’s own bookkeeping to the caller', () => {
@@ -2169,12 +2169,20 @@ describe('a shipment is the only thing that moves the warehouse', () => {
       unit: 'pcs',
       unitPrice: 200,
     })
+    // Базой служит не ноль, а состояние до резерва: партии общие на весь файл, и
+    // другие заказы могли оставить на них свои держатели.
+    const baseline = mockReservedQuantity('whb-001') + mockReservedQuantity('whb-002')
     mockReserveOrder(created.id)
-    const before = mockReservedQuantity('whb-001') + mockReservedQuantity('whb-002')
-    expect(before).toBeGreaterThan(0)
+    expect(mockReservedQuantity('whb-001') + mockReservedQuantity('whb-002')).toBeGreaterThan(
+      baseline,
+    )
 
     mockDeleteOrder(created.id)
-    expect(mockGetReservations({ orderId: created.id })).toEqual([])
+    // Предмет проверки — освобождённые держатели склада, и утверждается именно он.
+    expect(mockReservedQuantity('whb-001') + mockReservedQuantity('whb-002')).toBe(baseline)
+    // А спрашивать резервы удалённого заказа — теперь отказ, а не пустой список: против
+    // настоящего сервера это 404, и мок держит то же правило, что его соседи по домену.
+    expect(() => mockGetReservations({ orderId: created.id })).toThrow('ORDER_NOT_FOUND')
   })
 
   it('leaves services out of it — they never touch a shelf', () => {

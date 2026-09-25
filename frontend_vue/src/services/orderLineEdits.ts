@@ -11,6 +11,7 @@
  * the manual price, price-then-margin clears the lock and reprices.
  */
 import type { OrderItem, OrderService } from '@/types/order'
+import { errorMessageKey } from './apiErrorCode'
 import {
   applyCostChange,
   applyDiscountEdit,
@@ -295,7 +296,14 @@ export function canDeleteLine(line: PricingLine): boolean {
 
 /**
  * Every refusal the model can produce, as a message the admin can act on.
- * Matched by substring so a thrown Error, a rejected promise and a string all work.
+ *
+ * Сопоставление — равенством (`errorMessageKey`, `apiErrorCode.ts`). До 2026-09-12 оно
+ * шло подстрокой, и тогда ПОРЯДОК строк был частью правильности: код, содержащийся в
+ * другом, обязан был идти вторым, иначе короткий перехватывал длинный. Дисциплина эта
+ * была ручной, ничем не проверялась и опиралась на требование §2 соглашений «ни один код
+ * не является подстрокой другого» — уже нарушенное массово (находка заведена в баг-файл
+ * соглашений). Теперь порядок строк — вопрос читаемости и только: группы ниже стоят так,
+ * чтобы родственные отказы были рядом.
  */
 const ERROR_KEYS: Array<[string, string]> = [
   ['PRICE_FROZEN_BY_SHIPMENT', 'orders.error_line_price_frozen'],
@@ -319,9 +327,7 @@ const ERROR_KEYS: Array<[string, string]> = [
   ['SHIPMENT_ALREADY_CANCELLED', 'orders.error_shipment_already_cancelled'],
   ['SPLIT_MUST_MATCH_SHIPPED', 'orders.error_split_not_possible'],
   ['INVALID_SPLIT_QUANTITY', 'orders.error_split_not_possible'],
-  // Money. `SHIPMENT_CANCELLED` sits after the shipment codes above on purpose:
-  // the match is by substring, so a code that is contained in another has to come
-  // second — here they only look alike, but the next one added may not.
+  // Money.
   ['PAYMENT_AMOUNT_REQUIRED', 'orders.error_payment_amount_required'],
   ['PAYMENT_NOT_FOUND', 'orders.error_payment_not_found'],
   ['PAYMENT_INVOICE_NOT_FOUND', 'orders.error_original_invoice_not_found'],
@@ -373,8 +379,9 @@ const ERROR_KEYS: Array<[string, string]> = [
   ['INVALID_PAGE', 'orders.error_invalid_page'],
   ['INVALID_DATE_FILTER', 'orders.error_invalid_date_filter'],
   // Spreading a total by hand. `BELOW_FROZEN_MINIMUM` and `NO_EDITABLE_LINES` are
-  // also matched by substring in the card's total preview, so the backend has to
-  // return these exact strings — §6 says so now.
+  // also matched, now by equality, in the card's total preview
+  // (`useOrderCard.ts:1702-1703`), so the backend has to return these exact strings —
+  // §6 says so, and equality makes «exact» mean exactly that.
   ['BELOW_FROZEN_MINIMUM', 'orders.error_below_frozen_minimum'],
   ['NO_EDITABLE_LINES', 'orders.error_no_editable_lines'],
   ['ZERO_BASE_TOTAL', 'orders.error_zero_base_total'],
@@ -411,11 +418,13 @@ const ERROR_KEYS: Array<[string, string]> = [
 /**
  * `fallback` is for callers whose failure is not a save: "could not save" on a
  * refused deletion is a message about the wrong operation.
+ *
+ * Правило «код берётся из поля, а не из текста» живёт в
+ * [`apiErrorCode.ts`](apiErrorCode.ts) и здесь только применяется: до 2026-09-11 эта
+ * функция читала `error.message` сама, то есть против настоящего сервера не находила
+ * ни одного из 91 кода и все 20 её вызовов отдавали общий `fallback`. Таблица остаётся
+ * здесь — коды доменные, а орders-специфичному имени не место в шести чужих доменах.
  */
 export function lineEditErrorKey(error: unknown, fallback = 'orders.toast_error_save'): string {
-  const message = error instanceof Error ? error.message : String(error)
-  for (const [code, key] of ERROR_KEYS) {
-    if (message.includes(code)) return key
-  }
-  return fallback
+  return errorMessageKey(error, ERROR_KEYS, fallback)
 }

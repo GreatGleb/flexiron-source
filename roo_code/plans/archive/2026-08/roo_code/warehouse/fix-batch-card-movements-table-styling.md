@@ -8,7 +8,7 @@ The user correctly notes this looks like the "mini-table" from the supplier card
 
 ## Current Implementation
 
-In [`frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue`](frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:332), the movements table is:
+In [`frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue`](frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:274), the movements table is:
 
 ```html
 <table class="batch-card-mini-table" data-test="batch-card-movements-table">

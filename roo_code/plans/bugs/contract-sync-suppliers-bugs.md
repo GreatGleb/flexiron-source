@@ -20,7 +20,7 @@
 их создаёт, правит и удаляет через `/api/settings/currencies`, а остальные страницы строят
 селекты из `settings.currencies` — `ServiceCardPage.vue:48`
 (`settings.currencies.map((c) => ({ value: c.id, label: c.code }))`),
-`WarehouseBatchCard.vue:231`, `ProductsPage.vue:144`.
+`WarehouseBatchCard.vue:233`, `ProductsPage.vue:144`.
 
 То есть «какие валюты существуют» записано в проекте дважды, и вторая запись не знает о первой.
 В мок-режиме расхождение незаметно: сид настроек содержит те же валюты, и список не меняется от
@@ -81,10 +81,18 @@ suppliers list & card pages» (`:230-231`). То есть внутри одно�
 
 ### Fix
 
-Правка кода — не первый шаг. Сначала контракт обязан назвать каноническую форму id поставщика
-(схема бэкенда даёт UUID — `UUIDMixin`, `backend/app/modules/suppliers/shared/models.py:14`), и
-только после этого сиды склада, BCC и справочник приводятся к ней одним движением. Чинить
-`padStart` в одиночку значит сломать выпадашки склада, которые сейчас с сидом партий согласованы.
+**Разблокировано.** [`../api/audit/00-решения-владельца.md`](../api/audit/00-решения-владельца.md), строка 1599:
+
+> **снято 2026-09-10 (§19):** канонична форма схемы — UUID; читаемые префиксы мока и числовые
+> строки справочника это два пространства id в одном домене, известный класс дефекта, названный
+> в §19
+
+Номера П у этого вердикта нет: он вынесен по §19 «Форма идентификатора» общих соглашений
+([`00-conventions.md`](../../roo-context/api/00-conventions.md)), где два пространства id поставщика названы поимённо.
+
+Работа по коду: форма id — UUID; `padStart` в `/api/suppliers/list` снимается **не в одиночку**, а
+одним движением с сидами склада, BCC (`mocks/bcc.ts:146…216`) и справочником — иначе ломаются
+выпадашки склада, согласованные с сидом партий.
 
 ### Future rule
 
@@ -173,9 +181,13 @@ CSV в браузере (`frontend_vue/src/views/admin/suppliers/SuppliersListPa
 
 ### Fix
 
-Не правится в одиночку: сначала контракт решает, какой из двух экспортов настоящий (см. п. 8
-«Правил домена» в `roo_code/plans/api/audit/suppliers.md`). Если серверный — `api.ts` нужен путь
-для не-JSON ответа (`res.text()` по `Content-Type`), и это правка общего слоя, а не домена.
+**Разблокировано — П65 (в).** [`../api/audit/00-решения-владельца.md`](../api/audit/00-решения-владельца.md), строка 1637:
+
+> **решено 2026-09-10:** настоящая — **серверная** (`GET /api/suppliers/export.csv`), выгружается
+> весь список, а не видимая страница; в мок-режиме остаётся как было → П65 (в)
+
+Работа по коду: `api.ts` получает путь для не-JSON ответа (`res.text()` по `Content-Type`) — это
+правка общего слоя, а не домена; браузерный экспорт по кнопке остаётся только мок-режиму.
 
 ### Future rule
 
@@ -198,7 +210,7 @@ CSV в браузере (`frontend_vue/src/views/admin/suppliers/SuppliersListPa
 
 - `PAYMENT_OPTIONS` — три строки, `'30 Days Net'`, `'Prepayment 100%'`, `'50/50 Terms'` (`:65-69`).
   Значением селекта служит сама строка, она же летит в `paymentTerms` и хранится колонкой
-  `payment_terms String(100)` (`backend/app/modules/suppliers/shared/models.py:53`). Справочника
+  `payment_terms String(100)` (`backend/app/modules/suppliers/shared/models.py:52`). Справочника
   условий оплаты нет ни в настройках фронта (`grep -c "paymentTerms\|payment_terms"
   frontend_vue/src/types/settings.ts` → 0), ни на бэкенде (`grep -rn "payment_terms"
   backend/app/modules/settings` → 0 строк). То есть значение свободное, а список закрытый;
@@ -212,7 +224,7 @@ CSV в браузере (`frontend_vue/src/views/admin/suppliers/SuppliersListPa
 (`frontend_vue/src/services/mocks/suppliers.ts:319,498`,
 `frontend_vue/src/composables/useSupplierCreate.ts:35`), а разрешённые значения существуют только
 комментарием в схеме — `# 'Legal','Postal','Shipping'`
-(`backend/app/modules/suppliers/shared/models.py:98-100`).
+(`backend/app/modules/suppliers/shared/models.py:99-101`).
 
 ### Fix
 
@@ -241,24 +253,31 @@ CSV в браузере (`frontend_vue/src/views/admin/suppliers/SuppliersListPa
 источников расхождения ниже — находки про фронт:
 
 1. **Адрес.** Фронт объявляет необязательный `line2` (`frontend_vue/src/types/supplier.ts:86`),
-   в `supplier_addresses` такой колонки нет (`backend/app/modules/suppliers/shared/models.py:98-107`:
+   в `supplier_addresses` такой колонки нет (`backend/app/modules/suppliers/shared/models.py:99-108`:
    `address_type`, `line1`, `city`, `country`, `zip`).
 2. **Контакт.** Фронт — `role: TranslatedString` (`:94`), схема — `position: String(255)`,
-   непереводимая колонка (`backend/app/modules/suppliers/shared/models.py:130`). Разные и имя, и тип.
+   непереводимая колонка (`backend/app/modules/suppliers/shared/models.py:129`). Разные и имя, и тип.
 3. **Файл карточки.** Фронт хранит `size` и `type` на самой записи (`:99-105`), схема ссылается на
    `uploaded_files` через `file_id` с `ondelete="RESTRICT"` и своих `size`/`mime` не держит
-   (`backend/app/modules/suppliers/shared/models.py:157-165`).
+   (`backend/app/modules/suppliers/shared/models.py:158-166`).
 4. **Строка прайс-истории.** Фронт объявляет семь полей, включая `stock`, `source` и `status`
    (`:61-70`) — именно они делают её склейкой прайс-леджера и журнала BCC-запросов (документировано
    в `:56-60`). В `supplier_price_entries` этих трёх нет вовсе
-   (`backend/app/modules/suppliers/shared/models.py:204-234`: `product_id`, `price`, `unit`,
+   (`backend/app/modules/suppliers/shared/models.py:205-235`: `product_id`, `price`, `unit`,
    `entry_date`, `notes`), а `unit` там `String(20)` против `TranslatedString | null` во фронте.
 
 ### Fix
 
-Каждое расхождение — решение, а не переименование: п. 4, например, может значить «сервер склеивает
-две таблицы при чтении», и тогда неполна не схема, а представление. Правку типов делать после того,
-как раздел контракта скажет, какая сторона права по каждому из четырёх пунктов.
+**Разблокировано — П72.** [`../api/audit/00-решения-владельца.md`](../api/audit/00-решения-владельца.md), строка 1629:
+
+> **решено 2026-09-11:** склеивает — но **не при чтении**: история собирается из прайс-леджера и
+> журнала BCC в **свою колонку**, и событие обновляет её каждый раз; это названное владельцем
+> исключение для данных из чужого модуля. Трём полям типа (`stock`, `source`, `status`) в схеме
+> нужно место → П72
+
+Работа по коду: `priceHistory` получает колонку и обработчики событий — каждое место, рождающее
+событие, обязано обновить копию (П72 требует перечислить их все в контракте); `stock`, `source` и
+`status` получают место в схеме. Правка типов делается после этого, а не до.
 
 ### Future rule
 

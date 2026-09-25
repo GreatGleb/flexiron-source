@@ -6,7 +6,9 @@ import type { StockAuditEntry } from '@/types/warehouse'
 export async function getClients(
   filters?: ClientFilters & { page?: number; pageSize?: number },
 ): Promise<PaginatedResponse<Client>> {
-  return apiGet('/api/clients', (filters ?? {}) as unknown as Record<string, string>)
+  // Спред, а не приведение через `unknown`: `status` и `sortBy` объявлены nullable, и
+  // приведение только прятало это от компилятора — `null` уезжал в query строкой `"null"`.
+  return apiGet('/api/clients', { ...(filters ?? {}) })
 }
 
 export async function getClient(id: string): Promise<Client> {

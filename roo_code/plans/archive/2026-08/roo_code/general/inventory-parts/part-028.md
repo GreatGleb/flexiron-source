@@ -85,14 +85,14 @@ $ grep -rn "marginPercent\|sellingPrice" src/types/warehouse.ts src/views/admin/
 src/types/warehouse.ts:118: /** Profit margin percent (editable, default from settings.constants.defaultMargin) */
 src/types/warehouse.ts:119:  marginPercent: number | null
 src/composables/useWarehouseBatch.ts:104,119,207,285,315   — форма + дефолт settings.constants.defaultMargin
-src/views/admin/warehouse/WarehouseBatchCard.vue:69: const sellingPrice = computed(...unitPrice * (1 + margin / 100))
-src/views/admin/warehouse/WarehouseBatchCard.vue:76: const totalSellingValue = ...
-src/views/admin/warehouse/WarehouseBatchCard.vue:845: v-model.number="form.marginPercent"
-src/views/admin/warehouse/WarehouseBatchCard.vue:879: sellingPrice (readonly-поле)
+src/views/admin/warehouse/WarehouseBatchCard.vue:71: const sellingPrice = computed(...unitPrice * (1 + margin / 100))
+src/views/admin/warehouse/WarehouseBatchCard.vue:78: const totalSellingValue = ...
+src/views/admin/warehouse/WarehouseBatchCard.vue:787: v-model.number="form.marginPercent"
+src/views/admin/warehouse/WarehouseBatchCard.vue:821: sellingPrice (readonly-поле)
 ```
 Есть: `marginPercent` в типе, редактируемое поле маржи (`data-test="field-margin-percent"`),
 `sellingPrice` за складскую UoM (`field-selling-price`), `field-total-cost`,
-`field-total-selling-value`, дефолт из настроек (`src/services/mocks/settings.ts:29:
+`field-total-selling-value`, дефолт из настроек (`src/services/mocks/settings.ts:31:
 defaultMargin: 15`). Сохранение работает: `marginPercent` в форме под dirty-трекингом,
 `delta = dirty.diff()` уходит в `patchBatch`, мок делает `Object.assign(batch, delta)`
 (`src/services/mocks/warehouse.ts:738`) — но в `BatchPatchPayload`
@@ -108,15 +108,15 @@ useWarehouseBatch.ts` → пусто; в i18n ключей `field_product_price`
 
 ```
 $ grep -rn "api/products" backend/app --include=*.py | grep prefix
-backend/app/modules/products/features/get_product_detail/action.py:25:router = APIRouter(prefix="/api/products", ...)
-backend/app/modules/products/features/create_product/action.py:20:router = APIRouter(prefix="/api/products", ...)
+backend/app/modules/products/features/get_product_detail/action.py:26:router = APIRouter(prefix="/api/products", ...)
+backend/app/modules/products/features/create_product/action.py:21:router = APIRouter(prefix="/api/products", ...)
 $ ls backend/app/modules/products/features/
 create_product  get_product_detail  __init__.py
 ```
 Списочного `GET /api/products` в бэкенде нет вовсе — только `GET /api/products/{id}`
 и `POST /api/products`. Деталь отдаёт нужное:
 `get_product_detail/schemas.py:35 price_unit`, `:41-43 purchase_uom_id / warehouse_uom_id /
-sale_uom_id`; реконструкция — `get_product_detail/domain.py:26 _reconstruct_price_unit`,
+sale_uom_id`; реконструкция — `get_product_detail/domain.py:28 _reconstruct_price_unit`,
 `:76-93`.
 
 ```

@@ -7,6 +7,7 @@ import GlassPanel from '@/components/admin/GlassPanel.vue'
 import InputGroup from '@/components/admin/ui/InputGroup.vue'
 import CustomSelect from '@/components/admin/ui/CustomSelect.vue'
 import { sendMailServerTest } from '@/services/settingsService'
+import { errorCode } from '@/services/apiErrorCode'
 import { MAIL_ENCRYPTIONS, isMailEncryption, isMailConfigured } from '@/types/settings'
 import type { AppSettings, MailServerSettings } from '@/types/settings'
 
@@ -76,7 +77,7 @@ async function handleTest() {
     const { deliveredTo } = await sendMailServerTest()
     toast.success(t('settingsMail.test_sent', { email: deliveredTo }))
   } catch (e) {
-    const code = e instanceof Error ? e.message : ''
+    const code = errorCode(e)
     toast.error(
       code === 'MAIL_NOT_CONFIGURED'
         ? t('settingsMail.test_not_configured')

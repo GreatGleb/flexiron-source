@@ -193,8 +193,8 @@ export function useWarehouse() {
       stockItems.value = res.items
       stockPagination.total.value = res.total
       stockInitialized.value = true
-    } catch (e) {
-      stockError.value = e instanceof Error ? e.message : 'Failed to load stock overview'
+    } catch {
+      stockError.value = t('warehouse.toast_error_load')
     } finally {
       stockLoading.value = false
     }
@@ -221,8 +221,8 @@ export function useWarehouse() {
       batches.value = res.items
       batchesPagination.total.value = res.total
       batchesInitialized.value = true
-    } catch (e) {
-      batchesError.value = e instanceof Error ? e.message : 'Failed to load batches'
+    } catch {
+      batchesError.value = t('warehouse.toast_error_load')
     } finally {
       batchesLoading.value = false
     }
@@ -247,8 +247,8 @@ export function useWarehouse() {
       offcuts.value = res.items
       offcutsPagination.total.value = res.total
       offcutsInitialized.value = true
-    } catch (e) {
-      offcutsError.value = e instanceof Error ? e.message : 'Failed to load offcuts'
+    } catch {
+      offcutsError.value = t('warehouse.toast_error_load')
     } finally {
       offcutsLoading.value = false
     }
@@ -273,8 +273,8 @@ export function useWarehouse() {
       movements.value = res.items
       movementsPagination.total.value = res.total
       movementsInitialized.value = true
-    } catch (e) {
-      movementsError.value = e instanceof Error ? e.message : 'Failed to load movements'
+    } catch {
+      movementsError.value = t('warehouse.toast_error_load')
     } finally {
       movementsLoading.value = false
     }
@@ -296,8 +296,8 @@ export function useWarehouse() {
       deficitItems.value = res.items
       deficitPagination.total.value = res.total
       deficitInitialized.value = true
-    } catch (e) {
-      deficitError.value = e instanceof Error ? e.message : 'Failed to load deficit list'
+    } catch {
+      deficitError.value = t('warehouse.toast_error_load')
     } finally {
       deficitLoading.value = false
     }

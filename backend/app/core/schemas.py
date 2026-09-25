@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Generic, TypeVar
+from typing import Any, Generic, TypeVar
 
 
 class TranslatedString(BaseModel):
@@ -16,10 +16,10 @@ class TranslatedString(BaseModel):
 T = TypeVar("T")
 
 
-class PaginatedResponse(BaseModel):
+class PaginatedResponse(BaseModel, Generic[T]):
     """Paginated list response — items + pagination metadata."""
 
-    items: list
+    items: list[T]
     total: int
     page: int
     pageSize: int
@@ -30,6 +30,6 @@ class ApiResponse(BaseModel):
     """Generic API response envelope."""
 
     success: bool = True
-    data: dict | None = None
+    data: Any | None = None
     message: str | None = None
     code: str | None = None

@@ -1,6 +1,7 @@
 import { ref, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getCategories, deleteCategory as deleteCategoryApi } from '@/services/categoriesService'
+import { errorCode } from '@/services/apiErrorCode'
 import { usePagination } from './usePagination'
 import { useToast } from './useToast'
 import { useTranslatedField } from './useTranslatedData'
@@ -40,7 +41,7 @@ export function useCategories() {
       toast.success(t('categories.toast_deleted'))
       await load()
     } catch (e) {
-      const code = e instanceof Error ? e.message : ''
+      const code = errorCode(e)
       if (code === 'CATEGORY_HAS_PRODUCTS') {
         toast.error(t('categories.toast_error_delete_has_products'))
       } else if (code === 'CATEGORY_HAS_CHILDREN') {

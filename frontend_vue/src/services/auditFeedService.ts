@@ -17,33 +17,23 @@ import type {
   AuditFeedUser,
 } from '@/types/audit'
 
-function authHeaders(): Record<string, string> | undefined {
-  const token = localStorage.getItem('auth_token')
-  if (!token) return undefined
-  return { Authorization: `Bearer ${token}` }
-}
-
 export async function getAuditFeed(
   filters: AuditFeedFilters,
   pagination: { page: number; pageSize: number },
 ): Promise<AuditFeedResponse> {
-  return apiGet<AuditFeedResponse>(
-    '/api/audit-feed',
-    {
-      entityType: filters.entityType,
-      user: filters.user,
-      dateFrom: filters.dateFrom,
-      dateTo: filters.dateTo,
-      search: filters.search,
-      page: String(pagination.page),
-      pageSize: String(pagination.pageSize),
-    },
-    { headers: authHeaders() },
-  )
+  return apiGet<AuditFeedResponse>('/api/audit-feed', {
+    entityType: filters.entityType,
+    user: filters.user,
+    dateFrom: filters.dateFrom,
+    dateTo: filters.dateTo,
+    search: filters.search,
+    page: String(pagination.page),
+    pageSize: String(pagination.pageSize),
+  })
 }
 
 export async function getAuditFeedUsers(): Promise<AuditFeedUser[]> {
-  return apiGet<AuditFeedUser[]>('/api/audit-feed/users', undefined, { headers: authHeaders() })
+  return apiGet<AuditFeedUser[]>('/api/audit-feed/users')
 }
 
 /**
@@ -74,5 +64,11 @@ export async function deleteAuditFeedEntry(row: AuditFeedRow): Promise<void> {
       return deleteMovementAuditEntry(row.entityId, row.entryId)
     case 'deficit':
       return deleteDeficitAuditEntry(row.entityId, row.entryId)
+    default: {
+      // Assigning to `never` also makes this a compile-time exhaustiveness check:
+      // adding a tenth entity type to `AuditEntityType` without a case here breaks the build.
+      const exhaustive: never = row.entityType
+      throw new Error(`Unknown audit feed entity type: ${exhaustive}`)
+    }
   }
 }

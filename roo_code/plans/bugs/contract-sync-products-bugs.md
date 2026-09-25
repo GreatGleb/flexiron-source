@@ -23,7 +23,7 @@
 
 ## БАГ-01 — код ошибки удаления товара читается из `message`, а настоящий API кладёт его в `code`
 
-**File:** `frontend_vue/src/composables/useProducts.ts:51-52`, `frontend_vue/src/services/mocks/index.ts:1507`
+**File:** `frontend_vue/src/composables/useProducts.ts:51-52`, `frontend_vue/src/services/mocks/index.ts:1509`
 **Severity:** High — против настоящего бэкенда единственное осмысленное сообщение об ошибке удаления пропадёт.
 **Источник:** К3 (каждый код доходит до человекочитаемого сообщения)
 
@@ -36,7 +36,7 @@ const code = e instanceof Error ? e.message : ''
 if (code === 'PRODUCT_IN_USE') { … } else { … }
 ```
 
-Под моками это работает случайно: `mocks/index.ts:1507` бросает
+Под моками это работает случайно: `mocks/index.ts:1509` бросает
 `new Error(result.code ?? 'PRODUCT_NOT_FOUND')`, то есть кладёт код именно в `message`.
 Настоящий клиент так не делает — `unwrap()` собирает `ApiRequestError`, у которого `message` это
 человеческий текст сервера, а машинный код лежит в отдельном поле `code`
@@ -138,7 +138,7 @@ await apiDelete<void>(`/api/products/${productId}/audit/${entryId}`)
 
 ## БАГ-04 — сервер отдаёт имя кастомного поля заглушкой вместо имени
 
-**File:** `backend/app/modules/products/features/get_product_detail/domain.py:67-74`
+**File:** `backend/app/modules/products/features/get_product_detail/domain.py:73-81`
 **Severity:** High — единственный реализованный ответ по товару содержит заведомо неверные данные.
 **Источник:** К4 (формы ответа), К5 (бэкенд — источник истины)
 
@@ -156,10 +156,10 @@ field_values = [
 ```
 
 `field_name` — это UUID поля, записанный строкой. Комментарий признаёт заглушку, но эндпоинт
-отдаётся наружу как готовый (`backend/app/modules/products/features/get_product_detail/action.py:28`), и в его схеме `field_name`
+отдаётся наружу как готовый (`backend/app/modules/products/features/get_product_detail/action.py:29`), и в его схеме `field_name`
 объявлен обязательным `str` (`backend/app/modules/products/features/get_product_detail/schemas.py:9-14`) — то есть потребитель не
 отличит заглушку от имени. Данные для настоящего имени рядом: `CategoryField.name`
-(`backend/app/modules/products/shared/models.py:76`), связь — `product_field_values.field_id`
+(`backend/app/modules/products/shared/models.py:67`), связь — `product_field_values.field_id`
 → `category_fields.id` (`:203-206`).
 
 ### Fix
@@ -174,7 +174,7 @@ field_values = [
 
 ---
 
-## БАГ-05 — `mockGetProduct` отдаёт запись стора по ссылке, и карточка правит стор напрямую
+## ✅ БАГ-05 — `mockGetProduct` отдаёт запись стора по ссылке, и карточка правит стор напрямую
 
 **File:** `frontend_vue/src/services/mocks/products.ts:13985-13989`, `frontend_vue/src/views/admin/products/ProductCardPage.vue:70`
 **Severity:** High — мок перестаёт быть сервером: клиент меняет «серверные» данные, не отправив запроса.
@@ -212,6 +212,22 @@ product.value.auditLog = product.value.auditLog.filter((entry) => entry.id !== e
 Мок, отдающий ссылку на своё хранилище, превращает любую мутацию во фронте в тихую запись в
 базу. Ответ мока обязан быть копией.
 
+### Сделано 2026-09-23
+
+`mockGetProduct` отдаёт `structuredClone(found)` вместо самого элемента `STORE`. Заодно
+закрыты соседние выдачи того же файла, которые делили ссылку тем же способом: `mockCreateProduct`
+и `mockPatchProduct` теперь тоже отдают `structuredClone` созданного/патченного объекта, а
+`toListItem` — `structuredClone` собранной записи, так что списочные `name`/`categoryName`
+больше не делят `TranslatedString` со `STORE`. Одно исключение оставлено как есть и подтверждено
+намеренно: `productAuditSources` по-прежнему отдаёт `log: p.auditLog` по ссылке — комментарий
+над функцией объясняет, что лента и карточка обязаны видеть одно и то же удаление.
+
+Доказано новой спекой `frontend_vue/src/services/mocks/store-copies.spec.ts`: получить товар
+(чтение, создание, патч, списочная запись), испортить у копии поле и вложенный `TranslatedString`
+имени, перечитать мок и убедиться, что порча не долетела. Инверсия проверена вручную: временный
+возврат `mockGetProduct` к `return found` красит тест `чтение — правка полученного товара не
+меняет запись на «сервере»` (`AssertionError: expected 'MUTATED' to be 'Steel Sheet 3mm'`).
+
 ---
 
 ## БАГ-06 — `GET /api/products/:id` под моками не имеет кода ошибки, и текст исключения показывается пользователю
@@ -227,7 +243,7 @@ product.value.auditLog = product.value.auditLog.filter((entry) => entry.id !== e
 Пользователь видит английскую строку из мока при любой локали.
 
 Настоящий сервер этот случай оформляет как надо — `NotFoundError(entity="Product", …)` с кодом
-`NOT_FOUND` (`backend/app/modules/products/features/get_product_detail/domain.py:53`,
+`NOT_FOUND` (`backend/app/modules/products/features/get_product_detail/domain.py:56`,
 `backend/app/core/exceptions.py:13-20`), отдаёт 404 с телом `{"detail": {"message", "code"}}`
 (`backend/app/modules/products/features/get_product_detail/action.py:42-46`). То есть мок **слабее** сервера, и путь ошибки под
 моками воспроизводится не тот, что будет в проде.
@@ -272,10 +288,20 @@ linkedSuppliers.value = JSON.parse(JSON.stringify(data.linkedSuppliers)) as Link
 
 ### Fix
 
-Решение уровня контракта (см. БАГ-11): либо сервер получает camelCase-алиасы, как это уже
-сделано в `settings` (`backend/app/modules/settings/features/crud/schemas.py:145,157,169`),
-либо фронт получает слой преобразования регистра. Отдельно от этого `JSON.parse(JSON.stringify(x))`
-на поле, которого может не быть, — небезопасный способ скопировать массив.
+**Разблокировано.** [`../api/audit/00-решения-владельца.md`](../api/audit/00-решения-владельца.md), строка 1810:
+
+> **снято 2026-09-10 (прецедент домена `settings`):** алиасами на бэкенде. Схема настроек уже
+> отдаёт camelCase через `by_alias=True` (`crud/action.py:156`), и второго правила в проекте быть
+> не должно; слой преобразования на клиенте пришлось бы держать в каждом сервисе
+
+Номера П у этого вердикта нет: он вынесен прецедентом домена `settings`, а не новым решением
+владельца.
+
+Работа по коду: `backend/app/modules/products/features/create_product/schemas.py:8-31` и
+`get_product_detail/schemas.py:25-54` получают `Field(alias=…)` и отдачу `by_alias=True`, как
+`settings/features/crud/schemas.py:155,157,169`. Ветка «слой преобразования на фронте» закрыта.
+Отдельно от этого `JSON.parse(JSON.stringify(x))` на поле, которого может не быть, — небезопасный
+способ скопировать массив.
 
 ### Future rule
 
@@ -286,7 +312,7 @@ linkedSuppliers.value = JSON.parse(JSON.stringify(data.linkedSuppliers)) as Link
 
 ## БАГ-08 — `GET /api/products/list` против настоящего бэкенда попадёт в маршрут карточки
 
-**File:** `frontend_vue/src/services/productsService.ts:114-118`, `backend/app/modules/products/features/get_product_detail/action.py:28-30`
+**File:** `frontend_vue/src/services/productsService.ts:114-118`, `backend/app/modules/products/features/get_product_detail/action.py:29-31`
 **Severity:** Medium — справочник имён товаров, от которого зависят пять экранов склада, на живом сервере вернёт 422.
 **Источник:** К1 (инвентарь), К5 (источник истины)
 
@@ -357,7 +383,7 @@ linkedSuppliers.value = JSON.parse(JSON.stringify(data.linkedSuppliers)) as Link
   if (idx === -1) return null
 ```
 
-Ветка мока результат не проверяет (`frontend_vue/src/services/mocks/index.ts:1210-1218`), и
+Ветка мока результат не проверяет (`frontend_vue/src/services/mocks/index.ts:1212-1220`), и
 `null` доезжает до клиента как успешный ответ. `useProductCard.save()` показывает тост
 «Изменения сохранены» (`frontend_vue/src/composables/useProductCard.ts:257`) и зовёт `load()`
 (`:258`), который упадёт уже по другой причине.
@@ -403,12 +429,21 @@ const payload = { ...data, name: toTranslatedString(data.name, locale), descript
 
 Как это решается в проекте, показано рядом: модуль `settings` объявляет
 `Field(alias="formulaType")` и его соседей
-(`backend/app/modules/settings/features/crud/schemas.py:145`, `:157`, `:169`).
+(`backend/app/modules/settings/features/crud/schemas.py:155`, `:167`, `:179`).
 
 ### Fix
 
-Решение уровня домена: алиасы на бэкенде либо слой преобразования на фронте. Плюс
-`extra="forbid"` в схемах входа — тогда потерянный ключ станет ошибкой, а не тишиной.
+**Разблокировано.** Тот же вердикт, что у БАГ-07 —
+[`../api/audit/00-решения-владельца.md`](../api/audit/00-решения-владельца.md), строка 1810:
+
+> **снято 2026-09-10 (прецедент домена `settings`):** алиасами на бэкенде. Схема настроек уже
+> отдаёт camelCase через `by_alias=True` (`crud/action.py:156`), и второго правила в проекте быть
+> не должно; слой преобразования на клиенте пришлось бы держать в каждом сервисе
+
+Номера П у этого вердикта нет: он вынесен прецедентом домена `settings`.
+
+Работа по коду: алиасы на бэкенде плюс `extra="forbid"` в схемах входа — тогда потерянный ключ
+станет ошибкой, а не тишиной.
 
 ### Future rule
 
@@ -446,7 +481,7 @@ async function handleCreate() {
 При этом именно у этого эндпоинта сервер объявляет код: `ValidationError("Product name is
 required")` → `VALIDATION_ERROR`, 422
 (`backend/app/modules/products/features/create_product/domain.py:30-31`,
-`backend/app/modules/products/features/create_product/action.py:43-47`). Соседний экран (создание категории) свою ошибку показывает
+`backend/app/modules/products/features/create_product/action.py:33-37`). Соседний экран (создание категории) свою ошибку показывает
 (`frontend_vue/src/views/admin/products/CategoriesPage.vue:88`).
 
 ### Fix
@@ -494,7 +529,7 @@ saleUomId: data.saleUomId ?? null,
 (`frontend_vue/src/views/admin/products/ProductsPage.vue:118-127`), то есть под моками
 регулярно рождается товар без валюты и без единиц, а против сервера тот же товар получил бы
 валюту арендатора (`cur-eur` помечен `isDefault: true` —
-`frontend_vue/src/services/mocks/settings.ts:70-73`) и три одинаковые единицы.
+`frontend_vue/src/services/mocks/settings.ts:72-75`) и три одинаковые единицы.
 
 ### Fix
 
@@ -508,10 +543,10 @@ saleUomId: data.saleUomId ?? null,
 
 ---
 
-## БАГ-14 — `get_product_by_id` выбирает товар без фильтра по арендатору
+## ✅ БАГ-14 — `get_product_by_id` и `get_category_by_id` выбирают без фильтра по арендатору
 
-**File:** `backend/app/modules/products/features/get_product_detail/repository.py:13-22`, `backend/app/modules/products/features/get_product_detail/domain.py:47-53`
-**Severity:** High — чтение товара чужого арендатора по угаданному id ничем не ограничено.
+**File:** `backend/app/modules/products/features/get_product_detail/repository.py:13-22` и `:25-31`, `backend/app/modules/products/features/get_product_detail/domain.py:50-56` и `:56-64`
+**Severity:** High — чтение товара и категории чужого арендатора по угаданному id ничем не ограничено.
 **Источник:** К6 (мультиарендность)
 
 ### Problem
@@ -525,10 +560,10 @@ result = await db.execute(
 ```
 
 `tenant_id` в запросе нет: `sed -n '17,22p' … | grep -c tenant` → 0, и по файлу целиком тоже 0.
-При этом домен `tenant_id` получает (`backend/app/modules/products/features/get_product_detail/domain.py:47-49`) и использует его
+При этом домен `tenant_id` получает (`backend/app/modules/products/features/get_product_detail/domain.py:50-52`) и использует его
 только для сборки легаси-подписи `price_unit` (`:77-79`), а не для выборки. Схема
 мультиарендность требует: `Product.tenant_id` — `nullable=False, index=True`, FK на `tenants.id`
-(`backend/app/modules/products/shared/models.py:101-106`).
+(`backend/app/modules/products/shared/models.py:92-97`).
 
 Что модуль это умеет — видно на соседних функциях: `count_products_by_currency` и
 `count_products_by_uom` фильтруют по арендатору
@@ -537,12 +572,54 @@ result = await db.execute(
 Тот же репозиторий переиспользуется межмодульным интерфейсом
 (`backend/app/modules/products/internal_api/interface.py:21-30`), то есть дыра наследуется всеми, кто спросит товар у модуля.
 
+**Вторая функция того же файла — та же дыра.** `get_category_by_id`
+(`backend/app/modules/products/features/get_product_detail/repository.py:25-31`) делает
+`select(Category).where(Category.id == category_id)` — без арендатора, хотя `categories.tenant_id`
+объявлен `nullable=False` (`backend/app/modules/products/shared/models.py:17-24`). Карточка
+собирает вложенную категорию именно ею (`backend/app/modules/products/features/get_product_detail/domain.py:59-68`),
+то есть в ответе может оказаться имя категории чужого арендатора. Сквозной план мультиарендности
+уже записал обе функции под этим номером
+(`roo_code/plans/general/сквозное-tenancy-план.md:154-155`), и обе ре-экспортируются наружу
+межмодульным входом (`backend/app/modules/products/internal_api/interface.py:21`, `:33`).
+
 ### Fix
 
-Добавить `Product.tenant_id == tenant_id` в `where`, и брать арендатора из контекста
-аутентификации, а не из заглушки `00000000-…-0001` (`backend/app/modules/products/features/get_product_detail/action.py:34-35`).
+Добавить `Product.tenant_id == tenant_id` в `where` первой функции и `Category.tenant_id == tenant_id`
+во `where` второй; обе обёртки `internal_api` (`:21`, `:33`) принимают `tenant_id` и передают его
+дальше. Арендатора брать из контекста аутентификации, а не из заглушки `00000000-…-0001`
+(`backend/app/modules/products/features/get_product_detail/action.py:34-35`).
 
 ### Future rule
 
 Функция репозитория, принимающая `tenant_id` в вызывающем слое и не использующая его в `where`,
 выглядит безопасной ровно до первого второго арендатора. Проверять надо `where`, а не сигнатуру.
+
+### Сделано 2026-09-24
+
+Обе половины закрыты вместе. `get_product_by_id` и `get_category_by_id`
+(`backend/app/modules/products/features/get_product_detail/repository.py`) теперь принимают
+`tenant_id` и сравнивают его в `where` рядом с `id`; `get_product_detail/domain.py` передаёт им
+арендатора вместо того, чтобы использовать его только для `price_unit`. Оба роута
+(`create_product/action.py`, `get_product_detail/action.py`) объявляют
+`Depends(get_current_user)` из `app.modules.auth.internal_api.interface` и берут `tenant_id` из
+`current_user.tenant_id`; литерал `00000000-0000-0000-0000-000000000001` и локальный `import uuid`
+убраны из обоих обработчиков.
+
+Обёртки `internal_api/interface.py` (`get_product_by_id`, `get_category_by_id`) этой правкой не
+тронуты — ни один вызывающий модуль их не использует (только `count_products_by_currency` и
+`count_products_by_uom`), и добавление обязательного `tenant_id` в репозиторий не изменило
+поведение ни одного реального пути.
+
+Доказано новым `backend/tests/modules/products/test_products_tenancy.py`: настоящий роутер поверх
+временного SQLite, подменяется только `get_db`. Запрос без `Authorization` — 401; товар чужого
+арендатора по угаданному `id` — 404; свой товар — 200; товар, чья категория принадлежит другому
+арендатору, приходит с `category: null`; товар, созданный по токену арендатора A, не читается
+токеном арендатора B. Инверсия проверена вручную дважды: возврат `where` к одному `Product.id`
+красит тест «товар чужого арендатора» (получает 200 вместо 404); возврат заглушки
+`00000000-0000-0000-0000-000000000001` в `get_product_detail/action.py` красит тест «свой товар
+возвращается» (получает 404, потому что заглушка не совпадает со случайным `tenant_id` фикстуры).
+
+`backend/tests/test_route_auth.py`: обе строки products убраны из `KNOWN_GAPS` —
+`test_known_gaps_really_lack_auth` (уже была в файле) проверяет, что закрытая находка не остаётся
+исключением, а `test_every_route_declares_authentication` теперь охраняет оба роута наравне с
+остальными.

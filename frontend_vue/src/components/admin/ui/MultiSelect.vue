@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
+
+import { useFontRemeasure } from '@/composables/useFontRemeasure'
 import { useI18n } from 'vue-i18n'
 import SvgIcon from '@/components/admin/SvgIcon.vue'
 
@@ -193,6 +195,26 @@ watch(
     })
   },
 )
+
+/**
+ * Перемерить, когда доедет шрифт.
+ *
+ * `measureOverflow` решает, сколько тегов влезло в строку, по `offsetLeft +
+ * offsetWidth`, и прячет лишние через `style.display`. Пересчитывается он по
+ * `watch(modelValue)` и по `ResizeObserver` на контейнере — а от смены шрифта
+ * меняется ширина ТЕГОВ, не контейнера, и ни один из двух поводов не срабатывает.
+ * Значит счётчик «+N ещё» может остаться от запасного шрифта: фильтры страницы
+ * восстанавливаются из `localStorage` в `onMounted` (`loadPrefs`), то есть теги
+ * появляются ровно в тот момент, когда шрифта ещё нет.
+ *
+ * Честно о доказательстве: расхождение ширин замерено (Inter 135px против
+ * запасного 138px на одной строке, 2 %), а вот заставить счётчик РАЗОЙТИСЬ на
+ * реальных данных проекта не удалось — даже при задержке шрифта в 15 секунд
+ * раскладка даёт те же 2 видимых и 6 скрытых. То есть дефект следует из замера,
+ * но краевого случая в сегодняшних категориях нет, и падающего теста за этой
+ * правкой не стоит. Она держится на правиле, а не на красном прогоне.
+ */
+useFontRemeasure(measureOverflow)
 
 onMounted(() => {
   document.addEventListener('click', onClickOutside)

@@ -1,0 +1,25 @@
+{
+  "description": "Замер связки DeepSeek→Sonnet на одной маленькой настоящей задаче: починить унаследованную битую ссылку, которую нашёл прогон 2026-09-23.",
+  "baseline_checks": [],
+  "tasks": [
+    {
+      "id": "followups-stale-ref",
+      "depends_on": [],
+      "sources": [
+        "roo_code/plans/general/review-followups.md",
+        "frontend_vue/src/views/admin/warehouse/WarehouseCuttingPage.vue",
+        "frontend_vue/src/services/contractRefs.ts"
+      ],
+      "outputs": [
+        "roo_code/plans/general/review-followups.md"
+      ],
+      "task": "В файле review-followups.md одна ссылка битая. Резолвер говорит про неё так: «WarehouseCuttingPage.vue:407-407 — нет токена в диапазоне: в 407-407 нет ни одного из: class=\"glass-input\"». Ссылка записана обычным текстом вида `WarehouseCuttingPage.vue:407`, а не markdown-ссылкой — искать по строке WarehouseCuttingPage.vue:407. Открой frontend_vue/src/views/admin/warehouse/WarehouseCuttingPage.vue и найди строку, о которой говорит текст вокруг ссылки: код с тех пор сдвинулся. Исправь номер строки так, чтобы ссылка указывала на настоящее место с этим токеном. Смысл предложения вокруг ссылки менять нельзя — меняются только цифры. Проверить себя: cd frontend_vue && CONTRACT_REFS=roo_code/plans/general/review-followups.md ./node_modules/.bin/vitest run src/services/contractRefs.spec.ts — в отчёте должно стать «битых 0». Правила резолвера — в frontend_vue/src/services/contractRefs.ts. Больше в файле ничего не трогай.",
+      "acceptance": [
+        "Отчёт резолвера по документу: битых 0",
+        "Ссылка указывает на строку, где действительно есть названный ею текст",
+        "Текст вокруг ссылки не изменён по смыслу — изменены только номера строк",
+        "Изменён только review-followups.md, npm run verify зелёный"
+      ]
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -28,9 +28,19 @@ class Tenant(UUIDMixin, TimestampMixin, Base):
     )
 
     # Relationships
-    users: Mapped[list["User"]] = relationship(
-        "User", back_populates="tenant", cascade="all, delete-orphan"
-    )
+    # Без `delete-orphan` осознанно: внешний ключ `User.tenant_id` объявлен
+    # `ondelete="RESTRICT"`, то есть база отказывается удалять арендатора, пока у него
+    # есть пользователи. Каскад ORM обещал обратное — удалить их вместе с ним, — и два
+    # слоя противоречили друг другу: защита существовала только для сырого SQL, а через
+    # ORM снималась. Выровнено по более строгой стороне, потому что обратное направление
+    # (сменить ключ на `CASCADE`) означает миграцию И тихое удаление пользователей.
+    #
+    # Стоит знать, что `RESTRICT` здесь — единственный на 47 внешних ключей на
+    # `tenants.id`; остальные `CASCADE`. Осознанный ли это выбор, история не говорит:
+    # строка пришла общим коммитом «refactored backend». Если владелец решит, что
+    # арендатор должен удаляться вместе с пользователями, правильная правка — ключ и
+    # миграция, а не возврат каскада сюда.
+    users: Mapped[list["User"]] = relationship("User", back_populates="tenant")
 
     def __repr__(self) -> str:
         return f"<Tenant {self.slug}>"
@@ -66,6 +76,11 @@ class User(UUIDMixin, TimestampMixin, Base):
     )
     is_active: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default="true"
+    )
+
+    __table_args__ = (
+        Index("ix_users_tenant_id_email", "tenant_id", "email", unique=True),
+        Index("ix_users_updated_at", "updated_at"),
     )
 
     # Relationships
@@ -117,13 +132,14 @@ class Session(UUIDMixin, Base):
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
+        index=True,
     )
     token_hash: Mapped[str] = mapped_column(
         String(255), unique=True, nullable=False
     )
     csrf_token: Mapped[str] = mapped_column(String(255), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
+        DateTime(timezone=True), nullable=False, index=True
     )
     remember: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
@@ -154,6 +170,7 @@ class PermissionItem(UUIDMixin, Base):
         index=True,
     )
     item_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    domain: Mapped[str] = mapped_column(String(50), nullable=False)
     name_translations: Mapped[dict] = mapped_column(
         JSONB, nullable=False, default=dict, server_default="{}"
     )
@@ -179,8 +196,10 @@ class RolePermission(UUIDMixin, TimestampMixin, Base):
     )
     item_id: Mapped[str] = mapped_column(String(100), nullable=False)
     role: Mapped[str] = mapped_column(String(50), nullable=False)
+    # `false`, как и у трёх соседних действий: П33 — «новый элемент видит только
+    # админ», и строка, заведённая без явного значения, обязана быть НЕчитаемой.
     can_read: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=True, server_default="true"
+        Boolean, nullable=False, default=False, server_default="false"
     )
     can_edit: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
@@ -193,8 +212,10 @@ class RolePermission(UUIDMixin, TimestampMixin, Base):
     )
 
     __table_args__ = (
-        UniqueConstraint(
-            "tenant_id", "item_id", "role", name="uq_role_permission"
+        Index(
+            "uq_role_permission",
+            "tenant_id", "item_id", "role",
+            unique=True,
         ),
     )
 
@@ -216,8 +237,12 @@ class UserPermission(UUIDMixin, TimestampMixin, Base):
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
     )
+    # Тот же `false`, что у роли: правило П33 одно на оба уровня 6.1, значит и
+    # умолчание у них одно. Пока переопределение пользователя было единственной
+    # колонкой без умолчания, «строка без явного значения» вела себя на двух
+    # уровнях по-разному, и заметить это было нечем.
     can_read: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=True, server_default="true"
+        Boolean, nullable=False, default=False, server_default="false"
     )
     can_edit: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
@@ -230,7 +255,9 @@ class UserPermission(UUIDMixin, TimestampMixin, Base):
     )
 
     __table_args__ = (
-        UniqueConstraint(
-            "tenant_id", "item_id", "user_id", name="uq_user_permission"
+        Index(
+            "uq_user_permission",
+            "tenant_id", "item_id", "user_id",
+            unique=True,
         ),
     )

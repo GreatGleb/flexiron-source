@@ -49,8 +49,8 @@
 
 ### Actual
 
-Заголовков нет ни на одном. `Idempotency-Key` (`frontend_vue/src/services/api.ts:239-245`) и
-`If-Match` (ветка мока умеет его читать — `frontend_vue/src/services/mocks/index.ts:1420`,
+Заголовков нет ни на одном. `Idempotency-Key` (`frontend_vue/src/services/api.ts:258-264`) и
+`If-Match` (ветка мока умеет его читать — `frontend_vue/src/services/mocks/index.ts:1578`,
 `:1428`) тоже не используются.
 
 ---
@@ -270,7 +270,7 @@ resolvable: 0 of 15
 
 Рядом то же с заказами: `orderId: 'ord-001'` у партии и у трёх обрезков
 (`frontend_vue/src/mocks/warehouse-offcuts.ts`), тогда как мок заказов выдаёт `ORD-001`
-(`frontend_vue/src/services/mocks/orders.ts:662`).
+(`frontend_vue/src/services/mocks/orders.ts:665`).
 
 ### Expected
 
@@ -383,7 +383,7 @@ export async function mockDeleteBatch(id: string): Promise<void> {   // :816
 (`roo_code/roo-context/03-api-contract.md:1404`).
 
 Схема каскад требует четырьмя внешними ключами:
-`warehouse_movements.batch_id` — `CASCADE` (`backend/app/modules/warehouse/shared/models.py:102-107`),
+`warehouse_movements.batch_id` — `CASCADE` (`backend/app/modules/warehouse/shared/models.py:114-119`),
 `warehouse_offcuts.batch_id` — `CASCADE` (`:142-147`),
 `warehouse_offcuts.parent_batch_id` — `SET NULL` (`:153-157`),
 `warehouse_deficits.batch_id` — `SET NULL` (`:185-189`),
@@ -433,7 +433,7 @@ N+1 на каждое открытие карточки.
 
 ## БАГ-13 — возврат, записанный заказами, не уменьшает агрегат продажи и не гасит активную продажу
 
-**File:** `frontend_vue/src/services/mocks/orders.ts:3435`
+**File:** `frontend_vue/src/services/mocks/orders.ts:3438`
 **Severity:** High — после отмены отгрузки или возврата клиента партия продолжает показывать проданным то, что вернулось; остаток при этом увеличивается, то есть два экрана об одной партии говорят разное.
 **Источник:** К2 (кросс-доменное), К6
 
@@ -456,7 +456,7 @@ if (m.type === 'return') {
 Домен заказов пишет туда другое:
 
 ```
-frontend_vue/src/services/mocks/orders.ts:3344   referenceType: 'order-shipment'
+frontend_vue/src/services/mocks/orders.ts:3347   referenceType: 'order-shipment'
 :3435   referenceType: 'order-shipment-cancelled'
 :3780   referenceType: 'order-return'
 :3792   referenceType: 'order-return-writeoff'
@@ -466,8 +466,8 @@ frontend_vue/src/services/mocks/orders.ts:3344   referenceType: 'order-shipment'
 
 Второе следствие — активные продажи. `mockGetBatchActiveSales` сопоставляет возвраты продажам по
 `referenceId` (`frontend_vue/src/services/mocks/warehouse.ts:1457-1468`). У отмены отгрузки
-`referenceId = shipment.id` совпадает с продажей (`frontend_vue/src/services/mocks/orders.ts:3345`, `:3436`) — здесь совпадение
-случайно верное. У возврата клиента `referenceId = orderReturn.id` (`frontend_vue/src/services/mocks/orders.ts:3781`), и он не
+`referenceId = shipment.id` совпадает с продажей (`frontend_vue/src/services/mocks/orders.ts:3348`, `:3436`) — здесь совпадение
+случайно верное. У возврата клиента `referenceId = orderReturn.id` (`frontend_vue/src/services/mocks/orders.ts:3784`), и он не
 совпадает ни с одной продажей: возвращённое остаётся «активной продажей» навсегда.
 
 Старый контракт называет ещё третий словарь: `"sale" | "purchase_order" | "work_order" |
@@ -535,7 +535,7 @@ frontend_vue/src/services/mocks/orders.ts:3344   referenceType: 'order-shipment'
 (`frontend_vue/src/domain/cutting.ts:71-76`, `:81-86`).
 
 Справочник настроек содержит девять: те же шесть плюс `uom-m3`, `uom-kg-m3`, `uom-h`
-(`frontend_vue/src/services/mocks/settings.ts:91-146`).
+(`frontend_vue/src/services/mocks/settings.ts:93-148`).
 `sed -n '71,86p' frontend_vue/src/domain/cutting.ts | grep -c 'uom-m3'` → 0.
 
 Партия в `uom-m3` даёт `BATCH_UNIT_NOT_SUPPORTED` (`frontend_vue/src/domain/cutting.ts:52-53`) и на резке
@@ -588,9 +588,9 @@ return paginate(filtered, pagination.page, pagination.pageSize)     // :1651 д�
 
 ---
 
-## БАГ-17 — схема обрезка не знает ни одного размера, ни веса, ни категории
+## БАГ-17 — схема обрезка не знает ни одного размера, ни веса, ни категории ✅
 
-**File:** `backend/app/modules/warehouse/shared/models.py:131-165`
+**File:** `backend/app/modules/warehouse/shared/models.py:154-188`
 **Severity:** High — обрезок без размеров нельзя ни оценить, ни предложить строке заказа: и `resolveOffcutMaterial`, и `offcutAllocation` считают материал именно из `lengthMm`/`widthMm`/`weightKg`.
 **Источник:** К5 (источник истины), К4
 
@@ -615,11 +615,31 @@ return paginate(filtered, pagination.page, pagination.pageSize)     // :1651 д�
 
 ### Actual
 
-Четыре размера, категория, `qr_data` и `order_id` не хранятся нигде.
+Четыре размера, категория, `qr_data` и `order_id` не хранились нигде.
+
+### Fix — 2026-09-25
+
+Ревизия `c1a7d5e08b34_warehouse_t1_schema_gaps.py` добавила `length_mm`, `width_mm`,
+`thickness_mm`, `weight_kg` (все `Numeric(12, 2)`), `category_id` (FK на `categories.id`,
+`ondelete="SET NULL"` — кусок переживает удаление категории), `qr_data` (`Text`) и `order_id`
+(`String(100)`). Все nullable: роутов у домена нет, писать в них сегодня некому, а
+`NOT NULL` без пишущего кода означал бы, что строку нельзя вставить вовсе.
+
+`parent_batch_id`, которой нет во фронте, эта работа не трогала — её судьба остаётся
+отдельным вопросом.
+
+Доказано инверсией: снять `category_id` — краснеет
+`test_category_id_is_nullable_fk_to_categories_with_set_null`.
 
 ---
 
-## БАГ-18 — `OFFCUT_LINKED_TO_ORDER` читается только из `message`
+## ✅ БАГ-18 — `OFFCUT_LINKED_TO_ORDER` читается только из `message` — ПОЧИНЕН
+
+**Закрыто 2026-09-13:** карточка обрезка читает код через `errorCode(e)`
+(`frontend_vue/src/composables/useWarehouseOffcutCard.ts:386`), то есть из
+`ApiRequestError.code`; парная проверка партии — так же
+(`frontend_vue/src/composables/useWarehouseBatch.ts:341`). Описание ниже оставлено как история
+находки.
 
 **File:** `frontend_vue/src/composables/useWarehouseOffcutCard.ts:385`
 **Severity:** Medium — против настоящего API код придёт в `ApiRequestError.code`, и карточка покажет общий тост вместо объяснения, почему кусок нельзя удалить.
@@ -792,7 +812,7 @@ filtered = filtered.filter((m) => m.batchNumber.toLowerCase().includes(filters.b
 
 ## БАГ-23 — у движения на схеме нет колонки `offcut_id`
 
-**File:** `backend/app/modules/warehouse/shared/models.py:91-128`
+**File:** `backend/app/modules/warehouse/shared/models.py:103-140`
 **Severity:** High — на этом поле держится вся модель обрезка: по нему решается, что движение двигает кусок, а не партию; по нему ставится статус куска; по нему карточка обрезка собирает свой журнал.
 **Источник:** К5, К4
 
@@ -856,7 +876,7 @@ productName: { ru: '', en: '', lt: '' },     // frontend_vue/src/services/mocks/
 
 ## БАГ-25 — у нехватки на схеме нет приоритета, а `status` объявлен со значением приоритета
 
-**File:** `backend/app/modules/warehouse/shared/models.py:196-198`
+**File:** `backend/app/modules/warehouse/shared/models.py:233-248`
 **Severity:** Medium — колонка `status` получает дефолт `"critical"`, которого нет в перечне статусов и который принадлежит перечню приоритетов.
 **Источник:** К5, К4
 
@@ -878,7 +898,7 @@ export type DeficitStatus = 'open' | 'in_progress' | 'ordered' | 'resolved' | 'c
 (`frontend_vue/src/types/warehouse.ts:46`, `:49`).
 
 Колонок под `priority`, `suggested_order_qty` и `purchase_order_id` на схеме нет вовсе
-(`backend/app/modules/warehouse/shared/models.py:168-199`), хотя все три есть в типе
+(`backend/app/modules/warehouse/shared/models.py:185-222`), хотя все три есть в типе
 (`frontend_vue/src/types/warehouse.ts:455`, `:458`, `:460`) и все три правятся
 (`:499-506`).
 
@@ -958,9 +978,9 @@ export async function mockExportWarehouseCsv(_tab: string): Promise<string> {
 
 ---
 
-## БАГ-28 — уникальность строки остатка объявлена без арендатора
+## БАГ-28 — уникальность строки остатка объявлена без арендатора ✅
 
-**File:** `backend/app/modules/warehouse/shared/models.py:213-219`
+**File:** `backend/app/modules/warehouse/shared/models.py:267-272`
 **Severity:** High — `unique=True` на одном `product_id` означает одну строку остатка на всю базу, а не на арендатора; второй арендатор с тем же товаром не сможет её создать.
 **Источник:** К6 (мультиарендность)
 
@@ -981,7 +1001,7 @@ product_id: Mapped[uuid.UUID] = mapped_column(
 `tenant_id` в ограничение не входит: `sed -n '213,219p' backend/app/modules/warehouse/shared/models.py | grep -c tenant_id` → 0.
 
 Как это делается правильно, видно в соседнем модуле: `uq_product_field_value` на паре
-(`backend/app/modules/products/shared/models.py:210-214`).
+(`backend/app/modules/products/shared/models.py:201-205`).
 
 ### Expected
 
@@ -990,3 +1010,73 @@ product_id: Mapped[uuid.UUID] = mapped_column(
 ### Actual
 
 `unique=True` на одной колонке.
+
+### Fix — 2026-09-25
+
+Ревизия `c1a7d5e08b34_warehouse_t1_schema_gaps.py`: одиночная уникальность снята, заведён
+составной `UniqueConstraint("tenant_id", "product_id", name="uq_stock_items_tenant_product")`.
+Колонка осталась индексированной, но перестала быть глобально уникальной.
+
+**Уникальность в базе была ИНДЕКСОМ, а не ограничением,** и это стоило падения переноса:
+модель объявляла `unique=True, index=True`, что SQLAlchemy рендерит как уникальный индекс
+`ix_stock_items_product_id`. `op.drop_constraint("stock_items_product_id_key", ...)` отвечает
+`UndefinedObjectError`. Ревизия снимает индекс и пересоздаёт его обычным.
+
+Сторож сам потребовал убрать себя: `backend/tests/test_tenant_scope.py` держит именованный
+список исключений `UNIQUE_PAIR_EXEMPT` и **падает, когда строка в нём устарела**. Как только
+пара появилась, тест назвал `StockItem.product_id` лишней строкой — её и убрали. Именно так
+исключение и должно умирать: не забыванием, а красным тестом.
+
+---
+
+## БАГ-29 — `minStock` живёт в двух разных сторах, и его правка не меняет ни дефицит, ни уведомление
+
+**File:** `frontend_vue/src/services/mocks/warehouse.ts:474`, `frontend_vue/src/services/mocks/products.ts:14184`, `frontend_vue/src/types/warehouse.ts:588-589`
+**Severity:** Medium — порог, поставленный на карточке товара, не влияет на склад; переход через порог не является событием ни для кого
+**Источник:** К5 (производные значения), К6 (события)
+
+### Problem
+
+**Порог хранится дважды.** На карточке товара его правит поле формы
+(`views/admin/products/ProductCardPage.vue:333` → `composables/useProductCard.ts:24`), уходит
+дельтой в единственный PATCH товара (`useProductCard.ts:233-256`) и ложится в стор товаров
+(`mocks/products.ts:14184`, запись — `:14220`). У склада порог — собственное поле строки остатка, засеянное отдельно
+(`frontend_vue/src/mocks/warehouse-stock.ts`, `grep -c minStock` → 72) и правимое собственным
+маршрутом `PATCH` остатка (`mocks/index.ts:1439` → `mocks/warehouse.ts:553-561`, `Object.assign(item, delta)`).
+Комментарий типа обещает вывод из товара — «Minimum stock threshold (**from product**)»
+(`types/warehouse.ts:588-589`), но вывода нет: `grep -n minStock frontend_vue/src/services/mocks/warehouse.ts`
+даёт ровно две строки, `:474` и `:522`, и обе читают `row.minStock`, то есть собственную копию.
+Правка порога на товаре склад не видит; правка на складе не видна товару.
+
+**Дефицит не хранится, а считается при каждом чтении:**
+
+```ts
+isDeficit: row.minStock !== null && totalQuantity < row.minStock,
+```
+(`mocks/warehouse.ts:474`, в проекции `projectStockRow`, через которую идут и список
+`mockGetStockOverview` (`:490`), и карточка `mockGetStockItem` (`:545-551`)).
+
+Поэтому перехода через порог не существует как момента: признак появляется и исчезает молча при
+следующем чтении, и подписаться на него нечему.
+
+**Уведомление говорит про порог, но рождается не от него.** Текст `stock_deficit` — «достиг нижнего
+лимита остатка» / «has reached minimum stock level» (`mocks/notifications.ts:648-651`), а
+единственный вызыватель — открытие новой записи нехватки под заказ, попросивший больше, чем лежит
+(`mocks/warehouse.ts:1721`, условие — только **вновь открытая** нехватка). Правка `minStock` не зовёт
+эмиттер ни разу: `grep -c notifyStockDeficit` по местам правки порога → 0.
+
+**Карточка товара о дефиците не знает вовсе.** `grep -rn isDeficit` по
+`views/admin/products/` и `composables/useProductCard.ts` → пусто; признак читают только склад
+(`WarehousePage.vue:1387`, `:1737`, `:1756`) и карточка остатка (`WarehouseStockCard.vue:209`). То
+есть на экране, где порог задают, последствия его правки не видны.
+
+### Fix
+
+TBD — решение владельца о владельце порога. Ожидаемое по §17 соглашений (сервер считает производные,
+а не хранит): `minStock` принадлежит товару, строка остатка его не дублирует, а склад читает у товара;
+переход через порог — событие, и тогда текст `stock_deficit` перестаёт расходиться со своим поводом.
+
+### Future rule
+
+Одно и то же число в двух сторах — это два числа. Если тип обещает «from product», должен
+существовать код, который это выводит; комментарий выводом не является.

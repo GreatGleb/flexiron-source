@@ -2,7 +2,7 @@
 
 ## Problem
 
-The Notes field in [`WarehouseBatchCard.vue`](../../frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:547) is a `<textarea>` with inline styles that **disable** vertical resizing and keep it at a fixed small height:
+The Notes field in [`WarehouseBatchCard.vue`](../../frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:489) is a `<textarea>` with inline styles that **disable** vertical resizing and keep it at a fixed small height:
 
 ```html
 <textarea
@@ -44,7 +44,7 @@ The global [`textarea.glass-input`](../../frontend_vue/src/styles/admin/componen
 
 Two changes are needed:
 
-### 1. Remove inline styles from the textarea in [`WarehouseBatchCard.vue`](../../frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:547)
+### 1. Remove inline styles from the textarea in [`WarehouseBatchCard.vue`](../../frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:489)
 
 Change from:
 ```html
@@ -91,7 +91,7 @@ textarea.batch-notes-input {
 
 | File | Change |
 |------|--------|
-| [`frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue`](../../frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:547) | Remove inline `style` attribute, add class `batch-notes-input` |
+| [`frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue`](../../frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:489) | Remove inline `style` attribute, add class `batch-notes-input` |
 | [`frontend_vue/src/styles/admin/warehouse_list.css`](../../frontend_vue/src/styles/admin/warehouse_list.css) | Add `.batch-notes-input` CSS rule |
 
 ## Testing Notes

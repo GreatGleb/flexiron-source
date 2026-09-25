@@ -56,7 +56,7 @@
 
 | Список | Пункты | Правило работы |
 |---|---|---|
-| **№1 — правится в одном чате** | 1, 3, 5, 10 | Увидел причину → исправил → показал. Регламента не требуют. |
+| **№1 — правится в одном чате** | 1, 3, 5, 10 | Увидел причину → исправил → показал. Регламента не требуют. **Закрыт целиком — вердикты по коду для всех четырёх пунктов см. ниже (2026-09-23).** |
 | **№2 — по регламенту** | 7, 8, 11, 9а, 9б, 12, 2, 6, 13 | Скилы читать до кода, цикл проверок обязателен, приёмка отдельным агентом. |
 
 Список №2 внутри делится ещё раз: пункты **7, 8, 11, 9а, 9б, 12** идут сразу в код
@@ -73,7 +73,16 @@
 
 ---
 
-## 1. Кнопки «Резка» и «Новый обрезок» слиплись
+## 1. Кнопки «Резка» и «Новый обрезок» слиплись — ✅ СДЕЛАНО (вердикт 2026-09-23)
+
+> **Вердикт по коду (2026-09-23): сделано, ровно как предписано.** Обёртка
+> `.panel-header-actions` (`display: flex`, `gap: 8px`, `margin-left: auto`, без `gap` на
+> самом `.panel-header`) объявлена в
+> [`_glass-panel.css:44-50`](../../../frontend_vue/src/styles/admin/components/_glass-panel.css#L44-L50).
+> Использована в обоих названных местах: карточка партии склада, секция «Обрезки из этой
+> партии» — [`WarehouseBatchCard.vue:1266-1292`](../../../frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue#L1324-L1350)
+> (кнопки «Резка» и «Новый обрезок» внутри одной обёртки), и
+> [`SupplierCardConfigPage.vue:565`](../../../frontend_vue/src/views/admin/suppliers/SupplierCardConfigPage.vue#L552).
 
 **Где видно:** `/admin/warehouse/batches/whb-100`, шапка секции «Обрезки из этой партии».
 
@@ -82,7 +91,7 @@
 вплотную — между ними ноль пикселей.
 
 **То же самое есть ещё в одном месте:**
-[`SupplierCardConfigPage.vue:551`](../../../frontend_vue/src/views/admin/suppliers/SupplierCardConfigPage.vue#L551).
+[`SupplierCardConfigPage.vue:564`](../../../frontend_vue/src/views/admin/suppliers/SupplierCardConfigPage.vue#L551).
 Проверено разбором всех слотов `#header` с двумя и более кнопками — таких мест ровно два.
 
 **Как чинить.** В карточке заказа кнопки в шапке обёрнуты в `.doc-gen-actions.in-header`
@@ -96,7 +105,25 @@
 
 ---
 
-## 3. Кнопка проверки почты не говорит, куда пошлёт письмо
+## 3. Кнопка проверки почты не говорит, куда пошлёт письмо — ✅ СДЕЛАНО (вердикт 2026-09-23)
+
+> **Вердикт по коду (2026-09-23): сделано.** Адрес называется ДО нажатия: вычисляемый
+> `testTarget` — [`MailSettings.vue:66-70`](../../../frontend_vue/src/views/admin/settings/MailSettings.vue#L66-L70)
+> — рендерится строкой рядом с кнопкой,
+> [`MailSettings.vue:191-193`](../../../frontend_vue/src/views/admin/settings/MailSettings.vue#L191-L193).
+> Пустой отправитель — своя ветка `test_no_sender`
+> ([`MailSettings.vue:67`](../../../frontend_vue/src/views/admin/settings/MailSettings.vue#L67)):
+> кнопка при этом всё равно неактивна, потому что `configured` —
+> [`MailSettings.vue:50`](../../../frontend_vue/src/views/admin/settings/MailSettings.vue#L50) —
+> зовёт `isMailConfigured`, а та проверяет `fromEmail` наряду с `host` и `passwordSet`
+> ([`types/settings.ts:167-171`](../../../frontend_vue/src/types/settings.ts#L167-L171)), так что
+> письмо действительно не уходит. Поведение «кнопка гаснет и объясняет причину» сохранено,
+> как и требовал план. Сверх плана закрыт соседний случай — несохранённая правка формы
+> (`test_target_stale`), чтобы не называть черновик как получателя. Ключи есть во всех трёх
+> языках: [`i18n/admin/settings.ts:125-127`](../../../frontend_vue/src/i18n/admin/settings.ts#L125-L127)
+> (ru), [`i18n/admin/settings.ts:390-392`](../../../frontend_vue/src/i18n/admin/settings.ts#L390-L392)
+> (en), [`i18n/admin/settings.ts:657-659`](../../../frontend_vue/src/i18n/admin/settings.ts#L657-L659)
+> (lt).
 
 **Где видно:** Настройки → «Почта», кнопка «Отправить тестовое письмо».
 
@@ -119,7 +146,17 @@
 
 ---
 
-## 5. Кнопки в шапке Sales CRM
+## 5. Кнопки в шапке Sales CRM — ✅ СДЕЛАНО (вердикт 2026-09-23)
+
+> **Вердикт по коду (2026-09-23): сделано, ровно как предписано.** «Новый клиент» несёт
+> `class="btn btn-primary"` —
+> [`SalesCrmPage.vue:68-75`](../../../frontend_vue/src/views/admin/sales-crm/SalesCrmPage.vue#L68-L75)
+> — тот же класс, что у «Нового заказа» на строке 56. «Список клиентов» несёт
+> `<SvgIcon name="list-status" …>` —
+> [`SalesCrmPage.vue:76-83`](../../../frontend_vue/src/views/admin/sales-crm/SalesCrmPage.vue#L76-L83)
+> — ту же иконку, что у «Списка заказов» на строке 89. Комментарий над блоком
+> ([`SalesCrmPage.vue:62-67`](../../../frontend_vue/src/views/admin/sales-crm/SalesCrmPage.vue#L62-L67))
+> называет то же решение, что и план.
 
 **Где видно:** `/admin/sales-crm`.
 
@@ -133,7 +170,22 @@
 
 ---
 
-## 10. В модалке возврата непонятно, чего не хватает
+## 10. В модалке возврата непонятно, чего не хватает — ✅ СДЕЛАНО (вердикт 2026-09-23)
+
+> **Вердикт по коду (2026-09-23): сделано, ровно как предписано.** Звёздочка у метки —
+> [`OrderCardPage.vue:2589-2591`](../../../frontend_vue/src/views/admin/orders/OrderCardPage.vue#L2589-L2591).
+> Строка серым под формой, над кнопками, считает `returnBlockReason` —
+> [`OrderCardPage.vue:698-702`](../../../frontend_vue/src/views/admin/orders/OrderCardPage.vue#L698-L702) —
+> и рендерится по `v-if` в
+> [`OrderCardPage.vue:2605-2607`](../../../frontend_vue/src/views/admin/orders/OrderCardPage.vue#L2605-L2607):
+> ничего не заполнено → `orders.return_need_qty`, количество есть, причины нет →
+> `orders.return_need_reason`, всё готово → пустая строка, `v-if` её убирает. Условие кнопки
+> — [`OrderCardPage.vue:2620`](../../../frontend_vue/src/views/admin/orders/OrderCardPage.vue#L2620) —
+> читает те же два условия в том же порядке, разойтись с подсказкой им негде. Ключи есть во
+> всех трёх языках:
+> [`i18n/admin/orders.ts:489-490`](../../../frontend_vue/src/i18n/admin/orders.ts#L489-L490) (ru),
+> [`i18n/admin/orders.ts:1003-1004`](../../../frontend_vue/src/i18n/admin/orders.ts#L1003-L1004) (en),
+> [`i18n/admin/orders.ts:1518-1519`](../../../frontend_vue/src/i18n/admin/orders.ts#L1518-L1519) (lt).
 
 **Где видно:** `/admin/orders/ORD-099`, кнопка подтверждения возврата серая даже после
 отгрузки, и на экране ничто не объясняет причину.
@@ -271,9 +323,10 @@
 — `AutoResizeTextarea` без `class="glass-input"`. Сам компонент базового класса не несёт:
 его корень — голая `<textarea>`, оформление обязан дописать каждый вызывающий.
 
-**Измерено:** из 28 вызовов `AutoResizeTextarea` класс забыт ровно в двух —
-здесь и `WarehouseCuttingPage.vue:407` (пункт 2). Остальные 26 пишут `class="glass-input"`
-руками.
+**Измерено 2026-08-29, до правки пункта 8:** из 28 вызовов `AutoResizeTextarea` класс был
+забыт ровно в двух — здесь и в `WarehouseCuttingPage.vue:548` (пункт 2). Остальные 26 писали
+его руками. Сегодня это уже неверно: класс несёт сам компонент
+(`AutoResizeTextarea.vue:87`), и вызывающие его не дописывают.
 
 **Как чинить.** Класс должен нести сам компонент, а не 28 вызывающих. Fall-through
 атрибуты Vue дописывают классы к своим, так что существующие вызовы не сломаются —
@@ -406,7 +459,7 @@
 > поэтому сумма сходится по построению и не проверяет ничего. Различает правду и ложь
 > только первая половина. Заявление автора, что `amountVat` в приложении не читает никто,
 > проверено `grep -rn "amountVat" src/`: три попадания — объявление типа
-> (`types/order.ts:407`), запись в моке (`orders.ts:4397`) и новый тест; ни одного
+> (`types/order.ts:407`), запись в моке (`orders.ts:4400`) и новый тест; ни одного
 > чтения в композаблах и шаблонах.
 > Ничего лишнего не сломано: заявленное НЕТТО по-прежнему разворачивается в брутто через
 > `netToGross` (12396.69 → 14999.99, до и после — байт в байт), счёт по отгрузке
@@ -435,7 +488,7 @@
 **Где видно:** `/admin/orders/ORD-099`, секция «Счета», авансовый счёт на 15000.
 
 **Причина — потеря на круговом пересчёте.**
-[`orders.ts:4373`](../../../frontend_vue/src/services/mocks/orders.ts#L4373) вместе с
+[`orders.ts:4376`](../../../frontend_vue/src/services/mocks/orders.ts#L4373) вместе с
 `statedNet` (там же, 4444–4451): заявленный брутто переводится в нетто с округлением до
 копейки, а брутто потом **пересчитывается обратно** из уже округлённого нетто.
 
@@ -747,7 +800,7 @@ if (gutter !== 24 && gutter !== 0) document.documentElement.dataset.scrollbars =
 
 **Это не поломка отображения.** Маршрут `/api/clients/:id/invoices` подключён
 ([`mocks/index.ts:533`](../../../frontend_vue/src/services/mocks/index.ts#L533)), сводка
-считается верно ([`orders.ts:4055`](../../../frontend_vue/src/services/mocks/orders.ts#L4055)).
+считается верно ([`orders.ts:4058`](../../../frontend_vue/src/services/mocks/orders.ts#L4055)).
 Дыра в засеве: из сотни заказов документы выписываются почти только у сценарных,
 собранных руками.
 

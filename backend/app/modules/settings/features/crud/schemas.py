@@ -13,27 +13,47 @@ from app.core.schemas import TranslatedString
 # ─── Company ──────────────────────────────────────────────────────────────
 
 class CompanyInfoResponse(BaseModel):
-    """Company info — matches frontend CompanyInfo type."""
+    """Company info — matches frontend CompanyInfo type.
+
+    `logoUrl` на проводе остаётся **ссылкой**, а колонка хранит идентификатор файла
+    (`logo_file_id`, П11): ссылка производна и собирается при чтении. Поле схемы
+    названо `logo_link`, потому что в ответе лежит именно ссылка, а не идентификатор.
+
+    Часовой пояс (`timezone`, П62), страна кодом ISO 3166-1 alpha-2 (`countryCode`,
+    П66) и код подтверждения (`confirmationCode`, П73) — новые поля карточки.
+    """
 
     name: str
     legal_address: str = Field(alias="legalAddress", default="")
     vat_code: str = Field(alias="vatCode", default="")
     bank_name: str = Field(alias="bankName", default="")
     bank_account: str = Field(alias="bankAccount", default="")
-    logo_url: str | None = Field(alias="logoUrl", default=None)
+    time_zone: str = Field(alias="timezone", default="")
+    country_code: str = Field(alias="countryCode", default="")
+    confirmation_code: str = Field(alias="confirmationCode", default="")
+    logo_link: str | None = Field(alias="logoUrl", default=None)
 
     model_config = {"populate_by_name": True, "from_attributes": True}
 
 
 class CompanyPatchInput(BaseModel):
-    """Partial update for company info."""
+    """Partial update for company info.
+
+    `logoUrl` остаётся полем **запроса** (П11): клиент по-прежнему присылает ссылку от
+    `POST /api/uploads`, а домен опознаёт в ней свой файл и пишет идентификатор.
+
+    No `confirmationCode`: П73 calls the code constant and never re-issued, so this
+    body does not carry it — the client's whole-section PATCH has the field ignored.
+    """
 
     name: str | None = None
     legal_address: str | None = Field(alias="legalAddress", default=None)
     vat_code: str | None = Field(alias="vatCode", default=None)
     bank_name: str | None = Field(alias="bankName", default=None)
     bank_account: str | None = Field(alias="bankAccount", default=None)
-    logo_url: str | None = Field(alias="logoUrl", default=None)
+    time_zone: str | None = Field(alias="timezone", default=None)
+    country_code: str | None = Field(alias="countryCode", default=None)
+    logo_link: str | None = Field(alias="logoUrl", default=None)
 
     model_config = {"populate_by_name": True}
 
@@ -41,23 +61,47 @@ class CompanyPatchInput(BaseModel):
 # ─── Constants ────────────────────────────────────────────────────────────
 
 class ConstantsResponse(BaseModel):
-    """Global financial constants — matches frontend GlobalConstants type."""
+    """Global scalar constants — matches frontend GlobalConstants type.
+
+    The default currency is not one of them: it is not a constant but a
+    projection of the currency flag `Currency.is_default` (П22 + П68), so the
+    stored column is gone and the value leaves this response with it — deriving
+    it is slice C6, which also owns the "exactly one flag" invariant.
+
+    The three non-financial scalars join the same resource by the owner's decision:
+    the payment deferral in days (П32), the default kerf width in mm (П34) and the
+    reservation hold in days (П52). They are written and read by the same two
+    endpoints; no third endpoint is added for them.
+    """
 
     vat_rate: float = Field(alias="vatRate")
     default_margin: float = Field(alias="defaultMargin")
-    default_currency: str = Field(alias="defaultCurrency")
     default_discount_percent: float = Field(alias="defaultDiscountPercent")
+    payment_deferral_days: int = Field(alias="paymentDeferralDays")
+    default_kerf_mm: float = Field(alias="defaultKerfMm")
+    reservation_hold_days: int = Field(alias="reservationHoldDays")
 
     model_config = {"populate_by_name": True, "from_attributes": True}
 
 
 class ConstantsPatchInput(BaseModel):
-    """Partial update for global constants."""
+    """Partial update for the global scalar constants.
+
+    No `defaultCurrency`: the stored column is gone (П22 + П68), so there is
+    nothing for this body to write — a client that still sends the field has it
+    ignored.
+
+    No bounds are declared for the three scalars added by C2: the owner assigned
+    bounds to three financial constants only (П108–П110), so this slice does not
+    invent business limits for the others.
+    """
 
     vat_rate: float | None = Field(alias="vatRate", default=None)
     default_margin: float | None = Field(alias="defaultMargin", default=None)
-    default_currency: str | None = Field(alias="defaultCurrency", default=None)
     default_discount_percent: float | None = Field(alias="defaultDiscountPercent", default=None)
+    payment_deferral_days: int | None = Field(alias="paymentDeferralDays", default=None)
+    default_kerf_mm: float | None = Field(alias="defaultKerfMm", default=None)
+    reservation_hold_days: int | None = Field(alias="reservationHoldDays", default=None)
 
     model_config = {"populate_by_name": True}
 
@@ -70,7 +114,6 @@ class CurrencyResponse(BaseModel):
     id: str
     code: str
     name: TranslatedString
-    exchange_rate: float = Field(alias="exchangeRate")
     is_default: bool = Field(alias="isDefault")
     updated_at: str | None = Field(alias="updatedAt", default=None)
 
@@ -78,11 +121,14 @@ class CurrencyResponse(BaseModel):
 
 
 class CurrencyCreateInput(BaseModel):
-    """Input for creating a new currency."""
+    """Input for creating a new currency.
+
+    No rate field: conversion between currencies was dropped from the project
+    altogether (П23), so there is no rate to store and none to send.
+    """
 
     code: str
     name: TranslatedString
-    exchange_rate: float = Field(alias="exchangeRate")
     is_default: bool = Field(alias="isDefault", default=False)
 
     model_config = {"populate_by_name": True}
@@ -93,7 +139,6 @@ class CurrencyPatchInput(BaseModel):
 
     code: str | None = None
     name: TranslatedString | None = None
-    exchange_rate: float | None = Field(alias="exchangeRate", default=None)
     is_default: bool | None = Field(alias="isDefault", default=None)
 
     model_config = {"populate_by_name": True}
@@ -179,7 +224,7 @@ class OrderStatusResponse(BaseModel):
     id: str
     name: TranslatedString
     color: str
-    order: int
+    sort_order: int = Field(alias="order")
     system: bool = False
     reserve_on_transition: bool = Field(alias="reserveOnTransition", default=False)
     write_off_on_transition: bool = Field(alias="writeOffOnTransition", default=False)
@@ -192,7 +237,7 @@ class OrderStatusCreateInput(BaseModel):
 
     name: TranslatedString
     color: str
-    order: int
+    sort_order: int = Field(alias="order")
     reserve_on_transition: bool = Field(alias="reserveOnTransition", default=False)
     write_off_on_transition: bool = Field(alias="writeOffOnTransition", default=False)
 
@@ -204,7 +249,6 @@ class OrderStatusPatchInput(BaseModel):
 
     name: TranslatedString | None = None
     color: str | None = None
-    order: int | None = None
     reserve_on_transition: bool | None = Field(alias="reserveOnTransition", default=None)
     write_off_on_transition: bool | None = Field(alias="writeOffOnTransition", default=None)
 
@@ -214,6 +258,23 @@ class OrderStatusPatchInput(BaseModel):
 class OrderStatusReorderInput(BaseModel):
     """Reorder input — list of status IDs in new order."""
 
-    ordered_ids: list[str] = Field(alias="orderedIds")
+    ids: list[str] = Field(alias="orderedIds")
+
+    @property
+    def ordered_ids(self) -> list[str]:
+        """The route reads `.ordered_ids`; the wire name stays `orderedIds`."""
+        return self.ids
 
     model_config = {"populate_by_name": True}
+
+
+# ─── Order Permissions ────────────────────────────────────────────────────
+
+class OrderPermissionsResponse(BaseModel):
+    """Order pricing permission matrix — matches frontend OrderPermissions type."""
+
+    see_cost: list[str] = Field(alias="seeCost")
+    manual_cost: list[str] = Field(alias="manualCost")
+    correction: list[str] = Field(alias="correction")
+
+    model_config = {"populate_by_name": True, "from_attributes": True}

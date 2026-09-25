@@ -1,8 +1,19 @@
 import type { BccCategory, BccRecipient, BccRequest } from '@/types/bcc'
 import type { TranslatedString } from '@/types/i18n'
+import { ApiRequestError } from '@/types/api'
 import { MOCK_SUPPLIERS } from './suppliers'
 import { notifySupplierResponse } from './notifications'
 import { mockGetMail, mockIsMailConfigured } from './settings'
+
+/**
+ * Отказ мока в форме настоящего сервера: код в поле `code`, а не в тексте —
+ * тот же приём, что `mockRefusal` в `mocks/settings.ts:430-432` (§2 соглашений
+ * «отказ несёт код, а не текст»). Текст сообщения остаётся прежней заглавной
+ * строкой кода — только его адрес меняется с `message` на `code`.
+ */
+function bccRefusal(status: number, code: string, message: string): ApiRequestError {
+  return new ApiRequestError({ status, message, code })
+}
 
 export const MOCK_BCC_CATEGORIES: BccCategory[] = [
   {
@@ -430,7 +441,9 @@ export function mockSendBccRequest(payload: {
   body: TranslatedString | string
   fileIds?: string[]
 }): { requestId: string } {
-  if (!mockIsMailConfigured()) throw new Error('MAIL_NOT_CONFIGURED')
+  // Статус 422 — контракт домена называет его явно для этого кода
+  // (`roo_code/roo-context/api/bcc.md`, «Каталог кодов ошибок домена»).
+  if (!mockIsMailConfigured()) throw bccRefusal(422, 'MAIL_NOT_CONFIGURED', 'MAIL_NOT_CONFIGURED')
   const mail = mockGetMail()
   const bcc = payload.recipientIds
     .map((id) => MOCK_SUPPLIERS.find((s) => s.id === id)?.email)
@@ -472,9 +485,16 @@ export function mockLogBccRequest(payload: {
 export function mockAcceptResponse(
   eventId: string,
   payload: { price: number; unit: string },
-): BccRequest | null {
+): BccRequest {
   const src = MOCK_BCC_HISTORY.find((e) => e.id === eventId)
-  if (!src) return null
+  // An event nobody knows is refused by code, like `MAIL_NOT_CONFIGURED` above.
+  // The `null` it used to return was handed to the page as a value of type
+  // `BccRequest` and pushed straight into the feed, so a miss was indistinguishable
+  // from a success until the row failed to render. The domain had no code for this
+  // case at all — this is it, and it is not a substring of either existing code.
+  // Статус 404 — контракт домена не называет его для этого кода, поэтому по
+  // семейству §2 соглашений (`00-conventions.md:62-68`): `*_NOT_FOUND` → 404.
+  if (!src) throw bccRefusal(404, 'BCC_EVENT_NOT_FOUND', 'BCC_EVENT_NOT_FOUND')
   const next: BccRequest = {
     id: `evt-${Date.now()}`,
     requestId: src.requestId,
@@ -489,16 +509,20 @@ export function mockAcceptResponse(
     unit: payload.unit,
   }
   MOCK_BCC_HISTORY.unshift(next)
-  // The supplier answering is the event. `mockMarkNoResponse` below is the
-  // opposite fact — nobody answered — and files nothing: a feed that reports
-  // silence as news would fill up with things that did not happen.
-  notifySupplierResponse({ id: next.supplierId, name: next.supplierName })
+  // The event is the transition into `responded`, not the row: the history table's
+  // "edit" button on an already-responded row calls this same function again, and
+  // firing the notice a second time would report one answer as two.
+  if (src.status !== 'responded')
+    notifySupplierResponse({ id: src.supplierId, name: src.supplierName })
   return next
 }
 
-export function mockMarkNoResponse(eventId: string): BccRequest | null {
+export function mockMarkNoResponse(eventId: string): BccRequest {
   const src = MOCK_BCC_HISTORY.find((e) => e.id === eventId)
-  if (!src) return null
+  // Same refusal as its neighbour above, and for the same reason — status 404
+  // by the `*_NOT_FOUND` family rule (`00-conventions.md:62-68`), since the
+  // domain contract does not name a status for this code.
+  if (!src) throw bccRefusal(404, 'BCC_EVENT_NOT_FOUND', 'BCC_EVENT_NOT_FOUND')
   const next: BccRequest = {
     id: `evt-${Date.now()}`,
     requestId: src.requestId,

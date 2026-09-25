@@ -1,8 +1,8 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func
-from sqlalchemy.dialects.postgresql import JSON, UUID
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, func
+from sqlalchemy.dialects.postgresql import JSON, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.base import Base, TimestampMixin, UUIDMixin
@@ -22,28 +22,19 @@ class Category(UUIDMixin, TimestampMixin, Base):
         nullable=False,
         index=True,
     )
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    name_translations: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
     parent_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("categories.id", ondelete="RESTRICT"),
         nullable=True,
         index=True,
     )
-    description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    field_count: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0, server_default="0"
-    )
-    product_count: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0, server_default="0"
-    )
-    level: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0, server_default="0"
-    )
+    description_translations: Mapped[dict | None] = mapped_column(JSONB, nullable=True, default=dict, server_default="{}")
 
     # Self-referencing relationships
     children: Mapped[list["Category"]] = relationship(
         "Category", back_populates="parent",
-        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
     parent: Mapped["Category | None"] = relationship(
         "Category", back_populates="children",
@@ -73,7 +64,7 @@ class CategoryField(UUIDMixin, TimestampMixin, Base):
         nullable=False,
         index=True,
     )
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    name_translations: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
     field_type: Mapped[str] = mapped_column(
         String(50), nullable=False
     )  # 'text','number','enum','date','boolean'
@@ -176,6 +167,12 @@ class Product(UUIDMixin, TimestampMixin, Base):
         Numeric(20, 6), nullable=True
     )
 
+    # Soft delete (П44): archived, not removed — the timestamp itself is the
+    # archive flag, there is no separate boolean.
+    archived_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     # Relationships
     field_values: Mapped[list["ProductFieldValue"]] = relationship(
         "ProductFieldValue", back_populates="product",
@@ -208,9 +205,10 @@ class ProductFieldValue(UUIDMixin, TimestampMixin, Base):
     value: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     __table_args__ = (
-        UniqueConstraint(
+        Index(
+            "ix_product_field_values_product_field",
             "product_id", "field_id",
-            name="uq_product_field_value",
+            unique=True,
         ),
     )
 

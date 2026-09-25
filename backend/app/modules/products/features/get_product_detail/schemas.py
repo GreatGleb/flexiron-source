@@ -3,14 +3,14 @@
 from pydantic import BaseModel
 from uuid import UUID
 from datetime import datetime
-from typing import Any
+from app.core.schemas import TranslatedString
 
 
 class ProductFieldValueResponse(BaseModel):
     """Dynamic field value on a product."""
 
     field_id: UUID
-    field_name: str
+    field_name: TranslatedString
     value: str | None
 
 
@@ -18,7 +18,7 @@ class CategoryBriefResponse(BaseModel):
     """Brief category info for product detail."""
 
     id: UUID
-    name: str
+    name: TranslatedString
     level: int
 
 
@@ -52,6 +52,10 @@ class ProductDetailResponse(BaseModel):
     field_values: list[ProductFieldValueResponse]
     created_at: datetime
     updated_at: datetime
+
+    # Derived from `archived_at` (П44) — no separate stored flag, see §17
+    # of the API conventions.
+    is_archived: bool
 
 
 class GetProductInput(BaseModel):

@@ -35,9 +35,9 @@ cd frontend_vue && CONTRACT_REFS=roo_code/roo-context/api/00-conventions.md \
 | §6 | `auth/shared/models.py:145-236` | имена моделей перенесены на строку ссылки |
 | §6 | `useOrderPermissions.ts:16-21` → `:17-21` | цитата «is a `curtain`, not a right» — диапазон сужен по факту |
 | §6 | `mocks/auditFeed.ts:47-60` → `:43-60` | `toRows` объявлен на `:43`, ссылка начиналась после объявления |
-| §8 | `useProductCard.ts:247` | `Number.isNaN`; отдельная ссылка на `Text` — `products/shared/models.py:203-208` |
+| §8 | `useProductCard.ts:247` | `Number.isNaN`; отдельная ссылка на `Text` — `products/shared/models.py:194-199` |
 | §9 | `warehouseService.ts:333-373` | `apiDelete` вместо `DELETE` (в коде регистр другой) |
-| §9 | `suppliers/shared/models.py:170-201` | `SupplierAuditEntry` вместо отсутствующего `sensitive` |
+| §9 | `suppliers/shared/models.py:171-202` | `SupplierAuditEntry` вместо отсутствующего `sensitive` |
 | §13 | `services/api.ts:153-156` | `url.searchParams` вместо `entityType=` |
 | §16 | `core/uploads/action.py:141-142` | `base_url` вместо `storage_path` |
 | §18 | `bcc/.../domain.py:95-99` | `NoRecipientsError`; код `NO_RECIPIENTS` — своей ссылкой на `:34-38` |
@@ -46,7 +46,7 @@ cd frontend_vue && CONTRACT_REFS=roo_code/roo-context/api/00-conventions.md \
 | §21 | `useAuth.ts:101-108` | `getStoredCsrf` вместо `csrf_token` (в коде заголовок `X-CSRF-Token`) |
 
 Пять «глазами» проверены чтением и оставлены как есть — во всех пяти ссылка верна, а токен на
-строке принадлежит соседнему утверждению: `mocks/orders.ts:1858`
+строке принадлежит соседнему утверждению: `mocks/orders.ts:1861`
 (`'FORBIDDEN_' + right.toUpperCase()` — кода `FORBIDDEN_CORRECTION` дословно в файле нет),
 `router/index.ts:258-318` (восемь попаданий `adminWarehouse`), `types/config.ts:3`
 (`FieldType` из шести значений), `useAuditFeed.ts:68` (`page.value = result.page`),
@@ -71,14 +71,14 @@ cd frontend_vue && CONTRACT_REFS=roo_code/roo-context/api/00-conventions.md \
   `:53-61` — совпадает с §12;
 - **аудит по id**: девять сущностей замкнуты типом `types/audit.ts:4-14`;
 - **`Idempotency-Key`**: пять вызовов (`bccService.ts:43`, `:64`, `ordersService.ts:295`,
-  `:352`, `:386`), генератор `api.ts:240`;
+  `:352`, `:386`), генератор `api.ts:259`;
 - **фича-флаги**: 52 во фронте против 46 в миграции — пересчитано;
 - **мультиарендность**: `tenant_id` во всех десяти модулях, счётчики §4 совпали;
 - **уведомления**: семь `notify*`;
 - **права**: `check_permission` — `return True` с комментарием «Placeholder»
-  (`auth/internal_api/interface.py:27-38`), вызывающих нет; `dependencies.py` — один докстринг;
+  (`auth/internal_api/interface.py:33-44`), вызывающих нет; `dependencies.py` — один докстринг;
   `ForbiddenError` поднимается во всём бэкенде один раз
-  (`settings/features/crud/domain.py:529`). То есть форма отказа прежнего контракта
+  (`settings/features/crud/domain.py:554`). То есть форма отказа прежнего контракта
   `403 { code: 'FORBIDDEN' }` не подтверждается, и §6 говорит это же.
 
 Решений в этом проходе не принято ни одного: строки «нигде» остались в

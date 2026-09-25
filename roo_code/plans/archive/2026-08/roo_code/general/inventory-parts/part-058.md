@@ -41,7 +41,7 @@ WarehousePage.vue:1326  t('warehouse.empty_stock')
 WarehousePage.vue:1817  t('warehouse.empty_batches')
 WarehousePage.vue:2309  t('warehouse.empty_offcuts')
 WarehousePage.vue:2860  t('warehouse.empty_movements')
-WarehouseBatchCard.vue:1325/1429 — empty_movements / empty_offcuts
+WarehouseBatchCard.vue:1267/1429 — empty_movements / empty_offcuts
 ```
 
 Баги 8–17 (колоночные ключи) — все добавлены по трём локалям:
@@ -66,9 +66,9 @@ $ grep -c "^\s*batch_section_dates:" src/i18n/admin/warehouse.ts → 3
 Баг 29 (интерполяция `batchNumber`) — параметр передаётся во всех трёх вызовах:
 ```
 $ grep -rn "batch_card_title" src/views/
-WarehouseBatchCard.vue:120  t('warehouse.batch_card_title', { batchNumber: batch.value.batchNumber })
-WarehouseBatchCard.vue:389  t('warehouse.batch_card_title', { batchNumber: batch.batchNumber })
-WarehouseBatchCard.vue:398  t('warehouse.batch_card_title', { batchNumber: batch.batchNumber })
+WarehouseBatchCard.vue:122  t('warehouse.batch_card_title', { batchNumber: batch.value.batchNumber })
+WarehouseBatchCard.vue:331  t('warehouse.batch_card_title', { batchNumber: batch.batchNumber })
+WarehouseBatchCard.vue:340  t('warehouse.batch_card_title', { batchNumber: batch.batchNumber })
 ```
 
 Баг 30 (общий `initialized`) — исправлен вариантом (b), пофлаговые флаги на вкладку:
@@ -157,7 +157,7 @@ $ sed -n 261,265p frontend_vue/src/router/index.ts
 
 Фаза 4 — сделана частично и в другой форме:
 `CreateMovementModal.vue` есть (`src/views/admin/warehouse/CreateMovementModal.vue`,
-подключён в WarehouseBatchCard.vue:18, 1532), а вместо `CreateBatchModal.vue` и
+подключён в WarehouseBatchCard.vue:19, 1532), а вместо `CreateBatchModal.vue` и
 `CreateOffcutModal.vue` появились отдельные страницы:
 ```
 src/views/admin/warehouse/WarehouseBatchCreatePage.vue   (роут warehouse/batches/new)

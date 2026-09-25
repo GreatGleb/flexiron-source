@@ -35,7 +35,11 @@ export function useOrders() {
       total.value = result.total
       initialized = true
     } catch (e) {
-      error.value = String(e)
+      // Ключ, а не собственные слова исключения: список умеет получить четыре отказа
+      // разбора параметров (`UNKNOWN_SORT_KEY`, `UNKNOWN_SORT_DIRECTION`,
+      // `INVALID_DATE_FILTER`, `INVALID_PAGE`), и `String(e)` печатал их человеку как
+      // есть. Карточка делает так же (`useOrderCard.ts:412`).
+      error.value = t(lineEditErrorKey(e, 'orders.toast_error_load'))
     } finally {
       loading.value = false
     }

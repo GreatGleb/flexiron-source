@@ -1,6 +1,5 @@
 import { test as base, expect } from '@playwright/test'
 import { enableAllFlags } from './helpers/flags'
-import { pinWebFonts } from './helpers/webFonts'
 
 /**
  * Extended Playwright `test` that forces ALL feature flags ON and sets locale to
@@ -14,7 +13,6 @@ import { pinWebFonts } from './helpers/webFonts'
  */
 export const test = base.extend({
   context: async ({ context }, use) => {
-    await pinWebFonts(context)
     await enableAllFlags(context)
     await context.addInitScript(() => {
       localStorage.setItem('flexiron_lang', 'en')
@@ -29,7 +27,6 @@ export const test = base.extend({
  */
 export const testWithFlags = base.extend({
   context: async ({ context }, use) => {
-    await pinWebFonts(context)
     await enableAllFlags(context)
     await use(context)
   },
@@ -38,14 +35,9 @@ export const testWithFlags = base.extend({
 /**
  * Variant with neither flags nor language forced — for specs that set flags
  * themselves (feature-flags.spec.ts) or assert the default state.
- *
- * Use this rather than importing `test` from '@playwright/test' directly: the
- * web fonts still have to be pinned, because a spec that reaches the real font
- * CDN can 404 and trip a console-error assertion. See helpers/webFonts.ts.
  */
 export const testBare = base.extend({
   context: async ({ context }, use) => {
-    await pinWebFonts(context)
     await use(context)
   },
 })

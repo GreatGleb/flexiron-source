@@ -50,3 +50,8 @@ backend/uploads/
 # Generated typecheck
 frontend_vue/typecheck_result.txt
 typecheck_errors.txt
+
+# Local environment (machine-specific; see backend/.env.example)
+backend/.env
+# Конфиг харнесса Zoo Code (auto-approve) — локальная настройка исполнителя, не часть продукта.
+roo_code/zoo-code-auto-approve.json

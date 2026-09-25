@@ -138,7 +138,7 @@ src/types/warehouse.ts:32:  | 'converted_to_offcuts'                       # (1)
 src/i18n/admin/warehouse.ts:157,198,204   # ru: status_/batch_status_/batch_status_hint_
 src/i18n/admin/warehouse.ts:839,880,886   # en
 src/i18n/admin/warehouse.ts:1520,1561,1567 # lt
-src/views/admin/warehouse/WarehouseBatchCard.vue:157:  converted_to_offcuts: 'pill-offcut'   # (4)
+src/views/admin/warehouse/WarehouseBatchCard.vue:159:  converted_to_offcuts: 'pill-offcut'   # (4)
 src/views/admin/warehouse/WarehousePage.vue:450: BATCH_STATUS_OPTIONS entry                # (5)
 src/views/admin/warehouse/WarehousePage.vue:554:  converted_to_offcuts: 'pill-offcut'       # (5)
 src/services/mocks/warehouse.ts:254:  offcut: 'converted_to_offcuts',                     # (6) AGGREGATE_TO_STATUS
@@ -182,7 +182,7 @@ $ grep -n "section_offcut_movements" frontend_vue/src/i18n/admin/warehouse.ts
 378:  'Движения по обрезку'   1056:  'Offcut movements'   1735:  'Atraižos judėjimai'
 ```
 
-`WarehouseOffcutCard.vue:57` деструктурирует `movements`/`movementsLoading`; секция
+`WarehouseOffcutCard.vue:59` деструктурирует `movements`/`movementsLoading`; секция
 `GlassPanel` c `data-test="offcut-card-movements-section"` стоит на 866-914 — после блока
 Location, перед Files/Audit, с колонками Date/Type/Quantity/Reference, ссылкой на
 `admin-warehouse-movement` и пустым состоянием `warehouse.empty_movements`. Разметка совпадает

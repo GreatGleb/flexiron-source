@@ -35,12 +35,12 @@ async def patch_currency_route(currency_id: uuid.UUID, input_data: CurrencyPatch
                                db: AsyncSession = Depends(get_db)):   # ← и всё
 ```
 
-Глобального auth-мидлвара, который закрыл бы дыру снаружи, нет: `backend/app/main.py:8`
+Глобального auth-мидлвара, который закрыл бы дыру снаружи, нет: `backend/app/main.py:9`
 подключает только CORS (`setup_cors`), других мидлваров в файле нет.
 
 Вторая половина той же дыры — репозиторий. `get_currency`, `get_uom`, `get_conversion`,
 `get_order_status` ищут запись **по одному `id`**, без `tenant_id`
-(`crud/repository.py:94-98`, `:148-150`, `:205-209`, `:262-266`), поэтому даже если токен
+(`crud/repository.py:92-96`, `:148-150`, `:205-209`, `:262-266`), поэтому даже если токен
 вернуть, арендатор всё равно не проверяется: зная UUID чужой валюты, её можно переименовать
 или удалить. Ограничение по арендатору есть только у списков (`:89`, `:143`, `:200`, `:256`)
 и у `reorder`, который пишет по паре `(id, tenant_id)` (`:299-302`).
@@ -49,7 +49,7 @@ async def patch_currency_route(currency_id: uuid.UUID, input_data: CurrencyPatch
 
 Добавить `Depends(_resolve_user_id)` восьми роутам и провести `tenant_id` до репозитория —
 `get_*` по id обязаны принимать `tenant_id` и фильтровать по нему, как это уже сделано в
-`reorder_order_statuses` (`crud/repository.py:294-306`).
+`reorder_order_statuses` (`crud/repository.py:320-332`).
 
 ### Future rule
 
@@ -157,7 +157,7 @@ return ApiResponse(success=True, data=[r.model_dump(mode="json", by_alias=True) 
 
 ## БАГ-05 — фронт не может создать валюту: сервер требует `exchangeRate`, клиент его не знает
 
-**File:** `backend/app/modules/settings/features/crud/schemas.py:85`, `frontend_vue/src/types/settings.ts:22-28`, `frontend_vue/src/views/admin/settings/SettingsLayout.vue:355-359`
+**File:** `backend/app/modules/settings/features/crud/schemas.py:120`, `frontend_vue/src/types/settings.ts:22-28`, `frontend_vue/src/views/admin/settings/SettingsLayout.vue:355-359`
 **Severity:** High — единственный путь добавления валюты против настоящего сервера кончается 422.
 **Источник:** К4
 
@@ -183,7 +183,7 @@ addCurrency({ code: newCurrency.value.code.toUpperCase(),
 
 Поля нет и в типе: `Currency` — это `{ id, code, name, isDefault, updatedAt? }`
 (`frontend_vue/src/types/settings.ts:22-28`), курса во фронте нет нигде. Под моками
-создание работает (`mocks/settings.ts:460-467` кладёт что дали), против сервера — 422 Pydantic.
+создание работает (`mocks/settings.ts:500-507` кладёт что дали), против сервера — 422 Pydantic.
 
 ### Fix
 
@@ -231,9 +231,9 @@ function authHeaders(): Record<string, string> | undefined {
 
 ---
 
-## БАГ-07 — удаление единицы измерения молча сносит правила пересчёта
+## БАГ-07 — удаление единицы измерения молча сносит правила пересчёта ✅
 
-**File:** `backend/app/modules/settings/shared/models.py:117,122`, `backend/app/modules/settings/features/crud/domain.py:333-344`
+**File:** `backend/app/modules/settings/shared/models.py:125,130`, `backend/app/modules/settings/features/crud/domain.py:397-408`
 **Severity:** High — матрица пересчёта теряет строки без предупреждения и без следа.
 **Источник:** К5
 
@@ -242,33 +242,41 @@ function authHeaders(): Record<string, string> | undefined {
 Обе стороны правила объявлены каскадом:
 
 ```python
-from_uom_id: … ForeignKey("uoms.id", ondelete="CASCADE")   # models.py:117
-to_uom_id:   … ForeignKey("uoms.id", ondelete="CASCADE")   # models.py:122
+from_uom_id: … ForeignKey("uoms.id", ondelete="CASCADE")   # models.py:156
+to_uom_id:   … ForeignKey("uoms.id", ondelete="CASCADE")   # models.py:161
 ```
 
-`remove_uom_item` (`crud/domain.py:333-344`) проверяет только товары — счёт идёт через
-`count_products_by_uom` (`crud/domain.py:339-340`) — и, не найдя их, удаляет единицу. Правила пересчёта, где эта единица
+`remove_uom_item` проверяет только товары — счёт идёт через `count_products_by_uom` — и, не
+найдя их, удаляет единицу. Правила пересчёта, где эта единица
 стоит с любой стороны, исчезнут вместе с ней. Старый контракт обещал ровно обратное — «409
 если UOM используется в товарах, правилах пересчёта или заказах»
 (старый раздел `DELETE /api/settings/uoms/:id`).
 
-### Fix
+### Fix — обе половины, 2026-09-25
 
-Либо проверка перед удалением и `CONFLICT`, либо `ondelete="RESTRICT"` — но это решение о
-поведении, а не о коде: см. `00-решения-владельца.md`.
+Решение владельца (П44) — `CONFLICT`, а не каскад. Ссылки переведены на `RESTRICT` слайсом C1
+(ревизия `7c4d1e9a3b58`), а доменный счёт дописан здесь: `remove_uom_item` считает правила
+пересчёта через `count_conversions_by_uom` (обе стороны пары, в пределах арендатора) вместе с
+товарами и услугами и отвечает одним `UOM_IN_USE` (409).
+
+Счёт собран в ОДИН отказ, а не в три подряд идущих `ConflictError`: правило «единицу нельзя
+удалить, пока на неё ссылаются» одно, и запись у него должна быть одна (Л5).
+
+Доказано инверсией: вернуть счёт к товарам и услугам —
+`test_uom_referenced_only_by_a_conversion_rule_is_refused` краснеет.
 
 ---
 
 ## БАГ-08 — валюту по умолчанию можно удалить
 
-**File:** `backend/app/modules/settings/features/crud/domain.py:257-268`, `frontend_vue/src/views/admin/settings/FinanceSettings.vue:111-114`
+**File:** `backend/app/modules/settings/features/crud/domain.py:328-339`, `frontend_vue/src/views/admin/settings/FinanceSettings.vue:111-114`
 **Severity:** High — арендатор остаётся с `constants.defaultCurrency`, указывающим в никуда.
 **Источник:** К5
 
 ### Problem
 
 `remove_currency_item` проверяет одно: используется ли валюта товарами — счёт через
-`count_products_by_currency` (`crud/domain.py:262-266`).
+`count_products_by_currency` (`crud/domain.py:399-400`).
 Ни флаг `is_default` самой записи, ни код в `global_constants.default_currency` не проверяются —
 в функции нет ни одного обращения ни к тому, ни к другому. Инвариант держит **только атрибут `disabled` на кнопке**:
 
@@ -277,18 +285,28 @@ to_uom_id:   … ForeignKey("uoms.id", ondelete="CASCADE")   # models.py:122
 :disabled="cur.isDefault"
 ```
 
-Мок не проверяет и этого (`mocks/settings.ts:475-479`).
+Мок не проверяет и этого (`mocks/settings.ts:515-519`).
 
 ### Fix
 
 Проверка в домене с `CONFLICT`. Что именно запрещать — только `is_default` или ещё и
 совпадение кода с константами — решение владельца.
 
+### Фронтовая половина закрыта 2026-09-24
+
+Мок больше не пропускает удаление молча: `mockDeleteCurrency` проверяет `isDefault` записи
+и отказывает `CURRENCY_IS_DEFAULT` (409) прежде счёта ссылок, тем же кодом, который назвал
+контракт (см. `roo_code/roo-context/api/settings.md`, каталог кодов домена). Кнопка
+`FinanceSettings.vue` не тронута — атрибут `disabled` остаётся первой линией защиты в UI,
+мок стал второй. Половина, адресованная серверу (проверка в `crud/domain.py`, вопрос «только
+`is_default` или ещё и код констант» из Fix выше), решением владельца не закрыта и этой
+правкой не тронута.
+
 ---
 
-## БАГ-09 — валюта по умолчанию может стать не одна: инвариант живёт только в клиенте
+## БАГ-09 — валюта по умолчанию может стать не одна: инвариант живёт только в клиенте ✅
 
-**File:** `frontend_vue/src/views/admin/settings/SettingsLayout.vue:436-446`, `backend/app/modules/settings/features/crud/domain.py:221-254`
+**File:** `frontend_vue/src/views/admin/settings/SettingsLayout.vue:436-446`, `backend/app/modules/settings/features/crud/domain.py:287-320`
 **Severity:** High — при частичном падении Save на сервере окажется две валюты по умолчанию либо ни одной.
 **Источник:** К5, графа «Транзакционность»
 
@@ -305,31 +323,45 @@ if (cur) updateConstants({ defaultCurrency: cur.code })
 По Save это превращается в PATCH каждой изменившейся валюты (`useSettings.ts:403-405`) плюс
 PATCH констант (`:353-356`), и все они уходят одним `Promise.all` (`:518`).
 `update_currency_item` при этом просто пишет присланный `is_default`
-(`crud/domain.py:237-238`) — других валют не касается.
+(`crud/domain.py:296-297`) — других валют не касается.
 
-### Fix
+### Fix — 2026-09-25
 
-Инвариант обязан жить на сервере: установка `isDefault: true` снимает флаг у остальных валют
-арендатора в той же транзакции.
+`clear_default_currency` снимает флаг у остальных валют арендатора и **сама не коммитит**: она
+вызывается прямо перед записью, которая коммит и несёт, поэтому оба изменения лежат в одной
+транзакции. Вызывают её обе ветки — и `update_currency_item` (с `except_id`), и
+`create_currency_item`: новая валюта по умолчанию заменяет прежнюю, а не встаёт рядом.
+
+Доказано инверсией: снять вызовы — краснеют
+`test_patch_default_currency_unsets_the_previous_one` и
+`test_create_default_currency_unsets_the_previous_one`. Чужой арендатор проверен отдельно
+(`test_patch_default_currency_leaves_another_tenant_untouched`): у арендатора B своя валюта по
+умолчанию, и PATCH арендатора A её не трогает.
 
 ---
 
-## БАГ-10 — уникальность кода валюты проверяется только при создании
+## БАГ-10 — уникальность кода валюты проверяется только при создании ✅
 
-**File:** `backend/app/modules/settings/features/crud/domain.py:221-254`, `backend/app/modules/settings/shared/models.py:81-83`
+**File:** `backend/app/modules/settings/features/crud/domain.py:287-320`, `backend/app/modules/settings/shared/models.py:89-91`
 **Severity:** Medium — PATCH с занятым кодом упрётся в ограничение БД и вылетит необработанной ошибкой драйвера вместо 409.
 **Источник:** К3
 
 ### Problem
 
-`create_currency_item` дубли ловит (`crud/domain.py:200-202` → `ConflictError`).
+`create_currency_item` дубли ловит (`crud/domain.py:307` → `ConflictError`).
 `update_currency_item` — нет: код переписывается без всякой проверки
-(`crud/domain.py:229-230`), а в схеме стоит `UniqueConstraint("tenant_id", "code", name="uq_currencies_tenant_code")`.
+(`crud/domain.py:288-289`), а уникальность кода держит `UNIQUE INDEX`: на дату записи модель
+объявляла его как `UniqueConstraint("tenant_id", "code", name="uq_currencies_tenant_code")`
+(**2026-09-22:** модель приведена к базе и зовёт его `ix_currencies_tenant_code` — правка только
+модельная, см. [`db-5433-and-bug02-close-2026-09-22.md`](../../roo-context/verify-runs/db-5433-and-bug02-close-2026-09-22.md)).
 Ответ клиенту в этом случае будет не `CONFLICT`, а 500.
 
-### Fix
+### Fix — уже в коде, задачей не потребовалось
 
-Та же проверка через `get_currency_by_code` (`crud/repository.py:101-111`) в ветке PATCH.
+Проверка стоит в `update_currency_item` со слайса С5: код арендатора сверяется до записи,
+приведённым к тому же виду, что при создании (`strip().upper()`), и занятый код отвечает
+`CURRENCY_CODE_TAKEN` (409). Разбор 2026-09-25 это подтвердил чтением кода — писать было нечего,
+устаревшим был контракт, и поправлен он.
 
 ---
 
@@ -342,7 +374,7 @@ PATCH констант (`:353-356`), и все они уходят одним `P
 ### Problem
 
 Домен исправно бросает `NotFoundError` из пяти функций — `update_currency_item`
-(`crud/domain.py:226`), `update_uom_item` (`:308`), `update_conversion_item` (`:404`),
+(`crud/domain.py:221`), `update_uom_item` (`crud/domain.py:385`), `update_conversion_item` (`crud/domain.py:477`),
 `remove_conversion_item` (`:438`), `update_order_status_item` (`:490`). Роуты, которые их
 вызывают, `try/except` не имеют: сравните `delete_currency_route` (`crud/action.py:266-284`,
 ловит `NotFoundError` и `ConflictError`) с `patch_currency_route` (`:252-263`, не ловит
@@ -379,13 +411,13 @@ PATCH констант (`:353-356`), и все они уходят одним `P
 
 ## БАГ-13 — мок профиля принимает `role`, сервер её игнорирует
 
-**File:** `frontend_vue/src/services/mocks/settings.ts:636-639`, `frontend_vue/src/composables/useSettings.ts:514`
+**File:** `frontend_vue/src/services/mocks/settings.ts:718-721`, `frontend_vue/src/composables/useSettings.ts:514`
 **Severity:** Medium — под моками сохранение профиля способно переписать собственную роль пользователя; против сервера — нет.
 **Источник:** К2
 
 ### Problem
 
-Клиент шлёт профиль целиком — `saveProfile` со спредом всей секции (`useSettings.ts:514`), то
+Клиент шлёт профиль целиком — `saveProfile` со спредом всей секции (`useSettings.ts:545`), то
 есть вместе с `role` и `secretLink`
 (`frontend_vue/src/types/settings.ts:205-212`). Серверная схема принимает только четыре поля
 (`profile/schemas.py:27-35`) и лишние отбрасывает. Мок же кладёт всё:
@@ -409,17 +441,17 @@ export function mockPatchProfile(patch: Partial<UserProfile>): UserProfile {
 
 ## БАГ-14 — мок статусов не знает про системные, сервер знает
 
-**File:** `frontend_vue/src/services/mocks/settings.ts:575-580`, `backend/app/modules/settings/features/crud/domain.py:527-529`
+**File:** `frontend_vue/src/services/mocks/settings.ts:657-662`, `backend/app/modules/settings/features/crud/domain.py:616-618`
 **Severity:** Medium — под моками удаляется то, что сервер запретит 403-м.
 **Источник:** К2
 
 ### Problem
 
 Сервер отказывает: `if existing.is_system: raise ForbiddenError("Cannot delete a system-defined order status")`
-(`crud/domain.py:528-529`), роут отображает это в 403 (`crud/action.py:496-500`). Мок
-удаляет что угодно (`mocks/settings.ts:575-580` — единственная проверка это существование),
+(`crud/domain.py:617-618`), роут отображает это в 403 (`crud/action.py:496-500`). Мок
+удаляет что угодно (`mocks/settings.ts:657-662` — единственная проверка это существование),
 при том что все 15 сидовых статусов помечены `system: true`
-(`mocks/settings.ts:210-345`). Кнопка удаления в UI системные статусы не различает
+(`mocks/settings.ts:212-347`). Кнопка удаления в UI системные статусы не различает
 (`frontend_vue/src/views/admin/settings/OrderStatusesSettings.vue:13`).
 
 ### Fix
@@ -493,7 +525,7 @@ toast.error(code === 'MAIL_NOT_CONFIGURED' ? t('settingsMail.test_not_configured
 ```
 
 Под моками совпадает случайно: мок бросает `new Error('MAIL_NOT_CONFIGURED')` — код уходит в
-текст исключения (`frontend_vue/src/services/mocks/settings.ts:621`), а не в поле кода.
+текст исключения (`frontend_vue/src/services/mocks/settings.ts:703`), а не в поле кода.
 `unwrap()` собирает `ApiRequestError`, у которого `message` — человеческий текст сервера, а
 код лежит в поле `code` (`frontend_vue/src/services/api.ts:118-124`).
 
@@ -526,7 +558,7 @@ reader.readAsDataURL(file)
 
 Настоящий URL приходит позже, обработчиком загрузки — `handleLogoUploaded`
 (`SettingsLayout.vue:344-349`), и
-подменяет превью. Но `updateCompany` помечает секцию грязной (`useSettings.ts:531-535`), и
+подменяет превью. Но `updateCompany` помечает секцию грязной (`useSettings.ts:565`), и
 Save, нажатый в промежутке, отправит PATCH с base64. Колонка это примет: `logo_url` — `Text`
 (`backend/app/modules/settings/shared/models.py:29`, расширена миграцией
 `backend/alembic/versions/15f2c7d4e9b0_enlarge_logo_url_to_text.py`). Старый контракт
@@ -542,7 +574,7 @@ Save, нажатый в промежутке, отправит PATCH с base64. 
 
 ## БАГ-19 — `factor` со значением 0 не доезжает до клиента
 
-**File:** `backend/app/modules/settings/features/crud/domain.py:359,394,430`
+**File:** `backend/app/modules/settings/features/crud/domain.py:530,533,577`
 **Severity:** Low — коэффициент 0 читается как «коэффициента нет».
 **Источник:** К4
 
@@ -558,7 +590,7 @@ factor=float(c.factor) if c.factor else None
 означает отсутствие поля (`frontend_vue/src/types/settings.ts:83` — `factor?: number`).
 Проверка должна быть `is not None`. Ноль как коэффициент бессмысленен, но записать его
 сейчас можно: валидации `factor > 0` нет ни в `create_conversion_item`
-(`crud/domain.py:366-396`), ни в форме (`SettingsLayout.vue:376-398`).
+(`crud/domain.py:439-469`), ни в форме (`SettingsLayout.vue:376-398`).
 
 ### Fix
 
@@ -568,17 +600,17 @@ factor=float(c.factor) if c.factor else None
 
 ## БАГ-20 — правило пересчёта можно создать и без коэффициента, и без формулы
 
-**File:** `backend/app/modules/settings/features/crud/schemas.py:150-159`, `backend/app/modules/settings/features/crud/domain.py:366-396`
+**File:** `backend/app/modules/settings/features/crud/schemas.py:195-204`, `backend/app/modules/settings/features/crud/domain.py:439-469`
 **Severity:** Medium — в матрице появляется строка, по которой ничего не пересчитывается.
 **Источник:** К4
 
 ### Problem
 
 В схеме создания обязательны только `fromUomId`, `toUomId` и `type`; `factor` и
-`formula_type` объявлены необязательными (`crud/schemas.py:156-157`). В домене проверяются
-две вещи — совпадение единиц (`crud/domain.py:373-374`) и дубль пары (`:377-379`); связка
+`formula_type` объявлены необязательными (`crud/schemas.py:195-204`). В домене проверяются
+две вещи — совпадение единиц (`crud/domain.py:446-447`) и дубль пары (`crud/domain.py:450-452`); связка
 `type='static' → factor` / `type='dynamic' → formulaType` не проверяется. Само `type` —
-свободная строка (`String(20)`, `models.py:125-127`), то есть примется любая.
+свободная строка (`String(20)`, `models.py:158-160`), то есть примется любая.
 
 Форма это правило знает и соблюдает (`SettingsLayout.vue:377-378, 380-394`), но клиент —
 не место для серверного инварианта.
@@ -592,16 +624,16 @@ factor=float(c.factor) if c.factor else None
 
 ## БАГ-21 — PATCH правила пересчёта не проверяет ни совпадение единиц, ни дубль пары
 
-**File:** `backend/app/modules/settings/features/crud/domain.py:399-432`, `backend/app/modules/settings/features/crud/schemas.py:162-171`
+**File:** `backend/app/modules/settings/features/crud/domain.py:472-521`, `backend/app/modules/settings/features/crud/schemas.py:207-216`
 **Severity:** Medium — правило можно перевесить на пару, которая уже описана, или на одну и ту же единицу с обеих сторон.
 **Источник:** К4
 
 ### Problem
 
-`ConversionPatchInput` принимает `fromUomId` и `toUomId` (`crud/schemas.py:165-166`), а
+`ConversionPatchInput` принимает `fromUomId` и `toUomId` (`crud/schemas.py:207-216`), а
 `update_conversion_item` их просто перекладывает: обе единицы уходят в
-`updates` без единой проверки (`crud/domain.py:407-410`). Обе проверки,
-написанные для создания (`crud/domain.py:373-374` и `:377-379`), здесь не вызываются. Тем же
+`updates` без единой проверки (`crud/domain.py:202`). Обе проверки,
+написанные для создания (`crud/domain.py:446-447` и `crud/domain.py:450-452`), здесь не вызываются. Тем же
 путём нельзя обнулить `factor` или `formula_type`: `None` означает «не менять»
 (`:413-416`), поэтому правило, переключённое со `static` на `dynamic`, сохранит старый
 коэффициент.
@@ -616,17 +648,17 @@ factor=float(c.factor) if c.factor else None
 ## Рассмотрено и отклонено
 
 - **`GET /api/settings/profile` пишет в БД.** Секретный токен генерируется и сохраняется прямо
-  в обработчике чтения (`backend/app/modules/settings/features/profile/domain.py:31-33`). Это
+  в обработчике чтения (`backend/app/modules/settings/features/profile/domain.py:30-32`). Это
   побочный эффект у GET — но осознанный и работающий: ссылка обязана существовать к моменту
   показа страницы. Не баг, а необъявленная обязанность сервера; ушло в аудит, графа
   «Производные значения».
 - **`AppSettings.users` не заполняется ничем.** Поле есть в типе
-  (`frontend_vue/src/types/settings.ts:245`) и в сиде мока (`mocks/settings.ts:187-206`), но
-  эндпоинта нет и в `fetchAllSections` его нет (`useSettings.ts:213-237`). Это не дефект кода,
+  (`frontend_vue/src/types/settings.ts:245`) и в сиде мока (`mocks/settings.ts:189-208`), но
+  эндпоинта нет и в `fetchAllSections` его нет (`useSettings.ts:244`). Это не дефект кода,
   а отсутствующая функциональность — вопрос владельцу, не правка.
 - **`sort_order` статусов не нормализуется после удаления.** Сервер оставляет дыры в
-  нумерации (`crud/domain.py:522-534`), мок перенумеровывает (`mocks/settings.ts:579`).
-  Порядок при чтении задаётся сортировкой (`crud/repository.py:257`), поэтому дыры не видны;
+  нумерации (`crud/domain.py:611-623`), мок перенумеровывает (`mocks/settings.ts:661`).
+  Порядок при чтении задаётся сортировкой (`crud/repository.py:284`), поэтому дыры не видны;
   расхождение записано в аудит, но багом не считается.
 
 ---

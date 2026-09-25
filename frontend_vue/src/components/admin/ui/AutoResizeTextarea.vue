@@ -17,6 +17,8 @@
  */
 import { ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 
+import { useFontRemeasure } from '@/composables/useFontRemeasure'
+
 // Own CSS, not borrowed from whoever else is on the page (pitfall #16):
 // `admin-core.scss` happens to load this too, but that is the layout's business.
 import '@styles/admin/components/_forms.css'
@@ -69,8 +71,19 @@ watch(
  */
 let visibility: IntersectionObserver | null = null
 
+/**
+ * The same thing for the web font, which is the other reason the first
+ * measurement can be wrong — and unlike the hidden box, nothing reveals it.
+ * Measured 2026-09-24 on `/admin/clients/new`: the notes box locks at 68px and
+ * re-measuring it once the font has landed gives 71px, so the panel around it
+ * comes out 3px short of its baseline. Why an inline height does not heal
+ * itself, and why two subscriptions rather than one, is in the composable.
+ */
+useFontRemeasure(resize)
+
 onMounted(() => {
   resize()
+
   if (!el.value || typeof IntersectionObserver === 'undefined') return
   visibility = new IntersectionObserver((entries) => {
     if (entries.some((entry) => entry.isIntersecting)) resize()

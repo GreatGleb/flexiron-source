@@ -1,6 +1,7 @@
 import type { Category, CategoryField, CategoryListItem, CategoryFilters } from '@/types/category'
 import type { LinkedSupplier } from '@/types/product'
 import type { PaginatedResponse } from '@/types/api'
+import { ApiRequestError } from '@/types/api'
 import type { TranslatedString } from '@/types/i18n'
 import { mergeTranslatedString } from '@/types/i18n'
 
@@ -1416,7 +1417,12 @@ export function mockGetCategories(
 
 export function mockGetCategory(id: string): Category {
   const cat = STORE.find((c) => c.id === id)
-  if (!cat) throw new Error(`Category ${id} not found`)
+  if (!cat)
+    throw new ApiRequestError({
+      status: 404,
+      message: `Category ${id} not found`,
+      code: 'CATEGORY_NOT_FOUND',
+    })
   return JSON.parse(JSON.stringify(cat))
 }
 
@@ -1453,9 +1459,18 @@ export function mockPatchCategory(
   delta: Partial<Pick<Category, 'name' | 'parentId' | 'description'>> & {
     linkedSuppliers?: LinkedSupplier[]
   },
-): Category | undefined {
+): Category {
   const cat = STORE.find((c) => c.id === id)
-  if (!cat) return undefined
+  // The same situation as in mockDeleteCategory below, and it gets the same
+  // code. It used to answer `undefined`, which the mock router handed back as a
+  // SUCCESSFUL response — so saving a category somebody had already deleted in
+  // another tab showed "saved" and lost the edit without a word.
+  if (!cat)
+    throw new ApiRequestError({
+      status: 404,
+      message: 'CATEGORY_NOT_FOUND',
+      code: 'CATEGORY_NOT_FOUND',
+    })
   if (delta.name !== undefined)
     cat.name = mergeTranslatedString(cat.name as TranslatedString, delta.name as TranslatedString)
   if (delta.description !== undefined)
@@ -1484,29 +1499,39 @@ export function mockDeleteCategory(id: string): { ok: boolean; code?: string } {
   return { ok: true }
 }
 
-export function mockPutCategoryFields(
-  id: string,
-  fields: CategoryField[],
-): CategoryField[] | undefined {
+export function mockPutCategoryFields(id: string, fields: CategoryField[]): CategoryField[] {
   const cat = STORE.find((c) => c.id === id)
-  if (!cat) return undefined
+  // Same refusal as its PATCH neighbour: a category that is gone cannot take
+  // fields, and the caller has to hear so instead of a silent success.
+  if (!cat)
+    throw new ApiRequestError({
+      status: 404,
+      message: 'CATEGORY_NOT_FOUND',
+      code: 'CATEGORY_NOT_FOUND',
+    })
   // ВАЖНО: JSON.parse/stringify чтобы избежать DataCloneError на reactive данных
   // tmp-* id заменяются постоянными (имитирует поведение сервера)
-  cat.fields = JSON.parse(JSON.stringify(fields)).map((f: CategoryField, i: number) => ({
-    ...f,
-    name: mergeTranslatedString(
-      (cat.fields[i]?.name ?? { ru: '', en: '', lt: '' }) as TranslatedString,
-      f.name as TranslatedString,
-    ),
-    options: f.options.map((o: TranslatedString, oi: number) =>
-      mergeTranslatedString(
-        (cat.fields[i]?.options?.[oi] ?? { ru: '', en: '', lt: '' }) as TranslatedString,
-        o as unknown as TranslatedString,
+  const previousFields = cat.fields
+  cat.fields = JSON.parse(JSON.stringify(fields)).map((f: CategoryField, i: number) => {
+    // Слияние ищет прежнее поле по id, а не по позиции: после перестановки или
+    // удаления поля из середины индекс i указывает на чужую запись.
+    const prev = f.id.startsWith('tmp-') ? undefined : previousFields.find((pf) => pf.id === f.id)
+    return {
+      ...f,
+      name: mergeTranslatedString(
+        (prev?.name ?? { ru: '', en: '', lt: '' }) as TranslatedString,
+        f.name as TranslatedString,
       ),
-    ),
-    id: f.id.startsWith('tmp-') ? `f-perm-${++fieldSeq}` : f.id,
-    order: i,
-  }))
+      options: f.options.map((o: TranslatedString, oi: number) =>
+        mergeTranslatedString(
+          (prev?.options?.[oi] ?? { ru: '', en: '', lt: '' }) as TranslatedString,
+          o as unknown as TranslatedString,
+        ),
+      ),
+      id: f.id.startsWith('tmp-') ? `f-perm-${++fieldSeq}` : f.id,
+      order: i,
+    }
+  })
   cat.fieldCount = cat.fields.length
   // каскадируем изменение полей на всех потомков
   cascadeInheritedFields(id)

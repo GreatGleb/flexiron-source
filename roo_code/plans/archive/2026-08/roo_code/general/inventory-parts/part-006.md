@@ -73,7 +73,7 @@ $ grep -n "cardLoading" src/views/admin/orders/OrderCardPage.vue
 из Fix.
 
 **БАГ-08** — себестоимость в истории без права `seeCost`. Все три слоя Fix на месте:
-`types/order.ts:581` — `sensitive: 'cost' | null`; `recordInHistory` (`mocks/orders.ts:1786`)
+`types/order.ts:581` — `sensitive: 'cost' | null`; `recordInHistory` (`mocks/orders.ts:1789`)
 принимает параметр с комментарием «the card hides those without `seeCost`»;
 `OrderCardPage.vue:308-309` — `visibleAuditLog` фильтрует `sensitive !== 'cost'`, и таблица
 истории рендерит `visibleAuditLog` (`:2065`, `:2079`), а не `auditLog`.
@@ -82,7 +82,7 @@ $ grep -n "cardLoading" src/views/admin/orders/OrderCardPage.vue
 `if (quantity === 0) throw new Error('ZERO_QUANTITY')`, ровно перед проверкой
 `BELOW_SHIPPED_QUANTITY`.
 
-**БАГ-10** — себестоимость услуги в обход `manualCost`. `mocks/orders.ts:2168`:
+**БАГ-10** — себестоимость услуги в обход `manualCost`. `mocks/orders.ts:2171`:
 `const actor = delta.unitCost !== undefined ? requireRight('manualCost') : null`,
 и `:2179-2180` — запись в историю при изменении `unitCost`. Оба пункта Fix.
 
@@ -146,7 +146,7 @@ $ for k in col_actions back col_margin field_files delete_audit_warning toast_it
 возвращает `[...ids].filter(…).sort()` с комментарием про порядок вставки `Set`;
 порог `expect(ops, context).toBeGreaterThan(10000)` (`:531`) не понижен.
 
-**БАГ-23** — витринный `ORD-100`. `mocks/orders.ts:986` `function buildShowcaseOrder()`,
+**БАГ-23** — витринный `ORD-100`. `mocks/orders.ts:989` `function buildShowcaseOrder()`,
 вызвана на `:4131`; собирает заказ вызовами эндпоинтов (в теле — `mockAddOrderItem` ×2,
 `mockUpdateOrderItem` ×3, `mockAddOrderService`, `mockPlanOrderShipment`, `mockCreateShipment`,
 `mockCancelShipment`, `mockCorrectOrderLine`, `mockCreateInvoice` ×2, `mockAddOrderPayment`,

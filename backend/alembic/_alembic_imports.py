@@ -30,7 +30,7 @@ from app.modules.warehouse.shared.models import (  # noqa: F401, E402
 # Suppliers module + field config
 from app.modules.suppliers.shared.models import (  # noqa: F401, E402
     Supplier, SupplierAddress, SupplierContact, SupplierFile,
-    SupplierAuditEntry, SupplierPriceEntry,
+    SupplierAuditEntry, SupplierPriceEntry, SupplierNote,
     FieldDefinition, SectionConfig, SectionField,
 )
 
@@ -45,18 +45,34 @@ from app.modules.finance.shared.models import (  # noqa: F401, E402
 )
 
 # BCC module
-from app.modules.bcc.shared.models import (  # noqa: F401, E402
-    BccCategory, BccEvent,
-)
+from app.modules.bcc.shared.models import BccEvent  # noqa: F401, E402
 
 # Settings module
 from app.modules.settings.shared.models import (  # noqa: F401, E402
     CompanyInfo, GlobalConstants, Currency, Uom, UomConversion,
-    OrderStatusSetting,
+    OrderStatusSetting, MailSettings, WarehouseMap, OrderPermissions,
 )
 
 # Services module
 from app.modules.services.shared.models import Service  # noqa: F401, E402
 
 # Notifications module
-from app.modules.notifications.shared.models import Notification  # noqa: F401, E402
+from app.modules.notifications.shared.models import (  # noqa: F401, E402
+    Notification, NotificationRead, NotificationSubscription,
+)
+
+# Clients module
+from app.modules.clients.shared.models import (  # noqa: F401, E402
+    Client, ClientInteraction,
+)
+
+# Orders module
+from app.modules.orders.shared.models import (  # noqa: F401, E402
+    Order, OrderItem,
+)
+
+# Audit module (shared change-history journal)
+from app.modules.audit.shared.models import AuditEntry  # noqa: F401, E402
+
+# Idempotency module (shared Idempotency-Key store)
+from app.modules.idempotency.shared.models import IdempotencyKey  # noqa: F401, E402

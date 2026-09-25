@@ -16,6 +16,7 @@ import { useFeatureFlag } from '@/composables/useFeatureFlag'
 import { useCategoryCard } from '@/composables/useCategoryCard'
 import { useDragDrop } from '@/composables/useDragDrop'
 import { getCategories } from '@/services/categoriesService'
+import { CATEGORY_FIELD_TYPES } from '@/types/category'
 import type { CategoryField, CategoryFieldType, CategoryListItem } from '@/types/category'
 import type { LinkedSupplier } from '@/types/product'
 
@@ -94,17 +95,8 @@ const parentOptions = computed(() => [
 
 // ─── Field type options ─────────────────────────────────────────────────────────
 
-const FIELD_TYPES: CategoryFieldType[] = [
-  'text',
-  'number',
-  'boolean',
-  'enum',
-  'email',
-  'date',
-  'file',
-]
 const fieldTypeOptions = computed(() =>
-  FIELD_TYPES.map((typ) => ({ value: typ, label: t(`categories.type_${typ}`) })),
+  CATEGORY_FIELD_TYPES.map((typ) => ({ value: typ, label: t(`categories.type_${typ}`) })),
 )
 
 // ─── Field modal ────────────────────────────────────────────────────────────────
@@ -143,13 +135,21 @@ function openEditField(field: CategoryField) {
 function submitFieldModal() {
   const name = fieldDraft.value.name.trim()
   if (!name) return
+  const original = editingField.value
   const payload = {
-    name: toTranslatedString(name, locale.value),
+    name: original
+      ? mergeLocaleValue(original.name, name, locale.value)
+      : toTranslatedString(name, locale.value),
     type: fieldDraftType.value as CategoryFieldType,
     required: fieldDraft.value.required,
     options:
       fieldDraftType.value === 'enum'
-        ? fieldDraft.value.options.map((o) => toTranslatedString(o, locale.value))
+        ? fieldDraft.value.options.map((o, i) => {
+            const originalOption = original?.options[i]
+            return originalOption
+              ? mergeLocaleValue(originalOption, o, locale.value)
+              : toTranslatedString(o, locale.value)
+          })
         : [],
   }
   if (editingField.value) {

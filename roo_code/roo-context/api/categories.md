@@ -28,20 +28,22 @@
 
 ## Источник истины — мок и клиент, но схема уже зафиксирована
 
-Реализованных эндпоинтов у домена **ноль**, поэтому формы ниже сняты с клиента и мока
+Реализован один эндпоинт из шести — `GET /api/categories`, слайс `products.list_categories`
+(`backend/app/modules/products/features/list_categories/`: `schemas.py`, `repository.py`,
+`domain.py`, `action.py`); формы остальных пяти ниже сняты с клиента и мока
 (`mocks/categories.ts`, 1514 строк). Модуля `categories` в `backend/app/modules/` нет вовсе —
 модулей там десять (`auth`, `bcc`, `billing`, `finance`, `notifications`, `products`, `services`,
 `settings`, `suppliers`, `warehouse`), и у `products` роутов два, оба про товар
-(`backend/app/modules/products/features/get_product_detail/action.py:28`,
-`backend/app/modules/products/features/create_product/action.py:23`). А модели категории живут
+(`backend/app/modules/products/features/get_product_detail/action.py:29`,
+`backend/app/modules/products/features/create_product/action.py:24`). А модели категории живут
 как раз в модуле `products`:
 
 | таблица | модель | миграция |
 |---|---|---|
 | `categories` | `Category` — `backend/app/modules/products/shared/models.py:14-17` | `backend/alembic/versions/25245d4bf874_phase_3_categories_products.py:27-41` |
-| `category_fields` | `CategoryField` — `models.py:59-62` | миграция `:42-56` |
+| `category_fields` | `CategoryField` — `models.py:88-91` | миграция `:42-56` |
 
-Отсюда два следствия для каждого раздела ниже. Первое: строка `Бэкенд:` у всех шести —
+Отсюда два следствия для оставшихся пяти разделов ниже. Первое: строка `Бэкенд:` у них —
 «не реализован», и метка `Статус: спроектировано` здесь была бы **неверна** (она про отсутствие
 кода вообще, а эндпоинты клиент уже зовёт). Второе: схема хранения расходится с формами фронта, и
 расхождения перечислены в «Правилах домена» — их разрешает бэкенд, а не фронт.
@@ -54,13 +56,13 @@
 | код | когда | доходит до человека |
 |---|---|---|
 | `CATEGORY_NOT_FOUND` | категории с таким `id` нет (`mocks/categories.ts:1479`) | нет — общий тост `categories.toast_error` (`useCategories.ts:49`) |
-| `CATEGORY_HAS_PRODUCTS` | `productCount > 0` (`:1480`) | `categories.toast_error_delete_has_products` (`i18n/admin/categories.ts:61`, en `:125`, lt `:189`) |
+| `CATEGORY_HAS_PRODUCTS` | `productCount > 0` (`:1480`) | `categories.toast_error_delete_has_products` (`i18n/admin/categories.ts:62`, en `:125`, lt `:189`) |
 | `CATEGORY_PARENT_CYCLE` | родителем назначен собственный потомок — **назначен контрактом 2026-09-10 (§2)**, проверки нет ни в моке, ни во фронте | подписи пока нет |
 | `CATEGORY_FIELDS_IN_USE` | поле убрано из набора, а значения у товаров заполнены — **назначен контрактом 2026-09-10 (§2)**; поведение зависит от куста 5, вопрос 1, код нужен при любом ответе кроме «удалять молча» | подписи пока нет |
-| `CATEGORY_HAS_CHILDREN` | у категории есть потомки (`:1481`) | `categories.toast_error_delete_has_children` (`i18n/admin/categories.ts:62`, en `:126`, lt `:190`) |
+| `CATEGORY_HAS_CHILDREN` | у категории есть потомки (`:1481`) | `categories.toast_error_delete_has_children` (`i18n/admin/categories.ts:63`, en `:126`, lt `:190`) |
 
 **Код обязан приходить в `code`, а не в тексте.** Мок бросает `throw new Error(result.code)`
-(`mocks/index.ts:1491`), то есть кладёт код в `message`, и клиент сравнивает именно `e.message`
+(`mocks/index.ts:287`), то есть кладёт код в `message`, и клиент сравнивает именно `e.message`
 (`useCategories.ts:43-47`) — против настоящего API, где код лежит в `ApiRequestError.code`
 (`types/api.ts:29`), обе ветки не сработают (БАГ-01, класс описан в §2 соглашений). Форма ошибки
 на проводе — `detail: { message, code }` (§1 соглашений).
@@ -130,16 +132,19 @@ interface CategoryListItem {
 
 **Этот же эндпоинт работает справочником, и трое зовут его по-разному:** список — со страницей 25
 (`useCategories.ts:18`), карточка категории — `getCategories({ search: '' })` без пагинации, то
-есть первые 25 (`CategoryCardPage.vue:63`, БАГ-03), карточка товара — с явным `1, 999`
+есть первые 25 (`CategoryCardPage.vue:64`, БАГ-03), карточка товара — с явным `1, 999`
 (`useProductCard.ts:132`). Чем сервер обязан отдавать полный справочник — не решено (осталось,
 см. «Оставлено владельцу», строка 8).
 
-Бэкенд: **не реализован** — роутов у домена ноль. Схема при этом хранит колонками ровно то, что
-мок считает при чтении: `field_count`, `product_count`, `level`
-(`backend/app/modules/products/shared/models.py:33-41`; миграция
-`25245d4bf874_phase_3_categories_products.py:34-36`), а `parent_name` не имеет вовсе.
+Бэкенд: **реализован** — слайс `products.list_categories`
+(`backend/app/modules/products/features/list_categories/`: `schemas.py`, `repository.py`,
+`domain.py`, `action.py`), роутер зарегистрирован в `backend/app/main.py`. `field_count`,
+`product_count` и `level` считаются при чтении (П68), как и в моке: хранимых колонок под них на
+схеме больше нет — ревизия `c1a7d9e4f2b3_categories_derived_columns.py` удалила все три из
+`categories`. `parent_name` схема не имела и не имеет; слайс считает оба значения по `parent_id`.
 Реализация: `services/categoriesService.ts:getCategories` · мок `mocks/index.ts:415` →
-`mocks/categories.ts:mockGetCategories`
+`mocks/categories.ts:mockGetCategories` · бэкенд
+`backend/app/modules/products/features/list_categories/action.py:list_categories`
 
 ---
 
@@ -151,7 +156,7 @@ interface CategoryListItem {
 
 Запрос: только путь, ни query, ни тела (`services/categoriesService.ts:20`).
 
-Ответ — `Category` целиком (`types/category.ts:15-25`); мок отдаёт глубокую копию записи
+Ответ — `Category` целиком (`types/category.ts:25-35`); мок отдаёт глубокую копию записи
 (`mocks/categories.ts:1417-1421`):
 
 ```ts
@@ -193,14 +198,15 @@ interface LinkedSupplier {
 мок, ни клиент не проверяют пересечения; сервер обязан вести себя так же, иначе набор полей
 товара изменится молча.
 
-Ошибки: доменного кода на этом пути нет ни одного. Мок бросает текст
-`` `Category ${id} not found` `` (`mocks/categories.ts:1419`), и этот текст показывается человеку
-как есть (`useCategoryCard.ts:92`) — БАГ-04. Сервер обязан отвечать `CATEGORY_NOT_FOUND` из
-каталога выше; прежний контракт обещал именно его (`03-api-contract.md:926`), но в коде такого
-кода на этом пути нет, поэтому здесь это унаследованный замысел, а не наблюдение.
+Ошибки: домену на этом пути код есть — `mockGetCategory` бросает `ApiRequestError` с
+`code: 'CATEGORY_NOT_FOUND'`; фраза `` `Category ${id} not found` `` в `message` — это чужой
+текст сервера, не то, что видит человек. Карточка (`useCategoryCard.ts`) читает именно `code`
+через `errorMessageKey` и показывает перевод `categories.toast_error_not_found` — **БАГ-04
+закрыт**. Прежний контракт обещал этот же код (`03-api-contract.md:926`), и теперь это
+подтверждено кодом по обе стороны — и в моке, и во фронте.
 
 Триггеры: `onMounted → load()` (`CategoryCardPage.vue:237-240`, реализация
-`useCategoryCard.ts:76-96`); тот же `load()` — это кнопка Discard (`useCategoryCard.ts:122-124`) и
+`useCategoryCard.ts:81-101`); тот же `load()` — это кнопка Discard (`useCategoryCard.ts:127-129`) и
 перезагрузка после успешного Save (`:113`).
 
 Бэкенд: **не реализован**. Ни `inheritedFields`, ни `linkedSuppliers` на схеме хранить негде:
@@ -231,8 +237,9 @@ interface LinkedSupplier {
 
 Ответ — `Category` целиком. Новая запись рождается с `fieldCount: 0`, `productCount: 0`,
 `fields: []`, `linkedSuppliers: []` и `inheritedFields`, взятыми у родителя
-(`mocks/categories.ts:1436-1448`); на схеме те же нули стоят `server_default`
-(`backend/app/modules/products/shared/models.py:33-41`).
+(`mocks/categories.ts:1436-1448`); на схеме те же нули не хранятся — `fieldCount` и `productCount`
+считаются при чтении (П68), и у только что созданной категории нет ни собственных полей, ни
+товаров, посчитать которые.
 
 Ошибки: ни одной — `mockCreateCategory` не бросает (`mocks/categories.ts:1423-1449`). Пустое имя
 отсекает клиент (`CategoriesPage.vue:72`), и это поведение закреплено e2e
@@ -244,13 +251,14 @@ interface LinkedSupplier {
 
 **Уникальности имени не требует ни мок, ни схема** — в `models.py` единственный
 `UniqueConstraint` относится к значению поля товара
-(`backend/app/modules/products/shared/models.py:210-214`). Повторный POST с тем же телом создаёт
+(`backend/app/modules/products/shared/models.py:201-205`). Повторный POST с тем же телом создаёт
 вторую категорию: `Idempotency-Key` домен не шлёт (§11 соглашений), `id` выдаётся счётчиком
 (`mocks/categories.ts:1437`).
 
 Бэкенд: **не реализован**. Писать пришлось бы в `categories`
-(`backend/app/modules/products/shared/models.py:14-17`), где `name` — `String(255)`
-(`models.py:25`), то есть трёхъязычное имя хранить нечем (§12 соглашений).
+(`backend/app/modules/products/shared/models.py:14-17`), где имя хранится колонкой
+`name_translations` (JSONB, NOT NULL) — трёхъязычное имя теперь хранимо, расхождение снято
+ревизией `a7c1d4e90b21_categories_translated_names` (§12 соглашений).
 Реализация: `services/categoriesService.ts:createCategory` · мок `mocks/index.ts:949` →
 `mocks/categories.ts:mockCreateCategory`
 
@@ -260,7 +268,7 @@ interface LinkedSupplier {
 
 Правка шапки категории и списка привязанных поставщиков. Тело — дельта, ответ — категория
 целиком (§3 соглашений). Save-режим: clean-slate — половина одной кнопки Save карточки, уходит
-только при `isAnythingDirty` (`useCategoryCard.ts:99`).
+только при `isAnythingDirty` (`useCategoryCard.ts:104`).
 
 Запрос (`services/categoriesService.ts:38-54`):
 
@@ -271,7 +279,7 @@ Partial<{ name: TranslatedString; parentId: string | null; description: Translat
 
 Дельта собирается `useDirtyCheck.diff()` — только изменённые ключи верхнего уровня
 (`composables/useDirtyCheck.ts:62-77`); `linkedSuppliers` уходит **целым массивом**
-(replace-семантика, `useCategoryCard.ts:105-108`), удаление привязки выражается её отсутствием в
+(replace-семантика, `useCategoryCard.ts:110-113`), удаление привязки выражается её отсутствием в
 массиве (§15 соглашений). `name` и `description` из карточки приходят уже собранными
 `TranslatedString`, и сервер обязан слить их по правилу `mergeTranslatedString` — перезаписать
 только присланные ключи (§12 соглашений; мок так и делает —
@@ -288,14 +296,14 @@ Partial<{ name: TranslatedString; parentId: string | null; description: Translat
 
 Ошибки: ни одной — в `mockPatchCategory` нет ни одного `throw`
 (`mocks/categories.ts:1451-1475`). **Проверки цикла нет нигде:** селект родителя исключает только
-саму категорию (`CategoryCardPage.vue:91`), мок принимает любой `parentId`, и на цикле `getLevel`
+саму категорию (`CategoryCardPage.vue:92`), мок принимает любой `parentId`, и на цикле `getLevel`
 зацикливается, а каскад уходит в бесконечную рекурсию (БАГ-06). Каким кодом сервер отвергает
 смену родителя на собственного потомка — не решено (осталось, строка 7). Версии у категории нет
 ни во фронте, ни на схеме, значит поведение — last-write-wins (§11 соглашений).
 
 Бэкенд: **не реализован**. `linkedSuppliers` этот запрос принимает, а таблицы под связь на схеме
 нет (осталось, строка 9).
-Реализация: `services/categoriesService.ts:patchCategory` · мок `mocks/index.ts:1200` →
+Реализация: `services/categoriesService.ts:patchCategory` · мок `mocks/index.ts:1202` →
 `mocks/categories.ts:mockPatchCategory`
 
 ---
@@ -309,7 +317,7 @@ Partial<{ name: TranslatedString; parentId: string | null; description: Translat
 Запрос: тела нет (`services/categoriesService.ts:57`), заголовков клиент не ставит
 (`services/api.ts:211`; общий класс — §5 соглашений). Ответ: на проводе `ApiResponse<null>` —
 подпись клиента `Promise<void>` (`services/categoriesService.ts:56`), мок отдаёт `undefined`
-(`mocks/index.ts:1492`), конверт снимает `unwrap` (`services/api.ts:128-139`).
+(`mocks/index.ts:1494`), конверт снимает `unwrap` (`services/api.ts:128-139`).
 
 Ошибки — три кода каталога выше. Оба запрета уже выражены схемой: `categories.parent_id`
 (`backend/alembic/versions/25245d4bf874_phase_3_categories_products.py:32`) и
@@ -330,7 +338,7 @@ Partial<{ name: TranslatedString; parentId: string | null; description: Translat
 (осталось, строка 7).
 
 Бэкенд: **не реализован**.
-Реализация: `services/categoriesService.ts:deleteCategory` · мок `mocks/index.ts:1488` →
+Реализация: `services/categoriesService.ts:deleteCategory` · мок `mocks/index.ts:1490` →
 `mocks/categories.ts:mockDeleteCategory`
 
 ---
@@ -339,9 +347,9 @@ Partial<{ name: TranslatedString; parentId: string | null; description: Translat
 
 Полная замена набора **собственных** полей категории. `PUT`, а не `PATCH`, потому что тело — вся
 коллекция целиком (§3 соглашений). Save-режим: clean-slate, вторая половина того же Save; уходит
-только при `fieldsChanged` (`useCategoryCard.ts:111`, признак — сравнение JSON локальной копии с
+только при `fieldsChanged` (`useCategoryCard.ts:116`, признак — сравнение JSON локальной копии с
 загруженной, `:38-41`). Правка полей до Save целиком локальная — `addField`, `updateField`,
-`deleteField`, `reorderFields` (`useCategoryCard.ts:126-150`).
+`deleteField`, `reorderFields` (`useCategoryCard.ts:131-155`).
 
 Запрос — **объект-обёртка, а не массив** (`services/categoriesService.ts:65-71`):
 
@@ -349,18 +357,18 @@ Partial<{ name: TranslatedString; parentId: string | null; description: Translat
 { fields: CategoryField[] }   // полный актуальный массив собственных полей
 ```
 
-Три свойства тела, каждое — правило для сервера:
+Два свойства тела, каждое — правило для сервера:
 
-- **новое поле приходит с `id` вида `tmp-<Date.now()>`** (`useCategoryCard.ts:129`), и постоянный
+- **новое поле приходит с `id` вида `tmp-<Date.now()>`** (`useCategoryCard.ts:134`), и постоянный
   `id` выдаёт сервер (мок имитирует: `mocks/categories.ts:1507`). Из `Date.now()` следует, что два
   поля, добавленных в одну миллисекунду, придут с одинаковым `tmp-`-идентификатором — сервер
-  обязан это пережить, потому что клиент ищет поле по `id` (`useCategoryCard.ts:135`);
+  обязан это пережить, потому что клиент ищет поле по `id` (`useCategoryCard.ts:140`);
 - **`order` определяется позицией в массиве, а не присланным значением** — мок перезаписывает
   `order: i` (`mocks/categories.ts:1508`), клиент перенумеровывает при удалении и перетаскивании
-  (`useCategoryCard.ts:145`, `:149`);
-- **лишний ключ `fieldName`** едет рядом с `name` (`services/categoriesService.ts:68`) — его нет
-  ни в типе (`types/category.ts:6-13`), ни в разборе мока (БАГ-07). Сервер обязан его
-  игнорировать; общее правило — «значение везёт с собой копию определения» (§8 соглашений).
+  (`useCategoryCard.ts:150`, `:149`).
+
+Ключа `fieldName` рядом с `name` на проводе больше нет — снят вместе с БАГ-07: он не входил ни в
+тип (`types/category.ts:16-23`), ни в разбор мока, и был чистым дублированием `name`.
 
 Ответ: `CategoryField[]` — финальный массив с постоянными `id` и пересчитанными `order`
 (`mocks/categories.ts:1513`). Для несуществующей категории мок возвращает `undefined` вместо
@@ -376,22 +384,25 @@ Partial<{ name: TranslatedString; parentId: string | null; description: Translat
    `25245d4bf874_phase_3_categories_products.py:78`). Что делать со значениями — не решено
    (осталось, строка 5).
 
-Ключ слияния переводов сервер обязан выбрать сам: мок сливает имя поля и варианты enum **по
-позиции** в массиве (`mocks/categories.ts:1495-1509`), что после перестановки полей взяло бы
-базой соседа. Сегодня это не проявляется, потому что клиент всегда шлёт все три локали (§12
-соглашений), но правило «по позиции» для сервера было бы неверным (осталось, строка 11).
+**Ключ слияния переводов — `id` поля, а не позиция в массиве.** Мок (`mocks/categories.ts`) ищет
+прежнее поле через `previousFields.find`, сравнивая по `id`, и только внутри найденного поля
+сравнивает варианты enum по позиции; поле с новым (`tmp-*`) `id` сливать не с чем — кладётся как
+пришло. Раньше мок брал базой `cat.fields[i]` — то есть чужое поле после любой перестановки или
+удаления из середины (БАГ-08, вторая половина). Сегодня подмена почти не проявляется — клиент
+всегда шлёт все три локали разом (§12 соглашений), — но сервер обязан повторить именно это
+правило, а не позиционное.
 
 Ошибки: ни одной — в `mockPutCategoryFields` нет `throw` (`mocks/categories.ts:1487-1514`).
-Уникальности имени поля не требует ни мок, ни схема (`models.py:59-90` — без `UniqueConstraint`).
+Уникальности имени поля не требует ни мок, ни схема (`models.py:71-102` — без `UniqueConstraint`).
 
 Флаг `categoryFieldReorder` прячет перетаскивание (`CategoryCardPage.vue:165`), но не эндпоинт:
 запрос уходит при любом изменении полей, включая добавление и удаление.
 
 Бэкенд: **не реализован**. Целевая таблица — `category_fields`
-(`backend/app/modules/products/shared/models.py:59-62`), и её колонки расходятся с типом фронта:
-`field_type` против `type`, `sort_order` против `order` (`models.py:77-85`), `name` —
-`String(255)` (`:76`).
-Реализация: `services/categoriesService.ts:putCategoryFields` · мок `mocks/index.ts:1171` →
+(`backend/app/modules/products/shared/models.py:50-53`), и её колонки расходятся с типом фронта:
+`field_type` против `type`, `sort_order` против `order` (`models.py:85-99`); имя поля хранится
+`name_translations` (JSONB, NOT NULL) — тоже трёхъязычно, как и у фронта.
+Реализация: `services/categoriesService.ts:putCategoryFields` · мок `mocks/index.ts:1173` →
 `mocks/categories.ts:mockPutCategoryFields`
 
 ---
@@ -404,10 +415,12 @@ Partial<{ name: TranslatedString; parentId: string | null; description: Translat
 **Значения по умолчанию и их владелец.** Ни одного значения домена настройки арендатора не
 держат. Константами во фронте стоят: размер страницы `25` — дважды
 (`services/categoriesService.ts:10`, `useCategories.ts:18`); перечень размеров `10/25/50/100` —
-`PAGE_SIZE_OPTIONS` в компоненте списка (`CategoriesPage.vue:28-33`); перечень типов поля —
-дважды, типом (`types/category.ts:4`) и массивом `FIELD_TYPES` (`CategoryCardPage.vue:97-105`);
-тип нового поля `'text'` и `required: false` (`CategoryCardPage.vue:116-128`). Кто владеет
-перечнем типов поля на сервере — не решено (осталось, строки 4 и 10).
+`PAGE_SIZE_OPTIONS` в компоненте списка (`CategoriesPage.vue:28-33`); перечень типов поля — одной
+константой `CATEGORY_FIELD_TYPES` в `types/category.ts`, тип `CategoryFieldType` выведен из неё
+(`(typeof CATEGORY_FIELD_TYPES)[number]`), и карточка (`CategoryCardPage.vue`) строит селектор тем
+же массивом, не заводя второго; тип нового поля `'text'` и `required: false`
+(`CategoryCardPage.vue:108-120`). Кто владеет перечнем типов поля на сервере — не решено (осталось,
+строки 4 и 10).
 
 **События и уведомления: нигде.** `grep -n "notify" frontend_vue/src/services/mocks/categories.ts`
 — пусто; ни один из семи эмиттеров (§10 соглашений) категорий не касается
@@ -424,7 +437,7 @@ Partial<{ name: TranslatedString; parentId: string | null; description: Translat
 
 **Кастомные поля — это и есть предмет домена.** Определения живут в самой категории, а не в
 библиотеке: собственные — `Category.fields`, унаследованные — `Category.inheritedFields`
-(`types/category.ts:22-23`), запись — `PUT /api/categories/:id/fields`. Библиотека
+(`types/category.ts:32-33`), запись — `PUT /api/categories/:id/fields`. Библиотека
 `/api/config/fields` к категориям отношения не имеет: её `f-categories` (`mocks/config.ts:42`) —
 поле карточки поставщика (§8 соглашений). Значения по этим определениям хранит товар:
 `ProductFieldValue` с `fieldId`, `fieldName`, `fieldType`, `inherited` (сборка —
@@ -459,33 +472,40 @@ Partial<{ name: TranslatedString; parentId: string | null; description: Translat
 
 **Транзакционность и идемпотентность.** `Idempotency-Key` домен не шлёт ни на одном пути (§11
 соглашений). Save карточки — **два независимых параллельных запроса**:
-`Promise.all([patchCategory, putCategoryFields])` (`useCategoryCard.ts:98-112`); общей транзакции
+`Promise.all([patchCategory, putCategoryFields])` (`useCategoryCard.ts:103-117`); общей транзакции
 у них нет, при падении одного второй остаётся применённым, а `load()` после ошибки не
 вызывается — экран остаётся с несохранёнными данными поверх частично сохранённых
-(`useCategoryCard.ts:113-118`; класс — §15 соглашений). Внутри `PUT /fields` мок атомарен: массив
+(`useCategoryCard.ts:118-123`; класс — §15 соглашений). Внутри `PUT /fields` мок атомарен: массив
 перезаписывается целиком (`mocks/categories.ts:1495-1509`), но каскад по потомкам идёт **после**
 записи и не откатывается (`:1512`). Обязаны ли PATCH и PUT применяться одной транзакцией — не
 решено (осталось, строка 6).
 
-**Производные значения — здесь главное расхождение мока со схемой.** `level` и `parentName` мок
-считает при чтении, поднимаясь по `parentId` (`mocks/categories.ts:1328-1341`), а схема хранит
-`level` колонкой и `parent_name` не имеет вовсе
-(`backend/app/modules/products/shared/models.py:39-41`). `fieldCount` мок пересчитывает при записи
-полей (`mocks/categories.ts:1510`), схема хранит колонкой (`models.py:33-35`). `productCount` не
-считается **нигде**: это статическое число в сторе и колонка в схеме (`models.py:36-38`), при
-создании товара оно не растёт (БАГ-02). `inheritedFields` мок держит материализованными и
-обновляет каскадом (`mocks/categories.ts:1374-1381`), а на схеме их нет ни колонкой, ни таблицей.
-Общее правило — §17 соглашений: величина, выводимая из других данных, считается при чтении;
-сервер обязан считать `level`, `parentName`, `fieldCount`, `productCount` и `inheritedFields`, а
-хранимые колонки под них — материал для решения бэкенда, а не источник истины.
+**Производные значения — расхождение мока со схемой снято (П68).** `level` и `parentName` мок
+считает при чтении, поднимаясь по `parentId` (`mocks/categories.ts:1328-1341`), и схема больше не
+спорит: колонок `level`, `field_count` и `product_count` у `categories` нет — их удалила ревизия
+`c1a7d9e4f2b3_categories_derived_columns.py`. `parent_name` схема не имела никогда. Бэкенд считает
+`level` подъёмом по `parent_id` (`get_category_level` в
+`backend/app/modules/products/features/get_product_detail/repository.py`), с потолком глубины,
+чтобы порванная цепочка родителей не давала бесконечного цикла.
+
+`fieldCount` мок пересчитывает при записи полей (`mocks/categories.ts:1510`). `productCount` не
+считается **нигде**: это статическое число в сторе, и при создании товара оно не растёт (БАГ-02);
+колонки под него теперь нет и на схеме, то есть считать его обязан сервер при чтении.
+`inheritedFields` мок держит материализованными и обновляет каскадом
+(`mocks/categories.ts:1374-1381`), а на схеме их нет ни колонкой, ни таблицей.
+
+Общее правило — §17 соглашений: величина, выводимая из других данных, считается при чтении.
+Двух владельцев у этих трёх величин больше нет.
 
 ## Правила домена
 
 Живут только здесь; сквозные правила — в соглашениях.
 
-1. **Имя категории и имя поля трёхъязычны, а схема хранит одну строку.** `name` — `String(255)`
-   (`backend/app/modules/products/shared/models.py:25` и `:76`), `description` — `Text` (`:32`),
-   `options` — `JSON` (`:86-88`). Самое крупное расхождение домена (§12 соглашений).
+1. **Имя категории и имя поля трёхъязычны, и схема теперь хранит перевод.** `name_translations`
+   (`backend/app/modules/products/shared/models.py:25` и `:76`) и `description_translations`
+   (`:32`) — JSONB, суффикс `_translations`, ревизия `a7c1d4e90b21_categories_translated_names`;
+   `options` по-прежнему `JSON` (`:86-88`), переводы вариантов enum живут внутри него, тип колонки
+   не менялся (§12 соглашений).
 2. **`inheritedFields` — вся цепочка предков, плоско, от дальнего к ближнему**, дубликаты по имени
    не схлопываются (`mocks/categories.ts:1432-1434`, `:1471`, `:1378`).
 3. **Смена родителя и замена набора полей перестраивают поддерево целиком**, а не одну запись
@@ -502,7 +522,7 @@ Partial<{ name: TranslatedString; parentId: string | null; description: Translat
    `priceUomId` всегда `null` (`CategoryCardPage.vue:225-231`), `currency` — снимок валюты
    поставщика (`:231`), который после её смены у поставщика не обновляется ничем.
 9. **Один поставщик привязывается не более одного раза**, и дедупликация только клиентская
-   (`useCategoryCard.ts:56`, селект прячет привязанных — `CategoryCardPage.vue:215-218`); на
+   (`useCategoryCard.ts:61`, селект прячет привязанных — `CategoryCardPage.vue:215-218`); на
    проводе уходит полный массив.
 10. **Категория товара необязательна** — `products.category_id` объявлен `nullable=True`
     (`backend/alembic/versions/25245d4bf874_phase_3_categories_products.py:62`), в моке есть товар
@@ -510,16 +530,16 @@ Partial<{ name: TranslatedString; parentId: string | null; description: Translat
     проставленной категорией, а товар без категории не мешает удалению ни одной.
 11. **Три каскада на схеме выражены тремя разными политиками**: `categories.parent_id` —
     `RESTRICT`, `category_fields.category_id` — `CASCADE`, `product_field_values.field_id` —
-    `RESTRICT` (миграция `:32`, `:46`, `:78`). При этом ORM-отношение `children` объявлено
-    `cascade="all, delete-orphan"` (`backend/app/modules/products/shared/models.py:44-47`), что
-    противоречит `RESTRICT` на том же ключе. Находки про код это не касается: правится не
-    фронтенд, а модель, — поэтому противоречие записано здесь, задачей бэкенда.
+    `RESTRICT` (миграция `:32`, `:46`, `:78`). ORM-отношение `children` раньше объявляло
+    `cascade="all, delete-orphan"`, что противоречило `RESTRICT` на том же ключе; починено —
+    ссылки на справочники удерживаются, а не каскадируют (П44), и `children` больше не несёт
+    этот cascade.
 12. **Уникальности нет нигде** — ни у имени категории, ни у имени поля
-    (`backend/app/modules/products/shared/models.py:210-214` — единственный `UniqueConstraint`
+    (`backend/app/modules/products/shared/models.py:201-205` — единственный `UniqueConstraint`
     домена относится к значению поля товара).
 13. **Перечень типов поля на схеме шире, чем во фронте, и не закрыт ничем**: колонка `field_type`
     — свободная `String(50)` без `CHECK`, допустимые значения живут комментарием рядом и их пять
-    (`backend/app/modules/products/shared/models.py:77-79`), а во фронте семь — добавлены `email`
+    (`backend/app/modules/products/shared/models.py:68-70`), а во фронте семь — добавлены `email`
     и `file` (`types/category.ts:4`), и оба доходят до селекта (`CategoryCardPage.vue:97-105`).
 
 ## Унаследовано из прежнего контракта, кодом не подтверждено
@@ -531,20 +551,20 @@ Partial<{ name: TranslatedString; parentId: string | null; description: Translat
 | утверждение | где было | состояние |
 |---|---|---|
 | статусы доменных кодов: 409/409/404 | `03-api-contract.md:834-838` | мок статуса не несёт, `ApiRequestError.status` берётся из настоящего ответа (`services/api.ts:117-124`); мапирование совпадает с классами ядра (§2 соглашений) |
-| `404 CATEGORY_NOT_FOUND` у `GET /api/categories/:id` | `03-api-contract.md:926` | мок бросает текст (`mocks/categories.ts:1419`, БАГ-04); сам код в домене есть, но только на `DELETE` |
+| `404 CATEGORY_NOT_FOUND` у `GET /api/categories/:id` | `03-api-contract.md:926` | подтверждено кодом: мок отвечает этим кодом, карточка показывает его переводом, не текстом — БАГ-04 закрыт |
 | `422 VALIDATION_ERROR` за отсутствующее `name` у `POST /api/categories` | `03-api-contract.md:885` | серверной проверки нет, отсекает клиент (`CategoriesPage.vue:72`), поведение закреплено e2e (`tests/e2e/admin/products/categories.spec.ts:183-186`) |
-| «last-write-wins» у `PATCH /api/categories/:id` | `03-api-contract.md:946` | ни `If-Match`, ни `updatedAt` у категории нет (`types/category.ts:15-25`) — то же, что у пятнадцати других доменов (§11 соглашений) |
+| «last-write-wins» у `PATCH /api/categories/:id` | `03-api-contract.md:946` | ни `If-Match`, ни `updatedAt` у категории нет (`types/category.ts:25-35`) — то же, что у пятнадцати других доменов (§11 соглашений) |
 
 ## Чего в домене нет
 
 | было описано | чем доказано отсутствие |
 |---|---|
-| код `DUPLICATE_FIELD_NAME` (409, «поле с таким именем уже есть в категории») — `03-api-contract.md:837` | `grep -rn "DUPLICATE_FIELD_NAME" frontend_vue/src backend` — пусто; уникальности имени поля не требует ни мок (`mocks/categories.ts:1487-1514` — ни одного `throw`), ни схема (`backend/app/modules/products/shared/models.py:59-90` — без `UniqueConstraint`) |
-| тело `PUT /api/categories/:id/fields` — массив `CategoryField[]` — `03-api-contract.md:951` | на проводе объект-обёртка `{ fields: [...] }` (`services/categoriesService.ts:65-71`), мок разбирает `const { fields } = body` (`mocks/index.ts:1173`) |
-| `name`, `description` и `options` как `string` во всех четырёх примерах — `03-api-contract.md:863-865`, `:917-918`, `:955-956` | и тип, и мок дают `TranslatedString` (`types/category.ts:17`, `:19`, `:12`; посев `mocks/categories.ts:12`) |
+| код `DUPLICATE_FIELD_NAME` (409, «поле с таким именем уже есть в категории») — `03-api-contract.md:837` | `grep -rn "DUPLICATE_FIELD_NAME" frontend_vue/src backend` — пусто; уникальности имени поля не требует ни мок (`mocks/categories.ts:1487-1514` — ни одного `throw`), ни схема (`backend/app/modules/products/shared/models.py:50-81` — без `UniqueConstraint`) |
+| тело `PUT /api/categories/:id/fields` — массив `CategoryField[]` — `03-api-contract.md:951` | на проводе объект-обёртка `{ fields: [...] }` (`services/categoriesService.ts:65-71`), мок разбирает `const { fields } = body` (`mocks/index.ts:1175`) |
+| `name`, `description` и `options` как `string` во всех четырёх примерах — `03-api-contract.md:863-865`, `:917-918`, `:955-956` | и тип, и мок дают `TranslatedString` (`types/category.ts:27`, `:19`, `:12`; посев `mocks/categories.ts:12`) |
 | `linkedSuppliers` без поля `currency` — `03-api-contract.md:920-921` | поле есть в типе (`types/product.ts:34`) и заполняется снимком валюты поставщика (`CategoryCardPage.vue:231`) |
 | «Удалённые поля сервер удаляет каскадом» — `03-api-contract.md:960` | каскада нет: мок товары не трогает вовсе, а схема удаление значения запрещает — `product_field_values.field_id` объявлен `ondelete="RESTRICT"` (миграция `25245d4bf874_phase_3_categories_products.py:78`) |
-| «`level` вычисляется сервером» как единственная политика — `03-api-contract.md:871` | схема хранит `level`, `field_count` и `product_count` колонками (`backend/app/modules/products/shared/models.py:33-41`), то есть у величины два владельца; разрешение — за бэкендом (§17 соглашений) |
+| «`level` вычисляется сервером» как единственная политика — `03-api-contract.md:871` | теперь так и есть: колонки `level`, `field_count`, `product_count` удалены из `categories` ревизией `c1a7d9e4f2b3_categories_derived_columns.py` (П68), второго владельца у величины не осталось |
 
 ## Оставлено владельцу
 
@@ -610,3 +630,26 @@ Partial<{ name: TranslatedString; parentId: string | null; description: Translat
 | `PUT /fields`: тело описано массивом | «Чего в домене нет», вторая строка |
 | `PUT /fields`: каскад значений у товаров, перестройка `inheritedFields` у потомков, пересчёт `fieldCount` | раздел `PUT /fields`, «Три обязанности сервера» |
 | «Обязанности сервера»: шесть граф с ответом «нигде» (события, аудит-лог, права, владелец перечня типов, кастомные поля, транзакционность) | одноимённый раздел; каждая помечена строкой владельцу |
+
+
+---
+
+## Согласованные правила после опросника 2026-09-17
+
+**Статус:** спроектировано — перенос подтверждённых требований владельца, не отчёт о реализации.
+Для будущей реализации правила ниже имеют приоритет над прежними вариантами «осталось» и
+противоречащим демонстрационным поведением этого файла. Описания существующих запросов выше
+остаются снимком реализации; изменение форм, миграций и клиентских действий выполняется отдельной
+задачей по этим решениям. Новые маршруты в этом дополнении не выдумываются.
+
+Источник: [заполненный опросник](../../plans/general/вопросы-владельцу-после-сверки-2026-09-17.md) и
+[решения П76–П129](../../plans/api/audit/00-решения-владельца.md#p-76).
+
+| Решение | Обязанность домена и зависимых операций |
+|---|---|
+| [П85](../../plans/api/audit/00-решения-владельца.md#p-85) | Все пять перечисленных групп действий включаются в общую ленту с ограничением видимости по правам. Внутренние заметки поставщика и пароли не копируются в ленту. Прежний закрытый перечень видов журнала расширяется под эти действия; прежний запрет «одиннадцатого вида нет» для них больше не блокер. Создание отдельных экранов ради новых видов не утверждено: допустим переход в соответствующий раздел к нужной записи. |
+| [П88](../../plans/api/audit/00-решения-владельца.md#p-88) | Сортировка по имени использует тот перевод, который видит текущий читатель, включая резервное чтение по П64. У сотрудников с разными языками порядок и состав страниц могут различаться; пустой английский перевод не подменяет отображаемое имя. |
+| [П89](../../plans/api/audit/00-решения-владельца.md#p-89) | Количество товаров возле категории включает её собственные товары и товары всего поддерева. Интерфейс поясняет «включая подкатегории». Запрет удаления категории с дочерними категориями сохраняется. |
+| [П90](../../plans/api/audit/00-решения-владельца.md#p-90) | Неиспользуемую категорию можно убрать из каталога, даже если у перенесённых товаров остались значения её полей. Определения и введённые значения не уничтожаются, сохраняются для истории и восстановления по П73. Наличие собственных товаров или дочерних категорий по-прежнему блокирует удаление. Подтверждение кодом на удаление категории этим решением не расширяется. |
+| [П91](../../plans/api/audit/00-решения-владельца.md#p-91) | Сотрудник с правом изменения товара может перенести его в другую категорию. Прежние значения полей сохраняются по П73; меняется набор видимых полей. Подсказка о неизменяемой категории и запрет в карточке должны быть сняты при реализации. |
+| [П95](../../plans/api/audit/00-решения-владельца.md#p-95) | Поставщика с запросами цен, партиями или счетами архивируют: он исчезает из выбора для новых операций, но карточка, имя, реквизиты и исторические связи остаются читаемыми по правам. История запросов цен, происхождение партий и финансовые связи не удаляются каскадом. |

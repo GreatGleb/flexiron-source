@@ -37,7 +37,7 @@ function tf(field: TranslatedString | null | undefined): string {
 Categories: `categoriesService.ts` — `createCategory(..., locale)` строка 32 `name: toTranslatedString(data.name, locale)`,
 `patchCategory(..., locale)` строка 48, `putCategoryFields(..., locale)` строки 68–69.
 `mocks/categories.ts` — `mockPatchCategory` строки 1460–1462 и `mockPutCategoryFields` 1497–1502 мержат через `mergeTranslatedString`.
-`useCategoryCard.ts:110-111` передаёт `locale.value`. `CategoriesPage.vue:80` — тоже.
+`useCategoryCard.ts:115-116` передаёт `locale.value`. `CategoriesPage.vue:80` — тоже.
 `CategoryCardPage.vue` — `mergeLocaleValue` для name/description (70, 84), `toTranslatedString` для field name/options (147, 152).
 
 Products: `productsService.ts` — `createProduct(..., locale)` 50–53, `patchProduct(..., locale)` 88–107,
@@ -59,8 +59,8 @@ BCC: `bccService.ts` — `sendBccRequest(..., locale)` 39–40 (subject/body), `
 `useBccRequest.ts:95,120` передаёт locale. Моки `mockSendBccRequest`/`mockLogBccRequest` (bcc.ts:267,277) принимают payload как есть — как план и требовал (4.3).
 
 Config: `configService.ts` — `createField(..., locale)` 24, `patchField(..., locale)` 35, `patchSection(..., locale)` 65.
-`mocks/config.ts:292,328` — `mergeTranslatedString` в `mockUpdateField`/`mockUpdateSection`.
-`useCardConfig.ts:86` — `mergeLocaleValue`. `SupplierCardConfigPage.vue:317,413,459` — `toTranslatedString`.
+`mocks/config.ts:303,328` — `mergeTranslatedString` в `mockUpdateField`/`mockUpdateSection`.
+`useCardConfig.ts:88` — `mergeLocaleValue`. `SupplierCardConfigPage.vue:326,413,459` — `toTranslatedString`.
 Пункт 5.6 (убрать `translated: true`) закрыт.
 
 Analytics (домен 6): `analyticsService.ts` — единственная `getAnalyticsPage`, эндпоинт один (`/api/analytics/${page}`);
@@ -79,7 +79,7 @@ Analytics (домен 6): `analyticsService.ts` — единственная `ge
    ни `toTranslatedString`. (Функция при этом мёртвая: `grep -rn "createSection" src tests` вне сервиса и мока
    даёт только регистрацию маршрута в `mocks/index.ts:115,925`.)
 2. **Пункт 5.4, половина про `mockCreateSection`** — не сделан и содержит ровно тот антипаттерн, против которого написан план.
-   `frontend_vue/src/services/mocks/config.ts:306-309`:
+   `frontend_vue/src/services/mocks/config.ts:317-320`:
    ```ts
    const name: TranslatedString =
      typeof payload.name === 'string'

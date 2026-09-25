@@ -77,7 +77,7 @@ frontend_vue/src/components` даёт **четыре** файла, и все ч�
 - гейт `MAIL_NOT_CONFIGURED` оставлен **выше** создания строк (`:433`), поэтому отказ не
   оставляет ни письма, ни строк;
 - `requestId` и `id` присваивает сервер монотонными счётчиками (`:355-364`), начальное значение
-  снято с сидов через `maxSeq` (`:346-353`) — приём из `mocks/orders.ts:1353-1357`, а не вторая
+  снято с сидов через `maxSeq` (`:346-353`) — приём из `mocks/orders.ts:1356-1360`, а не вторая
   копия последнего номера сида рядом с сидами. Это же закрывает клиентскую половину БАГ-02;
 - каталог подписей источника переехал со страницы на сервер — `SOURCE_LABELS` (`:317-323`) плюс
   `resolveSource` (`:325-344`), сопоставляющий по любой локали. Без него строка ленты была бы
@@ -168,7 +168,7 @@ function nextRequestId(): string {          // :264-275
 Форматов у одного поля в итоге три: `req-${Date.now()}` у мока (`mocks/bcc.ts:334`, `:342`),
 `req-NNN` у клиента (`BccRequestPage.vue:274`) и `req-###` в старом контракте
 (`roo_code/roo-context/03-api-contract.md:581`), при том что колонка — `String(50)`
-(`backend/app/modules/bcc/shared/models.py:54-56`).
+(`backend/app/modules/bcc/shared/models.py`).
 
 ### Expected
 
@@ -176,13 +176,13 @@ function nextRequestId(): string {          // :264-275
 
 ---
 
-## БАГ-03 — `response` и `no-response` создают строки без `Idempotency-Key`
+## ✅ БАГ-03 — `response` и `no-response` создавали строки без `Idempotency-Key` — ПОЧИНЕНО
 
-**File:** `frontend_vue/src/services/bccService.ts:73,77`
-**Severity:** Medium — двойной клик по «принять ответ» или по крестику создаёт две записи события; отменить их нечем, `DELETE` в домене нет.
+**File:** `frontend_vue/src/services/bccService.ts` (`acceptBccResponse`, `markBccNoResponse`)
+**Severity:** Было Medium — двойной клик по «принять ответ» или по крестику создавал две записи события; отменить их нечем, `DELETE` в домене нет.
 **Источник:** К6 (транзакционность и идемпотентность)
 
-### Problem
+### Problem (до починки)
 
 Два вызова домена ключ шлют, два — нет, при том что записи создают все четыре:
 
@@ -197,11 +197,28 @@ apiPost<BccRequest>(`/api/bcc/events/${eventId}/no-response`, {})               
 домена — event-sourcing (`frontend_vue/src/types/bcc.ts:20`) — означает, что повтор не
 «перезапишет то же самое», а добавит второе событие. Механизм в проекте есть и работает:
 `withIdempotency` кэширует результат по ключу (`mocks/index.ts:262-269`, применение `:912`,
-`:919`), генератор — `newIdempotencyKey` (`frontend_vue/src/services/api.ts:240-245`).
+`:919`), генератор — `newIdempotencyKey` (`frontend_vue/src/services/api.ts:259-264`).
 
 ### Expected
 
 Ключ идемпотентности шлют все четыре мутации домена.
+
+### Сделано 2026-09-24
+
+`acceptBccResponse` и `markBccNoResponse` шлют `Idempotency-Key` через тот же
+`newIdempotencyKey()`, что и `sendBccRequest`/`logBccRequest`
+(`frontend_vue/src/services/bccService.ts`). Обе ветки `/response` и `/no-response` в
+`frontend_vue/src/services/mocks/index.ts` обёрнуты в `withIdempotency`, как ветки `send`/`log`.
+
+**Проверено:**
+
+| Проверка | Результат |
+|---|---|
+| `cd frontend_vue && npm run verify` | typecheck · lint · dupes · format · unit — exit 0 |
+| новая проба `mocks/idempotency-scope.spec.ts` — повтор `response`/`no-response` с тем же ключом не добавляет вторую строку в ленту | зелёная (обе операции) |
+| новая проба — `acceptBccResponse`/`markBccNoResponse` доходят до мока с непустым `Idempotency-Key` | зелёная |
+| инверсия: `withIdempotency` снят с веток `/response`/`/no-response` в моке | пробы выше краснеют (длина ленты растёт на 2 вместо 1) |
+| инверсия: заголовок убран из клиентских функций | проба на доставку заголовка краснеет тем же способом, проба уровня мока остаётся зелёной |
 
 ---
 
@@ -263,14 +280,31 @@ notifications, БАГ-04).
 
 ### Expected
 
-Одно пространство идентификаторов поставщика на весь проект; какое — решение владельца
-(строка уже стоит в `00-решения-владельца.md` от домена suppliers).
+Одно пространство идентификаторов поставщика на весь проект. Какое именно — **отвечено**:
+UUID формы схемы, строка 1599 файла решений от домена suppliers; разбор в разделе ниже.
+
+### Решение владельца
+
+**Разблокировано.** Вопрос общий с `suppliers/БАГ-02` и закрыт его строкой —
+[`../api/audit/00-решения-владельца.md`](../api/audit/00-решения-владельца.md), строка 1599:
+
+> **снято 2026-09-10 (§19):** канонична форма схемы — UUID; читаемые префиксы мока и числовые
+> строки справочника это два пространства id в одном домене, известный класс дефекта, названный
+> в §19
+
+Номера П у этого вердикта нет: он вынесен по §19 «Форма идентификатора» общих соглашений
+([`00-conventions.md`](../../roo-context/api/00-conventions.md)) — там же два пространства id поставщика (`sup-001` против `'1'…'6'`)
+названы поимённо.
+
+Работа по коду: сиды ленты BCC (`mocks/bcc.ts:146,157,168,180,193,205,216`), `MOCK_SUPPLIERS`
+(`mocks/suppliers.ts:9,29,49,69,89,109`) и `/api/suppliers/list` приводятся к одной форме одним
+движением — порознь чинить нельзя, выпадашки склада согласованы с сидом партий.
 
 ---
 
-## БАГ-06 — идентификаторы «товаров» BCC не существуют ни в одном другом домене
+## ✅ БАГ-06 — идентификаторы «товаров» BCC не существуют ни в одном другом домене — ЗАКРЫТО ПО СХЕМЕ
 
-**File:** `frontend_vue/src/services/mocks/bcc.ts:7-118`, `backend/app/modules/bcc/shared/models.py:63-67`
+**File:** `frontend_vue/src/services/mocks/bcc.ts:7-118`, `backend/app/modules/bcc/shared/models.py`
 **Severity:** High — `productIds`, которые клиент шлёт в `send`/`log`, сервер обязан положить в колонку с FK на `products.id`, и ни один из них там не найдётся.
 **Источник:** К4 (формы запроса), К5 (источник истины)
 
@@ -291,7 +325,7 @@ notifications, БАГ-04).
 ```python
 product_id: Mapped[uuid.UUID | None] = mapped_column(
     UUID(as_uuid=True),
-    ForeignKey("products.id", ondelete="SET NULL"),   # models.py:63-67
+    ForeignKey("products.id", ondelete="SET NULL"),   # models.py:88-92
 ```
 
 а таблица каталога — своя и рекурсивная, `bcc_categories.parent_id → bcc_categories.id`
@@ -302,6 +336,42 @@ product_id: Mapped[uuid.UUID | None] = mapped_column(
 Либо каталог BCC — проекция домена `products`, и тогда листья несут `products.id`; либо это
 своя сущность, и тогда `bcc_events` ссылается на неё, а не на товары. Решение владельца —
 строка вынесена.
+
+### Решение владельца
+
+**Разблокировано — П75.** [`../api/audit/00-решения-владельца.md`](../api/audit/00-решения-владельца.md), строка 1840:
+
+> **решено 2026-09-11:** проекцией общего каталога — своей таблицы у дерева нет, инструмент читает
+> те же категории и те же товары, а `product_count` считается при чтении → П75
+
+Работа по коду: константа дерева (`mocks/bcc.ts:7-118`) заменяется проекцией `categories` +
+`products`, листья несут `products.id` (`prod-001`…), таблица `bcc_categories`
+(`backend/app/modules/bcc/shared/models.py`) с колонкой `product_count` уходит со схемы.
+
+### Сделано 2026-09-25 (схемная половина)
+
+Класс `BccCategory` и таблица `bcc_categories` (вместе с колонкой `product_count`) сняты со схемы
+модуля `bcc` — `backend/app/modules/bcc/shared/models.py`, ревизия
+`backend/alembic/versions/e7b2c40d9f15_bcc_p75_drop_categories_p101_currency.py`. `BccCategory`
+убран также из `backend/alembic/_alembic_imports.py`. `bcc_events.product_id` — FK на
+`products.id` — не тронут: он уже указывал на верный каталог, дереву самому просто больше негде
+хранить свою (ошибочную) иерархию.
+
+**Осталось — вторая половина, код фронта и мока.** Дерево `mocks/bcc.ts:7-118` по-прежнему
+константа с идентификаторами листьев вида `sheet-2mm`, которых нет ни в `products`, ни в
+`categories`; перевод мока и `BccRequestPage.vue` на реальные `products.id`/`categories.id` и на
+эндпоинт, который читает их с сервера, — отдельная задача, доменного слоя отправки
+(`features/send_request/`) она не касается и этой задачей не сделана.
+
+**Проверено:**
+
+| Проверка | Результат |
+|---|---|
+| `grep -n "BccCategory" backend/app/modules/bcc/shared/models.py backend/alembic/_alembic_imports.py` | пусто |
+| `backend/tests/modules/bcc/test_bcc_schema.py` | 10 тестов, зелёные |
+| инверсия: `BccCategory` возвращён в `models.py` | тест на отсутствие `bcc_categories` в `Base.metadata.tables` и тест на отсутствие класса краснеют (2 теста) |
+| `cd backend && python3 -m pytest tests -q` | 105 passed, 116 subtests passed |
+| `cd backend && python3 -c "from app.main import app"` | проходит — ни один модуль не импортирует удалённый класс |
 
 ---
 
@@ -319,10 +389,10 @@ const UNIT_OPTIONS = ['kg', 'm', 'piece', 'ton']   // :333
 
 Дефолт — `'kg'` (`:331`, `:340`), значение уходит в теле `POST /api/bcc/events/:id/response`
 (`frontend_vue/src/services/bccService.ts:69-74`) и ложится в колонку `unit: String(20)`
-(`backend/app/modules/bcc/shared/models.py:75`).
+(`backend/app/modules/bcc/shared/models.py`).
 
 Единицами владеет домен `settings`: `AppSettings.uoms` (`frontend_vue/src/types/settings.ts:240`),
-сид — `uom-t`, `uom-kg`, … (`frontend_vue/src/services/mocks/settings.ts:89-101`), подпись
+сид — `uom-t`, `uom-kg`, … (`frontend_vue/src/services/mocks/settings.ts:91-103`), подпись
 собирается единственной функцией `uomCode` (`frontend_vue/src/domain/uom.ts:27-32`). Склад свой
 список строит именно из справочника (`frontend_vue/src/views/admin/warehouse/WarehousePage.vue:423-437`,
 потребители `:440-444`).
@@ -375,31 +445,34 @@ settings (аудит settings, находка 19), и против настоя�
 
 ---
 
-## БАГ-09 — пять вызовов из семи идут без единого заголовка
+## БАГ-09 — `Authorization` не несёт ни один из семи вызовов
 
-**File:** `frontend_vue/src/services/bccService.ts:7,11,21,73,77`
+**File:** `frontend_vue/src/services/bccService.ts` — все семь вызовов
 **Severity:** High — обе таблицы домена требуют `tenant_id`, у события есть ещё и автор, а сервер не получит ни того, ни другого.
 **Источник:** К6 (мультиарендность), К4 (формы запроса)
 
 ### Problem
 
-Заголовки в домене шлют только два вызова, и только `Idempotency-Key` (`:43`, `:64`).
-Остальные пять вызываются без третьего аргумента:
+Обновлено 2026-09-24: половина находки закрыта задачей об идемпотентности. Заголовки
+теперь шлют **четыре** мутирующих вызова — `sendBccRequest`, `logBccRequest`,
+`acceptBccResponse`, `markBccNoResponse`, — но только `Idempotency-Key`. Без третьего
+аргумента вовсе остаются три чтения:
 
 ```ts
-apiGet<BccCategory[]>('/api/bcc/categories')                                   // :7
-apiGet<BccRecipient[]>('/api/bcc/recipients', { products: … })                 // :11
-apiGet<PaginatedResponse<BccRequest>>('/api/bcc/history', params)              // :21
-apiPost<BccRequest>(`/api/bcc/events/${eventId}/response`, payload)            // :73
-apiPost<BccRequest>(`/api/bcc/events/${eventId}/no-response`, {})              // :77
+apiGet<BccCategory[]>('/api/bcc/categories')                                   // getBccCategories
+apiGet<BccRecipient[]>('/api/bcc/recipients', { products: … })                 // getBccRecipients
+apiGet<PaginatedResponse<BccRequest>>('/api/bcc/history', params)              // getBccHistory
 ```
+
+`Authorization` при этом не несёт **ни один из семи**: у мутирующих в `options.headers`
+лежит только идемпотентность. Именно это и осталось незакрытым.
 
 `options?.headers` — единственный источник заголовков у `apiGet` и `apiPost`
 (`frontend_vue/src/services/api.ts:144-158`, `:163-175`).
 
 Схема требует арендатора на обеих таблицах: `bcc_categories.tenant_id` и `bcc_events.tenant_id`
 — оба `ForeignKey("tenants.id", ondelete="CASCADE")`, `nullable=False, index=True`
-(`backend/app/modules/bcc/shared/models.py:16-21`, `:48-53`), плюс `sender_user_id` у события
+(`backend/app/modules/bcc/shared/models.py`, `:48-53`), плюс `sender_user_id` у события
 (`:79-83`). Соседи с живым бэкендом шлют `Authorization: Bearer` + `X-CSRF-Token`
 (`frontend_vue/src/services/settingsService.ts:18,27`,
 `frontend_vue/src/services/auditFeedService.ts:20,41`), и сервер достаёт из токена `user_id`
@@ -414,35 +487,35 @@ apiPost<BccRequest>(`/api/bcc/events/${eventId}/no-response`, {})              /
 
 ---
 
-## БАГ-10 — правка уже принятого ответа рождает второе уведомление о том же ответе
+## БАГ-10 — правка уже принятого ответа рождает второе уведомление о том же ответе — ПОЧИНЕНО
 
 **File:** `frontend_vue/src/services/mocks/bcc.ts:368`
-**Severity:** Low — лента уведомлений заполняется повторами события, которое произошло один раз.
+**Severity:** Было Low — правка уже отвечённой строки писала лишнюю запись; теперь гасится условием.
 **Источник:** К6 (события и уведомления)
 
 ### Problem
 
 ```ts
 MOCK_BCC_HISTORY.unshift(next)
-notifySupplierResponse({ id: next.supplierId, name: next.supplierName })   // :368
+if (s.status !== 'responded') notifySupplierResponse({ id: s.supplierId, name: s.supplierName })
 ```
 
-Условия «это переход, а не повтор» здесь нет. Остальные шесть триггеров проекта им защищены и
-проверены спекой — `if (oldStatus !== status)` у заказа, `if (!wasReady && …)` у склада,
+Условие «это переход, а не повтор» теперь есть — седьмой триггер защищён им же, как и
+остальные шесть: `if (oldStatus !== status)` у заказа, `if (!wasReady && …)` у склада,
 `if (!wasOverdue && …)` у финансов (`frontend_vue/src/services/mocks/notification-triggers.spec.ts:111-119,181-200,232-234,257-266`);
 правило сформулировано в коде домена уведомлений дословно
 (`frontend_vue/src/services/mocks/notifications.ts:470-473`) и описано соседом (аудит
 notifications, «Правила домена», п. 4).
 
-Достижимо это не редким гонком, а обычной кнопкой: у строки со статусом `responded` в таблице
-истории стоит «править» (`frontend_vue/src/views/admin/suppliers/BccRequestPage.vue:991`), и она
-открывает ту же модалку (`:335-342`), сохранение которой идёт тем же `savePrice` (`:348-365`).
-Каждое исправление цены — ещё одно «поставщик ответил».
+Путь достижения не изменился: у строки со статусом `responded` в таблице истории стоит «править»
+(`frontend_vue/src/views/admin/suppliers/BccRequestPage.vue:991`), и она открывает ту же модалку
+(`:335-342`), сохранение которой идёт тем же `savePrice` (`:348-365`) — но правка цены по такой
+строке уведомления больше не пишет, парный кейс тому доказательство.
 
 ### Expected
 
-Уведомление рождается на переходе `sent → responded`, а не на каждой записи со статусом
-`responded`.
+Уведомление рождается на переходе `sent → responded` — то есть когда строка `s`, найденная по
+`eventId`, ещё не имеет статуса `responded`; повторная запись того же ответа его не рождает.
 
 ---
 
@@ -469,7 +542,7 @@ export function mockLogBccRequest(_payload: {...}): { requestId: string } {
 в history со `status: 'sent'`, `source: 'BCC Tool'`» (`roo_code/roo-context/03-api-contract.md:585`)
 и «`{ requestId: string; events: BccRequest[] }` — массив созданных строк, чтобы клиент сразу
 подложил в `history`» (`:600`). Схема под это готова: `bcc_events` со `status`, `source`,
-`subject`, `body`, `attachment_file_ids` (`backend/app/modules/bcc/shared/models.py:68-78`).
+`subject`, `body`, `attachment_file_ids` (`backend/app/modules/bcc/shared/models.py`).
 
 Пустота компенсируется на стороне страницы (`createEventRows`,
 `frontend_vue/src/views/admin/suppliers/BccRequestPage.vue:390-413`) — то есть БАГ-01 и есть

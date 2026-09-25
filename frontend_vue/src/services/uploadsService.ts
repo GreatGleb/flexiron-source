@@ -9,9 +9,12 @@ export interface UploadedFile {
   uploadedAt: string
 }
 
-/** Generic file upload. Returns { fileId, ... } — attach to entity via save PATCH with fileIds[]. */
+/**
+ * Generic file upload. Returns { fileId, ... } — attach to entity via save PATCH with fileIds[].
+ *
+ * Заголовки авторизации ставит `api.ts` — своя копия чтения токена здесь читала только
+ * `localStorage` и потому давала 401 всем, кто вошёл без «запомнить меня».
+ */
 export async function uploadFile(file: File): Promise<UploadedFile> {
-  const authToken = localStorage.getItem('auth_token')
-  const headers = authToken ? { Authorization: `Bearer ${authToken}` } : undefined
-  return apiUpload<UploadedFile>('/api/uploads', file, { headers })
+  return apiUpload<UploadedFile>('/api/uploads', file)
 }

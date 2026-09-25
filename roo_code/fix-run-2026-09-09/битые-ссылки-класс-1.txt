@@ -1,0 +1,72 @@
+roo_code/plans/api/audit/00-решения-владельца.md:340 → frontend_vue/src/services/auditFeedService.ts:57-77 — вне границ: в frontend_vue/src/services/auditFeedService.ts 74 строк, ссылка на 57-77
+roo_code/plans/api/audit/00-решения-владельца.md:77 → frontend_vue/src/services/api.ts:240-245 — нет токена в диапазоне: в 240-245 нет ни одного из: «Idempotency-Key»
+roo_code/plans/api/audit/audit-feed.md:18 → frontend_vue/src/services/api.ts:128-141 — нет токена в диапазоне: в 128-141 нет ни одного из: «ApiResponse<T>»
+roo_code/plans/api/audit/audit-feed.md:58 → src/services/auditFeedService.ts:57-77 — вне границ: в frontend_vue/src/services/auditFeedService.ts 74 строк, ссылка на 57-77
+roo_code/plans/api/audit/audit-feed.md:63 → src/services/auditFeedService.ts:57-77 — вне границ: в frontend_vue/src/services/auditFeedService.ts 74 строк, ссылка на 57-77
+roo_code/plans/api/audit/audit-feed.md:75 → src/services/auditFeedService.ts:57-77 — вне границ: в frontend_vue/src/services/auditFeedService.ts 74 строк, ссылка на 57-77
+roo_code/plans/api/audit/audit-feed.md:91 → src/services/auditFeedService.ts:57-77 — вне границ: в frontend_vue/src/services/auditFeedService.ts 74 строк, ссылка на 57-77
+roo_code/plans/api/audit/auth.md:64 → useAuth.ts:310-310 — вне границ: в frontend_vue/src/composables/useAuth.ts 240 строк, ссылка на 310-310
+roo_code/plans/api/audit/auth.md:99 → useAuth.ts:906-906 — вне границ: в frontend_vue/src/composables/useAuth.ts 240 строк, ссылка на 906-906
+roo_code/plans/api/audit/clients.md:28 → frontend_vue/src/services/api.ts:128-138 — нет токена в диапазоне: в 128-138 нет ни одного из: «ApiResponse<T>»
+roo_code/plans/api/audit/orders.md:39 → frontend_vue/src/services/api.ts:128-138 — нет токена в диапазоне: в 128-138 нет ни одного из: «ApiResponse<T>»
+roo_code/plans/api/audit/products.md:53 → src/services/auditFeedService.ts:189-189 — вне границ: в frontend_vue/src/services/auditFeedService.ts 74 строк, ссылка на 189-189
+roo_code/plans/api/audit/products.md:53 → src/services/auditFeedService.ts:99-99 — вне границ: в frontend_vue/src/services/auditFeedService.ts 74 строк, ссылка на 99-99
+roo_code/plans/api/audit/sales-crm.md:249 → frontend_vue/src/router/index.ts:139-142 — нет токена в диапазоне: в 139-142 нет ни одного из: «adminSalesCrm»
+roo_code/plans/api/audit/sales-crm.md:50 → src/services/api.ts:157-159 — нет токена в диапазоне: в 157-159 нет ни одного из: «options?.headers»
+roo_code/plans/api/audit/settings.md:15 → api.ts:149-151 — нет токена в диапазоне: в 149-151 нет ни одного из: «getMock», «postMock», «fetch», «unwrap»
+roo_code/plans/api/audit/settings.md:305 → src/services/settingsService.ts:197-197 — вне границ: в frontend_vue/src/services/settingsService.ts 192 строк, ссылка на 197-197
+roo_code/plans/api/audit/settings.md:308 → settingsService.ts:192-196 — вне границ: в frontend_vue/src/services/settingsService.ts 192 строк, ссылка на 192-196
+roo_code/plans/api/audit/settings.md:309 → settingsService.ts:196-196 — вне границ: в frontend_vue/src/services/settingsService.ts 192 строк, ссылка на 196-196
+roo_code/plans/api/audit/suppliers.md:29 → src/services/auditFeedService.ts:530-530 — вне границ: в frontend_vue/src/services/auditFeedService.ts 74 строк, ссылка на 530-530
+roo_code/plans/api/audit/uploads.md:354 → src/services/api.ts:4-4 — нет токена в диапазоне: в 4-4 нет ни одного из: «USE_MOCKS»
+roo_code/plans/api/audit/uploads.md:55 → src/services/uploadsService.ts:14-15 — нет токена в диапазоне: в 14-15 нет ни одного из: «localStorage.getItem('auth_token')»
+roo_code/plans/api/audit/uploads.md:84 → uploadsService.ts:16-16 — нет токена в диапазоне: в 16-16 нет ни одного из: «apiUpload<UploadedFile>»
+roo_code/plans/api/audit/uploads.md:87 → mocks/index.ts:1667-1674 — нет токена в диапазоне: в 1667-1674 нет ни одного из: «url»
+roo_code/plans/api/audit/uploads.md:89 → mocks/index.ts:1663-1663 — нет токена в диапазоне: в 1663-1663 нет ни одного из: «fileId», «file-<seq>-<Date.now()>»
+roo_code/plans/api/audit/warehouse.md:101 → src/services/auditFeedService.ts:76-76 — вне границ: в frontend_vue/src/services/auditFeedService.ts 74 строк, ссылка на 76-76
+roo_code/plans/api/audit/warehouse.md:604 → frontend_vue/src/services/auditFeedService.ts:66-76 — вне границ: в frontend_vue/src/services/auditFeedService.ts 74 строк, ссылка на 66-76
+roo_code/plans/api/audit/warehouse.md:98 → src/services/auditFeedService.ts:76-76 — вне границ: в frontend_vue/src/services/auditFeedService.ts 74 строк, ссылка на 76-76
+roo_code/plans/bugs/contract-sync-analytics-bugs.md:75 → frontend_vue/src/services/api.ts:157-159 — нет токена в диапазоне: в 157-159 нет ни одного из: «options?.headers»
+roo_code/plans/bugs/contract-sync-analytics-bugs.md:80 → frontend_vue/src/composables/useAuth.ts:101-108 — нет токена в диапазоне: в 101-108 нет ни одного из: «X-CSRF-Token»
+roo_code/plans/bugs/contract-sync-audit-feed-bugs.md:313 → services/auditFeedService.ts:57-77 — вне границ: в frontend_vue/src/services/auditFeedService.ts 74 строк, ссылка на 57-77
+roo_code/plans/bugs/contract-sync-audit-feed-bugs.md:80 → frontend_vue/src/services/auditFeedService.ts:57-77 — вне границ: в frontend_vue/src/services/auditFeedService.ts 74 строк, ссылка на 57-77
+roo_code/plans/bugs/contract-sync-audit-feed-bugs.md:97 → frontend_vue/src/services/auditFeedService.ts:57-77 — вне границ: в frontend_vue/src/services/auditFeedService.ts 74 строк, ссылка на 57-77
+roo_code/plans/bugs/contract-sync-auth-bugs.md:273 → useAuth.ts:101-108 — нет токена в диапазоне: в 101-108 нет ни одного из: «X-CSRF-Token»
+roo_code/plans/bugs/contract-sync-auth-bugs.md:305 → useAuth.ts:207-209 — нет токена в диапазоне: в 207-209 нет ни одного из: «401»
+roo_code/plans/bugs/contract-sync-bcc-bugs.md:200 → frontend_vue/src/services/api.ts:240-245 — нет токена в диапазоне: в 240-245 нет ни одного из: «newIdempotencyKey»
+roo_code/plans/bugs/contract-sync-clients-bugs.md:151 → frontend_vue/src/services/api.ts:88-89 — нет токена в диапазоне: в 88-89 нет ни одного из: «VALIDATION_ERROR»
+roo_code/plans/bugs/contract-sync-clients-bugs.md:191 → frontend_vue/src/services/api.ts:154-155 — нет токена в диапазоне: в 154-155 нет ни одного из: «URLSearchParams.set»
+roo_code/plans/bugs/contract-sync-orders-bugs.md:128 → frontend_vue/src/services/api.ts:155-155 — нет токена в диапазоне: в 155-155 нет ни одного из: «apiGet», «searchParams.set»
+roo_code/plans/bugs/contract-sync-uploads-bugs.md:29 → api.ts:4-4 — нет токена в диапазоне: в 4-4 нет ни одного из: «VITE_USE_MOCKS», «undefined»
+roo_code/plans/bugs/contract-sync-uploads-bugs.md:323 → frontend_vue/src/services/api.ts:4-4 — нет токена в диапазоне: в 4-4 нет ни одного из: «USE_MOCKS»
+roo_code/plans/bugs/contract-sync-warehouse-bugs.md:40 → frontend_vue/src/services/auditFeedService.ts:66-76 — вне границ: в frontend_vue/src/services/auditFeedService.ts 74 строк, ссылка на 66-76
+roo_code/plans/bugs/contract-sync-warehouse-bugs.md:52 → frontend_vue/src/services/api.ts:239-245 — нет токена в диапазоне: в 239-245 нет ни одного из: «Idempotency-Key»
+roo_code/roo-context/api/00-conventions.md:29 → services/api.ts:128-139 — нет токена в диапазоне: в 128-139 нет ни одного из: «ApiResponse<T>», «success»
+roo_code/roo-context/api/00-conventions.md:335 → services/auditFeedService.ts:49-77 — вне границ: в frontend_vue/src/services/auditFeedService.ts 74 строк, ссылка на 49-77
+roo_code/roo-context/api/00-conventions.md:36 → services/api.ts:140-141 — нет токена в диапазоне: в 140-141 нет ни одного из: «ApiResponse»
+roo_code/roo-context/api/00-conventions.md:416 → services/api.ts:239-245 — нет токена в диапазоне: в 239-245 нет ни одного из: «newIdempotencyKey()», «crypto.randomUUID()»
+roo_code/roo-context/api/00-conventions.md:509 → services/api.ts:153-156 — нет токена в диапазоне: в 153-156 нет ни одного из: «url.searchParams»
+roo_code/roo-context/api/analytics.md:72 → services/api.ts:127-138 — нет токена в диапазоне: в 127-138 нет ни одного из: «ApiResponse<DashboardData>», «unwrap()»
+roo_code/roo-context/api/audit-feed.md:120 → services/auditFeedService.ts:45-47 — нет токена в диапазоне: в 45-47 нет ни одного из: «getAuditFeedUsers»
+roo_code/roo-context/api/audit-feed.md:185 → services/auditFeedService.ts:57-77 — вне границ: в frontend_vue/src/services/auditFeedService.ts 74 строк, ссылка на 57-77
+roo_code/roo-context/api/audit-feed.md:249 → services/auditFeedService.ts:57-77 — вне границ: в frontend_vue/src/services/auditFeedService.ts 74 строк, ссылка на 57-77
+roo_code/roo-context/api/audit-feed.md:309 → services/auditFeedService.ts:57-77 — вне границ: в frontend_vue/src/services/auditFeedService.ts 74 строк, ссылка на 57-77
+roo_code/roo-context/api/audit-feed.md:350 → services/api.ts:128-141 — нет токена в диапазоне: в 128-141 нет ни одного из: «unwrap()», «ApiResponse<AuditFeedResponse>», «ApiResponse<AuditFeedUser[]>»
+roo_code/roo-context/api/auth.md:254 → useAuth.ts:237-238 — нет токена в диапазоне: в 237-238 нет ни одного из: «redirectTo», «catch»
+roo_code/roo-context/api/auth.md:272 → useAuth.ts:225-229 — нет токена в диапазоне: в 225-229 нет ни одного из: «router.push»
+roo_code/roo-context/api/auth.md:321 → useAuth.ts:252-252 — вне границ: в frontend_vue/src/composables/useAuth.ts 240 строк, ссылка на 252-252
+roo_code/roo-context/api/auth.md:509 → useAuth.ts:75-75 — нет токена в диапазоне: в 75-75 нет ни одного из: «currentUser»
+roo_code/roo-context/api/auth.md:61 → useAuth.ts:233-235 — нет токена в диапазоне: в 233-235 нет ни одного из: «catch»
+roo_code/roo-context/api/categories.md:67 → services/api.ts:117-124 — нет токена в диапазоне: в 117-124 нет ни одного из: «ApiRequestError.status»
+roo_code/roo-context/api/finance.md:564 → router/index.ts:326-326 — нет токена в диапазоне: в 326-326 нет ни одного из: «financeIncoming», «financeOutgoing»
+roo_code/roo-context/api/notifications.md:441 → composables/useAuth.ts:101-108 — нет токена в диапазоне: в 101-108 нет ни одного из: «X-CSRF-Token»
+roo_code/roo-context/api/notifications.md:551 → services/api.ts:128-137 — нет токена в диапазоне: в 128-137 нет ни одного из: «number», «ApiResponse», «unwrap()», «success», «ApiResponse<number>»
+roo_code/roo-context/api/orders.md:82 → services/api.ts:128-138 — нет токена в диапазоне: в 128-138 нет ни одного из: «ApiResponse<T>»
+roo_code/roo-context/api/services.md:227 → router/index.ts:247-247 — нет токена в диапазоне: в 247-247 нет ни одного из: «products/services/:id»
+roo_code/roo-context/api/settings.md:1092 → settingsService.ts:145-145 — нет токена в диапазоне: в 145-145 нет ни одного из: «null»
+roo_code/roo-context/api/settings.md:341 → settingsService.ts:60-60 — нет токена в диапазоне: в 60-60 нет ни одного из: «Promise<void>», «undefined»
+roo_code/roo-context/api/settings.md:479 → services/settingsService.ts:78-78 — нет токена в диапазоне: в 78-78 нет ни одного из: «updateUom»
+roo_code/roo-context/api/settings.md:936 → settingsService.ts:192-196 — вне границ: в frontend_vue/src/services/settingsService.ts 192 строк, ссылка на 192-196
+roo_code/roo-context/api/uploads.md:150 → services/uploadsService.ts:13-17 — нет токена в диапазоне: в 13-17 нет ни одного из: «uploadFile»
+roo_code/roo-context/api/uploads.md:60 → uploadsService.ts:14-15 — нет токена в диапазоне: в 14-15 нет ни одного из: «localStorage.getItem('auth_token')»
+roo_code/roo-context/api/warehouse.md:1423 → frontend_vue/src/services/auditFeedService.ts:76-76 — вне границ: в frontend_vue/src/services/auditFeedService.ts 74 строк, ссылка на 76-76

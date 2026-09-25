@@ -368,11 +368,43 @@ test.describe('admin layout › visual @1440', () => {
     )
   })
 
-  test('sidebar collapsed', async ({ page }) => {
+  /**
+   * Снимок здесь — НЕ сайдбар, и раньше имя обещало именно его (БАГ-01).
+   *
+   * Свёрнутый сайдбар уезжает за экран целиком (`erp-base.css`:
+   * `.shell.sidebar-collapsed .sidebar { transform: translateX(-1 * --sidebar-w) }`),
+   * прокрутить его в кадр нельзя, и снимок элемента берётся с той области экрана, где
+   * бокс СТОЯЛ БЫ, — то есть с первых 280 пикселей главной колонки. На линии всё это
+   * время был дашборд.
+   *
+   * Что здесь стоит охранять, у снимка отобрать нельзя: левый край главной колонки,
+   * который свёрнутый сайдбар обязан освободить. Поэтому снимок оставлен, а имя
+   * приведено к тому, что он снимает. Про сам факт сворачивания говорят два ассерта
+   * ниже — класс оболочки и геометрия, — а не картинка.
+   */
+  test('shell left edge with the sidebar collapsed', async ({ page }) => {
+    const shell = page.locator('[data-test="admin-shell"]')
+    const sidebar = page.locator('[data-test="sidebar-root"]')
+
+    const beforeBox = await sidebar.boundingBox()
+    expect(beforeBox, 'сайдбар не отрисован до сворачивания').not.toBeNull()
+    expect(beforeBox!.x).toBeGreaterThanOrEqual(0)
+
     await page.locator('[data-test="topbar-menu-toggle"]').click()
-    await expect(page.locator('[data-test="admin-shell"]')).toHaveClass(/sidebar-collapsed/)
+    await expect(shell).toHaveClass(/sidebar-collapsed/)
+
+    // Сайдбар действительно УЕХАЛ, а не просто получил класс: его правый край левее
+    // нуля. Утверждение о классе одно этого не доказывает — класс может ничего не
+    // делать, и тогда снимок ниже сторожил бы перекрытый дашборд как нормальный вид.
+    await expect
+      .poll(async () => {
+        const box = await sidebar.boundingBox()
+        return box === null ? -1 : box.x + box.width
+      })
+      .toBeLessThanOrEqual(0)
+
     await expect(page.locator('[data-test="sidebar-root"]')).toHaveScreenshot(
-      'layout-sidebar-collapsed.png',
+      'layout-shell-left-with-sidebar-collapsed.png',
     )
   })
 

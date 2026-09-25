@@ -70,9 +70,17 @@ export async function acceptBccResponse(
   eventId: string,
   payload: { price: number; unit: string },
 ): Promise<BccRequest> {
-  return apiPost<BccRequest>(`/api/bcc/events/${eventId}/response`, payload)
+  return apiPost<BccRequest>(`/api/bcc/events/${eventId}/response`, payload, {
+    headers: { 'Idempotency-Key': newIdempotencyKey() },
+  })
 }
 
 export async function markBccNoResponse(eventId: string): Promise<BccRequest> {
-  return apiPost<BccRequest>(`/api/bcc/events/${eventId}/no-response`, {})
+  return apiPost<BccRequest>(
+    `/api/bcc/events/${eventId}/no-response`,
+    {},
+    {
+      headers: { 'Idempotency-Key': newIdempotencyKey() },
+    },
+  )
 }

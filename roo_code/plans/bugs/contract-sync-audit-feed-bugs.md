@@ -19,7 +19,7 @@
 
 ## БАГ-01 — право `seeCost` обходится через общую ленту: записи истории с ценой видны тому, кому цена закрыта
 
-**File:** `frontend_vue/src/services/mocks/auditFeed.ts:43-60`, `frontend_vue/src/types/audit.ts:63-74`, `frontend_vue/src/services/mocks/orders.ts:4683-4690`
+**File:** `frontend_vue/src/services/mocks/auditFeed.ts:43-60`, `frontend_vue/src/types/audit.ts:63-74`, `frontend_vue/src/services/mocks/orders.ts:4686-4693`
 **Severity:** High — то же право, обойдённое другой дорогой: карточка заказа его соблюдает, а лента отдаёт те же записи целиком.
 **Источник:** К6 (обязанности сервера: права), К4 (форма ответа теряет поле)
 
@@ -37,11 +37,11 @@ if (!maySeeCost()) {
 }
 ```
 
-(`frontend_vue/src/services/mocks/orders.ts:1384-1386`, право — `:1391-1394`; карточка вешает
+(`frontend_vue/src/services/mocks/orders.ts:1387-1389`, право — `:1391-1394`; карточка вешает
 вторую, признанную вторичной, занавеску — `frontend_vue/src/views/admin/orders/OrderCardPage.vue:311-313`.)
 
 Общая лента идёт мимо этой функции. `orderAuditSources()` отдаёт `o.auditLog` из хранилища как
-есть (`frontend_vue/src/services/mocks/orders.ts:4683-4690`), `toRows` собирает строку из девяти
+есть (`frontend_vue/src/services/mocks/orders.ts:4686-4693`), `toRows` собирает строку из девяти
 полей и `sensitive` среди них нет (`frontend_vue/src/services/mocks/auditFeed.ts:47-60`), а
 `AuditFeedRow` такого поля не объявляет вовсе (`frontend_vue/src/types/audit.ts:63-74`). То есть:
 
@@ -52,9 +52,9 @@ if (!maySeeCost()) {
   `property` его не опознать — ровно то, о чём предупреждает комментарий типа
   (`frontend_vue/src/types/order.ts:600-602`).
 
-Почему не видно в демо: профиль по умолчанию — `owner` (`frontend_vue/src/services/mocks/settings.ts:353`),
-а `seeCost` разрешён `owner`, `admin`, `accounting` (`frontend_vue/src/services/mocks/settings.ts:62-66`). Достаточно профиля с ролью
-`manager` или `warehouse` (`frontend_vue/src/services/mocks/settings.ts:190`, `:195`), чтобы
+Почему не видно в демо: профиль по умолчанию — `owner` (`role: 'owner'` в блоке `profile` файла `frontend_vue/src/services/mocks/settings.ts`),
+а `seeCost` разрешён `owner`, `admin`, `accounting` (`frontend_vue/src/services/mocks/settings.ts:64-68`). Достаточно профиля с ролью
+`manager` или `warehouse` (`frontend_vue/src/services/mocks/settings.ts:192`, `:195`), чтобы
 карточка заказа скрыла запись, а страница «Настройки → Логи» показала её же.
 
 ### Fix
@@ -75,7 +75,7 @@ TBD — правка затрагивает и форму ответа, и ме�
 
 ---
 
-## БАГ-02 — `switch` без `default`: неизвестный `entityType` отвечает «удалено» и не удаляет ничего
+## БАГ-02 — `switch` без `default`: неизвестный `entityType` отвечает «удалено» и не удаляет ничего — ПОЧИНЕНО
 
 **File:** `frontend_vue/src/services/auditFeedService.ts:57-77`, `frontend_vue/src/composables/useAuditFeed.ts:93-108`
 **Severity:** Medium — человек видит «Запись аудита удалена», запись остаётся; расхождение живёт до следующей перезагрузки страницы.
@@ -119,6 +119,12 @@ export async function deleteAuditFeedEntry(row: AuditFeedRow): Promise<void> {
 `default` с `throw` в `switch` по union заодно перестанет компилироваться, если к девяти видам
 добавят десятый и забудут про этот файл.
 
+**Сделано.** `default` в `switch` присваивает `row.entityType` переменной типа `never` и бросает
+(`deleteAuditFeedEntry` в `frontend_vue/src/services/auditFeedService.ts`) — неизвестный вид
+отклоняет промис, а не разрешает его успешно, и добавление десятого вида в `AuditEntityType` без
+своей ветки здесь ломает typecheck. Доказано инверсией:
+`frontend_vue/src/composables/audit-feed-refusals.spec.ts` (описание «БАГ-02»).
+
 ### Future rule
 
 `switch` по значению, пришедшему от сервера, без `default` — это `if` без `else`, выдающий
@@ -149,14 +155,14 @@ function auditDay(timestamp: string): string {
 без пояса) и полный ISO с `Z` (`frontend_vue/src/services/mocks/auditClock.ts:26-29`; сиды —
 `frontend_vue/src/mocks/warehouse-stock.ts:26`, `frontend_vue/src/services/mocks/clients.ts:49`).
 Записи, созданные во время работы, пишутся строго в UTC:
-`timestamp: new Date().toISOString()` (`frontend_vue/src/services/mocks/orders.ts:1880`).
+`timestamp: new Date().toISOString()` (`frontend_vue/src/services/mocks/orders.ts:1883`).
 
 Таблица при этом печатает **местное** время: `parsed.toLocaleString(...)` без указания зоны
 (`frontend_vue/src/views/admin/settings/LogsSettings.vue:96-106`), и для ISO-штампа с `Z`
 `Date` переводит его в зону браузера.
 
 Отсюда расхождение на границе суток. Пользователь в зоне UTC+3 меняет статус заказа в 23:30
-местного времени — запись получает штамп `…T20:30:00Z` (`frontend_vue/src/services/mocks/orders.ts:1880`),
+местного времени — запись получает штамп `…T20:30:00Z` (`frontend_vue/src/services/mocks/orders.ts:1883`),
 таблица показывает её сегодняшним числом, а фильтр «от сегодня» её не находит: `slice(0, 10)`
 даёт сегодняшнюю UTC-дату только до 21:00 местного времени. Правило общее: смещение зоны на N
 часов делает неверными последние N часов суток при положительном смещении и первые |N| — при
@@ -168,11 +174,16 @@ function auditDay(timestamp: string): string {
 
 ### Fix
 
-TBD — выбор зоны, в которой считается граница дня, это решение владельца (зона браузера, зона
-арендатора или UTC), и оно же определяет, чем сервер обязан отвечать. Строка вынесена в
-[`../api/audit/00-решения-владельца.md`](../api/audit/00-решения-владельца.md). Внутри кода
-починка одна: считать день тем же способом, каким его печатает таблица, и одной функцией на оба
-места — сейчас их две, и они не знают друг о друге.
+**Разблокировано — П62.** [`../api/audit/00-решения-владельца.md`](../api/audit/00-решения-владельца.md), строка 1928:
+
+> **решено 2026-09-10:** граница дня у `dateFrom`/`dateTo` режется **по часовому поясу компании**
+> (П62); срока жизни у записи истории нет — не удаляем, хранение станет предметом тарифа (П61);
+> `pageSize` сверху ограничивает код, а не сервер (П20); перечень видов сущности тарифом не
+> сужается — их десять по составу (П42)
+
+Работа по коду та же, что была названа: считать день тем же способом, каким его печатает таблица,
+и одной функцией на оба места — но зона теперь названа, это часовой пояс компании, а не браузера
+и не UTC.
 
 ### Future rule
 
@@ -181,7 +192,7 @@ TBD — выбор зоны, в которой считается граница
 
 ---
 
-## БАГ-04 — зажатая сервером страница вызывает второй одинаковый запрос
+## БАГ-04 — зажатая сервером страница вызывает второй одинаковый запрос — ПОЧИНЕНО
 
 **File:** `frontend_vue/src/composables/useAuditFeed.ts:66-68`, `:124`
 **Severity:** Low — лишний сетевой запрос и лишняя перерисовка; данных не портит.
@@ -217,6 +228,13 @@ page.value = result.page
 (`frontend_vue/src/composables/usePagination.ts:40-54`) — правка либо локальная здесь, либо в
 нём, и тогда её увидят все страницы со списками.
 
+**Сделано локально.** `useAuditFeed.ts` сравнивает `result.page` с текущим `page.value` и
+присваивает только при расхождении, выставляя перед этим флаг `skipNextPageWatch` — тот же приём,
+что уже стоит в `useServices.ts` для похожего случая. `watch(page, ...)` при выставленном флаге
+пропускает вызов `load()` один раз и сбрасывает флаг. Доказано инверсией:
+`frontend_vue/src/composables/audit-feed-refusals.spec.ts` (описание «БАГ-04») — зажатая до
+меньшего номера страница вызывает ровно один `getAuditFeed`.
+
 ### Future rule
 
 Присваивание в `ref`, за которым следит `watch`, внутри функции, которую этот же `watch` и
@@ -225,7 +243,7 @@ page.value = result.page
 
 ---
 
-## БАГ-05 — упавший список авторов выглядит как «авторов нет»
+## БАГ-05 — упавший список авторов выглядит как «авторов нет» — ПОЧИНЕНО
 
 **File:** `frontend_vue/src/composables/useAuditFeed.ts:77-83`
 **Severity:** Low — фильтр по пользователю молча становится пустым; человек считает, что записей от людей нет.
@@ -255,6 +273,12 @@ async function loadUsers() {
 
 Различать «список пуст» и «список не пришёл»: сохранить причину и показать её в самом селекте
 или тостом. Блокировать страницу не нужно — фильтр не обязателен для работы.
+
+**Сделано.** `catch` в `loadUsers` (`useAuditFeed.ts`) больше не присваивает `users.value = []`:
+прежний список остаётся нетронутым, а отказ показывается тостом с переводом
+`auditLog.error_users_load`. Доказано инверсией:
+`frontend_vue/src/composables/audit-feed-refusals.spec.ts` (описание «БАГ-05») — авторы,
+загруженные первым успешным ответом, переживают следующий упавший.
 
 ### Future rule
 
@@ -307,11 +331,17 @@ const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.v
 
 ## Сводка
 
-| БАГ-NN | Тип | Файл | Суть |
-|---|---|---|---|
-| БАГ-01 | Права | `mocks/auditFeed.ts:43-60`, `types/audit.ts:63-74` | право `seeCost` обходится через ленту: записи `sensitive: 'cost'` попадают в неё целиком |
-| БАГ-02 | Корректность | `services/auditFeedService.ts:57-77` | `switch` без `default` — неизвестный `entityType` тихо «успешно удалён» |
-| БАГ-03 | Корректность | `mocks/auditFeed.ts:39-41` | фильтр по датам режет UTC-день, а таблица печатает местный |
-| БАГ-04 | Реактивность | `composables/useAuditFeed.ts:66-68`, `:124` | зажатая сервером страница вызывает второй одинаковый запрос |
-| БАГ-05 | UX ошибок | `composables/useAuditFeed.ts:77-83` | упавший список авторов выглядит как «авторов нет» |
-| БАГ-06 | Контракт | `composables/useAuditFeed.ts:66-68`, `composables/usePagination.ts:8` | `pageSize` и `totalPages` из ответа не читает никто |
+| БАГ-NN | Тип | Файл | Суть | Статус |
+|---|---|---|---|---|
+| БАГ-01 | Права | `mocks/auditFeed.ts:43-60`, `types/audit.ts:63-74` | право `seeCost` обходится через ленту: записи `sensitive: 'cost'` попадают в неё целиком | открыт — ждёт решения владельца (строка 5) |
+| БАГ-02 | Корректность | `services/auditFeedService.ts:57-77` | `switch` без `default` — неизвестный `entityType` тихо «успешно удалён» | **ПОЧИНЕНО** — `default` бросает, проверено инверсией в `audit-feed-refusals.spec.ts` |
+| БАГ-03 | Корректность | `mocks/auditFeed.ts:39-41` | фильтр по датам режет UTC-день, а таблица печатает местный | открыт — решение владельца принято (П62), правка кода не сделана |
+| БАГ-04 | Реактивность | `composables/useAuditFeed.ts:66-68`, `:124` | зажатая сервером страница вызывает второй одинаковый запрос | **ПОЧИНЕНО** — флаг `skipNextPageWatch`, проверено инверсией в `audit-feed-refusals.spec.ts` |
+| БАГ-05 | UX ошибок | `composables/useAuditFeed.ts:77-83` | упавший список авторов выглядит как «авторов нет» | **ПОЧИНЕНО** — прежний список сохраняется, отказ идёт тостом, проверено инверсией в `audit-feed-refusals.spec.ts` |
+| БАГ-06 | Контракт | `composables/useAuditFeed.ts:66-68`, `composables/usePagination.ts:8` | `pageSize` и `totalPages` из ответа не читает никто | открыт — правка общего композабла, вне объёма этой задачи |
+
+Заодно, вне нумерованных БАГ-NN: `load()` клал в `error` текст исключения
+(`e instanceof Error ? e.message : 'Failed to load the audit feed'`) вместо перевода — не был
+заведён отдельной находкой в этом файле, описан только в `roo-context/api/audit-feed.md`.
+**ПОЧИНЕНО** — `error.value` теперь несёт `t('auditLog.error_load')`, проверено инверсией в
+`audit-feed-refusals.spec.ts` (локаль `ru` отличает перевод от старого английского хардкода).

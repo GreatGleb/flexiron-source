@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.schemas import ApiResponse
 from app.core.exceptions import NotFoundError
+from app.modules.auth.internal_api.interface import CurrentUser, get_current_user
 from app.modules.products.features.get_product_detail.schemas import (
     GetProductInput,
     ProductDetailResponse,
@@ -29,12 +30,11 @@ router = APIRouter(prefix="/api/products", tags=["products"])
 async def get_product_detail(
     product_id: UUID,
     db: AsyncSession = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """Get detailed info about a product by its ID."""
-    import uuid
-    tenant_id = uuid.UUID("00000000-0000-0000-0000-000000000001")  # placeholder
     try:
-        product = await get_product_detail_usecase(db, tenant_id, product_id)
+        product = await get_product_detail_usecase(db, current_user.tenant_id, product_id)
         return ApiResponse(
             success=True,
             data=product.model_dump(mode="json"),

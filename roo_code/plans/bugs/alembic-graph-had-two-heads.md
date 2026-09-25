@@ -57,6 +57,10 @@ a specific head, or 'heads' for all heads
 их было две, `15f2c7d4e9b0` и `a1b2c3d4e5f6`, обе из `bbd27a3881a5`. `alembic upgrade head` на
 пустой базе прошёл все 19 ревизий (exit 0), `downgrade -1` и повторный `upgrade` тоже.
 
+**2026-09-22.** Число 19 — на дату записи (2026-09-07); сегодня в `alembic/versions/` **23**
+ревизии, голова по-прежнему одна — `c9e4a1f70b23`. Перечень и замер — в
+[`db-5433-and-bug02-close-2026-09-22.md`](../../roo-context/verify-runs/db-5433-and-bug02-close-2026-09-22.md), §2.
+
 ### Future rule
 
 Развилку видно одной командой, и она машинная: `alembic heads` обязан печатать **ровно одну**
@@ -72,24 +76,30 @@ a specific head, or 'heads' for all heads
 
 ---
 
-## БАГ-02 — `alembic check` краснеет: модели и миграции расходятся в девяти таблицах
+## БАГ-02 — `alembic check` краснеет: модели и миграции расходятся в восьми таблицах
 
-**File:** `backend/app/modules/settings/shared/models.py:82`, `backend/app/modules/uploads/shared/models.py`, и далее — полный список в выводе команды
+**File:** `backend/app/modules/settings/shared/models.py:76`, [`backend/app/core/uploads/models.py`](../../../backend/app/core/uploads/models.py:24), и далее — полный список в выводе команды
 **Severity:** Medium — расхождение не мешает работе сегодня, но обесценивает `alembic check` как гейт: он краснеет всегда, значит его красное ничего не сообщает.
 **Источник:** Б2
 
 ### Problem
 
 `alembic check` на чистой базе, доведённой до головы, находит расхождение модели и схемы
-в девяти таблицах. Два разных класса:
+в восьми таблицах (15 операций). Два разных класса:
 
 1. **`UniqueConstraint` в модели против `UNIQUE INDEX` в миграции.** Модель объявляет
    `UniqueConstraint("tenant_id", "code", name="uq_currencies_tenant_code")`
-   (`backend/app/modules/settings/shared/models.py:82`), а миграция создала уникальный
+   (`backend/app/modules/settings/shared/models.py:76`), а миграция создала уникальный
    **индекс** с тем же именем. Для Postgres это разные объекты, и autogenerate предлагает
    снять индекс и поставить constraint. Так же у `field_definitions`,
    `product_field_values`, `role_permissions`, `user_permissions`, `users`, `sessions`.
 2. **Тип разошёлся:** `uploaded_files.size` — `BIGINT` в базе против `Integer` в модели.
+
+**2026-09-22.** Список перемерен: класс 1 — семь таблиц, класс 2 — `uploaded_files`, всего
+**восемь**, и **15 операций**. Имени у валюты модель и база **не** делили: в базе уникальность
+валюты — индекс `ix_currencies_tenant_code`, а не `uq_currencies_tenant_code` (у `role_permissions`,
+`user_permissions` и `field_definitions` имя `uq_*` совпадало с модельным). Итог правки и замеры —
+[`db-5433-and-bug02-close-2026-09-22.md`](../../roo-context/verify-runs/db-5433-and-bug02-close-2026-09-22.md).
 
 Воспроизведение (нужны `asyncpg` и база):
 
@@ -104,11 +114,24 @@ ERROR [alembic.util.messaging] New upgrade operations detected: [('remove_index'
 
 ### Fix
 
-TBD — решать по классам, а не одной ревизией. Для класса 1 надо выбрать, что считать
-источником истины (индекс или constraint), и привести к нему обе стороны; для класса 2
-достаточно `BigInteger` в модели. Пока не сделано, `alembic check` в приёмку не ставить: он
-краснел бы с рождения — запрещено правилом «шаг гейта вводится только зелёным» из
-[`verify.md`](../../skills/verify.md).
+**Сделано 2026-09-22 — и только на стороне моделей.** Источником истины выбран **индекс** (он и
+лежит в базе), и модели приведены к нему: пять объявлений уникальности переписаны из
+`UniqueConstraint` в `Index(..., unique=True)` с **теми же именами, что в БД**
+(`uq_role_permission`, `uq_user_permission`, `uq_field_definitions_tenant_name`,
+`ix_currencies_tenant_code`, `ix_product_field_values_product_field`); `uploaded_files.size`
+объявлен `BigInteger`; `users` получил парную уникальность `(tenant_id, email)` и индекс
+`updated_at`; `sessions` — объявления индексов на FK `user_id` и `expires_at`. Пять файлов,
+**ни одной ревизии не заведено и ни один объект базы не снят**: правка не DDL, поэтому класс 1
+решён без выбора «индекс или constraint» ценой переезда схемы — схема не трогалась вовсе.
+
+После правки `alembic check` печатает `No new upgrade operations detected.` (exit 0) — проверено
+трижды, включая базу, поднятую с нуля, и после ноги `downgrade -1` + `upgrade head`. Живой прогон,
+приёмочная нога и все числа — в
+[`db-5433-and-bug02-close-2026-09-22.md`](../../roo-context/verify-runs/db-5433-and-bug02-close-2026-09-22.md).
+Тогда же уточнён счёт: не «девять таблиц», а **восемь** и **15 операций**.
+
+Правило из [`verify.md`](../../skills/verify.md) соблюдено: шаг вводится зелёным — зелёным он стал
+здесь, и шаг поставлен в тот же день — в линзу Б2 того же файла.
 
 ### Future rule
 
@@ -119,4 +142,34 @@ TBD — решать по классам, а не одной ревизией. �
 ---
 
 | ✅ БАГ-01 | Contract | `alembic/versions/*` | две головы: `upgrade head` падал, не применив ничего |
-| БАГ-02 | Contract | `alembic check` | модели и миграции расходятся в девяти таблицах |
+| ✅ БАГ-02 | Contract | `alembic check` | расходились восемь таблиц / 15 операций; закрыто 2026-09-22 правкой моделей (без DDL) |
+
+---
+
+## Закрытие — 2026-09-22
+
+**Что изменено:** только модели — пять файлов (`settings`, `suppliers`, `products`, `auth`,
+`core/uploads`): `UniqueConstraint` → `Index(..., unique=True)` с именами из БД, `size` →
+`BigInteger`, парная уникальность `(tenant_id, email)` и индексы `sessions`. **Ни одной ревизии,
+ни одного DDL-объекта, ни одного снятого объекта в базе.** Ход и before/after по каждому пункту —
+в §Fix выше и в
+[`db-5433-and-bug02-close-2026-09-22.md`](../../roo-context/verify-runs/db-5433-and-bug02-close-2026-09-22.md), §4–§5.
+
+**Чем доказано (живая схема, Postgres 14, отдельный контейнер на 5433):** цепочка из **23**
+ревизий с нуля (exit 0), нога `downgrade -1` + `upgrade head` (48 → 47 → 48 таблиц), `alembic check`
+→ `No new upgrade operations detected.` (exit 0), парная уникальность email у арендатора держит
+базу (`sqlstate=23505`), `size` в базе остаётся `bigint` (проба 3 000 000 000). Бэкенд-набор —
+43 теста, `OK`. Всё это — в том же журнале, §6.
+
+**Три собственные формулировки этой записи исправлены:** «девять таблиц» → **восемь таблиц
+(15 операций)** (заголовок, текст, сводная таблица); несуществующий путь в поле `File`
+(`backend/app/modules/uploads/shared/models.py`) → реальный
+[`backend/app/core/uploads/models.py`](../../../backend/app/core/uploads/models.py:24); «19 ревизий»
+в БАГ-01 помечено как число на дату записи (сегодня 23). Исторический текст при этом сохранён.
+
+**Решено владельцем 2026-09-22:** `.env` снят с отслеживания (`git rm --cached backend/.env`) и закрыт
+`.gitignore`, на диске остаётся на 5433, а порт 5433 стал документированным умолчанием в
+`backend/.env.example` и `backend/alembic.ini:5` — там это была **согласованность, а не безопасность**:
+с плейсхолдерными `user:password` тот URL получил бы отказ аутентификации, а не запись в чужую базу,
+— посторонний `roo_code/zoo-code-auto-approve.json` в коммит не вошёл, а автоматизация `alembic check`
+остаётся шагом [`verify.md`](../../skills/verify.md) и **намеренно не в CI** (сервиса Postgres там нет).

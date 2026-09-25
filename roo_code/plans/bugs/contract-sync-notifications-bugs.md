@@ -42,7 +42,7 @@ apiPatch<void>('/api/notifications/read-all', {})                       // :29
 `:131-139`).
 
 Уведомление при этом адресное: `notifications.user_id` и `notifications.tenant_id` объявлены
-`nullable=False` с индексами (`backend/app/modules/notifications/shared/models.py:16-27`,
+`nullable=False` с индексами (`backend/app/modules/notifications/shared/models.py:24-29`,
 миграция `backend/alembic/versions/7bf1730620f0_phase_11_notifications.py:27-28`). То есть
 запрос без заголовка не сможет ответить ни на «чья лента», ни на «чей счётчик», ни на «имеет ли
 этот пользователь право отметить эту запись». Под моками дефект невидим: понятия пользователя у
@@ -65,11 +65,20 @@ apiPatch<void>('/api/notifications/read-all', {})                       // :29
 
 ---
 
-## БАГ-02 — дропдаун обещает «пять свежих», а показывает пять из текущей отфильтрованной страницы
+## ✅ БАГ-02 — дропдаун обещает «пять свежих», а показывает пять из текущей отфильтрованной страницы
 
-**File:** `frontend_vue/src/components/admin/NotificationDropdown.vue:19-24`
+**File:** `frontend_vue/src/components/admin/NotificationDropdown.vue:30-36`
 **Severity:** Medium — колокольчик показывает не то, что обещает; при активном фильтре «только прочитанные» он показывает прочитанные, а при переходе на вторую страницу списка — записи со второй страницы.
 **Источник:** К2 (мок ↔ код ↔ контракт)
+
+**Закрыто:** `loadDropdownItems` больше не зовёт общий `load()` синглтона. Он ходит за своей
+первой страницей из пяти записей без фильтров напрямую через
+`notificationsService.getNotifications({ type: 'all', isRead: null, search: '', sortBy:
+'createdAt', sortDir: 'desc' }, { page: 1, pageSize: 5 })` и кладёт результат в свой `dropdownItems`,
+не трогая общие `items`, `filters` и `page`. Мок это уже умел (`applyFilters` с `type: 'all'` и
+`isRead: null` не отбрасывает ничего) — доработки мока не потребовалось. Проверено спекой
+`frontend_vue/src/composables/useNotifications.dropdown.spec.ts` — смена `filters`/`page`
+синглтона не меняет того, что запрашивает дропдаун.
 
 ### Problem
 
@@ -85,13 +94,13 @@ async function loadDropdownItems() {
 комментарий «Shared across all consumers»), и его `load()` собирает запрос из общих `filters` и
 общей `page` (`:29-32`). Эти значения принадлежат странице списка: она правит `filters.type`,
 `filters.isRead`, `filters.search` и страницу
-(`frontend_vue/src/views/admin/notifications/NotificationsPage.vue:50-61`, `:63-71`, `:156-160`).
+(`frontend_vue/src/views/admin/notifications/NotificationsPage.vue:46-57`, `:63-71`, `:156-160`).
 Значит после того, как пользователь отфильтровал список, колокольчик отдаёт первые пять
 **этой выдачи**, а не пять последних уведомлений. Комментарий в коде утверждает обратное
 («Load top 5 notifications for dropdown», `:18`).
 
 Побочно: открытие дропдауна тянет полную страницу списка (`pageSize` до 100,
-`NotificationsPage.vue:74-79`), чтобы показать пять строк.
+`NotificationsPage.vue:70-75`), чтобы показать пять строк.
 
 ### Fix
 
@@ -109,7 +118,7 @@ async function loadDropdownItems() {
 
 ## БАГ-03 — опрос счётчика запускается на уровне модуля и не останавливается никогда
 
-**File:** `frontend_vue/src/composables/useNotifications.ts:95-106,108-112`
+**File:** `frontend_vue/src/composables/useNotifications.ts:101-112,108-112`
 **Severity:** Medium — после выхода из админки и после логаута таймер продолжает раз в 30 секунд дёргать `/api/notifications/unread-count`; против настоящего сервера это бесконечная череда неавторизованных запросов, и ни одна ошибка при этом не видна (см. БАГ-05).
 **Источник:** К6 (обязанности сервера — что и когда клиент спрашивает)
 
@@ -132,7 +141,7 @@ outlives any single component; polling runs as long as the module is loaded» (`
 ### Fix
 
 TBD по способу: либо звать `stopPolling()` из `logout()` и из размонтирования админского
-лейаута, либо привязать опрос к жизни колокольчика (`NotificationDropdown.vue:74-81` уже имеет
+лейаута, либо привязать опрос к жизни колокольчика (`NotificationDropdown.vue:94-101` уже имеет
 `onMounted`/`onUnmounted`). Выбор — за владельцем: у синглтона два потребителя, и «пока висит
 колокольчик» и «пока пользователь в системе» — разные правила.
 
@@ -143,11 +152,22 @@ start/stop нет ни одного вызывающего — это не «н�
 
 ---
 
-## БАГ-04 — отметка о прочтении несуществующего уведомления молча успешна
+## ✅ БАГ-04 — отметка о прочтении несуществующего уведомления молча успешна
 
 **File:** `frontend_vue/src/services/mocks/notifications.ts:436-441`, `frontend_vue/src/composables/useNotifications.ts:51-62`
 **Severity:** Medium — код `NOTIFICATION_NOT_FOUND`, который контракт обещает с самого начала, не существует в репозитории; путь ошибки этого эндпоинта не воспроизводится под моками вовсе.
 **Источник:** К3 (коды ошибок)
+
+**Закрыто (обнаружено уже починенным):** мок `mockMarkAsRead` для ненайденной записи бросает
+отказ с кодом — `throw mockRefusal(404, NOTIFICATIONS_REFUSAL_CODES.notificationNotFound,
+'NOTIFICATION_NOT_FOUND')`, ветка `if (!notification)` в
+`frontend_vue/src/services/mocks/notifications.ts`. Композабл `markAsRead` уменьшает
+`unreadCount` и правит `isRead` записи только **после** успешного `await`, а отказ пишет причину
+в `error.value` в `catch`, не в пустоту — обе строки в
+`frontend_vue/src/composables/useNotifications.ts`. Ни разбора кода `NOTIFICATIONS_NOT_FOUND` (то
+есть чтения `ApiRequestError.code` на этом пути), ни отдельного каталога домена это не добавляет —
+тот пробел остаётся заданием для сервера (раздел эндпоинта `PATCH /api/notifications/:id/read` в
+`roo_code/roo-context/api/notifications.md`).
 
 ### Problem
 
@@ -185,11 +205,19 @@ export function mockMarkAsRead(id: string): void {
 
 ---
 
-## БАГ-05 — «прочитать всё» из дропдауна не перекрашивает его собственные строки
+## ✅ БАГ-05 — «прочитать всё» из дропдауна не перекрашивает его собственные строки
 
-**File:** `frontend_vue/src/components/admin/NotificationDropdown.vue:16,23,52-54,106`, `frontend_vue/src/composables/useNotifications.ts:64-72`
+**File:** `frontend_vue/src/components/admin/NotificationDropdown.vue:18,23,52-54,106`, `frontend_vue/src/composables/useNotifications.ts:64-72`
 **Severity:** Low — бейдж исчезает, а строки в открытом дропдауне остаются подсвеченными как непрочитанные до следующего открытия.
 **Источник:** К2 (мок ↔ код)
+
+**Закрыто:** `onMarkAllRead` теперь ждёт `await markAllAsRead()` и следом зовёт `await
+loadDropdownItems()` — своим отдельным запросом (см. БАГ-02), а не через общие `items`. Заодно
+починен пустой `catch` в композабле: `markAllAsRead` пишет причину отказа в `error.value` после
+`await`, тем же способом, что и `markAsRead`, а не глотает её молча. Проверено спекой
+`frontend_vue/src/composables/useNotifications.dropdown.spec.ts` — строки дропдауна перекрашены
+после успешного «прочитать всё», а после отказа остаются непрочитанными и причина видна в
+`error`.
 
 ### Problem
 
@@ -200,12 +228,13 @@ items.value = items.value.map((n) => ({ ...n, isRead: true }))   // useNotificat
 unreadCount.value = 0                                            // :68
 ```
 
-`dropdownItems` — локальная копия ссылок, снятая раньше (`NotificationDropdown.vue:23`,
-`items.value.slice(0, 5)`), и после замены она продолжает держать **прежние** объекты, у
+`dropdownItems` был локальной копией ссылок, снятой раньше строкой `items.value.slice(0, 5)`
+в `NotificationDropdown.vue` (с закрытием БАГ-02 этой строки больше нет — дропдаун ходит за
+своей страницей сам), и после замены он продолжал держать **прежние** объекты, у
 которых `isRead === false`. Класс строки завязан именно на это поле
 (`:106`, `:class="{ 'notif-item--unread': !notification.isRead }"`), а `onMarkAllRead`
 перезагрузки не делает (`:52-54`) — в отличие от страницы, где после отметки стоит `load()`
-(`frontend_vue/src/views/admin/notifications/NotificationsPage.vue:100-103`).
+(`frontend_vue/src/views/admin/notifications/NotificationsPage.vue:96-99`).
 
 E2E этого не ловит: тест «mark all read in dropdown updates badge count» проверяет только
 исчезновение бейджа (`frontend_vue/tests/e2e/admin/notifications/notifications.spec.ts:166-178`).
@@ -223,12 +252,158 @@ E2E этого не ловит: тест «mark all read in dropdown updates bad
 
 ---
 
+## БАГ-06 — восьмой тип `reserve_expiring` объявлен, засеян и не срабатывает никогда
+
+**File:** `frontend_vue/src/types/notifications.ts:3-11`, `frontend_vue/src/services/mocks/notifications.ts:224-253,742-751`
+**Severity:** Medium — в фильтре есть тип, которого система не производит; два сида называют срок, которого в модели нет
+**Источник:** решение владельца П52 (§10.3 соглашений)
+
+### Problem
+
+Перечень типов закрыт восемью значениями (`types/notifications.ts:3-11`), и у восьмого есть всё,
+кроме события:
+
+- иконка — `reserve_expiring: 'clock'` (`types/notifications.ts:43`);
+- перевод на три языка — `i18n/admin/notifications.ts:14`, `:52`, `:90`;
+- пункт фильтра на странице — `NotificationsPage.vue:37`;
+- два сида в ленте — `notif-006` «Резерв по заказу ORD-005 истекает через 2 дня» и `notif-016`
+  «…ORD-011 истекает через 1 день» (`mocks/notifications.ts:224-253`).
+
+Эмиттера нет: `grep -c "^export function notify" frontend_vue/src/services/mocks/notifications.ts` → 7
+при восьми типах, и отсутствующий — именно этот. Мок объясняет почему, и объяснение верное:
+у `StockReservation` нет ни срока, ни даты окончания (`frontend_vue/src/types/warehouse.ts:625-634`),
+а срока резерва нет и в настройках — `grep -rn "reserveDays\|reservePeriod\|reserveTtl\|reserveExpir"
+frontend_vue/src` пусто (`mocks/notifications.ts:742-751`).
+
+Следствие для человека: фильтр «Истечение резерва» отбирает ровно два засеянных письма и никогда
+ничего сверх них, а сами письма называют дату, которой в приложении не существует ни у брони, ни у
+заказа.
+
+### Fix
+
+TBD по П52 (§10.3 соглашений): **срок брони — три рабочих дня по умолчанию, значение живёт в
+настройках.** Тогда у `StockReservation` появляется дата окончания, событие — переход через неё, и
+место эмиттера рядом с остальными семью. Там же названо, чего в проекте нет вовсе: «рабочий день»
+требует календаря (выходные, праздники арендатора), и `grep -rln "workday\|working_day\|holiday\|businessDay"`
+по `frontend_vue/src` и `backend/app` пусто.
+
+### Future rule
+
+Значение перечня, у которого нет производителя, — это обещание интерфейса, которое некому исполнить.
+Тип заводится вместе с эмиттером; сид типа без эмиттера выдаёт за историю то, чего система не умеет.
+
+---
+
+## БАГ-07 — «уже уведомили» негде хранить: у схемы уведомлений нет ни ключа события, ни ограничения
+
+**File:** `backend/app/modules/notifications/shared/models.py:11-42`
+**Severity:** Medium — правило «событие пишет ровно одну запись» держится только на памяти процесса; перезапуск даёт пачку повторов
+**Источник:** К6 (события), §10 соглашений
+
+### Problem
+
+§10 соглашений формулирует правило домена: «событие — это переход», каждый из семи эмиттеров зовётся
+только на переходе, и повтор не пишет ничего. Во фронте это правило держится на состоянии в памяти:
+самый прямой случай — `const overdueNotified = new Set<string>()` в моке финансов
+(`frontend_vue/src/services/mocks/finance.ts:63`, чтение и запись — `:68-69`). Комментарий рядом
+честно называет причину: «просрочка — состояние, а уведомление — событие: без этой памяти один и тот
+же факт попадал бы в ленту при каждом открытии страницы» (`:55-62`).
+
+На схеме места под эту память нет. Модель `Notification` — это `id` из `UUIDMixin` и девять колонок: `tenant_id`, `user_id`,
+`type`, `title_translations`, `message_translations`, `entity_type`, `entity_id`, `is_read`,
+`created_at` (`models.py:11-42`, весь файл — 42 строки). Нет ни ключа события (что именно
+произошло — «счёт INV-17 просрочен»), ни ограничения уникальности:
+`grep -rn "UniqueConstraint\|__table_args__" backend/app/modules/notifications/` → пусто. Нет и
+пометки на самой сущности-источнике («об этой просрочке уже сообщали»).
+
+Значит серверу не на чем воспроизвести правило: после перезапуска процесса любая проверка «уже
+уведомляли?» отвечает «нет», и лента получает повторы по всем просроченным счетам разом. То же
+случится у двух воркеров, работающих параллельно: без ограничения уникальности оба запишут одно
+событие.
+
+Модуль при этом пуст: ни одного вертикального слайса —
+`ls backend/app/modules/notifications/features` даёт `__init__.py` и `__pycache__`, а
+`internal_api/interface.py` это одна строка докстринга. То есть дефект ловится сейчас, до написания
+эмиттеров, а не после.
+
+Соседняя запись со стороны реестра: `contract-sync-finance-bugs.md`, БАГ-10 — там тот же `Set` назван
+как побочный эффект `GET`, и следствие «после перезапуска процесса `Set` пуст» упомянуто. Здесь
+записана вторая сторона того же — то, чего не хватает **схеме**, чтобы правило §10 держалось без
+памяти процесса; чинится это не в финансах, а колонкой и ограничением в `notifications`.
+
+### Fix
+
+TBD — решение владельца о форме ключа события. Кандидат: колонка `event_key` (например
+`payment_overdue:<payment_id>`) плюс `UniqueConstraint("tenant_id", "user_id", "event_key")`, тогда
+повтор отбивается базой, а не памятью. Альтернатива — пометка на сущности-источнике
+(`overdue_notified_at`), но она размазывает правило по доменам.
+
+### Future rule
+
+Правило «повтор не пишет ничего» обязано опираться на то, что переживает перезапуск. Память процесса
+— это реализация правила в моке, а не само правило; у схемы должно быть место, куда записан факт
+«об этом уже сообщали».
+
+---
+
 ## Сводка
 
 | | Тип | Файл | Суть |
 |---|---|---|---|
 | | Contract | `notificationsService.ts` | БАГ-01: ни один из четырёх вызовов не шлёт заголовков авторизации |
-| | Contract | `NotificationDropdown.vue` | БАГ-02: «топ-5» на деле — пять из текущей отфильтрованной страницы |
+| | Contract | `NotificationDropdown.vue` | ✅ БАГ-02: «топ-5» на деле было — пять из текущей отфильтрованной страницы |
 | | Runtime | `useNotifications.ts` | БАГ-03: опрос счётчика заведён на уровне модуля и не останавливается |
-| | Contract | `mocks/notifications.ts` | БАГ-04: отметка несуществующего уведомления молча успешна, кода нет |
-| | Reactivity | `NotificationDropdown.vue` | БАГ-05: после «прочитать всё» строки дропдауна остаются непрочитанными |
+| | Contract | `mocks/notifications.ts` | ✅ БАГ-04: отметка несуществующего уведомления молча успешна, кода нет |
+| | Reactivity | `NotificationDropdown.vue` | ✅ БАГ-05: после «прочитать всё» строки дропдауна остаются непрочитанными |
+| | Contract | `types/notifications.ts` | БАГ-06: восьмой тип `reserve_expiring` объявлен, засеян и не срабатывает никогда |
+| | Contract | `notifications/shared/models.py` | БАГ-07: «уже уведомили» негде хранить — ни ключа события, ни ограничения |
+| ✅ | i18n | `useNotifications.ts` | БАГ-11: текст исключения показывается человеку вместо перевода |
+
+---
+
+## БАГ-11 — текст исключения показывается человеку вместо перевода ✅
+
+**Закрыт 2026-09-25** коммитом `541b9f9`. Починка пришла не отдельной правкой, а разбором
+ночи 2026-09-24-2225: задача `notifications-client-refusals-and-polling` делала ровно это
+и была заблокирована приёмкой за самопротиворечивый контракт, а не за код. В трёх `catch`
+теперь `refusalKey(e)` — код отказа доводится до своего ключа перевода, незнакомый код
+падает в общий ключ, а не в сырое сообщение.
+
+Доказано мутацией: если вернуть в `catch` функции `markAsRead` строку
+`error.value = (e as Error).message`, спека `notifications-refusals-are-translated.spec.ts`
+краснеет (2 из 5); без мутации 5 passed.
+
+**File:** `frontend_vue/src/composables/useNotifications.ts` — три `catch` подряд
+**Severity:** Medium — на экран попадает то, что написал не переводчик, а среда: `ECONNRESET`,
+текст отказа мока, в бою — что угодно от прокси. На локали `ru` и `lt` это ещё и английский.
+**Источник:** Л2 (i18n), Л8 (UX ошибок). Найдено 2026-09-24 при приёмке
+`notification-dropdown-shows-its-own-five`.
+
+### Problem
+
+Все три `catch` композабла кладут в `error` сообщение исключения:
+
+```ts
+error.value = (e as Error).message
+```
+
+— в загрузке списка, в `markAsRead` и в `markAllAsRead`. Поле рисуется человеку как есть:
+`<p>{{ error }}</p>` в `NotificationsPage.vue`, блок `data-test="notifications-error"`.
+
+Две из трёх строк были и раньше; третью добавила задача о дропдауне, продолжив образец.
+То же самое в ленте аудита было заведено находкой и закрыто 2026-09-24 переводом
+`auditLog.error_load` — здесь правило не доведено до конца, то есть один и тот же дефект
+живёт в двух местах (Л5).
+
+Спека закрепляет нынешнее поведение: `useNotifications.dropdown.spec.ts` утверждает
+`expect(error.value).toBe('mark-all refused')` — то есть тест охраняет текст исключения.
+
+### Fix
+
+Завести в `i18n/admin/notifications.ts` ключи отказа во всех трёх локалях по образцу
+`auditLog.error_load`/`error_users_load` и класть в `error` перевод. Спеку переписать на
+сравнение с переводом, а не с сообщением исключения; тест на локали, где перевод текстуально
+не совпадает с английским, — иначе утверждение не отличит перевод от хардкода (питфолл #68).
+
+Не сделано в рамках задачи о дропдауне сознательно: находка вне её области, правка задевает
+две строки, которые задача не трогала, и её собственную спеку.

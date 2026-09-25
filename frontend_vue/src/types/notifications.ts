@@ -1,14 +1,17 @@
 import type { TranslatedString } from './i18n'
 
-export type NotificationType =
-  | 'order_status'
-  | 'stock_deficit'
-  | 'supplier_response'
-  | 'batch_received'
-  | 'reserve_expiring'
-  | 'payment_overdue'
-  | 'payment_received'
-  | 'warehouse_ready'
+export const NOTIFICATION_TYPES = [
+  'order_status',
+  'stock_deficit',
+  'supplier_response',
+  'batch_received',
+  'reserve_expiring',
+  'payment_overdue',
+  'payment_received',
+  'warehouse_ready',
+] as const
+
+export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
 
 export type NotificationEntityType = 'order' | 'product' | 'batch' | 'client' | 'supplier'
 

@@ -1,7 +1,17 @@
 import type { TranslatedString } from './i18n'
 import type { LinkedSupplier } from './product'
 
-export type CategoryFieldType = 'text' | 'number' | 'boolean' | 'enum' | 'email' | 'date' | 'file'
+export const CATEGORY_FIELD_TYPES = [
+  'text',
+  'number',
+  'boolean',
+  'enum',
+  'email',
+  'date',
+  'file',
+] as const
+
+export type CategoryFieldType = (typeof CATEGORY_FIELD_TYPES)[number]
 
 export interface CategoryField {
   id: string

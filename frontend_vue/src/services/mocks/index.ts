@@ -118,8 +118,6 @@ import {
   mockDeleteSection,
 } from './config'
 import {
-  mockGetSettings,
-  mockSaveSettings,
   mockGetCompany,
   mockPatchCompany,
   mockGetConstants,
@@ -201,6 +199,7 @@ import {
 } from './finance'
 import { mockGetAuditFeed, mockGetAuditFeedUsers } from './auditFeed'
 import type { AuditFeedFilters } from '@/types/audit'
+import { ApiRequestError } from '@/types/api'
 
 /**
  * How many mock answers are still on their way.
@@ -240,6 +239,66 @@ publishPending()
  * ожидания не существовал вовсе — страница, спросившая и получившая отказ, выглядела
  * как страница, которая ничего не спрашивала.
  */
+/**
+ * Крючок «сервер требует подпись» — им и становится достижимой ветка 401 под моками.
+ *
+ * Почему флагом, а не по умолчанию: под моками админка доступна БЕЗ входа намеренно —
+ * охранник роутера выходит первой строкой (`router/index.ts`, `if (USE_MOCKS) return`),
+ * и отказывай мок неподписанным запросам всегда, демо перестало бы работать целиком,
+ * а с ним и весь браузерный набор.
+ *
+ * Почему флаг залипающий, а не одноразовый: питфолл #65 — сбой в моке это СОСТОЯНИЕ, а не
+ * мгновение. Композаблы уровня модуля синглтоны, колокольчик спрашивает моки на каждой
+ * админской странице, и одноразовый флаг достался бы тому, кто дошёл первым, — а кто
+ * дойдёт первым, тест назвать не может. Снимает флаг тест, сам он не стирается.
+ *
+ * Почему `ApiRequestError`, а не голый `Error`: мок обязан быть неотличим от сервера
+ * (линза Л4). Настоящий 401 приходит с кодом `UNAUTHORIZED` (`core/exceptions.py:30-34`),
+ * и клиент читает его из `code`, а не из текста.
+ *
+ * Заголовки сюда доходят с тех пор, как `api.ts` собирает подпись и для мок-ветки тоже.
+ * До этого проверять было нечего — отсюда и «путь 401 под моками недостижим».
+ */
+function authRequiredByFlag(): boolean {
+  try {
+    return localStorage.getItem('test_mock_require_auth') === 'true'
+  } catch {
+    return false
+  }
+}
+
+function assertAuthorized(headers?: Record<string, string>): void {
+  // Сторож как у `readValue` в `services/authToken.ts` — `try/catch` вокруг самого обращения,
+  // а не только проверка на `undefined`: браузер умеет БРОСАТЬ на localStorage в приватном
+  // режиме и при запрещённых данных сайта, и тогда проверка на `undefined` упала бы сама.
+  // Найдено скептиком как несимметричность; за ней тот же недосмотр, что был у getStoredCsrf.
+  if (!authRequiredByFlag()) return
+
+  // Настоящий эндпоинт отвергает по ТРЁМ поводам (`backend/app/core/uploads/action.py:38-59`):
+  // нет заголовка; не тот scheme или пустой токен; токен негодный или просроченный. Мок
+  // воспроизводит первые два. Третий ему недоступен по построению: чтобы отличить негодный
+  // токен от годного, нужно его расшифровать, а подписывателя и хранилища сессий у мока нет.
+  // Это названная граница, а не недоделка: заводить их значило бы писать в моке половину
+  // сервера.
+  const raw = headers?.Authorization
+  if (!raw) {
+    throw new ApiRequestError({
+      status: 401,
+      message: 'Mock: missing Authorization header',
+      code: 'UNAUTHORIZED',
+    })
+  }
+  const scheme = raw.slice(0, raw.indexOf(' ') === -1 ? raw.length : raw.indexOf(' '))
+  const token = raw.slice(scheme.length + 1)
+  if (scheme.toLowerCase() !== 'bearer' || token === '') {
+    throw new ApiRequestError({
+      status: 401,
+      message: 'Mock: invalid Authorization header',
+      code: 'UNAUTHORIZED',
+    })
+  }
+}
+
 async function dispatch<T>(run: () => Promise<T>): Promise<T> {
   pendingMockRequests += 1
   totalMockRequests += 1
@@ -256,15 +315,20 @@ function delay<T>(data: T, ms = 300): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(data), ms))
 }
 
-// ─── Idempotency cache (Idempotency-Key → cached response) ───
-const idempotencyCache = new Map<string, unknown>()
+// ─── Idempotency cache: (path + Idempotency-Key) → cached response, 24h (П46) ───
+const idempotencyCache = new Map<string, { result: unknown; storedAt: number }>()
 
-function withIdempotency<T>(headers: Record<string, string> | undefined, fn: () => T): T {
+function withIdempotency<T>(
+  path: string,
+  headers: Record<string, string> | undefined,
+  fn: () => T,
+): T {
   const key = headers?.['Idempotency-Key'] ?? headers?.['idempotency-key']
   if (!key) return fn()
-  if (idempotencyCache.has(key)) return idempotencyCache.get(key) as T
+  const cached = idempotencyCache.get(`${path}\u0000${key}`)
+  if (cached && Date.now() - cached.storedAt < 86400000) return cached.result as T // 24h
   const result = fn()
-  idempotencyCache.set(key, result)
+  idempotencyCache.set(`${path}\u0000${key}`, { result, storedAt: Date.now() })
   return result
 }
 
@@ -290,19 +354,67 @@ function parseFinanceListParams(params?: Record<string, string>) {
   }
 }
 
+/**
+ * Три кода отказа смены пароля — один источник и для мока, и для пробы.
+ *
+ * Коды жили литералами в двух местах: здесь (в ветках отказа) и в
+ * `settings-refusals.spec.ts`. Дрейф между копиями ловился поведением, но «взят из
+ * продукта» про спеку было неправдой — она держала свою копию. Теперь коды бросаются
+ * отсюда, отсюда же импортируются в пробу, и та сверяет множество ключей этой таблицы
+ * с драйверами — тем же приёмом, что и `SETTINGS_REFUSAL_CODES` в `mocks/settings.ts`.
+ */
+export const MOCK_PASSWORD_CODES = {
+  wrongCurrent: 'PASSWORD_WRONG_CURRENT',
+  tooShort: 'PASSWORD_TOO_SHORT',
+  confirmMismatch: 'PASSWORD_CONFIRM_MISMATCH',
+} as const
+
+// ─── Demo user password (settings → profile) ───
+/**
+ * Пароль демо-пользователя, который «сервер» мока помнит между запросами.
+ *
+ * Демо-вход пароль не проверяет вовсе, поэтому значения у него не было ни
+ * одного, а смена пароля отвечала `delay(undefined)` и тела не смотрела — ни
+ * один из трёх путей отказа (С7) в мок-режиме не воспроизводился. Значение
+ * объявлено, чтобы демо-пользователь мог его знать: сменить пароль можно,
+ * только отправив текущий.
+ */
+const MOCK_DEMO_PASSWORD = 'demo-password'
+let demoUserPassword = MOCK_DEMO_PASSWORD
+
 // ─── GET ───
-async function getMockRoute<T>(path: string, params?: Record<string, string>): Promise<T> {
+async function getMockRoute<T>(
+  path: string,
+  params?: Record<string, string>,
+  _headers?: Record<string, string>,
+): Promise<T> {
   // ── Auth: get current user (validate session) ──
   if (path === '/api/auth/me') {
     const user = getStoredMockUser()
-    if (!user) throw new Error('Not authenticated')
+    // 401 `UNAUTHORIZED` — код ядра (`backend/app/core/exceptions.py:30-34`, §2 соглашений).
+    // Текст сохранён дословно: ветки, читающие `e.message`, продолжают работать.
+    if (!user) {
+      throw new ApiRequestError({
+        status: 401,
+        message: 'Not authenticated',
+        code: 'UNAUTHORIZED',
+      })
+    }
     return delay(user as T)
   }
 
   // ── Auth: magic link verification (returns email) ──
   if (path === '/api/auth/link') {
     const token = params?.token
-    if (!token) throw new Error('MISSING_TOKEN')
+    // `MISSING_TOKEN` объявлен не ядром, а самим эндпоинтом, и отдаётся с 401
+    // (`backend/app/modules/auth/features/me/action.py:44-47`; `api/auth.md:46`).
+    if (!token) {
+      throw new ApiRequestError({
+        status: 401,
+        message: 'MISSING_TOKEN',
+        code: 'MISSING_TOKEN',
+      })
+    }
     // Accept any non-empty token in mock mode — return MagicLinkVerifyResponse format
     return delay({ email: 'director@metalltorg.com' } as T)
   }
@@ -407,7 +519,6 @@ async function getMockRoute<T>(path: string, params?: Record<string, string>): P
       }) as T,
     )
   }
-  if (path === '/api/settings') return delay(mockGetSettings() as T)
   if (path === '/api/config/fields') return delay(mockGetFieldLibrary() as T)
   if (path === '/api/config/sections') return delay(mockGetSections() as T)
   if (path === '/api/config/permissions') return delay(mockGetPermissions() as T)
@@ -518,7 +629,13 @@ async function getMockRoute<T>(path: string, params?: Record<string, string>): P
   const clientCardMatch = path.match(/^\/api\/clients\/([^/]+)$/)
   if (clientCardMatch) {
     const client = mockGetClient(clientCardMatch[1] as string)
-    if (!client) throw new Error('CLIENT_NOT_FOUND')
+    if (!client) {
+      throw new ApiRequestError({
+        status: 404,
+        message: 'CLIENT_NOT_FOUND',
+        code: 'CLIENT_NOT_FOUND',
+      })
+    }
     return delay(client as T)
   }
 
@@ -842,7 +959,14 @@ async function getMockRoute<T>(path: string, params?: Record<string, string>): P
     return delay(mockGetArchive({ search, type, relatedEntityType, page, pageSize }) as T)
   }
 
-  throw new Error(`[mock] GET ${path} not found`)
+  // Промах маршрутизации — это тот же 404, которым настоящий сервер отвечает на
+  // неизвестный путь (`NOT_FOUND`, `backend/app/core/exceptions.py:13-20`). Текст оставлен
+  // дословно: по нему опознаёт промах `services/ordersService.spec.ts:4`.
+  throw new ApiRequestError({
+    status: 404,
+    message: `[mock] GET ${path} not found`,
+    code: 'NOT_FOUND',
+  })
 }
 
 // ─── Auth mock user storage ───
@@ -875,7 +999,12 @@ async function postMockRoute<T>(
   if (path === '/api/auth/login') {
     const { email, password } = body as { email: string; password: string }
     if (!email || !password) {
-      throw new Error('Email and password are required')
+      // 422 `VALIDATION_ERROR` — код ядра (`backend/app/core/exceptions.py:23-27`, §2 соглашений).
+      throw new ApiRequestError({
+        status: 422,
+        message: 'Email and password are required',
+        code: 'VALIDATION_ERROR',
+      })
     }
     // Accept any non-empty email+password in mock mode
     const mockUser: import('@/types/auth').UserInfo = {
@@ -909,14 +1038,14 @@ async function postMockRoute<T>(
 
   if (path === '/api/bcc/send') {
     return delay(
-      withIdempotency(headers, () =>
+      withIdempotency(path, headers, () =>
         mockSendBccRequest(body as Parameters<typeof mockSendBccRequest>[0]),
       ) as T,
     )
   }
   if (path === '/api/bcc/log') {
     return delay(
-      withIdempotency(headers, () =>
+      withIdempotency(path, headers, () =>
         mockLogBccRequest(body as Parameters<typeof mockLogBccRequest>[0]),
       ) as T,
     )
@@ -924,15 +1053,14 @@ async function postMockRoute<T>(
 
   const acceptMatch = path.match(/^\/api\/bcc\/events\/([^/]+)\/response$/)
   if (acceptMatch) {
-    const evt = mockAcceptResponse(
-      acceptMatch[1] as string,
-      body as { price: number; unit: string },
+    const evt = withIdempotency(path, headers, () =>
+      mockAcceptResponse(acceptMatch[1] as string, body as { price: number; unit: string }),
     )
     return delay(evt as T)
   }
   const noRespMatch = path.match(/^\/api\/bcc\/events\/([^/]+)\/no-response$/)
   if (noRespMatch) {
-    const evt = mockMarkNoResponse(noRespMatch[1] as string)
+    const evt = withIdempotency(path, headers, () => mockMarkNoResponse(noRespMatch[1] as string))
     return delay(evt as T)
   }
 
@@ -1012,10 +1140,12 @@ async function postMockRoute<T>(
   const shipmentCancelMatch = path.match(/^\/api\/orders\/([^/]+)\/shipments\/([^/]+)\/cancel$/)
   if (shipmentCancelMatch) {
     return delay(
-      mockCancelShipment(
-        shipmentCancelMatch[1] as string,
-        shipmentCancelMatch[2] as string,
-        body as Parameters<typeof mockCancelShipment>[2],
+      withIdempotency(path, headers, () =>
+        mockCancelShipment(
+          shipmentCancelMatch[1] as string,
+          shipmentCancelMatch[2] as string,
+          body as Parameters<typeof mockCancelShipment>[2],
+        ),
       ) as T,
     )
   }
@@ -1033,14 +1163,14 @@ async function postMockRoute<T>(
     const orderSubpath = `${orderRouteMatch[1]}:id${orderRouteMatch[3]}`
     if (orderSubpath === '/api/orders/:id/shipments') {
       return delay(
-        withIdempotency(headers, () =>
+        withIdempotency(path, headers, () =>
           mockCreateShipment(orderId, body as Parameters<typeof mockCreateShipment>[1]),
         ) as T,
       )
     }
     if (orderSubpath === '/api/orders/:id/payments') {
       return delay(
-        withIdempotency(headers, () =>
+        withIdempotency(path, headers, () =>
           mockAddOrderPayment(orderId, body as Parameters<typeof mockAddOrderPayment>[1]),
         ) as T,
       )
@@ -1049,7 +1179,7 @@ async function postMockRoute<T>(
     // it is the third operation that may not happen twice on one intent.
     if (orderSubpath === '/api/orders/:id/returns') {
       return delay(
-        withIdempotency(headers, () =>
+        withIdempotency(path, headers, () =>
           mockCreateReturn(orderId, body as Parameters<typeof mockCreateReturn>[1]),
         ) as T,
       )
@@ -1131,10 +1261,52 @@ async function postMockRoute<T>(
     return delay(mockCreateConversion(body as Parameters<typeof mockCreateConversion>[0]) as T)
   if (path === '/api/settings/order-statuses')
     return delay(mockCreateOrderStatus(body as Parameters<typeof mockCreateOrderStatus>[0]) as T)
-  if (path === '/api/settings/change-password') return delay(undefined as T) // no-op mock
+  if (path === '/api/settings/change-password') {
+    const { currentPassword, newPassword, confirmPassword } = (body ?? {}) as {
+      currentPassword?: string
+      newPassword?: string
+      confirmPassword?: string
+    }
+    const current = currentPassword ?? ''
+    const next = newPassword ?? ''
+    // Порядок проверок — как на сервере (С7, `profile/domain.py:127-139`):
+    // текущий, длина, подтверждение. Клиент проверяет длину и совпадение до
+    // отправки, но клиент — не место для серверного инварианта: под моками
+    // отказ обязан приходить тем же кодом, что и с сервера.
+    if (current !== demoUserPassword) {
+      throw new ApiRequestError({
+        status: 401,
+        message: 'Current password is incorrect',
+        code: MOCK_PASSWORD_CODES.wrongCurrent,
+      })
+    }
+    if (next.length < 6) {
+      throw new ApiRequestError({
+        status: 422,
+        message: 'New password must be at least 6 characters',
+        code: MOCK_PASSWORD_CODES.tooShort,
+      })
+    }
+    if (next !== (confirmPassword ?? '')) {
+      throw new ApiRequestError({
+        status: 422,
+        message: 'Passwords do not match',
+        code: MOCK_PASSWORD_CODES.confirmMismatch,
+      })
+    }
+    demoUserPassword = next
+    return delay(undefined as T)
+  }
   if (path === '/api/settings/mail/test') return delay(mockSendMailTest() as T)
 
-  throw new Error(`[mock] POST ${path} not found`)
+  // Промах маршрутизации — это тот же 404, которым настоящий сервер отвечает на
+  // неизвестный путь (`NOT_FOUND`, `backend/app/core/exceptions.py:13-20`). Текст оставлен
+  // дословно: по нему опознаёт промах `services/ordersService.spec.ts:4`.
+  throw new ApiRequestError({
+    status: 404,
+    message: `[mock] POST ${path} not found`,
+    code: 'NOT_FOUND',
+  })
 }
 
 // ─── PUT (bulk replace) ───
@@ -1146,10 +1318,6 @@ async function putMockRoute<T>(
   // ── Settings PUT ──
   if (path === '/api/settings/order-statuses/reorder') {
     mockMoveOrderStatus((body as { orderedIds: string[] }).orderedIds)
-    return delay(undefined as T)
-  }
-  if (path === '/api/settings') {
-    mockSaveSettings(body as Parameters<typeof mockSaveSettings>[0])
     return delay(undefined as T)
   }
   if (path === '/api/settings/warehouse-map') {
@@ -1174,7 +1342,14 @@ async function putMockRoute<T>(
     return delay(mockPutCategoryFields(categoryFieldsMatch[1] as string, fields) as T)
   }
 
-  throw new Error(`[mock] PUT ${path} not found`)
+  // Промах маршрутизации — это тот же 404, которым настоящий сервер отвечает на
+  // неизвестный путь (`NOT_FOUND`, `backend/app/core/exceptions.py:13-20`). Текст оставлен
+  // дословно: по нему опознаёт промах `services/ordersService.spec.ts:4`.
+  throw new ApiRequestError({
+    status: 404,
+    message: `[mock] PUT ${path} not found`,
+    code: 'NOT_FOUND',
+  })
 }
 
 // ─── PATCH (merge) ───
@@ -1407,7 +1582,14 @@ async function patchMockRoute<T>(
     )
   }
 
-  throw new Error(`[mock] PATCH ${path} not found`)
+  // Промах маршрутизации — это тот же 404, которым настоящий сервер отвечает на
+  // неизвестный путь (`NOT_FOUND`, `backend/app/core/exceptions.py:13-20`). Текст оставлен
+  // дословно: по нему опознаёт промах `services/ordersService.spec.ts:4`.
+  throw new ApiRequestError({
+    status: 404,
+    message: `[mock] PATCH ${path} not found`,
+    code: 'NOT_FOUND',
+  })
 }
 
 // ─── DELETE ───
@@ -1488,7 +1670,18 @@ async function deleteMockRoute<T>(path: string, headers?: Record<string, string>
   const categoryDeleteMatch = path.match(/^\/api\/categories\/([^/]+)$/)
   if (categoryDeleteMatch) {
     const result = mockDeleteCategory(categoryDeleteMatch[1] as string)
-    if (!result.ok) throw new Error(result.code)
+    if (!result.ok) {
+      // Статусы — унаследованный замысел прежнего контракта, совпадающий с классами ядра:
+      // 404 у `CATEGORY_NOT_FOUND`, 409 у `CATEGORY_HAS_PRODUCTS` и `CATEGORY_HAS_CHILDREN`
+      // (`api/categories.md:68-73`). Запасное значение недостижимо: каждая ветка отказа
+      // в `mockDeleteCategory` кладёт код (`mocks/categories.ts:1479-1481`).
+      const code = result.code ?? 'CATEGORY_NOT_FOUND'
+      throw new ApiRequestError({
+        status: code === 'CATEGORY_NOT_FOUND' ? 404 : 409,
+        message: code,
+        code,
+      })
+    }
     return delay(undefined as T)
   }
 
@@ -1504,7 +1697,16 @@ async function deleteMockRoute<T>(path: string, headers?: Record<string, string>
   const productDeleteMatch = path.match(/^\/api\/products\/([^/]+)$/)
   if (productDeleteMatch) {
     const result = await mockDeleteProduct(productDeleteMatch[1] as string)
-    if (!result.ok) throw new Error(result.code ?? 'PRODUCT_NOT_FOUND')
+    if (!result.ok) {
+      // 404 у `PRODUCT_NOT_FOUND`, 409 у `PRODUCT_IN_USE` (`api/products.md:877`) — то же
+      // мапирование на классы ядра. Запасное значение сохранено дословно из прежней строки.
+      const code = result.code ?? 'PRODUCT_NOT_FOUND'
+      throw new ApiRequestError({
+        status: code === 'PRODUCT_NOT_FOUND' ? 404 : 409,
+        message: code,
+        code,
+      })
+    }
     return delay(undefined as T)
   }
 
@@ -1515,7 +1717,13 @@ async function deleteMockRoute<T>(path: string, headers?: Record<string, string>
     // услуги молча возвращало успех вместо ошибки. Нашло правило
     // no-unnecessary-condition, включённое 2026-08-26.
     const deleted = await mockDeleteService(serviceDeleteMatch[1] as string)
-    if (!deleted) throw new Error('CATALOG_SERVICE_NOT_FOUND')
+    if (!deleted) {
+      throw new ApiRequestError({
+        status: 404,
+        message: 'CATALOG_SERVICE_NOT_FOUND',
+        code: 'CATALOG_SERVICE_NOT_FOUND',
+      })
+    }
     return delay(undefined as T)
   }
 
@@ -1654,11 +1862,26 @@ async function deleteMockRoute<T>(path: string, headers?: Record<string, string>
     return delay(undefined as T)
   }
 
-  throw new Error(`[mock] DELETE ${path} not found`)
+  // Промах маршрутизации — это тот же 404, которым настоящий сервер отвечает на
+  // неизвестный путь (`NOT_FOUND`, `backend/app/core/exceptions.py:13-20`). Текст оставлен
+  // дословно: по нему опознаёт промах `services/ordersService.spec.ts:4`.
+  throw new ApiRequestError({
+    status: 404,
+    message: `[mock] DELETE ${path} not found`,
+    code: 'NOT_FOUND',
+  })
 }
 
 // ─── UPLOAD ───
-async function uploadMockRoute<T>(path: string, file: File): Promise<T> {
+// `_headers` принимается по тому же правилу, что у PUT и PATCH: заголовки запроса не
+// теряются на границе мока. Подпись проверяет `assertAuthorized` выше по вызову; сама
+// маршрутизация загрузки заголовков не читает. Идемпотентность загрузки решена П50 —
+// отсев повторов делает клиент, сервер о них не знает.
+async function uploadMockRoute<T>(
+  path: string,
+  file: File,
+  _headers?: Record<string, string>,
+): Promise<T> {
   if (path === '/api/uploads') {
     const fileId = `file-${uploadSeq++}-${Date.now()}`
     // Convert file to data URL so the URL survives localStorage cache across page reloads.
@@ -1675,7 +1898,14 @@ async function uploadMockRoute<T>(path: string, file: File): Promise<T> {
     uploadedFiles.set(fileId, meta)
     return delay(meta as T)
   }
-  throw new Error(`[mock] UPLOAD ${path} not found`)
+  // Промах маршрутизации — это тот же 404, которым настоящий сервер отвечает на
+  // неизвестный путь (`NOT_FOUND`, `backend/app/core/exceptions.py:13-20`). Текст оставлен
+  // дословно: по нему опознаёт промах `services/ordersService.spec.ts:4`.
+  throw new ApiRequestError({
+    status: 404,
+    message: `[mock] UPLOAD ${path} not found`,
+    code: 'NOT_FOUND',
+  })
 }
 
 /** Helper: read a File as a base64 data URL */
@@ -1691,8 +1921,13 @@ function fileToDataUrl(file: File): Promise<string> {
 // ─── Точки входа: один счётчик на все шесть ─────────────────────────────────
 // Имена и подписи те же, что были: `services/api.ts` их и вызывает.
 
-export async function getMock<T>(path: string, params?: Record<string, string>): Promise<T> {
-  return dispatch(() => getMockRoute<T>(path, params))
+export async function getMock<T>(
+  path: string,
+  params?: Record<string, string>,
+  headers?: Record<string, string>,
+): Promise<T> {
+  assertAuthorized(headers)
+  return dispatch(() => getMockRoute<T>(path, params, headers))
 }
 
 export async function postMock<T>(
@@ -1700,6 +1935,7 @@ export async function postMock<T>(
   body: unknown,
   headers?: Record<string, string>,
 ): Promise<T> {
+  assertAuthorized(headers)
   return dispatch(() => postMockRoute<T>(path, body, headers))
 }
 
@@ -1708,6 +1944,7 @@ export async function putMock<T>(
   body: unknown,
   headers?: Record<string, string>,
 ): Promise<T> {
+  assertAuthorized(headers)
   return dispatch(() => putMockRoute<T>(path, body, headers))
 }
 
@@ -1716,13 +1953,20 @@ export async function patchMock<T>(
   body: unknown,
   headers?: Record<string, string>,
 ): Promise<T> {
+  assertAuthorized(headers)
   return dispatch(() => patchMockRoute<T>(path, body, headers))
 }
 
 export async function deleteMock<T>(path: string, headers?: Record<string, string>): Promise<T> {
+  assertAuthorized(headers)
   return dispatch(() => deleteMockRoute<T>(path, headers))
 }
 
-export async function uploadMock<T>(path: string, file: File): Promise<T> {
-  return dispatch(() => uploadMockRoute<T>(path, file))
+export async function uploadMock<T>(
+  path: string,
+  file: File,
+  headers?: Record<string, string>,
+): Promise<T> {
+  assertAuthorized(headers)
+  return dispatch(() => uploadMockRoute<T>(path, file, headers))
 }

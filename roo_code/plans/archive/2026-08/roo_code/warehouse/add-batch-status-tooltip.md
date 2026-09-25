@@ -2,7 +2,7 @@
 
 ## Текущее состояние
 
-Сейчас статусный pill в шапке карточки партии ([`WarehouseBatchCard.vue:171-173`](../../frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:171)) выглядит так:
+Сейчас статусный pill в шапке карточки партии ([`WarehouseBatchCard.vue:173-175`](../../frontend_vue/src/views/admin/warehouse/WarehouseBatchCard.vue:173)) выглядит так:
 
 ```html
 <span class="pill pill-lg" :class="BATCH_STATUS_PILL[batch.status]" data-test="batch-card-status-pill">

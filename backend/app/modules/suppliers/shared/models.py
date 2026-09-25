@@ -1,8 +1,8 @@
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func
-from sqlalchemy.dialects.postgresql import JSON, JSONB, UUID
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, func
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.base import Base, TimestampMixin, UUIDMixin
@@ -30,17 +30,16 @@ class Supplier(UUIDMixin, TimestampMixin, Base):
         String(50), nullable=False, default="new", server_default="new"
     )
     categories: Mapped[dict] = mapped_column(
-        JSON, nullable=False, default=list, server_default="[]"
+        JSONB, nullable=False, default=list, server_default="[]"
     )
     rating: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"
     )
-    country: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    country: Mapped[str | None] = mapped_column(String(2), nullable=True)
     city: Mapped[str | None] = mapped_column(String(100), nullable=True)
     tags: Mapped[dict] = mapped_column(
-        JSON, nullable=False, default=list, server_default="[]"
+        JSONB, nullable=False, default=list, server_default="[]"
     )
-    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     lead_time: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"
     )
@@ -53,12 +52,8 @@ class Supplier(UUIDMixin, TimestampMixin, Base):
     payment_terms: Mapped[str | None] = mapped_column(String(100), nullable=True)
     min_order: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
     bcc_emails: Mapped[dict] = mapped_column(
-        JSON, nullable=False, default=list, server_default="[]"
+        JSONB, nullable=False, default=list, server_default="[]"
     )
-    has_deficit: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False, server_default="false"
-    )
-    last_bcc_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     # Relationships
     addresses: Mapped[list["SupplierAddress"]] = relationship(
@@ -75,6 +70,12 @@ class Supplier(UUIDMixin, TimestampMixin, Base):
     )
     price_entries: Mapped[list["SupplierPriceEntry"]] = relationship(
         "SupplierPriceEntry", back_populates="supplier", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (
+        Index("ix_suppliers_categories_gin", "categories", postgresql_using="gin"),
+        Index("ix_suppliers_tags_gin", "tags", postgresql_using="gin"),
+        Index("ix_suppliers_bcc_emails_gin", "bcc_emails", postgresql_using="gin"),
     )
 
 
@@ -100,7 +101,7 @@ class SupplierAddress(UUIDMixin, Base):
     )  # 'Legal','Postal','Shipping'
     line1: Mapped[str] = mapped_column(String(255), nullable=False)
     city: Mapped[str] = mapped_column(String(100), nullable=False)
-    country: Mapped[str] = mapped_column(String(100), nullable=False)
+    country: Mapped[str] = mapped_column(String(2), nullable=False)
     zip: Mapped[str] = mapped_column(String(20), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -127,7 +128,7 @@ class SupplierContact(UUIDMixin, Base):
         index=True,
     )
     name_translations: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
-    position: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    position_translations: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(100), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
@@ -223,7 +224,7 @@ class SupplierPriceEntry(UUIDMixin, Base):
         ForeignKey("products.id", ondelete="SET NULL"),
         nullable=True,
     )
-    price: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    price: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
     unit: Mapped[str | None] = mapped_column(String(20), nullable=True)
     entry_date: Mapped[date] = mapped_column(Date, nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -248,7 +249,7 @@ class FieldDefinition(UUIDMixin, TimestampMixin, Base):
         nullable=False,
         index=True,
     )
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    name_translations: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
     field_type: Mapped[str] = mapped_column(String(50), nullable=False)
     required: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
@@ -259,10 +260,26 @@ class FieldDefinition(UUIDMixin, TimestampMixin, Base):
     usage_count: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"
     )
-    options: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    options: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    hidden: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
 
+    # Uniqueness carries over unchanged from the plain-string `name` this column
+    # replaces (contract `config.md`, "Библиотека определений полей" — the
+    # `FIELD_NAME_TAKEN` 409 the client relies on): the categories revision
+    # (`a7c1d4e90b21_categories_translated_names`) never had a name-uniqueness
+    # rule to begin with, so it neither added nor dropped one when translating
+    # `categories.name`/`category_fields.name` — it only carried the column
+    # through. The same non-decision applies here: the existing unique index
+    # is left in place, now keyed on the translations object.
     __table_args__ = (
-        UniqueConstraint("tenant_id", "name", name="uq_field_definitions_tenant_name"),
+        Index(
+            "uq_field_definitions_tenant_name",
+            "tenant_id",
+            "name_translations",
+            unique=True,
+        ),
     )
 
 
@@ -284,6 +301,9 @@ class SectionConfig(UUIDMixin, TimestampMixin, Base):
     )
     visible: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default="true"
+    )
+    system: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
     )
 
     fields: Mapped[list["SectionField"]] = relationship(
@@ -323,4 +343,37 @@ class SectionField(UUIDMixin, Base):
 
     section: Mapped["SectionConfig"] = relationship(
         "SectionConfig", back_populates="fields"
+    )
+
+
+class SupplierNote(UUIDMixin, Base):
+    """Internal note on a supplier card — free text, author snapshot, unbounded count."""
+
+    __tablename__ = "supplier_notes"
+
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    supplier_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("suppliers.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    author_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    author_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        Index("ix_supplier_notes_tenant_supplier", "tenant_id", "supplier_id"),
     )

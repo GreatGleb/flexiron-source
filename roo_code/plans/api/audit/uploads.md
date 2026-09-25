@@ -16,7 +16,7 @@
 > **Бэкенд здесь есть, и по К5 он старший.** `backend/app/core/uploads/action.py:79` — это
 > единственный роут вне `app/modules/`: uploads объявлен инфраструктурой, а не бизнес-модулем
 > (`backend/app/core/uploads/service.py:1-5` — «It is NOT a business module — it's infrastructure»).
-> Роут подключён (`backend/app/main.py:74`), таблица создана миграцией
+> Роут подключён (`backend/app/main.py:55`), таблица создана миграцией
 > (`backend/alembic/versions/133fae13afbe_phase_5_uploads.py:25-37`), и на неё ссылаются три чужие
 > таблицы с `ondelete="RESTRICT"`: `supplier_files.file_id`
 > (`backend/alembic/versions/a8dd7d7ba74b_phase_6_suppliers.py:88`), `payment_documents.file_id` и
@@ -25,7 +25,7 @@
 >
 > **И ровно поэтому старший источник расходится с фронтом сильнее, чем где-либо.** Сервер
 > возвращает **два** поля (`core/uploads/action.py:143-146`), клиентский тип обещает **шесть**
-> (`src/services/uploadsService.ts:3-10`), мок отдаёт все шесть (`mocks/index.ts:1667-1674`).
+> (`src/services/uploadsService.ts:3-10`), мок отдаёт все шесть (`mocks/index.ts:1669-1676`).
 > Фронт написан по моку, и под моками работает; против настоящего сервера четыре из
 > двенадцати потребителей падают исключением, а остальные тихо кладут `undefined`. Разбор —
 > в графе «Форма ответа» и в БАГ-01/БАГ-02.
@@ -40,17 +40,17 @@
 ### POST /api/uploads
 - Вызывающий: `src/services/uploadsService.ts:16`
 - Бэкенд: `backend/app/core/uploads/action.py:79`
-- Мок: `mocks/index.ts:1662`
+- Мок: `mocks/index.ts:1664`
 - Форма запроса: **`multipart/form-data`, ровно одно поле `file`, ровно один файл на запрос.**
   Сервер объявляет один обязательный файл: `file: UploadFile = File(...)`
   (`backend/app/core/uploads/action.py:82`) — не `list[UploadFile]`, то есть второй файл в том же
   запросе сервер не примет. Клиент собирает форму так же: `form.append('file', file)` с одним
-  `File` (`src/services/api.ts:229-230`), а `apiUpload` принимает `file: File`, а не массив
-  (`src/services/api.ts:224`). Несколько файлов = несколько запросов: `DropZone` делает
+  `File` (`src/services/api.ts:248-249`), а `apiUpload` принимает `file: File`, а не массив
+  (`src/services/api.ts:243`). Несколько файлов = несколько запросов: `DropZone` делает
   `Promise.all(files.map((f) => uploadFile(f)))` (`src/components/admin/ui/DropZone.vue:38`).
   Путь без слэша на конце: префикс `/api/uploads` (`core/uploads/action.py:19`) плюс пустой путь роута
   `@router.post("")` (`:79`) — совпадает с литералом клиента (`uploadsService.ts:16`) и с
-  веткой мока `path === '/api/uploads'` (`mocks/index.ts:1662`).
+  веткой мока `path === '/api/uploads'` (`mocks/index.ts:1664`).
   **Заголовки — один: `Authorization: Bearer <token>`.** Клиент собирает его сам из
   `localStorage.getItem('auth_token')` (`src/services/uploadsService.ts:14-15`) и передаёт третьим
   аргументом `{ headers }` (`:16`); `apiUpload` кладёт их в `fetch` как есть
@@ -63,15 +63,15 @@
   и сервер его не читает (`grep -c "Idempotency\|idempotency" backend/app/core/uploads/action.py`
   → `0`). См. БАГ-05.
   **Под моками заголовки теряются целиком**: мок-ветка `apiUpload` зовёт `uploadMock<T>(path, file)`
-  без третьего аргумента (`src/services/api.ts:225-228`), а сигнатура мока заголовков и не имеет
-  (`mocks/index.ts:1661`). Поэтому путь «нет токена → 401» под моками не воспроизводится ни при
+  без третьего аргумента (`src/services/api.ts:244-247`), а сигнатура мока заголовков и не имеет
+  (`mocks/index.ts:1662`). Поэтому путь «нет токена → 401» под моками не воспроизводится ни при
   каких условиях (БАГ-04).
   Валидация запроса на сервере — два правила, оба до записи на диск: MIME по белому списку
   (`core/uploads/action.py:96`, список — `backend/app/core/config.py:36-42`: `application/pdf`, docx, xlsx,
   `image/png`, `image/jpeg`) и размер (`core/uploads/action.py:106-108`, лимит `max_upload_size_mb: int = 20`,
   `config.py:35`). Клиент не проверяет ни того, ни другого: `uploadFile` — четыре строки без
   единой проверки (`uploadsService.ts:13-17`), `DropZone.handleFiles` шлёт всё, что бросили
-  (`DropZone.vue:33-45`). Атрибут `accept` есть у 2 дропзон из 12 и обе допускают типы вне
+  (`DropZone.vue:44-63`). Атрибут `accept` есть у 2 дропзон из 12 и обе допускают типы вне
   белого списка (см. графу «Значения по умолчанию», БАГ-13).
 - Форма ответа: **сервер отдаёт объект из двух полей, клиент типизирует шесть.**
   Сервер: `ApiResponse(success=True, data={"url": public_url, "fileId": str(uploaded.id)})`
@@ -84,14 +84,14 @@
   Клиент: `apiUpload<UploadedFile>` (`uploadsService.ts:16`) с
   `interface UploadedFile { fileId; name; size; mime; url; uploadedAt }`
   (`uploadsService.ts:3-10`) — **четыре из шести полей сервер не отдаёт**.
-  Мок отдаёт все шесть (`mocks/index.ts:1667-1674`), причём `url` — base64 data-URL
+  Мок отдаёт все шесть (`mocks/index.ts:337`), причём `url` — base64 data-URL
   (`:1666`, `:1672`), а не ссылка; комментарий там же честно помечает это как mock-only (`:1664-1665`).
-  Формат `fileId` тоже расходится: мок — `file-<seq>-<Date.now()>` (`mocks/index.ts:1663`,
+  Формат `fileId` тоже расходится: мок — `file-<seq>-<Date.now()>` (`mocks/index.ts:1867`,
   счётчик `:272`), сервер — UUID (`core/uploads/action.py:145`).
   **Кто именно читает недостающие поля** (по одному вызову на потребителя, все через
   `@uploaded` у `DropZone`):
   `useOrderCard.ts:1625,1628,1629` (`name`, `size`, `mime`); `useOrderCreate.ts:331,334,335`;
-  `OutgoingPaymentCardPage.vue:102,105,106` плюс `uploadedAt` (`:107` — в объект `PaymentDocument`);
+  `OutgoingPaymentCardPage.vue:108,105,106` плюс `uploadedAt` (`:107` — в объект `PaymentDocument`);
   `BccRequestPage.vue:313,314,315`; `ProductCardPage.vue:225` (`f.name`);
   `WarehouseBatchCreatePage.vue:142` и `WarehouseOffcutCreatePage.vue:182` (`f.name`, `f.size`).
   **Четыре потребителя падают исключением, а не просто теряют поле:**
@@ -117,13 +117,13 @@
   Общий каталог ядра — `backend/app/core/exceptions.py`; uploads из него не наследует, а поднимает
   `HTTPException` напрямую (`core/uploads/action.py:10`, `:39`, `:56`, `:72`, `:97`, `:109`).
   **Мок не бросает ни одного из трёх**: вся его ветка — сборка меты и `delay`
-  (`mocks/index.ts:1662-1677`); единственный `throw` — `[mock] UPLOAD ${path} not found`
+  (`mocks/index.ts:285`); единственный `throw` — `[mock] UPLOAD ${path} not found`
   (`:1678`) для неизвестного пути, то есть для ситуации, которой у домена из одного пути не
   бывает. Ни размера, ни MIME, ни авторизации мок не проверяет — под моками **все** пути ошибок
   недостижимы, и это факт для контракта, а не придирка.
   **До человека не доходит ни один код.** `apiUpload` бросает `ApiRequestError` с разобранными
   `message`/`code` (`src/services/api.ts:117-125`, разбор — `:19-84`), `DropZone` ловит и
-  превращает в событие `uploadError` (`DropZone.vue:40-42`) — а слушателя у события нет ни у
+  превращает в событие `uploadError` (`DropZone.vue:58-60`) — а слушателя у события нет ни у
   одной из двенадцати страниц: `grep -rn "upload-error\|uploadError" src/views src/components
   --include=*.vue | grep -v ui/DropZone.vue` → пусто. Отказ загрузки виден только тем, что файл
   не появился в списке (БАГ-03).
@@ -141,20 +141,20 @@
   (`useWarehouseMap.ts:51-58`, подтверждение — `WarehouseMapPage.vue:34-43`), и логотип компании,
   который просто пишется в `settings.company.logoUrl` (`SettingsLayout.vue:344-349`).
   **Ни один серверный эндпоинт привязку не принимает**: `grep -rn "fileIds\|file_ids" backend/app
-  --include=*.py` → две модельные колонки (`modules/bcc/shared/models.py:78`,
-  `modules/warehouse/shared/models.py:62`) и ни одного роута. То есть вторая половина паттерна
+  --include=*.py` → две модельные колонки (`modules/bcc/shared/models.py:51`,
+  `modules/warehouse/shared/models.py:74`) и ни одного роута. То есть вторая половина паттерна
   живёт только в моке.
 - Пробел контракта: **разбор `03-api-contract.md:157-199` по утверждениям — из шести подтверждено одно.**
   1. «Body: multipart/form-data, поле `file` (один или несколько)» (`:164`) — **неверно во второй
      половине**: сервер принимает один файл (`core/uploads/action.py:82`), клиент шлёт один
-     (`src/services/api.ts:229-230`). Несколько = несколько запросов (`DropZone.vue:38`);
+     (`src/services/api.ts:248-249`). Несколько = несколько запросов (`DropZone.vue:38`);
   2. «Response 200: `Array<{fileId,name,size,mime,url,uploadedAt}>`» (`:165-175`) — **неверно
      дважды**: ответ не массив, а объект в конверте (`core/uploads/action.py:143-146`,
      `app/core/schemas.py:29-35`), и в нём два поля из шести. Ближе всех к правде оказался не
-     контракт, а мок (`mocks/index.ts:1667-1674`), по которому и написан фронт;
+     контракт, а мок (`mocks/index.ts:1669-1676`), по которому и написан фронт;
   3. «url — временный URL для preview» (`:172`) — **неверно**: сервер строит постоянную ссылку на
-     статику (`core/uploads/action.py:141-142`), файл смонтирован навсегда (`backend/app/main.py:63`).
-     Временный тут как раз мок: data-URL живёт в памяти вкладки (`mocks/index.ts:1666`);
+     статику (`core/uploads/action.py:141-142`), файл смонтирован навсегда (`backend/app/main.py:84`).
+     Временный тут как раз мок: data-URL живёт в памяти вкладки (`mocks/index.ts:1668`);
   4. «Файл попадает в draft-хранилище (не привязан ни к какой сущности)» (`:177`) — **неверно**:
      эндпоинт передаёт `is_draft=False` (`core/uploads/action.py:136`) при значении по умолчанию `True` и в
      модели (`core/uploads/models.py:26-28`), и в сигнатуре сервиса (`core/uploads/service.py:22`),
@@ -180,25 +180,25 @@
      `grep -rn "draft_ttl_hours" backend/app` → одно попадание, само объявление; `expires_at` в
      uploads не присваивается нигде (`grep -rn "expires_at" backend/app/core/uploads/` → только
      объявление колонки). Планировщика в проекте нет вовсе: `lifespan` пуст
-     (`backend/app/main.py:40-48`);
+     (`backend/app/main.py:43-54`);
   9. «Привязка: сервер находит draft-файлы, привязывает, переносит из draft в постоянное»
      (`:183-187`) — серверной части не существует (см. «Save-режим»: ни один роут не принимает
      `fileIds`). Мок эту фазу отыгрывает: `mockAddOrderFile` берёт имя из реестра загрузок
-     (`mocks/index.ts:1098`), `mockPatchPayment` получает резолвер `(fileId) => uploadedFiles.get(fileId)`
-     (`mocks/index.ts:1405`);
+     (`mocks/index.ts:196`), `mockPatchPayment` получает резолвер `(fileId) => uploadedFiles.get(fileId)`
+     (`mocks/index.ts:1407`);
   10. «Endpoints, принимающие `fileIds`: `PATCH /api/suppliers/:id`, `POST /api/bcc/send`,
       `POST /api/bcc/log`» (`:189-191`) — список **устарел по составу**: `fileIds` копят ещё
       склад (`useWarehouseBatch.ts:170`, `useWarehouseOffcutCard.ts:149`), заказы
-      (`useOrderCard.ts:184`, наполняется `:1617`), финансы (`OutgoingPaymentCardPage.vue:98-109`) и товары
+      (`useOrderCard.ts:184`, наполняется `:1617`), финансы (`OutgoingPaymentCardPage.vue:104-115`) и товары
       (`ProductCardPage.vue:223-226`). Это чужие домены — здесь только фиксируем, что перечень
       неполон.
   **Чего нет ни в контракте, ни в коде** (и потому уходит владельцу, а не в контракт):
   эндпоинта чтения метаданных файла (`GET /api/uploads/:id`) нет — ни клиента, ни роута;
   эндпоинта удаления нет; повторной выдачи ссылки нет. Фронт хранит `url` у себя в сущности
-  (`OutgoingPaymentCardPage.vue:104`, `useWarehouseMap.ts:56`), потому что переспросить его не у
+  (`OutgoingPaymentCardPage.vue:110`, `useWarehouseMap.ts:56`), потому что переспросить его не у
   кого.
 - Источник истины: **бэкенд** — реализация есть и подключена (`backend/app/core/uploads/action.py:79`,
-  `backend/app/main.py:74`), значит по К5 форма ответа и каталог ошибок берутся с него, а не с
+  `backend/app/main.py:55`), значит по К5 форма ответа и каталог ошибок берутся с него, а не с
   мока и не с `types`. Практическое следствие: `interface UploadedFile`
   (`src/services/uploadsService.ts:3-10`) — **не** спецификация ответа, а желаемая форма, под
   которую написан мок; расхождение записано как находка про фронт (БАГ-01), а не как требование
@@ -232,7 +232,7 @@
   уведомлений; модуль `notifications` роутов не имеет вовсе (замер плана,
   `contract-sync-plan.md:243`). В моке: `grep -n "notify" frontend_vue/src/services/mocks/index.ts
   | sed -n '/166[0-9]/p'` → пусто, вся ветка загрузки — семнадцать строк без побочных эффектов
-  (`mocks/index.ts:1662-1677`), тогда как семь триггеров уведомлений мока живут в
+  (`mocks/index.ts:1664-1679`), тогда как семь триггеров уведомлений мока живут в
   `mocks/notifications.ts` и загрузки среди них нет
   (`grep -in "upload\|file" frontend_vue/src/services/mocks/notifications.ts` → пусто).
   Сама по себе загрузка события и не должна рождать — событием является привязка к сущности,
@@ -261,23 +261,23 @@
   `roo_code/skills/api-contract.md:260-263`) → владельцу.
 - Настройки, которых мок не отслеживает: **три, и все три — правила сервера.** (1) Белый список
   MIME (`core/config.py:36-42`) — мок принимает любой тип, `mime: file.type || 'application/octet-stream'`
-  (`mocks/index.ts:1671`), то есть даже пустой тип превращает в валидный, вместо отказа.
+  (`mocks/index.ts:1673`), то есть даже пустой тип превращает в валидный, вместо отказа.
   (2) Лимит размера 20 МБ (`core/config.py:35`) — мок пишет `size: file.size`
-  (`mocks/index.ts:1670`) без сравнения с чем-либо. (3) Авторизация — мок не видит заголовков
-  вовсе (`src/services/api.ts:225-228` против `:231-235`), значит и 401 не отдаёт.
+  (`mocks/index.ts:1671`) без сравнения с чем-либо. (3) Авторизация — мок не видит заголовков
+  вовсе (`src/services/api.ts:244-247` против `:231-235`), значит и 401 не отдаёт.
   Плюс мок отслеживает то, чего сервер не умеет: реестр `uploadedFiles: Map<string, UploadedFileMeta>`
-  (`mocks/index.ts:271-281`) отдаёт метаданные по `fileId` двум чужим доменам
-  (`mocks/index.ts:1098` — имя файла заказа, `:1405` — резолвер документов платежа), тогда как на
+  (`mocks/index.ts:1867`) отдаёт метаданные по `fileId` двум чужим доменам
+  (`mocks/index.ts:1096` — имя файла заказа, `:1405` — резолвер документов платежа), тогда как на
   сервере читающего эндпоинта нет ни одного. Реестр в памяти вкладки и перезагрузку не переживает —
-  сохраняется только сам data-URL внутри закешированной сущности (`mocks/index.ts:1664-1665`).
+  сохраняется только сам data-URL внутри закешированной сущности (`mocks/index.ts:1666-1667`).
 - Мультиарендность: **на записи есть, на чтении отсутствует по построению.** Запись: `tenant_id`
   разрешается из пользователя токена (`core/uploads/action.py:126` → `_get_tenant_id`, `:62-76`: `SELECT User
   WHERE id = user_id`, при `tenant_id is None` — 404 `NOT_FOUND`), колонка обязательна и
   индексирована (`core/uploads/models.py:16-21`, `133fae13afbe:28`), FK на `tenants` с
   `ondelete="CASCADE"` — удаление арендатора уносит его файлы из таблицы.
   Чтение: файлы раздаёт статикой `app.mount("/static/uploads", StaticFiles(directory=UPLOAD_DIR))`
-  (`backend/app/main.py:63`) — **без авторизации, без арендатора и без единой проверки**, все
-  файлы всех арендаторов лежат в одном каталоге (`core/uploads/action.py:22-23`, `main.py:61-62` — один и тот
+  (`backend/app/main.py:84`) — **без авторизации, без арендатора и без единой проверки**, все
+  файлы всех арендаторов лежат в одном каталоге (`core/uploads/action.py:22-23`, `main.py:82-83` — один и тот
   же путь `backend/uploads`). Единственная защита — неугадываемое имя `uuid4().hex + ext`
   (`core/uploads/action.py:119`); отозвать выданную ссылку нечем (БАГ-09). Строки с `storage_path`
   (`core/uploads/models.py:23`) хранят абсолютный путь машины (`core/uploads/action.py:127`).
@@ -302,8 +302,8 @@
   (`core/uploads/action.py:117-138` — линейный код).
   Идемпотентности нет ни с одной стороны: клиент ключ не шлёт (`uploadsService.ts:13-17` — ни
   `newIdempotencyKey()`, ни заголовка), сервер его не читает (`core/uploads/action.py:79-146`), мок бы его и
-  не увидел (`src/services/api.ts:225-228`), хотя механизм в моке есть и используется другими
-  доменами (`withIdempotency`, `mocks/index.ts:262-269`). Повтор запроса — второй файл на диске и
+  не увидел (`src/services/api.ts:244-247`), хотя механизм в моке есть и используется другими
+  доменами (`withIdempotency`, `mocks/index.ts:321`). Повтор запроса — второй файл на диске и
   вторая строка в таблице с новым UUID; дедупликации по содержимому нет (хеша в модели нет:
   `core/uploads/models.py:11-38`). См. БАГ-05.
 - Производные значения (считать, не хранить): **одно, и оно считается: `url`.** В таблице его нет
@@ -315,7 +315,7 @@
   `payment_documents.url` (`b2619dfeb90f_phase_10_finance.py:57`),
   `document_archive_items.url` (`:70`), плюс `size` и `mime` там же (`:55-56`, `:68-69`) — то есть
   копия метаданных файла, снятая в момент привязки. Фронт делает то же самое: кладёт `url`, `size`,
-  `mime`, `uploadedAt` в сущность (`OutgoingPaymentCardPage.vue:102-107`,
+  `mime`, `uploadedAt` в сущность (`OutgoingPaymentCardPage.vue:119-120`,
   `useWarehouseMap.ts:51-58`, тип `WarehouseMapFile` — `src/types/settings.ts:111-119`).
   Что здесь источник истины — `uploaded_files` или копия в сущности — не решено нигде → владельцу.
 
@@ -353,10 +353,10 @@
    (БАГ-11). Это единственное место, где мок и продакшен различаются ветвлением, а не флагом
    `USE_MOCKS` (`src/services/api.ts:4`).
 7. **Реестр загрузок мока обслуживает чужие домены**, компенсируя отсутствие эндпоинта чтения:
-   имя файла заказа берётся из него (`mocks/index.ts:1098`), документы платежа резолвятся через
+   имя файла заказа берётся из него (`mocks/index.ts:1096`), документы платежа резолвятся через
    него (`:1405`). Уберёшь реестр — сломаются orders и finance, а не uploads.
 8. **`fileId` не является непрозрачным идентификатором в моке.** Формат `file-<seq>-<Date.now()>`
-   (`mocks/index.ts:1663`) сортируется по времени и растёт монотонно в пределах вкладки; серверный
+   (`mocks/index.ts:1665`) сортируется по времени и растёт монотонно в пределах вкладки; серверный
    UUID (`core/uploads/action.py:145`) не даёт ни того, ни другого. Код, который начнёт полагаться на порядок
    `fileId`, будет зелёным под моками и сломается на сервере.
 9. **Домен не покрыт ни одной юнит-спекой.** `grep -rln "uploads\|uploadFile" frontend_vue/src

@@ -48,6 +48,8 @@ export const adminSettings = {
         'Запись будет удалена и в карточке объекта — источник данных один. Восстановить её нельзя.',
       toast_deleted: 'Запись аудита удалена',
       toast_error_delete: 'Не удалось удалить запись',
+      error_load: 'Не удалось загрузить ленту аудита',
+      error_users_load: 'Не удалось загрузить список пользователей',
     },
     settingsTabs: {
       profile: 'Профиль',
@@ -98,6 +100,8 @@ export const adminSettings = {
       bankAccount: 'Расчётный счёт',
       logo: 'Логотип компании',
       upload_logo: 'Загрузить логотип',
+      error_logo_not_a_url:
+        'Логотип должен быть ссылкой на загруженный файл, а не встроенным изображением',
     },
     settingsMail: {
       server: 'Почтовый сервер',
@@ -143,6 +147,11 @@ export const adminSettings = {
       confirm_currency_change_warning:
         '⚠ Существующие товары и партии сохранят свою исходную валюту. Новая валюта будет применяться только для новых товаров.',
       confirm_currency_change_confirm: 'Изменить валюту',
+      error_currency_in_use: 'На валюту ссылаются товары — удалить нельзя',
+      error_currency_is_default: 'Валюта по умолчанию — удалить нельзя',
+      error_currency_code_taken: 'Валюта с таким кодом уже существует',
+      error_default_currency_unknown: 'Такой валюты нет в списке валют компании',
+      error_constant_out_of_range: 'Значение финансовой константы вне допустимого диапазона',
     },
     settingsUom: {
       uoms: 'Единицы измерения',
@@ -192,6 +201,11 @@ export const adminSettings = {
       formula_pcs_to_weight: 'Штуки → Вес (шт × кг/шт)',
       factor_disabled_hint: 'Рассчитывается по формуле сортамента',
       no_conversions: 'Нет правил пересчёта',
+      error_uom_in_use: 'На единицу ссылаются товары — удалить нельзя',
+      error_uom_category_unknown: 'Неизвестная категория единицы измерения',
+      error_conversion_factor_required: 'Для правила с коэффициентом нужен коэффициент',
+      error_conversion_formula_required: 'Для правила по формуле нужен тип формулы',
+      error_conversion_pair_taken: 'Правило для этой пары единиц уже существует',
     },
     settingsStatuses: {
       title: 'Статусы заказов',
@@ -212,6 +226,8 @@ export const adminSettings = {
       col_write_off: 'СПИСАНИЕ',
       col_reserve_hint: 'Резервировать остаток при переходе в статус',
       col_write_off_hint: 'Списывать остаток при переходе в статус',
+      error_reorder_incomplete:
+        'Не удалось сохранить порядок статусов — список изменился, попробуйте ещё раз',
     },
     settingsWarehouse: {
       title: 'Секторы склада',
@@ -300,6 +316,8 @@ export const adminSettings = {
         'It will be deleted from the object card as well — there is one source of data. It cannot be restored.',
       toast_deleted: 'Audit record deleted',
       toast_error_delete: 'Could not delete the record',
+      error_load: 'Failed to load the audit feed',
+      error_users_load: 'Failed to load the list of users',
     },
     settingsTabs: {
       profile: 'Profile',
@@ -350,6 +368,7 @@ export const adminSettings = {
       bankAccount: 'Bank Account',
       logo: 'Company Logo',
       upload_logo: 'Upload Logo',
+      error_logo_not_a_url: 'The logo must be a link to an uploaded file, not embedded image data',
     },
     settingsMail: {
       server: 'Mail server',
@@ -396,6 +415,11 @@ export const adminSettings = {
       confirm_currency_change_warning:
         '⚠ Existing products and batches will keep their original currency. The new currency will only apply to new products.',
       confirm_currency_change_confirm: 'Change Currency',
+      error_currency_in_use: 'Products reference this currency — it cannot be deleted',
+      error_currency_is_default: 'This is the default currency — it cannot be deleted',
+      error_currency_code_taken: 'A currency with this code already exists',
+      error_default_currency_unknown: 'No such currency in the company currency list',
+      error_constant_out_of_range: 'Financial constant is outside the allowed range',
     },
     settingsUom: {
       uoms: 'Units of Measure',
@@ -445,6 +469,11 @@ export const adminSettings = {
       formula_pcs_to_weight: 'Pieces → Weight (pcs × kg/pcs)',
       factor_disabled_hint: 'Calculated from product formula',
       no_conversions: 'No conversion rules',
+      error_uom_in_use: 'Products reference this unit — it cannot be deleted',
+      error_uom_category_unknown: 'Unknown unit of measure category',
+      error_conversion_factor_required: 'A factor rule requires a factor',
+      error_conversion_formula_required: 'A dynamic rule requires a formula type',
+      error_conversion_pair_taken: 'A rule for this unit pair already exists',
     },
     settingsStatuses: {
       title: 'Order Statuses',
@@ -465,6 +494,8 @@ export const adminSettings = {
       col_write_off: 'WRITE-OFF',
       col_reserve_hint: 'Reserve stock on transition',
       col_write_off_hint: 'Write off stock on transition',
+      error_reorder_incomplete:
+        'Could not save the status order — the list has changed, please try again',
     },
     settingsWarehouse: {
       title: 'Warehouse Sectors',
@@ -553,6 +584,8 @@ export const adminSettings = {
         'Įrašas bus ištrintas ir objekto kortelėje — duomenų šaltinis yra vienas. Atkurti nepavyks.',
       toast_deleted: 'Audito įrašas ištrintas',
       toast_error_delete: 'Nepavyko ištrinti įrašo',
+      error_load: 'Nepavyko įkelti audito žurnalo',
+      error_users_load: 'Nepavyko įkelti naudotojų sąrašo',
     },
     settingsTabs: {
       profile: 'Profilis',
@@ -603,6 +636,8 @@ export const adminSettings = {
       bankAccount: 'Banko sąskaita',
       logo: 'Įmonės logotipas',
       upload_logo: 'Įkelti logotipą',
+      error_logo_not_a_url:
+        'Logotipas turi būti įkelto failo nuoroda, o ne įterpti vaizdo duomenys',
     },
     settingsMail: {
       server: 'Pašto serveris',
@@ -649,6 +684,11 @@ export const adminSettings = {
       confirm_currency_change_warning:
         '⚠ Esamos prekės ir partijos išlaikys savo pradinę valiutą. Nauja valiuta bus taikoma tik naujoms prekėms.',
       confirm_currency_change_confirm: 'Keisti valiutą',
+      error_currency_in_use: 'Prekės naudoja šią valiutą — jos ištrinti negalima',
+      error_currency_is_default: 'Tai numatytoji valiuta — jos ištrinti negalima',
+      error_currency_code_taken: 'Valiuta su tokiu kodu jau egzistuoja',
+      error_default_currency_unknown: 'Tokios valiutos nėra įmonės valiutų sąraše',
+      error_constant_out_of_range: 'Finansinė konstanta už leistino diapazono ribų',
     },
     settingsUom: {
       uoms: 'Matavimo vienetai',
@@ -698,6 +738,11 @@ export const adminSettings = {
       formula_pcs_to_weight: 'Vnt → Svoris (vnt × kg/vnt)',
       factor_disabled_hint: 'Skaičiuojama pagal prekės formulę',
       no_conversions: 'Nėra perskaičiavimo taisyklių',
+      error_uom_in_use: 'Prekės naudoja šį vienetą — jo ištrinti negalima',
+      error_uom_category_unknown: 'Nežinoma matavimo vieneto kategorija',
+      error_conversion_factor_required: 'Taisyklei su koeficientu reikia koeficiento',
+      error_conversion_formula_required: 'Dinaminei taisyklei reikia formulės tipo',
+      error_conversion_pair_taken: 'Šios vienetų poros taisyklė jau egzistuoja',
     },
     settingsStatuses: {
       title: 'Užsakymų būsenos',
@@ -718,6 +763,8 @@ export const adminSettings = {
       col_write_off: 'NURAŠYMAS',
       col_reserve_hint: 'Rezervuoti likutį pereinant į būseną',
       col_write_off_hint: 'Nurašyti likutį pereinant į būseną',
+      error_reorder_incomplete:
+        'Nepavyko išsaugoti būsenų eilės — sąrašas pasikeitė, bandykite dar kartą',
     },
     settingsWarehouse: {
       title: 'Sandėlio sektoriai',
