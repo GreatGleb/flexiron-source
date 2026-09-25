@@ -177,7 +177,7 @@ middleware, ни чтения заголовка. То же и с оптимис
 | warehouse | два запроса без общей границы: `patchBatch` (`frontend_vue/src/composables/useWarehouseBatch.ts:256`), следом `createMovement` (`:263`) | там же |
 | clients | `1 + N + M`, начиная с `clientDelta` | `frontend_vue/src/composables/useClientCard.ts:273-304` |
 | settings | до десятка параллельных — `Promise.all` | `frontend_vue/src/composables/useSettings.ts:518` |
-| categories | два параллельных — `Promise.all` | `frontend_vue/src/composables/useCategoryCard.ts:102-112` |
+| categories | два параллельных — `Promise.all` | `frontend_vue/src/composables/useCategoryCard.ts:107-117` |
 | finance | один PATCH плюс независимый аплоад до Save; после ошибки зовётся `load()` | `frontend_vue/src/views/admin/finance/OutgoingPaymentCardPage.vue:90-91` |
 
 Два дефекта на противоположных краях, названные П49 и **не оправданные** им: у клиента после

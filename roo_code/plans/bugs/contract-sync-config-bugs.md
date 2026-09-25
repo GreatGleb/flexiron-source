@@ -171,7 +171,7 @@ TBD — выбрать одно поведение для новых имён и
 `grep -rn "\bcreateField\b\|\bpatchField\b\|\bdeleteField\b\|\bcreateSection\b\|\bpatchSection\b\|\bdeleteSection\b" frontend_vue/src --include=*.ts --include=*.vue`
 вне `configService.ts` находит только **одноимённые локальные** функции чужой логики:
 `createField` страницы конфигуратора (`SupplierCardConfigPage.vue:318`, правит массив в памяти) и
-`deleteField` карточки категории (`frontend_vue/src/composables/useCategoryCard.ts:142` — другой
+`deleteField` карточки категории (`frontend_vue/src/composables/useCategoryCard.ts:147` — другой
 домен). Ни один из шести эндпоинтов не вызывается: всё, что делает пользователь, копится локально
 и уходит тремя PUT'ами по кнопке Save (`frontend_vue/src/composables/useCardConfig.ts:51-55`), как
 и написано комментарием на странице (`SupplierCardConfigPage.vue:316-317`).

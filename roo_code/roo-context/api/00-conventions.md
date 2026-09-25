@@ -521,7 +521,7 @@ comm -23 /tmp/fe_keys.txt /tmp/be_keys.txt   # шесть; обратная ра
 | | домен | тип поля | где значения |
 |---|---|---|---|
 | поля карточки поставщика | `config` — `FieldDefinition` (`types/config.ts:5-14`), CRUD `/api/config/fields` | `FieldType` — шесть: `enum, number, text, date, boolean, tags` (`types/config.ts:3`) | **негде**: у `Supplier` нет `fieldValues`, таблицы `supplier_field_values` не существует |
-| поля категории | `categories` — `Category.fields` / `inheritedFields` (`types/category.ts:22-23`), запись `PUT /api/categories/:id/fields` | `CategoryFieldType` — семь: те же плюс `email` и `file` (`types/category.ts:4`) | у товара: `ProductFieldValue` (`types/product.ts:9-16`), сборка `mocks/products.ts:14046-14063` |
+| поля категории | `categories` — `Category.fields` / `inheritedFields` (`types/category.ts:32-33`), запись `PUT /api/categories/:id/fields` | `CategoryFieldType` — семь: те же плюс `email` и `file` (`types/category.ts:4`) | у товара: `ProductFieldValue` (`types/product.ts:9-16`), сборка `mocks/products.ts:14046-14063` |
 
 Отсюда три сквозных правила:
 
@@ -579,7 +579,7 @@ comm -23 /tmp/fe_keys.txt /tmp/be_keys.txt   # шесть; обратная ра
 (`backend/app/modules/settings/features/crud/domain.py:70-79`).
 
 Замер: механизма подтверждения кодом в проекте нет ни в каком виде, а удаление поля подтверждается
-обычной модалкой (`views/admin/products/CategoryCardPage.vue:197-205`).
+обычной модалкой (`views/admin/products/CategoryCardPage.vue:189-197`).
 
 **Остальное в жизненном цикле — кто валидирует тип при записи (сервер, §18) и что делать при смене
 типа определения.** В `mocks/config.ts` об этом ни строки, схема же выражает три разные политики на
@@ -1139,7 +1139,7 @@ save-режим.
 | products | один PATCH на форму, значения полей и поставщиков | `useProductCard.ts:233-256` |
 | suppliers | один PATCH | `useSupplierCard.ts:40` |
 | services | один PATCH | `useServiceCard.ts:70-74` |
-| categories | **два** параллельных запроса | `useCategoryCard.ts:102-112` |
+| categories | **два** параллельных запроса | `useCategoryCard.ts:107-117` |
 | config | **три** параллельных PUT | `useCardConfig.ts:51-55` |
 | finance | PATCH плюс независимый аплоад до Save | `OutgoingPaymentCardPage.vue:74-89` |
 | warehouse | PATCH плюс до двух движений, провал заглушён | `useWarehouseBatch.ts:255-276`, `useWarehouseOffcutCard.ts:288-323` |
@@ -1150,7 +1150,7 @@ save-режим.
 Общего правила поведения при частичном отказе нет ни у одного из семи многозапросных: снимок не
 сдвигается, `load()` после ошибки не вызывается, и экран остаётся с несохранёнными данными поверх
 частично сохранённых (`useSettings.ts:518-521`, `useCardConfig.ts:57-60`,
-`useCategoryCard.ts:113-117`, `useClientCard.ts:314-316`). Единственное место, где правило на этот
+`useCategoryCard.ts:118-122`, `useClientCard.ts:314-316`). Единственное место, где правило на этот
 счёт записано: очередь опустошается по мере отправки, и при падении на середине **остаток остаётся
 в очереди** — повтор не должен добавить ту же строку второй раз, а перезагрузка, которая показала
 бы дубль, случается только при успехе (`useOrderCard.ts:430-434`).

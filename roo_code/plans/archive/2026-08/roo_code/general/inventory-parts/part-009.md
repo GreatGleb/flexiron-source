@@ -89,7 +89,7 @@ i18n-ключей не генерирует — на `resolveLabel` его ни�
 | Заменить `getCategoryPath` в ProductsPage.vue | непонятно | функция есть (ProductsPage.vue:53), но собирает путь из `tf()`; на `resolveLabel` не заменена, i18n-ключей не строит |
 | Заменить `fieldLabel` в ProductCardPage.vue | непонятно | `grep fieldLabel src/` пусто |
 | Заменить `enumLabel` в ProductCardPage.vue | непонятно | `grep enumLabel src/` пусто |
-| Заменить `fieldLabel` в CategoryCardPage.vue | непонятно | `grep fieldLabel src/` пусто; поля — `tf(field.name)` (CategoryCardPage.vue:135) |
+| Заменить `fieldLabel` в CategoryCardPage.vue | непонятно | `grep fieldLabel src/` пусто; поля — `tf(field.name)` (CategoryCardPage.vue:127) |
 | Заменить `categoryLabel` в CategoryCardPage.vue | непонятно | `grep categoryLabel src/` пусто |
 | Заменить `categoryLabel` в CategoriesPage.vue | непонятно | `grep categoryLabel src/` пусто; `tf(item.name)` (CategoriesPage.vue:158) |
 | Заменить `categoryLabel` и `getCategoryPath` в useProductCard.ts | непонятно | `categoryLabel` отсутствует; `getCategoryPath` жив (useProductCard.ts:109) и работает через `tf()` |
@@ -295,14 +295,14 @@ src/views/admin/suppliers/BccRequestPage.vue:59   template.subject = mergeLocale
 src/views/admin/suppliers/BccRequestPage.vue:66   template.body    = mergeLocaleValue(template.body, v, locale.value)        # P0 (план: стр. 61)
 src/views/admin/suppliers/BccRequestPage.vue:402  source: SOURCE_TRANSLATIONS[source] ?? mergeLocaleValue(undefined, source, locale.value)  # P0 (план: стр. 407)
 src/components/admin/SupplierFormSections.vue:22  setTranslatedField → mergeLocaleValue(existing, value, locale)             # P0 (план: стр. 20)
-src/views/admin/products/CategoryCardPage.vue:70,84   name/description                                                       # P1 (план: 69, 83)
+src/views/admin/products/CategoryCardPage.vue:71,84   name/description                                                       # P1 (план: 69, 83)
 src/views/admin/products/ProductCardPage.vue:83,90    name/description                                                       # P1 (план: 43, 50)
 src/composables/useCardConfig.ts:88              if (sec) sec.name = mergeLocaleValue(sec.name, name, locale.value)         # P1 (план: стр. 86)
 # сверх плана той же правкой закрыты: useWarehouseStockCard.ts:105,116; ServiceCardPage.vue:30,37; SupplierCardPage.vue:46
 
 $ grep -rn "toTranslatedString(" src/ | grep -v "src/types/i18n.ts" | grep -v "src/services/"
 src/views/admin/suppliers/SupplierCardConfigPage.vue:326,413,459    # «потенциально нормально» по плану — создание новых секций/полей
-src/views/admin/products/CategoryCardPage.vue:147,152               # то же — новые custom fields
+src/views/admin/products/CategoryCardPage.vue:139,152               # то же — новые custom fields
 src/composables/useProductCard.ts:178                               # НЕ в списке плана: description при создании поля
 ```
 

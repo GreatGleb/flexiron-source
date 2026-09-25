@@ -222,7 +222,7 @@ Save-режим: clean-slate. Именно этот эндпоинт несёт 
 
 Удалить определение из библиотеки. **Вызывающего нет** — `grep -rn "\bdeleteField\b" frontend_vue/src`
 даёт объявление (`configService.ts:40`) и одноимённые **локальные** функции чужого домена
-(`composables/useCategoryCard.ts:142`). UI удаляет поле локально: `confirmDeleteField` правит
+(`composables/useCategoryCard.ts:147`). UI удаляет поле локально: `confirmDeleteField` правит
 `fieldLibrary` и `sections` в памяти (`SupplierCardConfigPage.vue:359-370`), а на сервер уходит
 `PUT /api/config/fields` из батча (`useCardConfig.ts:52`).
 
@@ -822,7 +822,7 @@ savePermissions])` (`useCardConfig.ts:51-55`) — общей транзакци�
 Шесть клиентских функций из двенадцати не вызываются ниоткуда: домен целиком работает
 clean-slate-батчем из трёх `PUT`-ов. Проверено по каждой — попадания вне `configService.ts` только
 одноимённые локальные функции чужих экранов (`SupplierCardConfigPage.vue:318`,
-`composables/useCategoryCard.ts:142`).
+`composables/useCategoryCard.ts:147`).
 
 | эндпоинт | функция клиента | объявление |
 |---|---|---|

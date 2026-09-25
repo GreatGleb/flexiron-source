@@ -10,7 +10,7 @@
 
 ## Root Cause
 
-The composable was built with `form.name: string` instead of `form.name: TranslatedString | null`, unlike [`useCategoryCard`](frontend_vue/src/composables/useCategoryCard.ts:24-32) which correctly stores `name: TranslatedString | null`.
+The composable was built with `form.name: string` instead of `form.name: TranslatedString | null`, unlike [`useCategoryCard`](frontend_vue/src/composables/useCategoryCard.ts:29-37) which correctly stores `name: TranslatedString | null`.
 
 ## Solution
 

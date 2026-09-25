@@ -417,7 +417,7 @@ T9 и T11 зависят от [`сквозное-audit-log-план.md`](../gene
    другого нигде.
 3. **Справочный вызов с `pageSize: 999`.** Карточка товара и карточка категории зовут полный
    список вместо лёгкого справочника (`frontend_vue/src/composables/useProductCard.ts:141-144`,
-   `frontend_vue/src/composables/useCategoryCard.ts:66-69`), при том что `GET /api/suppliers/list`
+   `frontend_vue/src/composables/useCategoryCard.ts:71-74`), при том что `GET /api/suppliers/list`
    существует рядом и эти двое им не пользуются. Переводить ли их на него — и нужен ли
    справочнику поиск и предел выдачи? Тот же вопрос уже вынесен по домену categories.
 4. **Категории поставщика при включённом `categorySupplierLinks`.** П26 оставил категории в коде

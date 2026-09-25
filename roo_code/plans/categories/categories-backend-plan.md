@@ -74,7 +74,7 @@
 
 | эндпоинт | схема | контракт | кто прав | почему |
 |---|---|---|---|---|
-| все шесть | `categories.name` — `String(255)` (`models.py:25`) | `name: TranslatedString` (`types/category.ts:17`) | контракт | §12 соглашений и П64: имя вводится на одном языке и читается на том, который есть; в одну строку три языка не лягут. Миграция M1 |
+| все шесть | `categories.name` — `String(255)` (`models.py:25`) | `name: TranslatedString` (`types/category.ts:27`) | контракт | §12 соглашений и П64: имя вводится на одном языке и читается на том, который есть; в одну строку три языка не лягут. Миграция M1 |
 | все шесть | `categories.description` — `Text` (`models.py:32`) | `description: TranslatedString \| null` | контракт | то же основание; миграция M1 |
 | `PUT /fields` | `category_fields.name` — `String(255)` (`models.py:72`) | `CategoryField.name: TranslatedString` | контракт | то же; миграция M1 |
 | `PUT /fields` | `options` — `Mapped[dict \| None]` (`models.py:88`) | `options: TranslatedString[]` — массив | контракт | колонка `JSON` вмещает массив, врёт аннотация типа; правка модели без миграции |
@@ -121,7 +121,7 @@
 | код | статус | бросает | читает сегодня | что доделать |
 |---|---|---|---|---|
 | `CATEGORY_NOT_FOUND` | 404 | `GET /:id`, `PATCH /:id`, `PUT /fields`, `DELETE /:id` | `useCategories.ts:44` — через `errorCode`; карточка читает `e.message` | Z0: карточка переходит на `errorCode`; ключ перевода на «категории нет» |
-| `CATEGORY_HAS_PRODUCTS` | 409 | `DELETE /:id` — счётом по товарам, не колонкой | `useCategories.ts:45` → `categories.toast_error_delete_has_products` (`i18n/admin/categories.ts:61`) | S7: считать, а не читать `productCount` |
+| `CATEGORY_HAS_PRODUCTS` | 409 | `DELETE /:id` — счётом по товарам, не колонкой | `useCategories.ts:45` → `categories.toast_error_delete_has_products` (`i18n/admin/categories.ts:62`) | S7: считать, а не читать `productCount` |
 | `CATEGORY_HAS_CHILDREN` | 409 | `DELETE /:id` | `useCategories.ts:47` → `categories.toast_error_delete_has_children` (`:62`) | ничего, кроме сервера |
 | `CATEGORY_PARENT_CYCLE` | 409 | `PATCH /:id` при смене родителя на собственного потомка | **никто**, подписи нет | S5 + ключ `categories.toast_error_parent_cycle` в трёх локалях + ветка в `useCategoryCard` |
 | `CATEGORY_FIELDS_IN_USE` | 409 | зависит от ответа владельца, вопрос В3 | **никто**, подписи нет | S6/S7 + ключ + ветка |
@@ -155,7 +155,7 @@
 | 2 | [Мультиарендность (§4)](../general/сквозное-сводка.md) | Тенантские таблицы: `categories`, `category_fields` и новая `category_suppliers`. Каждая выборка сужается `tenant_id` из токена; ни один из шести сегодняшних роутов `tenant_id` не принимает, схемы слайсов — тоже. **Седьмой роут — `GET /api/categories/list` (S2) — под то же правило:** выборка у него тенантская, арендатор берётся из токена, параметра `tenant_id` в схеме запроса нет; `categoriesService.ts` заголовка арендатора не ставит (файл 72 строки, ни одного упоминания). Уникальность у домена **одна, и её заводит M3** — `(tenant_id, category_id, supplier_id)`; правило сводки «UniqueConstraint/unique=True включает tenant_id (с миграцией)» выполнено ею по построению. У двух сегодняшних таблиц домена уникальностей нет ни одной — единственный `UniqueConstraint` модуля стоит в чужой `product_field_values` (`backend/app/modules/products/shared/models.py:211` — `uq_product_field_value` по паре `product_id`+`field_id`, **без** `tenant_id`): это нарушение §4 в соседней таблице, домен его **не берёт**, работа дорожки `products`. В раздел контракта пишется так: уникальность домена одна — привязка поставщика к категории, и она парой с арендатором. **Блокирует:** дежурного способа взять арендатора из токена в проекте нет, оба готовых роута товаров подставляют заглушку (`backend/app/modules/products/features/get_product_detail/action.py:35` — `placeholder`). Задача P1 |
 | 3 | [Аудит-лог (§9)](../general/сквозное-сводка.md) | П36: пишут все четыре мутирующие операции — `POST`, `PATCH`, `DELETE`, `PUT /fields`, по записи на изменённое свойство. Сегодня не пишет ни одна (`grep -n "auditLog" frontend_vue/src/services/mocks/categories.ts` — пусто). Хранилище — общая `audit_entries` (П38, UUIDv7), своей таблицы домен не заводит. **Цена, которую видно только отсюда:** `category` не входит в замкнутый перечень `AuditEntityType` (`frontend_vue/src/types/audit.ts:5` — «The nine entities that keep a history»), то есть П36 для этого домена требует одиннадцатого значения (десятое — настройки, П42). Задача S9 |
 | 4 | [Уведомления (§10)](../general/сквозное-сводка.md) | П51: категории в перечень нужных типов не вошли. Раздел контракта получает дословное `Событий домена нет.` — и это единственное, что домен делает по этому правилу. Задача Z2 |
-| 5 | [Идемпотентность и блокировка (§11)](../general/сквозное-сводка.md) | Один `POST` у домена, и он обратим (созданную категорию удаляет `DELETE`), значит строка — «не требуется — операция обратима». Save карточки: П43 — не одной транзакцией, два независимых запроса `Promise.all` (`useCategoryCard.ts:112`) остаются независимыми, контракт пишет это прямо. Версии у категории нет ни во фронте, ни на схеме — last-write-wins. Задача Z2 |
+| 5 | [Идемпотентность и блокировка (§11)](../general/сквозное-сводка.md) | Один `POST` у домена, и он обратим (созданную категорию удаляет `DELETE`), значит строка — «не требуется — операция обратима». Save карточки: П43 — не одной транзакцией, два независимых запроса `Promise.all` (`useCategoryCard.ts:117`) остаются независимыми, контракт пишет это прямо. Версии у категории нет ни во фронте, ни на схеме — last-write-wins. Задача Z2 |
 | 6 | [Кастомные поля (§8)](../general/сквозное-сводка.md) | `Кастомные поля: да.` — домен и есть их определение: собственные `Category.fields`, унаследованные `Category.inheritedFields`. По блоку `config`/`categories` домену положены **набор и код подтверждения**: П73 — снятие поля из набора требует права (админ, владелец) и четырёхзначного кода из настроек, значения не удаляются, а перестают показываться. Задачи S6, S8 |
 
 ---
@@ -550,7 +550,7 @@ npx vitest run src/services/contract-conformance.spec.ts
 **Зависимостей нет.**
 
 Четыре отправки домена: создание (`CategoriesPage.vue:71`), удаление, Save карточки
-(`useCategoryCard.ts:98`), добавление поля. Замер по домену — первая часть задачи
+(`useCategoryCard.ts:103`), добавление поля. Замер по домену — первая часть задачи
 (`grep -c ":disabled" src/views/admin/products/CategoriesPage.vue`), правка — вторая.
 
 Приёмка: гейт + e2e `tests/e2e/admin/products/categories.spec.ts`.
@@ -571,7 +571,7 @@ npx vitest run src/services/contract-conformance.spec.ts
 `GET /api/categories/:id` обязан отдать `linkedSuppliers`, а `LinkedSupplier.name` — это
 `TranslatedString` ([`frontend_vue/src/types/product.ts:20`](../../../frontend_vue/src/types/product.ts)),
 куда карточка кладёт название компании поставщика
-([`frontend_vue/src/views/admin/products/CategoryCardPage.vue:235`](../../../frontend_vue/src/views/admin/products/CategoryCardPage.vue)
+([`frontend_vue/src/views/admin/products/CategoryCardPage.vue:227`](../../../frontend_vue/src/views/admin/products/CategoryCardPage.vue)
 — `name: supplier.company`), а рядом кладёт его валюту (`:231`). Ни имени, ни валюты в
 `category_suppliers` (M3) колонкой нет и быть не должно — имя живёт в `company_translations`
 ([`backend/app/modules/suppliers/shared/models.py:25`](../../../backend/app/modules/suppliers/shared/models.py)),
@@ -647,7 +647,7 @@ JSONB, `category_fields.name` → `name_translations` JSONB — правило �
 
 Уникальность `(tenant_id, category_id, supplier_id)`: правило домена 9 говорит «один поставщик
 привязывается не более одного раза», а дедупликация сегодня только клиентская
-(`useCategoryCard.ts:56`). Это единственная уникальность домена, и она парой с арендатором —
+(`useCategoryCard.ts:61`). Это единственная уникальность домена, и она парой с арендатором —
 §4 сводки.
 
 ### M4 · Миграция: определение поля помечается убранным (П73)
@@ -707,7 +707,7 @@ curl -s "http://localhost:8000/api/categories?search=&page=1&pageSize=25" ; kill
 Основание: строка 8 владельцу снята 2026-09-10 — «отдельным лёгким эндпоинтом, как
 `GET /api/products/list` у товаров»; явный большой `pageSize` противоречит §13. Сегодня
 справочник берут тремя разными способами: `useCategories.ts:18` — страницей 25,
-`CategoryCardPage.vue:63` — `getCategories({ search: '' })`, то есть первыми 25 (БАГ-03),
+`CategoryCardPage.vue:64` — `getCategories({ search: '' })`, то есть первыми 25 (БАГ-03),
 `useProductCard.ts:132` — `1, 999`.
 
 Работа: слайс + раздел контракта + перевод двух клиентов на новый вызов. БАГ-03 и БАГ-09
@@ -755,7 +755,7 @@ curl -s "http://localhost:8000/api/categories?search=&page=1&pageSize=25" ; kill
 - смена `parentId` — перестройка поддерева целиком, рекурсивно по всем потомкам
   (`mocks/categories.ts:1374` — `function cascadeInheritedFields`), а не правка одной записи;
 - цикл: родителем назначен собственный потомок → `CATEGORY_PARENT_CYCLE` 409. Сегодня проверки
-  нет нигде, селект исключает только саму категорию (`CategoryCardPage.vue:91`), и на цикле мок
+  нет нигде, селект исключает только саму категорию (`CategoryCardPage.vue:92`), и на цикле мок
   уходит в бесконечную рекурсию — БАГ-06;
 - `name` и `description` сливаются по `mergeTranslatedString` — перезаписываются только
   присланные ключи;
@@ -792,12 +792,12 @@ curl -s "http://localhost:8000/api/categories?search=&page=1&pageSize=25" ; kill
   Проверяет код сервер. Порядок проверки: сперва право, потом код.
 
 Фронтовая половина П73 — предупреждение с числом затронутых записей и поле ввода кода — заменяет
-нынешнюю обычную модалку (`CategoryCardPage.vue:198` — `const fieldToDelete`).
+нынешнюю обычную модалку (`CategoryCardPage.vue:190` — `const fieldToDelete`).
 
 **Вторая половина П73 — «вернули поле в набор, значения видны снова» — сегодня не выразима на
 проводе, и слайс обязан это решить, а не обойти.** Снятие поля у клиента — простое исчезновение из
-локального массива (`useCategoryCard.ts:142` — `function deleteField`), а добавление — всегда новый
-временный идентификатор (`useCategoryCard.ts:129` — `Date.now`). То есть возвращённое поле приходит
+локального массива (`useCategoryCard.ts:147` — `function deleteField`), а добавление — всегда новый
+временный идентификатор (`useCategoryCard.ts:134` — `Date.now`). То есть возвращённое поле приходит
 на сервер как **новое**, получает новый постоянный `id`, а старые значения остаются привязанными к
 убранному определению и не всплывают ни при каком возврате. Механизма «назвать убранное
 определение» в теле `PUT` нет: тело — плоский массив без признака «это то самое поле». Вопрос В7.
@@ -973,7 +973,7 @@ grep -c "audit" src/i18n/admin/categories.ts   # было 0, ожидание: �
 **В7 · Чем клиент называет убранное определение, чтобы вернуть его в набор?** П73 обещает
 «вернули поле в набор — значения видны снова», но тело `PUT /api/categories/:id/fields` этого не
 позволяет: убранное поле просто исчезает из массива, а добавленное всегда приходит с новым
-`tmp-<Date.now()>` (`useCategoryCard.ts:129`, `useCategoryCard.ts:142`). Три ответа, и они меняют разный объём работы:
+`tmp-<Date.now()>` (`useCategoryCard.ts:134`, `useCategoryCard.ts:147`). Три ответа, и они меняют разный объём работы:
 (а) сервер узнаёт возвращённое поле по совпадению имени и типа внутри той же категории — дёшево, но
 два поля с одинаковым именем правило домена 12 разрешает, и тогда узнавание неоднозначно;
 (б) клиент шлёт постоянный `id` убранного определения — значит убранные поля обязаны быть видны

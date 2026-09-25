@@ -71,7 +71,7 @@ $ grep -n "useCategoryCard\|patchCategory\|putCategoryFields" src/composables/us
 
 $ grep -n "useCategories(\|useCategoryCard(" src/views/admin/products/CategoriesPage.vue src/views/admin/products/CategoryCardPage.vue
 CategoriesPage.vue:43: ... = useCategories()          // без { translated: true }
-CategoryCardPage.vue:51: } = useCategoryCard(id)
+CategoryCardPage.vue:52: } = useCategoryCard(id)
 
 $ sed -n '71,82p' src/views/admin/products/CategoriesPage.vue
 await createCategory({ name, parentId, description }, locale.value)

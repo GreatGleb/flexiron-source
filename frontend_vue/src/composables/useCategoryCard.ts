@@ -2,6 +2,7 @@ import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getCategory, patchCategory, putCategoryFields } from '@/services/categoriesService'
 import { getSuppliers } from '@/services/suppliersService'
+import { errorMessageKey } from '@/services/apiErrorCode'
 import { useDirtyCheck } from './useDirtyCheck'
 import { useToast } from './useToast'
 import { useTranslatedField } from './useTranslatedData'
@@ -9,6 +10,10 @@ import type { Category, CategoryField } from '@/types/category'
 import type { TranslatedString } from '@/types/i18n'
 import type { LinkedSupplier } from '@/types/product'
 import type { Supplier } from '@/types/supplier'
+
+const CATEGORY_ERROR_KEYS: ReadonlyArray<readonly [string, string]> = [
+  ['CATEGORY_NOT_FOUND', 'categories.toast_error_not_found'],
+]
 
 export function useCategoryCard(id: string) {
   const { t, locale } = useI18n()
@@ -89,7 +94,7 @@ export function useCategoryCard(id: string) {
       linkedSuppliers.value = JSON.parse(JSON.stringify(data.linkedSuppliers)) as LinkedSupplier[]
       originalLinkedSuppliers.value = JSON.stringify(data.linkedSuppliers)
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to load category'
+      error.value = t(errorMessageKey(e, CATEGORY_ERROR_KEYS, 'categories.toast_error'))
     } finally {
       loading.value = false
     }
@@ -113,7 +118,7 @@ export function useCategoryCard(id: string) {
       await load()
       toast.success(t('categories.toast_saved'))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : t('categories.toast_error'))
+      toast.error(t(errorMessageKey(e, CATEGORY_ERROR_KEYS, 'categories.toast_error')))
     } finally {
       saving.value = false
     }

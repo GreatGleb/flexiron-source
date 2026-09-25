@@ -90,6 +90,6 @@ watchEffect(() => {
 ## План действий
 
 1. **Исправить [`useDirtyCheck.ts`](frontend_vue/src/composables/useDirtyCheck.ts)**: заменить `watch(getter, ..., { deep: true })` на `watchEffect`
-2. **Исправить [`CategoryCardPage.vue`](frontend_vue/src/views/admin/products/CategoryCardPage.vue:171)**: заменить `watch(getter, ..., { deep: true })` на `watchEffect`
+2. **Исправить [`CategoryCardPage.vue`](frontend_vue/src/views/admin/products/CategoryCardPage.vue:163)**: заменить `watch(getter, ..., { deep: true })` на `watchEffect`
 3. **Проверить типы**: `npx vue-tsc --noEmit`
 4. **Проверить** что `structuredClone` ошибка исчезла и кнопка сохранения работает

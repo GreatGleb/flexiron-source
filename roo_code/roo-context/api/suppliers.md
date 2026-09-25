@@ -44,7 +44,7 @@ backend/app/modules/suppliers --include=*.py` не даёт ни одного п
 (список и канбан), [`composables/useSupplierCard.ts`](../../../frontend_vue/src/composables/useSupplierCard.ts)
 (карточка), [`composables/useSupplierCreate.ts`](../../../frontend_vue/src/composables/useSupplierCreate.ts)
 (создание), плюс четыре чужих экрана, зовущих домен как справочник:
-`composables/useProductCard.ts:141-144`, `composables/useCategoryCard.ts:66-69`,
+`composables/useProductCard.ts:141-144`, `composables/useCategoryCard.ts:71-74`,
 `views/admin/warehouse/WarehousePage.vue:525`, `composables/useWarehouseBatchCreate.ts:297`.
 
 ## Правила домена
@@ -181,7 +181,7 @@ backend/app/modules/suppliers --include=*.py` не даёт ни одного п
 Страница списка и канбан. Чтение: `onMounted → load()`, любое изменение фильтров и пагинации
 (`frontend_vue/src/composables/useSuppliers.ts:60-78`). Тот же эндпоинт зовут как справочник с
 `pageSize: 999` карточка товара (`frontend_vue/src/composables/useProductCard.ts:141-144`) и
-карточка категории (`frontend_vue/src/composables/useCategoryCard.ts:66-69`).
+карточка категории (`frontend_vue/src/composables/useCategoryCard.ts:71-74`).
 
 Запрос — query-строка, все значения строками
 (`frontend_vue/src/services/suppliersService.ts:10-19`):

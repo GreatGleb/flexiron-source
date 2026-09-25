@@ -88,10 +88,10 @@
 | | где определение | вокабуляр типа | где значение |
 |---|---|---|---|
 | поля карточки поставщика | `FieldDefinition` — [`types/config.ts:5-14`](../../../frontend_vue/src/types/config.ts), CRUD `/api/config/fields` | шесть: [`types/config.ts:3`](../../../frontend_vue/src/types/config.ts) | **негде** |
-| поля категории | `CategoryField` — [`types/category.ts:6-13`](../../../frontend_vue/src/types/category.ts), запись `PUT /api/categories/:id/fields` | семь: [`types/category.ts:4`](../../../frontend_vue/src/types/category.ts) | у товара |
+| поля категории | `CategoryField` — [`types/category.ts:16-23`](../../../frontend_vue/src/types/category.ts), запись `PUT /api/categories/:id/fields` | семь: [`types/category.ts:4`](../../../frontend_vue/src/types/category.ts) | у товара |
 
 Наборы категории — собственный и унаследованный — лежат рядом: `inheritedFields`
-([`types/category.ts:22-23`](../../../frontend_vue/src/types/category.ts)).
+([`types/category.ts:32-33`](../../../frontend_vue/src/types/category.ts)).
 
 **«Негде» доказано, а не предположено.** В типах поставщика нет ни одного упоминания значения
 поля: `grep -cE "fieldValues|CategoryField|FieldDefinition|ProductFieldValue"` по
@@ -126,11 +126,11 @@
   ([`mocks/config.ts:310-316`](../../../frontend_vue/src/services/mocks/config.ts)). Ни архива, ни
   предупреждения, ни числа.
 - **Поле снимается с набора категории локально, до Save.** `deleteField`
-  ([`useCategoryCard.ts:142`](../../../frontend_vue/src/composables/useCategoryCard.ts)), на сервер
+  ([`useCategoryCard.ts:147`](../../../frontend_vue/src/composables/useCategoryCard.ts)), на сервер
   уходит целый набор при `fieldsChanged`
-  ([`useCategoryCard.ts:111`](../../../frontend_vue/src/composables/useCategoryCard.ts)).
+  ([`useCategoryCard.ts:116`](../../../frontend_vue/src/composables/useCategoryCard.ts)).
   Подтверждение — обычная модалка: `fieldToDelete`
-  ([`CategoryCardPage.vue:197-205`](../../../frontend_vue/src/views/admin/products/CategoryCardPage.vue)).
+  ([`CategoryCardPage.vue:189-197`](../../../frontend_vue/src/views/admin/products/CategoryCardPage.vue)).
 - **Значения при этом не трогаются ничем.** Мок товара кладёт присланный массив как есть:
   `existing.fieldValues`
   ([`mocks/products.ts:14210`](../../../frontend_vue/src/services/mocks/products.ts)); сборка
