@@ -10,7 +10,7 @@
 отличается от обязанностей сервера — §18. Ниже — только то, что живёт в этом домене.
 
 **Источник истины — бэкенд, а не мок.** `backend/app/modules/auth/` реализует **четыре эндпоинта
-из пяти**: login, register, me, link — их роутеры включены в `backend/app/main.py:123,116,117,118`.
+из пяти**: login, register, me, link — их роутеры включены в `backend/app/main.py:126,116,117,118`.
 У `logout` серверной реализации нет ни в каком виде: каталогов в
 `backend/app/modules/auth/features/` четыре (`login`, `magic_link`, `me`, `register`), а
 `grep -rn "logout" backend/app` пуст. Формы запросов и ответов ниже сняты со схем бэкенда; где

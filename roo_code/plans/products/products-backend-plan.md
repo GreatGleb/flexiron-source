@@ -34,7 +34,7 @@
 |---|---|---|
 | эндпоинтов домена | **7** | `grep -c "^### " roo_code/roo-context/api/products.md` |
 | из них без бэкенда | **5** | `grep -cE "Бэкенд: (\*\*)?не реализован" roo_code/roo-context/api/products.md` |
-| реализовано на бэкенде | **2** | `POST /api/products` и `GET /api/products/{product_id}`, оба подключены в `backend/app/main.py:75-76` |
+| реализовано на бэкенде | **2** | `POST /api/products` и `GET /api/products/{product_id}`, оба подключены в `backend/app/main.py:78-79` |
 | решений владельца в брифе | **34** | `grep -c "^### П" /tmp/night-queue-briefs/решения-products.md` |
 | из них контракт не упоминает | **24** | `for p in 2 8 10 11 19 20 21 23 24 26 32 34 36 37 38 40 41 42 44 46 47 51 53 55 56 57 58 64 65 68 69 72 73 75; do grep -q "П$p\b" roo_code/roo-context/api/products.md \|\| echo П$p; done \| wc -l` |
 | граф «Обязанности сервера» | **9** | `awk 'NR>=614 && NR<=771 && /^\*\*[0-9]\./' roo_code/roo-context/api/products.md \| wc -l` |
