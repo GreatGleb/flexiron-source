@@ -78,7 +78,7 @@ a specific head, or 'heads' for all heads
 
 ## БАГ-02 — `alembic check` краснеет: модели и миграции расходятся в восьми таблицах
 
-**File:** `backend/app/modules/settings/shared/models.py:76`, [`backend/app/core/uploads/models.py`](../../../backend/app/core/uploads/models.py:24), и далее — полный список в выводе команды
+**File:** `backend/app/modules/settings/shared/models.py:78`, [`backend/app/core/uploads/models.py`](../../../backend/app/core/uploads/models.py:24), и далее — полный список в выводе команды
 **Severity:** Medium — расхождение не мешает работе сегодня, но обесценивает `alembic check` как гейт: он краснеет всегда, значит его красное ничего не сообщает.
 **Источник:** Б2
 
@@ -89,7 +89,7 @@ a specific head, or 'heads' for all heads
 
 1. **`UniqueConstraint` в модели против `UNIQUE INDEX` в миграции.** Модель объявляет
    `UniqueConstraint("tenant_id", "code", name="uq_currencies_tenant_code")`
-   (`backend/app/modules/settings/shared/models.py:76`), а миграция создала уникальный
+   (`backend/app/modules/settings/shared/models.py:78`), а миграция создала уникальный
    **индекс** с тем же именем. Для Postgres это разные объекты, и autogenerate предлагает
    снять индекс и поставить constraint. Так же у `field_definitions`,
    `product_field_values`, `role_permissions`, `user_permissions`, `users`, `sessions`.

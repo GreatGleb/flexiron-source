@@ -45,7 +45,41 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    """Настроить контекст и прогнать миграции.
+
+    `compare_server_default=True` — это линза Б2, доведённая до машины. Без него
+    `alembic check` сравнивает имена, типы и `nullable`, но НЕ умолчания, и
+    расхождение модели со схемой живёт сколько угодно долго, никого не тревожа.
+    Цена такой слепоты уже заплачена дважды, и оба раза одинаково: миграция
+    выписала одно, модель со временем стала утверждать другое, ревизии между ними
+    не случилось.
+
+      * матрица прав — три разных ответа про `can_read`, разобрано `f1c4a8e07b26`;
+      * `users.role` — база `'user'`, модель `'owner'` с самой первой миграции
+        `3a0b5d31bde7`; нашлось ровно в тот момент, когда флаг включили.
+
+    Почему флага не было раньше: на этой схеме он ПАДАЛ. Сравнивая умолчания,
+    Alembic при расхождении строк спрашивает сервер
+    `SELECT <умолчание базы> = <умолчание модели>`
+    (`alembic/ddl/postgresql.py`, `compare_server_default`), а три колонки
+    `suppliers` — `categories`, `tags`, `bcc_emails` — были `jsonb` с умолчанием
+    типа `json` (`'[]'::json`): наследство от смены типа, которую
+    `ALTER COLUMN ... TYPE` умолчанию не передаёт. У типа `json` в Postgres нет
+    оператора `=`, и весь `check` валился с
+    `operator does not exist: json = unknown`. Лечилось это не обходом
+    JSON-колонок в сравнении, а починкой самих трёх умолчаний — ревизия
+    `a3f70b219c84`. Обход спрятал бы дефект вместе с симптомом.
+
+    Шаг введён ЗЕЛЁНЫМ, по правилу из `verify.md`: к моменту включения все
+    расхождения разобраны (54 ключа `id` через `UUIDMixin`, `company_info.name`,
+    два поля `order_items`, `users.role`), и `python3 -m alembic check` печатает
+    `No new upgrade operations detected.` с кодом 0.
+    """
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        compare_server_default=True,
+    )
     with context.begin_transaction():
         context.run_migrations()
 

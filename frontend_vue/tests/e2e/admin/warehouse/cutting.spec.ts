@@ -482,16 +482,43 @@ test.describe('Cutting operation', () => {
     await fillRow(page, 0, { lengthMm: 2500, widthMm: 1000 })
     await row.getByTestId('warehouse-cutting-row-thickness').fill('2')
 
+    /*
+     * Предлагаемое число видно ДО выбора — в самом поле, как подсказка. Оно же
+     * служит признаком того, что пересчёт УЖЕ прошёл, и потому читается ПЕРВЫМ.
+     *
+     * Раньше эталон бейджа снимался сразу после `fill` по толщине, без единого
+     * ожидания между ними, — то есть держался на том, что Vue успеет пересчитать
+     * вес прежде, чем вернётся следующий вызов. Это форма питфолла #64: ждали не
+     * значение, а удачу. Теперь ждём величину, которой до пересчёта быть НЕ МОЖЕТ:
+     * пустой плейсхолдер перестаёт быть пустым только вместе с тем же
+     * `derivedWeight(row).ok`, который переключает и бейдж
+     * (`WarehouseCuttingPage.vue`: `weightPlaceholder` и `weightSourceLabel`), а оба
+     * читаются из одного отрисовочного прохода.
+     *
+     * ЧЕСТНО О ДОКАЗАТЕЛЬСТВЕ. Падение этого теста в полном прогоне 2026-09-25 было
+     * приписано именно этой гонке, но воспроизвести её не удалось ничем: под
+     * `Emulation.setCPUThrottlingRate` на 1, 20, 40 и 100 немедленное чтение бейджа
+     * давало «derived» во всех четырёх случаях (замер: 175 мс, 1953 мс, 2184 мс и
+     * 6735 мс после `fill`, и устоявшееся значение совпадало с немедленным), а сам
+     * тест прошёл 5 из 5 при load 42 и все шаги — при rate 100. То есть правка
+     * закрывает НЕПРАВИЛЬНУЮ ФОРМУ ожидания, а не доказанное падение; настоящая
+     * причина того падения не найдена и записана в bugs-file.
+     *
+     * Бюджет — общий, а не дефолтные пять секунд: под нагрузкой пересчёт съезжает
+     * вместе со всем остальным (питфолл #70).
+     */
+    const weightInput = row.getByTestId('warehouse-cutting-row-weight')
+    await expect
+      .poll(async () => Number((await weightInput.getAttribute('placeholder')) || '0'), {
+        timeout: DATA_READY_TIMEOUT,
+      })
+      .toBeGreaterThan(0)
+
     const derivedBadge = (await badge.textContent())!.trim()
-    // Предлагаемое число видно ДО выбора — в самом поле, как подсказка.
-    const suggested = await row
-      .getByTestId('warehouse-cutting-row-weight')
-      .getAttribute('placeholder')
-    expect(Number(suggested)).toBeGreaterThan(0)
     await expect(useDerived).toHaveCount(0)
 
     // Ввод руками меняет источник и открывает дорогу назад.
-    await row.getByTestId('warehouse-cutting-row-weight').fill('99')
+    await weightInput.fill('99')
     await expect(badge).not.toHaveText(derivedBadge)
     await expect(useDerived).toHaveCount(1)
 

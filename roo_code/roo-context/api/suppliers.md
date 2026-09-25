@@ -465,7 +465,7 @@ History» (`views/admin/suppliers/SupplierCardPage.vue:275`); `SupplierHistoryIt
 `frontend_vue/src/composables/useSupplierCreate.ts:49`). Значит на проводе присутствуют и пустые
 `id`, `createdAt`, `updatedAt`, и пустые `auditLog: []`, `history: []`, `priceHistory: []`.
 **Сервер обязан их игнорировать**, а не пытаться применить: `id` и метки времени принадлежат ему
-(§14 соглашений, `backend/app/core/base.py:25-37`), журналы — тоже.
+(§14 соглашений, `backend/app/core/base.py:42-54`), журналы — тоже.
 
 Три переводимых поля клиент нормализует, и не одинаково: `company` и `contactPerson` при
 отсутствии превращаются в пустой `TranslatedString`, `statusReason` — в `undefined`
@@ -549,7 +549,7 @@ History» (`views/admin/suppliers/SupplierCardPage.vue:275`); `SupplierHistoryIt
 ней.
 
 `updatedAt` **пересчитывает сервер, и только он**: `onupdate=func.now()`
-(`backend/app/core/base.py:25-37`), §14 соглашений. Мок его не трогает, а лишь копирует прежнее
+(`backend/app/core/base.py:42-54`), §14 соглашений. Мок его не трогает, а лишь копирует прежнее
 значение в строку списка (`frontend_vue/src/services/mocks/suppliers.ts:446`) — слабость мока, а не
 правило (пробел аудита б закрыт).
 

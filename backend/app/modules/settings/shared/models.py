@@ -21,7 +21,9 @@ class CompanyInfo(UUIDMixin, TimestampMixin, Base):
         unique=True,  # singleton: one row per tenant
         index=True,
     )
-    name: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    name: Mapped[str] = mapped_column(
+        String(255), nullable=False, default="", server_default=""
+    )
     legal_address: Mapped[str | None] = mapped_column(Text, nullable=True)
     vat_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
     bank_name: Mapped[str | None] = mapped_column(String(255), nullable=True)

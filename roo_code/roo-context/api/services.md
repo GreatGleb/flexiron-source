@@ -528,7 +528,7 @@ merge-patch по `exclude_unset`, итоговая пара валюта+еди�
   (правило домена 3). **`totalPages`** считается при чтении из `total` и `pageSize`
   (`mocks/services.ts:77`). **`createdAt`/`updatedAt`** ставит сервер и только он: мок — при
   создании и при каждой правке (`mocks/services.ts:127-128`, `:162`), модель бэкенда —
-  `server_default=func.now()` и `onupdate=func.now()` (`backend/app/core/base.py:28-37`).
+  `server_default=func.now()` и `onupdate=func.now()` (`backend/app/core/base.py:45-54`).
   Наоборот, **хранится то, что могло бы считаться**: имя и себестоимость услуги дублируются в
   строку заказа снимком (`mocks/orders.ts:2418-2425`) — это не денормализация, а заморозка
   документа ([§17](00-conventions.md#17-производные-значения-сервер-считает-а-не-хранит)), и

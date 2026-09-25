@@ -68,8 +68,28 @@ class User(UUIDMixin, TimestampMixin, Base):
         String(255), unique=True, nullable=True, index=True,
     )
     # ⚠️ DEPRECATED — kept as fallback until frontend migrates to multi-role
+    #
+    # `server_default` здесь `"user"`, а не `"owner"`, и это ЗАМЕР, а не выбор
+    # стиля. Первая миграция (`3a0b5d31bde7`) выписала колонке
+    # `server_default="user"`; позже модель стала утверждать `"owner"`, но ни
+    # одна ревизия базу не переписала — в базе так и стоит `'user'::varchar`.
+    # `alembic check` этого не видел: сравнение умолчаний было выключено. Как
+    # только оно включилось, расхождение всплыло — ровно та же болезнь, что
+    # разбирала `f1c4a8e07b26` на матрице прав, только на другой колонке.
+    #
+    # Приведена МОДЕЛЬ к базе, а не наоборот, и по двум причинам. Первая:
+    # серверное умолчание здесь недостижимо из приложения — единственный путь
+    # создания пользователя (`features/register/repository.py`) передаёт роль
+    # явным `role="owner"`, так что менять базу значит рисковать ради строки,
+    # которую никто не исполняет. Вторая: если умолчание всё же однажды
+    # сработает (вставка миграцией, сидом, руками из psql), `user` — наименьшее
+    # право, а `owner` — наибольшее; молча раздавать владельца нельзя.
+    #
+    # Питоновский `default="owner"` оставлен как был: он описывает ORM-путь, где
+    # роль и так задаётся явно. Если владелец решит, что оба уровня обязаны
+    # говорить одно, это правится ревизией — и тогда `check` её потребует сам.
     role: Mapped[str] = mapped_column(
-        String(50), nullable=False, default="owner", server_default="owner"
+        String(50), nullable=False, default="owner", server_default="user"
     )
     locale: Mapped[str] = mapped_column(
         String(10), nullable=False, default="ru", server_default="ru"
