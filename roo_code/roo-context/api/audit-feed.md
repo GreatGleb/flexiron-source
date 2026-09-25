@@ -15,13 +15,20 @@
 Находки про код: шесть, в
 [`roo_code/plans/bugs/contract-sync-audit-feed-bugs.md`](../../plans/bugs/contract-sync-audit-feed-bugs.md).
 
-**Источник истины — мок и клиент.** Модуля `audit-feed` на бэкенде нет
-(`ls backend/app/modules/` — десять модулей, `grep -rn "audit-feed" backend/` — пусто), роутов
-ноль. Из девяти логов, которые лента сливает, на схеме существуют **два**:
-`stock_audit_entries` — журнал **партии**, а не остатка
-(`backend/app/modules/warehouse/shared/models.py:232`, `:240-245`) и `supplier_audit_entries`
-(`backend/app/modules/suppliers/shared/models.py:173`, `:181-186`). Под остальные семь видов —
-`product`, `order`, `client`, `stock`, `offcut`, `movement`, `deficit` — таблицы нет ни одной.
+**Источник истины — мок и клиент.** Роуты у домена появились: `get_audit_feed` и
+`get_audit_feed_users` в `backend/app/modules/audit/features/feed/action.py`
+(`grep -rn "audit-feed" backend/` — не пусто), и с 2026-09-25 модуль-хранилище тоже есть:
+`ls backend/app/modules/` — двенадцать модулей, среди них `audit` с единственной моделью
+`AuditEntry` (`__tablename__ = "audit_entries"`) и `internal_api` с функцией записи одной строки и
+функцией чистки по сущности — задача M1 плана домена, только хранилище, без единого слайса чтения
+и без единой строки записи от девяти доменов-писателей. Из девяти логов, которые лента сливает, на
+схеме существуют **два прежних плюс новая общая, пустая**: `stock_audit_entries` — журнал
+**партии**, а не остатка (`backend/app/modules/warehouse/shared/models.py:275`, `:240-245`),
+`supplier_audit_entries` (`backend/app/modules/suppliers/shared/models.py:175`, `:181-186`) и
+`audit_entries` — ни строки в ней нет, перенос двух прежних и запись от остальных семи видов в неё
+не сделаны этой задачей. Под остальные семь видов — `product`, `order`, `client`, `stock`,
+`offcut`, `movement`, `deficit` — своей таблицы по-прежнему нет ни одной; общая `audit_entries` их
+не подменяет, пока перенос и запись не сделаны.
 
 **Метка `Статус: спроектировано` домену не подходит:** оба эндпоинта зовёт живой клиент.
 
@@ -39,7 +46,8 @@
 
 Реализация: `services/auditFeedService.ts:22-43` (`getAuditFeed`) · мок `mocks/index.ts:395` →
 `mocks/auditFeed.ts:66-108` (`mockGetAuditFeed`)
-Бэкенд: **не реализован** — роутов у домена ноль.
+Бэкенд: реализован — `get_audit_feed` в `backend/app/modules/audit/features/feed/action.py`,
+репозиторий и домен в соседних `repository.py`/`domain.py` того же слайса.
 
 **Запрос — семь query-параметров, все строками** (`services/auditFeedService.ts:30-42`):
 `entityType`, `user`, `dateFrom`, `dateTo`, `search`, `page`, `pageSize`; числа приводятся
@@ -119,7 +127,8 @@ Save-режим: чтение. Зовётся на монтировании (`Lo
 
 Реализация: `services/auditFeedService.ts:45-47` (`getAuditFeedUsers`) · мок
 `mocks/index.ts:394` → `mocks/auditFeed.ts:111-122` (`mockGetAuditFeedUsers`)
-Бэкенд: **не реализован**.
+Бэкенд: реализован — `get_audit_feed_users` в том же файле
+`backend/app/modules/audit/features/feed/action.py`.
 
 **Запрос — параметров нет вовсе:** `apiGet(path, undefined, { headers })`
 (`services/auditFeedService.ts:46`). Заголовок тот же `Authorization`, если токен есть (`:20-24`).
@@ -189,11 +198,11 @@ Save-режим: чтение, один раз на монтировании (`L
 2. **Признак `sensitive` до ленты не доходит.** Он объявлен только у записи заказа
    (`types/order.ts:591-606`), строка ленты его не несёт (`types/audit.ts:63-74`), и `toRows` его
    не копирует (`mocks/auditFeed.ts:47-60`) — БАГ-01. На схеме такой колонки нет ни у одной из
-   двух существующих таблиц журнала (`backend/app/modules/warehouse/shared/models.py:229-258`,
-   `backend/app/modules/suppliers/shared/models.py:170-201`).
+   двух существующих таблиц журнала (`backend/app/modules/warehouse/shared/models.py:272-301`,
+   `backend/app/modules/suppliers/shared/models.py:172-203`).
 3. **Автор записи на схеме — пара:** необязательная ссылка `user_id` с `ondelete="SET NULL"` плюс
    **замороженные** переводы имени и инициалы
-   (`backend/app/modules/warehouse/shared/models.py:246-252`). Во фронте видна только вторая
+   (`backend/app/modules/warehouse/shared/models.py:289-295`). Во фронте видна только вторая
    половина (`types/warehouse.ts:526-534`), и лента строит по ней и подпись, и ключ фильтра
    (`mocks/auditFeed.ts:115`). Отсюда следствие для `GET /api/audit-feed/users`: после удаления
    пользователя ключ обязан остаться, значит ключом не может быть `user_id`.
@@ -225,8 +234,8 @@ Save-режим: чтение, один раз на монтировании (`L
 → `0` у всех трёх; оба чтения несут только `Authorization`
 (`services/auditFeedService.ts:20-24`, `:41`, `:46`), хранилища мока — плоские массивы на процесс
 (`mocks/auditFeed.ts:23-31`). У двух существующих таблиц журнала `tenant_id` объявлен
-`nullable=False, index=True` (`backend/app/modules/warehouse/shared/models.py:234-239`,
-`backend/app/modules/suppliers/shared/models.py:175-180`). **Обязанность именно этого домена:**
+`nullable=False, index=True` (`backend/app/modules/warehouse/shared/models.py:277-282`,
+`backend/app/modules/suppliers/shared/models.py:177-182`). **Обязанность именно этого домена:**
 ответ сшивается из девяти источников, и фильтр арендатора обязан стоять на каждом — один
 пропущенный источник течёт в общую ленту, где это заметно меньше всего. Строка владельца 4.
 
@@ -358,7 +367,7 @@ actual RBAC logic here» (`backend/app/modules/auth/internal_api/interface.py:27
 | часовой пояс границы дня не назван | достроено строкой владельца 3: фильтр режет UTC-дату (`mocks/auditFeed.ts:39-41`), таблица печатает местное время (`LogsSettings.vue:96-106`) — БАГ-03 |
 | верхняя граница `pageSize` не названа | достроено: у мока её нет (`mocks/auditFeed.ts:96`), спека зовёт с `10_000` (`mocks/auditFeed.spec.ts:16`). Сервер обязан иметь потолок |
 | арендатор не назван | достроено: графа «Мультиарендность» — фильтр обязан стоять на каждом из девяти источников |
-| про ключ списка авторов не сказано, чем он обязан быть на сервере | достроено: ключом не может быть `user_id`, потому что он `ondelete="SET NULL"` (`backend/app/modules/warehouse/shared/models.py:246-252`), а фильтр обязан работать и после удаления пользователя |
+| про ключ списка авторов не сказано, чем он обязан быть на сервере | достроено: ключом не может быть `user_id`, потому что он `ondelete="SET NULL"` (`backend/app/modules/warehouse/shared/models.py:289-295`), а фильтр обязан работать и после удаления пользователя |
 | про совпадающие имена двух разных людей не сказано ничего | достроено: мок сворачивает их в одну строку фильтра (`mocks/auditFeed.ts:116`). Строка владельца 5 |
 
 **Подтверждено кодом и перенесено, а не отброшено** — восемь утверждений прежнего раздела: перечень

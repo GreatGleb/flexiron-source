@@ -1,7 +1,7 @@
 # Finance
 
 Деньги и документы: реестр счетов к получению, счета поставщиков и архив документов. Домен из
-**пяти** эндпоинтов — четыре чтения и один `PATCH`, — и ни один из пяти не реализован сервером.
+**пяти** эндпоинтов — четыре чтения и один `PATCH`; бэкенд отвечает за три из них, остальные два ждут.
 
 Общие соглашения — [`00-conventions.md`](00-conventions.md) в этом каталоге. Конверт ответа (§1),
 каталог кодов ядра и правила кодов (§2), `PATCH` против `PUT` (§3), мультиарендность (§4),
@@ -32,8 +32,9 @@
 (`grep -rn "receivable" backend/app --include=*.py -i` — пусто).
 
 **Метка `Статус: спроектировано` домену не подходит ни в одном разделе:** клиент и мок есть у всех
-пяти эндпоинтов, то есть код существует — отсутствует только серверная часть. Разницу несёт строка
-`Бэкенд:`, и у всех пяти разделов она читается «не реализован».
+пяти эндпоинтов, то есть код существует; серверная часть теперь есть у трёх из пяти. Разницу несёт
+строка `Бэкенд:`: у списка, карточки и правки платежей она читается «реализован», у двух прочих —
+«не реализован».
 
 ---
 
@@ -243,8 +244,8 @@ Save-режим — **чтение**. Строка ведёт в карточк�
 Реализация: `services/financeService.ts:29-38` — `getPayments` · мок `mocks/index.ts:827-829` →
 `mocks/finance.ts:374-419` — `mockGetPayments`
 
-Бэкенд: **не реализован** — таблица `finance_payments` есть (`finance/shared/models.py:11-55`),
-роута нет.
+Бэкенд: **реализован** — вертикальный слайс `finance.features.payments` (schemas, repository,
+domain, action под `backend/app/modules/finance/features/payments`), роут включён в приложение.
 
 ---
 
@@ -294,8 +295,8 @@ Save-режим — **чтение и вход в clean-slate карточку**
 `mocks/finance.ts:426-430` — `mockGetPayment` (отдаёт **копию**, а не запись стора, и причина
 записана рядом — `:421-425`)
 
-Бэкенд: **не реализован** — таблицы `finance_payments` и `payment_documents` есть
-(`finance/shared/models.py:11-90`), роута нет.
+Бэкенд: **реализован** — та же карточка отдана тем же слайсом `finance.features.payments`,
+документы платежа включены в ответ вложенным списком, без обращения к архиву.
 
 ---
 
@@ -362,8 +363,13 @@ Save-режим — **clean-slate, один запрос на нажатие**. 
 Реализация: `services/financeService.ts:45-50` — `patchPayment` · мок `mocks/index.ts:1401-1410` →
 `mocks/finance.ts:469-524` — `mockPatchPayment`
 
-Бэкенд: **не реализован** — роута нет; на схеме под правку есть `finance_payments.notes`
-(`finance/shared/models.py:48`) и таблица `payment_documents` (`:58-90`).
+Бэкенд: **реализован** — тот же слайс `finance.features.payments`, обработчик `patch_payment` в
+`action.py` на `PATCH /api/finance/payments/{payment_id}`. Белый список полей — сама схема
+`PaymentPatchInput`, которая не называет ни `status`, ни `amount`, ни `paymentNumber`; замещение
+`documents` — `sync_payment_documents` в `repository.py`, метаданные новых документов читаются
+`get_file_by_id` из реестра `app/core/uploads/service.py`, а неизвестный `fileId` заводит заготовку
+в `_build_document`. Отказ по чужому и неизвестному `id` — тот же `PaymentNotFoundError`, что уже
+поднимает карточка.
 
 ---
 
@@ -441,7 +447,7 @@ Save-режим — **чтение**. Триггеров пять, и пятый
 Реализация: `services/financeService.ts:52-63` — `getArchive` · мок `mocks/index.ts:836-843` →
 `mocks/finance.ts:432-461` — `mockGetArchive`
 
-Бэкенд: **не реализован** — таблица `document_archive_items` есть
+Бэкенд: `backend/app/modules/finance/features/archive/action.py:18` (`list_archive_items`) — постраничное чтение архива, сужено по арендатору; конверт списка общий (`PaginatedResponse`).
 (`finance/shared/models.py:93-128`), роута нет.
 
 ---

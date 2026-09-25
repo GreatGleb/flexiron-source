@@ -591,7 +591,7 @@ N дней» в проекте нет: `grep -rn "no_response" frontend_vue/src 
 автор предусмотрен — `sender_user_id` с `ondelete="SET NULL"`
 (`backend/app/modules/bcc/shared/models.py:79-83`, миграция
 `backend/alembic/versions/f96e6fb2d5cf_phase_8_bcc.py:50`) плюс `created_at` с индексом
-(`models.py:84-89`), — но заполнять их некому: вызывающих у слайса ноль, а мок про пользователя не
+(`models.py:98-103`), — но заполнять их некому: вызывающих у слайса ноль, а мок про пользователя не
 знает вовсе (`grep -in "tenant\|userId\|user_id" frontend_vue/src/services/mocks/bcc.ts` — пусто).
 Кто автор приёма цены и остаётся ли след у отправки — строка владельцу.
 
@@ -635,7 +635,7 @@ frontend_vue/src/services/mocks/bcc.ts backend/app/modules/bcc` → 0 попад
 `nullable=False, index=True` (`backend/app/modules/bcc/shared/models.py:16-21`) и
 `bcc_events.tenant_id` теми же условиями (`:48-53`); миграция
 `backend/alembic/versions/f96e6fb2d5cf_phase_8_bcc.py:28`, `:39`. Плюс адресность автора —
-`sender_user_id` (`models.py:79-83`). Как сервер узнаёт арендатора — общее правило §4 соглашений
+`sender_user_id` (`models.py:93-97`). Как сервер узнаёт арендатора — общее правило §4 соглашений
 (из токена, и только из него); что домен для этого не шлёт ничего — строка владельцу.
 
 **7. Права — нигде на уровне действия.** Доступ гейтится только фича-флагами, и их два: страница
@@ -710,13 +710,13 @@ len(SUPPLIERS) messages here» — `backend/tests/modules/bcc/test_send_request.
    обязательных полей — `backend/tests/modules/bcc/test_send_request.py:143-153`), и в моке
    (`services/mocks/bcc.ts:317`, спека `services/mocks/bcc-envelope.spec.ts:68-73`). Условие —
    общий `isMailConfigured`, сужённый до трёх полей нарочно; бэкенд повторяет его теми же тремя
-   (`domain.py:58-65`) и явно разрешает пустые логин и имя отправителя
+   (`domain.py:63-76`) и явно разрешает пустые логин и имя отправителя
    (`test_send_request.py:155-159`).
 3. **Сервер сильнее мока на два правила отправки.** Дубли адресов снимаются с сохранением порядка
    — «тот же поставщик дважды получил бы запрос дважды из одной отправки»
    (`backend/app/modules/bcc/features/send_request/domain.py:95-97`, тест
    `backend/tests/modules/bcc/test_send_request.py:93-103`); пустой список отвергается кодом
-   `NO_RECIPIENTS` (`domain.py:98-99`, объявление `:34-38`, тест `test_send_request.py:161-165`).
+   `NO_RECIPIENTS` (`domain.py:102-103`, объявление `:34-38`, тест `test_send_request.py:161-165`).
    Мок не делает ни того, ни другого (`services/mocks/bcc.ts:435-437`), а кода `NO_RECIPIENTS`
    фронт не знает вовсе. Значит два пути ошибки под моками не воспроизводятся — и первый из них не
    «ошибка интерфейса», а двойное письмо живому поставщику.
@@ -737,16 +737,16 @@ len(SUPPLIERS) messages here» — `backend/tests/modules/bcc/test_send_request.
      `services/mocks/bcc.ts:143`, `:352`), схема — `UUID` из `UUIDMixin`
      (`backend/app/modules/bcc/shared/models.py:43`, миграция `:38`);
    - `date`: фронт — строка `YYYY-MM-DD` (`types/bcc.ts:24`, `services/mocks/bcc.ts:354`), схема —
-     `created_at: DateTime(timezone=True)` с индексом (`models.py:84-89`); колонки `date` на схеме
+     `created_at: DateTime(timezone=True)` с индексом (`models.py:98-103`); колонки `date` на схеме
      нет вовсе;
    - `supplierName` и `productName`: фронт хранит подписи прямо в строке события, обе
      `TranslatedString` (`types/bcc.ts:26`, `:28`), схема — только внешние ключи `supplier_id` и
-     `product_id` (`models.py:57-67`), то есть **сервер обязан подмешивать имена при чтении, а не
+     `product_id` (`models.py:86-96`), то есть **сервер обязан подмешивать имена при чтении, а не
      хранить их** (в отличие от осознанных снимков §17 соглашений);
    - `source`: фронт — `TranslatedString` (`types/bcc.ts:30`, нормализация
-     `services/bccService.ts:61`), схема — `String(50)` NOT NULL (`models.py:71-73`);
+     `services/bccService.ts:61`), схема — `String(50)` NOT NULL (`models.py:96-98`);
    - `subject`, `body`, `attachment_file_ids`, `sender_user_id`: четыре колонки схемы
-     (`models.py:76-83`), которых нет ни в типе, ни в моке — содержимое письма сервер хранит, а
+     (`models.py:84-97`), которых нет ни в типе, ни в моке — содержимое письма сервер хранит, а
      фронт после отправки не видит никогда.
 7. **Идентификатор «товара» BCC не существует больше нигде, а схема ссылается на `products.id`.**
    Листья дерева — `sheet-2mm`, `beam-i20`, `pipe-100` и ещё двенадцать

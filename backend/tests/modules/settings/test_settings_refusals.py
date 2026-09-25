@@ -42,6 +42,7 @@ with patch.dict(
     from app.modules.auth.shared.models import Tenant, User
     from app.modules.auth.shared.session_tokens import issue_session_token
     from app.modules.products.shared.models import Product
+    from app.modules.services.shared.models import Service
     from app.modules.settings.features.crud.action import router as crud_router
     from app.modules.settings.shared.models import (
         Currency,
@@ -80,8 +81,11 @@ class SettingsRefusalTests(unittest.IsolatedAsyncioTestCase):
             uuid4(),
             uuid4(),
         )
+        self.currency_service_only_a = uuid4()
         self.uom_a, self.uom_a2, self.uom_b = uuid4(), uuid4(), uuid4()
+        self.uom_service_only_a = uuid4()
         self.product_x, self.product_y, self.product_b = uuid4(), uuid4(), uuid4()
+        self.service_x = uuid4()
         self.status_a1, self.status_a2, self.status_b1 = uuid4(), uuid4(), uuid4()
 
         async with self.engine.begin() as conn:
@@ -94,6 +98,7 @@ class SettingsRefusalTests(unittest.IsolatedAsyncioTestCase):
                 OrderStatusSetting,
                 GlobalConstants,
                 Product,
+                Service,
             ):
                 await conn.run_sync(
                     lambda sync, model=model: model.__table__.create(sync)
@@ -125,6 +130,7 @@ class SettingsRefusalTests(unittest.IsolatedAsyncioTestCase):
                 [
                     self._currency(self.currency_default_a, self.tenant_a, "EUR", True),
                     self._currency(self.currency_plain_a, self.tenant_a, "USD", False),
+                    self._currency(self.currency_service_only_a, self.tenant_a, "PLN", False),
                     self._currency(self.currency_b, self.tenant_b, "GBP", False),
                 ],
             )
@@ -133,6 +139,7 @@ class SettingsRefusalTests(unittest.IsolatedAsyncioTestCase):
                 [
                     self._uom(self.uom_a, self.tenant_a, "pcs"),
                     self._uom(self.uom_a2, self.tenant_a, "box"),
+                    self._uom(self.uom_service_only_a, self.tenant_a, "hour"),
                     self._uom(self.uom_b, self.tenant_b, "kg"),
                 ],
             )
@@ -167,6 +174,21 @@ class SettingsRefusalTests(unittest.IsolatedAsyncioTestCase):
                         self.tenant_b,
                         "B",
                         warehouse_uom_id=self.uom_b,
+                    ),
+                ],
+            )
+            # A service referencing a currency and a UOM that no product uses —
+            # the gap this file closes: the reference existed only on the
+            # `services` side of the boundary.
+            await conn.execute(
+                insert(Service),
+                [
+                    self._service(
+                        self.service_x,
+                        self.tenant_a,
+                        "Cutting",
+                        currency_id=self.currency_service_only_a,
+                        uom_id=self.uom_service_only_a,
                     ),
                 ],
             )
@@ -240,6 +262,18 @@ class SettingsRefusalTests(unittest.IsolatedAsyncioTestCase):
         row.update(refs)
         return row
 
+    @staticmethod
+    def _service(service_id, tenant_id, name: str, **refs) -> dict:
+        row = {
+            "id": service_id,
+            "tenant_id": tenant_id,
+            "name_translations": {"en": name},
+            "currency_id": None,
+            "uom_id": None,
+        }
+        row.update(refs)
+        return row
+
     @property
     def auth(self) -> dict:
         return {"Authorization": f"Bearer {self.token}"}
@@ -281,6 +315,24 @@ class SettingsRefusalTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(409, response.status_code, response.text)
         self.assertEqual("CURRENCY_IN_USE", response.json()["detail"]["code"])
+
+    async def test_currency_used_only_by_a_service_is_refused_with_its_code(self):
+        """A currency no product references, but a service does, is still in use."""
+        response = await self.client.delete(
+            f"/api/settings/currencies/{self.currency_service_only_a}", headers=self.auth
+        )
+
+        self.assertEqual(409, response.status_code, response.text)
+        self.assertEqual("CURRENCY_IN_USE", response.json()["detail"]["code"])
+
+    async def test_uom_used_only_by_a_service_is_refused_with_its_code(self):
+        """A UOM no product references, but a service does, is still in use."""
+        response = await self.client.delete(
+            f"/api/settings/uoms/{self.uom_service_only_a}", headers=self.auth
+        )
+
+        self.assertEqual(409, response.status_code, response.text)
+        self.assertEqual("UOM_IN_USE", response.json()["detail"]["code"])
 
     # ── C5: the reorder and the conversion pair ───────────────────────────────
 

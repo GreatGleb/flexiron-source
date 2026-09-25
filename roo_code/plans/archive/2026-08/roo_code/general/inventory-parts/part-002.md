@@ -22,9 +22,9 @@ backend/alembic/versions/4e8c9a3f1b2d_add_secret_link_token_to_users.py:1:"""add
 backend/alembic/versions/4e8c9a3f1b2d_add_secret_link_token_to_users.py:3:Add secret_link_token column to users table for magic-link authentication.
 backend/alembic/versions/4e8c9a3f1b2d_add_secret_link_token_to_users.py:28:            "secret_link_token",
 backend/alembic/versions/4e8c9a3f1b2d_add_secret_link_token_to_users.py:38:    op.drop_column("users", "secret_link_token")
-backend/app/main.py:26:from app.modules.auth.features.magic_link.action import (
-backend/app/main.py:27:    router as auth_magic_link_router,
-backend/app/main.py:73:app.include_router(auth_magic_link_router)
+backend/app/main.py:29:from app.modules.auth.features.magic_link.action import (
+backend/app/main.py:30:    router as auth_magic_link_router,
+backend/app/main.py:91:app.include_router(auth_magic_link_router)
 backend/app/modules/auth/features/me/domain.py:22:    secret_link = None
 backend/app/modules/auth/features/me/domain.py:23:    if user.secret_link_token:
 backend/app/modules/auth/features/me/domain.py:24:        secret_link = f"{settings.frontend_url}/auth/link?token={user.secret_link_token}"
@@ -88,9 +88,9 @@ exit=1
 - `secret_link` в `RegisterResponse` (`register/schemas.py:42`), сборка URL из
   `settings.frontend_url` (`register/domain.py:154`); `frontend_url` есть в
   `app/core/config.py:27`.
-- Feature `features/magic_link/` со всеми пятью файлами, роутер подключён в `main.py:73`.
+- Feature `features/magic_link/` со всеми пятью файлами, роутер подключён в `main.py:101`.
 - `secret_link` в `MeResponse` (`me/schemas.py:19`, `me/domain.py:22-36`) и в профиле настроек
-  (`settings/features/profile/schemas.py:22`, `domain.py:22-107` — с автогенерацией токена,
+  (`settings/features/profile/schemas.py:22`, `domain.py:24-109` — с автогенерацией токена,
   чего план не требовал).
 - Фронтенд-типы: `RegisterResponse.secret_link` (`types/auth.ts:55`),
   `UserProfile.secretLink` (`types/settings.ts:127`, но `?`-опциональное, план требовал `string`).

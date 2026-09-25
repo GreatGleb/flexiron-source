@@ -447,3 +447,23 @@ async def delete_order_status_route(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={"message": e.message, "code": e.code},
         )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Order Permissions
+# ═══════════════════════════════════════════════════════════════════════════
+
+@router.get("/order-permissions", response_model=ApiResponse)
+async def get_order_permissions_route(
+    db: AsyncSession = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """Get the order pricing permission matrix (seeCost/manualCost/correction)."""
+    from app.modules.settings.features.crud.domain import get_order_permissions_matrix
+
+    tenant_id = current_user.tenant_id
+    result = await get_order_permissions_matrix(db, tenant_id)
+    return ApiResponse(
+        success=True,
+        data=result.model_dump(mode="json", by_alias=True),
+    )

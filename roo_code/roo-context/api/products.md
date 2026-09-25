@@ -14,15 +14,18 @@
 clean-slate против quick-action — §15; производные значения — §17; чем мок отличается от
 обязанностей сервера — §18; форма `id` — §19. Ниже — только то, что живёт в этом домене.
 
-**Источник истины — по эндпоинту, а не по домену.** Модуль бэкенда есть, и у него ровно два
-роута: `@router.post("", …)` (`backend/app/modules/products/features/create_product/action.py:23`) и
-`@router.get("/{product_id}", …)` (`backend/app/modules/products/features/get_product_detail/action.py:28`),
-оба подключены в `backend/app/main.py:69-70`. Значит формы `POST /api/products` и
+**Источник истины — по эндпоинту, а не по домену.** Модуль бэкенда сегодня даёт четыре роута:
+`@router.get("", …)` — постраничный список (`backend/app/modules/products/features/list_products/action.py:30`),
+`@router.get("/list", …)` — справочник (там же, `:55`),
+`@router.post("", …)` (`backend/app/modules/products/features/create_product/action.py:24`) и
+`@router.get("/{product_id}", …)` (`backend/app/modules/products/features/get_product_detail/action.py:29`),
+все четыре подключены в `backend/app/main.py`, и оба списочных пути объявлены раньше
+`{product_id}` (иначе UUID-типизация последнего перехватила бы путь раньше, чем он дойдёт до
+обработчика). Значит формы `GET /api/products`, `GET /api/products/list`, `POST /api/products` и
 `GET /api/products/:id` ниже сняты **со схем сервера**, а расхождение фронта с ними названо
-находкой; остальные пять описаны по клиенту и моку. Строка `Бэкенд:` стоит у каждого раздела —
-файл со строкой или слово «не реализован». Метки `Статус: спроектировано` в домене нет ни
-одной: у всех семи эндпоинтов есть вызывающий код (`services/productsService.ts:21`, `:25`,
-`:58`, `:111`, `:117`, `:121`, `:125`).
+находкой; остальные три описаны по клиенту и моку. Строка `Бэкенд:` стоит у каждого раздела — файл со строкой или слово «не реализован». Метки
+`Статус: спроектировано` в домене нет ни одной: у всех семи эндпоинтов есть вызывающий код
+(`services/productsService.ts:21`, `:25`, `:58`, `:111`, `:117`, `:121`, `:125`).
 
 Схема при этом заведена целиком и опережает эндпоинты: модуль создаёт четыре таблицы —
 `categories`, `category_fields`, `products`, `product_field_values`
@@ -71,7 +74,7 @@ camelCase (`services/productsService.ts:49-58`, `:86-111`, тип — `types/pro
 
 | код | статус | эндпоинт | где объявлен |
 |---|---|---|---|
-| `NOT_FOUND` | 404 | `GET /api/products/:id` | `backend/app/modules/products/features/get_product_detail/domain.py:53`, код из `backend/app/core/exceptions.py:13-20` |
+| `NOT_FOUND` | 404 | `GET /api/products/:id` | `backend/app/modules/products/features/get_product_detail/domain.py:55`, код из `backend/app/core/exceptions.py:13-20` |
 | `VALIDATION_ERROR` | 422 | `POST /api/products` | `backend/app/modules/products/features/create_product/domain.py:30-31`, код из `backend/app/core/exceptions.py:23-27` |
 | `PRODUCT_NOT_FOUND` | — | `DELETE /api/products/:id`, `DELETE /api/products/:id/audit/:id` | только мок: `services/mocks/products.ts:14222`, `:14232` |
 | `PRODUCT_IN_USE` | — | `DELETE /api/products/:id` | только мок: `services/mocks/products.ts:14225` |
@@ -122,10 +125,13 @@ camelCase (`services/productsService.ts:49-58`, `:86-111`, тип — `types/pro
 
 Мок читает ровно эти пять параметров с дефолтами `page=1`, `pageSize=25`, `sortDir='asc'`
 (`services/mocks/index.ts:567`). **У `sortBy` дефолта нет ни на одной стороне** — правило
-домена 7.
+домена 7. Сервер читает те же пять параметров с теми же дефолтами
+(`list_products_catalog` в `action.py`); `sortBy`/`sortDir` типизированы `Literal`, поэтому
+значение вне `name`/`category`/`price` и `asc`/`desc` — отказ `422` ещё до домена, а не тихое
+игнорирование.
 
-Ответ: `PaginatedResponse<ProductListItem>` (конверт — §13 соглашений; сбор страницы —
-`services/mocks/products.ts:13976-13982`):
+Ответ клиента/мока — `PaginatedResponse<ProductListItem>` (конверт — §13 соглашений; сбор
+страницы — `services/mocks/products.ts:13976-13982`):
 
 ```ts
 interface ProductListItem {
@@ -150,16 +156,50 @@ interface ProductListItem {
 (`views/admin/products/ProductsPage.vue:158-165`, `productUnitLabel`), а `avgCostPrice` и
 `avgSalePrice` — производные, которые сервер обязан считать сам (графа 9 обязанностей).
 
-Правила выборки — наблюдения, а не пожелания:
+**Ответ сервера** — `ProductCatalogListResponse` (`ProductCatalogItem` для каждой строки,
+обе в `schemas.py` слайса) отличается от клиентского типа по составу, не только по регистру:
+
+```ts
+interface ProductCatalogItem {
+  id: string
+  name: string                              // не TranslatedString: колонка одна, см. раздел /list
+  categoryId: string | null
+  categoryName: TranslatedString | null     // из categories.name_translations, реальный join
+  sku: string | null
+  price: number | null
+  minStock: number | null
+  createdAt: string
+  saleUomId: string | null
+  warehouseUomId: string | null
+  warehouseToSaleFactor: number | null
+}
+```
+
+Полей одиннадцать, не тринадцать: `avgCostPrice` и `avgSalePrice` слайс не отдаёт — ни колонки,
+ни агрегата для них нет нигде в `products.shared.models`, то же самое основание, по которому
+`ProductDetailResponse` карточки не отдаёт свои пять полей (см. врезку у `GET /api/products/:id`
+ниже). `name` едет плоской строкой по той же причине, что и в `/list`: `Product.name` — одна
+колонка, а не JSONB.
+
+Правила выборки — наблюдения, а не пожелания; сервер воспроизводит все три буквально
+(`list_catalog`/`_catalog_query` в `repository.py`, `list_products_catalog` в `domain.py`):
 
 - **поиск идёт по `sku` и по всем трём локалям имени сразу; описание в поиск не входит**
-  (`services/mocks/products.ts:13948-13956`);
-- **товар без категории не попадёт ни в одну выборку по категориям**: фильтр сравнивает
+  (`services/mocks/products.ts:13948-13956`). У сервера то же самое сужено до одной локали —
+  `Product.name` не JSONB, `ilike` идёт по `sku` и по `name` через `or_`, `description` в
+  фильтре не участвует ни разу;
+- **товар без категории не попадёт ни в одну выборку по категориям**: мок сравнивает
   `params.categoryIds.includes(p.categoryId ?? '')` (`:13961`), а пустая строка в списке id не
-  встречается — правило домена 8;
+  встречается — правило домена 8. У сервера тот же эффект получен по-другому: `category_id IN
+  (...)` в SQL никогда не совпадает с `NULL`, так что фильтр исключает такой товар без отдельной
+  проверки;
 - **без `sortBy` порядок выдачи — порядок хранилища**: весь блок сортировки под `if (params.sortBy)`
   (`:13965-13974`); `sortBy: 'category'` сортирует по **копии** имени категории внутри товара
-  (`:13969-13970`) — правило домена 7.
+  (`:13969-13970`) — правило домена 7. У сервера `list_catalog` не добавляет `ORDER BY` вовсе,
+  когда `sort_by` не передан — не «сортировка по чему-то по умолчанию», а её полное отсутствие;
+  `sortBy: 'category'` сортирует по `categories.name_translations` через `COALESCE` по локалям
+  `en`/`ru`/`lt` (тот же порядок обхода локалей, что и у `_reconstruct_price_unit` в карточке) —
+  ни клиент, ни мок локаль сортировки не выбирают, так что сервер решает это сам, а не по контракту.
 
 Зовут список **четверо**, и двумя разными способами. Экран каталога — один вызывающий на три
 повода: по монтированию
@@ -170,12 +210,20 @@ interface ProductListItem {
 `composables/useWarehouseBatchCreate.ts:282-285`,
 `composables/useWarehouseOffcutCreate.ts:167-170`). Что у одной задачи три механизма — БАГ-03.
 
-Ошибки: ни одной. `mockGetProducts` не бросает (`services/mocks/products.ts:13942-13983`), клиент
-кладёт текст исключения в состояние (`composables/useProducts.ts:39`).
+Ошибки: мок не бросает ни одной (`services/mocks/products.ts:13942-13983`), клиент кладёт текст
+исключения в состояние (`composables/useProducts.ts:39`). Сервер — две, обе не из каталога домена
+выше: `VALIDATION_ERROR`/422 на нечисловой элемент `categoryIds` (`_parse_category_ids` в
+`domain.py`) и голый `422` от FastAPI на `sortBy`/`sortDir` вне разрешённых значений (Query
+типизирован `Literal`, до домена дело не доходит).
 
-Бэкенд: **не реализован** — у модуля два роута, и `GET` среди них только по `/{product_id}`
-(`backend/app/modules/products/features/get_product_detail/action.py:28`). Против живого сервера
-этот путь даёт 404.
+Бэкенд: `backend/app/modules/products/features/list_products/action.py` (`list_products_catalog`,
+`GET` без сегмента на том же роутере, что и `/list`) · схемы
+`backend/app/modules/products/features/list_products/schemas.py`
+(`ProductCatalogItem`, `ProductCatalogListResponse`) · домен и выборка
+`backend/app/modules/products/features/list_products/domain.py` (`list_products_catalog`,
+`MAX_PAGE_SIZE`) · `backend/app/modules/products/features/list_products/repository.py`
+(`list_catalog`, `count_catalog`, `get_categories_by_ids`). Арендатор — из
+`current_user.tenant_id` той же зависимостью `get_current_user`, что и у `/list` и у карточки.
 
 Реализация: `services/productsService.ts:7-22` (`getProducts`) · мок `services/mocks/index.ts:426`
 
@@ -189,26 +237,33 @@ interface ProductListItem {
 Запрос: параметров нет вовсе — `apiGet('/api/products/list')` без второго аргумента
 (`services/productsService.ts:114-118`). Ни поиска, ни страницы, ни фильтра.
 
-Ответ — **голый массив, не `PaginatedResponse`**:
+Ответ у сервера — конверт §1 с **плоским массивом в `data`, не `PaginatedResponse`**:
 
 ```ts
-Array<{ id: string; name: TranslatedString }>
+{ data: Array<{ id: string; name: string }> }
 ```
 
-Подпись клиента объявляет форму имени структурным литералом `{ ru: string; en: string; lt: string }`
-(`services/productsService.ts:114-116`) — второе написание `TranslatedString` (`types/i18n.ts:6-10`).
-Мок собирает ответ из всего хранилища без среза (`services/mocks/index.ts:442-445`), то есть 114
-записей (`grep -c "^    id: 'prod-" frontend_vue/src/services/mocks/products.ts` → 114). **Это
-единственный ответ домена, ничем не ограниченный по размеру.**
+Собирается `ProductListResponse`, подклассом `ApiResponse` тем же приёмом, каким это уже сделано в
+`backend/app/modules/settings/features/crud/action.py` (`SettingsListResponse`), и элементы —
+`ProductListItem` (`backend/app/modules/products/features/list_products/schemas.py`). **`name` —
+плоская строка, а не объект локалей**: колонка `Product.name` в модели одна
+(`backend/app/modules/products/shared/models.py:107`), трёх локалей ей хранить негде. Подпись
+клиента при этом объявляет форму имени структурным литералом `{ ru: string; en: string; lt: string }`
+(`services/productsService.ts:114-116`) — второе написание `TranslatedString` (`types/i18n.ts:6-10`);
+против живого сервера это расхождение формы, того же рода, что и в остальных разделах домена (см.
+врезку «Регистр полей»). Мок собирает ответ из всего хранилища без среза
+(`services/mocks/index.ts:442-445`), то есть 114 записей
+(`grep -c "^    id: 'prod-" frontend_vue/src/services/mocks/products.ts` → 114). **Это
+единственный ответ домена, ничем не ограниченный по размеру** — сервер тоже отдаёт весь каталог
+разом, без пагинации.
 
 Три свойства, которые сервер обязан знать:
 
 - **путь `/list` обязан разбираться раньше `/:id`.** В моке порядок именно такой:
   `path === '/api/products'` (`services/mocks/index.ts:426`), затем `'/api/products/list'` (`:440`),
-  затем регулярка карточки (`:449`). У сервера с единственным маршрутом `/{product_id}` порядок
-  обратный по построению, и это уже даёт живой дефект: сегмент типизирован `UUID`
-  (`backend/app/modules/products/features/get_product_detail/action.py:30`), поэтому ответом будет
-  **422 о неразобранном UUID**, а не 404 — БАГ-08. Общее правило — §18 соглашений;
+  затем регулярка карточки (`:449`). У сервера теперь тот же порядок — регистрация роутера
+  `list_products` в `backend/app/main.py` идёт раньше `get_product_detail`, тем же приёмом, каким
+  мок разбирает путь построчно — БАГ-08 (закрыт 2026-09-24). Общее правило — §18 соглашений;
 - **справочник живёт синглтоном на сессию и не инвалидируется ничем.** Модульные `products` и
   `inflight` (`composables/useProductNames.ts:12-13`), запрос ровно один за сессию (`:25-36`),
   снимается обещание только при ошибке (`:31-33`); функции сброса нет —
@@ -223,8 +278,10 @@ Array<{ id: string; name: TranslatedString }>
 Ошибки: ни одной. Ветка мока не бросает (`services/mocks/index.ts:440-447`), потребитель ошибку
 глотает и снимает обещание, чтобы попробовать снова (`composables/useProductNames.ts:31-33`).
 
-Бэкенд: **не реализован** — и хуже, чем «нет»: путь перехватит
-`GET /api/products/{product_id}` (`backend/app/modules/products/features/get_product_detail/action.py:28-30`).
+Бэкенд: `backend/app/modules/products/features/list_products/action.py` (`list_products`) · схемы
+`backend/app/modules/products/features/list_products/schemas.py` · выборка
+`backend/app/modules/products/features/list_products/repository.py` (`list_products`, сортировка
+по `name`, при равенстве по `id`, фильтр по `tenant_id`)
 
 Реализация: `services/productsService.ts:114-118` (`getProductList`) · мок
 `services/mocks/index.ts:440`
@@ -238,7 +295,7 @@ Array<{ id: string; name: TranslatedString }>
 
 Запрос: только путь — `apiGet(\`/api/products/${id}\`)` (`services/productsService.ts:24-26`), ни
 query, ни заголовков. Сервер типизирует сегмент как `product_id: UUID`
-(`backend/app/modules/products/features/get_product_detail/action.py:30`), то есть демо-идентификатор
+(`backend/app/modules/products/features/get_product_detail/action.py:31`), то есть демо-идентификатор
 вида `prod-001` (`services/mocks/products.ts:31`) он отвергнет валидацией пути, не дойдя до
 обработчика — правило домена 2. Мок ловит путь регуляркой `/^\/api\/products\/([^/]+)$/`
 (`services/mocks/index.ts:449`).
@@ -264,26 +321,29 @@ query, ни заголовков. Сервер типизирует сегмен
   purchase_to_warehouse_factor: number | null
   warehouse_to_sale_formula_type: string | null
   warehouse_to_sale_factor: number | null
-  category: { id: string; name: string; level: number } | null
-  field_values: Array<{ field_id: string; field_name: string; value: string | null }>
+  category: { id: string; name: TranslatedString; level: number } | null
+  field_values: Array<{ field_id: string; field_name: TranslatedString; value: string | null }>
   created_at: string                          // datetime
   updated_at: string                          // datetime
 }
 ```
 
 `backend/app/modules/products/features/get_product_detail/schemas.py:25-54`, вложенные схемы `:9-14`
-и `:17-22`, сборка — `backend/app/modules/products/features/get_product_detail/domain.py:81-104`.
+и `:17-22`, сборка — `backend/app/modules/products/features/get_product_detail/domain.py:86-109`.
 
 Фронт ждёт `Product` в camelCase (`types/product.ts:56-109`), и расхождений **шесть**, каждое
 отдельное:
 
 1. **регистр всех составных имён** — общая беда домена, см. врезку выше;
 2. **категория**: у сервера вложенный `category` из живой выборки (`backend/app/modules/products/features/get_product_detail/schemas.py:17-22`, сборка
-   `backend/app/modules/products/features/get_product_detail/domain.py:56-64`), у фронта два плоских поля `categoryId` + `categoryName`
-   (`types/product.ts:59-60`), причём мок хранит имя **копией** внутри товара
+   `backend/app/modules/products/features/get_product_detail/domain.py:58-66`), у фронта два плоских поля `categoryId` + `categoryName`
+   (`types/product.ts:59-60`) — структура разная, но тип имени теперь совпадает: `category.name`
+   сервер отдаёт `TranslatedString` (`categories.name_translations`, ревизия
+   `a7c1d4e90b21_categories_translated_names`), как и ждёт `categoryName: TranslatedString | null`;
+   причём мок хранит имя **копией** внутри товара
    (`services/mocks/products.ts:34`) — правило домена 4 «Обязанностей»;
 3. **`price_unit`** — легаси-подпись, которую сервер собирает заново из FK при каждом чтении
-   (`backend/app/modules/products/features/get_product_detail/domain.py:26-44`, вызов `:77-79`), хотя колонку миграция удалила
+   (`backend/app/modules/products/features/get_product_detail/domain.py:28-46`, вызов `:77-79`), хотя колонку миграция удалила
    (`backend/alembic/versions/a1b2c3d4e5f6_phase_15_product_uom_restructure.py:99`); во фронте такого
    поля нет (`grep -c "priceUnit" frontend_vue/src/types/product.ts` → 0, есть лишь неиспользуемый
    алиас `PriceUnit` на `types/product.ts:7`);
@@ -292,10 +352,17 @@ query, ни заголовков. Сервер типизирует сегмен
 5. **пяти полей фронта у сервера нет вовсе** — `avgCostPrice`, `avgSalePrice`, `linkedSuppliers`,
    `auditLog`, `weightPerWarehouseUnitKg` (`types/product.ts:69-70`, `:103`, `:107-108`): ни в схеме
    ответа, ни в модели (`backend/app/modules/products/shared/models.py:96-183`);
-6. **элемент `field_values`** у сервера — три поля, у фронта шесть, и `field_name` сервер заполняет
-   **заглушкой** `str(fv.field_id)` с комментарием «placeholder — resolve field name»
-   (`backend/app/modules/products/features/get_product_detail/domain.py:70`) — БАГ-04; фронтовый `ProductFieldValue` — `{fieldId, fieldName: TranslatedString,
-   fieldType, value, inherited, options?}` (`types/product.ts:9-16`).
+6. **элемент `field_values`** у сервера — три поля, у фронта шесть; `field_name` сервер резолвит
+   настоящим именем из `category_fields.name_translations`, одним запросом по всем `field_id` через
+   `in_`, ограниченным `tenant_id` вызывающего — не заглушкой (было `str(fv.field_id)` с
+   комментарием «placeholder — resolve field name», БАГ-04, закрыт 2026-09-24;
+   `backend/app/modules/products/features/get_product_detail/repository.py`, `get_category_fields_by_ids`;
+   применение — `backend/app/modules/products/features/get_product_detail/domain.py`). Если
+   определения нет в арендаторе вызывающего, `field_name` — пустой `TranslatedString`, а само
+   значение из ответа не пропадает. Тип теперь совпадает с фронтом: `field_name` едет объектом
+   переводов, как и ждёт `ProductFieldValue` — `{fieldId, fieldName: TranslatedString,
+   fieldType, value, inherited, options?}` (`types/product.ts:9-16`); из шести расхождений
+   элемента остались только состав полей (три против шести) и регистр ключей.
 
 Практическое следствие пятого пункта: **карточка против живого бэкенда не откроется** —
 `JSON.parse(JSON.stringify(data.linkedSuppliers))` на `undefined` бросает
@@ -308,7 +375,7 @@ query, ни заголовков. Сервер типизирует сегмен
 соглашений).
 
 Ошибки: **у сервера одна, у мока ни одной.** Сервер бросает `NotFoundError(entity="Product", …)`
-(`backend/app/modules/products/features/get_product_detail/domain.py:51-53`) и отдаёт 404 с телом
+(`backend/app/modules/products/features/get_product_detail/domain.py:53-55`) и отдаёт 404 с телом
 `{"detail": {"message", "code"}}` (`backend/app/modules/products/features/get_product_detail/action.py:42-46`); мок
 вместо кода бросает **текст** — `new Error(\`Product ${id} not found\`)`
 (`services/mocks/products.ts:13987`), и этот текст показывается пользователю
@@ -318,9 +385,10 @@ query, ни заголовков. Сервер типизирует сегмен
 `composables/useWarehouseBatchCreate.ts:145`, `composables/useWarehouseOffcutCreate.ts:281`,
 `composables/useWarehouseOffcutCard.ts:237`, `composables/useWarehouseCutting.ts:148`.
 
-Бэкенд: `backend/app/modules/products/features/get_product_detail/action.py:28`
+Бэкенд: `backend/app/modules/products/features/get_product_detail/action.py:29`
 (`get_product_detail`) · схемы `backend/app/modules/products/features/get_product_detail/schemas.py:9-54` · выборка
-`backend/app/modules/products/features/get_product_detail/repository.py:13-22` (**без фильтра по арендатору** — БАГ-14)
+`backend/app/modules/products/features/get_product_detail/repository.py:13-22`
+(`get_product_by_id`, теперь фильтрует по `tenant_id` в `where` — БАГ-14 закрыт)
 
 Реализация: `services/productsService.ts:24-26` (`getProduct`) · мок
 `services/mocks/index.ts:449` → `services/mocks/products.ts:13985` (`mockGetProduct`)
@@ -386,7 +454,7 @@ query, ни заголовков. Сервер типизирует сегмен
 ```
 
 `backend/app/modules/products/features/create_product/schemas.py:34-40`, сборка
-`backend/app/modules/products/features/create_product/domain.py:63-67`, конверт и статус — `backend/app/modules/products/features/create_product/action.py:23`, `:38-42`.
+`backend/app/modules/products/features/create_product/domain.py:63-67`, конверт и статус — `backend/app/modules/products/features/create_product/action.py:24`, `:38-42`.
 Клиент типизирует ответ как `Promise<Product>` (`services/productsService.ts:48`), мок отдаёт
 созданный `Product` целиком (`services/mocks/products.ts:14076-14114`). Сегодня расхождение
 безвредно — вызывающий читает единственное поле `created.id` для перехода в карточку
@@ -396,7 +464,7 @@ query, ни заголовков. Сервер типизирует сегмен
 Ошибки: **одна у сервера, ни одной у мока.** Сервер бросает
 `ValidationError("Product name is required")` на пустом имени
 (`backend/app/modules/products/features/create_product/domain.py:30-31`) и отдаёт 422 с телом `{"detail": {"message", "code"}}`
-(`backend/app/modules/products/features/create_product/action.py:43-47`). Мок не бросает ничего
+(`backend/app/modules/products/features/create_product/action.py:33-37`). Мок не бросает ничего
 (`services/mocks/products.ts:13991-14115`); вместо серверной проверки стоит клиентская —
 `if (!newProduct.value.name.trim()) return` (`views/admin/products/ProductsPage.vue:198`) плюс
 `:disabled` на кнопке (`:540`). **Ошибку создания фронт не показывает вовсе:** у `handleCreate`
@@ -409,7 +477,7 @@ query, ни заголовков. Сервер типизирует сегмен
 `UNIQUE INDEX` того же имени), — ни в моке
 (`services/mocks/products.ts:13991-14115`).
 
-Бэкенд: `backend/app/modules/products/features/create_product/action.py:23` (`create_product`) ·
+Бэкенд: `backend/app/modules/products/features/create_product/action.py:24` (`create_product`) ·
 схемы `backend/app/modules/products/features/create_product/schemas.py:8-40` · запись `backend/app/modules/products/features/create_product/repository.py:48-50`
 (`flush`, без своего коммита)
 
@@ -487,8 +555,15 @@ Partial<{
 (`types/product.ts:56-109`) — то есть last-write-wins здесь не решение контракта, а следствие
 отсутствия механизма.
 
-Бэкенд: **не реализован.** Схема хранения при этом уже заведена и с формой запроса согласуется по
-именам в `snake_case` (`backend/app/modules/products/shared/models.py:107-177`), кроме
+Бэкенд: `backend/app/modules/products/features/patch_product/action.py` (`patch_product`) · схемы
+`backend/app/modules/products/features/patch_product/schemas.py` (`PatchProductInput`, camelCase-алиасы
+на snake_case-поля модели) · домен `backend/app/modules/products/features/patch_product/domain.py`
+(`patch_product`, `model_fields_set` отличает «ключ не пришёл» от «пришёл null», ответ — переиспользованный
+`ProductDetailResponse` из `get_product_detail`, второй карточной схемы не заведено) · выборка
+`backend/app/modules/products/features/patch_product/repository.py` (`get_product_for_update`,
+`update_product`, `replace_field_values`, фильтр по `tenant_id`). Схема хранения при этом уже заведена
+и с формой запроса согласуется по именам в `snake_case`
+(`backend/app/modules/products/shared/models.py:107-177`), кроме
 `weightPerWarehouseUnitKg`, которого на бэкенде нет вовсе (`grep -rn "weight_per_warehouse" backend/`
 — пусто).
 
@@ -539,10 +614,10 @@ query, ни заголовков: `apiDelete` кладёт только `options
 | ссылка | политика | где |
 |---|---|---|
 | `warehouse_batches.product_id` | `RESTRICT` | `backend/app/modules/warehouse/shared/models.py:22-27` |
-| `warehouse_offcuts.product_id` | `SET NULL` | `backend/app/modules/warehouse/shared/models.py:148-152` |
-| `warehouse_deficits.product_id` | `CASCADE` | `backend/app/modules/warehouse/shared/models.py:179-183` |
-| `stock_items.product_id` | `CASCADE` + `unique` | `backend/app/modules/warehouse/shared/models.py:213-218` |
-| `supplier_price_entries.product_id` | `SET NULL` | `backend/app/modules/suppliers/shared/models.py:223` |
+| `warehouse_offcuts.product_id` | `SET NULL` | `backend/app/modules/warehouse/shared/models.py:171-175` |
+| `warehouse_deficits.product_id` | `CASCADE` | `backend/app/modules/warehouse/shared/models.py:202-206` |
+| `stock_items.product_id` | `CASCADE` + `unique` | `backend/app/modules/warehouse/shared/models.py:256-261` |
+| `supplier_price_entries.product_id` | `SET NULL` | `backend/app/modules/suppliers/shared/models.py:225` |
 | `bcc_events.product_id` | `SET NULL` | `backend/app/modules/bcc/shared/models.py:65` |
 | `product_field_values.product_id` | `CASCADE` | `backend/app/modules/products/shared/models.py:199` |
 
@@ -552,7 +627,7 @@ query, ни заголовков: `apiDelete` кладёт только `options
 `| sort -u` → 72; складские сиды лежат в пяти файлах `frontend_vue/src/mocks/`). Под П44 это
 перестаёт быть аварией: строка товара не исчезает, и ссылаться по-прежнему есть на что.
 
-Бэкенд: **не реализован.**
+Бэкенд: `backend/app/modules/products/features/archive_product/action.py:22` (`archive_product`) — удаление мягкое: проставляется метка `archived_at`, строка остаётся, и товар пропадает из справочника `/list`.
 
 Реализация: `services/productsService.ts:120-122` (`deleteProduct`) · мок
 `services/mocks/index.ts:1506` → `services/mocks/products.ts:14220` (`mockDeleteProduct`)
@@ -604,8 +679,8 @@ query, ни заголовков: `apiDelete` кладёт только `options
 Бэкенд: **не реализован** — и таблицы под журнал товара на схеме нет: модуль создаёт четыре
 таблицы (`backend/app/modules/products/shared/models.py:17`, `:62`, `:99`, `:189`), а единственные
 существующие таблицы журналов — `stock_audit_entries`
-(`backend/app/modules/warehouse/shared/models.py:232`) и журнал поставщика
-(`backend/app/modules/suppliers/shared/models.py:173`).
+(`backend/app/modules/warehouse/shared/models.py:275`) и журнал поставщика
+(`backend/app/modules/suppliers/shared/models.py:175`).
 
 Реализация: `services/productsService.ts:124-126` (`deleteProductAuditEntry`) · мок
 `services/mocks/index.ts:1497` → `services/mocks/products.ts:14230`
@@ -703,26 +778,34 @@ id пользователя (`types/warehouse.ts:526-534`); понятия `sens
    схеме под имя стоит одна `String(255)` (`backend/app/modules/products/shared/models.py:107`) —
    расхождение схемы с типом описано в §12 соглашений.
 
-**6. Мультиарендность — на схеме выражена, в единственном реализованном чтении нет.**
+**6. Мультиарендность — на схеме выражена и с БАГ-14 (закрыт 2026-09-24) выражена в чтении тоже.**
 `Product.tenant_id` и `ProductFieldValue.tenant_id` объявлены `nullable=False, index=True`, FK на
 `tenants.id` с `ondelete="CASCADE"` (`backend/app/modules/products/shared/models.py:101-106`,
 `:191-196`; миграция `backend/alembic/versions/25245d4bf874_phase_3_categories_products.py:60`,
-`:76`). Но `get_product_by_id` выбирает товар **только по id**
-(`backend/app/modules/products/features/get_product_detail/repository.py:13-22`), а домен, который
-`tenant_id` получает, использует его лишь для сборки легаси-подписи
-(`backend/app/modules/products/features/get_product_detail/domain.py:47-53`, `:77-79`) — БАГ-14. Что модуль это умеет, видно рядом:
+`:76`). `get_product_by_id` и `get_category_by_id`
+(`backend/app/modules/products/features/get_product_detail/repository.py`) принимают `tenant_id`
+и сравнивают его в `where` рядом с `id`; домен передаёт им арендатора из запроса, а не только в
+сборку легаси-подписи `price_unit`
+(`backend/app/modules/products/features/get_product_detail/domain.py`). Арендатор в обоих роутах
+берётся из `current_user.tenant_id` — зависимости `Depends(get_current_user)`
+(`backend/app/modules/products/features/create_product/action.py`,
+`backend/app/modules/products/features/get_product_detail/action.py`), заглушки
+`00000000-0000-0000-0000-000000000001` в коде больше нет. Что модуль умел и раньше, видно рядом:
 `count_products_by_currency` и `count_products_by_uom` фильтруют по арендатору
-(`backend/app/modules/products/internal_api/interface.py:49-53`, `:63-70`). Сам арендатор в обоих
-роутах захардкожен заглушкой `00000000-0000-0000-0000-000000000001`
-(`backend/app/modules/products/features/create_product/action.py:33-34`, `backend/app/modules/products/features/get_product_detail/action.py:34-35`). Во фронте
+(`backend/app/modules/products/internal_api/interface.py:49-53`, `:63-70`). Во фронте
 мультиарендность не выражена никак — и так и должно быть (§4 соглашений).
 
-**7. Права — не проверяются нигде.** У роутов бэкенда нет ни одной зависимости аутентификации:
-единственный `Depends` в обоих — `get_db` (`backend/app/modules/products/features/create_product/action.py:26`,
-`backend/app/modules/products/features/get_product_detail/action.py:31`), тогда как соседний `GET /api/auth/me` требует Bearer
-(`backend/app/modules/auth/features/me/action.py:36`). Клиент заголовков не шлёт тоже
-(`services/productsService.ts` — 126 строк, ни одного `headers`), что для домена с
-`tenant_id NOT NULL` само по себе находка (§5 соглашений). Во фронте доступ гейтится только
+**7. Права — с БАГ-14 (закрыт 2026-09-24) авторизация есть, разрешения — нет.** Оба роута
+объявляют `Depends(get_current_user)` из `app.modules.auth.internal_api.interface`
+(`backend/app/modules/products/features/create_product/action.py`,
+`backend/app/modules/products/features/get_product_detail/action.py`), как и соседний
+`GET /api/auth/me` (`backend/app/modules/auth/features/me/action.py:36`) — запрос без `Bearer`
+теперь отвечает 401. Проверки конкретного разрешения (право на чтение/правку товара) за этим не
+стоит — `check_permission` в `app.modules.auth.internal_api.interface` остаётся заглушкой,
+разрешающей всё (§6 соглашений), и это тот же класс «нет права», что и раньше, только на
+следующем уровне. Клиент заголовков не шлёт (`services/productsService.ts` — 126 строк, ни одного
+`headers`) — фронт эту авторизацию ещё не использует, и до его правки живой сервер отвечает 401 на
+каждый запрос домена. Во фронте доступ гейтится только
 фича-флагами: роуты `products` и `products/:id` несут `meta.featureFlag: 'adminProducts'`
 (`router/index.ts:220`, `:226`), секция поставщиков — `productSupplierLinks`
 (`views/admin/products/ProductCardPage.vue:35`); оба объявлены `true`
@@ -759,14 +842,14 @@ id пользователя (`types/warehouse.ts:526-534`); понятия `sens
    (`backend/app/modules/products/features/get_product_detail/schemas.py:25-54`) — значит **сервер обязан считать их сам**, и это
    единственный способ: данные лежат в двух других модулях. Кто именно считает — строка владельцу;
 3. **`price_unit`** — подпись вида `"EUR/kg"`, которую сервер собирает из `currency_id` +
-   `sale_uom_id` при каждом чтении (`backend/app/modules/products/features/get_product_detail/domain.py:26-44`, вызов `:77-79`) после
+   `sale_uom_id` при каждом чтении (`backend/app/modules/products/features/get_product_detail/domain.py:28-46`, вызов `:77-79`) после
    того, как одноимённая колонка была удалена миграцией
    (`backend/alembic/versions/a1b2c3d4e5f6_phase_15_product_uom_restructure.py:99`); код единицы
-   берётся `en → ru → lt` (`backend/app/modules/products/features/get_product_detail/domain.py:37-41`), то есть подпись всегда
+   берётся `en → ru → lt` (`backend/app/modules/products/features/get_product_detail/domain.py:39-43`), то есть подпись всегда
    собирается на чужом языке. Остаётся ли она в ответе — строка владельцу;
 4. **`categoryName`** — производное **только во фронте**: мок хранит его копией в записи товара
    (`services/mocks/products.ts:34`) и подставляет из категории при создании (`:14026-14030`), а
-   сервер отдаёт вложенный `category` из живой выборки (`backend/app/modules/products/features/get_product_detail/domain.py:56-64`). У
+   сервер отдаёт вложенный `category` из живой выборки (`backend/app/modules/products/features/get_product_detail/domain.py:58-66`). У
    сервера это ссылка, у мока копия, и после переименования категории копия устаревает.
 
 ---
@@ -778,7 +861,7 @@ id пользователя (`types/warehouse.ts:526-534`); понятия `sens
 1. **Формы бэкенда и формы фронта — два разных языка, и мост между ними не написан.** Врезка в
    начале файла; следствия — БАГ-07 и БАГ-11, решение — владельцу.
 2. **Товар идентифицируется UUID'ом на сервере и строкой `prod-NNN` в моке.** Сегмент пути
-   типизирован `product_id: UUID` (`backend/app/modules/products/features/get_product_detail/action.py:30`), схема — `UUIDMixin`
+   типизирован `product_id: UUID` (`backend/app/modules/products/features/get_product_detail/action.py:31`), схема — `UUIDMixin`
    (`backend/app/modules/products/shared/models.py:96`); мок сеет `id: 'prod-001'` … `'prod-114'`
    (`services/mocks/products.ts:31`). Все чужие ссылки на товар — строки того же вида: 72
    различных id в складских сидах (раздел `DELETE /api/products/:id`). Общее правило
@@ -856,8 +939,8 @@ id пользователя (`types/warehouse.ts:526-534`); понятия `sens
 17. **Перечень формул пересчёта закрыт во фронте и открыт на схеме** — графа 1 обязанностей; тот же
     класс, что перечень типов поля (§8 соглашений).
 18. **Порядок разбора путей — часть контракта: `/api/products/list` разбирается раньше
-    `/api/products/:id`.** Раздел `GET /api/products/list`; общее правило и живой дефект — §18
-    соглашений.
+    `/api/products/:id`.** Раздел `GET /api/products/list`; общее правило — §18 соглашений;
+    сервер соблюдает его регистрацией роутера, БАГ-08 закрыт 2026-09-24.
 
 ---
 
@@ -875,11 +958,11 @@ id пользователя (`types/warehouse.ts:526-534`); понятия `sens
 | `name`, `categoryName`, `description`, `fieldName`, `options` строками (`03-api-contract.md:1016`, `03-api-contract.md:1063`, `03-api-contract.md:1069-1070`) | все пять — `TranslatedString` (`types/product.ts:39-41`, `:58`, `:62`, `:11`, `:15`); сборка списка — `services/mocks/products.ts:13925`, `:13927`. Механика — §12 соглашений |
 | пример ответа списка без `avgCostPrice`, `avgSalePrice`, `saleUomId`, `warehouseUomId`, `warehouseToSaleFactor` (`03-api-contract.md:1013-1017`) | пять полей есть в типе (`types/product.ts:45-53`) и в сборке (`services/mocks/products.ts:13922-13940`); две первых — производные (графа 9) |
 | `POST /api/products`: тело из шести полей (`03-api-contract.md:1030-1037`) | у сервера пятнадцать (`backend/app/modules/products/features/create_product/schemas.py:8-31`), у клиента те же пятнадцать в camelCase (`services/productsService.ts:29-46`); нет ни `priceQuantity`, ни `currencyId`, ни трёх UoM, ни четырёх полей пересчёта |
-| «Response 200: `ApiResponse<Product>` — созданный товар целиком (с `fieldValues: []`, `linkedSuppliers: []`)» (`03-api-contract.md:1039`) | сервер отдаёт четыре поля — `{id, name, sku, message}` — и статус **201** (`backend/app/modules/products/features/create_product/schemas.py:34-40`, `backend/app/modules/products/features/create_product/action.py:23`) |
+| «Response 200: `ApiResponse<Product>` — созданный товар целиком (с `fieldValues: []`, `linkedSuppliers: []`)» (`03-api-contract.md:1039`) | сервер отдаёт четыре поля — `{id, name, sku, message}` — и статус **201** (`backend/app/modules/products/features/create_product/schemas.py:34-40`, `backend/app/modules/products/features/create_product/action.py:24`) |
 | «Клиент после успеха перезапрашивает список (`load()`)» (`03-api-contract.md:1040`) | не перезапрашивает: модал закрывается и происходит переход в карточку созданного товара (`views/admin/products/ProductsPage.vue:214-216`) |
 | «409 `PRODUCT_IN_USE` если товар используется в активных заказах» (`03-api-contract.md:1046`) | код есть, но с заказами не связан ничем: правило мока — множество трёх id (`services/mocks/products.ts:14224`), заказы этот файл не импортирует (`:1-18`). Статус 409 не подтверждён ничем: мок бросает голый `Error` без статуса (`services/mocks/index.ts:1509`), а `ApiRequestError.status` заполняется только из настоящего HTTP-ответа (`types/api.ts:26-27`, `services/api.ts:117-124`) |
 | `DELETE /api/products/:id` без `PRODUCT_NOT_FOUND` (`03-api-contract.md:1042-1046` — только `PRODUCT_IN_USE`) | второй код мок бросает (`services/mocks/products.ts:14222`), и до человека он не доходит (`composables/useProducts.ts:51-55`) — БАГ-01 |
-| `GET /api/products/:id`: «404 `PRODUCT_NOT_FOUND`» (`03-api-contract.md:1077`) | такого кода на этом пути нет ни у сервера, ни у мока: сервер отдаёт `NOT_FOUND` (`backend/app/modules/products/features/get_product_detail/domain.py:53`), мок — текст `Product ${id} not found` (`services/mocks/products.ts:13987`). `grep -rn "PRODUCT_NOT_FOUND" frontend_vue/src backend/app` даёт только ветку удаления — БАГ-06 |
+| `GET /api/products/:id`: «404 `PRODUCT_NOT_FOUND`» (`03-api-contract.md:1077`) | такого кода на этом пути нет ни у сервера, ни у мока: сервер отдаёт `NOT_FOUND` (`backend/app/modules/products/features/get_product_detail/domain.py:55`), мок — текст `Product ${id} not found` (`services/mocks/products.ts:13987`). `grep -rn "PRODUCT_NOT_FOUND" frontend_vue/src backend/app` даёт только ветку удаления — БАГ-06 |
 | пример `linkedSuppliers` без поля `currency` (`03-api-contract.md:1072`) | поле есть в типе и заполняется снимком валюты поставщика (`types/product.ts:34`, запись — `views/admin/products/ProductCardPage.vue:211`) |
 | ответ карточки без одиннадцати поздних полей — `priceQuantity`, `currencyId`, `avgCostPrice`, `avgSalePrice`, три `*UomId`, четыре поля пересчёта, `weightPerWarehouseUnitKg` (`03-api-contract.md:1057-1076`) | все объявлены (`types/product.ts:64-103`); формы сервера и фронта при этом сегодня несовместимы — раздел `GET /api/products/:id`, шесть расхождений |
 | `PATCH /api/products/:id`: дельта из семи ключей (`03-api-contract.md:1085-1091`) | объявленных шестнадцать (`services/productsService.ts:63-83`) плюс семнадцатый неявный — `weightPerWarehouseUnitKg` (БАГ-09) |

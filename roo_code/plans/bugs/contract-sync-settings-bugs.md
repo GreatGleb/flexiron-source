@@ -40,7 +40,7 @@ async def patch_currency_route(currency_id: uuid.UUID, input_data: CurrencyPatch
 
 Вторая половина той же дыры — репозиторий. `get_currency`, `get_uom`, `get_conversion`,
 `get_order_status` ищут запись **по одному `id`**, без `tenant_id`
-(`crud/repository.py:94-98`, `:148-150`, `:205-209`, `:262-266`), поэтому даже если токен
+(`crud/repository.py:92-96`, `:148-150`, `:205-209`, `:262-266`), поэтому даже если токен
 вернуть, арендатор всё равно не проверяется: зная UUID чужой валюты, её можно переименовать
 или удалить. Ограничение по арендатору есть только у списков (`:89`, `:143`, `:200`, `:256`)
 и у `reorder`, который пишет по паре `(id, tenant_id)` (`:299-302`).
@@ -49,7 +49,7 @@ async def patch_currency_route(currency_id: uuid.UUID, input_data: CurrencyPatch
 
 Добавить `Depends(_resolve_user_id)` восьми роутам и провести `tenant_id` до репозитория —
 `get_*` по id обязаны принимать `tenant_id` и фильтровать по нему, как это уже сделано в
-`reorder_order_statuses` (`crud/repository.py:294-306`).
+`reorder_order_statuses` (`crud/repository.py:289-301`).
 
 ### Future rule
 
@@ -242,11 +242,11 @@ function authHeaders(): Record<string, string> | undefined {
 Обе стороны правила объявлены каскадом:
 
 ```python
-from_uom_id: … ForeignKey("uoms.id", ondelete="CASCADE")   # models.py:131
-to_uom_id:   … ForeignKey("uoms.id", ondelete="CASCADE")   # models.py:136
+from_uom_id: … ForeignKey("uoms.id", ondelete="CASCADE")   # models.py:156
+to_uom_id:   … ForeignKey("uoms.id", ondelete="CASCADE")   # models.py:161
 ```
 
-`remove_uom_item` (`crud/domain.py:466`) проверяет только товары — счёт идёт через
+`remove_uom_item` (`crud/domain.py:475`) проверяет только товары — счёт идёт через
 `count_products_by_uom` (`crud/domain.py:472`) — и, не найдя их, удаляет единицу. Правила пересчёта, где эта единица
 стоит с любой стороны, исчезнут вместе с ней. Старый контракт обещал ровно обратное — «409
 если UOM используется в товарах, правилах пересчёта или заказах»
@@ -342,7 +342,7 @@ PATCH констант (`:353-356`), и все они уходят одним `P
 
 ### Fix
 
-Та же проверка через `get_currency_by_code` (`crud/repository.py:101-111`) в ветке PATCH.
+Та же проверка через `get_currency_by_code` (`crud/repository.py:99-109`) в ветке PATCH.
 
 ---
 
@@ -355,7 +355,7 @@ PATCH констант (`:353-356`), и все они уходят одним `P
 ### Problem
 
 Домен исправно бросает `NotFoundError` из пяти функций — `update_currency_item`
-(`crud/domain.py:219`), `update_uom_item` (`crud/domain.py:372`), `update_conversion_item` (`crud/domain.py:455`),
+(`crud/domain.py:219`), `update_uom_item` (`crud/domain.py:372`), `update_conversion_item` (`crud/domain.py:464`),
 `remove_conversion_item` (`:438`), `update_order_status_item` (`:490`). Роуты, которые их
 вызывают, `try/except` не имеют: сравните `delete_currency_route` (`crud/action.py:266-284`,
 ловит `NotFoundError` и `ConflictError`) с `patch_currency_route` (`:252-263`, не ловит
@@ -422,14 +422,14 @@ export function mockPatchProfile(patch: Partial<UserProfile>): UserProfile {
 
 ## БАГ-14 — мок статусов не знает про системные, сервер знает
 
-**File:** `frontend_vue/src/services/mocks/settings.ts:657-662`, `backend/app/modules/settings/features/crud/domain.py:578-580`
+**File:** `frontend_vue/src/services/mocks/settings.ts:657-662`, `backend/app/modules/settings/features/crud/domain.py:596-598`
 **Severity:** Medium — под моками удаляется то, что сервер запретит 403-м.
 **Источник:** К2
 
 ### Problem
 
 Сервер отказывает: `if existing.is_system: raise ForbiddenError("Cannot delete a system-defined order status")`
-(`crud/domain.py:579-580`), роут отображает это в 403 (`crud/action.py:496-500`). Мок
+(`crud/domain.py:597-598`), роут отображает это в 403 (`crud/action.py:496-500`). Мок
 удаляет что угодно (`mocks/settings.ts:657-662` — единственная проверка это существование),
 при том что все 15 сидовых статусов помечены `system: true`
 (`mocks/settings.ts:212-347`). Кнопка удаления в UI системные статусы не различает
@@ -555,7 +555,7 @@ Save, нажатый в промежутке, отправит PATCH с base64. 
 
 ## БАГ-19 — `factor` со значением 0 не доезжает до клиента
 
-**File:** `backend/app/modules/settings/features/crud/domain.py:492,533,577`
+**File:** `backend/app/modules/settings/features/crud/domain.py:510,533,577`
 **Severity:** Low — коэффициент 0 читается как «коэффициента нет».
 **Источник:** К4
 
@@ -571,7 +571,7 @@ factor=float(c.factor) if c.factor else None
 означает отсутствие поля (`frontend_vue/src/types/settings.ts:83` — `factor?: number`).
 Проверка должна быть `is not None`. Ноль как коэффициент бессмысленен, но записать его
 сейчас можно: валидации `factor > 0` нет ни в `create_conversion_item`
-(`crud/domain.py:417-447`), ни в форме (`SettingsLayout.vue:376-398`).
+(`crud/domain.py:426-456`), ни в форме (`SettingsLayout.vue:376-398`).
 
 ### Fix
 
@@ -581,7 +581,7 @@ factor=float(c.factor) if c.factor else None
 
 ## БАГ-20 — правило пересчёта можно создать и без коэффициента, и без формулы
 
-**File:** `backend/app/modules/settings/features/crud/schemas.py:195-204`, `backend/app/modules/settings/features/crud/domain.py:417-447`
+**File:** `backend/app/modules/settings/features/crud/schemas.py:195-204`, `backend/app/modules/settings/features/crud/domain.py:426-456`
 **Severity:** Medium — в матрице появляется строка, по которой ничего не пересчитывается.
 **Источник:** К4
 
@@ -589,9 +589,9 @@ factor=float(c.factor) if c.factor else None
 
 В схеме создания обязательны только `fromUomId`, `toUomId` и `type`; `factor` и
 `formula_type` объявлены необязательными (`crud/schemas.py:195-204`). В домене проверяются
-две вещи — совпадение единиц (`crud/domain.py:424-425`) и дубль пары (`crud/domain.py:428-430`); связка
+две вещи — совпадение единиц (`crud/domain.py:433-434`) и дубль пары (`crud/domain.py:437-439`); связка
 `type='static' → factor` / `type='dynamic' → formulaType` не проверяется. Само `type` —
-свободная строка (`String(20)`, `models.py:133-135`), то есть примется любая.
+свободная строка (`String(20)`, `models.py:158-160`), то есть примется любая.
 
 Форма это правило знает и соблюдает (`SettingsLayout.vue:377-378, 380-394`), но клиент —
 не место для серверного инварианта.
@@ -605,7 +605,7 @@ factor=float(c.factor) if c.factor else None
 
 ## БАГ-21 — PATCH правила пересчёта не проверяет ни совпадение единиц, ни дубль пары
 
-**File:** `backend/app/modules/settings/features/crud/domain.py:450-483`, `backend/app/modules/settings/features/crud/schemas.py:207-216`
+**File:** `backend/app/modules/settings/features/crud/domain.py:459-501`, `backend/app/modules/settings/features/crud/schemas.py:207-216`
 **Severity:** Medium — правило можно перевесить на пару, которая уже описана, или на одну и ту же единицу с обеих сторон.
 **Источник:** К4
 
@@ -614,7 +614,7 @@ factor=float(c.factor) if c.factor else None
 `ConversionPatchInput` принимает `fromUomId` и `toUomId` (`crud/schemas.py:207-216`), а
 `update_conversion_item` их просто перекладывает: обе единицы уходят в
 `updates` без единой проверки (`crud/domain.py:200`). Обе проверки,
-написанные для создания (`crud/domain.py:424-425` и `crud/domain.py:428-430`), здесь не вызываются. Тем же
+написанные для создания (`crud/domain.py:433-434` и `crud/domain.py:437-439`), здесь не вызываются. Тем же
 путём нельзя обнулить `factor` или `formula_type`: `None` означает «не менять»
 (`:413-416`), поэтому правило, переключённое со `static` на `dynamic`, сохранит старый
 коэффициент.
@@ -638,8 +638,8 @@ factor=float(c.factor) if c.factor else None
   эндпоинта нет и в `fetchAllSections` его нет (`useSettings.ts:244`). Это не дефект кода,
   а отсутствующая функциональность — вопрос владельцу, не правка.
 - **`sort_order` статусов не нормализуется после удаления.** Сервер оставляет дыры в
-  нумерации (`crud/domain.py:573-585`), мок перенумеровывает (`mocks/settings.ts:661`).
-  Порядок при чтении задаётся сортировкой (`crud/repository.py:257`), поэтому дыры не видны;
+  нумерации (`crud/domain.py:591-603`), мок перенумеровывает (`mocks/settings.ts:661`).
+  Порядок при чтении задаётся сортировкой (`crud/repository.py:253`), поэтому дыры не видны;
   расхождение записано в аудит, но багом не считается.
 
 ---

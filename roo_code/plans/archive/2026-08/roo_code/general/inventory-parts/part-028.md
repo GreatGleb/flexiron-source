@@ -108,15 +108,15 @@ useWarehouseBatch.ts` → пусто; в i18n ключей `field_product_price`
 
 ```
 $ grep -rn "api/products" backend/app --include=*.py | grep prefix
-backend/app/modules/products/features/get_product_detail/action.py:25:router = APIRouter(prefix="/api/products", ...)
-backend/app/modules/products/features/create_product/action.py:20:router = APIRouter(prefix="/api/products", ...)
+backend/app/modules/products/features/get_product_detail/action.py:26:router = APIRouter(prefix="/api/products", ...)
+backend/app/modules/products/features/create_product/action.py:21:router = APIRouter(prefix="/api/products", ...)
 $ ls backend/app/modules/products/features/
 create_product  get_product_detail  __init__.py
 ```
 Списочного `GET /api/products` в бэкенде нет вовсе — только `GET /api/products/{id}`
 и `POST /api/products`. Деталь отдаёт нужное:
 `get_product_detail/schemas.py:35 price_unit`, `:41-43 purchase_uom_id / warehouse_uom_id /
-sale_uom_id`; реконструкция — `get_product_detail/domain.py:26 _reconstruct_price_unit`,
+sale_uom_id`; реконструкция — `get_product_detail/domain.py:28 _reconstruct_price_unit`,
 `:76-93`.
 
 ```

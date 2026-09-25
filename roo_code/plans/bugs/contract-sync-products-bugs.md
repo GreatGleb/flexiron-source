@@ -138,7 +138,7 @@ await apiDelete<void>(`/api/products/${productId}/audit/${entryId}`)
 
 ## БАГ-04 — сервер отдаёт имя кастомного поля заглушкой вместо имени
 
-**File:** `backend/app/modules/products/features/get_product_detail/domain.py:67-74`
+**File:** `backend/app/modules/products/features/get_product_detail/domain.py:71-79`
 **Severity:** High — единственный реализованный ответ по товару содержит заведомо неверные данные.
 **Источник:** К4 (формы ответа), К5 (бэкенд — источник истины)
 
@@ -156,7 +156,7 @@ field_values = [
 ```
 
 `field_name` — это UUID поля, записанный строкой. Комментарий признаёт заглушку, но эндпоинт
-отдаётся наружу как готовый (`backend/app/modules/products/features/get_product_detail/action.py:28`), и в его схеме `field_name`
+отдаётся наружу как готовый (`backend/app/modules/products/features/get_product_detail/action.py:29`), и в его схеме `field_name`
 объявлен обязательным `str` (`backend/app/modules/products/features/get_product_detail/schemas.py:9-14`) — то есть потребитель не
 отличит заглушку от имени. Данные для настоящего имени рядом: `CategoryField.name`
 (`backend/app/modules/products/shared/models.py:76`), связь — `product_field_values.field_id`
@@ -243,7 +243,7 @@ product.value.auditLog = product.value.auditLog.filter((entry) => entry.id !== e
 Пользователь видит английскую строку из мока при любой локали.
 
 Настоящий сервер этот случай оформляет как надо — `NotFoundError(entity="Product", …)` с кодом
-`NOT_FOUND` (`backend/app/modules/products/features/get_product_detail/domain.py:53`,
+`NOT_FOUND` (`backend/app/modules/products/features/get_product_detail/domain.py:55`,
 `backend/app/core/exceptions.py:13-20`), отдаёт 404 с телом `{"detail": {"message", "code"}}`
 (`backend/app/modules/products/features/get_product_detail/action.py:42-46`). То есть мок **слабее** сервера, и путь ошибки под
 моками воспроизводится не тот, что будет в проде.
@@ -312,7 +312,7 @@ linkedSuppliers.value = JSON.parse(JSON.stringify(data.linkedSuppliers)) as Link
 
 ## БАГ-08 — `GET /api/products/list` против настоящего бэкенда попадёт в маршрут карточки
 
-**File:** `frontend_vue/src/services/productsService.ts:114-118`, `backend/app/modules/products/features/get_product_detail/action.py:28-30`
+**File:** `frontend_vue/src/services/productsService.ts:114-118`, `backend/app/modules/products/features/get_product_detail/action.py:29-31`
 **Severity:** Medium — справочник имён товаров, от которого зависят пять экранов склада, на живом сервере вернёт 422.
 **Источник:** К1 (инвентарь), К5 (источник истины)
 
@@ -481,7 +481,7 @@ async function handleCreate() {
 При этом именно у этого эндпоинта сервер объявляет код: `ValidationError("Product name is
 required")` → `VALIDATION_ERROR`, 422
 (`backend/app/modules/products/features/create_product/domain.py:30-31`,
-`backend/app/modules/products/features/create_product/action.py:43-47`). Соседний экран (создание категории) свою ошибку показывает
+`backend/app/modules/products/features/create_product/action.py:33-37`). Соседний экран (создание категории) свою ошибку показывает
 (`frontend_vue/src/views/admin/products/CategoriesPage.vue:88`).
 
 ### Fix
@@ -543,9 +543,9 @@ saleUomId: data.saleUomId ?? null,
 
 ---
 
-## БАГ-14 — `get_product_by_id` и `get_category_by_id` выбирают без фильтра по арендатору
+## ✅ БАГ-14 — `get_product_by_id` и `get_category_by_id` выбирают без фильтра по арендатору
 
-**File:** `backend/app/modules/products/features/get_product_detail/repository.py:13-22` и `:25-31`, `backend/app/modules/products/features/get_product_detail/domain.py:47-53` и `:56-64`
+**File:** `backend/app/modules/products/features/get_product_detail/repository.py:13-22` и `:25-31`, `backend/app/modules/products/features/get_product_detail/domain.py:49-55` и `:56-64`
 **Severity:** High — чтение товара и категории чужого арендатора по угаданному id ничем не ограничено.
 **Источник:** К6 (мультиарендность)
 
@@ -560,7 +560,7 @@ result = await db.execute(
 ```
 
 `tenant_id` в запросе нет: `sed -n '17,22p' … | grep -c tenant` → 0, и по файлу целиком тоже 0.
-При этом домен `tenant_id` получает (`backend/app/modules/products/features/get_product_detail/domain.py:47-49`) и использует его
+При этом домен `tenant_id` получает (`backend/app/modules/products/features/get_product_detail/domain.py:49-51`) и использует его
 только для сборки легаси-подписи `price_unit` (`:77-79`), а не для выборки. Схема
 мультиарендность требует: `Product.tenant_id` — `nullable=False, index=True`, FK на `tenants.id`
 (`backend/app/modules/products/shared/models.py:101-106`).
@@ -576,7 +576,7 @@ result = await db.execute(
 (`backend/app/modules/products/features/get_product_detail/repository.py:25-31`) делает
 `select(Category).where(Category.id == category_id)` — без арендатора, хотя `categories.tenant_id`
 объявлен `nullable=False` (`backend/app/modules/products/shared/models.py:17-24`). Карточка
-собирает вложенную категорию именно ею (`backend/app/modules/products/features/get_product_detail/domain.py:56-64`),
+собирает вложенную категорию именно ею (`backend/app/modules/products/features/get_product_detail/domain.py:58-66`),
 то есть в ответе может оказаться имя категории чужого арендатора. Сквозной план мультиарендности
 уже записал обе функции под этим номером
 (`roo_code/plans/general/сквозное-tenancy-план.md:154-155`), и обе ре-экспортируются наружу
@@ -593,3 +593,33 @@ result = await db.execute(
 
 Функция репозитория, принимающая `tenant_id` в вызывающем слое и не использующая его в `where`,
 выглядит безопасной ровно до первого второго арендатора. Проверять надо `where`, а не сигнатуру.
+
+### Сделано 2026-09-24
+
+Обе половины закрыты вместе. `get_product_by_id` и `get_category_by_id`
+(`backend/app/modules/products/features/get_product_detail/repository.py`) теперь принимают
+`tenant_id` и сравнивают его в `where` рядом с `id`; `get_product_detail/domain.py` передаёт им
+арендатора вместо того, чтобы использовать его только для `price_unit`. Оба роута
+(`create_product/action.py`, `get_product_detail/action.py`) объявляют
+`Depends(get_current_user)` из `app.modules.auth.internal_api.interface` и берут `tenant_id` из
+`current_user.tenant_id`; литерал `00000000-0000-0000-0000-000000000001` и локальный `import uuid`
+убраны из обоих обработчиков.
+
+Обёртки `internal_api/interface.py` (`get_product_by_id`, `get_category_by_id`) этой правкой не
+тронуты — ни один вызывающий модуль их не использует (только `count_products_by_currency` и
+`count_products_by_uom`), и добавление обязательного `tenant_id` в репозиторий не изменило
+поведение ни одного реального пути.
+
+Доказано новым `backend/tests/modules/products/test_products_tenancy.py`: настоящий роутер поверх
+временного SQLite, подменяется только `get_db`. Запрос без `Authorization` — 401; товар чужого
+арендатора по угаданному `id` — 404; свой товар — 200; товар, чья категория принадлежит другому
+арендатору, приходит с `category: null`; товар, созданный по токену арендатора A, не читается
+токеном арендатора B. Инверсия проверена вручную дважды: возврат `where` к одному `Product.id`
+красит тест «товар чужого арендатора» (получает 200 вместо 404); возврат заглушки
+`00000000-0000-0000-0000-000000000001` в `get_product_detail/action.py` красит тест «свой товар
+возвращается» (получает 404, потому что заглушка не совпадает со случайным `tenant_id` фикстуры).
+
+`backend/tests/test_route_auth.py`: обе строки products убраны из `KNOWN_GAPS` —
+`test_known_gaps_really_lack_auth` (уже была в файле) проверяет, что закрытая находка не остаётся
+исключением, а `test_every_route_declares_authentication` теперь охраняет оба роута наравне с
+остальными.

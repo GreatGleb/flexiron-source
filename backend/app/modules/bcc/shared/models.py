@@ -32,11 +32,11 @@ class BccCategory(UUIDMixin, TimestampMixin, Base):
 
     children: Mapped[list["BccCategory"]] = relationship(
         "BccCategory", back_populates="parent",
-        cascade="all, delete-orphan",
-        remote_side="BccCategory.id",
+        passive_deletes=True,
     )
     parent: Mapped["BccCategory | None"] = relationship(
-        "BccCategory", back_populates="children", remote_side="BccCategory.id"
+        "BccCategory", back_populates="children",
+        remote_side="BccCategory.id",
     )
 
 

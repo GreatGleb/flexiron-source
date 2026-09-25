@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useHead } from '@/composables/useHead'
 import { useNotifications } from '@/composables/useNotifications'
-import { NOTIFICATION_TYPE_ICONS } from '@/types/notifications'
+import { NOTIFICATION_TYPE_ICONS, NOTIFICATION_TYPES } from '@/types/notifications'
 import type { Notification, NotificationType } from '@/types/notifications'
 import GlassPanel from '@/components/admin/GlassPanel.vue'
 import Breadcrumb from '@/components/admin/Breadcrumb.vue'
@@ -30,14 +30,10 @@ const { items, loading, error, filters, pagination, load, markAsRead, markAllAsR
 // ─── Type filter options ───
 const TYPE_OPTIONS = computed(() => [
   { value: 'all', label: t('notifications.filter_type_all') },
-  { value: 'order_status', label: t('notifications.type_order_status') },
-  { value: 'stock_deficit', label: t('notifications.type_stock_deficit') },
-  { value: 'supplier_response', label: t('notifications.type_supplier_response') },
-  { value: 'batch_received', label: t('notifications.type_batch_received') },
-  { value: 'reserve_expiring', label: t('notifications.type_reserve_expiring') },
-  { value: 'payment_overdue', label: t('notifications.type_payment_overdue') },
-  { value: 'payment_received', label: t('notifications.type_payment_received') },
-  { value: 'warehouse_ready', label: t('notifications.type_warehouse_ready') },
+  ...NOTIFICATION_TYPES.map((type) => ({
+    value: type,
+    label: t(`notifications.type_${type}`),
+  })),
 ])
 
 // ─── Status filter options ───
@@ -165,7 +161,7 @@ onMounted(() => {
     <GlassPanel :loading="loading" :skeleton-rows="8" data-test="notifications-table">
       <div v-if="error && !loading" class="error-state" data-test="notifications-error">
         <SvgIcon name="alert-triangle" :width="48" :height="48" />
-        <p>{{ error }}</p>
+        <p>{{ t(error) }}</p>
         <button class="btn btn-primary" @click="load">{{ t('orders.btn_retry') }}</button>
       </div>
 

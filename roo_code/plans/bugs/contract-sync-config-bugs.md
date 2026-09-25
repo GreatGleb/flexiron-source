@@ -171,7 +171,7 @@ TBD — выбрать одно поведение для новых имён и
 `grep -rn "\bcreateField\b\|\bpatchField\b\|\bdeleteField\b\|\bcreateSection\b\|\bpatchSection\b\|\bdeleteSection\b" frontend_vue/src --include=*.ts --include=*.vue`
 вне `configService.ts` находит только **одноимённые локальные** функции чужой логики:
 `createField` страницы конфигуратора (`SupplierCardConfigPage.vue:318`, правит массив в памяти) и
-`deleteField` карточки категории (`frontend_vue/src/composables/useCategoryCard.ts:142` — другой
+`deleteField` карточки категории (`frontend_vue/src/composables/useCategoryCard.ts:147` — другой
 домен). Ни один из шести эндпоинтов не вызывается: всё, что делает пользователь, копится локально
 и уходит тремя PUT'ами по кнопке Save (`frontend_vue/src/composables/useCardConfig.ts:51-55`), как
 и написано комментарием на странице (`SupplierCardConfigPage.vue:316-317`).
@@ -337,7 +337,7 @@ if (patch.name) {
 `IMMUTABLE` в проекте нет: `grep -rn "IMMUTABLE" frontend_vue/src backend/app` — пусто.
 
 На схеме признак встроенности **есть и он другой** — колонка `is_builtin`
-(`backend/app/modules/suppliers/shared/models.py:256-258`), которой нет ни в типе фронта, ни в
+(`backend/app/modules/suppliers/shared/models.py:258-260`), которой нет ни в типе фронта, ни в
 моке; колонки `system` у секции на схеме нет вовсе
 (`grep -c '"system"' backend/alembic/versions/e24a3922ed01_phase_7_config.py` → `0`).
 

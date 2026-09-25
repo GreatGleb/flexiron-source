@@ -266,3 +266,15 @@ class OrderStatusReorderInput(BaseModel):
         return self.ids
 
     model_config = {"populate_by_name": True}
+
+
+# ─── Order Permissions ────────────────────────────────────────────────────
+
+class OrderPermissionsResponse(BaseModel):
+    """Order pricing permission matrix — matches frontend OrderPermissions type."""
+
+    see_cost: list[str] = Field(alias="seeCost")
+    manual_cost: list[str] = Field(alias="manualCost")
+    correction: list[str] = Field(alias="correction")
+
+    model_config = {"populate_by_name": True, "from_attributes": True}

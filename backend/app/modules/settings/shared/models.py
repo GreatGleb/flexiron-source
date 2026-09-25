@@ -250,3 +250,34 @@ class WarehouseMap(UUIDMixin, TimestampMixin, Base):
     file_metadata: Mapped[dict] = mapped_column(
         JSONB, nullable=False, default=dict, server_default="{}"
     )
+
+
+class OrderPermissions(UUIDMixin, TimestampMixin, Base):
+    """Order pricing permission matrix — three role lists, singleton per tenant.
+
+    Backs `GET /api/settings/order-permissions` (contract, "Права заказа"): a
+    transitional form (П15) kept apart from the general CRUD permission matrix
+    (`PermissionItem`/`RolePermission`/`UserPermission` in `auth/shared/models.py`)
+    until that matrix covers every domain. There is no write endpoint — the row
+    is seeded once, on first read, with the values the frontend mock has carried
+    since before this table existed (`mocks/settings.ts:64-68`).
+    """
+
+    __tablename__ = "order_permissions"
+
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,  # singleton: one row per tenant
+        index=True,
+    )
+    see_cost_roles: Mapped[list] = mapped_column(
+        JSONB, nullable=False, default=list, server_default="[]"
+    )
+    manual_cost_roles: Mapped[list] = mapped_column(
+        JSONB, nullable=False, default=list, server_default="[]"
+    )
+    correction_roles: Mapped[list] = mapped_column(
+        JSONB, nullable=False, default=list, server_default="[]"
+    )

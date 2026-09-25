@@ -61,7 +61,6 @@ async def update_profile_user(
         User.id == user_id, User.tenant_id == tenant_id,
     ).values(**patch).returning(User))
     user = result.scalar_one_or_none()
-    await db.commit()
     return user
 
 

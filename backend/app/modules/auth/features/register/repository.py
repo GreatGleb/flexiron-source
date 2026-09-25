@@ -74,7 +74,7 @@ async def create_user(
 ) -> User:
     """Create a new user belonging to a tenant.
 
-    The first (registering) user automatically gets the "Owner" role
+    The first (registering) user automatically gets the "owner" role
     in both the legacy single-role column and the multi-role system.
     """
     user = User(
@@ -93,8 +93,8 @@ async def create_user(
     await db.flush()
     await db.refresh(user)
 
-    # Multi-role: assign the "Owner" role to the first user
-    owner_role = UserRole(user_id=user.id, role_name="Owner")
+    # Multi-role: assign the "owner" role to the first user
+    owner_role = UserRole(user_id=user.id, role_name="owner")
     db.add(owner_role)
     await db.flush()
 

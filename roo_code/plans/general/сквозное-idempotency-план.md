@@ -137,15 +137,18 @@
 ключ, посланный на отгрузку и на платёж, сегодня вернул бы первый ответ на оба. Вызывают обёртку
 пять веток мока — `:1011`, `:1018`, `:1135`, `:1142`, `:1151`, — столько же, сколько мест шлёт ключ.
 
-### 2.3. Ключ на бэкенде — нет нигде
+### 2.3. Ключ на бэкенде — хранилище есть, вызывающих пока нет
 
-Доказательство: `grep -rni "idempotenc" backend/` → **0 совпадений**. Ни таблицы ключей, ни
-middleware, ни чтения заголовка. То же и с оптимистичной блокировкой: `grep -rni "if-match\|if_match\|etag" backend/` → **0**.
-Вывод обеих команд — `/tmp/proof-idem-now.txt`.
-
-Это значит: §11 сегодня — правило **для фронта и мока**, у сервера его нет даже в зачатке. Любой
-доменный раздел, который напишет «сервер возвращает закэшированный ответ», описывает будущую
-обязанность, а не измеренное поведение, и обязан это назвать.
+**Обновлено — задача `idempotency-key-store`.** Таблица и вход появились: модель
+`IdempotencyKey` (`backend/app/modules/idempotency/shared/models.py`) и три функции
+`begin_attempt`/`complete_attempt`/`purge_expired_keys` в
+`backend/app/modules/idempotency/internal_api/interface.py`, поведение — по 3.2–3.3 этого плана.
+Роутов модуль не заводит. Оптимистичная блокировка (`If-Match`/`etag`) этим не затронута — на
+бэкенде её по-прежнему нет нигде, кроме комментария про `Idempotency-Key` в
+`backend/app/modules/finance/features/payments/action.py`. Ни один из семнадцати доменов ещё
+не читает заголовок `Idempotency-Key` и не зовёт эти функции — механизм существует, входа в него
+из доменного кода пока нет, и доменный раздел, который напишет «сервер возвращает закэшированный
+ответ», по-прежнему описывает будущую обязанность, а не измеренное поведение.
 
 ### 2.4. Версия записи — один домен из семнадцати
 
@@ -177,7 +180,7 @@ middleware, ни чтения заголовка. То же и с оптимис
 | warehouse | два запроса без общей границы: `patchBatch` (`frontend_vue/src/composables/useWarehouseBatch.ts:256`), следом `createMovement` (`:263`) | там же |
 | clients | `1 + N + M`, начиная с `clientDelta` | `frontend_vue/src/composables/useClientCard.ts:273-304` |
 | settings | до десятка параллельных — `Promise.all` | `frontend_vue/src/composables/useSettings.ts:518` |
-| categories | два параллельных — `Promise.all` | `frontend_vue/src/composables/useCategoryCard.ts:102-112` |
+| categories | два параллельных — `Promise.all` | `frontend_vue/src/composables/useCategoryCard.ts:107-117` |
 | finance | один PATCH плюс независимый аплоад до Save; после ошибки зовётся `load()` | `frontend_vue/src/views/admin/finance/OutgoingPaymentCardPage.vue:90-91` |
 
 Два дефекта на противоположных краях, названные П49 и **не оправданные** им: у клиента после

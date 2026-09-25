@@ -111,7 +111,7 @@
 | Что | Где |
 |---|---|
 | Замкнутый перечень из восьми типов | `frontend_vue/src/types/notifications.ts:3-11` |
-| Иконка на тип, индекс типизирован | `frontend_vue/src/types/notifications.ts:35-44` |
+| Иконка на тип, индекс типизирован | `frontend_vue/src/types/notifications.ts:38-47` |
 | Семь эмиттеров, все через один `emit` | `frontend_vue/src/services/mocks/notifications.ts:517-525` |
 | `notifyOrderStatusChanged` | `frontend_vue/src/services/mocks/notifications.ts:545` |
 | `notifyWarehouseReady` | `frontend_vue/src/services/mocks/notifications.ts:569` |
@@ -166,7 +166,7 @@
   строке — `backend/app/modules/notifications/shared/models.py:33-36`. П10 требует обратного.
 - **Перечень типов продублирован четырежды.** Тип —
   `frontend_vue/src/types/notifications.ts:3-11`; иконки —
-  `frontend_vue/src/types/notifications.ts:35-44`; опции фильтра страницы —
+  `frontend_vue/src/types/notifications.ts:38-47`; опции фильтра страницы —
   `frontend_vue/src/views/admin/notifications/NotificationsPage.vue:31-41`; подписи на трёх языках —
   `frontend_vue/src/i18n/admin/notifications.ts:10-17`. Из четырёх копий типизацией связана одна
   (индекс иконок), остальные две расходятся молча. П26 требует одного источника на значение.
@@ -236,7 +236,7 @@ export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
 
 Место — `frontend_vue/src/types/notifications.ts`. Всё остальное **выводится**, а не копируется:
 иконки — индекс по `NotificationType` (как сейчас в
-`frontend_vue/src/types/notifications.ts:35-44`); опции фильтра страницы строятся перебором
+`frontend_vue/src/types/notifications.ts:38-47`); опции фильтра страницы строятся перебором
 константы, а не литеральным списком (сегодня литеральный —
 `frontend_vue/src/views/admin/notifications/NotificationsPage.vue:31-41`); ключи i18n получают
 имя по формуле `type_<код>` и проверяются на полноту машиной, а не глазами.
@@ -360,9 +360,9 @@ eventKey = "<тип>:<entityType>:<entityId>:<дискриминатор>"
 ### Н14. Производное не хранится (§17)
 
 `entityRouteName` сервер **выводит** из `entityType` при чтении и не хранит колонкой
-(`frontend_vue/src/types/notifications.ts:22` — поле обязательно в ответе, но это вывод, а не
+(`frontend_vue/src/types/notifications.ts:25` — поле обязательно в ответе, но это вывод, а не
 хранение). Домен, добавляющий новое значение `entityType`, обязан назвать имя роута, в который
-ведёт тревога и строка ленты (`frontend_vue/src/types/notifications.ts:13` — сегодня пять
+ведёт тревога и строка ленты (`frontend_vue/src/types/notifications.ts:16` — сегодня пять
 значений).
 
 ---
@@ -383,7 +383,7 @@ eventKey = "<тип>:<entityType>:<entityId>:<дискриминатор>"
    для `order_status` дискриминатор — код нового статуса; для типа, который по сущности
    случается один раз, — пустая строка.
 4. **Назвать `entityType` и роут** для каждого своего типа (Н14). Если значения `entityType` в
-   сегодняшних пяти нет (`frontend_vue/src/types/notifications.ts:13`) — назвать новое значение
+   сегодняшних пяти нет (`frontend_vue/src/types/notifications.ts:16`) — назвать новое значение
    и имя роута из `frontend_vue/src/router/index.ts`.
 5. **Назвать шаблон текста** — заголовок и сообщение, на трёх языках, с перечнем подставляемых
    значений (Н10). Шаблон серверный; ссылок на фронтовый словарь в нём нет.
@@ -554,7 +554,7 @@ cd frontend_vue && CONTRACT_REFS=roo_code/roo-context/api/<домен>.md \
 этого нет.
 
 **(д) Новые значения `entityType` и роуты под них.** Сегодня их пять
-(`frontend_vue/src/types/notifications.ts:13`). Сколько станет и какие — зависит от того, куда
+(`frontend_vue/src/types/notifications.ts:16`). Сколько станет и какие — зависит от того, куда
 каждый домен решит вести по своему типу. Один случай уже виден и не решается здесь: у
 `permissions_changed` нет страницы назначения — матрица прав живёт внутри конфигурации карточки
 поставщика (`frontend_vue/src/router/index.ts:195`), а этот раздел П65(б) выключает фича-флагом

@@ -9,13 +9,15 @@
 Места, где неверным выглядит сам код, — [`contract-sync-services-bugs.md`](../../plans/bugs/contract-sync-services-bugs.md)
 (восемь находок, код не тронут).
 
-**Источник истины этого домена — мок и клиент, а не бэкенд.** Модуль
-`backend/app/modules/services/` существует, но состоит из модели и двух файлов-заглушек:
-роутов ноль (`grep -rn "@router\." backend/app/modules/services --include=*.py` — пусто),
-слайсов ноль (`backend/app/modules/services/features/` содержит только `__init__.py`), и в
-`backend/app/main.py:69-77` подключены девять роутеров, ни одного из `services`. Поэтому у
-каждого раздела ниже стоит `Бэкенд: не реализован` — метка `Статус: спроектировано` здесь была
-бы **неверна**: код есть, отсутствует именно серверная половина уже работающего эндпоинта.
+**Источник истины сменился для трёх эндпоинтов из пяти.** Слайс
+`backend/app/modules/services/features/catalog/` реализует `GET /api/services/{id}`,
+`POST /api/services` и `PATCH /api/services/{id}`, роутер подключён в `backend/app/main.py`
+(`services_catalog_router`): `grep -rn "@router\." backend/app/modules/services --include=*.py`
+даёт три маршрута — `get`, `post`, `patch`. Для этих трёх разделов ниже метка `Бэкенд: не
+реализован` снята, и мок для них перестаёт быть источником истины. Список и удаление
+слайса по-прежнему не имеют: `backend/app/modules/services/features/` кроме `catalog/`
+содержит только `__init__.py`, и у обоих оставшихся разделов ниже метка `Бэкенд: не
+реализован` сохранена.
 
 Потребители: [`composables/useServices.ts`](../../../frontend_vue/src/composables/useServices.ts)
 (список, удаление), [`composables/useServiceCard.ts`](../../../frontend_vue/src/composables/useServiceCard.ts)
@@ -65,7 +67,7 @@
 > Перенос значений разбирает `"<код валюты>/<код единицы>"`: валюта — по `currencies.code`
 > **того же арендатора**, единица — по `uoms.code_translations` в любой из трёх локалей, потому
 > что колонки `code` у `uoms` нет вовсе. Правило «в любой локали» не выдумано здесь, оно уже
-> записано в `backend/app/modules/settings/features/crud/repository.py:174-190`
+> записано в `backend/app/modules/settings/features/crud/repository.py:171-187`
 > (`get_uom_by_code`); без него литовское `'vnt'` не нашлось бы.
 >
 > **Прогнано на живой базе, а не только написано:** `alembic upgrade head` с нуля проходит все
@@ -75,7 +77,7 @@
 > `NULL` и ничего не уронили. Обратный проход лоссовый и это записано в самой ревизии:
 > `'EUR/vnt'` возвращается как `'EUR/pcs'`, потому что код единицы собирается по en → ru → lt —
 > тем же правилом, что `_reconstruct_price_unit`
-> (`backend/app/modules/products/features/get_product_detail/domain.py:26-44`).
+> (`backend/app/modules/products/features/get_product_detail/domain.py:28-46`).
 >
 > **Слайсы по услугам писать теперь можно** — форма, которую они закрепят, совпадает с той, что
 > просит фронт. Остаётся расхождение по `nullable`: на проводе `currencyId`/`uomId`
@@ -164,7 +166,8 @@ interface Service {
 (`mocks/services.ts:42-78`). Текст любой сетевой ошибки клиент кладёт в `error` и показывает как
 есть (`useServices.ts:33-35`).
 
-Бэкенд: **не реализован** (роутов у модуля ноль)
+Бэкенд: **не реализован** (в `catalog/` списочного маршрута нет — слайс закрывает только
+карточку, создание и правку)
 Реализация: `services/servicesService.ts:12-24` (`getServices`) · мок `mocks/index.ts:454`
 (`mockGetServices`, `mocks/services.ts:42`) · потребители `useServices.ts:22-38` и
 `AddOrderServicesModal.vue:210-213`
@@ -200,18 +203,23 @@ submit, после успеха форма сбрасывается к дефо�
 Ответ: `Service` целиком с серверными `id`, `createdAt`, `updatedAt`
 (`mocks/services.ts:119-129`).
 
-Обязательность полей: тип требует пять из шести (`types/service.ts:42-49`), но **на проводе не
-проверяется ничто** — мок `name` читает, но не проверяет: приводит к `TranslatedString` и
-кладёт как есть (`mocks/services.ts:108-109`), пустую строку принимая наравне с непустой;
-единственная
-проверка живёт в форме: `if (!createForm.name.trim()) return` (`ServicesPage.vue:83`).
-Отрицательную цену не отвергает никто. Обещанного прежним контрактом 422 `VALIDATION_ERROR` без
-`name` в коде нет — см. «Что осталось нерешённым», п. 6.
+Обязательность полей: тип требует пять из шести (`types/service.ts:42-49`), и **теперь это же
+требует сервер**: схема `ServiceCreateInput` в слайсе `catalog` объявляет `name`, `costPrice`,
+`sellingPrice`, `currencyId`, `uomId` обязательными, `description` — необязательным, и отклоняет
+отрицательные `costPrice`/`sellingPrice` (422, форма ошибки — pydantic-массив, код
+`VALIDATION_ERROR` по [§1](00-conventions.md#1-конверт-ответа-три-формы-а-не-одна)). **Мок при
+этом не изменился и остаётся слабее**: `name` читает, но не проверяет — приводит к
+`TranslatedString` и кладёт как есть (`mocks/services.ts:108-109`), пустую строку принимая
+наравне с непустой; единственная проверка на клиенте — `if (!createForm.name.trim()) return`
+(`ServicesPage.vue:83`). Расхождение — свойство мока ([§18](00-conventions.md#18-чем-мок-отличается-от-обязанностей-сервера)),
+а не отступление от решения владельца (см. «Что осталось нерешённым», п. 6 — решение уже снято,
+теперь оно реализовано).
 
 Ошибки: `SERVICE_CURRENCY_NOT_FOUND`, `SERVICE_UOM_NOT_FOUND` — проверка валюты и единицы по
 справочникам `settings` до записи (`mocks/services.ts:88-95`, вызов `:115`).
 
-Бэкенд: **не реализован**
+Бэкенд: слайс `backend/app/modules/services/features/catalog/` (`create_service_catalog_entry`),
+роутер зарегистрирован в `app/main.py`
 Реализация: `services/servicesService.ts:30-41` (`createService`) · мок `mocks/index.ts:957`
 (`mockCreateService`, `mocks/services.ts:97`) · потребитель `ServicesPage.vue:82-108`
 
@@ -237,7 +245,8 @@ submit, после успеха форма сбрасывается к дефо�
 на любую непустую `error` рисует «сущность не найдена» (`ServiceCardPage.vue:62-78`). Сервер
 обязан отвечать 404 с кодом, а не 500 (`§2` соглашений).
 
-Бэкенд: **не реализован**
+Бэкенд: слайс `backend/app/modules/services/features/catalog/` (`get_service_detail`), тенант
+берётся из `Depends(get_current_user)`, чужая услуга отвечает 404 `CATALOG_SERVICE_NOT_FOUND`
 Реализация: `services/servicesService.ts:26-28` (`getService`) · мок `mocks/index.ts:467`
 (`mockGetService`, `mocks/services.ts:134`) · потребитель `useServiceCard.ts:42-62`
 
@@ -293,7 +302,9 @@ submit, после успеха форма сбрасывается к дефо�
 другого). Поведение — last-write-wins, как в шестнадцати доменах из семнадцати; исключение
 только у заказов ([§11](00-conventions.md#11-идемпотентность-и-оптимистичная-блокировка)).
 
-Бэкенд: **не реализован**
+Бэкенд: слайс `backend/app/modules/services/features/catalog/` (`patch_service_catalog_entry`) —
+merge-patch по `exclude_unset`, итоговая пара валюта+единица проверяется, даже когда дельта несёт
+только одну половину
 Реализация: `services/servicesService.ts:52-73` (`patchService`) · мок `mocks/index.ts:1239`
 (`mockPatchService`, `mocks/services.ts:140`) · потребитель `useServiceCard.ts:64-91`
 
@@ -334,6 +345,21 @@ submit, после успеха форма сбрасывается к дефо�
 переводом в архив; отказывать не в чем, поэтому 409 не нужен, а `CATALOG_SERVICE_NOT_FOUND`
 остаётся. `serviceId` в строке заказа перестаёт быть ссылкой в никуда — строка справочника не
 исчезает. Общее правило — [§22](00-conventions.md).
+
+> **Схема под архив и неотрицательность цены заведена 2026-09-25.** У модели `Service` появилась
+> колонка `archived_at` — момент перевода в архив, `nullable`, без значения по умолчанию
+> (`backend/app/modules/services/shared/models.py`). Признак архива на проводе выводится из неё;
+> отдельного булева поля вроде `isArchived`/`archived` на схеме нет и не будет — это была бы вторая
+> правда об одном факте (правило домена 3). Колонка под составным индексом
+> `(tenant_id, archived_at)`: список услуг по умолчанию отдаёт живые строки одного арендатора, и
+> это условие каждого запроса списка. Отрицательная цена отвергается **и** базой: `cost_price` и
+> `selling_price` несут `CHECK (… >= 0)`, а не только проверку слайса — миграция и ручная правка
+> теперь тоже не могут записать отрицательное значение. Ревизия —
+> `backend/alembic/versions/a9d3c81b6f24_services_archive_and_price_checks.py`, `downgrade()` снимает
+> оба ограничения, индекс и колонку. Уникальности имени услуги эта правка не вводит: её не требуют
+> ни схема, ни контракт, и её введение остаётся решением владельца (раздел «Что осталось
+> нерешённым», вопрос 3). Слайсов `GET`/`POST`/`PATCH`/`DELETE` эта правка не пишет — статусы
+> `Бэкенд: не реализован` у всех пяти эндпоинтов не меняются.
 
 Бэкенд: **не реализован**
 Реализация: `services/servicesService.ts:75-77` (`deleteService`) · мок `mocks/index.ts:1512`
@@ -488,13 +514,16 @@ submit, после успеха форма сбрасывается к дефо�
   (`mocks/services.ts:97-132`). Правило «необратимый POST требует ключа» —
   [§11](00-conventions.md#11-идемпотентность-и-оптимистичная-блокировка); создание записи
   каталога к необратимым сегодня не отнесено. Внутри домена откатывать нечего: каждая операция —
-  один запрос, многозапросного Save нет (`useServiceCard.ts:70-74`). А вот **связность с
-  соседями не держит никто**: удаление услуги не смотрит на заказы (`mocks/services.ts:168-173`),
-  а удаление валюты или единицы из справочника не смотрит на услуги — `remove_currency_item`
-  считает только товары (`backend/app/modules/settings/features/crud/domain.py:254-258`),
-  `remove_uom_item` тоже (`:338-342`). То есть услуга может остаться с `currencyId`, которого
-  больше нет, и подпись цены станет прочерком
-  (`frontend_vue/src/domain/servicePricing.ts:25`). Пункт 5 ниже.
+  один запрос, многозапросного Save нет (`useServiceCard.ts:70-74`). Удаление услуги по-прежнему
+  не смотрит на заказы (`mocks/services.ts:168-173`) — заказ переживает его снимком. **Обратная
+  связность — от справочника к услуге — закрыта этой же задачей:** `remove_currency_item` и
+  `remove_uom_item` (`backend/app/modules/settings/features/crud/domain.py`) считают теперь и
+  товары, и услуги — вторые через `count_services_by_currency`/`count_services_by_uom`
+  (`backend/app/modules/services/internal_api/interface.py`, слайс
+  `backend/app/modules/services/features/usage/repository.py`), — и живая ссылка услуги отвечает
+  доменным отказом (`CURRENCY_IN_USE`/`UOM_IN_USE`), а не проходит молча. Правила пересчёта в
+  этот счёт по-прежнему не входят — это отдельный, не закрытый этой задачей пробел. Пункт 5
+  ниже.
 - **Производные значения (считать, не хранить).** Три. **Подпись цены** — функция, а не поле
   (правило домена 3). **`totalPages`** считается при чтении из `total` и `pageSize`
   (`mocks/services.ts:77`). **`createdAt`/`updatedAt`** ставит сервер и только он: мок — при
@@ -600,11 +629,12 @@ submit, после успеха форма сбрасывается к дефо�
    как был. Из таблицы услуг и из всех выборов архивная услуга исчезает, но по ссылке из старого
    заказа открывается — значит `GET /api/services/:id` отдаёт её наравне с живыми, помечая
    признаком архива, а списочный эндпоинт по умолчанию не отдаёт. Обещанный 409 `SERVICE_IN_USE`
-   при этом не нужен вовсе: отказывать не в чем. **Валюта и единица — наоборот, отказ:**
-   справочник с живой ссылкой не удаляется, и `remove_currency_item`/`remove_uom_item`, которые
-   услуг сегодня не считают (`backend/app/modules/settings/features/crud/domain.py:254-258`,
-   `:338-342`), обязаны их считать, а FK — стать `RESTRICT` (БАГ-07). См.
-   [§22](00-conventions.md).
+   при этом не нужен вовсе: отказывать не в чем. Архивирование самой услуги остаётся нереализованным
+   — **осталось**. **Валюта и единица — наоборот, отказ, и эта половина сделана этой задачей:**
+   FK на обе ссылки уже `RESTRICT` (БАГ-07 наполовину), и `remove_currency_item`/`remove_uom_item`
+   (`backend/app/modules/settings/features/crud/domain.py`) считают ссылки услуг наравне с
+   товарами — через `count_services_by_currency`/`count_services_by_uom`
+   (`backend/app/modules/services/internal_api/interface.py`). См. [§22](00-conventions.md).
 6. **Снято 2026-09-10 (старшинство типа, §14, §2)** — обязательны те пять полей, что объявлены
    типом `ServiceCreatePayload` (`types/service.ts:42-49`) — `description` в нём необязателен; отрицательная цена отвергается, потому что
    деньги неотрицательны, а отказ несёт код, а не текст. То, что провод сегодня не проверяет

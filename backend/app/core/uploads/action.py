@@ -82,7 +82,6 @@ async def upload_file(
         uploaded_by=current_user.user_id,
         is_draft=False,
     )
-    await db.commit()
 
     # ── Build full public URL from request base ─────────────────────────
     base_url = str(request.base_url).rstrip("/")
@@ -90,4 +89,22 @@ async def upload_file(
     return ApiResponse(
         success=True,
         data={"url": public_url, "fileId": str(uploaded.id)},
+    )
+
+
+@router.get("/limits", response_model=ApiResponse)
+async def get_upload_limits(
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """Return the server's own upload limits.
+
+    Read from ``app_settings`` on every call — the client holds no copy of
+    its own, so this is the only place these two numbers live.
+    """
+    return ApiResponse(
+        success=True,
+        data={
+            "maxSizeMb": app_settings.max_upload_size_mb,
+            "allowedMime": app_settings.upload_whitelist_mime,
+        },
     )

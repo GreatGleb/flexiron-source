@@ -192,7 +192,7 @@
 - Отказ по праву на бэкенде не поднимается ни разу. `ForbiddenError` объявлен
   (`backend/app/core/exceptions.py:37-41`) и поднимается ровно один раз, и не матрицей, а
   запретом удалять системный статус заказа
-  (`backend/app/modules/settings/features/crud/domain.py:516`).
+  (`backend/app/modules/settings/features/crud/domain.py:534`).
 
 ### 2.2. Клиент матрицу знает, но не применяет
 
@@ -243,7 +243,7 @@
 
 - Редактор матрицы: `roo_code/roo-context/api/config.md:433` и PUT там же
   (`roo_code/roo-context/api/config.md:506`).
-- Переходная матрица трёх прав заказа: `roo_code/roo-context/api/settings.md:1275`.
+- Переходная матрица трёх прав заказа: `roo_code/roo-context/api/settings.md:1281`.
 - Раздела «Права домена» нет **ни в одном** из семнадцати доменных файлов:
   `grep -c "^## Права домена" roo_code/roo-context/api/*.md` → 0 везде.
 

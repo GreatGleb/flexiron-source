@@ -77,7 +77,7 @@
 
 Значение не декоративное: бэкенд принимает его в `RegisterInput.locale`
 (`backend/app/modules/auth/features/register/schemas.py:15`, значение по умолчанию тоже `"ru"`) и
-записывает пользователю в базу (`register/repository.py:87`, через `domain.py:124`). То есть
+записывает пользователю в базу (`register/repository.py:87`, через `domain.py:126`). То есть
 локаль интерфейса на момент регистрации теряется безвозвратно, а не «подставляется по умолчанию».
 
 ### Fix
@@ -185,13 +185,13 @@ invalid» — сработает ветка `company code` и подсветит
 
 ## БАГ-07 — срок жизни сессии записан в двух местах
 
-**File:** `backend/app/modules/auth/features/login/domain.py:78`, `backend/app/modules/auth/features/me/action.py:52`
+**File:** `backend/app/modules/auth/features/login/domain.py:84`, `backend/app/modules/auth/features/me/action.py:52`
 **Severity:** Low — сейчас числа совпадают; разойдутся — клиент будет считать сессию живой после того, как сервер перестал её принимать.
 **Источник:** Л5 (один источник правила), К5
 
 ### Problem
 
-`login/domain.py:78` выдаёт клиенту `expires_at = datetime.now(utc) + timedelta(hours=24)`.
+`login/domain.py:84` выдаёт клиенту `expires_at = datetime.now(utc) + timedelta(hours=24)`.
 `me/action.py:52` проверяет подпись токена с `max_age=86400` — те же 24 часа, но записанные
 другим числом и в другом файле. Ни одна проверка не связывает их.
 
@@ -217,7 +217,7 @@ invalid» — сработает ветка `company code` и подсветит
 Таблица `sessions` создаётся и заполняется — `create_session` кладёт `token_hash`, `csrf_token`,
 `expires_at`, `remember` (`login/repository.py:35-44`), то же делает регистрация
 (`register/domain.py:145-151`). Читается она **ни разу**: все пять попаданий `token_hash` в
-`backend/app` — записи (`models.py:121`, `login/repository.py:29,37`, `login/domain.py:72,84`,
+`backend/app` — записи (`models.py:146`, `login/repository.py:29,37`, `login/domain.py:78,84`,
 `register/domain.py:137,148`), ни одного `select(Session)`.
 
 Проверка подлинности — только разбор подписи `URLSafeTimedSerializer` (`me/action.py:25-28,52`).
@@ -246,7 +246,7 @@ invalid» — сработает ветка `company code` и подсветит
 
 ## БАГ-09 — срок жизни сессии задан ТРЕМЯ разными способами, настройка игнорируется
 
-**File:** `backend/app/core/config.py:17`, `backend/app/modules/auth/features/login/domain.py:78`, `backend/app/modules/auth/features/register/domain.py:144`, `backend/app/modules/auth/features/me/action.py:52`
+**File:** `backend/app/core/config.py:17`, `backend/app/modules/auth/features/login/domain.py:84`, `backend/app/modules/auth/features/register/domain.py:144`, `backend/app/modules/auth/features/me/action.py:52`
 **Severity:** Medium — пользователь, зарегистрировавшийся только что, получает `expires_at` через 8 часов, вошедший — через 24, а принимается токен 24 часа в обоих случаях. Расширяет БАГ-07, где мест было названо два.
 **Источник:** аудит домена 2026-09-04, К6 (значения по умолчанию и их владелец), Л5
 
@@ -254,7 +254,7 @@ invalid» — сработает ветка `company code` и подсветит
 
 Три числа на одно правило:
 
-- `login/domain.py:78` — `expires_at = now + timedelta(hours=24)`, литерал;
+- `login/domain.py:84` — `expires_at = now + timedelta(hours=24)`, литерал;
 - `register/domain.py:144` — `expires_at = now + timedelta(hours=settings.session_ttl_hours)`, а
   `session_ttl_hours = 8` (`app/core/config.py:17`);
 - `me/action.py:52` — `max_age=86400`, то есть 24 часа, для обоих случаев.
@@ -262,7 +262,7 @@ invalid» — сработает ветка `company code` и подсветит
 То есть **вход настройку `session_ttl_hours` не читает вовсе**, регистрация читает, а проверка не
 читает ни того, ни другого. Заодно не читается `remember_ttl_days = 30` (`config.py:18`): колонка
 `sessions.remember` всегда `False`, потому что вход не передаёт этот аргумент
-(`login/domain.py:81-87`, дефолт `login/repository.py:32`). Обещание старого контракта
+(`login/domain.py:87-93`, дефолт `login/repository.py:32`). Обещание старого контракта
 «`remember=true` продлевает TTL до 30 дней» (`roo_code/roo-context/03-api-contract.md:310`)
 не выполняется ничем.
 
@@ -284,7 +284,7 @@ invalid» — сработает ветка `company code` и подсветит
 
 Клиент кладёт `X-CSRF-Token` в каждый защищённый запрос (`useAuth.ts:101-108`). На сервере все
 попадания `csrf` — генерация (`login/domain.py:44-46,75`, `register/domain.py:57-59,143`), запись
-в модель (`models.py:124`) и поля схем (`login/schemas.py:33`, `register/schemas.py:25`). Ни одна
+в модель (`models.py:149`) и поля схем (`login/schemas.py:33`, `register/schemas.py:25`). Ни одна
 строка не читает заголовок и не сравнивает его с сохранённым значением
 (`grep -rn "csrf" backend/app` — тринадцать попаданий, ни одного чтения запроса).
 

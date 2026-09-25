@@ -32,14 +32,13 @@ async def patch_company(db: AsyncSession, tenant_id: UUID, data: dict) -> Compan
         .returning(CompanyInfoModel)
     )
     result = await db.execute(stmt)
-    await db.commit()
     return result.scalar_one_or_none()
 
 
 async def create_company(db: AsyncSession, tenant_id: UUID, data: dict) -> CompanyInfoModel:
     company = CompanyInfoModel(tenant_id=tenant_id, **data)
     db.add(company)
-    await db.commit()
+    await db.flush()
     await db.refresh(company)
     return company
 
@@ -61,14 +60,13 @@ async def patch_constants(db: AsyncSession, tenant_id: UUID, data: dict) -> Glob
         .returning(GlobalConstantsModel)
     )
     result = await db.execute(stmt)
-    await db.commit()
     return result.scalar_one_or_none()
 
 
 async def create_constants(db: AsyncSession, tenant_id: UUID, data: dict) -> GlobalConstantsModel:
     obj = GlobalConstantsModel(tenant_id=tenant_id, **data)
     db.add(obj)
-    await db.commit()
+    await db.flush()
     await db.refresh(obj)
     return obj
 
@@ -111,7 +109,7 @@ async def get_currency_by_code(
 async def create_currency(db: AsyncSession, tenant_id: UUID, data: dict) -> CurrencyModel:
     obj = CurrencyModel(tenant_id=tenant_id, **data)
     db.add(obj)
-    await db.commit()
+    await db.flush()
     await db.refresh(obj)
     return obj
 
@@ -129,7 +127,6 @@ async def patch_currency(
         .returning(CurrencyModel)
     )
     result = await db.execute(stmt)
-    await db.commit()
     return result.scalar_one_or_none()
 
 
@@ -140,7 +137,7 @@ async def delete_currency(db: AsyncSession, currency_id: UUID, tenant_id: UUID) 
             CurrencyModel.tenant_id == tenant_id,
         )
     )
-    await db.commit()
+    await db.flush()
 
 
 # ─── UOMs ─────────────────────────────────────────────────────────────────
@@ -184,7 +181,7 @@ async def get_uom_by_code(
 async def create_uom(db: AsyncSession, tenant_id: UUID, data: dict) -> UomModel:
     obj = UomModel(tenant_id=tenant_id, **data)
     db.add(obj)
-    await db.commit()
+    await db.flush()
     await db.refresh(obj)
     return obj
 
@@ -202,7 +199,6 @@ async def patch_uom(
         .returning(UomModel)
     )
     result = await db.execute(stmt)
-    await db.commit()
     return result.scalar_one_or_none()
 
 
@@ -213,7 +209,7 @@ async def delete_uom(db: AsyncSession, uom_id: UUID, tenant_id: UUID) -> None:
             UomModel.tenant_id == tenant_id,
         )
     )
-    await db.commit()
+    await db.flush()
 
 
 # ─── Conversions ──────────────────────────────────────────────────────────
@@ -255,7 +251,7 @@ async def get_conversion_by_uom_pair(
 async def create_conversion(db: AsyncSession, tenant_id: UUID, data: dict) -> UomConversionModel:
     obj = UomConversionModel(tenant_id=tenant_id, **data)
     db.add(obj)
-    await db.commit()
+    await db.flush()
     await db.refresh(obj)
     return obj
 
@@ -273,7 +269,6 @@ async def patch_conversion(
         .returning(UomConversionModel)
     )
     result = await db.execute(stmt)
-    await db.commit()
     return result.scalar_one_or_none()
 
 
@@ -284,7 +279,7 @@ async def delete_conversion(db: AsyncSession, conv_id: UUID, tenant_id: UUID) ->
             UomConversionModel.tenant_id == tenant_id,
         )
     )
-    await db.commit()
+    await db.flush()
 
 
 # ─── Order Statuses ───────────────────────────────────────────────────────
@@ -314,7 +309,7 @@ async def get_order_status(
 async def create_order_status(db: AsyncSession, tenant_id: UUID, data: dict) -> OrderStatusModel:
     obj = OrderStatusModel(tenant_id=tenant_id, **data)
     db.add(obj)
-    await db.commit()
+    await db.flush()
     await db.refresh(obj)
     return obj
 
@@ -332,7 +327,6 @@ async def patch_order_status(
         .returning(OrderStatusModel)
     )
     result = await db.execute(stmt)
-    await db.commit()
     return result.scalar_one_or_none()
 
 
@@ -343,7 +337,7 @@ async def delete_order_status(db: AsyncSession, status_id: UUID, tenant_id: UUID
             OrderStatusModel.tenant_id == tenant_id,
         )
     )
-    await db.commit()
+    await db.flush()
 
 
 async def reorder_order_statuses(db: AsyncSession, tenant_id: UUID, ordered_ids: list[str]) -> None:
@@ -358,4 +352,25 @@ async def reorder_order_statuses(db: AsyncSession, tenant_id: UUID, ordered_ids:
             .values(sort_order=idx)
         )
         await db.execute(stmt)
-    await db.commit()
+    await db.flush()
+
+
+# ─── Order Permissions ────────────────────────────────────────────────────
+
+async def get_order_permissions(db: AsyncSession, tenant_id: UUID):
+    from app.modules.settings.shared.models import OrderPermissions as OrderPermissionsModel
+
+    result = await db.execute(
+        select(OrderPermissionsModel).where(OrderPermissionsModel.tenant_id == tenant_id)
+    )
+    return result.scalar_one_or_none()
+
+
+async def create_order_permissions(db: AsyncSession, tenant_id: UUID, data: dict):
+    from app.modules.settings.shared.models import OrderPermissions as OrderPermissionsModel
+
+    obj = OrderPermissionsModel(tenant_id=tenant_id, **data)
+    db.add(obj)
+    await db.flush()
+    await db.refresh(obj)
+    return obj

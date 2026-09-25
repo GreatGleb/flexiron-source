@@ -37,7 +37,7 @@ function tf(field: TranslatedString | null | undefined): string {
 Categories: `categoriesService.ts` — `createCategory(..., locale)` строка 32 `name: toTranslatedString(data.name, locale)`,
 `patchCategory(..., locale)` строка 48, `putCategoryFields(..., locale)` строки 68–69.
 `mocks/categories.ts` — `mockPatchCategory` строки 1460–1462 и `mockPutCategoryFields` 1497–1502 мержат через `mergeTranslatedString`.
-`useCategoryCard.ts:110-111` передаёт `locale.value`. `CategoriesPage.vue:80` — тоже.
+`useCategoryCard.ts:115-116` передаёт `locale.value`. `CategoriesPage.vue:80` — тоже.
 `CategoryCardPage.vue` — `mergeLocaleValue` для name/description (70, 84), `toTranslatedString` для field name/options (147, 152).
 
 Products: `productsService.ts` — `createProduct(..., locale)` 50–53, `patchProduct(..., locale)` 88–107,
@@ -111,7 +111,7 @@ Analytics (домен 6): `analyticsService.ts` — единственная `ge
 2. `CategoriesPage.vue` — вызов идёт через `createCategory({ name, parentId, description }, locale.value)` (строки 74–82),
    строкой в plain-виде ничего не отправляется.
 3. `BccRequestPage.vue` — `showToast(t('bcc.preselected', { company: tf(supplier.company) }))` (строка 548). `tf()` на месте.
-4. `CategoryCardPage.vue:227` — `.map((s) => ({ value: s.id, label: tf(s.company) }))`. `tf()` на месте.
+4. `CategoryCardPage.vue:219` — `.map((s) => ({ value: s.id, label: tf(s.company) }))`. `tf()` на месте.
 5. `SupplierCardConfigPage.vue` — `v-model="editSectionNameModel"` (строка 997), где `editSectionNameModel` —
    `computed` со строковым get/set (строки 367–372). Объект `TranslatedString` во `v-model` не попадает.
 6. `ProductCardPage.vue` — `name: s.company` передаётся объектом (строка 211), а подпись обёрнута:

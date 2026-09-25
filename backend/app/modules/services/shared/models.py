@@ -1,6 +1,7 @@
+import datetime
 import uuid
 
-from sqlalchemy import ForeignKey, Numeric
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Numeric
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -11,6 +12,11 @@ class Service(UUIDMixin, TimestampMixin, Base):
     """Service / work item — price list entry, per-tenant."""
 
     __tablename__ = "services"
+    __table_args__ = (
+        Index("ix_services_tenant_id_archived_at", "tenant_id", "archived_at"),
+        CheckConstraint("cost_price >= 0", name="ck_services_cost_price_non_negative"),
+        CheckConstraint("selling_price >= 0", name="ck_services_selling_price_non_negative"),
+    )
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -42,3 +48,6 @@ class Service(UUIDMixin, TimestampMixin, Base):
         index=True,
     )
     description_translations: Mapped[dict | None] = mapped_column(JSONB, nullable=True, default=dict, server_default="{}")
+    # Момент перевода в архив; признак архива на проводе выводится из неё, второй
+    # колонки под тот же факт не заводится (П44).
+    archived_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

@@ -28,9 +28,19 @@ class Tenant(UUIDMixin, TimestampMixin, Base):
     )
 
     # Relationships
-    users: Mapped[list["User"]] = relationship(
-        "User", back_populates="tenant", cascade="all, delete-orphan"
-    )
+    # Без `delete-orphan` осознанно: внешний ключ `User.tenant_id` объявлен
+    # `ondelete="RESTRICT"`, то есть база отказывается удалять арендатора, пока у него
+    # есть пользователи. Каскад ORM обещал обратное — удалить их вместе с ним, — и два
+    # слоя противоречили друг другу: защита существовала только для сырого SQL, а через
+    # ORM снималась. Выровнено по более строгой стороне, потому что обратное направление
+    # (сменить ключ на `CASCADE`) означает миграцию И тихое удаление пользователей.
+    #
+    # Стоит знать, что `RESTRICT` здесь — единственный на 47 внешних ключей на
+    # `tenants.id`; остальные `CASCADE`. Осознанный ли это выбор, история не говорит:
+    # строка пришла общим коммитом «refactored backend». Если владелец решит, что
+    # арендатор должен удаляться вместе с пользователями, правильная правка — ключ и
+    # миграция, а не возврат каскада сюда.
+    users: Mapped[list["User"]] = relationship("User", back_populates="tenant")
 
     def __repr__(self) -> str:
         return f"<Tenant {self.slug}>"
@@ -160,6 +170,7 @@ class PermissionItem(UUIDMixin, Base):
         index=True,
     )
     item_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    domain: Mapped[str] = mapped_column(String(50), nullable=False)
     name_translations: Mapped[dict] = mapped_column(
         JSONB, nullable=False, default=dict, server_default="{}"
     )
@@ -186,7 +197,7 @@ class RolePermission(UUIDMixin, TimestampMixin, Base):
     item_id: Mapped[str] = mapped_column(String(100), nullable=False)
     role: Mapped[str] = mapped_column(String(50), nullable=False)
     can_read: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=True, server_default="true"
+        Boolean, nullable=False, default=False, server_default="false"
     )
     can_edit: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
@@ -224,9 +235,7 @@ class UserPermission(UUIDMixin, TimestampMixin, Base):
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
     )
-    can_read: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=True, server_default="true"
-    )
+    can_read: Mapped[bool] = mapped_column(Boolean, nullable=False)
     can_edit: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
     )

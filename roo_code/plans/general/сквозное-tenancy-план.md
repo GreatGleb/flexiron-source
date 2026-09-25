@@ -215,7 +215,7 @@ tenant_id = uuid.UUID("00000000-0000-0000-0000-000000000001")  # placeholder
 [`backend/app/modules/products/features/create_product/action.py:34`](../../../backend/app/modules/products/features/create_product/action.py).
 То есть слайс **создаёт товар в чужом арендаторе** и читает из него же — вне зависимости от
 того, кто вошёл. Оба файла уже стоят в `KNOWN_GAPS` существующего сторожа
-([`backend/tests/test_route_auth.py:58`](../../../backend/tests/test_route_auth.py)).
+([`backend/tests/test_route_auth.py:52`](../../../backend/tests/test_route_auth.py)).
 
 ### 2.5. Межмодульный вход отдаёт несуженные getters наружу
 
@@ -230,7 +230,7 @@ data» и **ре-экспортирует ровно те две функции 
 
 Тенантских таблиц с уникальностью одиннадцать. Парой с арендатором сделаны, например:
 [`backend/app/modules/settings/shared/models.py:76`](../../../backend/app/modules/settings/shared/models.py) — `ix_currencies_tenant_code`,
-[`backend/app/modules/suppliers/shared/models.py:265`](../../../backend/app/modules/suppliers/shared/models.py) — `uq_field_definitions_tenant_name`,
+[`backend/app/modules/suppliers/shared/models.py:267`](../../../backend/app/modules/suppliers/shared/models.py) — `uq_field_definitions_tenant_name`,
 [`backend/alembic/versions/3a0b5d31bde7_phase_1_tenants_auth_users_sessions.py:54`](../../../backend/alembic/versions/3a0b5d31bde7_phase_1_tenants_auth_users_sessions.py) — `ix_users_tenant_id_email`.
 
 > **2026-09-22.** Два первых имени уточнены по факту: и в модели, и в базе это уникальные **индексы**,
@@ -241,7 +241,7 @@ data» и **ре-экспортирует ровно те две функции 
 
 Нарушение ровно одно:
 
-- [`backend/app/modules/warehouse/shared/models.py:213`](../../../backend/app/modules/warehouse/shared/models.py) — `product_id` объявлен `unique=True` в одиночку (warehouse №28). Два арендатора, купившие один товар, делят одну строку остатка: вторая не запишется вовсе.
+- [`backend/app/modules/warehouse/shared/models.py:256`](../../../backend/app/modules/warehouse/shared/models.py) — `product_id` объявлен `unique=True` в одиночку (warehouse №28). Два арендатора, купившие один товар, делят одну строку остатка: вторая не запишется вовсе.
 
 **Поправка второго замера.** Первая редакция считала вторым нарушением
 `uq_product_field_value` по `(product_id, field_id)`
@@ -274,7 +274,7 @@ data» и **ре-экспортирует ровно те две функции 
 ### 2.8. Сторож частично уже написан — и это главное, что надо знать
 
 Утверждение задачи «тестов на это нет» **неверно**. В
-[`backend/tests/test_route_auth.py:156`](../../../backend/tests/test_route_auth.py) живёт
+[`backend/tests/test_route_auth.py:150`](../../../backend/tests/test_route_auth.py) живёт
 `TenantScopedGetterTest`, и он проверяет ровно то правило, которое здесь выводится: функция
 обязана принять `tenant_id` **и отфильтровать по нему** — проверяется подстрока `tenant_id`
 на [`:195`](../../../backend/tests/test_route_auth.py), а не одна сигнатура. Там же записан
@@ -291,7 +291,7 @@ OK
 
 **Но охват у него — один файл и двенадцать имён, выписанных руками:**
 `REPOSITORY = "app/modules/settings/features/crud/repository.py"`
-([`backend/tests/test_route_auth.py:164`](../../../backend/tests/test_route_auth.py)), четыре
+([`backend/tests/test_route_auth.py:158`](../../../backend/tests/test_route_auth.py)), четыре
 геттера ([`:165`](../../../backend/tests/test_route_auth.py) — `get_conversion` и соседи) и восемь писателей. Из 37 функций с запросом он
 смотрит на 12, то есть **на треть**, и ни одной из семи дыр §2.3(в) не видит: все семь лежат
 вне его файла.
@@ -323,7 +323,7 @@ OK
 **Т3. Писатель сужает сам, а не полагается на чтение перед собой.**
 `get` → проверка → `patch` двумя запросами — это окно: между ними строка может сменить
 владельца. `update()` и `delete()` несут `tenant_id ==` в своём собственном `where`. Довод
-записан в существующем стороже ([`backend/tests/test_route_auth.py:206-211`](../../../backend/tests/test_route_auth.py)).
+записан в существующем стороже ([`backend/tests/test_route_auth.py:200-205`](../../../backend/tests/test_route_auth.py)).
 
 **Т4. Исключение бывает ровно одного вида: запрос, чья работа — узнать арендатора.**
 Это резолвер по токену, поиск по глобально уникальному секрету и обращение к самой таблице
@@ -460,7 +460,7 @@ SQLAlchemy в этом окружении не установлены.
 2. `test_sweep_floor` — `assertGreaterEqual(counted, 37)`, число снято 2026-09-12.
    Экстрактор, переставший находить запросы, выдаёт зелёный отчёт и **стоит меньше, чем
    отсутствующая проверка: он ещё и врёт**. Формулировка и приём — с
-   [`backend/tests/test_route_auth.py:121-126`](../../../backend/tests/test_route_auth.py).
+   [`backend/tests/test_route_auth.py:115-120`](../../../backend/tests/test_route_auth.py).
 3. `test_exception_lists_are_not_stale` — каждый файл из обоих списков существует.
 4. `test_known_gaps_really_lack_scope` — функция из `KNOWN_GAPS`, которую уже починили,
    красит сторож: иначе исключение переживает починку и прячет место навсегда.

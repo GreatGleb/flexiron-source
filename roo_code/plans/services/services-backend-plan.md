@@ -129,7 +129,7 @@
 ## 2б. Восемь строк «Что осталось нерешённым» — построчно
 
 Восемь строк раздела «Что осталось нерешённым» того же контракта
-(`roo_code/roo-context/api/services.md:561`) разобраны отдельно и по другому учёту, чем таблица
+(`roo_code/roo-context/api/services.md:564`) разобраны отдельно и по другому учёту, чем таблица
 выше: **вопросами раздела 8 они не становились**. Семь из восьми уже закрыты решениями владельца —
 план их исполняет, а не переспрашивает; открыта ровно одна, восьмая. Построчно:
 
@@ -733,9 +733,9 @@ cd backend && python3 -m unittest discover -s tests -t .
 | `service_price_changed` | `PATCH /api/services/:id`, у которого изменились `sellingPrice` или `costPrice` (`frontend_vue/src/services/mocks/services.ts:156-157`) | существует незакрытый заказ со строкой на эту услугу | пара «услуга + новая цена», хранится колонкой `event_key` в базе, а не в памяти процесса (П56) | **нет** — флаг несут ровно три кода, и наш не из них (`roo_code/plans/general/сквозное-notifications-план.md`, строки 305–307) |
 
 **`entityType` и роут (Н14).** Сегодняшних пяти значений не хватает: `order`, `product`, `batch`,
-`client`, `supplier` (`frontend_vue/src/types/notifications.ts:13`). Домен заводит шестое —
+`client`, `supplier` (`frontend_vue/src/types/notifications.ts:16`). Домен заводит шестое —
 `service`, и ведёт им в карточку услуги — роут `admin-service-card` (`frontend_vue/src/router/index.ts:249`).
-Поле `entityRouteName` (`frontend_vue/src/types/notifications.ts:22`) колонкой не хранится:
+Поле `entityRouteName` (`frontend_vue/src/types/notifications.ts:25`) колонкой не хранится:
 сервер выводит его из вида сущности при чтении (Н14).
 
 **Серверный шаблон текста (Н10).** Заголовок и сообщение собирает сервер сразу на три языка —
@@ -807,8 +807,8 @@ cd backend && python3 -m unittest discover -s tests -t .
 | Что | Где | Что именно |
 |---|---|---|
 | член перечня типов | `frontend_vue/src/types/notifications.ts:3` | добавить `'service_price_changed'` в `NotificationType` — сегодня в перечне восемь значений из пятнадцати. Второго списка домен не заводит: когда `notifications` сделает Н2 (константа и вывод типа из неё — `roo_code/plans/general/сквозное-notifications-план.md`, строка 398), член переезжает в константу, и правка здесь исчезает |
-| иконка типа | `frontend_vue/src/types/notifications.ts:35` | `NOTIFICATION_TYPE_ICONS` — `Record` по типу: незаполненный ключ ловит `vue-tsc`, а не человек. Имя иконки берётся из набора, которым уже подписаны соседние типы; это вопрос вида, не бизнеса |
-| вид сущности | `frontend_vue/src/types/notifications.ts:13` | добавить `'service'` в `NotificationEntityType` — сегодняшних пяти значений не хватает |
+| иконка типа | `frontend_vue/src/types/notifications.ts:38` | `NOTIFICATION_TYPE_ICONS` — `Record` по типу: незаполненный ключ ловит `vue-tsc`, а не человек. Имя иконки берётся из набора, которым уже подписаны соседние типы; это вопрос вида, не бизнеса |
+| вид сущности | `frontend_vue/src/types/notifications.ts:16` | добавить `'service'` в `NotificationEntityType` — сегодняшних пяти значений не хватает |
 | эмиттер домена | `frontend_vue/src/services/mocks/notifications.ts:660` | по образцу соседней `notifySupplierResponse` завести обёртку домена — единственное место, где для этого типа зовётся `emit` |
 | ответ на вопрос «есть ли незакрытый заказ» | объявление — `frontend_vue/src/services/mocks/services.ts`, регистрация — `frontend_vue/src/services/mocks/orders.ts` | регистрацией, а не импортом: абзац «Откуда мок услуг знает про незакрытый заказ» ниже |
 | вызов из перехода | `frontend_vue/src/services/mocks/services.ts:140` | в `mockPatchService` снять прежние цены в `prevSellingPrice`/`prevCostPrice` **до** присваивания (имена названы здесь, потому что их проверяет гейт слайса): на `frontend_vue/src/services/mocks/services.ts:154` берётся `const svc = STORE[idx]!`, и присваивания на `frontend_vue/src/services/mocks/services.ts:156-157` правят тот же объект стора — после них прежней цены не существует. Образец снятия до правки — `frontend_vue/src/services/mocks/orders.ts:1847` (`if (oldStatus !== status)`). Обёртка зовётся, только когда снимок разошёлся с новым значением **и** лукап вернул незакрытый заказ |

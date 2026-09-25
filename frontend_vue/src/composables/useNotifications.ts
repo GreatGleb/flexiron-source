@@ -1,6 +1,8 @@
 import { ref, reactive, watch } from 'vue'
 import { usePagination } from './usePagination'
 import * as notificationsService from '@/services/notificationsService'
+import { errorMessageKey } from '@/services/apiErrorCode'
+import { ApiRequestError } from '@/types/api'
 import type { Notification, NotificationFilters } from '@/types/notifications'
 
 // ─── Module-level singleton state ─────────────────────────────────────────
@@ -20,7 +22,33 @@ const pagination = usePagination(25)
 const { page, pageSize, total } = pagination
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
+let pollConsumers = 0
 let initialized = false
+
+/**
+ * Домен держит один каталог: код отказа сервера → ключ перевода домена (§2 общих
+ * соглашений, `services/apiErrorCode.ts`). `NOTIFICATION_NOT_FOUND` — из мока
+ * `markAsRead`; `UNAUTHORIZED`/`FORBIDDEN` — коды ядра, применимые к любому роуту.
+ */
+const NOTIFICATIONS_ERROR_KEYS: ReadonlyArray<readonly [string, string]> = [
+  ['NOTIFICATION_NOT_FOUND', 'notifications.error_not_found'],
+  ['UNAUTHORIZED', 'notifications.error_no_login'],
+  ['FORBIDDEN', 'notifications.error_no_access'],
+]
+
+/**
+ * Ключ перевода для настоящего отказа сервера (`ApiRequestError` — код в поле
+ * `code`, а не в тексте), фолбэк — общий ключ домена, если код не в каталоге
+ * выше. Что-то другое (сеть упала, программная ошибка) — не «отказ» в смысле §2,
+ * и его сообщение проходит как есть: спрятать его за общей фразой значило бы
+ * никогда не заметить, что оно вообще случилось.
+ */
+function refusalKey(e: unknown): string {
+  if (e instanceof ApiRequestError) {
+    return errorMessageKey(e, NOTIFICATIONS_ERROR_KEYS, 'notifications.error_generic')
+  }
+  return e instanceof Error ? e.message : String(e)
+}
 
 async function load() {
   if (!initialized) loading.value = true
@@ -34,7 +62,7 @@ async function load() {
     total.value = result.total
     initialized = true
   } catch (e) {
-    error.value = (e as Error).message
+    error.value = refusalKey(e)
   } finally {
     loading.value = false
   }
@@ -44,7 +72,10 @@ async function loadUnreadCount() {
   try {
     unreadCount.value = await notificationsService.getUnreadCount()
   } catch {
-    // silently fail on count polling
+    // Silent on purpose: this runs unattended every `startPolling` tick, with
+    // no user action behind it and no error slot on the bell to show anything
+    // in. A failed tick just leaves the badge stale until the next poll — or
+    // the next `load()`/`markAsRead` — reports the real count.
   }
 }
 
@@ -62,7 +93,7 @@ async function markAsRead(id: string) {
     // the next poll. The local state is already left untouched — the two
     // assignments above sit after the await — and now the refusal is reported
     // too, through the same `error` the list load uses.
-    error.value = (e as Error).message
+    error.value = refusalKey(e)
   }
 }
 
@@ -75,7 +106,7 @@ async function markAllAsRead() {
     // Same rule as markAsRead above: local state is only touched after the
     // await succeeds, and a refusal is reported through the shared `error`
     // field instead of being swallowed.
-    error.value = (e as Error).message
+    error.value = refusalKey(e)
   }
 }
 
@@ -100,24 +131,28 @@ watch([page, pageSize], () => {
   load()
 })
 
+/**
+ * Опрос счётчика непрочитанных — по числу потребителей, а не по времени жизни
+ * модуля. Счётчик живёт здесь же (в замыкании singleton-состояния): второй и
+ * третий вызов только увеличивают его и не трогают уже идущий таймер, а
+ * `stopPolling` останавливает его, только когда ушёл последний. `30_000` —
+ * единственное место в домене, где записан интервал опроса.
+ */
 function startPolling(intervalMs = 30_000) {
-  stopPolling()
+  pollConsumers += 1
+  if (pollTimer) return
   loadUnreadCount()
   pollTimer = setInterval(loadUnreadCount, intervalMs)
 }
 
 function stopPolling() {
+  pollConsumers = Math.max(0, pollConsumers - 1)
+  if (pollConsumers > 0) return
   if (pollTimer) {
     clearInterval(pollTimer)
     pollTimer = null
   }
 }
-
-// ─── Auto-start polling at module level ───────────────────────────────────
-// (onMounted/onUnmounted skipped because singleton state outlives any single
-//  component; polling runs as long as the module is loaded.)
-loadUnreadCount()
-pollTimer = setInterval(loadUnreadCount, 30_000)
 
 export function useNotifications() {
   return {

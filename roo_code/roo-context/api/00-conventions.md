@@ -148,7 +148,7 @@ notifications 1, products 4, services 1, settings 7, suppliers 10, warehouse 6),
   (`backend/alembic/versions/e24a3922ed01_phase_7_config.py:40`, `:93`). Два известных исключения —
   находки: код ищет пользователя по одному email (`contract-sync-auth-bugs.md`, БАГ-13), а
   `stock_items` уникален по одному `product_id`
-  (`backend/app/modules/warehouse/shared/models.py:213-219`, `contract-sync-warehouse-bugs.md`, №28).
+  (`backend/app/modules/warehouse/shared/models.py:256-262`, `contract-sync-warehouse-bugs.md`, №28).
 
 ### 4.1. Второй человек в компании — ссылка-приглашение (П58, решено 2026-09-10)
 
@@ -251,10 +251,10 @@ use it» (`composables/useOrderPermissions.ts:6-10`). Тарифная стор�
 ### 6.3. Роли
 
 - **Регистр — строчный.** Канонический перечень — `UserRole` в `types/settings.ts:185-192`.
-  Заглавные формы (`'Owner'`, записываемая при регистрации в `user_roles.role_name` —
-  `backend/app/modules/auth/features/register/repository.py:97`; `'Admin' | 'Sales' |
-  'Warehouse' | 'Accounting'` в матрице — `mocks/config.ts:186`) подлежат приведению к
-  строчному. Роль `Sales` в типизированный перечень не входит вовсе; строчное `'sales'` в коде —
+  Заглавные формы в матрице (`'Admin' | 'Sales' | 'Warehouse' | 'Accounting'` — `mocks/config.ts:186`)
+  подлежат приведению к строчному. Регистрация это правило уже соблюдает — записывает
+  `user_roles.role_name` строчным (`backend/app/modules/auth/features/register/repository.py:97`).
+  Роль `Sales` в типизированный перечень не входит вовсе; строчное `'sales'` в коде —
   ключ страницы аналитики (`types/analytics.ts:6`), не роль.
 - **Многоролевость — верная форма.** Таблица `user_roles`
   (`backend/app/modules/auth/shared/models.py:87-109`) остаётся; колонка `users.role`
@@ -300,13 +300,13 @@ use it» (`composables/useOrderPermissions.ts:6-10`). Тарифная стор�
 вырожден; как только перечень покроет все домены, как того же 6.2 и требует, считать долю станет
 нечем — колонки, по которой группировать, нет.
 
-Дефолт по П33 — надстройка над **мок-поведением**, а не над схемой, и разница измерима.
+Дефолт по П33 — надстройка над **мок-поведением**, а не над схемой, и разница исчезла.
 Мок раздаёт `Admin` все четыре действия, остальным ролям ни одного (`mocks/config.ts:205-221`).
-Схема же объявляет `can_read` со `server_default="true"` для **всех** ролей
-(`backend/app/modules/auth/shared/models.py:182-184`), и то же в миграции — `can_read` со
-`server_default=sa.text("true")` (`e24a3922ed01_phase_7_config.py:86`).
-Верен мок. `server_default="true"` у `can_read` — расхождение схемы с контрактом, и правится
-схема, а не контракт.
+Модель `RolePermission.can_read` объявляет `server_default="false"`
+(`backend/app/modules/auth/shared/models.py`), и миграция
+`c1d2e3f4a5b6_auth_roles_lowercase_and_matrix_default.py` приводит `server_default=sa.text("false")`
+поверх исторического `server_default=sa.text("true")` из `e24a3922ed01_phase_7_config.py:86`.
+Мок и схема теперь совпадают — расхождение, названное здесь ранее, починено.
 
 ### 6.5. Отказ — `403`
 
@@ -315,7 +315,7 @@ use it» (`composables/useOrderPermissions.ts:6-10`). Тарифная стор�
 
 Состояние кода: `ForbiddenError` во всём бэкенде поднимается ровно один раз, и не матрицей, а
 запретом удалять системный статус заказа
-(`backend/app/modules/settings/features/crud/domain.py:672-674`, отдача `403` —
+(`backend/app/modules/settings/features/crud/domain.py:690-692`, отдача `403` —
 `crud/action.py:512-516`).
 Единственный работающий отказ по праву — в моке заказов, и код у него другой: `FORBIDDEN_`
 плюс имя права заглавными, то есть `FORBIDDEN_MANUALCOST`, `FORBIDDEN_CORRECTION`
@@ -521,7 +521,7 @@ comm -23 /tmp/fe_keys.txt /tmp/be_keys.txt   # шесть; обратная ра
 | | домен | тип поля | где значения |
 |---|---|---|---|
 | поля карточки поставщика | `config` — `FieldDefinition` (`types/config.ts:5-14`), CRUD `/api/config/fields` | `FieldType` — шесть: `enum, number, text, date, boolean, tags` (`types/config.ts:3`) | **негде**: у `Supplier` нет `fieldValues`, таблицы `supplier_field_values` не существует |
-| поля категории | `categories` — `Category.fields` / `inheritedFields` (`types/category.ts:22-23`), запись `PUT /api/categories/:id/fields` | `CategoryFieldType` — семь: те же плюс `email` и `file` (`types/category.ts:4`) | у товара: `ProductFieldValue` (`types/product.ts:9-16`), сборка `mocks/products.ts:14046-14063` |
+| поля категории | `categories` — `Category.fields` / `inheritedFields` (`types/category.ts:32-33`), запись `PUT /api/categories/:id/fields` | `CategoryFieldType` — семь: те же плюс `email` и `file` (`types/category.ts:4`) | у товара: `ProductFieldValue` (`types/product.ts:9-16`), сборка `mocks/products.ts:14046-14063` |
 
 Отсюда три сквозных правила:
 
@@ -579,12 +579,12 @@ comm -23 /tmp/fe_keys.txt /tmp/be_keys.txt   # шесть; обратная ра
 (`backend/app/modules/settings/features/crud/domain.py:70-79`).
 
 Замер: механизма подтверждения кодом в проекте нет ни в каком виде, а удаление поля подтверждается
-обычной модалкой (`views/admin/products/CategoryCardPage.vue:197-205`).
+обычной модалкой (`views/admin/products/CategoryCardPage.vue:189-197`).
 
 **Остальное в жизненном цикле — кто валидирует тип при записи (сервер, §18) и что делать при смене
 типа определения.** В `mocks/config.ts` об этом ни строки, схема же выражает три разные политики на
 близких связях: `section_fields.field_id` —
-`CASCADE` (`suppliers/shared/models.py:311-315`), `category_fields.category_id` — `CASCADE`,
+`CASCADE` (`suppliers/shared/models.py:313-317`), `category_fields.category_id` — `CASCADE`,
 `product_field_values.field_id` — `RESTRICT`
 (`backend/alembic/versions/25245d4bf874_phase_3_categories_products.py:46`, `:78`), а строку в
 `permission_items` не снимает никто — `item_id` там просто `String(100)` без связи
@@ -600,7 +600,7 @@ comm -23 /tmp/fe_keys.txt /tmp/be_keys.txt   # шесть; обратная ра
 
 Основание: из девяти таблиц существовали **две**, и они совпадали колонка в колонку, кроме имени
 внешнего ключа — `stock_audit_entries.batch_id` против `supplier_audit_entries.supplier_id`
-(`warehouse/shared/models.py:232-258`, `suppliers/shared/models.py:173-201`). Сводная лента и так
+(`warehouse/shared/models.py:275-301`, `suppliers/shared/models.py:175-203`). Сводная лента и так
 объединяет все девять и своего хранилища не имеет; при одной таблице это индекс, а не сшивка
 девяти запросов. Цена принята сознательно: внешним ключом на девять разных таблиц не сослаться,
 поэтому каскадного удаления записей вместе с сущностью не будет — это делается кодом.
@@ -643,11 +643,11 @@ entryId` одной функцией `auditRowKey` (`types/audit.ts:86-92`).
   newValue}` (`types/warehouse.ts:526-534`), в посеве встречается буквально
   `{ru:'Система',en:'System',lt:'Sistema'}` (`mocks/clients.ts:50`). На схеме предусмотрена пара:
   `user_id` с `ondelete="SET NULL"` плюс замороженные переводы имени и инициалы
-  (`backend/app/modules/warehouse/shared/models.py:246-252`,
-  `backend/app/modules/suppliers/shared/models.py:170-201`).
+  (`backend/app/modules/warehouse/shared/models.py:289-295`,
+  `backend/app/modules/suppliers/shared/models.py:172-203`).
 - **Таблиц журнала на схеме две, и обе подлежат слиянию** (П38). Есть `stock_audit_entries`,
-  привязанная к партии `nullable=False` (`warehouse/shared/models.py:229-258`), и журнал
-  поставщика `SupplierAuditEntry` (`suppliers/shared/models.py:170-201`); под остальные семь
+  привязанная к партии `nullable=False` (`warehouse/shared/models.py:272-301`), и журнал
+  поставщика `SupplierAuditEntry` (`suppliers/shared/models.py:172-203`); под остальные семь
   таблиц нет. Обе совпадают колонка в колонку, кроме имени внешнего ключа — что и было доводом за
   одну общую таблицу. Признака `sensitive` нет ни у одной, и он тоже заводится на общей.
 
@@ -666,8 +666,8 @@ entryId` одной функцией `auditRowKey` (`types/audit.ts:86-92`).
   вовсе, то есть это работа с нуля.
 - **Автор записи — пара «ссылка плюс снимок», и схема это уже умеет:** `user_id` с
   `ondelete="SET NULL"` для поиска и замороженные `user_name_translations` с `user_initials` для
-  правдивого показа задним числом (`warehouse/shared/models.py:246-252`, дословно то же в
-  `suppliers/shared/models.py:187-193`). На проводе id пока нет — `StockAuditEntry` несёт только
+  правдивого показа задним числом (`warehouse/shared/models.py:289-295`, дословно то же в
+  `suppliers/shared/models.py:189-195`). На проводе id пока нет — `StockAuditEntry` несёт только
   имя (`types/warehouse.ts:526-534`); это дефект провода, а не открытый вопрос.
 - **Записи журнала удаляет владелец, и только он** (П8). Требование ТЗ «логи не могут быть
   удалены или изменены пользователями» (`toDo/Flexiron_ERP_CRM.md:187`) владелец объявил
@@ -709,7 +709,7 @@ entryId` одной функцией `auditRowKey` (`types/audit.ts:86-92`).
   хранится исходное значение. Иначе одна колонка `Text` обслуживала бы одну локаль — запись,
   сделанная при русском интерфейсе, осталась бы русской для английского читателя, — и формат
   замерзал бы вместе с ней. Основание в схеме: соседнее `property_translations` уже JSONB на три
-  языка (`warehouse/shared/models.py:253`), а `old_value`/`new_value` — простой `Text` без языка
+  языка (`warehouse/shared/models.py:296`), а `old_value`/`new_value` — простой `Text` без языка
   (`:254-255`).
 
 ## 10. Уведомления: событие — это переход
@@ -961,7 +961,7 @@ interface TranslatedString { ru: string; en: string; lt: string }   // types/i18
 **Схема расходится с типом систематически, и это самое крупное расхождение проекта.** Переводимое
 имя во фронте против одной строки на схеме: `categories.name` и `category_fields.name` —
 `String(255)` (`backend/app/modules/products/shared/models.py:25`, `:76`), `field_definitions.name`
-— тоже (`suppliers/shared/models.py:251`), `bcc_events.source` — `String(50)`
+— тоже (`suppliers/shared/models.py:253`), `bcc_events.source` — `String(50)`
 (`bcc/shared/models.py:71-73`), контакт поставщика `position` — `String(255)`
 (`suppliers/shared/models.py:130`). Хранить `{ru,en,lt}` в `String(255)` нечем. Наоборот,
 переводимость **есть** у `section_configs.name_translations`, `permission_items.name_translations`,
@@ -1047,7 +1047,7 @@ interface PaginationParams { page: number; pageSize: number }     // types/api.t
   новое для него только поиск в выборе. Поставщик — работа, и полей у него **два**:
   `Supplier.country` (`String(100)`, nullable,
   `backend/app/modules/suppliers/shared/models.py:38`) и `SupplierAddress.country` (`String(100)`,
-  `NOT NULL`, `backend/app/modules/suppliers/shared/models.py:103`); во фронте им отвечают `types/supplier.ts:21` и `:88`. В
+  `NOT NULL`, `backend/app/modules/suppliers/shared/models.py:105`); во фронте им отвечают `types/supplier.ts:21` и `:88`. В
   интерфейсе страна поставщика приходит через библиотеку полей карточки — `f-country`
   (`services/mocks/config.ts:63`), то есть меняется тип поля, а не вёрстка страницы.
   Перенос данных мока показывает, зачем правило: там `'Estonia'`, `'Lithuania'`, `'Sweden'`,
@@ -1139,7 +1139,7 @@ save-режим.
 | products | один PATCH на форму, значения полей и поставщиков | `useProductCard.ts:233-256` |
 | suppliers | один PATCH | `useSupplierCard.ts:40` |
 | services | один PATCH | `useServiceCard.ts:70-74` |
-| categories | **два** параллельных запроса | `useCategoryCard.ts:102-112` |
+| categories | **два** параллельных запроса | `useCategoryCard.ts:107-117` |
 | config | **три** параллельных PUT | `useCardConfig.ts:51-55` |
 | finance | PATCH плюс независимый аплоад до Save | `OutgoingPaymentCardPage.vue:74-89` |
 | warehouse | PATCH плюс до двух движений, провал заглушён | `useWarehouseBatch.ts:255-276`, `useWarehouseOffcutCard.ts:288-323` |
@@ -1150,7 +1150,7 @@ save-режим.
 Общего правила поведения при частичном отказе нет ни у одного из семи многозапросных: снимок не
 сдвигается, `load()` после ошибки не вызывается, и экран остаётся с несохранёнными данными поверх
 частично сохранённых (`useSettings.ts:518-521`, `useCardConfig.ts:57-60`,
-`useCategoryCard.ts:113-117`, `useClientCard.ts:314-316`). Единственное место, где правило на этот
+`useCategoryCard.ts:118-122`, `useClientCard.ts:314-316`). Единственное место, где правило на этот
 счёт записано: очередь опустошается по мере отправки, и при падении на середине **остаток остаётся
 в очереди** — повтор не должен добавить ту же строку второй раз, а перезагрузка, которая показала
 бы дубль, случается только при успехе (`useOrderCard.ts:430-434`).
@@ -1272,7 +1272,7 @@ save-режим.
 - **Расхождения «фронт считает — схема хранит» разрешены 2026-09-11 (П68): колонок нет,
   считается при чтении.** Удаляются `level`, `field_count` и `product_count` категории
   (`products/shared/models.py:33-41`),
-  `usage_count` определения поля (`suppliers/shared/models.py:259-261`),
+  `usage_count` определения поля (`suppliers/shared/models.py:261-263`),
   `document_count` платежа (`finance/shared/models.py:49-51`),
   `has_deficit` и `last_bcc_date` поставщика (`suppliers/shared/models.py:58-61`),
   `quantity_remaining`/`status`/`total_cost` партии. В каждом случае одно и то же число у фронта
@@ -1284,7 +1284,7 @@ save-режим.
   таблице он не называется.
 
 Отдельный сквозной случай: **`entityRouteName` уведомления** — поле обязательное в типе
-(`types/notifications.ts:22`), колонки под него на схеме нет, и значение однозначно выводится из
+(`types/notifications.ts:25`), колонки под него на схеме нет, и значение однозначно выводится из
 `entityType` (пять типов → пять имён роутов). Тот же приём выбора маршрута лента аудита переиспользует
 намеренно, а не заводит второе правило (`types/audit.ts:28-45`).
 
@@ -1461,7 +1461,7 @@ save-режим.
 сегодня либо запрещено, либо молча уносит чужие строки, и ни то ни другое не есть архив. У
 справочников зеркальная непоследовательность: `RESTRICT` у товаров и услуг
 (`modules/products/shared/models.py:127,142,149,156`, `modules/services/shared/models.py:33,40`),
-у складской партии `ondelete` стоит `SET NULL` (`modules/warehouse/shared/models.py:72,80`), а у
+у складской партии `ondelete` стоит `SET NULL` (`modules/warehouse/shared/models.py:84,80`), а у
 правил пересчёта — `RESTRICT` (`modules/settings/shared/models.py:125,130`): каскад снят слайсом C1
 (ревизия `7c4d1e9a3b58`), и правило молча больше не уносит.
 Под П44 всё, что ссылается на справочник, обязано стать `RESTRICT`, а под товаром

@@ -382,11 +382,20 @@ async def remove_currency_item(db: AsyncSession, currency_id: UUID, tenant_id: U
     if existing.is_default:
         raise ConflictError("Cannot delete the default currency", code="CURRENCY_IS_DEFAULT")
 
-    # Gap 3: 409 if currency is used in products
+    # Gap 3: 409 if currency is used in products or services
     from app.modules.products.internal_api.interface import count_products_by_currency
+    from app.modules.services.internal_api.interface import count_services_by_currency
     product_count = await count_products_by_currency(db, existing.tenant_id, currency_id)
-    if product_count > 0:
-        raise ConflictError(f"Cannot delete currency: used by {product_count} product(s)", code="CURRENCY_IN_USE")
+    service_count = await count_services_by_currency(db, existing.tenant_id, currency_id)
+    if product_count > 0 or service_count > 0:
+        used_by = []
+        if product_count > 0:
+            used_by.append(f"{product_count} product(s)")
+        if service_count > 0:
+            used_by.append(f"{service_count} service(s)")
+        raise ConflictError(
+            f"Cannot delete currency: used by {', '.join(used_by)}", code="CURRENCY_IN_USE"
+        )
 
     await delete_currency(db, currency_id, tenant_id)
 
@@ -468,11 +477,20 @@ async def remove_uom_item(db: AsyncSession, uom_id: UUID, tenant_id: UUID) -> No
     if existing is None:
         raise NotFoundError(entity="UOM", entity_id=str(uom_id))
 
-    # Gap 3: 409 if UOM is used in products
+    # Gap 3: 409 if UOM is used in products or services
     from app.modules.products.internal_api.interface import count_products_by_uom
+    from app.modules.services.internal_api.interface import count_services_by_uom
     product_count = await count_products_by_uom(db, existing.tenant_id, uom_id)
-    if product_count > 0:
-        raise ConflictError(f"Cannot delete UOM: used by {product_count} product(s)", code="UOM_IN_USE")
+    service_count = await count_services_by_uom(db, existing.tenant_id, uom_id)
+    if product_count > 0 or service_count > 0:
+        used_by = []
+        if product_count > 0:
+            used_by.append(f"{product_count} product(s)")
+        if service_count > 0:
+            used_by.append(f"{service_count} service(s)")
+        raise ConflictError(
+            f"Cannot delete UOM: used by {', '.join(used_by)}", code="UOM_IN_USE"
+        )
 
     await delete_uom(db, uom_id, tenant_id)
 
@@ -733,3 +751,35 @@ def _validate_constant_bounds(input_data: ConstantsPatchInput) -> None:
             raise ValidationError(
                 f"{field} must be at most {high}", code="CONSTANT_OUT_OF_RANGE"
             )
+
+
+# ─── Order Permissions ────────────────────────────────────────────────────
+#
+# Seed values are the mock's own seed (`mocks/settings.ts:64-68`), the source of
+# truth named for this not-yet-implemented endpoint by the contract — not a
+# guess and not open to being widened here: adding roles, or deciding whether a
+# warehouse worker may see cost, is a separate owner decision this slice does
+# not make.
+_ORDER_PERMISSIONS_SEED: dict[str, list[str]] = {
+    "see_cost_roles": ["owner", "admin", "accounting"],
+    "manual_cost_roles": ["owner", "admin"],
+    "correction_roles": ["owner", "admin"],
+}
+
+
+async def get_order_permissions_matrix(db: AsyncSession, tenant_id: UUID) -> "OrderPermissionsResponse":
+    from app.modules.settings.features.crud.schemas import OrderPermissionsResponse
+    from app.modules.settings.features.crud.repository import (
+        get_order_permissions as get_order_permissions_repo,
+        create_order_permissions as create_order_permissions_repo,
+    )
+
+    obj = await get_order_permissions_repo(db, tenant_id)
+    if obj is None:
+        obj = await create_order_permissions_repo(db, tenant_id, dict(_ORDER_PERMISSIONS_SEED))
+
+    return OrderPermissionsResponse(
+        see_cost=obj.see_cost_roles,
+        manual_cost=obj.manual_cost_roles,
+        correction=obj.correction_roles,
+    )

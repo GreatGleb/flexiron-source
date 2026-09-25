@@ -44,13 +44,7 @@ PUBLIC_ROUTES = {
 # Роуты, где аутентификации нет и это ЗАПИСАННАЯ находка, а не новость. Пока находка не
 # закрыта, сторож про неё молчит, но список не даёт о ней забыть. Закрыл находку —
 # убери строку, и сторож начнёт её охранять.
-KNOWN_GAPS = {
-    # products БАГ-14: арендатор в обоих роутах захардкожен заглушкой
-    # 00000000-0000-0000-0000-000000000001 с комментарием «until auth middleware
-    # provides the current tenant context» — то есть слайс сознательно недоделан.
-    "app/modules/products/features/create_product/action.py": "products БАГ-14",
-    "app/modules/products/features/get_product_detail/action.py": "products БАГ-14",
-}
+KNOWN_GAPS = {}
 
 
 def _action_files() -> list[Path]:
@@ -211,6 +205,71 @@ class RouteAuthTest(unittest.TestCase):
             )
 
 
+def _repository_files() -> list[Path]:
+    return sorted(APP.rglob("repository.py"))
+
+
+def _functions_with_tenant_id(tree: ast.Module) -> dict[str, ast.AsyncFunctionDef]:
+    return {
+        n.name: n
+        for n in ast.walk(tree)
+        if isinstance(n, ast.AsyncFunctionDef)
+        and "tenant_id" in [a.arg for a in n.args.args]
+    }
+
+
+def _builds_query(fn: ast.AsyncFunctionDef) -> bool:
+    """True when the function itself constructs a SELECT/UPDATE/DELETE.
+
+    A function that never does — a pure INSERT, tagging its new row with
+    `tenant_id=tenant_id` — has no existing row to leak and is out of scope
+    for the filter requirement below, by construction rather than exception.
+    """
+    src = ast.unparse(fn)
+    return any(token in src for token in ("select(", "update(", "delete("))
+
+
+def _filters_by_tenant(fn: ast.AsyncFunctionDef) -> bool:
+    return "tenant_id ==" in ast.unparse(fn)
+
+
+def _local_calls(fn: ast.AsyncFunctionDef, names: set[str]) -> set[str]:
+    return {
+        node.func.id
+        for node in ast.walk(fn)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id in names
+        and node.func.id != fn.name
+    }
+
+
+def _needs_scoping(
+    name: str, functions: dict[str, ast.AsyncFunctionDef], seen: set[str] | None = None
+) -> bool:
+    seen = seen if seen is not None else set()
+    if name in seen:
+        return False
+    seen.add(name)
+    fn = functions[name]
+    if _builds_query(fn):
+        return True
+    return any(_needs_scoping(c, functions, seen) for c in _local_calls(fn, set(functions)))
+
+
+def _is_tenant_scoped(
+    name: str, functions: dict[str, ast.AsyncFunctionDef], seen: set[str] | None = None
+) -> bool:
+    seen = seen if seen is not None else set()
+    if name in seen:
+        return False
+    seen.add(name)
+    fn = functions[name]
+    if _filters_by_tenant(fn):
+        return True
+    return any(_is_tenant_scoped(c, functions, seen) for c in _local_calls(fn, set(functions)))
+
+
 class TenantScopedGetterTest(unittest.TestCase):
     """Геттер по id обязан принимать арендатора — вторая половина дыры 2026-09-04.
 
@@ -256,6 +315,8 @@ class TenantScopedGetterTest(unittest.TestCase):
         )
 
     def test_getters_are_tenant_scoped(self) -> None:
+        # Именной якорь регрессии — эти восемь имён не должны молча пропасть
+        # из проверки, даже когда общий сторож ниже накроет весь репозиторий.
         for name in self.GETTERS:
             with self.subTest(getter=name):
                 self._assert_scoped(name)
@@ -270,6 +331,43 @@ class TenantScopedGetterTest(unittest.TestCase):
         for name in self.WRITERS:
             with self.subTest(writer=name):
                 self._assert_scoped(name)
+
+    def test_tenant_id_functions_are_scoped_across_all_repositories(self) -> None:
+        """Тот же вопрос, но не по одному файлу, а по каждому `repository.py` под `app/`.
+
+        Функция, принявшая `tenant_id`, обязана либо отфильтровать по нему сама, либо
+        передать его соседней функции того же файла, которая фильтрует —
+        `upsert_mail_settings` делает именно так через `get_mail_settings`, и это
+        принимается, а не считается находкой. Функция без единого
+        SELECT/UPDATE/DELETE (чистый INSERT вроде `create_product`) вне области
+        правила — ей нечего фильтровать, она размечает свою же новую строку.
+        """
+        files = _repository_files()
+        self.assertGreaterEqual(
+            len(files), 8, "разбор перестал находить repository.py — сломан обход, а не код"
+        )
+
+        total_checked = 0
+        violations: list[str] = []
+        for path in files:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            functions = _functions_with_tenant_id(tree)
+            total_checked += len(functions)
+            for name, fn in functions.items():
+                if _needs_scoping(name, functions) and not _is_tenant_scoped(name, functions):
+                    violations.append(f"{_rel(path)}:{fn.lineno} {name}")
+
+        self.assertGreaterEqual(
+            total_checked,
+            30,
+            "разбор перестал находить функции с tenant_id — сломан экстрактор, а не код",
+        )
+        self.assertEqual(
+            [],
+            violations,
+            "функция принимает tenant_id и не фильтрует по нему (ни сама, ни через "
+            "соседку того же файла): " + ", ".join(violations),
+        )
 
 
 if __name__ == "__main__":

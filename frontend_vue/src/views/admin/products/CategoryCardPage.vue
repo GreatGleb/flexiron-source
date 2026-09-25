@@ -16,6 +16,7 @@ import { useFeatureFlag } from '@/composables/useFeatureFlag'
 import { useCategoryCard } from '@/composables/useCategoryCard'
 import { useDragDrop } from '@/composables/useDragDrop'
 import { getCategories } from '@/services/categoriesService'
+import { CATEGORY_FIELD_TYPES } from '@/types/category'
 import type { CategoryField, CategoryFieldType, CategoryListItem } from '@/types/category'
 import type { LinkedSupplier } from '@/types/product'
 
@@ -94,17 +95,8 @@ const parentOptions = computed(() => [
 
 // ─── Field type options ─────────────────────────────────────────────────────────
 
-const FIELD_TYPES: CategoryFieldType[] = [
-  'text',
-  'number',
-  'boolean',
-  'enum',
-  'email',
-  'date',
-  'file',
-]
 const fieldTypeOptions = computed(() =>
-  FIELD_TYPES.map((typ) => ({ value: typ, label: t(`categories.type_${typ}`) })),
+  CATEGORY_FIELD_TYPES.map((typ) => ({ value: typ, label: t(`categories.type_${typ}`) })),
 )
 
 // ─── Field modal ────────────────────────────────────────────────────────────────

@@ -42,7 +42,7 @@ if (code === 'CATEGORY_HAS_PRODUCTS') { … } else if (code === 'CATEGORY_HAS_CH
 `frontend_vue/src/services/api.ts:71-79`). Значит при живом бэкенде обе ветки не сработают
 никогда, и пользователь на попытку удалить непустую категорию получит общий
 `categories.toast_error` вместо «Нельзя удалить — в категории есть товары»
-(`frontend_vue/src/i18n/admin/categories.ts:61-62`).
+(`frontend_vue/src/i18n/admin/categories.ts:62-63`).
 
 ### Fix
 
@@ -100,7 +100,7 @@ $ grep -o "categoryId: 'cat-[0-9]*'" src/services/mocks/products.ts | sort | uni
 
 ## БАГ-03 — селект родителя видит только первые 25 категорий
 
-**File:** `frontend_vue/src/views/admin/products/CategoryCardPage.vue:62-65,88-93`
+**File:** `frontend_vue/src/views/admin/products/CategoryCardPage.vue:63-66,88-93`
 **Severity:** Medium — сегодня в моке 13 категорий, порог не достигнут; у арендатора с 26 категориями 26-ю нельзя выбрать родителем.
 **Источник:** К4 (форма запроса), Contract
 
@@ -110,7 +110,7 @@ $ grep -o "categoryId: 'cat-[0-9]*'" src/services/mocks/products.ts | sort | uni
 а у подписи стоят дефолты `page = 1, pageSize = 25`
 (`frontend_vue/src/services/categoriesService.ts:9-10`). Результат кладётся в `allCategories`
 и напрямую становится списком вариантов родителя
-(`CategoryCardPage.vue:88-93`). Ни признака «есть ещё», ни второй страницы код не запрашивает:
+(`CategoryCardPage.vue:89-94`). Ни признака «есть ещё», ни второй страницы код не запрашивает:
 `res.total` не читается вовсе.
 
 Второй потребитель того же справочника обходит это вручную: `useProductCard.ts:132` зовёт
@@ -130,7 +130,7 @@ $ grep -o "categoryId: 'cat-[0-9]*'" src/services/mocks/products.ts | sort | uni
 помечено там П20.
 
 Работа по коду: заводится `GET /api/categories/list`, на него переходят оба потребителя —
-`CategoryCardPage.vue:63` (сейчас дефолтные 25) и `useProductCard.ts:132` (сейчас `pageSize=999`).
+`CategoryCardPage.vue:64` (сейчас дефолтные 25) и `useProductCard.ts:132` (сейчас `pageSize=999`).
 Ветка «явный большой `pageSize`» закрыта.
 
 ## БАГ-04 — «категория не найдена» приходит текстом, а не кодом, и текст показывается пользователю
@@ -171,7 +171,7 @@ $ grep -o "categoryId: 'cat-[0-9]*'" src/services/mocks/products.ts | sort | uni
 `mocks/index.ts:1203-1209` (PATCH) и `:1172-1175` (PUT) отдают это значение как **успешный**
 ответ. Клиент результата не проверяет: `useCategoryCard.save()` кладёт оба промиса в
 `Promise.all` и на успехе показывает `categories.toast_saved`
-(`frontend_vue/src/composables/useCategoryCard.ts:112-114`).
+(`frontend_vue/src/composables/useCategoryCard.ts:117-119`).
 
 Сравнить с соседом по тому же файлу: `mockDeleteCategory` для того же случая возвращает
 `{ ok: false, code: 'CATEGORY_NOT_FOUND' }` (`:1479`) — то есть в одном моке два разных
@@ -191,7 +191,7 @@ $ grep -o "categoryId: 'cat-[0-9]*'" src/services/mocks/products.ts | sort | uni
 
 ## БАГ-06 — родителем можно назначить собственного потомка; на цикле мок зависает
 
-**File:** `frontend_vue/src/views/admin/products/CategoryCardPage.vue:88-93`, `frontend_vue/src/services/mocks/categories.ts:1468-1473,1328-1336,1374-1381`
+**File:** `frontend_vue/src/views/admin/products/CategoryCardPage.vue:89-94`, `frontend_vue/src/services/mocks/categories.ts:1468-1473,1328-1336,1374-1381`
 **Severity:** High — воспроизводимое зависание вкладки, а на сервере — недостижимое поддерево.
 **Источник:** К2 (правило живёт только в моке), Runtime
 
@@ -200,7 +200,7 @@ $ grep -o "categoryId: 'cat-[0-9]*'" src/services/mocks/products.ts | sort | uni
 Селект родителя исключает только саму категорию:
 
 ```ts
-...allCategories.value.filter((c) => c.id !== id).map(…)   // CategoryCardPage.vue:91
+...allCategories.value.filter((c) => c.id !== id).map(…)   // CategoryCardPage.vue:92
 ```
 
 Потомки в списке остаются. `mockPatchCategory` принимает любой `parentId` без проверки
@@ -250,7 +250,7 @@ fields: fields.map((f) => ({
 ```
 
 `...f` уже кладёт `name`, а `fieldName` добавляется рядом как дубликат. В типе `CategoryField`
-поля `fieldName` нет (`frontend_vue/src/types/category.ts:6-13`), и мок его не читает:
+поля `fieldName` нет (`frontend_vue/src/types/category.ts:16-23`), и мок его не читает:
 `mockPutCategoryFields` работает с `f.name` (`mocks/categories.ts:1497`). Похоже на перенос
 из товаров, где `ProductFieldValue.fieldName` существует (`frontend_vue/src/types/product.ts`).
 
@@ -276,7 +276,7 @@ fields: fields.map((f) => ({
 `frontend_vue/src/services/mocks/category-fields-keep-locales.spec.ts`. Описание ниже оставлено
 как история находки.
 
-**File:** `frontend_vue/src/views/admin/products/CategoryCardPage.vue:132-157`
+**File:** `frontend_vue/src/views/admin/products/CategoryCardPage.vue:124-149`
 **Severity:** High — необратимая потеря данных при обычном редактировании; ловится только сменой языка.
 **Источник:** К4, i18n
 
@@ -294,7 +294,7 @@ fields: fields.map((f) => ({
 (`frontend_vue/src/types/i18n.ts:43`) — пустая строка проходит и затирает.
 
 Соседний код в том же файле делает правильно: имя и описание самой категории редактируются
-через `mergeLocaleValue`, который сохраняет остальные языки (`CategoryCardPage.vue:70`, `:84`;
+через `mergeLocaleValue`, который сохраняет остальные языки (`CategoryCardPage.vue:71`, `:84`;
 `frontend_vue/src/types/i18n.ts:52-60`). То есть в одном компоненте два разных обращения с
 `TranslatedString`.
 
@@ -340,7 +340,7 @@ const parentOptions = computed(() => [
 `filters.search` — только совпавшие с поиском, потому что тот же `items` пересобирается
 фильтром (`useCategories.ts:57-65`).
 
-Это **не** БАГ-03: там речь про карточку категории (`CategoryCardPage.vue:63`), где
+Это **не** БАГ-03: там речь про карточку категории (`CategoryCardPage.vue:64`), где
 справочник берётся отдельным вызовом с дефолтным `pageSize = 25` и от фильтра не зависит.
 Здесь источник другой и зависимость хуже — набор вариантов меняется при каждом наборе букв
 в строке поиска.
