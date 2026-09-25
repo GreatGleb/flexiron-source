@@ -16,7 +16,7 @@
 > **Бэкенд здесь есть, и по К5 он старший.** `backend/app/core/uploads/action.py:79` — это
 > единственный роут вне `app/modules/`: uploads объявлен инфраструктурой, а не бизнес-модулем
 > (`backend/app/core/uploads/service.py:1-5` — «It is NOT a business module — it's infrastructure»).
-> Роут подключён (`backend/app/main.py:95`), таблица создана миграцией
+> Роут подключён (`backend/app/main.py:55`), таблица создана миграцией
 > (`backend/alembic/versions/133fae13afbe_phase_5_uploads.py:25-37`), и на неё ссылаются три чужие
 > таблицы с `ondelete="RESTRICT"`: `supplier_files.file_id`
 > (`backend/alembic/versions/a8dd7d7ba74b_phase_6_suppliers.py:88`), `payment_documents.file_id` и
@@ -198,7 +198,7 @@
   (`OutgoingPaymentCardPage.vue:110`, `useWarehouseMap.ts:56`), потому что переспросить его не у
   кого.
 - Источник истины: **бэкенд** — реализация есть и подключена (`backend/app/core/uploads/action.py:79`,
-  `backend/app/main.py:95`), значит по К5 форма ответа и каталог ошибок берутся с него, а не с
+  `backend/app/main.py:55`), значит по К5 форма ответа и каталог ошибок берутся с него, а не с
   мока и не с `types`. Практическое следствие: `interface UploadedFile`
   (`src/services/uploadsService.ts:3-10`) — **не** спецификация ответа, а желаемая форма, под
   которую написан мок; расхождение записано как находка про фронт (БАГ-01), а не как требование

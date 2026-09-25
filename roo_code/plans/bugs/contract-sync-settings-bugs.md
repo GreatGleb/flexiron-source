@@ -35,7 +35,7 @@ async def patch_currency_route(currency_id: uuid.UUID, input_data: CurrencyPatch
                                db: AsyncSession = Depends(get_db)):   # ← и всё
 ```
 
-Глобального auth-мидлвара, который закрыл бы дыру снаружи, нет: `backend/app/main.py:8`
+Глобального auth-мидлвара, который закрыл бы дыру снаружи, нет: `backend/app/main.py:9`
 подключает только CORS (`setup_cors`), других мидлваров в файле нет.
 
 Вторая половина той же дыры — репозиторий. `get_currency`, `get_uom`, `get_conversion`,

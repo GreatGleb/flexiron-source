@@ -16,7 +16,7 @@
 Находки про код: [`contract-sync-uploads-bugs.md`](../../plans/bugs/contract-sync-uploads-bugs.md).
 
 **Источник истины домена — бэкенд.** Реализация есть и подключена
-(`backend/app/core/uploads/action.py:26`, `backend/app/main.py:95`), значит по правилу старшинства
+(`backend/app/core/uploads/action.py:26`, `backend/app/main.py:55`), значит по правилу старшинства
 форма ответа и каталог ошибок сняты с неё, а не с мока и не с `interface UploadedFile`. Это
 единственный роут вне `backend/app/modules/`: uploads объявлен инфраструктурой, а не бизнес-модулем
 (`backend/app/core/uploads/service.py:1-5` — «It is NOT a business module — it's infrastructure»).
@@ -151,7 +151,7 @@ Idempotency-Key по-прежнему не обрабатывается загр
 
 Бэкенд: `backend/app/core/uploads/action.py:26-93` (`upload_file`) · запись —
 `core/uploads/service.py:14-36` (`store_file`) · модель `core/uploads/models.py:11-39` ·
-подключение `backend/app/main.py:95`
+подключение `backend/app/main.py:55`
 Реализация: `services/uploadsService.ts:18-20` (`uploadFile`) · транспорт
 `services/api.ts:243-256` (`apiUpload`) · потребитель `components/admin/ui/DropZone.vue:44-63` ·
 мок `mocks/index.ts:1727` (`uploadMock` → `uploadMockRoute`, `:1661-1679`)
