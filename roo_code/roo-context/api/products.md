@@ -14,15 +14,16 @@
 clean-slate против quick-action — §15; производные значения — §17; чем мок отличается от
 обязанностей сервера — §18; форма `id` — §19. Ниже — только то, что живёт в этом домене.
 
-**Источник истины — по эндпоинту, а не по домену.** Модуль бэкенда сегодня даёт три роута:
-`@router.get("/list", …)` (`backend/app/modules/products/features/list_products/action.py`),
+**Источник истины — по эндпоинту, а не по домену.** Модуль бэкенда сегодня даёт четыре роута:
+`@router.get("", …)` — постраничный список (`backend/app/modules/products/features/list_products/action.py:30`),
+`@router.get("/list", …)` — справочник (там же, `:55`),
 `@router.post("", …)` (`backend/app/modules/products/features/create_product/action.py:24`) и
 `@router.get("/{product_id}", …)` (`backend/app/modules/products/features/get_product_detail/action.py:29`),
-все три подключены в `backend/app/main.py`, и `list` — раньше `{product_id}` (иначе UUID-типизация
-последнего перехватила бы путь раньше, чем он дойдёт до обработчика справочника). Значит формы
-`GET /api/products/list`, `POST /api/products` и `GET /api/products/:id` ниже сняты **со схем
-сервера**, а расхождение фронта с ними названо находкой; остальные четыре описаны по клиенту и
-моку. Строка `Бэкенд:` стоит у каждого раздела — файл со строкой или слово «не реализован». Метки
+все четыре подключены в `backend/app/main.py`, и оба списочных пути объявлены раньше
+`{product_id}` (иначе UUID-типизация последнего перехватила бы путь раньше, чем он дойдёт до
+обработчика). Значит формы `GET /api/products`, `GET /api/products/list`, `POST /api/products` и
+`GET /api/products/:id` ниже сняты **со схем сервера**, а расхождение фронта с ними названо
+находкой; остальные три описаны по клиенту и моку. Строка `Бэкенд:` стоит у каждого раздела — файл со строкой или слово «не реализован». Метки
 `Статус: спроектировано` в домене нет ни одной: у всех семи эндпоинтов есть вызывающий код
 (`services/productsService.ts:21`, `:25`, `:58`, `:111`, `:117`, `:121`, `:125`).
 
@@ -124,10 +125,13 @@ camelCase (`services/productsService.ts:49-58`, `:86-111`, тип — `types/pro
 
 Мок читает ровно эти пять параметров с дефолтами `page=1`, `pageSize=25`, `sortDir='asc'`
 (`services/mocks/index.ts:567`). **У `sortBy` дефолта нет ни на одной стороне** — правило
-домена 7.
+домена 7. Сервер читает те же пять параметров с теми же дефолтами
+(`list_products_catalog` в `action.py`); `sortBy`/`sortDir` типизированы `Literal`, поэтому
+значение вне `name`/`category`/`price` и `asc`/`desc` — отказ `422` ещё до домена, а не тихое
+игнорирование.
 
-Ответ: `PaginatedResponse<ProductListItem>` (конверт — §13 соглашений; сбор страницы —
-`services/mocks/products.ts:13976-13982`):
+Ответ клиента/мока — `PaginatedResponse<ProductListItem>` (конверт — §13 соглашений; сбор
+страницы — `services/mocks/products.ts:13976-13982`):
 
 ```ts
 interface ProductListItem {
@@ -152,16 +156,50 @@ interface ProductListItem {
 (`views/admin/products/ProductsPage.vue:158-165`, `productUnitLabel`), а `avgCostPrice` и
 `avgSalePrice` — производные, которые сервер обязан считать сам (графа 9 обязанностей).
 
-Правила выборки — наблюдения, а не пожелания:
+**Ответ сервера** — `ProductCatalogListResponse` (`ProductCatalogItem` для каждой строки,
+обе в `schemas.py` слайса) отличается от клиентского типа по составу, не только по регистру:
+
+```ts
+interface ProductCatalogItem {
+  id: string
+  name: string                              // не TranslatedString: колонка одна, см. раздел /list
+  categoryId: string | null
+  categoryName: TranslatedString | null     // из categories.name_translations, реальный join
+  sku: string | null
+  price: number | null
+  minStock: number | null
+  createdAt: string
+  saleUomId: string | null
+  warehouseUomId: string | null
+  warehouseToSaleFactor: number | null
+}
+```
+
+Полей одиннадцать, не тринадцать: `avgCostPrice` и `avgSalePrice` слайс не отдаёт — ни колонки,
+ни агрегата для них нет нигде в `products.shared.models`, то же самое основание, по которому
+`ProductDetailResponse` карточки не отдаёт свои пять полей (см. врезку у `GET /api/products/:id`
+ниже). `name` едет плоской строкой по той же причине, что и в `/list`: `Product.name` — одна
+колонка, а не JSONB.
+
+Правила выборки — наблюдения, а не пожелания; сервер воспроизводит все три буквально
+(`list_catalog`/`_catalog_query` в `repository.py`, `list_products_catalog` в `domain.py`):
 
 - **поиск идёт по `sku` и по всем трём локалям имени сразу; описание в поиск не входит**
-  (`services/mocks/products.ts:13948-13956`);
-- **товар без категории не попадёт ни в одну выборку по категориям**: фильтр сравнивает
+  (`services/mocks/products.ts:13948-13956`). У сервера то же самое сужено до одной локали —
+  `Product.name` не JSONB, `ilike` идёт по `sku` и по `name` через `or_`, `description` в
+  фильтре не участвует ни разу;
+- **товар без категории не попадёт ни в одну выборку по категориям**: мок сравнивает
   `params.categoryIds.includes(p.categoryId ?? '')` (`:13961`), а пустая строка в списке id не
-  встречается — правило домена 8;
+  встречается — правило домена 8. У сервера тот же эффект получен по-другому: `category_id IN
+  (...)` в SQL никогда не совпадает с `NULL`, так что фильтр исключает такой товар без отдельной
+  проверки;
 - **без `sortBy` порядок выдачи — порядок хранилища**: весь блок сортировки под `if (params.sortBy)`
   (`:13965-13974`); `sortBy: 'category'` сортирует по **копии** имени категории внутри товара
-  (`:13969-13970`) — правило домена 7.
+  (`:13969-13970`) — правило домена 7. У сервера `list_catalog` не добавляет `ORDER BY` вовсе,
+  когда `sort_by` не передан — не «сортировка по чему-то по умолчанию», а её полное отсутствие;
+  `sortBy: 'category'` сортирует по `categories.name_translations` через `COALESCE` по локалям
+  `en`/`ru`/`lt` (тот же порядок обхода локалей, что и у `_reconstruct_price_unit` в карточке) —
+  ни клиент, ни мок локаль сортировки не выбирают, так что сервер решает это сам, а не по контракту.
 
 Зовут список **четверо**, и двумя разными способами. Экран каталога — один вызывающий на три
 повода: по монтированию
@@ -172,13 +210,20 @@ interface ProductListItem {
 `composables/useWarehouseBatchCreate.ts:282-285`,
 `composables/useWarehouseOffcutCreate.ts:167-170`). Что у одной задачи три механизма — БАГ-03.
 
-Ошибки: ни одной. `mockGetProducts` не бросает (`services/mocks/products.ts:13942-13983`), клиент
-кладёт текст исключения в состояние (`composables/useProducts.ts:39`).
+Ошибки: мок не бросает ни одной (`services/mocks/products.ts:13942-13983`), клиент кладёт текст
+исключения в состояние (`composables/useProducts.ts:39`). Сервер — две, обе не из каталога домена
+выше: `VALIDATION_ERROR`/422 на нечисловой элемент `categoryIds` (`_parse_category_ids` в
+`domain.py`) и голый `422` от FastAPI на `sortBy`/`sortDir` вне разрешённых значений (Query
+типизирован `Literal`, до домена дело не доходит).
 
-Бэкенд: **не реализован** — у модуля три роута (`/list`, `/{product_id}`, `POST` без сегмента), и
-постраничного `GET` без сегмента среди них нет. Путь совпадает с `POST /api/products`
-(`backend/app/modules/products/features/create_product/action.py:24`), но не метод — против живого
-сервера `GET /api/products` отвечает **405**, а не 404 (проверено запросом к `app.main.app`).
+Бэкенд: `backend/app/modules/products/features/list_products/action.py` (`list_products_catalog`,
+`GET` без сегмента на том же роутере, что и `/list`) · схемы
+`backend/app/modules/products/features/list_products/schemas.py`
+(`ProductCatalogItem`, `ProductCatalogListResponse`) · домен и выборка
+`backend/app/modules/products/features/list_products/domain.py` (`list_products_catalog`,
+`MAX_PAGE_SIZE`) · `backend/app/modules/products/features/list_products/repository.py`
+(`list_catalog`, `count_catalog`, `get_categories_by_ids`). Арендатор — из
+`current_user.tenant_id` той же зависимостью `get_current_user`, что и у `/list` и у карточки.
 
 Реализация: `services/productsService.ts:7-22` (`getProducts`) · мок `services/mocks/index.ts:426`
 

@@ -1,4 +1,11 @@
-"""Behaviour of `GET /api/products/list` and the two card fixes it travelled with.
+"""Behaviour of `GET /api/products`, `GET /api/products/list`, and the two card
+fixes the latter travelled with.
+
+`GET /api/products` is the paginated catalog — tenant-scoped from the token,
+searchable by `sku` and `name` (never `description`), filterable by
+`categoryIds`, and optionally sorted by `name`/`category`/`price`. Without
+`sortBy` the order is not imposed at all (contract "GET /api/products",
+domain rule 7).
 
 `GET /api/products/list` is a lightweight id+name catalog reference, tenant-scoped from
 the token, with no parameters and no pagination. It shares its module with two standing
@@ -42,6 +49,10 @@ with patch.dict(
     )
     from app.modules.products.features.list_products.action import (
         router as list_products_router,
+    )
+    from app.modules.products.features.list_products.domain import (
+        MAX_PAGE_SIZE,
+        list_products_catalog,
     )
     from app.modules.products.shared.models import (
         Category,
@@ -92,6 +103,7 @@ class ProductsCatalogTests(unittest.IsolatedAsyncioTestCase):
         self.user_a = uuid4()
 
         self.category_a = uuid4()
+        self.category_a2 = uuid4()  # second category of tenant A — for the "excluded by filter" case
         self.field_owned = uuid4()  # tenant A's own field definition
         self.field_foreign = uuid4()  # field id referenced by A's product, defined only for B
         self.category_b = uuid4()
@@ -104,6 +116,17 @@ class ProductsCatalogTests(unittest.IsolatedAsyncioTestCase):
         self.product_same_1 = uuid4()
         self.product_same_2 = uuid4()
         self.product_b = uuid4()
+
+        # Fixtures for GET /api/products (paginated catalog). Names, in
+        # insertion order, are the exact reverse of their alphabetical order,
+        # so "default order" and "sortBy=name" are never accidentally equal:
+        # insertion order Widget → GizmoNameToken → Doohickey; prices
+        # 30/10/20 give a third, independent ordering for sortBy=price.
+        # `-ORD` in every sku isolates these three from the rest of the
+        # tenant's catalog via `search`, without depending on their count.
+        self.product_widget = uuid4()  # sku match only; category_a; description carries an
+        self.product_gizmo = uuid4()  # unsearchable word to prove description is not searched
+        self.product_doohickey = uuid4()  # name match only; category_a2 (excluded by category_a filter)
 
         async with self.engine.begin() as conn:
             for model in (Tenant, User, Category, CategoryField, Product, ProductFieldValue):
@@ -141,6 +164,11 @@ class ProductsCatalogTests(unittest.IsolatedAsyncioTestCase):
                         "name_translations": {"en": "A cat"},
                     },
                     {
+                        "id": self.category_a2,
+                        "tenant_id": self.tenant_a,
+                        "name_translations": {"en": "A cat 2"},
+                    },
+                    {
                         "id": self.category_b,
                         "tenant_id": self.tenant_b,
                         "name_translations": {"en": "B cat"},
@@ -173,6 +201,9 @@ class ProductsCatalogTests(unittest.IsolatedAsyncioTestCase):
                         "id": self.product_charlie,
                         "tenant_id": self.tenant_a,
                         "name": "Charlie",
+                        "sku": None,
+                        "description": None,
+                        "category_id": None,
                         "price": 0,
                         "min_stock": 0,
                         "purchase_to_warehouse_factor": 0,
@@ -181,6 +212,9 @@ class ProductsCatalogTests(unittest.IsolatedAsyncioTestCase):
                         "id": self.product_alpha,
                         "tenant_id": self.tenant_a,
                         "name": "Alpha",
+                        "sku": None,
+                        "description": None,
+                        "category_id": None,
                         "price": None,
                         "min_stock": None,
                         "purchase_to_warehouse_factor": None,
@@ -189,6 +223,9 @@ class ProductsCatalogTests(unittest.IsolatedAsyncioTestCase):
                         "id": self.product_same_2,
                         "tenant_id": self.tenant_a,
                         "name": "Same",
+                        "sku": None,
+                        "description": None,
+                        "category_id": None,
                         "price": None,
                         "min_stock": None,
                         "purchase_to_warehouse_factor": None,
@@ -197,6 +234,9 @@ class ProductsCatalogTests(unittest.IsolatedAsyncioTestCase):
                         "id": self.product_same_1,
                         "tenant_id": self.tenant_a,
                         "name": "Same",
+                        "sku": None,
+                        "description": None,
+                        "category_id": None,
                         "price": None,
                         "min_stock": None,
                         "purchase_to_warehouse_factor": None,
@@ -205,7 +245,43 @@ class ProductsCatalogTests(unittest.IsolatedAsyncioTestCase):
                         "id": self.product_b,
                         "tenant_id": self.tenant_b,
                         "name": "B's product",
+                        "sku": None,
+                        "description": None,
+                        "category_id": None,
                         "price": None,
+                        "min_stock": None,
+                        "purchase_to_warehouse_factor": None,
+                    },
+                    {
+                        "id": self.product_widget,
+                        "tenant_id": self.tenant_a,
+                        "name": "Widget",
+                        "sku": "WID-UNIQUE-ORD",
+                        "description": "mentions zzzdescriptionword nowhere else",
+                        "category_id": self.category_a,
+                        "price": 30,
+                        "min_stock": None,
+                        "purchase_to_warehouse_factor": None,
+                    },
+                    {
+                        "id": self.product_gizmo,
+                        "tenant_id": self.tenant_a,
+                        "name": "GizmoNameToken-ORD",
+                        "sku": "GIZ-999",
+                        "description": None,
+                        "category_id": None,
+                        "price": 10,
+                        "min_stock": None,
+                        "purchase_to_warehouse_factor": None,
+                    },
+                    {
+                        "id": self.product_doohickey,
+                        "tenant_id": self.tenant_a,
+                        "name": "Doohickey-ORD",
+                        "sku": "DOO-1",
+                        "description": None,
+                        "category_id": self.category_a2,
+                        "price": 20,
                         "min_stock": None,
                         "purchase_to_warehouse_factor": None,
                     },
@@ -295,6 +371,166 @@ class ProductsCatalogTests(unittest.IsolatedAsyncioTestCase):
             sorted(str(pid) for pid in (self.product_same_1, self.product_same_2)),
             [entry[1] for entry in same_entries],
         )
+
+    # ── GET /api/products — paginated catalog ────────────────────────────────
+
+    async def test_paginated_catalog_missing_authorization_is_refused(self):
+        response = await self.client.get("/api/products")
+
+        self.assertEqual(401, response.status_code, response.text)
+
+    async def test_paginated_catalog_contains_only_the_caller_s_tenant_products(self):
+        """Also the mutation guard: drop `Product.tenant_id == tenant_id` from
+        `_catalog_query` in `repository.py` and `self.product_b` leaks in here."""
+        response = await self.client.get(
+            "/api/products", headers=self.auth_a, params={"pageSize": 100}
+        )
+
+        self.assertEqual(200, response.status_code, response.text)
+        data = response.json()["data"]
+        ids = {item["id"] for item in data["items"]}
+
+        self.assertIn(str(self.product_widget), ids)
+        self.assertNotIn(str(self.product_b), ids)
+
+    async def test_search_matches_sku(self):
+        response = await self.client.get(
+            "/api/products", headers=self.auth_a, params={"search": "WID-UNIQUE"}
+        )
+
+        ids = {item["id"] for item in response.json()["data"]["items"]}
+        self.assertEqual({str(self.product_widget)}, ids)
+
+    async def test_search_matches_name(self):
+        response = await self.client.get(
+            "/api/products", headers=self.auth_a, params={"search": "GizmoNameToken"}
+        )
+
+        ids = {item["id"] for item in response.json()["data"]["items"]}
+        self.assertEqual({str(self.product_gizmo)}, ids)
+
+    async def test_search_does_not_match_description(self):
+        response = await self.client.get(
+            "/api/products",
+            headers=self.auth_a,
+            params={"search": "zzzdescriptionword"},
+        )
+
+        data = response.json()["data"]
+        self.assertEqual(0, data["total"])
+        self.assertEqual([], data["items"])
+
+    async def test_category_filter_excludes_other_category_and_uncategorized(self):
+        response = await self.client.get(
+            "/api/products",
+            headers=self.auth_a,
+            params={"search": "-ORD", "categoryIds": str(self.category_a)},
+        )
+
+        ids = {item["id"] for item in response.json()["data"]["items"]}
+        # product_gizmo has no category at all; product_doohickey belongs to
+        # category_a2 — both must be excluded by a filter naming category_a.
+        self.assertEqual({str(self.product_widget)}, ids)
+
+    async def test_category_response_field_carries_translations(self):
+        response = await self.client.get(
+            "/api/products", headers=self.auth_a, params={"search": "WID-UNIQUE"}
+        )
+
+        item = response.json()["data"]["items"][0]
+        self.assertEqual(str(self.category_a), item["categoryId"])
+        self.assertEqual({"ru": "", "en": "A cat", "lt": ""}, item["categoryName"])
+
+    async def test_uncategorized_product_reports_null_category(self):
+        response = await self.client.get(
+            "/api/products", headers=self.auth_a, params={"search": "GizmoNameToken"}
+        )
+
+        item = response.json()["data"]["items"][0]
+        self.assertIsNone(item["categoryId"])
+        self.assertIsNone(item["categoryName"])
+
+    async def test_default_order_is_not_imposed(self):
+        """No `sortBy` — the three fixtures come back in the order they were
+        inserted (Widget, Gizmo, Doohickey), not name-ascending
+        (Doohickey, Gizmo, Widget) and not price-descending either."""
+        response = await self.client.get(
+            "/api/products", headers=self.auth_a, params={"search": "-ORD"}
+        )
+
+        ids = [item["id"] for item in response.json()["data"]["items"]]
+        self.assertEqual(
+            [str(self.product_widget), str(self.product_gizmo), str(self.product_doohickey)],
+            ids,
+        )
+
+    async def test_sort_by_name_ascending(self):
+        response = await self.client.get(
+            "/api/products",
+            headers=self.auth_a,
+            params={"search": "-ORD", "sortBy": "name", "sortDir": "asc"},
+        )
+
+        ids = [item["id"] for item in response.json()["data"]["items"]]
+        self.assertEqual(
+            [str(self.product_doohickey), str(self.product_gizmo), str(self.product_widget)],
+            ids,
+        )
+
+    async def test_sort_by_price_descending_changes_the_order(self):
+        response = await self.client.get(
+            "/api/products",
+            headers=self.auth_a,
+            params={"search": "-ORD", "sortBy": "price", "sortDir": "desc"},
+        )
+
+        ids = [item["id"] for item in response.json()["data"]["items"]]
+        self.assertEqual(
+            [str(self.product_widget), str(self.product_doohickey), str(self.product_gizmo)],
+            ids,
+        )
+
+    async def test_page_beyond_total_is_empty_but_total_is_unchanged(self):
+        first = await self.client.get(
+            "/api/products", headers=self.auth_a, params={"pageSize": 100}
+        )
+        total = first.json()["data"]["total"]
+
+        response = await self.client.get(
+            "/api/products", headers=self.auth_a, params={"page": 9999, "pageSize": 100}
+        )
+
+        data = response.json()["data"]
+        self.assertEqual([], data["items"])
+        self.assertEqual(total, data["total"])
+
+    async def test_oversized_page_size_is_rejected_at_the_route(self):
+        """`Query(..., le=100)` refuses before the domain ever runs — the same
+        boundary `finance/payments` already enforces on its own `pageSize`."""
+        response = await self.client.get(
+            "/api/products", headers=self.auth_a, params={"pageSize": 1000}
+        )
+
+        self.assertEqual(422, response.status_code, response.text)
+
+    async def test_page_size_is_capped_in_the_domain(self):
+        """Mutation target: remove `min(page_size, MAX_PAGE_SIZE)` in
+        `domain.list_products_catalog`. Called directly, bypassing the route's
+        own `le=100` Query bound, so this guards the domain's own clamp."""
+        async with self.sessions() as session:
+            result = await list_products_catalog(
+                session,
+                self.tenant_a,
+                search=None,
+                category_ids_raw=None,
+                sort_by=None,
+                sort_dir="asc",
+                page=1,
+                page_size=99999,
+            )
+
+        self.assertEqual(MAX_PAGE_SIZE, result.pageSize)
+        self.assertLessEqual(len(result.items), MAX_PAGE_SIZE)
 
     # ── GET /api/products/:id — field names ──────────────────────────────────
 
