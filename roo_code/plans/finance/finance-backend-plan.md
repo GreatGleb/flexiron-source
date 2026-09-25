@@ -478,11 +478,11 @@ schemas → repository → domain → action, миграции в `backend/alemb
   записи (`frontend_vue/src/services/mocks/notifications.ts:702-728`): есть `orderId` и
   `orderNumber` → `order`; нет, и платёж исходящий → `supplier`; нет, и входящий → `client`.
   Перечень `NotificationEntityType` замкнут пятью значениями и платежа не содержит
-  (`frontend_vue/src/types/notifications.ts:13`). Сервер обязан воспроизвести **ту же** развилку, а
+  (`frontend_vue/src/types/notifications.ts:16`). Сервер обязан воспроизвести **ту же** развилку, а
   не завести шестое значение: уведомление о просрочке ведёт к контрагенту или к заказу, а не к
   самой финансовой записи, и это осознанно — причина записана рядом с кодом
   (`frontend_vue/src/services/mocks/notifications.ts:700-705`).
-- **Роут.** Поле провода — `entityRouteName` (`frontend_vue/src/types/notifications.ts:22`), и
+- **Роут.** Поле провода — `entityRouteName` (`frontend_vue/src/types/notifications.ts:25`), и
   значений у него тоже три: `admin-order-card`, `admin-supplier-card`, `admin-client-card`. **Ни
   одно не финансовое** — против четырёх роутов домена, из которых карточку платежа открывает
   `admin-finance-outgoing-payment` (`frontend_vue/src/router/index.ts:336-340`). **Здесь же сидит дефект, который не выдумывается, а
@@ -824,7 +824,7 @@ grep -cE '\| `(read|edit)` \|  \|$' roo_code/plans/finance/finance-backend-plan.
     который их покажет, не будет. П42 расширяет перечень **до десяти**, но десятым называет
     настройки, значит после обоих решений значений должно стать одиннадцать, и этого не сказано
     нигде. Отдельно то же самое у уведомлений: `NotificationEntityType` замкнут пятью значениями
-    (`frontend_vue/src/types/notifications.ts:13`), платежа в нём тоже нет — но там это **не
+    (`frontend_vue/src/types/notifications.ts:16`), платежа в нём тоже нет — но там это **не
     дефект**, уведомление о просрочке осознанно ведёт к контрагенту или заказу, а не к записи.
     Вопрос, стало быть, узкий: заводить ли `payment` в аудите, и кому — finance или сквозному плану
     журнала. До ответа Ф4 запись пишет, а тип подставляет тот, который назначит сквозной план.

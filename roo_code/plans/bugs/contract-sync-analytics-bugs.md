@@ -464,7 +464,7 @@ export interface AlertItem {
 NordMetal просрочена на 3 дня», «Рейтинг UralSteel JSC упал до 2★» (`frontend_vue/src/services/mocks/analytics.ts:88-115`).
 Соседний блок того же экрана устроен правильно: `sectionPreviews` несут `key` и отрисованы
 `router-link` (`DashboardPage.vue:169-175`). Лента уведомлений — тоже: у `Notification` есть
-`entityType`, `entityId`, `entityRouteName` (`frontend_vue/src/types/notifications.ts:14-24`).
+`entityType`, `entityId`, `entityRouteName` (`frontend_vue/src/types/notifications.ts:17-27`).
 
 **`:key` неуникален.** Список ключуется переводом названия типа — `:key="alert.type.ru"`
 (`DashboardPage.vue:152`). Две тревоги одного типа (два просроченных платежа, два дефицита) дают

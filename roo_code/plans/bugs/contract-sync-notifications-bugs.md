@@ -94,13 +94,13 @@ async function loadDropdownItems() {
 комментарий «Shared across all consumers»), и его `load()` собирает запрос из общих `filters` и
 общей `page` (`:29-32`). Эти значения принадлежат странице списка: она правит `filters.type`,
 `filters.isRead`, `filters.search` и страницу
-(`frontend_vue/src/views/admin/notifications/NotificationsPage.vue:50-61`, `:63-71`, `:156-160`).
+(`frontend_vue/src/views/admin/notifications/NotificationsPage.vue:46-57`, `:63-71`, `:156-160`).
 Значит после того, как пользователь отфильтровал список, колокольчик отдаёт первые пять
 **этой выдачи**, а не пять последних уведомлений. Комментарий в коде утверждает обратное
 («Load top 5 notifications for dropdown», `:18`).
 
 Побочно: открытие дропдауна тянет полную страницу списка (`pageSize` до 100,
-`NotificationsPage.vue:74-79`), чтобы показать пять строк.
+`NotificationsPage.vue:70-75`), чтобы показать пять строк.
 
 ### Fix
 
@@ -234,7 +234,7 @@ unreadCount.value = 0                                            // :68
 которых `isRead === false`. Класс строки завязан именно на это поле
 (`:106`, `:class="{ 'notif-item--unread': !notification.isRead }"`), а `onMarkAllRead`
 перезагрузки не делает (`:52-54`) — в отличие от страницы, где после отметки стоит `load()`
-(`frontend_vue/src/views/admin/notifications/NotificationsPage.vue:100-103`).
+(`frontend_vue/src/views/admin/notifications/NotificationsPage.vue:96-99`).
 
 E2E этого не ловит: тест «mark all read in dropdown updates badge count» проверяет только
 исчезновение бейджа (`frontend_vue/tests/e2e/admin/notifications/notifications.spec.ts:166-178`).
@@ -263,7 +263,7 @@ E2E этого не ловит: тест «mark all read in dropdown updates bad
 Перечень типов закрыт восемью значениями (`types/notifications.ts:3-11`), и у восьмого есть всё,
 кроме события:
 
-- иконка — `reserve_expiring: 'clock'` (`types/notifications.ts:40`);
+- иконка — `reserve_expiring: 'clock'` (`types/notifications.ts:43`);
 - перевод на три языка — `i18n/admin/notifications.ts:14`, `:52`, `:90`;
 - пункт фильтра на странице — `NotificationsPage.vue:37`;
 - два сида в ленте — `notif-006` «Резерв по заказу ORD-005 истекает через 2 дня» и `notif-016`
