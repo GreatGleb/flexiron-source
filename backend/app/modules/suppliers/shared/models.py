@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime
 
 from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, func
-from sqlalchemy.dialects.postgresql import JSON, JSONB, UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.base import Base, TimestampMixin, UUIDMixin
@@ -250,7 +250,7 @@ class FieldDefinition(UUIDMixin, TimestampMixin, Base):
         nullable=False,
         index=True,
     )
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    name_translations: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
     field_type: Mapped[str] = mapped_column(String(50), nullable=False)
     required: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
@@ -261,10 +261,26 @@ class FieldDefinition(UUIDMixin, TimestampMixin, Base):
     usage_count: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"
     )
-    options: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    options: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    hidden: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
 
+    # Uniqueness carries over unchanged from the plain-string `name` this column
+    # replaces (contract `config.md`, "Библиотека определений полей" — the
+    # `FIELD_NAME_TAKEN` 409 the client relies on): the categories revision
+    # (`a7c1d4e90b21_categories_translated_names`) never had a name-uniqueness
+    # rule to begin with, so it neither added nor dropped one when translating
+    # `categories.name`/`category_fields.name` — it only carried the column
+    # through. The same non-decision applies here: the existing unique index
+    # is left in place, now keyed on the translations object.
     __table_args__ = (
-        Index("uq_field_definitions_tenant_name", "tenant_id", "name", unique=True),
+        Index(
+            "uq_field_definitions_tenant_name",
+            "tenant_id",
+            "name_translations",
+            unique=True,
+        ),
     )
 
 
@@ -286,6 +302,9 @@ class SectionConfig(UUIDMixin, TimestampMixin, Base):
     )
     visible: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default="true"
+    )
+    system: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
     )
 
     fields: Mapped[list["SectionField"]] = relationship(

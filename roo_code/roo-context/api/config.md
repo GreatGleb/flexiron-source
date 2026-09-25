@@ -124,8 +124,12 @@ interface FieldDefinition {
 Ошибки: **ни одной** — см. «Каталог кодов ошибок» ниже.
 
 Бэкенд: **не реализован** — модуля нет; таблица под ответ есть, `field_definitions`
-(`backend/app/modules/suppliers/shared/models.py:242-268`), и расходится с этой формой по четырём
-пунктам (правила 1 и 2 ниже).
+(`backend/app/modules/suppliers/shared/models.py`). Форму больше не расходится: миграция
+`d8b3f1c25a60_config_field_library_form` перевела `name` и `options` на переводимое хранение
+(`name_translations`, `options` — оба JSONB) и завела колонку `hidden` с `server_default` «не
+скрыто» — правило 1 закрыто, три из четырёх прежних пунктов сняты. Остаётся один: какой признак
+«поле встроенное» настоящий — колонка `is_builtin` или префикс `f-custom-` в id во фронте (правило 2
+ниже); в ответ `is_builtin` не входит вовсе, так что на форму `GET` это не влияет — решение владельца.
 Реализация: `services/configService.ts:7` (`getFieldLibrary`) · мок `mocks/index.ts:411` →
 `mocks/config.ts:234`
 
@@ -180,10 +184,12 @@ Save-режим: clean-slate. Именно этот эндпоинт несёт 
 (`configService.ts:22-25`).
 
 Ошибки: **ни одной** в коде. Уникальность имени внутри арендатора — единственное правило раздела,
-подтверждённое схемой: уникальный **индекс** `uq_field_definitions_tenant_name` по `(tenant_id, name)`
-(`backend/app/modules/suppliers/shared/models.py:266-268` — `Index(..., unique=True)`, миграция
-`e24a3922ed01_phase_7_config.py:40`; в базе это `UNIQUE INDEX` того же имени). Кода под этот отказ в
-проекте нет — строка владельцу.
+подтверждённое схемой: уникальный **индекс** `uq_field_definitions_tenant_name`, по
+`(tenant_id, name)` изначально (`e24a3922ed01_phase_7_config.py:40`), с 2026-09-25 — по
+`(tenant_id, name_translations)`, тот же индекс перенесён на переименованную и переведённую на JSONB
+колонку миграцией `d8b3f1c25a60_config_field_library_form`, а не заведён заново
+(`backend/app/modules/suppliers/shared/models.py` — `Index(..., unique=True)`; в базе это
+`UNIQUE INDEX` того же имени). Кода под этот отказ в проекте нет — строка владельцу.
 
 Бэкенд: **не реализован**.
 Реализация: `services/configService.ts:22` (`createField`) · мок `mocks/index.ts:943` →
@@ -294,10 +300,12 @@ interface SectionField { fieldId: string; order: number; visible: boolean }   //
 Ошибки: **ни одной**.
 
 Бэкенд: **не реализован** — таблица `section_configs`
-(`backend/app/modules/suppliers/shared/models.py:271-293`) здесь **ближе** к фронту, чем у полей:
-имя переводимо (`name_translations` JSONB, `:280`), есть `collapsed` и `visible` (`:282-287`).
-Расходятся имя порядка (`sort_order` против `order`, `:281`) и отсутствует `system` — колонки под
-него нет (`grep -c '"system"' backend/alembic/versions/e24a3922ed01_phase_7_config.py` → `0`).
+(`backend/app/modules/suppliers/shared/models.py`) здесь **ближе** к фронту, чем у полей: имя
+переводимо (`name_translations` JSONB), есть `collapsed` и `visible`, и с миграции
+`d8b3f1c25a60_config_field_library_form` есть `system` — булева колонка с `server_default` «не
+системная» (была вовсе без колонки, отсутствие снято). Расходится один пункт, и это не пробел
+схемы, а разница имён: `sort_order` на схеме против `order` в ответе — сервер обязан переименовать
+поле при выдаче, колонки под это заводить не нужно.
 Реализация: `services/configService.ts:46` (`getSections`) · мок `mocks/index.ts:412` →
 `mocks/config.ts:250`
 
@@ -735,7 +743,12 @@ savePermissions])` (`useCardConfig.ts:51-55`) — общей транзакци�
    `permission_items.name_translations` — JSONB (`suppliers/shared/models.py:282`;
    `backend/app/modules/auth/shared/models.py:157-159`). Асимметрия внутри одной миграции: два имени
    из трёх переводимы, третье нет, а хранить `{ru,en,lt}` в `String(255)` нечем (§12 соглашений —
-   тот же класс, самое крупное расхождение проекта).
+   тот же класс, самое крупное расхождение проекта). **Снято по схеме 2026-09-25:** миграция
+   `d8b3f1c25a60_config_field_library_form` перевела оба — `name` → `name_translations` (JSONB NOT
+   NULL) и `options` (JSON-массив строк) → JSONB-массив объектов перевода — тем же приёмом, что
+   `a7c1d4e90b21_categories_translated_names` применила к `categories.name`/`category_fields.name`;
+   существующие значения перенесены в ключ `en`. Асимметрии внутри миграции `phase_7_config` больше
+   нет.
 2. **Встроенность поля на схеме — колонка, во фронте — префикс строки id.** `is_builtin`
    (`backend/app/modules/suppliers/shared/models.py:258-260`, миграция
    `e24a3922ed01_phase_7_config.py:34`) против `fieldId.startsWith('f-custom-')`
@@ -743,8 +756,11 @@ savePermissions])` (`useCardConfig.ts:51-55`) — общей транзакци�
    встроенность определяется префиксом, серверные `id` **обязаны** нести `f-custom-`, иначе UI
    перестанет отличать встроенные поля от пользовательских, — а на схеме `id` это
    `gen_random_uuid()` (миграция `:29`). Зеркальный случай у секций: во фронте есть
-   `system?: boolean` (`types/config.ts:24-25`), на схеме колонки нет
-   (`grep -c '"system"' backend/alembic/versions/e24a3922ed01_phase_7_config.py` → `0`).
+   `system?: boolean` (`types/config.ts:24-25`); колонки под него не было в `phase_7_config` —
+   **заведена 2026-09-25** миграцией `d8b3f1c25a60_config_field_library_form`, булева, с
+   `server_default` «не системная». Это закрывает отсутствие столбца, а не сам вопрос правила —
+   какой из двух признаков («этого удалять нельзя») сервер обязан слушать для *поля*, колонка
+   `is_builtin` или префикс id, — тот остаётся решением владельца.
 3. **Пользователь в матрице адресуется email-ом, а на схеме — UUID.** `users: Record<string,
    string[]>` со значениями вида `admin@flexiron.com` (`types/config.ts:39-40`,
    `mocks/config.ts:179-184`) и `userPermissions[itemId][role][userEmail]` (`types/config.ts:51-54`,
