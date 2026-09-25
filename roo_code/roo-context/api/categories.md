@@ -41,7 +41,7 @@
 | таблица | модель | миграция |
 |---|---|---|
 | `categories` | `Category` — `backend/app/modules/products/shared/models.py:14-17` | `backend/alembic/versions/25245d4bf874_phase_3_categories_products.py:27-41` |
-| `category_fields` | `CategoryField` — `models.py:71-74` | миграция `:42-56` |
+| `category_fields` | `CategoryField` — `models.py:88-91` | миграция `:42-56` |
 
 Отсюда два следствия для оставшихся пяти разделов ниже. Первое: строка `Бэкенд:` у них —
 «не реализован», и метка `Статус: спроектировано` здесь была бы **неверна** (она про отсутствие
@@ -484,8 +484,8 @@ Partial<{ name: TranslatedString; parentId: string | null; description: Translat
 считает при чтении, поднимаясь по `parentId` (`mocks/categories.ts:1328-1341`), а схема хранит
 `level` колонкой и `parent_name` не имеет вовсе
 (`backend/app/modules/products/shared/models.py:39-41`). `fieldCount` мок пересчитывает при записи
-полей (`mocks/categories.ts:1510`), схема хранит колонкой (`models.py:33-35`). `productCount` не
-считается **нигде**: это статическое число в сторе и колонка в схеме (`models.py:36-38`), при
+полей (`mocks/categories.ts:1510`), схема хранит колонкой (`models.py:50-52`). `productCount` не
+считается **нигде**: это статическое число в сторе и колонка в схеме (`models.py:53-55`), при
 создании товара оно не растёт (БАГ-02). `inheritedFields` мок держит материализованными и
 обновляет каскадом (`mocks/categories.ts:1374-1381`), а на схеме их нет ни колонкой, ни таблицей.
 Общее правило — §17 соглашений: величина, выводимая из других данных, считается при чтении;

@@ -741,10 +741,10 @@ len(SUPPLIERS) messages here» — `backend/tests/modules/bcc/test_send_request.
      нет вовсе;
    - `supplierName` и `productName`: фронт хранит подписи прямо в строке события, обе
      `TranslatedString` (`types/bcc.ts:26`, `:28`), схема — только внешние ключи `supplier_id` и
-     `product_id` (`models.py:69-79`), то есть **сервер обязан подмешивать имена при чтении, а не
+     `product_id` (`models.py:86-96`), то есть **сервер обязан подмешивать имена при чтении, а не
      хранить их** (в отличие от осознанных снимков §17 соглашений);
    - `source`: фронт — `TranslatedString` (`types/bcc.ts:30`, нормализация
-     `services/bccService.ts:61`), схема — `String(50)` NOT NULL (`models.py:79-81`);
+     `services/bccService.ts:61`), схема — `String(50)` NOT NULL (`models.py:96-98`);
    - `subject`, `body`, `attachment_file_ids`, `sender_user_id`: четыре колонки схемы
      (`models.py:84-97`), которых нет ни в типе, ни в моке — содержимое письма сервер хранит, а
      фронт после отправки не видит никогда.

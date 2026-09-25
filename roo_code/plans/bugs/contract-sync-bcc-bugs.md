@@ -325,7 +325,7 @@ UUID формы схемы, строка 1599 файла решений от д�
 ```python
 product_id: Mapped[uuid.UUID | None] = mapped_column(
     UUID(as_uuid=True),
-    ForeignKey("products.id", ondelete="SET NULL"),   # models.py:71-75
+    ForeignKey("products.id", ondelete="SET NULL"),   # models.py:88-92
 ```
 
 а таблица каталога — своя и рекурсивная, `bcc_categories.parent_id → bcc_categories.id`

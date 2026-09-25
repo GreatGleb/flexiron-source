@@ -30,6 +30,23 @@ def generate_uuid7() -> uuid.UUID:
     return uuid.UUID(int=value)
 
 
+AUDIT_ENTITY_TYPES: tuple[str, ...] = (
+    "product",
+    "order",
+    "client",
+    "supplier",
+    "batch",
+    "stock",
+    "offcut",
+    "movement",
+    "deficit",
+)
+"""The closed set of entity kinds the journal knows, same nine as
+`AUDIT_ENTITY_TYPES` in `frontend_vue/src/types/audit.ts`. `entity_type`
+itself stays a plain `String(32)` column — this is a Python-side guard, not
+a DB constraint, so it adds no migration."""
+
+
 class AuditEntry(Base):
     """One change record in the shared audit feed.
 

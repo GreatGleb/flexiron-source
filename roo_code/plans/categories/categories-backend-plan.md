@@ -75,18 +75,18 @@
 | эндпоинт | схема | контракт | кто прав | почему |
 |---|---|---|---|---|
 | все шесть | `categories.name` — `String(255)` (`models.py:25`) | `name: TranslatedString` (`types/category.ts:27`) | контракт | §12 соглашений и П64: имя вводится на одном языке и читается на том, который есть; в одну строку три языка не лягут. Миграция M1 |
-| все шесть | `categories.description` — `Text` (`models.py:32`) | `description: TranslatedString \| null` | контракт | то же основание; миграция M1 |
-| `PUT /fields` | `category_fields.name` — `String(255)` (`models.py:84`) | `CategoryField.name: TranslatedString` | контракт | то же; миграция M1 |
+| все шесть | `categories.description` — `Text` (`models.py:49`) | `description: TranslatedString \| null` | контракт | то же основание; миграция M1 |
+| `PUT /fields` | `category_fields.name` — `String(255)` (`models.py:101`) | `CategoryField.name: TranslatedString` | контракт | то же; миграция M1 |
 | `PUT /fields` | `options` — `Mapped[dict \| None]` (`models.py:100`) | `options: TranslatedString[]` — массив | контракт | колонка `JSON` вмещает массив, врёт аннотация типа; правка модели без миграции |
 | `PUT /fields` | `field_type` — `String(50)`, комментарий на пять значений (`models.py:85-93`) | семь значений `CategoryFieldType` (`types/category.ts:4`) | контракт | П26: перечень остаётся в коде одним источником, сервер валидирует по нему; `email` и `file` доходят до селекта (`CategoryCardPage.vue:97`) |
-| `PUT /fields` | имена колонок `field_type`, `sort_order` (`models.py:85`, `:83`) | имена на проводе `type`, `order` | оба | колонка и провод — разные имена по определению; переименования нет, отображение делает слой схем слайса |
-| `GET /api/categories` | `level` хранится колонкой (`models.py:39`) | «считается при чтении, поднимаясь по `parentId`» | контракт + **П68** | П68 называет `level`/`field_count`/`product_count` категории поимённо и удаляет колонки; §17 соглашений. Миграция M2 |
-| `GET /api/categories` | `field_count` колонкой (`models.py:33`) | `fieldCount` — только собственные поля, пересчёт при записи | контракт + **П68** | там же |
-| `GET`, `DELETE` | `product_count` колонкой (`models.py:36`) | «не считается нигде», статическое число в сторе (БАГ-02) | контракт + **П68** | хранимое число уже разошлось с товарами; на нём стоит отказ `CATEGORY_HAS_PRODUCTS`, то есть врущая колонка пускает удаление |
+| `PUT /fields` | имена колонок `field_type`, `sort_order` (`models.py:102`, `:83`) | имена на проводе `type`, `order` | оба | колонка и провод — разные имена по определению; переименования нет, отображение делает слой схем слайса |
+| `GET /api/categories` | `level` хранится колонкой (`models.py:56`) | «считается при чтении, поднимаясь по `parentId`» | контракт + **П68** | П68 называет `level`/`field_count`/`product_count` категории поимённо и удаляет колонки; §17 соглашений. Миграция M2 |
+| `GET /api/categories` | `field_count` колонкой (`models.py:50`) | `fieldCount` — только собственные поля, пересчёт при записи | контракт + **П68** | там же |
+| `GET`, `DELETE` | `product_count` колонкой (`models.py:53`) | «не считается нигде», статическое число в сторе (БАГ-02) | контракт + **П68** | хранимое число уже разошлось с товарами; на нём стоит отказ `CATEGORY_HAS_PRODUCTS`, то есть врущая колонка пускает удаление |
 | `GET /api/categories` | колонки `parent_name` нет | `parentName: TranslatedString \| null` в строке списка | контракт | производное, §17; сервер отдаёт, не храня |
 | `GET /:id` | ни колонки, ни таблицы под `inheritedFields` | плоское объединение всей цепочки предков | контракт | собирается при чтении по `parent_id`; дубликаты по имени не схлопываются (правило домена 2) |
 | `PATCH /:id` | таблицы связи «категория ↔ поставщик» нет ни одной | `linkedSuppliers` принимается целым массивом | контракт | строка 9 владельцу снята 2026-09-10 как **работа, а не решение**. Миграция M3 |
-| `DELETE /:id` | FK `categories.parent_id` — `RESTRICT` (миграция `25245d4bf874_phase_3_categories_products.py:32`), ORM `children` — `cascade="all, delete-orphan"` (`models.py:58`) | `CATEGORY_HAS_CHILDREN` — отказ | **схема (FK)**, ORM правится | П44: справочник при живых ссылках не удаляется. ORM-каскад молча снёс бы поддерево в обход FK |
+| `DELETE /:id` | FK `categories.parent_id` — `RESTRICT` (миграция `25245d4bf874_phase_3_categories_products.py:32`), ORM `children` — `cascade="all, delete-orphan"` (`models.py:75`) | `CATEGORY_HAS_CHILDREN` — отказ | **схема (FK)**, ORM правится | П44: справочник при живых ссылках не удаляется. ORM-каскад молча снёс бы поддерево в обход FK |
 | `PUT /fields`, `DELETE` | `product_field_values.field_id` — `RESTRICT` (миграция `:78`) | «что делать со значениями — не решено» | **П73** | значение переживает определение: определение помечается убранным, не удаляется. Миграция M4 |
 | все шесть | `tenant_id` `nullable=False` у обеих таблиц (`models.py:19`, `:64`) | во фронте не выражена нигде | **схема** | §4 соглашений: арендатор только из токена, сам заголовок клиент не шлёт и не должен |
 | `GET /:id` | `id` — UUID | в моке `cat-<n>` | оба | §19: `id` непрозрачен, фронт его не разбирает; форма мока — свойство мока |
@@ -628,8 +628,8 @@ JSONB, `category_fields.name` → `name_translations` JSONB — правило �
 **Зависимостей нет. Блокирует S1, S7.**
 
 Удаляются `categories.level`, `categories.field_count`, `categories.product_count`
-(`models.py:33-41`, миграция `25245d4bf874_phase_3_categories_products.py:34-36`). Тем же
-движением снимается `cascade="all, delete-orphan"` у отношения `children` (`models.py:56-58`):
+(`models.py:50-58`, миграция `25245d4bf874_phase_3_categories_products.py:34-36`). Тем же
+движением снимается `cascade="all, delete-orphan"` у отношения `children` (`models.py:73-75`):
 оно противоречит `RESTRICT` на том же ключе (`миграция :32`) и под П44 неверно.
 
 Приёмка: та же, плюс `grep -c "product_count" backend/app/modules/products/shared/models.py` → 0.

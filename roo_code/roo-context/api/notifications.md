@@ -382,7 +382,7 @@ markAllAsRead()` и затем `await loadDropdownItems()` (`NotificationDropdow
 константа в типах `NOTIFICATION_TYPE_ICONS` (`types/notifications.ts:38-47`), а не поле записи:
 сервер её не отдаёт и отдавать не должен. Новая запись рождается с `isRead: false` и
 `createdAt: new Date().toISOString()` (`mocks/notifications.ts:519-520`) — на схеме те же умолчания
-уже серверные: `is_read` — `server_default="false"` (`models.py:33-36`), `created_at` —
+уже серверные: `is_read` — `server_default="false"` (`models.py:50-53`), `created_at` —
 `server_default=func.now()` (`:37-42`), `title_translations`/`message_translations` —
 `server_default="{}"` (`:29-30`). Кому принадлежат интервал опроса и глубина ленты — **решено 2026-09-07 (П20)**: коду. Сервер не
 решает, сколько строк показывает интерфейс и как часто он спрашивает; ни интервал `30_000`
