@@ -15,6 +15,18 @@ import unittest
 
 
 RUNNER = Path(__file__).with_name("codex-night.py").resolve()
+_spec = importlib.util.spec_from_file_location("night_db", RUNNER.with_name("night_db.py"))
+night_db = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(night_db)
+LIVE_DB_URL = "postgresql+asyncpg://postgres:root@localhost:5433/flexiron"
+
+
+def postgres_available():
+    try:
+        night_db.asyncpg_sql(night_db.url_for_database(LIVE_DB_URL, "postgres"), [], ["SELECT 1"])
+    except Exception:
+        return False
+    return True
 FAKE_CODEX = r'''#!/usr/bin/env python3
 import json, os, pathlib, subprocess, sys, time
 args = sys.argv[1:]
@@ -29,6 +41,12 @@ if mode.startswith('{'):
 work = args[args.index('--sandbox') + 1] == 'workspace-write'
 with pathlib.Path(os.environ['NIGHT_TEST_CALLS']).open('a') as calls:
     calls.write(task['id'] + (':work' if work else ':review') + '\n')
+if os.environ.get('NIGHT_TEST_DBLOG'):
+    with pathlib.Path(os.environ['NIGHT_TEST_DBLOG']).open('a') as seen:
+        seen.write('%s:%s=%s\n' % (task['id'], 'work' if work else 'review',
+                                    os.environ.get('DATABASE_URL', '')))
+    if os.environ.get('DATABASE_URL'):
+        assert os.environ['DATABASE_URL'] in prompt, 'автору не сказан адрес его базы'
 if work:
     if mode == 'must-not-repeat-author':
         sys.exit(55)
@@ -138,6 +156,107 @@ class PilotTest(unittest.TestCase):
 
     def state(self):
         return json.loads((self.logs / "state.json").read_text())
+
+
+    # --- БАГ-05: общий изменяемый ресурс изолируется вместе с файлами ---
+
+    def with_backend(self, checks):
+        """Дерево с бэкендом и очередь, чья проверка записывает свой DATABASE_URL."""
+        (self.root / "backend").mkdir()
+        (self.root / "backend/.env").write_text(f"DATABASE_URL={LIVE_DB_URL}\n")
+        self.git("add", "backend/.env")
+        self.git("commit", "-m", "backend env")
+        self.dblog = self.base / "dburls"
+        self.env["NIGHT_TEST_DBLOG"] = str(self.dblog)
+        self.env["NIGHT_TEST_DBLOG_CHECK"] = str(self.dblog)
+        self.queue.write_text(json.dumps({"tasks": [
+            {"id": "plan", "sources": ["plan.md"], "outputs": ["plan.md"], "task": "prepare",
+             "checks": checks}]}))
+
+    def seen_urls(self):
+        return dict(line.split("=", 1) for line in self.dblog.read_text().splitlines())
+
+    @unittest.skipUnless(postgres_available(),
+                         f"нет Postgres на {LIVE_DB_URL}: изоляцию баз проверять не на чем")
+    def test_task_gets_its_own_database_and_loses_it_when_the_task_ends(self):
+        probe = ["python3", "-c", "import os, pathlib;"
+                 "pathlib.Path(os.environ['NIGHT_TEST_DBLOG_CHECK']).open('a')"
+                 ".write('plan:check=%s\\n' % os.environ.get('DATABASE_URL', ''))"]
+        self.with_backend([{"cwd": "backend", "argv": probe}])
+        pool = night_db.TaskDatabases(LIVE_DB_URL)
+        self.addCleanup(lambda: [pool._admin(*pool._drop(name)) for name in pool.existing()])
+        result = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        expected = night_db.url_for_database(LIVE_DB_URL, night_db.database_name("plan"))
+        seen = self.seen_urls()
+        # Автор, проверка и приёмка работают в ОДНОЙ базе — своей, а не общей.
+        self.assertEqual(seen["plan:work"], expected)
+        self.assertEqual(seen["plan:check"], expected)
+        self.assertEqual(seen["plan:review"], expected)
+        self.assertNotIn("/flexiron", seen["plan:work"])
+        # Задача кончилась — базы не стало; остаётся только шаблон.
+        self.assertEqual(pool.existing(), [night_db.TEMPLATE])
+
+    @unittest.skipUnless(postgres_available(),
+                         f"нет Postgres на {LIVE_DB_URL}: изоляцию баз проверять не на чем")
+    def test_blocked_task_takes_its_database_with_it(self):
+        """Ровно случай БАГ-05: забракованная задача не оставляет за собой схему."""
+        self.with_backend([])
+        pool = night_db.TaskDatabases(LIVE_DB_URL)
+        self.addCleanup(lambda: [pool._admin(*pool._drop(name)) for name in pool.existing()])
+        result = self.invoke("work-blocked")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(len(self.state()["blocked"]), 1)
+        self.assertEqual(pool.existing(), [night_db.TEMPLATE])
+
+    @unittest.skipUnless(postgres_available(),
+                         f"нет Postgres на {LIVE_DB_URL}: изоляцию баз проверять не на чем")
+    def test_finished_task_loses_its_database_before_the_next_task_starts(self):
+        """База отдаётся на КОНЦЕ задачи, а не на конце прогона.
+
+        Уборка в `dispose()` делает конечное состояние одинаковым в обоих случаях, и
+        проверка по нему слепа — инверсия 2026-09-25 это и показала: снятый
+        `release` не покраснел ничего. Видно это только изнутри прогона, поэтому
+        вторая задача перечисляет базы и записывает, что застала.
+        """
+        self.with_backend([])
+        probe = self.base / "list-databases.py"
+        probe.write_text(
+            "import importlib.util, json, os, pathlib\n"
+            f"spec = importlib.util.spec_from_file_location('night_db', {str(RUNNER.with_name('night_db.py'))!r})\n"
+            "night_db = importlib.util.module_from_spec(spec)\n"
+            "spec.loader.exec_module(night_db)\n"
+            f"pool = night_db.TaskDatabases({LIVE_DB_URL!r})\n"
+            "with pathlib.Path(os.environ['NIGHT_TEST_DBLOG_CHECK']).open('a') as out:\n"
+            "    out.write('second:alive=%s\\n' % ','.join(pool.existing()))\n")
+        self.queue.write_text(json.dumps({"tasks": [
+            {"id": "first", "sources": ["plan.md"], "outputs": ["plan.md"], "task": "prepare"},
+            {"id": "second", "sources": ["plan.md"], "outputs": ["other.md"], "task": "prepare",
+             "checks": [{"cwd": "backend", "argv": ["python3", str(probe)]}]}]}))
+        pool = night_db.TaskDatabases(LIVE_DB_URL)
+        self.addCleanup(lambda: [pool._admin(*pool._drop(name)) for name in pool.existing()])
+        result = self.invoke(max_tasks=2)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(len(self.state()["completed"]), 2)
+        alive = self.seen_urls()["second:alive"].split(",")
+        self.assertIn(night_db.database_name("second"), alive)
+        self.assertNotIn(night_db.database_name("first"), alive,
+                         "база законченной задачи дожила до следующей")
+
+    @unittest.skipUnless(postgres_available(),
+                         f"нет Postgres на {LIVE_DB_URL}: изоляцию баз проверять не на чем")
+    def test_shared_db_flag_is_the_only_way_back_to_the_common_database(self):
+        """Умолчание — изоляция. Общая база достижима только явным флагом."""
+        self.with_backend([])
+        pool = night_db.TaskDatabases(LIVE_DB_URL)
+        self.addCleanup(lambda: [pool._admin(*pool._drop(name)) for name in pool.existing()])
+        command = [sys.executable, str(RUNNER), "--workspace", str(self.root), "--queue", str(self.queue),
+                   "--shared-db", "--run", "--run-dir", str(self.logs), "--minutes", "1", "--max-tasks", "1"]
+        result = subprocess.run(command, env={**self.env, "NIGHT_TEST_MODE": ""},
+                                capture_output=True, text=True, timeout=15)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.seen_urls()["plan:work"], "")
+        self.assertEqual(pool.existing(), [])
 
     def test_preflight_does_not_call_model_or_write_results(self):
         result = self.invoke(run=False)
@@ -290,6 +409,7 @@ class PilotTest(unittest.TestCase):
         guard.mkdir()
         shutil.copyfile(RUNNER, guard / 'controller.py')
         shutil.copyfile(RUNNER.with_name('headless_backends.py'), guard / 'headless_backends.py')
+        shutil.copyfile(RUNNER.with_name('night_db.py'), guard / 'night_db.py')
         shutil.copyfile(RUNNER.with_name('refs_shift.py'), guard / 'refs_shift.py')
         shutil.copyfile(RUNNER.with_name('codex-night-watch.py'), guard / 'watch.py')
         shutil.copyfile(self.queue, guard / 'queue.json')

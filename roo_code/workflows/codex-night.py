@@ -29,6 +29,7 @@ DIFF_LIMIT = 120_000
 LOG_TAIL_LIMIT = 2_000
 sys.path.insert(0, str(HERE))
 from headless_backends import ROLES, load_routing  # noqa: E402  (нужен HERE в sys.path)
+import night_db  # noqa: E402
 import refs_shift  # noqa: E402
 
 SCHEMA = {
@@ -124,10 +125,10 @@ def validate_checks(root, checks):
             raise ValueError(f"Не найден исполнитель проверки: {argv[0]}")
 
 
-def execute_checks(root, checks, prefix, deadline):
+def execute_checks(root, checks, prefix, deadline, env=None):
     for number, check in enumerate(checks):
         execute(check["argv"], root / check["cwd"],
-                prefix.with_name(f"{prefix.name}-{number}"), deadline)
+                prefix.with_name(f"{prefix.name}-{number}"), deadline, env=env)
 
 
 def link_report(root, doc, prefix, deadline):
@@ -168,7 +169,7 @@ def disjoint_batch(candidates, size):
     return batch
 
 
-def write_author(root, backends, task, run_dir, deadline):
+def write_author(root, backends, task, run_dir, deadline, env=None):
     """Автор работает в своём worktree, а не в общем дереве.
 
     Возвращает (результат, патч). Патч применяется в checkout позже и по одному:
@@ -185,7 +186,7 @@ def write_author(root, backends, task, run_dir, deadline):
         (worktree / "frontend_vue/node_modules").symlink_to(modules)
     before = git_state(worktree)
     try:
-        result = ask_agent(worktree, backends, task, "work", run_dir, deadline)
+        result = ask_agent(worktree, backends, task, "work", run_dir, deadline, env)
     except CommandFailed:
         # Процесс исполнителя не запустился или упал — это не «ответ», а отказ среды.
         # Он остаётся поводом остановить прогон: если CLI лёг, ляжет и на следующей задаче.
@@ -312,13 +313,16 @@ def retry_checkpoint(root, queue, previous):
     return state
 
 
-def execute(command, root, prefix, deadline, prompt=None):
+def execute(command, root, prefix, deadline, prompt=None, env=None):
     remaining = deadline - time.monotonic()
     if remaining <= 0:
         raise TimeoutError("Лимит времени исчерпан")
+    # env — это ДОБАВКА к окружению контроллера, а не замена: подменив его целиком,
+    # мы лишили бы команду PATH и HOME, то есть сломали бы её по другой причине.
+    environment = {**os.environ, **env} if env else None
     with prefix.with_suffix(".stdout.log").open("xb") as out, prefix.with_suffix(".stderr.log").open("xb") as err:
         proc = subprocess.Popen(command, cwd=root, stdin=subprocess.PIPE if prompt else subprocess.DEVNULL,
-                                stdout=out, stderr=err, start_new_session=True)
+                                stdout=out, stderr=err, start_new_session=True, env=environment)
         try:
             proc.communicate(prompt.encode() if prompt else None, timeout=remaining)
         except BaseException:
@@ -378,7 +382,7 @@ def service_error_kind(log):
     return None
 
 
-def ask_agent_once(root, backends, task, role, run_dir, deadline, attempt=1):
+def ask_agent_once(root, backends, task, role, run_dir, deadline, attempt=1, env=None):
     suffix = "" if attempt == 1 else f"-retry-{attempt}"
     prefix = run_dir / f'{task["id"]}-{role}{suffix}'
     result_path = prefix.with_suffix(".json")
@@ -458,11 +462,28 @@ def ask_agent_once(root, backends, task, role, run_dir, deadline, attempt=1):
             "сломать, и резолвер её не судит. Номера в уже написанных ссылках контроллер "
             "правит сам после твоей работы; тебе их трогать не нужно.\n"
         )
+    if env and "DATABASE_URL" in env:
+        # Без этого абзаца изоляция не работает: worktree автора не содержит
+        # `backend/.env` (он в .gitignore), и автор, которому нужна база, ПОДСТАВЛЯЕТ
+        # адрес в команду руками. Замер — ночь 2026-09-24-2225, задача
+        # `suppliers-schema-t2`: в доказательствах стоит
+        # `DATABASE_URL=postgresql+asyncpg://postgres:root@localhost:5433/flexiron
+        # python3 -m alembic upgrade head`, то есть общая база. Переменная окружения
+        # такую команду не перебивает — её перебивает только запрет её писать.
+        instruction += (
+            "База данных. У тебя СВОЯ база, её адрес уже лежит в переменной окружения "
+            "DATABASE_URL, и настройки бэкенда читают переменную окружения раньше файла "
+            f"`backend/.env`. Твоя база: `{env['DATABASE_URL']}`.\n"
+            "Не подставляй адрес базы в команду руками и не бери его из `backend/.env`, "
+            "`alembic.ini` или из примеров в документах: там стоит ОБЩАЯ база, и правка, "
+            "накаченная в неё, останется там после отката твоей задачи и сломает "
+            "`alembic check` у всех, кто пойдёт после тебя. Пиши просто "
+            "`cd backend && python3 -m alembic upgrade head`.\n")
     backend = backends[role]
     instruction += backend.result_instruction(result_path)
     prompt = instruction + "\nЗадание (JSON):\n" + json.dumps(task, ensure_ascii=False, indent=2)
     prefix.with_suffix(".prompt.txt").write_text(prompt)
-    execute(backend.build(role, root, run_dir, result_path), root, prefix, deadline, prompt)
+    execute(backend.build(role, root, run_dir, result_path), root, prefix, deadline, prompt, env=env)
     backend.finalize(role, prefix, result_path)
     result = json.loads(result_path.read_text())
     if (set(result) != {"status", "summary", "evidence"}
@@ -475,13 +496,13 @@ def ask_agent_once(root, backends, task, role, run_dir, deadline, attempt=1):
     return result
 
 
-def ask_agent(root, backends, task, role, run_dir, deadline):
+def ask_agent(root, backends, task, role, run_dir, deadline, env=None):
     # A review has no write effects and can safely start a fresh session after
     # a recognized service failure. Never replay the author or alter access settings.
     before_git, before_files = git_state(root), file_snapshot(root)
     for attempt in (1, 2):
         try:
-            result = ask_agent_once(root, backends, task, role, run_dir, deadline, attempt)
+            result = ask_agent_once(root, backends, task, role, run_dir, deadline, attempt, env)
             if attempt == 2:
                 first_result = run_dir / f'{task["id"]}-{role}.json'
                 if first_result.exists():
@@ -518,7 +539,7 @@ def ask_agent(root, backends, task, role, run_dir, deadline):
 
 
 def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous=None,
-        token_budget=None, parallel=1):
+        token_budget=None, parallel=1, databases=None):
     if run_dir.is_relative_to(root):
         raise ValueError("Каталог результатов должен находиться вне checkout")
     # Never reuse a directory: even a stopped run remains intact.
@@ -539,6 +560,7 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
              "current": None, "reason": "", "retried_from": str(previous) if previous else None}
     deps = dependencies(queue)
     tasks = ordered_tasks(queue, deps)
+    databases = databases or night_db.NoDatabases()
     exhausted = False
     # Цена задачи в этом проекте гуляет втрое (замер ночи 2026-09-23: от 2.5 до 7.4 млн
     # токенов). Поэтому следующая задача начинается, только если остатка хватит на
@@ -615,6 +637,11 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
             execute_checks(root, queue.get("baseline_checks", []), run_dir / "baseline-check", deadline)
             if changed(root) or git_state(root) != baseline_git:
                 raise RuntimeError("Baseline-проверка изменила checkout")
+        # Шаблон баз строится ДО первой задачи и падением останавливает прогон: тихий
+        # пропуск вернул бы общую базу, то есть сам БАГ-05, и никто бы этого не увидел.
+        databases.prepare(root, lambda url: execute(
+            ["python3", "-m", "alembic", "upgrade", "head"], root / "backend",
+            run_dir / "db-template", deadline, env={"DATABASE_URL": url}))
         attempts = 0
         prepared = {}
         for task in tasks:
@@ -658,13 +685,15 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
             missing = [name for name in task["sources"] if not (root / name).is_file()]
             if missing:
                 block(task, "sources", {"summary": "Нет необходимых источников", "evidence": missing}, expected_git)
+                databases.release(task["id"])
                 state["current"] = None
                 continue
             work = {"status": "done"}
             if retry and task["id"] == retry["current"]:
                 pass
             elif parallel <= 1:
-                work = ask_agent(root, backends, task, "work", run_dir, deadline)
+                work = ask_agent(root, backends, task, "work", run_dir, deadline,
+                                 databases.env_for(task["id"]))
             else:
                 if task["id"] not in prepared:
                     # Пачка — только задачи, не делящие файлов, и только те, что уже
@@ -677,8 +706,13 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
                     batch = disjoint_batch(candidates, min(parallel, max_tasks - attempts + 1))
                     state["batch"] = [t["id"] for t in batch]
                     save("batch")
+                    # Базы пачки заводятся здесь, в главном потоке: создание базы —
+                    # операция на сервере, и четыре потока, делающие её одновременно,
+                    # отлаживались бы вслепую. Автор получает уже готовый URL.
+                    batch_env = {t["id"]: databases.env_for(t["id"]) for t in batch}
                     with concurrent.futures.ThreadPoolExecutor(max_workers=len(batch)) as pool:
-                        futures = {pool.submit(write_author, root, backends, t, run_dir, deadline): t
+                        futures = {pool.submit(write_author, root, backends, t, run_dir, deadline,
+                                               batch_env[t["id"]]): t
                                    for t in batch}
                         for future in concurrent.futures.as_completed(futures):
                             prepared[futures[future]["id"]] = future.result()
@@ -691,11 +725,13 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
                 raise RuntimeError("Исполнитель изменил Git или файлы вне задачи")
             if work["status"] == "blocked":
                 block(task, "work", work, expected_git)
+                databases.release(task["id"])
                 state["current"] = None
                 continue
             if not changed(root):
                 block(task, "work", {"summary": "Исполнитель сообщил done без изменений; нужна сверка очереди",
                                      "evidence": work.get("evidence", [])}, expected_git)
+                databases.release(task["id"])
                 state["current"] = None
                 continue
             # Ссылки документов на сдвинутые строки чинит контроллер: автор не имеет
@@ -714,7 +750,8 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
             check_failure = None
             try:
                 execute(["npm", "run", "verify"], root / "frontend_vue", run_dir / f'{task["id"]}-check-verify', deadline)
-                execute_checks(root, task.get("checks", []), run_dir / f'{task["id"]}-check-extra', deadline)
+                execute_checks(root, task.get("checks", []), run_dir / f'{task["id"]}-check-extra', deadline,
+                               env=databases.env_for(task["id"]))
                 for n, doc in enumerate(link_documents(task)):
                     if doc not in links_before:
                         continue
@@ -730,14 +767,17 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
                 raise RuntimeError("Машинная проверка изменила проверенные файлы")
             if check_failure:
                 block(task, "checks", check_failure, expected_git)
+                databases.release(task["id"])
                 state["current"] = None
                 continue
-            review = ask_agent(root, backends, task, "review", run_dir, deadline)
+            review = ask_agent(root, backends, task, "review", run_dir, deadline,
+                               databases.env_for(task["id"]))
             if (git_state(root) != expected_git or git(root, "diff", "HEAD") != before_review
                     or file_snapshot(root) != files_before):
                 raise RuntimeError("Проверяющий изменил checkout")
             if review["status"] == "blocked":
                 block(task, "review", review, expected_git)
+                databases.release(task["id"])
                 state["current"] = None
                 continue
             execute(["git", "add", "--", *sorted(changed(root))], root,
@@ -749,6 +789,7 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
                     or git(root, "branch", "--show-current") != expected_git[1]):
                 raise RuntimeError("Коммит или hook изменил проверенное дерево; результат не принят")
             state["completed"].append({"task": task["id"], "commit": git(root, "rev-parse", "HEAD").strip()})
+            databases.release(task["id"])
             save("task-done")
             if changed(root):
                 raise RuntimeError("После коммита осталось изменённое дерево")
@@ -759,10 +800,12 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
                            "task-limit" if resolved_count < len(tasks) else
                            "completed-with-blockers" if state["blocked"] else "completed")
         drop_worktrees(root, run_dir)
+        databases.dispose()
         save("finish")
         return 0
     except (Exception, KeyboardInterrupt) as exc:
         drop_worktrees(root, run_dir)
+        databases.dispose()
         try:
             state["tokens"] = spent_tokens(backends, run_dir)
         except Exception:  # учёт не должен мешать сохранить причину остановки
@@ -782,6 +825,9 @@ def main():
     parser.add_argument("--token-budget", type=int, help="Потолок расхода токенов на прогон")
     parser.add_argument("--parallel", type=int, default=1,
                         help="Сколько авторов писать одновременно (каждый в своём worktree)")
+    parser.add_argument("--shared-db", action="store_true",
+                        help="Общая база на все задачи — то, чем был вызван БАГ-05. Только для разбора "
+                             "самой механики; в прогоне не использовать")
     parser.add_argument("--run", action="store_true", help="Без флага — только preflight, без вызова модели")
     parser.add_argument("--run-dir", type=Path)
     parser.add_argument("--minutes", type=float)
@@ -791,6 +837,11 @@ def main():
     root = args.workspace.resolve()
     queue = json.loads(args.queue.read_text())
     backends = load_routing(args.routing, args.codex)
+    # Изоляция включена ПО УМОЛЧАНИЮ везде, где есть чему отравляться: БАГ-05 вернулся бы
+    # от одного забытого флага, а забытый флаг ничем не виден. Репозиторий без backend/.env
+    # базы не имеет вовсе — там изолировать нечего, и это не умолчание, а отсутствие предмета.
+    isolate = not args.shared_db and (root / "backend/.env").is_file()
+    databases = night_db.TaskDatabases(night_db.read_database_url(root)) if isolate else night_db.NoDatabases()
     if args.run and (args.run_dir is None or args.minutes is None or not math.isfinite(args.minutes)
                      or args.minutes <= 0 or args.max_tasks is None or args.max_tasks <= 0):
         parser.error("Для --run обязательны --run-dir, положительные --minutes и --max-tasks")
@@ -800,6 +851,10 @@ def main():
     if not args.run:
         retry = retry_checkpoint(root, queue, args.retry_review.resolve()) if args.retry_review else None
         preflight(root, queue, backends, retry)
+        if isolate:
+            # Недоступный сервер обязан всплыть на preflight, а не на первой задаче:
+            # иначе прогон узнаёт об этом, уже потратив ход автора.
+            print(f"Базы на задачу: сервер отвечает, сейчас есть {databases.existing()}")
         routed = ", ".join(f"{role}={backends[role].name}" for role in ROLES)
         print(f"Preflight пройден: {len(queue['tasks'])} задач, {routed}. Модель не запускалась.")
         return 0
@@ -809,7 +864,7 @@ def main():
         retry = retry_checkpoint(root, queue, previous) if previous else None
         preflight(root, queue, backends, retry)
         return run(root, queue, backends, args.run_dir.resolve(), args.minutes, args.max_tasks,
-                   retry, previous, args.token_budget, args.parallel)
+                   retry, previous, args.token_budget, args.parallel, databases)
 
 
 if __name__ == "__main__":
