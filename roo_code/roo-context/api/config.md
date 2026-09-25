@@ -29,7 +29,7 @@ clean-slate Save, форма идентификатора, права как с�
 **Модуля `config` в бэкенде нет.** `ls backend/app/modules/` даёт десять модулей — `auth`, `bcc`,
 `billing`, `finance`, `notifications`, `products`, `services`, `settings`, `suppliers`,
 `warehouse`, — и `config` среди них не значится; в
-[`backend/app/main.py:84-92`](../../../backend/app/main.py) зарегистрированы девять роутеров, ни
+[`backend/app/main.py:87-95`](../../../backend/app/main.py) зарегистрированы девять роутеров, ни
 одного config-овского. Поэтому по §5 старшинства (скил [`api-contract.md`](../../skills/api-contract.md))
 источник истины у всех двенадцати разделов — **мок и клиент**, и у каждого раздела ниже стоит
 строка `Бэкенд: **не реализован**`.

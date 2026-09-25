@@ -13,7 +13,7 @@
 > одного попадания, `features/` содержит только `__init__.py`
 > (`find backend/app/modules/warehouse -type f -name '*.py'` — семь файлов, из них
 > `internal_api/interface.py` и `shared/dependencies.py` — по одной строке докстроки), и в
-> `backend/app/main.py:84-92` подключены девять роутеров, ни одного складского. По К5 старшинство
+> `backend/app/main.py:87-95` подключены девять роутеров, ни одного складского. По К5 старшинство
 > «бэкенд» здесь **не наступило** ни разу. **Но схема зафиксирована целиком** — шесть таблиц:
 > `warehouse_batches`, `warehouse_movements`, `warehouse_offcuts`, `warehouse_deficits`,
 > `stock_items`, `stock_audit_entries` (`backend/app/modules/warehouse/shared/models.py:11`,

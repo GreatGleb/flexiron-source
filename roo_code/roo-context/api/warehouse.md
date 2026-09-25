@@ -1079,7 +1079,7 @@ Save-режим: чтение. Трое вызывающих: вкладка (`u
 (`backend/app/modules/warehouse/shared/models.py:33` — просто `String(100)`). БАГ-21. Серверу нужен
 либо фильтр по `batchId`, либо уникальность номера.
 
-Бэкенд: не реализован.
+Бэкенд: реализован — слайс `backend/app/modules/warehouse/features/list_movements/` (`schemas.py`, `repository.py`, `domain.py`, `action.py`), зарегистрирован в `app/main.py`, арендатор — из токена (`get_current_user`).
 Реализация: `services/warehouseService.ts:getMovements` · мок `mocks/index.ts:755` →
 `services/mocks/warehouse.ts:mockGetMovements`
 

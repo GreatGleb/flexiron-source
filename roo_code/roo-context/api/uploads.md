@@ -16,7 +16,7 @@
 Находки про код: [`contract-sync-uploads-bugs.md`](../../plans/bugs/contract-sync-uploads-bugs.md).
 
 **Источник истины домена — бэкенд.** Реализация есть и подключена
-(`backend/app/core/uploads/action.py:26`, `backend/app/main.py:92`), значит по правилу старшинства
+(`backend/app/core/uploads/action.py:26`, `backend/app/main.py:95`), значит по правилу старшинства
 форма ответа и каталог ошибок сняты с неё, а не с мока и не с `interface UploadedFile`. Это
 единственный роут вне `backend/app/modules/`: uploads объявлен инфраструктурой, а не бизнес-модулем
 (`backend/app/core/uploads/service.py:1-5` — «It is NOT a business module — it's infrastructure»).
@@ -149,7 +149,7 @@ Idempotency-Key по-прежнему не обрабатывается загр
 
 Бэкенд: `backend/app/core/uploads/action.py:26-93` (`upload_file`) · запись —
 `core/uploads/service.py:14-36` (`store_file`) · модель `core/uploads/models.py:11-39` ·
-подключение `backend/app/main.py:92`
+подключение `backend/app/main.py:95`
 Реализация: `services/uploadsService.ts:18-20` (`uploadFile`) · транспорт
 `services/api.ts:243-256` (`apiUpload`) · потребитель `components/admin/ui/DropZone.vue:44-63` ·
 мок `mocks/index.ts:1727` (`uploadMock` → `uploadMockRoute`, `:1661-1679`)
@@ -275,8 +275,8 @@ header/query/form tenant_id игнорируются; загрузка акти�
 индексирована (`core/uploads/models.py:16-21`), FK на `tenants` с `ondelete="CASCADE"` — удаление
 арендатора уносит его строки. Чтение: файлы раздаёт статикой
 `app.mount("/static/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")`
-(`backend/app/main.py:81`) — **без авторизации, без арендатора и без единой проверки**, все файлы
-всех арендаторов в одном каталоге (`core/uploads/action.py:21-22` и `backend/app/main.py:79-80` —
+(`backend/app/main.py:84`) — **без авторизации, без арендатора и без единой проверки**, все файлы
+всех арендаторов в одном каталоге (`core/uploads/action.py:21-22` и `backend/app/main.py:82-83` —
 один и тот же путь). Единственная защита — неугадываемое имя `uuid4().hex + ext`
 (`core/uploads/action.py:66`); отозвать выданную ссылку нечем (БАГ-09). Общее правило арендатора —
 §4 соглашений; здесь важно, что статика из него выпадает. Открыто — п. 6 ниже.
@@ -292,7 +292,7 @@ header/query/form tenant_id игнорируются; загрузка акти�
 затем файл пишется на диск, создаётся UploadedFile и выполняется commit. Диск
 и БД не в одной транзакции, `try/except` вокруг записи нет (`:117-138` — линейный код): падение
 после `write_bytes` оставляет файл на диске без строки в таблице, и убрать его некому — уборщика в
-проекте нет, `lifespan` пуст (`backend/app/main.py:71`). Это не только аварийный путь: штатный
+проекте нет, `lifespan` пуст (`backend/app/main.py:74`). Это не только аварийный путь: штатный
 уход со страницы до Save оставляет тот же осиротевший файл (БАГ-06).
 Идемпотентности нет ни с одной стороны: клиент ключ не шлёт (`uploadsService.ts:13-17` — ни
 `newIdempotencyKey()`, ни заголовка) при том, что генератор в проекте есть
@@ -383,7 +383,7 @@ header/query/form tenant_id игнорируются; загрузка акти�
 |---|---|
 | «поле `file` — один или несколько файлов» (`03-api-contract.md:164`) | сервер принимает один: `file: UploadFile = File(...)` (`core/uploads/action.py:29`), клиент шлёт один (`services/api.ts:248-249`); несколько файлов = несколько запросов (`DropZone.vue:23`) |
 | «Response 200: `Array<{fileId,name,size,mime,url,uploadedAt}>`» (`03-api-contract.md:165-175`) | ответ не массив, а объект в обёртке (`core/uploads/action.py:90-93`, `core/schemas.py:29-35`), и в нём два поля из шести |
-| «`url` — временный URL для preview» (`03-api-contract.md:172`) | сервер строит постоянную ссылку на статику (`core/uploads/action.py:88-89`), каталог смонтирован навсегда (`backend/app/main.py:81`). Временный тут как раз мок: data-URL живёт в памяти вкладки (`mocks/index.ts:1666-1668`) |
+| «`url` — временный URL для preview» (`03-api-contract.md:172`) | сервер строит постоянную ссылку на статику (`core/uploads/action.py:88-89`), каталог смонтирован навсегда (`backend/app/main.py:84`). Временный тут как раз мок: data-URL живёт в памяти вкладки (`mocks/index.ts:1666-1668`) |
 | «файл попадает в draft-хранилище, не привязанный ни к какой сущности» (`03-api-contract.md:177`) | эндпоинт передаёт `is_draft=False` (`core/uploads/action.py:83`) при значении по умолчанию `True` в модели (`core/uploads/models.py:26-28`), сервисе (`core/uploads/service.py:22`) и схеме (`133fae13afbe_phase_5_uploads.py:33`) — черновиков не возникает вовсе (БАГ-07) |
 | «привязка: сервер находит draft-файлы, привязывает, переносит из draft в постоянное» (`03-api-contract.md:183-187`) | серверной части не существует: ни один роут не принимает `fileIds` (правило домена 2). Фазу отыгрывает только мок |
 | «endpoints, принимающие `fileIds`: `PATCH /api/suppliers/:id`, `POST /api/bcc/send`, `POST /api/bcc/log`» (`03-api-contract.md:189-191`) | перечень неполон **и неверен по форме**. Массив `fileIds` шлют ещё склад (`useWarehouseBatchCreate.ts:357`, `:386`; `useWarehouseOffcutCard.ts:277-278`) и финансы (`OutgoingPaymentCardPage.vue:81` — собирается из `documents`, `:100-108`). У заказа форма другая: файл добавляется по одному, `POST /api/orders/:id/files` с телом `{ fileId, version }` (`services/ordersService.ts:198-204`), удаляется своим `DELETE` (`:206-212`). Поставщик шлёт не идентификаторы, а объекты `files` (`SupplierCardPage.vue:44-50`) — расхождение своего домена. У товара `fileIds` нет вовсе: в значение кастомного поля кладётся имя файла (`ProductCardPage.vue:225`) — БАГ-10. Это чужие домены; здесь фиксируется только то, что единого перечня не существует |
