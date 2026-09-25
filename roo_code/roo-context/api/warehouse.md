@@ -42,15 +42,16 @@
 (классы — `:11`, `:91`, `:131`, `:168`, `:202`, `:229`; миграция
 `backend/alembic/versions/fd0ecc1269df_phase_9_warehouse.py`, закупочный след добавлен
 `backend/alembic/versions/a1b2c3d4e5f6_phase_15_product_uom_restructure.py`; движение-обрезок и
-недостающие поля нехватки закрыты `backend/alembic/versions/b5e2f7a31c40_warehouse_deficit_and_offcut_link.py`).
-Схема расходилась с формой фронта в четырёх местах; два закрыты, два остаются находкой, а не
-решением: у обрезка нет ни одного размера (БАГ-17), уникальность строки остатка объявлена без
-арендатора (БАГ-28, он же назван в §4 соглашений). Движение теперь несёт `offcut_id` — FK на
-`warehouse_offcuts.id` с `ondelete="SET NULL"` (БАГ-23, закрыт), а нехватка несёт `priority`,
-`suggested_order_qty`, `purchase_order_id` и `uom_id`, и её `status` рождается значением `open`, а не
-значением из перечня приоритетов (БАГ-25, закрыт). Сервер, который начнёт писать этот домен, обязан
-сначала разрешить оставшиеся два расхождения — форма ниже описана по коду фронта, потому что
-старшего источника у неё нет.
+недостающие поля нехватки закрыты `backend/alembic/versions/b5e2f7a31c40_warehouse_deficit_and_offcut_link.py`,
+поля обрезка и уникальность остатка — `backend/alembic/versions/c1a7d5e08b34_warehouse_t1_schema_gaps.py`).
+Схема расходилась с формой фронта в четырёх местах; **все четыре закрыты**. Движение несёт
+`offcut_id` — FK на `warehouse_offcuts.id` с `ondelete="SET NULL"` (БАГ-23). Нехватка несёт
+`priority`, `suggested_order_qty`, `purchase_order_id` и `uom_id`, и её `status` рождается значением
+`open`, а не значением из перечня приоритетов (БАГ-25). Обрезок несёт `length_mm`, `width_mm`,
+`thickness_mm`, `weight_kg`, `category_id`, `qr_data` и `order_id` — все nullable (БАГ-17). Остаток
+уникален парой `("tenant_id", "product_id")`, а не одним `product_id` (БАГ-28). Форма ниже
+по-прежнему описана по коду фронта, потому что старшего источника у неё нет, — но схема хранения
+эту форму теперь несёт.
 
 **Заголовков клиент не шлёт ни на одном из 37 путей.**
 `grep -c "headers\|options" frontend_vue/src/services/warehouseService.ts` → 0 на 374 строки: ни
@@ -200,7 +201,7 @@ Save-режим: чтение.
 
 Бэкенд: не реализован — схема хранения беднее формы: `stock_items` знает четыре содержательные
 колонки (`product_id`, `total_quantity`, `unit`, `updated_at` —
-`backend/app/modules/warehouse/shared/models.py:245-269`), то есть ни порога, ни категории, ни
+`backend/app/modules/warehouse/shared/models.py:256-279`), то есть ни порога, ни категории, ни
 резерва, ни журнала.
 Реализация: `services/warehouseService.ts:getStockOverview` · мок `mocks/index.ts:617` →
 `services/mocks/warehouse.ts:mockGetStockOverview`
@@ -269,7 +270,7 @@ Save и только при непустой дельте (`:147-149`), Discard 
 числа вместо посчитанных (БАГ-05).
 
 Бэкенд: не реализован — под четыре из пяти полей колонок в `stock_items` нет
-(`backend/app/modules/warehouse/shared/models.py:263-266`).
+(`backend/app/modules/warehouse/shared/models.py:273-276`).
 Реализация: `services/warehouseService.ts:patchStockItem` · мок `mocks/index.ts:1323` →
 `services/mocks/warehouse.ts:mockPatchStockItem`
 
@@ -356,7 +357,7 @@ Save-режим: чтение.
 
 Бэкенд: не реализован — таблица журнала на схеме одна, `stock_audit_entries`, и она привязана к
 партии: `batch_id` объявлен `nullable=False` FK на `warehouse_batches.id`
-(`backend/app/modules/warehouse/shared/models.py:283-288`). Журналу строки остатка на схеме места
+(`backend/app/modules/warehouse/shared/models.py:297-302`). Журналу строки остатка на схеме места
 нет.
 Реализация: `services/warehouseService.ts:getStockAudit` · мок `mocks/index.ts:653` →
 `services/mocks/warehouse.ts:mockGetStockAudit`
@@ -724,7 +725,7 @@ Save-режим: чтение.
 отдавать одно и то же.
 
 Бэкенд: не реализован — но именно у этого журнала хранение на схеме есть:
-`stock_audit_entries` привязана к партии (`backend/app/modules/warehouse/shared/models.py:272-301`),
+`stock_audit_entries` привязана к партии (`backend/app/modules/warehouse/shared/models.py:286-315`),
 автор — `user_id` с `ondelete="SET NULL"` (`:246-250`), тексты — `JSONB` (`:251`, `:253`). У
 остальных четырёх журналов домена таблицы нет.
 Реализация: `services/warehouseService.ts:getBatchAudit` · мок `mocks/index.ts:688` →
@@ -790,10 +791,11 @@ Save-режим: чтение. Двое вызывающих: вкладка в�
 
 Ошибки: ни одной (`frontend_vue/src/services/mocks/warehouse.ts:825-867`).
 
-Бэкенд: не реализован — схема куска беднее формы: `warehouse_offcuts` знает шесть содержательных
-колонок (`offcut_type`, `quantity`, `unit`, `status`, `location`, `notes`) плюс две ссылки на партию
-и `product_id` (`backend/app/modules/warehouse/shared/models.py:154-188`); ни одного размера, ни
-веса, ни категории, ни `qr_data`, ни `order_id` там нет — БАГ-17.
+Бэкенд: не реализован — роутов у домена ноль, но схема куска форму уже несёт (БАГ-17 закрыт):
+к шести содержательным колонкам (`offcut_type`, `quantity`, `unit`, `status`, `location`, `notes`)
+и ссылкам на партию и товар ревизия `c1a7d5e08b34_warehouse_t1_schema_gaps.py` добавила
+`length_mm`, `width_mm`, `thickness_mm`, `weight_kg`, `category_id` (FK на `categories.id`,
+`ondelete="SET NULL"`), `qr_data` и `order_id`. Все nullable: писать в них сегодня некому.
 Реализация: `services/warehouseService.ts:getOffcuts` · мок `mocks/index.ts:703` →
 `services/mocks/warehouse.ts:mockGetOffcuts`
 
@@ -916,7 +918,7 @@ Save-режим: чтение. Один вызывающий — диалог д
 `WarehouseBatch.auditLog?` (`:123`) — две формы одного поля у соседних сущностей одного домена;
 серверу выбирать одну.
 
-Бэкенд: не реализован — БАГ-17.
+Бэкенд: не реализован — БАГ-17 закрыт (см. вступление домена).
 Реализация: `services/warehouseService.ts:getOffcut` · мок `mocks/index.ts:730` →
 `services/mocks/warehouse.ts:mockGetOffcut`
 
@@ -1009,7 +1011,7 @@ Save-режим: чтение.
 
 Бэкенд: не реализован — таблицы под журнал куска на схеме нет: единственная —
 `stock_audit_entries` с обязательным `batch_id`
-(`backend/app/modules/warehouse/shared/models.py:283-288`).
+(`backend/app/modules/warehouse/shared/models.py:297-302`).
 Реализация: `services/warehouseService.ts:getOffcutAudit` · мок `mocks/index.ts:739` →
 `services/mocks/warehouse.ts:mockGetOffcutAudit`
 
@@ -1456,7 +1458,7 @@ Save-режим: quick-action (по замыслу).
    по статусу в умолчании списка нет (`frontend_vue/src/services/mocks/warehouse.ts:1626-1628` —
    фильтр применяется только когда параметр прислан).
 3. Оба перечня — закрытые во фронте и свободные строки на схеме
-   (`backend/app/modules/warehouse/shared/models.py:222-237`).
+   (`backend/app/modules/warehouse/shared/models.py:233-248`).
 
 Бэкенд: не реализован.
 Реализация: `services/warehouseService.ts:patchDeficitItem` · мок `mocks/index.ts:1313` →
@@ -1691,7 +1693,7 @@ Save-режим: quick-action по кнопке. Один вызывающий �
 а не ссылка на пользователя; признака `sensitive` в записи нет
 (`grep -c "sensitive" frontend_vue/src/types/warehouse.ts` → 0). На схеме предусмотрена пара:
 `user_id` с `ondelete="SET NULL"` плюс замороженные переводы имени и инициалы
-(`backend/app/modules/warehouse/shared/models.py:289-295`).
+(`backend/app/modules/warehouse/shared/models.py:303-309`).
 
 **Кто и в какой момент пишет пять журналов, кто автор записи и где хранятся четыре из пяти — нигде**
 (решение владельца): таблица на схеме одна, и она привязана к партии (`:240-245`).
@@ -1748,10 +1750,12 @@ index=True`, FK на `tenants.id` с `ondelete="CASCADE"` у `warehouse_batches`
 понятия арендатора не имеет. Правило «арендатор берётся из токена, и только из него» — §4
 соглашений; фильтр по арендатору обязателен в каждом из 37 запросов.
 
-Отдельно: у `stock_items` уникальность объявлена **по одному `product_id`** без `tenant_id`
-(`backend/app/modules/warehouse/shared/models.py:256-262`), то есть строка остатка на схеме одна на
-всю систему, а не на арендатора — БАГ-28, он же назван в §4 соглашений как одно из двух известных
-исключений проекта.
+Отдельно: у `stock_items` уникальность была объявлена **по одному `product_id`** без `tenant_id`,
+то есть строка остатка на схеме была одна на всю систему, а не на арендатора — БАГ-28. **Закрыт**
+ревизией `c1a7d5e08b34_warehouse_t1_schema_gaps.py`: одиночная уникальность снята, на её месте
+составной `UniqueConstraint("tenant_id", "product_id")`. Из §4 соглашений это исключение уходит;
+сторож `backend/tests/test_tenant_scope.py` сам и потребовал убрать строку про `StockItem` из
+списка именованных исключений, как только пара появилась.
 
 ### 7. Права — в какой функции проверяются
 
@@ -2023,7 +2027,7 @@ FIFO-стоимость (`:1801-1849`), `total` и `totalPages` пагинаци
 | **решено 2026-09-07 (П20, П26, П34)** · размер страницы принадлежит коду, сервер его не назначает (П20); ширина реза — **настройка арендатора** (П34), владение описано в [`settings.md`](settings.md); единица по умолчанию остаётся в коде, но одним источником вместо восьми (`'uom-kg'` в четырёх местах, `'uom-pcs'` в четырёх) — П26. Обе половины «осталось» закрыты, вопросов владельцу по строке не осталось; работа по коду | графа 1; [§13](00-conventions.md), [`settings.md`](settings.md) |
 | **решено 2026-09-07 (П19)** · выводится из настроек, отдельной настройки не заводится. Четыре копии вычисления (`mocks/warehouse.ts:74-76`, `useWarehouseBatchCreate.ts:29-31`, `:42`, литерал `'EUR'` в `useWarehouseBatch.ts:120`) — работа по коду | графа 1; [§14](00-conventions.md) |
 | **решено 2026-09-09 (П51, П55)** · **партия просрочена** становится новым типом уведомления; исчерпание остатка ложится на существующий `stock_deficit` и помечается флагом тревоги, когда нехватка под подтверждённый заказ; списание, резка и движения уведомлений не рождают | графа 2; [§10.1](00-conventions.md), [§10.4](00-conventions.md) |
-| **решено 2026-09-08 (П36)** · пишет каждая операция, меняющая любое свойство — сегодня не пишет ни одна: `auditLog: []` у создания партии (`mocks/warehouse.ts:780`), обрезка (`:940`), движения (`:1248`) и нехватки (`:1704`, `:1754`), а четыре `mockPatch*` журнала не касаются. Автор — `user_id` плюс замороженный снимок имени, схема это умеет (`warehouse/shared/models.py:289-295`). Хранение: **одна общая таблица** `audit_entries` с `entity_type` и `entity_id` (П38) — все пять складских журналов ложатся в неё, отдельных таблиц под них не заводится, а `stock_audit_entries` сливается туда же | графа 3; [§9](00-conventions.md) |
+| **решено 2026-09-08 (П36)** · пишет каждая операция, меняющая любое свойство — сегодня не пишет ни одна: `auditLog: []` у создания партии (`mocks/warehouse.ts:780`), обрезка (`:940`), движения (`:1248`) и нехватки (`:1704`, `:1754`), а четыре `mockPatch*` журнала не касаются. Автор — `user_id` плюс замороженный снимок имени, схема это умеет (`warehouse/shared/models.py:303-309`). Хранение: **одна общая таблица** `audit_entries` с `entity_type` и `entity_id` (П38) — все пять складских журналов ложатся в неё, отдельных таблиц под них не заводится, а `stock_audit_entries` сливается туда же | графа 3; [§9](00-conventions.md) |
 | **решено 2026-09-07 (П26)** · перечень остаётся в коде, но **одним источником** вместо копий: сегодня единица по умолчанию задана `'uom-kg'` в четырёх местах и `'uom-pcs'` в четырёх других. Сведение копий — работа по коду | графа 5, пункт 1 (БАГ-15) |
 | **снято 2026-09-10 (П23)** · незачем: колонка удаляется вместе с отказом от конверсии валют — курса в системе нет нигде | графа 5, пункт 3; [§14](00-conventions.md) |
 | **решено 2026-09-10 (П26, П65 а)** · правилами пересчёта владеет код, сервер их валидирует; карта склада — просто картинка, значит адрес хранения партии с ней структурно не связан и сверять адрес по карте сервер не обязан (вторая половина — чтение контракта, не слово владельца) | графа 5, пункты 2 и 4; [§25](00-conventions.md), [§14](00-conventions.md) |

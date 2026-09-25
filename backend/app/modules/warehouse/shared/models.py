@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSON, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -178,7 +178,16 @@ class WarehouseOffcut(UUIDMixin, TimestampMixin, Base):
         ForeignKey("warehouse_batches.id", ondelete="SET NULL"),
         nullable=True,
     )
+    category_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("categories.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     offcut_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    length_mm: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
+    width_mm: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
+    thickness_mm: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
+    weight_kg: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
     quantity: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
     unit: Mapped[str] = mapped_column(String(20), nullable=False)
     status: Mapped[str] = mapped_column(
@@ -186,6 +195,8 @@ class WarehouseOffcut(UUIDMixin, TimestampMixin, Base):
     )
     location: Mapped[str | None] = mapped_column(Text, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    qr_data: Mapped[str | None] = mapped_column(Text, nullable=True)
+    order_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
 
 class WarehouseDeficit(UUIDMixin, TimestampMixin, Base):
@@ -257,7 +268,6 @@ class StockItem(UUIDMixin, Base):
         UUID(as_uuid=True),
         ForeignKey("products.id", ondelete="CASCADE"),
         nullable=False,
-        unique=True,
         index=True,
     )
     total_quantity: Mapped[float] = mapped_column(
@@ -266,6 +276,10 @@ class StockItem(UUIDMixin, Base):
     unit: Mapped[str] = mapped_column(String(20), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "product_id", name="uq_stock_items_tenant_product"),
     )
 
 

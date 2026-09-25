@@ -987,7 +987,7 @@ else None`, а ноль в Python ложен (`crud/domain.py:530`, тот же 
 
 Ошибки: `NOT_FOUND` домен бросает как `NotFoundError` (`crud/domain.py:675`), роут С0 переводит в 404
 (БАГ-11). Мок — `ORDER_STATUS_NOT_FOUND`. Роут требует общий get_current_user (С0). **Формат цвета не проверяет никто:**
-колонка `String(7)` (`models.py:181`), проверки `#RRGGBB` нет ни в домене
+колонка `String(7)` (`color` в `settings/shared/models.py`), проверки `#RRGGBB` нет ни в домене
 (`crud/domain.py:681-682`), ни в моке.
 
 Бэкенд: `settings/features/crud/action.py:411-426` — `patch_order_status_route` · схемы `crud/schemas.py:247-255`

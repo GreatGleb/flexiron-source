@@ -148,7 +148,7 @@ notifications 1, products 4, services 1, settings 7, suppliers 10, warehouse 6),
   (`backend/alembic/versions/e24a3922ed01_phase_7_config.py:40`, `:93`). Два известных исключения —
   находки: код ищет пользователя по одному email (`contract-sync-auth-bugs.md`, БАГ-13), а
   `stock_items` уникален по одному `product_id`
-  (`backend/app/modules/warehouse/shared/models.py:256-262`, `contract-sync-warehouse-bugs.md`, №28).
+  (`backend/app/modules/warehouse/shared/models.py:267-272`, `contract-sync-warehouse-bugs.md`, №28).
 
 ### 4.1. Второй человек в компании — ссылка-приглашение (П58, решено 2026-09-10)
 
@@ -600,7 +600,7 @@ comm -23 /tmp/fe_keys.txt /tmp/be_keys.txt   # шесть; обратная ра
 
 Основание: из девяти таблиц существовали **две**, и они совпадали колонка в колонку, кроме имени
 внешнего ключа — `stock_audit_entries.batch_id` против `supplier_audit_entries.supplier_id`
-(`warehouse/shared/models.py:275-301`, `suppliers/shared/models.py:174-202`). Сводная лента и так
+(`warehouse/shared/models.py:289-315`, `suppliers/shared/models.py:174-202`). Сводная лента и так
 объединяет все девять и своего хранилища не имеет; при одной таблице это индекс, а не сшивка
 девяти запросов. Цена принята сознательно: внешним ключом на девять разных таблиц не сослаться,
 поэтому каскадного удаления записей вместе с сущностью не будет — это делается кодом.
@@ -643,10 +643,10 @@ entryId` одной функцией `auditRowKey` (`types/audit.ts:86-92`).
   newValue}` (`types/warehouse.ts:526-534`), в посеве встречается буквально
   `{ru:'Система',en:'System',lt:'Sistema'}` (`mocks/clients.ts:50`). На схеме предусмотрена пара:
   `user_id` с `ondelete="SET NULL"` плюс замороженные переводы имени и инициалы
-  (`backend/app/modules/warehouse/shared/models.py:289-295`,
+  (`backend/app/modules/warehouse/shared/models.py:303-309`,
   `backend/app/modules/suppliers/shared/models.py:171-202`).
 - **Таблиц журнала на схеме две, и обе подлежат слиянию** (П38). Есть `stock_audit_entries`,
-  привязанная к партии `nullable=False` (`warehouse/shared/models.py:272-301`), и журнал
+  привязанная к партии `nullable=False` (`warehouse/shared/models.py:286-315`), и журнал
   поставщика `SupplierAuditEntry` (`suppliers/shared/models.py:171-202`); под остальные семь
   таблиц нет. Обе совпадают колонка в колонку, кроме имени внешнего ключа — что и было доводом за
   одну общую таблицу. Признака `sensitive` нет ни у одной, и он тоже заводится на общей.
@@ -666,7 +666,7 @@ entryId` одной функцией `auditRowKey` (`types/audit.ts:86-92`).
   вовсе, то есть это работа с нуля.
 - **Автор записи — пара «ссылка плюс снимок», и схема это уже умеет:** `user_id` с
   `ondelete="SET NULL"` для поиска и замороженные `user_name_translations` с `user_initials` для
-  правдивого показа задним числом (`warehouse/shared/models.py:289-295`, дословно то же в
+  правдивого показа задним числом (`warehouse/shared/models.py:303-309`, дословно то же в
   `suppliers/shared/models.py:188-194`). На проводе id пока нет — `StockAuditEntry` несёт только
   имя (`types/warehouse.ts:526-534`); это дефект провода, а не открытый вопрос.
 - **Записи журнала удаляет владелец, и только он** (П8). Требование ТЗ «логи не могут быть
@@ -709,7 +709,7 @@ entryId` одной функцией `auditRowKey` (`types/audit.ts:86-92`).
   хранится исходное значение. Иначе одна колонка `Text` обслуживала бы одну локаль — запись,
   сделанная при русском интерфейсе, осталась бы русской для английского читателя, — и формат
   замерзал бы вместе с ней. Основание в схеме: соседнее `property_translations` уже JSONB на три
-  языка (`warehouse/shared/models.py:296`), а `old_value`/`new_value` — простой `Text` без языка
+  языка (`warehouse/shared/models.py:310`), а `old_value`/`new_value` — простой `Text` без языка
   (`:254-255`).
 
 ## 10. Уведомления: событие — это переход

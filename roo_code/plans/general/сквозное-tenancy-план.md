@@ -241,7 +241,7 @@ data» и **ре-экспортирует ровно те две функции 
 
 Нарушение ровно одно:
 
-- [`backend/app/modules/warehouse/shared/models.py:256`](../../../backend/app/modules/warehouse/shared/models.py) — `product_id` объявлен `unique=True` в одиночку (warehouse №28). Два арендатора, купившие один товар, делят одну строку остатка: вторая не запишется вовсе.
+- [`backend/app/modules/warehouse/shared/models.py:267`](../../../backend/app/modules/warehouse/shared/models.py) — `product_id` объявлен `unique=True` в одиночку (warehouse №28). Два арендатора, купившие один товар, делят одну строку остатка: вторая не запишется вовсе.
 
 **Поправка второго замера.** Первая редакция считала вторым нарушением
 `uq_product_field_value` по `(product_id, field_id)`

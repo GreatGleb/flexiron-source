@@ -388,7 +388,7 @@ interface StockAuditEntry {
   `shiftAuditSeries` (`:1067`). Чем сервер обязан наполнять лог — строка владельцу;
 - **решено 2026-09-08:** автор — пара «ссылка плюс снимок»: `user_id` с `ondelete="SET NULL"`
   для поиска и замороженные `user_name_translations` с `user_initials` для правдивого показа
-  задним числом. Схема это **уже умеет** (`warehouse/shared/models.py:289-295`, дословно то же в
+  задним числом. Схема это **уже умеет** (`warehouse/shared/models.py:303-309`, дословно то же в
   `suppliers/shared/models.py:188-194`) — открытым вопросом это не было. Остаётся дефект провода:
   `StockAuditEntry` несёт только переводимое имя (`types/warehouse.ts:526-534`), в посеве
   буквально `{ ru: 'Система', en: 'System', lt: 'Sistema' }` (`mocks/clients.ts:79`), а `user_id`

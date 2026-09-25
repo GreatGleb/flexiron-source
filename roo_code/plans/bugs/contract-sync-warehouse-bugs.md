@@ -588,7 +588,7 @@ return paginate(filtered, pagination.page, pagination.pageSize)     // :1651 д�
 
 ---
 
-## БАГ-17 — схема обрезка не знает ни одного размера, ни веса, ни категории
+## БАГ-17 — схема обрезка не знает ни одного размера, ни веса, ни категории ✅
 
 **File:** `backend/app/modules/warehouse/shared/models.py:154-188`
 **Severity:** High — обрезок без размеров нельзя ни оценить, ни предложить строке заказа: и `resolveOffcutMaterial`, и `offcutAllocation` считают материал именно из `lengthMm`/`widthMm`/`weightKg`.
@@ -615,7 +615,21 @@ return paginate(filtered, pagination.page, pagination.pageSize)     // :1651 д�
 
 ### Actual
 
-Четыре размера, категория, `qr_data` и `order_id` не хранятся нигде.
+Четыре размера, категория, `qr_data` и `order_id` не хранились нигде.
+
+### Fix — 2026-09-25
+
+Ревизия `c1a7d5e08b34_warehouse_t1_schema_gaps.py` добавила `length_mm`, `width_mm`,
+`thickness_mm`, `weight_kg` (все `Numeric(12, 2)`), `category_id` (FK на `categories.id`,
+`ondelete="SET NULL"` — кусок переживает удаление категории), `qr_data` (`Text`) и `order_id`
+(`String(100)`). Все nullable: роутов у домена нет, писать в них сегодня некому, а
+`NOT NULL` без пишущего кода означал бы, что строку нельзя вставить вовсе.
+
+`parent_batch_id`, которой нет во фронте, эта работа не трогала — её судьба остаётся
+отдельным вопросом.
+
+Доказано инверсией: снять `category_id` — краснеет
+`test_category_id_is_nullable_fk_to_categories_with_set_null`.
 
 ---
 
@@ -862,7 +876,7 @@ productName: { ru: '', en: '', lt: '' },     // frontend_vue/src/services/mocks/
 
 ## БАГ-25 — у нехватки на схеме нет приоритета, а `status` объявлен со значением приоритета
 
-**File:** `backend/app/modules/warehouse/shared/models.py:222-237`
+**File:** `backend/app/modules/warehouse/shared/models.py:233-248`
 **Severity:** Medium — колонка `status` получает дефолт `"critical"`, которого нет в перечне статусов и который принадлежит перечню приоритетов.
 **Источник:** К5, К4
 
@@ -884,7 +898,7 @@ export type DeficitStatus = 'open' | 'in_progress' | 'ordered' | 'resolved' | 'c
 (`frontend_vue/src/types/warehouse.ts:46`, `:49`).
 
 Колонок под `priority`, `suggested_order_qty` и `purchase_order_id` на схеме нет вовсе
-(`backend/app/modules/warehouse/shared/models.py:180-211`), хотя все три есть в типе
+(`backend/app/modules/warehouse/shared/models.py:185-222`), хотя все три есть в типе
 (`frontend_vue/src/types/warehouse.ts:455`, `:458`, `:460`) и все три правятся
 (`:499-506`).
 
@@ -964,9 +978,9 @@ export async function mockExportWarehouseCsv(_tab: string): Promise<string> {
 
 ---
 
-## БАГ-28 — уникальность строки остатка объявлена без арендатора
+## БАГ-28 — уникальность строки остатка объявлена без арендатора ✅
 
-**File:** `backend/app/modules/warehouse/shared/models.py:256-262`
+**File:** `backend/app/modules/warehouse/shared/models.py:267-272`
 **Severity:** High — `unique=True` на одном `product_id` означает одну строку остатка на всю базу, а не на арендатора; второй арендатор с тем же товаром не сможет её создать.
 **Источник:** К6 (мультиарендность)
 
@@ -996,6 +1010,22 @@ product_id: Mapped[uuid.UUID] = mapped_column(
 ### Actual
 
 `unique=True` на одной колонке.
+
+### Fix — 2026-09-25
+
+Ревизия `c1a7d5e08b34_warehouse_t1_schema_gaps.py`: одиночная уникальность снята, заведён
+составной `UniqueConstraint("tenant_id", "product_id", name="uq_stock_items_tenant_product")`.
+Колонка осталась индексированной, но перестала быть глобально уникальной.
+
+**Уникальность в базе была ИНДЕКСОМ, а не ограничением,** и это стоило падения переноса:
+модель объявляла `unique=True, index=True`, что SQLAlchemy рендерит как уникальный индекс
+`ix_stock_items_product_id`. `op.drop_constraint("stock_items_product_id_key", ...)` отвечает
+`UndefinedObjectError`. Ревизия снимает индекс и пересоздаёт его обычным.
+
+Сторож сам потребовал убрать себя: `backend/tests/test_tenant_scope.py` держит именованный
+список исключений `UNIQUE_PAIR_EXEMPT` и **падает, когда строка в нём устарела**. Как только
+пара появилась, тест назвал `StockItem.product_id` лишней строкой — её и убрали. Именно так
+исключение и должно умирать: не забыванием, а красным тестом.
 
 ---
 
