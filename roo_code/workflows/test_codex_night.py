@@ -187,7 +187,10 @@ class PilotTest(unittest.TestCase):
         self.addCleanup(lambda: [pool._admin(*pool._drop(name)) for name in pool.existing()])
         result = self.invoke()
         self.assertEqual(result.returncode, 0, result.stderr)
-        expected = night_db.url_for_database(LIVE_DB_URL, night_db.database_name("plan"))
+        # С драйвером: это `DATABASE_URL`, и по нему автор поднимает асинхронный движок.
+        expected = night_db.url_for_database(LIVE_DB_URL, night_db.database_name("plan"),
+                                             keep_driver=True)
+        self.assertIn("+asyncpg", expected)
         seen = self.seen_urls()
         # Автор, проверка и приёмка работают в ОДНОЙ базе — своей, а не общей.
         self.assertEqual(seen["plan:work"], expected)

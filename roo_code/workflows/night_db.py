@@ -52,10 +52,21 @@ def database_name(task_id):
     return name
 
 
-def url_for_database(url, name):
-    """Тот же сервер и те же учётные данные, другая база. Драйвер `+asyncpg` отбрасывается."""
+def url_for_database(url, name, keep_driver=False):
+    """Тот же сервер и те же учётные данные, другая база.
+
+    Драйвер (`+asyncpg`) отбрасывается ПО УМОЛЧАНИЮ, потому что `asyncpg.connect`
+    понимает только `postgresql://`. Но адрес, который уходит наружу как
+    `DATABASE_URL` — шаблону под `alembic upgrade head` и каждому автору, — обязан
+    драйвер СОХРАНИТЬ: `backend/alembic/env.py` кладёт переменную в
+    `sqlalchemy.url` как есть и строит по ней АСИНХРОННЫЙ движок. Без драйвера
+    SQLAlchemy выбирает psycopg2, которого в зависимостях проекта нет вовсе
+    (`backend/requirements.txt` знает только `asyncpg`), и прогон падает на
+    построении шаблона, не дойдя до первой задачи. Замер 2026-09-26.
+    """
     scheme = url.partition("://")[0]
-    parts = urlsplit(url.replace(scheme + "://", scheme.split("+", 1)[0] + "://", 1))
+    target = scheme if keep_driver else scheme.split("+", 1)[0]
+    parts = urlsplit(url.replace(scheme + "://", target + "://", 1))
     return urlunsplit((parts.scheme, parts.netloc, "/" + quote(name), parts.query, parts.fragment))
 
 
@@ -114,6 +125,8 @@ class TaskDatabases:
         self.executor = executor
         self.admin_url = url_for_database(base_url, "postgres")
         self.template_url = url_for_database(base_url, TEMPLATE)
+        # Адрес шаблона в той форме, в какой его читает бэкенд: см. url_for_database.
+        self.template_env_url = url_for_database(base_url, TEMPLATE, keep_driver=True)
         self.live = {}
 
     def _admin(self, *statements, query=None):
@@ -142,7 +155,7 @@ class TaskDatabases:
             self._admin(*self._drop(name))
         self._admin(f'CREATE DATABASE "{TEMPLATE}"')
         if (Path(root) / "backend/alembic.ini").is_file():
-            run_alembic(self.template_url)
+            run_alembic(self.template_env_url)
 
     def url_for(self, task_id):
         """Идемпотентно: первый вызов создаёт базу, повторный отдаёт ту же."""
@@ -154,7 +167,10 @@ class TaskDatabases:
         return self.live[task_id]
 
     def env_for(self, task_id):
-        return {"DATABASE_URL": self.url_for(task_id)}
+        """Окружение автора. Драйвер здесь обязателен — это `DATABASE_URL`, а не DSN."""
+        self.url_for(task_id)
+        return {"DATABASE_URL": url_for_database(self.base_url, database_name(task_id),
+                                                 keep_driver=True)}
 
     def release(self, task_id):
         if self.live.pop(task_id, None) is None:

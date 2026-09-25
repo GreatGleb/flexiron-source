@@ -57,6 +57,16 @@ class NamingTest(unittest.TestCase):
         for name in (first, second):
             self.assertLessEqual(len(name.encode()), night_db.MAX_IDENTIFIER)
 
+    def test_env_for_keeps_the_driver_because_it_is_a_database_url(self):
+        """Автору уходит `DATABASE_URL`, а не DSN: без драйвера его alembic не поднимется."""
+        pool = night_db.TaskDatabases("postgresql+asyncpg://user:pass@host:5433/flexiron",
+                                      executor=lambda *a, **k: [])
+        url = pool.env_for("some-task")["DATABASE_URL"]
+        self.assertTrue(url.startswith("postgresql+asyncpg://"), url)
+        self.assertTrue(url.endswith("/" + night_db.database_name("some-task")), url)
+        # А внутренний DSN, которым ходит сам asyncpg, драйвера нести не должен.
+        self.assertTrue(pool.url_for("some-task").startswith("postgresql://"))
+
     def test_url_keeps_server_and_credentials_and_drops_the_driver(self):
         url = night_db.url_for_database("postgresql+asyncpg://user:pass@host:5433/flexiron", "other")
         self.assertEqual(url, "postgresql://user:pass@host:5433/other")
@@ -103,7 +113,12 @@ class LifecycleTest(unittest.TestCase):
             (root / "backend").mkdir()
             (root / "backend/alembic.ini").write_text("[alembic]\n")
             self.pool.prepare(root, built.append)
-        self.assertEqual(built, [night_db.url_for_database(LIVE_URL, night_db.TEMPLATE)])
+        # Драйвер обязан сохраниться: это `DATABASE_URL`, по которому `alembic/env.py`
+        # строит АСИНХРОННЫЙ движок. Без него SQLAlchemy берёт psycopg2, которого в
+        # зависимостях проекта нет, и прогон падает, не дойдя до первой задачи.
+        self.assertEqual(built, [night_db.url_for_database(LIVE_URL, night_db.TEMPLATE,
+                                                           keep_driver=True)])
+        self.assertIn("+asyncpg", built[0])
 
     def test_task_database_is_a_clone_of_the_template_and_is_reused(self):
         first = self.pool.url_for("plan")
