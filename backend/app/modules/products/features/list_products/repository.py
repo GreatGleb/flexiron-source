@@ -9,10 +9,10 @@ from app.modules.products.shared.models import Category, Product
 
 
 async def list_products(db: AsyncSession, tenant_id: UUID) -> list[Product]:
-    """Fetch every product of the tenant, ordered by name then id."""
+    """Fetch every non-archived product of the tenant, ordered by name then id."""
     result = await db.execute(
         select(Product)
-        .where(Product.tenant_id == tenant_id)
+        .where(Product.tenant_id == tenant_id, Product.archived_at.is_(None))
         .order_by(Product.name.asc(), Product.id.asc())
     )
     return list(result.scalars().all())

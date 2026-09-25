@@ -53,6 +53,10 @@ class ProductDetailResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+    # Derived from `archived_at` (П44) — no separate stored flag, see §17
+    # of the API conventions.
+    is_archived: bool
+
 
 class GetProductInput(BaseModel):
     """Input for get product detail use case."""

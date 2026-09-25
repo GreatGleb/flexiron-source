@@ -108,6 +108,9 @@ async def _to_detail_response(
         field_values=field_values,
         created_at=product.created_at,
         updated_at=product.updated_at,
+        # Поле пришло вместе со слайсом архивации; собирается так же, как в
+        # `get_product_detail/domain.py:109` — из метки времени, а не отдельного флага.
+        is_archived=product.archived_at is not None,
     )
 
 

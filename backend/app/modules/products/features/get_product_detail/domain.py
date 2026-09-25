@@ -106,4 +106,5 @@ async def get_product_detail(
         field_values=field_values,
         created_at=product.created_at,
         updated_at=product.updated_at,
+        is_archived=product.archived_at is not None,
     )

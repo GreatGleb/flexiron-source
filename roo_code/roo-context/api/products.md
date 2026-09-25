@@ -627,7 +627,7 @@ query, ни заголовков: `apiDelete` кладёт только `options
 `| sort -u` → 72; складские сиды лежат в пяти файлах `frontend_vue/src/mocks/`). Под П44 это
 перестаёт быть аварией: строка товара не исчезает, и ссылаться по-прежнему есть на что.
 
-Бэкенд: **не реализован.**
+Бэкенд: `backend/app/modules/products/features/archive_product/action.py:22` (`archive_product`) — удаление мягкое: проставляется метка `archived_at`, строка остаётся, и товар пропадает из справочника `/list`.
 
 Реализация: `services/productsService.ts:120-122` (`deleteProduct`) · мок
 `services/mocks/index.ts:1506` → `services/mocks/products.ts:14220` (`mockDeleteProduct`)

@@ -176,6 +176,12 @@ class Product(UUIDMixin, TimestampMixin, Base):
         Numeric(20, 6), nullable=True
     )
 
+    # Soft delete (П44): archived, not removed — the timestamp itself is the
+    # archive flag, there is no separate boolean.
+    archived_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     # Relationships
     field_values: Mapped[list["ProductFieldValue"]] = relationship(
         "ProductFieldValue", back_populates="product",

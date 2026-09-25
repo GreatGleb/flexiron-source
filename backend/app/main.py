@@ -74,6 +74,9 @@ from app.modules.suppliers.features.supplier_reference.action import (
 from app.modules.finance.features.archive.action import (
     router as finance_archive_router,
 )
+from app.modules.products.features.archive_product.action import (
+    router as products_archive_router,
+)
 from app.core.uploads.action import (
     router as uploads_router,
 )
@@ -165,6 +168,7 @@ app.include_router(auth_register_router)
 app.include_router(auth_magic_link_router)
 app.include_router(uploads_router)
 app.include_router(products_list_categories_router)
+app.include_router(products_archive_router)
 app.include_router(services_catalog_router)
 
 
