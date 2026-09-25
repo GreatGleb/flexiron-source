@@ -562,9 +562,9 @@ query, ни заголовков: `apiDelete` кладёт только `options
 | ссылка | политика | где |
 |---|---|---|
 | `warehouse_batches.product_id` | `RESTRICT` | `backend/app/modules/warehouse/shared/models.py:22-27` |
-| `warehouse_offcuts.product_id` | `SET NULL` | `backend/app/modules/warehouse/shared/models.py:159-163` |
-| `warehouse_deficits.product_id` | `CASCADE` | `backend/app/modules/warehouse/shared/models.py:190-194` |
-| `stock_items.product_id` | `CASCADE` + `unique` | `backend/app/modules/warehouse/shared/models.py:244-249` |
+| `warehouse_offcuts.product_id` | `SET NULL` | `backend/app/modules/warehouse/shared/models.py:171-175` |
+| `warehouse_deficits.product_id` | `CASCADE` | `backend/app/modules/warehouse/shared/models.py:202-206` |
+| `stock_items.product_id` | `CASCADE` + `unique` | `backend/app/modules/warehouse/shared/models.py:256-261` |
 | `supplier_price_entries.product_id` | `SET NULL` | `backend/app/modules/suppliers/shared/models.py:225` |
 | `bcc_events.product_id` | `SET NULL` | `backend/app/modules/bcc/shared/models.py:65` |
 | `product_field_values.product_id` | `CASCADE` | `backend/app/modules/products/shared/models.py:199` |
@@ -627,7 +627,7 @@ query, ни заголовков: `apiDelete` кладёт только `options
 Бэкенд: **не реализован** — и таблицы под журнал товара на схеме нет: модуль создаёт четыре
 таблицы (`backend/app/modules/products/shared/models.py:17`, `:62`, `:99`, `:189`), а единственные
 существующие таблицы журналов — `stock_audit_entries`
-(`backend/app/modules/warehouse/shared/models.py:263`) и журнал поставщика
+(`backend/app/modules/warehouse/shared/models.py:275`) и журнал поставщика
 (`backend/app/modules/suppliers/shared/models.py:175`).
 
 Реализация: `services/productsService.ts:124-126` (`deleteProductAuditEntry`) · мок

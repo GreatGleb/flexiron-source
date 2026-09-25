@@ -57,7 +57,7 @@
 а не как слова владельца**: хранится **исходное** значение, строка собирается **при чтении** в
 локаль запросившего. Основание — соседнее поле уже устроено так:
 
-> `property_translations` это JSONB на три языка (`warehouse/shared/models.py:284`,
+> `property_translations` это JSONB на три языка (`warehouse/shared/models.py:296`,
 > `suppliers/shared/models.py:196`), то есть подпись сервер и так готовит по локали.
 
 **П37 и П8 — кто удаляет.**
@@ -122,17 +122,17 @@
 
 | Утверждение | Доказательство |
 |---|---|
-| Таблицы `audit_entries` нет | `grep -rn "audit_entries" backend/` даёт только два **других** имени и одно имя связи: `stock_audit_entries` (`backend/app/modules/warehouse/shared/models.py:263`), `supplier_audit_entries` (`backend/app/modules/suppliers/shared/models.py:175`), и атрибут `audit_entries` у поставщика (`suppliers/shared/models.py:69-71`) |
+| Таблицы `audit_entries` нет | `grep -rn "audit_entries" backend/` даёт только два **других** имени и одно имя связи: `stock_audit_entries` (`backend/app/modules/warehouse/shared/models.py:275`), `supplier_audit_entries` (`backend/app/modules/suppliers/shared/models.py:175`), и атрибут `audit_entries` у поставщика (`suppliers/shared/models.py:69-71`) |
 | Колонки `entity_type` в журнале нет | `grep -rn "entity_type" backend/app --include=*.py` → две строки, обе не журнальные: `related_entity_type` у финансов (`backend/app/modules/finance/shared/models.py:116`) и `entity_type` у уведомлений (`backend/app/modules/notifications/shared/models.py:31`) |
 | Ключ — не UUIDv7 | обе таблицы наследуют `UUIDMixin`, а он даёт `default=uuid.uuid4` (`backend/app/core/base.py:18-22`); `grep -rn "uuid7\|uuid_v7\|UUIDv7"` по `backend/` и `frontend_vue/src` — ни одного совпадения |
 | Эндпоинтов журнала на бэкенде нет | ни одного вертикального слайса: `ls backend/app/modules/*/features/` даёт `auth` (login, magic_link, me, register), `bcc/send_request`, `products` (create_product, get_product_detail), `settings` (crud, profile) — и всё; `grep -rn "audit" backend/app/main.py` пуст |
-| Признака `sensitive` нет ни у одной из двух таблиц | `warehouse/shared/models.py:260-289` и `suppliers/shared/models.py:172-203` — колонок восемь, `sensitive` среди них нет |
+| Признака `sensitive` нет ни у одной из двух таблиц | `warehouse/shared/models.py:272-301` и `suppliers/shared/models.py:172-203` — колонок восемь, `sensitive` среди них нет |
 
 Обе существующие таблицы совпадают колонка в колонку, кроме имени внешнего ключа:
-`batch_id` (`warehouse/shared/models.py:271`) против `supplier_id` (`suppliers/shared/models.py:183`).
+`batch_id` (`warehouse/shared/models.py:283`) против `supplier_id` (`suppliers/shared/models.py:183`).
 Общие колонки обеих: `tenant_id`, `user_id` с `ondelete="SET NULL"`, `user_name_translations`,
 `user_initials`, `property_translations`, `old_value`, `new_value`, `timestamp` —
-`warehouse/shared/models.py:277-289`, дословно то же в `suppliers/shared/models.py:189-201`.
+`warehouse/shared/models.py:289-301`, дословно то же в `suppliers/shared/models.py:189-201`.
 
 **Вывод:** П38 на бэкенде — работа с нуля плюс слияние двух таблиц, а не правка одной.
 
@@ -247,10 +247,10 @@
 | Колонка | Тип | Откуда правило |
 |---|---|---|
 | `id` | UUID, значение — **UUIDv7** | П38 |
-| `tenant_id` | UUID, FK `tenants.id`, `ondelete="CASCADE"`, индекс | §4 соглашений; так уже у обеих существующих таблиц (`backend/app/modules/warehouse/shared/models.py:265-270`) |
+| `tenant_id` | UUID, FK `tenants.id`, `ondelete="CASCADE"`, индекс | §4 соглашений; так уже у обеих существующих таблиц (`backend/app/modules/warehouse/shared/models.py:277-282`) |
 | `entity_type` | строка замкнутого перечня | П38 |
 | `entity_id` | UUID **без внешнего ключа** | П38: одной колонкой на десять таблиц не сослаться |
-| `user_id` | UUID, FK `users.id`, `ondelete="SET NULL"`, nullable | уже так (`warehouse/shared/models.py:277-281`) |
+| `user_id` | UUID, FK `users.id`, `ondelete="SET NULL"`, nullable | уже так (`warehouse/shared/models.py:289-293`) |
 | `user_name_translations` | JSONB | замороженный снимок имени; уже так (`:251`) |
 | `user_initials` | строка | уже так (`:252`) |
 | `property_translations` | JSONB на три языка | уже так (`:253`) |
@@ -320,7 +320,7 @@
 2. **Каскада внешним ключом не будет** — `entity_id` без FK (правило Б), поэтому удаление
    записей делает **код** домена, удаляющего сущность. Это обязанность домена, а не базы, и её
    легко забыть: у обеих сегодняшних таблиц каскад был (`ondelete="CASCADE"` на
-   `warehouse/shared/models.py:271-276`), после слияния его не станет.
+   `warehouse/shared/models.py:283-288`), после слияния его не станет.
 3. **Срока хранения нет** (П61): записи не удаляются по возрасту ни в одном домене. Уборщика
    журнала не существует и не заводится. Готовность к росту обеспечивается разбиением таблицы
    по времени, а не удалением.
@@ -466,7 +466,7 @@
 
 - [ ] **S1. Миграция бэкенда:** одна таблица `audit_entries`, ключ UUIDv7, колонки по правилу Б;
       `stock_audit_entries` и `supplier_audit_entries` сливаются в неё и исчезают
-      (`backend/app/modules/warehouse/shared/models.py:260`, `backend/app/modules/suppliers/shared/models.py:172`),
+      (`backend/app/modules/warehouse/shared/models.py:272`, `backend/app/modules/suppliers/shared/models.py:172`),
       реестр моделей обновляется (`backend/alembic/_alembic_imports.py:27`, `:33`).
 - [ ] **S2. Слайс журнала на бэкенде** по порядку слоёв из
       [`create-api-feature.md`](../../skills/create-api-feature.md): `schemas.py` → `repository.py` →

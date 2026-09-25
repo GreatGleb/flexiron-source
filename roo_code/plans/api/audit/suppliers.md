@@ -139,8 +139,8 @@
 
 6. **Схема бэкенда расходится с типами фронта в четырёх местах** — и она старше, потому что уже в БД (миграция `a8dd7d7ba74b_phase_6_suppliers.py`):
    - `SupplierAddress` во фронте имеет необязательный `line2` (`src/types/supplier.ts:86`), в схеме такой колонки нет (`backend/app/modules/suppliers/shared/models.py:100-109`);
-   - контакт: фронт — `role: TranslatedString` (`src/types/supplier.ts:94`), схема — `position: String(255)`, непереводимый (`models.py:141`); имена полей тоже разные;
-   - файл: фронт хранит `size` и `type` прямо на записи (`src/types/supplier.ts:99-105`), схема ссылается на `uploaded_files` через `file_id` с `ondelete="RESTRICT"` и своих `size`/`mime` не держит (`models.py:170-178`);
+   - контакт: фронт — `role: TranslatedString` (`src/types/supplier.ts:94`), схема — `position: String(255)`, непереводимый (`models.py:153`); имена полей тоже разные;
+   - файл: фронт хранит `size` и `type` прямо на записи (`src/types/supplier.ts:99-105`), схема ссылается на `uploaded_files` через `file_id` с `ondelete="RESTRICT"` и своих `size`/`mime` не держит (`models.py:182-190`);
    - `priceHistory`: три поля из семи (см. п. 4).
    Каждое — расхождение фронта с сервером, то есть находка про фронт по правилу старшинства; собраны в БАГ-06.
 

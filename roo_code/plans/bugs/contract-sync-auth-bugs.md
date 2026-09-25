@@ -217,7 +217,7 @@ invalid» — сработает ветка `company code` и подсветит
 Таблица `sessions` создаётся и заполняется — `create_session` кладёт `token_hash`, `csrf_token`,
 `expires_at`, `remember` (`login/repository.py:35-44`), то же делает регистрация
 (`register/domain.py:145-151`). Читается она **ни разу**: все пять попаданий `token_hash` в
-`backend/app` — записи (`models.py:134`, `login/repository.py:29,37`, `login/domain.py:78,84`,
+`backend/app` — записи (`models.py:146`, `login/repository.py:29,37`, `login/domain.py:78,84`,
 `register/domain.py:137,148`), ни одного `select(Session)`.
 
 Проверка подлинности — только разбор подписи `URLSafeTimedSerializer` (`me/action.py:25-28,52`).
@@ -284,7 +284,7 @@ invalid» — сработает ветка `company code` и подсветит
 
 Клиент кладёт `X-CSRF-Token` в каждый защищённый запрос (`useAuth.ts:101-108`). На сервере все
 попадания `csrf` — генерация (`login/domain.py:44-46,75`, `register/domain.py:57-59,143`), запись
-в модель (`models.py:137`) и поля схем (`login/schemas.py:33`, `register/schemas.py:25`). Ни одна
+в модель (`models.py:149`) и поля схем (`login/schemas.py:33`, `register/schemas.py:25`). Ни одна
 строка не читает заголовок и не сравнивает его с сохранённым значением
 (`grep -rn "csrf" backend/app` — тринадцать попаданий, ни одного чтения запроса).
 

@@ -53,6 +53,9 @@ from app.modules.settings.features.warehouse_map.action import (
 from app.modules.finance.features.payments.action import (
     router as finance_payments_router,
 )
+from app.modules.warehouse.features.list_batches.action import (
+    router as warehouse_list_batches_router,
+)
 from app.core.uploads.action import (
     router as uploads_router,
 )
@@ -123,6 +126,7 @@ app.include_router(settings_crud_router)
 app.include_router(settings_mail_router)
 app.include_router(settings_warehouse_map_router)
 app.include_router(finance_payments_router)
+app.include_router(warehouse_list_batches_router)
 app.include_router(auth_login_router)
 app.include_router(auth_register_router)
 app.include_router(auth_magic_link_router)

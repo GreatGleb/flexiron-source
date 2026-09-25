@@ -383,7 +383,7 @@ export async function mockDeleteBatch(id: string): Promise<void> {   // :816
 (`roo_code/roo-context/03-api-contract.md:1404`).
 
 Схема каскад требует четырьмя внешними ключами:
-`warehouse_movements.batch_id` — `CASCADE` (`backend/app/modules/warehouse/shared/models.py:102-107`),
+`warehouse_movements.batch_id` — `CASCADE` (`backend/app/modules/warehouse/shared/models.py:114-119`),
 `warehouse_offcuts.batch_id` — `CASCADE` (`:142-147`),
 `warehouse_offcuts.parent_batch_id` — `SET NULL` (`:153-157`),
 `warehouse_deficits.batch_id` — `SET NULL` (`:185-189`),
@@ -590,7 +590,7 @@ return paginate(filtered, pagination.page, pagination.pageSize)     // :1651 д�
 
 ## БАГ-17 — схема обрезка не знает ни одного размера, ни веса, ни категории
 
-**File:** `backend/app/modules/warehouse/shared/models.py:142-176`
+**File:** `backend/app/modules/warehouse/shared/models.py:154-188`
 **Severity:** High — обрезок без размеров нельзя ни оценить, ни предложить строке заказа: и `resolveOffcutMaterial`, и `offcutAllocation` считают материал именно из `lengthMm`/`widthMm`/`weightKg`.
 **Источник:** К5 (источник истины), К4
 
@@ -798,7 +798,7 @@ filtered = filtered.filter((m) => m.batchNumber.toLowerCase().includes(filters.b
 
 ## БАГ-23 — у движения на схеме нет колонки `offcut_id`
 
-**File:** `backend/app/modules/warehouse/shared/models.py:91-128`
+**File:** `backend/app/modules/warehouse/shared/models.py:103-140`
 **Severity:** High — на этом поле держится вся модель обрезка: по нему решается, что движение двигает кусок, а не партию; по нему ставится статус куска; по нему карточка обрезка собирает свой журнал.
 **Источник:** К5, К4
 
@@ -862,7 +862,7 @@ productName: { ru: '', en: '', lt: '' },     // frontend_vue/src/services/mocks/
 
 ## БАГ-25 — у нехватки на схеме нет приоритета, а `status` объявлен со значением приоритета
 
-**File:** `backend/app/modules/warehouse/shared/models.py:210-225`
+**File:** `backend/app/modules/warehouse/shared/models.py:222-237`
 **Severity:** Medium — колонка `status` получает дефолт `"critical"`, которого нет в перечне статусов и который принадлежит перечню приоритетов.
 **Источник:** К5, К4
 
@@ -884,7 +884,7 @@ export type DeficitStatus = 'open' | 'in_progress' | 'ordered' | 'resolved' | 'c
 (`frontend_vue/src/types/warehouse.ts:46`, `:49`).
 
 Колонок под `priority`, `suggested_order_qty` и `purchase_order_id` на схеме нет вовсе
-(`backend/app/modules/warehouse/shared/models.py:168-199`), хотя все три есть в типе
+(`backend/app/modules/warehouse/shared/models.py:180-211`), хотя все три есть в типе
 (`frontend_vue/src/types/warehouse.ts:455`, `:458`, `:460`) и все три правятся
 (`:499-506`).
 
@@ -966,7 +966,7 @@ export async function mockExportWarehouseCsv(_tab: string): Promise<string> {
 
 ## БАГ-28 — уникальность строки остатка объявлена без арендатора
 
-**File:** `backend/app/modules/warehouse/shared/models.py:244-250`
+**File:** `backend/app/modules/warehouse/shared/models.py:256-262`
 **Severity:** High — `unique=True` на одном `product_id` означает одну строку остатка на всю базу, а не на арендатора; второй арендатор с тем же товаром не сможет её создать.
 **Источник:** К6 (мультиарендность)
 

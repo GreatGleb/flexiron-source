@@ -39,7 +39,7 @@
 | таблица | модель | миграция |
 |---|---|---|
 | `categories` | `Category` — `backend/app/modules/products/shared/models.py:14-17` | `backend/alembic/versions/25245d4bf874_phase_3_categories_products.py:27-41` |
-| `category_fields` | `CategoryField` — `models.py:59-62` | миграция `:42-56` |
+| `category_fields` | `CategoryField` — `models.py:71-74` | миграция `:42-56` |
 
 Отсюда два следствия для каждого раздела ниже. Первое: строка `Бэкенд:` у всех шести —
 «не реализован», и метка `Статус: спроектировано` здесь была бы **неверна** (она про отсутствие
@@ -387,14 +387,14 @@ Partial<{ name: TranslatedString; parentId: string | null; description: Translat
 правило, а не позиционное.
 
 Ошибки: ни одной — в `mockPutCategoryFields` нет `throw` (`mocks/categories.ts:1487-1514`).
-Уникальности имени поля не требует ни мок, ни схема (`models.py:59-90` — без `UniqueConstraint`).
+Уникальности имени поля не требует ни мок, ни схема (`models.py:71-102` — без `UniqueConstraint`).
 
 Флаг `categoryFieldReorder` прячет перетаскивание (`CategoryCardPage.vue:165`), но не эндпоинт:
 запрос уходит при любом изменении полей, включая добавление и удаление.
 
 Бэкенд: **не реализован**. Целевая таблица — `category_fields`
 (`backend/app/modules/products/shared/models.py:59-62`), и её колонки расходятся с типом фронта:
-`field_type` против `type`, `sort_order` против `order` (`models.py:73-87`); имя поля хранится
+`field_type` против `type`, `sort_order` против `order` (`models.py:85-99`); имя поля хранится
 `name_translations` (JSONB, NOT NULL) — тоже трёхъязычно, как и у фронта.
 Реализация: `services/categoriesService.ts:putCategoryFields` · мок `mocks/index.ts:1173` →
 `mocks/categories.ts:mockPutCategoryFields`

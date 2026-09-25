@@ -272,7 +272,7 @@
   (`backend/app/modules/finance/shared/models.py:14` `finance_payments`, роутов 0);
   `managers`/`workers` (`:589-647`) — пользователи (`backend/app/modules/auth/shared/models.py`);
   `deficitItems`/`refusalVolumes` (`:931-1006`) — складской дефицит
-  (`warehouse_deficits`, `backend/app/modules/warehouse/shared/models.py:182`);
+  (`warehouse_deficits`, `backend/app/modules/warehouse/shared/models.py:194`);
   `routes`/`loads` (`:725-794`) — **источника нет ни одного**: домена логистики не существует ни во
   фронте, ни на бэкенде (`grep -rln -i "logistic" frontend_vue/src backend/app` вне аналитики даёт
   только совпадения в чужих строках — название секции карточки `sec-logistics`

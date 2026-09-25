@@ -22,13 +22,15 @@
 отличается от обязанностей сервера — §18; непрозрачность `id` — §19. Ниже — только то, что живёт в
 этом домене.
 
-**Источник истины — мок и клиент, по каждому из 37 путей.** Модуль `backend/app/modules/warehouse`
-существует, но роутов у него **ноль**: `grep -rn "@router\." backend/app/modules/warehouse --include=*.py`
-не даёт ни одного попадания, в `features/` лежит только `__init__.py`
-(`find backend/app/modules/warehouse -type f -name '*.py'` → семь файлов, из которых
-`internal_api/interface.py` и `shared/dependencies.py` — по одной строке докстроки), а в
-`backend/app/main.py:75-83` подключены девять роутеров и ни одного складского. Поэтому у каждого
-раздела ниже стоит строка **`Бэкенд: не реализован`** — форма «модуль есть, серверной половины нет».
+**Источник истины — мок и клиент, по 36 путям из 37.** Один путь, `GET /api/warehouse/batches`,
+теперь читается с бэкенда: см. раздел «Партии» ниже. Модуль `backend/app/modules/warehouse`
+существует, и у него **один** роут: `grep -rn "@router\." backend/app/modules/warehouse --include=*.py`
+находит одно попадание, `features/list_batches/action.py`; `features/` теперь несёт полный слайс
+(`schemas.py`, `repository.py`, `domain.py`, `action.py`, `__init__.py`), а не только пустой
+`__init__.py`, и `app/main.py` подключает его наряду с остальными через
+`app.include_router(warehouse_list_batches_router)`. Поэтому у каждого раздела ниже, кроме списка
+партий, всё ещё стоит строка **`Бэкенд: не реализован`** — форма «модуль есть, серверной половины
+почти нет».
 Метка `**Статус:** спроектировано` в этом домене не стоит ни у одного раздела и стоять не должна:
 она про отсутствие кода вообще, а клиент и мок есть у всех 37 путей.
 
@@ -142,8 +144,9 @@
 **Кодов ядра домен не наследует ни одного.** Пять кодов ядра
 (`backend/app/core/exceptions.py` — `grep -c 'code="' ` → 5: `NOT_FOUND`, `VALIDATION_ERROR`,
 `UNAUTHORIZED`, `FORBIDDEN`, `CONFLICT`; перечень со статусами — §2 соглашений) склад не бросает
-нигде, потому что бросать негде: роутов у модуля ноль. Прежний контракт обещал два из них у этого
-домена — см. «Чего в домене нет».
+нигде: у единственного пока роута домена, списка партий, нет ни поиска сущности по `id`, ни
+проверяемого бизнес-правила — только приём страницы, так что поднимать код ядра ему не из чего.
+Прежний контракт обещал два из них у этого домена — см. «Чего в домене нет».
 
 ---
 
@@ -196,7 +199,7 @@ Save-режим: чтение.
 
 Бэкенд: не реализован — схема хранения беднее формы: `stock_items` знает четыре содержательные
 колонки (`product_id`, `total_quantity`, `unit`, `updated_at` —
-`backend/app/modules/warehouse/shared/models.py:233-257`), то есть ни порога, ни категории, ни
+`backend/app/modules/warehouse/shared/models.py:245-269`), то есть ни порога, ни категории, ни
 резерва, ни журнала.
 Реализация: `services/warehouseService.ts:getStockOverview` · мок `mocks/index.ts:617` →
 `services/mocks/warehouse.ts:mockGetStockOverview`
@@ -265,7 +268,7 @@ Save и только при непустой дельте (`:147-149`), Discard 
 числа вместо посчитанных (БАГ-05).
 
 Бэкенд: не реализован — под четыре из пяти полей колонок в `stock_items` нет
-(`backend/app/modules/warehouse/shared/models.py:251-254`).
+(`backend/app/modules/warehouse/shared/models.py:263-266`).
 Реализация: `services/warehouseService.ts:patchStockItem` · мок `mocks/index.ts:1323` →
 `services/mocks/warehouse.ts:mockPatchStockItem`
 
@@ -351,7 +354,7 @@ Save-режим: чтение.
 
 Бэкенд: не реализован — таблица журнала на схеме одна, `stock_audit_entries`, и она привязана к
 партии: `batch_id` объявлен `nullable=False` FK на `warehouse_batches.id`
-(`backend/app/modules/warehouse/shared/models.py:271-276`). Журналу строки остатка на схеме места
+(`backend/app/modules/warehouse/shared/models.py:283-288`). Журналу строки остатка на схеме места
 нет.
 Реализация: `services/warehouseService.ts:getStockAudit` · мок `mocks/index.ts:653` →
 `services/mocks/warehouse.ts:mockGetStockAudit`
@@ -419,12 +422,32 @@ Save-режим: чтение. Вызывающих четверо: вкладк
 Обязанности сервера: поиск и сортировка по имени товара — серверный join по `productId`, а не поле
 записи; умолчание сортировки обязано быть названо (§13 соглашений) и здесь это `receivedAt DESC`.
 
-Бэкенд: не реализован — схема расходится с формой: у `warehouse_batches` единица это `unit:
-String(20)` (`backend/app/modules/warehouse/shared/models.py:39`), а фронт держит `uomId` — ссылку
-на справочник настроек (`frontend_vue/src/types/warehouse.ts:147-148`); колонки `margin_percent` на
-схеме нет вовсе.
+Бэкенд: реализован — первый роут домена, слайс
+`backend/app/modules/warehouse/features/list_batches/` (`schemas.py`, `repository.py`,
+`domain.py`, `action.py`), зарегистрирован в `app/main.py`. Арендатор берётся из токена той же
+зависимостью `get_current_user`, что и у остальных роутов приложения (`auth.internal_api.interface`),
+и фильтрует каждый запрос — прямой, без арендатора, роут не существует.
+
+**Расхождение схемы с формой, названное здесь раньше, закрыто наполовину.** У `WarehouseBatch`
+появилась ссылочная колонка `uom_id` — внешний ключ на `uoms`, nullable, `ondelete="SET NULL"`,
+тем же приёмом, каким уже заведена закупочная единица `received_uom_id`
+(миграция `b4e7c02a91d3_warehouse_batch_uom_link.py`, `down_revision` — `b5e2f7a31c40`). Старая
+строковая колонка `unit` осталась нетронутой: её судьбу (заменить, оставить рядом, вывести из
+`uom_id`) эта задача не решает, и это стоит комментарием прямо у колонки в `shared/models.py`.
+Колонки `margin_percent` по-прежнему нет — контракт держит её отдельным решением (см. «POST
+/api/warehouse/batches» выше), и эта задача его не трогала.
+
+**Что ещё осталось расхождением после этой задачи:** сортировка по `sortBy` за пределами умолчания
+не воспроизводит мокову «документную» нумерацию для `batchNumber` (мок зовёт `compareDocumentNumbers`
+выше в этом же разделе) — бэкенд принимает `batchNumber` как обычную строковую колонку; колонка «Лот» (`sortBy='lotCode'`)
+по-прежнему не сортируется нигде (БАГ-03 остаётся). Гарантированно верно только умолчание —
+`receivedAt DESC` без параметра сортировки, закреплено тестом.
+
+`unitPrice` партии, которую никто не оценил, остаётся `null`, а не нулём — сервер не подставляет
+значение по умолчанию.
 Реализация: `services/warehouseService.ts:getBatches` · мок `mocks/index.ts:658` →
-`services/mocks/warehouse.ts:mockGetBatches`
+`services/mocks/warehouse.ts:mockGetBatches` · бэкенд —
+`backend/app/modules/warehouse/features/list_batches/action.py`.
 
 ### POST /api/warehouse/batches
 
@@ -517,7 +540,7 @@ String(20)` (`backend/app/modules/warehouse/shared/models.py:39`), а фронт
 имени.
 
 Бэкенд: не реализован — на схеме нет колонок под `margin_percent` и `supplier_name`, зато есть
-`exchange_rate` (`backend/app/modules/warehouse/shared/models.py:86-88`), которого нет во фронте:
+`exchange_rate` (`backend/app/modules/warehouse/shared/models.py:98-100`), которого нет во фронте:
 конверсии валют в проекте нет нигде (§14 соглашений). Зачем колонка — **решение владельца**.
 Реализация: `services/warehouseService.ts:getBatch` · мок `mocks/index.ts:679` →
 `services/mocks/warehouse.ts:mockGetBatch`
@@ -590,7 +613,7 @@ Save-режим: clean-slate. Признак грязи собран из трё
 (`frontend_vue/src/services/mocks/warehouse.ts:820`), оставляя их висеть на несуществующей партии
 (БАГ-11). Схема требует другого, и требует обязательно: `warehouse_movements.batch_id` и
 `warehouse_offcuts.batch_id` — `ondelete="CASCADE"`
-(`backend/app/modules/warehouse/shared/models.py:102-107`, `:142-147`),
+(`backend/app/modules/warehouse/shared/models.py:114-119`, `:142-147`),
 `warehouse_offcuts.parent_batch_id` — `SET NULL` (`:153-157`), `warehouse_deficits.batch_id` —
 `SET NULL` (`:185-189`), `stock_audit_entries.batch_id` — `CASCADE` (`:240-245`). **Старший источник
 здесь схема**: у мока политики нет, а у схемы она выражена четырьмя разными FK, и сервер обязан её
@@ -688,7 +711,7 @@ Save-режим: чтение.
 отдавать одно и то же.
 
 Бэкенд: не реализован — но именно у этого журнала хранение на схеме есть:
-`stock_audit_entries` привязана к партии (`backend/app/modules/warehouse/shared/models.py:260-289`),
+`stock_audit_entries` привязана к партии (`backend/app/modules/warehouse/shared/models.py:272-301`),
 автор — `user_id` с `ondelete="SET NULL"` (`:246-250`), тексты — `JSONB` (`:251`, `:253`). У
 остальных четырёх журналов домена таблицы нет.
 Реализация: `services/warehouseService.ts:getBatchAudit` · мок `mocks/index.ts:688` →
@@ -756,7 +779,7 @@ Save-режим: чтение. Двое вызывающих: вкладка в�
 
 Бэкенд: не реализован — схема куска беднее формы: `warehouse_offcuts` знает шесть содержательных
 колонок (`offcut_type`, `quantity`, `unit`, `status`, `location`, `notes`) плюс две ссылки на партию
-и `product_id` (`backend/app/modules/warehouse/shared/models.py:142-176`); ни одного размера, ни
+и `product_id` (`backend/app/modules/warehouse/shared/models.py:154-188`); ни одного размера, ни
 веса, ни категории, ни `qr_data`, ни `order_id` там нет — БАГ-17.
 Реализация: `services/warehouseService.ts:getOffcuts` · мок `mocks/index.ts:703` →
 `services/mocks/warehouse.ts:mockGetOffcuts`
@@ -973,7 +996,7 @@ Save-режим: чтение.
 
 Бэкенд: не реализован — таблицы под журнал куска на схеме нет: единственная —
 `stock_audit_entries` с обязательным `batch_id`
-(`backend/app/modules/warehouse/shared/models.py:271-276`).
+(`backend/app/modules/warehouse/shared/models.py:283-288`).
 Реализация: `services/warehouseService.ts:getOffcutAudit` · мок `mocks/index.ts:739` →
 `services/mocks/warehouse.ts:mockGetOffcutAudit`
 
@@ -1105,7 +1128,7 @@ Save-режим: quick-action, пятеро вызывающих: модал с�
 `order-shipment`, `order-shipment-cancelled`, `order-return`, `order-return-writeoff`
 (`frontend_vue/src/services/mocks/orders.ts:3347`, `:3435`, `:3780`, `:3792`), и ни одно из четырёх
 не уменьшает агрегат продажи (БАГ-13). Перечень **открыт** и на схеме (`reference_type` —
-`String(50)` без ограничения, `backend/app/modules/warehouse/shared/models.py:118`); кто им владеет
+`String(50)` без ограничения, `backend/app/modules/warehouse/shared/models.py:130`); кто им владеет
 — **решение владельца**.
 
 Бэкенд: не реализован — расхождение схемы здесь закрыто: `warehouse_movements` несёт `offcut_id` —
@@ -1405,7 +1428,7 @@ Save-режим: quick-action (по замыслу).
    по статусу в умолчании списка нет (`frontend_vue/src/services/mocks/warehouse.ts:1626-1628` —
    фильтр применяется только когда параметр прислан).
 3. Оба перечня — закрытые во фронте и свободные строки на схеме
-   (`backend/app/modules/warehouse/shared/models.py:210-225`).
+   (`backend/app/modules/warehouse/shared/models.py:222-237`).
 
 Бэкенд: не реализован.
 Реализация: `services/warehouseService.ts:patchDeficitItem` · мок `mocks/index.ts:1313` →
@@ -1640,7 +1663,7 @@ Save-режим: quick-action по кнопке. Один вызывающий �
 а не ссылка на пользователя; признака `sensitive` в записи нет
 (`grep -c "sensitive" frontend_vue/src/types/warehouse.ts` → 0). На схеме предусмотрена пара:
 `user_id` с `ondelete="SET NULL"` плюс замороженные переводы имени и инициалы
-(`backend/app/modules/warehouse/shared/models.py:277-283`).
+(`backend/app/modules/warehouse/shared/models.py:289-295`).
 
 **Кто и в какой момент пишет пять журналов, кто автор записи и где хранятся четыре из пяти — нигде**
 (решение владельца): таблица на схеме одна, и она привязана к партии (`:240-245`).
@@ -1677,7 +1700,7 @@ Save-режим: quick-action по кнопке. Один вызывающий �
 3. **Курса конвертации нет нигде, и это решение, а не пробел**
    (`frontend_vue/src/services/mocks/warehouse.ts:65-73`, §14 соглашений): партия оценена в базовой
    валюте или не оценена вовсе. При этом на схеме у партии колонка `exchange_rate` **есть**
-   (`backend/app/modules/warehouse/shared/models.py:86-88`), а во фронте её нет ни в типе, ни в моке
+   (`backend/app/modules/warehouse/shared/models.py:98-100`), а во фронте её нет ни в типе, ни в моке
    (`grep -c "exchangeRate" frontend_vue/src/types/warehouse.ts` → 0). Зачем колонка — **нигде**
    (решение владельца).
 4. **Карта склада к адресам партий не привязана ничем**: она живёт в настройках единичным ресурсом
@@ -1698,7 +1721,7 @@ index=True`, FK на `tenants.id` с `ondelete="CASCADE"` у `warehouse_batches`
 соглашений; фильтр по арендатору обязателен в каждом из 37 запросов.
 
 Отдельно: у `stock_items` уникальность объявлена **по одному `product_id`** без `tenant_id`
-(`backend/app/modules/warehouse/shared/models.py:244-250`), то есть строка остатка на схеме одна на
+(`backend/app/modules/warehouse/shared/models.py:256-262`), то есть строка остатка на схеме одна на
 всю систему, а не на арендатора — БАГ-28, он же назван в §4 соглашений как одно из двух известных
 исключений проекта.
 
@@ -1924,16 +1947,16 @@ FIFO-стоимость (`:1801-1849`), `total` и `totalPages` пагинаци
 | было описано | чем доказано отсутствие или неверность |
 |---|---|
 | «Все ответы обёрнуты в `ApiResponse<T>`» (`03-api-contract.md:1319`) | форм тела три, а не одна, и выгрузка этого домена едет **голой строкой** (§1 соглашений, `services/warehouseService.ts:266`) |
-| каталог кодов домена из восьми кодов (`03-api-contract.md:1308-1315`) | кодов **22**, и восьмёрка не подмножество: `VALIDATION_ERROR` и `NOT_FOUND` — коды ядра (§2 соглашений), и склад не бросает ни того, ни другого нигде, потому что роутов у модуля ноль; остальные шесть верны |
+| каталог кодов домена из восьми кодов (`03-api-contract.md:1308-1315`) | кодов **22**, и восьмёрка не подмножество: `VALIDATION_ERROR` и `NOT_FOUND` — коды ядра (§2 соглашений), и склад не бросает ни того, ни другого нигде: единственный пока роут домена, список партий, не ищет сущность по `id` и не проверяет бизнес-правило; остальные шесть верны |
 | `BatchStatus` — десять значений (`03-api-contract.md:1281`) | в типе **одиннадцать**: нет `converted_to_offcuts` (`types/warehouse.ts:21-32`) |
 | пример ответа партии без `marginPercent` и без пяти полей закупочного следа (`03-api-contract.md:1343-1379`) | поля объявлены и приходят: `marginPercent` (`types/warehouse.ts:120`) и `receivedQuantity`/`receivedUnitId`/`receivedUnitPrice`/`receivedCurrencyId`/`purchaseToWarehouseRate` (`:126-137`) |
 | `unitPrice` и `totalCost` числами в примере (`03-api-contract.md:1360-1361`) | оба `number \| null` (`types/warehouse.ts:99`, `:101`), и `null` значит «никто не назвал цену» (§14 соглашений) |
 | «Last-write-wins» у PATCH партии (`03-api-contract.md:1404`) | кодом не выражено ничем: ни `If-Match`, ни версии в `WarehouseBatch` нет, и клиент домена не шлёт ни одного заголовка (§11 соглашений). Утверждение верно как описание последствия и неверно как описание механизма |
-| «сервер удаляет все движения и обрезки, привязанные к партии» (`03-api-contract.md:1410`) | мок не удаляет ничего, кроме самой партии (`services/mocks/warehouse.ts:820`, БАГ-11) — но схема каскад **требует** четырьмя FK (`warehouse/shared/models.py:102-107`, `:142-147`, `:153-157`, `:240-245`), поэтому утверждение не снято, а перенесено в обязанности сервера раздела `DELETE /api/warehouse/batches/:batchId` со ссылкой на схему как на старший источник |
+| «сервер удаляет все движения и обрезки, привязанные к партии» (`03-api-contract.md:1410`) | мок не удаляет ничего, кроме самой партии (`services/mocks/warehouse.ts:820`, БАГ-11) — но схема каскад **требует** четырьмя FK (`warehouse/shared/models.py:114-119`, `:142-147`, `:153-157`, `:240-245`), поэтому утверждение не снято, а перенесено в обязанности сервера раздела `DELETE /api/warehouse/batches/:batchId` со ссылкой на схему как на старший источник |
 | «Клиент показывает предупреждение о количестве удаляемых связанных записей» (`03-api-contract.md:1410`) | **подтверждено, не снято**: модал печатает оба числа (`views/admin/warehouse/WarehouseBatchCard.vue:1484`, `:1545`, ключи `i18n/admin/warehouse.ts:424-426`). Аудит домена утверждал обратное — поправка внесена здесь |
 | пример записи аудита без поля `id` (`03-api-contract.md:1836-1842`) | `id` обязателен (`types/warehouse.ts:527`) и адресация по нему единственная (§9 соглашений); без него парный `DELETE` не работает |
 | `timestamp` записи аудита — локальный формат `dd.mm.yyyy hh:mm` (`03-api-contract.md:1847`) | в типе и в сидах ISO-строка (`types/warehouse.ts:528`, сиды `frontend_vue/src/mocks/warehouse-stock.ts`); формат вывода принадлежит клиенту (§14 соглашений) |
-| перечень `referenceType` из пяти значений (`03-api-contract.md:1531`) | домен заказов пишет туда четыре других значения, и ни одно из них склад не узнаёт (БАГ-13); на схеме перечень открыт (`warehouse/shared/models.py:118`) |
+| перечень `referenceType` из пяти значений (`03-api-contract.md:1531`) | домен заказов пишет туда четыре других значения, и ни одно из них склад не узнаёт (БАГ-13); на схеме перечень открыт (`warehouse/shared/models.py:130`) |
 | payload резки без `sourcePieces` (`03-api-contract.md:1739-1757`) | поле объявлено и обязательно для штучной партии (`types/warehouse.ts:430-435`); `grep -c sourcePieces roo_code/roo-context/03-api-contract.md` → 0 |
 | таблица отказов резки из девяти кодов (`03-api-contract.md:1802-1812`) | отказов **десять**: нет `CUTTING_SOURCE_PIECES_INVALID` (`domain/cutting.ts:57`); `grep -c CUTTING_SOURCE_PIECES_INVALID roo_code/roo-context/03-api-contract.md` → 0 |
 | «Отказы `BATCH_NOT_FOUND`, `OFFCUT_DIMENSION_MISSING`, `OFFCUT_PIECES_NOT_INTEGER`, `INSUFFICIENT_QUANTITY` — те же» у ручного создания обрезка (`03-api-contract.md:1820-1822`) | их пять: пропущен `BATCH_UNIT_NOT_SUPPORTED`, который бросает тот же резолвер (`services/mocks/warehouse.ts:906`, код — `domain/cutting.ts:53`) |
@@ -1972,7 +1995,7 @@ FIFO-стоимость (`:1801-1849`), `total` и `totalPages` пагинаци
 | **решено 2026-09-07 (П20, П26, П34)** · размер страницы принадлежит коду, сервер его не назначает (П20); ширина реза — **настройка арендатора** (П34), владение описано в [`settings.md`](settings.md); единица по умолчанию остаётся в коде, но одним источником вместо восьми (`'uom-kg'` в четырёх местах, `'uom-pcs'` в четырёх) — П26. Обе половины «осталось» закрыты, вопросов владельцу по строке не осталось; работа по коду | графа 1; [§13](00-conventions.md), [`settings.md`](settings.md) |
 | **решено 2026-09-07 (П19)** · выводится из настроек, отдельной настройки не заводится. Четыре копии вычисления (`mocks/warehouse.ts:74-76`, `useWarehouseBatchCreate.ts:29-31`, `:42`, литерал `'EUR'` в `useWarehouseBatch.ts:120`) — работа по коду | графа 1; [§14](00-conventions.md) |
 | **решено 2026-09-09 (П51, П55)** · **партия просрочена** становится новым типом уведомления; исчерпание остатка ложится на существующий `stock_deficit` и помечается флагом тревоги, когда нехватка под подтверждённый заказ; списание, резка и движения уведомлений не рождают | графа 2; [§10.1](00-conventions.md), [§10.4](00-conventions.md) |
-| **решено 2026-09-08 (П36)** · пишет каждая операция, меняющая любое свойство — сегодня не пишет ни одна: `auditLog: []` у создания партии (`mocks/warehouse.ts:780`), обрезка (`:940`), движения (`:1248`) и нехватки (`:1704`, `:1754`), а четыре `mockPatch*` журнала не касаются. Автор — `user_id` плюс замороженный снимок имени, схема это умеет (`warehouse/shared/models.py:277-283`). Хранение: **одна общая таблица** `audit_entries` с `entity_type` и `entity_id` (П38) — все пять складских журналов ложатся в неё, отдельных таблиц под них не заводится, а `stock_audit_entries` сливается туда же | графа 3; [§9](00-conventions.md) |
+| **решено 2026-09-08 (П36)** · пишет каждая операция, меняющая любое свойство — сегодня не пишет ни одна: `auditLog: []` у создания партии (`mocks/warehouse.ts:780`), обрезка (`:940`), движения (`:1248`) и нехватки (`:1704`, `:1754`), а четыре `mockPatch*` журнала не касаются. Автор — `user_id` плюс замороженный снимок имени, схема это умеет (`warehouse/shared/models.py:289-295`). Хранение: **одна общая таблица** `audit_entries` с `entity_type` и `entity_id` (П38) — все пять складских журналов ложатся в неё, отдельных таблиц под них не заводится, а `stock_audit_entries` сливается туда же | графа 3; [§9](00-conventions.md) |
 | **решено 2026-09-07 (П26)** · перечень остаётся в коде, но **одним источником** вместо копий: сегодня единица по умолчанию задана `'uom-kg'` в четырёх местах и `'uom-pcs'` в четырёх других. Сведение копий — работа по коду | графа 5, пункт 1 (БАГ-15) |
 | **снято 2026-09-10 (П23)** · незачем: колонка удаляется вместе с отказом от конверсии валют — курса в системе нет нигде | графа 5, пункт 3; [§14](00-conventions.md) |
 | **решено 2026-09-10 (П26, П65 а)** · правилами пересчёта владеет код, сервер их валидирует; карта склада — просто картинка, значит адрес хранения партии с ней структурно не связан и сверять адрес по карте сервер не обязан (вторая половина — чтение контракта, не слово владельца) | графа 5, пункты 2 и 4; [§25](00-conventions.md), [§14](00-conventions.md) |

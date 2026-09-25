@@ -114,7 +114,7 @@ $ grep -rn "products" backend/app/main.py
 `uom_id` и `price_unit` в модели отсутствуют. Миграция есть:
 `backend/alembic/versions/a1b2c3d4e5f6_phase_15_product_uom_restructure.py:98-99` — `op.drop_column("products", "price_unit")`.
 
-Шаг 2 (аудит закупки на партии) — СДЕЛАНО. `backend/app/modules/warehouse/shared/models.py:63-86`:
+Шаг 2 (аудит закупки на партии) — СДЕЛАНО. `backend/app/modules/warehouse/shared/models.py:75-98`:
 `received_quantity`, `received_uom_id`, `received_unit_price`, `received_currency_id`,
 `purchase_to_warehouse_rate`, `exchange_rate`; та же миграция phase_15 строки 107-137 их добавляет.
 

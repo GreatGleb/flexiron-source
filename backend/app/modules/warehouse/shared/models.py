@@ -36,7 +36,19 @@ class WarehouseBatch(UUIDMixin, TimestampMixin, Base):
     quantity_remaining: Mapped[float] = mapped_column(
         Numeric(12, 2), nullable=False
     )
+    # Kept as-is: this column's fate (replaced by `uom_id`, kept alongside it,
+    # or something else) is not decided by the task that added `uom_id` below —
+    # it neither renames nor drops `unit`.
     unit: Mapped[str] = mapped_column(String(20), nullable=False)
+    # Reference counterpart of `unit` above, added by the same technique as
+    # `received_uom_id` further down: nullable FK to the settings UOM catalog,
+    # `SET NULL` on delete. Closes the schema/form gap the warehouse contract
+    # named for `GET /api/warehouse/batches` (`BatchListItem.uomId`).
+    uom_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("uoms.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     unit_price: Mapped[float | None] = mapped_column(
         Numeric(12, 4), nullable=True
     )

@@ -438,7 +438,7 @@ src/services/analyticsService.ts` → `0`; `Idempotency-Key` не шлётся
 | `salesByCategory`, `topClients`, `refusalReasons`, `revenues` (`mocks/analytics.ts:80-86`, `mocks/analytics.ts:419-460`, `mocks/analytics.ts:648-668`) | заказы | **модуля на бэкенде нет вовсе** — `orders` в `backend/app/modules/` отсутствует |
 | `plRows`, `calendarEvents` (`mocks/analytics.ts:806-875`) | финансы: `finance_payments` (`finance/shared/models.py:14`) | модуль есть, роутов 0 |
 | `managers`, `workers` (`mocks/analytics.ts:589-646`) | пользователи (`auth/shared/models.py`) | модуль есть, 4 роута |
-| `deficitItems`, `refusalVolumes` (`mocks/analytics.ts:931-1005`) | складской дефицит: `warehouse_deficits` (`warehouse/shared/models.py:182`) | модуль есть, роутов 0 |
+| `deficitItems`, `refusalVolumes` (`mocks/analytics.ts:931-1005`) | складской дефицит: `warehouse_deficits` (`warehouse/shared/models.py:194`) | модуль есть, роутов 0 |
 | `suppliers.deliveries`/`ontime` (`mocks/analytics.ts:516-549`) | поставщики | **полей нет и во фронте**: у `Supplier` есть `rating` и `leadTime` и нет ни счётчика поставок, ни процента вовремя ([`types/supplier.ts:12-31`](../../../frontend_vue/src/types/supplier.ts)) |
 | `routes`, `loads` (`mocks/analytics.ts:725-793`) | — | **источника нет ни одного**: домена логистики не существует ни во фронте, ни на бэкенде |
 | `kpis`, `alerts`, `sectionPreviews`, `supplyCategories` (`mocks/analytics.ts:27-78`, `mocks/analytics.ts:88-134`, `mocks/analytics.ts:136-241`, `mocks/analytics.ts:551-576`) | сводки по тем же чужим сущностям | — |
