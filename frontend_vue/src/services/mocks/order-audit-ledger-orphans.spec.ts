@@ -344,9 +344,28 @@ describe('LAYER 12 — what a delete leaves behind', () => {
       (await deficitsFor(order.id)).length,
       report('LAYER 12 — no shortage was filed, so the delete proves nothing'),
     ).toBe(1)
+    // Непустота ДО удаления: без неё `toBe(0)` ниже устраивает бездействие —
+    // молчащий `findReservations` дал бы ноль и на живом заказе (питфолл #68).
+    expect(
+      findReservations({ orderId: order.id }).length,
+      report('LAYER 12 — nothing was held, so releasing it proves nothing'),
+    ).toBeGreaterThan(0)
 
     mockDeleteOrder(order.id)
-    const heldAfter = mockGetReservations({ orderId: order.id }).length
+    /*
+     * Резервы удалённого заказа читаются из САМОГО хранилища, а не через
+     * `mockGetReservations`: тот с 2026-09-24 (`0b86c21`) отказывает
+     * `ORDER_NOT_FOUND` на неизвестном заказе, потому что против настоящего
+     * сервера запрос резервов несуществующего заказа — это 404, и мок держит то
+     * же правило, что его соседи по домену.
+     *
+     * Предмет ЭТОГО теста — сироты в книге резервов, то есть взгляд хранилища, а
+     * не ответ ручки: спрашивать надо «осталась ли запись», и ответ «заказа нет»
+     * на такой вопрос не отвечает. Отказ самой ручки утверждается отдельно, ниже,
+     * — тем же приёмом, что в `orders.spec.ts` («gives everything back when the
+     * order itself is deleted»), чтобы правило жило в одном виде, а не в двух.
+     */
+    const heldAfter = findReservations({ orderId: order.id }).length
     const shortAfter = await deficitsFor(order.id)
     say('after DELETE the whole order   :', order.id)
     say('  order still readable?        :', orderStillReadable(order.id))
@@ -358,6 +377,10 @@ describe('LAYER 12 — what a delete leaves behind', () => {
 
     expect(orderStillReadable(order.id), report('LAYER 12 — the order did not delete')).toBe(false)
     expect(heldAfter, report('LAYER 12 — a deleted order kept its reservations')).toBe(0)
+    expect(
+      () => mockGetReservations({ orderId: order.id }),
+      report('LAYER 12 — the handle still answers for an order that is gone'),
+    ).toThrow('ORDER_NOT_FOUND')
     expect(
       shortAfter.map((d) => `${d.id} ${d.deficitAmount} ${d.uomId} "${d.notes}"`),
       report(
