@@ -242,8 +242,8 @@ function authHeaders(): Record<string, string> | undefined {
 Обе стороны правила объявлены каскадом:
 
 ```python
-from_uom_id: … ForeignKey("uoms.id", ondelete="CASCADE")   # models.py:133
-to_uom_id:   … ForeignKey("uoms.id", ondelete="CASCADE")   # models.py:138
+from_uom_id: … ForeignKey("uoms.id", ondelete="CASCADE")   # models.py:144
+to_uom_id:   … ForeignKey("uoms.id", ondelete="CASCADE")   # models.py:149
 ```
 
 `remove_uom_item` (`crud/domain.py:475`) проверяет только товары — счёт идёт через
@@ -591,7 +591,7 @@ factor=float(c.factor) if c.factor else None
 `formula_type` объявлены необязательными (`crud/schemas.py:195-204`). В домене проверяются
 две вещи — совпадение единиц (`crud/domain.py:433-434`) и дубль пары (`crud/domain.py:437-439`); связка
 `type='static' → factor` / `type='dynamic' → formulaType` не проверяется. Само `type` —
-свободная строка (`String(20)`, `models.py:135-137`), то есть примется любая.
+свободная строка (`String(20)`, `models.py:146-148`), то есть примется любая.
 
 Форма это правило знает и соблюдает (`SettingsLayout.vue:377-378, 380-394`), но клиент —
 не место для серверного инварианта.

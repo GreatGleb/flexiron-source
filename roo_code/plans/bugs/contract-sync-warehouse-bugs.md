@@ -590,7 +590,7 @@ return paginate(filtered, pagination.page, pagination.pageSize)     // :1651 д�
 
 ## БАГ-17 — схема обрезка не знает ни одного размера, ни веса, ни категории
 
-**File:** `backend/app/modules/warehouse/shared/models.py:131-165`
+**File:** `backend/app/modules/warehouse/shared/models.py:142-176`
 **Severity:** High — обрезок без размеров нельзя ни оценить, ни предложить строке заказа: и `resolveOffcutMaterial`, и `offcutAllocation` считают материал именно из `lengthMm`/`widthMm`/`weightKg`.
 **Источник:** К5 (источник истины), К4
 
@@ -862,7 +862,7 @@ productName: { ru: '', en: '', lt: '' },     // frontend_vue/src/services/mocks/
 
 ## БАГ-25 — у нехватки на схеме нет приоритета, а `status` объявлен со значением приоритета
 
-**File:** `backend/app/modules/warehouse/shared/models.py:196-198`
+**File:** `backend/app/modules/warehouse/shared/models.py:210-225`
 **Severity:** Medium — колонка `status` получает дефолт `"critical"`, которого нет в перечне статусов и который принадлежит перечню приоритетов.
 **Источник:** К5, К4
 
@@ -966,7 +966,7 @@ export async function mockExportWarehouseCsv(_tab: string): Promise<string> {
 
 ## БАГ-28 — уникальность строки остатка объявлена без арендатора
 
-**File:** `backend/app/modules/warehouse/shared/models.py:213-219`
+**File:** `backend/app/modules/warehouse/shared/models.py:244-250`
 **Severity:** High — `unique=True` на одном `product_id` означает одну строку остатка на всю базу, а не на арендатора; второй арендатор с тем же товаром не сможет её создать.
 **Источник:** К6 (мультиарендность)
 
