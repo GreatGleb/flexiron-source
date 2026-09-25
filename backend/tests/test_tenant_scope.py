@@ -139,6 +139,9 @@ KNOWN_GAPS: dict[tuple[str, str], str] = {
     ("app/modules/notifications/features/feed/repository.py", "count_unread"):
         "тот же рисунок: сужение и по арендатору, и по пользователю делает соседка, "
         "которой переданы оба (Т2).",
+    ("app/modules/finance/features/archive/repository.py", "count_archive_items"):
+        "считает над подзапросом `_filtered_query(tenant_id, …)` — соседки того же файла; "
+        "своей строки `tenant_id ==` в теле нет (Т2).",
     ("app/modules/products/features/patch_product/domain.py", "patch_product"):
         "домен не строит фильтр сам: товар берётся `get_product_for_update(db, id, "
         "tenant_id)`, и сужение живёт в репозитории (`Product.tenant_id == tenant_id`). "

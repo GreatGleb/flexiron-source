@@ -71,6 +71,9 @@ from app.modules.notifications.features.feed.action import (
 from app.modules.suppliers.features.supplier_reference.action import (
     router as suppliers_reference_router,
 )
+from app.modules.finance.features.archive.action import (
+    router as finance_archive_router,
+)
 from app.core.uploads.action import (
     router as uploads_router,
 )
@@ -148,6 +151,7 @@ app.include_router(settings_crud_router)
 app.include_router(settings_mail_router)
 app.include_router(settings_warehouse_map_router)
 app.include_router(finance_payments_router)
+app.include_router(finance_archive_router)
 app.include_router(notifications_feed_router)
 # `supplier_reference` (`/list`) регистрируется раньше любого будущего
 # `/{supplier_id}`: UUID-типизированный роут карточки иначе перехватил бы сегмент

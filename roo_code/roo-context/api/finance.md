@@ -447,7 +447,7 @@ Save-режим — **чтение**. Триггеров пять, и пятый
 Реализация: `services/financeService.ts:52-63` — `getArchive` · мок `mocks/index.ts:836-843` →
 `mocks/finance.ts:432-461` — `mockGetArchive`
 
-Бэкенд: **не реализован** — таблица `document_archive_items` есть
+Бэкенд: `backend/app/modules/finance/features/archive/action.py:18` (`list_archive_items`) — постраничное чтение архива, сужено по арендатору; конверт списка общий (`PaginatedResponse`).
 (`finance/shared/models.py:93-128`), роута нет.
 
 ---
