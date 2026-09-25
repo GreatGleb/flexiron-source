@@ -962,7 +962,7 @@ interface TranslatedString { ru: string; en: string; lt: string }   // types/i18
 имя во фронте против одной строки на схеме: `categories.name` и `category_fields.name` —
 `String(255)` (`backend/app/modules/products/shared/models.py:25`, `:76`), `field_definitions.name`
 — тоже (`suppliers/shared/models.py:252`), `bcc_events.source` — `String(50)`
-(`bcc/shared/models.py:71-73`), контакт поставщика `position` — `String(255)`
+(`bcc/shared/models.py:39-41`), контакт поставщика `position` — `String(255)`
 (`suppliers/shared/models.py:129`). Хранить `{ru,en,lt}` в `String(255)` нечем. Наоборот,
 переводимость **есть** у `section_configs.name_translations`, `permission_items.name_translations`,
 `notifications.title_translations`, `stock_audit_entries` — то есть внутри одной миграции

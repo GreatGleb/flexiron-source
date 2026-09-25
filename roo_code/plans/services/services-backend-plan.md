@@ -58,7 +58,7 @@
 `backend/alembic/versions/d730d0aa32ef_phase_4_services.py` завела таблицу,
 `backend/alembic/versions/7fff8d1e5810_phase_16_service_currency_uom.py` перевела цену на
 справочники. Модель зарегистрирована в реестре альбемика
-(`backend/alembic/_alembic_imports.py:59`). Пустой — `internal_api/interface.py`: в нём один
+(`backend/alembic/_alembic_imports.py:57`). Пустой — `internal_api/interface.py`: в нём один
 докстринг и ни одной функции, а она домену понадобится (слайс С5).
 
 ---
@@ -445,7 +445,7 @@ cd frontend_vue && grep -c "rejects.toThrow" src/domain/servicePricing.spec.ts  
 - новых уникальностей нет: уникальности имени не требует ни мок, ни схема, ни контракт, и
   заводить её — решение владельца (раздел 8, вопрос 3).
 
-Модель уже зарегистрирована в реестре альбемика (`backend/alembic/_alembic_imports.py:59`) —
+Модель уже зарегистрирована в реестре альбемика (`backend/alembic/_alembic_imports.py:57`) —
 второй строки не нужно. Ревизия пишется по образцу
 `backend/alembic/versions/7fff8d1e5810_phase_16_service_currency_uom.py`, у которой обратный
 проход написан и проверен.

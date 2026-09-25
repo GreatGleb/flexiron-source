@@ -58,7 +58,7 @@
   верной только половина находки: своих заголовков пять вызовов из семи не добавляют, и это
   относится к `Idempotency-Key`, а не к подписи.
 - БАГ-11 закрыт **наполовину, и вторая половина жива**. Раздел баг-файла
-  (`roo_code/plans/bugs/contract-sync-bcc-bugs.md:514-537`) называет две обязанности, не одну.
+  (`roo_code/plans/bugs/contract-sync-bcc-bugs.md:539-562`) называет две обязанности, не одну.
   (а) **Создавать N × M строк — закрыто:** строки заводит мок, а не браузер — `createEventRows`
   (`frontend_vue/src/services/mocks/bcc.ts:389`) вызывают оба пути,
   `mockSendBccRequest` (`:453`) и `mockLogBccRequest` (`:468`). В баг-файле пометки нет; контракт
@@ -199,7 +199,7 @@ awk '/^## Чего в домене нет/{f=1;next} /^## Пробелы ауд�
 ## 2б. Правила домена — двенадцать пунктов, третий источник контракта
 
 Задание называет источниками дыр два раздела контракта. Их мало: раздел «Правила домена»
-(`roo_code/roo-context/api/bcc.md:696-797`) — не список эндпоинтов и не список отсутствующего, но
+(`roo_code/roo-context/api/bcc.md:710-814`) — не список эндпоинтов и не список отсутствующего, но
 **один из его двенадцати пунктов несёт незакрытую находку в коде**, и прошлая редакция плана прошла
 мимо неё молча, процитировав только пункты 2 и 5. Поэтому здесь пройдены все двенадцать: счёт —
 `awk '/^## Правила домена/{f=1;next} /^## Чего в домене нет/{f=0} f' roo_code/roo-context/api/bcc.md | grep -cE "^[0-9]+\. \*\*"` → `12`.
@@ -300,10 +300,10 @@ awk '/^## Чего в домене нет/{f=1;next} /^## Пробелы ауд�
 
 | операция | мок | эндпоинт контракта | слайс |
 |---|---|---|---|
-| отправка запроса | `mockSendBccRequest` (`frontend_vue/src/services/mocks/bcc.ts:426`) | `POST /api/bcc/send` (`roo_code/roo-context/api/bcc.md:296`) | С7 |
-| логирование запроса | `mockLogBccRequest` (`frontend_vue/src/services/mocks/bcc.ts:463`) | `POST /api/bcc/log` (`roo_code/roo-context/api/bcc.md:392`) | С6 |
-| приём цены | `mockAcceptResponse` (`frontend_vue/src/services/mocks/bcc.ts:472`) | `POST /api/bcc/events/:eventId/response` (`roo_code/roo-context/api/bcc.md:448`) | С8 |
-| отметка молчания | `mockMarkNoResponse` (`frontend_vue/src/services/mocks/bcc.ts:504`) | `POST /api/bcc/events/:eventId/no-response` (`roo_code/roo-context/api/bcc.md:506`) | С9 |
+| отправка запроса | `mockSendBccRequest` (`frontend_vue/src/services/mocks/bcc.ts:426`) | `POST /api/bcc/send` (`roo_code/roo-context/api/bcc.md:303`) | С7 |
+| логирование запроса | `mockLogBccRequest` (`frontend_vue/src/services/mocks/bcc.ts:463`) | `POST /api/bcc/log` (`roo_code/roo-context/api/bcc.md:399`) | С6 |
+| приём цены | `mockAcceptResponse` (`frontend_vue/src/services/mocks/bcc.ts:472`) | `POST /api/bcc/events/:eventId/response` (`roo_code/roo-context/api/bcc.md:455`) | С8 |
+| отметка молчания | `mockMarkNoResponse` (`frontend_vue/src/services/mocks/bcc.ts:504`) | `POST /api/bcc/events/:eventId/no-response` (`roo_code/roo-context/api/bcc.md:518`) | С9 |
 
 **2. Свойства каждой операции и подпись `property` на три языка.** Сущность аудита у домена одна —
 пара «запрос × поставщик × товар»; каким значением `entity_type` она обозначается в **общей** ленте, план
@@ -333,7 +333,7 @@ awk '/^## Чего в домене нет/{f=1;next} /^## Пробелы ауд�
 правкой АЛ-4б в сквозном плане, и домен её сам не делает — как не делает её и здесь.
 
 **3. Непишущие операции и случай АЛ-4г.** Три чтения — `GET /api/bcc/categories`
-(`roo_code/roo-context/api/bcc.md:101`), `GET /api/bcc/recipients` (`:158`),
+(`roo_code/roo-context/api/bcc.md:103`), `GET /api/bcc/recipients` (`:158`),
 `GET /api/bcc/history` (`:223`) — случай **«чтение»**. Ещё два непишущих вызова приходят от
 идемпотентности (§4, правило 5) и оба — случай **«вызов, который ничего не изменил»**: повтор с тем
 же `Idempotency-Key` отдаёт сохранённый ответ, а `CONFLICT` 409 до завершения первой попытки не
@@ -605,7 +605,7 @@ typecheck.
 **Часть 4 — каталог отдаётся копией, а не ссылкой на стор.** `mockGetBccCategories` возвращает сам
 `MOCK_BCC_CATEGORIES` (`frontend_vue/src/services/mocks/bcc.ts:225-227`), тогда как соседняя лента
 уже обёрнута в `structuredClone` (`:264`) и вторая обёртка стоит на ответе отправки (`:416`).
-Контракт называет это прямо — правило домена 11 (`roo_code/roo-context/api/bcc.md:781-787`): «остаток
+Контракт называет это прямо — правило домена 11 (`roo_code/roo-context/api/bcc.md:798-804`): «остаток
 того же класса, §18 соглашений». Мутация полученного дерева сегодня меняет «серверные» данные, а
 настоящий сервер так не умеет: между ним и клиентом стоит сериализация, и мок обязан быть не слабее
 неё (причина записана в самом моке, `:259-263`). Правка — одна строка, приёмка — счёт обёрток.

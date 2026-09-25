@@ -1,43 +1,11 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, Text, func
-from sqlalchemy.dialects.postgresql import JSON, JSONB, UUID
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import DateTime, ForeignKey, Numeric, String, Text, func
+from sqlalchemy.dialects.postgresql import JSON, UUID
+from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.base import Base, TimestampMixin, UUIDMixin
-
-
-class BccCategory(UUIDMixin, TimestampMixin, Base):
-    """BCC catalog category — tree structure, per-tenant."""
-
-    __tablename__ = "bcc_categories"
-
-    tenant_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("tenants.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
-    name_translations: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
-    parent_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("bcc_categories.id", ondelete="RESTRICT"),
-        nullable=True,
-        index=True,
-    )
-    product_count: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0, server_default="0"
-    )
-
-    children: Mapped[list["BccCategory"]] = relationship(
-        "BccCategory", back_populates="parent",
-        passive_deletes=True,
-    )
-    parent: Mapped["BccCategory | None"] = relationship(
-        "BccCategory", back_populates="children",
-        remote_side="BccCategory.id",
-    )
+from app.core.base import Base, UUIDMixin
 
 
 class BccEvent(UUIDMixin, Base):
@@ -73,6 +41,11 @@ class BccEvent(UUIDMixin, Base):
     )
     price: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
     unit: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    currency_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("currencies.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     subject: Mapped[str | None] = mapped_column(Text, nullable=True)
     body: Mapped[str | None] = mapped_column(Text, nullable=True)
     attachment_file_ids: Mapped[dict | None] = mapped_column(JSON, nullable=True)

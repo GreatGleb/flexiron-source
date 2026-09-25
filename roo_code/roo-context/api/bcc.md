@@ -35,9 +35,11 @@ clean-slate против quick-action — §15; файлы и общий `POST /
 одного эндпоинта, но **по правилу отправки и по схеме хранения бэкенд уже старше фронта**, и оба
 расхождения ниже описаны по нему, а не по моку.
 
-**Таблицы существуют обе, и они per-tenant:** `bcc_categories`
-(`backend/app/modules/bcc/shared/models.py:11-41`, имя таблицы `:14`) и `bcc_events` (`:43-89`,
-имя `:46`); миграция — `backend/alembic/versions/f96e6fb2d5cf_phase_8_bcc.py:24-52`.
+**Своей таблицы у дерева BCC нет — П75.** У модуля `bcc` на схеме одна таблица, `bcc_events`
+(`backend/app/modules/bcc/shared/models.py`, per-tenant); каталог инструмент читает как проекцию
+общих `categories`/`products` домена `products`, а не из своей иерархии. Таблицу `bcc_categories`,
+которую заводила `backend/alembic/versions/f96e6fb2d5cf_phase_8_bcc.py:24-35`, снимает ревизия
+`backend/alembic/versions/e7b2c40d9f15_bcc_p75_drop_categories_p101_currency.py`.
 
 Потребители: [`services/bccService.ts`](../../../frontend_vue/src/services/bccService.ts) — все
 семь вызовов (`:7`, `:11`, `:21`, `:35`, `:57`, `:73`, `:77`);
@@ -126,28 +128,33 @@ interface BccCategory {
 Пагинации, фильтра и поиска у эндпоинта нет: фильтр, поиск и листалка таблицы товаров считаются на
 клиенте из уже загруженного дерева (`BccRequestPage.vue:105-140`, размер страницы `:97`).
 
-**Листья этого дерева фронт считает товарами, а схема — категориями, и это главное, чего старый
-контракт не сказал.** `productOptions` берёт `cat.children` и кладёт их `id` в `productIds`
-запроса (`BccRequestPage.vue:77-86`, `:397-410`), тогда как таблица называется `bcc_categories` и
-`parent_id` ссылается на неё же (`backend/app/modules/bcc/shared/models.py:23-28`), а
-`bcc_events.product_id` — FK на **`products.id`** (`:63-67`). Идентификаторы листьев (`sheet-2mm`,
-`beam-i20`, `pipe-100`, …) в проекте больше не встречаются нигде: `grep -rn "sheet-2mm"
-frontend_vue/src` даёт только `services/mocks/bcc.ts` и `services/mocks/bcc-envelope.spec.ts:32,77`;
-товары мока — `prod-001`… (`services/mocks/products.ts:31`), категории — `cat-1`…
-(`services/mocks/categories.ts:11`). Пока не решено, чем является это дерево, сервер не сможет ни
-принять `productIds` клиента, ни отдать своё дерево — БАГ-06, [решение
-владельца](../../plans/api/audit/00-решения-владельца.md) (раздел «bcc», строка «Пробел
-контракта»).
+**П75 решила «дерево — это товары или категории»: у BCC нет собственной сущности, каталог —
+проекция общего.** `productOptions` берёт `cat.children` и кладёт их `id` в `productIds` запроса
+(`BccRequestPage.vue:77-86`, `:397-410`); на схеме этому соответствует `bcc_events.product_id` —
+FK на `products.id` (`backend/app/modules/bcc/shared/models.py`, `ondelete="SET NULL"`), а не
+ссылка на строку своей таблицы категорий — такой таблицы на схеме больше нет. Узлы дерева — это
+категории домена `products` (`categories.id`), листья — товары (`products.id`); идентификаторы
+листьев мока (`sheet-2mm`, `beam-i20`, `pipe-100`, …), которых нет ни в `products`, ни в
+`categories`, — расхождение реализации мока и фронта с этим решением, а не схемы: `grep -rn
+"sheet-2mm" frontend_vue/src` по-прежнему даёт только `services/mocks/bcc.ts` и
+`services/mocks/bcc-envelope.spec.ts:32,77`; товары мока — `prod-001`…
+(`services/mocks/products.ts:31`), категории — `cat-1`… (`services/mocks/categories.ts:11`). БАГ-06
+закрыт по схемной половине — таблица `bcc_categories` снята
+(`backend/alembic/versions/e7b2c40d9f15_bcc_p75_drop_categories_p101_currency.py`); перевод мока и
+фронта на `products.id`/`categories.id` этой правкой не сделан.
 
-**Переводимость имени у категории на схеме есть, в отличие от события.** `name_translations` —
-`JSONB` (`backend/app/modules/bcc/shared/models.py:22`), то есть три локали хранятся как объект и
-общее правило §12 соглашений соблюдено. `product_count` при этом на схеме **хранимая** колонка с
-дефолтом `0` (`:29-31`), а во фронте — производное число; выводится оно из каталога товаров или
-обновляется событием, не сказано нигде (см. «Обязанности сервера», графа 9).
+**Счётчик товаров узла — производный, и на схеме `bcc` для него больше нет колонки.** Раньше это
+была хранимая `bcc_categories.product_count` с дефолтом `0`
+(`backend/alembic/versions/f96e6fb2d5cf_phase_8_bcc.py:31`); ревизия П75 сняла её вместе с
+таблицей. Раз своей схемы у дерева нет, `productCount` в ответе обязан считаться при чтении из
+каталога товаров — во фронте это и сегодня производное число, а обновляется оно событием или
+пересчётом, не сказано нигде (см. «Обязанности сервера», графа 9). Переводимость имени узла теперь
+целиком на стороне `categories` домена `products`, а не в схеме `bcc`.
 
 Ошибки: ни одного кода (каталог выше).
 
-Бэкенд: **не реализован** — роутов у модуля ноль; ограничение схемы — `backend/app/modules/bcc/shared/models.py:11-41`
+Бэкенд: **не реализован** — роутов у модуля ноль; своей схемы у эндпоинта больше нет (П75), читать
+предстоит `Category`/`Product` домена `products` (`backend/app/modules/products/shared/models.py`)
 Реализация: `services/bccService.ts:6-8` (`getBccCategories`) · потребитель
 `composables/useBccRequest.ts:92-102` (`loadCategories`), вызов `BccRequestPage.vue:523` ·
 мок `services/mocks/index.ts:353` → `services/mocks/bcc.ts:225-227` (отдаёт **ссылку** на
@@ -269,7 +276,7 @@ supplier. Grouped by requestId» (`:20`). Конверт собирает `mockG
 по убыванию даты (`:145`, `:179`, `:204`). Поля времени точнее суток у строки нет вовсе (`date` —
 `YYYY-MM-DD`, `types/bcc.ts:24`), поэтому события одного дня не упорядочены ничем. На схеме время
 есть: `created_at` — `DateTime(timezone=True)` с индексом и `server_default=func.now()`
-(`backend/app/modules/bcc/shared/models.py:84-89`), и сервер обязан упорядочивать по нему, а не по
+(`backend/app/modules/bcc/shared/models.py:25-30`), и сервер обязан упорядочивать по нему, а не по
 порядку выборки.
 
 **«Текущее состояние пары» — производное от порядка, и считает его сегодня клиент.**
@@ -285,7 +292,7 @@ supplier. Grouped by requestId» (`:20`). Конверт собирает `mockG
 
 Ошибки: ни одного кода; клиент ошибку глотает молча (каталог выше).
 
-Бэкенд: **не реализован** — роутов ноль; схема строки — `backend/app/modules/bcc/shared/models.py:43-89`,
+Бэкенд: **не реализован** — роутов ноль; схема строки — `backend/app/modules/bcc/shared/models.py:11-62`,
 и она расходится с типом фронта по пяти полям («Правила домена», п. 6)
 Реализация: `services/bccService.ts:14-22` (`getBccHistory`) · потребитель
 `composables/useBccRequest.ts:104-111` (`loadHistory`), вызов `BccRequestPage.vue:524` · мок
@@ -336,7 +343,7 @@ supplier. Grouped by requestId» (`:20`). Конверт собирает `mockG
 успешной отправки страница **перечитывает ленту** (`BccRequestPage.vue`, `await loadHistory()` в
 `sendRequest`), а `nextRequestId`/`createEventRows` из неё удалены — это и было БАГ-02 в
 клиентской половине. Формат поля на схеме — `String(50)`
-(`backend/app/modules/bcc/shared/models.py:54-56`), то есть ограничения на вид номера нет, и
+(`backend/app/modules/bcc/shared/models.py:22-24`), то есть ограничения на вид номера нет, и
 сервер выдаёт `req-NNN` — тот же вид, что у сидов.
 
 > **Возвращать ли строки в ответе — по-прежнему строка владельца** (см. «Чего в домене нет»).
@@ -374,7 +381,7 @@ isMailConfigured(settings.mail)` (`useBccRequest.ts:79`) — гейт смотр
 **Вложения нигде не разрешаются в файлы.** Мок кладёт `fileIds` в конверт как есть
 (`services/mocks/bcc.ts:330`) и в реестр загруженных файлов (`services/mocks/index.ts:281`) не
 заглядывает; колонка под них на схеме есть — `attachment_file_ids: JSON`
-(`backend/app/modules/bcc/shared/models.py:78`).
+(`backend/app/modules/bcc/shared/models.py:19`).
 
 Ошибки: `MAIL_NOT_CONFIGURED` (мок и бэкенд) · `NO_RECIPIENTS` (только бэкенд, фронт кода не
 знает). Ни один до человека не доходит — БАГ-08.
@@ -409,7 +416,7 @@ isMailConfigured(settings.mail)` (`useBccRequest.ts:79`) — гейт смотр
 `source` клиент нормализует в `TranslatedString` текущей локали (`:61`), то есть на проводе всегда
 объект, никогда строка; значение приходит из константы страницы `SOURCE_OPTIONS`
 (`BccRequestPage.vue`, дефолт `'Email'`). На схеме `source` —
-свободный `String(50)` NOT NULL без `CHECK` (`backend/app/modules/bcc/shared/models.py:71-73`), то
+свободный `String(50)` NOT NULL без `CHECK` (`backend/app/modules/bcc/shared/models.py:39-41`), то
 есть одно значение, а не три локали: это часть систематического расхождения §12 соглашений.
 
 **Каталог подписей источника принадлежит серверу** — с 2026-09-07. `SOURCE_LABELS`
@@ -436,7 +443,7 @@ isMailConfigured(settings.mail)` (`useBccRequest.ts:79`) — гейт смотр
 
 Ошибки: ни одного кода.
 
-Бэкенд: **не реализован** — роутов ноль; схема строки события — `backend/app/modules/bcc/shared/models.py:43-89`
+Бэкенд: **не реализован** — роутов ноль; схема строки события — `backend/app/modules/bcc/shared/models.py:11-62`
 Реализация: `services/bccService.ts:49-67` (`logBccRequest`) · потребители
 `composables/useBccRequest.ts:153-168` (`log`) и `BccRequestPage.vue:427-454` (`logRequest`, зовёт
 сервис напрямую — `:430`), кнопка `:554-584` → `onLogClick` `:456-459`, выбор источника
@@ -464,7 +471,7 @@ Quick-action в модалке — открывается кнопкой «пр�
 вызов создаёт новую строку, и повтор с тем же ключом не добавляет вторую — БАГ-03 закрыт. `price`
 клиент приводит `Number()` и проверяет только на `NaN`
 (`BccRequestPage.vue:349`); ноль и отрицательное не отсекает никто, а на схеме это
-`Numeric(12, 2)` nullable (`backend/app/modules/bcc/shared/models.py:74`) — точность цены на
+`Numeric(12, 2)` nullable (`backend/app/modules/bcc/shared/models.py:10`) — точность цены на
 сервере два знака, а клиент шлёт любое `Number`. `unit` приходит из константы страницы
 `UNIT_OPTIONS = ['kg', 'm', 'piece', 'ton']` (`BccRequestPage.vue:333`, дефолт `'kg'` `:331`,
 `:340`, подстановка в модалке `:1049`) — это **не** идентификаторы справочника единиц, которым
@@ -480,12 +487,17 @@ Quick-action в модалке — открывается кнопкой «пр�
 На неизвестном `eventId` возвращается `null`, и он доезжает до ленты — БАГ-04 (каталог кодов
 выше).
 
-**Валюты у цены нет ни во фронте, ни на схеме.** Поля валюты нет ни в `BccRequest`
-(`types/bcc.ts:21-34`), ни в `bcc_events` (`backend/app/modules/bcc/shared/models.py:74-75` —
-только `price` и `unit`), при том что у поставщика валюта своя. Конвертации в проекте нет нигде
-(§14 соглашений), значит принятая цена — сумма без валюты; в какой она хранится, не сказано ни
-одной стороной — [решение владельца](../../plans/api/audit/00-решения-владельца.md), строка
-«Форма ответа».
+**Схема хранит фактическую валюту предложения — П101.** Поля валюты по-прежнему нет во фронте
+(`BccRequest`, `types/bcc.ts:21-34` — только `price` и `unit`), но на схеме `bcc_events` рядом с
+`price`/`unit` теперь стоит `currency_id`: FK на `currencies.id`, `nullable=True`,
+`ondelete="SET NULL"` (`backend/app/modules/bcc/shared/models.py`, ревизия
+`backend/alembic/versions/e7b2c40d9f15_bcc_p75_drop_categories_p101_currency.py`). Nullable — потому
+что у строк «запрос отправлен» и «не ответил» цены нет, и валюты у них тоже нет; у принятой цены
+валюта заполняется и остаётся исторической — поздняя смена валюты поставщика в настройках эту
+колонку не переписывает (`SET NULL`, а не каскадное обновление, действует только при удалении самой
+валюты). Конвертации в проекте по-прежнему нет нигде (§14 соглашений). Форму запроса/ответа и то,
+откуда клиент берёт валюту-кандидата на предзаполнение поля, эта правка не меняет — это отдельная
+работа над `bccService.ts`/`BccRequestPage.vue`, схемная часть П101 закрыта здесь.
 
 **Единственное уведомление домена рождается здесь, и оно не защищено условием перехода.**
 `mockAcceptResponse` зовёт `notifySupplierResponse` безусловно (`services/mocks/bcc.ts:495` →
@@ -496,7 +508,7 @@ Quick-action в модалке — открывается кнопкой «пр�
 Ошибки: ни одного кода (каталог выше). Обещанного прежним контрактом 422 на `price <= 0` нет ни во
 фронте, ни в моке.
 
-Бэкенд: **не реализован** — роутов ноль; схема строки — `backend/app/modules/bcc/shared/models.py:43-89`
+Бэкенд: **не реализован** — роутов ноль; схема строки — `backend/app/modules/bcc/shared/models.py:11-62`
 Реализация: `services/bccService.ts:69-74` (`acceptBccResponse`) · потребитель
 `BccRequestPage.vue:348-365` (`savePrice`), открытие модалки `:335-342` из кнопок `:931` и `:991` ·
 мок `services/mocks/index.ts:925-932` → `services/mocks/bcc.ts:345-370`
@@ -540,7 +552,7 @@ N дней» в проекте нет: `grep -rn "no_response" frontend_vue/src 
 Ошибки: ни одного кода (каталог выше).
 
 Бэкенд: **не реализован** — роутов ноль; на схеме `status` и `source` — `String(50)` без enum
-(`backend/app/modules/bcc/shared/models.py:68-73`)
+(`backend/app/modules/bcc/shared/models.py:36-41`)
 Реализация: `services/bccService.ts:78-86` (`markBccNoResponse`) · потребитель
 `BccRequestPage.vue:367-374` (`markNoResponse`), кнопка `:949` · мок
 `services/mocks/index.ts:933-937` → `services/mocks/bcc.ts:372-388`
@@ -562,7 +574,7 @@ N дней» в проекте нет: `grep -rn "no_response" frontend_vue/src 
 |---|---|---|
 | почтовый сервер: отправитель, хост, шифрование, признак готовности | `composables/useBccRequest.ts:64-72`, `:79`; мок `services/mocks/bcc.ts:318`; бэкенд `backend/app/modules/bcc/features/send_request/domain.py:41-65` | **настройкам арендатора**; своей копии у BCC нет (`useBccRequest.ts:64-67`) |
 | единицы цены | `views/admin/suppliers/BccRequestPage.vue:333`, дефолт `:331` | константа страницы мимо `AppSettings.uoms` (`types/settings.ts:240`) — БАГ-07, **нигде** |
-| источники запроса (`source`) | `BccRequestPage.vue:377`, переводы `:381-387` | константа страницы; на схеме свободный `String(50)` (`backend/app/modules/bcc/shared/models.py:71-73`) — **нигде** |
+| источники запроса (`source`) | `BccRequestPage.vue:377`, переводы `:381-387` | константа страницы; на схеме свободный `String(50)` (`backend/app/modules/bcc/shared/models.py:39-41`) — **нигде** |
 | текст письма (фразы на три локали) | `src/domain/bccEmail.ts:34-56` | **фронту, и это осознанно**: сервер получает готовый текст и своей константы с названием компании не держит (причина — `src/domain/bccEmail.ts:10-12`) |
 | размеры страниц: товары 10, получатели 5, лента 25 | `BccRequestPage.vue:97`, `:194`; `composables/useBccRequest.ts:106` | константы; справочника под них нет ни в настройках, ни на схеме (§13 соглашений) |
 
@@ -589,7 +601,7 @@ N дней» в проекте нет: `grep -rn "no_response" frontend_vue/src 
 домена **и есть** его журнал, тип объявляет это прямо (`types/bcc.ts:20`), но автора у записи нет:
 у `BccRequest` нет ни поля пользователя, ни времени точнее суток (`types/bcc.ts:21-34`). На схеме
 автор предусмотрен — `sender_user_id` с `ondelete="SET NULL"`
-(`backend/app/modules/bcc/shared/models.py:79-83`, миграция
+(`backend/app/modules/bcc/shared/models.py:52-56`, миграция
 `backend/alembic/versions/f96e6fb2d5cf_phase_8_bcc.py:50`) плюс `created_at` с индексом
 (`models.py:98-103`), — но заполнять их некому: вызывающих у слайса ноль, а мок про пользователя не
 знает вовсе (`grep -in "tenant\|userId\|user_id" frontend_vue/src/services/mocks/bcc.ts` — пусто).
@@ -597,9 +609,9 @@ N дней» в проекте нет: `grep -rn "no_response" frontend_vue/src 
 
 **4. Кастомные поля — домену не принадлежат и в нём отсутствуют.**
 `grep -rn "fieldValues\|FieldDefinition\|customField" frontend_vue/src/types/bcc.ts
-frontend_vue/src/services/mocks/bcc.ts backend/app/modules/bcc` → 0 попаданий; обе таблицы состоят
-из фиксированных колонок и ни одной ссылки на библиотеку определений
-(`backend/app/modules/bcc/shared/models.py:11-89`). Общий механизм — §8 соглашений. Единственная
+frontend_vue/src/services/mocks/bcc.ts backend/app/modules/bcc` → 0 попаданий; своя таблица `bcc`
+(`bcc_events`) состоит из фиксированных колонок и ни одной ссылки на библиотеку определений
+(`backend/app/modules/bcc/shared/models.py:11-62`). Общий механизм — §8 соглашений. Единственная
 точка соприкосновения **чужая**: поле карточки поставщика `f-last-bcc` «Дата последнего BCC»
 (`services/mocks/config.ts:92-94`, размещение `:162`) — определение живёт в `config`, значение у
 поставщика, а BCC его не обновляет (`grep -c "lastBccDate" frontend_vue/src/services/mocks/bcc.ts`
@@ -613,7 +625,7 @@ frontend_vue/src/services/mocks/bcc.ts backend/app/modules/bcc` → 0 попад
 `backend/tests/modules/bcc/test_send_request.py:93-103`, `:161-165`). (2) **Вложения**: `fileIds`
 уходят в конверт как есть (`services/mocks/bcc.ts:330`) и в реестр загруженных файлов
 (`services/mocks/index.ts:281`) не разрешаются; колонка на схеме есть
-(`backend/app/modules/bcc/shared/models.py:78`). (3) **Срок жизни ленты**: удаления в домене нет
+(`backend/app/modules/bcc/shared/models.py:19`). (3) **Срок жизни ленты**: удаления в домене нет
 ни в каком виде — `DELETE` среди семи путей отсутствует,
 `grep -n "^export function" frontend_vue/src/services/mocks/bcc.ts` даёт восемь имён
 (`services/mocks/bcc.ts:225`, `:229`, `:248`, `:295`, `:310`, `:337`, `:345`, `:372`) без единого
@@ -623,20 +635,21 @@ frontend_vue/src/services/mocks/bcc.ts backend/app/modules/bcc` → 0 попад
 (`:122-138`); ни `products`, ни `categories` в моке домена не импортируются — строк импорта пять и это весь
 список: два типовых, `suppliers`, `notifications`, `settings` (`:1-5`). Первая — находка про мок; остальные четыре — строки владельцу.
 
-**6. Мультиарендность — во фронте не выражена никак, на схеме выражена дважды.**
+**6. Мультиарендность — во фронте не выражена никак, на схеме — на единственной таблице домена.**
 `grep -in "tenant\|userId\|user_id" frontend_vue/src/services/mocks/bcc.ts` пусто, а
 `services/bccService.ts` (86 строк) ставит `Idempotency-Key` у всех четырёх мутирующих вызовов —
 `sendBccRequest`, `logBccRequest`, `acceptBccResponse` и `markBccNoResponse`. `Authorization` не
 несёт ни один из семи: три чтения идут вовсе без `options` (`getBccCategories`,
 `getBccRecipients`, `getBccHistory`), а у мутирующих
 `options?.headers` содержит только идемпотентность (`options?.headers` — их единственный источник,
-`services/api.ts:144-158`, `:163-175`) — БАГ-09. На сервере правило
-выражено на обеих таблицах: `bcc_categories.tenant_id` — FK на `tenants.id`, `ondelete="CASCADE"`,
-`nullable=False, index=True` (`backend/app/modules/bcc/shared/models.py:16-21`) и
-`bcc_events.tenant_id` теми же условиями (`:48-53`); миграция
-`backend/alembic/versions/f96e6fb2d5cf_phase_8_bcc.py:28`, `:39`. Плюс адресность автора —
-`sender_user_id` (`models.py:93-97`). Как сервер узнаёт арендатора — общее правило §4 соглашений
-(из токена, и только из него); что домен для этого не шлёт ничего — строка владельцу.
+`services/api.ts:144-158`, `:163-175`) — БАГ-09. На сервере правило выражено на
+`bcc_events.tenant_id` — FK на `tenants.id`, `ondelete="CASCADE"`, `nullable=False, index=True`
+(`backend/app/modules/bcc/shared/models.py`); миграция
+`backend/alembic/versions/f96e6fb2d5cf_phase_8_bcc.py:39`. Второй таблицы у домена больше нет:
+`bcc_categories` удалена по П75 ревизией `e7b2c40d9f15_bcc_p75_drop_categories_p101_currency.py`,
+и каталог наследует мультиарендность оттуда, откуда берёт данные, — `categories`/`products`.
+Плюс адресность автора — `BccEvent.sender_user_id`. Как сервер узнаёт арендатора — общее правило
+§4 соглашений (из токена, и только из него); что домен для этого не шлёт ничего — строка владельцу.
 
 **7. Права — нигде на уровне действия.** Доступ гейтится только фича-флагами, и их два: страница
 целиком — `meta.featureFlag: 'bccRequest'` на роуте (`src/router/index.ts:199-202`), панель
@@ -679,15 +692,16 @@ len(SUPPLIERS) messages here» — `backend/tests/modules/bcc/test_send_request.
 (`services/mocks/bcc.ts:265`), колонки под него нет. (2) `total` — длина всей ленты, фильтров у
 эндпоинта нет (`:258`). (3) **«Текущее состояние пары (запрос, поставщик, товар)» — производное от
 порядка событий**, и считает его сегодня клиент (`BccRequestPage.vue:492-496`); сервер обязан
-считать то же по `created_at` (`backend/app/modules/bcc/shared/models.py:84-89`), и у него для
+считать то же по `created_at` (`backend/app/modules/bcc/shared/models.py:25-30`), и у него для
 этого есть индекс, а у клиента нет даже времени точнее суток (`types/bcc.ts:24`).
 (4) `requestId` — **выводимое значение, и с 2026-09-07 его выводит один сервер**: монотонный
 счётчик, начальное значение снято с сидов (`services/mocks/bcc.ts:355-364`, `maxSeq` `:346-353`).
 Клиентский `max(req-NNN) + 1` из страницы удалён вместе с `createEventRows` — это была клиентская
-половина БАГ-02. (5) `productCount` категории — на схеме
-**хранимая** колонка с дефолтом `0` (`backend/app/modules/bcc/shared/models.py:29-31`), в моке
-константа у корней и ноль у листьев (`services/mocks/bcc.ts:11` против `:16`); выводится она из
-каталога товаров или обновляется событием — часть строки владельцу про природу дерева.
+половина БАГ-02. (5) `productCount` узла каталога — **с П75 обязан быть производным везде**: на
+схеме `bcc` под него больше нет колонки вовсе (`bcc_categories.product_count` снята вместе с
+таблицей, ревизия `e7b2c40d9f15_bcc_p75_drop_categories_p101_currency.py`), а мок по-прежнему
+держит константу у корней и ноль у листьев (`services/mocks/bcc.ts:11` против `:16`) — расхождение
+мока с решением, а не пробел схемы.
 
 ---
 
@@ -731,11 +745,11 @@ len(SUPPLIERS) messages here» — `backend/tests/modules/bcc/test_send_request.
    `date` (`services/mocks/bcc.ts:351-363`, `:375-385`). Исходная остаётся как след. Следствие для
    сервера: `UPDATE` по `bcc_events` не нужен ни одному сценарию домена, а «текущее состояние» —
    это выборка последней строки по ключу `(request_id, supplier_id, product_id)`.
-6. **Тип фронта и схема таблицы расходятся по пяти полям, и схема старше — она уже в БД**
+6. **Тип фронта и схема таблицы расходятся по шести полям, и схема старше — она уже в БД**
    (миграция `backend/alembic/versions/f96e6fb2d5cf_phase_8_bcc.py`):
    - `id`: фронт — строка вида `evt-001` / `evt-${Date.now()}` (`types/bcc.ts:22`, значения
      `services/mocks/bcc.ts:143`, `:352`), схема — `UUID` из `UUIDMixin`
-     (`backend/app/modules/bcc/shared/models.py:43`, миграция `:38`);
+     (`backend/app/modules/bcc/shared/models.py:11`, миграция `:38`);
    - `date`: фронт — строка `YYYY-MM-DD` (`types/bcc.ts:24`, `services/mocks/bcc.ts:354`), схема —
      `created_at: DateTime(timezone=True)` с индексом (`models.py:98-103`); колонки `date` на схеме
      нет вовсе;
@@ -754,8 +768,11 @@ len(SUPPLIERS) messages here» — `backend/tests/modules/bcc/test_send_request.
    домена и его спеке (`services/mocks/bcc-envelope.spec.ts:32`, `:77`); товары мока — `prod-001`…
    (`services/mocks/products.ts:31`), категории — `cat-1`… (`services/mocks/categories.ts:11`). При
    этом `bcc_events.product_id` — FK на `products.id` с `ondelete="SET NULL"`
-   (`backend/app/modules/bcc/shared/models.py:63-67`). Пока не решено, что такое `bcc_categories`,
-   серверная реализация не сможет ни принять `productIds`, ни отдать своё дерево — БАГ-06.
+   (`backend/app/modules/bcc/shared/models.py`). Чем должно быть дерево BCC, П75 **решил**:
+   проекцией общего каталога, своей таблицы у него нет. Схема это уже исполнила — `bcc_categories`
+   снята. Мок и фронт по-прежнему держат свои идентификаторы листьев, и пока они не переведены на
+   `categoryId`/`productId`, серверная реализация не сможет принять `productIds` — БАГ-06
+   остаётся открытым фронтовой половиной, а не вопросом к владельцу.
 8. **Подпись письма собирается из настроек, а не из константы, и это следствие реального
    инцидента.** Тема — название компании и дата (`src/domain/bccEmail.ts:82-88`), тело —
    приветствие, список позиций и подпись менеджера (`:96-108`); источник полей —
@@ -789,7 +806,7 @@ len(SUPPLIERS) messages here» — `backend/tests/modules/bcc/test_send_request.
     locale)` — текущую локаль в объекте с одной заполненной ветвью (`services/bccService.ts:39-40`,
     вход `composables/useBccRequest.ts:136-137`). Две другие локали письма браузер не покидают, а
     колонок под них на схеме и нет: `subject`/`body` — `Text`
-    (`backend/app/modules/bcc/shared/models.py:76-77`).
+    (`backend/app/modules/bcc/shared/models.py:17-18`).
 
 ---
 
@@ -812,7 +829,7 @@ len(SUPPLIERS) messages here» — `backend/tests/modules/bcc/test_send_request.
 | вложенное тело `send`: `template: { subject, body, attachments: { fileIds } }` (`03-api-contract.md:572-577`) | клиент шлёт плоское, `fileIds` на верхнем уровне типа payload (`services/bccService.ts:31`, сборка тела `:35-45`) |
 | `subject`/`body` строками у `send` (`03-api-contract.md:575-576`) | на проводе `TranslatedString` — `toTranslatedString(...)` в обоих полях (`services/bccService.ts:39-40`) |
 | «Одновременно создаётся N × M row'ов в history со `status: 'sent'`, `source: 'BCC Tool'`» как обязанность сервера (`03-api-contract.md:585`) | **верно с 2026-09-07**: `mockSendBccRequest` заводит их сам (`services/mocks/bcc.ts:453` → `createEventRows` `:389-417`), `status: 'sent'` — `:411`, подпись `'BCC Tool'` — из серверного каталога `SOURCE_LABELS` (`:317-323`). Раньше строки сочинял браузер — БАГ-01, закрыт |
-| `requestId` формата `req-###` (`03-api-contract.md:581`) | формат один и присваивает его сервер: `req-NNN` монотонным счётчиком (`services/mocks/bcc.ts:355-364`). Клиентский счёт удалён. Схема ограничений по-прежнему не ставит — `String(50)` (`backend/app/modules/bcc/shared/models.py:54-56`); `evt-${Date.now()}` у приёма ответа и отметки молчания (`services/mocks/bcc.ts:479`, `:503`) остался — это уже про `id` строки, а не про `requestId` |
+| `requestId` формата `req-###` (`03-api-contract.md:581`) | формат один и присваивает его сервер: `req-NNN` монотонным счётчиком (`services/mocks/bcc.ts:355-364`). Клиентский счёт удалён. Схема ограничений по-прежнему не ставит — `String(50)` (`backend/app/modules/bcc/shared/models.py:22-24`); `evt-${Date.now()}` у приёма ответа и отметки молчания (`services/mocks/bcc.ts:479`, `:503`) остался — это уже про `id` строки, а не про `requestId` |
 | `attachments?: { fileIds: string[] }` в теле `log` (`03-api-contract.md:597`) | клиент вложений при логировании не шлёт вовсе: тело — три поля (`services/bccService.ts:49-67`) |
 | `source` как строковый union из пяти значений у `log` (`03-api-contract.md:596`) | на проводе `TranslatedString` (`services/bccService.ts:61`); union живёт константой страницы (`BccRequestPage.vue:377`) |
 | ответ `log` = `{ requestId: string; events: BccRequest[] }`, «массив созданных строк, чтобы клиент сразу подложил в `history`» (`03-api-contract.md:600`) | ответ несёт только `requestId` (`services/bccService.ts:56`); строки создаёт сервер, но наружу их не отдаёт — клиент берёт их перечитыванием ленты. **Возвращать ли массив — по-прежнему строка владельцу**, и она сознательно не решена правкой БАГ-01 |
@@ -867,7 +884,7 @@ len(SUPPLIERS) messages here» — `backend/tests/modules/bcc/test_send_request.
 | правила домена 1–12 аудита | раздел «Правила домена», пункты 1–12 один к одному |
 | девять граф «Обязанностей сервера» | раздел «Обязанности сервера», графы 1–9 |
 | **решено 2026-09-09 (П48)** · сначала запись, потом отправка: упавшее письмо оставляет запись помеченной неотправленной и повторяемой | графа 8; правило домена 4 |
-| **решено 2026-09-11 (П75)** · **проекцией общего каталога**: своей таблицы у дерева нет, инструмент читает те же категории и те же товары, а `product_count` считается при чтении. Таблица `bcc_categories` удаляется вместе с колонкой счётчика, идентификаторы листьев становятся обычными `categoryId`/`productId` — сегодня они свои и не встречаются нигде, кроме мока домена | раздел `GET /api/bcc/categories`; графа 9 (5); [§17](00-conventions.md) (БАГ-06) |
+| **решено 2026-09-11 (П75), схема закрыта** · **проекцией общего каталога**: своей таблицы у дерева нет, инструмент читает те же категории и те же товары, а `product_count` считается при чтении. Таблица `bcc_categories` снята вместе с колонкой счётчика (ревизия `e7b2c40d9f15_bcc_p75_drop_categories_p101_currency.py`); идентификаторы листьев остаются свои и не встречаются нигде, кроме мока домена, — перевод мока и фронта на `categoryId`/`productId` не сделан этой правкой | раздел `GET /api/bcc/categories`; графа 9 (5); [§17](00-conventions.md) (БАГ-06) |
 | **решено 2026-09-07 частично** · единицы цены принадлежат справочнику настроек `AppSettings.uoms` (`types/settings.ts:240`), константа страницы `UNIT_OPTIONS` (`BccRequestPage.vue:333`) — дефект (П19). **Осталось:** попадает ли перечень источников запроса на страницу настроек или остаётся закрытым списком в коде | графа 1; [§14](00-conventions.md) |
 | **осталось** · как сервер узнаёт арендатора и автора, если клиент домена не шлёт ни одного заголовка | графа 6; решение владельца (БАГ-09) |
 | **решено 2026-09-08 (П36)** · да — обе операции меняют состояние, значит пишутся. Автор берётся из сессии; на схеме под него уже есть `sender_user_id`, и заполнять её сегодня некому только потому, что у слайса отправки нет вызывающих | графа 3; [§9](00-conventions.md) |
@@ -875,7 +892,7 @@ len(SUPPLIERS) messages here» — `backend/tests/modules/bcc/test_send_request.
 | **решено 2026-09-09 (П51)** · сама отправка запроса уведомления не рождает — в перечень нужных типов не вошла; ответ поставщика свой тип уже имеет, а его адресация и защита от повтора сняты §10 (нарушение — БАГ-10, правка принятого ответа шлёт второе) | графа 2; [§10.1](00-conventions.md) |
 | **решено 2026-09-10 (П61)** · срока жизни нет — история BCC не удаляется вовсе; хранение позже станет предметом тарифа, и назначать срок сейчас значило бы записать то, что тариф отменит | графа 5 (3); [§25](00-conventions.md) |
 | **решено 2026-09-11 (П68, П72)** · `lastBccDate` колонкой не хранится вовсе и выводится при чтении из журнала; `priceHistory` — наоборот, хранится и обновляется событием, и **приём ответа BCC одно из событий, обязанных её двигать** | графа 5 (4); [§17](00-conventions.md), [§17.1](00-conventions.md) |
-| **решено 2026-09-09 наполовину (П48)** · **возвращают**: созданные строки приходят прямо в ответе — на один запрос меньше, и лента обновляется без перечитывания. **Осталось:** в какой валюте хранится цена | «Чего в домене нет», строка 16; раздел `POST /api/bcc/events/:eventId/response`, абзац о валюте |
+| **решено 2026-09-09 наполовину (П48)** · **возвращают**: созданные строки приходят прямо в ответе — на один запрос меньше, и лента обновляется без перечитывания. **Решено 2026-09-17 (П101):** цена хранится в фактической валюте предложения, схемная часть закрыта — `currency_id` на `bcc_events` | «Чего в домене нет», строка 16; раздел `POST /api/bcc/events/:eventId/response`, абзац о валюте |
 | **снято 2026-09-09** · не решение, а работа: доменное правило, транспорт и тест написаны, вызывать их некому — подключение к HTTP это задача реализации, а не вопрос контракта | шапка файла, абзац о доменном слайсе |
 
 Находки про код домена —

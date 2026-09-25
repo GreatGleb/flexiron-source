@@ -45,9 +45,7 @@ from app.modules.finance.shared.models import (  # noqa: F401, E402
 )
 
 # BCC module
-from app.modules.bcc.shared.models import (  # noqa: F401, E402
-    BccCategory, BccEvent,
-)
+from app.modules.bcc.shared.models import BccEvent  # noqa: F401, E402
 
 # Settings module
 from app.modules.settings.shared.models import (  # noqa: F401, E402

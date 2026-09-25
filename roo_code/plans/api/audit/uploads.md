@@ -141,7 +141,7 @@
   (`useWarehouseMap.ts:51-58`, подтверждение — `WarehouseMapPage.vue:34-43`), и логотип компании,
   который просто пишется в `settings.company.logoUrl` (`SettingsLayout.vue:344-349`).
   **Ни один серверный эндпоинт привязку не принимает**: `grep -rn "fileIds\|file_ids" backend/app
-  --include=*.py` → две модельные колонки (`modules/bcc/shared/models.py:78`,
+  --include=*.py` → две модельные колонки (`modules/bcc/shared/models.py:51`,
   `modules/warehouse/shared/models.py:74`) и ни одного роута. То есть вторая половина паттерна
   живёт только в моке.
 - Пробел контракта: **разбор `03-api-contract.md:157-199` по утверждениям — из шести подтверждено одно.**

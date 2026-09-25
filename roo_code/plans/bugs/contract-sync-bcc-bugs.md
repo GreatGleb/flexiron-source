@@ -168,7 +168,7 @@ function nextRequestId(): string {          // :264-275
 Форматов у одного поля в итоге три: `req-${Date.now()}` у мока (`mocks/bcc.ts:334`, `:342`),
 `req-NNN` у клиента (`BccRequestPage.vue:274`) и `req-###` в старом контракте
 (`roo_code/roo-context/03-api-contract.md:581`), при том что колонка — `String(50)`
-(`backend/app/modules/bcc/shared/models.py:54-56`).
+(`backend/app/modules/bcc/shared/models.py`).
 
 ### Expected
 
@@ -302,9 +302,9 @@ UUID формы схемы, строка 1599 файла решений от д�
 
 ---
 
-## БАГ-06 — идентификаторы «товаров» BCC не существуют ни в одном другом домене
+## ✅ БАГ-06 — идентификаторы «товаров» BCC не существуют ни в одном другом домене — ЗАКРЫТО ПО СХЕМЕ
 
-**File:** `frontend_vue/src/services/mocks/bcc.ts:7-118`, `backend/app/modules/bcc/shared/models.py:63-67`
+**File:** `frontend_vue/src/services/mocks/bcc.ts:7-118`, `backend/app/modules/bcc/shared/models.py`
 **Severity:** High — `productIds`, которые клиент шлёт в `send`/`log`, сервер обязан положить в колонку с FK на `products.id`, и ни один из них там не найдётся.
 **Источник:** К4 (формы запроса), К5 (источник истины)
 
@@ -346,7 +346,32 @@ product_id: Mapped[uuid.UUID | None] = mapped_column(
 
 Работа по коду: константа дерева (`mocks/bcc.ts:7-118`) заменяется проекцией `categories` +
 `products`, листья несут `products.id` (`prod-001`…), таблица `bcc_categories`
-(`backend/app/modules/bcc/shared/models.py:23-31`) с колонкой `product_count` уходит со схемы.
+(`backend/app/modules/bcc/shared/models.py`) с колонкой `product_count` уходит со схемы.
+
+### Сделано 2026-09-25 (схемная половина)
+
+Класс `BccCategory` и таблица `bcc_categories` (вместе с колонкой `product_count`) сняты со схемы
+модуля `bcc` — `backend/app/modules/bcc/shared/models.py`, ревизия
+`backend/alembic/versions/e7b2c40d9f15_bcc_p75_drop_categories_p101_currency.py`. `BccCategory`
+убран также из `backend/alembic/_alembic_imports.py`. `bcc_events.product_id` — FK на
+`products.id` — не тронут: он уже указывал на верный каталог, дереву самому просто больше негде
+хранить свою (ошибочную) иерархию.
+
+**Осталось — вторая половина, код фронта и мока.** Дерево `mocks/bcc.ts:7-118` по-прежнему
+константа с идентификаторами листьев вида `sheet-2mm`, которых нет ни в `products`, ни в
+`categories`; перевод мока и `BccRequestPage.vue` на реальные `products.id`/`categories.id` и на
+эндпоинт, который читает их с сервера, — отдельная задача, доменного слоя отправки
+(`features/send_request/`) она не касается и этой задачей не сделана.
+
+**Проверено:**
+
+| Проверка | Результат |
+|---|---|
+| `grep -n "BccCategory" backend/app/modules/bcc/shared/models.py backend/alembic/_alembic_imports.py` | пусто |
+| `backend/tests/modules/bcc/test_bcc_schema.py` | 10 тестов, зелёные |
+| инверсия: `BccCategory` возвращён в `models.py` | тест на отсутствие `bcc_categories` в `Base.metadata.tables` и тест на отсутствие класса краснеют (2 теста) |
+| `cd backend && python3 -m pytest tests -q` | 105 passed, 116 subtests passed |
+| `cd backend && python3 -c "from app.main import app"` | проходит — ни один модуль не импортирует удалённый класс |
 
 ---
 
@@ -364,7 +389,7 @@ const UNIT_OPTIONS = ['kg', 'm', 'piece', 'ton']   // :333
 
 Дефолт — `'kg'` (`:331`, `:340`), значение уходит в теле `POST /api/bcc/events/:id/response`
 (`frontend_vue/src/services/bccService.ts:69-74`) и ложится в колонку `unit: String(20)`
-(`backend/app/modules/bcc/shared/models.py:75`).
+(`backend/app/modules/bcc/shared/models.py`).
 
 Единицами владеет домен `settings`: `AppSettings.uoms` (`frontend_vue/src/types/settings.ts:240`),
 сид — `uom-t`, `uom-kg`, … (`frontend_vue/src/services/mocks/settings.ts:91-103`), подпись
@@ -447,7 +472,7 @@ apiGet<PaginatedResponse<BccRequest>>('/api/bcc/history', params)              /
 
 Схема требует арендатора на обеих таблицах: `bcc_categories.tenant_id` и `bcc_events.tenant_id`
 — оба `ForeignKey("tenants.id", ondelete="CASCADE")`, `nullable=False, index=True`
-(`backend/app/modules/bcc/shared/models.py:16-21`, `:48-53`), плюс `sender_user_id` у события
+(`backend/app/modules/bcc/shared/models.py`, `:48-53`), плюс `sender_user_id` у события
 (`:79-83`). Соседи с живым бэкендом шлют `Authorization: Bearer` + `X-CSRF-Token`
 (`frontend_vue/src/services/settingsService.ts:18,27`,
 `frontend_vue/src/services/auditFeedService.ts:20,41`), и сервер достаёт из токена `user_id`
@@ -517,7 +542,7 @@ export function mockLogBccRequest(_payload: {...}): { requestId: string } {
 в history со `status: 'sent'`, `source: 'BCC Tool'`» (`roo_code/roo-context/03-api-contract.md:585`)
 и «`{ requestId: string; events: BccRequest[] }` — массив созданных строк, чтобы клиент сразу
 подложил в `history`» (`:600`). Схема под это готова: `bcc_events` со `status`, `source`,
-`subject`, `body`, `attachment_file_ids` (`backend/app/modules/bcc/shared/models.py:68-78`).
+`subject`, `body`, `attachment_file_ids` (`backend/app/modules/bcc/shared/models.py`).
 
 Пустота компенсируется на стороне страницы (`createEventRows`,
 `frontend_vue/src/views/admin/suppliers/BccRequestPage.vue:390-413`) — то есть БАГ-01 и есть

@@ -340,7 +340,7 @@ header/query/form tenant_id игнорируются; загрузка акти�
    сервера: закрывший вкладку до Save оставляет файл, который от привязанного не отличить —
    `is_draft=False` (`core/uploads/action.py:83`), `expires_at` пуст.
 2. **Ни один серверный эндпоинт привязку не принимает.** `grep -rn "fileIds\|file_ids" backend/app
-   --include=*.py` → две модельные колонки (`modules/bcc/shared/models.py:78`,
+   --include=*.py` → две модельные колонки (`modules/bcc/shared/models.py:51`,
    `modules/warehouse/shared/models.py:74`) и ни одного роута. Вторая половина паттерна живёт
    только в моке, который её отыгрывает (`mocks/index.ts:1096`, `:1405`).
 3. **Карта склада — единственное место, где загрузка требует подтверждения, и его спрашивают
