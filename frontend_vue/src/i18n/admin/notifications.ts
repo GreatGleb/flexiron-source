@@ -6,6 +6,11 @@ export const adminNotifications = {
       mark_all_read: 'Прочитать всё',
       view_all: 'Все уведомления',
       empty: 'Нет уведомлений',
+      // Отказы сервера
+      error_generic: 'Не удалось выполнить запрос',
+      error_not_found: 'Уведомление не найдено',
+      error_no_login: 'Требуется вход в систему',
+      error_no_access: 'Недостаточно прав',
       // Типы
       type_order_status: 'Статус заказа',
       type_stock_deficit: 'Дефицит склада',
@@ -44,6 +49,11 @@ export const adminNotifications = {
       mark_all_read: 'Mark all as read',
       view_all: 'All notifications',
       empty: 'No notifications',
+      // Server refusals
+      error_generic: 'Request failed',
+      error_not_found: 'Notification not found',
+      error_no_login: 'Sign-in required',
+      error_no_access: 'Access denied',
       // Types
       type_order_status: 'Order Status',
       type_stock_deficit: 'Stock Deficit',
@@ -82,6 +92,11 @@ export const adminNotifications = {
       mark_all_read: 'Pažymėti visus kaip skaitytus',
       view_all: 'Visi pranešimai',
       empty: 'Nėra pranešimų',
+      // Serverio atsisakymai
+      error_generic: 'Užklausos įvykdyti nepavyko',
+      error_not_found: 'Pranešimas nerastas',
+      error_no_login: 'Reikia prisijungti',
+      error_no_access: 'Nepakanka teisių',
       // Types
       type_order_status: 'Užsakymo būsena',
       type_stock_deficit: 'Sandėlio trūkumas',

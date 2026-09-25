@@ -161,7 +161,7 @@ onMounted(() => {
     <GlassPanel :loading="loading" :skeleton-rows="8" data-test="notifications-table">
       <div v-if="error && !loading" class="error-state" data-test="notifications-error">
         <SvgIcon name="alert-triangle" :width="48" :height="48" />
-        <p>{{ error }}</p>
+        <p>{{ t(error) }}</p>
         <button class="btn btn-primary" @click="load">{{ t('orders.btn_retry') }}</button>
       </div>
 

@@ -11,7 +11,7 @@ import type { Notification, NotificationType } from '@/types/notifications'
 const { t, locale } = useI18n()
 const router = useRouter()
 
-const { unreadCount, markAsRead, markAllAsRead, loadUnreadCount } = useNotifications()
+const { unreadCount, markAsRead, markAllAsRead, startPolling, stopPolling } = useNotifications()
 
 const isOpen = ref(false)
 const dropdownItems = ref<Notification[]>([])
@@ -83,11 +83,12 @@ function notificationIcon(type: NotificationType): string {
 
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
-  loadUnreadCount()
+  startPolling()
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
+  stopPolling()
 })
 </script>
 
