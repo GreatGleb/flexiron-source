@@ -710,7 +710,7 @@ len(SUPPLIERS) messages here» — `backend/tests/modules/bcc/test_send_request.
    обязательных полей — `backend/tests/modules/bcc/test_send_request.py:143-153`), и в моке
    (`services/mocks/bcc.ts:317`, спека `services/mocks/bcc-envelope.spec.ts:68-73`). Условие —
    общий `isMailConfigured`, сужённый до трёх полей нарочно; бэкенд повторяет его теми же тремя
-   (`domain.py:61-68`) и явно разрешает пустые логин и имя отправителя
+   (`domain.py:62-74`) и явно разрешает пустые логин и имя отправителя
    (`test_send_request.py:155-159`).
 3. **Сервер сильнее мока на два правила отправки.** Дубли адресов снимаются с сохранением порядка
    — «тот же поставщик дважды получил бы запрос дважды из одной отправки»

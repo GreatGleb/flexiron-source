@@ -47,9 +47,10 @@ async def login(
 
     1. Lookup user by email
     2. Verify password against stored hash
-    3. Generate session token and CSRF token
-    4. Persist session in database
-    5. Return user info + session info
+    3. Reject a deactivated or company-less user
+    4. Generate session token and CSRF token
+    5. Persist session in database
+    6. Return user info + session info
     """
     # 1. Find user
     user = await get_user_by_email_repo(db, input_data.email.strip().lower())
@@ -60,17 +61,22 @@ async def login(
     if not _pwd_context.verify(input_data.password, user.password_hash):
         raise UnauthorizedError("Invalid email or password")
 
-    # 3. Generate session token (signed)
+    # 3. Same checks as get_current_user — a disabled or company-less user
+    # must not receive a token, even with the right password.
+    if not user.is_active or user.tenant_id is None:
+        raise UnauthorizedError("Invalid email or password")
+
+    # 4. Generate session token (signed)
     session_token = issue_session_token(user.id)
     token_hash = _hash_token(session_token)
 
-    # 4. Generate CSRF token
+    # 5. Generate CSRF token
     csrf_token = _generate_csrf_token()
 
-    # 5. Set expiration (24h default, 30d if remember-me later)
+    # 6. Set expiration (24h default, 30d if remember-me later)
     expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
 
-    # 6. Create session in DB
+    # 7. Create session in DB
     session = await create_session_repo(
         db=db,
         user_id=user.id,
@@ -79,7 +85,7 @@ async def login(
         expires_at=expires_at,
     )
 
-    # 7. Build response
+    # 8. Build response
     return LoginResponse(
         user=UserInfo(
             id=user.id,
