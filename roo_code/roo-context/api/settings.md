@@ -1228,7 +1228,7 @@ URL — находка домена `auth`.
 
 Бэкенд: `settings/features/mail/action.py:38` — `get_mail_settings`; домен
 `settings/features/mail/domain.py:77` — `get_mail_settings`. Арендатор без строки получает
-**пустую форму**, а не отказ: `to_response(None)` (`domain.py:62`) отдаёт умолчания и
+**пустую форму**, а не отказ: `to_response(None)` (`domain.py:63`) отдаёт умолчания и
 `passwordSet: false` — вкладка открывается у всех.
 Реализация: `services/settingsService.ts:165` — `getMailServer` · мок `mocks/index.ts:389` →
 `mocks/settings.ts:708` — `mockGetMail`

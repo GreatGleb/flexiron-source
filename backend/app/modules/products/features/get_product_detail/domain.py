@@ -8,6 +8,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
+from app.core.schemas import TranslatedString
 from app.modules.products.features.get_product_detail.repository import (
     get_product_by_id,
     get_category_by_id,
@@ -60,7 +61,7 @@ async def get_product_detail(
         if cat:
             category = CategoryBriefResponse(
                 id=cat.id,
-                name=cat.name,
+                name=TranslatedString(**cat.name_translations),
                 level=cat.level,
             )
 
@@ -70,7 +71,8 @@ async def get_product_detail(
     field_values = [
         ProductFieldValueResponse(
             field_id=fv.field_id,
-            field_name=field_defs[fv.field_id].name if fv.field_id in field_defs else "",
+            field_name=TranslatedString(**field_defs[fv.field_id].name_translations)
+                if fv.field_id in field_defs else TranslatedString(),
             value=fv.value,
         )
         for fv in product.field_values

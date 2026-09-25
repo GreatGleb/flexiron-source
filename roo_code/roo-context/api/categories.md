@@ -250,8 +250,9 @@ interface LinkedSupplier {
 (`mocks/categories.ts:1437`).
 
 Бэкенд: **не реализован**. Писать пришлось бы в `categories`
-(`backend/app/modules/products/shared/models.py:14-17`), где `name` — `String(255)`
-(`models.py:25`), то есть трёхъязычное имя хранить нечем (§12 соглашений).
+(`backend/app/modules/products/shared/models.py:14-17`), где имя хранится колонкой
+`name_translations` (JSONB, NOT NULL) — трёхъязычное имя теперь хранимо, расхождение снято
+ревизией `a7c1d4e90b21_categories_translated_names` (§12 соглашений).
 Реализация: `services/categoriesService.ts:createCategory` · мок `mocks/index.ts:949` →
 `mocks/categories.ts:mockCreateCategory`
 
@@ -393,8 +394,8 @@ Partial<{ name: TranslatedString; parentId: string | null; description: Translat
 
 Бэкенд: **не реализован**. Целевая таблица — `category_fields`
 (`backend/app/modules/products/shared/models.py:59-62`), и её колонки расходятся с типом фронта:
-`field_type` против `type`, `sort_order` против `order` (`models.py:73-87`), `name` —
-`String(255)` (`:76`).
+`field_type` против `type`, `sort_order` против `order` (`models.py:73-87`); имя поля хранится
+`name_translations` (JSONB, NOT NULL) — тоже трёхъязычно, как и у фронта.
 Реализация: `services/categoriesService.ts:putCategoryFields` · мок `mocks/index.ts:1173` →
 `mocks/categories.ts:mockPutCategoryFields`
 
@@ -489,9 +490,11 @@ Partial<{ name: TranslatedString; parentId: string | null; description: Translat
 
 Живут только здесь; сквозные правила — в соглашениях.
 
-1. **Имя категории и имя поля трёхъязычны, а схема хранит одну строку.** `name` — `String(255)`
-   (`backend/app/modules/products/shared/models.py:25` и `:76`), `description` — `Text` (`:32`),
-   `options` — `JSON` (`:86-88`). Самое крупное расхождение домена (§12 соглашений).
+1. **Имя категории и имя поля трёхъязычны, и схема теперь хранит перевод.** `name_translations`
+   (`backend/app/modules/products/shared/models.py:25` и `:76`) и `description_translations`
+   (`:32`) — JSONB, суффикс `_translations`, ревизия `a7c1d4e90b21_categories_translated_names`;
+   `options` по-прежнему `JSON` (`:86-88`), переводы вариантов enum живут внутри него, тип колонки
+   не менялся (§12 соглашений).
 2. **`inheritedFields` — вся цепочка предков, плоско, от дальнего к ближнему**, дубликаты по имени
    не схлопываются (`mocks/categories.ts:1432-1434`, `:1471`, `:1378`).
 3. **Смена родителя и замена набора полей перестраивают поддерево целиком**, а не одну запись

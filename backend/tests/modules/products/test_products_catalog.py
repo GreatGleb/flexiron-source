@@ -23,6 +23,8 @@ from uuid import uuid4
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import insert
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.ext.compiler import compiles, deregister
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 with patch.dict(
@@ -74,6 +76,12 @@ class ProductsCatalogTests(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
 
+        # SQLite has no JSONB: compile it as plain JSON for the test database only.
+        @compiles(JSONB, "sqlite")
+        def sqlite_jsonb(type_, compiler, **kw):
+            return "JSON"
+
+        self.addCleanup(deregister, JSONB)
         self.engine = create_async_engine(
             "sqlite+aiosqlite:///" + str(self.root / "test.sqlite")
         )
@@ -127,8 +135,16 @@ class ProductsCatalogTests(unittest.IsolatedAsyncioTestCase):
             await conn.execute(
                 insert(Category),
                 [
-                    {"id": self.category_a, "tenant_id": self.tenant_a, "name": "A cat"},
-                    {"id": self.category_b, "tenant_id": self.tenant_b, "name": "B cat"},
+                    {
+                        "id": self.category_a,
+                        "tenant_id": self.tenant_a,
+                        "name_translations": {"en": "A cat"},
+                    },
+                    {
+                        "id": self.category_b,
+                        "tenant_id": self.tenant_b,
+                        "name_translations": {"en": "B cat"},
+                    },
                 ],
             )
             await conn.execute(
@@ -138,14 +154,14 @@ class ProductsCatalogTests(unittest.IsolatedAsyncioTestCase):
                         "id": self.field_owned,
                         "tenant_id": self.tenant_a,
                         "category_id": self.category_a,
-                        "name": "Color",
+                        "name_translations": {"en": "Color"},
                         "field_type": "text",
                     },
                     {
                         "id": self.field_foreign,
                         "tenant_id": self.tenant_b,
                         "category_id": self.category_b,
-                        "name": "Foreign field",
+                        "name_translations": {"en": "Foreign field"},
                         "field_type": "text",
                     },
                 ],
@@ -293,7 +309,12 @@ class ProductsCatalogTests(unittest.IsolatedAsyncioTestCase):
             for fv in response.json()["data"]["field_values"]
         }
 
-        self.assertEqual("Color", by_field_id[str(self.field_owned)])
+        # `field_name` travels on the wire as a translated-string object — the
+        # locale-keyed dict, not a bare string — matching the domain's
+        # `name_translations` storage (types/category.ts expects the same shape).
+        self.assertEqual(
+            {"ru": "", "en": "Color", "lt": ""}, by_field_id[str(self.field_owned)]
+        )
 
     async def test_card_field_value_without_a_tenant_definition_keeps_the_value(self):
         response = await self.client.get(
@@ -305,7 +326,7 @@ class ProductsCatalogTests(unittest.IsolatedAsyncioTestCase):
             fv for fv in field_values if fv["field_id"] == str(self.field_foreign)
         )
 
-        self.assertEqual("", foreign_entry["field_name"])
+        self.assertEqual({"ru": "", "en": "", "lt": ""}, foreign_entry["field_name"])
         self.assertEqual("Ghost", foreign_entry["value"])
 
     # ── GET /api/products/:id — zero is not null ─────────────────────────────

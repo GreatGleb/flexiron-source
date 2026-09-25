@@ -23,6 +23,8 @@ from uuid import uuid4
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import insert
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.ext.compiler import compiles, deregister
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 with patch.dict(
@@ -51,6 +53,12 @@ class ProductsTenancyTests(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
 
+        # SQLite has no JSONB: compile it as plain JSON for the test database only.
+        @compiles(JSONB, "sqlite")
+        def sqlite_jsonb(type_, compiler, **kw):
+            return "JSON"
+
+        self.addCleanup(deregister, JSONB)
         self.engine = create_async_engine(
             "sqlite+aiosqlite:///" + str(self.root / "test.sqlite")
         )
@@ -60,8 +68,10 @@ class ProductsTenancyTests(unittest.IsolatedAsyncioTestCase):
         self.tenant_a, self.tenant_b = uuid4(), uuid4()
         self.user_a = uuid4()
 
+        self.category_a = uuid4()
         self.category_b = uuid4()
         self.product_a, self.product_b = uuid4(), uuid4()
+        self.product_with_own_category = uuid4()
 
         async with self.engine.begin() as conn:
             for model in (Tenant, User, Category, Product, ProductFieldValue):
@@ -91,10 +101,23 @@ class ProductsTenancyTests(unittest.IsolatedAsyncioTestCase):
                 ],
             )
             # A category belonging to tenant B — tenant A's product below points at
-            # it, as if the ids had leaked; the card must not resolve it.
+            # it, as if the ids had leaked; the card must not resolve it. A second
+            # category, owned by tenant A itself, carries a two-locale translated
+            # name to prove the card returns it as an object, not a bare string.
             await conn.execute(
                 insert(Category),
-                [{"id": self.category_b, "tenant_id": self.tenant_b, "name": "Foreign"}],
+                [
+                    {
+                        "id": self.category_b,
+                        "tenant_id": self.tenant_b,
+                        "name_translations": {"en": "Foreign"},
+                    },
+                    {
+                        "id": self.category_a,
+                        "tenant_id": self.tenant_a,
+                        "name_translations": {"en": "Widgets", "ru": "Виджеты"},
+                    },
+                ],
             )
             await conn.execute(
                 insert(Product),
@@ -110,6 +133,12 @@ class ProductsTenancyTests(unittest.IsolatedAsyncioTestCase):
                         "tenant_id": self.tenant_b,
                         "name": "B's product",
                         "category_id": None,
+                    },
+                    {
+                        "id": self.product_with_own_category,
+                        "tenant_id": self.tenant_a,
+                        "name": "A's other product",
+                        "category_id": self.category_a,
                     },
                 ],
             )
@@ -171,6 +200,20 @@ class ProductsTenancyTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(200, response.status_code, response.text)
         self.assertIsNone(response.json()["data"]["category"])
+
+    async def test_card_category_name_is_a_translated_object_not_a_string(self):
+        """`category.name` travels as the locale-keyed dict `name_translations` is,
+        not a plain string — a domain that returned `name_translations["en"]` instead
+        of the full dict would fail this exact assertion."""
+        response = await self.client.get(
+            f"/api/products/{self.product_with_own_category}", headers=self.auth_a
+        )
+
+        self.assertEqual(200, response.status_code, response.text)
+        self.assertEqual(
+            {"ru": "Виджеты", "en": "Widgets", "lt": ""},
+            response.json()["data"]["category"]["name"],
+        )
 
     # ── POST /api/products ───────────────────────────────────────────────────
 

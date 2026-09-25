@@ -277,7 +277,7 @@
   `ondelete="CASCADE"` — удаление арендатора уносит его файлы из таблицы.
   Чтение: файлы раздаёт статикой `app.mount("/static/uploads", StaticFiles(directory=UPLOAD_DIR))`
   (`backend/app/main.py:72`) — **без авторизации, без арендатора и без единой проверки**, все
-  файлы всех арендаторов лежат в одном каталоге (`core/uploads/action.py:22-23`, `main.py:69-70` — один и тот
+  файлы всех арендаторов лежат в одном каталоге (`core/uploads/action.py:22-23`, `main.py:70-71` — один и тот
   же путь `backend/uploads`). Единственная защита — неугадываемое имя `uuid4().hex + ext`
   (`core/uploads/action.py:119`); отозвать выданную ссылку нечем (БАГ-09). Строки с `storage_path`
   (`core/uploads/models.py:23`) хранят абсолютный путь машины (`core/uploads/action.py:127`).

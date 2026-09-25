@@ -73,7 +73,7 @@ camelCase (`services/productsService.ts:49-58`, `:86-111`, тип — `types/pro
 
 | код | статус | эндпоинт | где объявлен |
 |---|---|---|---|
-| `NOT_FOUND` | 404 | `GET /api/products/:id` | `backend/app/modules/products/features/get_product_detail/domain.py:54`, код из `backend/app/core/exceptions.py:13-20` |
+| `NOT_FOUND` | 404 | `GET /api/products/:id` | `backend/app/modules/products/features/get_product_detail/domain.py:55`, код из `backend/app/core/exceptions.py:13-20` |
 | `VALIDATION_ERROR` | 422 | `POST /api/products` | `backend/app/modules/products/features/create_product/domain.py:30-31`, код из `backend/app/core/exceptions.py:23-27` |
 | `PRODUCT_NOT_FOUND` | — | `DELETE /api/products/:id`, `DELETE /api/products/:id/audit/:id` | только мок: `services/mocks/products.ts:14222`, `:14232` |
 | `PRODUCT_IN_USE` | — | `DELETE /api/products/:id` | только мок: `services/mocks/products.ts:14225` |
@@ -276,26 +276,29 @@ query, ни заголовков. Сервер типизирует сегмен
   purchase_to_warehouse_factor: number | null
   warehouse_to_sale_formula_type: string | null
   warehouse_to_sale_factor: number | null
-  category: { id: string; name: string; level: number } | null
-  field_values: Array<{ field_id: string; field_name: string; value: string | null }>
+  category: { id: string; name: TranslatedString; level: number } | null
+  field_values: Array<{ field_id: string; field_name: TranslatedString; value: string | null }>
   created_at: string                          // datetime
   updated_at: string                          // datetime
 }
 ```
 
 `backend/app/modules/products/features/get_product_detail/schemas.py:25-54`, вложенные схемы `:9-14`
-и `:17-22`, сборка — `backend/app/modules/products/features/get_product_detail/domain.py:84-107`.
+и `:17-22`, сборка — `backend/app/modules/products/features/get_product_detail/domain.py:86-109`.
 
 Фронт ждёт `Product` в camelCase (`types/product.ts:56-109`), и расхождений **шесть**, каждое
 отдельное:
 
 1. **регистр всех составных имён** — общая беда домена, см. врезку выше;
 2. **категория**: у сервера вложенный `category` из живой выборки (`backend/app/modules/products/features/get_product_detail/schemas.py:17-22`, сборка
-   `backend/app/modules/products/features/get_product_detail/domain.py:57-65`), у фронта два плоских поля `categoryId` + `categoryName`
-   (`types/product.ts:59-60`), причём мок хранит имя **копией** внутри товара
+   `backend/app/modules/products/features/get_product_detail/domain.py:58-66`), у фронта два плоских поля `categoryId` + `categoryName`
+   (`types/product.ts:59-60`) — структура разная, но тип имени теперь совпадает: `category.name`
+   сервер отдаёт `TranslatedString` (`categories.name_translations`, ревизия
+   `a7c1d4e90b21_categories_translated_names`), как и ждёт `categoryName: TranslatedString | null`;
+   причём мок хранит имя **копией** внутри товара
    (`services/mocks/products.ts:34`) — правило домена 4 «Обязанностей»;
 3. **`price_unit`** — легаси-подпись, которую сервер собирает заново из FK при каждом чтении
-   (`backend/app/modules/products/features/get_product_detail/domain.py:27-45`, вызов `:77-79`), хотя колонку миграция удалила
+   (`backend/app/modules/products/features/get_product_detail/domain.py:28-46`, вызов `:77-79`), хотя колонку миграция удалила
    (`backend/alembic/versions/a1b2c3d4e5f6_phase_15_product_uom_restructure.py:99`); во фронте такого
    поля нет (`grep -c "priceUnit" frontend_vue/src/types/product.ts` → 0, есть лишь неиспользуемый
    алиас `PriceUnit` на `types/product.ts:7`);
@@ -305,14 +308,16 @@ query, ни заголовков. Сервер типизирует сегмен
    `auditLog`, `weightPerWarehouseUnitKg` (`types/product.ts:69-70`, `:103`, `:107-108`): ни в схеме
    ответа, ни в модели (`backend/app/modules/products/shared/models.py:96-183`);
 6. **элемент `field_values`** у сервера — три поля, у фронта шесть; `field_name` сервер резолвит
-   настоящим именем из `category_fields.name`, одним запросом по всем `field_id` через `in_`,
-   ограниченным `tenant_id` вызывающего — не заглушкой (было `str(fv.field_id)` с комментарием
-   «placeholder — resolve field name», БАГ-04, закрыт 2026-09-24;
+   настоящим именем из `category_fields.name_translations`, одним запросом по всем `field_id` через
+   `in_`, ограниченным `tenant_id` вызывающего — не заглушкой (было `str(fv.field_id)` с
+   комментарием «placeholder — resolve field name», БАГ-04, закрыт 2026-09-24;
    `backend/app/modules/products/features/get_product_detail/repository.py`, `get_category_fields_by_ids`;
    применение — `backend/app/modules/products/features/get_product_detail/domain.py`). Если
-   определения нет в арендаторе вызывающего, `field_name` — пустая строка, а само значение из ответа
-   не пропадает. Фронтовый `ProductFieldValue` — `{fieldId, fieldName: TranslatedString,
-   fieldType, value, inherited, options?}` (`types/product.ts:9-16`).
+   определения нет в арендаторе вызывающего, `field_name` — пустой `TranslatedString`, а само
+   значение из ответа не пропадает. Тип теперь совпадает с фронтом: `field_name` едет объектом
+   переводов, как и ждёт `ProductFieldValue` — `{fieldId, fieldName: TranslatedString,
+   fieldType, value, inherited, options?}` (`types/product.ts:9-16`); из шести расхождений
+   элемента остались только состав полей (три против шести) и регистр ключей.
 
 Практическое следствие пятого пункта: **карточка против живого бэкенда не откроется** —
 `JSON.parse(JSON.stringify(data.linkedSuppliers))` на `undefined` бросает
@@ -325,7 +330,7 @@ query, ни заголовков. Сервер типизирует сегмен
 соглашений).
 
 Ошибки: **у сервера одна, у мока ни одной.** Сервер бросает `NotFoundError(entity="Product", …)`
-(`backend/app/modules/products/features/get_product_detail/domain.py:52-54`) и отдаёт 404 с телом
+(`backend/app/modules/products/features/get_product_detail/domain.py:53-55`) и отдаёт 404 с телом
 `{"detail": {"message", "code"}}` (`backend/app/modules/products/features/get_product_detail/action.py:42-46`); мок
 вместо кода бросает **текст** — `new Error(\`Product ${id} not found\`)`
 (`services/mocks/products.ts:13987`), и этот текст показывается пользователю
@@ -785,14 +790,14 @@ id пользователя (`types/warehouse.ts:526-534`); понятия `sens
    (`backend/app/modules/products/features/get_product_detail/schemas.py:25-54`) — значит **сервер обязан считать их сам**, и это
    единственный способ: данные лежат в двух других модулях. Кто именно считает — строка владельцу;
 3. **`price_unit`** — подпись вида `"EUR/kg"`, которую сервер собирает из `currency_id` +
-   `sale_uom_id` при каждом чтении (`backend/app/modules/products/features/get_product_detail/domain.py:27-45`, вызов `:77-79`) после
+   `sale_uom_id` при каждом чтении (`backend/app/modules/products/features/get_product_detail/domain.py:28-46`, вызов `:77-79`) после
    того, как одноимённая колонка была удалена миграцией
    (`backend/alembic/versions/a1b2c3d4e5f6_phase_15_product_uom_restructure.py:99`); код единицы
-   берётся `en → ru → lt` (`backend/app/modules/products/features/get_product_detail/domain.py:38-42`), то есть подпись всегда
+   берётся `en → ru → lt` (`backend/app/modules/products/features/get_product_detail/domain.py:39-43`), то есть подпись всегда
    собирается на чужом языке. Остаётся ли она в ответе — строка владельцу;
 4. **`categoryName`** — производное **только во фронте**: мок хранит его копией в записи товара
    (`services/mocks/products.ts:34`) и подставляет из категории при создании (`:14026-14030`), а
-   сервер отдаёт вложенный `category` из живой выборки (`backend/app/modules/products/features/get_product_detail/domain.py:57-65`). У
+   сервер отдаёт вложенный `category` из живой выборки (`backend/app/modules/products/features/get_product_detail/domain.py:58-66`). У
    сервера это ссылка, у мока копия, и после переименования категории копия устаревает.
 
 ---
@@ -905,7 +910,7 @@ id пользователя (`types/warehouse.ts:526-534`); понятия `sens
 | «Клиент после успеха перезапрашивает список (`load()`)» (`03-api-contract.md:1040`) | не перезапрашивает: модал закрывается и происходит переход в карточку созданного товара (`views/admin/products/ProductsPage.vue:214-216`) |
 | «409 `PRODUCT_IN_USE` если товар используется в активных заказах» (`03-api-contract.md:1046`) | код есть, но с заказами не связан ничем: правило мока — множество трёх id (`services/mocks/products.ts:14224`), заказы этот файл не импортирует (`:1-18`). Статус 409 не подтверждён ничем: мок бросает голый `Error` без статуса (`services/mocks/index.ts:1509`), а `ApiRequestError.status` заполняется только из настоящего HTTP-ответа (`types/api.ts:26-27`, `services/api.ts:117-124`) |
 | `DELETE /api/products/:id` без `PRODUCT_NOT_FOUND` (`03-api-contract.md:1042-1046` — только `PRODUCT_IN_USE`) | второй код мок бросает (`services/mocks/products.ts:14222`), и до человека он не доходит (`composables/useProducts.ts:51-55`) — БАГ-01 |
-| `GET /api/products/:id`: «404 `PRODUCT_NOT_FOUND`» (`03-api-contract.md:1077`) | такого кода на этом пути нет ни у сервера, ни у мока: сервер отдаёт `NOT_FOUND` (`backend/app/modules/products/features/get_product_detail/domain.py:54`), мок — текст `Product ${id} not found` (`services/mocks/products.ts:13987`). `grep -rn "PRODUCT_NOT_FOUND" frontend_vue/src backend/app` даёт только ветку удаления — БАГ-06 |
+| `GET /api/products/:id`: «404 `PRODUCT_NOT_FOUND`» (`03-api-contract.md:1077`) | такого кода на этом пути нет ни у сервера, ни у мока: сервер отдаёт `NOT_FOUND` (`backend/app/modules/products/features/get_product_detail/domain.py:55`), мок — текст `Product ${id} not found` (`services/mocks/products.ts:13987`). `grep -rn "PRODUCT_NOT_FOUND" frontend_vue/src backend/app` даёт только ветку удаления — БАГ-06 |
 | пример `linkedSuppliers` без поля `currency` (`03-api-contract.md:1072`) | поле есть в типе и заполняется снимком валюты поставщика (`types/product.ts:34`, запись — `views/admin/products/ProductCardPage.vue:211`) |
 | ответ карточки без одиннадцати поздних полей — `priceQuantity`, `currencyId`, `avgCostPrice`, `avgSalePrice`, три `*UomId`, четыре поля пересчёта, `weightPerWarehouseUnitKg` (`03-api-contract.md:1057-1076`) | все объявлены (`types/product.ts:64-103`); формы сервера и фронта при этом сегодня несовместимы — раздел `GET /api/products/:id`, шесть расхождений |
 | `PATCH /api/products/:id`: дельта из семи ключей (`03-api-contract.md:1085-1091`) | объявленных шестнадцать (`services/productsService.ts:63-83`) плюс семнадцатый неявный — `weightPerWarehouseUnitKg` (БАГ-09) |
