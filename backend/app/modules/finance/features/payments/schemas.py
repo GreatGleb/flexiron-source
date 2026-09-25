@@ -27,16 +27,6 @@ class PaymentListItem(BaseModel):
     documentCount: int
 
 
-class PaymentListResponse(BaseModel):
-    """Paginated envelope for the payments list, wrapped in `ApiResponse`."""
-
-    items: list[PaymentListItem]
-    total: int
-    page: int
-    pageSize: int
-    totalPages: int
-
-
 class PaymentDocumentResponse(BaseModel):
     """Document attached to a payment — nested under the card response."""
 

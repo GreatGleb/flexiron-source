@@ -33,13 +33,3 @@ class BatchListItem(BaseModel):
     receivedAt: datetime | None
     status: str
     orderId: str | None
-
-
-class BatchListResponse(BaseModel):
-    """Paginated envelope for the batches list, wrapped in `ApiResponse`."""
-
-    items: list[BatchListItem]
-    total: int
-    page: int
-    pageSize: int
-    totalPages: int

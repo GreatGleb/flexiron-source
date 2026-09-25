@@ -8,11 +8,12 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.schemas import PaginatedResponse
 from app.modules.warehouse.shared.models import WarehouseBatch
 
 from .repository import count_batches
 from .repository import list_batches as list_batches_repo
-from .schemas import BatchListItem, BatchListResponse
+from .schemas import BatchListItem
 
 MAX_PAGE_SIZE = 100
 
@@ -65,7 +66,7 @@ async def list_batches(
     date_to: datetime | None,
     sort_by: str | None,
     sort_dir: str | None,
-) -> BatchListResponse:
+) -> PaginatedResponse[BatchListItem]:
     """Execute the list warehouse batches use case."""
     search = _normalize_search(search)
     status = _normalize_status(status)
@@ -101,7 +102,7 @@ async def list_batches(
         page_size=page_size,
     )
 
-    return BatchListResponse(
+    return PaginatedResponse[BatchListItem](
         items=[_to_list_item(entity) for entity in entities],
         total=total,
         page=page,

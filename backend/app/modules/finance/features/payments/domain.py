@@ -9,6 +9,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import AppError, NotFoundError
+from app.core.schemas import PaginatedResponse
 from app.modules.finance.shared.models import FinancePayment, PaymentDocument
 
 from .repository import count_payments, get_payment_by_id, save_payment, sync_payment_documents
@@ -17,7 +18,6 @@ from .schemas import (
     PaymentDetailResponse,
     PaymentDocumentResponse,
     PaymentListItem,
-    PaymentListResponse,
     PaymentPatchInput,
 )
 
@@ -114,7 +114,7 @@ async def list_payments(
     status: str | None,
     page: int,
     page_size: int,
-) -> PaymentListResponse:
+) -> PaginatedResponse[PaymentListItem]:
     """Execute the list outgoing payments use case."""
     search = _normalize_search(search)
     status = _normalize_status(status)
@@ -126,7 +126,7 @@ async def list_payments(
         db, tenant_id, search=search, status=status, page=page, page_size=page_size
     )
 
-    return PaymentListResponse(
+    return PaginatedResponse[PaymentListItem](
         items=[_to_list_item(entity) for entity in entities],
         total=total,
         page=page,
