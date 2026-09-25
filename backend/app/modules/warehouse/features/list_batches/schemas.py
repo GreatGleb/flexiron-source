@@ -33,3 +33,14 @@ class BatchListItem(BaseModel):
     receivedAt: datetime | None
     status: str
     orderId: str | None
+
+
+class BatchAggregateItem(BaseModel):
+    """Row of `GET /api/warehouse/batches/:batchId/aggregates` — the three-field
+    shape `frontend_vue/src/types/warehouse.ts` calls `BatchStatusAggregate`,
+    matching the mock's own casing (`mockGetBatchAggregates`).
+    """
+
+    type: str
+    quantity: float
+    uomId: UUID | None

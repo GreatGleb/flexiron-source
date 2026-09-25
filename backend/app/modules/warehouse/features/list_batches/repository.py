@@ -141,3 +141,39 @@ async def list_batches(
     query = query.offset((page - 1) * page_size).limit(page_size)
     result = await db.execute(query)
     return list(result.scalars().all())
+
+
+# `WarehouseMovement` is only needed by the two functions below — imported here,
+# at the point of first use, rather than added to the top-of-file import block,
+# so the append doesn't shift the line numbers the contract already cites.
+from app.modules.warehouse.shared.models import WarehouseMovement  # noqa: E402
+
+
+async def get_batch_by_id(
+    db: AsyncSession,
+    batch_id: UUID,
+    tenant_id: UUID,
+) -> WarehouseBatch | None:
+    """Fetch one batch by id, tenant-scoped — the existence check aggregates need."""
+    result = await db.execute(
+        select(WarehouseBatch).where(
+            WarehouseBatch.id == batch_id,
+            WarehouseBatch.tenant_id == tenant_id,
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+async def list_movements_for_batch(
+    db: AsyncSession,
+    batch_id: UUID,
+    tenant_id: UUID,
+) -> list[WarehouseMovement]:
+    """All movements of one batch, tenant-scoped — the aggregates' raw journal."""
+    result = await db.execute(
+        select(WarehouseMovement).where(
+            WarehouseMovement.batch_id == batch_id,
+            WarehouseMovement.tenant_id == tenant_id,
+        )
+    )
+    return list(result.scalars().all())

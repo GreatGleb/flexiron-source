@@ -57,3 +57,28 @@ async def list_batches(
         sort_dir=sort_dir,
     )
     return ApiResponse(success=True, data=result.model_dump(mode="json"))
+
+
+# Appended below rather than merged into the top-of-file import block, so the
+# addition doesn't shift the line numbers the contract already cites.
+from .domain import get_batch_aggregates as get_batch_aggregates_usecase  # noqa: E402
+
+
+@router.get("/{batch_id}/aggregates", response_model=ApiResponse)
+async def get_batch_aggregates(
+    batch_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """Batch's metal distribution by status — tenant-scoped, for the batch and
+    its movements alike.
+
+    An unknown or foreign `batch_id` raises `BatchNotFoundError` from the
+    domain layer, which propagates to `app.main`'s `AppError` handler and
+    answers 404 with `code=BATCH_NOT_FOUND` — no `HTTPException` raised here
+    (mirrors `clients.read_clients.get_client_detail`).
+    """
+    result = await get_batch_aggregates_usecase(db, current_user.tenant_id, batch_id)
+    return ApiResponse(
+        success=True, data=[item.model_dump(mode="json") for item in result]
+    )
