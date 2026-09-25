@@ -1270,11 +1270,11 @@ save-режим.
   аудита. Документ обязан говорить то, что говорил в день выписки; сервер обязан знать, что это
   решение, а не оптимизация.
 - **Расхождения «фронт считает — схема хранит» разрешены 2026-09-11 (П68): колонок нет,
-  считается при чтении.** Удаляются `level`, `field_count` и `product_count` категории
-  (`products/shared/models.py:33-41`),
-  `usage_count` определения поля (`suppliers/shared/models.py:260-262`),
-  `document_count` платежа (`finance/shared/models.py:49-51`),
-  `has_deficit` и `last_bcc_date` поставщика (`suppliers/shared/models.py:57-60`),
+  считается при чтении.** Уже удалены: `level`, `field_count` и `product_count` категории
+  (ревизия `c1a7d9e4f2b3_categories_derived_columns.py`), `document_count` платежа (ревизия
+  `e5b2f47c9a10_finance_derived_and_author.py`), `has_deficit` и `last_bcc_date` поставщика
+  (ревизия `b8f3d0c62a71_suppliers_t1_derived_and_types.py`). Ещё ждут: `usage_count`
+  определения поля (`usage_count` в `suppliers/shared/models.py`) и
   `quantity_remaining`/`status`/`total_cost` партии. В каждом случае одно и то же число у фронта
   производное, а у сервера — состояние, которое можно рассинхронизировать; две колонки из шести не
   пишет вообще никто (`hasDeficit` не встречается в складском моке ни разу, `lastBccDate` не

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, Numeric, String, Text, func
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -29,9 +29,7 @@ class FinancePayment(UUIDMixin, TimestampMixin, Base):
         String(20), nullable=False, default="pending", server_default="pending"
     )
     amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
-    currency: Mapped[str] = mapped_column(
-        String(10), nullable=False, default="EUR", server_default="EUR"
-    )
+    currency: Mapped[str] = mapped_column(String(10), nullable=False)
     counterparty_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     counterparty_name: Mapped[str] = mapped_column(String(255), nullable=False)
     counterparty_vat_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
@@ -46,9 +44,6 @@ class FinancePayment(UUIDMixin, TimestampMixin, Base):
         DateTime(timezone=True), nullable=True
     )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    document_count: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0, server_default="0"
-    )
 
     documents: Mapped[list["PaymentDocument"]] = relationship(
         "PaymentDocument", back_populates="payment", cascade="all, delete-orphan"
@@ -122,7 +117,12 @@ class DocumentArchiveItem(UUIDMixin, Base):
     related_entity_number: Mapped[str | None] = mapped_column(
         String(100), nullable=True
     )
-    uploaded_by: Mapped[str] = mapped_column(String(255), nullable=False)
+    uploaded_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    uploaded_by_name: Mapped[str] = mapped_column(String(255), nullable=False)
     uploaded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )

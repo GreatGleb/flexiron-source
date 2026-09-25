@@ -91,7 +91,6 @@ def make_payment(**overrides) -> FinancePayment:
         "due_date": datetime(2026, 2, 1, tzinfo=timezone.utc),
         "paid_at": None,
         "notes": None,
-        "document_count": 0,
         "documents": [],
         "created_at": datetime(2026, 1, 1, tzinfo=timezone.utc),
         "updated_at": datetime(2026, 1, 1, tzinfo=timezone.utc),
@@ -400,11 +399,15 @@ class ListPaymentsDomainTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual({pending.id, overdue.id}, {item.id for item in result.items})
 
     async def test_document_count_is_derived_not_the_stored_column(self):
-        """The stored `document_count` column is stale by construction (§17); the
-        response counts the loaded `documents` relationship instead."""
+        """Считается по загруженной связи `documents`, и хранить его негде (§17, П68).
+
+        Колонки `document_count` на `FinancePayment` больше нет — её сняла ревизия
+        `e5b2f47c9a10`. Пока она была, ответ и колонка расходились молча: ответ уже
+        тогда считал по связи, а колонку не писал никто.
+        """
+        self.assertNotIn("document_count", FinancePayment.__table__.c)
         payment = make_payment(
             tenant_id=TENANT_A,
-            document_count=999,
             documents=[make_document(), make_document()],
         )
         session = FakeSession([payment])

@@ -163,7 +163,7 @@ PATCH-мок пишется через явный список принимае�
 (`frontend_vue/src/services/mocks/finance.ts:314-341` против `:155-158`), убираются; остальные
 шесть остаются самостоятельными по П129. Право чтения полного архива отдельное — П84. Врезка
 контракта «Кто наполняет архив — не сказано ни в коде, ни здесь» **снята 2026-09-22**: на её месте
-стоят П128/П129 и `**Статус:** спроектировано` (`roo_code/roo-context/api/finance.md:442-445`).
+стоят П128/П129 и `**Статус:** спроектировано` (`roo_code/roo-context/api/finance.md:447-450`).
 
 Отдельно и **без владельца**: `document_count` перестаёт быть колонкой (П68,
 `backend/app/modules/finance/shared/models.py:49-51`) — это работа, разблокированная той же
@@ -389,7 +389,7 @@ TBD — решение владельца: у сервера просрочка 
 (`frontend_vue/src/services/mocks/index.ts:1665`).
 
 На схеме это два разных поля: `id` — UUID из `UUIDMixin`, `file_id` — FK на `uploaded_files`
-(`backend/app/modules/finance/shared/models.py:58-79`). Тип во фронте тоже держит оба
+(`backend/app/modules/finance/shared/models.py:53-74`). Тип во фронте тоже держит оба
 (`frontend_vue/src/types/finance.ts:5-13`). Совпадение их значений — свойство мока, и карточка на
 него уже опирается по-разному: удаление ищет по `id` (`frontend_vue/src/views/admin/finance/OutgoingPaymentCardPage.vue:92-101`),
 а отслеживание правок — по `fileId` (`:40-51`).

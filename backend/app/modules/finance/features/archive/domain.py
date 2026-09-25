@@ -43,7 +43,9 @@ def _to_list_item(entity: DocumentArchiveItem) -> ArchiveListItem:
         relatedEntityId=entity.related_entity_id,
         relatedEntityNumber=entity.related_entity_number,
         uploadedAt=entity.uploaded_at,
-        uploadedBy=entity.uploaded_by,
+        # Наружу уходит снимок имени: ссылка `uploaded_by_user_id` может стать NULL
+        # вместе с удалённым пользователем, а подпись в архиве обязана остаться (П36).
+        uploadedBy=entity.uploaded_by_name,
     )
 
 

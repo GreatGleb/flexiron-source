@@ -85,7 +85,6 @@ def make_payment(**overrides) -> FinancePayment:
         "due_date": datetime(2026, 2, 1, tzinfo=timezone.utc),
         "paid_at": None,
         "notes": "original note",
-        "document_count": 0,
         "documents": [],
         "created_at": datetime(2026, 1, 1, tzinfo=timezone.utc),
         "updated_at": datetime(2026, 1, 1, tzinfo=timezone.utc),

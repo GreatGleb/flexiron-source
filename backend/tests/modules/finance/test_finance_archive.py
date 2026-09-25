@@ -63,7 +63,8 @@ def make_item(**overrides) -> DocumentArchiveItem:
         "related_entity_type": "order",
         "related_entity_id": "ord-1",
         "related_entity_number": "ORD-2026-001",
-        "uploaded_by": "Jane Doe",
+        "uploaded_by_user_id": None,
+        "uploaded_by_name": "Jane Doe",
         "uploaded_at": datetime(2026, 1, 1, tzinfo=timezone.utc),
     }
     values.update(overrides)
