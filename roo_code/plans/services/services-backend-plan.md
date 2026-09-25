@@ -1094,7 +1094,7 @@ grep -c "service_price_changed" frontend_vue/src/services/mocks/notification-tri
 8. **§13 соглашений приводит этот домен примером правила, которое он нарушает.** Общий раздел о
    постраничной выдаче говорит «`totalPages` — `Math.max(1, Math.ceil(total / pageSize))`» и
    ссылается на `services/mocks/services.ts:77` как на один из примеров, где так и сделано
-   (`roo_code/roo-context/api/00-conventions.md:987-990`). По этой строке стоит голый
+   (`roo_code/roo-context/api/00-conventions.md:995-998`). По этой строке стоит голый
    `Math.ceil(total / pageSize)` без зажима (`frontend_vue/src/services/mocks/services.ts:77`),
    то есть пустой список даёт `totalPages: 0`. Поведение план чинит в С2, а вот саму ссылку в
    соглашениях правит не он: это чужой файл и сквозная задача. Отметка нужна, чтобы правку §13 не

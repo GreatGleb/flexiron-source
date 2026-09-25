@@ -71,6 +71,18 @@ class RegisterFlowTest(RegisterFlowCase):
         self.assertEqual(result.id, decode_session_token(result.session.token))
         self.assertEqual(1, len(session_rows))
 
+        # Первый пользователь арендатора — ВЛАДЕЛЕЦ, и это утверждение появилось
+        # здесь не для полноты. До 2026-09-25 роль держалась на двух опорах сразу:
+        # `repository.py` передавал `role="owner"` явно, а модель на всякий случай
+        # объявляла тот же `"owner"` умолчанием. Вторая опора скрывала пропажу
+        # первой — убери явную строку, и роль осталась бы прежней.
+        #
+        # Решением владельца оба умолчания приведены к `"user"` (наименьшее право
+        # для строки, заведённой в обход приложения). Опора осталась одна, и
+        # теперь её пропажа МЕНЯЕТ поведение: первый пользователь молча перестал
+        # бы быть владельцем. Значит её надо сторожить, а не подразумевать.
+        self.assertEqual("owner", user.role)
+
     async def test_duplicate_email_is_conflict_and_creates_nothing(self):
         async with self.transactional_db() as db:
             await register(db, self.register_input(email="dup@example.test", company_name="First Co"))
