@@ -555,8 +555,15 @@ Partial<{
 (`types/product.ts:56-109`) — то есть last-write-wins здесь не решение контракта, а следствие
 отсутствия механизма.
 
-Бэкенд: **не реализован.** Схема хранения при этом уже заведена и с формой запроса согласуется по
-именам в `snake_case` (`backend/app/modules/products/shared/models.py:107-177`), кроме
+Бэкенд: `backend/app/modules/products/features/patch_product/action.py` (`patch_product`) · схемы
+`backend/app/modules/products/features/patch_product/schemas.py` (`PatchProductInput`, camelCase-алиасы
+на snake_case-поля модели) · домен `backend/app/modules/products/features/patch_product/domain.py`
+(`patch_product`, `model_fields_set` отличает «ключ не пришёл» от «пришёл null», ответ — переиспользованный
+`ProductDetailResponse` из `get_product_detail`, второй карточной схемы не заведено) · выборка
+`backend/app/modules/products/features/patch_product/repository.py` (`get_product_for_update`,
+`update_product`, `replace_field_values`, фильтр по `tenant_id`). Схема хранения при этом уже заведена
+и с формой запроса согласуется по именам в `snake_case`
+(`backend/app/modules/products/shared/models.py:107-177`), кроме
 `weightPerWarehouseUnitKg`, которого на бэкенде нет вовсе (`grep -rn "weight_per_warehouse" backend/`
 — пусто).
 

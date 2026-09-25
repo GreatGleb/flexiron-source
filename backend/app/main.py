@@ -26,6 +26,9 @@ from app.modules.products.features.get_product_detail.action import (
 from app.modules.products.features.create_product.action import (
     router as products_create_router,
 )
+from app.modules.products.features.patch_product.action import (
+    router as products_patch_router,
+)
 from app.modules.auth.features.me.action import (
     router as auth_me_router,
 )
@@ -129,6 +132,7 @@ app.mount("/static/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploa
 app.include_router(products_list_router)
 app.include_router(products_get_detail_router)
 app.include_router(products_create_router)
+app.include_router(products_patch_router)
 app.include_router(auth_me_router)
 app.include_router(settings_profile_router)
 app.include_router(settings_crud_router)
