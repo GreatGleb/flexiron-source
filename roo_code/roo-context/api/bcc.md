@@ -751,7 +751,8 @@ len(SUPPLIERS) messages here» — `backend/tests/modules/bcc/test_send_request.
      `services/mocks/bcc.ts:143`, `:352`), схема — `UUID` из `UUIDMixin`
      (`backend/app/modules/bcc/shared/models.py:11`, миграция `:38`);
    - `date`: фронт — строка `YYYY-MM-DD` (`types/bcc.ts:24`, `services/mocks/bcc.ts:354`), схема —
-     `created_at: DateTime(timezone=True)` с индексом (`models.py:98-103`); колонки `date` на схеме
+     `created_at: DateTime(timezone=True)` с индексом
+     (`backend/app/modules/bcc/shared/models.py:57-61`); колонки `date` на схеме
      нет вовсе;
    - `supplierName` и `productName`: фронт хранит подписи прямо в строке события, обе
      `TranslatedString` (`types/bcc.ts:26`, `:28`), схема — только внешние ключи `supplier_id` и

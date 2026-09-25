@@ -58,7 +58,7 @@ def _role_literals(path: Path) -> list[str]:
                     found.append(kw.value.value)
             continue
 
-        # role: Mapped[str] = mapped_column(..., default="owner", server_default="owner")
+        # role: Mapped[str] = mapped_column(..., default="user", server_default="user")
         # user.role = "owner" / obj.role_name = "owner" — присваивание в role*.
         targets: list[ast.expr] | None = None
         if isinstance(node, ast.Assign):
@@ -115,7 +115,14 @@ class PermissionMatrixDefaultsTest(unittest.TestCase):
     Раньше здесь стоял `can_read` одной лишь роли, и этого хватило, чтобы в дереве
     ужились три разных ответа: модель роли говорила `false`, модель пользователя не
     говорила ничего, а в базе умолчания не было ни у той, ни у другой. `alembic
-    check` этого не видит вовсе — он не сравнивает `server_default`.
+    check` этого не видел вовсе, потому что не сравнивал `server_default`.
+
+    **С 2026-09-25 сравнивает** — `compare_server_default=True` в `alembic/env.py`,
+    и этот сторож больше не единственная защита. Он всё равно нужен: `check`
+    сверяет модель с БАЗОЙ и промолчит, если разъедутся обе одинаково, а здесь
+    проверяется САМО ПРАВИЛО §6.4 — что умолчание именно `false`, а не любое
+    согласованное значение. Машина нашла тогда же второе издание той же болезни
+    на `users.role`: база `'user'`, модель `'owner'`, ревизии между ними нет.
     """
 
     LEVELS = ("RolePermission", "UserPermission")

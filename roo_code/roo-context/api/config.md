@@ -38,7 +38,7 @@ clean-slate Save, форма идентификатора, права как с�
 `field_definitions`, `section_configs`, `section_fields` — в `suppliers`
 ([`suppliers/shared/models.py:241`](../../../backend/app/modules/suppliers/shared/models.py), `:269`,
 `:294`); `permission_items`, `role_permissions`, `user_permissions` — в `auth`
-([`auth/shared/models.py:165`](../../../backend/app/modules/auth/shared/models.py), `:169`, `:202`).
+([`auth/shared/models.py:167`](../../../backend/app/modules/auth/shared/models.py), `:169`, `:202`).
 Все шесть заведены одной миграцией
 [`e24a3922ed01_phase_7_config.py:27-109`](../../../backend/alembic/versions/e24a3922ed01_phase_7_config.py).
 
@@ -244,9 +244,9 @@ Save-режим: clean-slate. Именно этот эндпоинт несёт 
 контракт его закрепляет.
 
 **А строку в `permission_items` не снимает никто.** Связи с `field_definitions` у неё нет:
-`item_id` — просто `String(100)` (`backend/app/modules/auth/shared/models.py:176`, миграция `:72`),
+`item_id` — просто `String(100)` (`backend/app/modules/auth/shared/models.py:178`, миграция `:72`),
 и `role_permissions.item_id` / `user_permissions.item_id` ссылаются на ту же строку
-(`auth/shared/models.py:200`, `:213`). Осиротевшие права — состояние, которое схема допускает;
+(`auth/shared/models.py:202`, `:213`). Осиротевшие права — состояние, которое схема допускает;
 что с ними делать, не сказано нигде (строка владельцу).
 
 Ошибки: неизвестный `id` — `FIELD_NOT_FOUND`, 404 (тот же код, что у `PATCH`, БАГ-10 в этой части
@@ -424,7 +424,7 @@ Save-режим: clean-slate, первый из трёх `PUT`-ов батча (
 (`mocks/config.ts:350-353`) — связка у него живёт внутри самой секции, поэтому расхождения нет.
 
 **Судьба строк матрицы прав: не удаляются ничем** — та же причина, что у поля
-(`auth/shared/models.py:176`, миграция `:72`).
+(`auth/shared/models.py:178`, миграция `:72`).
 
 Ошибки: неизвестный `id` — `SECTION_NOT_FOUND`, 404 (тот же код, что у `PATCH`, БАГ-10 в этой части
 закрыта). Системную секцию `mockDeleteSection` по-прежнему удаляет так же охотно, как любую: поле
@@ -489,7 +489,7 @@ interface PermissionItem {                                              // types
   элементов — цифра поправлена по коду.)
 - **Роли — четыре, и они константа мока**: `PERMISSION_ROLES` (`mocks/config.ts:186`), он же
   уезжает клиенту полем `roles` (`:224`). На сервере роли живут строками в `user_roles.role_name`
-  (`backend/app/modules/auth/shared/models.py:118`) плюс устаревшее `users.role` с пометкой
+  (`backend/app/modules/auth/shared/models.py:120`) плюс устаревшее `users.role` с пометкой
   «DEPRECATED — kept as fallback until frontend migrates to multi-role» (`:60-61`). Какой источник
   главный — **решено (П3, П12)**: `user_roles.role_name`, регистр строчный, перечень редактируемый
   и хранится на бэкенде отдельно на арендатора; `users.role` — легаси и источником роли наружу не
@@ -497,7 +497,7 @@ interface PermissionItem {                                              // types
 
 Дефолт прав нового элемента у мока — Admin всё `true`, остальные роли всё `false`
 (`mocks/config.ts:210-218`). **На схеме дефолт другой**: `can_read` объявлен `server_default="true"`
-для всех (`backend/app/modules/auth/shared/models.py:202-204`, миграция
+для всех (`backend/app/modules/auth/shared/models.py:204-206`, миграция
 `e24a3922ed01_phase_7_config.py:86`). **Решено 2026-09-12 (П33): верен мок.** Базовое умолчание —
 новый элемент видит **только админ**; поверх него правило 90 %: у кого полные права не меньше чем
 на 90 % элементов того же домена, тот получает полные и на новый, а у кого на 90 % есть одно
@@ -508,7 +508,7 @@ interface PermissionItem {                                              // types
 Ошибки: **ни одной**.
 
 Бэкенд: **не реализован** — таблицы `permission_items`, `role_permissions`, `user_permissions`
-существуют (`backend/app/modules/auth/shared/models.py:165-256`) и не читаются ни одним `select()`;
+существуют (`backend/app/modules/auth/shared/models.py:167-258`) и не читаются ни одним `select()`;
 функция, которая должна применять матрицу, — заглушка `return True`
 (`backend/app/modules/auth/internal_api/interface.py:33-44`).
 Реализация: `services/configService.ts:76` (`getPermissions`) · мок `mocks/index.ts:413` →
@@ -525,12 +525,12 @@ Save-режим: clean-slate, третий запрос того же `Promise.a
 `roles`, которые пользователь на странице не правит.
 
 **`items`, `roles` и `users` сервер обязан считать производными и игнорировать в теле.** На сервере
-`roles` выводятся из `user_roles.role_name` (`backend/app/modules/auth/shared/models.py:118`),
+`roles` выводятся из `user_roles.role_name` (`backend/app/modules/auth/shared/models.py:120`),
 `users` — из таблицы `users` (`:42`), а порядок `items` — из `section_configs.sort_order` и
 `section_fields.sort_order` (`backend/app/modules/suppliers/shared/models.py:282`, `:316`). Принять
 их как данные значит позволить клиенту переписать состав ролей арендатора запросом о правах.
 Оговорка: `permission_items` — таблица **хранимая**, со своим `name_translations`
-(`auth/shared/models.py:177-179`), поэтому имя элемента у сервера дублирует
+(`auth/shared/models.py:179-181`), поэтому имя элемента у сервера дублирует
 `section_configs.name_translations` (`suppliers/shared/models.py:281`) и может с ним разойтись;
 какой из двух источник истины — строка владельцу.
 
@@ -665,7 +665,7 @@ Save-режим: clean-slate, третий запрос того же `Promise.a
 ondelete="CASCADE")`, `nullable=False`, `index=True` — `field_definitions`
 (`backend/app/modules/suppliers/shared/models.py:246-251`), `section_configs` (`:274-279`),
 `section_fields` (`:299-304`), `permission_items`
-(`backend/app/modules/auth/shared/models.py:170-175`), `role_permissions` (`:174-179`),
+(`backend/app/modules/auth/shared/models.py:172-177`), `role_permissions` (`:174-179`),
 `user_permissions` (`:207-212`); в миграции те же шесть
 (`e24a3922ed01_phase_7_config.py:30`, `:46`, `:59`, `:71`, `:83`, `:99`). Все три уникальных индекса
 домена начинаются с арендатора: `uq_field_definitions_tenant_name` (`:40`), `uq_role_permission` на
@@ -715,7 +715,7 @@ savePermissions])` (`useCardConfig.ts:51-55`) — общей транзакци�
 **Производные значения (считать, не хранить) — три, и все три схема хранит колонкой.**
 (1) `PermissionMatrix.items` производна от секций и их полей: мок собирает список обходом
 `MOCK_SECTIONS` (`mocks/config.ts:191-203`), а на схеме `permission_items` — хранимая таблица со
-своим `name_translations` (`backend/app/modules/auth/shared/models.py:177-179`), которое может
+своим `name_translations` (`backend/app/modules/auth/shared/models.py:179-181`), которое может
 разойтись с `section_configs.name_translations`
 (`backend/app/modules/suppliers/shared/models.py:281`). (2) `usageCount` по замыслу производна
 («сколько поставщиков заполнили это поле»), на схеме — колонка `usage_count` с `server_default="0"`
@@ -724,7 +724,7 @@ savePermissions])` (`useCardConfig.ts:51-55`) — общей транзакци�
 перенумеровывает при перетаскивании (`useCardConfig.ts:73`), мок при чтении не сортирует
 (`mocks/config.ts:250-252`), схема хранит `sort_order`
 (`backend/app/modules/suppliers/shared/models.py:282`). Плюс `roles` и `users` матрицы — производные
-от `user_roles.role_name` (`backend/app/modules/auth/shared/models.py:118`) и таблицы `users`
+от `user_roles.role_name` (`backend/app/modules/auth/shared/models.py:120`) и таблицы `users`
 (`:42`), которые клиент присылает обратно телом `PUT` как данные (`configService.ts:80-81`). Что из
 этого сервер считает при чтении, а что хранит — строка владельцу.
 
@@ -741,7 +741,7 @@ savePermissions])` (`useCardConfig.ts:51-55`) — общей транзакци�
    (`backend/app/modules/suppliers/shared/models.py:252`, `:262`; миграция
    `e24a3922ed01_phase_7_config.py:31`, `:36`). При этом `section_configs.name_translations` и
    `permission_items.name_translations` — JSONB (`suppliers/shared/models.py:281`;
-   `backend/app/modules/auth/shared/models.py:177-179`). Асимметрия внутри одной миграции: два имени
+   `backend/app/modules/auth/shared/models.py:179-181`). Асимметрия внутри одной миграции: два имени
    из трёх переводимы, третье нет, а хранить `{ru,en,lt}` в `String(255)` нечем (§12 соглашений —
    тот же класс, самое крупное расхождение проекта). **Снято по схеме 2026-09-25:** миграция
    `d8b3f1c25a60_config_field_library_form` перевела оба — `name` → `name_translations` (JSONB NOT
@@ -766,16 +766,16 @@ savePermissions])` (`useCardConfig.ts:51-55`) — общей транзакци�
    `mocks/config.ts:179-184`) и `userPermissions[itemId][role][userEmail]` (`types/config.ts:51-54`,
    чтение `SupplierCardConfigPage.vue:175`, запись `:233-237`). На схеме — `user_permissions.user_id`,
    UUID-FK на `users.id` с `ondelete="CASCADE"`
-   (`backend/app/modules/auth/shared/models.py:234-238`, миграция
+   (`backend/app/modules/auth/shared/models.py:236-240`, миграция
    `e24a3922ed01_phase_7_config.py:101`), и ключ уникальности другой: `(tenant_id, item_id, user_id)`
-   (`auth/shared/models.py:252-256`). Кто переводит одно в другое — строка владельцу.
+   (`auth/shared/models.py:254-258`). Кто переводит одно в другое — строка владельцу.
 4. **«Действие не задано — наследуй у роли» выразимо во фронте и невыразимо на схеме.** Тип хранит
    переопределения как `Partial<Record<PermissionAction, boolean>>` (`types/config.ts:51-54`), и вся
    семантика построена на `undefined`: `getUserPerm` откатывается на роль
    (`SupplierCardConfigPage.vue:169-178`), `clearUserOverrides` именно **удаляет** ключ (`:190-192`),
    `collapseIfAligned` схлопывает переопределения, когда все пользователи роли сошлись (`:241-259`).
    На схеме `can_read/can_edit/can_create/can_delete` — четыре `nullable=False` булевых колонки с
-   дефолтами (`backend/app/modules/auth/shared/models.py:239-250`, миграция `:102-105`): «не задано»
+   дефолтами (`backend/app/modules/auth/shared/models.py:241-252`, миграция `:102-105`): «не задано»
    на уровне действия хранить негде, различима только строка целиком.
 5. **Матрица прав никем не применяется — она только редактируется.**
    `grep -rn "PermissionMatrix\|rolePermissions\|userPermissions" frontend_vue/src --include=*.ts --include=*.vue | grep -v '\.spec\.'`
@@ -808,7 +808,7 @@ savePermissions])` (`useCardConfig.ts:51-55`) — общей транзакци�
    сначала каскадит на поля, а потом всё равно ставит значение самой секции — «for consistency»
    (`SupplierCardConfigPage.vue:222-226`), тогда как читается оно пересчётом по полям (`:141-154`).
    На схеме `role_permissions` хранит строку для любого `item_id` без различения секции и поля
-   (`backend/app/modules/auth/shared/models.py:200-201`), так что **сервер обязан хранить обе** — и
+   (`backend/app/modules/auth/shared/models.py:202-203`), так что **сервер обязан хранить обе** — и
    производную секции, и значения полей.
 10. **`collapsed` объявлен UI-only, но уезжает на сервер и хранится колонкой.** Комментарий в типе —
     «UI-only: collapsed inside the config builder (not persisted to the rendered supplier card)»
@@ -916,13 +916,13 @@ clean-slate-батчем из трёх `PUT`-ов. Проверено по ка�
 | где сервер хранит **значения** полей поставщика | графа «Кастомные поля»; «Чего в домене нет» | **снято 2026-09-10 (прецедент `products`)** — своей таблицей значений по образцу `ProductFieldValue` (`products/shared/models.py:177`): «сущность × определение × значение». Сегодня её нет ни одной — незаконченный бэкенд, а не открытый вопрос |
 | где сервер применяет матрицу и что отвечает при отказе | графа «Права»; правило 5 | **решено 2026-09-07 (П4)** — применяет на каждом запросе, отказ `403` в конверте `detail: { message, code }`; см. [§6.5](00-conventions.md) |
 | какой признак «этого удалять нельзя» настоящий — колонка или префикс id | правило 2; каталог кодов | **осталось** — решение владельца |
-| как пользователь адресуется в матрице — email или UUID | правило 3 | **снято 2026-09-10 (схема, §19)** — идентификатором: `UserPermission.user_id` это `uuid` с FK на `users` (`auth/shared/models.py:234-238`), а email во фронте — ключ показа; §19 запрещает выводить адресацию из читаемого значения, которое меняется |
-| как выразить «действие не задано» при четырёх `NOT NULL` колонках | правило 4 | **снято 2026-09-10 (следует из П2)** — переопределение поштучное («отдельные его права можно переопределить»), значит «не задано» обязано выражаться, а четыре `NOT NULL` булевых в одной строке (`auth/shared/models.py:240-251`) этого не умеют. Форма правки — nullable-колонки либо строка на действие: это работа, не решение |
+| как пользователь адресуется в матрице — email или UUID | правило 3 | **снято 2026-09-10 (схема, §19)** — идентификатором: `UserPermission.user_id` это `uuid` с FK на `users` (`auth/shared/models.py:236-240`), а email во фронте — ключ показа; §19 запрещает выводить адресацию из читаемого значения, которое меняется |
+| как выразить «действие не задано» при четырёх `NOT NULL` колонках | правило 4 | **снято 2026-09-10 (следует из П2)** — переопределение поштучное («отдельные его права можно переопределить»), значит «не задано» обязано выражаться, а четыре `NOT NULL` булевых в одной строке (`auth/shared/models.py:242-253`) этого не умеют. Форма правки — nullable-колонки либо строка на действие: это работа, не решение |
 | переводимо ли имя поля библиотеки | правило 1 | **снято 2026-09-10 (старшинство фронта, §12)** — переводимо: соседи по той же миграции переводимы (`section_configs.name_translations`, `permission_items.name_translations`), а асимметрия внутри одной миграции названа в §12 расхождением схемы, а не правилом |
 | обязаны ли три `PUT`-а одной транзакцией и в каком порядке | графа «Транзакционность» | **решено 2026-09-09 (П43)** — не обязаны: конфигурация это настройки, а атомарны только заказ и склад; порядок контракт не задаёт, частичное сохранение возможно ([§15](00-conventions.md)) |
 | читает ли карточка поставщика эту конфигурацию вообще | «Источник истины», абзац «домен пишет в пустоту» | **решено 2026-09-10 (П65 б)** — не читает и пока читать не начнёт: замысел «у каждой сущности своя конфигурация карточки» отложен, раздел выключается флагом `supplierCardConfig` (`config/featureFlags.ts:17`), в мок-режиме остаётся |
 | каким кодом отвергать системную секцию, встроенное поле и дубль имени | «Каталог кодов ошибок» | **снято 2026-09-10 (назначено по §2)** — `SECTION_IS_SYSTEM`, `FIELD_IS_BUILTIN`, `FIELD_NAME_TAKEN`, все 409; последний с именем поля в `fieldErrors` |
-| производны ли `items`, `roles`, `users` и что делать с присланными обратно | `PUT /api/config/permissions`; графа «Производные значения» | **закрыто по старшинству**: производны, сервер их игнорирует в теле — выведено из схемы (`auth/shared/models.py:118`, `:42`) и подтверждено моком (`mocks/config.ts:191-203`). Осталось одно: какое `name_translations` элемента матрицы главнее — **решение владельца** |
+| производны ли `items`, `roles`, `users` и что делать с присланными обратно | `PUT /api/config/permissions`; графа «Производные значения» | **закрыто по старшинству**: производны, сервер их игнорирует в теле — выведено из схемы (`auth/shared/models.py:120`, `:42`) и подтверждено моком (`mocks/config.ts:191-203`). Осталось одно: какое `name_translations` элемента матрицы главнее — **решение владельца** |
 
 Одна поправка к самому аудиту, найденная при написании: элементов матрицы **семнадцать**, а не
 шестнадцать — пять секций и двенадцать полей, а не одиннадцать. Замер приведён в разделе

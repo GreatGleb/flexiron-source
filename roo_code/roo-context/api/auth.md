@@ -464,7 +464,7 @@ auth нет.** `create_tenant` вызывается в одном месте (`r
 заглушка `return True` с комментарием «Placeholder — implement actual RBAC logic here»
 (`auth/internal_api/interface.py:33-44`), вызывающих у неё нет.
 В С0 auth/shared/dependencies.py реализует проверку личности и компании, но не матрицы прав. Модели `PermissionItem`,
-`RolePermission`, `UserPermission` существуют (`auth/shared/models.py:165-256`) и не читаются ни
+`RolePermission`, `UserPermission` существуют (`auth/shared/models.py:167-258`) и не читаются ни
 одним `select()` (`grep -rn` по трём именам в `backend/app` даёт только определения и строку
 докстринга `auth/__init__.py:3`).
 
@@ -488,7 +488,7 @@ auth нет.** `create_tenant` вызывается в одном месте (`r
 (`login/repository.py:35-44` — безусловный `db.add`), и удаления сессий нет нигде.
 **`X-CSRF-Token` генерируется, отдаётся и хранится, но не проверяется ни разу**: все тринадцать
 попаданий `csrf` в `backend/app` — генерация (`login/domain.py:37-39,68`, `register/domain.py:57-59,139`),
-колонка (`auth/shared/models.py:144`) и поля схем (`login/schemas.py:33`,
+колонка (`auth/shared/models.py:146`) и поля схем (`login/schemas.py:33`,
 `register/schemas.py:25`); чтения заголовка нет ни одного, при том что клиент шлёт его на каждом
 защищённом запросе (`useAuth.ts:101-108`) — БАГ-10. Отзыв сессии и CSRF — строка владельцу.
 

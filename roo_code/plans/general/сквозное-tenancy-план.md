@@ -53,7 +53,7 @@
 Значение для темы: право — тоже арендаторская таблица, и §3 распространяется на неё так же,
 как на товар. Схема под это уже сделана парой с арендатором —
 `UniqueConstraint("tenant_id", "item_id", "role", name="uq_role_permission")`
-([`backend/app/modules/auth/shared/models.py:217`](../../../backend/app/modules/auth/shared/models.py)).
+([`backend/app/modules/auth/shared/models.py:219`](../../../backend/app/modules/auth/shared/models.py)).
 
 ### П25 · Справочники нового арендатора сеются миграцией
 
@@ -114,8 +114,8 @@
 | таблица | класс | где объявлен | почему без колонки |
 |---|---|---|---|
 | `tenants` | `Tenant` | [`backend/app/modules/auth/shared/models.py:14`](../../../backend/app/modules/auth/shared/models.py) | сам реестр арендаторов |
-| `user_roles` | `UserRole` | [`backend/app/modules/auth/shared/models.py:107`](../../../backend/app/modules/auth/shared/models.py) | арендатор наследуется через `user_id` |
-| `sessions` | `Session` | [`backend/app/modules/auth/shared/models.py:131`](../../../backend/app/modules/auth/shared/models.py) | арендатор наследуется через `user_id` |
+| `user_roles` | `UserRole` | [`backend/app/modules/auth/shared/models.py:109`](../../../backend/app/modules/auth/shared/models.py) | арендатор наследуется через `user_id` |
+| `sessions` | `Session` | [`backend/app/modules/auth/shared/models.py:133`](../../../backend/app/modules/auth/shared/models.py) | арендатор наследуется через `user_id` |
 | `plans` | `Plan` | [`backend/app/modules/billing/shared/models.py:11`](../../../backend/app/modules/billing/shared/models.py) | платформенный каталог тарифов |
 | `plan_features` | `PlanFeature` | [`backend/app/modules/billing/shared/models.py:75`](../../../backend/app/modules/billing/shared/models.py) | платформенный каталог тарифов |
 | `feature_definitions` | `FeatureDefinition` | [`backend/app/modules/billing/shared/models.py:137`](../../../backend/app/modules/billing/shared/models.py) | платформенный реестр ключей фич |
@@ -249,7 +249,7 @@ data» и **ре-экспортирует ровно те две функции 
 Это неверно, и разница — не придирка: `product_id` — FK на `products`, таблицу категории А,
 поэтому два товара разных арендаторов одного `product_id` иметь не могут, и пара уже
 тенантская. Тем же устроен `uq_user_role` по `(user_id, role_name)`
-([`backend/app/modules/auth/shared/models.py:124`](../../../backend/app/modules/auth/shared/models.py)).
+([`backend/app/modules/auth/shared/models.py:126`](../../../backend/app/modules/auth/shared/models.py)).
 Правило Т6 переписано так, чтобы обе формы были законны машинно, а не по усмотрению
 читающего: иначе домены начали бы «чинить» верные констрейнты миграциями.
 
