@@ -65,6 +65,9 @@ from app.modules.warehouse.features.list_movements.action import (
 from app.modules.clients.features.read_clients.action import (
     router as clients_read_router,
 )
+from app.modules.notifications.features.feed.action import (
+    router as notifications_feed_router,
+)
 from app.core.uploads.action import (
     router as uploads_router,
 )
@@ -142,6 +145,7 @@ app.include_router(settings_crud_router)
 app.include_router(settings_mail_router)
 app.include_router(settings_warehouse_map_router)
 app.include_router(finance_payments_router)
+app.include_router(notifications_feed_router)
 app.include_router(warehouse_list_batches_router)
 app.include_router(warehouse_list_movements_router)
 app.include_router(clients_read_router)

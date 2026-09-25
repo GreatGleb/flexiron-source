@@ -1,1 +1,0 @@
-"""Feature package: clients.catalog."""
