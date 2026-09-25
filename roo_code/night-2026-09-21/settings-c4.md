@@ -35,7 +35,7 @@ roo_code/roo-context/api/settings.md
 
    | код | статус | где бросается | кто читает |
    |---|---|---|---|
-   | `UOM_IN_USE` | 409 | `remove_uom_item` (`settings/features/crud/domain.py:397`) | вкладка единиц — тост «на единицу ссылаются» |
+   | `UOM_IN_USE` | 409 | `remove_uom_item` (`settings/features/crud/domain.py:406`) | вкладка единиц — тост «на единицу ссылаются» |
    | `CURRENCY_IN_USE` | 409 | `remove_currency_item` (`:257`) | вкладка финансов — тост о ссылках |
    | `CURRENCY_IS_DEFAULT` | 409 | тот же, **до** проверки ссылок | вкладка финансов |
 

@@ -315,7 +315,7 @@ use it» (`composables/useOrderPermissions.ts:6-10`). Тарифная стор�
 
 Состояние кода: `ForbiddenError` во всём бэкенде поднимается ровно один раз, и не матрицей, а
 запретом удалять системный статус заказа
-(`backend/app/modules/settings/features/crud/domain.py:672-674`, отдача `403` —
+(`backend/app/modules/settings/features/crud/domain.py:690-692`, отдача `403` —
 `crud/action.py:512-516`).
 Единственный работающий отказ по праву — в моке заказов, и код у него другой: `FORBIDDEN_`
 плюс имя права заглавными, то есть `FORBIDDEN_MANUALCOST`, `FORBIDDEN_CORRECTION`
