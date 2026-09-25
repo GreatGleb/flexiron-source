@@ -170,7 +170,7 @@ interface Notification {
 отдельным запросом. Поиск дебаунсится 300 мс в компоненте, а не в композабле
 (`NotificationsPage.vue:59-67`).
 
-Бэкенд: **не реализован** — роутов у модуля `notifications` ноль
+Бэкенд: `backend/app/modules/notifications/features/feed/action.py:23` (`list_notifications`) — постраничный список, адресован арендатору И пользователю
 (`grep -rn "@router\." backend/app/modules/notifications --include=*.py` пуст); таблица есть,
 `backend/app/modules/notifications/shared/models.py:11-42`.
 Реализация: `services/notificationsService.ts:5-18` (`getNotifications`) · потребитель
@@ -215,7 +215,7 @@ interface Notification {
 Ошибки: ни одной своей; клиент глотает любую молча
 (`useNotifications.ts:46-48`), то есть сорванный опрос внешне неотличим от «новых уведомлений нет».
 
-Бэкенд: **не реализован** — роутов у модуля ноль; колонки под счётчик на схеме нет, он производный
+Бэкенд: `backend/app/modules/notifications/features/feed/action.py:51` (`unread_count`) — счётчик производный, отдельной колонки под него по-прежнему нет
 (`backend/app/modules/notifications/shared/models.py:33-36` — только `is_read`).
 Реализация: `services/notificationsService.ts:20-22` (`getUnreadCount`) · потребители
 `composables/useNotifications.ts:42-49`, `components/admin/NotificationDropdown.vue:96` · мок
@@ -262,7 +262,7 @@ bar не участвует.
 `FORBIDDEN`), а не тихий no-op. Молчание неотличимо от успеха — тот же класс, что §9
 «Неизвестный `entryId` — отказ, а не тихий no-op».
 
-Бэкенд: **не реализован** — роутов у модуля ноль; на схеме есть `is_read` со `server_default="false"`
+Бэкенд: `backend/app/modules/notifications/features/feed/action.py:71` (`mark_read`) — отметка выражена колонкой `is_read` со `server_default="false"`
 (`backend/app/modules/notifications/shared/models.py:33-36`) и **нет** `read_at`, то есть «когда
 прочитано» не хранится нигде.
 Реализация: `services/notificationsService.ts:24-26` (`markAsRead`) · потребитель
@@ -306,7 +306,7 @@ markAllAsRead()` и затем `await loadDropdownItems()` (`NotificationDropdow
 перекрашивался. Закрыт этим перечитыванием: дропдаун больше не хранит срез чужого состояния,
 который мог устареть у него на руках.
 
-Бэкенд: **не реализован** — роутов у модуля ноль; на схеме отметка выражена только колонкой
+Бэкенд: `backend/app/modules/notifications/features/feed/action.py:61` (`mark_all_read`) — один `UPDATE` по всем своим уведомлениям
 `is_read` (`backend/app/modules/notifications/shared/models.py:33-36`), следа массовой операции нет.
 Реализация: `services/notificationsService.ts:28-30` (`markAllAsRead`) · потребители
 `composables/useNotifications.ts:65-72`, `views/admin/notifications/NotificationsPage.vue:96-99`,
