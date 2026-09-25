@@ -170,6 +170,7 @@ class PermissionItem(UUIDMixin, Base):
         index=True,
     )
     item_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    domain: Mapped[str] = mapped_column(String(50), nullable=False)
     name_translations: Mapped[dict] = mapped_column(
         JSONB, nullable=False, default=dict, server_default="{}"
     )
@@ -234,9 +235,7 @@ class UserPermission(UUIDMixin, TimestampMixin, Base):
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
     )
-    can_read: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=True, server_default="true"
-    )
+    can_read: Mapped[bool] = mapped_column(Boolean, nullable=False)
     can_edit: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
     )
