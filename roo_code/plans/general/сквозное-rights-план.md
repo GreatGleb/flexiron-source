@@ -170,9 +170,9 @@
 ### 2.1. Сервер прав не проверяет нигде
 
 - Единственная функция проверки — заглушка, и тело у неё одна строка
-  (`backend/app/modules/auth/internal_api/interface.py:38`).
+  (`backend/app/modules/auth/internal_api/interface.py:44`).
 - Её объявление с комментарием «Placeholder — implement actual RBAC logic here» —
-  `backend/app/modules/auth/internal_api/interface.py:27-37`.
+  `backend/app/modules/auth/internal_api/interface.py:33-43`.
 - Вызывающих у неё нет: `grep -rn "check_permission" backend --include=*.py` даёт **одну**
   строку — её собственное определение (`/tmp/proof-rights-backend.txt`).
 - Модуль зависимостей авторизации — четыре строки докстринга и ноль кода

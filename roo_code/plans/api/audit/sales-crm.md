@@ -258,7 +258,7 @@
   чтения не вызывается ни одна проверка:
   `sed -n '1577,1595p' … | grep -c "requireRight\|maySeeCost"` → `0`, ветка мока
   (`mocks/index.ts:540-542`) тоже. Серверная проверка прав — заглушка, возвращающая `True`
-  (`backend/app/modules/auth/internal_api/interface.py:27-38`). **Следствие измеримо:** месячный
+  (`backend/app/modules/auth/internal_api/interface.py:33-44`). **Следствие измеримо:** месячный
   оборот компании видит любая роль, открывшая страницу, тогда как три права заказов существуют
   ровно про видимость денег — `seeCost`, `manualCost`, `correction`
   (`src/services/mocks/settings.ts:64-68`, потребитель

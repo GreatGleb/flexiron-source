@@ -11,6 +11,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.auth.shared.models import Tenant, User
 from app.modules.auth.shared.dependencies import CurrentUser, get_current_user
+# Сборка ссылки — чистая функция, общая для всех читателей; чужие модули берут её
+# отсюда, а не из auth.shared напрямую (Б1).
+from app.modules.auth.shared.secret_link import (  # noqa: F401
+    build_secret_link,
+    issue_secret_link_token,
+)
 from app.modules.auth.features.me.repository import (
     get_user_by_id as _get_user_by_id,
 )

@@ -230,7 +230,7 @@
   (`frontend_vue/src/services/mocks/config.ts`) аналитики нет —
   `grep -cin "analytic\|dashboard\|report" frontend_vue/src/services/mocks/config.ts` → `0`, а
   серверная проверка прав вообще заглушка, возвращающая `True`
-  (`backend/app/modules/auth/internal_api/interface.py:27-38`). **Но словарь этих десяти флагов у
+  (`backend/app/modules/auth/internal_api/interface.py:33-44`). **Но словарь этих десяти флагов у
   сервера есть**, и он тот же: все десять ключей засеяны в `feature_definitions` миграцией —
   восемь страничных (`backend/alembic/versions/8cf3bfa380dd_phase_12_plans_multi_role.py:27-50`,
   `level="page"`) и два секционных `dashboardAlerts`/`dashboardCharts` (`:89-94`,

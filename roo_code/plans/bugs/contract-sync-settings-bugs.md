@@ -648,7 +648,7 @@ factor=float(c.factor) if c.factor else None
 ## Рассмотрено и отклонено
 
 - **`GET /api/settings/profile` пишет в БД.** Секретный токен генерируется и сохраняется прямо
-  в обработчике чтения (`backend/app/modules/settings/features/profile/domain.py:31-33`). Это
+  в обработчике чтения (`backend/app/modules/settings/features/profile/domain.py:30-32`). Это
   побочный эффект у GET — но осознанный и работающий: ссылка обязана существовать к моменту
   показа страницы. Не баг, а необъявленная обязанность сервера; ушло в аудит, графа
   «Производные значения».

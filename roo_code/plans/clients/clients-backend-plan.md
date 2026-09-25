@@ -120,7 +120,7 @@
 | `INTERACTION_ENTRY_NOT_FOUND` | 404 | удаление взаимодействия — **по `id`**, а не по индексу | карточка | код есть (`frontend_vue/src/services/mocks/clients.ts:1167`), но отвечает на индекс вне границ, а не на неизвестную запись |
 | `VALIDATION_ERROR` на форму взаимодействия | 422 | `POST` взаимодействия: `type` из перечня, непустой `summary`, формат `date` | карточка | `mockAddClientInteraction` не проверяет ничего (`frontend_vue/src/services/mocks/clients.ts:1146-1152`) |
 | `CONFLICT` — у клиента есть заказы | 409 | модуль заказов, а не модуль клиентов | список клиентов, единственный разобранный код домена (`frontend_vue/src/composables/useClients.ts:73`) | правило держится колбэком (`frontend_vue/src/services/mocks/clients.ts:1120`), у ветки `?? 0` серверного двойника нет |
-| `FORBIDDEN` | 403 | право на действие домена; отдельно — удаление записи журнала, только владелец | список, карточка, лента | не проверяет никто: во фронте только фича-флаг, на бэкенде `check_permission` возвращает `True` безусловно (`backend/app/modules/auth/internal_api/interface.py:27-38`) |
+| `FORBIDDEN` | 403 | право на действие домена; отдельно — удаление записи журнала, только владелец | список, карточка, лента | не проверяет никто: во фронте только фича-флаг, на бэкенде `check_permission` возвращает `True` безусловно (`backend/app/modules/auth/internal_api/interface.py:33-44`) |
 
 Правило имени соблюдено: ни один новый код не является подстрокой другого (§2). `CLIENT_NOT_FOUND`
 и `CLIENT_COMPANY_CODE_TAKEN` разного корня; `AUDIT_ENTRY_NOT_FOUND` и

@@ -250,7 +250,7 @@ Save-режим: чтение, один раз на монтировании (`L
 (`mocks/orders.ts:4686-4693` отдаёт лог целиком) — БАГ-01; в демо это не видно, потому что профиль
 по умолчанию `owner` (`mocks/settings.ts:355`), которому `seeCost` разрешён (`:62-66`). На бэкенде
 общая `check_permission` возвращает `True` безусловно с комментарием «Placeholder — implement
-actual RBAC logic here» (`backend/app/modules/auth/internal_api/interface.py:27-38`). Единственное
+actual RBAC logic here» (`backend/app/modules/auth/internal_api/interface.py:33-44`). Единственное
 место всего прежнего контракта, где право на удаление записи истории названо, — раздел поставщика
 (`03-api-contract.md:530`); в коде этого права нет ни во фронте, ни на схеме. Строка владельца 5.
 

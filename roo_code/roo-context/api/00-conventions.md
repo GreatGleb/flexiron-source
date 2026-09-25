@@ -259,7 +259,7 @@ use it» (`composables/useOrderPermissions.ts:6-10`). Тарифная стор�
 - **Многоролевость — верная форма.** Таблица `user_roles`
   (`backend/app/modules/auth/shared/models.py:87-109`) остаётся; колонка `users.role`
   (`:60-63`, помечена `⚠️ DEPRECATED`) — легаси и наружу как источник роли не годится, хотя
-  сегодня отдаётся именно она (`settings/features/profile/domain.py:61`, `:106`, а также
+  сегодня отдаётся именно она (`settings/features/profile/domain.py:57`, `:106`, а также
   схемы `login`, `me`, `register`).
 - **Перечень ролей редактируется** владельцем арендатора — в перспективе; пока в системе
   несколько базовых ролей. **Перечень фич не редактируется:** фичи даёт тариф, владелец лишь
@@ -404,7 +404,7 @@ use it» (`composables/useOrderPermissions.ts:6-10`). Тарифная стор�
 
 - **Сервер матрицу не применяет нигде.** `check_permission` возвращает `True` безусловно с
   комментарием «Placeholder — implement actual RBAC logic here»
-  (`backend/app/modules/auth/internal_api/interface.py:27-38`); вызывающих у неё нет
+  (`backend/app/modules/auth/internal_api/interface.py:33-44`); вызывающих у неё нет
   (`grep -rn "check_permission" backend --include=*.py` → одна строка, её собственное
   определение). `backend/app/modules/auth/shared/dependencies.py` — четыре строки докстринга и
   ноль кода. Три модели прав не читаются ни одним `select()`.

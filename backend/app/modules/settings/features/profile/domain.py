@@ -1,12 +1,11 @@
 """Domain use cases for the Settings Profile feature."""
 
-import secrets
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings as app_settings
 from app.core.exceptions import NotFoundError, ValidationError, ConflictError
+from app.modules.auth.internal_api.interface import build_secret_link, issue_secret_link_token
 from app.modules.settings.features.profile.schemas import (
     ProfileResponse,
     ProfilePatchInput,
@@ -29,16 +28,13 @@ async def _ensure_secret_link(db: AsyncSession, user_id: UUID, tenant_id: UUID) 
         return None
 
     if not user.secret_link_token:
-        token = secrets.token_urlsafe(48)
+        token = issue_secret_link_token()
         updated = await update_user(db, user_id, tenant_id, {"secret_link_token": token})
         if updated:
             user = updated
 
     if user.secret_link_token:
-        return (
-            f"{app_settings.frontend_url}/auth/link"
-            f"?token={user.secret_link_token}"
-        )
+        return build_secret_link(user.secret_link_token)
     return None
 
 

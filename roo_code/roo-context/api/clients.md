@@ -692,7 +692,7 @@ ISO из закрытого списка, рядом с часовым пояс�
 `config/featureFlags.ts:22`), а флаг — признак тарифа, а не роли (соглашения §6, §7). В матрице
 прав клиента нет (`mocks/config.ts:241` — единственное упоминание, и это комментарий). На бэкенде
 общая `check_permission` возвращает `True` безусловно с комментарием «Placeholder — implement actual
-RBAC logic here» (`backend/app/modules/auth/internal_api/interface.py:27-38`), и модуля клиентов,
+RBAC logic here» (`backend/app/modules/auth/internal_api/interface.py:33-44`), и модуля клиентов,
 который её звал бы, нет. Функции, которая проверяла бы право там же, где пишет, в домене нет ни
 одной — в отличие от заказов, где это `requireRight` (соглашения §6). Отдельно: **удаление записи
 журнала** достижимо из карточки (`useClientCard.ts:228-236`) и из общей ленты

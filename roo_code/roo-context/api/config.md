@@ -510,7 +510,7 @@ interface PermissionItem {                                              // types
 Бэкенд: **не реализован** — таблицы `permission_items`, `role_permissions`, `user_permissions`
 существуют (`backend/app/modules/auth/shared/models.py:145-236`) и не читаются ни одним `select()`;
 функция, которая должна применять матрицу, — заглушка `return True`
-(`backend/app/modules/auth/internal_api/interface.py:27-38`).
+(`backend/app/modules/auth/internal_api/interface.py:33-44`).
 Реализация: `services/configService.ts:76` (`getPermissions`) · мок `mocks/index.ts:413` →
 `mocks/config.ts:261`
 
@@ -676,7 +676,7 @@ ondelete="CASCADE")`, `nullable=False`, `index=True` — `field_definitions`
 **Права — ни в какой функции, и это домен, который правами и занимается.** На сервере
 `check_permission` возвращает `True` безусловно, с комментарием «Placeholder — implement actual RBAC
 logic here. Returns True for now (permissive default)»
-(`backend/app/modules/auth/internal_api/interface.py:27-38`); модуль, который должен её применять, —
+(`backend/app/modules/auth/internal_api/interface.py:33-44`); модуль, который должен её применять, —
 четыре строки докстринга без единой функции
 (`backend/app/modules/auth/shared/dependencies.py`). Во фронте доступ гейтится **только
 фича-флагами**: роут `suppliers/config` несёт `meta.featureFlag: 'supplierCardConfig'`
@@ -781,7 +781,7 @@ savePermissions])` (`useCardConfig.ts:51-55`) — общей транзакци�
    `grep -rn "PermissionMatrix\|rolePermissions\|userPermissions" frontend_vue/src --include=*.ts --include=*.vue | grep -v '\.spec\.'`
    даёт `types/config.ts`, `services/configService.ts`, `services/mocks/config.ts`,
    `composables/useCardConfig.ts` и саму страницу-редактор — и всё. На сервере заглушка
-   (`backend/app/modules/auth/internal_api/interface.py:27-38`). Права заказов живут **другим**
+   (`backend/app/modules/auth/internal_api/interface.py:33-44`). Права заказов живут **другим**
    механизмом в другом домене (`GET /api/settings/order-permissions`, потребитель
    `frontend_vue/src/composables/useOrderPermissions.ts`) и с этой матрицей не связаны ничем
    (§6 соглашений — два независимых механизма прав).
@@ -875,7 +875,7 @@ clean-slate-батчем из трёх `PUT`-ов. Проверено по ка�
 | «поле `fields` в `PATCH` не принимаем» (`:671`) | мок принимает через `Object.assign` (`mocks/config.ts:346`) |
 | «каскадное удаление данных у поставщиков» при `DELETE` поля (`:650`) | каскадить нечего: у `Supplier` нет `fieldValues` (`frontend_vue/src/types/supplier.ts:12-31`), таблицы `supplier_field_values` не существует, а `product_field_values.field_id` ведёт на `category_fields` (`backend/app/modules/products/shared/models.py:203-207`) |
 | «`usageCount` — сколько поставщиков реально заполнили это поле» (`:629`) | считать не из чего (та же причина); в моке это статические числа (`mocks/config.ts:17`, `:24`, `:60`, `:67`), во фронте новое поле получает `0` или `1` вручную (`SupplierCardConfigPage.vue:329`, `:416`) |
-| «Только Admin» у `GET /api/config/fields` (`:629`) | проверки прав нет ни в одной функции домена; на сервере `check_permission` — заглушка `return True` (`backend/app/modules/auth/internal_api/interface.py:27-38`) |
+| «Только Admin» у `GET /api/config/fields` (`:629`) | проверки прав нет ни в одной функции домена; на сервере `check_permission` — заглушка `return True` (`backend/app/modules/auth/internal_api/interface.py:33-44`) |
 | «`SectionConfig[]`, отсортированный по `order`» (`:655`) | сортировки нет нигде: `mockGetSections` отдаёт массив как лежит (`mocks/config.ts:250-252`), `mockSaveSections` кладёт присланный как есть (`:254-259`); требование к серверу сохранено в разделе `GET /api/config/sections`, снято утверждение, что так уже делается |
 | «`confirmDeleteField` зовёт `DELETE /api/config/fields/:id`» (`:648`) | не зовёт: правит `fieldLibrary` и `sections` в памяти (`SupplierCardConfigPage.vue:359-370`) |
 | «`PATCH /api/config/fields/:id` — quick action» (`:640`) | quick-action-пути в коде нет ни одного; домен целиком clean-slate (`SupplierCardConfigPage.vue:316-317`) |

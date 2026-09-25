@@ -76,7 +76,7 @@ cd frontend_vue && CONTRACT_REFS=roo_code/roo-context/api/00-conventions.md \
 - **мультиарендность**: `tenant_id` во всех десяти модулях, счётчики §4 совпали;
 - **уведомления**: семь `notify*`;
 - **права**: `check_permission` — `return True` с комментарием «Placeholder»
-  (`auth/internal_api/interface.py:27-38`), вызывающих нет; `dependencies.py` — один докстринг;
+  (`auth/internal_api/interface.py:33-44`), вызывающих нет; `dependencies.py` — один докстринг;
   `ForbiddenError` поднимается во всём бэкенде один раз
   (`settings/features/crud/domain.py:554`). То есть форма отказа прежнего контракта
   `403 { code: 'FORBIDDEN' }` не подтверждается, и §6 говорит это же.

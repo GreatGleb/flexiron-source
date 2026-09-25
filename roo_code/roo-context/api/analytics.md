@@ -381,7 +381,7 @@ src/services/mocks/analytics.ts` → `0`. У соседних доменов с 
 плюс две секции дашборда (`featureFlags.ts:30-31`). В матрице прав аналитики нет —
 `grep -cin "analytic\|dashboard\|report" src/services/mocks/config.ts` → `0`, а серверная проверка
 прав вообще заглушка, возвращающая `True`
-([`auth/internal_api/interface.py:27-38`](../../../backend/app/modules/auth/internal_api/interface.py)).
+([`auth/internal_api/interface.py:33-44`](../../../backend/app/modules/auth/internal_api/interface.py)).
 Три права заказов, которые прямо про видимость денег — `seeCost`, `manualCost`, `correction`
 ([`useOrderPermissions.ts:28-30`](../../../frontend_vue/src/composables/useOrderPermissions.ts)), —
 на P&L и на себестоимость складского отчёта не влияют никак:
@@ -474,7 +474,7 @@ src/services/analyticsService.ts` → `0`; `Idempotency-Key` не шлётся
 | «Когда: `onMounted` каждой analytics view» (`03-api-contract.md:702`) | `load()` вызывается в теле `<script setup>`; `onMounted` в каталоге `views/admin/analytics/` не встречается ни разу (`grep -n "onMounted" src/views/admin/analytics/*.vue` — пусто) |
 | «Query (опц., будущее): `{ from, to, granularity }` — резервируем» (`03-api-contract.md:704`) | в коде этого нет ни в каком виде: параметров у вызова нет (`analyticsService.ts:5`), периода в ответе нет (`grep -c "asOf\|generatedAt\|timestamp" src/types/analytics.ts` → `0`). Нужен период — это новая работа, а не восстановление описанного; см. правило №1 и строку владельцу 1 |
 | «heavy кеш (5 мин per-user)» (`03-api-contract.md:717`) | кеша нет ни на одном уровне: состояние заново на каждый вызов (`useAnalytics.ts:7-9`), общего стора нет, восемь вкладок — восемь запросов (правило №5). То же снято и в `00-conventions.md`, §21 |
-| «Permission `read` на соответствующий модуль» (`03-api-contract.md:717`) | проверки права нет ни во фронте (гейт только фича-флагами, `router/index.ts:92,98,104,110,116,122,128,134`), ни на сервере (модуля нет, а общая проверка — заглушка `return True`, `auth/internal_api/interface.py:27-38`). Строка владельцу 8 |
+| «Permission `read` на соответствующий модуль» (`03-api-contract.md:717`) | проверки права нет ни во фронте (гейт только фича-флагами, `router/index.ts:92,98,104,110,116,122,128,134`), ни на сервере (модуля нет, а общая проверка — заглушка `return True`, `auth/internal_api/interface.py:33-44`). Строка владельцу 8 |
 | «section previews (8 виджетов-карточек)» (`03-api-contract.md:722`) | карточек семь: `sectionPreviews` содержит `warehouse`, `sales`, `supply`, `staff`, `logistics`, `deficit`, `pl-report` (`mocks/analytics.ts:136-241`) — сам дашборд в свои превью не входит |
 
 **Осталось:** строка 17 — оба обещания из `03-api-contract.md:717`, кеш и право, снимаются здесь как **описание

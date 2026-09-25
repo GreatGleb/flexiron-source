@@ -1249,7 +1249,7 @@ Save-режим: quick-action из двух мест — карточка зак
 Три маршрута домена закрыты фича-флагом `adminOrders` (`router/index.ts:150`, `:156`, `:162`;
 флаг — `config/featureFlags.ts:23`), а это признак **тарифа, а не роли** (§6 соглашений). На
 бэкенде общая `check_permission` возвращает `True` безусловно
-(`backend/app/modules/auth/internal_api/interface.py:27-38`). **Строка владельца 5.**
+(`backend/app/modules/auth/internal_api/interface.py:33-44`). **Строка владельца 5.**
 
 **Транзакционность и идемпотентность.**
 

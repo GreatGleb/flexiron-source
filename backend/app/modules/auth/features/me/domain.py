@@ -1,7 +1,7 @@
 """Domain use case for Get Current User (Me) feature."""
 
-from app.core.config import settings
 from app.modules.auth.shared.models import User
+from app.modules.auth.shared.secret_link import build_secret_link
 from app.modules.auth.features.me.schemas import MeResponse
 
 
@@ -10,7 +10,7 @@ def build_current_user(user: User) -> MeResponse:
     # Build secret link if user has a token
     secret_link = None
     if user.secret_link_token:
-        secret_link = f"{settings.frontend_url}/auth/link?token={user.secret_link_token}"
+        secret_link = build_secret_link(user.secret_link_token)
 
     return MeResponse(
         id=user.id,

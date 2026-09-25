@@ -175,7 +175,7 @@ print('междоменных пар:', sum(1 for a, b in pairs if not (codes[a]
 Три примера подтвердились (`PRODUCT_NOT_FOUND` ⊂ `CATALOG_PRODUCT_NOT_FOUND`,
 `BATCH_NOT_FOUND` ⊂ `RETURN_BATCH_NOT_FOUND`, `UOM_NOT_FOUND` ⊂ `SERVICE_UOM_NOT_FOUND`).
 Четвёртый — **`EMAIL_TAKEN` ⊂ `CLIENT_EMAIL_TAKEN` — не подтвердился: кода `EMAIL_TAKEN` не
-существует**, и это записано в самом контракте: `auth.md:568` перечисляет его среди
+существует**, и это записано в самом контракте: `auth.md:571` перечисляет его среди
 унаследованного, не подтверждённого кодом, с доказательством «`grep -rn "EMAIL_TAKEN" backend/app
 frontend_vue/src` пуст; регистрация отдаёт `CONFLICT`». Разница 51 против 50 — в границе набора,
 а не в существе находки: два счёта по-разному решают, что считать настоящим кодом.
