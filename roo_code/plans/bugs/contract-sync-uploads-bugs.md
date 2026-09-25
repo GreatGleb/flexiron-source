@@ -294,7 +294,7 @@ for (const u of uploaded) {
 (`backend/app/core/config.py:43`, `draft_ttl_hours: int = 24`), колонка заведена
 (`core/uploads/models.py:37-39`), но `expires_at` не присваивается нигде
 (`grep -rn "expires_at" backend/app/core/uploads/` → одно попадание, само объявление), а
-планировщика в приложении нет — `lifespan` пуст (`backend/app/main.py:68`).
+планировщика в приложении нет — `lifespan` пуст (`backend/app/main.py:71`).
 
 ### Fix
 
@@ -354,7 +354,7 @@ TBD — привести модель к `BigInteger`.
 
 ## БАГ-09 — загруженные файлы раздаются статикой без авторизации и без арендатора
 
-**File:** `backend/app/main.py:78`
+**File:** `backend/app/main.py:81`
 **Severity:** High — файл любого арендатора доступен по прямой ссылке кому угодно
 **Источник:** К6 (мультиарендность)
 
@@ -365,9 +365,9 @@ TBD — привести модель к `BigInteger`.
 индексирована (`core/uploads/models.py:16-21`).
 
 На чтении не проверяется ничего: `app.mount("/static/uploads", StaticFiles(directory=str(UPLOAD_DIR)))`
-(`backend/app/main.py:78`) отдаёт содержимое каталога всем, без сессии и без фильтра по
+(`backend/app/main.py:81`) отдаёт содержимое каталога всем, без сессии и без фильтра по
 арендатору. Каталог общий для всех арендаторов — один и тот же путь считается дважды и совпадает:
-`backend/app/core/uploads/action.py:22` и `backend/app/main.py:76`. Единственная защита —
+`backend/app/core/uploads/action.py:22` и `backend/app/main.py:79`. Единственная защита —
 неугадываемое имя `uuid4().hex + ext` (`core/uploads/action.py:119`), а ссылка, однажды выданная в ответе
 (`core/uploads/action.py:141-142`), не отзывается ничем: эндпоинта удаления нет, `delete_file`
 (`core/uploads/service.py:51-57`) не вызывается ниоткуда.
@@ -516,7 +516,7 @@ TBD — владельцу: отдаёт ли сервер свои ограни
 | | БАГ-06 | Данные | `core/uploads/action.py:117-138` | диск пишется до коммита, осиротевший файл не убирается |
 | | БАГ-07 | Замысел | `core/uploads/action.py:136` | `is_draft=False` отменяет draft-хранилище и TTL |
 | | БАГ-08 | Схема | `core/uploads/models.py:24` | `size` — Integer в модели, BigInteger в миграции |
-| | БАГ-09 | Доступ | `main.py:85` | статика раздаёт файлы всех арендаторов без проверки |
+| | БАГ-09 | Доступ | `main.py:88` | статика раздаёт файлы всех арендаторов без проверки |
 | | БАГ-10 | Данные | `ProductCardPage.vue:223-226` | кастомное поле хранит имя файла вместо `fileId` |
 | | БАГ-11 | Мок | `SettingsLayout.vue:346` | продовая ветка по `data:` — форма мока в приложении |
 | | БАГ-12 | Дублирование | `core/uploads/action.py:34-59` | разбор токена скопирован трижды; типы `store_file` |

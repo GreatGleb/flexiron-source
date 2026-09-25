@@ -28,7 +28,9 @@
 
 ## Источник истины — мок и клиент, но схема уже зафиксирована
 
-Реализованных эндпоинтов у домена **ноль**, поэтому формы ниже сняты с клиента и мока
+Реализован один эндпоинт из шести — `GET /api/categories`, слайс `products.list_categories`
+(`backend/app/modules/products/features/list_categories/`: `schemas.py`, `repository.py`,
+`domain.py`, `action.py`); формы остальных пяти ниже сняты с клиента и мока
 (`mocks/categories.ts`, 1514 строк). Модуля `categories` в `backend/app/modules/` нет вовсе —
 модулей там десять (`auth`, `bcc`, `billing`, `finance`, `notifications`, `products`, `services`,
 `settings`, `suppliers`, `warehouse`), и у `products` роутов два, оба про товар
@@ -41,7 +43,7 @@
 | `categories` | `Category` — `backend/app/modules/products/shared/models.py:14-17` | `backend/alembic/versions/25245d4bf874_phase_3_categories_products.py:27-41` |
 | `category_fields` | `CategoryField` — `models.py:71-74` | миграция `:42-56` |
 
-Отсюда два следствия для каждого раздела ниже. Первое: строка `Бэкенд:` у всех шести —
+Отсюда два следствия для оставшихся пяти разделов ниже. Первое: строка `Бэкенд:` у них —
 «не реализован», и метка `Статус: спроектировано` здесь была бы **неверна** (она про отсутствие
 кода вообще, а эндпоинты клиент уже зовёт). Второе: схема хранения расходится с формами фронта, и
 расхождения перечислены в «Правилах домена» — их разрешает бэкенд, а не фронт.
@@ -134,12 +136,16 @@ interface CategoryListItem {
 (`useProductCard.ts:132`). Чем сервер обязан отдавать полный справочник — не решено (осталось,
 см. «Оставлено владельцу», строка 8).
 
-Бэкенд: **не реализован** — роутов у домена ноль. Схема при этом хранит колонками ровно то, что
-мок считает при чтении: `field_count`, `product_count`, `level`
+Бэкенд: **реализован** — слайс `products.list_categories`
+(`backend/app/modules/products/features/list_categories/`: `schemas.py`, `repository.py`,
+`domain.py`, `action.py`), роутер зарегистрирован в `backend/app/main.py`. Схема при этом хранит
+колонками ровно то, что слайс считает при чтении: `field_count`, `product_count`, `level`
 (`backend/app/modules/products/shared/models.py:33-41`; миграция
-`25245d4bf874_phase_3_categories_products.py:34-36`), а `parent_name` не имеет вовсе.
+`25245d4bf874_phase_3_categories_products.py:34-36`), а `parent_name` не имеет вовсе — слайс
+считает оба значения по `parent_id`, а не читает эти колонки.
 Реализация: `services/categoriesService.ts:getCategories` · мок `mocks/index.ts:415` →
-`mocks/categories.ts:mockGetCategories`
+`mocks/categories.ts:mockGetCategories` · бэкенд
+`backend/app/modules/products/features/list_categories/action.py:list_categories`
 
 ---
 

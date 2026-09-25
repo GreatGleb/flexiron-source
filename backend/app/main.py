@@ -62,6 +62,9 @@ from app.modules.clients.features.read_clients.action import (
 from app.core.uploads.action import (
     router as uploads_router,
 )
+from app.modules.products.features.list_categories.action import (
+    router as products_list_categories_router,
+)
 
 
 @asynccontextmanager
@@ -135,6 +138,7 @@ app.include_router(auth_login_router)
 app.include_router(auth_register_router)
 app.include_router(auth_magic_link_router)
 app.include_router(uploads_router)
+app.include_router(products_list_categories_router)
 
 
 @app.get("/health")

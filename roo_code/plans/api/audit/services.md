@@ -52,7 +52,7 @@
 > **Роутов ноль.** Модуль состоит из модели и двух файлов-заглушек: `internal_api/interface.py`
 > — одна строка докстринга, `shared/dependencies.py` — одна строка докстринга;
 > `grep -rn "@router\." backend/app/modules/services --include=*.py` → пусто, и в
-> `backend/app/main.py:81-89` подключены девять роутеров, ни одного из `services`.
+> `backend/app/main.py:84-92` подключены девять роутеров, ни одного из `services`.
 
 ## Эндпоинты
 
@@ -65,7 +65,7 @@
 - Коды ошибок: один — `CATALOG_SERVICE_NOT_FOUND`, и бросает его **ветка мока, а не функция**: `mockDeleteService` возвращает `false` (`mocks/services.ts:170`), а `throw` стоит в `mocks/index.ts:1519`. Имя выбрано так, чтобы не быть подстрокой `ORDER_SERVICE_NOT_FOUND` — фронт сравнивает коды подстрокой, причина записана в `mocks/orders.ts:376-378`. Ни один код до человека не доходит: `useServices.deleteService` ловит любую ошибку и показывает один тост `services.toast_error_delete` (`frontend_vue/src/composables/useServices.ts:45-47`), кода в нём нет. Проверки «услуга используется в заказах» нет нигде: `mockDeleteService` (`mocks/services.ts:168-173`) смотрит только на существование.
 - Save-режим: quick-action. `confirmDelete` открывает модалку подтверждения (`frontend_vue/src/views/admin/products/ServicesPage.vue:110-113`), `handleDelete` шлёт запрос сразу (`:115-120`), после успеха список перезапрашивается (`useServices.ts:44`).
 - Пробел контракта: старый раздел (`roo_code/roo-context/03-api-contract.md:1195-1199`) неверен в двух местах из трёх. Обещанного кода `SERVICE_NOT_FOUND` в коде нет — реальный `CATALOG_SERVICE_NOT_FOUND` (`mocks/services.ts:136`, `:151`, `mocks/index.ts:1519`), и это не опечатка, а осознанное имя (`mocks/orders.ts:376-378`). Обещанного 409 `SERVICE_IN_USE` нет **нигде**: `grep -rn "SERVICE_IN_USE" backend/app frontend_vue/src` → пусто, удаление используемой заказами услуги проходит. Не сказано и то, что заказ переживает удаление: строка заказа хранит снимок имени и себестоимости на момент добавления (`mocks/orders.ts:2418-2428`), поэтому старые документы не рушатся, а вот **добавить** удалённую услугу в заказ уже нельзя — `serviceEntry` бросает (`mocks/orders.ts:375-379`).
-- Источник истины: мок + клиент (бэкенда нет — роутов у модуля ноль, `backend/app/main.py:81-89`).
+- Источник истины: мок + клиент (бэкенда нет — роутов у модуля ноль, `backend/app/main.py:84-92`).
 
 ### GET /api/services
 - Вызывающий: `src/services/servicesService.ts:23`

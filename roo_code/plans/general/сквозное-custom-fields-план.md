@@ -168,7 +168,7 @@
 
 - `CATEGORY_FIELDS_IN_USE` — «поле убрано из набора, а значения у товаров заполнены», назначен
   2026-09-10, и прямо помечен как зависящий от решения, которым стал П73
-  ([`categories.md:59`](../../roo-context/api/categories.md)).
+  ([`categories.md:61`](../../roo-context/api/categories.md)).
 - `FIELD_IS_BUILTIN` ([`config.md:572`](../../roo-context/api/config.md)) и `FIELD_NAME_TAKEN` —
   про правку библиотеки, к жизненному циклу значения отношения не имеют.
 - `usageCount` «считать не из чего» ([`config.md:858`](../../roo-context/api/config.md)) — под П68
