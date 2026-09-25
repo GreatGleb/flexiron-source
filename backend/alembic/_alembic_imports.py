@@ -65,3 +65,6 @@ from app.modules.notifications.shared.models import Notification  # noqa: F401, 
 from app.modules.clients.shared.models import (  # noqa: F401, E402
     Client, ClientInteraction,
 )
+
+# Audit module (shared change-history journal)
+from app.modules.audit.shared.models import AuditEntry  # noqa: F401, E402

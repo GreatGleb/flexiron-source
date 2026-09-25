@@ -15,13 +15,19 @@
 Находки про код: шесть, в
 [`roo_code/plans/bugs/contract-sync-audit-feed-bugs.md`](../../plans/bugs/contract-sync-audit-feed-bugs.md).
 
-**Источник истины — мок и клиент.** Модуля `audit-feed` на бэкенде нет
-(`ls backend/app/modules/` — десять модулей, `grep -rn "audit-feed" backend/` — пусто), роутов
-ноль. Из девяти логов, которые лента сливает, на схеме существуют **два**:
-`stock_audit_entries` — журнал **партии**, а не остатка
-(`backend/app/modules/warehouse/shared/models.py:232`, `:240-245`) и `supplier_audit_entries`
-(`backend/app/modules/suppliers/shared/models.py:175`, `:181-186`). Под остальные семь видов —
-`product`, `order`, `client`, `stock`, `offcut`, `movement`, `deficit` — таблицы нет ни одной.
+**Источник истины — мок и клиент.** Роутов у домена по-прежнему ноль
+(`grep -rn "audit-feed" backend/` — пусто), но с 2026-09-25 модуль-хранилище есть:
+`ls backend/app/modules/` — двенадцать модулей, среди них `audit` с единственной моделью
+`AuditEntry` (`__tablename__ = "audit_entries"`) и `internal_api` с функцией записи одной строки и
+функцией чистки по сущности — задача M1 плана домена, только хранилище, без единого слайса чтения
+и без единой строки записи от девяти доменов-писателей. Из девяти логов, которые лента сливает, на
+схеме существуют **два прежних плюс новая общая, пустая**: `stock_audit_entries` — журнал
+**партии**, а не остатка (`backend/app/modules/warehouse/shared/models.py:232`, `:240-245`),
+`supplier_audit_entries` (`backend/app/modules/suppliers/shared/models.py:175`, `:181-186`) и
+`audit_entries` — ни строки в ней нет, перенос двух прежних и запись от остальных семи видов в неё
+не сделаны этой задачей. Под остальные семь видов — `product`, `order`, `client`, `stock`,
+`offcut`, `movement`, `deficit` — своей таблицы по-прежнему нет ни одной; общая `audit_entries` их
+не подменяет, пока перенос и запись не сделаны.
 
 **Метка `Статус: спроектировано` домену не подходит:** оба эндпоинта зовёт живой клиент.
 
