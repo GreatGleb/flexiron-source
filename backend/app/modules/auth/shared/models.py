@@ -28,9 +28,19 @@ class Tenant(UUIDMixin, TimestampMixin, Base):
     )
 
     # Relationships
-    users: Mapped[list["User"]] = relationship(
-        "User", back_populates="tenant", cascade="all, delete-orphan"
-    )
+    # Без `delete-orphan` осознанно: внешний ключ `User.tenant_id` объявлен
+    # `ondelete="RESTRICT"`, то есть база отказывается удалять арендатора, пока у него
+    # есть пользователи. Каскад ORM обещал обратное — удалить их вместе с ним, — и два
+    # слоя противоречили друг другу: защита существовала только для сырого SQL, а через
+    # ORM снималась. Выровнено по более строгой стороне, потому что обратное направление
+    # (сменить ключ на `CASCADE`) означает миграцию И тихое удаление пользователей.
+    #
+    # Стоит знать, что `RESTRICT` здесь — единственный на 47 внешних ключей на
+    # `tenants.id`; остальные `CASCADE`. Осознанный ли это выбор, история не говорит:
+    # строка пришла общим коммитом «refactored backend». Если владелец решит, что
+    # арендатор должен удаляться вместе с пользователями, правильная правка — ключ и
+    # миграция, а не возврат каскада сюда.
+    users: Mapped[list["User"]] = relationship("User", back_populates="tenant")
 
     def __repr__(self) -> str:
         return f"<Tenant {self.slug}>"

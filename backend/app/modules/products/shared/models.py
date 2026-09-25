@@ -43,7 +43,7 @@ class Category(UUIDMixin, TimestampMixin, Base):
     # Self-referencing relationships
     children: Mapped[list["Category"]] = relationship(
         "Category", back_populates="parent",
-        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
     parent: Mapped["Category | None"] = relationship(
         "Category", back_populates="children",
