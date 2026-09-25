@@ -247,7 +247,7 @@ monthStart.setHours(0, 0, 0, 0)      // orders.ts:1581-1583
 
 Пояса арендатора при этом нет нигде: `grep -ci "timezone" frontend_vue/src/types/settings.ts` →
 `0`; на бэкенде единственное совпадение — свойство колонки `DateTime(timezone=True)`
-(`backend/app/modules/settings/shared/models.py:54`). Тот же пробел у соседа —
+(`backend/app/modules/settings/shared/models.py:56`). Тот же пробел у соседа —
 `00-решения-владельца.md`, строка `audit-feed · Настройки, которых мок не отслеживает`.
 
 ### Fix

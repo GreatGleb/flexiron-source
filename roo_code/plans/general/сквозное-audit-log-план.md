@@ -22,7 +22,7 @@
 Дословно, с номером П. Источник — `roo_code/plans/api/audit/00-решения-владельца.md`, нарезка
 под эту тему лежала в `/tmp/night-queue-briefs/решения-audit-log.md`; сводка тех же решений
 уже внесена в [§9 соглашений](../../roo-context/api/00-conventions.md) — строки `591`–`709`,
-заголовок `## 9. Аудит-лог: одна таблица, девять видов сущности` на `00-conventions.md:591`.
+заголовок `## 9. Аудит-лог: одна таблица, девять видов сущности` на `00-conventions.md:608`.
 
 **П36 — что пишется.**
 
@@ -124,7 +124,7 @@
 |---|---|
 | Таблицы `audit_entries` нет | `grep -rn "audit_entries" backend/` даёт только два **других** имени и одно имя связи: `stock_audit_entries` (`backend/app/modules/warehouse/shared/models.py:289`), `supplier_audit_entries` (`backend/app/modules/suppliers/shared/models.py:174`), и атрибут `audit_entries` у поставщика (`suppliers/shared/models.py:68-70`) |
 | Колонки `entity_type` в журнале нет | `grep -rn "entity_type" backend/app --include=*.py` → две строки, обе не журнальные: `related_entity_type` у финансов (`backend/app/modules/finance/shared/models.py:111`) и `entity_type` у уведомлений (`backend/app/modules/notifications/shared/models.py:33`) |
-| Ключ — не UUIDv7 | обе таблицы наследуют `UUIDMixin`, а он даёт `default=uuid.uuid4` (`backend/app/core/base.py:18-22`); `grep -rn "uuid7\|uuid_v7\|UUIDv7"` по `backend/` и `frontend_vue/src` — ни одного совпадения |
+| Ключ — не UUIDv7 | обе таблицы наследуют `UUIDMixin`, а он даёт `default=uuid.uuid4` (`backend/app/core/base.py:34-39`); `grep -rn "uuid7\|uuid_v7\|UUIDv7"` по `backend/` и `frontend_vue/src` — ни одного совпадения |
 | Эндпоинтов журнала на бэкенде нет | ни одного вертикального слайса: `ls backend/app/modules/*/features/` даёт `auth` (login, magic_link, me, register), `bcc/send_request`, `products` (create_product, get_product_detail), `settings` (crud, profile) — и всё; `grep -rn "audit" backend/app/main.py` пуст |
 | Признака `sensitive` нет ни у одной из двух таблиц | `warehouse/shared/models.py:286-315` и `suppliers/shared/models.py:171-202` — колонок восемь, `sensitive` среди них нет |
 
@@ -203,8 +203,8 @@
 
 ### 2.7. Дефект самого текста соглашений, который чинится здесь, а не доменом
 
-§9 соглашений противоречит сам себе: на `00-conventions.md:670` стоит «**Мета-записи об
-удалении не будет:**», а на `00-conventions.md:699` — «**Мета-запись об удалении есть, но не в
+§9 соглашений противоречит сам себе: на `00-conventions.md:687` стоит «**Мета-записи об
+удалении не будет:**», а на `00-conventions.md:716` — «**Мета-запись об удалении есть, но не в
 ленте** (П40)». Первое — записанное до П40 прочтение автора сводки, которое владелец затем
 отменил; оно подлежит снятию. Домен этого сделать не может: файл общий, и семнадцать
 параллельных правок одного абзаца затрут друг друга (правило 5 «Плана для автономного прогона»
@@ -476,7 +476,7 @@
       `StockAuditEntry` (`frontend_vue/src/types/warehouse.ts:526-534`), снятие `sensitive` из
       `OrderAuditEntry` (`frontend_vue/src/types/order.ts:591-606`) как отдельного свойства заказа.
 - [ ] **S4. Починка §9 соглашений:** снять отменённое «Мета-записи об удалении не будет»
-      (`roo_code/roo-context/api/00-conventions.md:670`), оставив П40 (`:699`); заголовок §9
+      (`roo_code/roo-context/api/00-conventions.md:687`), оставив П40 (`:699`); заголовок §9
       обновить с девяти видов на десять после П42 (`:591`, строка таблицы `:688` уже говорит
       «десять»).
 
@@ -647,7 +647,7 @@ grep -rn "AUDIT_ENTRY_NOT_FOUND" frontend_vue/src --include=*.ts | wc -l      # 
 
 | # | Задача | Зависит от |
 |---|---|---|
-| 1 | S4 — починка §9 соглашений (`00-conventions.md:670`, `:591`) | — |
+| 1 | S4 — починка §9 соглашений (`00-conventions.md:687`, `:591`) | — |
 | 2 | Класс B, пункт B1 — десятое значение перечня (файл общий, одна задача) | — |
 | 3 | S3 — общая структура записи на проводе (`userId`, `sensitive`) | 2 |
 | 4 | S1 — миграция: одна таблица, слияние двух | 3 |

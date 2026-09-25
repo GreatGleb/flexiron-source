@@ -130,8 +130,12 @@ class OrderItem(UUIDMixin, Base):
     # Lifecycle. `state` is deliberately NOT added: the contract says it is
     # derived from quantity vs. shipped_quantity, never set by hand (§2
     # "Строка заказа", "state выводится из количеств").
-    shipped_quantity: Mapped[float] = mapped_column(Numeric(14, 4), nullable=False, default=0)
-    document_issued: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    shipped_quantity: Mapped[float] = mapped_column(
+        Numeric(14, 4), nullable=False, default=0, server_default="0"
+    )
+    document_issued: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
 
     # `totalPrice`/`discount` (the discount amount) are deliberately NOT
     # added: the contract names them a projection for old parts of the UI,

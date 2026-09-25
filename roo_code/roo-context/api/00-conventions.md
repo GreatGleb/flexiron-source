@@ -228,7 +228,7 @@ use it» (`composables/useOrderPermissions.ts:6-10`). Тарифная стор�
 Тип уже описан: `PermissionAction = 'read' | 'edit' | 'create' | 'delete'`
 (`types/config.ts:35`), `PermissionMatrix` с `roles`, `users`, `rolePermissions`,
 `userPermissions`, `items` (`:37-57`). Схема бэкенда — его точная копия: `permission_items`,
-`role_permissions`, `user_permissions` (`backend/app/modules/auth/shared/models.py:145-236`).
+`role_permissions`, `user_permissions` (`backend/app/modules/auth/shared/models.py:165-256`).
 
 Обязанность, которой сегодня нет: **перечень элементов матрицы обязан покрыть все домены.**
 Сейчас элементы строятся только из секций и полей карточки поставщика
@@ -246,7 +246,7 @@ use it» (`composables/useOrderPermissions.ts:6-10`). Тарифная стор�
 Умолчание: **кто вправе обновлять сущность, тот вправе и это.** При необходимости операцию
 заводят отдельным элементом матрицы и настраивают право на неё точечно. Схема это уже
 допускает: `item_type` — `String(20)` без ограничения
-(`backend/app/modules/auth/shared/models.py:160-161`).
+(`backend/app/modules/auth/shared/models.py:180-181`).
 
 ### 6.3. Роли
 
@@ -257,7 +257,7 @@ use it» (`composables/useOrderPermissions.ts:6-10`). Тарифная стор�
   Роль `Sales` в типизированный перечень не входит вовсе; строчное `'sales'` в коде —
   ключ страницы аналитики (`types/analytics.ts:6`), не роль.
 - **Многоролевость — верная форма.** Таблица `user_roles`
-  (`backend/app/modules/auth/shared/models.py:87-109`) остаётся; колонка `users.role`
+  (`backend/app/modules/auth/shared/models.py:107-129`) остаётся; колонка `users.role`
   (`:60-63`, помечена `⚠️ DEPRECATED`) — легаси и наружу как источник роли не годится, хотя
   сегодня отдаётся именно она (`settings/features/profile/domain.py:57`, `:106`, а также
   схемы `login`, `me`, `register`).
@@ -295,7 +295,7 @@ use it» (`composables/useOrderPermissions.ts:6-10`). Тарифная стор�
 
 Обязанность, которая отсюда следует и которой сегодня нет: **элементу матрицы нужен домен.**
 Знаменатель правила 90 % — «элементы того же домена», а у `PermissionItem` есть `item_type` и
-`parent_id` и ни одной колонки домена (`backend/app/modules/auth/shared/models.py:145-167`).
+`parent_id` и ни одной колонки домена (`backend/app/modules/auth/shared/models.py:165-187`).
 Пока элементы строятся из одного экрана поставщика (6.2), домен всего один и знаменатель
 вырожден; как только перечень покроет все домены, как того же 6.2 и требует, считать долю станет
 нечем — колонки, по которой группировать, нет.
@@ -313,12 +313,29 @@ use it» (`composables/useOrderPermissions.ts:6-10`). Тарифная стор�
 модель роли осталась говорить `false`, модель пользователя — ничего. Привела всех к `false`
 ревизия `f1c4a8e07b26_matrix_can_read_defaults_false.py`.
 
-**Почему никто не заметил: `alembic check` не сравнивает `server_default`.** Для этого нужен
-`compare_server_default=True`, а он на этой схеме падает на JSON-колонках
-(`SELECT '[]'::json = '[]'` — нет оператора). То есть линза Б2 ловит состав колонок и
-nullability, но НЕ умолчания; расхождение модели с базой по умолчанию сегодня невидимо машине.
-Сторож `backend/tests/modules/auth/test_role_conventions.py` закрывает это для матрицы прав
-чтением модели и ревизии, но только для неё.
+**Почему никто не заметил: `alembic check` не сравнивал `server_default`. Теперь сравнивает.**
+До 2026-09-25 для этого нужен был `compare_server_default=True`, а он на этой схеме ПАДАЛ на
+JSON-колонках (`SELECT '[]'::json = '[]'` — у типа `json` нет оператора `=`), и потому стоял
+выключенным: линза Б2 ловила состав колонок и nullability, но не умолчания.
+
+Причиной оказался не сам Alembic, а три колонки `suppliers` — `categories`, `tags`, `bcc_emails`:
+`jsonb` с умолчанием типа `json`, наследство смены типа (`ALTER COLUMN ... TYPE` умолчание не
+переписывает). Починены ревизией `a3f70b219c84_suppliers_jsonb_defaults.py`; обходить
+JSON-колонки в сравнении не стали — обход спрятал бы дефект вместе с симптомом. Флаг включён в
+`backend/alembic/env.py`.
+
+Включение сразу окупилось: кроме 54 ключей `id` (в базе `gen_random_uuid()`, в модели не
+объявлено — поправлено одной строкой в `UUIDMixin`), `company_info.name` и двух полей
+`order_items`, нашлось **второе издание той же болезни** — `users.role`: первая миграция
+`3a0b5d31bde7` выписала `server_default="user"`, модель со временем стала утверждать `"owner"`,
+ревизии между ними не случилось. Модель приведена к базе (`"user"`): серверное умолчание там
+недостижимо — `features/register/repository.py` передаёт роль явно, — а если сработает, `user`
+есть наименьшее право, тогда как `owner` наибольшее. Питоновский `default="owner"` оставлен;
+свести оба уровня к одному значению — решение владельца, и `check` потребует под него ревизию.
+
+Сторож `backend/tests/modules/auth/test_role_conventions.py` по-прежнему закрывает матрицу прав
+чтением модели и ревизии, но теперь он не единственная защита: умолчания всех моделей сторожит
+машина.
 Мок и схема теперь совпадают — расхождение, названное здесь ранее, починено.
 
 ### 6.5. Отказ — `403`
@@ -601,7 +618,7 @@ comm -23 /tmp/fe_keys.txt /tmp/be_keys.txt   # шесть; обратная ра
 `product_field_values.field_id` — `RESTRICT`
 (`backend/alembic/versions/25245d4bf874_phase_3_categories_products.py:46`, `:78`), а строку в
 `permission_items` не снимает никто — `item_id` там просто `String(100)` без связи
-(`auth/shared/models.py:156`), то есть осиротевшие права схема допускает. Это
+(`auth/shared/models.py:176`), то есть осиротевшие права схема допускает. Это
 [решение владельца №2](../../plans/api/audit/00-решения-владельца.md), расширенное случаем
 поставщика и случаем файлового поля (значение поля типа `file` хранит **имя** файла, а не `fileId`
 — `views/admin/products/ProductCardPage.vue:223-226`, `contract-sync-uploads-bugs.md`, БАГ-10).
@@ -1033,7 +1050,7 @@ interface PaginationParams { page: number; pageSize: number }     // types/api.t
   Записи истории живут в двух форматах (`2026-04-23 13:17` и полный ISO), поэтому парсер один на
   проект — `mocks/auditClock.ts:23-36`: строковая сортировка перемешала бы их неверно.
 - **`createdAt`/`updatedAt` ставит сервер и только он** — `server_default=func.now()` и
-  `onupdate=func.now()` (`backend/app/core/base.py:25-37`).
+  `onupdate=func.now()` (`backend/app/core/base.py:42-54`).
 - **Границу суток и месяца сервер режет по часовому поясу компании (П62, решено 2026-09-10).**
   Пояс — поле настроек компании; по нему считаются фильтр «с даты по дату» у журнала, граница
   месяца в сводке продаж и периоды отчётов аналитики. Сегодня день режется по Гринвичу, а время на
@@ -1101,7 +1118,7 @@ interface PaginationParams { page: number; pageSize: number }     // types/api.t
   конвертацию и строку владельца про многовалютную сумму.
 - **Валютой, единицами, правилами пересчёта, статусами заказа и четырьмя финансовыми константами
   владеет домен `settings`** (`vat_rate=21`, `default_margin=15`, `default_currency='EUR'`,
-  `default_discount_percent=0` — `backend/app/modules/settings/shared/models.py:49-69`, автосоздание
+  `default_discount_percent=0` — `backend/app/modules/settings/shared/models.py:51-71`, автосоздание
   `settings/features/crud/domain.py:196-198`). Сквозная беда: **эти значения продублированы
   константами во фронте почти в каждом домене** — заказ пишет литералами скидку, НДС и валюту
   (`mocks/orders.ts:1637-1641`), партия — `'EUR'` (`useWarehouseBatch.ts:120`), услуга —
@@ -1475,7 +1492,7 @@ save-режим.
 справочников зеркальная непоследовательность: `RESTRICT` у товаров и услуг
 (`modules/products/shared/models.py:118,142,149,156`, `modules/services/shared/models.py:33,40`),
 у складской партии `ondelete` стоит `SET NULL` (`modules/warehouse/shared/models.py:84,80`), а у
-правил пересчёта — `RESTRICT` (`modules/settings/shared/models.py:125,130`): каскад снят слайсом C1
+правил пересчёта — `RESTRICT` (`modules/settings/shared/models.py:127,130`): каскад снят слайсом C1
 (ревизия `7c4d1e9a3b58`), и правило молча больше не уносит.
 Под П44 всё, что ссылается на справочник, обязано стать `RESTRICT`, а под товаром
 и услугой политика перестаёт срабатывать вовсе: строка не удаляется.

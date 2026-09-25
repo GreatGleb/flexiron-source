@@ -82,7 +82,7 @@
 | эндпоинт | схема | контракт | кто прав | почему |
 |---|---|---|---|---|
 | оба | журналов на схеме **два**: `stock_audit_entries` с `batch_id` (`backend/app/modules/warehouse/shared/models.py:297`) и `supplier_audit_entries` с `supplier_id` (`backend/app/modules/suppliers/shared/models.py:182`) | лента девяти видов, где семи видов на схеме нет | **ни тот ни другой — П38** | журнал становится одной таблицей `audit_entries` с `entity_type`/`entity_id`; обе существующие сливаются и удаляются миграцией. Задача M1 |
-| оба | ключ — `UUIDMixin`, то есть `default=uuid.uuid4` (`backend/app/core/base.py:18-22`) | `entryId` — строка, форма не назначена | **П38: UUIDv7** | v4 разбрасывает вставки по индексу, v7 ложится в конец. Генератора v7 в проекте нет: `grep -rn "uuid7" backend/` пусто, в `backend/requirements.txt` пакета под него нет — это работа, а не переключение флага. Задача M1 |
+| оба | ключ — `UUIDMixin`, то есть `default=uuid.uuid4` (`backend/app/core/base.py:34-39`) | `entryId` — строка, форма не назначена | **П38: UUIDv7** | v4 разбрасывает вставки по индексу, v7 ложится в конец. Генератора v7 в проекте нет: `grep -rn "uuid7" backend/` пусто, в `backend/requirements.txt` пакета под него нет — это работа, а не переключение флага. Задача M1 |
 | оба | `old_value`, `new_value` — `Text`, `nullable=False` (`backend/app/modules/warehouse/shared/models.py:311`, `:255`) | `oldValue`/`newValue` — готовые строки на проводе | **П39 + АЛ-5**: хранится исходное, форматируется при чтении | одна колонка `Text` обслуживает одну локаль: запись, сделанная при русском интерфейсе, останется русской английскому читателю. **Форму колонки под «исходное значение» не назначил никто** — ни П39, ни АЛ-5; это блокирующий вопрос сквозной дорожки, В7 |
 | оба | `property_translations` — JSONB (`backend/app/modules/warehouse/shared/models.py:310`) | `property` — `TranslatedString` (`frontend_vue/src/types/audit.ts:71`) | **оба** | редкое место, где схема и фронт согласны; переносится в общую таблицу как есть |
 | оба | колонки `sensitive` нет ни у одной из двух таблиц | строка ленты признака не несёт — десять полей `AuditFeedRow` (`frontend_vue/src/types/audit.ts:63-74`) | **П5 + АЛ-7а: колонка обязательна** | чтобы вырезать помеченное, надо пометить; сегодня право `seeCost` обходится лентой — БАГ-01. Задачи M1, F1, S3 |
@@ -653,7 +653,7 @@ npm run verify
 Форма модели — ровно поля АЛ-3, ни больше ни меньше: `tenant_id`, `entity_type`, `entity_id`,
 `user_id` (`SET NULL`), `user_name_translations`, `user_initials`, `property_translations`,
 `old_value`, `new_value`, `sensitive`, `timestamp`. Ключ — UUIDv7; `UUIDMixin` не подходит, он
-даёт `uuid.uuid4` (`backend/app/core/base.py:18-22`), поэтому генератор v7 — часть задачи.
+даёт `uuid.uuid4` (`backend/app/core/base.py:34-39`), поэтому генератор v7 — часть задачи.
 `entity_label` колонкой **не заводится** (§17). Индексы: `(tenant_id, timestamp DESC, id)` — под
 основной запрос ленты; `(tenant_id, entity_type, entity_id)` — под чистку записей удалённой
 сущности (АЛ-9) и под фильтр вида.

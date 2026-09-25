@@ -208,7 +208,7 @@ invalid» — сработает ветка `company code` и подсветит
 
 ## БАГ-08 — сессии пишутся в БД и не читаются никогда
 
-**File:** `backend/app/modules/auth/features/login/repository.py:26-45`, `backend/app/modules/auth/features/me/action.py:52`, `backend/app/modules/auth/shared/models.py:111-139`
+**File:** `backend/app/modules/auth/features/login/repository.py:26-45`, `backend/app/modules/auth/features/me/action.py:52`, `backend/app/modules/auth/shared/models.py:131-159`
 **Severity:** High — отозвать сессию нечем: выданный токен действителен до истечения подписи, что бы ни делал пользователь и что бы ни делал администратор.
 **Источник:** аудит домена 2026-09-04, К6 (обязанности сервера), К5
 
@@ -276,7 +276,7 @@ invalid» — сработает ветка `company code` и подсветит
 
 ## БАГ-10 — CSRF-токен генерируется, хранится и отдаётся, но не проверяется нигде
 
-**File:** `frontend_vue/src/composables/useAuth.ts:106`, `backend/app/modules/auth/features/login/domain.py:44-46,75`, `backend/app/modules/auth/shared/models.py:124`
+**File:** `frontend_vue/src/composables/useAuth.ts:106`, `backend/app/modules/auth/features/login/domain.py:44-46,75`, `backend/app/modules/auth/shared/models.py:144`
 **Severity:** Medium — защита существует только в виде церемонии: клиент шлёт заголовок, сервер его не смотрит.
 **Источник:** аудит домена 2026-09-04, К6 (транзакционность и идемпотентность)
 

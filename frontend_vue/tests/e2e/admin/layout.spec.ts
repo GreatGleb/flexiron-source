@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test'
 import { test, expect } from '../fixtures'
 import { navigateToAdmin } from '../helpers/admin'
-import { waitForFontsReady } from '../helpers/visual'
+import { waitForFontsReady, SNAPSHOT_OPTIONS } from '../helpers/visual'
 import { waitForDataReady } from '../helpers/ready'
 
 /**
@@ -365,6 +365,7 @@ test.describe('admin layout › visual @1440', () => {
   test('sidebar expanded', async ({ page }) => {
     await expect(page.locator('[data-test="sidebar-root"]')).toHaveScreenshot(
       'layout-sidebar-expanded.png',
+      SNAPSHOT_OPTIONS,
     )
   })
 
@@ -405,11 +406,15 @@ test.describe('admin layout › visual @1440', () => {
 
     await expect(page.locator('[data-test="sidebar-root"]')).toHaveScreenshot(
       'layout-shell-left-with-sidebar-collapsed.png',
+      SNAPSHOT_OPTIONS,
     )
   })
 
   test('topbar', async ({ page }) => {
-    await expect(page.locator('[data-test="topbar-root"]')).toHaveScreenshot('layout-topbar.png')
+    await expect(page.locator('[data-test="topbar-root"]')).toHaveScreenshot(
+      'layout-topbar.png',
+      SNAPSHOT_OPTIONS,
+    )
   })
 })
 
@@ -423,6 +428,7 @@ test.describe('admin layout › responsive', () => {
     await waitForFontsReady(page)
     await expect(page.locator('[data-test="admin-shell"]')).toHaveScreenshot(
       'layout-shell-1440.png',
+      SNAPSHOT_OPTIONS,
     )
   })
 
@@ -430,13 +436,19 @@ test.describe('admin layout › responsive', () => {
     await page.setViewportSize(TABLET)
     await openDashboardShell(page)
     await waitForFontsReady(page)
-    await expect(page.locator('[data-test="admin-shell"]')).toHaveScreenshot('layout-shell-768.png')
+    await expect(page.locator('[data-test="admin-shell"]')).toHaveScreenshot(
+      'layout-shell-768.png',
+      SNAPSHOT_OPTIONS,
+    )
   })
 
   test('shell @ 375 (mobile)', async ({ page }) => {
     await page.setViewportSize(MOBILE)
     await openDashboardShell(page)
     await waitForFontsReady(page)
-    await expect(page.locator('[data-test="admin-shell"]')).toHaveScreenshot('layout-shell-375.png')
+    await expect(page.locator('[data-test="admin-shell"]')).toHaveScreenshot(
+      'layout-shell-375.png',
+      SNAPSHOT_OPTIONS,
+    )
   })
 })

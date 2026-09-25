@@ -13,7 +13,7 @@
 >
 > Замер, по которому объём сужен: числовых констант в `global_constants` сегодня **три** —
 > `vat_rate`, `default_margin`, `default_discount_percent`
-> (`backend/app/modules/settings/shared/models.py:49,52,55`). Четвёртое поле,
+> (`backend/app/modules/settings/shared/models.py:51,52,55`). Четвёртое поле,
 > `default_currency` (`:50`), — строка, и его снимает C1. То есть П108–110 покрывают
 > **все** сегодняшние числовые константы, и работа по ним ни от какого вопроса не висит.
 >

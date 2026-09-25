@@ -233,7 +233,7 @@ function authHeaders(): Record<string, string> | undefined {
 
 ## БАГ-07 — удаление единицы измерения молча сносит правила пересчёта ✅
 
-**File:** `backend/app/modules/settings/shared/models.py:125,130`, `backend/app/modules/settings/features/crud/domain.py:397-408`
+**File:** `backend/app/modules/settings/shared/models.py:127,130`, `backend/app/modules/settings/features/crud/domain.py:397-408`
 **Severity:** High — матрица пересчёта теряет строки без предупреждения и без следа.
 **Источник:** К5
 
@@ -342,7 +342,7 @@ PATCH констант (`:353-356`), и все они уходят одним `P
 
 ## БАГ-10 — уникальность кода валюты проверяется только при создании ✅
 
-**File:** `backend/app/modules/settings/features/crud/domain.py:287-320`, `backend/app/modules/settings/shared/models.py:89-91`
+**File:** `backend/app/modules/settings/features/crud/domain.py:287-320`, `backend/app/modules/settings/shared/models.py:91-93`
 **Severity:** Medium — PATCH с занятым кодом упрётся в ограничение БД и вылетит необработанной ошибкой драйвера вместо 409.
 **Источник:** К3
 
@@ -560,7 +560,7 @@ reader.readAsDataURL(file)
 (`SettingsLayout.vue:344-349`), и
 подменяет превью. Но `updateCompany` помечает секцию грязной (`useSettings.ts:565`), и
 Save, нажатый в промежутке, отправит PATCH с base64. Колонка это примет: `logo_url` — `Text`
-(`backend/app/modules/settings/shared/models.py:29`, расширена миграцией
+(`backend/app/modules/settings/shared/models.py:31`, расширена миграцией
 `backend/alembic/versions/15f2c7d4e9b0_enlarge_logo_url_to_text.py`). Старый контракт
 утверждает обратное — «Клиент **не** шлёт base64»
 (старый раздел `PATCH /api/settings/company`).
