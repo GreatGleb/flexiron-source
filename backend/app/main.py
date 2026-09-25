@@ -71,6 +71,9 @@ from app.core.uploads.action import (
 from app.modules.products.features.list_categories.action import (
     router as products_list_categories_router,
 )
+from app.modules.services.features.catalog.action import (
+    router as services_catalog_router,
+)
 
 
 @asynccontextmanager
@@ -147,6 +150,7 @@ app.include_router(auth_register_router)
 app.include_router(auth_magic_link_router)
 app.include_router(uploads_router)
 app.include_router(products_list_categories_router)
+app.include_router(services_catalog_router)
 
 
 @app.get("/health")

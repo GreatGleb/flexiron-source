@@ -9,13 +9,15 @@
 Места, где неверным выглядит сам код, — [`contract-sync-services-bugs.md`](../../plans/bugs/contract-sync-services-bugs.md)
 (восемь находок, код не тронут).
 
-**Источник истины этого домена — мок и клиент, а не бэкенд.** Модуль
-`backend/app/modules/services/` существует, но состоит из модели и двух файлов-заглушек:
-роутов ноль (`grep -rn "@router\." backend/app/modules/services --include=*.py` — пусто),
-слайсов ноль (`backend/app/modules/services/features/` содержит только `__init__.py`), и в
-`backend/app/main.py:87-95` подключены девять роутеров, ни одного из `services`. Поэтому у
-каждого раздела ниже стоит `Бэкенд: не реализован` — метка `Статус: спроектировано` здесь была
-бы **неверна**: код есть, отсутствует именно серверная половина уже работающего эндпоинта.
+**Источник истины сменился для трёх эндпоинтов из пяти.** Слайс
+`backend/app/modules/services/features/catalog/` реализует `GET /api/services/{id}`,
+`POST /api/services` и `PATCH /api/services/{id}`, роутер подключён в `backend/app/main.py`
+(`services_catalog_router`): `grep -rn "@router\." backend/app/modules/services --include=*.py`
+даёт три маршрута — `get`, `post`, `patch`. Для этих трёх разделов ниже метка `Бэкенд: не
+реализован` снята, и мок для них перестаёт быть источником истины. Список и удаление
+слайса по-прежнему не имеют: `backend/app/modules/services/features/` кроме `catalog/`
+содержит только `__init__.py`, и у обоих оставшихся разделов ниже метка `Бэкенд: не
+реализован` сохранена.
 
 Потребители: [`composables/useServices.ts`](../../../frontend_vue/src/composables/useServices.ts)
 (список, удаление), [`composables/useServiceCard.ts`](../../../frontend_vue/src/composables/useServiceCard.ts)
@@ -164,7 +166,8 @@ interface Service {
 (`mocks/services.ts:42-78`). Текст любой сетевой ошибки клиент кладёт в `error` и показывает как
 есть (`useServices.ts:33-35`).
 
-Бэкенд: **не реализован** (роутов у модуля ноль)
+Бэкенд: **не реализован** (в `catalog/` списочного маршрута нет — слайс закрывает только
+карточку, создание и правку)
 Реализация: `services/servicesService.ts:12-24` (`getServices`) · мок `mocks/index.ts:454`
 (`mockGetServices`, `mocks/services.ts:42`) · потребители `useServices.ts:22-38` и
 `AddOrderServicesModal.vue:210-213`
@@ -200,18 +203,23 @@ submit, после успеха форма сбрасывается к дефо�
 Ответ: `Service` целиком с серверными `id`, `createdAt`, `updatedAt`
 (`mocks/services.ts:119-129`).
 
-Обязательность полей: тип требует пять из шести (`types/service.ts:42-49`), но **на проводе не
-проверяется ничто** — мок `name` читает, но не проверяет: приводит к `TranslatedString` и
-кладёт как есть (`mocks/services.ts:108-109`), пустую строку принимая наравне с непустой;
-единственная
-проверка живёт в форме: `if (!createForm.name.trim()) return` (`ServicesPage.vue:83`).
-Отрицательную цену не отвергает никто. Обещанного прежним контрактом 422 `VALIDATION_ERROR` без
-`name` в коде нет — см. «Что осталось нерешённым», п. 6.
+Обязательность полей: тип требует пять из шести (`types/service.ts:42-49`), и **теперь это же
+требует сервер**: схема `ServiceCreateInput` в слайсе `catalog` объявляет `name`, `costPrice`,
+`sellingPrice`, `currencyId`, `uomId` обязательными, `description` — необязательным, и отклоняет
+отрицательные `costPrice`/`sellingPrice` (422, форма ошибки — pydantic-массив, код
+`VALIDATION_ERROR` по [§1](00-conventions.md#1-конверт-ответа-три-формы-а-не-одна)). **Мок при
+этом не изменился и остаётся слабее**: `name` читает, но не проверяет — приводит к
+`TranslatedString` и кладёт как есть (`mocks/services.ts:108-109`), пустую строку принимая
+наравне с непустой; единственная проверка на клиенте — `if (!createForm.name.trim()) return`
+(`ServicesPage.vue:83`). Расхождение — свойство мока ([§18](00-conventions.md#18-чем-мок-отличается-от-обязанностей-сервера)),
+а не отступление от решения владельца (см. «Что осталось нерешённым», п. 6 — решение уже снято,
+теперь оно реализовано).
 
 Ошибки: `SERVICE_CURRENCY_NOT_FOUND`, `SERVICE_UOM_NOT_FOUND` — проверка валюты и единицы по
 справочникам `settings` до записи (`mocks/services.ts:88-95`, вызов `:115`).
 
-Бэкенд: **не реализован**
+Бэкенд: слайс `backend/app/modules/services/features/catalog/` (`create_service_catalog_entry`),
+роутер зарегистрирован в `app/main.py`
 Реализация: `services/servicesService.ts:30-41` (`createService`) · мок `mocks/index.ts:957`
 (`mockCreateService`, `mocks/services.ts:97`) · потребитель `ServicesPage.vue:82-108`
 
@@ -237,7 +245,8 @@ submit, после успеха форма сбрасывается к дефо�
 на любую непустую `error` рисует «сущность не найдена» (`ServiceCardPage.vue:62-78`). Сервер
 обязан отвечать 404 с кодом, а не 500 (`§2` соглашений).
 
-Бэкенд: **не реализован**
+Бэкенд: слайс `backend/app/modules/services/features/catalog/` (`get_service_detail`), тенант
+берётся из `Depends(get_current_user)`, чужая услуга отвечает 404 `CATALOG_SERVICE_NOT_FOUND`
 Реализация: `services/servicesService.ts:26-28` (`getService`) · мок `mocks/index.ts:467`
 (`mockGetService`, `mocks/services.ts:134`) · потребитель `useServiceCard.ts:42-62`
 
@@ -293,7 +302,9 @@ submit, после успеха форма сбрасывается к дефо�
 другого). Поведение — last-write-wins, как в шестнадцати доменах из семнадцати; исключение
 только у заказов ([§11](00-conventions.md#11-идемпотентность-и-оптимистичная-блокировка)).
 
-Бэкенд: **не реализован**
+Бэкенд: слайс `backend/app/modules/services/features/catalog/` (`patch_service_catalog_entry`) —
+merge-patch по `exclude_unset`, итоговая пара валюта+единица проверяется, даже когда дельта несёт
+только одну половину
 Реализация: `services/servicesService.ts:52-73` (`patchService`) · мок `mocks/index.ts:1239`
 (`mockPatchService`, `mocks/services.ts:140`) · потребитель `useServiceCard.ts:64-91`
 
