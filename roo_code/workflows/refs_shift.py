@@ -98,6 +98,19 @@ def verbatim(old_lines, new_lines, old_number, new_number):
     return old_lines[old_number - 1] == new_lines[new_number - 1]
 
 
+#: Архив планов — снимок прошлого (инвариант ROO.md): документ там записывает, что
+#: человек ВИДЕЛ тогда, а не что в коде сейчас. Перенумеровать ссылку внутри снимка
+#: значит превратить запись о прошлом чтении в ложное утверждение о настоящем.
+#: Проверке ссылок это ничего не стоит: `contractRefs.spec.ts` читает только
+#: `roo-context/api`, `plans/api/audit` и `plans/bugs`, архива среди них нет.
+FROZEN = ("plans/archive/",)
+
+
+def frozen(doc, root):
+    relative = str(Path(doc).relative_to(root)).replace("\\", "/")
+    return any(part in relative for part in FROZEN)
+
+
 def survey(root, base="HEAD", docs="roo_code"):
     """Что уехало: (перенумеруемые механически, требующие глаз)."""
     moved = shifts(root, base)
@@ -106,6 +119,8 @@ def survey(root, base="HEAD", docs="roo_code"):
     cache, safe, unsafe = {}, [], []
     files = tracked_files(root)
     for doc in sorted((root / docs).rglob("*.md")):
+        if frozen(doc, root):
+            continue
         try:
             lines = doc.read_text(errors="replace").splitlines()
         except OSError:

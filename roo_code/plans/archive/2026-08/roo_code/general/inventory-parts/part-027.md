@@ -109,7 +109,7 @@ $ grep -rn "products" backend/app/main.py
 Шапка плана сама помечает валютный курс отменённым (2026-08-09), остальное в силе.
 Ниже — по десяти шагам раздела «Implementation Order».
 
-Шаг 1 (модель Product + миграция) — СДЕЛАНО. `backend/app/modules/products/shared/models.py:116-168` содержит
+Шаг 1 (модель Product + миграция) — СДЕЛАНО. `backend/app/modules/products/shared/models.py:125-177` содержит
 `currency_id`, `price_quantity`, `purchase_uom_id`, `warehouse_uom_id`, `sale_uom_id` и четыре поля конвертации;
 `uom_id` и `price_unit` в модели отсутствуют. Миграция есть:
 `backend/alembic/versions/a1b2c3d4e5f6_phase_15_product_uom_restructure.py:98-99` — `op.drop_column("products", "price_unit")`.
@@ -151,7 +151,7 @@ $ grep -rn "products" backend/app/main.py
 Шаг 10 (чистка) — ЧАСТИЧНО. Хардкод-юнионы убраны, моки перестроены
 (`grep -c "saleUomId" src/services/mocks/products.ts` → 119, `priceQuantity` → 118, `purchaseUomId` → 118),
 но `priceUnit` жив сознательно как legacy: `src/types/product.ts:21,34,59` и 135 значений в моках,
-на бэкенде `get_product_detail/domain.py:29` `_reconstruct_price_unit` собирает его из FK.
+на бэкенде `get_product_detail/domain.py:28` `_reconstruct_price_unit` собирает его из FK.
 Хардкод-единицы остались вне склада: `src/views/admin/suppliers/BccRequestPage.vue:328`
 `const UNIT_OPTIONS = ['kg','m','piece','ton']`.
 

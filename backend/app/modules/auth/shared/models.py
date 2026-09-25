@@ -196,6 +196,8 @@ class RolePermission(UUIDMixin, TimestampMixin, Base):
     )
     item_id: Mapped[str] = mapped_column(String(100), nullable=False)
     role: Mapped[str] = mapped_column(String(50), nullable=False)
+    # `false`, как и у трёх соседних действий: П33 — «новый элемент видит только
+    # админ», и строка, заведённая без явного значения, обязана быть НЕчитаемой.
     can_read: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
     )
@@ -235,7 +237,13 @@ class UserPermission(UUIDMixin, TimestampMixin, Base):
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
     )
-    can_read: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    # Тот же `false`, что у роли: правило П33 одно на оба уровня 6.1, значит и
+    # умолчание у них одно. Пока переопределение пользователя было единственной
+    # колонкой без умолчания, «строка без явного значения» вела себя на двух
+    # уровнях по-разному, и заметить это было нечем.
+    can_read: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
     can_edit: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
     )

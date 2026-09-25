@@ -174,7 +174,7 @@ $ grep -rn "translated_string_to_columns\|columns_to_translated_string" backend/
    (пусто)
 ```
 Фаза 4 — маппинг тривиальный, чтение JSONB по ключам локали работает:
-`backend/app/modules/settings/features/crud/repository.py:170-178` фильтрует
+`backend/app/modules/settings/features/crud/repository.py:153-161` фильтрует
 `UomModel.code_translations["en"].as_string()` и т.п.
 
 Последний шаг плана («обновить `create-api-service` skill — убрать упоминания

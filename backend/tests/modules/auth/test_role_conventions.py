@@ -105,52 +105,95 @@ class RoleLowercaseTest(unittest.TestCase):
         )
 
 
-class RolePermissionCanReadDefaultTest(unittest.TestCase):
-    def test_can_read_server_default_is_false(self) -> None:
-        self.assertTrue(
-            MODELS.is_file(), f"модель матрицы прав исчезла: {_rel(MODELS)}"
-        )
-        tree = ast.parse(MODELS.read_text(encoding="utf-8"))
+class PermissionMatrixDefaultsTest(unittest.TestCase):
+    """Умолчание у ВСЕХ четырёх действий и на ОБОИХ уровнях матрицы — `false`.
 
-        role_permission = next(
+    П33: новый элемент видит только админ, значит строка, заведённая без явного
+    значения, обязана быть непроходной. Правило одно на оба уровня 6.1 — роль и
+    переопределение пользователя, — поэтому проверяются обе таблицы, а не одна.
+
+    Раньше здесь стоял `can_read` одной лишь роли, и этого хватило, чтобы в дереве
+    ужились три разных ответа: модель роли говорила `false`, модель пользователя не
+    говорила ничего, а в базе умолчания не было ни у той, ни у другой. `alembic
+    check` этого не видит вовсе — он не сравнивает `server_default`.
+    """
+
+    LEVELS = ("RolePermission", "UserPermission")
+    ACTIONS = ("can_read", "can_edit", "can_create", "can_delete")
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.tree = ast.parse(MODELS.read_text(encoding="utf-8"))
+
+    def _column(self, classname: str, column: str):
+        holder = next(
             (
                 node
-                for node in ast.walk(tree)
-                if isinstance(node, ast.ClassDef) and node.name == "RolePermission"
+                for node in ast.walk(self.tree)
+                if isinstance(node, ast.ClassDef) and node.name == classname
             ),
             None,
         )
-        self.assertIsNotNone(role_permission, "класс RolePermission не найден в models.py")
-
-        can_read_call = next(
+        self.assertIsNotNone(holder, f"класс {classname} не найден в models.py")
+        call = next(
             (
                 node.value
-                for node in ast.walk(role_permission)
+                for node in ast.walk(holder)
                 if isinstance(node, ast.AnnAssign)
                 and isinstance(node.target, ast.Name)
-                and node.target.id == "can_read"
+                and node.target.id == column
             ),
             None,
         )
-        self.assertIsNotNone(can_read_call, "колонка can_read не найдена в RolePermission")
+        self.assertIsNotNone(call, f"колонка {column} не найдена в {classname}")
+        return {kw.arg: kw.value for kw in call.keywords}
 
-        kwargs = {kw.arg: kw.value for kw in can_read_call.keywords}
+    def test_models_file_exists(self) -> None:
+        self.assertTrue(MODELS.is_file(), f"модель матрицы прав исчезла: {_rel(MODELS)}")
 
-        self.assertIn("default", kwargs, "у can_read нет python-стороннего default=")
-        self.assertIs(
-            ast.literal_eval(kwargs["default"]),
-            False,
-            "can_read.default обязан быть False — новый элемент матрицы видит только "
-            "админ (00-conventions.md §6.4)",
+    def test_every_action_defaults_to_false_on_both_levels(self) -> None:
+        for classname in self.LEVELS:
+            for action in self.ACTIONS:
+                with self.subTest(level=classname, action=action):
+                    kwargs = self._column(classname, action)
+
+                    self.assertIn(
+                        "default", kwargs, f"{classname}.{action}: нет python-стороннего default="
+                    )
+                    self.assertIs(
+                        ast.literal_eval(kwargs["default"]),
+                        False,
+                        f"{classname}.{action}.default обязан быть False — новый элемент "
+                        "матрицы видит только админ (00-conventions.md §6.4)",
+                    )
+
+                    self.assertIn(
+                        "server_default", kwargs, f"{classname}.{action}: нет server_default="
+                    )
+                    self.assertEqual(
+                        str(ast.literal_eval(kwargs["server_default"])).lower(),
+                        "false",
+                        f"{classname}.{action}.server_default обязан быть \"false\" — новый "
+                        "элемент матрицы видит только админ (00-conventions.md §6.4)",
+                    )
+
+    def test_the_revision_that_sets_the_defaults_touches_both_tables(self) -> None:
+        """Модель — половина ответа; база про умолчание молчит в `alembic check`.
+
+        Поэтому ревизию проверяем чтением: она обязана назвать обе таблицы, иначе
+        модель и база снова разойдутся, и сказать об этом будет нечему.
+        """
+        revision = (
+            MODELS.resolve().parents[4]
+            / "alembic"
+            / "versions"
+            / "f1c4a8e07b26_matrix_can_read_defaults_false.py"
         )
-
-        self.assertIn("server_default", kwargs, "у can_read нет server_default=")
-        self.assertEqual(
-            str(ast.literal_eval(kwargs["server_default"])).lower(),
-            "false",
-            "can_read.server_default обязан быть \"false\" — новый элемент матрицы видит "
-            "только админ (00-conventions.md §6.4)",
-        )
+        self.assertTrue(revision.is_file(), "ревизия умолчаний матрицы исчезла")
+        body = revision.read_text(encoding="utf-8")
+        self.assertIn('"role_permissions"', body)
+        self.assertIn('"user_permissions"', body)
+        self.assertIn('sa.text("false")', body)
 
 
 if __name__ == "__main__":

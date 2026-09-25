@@ -24,7 +24,7 @@ backend/alembic/versions/4e8c9a3f1b2d_add_secret_link_token_to_users.py:28:     
 backend/alembic/versions/4e8c9a3f1b2d_add_secret_link_token_to_users.py:38:    op.drop_column("users", "secret_link_token")
 backend/app/main.py:29:from app.modules.auth.features.magic_link.action import (
 backend/app/main.py:30:    router as auth_magic_link_router,
-backend/app/main.py:51:app.include_router(auth_magic_link_router)
+backend/app/main.py:91:app.include_router(auth_magic_link_router)
 backend/app/modules/auth/features/me/domain.py:22:    secret_link = None
 backend/app/modules/auth/features/me/domain.py:23:    if user.secret_link_token:
 backend/app/modules/auth/features/me/domain.py:24:        secret_link = f"{settings.frontend_url}/auth/link?token={user.secret_link_token}"
@@ -43,9 +43,9 @@ backend/app/modules/auth/features/register/domain.py:125:        secret_link_tok
 backend/app/modules/auth/features/register/domain.py:154:    secret_link = f"{settings.frontend_url}/auth/link?token={secret_link_token}"
 backend/app/modules/auth/features/register/domain.py:172:        secret_link=secret_link,
 backend/app/modules/auth/features/magic_link/action.py:22:async def magic_link_verify(
-backend/app/modules/settings/features/profile/domain.py:21:async def _ensure_secret_link(db: AsyncSession, user_id: UUID) -> str | None:
-backend/app/modules/settings/features/profile/domain.py:30:    if not user.secret_link_token:
-backend/app/modules/settings/features/profile/domain.py:32:        updated = await update_user(db, user_id, {"secret_link_token": token})
+backend/app/modules/settings/features/profile/domain.py:22:async def _ensure_secret_link(db: AsyncSession, user_id: UUID) -> str | None:
+backend/app/modules/settings/features/profile/domain.py:31:    if not user.secret_link_token:
+backend/app/modules/settings/features/profile/domain.py:33:        updated = await update_user(db, user_id, {"secret_link_token": token})
 frontend_vue/src/views/public/LoginPage.vue:97:          <p class="secret-link-msg">{{ t('login.secretLinkMsg') }}</p>
 frontend_vue/src/services/mocks/settings.ts:331:    secretLink: 'http://localhost:5173/auth/link?token=mock-secret-token-abc123',
 frontend_vue/src/i18n/admin/settings.ts:83:      secretLink: 'Секретная ссылка для входа',
@@ -88,7 +88,7 @@ exit=1
 - `secret_link` в `RegisterResponse` (`register/schemas.py:42`), сборка URL из
   `settings.frontend_url` (`register/domain.py:154`); `frontend_url` есть в
   `app/core/config.py:27`.
-- Feature `features/magic_link/` со всеми пятью файлами, роутер подключён в `main.py:61`.
+- Feature `features/magic_link/` со всеми пятью файлами, роутер подключён в `main.py:101`.
 - `secret_link` в `MeResponse` (`me/schemas.py:19`, `me/domain.py:22-36`) и в профиле настроек
   (`settings/features/profile/schemas.py:22`, `domain.py:24-109` — с автогенерацией токена,
   чего план не требовал).

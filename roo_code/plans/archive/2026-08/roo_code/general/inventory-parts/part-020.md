@@ -139,7 +139,7 @@ $ grep -n "class WarehouseMovement" -A 40 backend/app/modules/warehouse/shared/m
 
 $ sed -n '204,235p' backend/app/modules/suppliers/shared/models.py   (SupplierPriceEntry)
     price / unit / entry_date / notes — колонки currency нет
-(у самого Supplier currency есть: suppliers/shared/models.py:49 — но это не связь товар-поставщик)
+(у самого Supplier currency есть: suppliers/shared/models.py:50 — но это не связь товар-поставщик)
 
 $ grep -rn "calculate-cost|calculate_cost" backend/ frontend_vue/src/
 (пусто)

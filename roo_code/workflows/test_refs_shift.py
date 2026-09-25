@@ -147,6 +147,27 @@ class ShiftTest(unittest.TestCase):
 
         self.assertEqual(refs_shift.shifts(self.root, "HEAD"), {"документ.py": [(0, 1)]})
 
+    def test_the_plan_archive_is_a_snapshot_and_is_not_renumbered(self):
+        """Архив записывает прошлое чтение, а не сегодняшний код (инвариант ROO.md).
+
+        Перенумерованная ссылка внутри снимка превращает запись «тогда там было это»
+        в утверждение о настоящем, которого никто не делал. Проверке ссылок это
+        ничего не стоит: `contractRefs.spec.ts` архив не читает вовсе.
+        """
+        archive = self.root / "roo_code" / "plans" / "archive" / "2026-08"
+        archive.mkdir(parents=True)
+        frozen = archive / "снимок.md"
+        frozen.write_text("Тогда `три` было на code.ts:3\n")
+        self.commit("Ссылка на `три` — code.ts:3\n")
+        self.code.write_text("ноль\nодин\nдва\nтри\nчетыре\n")
+
+        safe, _ = refs_shift.renumber(self.root)
+
+        # Живой документ перенумерован, снимок — нет.
+        self.assertEqual(["roo_code/док.md"], sorted({i["документ"] for i in safe}))
+        self.assertIn("code.ts:3", frozen.read_text())
+        self.assertIn("code.ts:4", self.doc.read_text())
+
     def test_only_named_document_tree_is_touched(self):
         self.commit("Ссылка на `три` — code.ts:3\n")
         outside = self.root / "чужой.md"

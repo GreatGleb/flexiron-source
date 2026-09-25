@@ -302,10 +302,23 @@ use it» (`composables/useOrderPermissions.ts:6-10`). Тарифная стор�
 
 Дефолт по П33 — надстройка над **мок-поведением**, а не над схемой, и разница исчезла.
 Мок раздаёт `Admin` все четыре действия, остальным ролям ни одного (`mocks/config.ts:205-221`).
-Модель `RolePermission.can_read` объявляет `server_default="false"`
-(`backend/app/modules/auth/shared/models.py`), и миграция
-`c1d2e3f4a5b6_auth_roles_lowercase_and_matrix_default.py` приводит `server_default=sa.text("false")`
-поверх исторического `server_default=sa.text("true")` из `e24a3922ed01_phase_7_config.py:86`.
+На схеме то же самое: у всех четырёх действий и на ОБОИХ уровнях (`role_permissions` и
+`user_permissions`) `server_default = false`. Строка, заведённая без явного значения, непроходна —
+это и есть «новый элемент видит только админ».
+
+**Три разных ответа на один вопрос ужились в дереве до 2026-09-25, и это стоит помнить.**
+`c1d2e3f4a5b6_auth_roles_lowercase_and_matrix_default.py` поставила роли `false` поверх
+исторического `true` из `e24a3922ed01_phase_7_config.py:86`; более поздняя
+`d4c8a1f37b62_permission_item_domain_and_defaults.py` сняла умолчание с обеих таблиц вовсе;
+модель роли осталась говорить `false`, модель пользователя — ничего. Привела всех к `false`
+ревизия `f1c4a8e07b26_matrix_can_read_defaults_false.py`.
+
+**Почему никто не заметил: `alembic check` не сравнивает `server_default`.** Для этого нужен
+`compare_server_default=True`, а он на этой схеме падает на JSON-колонках
+(`SELECT '[]'::json = '[]'` — нет оператора). То есть линза Б2 ловит состав колонок и
+nullability, но НЕ умолчания; расхождение модели с базой по умолчанию сегодня невидимо машине.
+Сторож `backend/tests/modules/auth/test_role_conventions.py` закрывает это для матрицы прав
+чтением модели и ревизии, но только для неё.
 Мок и схема теперь совпадают — расхождение, названное здесь ранее, починено.
 
 ### 6.5. Отказ — `403`
