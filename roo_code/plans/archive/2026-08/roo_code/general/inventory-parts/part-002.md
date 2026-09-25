@@ -88,9 +88,9 @@ exit=1
 - `secret_link` в `RegisterResponse` (`register/schemas.py:42`), сборка URL из
   `settings.frontend_url` (`register/domain.py:154`); `frontend_url` есть в
   `app/core/config.py:27`.
-- Feature `features/magic_link/` со всеми пятью файлами, роутер подключён в `main.py:79`.
+- Feature `features/magic_link/` со всеми пятью файлами, роутер подключён в `main.py:81`.
 - `secret_link` в `MeResponse` (`me/schemas.py:19`, `me/domain.py:22-36`) и в профиле настроек
-  (`settings/features/profile/schemas.py:22`, `domain.py:22-107` — с автогенерацией токена,
+  (`settings/features/profile/schemas.py:22`, `domain.py:24-109` — с автогенерацией токена,
   чего план не требовал).
 - Фронтенд-типы: `RegisterResponse.secret_link` (`types/auth.ts:55`),
   `UserProfile.secretLink` (`types/settings.ts:127`, но `?`-опциональное, план требовал `string`).

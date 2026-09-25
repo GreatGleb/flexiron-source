@@ -14,6 +14,8 @@ from app.modules.auth.internal_api.interface import CurrentUser, get_current_use
 
 from .domain import get_payment_detail as get_payment_detail_usecase
 from .domain import list_payments as list_payments_usecase
+from .domain import patch_payment as patch_payment_usecase
+from .schemas import PaymentPatchInput
 
 router = APIRouter(prefix="/api/finance/payments", tags=["finance"])
 
@@ -52,4 +54,24 @@ async def get_payment_detail(
     `code=PAYMENT_NOT_FOUND` — no `HTTPException` raised here.
     """
     result = await get_payment_detail_usecase(db, current_user.tenant_id, payment_id)
+    return ApiResponse(success=True, data=result.model_dump(mode="json"))
+
+
+@router.patch("/{payment_id}", response_model=ApiResponse)
+async def patch_payment(
+    payment_id: UUID,
+    input_data: PaymentPatchInput,
+    db: AsyncSession = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """Patch one supplier payment's notes and/or documents — tenant-scoped.
+
+    Neither `If-Match` nor `Idempotency-Key` is read — the contract requires
+    neither for this endpoint. An unknown or foreign `payment_id` raises
+    `PaymentNotFoundError` from the domain layer, answered the same way
+    `get_payment_detail` above answers it: no `HTTPException` raised here.
+    """
+    result = await patch_payment_usecase(
+        db, current_user.tenant_id, payment_id, input_data
+    )
     return ApiResponse(success=True, data=result.model_dump(mode="json"))

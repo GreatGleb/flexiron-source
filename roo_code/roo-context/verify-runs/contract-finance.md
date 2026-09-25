@@ -9,7 +9,7 @@
 
 ### 1. Вывод напечатанной команды не воспроизводится
 
-`roo_code/roo-context/api/finance.md:225` (раздел `GET /api/finance/payments`) утверждает:
+`roo_code/roo-context/api/finance.md:226` (раздел `GET /api/finance/payments`) утверждает:
 «входящей записи в нём нет ни одной (`grep -c "direction: 'incoming'"
 frontend_vue/src/services/mocks/finance.ts` → 0)». Та же команда из корня репозитория даёт
 **1**, а не 0: попадание на `frontend_vue/src/services/mocks/finance.ts:72`, внутри

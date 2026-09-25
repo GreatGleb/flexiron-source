@@ -1,12 +1,20 @@
-"""Repository for the finance.payments read slice (Infrastructure / Data Access layer)."""
+"""Repository for the finance.payments read+patch slice (Infrastructure / Data Access layer)."""
 
+import uuid as uuid_lib
+from datetime import datetime, timezone
+from pathlib import Path
 from uuid import UUID
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.modules.finance.shared.models import FinancePayment
+from app.core.uploads.service import get_file_by_id
+from app.modules.finance.shared.models import FinancePayment, PaymentDocument
+
+#: Where `app/main.py` mounts the upload directory — same convention as
+#: `app/modules/settings/features/warehouse_map/domain.py`'s own derived link.
+STATIC_UPLOADS_PREFIX = "/static/uploads"
 
 
 def _search_predicate(search: str):
@@ -81,3 +89,86 @@ async def get_payment_by_id(
         .options(selectinload(FinancePayment.documents))
     )
     return result.scalar_one_or_none()
+
+
+def _as_uuid(value: str) -> UUID | None:
+    """Read a file identifier, or `None` when the text is not one at all."""
+    try:
+        return UUID(value)
+    except (TypeError, ValueError, AttributeError):
+        return None
+
+
+def _derived_link(storage_path: str | None) -> str:
+    """Assemble the public link from the upload's own storage path."""
+    if not storage_path:
+        return ""
+    return f"{STATIC_UPLOADS_PREFIX}/{Path(storage_path).name}"
+
+
+async def _build_document(
+    db: AsyncSession, tenant_id: UUID, file_id: str
+) -> PaymentDocument:
+    """One new `PaymentDocument` row for `file_id`.
+
+    Real metadata when this tenant's own upload registry knows the id;
+    otherwise a same-id placeholder — an unknown `fileId` is not a refusal
+    (`roo_code/roo-context/api/finance.md`, "PATCH /api/finance/payments/:id").
+    """
+    parsed = _as_uuid(file_id)
+    uploaded = (
+        await get_file_by_id(db, tenant_id, parsed) if parsed is not None else None
+    )
+    if uploaded is not None:
+        return PaymentDocument(
+            id=uuid_lib.uuid4(),
+            tenant_id=tenant_id,
+            file_id=uploaded.id,
+            name=uploaded.original_name,
+            size=uploaded.size,
+            mime=uploaded.mime,
+            url=_derived_link(uploaded.storage_path),
+            uploaded_at=uploaded.uploaded_at,
+        )
+    return PaymentDocument(
+        id=uuid_lib.uuid4(),
+        tenant_id=tenant_id,
+        file_id=parsed or uuid_lib.uuid4(),
+        name=file_id,
+        size=0,
+        mime="application/octet-stream",
+        url="",
+        uploaded_at=datetime.now(timezone.utc),
+    )
+
+
+async def sync_payment_documents(
+    db: AsyncSession,
+    tenant_id: UUID,
+    payment: FinancePayment,
+    file_ids: list[str],
+) -> None:
+    """Replace `payment.documents` with rows matching `file_ids`, in that order.
+
+    A `fileId` already attached (matched by its stored `file_id`) is kept as
+    the same row; every other `fileId` gets a fresh document built by
+    `_build_document`; a document whose `fileId` is absent from `file_ids`
+    is dropped by the reassignment below, which the model's own
+    `cascade="all, delete-orphan"` turns into a delete on flush — replace
+    semantics, decided by the server (§15 conventions).
+    """
+    kept_by_file_id = {str(doc.file_id): doc for doc in payment.documents}
+    documents: list[PaymentDocument] = []
+    for file_id in file_ids:
+        existing = kept_by_file_id.get(file_id)
+        documents.append(
+            existing if existing is not None else await _build_document(db, tenant_id, file_id)
+        )
+    payment.documents = documents
+
+
+async def save_payment(db: AsyncSession, payment: FinancePayment) -> FinancePayment:
+    """Persist the pending attribute/relationship changes on `payment`."""
+    await db.commit()
+    await db.refresh(payment)
+    return payment

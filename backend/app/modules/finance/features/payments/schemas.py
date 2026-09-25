@@ -71,3 +71,24 @@ class PaymentDetailResponse(BaseModel):
     notes: str | None
     createdAt: datetime
     updatedAt: datetime
+
+
+class PaymentPatchInput(BaseModel):
+    """Delta body of `PATCH /api/finance/payments/{payment_id}` — two keys.
+
+    This is the domain's whitelist, enforced by omission: the contract notes
+    the client's own type is wider (`Partial<FinancePayment> & { fileIds?:
+    string[] }`, `services/financeService.ts`), but `status`, `amount`,
+    `paymentNumber` and every other card field are simply not declared here,
+    so Pydantic drops them on the way in — they never reach the domain layer
+    to be whitelisted a second time (`roo_code/roo-context/api/finance.md`,
+    "PATCH /api/finance/payments/:id").
+
+    Both fields default to unset rather than `None`, so the domain can tell
+    "the client sent `null`" (clear the field / empty the documents) apart
+    from "the client did not send this key at all" (leave it as is) via
+    `model_fields_set` — the merge-patch contract of §3 conventions.
+    """
+
+    notes: str | None = None
+    fileIds: list[str] | None = None

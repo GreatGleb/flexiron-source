@@ -710,13 +710,13 @@ len(SUPPLIERS) messages here» — `backend/tests/modules/bcc/test_send_request.
    обязательных полей — `backend/tests/modules/bcc/test_send_request.py:143-153`), и в моке
    (`services/mocks/bcc.ts:317`, спека `services/mocks/bcc-envelope.spec.ts:68-73`). Условие —
    общий `isMailConfigured`, сужённый до трёх полей нарочно; бэкенд повторяет его теми же тремя
-   (`domain.py:59-66`) и явно разрешает пустые логин и имя отправителя
+   (`domain.py:61-68`) и явно разрешает пустые логин и имя отправителя
    (`test_send_request.py:155-159`).
 3. **Сервер сильнее мока на два правила отправки.** Дубли адресов снимаются с сохранением порядка
    — «тот же поставщик дважды получил бы запрос дважды из одной отправки»
    (`backend/app/modules/bcc/features/send_request/domain.py:95-97`, тест
    `backend/tests/modules/bcc/test_send_request.py:93-103`); пустой список отвергается кодом
-   `NO_RECIPIENTS` (`domain.py:98-99`, объявление `:34-38`, тест `test_send_request.py:161-165`).
+   `NO_RECIPIENTS` (`domain.py:100-101`, объявление `:34-38`, тест `test_send_request.py:161-165`).
    Мок не делает ни того, ни другого (`services/mocks/bcc.ts:435-437`), а кода `NO_RECIPIENTS`
    фронт не знает вовсе. Значит два пути ошибки под моками не воспроизводятся — и первый из них не
    «ошибка интерфейса», а двойное письмо живому поставщику.
