@@ -152,3 +152,10 @@ app.include_router(products_list_categories_router)
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
+
+
+from app.modules.audit.features.feed.action import (  # noqa: E402
+    router as audit_feed_router,
+)
+
+app.include_router(audit_feed_router)

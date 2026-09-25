@@ -15,8 +15,9 @@
 Находки про код: шесть, в
 [`roo_code/plans/bugs/contract-sync-audit-feed-bugs.md`](../../plans/bugs/contract-sync-audit-feed-bugs.md).
 
-**Источник истины — мок и клиент.** Роутов у домена по-прежнему ноль
-(`grep -rn "audit-feed" backend/` — пусто), но с 2026-09-25 модуль-хранилище есть:
+**Источник истины — мок и клиент.** Роуты у домена появились: `get_audit_feed` и
+`get_audit_feed_users` в `backend/app/modules/audit/features/feed/action.py`
+(`grep -rn "audit-feed" backend/` — не пусто), и с 2026-09-25 модуль-хранилище тоже есть:
 `ls backend/app/modules/` — двенадцать модулей, среди них `audit` с единственной моделью
 `AuditEntry` (`__tablename__ = "audit_entries"`) и `internal_api` с функцией записи одной строки и
 функцией чистки по сущности — задача M1 плана домена, только хранилище, без единого слайса чтения
@@ -45,7 +46,8 @@
 
 Реализация: `services/auditFeedService.ts:22-43` (`getAuditFeed`) · мок `mocks/index.ts:395` →
 `mocks/auditFeed.ts:66-108` (`mockGetAuditFeed`)
-Бэкенд: **не реализован** — роутов у домена ноль.
+Бэкенд: реализован — `get_audit_feed` в `backend/app/modules/audit/features/feed/action.py`,
+репозиторий и домен в соседних `repository.py`/`domain.py` того же слайса.
 
 **Запрос — семь query-параметров, все строками** (`services/auditFeedService.ts:30-42`):
 `entityType`, `user`, `dateFrom`, `dateTo`, `search`, `page`, `pageSize`; числа приводятся
@@ -125,7 +127,8 @@ Save-режим: чтение. Зовётся на монтировании (`Lo
 
 Реализация: `services/auditFeedService.ts:45-47` (`getAuditFeedUsers`) · мок
 `mocks/index.ts:394` → `mocks/auditFeed.ts:111-122` (`mockGetAuditFeedUsers`)
-Бэкенд: **не реализован**.
+Бэкенд: реализован — `get_audit_feed_users` в том же файле
+`backend/app/modules/audit/features/feed/action.py`.
 
 **Запрос — параметров нет вовсе:** `apiGet(path, undefined, { headers })`
 (`services/auditFeedService.ts:46`). Заголовок тот же `Authorization`, если токен есть (`:20-24`).
