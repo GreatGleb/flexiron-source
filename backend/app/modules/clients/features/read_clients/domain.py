@@ -8,7 +8,8 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import AppError, NotFoundError
-from app.core.schemas import PaginatedResponse
+from app.core.schemas import PaginatedResponse, TranslatedString
+from app.modules.audit.internal_api.interface import read_audit_entries_for_entity
 from app.modules.clients.shared.models import Client
 
 from .repository import (
@@ -17,7 +18,16 @@ from .repository import (
     list_interactions,
 )
 from .repository import list_clients as list_clients_repo
-from .schemas import ClientDetailResponse, ClientInteractionResponse, ClientListItem
+from .schemas import (
+    ClientAuditEntryResponse,
+    ClientDetailResponse,
+    ClientInteractionResponse,
+    ClientListItem,
+)
+
+#: The `entity_type` this slice's clients are registered under in the shared
+#: audit journal (`app.modules.audit.shared.models.AUDIT_ENTITY_TYPES`).
+CLIENT_AUDIT_ENTITY_TYPE = "client"
 
 MAX_PAGE_SIZE = 100
 
@@ -165,3 +175,35 @@ async def get_client_detail(
             for entry in interactions
         ],
     )
+
+
+async def get_client_audit(
+    db: AsyncSession, tenant_id: UUID, client_id: UUID
+) -> list[ClientAuditEntryResponse]:
+    """Execute the client audit-journal use case.
+
+    An unknown or foreign `client_id` yields an empty list, never a refusal:
+    the contract names no error for this endpoint (`roo_code/roo-context/api/clients.md`,
+    "GET /api/clients/:id/audit", "Ошибки: ни одной"). No existence check is
+    needed to get that behaviour — `read_audit_entries_for_entity` already
+    filters by `tenant_id` *and* `entity_id`, so a client id from another
+    tenant (or one that doesn't exist at all) simply matches zero rows.
+    """
+    entries = await read_audit_entries_for_entity(
+        db,
+        tenant_id=tenant_id,
+        entity_type=CLIENT_AUDIT_ENTITY_TYPE,
+        entity_id=client_id,
+    )
+    return [
+        ClientAuditEntryResponse(
+            id=entry.id,
+            timestamp=entry.timestamp,
+            user=TranslatedString(**entry.user_name_translations),
+            userInitials=entry.user_initials,
+            property=TranslatedString(**entry.property_translations),
+            oldValue=entry.old_value,
+            newValue=entry.new_value,
+        )
+        for entry in entries
+    ]

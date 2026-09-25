@@ -12,6 +12,7 @@ from app.core.database import get_db
 from app.core.schemas import ApiResponse
 from app.modules.auth.internal_api.interface import CurrentUser, get_current_user
 
+from .domain import get_client_audit as get_client_audit_usecase
 from .domain import get_client_detail as get_client_detail_usecase
 from .domain import list_clients as list_clients_usecase
 
@@ -61,3 +62,20 @@ async def get_client_detail(
     """
     result = await get_client_detail_usecase(db, current_user.tenant_id, client_id)
     return ApiResponse(success=True, data=result.model_dump(mode="json"))
+
+
+@router.get("/{client_id}/audit", response_model=ApiResponse)
+async def get_client_audit(
+    client_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """Client's change journal — a flat array, newest entry first.
+
+    An unknown or foreign `client_id` answers with an empty array, not a
+    refusal: the contract names no error for this endpoint
+    (`roo_code/roo-context/api/clients.md`, "GET /api/clients/:id/audit",
+    "Ошибки: ни одной").
+    """
+    result = await get_client_audit_usecase(db, current_user.tenant_id, client_id)
+    return ApiResponse(success=True, data=[item.model_dump(mode="json") for item in result])

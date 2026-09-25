@@ -5,10 +5,12 @@ Field names repeat the contract's own casing (`roo_code/roo-context/api/clients.
 schemas already do — no aliasing.
 """
 
-from datetime import date
+from datetime import date, datetime
 
 from pydantic import BaseModel
 from uuid import UUID
+
+from app.core.schemas import TranslatedString
 
 
 class ClientListItem(BaseModel):
@@ -66,3 +68,21 @@ class ClientDetailResponse(BaseModel):
     notes: str | None
     createdAt: date
     interactionHistory: list[ClientInteractionResponse]
+
+
+class ClientAuditEntryResponse(BaseModel):
+    """One row of the client's change journal — `GET /api/clients/:id/audit`.
+
+    Wire field names and shape follow `StockAuditEntry`
+    (`roo_code/roo-context/api/clients.md`, "GET /api/clients/:id/audit");
+    the storage columns (`user_name_translations`, `property_translations`)
+    are mapped to `user`/`property` here, not exposed as-is.
+    """
+
+    id: UUID
+    timestamp: datetime
+    user: TranslatedString
+    userInitials: str
+    property: TranslatedString
+    oldValue: str
+    newValue: str

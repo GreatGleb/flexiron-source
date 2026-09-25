@@ -14,15 +14,17 @@
 [`roo_code/plans/api/audit/00-решения-владельца.md`](../../plans/api/audit/00-решения-владельца.md),
 раздел `clients`.
 
-**Модуля бэкенда у домена нет.** `ls backend/app/modules/` даёт десять модулей — `auth`, `bcc`,
-`billing`, `finance`, `notifications`, `products`, `services`, `settings`, `suppliers`,
-`warehouse`, — и `clients` среди них отсутствует; `grep -rin "client" backend/app --include=*.py -l`
-находит три файла, и ни один не про клиента домена (HTTP-клиент входа, SMTP-клиент BCC, слово в
-комментарии `backend/app/modules/bcc/features/send_request/domain.py:72`). Поэтому по каждому из
-десяти эндпоинтов источник истины — **мок и клиент**, второй уровень старшинства, и строка
-`Бэкенд:` у всех десяти разделов читается «не реализован». Метка `Статус: спроектировано` тут
-неверна ни у одного раздела: клиент и мок существуют у всех десяти, кода нет только у серверной
-половины.
+**Модуль бэкенда у домена появился, но закрывает только чтение.** `clients` теперь есть среди
+модулей в `backend/app/modules/` — слайс `clients.read_clients`
+(`backend/app/modules/clients/features/read_clients/`, зарегистрирован в `app/main.py`) отдаёт три
+эндпоинта: список (`GET /api/clients`), карточку (`GET /api/clients/:id`) и журнал изменений
+(`GET /api/clients/:id/audit`, читает через `app.modules.audit.internal_api.interface` — прямого
+импорта модуля `audit` в `clients` нет). У этих трёх строка `Бэкенд:` больше не читается «не
+реализован»: источник истины для них — бэкенд, а не мок. Оставшихся семи эндпоинтов слайс не
+касается — создание, правка, оба удаления, обе истории взаимодействий и сводка счетов по-прежнему
+без серверной стороны, и для них строка `Бэкенд:` читается «не реализован» так же, как читалась у
+всех десяти до этой правки. Метка `Статус: спроектировано` неверна для всех десяти разделов по
+прежней причине: клиент и мок существуют у всех десяти, а серверной стороны нет ещё у семи из них.
 
 **Формы ответов ниже записаны в конверте `ApiResponse<T>`,** как их обязан прислать сервер. Мок
 отдаёт голое значение (`delay(client as T)`,
@@ -110,7 +112,8 @@
   нигде; справочника размеров страницы нет ни в настройках, ни на схеме — контракт его не
   назначает.
 
-Бэкенд: не реализован
+Бэкенд: реализован — слайс `clients.read_clients`, функция `list_clients`
+(`backend/app/modules/clients/features/read_clients/`)
 Реализация: `services/clientsService.ts:getClients` · мок `mocks/index.ts:473` → `mocks/clients.ts:mockGetClients`
 
 ---
@@ -169,7 +172,8 @@ interface Client {
   (`views/admin/clients/ClientCardPage.vue:170-174`), и это осознанно: заказы принадлежат домену
   заказов.
 
-Бэкенд: не реализован
+Бэкенд: реализован — слайс `clients.read_clients`, функция `get_client_detail`
+(`backend/app/modules/clients/features/read_clients/`)
 Реализация: `services/clientsService.ts:getClient` · мок `mocks/index.ts:518` → `mocks/clients.ts:mockGetClient`
 
 ---
@@ -390,7 +394,13 @@ interface StockAuditEntry {
   буквально `{ ru: 'Система', en: 'System', lt: 'Sistema' }` (`mocks/clients.ts:79`), а `user_id`
   на проводе нет. Признак `sensitive` заводится всем девяти видам единообразно ([§9](00-conventions.md)).
 
-Бэкенд: не реализован
+Бэкенд: реализован — слайс `clients.read_clients`, функция `get_client_audit`
+(`backend/app/modules/clients/features/read_clients/`); читает через
+`read_audit_entries_for_entity` (`app.modules.audit.internal_api.interface`), сущность `client` из
+закрытого перечня `AUDIT_ENTITY_TYPES`. Наполнение лога эта задача не трогала — писателя для
+`entity_type == "client"` в проекте по-прежнему нет ни одного (см. «Пробелы аудита» выше и
+«Обязанности сервера», графа 3), поэтому у клиентов, заведённых через бэкенд, журнал остаётся
+пустым до первого писателя.
 Реализация: `services/clientsService.ts:getClientAudit` · мок `mocks/index.ts:525` → `mocks/clients.ts:mockGetClientAudit`
 
 ---
