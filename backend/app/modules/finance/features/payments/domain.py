@@ -1,0 +1,143 @@
+"""Domain use cases for the finance.payments read slice.
+
+Contains pure business logic — no FastAPI, no DB session management.
+"""
+
+from uuid import UUID
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.exceptions import AppError, NotFoundError
+from app.modules.finance.shared.models import FinancePayment, PaymentDocument
+
+from .repository import count_payments, get_payment_by_id
+from .repository import list_payments as list_payments_repo
+from .schemas import (
+    PaymentDetailResponse,
+    PaymentDocumentResponse,
+    PaymentListItem,
+    PaymentListResponse,
+)
+
+MAX_PAGE_SIZE = 100
+
+
+class PaymentNotFoundError(NotFoundError):
+    """Unknown or foreign `payment_id` — the domain's own refusal code.
+
+    `NotFoundError.__init__` hardcodes `code="NOT_FOUND"`, so this bypasses it and
+    calls `AppError.__init__` directly with the domain code the contract names
+    (`roo_code/roo-context/api/finance.md`, "Каталог кодов ошибок домена").
+    `isinstance(exc, NotFoundError)` still holds, so `app.main`'s `AppError` handler
+    answers 404 without any change to `app/core/exceptions.py`.
+    """
+
+    def __init__(self, payment_id: UUID) -> None:
+        AppError.__init__(
+            self, f"Payment not found: {payment_id}", code="PAYMENT_NOT_FOUND"
+        )
+
+
+def _normalize_status(status: str | None) -> str | None:
+    """Empty string and `all` both mean "no filter" (§13 conventions)."""
+    if not status or status == "all":
+        return None
+    return status
+
+
+def _normalize_search(search: str | None) -> str | None:
+    if search is None or not search.strip():
+        return None
+    return search
+
+
+def _to_list_item(entity: FinancePayment) -> PaymentListItem:
+    return PaymentListItem(
+        id=entity.id,
+        paymentNumber=entity.payment_number,
+        direction=entity.direction,
+        status=entity.status,
+        amount=float(entity.amount),
+        currency=entity.currency,
+        counterpartyName=entity.counterparty_name,
+        orderNumber=entity.order_number,
+        supplierInvoiceRef=entity.supplier_invoice_ref,
+        dueDate=entity.due_date,
+        paidAt=entity.paid_at,
+        documentCount=len(entity.documents),
+    )
+
+
+def _to_document(document: PaymentDocument) -> PaymentDocumentResponse:
+    return PaymentDocumentResponse(
+        id=document.id,
+        name=document.name,
+        fileId=document.file_id,
+        url=document.url,
+        size=document.size,
+        mime=document.mime,
+        uploadedAt=document.uploaded_at,
+    )
+
+
+def _to_detail(entity: FinancePayment) -> PaymentDetailResponse:
+    return PaymentDetailResponse(
+        id=entity.id,
+        paymentNumber=entity.payment_number,
+        direction=entity.direction,
+        status=entity.status,
+        amount=float(entity.amount),
+        currency=entity.currency,
+        counterpartyId=entity.counterparty_id,
+        counterpartyName=entity.counterparty_name,
+        counterpartyVatCode=entity.counterparty_vat_code,
+        orderId=entity.order_id,
+        orderNumber=entity.order_number,
+        supplierInvoiceRef=entity.supplier_invoice_ref,
+        description=entity.description,
+        dueDate=entity.due_date,
+        paidAt=entity.paid_at,
+        documents=[_to_document(doc) for doc in entity.documents],
+        notes=entity.notes,
+        createdAt=entity.created_at,
+        updatedAt=entity.updated_at,
+    )
+
+
+async def list_payments(
+    db: AsyncSession,
+    tenant_id: UUID,
+    *,
+    search: str | None,
+    status: str | None,
+    page: int,
+    page_size: int,
+) -> PaymentListResponse:
+    """Execute the list outgoing payments use case."""
+    search = _normalize_search(search)
+    status = _normalize_status(status)
+    page = max(page, 1)
+    page_size = min(max(page_size, 1), MAX_PAGE_SIZE)
+
+    total = await count_payments(db, tenant_id, search=search, status=status)
+    entities = await list_payments_repo(
+        db, tenant_id, search=search, status=status, page=page, page_size=page_size
+    )
+
+    return PaymentListResponse(
+        items=[_to_list_item(entity) for entity in entities],
+        total=total,
+        page=page,
+        pageSize=page_size,
+        totalPages=max(1, -(-total // page_size)),
+    )
+
+
+async def get_payment_detail(
+    db: AsyncSession, tenant_id: UUID, payment_id: UUID
+) -> PaymentDetailResponse:
+    """Execute the get payment card use case."""
+    entity = await get_payment_by_id(db, payment_id, tenant_id)
+    if entity is None:
+        raise PaymentNotFoundError(payment_id)
+    return _to_detail(entity)
