@@ -186,7 +186,7 @@ class RolePermission(UUIDMixin, TimestampMixin, Base):
     item_id: Mapped[str] = mapped_column(String(100), nullable=False)
     role: Mapped[str] = mapped_column(String(50), nullable=False)
     can_read: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=True, server_default="true"
+        Boolean, nullable=False, default=False, server_default="false"
     )
     can_edit: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"

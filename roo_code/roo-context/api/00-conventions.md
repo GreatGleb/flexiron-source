@@ -251,10 +251,10 @@ use it» (`composables/useOrderPermissions.ts:6-10`). Тарифная стор�
 ### 6.3. Роли
 
 - **Регистр — строчный.** Канонический перечень — `UserRole` в `types/settings.ts:185-192`.
-  Заглавные формы (`'Owner'`, записываемая при регистрации в `user_roles.role_name` —
-  `backend/app/modules/auth/features/register/repository.py:97`; `'Admin' | 'Sales' |
-  'Warehouse' | 'Accounting'` в матрице — `mocks/config.ts:186`) подлежат приведению к
-  строчному. Роль `Sales` в типизированный перечень не входит вовсе; строчное `'sales'` в коде —
+  Заглавные формы в матрице (`'Admin' | 'Sales' | 'Warehouse' | 'Accounting'` — `mocks/config.ts:186`)
+  подлежат приведению к строчному. Регистрация это правило уже соблюдает — записывает
+  `user_roles.role_name` строчным (`backend/app/modules/auth/features/register/repository.py:97`).
+  Роль `Sales` в типизированный перечень не входит вовсе; строчное `'sales'` в коде —
   ключ страницы аналитики (`types/analytics.ts:6`), не роль.
 - **Многоролевость — верная форма.** Таблица `user_roles`
   (`backend/app/modules/auth/shared/models.py:87-109`) остаётся; колонка `users.role`
@@ -300,13 +300,13 @@ use it» (`composables/useOrderPermissions.ts:6-10`). Тарифная стор�
 вырожден; как только перечень покроет все домены, как того же 6.2 и требует, считать долю станет
 нечем — колонки, по которой группировать, нет.
 
-Дефолт по П33 — надстройка над **мок-поведением**, а не над схемой, и разница измерима.
+Дефолт по П33 — надстройка над **мок-поведением**, а не над схемой, и разница исчезла.
 Мок раздаёт `Admin` все четыре действия, остальным ролям ни одного (`mocks/config.ts:205-221`).
-Схема же объявляет `can_read` со `server_default="true"` для **всех** ролей
-(`backend/app/modules/auth/shared/models.py:182-184`), и то же в миграции — `can_read` со
-`server_default=sa.text("true")` (`e24a3922ed01_phase_7_config.py:86`).
-Верен мок. `server_default="true"` у `can_read` — расхождение схемы с контрактом, и правится
-схема, а не контракт.
+Модель `RolePermission.can_read` объявляет `server_default="false"`
+(`backend/app/modules/auth/shared/models.py`), и миграция
+`c1d2e3f4a5b6_auth_roles_lowercase_and_matrix_default.py` приводит `server_default=sa.text("false")`
+поверх исторического `server_default=sa.text("true")` из `e24a3922ed01_phase_7_config.py:86`.
+Мок и схема теперь совпадают — расхождение, названное здесь ранее, починено.
 
 ### 6.5. Отказ — `403`
 
