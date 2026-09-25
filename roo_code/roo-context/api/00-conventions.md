@@ -315,7 +315,7 @@ use it» (`composables/useOrderPermissions.ts:6-10`). Тарифная стор�
 
 Состояние кода: `ForbiddenError` во всём бэкенде поднимается ровно один раз, и не матрицей, а
 запретом удалять системный статус заказа
-(`backend/app/modules/settings/features/crud/domain.py:690-692`, отдача `403` —
+(`backend/app/modules/settings/features/crud/domain.py:710-712`, отдача `403` —
 `crud/action.py:512-516`).
 Единственный работающий отказ по праву — в моке заказов, и код у него другой: `FORBIDDEN_`
 плюс имя права заглавными, то есть `FORBIDDEN_MANUALCOST`, `FORBIDDEN_CORRECTION`
@@ -576,7 +576,7 @@ comm -23 /tmp/fe_keys.txt /tmp/be_keys.txt   # шесть; обратная ра
 **Потерянный код сервер генерирует заново.** Снесли из базы, не создали миграцией — чтение
 настроек всё равно возвращает код, а не пустоту. Приём в проекте уже есть: строку компании сервер
 тоже создаёт сам, и 404 «компании нет» недостижим по построению
-(`backend/app/modules/settings/features/crud/domain.py:70-79`).
+(`backend/app/modules/settings/features/crud/domain.py:72-81`).
 
 Замер: механизма подтверждения кодом в проекте нет ни в каком виде, а удаление поля подтверждается
 обычной модалкой (`views/admin/products/CategoryCardPage.vue:189-197`).
@@ -1089,7 +1089,7 @@ interface PaginationParams { page: number; pageSize: number }     // types/api.t
 - **Валютой, единицами, правилами пересчёта, статусами заказа и четырьмя финансовыми константами
   владеет домен `settings`** (`vat_rate=21`, `default_margin=15`, `default_currency='EUR'`,
   `default_discount_percent=0` — `backend/app/modules/settings/shared/models.py:49-69`, автосоздание
-  `settings/features/crud/domain.py:194-196`). Сквозная беда: **эти значения продублированы
+  `settings/features/crud/domain.py:196-198`). Сквозная беда: **эти значения продублированы
   константами во фронте почти в каждом домене** — заказ пишет литералами скидку, НДС и валюту
   (`mocks/orders.ts:1637-1641`), партия — `'EUR'` (`useWarehouseBatch.ts:120`), услуга —
   `'cur-eur'`/`'uom-pcs'` (`ServicesPage.vue:59-60`), поставщик — список `EUR/USD/PLN/GBP`
@@ -1104,7 +1104,7 @@ interface PaginationParams { page: number; pageSize: number }     // types/api.t
   Константа — производное, и выводить её обязан **сервер**. Сегодня наоборот: браузер снимает
   флаг у остальных валют циклом и следом дописывает константу
   (`SettingsLayout.vue:436-446`), а сервер при записи `is_default` других валют не касается
-  (`crud/domain.py:221-254`) и при записи констант валюту по списку не проверяет (`:140-170`) —
+  (`crud/domain.py:223-256`) и при записи констант валюту по списку не проверяет (`:140-170`) —
   то есть дефолтом сегодня можно назначить валюту, которой нет в справочнике.
   Требование: сервер держит ровно одну валюту с `isDefault`. Останется ли
   `constants.defaultCurrency` в ответе удобным производным или исчезнет — вопрос формы.

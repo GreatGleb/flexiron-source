@@ -78,7 +78,7 @@ cd frontend_vue && CONTRACT_REFS=roo_code/roo-context/api/00-conventions.md \
 - **права**: `check_permission` — `return True` с комментарием «Placeholder»
   (`auth/internal_api/interface.py:27-38`), вызывающих нет; `dependencies.py` — один докстринг;
   `ForbiddenError` поднимается во всём бэкенде один раз
-  (`settings/features/crud/domain.py:534`). То есть форма отказа прежнего контракта
+  (`settings/features/crud/domain.py:554`). То есть форма отказа прежнего контракта
   `403 { code: 'FORBIDDEN' }` не подтверждается, и §6 говорит это же.
 
 Решений в этом проходе не принято ни одного: строки «нигде» остались в

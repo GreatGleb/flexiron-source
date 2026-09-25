@@ -41,7 +41,7 @@ roo_code/roo-context/api/settings.md
 ## Что сделать
 
 1. **`CONSTANT_OUT_OF_RANGE` (422)** в `patch_global_constants`
-   (`backend/app/modules/settings/features/crud/domain.py:140`), имя поля — в `fieldErrors`.
+   (`backend/app/modules/settings/features/crud/domain.py:142`), имя поля — в `fieldErrors`.
 2. **Границы — ровно эти три и ровно такие:**
 
    | константа | граница | источник |

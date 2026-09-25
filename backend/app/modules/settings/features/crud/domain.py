@@ -44,11 +44,13 @@ from app.modules.settings.features.crud.repository import (
     create_currency as create_currency_repo,
     patch_currency as patch_currency_repo,
     delete_currency,
+    clear_default_currency,
     get_uoms,
     get_uom,
     create_uom as create_uom_repo,
     patch_uom as patch_uom_repo,
     delete_uom,
+    count_conversions_by_uom,
     get_conversions,
     get_conversion,
     get_conversion_by_uom_pair,
@@ -317,6 +319,11 @@ async def create_currency_item(
             code="CURRENCY_CODE_TAKEN",
         )
 
+    # БАГ-09: a new default replaces the old one, not joins it — cleared in the
+    # same transaction as the insert below (repository issues no commit here).
+    if input_data.is_default:
+        await clear_default_currency(db, tenant_id)
+
     data = {
         "code": input_data.code.strip().upper(),
         "name_translations": input_data.name.model_dump() if hasattr(input_data.name, "model_dump") else input_data.name,
@@ -356,6 +363,12 @@ async def update_currency_item(
         )
     if input_data.is_default is not None:
         updates["is_default"] = input_data.is_default
+
+    # БАГ-09: setting this currency as default unsets every other currency of
+    # this tenant in the same transaction — the repo call below carries the
+    # commit, and this update runs before it, uncommitted.
+    if input_data.is_default:
+        await clear_default_currency(db, tenant_id, except_id=currency_id)
 
     if updates:
         obj = await patch_currency_repo(db, currency_id, tenant_id, updates)
@@ -477,17 +490,24 @@ async def remove_uom_item(db: AsyncSession, uom_id: UUID, tenant_id: UUID) -> No
     if existing is None:
         raise NotFoundError(entity="UOM", entity_id=str(uom_id))
 
-    # Gap 3: 409 if UOM is used in products or services
+    # Gap 3 + П44: 409 if UOM is used in products, services or conversion rules.
+    # Правило одно, и запись у него одна: отказ собирается из всех потребителей
+    # сразу, а не тремя отдельными ConflictError подряд.
     from app.modules.products.internal_api.interface import count_products_by_uom
     from app.modules.services.internal_api.interface import count_services_by_uom
     product_count = await count_products_by_uom(db, existing.tenant_id, uom_id)
     service_count = await count_services_by_uom(db, existing.tenant_id, uom_id)
-    if product_count > 0 or service_count > 0:
+    # У конверсии внешний ключ RESTRICT (ревизия 7c4d1e9a3b58): без этого счёта
+    # удаление доходило бы до ограничения базы вместо доменного отказа.
+    conversion_count = await count_conversions_by_uom(db, existing.tenant_id, uom_id)
+    if product_count > 0 or service_count > 0 or conversion_count > 0:
         used_by = []
         if product_count > 0:
             used_by.append(f"{product_count} product(s)")
         if service_count > 0:
             used_by.append(f"{service_count} service(s)")
+        if conversion_count > 0:
+            used_by.append(f"{conversion_count} conversion rule(s)")
         raise ConflictError(
             f"Cannot delete UOM: used by {', '.join(used_by)}", code="UOM_IN_USE"
         )

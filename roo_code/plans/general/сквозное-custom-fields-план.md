@@ -152,7 +152,7 @@
 ([`types/settings.ts:14-19`](../../../frontend_vue/src/types/settings.ts)).
 
 Приём «сервер сам создаёт недостающую строку настроек» в проекте уже есть — `create_company`
-([`settings/features/crud/domain.py:64-76`](../../../backend/app/modules/settings/features/crud/domain.py)).
+([`settings/features/crud/domain.py:66-78`](../../../backend/app/modules/settings/features/crud/domain.py)).
 
 ### 2.5. Потребитель значения снаружи своего домена — ровно один
 
@@ -307,7 +307,7 @@
 **Где живёт код.** Одно поле настроек арендатора — один на компанию, не на пользователя [П73].
 Постоянный, не перевыпускается [П73]. Потерян (снесён, не создан миграцией) → сервер генерирует
 его заново при чтении настроек, как уже делает `create_company`
-([`settings/features/crud/domain.py:64-76`](../../../backend/app/modules/settings/features/crud/domain.py));
+([`settings/features/crud/domain.py:66-78`](../../../backend/app/modules/settings/features/crud/domain.py));
 чтение настроек кодом пустым не бывает [П73].
 
 **Видимость кода — право на поле, а не на раздел** [П73]: страницу настроек открывают и другие

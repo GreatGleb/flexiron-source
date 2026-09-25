@@ -184,7 +184,7 @@ permission checkers, tenant isolation» и не содержит ни строк
 прошла мимо неё.
 
 **(б) Одна несужена по форме, а не по сути:** `get_company_info`
-([`backend/app/modules/settings/features/crud/domain.py:64`](../../../backend/app/modules/settings/features/crud/domain.py))
+([`backend/app/modules/settings/features/crud/domain.py:66`](../../../backend/app/modules/settings/features/crud/domain.py))
 читает саму таблицу арендаторов — `select(Tenant).where(Tenant.id == tenant_id)`. Сужение
 здесь пишется как `Tenant.id ==`, а не `tenant_id ==`. Сторож §5 обязан знать этот случай,
 иначе покрасит верный код.

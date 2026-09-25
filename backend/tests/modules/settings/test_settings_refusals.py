@@ -25,7 +25,7 @@ from uuid import uuid4
 
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import insert
+from sqlalchemy import insert, select
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.compiler import compiles, deregister
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -131,7 +131,7 @@ class SettingsRefusalTests(unittest.IsolatedAsyncioTestCase):
                     self._currency(self.currency_default_a, self.tenant_a, "EUR", True),
                     self._currency(self.currency_plain_a, self.tenant_a, "USD", False),
                     self._currency(self.currency_service_only_a, self.tenant_a, "PLN", False),
-                    self._currency(self.currency_b, self.tenant_b, "GBP", False),
+                    self._currency(self.currency_b, self.tenant_b, "GBP", True),
                 ],
             )
             await conn.execute(
@@ -333,6 +333,84 @@ class SettingsRefusalTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(409, response.status_code, response.text)
         self.assertEqual("UOM_IN_USE", response.json()["detail"]["code"])
+
+    async def test_uom_referenced_only_by_a_conversion_rule_is_refused(self):
+        """A unit no product uses, but a conversion rule does, still cannot be deleted."""
+        created = await self.client.post(
+            "/api/settings/conversions",
+            headers=self.auth,
+            json={
+                "fromUomId": str(self.uom_a2),
+                "toUomId": str(self.uom_a),
+                "type": "static",
+                "factor": 2.0,
+            },
+        )
+        self.assertEqual(200, created.status_code, created.text)
+
+        response = await self.client.delete(
+            f"/api/settings/uoms/{self.uom_a2}", headers=self.auth
+        )
+
+        self.assertEqual(409, response.status_code, response.text)
+        self.assertEqual("UOM_IN_USE", response.json()["detail"]["code"])
+
+    async def test_uom_without_any_reference_still_deletes(self):
+        """`uom_a2` has neither a product nor a conversion rule pointing at it."""
+        response = await self.client.delete(
+            f"/api/settings/uoms/{self.uom_a2}", headers=self.auth
+        )
+
+        self.assertEqual(200, response.status_code, response.text)
+
+    # ── БАГ-09: the tenant's default currency stays exactly one ────────────────
+
+    async def test_patch_default_currency_unsets_the_previous_one(self):
+        """Setting `isDefault` on one currency clears the flag from the rest."""
+        response = await self.client.patch(
+            f"/api/settings/currencies/{self.currency_plain_a}",
+            headers=self.auth,
+            json={"isDefault": True},
+        )
+        self.assertEqual(200, response.status_code, response.text)
+
+        listing = await self.client.get("/api/settings/currencies", headers=self.auth)
+        self.assertEqual(200, listing.status_code, listing.text)
+        defaults = [c for c in listing.json()["data"] if c["isDefault"]]
+        self.assertEqual([str(self.currency_plain_a)], [c["id"] for c in defaults])
+
+    async def test_patch_default_currency_leaves_another_tenant_untouched(self):
+        """Tenant B's own default currency is not affected by tenant A's PATCH."""
+        response = await self.client.patch(
+            f"/api/settings/currencies/{self.currency_plain_a}",
+            headers=self.auth,
+            json={"isDefault": True},
+        )
+        self.assertEqual(200, response.status_code, response.text)
+
+        async with self.sessions() as session:
+            result = await session.execute(
+                select(Currency).where(Currency.id == self.currency_b)
+            )
+            currency_b = result.scalar_one()
+        self.assertTrue(currency_b.is_default)
+
+    async def test_create_default_currency_unsets_the_previous_one(self):
+        """`POST` with `isDefault: true` also replaces the tenant's old default."""
+        created = await self.client.post(
+            "/api/settings/currencies",
+            headers=self.auth,
+            # Не PLN: этот код уже занят валютой `currency_service_only_a`, заведённой
+            # соседней задачей, и POST ответил бы CURRENCY_CODE_TAKEN вместо проверяемого.
+            json={"code": "CZK", "name": {"en": "Koruna"}, "isDefault": True},
+        )
+        self.assertEqual(200, created.status_code, created.text)
+        new_id = created.json()["data"]["id"]
+
+        listing = await self.client.get("/api/settings/currencies", headers=self.auth)
+        self.assertEqual(200, listing.status_code, listing.text)
+        defaults = [c for c in listing.json()["data"] if c["isDefault"]]
+        self.assertEqual([new_id], [c["id"] for c in defaults])
 
     # ── C5: the reorder and the conversion pair ───────────────────────────────
 

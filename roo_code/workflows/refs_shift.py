@@ -52,6 +52,17 @@ def versions(root, base, path):
             target.read_text(errors="replace").splitlines() if target.is_file() else None)
 
 
+def matches(changed, referenced):
+    """Совпадает ли путь ссылки с изменённым файлом — по границе сегмента, не по буквам.
+
+    Голый `endswith` считает, что `.../crud/domain.py` кончается на `main.py`: ссылку на
+    `main.py` тогда двигают сдвиги совсем другого файла. Найдено 2026-09-25 на правке
+    настроек — там это попало в «требуют глаз», но при дословном совпадении строки
+    контроллер переписал бы номер МОЛЧА и указал бы в никуда.
+    """
+    return changed == referenced or changed.endswith("/" + referenced)
+
+
 def verbatim(old_lines, new_lines, old_number, new_number):
     """Переехала ли строка дословно. Нет — номер молча править нельзя."""
     if old_lines is None or new_lines is None:
@@ -75,7 +86,7 @@ def survey(root, base="HEAD", docs="roo_code"):
         for number, text in enumerate(lines, 1):
             for ref in REF.finditer(text):
                 path = ref.group("path")
-                target = next((name for name in moved if name.endswith(path)), None)
+                target = next((name for name in moved if matches(name, path)), None)
                 if target is None:
                     continue
                 start = int(ref.group("start"))

@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from sqlalchemy import select, update, delete
+from sqlalchemy import select, update, delete, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.settings.shared.models import (
@@ -112,6 +112,23 @@ async def create_currency(db: AsyncSession, tenant_id: UUID, data: dict) -> Curr
     await db.flush()
     await db.refresh(obj)
     return obj
+
+
+async def clear_default_currency(
+    db: AsyncSession, tenant_id: UUID, *, except_id: UUID | None = None
+) -> None:
+    """Unset `is_default` on every other currency of this tenant — no commit here.
+
+    Deliberately uncommitted: the caller runs this right before the create/update
+    that sets the new default, so both writes land in the same transaction (БАГ-09).
+    """
+    stmt = update(CurrencyModel).where(
+        CurrencyModel.tenant_id == tenant_id,
+        CurrencyModel.is_default.is_(True),
+    )
+    if except_id is not None:
+        stmt = stmt.where(CurrencyModel.id != except_id)
+    await db.execute(stmt.values(is_default=False))
 
 
 async def patch_currency(
@@ -246,6 +263,20 @@ async def get_conversion_by_uom_pair(
         )
     )
     return result.scalar_one_or_none()
+
+
+async def count_conversions_by_uom(db: AsyncSession, tenant_id: UUID, uom_id: UUID) -> int:
+    """Count conversion rules that reference a UOM on either side of the pair."""
+    result = await db.execute(
+        select(func.count()).where(
+            UomConversionModel.tenant_id == tenant_id,
+            or_(
+                UomConversionModel.from_uom_id == uom_id,
+                UomConversionModel.to_uom_id == uom_id,
+            ),
+        )
+    )
+    return result.scalar() or 0
 
 
 async def create_conversion(db: AsyncSession, tenant_id: UUID, data: dict) -> UomConversionModel:

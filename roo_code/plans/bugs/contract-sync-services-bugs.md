@@ -77,7 +77,7 @@ price_unit: Mapped[str] = mapped_column(
 **Перенос значений** разбирает `"<код валюты>/<код единицы>"`: валюта — по `currencies.code`
 того же арендатора; единица — по `uoms.code_translations` в любой из трёх локалей, потому что
 колонки `code` у `uoms` нет вовсе. Правило «в любой локали» взято из существующего
-`get_uom_by_code` (`backend/app/modules/settings/features/crud/repository.py:171-187`), а не
+`get_uom_by_code` (`backend/app/modules/settings/features/crud/repository.py:188-204`), а не
 придумано заново, — иначе литовское `'vnt'` не нашлось бы.
 
 **Прогнано на живой базе, а не только написано** (Postgres 14 в докере на порту 5433,

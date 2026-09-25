@@ -70,6 +70,34 @@ class ShiftTest(unittest.TestCase):
         self.commit("Ссылка на `три` — code.ts:3\n")
         self.assertEqual(refs_shift.survey(self.root), ([], []))
 
+    def test_reference_matches_a_path_segment_not_a_suffix_of_letters(self):
+        """`.../crud/domain.py` кончается буквами `main.py`, но это другой файл.
+
+        Голый `endswith` двигал ссылку на `main.py` сдвигами `domain.py`. Строка там
+        совпадала дословно, значит номер переписывался МОЛЧА и указывал в никуда.
+        Найдено 2026-09-25 на правке настроек.
+        """
+        nested = self.root / "crud"
+        nested.mkdir()
+        domain = nested / "domain.py"
+        domain.write_text("альфа\nбета\nгамма\n")
+        main = self.root / "main.py"
+        main.write_text("альфа\nбета\nгамма\n")
+        self.commit("Ссылка на `гамма` в другом файле — main.py:3\n")
+        domain.write_text("ноль\nальфа\nбета\nгамма\n")  # сдвинулся ТОЛЬКО domain.py
+
+        safe, unsafe = refs_shift.renumber(self.root)
+
+        self.assertEqual((safe, unsafe), ([], []))
+        self.assertIn("main.py:3", self.doc.read_text())
+
+    def test_reference_without_a_directory_still_matches_its_file(self):
+        """Сужение не должно сломать обычный случай: `code.ts:3` — это `code.ts`."""
+        self.commit("Ссылка на `три` — code.ts:3\n")
+        self.code.write_text("ноль\nодин\nдва\nтри\nчетыре\n")
+        safe, _ = refs_shift.renumber(self.root)
+        self.assertEqual([i["стало"] for i in safe], ["code.ts:4"])
+
     def test_only_named_document_tree_is_touched(self):
         self.commit("Ссылка на `три` — code.ts:3\n")
         outside = self.root / "чужой.md"
