@@ -345,3 +345,36 @@ class SectionField(UUIDMixin, Base):
     section: Mapped["SectionConfig"] = relationship(
         "SectionConfig", back_populates="fields"
     )
+
+
+class SupplierNote(UUIDMixin, Base):
+    """Internal note on a supplier card — free text, author snapshot, unbounded count."""
+
+    __tablename__ = "supplier_notes"
+
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    supplier_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("suppliers.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    author_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    author_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        Index("ix_supplier_notes_tenant_supplier", "tenant_id", "supplier_id"),
+    )

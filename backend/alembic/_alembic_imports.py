@@ -30,7 +30,7 @@ from app.modules.warehouse.shared.models import (  # noqa: F401, E402
 # Suppliers module + field config
 from app.modules.suppliers.shared.models import (  # noqa: F401, E402
     Supplier, SupplierAddress, SupplierContact, SupplierFile,
-    SupplierAuditEntry, SupplierPriceEntry,
+    SupplierAuditEntry, SupplierPriceEntry, SupplierNote,
     FieldDefinition, SectionConfig, SectionField,
 )
 
