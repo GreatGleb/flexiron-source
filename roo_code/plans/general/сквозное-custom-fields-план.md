@@ -107,9 +107,9 @@
 `ProductFieldValue` ([`types/product.ts:9-16`](../../../frontend_vue/src/types/product.ts)),
 список у товара ([`types/product.ts:106`](../../../frontend_vue/src/types/product.ts)); на схеме —
 `field_id` с `ondelete="RESTRICT"`
-([`products/shared/models.py:203-208`](../../../backend/app/modules/products/shared/models.py)),
+([`products/shared/models.py:194-199`](../../../backend/app/modules/products/shared/models.py)),
 уникальность `uq_product_field_value`
-([`products/shared/models.py:210-214`](../../../backend/app/modules/products/shared/models.py)),
+([`products/shared/models.py:201-205`](../../../backend/app/modules/products/shared/models.py)),
 та же политика в миграции: `category_fields.id`
 ([`25245d4bf874_phase_3_categories_products.py:78`](../../../backend/alembic/versions/25245d4bf874_phase_3_categories_products.py)).
 
@@ -223,7 +223,7 @@
 переписыванием списка литералов. Третьего перечня типа поля в проекте не заводится.
 
 На схеме вокабуляр закрывается `CHECK` по колонке `field_type`
-([`products/shared/models.py:77-79`](../../../backend/app/modules/products/shared/models.py) —
+([`products/shared/models.py:68-70`](../../../backend/app/modules/products/shared/models.py) —
 сегодня `String(50)` без ограничения, а комментарий рядом перечисляет пять значений из семи).
 **[чтение]**
 
@@ -342,7 +342,7 @@
 ### КП-7. Схема: определение не удаляется, поэтому политика ссылки не срабатывает
 
 `product_field_values.field_id` остаётся `ondelete="RESTRICT"`
-([`products/shared/models.py:203-208`](../../../backend/app/modules/products/shared/models.py)) —
+([`products/shared/models.py:194-199`](../../../backend/app/modules/products/shared/models.py)) —
 и становится **недостижимой по построению**, ровно как политика удаления товара под П44 («строка
 не удаляется», §22 соглашений). Оставлена она не по инерции: это последний сторож, который
 превращает забытое жёсткое удаление в отказ, а не в молчаливую потерю значений. **[чтение]**

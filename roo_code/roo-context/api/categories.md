@@ -138,11 +138,10 @@ interface CategoryListItem {
 
 Бэкенд: **реализован** — слайс `products.list_categories`
 (`backend/app/modules/products/features/list_categories/`: `schemas.py`, `repository.py`,
-`domain.py`, `action.py`), роутер зарегистрирован в `backend/app/main.py`. Схема при этом хранит
-колонками ровно то, что слайс считает при чтении: `field_count`, `product_count`, `level`
-(`backend/app/modules/products/shared/models.py:33-41`; миграция
-`25245d4bf874_phase_3_categories_products.py:34-36`), а `parent_name` не имеет вовсе — слайс
-считает оба значения по `parent_id`, а не читает эти колонки.
+`domain.py`, `action.py`), роутер зарегистрирован в `backend/app/main.py`. `field_count`,
+`product_count` и `level` считаются при чтении (П68), как и в моке: хранимых колонок под них на
+схеме больше нет — ревизия `c1a7d9e4f2b3_categories_derived_columns.py` удалила все три из
+`categories`. `parent_name` схема не имела и не имеет; слайс считает оба значения по `parent_id`.
 Реализация: `services/categoriesService.ts:getCategories` · мок `mocks/index.ts:415` →
 `mocks/categories.ts:mockGetCategories` · бэкенд
 `backend/app/modules/products/features/list_categories/action.py:list_categories`
@@ -238,8 +237,9 @@ interface LinkedSupplier {
 
 Ответ — `Category` целиком. Новая запись рождается с `fieldCount: 0`, `productCount: 0`,
 `fields: []`, `linkedSuppliers: []` и `inheritedFields`, взятыми у родителя
-(`mocks/categories.ts:1436-1448`); на схеме те же нули стоят `server_default`
-(`backend/app/modules/products/shared/models.py:33-41`).
+(`mocks/categories.ts:1436-1448`); на схеме те же нули не хранятся — `fieldCount` и `productCount`
+считаются при чтении (П68), и у только что созданной категории нет ни собственных полей, ни
+товаров, посчитать которые.
 
 Ошибки: ни одной — `mockCreateCategory` не бросает (`mocks/categories.ts:1423-1449`). Пустое имя
 отсекает клиент (`CategoriesPage.vue:72`), и это поведение закреплено e2e
@@ -251,7 +251,7 @@ interface LinkedSupplier {
 
 **Уникальности имени не требует ни мок, ни схема** — в `models.py` единственный
 `UniqueConstraint` относится к значению поля товара
-(`backend/app/modules/products/shared/models.py:210-214`). Повторный POST с тем же телом создаёт
+(`backend/app/modules/products/shared/models.py:201-205`). Повторный POST с тем же телом создаёт
 вторую категорию: `Idempotency-Key` домен не шлёт (§11 соглашений), `id` выдаётся счётчиком
 (`mocks/categories.ts:1437`).
 
@@ -399,7 +399,7 @@ Partial<{ name: TranslatedString; parentId: string | null; description: Translat
 запрос уходит при любом изменении полей, включая добавление и удаление.
 
 Бэкенд: **не реализован**. Целевая таблица — `category_fields`
-(`backend/app/modules/products/shared/models.py:59-62`), и её колонки расходятся с типом фронта:
+(`backend/app/modules/products/shared/models.py:50-53`), и её колонки расходятся с типом фронта:
 `field_type` против `type`, `sort_order` против `order` (`models.py:85-99`); имя поля хранится
 `name_translations` (JSONB, NOT NULL) — тоже трёхъязычно, как и у фронта.
 Реализация: `services/categoriesService.ts:putCategoryFields` · мок `mocks/index.ts:1173` →
@@ -480,17 +480,22 @@ Partial<{ name: TranslatedString; parentId: string | null; description: Translat
 записи и не откатывается (`:1512`). Обязаны ли PATCH и PUT применяться одной транзакцией — не
 решено (осталось, строка 6).
 
-**Производные значения — здесь главное расхождение мока со схемой.** `level` и `parentName` мок
-считает при чтении, поднимаясь по `parentId` (`mocks/categories.ts:1328-1341`), а схема хранит
-`level` колонкой и `parent_name` не имеет вовсе
-(`backend/app/modules/products/shared/models.py:39-41`). `fieldCount` мок пересчитывает при записи
-полей (`mocks/categories.ts:1510`), схема хранит колонкой (`models.py:50-52`). `productCount` не
-считается **нигде**: это статическое число в сторе и колонка в схеме (`models.py:53-55`), при
-создании товара оно не растёт (БАГ-02). `inheritedFields` мок держит материализованными и
-обновляет каскадом (`mocks/categories.ts:1374-1381`), а на схеме их нет ни колонкой, ни таблицей.
-Общее правило — §17 соглашений: величина, выводимая из других данных, считается при чтении;
-сервер обязан считать `level`, `parentName`, `fieldCount`, `productCount` и `inheritedFields`, а
-хранимые колонки под них — материал для решения бэкенда, а не источник истины.
+**Производные значения — расхождение мока со схемой снято (П68).** `level` и `parentName` мок
+считает при чтении, поднимаясь по `parentId` (`mocks/categories.ts:1328-1341`), и схема больше не
+спорит: колонок `level`, `field_count` и `product_count` у `categories` нет — их удалила ревизия
+`c1a7d9e4f2b3_categories_derived_columns.py`. `parent_name` схема не имела никогда. Бэкенд считает
+`level` подъёмом по `parent_id` (`get_category_level` в
+`backend/app/modules/products/features/get_product_detail/repository.py`), с потолком глубины,
+чтобы порванная цепочка родителей не давала бесконечного цикла.
+
+`fieldCount` мок пересчитывает при записи полей (`mocks/categories.ts:1510`). `productCount` не
+считается **нигде**: это статическое число в сторе, и при создании товара оно не растёт (БАГ-02);
+колонки под него теперь нет и на схеме, то есть считать его обязан сервер при чтении.
+`inheritedFields` мок держит материализованными и обновляет каскадом
+(`mocks/categories.ts:1374-1381`), а на схеме их нет ни колонкой, ни таблицей.
+
+Общее правило — §17 соглашений: величина, выводимая из других данных, считается при чтении.
+Двух владельцев у этих трёх величин больше нет.
 
 ## Правила домена
 
@@ -525,16 +530,16 @@ Partial<{ name: TranslatedString; parentId: string | null; description: Translat
     проставленной категорией, а товар без категории не мешает удалению ни одной.
 11. **Три каскада на схеме выражены тремя разными политиками**: `categories.parent_id` —
     `RESTRICT`, `category_fields.category_id` — `CASCADE`, `product_field_values.field_id` —
-    `RESTRICT` (миграция `:32`, `:46`, `:78`). При этом ORM-отношение `children` объявлено
-    `cascade="all, delete-orphan"` (`backend/app/modules/products/shared/models.py:44-47`), что
-    противоречит `RESTRICT` на том же ключе. Находки про код это не касается: правится не
-    фронтенд, а модель, — поэтому противоречие записано здесь, задачей бэкенда.
+    `RESTRICT` (миграция `:32`, `:46`, `:78`). ORM-отношение `children` раньше объявляло
+    `cascade="all, delete-orphan"`, что противоречило `RESTRICT` на том же ключе; починено —
+    ссылки на справочники удерживаются, а не каскадируют (П44), и `children` больше не несёт
+    этот cascade.
 12. **Уникальности нет нигде** — ни у имени категории, ни у имени поля
-    (`backend/app/modules/products/shared/models.py:210-214` — единственный `UniqueConstraint`
+    (`backend/app/modules/products/shared/models.py:201-205` — единственный `UniqueConstraint`
     домена относится к значению поля товара).
 13. **Перечень типов поля на схеме шире, чем во фронте, и не закрыт ничем**: колонка `field_type`
     — свободная `String(50)` без `CHECK`, допустимые значения живут комментарием рядом и их пять
-    (`backend/app/modules/products/shared/models.py:77-79`), а во фронте семь — добавлены `email`
+    (`backend/app/modules/products/shared/models.py:68-70`), а во фронте семь — добавлены `email`
     и `file` (`types/category.ts:4`), и оба доходят до селекта (`CategoryCardPage.vue:97-105`).
 
 ## Унаследовано из прежнего контракта, кодом не подтверждено
@@ -554,12 +559,12 @@ Partial<{ name: TranslatedString; parentId: string | null; description: Translat
 
 | было описано | чем доказано отсутствие |
 |---|---|
-| код `DUPLICATE_FIELD_NAME` (409, «поле с таким именем уже есть в категории») — `03-api-contract.md:837` | `grep -rn "DUPLICATE_FIELD_NAME" frontend_vue/src backend` — пусто; уникальности имени поля не требует ни мок (`mocks/categories.ts:1487-1514` — ни одного `throw`), ни схема (`backend/app/modules/products/shared/models.py:59-90` — без `UniqueConstraint`) |
+| код `DUPLICATE_FIELD_NAME` (409, «поле с таким именем уже есть в категории») — `03-api-contract.md:837` | `grep -rn "DUPLICATE_FIELD_NAME" frontend_vue/src backend` — пусто; уникальности имени поля не требует ни мок (`mocks/categories.ts:1487-1514` — ни одного `throw`), ни схема (`backend/app/modules/products/shared/models.py:50-81` — без `UniqueConstraint`) |
 | тело `PUT /api/categories/:id/fields` — массив `CategoryField[]` — `03-api-contract.md:951` | на проводе объект-обёртка `{ fields: [...] }` (`services/categoriesService.ts:65-71`), мок разбирает `const { fields } = body` (`mocks/index.ts:1175`) |
 | `name`, `description` и `options` как `string` во всех четырёх примерах — `03-api-contract.md:863-865`, `:917-918`, `:955-956` | и тип, и мок дают `TranslatedString` (`types/category.ts:27`, `:19`, `:12`; посев `mocks/categories.ts:12`) |
 | `linkedSuppliers` без поля `currency` — `03-api-contract.md:920-921` | поле есть в типе (`types/product.ts:34`) и заполняется снимком валюты поставщика (`CategoryCardPage.vue:231`) |
 | «Удалённые поля сервер удаляет каскадом» — `03-api-contract.md:960` | каскада нет: мок товары не трогает вовсе, а схема удаление значения запрещает — `product_field_values.field_id` объявлен `ondelete="RESTRICT"` (миграция `25245d4bf874_phase_3_categories_products.py:78`) |
-| «`level` вычисляется сервером» как единственная политика — `03-api-contract.md:871` | схема хранит `level`, `field_count` и `product_count` колонками (`backend/app/modules/products/shared/models.py:33-41`), то есть у величины два владельца; разрешение — за бэкендом (§17 соглашений) |
+| «`level` вычисляется сервером» как единственная политика — `03-api-contract.md:871` | теперь так и есть: колонки `level`, `field_count`, `product_count` удалены из `categories` ревизией `c1a7d9e4f2b3_categories_derived_columns.py` (П68), второго владельца у величины не осталось |
 
 ## Оставлено владельцу
 

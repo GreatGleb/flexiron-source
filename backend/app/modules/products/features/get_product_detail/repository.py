@@ -34,6 +34,35 @@ async def get_category_by_id(
     return result.scalar_one_or_none()
 
 
+MAX_CATEGORY_DEPTH = 100
+
+
+async def get_category_level(
+    db: AsyncSession, category: Category, tenant_id: UUID
+) -> int:
+    """Derive a category's depth by walking `parent_id` up to the root (П68).
+
+    Bounded by `MAX_CATEGORY_DEPTH` so a broken parent chain (a cycle, or a
+    dangling reference) can't turn this into an infinite loop.
+    """
+    level = 0
+    current = category
+    while current.parent_id is not None:
+        level += 1
+        if level > MAX_CATEGORY_DEPTH:
+            return level
+        result = await db.execute(
+            select(Category).where(
+                Category.id == current.parent_id, Category.tenant_id == tenant_id
+            )
+        )
+        parent = result.scalar_one_or_none()
+        if parent is None:
+            return level
+        current = parent
+    return level
+
+
 async def get_category_fields_by_ids(
     db: AsyncSession, field_ids: list[UUID], tenant_id: UUID
 ) -> dict[UUID, CategoryField]:

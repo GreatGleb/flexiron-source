@@ -245,7 +245,7 @@ data» и **ре-экспортирует ровно те две функции 
 
 **Поправка второго замера.** Первая редакция считала вторым нарушением
 `uq_product_field_value` по `(product_id, field_id)`
-([`backend/app/modules/products/shared/models.py:211-215`](../../../backend/app/modules/products/shared/models.py)).
+([`backend/app/modules/products/shared/models.py:202-206`](../../../backend/app/modules/products/shared/models.py)).
 Это неверно, и разница — не придирка: `product_id` — FK на `products`, таблицу категории А,
 поэтому два товара разных арендаторов одного `product_id` иметь не могут, и пара уже
 тенантская. Тем же устроен `uq_user_role` по `(user_id, role_name)`

@@ -77,7 +77,7 @@
 > `NULL` и ничего не уронили. Обратный проход лоссовый и это записано в самой ревизии:
 > `'EUR/vnt'` возвращается как `'EUR/pcs'`, потому что код единицы собирается по en → ru → lt —
 > тем же правилом, что `_reconstruct_price_unit`
-> (`backend/app/modules/products/features/get_product_detail/domain.py:28-46`).
+> (`backend/app/modules/products/features/get_product_detail/domain.py:29-47`).
 >
 > **Слайсы по услугам писать теперь можно** — форма, которую они закрепят, совпадает с той, что
 > просит фронт. Остаётся расхождение по `nullable`: на проводе `currencyId`/`uomId`

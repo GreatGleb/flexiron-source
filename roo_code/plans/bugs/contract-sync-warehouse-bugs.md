@@ -987,7 +987,7 @@ product_id: Mapped[uuid.UUID] = mapped_column(
 `tenant_id` в ограничение не входит: `sed -n '213,219p' backend/app/modules/warehouse/shared/models.py | grep -c tenant_id` → 0.
 
 Как это делается правильно, видно в соседнем модуле: `uq_product_field_value` на паре
-(`backend/app/modules/products/shared/models.py:210-214`).
+(`backend/app/modules/products/shared/models.py:201-205`).
 
 ### Expected
 

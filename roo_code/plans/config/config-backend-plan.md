@@ -330,7 +330,7 @@ awk 'NR>=843 && NR<=858 && /^\| /' roo_code/roo-context/api/config.md | wc -l   
 
 ### С0в — хранилище значений полей поставщика (родитель — С0б; по содержимому зависит от С0а)
 Ревизия `alembic revision -m "supplier_field_values"`. Новая таблица по образцу
-`ProductFieldValue` (`backend/app/modules/products/shared/models.py:186`): «сущность × определение ×
+`ProductFieldValue` (`backend/app/modules/products/shared/models.py:177`): «сущность × определение ×
 значение» — `tenant_id`, `supplier_id` FK на `suppliers` с `CASCADE`, `field_id` FK на
 `field_definitions`, `value` `Text`, уникальность `(supplier_id, field_id)`. Под П73 связь **не**
 `RESTRICT`: определение не удаляется, а архивируется, поэтому значение продолжает на него

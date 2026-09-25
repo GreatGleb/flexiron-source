@@ -13,6 +13,7 @@ from app.modules.products.features.get_product_detail.repository import (
     get_product_by_id,
     get_category_by_id,
     get_category_fields_by_ids,
+    get_category_level,
 )
 from app.modules.products.features.get_product_detail.schemas import (
     ProductDetailResponse,
@@ -59,10 +60,11 @@ async def get_product_detail(
     if product.category_id:
         cat = await get_category_by_id(db, product.category_id, tenant_id)
         if cat:
+            level = await get_category_level(db, cat, tenant_id)
             category = CategoryBriefResponse(
                 id=cat.id,
                 name=TranslatedString(**cat.name_translations),
-                level=cat.level,
+                level=level,
             )
 
     # Map field values — one bulk lookup of their definitions, not one per value

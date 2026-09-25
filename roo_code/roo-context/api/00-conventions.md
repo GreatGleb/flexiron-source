@@ -528,17 +528,17 @@ comm -23 /tmp/fe_keys.txt /tmp/be_keys.txt   # шесть; обратная ра
 - **Значение везёт с собой копию определения, и сервер обязан её игнорировать.**
   `ProductFieldValue` несёт `fieldName`, `fieldType`, `options`, `inherited` — четыре поля из шести
   производные; на схеме у значения только `field_id` и `value`
-  (`backend/app/modules/products/shared/models.py:203-208`), уникальность — `(product_id, field_id)`
+  (`backend/app/modules/products/shared/models.py:194-199`), уникальность — `(product_id, field_id)`
   (`:210-214`).
 - **Валидирует значения никто.** Ни `required`, ни тип при записи товара не проверяются
   (`mocks/products.ts:14117-14218` — ни одной проверки); клиент нормализует только
   `Number.isNaN` (`useProductCard.ts:247`), а на схеме значение — свободный `Text`
-  (`backend/app/modules/products/shared/models.py:203-208`).
+  (`backend/app/modules/products/shared/models.py:194-199`).
 - **Перечень типов поля закрыт во фронте и открыт на схеме.** Колонка `field_type` — `String(50)`
   без `CHECK`, допустимые значения живут комментарием рядом и их пять, а не семь
-  (`backend/app/modules/products/shared/models.py:77-79`). Тот же класс у формул пересчёта:
+  (`backend/app/modules/products/shared/models.py:68-70`). Тот же класс у формул пересчёта:
   `CONVERSION_FORMULA_TYPES` — три имени с типом, выведенным из массива (`types/settings.ts:55-67`),
-  против `String(30)` без ограничения (`products/shared/models.py:165-177`).
+  против `String(30)` без ограничения (`products/shared/models.py:156-168`).
 
 ### 8.1. Жизненный цикл значения — решено 2026-09-11 (П73)
 
@@ -1460,7 +1460,7 @@ save-режим.
 (`alembic/versions/25245d4bf874_phase_3_categories_products.py:77`) — то есть удаление товара
 сегодня либо запрещено, либо молча уносит чужие строки, и ни то ни другое не есть архив. У
 справочников зеркальная непоследовательность: `RESTRICT` у товаров и услуг
-(`modules/products/shared/models.py:127,142,149,156`, `modules/services/shared/models.py:33,40`),
+(`modules/products/shared/models.py:118,142,149,156`, `modules/services/shared/models.py:33,40`),
 у складской партии `ondelete` стоит `SET NULL` (`modules/warehouse/shared/models.py:84,80`), а у
 правил пересчёта — `RESTRICT` (`modules/settings/shared/models.py:125,130`): каскад снят слайсом C1
 (ревизия `7c4d1e9a3b58`), и правило молча больше не уносит.

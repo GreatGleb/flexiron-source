@@ -30,15 +30,6 @@ class Category(UUIDMixin, TimestampMixin, Base):
         index=True,
     )
     description_translations: Mapped[dict | None] = mapped_column(JSONB, nullable=True, default=dict, server_default="{}")
-    field_count: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0, server_default="0"
-    )
-    product_count: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0, server_default="0"
-    )
-    level: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0, server_default="0"
-    )
 
     # Self-referencing relationships
     children: Mapped[list["Category"]] = relationship(

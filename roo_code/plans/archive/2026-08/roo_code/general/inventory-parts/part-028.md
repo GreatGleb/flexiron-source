@@ -116,7 +116,7 @@ create_product  get_product_detail  __init__.py
 Списочного `GET /api/products` в бэкенде нет вовсе — только `GET /api/products/{id}`
 и `POST /api/products`. Деталь отдаёт нужное:
 `get_product_detail/schemas.py:35 price_unit`, `:41-43 purchase_uom_id / warehouse_uom_id /
-sale_uom_id`; реконструкция — `get_product_detail/domain.py:28 _reconstruct_price_unit`,
+sale_uom_id`; реконструкция — `get_product_detail/domain.py:29 _reconstruct_price_unit`,
 `:76-93`.
 
 ```
