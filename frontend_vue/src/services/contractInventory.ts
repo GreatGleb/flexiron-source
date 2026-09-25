@@ -31,6 +31,14 @@ interface DocEndpoint {
    * становится местом, где описание тихо расходится с кодом.
    */
   planned: boolean
+  /**
+   * Что раздел утверждает строкой `Бэкенд:` — `null`, если строки нет вовсе.
+   *
+   * Разбор по содержанию, а не по наличию пути к файлу: раздел может ссылаться на файл моделей
+   * бэкенда и при этом заявлять «не реализован» (схема заведена, эндпоинта нет) — путь к файлу
+   * тут ничего не отличает, а слова «не реализован» / «модуля нет» отличают.
+   */
+  backend: 'present' | 'absent' | null
 }
 
 /** Корень фронтенда. Спека запускается из `frontend_vue/`, отсюда `process.cwd()`. */
@@ -224,7 +232,12 @@ export function scanContract(): Map<EndpointKey, DocEndpoint> {
       if (!m?.[1] || !m[2]) return
       const key = `${m[1]} ${normalizePath(m[2])}`
       if (out.has(key)) return
-      out.set(key, { file, line: i + 1, planned: isPlanned(lines, i) })
+      out.set(key, {
+        file,
+        line: i + 1,
+        planned: isPlanned(lines, i),
+        backend: backendClaim(lines, i),
+      })
     })
   }
   return out
@@ -238,6 +251,23 @@ function isPlanned(lines: string[], headingIndex: number): boolean {
     if (/^\*{0,2}Статус:\*{0,2}\s*спроектировано/.test(line)) return true
   }
   return false
+}
+
+/**
+ * Что раздел утверждает строкой `Бэкенд:` — до следующего заголовка. `null`, если строки нет.
+ *
+ * Правило разбора: строка, начинающаяся с `Бэкенд:`, объявляет отсутствие тогда и только тогда,
+ * когда содержит «не реализован» или «модуля нет» — во всех прочих случаях она объявляет наличие.
+ */
+function backendClaim(lines: string[], headingIndex: number): 'present' | 'absent' | null {
+  for (let i = headingIndex + 1; i < lines.length; i += 1) {
+    const line = lines[i] ?? ''
+    if (line.startsWith('#')) return null
+    if (line.startsWith('Бэкенд:')) {
+      return /не реализован|модуля нет/.test(line) ? 'absent' : 'present'
+    }
+  }
+  return null
 }
 
 /** Роуты бэкенда: `МЕТОД /api/путь` → `файл:строка`. Пустая карта, если каталога нет. */
