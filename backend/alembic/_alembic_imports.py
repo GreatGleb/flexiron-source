@@ -68,3 +68,6 @@ from app.modules.clients.shared.models import (  # noqa: F401, E402
 
 # Audit module (shared change-history journal)
 from app.modules.audit.shared.models import AuditEntry  # noqa: F401, E402
+
+# Idempotency module (shared Idempotency-Key store)
+from app.modules.idempotency.shared.models import IdempotencyKey  # noqa: F401, E402
