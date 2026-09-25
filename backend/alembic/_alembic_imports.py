@@ -52,7 +52,7 @@ from app.modules.bcc.shared.models import (  # noqa: F401, E402
 # Settings module
 from app.modules.settings.shared.models import (  # noqa: F401, E402
     CompanyInfo, GlobalConstants, Currency, Uom, UomConversion,
-    OrderStatusSetting, MailSettings, WarehouseMap,
+    OrderStatusSetting, MailSettings, WarehouseMap, OrderPermissions,
 )
 
 # Services module

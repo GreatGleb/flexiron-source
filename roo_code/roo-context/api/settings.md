@@ -1466,9 +1466,13 @@ URL — находка домена `auth`.
 себестоимости, сервер, вырезавший её, обязан прислать посчитанную цену
 (`composables/useOrderPermissions.ts:16-21`).
 
-Бэкенд: **не реализован** — модели прав в модуле нет: шесть классов моделей
-(`backend/app/modules/settings/shared/models.py:12`, `backend/app/modules/settings/shared/models.py:37`, `backend/app/modules/settings/shared/models.py:72`, `backend/app/modules/settings/shared/models.py:94`, `backend/app/modules/settings/shared/models.py:112`, `backend/app/modules/settings/shared/models.py:144`), прав
-среди них нет.
+Бэкенд: `settings/features/crud/action.py` — `get_order_permissions_route` · схемы `crud/schemas.py`
+— `OrderPermissionsResponse` · домен `crud/domain.py` — `get_order_permissions_matrix` ·
+репозиторий `crud/repository.py` — `get_order_permissions`/`create_order_permissions`. Хранилище —
+таблица `order_permissions` (модель `OrderPermissions`, `settings/shared/models.py`), строка на
+арендатора создаётся при первом чтении тем же приёмом, каким `get_global_constants` достраивает
+отсутствующую строку констант, значениями мока (`mocks/settings.ts:64-68`); эндпоинта на запись
+по-прежнему нет.
 Реализация: `services/settingsService.ts:36` — `getOrderPermissions` · мок `mocks/index.ts:383` →
 `mocks/settings.ts:496` — `mockGetOrderPermissions`
 

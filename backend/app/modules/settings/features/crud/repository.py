@@ -359,3 +359,24 @@ async def reorder_order_statuses(db: AsyncSession, tenant_id: UUID, ordered_ids:
         )
         await db.execute(stmt)
     await db.commit()
+
+
+# ─── Order Permissions ────────────────────────────────────────────────────
+
+async def get_order_permissions(db: AsyncSession, tenant_id: UUID):
+    from app.modules.settings.shared.models import OrderPermissions as OrderPermissionsModel
+
+    result = await db.execute(
+        select(OrderPermissionsModel).where(OrderPermissionsModel.tenant_id == tenant_id)
+    )
+    return result.scalar_one_or_none()
+
+
+async def create_order_permissions(db: AsyncSession, tenant_id: UUID, data: dict):
+    from app.modules.settings.shared.models import OrderPermissions as OrderPermissionsModel
+
+    obj = OrderPermissionsModel(tenant_id=tenant_id, **data)
+    db.add(obj)
+    await db.commit()
+    await db.refresh(obj)
+    return obj

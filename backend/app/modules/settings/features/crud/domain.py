@@ -751,3 +751,35 @@ def _validate_constant_bounds(input_data: ConstantsPatchInput) -> None:
             raise ValidationError(
                 f"{field} must be at most {high}", code="CONSTANT_OUT_OF_RANGE"
             )
+
+
+# ─── Order Permissions ────────────────────────────────────────────────────
+#
+# Seed values are the mock's own seed (`mocks/settings.ts:64-68`), the source of
+# truth named for this not-yet-implemented endpoint by the contract — not a
+# guess and not open to being widened here: adding roles, or deciding whether a
+# warehouse worker may see cost, is a separate owner decision this slice does
+# not make.
+_ORDER_PERMISSIONS_SEED: dict[str, list[str]] = {
+    "see_cost_roles": ["owner", "admin", "accounting"],
+    "manual_cost_roles": ["owner", "admin"],
+    "correction_roles": ["owner", "admin"],
+}
+
+
+async def get_order_permissions_matrix(db: AsyncSession, tenant_id: UUID) -> "OrderPermissionsResponse":
+    from app.modules.settings.features.crud.schemas import OrderPermissionsResponse
+    from app.modules.settings.features.crud.repository import (
+        get_order_permissions as get_order_permissions_repo,
+        create_order_permissions as create_order_permissions_repo,
+    )
+
+    obj = await get_order_permissions_repo(db, tenant_id)
+    if obj is None:
+        obj = await create_order_permissions_repo(db, tenant_id, dict(_ORDER_PERMISSIONS_SEED))
+
+    return OrderPermissionsResponse(
+        see_cost=obj.see_cost_roles,
+        manual_cost=obj.manual_cost_roles,
+        correction=obj.correction_roles,
+    )
