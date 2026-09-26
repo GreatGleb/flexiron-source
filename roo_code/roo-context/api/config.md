@@ -1,7 +1,7 @@
 # Config
 
 Конфигуратор карточки поставщика: библиотека полей, секции карточки и матрица прав на секции и
-поля. Двенадцать эндпоинтов, все двенадцать зовёт фронтенд, ни одного не реализует бэкенд.
+поля. Двенадцать эндпоинтов, все двенадцать зовёт фронтенд, два `GET` уже отдаёт бэкенд, десять — нет.
 
 Потребитель ровно один — страница
 [`views/admin/suppliers/SupplierCardConfigPage.vue`](../../../frontend_vue/src/views/admin/suppliers/SupplierCardConfigPage.vue)
@@ -30,9 +30,9 @@ clean-slate Save, форма идентификатора, права как с�
 `billing`, `finance`, `notifications`, `products`, `services`, `settings`, `suppliers`,
 `warehouse`, — и `config` среди них не значится; в
 [`backend/app/main.py:87-95`](../../../backend/app/main.py) зарегистрированы девять роутеров, ни
-одного config-овского. Поэтому по §5 старшинства (скил [`api-contract.md`](../../skills/api-contract.md))
-источник истины у всех двенадцати разделов — **мок и клиент**, и у каждого раздела ниже стоит
-строка `Бэкенд: **не реализован**`.
+одного config-овского, кроме двух `GET`, которые отдаёт слайс `card_config`. Поэтому по §5 старшинства (скил [`api-contract.md`](../../skills/api-contract.md))
+источник истины у десяти из двенадцати разделов — **мок и клиент**, и у каждого такого раздела
+ниже стоит строка `Бэкенд: **не реализован**`; у двух `GET` источник истины — код.
 
 **Но таблицы и модели домена существуют, и лежат они в двух чужих модулях.**
 `field_definitions`, `section_configs`, `section_fields` — в `suppliers`
@@ -42,7 +42,7 @@ clean-slate Save, форма идентификатора, права как с�
 Все шесть заведены одной миграцией
 [`e24a3922ed01_phase_7_config.py:27-109`](../../../backend/alembic/versions/e24a3922ed01_phase_7_config.py).
 
-Схема — не источник истины (реализации эндпоинта нет ни одной), но и не пустое место: форма
+Схема — не источник истины (у десяти разделов реализации нет ни одной), но и не пустое место: форма
 ответа обязана считаться с ней, а расхождения перечислены разделом «Правила домена» ниже. Их шесть,
 и четыре из шести — вопросы владельцу, а не решения контракта.
 
@@ -123,7 +123,7 @@ interface FieldDefinition {
 
 Ошибки: **ни одной** — см. «Каталог кодов ошибок» ниже.
 
-Бэкенд: **не реализован** — модуля нет; таблица под ответ есть, `field_definitions`
+Бэкенд: **реализован** — слайс `suppliers/features/card_config/`, функция `get_field_library`; таблица под ответ есть, `field_definitions`
 (`backend/app/modules/suppliers/shared/models.py`). Форму больше не расходится: миграция
 `d8b3f1c25a60_config_field_library_form` перевела `name` и `options` на переводимое хранение
 (`name_translations`, `options` — оба JSONB) и завела колонку `hidden` с `server_default` «не
@@ -285,7 +285,7 @@ interface SectionConfig {
 interface SectionField { fieldId: string; order: number; visible: boolean }   // types/config.ts:29-33
 ```
 
-**Порядок массива и поле `order` — две разные вещи, и сортировки нет ни в одной.** `mockGetSections`
+**Порядок массива и поле `order` — две разные вещи, и ни в моке, ни в клиенте сортировки нет.** `mockGetSections`
 возвращает массив как лежит (`mocks/config.ts:250-252`), `mockSaveSections` кладёт присланный как
 есть (`:254-259`); совпадение держится только тем, что клиент перенумеровывает `order` по индексу
 при перетаскивании (`useCardConfig.ts:73`). **Сервер обязан отдавать секции упорядоченными по
@@ -299,7 +299,7 @@ interface SectionField { fieldId: string; order: number; visible: boolean }   //
 
 Ошибки: **ни одной**.
 
-Бэкенд: **не реализован** — таблица `section_configs`
+Бэкенд: **реализован** — слайс `suppliers/features/card_config/`, функция `get_sections`; таблица `section_configs`
 (`backend/app/modules/suppliers/shared/models.py`) здесь **ближе** к фронту, чем у полей: имя
 переводимо (`name_translations` JSONB), есть `collapsed` и `visible`, и с миграции
 `d8b3f1c25a60_config_field_library_form` есть `system` — булева колонка с `server_default` «не
