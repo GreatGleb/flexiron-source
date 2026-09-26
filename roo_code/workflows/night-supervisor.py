@@ -23,7 +23,39 @@ from headless_backends import ClaudeBackend, load_routing  # noqa: E402
 RUNNER = HERE / "codex-night.py"
 
 
-def call_operator(root, prompt, model, binary, out_dir, index, done_ids):
+def rejection_note(stderr, queue):
+    """Отказ preflight — в виде, из которого оператор может исправить очередь.
+
+    Ядро отвергает очередь целиком и называет правило, но не всегда виновника:
+    «Некорректный id задачи» не говорит, какой. Поэтому рядом кладём id самой
+    отвергнутой очереди — ночью 2026-09-25/26 порция из пяти годных задач ушла за
+    четыре заглавные буквы в одном id, и оператор, не узнав причины, выдал то же снова.
+    """
+    ids = ", ".join(str(t.get("id")) for t in queue.get("tasks", []) if isinstance(t, dict))
+    return ("\nПРЕДЫДУЩАЯ ОЧЕРЕДЬ ОТВЕРГНУТА ЦЕЛИКОМ на preflight — ни одна задача из неё не "
+            "запускалась. Ответ ядра:\n" + (stderr.strip()[-2000:] or "(ядро не объяснило)")
+            + "\nid в отвергнутой очереди: " + (ids or "нет") + "\n"
+            "Найди в своей очереди то, на что указывает эта ошибка, и исправь именно это, "
+            "прежде чем отдавать ответ. Очередь с той же ошибкой будет отвергнута снова "
+            "и сожжёт ещё одну порцию.\n")
+
+
+def blocked_note(blocked):
+    """Задачи, которые ядро забраковало этой ночью, с причинами браковки.
+
+    Их id уже в списке сделанного, но оператор повторял саму ФОРМУ неудачной задачи
+    под другим id. Причина браковки — единственное, что говорит, что в форме не так.
+    """
+    if not blocked:
+        return ""
+    lines = [f"- {b['task']} ({b.get('phase', '?')}): {str(b.get('reason', '')).strip()[:300]}"
+             for b in blocked[-10:]]
+    return ("\nЗАБРАКОВАНО ядром этой ночью — прочитай причины и не выдавай задач, которые "
+            "упадут так же; если задача нужна, измени в ней то, на что указывает причина:\n"
+            + "\n".join(lines) + "\n")
+
+
+def call_operator(root, prompt, model, binary, out_dir, index, done_ids, feedback=""):
     """Одна read-only сессия оператора: вернуть очередь задач JSON-ом."""
     history = ("\nУЖЕ СДЕЛАНО этой ночью — не предлагай снова и не переделывай: "
                + (", ".join(sorted(done_ids)) if done_ids else "ничего") + "\n")
@@ -31,8 +63,11 @@ def call_operator(root, prompt, model, binary, out_dir, index, done_ids):
     backend = ClaudeBackend({"model": model, **({"binary": binary} if binary else {})})
     # Оператор читает checkout, а не каталог, из которого его запустили.
     argv = backend.build("review", root, out_dir, prefix.with_suffix(".json"))
+    full_prompt = prompt + history + feedback
+    # Что именно оператору сказали — утром это первое, что хочется увидеть.
+    prefix.with_suffix(".prompt.txt").write_text(full_prompt)
     with prefix.with_suffix(".stdout.log").open("wb") as out, prefix.with_suffix(".stderr.log").open("wb") as err:
-        subprocess.run(argv, input=(prompt + history).encode(), stdout=out, stderr=err, cwd=root, check=True)
+        subprocess.run(argv, input=full_prompt.encode(), stdout=out, stderr=err, cwd=root, check=True)
     backend.finalize("review", prefix, prefix.with_suffix(".json"))
     queue = json.loads(prefix.with_suffix(".json").read_text())
     spent = backend.tokens(prefix)
@@ -93,6 +128,7 @@ def main():
     load_routing(args.routing)  # падаем сразу, если маршрутизация негодна
 
     spent, done_ids, idle_batches = 0, set(), 0
+    rejection, blocked = "", []
     report = {"batches": [], "stopped": None}
 
     def finish(reason):
@@ -112,7 +148,8 @@ def main():
 
         try:
             queue_path, queue, operator_spent = call_operator(
-                root, prompt, args.operator_model, args.operator_binary, args.out, index, done_ids)
+                root, prompt, args.operator_model, args.operator_binary, args.out, index, done_ids,
+                rejection + blocked_note(blocked))
         # RuntimeError сюда попадает от разбора ответа: оператор, не сумевший выдать
         # очередь, заканчивает ночь отчётом, а не трассировкой в лог.
         except (subprocess.CalledProcessError, ValueError, RuntimeError, json.JSONDecodeError) as error:
@@ -124,11 +161,14 @@ def main():
         if checked.returncode:
             # Негодная очередь не стоит ночи: следующая порция может быть годной.
             report["batches"].append({"batch": index, "completed": 0, "preflight": checked.stderr.strip()[:400]})
+            # Причина обязана дойти до следующего оператора: без неё он повторяет ту же ошибку.
+            rejection = rejection_note(checked.stderr, queue)
             idle_batches += 1
             if args.idle_limit and idle_batches >= args.idle_limit:
                 return finish(f"порций подряд без принятых задач: {idle_batches}")
             continue
 
+        rejection = ""
         result = runner(["--workspace", str(root), "--queue", str(queue_path), "--routing", str(args.routing),
                          "--run", "--run-dir", str(run_dir), "--minutes", f"{minutes_left - 5:.1f}",
                          "--max-tasks", str(args.max_tasks), "--parallel", str(args.parallel),
@@ -138,6 +178,7 @@ def main():
         completed = [c["task"] for c in state["completed"]]
         done_ids.update(completed)
         done_ids.update(b["task"] for b in state.get("blocked", []))
+        blocked.extend(state.get("blocked", []))
         report["batches"].append({"batch": index, "completed": len(completed), "tasks": completed,
                                   "blocked": [b["task"] for b in state.get("blocked", [])],
                                   "status": state["status"], "tokens": state.get("tokens", 0)})
