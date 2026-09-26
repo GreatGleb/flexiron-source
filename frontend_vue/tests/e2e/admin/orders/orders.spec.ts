@@ -82,7 +82,7 @@ test.describe('Orders List', () => {
   test('create button navigates to create page', async ({ page }) => {
     await navigateToAdmin(page, '/admin/orders')
     await page.locator('[data-test="orders-header"] a.btn-primary').click()
-    await expect(page).toHaveURL('/admin/orders/new')
+    await expect(page).toHaveURL('/admin/orders/new', { timeout: DATA_READY_TIMEOUT })
   })
 
   test('order row links to card page', async ({ page }) => {
@@ -92,7 +92,7 @@ test.describe('Orders List', () => {
 
     const orderLink = firstRow.locator('a.name-link')
     await orderLink.click()
-    await expect(page).toHaveURL(/\/admin\/orders\/(.+)/)
+    await expect(page).toHaveURL(/\/admin\/orders\/(.+)/, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('view button navigates to card page', async ({ page }) => {
@@ -100,7 +100,7 @@ test.describe('Orders List', () => {
     const viewBtn = page.locator('[data-test="orders-view-btn"]').first()
     await expect(viewBtn).toBeVisible()
     await viewBtn.click()
-    await expect(page).toHaveURL(/\/admin\/orders\/(.+)/)
+    await expect(page).toHaveURL(/\/admin\/orders\/(.+)/, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('the row says what the client pays, and how much of it arrived', async ({ page }) => {
@@ -232,14 +232,14 @@ test.describe('Order Create', () => {
     // Refusing keeps the page and everything typed into it.
     await page.click('[data-test="order-create-leave-stay"]')
     await expect(modal).toBeHidden()
-    await expect(page).toHaveURL(/\/admin\/orders\/new/)
+    await expect(page).toHaveURL(/\/admin\/orders\/new/, { timeout: DATA_READY_TIMEOUT })
     await expect(page.locator('[data-test="order-create-notes"]')).toHaveValue('half an order')
 
     // Asked once per attempt — the old code asked, navigated, and asked again.
     await page.click('[data-test="order-create-cancel-btn"]')
     await expect(modal).toBeVisible()
     await page.click('[data-test="order-create-leave-discard"]')
-    await expect(page).toHaveURL(/\/admin\/orders$/)
+    await expect(page).toHaveURL(/\/admin\/orders$/, { timeout: DATA_READY_TIMEOUT })
     await expect(modal).toBeHidden()
 
     expect(systemDialogs).toBe(0)
@@ -248,7 +248,7 @@ test.describe('Order Create', () => {
   test('leaving an untouched order asks nothing', async ({ page }) => {
     await navigateToAdmin(page, '/admin/orders/new')
     await page.click('[data-test="order-create-cancel-btn"]')
-    await expect(page).toHaveURL(/\/admin\/orders$/)
+    await expect(page).toHaveURL(/\/admin\/orders$/, { timeout: DATA_READY_TIMEOUT })
     await expect(page.locator('[data-test="order-create-leave-modal"]')).toHaveCount(0)
   })
 

@@ -362,7 +362,7 @@
 9. **Домен не покрыт ни одной юнит-спекой.** `grep -rln "uploads\|uploadFile" frontend_vue/src
    --include=*.spec.ts` → пусто; на бэкенде `find backend/tests -iname "*upload*"` → пусто.
    Единственная проверка поведения — e2e карты склада
-   (`frontend_vue/tests/e2e/admin/warehouse/warehouse-map.spec.ts:23-27`, отказ по типу — `:164`),
+   (`frontend_vue/tests/e2e/admin/warehouse/warehouse-map.spec.ts:24-28`, отказ по типу — `:164`),
    и она гоняется против мока, то есть проверяет мок, а не сервер.
 
 ## Находки про код → contract-sync-uploads-bugs.md

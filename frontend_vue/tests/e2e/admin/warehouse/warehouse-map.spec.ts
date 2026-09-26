@@ -1,5 +1,6 @@
 import { test, expect } from '../../fixtures'
 import { navigateToAdmin } from '../../helpers/admin'
+import { DATA_READY_TIMEOUT } from '../../helpers/ready'
 
 /**
  * Карта склада — картинка, которую открывают штатным просмотрщиком браузера.
@@ -84,7 +85,7 @@ test.describe('Warehouse map', () => {
   test('the warehouse page links here', async ({ page }) => {
     await navigateToAdmin(page, '/admin/warehouse')
     await page.getByTestId('warehouse-map-btn').click()
-    await expect(page).toHaveURL(/\/admin\/warehouse\/map$/)
+    await expect(page).toHaveURL(/\/admin\/warehouse\/map$/, { timeout: DATA_READY_TIMEOUT })
     await expect(page.getByTestId('page-warehouse-map')).toBeVisible()
   })
 

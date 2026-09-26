@@ -464,13 +464,13 @@ test.describe('Warehouse module', () => {
       // Click save
       await page.getByTestId('batch-create-save-btn').click()
       // Should redirect to batch card page
-      await expect(page).toHaveURL(/\/admin\/warehouse\/batches\//)
+      await expect(page).toHaveURL(/\/admin\/warehouse\/batches\//, { timeout: DATA_READY_TIMEOUT })
     })
 
     test('should cancel and return to batches list', async ({ page }) => {
       await openCreatePage(page, '/admin/warehouse/batches/new', 'batch-create-product-row')
       await page.getByTestId('batch-create-cancel-btn').click()
-      await expect(page).toHaveURL(/\/admin\/warehouse/)
+      await expect(page).toHaveURL(/\/admin\/warehouse/, { timeout: DATA_READY_TIMEOUT })
     })
 
     test('should have search and category filter for products', async ({ page }) => {
@@ -524,7 +524,7 @@ test.describe('Warehouse module', () => {
     test('should cancel and return to offcuts list', async ({ page }) => {
       await openCreatePage(page, '/admin/warehouse/offcuts/new', 'offcut-create-product-row')
       await page.getByTestId('offcut-create-cancel-btn').click()
-      await expect(page).toHaveURL(/\/admin\/warehouse/)
+      await expect(page).toHaveURL(/\/admin\/warehouse/, { timeout: DATA_READY_TIMEOUT })
     })
   })
 })

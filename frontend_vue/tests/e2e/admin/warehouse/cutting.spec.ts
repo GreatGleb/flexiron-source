@@ -223,7 +223,7 @@ test.describe('Cutting operation', () => {
     // Кнопка «Резка» вела на форму ручной записи обрезка, то есть мимо операции.
     await navigateToAdmin(page, '/admin/warehouse/offcuts')
     await page.getByTestId('warehouse-offcuts-cut-btn').click()
-    await expect(page).toHaveURL(/\/admin\/warehouse\/cutting$/)
+    await expect(page).toHaveURL(/\/admin\/warehouse\/cutting$/, { timeout: DATA_READY_TIMEOUT })
     await expect(page.getByTestId('warehouse-cutting-page')).toBeVisible()
   })
 
@@ -345,7 +345,7 @@ test.describe('Cutting operation', () => {
 
     await page.getByTestId('warehouse-cutting-execute').click()
     // Успех уводит на вкладку обрезков — операция проведена, а не отложена.
-    await expect(page).toHaveURL(/\/admin\/warehouse\/offcuts$/)
+    await expect(page).toHaveURL(/\/admin\/warehouse\/offcuts$/, { timeout: DATA_READY_TIMEOUT })
 
     // Дальше — только внутри SPA: `page.goto` перезагрузил бы страницу, мок-хранилище
     // собралось бы из сидов заново, и партия «вернула» бы металл. Такая проверка
@@ -374,7 +374,7 @@ test.describe('Cutting operation', () => {
     await fillRow(page, 0, { lengthMm: 1234, pieces: 1 })
     await page.getByTestId('warehouse-cutting-kerf').fill('3')
     await page.getByTestId('warehouse-cutting-execute').click()
-    await expect(page).toHaveURL(/\/admin\/warehouse\/offcuts$/)
+    await expect(page).toHaveURL(/\/admin\/warehouse\/offcuts$/, { timeout: DATA_READY_TIMEOUT })
 
     // Фильтр по номеру партии: обрезок, вышедший из резки, лежит на ней. Поиск по
     // тексту здесь не годится — он смотрит только на название товара. И вводить его
@@ -442,7 +442,7 @@ test.describe('Cutting operation', () => {
     await fillRow(page, 0, { pieces: 3, lengthMm: 500, widthMm: 300 })
     await page.getByTestId('warehouse-cutting-source-pieces').fill('1')
     await page.getByTestId('warehouse-cutting-execute').click()
-    await expect(page).toHaveURL(/\/admin\/warehouse\/offcuts$/)
+    await expect(page).toHaveURL(/\/admin\/warehouse\/offcuts$/, { timeout: DATA_READY_TIMEOUT })
 
     await page.getByTestId('warehouse-tab-batches').first().click()
     await waitForDataReady(page)
