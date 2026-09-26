@@ -982,6 +982,18 @@ class AiderDriverTest(unittest.TestCase):
         self.assertFalse(guard.exists(), "каталог обёртки пережил SIGKILL драйвера")
         self.assertEqual(guards(), before)
 
+    def test_playwright_port_from_the_core_reaches_commands_and_checks(self):
+        """PW_PORT выдаёт ядро автору пачки; драйвер обязан не потерять его ни для команд
+        модели, ни для проверок задачи — иначе e2e соседей сойдутся на 5173."""
+        probe = {"cwd": ".", "argv": [sys.executable, "-c",
+                                      "import os; raise SystemExit(0 if os.environ.get('PW_PORT') == '5412' else 1)"]}
+        from unittest import mock
+        with mock.patch.dict(os.environ, {"PW_PORT": "5412"}):
+            result, stats = self.drive(["```bash\necho port=$PW_PORT\n```\n", "Готово."], ["notes.md"],
+                                       checks=[probe])
+        self.assertIn("port=5412", stats["command_log"][0])
+        self.assertEqual((stats["checks_runs"], stats["checks_green"]), (1, True), stats)
+
     def test_checks_run_at_the_end_even_without_edits(self):
         """Правок не было, а ответ без правок — объявление готовности: проверки гоняются и здесь."""
         red = {"cwd": ".", "argv": [sys.executable, "-c", "raise SystemExit(1)"]}

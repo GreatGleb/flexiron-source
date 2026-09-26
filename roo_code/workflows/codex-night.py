@@ -15,6 +15,7 @@ from pathlib import Path
 import re
 import shutil
 import signal
+import socket
 import stat
 import subprocess
 import sys
@@ -167,6 +168,38 @@ def disjoint_batch(candidates, size):
         if len(batch) >= size:
             break
     return batch
+
+
+# Порты playwright для авторов пачки. `playwright.config.ts` берёт PW_PORT и PW_PORT + 1
+# (второй сервер без моков), по умолчанию 5173. Два автора пачки с e2e в своих worktree
+# на одном порту: второй не поднимет сервер, а с `reuseExistingServer` — хуже, молча
+# проверит код ЧУЖОГО worktree. Выдаёт ядро, а не исполнитель: номер слота в пачке
+# знает только оно, а столкнуться могут авторы на любом исполнителе. Начало — вдали от
+# 5173 (там dev-сервер человека); занятая пара пропускается по той же причине — занятый
+# порт playwright подхватил бы, чей бы сервер на нём ни стоял.
+AUTHOR_PORT_BASE = int(os.environ.get("NIGHT_PW_PORT_BASE", "5400"))
+
+
+def port_free(port):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            probe.bind(("127.0.0.1", port))
+        except OSError:
+            return False
+    return True
+
+
+def author_ports(count, base=AUTHOR_PORT_BASE, free=port_free):
+    """PW_PORT на каждого автора пачки: пары (порт, порт + 1) не пересекаются и свободны."""
+    ports, port = [], base
+    while len(ports) < count:
+        if port > 65000:
+            raise RuntimeError(f"Нет свободной пары портов для автора выше {base}")
+        if free(port) and free(port + 1):
+            ports.append(port)
+        port += 2
+    return ports
 
 
 def write_author(root, backends, task, run_dir, deadline, env=None):
@@ -507,6 +540,13 @@ def ask_agent_once(root, backends, task, role, run_dir, deadline, attempt=1, env
             "накаченная в неё, останется там после отката твоей задачи и сломает "
             "`alembic check` у всех, кто пойдёт после тебя. Пиши просто "
             "`cd backend && python3 -m alembic upgrade head`.\n")
+    if env and "PW_PORT" in env:
+        # Порт уже в окружении и playwright его берёт сам; абзац — против порта, вписанного
+        # в команду руками по примерам из документов (там стоит 5173 и 5273).
+        instruction += (
+            f"Порты. Рядом с тобой одновременно работают другие авторы. Твой порт playwright — "
+            f"PW_PORT={env['PW_PORT']} (и следующий за ним), он уже в окружении. Не задавай "
+            "PW_PORT и --port руками и не занимай 5173: там чужой сервер.\n")
     backend = backends[role]
     instruction += backend.result_instruction(result_path)
     prompt = instruction + "\nЗадание (JSON):\n" + json.dumps(task, ensure_ascii=False, indent=2)
@@ -753,7 +793,9 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
                     # Базы пачки заводятся здесь, в главном потоке: создание базы —
                     # операция на сервере, и четыре потока, делающие её одновременно,
                     # отлаживались бы вслепую. Автор получает уже готовый URL.
-                    batch_env = {t["id"]: databases.env_for(t["id"]) for t in batch}
+                    ports = author_ports(len(batch))
+                    batch_env = {t["id"]: {**databases.env_for(t["id"]), "PW_PORT": str(port)}
+                                 for t, port in zip(batch, ports)}
                     with concurrent.futures.ThreadPoolExecutor(max_workers=len(batch)) as pool:
                         futures = {pool.submit(write_author, root, backends, t, run_dir, deadline,
                                                batch_env[t["id"]]): t

@@ -28,6 +28,7 @@ calls = pathlib.Path(os.environ['NIGHT_TEST_CALLS'])
 mode = os.environ.get('NIGHT_TEST_MODE', '')
 with calls.open('a') as stream:
     stream.write(f"start {task['id']} {time.time()}\n")
+    stream.write(f"port {task['id']} {os.environ.get('PW_PORT', '0')}\n")
 barrier = int(os.environ.get('NIGHT_TEST_BARRIER', '0'))
 if barrier:
     # Ждём, пока стартуют все авторы пачки. Идут по очереди — не дождёмся и упадём.
@@ -74,6 +75,19 @@ class DisjointBatchTest(unittest.TestCase):
 
     def test_empty_candidates_give_empty_batch(self):
         self.assertEqual(self.batch([], 3), [])
+
+
+class AuthorPortsTest(unittest.TestCase):
+    def test_pairs_do_not_overlap_and_skip_busy_ports(self):
+        busy = {5400, 5403}
+        self.assertEqual(core.author_ports(2, 5400, lambda port: port not in busy), [5404, 5406])
+
+    def test_port_held_by_someone_is_not_free(self):
+        import socket
+        with socket.socket() as holder:
+            holder.bind(("127.0.0.1", 0))
+            holder.listen()
+            self.assertFalse(core.port_free(holder.getsockname()[1]))
 
 
 class ParallelRunTest(unittest.TestCase):
@@ -123,6 +137,21 @@ class ParallelRunTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.state()["status"], "completed")
         self.assertEqual(len(self.state()["completed"]), 2)
+
+    def test_batch_authors_get_their_own_playwright_ports(self):
+        """Два автора с e2e в своих worktree на 5173: второй не поднимет сервер, а с
+        reuseExistingServer молча проверит код соседа."""
+        self.assertEqual(self.invoke(parallel=2, barrier=2).returncode, 0)
+        ports = [int(self.spans()[task]["port"]) for task in ("alpha", "beta")]
+        self.assertGreaterEqual(abs(ports[0] - ports[1]), 2, ports)   # PW_PORT и PW_PORT + 1
+        self.assertFalse({5173, 5174} & {p + d for p in ports for d in (0, 1)}, ports)
+        prompt = (self.logs / "alpha-work.prompt.txt").read_text()
+        self.assertIn(f"PW_PORT={ports[0]}", prompt)
+
+    def test_single_author_keeps_the_default_port(self):
+        self.assertEqual(self.invoke(parallel=1).returncode, 0)
+        self.assertEqual(self.spans()["alpha"]["port"], 0)
+        self.assertNotIn("PW_PORT", (self.logs / "alpha-work.prompt.txt").read_text())
 
     def test_sequential_run_keeps_authors_apart(self):
         result = self.invoke(parallel=1)
