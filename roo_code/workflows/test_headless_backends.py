@@ -60,6 +60,40 @@ print(json.dumps(printed))
 '''
 
 
+# Ведёт себя как aider 0.86 в том, что видит ядро: правит файлы из --file, пишет кэш
+# карты в корень репозитория и историю чата туда, куда сказали. Режим — AIDER_TEST_MODE.
+FAKE_AIDER = r"""#!/usr/bin/env python3
+import json, os, pathlib, sys
+args = sys.argv[1:]
+pathlib.Path(os.environ['NIGHT_TEST_CALLS']).open('a').write('aider ' + json.dumps(args) + '\n')
+def values(flag):
+    return [args[i + 1] for i, a in enumerate(args) if a == flag]
+for flag in ('--yes-always', '--no-auto-commits', '--no-dirty-commits', '--no-gitignore'):
+    assert flag in args, f'нет {flag}'
+message = pathlib.Path(values('--message-file')[0]).read_text()
+assert 'Задание (JSON):' in message
+pathlib.Path(values('--chat-history-file')[0]).write_text('# чат\n')
+cache = pathlib.Path('.aider.tags.cache.v4')
+cache.mkdir(exist_ok=True)
+(cache / 'cache.db').write_text('x')
+for name in values('--file'):
+    pathlib.Path(name).parent.mkdir(parents=True, exist_ok=True)
+    pathlib.Path(name).touch()   # как utils.touch_file у настоящего aider
+mode = os.environ.get('AIDER_TEST_MODE', '')
+if mode == 'fail':
+    raise SystemExit(3)
+if mode == 'auth':
+    # Так 0.86.2 отвечает на неверный ключ: печатает ошибку и выходит с кодом 0.
+    print('litellm.AuthenticationError: AuthenticationError: DeepseekException - Authentication Fails')
+    raise SystemExit(0)
+if mode != 'no-edit':
+    for name in values('--file'):
+        pathlib.Path(name).write_text('prepared by aider\n')
+if mode == 'outside':
+    pathlib.Path('unrelated.md').write_text('чужое\n')
+"""
+
+
 class ExtractTest(unittest.TestCase):
     def test_takes_object_out_of_prose_and_fences(self):
         text = 'Вот ответ:\n```json\n{"status": "done", "summary": "a{b}", "evidence": ["x"]}\n```\nконец'
@@ -410,6 +444,104 @@ class MixedRunTest(unittest.TestCase):
         result = self.invoke(run=False)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("work=claude, review=codex", result.stdout)
+
+
+class AiderRunTest(unittest.TestCase):
+    """Прогон целиком: автор на aider, приёмка на Codex."""
+
+    def setUp(self):
+        _pilot.PilotTest.setUp(self)
+        aider = self.bin / "aider"
+        aider.write_text(FAKE_AIDER)
+        aider.chmod(0o755)
+        self.routing = self.base / "routing.json"
+        self.routing.write_text(json.dumps({
+            "work": {"backend": "aider", "binary": str(aider), "model": "deepseek/deepseek-chat"},
+            "review": {"backend": "codex", "binary": str(self.bin / "codex")}}))
+
+    git = _pilot.PilotTest.git
+    state = _pilot.PilotTest.state
+
+    def invoke(self, mode=""):
+        command = [sys.executable, str(RUNNER), "--workspace", str(self.root), "--queue", str(self.queue),
+                   "--routing", str(self.routing), "--run", "--run-dir", str(self.logs),
+                   "--minutes", "1", "--max-tasks", "1"]
+        return subprocess.run(command, env={**self.env, "AIDER_TEST_MODE": mode},
+                              capture_output=True, text=True, timeout=30)
+
+    def aider_args(self):
+        line = next(x for x in (self.base / "calls").read_text().splitlines() if x.startswith("aider "))
+        return json.loads(line[len("aider "):])
+
+    def test_author_on_aider_is_accepted_and_only_the_task_is_committed(self):
+        result = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.state()["status"], "completed", self.state())
+        # В коммит попала задача и ничего больше — ни кэша карты, ни истории чата.
+        self.assertEqual(self.git("show", "--name-only", "--format=", "HEAD"), "plan.md")
+        self.assertEqual((self.root / "plan.md").read_text(), "prepared by aider\n")
+        self.assertFalse(list(self.root.glob(".aider*")))
+        self.assertFalse(self.git("status", "--porcelain"))
+        work = json.loads((self.logs / "plan-work.json").read_text())
+        self.assertEqual(work["status"], "done")
+        self.assertIn("изменён plan.md", work["evidence"])
+        self.assertTrue((self.logs / "plan-work.aider.chat.md").is_file())
+
+    def test_outputs_are_editable_and_sources_read_only(self):
+        self.queue.write_text(json.dumps({"tasks": [{"id": "plan", "sources": ["plan.md"],
+                                                     "outputs": ["docs/new.md"], "task": "prepare"}]}))
+        result = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((self.root / "docs/new.md").read_text(), "prepared by aider\n")
+        args = self.aider_args()
+        self.assertEqual([args[i + 1] for i, a in enumerate(args) if a == "--file"], ["docs/new.md"])
+        self.assertEqual([args[i + 1] for i, a in enumerate(args) if a == "--read"], ["plan.md"])
+        self.assertEqual(args[args.index("--model") + 1], "deepseek/deepseek-chat")
+
+    def test_no_edit_blocks_the_task_and_leaves_no_empty_files(self):
+        self.queue.write_text(json.dumps({"tasks": [{"id": "plan", "sources": ["plan.md"],
+                                                     "outputs": ["docs/new.md"], "task": "prepare"}]}))
+        result = self.invoke("no-edit")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual([b["task"] for b in self.state()["blocked"]], ["plan"])
+        self.assertIn("не изменил ни одного файла", self.state()["blocked"][0]["reason"])
+        # Пустая заготовка, которую aider создаёт под --file, не остаётся в дереве.
+        self.assertFalse((self.root / "docs/new.md").exists())
+        self.assertEqual(self.git("rev-parse", "HEAD"), self.baseline)
+        self.assertFalse(self.git("status", "--porcelain"))
+
+    def test_aider_failure_blocks_the_task_not_the_night(self):
+        result = self.invoke("fail")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("кодом 3", self.state()["blocked"][0]["reason"])
+        self.assertEqual(self.git("rev-parse", "HEAD"), self.baseline)
+        self.assertFalse(self.git("status", "--porcelain"))
+
+    def test_model_error_with_exit_zero_is_named_in_the_reason(self):
+        result = self.invoke("auth")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("AuthenticationError", self.state()["blocked"][0]["reason"])
+
+    def test_edit_outside_outputs_is_blocked_by_the_core(self):
+        result = self.invoke("outside")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("вне задачи", self.state()["blocked"][0]["reason"])
+        self.assertFalse((self.root / "unrelated.md").exists())
+        self.assertEqual(self.git("rev-parse", "HEAD"), self.baseline)
+
+
+class AiderRoutingTest(unittest.TestCase):
+    def test_aider_cannot_review(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "routing.json"
+            path.write_text(json.dumps({"work": {"backend": "claude"},
+                                        "review": {"backend": "aider", "model": "deepseek/deepseek-chat"}}))
+            with self.assertRaises(ValueError):
+                backends.load_routing(path)
+
+    def test_aider_without_model_is_refused_on_preflight(self):
+        with self.assertRaises(ValueError):
+            backends.AiderBackend({"binary": sys.executable}).check()
 
 
 if __name__ == "__main__":

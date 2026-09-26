@@ -5,7 +5,8 @@
 `{"status","summary","evidence"}`. Всё остальное — дело адаптера.
 
 Роли назначаются бэкендам файлом маршрутизации, поэтому связка меняется правкой JSON,
-а не кода: всё на Claude Code, всё на Codex, автор Zoo Code/DeepSeek с приёмкой Claude Code.
+а не кода: всё на Claude Code, всё на Codex, автор Zoo Code или aider/DeepSeek с приёмкой
+Claude Code.
 
 Границы правок, неизменность Git, машинные проверки и коммиты остаются в ядре: адаптер
 не имеет права ничего из этого решать, иначе новый бэкенд молча ослабит политику прогона.
@@ -15,6 +16,7 @@ import json
 import os
 import re
 import shutil
+import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -193,7 +195,50 @@ class ZooBackend(Backend):
         return argv
 
 
-BACKENDS = {backend.name: backend for backend in (CodexBackend, ClaudeBackend, ZooBackend)}
+class AiderBackend(Backend):
+    """aider-chat как автор. Разбор задания и сборка результата — в aider-runner.py.
+
+    Только роль `work`: aider — редактор файлов по одному сообщению, команд он не
+    запускает (см. обёртку), а приёмщик, который правит файлы, — противоречие.
+    Модель и ключ задаются маршрутизацией: `model` в формате litellm
+    (`deepseek/deepseek-chat`), `env_file` — файл с ключом вне checkout.
+    """
+
+    name = "aider"
+    roles = ("work",)
+
+    @property
+    def binary(self):
+        return self.options.get("binary", "aider")
+
+    def check(self):
+        if not shutil.which(self.binary):
+            raise ValueError(f"aider не найден: {self.binary}. Установка: uv tool install aider-chat")
+        if not self.options.get("model"):
+            raise ValueError("Для aider нужна модель: routing.work.model, например deepseek/deepseek-chat")
+        env_file = self.options.get("env_file")
+        if env_file and not Path(env_file).expanduser().is_file():
+            raise ValueError(f"Файл ключей aider не найден: {env_file}")
+
+    def result_instruction(self, result_path):
+        return ("Ты работаешь через aider: команд не запускаешь, JSON-результат не пишешь — его "
+                "соберёт обёртка по изменённым файлам. Правь только файлы, открытые тебе для "
+                "правки (outputs задания); остальное — только читать.\n")
+
+    def build(self, role, root, run_dir, result_path):
+        if role not in self.roles:
+            raise ValueError(f"aider не может быть в роли {role}")
+        argv = [sys.executable, str(HERE / "aider-runner.py"), "--binary", self.binary,
+                "--model", self.options["model"], "--root", str(root), "--result", str(result_path),
+                "--timeout", str(int(self.options.get("timeout_seconds", 3600)))]
+        if self.options.get("env_file"):
+            argv += ["--env-file", str(Path(self.options["env_file"]).expanduser())]
+        if self.options.get("edit_format"):
+            argv += ["--edit-format", self.options["edit_format"]]
+        return argv
+
+
+BACKENDS = {backend.name: backend for backend in (CodexBackend, ClaudeBackend, ZooBackend, AiderBackend)}
 
 
 def extract_json_object(text):
@@ -237,6 +282,8 @@ def load_routing(path, codex_binary=None):
         name = options.pop("backend", None)
         if name not in BACKENDS:
             raise ValueError(f"Неизвестный бэкенд для роли {role}: {name}")
+        if role not in getattr(BACKENDS[name], "roles", ROLES):
+            raise ValueError(f"Бэкенд {name} не может быть в роли {role}")
         backends[role] = BACKENDS[name](options)
     if backends["work"].name == backends["review"].name and backends["work"].options == backends["review"].options:
         # Политика прогона: приёмку делает не тот, кто писал. Один и тот же бэкенд
