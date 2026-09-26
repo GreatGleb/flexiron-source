@@ -105,12 +105,13 @@ def main():
     message.write_text(prompt)
     chat, log, stats_path = (stem.with_suffix(s) for s in (".aider.chat.md", ".aider.log", ".aider.stats.json"))
     config = stem.with_suffix(".aider.config.json")
+    guard = stem.with_suffix(".aider.git-guard")
     config.write_text(json.dumps({
         "root": str(root), "model": args.model, "message": str(message), "outputs": outputs,
         "sources": sources, "checks": task.get("checks", []), "edit_format": args.edit_format or "diff",
         "env_file": str(args.env_file) if args.env_file else None,
         "chat_history": str(chat), "input_history": str(stem.with_suffix(".aider.input.history")),
-        "stats": str(stats_path), "max_reflections": args.max_reflections,
+        "stats": str(stats_path), "guard_dir": str(guard), "max_reflections": args.max_reflections,
         "command_timeout": args.command_timeout, "check_timeout": args.check_timeout,
         "output_limit": args.output_limit, "max_read_files": args.max_read_files,
         "read_file_limit": args.read_file_limit, "history_tokens": args.history_tokens}, ensure_ascii=False, indent=2))
@@ -146,6 +147,8 @@ def main():
         finally:
             # Следы aider убираются при любом исходе: иначе ядро забракует задачу за
             # «правку вне задачи», а причиной окажется не автор, а его инструмент.
+            # Обёртка git драйвера: убитый SIGKILL драйвер убрать её не успевает.
+            shutil.rmtree(guard, ignore_errors=True)
             for cache in set(root.glob(".aider.tags.cache.v*")) - caches_before:
                 shutil.rmtree(cache, ignore_errors=True)
             for name in missing:

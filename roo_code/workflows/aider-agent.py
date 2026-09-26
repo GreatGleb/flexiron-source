@@ -35,7 +35,6 @@ import shutil
 import signal
 import subprocess
 import sys
-import tempfile
 import threading
 import time
 from pathlib import Path
@@ -79,15 +78,18 @@ def child_env():
 # ловит только прямую запись: `bash -c 'git add .'`, `(git add x)`, `true;git stash`,
 # `timeout 5 git add .` он пропускал, а изменённый индекс ядро считает концом ночи.
 # Обёртка видит уже разобранную оболочкой команду, как бы та ни была записана.
+# Каталог — в каталоге прогона (`guard_dir` конфига), а не в /tmp: убирает его обёртка
+# aider-runner.py, которая переживает SIGKILL драйвера; mkdtemp в /tmp оставался навсегда.
 GUARD_DIR = None
 
 
-def install_git_guard():
+def install_git_guard(directory):
     global GUARD_DIR
     real = shutil.which("git")
     if not real:
         return
-    GUARD_DIR = tempfile.mkdtemp(prefix="night-git-guard-")
+    Path(directory).mkdir(parents=True, exist_ok=True)
+    GUARD_DIR = str(directory)
     shim = Path(GUARD_DIR) / "git"
     shim.write_text(f"#!/bin/sh\nexec {shlex.quote(sys.executable)} {shlex.quote(str(Path(__file__).resolve()))} "
                     f"--git-guard {shlex.quote(real)} \"$@\"\n")
@@ -300,7 +302,7 @@ def drive(config_path):
     signal.signal(signal.SIGTERM, stop)
     if CONFIG.get("env_file"):
         load_env(CONFIG["env_file"])
-    install_git_guard()
+    install_git_guard(CONFIG["guard_dir"])
 
     import aider.coders.base_coder as base_coder
     from aider.coders import Coder

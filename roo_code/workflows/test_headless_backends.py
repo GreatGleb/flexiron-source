@@ -934,6 +934,37 @@ class AiderDriverTest(unittest.TestCase):
         time.sleep(0.5)
         self.assertEqual(pgrep(), "", "команда автора пережила остановку задачи ядром")
 
+    def test_git_guard_lives_in_the_run_dir_and_survives_no_sigkill(self):
+        """Каталог обёртки git лежал в /tmp и переживал SIGKILL драйвера навсегда."""
+        guards = lambda: set(Path(tempfile.gettempdir()).glob("night-git-guard-*"))
+        before = guards()
+        (self.base / "script.json").write_text(json.dumps(
+            ["```bash\ncommand -v git > where.txt; sleep 318\n```\n"]))
+        task = {"id": "t", "outputs": ["notes.md"], "sources": [], "checks": [], "task": "по сценарию"}
+        argv = [sys.executable, str(AIDER_RUNNER), "--python", str(self.harness), "--binary", str(self.harness),
+                "--model", "deepseek/deepseek-chat", "--root", str(self.root),
+                "--result", str(self.run_dir / "t-work.json"), "--timeout", "120"]
+        proc = subprocess.Popen(argv, stdin=subprocess.PIPE, cwd=self.root, start_new_session=True,
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                env={**os.environ, "AIDER_TEST_SCRIPT": str(self.base / "script.json"),
+                                     "AIDER_TEST_LLM_LOG": str(self.base / "llm.jsonl"), "DEEPSEEK_API_KEY": "test"})
+        proc.stdin.write(("Задача.\nЗадание (JSON):\n" + json.dumps(task)).encode())
+        proc.stdin.close()
+        where = self.root / "where.txt"
+        deadline = time.monotonic() + 60
+        while not (where.is_file() and where.read_text()) and time.monotonic() < deadline:
+            time.sleep(0.2)
+        guard = Path(where.read_text().strip()).parent
+        self.assertEqual(guard, self.run_dir / "t-work.aider.git-guard")
+        driver = subprocess.run(["pgrep", "-f", "aider-agent[.]py .*t-work[.]aider[.]config[.]json"],
+                                capture_output=True, text=True).stdout.split()
+        self.assertEqual(len(driver), 1, driver)
+        os.kill(int(driver[0]), signal.SIGKILL)   # уборка драйвера не успевает ничего
+        proc.wait(timeout=30)
+        subprocess.run(["pkill", "-f", "^sleep 318$"])
+        self.assertFalse(guard.exists(), "каталог обёртки пережил SIGKILL драйвера")
+        self.assertEqual(guards(), before)
+
     def test_checks_run_at_the_end_even_without_edits(self):
         """Правок не было, а ответ без правок — объявление готовности: проверки гоняются и здесь."""
         red = {"cwd": ".", "argv": [sys.executable, "-c", "raise SystemExit(1)"]}
