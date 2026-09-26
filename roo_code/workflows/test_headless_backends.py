@@ -607,6 +607,12 @@ class GitFilterTest(unittest.TestCase):
                         "echo x && git checkout -- f", "ls | xargs git rm", "git", "python3 roo_code/workflows/refs_shift.py --fix"):
             self.assertIsNotNone(aider_agent.command_refusal(command), command)
 
+    def test_git_guard_decides_on_the_parsed_command(self):
+        for args in (["add", "."], ["-C", "/x", "commit", "-m", "y"], ["--git-dir=.git", "stash"], ["-c", "a=b", "reset"]):
+            self.assertIsNotNone(aider_agent.guard_refusal(args), args)
+        for args in (["--no-pager", "diff"], ["-C", "/x", "status"], ["-c", "core.pager=cat", "log", "-1"], ["--version"]):
+            self.assertIsNone(aider_agent.guard_refusal(args), args)
+
 AIDER_PYTHON = Path.home() / ".local/share/uv/tools/aider-chat/bin/python"
 AIDER_RUNNER = Path(__file__).with_name("aider-runner.py").resolve()
 # Питон aider с подменённой моделью: ответы берутся по порядку из AIDER_TEST_SCRIPT,
@@ -775,6 +781,17 @@ class AiderDriverTest(unittest.TestCase):
         self.drive(["```bash\ntest -e no-such-file\n```\n", "Понял."], ["notes.md"])
         self.assertIn("код возврата 1", self.prompts()[1])
         self.assertIn("Продолжай задачу", self.prompts()[1])
+
+    def test_writing_git_is_refused_however_the_shell_hides_it(self):
+        """Разбор строки эти формы пропускал; изменённый индекс ядро считает концом ночи."""
+        # stash — первым: стоя после add, он откатывал индекс сам, и тест был слеп к add.
+        block = ("true;git stash; echo x > scratch.txt; bash -c 'git add -A'; (git add scratch.txt); "
+                 "{ git add .; }; timeout 5 git add .; git status --short")
+        _, stats = self.drive([f"```bash\n{block}\n```\n", "Понял."], ["notes.md"])
+        self.assertEqual(stats["refused"], [], "эти формы разбор строки не видит — ловить обязана обёртка")
+        self.assertGitUntouched()
+        self.assertEqual(self.prompts()[1].count("отклонено ночным контроллером"), 5)
+        self.assertIn("?? scratch.txt", self.prompts()[1])   # читающий git при этом работает
 
     def test_read_only_git_commands_are_allowed(self):
         _, stats = self.drive(["```bash\ngit log --oneline -1\n```\n", "Понял."], ["notes.md"])

@@ -28,9 +28,11 @@ import json
 import os
 import re
 import shlex
+import shutil
 import signal
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from pathlib import Path
@@ -67,6 +69,49 @@ def load_env(path):
 def child_env():
     """Окружение команд модели и проверок — без ключей модели."""
     return {k: v for k, v in os.environ.items() if k not in SECRETS and not SECRET_NAME.search(k)}
+
+
+# Каталог с обёрткой `git` — первым в PATH команд модели. Разбор строки в command_refusal
+# ловит только прямую запись: `bash -c 'git add .'`, `(git add x)`, `true;git stash`,
+# `timeout 5 git add .` он пропускал, а изменённый индекс ядро считает концом ночи.
+# Обёртка видит уже разобранную оболочкой команду, как бы та ни была записана.
+GUARD_DIR = None
+
+
+def install_git_guard():
+    global GUARD_DIR
+    real = shutil.which("git")
+    if not real:
+        return
+    GUARD_DIR = tempfile.mkdtemp(prefix="night-git-guard-")
+    shim = Path(GUARD_DIR) / "git"
+    shim.write_text(f"#!/bin/sh\nexec {shlex.quote(sys.executable)} {shlex.quote(str(Path(__file__).resolve()))} "
+                    f"--git-guard {shlex.quote(real)} \"$@\"\n")
+    shim.chmod(0o755)
+
+
+def guarded_env():
+    env = child_env()
+    if GUARD_DIR:
+        env["PATH"] = GUARD_DIR + os.pathsep + env.get("PATH", "")
+    return env
+
+
+def guard_refusal(args):
+    """Отказ обёртки `git`: подкоманда, которая пишет. Без подкоманды git ничего не меняет."""
+    sub = next(git_subcommands(["git", *args]))
+    if sub and sub not in GIT_READ_ONLY:
+        return (f"git {sub}: отклонено ночным контроллером — git меняет репозиторий; "
+                f"можно только {', '.join(sorted(GIT_READ_ONLY))}")
+    return None
+
+
+def git_guard(real, args):
+    refusal = guard_refusal(args)
+    if refusal:
+        print(refusal, file=sys.stderr)
+        return 1
+    os.execv(real, [real, *args])
 
 
 def clip(text, limit):
@@ -126,11 +171,11 @@ class Drain(threading.Thread):
             return (bytes(self.head) + gap + bytes(self.tail)).decode(errors="replace")
 
 
-def run_limited(command, cwd, timeout, shell):
+def run_limited(command, cwd, timeout, shell, env=None):
     """Команда с таймаутом на всё дерево процессов и обрезанным выводом."""
     proc = subprocess.Popen(command, cwd=cwd, shell=shell, executable="/bin/bash" if shell else None,
                             stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                            start_new_session=True, env=child_env())
+                            start_new_session=True, env=env or child_env())
     ACTIVE.add(proc)
     GROUPS.add(proc.pid)
     drain = Drain(proc.stdout, CONFIG["output_limit"])
@@ -233,6 +278,8 @@ def main(config_path):
         return drive(config_path)
     finally:
         kill_groups()
+        if GUARD_DIR:
+            shutil.rmtree(GUARD_DIR, ignore_errors=True)
 
 
 def drive(config_path):
@@ -243,6 +290,7 @@ def drive(config_path):
     signal.signal(signal.SIGTERM, stop)
     if CONFIG.get("env_file"):
         load_env(CONFIG["env_file"])
+    install_git_guard()
 
     import aider.coders.base_coder as base_coder
     from aider.coders import Coder
@@ -255,7 +303,7 @@ def drive(config_path):
              "command_log": [], "final_reply": "", "cannot": ""}
 
     def run_model_command(command, verbose=False, error_print=None, cwd=None):
-        code, out = run_limited(command, cwd or ROOT, CONFIG["command_timeout"], shell=True)
+        code, out = run_limited(command, cwd or ROOT, CONFIG["command_timeout"], shell=True, env=guarded_env())
         # Журнал уходит приёмщику как доказательство: он читает отчёт автора целиком и
         # бракует «мутация не подтверждена», если прогонов автора не видно.
         tail = out.strip().splitlines()[-3:] if out.strip() else []
@@ -413,4 +461,6 @@ def drive(config_path):
 
 
 if __name__ == "__main__":
+    if sys.argv[1] == "--git-guard":
+        sys.exit(git_guard(sys.argv[2], sys.argv[3:]))
     sys.exit(main(sys.argv[1]))
