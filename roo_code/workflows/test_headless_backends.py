@@ -68,8 +68,15 @@ args = sys.argv[1:]
 pathlib.Path(os.environ['NIGHT_TEST_CALLS']).open('a').write('aider ' + json.dumps(args) + '\n')
 def values(flag):
     return [args[i + 1] for i, a in enumerate(args) if a == flag]
-for flag in ('--yes-always', '--no-auto-commits', '--no-dirty-commits', '--no-gitignore'):
+for flag in ('--no-auto-commits', '--no-dirty-commits', '--no-gitignore'):
     assert flag in args, f'нет {flag}'
+yes_always = '--yes-always' in args
+def confirm():
+    # Как io.confirm_ask: --yes-always — «да», конец ввода — ответ по умолчанию, то есть «да».
+    if yes_always:
+        return True
+    answer = sys.stdin.readline()
+    return not answer.strip() or answer.strip().lower().startswith('y')
 message = pathlib.Path(values('--message-file')[0]).read_text()
 assert 'Задание (JSON):' in message
 pathlib.Path(values('--chat-history-file')[0]).write_text('# чат\n')
@@ -91,6 +98,13 @@ if mode != 'no-edit':
         pathlib.Path(name).write_text('prepared by aider\n')
 if mode == 'outside':
     pathlib.Path('unrelated.md').write_text('чужое\n')
+if mode == 'create-outside':
+    # Модель предложила новый файл вне задачи: «Create new file?» → при «да» aider
+    # создаёт его и делает git add (base_coder.allowed_to_edit).
+    if confirm():
+        pathlib.Path('extra.md').write_text('лишний\n')
+        import subprocess
+        subprocess.run(['git', 'add', 'extra.md'], check=True)
 """
 
 
@@ -516,6 +530,22 @@ class AiderRunTest(unittest.TestCase):
         self.assertIn("кодом 3", self.state()["blocked"][0]["reason"])
         self.assertEqual(self.git("rev-parse", "HEAD"), self.baseline)
         self.assertFalse(self.git("status", "--porcelain"))
+
+    def test_aider_questions_are_answered_no_so_the_index_survives(self):
+        """«Да» на «Create new file?» — это git add, а изменённый индекс ядро считает
+        порчей Git и останавливает всю ночь. Обёртка обязана отвечать «нет»."""
+        result = self.invoke("create-outside")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.state()["status"], "completed", self.state())
+        self.assertFalse((self.root / "extra.md").exists())
+        self.assertEqual(self.git("show", "--name-only", "--format=", "HEAD"), "plan.md")
+        self.assertNotIn("--yes-always", self.aider_args())
+
+    def test_edit_format_defaults_to_diff(self):
+        # Незнакомое имя модели aider встречает форматом whole — файл целиком в ответ.
+        self.assertEqual(self.invoke().returncode, 0)
+        args = self.aider_args()
+        self.assertEqual(args[args.index("--edit-format") + 1], "diff")
 
     def test_model_error_with_exit_zero_is_named_in_the_reason(self):
         result = self.invoke("auth")

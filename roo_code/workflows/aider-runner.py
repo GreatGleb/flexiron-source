@@ -11,12 +11,24 @@ aider — не агент с терминалом, а редактор файл�
   прогона, кэш карты репозитория и пустые заготовки новых файлов удаляются. Иначе
   ядро увидело бы их как правки вне задачи и браковало каждую задачу.
 
-Флаги сверены с исходниками aider 0.86.2, а не с памятью:
-- `--yes-always` shell-команды НЕ одобряет (`handle_shell_commands` просит
-  `explicit_yes_required`, и `confirm_ask` отвечает «n») — команд автор не запускает;
-- `git add` и коммит делаются только из `auto_commit`/`dirty_commit`, оба закрыты
-  `--no-auto-commits --no-dirty-commits` — индекс и HEAD aider не трогает;
-- несуществующий файл из `--file` создаётся пустым (`utils.touch_file`);
+Флаги сверены с исходниками aider 0.86.2 и живыми пробами, а не с памятью:
+- на КАЖДЫЙ вопрос aider обёртка отвечает «нет» — строками «n» в stdin. `--yes-always`
+  здесь смертелен: «Create new file?» и «Allow edits to file that has not been added
+  to the chat?» после «да» делают `git add` (`base_coder.allowed_to_edit`), а
+  изменённый индекс ядро считает порчей Git и останавливает ВСЮ ночь. Проба
+  2026-09-26: с `--yes-always` файл вне задачи попал в индекс, с «n» — «Skipping
+  edits». Молчать тоже нельзя: на конце ввода `confirm_ask` берёт ответ по
+  умолчанию, а он «да»;
+- тем же «нет» закрыто подтягивание упомянутых файлов («Add file to the chat?»):
+  aider ищет имена файлов и в промпте, и в ответе модели. Промпт ядра упоминает
+  десятки документов — с «да» они уходили в модель целиком и становились
+  редактируемыми (проба: 4.3k токенов против 699 на той же задаче);
+- shell-команды требуют явного «да» (`explicit_yes_required`) — не запускаются;
+- коммиты закрыты `--no-auto-commits --no-dirty-commits`;
+- имя модели aider может не знать и тогда берёт формат `whole` — модель переписывает
+  каждый файл целиком. Поэтому формат по умолчанию `diff`, как в настройках aider
+  для deepseek-chat и deepseek-reasoner;
+- несуществующий файл из `--file` создаётся пустым (`utils.touch_file`) без `git add`;
 - кэш карты — `.aider.tags.cache.v*` в корне репозитория (`RepoMap.TAGS_CACHE_DIR`).
 """
 
@@ -81,7 +93,7 @@ def main():
     before = snapshot(root, outputs)
 
     argv = [args.binary, "--model", args.model, "--message-file", str(message),
-            "--yes-always", "--no-auto-commits", "--no-dirty-commits", "--no-gitignore",
+            "--no-auto-commits", "--no-dirty-commits", "--no-gitignore",
             "--no-check-update", "--no-show-release-notes", "--no-analytics", "--no-pretty",
             "--no-stream", "--no-fancy-input", "--no-detect-urls", "--no-suggest-shell-commands",
             "--no-auto-lint", "--no-auto-test", "--no-restore-chat-history",
@@ -89,8 +101,7 @@ def main():
             "--input-history-file", str(stem.with_suffix(".aider.input.history"))]
     if args.env_file:
         argv += ["--env-file", str(args.env_file)]
-    if args.edit_format:
-        argv += ["--edit-format", args.edit_format]
+    argv += ["--edit-format", args.edit_format or "diff"]
     for name in outputs:
         argv += ["--file", name]
     for name in sources:
@@ -99,7 +110,9 @@ def main():
     log = stem.with_suffix(".aider.log")
     try:
         with log.open("w") as stream:
-            proc = subprocess.run(argv, cwd=root, stdin=subprocess.DEVNULL, stdout=stream,
+            # Запас «нет» с избытком: вопросов за задачу единицы, а кончившийся ввод
+            # aider прочитал бы как «да». Лишнее он не читает — выходит после сообщения.
+            proc = subprocess.run(argv, cwd=root, input="n\n" * 5000, text=True, stdout=stream,
                                   stderr=subprocess.STDOUT, timeout=args.timeout)
         code = proc.returncode
     except subprocess.TimeoutExpired:
@@ -131,8 +144,8 @@ def main():
     outside = sorted(git_status(root) - set(outputs))
     evidence = [f"изменён {name}" for name in edited] + evidence
     if outside:
-        # Решает ядро, здесь только честное описание: вне задачи aider мог попасть через
-        # упоминание файла в промпте — `--yes-always` добавляет такие файлы в чат.
+        # Решает ядро, здесь только честное описание. Через aider сюда попасть не должно
+        # (на правку вне чата он получает «нет»), но обёртка не вправе это скрыть.
         evidence.append(f"изменено вне outputs: {outside}")
     return finish("done", "aider изменил: " + ", ".join(edited), evidence)
 
