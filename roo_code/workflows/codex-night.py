@@ -692,8 +692,24 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
             if retry and task["id"] == retry["current"]:
                 pass
             elif parallel <= 1:
-                work = ask_agent(root, backends, task, "work", run_dir, deadline,
-                                 databases.env_for(task["id"]))
+                try:
+                    work = ask_agent(root, backends, task, "work", run_dir, deadline,
+                                     databases.env_for(task["id"]))
+                except CommandFailed:
+                    # Порядок веток тут — не стиль, а смысл: CommandFailed наследует
+                    # RuntimeError, и без этой строки отказ среды (упавший CLI, сбой
+                    # сервиса у автора) был бы принят за плохой ответ и тихо забракован
+                    # как одна задача. Отказ среды обязан останавливать ночь.
+                    raise
+                except (RuntimeError, ValueError) as error:
+                    # Та же политика, что в write_author: непригодный ответ — брак ОДНОЙ
+                    # задачи. Без этой ветки одиночный автор был защищён слабее, чем
+                    # параллельный: любая проза вместо JSON валила всю ночь. Разница
+                    # была не решением, а недосмотром — ветка `parallel <= 1` появилась
+                    # позже и обработку не унаследовала.
+                    work = {"status": "blocked",
+                            "summary": f'Ответ автора непригоден: {error}'[:500],
+                            "evidence": [str(run_dir / f'{task["id"]}-work.stdout.log')]}
             else:
                 if task["id"] not in prepared:
                     # Пачка — только задачи, не делящие файлов, и только те, что уже

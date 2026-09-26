@@ -69,6 +69,23 @@ const extractJsonObject = (text) => {
   return null;
 };
 
+/** Годен ли ответ: ядро требует ровно {status, summary, evidence} и ничего сверх. */
+const matchesSchema = (text) => {
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return false;
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return false;
+  const keys = Object.keys(parsed).sort().join(",");
+  return keys === "evidence,status,summary"
+    && ["done", "blocked"].includes(parsed.status)
+    && typeof parsed.summary === "string"
+    && Array.isArray(parsed.evidence)
+    && parsed.evidence.every((item) => typeof item === "string");
+};
+
 const readStdin = () =>
   new Promise((resolve) => {
     if (inlineText !== undefined) return resolve(inlineText);
@@ -81,11 +98,19 @@ const readStdin = () =>
 const socket = net.createConnection(socketPath);
 socket.setEncoding("utf8");
 
-const finish = (code, note) => {
+/** Брак ОДНОЙ задачи вместо отказа среды: ядро останавливает ночь по коду выхода,
+ *  а незаконченная или нечитаемая работа — это не «CLI лёг», это одна плохая задача.
+ *  Замер 2026-09-26: ночь night-2026-09-26-0206 умерла в 03:33 на второй задаче,
+ *  потому что клиент вышел с кодом 1 по своему таймауту в 3600 с. */
+const blockedResult = (summary, evidence) =>
+  JSON.stringify({ status: "blocked", summary, evidence });
+
+const finish = (code, note, fallback = null) => {
   if (settled) return;
   settled = true;
   clearTimeout(timer);
   clearTimeout(idleTimer);
+  clearTimeout(graceTimer);
   const report = { note, clientId, usage, say, events };
   if (eventsPath) writeFileSync(eventsPath, JSON.stringify(report, null, 2));
   else console.log(JSON.stringify(report, null, 2));
@@ -94,11 +119,21 @@ const finish = (code, note) => {
   // что агент сам считает работу законченной.
   let written = false;
   if (resultPath) {
-    const last = [...say].reverse().find((item) => item.sayType === "completion_result");
-    const object = last ? extractJsonObject(last.text) : null;
+    // Взять ПЕРВЫЙ с конца ответ, который годится по схеме, а не просто последний с
+    // фигурной скобкой. Замер 2026-09-26: модель ответила прозой, в которой стояло
+    // `find ... -exec wc -l {} +`, и экстрактор честно вернул из неё литерал `{}` —
+    // ядро потом ругалось «нет подтверждения выполнения: {}» вместо настоящей причины.
+    const object = [...say].reverse()
+      .filter((item) => item.sayType === "completion_result")
+      .map((item) => extractJsonObject(item.text))
+      .find((candidate) => candidate && matchesSchema(candidate)) ?? null;
     if (object) {
       writeFileSync(resultPath, object);
       written = true;
+    } else if (fallback) {
+      writeFileSync(resultPath, fallback);
+      written = true;
+      console.error(`Результат не получен, задача забракована: ${note}`);
     } else {
       console.error("В ответе нет JSON-объекта результата");
     }
@@ -107,7 +142,24 @@ const finish = (code, note) => {
   process.exit(resultPath && !written ? 1 : code);
 };
 
-const timer = setTimeout(() => finish(1, "таймаут ожидания конца задачи"), timeoutMs);
+// Отмену надо дождаться: агент, которому не сказали «стоп», продолжит писать в
+// дерево уже после того, как ядро отбросит его правки, и отравит следующую задачу.
+const CANCEL_GRACE_MS = 15000;
+let timedOut = false;
+let graceTimer = null;
+
+const timeoutFallback = () => blockedResult(
+  `Исполнитель не закончил задачу за ${Math.round(timeoutMs / 1000)} с и остановлен по таймауту.`,
+  [`Клиент Zoo Code ждал конца задачи ${Math.round(timeoutMs / 1000)} с: ни taskCompleted, ни taskIdle не пришли.`,
+   "Задача отменена командой CancelTask; сделанные правки ядро отбрасывает вместе с задачей.",
+   "Результата исполнителя нет — судить о работе не по чему."]);
+
+const timer = setTimeout(() => {
+  timedOut = true;
+  if (clientId) send({ type: "TaskCommand", origin: "client", clientId, data: { commandName: "CancelTask" } });
+  // taskAborted обычно приходит раньше; это страховка на случай, если не придёт.
+  graceTimer = setTimeout(() => finish(0, "таймаут ожидания конца задачи", timeoutFallback()), CANCEL_GRACE_MS);
+}, timeoutMs);
 
 const send = (envelope) => socket.write(JSON.stringify({ type: "message", data: envelope }) + DELIMITER);
 
@@ -159,18 +211,25 @@ socket.on("data", async (chunk) => {
     }
     if (eventName === "taskTokenUsageUpdated") usage = payload?.[1] ?? payload;
 
+    const unreadable = () => blockedResult(
+      "Исполнитель закончил, но не вернул объект результата по схеме.",
+      ["Последняя реплика completion_result не содержит разбираемого JSON-объекта — вероятно, проза вместо результата.",
+       "Работа не принимается: судить о ней не по чему."]);
+
     if (eventName === "taskCompleted") {
       send({ type: "TaskCommand", origin: "client", clientId, data: { commandName: "CloseTask" } });
-      finish(0, "задача завершена (taskCompleted)");
+      finish(0, "задача завершена (taskCompleted)", unreadable());
     }
     if (eventName === "taskIdle" && started) {
       // Пауза на случай, если taskCompleted всё-таки придёт следом.
       clearTimeout(idleTimer);
       idleTimer = setTimeout(() => {
         send({ type: "TaskCommand", origin: "client", clientId, data: { commandName: "CancelTask" } });
-        finish(0, "задача остановилась (taskIdle)");
+        finish(0, "задача остановилась (taskIdle)", unreadable());
       }, 3000);
     }
-    if (eventName === "taskAborted") finish(1, "задача прервана");
+    if (eventName === "taskAborted")
+      timedOut ? finish(0, "таймаут ожидания конца задачи", timeoutFallback())
+               : finish(1, "задача прервана");
   }
 });
