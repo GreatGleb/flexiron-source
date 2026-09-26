@@ -37,7 +37,7 @@ from pathlib import Path
 CONFIG, ROOT, OUTPUTS = {}, None, []
 GIT_READ_ONLY = {"status", "diff", "log", "show", "grep", "ls-files", "blame", "rev-parse", "cat-file",
                  "check-ignore", "ls-tree", "describe", "shortlog"}
-YES = {"Attempt to fix test errors?", "Attempt to fix lint errors?", "Add command output to the chat?"}
+YES = {"Attempt to fix test errors?", "Attempt to fix lint errors?"}
 ACTIVE = set()
 # Группы процессов всех команд задачи. Zoo-автор запускал `nohup npm run dev & disown` и
 # ходил на этот сервер следующими командами — после команды его гасить нельзя. После
@@ -217,7 +217,8 @@ def drive(config_path):
         # Журнал уходит приёмщику как доказательство: он читает отчёт автора целиком и
         # бракует «мутация не подтверждена», если прогонов автора не видно.
         tail = out.strip().splitlines()[-3:] if out.strip() else []
-        stats["command_log"].append(f"$ {command} → код {code}" + ("; " + " / ".join(tail) if tail else ""))
+        stats["command_log"].append(f"$ {command.replace(chr(10), ' ⏎ ')} → код {code}"
+                                    + ("; " + " / ".join(tail) if tail else ""))
         return code, out
 
     base_coder.run_cmd = run_model_command
@@ -305,6 +306,18 @@ def drive(config_path):
         return note
 
     coder.check_for_file_mentions = mentions
+
+    def run_block(commands_str, group):
+        """Блок команд — одним скриптом, как у Zoo. aider гонит его построчно: `cd` из
+        первой строки не доживал до второй, heredoc и многострочный цикл рвались на
+        синтаксические ошибки. У Zoo таких команд 40 на 20 ночных сессий, 23 — heredoc."""
+        block = commands_str.strip()
+        if not io.confirm_ask("Run shell commands?", subject=block, explicit_yes_required=True, group=group):
+            return None
+        _code, out = run_model_command(block)
+        return f"Output from {block}\n{out}\n" if out else None
+
+    coder.handle_shell_commands = run_block
     run_shell = coder.run_shell_commands
 
     def shell_then_continue():

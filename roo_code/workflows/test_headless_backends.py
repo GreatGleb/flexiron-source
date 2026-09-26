@@ -758,6 +758,18 @@ class AiderDriverTest(unittest.TestCase):
         self.assertIn("[нет] [нет]", stats["command_log"][0])
         self.assertNotIn("s3cr3t-9z", json.dumps([result, stats, self.prompts()], ensure_ascii=False))
 
+    def test_command_block_runs_as_one_script(self):
+        """aider гонит блок построчно: `cd` не доживал до следующей строки, а heredoc и
+        многострочный цикл — формы, которыми Zoo-автор пользовался 40 раз, — рвались."""
+        (self.root / "sub").mkdir()
+        _, stats = self.drive(["```bash\ncd sub\npwd\nfor f in a b; do\n  echo item-$f\ndone\n"
+                               "python3 - <<'PY'\nprint('heredoc-' + 'ok')\nPY\n```\n", "Понял."], ["notes.md"])
+        answer = self.prompts()[1]
+        for expected in ("repo/sub", "item-a", "item-b", "heredoc-ok"):
+            self.assertIn(expected, answer)
+        self.assertNotIn("syntax error", answer)
+        self.assertEqual(len(stats["command_log"]), 1, stats["command_log"])
+
     def test_read_only_git_commands_are_allowed(self):
         _, stats = self.drive(["```bash\ngit log --oneline -1\n```\n", "Понял."], ["notes.md"])
         self.assertEqual(stats["refused"], [])
