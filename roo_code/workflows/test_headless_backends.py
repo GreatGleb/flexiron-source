@@ -12,6 +12,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -60,51 +61,37 @@ print(json.dumps(printed))
 '''
 
 
-# Ведёт себя как aider 0.86 в том, что видит ядро: правит файлы из --file, пишет кэш
-# карты в корень репозитория и историю чата туда, куда сказали. Режим — AIDER_TEST_MODE.
+# Подменяет питон окружения aider для обёртки: получает `aider-agent.py <config>` и
+# оставляет в checkout то же, что настоящий aider, — кэш карты в корне и пустые заготовки
+# под новые outputs. Решения самого драйвера проверяет AiderDriverTest на настоящей
+# библиотеке. Режим — AIDER_TEST_MODE.
 FAKE_AIDER = r"""#!/usr/bin/env python3
 import json, os, pathlib, sys
-args = sys.argv[1:]
-pathlib.Path(os.environ['NIGHT_TEST_CALLS']).open('a').write('aider ' + json.dumps(args) + '\n')
-def values(flag):
-    return [args[i + 1] for i, a in enumerate(args) if a == flag]
-for flag in ('--no-auto-commits', '--no-dirty-commits', '--no-gitignore'):
-    assert flag in args, f'нет {flag}'
-yes_always = '--yes-always' in args
-def confirm():
-    # Как io.confirm_ask: --yes-always — «да», конец ввода — ответ по умолчанию, то есть «да».
-    if yes_always:
-        return True
-    answer = sys.stdin.readline()
-    return not answer.strip() or answer.strip().lower().startswith('y')
-message = pathlib.Path(values('--message-file')[0]).read_text()
-assert 'Задание (JSON):' in message
-pathlib.Path(values('--chat-history-file')[0]).write_text('# чат\n')
+agent, config_path = sys.argv[1:3]
+assert agent.endswith('aider-agent.py'), agent
+config = json.loads(pathlib.Path(config_path).read_text())
+pathlib.Path(os.environ['NIGHT_TEST_CALLS']).open('a').write('aider ' + json.dumps(config) + '\n')
+assert 'Задание (JSON):' in pathlib.Path(config['message']).read_text()
+pathlib.Path(config['chat_history']).write_text('# чат\n')
 cache = pathlib.Path('.aider.tags.cache.v4')
 cache.mkdir(exist_ok=True)
 (cache / 'cache.db').write_text('x')
-for name in values('--file'):
+for name in config['outputs']:
     pathlib.Path(name).parent.mkdir(parents=True, exist_ok=True)
     pathlib.Path(name).touch()   # как utils.touch_file у настоящего aider
 mode = os.environ.get('AIDER_TEST_MODE', '')
 if mode == 'fail':
     raise SystemExit(3)
 if mode == 'auth':
-    # Так 0.86.2 отвечает на неверный ключ: печатает ошибку и выходит с кодом 0.
+    # Так 0.86.2 отвечает на неверный ключ: печатает ошибку и работает дальше.
     print('litellm.AuthenticationError: AuthenticationError: DeepseekException - Authentication Fails')
     raise SystemExit(0)
 if mode != 'no-edit':
-    for name in values('--file'):
+    for name in config['outputs']:
         pathlib.Path(name).write_text('prepared by aider\n')
 if mode == 'outside':
     pathlib.Path('unrelated.md').write_text('чужое\n')
-if mode == 'create-outside':
-    # Модель предложила новый файл вне задачи: «Create new file?» → при «да» aider
-    # создаёт его и делает git add (base_coder.allowed_to_edit).
-    if confirm():
-        pathlib.Path('extra.md').write_text('лишний\n')
-        import subprocess
-        subprocess.run(['git', 'add', 'extra.md'], check=True)
+pathlib.Path(config['stats']).write_text(json.dumps({'checks_green': None, 'checks_runs': 0}))
 """
 
 
@@ -470,7 +457,8 @@ class AiderRunTest(unittest.TestCase):
         aider.chmod(0o755)
         self.routing = self.base / "routing.json"
         self.routing.write_text(json.dumps({
-            "work": {"backend": "aider", "binary": str(aider), "model": "deepseek/deepseek-chat"},
+            "work": {"backend": "aider", "binary": str(aider), "python": str(aider),
+                     "model": "deepseek/deepseek-chat"},
             "review": {"backend": "codex", "binary": str(self.bin / "codex")}}))
 
     git = _pilot.PilotTest.git
@@ -483,7 +471,7 @@ class AiderRunTest(unittest.TestCase):
         return subprocess.run(command, env={**self.env, "AIDER_TEST_MODE": mode},
                               capture_output=True, text=True, timeout=30)
 
-    def aider_args(self):
+    def aider_config(self):
         line = next(x for x in (self.base / "calls").read_text().splitlines() if x.startswith("aider "))
         return json.loads(line[len("aider "):])
 
@@ -507,10 +495,10 @@ class AiderRunTest(unittest.TestCase):
         result = self.invoke()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual((self.root / "docs/new.md").read_text(), "prepared by aider\n")
-        args = self.aider_args()
-        self.assertEqual([args[i + 1] for i, a in enumerate(args) if a == "--file"], ["docs/new.md"])
-        self.assertEqual([args[i + 1] for i, a in enumerate(args) if a == "--read"], ["plan.md"])
-        self.assertEqual(args[args.index("--model") + 1], "deepseek/deepseek-chat")
+        config = self.aider_config()
+        self.assertEqual(config["outputs"], ["docs/new.md"])
+        self.assertEqual(config["sources"], ["plan.md"])
+        self.assertEqual(config["model"], "deepseek/deepseek-chat")
 
     def test_no_edit_blocks_the_task_and_leaves_no_empty_files(self):
         self.queue.write_text(json.dumps({"tasks": [{"id": "plan", "sources": ["plan.md"],
@@ -531,21 +519,10 @@ class AiderRunTest(unittest.TestCase):
         self.assertEqual(self.git("rev-parse", "HEAD"), self.baseline)
         self.assertFalse(self.git("status", "--porcelain"))
 
-    def test_aider_questions_are_answered_no_so_the_index_survives(self):
-        """«Да» на «Create new file?» — это git add, а изменённый индекс ядро считает
-        порчей Git и останавливает всю ночь. Обёртка обязана отвечать «нет»."""
-        result = self.invoke("create-outside")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(self.state()["status"], "completed", self.state())
-        self.assertFalse((self.root / "extra.md").exists())
-        self.assertEqual(self.git("show", "--name-only", "--format=", "HEAD"), "plan.md")
-        self.assertNotIn("--yes-always", self.aider_args())
-
     def test_edit_format_defaults_to_diff(self):
         # Незнакомое имя модели aider встречает форматом whole — файл целиком в ответ.
         self.assertEqual(self.invoke().returncode, 0)
-        args = self.aider_args()
-        self.assertEqual(args[args.index("--edit-format") + 1], "diff")
+        self.assertEqual(self.aider_config()["edit_format"], "diff")
 
     def test_model_error_with_exit_zero_is_named_in_the_reason(self):
         result = self.invoke("auth")
@@ -572,6 +549,176 @@ class AiderRoutingTest(unittest.TestCase):
     def test_aider_without_model_is_refused_on_preflight(self):
         with self.assertRaises(ValueError):
             backends.AiderBackend({"binary": sys.executable}).check()
+
+
+AIDER_PYTHON = Path.home() / ".local/share/uv/tools/aider-chat/bin/python"
+AIDER_RUNNER = Path(__file__).with_name("aider-runner.py").resolve()
+# Питон aider с подменённой моделью: ответы берутся по порядку из AIDER_TEST_SCRIPT,
+# каждый запрос к модели пишется строкой в AIDER_TEST_LLM_LOG. Всё остальное — настоящий
+# aider: разбор правок, вопросы, карта репозитория, запуск команд.
+HARNESS = r"""#!{python}
+import importlib.util, json, os, sys
+import litellm
+script = json.load(open(os.environ['AIDER_TEST_SCRIPT']))
+log = os.environ['AIDER_TEST_LLM_LOG']
+real = litellm.completion
+def fake(**kwargs):
+    with open(log, 'a') as stream:
+        stream.write(json.dumps(kwargs['messages'], ensure_ascii=False) + '\n')
+    turn = sum(1 for _ in open(log)) - 1
+    reply = script[turn] if turn < len(script) else 'Готово.'
+    return real(**{{**kwargs, 'mock_response': reply}})
+litellm.completion = fake
+spec = importlib.util.spec_from_file_location('agent', sys.argv[1])
+agent = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(agent)
+sys.exit(agent.main(sys.argv[2]))
+"""
+
+
+def edit(path, search, replace):
+    return f"{path}\n```\n<<<<<<< SEARCH\n{search}\n=======\n{replace}\n>>>>>>> REPLACE\n```\n"
+
+
+@unittest.skipUnless(AIDER_PYTHON.is_file(), "aider не установлен: uv tool install aider-chat")
+class AiderDriverTest(unittest.TestCase):
+    """Решения драйвера на настоящем aider 0.86 — без сети, модель подменена сценарием."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(prefix="aider-driver-")
+        self.addCleanup(self.temp.cleanup)
+        self.base = Path(self.temp.name)
+        self.root = self.base / "repo"
+        self.root.mkdir()
+        (self.root / "calc.py").write_text("def add(a, b):\n    return a - b\n")
+        (self.root / "other.py").write_text("VALUE = 1\n")
+        (self.root / "helper.py").write_text("MAGIC_NUMBER = 42\n")
+        (self.root / "notes.md").write_text("Число: ?\n")
+        for args in (("init", "-q", "-b", "auto/t"), ("add", "."),
+                     ("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "base")):
+            subprocess.run(["git", "-C", str(self.root), *args], check=True)
+        self.head, self.index = self.git("rev-parse", "HEAD"), self.git("write-tree")
+        self.run_dir = self.base / "run"
+        self.run_dir.mkdir()
+        self.harness = self.base / "aider-python"
+        self.harness.write_text(HARNESS.format(python=AIDER_PYTHON))
+        self.harness.chmod(0o755)
+
+    def git(self, *args):
+        return subprocess.check_output(["git", "-C", str(self.root), *args], text=True).strip()
+
+    def drive(self, script, outputs, checks=(), sources=(), text="Задача.", **options):
+        (self.base / "script.json").write_text(json.dumps(script, ensure_ascii=False))
+        task = {"id": "t", "outputs": list(outputs), "sources": list(sources), "checks": list(checks),
+                "task": "по сценарию"}
+        argv = [sys.executable, str(AIDER_RUNNER), "--python", str(self.harness), "--binary", str(self.harness),
+                "--model", "deepseek/deepseek-chat", "--root", str(self.root),
+                "--result", str(self.run_dir / "t-work.json"), "--timeout", "120"]
+        for key, value in options.items():
+            argv += ["--" + key.replace("_", "-"), str(value)]
+        started = time.monotonic()
+        subprocess.run(argv, input=text + "\nЗадание (JSON):\n" + json.dumps(task, ensure_ascii=False),
+                       text=True, cwd=self.root, timeout=150, check=True,
+                       env={**os.environ, "AIDER_TEST_SCRIPT": str(self.base / "script.json"),
+                            "AIDER_TEST_LLM_LOG": str(self.base / "llm.jsonl"),
+                            "DEEPSEEK_API_KEY": "test"})
+        self.elapsed = time.monotonic() - started
+        result = json.loads((self.run_dir / "t-work.json").read_text())
+        stats_path = self.run_dir / "t-work.aider.stats.json"
+        stats = json.loads(stats_path.read_text()) if stats_path.is_file() else {}
+        return result, stats
+
+    def prompts(self):
+        return [json.dumps(json.loads(line), ensure_ascii=False)
+                for line in (self.base / "llm.jsonl").read_text().splitlines()]
+
+    def assertGitUntouched(self):
+        self.assertEqual(self.git("rev-parse", "HEAD"), self.head)
+        self.assertEqual(self.git("write-tree"), self.index, "индекс Git изменён — ядро остановило бы ночь")
+
+    # -B: правки «a * b» и «a + b» одной длины и в одну секунду — без него второй прогон
+    # взял бы устаревший .pyc и краснел на уже починенном коде.
+    CHECK = {"cwd": ".", "argv": [sys.executable, "-B", "-c",
+                                  "import calc; assert calc.add(2, 3) == 5, calc.add(2, 3)"]}
+
+    def test_failed_checks_go_back_to_the_model_until_green(self):
+        result, stats = self.drive([edit("calc.py", "    return a - b", "    return a * b"),
+                                    edit("calc.py", "    return a * b", "    return a + b")],
+                                   ["calc.py"], checks=[self.CHECK])
+        self.assertEqual((self.root / "calc.py").read_text(), "def add(a, b):\n    return a + b\n")
+        self.assertEqual(result["status"], "done", result)
+        self.assertEqual((stats["checks_runs"], stats["checks_green"]), (2, True), stats)
+        self.assertIn("Машинные проверки задачи упали", self.prompts()[1])
+        self.assertGitUntouched()
+
+    def test_command_output_gives_the_model_another_turn(self):
+        result, stats = self.drive(["Поищу.\n```bash\ngrep -rn MAGIC_NUMBER helper.py\n```\n",
+                                    edit("notes.md", "Число: ?", "Число: 42")], ["notes.md"])
+        self.assertEqual((self.root / "notes.md").read_text(), "Число: 42\n")
+        self.assertIn("MAGIC_NUMBER = 42", self.prompts()[1])
+        # Ровно один запуск: aider копит команды за весь прогон и гонял бы их на каждом
+        # ходу заново — цикл до потолка отражений.
+        self.assertEqual(stats["commands"], ["grep -rn MAGIC_NUMBER helper.py"])
+        self.assertEqual(len(self.prompts()), 2)
+        # Число пришло выводом команды, а не подтянутым файлом: раньше упоминание
+        # helper.py внутри команды отменяло саму команду, и тест проходил случайно.
+        self.assertEqual(stats["read_added"], [])
+        self.assertEqual(result["status"], "done", result)
+
+    def test_edit_is_applied_even_when_the_reply_mentions_another_file(self):
+        self.drive([edit("notes.md", "Число: ?", "Число: 42") + "\nЧисло взял из helper.py.\n"], ["notes.md"])
+        self.assertEqual((self.root / "notes.md").read_text(), "Число: 42\n")
+
+    def test_git_commands_that_write_are_refused_and_the_model_is_told(self):
+        result, stats = self.drive(["```bash\ngit add -A && git commit -m x\n```\n", "Понял."], ["notes.md"])
+        self.assertGitUntouched()
+        self.assertTrue(stats["refused"], stats)
+        self.assertIn("Отклонено ночным контроллером", self.prompts()[1])
+        self.assertEqual(result["status"], "blocked")
+
+    def test_read_only_git_commands_are_allowed(self):
+        _, stats = self.drive(["```bash\ngit log --oneline -1\n```\n", "Понял."], ["notes.md"])
+        self.assertEqual(stats["refused"], [])
+        self.assertIn("base", self.prompts()[1])
+
+    def test_edit_outside_the_chat_is_refused_without_git_add(self):
+        """«Да» здесь — это git add, а изменённый индекс ядро считает порчей Git."""
+        result, _ = self.drive([edit("other.py", "VALUE = 1", "VALUE = 2")
+                                + edit("fresh.py", "", "NEW = 1"), "Понял."], ["notes.md"])
+        self.assertEqual((self.root / "other.py").read_text(), "VALUE = 1\n")
+        self.assertFalse((self.root / "fresh.py").exists())
+        self.assertGitUntouched()
+        self.assertEqual(result["status"], "blocked")
+
+    def test_hanging_command_is_killed_by_the_timeout(self):
+        _, stats = self.drive(["```bash\nsleep 60\n```\n", "Понял."], ["notes.md"], command_timeout=2)
+        self.assertLess(self.elapsed, 40)
+        self.assertIn("прервана ночным контроллером", self.prompts()[1])
+
+    def test_mentioned_file_is_opened_read_only(self):
+        result, stats = self.drive(["Мне нужен helper.py, чтобы узнать число.",
+                                    edit("helper.py", "MAGIC_NUMBER = 42", "MAGIC_NUMBER = 0")
+                                    + edit("notes.md", "Число: ?", "Число: 42")], ["notes.md"])
+        self.assertEqual(stats["read_added"], ["helper.py"])
+        self.assertIn("MAGIC_NUMBER = 42", self.prompts()[1])
+        # Открыт для чтения, а не для правки: helper.py цел, notes.md исправлен.
+        self.assertEqual((self.root / "helper.py").read_text(), "MAGIC_NUMBER = 42\n")
+        self.assertEqual((self.root / "notes.md").read_text(), "Число: 42\n")
+        self.assertGitUntouched()
+
+    def test_prompt_mentions_are_not_pulled_into_the_chat(self):
+        # Промпт ядра упоминает десятки документов; подтянуть их все — лишние токены.
+        self.drive([edit("notes.md", "Число: ?", "Число: 1")], ["notes.md"],
+                   text="Сверься с other.py и helper.py, потом поправь notes.md.")
+        self.assertIn("other.py", self.prompts()[0])   # упоминание дошло до модели…
+        self.assertNotIn("VALUE = 1", self.prompts()[0])   # …а содержимое файла — нет
+
+    def test_leftovers_are_cleaned_and_stats_reported(self):
+        result, stats = self.drive([edit("notes.md", "Число: ?", "Число: 1")], ["notes.md", "docs/empty.md"])
+        self.assertFalse(list(self.root.glob(".aider*")))
+        self.assertFalse((self.root / "docs/empty.md").exists())
+        self.assertEqual(self.git("status", "--porcelain"), "M notes.md")
+        self.assertTrue(any("проверки задачи у автора: не запускались" in e for e in result["evidence"]), result)
 
 
 if __name__ == "__main__":

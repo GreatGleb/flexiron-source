@@ -1,44 +1,33 @@
 """Обёртка автора на aider: промпт ядра на входе, файл результата на выходе.
 
-aider — не агент с терминалом, а редактор файлов по одному сообщению. Поэтому всё,
-что другие исполнители делают сами, здесь делает обёртка:
+Работает системным питоном и зовёт драйвер aider-agent.py питоном из окружения
+aider — драйверу нужна его библиотека. Разделение не для красоты: всё, что обязано
+сработать при любом исходе драйвера (таймаут, падение, неверный ключ), живёт здесь.
 
 - из промпта берётся задание (JSON после «Задание (JSON):») — `outputs` уходят в
-  чат как редактируемые, существующие `sources` — только для чтения;
+  чат как редактируемые, `sources` — только для чтения, `checks` — в цикл починки;
 - результат `{"status","summary","evidence"}` aider не печатает — его собирает
-  обёртка по факту: какие файлы из `outputs` изменились;
+  обёртка по факту: какие файлы из `outputs` изменились, плюс сводка драйвера;
 - служебные следы aider в checkout не остаются: история чата пишется в каталог
   прогона, кэш карты репозитория и пустые заготовки новых файлов удаляются. Иначе
-  ядро увидело бы их как правки вне задачи и браковало каждую задачу.
+  ядро увидело бы их как правки вне задачи и браковало каждую задачу. Кэш карты —
+  `.aider.tags.cache.v*` в корне (`RepoMap.TAGS_CACHE_DIR`), заготовка — пустой файл
+  под несуществующий output (`utils.touch_file`).
 
-Флаги сверены с исходниками aider 0.86.2 и живыми пробами, а не с памятью:
-- на КАЖДЫЙ вопрос aider обёртка отвечает «нет» — строками «n» в stdin. `--yes-always`
-  здесь смертелен: «Create new file?» и «Allow edits to file that has not been added
-  to the chat?» после «да» делают `git add` (`base_coder.allowed_to_edit`), а
-  изменённый индекс ядро считает порчей Git и останавливает ВСЮ ночь. Проба
-  2026-09-26: с `--yes-always` файл вне задачи попал в индекс, с «n» — «Skipping
-  edits». Молчать тоже нельзя: на конце ввода `confirm_ask` берёт ответ по
-  умолчанию, а он «да»;
-- тем же «нет» закрыто подтягивание упомянутых файлов («Add file to the chat?»):
-  aider ищет имена файлов и в промпте, и в ответе модели. Промпт ядра упоминает
-  десятки документов — с «да» они уходили в модель целиком и становились
-  редактируемыми (проба: 4.3k токенов против 699 на той же задаче);
-- shell-команды требуют явного «да» (`explicit_yes_required`) — не запускаются;
-- коммиты закрыты `--no-auto-commits --no-dirty-commits`;
-- имя модели aider может не знать и тогда берёт формат `whole` — модель переписывает
-  каждый файл целиком. Поэтому формат по умолчанию `diff`, как в настройках aider
-  для deepseek-chat и deepseek-reasoner;
-- несуществующий файл из `--file` создаётся пустым (`utils.touch_file`) без `git add`;
-- кэш карты — `.aider.tags.cache.v*` в корне репозитория (`RepoMap.TAGS_CACHE_DIR`).
+Имя модели aider может не знать и тогда берёт формат `whole` — модель переписывает
+каждый файл целиком. Поэтому формат по умолчанию `diff`, как в настройках aider для
+deepseek-chat и deepseek-reasoner.
 """
 
 import argparse
 import json
 import shutil
+import signal
 import subprocess
 import sys
 from pathlib import Path
 
+HERE = Path(__file__).resolve().parent
 MARKER = "\nЗадание (JSON):\n"
 
 
@@ -59,15 +48,33 @@ def snapshot(root, names):
     return result
 
 
+def aider_python(binary):
+    """Питон окружения aider — из шебанга его скрипта (`uv tool` ставит именно так)."""
+    script = shutil.which(binary)
+    if not script:
+        raise FileNotFoundError(f"aider не найден: {binary}")
+    first = Path(script).read_bytes().split(b"\n", 1)[0].decode(errors="replace")
+    if not first.startswith("#!"):
+        raise ValueError(f"У {script} нет шебанга — укажи routing.work.python")
+    return first[2:].strip().split()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", default="aider")
+    parser.add_argument("--python", help="Питон окружения aider; по умолчанию — из шебанга aider")
     parser.add_argument("--model", required=True)
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--result", type=Path, required=True)
     parser.add_argument("--timeout", type=int, default=3600)
     parser.add_argument("--env-file", type=Path)
     parser.add_argument("--edit-format")
+    parser.add_argument("--max-reflections", type=int, default=12)
+    parser.add_argument("--command-timeout", type=int, default=600)
+    parser.add_argument("--check-timeout", type=int, default=1200)
+    parser.add_argument("--output-limit", type=int, default=12000)
+    parser.add_argument("--max-read-files", type=int, default=12)
+    parser.add_argument("--read-file-limit", type=int, default=200_000)
     args = parser.parse_args()
     root, result_path = args.root.resolve(), args.result
     prompt = sys.stdin.read()
@@ -87,65 +94,82 @@ def main():
     stem = result_path.with_suffix("")
     message = stem.with_suffix(".aider.message.md")
     message.write_text(prompt)
-    chat = stem.with_suffix(".aider.chat.md")
+    chat, log, stats_path = (stem.with_suffix(s) for s in (".aider.chat.md", ".aider.log", ".aider.stats.json"))
+    config = stem.with_suffix(".aider.config.json")
+    config.write_text(json.dumps({
+        "root": str(root), "model": args.model, "message": str(message), "outputs": outputs,
+        "sources": sources, "checks": task.get("checks", []), "edit_format": args.edit_format or "diff",
+        "env_file": str(args.env_file) if args.env_file else None,
+        "chat_history": str(chat), "input_history": str(stem.with_suffix(".aider.input.history")),
+        "stats": str(stats_path), "max_reflections": args.max_reflections,
+        "command_timeout": args.command_timeout, "check_timeout": args.check_timeout,
+        "output_limit": args.output_limit, "max_read_files": args.max_read_files,
+        "read_file_limit": args.read_file_limit}, ensure_ascii=False, indent=2))
     missing = {name for name in outputs if not (root / name).exists()}
     caches_before = set(root.glob(".aider.tags.cache.v*"))
     before = snapshot(root, outputs)
 
-    argv = [args.binary, "--model", args.model, "--message-file", str(message),
-            "--no-auto-commits", "--no-dirty-commits", "--no-gitignore",
-            "--no-check-update", "--no-show-release-notes", "--no-analytics", "--no-pretty",
-            "--no-stream", "--no-fancy-input", "--no-detect-urls", "--no-suggest-shell-commands",
-            "--no-auto-lint", "--no-auto-test", "--no-restore-chat-history",
-            "--chat-history-file", str(chat),
-            "--input-history-file", str(stem.with_suffix(".aider.input.history"))]
-    if args.env_file:
-        argv += ["--env-file", str(args.env_file)]
-    argv += ["--edit-format", args.edit_format or "diff"]
-    for name in outputs:
-        argv += ["--file", name]
-    for name in sources:
-        argv += ["--read", name]
+    python = [args.python] if args.python else aider_python(args.binary)
+    code = None
+    with log.open("w") as stream:
+        driver = subprocess.Popen([*python, str(HERE / "aider-agent.py"), str(config)], cwd=root,
+                                  stdin=subprocess.DEVNULL, stdout=stream, stderr=subprocess.STDOUT)
 
-    log = stem.with_suffix(".aider.log")
-    try:
-        with log.open("w") as stream:
-            # Запас «нет» с избытком: вопросов за задачу единицы, а кончившийся ввод
-            # aider прочитал бы как «да». Лишнее он не читает — выходит после сообщения.
-            proc = subprocess.run(argv, cwd=root, input="n\n" * 5000, text=True, stdout=stream,
-                                  stderr=subprocess.STDOUT, timeout=args.timeout)
-        code = proc.returncode
-    except subprocess.TimeoutExpired:
-        code = None
-    finally:
-        # Следы aider убираются при любом исходе: иначе ядро забракует задачу за
-        # «правку вне задачи», а причиной окажется не автор, а его инструмент.
-        for cache in set(root.glob(".aider.tags.cache.v*")) - caches_before:
-            shutil.rmtree(cache, ignore_errors=True)
-        for name in missing:
-            path = root / name
-            if path.is_file() and path.stat().st_size == 0:
-                path.unlink()
+        def forward(_number, _frame):
+            # Ядро гасит нас сигналом — драйвер обязан успеть погасить свои команды.
+            driver.terminate()
+            try:
+                driver.wait(timeout=15)
+            except subprocess.TimeoutExpired:
+                driver.kill()
+            raise SystemExit(143)
+
+        signal.signal(signal.SIGTERM, forward)
+        try:
+            code = driver.wait(timeout=args.timeout)
+        except subprocess.TimeoutExpired:
+            driver.terminate()
+            try:
+                driver.wait(timeout=15)
+            except subprocess.TimeoutExpired:
+                driver.kill()
+                driver.wait()
+        finally:
+            # Следы aider убираются при любом исходе: иначе ядро забракует задачу за
+            # «правку вне задачи», а причиной окажется не автор, а его инструмент.
+            for cache in set(root.glob(".aider.tags.cache.v*")) - caches_before:
+                shutil.rmtree(cache, ignore_errors=True)
+            for name in missing:
+                path = root / name
+                if path.is_file() and path.stat().st_size == 0:
+                    path.unlink()
 
     edited = sorted(name for name, body in snapshot(root, outputs).items() if body != before[name])
     evidence = [f"история чата aider: {chat}", f"вывод aider: {log}"]
-    # Ошибку модели aider печатает и выходит с кодом 0 (замер 0.86.2: неверный ключ
-    # DeepSeek → «litellm.AuthenticationError», exit 0). Без этой строки причина
-    # браковки звучала бы «ничего не изменил», а настоящая осталась бы в логе.
+    stats = json.loads(stats_path.read_text()) if stats_path.is_file() else {}
+    if stats:
+        green = {True: "зелёные", False: "КРАСНЫЕ", None: "не запускались"}[stats.get("checks_green")]
+        evidence.append(f"проверки задачи у автора: {green} (прогонов {stats.get('checks_runs', 0)}); "
+                        f"команд {len(stats.get('commands', []))}, отклонено {len(stats.get('refused', []))}; "
+                        f"токенов {stats.get('tokens_sent', 0)}+{stats.get('tokens_received', 0)}, "
+                        f"${stats.get('cost', 0)}")
+    # Ошибку модели aider печатает и работает дальше (замер 0.86.2: неверный ключ DeepSeek →
+    # «litellm.AuthenticationError», выход с кодом 0). Без этой строки причина браковки
+    # звучала бы «ничего не изменил», а настоящая осталась бы в логе.
     errors = [line.strip() for line in log.read_text(errors="replace").splitlines()
               if "Error" in line and line.strip()]
     why = f"; aider сообщил: {errors[-1][:300]}" if errors else ""
     if code is None:
         return finish("blocked", f"aider не уложился в {args.timeout} с{why}", evidence)
     if code:
-        return finish("blocked", f"aider завершился с кодом {code}{why}", evidence)
+        return finish("blocked", f"драйвер aider завершился с кодом {code}{why}", evidence)
     if not edited:
         return finish("blocked", f"aider не изменил ни одного файла из outputs{why}", evidence)
     outside = sorted(git_status(root) - set(outputs))
     evidence = [f"изменён {name}" for name in edited] + evidence
     if outside:
-        # Решает ядро, здесь только честное описание. Через aider сюда попасть не должно
-        # (на правку вне чата он получает «нет»), но обёртка не вправе это скрыть.
+        # Решает ядро, здесь только честное описание: правку вне чата драйвер отклоняет,
+        # но команда автора могла тронуть что угодно — обёртка не вправе это скрыть.
         evidence.append(f"изменено вне outputs: {outside}")
     return finish("done", "aider изменил: " + ", ".join(edited), evidence)
 

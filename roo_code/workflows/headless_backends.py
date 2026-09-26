@@ -196,12 +196,13 @@ class ZooBackend(Backend):
 
 
 class AiderBackend(Backend):
-    """aider-chat как автор. Разбор задания и сборка результата — в aider-runner.py.
+    """aider-chat как автор. Разбор задания и сборка результата — в aider-runner.py,
+    агентский цикл (проверки, команды, поиск файлов) — в aider-agent.py.
 
-    Только роль `work`: aider — редактор файлов по одному сообщению, команд он не
-    запускает (см. обёртку), а приёмщик, который правит файлы, — противоречие.
+    Только роль `work`: приёмщик, который правит файлы, — противоречие.
     Модель и ключ задаются маршрутизацией: `model` в формате litellm
-    (`deepseek/deepseek-chat`), `env_file` — файл с ключом вне checkout.
+    (`deepseek/deepseek-chat`), `env_file` — файл с ключом вне checkout. Потолки
+    цикла — `max_reflections`, `command_timeout`, `check_timeout` (секунды).
     """
 
     name = "aider"
@@ -221,9 +222,12 @@ class AiderBackend(Backend):
             raise ValueError(f"Файл ключей aider не найден: {env_file}")
 
     def result_instruction(self, result_path):
-        return ("Ты работаешь через aider: команд не запускаешь, JSON-результат не пишешь — его "
-                "соберёт обёртка по изменённым файлам. Правь только файлы, открытые тебе для "
-                "правки (outputs задания); остальное — только читать.\n")
+        return ("Ты работаешь через aider. JSON-результат не пиши — его соберёт обёртка по "
+                "изменённым файлам. Править можно только файлы, открытые тебе для правки (outputs "
+                "задания). Нужен другой файл — назови его путь в ответе, и он откроется для чтения. "
+                "Команды (греп, чтение логов, тесты) предлагай блоком ```bash```: они выполнятся, "
+                "и ты увидишь вывод. Git — только читающие подкоманды. Машинные проверки задачи "
+                "запускаются сами после каждой правки; упавшие вернутся к тебе на починку.\n")
 
     def build(self, role, root, run_dir, result_path):
         if role not in self.roles:
@@ -233,8 +237,9 @@ class AiderBackend(Backend):
                 "--timeout", str(int(self.options.get("timeout_seconds", 3600)))]
         if self.options.get("env_file"):
             argv += ["--env-file", str(Path(self.options["env_file"]).expanduser())]
-        if self.options.get("edit_format"):
-            argv += ["--edit-format", self.options["edit_format"]]
+        for key in ("python", "edit_format", "max_reflections", "command_timeout", "check_timeout"):
+            if self.options.get(key) is not None:
+                argv += ["--" + key.replace("_", "-"), str(self.options[key])]
         return argv
 
 
