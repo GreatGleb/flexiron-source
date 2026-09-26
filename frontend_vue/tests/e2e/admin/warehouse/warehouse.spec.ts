@@ -129,29 +129,35 @@ test.describe('Warehouse module', () => {
     test('should navigate to stock card on view button click', async ({ page }) => {
       await expect(page.getByTestId('warehouse-stock-row').first()).toBeVisible()
       await page.getByTestId('stock-view-btn').first().click()
-      await expect(page.getByTestId('stock-card-page')).toBeVisible()
+      await expect(page.getByTestId('stock-card-page')).toBeVisible({ timeout: DATA_READY_TIMEOUT })
     })
   })
 
   test.describe('Batches tab', () => {
     test('should display batches list', async ({ page }) => {
       await clickTab(page, 'batches')
-      await expect(page.getByTestId('warehouse-batches-panel')).toBeVisible()
+      await expect(page.getByTestId('warehouse-batches-panel')).toBeVisible({
+        timeout: DATA_READY_TIMEOUT,
+      })
       await expect(page.getByTestId('warehouse-batch-row').first()).toBeVisible()
     })
 
     test('should have batch filters', async ({ page }) => {
       await clickTab(page, 'batches')
-      await expect(page.getByTestId('warehouse-batches-search')).toBeVisible()
+      await expect(page.getByTestId('warehouse-batches-search')).toBeVisible({
+        timeout: DATA_READY_TIMEOUT,
+      })
       await expect(page.getByTestId('warehouse-batches-status-filter')).toBeVisible()
       await expect(page.getByTestId('warehouse-batches-supplier-filter')).toBeVisible()
     })
 
     test('should navigate to batch card on view button click', async ({ page }) => {
       await clickTab(page, 'batches')
-      await expect(page.getByTestId('warehouse-batch-row').first()).toBeVisible()
+      await expect(page.getByTestId('warehouse-batch-row').first()).toBeVisible({
+        timeout: DATA_READY_TIMEOUT,
+      })
       await page.getByTestId('batch-view-btn').first().click()
-      await expect(page.getByTestId('page-batch-card')).toBeVisible()
+      await expect(page.getByTestId('page-batch-card')).toBeVisible({ timeout: DATA_READY_TIMEOUT })
     })
   })
 
@@ -173,13 +179,17 @@ test.describe('Warehouse module', () => {
   test.describe('Offcuts tab', () => {
     test('should display offcuts list', async ({ page }) => {
       await clickTab(page, 'offcuts')
-      await expect(page.getByTestId('warehouse-offcuts-panel')).toBeVisible()
+      await expect(page.getByTestId('warehouse-offcuts-panel')).toBeVisible({
+        timeout: DATA_READY_TIMEOUT,
+      })
       await expect(page.getByTestId('warehouse-offcut-row').first()).toBeVisible()
     })
 
     test('should have offcut filters', async ({ page }) => {
       await clickTab(page, 'offcuts')
-      await expect(page.getByTestId('warehouse-offcuts-search')).toBeVisible()
+      await expect(page.getByTestId('warehouse-offcuts-search')).toBeVisible({
+        timeout: DATA_READY_TIMEOUT,
+      })
       await expect(page.getByTestId('warehouse-offcuts-status-filter')).toBeVisible()
       await expect(page.getByTestId('warehouse-offcuts-type-filter')).toBeVisible()
     })
@@ -187,25 +197,35 @@ test.describe('Warehouse module', () => {
     test('should have new offcut button in toolbar', async ({ page }) => {
       await clickTab(page, 'offcuts')
       // The toolbar button is always visible (unlike the empty-state button)
-      await expect(page.getByTestId('warehouse-new-offcut-btn')).toBeVisible()
+      await expect(page.getByTestId('warehouse-new-offcut-btn')).toBeVisible({
+        timeout: DATA_READY_TIMEOUT,
+      })
     })
 
     test('should navigate to offcut card on view button click', async ({ page }) => {
       await clickTab(page, 'offcuts')
-      await expect(page.getByTestId('warehouse-offcut-row').first()).toBeVisible()
+      await expect(page.getByTestId('warehouse-offcut-row').first()).toBeVisible({
+        timeout: DATA_READY_TIMEOUT,
+      })
       await page.getByTestId('offcut-view-btn').first().click()
-      await expect(page.getByTestId('offcut-card-page')).toBeVisible()
+      await expect(page.getByTestId('offcut-card-page')).toBeVisible({
+        timeout: DATA_READY_TIMEOUT,
+      })
     })
 
     test('should mark offcut as used (in_production) via quick action', async ({ page }) => {
       await clickTab(page, 'offcuts')
-      await expect(page.getByTestId('offcut-mark-used-btn').first()).toBeVisible()
+      await expect(page.getByTestId('offcut-mark-used-btn').first()).toBeVisible({
+        timeout: DATA_READY_TIMEOUT,
+      })
       await page.getByTestId('offcut-mark-used-btn').first().click()
     })
 
     test('should mark offcut as scrapped via quick action', async ({ page }) => {
       await clickTab(page, 'offcuts')
-      await expect(page.getByTestId('offcut-mark-scrap-btn').first()).toBeVisible()
+      await expect(page.getByTestId('offcut-mark-scrap-btn').first()).toBeVisible({
+        timeout: DATA_READY_TIMEOUT,
+      })
       await page.getByTestId('offcut-mark-scrap-btn').first().click()
     })
   })
@@ -235,13 +255,17 @@ test.describe('Warehouse module', () => {
   test.describe('Movements tab', () => {
     test('should display movements list', async ({ page }) => {
       await clickTab(page, 'movements')
-      await expect(page.getByTestId('warehouse-movements-panel')).toBeVisible()
+      await expect(page.getByTestId('warehouse-movements-panel')).toBeVisible({
+        timeout: DATA_READY_TIMEOUT,
+      })
       await expect(page.getByTestId('warehouse-movement-row').first()).toBeVisible()
     })
 
     test('every movement type is a label, not the key behind it', async ({ page }) => {
       await clickTab(page, 'movements')
-      await expect(page.getByTestId('warehouse-movement-row').first()).toBeVisible()
+      await expect(page.getByTestId('warehouse-movement-row').first()).toBeVisible({
+        timeout: DATA_READY_TIMEOUT,
+      })
 
       // Oldest first: the seeded history holds types the newest page does not,
       // and those were the untranslated ones.
@@ -296,16 +320,22 @@ test.describe('Warehouse module', () => {
 
     test('should have movement filters', async ({ page }) => {
       await clickTab(page, 'movements')
-      await expect(page.getByTestId('warehouse-movements-search')).toBeVisible()
+      await expect(page.getByTestId('warehouse-movements-search')).toBeVisible({
+        timeout: DATA_READY_TIMEOUT,
+      })
       await expect(page.getByTestId('warehouse-movements-type-filter')).toBeVisible()
       await expect(page.getByTestId('warehouse-movements-unit-filter')).toBeVisible()
     })
 
     test('should navigate to movement card on view button click', async ({ page }) => {
       await clickTab(page, 'movements')
-      await expect(page.getByTestId('warehouse-movement-row').first()).toBeVisible()
+      await expect(page.getByTestId('warehouse-movement-row').first()).toBeVisible({
+        timeout: DATA_READY_TIMEOUT,
+      })
       await page.getByTestId('movement-view-btn').first().click()
-      await expect(page.getByTestId('movement-card-page')).toBeVisible()
+      await expect(page.getByTestId('movement-card-page')).toBeVisible({
+        timeout: DATA_READY_TIMEOUT,
+      })
     })
   })
 
@@ -327,33 +357,45 @@ test.describe('Warehouse module', () => {
   test.describe('Deficit tab', () => {
     test('should display deficit list', async ({ page }) => {
       await clickTab(page, 'deficit')
-      await expect(page.getByTestId('warehouse-deficit-panel')).toBeVisible()
+      await expect(page.getByTestId('warehouse-deficit-panel')).toBeVisible({
+        timeout: DATA_READY_TIMEOUT,
+      })
       await expect(page.getByTestId('warehouse-deficit-row').first()).toBeVisible()
     })
 
     test('should have deficit filters', async ({ page }) => {
       await clickTab(page, 'deficit')
-      await expect(page.getByTestId('warehouse-deficit-search')).toBeVisible()
+      await expect(page.getByTestId('warehouse-deficit-search')).toBeVisible({
+        timeout: DATA_READY_TIMEOUT,
+      })
       await expect(page.getByTestId('warehouse-deficit-status-filter')).toBeVisible()
       await expect(page.getByTestId('warehouse-deficit-priority-filter')).toBeVisible()
     })
 
     test('should navigate to deficit card on view button click', async ({ page }) => {
       await clickTab(page, 'deficit')
-      await expect(page.getByTestId('warehouse-deficit-row').first()).toBeVisible()
+      await expect(page.getByTestId('warehouse-deficit-row').first()).toBeVisible({
+        timeout: DATA_READY_TIMEOUT,
+      })
       await page.getByTestId('deficit-view-btn').first().click()
-      await expect(page.getByTestId('deficit-card-page')).toBeVisible()
+      await expect(page.getByTestId('deficit-card-page')).toBeVisible({
+        timeout: DATA_READY_TIMEOUT,
+      })
     })
 
     test('should mark deficit as in_progress via quick action', async ({ page }) => {
       await clickTab(page, 'deficit')
-      await expect(page.getByTestId('deficit-mark-in-progress-btn').first()).toBeVisible()
+      await expect(page.getByTestId('deficit-mark-in-progress-btn').first()).toBeVisible({
+        timeout: DATA_READY_TIMEOUT,
+      })
       await page.getByTestId('deficit-mark-in-progress-btn').first().click()
     })
 
     test('should mark deficit as resolved via quick action', async ({ page }) => {
       await clickTab(page, 'deficit')
-      await expect(page.getByTestId('deficit-mark-resolved-btn').first()).toBeVisible()
+      await expect(page.getByTestId('deficit-mark-resolved-btn').first()).toBeVisible({
+        timeout: DATA_READY_TIMEOUT,
+      })
       await page.getByTestId('deficit-mark-resolved-btn').first().click()
     })
   })
@@ -395,7 +437,9 @@ test.describe('Warehouse module', () => {
   test.describe('Movements tab — no create button', () => {
     test('should NOT have a new movement button in toolbar', async ({ page }) => {
       await clickTab(page, 'movements')
-      await expect(page.getByTestId('warehouse-movements-panel')).toBeVisible()
+      await expect(page.getByTestId('warehouse-movements-panel')).toBeVisible({
+        timeout: DATA_READY_TIMEOUT,
+      })
       // Verify no "new movement" button exists on movements tab
       await expect(page.getByTestId('warehouse-new-movement-btn')).toHaveCount(0)
       // Verify the movements list still displays normally
@@ -440,7 +484,9 @@ test.describe('Warehouse module', () => {
       // Click first product row
       await page.getByTestId('batch-create-product-radio').first().click()
       // Verify it's selected (radio checked)
-      await expect(page.getByTestId('batch-create-product-radio').first()).toBeChecked()
+      await expect(page.getByTestId('batch-create-product-radio').first()).toBeChecked({
+        timeout: DATA_READY_TIMEOUT,
+      })
     })
 
     test('should show validation errors on empty form submit', async ({ page }) => {
@@ -449,7 +495,9 @@ test.describe('Warehouse module', () => {
       await page.getByTestId('batch-create-save-btn').click()
       // Verify error messages appear for required fields
       // (exact error display depends on validation implementation)
-      await expect(page.getByTestId('batch-create-page')).toBeVisible()
+      await expect(page.getByTestId('batch-create-page')).toBeVisible({
+        timeout: DATA_READY_TIMEOUT,
+      })
     })
 
     test('should save and redirect to batch card on valid form submit', async ({ page }) => {
@@ -518,7 +566,9 @@ test.describe('Warehouse module', () => {
       // Select a product by clicking radio
       await page.getByTestId('offcut-create-product-radio').first().click()
       // Batch selection panel should appear
-      await expect(page.getByTestId('offcut-create-batch-panel')).toBeVisible()
+      await expect(page.getByTestId('offcut-create-batch-panel')).toBeVisible({
+        timeout: DATA_READY_TIMEOUT,
+      })
     })
 
     test('should cancel and return to offcuts list', async ({ page }) => {

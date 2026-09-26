@@ -1,5 +1,6 @@
 import { test, expect } from '../../fixtures'
 import { navigateToAdmin } from '../../helpers/admin'
+import { DATA_READY_TIMEOUT } from '../../helpers/ready'
 
 /**
  * Площадь обрезка — выведенная величина, а не поле.
@@ -36,17 +37,17 @@ test.describe('Offcut area', () => {
 
     await page.getByTestId('field-length').fill('2000')
     // Одной длины недостаточно: требование знает домен, а не шаблон.
-    await expect(area).toHaveText('—')
+    await expect(area).toHaveText('—', { timeout: DATA_READY_TIMEOUT })
 
     await page.getByTestId('field-width').fill('1000')
-    await expect(area).toHaveText('2 m²')
+    await expect(area).toHaveText('2 m²', { timeout: DATA_READY_TIMEOUT })
 
     // Пересчёт, а не однократный расчёт при вводе.
     await page.getByTestId('field-width').fill('500')
-    await expect(area).toHaveText('1 m²')
+    await expect(area).toHaveText('1 m²', { timeout: DATA_READY_TIMEOUT })
 
     // Стёрли ширину — снова невыразима, а не «осталось прошлое число».
     await page.getByTestId('field-width').fill('')
-    await expect(area).toHaveText('—')
+    await expect(area).toHaveText('—', { timeout: DATA_READY_TIMEOUT })
   })
 })

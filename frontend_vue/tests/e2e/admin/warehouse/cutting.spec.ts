@@ -89,13 +89,13 @@ test.describe('Cutting operation', () => {
 
     const search = page.getByTestId('warehouse-cutting-batch-search').locator('input')
     await search.click()
-    await expect(search).toBeFocused()
+    await expect(search).toBeFocused({ timeout: DATA_READY_TIMEOUT })
 
     // По букве, с паузой, которой хватает на перезапрос — как печатает человек.
     await page.keyboard.type('INV', { delay: 120 })
 
     // Слово набралось целиком: ни одна буква не ушла мимо поля.
-    await expect(search).toHaveValue('INV')
+    await expect(search).toHaveValue('INV', { timeout: DATA_READY_TIMEOUT })
     await expect(search).toBeFocused()
 
     // И тело панели не пряталось ни разу при живом содержимом.
@@ -224,14 +224,18 @@ test.describe('Cutting operation', () => {
     await navigateToAdmin(page, '/admin/warehouse/offcuts')
     await page.getByTestId('warehouse-offcuts-cut-btn').click()
     await expect(page).toHaveURL(/\/admin\/warehouse\/cutting$/, { timeout: DATA_READY_TIMEOUT })
-    await expect(page.getByTestId('warehouse-cutting-page')).toBeVisible()
+    await expect(page.getByTestId('warehouse-cutting-page')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('the batch card carries its batch into the operation', async ({ page }) => {
     await navigateToAdmin(page, '/admin/warehouse/batches/whb-077')
     await page.getByTestId('batch-card-cutting-link').click()
     // Партия уже выбрана: таблицы выбора нет, номер стоит на месте.
-    await expect(page.getByTestId('warehouse-cutting-batch-number')).toHaveText(METRE_BATCH)
+    await expect(page.getByTestId('warehouse-cutting-batch-number')).toHaveText(METRE_BATCH, {
+      timeout: DATA_READY_TIMEOUT,
+    })
     await expect(page.getByTestId('warehouse-cutting-batches-table')).toHaveCount(0)
   })
 
@@ -246,7 +250,9 @@ test.describe('Cutting operation', () => {
     const link = page.getByTestId('batch-card-cutting-link')
     const directUrl = (await link.getAttribute('href'))!
     await link.click()
-    await expect(page.getByTestId('warehouse-cutting-batch-number')).toHaveText(METRE_BATCH)
+    await expect(page.getByTestId('warehouse-cutting-batch-number')).toHaveText(METRE_BATCH, {
+      timeout: DATA_READY_TIMEOUT,
+    })
     const insideSpa = (await page.getByTestId('warehouse-cutting-product').textContent())!.trim()
     // Непустота нужна отдельно: без неё равенство двух прочерков сошлось бы как успех.
     expect(insideSpa.length).toBeGreaterThan(1)
@@ -320,7 +326,9 @@ test.describe('Cutting operation', () => {
     // Второй кусок без длины — на метровой партии его размер невыразим.
     await fillRow(page, 1, { pieces: 1 })
 
-    await expect(page.getByTestId('warehouse-cutting-problem')).toContainText('2')
+    await expect(page.getByTestId('warehouse-cutting-problem')).toContainText('2', {
+      timeout: DATA_READY_TIMEOUT,
+    })
     await expect(page.getByTestId('warehouse-cutting-execute')).toBeDisabled()
     await expect(page.getByTestId('warehouse-cutting-row').nth(1)).toHaveClass(/row-invalid/)
   })
@@ -330,7 +338,9 @@ test.describe('Cutting operation', () => {
     const remaining = await amount(page, 'warehouse-cutting-remaining')
     await fillRow(page, 0, { lengthMm: 1000, pieces: Math.ceil(remaining) + 1 })
 
-    await expect(page.getByTestId('warehouse-cutting-problem')).toBeVisible()
+    await expect(page.getByTestId('warehouse-cutting-problem')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     await expect(page.getByTestId('warehouse-cutting-execute')).toBeDisabled()
   })
 
@@ -357,7 +367,7 @@ test.describe('Cutting operation', () => {
     await waitForDataReady(page)
     await page.getByTestId('warehouse-batches-search').locator('input').fill(METRE_BATCH)
     const row = page.locator('[data-test="warehouse-batch-row"]', { hasText: METRE_BATCH })
-    await expect(row).toHaveCount(1)
+    await expect(row).toHaveCount(1, { timeout: DATA_READY_TIMEOUT })
 
     const after = Number(
       await row
@@ -385,7 +395,7 @@ test.describe('Cutting operation', () => {
     // Обрезок из сидов на этой партии тоже есть (1500 мм) — значит новый именно
     // добавился, а не заменил собой список. Порядок здесь не утверждается: список
     // сортирует не эта страница.
-    await expect(rows).toHaveCount(2)
+    await expect(rows).toHaveCount(2, { timeout: DATA_READY_TIMEOUT })
     await expect(rows.filter({ hasText: '1234' })).toHaveCount(1)
     // Единица — партии, а не «шт»: кусок отрезан от метров, значит меряется в метрах.
     await expect(rows.filter({ hasText: '1234' })).toContainText('m')
@@ -412,7 +422,9 @@ test.describe('Cutting operation', () => {
     expect(await amount(page, 'warehouse-cutting-cuts')).toBe(4)
     expect(await amount(page, 'warehouse-cutting-total-pieces')).toBe(1)
     expect(await amount(page, 'warehouse-cutting-consumed')).toBe(1)
-    await expect(page.getByTestId('warehouse-cutting-execute')).toBeEnabled()
+    await expect(page.getByTestId('warehouse-cutting-execute')).toBeEnabled({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('the counted batch asks how many pieces went in — it cannot be derived', async ({
@@ -423,7 +435,9 @@ test.describe('Cutting operation', () => {
     await page.getByTestId('warehouse-cutting-source-pieces').fill('')
 
     // Молчаливая единица списала бы лист за операцию, объём которой не назвали.
-    await expect(page.getByTestId('warehouse-cutting-problem')).toBeVisible()
+    await expect(page.getByTestId('warehouse-cutting-problem')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     await expect(page.getByTestId('warehouse-cutting-execute')).toBeDisabled()
   })
 
@@ -448,7 +462,7 @@ test.describe('Cutting operation', () => {
     await waitForDataReady(page)
     await page.getByTestId('warehouse-batches-search').locator('input').fill(PIECE_BATCH)
     const row = page.locator('[data-test="warehouse-batch-row"]', { hasText: PIECE_BATCH })
-    await expect(row).toHaveCount(1)
+    await expect(row).toHaveCount(1, { timeout: DATA_READY_TIMEOUT })
     const after = Number(
       await row
         .getByTestId('warehouse-batch-remaining')
@@ -524,7 +538,9 @@ test.describe('Cutting operation', () => {
 
     // Вернуть расчёт — это обнулить ручное, а не записать выведенное.
     await useDerived.click()
-    await expect(row.getByTestId('warehouse-cutting-row-weight')).toHaveValue('')
+    await expect(row.getByTestId('warehouse-cutting-row-weight')).toHaveValue('', {
+      timeout: DATA_READY_TIMEOUT,
+    })
     await expect(badge).toHaveText(derivedBadge)
   })
 })

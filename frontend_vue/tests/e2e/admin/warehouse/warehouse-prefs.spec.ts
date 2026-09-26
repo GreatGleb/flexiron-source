@@ -2,7 +2,7 @@ import { type Page } from '@playwright/test'
 import { test, expect } from '../../fixtures'
 import { mockWarehouseEndpoints } from '../../mocks/warehouse'
 import { navigateToAdmin } from '../../helpers/admin'
-import { waitForDataReady } from '../../helpers/ready'
+import { DATA_READY_TIMEOUT, waitForDataReady } from '../../helpers/ready'
 
 /**
  * Сохранение и восстановление вида склада — то, чего не проверял никто.
@@ -144,7 +144,9 @@ test.describe('Warehouse view preferences', () => {
         await seedPrefs(page, PREFS_KEY[tab], { search: needle })
 
         await clickTab(page, tab)
-        await expect(page.getByTestId(`warehouse-${tab}-panel`)).toBeVisible()
+        await expect(page.getByTestId(`warehouse-${tab}-panel`)).toBeVisible({
+          timeout: DATA_READY_TIMEOUT,
+        })
         await expect(searchValue(page, tab)).toHaveValue(needle)
       })
     }
@@ -164,7 +166,9 @@ test.describe('Warehouse view preferences', () => {
 
     for (const tab of ['batches', 'offcuts', 'movements', 'deficit'] as const) {
       await clickTab(page, tab)
-      await expect(page.getByTestId(`warehouse-${tab}-panel`)).toBeVisible()
+      await expect(page.getByTestId(`warehouse-${tab}-panel`)).toBeVisible({
+        timeout: DATA_READY_TIMEOUT,
+      })
     }
   })
 })

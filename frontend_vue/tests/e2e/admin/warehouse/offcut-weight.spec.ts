@@ -1,5 +1,6 @@
 import { test, expect } from '../../fixtures'
 import { navigateToAdmin } from '../../helpers/admin'
+import { DATA_READY_TIMEOUT } from '../../helpers/ready'
 
 /**
  * Вес обрезка: хранится только введённое руками, показывается ручное или выведенное.
@@ -32,7 +33,7 @@ test.describe('Offcut weight: manual vs derived', () => {
     await page.getByTestId('field-weight-use-derived').click()
 
     // Ручное обнулено — поле пустое, а не «записали выведенное».
-    await expect(page.getByTestId('field-weight')).toHaveValue('')
+    await expect(page.getByTestId('field-weight')).toHaveValue('', { timeout: DATA_READY_TIMEOUT })
     await expect(page.getByTestId('field-weight-source')).toHaveText(/derived|Выведен|Išvesta/i)
     // Кнопки больше нет: сбрасывать нечего.
     await expect(page.getByTestId('field-weight-use-derived')).toHaveCount(0)
@@ -59,7 +60,9 @@ test.describe('Offcut weight: manual vs derived', () => {
     await navigateToAdmin(page, '/admin/warehouse/offcuts/who-001')
     await page.getByTestId('field-weight').fill('3.14')
     await page.getByTestId('offcut-card-save-btn').click()
-    await expect(page.getByTestId('field-weight')).toHaveValue('3.14')
+    await expect(page.getByTestId('field-weight')).toHaveValue('3.14', {
+      timeout: DATA_READY_TIMEOUT,
+    })
     await expect(page.getByTestId('field-weight-source')).toHaveText(/hand|руками|ranka/i)
   })
 })
@@ -88,7 +91,9 @@ test.describe('Offcut weight on the create form', () => {
     // Линейный кусок 2500 мм: 2.5 м × 11.71 кг/м = 29.275. Вес ещё не сохранён, и
     // оператор видит предложение системы до того, как принять его или переписать.
     await page.getByTestId('field-length').fill('2500')
-    await expect(page.getByTestId('field-weight-preview')).toContainText('29.275')
+    await expect(page.getByTestId('field-weight-preview')).toContainText('29.275', {
+      timeout: DATA_READY_TIMEOUT,
+    })
     await expect(page.getByTestId('field-weight-source')).toHaveText(/derived|Выведен|Išvesta/i)
   })
 
@@ -97,11 +102,13 @@ test.describe('Offcut weight on the create form', () => {
     await page.getByTestId('field-length').fill('2500')
     await page.getByTestId('field-weight').fill('40')
 
-    await expect(page.getByTestId('field-weight-source')).toHaveText(/hand|руками|ranka/i)
+    await expect(page.getByTestId('field-weight-source')).toHaveText(/hand|руками|ranka/i, {
+      timeout: DATA_READY_TIMEOUT,
+    })
     // Расчётное число по-прежнему на виду — рядом с кнопкой, до нажатия.
     await expect(page.getByTestId('field-weight-preview')).toContainText('29.275')
     await page.getByTestId('field-weight-use-derived').click()
-    await expect(page.getByTestId('field-weight')).toHaveValue('')
+    await expect(page.getByTestId('field-weight')).toHaveValue('', { timeout: DATA_READY_TIMEOUT })
     await expect(page.getByTestId('field-weight-source')).toHaveText(/derived|Выведен|Išvesta/i)
   })
 })

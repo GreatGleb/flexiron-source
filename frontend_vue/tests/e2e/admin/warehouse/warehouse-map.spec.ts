@@ -86,7 +86,9 @@ test.describe('Warehouse map', () => {
     await navigateToAdmin(page, '/admin/warehouse')
     await page.getByTestId('warehouse-map-btn').click()
     await expect(page).toHaveURL(/\/admin\/warehouse\/map$/, { timeout: DATA_READY_TIMEOUT })
-    await expect(page.getByTestId('page-warehouse-map')).toBeVisible()
+    await expect(page.getByTestId('page-warehouse-map')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('uploading a map makes the link point at the uploaded file', async ({ page }) => {
@@ -96,7 +98,7 @@ test.describe('Warehouse map', () => {
     expect(href).toContain('data:image/png')
     // The link opens the file itself, in a new tab, with no opener back-reference.
     const link = page.getByTestId('warehouse-map-open-link')
-    await expect(link).toHaveAttribute('target', '_blank')
+    await expect(link).toHaveAttribute('target', '_blank', { timeout: DATA_READY_TIMEOUT })
     await expect(link).toHaveAttribute('rel', /noopener/)
     await expect(page.getByTestId('warehouse-map-empty')).toHaveCount(0)
     await expect(page.getByTestId('warehouse-map-name')).toHaveText('plan.png')
@@ -117,7 +119,9 @@ test.describe('Warehouse map', () => {
     const first = await currentHref(page)
 
     await uploadMap(page, BLUE_PNG, 'plan-v2.png')
-    await expect(page.getByTestId('warehouse-map-replace-modal')).toBeVisible()
+    await expect(page.getByTestId('warehouse-map-replace-modal')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     // Until it is confirmed, the old map is still the current one.
     expect(await currentHref(page)).toBe(first)
 
@@ -146,14 +150,20 @@ test.describe('Warehouse map', () => {
     await uploadMap(page, RED_PNG, 'plan.png')
 
     await page.getByTestId('warehouse-map-delete-btn').click()
-    await expect(page.getByTestId('warehouse-map-delete-modal')).toBeVisible()
+    await expect(page.getByTestId('warehouse-map-delete-modal')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     await page.getByTestId('warehouse-map-delete-cancel').click()
-    await expect(page.getByTestId('warehouse-map-open-link')).toBeVisible()
+    await expect(page.getByTestId('warehouse-map-open-link')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
 
     await page.getByTestId('warehouse-map-delete-btn').click()
     await page.getByTestId('warehouse-map-delete-confirm').click()
 
-    await expect(page.getByTestId('warehouse-map-empty')).toBeVisible()
+    await expect(page.getByTestId('warehouse-map-empty')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     await expect(page.getByTestId('warehouse-map-open-link')).toHaveCount(0)
 
     // Gone from storage, not just from this screen.
@@ -164,7 +174,9 @@ test.describe('Warehouse map', () => {
   test('a file that is not an image never becomes the map', async ({ page }) => {
     await uploadMap(page, NOT_AN_IMAGE, 'invoice.pdf')
 
-    await expect(page.getByTestId('warehouse-map-empty')).toBeVisible()
+    await expect(page.getByTestId('warehouse-map-empty')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
     await expect(page.getByTestId('warehouse-map-open-link')).toHaveCount(0)
   })
 })
