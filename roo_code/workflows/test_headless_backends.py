@@ -795,6 +795,26 @@ class AiderDriverTest(unittest.TestCase):
         self.assertLess(self.elapsed, 40)
         self.assertIn("прервана ночным контроллером", self.prompts()[1])
 
+    def test_background_child_holding_the_output_does_not_hang_the_command(self):
+        """Форма Zoo-автора: нагрузка `(yes > /dev/null &)` со stderr в канал команды.
+        Чтение до конца канала ждало фон весь таймаут команды — у Zoo так ушло 40 минут."""
+        _, stats = self.drive(["```bash\nfor i in 1 2; do (sleep 313 &); done; echo started\n```\n", "Понял."],
+                              ["notes.md"], command_timeout=60)
+        self.assertLess(self.elapsed, 30)
+        self.assertEqual(stats["command_log"], ["$ for i in 1 2; do (sleep 313 &); done; echo started → код 0; started"])
+        alive = subprocess.run(["pgrep", "-f", "^sleep 313$"], capture_output=True, text=True).stdout
+        self.assertEqual(alive, "", "фоновый процесс пережил задачу")
+
+    def test_timed_out_command_with_a_term_deaf_child_does_not_hang(self):
+        """После таймаута чтение канала без срока ждало вечно: потомок, глухой к SIGTERM,
+        держал канал, и драйвер висел до таймаута всей задачи."""
+        _, stats = self.drive(["```bash\n(trap '' TERM; exec sleep 314) & sleep 60\n```\n", "Понял."],
+                              ["notes.md"], command_timeout=2)
+        self.assertLess(self.elapsed, 40)
+        self.assertIn("прервана ночным контроллером", self.prompts()[1])
+        alive = subprocess.run(["pgrep", "-f", "^sleep 314$"], capture_output=True, text=True).stdout
+        self.assertEqual(alive, "", "глухой к SIGTERM потомок пережил задачу")
+
     def test_mentioned_file_is_opened_read_only(self):
         result, stats = self.drive(["Мне нужен helper.py, чтобы узнать число.",
                                     edit("helper.py", "MAGIC_NUMBER = 42", "MAGIC_NUMBER = 0")

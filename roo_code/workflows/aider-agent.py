@@ -31,6 +31,7 @@ import shlex
 import signal
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -76,35 +77,76 @@ def clip(text, limit):
 
 
 def kill(proc):
-    for sig in (signal.SIGTERM, signal.SIGKILL):
-        try:
-            os.killpg(proc.pid, sig)
-            proc.wait(timeout=5)
-            return
-        except subprocess.TimeoutExpired:
-            continue
-        except ProcessLookupError:
-            return
+    """Прерванная команда гасится вся: SIGTERM, а кто его пережил — SIGKILL."""
+    try:
+        os.killpg(proc.pid, signal.SIGTERM)
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        pass
+    except ProcessLookupError:
+        return
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    proc.wait()
+
+
+class Drain(threading.Thread):
+    """Читает вывод команды до конца канала, храня только начало и хвост.
+
+    Конец канала — не конец команды: фоновый потомок (`(yes > /dev/null &)` у Zoo-автора
+    28 раз, сервер без перенаправления) держит унаследованный канал открытым. Чтение до
+    конца канала в главном потоке ждало его весь таймаут команды, а после таймаута —
+    вечно, если потомок глух к SIGTERM. Здесь команда кончается вместе со своей
+    оболочкой, а канал дочитывается в фоне: писатель не упирается в полный буфер, и
+    ни диск, ни память не растут."""
+
+    def __init__(self, stream, limit):
+        super().__init__(daemon=True)
+        self.stream, self.limit = stream, limit
+        self.head, self.tail, self.total = bytearray(), bytearray(), 0
+        self.lock = threading.Lock()
+
+    def run(self):
+        for chunk in iter(lambda: self.stream.read1(65536), b""):
+            with self.lock:
+                self.total += len(chunk)
+                room = self.limit - len(self.head)
+                if room > 0:
+                    self.head += chunk[:room]
+                    chunk = chunk[room:]
+                self.tail += chunk
+                del self.tail[:-self.limit]
+
+    def text(self):
+        with self.lock:
+            cut = self.total - len(self.head) - len(self.tail)
+            gap = f"\n…[вырезано {cut} байт]…\n".encode() if cut else b""
+            return (bytes(self.head) + gap + bytes(self.tail)).decode(errors="replace")
 
 
 def run_limited(command, cwd, timeout, shell):
     """Команда с таймаутом на всё дерево процессов и обрезанным выводом."""
     proc = subprocess.Popen(command, cwd=cwd, shell=shell, executable="/bin/bash" if shell else None,
                             stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                            text=True, errors="replace", start_new_session=True, env=child_env())
+                            start_new_session=True, env=child_env())
     ACTIVE.add(proc)
     GROUPS.add(proc.pid)
+    drain = Drain(proc.stdout, CONFIG["output_limit"])
+    drain.start()
+    note = ""
     try:
-        out, _ = proc.communicate(timeout=timeout)
-        code = proc.returncode
+        code = proc.wait(timeout=timeout)
     except subprocess.TimeoutExpired:
         kill(proc)
-        out, _ = proc.communicate()
-        out = (out or "") + f"\n[команда прервана ночным контроллером: дольше {timeout} с]"
+        note = f"\n[команда прервана ночным контроллером: дольше {timeout} с]"
         code = 124
     finally:
         ACTIVE.discard(proc)
-    return code, clip(out or "", CONFIG["output_limit"])
+    # Без фоновых потомков конец канала приходит сразу за оболочкой; с ними — не ждём.
+    drain.join(timeout=1)
+    return code, clip(drain.text() + note, CONFIG["output_limit"])
 
 
 def alive(pgid):
