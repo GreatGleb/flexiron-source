@@ -9,15 +9,15 @@
 Места, где неверным выглядит сам код, — [`contract-sync-services-bugs.md`](../../plans/bugs/contract-sync-services-bugs.md)
 (восемь находок, код не тронут).
 
-**Источник истины сменился для трёх эндпоинтов из пяти.** Слайс
-`backend/app/modules/services/features/catalog/` реализует `GET /api/services/{id}`,
-`POST /api/services` и `PATCH /api/services/{id}`, роутер подключён в `backend/app/main.py`
-(`services_catalog_router`): `grep -rn "@router\." backend/app/modules/services --include=*.py`
-даёт три маршрута — `get`, `post`, `patch`. Для этих трёх разделов ниже метка `Бэкенд: не
-реализован` снята, и мок для них перестаёт быть источником истины. Список и удаление
-слайса по-прежнему не имеют: `backend/app/modules/services/features/` кроме `catalog/`
-содержит только `__init__.py`, и у обоих оставшихся разделов ниже метка `Бэкенд: не
-реализован` сохранена.
+**Источник истины сменился у всех пяти эндпоинтов.** Слайс
+`backend/app/modules/services/features/catalog/` реализует `GET /api/services`, `POST /api/services`,
+`GET /api/services/{id}`, `PATCH /api/services/{id}` и `DELETE /api/services/{id}`; роутер подключён
+в `backend/app/main.py` (`services_catalog_router`): `grep -rn "@router\." backend/app/modules/services
+--include=*.py` даёт пять маршрутов — `get`, `post`, `get`, `patch`, `delete`. Для пяти разделов
+ниже метка `Бэкенд: не реализован` снята, и мок перестаёт быть источником истины ни для одного
+из них. Других слайсов у модуля нет: `backend/app/modules/services/features/` кроме `catalog/`
+содержит только `__init__.py`. Список закрывает `list_service_catalog`, перевод в архив —
+`archive_service_catalog_entry`.
 
 Потребители: [`composables/useServices.ts`](../../../frontend_vue/src/composables/useServices.ts)
 (список, удаление), [`composables/useServiceCard.ts`](../../../frontend_vue/src/composables/useServiceCard.ts)
@@ -166,8 +166,8 @@ interface Service {
 (`mocks/services.ts:42-78`). Текст любой сетевой ошибки клиент кладёт в `error` и показывает как
 есть (`useServices.ts:33-35`).
 
-Бэкенд: **не реализован** (в `catalog/` списочного маршрута нет — слайс закрывает только
-карточку, создание и правку)
+Бэкенд: слайс `backend/app/modules/services/features/catalog/` (`list_service_catalog`),
+роутер зарегистрирован в `app/main.py`
 Реализация: `services/servicesService.ts:12-24` (`getServices`) · мок `mocks/index.ts:454`
 (`mockGetServices`, `mocks/services.ts:42`) · потребители `useServices.ts:22-38` и
 `AddOrderServicesModal.vue:210-213`
@@ -358,10 +358,10 @@ merge-patch по `exclude_unset`, итоговая пара валюта+еди�
 > `backend/alembic/versions/a9d3c81b6f24_services_archive_and_price_checks.py`, `downgrade()` снимает
 > оба ограничения, индекс и колонку. Уникальности имени услуги эта правка не вводит: её не требуют
 > ни схема, ни контракт, и её введение остаётся решением владельца (раздел «Что осталось
-> нерешённым», вопрос 3). Слайсов `GET`/`POST`/`PATCH`/`DELETE` эта правка не пишет — статусы
-> `Бэкенд: не реализован` у всех пяти эндпоинтов не меняются.
+> нерешённым», вопрос 3). Слайсов `GET`/`POST`/`PATCH`/`DELETE` эта ревизия не пишет — она заводит
+> только схему под архив, а маршруты закрывает отдельная задача.
 
-Бэкенд: **не реализован**
+Бэкенд: слайс `backend/app/modules/services/features/catalog/` (`archive_service_catalog_entry`) — перевод в архив (П44), роутер зарегистрирован в `app/main.py`
 Реализация: `services/servicesService.ts:75-77` (`deleteService`) · мок `mocks/index.ts:1512`
 (`mockDeleteService`, `mocks/services.ts:168`) · потребитель `useServices.ts:40-48`
 
@@ -627,10 +627,10 @@ merge-patch по `exclude_unset`, итоговая пара валюта+еди�
 5. **Решено 2026-09-09 (П44)** — половины разные. **Услуга не удаляется, а помечается
    архивной:** она попадает в исторические документы, и заказ двухлетней давности обязан читаться
    как был. Из таблицы услуг и из всех выборов архивная услуга исчезает, но по ссылке из старого
-   заказа открывается — значит `GET /api/services/:id` отдаёт её наравне с живыми, помечая
-   признаком архива, а списочный эндпоинт по умолчанию не отдаёт. Обещанный 409 `SERVICE_IN_USE`
-   при этом не нужен вовсе: отказывать не в чем. Архивирование самой услуги остаётся нереализованным
-   — **осталось**. **Валюта и единица — наоборот, отказ, и эта половина сделана этой задачей:**
+   заказа открывается — значит `GET /api/services/:id` отдаёт её наравне с живыми. **Список и
+   перевод в архив сделаны этой задачей:** `list_service_catalog` не отдаёт архивных по умолчанию,
+   `archive_service_catalog_entry` проставляет `archived_at`, строка остаётся; 409 не нужен, а
+   признак архива на карточке — **осталось**. **Валюта и единица — наоборот, отказ, и эта половина сделана этой задачей:**
    FK на обе ссылки уже `RESTRICT` (БАГ-07 наполовину), и `remove_currency_item`/`remove_uom_item`
    (`backend/app/modules/settings/features/crud/domain.py`) считают ссылки услуг наравне с
    товарами — через `count_services_by_currency`/`count_services_by_uom`
