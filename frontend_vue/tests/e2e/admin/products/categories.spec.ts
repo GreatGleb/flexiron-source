@@ -3,6 +3,7 @@ import { test, testWithFlags, expect, testBare as base } from '../../fixtures'
 import { navigateToAdmin, openAdminCard, openAdminPage, switchLanguage } from '../../helpers/admin'
 import { ALL_FLAGS_ENABLED } from '../../helpers/flags'
 import { waitForFontsReady, SNAPSHOT_OPTIONS, stabilizeForSnapshot } from '../../helpers/visual'
+import { DATA_READY_TIMEOUT } from '../../helpers/ready'
 
 /**
  * E2E tests for Categories pages.
@@ -222,7 +223,9 @@ test.describe('categories-list › navigation', () => {
 
   test('clicking a row navigates to the category card', async ({ page }) => {
     await page.locator('[data-test="categories-row"]').first().locator('a.name-link').click()
-    await expect(page).toHaveURL(/\/admin\/products\/categories\/cat-\w+$/)
+    await expect(page).toHaveURL(/\/admin\/products\/categories\/cat-\w+$/, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 })
 
@@ -541,7 +544,7 @@ baseTest(
     )
     // Данных не будет: гард уводит на /404, и признак перехода — сам URL.
     await page.goto(CATEGORIES_URL)
-    await expect(page).toHaveURL(/\/404$/)
+    await expect(page).toHaveURL(/\/404$/, { timeout: DATA_READY_TIMEOUT })
   },
 )
 

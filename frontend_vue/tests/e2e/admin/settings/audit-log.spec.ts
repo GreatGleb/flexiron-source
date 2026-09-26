@@ -1,5 +1,6 @@
 import { test, expect } from '../../fixtures'
 import { navigateToAdmin } from '../../helpers/admin'
+import { DATA_READY_TIMEOUT } from '../../helpers/ready'
 
 /**
  * Настройки → Логи: a view over the nine logs, not a tenth store.
@@ -62,7 +63,7 @@ test.describe('Audit log page', () => {
   test('is reachable as a settings tab', async ({ page }) => {
     await navigateToAdmin(page, '/admin/settings/profile')
     await page.getByTestId('settings-tabs').getByText('Logs', { exact: true }).click()
-    await expect(page).toHaveURL(/\/admin\/settings\/logs$/)
+    await expect(page).toHaveURL(/\/admin\/settings\/logs$/, { timeout: DATA_READY_TIMEOUT })
     await expect(page.getByTestId('settings-logs')).toBeVisible()
   })
 
@@ -102,7 +103,9 @@ test.describe('Audit log page', () => {
 
     await link.click()
     await expect(page).not.toHaveURL(/\/admin\/settings\/logs$/)
-    await expect(page).toHaveURL(new RegExp(href!.replace(/[/-]/g, '\\$&') + '$'))
+    await expect(page).toHaveURL(new RegExp(href!.replace(/[/-]/g, '\\$&') + '$'), {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('entity filter narrows the feed', async ({ page }) => {

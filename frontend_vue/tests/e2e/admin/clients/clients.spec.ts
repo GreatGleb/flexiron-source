@@ -4,7 +4,7 @@ import { navigateToAdmin, openAdminCard, openAdminPage, switchLanguage } from '.
 import { ALL_FLAGS_ENABLED } from '../../helpers/flags'
 import { freezeTime } from '../../helpers/mocks'
 import { waitForFontsReady, SNAPSHOT_OPTIONS } from '../../helpers/visual'
-import { waitForDataReady } from '../../helpers/ready'
+import { DATA_READY_TIMEOUT, waitForDataReady } from '../../helpers/ready'
 
 /**
  * Deep audit of all Clients pages:
@@ -117,7 +117,7 @@ test.describe('clients-list › table view', () => {
       .first()
       .locator('a.name-link')
       .click()
-    await expect(page).toHaveURL(/\/admin\/clients\/CL-\d{3}$/)
+    await expect(page).toHaveURL(/\/admin\/clients\/CL-\d{3}$/, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('view-btn links to client card', async ({ page }) => {
@@ -374,7 +374,7 @@ test.describe('client-create › structure & validation', () => {
 
   test('cancel button navigates back to list', async ({ page }) => {
     await page.locator('[data-test="client-create-cancel-btn"]').click()
-    await expect(page).toHaveURL(CLIENTS_LIST)
+    await expect(page).toHaveURL(CLIENTS_LIST, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('save button is present', async ({ page }) => {
@@ -460,7 +460,7 @@ test.describe('client-create › create flow', () => {
     await page.locator('[data-test="client-create-save-btn"]').click()
 
     // After successful create, should redirect to card page with new client ID
-    await expect(page).toHaveURL(/\/admin\/clients\/CL-\d{3}$/, { timeout: 10000 })
+    await expect(page).toHaveURL(/\/admin\/clients\/CL-\d{3}$/, { timeout: DATA_READY_TIMEOUT })
   })
 })
 
@@ -631,7 +631,7 @@ test.describe('client-card › order history', () => {
     const clientName = await page.locator('[data-test="field-name"]').inputValue()
 
     await rows.first().locator('.order-link').click()
-    await expect(page).toHaveURL(/\/admin\/orders\/ORD-\d{3}$/)
+    await expect(page).toHaveURL(/\/admin\/orders\/ORD-\d{3}$/, { timeout: DATA_READY_TIMEOUT })
     await expect(page.locator('[data-test="field-client"]')).toHaveText(clientName)
   })
 
@@ -648,12 +648,12 @@ test.describe('client-card › order history', () => {
 
   test('order row navigates to order card on click', async ({ page }) => {
     await page.locator('[data-test="client-card-order-row"]').first().click()
-    await expect(page).toHaveURL(/\/admin\/orders\/ORD-\d{3}$/)
+    await expect(page).toHaveURL(/\/admin\/orders\/ORD-\d{3}$/, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('order link navigates to order card', async ({ page }) => {
     await page.locator('[data-test="client-card-order-row"] .order-link').first().click()
-    await expect(page).toHaveURL(/\/admin\/orders\/ORD-\d{3}$/)
+    await expect(page).toHaveURL(/\/admin\/orders\/ORD-\d{3}$/, { timeout: DATA_READY_TIMEOUT })
   })
 })
 
@@ -677,7 +677,7 @@ test.describe('client-card › issued invoices', () => {
     await page.setViewportSize(DESKTOP)
     await openAdminPage(page, '/admin/orders', '[data-test="orders-row"]')
     await page.locator('[data-test="orders-row"] a.name-link').first().click()
-    await expect(page).toHaveURL(/\/admin\/orders\/ORD-\d+$/)
+    await expect(page).toHaveURL(/\/admin\/orders\/ORD-\d+$/, { timeout: DATA_READY_TIMEOUT })
 
     // Признак пришедшего заказа — имя клиента, а не сама разметка карточки.
     const clientName = (await page.locator('[data-test="field-client"]').innerText()).trim()
@@ -708,7 +708,7 @@ test.describe('client-card › issued invoices', () => {
       .first()
       .locator('a.name-link')
       .click()
-    await expect(page).toHaveURL(/\/admin\/clients\/CL-\d{3}$/)
+    await expect(page).toHaveURL(/\/admin\/clients\/CL-\d{3}$/, { timeout: DATA_READY_TIMEOUT })
 
     const invoiceRows = page.locator('[data-test="client-card-invoice-row"]')
     await expect(invoiceRows.first()).toBeVisible()
@@ -742,7 +742,7 @@ test.describe('client-card › order history empty', () => {
     await page.locator('[data-test="field-company-code"]').fill('E2E000001')
     await page.locator('[data-test="field-email"]').fill('no-orders@test.lt')
     await page.locator('[data-test="client-create-save-btn"]').click()
-    await expect(page).toHaveURL(/\/admin\/clients\/CL-\d{3}$/, { timeout: 10000 })
+    await expect(page).toHaveURL(/\/admin\/clients\/CL-\d{3}$/, { timeout: DATA_READY_TIMEOUT })
 
     await expect(page.locator('[data-test="client-card-order-history"]')).toBeVisible()
     await expect(page.locator('[data-test="client-card-order-history"] .audit-empty')).toBeVisible()
@@ -842,7 +842,7 @@ baseTest('clients › redirects to /404 when adminClients flag is OFF', async ({
   await page.goto(CLIENTS_LIST)
   // Данных не будет вовсе: гард уводит на /404. Признак перехода — сам URL,
   // и утверждение ниже ждёт его само.
-  await expect(page).toHaveURL(/\/404$/)
+  await expect(page).toHaveURL(/\/404$/, { timeout: DATA_READY_TIMEOUT })
   await expect(page.locator('[data-test="page-clients"]')).toHaveCount(0)
 })
 

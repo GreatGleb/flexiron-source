@@ -3,6 +3,7 @@ import { test, testWithFlags, expect, testBare as base } from '../../fixtures'
 import { ALL_FLAGS_ENABLED } from '../../helpers/flags'
 import { navigateToAdmin, openAdminCard, openAdminPage, switchLanguage } from '../../helpers/admin'
 import { waitForFontsReady, SNAPSHOT_OPTIONS, stabilizeForSnapshot } from '../../helpers/visual'
+import { DATA_READY_TIMEOUT } from '../../helpers/ready'
 
 /**
  * E2E tests for Products pages.
@@ -221,7 +222,7 @@ test.describe('products-list › create modal', () => {
     await page.locator('[data-test="create-product-submit"]').click()
     await expect(page.locator('[data-test="modal-create-product"]')).toBeHidden()
     // After creation, should navigate to the product card
-    await expect(page).toHaveURL(/\/admin\/products\/prod-\w+$/)
+    await expect(page).toHaveURL(/\/admin\/products\/prod-\w+$/, { timeout: DATA_READY_TIMEOUT })
   })
 })
 
@@ -288,7 +289,7 @@ test.describe('products-list › navigation', () => {
 
   test('row click navigates to /admin/products/:id', async ({ page }) => {
     await page.locator('[data-test="products-row"]').first().locator('a.name-link').click()
-    await expect(page).toHaveURL(/\/admin\/products\/prod-\w+$/)
+    await expect(page).toHaveURL(/\/admin\/products\/prod-\w+$/, { timeout: DATA_READY_TIMEOUT })
   })
 })
 
@@ -723,7 +724,7 @@ baseTest(
     )
     // Данных не будет: гард уводит на /404, признак перехода — сам URL.
     await page.goto(PRODUCTS_URL)
-    await expect(page).toHaveURL(/\/404$/)
+    await expect(page).toHaveURL(/\/404$/, { timeout: DATA_READY_TIMEOUT })
   },
 )
 

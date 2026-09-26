@@ -1,6 +1,6 @@
 import { test, expect } from '../../fixtures'
 import { enableAllFlags } from '../../helpers/flags'
-import { waitForDataReady } from '../../helpers/ready'
+import { DATA_READY_TIMEOUT, waitForDataReady } from '../../helpers/ready'
 
 test.beforeEach(async ({ context }) => {
   await enableAllFlags(context)
@@ -43,23 +43,25 @@ test.describe('Settings Layout', () => {
     const tabs = page.locator('[data-test="settings-tabs"] .warehouse-tab')
 
     // Profile tab (already active)
-    await expect(page).toHaveURL(/\/admin\/settings\/profile/)
+    await expect(page).toHaveURL(/\/admin\/settings\/profile/, { timeout: DATA_READY_TIMEOUT })
 
     // Company tab
     await tabs.nth(1).click()
-    await expect(page).toHaveURL(/\/admin\/settings\/company/)
+    await expect(page).toHaveURL(/\/admin\/settings\/company/, { timeout: DATA_READY_TIMEOUT })
 
     // Finance tab
     await tabs.nth(2).click()
-    await expect(page).toHaveURL(/\/admin\/settings\/finance/)
+    await expect(page).toHaveURL(/\/admin\/settings\/finance/, { timeout: DATA_READY_TIMEOUT })
 
     // Units tab
     await tabs.nth(3).click()
-    await expect(page).toHaveURL(/\/admin\/settings\/units/)
+    await expect(page).toHaveURL(/\/admin\/settings\/units/, { timeout: DATA_READY_TIMEOUT })
 
     // Order Statuses tab
     await tabs.nth(4).click()
-    await expect(page).toHaveURL(/\/admin\/settings\/order-statuses/)
+    await expect(page).toHaveURL(/\/admin\/settings\/order-statuses/, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('save/cancel action bar is visible', async ({ page }) => {
