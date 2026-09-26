@@ -47,6 +47,32 @@ let settled = false;
 let idleTimer = null;
 let started = false;
 let ownTaskId = null;
+let nudged = false;
+
+const NUDGE =
+  "Ты остановился, не отдав результат. Если работа сделана — заверши задачу прямо сейчас: " +
+  "вызови attempt_completion и отдай в нём РОВНО ОДИН JSON-объект " +
+  '{"status": "done" | "blocked", "summary": "<строка>", "evidence": ["<строка>", ...]} ' +
+  "и ничего кроме него: ни пояснений, ни разметки вокруг. Если работа не сделана и сделать её " +
+  "нельзя — отдай тот же объект со status=blocked и точной причиной.";
+
+/** Достать ВСЕ сбалансированные объекты из текста, от последнего к первому.
+ *
+ *  Первого мало: задача этого проекта сплошь и рядом про литерал вида
+ *  `{ timeout: DATA_READY_TIMEOUT }`, и он встречается в прозе раньше настоящего
+ *  результата. Замер 2026-09-26 — из ответа вытащился литерал `{}` строки
+ *  `find ... -exec wc -l {} +`, и работа была забракована ни за что. */
+const extractJsonObjects = (text) => {
+  const found = [];
+  let from = 0;
+  for (;;) {
+    const candidate = extractJsonObject(text.slice(from));
+    if (!candidate) return found;
+    found.push(candidate);
+    const at = text.indexOf(candidate, from);
+    from = at < 0 ? from + candidate.length : at + candidate.length;
+  }
+};
 
 /** Достать объект результата из текста модели: она любит обрамить его разметкой. */
 const extractJsonObject = (text) => {
@@ -105,6 +131,16 @@ socket.setEncoding("utf8");
 const blockedResult = (summary, evidence) =>
   JSON.stringify({ status: "blocked", summary, evidence });
 
+/** Последний ответ, который годится по схеме ядра, или null. */
+const usableResult = () => {
+  for (const item of [...say].reverse()) {
+    if (item.sayType !== "completion_result") continue;
+    const good = extractJsonObjects(item.text).find(matchesSchema);
+    if (good) return good;
+  }
+  return null;
+};
+
 const finish = (code, note, fallback = null) => {
   if (settled) return;
   settled = true;
@@ -123,10 +159,7 @@ const finish = (code, note, fallback = null) => {
     // фигурной скобкой. Замер 2026-09-26: модель ответила прозой, в которой стояло
     // `find ... -exec wc -l {} +`, и экстрактор честно вернул из неё литерал `{}` —
     // ядро потом ругалось «нет подтверждения выполнения: {}» вместо настоящей причины.
-    const object = [...say].reverse()
-      .filter((item) => item.sayType === "completion_result")
-      .map((item) => extractJsonObject(item.text))
-      .find((candidate) => candidate && matchesSchema(candidate)) ?? null;
+    const object = usableResult();
     if (object) {
       writeFileSync(resultPath, object);
       written = true;
@@ -224,6 +257,17 @@ socket.on("data", async (chunk) => {
       // Пауза на случай, если taskCompleted всё-таки придёт следом.
       clearTimeout(idleTimer);
       idleTimer = setTimeout(() => {
+        // Простой без результата чаще всего значит, что работа СДЕЛАНА, а ход кончился
+        // без attempt_completion. Замер 2026-09-26: две задачи из четырёх кончились
+        // ровно так, обе — с готовой правкой в дереве, и обе были выброшены. Отмена
+        // сразу выбрасывает готовую работу, поэтому сначала один толчок.
+        if (!nudged && !usableResult()) {
+          nudged = true;
+          console.error("Простой без результата — толкаю агента один раз");
+          send({ type: "TaskCommand", origin: "client", clientId,
+                 data: { commandName: "SendMessage", data: { text: NUDGE } } });
+          return;
+        }
         send({ type: "TaskCommand", origin: "client", clientId, data: { commandName: "CancelTask" } });
         finish(0, "задача остановилась (taskIdle)", unreadable());
       }, 3000);
