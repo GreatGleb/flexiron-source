@@ -183,14 +183,23 @@ class ParallelRunTest(unittest.TestCase):
         # В checkout он при этом не применён: непринятую работу никто не коммитил.
         self.assertFalse((self.root / "plan2.md").exists())
 
-    def test_author_touching_a_foreign_file_stops_the_run(self):
+    def test_author_touching_a_foreign_file_is_blocked_and_the_run_goes_on(self):
+        # Политика изменена 2026-09-26: выход за границы бракует ОДНУ задачу, а не
+        # останавливает ночь. Обоснование и замер — в одноимённом тесте
+        # test_codex_night.py. Здесь важно, что параллельная ветка ведёт себя так же:
+        # расхождение политик между одиночным и параллельным автором уже стоило прогона.
         result = self.invoke(parallel=2, mode="outside")
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("вне задачи", self.state()["reason"])
-        # Чужая правка не уехала в checkout и ничего не закоммичено.
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual([x["task"] for x in self.state()["blocked"]], ["beta"])
+        self.assertIn("вне задачи", self.state()["blocked"][0]["reason"])
+        # Сосед не пострадал: ночь идёт дальше, и законная работа alpha принята.
+        self.assertEqual([x["task"] for x in self.state()["completed"]], ["alpha"])
+        self.assertEqual((self.root / "plan.md").read_text(), "prepared by alpha\n")
+        # Чужая правка не уехала в checkout и работа beta не закоммичена.
         self.assertFalse((self.root / "unrelated.md").exists())
-        self.assertEqual(self.git("rev-parse", "HEAD"), self.baseline)
+        self.assertFalse((self.root / "plan2.md").exists())
         self.assertNotIn("wt-", self.git("worktree", "list"))
+        self.assertFalse(self.git("status", "--porcelain"))
 
 
 if __name__ == "__main__":

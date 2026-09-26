@@ -206,8 +206,18 @@ def write_author(root, backends, task, run_dir, deadline, env=None):
     if git_state(worktree) != before:
         raise RuntimeError(f'{task["id"]}: исполнитель изменил Git в своём worktree')
     outside = changed(worktree) - set(task["outputs"])
-    if outside:
-        raise RuntimeError(f'{task["id"]}: исполнитель изменил файлы вне задачи: {sorted(outside)}')
+    if outside and result["status"] == "blocked":
+        result = {**result,
+                  "summary": f'{result["summary"]} | вне задачи: {sorted(outside)}'[:500],
+                  "evidence": [*result["evidence"], f'Разрешено было: {sorted(task["outputs"])}']}
+    elif outside:
+        # Та же политика, что в одиночной ветке: выход за границы — брак одной задачи.
+        # Патч ниже всё равно не применяется у заблокированной, а сама работа
+        # сохраняется в `<id>.patch` и в архиве блокировки.
+        result = {"status": "blocked",
+                  "summary": f'Исполнитель изменил файлы вне задачи: {sorted(outside)}'[:500],
+                  "evidence": [str(run_dir / f'{task["id"]}-work.stdout.log'),
+                               f'Разрешено было: {sorted(task["outputs"])}']}
     touched = sorted(changed(worktree))
     patch = None
     if touched:
@@ -460,7 +470,10 @@ def ask_agent_once(root, backends, task, role, run_dir, deadline, attempt=1, env
             "НОВЫХ ссылок с номерами строк не вводи: место в коде называй цитатой — именем "
             "функции, класса или токеном в бэктиках без `:номер`. Такую ссылку нечему "
             "сломать, и резолвер её не судит. Номера в уже написанных ссылках контроллер "
-            "правит сам после твоей работы; тебе их трогать не нужно.\n"
+            "правит сам после твоей работы; тебе их трогать не нужно. "
+            "НЕ запускай refs_shift.py — ни с --fix, ни без: он правит документы, которых "
+            "нет в твоих outputs, и задача будет забракована за выход за границы. "
+            "Замер 2026-09-26: так погибла ночь на первой же задаче.\n"
         )
     if env and "DATABASE_URL" in env:
         # Без этого абзаца изоляция не работает: worktree автора не содержит
@@ -737,8 +750,29 @@ def run(root, queue, backends, run_dir, minutes, max_tasks, retry=None, previous
                 if patch is not None and work["status"] != "blocked":
                     execute(["git", "apply", "--binary", str(patch)], root,
                             run_dir / f'{task["id"]}-apply', deadline)
-            if git_state(root) != expected_git or changed(root) - set(task["outputs"]):
-                raise RuntimeError("Исполнитель изменил Git или файлы вне задачи")
+            # Git трогать нельзя никому и никогда: коммит, ветка или индекс, сдвинутые
+            # автором, означают, что прогон больше не знает, на чём стоит. Это отказ,
+            # а не плохая работа.
+            if git_state(root) != expected_git:
+                raise RuntimeError("Исполнитель изменил Git")
+            # Файлы вне задачи — брак ОДНОЙ задачи, а не ночи. `block` архивирует всё
+            # наружу и прячет в stash, то есть дерево возвращается к базе, а работа не
+            # теряется: строгость ничего не добавляет, а цена измерена. Ночь
+            # night-2026-09-26-0821 умерла на ПЕРВОЙ задаче, потому что автор сам
+            # запустил refs_shift --fix и перенумеровал два документа сверх outputs —
+            # ровно те, которые контроллер и так перенумеровал бы следом сам.
+            outside = changed(root) - set(task["outputs"])
+            if outside:
+                note = f'Исполнитель изменил файлы вне задачи: {sorted(outside)}'
+                allowed = f'Разрешено было: {sorted(task["outputs"])}'
+                if work["status"] == "blocked":
+                    # Автор уже признал брак — но выход за границы всё равно обязан
+                    # попасть в причину: иначе утром это не с чем связать.
+                    work = {**work, "summary": f'{work["summary"]} | {note}'[:500],
+                            "evidence": [*work["evidence"], allowed]}
+                else:
+                    work = {"status": "blocked", "summary": note[:500],
+                            "evidence": [str(run_dir / f'{task["id"]}-work.stdout.log'), allowed]}
             if work["status"] == "blocked":
                 block(task, "work", work, expected_git)
                 databases.release(task["id"])

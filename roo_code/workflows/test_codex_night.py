@@ -302,7 +302,7 @@ class PilotTest(unittest.TestCase):
 
     def test_rejected_or_failed_work_is_not_committed_and_is_preserved(self):
         # Each subcase receives a fresh fixture and log directory.
-        for mode in ("cli-error", "outside", "outside-blocked", "review-writes", "review-writes-blocked", "timeout", "stage", "branch"):
+        for mode in ("cli-error", "review-writes", "review-writes-blocked", "timeout", "stage", "branch"):
             with self.subTest(mode=mode):
                 case = PilotTest()
                 case.setUp()
@@ -314,6 +314,42 @@ class PilotTest(unittest.TestCase):
                     self.assertEqual(case.git("rev-parse", "HEAD"), case.baseline)
                     self.assertNotEqual((case.root / "plan.md").read_text(), "before\n")
                     self.assertTrue((case.logs / "report.md").exists())
+                finally:
+                    case.doCleanups()
+
+    def test_author_leaving_the_task_bounds_blocks_it_instead_of_stopping_the_run(self):
+        """Выход за границы — брак ОДНОЙ задачи, а не отказ среды.
+
+        До 2026-09-26 это останавливало прогон, и режимы `outside`/`outside-blocked`
+        стояли в списке смертельных рядом с `branch` и `stage`. Политика изменена по
+        замеру: ночь night-2026-09-26-0821 умерла на ПЕРВОЙ задаче, потому что автор
+        сам запустил `refs_shift --fix` и перенумеровал два документа сверх `outputs` —
+        ровно те, которые контроллер перенумеровал бы следом сам.
+
+        Строгость при этом ничего не охраняла: `block` архивирует работу наружу
+        (патч, tar, манифест) и прячет изменения в stash, то есть дерево возвращается
+        к базе в ОБОИХ случаях. Разница была только в том, доживёт ли ночь.
+
+        Смертельным остаётся изменение Git — режимы `stage` и `branch`: сдвинутый
+        коммит, индекс или ветка означают, что прогон больше не знает, на чём стоит.
+        """
+        for mode in ("outside", "outside-blocked"):
+            with self.subTest(mode=mode):
+                case = PilotTest()
+                case.setUp()
+                try:
+                    result = case.invoke(mode, minutes="1")
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual(case.state()["completed"], [])
+                    self.assertEqual([x["task"] for x in case.state()["blocked"]], ["plan"])
+                    self.assertIn("вне задачи", case.state()["blocked"][0]["reason"])
+                    # Дерево вернулось к базе: ни чужого файла, ни правок задачи.
+                    self.assertFalse((case.root / "unrelated.md").exists())
+                    self.assertEqual((case.root / "plan.md").read_text(), "before\n")
+                    self.assertEqual(case.git("rev-parse", "HEAD"), case.baseline)
+                    self.assertFalse(case.git("status", "--porcelain"))
+                    # Работа не пропала: архив блокировки лежит вне checkout.
+                    self.assertTrue(Path(case.state()["blocked"][0]["archive"]).is_dir())
                 finally:
                     case.doCleanups()
 
