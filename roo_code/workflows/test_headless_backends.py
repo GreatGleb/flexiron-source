@@ -819,6 +819,22 @@ class AiderDriverTest(unittest.TestCase):
         self.assertGitUntouched()
         self.assertEqual(result["status"], "blocked")
 
+    def test_model_is_told_its_edit_of_a_source_was_dropped(self):
+        """aider отбрасывал правку файла вне outputs, сообщая только в лог: модель считала
+        её сделанной и отчитывалась о ней."""
+        self.drive([edit("helper.py", "MAGIC_NUMBER = 42", "MAGIC_NUMBER = 0"), "Понял."], ["notes.md"],
+                   sources=["helper.py"])
+        self.assertIn("Правка helper.py ОТКЛОНЕНА", self.prompts()[1])
+        self.assertEqual((self.root / "helper.py").read_text(), "MAGIC_NUMBER = 42\n")
+
+    def test_dropped_edit_note_survives_failed_checks(self):
+        """Упавшие проверки ставятся после команд и затирали заметку хода."""
+        self.drive([edit("helper.py", "MAGIC_NUMBER = 42", "MAGIC_NUMBER = 0")
+                    + edit("calc.py", "    return a - b", "    return a * b"), "Понял."],
+                   ["calc.py"], checks=[self.CHECK], sources=["helper.py"])
+        self.assertIn("Машинные проверки задачи упали", self.prompts()[1])
+        self.assertIn("Правка helper.py ОТКЛОНЕНА", self.prompts()[1])
+
     def test_hanging_command_is_killed_by_the_timeout(self):
         _, stats = self.drive(["```bash\nsleep 60\n```\n", "Понял."], ["notes.md"], command_timeout=2)
         self.assertLess(self.elapsed, 40)

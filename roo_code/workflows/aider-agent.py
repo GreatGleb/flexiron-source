@@ -313,6 +313,12 @@ def drive(config_path):
 
     base_coder.run_cmd = run_model_command
 
+    pending = []
+    # Заметка хода (отказы, открытые файлы) для текста упавших проверок: aider ставит его
+    # после команд и затирал им заметку — модель не узнавала, что её правку отклонили.
+    carried = []
+    DROPPED = {"Create new file?", "Allow edits to file that has not been added to the chat?"}
+
     class NightIO(InputOutput):
         def confirm_ask(self, question, default="y", subject=None, explicit_yes_required=False,
                         group=None, allow_never=False):
@@ -326,6 +332,11 @@ def drive(config_path):
                     stats["commands"] += lines
             else:
                 ok = asked in YES
+                if asked in DROPPED:
+                    # aider пишет «Skipping edits» только в лог: модель считала правку
+                    # сделанной и отчитывалась о ней.
+                    pending.append(f"Правка {subject} ОТКЛОНЕНА — файла нет среди outputs. "
+                                   f"Править можно только: {', '.join(OUTPUTS)}.")
             self.tool_output(f"[ночь] {asked} {subject or ''} → {'да' if ok else 'нет'}")
             return ok
 
@@ -338,7 +349,8 @@ def drive(config_path):
         stats["checks_runs"] += 1
         stats["checks_green"] = not failures
         if failures:
-            return ("Машинные проверки задачи упали. Их же погонит приёмка — почини:\n\n"
+            note = carried.pop() + "\n\n" if carried else ""
+            return (note + "Машинные проверки задачи упали. Их же погонит приёмка — почини:\n\n"
                     + "\n\n".join(failures))
         return None
 
@@ -367,8 +379,6 @@ def drive(config_path):
         summarizer=ChatSummary([model.weak_model, model], CONFIG.get("history_tokens", 65536)),
         suggest_shell_commands=True, detect_urls=False, restore_chat_history=False)
     coder.max_reflections = CONFIG["max_reflections"]
-
-    pending = []
 
     def mentions(content):
         added, refused = [], []
@@ -427,6 +437,7 @@ def drive(config_path):
     run_shell = coder.run_shell_commands
 
     def shell_then_continue():
+        carried.clear()
         before = len(stats["refused"])
         output = run_shell()
         # aider копит команды за весь запуск (сброс — только в init_before_message) и на
@@ -438,6 +449,8 @@ def drive(config_path):
         pending.clear()
         if (output or refused or opened) and not coder.reflected_message:
             note = ("Отклонено ночным контроллером: " + "; ".join(refused) + "\n") if refused else ""
+            if opened or note:
+                carried.append(opened + note)
             coder.reflected_message = (opened + note + ("Вывод команд — выше. " if output else "")
                                        + "Продолжай задачу по этому результату. Когда задача "
                                        "сделана и проверки зелёные — ответь без команд отчётом: "
