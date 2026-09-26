@@ -215,8 +215,13 @@ def write_author(root, backends, task, run_dir, deadline, env=None):
     modules = root / "frontend_vue/node_modules"
     if modules.is_dir():
         # Без него автор потратит ходы на попытки запустить проверки, которые
-        # всё равно выполняет контроллер.
-        (worktree / "frontend_vue/node_modules").symlink_to(modules)
+        # всё равно выполняет контроллер. КОПИЯ, а не симлинк: vite разрешает импорт
+        # по настоящему пути, симлинк уводит его за корень worktree, и файл вне
+        # `server.fs.allow` получает 403 — шрифты `@fontsource` не грузились, и у
+        # автора пачки краснели все снимки и замеры шрифта (замер 2026-09-26: 27 из
+        # 119 в одиночном прогоне). Копия 230 МБ / 17 тыс. файлов — секунда.
+        (worktree / "frontend_vue").mkdir(exist_ok=True)
+        subprocess.run(["cp", "-a", str(modules), str(worktree / "frontend_vue/node_modules")], check=True)
     before = git_state(worktree)
     try:
         result = ask_agent(worktree, backends, task, "work", run_dir, deadline, env)

@@ -29,6 +29,10 @@ mode = os.environ.get('NIGHT_TEST_MODE', '')
 with calls.open('a') as stream:
     stream.write(f"start {task['id']} {time.time()}\n")
     stream.write(f"port {task['id']} {os.environ.get('PW_PORT', '0')}\n")
+    modules = pathlib.Path('frontend_vue/node_modules')
+    inside = modules.is_dir() and not modules.is_symlink() and (modules / 'pkg/index.js').is_file() \
+        and modules.resolve().is_relative_to(pathlib.Path.cwd().resolve())
+    stream.write(f"modules {task['id']} {int(inside)}\n")
 barrier = int(os.environ.get('NIGHT_TEST_BARRIER', '0'))
 if barrier:
     # Ждём, пока стартуют все авторы пачки. Идут по очереди — не дождёмся и упадём.
@@ -147,6 +151,19 @@ class ParallelRunTest(unittest.TestCase):
         self.assertFalse({5173, 5174} & {p + d for p in ports for d in (0, 1)}, ports)
         prompt = (self.logs / "alpha-work.prompt.txt").read_text()
         self.assertIn(f"PW_PORT={ports[0]}", prompt)
+
+    def test_batch_author_gets_node_modules_inside_its_worktree(self):
+        """Симлинк уводил настоящий путь за корень worktree: vite отвечал 403 на шрифты
+        `@fontsource`, и у автора пачки краснели все снимки."""
+        modules = self.root / "frontend_vue/node_modules/pkg"
+        modules.mkdir(parents=True)
+        (modules / "index.js").write_text("module.exports = 1\n")
+        (self.root / ".gitignore").write_text("node_modules/\n")
+        self.git("add", ".gitignore")
+        self.git("commit", "-m", "ignore")
+        self.assertEqual(self.invoke(parallel=2, barrier=2).returncode, 0)
+        self.assertEqual({t: self.spans()[t]["modules"] for t in ("alpha", "beta")}, {"alpha": 1, "beta": 1})
+        self.assertEqual(list(self.logs.glob("wt-*")), [])   # копия уходит вместе с worktree
 
     def test_single_author_keeps_the_default_port(self):
         self.assertEqual(self.invoke(parallel=1).returncode, 0)
