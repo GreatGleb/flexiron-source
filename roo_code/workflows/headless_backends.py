@@ -121,7 +121,12 @@ class ClaudeBackend(Backend):
         if role == "review":
             # Проверяющий не выполняет команд и не пишет файлов. Ядро всё равно
             # сверит снимок файлов после него — это второй рубеж, а не первый.
-            argv += ["--restricted", "--disallowedTools", "Write", "Edit", "NotebookEdit"]
+            # --restricted ограничивает и ЧТЕНИЕ каталогами --add-dir, а логи проверок,
+            # которые промпт велит прочитать, лежат в run_dir вне checkout. Без него
+            # в 43 приёмках из 55 (все ночи по 2026-09-26) приёмщику отказали в Read
+            # на собственные логи, и он браковал «зелёный прогон не подтверждается».
+            argv += ["--add-dir", str(run_dir),
+                     "--restricted", "--disallowedTools", "Write", "Edit", "NotebookEdit"]
         else:
             argv += ["--permission-mode", self.options.get("permission_mode", "bypassPermissions")]
         return argv

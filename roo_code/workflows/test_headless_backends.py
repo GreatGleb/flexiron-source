@@ -125,6 +125,13 @@ class CommandTest(unittest.TestCase):
         self.assertEqual(argv[argv.index("--disallowedTools") + 1:], ["Write", "Edit", "NotebookEdit"])
         self.assertNotIn("--permission-mode", argv)
 
+    def test_reviewer_on_claude_can_read_the_check_logs(self):
+        # Логи проверок лежат в run_dir, вне checkout, а --restricted пускает файловые
+        # инструменты только в каталоги --add-dir. Промпт велит их прочитать.
+        argv = backends.ClaudeBackend({}).build("review", Path("/repo"), Path("/run"), Path("/run/r.json"))
+        dirs = [argv[i + 1] for i, a in enumerate(argv) if a == "--add-dir"]
+        self.assertEqual(dirs, ["/repo", "/run"])
+
     def test_author_on_claude_gets_write_access(self):
         argv = backends.ClaudeBackend({}).build("work", Path("/repo"), Path("/run"), Path("/run/r.json"))
         self.assertEqual(argv[argv.index("--permission-mode") + 1], "bypassPermissions")
