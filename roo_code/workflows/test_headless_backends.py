@@ -770,6 +770,12 @@ class AiderDriverTest(unittest.TestCase):
         self.assertNotIn("syntax error", answer)
         self.assertEqual(len(stats["command_log"]), 1, stats["command_log"])
 
+    def test_exit_code_reaches_the_model_even_without_output(self):
+        """Команда без вывода не давала модели хода, а код возврата aider не показывает вовсе."""
+        self.drive(["```bash\ntest -e no-such-file\n```\n", "Понял."], ["notes.md"])
+        self.assertIn("код возврата 1", self.prompts()[1])
+        self.assertIn("Продолжай задачу", self.prompts()[1])
+
     def test_read_only_git_commands_are_allowed(self):
         _, stats = self.drive(["```bash\ngit log --oneline -1\n```\n", "Понял."], ["notes.md"])
         self.assertEqual(stats["refused"], [])

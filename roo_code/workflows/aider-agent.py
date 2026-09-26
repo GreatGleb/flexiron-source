@@ -314,8 +314,11 @@ def drive(config_path):
         block = commands_str.strip()
         if not io.confirm_ask("Run shell commands?", subject=block, explicit_yes_required=True, group=group):
             return None
-        _code, out = run_model_command(block)
-        return f"Output from {block}\n{out}\n" if out else None
+        code, out = run_model_command(block)
+        # Код возврата — всегда: у aider его нет вовсе, а блок без вывода (`test -f`,
+        # `grep -q`) не давал модели хода — задача обрывалась на полуслове. Zoo код
+        # возврата показывал в каждом ответе на команду.
+        return f"Выполнено (код возврата {code}):\n$ {block}\n{out}\n"
 
     coder.handle_shell_commands = run_block
     run_shell = coder.run_shell_commands
