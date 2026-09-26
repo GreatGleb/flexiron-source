@@ -329,7 +329,9 @@ def drive(config_path):
                 stats["refused"] += refusals
                 ok = not refusals
                 if ok:
-                    stats["commands"] += lines
+                    # Блок — одна команда: он и выполняется одним скриптом. Счёт по строкам
+                    # писал приёмщику «команд 58» при одиннадцати запусках (живая проба).
+                    stats["commands"].append("\n".join(lines))
             else:
                 ok = asked in YES
                 if asked in DROPPED:

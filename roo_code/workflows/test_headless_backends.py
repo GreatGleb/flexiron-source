@@ -787,6 +787,7 @@ class AiderDriverTest(unittest.TestCase):
             self.assertIn(expected, answer)
         self.assertNotIn("syntax error", answer)
         self.assertEqual(len(stats["command_log"]), 1, stats["command_log"])
+        self.assertEqual(len(stats["commands"]), 1, stats["commands"])   # в evidence — «команд 1»
 
     def test_exit_code_reaches_the_model_even_without_output(self):
         """Команда без вывода не давала модели хода, а код возврата aider не показывает вовсе."""
