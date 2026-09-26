@@ -379,7 +379,11 @@ def drive(config_path):
         # deepseek-flash). В агентском цикле это два-три вывода команд: старые ходы ушли бы
         # в пересказ, и модель чинила бы по памяти, а не по выводу.
         summarizer=ChatSummary([model.weak_model, model], CONFIG.get("history_tokens", 65536)),
-        suggest_shell_commands=True, detect_urls=False, restore_chat_history=False)
+        suggest_shell_commands=True, detect_urls=False, restore_chat_history=False,
+        # Язык aider берёт из локали, а у ночи она английская: системный промпт требовал
+        # «Reply in English», и живая проба отчиталась по-английски. Проект, документы и
+        # отчёты Zoo-автора — русские.
+        chat_language="Russian")
     coder.max_reflections = CONFIG["max_reflections"]
 
     def mentions(content):

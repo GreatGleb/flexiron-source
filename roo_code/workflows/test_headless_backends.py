@@ -836,6 +836,12 @@ class AiderDriverTest(unittest.TestCase):
         self.assertIn("Машинные проверки задачи упали", self.prompts()[1])
         self.assertIn("Правка helper.py ОТКЛОНЕНА", self.prompts()[1])
 
+    def test_model_is_asked_to_reply_in_russian(self):
+        """Язык aider берёт из локали — ночью английской, а документы проекта русские."""
+        self.drive(["Понял."], ["notes.md"])
+        self.assertIn("Reply in Russian", self.prompts()[0])
+        self.assertNotIn("Reply in English", self.prompts()[0])
+
     def test_hanging_command_is_killed_by_the_timeout(self):
         _, stats = self.drive(["```bash\nsleep 60\n```\n", "Понял."], ["notes.md"], command_timeout=2)
         self.assertLess(self.elapsed, 40)
