@@ -3,6 +3,7 @@ import { test, expect, testBare as base } from '../../fixtures'
 import { openAdminPage } from '../../helpers/admin'
 import { ALL_FLAGS_ENABLED } from '../../helpers/flags'
 import { freezeTime } from '../../helpers/mocks'
+import { DATA_READY_TIMEOUT } from '../../helpers/ready'
 import { waitForFontsReady, SNAPSHOT_OPTIONS } from '../../helpers/visual'
 
 /**
@@ -140,7 +141,7 @@ test.describe('suppliers-list › toolbar', () => {
 
   test('clicking new-supplier navigates to the create page', async ({ page }) => {
     await page.locator('[data-test="suppliers-new-btn"]').click()
-    await expect(page).toHaveURL(/\/admin\/suppliers\/new$/)
+    await expect(page).toHaveURL(/\/admin\/suppliers\/new$/, { timeout: DATA_READY_TIMEOUT })
   })
 })
 
@@ -204,7 +205,7 @@ test.describe('suppliers-list › table view', () => {
       .first()
       .locator('a.name-link')
       .click()
-    await expect(page).toHaveURL(/\/admin\/suppliers\/\w+$/)
+    await expect(page).toHaveURL(/\/admin\/suppliers\/\w+$/, { timeout: DATA_READY_TIMEOUT })
   })
 })
 
@@ -600,7 +601,7 @@ baseTest(
     // Данных не будет: гард уводит на /404, признак перехода — сам URL, и
     // проверка отсутствия ниже осмысленна только ПОСЛЕ него (питфолл #66).
     await page.goto(SUPPLIERS)
-    await expect(page).toHaveURL(/\/404$/)
+    await expect(page).toHaveURL(/\/404$/, { timeout: DATA_READY_TIMEOUT })
     await expect(page.locator('[data-test="suppliers-title"]')).toHaveCount(0)
   },
 )

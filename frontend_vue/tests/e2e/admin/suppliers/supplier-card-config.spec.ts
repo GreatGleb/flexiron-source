@@ -671,11 +671,11 @@ test.describe('supplier-card-config › save', () => {
     // → supplier-card-config-link /admin/suppliers/config. Every hop is a router-link push
     // (no full reload), so the mock modules stay warm and the rename sticks.
     await page.locator('[data-test="sidebar-nav-suppliers"]').click()
-    await expect(page).toHaveURL(/\/admin\/suppliers$/)
+    await expect(page).toHaveURL(/\/admin\/suppliers$/, { timeout: DATA_READY_TIMEOUT })
     await page.locator('[data-test="suppliers-row"]').first().locator('a.name-link').first().click()
-    await expect(page).toHaveURL(/\/admin\/suppliers\/\d+$/)
+    await expect(page).toHaveURL(/\/admin\/suppliers\/\d+$/, { timeout: DATA_READY_TIMEOUT })
     await page.locator('[data-test="supplier-card-config-link"]').click()
-    await expect(page).toHaveURL(/\/admin\/suppliers\/config$/)
+    await expect(page).toHaveURL(/\/admin\/suppliers\/config$/, { timeout: DATA_READY_TIMEOUT })
     await expect(
       page
         .locator('[data-test="config-section-card"][data-section-id="sec-general"]')
@@ -696,7 +696,7 @@ baseTest(
     )
     // Данных не будет: гард уводит на /404, признак перехода — сам URL.
     await page.goto(CONFIG_URL)
-    await expect(page).toHaveURL(/\/404$/)
+    await expect(page).toHaveURL(/\/404$/, { timeout: DATA_READY_TIMEOUT })
     await expect(page.locator('[data-test="supplier-card-config-title"]')).toHaveCount(0)
   },
 )

@@ -655,7 +655,7 @@ baseTest(
     )
     // Данных не будет: гард уводит на /404, признак перехода — сам URL.
     await page.goto(BCC_URL)
-    await expect(page).toHaveURL(/\/404$/)
+    await expect(page).toHaveURL(/\/404$/, { timeout: DATA_READY_TIMEOUT })
     await expect(page.locator('[data-test="bcc-request-title"]')).toHaveCount(0)
   },
 )

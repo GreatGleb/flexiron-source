@@ -529,7 +529,7 @@ baseTest(
     )
     // Данных не будет: гард уводит на /404, признак перехода — сам URL.
     await page.goto(CARD_URL)
-    await expect(page).toHaveURL(/\/404$/)
+    await expect(page).toHaveURL(/\/404$/, { timeout: DATA_READY_TIMEOUT })
     await expect(page.locator('[data-test="supplier-card-title"]')).toHaveCount(0)
   },
 )

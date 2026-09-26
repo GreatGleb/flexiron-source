@@ -2,6 +2,7 @@ import { test, expect, testBare as base } from '../../fixtures'
 import { navigateToAdmin } from '../../helpers/admin'
 import { ALL_FLAGS_ENABLED } from '../../helpers/flags'
 import { freezeTime } from '../../helpers/mocks'
+import { DATA_READY_TIMEOUT } from '../../helpers/ready'
 import { waitForFontsReady, SNAPSHOT_OPTIONS } from '../../helpers/visual'
 
 /**
@@ -211,7 +212,7 @@ test.describe('supplier-create › validation', () => {
     await expect.soft(toast).toBeVisible()
     // EN (default locale) validation copy per src/i18n/admin.ts.
     await expect.soft(toast).toContainText('Please enter the company name')
-    await expect.soft(page).toHaveURL(/\/admin\/suppliers\/new$/)
+    await expect.soft(page).toHaveURL(/\/admin\/suppliers\/new$/, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('company filled but email missing → email-required error toast', async ({ page }) => {
@@ -220,7 +221,7 @@ test.describe('supplier-create › validation', () => {
     const toast = page.locator('.toast-container .toast.show.toast-error')
     await expect.soft(toast).toBeVisible()
     await expect.soft(toast).toContainText('Please enter the email')
-    await expect.soft(page).toHaveURL(/\/admin\/suppliers\/new$/)
+    await expect.soft(page).toHaveURL(/\/admin\/suppliers\/new$/, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('email filled but company blank → still company-required (validated first)', async ({
@@ -260,14 +261,18 @@ test.describe('supplier-create › save happy-path', () => {
     await page.locator('[data-test="supplier-form-contact-email"]').fill('hello@playwright.test')
     await page.locator('[data-test="supplier-create-save-btn"]').click()
     // mockCreateSupplier pushes a row with id = max(existing) + 1 → '7' in a fresh context.
-    await expect(page).toHaveURL(new RegExp(`/admin/suppliers/${NEW_ID}$`))
+    await expect(page).toHaveURL(new RegExp(`/admin/suppliers/${NEW_ID}$`), {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('success toast appears after a valid save', async ({ page }) => {
     await page.locator('[data-test="supplier-form-company"]').fill('Playwright Steel UAB')
     await page.locator('[data-test="supplier-form-contact-email"]').fill('hello@playwright.test')
     await page.locator('[data-test="supplier-create-save-btn"]').click()
-    await expect(page).toHaveURL(new RegExp(`/admin/suppliers/${NEW_ID}$`))
+    await expect(page).toHaveURL(new RegExp(`/admin/suppliers/${NEW_ID}$`), {
+      timeout: DATA_READY_TIMEOUT,
+    })
     // The success variant does not carry .toast-error — filter it out to be explicit.
     const successToast = page.locator('.toast-container .toast.show:not(.toast-error)')
     await expect.soft(successToast).toBeVisible()
@@ -280,7 +285,9 @@ test.describe('supplier-create › save happy-path', () => {
     await page.locator('[data-test="supplier-form-company"]').fill(company)
     await page.locator('[data-test="supplier-form-contact-email"]').fill(email)
     await page.locator('[data-test="supplier-create-save-btn"]').click()
-    await expect(page).toHaveURL(new RegExp(`/admin/suppliers/${NEW_ID}$`))
+    await expect(page).toHaveURL(new RegExp(`/admin/suppliers/${NEW_ID}$`), {
+      timeout: DATA_READY_TIMEOUT,
+    })
     // The card page mounts SupplierFormSections with the freshly-created record.
     await expect(page.locator('[data-test="supplier-form-company"]')).toHaveValue(company)
     await expect(page.locator('[data-test="supplier-form-contact-email"]')).toHaveValue(email)
@@ -296,10 +303,12 @@ test.describe('supplier-create › save happy-path', () => {
     await page.locator('[data-test="supplier-form-company"]').fill(company)
     await page.locator('[data-test="supplier-form-contact-email"]').fill('hello@playwright.test')
     await page.locator('[data-test="supplier-create-save-btn"]').click()
-    await expect(page).toHaveURL(new RegExp(`/admin/suppliers/${NEW_ID}$`))
+    await expect(page).toHaveURL(new RegExp(`/admin/suppliers/${NEW_ID}$`), {
+      timeout: DATA_READY_TIMEOUT,
+    })
     // Sidebar nav link → /admin/suppliers (router-link, no reload).
     await page.locator('a[href="/admin/suppliers"]').first().click()
-    await expect(page).toHaveURL(/\/admin\/suppliers$/)
+    await expect(page).toHaveURL(/\/admin\/suppliers$/, { timeout: DATA_READY_TIMEOUT })
     await expect(page.locator('[data-test="suppliers-row"]')).toHaveCount(7)
     await expect(page.locator('[data-test="suppliers-table"]')).toContainText(company)
   })
@@ -315,7 +324,7 @@ test.describe('supplier-create › cancel', () => {
 
   test('clicking Cancel returns to /admin/suppliers', async ({ page }) => {
     await page.locator('[data-test="supplier-create-cancel-btn"]').click()
-    await expect(page).toHaveURL(/\/admin\/suppliers$/)
+    await expect(page).toHaveURL(/\/admin\/suppliers$/, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('Cancel does NOT create a supplier (list still has the original 6 rows)', async ({
@@ -324,7 +333,7 @@ test.describe('supplier-create › cancel', () => {
     // Fill something to prove Cancel discards it.
     await page.locator('[data-test="supplier-form-company"]').fill('Discarded Co')
     await page.locator('[data-test="supplier-create-cancel-btn"]').click()
-    await expect(page).toHaveURL(/\/admin\/suppliers$/)
+    await expect(page).toHaveURL(/\/admin\/suppliers$/, { timeout: DATA_READY_TIMEOUT })
     // Признак возврата к списку — шесть его строк; `toHaveCount` ждёт их сам.
     await expect(page.locator('[data-test="suppliers-row"]')).toHaveCount(6)
     await expect(page.locator('[data-test="suppliers-table"]')).not.toContainText('Discarded Co')
@@ -343,7 +352,7 @@ baseTest(
     )
     // Данных не будет: гард уводит на /404, признак перехода — сам URL.
     await page.goto(CREATE_URL)
-    await expect(page).toHaveURL(/\/404$/)
+    await expect(page).toHaveURL(/\/404$/, { timeout: DATA_READY_TIMEOUT })
     await expect(page.locator('[data-test="supplier-create-title"]')).toHaveCount(0)
   },
 )

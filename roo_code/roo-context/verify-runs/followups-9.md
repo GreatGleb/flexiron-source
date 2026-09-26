@@ -18,7 +18,7 @@ src/services/mocks/suppliers.ts:314:    paymentTerms: '30 Days Net',
 src/services/mocks/suppliers.ts:501:    paymentTerms: payload.paymentTerms ?? '30 Days Net',
 src/composables/useSupplierCreate.ts:32:    paymentTerms: '30 Days Net',
 src/types/supplier.ts:45:  paymentTerms: string
-tests/e2e/admin/suppliers/supplier-create.spec.ts:46: *     paymentTerms='30 Days Net', …
+tests/e2e/admin/suppliers/supplier-create.spec.ts:47: *     paymentTerms='30 Days Net', …
 ```
 
 Все семь вхождений — поставщик. У клиента поля нет:
