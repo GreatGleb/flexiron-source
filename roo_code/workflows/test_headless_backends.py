@@ -570,6 +570,26 @@ class AiderRoutingTest(unittest.TestCase):
             backends.AiderBackend({"binary": sys.executable}).check()
 
 
+_agent_spec = importlib.util.spec_from_file_location("aider_agent", Path(__file__).with_name("aider-agent.py"))
+aider_agent = importlib.util.module_from_spec(_agent_spec)
+_agent_spec.loader.exec_module(aider_agent)
+
+
+class GitFilterTest(unittest.TestCase):
+    """Фильтр команд автора на формах, которые реально встречались в сессиях Zoo Code."""
+
+    def test_read_only_forms_from_zoo_sessions_pass(self):
+        for command in ("git -C /home/x/repo diff --stat", "git --no-pager diff -- a.ts",
+                        "cd frontend_vue && git --no-pager diff --stat && echo '---'",
+                        "git check-ignore -v frontend_vue/node_modules", "git show HEAD:frontend_vue/a.ts | head",
+                        "git log --oneline -5", "grep -rn git README.md", "git -c core.pager=cat log -1"):
+            self.assertIsNone(aider_agent.command_refusal(command), command)
+
+    def test_writing_git_is_refused_wherever_it_hides(self):
+        for command in ("git commit -am x", "git -C /home/x/repo add .", "cd a; git stash",
+                        "echo x && git checkout -- f", "ls | xargs git rm", "git", "python3 roo_code/workflows/refs_shift.py --fix"):
+            self.assertIsNotNone(aider_agent.command_refusal(command), command)
+
 AIDER_PYTHON = Path.home() / ".local/share/uv/tools/aider-chat/bin/python"
 AIDER_RUNNER = Path(__file__).with_name("aider-runner.py").resolve()
 # Питон aider с подменённой моделью: ответы берутся по порядку из AIDER_TEST_SCRIPT,
@@ -774,6 +794,17 @@ class AiderDriverTest(unittest.TestCase):
         result, _ = self.drive(["В коде нет таймаута архивации, число выдумывать не стану."], ["notes.md"])
         self.assertEqual(result["status"], "blocked")
         self.assertIn("автор: В коде нет таймаута архивации", result["summary"])
+
+    def test_background_server_lives_between_commands_and_dies_with_the_task(self):
+        """Zoo-автор запускал `nohup npm run dev & disown` и ходил на сервер следующими
+        командами. Гасить после команды нельзя, оставлять после задачи — тоже: займёт порт."""
+        self.drive(["```bash\n(nohup sleep 377 > /dev/null 2>&1 & disown); echo started\n```\n",
+                    "```bash\npgrep -f '^sleep 377$' > /dev/null && echo ALIVE\n```\n", "Понял."], ["notes.md"])
+        self.assertIn("ALIVE", self.prompts()[2])
+        # Якоря обязательны: `pgrep -f 'sleep 377'` находит и любую оболочку, в чьей
+        # командной строке этот текст есть, — тест краснел на живой уборке.
+        alive = subprocess.run(["pgrep", "-f", "^sleep 377$"], capture_output=True, text=True).stdout
+        self.assertEqual(alive, "", "фоновый процесс пережил задачу")
 
     def test_leftovers_are_cleaned_and_stats_reported(self):
         result, stats = self.drive([edit("notes.md", "Число: ?", "Число: 1")], ["notes.md", "docs/empty.md"])

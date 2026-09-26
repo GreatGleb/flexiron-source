@@ -31,12 +31,18 @@ import shlex
 import signal
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 CONFIG, ROOT, OUTPUTS = {}, None, []
-GIT_READ_ONLY = {"status", "diff", "log", "show", "grep", "ls-files", "blame", "rev-parse", "cat-file"}
+GIT_READ_ONLY = {"status", "diff", "log", "show", "grep", "ls-files", "blame", "rev-parse", "cat-file",
+                 "check-ignore", "ls-tree", "describe", "shortlog"}
 YES = {"Attempt to fix test errors?", "Attempt to fix lint errors?", "Add command output to the chat?"}
 ACTIVE = set()
+# Группы процессов всех команд задачи. Zoo-автор запускал `nohup npm run dev & disown` и
+# ходил на этот сервер следующими командами — после команды его гасить нельзя. После
+# задачи — обязательно: иначе сервер переживёт её и займёт порт следующей.
+GROUPS = set()
 # Ответ, в котором есть правка или команда: SEARCH/REPLACE-блок либо shell-блок.
 ACTING = re.compile(r"^<{5,9} SEARCH|^```(?:bash|sh|shell|zsh|console)\b", re.MULTILINE)
 
@@ -74,6 +80,7 @@ def run_limited(command, cwd, timeout, shell):
                             stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                             text=True, errors="replace", start_new_session=True)
     ACTIVE.add(proc)
+    GROUPS.add(proc.pid)
     try:
         out, _ = proc.communicate(timeout=timeout)
         code = proc.returncode
@@ -87,12 +94,59 @@ def run_limited(command, cwd, timeout, shell):
     return code, clip(out or "", CONFIG["output_limit"])
 
 
+def kill_groups():
+    """Всё, что запускали команды задачи, включая ушедшее в фон."""
+    for pgid in list(GROUPS):
+        for sig in (signal.SIGTERM, signal.SIGKILL):
+            try:
+                os.killpg(pgid, sig)
+            except (ProcessLookupError, PermissionError):
+                break
+            deadline = time.monotonic() + 5
+            while time.monotonic() < deadline:
+                try:
+                    os.killpg(pgid, 0)
+                except ProcessLookupError:
+                    break
+                time.sleep(0.1)
+            else:
+                continue
+            break
+    GROUPS.clear()
+
+
 def stop(_number, _frame):
     # Ядро гасит группу процессов обёртки, а команды живут в своих сессиях: без этого
-    # тесты, запущенные автором, пережили бы задачу.
-    for proc in list(ACTIVE):
-        kill(proc)
+    # тесты и серверы, запущенные автором, пережили бы задачу.
+    kill_groups()
     raise SystemExit(143)
+
+
+# Проверено по 20 ночным сессиям Zoo Code (2026-09-26): пишущих git-команд там нет ни одной,
+# читающие — diff 75, status 60, show 31, log 8, rev-parse, ls-files, check-ignore.
+GIT_OPTIONS_WITH_VALUE = {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path"}
+COMMAND_POSITION = {";", "&&", "||", "|", "(", "then", "do", "else", "time", "nohup", "xargs", "env"}
+
+
+def git_subcommands(words):
+    """Подкоманды git, стоящего в позиции команды. `grep git x` — не git."""
+    for index, word in enumerate(words):
+        if Path(word).name != "git" or (index and words[index - 1] not in COMMAND_POSITION
+                                        and not words[index - 1].endswith(";")):
+            continue
+        rest, skip = words[index + 1:], False
+        for item in rest:
+            if skip:
+                skip = False
+            elif item in GIT_OPTIONS_WITH_VALUE:
+                skip = True   # у -C и -c есть значение: `git -C /путь diff`
+            elif item.startswith("-"):
+                continue
+            else:
+                yield item
+                break
+        else:
+            yield ""
 
 
 def command_refusal(command):
@@ -102,17 +156,21 @@ def command_refusal(command):
         words = shlex.split(command, comments=True)
     except ValueError:
         words = command.split()
-    for index, word in enumerate(words):
-        if Path(word).name == "git":
-            rest = [w for w in words[index + 1:] if not w.startswith("-")]
-            sub = rest[0] if rest else ""
-            if sub not in GIT_READ_ONLY:
-                return (f"`{command}`: git {sub or '(без подкоманды)'} меняет репозиторий; "
-                        f"можно только {', '.join(sorted(GIT_READ_ONLY))}")
+    for sub in git_subcommands(words):
+        if sub not in GIT_READ_ONLY:
+            return (f"`{command}`: git {sub or '(без подкоманды)'} меняет репозиторий; "
+                    f"можно только {', '.join(sorted(GIT_READ_ONLY))}")
     return None
 
 
 def main(config_path):
+    try:
+        return drive(config_path)
+    finally:
+        kill_groups()
+
+
+def drive(config_path):
     global CONFIG, ROOT, OUTPUTS
     CONFIG = json.loads(Path(config_path).read_text())
     ROOT = Path(CONFIG["root"]).resolve()
