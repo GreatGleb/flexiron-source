@@ -94,23 +94,33 @@ def run_limited(command, cwd, timeout, shell):
     return code, clip(out or "", CONFIG["output_limit"])
 
 
-def kill_groups():
-    """Всё, что запускали команды задачи, включая ушедшее в фон."""
-    for pgid in list(GROUPS):
-        for sig in (signal.SIGTERM, signal.SIGKILL):
+def alive(pgid):
+    try:
+        os.killpg(pgid, 0)
+        return True
+    except (ProcessLookupError, PermissionError):
+        return False
+
+
+def kill_groups(grace=2.0):
+    """Всё, что запускали команды задачи, включая ушедшее в фон.
+
+    SIGTERM — сразу всем группам, общее ожидание, SIGKILL — оставшимся. По очереди нельзя:
+    ядро, останавливая задачу, шлёт SIGTERM и через 5 секунд SIGKILL, и уборка, ждущая
+    упрямые группы одну за другой, была бы прервана на середине — часть серверов пережила
+    бы задачу. Здесь весь путь занимает не больше grace + доли секунды."""
+    groups = [g for g in GROUPS if alive(g)]
+    for sig in (signal.SIGTERM, signal.SIGKILL):
+        for pgid in groups:
             try:
                 os.killpg(pgid, sig)
             except (ProcessLookupError, PermissionError):
-                break
-            deadline = time.monotonic() + 5
-            while time.monotonic() < deadline:
-                try:
-                    os.killpg(pgid, 0)
-                except ProcessLookupError:
-                    break
-                time.sleep(0.1)
-            else:
-                continue
+                pass
+        deadline = time.monotonic() + grace
+        while groups and time.monotonic() < deadline:
+            groups = [g for g in groups if alive(g)]
+            time.sleep(0.05)
+        if not groups:
             break
     GROUPS.clear()
 

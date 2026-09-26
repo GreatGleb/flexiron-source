@@ -71,11 +71,13 @@ def main():
     parser.add_argument("--edit-format")
     # Потолки сняты с 20 ночных сессий Zoo Code (2026-09-26): запросов к модели медиана 33,
     # максимум 57; самая долгая команда — 40 минут (тест под нагрузкой), playwright — до 10.
-    # Прежние 12 ходов и 10 минут оборвали бы большинство задач. Время всей задачи держит
-    # ядро (timeout_seconds маршрутизации); эти — только от вечных команд вроде `npm run dev`.
-    parser.add_argument("--max-reflections", type=int, default=60)
-    parser.add_argument("--command-timeout", type=int, default=2700)
-    parser.add_argument("--check-timeout", type=int, default=2700)
+    # Прежние 12 ходов и 10 минут оборвали бы большинство задач. Значения по решению
+    # владельца 2026-09-26 — 100 ходов и 60 минут, с запасом над замером. Время всей задачи
+    # держит ядро (timeout_seconds маршрутизации); эти — только от вечных команд вроде
+    # `npm run dev` без фона.
+    parser.add_argument("--max-reflections", type=int, default=100)
+    parser.add_argument("--command-timeout", type=int, default=3600)
+    parser.add_argument("--check-timeout", type=int, default=3600)
     parser.add_argument("--output-limit", type=int, default=12000)
     parser.add_argument("--max-read-files", type=int, default=12)
     parser.add_argument("--read-file-limit", type=int, default=200_000)

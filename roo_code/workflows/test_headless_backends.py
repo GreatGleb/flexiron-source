@@ -525,6 +525,9 @@ class AiderRunTest(unittest.TestCase):
         self.assertEqual(self.aider_config()["edit_format"], "diff")
         # Свой потолок aider — 8192 токена истории; в агентском цикле это два-три вывода.
         self.assertEqual(self.aider_config()["history_tokens"], 65536)
+        # Потолки — решение владельца: 100 ходов, 60 минут на команду и на проверку.
+        self.assertEqual({k: self.aider_config()[k] for k in ("max_reflections", "command_timeout", "check_timeout")},
+                         {"max_reflections": 100, "command_timeout": 3600, "check_timeout": 3600})
 
     def test_parallel_authors_on_aider_each_get_their_worktree(self):
         self.queue.write_text(json.dumps({"tasks": [
@@ -584,6 +587,20 @@ class GitFilterTest(unittest.TestCase):
                         "git check-ignore -v frontend_vue/node_modules", "git show HEAD:frontend_vue/a.ts | head",
                         "git log --oneline -5", "grep -rn git README.md", "git -c core.pager=cat log -1"):
             self.assertIsNone(aider_agent.command_refusal(command), command)
+
+    def test_cleanup_of_stubborn_groups_fits_the_core_kill_window(self):
+        """Ядро шлёт SIGTERM и через 5 с SIGKILL. Уборка трёх групп, глухих к SIGTERM, обязана
+        уложиться раньше, иначе её прервут и часть процессов переживёт задачу."""
+        procs = [subprocess.Popen(["bash", "-c", "trap '' TERM; exec sleep 300"], start_new_session=True)
+                 for _ in range(3)]
+        time.sleep(0.3)
+        aider_agent.GROUPS.update(p.pid for p in procs)
+        started = time.monotonic()
+        aider_agent.kill_groups()
+        self.assertLess(time.monotonic() - started, 4.5)
+        for proc in procs:
+            self.assertIsNotNone(proc.wait(timeout=2))
+        self.assertEqual(aider_agent.GROUPS, set())
 
     def test_writing_git_is_refused_wherever_it_hides(self):
         for command in ("git commit -am x", "git -C /home/x/repo add .", "cd a; git stash",
