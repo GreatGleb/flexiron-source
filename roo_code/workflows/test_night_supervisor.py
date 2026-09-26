@@ -139,6 +139,18 @@ class SupervisorTest(unittest.TestCase):
         # Принятая очередь снимает упрёк: иначе оператор чинил бы то, что уже починено.
         self.assertNotIn("ОТВЕРГНУТА", self.operator_prompt(3))
 
+    def test_blocked_reasons_reach_the_next_operator(self):
+        """Причина браковки задачи доходит до оператора — чтобы не повторял её форму."""
+        result = self.run_supervisor([queue_json("alpha"), queue_json("beta", ["plan2.md"])],
+                                     batches=2, mode="no-edit", idle_limit=0)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        blocked = json.loads((self.out / "run-1" / "state.json").read_text())["blocked"]
+        self.assertEqual([b["task"] for b in blocked], ["alpha"])
+        self.assertNotIn("ЗАБРАКОВАНО", self.operator_prompt(1))
+        second = self.operator_prompt(2)
+        self.assertIn("ЗАБРАКОВАНО ядром этой ночью", second)
+        self.assertIn(f"- alpha ({blocked[0]['phase']}): {blocked[0]['reason'].strip()[:300]}", second)
+
     def test_three_batches_without_accepted_tasks_stop_the_night(self):
         result = self.run_supervisor([queue_json("alpha")], batches=9, mode="no-edit")
         self.assertEqual(result.returncode, 0, result.stderr)

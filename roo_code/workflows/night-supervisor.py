@@ -40,6 +40,21 @@ def rejection_note(stderr, queue):
             "и сожжёт ещё одну порцию.\n")
 
 
+def blocked_note(blocked):
+    """Задачи, которые ядро забраковало этой ночью, с причинами браковки.
+
+    Их id уже в списке сделанного, но оператор повторял саму ФОРМУ неудачной задачи
+    под другим id. Причина браковки — единственное, что говорит, что в форме не так.
+    """
+    if not blocked:
+        return ""
+    lines = [f"- {b['task']} ({b.get('phase', '?')}): {str(b.get('reason', '')).strip()[:300]}"
+             for b in blocked[-10:]]
+    return ("\nЗАБРАКОВАНО ядром этой ночью — прочитай причины и не выдавай задач, которые "
+            "упадут так же; если задача нужна, измени в ней то, на что указывает причина:\n"
+            + "\n".join(lines) + "\n")
+
+
 def call_operator(root, prompt, model, binary, out_dir, index, done_ids, feedback=""):
     """Одна read-only сессия оператора: вернуть очередь задач JSON-ом."""
     history = ("\nУЖЕ СДЕЛАНО этой ночью — не предлагай снова и не переделывай: "
@@ -113,7 +128,7 @@ def main():
     load_routing(args.routing)  # падаем сразу, если маршрутизация негодна
 
     spent, done_ids, idle_batches = 0, set(), 0
-    rejection = ""
+    rejection, blocked = "", []
     report = {"batches": [], "stopped": None}
 
     def finish(reason):
@@ -133,7 +148,8 @@ def main():
 
         try:
             queue_path, queue, operator_spent = call_operator(
-                root, prompt, args.operator_model, args.operator_binary, args.out, index, done_ids, rejection)
+                root, prompt, args.operator_model, args.operator_binary, args.out, index, done_ids,
+                rejection + blocked_note(blocked))
         # RuntimeError сюда попадает от разбора ответа: оператор, не сумевший выдать
         # очередь, заканчивает ночь отчётом, а не трассировкой в лог.
         except (subprocess.CalledProcessError, ValueError, RuntimeError, json.JSONDecodeError) as error:
@@ -162,6 +178,7 @@ def main():
         completed = [c["task"] for c in state["completed"]]
         done_ids.update(completed)
         done_ids.update(b["task"] for b in state.get("blocked", []))
+        blocked.extend(state.get("blocked", []))
         report["batches"].append({"batch": index, "completed": len(completed), "tasks": completed,
                                   "blocked": [b["task"] for b in state.get("blocked", [])],
                                   "status": state["status"], "tokens": state.get("tokens", 0)})
