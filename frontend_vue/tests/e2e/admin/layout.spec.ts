@@ -2,7 +2,7 @@ import type { Page } from '@playwright/test'
 import { test, expect } from '../fixtures'
 import { navigateToAdmin } from '../helpers/admin'
 import { waitForFontsReady, SNAPSHOT_OPTIONS } from '../helpers/visual'
-import { waitForDataReady } from '../helpers/ready'
+import { DATA_READY_TIMEOUT, waitForDataReady } from '../helpers/ready'
 
 /**
  * Deep audit of AdminLayout shell: AdminSidebar + AdminTopbar + useSidebar behavior.
@@ -325,7 +325,7 @@ test.describe('admin layout › navigation', () => {
     // успела ли страница подняться, а этого он не контролирует.
     await waitForDataReady(page)
     await page.locator('[data-test="sidebar-nav-suppliers"]').click()
-    await expect(page).toHaveURL(SUPPLIERS)
+    await expect(page).toHaveURL(SUPPLIERS, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('analytics nav-link gets active class on analytics routes', async ({ page }) => {

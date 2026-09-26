@@ -196,7 +196,7 @@ await expect(page.locator('[data-test="suppliers-table-view"]')).toBeHidden()
 
 ## 4. Наблюдение вне области пункта (кода не касался)
 
-`feature-flags-matrix.spec.ts:98–129` — четыре теста «секция выключена флагом»
+`feature-flags-matrix.spec.ts:99–129` — четыре теста «секция выключена флагом»
 утверждают отсутствие панели, доказав перед этим только заголовок страницы
 (`dashboard-title`, `suppliers-table-view`, `bcc-request-title`,
 `supplier-card-config-title`). Мутации перед ними нет, то есть по определению пункта 1b

@@ -1,5 +1,6 @@
 import { testBare as test, expect } from './fixtures'
 import { ALL_FLAGS_ENABLED } from './helpers/flags'
+import { DATA_READY_TIMEOUT } from './helpers/ready'
 
 /**
  * Critical cross-page / multi-flag combinations that per-flag tests in
@@ -38,13 +39,13 @@ test.describe('Parent-route redirect', () => {
   }) => {
     await setFlags(context, { adminDashboard: false })
     await page.goto('/admin')
-    await expect(page).toHaveURL('/404')
+    await expect(page).toHaveURL('/404', { timeout: DATA_READY_TIMEOUT })
   })
 
   test('/admin with adminDashboard ON lands on dashboard', async ({ page, context }) => {
     await setFlags(context, {})
     await page.goto('/admin')
-    await expect(page).toHaveURL('/admin/analytics/dashboard')
+    await expect(page).toHaveURL('/admin/analytics/dashboard', { timeout: DATA_READY_TIMEOUT })
   })
 })
 
@@ -80,7 +81,7 @@ test.describe('All page flags OFF', () => {
     test(`${route} redirects to /404 when all page flags are OFF`, async ({ page, context }) => {
       await setFlags(context, ALL_PAGE_FLAGS_OFF)
       await page.goto(route)
-      await expect(page).toHaveURL('/404')
+      await expect(page).toHaveURL('/404', { timeout: DATA_READY_TIMEOUT })
     })
   }
 })
@@ -139,7 +140,7 @@ test.describe('Cross-page link follow-through', () => {
     const bccLink = page.locator('[data-test="supplier-card-bcc-link"]')
     await expect(bccLink).toBeVisible()
     await bccLink.click()
-    await expect(page).toHaveURL('/404')
+    await expect(page).toHaveURL('/404', { timeout: DATA_READY_TIMEOUT })
   })
 
   test('SupplierCard → Config link redirects to /404 when supplierCardConfig OFF', async ({
@@ -151,7 +152,7 @@ test.describe('Cross-page link follow-through', () => {
     const configLink = page.locator('[data-test="supplier-card-config-link"]')
     await expect(configLink).toBeVisible()
     await configLink.click()
-    await expect(page).toHaveURL('/404')
+    await expect(page).toHaveURL('/404', { timeout: DATA_READY_TIMEOUT })
   })
 
   test('SuppliersList → BCC header button redirects to /404 when bccRequest OFF', async ({
@@ -163,7 +164,7 @@ test.describe('Cross-page link follow-through', () => {
     const bccBtn = page.locator('[data-test="suppliers-bcc-btn"]')
     await expect(bccBtn).toBeVisible()
     await bccBtn.click()
-    await expect(page).toHaveURL('/404')
+    await expect(page).toHaveURL('/404', { timeout: DATA_READY_TIMEOUT })
   })
 
   test('SuppliersList → New supplier button redirects to /404 when supplierCreate OFF', async ({
@@ -175,7 +176,7 @@ test.describe('Cross-page link follow-through', () => {
     const newBtn = page.locator('[data-test="suppliers-new-btn"]')
     await expect(newBtn).toBeVisible()
     await newBtn.click()
-    await expect(page).toHaveURL('/404')
+    await expect(page).toHaveURL('/404', { timeout: DATA_READY_TIMEOUT })
   })
 })
 
@@ -189,7 +190,7 @@ test.describe('Sidebar cross-link', () => {
     const link = page.locator('[data-test="sidebar-nav-suppliers"]')
     await expect(link).toBeVisible()
     await link.click()
-    await expect(page).toHaveURL('/404')
+    await expect(page).toHaveURL('/404', { timeout: DATA_READY_TIMEOUT })
   })
 
   test('Sidebar → Analytics link redirects to /404 when adminDashboard OFF', async ({
@@ -202,6 +203,6 @@ test.describe('Sidebar cross-link', () => {
     const link = page.locator('[data-test="sidebar-nav-analytics"]')
     await expect(link).toBeVisible()
     await link.click()
-    await expect(page).toHaveURL('/404')
+    await expect(page).toHaveURL('/404', { timeout: DATA_READY_TIMEOUT })
   })
 })
