@@ -79,7 +79,9 @@ def main():
     parser.add_argument("--command-timeout", type=int, default=3600)
     parser.add_argument("--check-timeout", type=int, default=3600)
     parser.add_argument("--output-limit", type=int, default=12000)
-    parser.add_argument("--max-read-files", type=int, default=12)
+    # Файлов для чтения — 45 по решению владельца 2026-09-26: Zoo-автор за ночную сессию
+    # читал медиана 14.5 разных файлов, максимум 44. Прежние 12 кончались в обычной задаче.
+    parser.add_argument("--max-read-files", type=int, default=45)
     parser.add_argument("--read-file-limit", type=int, default=200_000)
     parser.add_argument("--history-tokens", type=int, default=65536)
     args = parser.parse_args()

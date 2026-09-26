@@ -529,6 +529,9 @@ class AiderRunTest(unittest.TestCase):
         # Потолки — решение владельца: 100 ходов, 60 минут на команду и на проверку.
         self.assertEqual({k: self.aider_config()[k] for k in ("max_reflections", "command_timeout", "check_timeout")},
                          {"max_reflections": 100, "command_timeout": 3600, "check_timeout": 3600})
+        # Файлов для чтения — 45 (решение владельца: Zoo читал до 44), размер — прежний.
+        self.assertEqual({k: self.aider_config()[k] for k in ("max_read_files", "read_file_limit")},
+                         {"max_read_files": 45, "read_file_limit": 200_000})
 
     def test_parallel_authors_on_aider_each_get_their_worktree(self):
         self.queue.write_text(json.dumps({"tasks": [
