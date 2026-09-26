@@ -47,12 +47,25 @@ GROUPS = set()
 ACTING = re.compile(r"^<{5,9} SEARCH|^```(?:bash|sh|shell|zsh|console)\b", re.MULTILINE)
 
 
+# Имена из файла ключей. Ключ нужен самому aider, а не командам модели: без этой уборки
+# `printenv` в команде клал ключ в журнал команд, а оттуда — в доказательства, то есть в
+# каталог прогона и в промпт приёмщика.
+SECRETS = set()
+SECRET_NAME = re.compile(r"_API_KEY$")
+
+
 def load_env(path):
     for line in Path(path).expanduser().read_text().splitlines():
         line = line.strip()
         if line and not line.startswith("#") and "=" in line:
             key, value = line.split("=", 1)
+            SECRETS.add(key.strip())
             os.environ.setdefault(key.strip(), value.strip())
+
+
+def child_env():
+    """Окружение команд модели и проверок — без ключей модели."""
+    return {k: v for k, v in os.environ.items() if k not in SECRETS and not SECRET_NAME.search(k)}
 
 
 def clip(text, limit):
@@ -78,7 +91,7 @@ def run_limited(command, cwd, timeout, shell):
     """Команда с таймаутом на всё дерево процессов и обрезанным выводом."""
     proc = subprocess.Popen(command, cwd=cwd, shell=shell, executable="/bin/bash" if shell else None,
                             stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                            text=True, errors="replace", start_new_session=True)
+                            text=True, errors="replace", start_new_session=True, env=child_env())
     ACTIVE.add(proc)
     GROUPS.add(proc.pid)
     try:

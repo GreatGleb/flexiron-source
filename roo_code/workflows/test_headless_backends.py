@@ -748,6 +748,16 @@ class AiderDriverTest(unittest.TestCase):
         self.assertIn("Отклонено ночным контроллером", self.prompts()[1])
         self.assertEqual(result["status"], "blocked")
 
+    def test_model_key_is_not_visible_to_commands(self):
+        """Ключ нужен aider, а не командам: из журнала команд он ушёл бы в доказательства —
+        в каталог прогона и в промпт приёмщика."""
+        keys = self.base / "aider.env"
+        keys.write_text("NIGHT_SECRET_TOKEN=s3cr3t-9z\n")
+        result, stats = self.drive(['```bash\necho "[${NIGHT_SECRET_TOKEN:-нет}] [${DEEPSEEK_API_KEY:-нет}]"\n```\n',
+                                    "Понял."], ["notes.md"], env_file=keys)
+        self.assertIn("[нет] [нет]", stats["command_log"][0])
+        self.assertNotIn("s3cr3t-9z", json.dumps([result, stats, self.prompts()], ensure_ascii=False))
+
     def test_read_only_git_commands_are_allowed(self):
         _, stats = self.drive(["```bash\ngit log --oneline -1\n```\n", "Понял."], ["notes.md"])
         self.assertEqual(stats["refused"], [])
