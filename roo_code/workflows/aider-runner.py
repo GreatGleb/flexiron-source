@@ -75,6 +75,7 @@ def main():
     parser.add_argument("--output-limit", type=int, default=12000)
     parser.add_argument("--max-read-files", type=int, default=12)
     parser.add_argument("--read-file-limit", type=int, default=200_000)
+    parser.add_argument("--history-tokens", type=int, default=65536)
     args = parser.parse_args()
     root, result_path = args.root.resolve(), args.result
     prompt = sys.stdin.read()
@@ -104,7 +105,7 @@ def main():
         "stats": str(stats_path), "max_reflections": args.max_reflections,
         "command_timeout": args.command_timeout, "check_timeout": args.check_timeout,
         "output_limit": args.output_limit, "max_read_files": args.max_read_files,
-        "read_file_limit": args.read_file_limit}, ensure_ascii=False, indent=2))
+        "read_file_limit": args.read_file_limit, "history_tokens": args.history_tokens}, ensure_ascii=False, indent=2))
     missing = {name for name in outputs if not (root / name).exists()}
     caches_before = set(root.glob(".aider.tags.cache.v*"))
     before = snapshot(root, outputs)
@@ -153,6 +154,10 @@ def main():
                         f"команд {len(stats.get('commands', []))}, отклонено {len(stats.get('refused', []))}; "
                         f"токенов {stats.get('tokens_sent', 0)}+{stats.get('tokens_received', 0)}, "
                         f"${stats.get('cost', 0)}")
+        # Прогоны автора — приёмщику: без них «мутация не подтверждена» бракует верную работу.
+        evidence += [f"команда автора: {line}"[:400] for line in stats.get("command_log", [])[-15:]]
+        if stats.get("final_reply"):
+            evidence.append("отчёт автора: " + stats["final_reply"])
     # Ошибку модели aider печатает и работает дальше (замер 0.86.2: неверный ключ DeepSeek →
     # «litellm.AuthenticationError», выход с кодом 0). Без этой строки причина браковки
     # звучала бы «ничего не изменил», а настоящая осталась бы в логе.
@@ -163,15 +168,22 @@ def main():
         return finish("blocked", f"aider не уложился в {args.timeout} с{why}", evidence)
     if code:
         return finish("blocked", f"драйвер aider завершился с кодом {code}{why}", evidence)
+    if stats.get("cannot"):
+        # Модель сама сказала, что задачу выполнить нельзя, — её причина и есть причина
+        # браковки, даже если что-то успело измениться: работу сохранит архив блокировки.
+        return finish("blocked", "автор: " + stats["cannot"], evidence)
     if not edited:
-        return finish("blocked", f"aider не изменил ни одного файла из outputs{why}", evidence)
+        # Объяснение модели — лучшая причина, какая есть: без него утром видно только «не изменил».
+        said = f"; автор: {stats['final_reply'][:300]}" if stats.get("final_reply") else ""
+        return finish("blocked", f"aider не изменил ни одного файла из outputs{why}{said}", evidence)
     outside = sorted(git_status(root) - set(outputs))
     evidence = [f"изменён {name}" for name in edited] + evidence
     if outside:
         # Решает ядро, здесь только честное описание: правку вне чата драйвер отклоняет,
         # но команда автора могла тронуть что угодно — обёртка не вправе это скрыть.
         evidence.append(f"изменено вне outputs: {outside}")
-    return finish("done", "aider изменил: " + ", ".join(edited), evidence)
+    summary = stats.get("final_reply") or ("aider изменил: " + ", ".join(edited))
+    return finish("done", summary, evidence)
 
 
 if __name__ == "__main__":

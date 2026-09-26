@@ -227,7 +227,11 @@ class AiderBackend(Backend):
                 "задания). Нужен другой файл — назови его путь в ответе, и он откроется для чтения. "
                 "Команды (греп, чтение логов, тесты) предлагай блоком ```bash```: они выполнятся, "
                 "и ты увидишь вывод. Git — только читающие подкоманды. Машинные проверки задачи "
-                "запускаются сами после каждой правки; упавшие вернутся к тебе на починку.\n")
+                "запускаются сами после каждой правки; упавшие вернутся к тебе на починку. Если критерий "
+                "требует мутации или прогона — сделай его командой: журнал команд с кодами возврата "
+                "уйдёт приёмщику. Последним ответом дай отчёт без команд: что изменил, что гонял и с "
+                "каким итогом. Если задачу выполнить нельзя (нет решения владельца, противоречие в "
+                "задании) — последний ответ начни строкой «НЕ МОГУ: <точная причина>».\n")
 
     def build(self, role, root, run_dir, result_path):
         if role not in self.roles:
@@ -237,7 +241,8 @@ class AiderBackend(Backend):
                 "--timeout", str(int(self.options.get("timeout_seconds", 3600)))]
         if self.options.get("env_file"):
             argv += ["--env-file", str(Path(self.options["env_file"]).expanduser())]
-        for key in ("python", "edit_format", "max_reflections", "command_timeout", "check_timeout"):
+        for key in ("python", "edit_format", "max_reflections", "command_timeout", "check_timeout",
+                    "history_tokens"):
             if self.options.get(key) is not None:
                 argv += ["--" + key.replace("_", "-"), str(self.options[key])]
         return argv

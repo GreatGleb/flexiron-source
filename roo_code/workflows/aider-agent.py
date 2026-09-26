@@ -128,10 +128,18 @@ def main(config_path):
     from aider.models import Model
     from aider.repo import GitRepo
 
-    base_coder.run_cmd = lambda command, verbose=False, error_print=None, cwd=None: run_limited(
-        command, cwd or ROOT, CONFIG["command_timeout"], shell=True)
+    stats = {"commands": [], "refused": [], "read_added": [], "checks_runs": 0, "checks_green": None,
+             "command_log": [], "final_reply": "", "cannot": ""}
 
-    stats = {"commands": [], "refused": [], "read_added": [], "checks_runs": 0, "checks_green": None}
+    def run_model_command(command, verbose=False, error_print=None, cwd=None):
+        code, out = run_limited(command, cwd or ROOT, CONFIG["command_timeout"], shell=True)
+        # Журнал уходит приёмщику как доказательство: он читает отчёт автора целиком и
+        # бракует «мутация не подтверждена», если прогонов автора не видно.
+        tail = out.strip().splitlines()[-3:] if out.strip() else []
+        stats["command_log"].append(f"$ {command} → код {code}" + ("; " + " / ".join(tail) if tail else ""))
+        return code, out
+
+    base_coder.run_cmd = run_model_command
 
     class NightIO(InputOutput):
         def confirm_ask(self, question, default="y", subject=None, explicit_yes_required=False,
@@ -181,17 +189,16 @@ def main(config_path):
         fnames=OUTPUTS, read_only_fnames=CONFIG["sources"], auto_commits=False, dirty_commits=False,
         map_tokens=model.get_repo_map_tokens(), stream=False, auto_lint=False,
         auto_test=bool(CONFIG["checks"]), test_cmd=checks if CONFIG["checks"] else None,
-        summarizer=ChatSummary([model.weak_model, model], model.max_chat_history_tokens),
+        # aider сжимает историю уже после 8192 токенов — это его потолок, а не модели (1M у
+        # deepseek-flash). В агентском цикле это два-три вывода команд: старые ходы ушли бы
+        # в пересказ, и модель чинила бы по памяти, а не по выводу.
+        summarizer=ChatSummary([model.weak_model, model], CONFIG.get("history_tokens", 65536)),
         suggest_shell_commands=True, detect_urls=False, restore_chat_history=False)
     coder.max_reflections = CONFIG["max_reflections"]
 
+    pending = []
+
     def mentions(content):
-        # Добавленный по упоминанию файл aider отрабатывает `return` ДО правок и команд
-        # (`send_message`): ответ «```bash grep … helper.py```» терял свою команду молча,
-        # а ответ с правкой — правку. Поэтому ответ, который что-то делает, файлов не
-        # подтягивает; нужный файл модель прочитает командой или попросит отдельным ответом.
-        if ACTING.search(content):
-            return None
         added = []
         for rel in sorted(coder.get_file_mentions(content) - coder.ignore_mentions):
             coder.ignore_mentions.add(rel)
@@ -202,10 +209,19 @@ def main(config_path):
             coder.abs_read_only_fnames.add(str(path))
             added.append(rel)
             stats["read_added"].append(rel)
-        if added:
-            return (f"Добавил в чат ТОЛЬКО ДЛЯ ЧТЕНИЯ: {', '.join(added)}. "
-                    f"Править можно только: {', '.join(OUTPUTS)}.")
-        return None
+        if not added:
+            return None
+        note = (f"Добавил в чат ТОЛЬКО ДЛЯ ЧТЕНИЯ: {', '.join(added)}. "
+                f"Править можно только: {', '.join(OUTPUTS)}.")
+        # Возврат сообщения aider отрабатывает `return` ДО правок и команд (`send_message`):
+        # ответ «```bash grep … helper.py```» терял свою команду, ответ с правкой — правку.
+        # Такой ответ сначала доделывается, а ход с новыми файлами модель получает после
+        # (shell_then_continue). Молча выкинуть просьбу нельзя: живая проба 2026-09-26 —
+        # модель вписала заглушку, попросила config/limits.py, не получила и сдалась.
+        if ACTING.search(content):
+            pending.append(note)
+            return None
+        return note
 
     coder.check_for_file_mentions = mentions
     run_shell = coder.run_shell_commands
@@ -218,11 +234,14 @@ def main(config_path):
         # отражений: одна и та же команда, один и тот же вывод, токены за каждый круг.
         coder.shell_commands = []
         refused = stats["refused"][before:]
-        if (output or refused) and not coder.reflected_message:
+        opened = " ".join(pending) + "\n" if pending else ""
+        pending.clear()
+        if (output or refused or opened) and not coder.reflected_message:
             note = ("Отклонено ночным контроллером: " + "; ".join(refused) + "\n") if refused else ""
-            coder.reflected_message = (note + ("Вывод команд — выше. " if output else "")
+            coder.reflected_message = (opened + note + ("Вывод команд — выше. " if output else "")
                                        + "Продолжай задачу по этому результату. Когда задача "
-                                       "сделана и проверки зелёные — ответь коротко, без команд.")
+                                       "сделана и проверки зелёные — ответь без команд отчётом: "
+                                       "что изменил, какие команды и проверки гонял и с каким итогом.")
         return output
 
     coder.run_shell_commands = shell_then_continue
@@ -232,6 +251,22 @@ def main(config_path):
     if CONFIG["checks"] and stats["checks_green"] is None:
         # Правок не было — auto_test не сработал ни разу; итог проверок всё равно нужен.
         run_checks()
+    if ACTING.search(coder.partial_response_content or ""):
+        # Закончила правкой или командой — отчёта нет, а приёмщик читает именно его.
+        # Один короткий ход; правки в нём по-прежнему только в outputs. Упоминания файлов
+        # здесь не подтягиваются: отчёт их называет, и подтянутый файл дал бы ещё ход,
+        # ответ которого затёр бы сам отчёт.
+        coder.check_for_file_mentions = lambda content: None
+        coder.run(with_message=("Задача закончена? Ответь без правок и команд отчётом: что "
+                                "изменил, какие команды и проверки гонял и с каким итогом. "
+                                "Если выполнить нельзя — начни с «НЕ МОГУ: <причина>»."),
+                  preproc=False)
+    # Последний ответ модели — её отчёт: код и правки из него вырезаются, остаётся текст.
+    reply = re.sub(r"```.*?```", " ", coder.partial_response_content or "", flags=re.DOTALL)
+    reply = re.sub(r"<{5,9} SEARCH.*?>{5,9} REPLACE", " ", reply, flags=re.DOTALL)
+    stats["final_reply"] = " ".join(reply.split())[:1500]
+    cannot = re.search(r"НЕ МОГУ:\s*(.+)", coder.partial_response_content or "")
+    stats["cannot"] = cannot.group(1).strip()[:400] if cannot else ""
     stats.update(tokens_sent=coder.total_tokens_sent, tokens_received=coder.total_tokens_received,
                  cost=round(coder.total_cost, 4), reflections=coder.num_reflections)
     Path(CONFIG["stats"]).write_text(json.dumps(stats, ensure_ascii=False, indent=2))

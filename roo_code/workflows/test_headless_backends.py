@@ -523,6 +523,25 @@ class AiderRunTest(unittest.TestCase):
         # Незнакомое имя модели aider встречает форматом whole — файл целиком в ответ.
         self.assertEqual(self.invoke().returncode, 0)
         self.assertEqual(self.aider_config()["edit_format"], "diff")
+        # Свой потолок aider — 8192 токена истории; в агентском цикле это два-три вывода.
+        self.assertEqual(self.aider_config()["history_tokens"], 65536)
+
+    def test_parallel_authors_on_aider_each_get_their_worktree(self):
+        self.queue.write_text(json.dumps({"tasks": [
+            {"id": "alpha", "sources": ["plan.md"], "outputs": ["plan.md"], "task": "prepare"},
+            {"id": "beta", "sources": ["plan.md"], "outputs": ["plan2.md"], "task": "prepare"}]}))
+        command = [sys.executable, str(RUNNER), "--workspace", str(self.root), "--queue", str(self.queue),
+                   "--routing", str(self.routing), "--run", "--run-dir", str(self.logs),
+                   "--minutes", "2", "--max-tasks", "2", "--parallel", "2"]
+        result = subprocess.run(command, env=self.env, capture_output=True, text=True, timeout=60)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(sorted(x["task"] for x in self.state()["completed"]), ["alpha", "beta"], self.state())
+        roots = {json.loads(x[len("aider "):])["root"] for x in (self.base / "calls").read_text().splitlines()
+                 if x.startswith("aider ")}
+        self.assertEqual(len(roots), 2)   # каждый автор — в своём worktree
+        self.assertNotIn(str(self.root.resolve()), roots)
+        self.assertFalse(list(self.root.glob(".aider*")))
+        self.assertFalse(self.git("status", "--porcelain"))
 
     def test_model_error_with_exit_zero_is_named_in_the_reason(self):
         result = self.invoke("auth")
@@ -652,18 +671,34 @@ class AiderDriverTest(unittest.TestCase):
         self.assertGitUntouched()
 
     def test_command_output_gives_the_model_another_turn(self):
-        result, stats = self.drive(["Поищу.\n```bash\ngrep -rn MAGIC_NUMBER helper.py\n```\n",
+        result, stats = self.drive(["Поищу.\n```bash\ngrep -rn MAGIC_NUMBER .\n```\n",
                                     edit("notes.md", "Число: ?", "Число: 42")], ["notes.md"])
         self.assertEqual((self.root / "notes.md").read_text(), "Число: 42\n")
         self.assertIn("MAGIC_NUMBER = 42", self.prompts()[1])
         # Ровно один запуск: aider копит команды за весь прогон и гонял бы их на каждом
-        # ходу заново — цикл до потолка отражений.
-        self.assertEqual(stats["commands"], ["grep -rn MAGIC_NUMBER helper.py"])
-        self.assertEqual(len(self.prompts()), 2)
-        # Число пришло выводом команды, а не подтянутым файлом: раньше упоминание
-        # helper.py внутри команды отменяло саму команду, и тест проходил случайно.
+        # ходу заново — цикл до потолка отражений. Ходов три: команда, правка, отчёт.
+        self.assertEqual(stats["commands"], ["grep -rn MAGIC_NUMBER ."])
+        self.assertEqual(len(self.prompts()), 3)
+        # Число пришло выводом команды, а не подтянутым файлом: команда файла не называет.
         self.assertEqual(stats["read_added"], [])
         self.assertEqual(result["status"], "done", result)
+
+    def test_command_naming_a_file_runs_and_the_file_opens_after(self):
+        """Упоминание файла в ответе с командой: раньше команда терялась молча."""
+        _, stats = self.drive(["```bash\ngrep -n MAGIC helper.py\n```\n", "Понял."], ["notes.md"])
+        self.assertEqual(stats["commands"], ["grep -n MAGIC helper.py"])
+        self.assertEqual(stats["read_added"], ["helper.py"])
+        self.assertIn("ТОЛЬКО ДЛЯ ЧТЕНИЯ: helper.py", self.prompts()[1])
+
+    def test_file_asked_for_next_to_an_edit_is_delivered(self):
+        """Живая проба: модель вписала заглушку и попросила файл — и не получила его."""
+        result, stats = self.drive([edit("notes.md", "Число: ?", "Число: <из helper.py>")
+                                    + "\nНужен helper.py, чтобы вписать число.\n",
+                                    edit("notes.md", "Число: <из helper.py>", "Число: 42"), "Вписал 42."],
+                                   ["notes.md"])
+        self.assertEqual(stats["read_added"], ["helper.py"])
+        self.assertIn("MAGIC_NUMBER = 42", self.prompts()[1])
+        self.assertEqual((self.root / "notes.md").read_text(), "Число: 42\n")
 
     def test_edit_is_applied_even_when_the_reply_mentions_another_file(self):
         self.drive([edit("notes.md", "Число: ?", "Число: 42") + "\nЧисло взял из helper.py.\n"], ["notes.md"])
@@ -712,6 +747,33 @@ class AiderDriverTest(unittest.TestCase):
                    text="Сверься с other.py и helper.py, потом поправь notes.md.")
         self.assertIn("other.py", self.prompts()[0])   # упоминание дошло до модели…
         self.assertNotIn("VALUE = 1", self.prompts()[0])   # …а содержимое файла — нет
+
+    def test_author_report_and_command_log_reach_the_reviewer(self):
+        """Приёмщик читает отчёт автора целиком; без прогонов автора в нём он бракует
+        «мутация не подтверждена» даже верную работу."""
+        result, _ = self.drive(["```bash\ngrep -rn MAGIC_NUMBER helper.py\n```\n",
+                                edit("notes.md", "Число: ?", "Число: 42"),
+                                "Вписал 42 в notes.md: grep по helper.py показал MAGIC_NUMBER = 42."],
+                               ["notes.md"])
+        self.assertEqual(result["status"], "done", result)
+        self.assertIn("grep по helper.py показал", result["summary"])
+        self.assertTrue(any(e.startswith("команда автора: $ grep -rn MAGIC_NUMBER helper.py → код 0")
+                            for e in result["evidence"]), result["evidence"])
+
+    def test_author_who_ends_with_an_edit_is_asked_for_a_report(self):
+        result, _ = self.drive([edit("notes.md", "Число: ?", "Число: 1"), "Вписал 1 в notes.md."], ["notes.md"])
+        self.assertEqual(result["summary"], "Вписал 1 в notes.md.")
+        self.assertIn("Ответь без правок и команд отчётом", self.prompts()[1])
+
+    def test_author_can_say_the_task_cannot_be_done(self):
+        result, _ = self.drive(["НЕ МОГУ: в задании нет решения владельца о формате числа."], ["notes.md"])
+        self.assertEqual(result["status"], "blocked")
+        self.assertEqual(result["summary"], "автор: в задании нет решения владельца о формате числа.")
+
+    def test_author_explanation_survives_when_nothing_was_changed(self):
+        result, _ = self.drive(["В коде нет таймаута архивации, число выдумывать не стану."], ["notes.md"])
+        self.assertEqual(result["status"], "blocked")
+        self.assertIn("автор: В коде нет таймаута архивации", result["summary"])
 
     def test_leftovers_are_cleaned_and_stats_reported(self):
         result, stats = self.drive([edit("notes.md", "Число: ?", "Число: 1")], ["notes.md", "docs/empty.md"])
