@@ -39,7 +39,7 @@ vue-i18n на отсутствующий ключ печатает сам клю
 `/admin/analytics/dashboard` показывает в номерной строке текст `sub.pl-report` вместо `7.7 P&L`.
 
 Ни один тест этого не ловит: e2e считают карточки и проверяют `href`
-(`frontend_vue/tests/e2e/admin/analytics/dashboard.spec.ts:283-302`), но текст `.acard-num` не
+(`frontend_vue/tests/e2e/admin/analytics/dashboard.spec.ts:284-303`), но текст `.acard-num` не
 читает никто — `grep -rn "acard-num" frontend_vue/tests/e2e/` пусто.
 
 ### Fix
@@ -123,7 +123,7 @@ TBD — правка та же, что у соседей (`options: { headers: a
 говорит «Позиций в дефиците: 8» (`mocks/analytics.ts:891-892`), а `deficitItems` в том же
 объекте `deficitData` (`:1007-1014`) содержит **пять** записей (`:931-1006`) — и e2e это число
 закрепляет: `await expect(page.locator('[data-test="deficit-item-row"]')).toHaveCount(5)`
-(`frontend_vue/tests/e2e/admin/analytics/deficit.spec.ts:204`).
+(`frontend_vue/tests/e2e/admin/analytics/deficit.spec.ts:205`).
 
 Соседние KPI той же карточки расходятся со складом так же: «Решено: 3» (`:921-922`) при том, что
 в складском сторе дефицитов со статусом `resolved` две записи

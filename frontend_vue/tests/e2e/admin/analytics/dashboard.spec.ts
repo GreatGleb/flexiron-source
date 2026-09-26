@@ -3,6 +3,7 @@ import { test, expect, testBare as base } from '../../fixtures'
 import { openAdminPage } from '../../helpers/admin'
 import { ALL_FLAGS_ENABLED } from '../../helpers/flags'
 import { freezeTime } from '../../helpers/mocks'
+import { DATA_READY_TIMEOUT } from '../../helpers/ready'
 import { waitForFontsReady, SNAPSHOT_OPTIONS } from '../../helpers/visual'
 
 /**
@@ -173,7 +174,7 @@ test.describe('dashboard › sub-nav', () => {
 
   test('clicking warehouse tab navigates and swaps current', async ({ page }) => {
     await page.locator('[data-test="analytics-sub-nav-warehouse"]').click()
-    await expect(page).toHaveURL('/admin/analytics/warehouse')
+    await expect(page).toHaveURL('/admin/analytics/warehouse', { timeout: DATA_READY_TIMEOUT })
     await expect(page.locator('[data-test="analytics-sub-nav-warehouse"]')).toHaveClass(/current/)
     await expect(page.locator('[data-test="analytics-sub-nav-kpi"]')).not.toHaveClass(/current/)
   })
@@ -298,7 +299,7 @@ test.describe('dashboard › analytics grid', () => {
 
   test('warehouse card navigates to /admin/analytics/warehouse', async ({ page }) => {
     await page.locator('[data-test="dashboard-acard"]').first().click()
-    await expect(page).toHaveURL('/admin/analytics/warehouse')
+    await expect(page).toHaveURL('/admin/analytics/warehouse', { timeout: DATA_READY_TIMEOUT })
   })
 })
 

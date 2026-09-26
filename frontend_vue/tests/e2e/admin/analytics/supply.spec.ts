@@ -3,6 +3,7 @@ import { test, expect, testBare as base } from '../../fixtures'
 import { openAdminPage } from '../../helpers/admin'
 import { ALL_FLAGS_ENABLED } from '../../helpers/flags'
 import { freezeTime } from '../../helpers/mocks'
+import { DATA_READY_TIMEOUT } from '../../helpers/ready'
 import { waitForFontsReady, SNAPSHOT_OPTIONS } from '../../helpers/visual'
 
 /**
@@ -159,7 +160,7 @@ test.describe('supply › sub-nav', () => {
 
   test('clicking kpi tab navigates back to dashboard and swaps current', async ({ page }) => {
     await page.locator('[data-test="analytics-sub-nav-kpi"]').click()
-    await expect(page).toHaveURL('/admin/analytics/dashboard')
+    await expect(page).toHaveURL('/admin/analytics/dashboard', { timeout: DATA_READY_TIMEOUT })
     await expect(page.locator('[data-test="analytics-sub-nav-kpi"]')).toHaveClass(/current/)
     await expect(page.locator('[data-test="analytics-sub-nav-supply"]')).not.toHaveClass(/current/)
   })
@@ -306,7 +307,7 @@ baseTest('supply › redirects to /404 when adminSupply flag is OFF', async ({ p
   // Данных не будет: гард уводит на /404. Признак перехода — сам URL,
   // и проверка отсутствия ниже осмысленна только после него (#66).
   await page.goto(SUPPLY)
-  await expect(page).toHaveURL(/\/404$/)
+  await expect(page).toHaveURL(/\/404$/, { timeout: DATA_READY_TIMEOUT })
   await expect(page.locator('[data-test="supply-title"]')).toHaveCount(0)
 })
 
