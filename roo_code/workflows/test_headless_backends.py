@@ -897,6 +897,15 @@ class AiderDriverTest(unittest.TestCase):
         self.assertEqual((self.root / "notes.md").read_text(), "Число: 42\n")
         self.assertGitUntouched()
 
+    def test_file_over_the_ceiling_is_refused_out_loud(self):
+        """Файл сверх потолка пропускался молча: модель просила его и не получала ни файла,
+        ни ответа. Zoo-автор читал до 44 разных файлов за сессию."""
+        _, stats = self.drive(["Мне нужны helper.py и other.py.", "Понял."], ["notes.md"], max_read_files=1)
+        self.assertEqual(stats["read_added"], ["helper.py"])
+        self.assertIn("НЕ открыл (потолок 1 файлов", self.prompts()[1])
+        self.assertIn("other.py", self.prompts()[1].split("НЕ открыл", 1)[1])
+        self.assertNotIn("VALUE = 1", self.prompts()[1])
+
     def test_prompt_mentions_are_not_pulled_into_the_chat(self):
         # Промпт ядра упоминает десятки документов; подтянуть их все — лишние токены.
         self.drive([edit("notes.md", "Число: ?", "Число: 1")], ["notes.md"],

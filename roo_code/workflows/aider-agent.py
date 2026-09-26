@@ -371,20 +371,33 @@ def drive(config_path):
     pending = []
 
     def mentions(content):
-        added = []
+        added, refused = [], []
         for rel in sorted(coder.get_file_mentions(content) - coder.ignore_mentions):
             coder.ignore_mentions.add(rel)
             path = Path(coder.abs_root_path(rel))
-            if (len(stats["read_added"]) >= CONFIG["max_read_files"] or not path.is_file()
+            if not path.is_file():
+                continue
+            if (len(stats["read_added"]) >= CONFIG["max_read_files"]
                     or path.stat().st_size > CONFIG["read_file_limit"]):
+                refused.append(rel)
                 continue
             coder.abs_read_only_fnames.add(str(path))
             added.append(rel)
             stats["read_added"].append(rel)
-        if not added:
+        notes = []
+        if added:
+            notes.append(f"Добавил в чат ТОЛЬКО ДЛЯ ЧТЕНИЯ: {', '.join(added)}. "
+                         f"Править можно только: {', '.join(OUTPUTS)}.")
+        if refused:
+            # Молча пропустить нельзя: модель просила файл и ждала его. Zoo-автор читал
+            # в среднем 14.5 разных файлов за ночную сессию, максимум 44 — потолок в 12
+            # достигается в обычной задаче.
+            notes.append(f"НЕ открыл (потолок {CONFIG['max_read_files']} файлов или "
+                         f"{CONFIG['read_file_limit']} байт): {', '.join(refused)}. "
+                         "Читай их командой — `grep -n <слово> <файл>` или `sed -n '<от>,<до>p' <файл>`.")
+        if not notes:
             return None
-        note = (f"Добавил в чат ТОЛЬКО ДЛЯ ЧТЕНИЯ: {', '.join(added)}. "
-                f"Править можно только: {', '.join(OUTPUTS)}.")
+        note = " ".join(notes)
         # Возврат сообщения aider отрабатывает `return` ДО правок и команд (`send_message`):
         # ответ «```bash grep … helper.py```» терял свою команду, ответ с правкой — правку.
         # Такой ответ сначала доделывается, а ход с новыми файлами модель получает после
