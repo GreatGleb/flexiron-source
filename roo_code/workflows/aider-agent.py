@@ -9,9 +9,12 @@ aider и почему именно так — всё сверено с исхо�
   проверок, чтению вывода команд и допустимым командам. «Нет» — правке файла вне чата
   и созданию нового: оба после «да» делают `git add` (`base_coder.allowed_to_edit`),
   а изменённый индекс ядро считает порчей Git и останавливает всю ночь.
-- **Проверки задачи — внутри цикла.** `test_cmd` у aider может быть функцией
-  (`commands.cmd_test`); после каждой правки он её зовёт и упавшее отдаёт модели на
-  починку. Функция гоняет `checks` задачи — те же, что потом погонит ядро.
+- **Проверки задачи — когда модель считает работу сделанной** (решение владельца
+  2026-09-26). Не после каждой правки: `auto_test` aider гонял бы `npm run verify` на
+  каждом шаге недописанной работы. Сделанной работа считается по ответу без правок и
+  команд; красные `checks` задачи (те же, что потом погонит ядро) возвращаются модели
+  ходом на починку, и после каждой починки гоняются снова. Всё в одном цикле aider,
+  поэтому потолок ходов общий.
 - **Команды продолжают работу.** aider выполняет предложенные моделью команды, но их
   вывод только кладёт в историю, нового хода модели не делает. Здесь после команд
   модель получает ход — так она ищет файлы грепом, читает логи, запускает тесты.
@@ -48,6 +51,7 @@ ACTIVE = set()
 GROUPS = set()
 # Ответ, в котором есть правка или команда: SEARCH/REPLACE-блок либо shell-блок.
 ACTING = re.compile(r"^<{5,9} SEARCH|^```(?:bash|sh|shell|zsh|console)\b", re.MULTILINE)
+CANNOT = re.compile(r"НЕ МОГУ:\s*(.+)")
 
 
 # Имена из файла ключей. Ключ нужен самому aider, а не командам модели: без этой уборки
@@ -273,6 +277,12 @@ def command_refusal(command):
     return None
 
 
+DONE_QUESTION = ("Задача закончена? Если да — ответь без правок и команд отчётом: что изменил, "
+                 "какие команды и проверки гонял и с каким итогом; после такого ответа "
+                 "запустятся машинные проверки задачи. Если нет — продолжай. Если выполнить "
+                 "нельзя — начни с «НЕ МОГУ: <причина>».")
+
+
 def main(config_path):
     try:
         return drive(config_path)
@@ -314,9 +324,6 @@ def drive(config_path):
     base_coder.run_cmd = run_model_command
 
     pending = []
-    # Заметка хода (отказы, открытые файлы) для текста упавших проверок: aider ставит его
-    # после команд и затирал им заметку — модель не узнавала, что её правку отклонили.
-    carried = []
     DROPPED = {"Create new file?", "Allow edits to file that has not been added to the chat?"}
 
     class NightIO(InputOutput):
@@ -342,7 +349,13 @@ def drive(config_path):
             self.tool_output(f"[ночь] {asked} {subject or ''} → {'да' if ok else 'нет'}")
             return ok
 
+    def outputs_state():
+        return {name: (ROOT / name).read_bytes() if (ROOT / name).is_file() else None for name in OUTPUTS}
+
+    checked = {"state": None}
+
     def run_checks():
+        checked["state"] = outputs_state()
         failures = []
         for check in CONFIG["checks"]:
             code, out = run_limited(check["argv"], ROOT / check["cwd"], CONFIG["check_timeout"], shell=False)
@@ -351,20 +364,13 @@ def drive(config_path):
         stats["checks_runs"] += 1
         stats["checks_green"] = not failures
         if failures:
-            note = carried.pop() + "\n\n" if carried else ""
-            return (note + "Машинные проверки задачи упали. Их же погонит приёмка — почини:\n\n"
+            return ("Машинные проверки задачи упали. Их же погонит приёмка — почини:\n\n"
                     + "\n\n".join(failures))
         return None
 
-    class Checks(str):
-        """Строка и функция сразу. aider склеивает `test_cmd` со строкой системного промпта
-        (`get_platform_info`), а `cmd_test` зовёт его, если он вызываем: голая функция роняла
-        драйвер на первом же запросе к модели — поймано тестом, а не ночью."""
-
-        def __call__(self):
-            return run_checks()
-
-    checks = Checks("; ".join(f"(cd {c['cwd']} && {shlex.join(c['argv'])})" for c in CONFIG["checks"]))
+    # Строкой — только для системного промпта aider («the user prefers this test command»):
+    # модель знает, какие проверки её ждут, и может запустить их сама командой.
+    checks = "; ".join(f"(cd {c['cwd']} && {shlex.join(c['argv'])})" for c in CONFIG["checks"])
 
     io = NightIO(pretty=False, fancy_input=False, chat_history_file=CONFIG["chat_history"],
                  input_history_file=CONFIG["input_history"], root=str(ROOT))
@@ -374,7 +380,7 @@ def drive(config_path):
         main_model=model, edit_format=CONFIG["edit_format"], io=io, repo=repo,
         fnames=OUTPUTS, read_only_fnames=CONFIG["sources"], auto_commits=False, dirty_commits=False,
         map_tokens=model.get_repo_map_tokens(), stream=False, auto_lint=False,
-        auto_test=bool(CONFIG["checks"]), test_cmd=checks if CONFIG["checks"] else None,
+        auto_test=False, test_cmd=checks or None,
         # aider сжимает историю уже после 8192 токенов — это его потолок, а не модели (1M у
         # deepseek-flash). В агентском цикле это два-три вывода команд: старые ходы ушли бы
         # в пересказ, и модель чинила бы по памяти, а не по выводу.
@@ -442,7 +448,6 @@ def drive(config_path):
     run_shell = coder.run_shell_commands
 
     def shell_then_continue():
-        carried.clear()
         before = len(stats["refused"])
         output = run_shell()
         # aider копит команды за весь запуск (сброс — только в init_before_message) и на
@@ -454,8 +459,6 @@ def drive(config_path):
         pending.clear()
         if (output or refused or opened) and not coder.reflected_message:
             note = ("Отклонено ночным контроллером: " + "; ".join(refused) + "\n") if refused else ""
-            if opened or note:
-                carried.append(opened + note)
             coder.reflected_message = (opened + note + ("Вывод команд — выше. " if output else "")
                                        + "Продолжай задачу по этому результату. Когда задача "
                                        "сделана и проверки зелёные — ответь без команд отчётом: "
@@ -463,14 +466,38 @@ def drive(config_path):
         return output
 
     coder.run_shell_commands = shell_then_continue
+    send = coder.send_message
+    declared = {"done": False}
+
+    def send_then_check(message):
+        """Конец хода без продолжения — место решения о проверках.
+
+        Ход, которому aider уже назначил продолжение (вывод команд, открытые файлы,
+        несработавшая правка), решения не требует. Остальное: ответ без правок и команд —
+        модель объявила работу сделанной, гоняем checks; правка до такого ответа —
+        спрашиваем, закончена ли задача; правка после него — это починка, гоняем сразу.
+        Outputs не менялись с прошлого прогона — повторять нечего: модель, ответившая
+        на красные проверки одними словами, иначе получала бы тот же вывод до потолка."""
+        yield from send(message)
+        content = coder.partial_response_content or ""
+        if coder.reflected_message or CANNOT.search(content):
+            return
+        if ACTING.search(content) and not declared["done"]:
+            coder.reflected_message = DONE_QUESTION
+            return
+        declared["done"] = True
+        if CONFIG["checks"] and checked["state"] != outputs_state():
+            coder.reflected_message = run_checks()
+
+    coder.send_message = send_then_check
     # preproc=False: промпт ядра упоминает десятки документов, и aider подтянул бы их все.
     # Нужное модель попросит сама — упоминанием в ответе, и получит только для чтения.
     coder.run(with_message=Path(CONFIG["message"]).read_text(), preproc=False)
-    if CONFIG["checks"] and stats["checks_green"] is None:
-        # Правок не было — auto_test не сработал ни разу; итог проверок всё равно нужен.
-        run_checks()
-    if ACTING.search(coder.partial_response_content or ""):
+    last = coder.partial_response_content or ""
+    if ACTING.search(last) and not CANNOT.search(last):
         # Закончила правкой или командой — отчёта нет, а приёмщик читает именно его.
+        # «НЕ МОГУ» рядом с правкой — уже отчёт: просьба о новом дала бы ответ «Готово»,
+        # и он затёр бы отказ — задача ушла бы в done.
         # Один короткий ход; правки в нём по-прежнему только в outputs. Упоминания файлов
         # здесь не подтягиваются: отчёт их называет, и подтянутый файл дал бы ещё ход,
         # ответ которого затёр бы сам отчёт.
@@ -479,11 +506,16 @@ def drive(config_path):
                                 "изменил, какие команды и проверки гонял и с каким итогом. "
                                 "Если выполнить нельзя — начни с «НЕ МОГУ: <причина>»."),
                   preproc=False)
+    if CONFIG["checks"] and checked["state"] != outputs_state():
+        # Итог проверок нужен приёмщику и тогда, когда модель работу сделанной не объявила
+        # (НЕ МОГУ, потолок ходов) или объявила до последней правки: отчитываемся о тех
+        # файлах, что уходят ядру, а не о прошлом прогоне.
+        run_checks()
     # Последний ответ модели — её отчёт: код и правки из него вырезаются, остаётся текст.
     reply = re.sub(r"```.*?```", " ", coder.partial_response_content or "", flags=re.DOTALL)
     reply = re.sub(r"<{5,9} SEARCH.*?>{5,9} REPLACE", " ", reply, flags=re.DOTALL)
     stats["final_reply"] = " ".join(reply.split())[:1500]
-    cannot = re.search(r"НЕ МОГУ:\s*(.+)", coder.partial_response_content or "")
+    cannot = CANNOT.search(coder.partial_response_content or "")
     stats["cannot"] = cannot.group(1).strip()[:400] if cannot else ""
     stats.update(tokens_sent=coder.total_tokens_sent, tokens_received=coder.total_tokens_received,
                  cost=round(coder.total_cost, 4), reflections=coder.num_reflections)

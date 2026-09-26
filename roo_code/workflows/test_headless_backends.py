@@ -719,14 +719,45 @@ class AiderDriverTest(unittest.TestCase):
                                   "import calc; assert calc.add(2, 3) == 5, calc.add(2, 3)"]}
 
     def test_failed_checks_go_back_to_the_model_until_green(self):
+        """Решение владельца 2026-09-26: проверки — когда модель считает работу сделанной, а
+        после каждой починки — снова. Правка до отчёта проверок не запускает."""
         result, stats = self.drive([edit("calc.py", "    return a - b", "    return a * b"),
-                                    edit("calc.py", "    return a * b", "    return a + b")],
+                                    "Готово: add переписан.",
+                                    edit("calc.py", "    return a * b", "    return a + b"),
+                                    "Починил: a + b, проверки зелёные."],
                                    ["calc.py"], checks=[self.CHECK])
         self.assertEqual((self.root / "calc.py").read_text(), "def add(a, b):\n    return a + b\n")
         self.assertEqual(result["status"], "done", result)
+        prompts = self.prompts()
+        # Правка без отчёта — вопрос «закончена ли», а не прогон проверок.
+        self.assertNotIn("Машинные проверки задачи упали", prompts[1])
+        self.assertIn("Задача закончена?", prompts[1])
+        # Отчёт — прогон, красный вернулся на починку; починка — прогон сразу, зелёный.
+        self.assertIn("Машинные проверки задачи упали", prompts[2])
         self.assertEqual((stats["checks_runs"], stats["checks_green"]), (2, True), stats)
-        self.assertIn("Машинные проверки задачи упали", self.prompts()[1])
+        # Починка проверяется сразу, без второго «закончена ли?»: дальше — только отчёт.
+        self.assertNotIn("запустятся машинные проверки", prompts[3].rsplit('"role": "user"', 1)[1])
+        self.assertEqual(result["summary"], "Починил: a + b, проверки зелёные.")
         self.assertGitUntouched()
+
+    def test_checks_do_not_run_on_every_edit(self):
+        """Три правки подряд до отчёта — один прогон проверок, а не три."""
+        steps = [edit("calc.py", "    return a - b", "    return a * b"),
+                 edit("calc.py", "    return a * b", "    return a - b + 0"),
+                 edit("calc.py", "    return a - b + 0", "    return a + b"), "Готово: add = a + b."]
+        result, stats = self.drive(steps, ["calc.py"], checks=[self.CHECK])
+        self.assertEqual((stats["checks_runs"], stats["checks_green"]), (1, True), stats)
+        self.assertFalse(any("Машинные проверки задачи упали" in p for p in self.prompts()))
+        self.assertEqual(result["status"], "done", result)
+
+    def test_unchanged_files_after_red_checks_are_not_rechecked(self):
+        """Модель ответила на красные проверки словами — тот же прогон дал бы тот же вывод
+        до потолка ходов. Повтора нет, итог — красный, и он виден приёмщику."""
+        result, stats = self.drive([edit("calc.py", "    return a - b", "    return a * b"), "Готово.",
+                                    "Не знаю, как чинить."], ["calc.py"], checks=[self.CHECK])
+        self.assertEqual((stats["checks_runs"], stats["checks_green"]), (1, False), stats)
+        self.assertEqual(len(self.prompts()), 3)   # задача, «закончена?», красные — на слова хода нет
+        self.assertTrue(any("проверки задачи у автора: КРАСНЫЕ" in e for e in result["evidence"]), result)
 
     def test_command_output_gives_the_model_another_turn(self):
         result, stats = self.drive(["Поищу.\n```bash\ngrep -rn MAGIC_NUMBER .\n```\n",
@@ -831,13 +862,18 @@ class AiderDriverTest(unittest.TestCase):
         self.assertIn("Правка helper.py ОТКЛОНЕНА", self.prompts()[1])
         self.assertEqual((self.root / "helper.py").read_text(), "MAGIC_NUMBER = 42\n")
 
-    def test_dropped_edit_note_survives_failed_checks(self):
-        """Упавшие проверки ставятся после команд и затирали заметку хода."""
-        self.drive([edit("helper.py", "MAGIC_NUMBER = 42", "MAGIC_NUMBER = 0")
+    def test_dropped_edit_note_is_not_lost_to_checks(self):
+        """Упавшие проверки затирали заметку хода: модель не узнавала, что правку отклонили.
+        Ход с заметкой проверок не запускает, они приходят следующим, после отчёта."""
+        self.drive(["Готово.", edit("helper.py", "MAGIC_NUMBER = 42", "MAGIC_NUMBER = 0")
                     + edit("calc.py", "    return a - b", "    return a * b"), "Понял."],
                    ["calc.py"], checks=[self.CHECK], sources=["helper.py"])
+        # Отчёт — красные проверки; починка с отклонённой правкой — заметка, не затёртая
+        # проверками; следующий ответ без правок — снова проверки (a * b тоже красное).
         self.assertIn("Машинные проверки задачи упали", self.prompts()[1])
-        self.assertIn("Правка helper.py ОТКЛОНЕНА", self.prompts()[1])
+        self.assertIn("Правка helper.py ОТКЛОНЕНА", self.prompts()[2])
+        self.assertNotIn("Машинные проверки задачи упали", self.prompts()[2].rsplit('"role": "user"', 1)[1])
+        self.assertIn("Машинные проверки задачи упали", self.prompts()[3].rsplit('"role": "user"', 1)[1])
 
     def test_model_is_asked_to_reply_in_russian(self):
         """Язык aider берёт из локали — ночью английской, а документы проекта русские."""
@@ -899,7 +935,7 @@ class AiderDriverTest(unittest.TestCase):
         self.assertEqual(pgrep(), "", "команда автора пережила остановку задачи ядром")
 
     def test_checks_run_at_the_end_even_without_edits(self):
-        """Правок не было — auto_test не срабатывал ни разу, а итог проверок нужен приёмщику."""
+        """Правок не было, а ответ без правок — объявление готовности: проверки гоняются и здесь."""
         red = {"cwd": ".", "argv": [sys.executable, "-c", "raise SystemExit(1)"]}
         result, stats = self.drive(["Менять нечего."], ["notes.md"], checks=[red])
         self.assertEqual((stats["checks_runs"], stats["checks_green"]), (1, False), stats)
@@ -954,12 +990,21 @@ class AiderDriverTest(unittest.TestCase):
     def test_author_who_ends_with_an_edit_is_asked_for_a_report(self):
         result, _ = self.drive([edit("notes.md", "Число: ?", "Число: 1"), "Вписал 1 в notes.md."], ["notes.md"])
         self.assertEqual(result["summary"], "Вписал 1 в notes.md.")
-        self.assertIn("Ответь без правок и команд отчётом", self.prompts()[1])
+        self.assertIn("ответь без правок и команд отчётом", self.prompts()[1])
 
     def test_author_can_say_the_task_cannot_be_done(self):
         result, _ = self.drive(["НЕ МОГУ: в задании нет решения владельца о формате числа."], ["notes.md"])
         self.assertEqual(result["status"], "blocked")
         self.assertEqual(result["summary"], "автор: в задании нет решения владельца о формате числа.")
+
+    def test_cannot_gets_no_fix_turn_but_the_checks_are_reported(self):
+        """«НЕ МОГУ» — не объявление готовности: хода на починку нет, но итог проверок
+        приёмщику нужен и здесь."""
+        result, stats = self.drive([edit("calc.py", "    return a - b", "    return a * b")
+                                    + "НЕ МОГУ: в задании нет решения владельца."], ["calc.py"], checks=[self.CHECK])
+        self.assertEqual(len(self.prompts()), 1)
+        self.assertEqual((stats["checks_runs"], stats["checks_green"]), (1, False), stats)
+        self.assertEqual(result["status"], "blocked")
 
     def test_author_explanation_survives_when_nothing_was_changed(self):
         result, _ = self.drive(["В коде нет таймаута архивации, число выдумывать не стану."], ["notes.md"])
