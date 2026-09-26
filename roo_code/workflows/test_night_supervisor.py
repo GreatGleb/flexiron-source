@@ -110,10 +110,34 @@ class SupervisorTest(unittest.TestCase):
 
     def test_operator_is_told_what_is_already_done(self):
         self.run_supervisor([queue_json("alpha"), queue_json("beta", ["plan2.md"])], batches=2)
-        second = (self.out / "operator-2.prompt.txt")
-        if second.exists():  # промпт пишется ядром только для задач, оператора пишем сами
-            self.assertIn("alpha", second.read_text())
+        self.assertIn("alpha", self.operator_prompt(2))
         self.assertEqual((self.base / "calls").read_text().count("operator"), 2)
+
+    def operator_prompt(self, index):
+        return (self.out / f"operator-{index}.prompt.txt").read_text()
+
+    def test_preflight_rejection_reaches_the_next_operator(self):
+        """Причина отказа preflight доходит до оператора и требует исправления.
+
+        Ночь 2026-09-25/26: id с заглавными буквами отверг порцию целиком, оператор
+        причины не узнал и выдал то же самое снова. Ядро говорит «Некорректный id
+        задачи», не называя какой, поэтому оператору нужны и ответ ядра, и свои id.
+        """
+        bad = "expect-budget-toHaveURL-analytics"
+        result = self.run_supervisor([queue_json(bad), queue_json("alpha"), queue_json("beta", ["plan2.md"])],
+                                     batches=3)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = self.report()
+        self.assertIn("Некорректный id задачи", report["batches"][0]["preflight"])
+        self.assertEqual([b.get("tasks") for b in report["batches"][1:]], [["alpha"], ["beta"]])
+        self.assertNotIn("ОТВЕРГНУТА", self.operator_prompt(1))
+        second = self.operator_prompt(2)
+        self.assertIn("ПРЕДЫДУЩАЯ ОЧЕРЕДЬ ОТВЕРГНУТА", second)
+        self.assertIn("Некорректный id задачи", second)
+        self.assertIn(bad, second)
+        self.assertIn("исправь именно это", second)
+        # Принятая очередь снимает упрёк: иначе оператор чинил бы то, что уже починено.
+        self.assertNotIn("ОТВЕРГНУТА", self.operator_prompt(3))
 
     def test_three_batches_without_accepted_tasks_stop_the_night(self):
         result = self.run_supervisor([queue_json("alpha")], batches=9, mode="no-edit")
