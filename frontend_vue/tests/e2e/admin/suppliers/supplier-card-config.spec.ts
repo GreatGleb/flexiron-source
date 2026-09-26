@@ -152,7 +152,7 @@ test.describe('supplier-card-config › field library', () => {
       '[data-test="supplier-card-config-library-list"] [data-test="field-library-item"]',
     )
     await page.locator('[data-test="supplier-card-config-library-search"]').fill('email')
-    await expect(list).toHaveCount(1)
+    await expect(list).toHaveCount(1, { timeout: DATA_READY_TIMEOUT })
     await expect(list.first()).toContainText('Email')
   })
 
@@ -162,9 +162,9 @@ test.describe('supplier-card-config › field library', () => {
       '[data-test="supplier-card-config-library-list"] [data-test="field-library-item"]',
     )
     await search.fill('zzzz-no-match')
-    await expect(list).toHaveCount(0)
+    await expect(list).toHaveCount(0, { timeout: DATA_READY_TIMEOUT })
     await search.fill('')
-    await expect(list).toHaveCount(MOCK.fieldCount)
+    await expect(list).toHaveCount(MOCK.fieldCount, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('system fields in the library expose NO delete button (only custom fields are deletable)', async ({
@@ -186,12 +186,12 @@ test.describe('supplier-card-config › field library', () => {
     )
     await expect(libItems).toHaveCount(MOCK.fieldCount)
     await page.locator('[data-test="supplier-card-config-library-new-btn"]').click()
-    await expect(page.locator('.modal-overlay.active')).toBeVisible()
+    await expect(page.locator('.modal-overlay.active')).toBeVisible({ timeout: DATA_READY_TIMEOUT })
     await page
       .locator('[data-test="supplier-card-config-modal-new-field-name"]')
       .fill('Playwright Field')
     await page.locator('[data-test="supplier-card-config-modal-new-field-confirm"]').click()
-    await expect(libItems).toHaveCount(MOCK.fieldCount + 1)
+    await expect(libItems).toHaveCount(MOCK.fieldCount + 1, { timeout: DATA_READY_TIMEOUT })
     // The new (custom) item must expose the delete button — createField() uses the
     // `f-custom-${Date.now()}` id prefix which isCustomField() detects.
     await expect(
@@ -209,7 +209,9 @@ test.describe('supplier-card-config › field library', () => {
     )
     await page.locator('[data-test="supplier-card-config-library-new-btn"]').click()
     await page.locator('[data-test="supplier-card-config-modal-new-field-confirm"]').click()
-    await expect.soft(page.locator('.toast-container .toast.show.toast-error')).toBeVisible()
+    await expect
+      .soft(page.locator('.toast-container .toast.show.toast-error'))
+      .toBeVisible({ timeout: DATA_READY_TIMEOUT })
     await expect.soft(libItems).toHaveCount(MOCK.fieldCount)
   })
 })
@@ -245,7 +247,7 @@ test.describe('supplier-card-config › sections editor', () => {
     // MOCK_SECTIONS.sec-general has collapsed=false.
     await expect(general).not.toHaveClass(/\bcollapsed\b/)
     await general.locator('[data-test="config-section-card-collapse-btn"]').click()
-    await expect(general).toHaveClass(/\bcollapsed\b/)
+    await expect(general).toHaveClass(/\bcollapsed\b/, { timeout: DATA_READY_TIMEOUT })
     await general.locator('[data-test="config-section-card-collapse-btn"]').click()
     await expect(general).not.toHaveClass(/\bcollapsed\b/)
   })
@@ -254,7 +256,7 @@ test.describe('supplier-card-config › sections editor', () => {
     const general = page.locator('[data-test="config-section-card"][data-section-id="sec-general"]')
     await expect(general).not.toHaveClass(/\bis-hidden\b/)
     await general.locator('[data-test="config-section-card-hide-btn"]').click()
-    await expect(general).toHaveClass(/\bis-hidden\b/)
+    await expect(general).toHaveClass(/\bis-hidden\b/, { timeout: DATA_READY_TIMEOUT })
   })
 
   test('system section delete button is disabled (all 5 mock sections are system=true)', async ({
@@ -294,12 +296,12 @@ test.describe('supplier-card-config › section CRUD', () => {
     )
     await expect(sections).toHaveCount(MOCK.sectionCount)
     await page.locator('[data-test="supplier-card-config-builder-add-btn"]').click()
-    await expect(page.locator('.modal-overlay.active')).toBeVisible()
+    await expect(page.locator('.modal-overlay.active')).toBeVisible({ timeout: DATA_READY_TIMEOUT })
     await page
       .locator('[data-test="supplier-card-config-modal-add-section-name"]')
       .fill('Playwright Section')
     await page.locator('[data-test="supplier-card-config-modal-add-section-confirm"]').click()
-    await expect(sections).toHaveCount(MOCK.sectionCount + 1)
+    await expect(sections).toHaveCount(MOCK.sectionCount + 1, { timeout: DATA_READY_TIMEOUT })
     await expect(sections.last().locator('[data-test="config-section-card-name"]')).toHaveText(
       'Playwright Section',
     )
@@ -311,7 +313,9 @@ test.describe('supplier-card-config › section CRUD', () => {
     )
     await page.locator('[data-test="supplier-card-config-builder-add-btn"]').click()
     await page.locator('[data-test="supplier-card-config-modal-add-section-confirm"]').click()
-    await expect.soft(page.locator('.toast-container .toast.show.toast-error')).toBeVisible()
+    await expect
+      .soft(page.locator('.toast-container .toast.show.toast-error'))
+      .toBeVisible({ timeout: DATA_READY_TIMEOUT })
     await expect.soft(sections).toHaveCount(MOCK.sectionCount)
   })
 
@@ -319,11 +323,12 @@ test.describe('supplier-card-config › section CRUD', () => {
     const general = page.locator('[data-test="config-section-card"][data-section-id="sec-general"]')
     await general.locator('[data-test="config-section-card-edit-btn"]').click()
     const nameInput = page.locator('[data-test="supplier-card-config-modal-edit-section-name"]')
-    await expect(nameInput).toHaveValue('General Info')
+    await expect(nameInput).toHaveValue('General Info', { timeout: DATA_READY_TIMEOUT })
     await nameInput.fill('General Renamed')
     await page.locator('[data-test="supplier-card-config-modal-edit-section-confirm"]').click()
     await expect(general.locator('[data-test="config-section-card-name"]')).toHaveText(
       'General Renamed',
+      { timeout: DATA_READY_TIMEOUT },
     )
     await expect.soft(page.locator('.toast-container .toast.show')).toBeVisible()
   })
@@ -338,15 +343,17 @@ test.describe('supplier-card-config › section CRUD', () => {
     const sections = page.locator(
       '[data-test="supplier-card-config-builder-list"] [data-test="config-section-card"]',
     )
-    await expect(sections).toHaveCount(MOCK.sectionCount + 1)
+    await expect(sections).toHaveCount(MOCK.sectionCount + 1, { timeout: DATA_READY_TIMEOUT })
     // Target the last card (newly created) and click its delete button.
     const created = sections.last()
     await created.locator('[data-test="config-section-card-delete-btn"]').click()
     // Confirm modal opens — section still present at this point.
-    await expect.soft(page.locator('.modal-overlay.active')).toBeVisible()
+    await expect
+      .soft(page.locator('.modal-overlay.active'))
+      .toBeVisible({ timeout: DATA_READY_TIMEOUT })
     await expect.soft(sections).toHaveCount(MOCK.sectionCount + 1)
     await page.locator('[data-test="supplier-card-config-modal-delete-section-confirm"]').click()
-    await expect(sections).toHaveCount(MOCK.sectionCount)
+    await expect(sections).toHaveCount(MOCK.sectionCount, { timeout: DATA_READY_TIMEOUT })
     await expect.soft(page.locator('.modal-overlay.active')).toHaveCount(0)
   })
 
@@ -357,10 +364,12 @@ test.describe('supplier-card-config › section CRUD', () => {
     const sections = page.locator(
       '[data-test="supplier-card-config-builder-list"] [data-test="config-section-card"]',
     )
-    await expect(sections).toHaveCount(MOCK.sectionCount + 1)
+    await expect(sections).toHaveCount(MOCK.sectionCount + 1, { timeout: DATA_READY_TIMEOUT })
     await sections.last().locator('[data-test="config-section-card-delete-btn"]').click()
     await page.locator('[data-test="supplier-card-config-modal-delete-section-cancel"]').click()
-    await expect.soft(page.locator('.modal-overlay.active')).toHaveCount(0)
+    await expect
+      .soft(page.locator('.modal-overlay.active'))
+      .toHaveCount(0, { timeout: DATA_READY_TIMEOUT })
     await expect(sections).toHaveCount(MOCK.sectionCount + 1)
   })
 })
@@ -390,7 +399,9 @@ test.describe('supplier-card-config › section fields CRUD', () => {
       .fill('Custom Attribute')
     await page.locator('[data-test="supplier-card-config-modal-add-field-confirm"]').click()
 
-    await expect(generalFields).toHaveCount(MOCK.generalFieldCount + 1)
+    await expect(generalFields).toHaveCount(MOCK.generalFieldCount + 1, {
+      timeout: DATA_READY_TIMEOUT,
+    })
     await expect(libItems).toHaveCount(MOCK.fieldCount + 1)
     // The new chip lands at the end of the section.
     await expect(generalFields.last().locator('[data-test="field-library-item-name"]')).toHaveText(
@@ -408,16 +419,20 @@ test.describe('supplier-card-config › section fields CRUD', () => {
     await page.locator('[data-test="supplier-card-config-modal-add-field-name"]').fill('Ephemeral')
     await page.locator('[data-test="supplier-card-config-modal-add-field-confirm"]').click()
     const generalFields = general.locator('[data-test="field-library-item"]')
-    await expect(generalFields).toHaveCount(MOCK.generalFieldCount + 1)
+    await expect(generalFields).toHaveCount(MOCK.generalFieldCount + 1, {
+      timeout: DATA_READY_TIMEOUT,
+    })
 
     // The custom field is the ONLY one with a delete button inside this section.
     const deleteBtn = general.locator('[data-test="field-library-item-delete-btn"]')
     await expect(deleteBtn).toHaveCount(1)
     await deleteBtn.click()
-    await expect.soft(page.locator('.modal-overlay.active')).toBeVisible()
+    await expect
+      .soft(page.locator('.modal-overlay.active'))
+      .toBeVisible({ timeout: DATA_READY_TIMEOUT })
     await page.locator('[data-test="supplier-card-config-modal-remove-field-confirm"]').click()
     // Field gone from section, but library entry stays (only section link removed).
-    await expect(generalFields).toHaveCount(MOCK.generalFieldCount)
+    await expect(generalFields).toHaveCount(MOCK.generalFieldCount, { timeout: DATA_READY_TIMEOUT })
     await expect(
       page.locator(
         '[data-test="supplier-card-config-library-list"] [data-test="field-library-item"]',
@@ -437,7 +452,7 @@ test.describe('supplier-card-config › section fields CRUD', () => {
     const libItems = page.locator(
       '[data-test="supplier-card-config-library-list"] [data-test="field-library-item"]',
     )
-    await expect(libItems).toHaveCount(MOCK.fieldCount + 1)
+    await expect(libItems).toHaveCount(MOCK.fieldCount + 1, { timeout: DATA_READY_TIMEOUT })
     const generalFields = general.locator('[data-test="field-library-item"]')
     await expect(generalFields).toHaveCount(MOCK.generalFieldCount + 1)
 
@@ -448,7 +463,7 @@ test.describe('supplier-card-config › section fields CRUD', () => {
     await expect(libraryDeleteBtn).toHaveCount(1)
     await libraryDeleteBtn.click()
     await page.locator('[data-test="supplier-card-config-modal-delete-field-confirm"]').click()
-    await expect(libItems).toHaveCount(MOCK.fieldCount)
+    await expect(libItems).toHaveCount(MOCK.fieldCount, { timeout: DATA_READY_TIMEOUT })
     await expect(generalFields).toHaveCount(MOCK.generalFieldCount)
   })
 })
@@ -580,7 +595,7 @@ test.describe('supplier-card-config › permissions matrix', () => {
     const fieldRows = page.locator(
       '[data-test="supplier-card-config-permissions-row"][data-parent-id="sec-general"]',
     )
-    await expect(fieldRows).toHaveCount(MOCK.generalFieldCount)
+    await expect(fieldRows).toHaveCount(MOCK.generalFieldCount, { timeout: DATA_READY_TIMEOUT })
     for (let i = 0; i < MOCK.generalFieldCount; i++) {
       const input = fieldRows
         .nth(i)
@@ -604,6 +619,7 @@ test.describe('supplier-card-config › permissions matrix', () => {
     // MOCK_ROLE_USERS.Admin has 2 entries.
     await expect(adminCell.locator('[data-test="supplier-card-config-perm-user-row"]')).toHaveCount(
       2,
+      { timeout: DATA_READY_TIMEOUT },
     )
   })
 
@@ -620,7 +636,7 @@ test.describe('supplier-card-config › permissions matrix', () => {
       .locator('[data-test="supplier-card-config-perm-user-row"]')
       .first()
       .locator('[data-test="supplier-card-config-perm-user-checkbox"][data-action="read"] input')
-    await expect(firstUserRead).toBeChecked()
+    await expect(firstUserRead).toBeChecked({ timeout: DATA_READY_TIMEOUT })
     await adminCell
       .locator('[data-test="supplier-card-config-perm-user-row"]')
       .first()
@@ -650,7 +666,9 @@ test.describe('supplier-card-config › save', () => {
 
   test('clicking Save triggers saveConfig() and shows a success toast', async ({ page }) => {
     await page.locator('[data-test="supplier-card-config-save-btn"]').click()
-    await expect(page.locator('.toast-container .toast.show')).toBeVisible()
+    await expect(page.locator('.toast-container .toast.show')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('edits survive an in-SPA navigation away and back (module state persists)', async ({
@@ -665,7 +683,9 @@ test.describe('supplier-card-config › save', () => {
       .fill('Survives Nav')
     await page.locator('[data-test="supplier-card-config-modal-edit-section-confirm"]').click()
     await page.locator('[data-test="supplier-card-config-save-btn"]').click()
-    await expect(page.locator('.toast-container .toast.show')).toBeVisible()
+    await expect(page.locator('.toast-container .toast.show')).toBeVisible({
+      timeout: DATA_READY_TIMEOUT,
+    })
 
     // SPA roundtrip: config → sidebar /admin/suppliers → row router-link /admin/suppliers/1
     // → supplier-card-config-link /admin/suppliers/config. Every hop is a router-link push
@@ -680,7 +700,7 @@ test.describe('supplier-card-config › save', () => {
       page
         .locator('[data-test="config-section-card"][data-section-id="sec-general"]')
         .locator('[data-test="config-section-card-name"]'),
-    ).toHaveText('Survives Nav')
+    ).toHaveText('Survives Nav', { timeout: DATA_READY_TIMEOUT })
   })
 })
 
@@ -718,7 +738,7 @@ baseTest(
     // page to be ready instead of hoping it renders inside the assertion budget.
     await page
       .locator('[data-test="supplier-card-config-library"]')
-      .waitFor({ state: 'visible', timeout: 30_000 })
+      .waitFor({ state: 'visible', timeout: DATA_READY_TIMEOUT })
     await expect(page.locator('[data-test="supplier-card-config-title"]')).toBeVisible()
     // Library + builder unaffected.
     await expect.soft(page.locator('[data-test="supplier-card-config-library"]')).toBeVisible()

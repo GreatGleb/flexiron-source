@@ -149,7 +149,7 @@ $ python3 scan.py        # скрипт выше, дословно
 tests/e2e/admin/suppliers/suppliers-list.spec.ts MUT 582 | NAV 583 | ABS 586
 ```
 
-`suppliers-list.spec.ts:581` «stored kanban view is restored on reload (flag ON)»:
+`suppliers-list.spec.ts:613` «stored kanban view is restored on reload (flag ON)»:
 
 ```ts
 await page.locator('[data-test="suppliers-view-tabs"] button').nth(1).click()
@@ -188,7 +188,7 @@ await expect(page.locator('[data-test="suppliers-table-view"]')).toBeHidden()
   не менял.
 
 Третьим прогоном — хуки: единственный `beforeEach` с действием во всём наборе
-(`suppliers-list.spec.ts:414`, переключение на канбан) не сопровождается в своих тестах
+(`suppliers-list.spec.ts:444`, переключение на канбан) не сопровождается в своих тестах
 ни одной полной загрузкой.
 
 **Итог прохода: настоящих случаев «мутация → полная загрузка → проверка
@@ -202,7 +202,7 @@ await expect(page.locator('[data-test="suppliers-table-view"]')).toBeHidden()
 `supplier-card-config-title`). Мутации перед ними нет, то есть по определению пункта 1b
 это законно; но по второму механизму #66 («присутствие должно было быть возможно»)
 заголовок — признак слабее данных. Для сравнения, одноимённый тест в
-`bcc-request.spec.ts:576` ждёт именно данные (`bcc-request-recipient-item`) и снабжён
+`bcc-request.spec.ts:605` ждёт именно данные (`bcc-request-recipient-item`) и снабжён
 ссылкой на #66. Правка здесь была бы «раз уж открыли файл», поэтому не делалась;
 если решат чинить — это отдельный пункт про механизм 2, а не про 1b.
 
@@ -500,7 +500,7 @@ $ node scan-1b.js
 | 2–3 | `order-offcuts.spec.ts:34` | «Мутация» — `firstAvailableOffcut`, которая только читает товар и партию со складской вкладки (внутри `openAdminPage` есть `evaluate(__mockCalls)`, отсюда и метка). Утверждения `not.toHaveText('—')` — про содержимое пришедшей строки, а не про исчезновение |
 | 4–5 | `categories.spec.ts:441` «switching language updates UI text» | Язык лежит в `localStorage`; перезагрузка его не откатывает — она и есть предмет теста. Утверждается, что подпись сменилась, а не что запись исчезла |
 | 6 | `audit-log.spec.ts:49` «loads without console errors and shows records» | `expect(errors).toHaveLength(0)` — про консоль, а не про данные; мутации нет вовсе (метку MUT дал `evaluate(__mockCalls)` внутри `navigateToAdmin`) |
-| 7 | `suppliers-list.spec.ts:581` «stored kanban view is restored on reload» | Сохранённый вид — `localStorage`, перезагрузка предмет теста. Присутствие канбана утверждается строкой выше, то есть ноль у таблицы не может быть истиной «страница пуста» |
+| 7 | `suppliers-list.spec.ts:613` «stored kanban view is restored on reload» | Сохранённый вид — `localStorage`, перезагрузка предмет теста. Присутствие канбана утверждается строкой выше, то есть ноль у таблицы не может быть истиной «страница пуста» |
 | 8 | `warehouse-map.spec.ts:61` «loads without console errors» | То же, что 6 |
 
 Пары из прохода 3 (`audit-log.spec.ts:191` и `:212`) — это и есть починенные в f2def93
