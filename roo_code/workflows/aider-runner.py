@@ -171,10 +171,21 @@ def main():
             evidence.append("отчёт автора: " + stats["final_reply"])
     # Ошибку модели aider печатает и работает дальше (замер 0.86.2: неверный ключ DeepSeek →
     # «litellm.AuthenticationError», выход с кодом 0). Без этой строки причина браковки
-    # звучала бы «ничего не изменил», а настоящая осталась бы в логе.
-    errors = [line.strip() for line in log.read_text(errors="replace").splitlines()
-              if "Error" in line and line.strip()]
-    why = f"; aider сообщил: {errors[-1][:300]}" if errors else ""
+    # звучала бы «ничего не изменил», а настоящая осталась бы в логе. Берётся только то,
+    # что сообщили aider и litellm (их список ведёт драйвер), а не любая строка лога со
+    # словом «Error»: в логе и ответы модели, цитирующие вывод тестов, и её команды.
+    why = ""
+    errors = stats.get("aider_errors", [])
+    if errors:
+        own = [e for e in errors if e.startswith("litellm.")] or errors
+        why = f"; aider сообщил: {own[-1][:300]}"
+    elif not stats:
+        # Драйвер упал, не оставив сводки: причина — последняя строка его трассировки.
+        text = log.read_text(errors="replace")
+        if "Traceback (most recent call last):" in text:
+            crash = [line.strip() for line in text.rsplit("Traceback (most recent call last):", 1)[1].splitlines()
+                     if line.strip()]
+            why = f"; aider сообщил: {crash[-1][:300]}" if crash else ""
     if code is None:
         return finish("blocked", f"aider не уложился в {args.timeout} с{why}", evidence)
     if code:

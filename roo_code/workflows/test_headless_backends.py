@@ -84,9 +84,16 @@ mode = os.environ.get('AIDER_TEST_MODE', '')
 if mode == 'fail':
     raise SystemExit(3)
 if mode == 'auth':
-    # Так 0.86.2 отвечает на неверный ключ: печатает ошибку и работает дальше.
-    print('litellm.AuthenticationError: AuthenticationError: DeepseekException - Authentication Fails')
+    # Так 0.86.2 отвечает на неверный ключ: печатает ошибку и работает дальше; драйвер
+    # кладёт её в сводку (что он её действительно ловит — AiderDriverTest).
+    error = 'litellm.AuthenticationError: AuthenticationError: DeepseekException - Authentication Fails'
+    print(error)
+    pathlib.Path(config['stats']).write_text(json.dumps({'aider_errors': [error, 'The API provider is not able to authenticate you.']}))
     raise SystemExit(0)
+if mode == 'crash':
+    print('AssertionError: строка вывода тестов, процитированная раньше')
+    print('Traceback (most recent call last):\n  File "aider-agent.py", line 1\nKeyError: \'guard_dir\'')
+    raise SystemExit(1)
 if mode != 'no-edit':
     for name in config['outputs']:
         pathlib.Path(name).write_text('prepared by aider\n')
@@ -555,6 +562,13 @@ class AiderRunTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("AuthenticationError", self.state()["blocked"][0]["reason"])
 
+    def test_driver_crash_is_named_by_its_traceback(self):
+        result = self.invoke("crash")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        reason = self.state()["blocked"][0]["reason"]
+        self.assertIn("aider сообщил: KeyError: 'guard_dir'", reason)
+        self.assertNotIn("AssertionError", reason)
+
     def test_edit_outside_outputs_is_blocked_by_the_core(self):
         result = self.invoke("outside")
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -644,6 +658,9 @@ def fake(**kwargs):
         stream.write(json.dumps(kwargs['messages'], ensure_ascii=False) + '\n')
     turn = sum(1 for _ in open(log)) - 1
     reply = script[turn] if turn < len(script) else 'Готово.'
+    if reply == '!auth':
+        raise litellm.AuthenticationError(message='DeepseekException - Authentication Fails',
+                                          llm_provider='deepseek', model='deepseek-chat')
     return real(**{{**kwargs, 'mock_response': reply}})
 litellm.completion = fake
 spec = importlib.util.spec_from_file_location('agent', sys.argv[1])
@@ -1036,6 +1053,23 @@ class AiderDriverTest(unittest.TestCase):
         self.assertEqual(len(self.prompts()), 1)
         self.assertEqual((stats["checks_runs"], stats["checks_green"]), (1, False), stats)
         self.assertEqual(result["status"], "blocked")
+
+    def test_model_error_from_litellm_reaches_the_reason(self):
+        result, stats = self.drive(["!auth"], ["notes.md"])
+        self.assertEqual(result["status"], "blocked")
+        self.assertIn("aider сообщил: litellm.AuthenticationError", result["summary"])
+        self.assertIn("The API provider is not able to authenticate you. Check your API key.", stats["aider_errors"])
+
+    def test_error_quoted_by_the_model_is_not_blamed_on_aider(self):
+        """Модель процитировала вывод тестов — это не ошибка aider, а её слова."""
+        red = {"cwd": ".", "argv": [sys.executable, "-c", "raise AssertionError('из вывода тестов')"]}
+        result, stats = self.drive(["Проверка упала: AssertionError: из вывода тестов. Менять нечего.",
+                                    "```bash\necho RuntimeError-in-a-command\n```\n", "Понял."],
+                                   ["notes.md"], checks=[red])
+        self.assertIn("AssertionError", (self.run_dir / "t-work.aider.log").read_text())
+        self.assertEqual(stats["aider_errors"], [])
+        self.assertEqual(result["status"], "blocked")
+        self.assertNotIn("aider сообщил", result["summary"])
 
     def test_author_explanation_survives_when_nothing_was_changed(self):
         result, _ = self.drive(["В коде нет таймаута архивации, число выдумывать не стану."], ["notes.md"])

@@ -312,7 +312,7 @@ def drive(config_path):
     from aider.repo import GitRepo
 
     stats = {"commands": [], "refused": [], "read_added": [], "checks_runs": 0, "checks_green": None,
-             "command_log": [], "final_reply": "", "cannot": ""}
+             "command_log": [], "final_reply": "", "cannot": "", "aider_errors": []}
 
     def run_model_command(command, verbose=False, error_print=None, cwd=None):
         code, out = run_limited(command, cwd or ROOT, CONFIG["command_timeout"], shell=True, env=guarded_env())
@@ -329,6 +329,21 @@ def drive(config_path):
     DROPPED = {"Create new file?", "Allow edits to file that has not been added to the chat?"}
 
     class NightIO(InputOutput):
+        # Ошибки самого aider и litellm — отдельным списком для причины браковки. Искать их
+        # в логе по слову «Error» нельзя: туда пишутся ответы модели и строки её команд, и
+        # «AssertionError» из процитированного вывода тестов становился «aider сообщил: …».
+        # litellm печатает исключение предупреждением, а под ним — пояснение ошибкой
+        # (`check_and_open_urls`), поэтому из предупреждений берутся только его строки.
+        def tool_error(self, message="", strip=True):
+            if str(message).strip():
+                stats["aider_errors"].append(str(message).strip().splitlines()[0][:300])
+            super().tool_error(message, strip)
+
+        def tool_warning(self, message="", strip=True):
+            if str(message).strip().startswith("litellm."):
+                stats["aider_errors"].append(str(message).strip().splitlines()[0][:300])
+            super().tool_warning(message, strip)
+
         def confirm_ask(self, question, default="y", subject=None, explicit_yes_required=False,
                         group=None, allow_never=False):
             asked = question.strip()
