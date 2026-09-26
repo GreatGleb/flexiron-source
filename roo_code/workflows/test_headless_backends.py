@@ -8,6 +8,7 @@
 import importlib.util
 import json
 import os
+import signal
 from pathlib import Path
 import subprocess
 import sys
@@ -568,6 +569,17 @@ class AiderRoutingTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 backends.load_routing(path)
 
+    def test_ceilings_from_the_routing_reach_the_runner(self):
+        argv = backends.AiderBackend({"model": "deepseek/deepseek-chat", "max_reflections": 7,
+                                      "command_timeout": 11, "check_timeout": 13, "history_tokens": 17,
+                                      "edit_format": "whole", "timeout_seconds": 19}).build(
+            "work", Path("/r"), Path("/d"), Path("/d/t.json"))
+        pairs = dict(zip(argv, argv[1:]))
+        self.assertEqual({k: pairs[k] for k in ("--max-reflections", "--command-timeout", "--check-timeout",
+                                                "--history-tokens", "--edit-format", "--timeout")},
+                         {"--max-reflections": "7", "--command-timeout": "11", "--check-timeout": "13",
+                          "--history-tokens": "17", "--edit-format": "whole", "--timeout": "19"})
+
     def test_aider_without_model_is_refused_on_preflight(self):
         with self.assertRaises(ValueError):
             backends.AiderBackend({"binary": sys.executable}).check()
@@ -831,6 +843,48 @@ class AiderDriverTest(unittest.TestCase):
         self.assertIn("прервана ночным контроллером", self.prompts()[1])
         alive = subprocess.run(["pgrep", "-f", "^sleep 314$"], capture_output=True, text=True).stdout
         self.assertEqual(alive, "", "глухой к SIGTERM потомок пережил задачу")
+
+    def test_core_stopping_the_author_takes_its_commands_along(self):
+        """Ядро гасит группу обёртки (SIGTERM, через 5 с SIGKILL), а команды автора живут в
+        своих сессиях — их гасит только обработчик сигнала в драйвере."""
+        (self.base / "script.json").write_text(json.dumps(["```bash\nsleep 316\n```\n"]))
+        task = {"id": "t", "outputs": ["notes.md"], "sources": [], "checks": [], "task": "по сценарию"}
+        argv = [sys.executable, str(AIDER_RUNNER), "--python", str(self.harness), "--binary", str(self.harness),
+                "--model", "deepseek/deepseek-chat", "--root", str(self.root),
+                "--result", str(self.run_dir / "t-work.json"), "--timeout", "120"]
+        proc = subprocess.Popen(argv, stdin=subprocess.PIPE, cwd=self.root, start_new_session=True,
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                env={**os.environ, "AIDER_TEST_SCRIPT": str(self.base / "script.json"),
+                                     "AIDER_TEST_LLM_LOG": str(self.base / "llm.jsonl"), "DEEPSEEK_API_KEY": "test"})
+        proc.stdin.write(("Задача.\nЗадание (JSON):\n" + json.dumps(task)).encode())
+        proc.stdin.close()
+        pgrep = lambda: subprocess.run(["pgrep", "-f", "^sleep 316$"], capture_output=True, text=True).stdout
+        deadline = time.monotonic() + 60
+        while not pgrep() and time.monotonic() < deadline:
+            time.sleep(0.2)
+        self.assertTrue(pgrep(), "команда автора так и не запустилась")
+        os.killpg(proc.pid, signal.SIGTERM)   # ровно как execute() в codex-night.py
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            os.killpg(proc.pid, signal.SIGKILL)
+            proc.wait()
+        time.sleep(0.5)
+        self.assertEqual(pgrep(), "", "команда автора пережила остановку задачи ядром")
+
+    def test_checks_run_at_the_end_even_without_edits(self):
+        """Правок не было — auto_test не срабатывал ни разу, а итог проверок нужен приёмщику."""
+        red = {"cwd": ".", "argv": [sys.executable, "-c", "raise SystemExit(1)"]}
+        result, stats = self.drive(["Менять нечего."], ["notes.md"], checks=[red])
+        self.assertEqual((stats["checks_runs"], stats["checks_green"]), (1, False), stats)
+        self.assertTrue(any("проверки задачи у автора: КРАСНЫЕ" in e for e in result["evidence"]), result)
+
+    def test_turn_ceiling_from_the_routing_is_applied(self):
+        """Потолок ходов — решение владельца, и дойти до aider он обязан: у самого aider их 3."""
+        turns = [f"```bash\necho turn-{n}\n```\n" for n in range(6)]
+        _, stats = self.drive(turns, ["notes.md"], max_reflections=1)
+        # Два хода основного запуска (первый и одно отражение) и два — просьбы об отчёте.
+        self.assertEqual(stats["commands"], ["echo turn-0", "echo turn-1", "echo turn-2", "echo turn-3"])
 
     def test_mentioned_file_is_opened_read_only(self):
         result, stats = self.drive(["Мне нужен helper.py, чтобы узнать число.",
