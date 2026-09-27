@@ -441,7 +441,9 @@ test.describe('Warehouse module', () => {
         timeout: DATA_READY_TIMEOUT,
       })
       // Verify no "new movement" button exists on movements tab
-      await expect(page.getByTestId('warehouse-new-movement-btn')).toHaveCount(0)
+      await expect(page.getByTestId('warehouse-new-movement-btn')).toHaveCount(0, {
+        timeout: DATA_READY_TIMEOUT,
+      })
       // Verify the movements list still displays normally
       await expect(page.getByTestId('warehouse-movement-row').first()).toBeVisible()
       await expect(page.getByTestId('warehouse-movements-pagination')).toBeVisible()

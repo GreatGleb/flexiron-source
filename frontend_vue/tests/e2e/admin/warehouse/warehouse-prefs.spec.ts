@@ -104,14 +104,16 @@ test.describe('Warehouse view preferences', () => {
       // и это выглядело как неработающая сортировка.
       // Пол проверки заодно: не сдвинувшийся порядок уронит ожидание здесь,
       // а не позже, где сравнение сошлось бы само с собой.
-      await expect.poll(() => stockNames(page)).not.toEqual(natural)
+      await expect
+        .poll(() => stockNames(page), { timeout: DATA_READY_TIMEOUT })
+        .not.toEqual(natural)
       const clicked = await stockNames(page)
 
       await page.getByTestId('warehouse-stock-save-view-btn').click()
       await page.reload()
       await waitForDataReady(page)
 
-      await expect.poll(() => stockNames(page)).toEqual(clicked)
+      await expect.poll(() => stockNames(page), { timeout: DATA_READY_TIMEOUT }).toEqual(clicked)
     })
 
     test('saved search survives a reload and narrows the table', async ({ page }) => {
@@ -147,7 +149,7 @@ test.describe('Warehouse view preferences', () => {
         await expect(page.getByTestId(`warehouse-${tab}-panel`)).toBeVisible({
           timeout: DATA_READY_TIMEOUT,
         })
-        await expect(searchValue(page, tab)).toHaveValue(needle)
+        await expect(searchValue(page, tab)).toHaveValue(needle, { timeout: DATA_READY_TIMEOUT })
       })
     }
   })

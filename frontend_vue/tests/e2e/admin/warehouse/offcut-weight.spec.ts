@@ -34,9 +34,13 @@ test.describe('Offcut weight: manual vs derived', () => {
 
     // Ручное обнулено — поле пустое, а не «записали выведенное».
     await expect(page.getByTestId('field-weight')).toHaveValue('', { timeout: DATA_READY_TIMEOUT })
-    await expect(page.getByTestId('field-weight-source')).toHaveText(/derived|Выведен|Išvesta/i)
+    await expect(page.getByTestId('field-weight-source')).toHaveText(/derived|Выведен|Išvesta/i, {
+      timeout: DATA_READY_TIMEOUT,
+    })
     // Кнопки больше нет: сбрасывать нечего.
-    await expect(page.getByTestId('field-weight-use-derived')).toHaveCount(0)
+    await expect(page.getByTestId('field-weight-use-derived')).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('a difference of times over is visible before the choice', async ({ page }) => {
@@ -63,7 +67,9 @@ test.describe('Offcut weight: manual vs derived', () => {
     await expect(page.getByTestId('field-weight')).toHaveValue('3.14', {
       timeout: DATA_READY_TIMEOUT,
     })
-    await expect(page.getByTestId('field-weight-source')).toHaveText(/hand|руками|ranka/i)
+    await expect(page.getByTestId('field-weight-source')).toHaveText(/hand|руками|ranka/i, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 })
 
@@ -77,12 +83,12 @@ test.describe('Offcut weight on the create form', () => {
     const productRow = page.locator('[data-test="offcut-create-product-row"]', {
       hasText: 'Steel Pipe 100x5',
     })
-    await expect(productRow).toHaveCount(1)
+    await expect(productRow).toHaveCount(1, { timeout: DATA_READY_TIMEOUT })
     await productRow.click()
     const batchRow = page.locator('[data-test="offcut-create-batch-row"]', {
       hasText: 'INV-2025-078',
     })
-    await expect(batchRow).toHaveCount(1)
+    await expect(batchRow).toHaveCount(1, { timeout: DATA_READY_TIMEOUT })
     await batchRow.click()
   }
 
@@ -94,7 +100,9 @@ test.describe('Offcut weight on the create form', () => {
     await expect(page.getByTestId('field-weight-preview')).toContainText('29.275', {
       timeout: DATA_READY_TIMEOUT,
     })
-    await expect(page.getByTestId('field-weight-source')).toHaveText(/derived|Выведен|Išvesta/i)
+    await expect(page.getByTestId('field-weight-source')).toHaveText(/derived|Выведен|Išvesta/i, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('typing a weight by hand switches the source and offers the way back', async ({ page }) => {
@@ -106,9 +114,13 @@ test.describe('Offcut weight on the create form', () => {
       timeout: DATA_READY_TIMEOUT,
     })
     // Расчётное число по-прежнему на виду — рядом с кнопкой, до нажатия.
-    await expect(page.getByTestId('field-weight-preview')).toContainText('29.275')
+    await expect(page.getByTestId('field-weight-preview')).toContainText('29.275', {
+      timeout: DATA_READY_TIMEOUT,
+    })
     await page.getByTestId('field-weight-use-derived').click()
     await expect(page.getByTestId('field-weight')).toHaveValue('', { timeout: DATA_READY_TIMEOUT })
-    await expect(page.getByTestId('field-weight-source')).toHaveText(/derived|Выведен|Išvesta/i)
+    await expect(page.getByTestId('field-weight-source')).toHaveText(/derived|Выведен|Išvesta/i, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 })

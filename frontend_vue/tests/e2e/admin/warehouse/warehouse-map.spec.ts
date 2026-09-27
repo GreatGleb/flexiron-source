@@ -100,8 +100,12 @@ test.describe('Warehouse map', () => {
     const link = page.getByTestId('warehouse-map-open-link')
     await expect(link).toHaveAttribute('target', '_blank', { timeout: DATA_READY_TIMEOUT })
     await expect(link).toHaveAttribute('rel', /noopener/)
-    await expect(page.getByTestId('warehouse-map-empty')).toHaveCount(0)
-    await expect(page.getByTestId('warehouse-map-name')).toHaveText('plan.png')
+    await expect(page.getByTestId('warehouse-map-empty')).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
+    await expect(page.getByTestId('warehouse-map-name')).toHaveText('plan.png', {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('the map is read back on the next visit, not held in the page', async ({ page }) => {
@@ -111,7 +115,9 @@ test.describe('Warehouse map', () => {
     await leaveAndReturn(page)
 
     expect(await currentHref(page)).toBe(before)
-    await expect(page.getByTestId('warehouse-map-name')).toHaveText('plan.png')
+    await expect(page.getByTestId('warehouse-map-name')).toHaveText('plan.png', {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('replacing asks first, then the link points at the new file', async ({ page }) => {
@@ -131,7 +137,9 @@ test.describe('Warehouse map', () => {
 
     const second = await currentHref(page)
     expect(second).not.toBe(first)
-    await expect(page.getByTestId('warehouse-map-name')).toHaveText('plan-v2.png')
+    await expect(page.getByTestId('warehouse-map-name')).toHaveText('plan-v2.png', {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('cancelling the replacement keeps the old map', async ({ page }) => {
@@ -143,7 +151,9 @@ test.describe('Warehouse map', () => {
 
     await expect(page.getByTestId('warehouse-map-replace-modal')).not.toBeVisible()
     expect(await currentHref(page)).toBe(first)
-    await expect(page.getByTestId('warehouse-map-name')).toHaveText('plan.png')
+    await expect(page.getByTestId('warehouse-map-name')).toHaveText('plan.png', {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 
   test('deleting asks first, then leaves the empty state', async ({ page }) => {
@@ -164,7 +174,9 @@ test.describe('Warehouse map', () => {
     await expect(page.getByTestId('warehouse-map-empty')).toBeVisible({
       timeout: DATA_READY_TIMEOUT,
     })
-    await expect(page.getByTestId('warehouse-map-open-link')).toHaveCount(0)
+    await expect(page.getByTestId('warehouse-map-open-link')).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
 
     // Gone from storage, not just from this screen.
     await leaveAndReturn(page)
@@ -177,6 +189,8 @@ test.describe('Warehouse map', () => {
     await expect(page.getByTestId('warehouse-map-empty')).toBeVisible({
       timeout: DATA_READY_TIMEOUT,
     })
-    await expect(page.getByTestId('warehouse-map-open-link')).toHaveCount(0)
+    await expect(page.getByTestId('warehouse-map-open-link')).toHaveCount(0, {
+      timeout: DATA_READY_TIMEOUT,
+    })
   })
 })
